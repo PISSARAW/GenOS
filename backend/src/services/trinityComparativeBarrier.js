@@ -14,12 +14,8 @@ const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const { hashWorkspace } = require('./trinitySnapshotService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
-const trinityCrossExamination = require('./trinityCrossExaminationService');
-const trinityAdversarial = require('./trinityAdversarialCrossExamination');
-const trinityMissionVerifier = require('./trinityMissionVerifierService');
 const candidateVerification = require('./trinityCandidateVerificationService');
 const trinityClaimGraph = require('./trinityClaimGraphService');
-const trinityBlindJury = require('./trinityBlindJuryService');
 function reportOf(event) {
   if (!event) return null;
   if (event.evidenceReport) return event.evidenceReport;
@@ -42,25 +38,26 @@ function escapeLike(value) {
 async function buildWorldReportsFromMission(db, missionId) {
   const worlds = await db.all(
     `SELECT w.world_number, w.strategy, w.agent_id, w.status FROM trinity_worlds w
-     WHERE w.id LIKE ? ESCAPE '\\' OR w.agent_id IN (SELECT id FROM agents WHERE fleet_id = ?)
-     ORDER BY w.world_number`,
-    `${escapeLike(missionId)}%`, missionId
+     WHERE w.experiment_id = ? OR (w.experiment_id IS NULL AND w.id LIKE ? ESCAPE '\\'
+     ) ORDER BY w.world_number`,
+    missionId, `${escapeLike(missionId)}\\_world\\_%`
   );
   const reports = [];
   for (const world of worlds) {
     const rows = await db.all(
-      `SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','AGENT_COMPLETED') ORDER BY created_at`,
+      `SELECT rowid as event_id, event_type, payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','AGENT_COMPLETED') ORDER BY created_at`,
       world.agent_id
     );
     const events = rows.map((row) => {
       let payload = {};
       try { payload = JSON.parse(row.payload_json || '{}'); } catch (_) {}
-      return { payload };
+      return { payload, eventType: row.event_type, eventId: row.event_id };
     });
     const report = latestReport({ events });
     const normalized = report || {};
     reports.push({
       worldNumber: world.world_number,
+      runtimeProvenance: require('./trinityObservedDiversity').provenance(events),
       role: world.strategy,
       agentId: world.agent_id,
       outcome: normalized.outcome || 'no_evidence',
@@ -76,6 +73,7 @@ function worldReportFor(params) {
   const { worker, member, byWorker, index } = params;
   const report = latestReport(byWorker.get(worker.agentId));
   return {
+    runtimeProvenance: require('./trinityObservedDiversity').provenance(byWorker.get(worker.agentId)?.events || []),
     worldNumber: member.worldNumber || worker.worldNumber || index + 1,
     role: member.role || worker.role || worker.label || `world_${index + 1}`,
     agentId: worker.agentId || null,
@@ -135,35 +133,20 @@ async function applyTrinityComparison(ctx) {
   const threshold = Number(trinity.threshold) || 0.70;
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, ctx.workers || []);
   const initialReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
-  const crossExamination = await trinityCrossExamination.examine(ctx.db, initialReports, trinity.hypothesisDesign);
-  const worldReports = trinityMissionVerifier.verifyMissionReports(crossExamination.reports, trinity.hypothesisDesign?.centralProblem);
-  const adversarialReview = await trinityAdversarial.runVariantReview({
-    db: ctx.db, agentId: ctx.agentId, tenant: ctx.tenant,
-    design: trinity.hypothesisDesign, worlds: worldReports
-  });
-  const claimGraph = trinityClaimGraph.build(worldReports, trinity.hypothesisDesign?.claimGraph);
   const maxLatencyMs = await experimentLatencySla(ctx.db, trinity.missionId);
-  let result = trinityService.mergeTrinityEvidence(worldReports, {
-    domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds, claimGraph,
-    variantSelection: trinity.hypothesisDesign?.variantSelection
-  });
-  result = trinityAdversarial.enforceVariantGate(result, adversarialReview);
-  if (adversarialReview) result.comparativeAnalysis.adversarialReview = adversarialReview;
-  const design = trinity.hypothesisDesign?.variantSelection?.experimentalDesign || {};
-  result.jury = await trinityBlindJury.evaluate({ db: ctx.db, agentId: ctx.agentId,
-    outcome: result.outcome, mission: trinity.hypothesisDesign?.centralProblem,
-    config: trinity.hypothesisDesign?.juryConfig, reports: worldReports,
-    required: design.adjudicationPolicy === 'blind_jury_advisory' || design.interactionPolicy === 'jury_deliberation', deterministicWinner: result.selectedWorld });
-  if (result.jury.status !== 'unavailable') await trinityBlindJury.recordCalibration({ db: ctx.db, experimentId: trinity.missionId, juryResult: result.jury, deterministicOutcome: { selectedWorld: result.selectedWorld } });
-  result.comparativeAnalysis.crossExamination = trinityCrossExamination.summary(crossExamination);
-  result.comparativeAnalysis.claimGraph = claimGraph;
+  const result = await require('./trinityComparisonRuntime').compareMission(ctx.db, {
+    missionId: trinity.missionId, orchestratorId: ctx.agentId,
+    mission: trinity.hypothesisDesign?.centralProblem,
+    hypothesisDesign: trinity.hypothesisDesign,
+    variantSelection: trinity.hypothesisDesign?.variantSelection,
+    juryConfig: trinity.hypothesisDesign?.juryConfig, repoRoot: ctx.workspaceRoot || ctx.normalizedMission?.workspaceRoot,
+    tokenBudget: ctx.autonomyPlan.tokenPolicy?.total, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds
+  }, initialReports);
   result.comparativeAnalysis.adaptiveBudget = trinity.adaptiveBudgetDecision || null;
   await recordComparison(ctx, trinity, result);
   trinity.comparison = buildComparison(result);
   trinity.comparison.synthesizedClaims = result.outcome === 'SYNTHESIZE_CLAIMS' ? result.mergedEvidence?.claims || [] : [];
-  trinity.comparison.promotion = result.outcome === 'SYNTHESIZE_CLAIMS'
-    ? { promoted: false, reason: 'synthesized_claims_require_artifact_assembly' }
-    : await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId,
+  trinity.comparison.promotion = await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId,
       result, statisticalContract: trinity.statisticalContract || null });
   emitComparison(ctx, trinity, result);
   return result;
@@ -211,6 +194,13 @@ async function createMergeArtifact(db, params) {
         await workspaceLifecycle.cleanupWorkspace(targetDir).catch(() => {});
         throw Object.assign(new Error('Trinity candidate differs from the selected world.'), { code: 'TRINITY_CANDIDATE_HASH_MISMATCH' });
       }
+      if (result.synthesisPlan) {
+        const assembly = await require('./trinityArtifactAssembler').assemble(db, {
+          candidate: targetDir, plan: result.synthesisPlan, worlds: result.comparativeAnalysis.scoredWorlds
+        });
+        contentHash = assembly.contentHash;
+        result.assemblyReceipt = assembly;
+      }
     } catch (error) {
       await workspaceLifecycle.cleanupWorkspace(targetDir).catch(() => {});
       throw error;
@@ -224,7 +214,8 @@ async function createMergeArtifact(db, params) {
       JSON.stringify(['trinity_candidate', 'quarantined']),
       winnerWorkspace.organization_id || null, winnerWorkspace.project_id || null
     );
-    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, candidateWorkspaceId, contentHash, worldNumber: result.selectedWorld, role: result.selectedRole, status: 'quarantined' };
+    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, candidateWorkspaceId, contentHash,
+      assemblyReceipt: result.assemblyReceipt || null, worldNumber: result.selectedWorld, role: result.selectedRole, status: 'quarantined' };
     emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created isolated candidate artifact from World ${result.selectedWorld} (${result.selectedRole}).`, artifact, 'info');
     return artifact;
   } catch (mergeError) {
@@ -234,6 +225,13 @@ async function createMergeArtifact(db, params) {
   }
 }
 async function promoteWinner(db, input = {}) {
+  if (!db || !input.missionId) return executePromotion(db, input);
+  const release = await require('./trinityExecutionJournal').acquire(db, input.missionId + ':promotion');
+  try { return await executePromotion(db, input); }
+  finally { await release(); }
+}
+
+async function executePromotion(db, input) {
   if (!db || typeof db.get !== 'function' || typeof db.run !== 'function') {
     return { promoted: false, reason: 'database_unavailable' };
   }
@@ -241,6 +239,9 @@ async function promoteWinner(db, input = {}) {
   const previous = await previousPromotion({ db, missionId });
   if (previous) return previous;
   await updateExperimentDecision(db, missionId, result);
+  if (result?.outcome === 'SYNTHESIZE_CLAIMS') {
+    return require('./trinitySynthesisPromotion').promote(db, input, executePromotion);
+  }
   const validation = validateMergeInput(db, result);
   if (!validation.valid) {
     await failPromotion({ db, missionId, reason: validation.reason });
@@ -260,7 +261,8 @@ async function promoteWinner(db, input = {}) {
     return { promoted: false, reason: 'candidate_artifact_creation_failed' };
   }
   try {
-    const verification = await candidateVerification.verify(db, { missionId, winner, artifact });
+    const verifiedWinner = { ...winner, report: { ...winner.report, claims: result.mergedEvidence?.claims || winner.report?.claims || [] } };
+    const verification = await candidateVerification.verify(db, { missionId, winner: verifiedWinner, artifact });
     const experiment = await db.get('SELECT id FROM trinity_experiments WHERE mission_id = ?', missionId);
     if (!experiment) throw new Error('Trinity experiment disappeared before final promotion.');
     const decision = {
@@ -269,14 +271,16 @@ async function promoteWinner(db, input = {}) {
     };
     const git = require('./agentGitService');
     const gitRequest = { user: { username: 'trinity-runtime' }, body: {} };
+    await assertCandidate(artifact, verification.contentHash);
     const commit = await git.createCommit(gitRequest, {
       agentId: winner.agentId,
       refName: `trinity/${experiment.id}`,
-      metadata: { experimentId: experiment.id, worldNumber: result.selectedWorld, contentHash: verification.contentHash, candidateWorkspaceId: artifact.candidateWorkspaceId, integrationChecks: verification.integrationChecks, claimChecks: verification.claimChecks }
+      metadata: { experimentId: experiment.id, worldNumber: result.selectedWorld, contentHash: verification.contentHash, candidateWorkspaceId: artifact.candidateWorkspaceId, integrationChecks: verification.integrationChecks, claimChecks: verification.claimChecks, assemblyReceipt: artifact.assemblyReceipt }
     });
     const stored = await git.getObject(db, gitRequest, commit.id);
     if (!stored || !git.verifyObjectSignature(stored)) throw new Error('AgentGit candidate reference signature is invalid.');
     decision.agentGit = { objectId: commit.id, refName: commit.refName, commitHash: commit.commitHash, stateHash: commit.stateHash };
+    await assertCandidate(artifact, verification.contentHash);
     artifact.status = 'promoted';
     artifact.agentGit = decision.agentGit;
     const { withTransaction } = require('../db');
@@ -301,24 +305,7 @@ async function promoteWinner(db, input = {}) {
     return { promoted: false, candidateCreated: true, reason: error.code || 'candidate_verification_failed', artifact: quarantinedArtifact };
   }
 }
-async function previousPromotion(input) {
-  const { db, missionId } = input;
-  if (!missionId) return null;
-  const experiment = await db.get('SELECT status, decision_json, failure_reason FROM trinity_experiments WHERE mission_id = ?', missionId);
-  if (!experiment || !['promoted', 'promotion_failed'].includes(experiment.status)) return null;
-  let decision = {};
-  try { decision = JSON.parse(experiment.decision_json || '{}'); } catch (_) {}
-  return {
-    promoted: experiment.status === 'promoted',
-    idempotent: true,
-    reason: decision.reason || experiment.failure_reason || null,
-    worldNumber: decision.worldNumber,
-    jury: decision.jury || null,
-    artifact: decision.artifact || decision.candidateArtifact || null,
-    verification: decision.verification || null,
-    agentGit: decision.agentGit || null
-  };
-}
+const { previousPromotion, assertCandidate } = require('./trinityPromotionIntegrity');
 async function updateExperimentDecision(db, missionId, result) {
   if (!missionId) return;
   const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ?', missionId);
@@ -340,6 +327,8 @@ function decisionRecord(result, outcome) {
     evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto),
     jury: result?.jury || null,
     crossExamination: result?.comparativeAnalysis?.crossExamination || null,
+    research: result?.comparativeAnalysis?.research || null,
+    variantExecution: result?.comparativeAnalysis?.variantExecution || null,
     synthesizedClaims: outcome === 'SYNTHESIZE_CLAIMS' ? result?.mergedEvidence?.claims || [] : [],
     claimGraph: trinityClaimGraph.summary(result?.comparativeAnalysis?.claimGraph || { status: 'unavailable', nodes: [], edges: [] })
   };
@@ -354,7 +343,8 @@ async function persistDecision(db, input) {
   const { experiment, status, next, decision, evidenceRef, canMerge, outcome } = input;
   if (status === 'cross_examining') {
     await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision, reason: decision.reason || outcome, evidenceRef });
-  } else if (status === 'decided' && canMerge) {
+  }
+  if ((status === 'decided' || next === 'decided') && canMerge) {
     await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision, reason: 'candidate_promotion_prepared', evidenceRef });
   }
 }

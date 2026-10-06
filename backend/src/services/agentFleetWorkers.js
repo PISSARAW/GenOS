@@ -193,6 +193,7 @@ function buildWorkerPrompt(details) {
     dnaPrompt,
     Array.isArray(assignment.capabilities) && assignment.capabilities.length ? `Owned capabilities: ${assignment.capabilities.join(', ')}.` : null,
     `Hypothesis: ${assignment.hypothesis}`,
+    require('./trinityWorldDesign').factorialInstruction(assignment),
     `Worker kind: ${assignment.workerKind}. ${workerKinds.promptRule(assignment.workerKind)}`,
     workerKinds.evidenceRule(workerKinds.buildWorkerContract(assignment.workerKind, {
       prompt: context.mission.prompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id,
@@ -235,9 +236,7 @@ async function prepareWorkerAssets(workerContext) {
 
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext, dnaSelection, workerSelfBlock });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
-  const route = mission.executor === 'caller_mcp' ? {} : (await require('./agentModelRoutingService').explicitLocalRoute(mission)
-    || await localWorkerRoute({ db, agentId: parent.id, role: assignment.role, modelTier: assignment.modelTier || parent.model_tier,
-      tenant: { organizationId: parent.organization_id, projectId: parent.project_id } }));
+  const route = await require('./workerPreparationDetails').resolveRoute({ db, parent, assignment, mission });
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
   return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, dnaSelection, mission };
 }
@@ -256,10 +255,7 @@ function validatePromptBudget(details) {
 
 async function persistWorker(db, details) {
   const { parent, perWorkerCognitiveBudget, assignment, id, identity } = details;
-  const { getAttribute, setAttribute } = require('./ontologyAttributes');
-  if (!(await getAttribute(parent.id, 'worker_capacity'))) await setAttribute({ agentId: parent.id, key: 'worker_capacity',
-    value: { role: parent.role, purpose: 'Delegate bounded mission work' },
-    modality: 'accidental', provenance: 'agentFleetWorkers' });
+  await require('./workerPreparationDetails').ensureWorkerCapacity(parent);
   // The worker INSERT and the parent budget debit must be one atomic unit:
   // otherwise two concurrent workers each read the same balance and over-allocate.
   // Retry with exponential backoff on BUDGET_INHERITANCE_FAILURE (race condition).
@@ -299,7 +295,7 @@ function workerInsertValues(details) {
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
   });
   workerKinds.grantBoundedDelegation(workerContract);
-  return [id, identity.name, identity.name_meaning, assignment.role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, route.selectedModel || assignment.modelTier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0, JSON.stringify({ workerKind: assignment.workerKind, workerContract })];
+  return [id, identity.name, identity.name_meaning, assignment.role, ...require('./workerPreparationDetails').databasePlacement(details), parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0, JSON.stringify({ workerKind: assignment.workerKind, workerContract })];
 }
 
 function resolveGenotypeRef(evolution) {
@@ -342,7 +338,7 @@ function workerIdentity(details) {
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
   });
   workerKinds.grantBoundedDelegation(workerContract);
-  return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerAssignment: assignment.workerAssignment || assignment, methodContract: assignment.methodContract || null, workerContract, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, artifact: assignment.artifact || plan.aTeam?.artifact || plan.trinity?.artifact || null, pipelineStage: Math.max(0, Number(assignment.pipelineStage || 0)), dependsOn: Array.isArray(assignment.dependsOn) ? assignment.dependsOn : [], modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, cognitiveRecipe: assignment.cognitiveRecipe || null };
+  return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerAssignment: assignment.workerAssignment || assignment, methodContract: assignment.methodContract || null, workerContract, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, ...require('./workerPreparationDetails').workerPlacement(assignment, parent, plan) };
 }
 
 function inheritedWorkerEngine(mission) {

@@ -1,6 +1,27 @@
 'use strict';
 
+const assert = require('node:assert/strict');
 const crypto = require('crypto');
+const trinity = require('../../src/services/trinityService');
+const trinityVariants = require('../../src/services/trinityVariantService');
+const trinityAdapters = require('../../src/services/trinityAdapters');
+const balanceVerifier = require('../../src/services/trinityBalancePuzzleVerifier');
+const missionVerifier = require('../../src/services/trinityMissionVerifierService');
+const counterfactual = require('../../src/services/trinityCounterfactualFork');
+const adversarial = require('../../src/services/trinityAdversarialCrossExamination');
+const factorial = require('../../src/services/trinityFactorialGrid');
+const diversity = require('../../src/services/trinityDiversityPlanner');
+const recursive = require('../../src/services/trinityRecursiveExecutor');
+const temporal = require('../../src/services/trinityTemporalHorizons');
+const sequential = require('../../src/services/trinityAdaptiveSequential');
+const oracle = require('../../src/services/trinityOracle');
+const novelty = require('../../src/services/trinityNoveltyArchive');
+const pareto = require('../../src/services/trinityParetoService');
+const blindJury = require('../../src/services/trinityBlindJuryService');
+const trinityClaimVerification = require('../../src/services/trinityEvidenceAudit');
+const modelRouter = require('../../src/services/modelRouter');
+
+const GENOS_EPISTEMIC_RECEIPT_SECRET = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || 'test-secret-for-verifier-execution';
 
 const EXECUTABLE_VARIANTS = [
   { id: 'controlled', mission: 'Compare three sorting implementations for correctness and performance', tags: ['baseline'] },
@@ -23,8 +44,7 @@ const FACTUAL_MISSIONS = [
   'Produis une conclusion qui survive à une tentative systématique de réfutation.'
 ];
 
-function makeReceipt(verifierName, status, evidence) {
-  const assumptions = [];
+function makeReceipt({ verifierName, status, evidence, assumptions = [] }) {
   const digest = `sha256:${crypto.createHash('sha256').update(JSON.stringify({ verifier: verifierName, evidence, timestamp: Date.now() })).digest('hex')}`;
   return {
     status,
@@ -38,57 +58,64 @@ function makeReceipt(verifierName, status, evidence) {
   };
 }
 
-function collectReceipts(input) {
-  const evidenceReceipts = {};
-  for (const [index, claim] of input.claims.entries()) {
-    const ids = claim.evidence || ['ev_w' + input.worldNumber + '_' + index];
-    const receipt = makeReceipt('claim_verifier_' + input.worldNumber + '_' + index, 'verified', ids);
-    for (const id of ids) evidenceReceipts[id] = receipt;
+function createWorldReport({ worldNumber, role, evidenceVector, claims = [], tests = [], artifactText = '', uncertainties = [], unverifiedClaims = [] }) {
+  const { evidenceReceipts, processedTests } = reportEvidence(worldNumber, claims, tests);
+  const allEvidenceIds = Object.keys(evidenceReceipts);
+  const evidenceVectorEvidence = {};
+  for (const key of Object.keys(evidenceVector)) {
+    evidenceVectorEvidence[key] = allEvidenceIds.slice(0, 2);
   }
-  const processedTests = input.tests.map((test, index) => {
-    const receipt = test.receipt || makeReceipt('test_executor_' + input.worldNumber + '_' + index,
-      'verified', ['test_ev_' + input.worldNumber + '_' + index]);
-    if (receipt.evidenceDigest) evidenceReceipts[receipt.evidenceDigest] = receipt;
-    return { name: test.name || 'test_' + index, passed: test.passed === true, verificationReceipt: receipt };
-  });
-  return { evidenceReceipts, processedTests };
-}
-
-function vectorReferences(evidenceVector, evidenceReceipts) {
-  const ids = Object.keys(evidenceReceipts).slice(0, 2);
-  return Object.fromEntries(Object.keys(evidenceVector).map((key) => [key, ids]));
-}
-
-function createWorldReport(input) {
-  const { worldNumber, role, evidenceVector, claims = [], tests = [], artifactText = '',
-    uncertainties = [], unverifiedClaims = [] } = input;
-  const { evidenceReceipts, processedTests } = collectReceipts({ claims, tests, worldNumber });
-  const evidenceVectorEvidence = vectorReferences(evidenceVector, evidenceReceipts);
 
   return {
     worldNumber,
     role,
     report: {
-      claims: claims.map((c, i) => ({
-        id: `claim_w${worldNumber}_${i}`,
-        statement: c.statement,
-        evidence: c.evidence || [`ev_w${worldNumber}_${i}`],
-        verificationLevel: c.verificationLevel || 'verified',
-        falsificationCriteria: c.falsificationCriteria || []
-      })),
+      outcome: 'success',
+      claims: reportClaims(worldNumber, claims),
       tests: processedTests,
       uncertainties,
       unverifiedClaims,
       evidenceVector,
       artifactText,
-      evidence: Object.values(evidenceReceipts),
+      evidence: Object.entries(evidenceReceipts).map(([id, receipt]) => ({ id, verificationReceipt: receipt })),
       evidenceVectorEvidence,
       coverage: evidenceVector.coverage || 0,
-      coverageReceipt: makeReceipt('coverage_verifier', 'verified', ['coverage']),
+      coverageReceipt: makeReceipt({ verifierName: 'coverage_verifier', status: 'verified', evidence: ['coverage'] }),
       hardConstraintsPassed: evidenceVector.correctness >= 0.8,
       budgetStatus: 'within'
     }
   };
+}
+
+function reportClaims(worldNumber, claims) {
+  return claims.map((c, i) => ({
+        id: `claim_w${worldNumber}_${i}`,
+        statement: c.statement,
+        evidence: c.evidence || [`ev_w${worldNumber}_${i}`],
+        verificationLevel: c.verificationLevel || 'verified',
+        falsificationCriteria: c.falsificationCriteria || []
+      }));
+}
+
+function reportEvidence(worldNumber, claims, tests) {
+  const evidenceReceipts = {};
+  const testReceipts = {};
+
+  const claimEvidences = claims.map((c, i) => {
+    const evIds = c.evidence || [`ev_w${worldNumber}_${i}`];
+    const receipt = makeReceipt({ verifierName: `claim_verifier_${worldNumber}_${i}`, status: 'verified', evidence: evIds });
+    for (const id of evIds) evidenceReceipts[id] = receipt;
+    return { id: evIds[0], verificationReceipt: receipt };
+  });
+
+  const processedTests = tests.map((t, i) => {
+    const receipt = t.receipt || makeReceipt({ verifierName: `test_executor_${worldNumber}_${i}`, status: 'verified', evidence: [`test_ev_${worldNumber}_${i}`] });
+    testReceipts[t.name || `test_${i}`] = receipt;
+    for (const id of receipt.evidenceDigest ? [receipt.evidenceDigest] : []) evidenceReceipts[id] = receipt;
+    return { name: t.name || `test_${i}`, passed: t.passed === true, verificationReceipt: receipt };
+  });
+
+  return { evidenceReceipts, processedTests };
 }
 
 function leaf(coin, direction) {
@@ -118,4 +145,4 @@ function canonicalTree() {
   return node([1, 2, 3, 4], [5, 6, 7, 8], { left_heavy: h1, right_heavy: h2, balance: balanced });
 }
 
-module.exports = { EXECUTABLE_VARIANTS, FACTUAL_MISSIONS, makeReceipt, createWorldReport, leaf, node, canonicalTree };
+module.exports = { assert, crypto, trinity, trinityVariants, trinityAdapters, balanceVerifier, missionVerifier, counterfactual, adversarial, factorial, diversity, recursive, temporal, sequential, oracle, novelty, pareto, blindJury, trinityClaimVerification, modelRouter, EXECUTABLE_VARIANTS, FACTUAL_MISSIONS, makeReceipt, createWorldReport, leaf, node, canonicalTree };

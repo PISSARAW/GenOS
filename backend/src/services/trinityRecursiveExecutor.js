@@ -15,7 +15,7 @@ function identifySubProblems(report) {
   for (const claim of claims) {
     if (claim.falsificationCriteria && claim.falsificationCriteria.length > 0) {
       subProblems.push({
-        id: `sub_${crypto.randomBytes(6).toString('hex')}`,
+        id: subProblemId('falsification', claim.statement),
         type: 'falsification',
         description: claim.statement,
         criteria: claim.falsificationCriteria,
@@ -26,7 +26,7 @@ function identifySubProblems(report) {
   }
   for (const unc of uncertainties) {
     subProblems.push({
-      id: `sub_${crypto.randomBytes(6).toString('hex')}`,
+      id: subProblemId('uncertainty', unc),
       type: 'uncertainty',
       description: unc,
       parentClaimId: null,
@@ -34,6 +34,11 @@ function identifySubProblems(report) {
     });
   }
   return subProblems.slice(0, 5);
+}
+
+function subProblemId(type, description) {
+  const text = typeof description === 'string' ? description : JSON.stringify(description);
+  return 'sub_' + crypto.createHash('sha256').update(type + ':' + text.trim().replace(/\s+/g, ' ').toLowerCase()).digest('hex').slice(0, 32);
 }
 
 function selectSubProblem(subProblems, parentEvidenceVector) {
@@ -52,12 +57,15 @@ function selectSubProblem(subProblems, parentEvidenceVector) {
 function shouldRecurse(input) {
   const { subProblem, config = {}, depth = 0, spentBudget = 0 } = input;
   if (depth >= (config.maxDepth || MAX_DEPTH)) return { allow: false, reason: 'max_depth_reached' };
-  if (spentBudget >= (config.recursionBudget || DEFAULT_RECURSION_BUDGET)) return { allow: false, reason: 'budget_exhausted' };
+  if (spentBudget >= recursionBudget(config)) return { allow: false, reason: 'budget_exhausted' };
   const marginalCost = estimateMarginalCost(subProblem, config);
+  if (spentBudget + marginalCost > recursionBudget(config)) return { allow: false, reason: 'budget_exhausted' };
   if (marginalCost < (config.minMarginalCost || MIN_MARGINAL_COST)) return { allow: false, reason: 'marginal_cost_below_threshold' };
   if (wouldCreateCycle(subProblem, config.parentProblemIds || [])) return { allow: false, reason: 'cycle_detected' };
   return { allow: true, marginalCost };
 }
+
+function recursionBudget(config) { return config.recursionBudget ?? DEFAULT_RECURSION_BUDGET; }
 
 function estimateMarginalCost(subProblem, config) {
   const baseCost = config.baseCostPerRecursion || 0.1;
@@ -99,7 +107,7 @@ async function executeRecursiveTrinity(input) {
   const newParentIds = [...parentProblemIds, subProblem.id, subProblem.parentClaimId].filter(Boolean);
   const childInput = { ...input, mission: recursiveMission, config: { ...config, parentProblemIds: newParentIds }, depth: depth + 1, spentBudget: spentBudget + recursionCheck.marginalCost };
   const childResults = await input.runNestedTrinity(childInput);
-  if (!validChildResults(childResults)) {
+  if (!completeChildEvidence(childResults, config)) {
     return { status: 'escalated', reason: 'nested_runtime_returned_incomplete_worlds', subProblem, childResults };
   }
   const merged = trinityService.mergeTrinityEvidence(childResults, { domain: analysis.domain, threshold: config.threshold || 0.7 });
@@ -110,7 +118,7 @@ async function executeRecursiveTrinity(input) {
     variant: variantSelection.variant,
     experimentalDesignId: variantSelection.experimentalDesignId,
     childResults,
-    mergedResult: merged,
+    mergedResult: merged, childPromotion: childPromotionReceipt(childResults),
     evidenceGraphEdge: {
       from: parentReport.worldNumber || 'parent',
       to: `recursive_${depth + 1}`,
@@ -121,9 +129,18 @@ async function executeRecursiveTrinity(input) {
   };
 }
 
+function completeChildEvidence(results, config) {
+  return validChildResults(results) && !missingChildPromotion(results, config);
+}
+function childPromotionReceipt(results) { return results.childPromotion || null; }
+
+function missingChildPromotion(results, config) {
+  return config.requireChildPromotion === true && results?.childPromotion?.promoted !== true;
+}
+
 function validChildResults(results) {
   return Array.isArray(results) && results.length === 3
-    && results.every((world, index) => world?.worldNumber === index + 1 && world.report);
+    && results.every((world, index) => world?.worldNumber === index + 1 && world.report?.outcome === 'success' && !world.report.failure);
 }
 
 module.exports = { executeRecursiveTrinity, identifySubProblems, selectSubProblem, shouldRecurse, buildRecursiveMission, MAX_DEPTH, DEFAULT_RECURSION_BUDGET, MIN_MARGINAL_COST };

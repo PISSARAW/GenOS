@@ -31,8 +31,9 @@ function normalizeWorld(entry, index, options = {}) {
   const refs = defaultIfMissing(report.evidenceVectorEvidence, {});
   const evidenceIds = reportedEvidenceIds(report);
   const missing = REQUIRED.filter((key) => { return !validMeasuredDimension(values[key], refs[key], evidenceIds); });
-  const vector = Object.fromEntries([...MAXIMIZE, ...MINIMIZE].map((key) => { return [key, finiteMetric(values[key])]; }));
-  const objectiveProfile = options.objectiveProfiles?.[index] || DEFAULT_OBJECTIVE_PROFILES[`world${index + 1}`];
+  const vector = Object.fromEntries([...MAXIMIZE, ...MINIMIZE].map((key) => [key,
+    hasEvidenceReferences(refs[key], evidenceIds) ? finiteMetric(values[key]) : null]));
+  const objectiveProfile = options.objectiveProfiles?.[index] || DEFAULT_OBJECTIVE_PROFILES[`world${index % 3 + 1}`];
   const scalarized = scalarizeVector(vector, objectiveProfile.weights);
   return {
     worldNumber: defaultIfMissing(entry?.worldNumber, index + 1),
@@ -74,8 +75,8 @@ function scalarizeVector(vector, weights) {
   let totalWeight = 0;
   for (const [dim, weight] of Object.entries(weights)) {
     const val = vector[dim];
-    if (val !== null) {
-      const normalized = MAXIMIZE.includes(dim) ? val : (1 - val);
+    if (Number.isFinite(val) && Number.isFinite(weight) && weight > 0) {
+      const normalized = MAXIMIZE.includes(dim) ? val : 1 / (1 + val);
       score += normalized * weight;
       totalWeight += weight;
     }
@@ -92,6 +93,7 @@ function gateFailures(world) {
 }
 
 function addBaseFailures(world, failures) {
+  if (world.report.outcome === 'failed' || world.report.failure) failures.push('world_execution_failed');
   if (!world.hardConstraintsPassed) failures.push('hard_constraints_not_verified');
   if (world.budgetStatus !== 'within') failures.push('budget_not_verified_within_limit');
 }
@@ -149,21 +151,12 @@ function dominates(left, right, dimensions) {
 }
 
 function hypervolume(frontier, referencePoint = null) {
-  if (!frontier.length) return 0;
-  const dims = [...MAXIMIZE, ...MINIMIZE].filter(d => frontier.every(w => w.vector[d] !== null));
-  if (!dims.length) return 0;
+  const dims = sharedDimensions(frontier);
   const ref = referencePoint || Object.fromEntries(dims.map(d => [d, MAXIMIZE.includes(d) ? 0 : 1]));
-  let hv = 0;
-  for (const world of frontier) {
-    let vol = 1;
-    for (const dim of dims) {
-      const val = world.vector[dim];
-      const r = ref[dim];
-      vol *= MAXIMIZE.includes(dim) ? Math.max(0, val - r) : Math.max(0, r - val);
-    }
-    hv += vol;
-  }
-  return Number(hv.toFixed(6));
+  const boxes = frontier.map(world => dims.map(dim => MAXIMIZE.includes(dim)
+    ? Math.max(0, world.vector[dim] - ref[dim]) : Math.max(0, ref[dim] - world.vector[dim])));
+  const value = require('./trinityHypervolume').unionVolume(boxes);
+  return value === null ? null : Number(value.toFixed(6));
 }
 
 function compare(worldReports, options = {}) {
@@ -172,11 +165,18 @@ function compare(worldReports, options = {}) {
   const worlds = (Array.isArray(worldReports) ? worldReports : []).map((entry, index) => ({
     ...normalizeWorld(entry, index, { ...options, objectiveProfiles }), thresholds
   }));
-  if (worlds.length !== 3) return escalation(worlds, 'exactly_three_worlds_required', thresholds);
+  const expected = options.expectedWorlds || 3;
+  if (worlds.length !== expected) return escalation(worlds, expected === 3 ? 'exactly_three_worlds_required' : 'expected_world_count_required', thresholds);
+  if (new Set(worlds.map(world => world.worldNumber)).size !== expected) return escalation(worlds, 'distinct_world_numbers_required', thresholds);
   if (worlds.some((world) => world.missing.length)) return escalation(worlds, 'required_evidence_vector_or_provenance_missing', thresholds);
   const gated = worlds.map((world) => ({ ...world, gateFailures: gateFailures(world) }));
   const candidates = gated.filter((world) => !world.gateFailures.length);
   if (!candidates.length) return escalation(gated, 'all_worlds_failed_verification_gates', thresholds);
+  return decideFrontier({ candidates, gated, thresholds, options });
+}
+
+function decideFrontier(input) {
+  const { candidates, gated, thresholds, options } = input;
   const dimensions = sharedDimensions(candidates);
   const frontier = candidates.filter((world) => {
     return !candidates.some((other) => { return other !== world && dominates(other, world, dimensions); });

@@ -2,9 +2,75 @@
 
 - **Statut** : Partiel ; les douze variants ont un chemin d'exécution branché au superviseur. Les contrôles de preuves restent bloquants ; la campagne R3 pré-correctifs a produit 12/12 escalades et aucune promotion, et le runtime corrigé reste à requalifier.
 - **Portée** : trois mondes pour le parcours de base ; le plan factoriel lance seize cellules, la diversité peut ajouter des réplicas et la récursion lance une mission Trinity enfant. Les reçus et gates décrits ci-dessous déterminent si chaque parcours est complet.
-- **Dernière revue** : 2026-10-04
+- **Dernière revue** : 2026-10-06
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
+
+## Extension exécutable du 2026-10-06
+
+Les deux chemins de comparaison utilisent désormais le même runtime. Le dispatch
+prépare un snapshot commun, les mondes conservent un workspace propre et la
+comparaison accepte les seize cellules factorielles et les réplicas exécutés.
+Les dimensions optionnelles sans preuve sont inconnues ; l'hypervolume mesure
+l'union des zones de dominance. Les marqueurs de gestion du workspace ne font
+pas partie de l'empreinte des fichiers de solution.
+
+Les snapshots sont préparés atomiquement et vérifiés avant de provisionner les
+workspaces privés. Les tokens de continuation et de réplicas sont réservés avant
+l'allocation initiale. Un rapport initial manquant ou en échec bloque la suite.
+La diversité utilise le fournisseur et le modèle constatés par le runtime.
+
+La politique adaptive_replica_count exige trinitySequential avec replicaBudget
+et tokensPerReplica, pour 3 à 48 réplicas. Elle exécute les réplicas séquentiellement
+dans des workers isolés, utilise un gain d'information bêta-Bernoulli et respecte
+son budget réservé. La correction par fréquences empiriques reste consultative
+et ne constitue pas une estimation causale certifiée. Le facteur modèle utilise
+deux URI distinctes et sa provenance observée est vérifiée.
+
+La récursion réserve au plus 30 % du budget tokens pour l'enfant et débite son
+budget cognitif du parent dans une transaction. Sa reprise ne répète pas ce débit.
+Elle attend la promotion vérifiée de l'enfant et transmet les identités stables
+des sous-problèmes pour détecter les cycles. Les limites de profondeur et de coût
+produisent un arrêt borné explicite, qui ne vaut pas résolution d'une incertitude.
+
+Le journal SQLite conserve les rapports initiaux et les étapes achevées. Les
+verrous empêchent les exécutions concurrentes d'une même mission ; les identités
+stables empêchent de redispatcher un worker déjà créé. Une modification du plan
+ou du budget exige une nouvelle expérience. Une reprise de promotion recontrôle
+le contenu du candidat et sa référence AgentGit signée.
+
+Le concepteur accepte une configuration `research` avec `solutionSpace`,
+`tokenBudget`, `latencyBudgetMs` et des candidates portant `research` :
+`coverage`, `tokens`, `latencyMs`, `falsificationProbability`.
+Il choisit le triplet admissible de plus forte utilité déclarée. Les matrices
+`experiments[].likelihoods[hypothesisId]` et les `priors` permettent de choisir
+un protocole par gain d'information. `redundancyPolicy: "mutual_information"`
+exige les trois matrices jointes de `jointDistributions["idA|idB"]` ; sans cette
+option la redondance est un recouvrement Jaccard des croyances déclarées.
+Les modèles sont identifiés et restent non calibrés sans observations.
+
+`research.calibrationSamples` exige des observations distinctes avec signaux,
+issue binaire `trinityBetter`, références et reçus HMAC liés à leur contenu.
+La calibration utilise un jeu d'entraînement et un jeu de validation séparés.
+`research.errorSamples` porte les trois erreurs binaires observées. L'absence
+de données conserve `insufficient_data` ; un mauvais modèle reste
+`unqualified`. Les analyses restent consultatives.
+
+La synthèse peut préparer un artefact avec `synthesisPlan: { baseWorld, files:
+[{ worldNumber, path, sha256 }] }`. Chaque claim retenu fournit
+`artifactPaths` correspondant à ses fichiers d'origine. L'assembleur rejette
+les collisions, traversées de chemins, liens symboliques et empreintes
+incohérentes. Les contrôles d'intégration et tous les contrôles des claims sont
+rejoués sur le candidat composite avant promotion. Une proposition typée
+`claim.proposition: { subject, predicate, value }` permet de détecter des
+équivalences et contradictions entre claims vérifiés ; cela ne constitue pas
+une interprétation générale du texte libre.
+
+Les modèles mathématiques sont maintenant calculables avec leurs entrées ; les
+sections historiques ci-dessous restent des objectifs empiriques lorsqu'elles
+promettent une qualité réelle ou un gain causal. La campagne R3 n'est pas
+requalifiée. La suite locale est `node backend/tests/run_trinity_suite.js`.
+Voir [ADR 0327](../../adr/0327-trinity-comparaison-recherche-et-assemblage.md).
 
 ## Contrat opérationnel v1 — référence d'implémentation
 
@@ -111,7 +177,7 @@ promotion restent applicables.
 
 ### Entrées et sortie du concepteur d'hypothèses
 
-Par défaut, le concepteur est déterministe et utilise les candidates de l'appelant ou les trois stratégies fixes. Sur demande, `trinityHypothesisDesign.generateHypotheses: true` autorise une génération par le modèle configuré, seulement lorsque les candidates fournies ne forment pas déjà un triplet. Le résultat reste une proposition : il prend la mission et les contraintes comme contexte, affecte `sourceRefs: ["mission"]`, et ne constitue jamais un fait ni une preuve. Le concepteur produit `centralProblem`, `assumptions[]`, `uncertainties[]`, `decisionVariables[]`, `selectedTriplet` et `selectionMethod`. Il n'émet pas de `utilityScore` ; l'optimisation de la fonction d'utilité reste reportée.
+Par défaut, le concepteur est déterministe et utilise les candidates de l'appelant ou les trois stratégies fixes. Sur demande, `trinityHypothesisDesign.generateHypotheses: true` autorise une génération par le modèle configuré, seulement lorsque les candidates fournies ne forment pas déjà un triplet. Le résultat reste une proposition : il prend la mission et les contraintes comme contexte, affecte `sourceRefs: ["mission"]`, et ne constitue jamais un fait ni une preuve. Le concepteur produit `centralProblem`, `assumptions[]`, `uncertainties[]`, `decisionVariables[]`, `selectedTriplet` et `selectionMethod`. Sans modèle de recherche fourni, il n'optimise pas une fonction d'utilité. L'extension ci-dessus peut optimiser un modèle déclaré, sans attribuer à ses entrées la valeur d'observations.
 
 La génération accepte au plus douze candidates JSON structurées. Son coût maximal vient de `trinityHypothesisGenerationBudgetUsd`, plafonné au budget monétaire de la mission s'il est défini ; sinon le plafond vaut 10 % de `executionBudget.costUsd`. Sans budget positif, elle est ignorée (`status: "skipped"`). Erreur de routage, délai ou sortie invalide : le runtime garde le triplet fixe et enregistre `status: "unavailable"`. `hypothesisGeneration` conserve le statut, le modèle/fournisseur rapporté et le nombre de candidates. La génération ne s'exécute que si Trinity est effectivement activée.
 
@@ -121,7 +187,7 @@ Un appelant peut fournir `trinityHypothesisDesign.candidateHypotheses`, jusqu'à
 
 Pour un triplet fourni, le runtime enregistre aussi `orthogonalityScore` (1 moins la similarité Jaccard moyenne des tokens, avec stopwords v1) et `falsifiabilityScore` (part des hypothèses ayant au moins une prédiction et un critère de réfutation explicites), ainsi que `scoringMethod`. Ce sont des heuristiques lexicales/descriptives non calibrées : elles ne choisissent pas le gagnant, ne prouvent pas la diversité sémantique et ne remplacent aucune vérification. Elles ne sont pas présentées comme générées par apprentissage.
 
-Un `experimentDesign` est proposé uniquement si chacune des trois hypothèses fournit le même `experiment.protocol` et au moins deux `expectedOutcome` distincts. Le protocole et les prédictions par chambre sont persistés avec `status: "proposed"`, ajoutés au prompt propre à chaque chambre et liés à leurs références de source. Le runtime n'infère pas de protocole manquant, n'exécute pas ce plan avant le travail des mondes et ne le décrit pas comme optimal. La conception automatique par gain d'information reste différée.
+Un `experimentDesign` est proposé uniquement si chacune des trois hypothèses fournit le même `experiment.protocol` et au moins deux `expectedOutcome` distincts. Le protocole et les prédictions par chambre sont persistés avec `status: "proposed"`, ajoutés au prompt propre à chaque chambre et liés à leurs références de source. Le runtime n'infère pas de protocole manquant, n'exécute pas ce plan avant le travail des mondes et ne le décrit pas comme optimal. L'extension ci-dessus peut sélectionner un protocole lorsque des matrices de vraisemblance et des priors sont fournis ; elle ne les invente pas.
 
 Les trois stratégies v1 sont fixes :
 

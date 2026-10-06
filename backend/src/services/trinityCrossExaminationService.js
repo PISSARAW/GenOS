@@ -70,7 +70,7 @@ async function examine(db, worlds, hypothesisDesign = {}) {
   const examinations = await Promise.all((worlds || []).map((world) => examineWorld(db, world, plans)));
   const byWorld = new Map(examinations.map((result) => [result.worldNumber, result]));
   return {
-    status: examinations.length === 3 && examinations.every((item) => item.status === 'verified' || item.status === 'no_claims') ? 'complete' : 'partial',
+    status: examinations.length > 0 && examinations.every((item) => item.status === 'verified' || item.status === 'no_claims') ? 'complete' : 'partial',
     worlds: examinations,
     reports: (worlds || []).map((world) => attachVerification(world, byWorld.get(world.worldNumber)))
   };

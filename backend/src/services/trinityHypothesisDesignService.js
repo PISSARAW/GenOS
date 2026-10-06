@@ -53,8 +53,13 @@ function normalizeCandidate(candidate, knownSources) {
     assumptions: stringList(candidate.assumptions),
     predictions: stringList(candidate.predictions),
     falsificationCriteria: stringList(candidate.falsificationCriteria),
-    experiment: normalizeExperiment(candidate.experiment)
+    experiment: normalizeExperiment(candidate.experiment),
+    research: researchModel(candidate.research)
   };
+}
+
+function researchModel(value) {
+  return value && typeof value === 'object' ? value : null;
 }
 
 function hasUnknownSource(sourceRefs, knownSources) {

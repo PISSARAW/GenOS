@@ -22,8 +22,7 @@ async function run(input) {
   if (continuations.some((item) => !item)) return { status: 'incomplete', reason: 'worker_routing_assignment_missing' };
   const starts = await Promise.all(continuations.map((item) => startContinuation({ ...input, item })));
   const finished = await Promise.all(starts.map((item) => waitForContinuation(db, item, input.timeoutMs)));
-  await Promise.all(finished.map((item) => db.run(`UPDATE trinity_worlds SET agent_id = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE agent_id = ? AND id LIKE ?`, item.workerId, item.priorAgentId, `${input.missionId}%`)));
+
   return { status: 'executed', allocation, reports: await barrier.buildWorldReportsFromMission(db, input.missionId),
     initialReports: reports, continuationWorkers: finished.map((item) => item.workerId), decisionAuthority: 'none' };
 }
@@ -31,20 +30,22 @@ async function run(input) {
 async function runQualityDiversityReplicas(input) {
   const { db, missionId, reports, targets, selection } = input;
   const config = selection?.qdConfig || {};
-  if (!Number.isSafeInteger(Number(config.tokensPerReplica)) || Number(config.tokensPerReplica) <= 0) {
+  if (!validReplicaBudget(config)) {
     return { status: 'incomplete', reason: 'replica_token_budget_missing' };
   }
   const assignments = selection.worldModelAssignments || [];
+  if (!completeReplicaSchedule(targets, config)) return { status: 'incomplete', reason: 'replica_schedule_incomplete' };
+  const snapshot = await db.get('SELECT mission_snapshot_hash FROM trinity_experiments WHERE mission_id = ?', missionId);
   const started = [];
   for (const [index, target] of (targets || []).entries()) {
     const source = reports[index % reports.length];
     const route = assignments.find((item) => item.worldNumber === source.worldNumber);
     if (!source || !route) return { status: 'incomplete', reason: 'replica_model_assignment_missing' };
-    const workerId = `qd_${crypto.randomUUID()}`;
+    const workerId = replicaId(missionId, 'qd', index + 1);
     const worldNumber = reports.length + index + 1;
-    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
-      VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${worldNumber}`, input.mission,
-    worldNumber, `Trinity QD replica ${index + 1}`, 'quality_diversity_replica', workerId);
+    await db.run(`INSERT OR IGNORE INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id, experiment_id, chamber, snapshot_hash)
+      VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)`, `${missionId}_world_${worldNumber}`, input.mission,
+    worldNumber, `Trinity QD replica ${index + 1}`, 'quality_diversity_replica', workerId, missionId, 'exploration', snapshot?.mission_snapshot_hash);
     started.push(await startReplica({ ...input, target, route, workerId, worldNumber }));
   }
   const finished = await Promise.all(started.map((item) => waitForContinuation(db, item, input.timeoutMs)));
@@ -57,6 +58,14 @@ async function runQualityDiversityReplicas(input) {
     workerIds: finished.map((item) => item.workerId), reports: allReports, decisionAuthority: 'none' };
 }
 
+function completeReplicaSchedule(targets, config) {
+  return targets?.length > 0 && targets.length === Number(config.replicaBudget);
+}
+
+function validReplicaBudget(config) {
+  return Number.isSafeInteger(Number(config.tokensPerReplica)) && Number(config.tokensPerReplica) > 0;
+}
+
 function validNicheReceipt(world, targetNiche) {
   return Boolean(world?.report?.behaviorVector && world.report.qdTargetNiche === targetNiche
     && novelty.assignNiche({ vector: world.report.behaviorVector }) === targetNiche);
@@ -66,12 +75,13 @@ async function startReplica(input) {
   const workerId = input.workerId;
   const previousEvent = await input.db.get('SELECT COALESCE(MAX(rowid), 0) as eventId FROM telemetry_events WHERE agent_id = ?', workerId);
   const payload = { action: 'dispatch_worker', background: true, orchestratorId: input.orchestratorId,
+    missionScope: { missionId: input.missionId, trinityExperimentId: input.missionId, chamber: 'exploration' },
     workerId, role: 'quality_diversity_replica', model_tier: input.route.modelTier || 'standard',
     localModel: input.route.localModel || undefined,
     mission: `${input.mission}\nIndependent quality-diversity replica. Target behavioral niche ${input.target.targetNiche}; use a distinct solution approach and report qdTargetNiche exactly plus a behaviorVector with at least 2 normalized [0,1] features and supporting behaviorVectorEvidence IDs.`,
     execution_budget: { tokens: Number(input.selection.qdConfig.tokensPerReplica) },
     executionPolicy: input.selection.workerExecutionPolicy, timeoutMs: input.timeoutMs };
-  const accepted = await spawnDispatch({ repoRoot: input.repoRoot, payload });
+  const accepted = await dispatchOnce({ ...input, payload });
   if (accepted.workerId !== workerId || accepted.status !== 'accepted') throw new Error('Quality-diversity replica dispatch was rejected.');
   return { workerId, targetNiche: input.target.targetNiche,
     afterEventId: Number(previousEvent?.eventId) || 0, startedAt: Date.now() };
@@ -86,9 +96,15 @@ function continuationFor(world, reports, assignments) {
 
 async function startContinuation(input) {
   const { db, item, orchestratorId, missionId, repoRoot } = input;
-  const workerId = `adaptive_${crypto.randomUUID()}`;
+  const workerId = replicaId(missionId, 'adaptive', item.worldNumber);
+  const current = await db.get('SELECT agent_id FROM trinity_worlds WHERE experiment_id = ? AND world_number = ?', missionId, item.worldNumber);
+  if (current?.agent_id !== workerId) {
+    const binding = await db.run("UPDATE trinity_worlds SET agent_id = ?, status = 'queued', workspace_root = NULL, updated_at = CURRENT_TIMESTAMP WHERE experiment_id = ? AND agent_id = ? AND world_number = ?",
+      workerId, missionId, item.agentId, item.worldNumber);
+    if (binding.changes !== 1) throw new Error('Adaptive continuation world binding changed concurrently.');
+  }
   const payload = dispatchPayload({ input, item: { ...item, agentId: workerId } });
-  const accepted = await spawnDispatch({ repoRoot, payload });
+  const accepted = await dispatchOnce({ ...input, payload });
   if (accepted.workerId !== workerId || accepted.status !== 'accepted') {
     throw new Error(`Continuation dispatch rejected for world ${item.worldNumber}.`);
   }
@@ -101,11 +117,22 @@ function dispatchPayload(context) {
   const report = JSON.stringify(item.source.report || {}).slice(0, 8000);
   return { action: 'dispatch_worker', background: true, orchestratorId: input.orchestratorId,
     workerId: item.agentId, role: item.source.role,
+    missionScope: { missionId: input.missionId, trinityExperimentId: input.missionId, chamber: item.source.role },
     mission: `Continue Trinity world ${item.worldNumber} using only its own prior report. Allocate ${item.tokens} additional tokens. Prior report: ${report}`,
     model_tier: item.routing.modelTier || 'standard', localModel: item.routing.localModel || undefined,
     localRoutingPolicy: item.routing.localModel ? { primary: item.routing.localModel, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true } : undefined,
     execution_budget: { tokens: item.tokens },
     executionPolicy: input.executionPolicy, timeoutMs: input.timeoutMs };
+}
+
+function replicaId(missionId, phase, number) {
+  return 'trinity_' + phase + '_' + crypto.createHash('sha256').update(missionId + ':' + phase + ':' + number).digest('hex').slice(0, 32);
+}
+
+async function dispatchOnce(input) {
+  const existing = await input.db.get('SELECT id FROM agents WHERE id = ?', input.payload.workerId);
+  if (existing) return { workerId: input.payload.workerId, status: 'accepted', resumed: true };
+  return spawnDispatch({ repoRoot: input.repoRoot, payload: input.payload });
 }
 
 function spawnDispatch(input) {
@@ -136,10 +163,11 @@ async function waitForContinuation(db, continuation, timeoutMs) {
     const event = await db.get(`SELECT rowid as eventId FROM telemetry_events
       WHERE agent_id = ? AND rowid > ? AND event_type IN ('EVIDENCE_REPORT','AGENT_COMPLETED')
       ORDER BY rowid DESC LIMIT 1`, continuation.workerId, continuation.afterEventId);
-    if (TERMINAL.has(agent?.status) && event) return continuation;
+    if (TERMINAL.has(agent?.status) && agent.status !== 'completed') throw Object.assign(new Error('Trinity continuation failed.'), { code: 'TRINITY_WORLD_EXECUTION_INCOMPLETE' });
+    if (agent?.status === 'completed' && event) return continuation;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error(`Adaptive continuation timed out for worker ${continuation.workerId}.`);
 }
 
-module.exports = { run, runQualityDiversityReplicas };
+module.exports = { run, runQualityDiversityReplicas, replicaId, dispatchOnce, waitForContinuation };

@@ -152,7 +152,7 @@ function summarizeVotes(context) {
 
 async function evaluate(input) {
   const requested = input.required === true;
-  if ((!requested && input.outcome !== 'KEEP_PARETO_SET') || !validConfig(input.config)) {
+  if (!juryAvailable(input)) {
     return { status: 'unavailable', reason: requested ? 'jury_configuration_unavailable' : 'jury_not_configured_for_unresolved_frontier', votes: [], decisionAuthority: 'none' };
   }
   const pack = blindPack(input.reports || []);
@@ -167,6 +167,10 @@ async function evaluate(input) {
   }
   const deterministicWinner = input.deterministicWinner || null;
   return summarizeVotes({ votes, mapping: pack.mapping, expectedVotes: models.length, calibrationHistory, deterministicWinner });
+}
+
+function juryAvailable(input) {
+  return (input.required === true || input.outcome === 'KEEP_PARETO_SET') && validConfig(input.config);
 }
 
 async function recordCalibration(context) {

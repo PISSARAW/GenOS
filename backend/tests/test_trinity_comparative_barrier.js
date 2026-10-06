@@ -1,4 +1,7 @@
 const assert = require('node:assert/strict');
+const telemetry = require('../src/services/telemetryObserver');
+const emitted = [];
+telemetry.emitEvent = event => { emitted.push(event); return event; };
 const barrier = require('../src/services/trinityComparativeBarrier');
 
 const workers = [
@@ -42,6 +45,7 @@ assert.equal(barrier.latestReport({ events: [{ failure: { category: 'runtime_fai
 
   const skipped = await barrier.applyTrinityComparison({ db: null, agentId: 'orch-test', workers, usable: dossiers, autonomyPlan: { trinity: { activated: false } } });
   assert.equal(skipped, null);
+  assert.ok(emitted.some(event => event.eventType === 'TRINITY_WORLD_COMPARISON_RECORDED'));
   console.log('Trinity comparative barrier checks: PASS');
 })().catch((error) => {
   console.error('Trinity comparative barrier test failed:', error);

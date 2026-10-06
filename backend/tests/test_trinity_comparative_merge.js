@@ -124,7 +124,7 @@ let emittedEvent = null;
 const origEmit = telemetry.emitEvent;
 telemetry.emitEvent = (evt) => {
   emittedEvent = evt;
-  return origEmit.call(telemetry, evt);
+  return evt;
 };
 
 trinity.recordWorldComparison(null, {

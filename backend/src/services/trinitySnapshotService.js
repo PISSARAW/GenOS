@@ -10,7 +10,7 @@ async function visitWorkspace(state, directory, relative) {
   const entries = (await fs.readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name));
   for (const entry of entries) {
     const child = relative ? path.join(relative, entry.name) : entry.name;
-    if (state.excluded(entry.name) || isSensitivePath(child)) continue;
+    if (state.excluded(entry.name) || ['.genos-epoch', '.genos-vfs.json'].includes(entry.name) || isSensitivePath(child)) continue;
     const childPath = path.join(directory, entry.name);
     const stats = await fs.lstat(childPath);
     if (stats.isSymbolicLink()) continue;

@@ -27,7 +27,7 @@ function trinityModels() {
 
 function assignModels(members, models) {
   if (!models.length) return members;
-  return members.map((member, index) => ({ ...member, localModel: models[index % models.length] }));
+  return members.map((member, index) => ({ ...member, localModel: require('../src/services/trinityWorldDesign').modelFor(member, models, index) }));
 }
 
 function missionFrom(context) {
@@ -43,23 +43,7 @@ function composeMembers(mission, options, assignments) {
     availableAdapters: trinityAdapters.dispatchAdapterNames(), trinityModels: models
   });
   const members = topologyWorkerKinds.applyTopologyWorkerKinds('trinity', assignModels(composed, models), assignments);
-  return members[0]?.variantSelection?.experimentalDesign?.worldTopology === 'factorial_grid'
-    ? expandFactorialMembers(members) : members;
-}
-
-function expandFactorialMembers(members) {
-  const factors = { approach: ['direct', 'planned'], modelTier: ['standard', 'frontier'], validation: ['basic', 'deep'] };
-  const grid = factorial.generateFactorialGrid({ factors, replications: 2, randomize: false });
-  return grid.cells.map((cell, index) => factorialMember({ base: members[index % members.length], cell, worldNumber: index + 1 }));
-}
-
-function factorialMember(input) {
-  const { base, cell, worldNumber } = input;
-  const factors = cell.factors;
-  const directive = `FACTORIAL CELL ${cell.cellId}: approach=${factors.approach}; modelTier=${factors.modelTier}; validation=${factors.validation}. Run this cell as an independent experiment. Return factorialCell {cellId, factors} exactly; cite measured evidence for the result.`;
-  return { ...base, worldNumber, variantIndex: worldNumber - 1, modelTier: factors.modelTier,
-    role: `${base.role}_${factors.approach}_${factors.validation}`,
-    factorialCell: { cellId: cell.cellId, factors }, mission: `${base.mission}\n${directive}` };
+  return members;
 }
 
 async function handle(input) {
@@ -71,13 +55,18 @@ async function handle(input) {
   const assignments = workerAssignmentsFrom(context);
   const { variant, jury, experimentalDesign, adaptiveBudgetConfig, qdConfig } = trinityOptionsFrom(context);
   const members = composeMembers(mission, { variant, jury, experimentalDesign, adaptiveBudgetConfig, qdConfig }, assignments);
-  const requiredSlots = members.length + (usesQDReplicas(members) ? Number(qdConfig.replicaBudget) : 0);
-  if (garage.available < requiredSlots) throw Object.assign(new Error(`Trinity design requires ${requiredSlots} free worker slots`), { code: 'WORKER_GARAGE_FULL' });
   const missionId = context.request.trinityMissionId
     || `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
+  const requiredSlots = await requiredWorldSlots({ db, missionId, members, qdConfig });
+  if (garage.available < requiredSlots) throw Object.assign(new Error('Trinity design requires ' + requiredSlots + ' free worker slots'), { code: 'WORKER_GARAGE_FULL' });
+  const release = await require('../src/services/trinityExecutionJournal').acquire(db, missionId + ':dispatch');
+  try {
   const variantSelection = withDispatchRuntime(members, context.request);
+  const sealed = await require('../src/services/trinityDispatchPreparation').prepare(db, {
+    context, parent, missionId, mission, members, selection: variantSelection
+  });
   await persistDispatchConfig(db, { missionId, mission, variantSelection, juryConfig: jury });
-  const accepted = await launchWorlds({ db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId });
+  const accepted = await launchWorlds({ db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId, sealed });
   const supervision = trinityMissionSupervisor.launch({
     missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot
   });
@@ -86,6 +75,16 @@ async function handle(input) {
     variantSelection: members[0]?.variantSelection,
     capacity: workerGarage.getDynamicCapacity(context.orchestratorId), worlds: accepted, supervision
   } }));
+  } finally { await release(); }
+}
+
+async function requiredWorldSlots(context) {
+  const { db, missionId, members, qdConfig } = context;
+  const existing = await db.all('SELECT w.world_number FROM trinity_worlds w JOIN agents a ON a.id = w.agent_id WHERE w.experiment_id = ?', missionId);
+  const launched = new Set(existing.map(world => world.world_number));
+  const missing = members.filter(member => !launched.has(member.worldNumber)).length;
+  const reserved = existing.length === 0 && usesQDReplicas(members) ? Number(qdConfig.replicaBudget) : 0;
+  return missing + reserved;
 }
 
 function usesQDReplicas(members) {
@@ -97,13 +96,21 @@ function withDispatchRuntime(members, request = {}) {
   if (!selection) return selection;
   return { ...selection,
     recursiveState: { depth: Math.max(0, Number(request.recursiveDepth) || 0),
-      spentBudget: Math.max(0, Number(request.recursiveSpentBudget) || 0) },
-    worldModelAssignments: members.map((member) => ({ worldNumber: member.worldNumber,
-      modelTier: member.modelTier, localModel: member.localModel || null })),
+      spentBudget: Math.max(0, Number(request.recursiveSpentBudget) || 0),
+      parentProblemIds: request.recursiveParentProblemIds || [] },
+    worldModelAssignments: require('../src/services/trinityWorldDesign').modelAssignments(members),
     supervisionTimeoutMs: supervisionTimeoutMs(request),
+    ...replicationConfigs(request),
+    recursiveBudgetTokens: request.trinityRecursiveBudgetTokens,
+    workerExecutionPolicy: request.executionPolicy || null
+  };
+}
+
+function replicationConfigs(request) {
+  return {
     adaptiveBudgetConfig: request.trinity_adaptive_budget || request.trinityAdaptiveBudget || null,
     qdConfig: request.trinity_qd || request.trinityQD || null,
-    workerExecutionPolicy: request.executionPolicy || null
+    sequentialConfig: request.trinity_sequential || request.trinitySequential || null
   };
 }
 
@@ -114,22 +121,30 @@ function supervisionTimeoutMs(request = {}) {
 }
 
 async function persistDispatchConfig(db, config) {
-  await db.run(`INSERT INTO trinity_dispatch_configs
+  await db.run(`INSERT OR IGNORE INTO trinity_dispatch_configs
     (mission_id, mission, variant_selection_json, jury_config_json) VALUES (?, ?, ?, ?)`,
   config.missionId, config.mission, JSON.stringify(config.variantSelection || {}),
   config.juryConfig ? JSON.stringify(config.juryConfig) : null);
 }
 
 async function launchWorlds(input) {
-  const { db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId } = input;
+  const { db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId, sealed } = input;
   const accepted = [];
   for (const member of members) {
-    const workerId = createOrchestratorId(`worker_${context.orchestratorId}_${member.worldNumber}`);
+    const previous = await db.get('SELECT agent_id, status FROM trinity_worlds WHERE experiment_id = ? AND world_number = ?', missionId, member.worldNumber);
+    const existingAgent = previous && await db.get('SELECT status FROM agents WHERE id = ?', previous.agent_id);
+    if (previous && (previous.status !== 'queued' || existingAgent)) {
+      accepted.push({ workerId: previous.agent_id, worldNumber: member.worldNumber, strategy: member.role, status: previous.status, idempotent: true });
+      continue;
+    }
+    const workerId = previous?.agent_id || createOrchestratorId(`worker_${context.orchestratorId}_${member.worldNumber}`);
     const name = `Trinity Worker (World ${member.worldNumber}: ${member.label})`;
-    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
-      VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${member.worldNumber}`, mission,
-    member.worldNumber, name, member.role, workerId);
-    await launchWorker({ db, context, member: { ...member, name, missionScope: { missionId, chamber: member.chamber } }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
+    if (!previous) await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id, experiment_id, chamber, snapshot_hash)
+      VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)`, `${missionId}_world_${member.worldNumber}`, mission,
+    member.worldNumber, name, member.role, workerId, missionId, member.chamber, sealed.snapshotHash);
+    await launchWorker({ db, context, member: { ...member, name, workspaceRoot: sealed.snapshotRoot,
+      executionBudgetTokens: sealed.budget.perChamberTokens[member.worldNumber - 1],
+      missionScope: { missionId, trinityExperimentId: missionId, chamber: member.chamber } }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
     accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
   }
   return accepted;

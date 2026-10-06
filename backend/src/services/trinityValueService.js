@@ -21,12 +21,16 @@ function calculateEvIndex(input = {}) {
     + 0.15 * signals.irreversibility + 0.15 * signals.oracleAvailability
     + 0.10 * (1 - correlation) - 0.15 * budgetRatio
   );
+  const calibration = require('./trinityResearchCalibration');
+  const probability = calibration.evaluate(input.calibrationModel, { ...signals, hypothesisCount, errorCorrelation: correlation, budgetRatio });
   return {
     evIndex: Number(evIndex.toFixed(4)),
     eligible: evIndex >= 0.5 && budgetRatio <= 1,
     missing: [],
     signals: { ...signals, hypothesisCount, errorCorrelation: correlation, budgetRatio },
-    correlationSource: finiteSignal(input.errorCorrelation) === null ? 'policy_prior' : 'historical'
+    correlationSource: finiteSignal(input.errorCorrelation) === null ? 'policy_prior' : 'historical',
+    calibratedProbability: probability,
+    calibrationDigest: probability === null ? null : input.calibrationModel.corpusDigest
   };
 }
 

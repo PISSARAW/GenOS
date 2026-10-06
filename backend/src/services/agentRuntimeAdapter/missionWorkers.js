@@ -20,8 +20,8 @@ function emitTeamComposition(ctx, autonomousWorkers) {
   }
 }
 
-function assertTrinitySnapshot(autonomousWorkers, snapshotHashes) {
-  if (autonomousWorkers.length !== 3) throw Object.assign(new Error('Trinity requires exactly three isolated worlds.'), { code: 'TRINITY_WORLD_COUNT_INVALID' });
+function assertTrinitySnapshot(autonomousWorkers, snapshotHashes, selection) {
+  if (autonomousWorkers.length !== require('../trinityWorldDesign').expectedWorlds(selection)) throw Object.assign(new Error('Trinity requires every planned isolated world.'), { code: 'TRINITY_WORLD_COUNT_INVALID' });
   if (new Set(snapshotHashes).size !== 1) throw Object.assign(new Error('Trinity worlds do not share an identical workspace snapshot.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
 }
 
@@ -49,6 +49,12 @@ async function persistTrinityExperiment(db, input) {
       integrationChecks: normalizedMission.trinityIntegrationChecks,
       claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
     });
+    baseDesign.variantSelection = { ...baseDesign.variantSelection,
+      worldModelAssignments: require('../trinityWorldDesign').modelAssignments(autonomousWorkers.map((worker, index) => ({
+        ...autonomyPlan.trinity.members[index], localModel: worker.localModel || autonomyPlan.trinity.members[index].localModel
+      }))) };
+    baseDesign.snapshotRoot = input.snapshotRoot;
+    baseDesign.orchestratorId = input.orchestratorId;
     const design = await trinityHistoricalMemory.attach(tx, {
       domain: autonomyPlan.trinity.domain, experimentId: trinityMissionId, design: baseDesign
     });
@@ -99,7 +105,7 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
   const { db, agentId, normalizedMission, autonomyPlan } = ctx;
   if (!(autonomyPlan.trinity?.activated && autonomousWorkers.length)) return;
   const snapshotHashes = await Promise.all(autonomousWorkers.map((worker) => hashWorkspace(worker.workspaceRoot)));
-  assertTrinitySnapshot(autonomousWorkers, snapshotHashes);
+  assertTrinitySnapshot(autonomousWorkers, snapshotHashes, autonomyPlan.trinity.variantSelection);
   const executionRunId = ctx.executionRun?.id;
   if (!executionRunId) {
     throw Object.assign(new Error('Trinity requires a persisted execution run id.'), { code: 'TRINITY_EXECUTION_RUN_REQUIRED' });
@@ -108,14 +114,28 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
   autonomyPlan.trinity.missionId = trinityMissionId;
   autonomyPlan.trinity.experimentId = trinityMissionId;
   await tagCounterfactualBranches({ db, orchestratorId: agentId, missionId: trinityMissionId, workers: autonomousWorkers, members: autonomyPlan.trinity.members });
+  const snapshot = await require('../trinitySealedSnapshot').seal({ repoRoot: normalizedMission.workspaceRoot, source: autonomousWorkers[0].workspaceRoot, missionId: trinityMissionId });
+  if (snapshot.hash !== snapshotHashes[0]) throw Object.assign(new Error('Trinity sealed snapshot differs from initial worlds.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
   await persistTrinityExperiment(db, {
     trinityMissionId, snapshotHashes, autonomyPlan, normalizedMission, autonomousWorkers,
+    snapshotRoot: snapshot.root, orchestratorId: agentId,
     budgetPolicy: trinityBudgetPolicy(autonomyPlan, normalizedMission)
   });
-  emit(agentId, 'TRINITY_LAUNCHED', 'COMPOSE_TRINITY', 'Launched three isolated Trinity comparison worlds.', {
+  await bindTrinityWorkers(db, { workers: autonomousWorkers, missionId: trinityMissionId });
+  emit(agentId, 'TRINITY_LAUNCHED', 'COMPOSE_TRINITY', 'Launched every planned isolated Trinity comparison world.', {
     missionId: trinityMissionId,
     worlds: autonomousWorkers.map((worker, index) => ({ workerId: worker.agentId, worldNumber: index + 1, strategy: autonomyPlan.trinity.members[index].role }))
   }, 'info');
+}
+
+async function bindTrinityWorkers(db, input) {
+  const preparation = require('../trinityDispatchPreparation');
+  for (const worker of input.workers) {
+    const scope = { missionId: input.missionId, trinityExperimentId: input.missionId };
+    worker.workspaceId = await preparation.bindWorker(db, { scope, workerId: worker.agentId, workspaceRoot: worker.workspaceRoot });
+    worker.missionScope = scope;
+    worker.toolLease = preparation.restrictLease(scope, worker.toolLease);
+  }
 }
 
 function emitWorkerCreations(agentId, autonomousWorkers) {
@@ -137,6 +157,7 @@ function reportWorkerDispatch(ctx, autonomousWorkers) {
 }
 
 function registerAutonomousRound(ctx, autonomousWorkers) {
+  if (ctx.autonomyPlan.trinity?.activated) return;
   const { agentId, autonomyPlan } = ctx;
   const survivorCount = autonomyPlan.tokenPolicy.rounds?.continuation?.survivorCount;
   if (autonomousWorkers.length && Number.isInteger(survivorCount) && survivorCount > 0) {

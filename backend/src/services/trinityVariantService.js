@@ -128,7 +128,7 @@ const AXES = Object.freeze({
     adaptive_replica_count: policy('implemented', [
       'Sequential experimental design: allocate replicas based on information gain.',
       'Minimum replicas per arm enforced; never eliminate diversity prematurely.',
-      'Bias correction for adaptive sampling (inverse probability weighting).',
+      'Advisory reweighting by empirical allocation frequency; no claim of causal unbiasedness.',
       'Stopping rules: max budget, min uncertainty, or max replicas reached.'
     ], { requiredAdapter: 'sequential_design_scheduler' }),
     quality_diversity_replicas: policy('implemented', [

@@ -37,7 +37,7 @@ function isolatedBaselineInstructions(mission, context) {
 }
 
 function isolatedBaselineLease(context, lease) {
-  if (context.request?.mode !== 'isolated_baseline') return lease || [];
+  if (context.request?.mode !== 'isolated_baseline' && context.request?.mode !== 'trinity') return lease || [];
   const sharedTools = new Set(['genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session', 'genos_change_organization']);
   return (Array.isArray(lease) ? lease : []).filter((tool) => !sharedTools.has(String(tool).toLowerCase()));
 }
@@ -94,7 +94,7 @@ function workerLaunchPayload(args) {
     toolLease: isolatedBaselineLease(context, toolLease),
     execution_budget: selectedBudget(member, context.request),
     timeoutMs: context.request?.timeoutMs,
-    workspace_root: context.request?.workspace_root || parent?.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
+    workspace_root: member.workspaceRoot || context.request?.workspace_root || parent?.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true,
     reuseWorkerId: workerId,
     executor: selectedExecutor(context),

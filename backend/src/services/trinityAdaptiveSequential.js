@@ -7,16 +7,6 @@ const MIN_REPLICAS_PER_ARM = 1;
 const MAX_REPLICAS_PER_ARM = 5;
 const DEFAULT_INFO_GAIN_THRESHOLD = 0.02;
 
-function computeInformationGain(prior, posterior) {
-  if (!prior || !posterior) return 0;
-  let kl = 0;
-  for (const [k, v] of Object.entries(posterior)) {
-    const p = prior[k] || 1e-6;
-    kl += v * Math.log(v / p);
-  }
-  return kl;
-}
-
 function thompsonSample(arms, rng = Math.random) {
   const samples = arms.map(arm => ({
     ...arm,
@@ -81,7 +71,7 @@ function sequentialAllocate(input) {
 function allocationSettings(config) {
   return { minReplicas: config.minReplicasPerArm || MIN_REPLICAS_PER_ARM,
     maxReplicas: config.maxReplicasPerArm || MAX_REPLICAS_PER_ARM,
-    infoGainThreshold: config.infoGainThreshold || DEFAULT_INFO_GAIN_THRESHOLD,
+    infoGainThreshold: config.infoGainThreshold ?? DEFAULT_INFO_GAIN_THRESHOLD,
     seed: config.seed };
 }
 
@@ -119,22 +109,8 @@ function allocateArmOrExplore(input) {
 }
 
 function uncertaintyInformationGain(arms) {
-  const prior = priorRewards(arms);
-  return computeInformationGain(prior, posteriorRewards(arms, prior));
-}
-
-function priorRewards(arms) {
-  return arms.reduce((acc, arm) => { acc[arm.id] = arm.meanReward || 0.5; return acc; }, {});
-}
-
-function posteriorRewards(arms, prior) {
-  const posterior = {};
-  for (const arm of arms) {
-    const mean = prior[arm.id] || 0.5;
-    const uncertainty = Math.sqrt(mean * (1 - mean) / (arm.pulls + 1));
-    posterior[arm.id] = mean * (1 + uncertainty);
-  }
-  return posterior;
+  const statistics = require('./trinitySequentialStatistics');
+  return Math.max(...arms.map(arm => statistics.expectedInformationGain(arm) || 0));
 }
 
 function hashString(str) {
@@ -182,7 +158,7 @@ function stoppingRule(arms, config) {
   const maxPulls = config.maxTotalReplicas || arms.length * (config.maxReplicasPerArm || MAX_REPLICAS_PER_ARM);
   const totalPulls = arms.reduce((s, a) => s + a.pulls, 0);
   if (totalPulls >= maxPulls) return { stop: true, reason: 'max_total_replicas' };
-  const minUncertainty = config.minUncertainty || 0.05;
+  const minUncertainty = config.minUncertainty ?? 0.05;
   const allCertain = arms.every(a => a.pulls > 0 && Math.sqrt(a.meanReward * (1 - a.meanReward) / a.pulls) < minUncertainty);
   if (allCertain) return { stop: true, reason: 'sufficient_certainty' };
   return { stop: false };
@@ -203,9 +179,27 @@ async function runAdaptiveSequentialTrinity(input) {
     if (stopCheck.stop) break;
     const allocation = sequentialAllocate({ arms, totalBudget, spentBudget, config });
     if (!Object.keys(allocation.allocations).length) break;
-    for (const [armId, count] of Object.entries(allocation.allocations)) {
+    spentBudget = await executeAllocation({ input, arms, mission, db, orchestratorId, round, allocation, results, spentBudget, totalBudget });
+  }
+  const biasCorrected = computeBiasCorrectedEstimate(arms);
+  return {
+    experimentalDesignId: `adaptive_seq-v1-${crypto.randomBytes(8).toString('hex')}`,
+    arms: arms.map(a => ({ id: a.id, pulls: a.pulls, meanReward: a.meanReward, alpha: a.alpha, beta: a.beta })),
+    totalPulls: arms.reduce((s, a) => s + a.pulls, 0),
+    spentBudget,
+    biasCorrectedEstimate: biasCorrected, estimateMethod: 'inverse_empirical_allocation_frequency',
+    estimateAuthority: 'advisory', informationGainModel: 'beta_bernoulli_expected_entropy_bits',
+    results,
+    stoppingReason: stoppingRule(arms, config).reason
+  };
+}
+
+async function executeAllocation(context) {
+  const { input, arms, mission, db, orchestratorId, round, allocation, results, totalBudget } = context;
+  let spentBudget = context.spentBudget;
+  for (const [armId, count] of Object.entries(allocation.allocations)) {
       const arm = arms.find(a => a.id === armId);
-      for (let r = 0; r < count; r++) {
+      for (let r = 0; r < count && spentBudget < totalBudget; r++) {
         const result = await input.executeWorld({ worldConfig: arm.worldConfig, mission, db,
           orchestratorId, replica: arm.pulls + 1, round, allocationReason: allocation.reason });
         const observation = result?.report || result;
@@ -218,30 +212,27 @@ async function runAdaptiveSequentialTrinity(input) {
         results.push({ armId, round, result: observation, reward, allocationReason: allocation.reason });
       }
     }
-  }
-  const biasCorrected = computeBiasCorrectedEstimate(arms);
-  return {
-    experimentalDesignId: `adaptive_seq-v1-${crypto.randomBytes(8).toString('hex')}`,
-    arms: arms.map(a => ({ id: a.id, pulls: a.pulls, meanReward: a.meanReward, alpha: a.alpha, beta: a.beta })),
-    totalPulls: arms.reduce((s, a) => s + a.pulls, 0),
-    spentBudget,
-    biasCorrectedEstimate: biasCorrected,
-    results,
-    stoppingReason: stoppingRule(arms, config).reason
-  };
+  return spentBudget;
 }
 
 function validExecutionResult(result) {
   const vector = result?.evidenceVector || {};
   const refs = result?.evidenceVectorEvidence || {};
-  const verified = new Set((Array.isArray(result?.evidence) ? result.evidence : [])
+  const verified = verifiedResultEvidence(result);
+  return ['correctness', 'uncertainty'].every(dimension => measuredDimension({ vector, refs, verified, dimension }));
+}
+function verifiedResultEvidence(result) {
+  return new Set((Array.isArray(result?.evidence) ? result.evidence : [])
     .filter((entry) => entry && typeof entry === 'object'
       && evidenceAudit.isVerifiedReceipt(entry.verificationReceipt || entry.receipt))
     .map((entry) => String(entry.id || '')).filter(Boolean));
-  return ['correctness', 'uncertainty'].every((dimension) => Number.isFinite(vector[dimension])
+}
+function measuredDimension(input) {
+  const { vector, refs, verified, dimension } = input;
+  return Number.isFinite(vector[dimension])
     && vector[dimension] >= 0 && vector[dimension] <= 1
     && Array.isArray(refs[dimension]) && refs[dimension].length > 0
-    && refs[dimension].every((id) => verified.has(String(id))));
+    && refs[dimension].every((id) => verified.has(String(id)));
 }
 
 function extractReward(result) {

@@ -30,13 +30,18 @@ function normalizeAttack(attack, index, attackerWorld) {
   const description = String(attack?.counterexample?.description || '').trim();
   const steps = attack?.counterexample?.reproductionSteps;
   if (!Number.isInteger(targetWorld) || targetWorld < 1 || targetWorld > 3 || targetWorld === attackerWorld) return null;
-  if (!String(attack?.attackStatement || '').trim() || description.length < 12 || !Array.isArray(steps) || !steps.length) return null;
+  if (!validCounterexample(attack, description, steps)) return null;
   return {
     ...attack,
     id: String(attack.id || `attack_${index + 1}`),
     targetWorld,
     severity: ['critical', 'major', 'minor'].includes(attack.severity) ? attack.severity : 'major'
   };
+}
+
+function validCounterexample(attack, description, steps) {
+  return Boolean(String(attack?.attackStatement || '').trim()) && description.length >= 12
+    && Array.isArray(steps) && steps.length > 0;
 }
 
 function normalizeAttacks(attacks, attackerWorld) {
@@ -59,8 +64,8 @@ function extractFalsifiableClaims(report, sourceWorld) {
 function defenderDossier(report, index) {
   const inner = report.report || report;
   return {
-    worldNumber: index + 1,
-    claims: extractFalsifiableClaims(inner, index + 1),
+    worldNumber: report.worldNumber || index + 1,
+    claims: extractFalsifiableClaims(inner, report.worldNumber || index + 1),
     evidence: inner.evidence || [],
     evidenceVector: inner.evidenceVector || {},
     artifactText: inner.artifactText || ''
@@ -88,7 +93,7 @@ async function attackPhase(input) {
   try {
     const result = await modelRouter.generate({
       db: input.db, agentId: input.agentId,
-      cognitiveDomain: 'trinity', cognitiveObjects: { mission, evidence: { defenderDossiers, attackerReport } },
+      cognitiveDomain: 'trinity', cognitiveObjects: { mission: input.mission, evidence: { defenderDossiers, attackerReport } },
       organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
       model: config?.modelUri, prompt, maxTokens: 2000,
       maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'
@@ -102,6 +107,7 @@ async function attackPhase(input) {
 
 async function defendPhase(input) {
   const { defenderReport, attacks, config } = input;
+  if (!attacks.length) return { defenses: [], status: 'not_targeted' };
   const prompt = [
     'You are defending your claims against specific attacks.',
     'For each attack, either: (a) concede with evidence, (b) refute with new evidence, (c) clarify scope.',
@@ -114,22 +120,31 @@ async function defendPhase(input) {
   try {
     const result = await modelRouter.generate({
       db: input.db, agentId: input.agentId,
-      cognitiveDomain: 'trinity', cognitiveObjects: { mission, evidence: { defenderDossiers, attackerReport } },
+      cognitiveDomain: 'trinity', cognitiveObjects: { mission: input.mission, evidence: { defenderReport, attacks } },
       organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
       model: config?.modelUri, prompt, maxTokens: 2000,
       maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'
     });
     const parsed = parseJsonResponse(result.text);
-    return { defenses: Array.isArray(parsed.defenses) ? parsed.defenses : [], model: result.model, provider: result.provider };
+    return { defenses: boundDefenses(parsed.defenses, attacks, defenderReport.worldNumber), model: result.model, provider: result.provider };
   } catch (e) {
     return { defenses: [], error: e.message };
   }
 }
 
+function boundDefenses(defenses, attacks, targetWorld) {
+  const allowed = new Set(attacks.map(attack => attack.id));
+  return (Array.isArray(defenses) ? defenses : []).filter(defense => allowed.has(defense.attackId))
+    .map(defense => ({ ...defense, targetWorld }));
+}
+
 function adjudicate(attacks, defenses, evidenceGates) {
-  const results = [];
-  for (const attack of attacks) {
-    const defense = defenses.find(d => d.attackId === attack.id || d.targetWorld === attack.targetWorld);
+  return attacks.map(attack => adjudicateAttack({ attack, defenses, evidenceGates }));
+}
+function adjudicateAttack(input) {
+  const { attack, defenses, evidenceGates } = input;
+
+    const defense = defenses.find(d => d.attackId === attack.id);
     let verdict = 'undecided';
     let reasoning = '';
     if (!defense) {
@@ -140,7 +155,7 @@ function adjudicate(attacks, defenses, evidenceGates) {
       reasoning = 'Defender conceded the attack';
     } else if (defense.response === 'refute') {
       const hasEvidence = Array.isArray(defense.evidence) && defense.evidence.length > 0;
-      const gatePass = Boolean(evidenceGates?.length)
+      const gatePass = hasEvidence && Boolean(evidenceGates?.length)
         && evidenceGates.every(g => typeof g.passes === 'function' && g.passes(defense.evidence));
       verdict = gatePass ? 'refuted' : 'attack_stands_insufficient_evidence';
       reasoning = gatePass ? 'Defense provided verified evidence' : 'Defense evidence did not pass gates';
@@ -148,9 +163,7 @@ function adjudicate(attacks, defenses, evidenceGates) {
       verdict = 'clarified';
       reasoning = 'Defender clarified claim scope';
     }
-    results.push({ attackId: attack.id, targetWorld: attack.targetWorld, verdict, reasoning, severity: attack.severity });
-  }
-  return results;
+    return { attackId: attack.id, targetWorld: attack.targetWorld, verdict, reasoning, severity: attack.severity };
 }
 
 async function crossExamine(input) {
@@ -163,14 +176,14 @@ async function crossExamine(input) {
   const attacker = worlds[attackerIdx];
   const defenders = worlds.filter((_, i) => i !== attackerIdx);
 
-  const attackerWorldNumber = attackerIdx + 1;
+  const attackerWorldNumber = attacker.worldNumber || attackerIdx + 1;
   const attackResult = await attackPhase({ ...input, attackerWorldNumber, attackerReport: attacker, defenderReports: defenders });
   if (!attackResult.attacks.length) {
     return { phase: 'attack', attacks: [], defenses: [], adjudication: [], note: 'No attacks generated' };
   }
 
   const defenseResults = await Promise.all(defenders.map((defender, i) =>
-    defendPhase({ ...input, defenderReport: defender, attacks: attackResult.attacks.filter(a => a.targetWorld === i + 1), config })
+    defendPhase({ ...input, defenderReport: defender, attacks: attackResult.attacks.filter(a => a.targetWorld === (defender.worldNumber || worlds.indexOf(defender) + 1)), config })
   ));
 
   const allDefenses = defenseResults.flatMap(r => r.defenses || []);
@@ -178,7 +191,7 @@ async function crossExamine(input) {
 
   return {
     phase: 'complete',
-    attackerWorld: attackerIdx + 1,
+    attackerWorld: attackerWorldNumber,
     attacks: attackResult.attacks,
     defenses: allDefenses,
     adjudication,

@@ -12,6 +12,10 @@ function domainProfile(text) {
   return DOMAIN_PROFILES.find(p => p.signals.some(s => s.test(t))) || DEFAULT_PROFILE;
 }
 
+function missionSubject(text) {
+  return String(text || '').split(/\n(?:Task:|Acceptance:|Strategy concept:|Canonical concepts:|Morphogenesis:)/i)[0];
+}
+
 function membersFor(profile, contract) {
   const chambers = ['direct', 'structured', 'falsification'];
   return ['basic_world', 'planned_world', 'ai_corrected_world'].map((label, i) => ({
@@ -37,11 +41,12 @@ const INTERVIEW_PATTERNS = [
 
 function analyzeMission(mission) {
   const text = String(mission || '');
-  const explicitlyRequested = EXPLICIT_PATTERNS.some(p => p.test(text));
-  const interviewForPlan = INTERVIEW_PATTERNS.some(p => p.test(text));
-  const contract = missionContracts.contractFor(text);
-  const baseProfile = domainProfile(text);
-  const profile = contract.domain === 'software_engineering' ? baseProfile
+  const subject = missionSubject(text);
+  const explicitlyRequested = EXPLICIT_PATTERNS.some(p => p.test(subject));
+  const interviewForPlan = INTERVIEW_PATTERNS.some(p => p.test(subject));
+  const contract = missionContracts.contractFor(subject);
+  const baseProfile = domainProfile(subject);
+  const profile = contract.domain === 'software_engineering' || baseProfile.domain !== 'software_engineering' ? baseProfile
     : { ...baseProfile, domain: contract.domain, artifact: contract.artifact };
   return {
     recommended: explicitlyRequested || interviewForPlan,
@@ -64,7 +69,7 @@ function compose(mission, options = {}) {
       code: 'TRINITY_DIVERSITY_BELOW_THRESHOLD', diversity: variantSelection.diversity
     });
   }
-  return trinityVariants.applyToMembers(members, variantSelection);
+  return require('./trinityWorldDesign').expand(trinityVariants.applyToMembers(members, variantSelection));
 }
 
 function normalizeIntegrationChecks(checks) {
@@ -92,26 +97,39 @@ function selectionMethodFor(candidates) {
 function designHypotheses(mission, supplied = {}) {
   const analysis = analyzeMission(mission);
   const candidates = hypothesisDesign.normalizeCandidates(supplied);
-  const selectedTriplet = selectedTripletFor(candidates, analysis);
+  const researchDesign = require('./trinityResearchDesign');
+  const optimized = supplied.research ? researchDesign.select(candidates, supplied.research) : null;
+  if (supplied.research && !optimized) throw Object.assign(new Error('Research hypothesis selection requires a complete admissible model.'), { code: 'TRINITY_RESEARCH_MODEL_REQUIRED' });
+  const selectedTriplet = optimized?.triplet || selectedTripletFor(candidates, analysis);
   const scores = hypothesisDesign.scoreTriplet(selectedTriplet);
-  const experimentDesign = hypothesisDesign.buildDiscriminatingExperiment(selectedTriplet);
+  const experimentDesign = optimized ? researchDesign.designExperiment(selectedTriplet, supplied.research)
+    : hypothesisDesign.buildDiscriminatingExperiment(selectedTriplet);
   const integrationChecks = normalizeIntegrationChecks(supplied.integrationChecks);
   const claimVerificationChecks = normalizeClaimVerificationChecks(supplied.claimVerificationChecks);
   return {
-    centralProblem: String(supplied.centralProblem || mission || '').trim(),
-    assumptions: Array.isArray(supplied.assumptions) ? supplied.assumptions : [],
-    uncertainties: Array.isArray(supplied.uncertainties) ? supplied.uncertainties : [],
-    decisionVariables: Array.isArray(supplied.decisionVariables) ? supplied.decisionVariables : [],
+    ...designContext(supplied, mission),
     candidateHypotheses: candidates.length ? candidates : analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis, sourceRefs: ['mission'] })),
     selectedTriplet,
     ...scores,
     experimentDesign,
     integrationChecks,
     claimVerificationChecks,
-    claimGraph: { trustedRelations: Array.isArray(supplied.claimGraph?.trustedRelations) ? supplied.claimGraph.trustedRelations : [] },
-    selectionMethod: selectionMethodFor(candidates),
-    utilityScore: null
+    selectionMethod: optimized ? 'model_utility_v1' : selectionMethodFor(candidates),
+    ...researchContext(supplied, optimized)
   };
+}
+
+function designContext(supplied, mission) {
+  const list = value => Array.isArray(value) ? value : [];
+  return { centralProblem: String(supplied.centralProblem || mission || '').trim(),
+    assumptions: list(supplied.assumptions), uncertainties: list(supplied.uncertainties),
+    decisionVariables: list(supplied.decisionVariables),
+    claimGraph: { trustedRelations: list(supplied.claimGraph?.trustedRelations) } };
+}
+function researchContext(supplied, optimized) {
+  return { utilityScore: optimized?.utility.score ?? null, utility: optimized?.utility || null,
+    research: supplied.research || null, synthesisPlan: supplied.synthesisPlan || null,
+    dimensionThresholds: supplied.dimensionThresholds || null };
 }
 
 const telemetry = require('./telemetryObserver');
@@ -252,7 +270,7 @@ async function recordWorldComparison(db, comparisonData) {
     for (const w of (comparison?.scoredWorlds || [])) {
       if (w.agentId) {
         const vector = comparison.pareto?.worlds?.find((candidate) => candidate.worldNumber === w.worldNumber)?.vector;
-        await db.run(`UPDATE trinity_worlds SET status = 'compared', evidence_vector_json = ?, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?`, vector ? JSON.stringify(vector) : null, w.agentId);
+        await db.run(`UPDATE trinity_worlds SET status = CASE WHEN status IN ('promoted','candidate','quarantined') THEN status ELSE 'compared' END, evidence_vector_json = ?, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?`, vector ? JSON.stringify(vector) : null, w.agentId);
       }
     }
   }

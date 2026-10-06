@@ -1925,7 +1925,11 @@
                 "type": "string",
                 "enum": [
                   "fixed_three",
-                  "factorial_grid"
+                  "factorial_grid",
+                  "recursive_nesting",
+                  "temporal_horizons",
+                  "oracular_prediction",
+                  "exploratory_novelty"
                 ]
               },
               "hypothesisPolicy": {
@@ -1942,28 +1946,33 @@
                 "type": "string",
                 "enum": [
                   "strategy_controlled",
-                  "heterogeneous"
+                  "heterogeneous",
+                  "provider_diverse"
                 ]
               },
               "interactionPolicy": {
                 "type": "string",
                 "enum": [
                   "sealed",
-                  "adversarial_review_prep"
+                  "adversarial_review_prep",
+                  "adversarial_cross_examination",
+                  "jury_deliberation"
                 ]
               },
               "objectivePolicy": {
                 "type": "string",
                 "enum": [
                   "shared_evidence_vector",
-                  "pareto_orthogonal"
+                  "pareto_orthogonal",
+                  "multi_objective_scalarized"
                 ]
               },
               "temporalPolicy": {
                 "type": "string",
                 "enum": [
                   "single_horizon",
-                  "short_medium_long"
+                  "short_medium_long",
+                  "multi_horizon_grid"
                 ]
               },
               "replicationPolicy": {
@@ -1971,14 +1980,16 @@
                 "enum": [
                   "fixed_three",
                   "adaptive_budget_fixed_replicas",
-                  "adaptive_replica_count"
+                  "adaptive_replica_count",
+                  "quality_diversity_replicas"
                 ]
               },
               "adjudicationPolicy": {
                 "type": "string",
                 "enum": [
                   "evidence_gated",
-                  "blind_jury_advisory"
+                  "blind_jury_advisory",
+                  "deterministic_only"
                 ]
               }
             }

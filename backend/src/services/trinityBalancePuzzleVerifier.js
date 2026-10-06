@@ -22,20 +22,21 @@ function validWeighing(weighing) {
   return weighing.left.every((coin) => !weighing.right.includes(coin));
 }
 
-function follow(tree, oddCoin, direction, depth) {
+function follow(tree, scenario, depth) {
+  const { oddCoin, direction } = scenario;
   if (tree?.result) {
     return depth === 3 && tree.result.coin === oddCoin && tree.result.direction === direction;
   }
   if (depth >= 3 || !validWeighing(tree?.weighing)) return false;
   const branch = weighingResult(tree.weighing, oddCoin, direction);
-  return follow(tree.branches?.[branch], oddCoin, direction, depth + 1);
+  return follow(tree.branches?.[branch], scenario, depth + 1);
 }
 
 function verify(tree) {
   let covered = 0;
   for (let coin = 1; coin <= 12; coin += 1) {
     for (const direction of ['heavy', 'light']) {
-      if (!follow(tree, coin, direction, 0)) return { verified: false, covered, total: 24, counterexample: { coin, direction } };
+      if (!follow(tree, { oddCoin: coin, direction }, 0)) return { verified: false, covered, total: 24, counterexample: { coin, direction } };
       covered += 1;
     }
   }

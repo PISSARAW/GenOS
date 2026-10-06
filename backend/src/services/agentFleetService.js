@@ -31,22 +31,23 @@ async function createAutonomousWorkers(...args) {
 function enforceTrinityBudget(plan) {
   if (plan?.trinity?.activated !== true) return;
   const assignments = Array.isArray(plan.dispatchWorkers) ? plan.dispatchWorkers : [];
-  if (assignments.length !== 3) {
-    throw Object.assign(new Error('Trinity requires exactly three dispatched worlds.'), { code: 'TRINITY_WORLD_COUNT_INVALID' });
+  const count = require('./trinityWorldDesign').expectedWorlds(plan.trinity.variantSelection);
+  if (assignments.length !== count) {
+    throw Object.assign(new Error('Trinity requires every planned dispatched world.'), { code: 'TRINITY_WORLD_COUNT_INVALID' });
   }
   const policy = plan.tokenPolicy || {};
   policy.allocation = plan.trinity.adaptiveBudget === true
     ? 'trinity_adaptive_all_worlds'
     : 'equal_minimum_then_score_weighted';
   policy.rounds = buildAllocation({
-    totalTokens: policy.total,
-    workerShare: policy.workerShare,
-    workerCount: 3,
+    totalTokens: require('./trinityBudgetPolicy').initialWorkerPool(policy, plan.trinity.variantSelection),
+    workerShare: 1,
+    workerCount: count,
     minimumWorkerTokens: policy.minimumWorkerTokens,
     mode: policy.allocation
   });
-  if (policy.rounds.initial.workerCount !== 3) {
-    throw Object.assign(new Error('The available budget cannot fund three Trinity worlds.'), { code: 'TRINITY_BUDGET_INSUFFICIENT' });
+  if (policy.rounds.initial.workerCount !== count) {
+    throw Object.assign(new Error('The available budget cannot fund every Trinity world.'), { code: 'TRINITY_BUDGET_INSUFFICIENT' });
   }
 }
 

@@ -38,7 +38,6 @@ function getRunnerStdio(processId) {
     return ['pipe', 'pipe', 'pipe'];
   }
 }
-
 function launchDetached(context, runnerRequest, detachedProcessId) {
   const stdio = getRunnerStdio(detachedProcessId);
   const env = buildRunnerEnv();
@@ -61,7 +60,6 @@ function buildRunnerEnv() {
     GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator'
   };
 }
-
 function spawnDetachedRunner(context, runnerRequest, runnerEnv) {
   const helper = require('./detachedSpawn.cjs');
   const args = [context.bridgePath, ...helper.toSpawnArgs(JSON.stringify(runnerRequest))];
@@ -71,7 +69,6 @@ function spawnDetachedRunner(context, runnerRequest, runnerEnv) {
   runner.unref();
   return runner;
 }
-
 async function trackDetachedProcess(context, detachedProcessId, runner) {
   const trackingDb = await context.getDatabase();
   try {
@@ -84,7 +81,6 @@ async function trackDetachedProcess(context, detachedProcessId, runner) {
     await context.closeDatabase();
   }
 }
-
 async function handleBackground(context) {
   let reusableWorker = null;
   if (context.action === 'dispatch_worker') {
@@ -127,7 +123,6 @@ async function handlePhilosophyRequest({ request, orchestratorId }) {
   const result = await philosophyRouter.handlePhilosophyRequest({ request, orchestratorId });
   process.stdout.write(JSON.stringify({ orchestratorId, philosophy: result }));
 }
-
 async function handleReportProgress({ db, request, orchestratorId, task }) {
   const parent = await ensureProgressParent({ db, orchestratorId, task });
   if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
@@ -220,17 +215,14 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
     : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
   process.stdout.write(JSON.stringify(result || { orchestratorId, organization: 'specialist_expert_committee', version: 0 }));
 }
-
 async function handleTeam(opts) {
   const handlers = require('../bin/topologyHandlers.cjs');
   return handlers.handleTeam(opts.db, opts.context);
 }
-
 async function handleBiological(opts) {
   const handlers = require('../bin/topologyHandlers.cjs');
   return handlers.handleBiological(opts.db, opts.context);
 }
-
 async function handleTrinity(opts) {
   const handlers = require('../bin/topologyHandlers.cjs');
   return handlers.handleTrinity(opts.db, opts.context);
@@ -256,11 +248,13 @@ async function prepareWorker({ db, context, parent, reusable }) {
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(request.workerKind, role);
   await workerGarage.requireAvailableSlot(db, context.orchestratorId, workerSlotId(context));
   const name = workerName(request, role, context.task);
-  const sourceWorkspace = workspaceFor(parent, context);
+  const trinityPreparation = require('../src/services/trinityDispatchPreparation');
+  const sourceWorkspace = await trinityPreparation.sourceFor(db, { context, parent });
   validateWorkspace(request.workspace_root, sourceWorkspace);
   const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, workerCapsuleId(context), process.env.GENOS_CAPSULE_ROOT);
   await insertWorker({ db, context, parent, request, name, role, workerKind });
-  return { name, role, workerKind, methodContract: request.methodContract, workerAssignment: request.workerAssignment, workspaceRoot };
+  const workspaceId = await trinityPreparation.bindWorker(db, { workerId: context.id, workspaceRoot, scope: request.missionScope });
+  return { name, role, workerKind, methodContract: request.methodContract, workerAssignment: request.workerAssignment, workspaceRoot, workspaceId };
 }
 function workerRole(request) { return String(request.role || 'implementation'); }
 function workerSlotId(context) { return context.reusedWorker ? context.id : null; }
@@ -307,18 +301,14 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
     missionBudget.latencyMs = Math.max(1000, Number(context.request.timeoutMs) - 4000);
   }
   const workerPrompt = aTeamService.dependencyPrompt(context.task, context.request.depends_on);
-
   const localRuntime = requestLocalRuntime(context.request);
-
   const capabilityCtx = buildCapabilityContext(context, parent, missionBudget);
   const capabilityManifest = buildCapabilityManifest(capabilityCtx);
   const capabilities = capabilityManifest.owned || [];
-  const toolLease = workerToolLeaseForCapabilities(worker.role, capabilities);
-
-  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, modelTier: parent.model_tier, variantIndex: context.request.variantIndex, localModel: context.request.localModel, localRoutingPolicy: context.request.localRoutingPolicy }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
-  await dispatchWorkerMission({ agentId: context.id, missionId: context.missionId, name: worker.name, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, localRuntime, localModel: workerLaunch.localModel, localRoutingPolicy: workerLaunch.localRoutingPolicy, variantIndex: workerLaunch.variantIndex });
+  const toolLease = require('../src/services/trinityDispatchPreparation').restrictLease(context.request.missionScope, workerToolLeaseForCapabilities(worker.role, capabilities));
+  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, modelTier: parent.model_tier, variantIndex: context.request.variantIndex, localModel: context.request.localModel, localRoutingPolicy: context.request.localRoutingPolicy, executionBudgetTokens: worker.executionBudget?.tokens }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
+  await dispatchWorkerMission({ agentId: context.id, missionId: context.missionId, name: worker.name, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, prompt: workerLaunch.mission, missionScope: context.request.missionScope, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: worker.workspaceId || parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, localRuntime, localModel: workerLaunch.localModel, localRoutingPolicy: workerLaunch.localRoutingPolicy, variantIndex: workerLaunch.variantIndex });
 }
-
 function buildCapabilityContext(context, parent, missionBudget) {
   const request = context.request || {};
   return {

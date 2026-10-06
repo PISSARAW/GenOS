@@ -122,8 +122,12 @@ function calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWo
     ...(normalizedMission.trinitySignals || {}),
     budgetRatio: availableTokens > 0 ? plannedTokens / availableTokens : Infinity
   });
+  const explicitRequest = normalizedMission.trinityMode === 'explicit'
+    || normalizedMission.proposedTopology === 'trinity'
+    || normalizedMission.morphologyTopology === 'trinity';
   const automaticRequest = normalizedMission.trinityMode === 'auto';
   autonomyPlan.trinity.activated = (autonomyPlan.trinity.explicitlyRequested
+    || explicitRequest
     || (automaticRequest && autonomyPlan.trinity.ev.eligible))
     && autonomyPlan.trinity.budgetPermitsLaunch;
   return { trinityWorkerCount, affordableTrinityMembers, automaticRequest };
@@ -150,17 +154,22 @@ async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, 
     variantId: requestedVariant,
     experimentalDesign: normalizedMission.trinityExperimentalDesign || normalizedMission.experimentalDesign,
     trinityJury: normalizedMission.trinityJury,
+    adaptiveBudgetConfig: normalizedMission.trinityAdaptiveBudget, qdConfig: normalizedMission.trinityQD,
     availableAdapters: trinityVariants.adapters.dispatchAdapterNames()
   });
-  autonomyPlan.trinity.members = trinityVariants.applyToMembers(
-    autonomyPlan.trinity.members, autonomyPlan.trinity.variantSelection
-  );
+  const worlds = require('./trinityDifferentiationService').differentiate(autonomyPlan.trinity.members, {
+    goal: missionText(normalizedMission), domain: autonomyPlan.trinity.domain, design: autonomyPlan.trinity.variantSelection.experimentalDesign });
+  autonomyPlan.trinity.members = require('./trinityWorldDesign').expand(trinityVariants.applyToMembers(
+    worlds, autonomyPlan.trinity.variantSelection
+  ));
   autonomyPlan.trinity.dimensionThresholds = normalizedMission.trinityDimensionThresholds || {};
   autonomyPlan.trinity.statisticalContract = normalizedMission.trinityStatisticalContract || null;
   autonomyPlan.trinity.adaptiveBudget = normalizedMission.trinityAdaptiveBudget === true
     || autonomyPlan.trinity.variantSelection.effects?.adaptiveBudget === true;
   const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);
   await trinityModelDiversity.enforcePlan({ autonomyPlan, normalizedMission, agentId, db, dispatchedAgent });
+  autonomyPlan.trinity.members = require('./trinityWorldDesign').assignFactorialModels(
+    autonomyPlan.trinity.members, normalizedMission.trinityModels || autonomyPlan.trinity.members.map(member => member.localModel));
   await applyTrinityHypothesisDesign(autonomyPlan.trinity, normalizedMission, {
     db, agentId, organizationId: dispatchedAgent.organization_id, projectId: dispatchedAgent.project_id
   });
@@ -172,6 +181,7 @@ async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, 
 }
 
 async function applyTrinityHypothesisDesign(trinity, normalizedMission, context) {
+  trinity.variantSelection = require('./trinityWorldDesign').runtimeSelection(trinity, normalizedMission);
   const baseDesign = trinity.activated
     ? await trinityHypothesisGeneration.design({ ...context, normalizedMission })
     : trinityService.designHypotheses(missionText(normalizedMission), {
@@ -186,7 +196,7 @@ async function applyTrinityHypothesisDesign(trinity, normalizedMission, context)
   };
   trinity.hypothesisDesign = design;
   trinity.members = trinity.members.map((member, index) => {
-    const selected = design.selectedTriplet[index];
+    const selected = design.selectedTriplet[member.factorialCell ? 0 : index % 3];
     return selected ? {
       ...member,
       hypothesis: hypothesisDesign.hypothesisText(selected, member.hypothesis),

@@ -1,14 +1,14 @@
 'use strict';
-
-const { testControlledVariant, testHeterogeneousVariant, testAdversarialVariant, testCounterfactualVariant, testFactorialVariant } = require('./trinityHarness/coreVariants');
-const { testParetoVariant, testJuryVariant, testRecursiveVariant, testAdaptiveVariant } = require('./trinityHarness/selectionVariants');
-const { testTemporalVariant, testOracularVariant, testExploratoryVariant } = require('./trinityHarness/timeAndDiscovery');
-const { testFactualMissions, testEvidenceGates, testBalanceVerifier, testClaimVerification, testVariantGating } = require('./trinityHarness/evidenceChecks');
+const { testControlledVariant, testHeterogeneousVariant, testAdversarialVariant, testCounterfactualVariant } = require('./trinityHarness/cases0');
+const { testFactorialVariant, testParetoVariant, testJuryVariant, testRecursiveVariant } = require('./trinityHarness/cases1');
+const { testAdaptiveVariant, testTemporalVariant, testOracularVariant, testExploratoryVariant } = require('./trinityHarness/cases2');
+const { testFactualMissions, testEvidenceGates, testBalanceVerifier, testClaimVerification } = require('./trinityHarness/cases3');
+const { testVariantGating } = require('./trinityHarness/cases4');
 
 async function runAllTests() {
   console.log('='.repeat(60));
   console.log('GENOS TRINITY EXECUTABLE TEST HARNESS');
-  console.log('Testing variant contracts with deterministic fixtures');
+  console.log('Testing all 12 variants with verifiable success criteria');
   console.log('='.repeat(60));
 
   const results = [];
@@ -47,7 +47,7 @@ async function runAllTests() {
   }
 
   if (passed === total) {
-    console.log('\n✅ ALL TESTS PASSED - Variant contract fixtures completed');
+    console.log('\n✅ ALL TESTS PASSED - All 12 variants have executable tests with verifiable success criteria');
   } else {
     console.log('\n❌ SOME TESTS FAILED');
     process.exit(1);

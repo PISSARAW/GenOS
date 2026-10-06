@@ -18,8 +18,7 @@ function run(input) {
   if (design.worldTopology === 'oracular_prediction' || design.hypothesisPolicy === 'oracle_prediction') {
     executions.oracle = runOracle(input.reports);
   }
-  if (design.worldTopology === 'exploratory_novelty' || design.hypothesisPolicy === 'novelty_seeking'
-    || design.replicationPolicy === 'quality_diversity_replicas') {
+  if (qualityDiversityRequired(design)) {
     executions.qualityDiversity = runQualityDiversity(input.reports);
   }
   if (design.hypothesisPolicy === 'counterfactual_dimensions') {
@@ -30,6 +29,11 @@ function run(input) {
     executions.scalarizedObjectives = runScalarizedObjectives(input.reports);
   }
   return { status: Object.values(executions).every((entry) => entry.status === 'executed') ? 'executed' : 'incomplete', executions };
+}
+
+function qualityDiversityRequired(design) {
+  return design.worldTopology === 'exploratory_novelty' || design.hypothesisPolicy === 'novelty_seeking'
+    || design.replicationPolicy === 'quality_diversity_replicas';
 }
 
 function runScalarizedObjectives(reports) {
