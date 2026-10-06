@@ -149,7 +149,7 @@ function evictIfFull(memory) {
   while (memory.length >= MAX_MEMORY_ENTRIES) {
     let victim = 0;
     for (let i = 1; i < memory.length; i++) {
-      if (memory[i].affinity < memory[victim].affinity) victim = i;
+      if (recallStrength(memory[i]) < recallStrength(memory[victim])) victim = i;
     }
     memory.splice(victim, 1);
   }

@@ -44,7 +44,7 @@ async function insertPending(db, scopeId, entry) {
     `INSERT INTO ${TABLE} (scope_id, signature, pattern_json, domain, evidence_json,
       effective_response_json, affinity, failures, successes, pending, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 1, ?, ?)
-     ON CONFLICT(scope_id, signature) DO NOTHING`,
+     ON CONFLICT(scope_id, signature) DO UPDATE SET updated_at = MAX(updated_at, excluded.updated_at)`,
     scopeId, entry.signature, JSON.stringify(entry.pattern), entry.domain || 'general',
     jsonOrNull(entry.evidence), jsonOrNull(entry.effectiveResponse), entry.affinity,
     entry.createdAt, entry.updatedAt,
@@ -55,7 +55,7 @@ async function enforceRetention(db, scopeId) {
   await db.run(
     `DELETE FROM ${TABLE} WHERE scope_id = ? AND signature NOT IN (
       SELECT signature FROM ${TABLE} WHERE scope_id = ?
-      ORDER BY affinity DESC, updated_at DESC LIMIT ?)`,
+      ORDER BY updated_at DESC, affinity DESC LIMIT ?)`,
     scopeId, scopeId, MEMORY_LIMIT,
   );
 }
@@ -118,7 +118,7 @@ async function outcomeFromAssembly(db, input) {
 function executionRefutes(receipt, test) {
   if (receipt.status !== 'refuted') return false;
   return (receipt.executionEvidence || []).some((item) => {
-    if (item.command !== test.command) return false;
+    if (item.command !== test.command || item.timedOut) return false;
     if (test.expectOutput === undefined) return item.exitCode !== 0;
     return item.success === true && String(item.stdout || '').trim() !== String(test.expectOutput).trim();
   });
