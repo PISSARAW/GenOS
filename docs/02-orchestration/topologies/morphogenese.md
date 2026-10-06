@@ -2155,6 +2155,26 @@ La Morphogenèse GenOS est le système de contrôle vivant qui donne aux organis
 
 ## 45. État d'implémentation du runtime
 
+### Garage Fabric : circulation distincte de la morphologie
+
+La construction morphogénétique choisit les rôles, méthodes, dépendances et
+contrats. [Garage Fabric](garage-fabric.md) contrôle leur circulation dans le
+runtime commun des workers : douze politiques d'admission, file SQLite durable,
+baux clôturés, réservation locale/projet et préemption consentie. Il ne crée
+pas une neuvième topologie, ne change pas un `WorkerKind` et n'accorde pas de
+permissions MCP supplémentaires.
+
+Le démarrage commun adopte les workers sans demande Garage et lie la tentative
+au run exact ; cela ne transforme pas un graphe seulement composé en exécution.
+La fin requiert la preuve typée du run courant. Le cycle snapshot/freeze/thaw
+reprend des fichiers vérifiés dans une nouvelle capsule, avec le budget restant
+mesuré : ce n'est pas une restauration transparente du processus ni du contexte
+LLM. L'état détaillé et les contrôles sont dans la
+[référence Garage](garage-fabric.md) et le
+[runtime agentique](../../01-concepts/runtime-agentique.md).
+
+### Autres composants morphogénétiques
+
 Le dépôt contient des services Node pour le graphe morphologique, son
 validation et son typage, l'évaluation et les contraintes, les transitions,
 les baux, les reçus et l'observabilité. Des adaptateurs relient également

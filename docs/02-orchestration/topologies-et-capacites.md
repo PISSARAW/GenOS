@@ -87,6 +87,22 @@ leur composition seule ne lance pas nécessairement les workers. Voir
 [Types de workers](../03-reference/types-de-workers.md#141-types-de-workers-vs-rôles-de-mission)
 et [ADR 0123](../adr/0123-separer-profil-worker-et-contrat-de-methode.md).
 
+### 3.2 Garage Fabric : circulation transversale
+
+La morphogenèse choisit les rôles, méthodes, topologies et contrats. Le
+[Garage Fabric](topologies/garage-fabric.md) ordonne ensuite les exécutions :
+admission, attente durable, priorités, dépendances vérifiées, préemption
+consentie et reprise depuis une capsule de fichiers. Ses douze politiques
+ne sont ni douze topologies supplémentaires, ni des capacités d'outils.
+
+La file SQLite, les baux clôturés et les réservations transactionnelles
+protègent les plafonds locaux et projet. Chaque départ revérifie l'autorité,
+le contrat du worker et le circuit breaker. Aucun mode Garage n'accorde de
+lease MCP, ne modifie un `WorkerKind` ou ne remplace une barrière d'évidence.
+La fin exige la preuve typée du run courant ; la persistance de la file
+n'implique pas une restauration transparente des processus. Voir aussi le
+[runtime agentique](../01-concepts/runtime-agentique.md).
+
 ### Plan exécuté pour Rhizome et Biome
 
 1. Exposer leurs sessions dans le catalogue MCP et le dispatch local (`genos_biological_mode`, `genos_topology_session`).

@@ -27,6 +27,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [dossiers-agents-et-conscience.md](dossiers-agents-et-conscience.md) — dossiers de preuves, conscience opérationnelle et transitions.
 - [contrats-strategie-et-execution.md](contrats-strategie-et-execution.md) — contrats versionnés, sélection et approbation des runs.
 - [topologies/morphogenese.md](topologies/morphogenese.md) — cadre transversal de construction et de composition des organisations cognitives.
+- [topologies/garage-fabric.md](topologies/garage-fabric.md) — circulation transversale des workers : admission, file durable, préemption consentie, snapshots et reprise avec budget restant.
 - [meristeme-epistemique.md](meristeme-epistemique.md) — croissance par distinctions expérimentales non couvertes.
 - [spirale-de-deblocage.md](spirale-de-deblocage.md) — tentatives distinctes et recherche à échelle bornée.
 - [chronotaxie-aperiodique.md](chronotaxie-aperiodique.md) — déphasage reproductible et couverture temporelle observée.

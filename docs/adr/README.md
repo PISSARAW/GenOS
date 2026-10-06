@@ -369,7 +369,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0309](0309-evaluation-isolee-variants-a-team.md) | Évaluation isolée des variantes A-Team | Accepté | 2026-10-04 | A-Team, contrats de variante, preuve, dispatch |
 | [0310](0310-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
 | [0311](0311-autorisation-cedar-agents.md) | Autorisation Cedar des missions et du contrôle d'agents | Accepté | 2026-10-04 | autorisation, missions, délégation, relations |
-| [0312](0312-garage-fabric-adaptatif.md) | Garage Fabric adaptatif pour le control plane | Accepté — première tranche de fondation | 2026-10-05 | orchestration, workers, capacité, résilience |
+| [0312](0312-garage-fabric-adaptatif.md) | Garage Fabric adaptatif pour le control plane | Accepté — runtime durable, fencing et preuves terminales raccordés | 2026-10-05 | orchestration, workers, capacité, résilience |
 | [0313](0313-niveaux-maturite-et-criteres-certification.md) | Niveaux de maturité et critères de certification | Accepté | 2026-10-05 | Gouvernance, maturité, certification, métaphysique |
 | [0314](0314-critere-reussite-global-et-matrice-statut.md) | Critère de réussite global et matrice de statut des concepts | Accepté | 2026-10-05 | Gouvernance, statut, transparence, audit |
 | [0315](0315-terminologie-organisme-computationnel.md) | Terminologie : organisme computationnel vs biologique | Accepté | 2026-10-05 | Biomimétique, terminologie, anti-anthropomorphisme |

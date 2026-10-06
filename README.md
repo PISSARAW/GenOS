@@ -68,6 +68,7 @@ Fonctionnalités implémentées :
 - **GenOS Studio** et backend Node.js : plan de contrôle, API REST, services gRPC et persistance SQLite WAL.
 - **CLI Rust** et serveur MCP stdio pour les opérations locales et les intégrations.
 - **Runtime agentique supervisé** : lance des runtimes configurés, collecte leurs événements, applique des budgets et conserve les résultats et preuves.
+- **[Garage Fabric](docs/02-orchestration/topologies/garage-fabric.md)** : douze politiques de circulation des workers, file SQLite durable, réservation transactionnelle, baux clôturés et préemption consentie avec snapshot vérifié. La reprise restaure les fichiers et le budget restant, pas la mémoire du processus ; ce service transversal n'est pas une neuvième topologie.
 - **Routage de modèles implémenté** : modèles distants via OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together et OpenRouter ; modèles locaux via Ollama, LM Studio et vLLM ; endpoints compatibles OpenAI configurables.
 - **Politiques de routage** configurables par agent, tenant ou environnement, avec ordre de fallback ; le mode parallèle est disponible avec une limite de coût explicite.
 - **Huit topologies d'orchestration** avec services de coordination et contrats de capacités. La présence d'un mode ne signifie pas que chaque capacité du profil est complète ou activée dans chaque installation.
