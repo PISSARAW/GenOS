@@ -6,7 +6,7 @@ const MAX_OFFLINE = 7*24*60*60*1000;
 
 function createLocalFirstVariantService(syn) {
   return {
-    createLocalFirstSession: (m, o) => createSession(m, o, syn),
+    createLocalFirstSession: (m, o = {}) => createSession(m, o, syn),
     recordHybridClock: (ctx) => applyHLC({ ...ctx, syn }),
     syncPeer: (ctx) => syncFromPeer({ ...ctx, syn }),
     partitionOffline: (ctx) => partitionAndWorkOffline({ ...ctx, syn }),

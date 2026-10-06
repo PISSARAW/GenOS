@@ -48,6 +48,29 @@ async function main() {
   assert.deepEqual(auditView.shared.sharedFields, { 'docs.public': 'visible' });
   assert.equal(auditView.shared.textContent, '');
   assert.deepEqual(Object.keys(auditView.schema.fields), ['docs.public']);
+  const captured = await syncytium.createSnapshot(session.sessionId, { domainId: 'audit' });
+  assert.equal(captured.crdtState, undefined);
+  assert.deepEqual(captured.shared.sharedFields, { 'docs.public': 'visible' });
+  const listed = await syncytium.listSnapshots(session.sessionId, { domainId: 'audit' });
+  assert.equal(listed[0].crdtState, undefined);
+  listed[0].shared.sharedFields['docs.public'] = 'tampered';
+  assert.equal((await syncytium.listSnapshots(session.sessionId))[0].shared.sharedFields['docs.public'], 'visible');
+  const history = await syncytium.inspectHistory(session.sessionId, { domainId: 'audit' });
+  assert.deepEqual(history.operations.map(item => item.opId), ['docs-public']);
+  const joined = await syncytium.joinReplica(session.sessionId, { replicaId: 'audit-replica', actorId: 'auditor' }, { domainId: 'audit' });
+  assert.equal(joined.snapshot.crdtState, undefined);
+  assert.equal(joined.snapshot.shared.sharedFields['docs.private'], undefined);
+  const full = await syncytium.snapshot(session.sessionId);
+  await syncytium.acknowledgeReplica(session.sessionId, 'audit-replica', { frontier: full.shared.causalFrontier });
+  await syncytium.compactHistory(session.sessionId);
+  const rejoining = await syncytium.reconcileReplica(session.sessionId, 'audit-replica', {
+    frontier: {}, options: { domainId: 'audit' }
+  });
+  assert.equal(rejoining.snapshotRequired, true);
+  assert.deepEqual(rejoining.snapshot.sharedFields, { 'docs.public': 'visible' });
+  assert.equal(rejoining.snapshot.crdtState, undefined);
+  await assert.rejects(() => syncytium.createSnapshot(session.sessionId, { domainId: 'missing' }),
+    error => error.code === 'SYNCYTIUM_DOMAIN_UNKNOWN');
   await assert.rejects(() => syncytium.snapshot(session.sessionId, { domainId: 'missing' }),
     (error) => error.code === 'SYNCYTIUM_DOMAIN_UNKNOWN');
 }

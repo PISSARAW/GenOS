@@ -286,7 +286,6 @@ async function simulatePartition(context) {
     status: 'ACTIVE'
   };
 
-  await syncytium.partitionReplica(sessionId, replicaId, { db: options.db });
   await syncytium.applyOperation(sessionId, {
     opId,
     actorId: entry.actorId,
@@ -295,6 +294,7 @@ async function simulatePartition(context) {
       key: 'partitions', action: 'set', entryKey: replicaId, value: entry
     }
   }, { ...options, replicaId: undefined });
+  await syncytium.partitionReplica(sessionId, replicaId, { db: options.db });
 
   return {
     partitionId: entry.partitionId,

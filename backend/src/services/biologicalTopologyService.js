@@ -98,7 +98,7 @@ async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
   } : {});
   const session = await syncytiumCoordinationService.createPolicySession(mission, {
     variantId: options.variantId || options.variant,
-    configuration,
+    configuration: { useVariantRuntime: true, ...configuration },
     sessionOptions: {
       ...(options.sessionOptions || {}), db,
       nuclearDomains: options.sessionOptions?.nuclearDomains

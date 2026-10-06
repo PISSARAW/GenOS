@@ -8,6 +8,7 @@ function join(session, input) {
   const actorId = String(input?.actorId || '').trim();
   if (!replicaId || !actorId) throw replicaError('SYNCYTIUM_REPLICA_INVALID', 'Replica requires replicaId and actorId.');
   const current = session.replicas[replicaId];
+  if (current && current.actorId !== actorId) throw replicaError('SYNCYTIUM_REPLICA_ACTOR_MISMATCH', 'Replica identity belongs to another actor.');
   if (current && current.status !== 'RETIRED') return { replica: current, snapshot: null, duplicate: true };
   const snapshot = snapshots.capture(session);
   const replica = {
@@ -63,7 +64,9 @@ function normalizeOfflineAuthority(input = {}) {
 
 function acknowledge(session, replicaId, frontier) {
   const replica = findReplica(session, replicaId);
+  if (replica.offlineOperations.length) throw replicaError('SYNCYTIUM_REPLICA_PENDING_OPERATIONS', 'Offline operations must reconcile before acknowledging.');
   const nextFrontier = stability.acknowledgeable(session, frontier);
+  if (replica.status === 'RETIRED') throw replicaError('SYNCYTIUM_REPLICA_RETIRED', 'A retired replica must rejoin before acknowledging.');
   for (const [actor, version] of Object.entries(replica.causalFrontier)) {
     if ((nextFrontier[actor] || 0) < version) throw replicaError('SYNCYTIUM_REPLICA_FRONTIER_REGRESSION', 'Replica causal frontier cannot move backwards.');
   }
@@ -84,6 +87,7 @@ function leave(session, replicaId) {
 function partition(session, replicaId) {
   const replica = findReplica(session, replicaId);
   if (replica.status === 'RETIRED') throw replicaError('SYNCYTIUM_REPLICA_RETIRED', 'A retired replica cannot enter a partition.');
+  if (replica.status !== 'PARTITIONED') replica.offlineCrdtState = session.crdt.serialize();
   replica.status = 'PARTITIONED';
   replica.lastSeenMs = Date.now();
   return replica;

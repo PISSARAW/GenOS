@@ -249,7 +249,8 @@ async function handleBiological(db, context) {
   if (mode === 'syncytium' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
     out.biologicalMode.dispatchFailures = context.dispatchFailures || [];
   }
-  if (semanticValidation) syncytiumMissionCompletion.applySemanticValidation(out.biologicalMode, semanticValidation, members.length);
+  await syncytiumMissionCompletion.validateAndComplete({ db, sessionId: composition.sessionId,
+    output: out.biologicalMode, validation: semanticValidation, expectedCount: members.length });
   await applyRhizomeResults({ db, context, mode, topology, accepted, parent, output: out });
   process.stdout.write(JSON.stringify(out));
   if ((mode === 'syncytium' && !out.biologicalMode.complete)

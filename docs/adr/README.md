@@ -380,6 +380,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0326](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
 | [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté. | 2026-10-06. | Régénération, cognition, plasticité. |
 | [0328](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
+| [0331](0331-syncytium-rejeu-causal-et-preuve-de-completion.md) | Syncytium : rejeu causal et preuve de complétion | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

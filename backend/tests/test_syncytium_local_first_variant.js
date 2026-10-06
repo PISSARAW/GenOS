@@ -3,6 +3,12 @@
 const assert = require('node:assert/strict');
 const syncytium = require('../src/services/syncytiumCoordinationService');
 
+async function atTime(timestamp, action) {
+  const previous = Date.now;
+  Date.now = () => timestamp;
+  try { return await action(); } finally { Date.now = previous; }
+}
+
 async function main() {
   const session = await syncytium.createLocalFirstSession('Continue work offline and reconcile later.');
   const common = { sid: session.sessionId, dev: 'device-a', o: { actorId: 'user-a', offlineDurationMs: 60000 } };
@@ -27,9 +33,9 @@ async function main() {
   (error) => error.message.includes('7 days'));
 
   const expiring = await syncytium.partitionOffline({ sid: session.sessionId, dev: 'device-c',
-    ops: [{ payload: { field: 'notes', value: 'expired' } }], o: { actorId: 'user-c', offlineDurationMs: 50 } });
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  const expiry = await syncytium.reconcileQueue({ sid: session.sessionId, dev: 'device-c', vc: {}, o: {} });
+    ops: [{ payload: { field: 'notes', value: 'expired' } }], o: { actorId: 'user-c', offlineDurationMs: 7 * 86400000 } });
+  const expiry = await atTime(expiring.entries[0].expiresAt + 1, () =>
+    syncytium.reconcileQueue({ sid: session.sessionId, dev: 'device-c', vc: {}, o: {} }));
   assert.deepEqual(expiry.expired, expiring.operationIds);
   assert.equal(expiry.reconciled, 0);
   console.log('Syncytium local-first queue and reconciliation checks: PASS');

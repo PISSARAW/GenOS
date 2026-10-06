@@ -1,6 +1,7 @@
 'use strict';
 
 const snapshotService = require('./snapshotService');
+const projection = require('./historyProjection');
 const garbageCollection = require('./garbageCollectionService');
 const replicaRegistry = require('../replicas/replicaRegistryService');
 const replicaHealth = require('../replicas/replicaHealthService');
@@ -37,6 +38,7 @@ async function reconcileReplica(context) {
     const session = await dependencies.getSession(sessionId, options.db);
     const replica = session.replicas[replicaId];
     if (!replica || replica.status === 'RETIRED') throw Object.assign(new Error(`Unknown active replica '${replicaId}'.`), { code: 'SYNCYTIUM_REPLICA_UNKNOWN' });
+    projection.domainFor(session, options);
     const previousCrdt = session.crdt;
     const previousReplica = structuredClone(replica);
     const pendingOperations = input.operations || replica.offlineOperations;
@@ -65,37 +67,35 @@ async function reconcileReplica(context) {
       session.pendingReplicaEvent = null;
       throw error;
     }
-    return {
+    return projection.result(session, {
       replicaId, status: replica.status, accepted: result.accepted.map((operation) => operation.opId),
       expired: expiredOperations.map((operation) => operation.opId),
       missingOperations: result.missingOperations, snapshotRequired: result.snapshotRequired, snapshot: result.snapshot
-    };
+    }, options);
   });
 }
 
 async function createSnapshot(sessionId, options, dependencies) {
   return coordinationRouter.run({ coordinationRequired: true }, sessionId, async () => {
     const session = await dependencies.getSession(sessionId, options.db);
+    projection.domainFor(session, options);
     const snapshot = snapshotService.capture(session);
     session.pendingSnapshot = snapshot;
     await persistMutation({ session, options, dependencies, rollback: () => {
       session.snapshots = session.snapshots.filter((item) => item.snapshotId !== snapshot.snapshotId);
     } });
-    return snapshot;
+    return projection.snapshot(session, snapshot, options);
   });
 }
 
 async function listSnapshots(sessionId, options, dependencies) {
-  return snapshotService.list(await dependencies.getSession(sessionId, options.db));
+  const session = await dependencies.getSession(sessionId, options.db);
+  return snapshotService.list(session).map(item => projection.snapshot(session, item, options));
 }
 
 async function inspectHistory(sessionId, options = {}, dependencies) {
   const session = await dependencies.getSession(sessionId, options.db);
-  return {
-    sessionId, operations: session.crdt.getHistory(),
-    causalFrontier: session.crdt.getCausalFrontier(),
-    compactedOpCount: session.crdt.serialize().compactedOpCount
-  };
+  return projection.history(session, options);
 }
 
 async function compactHistory(sessionId, options, dependencies) {
@@ -119,16 +119,17 @@ async function mutateReplica(context) {
   const { sessionId, options, dependencies, mutate } = context;
   return coordinationRouter.run({ coordinationRequired: true }, sessionId, async () => {
     const session = await dependencies.getSession(sessionId, options.db);
+    projection.domainFor(session, options);
     const previousReplicas = structuredClone(session.replicas);
     const previousSnapshots = [...session.snapshots];
     const result = mutate(session);
-    if (result.duplicate) return result;
+    if (result.duplicate) return projection.result(session, result, options);
     session.pendingReplicaEvent = { type: result.snapshot ? 'JOIN' : 'UPDATE', replicaId: result.replica?.replicaId || result.replicaId };
     await persistMutation({ session, options, dependencies, rollback: () => {
       session.replicas = previousReplicas;
       session.snapshots = previousSnapshots;
     } });
-    return result;
+    return projection.result(session, result, options);
   });
 }
 

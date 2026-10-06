@@ -7,7 +7,7 @@ const DEFAULT_EXEC_BUDGET = 5000;
 
 function createSpeculativeVariantService(syn) {
   return {
-    createSpeculativeSession: (m, o) => createSession(m, o, syn),
+    createSpeculativeSession: (m, o = {}) => createSession(m, o, syn),
     spawnBranch: (ctx) => spawnBranch({ ...ctx, syn }),
     executeOnBranch: (ctx) => executeOnBranch({ ...ctx, syn }),
     compareBranches: (ctx) => compareBranches({ ...ctx, syn }),

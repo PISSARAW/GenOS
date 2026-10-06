@@ -1,5 +1,7 @@
 'use strict';
 
+const vectors = require('./syncytium/causality/versionVectorService');
+
 const HANDLERS = Object.freeze({
   LWW_REGISTER: applyLww,
   MV_REGISTER: applyMultiValue,
@@ -45,7 +47,17 @@ function applyLww(entry, kind, operation) {
 
 function applyMultiValue(entry, kind, operation) {
   entry.values = entry.values || {};
+  entry.versions = entry.versions || {};
+  if (operation.versionVector && Object.values(entry.versions).some((version) =>
+    vectors.compare(version, operation.versionVector) === 'AFTER')) return;
+  for (const [id, version] of Object.entries(entry.versions)) {
+    if (operation.versionVector && vectors.compare(version, operation.versionVector) === 'BEFORE') {
+      delete entry.values[id];
+      delete entry.versions[id];
+    }
+  }
   entry.values[operation.opId] = kind.value;
+  if (operation.versionVector) entry.versions[operation.opId] = operation.versionVector;
 }
 
 function applyGrowCounter(entry, kind, operation) {
@@ -91,11 +103,14 @@ function applyMap(entry, kind, operation) {
 
 function applySequence(entry, kind, operation) {
   entry.elements = entry.elements || {};
+  entry.deletedIds = entry.deletedIds || [];
   if (kind.action === 'insert') {
     const id = String(kind.elementId || operation.opId);
-    entry.elements[id] = { id, afterId: kind.afterId || null, value: kind.value, deleted: false };
+    entry.elements[id] = { id, afterId: kind.afterId || null, value: kind.value, deleted: entry.deletedIds.includes(id) };
   } else {
-    const element = entry.elements[String(kind.elementId || '')];
+    const id = String(kind.elementId || '');
+    if (!entry.deletedIds.includes(id)) entry.deletedIds.push(id);
+    const element = entry.elements[id];
     if (element) element.deleted = true;
   }
 }
@@ -209,10 +224,15 @@ function flattenSequence(groups, anchor, visited) {
 }
 
 function operationStamp(operation) {
-  return { lamport: Number(operation.lamport) || 0, actor: String(operation.actorId || operation.agentId || ''), opId: String(operation.opId || '') };
+  return { versionVector: operation.versionVector, lamport: Number(operation.lamport) || 0, actor: String(operation.actorId || operation.agentId || ''), opId: String(operation.opId || '') };
 }
 
 function compareStamps(left, right) {
+  if (left.versionVector && right.versionVector) {
+    const relation = vectors.compare(left.versionVector, right.versionVector);
+    if (relation === 'BEFORE') return -1;
+    if (relation === 'AFTER') return 1;
+  }
   return left.lamport - right.lamport || left.actor.localeCompare(right.actor) || left.opId.localeCompare(right.opId);
 }
 

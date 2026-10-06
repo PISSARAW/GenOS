@@ -1,8 +1,8 @@
 # Syncytium : Protocole de Fusion Cytoplasmique Multinucléée
 
-- **Statut** : Cadre conceptuel — architecture cible planifiée pour une orchestration à état partagé, multinucléée et convergente.
+- **Statut** : Partiel — runtime Node opérationnel pour les treize variants ; les garanties formelles et distribuées de cette architecture cible restent conditionnelles.
 - **Portée** : modèle complet du protocole Syncytium, de la composition et du commit causal à la convergence, la reprise et l'exploitation.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-06
 
 > **Statut scientifique et mathématique.** Les équations de cette fiche restent un modèle de conception, sauf indication explicite contraire. Le runtime Node possède maintenant des services Syncytium, 13 politiques de variants, sessions CRDT, opérations, transactions, réplication/réconciliation et diagnostics ; des tests ciblés attestent certains comportements, sans prouver toutes les propriétés formelles décrites ici ni un protocole distribué complet. Les propriétés CRDT ne valent que sous les hypothèses propres au type et au protocole de réplication considérés. Voir le [protocole opératoire et le relevé des tests](protocole-missions-syncytium.md) pour la séparation entre code, mesures et architecture cible.
 
