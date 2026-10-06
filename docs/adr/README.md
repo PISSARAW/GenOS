@@ -391,6 +391,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0330](0330-bancs-agentdojo-browsergym.md) | Bancs externes pour l'immunité et la navigation | Accepté | 2026-10-06 | évaluation, sécurité, navigation |
 | [0331](0331-wasmtime-heuristiques-bornees.md) | Exécution Wasmtime des heuristiques bornées | Accepté | 2026-10-06 | plugins, GVX, isolation |
 | [0332](0332-adaptateur-openhands-sdk.md) | Adaptateur expérimental OpenHands SDK | Accepté | 2026-10-06 | workers développeurs, ontogenèse |
+| [0333](0333-reconciliation-activites-temporal.md) | Réconciliation des effets externes avant reprise Temporal | Accepté | 2026-10-06 | missions longues, effets externes, reprise |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
