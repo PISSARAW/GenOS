@@ -215,6 +215,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [Worker développeur OpenHands SDK](../integrations/openhands_sdk/README.md) — candidat de patch en espace isolé.
 - [Reprise Temporal expérimentale](../integrations/temporal/README.md) — réconciliation des effets externes.
 - [Notes partagées Automerge](../integrations/automerge/README.md) — fusion de notes sans autorité.
+- [Propagation Differential Dataflow](../integrations/differential_dataflow/README.md) — expérience de deltas de dépendances.
 - [benchmark-longitudinal-holobionte.md](06-benchmarks/benchmark-longitudinal-holobionte.md) — protocole apparié Holobionte à douze bras, sans campagne réelle exécutée.
 - [protocole-execution-holobionte.md](06-benchmarks/protocole-execution-holobionte.md) — budgets, temps, topologies, workers, nosologie, échanges, graphe relationnel et télémétrie.
 - [matrice-coherence-code-docs.md](06-qualite-preuves/matrice-coherence-code-docs.md) — registre de cohérence code↔documentation.
