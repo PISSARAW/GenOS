@@ -351,6 +351,34 @@ Cette persistance garantit une reprise opérationnelle, mais pas une transaction
 
 Par exemple, [backend/proto/schema.proto](../../backend/proto/schema.proto) fournit un service de validation de schéma via `schema_name` et `data_json`; [spec/genome.schema.json](../../spec/genome.schema.json) impose `apiVersion`, `kind`, `metadata`, `identity`, `cognition`, `memory`, `models` et `tools` pour un génome. Les structures Rust correspondantes utilisent `Serialize` et `Deserialize` pour conserver un contrat de données lisible et versionnable.
 
+### 11.1.a Profils physiques du runtime Rust
+
+Le [magasin de profils physiques](../../crates/genos-orchestrator/src/physical_store.rs)
+réutilise `SnapshotStore` sous `<workspace>/.genos/physical-profiles/`.
+Ce stockage local du runtime Rust est distinct du faisceau SQLite du backend.
+
+| Champ | Contrat |
+| --- | --- |
+| Enveloppe | `genos.physical-profile/v2`, mission et profil validés |
+| Identité | `physics/<mission>` pour les cinq types stables de `Goal` |
+| Écriture | Nouveau snapshot à la fin d'un `run()` ayant exécuté une action |
+| Lecture | Automatique à la première décision pour une racine de workspace |
+| Reprise | Profil valide le plus récent ; snapshot invalide signalé puis ancien profil valide recherché |
+| Compatibilité | Les anciens exports `DirectorState` restent lisibles sans inventer d'échantillons |
+
+Le chargement refuse les liens symboliques, les fichiers non réguliers,
+les fichiers de plus de 2 Mo et les répertoires de plus de 10 000 entrées.
+Une erreur de stockage est exposée dans les diagnostics et
+`PHYSICAL_CALIBRATION` ; les constantes disponibles restent utilisables.
+Changer de racine réinitialise les profils en mémoire du workspace précédent.
+
+Ces snapshots sont des données locales générées à conserver lors d'une
+sauvegarde du workspace ; ils ne doivent pas être commités dans Git.
+Les observations de coût et les constantes bornées ne constituent pas une
+preuve de réussite métier. Voir la
+[fiche de physique](../01-concepts/physique-computationnelle.md) et
+l'[ADR 0327](../adr/0327-mesures-et-calibration-physique.md).
+
 ### 11.2 Règles de compatibilité
 
 Pour préserver la compatibilité :
@@ -550,7 +578,7 @@ Cette migration crée les colonnes `BLOB` manquantes via `ALTER TABLE ... ADD CO
 
 ### 16.1 Règle d'autorité
 
-SQLite est la seule vérité canonique. LadybugDB (graphe), DuckDB (analytique), LanceDB (vecteurs, candidat) et FTS5/`sqlite-vec` (recherche) sont des **projections reconstruisibles** : leur destruction ne fait perdre aucune donnée, `rebuild` les régénère depuis SQLite. Un transport réussi ne prouve jamais une décision valide : un événement inconnu est enregistré en échec (`UNSUPPORTED_EVENT`), jamais marqué projeté silencieusement.
+Dans le faisceau polyglotte du backend, SQLite est la vérité canonique. LadybugDB (graphe), DuckDB (analytique), LanceDB (vecteurs, candidat) et FTS5/`sqlite-vec` (recherche) sont des **projections reconstruisibles** : leur destruction ne fait perdre aucune donnée, `rebuild` les régénère depuis SQLite. Un transport réussi ne prouve jamais une décision valide : un événement inconnu est enregistré en échec (`UNSUPPORTED_EVENT`), jamais marqué projeté silencieusement.
 
 ### 16.2 Faisceau de données
 

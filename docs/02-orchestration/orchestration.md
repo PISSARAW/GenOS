@@ -1075,6 +1075,34 @@ appris en ligne côté backend par `backend/src/services/adaptiveParameterServic
 (table `adaptive_parameters`), un sous-système distinct du directeur Rust. Voir
 `examples/mission_learning.rs` et `tests/director_persistence.rs`.
 
+### 19.bis.11.a Physique computationnelle : mesures et calibration
+
+Dans la boucle Rust, `tick()` utilise `eco.physics` pour acquérir les mesures
+bornées du workspace, du contexte de décision, des dépendances/imports, de Git
+et des rapports LCOV/Istanbul. Chaque mesure conserve source, horodatage, état
+et diagnostic ; une source absente ne produit pas un zéro. Le contexte par
+défaut correspond aux octets du JSON de décision, et les tokens du modèle
+doivent être fournis explicitement par l'appelant.
+
+Les coûts physiques participent aux expansions de la recherche et au classement
+des plans. Revue humaine et consolidation arrêtent la planification ; conservation
+et contention interdisent l'expansion. La reproduction autonome de cette boucle
+exige le régime Normal. Les indices restent des heuristiques bornées.
+
+À la fin de `run()`, les ATP débités et durées observées alimentent un profil
+par type de `Goal`. Trois observations sont requises pour ajuster les références
+bornées ; une mission sans action ne calibre rien. Les seuils physiques de sécurité
+restent fixes. Les profils sont sauvegardés puis rechargés automatiquement via
+`SnapshotStore` dans `.genos/physical-profiles/`, indépendamment d'un export
+manuel de `DirectorState`.
+
+`PHYSICAL_DECISION`, `PHYSICAL_CALIBRATION` et `eco.physics.last_report`
+exposent les décisions et diagnostics. La portée livrée concerne
+`GenosEcosystem` ; elle ne prouve pas un raccord automatique aux usages modèle
+du superviseur Node.js. Voir la [fiche](../01-concepts/physique-computationnelle.md),
+l'[ADR 0327](../adr/0327-mesures-et-calibration-physique.md) et
+l'[exemple](../../crates/genos-orchestrator/examples/mission_physics.rs).
+
 ### 19.bis.12 Évolution ouverte (Phase 5)
 
 Une couche évolutive (`Population`/`Individual`/`Island`) fait évoluer une

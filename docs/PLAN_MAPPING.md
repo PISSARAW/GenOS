@@ -138,7 +138,7 @@ This document maps each lot from the architecture plan to existing implementatio
 | Registre preuves | ✅ | `crates/genos-store/src/fossil.rs`, `biological_receipt.rs` | Fossilisation stratigraphique, reçus biologiques |
 | Générateur scénarios adversariaux | 🔄 | `backend/tests/stress/test_apex_adversarial_defense_bench.js`, `test_real_world_adversarial_attacks.js` | Tests stress, chaos engineering |
 | Évaluations reproductibles | 🔄 | `backend/tests/run_quality_suite.js`, `test_property_invariants.js` | Suites validation, propriétés |
-| Tableaux métriques | 🔄 | `crates/genos-orchestrator/src/physical_telemetry.rs`, `orchestrator_monitoring.rs` | Télémétrie physique, monitoring |
+| Tableaux métriques | 🔄 | `crates/genos-orchestrator/src/physical_runtime.rs`, `physical_telemetry.rs`, `orchestrator_monitoring.rs` | Mesures et reçus physiques implémentés ; tableau produit à distinguer de la télémétrie. Voir [fiche](01-concepts/physique-computationnelle.md). |
 | Désactivation urgence | ✅ | `crates/genos-immune/src/cyber_immune.rs` | `CircuitBreaker`, `AutotomyModule` (autotomie) |
 
 ---

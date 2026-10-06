@@ -11,6 +11,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [ontogenese-boucle.md](ontogenese-boucle.md) — boucle Observer → réévaluer : sélection tâches/topologies, autorisation, réveils, notifications.
 - [shev.md](shev.md) — responsabilité persistante, observations, initiatives et vérification des effets du projet.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
+- [Physique computationnelle](../01-concepts/physique-computationnelle.md) — mesures réelles, régimes, recherche de plans et calibration des coûts du runtime Rust.
 - [noyau-controle-morphogenetique.md](noyau-controle-morphogenetique.md) — kernel Rust : état global, diagnostic causal, résolveurs, plan morphogénétique, incarnation, gouvernance.
 - [regulation-multi-boucles.md](regulation-multi-boucles.md) — signaux de contrôle, boucles rapides/lentes, arbitrage.
 - [theorie-du-soi-orchestrator.md](theorie-du-soi-orchestrator.md) — modèle opérationnel, calibration, biais et contraintes de décision.

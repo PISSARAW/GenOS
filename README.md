@@ -18,6 +18,7 @@ GenOS est un runtime pour agents autonomes où **une exécution réussie n'est p
 - 8 topologies câblées au runtime : Trinity, A-Team, Biocénose, Holobionte, Syncytium, Biome, Rhizome et Métapopulation. Leurs services et capacités diffèrent selon le mode.
 - Snapshots, forks contrefactuels, diffs, replay et gates de promotion fondées sur des preuves.
 - Runtime d'agents supervisés : processus, workspaces isolés, budgets, mémoire et rapports d'évidence.
+- [Physique computationnelle Rust](docs/01-concepts/physique-computationnelle.md) : mesures sourcées du workspace, coûts de planification et calibration persistante par mission ; indices de contrôle heuristiques.
 - Contrôles de sécurité : autorisations, isolation de workspace, VFS sandboxé et gates de promotion.
 
 Ce n'est pas un framework d'agents. C'est un runtime qui essaie de rendre l'agentic computation moins fertile pour les hallucinations de chaîne.

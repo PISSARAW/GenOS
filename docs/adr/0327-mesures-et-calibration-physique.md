@@ -2,6 +2,8 @@
 
 - Statut : accepté
 - Date : 2026-10-06
+- Précise : [ADR 0183](0183-mesures-workspace-physique-computationnelle.md).
+- Contrat opérationnel : [fiche de physique](../01-concepts/physique-computationnelle.md).
 
 ## Contexte
 

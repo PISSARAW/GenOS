@@ -216,7 +216,34 @@ rollback. Les gates de sandbox, de preuve et de promotion conservent leur rôle.
 La calibration est descriptive et bornée. Elle mesure le runtime local; elle
 n'établit pas une supériorité empirique des décisions ni une simulation physique.
 
-## 7. Architecture et validation
+## 7. Utilisation et diagnostic
+
+L'exemple mesure le workspace donné en argument et lance une mission Rust locale :
+
+```bash
+cargo run -p genos-orchestrator --example mission_physics -- /chemin/du/workspace
+```
+
+Il affiche ticks, résultat observé, actions, régime, stratégie, états des mesures
+et diagnostics de persistance. Il peut créer des snapshots locaux sous
+`.genos/physical-profiles/`. Deux ticks ne garantissent ni une action exécutée
+ni les trois épisodes nécessaires à l'ajustement des références.
+
+| Observation | Vérification |
+| --- | --- |
+| Couverture `Missing` | Produire un rapport reconnu ou configurer `coverage_paths` |
+| Couverture `Stale` | Régénérer le rapport après les sources couvertes et vérifier sa date |
+| Inventaire ou imports `Partial` | Consulter le diagnostic et les limites de scan/résolution |
+| Contexte sans tokens | Fournir un reçu modèle avec `set_context_usage` avant chaque décision |
+| Calibration inchangée | Vérifier les actions consommées et le nombre d'échantillons de la mission |
+| Profil non rechargé | Vérifier racine, droits, diagnostics, enveloppe et état des snapshots |
+
+Le cache du workspace vaut 5 s. Après une mutation que la prochaine décision doit
+observer immédiatement, appeler `invalidate_workspace()`.
+Cette intégration Rust ne déduit pas les usages d'un modèle distant et ne
+documente pas un raccord automatique au superviseur Node.js.
+
+## 8. Architecture et validation
 
 Les modules `physical_measurements`, `physical_workspace`,
 `physical_dependencies`, `physical_imports`, `physical_coverage`,
@@ -226,6 +253,7 @@ calibration, persistance et décision. `physical_telemetry` conserve les champs
 optionnels historiques et applique les mesures à l'état.
 
 ```bash
+cargo test -p genos-orchestrator --test physical_measurement_contract --test physical_calibration_contract --test physical_policy_contract
 cargo test -p genos-orchestrator
 python scripts/ci/check_code_quality.py
 npm test
@@ -235,6 +263,8 @@ cargo test --workspace
 Les contrats de test couvrent les limites d'acquisition, imports et manifests,
 rapports valides/invalides/périmés, déduplication, calibration réelle,
 compatibilité, isolation des missions, rechargement, diagnostics et décision.
+Les trois suites dédiées totalisent 23 tests ; leur réussite ne signifie pas
+que les gates globaux du monorepo ou une mission métier sont validés.
 
 ## Voir aussi
 
