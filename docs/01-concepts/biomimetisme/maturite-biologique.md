@@ -1,7 +1,7 @@
 # Maturité des capacités biologiques
 
 - **Statut** : Référence — grille d'évaluation, pas revendication.
-- **Dernière revue** : 2026-10-06 (Natural Search ; autres lignes revues le 2026-10-05).
+- **Dernière revue** : 2026-10-06.
 - **Règle** : un statut exige le chemin de code et le test cités. Sans les
   deux, le statut est « proposition ».
 
@@ -34,8 +34,9 @@
 | Génome, mutations, crossover | primitive | primitive | `crates/genos-genome`, tests crate | replay de lignée via runtime |
 | Épigénétique | primitive | documentée → primitive partielle | `epigenome.rs`, tests crate | lien prouvé avec expression réelle des capacités |
 | Métabolisme `MetabolicPool` (registre computationnel) | primitive | primitive | `autopoiesis.rs`, tick cellulaire | registre commun + enforcement aux points d'exécution |
-| Reçu d'exécution du tick Rust | integrated | intégrée partielle | Feature `api` de `tick_and_persist` expédie le journal; middleware backend vérifie HMAC, fraîcheur et nonce; test de contrat Rust/JS et ingestion idempotente | E2E déployé Rust→backend après redémarrage; les reçus `organism` n'identifient pas de cellule/génome exécutants |
-| Homéostasie de mission (contrôle borné) | integrated | intégrée partielle | `homeostasisService.js`, `homeostasis_contract_revisions`, `homeostasis_transition_receipts`; `node backend/tests/test_homeostasis_authority_receipts.js` vérifie révisions, empreintes, seuils et issues autorisées/refusées | corrélation avec reçu Rust et registre métabolique; persistance d'une identité cellule/génome de bout en bout |
+| Reçu d'exécution du tick Rust | validated | validée sur SQLite local | `biologicalExecutionReceiptService.js`, `rustPopulationRegistry.js`; `test_biological_ingestion_atomic.js` vérifie origine, remapping mission et atomicité population/reçus; `test_biological_tick_rust_backend_e2e.js` exécute deux CLI compilés et contrôle tick croissant, cellule/génome stables, coût ATP, résultat et fille après reprise | transport HTTP signé en déploiement distribué; [bilan de compilation/E2E](../../06-qualite-preuves/validation-biologie-computationnelle.md) |
+| Reçu du worker exécutant | validated | validée sur SQLite local | `strategyExecutionService.js` → `biologicalWorkerReceiptService.js`; `test_biological_worker_receipts.js` et `test_biological_worker_restart.js` : procédure réelle, cellule stable, génome figé, coûts, gates, rejeu et reprise sur plusieurs processus | fournisseur externe et facture USD certifiée non couverts; aucune conversion ATP/tokens/USD |
+| Homéostasie de mission (contrôle borné) | validated | validée sur SQLite local | `homeostasisAuthorityStore.js`, `homeostasisPolicyService.js`, `homeostasisClosureService.js`; tests d'autorité durable et de reprise : révisions, seuils v2, preuves dérivées, reçus de transition v2 et refus d'une clôture périmée, y compris en SQL direct | disponibilité multi-instance non démontrée; périmètre et commandes dans le [bilan](../../06-qualite-preuves/validation-biologie-computationnelle.md) |
 | Neurobiologie, glie, quorum | integrated | intégrée partielle | `GenosEcosystem::record_event` → événements mission (`BIOLOGICAL_EXECUTION_RECEIPT`, action instinctive, reproduction) → `MISSION_NEURO_GLIA_QUORUM_RESPONSE`; réponse astrocytaire et myélinisation reportées sur le neurone, quorum compté sur les cellules actives | état glial événementiel simplifié, événements en mémoire, pas de preuve distribuée ni d'artefacts E2E persistés |
 | Instinct PAF | integrated | intégrée partielle | `GenosEcosystem::tick` évalue les instincts (`crates/genos-orchestrator/tests/instinct.rs`, `tick_evaluates_instincts_automatically`); tests du module couvrent seuils, veto d'outil et résultats | reçu durable du stimulus, de la décision et de l'action; parcours mission/backend E2E |
 | Sens VNO, électro, Cluster N, tectum, écho | primitive | primitive | modules `sensory/*`, tests locaux | adaptateurs concrets ou typage « signal synthétique » |

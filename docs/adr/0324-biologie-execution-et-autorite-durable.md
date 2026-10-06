@@ -1,5 +1,18 @@
 # ADR 0324 — Biologie des exécutions et autorité durable
 
+- Statut : accepté.
+- Date : 2026-10-06.
+- Domaine : exécution de mission et preuves.
+- Décideurs : implémentation GenOS.
+- Lié à : [biologie computationnelle](../01-concepts/biologie-computationnelle.md).
+
+## Contexte
+
+Les primitives cellulaires et les reçus du contrôle Rust existaient, mais leurs
+identités et coûts ne décrivaient pas le worker Node exécutant. L'autorité
+d'homéostasie devait également survivre au redémarrage et lier une transition
+aux résultats effectivement observés.
+
 ## Décision
 
 Une mission relie deux registres explicitement distincts. Le runtime Rust conserve

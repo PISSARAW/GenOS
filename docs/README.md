@@ -555,3 +555,5 @@ technique positif masquerait une absence d'évidence réelle.
 - [runtime-agow.md](03-reference/runtime-agow.md) — contrats exécutables et exploitation AGOW.
 
 - [campagne-agow-cloture.md](06-qualite-preuves/campagne-agow-cloture.md) — protocole, résultats et limites du banc local AGOW.
+
+- Biologie computationnelle : [validation](06-qualite-preuves/validation-biologie-computationnelle.md) et [ADR 0324](adr/0324-biologie-execution-et-autorite-durable.md).

@@ -37,3 +37,5 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 - [campagne-agow-cloture.md](campagne-agow-cloture.md) — baselines simplifiées, ablation, médiation et trois holdouts locaux AGOW.
 
 - [Contrat A-Team et validation ciblée](../03-reference/runtime-a-team.md) — clôture SQLite/processus Node, 44 cas isolés et limites de qualification.
+
+- [validation-biologie-computationnelle.md](validation-biologie-computationnelle.md) — reçus, autorité durable, reprise et résultats des contrôles du 2026-10-06.

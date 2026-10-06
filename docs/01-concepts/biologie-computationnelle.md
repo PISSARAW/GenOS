@@ -1,8 +1,8 @@
 # Biologie computationnelle dans GenOS
 
-- **Statut** : Intégration partielle — `handleBiological` lance un tick Rust persistant et ingère ses reçus dans SQLite sous l'identité de mission backend. L'E2E redémarre le CLI et conserve cellule, génome, empreinte, tick et dépense ATP; l'identité reste celle de l'organisme Rust, pas du worker backend dispatché.
+- **Statut** : Chaîne logicielle intégrée : reçus versionnés mission → cellule → génome → coûts → résultat, autorité d'homéostasie durable et clôture conditionnée à des preuves fraîches. Les identités du contrôle Rust et des workers Node restent explicites. Les commandes et limites de validation figurent dans le [bilan de validation](../06-qualite-preuves/validation-biologie-computationnelle.md).
 - **Portée** : `crates/genos-cell/src/lib.rs` (`AgentCell`, `Organelle`), `crates/genos-biology/src/embryology.rs` (`seed_hox_genome`), `crates/genos-genome/*`, `crates/genos-reproduction/*`, `backend/src/services/missionOrganismService.js`.
-- **Dernière revue** : 2026-10-03.
+- **Dernière revue** : 2026-10-06.
 
 ## 1. Définition du domaine
 
@@ -39,6 +39,8 @@ Le backend démarre une mission par `agentRuntimeAdapter/missionExecution.js` : 
 
 `missionContinuityService.js` reconstruit un organisme à partir des agents persistés : les agents deviennent des cellules/tissus, l'objectif et le contrat deviennent le génome déclaratif de l'organisme, puis `homeostasisService.js` évalue ses invariants. `mission_organism_state` conserve cet état agrégé; ce génome déclaratif n'est pas le `Genome` Rust et les deux registres ne sont pas synchronisés.
 
+Le chemin réel `strategyExecutionService` fige, avant démarrage, une liaison `genos.worker-biological-binding/v1` entre mission, worker, parent, cellule stable et génome d'instructions. Le contrat de stratégie est vérifié avant cette liaison. Chaque exécution terminée produit un reçu immuable `genos.worker-biological-execution-receipt/v1` : identité, empreinte des instructions, observations, coûts, rapprochement comptable, budget et résultat contrôlé par les gates existantes. Les échecs conservent leurs coûts; une mesure absente reste inconnue. Les événements sont conservés avant application puis appliqués transactionnellement : le rejeu ne débite pas deux fois et un événement inédit rattaché à un run déjà scellé empêche la clôture.
+
 Dans `GenosEcosystem::tick` (`crates/genos-orchestrator/src/tick.rs`), chaque concept planifié est débité de `Metabolism` avant son application; l'ATP insuffisant bloque l'étape et trace `STARVATION`. Le tick place un reçu `genos.biological-execution-receipt/v1` dans `TickReport.biological_receipts` et dans l'event store local. La continuité CLI restaure l'orchestrateur racine et son génome; le reçu porte donc l'UUID de mission Rust, `cell_id`, `genome_id`, empreinte, tick, opération, coût en `atp_token`, registre et issue. `tick_and_persist` écrit le reçu et l'état de population dans `BiologicalReceiptStore`, journal append-only vérifié à la relecture. Le coût représente la dépense du concept Rust; il ne représente pas les dépenses du worker backend.
 
 Deux modes de raccordement existent. Le bridge backend appelle le CLI et persiste le résultat localement après vérification de la mission active et de la portée tenant; `npm run test:biological-receipts` (depuis `backend/`) lance le binaire Rust compilé deux fois contre une base SQLite et vérifie identité stable, ticks croissants, cellule/génome et coût positif. L'uploader Rust optionnel, feature Cargo `api`, expédie également le journal vers `POST /api/rust/biological-receipts`; il exige `GENOS_BACKEND_URL`, `GENOS_RUST_RECEIPT_TOKEN`, `GENOS_RUST_RECEIPT_ORG_ID`, `GENOS_RUST_RECEIPT_PROJECT_ID` et `GENOS_RUST_RECEIPT_SECRET`. Cette route vérifie HMAC-SHA256, fraîcheur, nonce à usage unique et appartenance tenant; l'ingestion est idempotente par `receipt_id`. L'uploader peut retransmettre le journal entier et s'appuie donc sur cette idempotence. L'E2E du bridge couvre le tick backend direct, pas le transport HTTP signé en environnement déployé.
@@ -58,24 +60,33 @@ flowchart LR
     M --> R[Reçu v1 dans TickReport et event store mémoire]
     L --> LT[Issue selon contrôles du composant]
     B[Backend mission: executionBudget] --> X[Runtime supervise]
-    X --> O[Organisme de continuité: agents + génome déclaratif]
+    X --> WR[Reçu worker: cellule + génome figé + coûts + résultat]
+    WR --> O[Organisme de continuité: agents + génome déclaratif]
     O --> H[homeostasis_states: évaluations persistées]
     H --> HC[Contrats immuables versionnés + reçus de transition]
     R -->|UUID Rust + cellule + génome + coût| DB[biological_execution_receipts]
     DB -->|mission backend + dernier état connu| HC
+    WR -->|preuves courantes + empreintes| HC
+    HC -->|autorité et état frais| DONE[Clôture de mission]
     B -. executionBudget reste distinct de l'ATP Rust .-> M
 ```
 
 ## 7. Architecture technique
 
 - Rust : `genos-cell` (`AgentCell`, `clinical.rs`), `genos-genome` (`gene.rs`, `genome.rs`, `translation.rs`), `genos-biology` (`embryology.rs`, `neurobiology/`, `therapy.rs`), `genos-reproduction` (`division.rs`, `crossover.rs`).
-- Node : `missionOrganismService.js`, `regenerationService.js`, `agentConscienceService.js`, `homeostasisService.js`.
+- Node : `biologicalWorkerStore.js`, `biologicalWorkerReceiptService.js`, `biologicalWorkerEvidence.js`, `homeostasisAuthorityStore.js`, `homeostasisExecutionEvidence.js`, `homeostasisClosureService.js`, `missionOrganismService.js`.
 
 ## 8. Registres, budgets et homéostasie
 
 Les budgets de mission backend, le registre métabolique Node (`metabolicStateService.js`), les réservations (`resourceReservationService.js`), le résumé métabolique de `missionOrganismService.js` et l'ATP de `GenosEcosystem` sont des états distincts. Le budget du runtime est normalisé et appliqué par ses gardes; le débit ATP Rust s'applique au tick. Il n'existe pas de registre commun garantissant qu'une allocation ou dépense dans un de ces plans est reflétée dans les autres.
 
-L'homéostasie de mission écrit les évaluations dans `homeostasis_states` et conserve les révisions d'autorité dans `homeostasis_contract_revisions`. Leur empreinte exclut les métadonnées d'assemblage volatiles; un changement de contrat crée une nouvelle révision. `homeostasisPolicyService.js` centralise et borne `minimumFunctionalCoverage` dans la politique `genos.homeostasis-policy/v1`. Chaque appel à `transitionMissionToComplete` écrit un reçu `genos.homeostasis-transition-receipt/v1` dans `homeostasis_transition_receipts`, qu'il autorise ou refuse la transition; il référence la révision, son empreinte, la politique, l'état et les types de preuves présents. Le reçu biologique conserve `homeostasis_state_id/status` du dernier état au moment de son ingestion, mais le coût ATP demeure distinct de `executionBudget`, des réservations et des coûts de worker.
+L'homéostasie conserve ses évaluations dans `homeostasis_states`, ses révisions immuables dans `homeostasis_contract_revisions` et son autorité active dans `homeostasis_contract_heads`. Après redémarrage, le contrat persisté fait autorité. Une modification explicite exige `expectedHomeostasisRevision`; les vérificateurs persistables sont déclaratifs. La politique centralisée `genos.homeostasis-policy/v2` borne les couvertures fonctionnelle, structurelle, épistémique et de sécurité; la sécurité exige une couverture complète. Les contrats historiques v1 restent relus selon leurs règles.
+
+Chaque appel à `transitionMissionToComplete` persiste un reçu `genos.homeostasis-transition-receipt/v2`, favorable ou refusé. Il lie états de départ et d'arrivée, identifiant d'évaluation, révision, empreinte du contrat, seuils et empreintes des reçus d'exécution courants. La preuve de worker est dérivée du stockage; une simple assertion de l'appelant ne peut pas la remplacer. `missionIdentityService.setStatus` et une garde SQLite exigent ce reçu avant clôture. Un nouveau run ou une preuve non appliquée invalide la clôture précédente. Les workers remplacés sont exclus uniquement après vérification durable de leur remplacement.
+
+`GET /api/rust/biological-receipts/:missionId` expose un historique borné des reçus, liaisons et révisions avec vérification des empreintes et contrôle du tenant. La lecture ne rejoue pas les workers. L'ingestion du contrôle Rust et de sa population est atomique; le remapping conserve l'identité Rust d'origine.
+
+Les coûts Node distinguent tokens, USD et millisecondes. Les USD sont des mesures rapportées par le fournisseur, pas une facture certifiée. Aucun taux de conversion ATP/tokens/USD n'est inventé. Une mesure requise absente ou un rapprochement incohérent refuse l'attestation budgétaire. Les choix d'architecture sont consignés dans l'[ADR 0324](../adr/0324-biologie-execution-et-autorite-durable.md).
 
 Le chemin embryogenèse HOX → `AgentCell` → `Metabolism` → consolidation/apoptose ou fossilisation décrit des composants de l'orchestrateur Rust. Il ne doit pas être présenté comme une séquence universellement exécutée par chaque mission backend.
 
@@ -85,6 +96,7 @@ Cette fiche ne prétend pas établir une comparaison avec d'autres orchestrateur
 
 ## 10. Limites, garde-fous, non-objectifs
 
-- Partiel : persistance inter-process incomplète, dormance non persistée (voir `continuite-mission.md`).
+- La reprise des reçus et de l'autorité est couverte par des tests SQLite sur plusieurs processus; cela ne démontre pas un déploiement distribué ni la disponibilité d'un fournisseur externe.
+- La continuité de mission possède ses propres contrôles et limites (voir `continuite-mission.md`).
 - Non-objectif : simulation biologique prédictive, conscience phénoménale.
 - Règle : un transport réussi n'est pas une décision valide ; toute promotion exige preuves + gates.
