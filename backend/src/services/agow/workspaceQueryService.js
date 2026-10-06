@@ -2,8 +2,6 @@
 
 const { createHash, randomUUID } = require('node:crypto');
 const attention = require('../modelControlledAttentionService');
-const workspace = require('../globalWorkspaceService');
-const attentionCredit = require('./attentionCreditService');
 const receiverRegistry = require('./workspaceReceiverRegistry');
 
 const CAPABILITY_MODULES = Object.freeze({
@@ -49,7 +47,7 @@ function queryBudget(options, policy) {
   const policyCost = nonNegative(policy.maxCost, 1);
   return {
     maxCost: Math.min(requestedCost, policyCost),
-    moduleBudget: Math.max(1, Math.floor(Number(options.moduleBudget) || Number(policy.moduleBudget) || 1))
+    moduleBudget: Math.min(100, Math.max(1, Math.floor(Number(options.moduleBudget) || Number(policy.moduleBudget) || 1)))
   };
 }
 
@@ -71,16 +69,23 @@ function buildModules(capability, modules) {
 function cognitiveDemand(frame, pathway) {
   const signals = {
     uncertainty: frame.epistemicState.uncertainty,
-    irreversibility: frame.epistemicState.contradiction ? 1 : 0,
+    irreversibility: frame.riskContext?.irreversibility || 0,
     viabilityRisk: frame.causalContext.predictionError,
     evidenceGap: frame.unresolvedQuestions.length ? 1 : 0,
     goalUrgency: 0
   };
   const decision = require('./cognitiveModePolicyService').evaluate({ signals });
-  const safeForDirect = pathway && signals.uncertainty <= 0.25 && !signals.irreversibility
-    && signals.viabilityRisk < 0.5 && pathway.confidence >= 0.9;
+  const safeForDirect = directPathAllowed({ frame, pathway, signals });
   return { decision, route: safeForDirect ? pathway : null,
     reason: safeForDirect ? 'consolidated_low_risk_procedure' : pathway ? 'procedure_requires_deliberation' : 'no_known_procedure' };
+}
+
+function directPathAllowed(input) {
+  const { frame, pathway, signals } = input;
+  if (!pathway || require('./pathways/directPathwayRegistry').needsReview(pathway)) return false;
+  return signals.uncertainty <= 0.25 && !signals.irreversibility
+    && !frame.riskContext?.requiresGlobalReview && !frame.epistemicState.contradiction
+    && signals.viabilityRisk < 0.5 && pathway.confidence >= 0.9;
 }
 
 async function plan(options) {
@@ -89,7 +94,7 @@ async function plan(options) {
   const need = queryNeed(options);
   const [attentionPolicy, metaPolicy, queryPolicy] = await loadPolicies(frame, options.db);
   const previousQuery = queryPolicy.state[need.fingerprint];
-  if (previousQuery && Date.now() - previousQuery.createdAt < QUERY_COOLDOWN_MS) {
+  if (previousQuery && previousQuery.status !== 'failed' && Date.now() - previousQuery.createdAt < QUERY_COOLDOWN_MS) {
     return { planned: false, reason: 'gap_recently_queried', previousQueryId: previousQuery.queryId };
   }
   const modules = eligibleModules(need.capability, options.modules);
@@ -104,47 +109,46 @@ async function plan(options) {
   const directPathway = demand.route;
   const selected = directPathway ? { selected: [{ id: directPathway.target }], directPathway }
     : attention.reallocate({ candidates: modules.map((id) => ({ id, baseDemand: expectedInformationGain, stateKey: need.capability })), state: options.attentionState, budget: budget.moduleBudget });
-  const query = {
+  const query = queryFrom({ options, need, budget, frame, selected, directPathway,
+    modules, attentionPolicy, metaPolicy, demand });
+  const reserved = await reserveQuery({ agentId: frame.agentId, db: queryPolicy.db, fingerprint: need.fingerprint, query });
+  if (!reserved) return { planned: false, reason: 'gap_recently_queried' };
+  return { planned: true, query, attention: selected };
+}
+
+function queryFrom(input) {
+  const { options, need, budget, frame, selected, directPathway, modules, attentionPolicy, metaPolicy, demand } = input;
+  return {
     queryId: randomUUID(), frameId: frame.frameId,
-    need: { questionType: need.questionType, capability: need.capability, expectedInformationGain },
+    contextHash: need.fingerprint,
+    need: { questionType: need.questionType, capability: need.capability,
+      expectedInformationGain: Math.max(0, Math.min(1, Number(options.expectedInformationGain ?? frame.epistemicState.uncertainty))) },
     budget: { maxCost: budget.maxCost, deadlineAt: Number(options.deadlineAt) || Date.now() + 30000 },
     minimumEvidenceRefs: Math.max(evidenceFloor(metaPolicy.state.minimumEvidenceRefs),
       evidenceFloor(attentionPolicy.state.minimumEvidenceRefs)),
     candidateModules: selected.selected.map((item) => item.id),
+    fallbackModules: modules.filter((module) => module !== directPathway?.target),
     ...(directPathway ? { pathwayRef: directPathway.pathwayId } : {}),
     cognition: { route: directPathway ? 'direct' : 'deliberative', mode: demand.decision.mode,
       reason: demand.reason, policyProvenance: demand.decision.provenance }, createdAt: Date.now()
   };
-  await require('./agowStatePersistenceService').save({ scope: QUERY_POLICY_SCOPE, agentId: frame.agentId, db: queryPolicy.db,
-    state: { ...queryPolicy.state, [need.fingerprint]: { queryId: query.queryId, createdAt: query.createdAt } }, version: query.createdAt });
-  return { planned: true, query, attention: selected };
+}
+
+async function reserveQuery(input) {
+  let reserved = false;
+  await require('./agowStatePersistenceService').update({ scope: QUERY_POLICY_SCOPE,
+    agentId: input.agentId, db: input.db }, (state) => {
+    const prior = state[input.fingerprint];
+    reserved = !prior || prior.status === 'failed' || Date.now() - prior.createdAt >= QUERY_COOLDOWN_MS;
+    if (!reserved) return state;
+    const next = { ...state, [input.fingerprint]: { queryId: input.query.queryId, createdAt: input.query.createdAt } };
+    return Object.fromEntries(Object.entries(next).sort((left, right) => left[1].createdAt - right[1].createdAt).slice(-1000));
+  });
+  return reserved;
 }
 
 async function execute(options) {
-  const { query } = options;
-  const handlers = options.handlers || {};
-  const registered = new Map(receiverRegistry.queryHandlersFor({ modules: query.candidateModules }).map((entry) => [entry.module, entry.handle]));
-  const results = [];
-  for (const module of query.candidateModules) {
-    const handler = handlers[module] || registered.get(module);
-    if (typeof handler !== 'function') continue;
-    const response = await handler({ query, frame: options.frame, db: options.db,
-      counterfactualExecutor: options.counterfactualExecutor });
-    const candidateReceipt = response?.candidate ? await submitResponse({ response, query, db: options.db }) : null;
-    const creditReceipt = response?.outcome ? await attentionCredit.observe({
-      agentId: options.frame.agentId, db: options.db, frameId: query.frameId, capability: query.need.capability, module,
-      outcome: { ...response.outcome, cost: response.outcome.cost ?? query.budget.maxCost }
-    }) : null;
-    results.push({ module, response: response?.summary || null, candidateReceipt, creditReceipt });
-  }
-  return { queryId: query.queryId, frameId: query.frameId, responses: results, returnedAsCandidates: results.some((result) => result.candidateReceipt?.accepted) };
-}
-
-async function submitResponse(options) {
-  const { response, query, db } = options;
-  const candidate = response.candidate;
-  if (candidate.evidenceRefs.length < query.minimumEvidenceRefs) return { accepted: false, reason: 'evidence_requirement' };
-  return workspace.submitCandidate({ candidate, db, triggerCycle: false });
+  return require('./workspaceQueryExecutionService').execute(options);
 }
 
 module.exports = { plan, execute, CAPABILITY_MODULES, cognitiveDemand };

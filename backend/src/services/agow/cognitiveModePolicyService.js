@@ -14,6 +14,7 @@ function modeLoss(mode, signals, costs) {
   const goalUrgency = unit(signals.goalUrgency);
   const evidenceGap = unit(signals.evidenceGap);
   const base = Math.max(0, Number(costs[mode] ?? DEFAULT_COSTS[mode]));
+  if (!Number.isFinite(base)) throw new TypeError('cognitive-mode-cost-invalid');
   const risks = {
     ACT: uncertainty * 0.25 + irreversibility * selfUncertainty * 0.8 + viabilityRisk * 0.6 - goalUrgency * 0.25,
     OBSERVE: goalUrgency * 0.45 + uncertainty * 0.1,
@@ -34,10 +35,12 @@ function evaluate(options = {}) {
   const experiences = (options.experiences || []).filter((item) => item.contextKey === contextKey);
   const estimates = MODES.map((mode) => ({ mode, expectedLoss: calibratedLoss(mode, options) }))
     .sort((left, right) => left.expectedLoss - right.expectedLoss);
-  const chosen = estimates[0];
+  const available = options.eligibleModes || MODES;
+  const chosen = estimates.find((item) => available.includes(item.mode));
+  if (!chosen) throw new Error('cognitive-mode-no-eligible-mode');
   return { mode: chosen.mode, expectedLoss: chosen.expectedLoss, alternatives: estimates,
     regretByMode: Object.fromEntries(estimates.map((item) => [item.mode, item.expectedLoss - chosen.expectedLoss])),
-    contextKey, provenance: { method: 'cognitive_mode_regret_v1', calibrated: Boolean(experiences.length),
+    contextKey, eligibleModes: [...available], provenance: { method: 'cognitive_mode_regret_v1', calibrated: Boolean(experiences.length),
       signalsProvided: Object.keys(signals) } };
 }
 
@@ -58,7 +61,7 @@ function calibratedLoss(mode, options) {
 
 function observeOutcome(options = {}) {
   const { decision, realizedLoss, mode } = options;
-  if (!decision || !MODES.includes(mode || decision.mode) || !Number.isFinite(Number(realizedLoss))) {
+  if (!decision || !MODES.includes(mode || decision.mode) || !Number.isFinite(realizedLoss) || realizedLoss < 0) {
     throw new Error('cognitive-mode-outcome-invalid');
   }
   const actualMode = mode || decision.mode;

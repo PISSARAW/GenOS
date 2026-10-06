@@ -41,3 +41,5 @@ Les specs du format AgentDNA vivent hors de `docs/`, sous [`../../spec/`](../../
 
 - [../04-exploitation/README.md](../04-exploitation/README.md) — mise en œuvre opérationnelle.
 - [../README.md](../README.md) — hub général.
+
+- [runtime-agow.md](runtime-agow.md) — bindings hôte, modes, budgets, décompilation et reprise des reçus AGOW.

@@ -54,20 +54,24 @@ async function deliverReceiver(options) {
   }
 }
 
-async function publish(options) {
+async function publishTransport(options) {
+  if (options.skipTransport) return { published: false, skipped: true, reason: 'local_delivery' };
   const { frame, modules } = options;
-  require('./agowDefaultReceiversService').ensureRegistered();
   const transport = require('../signalingTransportService');
   const { SIGNAL_TYPES } = require('../biomimeticSignalingBus');
-  const transportReceipt = options.skipTransport
-    ? { published: false, skipped: true, reason: 'counterfactual_local_delivery' }
-    : await transport.publishSignal({
+  return transport.publishSignal({
       signalType: SIGNAL_TYPES.LIGAND,
       topic: `agow:workspace:${frame.agentId}`,
       senderAgentId: frame.agentId,
       signalData: { semanticType: 'workspace_broadcast', frameId: frame.frameId, cycle: frame.cycle, primaryContent: frame.primaryContent, secondaryContents: frame.secondaryContents },
       recipientAgentIds: options.recipientAgentIds || []
     });
+}
+
+async function publish(options) {
+  const { frame, modules } = options;
+  require('./agowDefaultReceiversService').ensureRegistered();
+  const transportReceipt = await publishTransport(options);
   const deliveries = [];
   const candidates = await candidatePool.list({ agentId: frame.agentId, db: options.db });
   const source = candidates.find((candidate) => candidate.candidateId === frame.primaryContent);

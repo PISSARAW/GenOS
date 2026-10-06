@@ -542,3 +542,5 @@ La documentation du dépôt est pensée comme un système cohérent :
 
 Tout l'édifice est conçu pour éviter le faux « succès », où un transport ou un état
 technique positif masquerait une absence d'évidence réelle.
+
+- [runtime-agow.md](03-reference/runtime-agow.md) — contrats exécutables et exploitation AGOW.

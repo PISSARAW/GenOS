@@ -7,11 +7,14 @@ async function resolveQuery(options) {
   const policy = await require('../agowMechanismPolicyService').load({ agentId: options.agentId, db: options.db });
   if (!['bounded', 'live'].includes(policy.directPathways)) return null;
   return registry.resolve({ agentId: options.agentId, db: options.db, capability: options.capability,
-    contextHash: options.contextHash, target: options.target, minimumConfidence: options.minimumConfidence });
+    contextHash: options.contextHash, target: options.target, targets: options.targets,
+    minimumConfidence: options.minimumConfidence });
 }
 
 function publish(options) {
-  if (!options.route || options.route.requiresGlobalReview) return { routed: false, reason: 'global_review_required' };
+  if (!options.route || options.route.status !== 'consolidated' || registry.needsReview(options.route)) {
+    return { routed: false, reason: 'global_review_required' };
+  }
   const event = { signalId: `pathway:${options.route.pathwayId}:${Date.now()}`,
     signalType: 'agow_direct_pathway', semanticType: options.semanticType,
     topic: `agow:pathway:${options.route.target}`, senderAgentId: options.senderAgentId || 'agow',
@@ -47,7 +50,8 @@ async function decompile(options) {
       epistemicOrigin: { origin: 'procedural_generated', realityMode: 'real', agency: 'self' }
     }
   });
-  const admission = await workspace.submitCandidate({ candidate, db: options.db, activeGoal: options.activeGoal });
+  const admission = await require('../../globalWorkspaceService').submitCandidate({ candidate,
+    db: options.db, activeGoal: options.activeGoal, triggerCycle: false });
   return { decompiled: true, pathwayId: route.pathwayId, suspensionReason: options.reason, admission };
 }
 

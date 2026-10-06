@@ -75,7 +75,7 @@ async function submitCandidate(options) {
       if (!accepted.merged) await pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId, db: options.db });
       return { accepted: false, reason: 'signal_plane_rejected', signal };
     }
-    const cycleResult = options.triggerCycle === false ? null : await cycle({ agentId: candidate.agentId, db: options.db, now: options.now, activeGoal: options.activeGoal, unresolvedQuestions: options.unresolvedQuestions });
+    const cycleResult = options.triggerCycle === false ? null : await cycle({ ...options, agentId: candidate.agentId });
     return { ...accepted, signal, cycle: cycleResult };
   } catch (error) {
     if (!accepted.merged) await pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId, db: options.db });
@@ -84,7 +84,16 @@ async function submitCandidate(options) {
 }
 
 function cycle(options) {
-  return require('./agow/workspaceCycleService').cycle(options);
+  const bound = require('./agow/agowRuntimeBindingsService').resolve(options);
+  return require('./agow/workspaceCycleService').cycle(bound);
+}
+
+function configureRuntime(options) {
+  return require('./agow/agowRuntimeBindingsService').register(options);
+}
+
+function observeCognitiveOutcome(options) {
+  return require('./agow/cognitiveModeExperienceService').observeOutcome(options);
 }
 
 function query(options) {
@@ -98,4 +107,5 @@ function subscribe(options) {
   return () => bus.removeListener(`topic:${topic}`, options.listener);
 }
 
-module.exports = { admit, compete, diffuse, consume, causalEffect, getMode, getCurrentFrame, submitCandidate, cycle, query, subscribe };
+module.exports = { admit, compete, diffuse, consume, causalEffect, getMode, getCurrentFrame,
+  submitCandidate, cycle, query, subscribe, configureRuntime, observeCognitiveOutcome };

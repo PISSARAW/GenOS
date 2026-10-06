@@ -80,11 +80,34 @@ async function counterfactualQuery(input) {
 }
 
 function ensureRegistered() {
-  registry.registerQuery({ module: 'memory', handle: memoryQuery });
-  registry.registerQuery({ module: 'autobiographical_memory', handle: memoryQuery });
-  registry.registerQuery({ module: 'self_model', handle: selfQuery });
-  registry.registerQuery({ module: 'perception', handle: perceptionQuery });
-  registry.registerQuery({ module: 'counterfactual', handle: counterfactualQuery });
+  registry.registerQuery({ module: 'memory', handle: memoryQuery, default: true, estimatedCost: 0.1 });
+  registry.registerQuery({ module: 'autobiographical_memory', handle: memoryQuery, default: true, estimatedCost: 0.1 });
+  registry.registerQuery({ module: 'self_model', handle: selfQuery, default: true, estimatedCost: 0.05 });
+  registry.registerQuery({ module: 'metacognition', handle: selfQuery, default: true, estimatedCost: 0.05 });
+  registry.registerQuery({ module: 'perception', handle: perceptionQuery, default: true, estimatedCost: 0.05 });
+  registry.registerQuery({ module: 'predictive_hierarchy', handle: perceptionQuery, default: true, estimatedCost: 0.05 });
+  registry.registerQuery({ module: 'counterfactual', handle: counterfactualQuery, default: true,
+    estimatedCost: (query) => query.budget.maxCost });
+  registry.registerQuery({ module: 'verifier', handle: structuralQuery, default: true, estimatedCost: 0 });
+  registry.registerQuery({ module: 'world_model', handle: worldQuery, default: true, estimatedCost: 0.05 });
 }
 
-module.exports = { ensureRegistered, memoryQuery, selfQuery, perceptionQuery, counterfactualQuery };
+async function structuralQuery(input) {
+  const pool = await require('./candidatePoolService').list({ agentId: input.frame.agentId, db: input.db });
+  const valid = pool.filter(require('./candidateValidationService').validCandidate).length;
+  return { summary: `${valid}/${pool.length} structurally valid candidates; semantic verification not established.`,
+    validation: { kind: 'structural_only', semanticVerified: false }, outcome: { cost: 0, evidenceImprovement: 0 } };
+}
+
+async function worldQuery(input) {
+  const loaded = await require('./agowStatePersistenceService').load({ scope: 'world_model', agentId: input.frame.agentId, db: input.db });
+  const transitions = loaded.state.transitions || [];
+  const refs = transitions.filter((item) => item.status !== 'pending').map((item) => item.id);
+  const candidate = refs.length ? candidateFrom({ frame: input.frame, query: input.query,
+    observation: { module: 'world_model', summary: `${refs.length} observed world transitions.`,
+      evidenceRefs: refs, artifactRefs: refs, confidence: 0.5 } }) : null;
+  return { summary: `${transitions.length} world transitions; ${refs.length} resolved.`, candidate,
+    outcome: { cost: 0.05, evidenceImprovement: refs.length ? 0.2 : 0 } };
+}
+
+module.exports = { ensureRegistered, memoryQuery, selfQuery, perceptionQuery, counterfactualQuery, structuralQuery, worldQuery };

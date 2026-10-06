@@ -18,6 +18,20 @@ function realityFields(settings) {
     parentRealityFrameId: settings.parentRealityFrameId };
 }
 
+function riskFields(selected) {
+  return {
+    irreversibility: Math.max(0, ...selected.map((item) => item.epistemicContext?.irreversibility || 0)),
+    requiresGlobalReview: selected.some((item) => Object.values(item.constraints || {}).some((value) => value !== 'clear'))
+  };
+}
+
+function focusFields(settings) {
+  return { activeGoal: settings.activeGoal || null,
+    unresolvedQuestions: Array.isArray(settings.unresolvedQuestions) ? settings.unresolvedQuestions.slice(0, 16) : [],
+    attentionTarget: settings.attentionTarget || null,
+    selfModel: settings.selfModel || null, interoception: settings.interoception || null };
+}
+
 function create(options) {
   const { agentId, cycle, selected, previousFrame, now = Date.now(), settings = {} } = options;
   const primary = selected[0] || null;
@@ -27,9 +41,7 @@ function create(options) {
     frameId: randomUUID(), agentId, cycle,
     primaryContent: primary?.candidateId || null,
     secondaryContents: secondary.map((candidate) => candidate.candidateId),
-    activeGoal: settings.activeGoal || null,
-    unresolvedQuestions: Array.isArray(settings.unresolvedQuestions) ? settings.unresolvedQuestions.slice(0, 16) : [],
-    attentionTarget: settings.attentionTarget || null,
+    ...focusFields(settings),
     epistemicState: {
       confidence: average(selected, 'causalConfidence'),
       uncertainty: average(selected, 'uncertainty'),
@@ -40,6 +52,7 @@ function create(options) {
       triggeredBy: selected.map((candidate) => candidate.candidateId),
       predictionError: average(selected, 'predictionError')
     },
+    riskContext: riskFields(selected),
     createdAt: now,
     decayAt: now + Math.max(1000, Number(settings.frameTtlMs) || 60000)
   };
