@@ -56,6 +56,13 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 
 Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).
 
+Le [système immunitaire épistémique AEIS](docs/01-concepts/adaptive-epistemic-immune-system.md)
+relie la promotion à des preuves de commande exécutées indépendamment. Il inclut
+mémoire et autorité persistantes, recrutement de niches, ré-arbitration
+homéostatique et revues provider en processus séparés. La fiche précise les
+limites et la matrice de qualification ; les réponses provider locales contrôlées
+ne constituent pas une mesure de modèles externes.
+
 ---
 
 ## Ce qui est réel en ce moment

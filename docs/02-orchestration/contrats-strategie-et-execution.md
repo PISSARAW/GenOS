@@ -125,3 +125,25 @@ Test : [backend/tests/test_request_memory_routing.js](../../backend/tests/test_r
 Limites : classification par heuristiques de mots-clés (pas de modèle), seule
 la primitive arithmétique est exécutée en direct, les classes non couvertes
 retombent sur `single_worker`.
+
+## 9. Approbation avec AEIS
+
+Les nouveaux contrats imposent `promotion.require_epistemic_assurance = true`.
+Lors de `approveRun()`, l'approbation humaine autorise l'action et la vérification
+AEIS établit les preuves requises. Le runtime recalcule l'assemblée ; une
+assemblée déclarée dans le rapport ne remplace pas les exécutions indépendantes.
+
+La ré-arbitration homéostatique conserve le lignage des vérificateurs. Les claims
+sont traitées séquentiellement, avec un maximum de 32 par rapport et de 2 à 8
+exécutions par claim. Une revue multi-provider activée dans le contrat exige
+l'accord de tous les providers distincts retenus et le quorum exécutable.
+
+Un refus laisse le run en `awaiting_approval`. Son assemblée signée reste
+disponible pour l'audit et la mémoire. Une contre-preuve confirmée alimente la
+dissonance une fois par run et prédicat ; les gardes d'autorité sont relues avant
+la vérification et après la ré-arbitration. Le Host ne peut pas lever un veto
+obligatoire de preuve.
+
+Références : [immunité épistémique](../06-qualite-preuves/immunite-epistemique.md),
+[fiche AEIS](../01-concepts/adaptive-epistemic-immune-system.md),
+[ADR 0327](../adr/0327-aeis-preuves-et-autorite-persistante.md).

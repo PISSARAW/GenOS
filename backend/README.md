@@ -73,6 +73,24 @@ The strategy and primitive counts use the same family definitions composed by `s
 - **Human Approval Promotion Gate:** High-impact mutations and autonomous promotions require cryptographically signed human approval before merging.
 - **Minimal routing & request memory (ADR 0046):** Every `orchestrate` request first goes through `requestProfilerService` (`RequestProfile` + `request_class`), `executionRouterService` (minimal ladder `primitive -> procedure -> single_worker -> adaptive_worker -> specialists -> collective -> large_search`, escalate only on evidence) and `bestKnownResultService` (durable problem→champion memory). `backend/bin/requestMemoryBridge.cjs` short-circuits `genos-orchestrate.cjs`: valid champions are reused with no agents, deterministic arithmetic runs as a `primitive` with a receipt, mission summaries are archived as `PROVISIONAL`. Tables: `request_problems`, `request_results` (migration `071-request-memory`, contract `spec/request-memory.schema.json`).
 
+### AEIS : promotion et mémoire immunitaire
+
+Le chemin `approveRun()` exécute l'AEIS avant la promotion : prédicat de commande
+exact, quorum de deux vérificateurs indépendants avec reçus signés et
+ré-arbitration homéostatique. La politique multi-provider exige l'accord
+complet des providers distincts ; leurs workers utilisent des processus
+séparés et SQLite en mémoire.
+
+Les tables `epistemic_immune_memory_scoped` et `epistemic_immune_outcomes`
+conservent les observations confirmées par portée. La migration
+`114-aeis-authority` ajoute `aeis_agent_dissonance` et `aeis_dissonance_events`
+pour des restrictions d'autorité persistantes, applicables aux descendants.
+
+Depuis la racine : `npm --prefix backend run test:aeis`. Les tests utilisent
+SQLite, des commandes réelles et des réponses HTTP provider contrôlées.
+Voir [la fiche AEIS](../docs/01-concepts/adaptive-epistemic-immune-system.md)
+et [les gates de preuve](../docs/06-qualite-preuves/immunite-epistemique.md).
+
 ### 5. Unified MCP Tool Registry (`src/services/mcpToolRegistry.js`)
 Maintains a declaration-driven backend registry for typed execution routing. Its current unique declaration count and registered biomimicry handler count are recorded in the dated [technical inventory](../docs/03-reference/inventaire-technique.md). MCP stdio servers expose a leased public subset:
 - `strategy`: Handled by `mcpStrategyTools.js`.

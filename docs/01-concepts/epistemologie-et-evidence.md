@@ -382,7 +382,7 @@ graph TD
     end
 
     subgraph Knowledge["4. Connaissance Validée"]
-        Proof["Preuve Irréfutable (Certificat)"]
+        Proof["Preuve liée au prédicat (Certificat)"]
         PromotionGate["Gate de Promotion vers le Tronc"]
     end
 
@@ -409,8 +409,8 @@ stateDiagram-v2
         PreuveFormelleRequise --> EpreuveDeterministe
     }
     
-    EnTest --> Rejete : Falsification confirmée (Score de vérité = 0)
-    EnTest --> Certifie : Épreuves passées (Score de vérité = 1.0)
+    EnTest --> Rejete : Falsification confirmée du prédicat
+    EnTest --> Certifie : Épreuves passées dans le domaine déclaré
     
     Certifie --> Promu : Passage de la Gate de Promotion
     Rejete --> ArchiveErreur : Enregistrement pour apprentissage négatif
@@ -425,3 +425,20 @@ stateDiagram-v2
 - [FOSSILISATION.md](fossilisation.md) — archive terminale des lignées éteintes : conserver la preuve et le phénotype résiduel (mélanosomes) sans jamais ressusciter la branche (voir aussi `preserve_rejected_branches`).
 - [adr/0003-fossilization-stratigraphic-archive.md](../adr/0003-fossilization-stratigraphic-archive.md) — décision d'architecture de la fossilisation stratigraphique.
 
+
+## AEIS : preuve de promotion et apprentissage
+
+Le [système immunitaire épistémique](adaptive-epistemic-immune-system.md) relie
+les assertions de commande à deux exécutions indépendantes munies de reçus
+signés. Un timeout reste inconclusif ; un désaccord provider bloque la promotion
+lorsque la politique multi-provider est active. Aucun avis provider seul ne
+constitue une preuve exécutable.
+
+La mémoire SQLite conserve les issues confirmées par portée, dont les échecs
+d'affinité nulle. Le rejeu d'une même preuve est dédupliqué. La dissonance
+d'autorité, également persistée, réduit les droits selon des seuils explicites
+et s'applique aux descendants. La validité reste relative au prédicat testé et
+au domaine annoncé.
+
+Le contrat, les refus et le protocole local sont décrits dans
+[l'immunité épistémique](../06-qualite-preuves/immunite-epistemique.md).
