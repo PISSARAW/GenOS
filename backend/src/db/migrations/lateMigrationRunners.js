@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('114-shev-runtime', 'Close the SHEV perception, monitoring and controlled recovery loop', async (db) => {
+    await require('./migrateShevRuntime').migrateShevRuntime(db);
+  }),
   createMigrationRunner('109-signal-receptors', 'Persist scoped deterministic signal receptors', async (db) => {
     await require('./migrateSignalReceptors').migrateSignalReceptors(db);
   }),
@@ -19,5 +22,8 @@ module.exports = (createMigrationRunner) => [
   }),
   createMigrationRunner('114-gvx-runtime', 'Fence resumable GVX cycles and reversible runtime operations', async (db) => {
     await require('./migrateGvxRuntime').migrateGvxRuntime(db);
+  }),
+  createMigrationRunner('114-aeis-authority', 'Persist AEIS dissonance and deduplicated authority feedback', async (db) => {
+    await require('./migrateAeisAuthority').migrateAeisAuthority(db);
   }),
 ];

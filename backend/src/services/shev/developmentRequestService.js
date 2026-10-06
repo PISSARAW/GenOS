@@ -34,7 +34,7 @@ async function requestDevelopment(db, input) {
     payload: { kind: 'developmental_signal', sourceSystem: 'shev',
       sourceEventId: input.observationId, signalType: 'skill_gap',
       evidenceRefs, epistemicStatus: 'reported',
-      context: { dimension: observation.dimension, projectId: input.projectId } }
+      context: { dimension: observation.dimension, projectId: input.projectId, pathwayId: `shev:${observation.dimension}` } }
   });
   const action = await controller.processSignal(db, { scope: input.scope, entityId: input.entityId,
     sourceEventId: input.observationId, signalType: 'skill_gap', evidenceRefs,

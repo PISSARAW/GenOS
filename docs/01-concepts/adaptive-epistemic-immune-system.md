@@ -1,7 +1,7 @@
 ---
 title: "Adaptive Epistemic Immune System"
 description: "Système immunitaire épistémique adaptatif pour GenOS — reconnaissance, vérification et neutralisation des formes de conviction trompeuses."
-version: 1.1.0
+version: 1.2.0
 author: GenOS
 created: 2026-09-21
 tags: [epistemology, immunity, biomimicry, verification, adaptive]
@@ -16,7 +16,7 @@ de GenOS. Il traite toute affirmation (claim) comme un **antigène** — une uni
 biologique qui doit être reconnue, vérifiée ou neutralisée avant d'être promue.
 
 Le système ne se contente pas de détecter les erreurs. Il mesure dynamiquement le
-niveur de pression d'assurance (`H = f(risk, uncertainty, contradiction, novelty,
+niveau de pression d'assurance (`H = f(risk, uncertainty, contradiction, novelty,
 cost, evidence)`) et ajuste l'effort de vérification en conséquence, comme un
 organisme ajuste sa réponse immunitaire.
 
@@ -122,7 +122,7 @@ seuil apoptosis = 50
 | Mémoire immunitaire | `immuneMemoryService` + `immuneMemoryRepository` — rappel et résultats confirmés | SQLite par organisation, projet et workspace ; le rappel seul ne tranche pas l'issue |
 | Inflammation | `epistemicInflammationAndRegulation` — pression → effort | Pas de cytokine ; un calcul de pression |
 | Tolérance / T-reg | `regulatoryReview` — inhibe les rejets injustifiés | Pas de cellule T ; une fonction qui vérifie la justification |
-| Apoptose | `epistemicApoptosisService` + `epistemicApoptosisAuthorityBridge` — dissonance → seuils → autopsie → révocation runtime | Pas de mort cellulaire ; un agent marqué `apoptotique` + statut DB mis à jour |
+| Apoptose | `epistemicApoptosisService` + `epistemicApoptosisAuthorityBridge` — dissonance → seuils → autopsie → révocation runtime | SQLite conserve la dissonance et l'autopsie ; statuts blocked puis apoptosis, avec isolation Quarantine |
 | Biocénose | `epistemicBiocenoseService` — diversité fonctionnelle des reviewers | Pas d'écosystème ; des métriques de diversité |
 | Métapopulation | `epistemicMetapopulationService` — populations isolées + migration contrôlée | Pas de géographie ; des populations avec `isolation` et `migrateResults` |
 | Stigmergie | `epistemicStigmergyService` + `stigmergyInterProcessBridge` — phéromones structurées + persistance | Pas de phéromone chimique ; des marqueurs en mémoire + bus de signaux |
@@ -454,30 +454,47 @@ npm --prefix backend run test:aeis
 
 Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
 
-## 9. Comparaison avec le marché
+## 9. Qualification opérationnelle
 
-| Système | Mécanisme dominant | Limite |
-|---|---|---|
-| LangChain | chaîne de vérification | Linéaire, pas de sélection dynamique |
-| Vercel AI SDK | routing de modèle | Pas de mémoire immunitaire |
-| Anthropic Constitutional AI | règles statiques | Pas d'apprentissage par affinity maturation |
-| **GenOS AEIS** | homéostasie + clonal selection + biocénose | implémenté et testé |
+La commande de qualification est `npm --prefix backend run test:aeis`.
+Le runner inclut les unités, les intégrations SQLite, les processus provider
+et la régression EAB locale.
 
-### Différences clés
+| Capacité | Preuve exécutable |
+|---|---|
+| Rappel de contre-preuve, portée et rétention à capacité pleine | `test_epistemic_immune_memory_persistence.js` |
+| Abstention sur timeout sans fausse réfutation | `test_aeis_execution_timeouts.js` |
+| Identités, accord et désaccord providers | `test_aeis_provider_process_roundtrip.js`, `test_aeis_provider_persistence.js` |
+| Processus séparés, délais et bornes d'entrée | `test_aeis_process_isolation.js` |
+| Recrutement de niches et budget | `test_aeis_niche_recruitment.js`, `test_aeis_runtime_integrations.js` |
+| Quorum signé et lignage lors de la ré-arbitration | `test_aeis_homeostatic_runtime.js`, `test_aeis_verifier_lineage.js` |
+| Autorité durable et révocation des descendants | `test_aeis_authority_persistence.js` |
+| Approval et contre-preuve dédupliquée sur SQLite | `test_approve_run_deferred_promotion.js` |
+| Approval avec deux processus provider ; refus du désaccord et du quorum manquant | `test_aeis_provider_approve_run.js` |
+| Régression adversariale de promotion | `benchmarks/eab/run-aeis-eab.cjs` |
 
-1. **Pas de table LOW/HIGH/CRITICAL arbitraire** : le niveau d'assurance découle
-   d'une fonction de pression continue, pas d'un gate rigide.
+### Autorité persistée
 
-2. **Sélection clonale réelle** : les vérificateurs sont choisis par affinité,
-   pas assignés aléatoirement.
+`epistemicAuthorityState` conserve les événements dans `aeis_dissonance_events`
+et l'état dans `aeis_agent_dissonance`. Dans `approveRun()`, une contre-preuve
+d'exécution signée vaut un point, une fois par run et prédicat canonique.
+Une répétition, un timeout ou un avis provider divergent ne constituent pas
+une nouvelle contre-preuve.
 
-3. **Mémoire immunitaire** : le système apprend quelles formes de conviction
-   sont trompeuses, pas seulement quels claims sont vrais.
+- À 5 points : avertissement conservé en base.
+- À 15 points : lancement de missions et délégation refusés.
+- À 30 points : agent marqué `blocked`, isolation `Quarantine` et autorité
+  runtime refusée pour lui et ses descendants.
+- À 50 points : statut `apoptosis` et autopsie persistée.
 
-4. **Auto-immunité évitée** : le régulateur T-reg empêche les rejets injustifiés.
+`agentAuthorityService` et `missionExecutionAuthority` consultent cet état
+à chaque autorisation. `approveRun()` vérifie aussi l'autorité avant la
+vérification et après la ré-arbitration. Ces gardes retirent les droits ;
+ils ne promettent pas de tuer un processus externe déjà lancé.
 
-5. **Diversité cognitive mesurée** : la monoculture est détectée et corrigée
-   automatiquement.
+Le quorum obligatoire et les contre-preuves exécutées ne peuvent pas être
+inhibés par le régulateur. Les assemblées refusées restent persistées pour
+l'audit et la mémoire, y compris si la revue provider refuse la promotion.
 
 ## 10. Limites, garde-fous, non-objectifs
 
@@ -547,13 +564,14 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
   budget par claim (maximum 8 exécutions)
 - affinity maturation branchée avec oracle requis (affinityMaturationService : diagnoseError, targetedMutation, matureStrategy)
 - stigmergie inter-process (stigmergyInterProcessBridge via biomimeticSignalingBus)
-- apoptose intégrée à l'autorité runtime (epistemicApoptosisAuthorityBridge)
+- dissonance, événements dédupliqués et autopsie persistés ; révocation intégrée
+  aux autorisations de mission, de délégation et de runtime
 - AEIS → promotion gate (require_epistemic_assurance = true)
 - feedback homéostatique appliqué à la ré-arbitration runtime et au veto final
 - revues multi-provider structurées, distinctes, persistées en SQLite et
   opposables lorsqu'elles sont activées par la politique du contrat
 - processus enfants séparés pour les revues provider, avec environnement
-  réduit, limite de temps, mémoire et taille de réponse
+  réduit, base SQLite éphémère, délai borné, heap Node limité et sorties bornées
 - `approveRun()` couvert avec SQLite sur le chemin accepté et les refus de
   reçus absents ou altérés
 - Intégration AEIS et runner EAB LoCoMo catégorie 5 disponibles; le rapport
@@ -563,6 +581,10 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
   de promotion, raccordé à `npm test`
 
 **Bornes vérifiées** :
+- au maximum 32 claims par rapport, traitées séquentiellement ; de 2 à 8
+  exécutions de vérification par claim et au maximum 8 processus par lot
+- heap Node des workers limité à 128 Mio ; cela ne borne pas la mémoire totale
+  du processus. La sortie JSON est distincte des logs et vidée avant sa fermeture
 - le contrat promouvable est actuellement une proposition exacte de type
   `<commande> outputs "<valeur>"` ou `<commande> exits with code 0`;
   une affirmation libre ou seulement apparentée à un test est refusée

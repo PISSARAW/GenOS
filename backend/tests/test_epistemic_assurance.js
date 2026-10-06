@@ -144,7 +144,9 @@ function testPromotionIntegration() {
   const missing = promotionPolicy.evaluatePromotionGate(contract, { report: {} });
   assert.equal(missing.eligible, false);
   assert.ok(policies(missing).includes('require_epistemic_assurance'));
-  const accepted = promotionPolicy.evaluatePromotionGate(contract, { report: { epistemicAssembly: validAssembly() } });
+  const untrusted = promotionPolicy.evaluatePromotionGate(contract, { report: { epistemicAssembly: validAssembly() } });
+  assert.equal(untrusted.eligible, false, 'an assembly declared in the report is not a runtime evidence context');
+  const accepted = promotionPolicy.evaluatePromotionGate(contract, { epistemicAssembly: validAssembly() });
   assert.equal(accepted.eligible, true, JSON.stringify(accepted.violations));
 }
 

@@ -124,4 +124,4 @@ class WebAuditService {
   }
 }
 
-module.exports = { WebAuditService, fingerprintWebConfig: hash };
+module.exports = { WebAuditService, fingerprintWebConfig: hash, validateConfig };

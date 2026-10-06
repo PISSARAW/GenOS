@@ -11,7 +11,11 @@ async function main() {
   const db = await database.getDatabase();
   try {
     const runner = require('../src/services/syncytium/benchmark/biologicalBenchmarkRunnerService');
-    process.stdout.write(JSON.stringify(await runner.runCampaign(manifest, db)));
+    const result = Array.isArray(manifest.cases)
+      ? await require('../src/services/syncytium/benchmark/syncytiumMissionMatrixService')
+        .runMatrix(manifest, db)
+      : await runner.runCampaign(manifest, db);
+    process.stdout.write(JSON.stringify(result));
   } finally {
     await database.closeDatabase();
   }

@@ -7,6 +7,7 @@ const { resolveWorkspaceRoot, resolveContainedPathNoSymlinkSync,
 const { FORBIDDEN } = require('../../ontogenesis/integrationService');
 const { recordObservation } = require('../observationService');
 const { recordProjectEffect } = require('../effectService');
+const { observationRoot } = require('./observationRoot');
 
 const HASH = /^[a-f0-9]{64}$/;
 
@@ -27,14 +28,23 @@ function pointerValue(document, pointer) {
   }, document);
 }
 
-function inspect(path, input) {
-  let raw;
-  try { raw = fs.readFileSync(path); } catch (error) {
-    if (error.code === 'ENOENT') return { kind: 'blind_spot', epistemicStatus: 'unknown',
-      summary: 'Le contrat JSON attendu est absent.', evidenceRefs: [], fingerprint: 'missing' };
+function readSource(path) {
+  try {
+    const stat = fs.statSync(path);
+    if (stat.size > 1048576 || !stat.isFile()) throw new Error('SHEV JSON source is too large or irregular.');
+    const raw = fs.readFileSync(path);
+    if (raw.length > 1048576) throw new Error('SHEV JSON source is too large.');
+    return raw;
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
     throw error;
   }
-  if (raw.length > 1048576 || !fs.statSync(path).isFile()) throw new Error('SHEV JSON source is too large or irregular.');
+}
+
+function inspect(path, input) {
+  const raw = readSource(path);
+  if (!raw) return { kind: 'blind_spot', epistemicStatus: 'unknown',
+    summary: 'Le contrat JSON attendu est absent.', evidenceRefs: [], fingerprint: 'missing' };
   const fileHash = digest(raw);
   let value;
   try { value = pointerValue(JSON.parse(raw.toString('utf8')), input.pointer); } catch (_) {
@@ -48,25 +58,29 @@ function inspect(path, input) {
 }
 
 async function inspectJsonContract(db, input) {
-  if (!input?.projectId || !input.dimension || !HASH.test(input.expectedSha256)
-    || !validPointer(input.pointer)) throw new TypeError('SHEV JSON contract is invalid.');
+  if (!validObservationInput(input)) throw new TypeError('SHEV JSON contract is invalid.');
   const relativePath = normalizeRelativePath(input.relativePath, 'JSON source');
   if (FORBIDDEN.some((pattern) => pattern.test(relativePath))) throw new Error('SHEV JSON source is forbidden.');
-  const project = await db.get('SELECT root_path FROM ontogenesis_projects WHERE id = ?', [input.projectId]);
+  const project = await db.get('SELECT * FROM ontogenesis_projects WHERE id = ?', [input.projectId]);
   if (!project) throw new Error('SHEV project does not exist.');
-  const root = resolveWorkspaceRoot(project.root_path);
+  const root = observationRoot(project, input.target);
   const path = resolveContainedPathNoSymlinkSync(root, relativePath, 'JSON source');
   const result = inspect(path, input);
-  const identity = [input.projectId, relativePath, input.pointer, input.expectedSha256, result.fingerprint].join('\0');
+  const identity = [input.projectId, relativePath, input.dimension, input.pointer,
+    input.expectedSha256, input.target || 'project', result.fingerprint, input.sampleRef || 'state'].join('\0');
   const id = `json_contract_${digest(identity)}`;
   const existing = await db.get(`SELECT observed_at FROM shev_observations
     WHERE project_id = ? AND id = ?`, [input.projectId, id]);
   if (existing) return { ...result, id, replayed: true, observedAt: existing.observed_at };
   return recordObservation(db, { id, projectId: input.projectId, domain: 'application-contract',
-    dimension: input.dimension, source: `json-contract:${digest(relativePath + input.pointer)}`,
+    dimension: input.dimension, source: `json-contract:${digest(JSON.stringify([relativePath, input.pointer, input.expectedSha256, input.target || 'project']))}`,
     observedAt: new Date(input.nowMs ?? Date.now()).toISOString(), kind: result.kind,
     epistemicStatus: result.epistemicStatus, summary: result.summary,
     evidenceRefs: result.evidenceRefs });
+}
+
+function validObservationInput(input) {
+  return input?.projectId && input.dimension && HASH.test(input.expectedSha256) && validPointer(input.pointer);
 }
 
 async function verifyJsonContract(db, input) {

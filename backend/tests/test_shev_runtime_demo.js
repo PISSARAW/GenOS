@@ -34,7 +34,10 @@ async function runUntilTaskDone(db, input) {
     [input.projectId, input.observationId]);
     if (task?.status === 'done') return;
   }
-  throw new Error(`SHEV task did not complete for ${input.observationId}.`);
+  const diagnostics = { project: await store.getProject(db, input.projectId),
+    tasks: await db.all('SELECT * FROM ontogenesis_backlog'),
+    executions: await db.all('SELECT * FROM ontogenesis_execution') };
+  throw new Error(`SHEV task did not complete for ${input.observationId}: ${JSON.stringify(diagnostics)}`);
 }
 
 async function verifyEffect(db, input) {

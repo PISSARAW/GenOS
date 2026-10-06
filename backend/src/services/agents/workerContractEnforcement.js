@@ -6,7 +6,8 @@ const workerKinds = require('./workerKindService');
 const AUTHORITY_TOOLS = Object.freeze({
   spawn: ['genos_create', 'genos_fork', 'genos_delegate_worker'],
   promote: ['genos_record_decision', 'genos_merge'],
-  topology: ['genos_change_organization', 'genos_topology_session'],
+  topology: ['genos_change_organization'],
+  topologySession: ['genos_topology_session'],
   strategy: ['genos_change_strategy'],
   write: ['genos_run', 'genos_execute_primitive'],
   read: ['genos_inspect', 'genos_memory_query', 'genos_search_failures', 'genos_evidence_check', 'genos_validate', 'genos_diff', 'genos_organization_state', 'genos_philosophy', 'genos_lineage', 'genos_blame'],
@@ -34,14 +35,12 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
   const kind = contract?.identity?.workerKind;
   const action = toolAction(toolName, args);
   if (!kind || !workerKinds.KINDS[kind]) throw contractError(kind || 'unknown', action);
-  if (action === 'topology_read') {
-    const authorizedSessionId = contract.mission?.topologySessionId;
-    const requestedSessionId = args.session_id || args.sessionId;
-    if (!authorizedSessionId || requestedSessionId !== authorizedSessionId) {
-      throw contractError(kind, action);
-    }
-    return true;
+  if (String(toolName).toLowerCase() === 'genos_topology_session'
+    && (!contract.mission?.topologySessionId
+      || (args.session_id || args.sessionId) !== contract.mission.topologySessionId)) {
+    throw contractError(kind, action);
   }
+  if (action === 'topology_read') return true;
   if (!contract.authority?.[action]) throw contractError(kind, action);
   return true;
 }
@@ -65,7 +64,7 @@ async function enforcePersistedWorkerTool(db, agentId, toolCall) {
 
 function assertTopologySessionScope(input) {
   const { toolName, args, metadata, kind } = input;
-  if (toolAction(toolName, args) !== 'topology_read') return;
+  if (String(toolName).toLowerCase() !== 'genos_topology_session') return;
   if (!metadata.topologySessionId || (args.session_id || args.sessionId) !== metadata.topologySessionId) {
     throw contractError(kind, 'topology_read');
   }

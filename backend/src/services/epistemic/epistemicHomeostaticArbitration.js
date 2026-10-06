@@ -3,12 +3,14 @@
 const { runAdaptivePipeline } = require('./adaptiveImmuneResponse');
 const { computePressure, tierFromPressure, feedbackEffect } = require('./epistemicHomeostasisService');
 const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
+const { priorExecutedVerifiers } = require('./epistemicHomeostaticRearbitration');
+const { isConfirmedExecution } = require('./verifierEvidence');
 
 function verifierEvidenceScore(verifierResults) {
   const results = verifierResults.results || [];
   if (!results.length) return 0;
-  const verified = results.filter((item) => item.status === 'verified').length;
-  const refuted = results.filter((item) => item.status === 'refuted').length;
+  const verified = results.filter((item) => item.status === 'verified' && isConfirmedExecution(item)).length;
+  const refuted = results.filter((item) => item.status === 'refuted' && isConfirmedExecution(item)).length;
   const resolved = verified + refuted;
   const completion = resolved / results.length;
   const agreement = resolved ? Math.max(verified, refuted) / resolved : 0;
@@ -83,9 +85,15 @@ async function reArbitrateFromHomeostasis({ antigen, context, pipeline, initialV
   });
   const priorTypes = new Set(initialVerifiers.map((item) => item.type));
   const additional = verifierAssignments(secondPipeline).filter((item) => !priorTypes.has(item.type));
-  const additionalResults = await executeVerifierWorkers(antigen, additional, context);
+  const prior = priorExecutedVerifiers({ verifierResults: firstResults });
+  const additionalResults = await executeVerifierWorkers(antigen, additional, {
+    ...context, priorVerifiers: [...(context.priorVerifiers || []), ...prior],
+  });
+  const assignedVerifiers = [...initialVerifiers, ...additional].map((item) => ({
+    verifier: item.type, strategy: item.strategy, affinity: item.affinity,
+  }));
   return {
-    pipeline: secondPipeline,
+    pipeline: { ...secondPipeline, decision: { ...secondPipeline.decision, assignedVerifiers } },
     verifiers: [...initialVerifiers, ...additional],
     verifierResults: mergeVerifierResults(firstResults, additionalResults),
     feedback: { ...feedback, reArbitrated: additional.length > 0, addedVerifiers: additional.map((item) => item.type) },

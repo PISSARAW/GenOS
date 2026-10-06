@@ -570,8 +570,14 @@ pas la disponibilité de ces backends dans le serveur. Voir les
 
 - [AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — outils MCP `genos_genome_compile|validate|inspect|cross|mutate|clone|decoy` et leur catalogue (`seedTools.js`, `mcpGenomeTools.js`).
 
+## A-Team : lease d’outil et bail de runner
+
 Les leases MCP déterminent les outils effectivement autorisés ; `execution.runnerLease` réserve l'exécution d'un TeamRun et ne remplace pas une lease d'outil. Prévisualisation et dispatch accepté ne fournissent aucune preuve d'intégration. Les rapports et les accusés sont évalués par le parcours canonique avant clôture.
 
 Les autorités d'une politique de variante ne modifient pas les ACL du backend. Les évaluations isolées restent distinctes d'une exécution promue. Voir [Référence du runtime A-Team](runtime-a-team.md).
 
-## A-Team : lease d’outil et bail de runner
+## Session Syncytium via MCP
+
+`genos_topology_session` prend `session_id` et `operation`. Pour lire le journal d'une session Syncytium, utiliser `operation: "events"` avec `after_revision` (entier, `-1` par défaut) ; la réponse ne contient que les événements dont la révision est supérieure. Une session spécialisée reçoit ses mutations par `operation: "variant"`, `variant_action` choisi dans les actions autorisées de son variant et `variant_input` contenant les arguments métier. Le routeur refuse une action absente de la liste du variant ; `apply`, `branch` et `promote` génériques sont interdits pour ces sessions.
+
+Le worker doit disposer du bail de l'outil **et** d'un contrat borné à `session_id`. Ce contrat n'accorde pas `genos_change_organization`. La passerelle vérifie l'identité persistée, refuse l'accès d'un worker à une autre session et lie `actorId` à l'appelant authentifié pour les mutations. Un appel sans identité ne peut pas muter Syncytium. Les refus codés sont persistés avec session, action, opération et appelant pour l'oracle de campagne. Ces contrôles d'accès ne démontrent pas à eux seuls la réussite d'une mission ; voir le [protocole de preuve Syncytium](../02-orchestration/topologies/protocole-missions-syncytium.md).

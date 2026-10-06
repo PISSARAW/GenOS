@@ -73,6 +73,32 @@ The strategy and primitive counts use the same family definitions composed by `s
 - **Human Approval Promotion Gate:** High-impact mutations and autonomous promotions require cryptographically signed human approval before merging.
 - **Minimal routing & request memory (ADR 0046):** Every `orchestrate` request first goes through `requestProfilerService` (`RequestProfile` + `request_class`), `executionRouterService` (minimal ladder `primitive -> procedure -> single_worker -> adaptive_worker -> specialists -> collective -> large_search`, escalate only on evidence) and `bestKnownResultService` (durable problem→champion memory). `backend/bin/requestMemoryBridge.cjs` short-circuits `genos-orchestrate.cjs`: valid champions are reused with no agents, deterministic arithmetic runs as a `primitive` with a receipt, mission summaries are archived as `PROVISIONAL`. Tables: `request_problems`, `request_results` (migration `071-request-memory`, contract `spec/request-memory.schema.json`).
 
+### GVX standard AGOW cycle
+
+`gvxStandardLifecycleAdapters` supplies the default adapters when no custom lifecycle module is configured. A pinned operator profile binds the agent and scope, parent/candidate policies, evaluator sources, paired controls, budgets and monitoring contexts. The separate Ed25519 verifier executes fixed trusted evaluators, persists signed measurements and checks the applied policy against the runtime database in read-only mode.
+
+The controller orders assessment, authorization, atomic application, independently verified monitoring, then signed receipt and idempotent plasticity credit. SQLite leases and the stage journal support recovery; regression restores the exact parent and prevents positive credit. Three monitoring windows yield at most one development receipt, while consolidation separately requires three distinct successful receipts.
+
+From the repository root, run `node backend/bin/genos-gvx-profile.cjs <profiles.json>` to validate configuration and `node backend/bin/genos-gvx-verifier.cjs` to start the configured service. The functional suite is `node backend/bin/test-gvx.cjs`. See the [operator profile](../docs/02-orchestration/profil-execution-gvx.md), [verifier service](../docs/05-securite-gouvernance/service-verificateur-gvx.md) and [validation report](../docs/06-qualite-preuves/validation-cycle-standard-gvx.md). These fixtures do not establish model efficacy or a qualified holdout campaign.
+
+### AEIS : promotion et mémoire immunitaire
+
+Le chemin `approveRun()` exécute l'AEIS avant la promotion : prédicat de commande
+exact, quorum de deux vérificateurs indépendants avec reçus signés et
+ré-arbitration homéostatique. La politique multi-provider exige l'accord
+complet des providers distincts ; leurs workers utilisent des processus
+séparés et SQLite en mémoire.
+
+Les tables `epistemic_immune_memory_scoped` et `epistemic_immune_outcomes`
+conservent les observations confirmées par portée. La migration
+`114-aeis-authority` ajoute `aeis_agent_dissonance` et `aeis_dissonance_events`
+pour des restrictions d'autorité persistantes, applicables aux descendants.
+
+Depuis la racine : `npm --prefix backend run test:aeis`. Les tests utilisent
+SQLite, des commandes réelles et des réponses HTTP provider contrôlées.
+Voir [la fiche AEIS](../docs/01-concepts/adaptive-epistemic-immune-system.md)
+et [les gates de preuve](../docs/06-qualite-preuves/immunite-epistemique.md).
+
 #### Natural Search Control Plane (`src/services/search/`)
 
 `agentProcessEventPipeline` calls `checkNaturalSearchControl`: measured progress
@@ -99,14 +125,6 @@ Run the dedicated suite with `npm --prefix backend run test:natural-search`
 (21 scripts at the 2026-10-06 validation). See the [runtime contract](../docs/01-concepts/natural-search-control-plane.md),
 [ADR 0323](../docs/adr/0323-reprise-atomique-natural-search.md) and
 [recovery runbook](../docs/04-exploitation/runbook-recovery.md#8-natural-search-checkpoint-recovery).
-
-### GVX standard AGOW cycle
-
-`gvxStandardLifecycleAdapters` supplies the default adapters when no custom lifecycle module is configured. A pinned operator profile binds the agent and scope, parent/candidate policies, evaluator sources, paired controls, budgets and monitoring contexts. The separate Ed25519 verifier executes fixed trusted evaluators, persists signed measurements and checks the applied policy against the runtime database in read-only mode.
-
-The controller orders assessment, authorization, atomic application, independently verified monitoring, then signed receipt and idempotent plasticity credit. SQLite leases and the stage journal support recovery; regression restores the exact parent and prevents positive credit. Three monitoring windows yield at most one development receipt, while consolidation separately requires three distinct successful receipts.
-
-From the repository root, run `node backend/bin/genos-gvx-profile.cjs <profiles.json>` to validate configuration and `node backend/bin/genos-gvx-verifier.cjs` to start the configured service. The functional suite is `node backend/bin/test-gvx.cjs`. See the [operator profile](../docs/02-orchestration/profil-execution-gvx.md), [verifier service](../docs/05-securite-gouvernance/service-verificateur-gvx.md) and [validation report](../docs/06-qualite-preuves/validation-cycle-standard-gvx.md). These fixtures do not establish model efficacy or a qualified holdout campaign.
 
 ### 5. Unified MCP Tool Registry (`src/services/mcpToolRegistry.js`)
 Maintains a declaration-driven backend registry for typed execution routing. Its current unique declaration count and registered biomimicry handler count are recorded in the dated [technical inventory](../docs/03-reference/inventaire-technique.md). MCP stdio servers expose a leased public subset:
@@ -432,7 +450,7 @@ sequenceDiagram
     Backend->>DB: Enregistrement dans le journal d'événements
     Backend->>WSClient: Diffusion WebSocket immédiate (Payload JSON)
     deactivate Backend
-    
+
     WSClient->>WSClient: Mise à jour dynamique de l'UI / Graphique
 ```
 
@@ -441,3 +459,19 @@ sequenceDiagram
 Explicit dispatch and autonomous orchestration share `src/services/aTeam/execution/teamExecutionService.js`. Canonical workers are assigned before graph persistence. A runner lease and a persisted deadline protect resumption. Worker completion alone cannot complete the TeamRun: evidence, global criteria and exact versioned consumer receipts are required. The detached runner also monitors teams without deferred stages.
 
 The eleven variant evaluators remain separate from generic dispatch; multiteam planning does not launch verified sub-runs. Coverage measures mission contributions, not general expertise. See [the A-Team runtime contract](../docs/03-reference/runtime-a-team.md).
+
+## SHEV : responsabilité et surveillance persistantes
+
+Le tick Ontogenèse raccorde les capteurs signés, initiatives, effets post-intégration
+et surveillances. Les risques/opportunités, récupérations et expériences GVX
+requièrent une approbation signée avec budget. Les effets externes ambigus restent
+bloqués jusqu’à leur réconciliation ; le progrès de l’agent a un reçu distinct.
+
+- Opérateur : `npm --prefix backend run shev -- --help`.
+- Validation : `npm --prefix backend run test:shev` et `test:web-audits`.
+- [Modèle et garanties](../docs/02-orchestration/shev.md).
+- [Exploitation, signature et fournisseurs](../docs/03-reference/exploitation-shev.md).
+
+La CLI est une frontière d’administration locale. Aucun endpoint HTTP ni outil
+MCP SHEV supplémentaire n’est ajouté. Le fournisseur métier/GVX doit être installé
+par l’opérateur ; les fixtures de test ne certifient pas une campagne réelle.

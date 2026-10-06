@@ -39,12 +39,16 @@ async function composeBiologicalMode(args = {}) {
   }
 }
 
-async function operateTopologySession(args = {}) {
+async function operateTopologySession(args = {}, caller = {}) {
+  let db;
   try {
-    const db = await getDatabase();
-    const result = await require('./topologySessionTools').applyTopologyOperation(db, args);
+    db = await getDatabase();
+    const result = await require('./topologySessionTools').applyTopologyOperation(db, args, caller);
     return { configured: true, success: true, status: 'topology_session_updated', ...result };
   } catch (error) {
+    await require('./syncytium/benchmark/syncytiumRejectionReceiptService')
+      .record(db, args, error, caller.agentId || process.env.GENOS_AGENT_ID)
+      .catch(() => {});
     return { configured: true, success: false, status: 'tool_error', error: error.message, code: error.code || null };
   }
 }

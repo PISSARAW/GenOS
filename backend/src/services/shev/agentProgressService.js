@@ -1,6 +1,7 @@
 'use strict';
 
 const { createHash } = require('node:crypto');
+const { withTransaction } = require('../../db');
 const ledger = require('../gvxDevelopmentLedger');
 
 const HASH = /^[a-f0-9]{64}$/;
@@ -36,13 +37,22 @@ function heldoutWindows(transfer) {
     || !Array.isArray(transfer.verifiedEvidence) || transfer.verifiedEvidence.length < 2) {
     throw new Error('SHEV GVX transfer lacks independently verified monitoring windows.');
   }
-  const training = new Set([transfer.contextHash,
+  if (!validTrainingManifest(transfer)) {
+    throw new Error('SHEV transfer needs a sealed training manifest for held-out verification.');
+  }
+  const training = new Set([...transfer.trainingContextHashes, transfer.contextHash,
     ...(transfer.trialEvidence || []).map((trial) => trial.contextHash)].filter(Boolean));
   const windows = transfer.monitoring.windows;
   if (!validHeldoutWindows(windows, training, transfer.verifiedEvidence)) {
     throw new Error('SHEV GVX monitoring does not establish distinct held-out contexts.');
   }
   return windows;
+}
+
+function validTrainingManifest(transfer) {
+  return Array.isArray(transfer.trainingContextHashes) && transfer.trainingContextHashes.length > 0
+    && transfer.trainingContextHashes.every(context => HASH.test(context))
+    && HASH.test(transfer.trainingManifestHash || '');
 }
 
 function validAssessment(assessment, windows) {
@@ -57,23 +67,27 @@ async function transferContext(db, input) {
   const initiative = await db.get(`SELECT * FROM shev_initiatives
     WHERE id = ? AND project_id = ? AND kind = 'learn'`, [input.initiativeId, input.projectId]);
   if (!initiative) throw new Error('SHEV agent progress requires a learning initiative.');
+  await require('./runtimeGuard').requireActive(db, { projectId: input.projectId, expectedVersion: initiative.mandate_version });
   const scope = { organizationId: input.organizationId, projectId: input.projectId,
     entityId: input.entityId };
   const event = await ledger.getEvent(db, input.gvxEventId, scope);
   if (event?.type !== 'transfer_recorded') throw new Error('SHEV GVX transfer event is absent.');
-  return { event, windows: heldoutWindows(event.payload.transfer) };
+  if (event.payload.transfer?.sourceObservationId !== initiative.observation_id) {
+    throw new Error('SHEV GVX transfer is not linked to the learning observation.');
+  }
+  return { event, windows: heldoutWindows(event.payload.transfer), mandateVersion: initiative.mandate_version };
 }
 
 async function recordAgentProgress(db, input) {
   if (!input?.organizationId || !input.projectId || !input.entityId
     || typeof input.verify !== 'function') throw new TypeError('SHEV transfer verification is required.');
   const id = `shev_progress_${createHash('sha256').update(`${input.initiativeId}\0${input.gvxEventId}`).digest('hex')}`;
+  const { event, windows, mandateVersion } = await transferContext(db, input);
   const existing = await db.get('SELECT * FROM shev_agent_progress WHERE id = ?', [id]);
   if (existing) return { ...existing, replayed: true };
-  const { event, windows } = await transferContext(db, input);
   const assessment = await input.verify({ transfer: event.payload.transfer, windows });
   const expected = new Set(windows.map((window) => window.contextHash));
-  if (!validAssessment(assessment, windows)) {
+  if (!validAssessment(assessment, windows) || assessment.trainingManifestHash !== event.payload.transfer.trainingManifestHash) {
     throw new Error('SHEV held-out transfer assessment is incomplete.');
   }
   const improved = assessment.cases.filter(better).length;
@@ -83,12 +97,15 @@ async function recordAgentProgress(db, input) {
     regressions, passRate: improved / windows.length,
     contextHashes: [...expected] };
   const evidenceRefs = [...new Set(assessment.cases.flatMap((item) => item.evidenceRefs))];
-  await db.run(`INSERT OR IGNORE INTO shev_agent_progress
+  return withTransaction(db, async () => {
+    await require('./runtimeGuard').requireActive(db, { projectId: input.projectId, expectedVersion: mandateVersion });
+    await db.run(`INSERT OR IGNORE INTO shev_agent_progress
     (id, initiative_id, gvx_event_id, entity_id, result, metrics_json, verifier_ref, evidence_json)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [id, input.initiativeId, input.gvxEventId,
     input.entityId, result, JSON.stringify(metrics), assessment.verifierRef,
     JSON.stringify(evidenceRefs)]);
-  return db.get('SELECT * FROM shev_agent_progress WHERE id = ?', [id]);
+    return db.get('SELECT * FROM shev_agent_progress WHERE id = ?', [id]);
+  });
 }
 
 module.exports = { recordAgentProgress };

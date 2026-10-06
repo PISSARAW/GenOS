@@ -31,6 +31,7 @@ async function run() {
   let updateAgentCalls = [];
   const mockUpdateAgent = async (id, status, task) => {
     updateAgentCalls.push({ id, status, task });
+    return { changes: 1 };
   };
   const B = createApoptosisAuthorityBridge({ updateAgent: mockUpdateAgent });
 
@@ -53,6 +54,9 @@ async function run() {
   const below = await B.applyEpistemicApoptosis(db, 'agent-2', [1, 2]);
   assert.strictEqual(below.ok, false);
   assert.strictEqual(below.reason, 'below_threshold');
+  assert.strictEqual(below.dissonance, 8);
+  const failed = createApoptosisAuthorityBridge({ updateAgent: async () => ({ changes: 0 }) });
+  assert.strictEqual((await failed.applyEpistemicApoptosis(db, 'agent-1', [60])).ok, false);
 
   // ---- revokeAuthority ----
 

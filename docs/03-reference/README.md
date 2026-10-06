@@ -4,6 +4,7 @@ Contrats et surfaces exposées par GenOS. Ces documents décrivent des interface
 stables (REST, gRPC, MCP, CLI) et le modèle de données.
 
 - [api-et-contrats.md](api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
+- [exploitation-shev.md](exploitation-shev.md) — contrats signés, capteurs, actions métier, récupération et évaluation SHEV.
 - [types-de-workers.md](types-de-workers.md) — catalogue des 19 types Rust et correspondance avec les profils Node.
 - [types-de-daemons.md](types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
 - [outils-mcp.md](outils-mcp.md) — catalogue d'outils, leases, gating, permissions.

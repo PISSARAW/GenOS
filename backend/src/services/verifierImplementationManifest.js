@@ -9,6 +9,7 @@ const SOURCES = Object.freeze([
   'epistemicReceiptKeyring.js', 'epistemic/claimVerificationContract.js',
   'epistemic/sandboxTarget.js', 'epistemic/aeisPromotionBridge.js',
   'epistemic/epistemicHomeostaticRearbitration.js',
+  'epistemic/verifierEvidence.js', 'epistemic/epistemicHomeostaticArbitration.js',
   'sandboxCommandPolicy.js', 'epistemicScheduler/independencePolicy.js',
   'gvxVerifierRegistry.js', 'gvxVerifierControlPlaneRegistry.js', 'gvxBuiltinVerifiers.js',
   'gvxRemoteVerifierClient.js', 'gvxVerifierServiceServer.js',

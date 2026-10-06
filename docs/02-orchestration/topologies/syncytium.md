@@ -1,10 +1,12 @@
 # Syncytium : Protocole de Fusion Cytoplasmique Multinucléée
 
-- **Statut** : Partiel — runtime Node opérationnel pour les treize variants ; les garanties formelles et distribuées de cette architecture cible restent conditionnelles.
+- **Statut** : Partiel — runtime Node pour les treize variants ; garanties formelles, propriétés distribuées et campagne des 53 missions non attestées.
 - **Portée** : modèle complet du protocole Syncytium, de la composition et du commit causal à la convergence, la reprise et l'exploitation.
 - **Dernière revue** : 2026-10-06
 
 > **Statut scientifique et mathématique.** Les équations de cette fiche restent un modèle de conception, sauf indication explicite contraire. Le runtime Node possède maintenant des services Syncytium, 13 politiques de variants, sessions CRDT, opérations, transactions, réplication/réconciliation et diagnostics ; des tests ciblés attestent certains comportements, sans prouver toutes les propriétés formelles décrites ici ni un protocole distribué complet. Les propriétés CRDT ne valent que sous les hypothèses propres au type et au protocole de réplication considérés. Voir le [protocole opératoire et le relevé des tests](protocole-missions-syncytium.md) pour la séparation entre code, mesures et architecture cible.
+
+Le parcours de campagne peut instancier un service spécialisé pour chacun des 13 variants, puis exposer ses actions typées par `genos_topology_session`. Les workers reçoivent une identité de session et des droits bornés ; les mutations génériques sont interdites dans les sessions spécialisées. Le runner compare `isolated_baseline` et `syncytium`, avec un oracle indépendant et des budgets observés. Le catalogue contient 52 missions de variant et un cas transversal, mais leurs 53 manifestes exécutables et les preuves de leur réussite manquent encore.
 
 ## 1. Définition
 

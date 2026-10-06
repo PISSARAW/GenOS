@@ -274,8 +274,8 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       session_id: { type: 'string' },
-      operation: { type: 'string', enum: ['snapshot', 'apply', 'schema', 'domains', 'history', 'events', 'explain', 'branch', 'promote', 'invariants', 'conflicts', 'replicas', 'health', 'morphogenesis', 'add_node', 'add_edge', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'propagate', 'signal', 'locus', 'branch_lease', 'fossil', 'plan_shortcuts', 'admit_shortcut', 'repair', 'prune', 'allocate', 'forage', 'advance_variant'] },
-      after_revision: { type: 'integer', minimum: -1 }, op: { type: 'object' }, transaction: { type: 'object' }, branch: { type: 'object' }, node: { type: 'object' }, edge: { type: 'object' }, variant_input: { type: 'object' },
+      operation: { type: 'string', enum: ['snapshot', 'apply', 'schema', 'domains', 'history', 'events', 'variant', 'explain', 'branch', 'promote', 'invariants', 'conflicts', 'replicas', 'health', 'morphogenesis', 'add_node', 'add_edge', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'propagate', 'signal', 'locus', 'branch_lease', 'fossil', 'plan_shortcuts', 'admit_shortcut', 'repair', 'prune', 'allocate', 'forage', 'advance_variant'] },
+      after_revision: { type: 'integer', minimum: -1 }, variant_action: { type: 'string' }, op: { type: 'object' }, transaction: { type: 'object' }, branch: { type: 'object' }, node: { type: 'object' }, edge: { type: 'object' }, variant_input: { type: 'object' },
       evidence_refs: { type: 'array', items: { type: 'string' } }, signals: { type: 'object' }, receipt: { type: 'object' }, signal: { type: 'object' },
       branch_id: { type: 'string' }, domain_id: { type: 'string' }, path: { type: 'string' },
       version: { type: ['string', 'number', 'object'] }, marker: { type: 'string' }, amount: { type: 'number' },

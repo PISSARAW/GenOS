@@ -5,12 +5,12 @@ const os = require('os');
 const path = require('path');
 const { runCommand } = require('../src/services/agentWorkspaceLifecycle/git');
 
-async function memoryDb() {
+async function memoryDb(filename = ':memory:') {
   const { open } = require('sqlite');
-  const db = await open({ filename: ':memory:', driver: require('sqlite3').Database });
+  const db = await open({ filename, driver: require('sqlite3').Database });
   const migrations = ['migrateOntogenesis', 'migrateOntogenesisConversation', 'migrateOntogenesisSchedule',
     'migrateOntogenesisQuestions', 'migrateOntogenesisExecution', 'migrateOntogenesisLedger',
-    'migrateShevProjectLoop', 'migrateShevProtocols', 'migrateGvxLedger'];
+    'migrateShevProjectLoop', 'migrateShevProtocols', 'migrateShevRuntime', 'migrateGvxLedger'];
   for (const name of migrations) await require(`../src/db/migrations/${name}`)[name](db);
   return db;
 }

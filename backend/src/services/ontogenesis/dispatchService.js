@@ -95,6 +95,9 @@ function canAdmit(ctx, reservationMb) {
 
 async function persistDispatch(db, input) {
   await withTransaction(db, async () => {
+    const envelope = await initiativeEnvelope(db, { id: input.taskId });
+    if (envelope?.blocked) throw new Error(envelope.blocked);
+    input.budgets = clampBudget(input.budgets, envelope);
     await createExecution(db, input);
     await db.run("UPDATE ontogenesis_backlog SET status = 'doing' WHERE id = ? AND status = 'todo'", [input.taskId]);
     await db.run("UPDATE ontogenesis_projects SET state = 'EXECUTING' WHERE id = ?", [input.projectId]);
@@ -122,7 +125,8 @@ async function dispatchTask(db, ctx, harness) {
   await persistDispatch(db, input);
   await traceSelection(db, ctx, selection);
   try {
-    const started = await harness.start({ ...input, project: ctx.project, task, selection, config: ctx.config, mission: ctx.mission });
+    const started = await harness.start({ ...input, project: ctx.project, task, selection,
+      config: ctx.config, mission: ctx.mission, shev: envelope });
     await db.run('UPDATE ontogenesis_execution SET pid = ?, executable = ? WHERE id = ?', [started.pid, started.executable, input.id]);
     return { state: 'EXECUTING', event: 'dispatch', operationId: input.id };
   } catch (error) {
