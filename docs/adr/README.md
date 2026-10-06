@@ -395,6 +395,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0334](0334-automerge-observations.md) | Automerge pour observations seulement | Accepté | 2026-10-06 | Syncytium, état partagé |
 | [0335](0335-propagation-differentielle.md) | Mesurer la propagation différentielle du Rhizome | Accepté | 2026-10-06 | Rhizome, RPE, calcul incrémental |
 | [0336](0336-sonde-capnproto.md) | Sonde Cap'n Proto sans migration implicite | Accepté | 2026-10-06 | transport interne, sérialisation |
+| [0337](0337-sonde-causale-shev.md) | Estimation causale exploratoire des interventions SHEV | Accepté | 2026-10-06 | SHEV, attribution des effets |
+| [0338](0338-comparaison-dgm-gvx.md) | Comparer les archives DGM et GVX sous contrat identique | Accepté | 2026-10-06 | GVX, ontogenèse, recherche comparative |
+| [0339](0339-traces-lean-dojo-et-dafny.md) | Traces LeanDojo-v2 et invariants Dafny | Accepté | 2026-10-06 | preuve formelle, budgets, leases |
+| [0340](0340-commandes-xgrammar.md) | Commandes compactes sous XGrammar | Accepté | 2026-10-06 | décodage contraint, outils, budgets |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

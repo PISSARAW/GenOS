@@ -217,6 +217,11 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [Notes partagées Automerge](../integrations/automerge/README.md) — fusion de notes sans autorité.
 - [Propagation Differential Dataflow](../integrations/differential_dataflow/README.md) — expérience de deltas de dépendances.
 - [Sonde Cap'n Proto](../integrations/capnproto/README.md) — mesure de transport exploratoire.
+- [Sonde DoWhy](../integrations/dowhy/README.md) — attribution causale exploratoire des interventions SHEV.
+- [Comparaison DGM / GVX](../integrations/dgm_comparison/README.md) — lignées et budgets identiques.
+- [LeanDojo-v2 et Dafny](../integrations/formal_proofs/README.md) — traces de preuve et invariants formels.
+- [Commandes XGrammar](../integrations/xgrammar/README.md) — grammaire compacte et autorité distincte.
+- [Couverture des 24 dépôts](06-qualite-preuves/couverture-24-depots.md) — correspondance des vingt lots et limites de preuve.
 - [benchmark-longitudinal-holobionte.md](06-benchmarks/benchmark-longitudinal-holobionte.md) — protocole apparié Holobionte à douze bras, sans campagne réelle exécutée.
 - [protocole-execution-holobionte.md](06-benchmarks/protocole-execution-holobionte.md) — budgets, temps, topologies, workers, nosologie, échanges, graphe relationnel et télémétrie.
 - [matrice-coherence-code-docs.md](06-qualite-preuves/matrice-coherence-code-docs.md) — registre de cohérence code↔documentation.
@@ -535,3 +540,4 @@ La documentation du dépôt est pensée comme un système cohérent :
 
 Tout l'édifice est conçu pour éviter le faux « succès », où un transport ou un état
 technique positif masquerait une absence d'évidence réelle.
+
