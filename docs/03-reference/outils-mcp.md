@@ -33,6 +33,18 @@ et non l'ancien terminal interactif `scripts/orchestrator_cli.mjs`.
 
 ## 2. Catalogue des outils
 
+### Primitives Axolotl via le dispatch générique
+
+`genos_execute_primitive` fournit le point d’entrée backend pour les primitives
+Axolotl : plan/exécution sous contrat, inspection/reprise, promotion L0,
+métamorphose, coûts, routage, inbox et rappel. Ce sont des noms de primitives,
+pas de nouveaux outils publics MCP. Utiliser le schéma réellement découvert
+pour leur enveloppe et conserver la lease et les autorisations du dispatch.
+Les [entrées et résultats Axolotl](axolotl-regeneration.md) distinguent admission
+fonctionnelle, mise en file de message et traitement métier. Le contrat natif
+est porté par le backend Node ; la présence du dispatch générique dans un autre
+catalogue ne démontre pas la parité de ce runtime Axolotl.
+
 GenOS possede plusieurs representations du catalogue, chacune ayant une responsabilite differente. La source canonique des schemas publics est `shared/toolDefinitions.json` (36 outils) ; `mcp/toolDefinitions.json` en est la copie embarquee de repli, utilisee uniquement quand le serveur JS tourne hors racine du depot (`mcp/catalog.js`). Les deux fichiers doivent rester synchronises :
 
 | Surface | Role | Exemples |

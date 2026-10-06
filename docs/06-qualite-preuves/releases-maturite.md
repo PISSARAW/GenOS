@@ -37,6 +37,14 @@ Promues : `axolotl_regeneration`, `active_redundancy`, `cyber_immunity`,
 exécutable ; elle n'autorise pas une action destructive implicite. Les gates
 d'approbation humaine, l'isolation et le rollback restent obligatoires.
 
+**Précision Axolotl (2026-10-06)** : le contrat exécutable porte sur les rôles,
+le routage et le rappel du runtime natif Node. Ses cinq capacités utilisent
+SQLite, des essais isolés et une admission sous preuves. La promotion cognitive
+reste L0 ; les gates métier supplémentaires gardent leur autorité. Une entrée
+au registre ne certifie pas la réparation d’une mission LLM arbitraire ni une
+reprise automatique depuis toute panne. Voir la [fiche Axolotl](../01-concepts/biomimetisme/axolotl.md)
+et la [référence des primitives](../03-reference/axolotl-regeneration.md).
+
 ## Release 5 — recherche arborescente
 
 Promue : `mcts_prm`. La recherche est bornée par les budgets et l'évaluation

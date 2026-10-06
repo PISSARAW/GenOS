@@ -254,14 +254,20 @@ viable → QUIESCENCE | starved → CRYPTOBIOSE | irrecoverable → APOPTOSE
 - **Tests dédiés** : `backend/tests/test_mission_continuity.js` (13 tests),
    `test_homeostasis_continuation.js` (18 tests), `test_mission_evidence.js` (10 tests).
 
-### Modèle implémenté, enforcement non intégré
+### Reprises ciblées et limites de leur intégration
 
-- **Régénération axolotl** : après validation de la nouvelle topologie,
-   `executeRegeneration()` crée un agent `worker` enfant et le lance via
-   `agentRuntimeAdapter.startMission()`. L'exécution exige un `db` et un
-   `context.orchestratorId`. Les sessions de régénération sont reliées au
-   persister adaptatif. Cela ne transforme pas `regenerateCell()` du
-   `regenerationService.js` en création de worker : ce flux reste distinct.
+- **Régénération Axolotl** : `axolotlRegenerationService.executeRegeneration()`
+   exécute un contrat fixé de rôles, routage et rappel dans des workers Node
+   déterministes. Le propriétaire est un orchestrateur dans son workspace courant ;
+   sessions, essais, preuves, topologies et messages sont persistés dans SQLite.
+   L’adoption exige le passage du contrat complet et une version source inchangée.
+   Le pipeline de stratégie partage le `sessionId` et la topologie admise ; la
+   composition biologique utilise ses composants. La reconstruction cognitive
+   permet des essais sans régression et une promotion L0 étayée, révocable au
+   rollback. Ce flux ne lance pas une mission LLM de réparation indépendante.
+   Le déclenchement général depuis toute panne d’agent reste à intégrer, et
+   `regenerateCell()` conserve son parcours distinct. Voir la
+   [référence Axolotl](../03-reference/axolotl-regeneration.md).
 - **Dormance persistante** : `survivalStateService.suspend()` fige un snapshot
    dans `cryptobiosis_snapshots`, puis arme une condition liée à son identifiant
    et persiste l'état dans `survival_states`. Le réveil vérifie l'état dormant,

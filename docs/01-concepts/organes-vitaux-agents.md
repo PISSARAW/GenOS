@@ -85,8 +85,15 @@ le plan d'implémentation G0-G20 d'origine.
 - **Développement** : `developmentalStateService` (8 stades),
   `differentiationResolverService`, `epigeneticExpressionService`,
   `developmentalTransitionService`, `reprogrammingService`,
-  `plasticityRegulatorService` (6 états, façade Axolotl),
+  `plasticityRegulatorService` (6 états, façade Axolotl ; persistance SQLite,
+  budget de transitions et temporisation ; observations natives récentes pour
+  consolidation, stabilité et urgence ; gel de la mutation topologique en
+  `CONSOLIDATING` et `STABLE`),
   `collectiveEmbryogenesisService`.
+
+  Le contrat du régulateur Axolotl est détaillé dans la
+  [fiche régénération](biomimetisme/axolotl.md) et sa
+  [référence opérationnelle](../03-reference/axolotl-regeneration.md).
 - **Procédures** : `symbiontService`, `proceduralResolverService`,
   `compatibilityService`, `propagationService` (réutilisent le runtime
   procédural existant, cf. `proceduralRuntimeService`).

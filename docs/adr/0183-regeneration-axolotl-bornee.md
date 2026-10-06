@@ -1,12 +1,18 @@
 # ADR 0183 — Régénération Axolotl ciblée et fondée sur des preuves
 
-- **Statut :** Proposé
-- **Date :** 2026-09-30
-- **Domaine :** Backend, résilience, cognition
-- **Décideurs :** Équipe GenOS
-- **Lié à :** `docs/01-concepts/biomimetisme/axolotl.md`, ADR 0177
+- **Statut** : Remplacé
+- **Date** : 2026-09-30
+- **Domaine** : Backend, résilience, cognition
+- **Décideurs** : Équipe GenOS
+- **Lié à** : [Concept Axolotl](../01-concepts/biomimetisme/axolotl.md), ADR 0177, [ADR 0325](0325-regeneration-axolotl-executable.md)
 
 ## Contexte
+
+**Suite de la décision — 2026-10-06** : l’[ADR 0325](0325-regeneration-axolotl-executable.md)
+remplace ce premier lot par des sessions et un régulateur durables, des preuves
+produites par une nursery native et une promotion L0 contrôlée. Les décisions
+proposées et limites ci-dessous décrivent le lot du 2026-09-30 ; le contrat actuel
+est détaillé dans la [référence Axolotl](../03-reference/axolotl-regeneration.md).
 
 Le service Axolotl reconstruit une topologie et le dépôt possède déjà un régulateur
 de plasticité à six états. La régénération ciblée, l’expérimentation cognitive,
@@ -36,7 +42,7 @@ traçables et compatibles avec les gates de preuve.
 - Les propositions cognitives restent distinctes des connaissances promues.
 - Les transitions et coûts sont auditables.
 
-### Négatives
+### Limites du premier lot (2026-09-30)
 
 - Les consommateurs doivent fournir les preuves fonctionnelles et les mesures
   qu’ils souhaitent enregistrer.
