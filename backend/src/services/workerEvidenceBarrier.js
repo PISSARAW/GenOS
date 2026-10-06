@@ -107,6 +107,10 @@ async function finalizeSatisfied(ctx) {
 }
 
 async function runPipelineStage(ctx) {
+  if (ctx.autonomyPlan?.aTeam?.activated && ctx.autonomyPlan.aTeam.teamRun) {
+    const { executeAutonomousTeam } = require('./aTeam/aTeamAutonomousExecutionService');
+    return executeAutonomousTeam(ctx);
+  }
   const pipeline = require('./workerEvidenceBarrierPipeline');
   await pipeline.executeWorkerPipeline({
     db: ctx.db,
@@ -127,6 +131,23 @@ function isUnboundedMission(mission) {
   return mission?.unbounded === true || mission?.noTimeout === true;
 }
 
+async function rejectStrictPartial(barrierContext, partial, workers) {
+  // Si le mode strict est activé, rejeter les résultats partiels
+  if (barrierContext.strict !== false && partial) {
+    const dossiers = loadDossiers({ agentId: barrierContext.agentId, workers: workers });
+    const usable = selectUsablePartialDossiers(dossiers);
+    if (usable.length === 0) {
+      await stopWorkersQuietly(workers);
+      clearBarrier(barrierContext.agentId);
+      throw noEvidenceError();
+    }
+    // En mode strict, on rejette aussi les résultats partiels même s'il y a des dossiers utilisables
+    await stopWorkersQuietly(workers);
+    clearBarrier(barrierContext.agentId);
+    throw Object.assign(new Error('Worker evidence barrier completed with partial evidence in strict mode.'), { code: 'WORKER_BARRIER_STRICT_PARTIAL' });
+  }
+}
+
 async function runEvidenceBarrier(barrierContext) {
   const workers = barrierContext.autonomousWorkers;
   if (!workers) return;
@@ -145,6 +166,7 @@ async function runEvidenceBarrier(barrierContext) {
       db: barrierContext.db,
       agentId: barrierContext.agentId,
       workers: workers,
+      autonomyPlan: barrierContext.autonomyPlan,
       contract: readContract({ contractRecord: barrierContext.contractRecord }),
       barrier: barrier,
       timeoutMs: isUnboundedMission(barrierContext.normalizedMission) ? Infinity
@@ -171,21 +193,8 @@ async function runEvidenceBarrier(barrierContext) {
         { workerIds: workerIdList(workers), errorCode: error.code, errorMessage: error.message }, 'error');
     }
   }
-  // Si le mode strict est activé, rejeter les résultats partiels
-  if (barrierContext.strict !== false && partial) {
-    const dossiers = loadDossiers({ agentId: barrierContext.agentId, workers: workers });
-    const usable = selectUsablePartialDossiers(dossiers);
-    if (usable.length === 0) {
-      await stopWorkersQuietly(workers);
-      clearBarrier(barrierContext.agentId);
-      throw noEvidenceError();
-    }
-    // En mode strict, on rejette aussi les résultats partiels même s'il y a des dossiers utilisables
-    await stopWorkersQuietly(workers);
-    clearBarrier(barrierContext.agentId);
-    throw Object.assign(new Error('Worker evidence barrier completed with partial evidence in strict mode.'), { code: 'WORKER_BARRIER_STRICT_PARTIAL' });
-  }
-  await finishBarrier({
+  await rejectStrictPartial(barrierContext, partial, workers);
+  await finishBarrierSafely({
     db: barrierContext.db,
     agentId: barrierContext.agentId,
     normalizedMission: barrierContext.normalizedMission,
@@ -196,6 +205,15 @@ async function runEvidenceBarrier(barrierContext) {
     degradedUsable: degradedUsable,
     partialReason: partialReason
   });
+}
+
+async function finishBarrierSafely(ctx) {
+  try { await finishBarrier(ctx); }
+  catch (error) {
+    clearBarrier(ctx.agentId);
+    await updateAgent(ctx.agentId, 'blocked', error.message);
+    throw error;
+  }
 }
 
 async function finishBarrier(ctx) {
@@ -312,7 +330,13 @@ async function finishSatisfiedBarrier(ctx) {
   await attachTruthGraph(ctx);
   await enforceReportGate(ctx);
   attachSemanticReport(ctx, dossiers);
-  await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
+  const integration = await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers });
+  if (integration && !integration.canMerge) {
+    throw Object.assign(new Error('A-Team integration rejected the worker evidence.'), {
+      code: 'ATEAM_INTEGRATION_REJECTED', failures: integration.failures,
+      integrationFailures: integration.integrationFailures
+    });
+  }
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({
     agentId: ctx.agentId,

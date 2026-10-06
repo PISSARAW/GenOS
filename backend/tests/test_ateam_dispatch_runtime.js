@@ -6,15 +6,19 @@ const coordination = require('../src/services/aTeamCoordinationService');
 const scheduler = require('../src/services/aTeamStageScheduler');
 const teamService = require('../src/services/aTeamService');
 const runtime = require('../src/services/aTeam/aTeamRuntime');
+const store = require('../src/services/aTeam/teamRunStore');
 const { dispatchTeam } = require('../src/services/aTeamDispatchService');
 
 async function run() {
   const originals = { garage: garage.state, compose: coordination.composeTeam, stage: scheduler.stagePlanFor, planStages: teamService.planStages, create: runtime.createRun, transition: runtime.transitionRun, claim: runtime.claimExecution, release: runtime.releaseExecution };
+  const originalLoad = store.load;
+  store.load = async () => createCount ? runtimeSnapshotRun() : null;
+  let capacity;
   let createCount = 0;
   let claimCount = 0;
   let launches = 0;
-  garage.state = async () => ({ available: 2 });
-  coordination.composeTeam = () => ({
+  garage.state = async () => ({ available: createCount ? 0 : 2 });
+  coordination.composeTeam = (input) => (capacity = input.available, {
     members: [{ workerId: 'worker-a', memberId: 'member-a', subSystem: 'api', pipelineStage: 0 }],
     organization: 'specialist_expert_committee',
     teamContract: { version: 1, contractHash: 'hash' }, readiness: { ready: true, blockers: [] },
@@ -35,7 +39,7 @@ async function run() {
   };
   runtime.releaseExecution = async () => true;
   try {
-    const context = { orchestratorId: 'mission-dispatch', task: 'Build API', repoRoot: process.cwd(), request: {} };
+    const context = { orchestratorId: 'mission-dispatch', task: 'Build API', startAteamRunner: async () => ({ pid: 123 }), repoRoot: process.cwd(), request: {} };
     const agents = new Map();
     const db = {
       get: async (_sql, id) => agents.get(id) || (createCount >= 3 ? { id, status: 'idle' } : null),
@@ -53,11 +57,13 @@ async function run() {
     assert.equal(agents.get('worker-a').parent_agent_id, context.orchestratorId);
     const second = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(second.aTeam.reused, true);
+    assert.equal(capacity, 1, 'Retry reuses the occupied slot of its own worker.');
     assert.equal(launches, 1);
     const resumed = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(resumed.aTeam.teamRunId, 'run-stable');
     assert.equal(launches, 1);
   } finally {
+    store.load = originalLoad;
     garage.state = originals.garage;
     coordination.composeTeam = originals.compose;
     scheduler.stagePlanFor = originals.stage;

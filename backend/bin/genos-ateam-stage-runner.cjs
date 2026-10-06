@@ -1,95 +1,55 @@
 #!/usr/bin/env node
 'use strict';
 
-/**
- * Detached A-Team stage runner. Receives a stage plan, waits for each stage's
- * dependencies to reach a terminal state, then launches the stage's workers
- * through the same orchestrate bridge. It is spawned by dispatch_team when the
- * team has more than one pipeline stage, so the MCP call stays fast while the
- * dependency gating happens out of band.
- */
-const path = require('path');
 const { spawn } = require('child_process');
 const { getDatabase, closeDatabase } = require('../src/db');
+const transport = require('./detachedSpawn.cjs');
 const scheduler = require('../src/services/aTeamStageScheduler');
+const runtime = require('../src/services/aTeam/aTeamRuntime');
+const runs = require('../src/services/aTeam/teamRunStore');
+const { executeTeamRun, assertLease } = require('../src/services/aTeam/execution/teamExecutionService');
 const { emit, updateAgent } = require('../src/services/agentOrchestrationState');
-const handoffEvidence = require('../src/services/aTeamHandoffEvidenceService');
 
 function parseArgs(argv) {
-  try {
-    return JSON.parse(argv[2] || '{}');
-  } catch (error) {
-    throw new Error(`Invalid stage-runner payload: ${error.message}`);
-  }
+  try { return JSON.parse(transport.loadArgv(argv) || argv[2] || '{}'); }
+  catch (error) { throw new Error('Invalid stage-runner payload: ' + error.message); }
 }
 
-function runnerStdio(workerId) {
-  const logDir = process.env.GENOS_RUNNER_LOG_DIR;
-  if (!logDir) return 'ignore';
+async function launchWorker(input) {
+  const payload = scheduler.workerLaunchPayload(input);
+  const output = transport.openRunnerStdio(input.member.workerId);
   try {
-    const fs = require('fs');
-    fs.mkdirSync(logDir, { recursive: true });
-    const fd = fs.openSync(path.join(logDir, `${workerId}.log`), 'a');
-    return ['ignore', fd, fd];
-  } catch {
-    return 'ignore';
-  }
+    const child = spawn(process.execPath, [input.bridgePath, ...transport.toSpawnArgs(JSON.stringify(payload))], {
+      cwd: input.repoRoot || process.cwd(), detached: true, windowsHide: true, stdio: output.stdio
+    });
+    await transport.waitForSpawn(child);
+    child.unref();
+    return true;
+  } finally { output.close(); }
 }
 
 async function main() {
   const payload = parseArgs(process.argv);
-  const { plan, bridgePath, repoRoot, request = {}, parentWorkspaceRoot } = payload;
-  if (!plan || !plan.members || !bridgePath) throw new Error('Stage runner requires plan, members and bridgePath.');
+  if (!payload.teamRunId || !payload.runnerToken || !payload.bridgePath) throw new Error('Stage runner requires a canonical run, runner lease and bridgePath.');
   const db = await getDatabase();
   try {
-    await runStages({ db, payload, plan, bridgePath, repoRoot, request, parentWorkspaceRoot });
+    const run = await runs.load(db, payload.teamRunId);
+    assertLease(run, payload.runnerToken);
+    const plan = scheduler.stagePlanFor({ orchestratorId: run.missionId, planId: run.teamRunId, members: run.members });
+    const result = await executeTeamRun({
+      db, teamRunId: run.teamRunId, runnerToken: payload.runnerToken, plan,
+      launch: (member) => launchWorker({ ...payload, plan, member }),
+      onBlocked: (member, reason) => updateAgent(member.workerId, 'blocked', JSON.stringify(reason)),
+      options: { skipWorkerIds: payload.skipWorkerIds || [], pollMs: payload.pollMs, timeoutMs: payload.timeoutMs }
+    });
+    emit(run.missionId, result.accepted ? 'A_TEAM_STAGES_COMPLETED' : 'A_TEAM_STAGES_FAILED',
+      'VALIDATE_INTEGRATION', 'A-Team run finished: ' + result.status, result, result.accepted ? 'info' : 'warning');
   } finally {
-    await releaseRuntimeLease(db, payload);
+    await runtime.releaseExecution({ db, teamRunId: payload.teamRunId, token: payload.runnerToken });
   }
 }
 
-async function runStages({ db, payload, plan, bridgePath, repoRoot, request, parentWorkspaceRoot }) {
-  const launch = async (member) => {
-    const handoff = await handoffEvidence.buildHandoffsFromTelemetry({ db, plan, consumer: member });
-    if (!handoff.ok) {
-      await updateAgent(member.workerId, 'blocked', `A-Team dependency evidence unavailable: ${handoff.missingDependency}`);
-      return false;
-    }
-    const enrichedMember = {
-      ...member,
-      handoffContext: handoff.handoffs,
-      mission: handoffEvidence.missionWithHandoffs(member.mission, handoff.handoffs)
-    };
-    const child = spawn(process.execPath, [bridgePath, JSON.stringify(scheduler.workerLaunchPayload({ plan, member: enrichedMember, parentWorkspaceRoot, request }))], {
-      cwd: repoRoot || process.cwd(),
-      detached: true,
-      stdio: runnerStdio(member.workerId)
-    });
-    child.unref();
-    return true;
-  };
-  const results = await scheduler.runStagePlan({
-    db,
-    plan,
-    launch,
-    options: {
-      skipWorkerIds: Array.isArray(payload.skipWorkerIds) ? payload.skipWorkerIds : [],
-      pollMs: payload.pollMs,
-      timeoutMs: payload.timeoutMs
-    }
-  });
-  const timedOut = results.some((entry) => entry.timedOut);
-  emit(plan.orchestratorId, 'A_TEAM_STAGES_COMPLETED', 'SCHEDULE_STAGES',
-    timedOut ? 'A-Team stage scheduling finished with a dependency timeout.' : 'A-Team stage scheduling finished.',
-    { planId: plan.planId, results }, timedOut ? 'warning' : 'info');
-}
-
-async function releaseRuntimeLease(db, payload) {
-  if (!payload.teamRunId || !payload.runnerToken) return;
-  const runtime = require('../src/services/aTeam/aTeamRuntime');
-  await runtime.releaseExecution({ db, teamRunId: payload.teamRunId, token: payload.runnerToken });
-}
-
-main()
-  .catch((error) => { process.stderr.write(`[genos-ateam-stage-runner] ${error.message}\n`); process.exitCode = 1; })
-  .finally(() => { closeDatabase().catch(() => {}); });
+main().catch((error) => {
+  process.stderr.write('[genos-ateam-stage-runner] ' + error.message + '\n');
+  process.exitCode = 1;
+}).finally(() => closeDatabase().catch(() => {}));

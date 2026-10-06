@@ -10,6 +10,7 @@
  */
 const path = require('path');
 const { spawn } = require('child_process');
+const transport = require('../../bin/detachedSpawn.cjs');
 const workerGarage = require('./workerGarageService');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const aTeamService = require('./aTeamService');
@@ -23,7 +24,7 @@ function stageRunnerPath() {
   return path.resolve(__dirname, '../../bin/genos-ateam-stage-runner.cjs');
 }
 
-function spawnStageRunner({ context, plan, parentWorkspaceRoot, skipWorkerIds, runnerToken }) {
+async function spawnStageRunner({ context, plan, parentWorkspaceRoot, skipWorkerIds, runnerToken }) {
   const payload = {
     plan,
     teamRunId: plan.planId,
@@ -39,11 +40,13 @@ function spawnStageRunner({ context, plan, parentWorkspaceRoot, skipWorkerIds, r
     pollMs: 500,
     timeoutMs: Number(context.request.timeoutMs) || 15 * 60 * 1000
   };
-  const runner = spawn(process.execPath, [stageRunnerPath(), JSON.stringify(payload)], {
+  const runner = spawn(process.execPath, [stageRunnerPath(), ...transport.toSpawnArgs(JSON.stringify(payload))], {
     cwd: context.repoRoot,
     detached: true,
+    windowsHide: true,
     stdio: 'ignore'
   });
+  await transport.waitForSpawn(runner);
   runner.unref();
   return runner;
 }
@@ -96,7 +99,7 @@ async function prepareDispatch({ db, context }) {
     modelTiers: request.model_tiers || request.modelTiers,
     dependencies: request.dependencies || request.depends_on || request.dependsOn,
     successCriteria: requestedSuccessCriteria(request),
-    available: garage.available
+    available: await reusableCapacity(db, context, garage.available)
   });
   const workerAssignments = workerAssignmentsFor(request);
   team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', inferTeamRoles(team.members), workerAssignments);
@@ -109,6 +112,16 @@ async function prepareDispatch({ db, context }) {
   team.executionPolicy = policy.policy;
   requireReadyTeam(team.readiness);
   return { db, request, garage, projectGoal, team, context };
+}
+
+async function reusableCapacity(db, context, available) {
+  const request = context.request || {};
+  const key = request.idempotencyKey || request.requestId || context.requestId || context.orchestratorId;
+  const runId = aTeamRuntime.stableId('ateam', context.orchestratorId + ':' + key);
+  const run = await require('./aTeam/teamRunStore').load(db, runId);
+  if (!run) return available;
+  const reusable = await workersAlreadyPresent(db, run.members);
+  return available + reusable.size;
 }
 
 function inferTeamRoles(members) {
@@ -139,10 +152,10 @@ function createCanonicalRun(setup) {
     successCriteria: requestedSuccessCriteria(request) || [],
     organization: team.organization,
     execution: { runnerLease: null, organizationPolicy: team.executionPolicy },
-    requiredCapabilities: team.capabilityContract.required.map((capability) => ({ capability, weight: 1 })),
+    requiredCapabilities: [...new Set(team.members.flatMap((member) => member.capabilities || []))].map((capability) => ({ capability, weight: 1 })),
     status: 'READY',
     phase: 'PREBRIEF',
-    members: team.members
+    members: team.members.map((member) => ({ ...member, mission: require("./aTeam/execution/teamEvidenceService").executionMission(member, requestedSuccessCriteria(request) || []) }))
   });
 }
 
@@ -160,7 +173,7 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
   // launching the consumer stages.
   const stageZero = plan.members.filter((member) => member.pipelineStage === 0 && !existingWorkerIds.has(member.workerId));
   const accepted = await Promise.all(stageZero.map((member, index) => launchWorker({ db: setup.db, context, member, index: index + 1, parent, suppliedWorkerId: member.workerId })));
-  const runner = plan.maxStage > 0 ? spawnStageRunner({ context, plan, parentWorkspaceRoot: parent.workspace_root, skipWorkerIds: [...existingWorkerIds], runnerToken }) : null;
+  const runner = await (context.startAteamRunner || spawnStageRunner)({ context, plan, parentWorkspaceRoot: parent.workspace_root, skipWorkerIds: [...existingWorkerIds], runnerToken });
   if (!runner) await aTeamRuntime.releaseExecution({ db: setup.db, teamRunId: activeRun.teamRunId, token: runnerToken });
   emitImmediateCompletion({ runner, orchestratorId: context.orchestratorId, planId: plan.planId });
   return {

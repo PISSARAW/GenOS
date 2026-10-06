@@ -139,6 +139,19 @@ conceptuel`, avec une preuve runtime ou un écart identifié. Les affirmations d
 « théorème » ne sont garanties que si les préconditions de ce contrat sont vérifiées par
 le code.
 
+### État vérifié du parcours d’exécution
+
+| Mécanisme | Statut | Preuve ou limite |
+|---|---|---|
+| Identités, création idempotente et bail CAS | Implémenté | `test_ateam_runtime.js` et `test_ateam_dispatch_runtime.js` : refus des contrats modifiés, révisions et reprise sans doublon. |
+| Ordonnancement indépendant et clôture sur preuve | Implémenté | `test_ateam_execution_e2e.js` : SQLite, sous-processus Node, refus des sorties invalides, critères globaux, délais et branches indépendantes ; dispatch explicite et adaptateur autonome partagent le même exécuteur. |
+| Transferts versionnés et accusés des consumers | Implémenté | Le digest lie le contenu et le contrat ; une version absente, rejetée ou périmée empêche la clôture. Une sortie modifiée invalide l’accusé antérieur. |
+| Formation et expertise générale | Partiel | L’analyse sans graphe reste lexicale. La couverture VEC du suivi d’exécution démontre une contribution vérifiée dans la mission ; elle ne remplace pas un profil d’expertise général attesté. |
+| Onze variantes | Partiel | Les politiques et leurs évaluations isolées disposent de tests ; elles ne constituent pas un exécuteur générique de sous-runs multi-équipe. Voir ADR 0309 et ADR 0329. |
+| Modèles biologiques et optimisation mathématique | Cadre conceptuel | Les paramètres non calibrés, la mémoire interne partagée et l’optimisation globale ne sont pas garantis par ces tests. |
+
+La validation ciblée ci-dessus ne vaut pas validation de tout le monorepo ni exécution réelle de missions Codex. Les limites détaillées de la clôture sont consignées dans [ADR 0329](../../adr/0329-cloture-verifiable-runs-a-team.md).
+
 ### Découpage cible dans le backend
 
 Ce tableau indique où implémenter les contrats ; la présence d'un fichier ne signifie pas

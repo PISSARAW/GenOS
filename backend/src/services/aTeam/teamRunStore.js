@@ -31,6 +31,7 @@ function memberRecord(source = {}) {
     dependsOn: asList(source.dependsOn),
     outputs: asList(choose([source.outputs, source.provides], [])),
     requiredArtifacts: asList(source.requiredArtifacts),
+    inputArtifacts: asList(source.inputArtifacts),
     acceptanceCriteria: asList(source.acceptanceCriteria),
     inputSchema: source.inputSchema || null,
     outputSchema: source.outputSchema || null,

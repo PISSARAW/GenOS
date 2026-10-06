@@ -32,7 +32,8 @@ function coded(message, code) {
 }
 
 class VariantExecutionRuntime {
-  constructor(context) {
+  constructor(...args) {
+    const context = args.length === 1 ? args[0] : { db: args[0], orchestratorId: args[1], plan: args[2], mission: args[3], members: args[4], boundaries: args[5] };
     const { db, orchestratorId, plan, mission, members, boundaries } = context;
     this.db = db;
     this.orchestratorId = orchestratorId;
@@ -205,15 +206,13 @@ class VariantExecutionRuntime {
   getCheckpoint(key) {
     return this.checkpoints.get(key);
   }
+
 }
 
-Object.assign(VariantExecutionRuntime.prototype,
-  require("./variantExecutionExpertDag"),
-  require("./variantExecutionAuthority"),
-  require("./variantExecutionCoordination"));
+Object.assign(VariantExecutionRuntime.prototype, require("./variantExecutionExpertDag"), require("./variantExecutionAuthority"), require("./variantExecutionCoordination"));
 
-async function executeVariantMission(context) {
-  return new VariantExecutionRuntime(context).execute();
+async function executeVariantMission(...args) {
+  return new VariantExecutionRuntime(...args).execute();
 }
 
 module.exports = { VariantExecutionRuntime, executeVariantMission };

@@ -98,7 +98,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const context = buildWorkerContext({ parent, plan, mission, assignments });
   const usedNames = [];
   const workers = [];
-  const workerIds = assignments.map((_, index) => autonomousWorkerId(orchestrator.id, index + 1));
+  const workerIds = assignments.map((assignment, index) => assignedWorkerId(assignment, { orchestratorId: orchestrator.id, index, teamRunId: plan.aTeam?.teamRun?.teamRunId }));
   try {
     for (const [index, assignment] of assignments.entries()) {
       const typedAssignment = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
@@ -109,6 +109,11 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     throw error;
   }
   return workers;
+}
+
+function assignedWorkerId(assignment, context) {
+  if (context.teamRunId && assignment.workerId) return assignment.workerId;
+  return autonomousWorkerId(context.orchestratorId, context.index + 1);
 }
 
 async function includePersistedWorkers(db, parentId, context) {
@@ -383,4 +388,4 @@ function splitBudget(value, index, assignments) {
   return Number((base + bonus + extra).toFixed(6));
 }
 
-module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };
+module.exports = { assignedWorkerId, createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };

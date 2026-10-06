@@ -31,6 +31,10 @@ function plannedMember({ member, index, orchestratorId, planId }) {
   const workerId = member.workerId || memberId(orchestratorId, planId, index);
   return {
     index,
+    memberId: member.memberId,
+    authority: member.authority,
+    inputSchema: member.inputSchema,
+    inputArtifacts: member.inputArtifacts,
     subSystem: withDefault(member.subSystem, withDefault(member.label, withDefault(member.role, `member_${index}`))),
     role: member.role,
     workerKind: member.workerKind,

@@ -49,6 +49,14 @@ async function run() {
     const latest = await require('../src/services/aTeam/teamRunStore').load({}, running.teamRunId);
     await assert.rejects(runtime.transitionRun({ db: {}, teamRunId: running.teamRunId, revision: latest.revision, patch: { status: 'FORMING' } }), { code: 'ATEAM_RUN_TRANSITION_INVALID' });
     await assert.rejects(runtime.createRun({ ...input, goal: 'Different mission' }), { code: 'ATEAM_RUN_IDEMPOTENCY_CONFLICT' });
+    for (const change of [
+      { outputSchema: { type: 'string' } },
+      { acceptanceCriteria: ['new criterion'] },
+      { authority: { owns: ['new-scope'] } }
+    ]) {
+      await assert.rejects(runtime.createRun({ ...input, members: [{ ...members[0], ...change }, members[1]] }), { code: 'ATEAM_RUN_IDEMPOTENCY_CONFLICT' });
+    }
+    await assert.rejects(runtime.createRun({ ...input, requiredCapabilities: [{ capability: 'security' }] }), { code: 'ATEAM_RUN_IDEMPOTENCY_CONFLICT' });
   } finally {
     sessions.save = originalSave;
     sessions.load = originalLoad;

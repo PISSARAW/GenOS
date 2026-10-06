@@ -271,6 +271,7 @@ Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-f
 - [0307-observation-litterale-scout-cell.md](adr/0307-observation-litterale-scout-cell.md) — détection littérale dans un corpus fourni, avec références et limites explicites.
 - [0308-transfert-subset-sum-teaching-worker.md](adr/0308-transfert-subset-sum-teaching-worker.md) — transmission d'une procédure exécutée et vérification d'un témoin d'apprentissage.
 - [0309-evaluation-isolee-variants-a-team.md](adr/0309-evaluation-isolee-variants-a-team.md) — évaluation optionnelle des contrats A-Team, distincte de l’exécution des sous-runs.
+- [0329-cloture-verifiable-runs-a-team.md](adr/0329-cloture-verifiable-runs-a-team.md) — clôture des runs A-Team sur preuve, reprise et états du graphe.
 - [0310-audits-web-shev-independants.md](adr/0310-audits-web-shev-independants.md) — audits Lighthouse, axe-core et Playwright reliés aux observations et effets SHEV.
 - [0311-autorisation-cedar-agents.md](adr/0311-autorisation-cedar-agents.md) — politique Cedar pour les missions et le contrôle des agents, sans permission implicite par relation.
 - [0037-ecosysteme-agentique-11-15.md](adr/0037-ecosysteme-agentique-11-15.md) — écosystème agentique : environnement/niches, substrat cognitif natif-first, physiologie collective, plan de gouvernance, interoception collective.
