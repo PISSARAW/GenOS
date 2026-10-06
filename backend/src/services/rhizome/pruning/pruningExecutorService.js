@@ -1,6 +1,7 @@
 'use strict';
 
 const planner = require('./pruningService');
+const routing = require('../routing/routePlanner');
 const { normalizeRhizomeSession } = require('../contracts/rhizomeSession');
 
 function apply(session, plan, options = {}) {
@@ -9,6 +10,7 @@ function apply(session, plan, options = {}) {
   const fossils = [];
   applyEdgeDispositions(next, plan.edgeDispositions, fossils);
   applyNodeDispositions(next, plan.nodeDispositions, fossils);
+  preserveReachability(session, next);
   next.graphVersion += 1;
   normalizeRhizomeSession(next);
   Object.assign(session, next);
@@ -63,6 +65,13 @@ function applyNodeDispositions(session, dispositions, fossils) {
 
 function isRetired(item) {
   return item.action === 'PRUNE' || item.action === 'FOSSILIZE';
+}
+
+function preserveReachability(before, after) {
+  const current = before.variantPolicy?.routing || {};
+  const policy = { ...current, sourceNodeIds: routing.sources(before, current) };
+  const lost = (before.activeNeeds || []).filter(need => routing.plan(before, need, policy).selected && !routing.plan(after, need, policy).selected);
+  if (lost.length) throw Object.assign(new Error('Combined pruning would disconnect required capabilities.'), { code: 'RHIZOME_PRUNING_CONNECTIVITY_REQUIRED' });
 }
 
 module.exports = { apply };

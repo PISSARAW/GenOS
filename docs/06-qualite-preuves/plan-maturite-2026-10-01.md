@@ -1,5 +1,8 @@
 # Référence et plan de maturité — 2026-10-01
 
+> **Actualisation clinique — 2026-10-06.** Les résultats ci-dessous décrivent la campagne historique du 2026-10-01. Le catalogue comprend désormais 28 conditions et 48 opérateurs. Les 103 tests Rust ciblés, les contrôles Node et les limites globales sont consignés dans le [bilan nosologique actuel](validation-nosologie.md). La présence d’un reçu ne prouve une administration que si treatment_administered est vrai et le statut applied; notamment IntensiveCareFluids sans perfusion_deficit modifiable ne change pas last_treatment_applied. Le parcours HTTP → Rust complet n’est pas validé dans la campagne actuelle.
+
+
 - Référence de départ : `052da9ea170103ccb3e0e7a5371bc12b617d967d`.
 - Base du rapport précédent : `f17000e8`; seul le commit documentaire
   `052da9ea` suit cette révision. Les changements locaux sont distincts.

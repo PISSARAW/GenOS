@@ -1,8 +1,8 @@
 # Rhizome : Orchestration Décentralisée par Ramification de Capacités
 
-- **Statut** : Partiel
+- **Statut** : Implémenté pour le contrat runtime v1 ; modèles illustratifs des sections 4 à 21
 - **Portée** : orchestration décentralisée par ramification de capacités, coordination locale, routage, croissance et résilience du réseau
-- **Dernière revue** : 2026-10-04
+- **Dernière revue** : 2026-10-06
 - **Lecture** : cette page décrit le modèle prévu de Rhizome, en particulier les rôles et comportements des sections 4 à 21. Les formules et réglages de ces sections sont des spécifications ou des exemples, pas nécessairement des mécanismes actifs. La section 3 marque chaque formule selon son statut ; les sections 22 et 24 situent l'implémentation actuelle.
 
 
@@ -72,7 +72,7 @@ Les formules ci-dessous sont marquées **opérationnel** lorsqu'elles sont calcu
 
 Un nœud est disponible pour la recherche s'il est `ACTIVE` ou `AVAILABLE` et non marqué `UNAVAILABLE`. Une arête est franchissable si son statut est `ACTIVE` et sa destination disponible. Les contrats réels sont définis dans [capabilityNode.js](../../../backend/src/services/rhizome/contracts/capabilityNode.js) et [capabilityEdge.js](../../../backend/src/services/rhizome/contracts/capabilityEdge.js).
 
-L'admission de croissance vérifie la version du graphe, le provider autorisé et le reçu HMAC du verifier. Le reçu est lié au nœud, au candidat, à la capacité et aux références de preuve avant l'activation. Cette atomicité concerne cette admission ; elle ne garantit pas que toute opération, avec ou sans persistance, soit transactionnelle.
+L'admission de croissance revalide le gap et le plan à la version courante. Le reçu HMAC indépendant lie le nœud, le candidat, la capacité, les références de preuve, l'identité du provider, l'instance et les contrats des nouvelles arêtes. L'activation et le débit du budget sont atomiques. Les mutations mémoire utilisent une copie de travail et les mutations persistantes la transaction du store.
 
 ### 3.3 Accessibilité et lacunes — opérationnel
 
@@ -86,7 +86,7 @@ Pour un ensemble explicite $Q$ de besoins, on peut définir la couverture agrég
 
 $$C_v(Q)=\frac{|\{q\in Q:q\text{ est satisfait par un nœud atteignable}\}|}{|Q|},\quad |Q|>0.$$
 
-C'est une définition d'indicateur ; le runtime actuel détecte les lacunes besoin par besoin et ne calcule pas ce score global. Le routeur a son propre départ : détenteurs de loci, sinon racines, sinon tous les nœuds disponibles si aucun nœud racine n'existe. Sa recherche est en plus bornée par les sauts de la variante. Il ne faut pas confondre ce parcours avec celui, non borné, du détecteur de lacunes.
+Le runtime calcule aussi une couverture d'exécution : la fraction des besoins explicites possédant un résultat indépendant signé, lié à sa sortie concrète et encore valide sur le graphe courant. Une capacité déclarée sans exécution ne compte pas. Le contrôleur ne clôture pas une mission vérifiée tant qu'un besoin reste sans résultat validé. Le routeur a son propre départ : détenteurs de loci, sinon racines, sinon tous les nœuds disponibles si aucun nœud racine n'existe. Sa recherche est en plus bornée par les sauts de la variante. Il ne faut pas confondre ce parcours avec celui, non borné, du détecteur de lacunes.
 
 ### 3.4 Valeur et budget de croissance — opérationnel
 
@@ -96,7 +96,7 @@ $$GV(c,g)=U_c\,s_g\,p_g-C_{\mathrm{création}}-C_{\mathrm{coordination}}-R_{\mat
 
 Les grandeurs $U_c,s_g,p_g$, coûts et risque de duplication sont fournis avec le candidat ou le diagnostic ; le runtime n'estime pas une espérance statistique d'utilité et ne calcule pas de similarité cosinus. Un candidat doit être suffisant, citer la preuve du gap courant, dépasser le seuil configuré et respecter le budget. Le budget vaut `budgets.growth`, sinon `budgets.default`, sinon zéro ; le coût comparé est $C_{création}+C_{coordination}$. La sélection suit un ordre déterministe d'actions, privilégiant la réutilisation avant l'attachement ou la création.
 
-Le plan est attaché à `graphVersion`. Son exécution requiert un provider déclaré et un verifier de confiance. La réussite de l'admission atteste le passage des gates et la preuve signée ; elle n'atteste pas, à elle seule, qu'un worker ou service externe a réellement démarré. L'hôte du runtime fournit les fonctions d'adaptateur.
+Le plan est attaché au gap et à `graphVersion`. Son admission revalide le seuil, les limites de branches/profondeur et la réserve minimale, puis débite création plus coordination. Un registre de providers concrets exige `start`, `probe`, `execute` et `stop` : identité d'instance et sonde `AVAILABLE` avec preuve précèdent l'admission indépendante. L'hôte fournit ces opérations pour ses agents, démons, outils, services, passerelles humaines ou procédures. Les adaptateurs historiques restent sous sa responsabilité.
 
 ### 3.5 Classement de routes — opérationnel
 
@@ -114,7 +114,7 @@ où $r_n$ est la fiabilité du provider terminal.
 
 La variante `small_world` ajoute $1/(1+|P|)$. Les chemins doivent satisfaire la capacité, les contraintes de coût et de latence, le risque maximal et les exigences de preuve. Ils sont triés par score décroissant, puis par identifiant de route. La fiabilité retournée pour un chemin est le produit des fiabilités de ses arêtes et du provider.
 
-C'est un parcours et un classement déterministes. Le runtime ne choisit pas les arêtes par softmax de conductivité et ne fait pas de tirage probabiliste.
+Le classement déterministe reste le défaut. Avec `routingPolicy.selection: 'softmax'`, les chemins admissibles sont tirés selon softmax((U(P)+log(max(1e-12, produit K_e)))/température). La température doit être strictement positive ; le tirage injectable est dans [0,1). La recherche borne les états et les inspections réelles d'arêtes ; l'épuisement du budget ne déclenche pas une croissance fondée sur une fausse lacune.
 
 ### 3.6 Conductivité — règle discrète inspirée de Physarum
 
@@ -132,23 +132,37 @@ $$\rho(t+\Delta t)=\rho(t)\,2^{-\Delta t/h}.$$
 
 Une demi-vie explicite peut être fournie ; sinon elle dépend du type de trace et de sa confiance. Les pannes temporaires et fortes latences décroissent plus vite ; les résultats vérifiés et succès de route persistent plus longtemps ; les risques ou échecs de sécurité reçoivent une demi-vie multipliée par quatre. Un dépôt ultérieur est ajouté séparément.
 
-Les traces de `SwarmMatrix` et les champs `trailState` des arêtes sont distincts. La décroissance de la matrice n'implique pas automatiquement la mise à jour de chaque trace d'arête.
+Les traces de `SwarmMatrix` et les champs `trailState` des arêtes restent distincts. `maintainTick` applique la décroissance aux deux registres avant la mise à jour de conductivité. Les traces négatives de sécurité conservent une demi-vie plus longue.
 
 ### 3.8 Santé structurelle et résilience — opérationnel
 
 L'analyseur calcule les composantes connexes, nœuds isolés, ponts du graphe (arêtes dont la suppression augmente le nombre de composantes) et points d'articulation (nœuds dont la suppression l'augmente). Ces mesures décrivent la structure à un instant donné ; elles ne garantissent ni disponibilité externe ni tolérance générale aux pannes.
 
-Après un échec assorti d'un reçu de route vérifié, le runtime peut chercher une route alternative. L'admission de croissance refusée ne doit pas activer le candidat. Il n'existe pas d'invariant global $f_{min}$ imposant un seuil de connexité pour toutes les suppressions : les politiques de pruning et de réparation s'appliquent séparément.
+Après un échec assorti d'un reçu de route vérifié, le runtime peut chercher une route alternative. L'admission de croissance refusée ne doit pas activer le candidat. Avant toute suppression, le plan de pruning combiné est vérifié depuis les mêmes sources qu'avant suppression : aucune capacité requise auparavant accessible ne peut devenir inaccessible. Ce contrôle de reachability ne prétend pas fournir un seuil spectral universel de connexité.
 
-### 3.9 Formules non implémentées — conceptuel
+### 3.9 Convergence de mission — opérationnel
 
-Les formules de fitness de pont, variance de latence, score de provenance, seuil global $C_{min}$, score minimal $F_{min}$, couverture minimale de 95 %, transfert de coordination par seuil de fiabilité et bail calculé à partir de la stabilité ne sont pas évaluées par le runtime actuel. Il n'existe donc pas de garantie `canMerge` fondée sur ces équations. Une route sélectionnée, un nœud admis et une mission promue sont des états distincts ; la promotion utilise les gates et reçus de niveau supérieur.
+[missionMetricsService.js](../../../backend/src/services/rhizome/analytics/missionMetricsService.js) dérive les métriques des derniers résultats vérifiés de chaque besoin :
+
+| Indicateur | Calcul | Seuil par défaut |
+|---|---|---|
+| Couverture | besoins exécutés et vérifiés / besoins explicites | 0,95 |
+| Fitness de pont | moyenne de (compatibilité + succès + qualité de preuve) / 3 sur les ponts utilisés | 0,7 |
+| Provenance | 1 lorsque les reçus indépendants et exigences de preuve passent, 0 sans résultat validé | 1 |
+| Variance de latence | variance des durées d'exécution mesurées en ms | 100 000 ms² |
+| Fiabilité de transfert | minimum des fiabilités des nœuds des routes vérifiées | 0,7 |
+| Stabilité | fraction de besoins avec exécution vérifiée | utilisée pour le bail |
+
+Le bail calculé vaut minLeaseMs + stabilité × (maxLeaseMs − minLeaseMs), avec défauts 1 000 et 60 000 ms. Un transfert de locus refuse une cible sous le seuil de fiabilité ; sans exécution vérifiée il conserve le bail minimal. Les métriques et références sont exposées par mission_metrics. Le contrôleur exige tous les besoins résolus pour VERIFIED, même si le plancher de couverture est de 95 %. Une mission vide ou sans latence mesurée ne passe pas la gate.
+
+Ces indicateurs sont des proxies opérationnels explicites, pas les estimations statistiques biologiques illustrées plus loin. canMerge est une décision Rhizome liée à la version du graphe ; la promotion finale conserve ses gates de niveau supérieur.
 
 ### 3.10 Benchmark et limites statistiques
 
-Le benchmark actuel utilise des graphes synthétiques déterministes : un DAG fixe, deux chemins redondants, pannes simples et doubles, puis un cas de croissance. Le cas de croissance ajoute directement un nœud et une arête au graphe ; il ne passe pas par les gates d'admission. Le cas provider non fiable retourne un rejet prédéfini et n'exécute pas le service d'admission. Le compteur de travail du routeur est borné à 80 unités par scénario ; chaque état de chemin traité ajoute max(1, |E|) unités, où |E| est le nombre total d'arêtes. C'est un proxy du travail de recherche, pas un décompte d'inspections réelles ni une mesure d'opérations machine, de tokens, de millisecondes ou d'un budget de production.
+Le benchmark utilise des graphes synthétiques déterministes : DAG, chemins redondants, pannes simples et doubles, puis croissance. Le scénario de croissance traverse le détecteur de gap, le planificateur, l'admission signée et le débit de budget. Le provider non fiable est effectivement soumis à la gate d'admission et rejeté. Le compteur de travail mesure les inspections d'arêtes de l'index d'adjacence, avec une borne explicite ; il ne mesure pas les tokens ou les coûts machine.
 
-Les résultats décrivent uniquement les cas codés. Il n'y a ni tirages répétés, ni intervalle de confiance, ni mesure de latence réelle, ni comparaison statistique de runtime. Toute affirmation de supériorité ou de robustesse générale requiert des topologies représentatives, des essais répétés, un budget réel égalisé et des métriques définies à l'avance.
+Les résultats ne décrivent que ces cas codés. Il n'y a ni intervalle de confiance ni comparaison statistique de performances en production. Une affirmation de supériorité requiert des topologies représentatives et des essais répétés à budget égalisé.
+
 ## 4. Les quatre rôles et hypothèses
 
 Rhizome compose exactement quatre membres. Les membres 1 et 3 utilisent le tier `frontier` ; les membres 2 et 4 utilisent le tier `standard`.
@@ -330,30 +344,30 @@ graph TB
         C["Rootless Coordinator<br/>Frontier"]
         S["Boundary Scout<br/>Standard"]
     end
-    
+
     subgraph Growth["Après croissance (6 nœuds)"]
         O1["Capability Offshoot #1<br/>OAuth2 Rotation"]
         O2["Capability Offshoot #2<br/>Rate Analysis"]
         B1["Local Bridge #1<br/>Coord→Auth"]
         B2["Local Bridge #2<br/>Coord→Ingestion"]
     end
-    
+
     C --- S
     C --- B1
     C --- B2
     B1 --- O1
     B2 --- O2
     O1 --- O2
-    
+
     C -.->|"Conductivité: 0.8"| S
     B1 -.->|"Conductivité: 0.6"| O1
     B2 -.->|"Conductivité: 0.7"| O2
-    
+
     classDef coordinator fill:#3b82f6,stroke:#1e40af,color:#fff
     classDef scout fill:#f59e0b,stroke:#d97706,color:#fff
     classDef offshoot fill:#10b981,stroke:#059669,color:#fff
     classDef bridge fill:#8b5cf6,stroke:#6d28d9,color:#fff
-    
+
     class C coordinator
     class S scout
     class O1,O2 offshoot
@@ -490,7 +504,7 @@ $$1\text{-hop} \rightarrow \text{local neighborhood} \rightarrow \text{cached ro
 ```javascript
 function routeToCapability(sourceNode, targetCapability, G_t, options = {}) {
   const { maxHops = 4, useCache = true, useStigmergy = true } = options;
-  
+
   // 1. Vérification 1-hop (voisin direct)
   const direct = G_t.edges
     .filter(e => e.from === sourceNode.id)
@@ -595,12 +609,12 @@ function evaluateGrowth(gap, G_t, budget) {
   const creationCost = estimateSpawnCost(gap.capability);
   const coordinationCost = estimateBridgeCost(G_t);
   const duplicationRisk = computeDuplicationRisk(gap.capability, G_t);
-  
+
   const GV = expectedUtility * needCriticality * gapConfidence
            - creationCost / budget.total
            - coordinationCost / budget.total
            - duplicationRisk;
-  
+
   return { capability: gap.capability, GV, viable: GV > 0.6 && budget.remaining >= creationCost };
 }
 ```
@@ -649,8 +663,8 @@ Lorsque la couverture est suffisante, le réseau fusionne. Les branches devenues
 function decideContraction(G_t) {
   return G_t.nodes.filter(n => {
     if (n.state !== 'active') return false;
-    const isRedundant = G_t.nodes.some(other => 
-      other.id !== n.id && 
+    const isRedundant = G_t.nodes.some(other =>
+      other.id !== n.id &&
       other.state === 'active' &&
       setEquals(other.capabilities, n.capabilities)
     );
@@ -893,15 +907,15 @@ d'articulation, mais ne crée pas de raccourcis sans preuve d'admission.
 ```mermaid
 stateDiagram-v2
     [*] --> Latent : Capacité potentielle identifiée
-    
+
     state Latent {
         [*] --> Dormant
         Dormant --> PreActivation : Signal de croissance (GV > seuil)
         PreActivation --> Dormant : Échec de validation
     }
-    
+
     Latent --> Spawning : Décision de spawn (GV > θ)
-    
+
     state Spawning {
         [*] --> ContractNegociation
         ContractNegociation --> BridgeCreation : Contrat compatible
@@ -909,7 +923,7 @@ stateDiagram-v2
         ContractNegociation --> FailedSpawn : Incompatibilité
         FailedSpawn --> Latent : Retour au pool
     }
-    
+
     state Active {
         [*] --> Executing
         Executing --> Publishing : Résultats disponibles
@@ -917,11 +931,11 @@ stateDiagram-v2
         Executing --> Coordinating : Locus transféré
         Coordinating --> Executing : Bail expiré
     }
-    
+
     Active --> Dormant : Inactivité > T_expire
     Active --> Pruning : Fitness < seuil OU duplication détectée
     Active --> Quarantined : Violation sécurité
-    
+
     state Quarantined {
         [*] --> Isolated
         Isolated --> Investigating : Analyse en cours
@@ -929,7 +943,7 @@ stateDiagram-v2
         Investigating --> Pruned : Violation confirmée
         Rehabilitated --> Dormant : Retour après T_quarantine
     }
-    
+
     Pruning --> [*] : Artefacts conservés en provenance
     Dormant --> Active : Réactivation par le Scout
     Dormant --> [*] : Budget épuissé
@@ -949,27 +963,27 @@ sequenceDiagram
     participant Scout as Boundary Scout
     participant Offshoot as Capability Offshoot
     participant Bridge as Local Bridge
-    
+
     Mission->>Coord: Soumission de mission
     Coord->>Scout: Activer la cartographie des frontières
-    
+
     Scout->>Scout: Parcourir Gap(G_t)
     Scout-->>Coord: Rapport : lacune OAuth2 détectée (criticité=0.9)
-    
+
     Coord->>Coord : Calculer GV(n_new) = 0.82 > θ
     Coord->>Offshoot: Spawner branche OAuth2
-    
+
     Offshoot->>Offshoot: Initialiser CapabilityNode
     Offshoot->>Bridge: Négocier contrat token-rotation-v1
-    
+
     Bridge->>Bridge: Établir CapabilityEdge
     Bridge-->>Offshoot: Contrat accepté (compat=0.96)
     Bridge-->>Coord: Pont établi (conductivity=0.5)
-    
+
     Offshoot->>Offshoot: Exécuter rotation logic
     Offshoot-->>Bridge: Publier rotator-config + provenance
     Bridge-->>Coord: Relayer résultat avec provenance intacte
-    
+
     Coord->>Coord: Mettre à jour CoordinationLocus (lease extended)
     Scout->>Scout: Réévaluer Gap(G_t+1)
 ```
@@ -979,15 +993,15 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> Initializing : compose('rhizome', mission)
-    
+
     state Initializing {
         [*] --> BuildG0
         BuildG0 --> AllocateBudget : G_0 = (N_0, E_0)
         AllocateBudget --> ActivateScout : R = R_base + R_growth + R_recovery
     }
-    
+
     Initializing --> Scanning : Topologie initiale prête
-    
+
     state Scanning {
         [*] --> EvaluateGap
         EvaluateGap --> GapDetected : Gap(G_t) > θ_gap
@@ -998,9 +1012,9 @@ stateDiagram-v2
         SpawnDecision --> SkipBranch : GV ≤ θ_spawn
         NoGap --> Stable : canMerge vérifié
     }
-    
+
     Scanning --> Growing : BranchCreated
-    
+
     state Growing {
         [*] --> NegotiateContract
         NegotiateContract --> CreateEdge : Compatibilité > seuil
@@ -1009,27 +1023,27 @@ stateDiagram-v2
         ExecuteLocal --> PublishResults : Résultats produits
         PublishResults --> UpdateConductivity : Pas Physarum
     }
-    
+
     Growing --> Scanning : Publication terminée
-    
+
     Scanning --> Evaluating : Stable
-    
+
     state Evaluating {
         [*] --> CheckCoverage
         CheckCoverage --> canPromote : coverage ≥ C_min ∧ routes vérifiées
         CheckCoverage --> NeedsContinuation : sinon
     }
-    
+
     Evaluating --> Promoted : canPromote
     Evaluating --> Continuing : NeedsContinuation
-    
+
     state Continuing {
         [*] --> PreserveState
         PreserveState --> ReallocateBudget : Budget de reprise
         ReallocateBudget --> RetryExecution : Nouveau GV calculé
         RetryExecution --> Scanning : Reprise dans le graphe
     }
-    
+
     Continuing --> Scanning : Continuation terminée
     Promoted --> [*] : Mission promue avec preuves
 ```
@@ -1039,23 +1053,23 @@ stateDiagram-v2
 ```mermaid
 flowchart LR
     S["Nœud Source<br/>demande capability X"]
-    
+
     S -->|"1-hop"| H1{"Voisin<br/>direct ?"}
     H1 -->|"Oui"| R1["Route directe<br/>hops=1"]
     H1 -->|"Non"| H2{"Voisinage<br/>local ≤3 hops ?"}
-    
+
     H2 -->|"Oui"| R2["BFS local<br/>hops=2-3"]
     H2 -->|"Non"| H3{"Route<br/>cacheée ?"}
-    
+
     H3 -->|"Oui"| R3["Route cacheée<br/>vérifiée"]
     H3 -->|"Non"| H4{"Pheromone<br/>frontier ?"}
-    
+
     H4 -->|"Oui"| R4["Stigmergic trail<br/>suivi de traces"]
     H4 -->|"Non"| H5{"Recherche<br/>élargie ?"}
-    
+
     H5 -->|"Oui"| R5["BFS pondéré<br/>par conductivité"]
     H5 -->|"Non"| GROW["Déclencher<br/>croissance<br/>(nouvelle branche)"]
-    
+
     R1 --> DONE["Exécution<br/>locale"]
     R2 --> DONE
     R3 --> DONE
@@ -1063,7 +1077,7 @@ flowchart LR
     R5 --> DONE
     GROW --> SPAWN["Spawn<br/>Capability Offshoot"]
     SPAWN --> DONE
-    
+
     style GROW fill:#fbbf24,stroke:#f59e0b
     style DONE fill:#10b981,stroke:#059669
 ```
@@ -1172,31 +1186,22 @@ Si la mission est un bloc monolithique qui ne peut pas être décomposé en capa
 
 ---
 
-## 22. Implémentation et écarts connus
+## 22. Implémentation et limites du contrat runtime v1
 
-Rhizome est **partiellement implémenté** dans le backend. Les fonctions vérifiables comprennent :
+Le backend fournit le cycle complet besoin → route → exécution vérifiée, ou gap → croissance admise → nouvelle exécution. Le registre des résultats signés, les budgets, les limites de branches et les métriques survivent à une reprise persistante. Les reçus rejoués ne renforcent pas les routes. L'absence d'exécuteur, de vérificateur, de preuve ou de budget conserve un état incomplet.
 
-- contrats du graphe, détection de lacunes et diagnostic lié à la version du graphe ;
-- planification d'une croissance suffisante, référencée au gap et limitée par le budget déclaré ;
-- registre runtime d'adaptateurs typés (`agent`, `daemon`, `tool`, `service`, `human`, `runtime`) ; l'hôte fournit chaque fonction d'instanciation et la liste des providers de confiance ;
-- vérification épistémique et reçu HMAC rattaché au candidat, au nœud, à la capacité et aux éléments de preuve ;
-- routage BFS borné, classement déterministe, reçus de résultat, recherche de route alternative et quarantaine ;
-- maintenance des traces et conductivité, mesures de santé structurelle, politiques de pruning et persistance versionnée lorsque le store est fourni ;
-- proposition et admission de sous-topologies via Morphogénèse, soumises aux gates d'admission.
+Les douze variantes, la réparation, les sous-topologies Morphogénèse, les baux, la propagation, les bridges et les signaux restent régis par leurs contrats existants. Le contrôleur protège les variantes privées, persistantes, procédurales et inter-représentations contre les changements automatiques qui affaibliraient leurs invariants. Les paramètres de routage ne peuvent désactiver la confidentialité.
 
-Ne sont pas fournis par le runtime seul : les exécuteurs concrets de tous les types de providers, la preuve qu'un service ou worker externe a démarré, le softmax de routage, le modèle statistique de fitness des ponts, une condition mathématique de promotion de mission ou un benchmark de production.
+L'hôte enregistre des opérations concrètes pour les providers et configure les identités de confiance ; aucune fonction distante ou humaine n'est inventée. Les callbacks doivent respecter les signaux d'annulation et appliquer les autorisations de leurs systèmes. close du runtime libère ses instances enregistrées avant fermeture. Un simple closeSession de stockage reste une fermeture logique : l'hôte des adaptateurs historiques gère ses ressources.
 
-Le planificateur Morphogenèse peut inclure une branche Rhizome enfant avec `rhizomeBranch: true`;
-il exige un budget `growth` positif et marque sa promotion `verified-only`. Le test
-`backend/tests/test_morphogenesis_rhizome_branch.js` couvre l'ajout, le budget, la politique de
-preuve et le refus sans budget. Le CLI de télémétrie dans
-`crates/genos-cli/src/commands/rhizome_telemetry/` utilise un simulateur ; ce n'est pas le graphe
-opérationnel du backend. Les tests `backend/tests/test_rhizome_*.js` valident les scénarios
-codés, sans valider les analogies biologiques ni les performances de production.
+Le CLI live lit le vrai graphe persisté en lecture seule. La démonstration exige --simulate et annonce sa source. Les sections 4 à 21 contiennent aussi des modèles illustratifs : cache LRU, similarité cosinus, fitness statistique biologique et promesses de production ne constituent pas des fonctionnalités supplémentaires prouvées par le runtime.
+
+La [référence du runtime](../../03-reference/runtime-rhizome.md) décrit les API et la migration des reçus. L'[ADR de complétion](../../adr/0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) précise les décisions. La suite dédiée s'exécute avec npm --prefix backend run test:rhizome. Les tests couvrent les scénarios codés, sans valider une analogie biologique ni une performance générale.
+
 ## 23. Commandes CLI
 
 ```bash
-# Composition et exécution d'une mission Rhizome
+# Composition des rôles ; exécution via le runtime et ses adaptateurs
 cargo run -p genos-cli -- biological --mode rhizome \
   --mission "Investigate a distributed incident across services and external dependencies"
 
@@ -1206,13 +1211,15 @@ cargo run -p genos-cli -- biological --mode rhizome \
   --mission "Build self-healing monitoring"
 
 # Export du graphe dynamique en JSON
-cargo run -p genos-cli -- rhizome export --output artifacts/rhizome_graph.json
+cargo run -p genos-cli -- rhizome export --session-id SESSION_ID --database backend/genos.db --output artifacts/rhizome_graph.json
 
-# Serveur de télémétrie temps réel (dashboard D3.js)
-cargo run -p genos-cli -- rhizome serve --port 4790
+# Lecture du graphe persisté réel (dashboard D3.js)
+cargo run -p genos-cli -- rhizome serve --session-id SESSION_ID --database backend/genos.db --port 4790
 ```
 
 ---
+
+La base doit exister et rester confinée au workspace. Pour une démonstration synthétique explicite : `rhizome serve --simulate --port 4790`.
 
 ## 24. Références internes
 

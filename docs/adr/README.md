@@ -392,6 +392,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0330a](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Voir le fichier | -- | -- |
 | [0330b](0330-holobionte-missions-contractuelles-verifiees.md) | Missions Holobionte contractuelles et vérifiées | Accepté | 2026-10-06 | Holobionte, exécution, immunité, ressources et persistance |
 | [0331](0331-syncytium-rejeu-causal-et-preuve-de-completion.md) | Syncytium : rejeu causal et preuve de complétion | Voir le fichier | -- | -- |
+| [0332](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

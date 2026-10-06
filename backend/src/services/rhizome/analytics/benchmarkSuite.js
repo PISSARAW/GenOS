@@ -1,6 +1,13 @@
 'use strict';
 
 const routePlanner = require('../routing/routePlanner');
+const { normalizeRhizomeSession } = require('../contracts/rhizomeSession');
+const gapDetector = require('../boundary/capabilityGapService');
+const growthPlanner = require('../growth/growthPlanner');
+const growthAdmission = require('../growth/growthAdmissionService');
+const capabilityAdmission = require('../security/capabilityAdmissionService');
+const receipts = require('../../epistemicVerifierReceiptService');
+const { normalizeCapabilityEdge } = require('../contracts/capabilityEdge');
 
 const NEED = Object.freeze({ needId: 'benchmark-need', capability: 'verify' });
 const BUDGET_LIMIT = 80;
@@ -78,18 +85,46 @@ function runInjectedFault(edgeIds, budget) {
   return reachability(value, budget);
 }
 
+function growthFixture() {
+  const session = normalizeRhizomeSession({ rhizomeId: 'benchmark', missionId: 'benchmark',
+    nodes: [node('source')], budgets: { growth: 1 } });
+  session.coordinationLoci = [{ holderNodeId: 'source' }];
+  const gap = gapDetector.detectGap(session, NEED);
+  session.openGaps.push(gap);
+  const plan = growthPlanner.plan({ session, gap, values: [{ candidateId: 'benchmark-grow', action: 'ATTACH_SERVICE',
+    sufficient: true, expectedUtility: 1, creationCost: 0.1, coordinationCost: 0.1, duplicationRisk: 0,
+    evidenceRefs: [gap.evidence.evidenceId] }] });
+  const sprout = { ...node('sprout', ['verify']), providers: [{ providerId: 'benchmark-provider', kind: 'tool' }] };
+  const proof = { kind: 'CAPABILITY_VERIFIED', evidenceId: 'benchmark-admission', candidateId: plan.candidate.candidateId,
+    nodeId: 'sprout', capability: 'verify', independent: true, evidenceRefs: ['benchmark:probe'], verifierDigest: 'benchmark-verifier',
+    edgeContracts: [normalizeCapabilityEdge(edge('sprout-bridge', 'source', 'sprout'))] };
+  proof.signedReceipt = receipts.issueReceipt({ resultId: proof.evidenceId,
+    evidenceDigest: capabilityAdmission.evidenceDigest(sprout, proof), verifierDigest: proof.verifierDigest, independent: true });
+  return { session, sprout, proof, plan };
+}
+
 function growthScenario() {
   const budget = meter();
-  const value = graph([node('source')], []);
-  const before = reachability(value, budget);
-  value.nodes.push(node('sprout', ['verify']));
-  value.edges.push(edge('sprout-bridge', 'source', 'sprout'));
-  const after = reachability(value, budget);
-  return { name: 'verified_growth', ...budget.report(), nodeCount: value.nodes.length, edgeCount: value.edges.length, before, after, usefulGrowth: !before.reachable && after.reachable };
+  const fixture = growthFixture();
+  const before = reachability(fixture.session, budget);
+  const result = growthAdmission.apply(fixture.session, {
+    candidateId: fixture.plan.candidate.candidateId, growthPlan: fixture.plan,
+    expectedGraphVersion: fixture.session.graphVersion, node: fixture.sprout,
+    edges: [edge('sprout-bridge', 'source', 'sprout')], proof: fixture.proof
+  }, { trustedProviderIds: ['benchmark-provider'], trustedVerifierDigests: ['benchmark-verifier'] });
+  const after = reachability(fixture.session, budget);
+  return { name: 'verified_growth', ...budget.report(), nodeCount: fixture.session.nodes.length,
+    edgeCount: fixture.session.edges.length, charged: result.charged,
+    before, after, usefulGrowth: !before.reachable && after.reachable };
 }
 
 function untrustedGrowthScenario() {
-  return { name: 'untrusted_growth', ...meter().report(), admitted: false, rejection: 'RHIZOME_ADMISSION_PROVIDER_UNTRUSTED' };
+  const fixture = growthFixture();
+  let rejection = null;
+  try { capabilityAdmission.admit({ ...fixture.sprout, state: 'DISCOVERED' }, fixture.proof,
+    { trustedProviderIds: [], trustedVerifierDigests: ['benchmark-verifier'] }); }
+  catch (error) { rejection = error.code; }
+  return { name: 'untrusted_growth', ...meter().report(), admitted: rejection === null, rejection };
 }
 
 function runSuite() {

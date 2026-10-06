@@ -2588,6 +2588,12 @@
           "session_id": {
             "type": "string"
           },
+          "needs": { "type": "array", "items": { "type": "object" } },
+          "growth_plan": { "type": "object" },
+          "expected_graph_version": { "type": "integer", "minimum": 0 },
+          "convergence_policy": { "type": "object" },
+          "variant_name": { "type": "string" },
+          "pruning_plan": { "type": "object" },
           "after_revision": {
             "type": "integer",
             "minimum": -1
@@ -2631,6 +2637,11 @@
               "repair",
               "prune",
               "evaluate_merge",
+              "mission_metrics",
+              "maintain",
+              "set_variant",
+              "prune_apply",
+              "admit_growth",
               "allocate",
               "forage",
               "advance_variant"

@@ -2,6 +2,8 @@
 
 const { normalizeCapabilityNeed } = require('../contracts/capabilityNeed');
 const scoring = require('./routeScoringService');
+const search = require('./pathSearchService');
+const probabilistic = require('./probabilisticRouteService');
 const articulationPoints = require('../analytics/articulationPointService');
 
 function activeNodes(session, policy) {
@@ -14,31 +16,13 @@ function isPrivateNode(node) {
   return String(node.localContext?.classification || node.localContext?.confidentiality || '').toUpperCase() === 'PRIVATE';
 }
 
-function startNodeIds(session, nodes) {
+function startNodeIds(session, nodes, policy = {}) {
   const ids = new Set(nodes.map((node) => node.nodeId));
-  const holders = (session.coordinationLoci || []).map((item) => item.holderNodeId).filter((id) => ids.has(id));
+  if (Array.isArray(policy.sourceNodeIds)) return policy.sourceNodeIds.filter(id => ids.has(id));
+  const holders = (session.coordinationLoci || []).filter(item => !item.leaseUntil || Date.parse(item.leaseUntil) > (policy.now || Date.now())).map((item) => item.holderNodeId).filter((id) => ids.has(id));
   if (holders.length) return holders;
   const roots = nodes.filter((node) => !(session.edges || []).some((edge) => edge.to === node.nodeId && edge.status === 'ACTIVE')).map((node) => node.nodeId);
   return roots.length ? roots : nodes.map((node) => node.nodeId);
-}
-
-function expandState(state, edges, activeIds) {
-  return edges.filter((edge) => edge.from === state.nodeIds[state.nodeIds.length - 1]
-    && edge.status === 'ACTIVE' && activeIds.has(edge.to) && !state.nodeIds.includes(edge.to))
-    .map((edge) => ({ nodeIds: [...state.nodeIds, edge.to], edges: [...state.edges, edge] }));
-}
-
-function findPaths(input) {
-  const pending = input.starts.map((nodeId) => ({ nodeIds: [nodeId], edges: [] }));
-  const found = [];
-  const maxHops = Math.min(input.activeIds.size, input.maxHops);
-  while (pending.length) {
-    const current = pending.shift();
-    found.push(current);
-    input.onWork?.((input.session.edges || []).length || 1);
-    if (current.edges.length < maxHops) pending.push(...expandState(current, input.session.edges || [], input.activeIds));
-  }
-  return found;
 }
 
 function buildAlternatives(input) {
@@ -72,8 +56,13 @@ function routeCandidate(input) {
     cost: path.edges.reduce((sum, edge) => sum + (edge.cost ?? 0), provider.cost ?? 0),
     latency: path.edges.reduce((sum, edge) => sum + (edge.latency ?? 0), provider.latency ?? 0),
     reliability: path.edges.reduce((value, edge) => value * (edge.reliability ?? 1), provider.reliability ?? 1),
+    conductivity: pathConductivity(path.edges),
     evidenceRequirements: [...need.evidenceRequirements]
   };
+}
+
+function pathConductivity(edges) {
+  return edges.reduce((value, edge) => value * (edge.conductivity ?? 1), 1);
 }
 
 function pathAllowed(input) {
@@ -165,12 +154,16 @@ function plan(session, value, policy = {}) {
   const nodes = activeNodes(session, policy);
   const activeIds = new Set(nodes.map((node) => node.nodeId));
   const configuredHops = Number(policy.maxHops) || activeIds.size;
-  const paths = findPaths({ session, starts: startNodeIds(session, nodes), activeIds, maxHops: configuredHops, onWork: policy.onWork });
+  const found = search.find({ session, starts: startNodeIds(session, nodes, policy), activeIds, maxHops: configuredHops,
+    maxStates: policy.maxStates, maxWork: policy.maxWork, onWork: policy.onWork });
+  const paths = found.paths;
   const candidates = buildAlternatives({ paths, nodes, need, policy, session });
   const limit = Number.isInteger(policy.alternatives) ? Math.max(1, policy.alternatives) : candidates.length;
   const alternatives = chooseAlternatives(candidates, policy, limit);
-  if (!alternatives.length) return { needId: need.needId, capability: need.capability, selected: false, verdict: 'unreachable', alternatives: [] };
-  return { needId: need.needId, capability: need.capability, selected: true, verdict: 'route_selected', route: alternatives[0], alternatives };
+  if (!alternatives.length) return { needId: need.needId, capability: need.capability, selected: false, verdict: found.search.exhausted ? 'search_budget_exhausted' : 'unreachable', alternatives: [], search: found.search };
+  return { needId: need.needId, capability: need.capability, selected: true, verdict: 'route_selected', ...probabilistic.select(alternatives, policy), alternatives, search: found.search };
 }
 
-module.exports = { plan };
+function sources(session, policy = {}) { return startNodeIds(session, activeNodes(session, policy), policy); }
+
+module.exports = { plan, sources };

@@ -38,7 +38,7 @@ capacités requises + un profil (preuve, mémoire, budget, communication, moteur
 | **Syncytium** | `genos_biological_mode` crée une session persistée ; `genos_topology_session` expose snapshot et opérations CRDT, puis évaluation de cohérence. | Le contrat ne signifie pas que chaque mission utilise ce mode ou que toute mutation passe par un opérateur humain. |
 | **Holobionte** | Le service commun `runHolobiontMission`, la CLI et Morphogenesis exécutent les capacités après admission, avec preuve indépendante, gate immunitaire, quotas, contribution/mémoire atomiques et clôture. Les sanctions de santé bornées sont intégrées au runtime. | La composition historique reste `COMPOSED`. Les adaptateurs fournissent l’isolation physique et les mesures ; aucun gain biologique ou longitudinal n’est certifié. Voir le [contrat](../03-reference/runtime-holobionte.md). |
 | **Métapopulation** | `genos_biological_mode` compose les membres ; quorum, pondération et régénération sont exposés par le service. | Ces calculs restent des appels explicites, pas une boucle autonome déclenchée par la composition. |
-| **Rhizome** | `genos_biological_mode` crée et persiste la session ; `genos_topology_session` expose snapshot, dépôt stigmergique, sélection directe d'un membre par capacité et calcul slime sur arêtes fournies. Les mutations de session persistées reçoivent une révision et un événement d'audit. | `routeDirectMember` sélectionne parmi les membres composés, sans parcours multi-hop ; création automatique de branches et graphe de routes restent proposés. |
+| **Rhizome** | Sessions persistées, routage multi-sauts borné, exécution et vérification indépendantes des sorties, croissance admise avec débit atomique, métriques de complétion et télémétrie du graphe réel. Les mutations ont une révision et un audit ; MCP expose les opérations explicites du service. | Le cycle de mission requiert des providers et vérificateurs réels enregistrés par l’hôte. La composition seule ne les lance pas. Les modèles biologiques illustratifs ne sont pas certifiés par le runtime. Voir le [contrat](../03-reference/runtime-rhizome.md). |
 | **Biome** | `genos_biological_mode` crée et persiste la session ; `genos_topology_session` expose snapshot, allocation, foraging et santé, dont les résultats sont déposés dans la matrice biofilm. `biomeMissionLoop.runBiomeMission` enchaîne observe → propose → constrain → act → verify avec reçus, budget et autorisation explicite avant effet réel (`backend/tests/test_biome_mission_loop.js`, démo `examples/biome-mission-demo/run-demo.mjs`). | La navigation et la réallocation restent déclenchées par la mission, pas par une boucle autonome ; le mode simulé (`simulated: true`) ne produit aucun effet réel. |
 
 Les parcours Trinity et A-Team ont leurs entrées d'orchestration dédiées. Pour les six modes biologiques, `genos_biological_mode` appelle `biologicalTopologyService.composeMode({ db, orchestratorId, mode, mission })`; les sessions Syncytium, Rhizome et Biome sont ensuite observables et opérables par `genos_topology_session`. La composition seule ne rend pas effectives les capacités simplement inscrites au contrat.
@@ -91,10 +91,10 @@ et [ADR 0123](../adr/0123-separer-profil-worker-et-contrat-de-methode.md).
 
 1. Exposer leurs sessions dans le catalogue MCP et le dispatch local (`genos_biological_mode`, `genos_topology_session`).
 2. Persister les sessions Biome dans `topologySessionStore`, comme celles du Rhizome, et recharger l'état depuis le stockage avant chaque opération.
-3. Donner à Rhizome les opérations `snapshot`, `deposit`, `route`, `slime`, et à Biome `snapshot`, `allocate`, `forage`, `health` ; chaque opération Biome journalise son résultat dans la matrice biofilm versionnée.
+3. Exposer les opérations Rhizome de graphe, routage, preuves et croissance, ainsi que `mission_metrics`, `maintain`, `set_variant`, `prune_apply` et `admit_growth`. Biome expose `snapshot`, `allocate`, `forage`, `health` ; chaque opération Biome journalise son résultat dans la matrice biofilm versionnée.
 4. Vérifier par tests de câblage et persistance que ces appels MCP aboutissent aux services correspondants.
 
-Le plan ci-dessus câble des opérations observables et explicitement appelées ; il n'implémente pas encore le routage de graphe automatique Rhizome ni une boucle autonome Biome.
+Rhizome possède désormais une boucle de mission bornée : chaque besoin est exécuté et vérifié, ou fait l’objet d’une croissance admise puis d’une nouvelle tentative. Les callbacks de l’hôte assurent les effets réels et la libération des providers. Le câblage MCP reste une API d’opérations explicites ; il ne déclenche pas cette boucle par la seule composition. La boucle Biome reste déclenchée par sa mission.
 
 ## 4. Organisation & algorithmes d'essaim
 
@@ -135,7 +135,7 @@ Le plan ci-dessus câble des opérations observables et explicitement appelées 
 
 ## 6. Capacités effectives (suite)
 
-- `genos_topology_session` (apply/snapshot/deposit/route/slime) est enregistré
+- `genos_topology_session` (opérations de session, graphe, preuve, croissance et maintenance) est enregistré
   et mappé aux capacités `CRDT_SHARED_STATE`, `STIGMERGY`, `SIGNALING_BUS`,
   `LIGAND_RECEPTOR`.
 - Les sessions Syncytium/Rhizome sont **persistées** dans `topology_sessions`

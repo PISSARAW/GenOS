@@ -137,6 +137,23 @@ Ce style est unitaire ou de composant local : fichiers temporaires, handlers Rus
 
 ---
 
+### 4.1 Nosologie : catalogue, effets et autorisation persistante
+
+Le [bilan du 2026-10-06](validation-nosologie.md) conserve les résultats observés : 97 tests de biologie, quatre tests d’autorisation persistante et deux tests CLI réussis, ainsi que les contrôles Node du catalogue et de l’autorisation. Il rapporte aussi les échecs globaux et le parcours HTTP → Rust non validé; ces résultats ne sont pas rejoués par la présente mise à jour documentaire.
+
+Commandes de reproduction depuis la racine :
+
+```text
+cargo test -p genos-biology --lib --tests --jobs 1
+cargo test --workspace --test nosology_authorization --offline --jobs 1
+cargo test --workspace --bin genos commands::biomimicry::therapy::tests --offline --jobs 1
+node backend/tests/test_nosology_catalog.js
+node backend/tests/test_clinical_authorization.js
+node scripts/docs/generate-nosology-catalog.mjs --check
+```
+
+Les features du workspace activent `api`, requise par le test de persistance. Les scénarios couvrent les 28 conditions et 48 contrats de marqueurs, les refus, l’absence de cible, les effets secondaires bornés, le reçu durable et le rejeu idempotent. Ils ne valident ni pathologies réelles ni réparations biologiques détaillées. Le [contrat runtime](../01-concepts/nosologie/catalogue-runtime.md) précise les mutations attestées.
+
 ## 5. Tests unitaires Node et qualité
 
 Les tests Node sont des scripts `node` utilisant principalement `assert` ou `node:assert/strict`. Ils couvrent les services, contrôleurs, schémas, politiques, adapters et contrats.

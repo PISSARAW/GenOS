@@ -27,6 +27,8 @@ délègue au registre, sinon refuse (`Topology not registered`). Code :
 | Holobionte | `runHolobiontMission` partagé avec la CLI : hôte, contrat, admission, exécution, vérification indépendante, gate immunitaire, contribution/mémoire atomiques, santé et clôture | Base persistante du control plane GenOS | gate §5 et contrat Holobionte |
 | Métapopulation | `runAutonomousRegionalRuntime` réel (session créée, adapters du `regionalBrain`, cycle `OBSERVE→…→VERIFY→RECORD`) | Base persistante du control plane GenOS | gate §5 |
 
+Le plugin Rhizome de cette matrice conserve un contrôleur in-process simplifié. Le [runtime Rhizome persistant](runtime-rhizome.md) possède un cycle distinct avec providers réels, preuves indépendantes et budgets atomiques ; ces garanties ne sont pas acquises par la seule feuille MorphologyRuntime.
+
 ## 3. Contrats d'entrée des feuilles
 
 | Topologie | Entrée requise | Sans elle |

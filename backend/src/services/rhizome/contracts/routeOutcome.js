@@ -17,6 +17,7 @@ function normalizeRouteOutcome(value) {
     nodeIds: listValue(outcome.nodeIds, 'nodeIds'),
     edgeIds: listValue(outcome.edgeIds, 'edgeIds'),
     outcome: enumValue(outcome.outcome, { allowed: ['SUCCESS', 'FAILURE'], field: 'outcome' }),
+    ...(outcome.executionDigest ? { executionDigest: textValue(outcome.executionDigest, 'executionDigest') } : {}),
     verification: {
       verificationId: textValue(verification.verificationId, 'verification.verificationId'),
       verifierId: textValue(verification.verifierId, 'verification.verifierId'),

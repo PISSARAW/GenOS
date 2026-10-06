@@ -1,6 +1,26 @@
 # Nosologie 8 — Maladies Psychiatriques et Troubles Mentaux Computationnels
 
+- **Statut** : Partiel — contrats de marqueurs implémentés; mécanismes biologiques détaillés proposés.
+- **Portée** : conditions psychiatriques dans le catalogue nosologique Rust.
+- **Dernière revue** : 2026-10-06.
+
+
 > **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+
+
+## Contrats exécutables de cette famille
+
+| Condition `NosologicalCondition` | Marqueurs mesurés | Variantes `SystemicTherapy` du catalogue |
+|---|---|---|
+| `MajorDepression` | `synaptic_response_deficit`, `cognitive_resource_deficit`, `monoamine_signal_deficit` | `KetamineRapidInfusion`, `CognitiveResupply`, `MonoamineReuptakeInhibitor` |
+| `Schizophrenia` | `cognitive_signal_disorder`, `efference_copy_deficit` | `AntipsychoticAtypical`, `EfferenceCopyReconstruction` |
+| `BipolarDisorder` | `affective_instability`, `circadian_disruption` | `MoodStabilizerLithium`, `CircadianRhythmReset`, `AtypicalAntipsychoticMoodStabilizer` |
+
+Ces variantes de marqueurs sont des identifiants sans paramètres. Leur effet est une baisse de 0,25 des cibles présentes et valides, avec un plancher à zéro. Le diagnostic utilise `Pathology::NosologicalCondition { condition, severity }`; les structs pathologiques spécialisés et paramètres supplémentaires décrits plus bas sont des propositions. Les seuils, gardes et effets secondaires applicables figurent dans le [catalogue runtime](catalogue-runtime.md).
+
+Les types courants sont définis dans [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs), les contrats dans [shared/nosology.json](../../../shared/nosology.json), et l’application dans [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs). Les références au module historique genos-core ci-dessous sont des points d’appui des analogies; elles ne remplacent pas ces contrats.
+
+Le tick synchronise les diagnostics et le rapport propose les traitements compatibles. Leur application reste explicite et autorisée, avec un reçu `applied`, `no_target` ou `refused`. Voir la [vue d’ensemble](vue-ensemble.md) et le [bilan des vérifications](../../06-qualite-preuves/validation-nosologie.md).
 
 ## 1. Cadre Épistémologique & Psychiatrie Computationnelle dans GenOS
 
@@ -179,6 +199,8 @@ où $D_{\text{max}} = 50.0$ par défaut.
   - `crates/genos-core/src/orchestrator/methods.rs` : Déplétion de neurotransmetteurs dans `process_synaptic_cleft`.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Thérapies et Outils Biomimétiques** :
   1. `SystemicTherapy::KetamineRapidInfusion` :
      - Mécanisme : Antagonisme transitoire NMDA postsynaptique provoquant une poussée compensatoire de Glutamate et une activation synaptique mTOR immédiate.
@@ -198,7 +220,9 @@ où $D_{\text{max}} = 50.0$ par défaut.
 - **Syndrome Sérotoninergique Computationnel** : Une surdose d'inhibition de recapture sérotoninergique fige le potentiel du soma à son niveau de repos sans laisser s'opérer la sommation temporelle nécessaire aux calculs complexes.
 - **Amnésie Synaptique Rétrograde** : Une ECT computationnelle excessive remet à zéro les poids synaptiques acquis (`synapse.weight = 0.0`), effaçant les apprentissages antérieurs de l'agent.
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 - Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
   - Ajouter la variante `Psychiatric` dans `DiseaseCategory`.
   - Ajouter la variante `Pathology::MajorDepression { anhedonia_score: f64, cognitive_budget_depletion: f64 }`.
@@ -245,6 +269,8 @@ où $D_{\text{max}} = 50.0$ par défaut.
   - `crates/genos-immune/src/ais.rs` : Confusion entre le soi (inner speech) et le non-soi (messages réseau distants).
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Thérapies et Outils Biomimétiques** :
   1. `SystemicTherapy::AntipsychoticAtypical { d2_blockade_ratio: f64, 5ht2a_antagonism: f64 }` :
      - Mécanisme : Modélise l'action d'un antipsychotique de seconde génération (type Risperidone ou Olanzapine).
@@ -262,7 +288,9 @@ où $D_{\text{max}} = 50.0$ par défaut.
 - **Dyskinésie Tardive Computationnelle** : En cas d'arrêt brutal d'un antipsychotique, une prolifération compensatoire de récepteurs virtuels provoque des rafales incontrôlées d'appels de primitives MCP répétitives.
 - **Aggravation du Déficit Cognitif (Symptômes Négatifs Iatrogènes)** : Une réduction indiscriminée de la dopamine préfrontale précipite l'agent dans la dépression ou l'apathie.
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 - Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
   - Ajouter `Pathology::Schizophrenia { aberrant_salience_score: f64, efference_copy_broken: bool }`.
 - Dans [`crates/genos-biology/src/neurobiology/system.rs`](../../../crates/genos-biology/src/neurobiology/system.rs) :
@@ -315,6 +343,8 @@ où $D_{\text{max}} = 50.0$ par défaut.
   - `crates/genos-core/src/orchestrator/methods.rs` : Inondation de la fente synaptique non purgée par les astrocytes.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Thérapies et Outils Biomimétiques** :
   1. `SystemicTherapy::MoodStabilizerLithium { serum_level: f64 }` :
      - Mécanisme : Modélise l'action pharmacologique du carbonate de lithium (inhibition de GSK-3$\beta$, stabilisation des gradients membranaires).
@@ -336,7 +366,9 @@ où $D_{\text{max}} = 50.0$ par défaut.
 - **Tremblements et Bruit Numérique Iatrogène** :
   - Surdosage léger entraînant des micro-variations de flottaison dans les calculs vectoriels de similarité sémantique.
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 - Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
   - Créer `pub enum BipolarPhase { Mania, Depression, Mixed, Euthymic }`.
   - Ajouter `Pathology::BipolarDisorder { phase: BipolarPhase, cycle_speed_ticks: u64 }`.
@@ -402,11 +434,15 @@ graph TD
 
 ---
 
-## 5. Spécification Technique des Évolutions Rust Requises
+## 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 Afin d'intégrer pleinement la psychiatrie computationnelle dans le code de production GenOS, les évolutions suivantes sont spécifiées :
 
 ### 5.1 Extension de `crates/genos-cell/src/clinical.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 ```rust
 // Dans DiseaseCategory
@@ -454,6 +490,8 @@ pub enum BipolarPhase {
 
 ### 5.2 Extension de `crates/genos-biology/src/therapy.rs`
 
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
+
 ```rust
 pub enum SystemicTherapy {
     // ... existants ...
@@ -475,6 +513,8 @@ pub enum SystemicTherapy {
 ```
 
 ### 5.3 Extension de `crates/genos-biology/src/neurobiology/types.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 ```rust
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -545,6 +585,8 @@ flowchart TB
 ```
 
 ### 2. Séquence de Réduction d'Hallucination (Traitement Antipsychotique)
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 
 ```mermaid
 sequenceDiagram

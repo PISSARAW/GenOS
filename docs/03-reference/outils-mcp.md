@@ -53,6 +53,24 @@ Cette separation est intentionnelle : publier un schema aide un client a formule
 
 ---
 
+### 2.1 Sessions Rhizome
+
+`genos_topology_session` avec le `session_id` d’une session Rhizome expose les mutations explicites du service persistant. Les opérations de graphe et de preuve sont complétées par :
+
+| Opération | Arguments spécifiques | Effet ou résultat |
+| --- | --- | --- |
+| `mission_metrics` | `needs`, `convergence_policy`, `expected_graph_version` | Couverture et gate calculées sur des sorties vérifiées signées ; une mission vide ne vaut pas preuve. |
+| `maintain` | `now` facultatif | Décroissance des traces, conductivité, baux et inspection du pruning. |
+| `set_variant` | `variant_name` | Application de la politique de variante. |
+| `prune_apply` | `pruning_plan`, `now` facultatif | Suppression contrôlée, avec conservation des capacités requises accessibles. |
+| `admit_growth` | `growth_plan`, `expected_graph_version`, `node`, `edges`, `proof` | Admission vérifiée et débit atomique du budget ; un refus conserve l’état précédent. |
+
+La confiance vient de `GENOS_RHIZOME_TRUSTED_PROVIDER_IDS` et `GENOS_RHIZOME_TRUSTED_VERIFIER_DIGESTS`, listes séparées par des virgules dans l’environnement du serveur. Un argument client ne remplace ni cette autorité ni un reçu indépendant lié à la sortie. La lease doit autoriser `genos_topology_session` et la deny-list reste prioritaire.
+
+Cette surface n’instancie pas à elle seule les providers d’une mission. La boucle JavaScript et les six lifecycles concrets sont décrits dans le [contrat runtime Rhizome](runtime-rhizome.md), avec les commandes CLI séparant télémétrie réelle et simulation explicite.
+
+---
+
 ## 3. Leases, `enabled_tools` et `disabled_tools`
 
 ### 3.1 Lease MCP

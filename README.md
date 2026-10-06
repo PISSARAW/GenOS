@@ -52,7 +52,7 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 - **Holobionte** — missions hôte-symbiotes contractuelles : admission, preuve indépendante, veto immunitaire, quotas, mémoire atomique et hôtes persistants. [Contrat et exemple](docs/03-reference/runtime-holobionte.md).
 - **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
 - **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
-- **Rhizome** — sessions composées, routage par capacité entre membres et traces stigmergiques.
+- **Rhizome** — missions par capacités avec résultats signés, croissance et budgets atomiques, routage borné, reprise persistante et télémétrie du graphe réel. Voir le [contrat runtime](docs/03-reference/runtime-rhizome.md).
 - **Métapopulation** — quorum pondéré, plasticité des connexions et plan de récupération par lignage.
 
 Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).
@@ -84,6 +84,12 @@ Les routes de modèles sont conditionnelles à votre environnement :
 Les primitives de perception web et de fovéation restent isolées et ne forment pas encore une boucle complète capture-observation-action-vérification. Certaines fonctions d'orchestration et d'évaluation restent expérimentales ; consultez les limites décrites dans la documentation avant de dépendre d'une capacité particulière.
 
 ---
+
+## Nosologie computationnelle
+
+Le runtime Rust couvre **28 conditions dans neuf familles et 48 opérateurs de marqueurs**. Les diagnostics et recommandations sont synchronisés; l’application passe par une autorisation signée et un reçu persistant avec statut `applied`, `no_target` ou `refused`. Le type et la cible de la CLI doivent correspondre à l’autorisation. Les noms médicaux désignent des abstractions logicielles.
+
+Voir le [catalogue](docs/01-concepts/nosologie/catalogue-runtime.md), le [contrat API et CLI](docs/03-reference/api-et-contrats.md#autorisation-et-application-cliniques) et le [bilan daté](docs/06-qualite-preuves/validation-nosologie.md). Les mécanismes biologiques détaillés restent des propositions au-delà des contrats exécutables; les contrôles globaux du dépôt et le parcours HTTP → Rust complet ne sont pas déclarés validés.
 
 ## Pourquoi "biomimétique" et pas juste "biologique" ?
 

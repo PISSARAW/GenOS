@@ -11,6 +11,7 @@ const syncytium = require('./syncytiumCoordinationService');
 const rhizome = require('./rhizomeCoordinationService');
 const biome = require('./biomeCoordinationService');
 const rhizomeMergePolicy = require('./rhizome/bridges/mergePolicyEvaluationService');
+const rhizomeOperations = require('./rhizome/topologyOperationService');
 
 async function syncytiumEvents(db, sessionId, args) {
   const after = Number.isSafeInteger(Number(args.after_revision)) ? Number(args.after_revision) : -1;
@@ -244,7 +245,7 @@ const OPERATIONS = {
     replicas: replicasSyncytium, health: healthSyncytium,
     morphogenesis: morphogenesisSyncytium, events: syncytiumEvents
   },
-  rhizome: { snapshot: rhizomeSnapshot, evaluate_merge: evaluateRhizomeMerge, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, propagate: propagateRhizomeProcedure, signal: publishRhizomeSignal, locus: manageRhizomeLocus, branch_lease: manageRhizomeLease, fossil: readRhizomeFossil, plan_shortcuts: planRhizomeShortcuts, admit_shortcut: admitRhizomeShortcut, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
+  rhizome: { ...rhizomeOperations.OPERATIONS, snapshot: rhizomeSnapshot, evaluate_merge: evaluateRhizomeMerge, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, propagate: propagateRhizomeProcedure, signal: publishRhizomeSignal, locus: manageRhizomeLocus, branch_lease: manageRhizomeLease, fossil: readRhizomeFossil, plan_shortcuts: planRhizomeShortcuts, admit_shortcut: admitRhizomeShortcut, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome,
     health: assessBiome, advance_variant: advanceBiomeVariant }
 };

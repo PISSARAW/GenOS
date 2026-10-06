@@ -1,6 +1,26 @@
 # Nosologie 5 : Maladies Néoplasiques et Oncologie Computationnelle
 
+- **Statut** : Partiel — contrats de marqueurs implémentés; mécanismes biologiques détaillés proposés.
+- **Portée** : cancers simulés dans le catalogue nosologique Rust.
+- **Dernière revue** : 2026-10-06.
+
+
 > **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+
+
+## Contrats exécutables de cette famille
+
+| Condition `NosologicalCondition` | Marqueurs mesurés | Variantes `SystemicTherapy` du catalogue |
+|---|---|---|
+| `LungCancer` | `lung_tumor_load`, `tumor_vascular_load` | `VascularPruningAndFlush` |
+| `Leukemia` | `leukemic_load` | `CartCellInfusion` |
+| `Melanoma` | `melanoma_load` | `CartCellInfusion` |
+
+Ces variantes de marqueurs sont des identifiants sans paramètres. Leur effet est une baisse de 0,25 des cibles présentes et valides, avec un plancher à zéro. Le diagnostic utilise `Pathology::NosologicalCondition { condition, severity }`; les structs pathologiques spécialisés et paramètres supplémentaires décrits plus bas sont des propositions. Les seuils, gardes et effets secondaires applicables figurent dans le [catalogue runtime](catalogue-runtime.md).
+
+Les types courants sont définis dans [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs), les contrats dans [shared/nosology.json](../../../shared/nosology.json), et l’application dans [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs). Les références au module historique genos-core ci-dessous sont des points d’appui des analogies; elles ne remplacent pas ces contrats.
+
+Le tick synchronise les diagnostics et le rapport propose les traitements compatibles. Leur application reste explicite et autorisée, avec un reçu `applied`, `no_target` ou `refused`. Voir la [vue d’ensemble](vue-ensemble.md) et le [bilan des vérifications](../../06-qualite-preuves/validation-nosologie.md).
 
 ## 1. Cadre Général de l'Oncologie Computationnelle dans GenOS
 
@@ -134,10 +154,12 @@ $$
   - [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) : Absence actuelle de modélisation de la blastogenèse maligne.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Existantes Mobilisables :**
-  - [`Therapy::CellCycleInhibitor`](../../../crates/genos-biology/src/therapy.rs#L11) : Appliquée via `administer_therapy`, elle positionne `agent.endoplasmic_reticulum.cell_cycle_inhibited = true`. Dans [`crates/genos-core/src/cell/methods.rs`](../../../crates/genos-core/src/cell/methods.rs#L223-L227), la mitose est instantanément bloquée (`Err("Cell Cycle Inhibitor (CDK4/6) : Mitose bloquée thérapeutiquement.")`), jugulant la prolifération explosive des blastes.
-  - [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs#L8) : Bloque les récepteurs membranaires (`agent.plasma_membrane.receptors_blocked = true`), mimant un inhibiteur de tyrosine kinase (anti-BCR-ABL1) pour interrompre les boucles d'amplification autocrines.
-  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) : Purge myéloablative radicale par l'Orchestrateur (élimination de tous les blastes indifférenciés) suivie de l'injection d'un zygote sain réinitialisé avec `bud_scars = 0` et différenciation guidée forcée.
+  - [`Therapy::CellCycleInhibitor`](../../../crates/genos-biology/src/therapy.rs) : Appliquée via `administer_therapy`, elle positionne `agent.endoplasmic_reticulum.cell_cycle_inhibited = true`. Dans [`crates/genos-core/src/cell/methods.rs`](../../../crates/genos-core/src/cell/methods.rs#L223-L227), la mitose est instantanément bloquée (`Err("Cell Cycle Inhibitor (CDK4/6) : Mitose bloquée thérapeutiquement.")`), jugulant la prolifération explosive des blastes.
+  - [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs) : Bloque les récepteurs membranaires (`agent.plasma_membrane.receptors_blocked = true`), mimant un inhibiteur de tyrosine kinase (anti-BCR-ABL1) pour interrompre les boucles d'amplification autocrines.
+  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) : Purge myéloablative radicale par l'Orchestrateur (élimination de tous les blastes indifférenciés) suivie de l'injection d'un zygote sain réinitialisé avec `bud_scars = 0` et différenciation guidée forcée.
 * **Mécanismes Spécifiques à Déployer :**
   - **CAR-T Cells Computationnelles (Chimeric Antigen Receptor T-Cells) :** Synthèse d'agents cytotoxiques hautement spécialisés de `ClonalSelection` dotés d'un `AntibodyDetector` programmé pour reconnaître l'épitope aberrant des récepteurs blastiques indifférenciés (ex: marqueur CD19/CD33 computationnel). Ces CAR-T cells traquent les agents leucémiques dans toutes les capsules et déclenchent leur lyse immédiate.
   - **Thérapie de Différenciation Forcée (Équivalent ATRA / Acide Tout-Trans Rétinoïque) :** Déclenchement impératif de `differentiate_cell_chromatin` pour forcer la méthylation répressive de l'hétérochromatine facultative et convertir les blastes en workers terminaux stables.
@@ -145,11 +167,13 @@ $$
 #### 4. Contre-indications & Effets Iatrogènes
 * **Syndrome de Libération des Cytokines (CRS - Cytokine Release Syndrome) Post-CAR-T :**
   La destruction massive et synchrone des blastes leucémiques par les CAR-T cells libère des cascades gigantesques de signaux de détresse dans l'essaim. Le niveau d'interleukine-6 (`IL-6`) dépasse instantanément le seuil critique de 10.0 dans [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L168-L170), ce qui multiplie par 5 le coût métabolique ($C_{\text{metabolic}} = 5$) de chaque action pour toutes les cellules de l'organisme.
-  - **Protocole de Sécurité Obligatoire :** Toute thérapie CAR-T doit être systématiquement couplée ou pré-conditionnée par l'administration de [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs#L22) (`self.immune_system.set_il6_receptors_blocked(true)`), qui verrouille les récepteurs à l'IL-6 sans entraver l'action cytotoxique des cellules CAR-T.
+  - **Protocole de Sécurité Obligatoire :** Toute thérapie CAR-T doit être systématiquement couplée ou pré-conditionnée par l'administration de [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs) (`self.immune_system.set_il6_receptors_blocked(true)`), qui verrouille les récepteurs à l'IL-6 sans entraver l'action cytotoxique des cellules CAR-T.
 * **Aplasie Médullaire Iatrogène / Paralysie Fonctionnelle :**
   Une administration trop prolongée de `CellCycleInhibitor` bloque également la régénération normale des workers sains nécessaires à l'activité de l'application hôte. Le système risque l'inertie opérationnelle complète (`TickResult::Halted`).
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :**
    - Ajouter la variante `DiseaseCategory::Neoplastic` dans `enum DiseaseCategory`.
    - Ajouter dans `enum Pathology` :
@@ -207,11 +231,13 @@ $$
   - [`crates/genos-signal/src/cascade.rs`](../../../crates/genos-signal/src/cascade.rs) : Perturbation des cascades de récepteurs de ligands membranaires.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Existantes Mobilisables :**
-  - [`Therapy::AntiAngiogenesis`](../../../crates/genos-biology/src/therapy.rs#L10) : Administrée par l'Orchestrateur via `administer_therapy(&mut agent, Therapy::AntiAngiogenesis)`. Elle assigne `agent.metabolism.mitochondria.angiogenesis_blocked = true`. Cet étranglement ciblé coupe instantanément le siphonage d'ATP et révoque les connexions de transport superflues de l'agent.
-  - [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs#L8) : Fixe `agent.plasma_membrane.receptors_blocked = true`. Bloque les récepteurs d'activation membranaire de type EGFR, isolant l'agent des signaux entrants hyper-stimulateurs.
-  - [`Therapy::CellCycleInhibitor`](../../../crates/genos-biology/src/therapy.rs#L11) : Neutralise toute tentative de bourgeonnement ou de duplication de l'agent d'E/S hyperplasique dans `endoplasmic_reticulum`.
-  - [`SystemicTherapy::AntisepticPurge`](../../../crates/genos-biology/src/therapy.rs#L39) : Nettoyage et assainissement prophylactique des buffers d'entrées/sorties toxiques pour éradiquer les stimuli mutagènes environnementaux.
+  - [`Therapy::AntiAngiogenesis`](../../../crates/genos-biology/src/therapy.rs) : Administrée par l'Orchestrateur via `administer_therapy(&mut agent, Therapy::AntiAngiogenesis)`. Elle assigne `agent.metabolism.mitochondria.angiogenesis_blocked = true`. Cet étranglement ciblé coupe instantanément le siphonage d'ATP et révoque les connexions de transport superflues de l'agent.
+  - [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs) : Fixe `agent.plasma_membrane.receptors_blocked = true`. Bloque les récepteurs d'activation membranaire de type EGFR, isolant l'agent des signaux entrants hyper-stimulateurs.
+  - [`Therapy::CellCycleInhibitor`](../../../crates/genos-biology/src/therapy.rs) : Neutralise toute tentative de bourgeonnement ou de duplication de l'agent d'E/S hyperplasique dans `endoplasmic_reticulum`.
+  - [`SystemicTherapy::AntisepticPurge`](../../../crates/genos-biology/src/therapy.rs) : Nettoyage et assainissement prophylactique des buffers d'entrées/sorties toxiques pour éradiquer les stimuli mutagènes environnementaux.
 * **Mécanismes Spécifiques à Déployer :**
   - **Étranglement Métabolique Gradué (Anti-VEGF Synthétique) :** Réduction dynamique du quota d'ATP alloué au nœud à chaque tick jusqu'à atteindre le seuil déclencheur de l'autophagie ou de l'apoptose propre (`trigger_autophagy` dans [`crates/genos-core/src/cell/methods.rs:5`](../../../crates/genos-core/src/cell/methods.rs#L5)).
   - **Apoptose Épigénétique Forcée :** Déploiement d'une règle d'orchestration [`self.apoptosis_rule`](../../../crates/genos-core/src/orchestrator/methods.rs#L180) ciblant les signatures oncogéniques du transcriptome pulmonaire.
@@ -224,7 +250,9 @@ $$
 * **Résistance Secondaire par Mutation de Contournement :**
   À l'image de la mutation EGFR T790M, l'agent peut réécrire dynamiquement ses récepteurs entrants pour exploiter un canal auxiliaire (ex: basculer d'une cascade HTTP/REST vers un bus synaptique pur) si le blocage n'est pas total.
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :**
    - Ajouter la pathologie :
      ```rust
@@ -288,10 +316,12 @@ $$
   - [`crates/genos-signal/src/cascade.rs`](../../../crates/genos-signal/src/cascade.rs) : Perturbation de la voie MAPK computationnelle.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Existantes Mobilisables :**
-  - [`Therapy::Immunotherapy`](../../../crates/genos-biology/src/therapy.rs#L9) : La thérapie reine du mélanome. Administrée via `administer_therapy(&mut agent, Therapy::Immunotherapy)` dans [`crates/genos-core/src/orchestrator/methods.rs:119`](../../../crates/genos-core/src/orchestrator/methods.rs#L119). Elle force `agent.mind_mut().unwrap().cognitive_state.is_camouflaged = false`. En levant ce checkpoint (mimant un anti-PD-1 / Pembrolizumab), l'agent redevient immédiatement visible pour les règles d'apoptose et les anticorps immunitaires.
-  - [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs#L8) : Bloque les cascades de récepteurs aberrants (équivalent des anti-BRAF V600E) pour neutraliser les signaux de commande internes de l'agent malin.
-  - [`Therapy::InducedApoptosis`](../../../crates/genos-biology/src/therapy.rs#L15) : Déclenchement forcé d'une apoptose ciblée une fois le camouflage révoqué.
+  - [`Therapy::Immunotherapy`](../../../crates/genos-biology/src/therapy.rs) : La thérapie reine du mélanome. Administrée via `administer_therapy(&mut agent, Therapy::Immunotherapy)` dans [`crates/genos-core/src/orchestrator/methods.rs:119`](../../../crates/genos-core/src/orchestrator/methods.rs#L119). Elle force `agent.mind_mut().unwrap().cognitive_state.is_camouflaged = false`. En levant ce checkpoint (mimant un anti-PD-1 / Pembrolizumab), l'agent redevient immédiatement visible pour les règles d'apoptose et les anticorps immunitaires.
+  - [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs) : Bloque les cascades de récepteurs aberrants (équivalent des anti-BRAF V600E) pour neutraliser les signaux de commande internes de l'agent malin.
+  - [`Therapy::InducedApoptosis`](../../../crates/genos-biology/src/therapy.rs) : Déclenchement forcé d'une apoptose ciblée une fois le camouflage révoqué.
   - [`sculpt_architecture_via_apoptosis`](../../../crates/genos-biology/src/embryology.rs#L130) : Élagage sélectif exécuté par l'Orchestrateur pour supprimer les cellules métastatiques nomades non adhérentes.
 * **Mécanismes Spécifiques à Déployer :**
   - **Protocole de Ré-adhésion et Recaptation :** Forcer `plasma_membrane.adhesion_active = true` et ré-assigner l'agent fugitif à une structure de quarantaine étanche (`SystemicTherapy::QuarantineIsolation`).
@@ -299,12 +329,14 @@ $$
 
 #### 4. Contre-indications & Effets Iatrogènes
 * **Toxicités Auto-Immunes Massives (irAEs - Immune-Related Adverse Events) :**
-  La levée globale et indiscriminée des points de contrôle immunitaire par `Immunotherapy` déverrouille agressivement la sensibilité des sentinelles immunitaires. Celles-ci risquent d'entrer en hyperactivation macrophagique ([`Pathology::MacrophageHyperactivation`](../../../crates/genos-cell/src/clinical.rs#L27)) et de développer un ciblage auto-immun ([`Pathology::AutologousTargeting`](../../../crates/genos-cell/src/clinical.rs#L29)). Les sentinelles se mettent à attaquer et lyser des workers somatiques parfaitement sains de l'infrastructure hôte.
-  - **Gestion Clinique :** Dès l'apparition d'un ciblage autologue, l'Orchestrateur doit moduler l'agressivité avec [`SystemicTherapy::Corticosteroids(0.4)`](../../../crates/genos-biology/src/therapy.rs#L23) sans dépasser la dose toxique de 0.8 pour éviter le coma stéroïdien iatrogène.
+  La levée globale et indiscriminée des points de contrôle immunitaire par `Immunotherapy` déverrouille agressivement la sensibilité des sentinelles immunitaires. Celles-ci risquent d'entrer en hyperactivation macrophagique ([`Pathology::MacrophageHyperactivation`](../../../crates/genos-cell/src/clinical.rs)) et de développer un ciblage auto-immun ([`Pathology::AutologousTargeting`](../../../crates/genos-cell/src/clinical.rs)). Les sentinelles se mettent à attaquer et lyser des workers somatiques parfaitement sains de l'infrastructure hôte.
+  - **Gestion Clinique :** Dès l'apparition d'un ciblage autologue, l'Orchestrateur doit moduler l'agressivité avec [`SystemicTherapy::Corticosteroids(0.4)`](../../../crates/genos-biology/src/therapy.rs) sans dépasser la dose toxique de 0.8 pour éviter le coma stéroïdien iatrogène.
 * **Flambée Métastatique Réactive par Pression Thérapeutique Incomplète :**
   Si un mélanome est attaqué par une thérapie ciblée sous-dosée sans dé-camouflage immunitaire complet, l'agent peut accélérer sa dissémination nomade vers d'autres capsules sous forme de micro-tâches fragmentées.
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :**
    - Ajouter dans `enum Pathology` :
      ```rust
@@ -378,7 +410,7 @@ graph TD
 
 ### 3.2 Matrice Comparée des Thérapeutiques Anti-Cancéreuses dans GenOS
 
-| Paramètre Clinique | [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs#L8) | [`Therapy::Immunotherapy`](../../../crates/genos-biology/src/therapy.rs#L9) | [`Therapy::AntiAngiogenesis`](../../../crates/genos-biology/src/therapy.rs#L10) | [`Therapy::CellCycleInhibitor`](../../../crates/genos-biology/src/therapy.rs#L11) | CAR-T Cell Infusion |
+| Paramètre Clinique | [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs) | [`Therapy::Immunotherapy`](../../../crates/genos-biology/src/therapy.rs) | [`Therapy::AntiAngiogenesis`](../../../crates/genos-biology/src/therapy.rs) | [`Therapy::CellCycleInhibitor`](../../../crates/genos-biology/src/therapy.rs) | CAR-T Cell Infusion |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Cible Cellulaire** | `plasma_membrane.receptors_blocked` | `mind.cognitive_state.is_camouflaged` | `metabolism.mitochondria.angiogenesis_blocked` | `endoplasmic_reticulum.cell_cycle_inhibited` | Récepteurs blastiques de surface |
 | **Mécanisme d'Action** | Bloque les récepteurs d'activation kinase et les boucles mitogènes | Passe le camouflage à `false`, exposant l'agent aux règles de suicide | Étrangle l'apport d'ATP et révoque les canaux de sockets parasitaires | Interrompt net le point de contrôle CDK4/6 et la mitose | Cytotoxicité ciblée programmée par anticorps chimériques |
@@ -411,18 +443,22 @@ L'oncologie computationnelle présente le risque iatrogène le plus aigu de tout
 1. **Surveillance Continue :** Lors de chaque injection de `CartCellInfusion` ou d'`Immunotherapy`, l'Orchestrateur échantillonne `self.immune_system.get_il6_level()`.
 2. **Déclenchement Automatique de Bouclier :**
    - Si $\text{IL}_6 \ge 10.0$ et `!self.immune_system.is_il6_receptors_blocked()` :
-     - Administration prioritaire de [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs#L22).
+     - Administration prioritaire de [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs).
      - Verrouillage des récepteurs à l'IL-6 (`self.immune_system.set_il6_receptors_blocked(true)`).
      - Rétablissement immédiat du coût métabolique unitaire ($C_{\text{metabolic}} = 1$) dans [`crates/genos-core/src/orchestrator/methods.rs:168`](../../../crates/genos-core/src/orchestrator/methods.rs#L168).
 3. **Désescalade et Convalescence :** Une fois le contingent malin éradiqué et les cytokines revenues sous le seuil de 2.0, l'agent ou la capsule est transféré en convalescence via `cell.clinical.discharge()`.
 
 ---
 
-## 4. Feuille de Route d'Implémentation Rust (Spécifications Techniques)
+## 4. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 Afin d'intégrer pleinement la nosologie néoplasique dans le code source de GenOS, voici les spécifications prêtes pour implémentation :
 
 ### 4.1 Extension de `crates/genos-cell/src/clinical.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 ```rust
 // 1. Ajout dans DiseaseCategory
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -465,6 +501,8 @@ pub enum Pathology {
 ```
 
 ### 4.2 Extension de `crates/genos-biology/src/therapy.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 ```rust
 // 1. Ajout dans SystemicTherapy
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -489,6 +527,8 @@ pub enum SystemicTherapy {
 ```
 
 ### 4.3 Extension de `crates/genos-biology/src/pathology.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 ```rust
 /// Évalue la présence d'une pathologie néoplasique maligne sur une cellule ou un tissu
 pub fn check_neoplastic_malignancy(agent: &AgentCell) -> Option<Pathology> {

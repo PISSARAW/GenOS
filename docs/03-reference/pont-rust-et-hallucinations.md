@@ -1,8 +1,8 @@
 # Pont REST vers le cœur Rust et analyse des hallucinations
 
 - **Statut** : intégré, avec ingestion biologique tenant-scoped
-- **Portée** : snapshots, diff, replay, opérations d’analyse et reçus biologiques via backend.
-- **Dernière revue** : 2026-09-30
+- **Portée** : snapshots, diff, replay, opérations d’analyse, reçus biologiques et autorisations cliniques via backend.
+- **Dernière revue** : 2026-10-06 (contrat clinique).
 
 ## 1. Architecture
 
@@ -25,6 +25,7 @@ permissions backend ni le confinement tenant.
 | --- | --- | --- |
 | `GET` | `/api/rust/status` | état du bridge |
 | `POST` | `/api/rust/biological-receipts` | ingère un reçu Rust après authentification, permission `experiment:run` et vérification que la mission appartient au projet courant |
+| `POST` | `/api/rust/clinical-authorizations` | émet une autorisation signée après scope mission, permission security:manage, approbation explicite et permission all du signataire; ne déclenche pas de traitement |
 | `GET` | `/api/rust/snapshots` | liste des snapshots |
 | `POST` | `/api/rust/snapshots` | crée un snapshot |
 | `POST` | `/api/rust/hallucination/detect` | détecte |
@@ -39,6 +40,10 @@ nouvelle ingestion répond `201`; un doublon identique répond `200`. Le contrô
 de tenant exige une appartenance projet en écriture pour l'agent rattaché à la
 mission. Cette route ne prouve pas encore l'origine Rust du contenu et aucun
 expéditeur Rust automatique n'est branché.
+
+### Autorisation clinique
+
+La cellule doit appartenir à la population Rust courante et disposer d’un génome et d’un reçu source. Les variantes et paramètres sont validés avant signature. La CLI restaure le journal et applique le type et la cible signés; son reçu conserve applied, no_target ou refused. Sans journal ou autorisation, elle renvoie not_executed. Voir le [contrat API et CLI](api-et-contrats.md#autorisation-et-application-cliniques) et le [bilan daté](../06-qualite-preuves/validation-nosologie.md), qui ne déclare pas de réussite du parcours HTTP → Rust complet.
 
 ## 3. Modèle d’analyse
 

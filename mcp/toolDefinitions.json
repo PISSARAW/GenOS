@@ -2596,6 +2596,12 @@
           "session_id": {
             "type": "string"
           },
+          "needs": { "type": "array", "items": { "type": "object" } },
+          "growth_plan": { "type": "object" },
+          "expected_graph_version": { "type": "integer", "minimum": 0 },
+          "convergence_policy": { "type": "object" },
+          "variant_name": { "type": "string" },
+          "pruning_plan": { "type": "object" },
           "operation": {
             "type": "string",
             "enum": [
@@ -2633,6 +2639,11 @@
               "admit_shortcut",
               "repair",
               "prune",
+              "mission_metrics",
+              "maintain",
+              "set_variant",
+              "prune_apply",
+              "admit_growth",
               "allocate",
               "forage",
               "advance_variant"

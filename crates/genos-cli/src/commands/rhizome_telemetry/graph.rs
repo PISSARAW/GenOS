@@ -1,7 +1,7 @@
 use serde::Serialize;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
+use std::sync::atomic::{AtomicU64, Ordering};
+use tokio::sync::{RwLock, broadcast};
 
 const MAX_LOGS: usize = 100;
 
@@ -26,6 +26,7 @@ pub struct GraphEdge {
 /// The requestable state of the Rhizome graph $G_t = (N_t, E_t)$ at a point in time.
 #[derive(Clone, Debug, Serialize, Default)]
 pub struct GraphSnapshot {
+    pub source: String,
     pub step: u64,
     pub phase: String,
     pub nodes: Vec<GraphNode>,
@@ -62,7 +63,10 @@ impl RhizomeGraph {
     pub fn new() -> Arc<Self> {
         let (tx, _rx) = broadcast::channel(512);
         Arc::new(Self {
-            state: RwLock::new(GraphSnapshot::default()),
+            state: RwLock::new(GraphSnapshot {
+                source: "simulation".into(),
+                ..GraphSnapshot::default()
+            }),
             tx,
             next_edge_id: AtomicU64::new(1),
         })

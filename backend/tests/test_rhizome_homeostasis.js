@@ -41,10 +41,11 @@ async function verifyStableStop() {
     trustedVerifierDigests: ['trusted-stable-verifier'],
     needs: [{ needId: 'one', capability: 'answer' }, { needId: 'two', capability: 'answer' }, { needId: 'three', capability: 'answer' }],
     execute: async ({ route }) => ({ routeId: route.routeId }),
-    verify: async ({ route, need }) => makeReceipt(route, need)
+    verify: async ({ route, need, executionDigest }) => makeReceipt(route, need, executionDigest)
   });
   assert.equal(result.stopReason, 'STABLE_TICKS');
-  assert.equal(result.results.length, 2);
+  assert.equal(result.results.length, 3);
+  assert.equal(result.status, 'VERIFIED');
 }
 
 function node(nodeId, capabilities) {
@@ -55,10 +56,10 @@ function edge(edgeId, from, to) {
   return { edgeId, from, to, relation: 'ROUTES_TO', status: 'ACTIVE', compatibility: 0.9, conductivity: 0.9, reliability: 0.9, successRate: 0.9, evidenceQuality: 0.9, cost: 0, latency: 1, trailState: { positive: 0, negative: 0 } };
 }
 
-function makeReceipt(route, need) {
+function makeReceipt(route, need, executionDigest) {
   const value = {
     routeId: route.routeId, needId: need.needId, capability: need.capability,
-    nodeIds: route.nodeIds, edgeIds: route.edgeIds, outcome: 'SUCCESS',
+    nodeIds: route.nodeIds, edgeIds: route.edgeIds, executionDigest, outcome: 'SUCCESS',
     verification: { verificationId: `verify-${need.needId}`, verifierId: 'stable-verifier', result: 'SUCCESS', status: 'VERIFIED', evidenceRefs: [`evidence:${need.needId}`] }
   };
   value.verification.signedReceipt = verifierReceipts.issueReceipt({

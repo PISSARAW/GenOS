@@ -8,14 +8,15 @@ pub struct RhizomeCmd {
 
 #[derive(Subcommand, Debug)]
 pub enum RhizomeSubcommands {
-    /// Start the real-time telemetry server: an in-memory G_t=(N_t,E_t) graph streamed live over
-    /// WebSocket to a D3-rendered dashboard as the runtime grows and prunes capability nodes.
+    /// Stream a persisted backend Rhizome graph over HTTP and WebSocket.
     Serve {
         /// Port to bind the telemetry HTTP/WebSocket server on
         #[arg(long, short = 'p', default_value_t = 4790)]
         port: u16,
+        #[command(flatten)]
+        source: RhizomeSource,
     },
-    /// Run one budding/contraction pass headlessly and export the resulting graph as JSON
+    /// Export a persisted backend Rhizome graph as JSON
     Export {
         /// Destination path for the exported graph JSON
         #[arg(long, short = 'o', default_value = "artifacts/rhizome_graph.json")]
@@ -26,5 +27,20 @@ pub enum RhizomeSubcommands {
         /// Create missing parent directories
         #[arg(long, default_value_t = false)]
         parents: bool,
+        #[command(flatten)]
+        source: RhizomeSource,
     },
+}
+
+#[derive(Args, Debug)]
+pub struct RhizomeSource {
+    /// Identifier of the persisted backend session
+    #[arg(long, requires = "database", conflicts_with = "simulate")]
+    pub session_id: Option<String>,
+    /// Existing SQLite database inside the GenOS workspace
+    #[arg(long, requires = "session_id", conflicts_with = "simulate")]
+    pub database: Option<String>,
+    /// Use the explicitly labelled demonstration simulator
+    #[arg(long, default_value_t = false)]
+    pub simulate: bool,
 }

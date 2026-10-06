@@ -5,6 +5,7 @@ const budgetService = require('./growthBudgetService');
 const valueService = require('./growthValueService');
 const candidateService = require('./growthCandidateService');
 const policy = require('./minimalGrowthPolicy');
+const limits = require('./growthLimitsService');
 const meristem = require('../../morphogenesis/capabilities/epistemicMeristem');
 
 function validEvidence(session, gap) {
@@ -14,7 +15,7 @@ function validEvidence(session, gap) {
 
 function eligibleCandidates(context) {
   const { session, gap, candidates, threshold } = context;
-  return candidates.filter((candidate) => candidate.sufficient && budgetService.fitsBudget(session, candidate)
+  return candidates.filter((candidate) => candidate.sufficient && limits.check(session, candidate) && budgetService.fitsBudget(session, candidate)
     && candidate.evidenceRefs.includes(gap.evidence.evidenceId)
     && valueService.score(candidate, gap) > threshold);
 }
@@ -47,6 +48,8 @@ function plan(input) {
     candidate: selected,
     value: valueService.score(selected, gap),
     graphVersion: session.graphVersion,
+    gapId: gap.gapId,
+    threshold,
     experimentalDistinction: selected.experimentContract || null
   };
 }
