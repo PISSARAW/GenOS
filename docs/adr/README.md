@@ -390,6 +390,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0329](0329-traces-otlp-apres-persistance.md) | Traces OpenTelemetry après persistance | Accepté | 2026-10-06 | observabilité, télémétrie, confidentialité |
 | [0330](0330-bancs-agentdojo-browsergym.md) | Bancs externes pour l'immunité et la navigation | Accepté | 2026-10-06 | évaluation, sécurité, navigation |
 | [0331](0331-wasmtime-heuristiques-bornees.md) | Exécution Wasmtime des heuristiques bornées | Accepté | 2026-10-06 | plugins, GVX, isolation |
+| [0332](0332-adaptateur-openhands-sdk.md) | Adaptateur expérimental OpenHands SDK | Accepté | 2026-10-06 | workers développeurs, ontogenèse |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
