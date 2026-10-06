@@ -130,6 +130,8 @@ async function testPlayWithRealSnapshotRuntime() {
 async function testPoetWithRealSnapshotVerification() {
   const dbPath = require.resolve('../src/db');
   const workspacePath = await createPlayFixture();
+  const heldOutWorkspace = await createPlayFixture();
+  await fs.writeFile(path.join(heldOutWorkspace, 'proof.txt'), 'held-out input');
   const sqlite = await createSqliteDatabase();
   require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
     withTransaction: async (_db, operation) => operation(),
@@ -166,7 +168,8 @@ async function testPoetWithRealSnapshotVerification() {
     assert.ok(await sqlite.adapter.get('SELECT snapshot_hash FROM workspace_snapshots WHERE workspace_id = ?', 'ws-poet-real'));
     const generalization = await bridge.evaluateGeneralization(
       [{ id: 'agent-poet-real', role: 'solver' }],
-      { training: [environment], heldOut: [{ ...environment, id: 'env-poet-heldout', goals: ['solve held-out grid'] }] },
+      { training: [environment], heldOut: [{ ...environment, id: 'env-poet-heldout',
+        workspacePath: heldOutWorkspace, goals: ['solve held-out grid'] }] },
       { timeoutMs: 60000 },
     );
     assert.equal(generalization.measured, true, 'held-out environments are actually executed');
@@ -177,7 +180,7 @@ async function testPoetWithRealSnapshotVerification() {
     const nceResult = await require('../src/services/nceIntegrationService').enhanceMissionWithNCE({
       poet: { agents: [{ id: 'agent-poet-real', role: 'solver' }],
         split: { training: [environment], heldOut: [{ ...environment,
-          id: 'env-poet-nce-heldout', goals: ['solve another held-out grid'] }] },
+          id: 'env-poet-nce-heldout', workspacePath: heldOutWorkspace, goals: ['solve another held-out grid'] }] },
         options: { timeoutMs: 60000 } },
       nceOptions: { curiosity: false, reprMutation: false, exaptation: false,
         envCoev: true, culture: false, play: false, phenotype: false },
@@ -188,6 +191,7 @@ async function testPoetWithRealSnapshotVerification() {
   } finally {
     await new Promise((resolve, reject) => sqlite.database.close((error) => error ? reject(error) : resolve()));
     await fs.rm(workspacePath, { recursive: true, force: true });
+    await fs.rm(heldOutWorkspace, { recursive: true, force: true });
   }
 }
 
@@ -236,7 +240,7 @@ async function testPlaySandboxFlow() {
   const runPath = require.resolve('../src/services/workspaceSnapshotRun');
   require.cache[storePath] = { id: storePath, filename: storePath, loaded: true, exports: {
     capture: async () => ({ id: 'snap-play-1', snapshotHash: 'hash', metadata: { storagePath: '/snapshot' } }),
-    readManifest: async () => ({}),
+    readManifest: async () => ({ files: [] }),
   } };
   require.cache[runPath] = { id: runPath, filename: runPath, loaded: true, exports: {
     runInSnapshot: async (input) => ({ exitCode: input.command === 'npm test' ? 0 : 1, stdout: 'solver supporte maze solving', stderr: '' }),

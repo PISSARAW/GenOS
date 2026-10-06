@@ -161,6 +161,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 
 Index : [03-reference/README.md](03-reference/README.md)
 
+- [experiences-nce.md](03-reference/experiences-nce.md) — procédures apprises, phénotypes, POET et ablations exécutables.
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des types de workers, profils Node et limites d’intégration.
 - [types-de-daemons.md](03-reference/types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
 - [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
@@ -261,6 +262,8 @@ Index : [adr/README.md](adr/README.md)
 Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-fermeture-runtime-nce.md).
 
 Décision Natural Search : [ADR 0323 — reprise atomique](adr/0323-reprise-atomique-natural-search.md).
+
+Complément NCE : [ADR 0323 — procédures et preuves exécutables](adr/0323-nce-procedures-et-preuves-executables.md).
 
 - [0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — format héréditaire binaire `AgentDNA`.
 - [0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d'innovation et promotion sous gate.

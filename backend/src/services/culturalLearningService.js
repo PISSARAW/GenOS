@@ -2,13 +2,15 @@
 
 /**
  * @file culturalLearningService.js
- * @description Service d'apprentissage culturel avec évaluation avant/après réelle.
+ * @description Estimation heuristique historique du transfert culturel.
  *
  * Contraste avant/après : les deux tests évaluent le même artefact de
  * transmission par rapport au domaine cible, de manière reproducible.
  * La "mesure" n'est pas une formule synthétique garantie positive —
  * elle dépend de la pertinence réelle de l'artefact, de la qualité réelle
  * de la transmission et du niveau de départ de l'agent (diminishing returns).
+ * Ces estimations ne sont pas des benchmarks exécutés. Le chemin mesuré est
+ * nceCausalCycleService : processus natifs, vérificateurs et preuves persistées.
  */
 
 const { createCulturalArtifact, cloneArtifact } = require('./culturalTransmissionService');
@@ -81,6 +83,7 @@ function clamp01(value) {
 function testBeforeTransmission(ctx) {
   const skillLevel = evaluateSkillLevel(ctx);
   return {
+    measured: false, evidenceClass: 'heuristic-estimate',
     agentId: ctx.agentId,
     domain: ctx.domain,
     skillLevel,
@@ -103,6 +106,7 @@ function testAfterTransmission(ctx) {
 
   if (!artifact) {
     return {
+      measured: false, evidenceClass: 'heuristic-estimate',
       agentId: ctx.agentId,
       domain,
       skillLevel: preSkill,
@@ -133,6 +137,7 @@ function testAfterTransmission(ctx) {
   return {
     agentId: ctx.agentId,
     domain,
+    measured: false, evidenceClass: 'heuristic-estimate',
     skillLevel: postSkill,
     gain,
     relevance: ev.relevance,
@@ -163,6 +168,7 @@ function transmitWithLearning(opts) {
   if (!artifact) {
     return {
       transmissionId: `txl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      measured: false, evidenceClass: 'heuristic-estimate',
       sourceAgentId,
       targetAgentId,
       artifact: null,
@@ -193,6 +199,7 @@ function transmitWithLearning(opts) {
 
   return {
     transmissionId: `txl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    measured: false, evidenceClass: 'heuristic-estimate',
     sourceAgentId,
     targetAgentId,
     artifact: transmittedArtifact,

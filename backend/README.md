@@ -188,6 +188,29 @@ for the ten dedicated suites. See the [runtime reference](../docs/03-reference/r
 and [ADR 0330](../docs/adr/0330-effets-durables-metapopulation.md)
 for contracts, recovery semantics and validation limits.
 
+## Natural Creative Ecology — expériences exécutables
+
+Le backend fournit un cycle natif pour trois familles de transformations numériques :
+recherche de procédures, vérification POET sur snapshots, transfert culturel,
+persistance du phénotype et réutilisation après réouverture SQLite. Le vocabulaire
+de procédures est fermé ; les six bras d'ablation couvrent quatre mécanismes.
+Les dimensions O/H du vecteur créatif restent inconnues sans observations dédiées.
+
+Depuis la racine du dépôt, avec une configuration JSON et un fichier de rapport neuf :
+
+```bash
+node backend/bin/genos-nce-experiment.cjs cycle config.json .genos-agent-worlds/report.json
+node backend/bin/genos-nce-experiment.cjs ablation config.json .genos-agent-worlds/ablation.json
+```
+
+La configuration doit expliciter `root` et `databasePath`. Le bootstrap d'une
+nouvelle base exige `GENOS_ADMIN_PASSWORD`. Le statut `promoted` du reçu dépend
+des vérifications et du gain mesuré ; le code de sortie de la CLI ne suffit pas.
+
+Voir le [guide des expériences NCE](../docs/03-reference/experiences-nce.md) pour
+la configuration complète, les commandes de vérification, la reprise, les preuves
+et les limites. Décision : [ADR 0323](../docs/adr/0323-nce-procedures-et-preuves-executables.md).
+
 ## Directory Layout
 
 ```text
@@ -395,6 +418,12 @@ node tests/test_runtime_budget_and_influence.js
 node tests/test_human_approval_promotion_gate.js
 node tests/test_intermediate_state_persistence.js
 node tests/test_worker_failure_recovery.js
+
+# NCE: contrats, parcours natifs et ablations (depuis backend/)
+npm run test:nce
+
+# CLI NCE avec migrations et contraintes SQLite de production
+npm run test:nce:cli
 ```
 
 Depuis la racine du dépôt, `npm run test:garage` lance le profil Garage et

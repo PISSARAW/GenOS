@@ -34,7 +34,7 @@ function createPhenotypeState(genome) {
     agentId: genome.meta.agentId || null,
     genomeId: genome.meta.name,
     basePhenotype: basePhenotype,
-    currentPhenotype: { ...basePhenotype },
+    currentPhenotype: structuredClone(basePhenotype),
     branches: [],
     atrophies: [],
     history: [],
@@ -257,6 +257,13 @@ function getDevelopmentMetrics(state) {
 // ─── Persistance ────────────────────────────────────────────────────
 
 async function savePhenotypeState(state, database) {
+  const candidate = structuredClone(state);
+  const id = await persistPhenotypeState(candidate, database);
+  Object.assign(state, candidate);
+  return id;
+}
+
+async function persistPhenotypeState(state, database) {
   const db = database || await getDatabase();
   const previousRevision = preparePhenotypeSave(state);
   const result = await db.run(

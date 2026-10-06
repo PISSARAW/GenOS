@@ -20,6 +20,12 @@ const DEFAULT_PLAY_TIMEOUT_MS = 30000;
 // Commandes réellement autorisées par sandboxCommandPolicy.js
 const ALLOWED_SANDBOX_COMMANDS = ['npm test', 'npm run check', 'pytest', 'cargo test'];
 
+function boundedInteger(value, fallback, maximum) {
+  const number = value ?? fallback;
+  if (!Number.isSafeInteger(number) || number < 0 || number > maximum) throw new Error('Invalid Play budget');
+  return number;
+}
+
 // ─── Session de jeu ─────────────────────────────────────────────────
 
 function createPlaySession(agentId, options) {
@@ -29,8 +35,8 @@ function createPlaySession(agentId, options) {
   return {
     id,
     agentId,
-    budget: options.budget || DEFAULT_PLAY_BUDGET,
-    timeoutMs: options.timeoutMs || DEFAULT_PLAY_TIMEOUT_MS,
+    budget: boundedInteger(options.budget, DEFAULT_PLAY_BUDGET, 1000),
+    timeoutMs: boundedInteger(options.timeoutMs, DEFAULT_PLAY_TIMEOUT_MS, 300000),
     status: 'active',
     startedAt: new Date().toISOString(),
     endedAt: null,
@@ -44,8 +50,8 @@ function createPlaySession(agentId, options) {
       requireSandbox: options.requireSandbox !== false,
       allowNetwork: options.allowNetwork === true,
       allowFileSystem: options.allowFileSystem !== false,
-      maxToolInvocations: options.maxToolInvocations || 20,
-      maxSnapshotSizeBytes: options.maxSnapshotSizeBytes || 10 * 1024 * 1024,
+      maxToolInvocations: boundedInteger(options.maxToolInvocations, 20, 1000),
+      maxSnapshotSizeBytes: boundedInteger(options.maxSnapshotSizeBytes, 10 * 1024 * 1024, 100 * 1024 * 1024),
     },
   };
 }
@@ -90,6 +96,7 @@ async function executeInSandbox(session, input, workspacePath) {
     });
 
     iteration.snapshotId = snapshot?.id;
+    await validateSnapshotBudget(snapshot, session.constraints.maxSnapshotSizeBytes);
 
     // 2. runInSnapshot : utilise storagePath du résultat de capture()
     const snapshotPath = snapshot?.metadata?.storagePath;
@@ -114,6 +121,12 @@ async function executeInSandbox(session, input, workspacePath) {
   }
 
   return iteration;
+}
+
+async function validateSnapshotBudget(snapshot, limit) {
+  const manifest = await readManifest({ ...snapshot, snapshot_hash: snapshot.snapshotHash });
+  const size = manifest.files.reduce((sum, file) => sum + file.size, 0);
+  if (size > limit) throw new Error('Play snapshot exceeds byte budget');
 }
 
 // ─── Découverte d'affordances ───────────────────────────────────────
@@ -160,6 +173,7 @@ async function runPlaySession(agentId, ctx) {
 
   for (const input of inputs) {
     if (session.budget <= 0) break;
+    if (session.iterations.length >= session.constraints.maxToolInvocations) break;
     if (session.status !== 'active') break;
 
     const iteration = await executeInSandbox(session, input, workspacePath);
@@ -174,7 +188,7 @@ async function runPlaySession(agentId, ctx) {
   session.dedupedDiscoveries = deduplicateAffordances(discoveries);
   session.discoveries = discoveries;
   if (session.db?.run) await persistPlayObservations(session);
-  session.status = session.budget <= 0 ? 'completed' : 'active';
+  session.status = 'completed';
   session.endedAt = new Date().toISOString();
 
   return session;

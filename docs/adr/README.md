@@ -384,7 +384,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0322](0322-interop-gcir-omega-rust-node.md) | Interopérabilité G-CIR Omega Rust/Node | Voir le fichier | -- | -- |
 | [0323a](0323-biscuit-delegation-workers.md) | Jetons Biscuit pour la délégation bornée | Accepté | 2026-10-06 | autorisation, sous-orchestration, délégation |
 | [0323b](0323-frontieres-preuve-execution-omega.md) | Frontières de preuve et d’exécution Omega | Accepté pour le durcissement du runtime, pas comme certificat de complétude. | -- | -- |
-| [0323c](0323-reprise-atomique-natural-search.md) | Reprise atomique du Natural Search Control Plane | accepté | 2026-10-06 | contrôle de recherche, SQLite, preuves et reprise |
+| [0323c](0323-nce-procedures-et-preuves-executables.md) | NCE : procédures exécutables et preuves liées au phénotype | Accepté | 2026-10-05 | NCE, procédures, phénotype et preuves |
+| [0323d](0323-reprise-atomique-natural-search.md) | Reprise atomique du Natural Search Control Plane | accepté | 2026-10-06 | contrôle de recherche, SQLite, preuves et reprise |
 | [0324a](0324-biologie-execution-et-autorite-durable.md) | Biologie des exécutions et autorité durable | Voir le fichier | -- | -- |
 | [0324b](0324-capsules-secretstream-transport.md) | Capsules transportables par flux authentifié | Accepté | 2026-10-06 | continuité, cryptographie, restauration |
 | [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté | 2026-10-06 | Régénération, cognition, plasticité |
