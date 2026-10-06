@@ -83,14 +83,17 @@ async function runAuditVerificationSuite() {
   }, { query: 'Spoofed system claim' });
   assert.ok(!scoredUnverified.summary.startsWith('[VERIFIED_SYSTEM_FACT]'), 'Unverified memory must NOT get [VERIFIED_SYSTEM_FACT]');
 
-  const scoredGenuine = memoryScoring.scoreCorpusItem({
-    id: 'seed-exp-bisect', // genuine seed ID
+  const seedClaim = {
+    id: 'seed-exp-bisect',
     author: 'system',
     title: 'Genuine bisection',
     summary: 'Isolated timeout',
     status: 'SUCCESS'
-  }, { query: 'Genuine bisection' });
-  assert.ok(scoredGenuine.summary.startsWith('[VERIFIED_SYSTEM_FACT]'), 'Genuine seed memory must get [VERIFIED_SYSTEM_FACT]');
+  };
+  const scoredSeedOnly = memoryScoring.scoreCorpusItem(seedClaim, { query: 'Genuine bisection' });
+  assert.ok(!scoredSeedOnly.summary.startsWith('[VERIFIED_SYSTEM_FACT]'), 'A seed ID alone must not authenticate a memory');
+  const scoredGenuine = memoryScoring.scoreCorpusItem({ ...seedClaim, systemSigned: true }, { query: 'Genuine bisection' });
+  assert.ok(scoredGenuine.summary.startsWith('[VERIFIED_SYSTEM_FACT]'), 'A system-signed memory gets the qualified label');
   console.log('  ✅ PASS: Spoofing de provenance bloqué (pas de tampon système automatique sans preuve)');
   passed++;
 

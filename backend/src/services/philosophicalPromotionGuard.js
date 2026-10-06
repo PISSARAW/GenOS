@@ -49,7 +49,8 @@ function hasIndependentSupport(context = {}) {
   // L'indépendance doit être attestée par un receipt signé, pas déclarée.
   // Vérification via le service épistémique de validation de receipt.
   const receipt = context.independentVerifierReceipt;
-  if (receipt && typeof receipt === 'object' && receipt.independent === true && receipt.signature) {
+  if (receipt && typeof receipt === 'object' && receipt.status === 'verified'
+      && receipt.independent === true && receipt.signature) {
     const { validateReceipt } = require('./epistemicVerifierReceiptService');
     const trustedDigests = (context && context.trustedVerifierDigests) || [];
     if (trustedDigests.length > 0) {

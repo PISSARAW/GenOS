@@ -204,4 +204,4 @@ assert.ok(nosologyMission.resolvedConcepts.slice(1).every((concept) =>
   concept.source === 'existing_adapter' && concept.available && concept.executable));
 assert.ok(nosologyMission.resolvedConcepts.some((concept) => concept.service === 'clinicalTherapyService'));
 assert.equal(nosologyMission.coverage.documentationOnly, 0);
-assert.equal(nosologyMission.coverage.inventory, 704);
+assert.equal(nosologyMission.coverage.inventory, 705);
