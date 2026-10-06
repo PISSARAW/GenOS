@@ -8,7 +8,7 @@ const result = aggregateHierarchicalDeliberation({
     { clusterId: 'north', outcome: 'A', distribution: [{ position: 'A', share: 0.51 }, { position: 'B', share: 0.49, memberCount: 49 }] },
     { clusterId: 'south', outcome: 'B', distribution: [{ position: 'B', share: 0.7 }] },
     { clusterId: 'west', outcome: 'A', distribution: [{ position: 'A', share: 0.6 }], dissent: [
-      { dissentId: 'd1', critical: true, receipt: { receiptId: 'r1', evidenceRef: 'proof' } }
+      { dissentId: 'd1', critical: true, receipt: { receiptId: 'r1', evidenceRef: 'proof', status: 'VERIFIED' } }
     ] }
   ],
   isTrustedReceipt: (receipt) => receipt.receiptId === 'r1'

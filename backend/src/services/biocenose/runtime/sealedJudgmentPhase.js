@@ -7,7 +7,10 @@ const membershipEvents = require('./persistentMembershipEvents');
 
 async function collect({ context, loadActiveSession, invokeMember }) {
   const { session, participants, persistent } = await prepareParticipants({ context, loadActiveSession });
-  const delphi = context.variantPolicy?.name === 'delphi_community'
+  const events = await communityStore.listEvents(context.db, context.communityId);
+  const reblind = events.some((event) => event.type === 'ADAPTIVE_ROUND_PREPARED'
+    && event.payload.round === session.round && event.payload.reblind === true);
+  const delphi = context.variantPolicy?.name === 'delphi_community' && !reblind
     ? await variantOrchestrator.delphiContext({ ...context, session }) : null;
   const quarantined = await collectJudgments({ context, session, participants, delphi, invokeMember });
   const active = await loadActiveSession(context);

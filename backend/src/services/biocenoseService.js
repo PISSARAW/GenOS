@@ -202,7 +202,8 @@ async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
     db, communityId: session.communityId, classification,
     roles: composition.members.map((member) => member.role),
     variant: options.variant || options.variantId,
-    overrides: options.constitution, actorId: orchestratorId
+    overrides: { ...options.constitution, ...(composition.formation?.representative
+      ? { representativeSampling: composition.formation.representative } : {}) }, actorId: orchestratorId
   });
   if (composition.organization) {
     const dynamicOrganization = require('./dynamicOrganizationService');
@@ -275,6 +276,12 @@ module.exports = {
   recommendBiocenoseVariant: variantPolicies.recommend,
   recommendBiocenoseTransition: biocenoseMorphogenesisAdapter.recommend,
   runBiocenoseRound: biocenoseRuntime.runRound,
+  executeBiocenoseMission: async (input) => {
+    const community = input.communityId ? { communityId: input.communityId }
+      : await prepareCommunity(input);
+    const result = await biocenoseRuntime.runRound({ ...input, communityId: community.communityId });
+    return { community, ...result };
+  },
   summarizeBiocenoseBenchmark: benchmarkMetrics.summarize,
   brierConsensus,
   quorumWithAbstention,

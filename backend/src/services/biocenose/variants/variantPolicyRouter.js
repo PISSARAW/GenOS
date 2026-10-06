@@ -32,18 +32,11 @@ const AUTO_RULES = Object.freeze([
 
 function policy(options) {
   return Object.freeze({
-    disclosure: options.disclosure, review: options.review,
-    aggregation: options.aggregation, dissent: options.dissent,
-    minimumRounds: options.minimumRounds || 1,
-    requireAdversarialReviewer: options.requireAdversarialReviewer || false,
-    probabilisticOnly: options.probabilisticOnly || false,
-    requireCalibrationWeights: options.requireCalibrationWeights || false,
-    requireSamplingWeights: options.requireSamplingWeights || false,
-    preserveAllDissent: options.preserveAllDissent || false,
-    requireHumanReview: options.requireHumanReview || false,
-    requireDeterministicVerifier: options.requireDeterministicVerifier || false,
-    quarantineAware: options.quarantineAware || false,
-    executionLevel: options.executionLevel || 'EXECUTABLE'
+    minimumRounds: 1, requireAdversarialReviewer: false, probabilisticOnly: false,
+    requireCalibrationWeights: false, requireSamplingWeights: false,
+    preserveAllDissent: false, requireHumanReview: false,
+    requireDeterministicVerifier: false, quarantineAware: false,
+    executionLevel: 'EXECUTABLE', ...options
   });
 }
 

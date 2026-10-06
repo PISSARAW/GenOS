@@ -33,7 +33,7 @@ function persistent(input, route) {
   const history = Array.isArray(input.history) ? input.history : [];
   const previous = history.map((entry) => entry.judgment?.aggregation).filter(Boolean);
   return {
-    ...current,
+    policy: route.policy, questionType: route.questionType, ...current,
     longitudinal: { priorRounds: history.map((entry) => entry.round),
       stableOutcomeRounds: countStableOutcomes([...previous, current]),
       preservedDissent: previous.flatMap((item) => item.dissent || item.preservedDissent || []) }
@@ -157,7 +157,7 @@ function argumentation(input, route) {
   const argumentsList = (input.arguments || []).filter((item) => !isQuarantinedArgument(item, input.quarantinedMemberIds));
   const receipts = (input.verificationReceipts || []).filter((item) => item.status === 'VERIFIED'
     && isTrusted(item, input.isTrustedReceipt));
-  const normalized = normalizeArgumentGraph({ claims, arguments: argumentsList, verified: new Set() });
+  const normalized = require('../argumentation/argumentGraphNormalizer').normalize({ claims, arguments: argumentsList });
   receipts.forEach((receipt, index) => {
     const argumentId = `receipt:${receipt.claimId}:${receipt.receiptId || index}`;
     normalized.arguments.push({ argumentId, claimId: receipt.claimId, relation: 'SUPPORT', createdBy: 'deterministic_verifier' });
@@ -176,31 +176,6 @@ function argumentation(input, route) {
   };
 }
 
-function normalizeArgumentGraph(input) {
-  const argumentsList = [...input.arguments];
-  const attacks = [];
-  const supports = [];
-  for (const item of argumentsList) {
-    const id = String(item.argumentId || '');
-    const claimId = String(item.claimId || item.argument?.claimId || '');
-    const targetArgumentId = item.argument?.targetArgumentId || item.targetArgumentId;
-    const targetClaimId = item.argument?.targetClaimId || item.targetClaimId;
-    if (item.relation === 'SUPPORT' && id && claimId) supports.push({ claimId, argumentId: id });
-    if (['ATTACK', 'REFUTE', 'UNDERCUT', 'COUNTEREXAMPLE'].includes(item.relation) && id) {
-      const target = targetArgumentId || (targetClaimId && `claim-root:${targetClaimId}`);
-      if (target) attacks.push({ from: id, to: String(target) });
-    }
-  }
-  const attackedClaims = new Set(attacks.filter((edge) => edge.to.startsWith('claim-root:'))
-    .map((edge) => edge.to.slice('claim-root:'.length)));
-  for (const claimId of attackedClaims) {
-    const argumentId = `claim-root:${claimId}`;
-    argumentsList.push({ argumentId, claimId, relation: 'SUPPORT' });
-    supports.push({ claimId, argumentId });
-  }
-  return { claims: input.claims, arguments: argumentsList, attacks, supports };
-}
-
 function isQuarantinedArgument(item, memberIds) {
   return new Set(memberIds || []).has(item.createdBy);
 }
@@ -209,7 +184,8 @@ function polycentric(input, route) {
   const members = (input.members || []).filter((member) => member.status !== 'QUARANTINED');
   const councils = members.length ? councilService.composeSubCouncils({ members,
     councilCount: input.councilCount, scope: input.councilScope, charter: input.charter }) : [];
-  const clusters = councilService.aggregateSubCouncils({ councils, judgments: input.judgments });
+  const clusters = input.clusters?.length ? input.clusters
+    : councilService.aggregateSubCouncils({ councils, judgments: input.judgments });
   const hierarchical = require('../deliberation/hierarchicalDeliberationService');
   const judgment = hierarchical.aggregateAtParent({ clusters, isTrustedReceipt: input.isTrustedReceipt });
   const federation = clusters.length ? councilService.federate({ clusters: judgment.clusters,
@@ -308,10 +284,10 @@ function exploratory(input) {
 }
 
 function mixed(input) {
-  return {
-    outcome: 'TYPE_SPECIFIC_RESULTS',
-    results: (input.claims || []).map(mixedClaimResult(input))
-  };
+  const results = (input.claims || []).map(mixedClaimResult(input));
+  return { outcome: 'TYPE_SPECIFIC_RESULTS', results,
+    humanJudgmentRequired: results.some((entry) => entry.result.humanJudgmentRequired === true),
+    unresolvedClaimIds: results.flatMap((entry) => entry.result.unresolvedClaimIds || []) };
 }
 
 function mixedClaimResult(input) {
@@ -341,4 +317,4 @@ function claimIds(claims) {
   return (claims || []).map((claim) => claim.claimId).filter(Boolean);
 }
 
-module.exports = { aggregate };
+module.exports = { aggregate, mixedClaimQuestionType };

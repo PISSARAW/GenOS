@@ -35,6 +35,7 @@ function observe(input, reports) {
     ...claimObservation(reports),
     ...dissentObservation(reports.dissent),
     ...decisionObservation(reports),
+    roundLimitReached: input.roundLimitReached === true,
     executionLevel: input.variantPolicy.executionLevel
   };
 }
@@ -95,11 +96,11 @@ function actionRules(observation, transition) {
     { when: transition?.destination === 'human', action: 'HANDOFF_HUMAN_REVIEW' },
     { when: transition?.target === 'trinity', action: 'REQUEST_MORPHOGENESIS_EXPERIMENT' },
     { when: observation.openDissentCount > 0, action: 'PRESERVE_DISSENT_AND_REVIEW' },
+    { when: isUnresolvedAtLimit(observation), action: 'ESCALATE_ROUND_LIMIT' },
     { when: transition?.destination === 'direct', action: 'HANDOFF_DIRECT' },
     { when: observation.judgmentOutcome === 'REVIEW_REQUIRED', action: 'CONTINUE_VERIFICATION' },
     { when: isLowIndependence(observation), action: 'REQUEST_INDEPENDENT_REVIEWERS' },
     { when: needsIndependenceEvidence(observation), action: 'COLLECT_INDEPENDENCE_EVIDENCE' },
-    { when: isUnresolvedAtLimit(observation), action: 'ESCALATE_ROUND_LIMIT' },
     { when: Boolean(transition), action: 'APPLY_MORPHOGENESIS_RECOMMENDATION' }
   ];
 }
