@@ -14,6 +14,8 @@
     "test:authority": "node tests/test_cedar_agent_authority.js && node tests/test_relation_authority_bridge.js",
     "test:shev": "node tests/test_shev_project_loop.js && node tests/test_shev_data_freshness.js && node tests/test_shev_runtime_demo.js && node tests/test_shev_protocols.js && node tests/test_shev_domain_adapters.js && node tests/test_shev_progress_evaluation.js && node tests/test_shev_runtime_guards.js && node tests/test_shev_development_jobs.js && node tests/test_shev_closed_loop.js",
     "test:agent-git": "node tests/test_agent_git_sqlite_e2e.js && node tests/test_agent_git_foundations.js && node tests/test_agent_git_invariants_p0.js && node tests/test_agent_git_head_index.js && node tests/test_agent_git_state_operations.js && node tests/test_agent_git_advanced_operations.js && node tests/test_agent_git_advanced_features.js && node tests/test_agent_git_remote_ssrf.js",
+    "test:capabilities": "node tests/test_morphogenesis_capabilities.js && node tests/test_morphogenesis_capabilities_phase2.js && node tests/run_capability_runtime_suite.js",
+    "bench:capabilities": "node ../benchmarks/morphogenesis-capabilities/run.cjs",
     "test:quality": "node tests/run_quality_suite.js",
     "test:biocenose": "node tests/run_biocenose_suite.js",
     "test:rhizome": "node tests/run_rhizome_suite.js",

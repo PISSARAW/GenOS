@@ -24,6 +24,7 @@ function experiment(value) {
     experimentId: String(value.experimentId), hypothesisId: String(value.hypothesisId),
     verifierId: String(value.verifierId), predictions, discriminatingOutcomes: outcomes,
     assumptions: unique(value.assumptions), dependencies: unique(value.dependencies),
+    intervention: value.intervention || null, sourceRefs: unique(value.sourceRefs),
     tools: unique(value.tools), failureModes: unique(value.failureModes),
     replicationOf: value.replicationOf ? String(value.replicationOf) : null,
     independentVerifierId: value.independentVerifierId ? String(value.independentVerifierId) : null,
@@ -58,14 +59,24 @@ function rankExperiments(input = {}) {
   const penalty = Number.isFinite(input.inhibitionWeight) ? input.inhibitionWeight : 0.5;
   return (input.candidates || []).map((value) => {
     const candidate = experiment(value);
-    if (!Number.isFinite(candidate.utility) || !Number.isFinite(candidate.cost)) {
+    if (!Number.isFinite(candidate.utility) || !Number.isFinite(candidate.cost) || candidate.cost < 0) {
       throw new Error('Experiment utility and cost must be finite');
     }
-    const inhibition = candidate.replicationOf ? 0 : occupied.reduce((sum, item) =>
+    const replica = independentReplication(candidate, occupied);
+    const inhibition = replica ? 0 : occupied.reduce((sum, item) =>
       sum + behavioralSimilarity(candidate, item), 0);
     return { experiment: candidate, score: candidate.utility - penalty * inhibition - candidate.cost,
-      inhibition, reason: candidate.replicationOf ? 'INDEPENDENT_REPLICATION' : 'UNCOVERED_DISTINCTION' };
+      inhibition, reason: replica ? 'INDEPENDENT_REPLICATION' : 'UNCOVERED_DISTINCTION' };
   }).sort((a, b) => b.score - a.score || a.experiment.experimentId.localeCompare(b.experiment.experimentId));
+}
+
+function independentReplication(candidate, occupied) {
+  if (!candidate.replicationOf) return false;
+  const source = occupied.find((item) => item.experimentId === candidate.replicationOf);
+  if (!source || !candidate.independentVerifierId || candidate.independentVerifierId === source.verifierId) {
+    throw new Error('VERIFIED_REPLICATION_SOURCE_AND_DISTINCT_VERIFIER_REQUIRED');
+  }
+  return true;
 }
 
 module.exports = { experiment, behavioralSimilarity, verifiedCoverage, rankExperiments };

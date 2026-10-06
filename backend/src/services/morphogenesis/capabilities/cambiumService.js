@@ -1,6 +1,8 @@
 'use strict';
 
 const { withTransaction } = require('../../../db');
+const replay = require('./cambiumReplay');
+const { matches } = require('./cambiumDecision');
 
 function invalidWitnesses(witnesses) {
   return witnesses.some((item) => !item.witnessId || !item.artifactRef || item.status !== 'VERIFIED');
@@ -84,8 +86,9 @@ async function evaluateCompression(db, input) {
   const artifactCheck = await resolvable(input, [{ artifact_ref: claim.verification_ref },
     ...retained, ...counterexamples]);
   if (!artifactCheck.allowed) return artifactCheck;
-  if (typeof input.compareDecisions !== 'function') return { allowed: false, reason: 'COMPARISON_REQUIRED' };
-  const comparison = await input.compareDecisions({ claim, witnesses, retained, counterexamples });
+  const comparison = retained.length
+    ? await replay.compareDecisions(db, { ...input, claim, witnesses, retained, counterexamples })
+    : { preserved: true, reason: 'EXPLICIT_DEGRADATION_NO_REUSABLE_CLAIM' };
   if (comparison?.preserved !== true) return { allowed: false, reason: 'DECISION_BOUNDARY_LOST' };
   return { allowed: true, claimId: input.claimId, removeWitnessIds: [...removed],
     nextStatus: retained.length ? claim.status : 'UNVERIFIED', comparison };
@@ -96,6 +99,8 @@ async function commitCompression(db, input) {
     const decision = await evaluateCompression(tx, input);
     if (!decision.allowed) return decision;
     await tx.run('UPDATE morph_cambium_claims SET status = ? WHERE claim_id = ? AND scope_id = ?', [decision.nextStatus, input.claimId, input.scopeId]);
+    if (input.candidateProcedure) await tx.run('UPDATE morph_cambium_claims SET procedure_json = ? WHERE claim_id = ?', [JSON.stringify(input.candidateProcedure), input.claimId]);
+    if (input.candidateConditions) await tx.run('UPDATE morph_cambium_claims SET conditions_json = ? WHERE claim_id = ?', [JSON.stringify(input.candidateConditions), input.claimId]);
     for (const id of decision.removeWitnessIds) {
       await tx.run('DELETE FROM morph_cambium_witnesses WHERE claim_id = ? AND witness_id = ?', [input.claimId, id]);
     }
@@ -110,8 +115,10 @@ async function loadClaimContext(db, input) {
   const counterexamples = await db.all('SELECT * FROM morph_cambium_counterexamples WHERE claim_id = ?', [input.claimId]);
   const check = await resolvable(input, [{ artifact_ref: claim.verification_ref },
     ...witnesses, ...counterexamples]);
+  const applicable = applicability(claim, counterexamples, input);
+  const dependencies = check.allowed && await require('./cambiumLifecycle').dependenciesUsable(db, input);
   return { claimId: input.claimId, status: claim.status,
-    usable: claim.status !== 'UNVERIFIED' && witnesses.length > 0 && check.allowed,
+    usable: claim.status !== 'UNVERIFIED' && witnesses.length > 0 && check.allowed && applicable && dependencies,
     reason: check.allowed ? null : check.reason,
     environmentVersion: claim.environment_version,
     conditions: JSON.parse(claim.conditions_json),
@@ -121,3 +128,11 @@ async function loadClaimContext(db, input) {
 }
 
 module.exports = { registerProcedure, attachCounterexample, evaluateCompression, commitCompression, loadClaimContext };
+
+function applicability(claim, counterexamples, input) {
+  if (!input.environmentVersion && !input.facts) return true;
+  if (input.environmentVersion !== claim.environment_version || !input.facts) return false;
+  const conditions = JSON.parse(claim.conditions_json);
+  if (!conditions.every((condition) => matches(condition, input.facts))) return false;
+  return !counterexamples.some((item) => matches(JSON.parse(item.condition_json), input.facts));
+}

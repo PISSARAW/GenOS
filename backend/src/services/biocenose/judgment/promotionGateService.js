@@ -29,14 +29,16 @@ function enforceTypedFacts(input, result, persistedClaims) {
 }
 
 async function applyStatistical(input, result, dissent) {
-  if (!input.statisticalContract) return result;
+  const nodeId = statisticalNodeId(input);
+  const inherited = await require('../../morphogenesis/capabilities/riskLineage').node(input.db, nodeId);
+  if (!input.statisticalContract && !inherited) return result;
   if (result.gate.status === 'NOT_APPLICABLE') {
     return statisticalReview(result, 'STATISTICAL_SCOPE_NOT_APPLICABLE');
   }
   if (result.gate.status !== 'ALLOWED' || dissent.gates.some((gate) => gate.promotion !== 'ALLOWED')) {
     return result;
   }
-  const statistical = await statisticalGate.evaluate(input.db, input.statisticalContract);
+  const statistical = await statisticalGate.evaluateForNode(input.db, { nodeId, contract: input.statisticalContract });
   if (!statistical.allowed) return statisticalReview(result, statistical.reason);
   return { ...result, gate: { ...result.gate, statistical } };
 }
@@ -123,3 +125,5 @@ function trusted(receipt, validator) {
 }
 
 module.exports = { evaluate, applyStatistical };
+
+function statisticalNodeId(input) { return input.riskNodeId || input.nodeId || input.sessionId; }

@@ -562,3 +562,12 @@ technique positif masquerait une absence d'évidence réelle.
 - [ADR 0334 — Ontogenèse : pilotage, reprise et rétention](adr/0334-ontogenese-pilotage-reprise-et-retention.md).
 
 - Biologie computationnelle : [validation](06-qualite-preuves/validation-biologie-computationnelle.md) et [ADR 0324](adr/0324-biologie-execution-et-autorite-durable.md).
+
+### Exécution des cinq capacités transversales
+
+Voir [ADR 0332 — runtime et provenance](adr/0332-capacites-morphogenese-runtime.md)
+et les cinq guides : [Méristème](02-orchestration/meristeme-epistemique.md),
+[Spirale](02-orchestration/spirale-de-deblocage.md),
+[Chronotaxie](02-orchestration/chronotaxie-aperiodique.md),
+[Cambium](02-orchestration/cambium-contre-exemples.md),
+[Infini sous contrat](02-orchestration/infini-sous-contrat.md).

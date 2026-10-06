@@ -12,9 +12,10 @@ async function recordCoverage(db, input) {
     || !Array.isArray(input.evidenceRefs) || !input.evidenceRefs.length) {
     throw new Error('Verified scoped coverage receipt required');
   }
-  if (!await input.resolveArtifact(input.verificationRef)) {
+  if (!(await Promise.all([input.verificationRef, ...input.evidenceRefs].map(input.resolveArtifact))).every(Boolean)) {
     throw new Error('Coverage verification is unresolved');
   }
+  await requireCoverageBinding({ ...input, experiment });
   await db.run(`INSERT INTO morph_experiment_coverage
     (receipt_id, scope_id, experiment_json, verifier_id, verification_ref, evidence_refs_json, status)
     VALUES (?, ?, ?, ?, ?, ?, 'VERIFIED')`,
@@ -39,7 +40,9 @@ async function loadVerifiedCoverage(db, input) {
   const active = [];
   for (const receipt of receipts) {
     const refs = [receipt.verificationRef, ...receipt.evidenceRefs];
-    if ((await Promise.all(refs.map(input.resolveArtifact))).every(Boolean)) active.push(receipt);
+    if (!(await Promise.all(refs.map(input.resolveArtifact))).every(Boolean)) continue;
+    try { await requireCoverageBinding({ ...receipt, resolveArtifact: input.resolveArtifact }); active.push(receipt); }
+    catch (_) { /* inaccessible or unbound evidence does not cover a niche */ }
   }
   return active;
 }
@@ -77,8 +80,37 @@ async function recordAttempt(db, input) {
 }
 
 async function loadAttempts(db, scopeId) {
-  const rows = await db.all('SELECT contract_json FROM morph_attempts WHERE scope_id = ? ORDER BY created_at, attempt_id', [scopeId]);
-  return rows.map((row) => JSON.parse(row.contract_json));
+  const rows = await db.all('SELECT attempt_id, contract_json, outcome_ref FROM morph_attempts WHERE scope_id = ? ORDER BY rowid', [scopeId]);
+  return rows.map((row) => ({ ...JSON.parse(row.contract_json), attemptId: row.attempt_id, outcomeRef: row.outcome_ref }));
 }
 
-module.exports = { recordCoverage, loadCoverage, loadVerifiedCoverage, recordAttempt, loadAttempts };
+async function finalizeAttempt(db, input) {
+  await requireAttemptProof(input);
+  if (outcomeStatus(input) === 'UNVERIFIED') throw new Error('VERIFIED_OUTCOME_REQUIRED');
+  return withTransaction(db, async (tx) => {
+    const row = await tx.get('SELECT * FROM morph_attempts WHERE attempt_id = ? AND scope_id = ?', [input.attemptId, input.scopeId]);
+    if (!row) throw new Error('ATTEMPT_NOT_FOUND');
+    const previous = JSON.parse(row.contract_json);
+    const status = outcomeStatus(input);
+    if (previous.outcomeStatus && previous.outcomeStatus !== 'UNVERIFIED') {
+      if (previous.outcomeStatus !== status || row.outcome_ref !== input.outcomeRef) throw new Error('ATTEMPT_OUTCOME_CONFLICT');
+      return { attemptId: input.attemptId, outcomeStatus: status, idempotent: true };
+    }
+    await tx.run('UPDATE morph_attempts SET contract_json = ?, outcome_ref = ? WHERE attempt_id = ?',
+      [JSON.stringify({ ...previous, outcomeStatus: status }), input.outcomeRef, input.attemptId]);
+    return { attemptId: input.attemptId, outcomeStatus: status };
+  });
+}
+
+module.exports = { recordCoverage, loadCoverage, loadVerifiedCoverage, recordAttempt, loadAttempts, finalizeAttempt };
+
+async function requireCoverageBinding(input) {
+  const proof = await input.resolveArtifact(input.verificationRef);
+  const content = proof?.content;
+  if (proof?.kind !== 'experiment-verification' || content?.valid !== true
+    || content.experimentId !== input.experiment.experimentId || content.verifierId !== input.verifierId) {
+    throw new Error('COVERAGE_VERIFICATION_BINDING_INVALID');
+  }
+  if (!input.experiment.discriminatingOutcomes.includes(content.outcome)
+    || JSON.stringify(content.evidenceRefs) !== JSON.stringify(input.evidenceRefs)) throw new Error('COVERAGE_EVIDENCE_BINDING_INVALID');
+}

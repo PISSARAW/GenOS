@@ -1,129 +1,123 @@
-# Chronotaxie apériodique — couvrir les phases d'observation
+# Chronotaxie apériodique — observer sans verrouillage de phase
 
-- **Statut** : Partiel — schedules persistés, reçus d'observation résolus et fenêtres manquées comptées ; sondes résidentes et qualification terrain à faire.
-- **Portée** : observations récurrentes soumises à une fenêtre et un délai maximal.
-- **Dernière revue** : 2026-10-04.
+- **Statut** : planification, sondes résidentes, couverture et agrégation implémentées.
+- **Portée** : observations backend en lecture seule, sous fenêtres temporelles bornées.
+- **Dernière revue** : 2026-10-06.
 
 ## 1. Domaine et objectif
 
-Une panne de courte durée peut rester invisible si toutes les sondes
-échantillonnent la même phase d'un cycle. Ajouter des sondes identiques au
-même instant ne corrige pas cette erreur. La chronotaxie décale les instants
-d'observation tout en conservant les bornes de latence et de capacité. Elle
-mesure ensuite les phases **réellement observées**.
+Un contrôle toujours exécuté à la même phase peut manquer un phénomène périodique.
+La chronotaxie varie les phases d'observation à l'intérieur de fenêtres définies.
+Elle conserve les contraintes de latence et d'espacement ; elle mesure les
+observations réellement exécutées, pas les échéances simplement proposées.
 
-Ce mécanisme vise les diagnostics intermittents et les évaluations dont la
-qualité dépend du moment de mesure. Une échéance obligatoire n'est jamais
-déplacée par cette politique.
+## 2. Contrat temporel
 
-## 2. Modèle mathématique
+Le schedule est un intervalle avec `spec.policy = chronotaxis`.
+`periodMs`, `anchorMs` et `index` définissent les fenêtres UTC.
+`minimumSpacingMs` interdit une rafale d'observations ; `maximumLatencyMs`
+borne le délai depuis le début de fenêtre. Les indices sont des entiers sûrs.
+`bins` définit entre deux et 512 secteurs de phase pour la couverture.
 
-La politique implémentée utilise le pas de phase :
+Le payload fixe `probeId`, `hostId` et `environmentId`. Par défaut, les deux
+identités utilisent le projet ; en production, déclarer l'hôte réel pour rendre
+l'espacement commun à ses schedules dans le même projet.
 
-```text
-a = (3 - sqrt(5)) / 2
-u_n = frac(offset + n × a)
-t_n = anchor + n × period + min(period × u_n, maximumLatency)
-```
+## 3. Algorithme
 
-`index`, `anchorMs` et `offset` sont persistés dans `spec_json`, ce qui rend
-la séquence reproductible après redémarrage. Si une fenêtre est devenue
-impossible au vu de `minimumSpacingMs`, le calcul avance à une fenêtre
-admissible. Les dates sont stockées en UTC. La précision finie et les bornes
-peuvent modifier la distribution théorique des phases.
+La rotation d'or fournit une phase candidate. Le retour de couverture privilégie
+un secteur moins observé parmi ceux compatibles avec la latence et l'espacement,
+puis la proximité avec cette phase. `nextObservation` avance vers la première
+fenêtre admissible. Le schedule persiste l'indice effectivement choisi,
+y compris lorsque plusieurs fenêtres ont été sautées.
 
-La couverture découpe une période en `bins` et compte uniquement les reçus
-`OBSERVED`. `MISSED`, une échéance calculée ou un événement de réveil ne
-constituent pas une observation.
-
-## 3. Inspiration biologique et limite
-
-L'angle d'or sert ici de suite de déphasage. Il n'établit aucune garantie
-universelle de détection. Un adversaire connaissant la graine et le calendrier
-peut anticiper les sondes. La chronotaxie n'est donc pas une défense
-cryptographique ; pour ce besoin, il faudrait une autre source d'aléa et un
-autre protocole de menace.
+La rotation ne garantit pas l'observation de toutes les anomalies. Une contrainte
+de latence restrictive peut rendre certains secteurs inaccessibles ; la couverture
+observée reflète cette restriction.
 
 ## 4. Architecture technique
 
 ```mermaid
 flowchart LR
-  C[Contrat de fenêtre] --> S[Schedule interval]
-  S --> P[Phase reproductible]
-  P --> W[Événement wake avec windowIndex]
-  W --> O[Sonde déterministe]
-  O --> R[Reçu OBSERVED ou MISSED]
-  R --> M[Carte de couverture]
+  S[Schedule persisté] --> T[Tick résident]
+  T --> D[Dispatch transactionnel borné]
+  D --> P[Sonde SQL en lecture seule]
+  P --> R[Artefact horodaté et observation]
+  R --> C[Couverture réelle]
+  C --> S
+  D --> M[Fenêtres manquées / erreur de sonde]
 ```
 
-- [Calcul](../../backend/src/services/morphogenesis/capabilities/chronotaxis.js) : phases, échéance et couverture.
-- [Schedules](../../backend/src/services/ontogenesis/scheduleService.js) : politique `chronotaxis` d'un `interval` existant, `recordTemporalObservation` et `temporalCoverage`.
-- [Tick résident](../../backend/src/services/ontogenesis/tickService.js) : transmet `scheduleId` et `windowIndex` au réveil.
-- [Migration](../../backend/src/db/migrations/migrateMorphogenesisCapabilities.js) : table `morph_temporal_observations`, avec unicité par schedule et fenêtre.
-
-La politique est logée dans `spec_json` car le schéma SQLite existant borne
-`kind` à `interval`, `once` et `deadline`. Les dates `once` et `deadline`
-suivent leur chemin normal.
+[residentProbeRuntime](../../backend/src/services/morphogenesis/capabilities/residentProbeRuntime.js)
+autorise `database-health`, `project-backlog` et `resident-agents`.
+Le tick dispatch ces sondes directement ; il ne réveille pas un worker pour
+une simple observation. Le maximum est de 32 sondes par tick.
+[scheduleService](../../backend/src/services/ontogenesis/scheduleService.js)
+persiste fenêtres, observations, secteurs et plages de fenêtres manquées.
+La transaction recontrôle l'échéance et l'unicité de la fenêtre pour éviter
+de compter deux fois un dispatch concurrent.
 
 ## 5. Processus d'exécution
 
-1. Créer un schedule `interval` avec `policy: 'chronotaxis'`, `periodMs`,
-   `minimumSpacingMs`, `maximumLatencyMs`, `offset` et éventuellement
-   `anchorMs`. Une spécification invalide échoue avant l'insertion.
-2. Le tick émet l'événement de réveil prévu et avance l'index persistant.
-   Une fenêtre manquée peut être sautée lors du calcul suivant.
-3. Une sonde en lecture seule réalise l'observation. `OBSERVED` exige une
-   heure dans la fenêtre et une référence de preuve résolue. `MISSED` n'est
-   accepté qu'après la fin de la fenêtre, sans référence de preuve.
-4. `temporalCoverage` compte les phases observées et les fenêtres manquées
-   séparément. Une observation normale ne nécessite aucun prompt.
+1. Créer le schedule avec un identifiant de sonde autorisé.
+2. Calculer la prochaine fenêtre admissible et persister son indice.
+3. Au tick, recharger le schedule actif et vérifier son échéance.
+4. Différer si l'espacement avec la dernière observation de l'hôte est insuffisant.
+5. Exécuter la sonde ou marquer MISSED si la deadline est dépassée.
+6. Sceller la preuve avec fenêtre, heure, hôte, environnement et résultat.
+7. Calculer la couverture à partir des preuves résolues ; recalculer l'échéance.
 
-Le branchement d'une sonde résidente générique à cet événement reste à
-réaliser ; la table et l'API de reçus ne supposent pas que cette sonde existe
-déjà pour toutes les missions.
+Une indisponibilité prolongée produit une plage compacte de fenêtres manquées.
+Une erreur SQL produit `FAILED` et un artefact `resident-probe-error` ; elle
+n'augmente pas la couverture. L'agrégation accepte une borne de un à 1000 observations.
 
-## 6. Exemple
+## 6. Exemple d'activation
 
-Un défaut dure 300 ms toutes les dix secondes. Un polling strict toutes les
-dix secondes peut répéter indéfiniment une phase saine. Le déphasage explore
-plusieurs positions dans les fenêtres permises. La carte montre si les
-observations réalisées ont couvert ces positions et si un problème de
-capacité a fait manquer certaines fenêtres.
+```json
+{
+  "operation": "chronotaxis.create", "scopeId": "PROJECT:p", "projectId": "p",
+  "kind": "interval",
+  "spec": { "policy": "chronotaxis", "periodMs": 60000,
+    "minimumSpacingMs": 5000, "maximumLatencyMs": 55000, "bins": 12 },
+  "payload": { "probeId": "database-health", "hostId": "host-a", "environmentId": "prod-readonly" }
+}
+```
 
-## 7. Validation et protocole
+Cette configuration appartient à un projet existant. Le runner résident doit
+continuer à appeler le tick ; créer un schedule ne démarre pas un daemon.
+Une échéance fixe reste utilisable lorsque la deadline domine la diversité.
 
-Le [test de contrat](../../backend/tests/test_morphogenesis_capabilities.js)
-contrôle la reproductibilité, l'avancement du schedule et la distinction
-entre observation réalisée et fenêtre manquée.
-Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
-refuse les observations hors fenêtre et les artefacts introuvables.
+## 7. Exploitation et reprise
 
-Le benchmark à ajouter simule des défauts périodiques, quasi périodiques et
-aléatoires. Comparer polling fixe, décalages fixes, jitter et chronotaxie à
-nombre de sondes et budget identiques. Mesurer défauts manqués, délai de
-détection, distribution des phases, coût et respect du délai maximal. Inclure
-des cas adverses synchronisés sur la séquence déterministe.
+Le CLI local expose `chronotaxis.create`, `chronotaxis.coverage` et
+`chronotaxis.aggregate`. Les preuves sont confinées au scope du projet.
+Une pause conserve index, historique et couverture. Après reprise, les fenêtres
+manquées sont comptées ; aucun rattrapage en rafale n'est nécessaire.
+Une sonde inconnue est refusée à la création. Un ancien schedule contenant
+un payload invalide est mis en pause avec une erreur persistée ; il ne bloque
+pas les autres sondes. Les sondes n'acceptent ni shell ni URL arbitraire.
 
-## 8. Comparaison avec les politiques proches
+## 8. Validation et ablations
 
-Le jitter réduit souvent la synchronisation et la contention. La
-chronotaxie se distingue par une séquence reproductible et une mesure de
-couverture des observations, utile pour audit et replay. Sa supériorité sur
-le jitter n'est pas établie par les tests de contrat.
+[test_capability_probe_runtime](../../backend/tests/test_capability_probe_runtime.js)
+exécute la sonde réelle, vérifie unicité, espacement, retard, scopes et agrégation.
+Les tests précédents exercent la perte d'une preuve et le calcul des phases.
+
+Le benchmark compare phase fixe, offset, jitter, rotation et feedback sur des
+signaux périodiques et quasi périodiques synthétiques à nombre de sondes égal.
+Le jitter peut détecter davantage d'anomalies dans ce corpus ; la rotation
+n'est pas annoncée comme toujours optimale.
 
 ## 9. Limites et garde-fous
 
-- `maximumLatencyMs` et `minimumSpacingMs` peuvent rendre certaines phases
-  inaccessibles ; la couverture mesurée doit le montrer.
-- Une sonde qui ne produit pas de reçu n'est pas comptée comme observation.
-- Les timestamps de résultats et les horloges entre hôtes demandent une
-  politique de synchronisation avant comparaison inter-dèmes.
-- L'unicité par fenêtre évite le double comptage, mais ne valide pas le
-  contenu du reçu ni l'authenticité de l'artefact référencé.
-- Le déphasage des migrations de Métapopulation n'est pas câblé à cette
-  première implémentation.
+L'heure du runner est une entrée opérationnelle ; une horloge non fiable compromet
+les garanties temporelles. Les sondes sont locales et SQL ; les observations
+distantes nécessitent un adaptateur distinct. L'espacement est partagé dans
+le scope du projet, pas entre toutes les installations. Une observation manquée
+ne prouve jamais que l'environnement était sain.
 
 ## 10. Références internes
 
-Voir [Morphogenèse](topologies/morphogenese.md), [Holobionte](topologies/holobionte.md),
-[Métapopulation](topologies/metapopulation.md) et [ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).
+Voir [Morphogenèse](topologies/morphogenese.md),
+[ADR initial](../adr/0299-capacites-transversales-morphogenese.md) et
+[ADR runtime](../adr/0332-capacites-morphogenese-runtime.md).

@@ -40,7 +40,7 @@ async function testMeristem(db) {
     resolveArtifact: async () => false, evidenceRefs: ['r'], experiment: covered }), /unresolved/);
   await store.recordCoverage(db, { receiptId: 'coverage-1', scopeId: 'mission', status: 'VERIFIED',
     verifierId: 'verifier', verificationRef: 'verification:coverage-1',
-    resolveArtifact: async () => true, evidenceRefs: ['r'], experiment: covered });
+    resolveArtifact: async () => ({ kind: 'experiment-verification', content: { valid: true, experimentId: 'covered', verifierId: 'verifier', outcome: 'duplicate', evidenceRefs: ['r'] } }), evidenceRefs: ['r'], experiment: covered });
   const receipts = await store.loadCoverage(db, 'mission');
   assert.equal(meristem.rankExperiments({ candidates: [covered, novel], coverageReceipts: receipts })[0].experiment.experimentId, 'novel');
   assert.equal(meristem.rankExperiments({ candidates: [experiment('replica', 'duplicate', 'covered')],
@@ -173,7 +173,9 @@ async function testRisk(db) {
   try {
     await db.exec('PRAGMA foreign_keys = ON');
     await migrateMorphogenesisCapabilities(db);
+    await require('../src/db/migrations/migrateCapabilityRuntime').migrateCapabilityRuntime(db);
     await migrateMorphogenesisCapabilities(db);
+    await require('../src/db/migrations/migrateCapabilityRuntime').migrateCapabilityRuntime(db);
     await testMeristem(db);
     await testSpiral(db);
     await testChronotaxis(db);

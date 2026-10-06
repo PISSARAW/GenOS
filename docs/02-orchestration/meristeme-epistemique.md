@@ -1,135 +1,128 @@
-# Méristème épistémique — croissance par distinction expérimentale
+# Méristème épistémique — occuper des distinctions expérimentales
 
-- **Statut** : Partiel — couverture revalidée à la lecture et raccordée au plan Rhizome ; recrutement autonome, adaptation Trinity et calibration expérimentale à faire.
-- **Portée** : missions à hypothèses concurrentes, avant l'allocation de workers.
-- **Dernière revue** : 2026-10-04.
+- **Statut** : runtime backend implémenté, activation par contrat explicite.
+- **Portée** : sélection expérimentale Rhizome, hypothèses Trinity et niches Biome.
+- **Dernière revue** : 2026-10-06.
 
 ## 1. Domaine et objectif
 
-Le méristème répond à une question plus précise que « quel rôle manque ? » :
-**quelle observation pourrait encore départager des explications plausibles ?**
-Une expérience n'occupe une niche que si une exécution vérifiée a effectivement
-couvert cette distinction. Une affectation, une réponse textuelle ou un score de
-diversité de modèles ne constituent pas cette couverture.
+Une équipe peut avoir plusieurs spécialités et répéter la même erreur. Le méristème
+sélectionne des expériences capables de distinguer les hypothèses encore ouvertes.
+L'unité de diversité est le comportement expérimental annoncé : intervention,
+outcomes discriminants, outils, prédictions et hypothèses de départ.
 
-L'objectif est de réduire les erreurs communes à budget constant, sans éliminer
-les réplications indépendantes nécessaires à la robustesse.
+Une expérience proposée ne constitue pas une occupation. Seule une vague terminée,
+vérifiée et scellée augmente la couverture utilisée pour la vague suivante.
+L'analogie avec la croissance végétale décrit ce mécanisme ; elle ne mesure
+aucune intelligence biologique et n'établit aucune supériorité scientifique.
 
-## 2. Contrat et modèle
+## 2. Contrat et invariants
 
-`experiment()` normalise un contrat contenant `experimentId`, `hypothesisId`,
-`verifierId`, prédictions, au moins deux résultats discriminants, hypothèses
-auxiliaires, dépendances, outils, modes d'échec, utilité et coût. Le champ
-`replicationOf` distingue une épreuve de réplication d'une exploration.
+| Champ | Rôle |
+| --- | --- |
+| `experimentId`, `hypothesisId` | Identité de l'essai et hypothèse distinguée |
+| `intervention`, `tools`, `sourceRefs` | Action, capacités et provenance accessibles |
+| `predictions`, `discriminatingOutcomes`, `assumptions` | Différences observables déclarées |
+| `verifierId` | Identité attendue du vérificateur |
+| `utility`, `cost` | Classement et allocation du budget fini |
+| `replicationOf`, `independentVerifierId` | Réplication d'un essai couvert, autre vérificateur |
 
-Pour le candidat `x`, le classement implémenté est :
+Les identifiants d'une vague sont distincts. Les coûts sont finis et non négatifs.
+Une réplication doit désigner un essai vérifié et un vérificateur différent ;
+le vérificateur effectif doit correspondre à celui de son contrat.
+Les preuves sont résolues dans le même `scopeId`, jamais dans un scope voisin.
 
-```text
-score(x) = utility(x) - inhibitionWeight × somme(similarity(x, couvert_i)) - cost(x)
-```
+## 3. Algorithme
 
-La similarité est la moyenne des recouvrements de Jaccard des prédictions,
-résultats discriminants, dépendances et modes d'échec. Ces dimensions sont
-déclarées dans le contrat ; ce n'est pas une mesure démontrée de diversité
-sémantique. Une réplication déclarée obtient une inhibition nulle, mais doit
-être traitée par ailleurs avec un vérificateur indépendant.
-
-Le classement est déterministe à score égal (`experimentId`). Les poids et
-unités par défaut sont heuristiques. Leur calibration relève du benchmark.
-
-## 3. Inspiration biologique et limite
-
-L'inhibition locale de nouveaux primordia inspire la pénalité de couverture.
-Le code ne simule ni auxine ni phyllotaxie géométrique. Un disque de tournesol
-ne serait pas un modèle fidèle de l'espace des expériences de GenOS.
+`rankExperiments` normalise les contrats et calcule leur similarité comportementale
+avec les occupations vérifiées. L'inhibition pénalise la couverture déjà présente.
+La réplication indépendante conserve son utilité. `openWave` choisit ensuite les
+contrats dans la limite du budget ; il refuse un budget qui n'autorise aucun essai.
+Les poids constituent une politique configurable, pas une loi du nombre d'or.
 
 ## 4. Architecture technique
 
 ```mermaid
 flowchart LR
-  H[Hypothèses et prédictions Trinity] --> M[Méristème]
-  G[Lacune Rhizome] --> M
-  R[Reçus vérifiés du même scope] --> M
-  M --> P[Plan de croissance Rhizome]
-  P --> V[Budgets et gates existants]
-  V --> E[Essai isolé]
-  E --> R
+  H[Hypothèses Trinity / lacunes Rhizome] --> O[Vague OPEN et budget]
+  C[Couverture scellée du scope] --> O
+  O --> N[Niches expérimentales Biome]
+  O --> W[Mondes isolés]
+  W --> V[Vérification indépendante]
+  V --> S[Scellement transactionnel]
+  S --> C
 ```
 
-- [Moteur de classement](../../backend/src/services/morphogenesis/capabilities/epistemicMeristem.js) : normalisation et similarité comportementale.
-- [Stockage](../../backend/src/services/morphogenesis/capabilities/capabilityEvidenceStore.js) : reçus par `scopeId` dans `morph_experiment_coverage`.
-- [Planificateur Rhizome](../../backend/src/services/rhizome/growth/growthPlanner.js) : sélection optionnelle lorsque `experimentalCoverageReceipts` est fourni.
-- [Raccord Rhizome](../../backend/src/services/rhizome/growth/experimentalCoverageService.js) : charge les reçus du scope déclaré et revalide leurs artefacts avant `planGrowth`.
-- [Contrat de croissance](../../backend/src/services/rhizome/contracts/growthCandidate.js) : transporte `experimentContract`.
-- [Trinity](../../backend/src/services/trinityHypothesisDesignService.js) : fournit déjà hypothèses, prédictions et protocoles discriminants, sans traduction automatique vers tous les contrats du méristème.
+[experimentWaveRuntime](../../backend/src/services/morphogenesis/capabilities/experimentWaveRuntime.js)
+persiste les vagues OPEN/SEALED. Le scellement exige tous les résultats et lie
+chaque reçu à l'essai, son vérificateur, l'outcome déclaré et ses références.
+La couverture et le reçu scellé sont écrits dans la même transaction.
+[trinityMeristemBridge](../../backend/src/services/morphogenesis/capabilities/trinityMeristemBridge.js)
+traduit les évaluations scientifiques persistées, vérifie leurs claims et leurs
+preuves, et conserve le dissentiment. Un auteur de claim ne devient pas son
+propre vérificateur. `trinityHypothesisGenerationService` peut classer les
+hypothèses fournies via `normalMission.epistemicMeristem`.
 
-Le stockage exige un statut `VERIFIED`, le `verifierId` prévu par le contrat,
-un `verificationRef` et des références de preuve. Un résolveur interne doit
-confirmer le reçu de vérification avant l'écriture. Il ne prouve pas à lui
-seul la validité de l'expérience : son émetteur reste une frontière de
-confiance à qualifier avant un recrutement autonome. Les reçus ne traversent
-pas les mondes scellés pendant leurs essais.
+[epistemicNicheRuntime](../../backend/src/services/morphogenesis/capabilities/epistemicNicheRuntime.js)
+attribue les contrats aux niches Biome, avec capacités, sources, conditions d'entrée
+et capacité de charge de un. `BiomeRuntime.step` reçoit `experimentWave`.
+Le recrutement Rhizome conserve ses gates de lacune, budget et autorité.
 
 ## 5. Processus d'exécution
 
-1. Construire des candidats à partir des hypothèses ouvertes et des lacunes
-   de capacité. Chaque candidat doit déclarer ce qui distinguerait les
-   hypothèses, pas seulement une spécialité de worker.
-2. Fournir `experimentalScopeId`, une base et un résolveur d'artefacts à
-   `planGrowth`. `loadVerifiedCoverage` écarte les reçus dont le témoin ou
-   une preuve a disparu ; une liste fournie par l'appelant ne remplace pas
-   la lecture du registre.
-3. Classer par `rankExperiments`, puis présenter les candidats éligibles à
-   Rhizome. Les contrôles de suffisance, budget, coût et preuve de lacune
-   continuent à s'appliquer.
-4. Exécuter dans une branche ou un monde isolé, faire vérifier le résultat,
-   puis enregistrer la couverture avec `recordCoverage`.
-5. Recalculer entre deux vagues expérimentales. Une expérience inactive ne
-   crée pas de couverture.
+1. Définir le scope et les contrats à partir des hypothèses ouvertes.
+2. Appeler `openWave` avec candidats, budget et résolveur interne.
+3. Créer les mondes isolés, exécuter et vérifier leurs résultats.
+4. Fournir à `sealWave` un résultat par contrat avec `verificationRef` et `evidenceRefs`.
+5. Recalculer la couverture avant la vague suivante ; une preuve inaccessible est écartée.
+
+`runWave(db, input, adapters)` orchestre ces étapes avec les adaptateurs
+`createIsolatedWorld`, `execute` et `verify`. Les adaptateurs doivent assurer
+l'isolation réelle ; le score ne leur donne aucune nouvelle autorité.
+Un essai interrompu laisse la vague ouverte sans créer d'inhibition.
 
 ## 6. Exemple
 
-Dans un service qui traite parfois deux fois le même événement, trois workers
-proposent un verrou, une transaction et un cache. Si tous présupposent une
-livraison unique, le méristème préfère un rejeu contrôlé du même événement
-avec délais variés. Un résultat vérifié peut ensuite couvrir cette niche ; une
-réplication indépendante peut encore être choisie pour confirmer le constat.
+Face à des doubles livraisons, verrou, transaction et cache peuvent tous supposer
+une livraison unique. Un contrat de rejeu avec délais variés distingue cette
+hypothèse. Une réplication avec un autre vérificateur reste admissible après
+le scellement, même si son comportement recouvre celui du premier essai.
 
-## 7. Validation et comparaison
+## 7. Activation et exploitation
 
-Le [test de contrat](../../backend/tests/test_morphogenesis_capabilities.js)
-vérifie qu'un reçu simplement proposé n'inhibe pas une expérience, qu'une
-couverture vérifiée modifie le classement et que la réplication est distincte.
-Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
-vérifie aussi qu'une preuve devenue inaccessible ne compte plus comme couverture.
+L'opérateur local utilise `backend/bin/genos-capabilities.cjs`, opération
+`meristem.open`, `meristem.seal` ou `meristem.seal-scientific`, avec `scopeId`.
+Sans argument, le CLI affiche les opérations. Les artefacts sont déposés par
+`artifact.put` puis résolus côté backend. Ces opérations ne sont pas de nouveaux
+outils MCP exposés à tous les clients.
 
-Le benchmark à réaliser doit utiliser des incidents à causes cachées connues,
-les mêmes modèles et le même budget. Baselines : recrutement par rôle,
-similarité textuelle/embedding et sélection diversifiée. Mesures : causes
-réellement identifiées, erreurs communes, coût par distinction utile et taux
-de réplication concluante. Fixer les poids avant les campagnes tenues à part.
+Une ouverture répétée sous le même identifiant est refusée. Une vague déjà
+scellée renvoie son reçu ; changer ses résultats exige une nouvelle vague.
 
-## 8. Comparaison avec des approches proches
+## 8. Validation et ablations
 
-Les méthodes de diversité de population optimisent un espace de comportements
-défini à l'avance. Ici, l'unité sélectionnée est un **contrat de discrimination
-expérimentale**, et l'occupation dépend d'un résultat vérifié. Cette différence
-est une hypothèse d'architecture ; une contribution scientifique demanderait
-une comparaison empirique et des définitions stables des comportements.
+[test_capability_wave_runtime](../../backend/tests/test_capability_wave_runtime.js)
+teste atomicité, preuve mal liée, absence d'inhibition anticipée, dissentiment,
+scopes, immutabilité et réplication indépendante.
+[test_capability_scientific_runtime](../../backend/tests/test_capability_scientific_runtime.js)
+exerce le registre scientifique réel et refuse les claims mal associés.
+Les tests des deux premières tranches restent inclus dans `test:capabilities`.
+
+Le benchmark reproductible compare recrutement par rôle, diversité d'embeddings
+synthétiques, DPP, inhibition comportementale et ablation sans inhibition.
+Il utilise des causes cachées synthétiques et des budgets identiques ; il ne
+qualifie pas encore des incidents industriels ni des modèles de langage.
 
 ## 9. Limites et garde-fous
 
-- Les dépendances et modes d'échec déclarés peuvent être incomplets ou faux.
-- `VERIFIED` dans la table est une attestation du producteur, pas une preuve
-  automatique que l'artefact est résolvable ni que le test était valide.
-- La fonction de score n'autorise aucun spawn ; les frontières d'autorité et
-  les gates de la morphogenèse gardent cette décision.
-- Les mondes Trinity scellés ne reçoivent pas les découvertes des autres
-  mondes durant une vague.
-- L'adaptation des résultats Trinity vers la carte de couverture et
-  l'allocation de niche Biome restent à implémenter et qualifier.
+Les contrats peuvent être incomplets. La validité des interventions dépend des
+adaptateurs et des vérificateurs autorisés. Les mondes scellés ne partagent pas
+de résultats pendant une vague. Les sources restent consultables ; leur absence
+annule leur contribution à la couverture. Aucun classement n'autorise un spawn.
 
 ## 10. Références internes
 
 Voir [Morphogenèse](topologies/morphogenese.md), [Trinity](topologies/trinity.md),
-[Rhizome](topologies/rhizome.md) et [ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).
+[Biome](topologies/biome.md), [Rhizome](topologies/rhizome.md),
+[ADR initial](../adr/0299-capacites-transversales-morphogenese.md) et
+[ADR runtime](../adr/0332-capacites-morphogenese-runtime.md).

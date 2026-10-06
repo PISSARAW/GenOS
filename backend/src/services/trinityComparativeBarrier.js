@@ -249,7 +249,7 @@ async function executePromotion(db, input) {
   }
   const { winner } = validation;
   const statistical = await require('./morphogenesis/capabilities/statisticalPromotionGate')
-    .evaluate(db, input.statisticalContract);
+    .evaluateForNode(db, { nodeId: input.riskNodeId || orchestratorId || missionId, contract: input.statisticalContract });
   if (!statistical.allowed) {
     await failPromotion({ db, missionId, reason: statistical.reason });
     return { promoted: false, reason: statistical.reason, risk: statistical.result || null };

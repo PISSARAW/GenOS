@@ -22,14 +22,16 @@ function experiment() {
 }
 
 async function testMeristem(db) {
+  const proof = { kind: 'experiment-verification', content: { valid: true, experimentId: 'experiment', verifierId: 'verifier', outcome: 'yes', evidenceRefs: ['trial'] } };
+  const resolveArtifact = async () => proof;
   await evidenceStore.recordCoverage(db, { receiptId: 'receipt', scopeId: 'mission',
     status: 'VERIFIED', verifierId: 'verifier', verificationRef: 'verification',
-    evidenceRefs: ['trial'], experiment: experiment(), resolveArtifact: async () => true });
+    evidenceRefs: ['trial'], experiment: experiment(), resolveArtifact });
   const valid = await experimentalCoverage.optionsForGrowth(db, { experimentalScopeId: 'mission',
-    resolveArtifact: async () => true, experimentalCoverageReceipts: [{ status: 'FORGED' }] });
+    resolveArtifact, experimentalCoverageReceipts: [{ status: 'FORGED' }] });
   assert.equal(valid.experimentalCoverageReceipts.length, 1);
   const lost = await experimentalCoverage.optionsForGrowth(db, { experimentalScopeId: 'mission',
-    resolveArtifact: async (ref) => ref !== 'trial' });
+    resolveArtifact: async (ref) => ref === 'trial' ? null : proof });
   assert.deepEqual(lost.experimentalCoverageReceipts, []);
   await assert.rejects(experimentalCoverage.optionsForGrowth(db, {
     experimentalScopeId: 'mission' }), /resolver/);
@@ -42,8 +44,12 @@ function attempt(family) {
 }
 
 async function recordFailure(db, id, contract) {
+  const artifacts = require('../src/services/morphogenesis/capabilities/runtimeArtifacts');
+  const outcomeRef = await artifacts.put(db, { scopeId: 'stuck', kind: 'intervention-verification', content: {
+    signature: require('../src/services/morphogenesis/capabilities/unblockSpiral').signature(contract),
+    status: contract.outcomeStatus, verifierId: contract.verifierId } });
   return evidenceStore.recordAttempt(db, { attemptId: id, scopeId: 'stuck', contract,
-    outcomeRef: `result:${id}`, resolveArtifact: async () => true });
+    outcomeRef, resolveArtifact: artifacts.resolver(db, 'stuck') });
 }
 
 async function testSpiral(db) {
@@ -62,7 +68,7 @@ async function testSpiral(db) {
     contract: attempt('cache'), outcomeRef: 'missing', resolveArtifact: async () => false }), /must resolve/);
   const replica = { ...attempt('sql'), replicationOf: 'first', independentVerifierId: 'verifier' };
   await assert.rejects(recordFailure(db, 'self-replica', replica), /ATTEMPT_NOT_DISTINCT/);
-  await recordFailure(db, 'independent', { ...replica, independentVerifierId: 'other-verifier' });
+  await recordFailure(db, 'independent', { ...replica, independentVerifierId: 'other-verifier', verifierId: 'other-verifier' });
 }
 
 async function testChronotaxis(db) {
@@ -149,6 +155,7 @@ async function testRisk(db) {
   try {
     await db.exec('PRAGMA foreign_keys = ON');
     await migrateMorphogenesisCapabilities(db);
+    await require('../src/db/migrations/migrateCapabilityRuntime').migrateCapabilityRuntime(db);
     await testMeristem(db);
     await testSpiral(db);
     await testChronotaxis(db);

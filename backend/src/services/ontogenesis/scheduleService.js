@@ -38,10 +38,12 @@ function nextRunAfter(kind, spec, fromMs) {
 
 async function createSchedule(db, input) {
   if (!KINDS.includes(input.kind)) throw new Error('schedule-kind-inconnu');
-  const nowMs = input.nowMs || Date.now();
+  validateProbeContract(input);
+  const nowMs = input.nowMs ?? Date.now();
   const id = input.id || newId('sched');
   const spec = scheduleSpec(input, nowMs);
   const next = nextRunAfter(input.kind, spec, nowMs);
+  if (spec.policy === 'chronotaxis') spec.index = chronotaxis.nextObservation(spec, nowMs).index;
   await db.run(
     `INSERT INTO ontogenesis_schedules
        (id, project_id, kind, spec_json, timezone, next_run_at, status, payload_json)
@@ -83,9 +85,13 @@ async function markScheduleRan(db, input) {
   if (!row) throw new Error('schedule-introuvable');
   if (row.kind === 'interval' && parseSpec(row).policy === 'chronotaxis') {
     const spec = parseSpec(row);
-    const fired = chronotaxis.nextObservation(spec, Date.parse(row.next_run_at));
-    const nextSpec = { ...spec, index: fired.index + 1 };
-    const next = nextRunAfter(row.kind, nextSpec, input.nowMs || Date.now());
+    const fired = { index: spec.index };
+    const nowMs = input.nowMs ?? Date.now();
+    const binCounts = await temporalBinCounts(db, row.id, spec);
+    const nextSpec = { ...spec, index: fired.index + 1, lastObservedMs: nowMs, binCounts };
+    const nextObservation = chronotaxis.nextObservation(nextSpec, nowMs);
+    nextSpec.index = nextObservation.index;
+    const next = nextObservation.scheduledAt;
     await db.run(`UPDATE ontogenesis_schedules
       SET spec_json = ?, next_run_at = ?, last_run_at = datetime('now') WHERE id = ?`,
     [JSON.stringify(nextSpec), next, row.id]);
@@ -130,7 +136,7 @@ async function validateTemporalEvidence(input, observedAt, spec) {
   const { startMs, endMs } = chronotaxis.windowBounds(spec, input.windowIndex);
   const eventMs = Date.parse(observedAt);
   if (input.status === 'MISSED') {
-    if (input.evidenceRef || eventMs < endMs) throw new Error('Missed window requires elapsed window without evidence');
+    if (input.evidenceRef || eventMs < Math.min(endMs, startMs + (spec.maximumLatencyMs ?? spec.periodMs))) throw new Error('Missed window requires elapsed window without evidence');
     return;
   }
   if (eventMs < startMs || eventMs >= endMs || !input.evidenceRef
@@ -143,14 +149,38 @@ async function temporalCoverage(db, input) {
   const row = await db.get('SELECT spec_json FROM ontogenesis_schedules WHERE id = ?', [input.scheduleId]);
   if (!row) throw new Error('schedule-introuvable');
   const spec = JSON.parse(row.spec_json);
-  const observations = await db.all('SELECT * FROM morph_temporal_observations WHERE schedule_id = ?', [input.scheduleId]);
+  const observations = await usableTemporalObservations(db, input);
   const coverage = chronotaxis.coverage(observations.map((item) => ({ status: item.status, observedAt: item.observed_at })),
     { periodMs: spec.periodMs, anchorMs: spec.anchorMs, bins: input.bins || 12 });
-  return { ...coverage, missedWindows: observations.filter((item) => item.status === 'MISSED').length };
+  const ranges = await missedRangeCount(db, input.scheduleId);
+  return { ...coverage, missedWindows: observations.filter((item) => item.status === 'MISSED').length + ranges };
 }
 
 async function pauseSchedule(db, scheduleId) {
   await db.run(`UPDATE ontogenesis_schedules SET status = 'paused' WHERE id = ?`, [scheduleId]);
+}
+
+async function usableTemporalObservations(db, input) {
+  const rows = await db.all('SELECT * FROM morph_temporal_observations WHERE schedule_id = ?', [input.scheduleId]);
+  if (!input.resolveArtifact) return rows;
+  const active = [];
+  for (const row of rows) {
+    if (row.status === 'MISSED' || await input.resolveArtifact(row.evidence_ref)) active.push(row);
+  }
+  return active;
+}
+
+async function temporalBinCounts(db, scheduleId, spec) {
+  const bins = spec.bins ?? 12;
+  if (!Number.isInteger(bins) || bins < 2 || bins > 512) throw new Error('Invalid temporal bins');
+  const counts = Array(bins).fill(0);
+  const rows = await db.all("SELECT observed_at FROM morph_temporal_observations WHERE schedule_id = ? AND status = 'OBSERVED'", [scheduleId]);
+  for (const row of rows) {
+    const delta = Date.parse(row.observed_at) - spec.anchorMs;
+    const value = ((delta % spec.periodMs) + spec.periodMs) % spec.periodMs;
+    counts[Math.floor(value / spec.periodMs * bins)]++;
+  }
+  return counts;
 }
 
 async function stopTask(db, input) {
@@ -163,3 +193,17 @@ async function stopTask(db, input) {
 
 module.exports = { KINDS, nextRunAfter, createSchedule, dueSchedules, markScheduleRan,
   recordTemporalObservation, temporalCoverage, pauseSchedule, stopTask };
+
+async function missedRangeCount(db, scheduleId) {
+  const table = await db.get("SELECT name FROM sqlite_master WHERE name = 'morph_temporal_missed_ranges'");
+  if (!table) return 0;
+  const row = await db.get('SELECT COALESCE(SUM(last_window - first_window + 1), 0) AS n FROM morph_temporal_missed_ranges WHERE schedule_id = ?', [scheduleId]);
+  return row.n;
+}
+function validateProbeContract(input) {
+  if (input.spec?.policy !== 'chronotaxis') return;
+  const probeId = input.payload?.probeId;
+  if (probeId && !require('../morphogenesis/capabilities/residentProbeRuntime').PROBE_IDS.includes(probeId)) {
+    throw new Error('REGISTERED_READ_ONLY_PROBE_REQUIRED');
+  }
+}

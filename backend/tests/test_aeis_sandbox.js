@@ -82,7 +82,7 @@ async function run() {
     const result = await runIsolated({
       command: 'npm test',
       cwd: tmpDir,
-      timeoutMs: 15000,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
     });
 
     assert.strictEqual(result.exitCode, 1);

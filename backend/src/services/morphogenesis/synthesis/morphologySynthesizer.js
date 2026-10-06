@@ -20,6 +20,7 @@ class CounterfactualSearch {
   }
 
   async search(seedExpression, context) {
+    if (context.spiral) return require('./spiralSearch').search(this, seedExpression, context);
     const searchState = {
       iteration: 0,
       currentBest: { expression: seedExpression, score: 0 },

@@ -136,16 +136,16 @@ async function recallMemories(db, input = {}) {
   session.missionId, session.workspaceId, session.projectId);
   const recalled = [];
   for (const memory of latestMemories(rows, input.memoryType)) {
-    const guarded = await withCambiumContext(db, memory, input.resolveArtifact);
+    const guarded = await withCambiumContext(db, memory, input);
     if (guarded) recalled.push(guarded);
   }
   return recalled;
 }
 
-async function withCambiumContext(db, memory, resolveArtifact) {
+async function withCambiumContext(db, memory, input) {
   if (memory.memoryType !== 'PROCEDURAL') return memory;
   const scopeId = `${memory.scope}:${memory.projectId || memory.workspaceId || memory.missionId || memory.hostId}`;
-  const claim = await cambium.loadClaimContext(db, { claimId: memory.memoryId, scopeId, resolveArtifact });
+  const claim = await cambium.loadClaimContext(db, { ...input, claimId: memory.memoryId, scopeId });
   if (!claim) return memory;
   return claim.usable ? { ...memory, cambium: claim } : null;
 }

@@ -77,6 +77,7 @@ async function reserveTest(db, input) {
       (test_id, grant_id, alpha_units, protocol_hash, evaluation_set_id, status)
       VALUES (?, ?, ?, ?, ?, 'RESERVED')`,
     [input.testId, input.grantId, units, input.protocolHash, input.evaluationSetId]);
+    await recordReservation(tx, { ...input, rootId: grant.root_id, units });
     await audit(tx, { rootId: grant.root_id, kind: 'TEST_RESERVED',
       payload: { testId: input.testId, grantId: input.grantId, units } });
     return { testId: input.testId, status: 'RESERVED', alpha: units / 1000000000 };
@@ -106,6 +107,7 @@ async function finalizeTest(db, input) {
   return withTransaction(db, async (tx) => {
     const test = await tx.get('SELECT * FROM morph_risk_tests WHERE test_id = ?', [input.testId]);
     boundReceipt(test, receipt);
+    await scopedProvenance(tx, { ...input, test });
     if (test.status === 'CONSUMED') return consumedResult(test, receipt, input.testId);
     await tx.run("UPDATE morph_risk_tests SET status = 'CONSUMED', receipt_json = ? WHERE test_id = ?",
       [JSON.stringify(receipt), input.testId]);
@@ -116,6 +118,16 @@ async function finalizeTest(db, input) {
       payload: { testId: input.testId, eligible } });
     return { testId: input.testId, eligible, alpha: test.alpha_units / 1000000000 };
   });
+}
+
+async function scopedProvenance(db, input) {
+  const schema = await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'morph_risk_scopes'");
+  if (!schema) return;
+  const grant = await db.get('SELECT root_id FROM morph_risk_grants WHERE grant_id = ?', [input.test.grant_id]);
+  const registered = await db.get('SELECT scope_id FROM morph_risk_scopes WHERE root_id = ?', [grant.root_id]);
+  if (!registered) return;
+  if (input.scopeId && input.scopeId !== registered.scope_id) throw new Error('RISK_SCOPE_MISMATCH');
+  await require('./statisticalProvenance').verifyProvenance(db, { ...input, scopeId: registered.scope_id });
 }
 
 async function mergeOwnership(db, input) {
@@ -149,3 +161,14 @@ async function grantBalance(db, grantId) {
 }
 
 module.exports = { createRoot, splitGrant, reserveTest, finalizeTest, mergeOwnership, grantBalance };
+
+async function recordReservation(db, input) {
+  const schema = await db.get("SELECT name FROM sqlite_master WHERE name = 'morph_statistical_reservations'");
+  if (!schema) return;
+  const scope = await db.get('SELECT scope_id FROM morph_risk_scopes WHERE root_id = ?', [input.rootId]);
+  if (!scope) return;
+  const reservationRef = await require('./runtimeArtifacts').put(db, { scopeId: scope.scope_id,
+    kind: 'statistical-reservation', content: { testId: input.testId, grantId: input.grantId,
+      protocolHash: input.protocolHash, evaluationSetId: input.evaluationSetId, alphaUnits: input.units } });
+  await db.run('INSERT INTO morph_statistical_reservations (test_id, reservation_ref) VALUES (?, ?)', [input.testId, reservationRef]);
+}

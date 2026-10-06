@@ -20,6 +20,8 @@ async function advance(session, input, options) {
   const ecology = session.ecology;
   const runtime = initializeRuntime(ecology, input, options);
   if (runtime.stopCondition) throw error('BIOME_RUNTIME_STOPPED', runtime.stopCondition);
+  if (input.experimentWave) require('../../morphogenesis/capabilities/epistemicNicheRuntime')
+    .assign(ecology, input.experimentWave, input.individuals || []);
   const actions = [];
   updateEnvironment(session, input, actions);
   discoverNiches(session, input, actions);

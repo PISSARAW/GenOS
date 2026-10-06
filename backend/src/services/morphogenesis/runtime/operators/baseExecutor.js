@@ -38,6 +38,9 @@ class BaseExecutor {
 
     try {
       const result = await this.executeNode(node, graph, childContext);
+      await require('../../capabilities/graphCapabilityRuntime').verifyOutput(context.capabilityDb || context.input?.db, {
+        nodeId: node.nodeId, contract: context.statisticalContracts?.[node.nodeId] || context.input?.statisticalContracts?.[node.nodeId]
+      });
       childContext.status = 'completed';
       childContext.output = result.output;
       if (result.state !== undefined) childContext.state = result.state;

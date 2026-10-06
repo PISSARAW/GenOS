@@ -10,7 +10,7 @@
 const { acquireClaim, releaseClaim, extendClaim } = require('./claimService');
 const { getControl } = require('./controlService');
 const { getProject, setProjectState, listTasks, addTask, taskByTitle, bumpAttempt } = require('./projectStore');
-const { compileMission, linkCompiledTasks } = require('./missionContextService');
+const { linkCompiledTasks } = require('./missionContextService');
 const { buildMissionCapabilityPlan } = require('./missionCapabilityPlanService');
 const { selectNextTask } = require('./taskSelector');
 const { stepLoop } = require('./loopController');
@@ -23,6 +23,7 @@ const { expireDue } = require('./questionService');
 const { reviewAction } = require('./reviewPolicy');
 const { ensureDispatchRitual } = require('./ritualService');
 const { dueSchedules, markScheduleRan } = require('./scheduleService');
+const residentProbes = require('../morphogenesis/capabilities/residentProbeRuntime');
 const { ensureTables } = require('./executionStore');
 const { budgetState, memoryState } = require('./resourceGuard');
 const { dispatchTask } = require('./dispatchService');
@@ -64,12 +65,24 @@ function doingOf(tasks) {
 }
 
 async function fireDue(db, projectId, nowMs) {
-  const due = await dueSchedules(db, { projectId });
+  nowMs = nowMs ?? Date.now();
+  let probeCount = 0;
+  let fired = 0;
+  const due = await dueSchedules(db, { projectId, nowIso: new Date(nowMs).toISOString() });
   for (const row of due) {
+    const spec = JSON.parse(row.spec_json || '{}');
+    if (spec.policy === 'chronotaxis') {
+      if (probeCount >= 32) continue;
+      probeCount++;
+      const result = await residentProbes.dispatch(db, { row, nowMs });
+      if (!result.skipped && !result.deferred) fired++;
+      continue;
+    }
     await postEvent(db, { projectId, type: eventForSchedule(row.kind), payload: schedulePayload(row) });
     await markScheduleRan(db, { id: row.id, nowMs });
+    fired++;
   }
-  return due.length;
+  return fired;
 }
 
 async function loadContext(db, input) {
