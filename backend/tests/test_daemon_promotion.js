@@ -106,9 +106,13 @@ async function main() {
   assert.ok(granted.evidence.meanRecallGain >= 1);
   assert.equal(granted.evidence.liveProtocols, 3);
   assert.equal(granted.evidence.liveBetterProtocols, 3);
+  await db.run("UPDATE daemon_promotions SET decided_at = '2026-10-06 00:00:00'");
   const receipts = await promotion.listPromotions(db);
   assert.equal(receipts.length, 2);
-  assert.equal(receipts[1].to_maturity, 'STABLE');
+  // Newest-first receipts can share a timestamp; match the decision and its evidence.
+  const stableReceipts = receipts.filter((receipt) => receipt.to_maturity === 'STABLE');
+  assert.equal(stableReceipts.length, 1);
+  assert.deepEqual(JSON.parse(stableReceipts[0].evidence_json), granted.evidence);
 
   // 5. Warm matching the raw digest while costing more is not daemon value-add.
   for (let r = 0; r < 6; r += 1) {

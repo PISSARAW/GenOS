@@ -39,9 +39,9 @@ async function expireFindings(db, scope) {
       scope.territoryId,
       scope.nowIso
     );
-    return (res && res.changes) || 0;
-  } catch (_) {
-    return 0;
+    return { count: (res && res.changes) || 0, error: null };
+  } catch (error) {
+    return { count: 0, error: error.message };
   }
 }
 
@@ -53,9 +53,9 @@ async function pruneEvents(db, scope) {
       scope.territoryId,
       cutoff
     );
-    return (res && res.changes) || 0;
-  } catch (_) {
-    return 0;
+    return { count: (res && res.changes) || 0, error: null };
+  } catch (error) {
+    return { count: 0, error: error.message };
   }
 }
 
@@ -68,9 +68,9 @@ async function expireHandoffs(db, scope) {
       scope.territoryId,
       cutoff
     );
-    return (res && res.changes) || 0;
-  } catch (_) {
-    return 0;
+    return { count: (res && res.changes) || 0, error: null };
+  } catch (error) {
+    return { count: 0, error: error.message };
   }
 }
 
@@ -87,7 +87,7 @@ async function sweep(db, args) {
   };
   const evaporated = await stigmergyService.evaporateMarkers(db, {
     territoryId: args.territoryId,
-    rate: args.evaporationRate || DEFAULT_EVAPORATION_RATE
+    rate: args.evaporationRate ?? DEFAULT_EVAPORATION_RATE
   });
   const suspectReceipt = await reviewSuspects(db, scope);
   const findings = await expireFindings(db, scope);
@@ -192,10 +192,10 @@ async function reviewSuspects(db, scope) {
 
 async function detectKind(db, job) {
   const { scope, kind, cutoffIso } = job;
-  if (kind === 'blocked-agent') return suspects.findBlockedAgents(db, cutoffIso);
-  if (kind === 'stale-runtime') return suspects.findStaleRuntimes(db, cutoffIso);
-  if (kind === 'orphan-workspace') return suspects.findOrphanWorkspaces(db, cutoffIso);
-  if (kind === 'stuck-capsule') return suspects.findStuckCapsules(db, cutoffIso);
+  if (kind === 'blocked-agent') return suspects.findBlockedAgents(db, cutoffIso, scope.territoryId);
+  if (kind === 'stale-runtime') return suspects.findStaleRuntimes(db, cutoffIso, scope.territoryId);
+  if (kind === 'orphan-workspace') return suspects.findOrphanWorkspaces(db, cutoffIso, scope.territoryId);
+  if (kind === 'stuck-capsule') return suspects.findStuckCapsules(db, cutoffIso, scope.territoryId);
   return suspects.findAbandonedBranches(db, { territoryId: scope.territoryId, cutoffIso });
 }
 

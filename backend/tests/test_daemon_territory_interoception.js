@@ -40,6 +40,7 @@ async function main() {
   await makeTerritory(db, 'territory.intero-fresh');
   await makeTerritory(db, 'territory.intero-busy');
 
+  await db.run("UPDATE daemon_territories SET last_indexed_at = datetime('now'), indexed_head_sha = head_sha");
   // 1. Territoire frais, journal vide : pressions nulles, staleness basse
   const fresh = await interoception.senseTerritory(db, 'territory.intero-fresh', {});
   assert.equal(fresh.variables.change_rate, 0);
@@ -69,7 +70,7 @@ async function main() {
   assert.equal(busy.variables.build_failure_pressure, 0);
 
   // 5. Territoire abandonné : staleness → 1
-  await db.run("UPDATE daemon_territories SET last_observed_at = '2000-01-01T00:00:00Z' WHERE id = ?", 'territory.intero-fresh');
+  await db.run("UPDATE daemon_territories SET last_indexed_at = '2000-01-01T00:00:00Z' WHERE id = ?", 'territory.intero-fresh');
   const stale = await interoception.senseTerritory(db, 'territory.intero-fresh', {});
   assert.equal(stale.variables.knowledge_staleness, 1);
 

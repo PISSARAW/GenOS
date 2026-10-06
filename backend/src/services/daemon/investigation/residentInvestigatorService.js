@@ -15,7 +15,11 @@ const territoryService = require('../daemonTerritoryService');
 const eventLog = require('../daemonEventLog');
 const detectorRegistry = require('./anomalyDetectorRegistry');
 const nsAdapter = require('../daemonNaturalSearchAdapter');
+const territoryFiles = require('../cartography/territoryFiles');
 const findingService = require('../findings/findingService');
+const path = require('node:path');
+const receipts = require('../verification/observationReceiptService');
+const evidence = require('../findings/findingEvidenceService');
 
 const DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -25,7 +29,7 @@ function filesFromEvents(events) {
     if (event.event_type !== 'TERRITORY_FILE_CHANGED' && event.event_type !== 'TERRITORY_COMMIT') continue;
     const payload = eventLog.parsePayload(event);
     if (payload.file) files.add(payload.file);
-    for (const file of payload.files || []) files.add(file);
+    for (const file of [...(payload.files || []), ...(payload.changedFiles || [])]) files.add(file);
   }
   return [...files];
 }
@@ -39,7 +43,7 @@ async function buildContext(db, args, territory) {
     territoryId: args.territoryId,
     headSha: territory.headSha,
     rootPath: args.rootPath,
-    files: args.files || filesFromEvents(events),
+    files: (args.files || filesFromEvents(events)).filter((file) => territoryFiles.safeFile(args.rootPath, file, territory.scopePath)).slice(0, 200),
     events
   };
 }
@@ -59,6 +63,14 @@ async function recordObservation(db, args, observation) {
     createdBy: args.daemonId || 'daemon.resident',
     limitations: ['detector observation, not independently verified']
   });
+  if (created.found) {
+    const provenanceRecordId = await receipts.record(db, { findingId, territoryId: observation.territoryId,
+      headSha: observation.headSha, detectorId: observation.detectorId, claim: observation.claim,
+      sourceHash: receipts.sourceHash({ rootPath: args.rootPath, scopePath: args.scopePath || '/' }, observation.scope),
+      sourceEventId: observation.sourceEventId || null });
+    await evidence.appendEvidence(db, { findingId, side: 'supporting', evidenceType: 'observational',
+      description: observation.claim, provenanceRecordId });
+  }
   return { observation, proposal, finding: created.found ? created.finding : null };
 }
 
@@ -74,8 +86,9 @@ async function investigate(db, args) {
   if (!db || !args || !args.territoryId || !args.rootPath) return { investigated: false, reason: 'args-required' };
   const stored = await territoryService.getTerritory(db, { id: args.territoryId });
   if (!stored.found) return { investigated: false, reason: 'unknown-territory' };
+  if (path.resolve(args.rootPath) !== path.resolve(stored.territory.rootPath)) return { investigated: false, reason: 'territory-root-mismatch' };
   const context = await buildContext(db, args, stored.territory);
-  const detectors = args.detectors || detectorRegistry.defaultDetectors();
+  const detectors = args.detectors || detectorRegistry.allDetectors();
   const observations = detectorRegistry.runDetectors(detectors, context);
   const records = [];
   for (const observation of observations) {

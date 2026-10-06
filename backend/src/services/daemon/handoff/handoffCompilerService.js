@@ -64,7 +64,7 @@ async function graphSummary(db, territoryId) {
   const counts = await graphStore.countGraph(db, { territoryId });
   const nodes = await graphStore.listNodes(db, { territoryId });
   const symbols = (nodes || []).filter((n) => n.kind === 'symbol').length;
-  const files = Math.max(0, (counts.nodes || 0) - symbols);
+  const files = (nodes || []).filter((node) => ['file', 'test'].includes(node.kind)).length;
   return { files, symbols, edges: counts.edges };
 }
 
@@ -132,7 +132,9 @@ async function compileBrief(db, args) {
   const brief = await buildBrief(db, { args, territory, ranked });
   await db.run(
     `INSERT INTO daemon_handoffs (id, territory_id, head_sha, mission, relevance_class, brief_json)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET relevance_class = excluded.relevance_class,
+       brief_json = excluded.brief_json, status = 'READY', created_at = datetime('now')`,
     brief.briefId,
     args.territoryId,
     territory.headSha,

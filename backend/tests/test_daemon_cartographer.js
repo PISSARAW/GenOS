@@ -55,6 +55,12 @@ async function main() {
   const db = await openDb();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-carto-'));
   writeFixture(root);
+  const territories = require('../src/services/daemon/daemonTerritoryService');
+  for (const suffix of ['a', 'b', 'c']) {
+    await territories.createTerritory(db, { id: 'territory.graph-' + suffix,
+      organizationId: 'org-test', projectId: 'project-test', workspaceId: 'workspace-test',
+      repoIdentity: 'graph-' + suffix, rootPath: root, headSha: 'a'.repeat(40) });
+  }
 
   // 2. Full scan : files + dirs + symboles + IMPORTS
   const scanned = await cartographer.scanTerritory(db, { territoryId: 'territory.graph-a', rootPath: root, scopePath: '/' });

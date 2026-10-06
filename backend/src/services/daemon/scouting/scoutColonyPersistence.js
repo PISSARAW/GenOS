@@ -2,6 +2,26 @@
 
 const { migrateDaemonScout } = require('../../../db/migrations/migrateDaemonScout');
 
+function utcTime(value) {
+  const normalized = String(value || '').replace(' ', 'T');
+  return Date.parse(/(?:Z|[+-]\d{2}:\d{2})$/.test(normalized) ? normalized : normalized + 'Z');
+}
+
+async function getColony(db, id) {
+  const row = await db.get('SELECT * FROM daemon_scout_colonies WHERE id = ?', id);
+  return row ? fromRow(row) : null;
+}
+
+async function loadCells(db) {
+  if (!db) return [];
+  await migrateDaemonScout(db);
+  const rows = await db.all('SELECT cells.* FROM daemon_scout_cells cells JOIN daemon_scout_colonies colonies ON cells.colony_id = colonies.id WHERE colonies.state != ?', 'DISSOLVED');
+  return rows.map((row) => ({ id: row.id, colonyId: row.colony_id, territoryId: row.territory_id,
+    goal: row.goal, state: row.state, headSha: row.head_sha, findings: JSON.parse(row.findings),
+    provenanceRecordIds: JSON.parse(row.provenance_record_ids), tokensUsed: row.tokens_used,
+    analysisType: row.analysis_type, completedAt: utcTime(row.completed_at) }));
+}
+
 function fromRow(row) {
   return {
     id: row.id, apiVersion: 'genos.daemon/v1', kind: 'ScoutColony',
@@ -10,9 +30,9 @@ function fromRow(row) {
     maxCells: row.max_cells, budget: row.budget, ttlMs: row.ttl_ms,
     llmRatio: row.llm_ratio, state: row.state, cellIds: JSON.parse(row.cell_ids || '[]'),
     findings: JSON.parse(row.findings || '[]'),
-    createdAt: new Date(row.created_at).getTime(),
-    expiresAt: new Date(row.expires_at).getTime(),
-    dissolvedAt: row.dissolved_at ? new Date(row.dissolved_at).getTime() : undefined,
+    createdAt: utcTime(row.created_at),
+    expiresAt: utcTime(row.expires_at),
+    dissolvedAt: row.dissolved_at ? utcTime(row.dissolved_at) : undefined,
     dissolveReason: row.dissolve_reason
   };
 }
@@ -55,7 +75,8 @@ async function sweepScoutColonies(db) {
     `UPDATE daemon_scout_colonies SET state = 'DISSOLVED', dissolved_at = datetime(?), dissolve_reason = 'ttl-expired'
      WHERE state != 'DISSOLVED' AND datetime(expires_at) <= datetime(?)`, now, now
   );
+  await db.run("UPDATE daemon_scout_cells SET state = 'EXHAUSTED', completed_at = datetime('now') WHERE state NOT IN ('COMPLETE', 'EXHAUSTED') AND colony_id IN (SELECT id FROM daemon_scout_colonies WHERE state = 'DISSOLVED')");
   return { swept: result?.changes || 0 };
 }
 
-module.exports = { persistColony, loadColonies, persistColonyUpdate, sweepScoutColonies };
+module.exports = { getColony, loadCells, persistColony, loadColonies, persistColonyUpdate, sweepScoutColonies };

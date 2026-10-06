@@ -14,6 +14,9 @@
  */
 
 const { getDatabase, closeDatabase } = require('../src/db');
+const { migrateDaemonEvents } = require('../src/db/migrations/migrateDaemonEvents');
+const cycleService = require('../src/services/daemon/residentDaemonCycleService');
+const compatibility = require('./daemon-compatibility.cjs');
 const territoryService = require('../src/services/daemon/daemonTerritoryService');
 const runtimeService = require('../src/services/daemon/residentDaemonRuntime');
 const eventBridge = require('../src/services/daemon/daemonEventBridgeService');
@@ -55,7 +58,7 @@ function createResidentRuntime(db) {
 function subscribeToSignals(bridge, territoryId) {
   const listener = (signal) => {
     const event = eventFromSignal(signal, territoryId);
-    if (event) eventBridge.ingestEvent(bridge, event).catch(() => {});
+    if (event && event.territoryId === territoryId) eventBridge.ingestEvent(bridge, event).then(() => cycleService.runCycle(bridge.cycleContext)).catch((error) => process.stderr.write(`[genos-daemon] Signal failed: ${error.message}\n`));
   };
   signalEventBus.onSignal(listener);
   return () => signalEventBus.off('signal', listener);
@@ -63,7 +66,7 @@ function subscribeToSignals(bridge, territoryId) {
 
 function startHeartbeatTimer(runtime, daemonId, intervalMs) {
   const timer = setInterval(() => {
-    runtimeService.heartbeat(runtime, { daemonId, activity: 'FOCUSED', health: 'HEALTHY' }).catch(() => {});
+    runtimeService.heartbeat(runtime, { daemonId }).catch((error) => process.stderr.write(`[genos-daemon] Heartbeat failed: ${error.message}\n`));
   }, intervalMs);
   if (timer.unref) timer.unref();
   return timer;
@@ -73,10 +76,12 @@ function startEventPollTimer(context, intervalMs) {
   let polling = false;
   let pollHealth = context.runtime.daemons.get(context.daemonId)?.health || 'HEALTHY';
   const timer = setInterval(async () => {
-    if (polling) return;
+    if (polling || context.stopping) return;
     polling = true;
     try {
-      await eventConsumer.pollDaemonEvents(context);
+      context.pollFlight = eventConsumer.pollDaemonEvents(context);
+      const delivery = await context.pollFlight;
+      if (delivery.count > 0 || Date.now() - (context.lastReconciledAt || 0) >= 60000) await cycleService.runCycle(context);
       if (await updatePollHealth(context, 'HEALTHY', pollHealth)) pollHealth = 'HEALTHY';
     } catch (error) {
       process.stderr.write(`[genos-daemon] Event poll failed: ${error.message}\n`);
@@ -85,7 +90,6 @@ function startEventPollTimer(context, intervalMs) {
       polling = false;
     }
   }, intervalMs);
-  if (timer.unref) timer.unref();
   return timer;
 }
 
@@ -115,7 +119,11 @@ async function shutdown(ctx) {
   if (ctx.unsubscribeSignals) ctx.unsubscribeSignals();
   if (ctx.heartbeatTimer) clearInterval(ctx.heartbeatTimer);
   if (ctx.eventPollTimer) clearInterval(ctx.eventPollTimer);
+  if (ctx.eventContext) ctx.eventContext.stopping = true;
+  await ctx.eventContext?.pollFlight?.catch(() => {});
   await saveWakeBudget(ctx).catch(() => {});
+  await cycleService.drain(ctx.runtime).catch(() => {});
+  await Promise.allSettled([...ctx.runtime.pending.values()]);
   await closeDatabase().catch(() => {});
   console.log(`[genos-daemon] ${ctx.daemonId} shutdown complete.`);
 }
@@ -132,6 +140,8 @@ async function restoreWakeBudget(db, bridge, territoryId) {
 }
 
 async function main() {
+  const args = process.argv.slice(2);
+  if (compatibility.isCompatibilityMode(args)) return compatibility.run(args);
   const flags = parseArgs(process.argv);
   if (!flags.territoryId || !flags.daemonId) {
     process.stderr.write('Usage: genos-daemon.cjs --territory <id> --daemon-id <id>\n');
@@ -150,17 +160,19 @@ async function main() {
     activity: 'BOOTSTRAPPING'
   });
 
-  const bridge = eventBridge.createBridge({ db, runtime, daemonId: flags.daemonId });
+  const bridge = eventBridge.createBridge({ db, runtime, daemonId: flags.daemonId, deferInvestigation: true });
   await restoreWakeBudget(db, bridge, flags.territoryId).catch(() => false);
   const eventContext = {
     db, runtime, bridge, daemonId: flags.daemonId, territoryId: flags.territoryId
   };
+  bridge.cycleContext = eventContext;
+  await cycleService.runCycle(eventContext);
   await eventConsumer.initializeCursor(eventContext);
   const unsubscribeSignals = subscribeToSignals(bridge, flags.territoryId);
   const heartbeatTimer = startHeartbeatTimer(runtime, flags.daemonId, DEFAULT_HEARTBEAT_MS);
   const eventPollTimer = startEventPollTimer(eventContext, DEFAULT_EVENT_POLL_MS);
 
-  const ctx = { db, runtime, bridge, unsubscribeSignals, heartbeatTimer, eventPollTimer, daemonId: flags.daemonId, territoryId: flags.territoryId };
+  const ctx = { db, runtime, bridge, eventContext, unsubscribeSignals, heartbeatTimer, eventPollTimer, daemonId: flags.daemonId, territoryId: flags.territoryId };
   console.log(`[genos-daemon] ${flags.daemonId} active on ${flags.territoryId}. Signals: ${SUBSCRIBED_SIGNALS.join(', ')}. Event poll: ${DEFAULT_EVENT_POLL_MS}ms.`);
 
   const stop = () => { shutdown(ctx).then(() => process.exit(0)).catch(() => process.exit(1)); };
@@ -177,5 +189,5 @@ if (require.main === module) {
 
 module.exports = {
   resolveRegisteredTerritory, createResidentRuntime, eventFromSignal,
-  subscribeToSignals, assertHostDaemonRegistered
+  subscribeToSignals, assertHostDaemonRegistered, main, shutdown, startEventPollTimer, startHeartbeatTimer
 };

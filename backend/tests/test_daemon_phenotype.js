@@ -51,6 +51,7 @@ async function main() {
     state: 'ACTIVE'
   });
 
+  await db.run("UPDATE daemon_territories SET last_indexed_at = datetime('now'), indexed_head_sha = head_sha WHERE id = ?", T);
   // 1. Pressions : 2 broken-import → contract+dependency ; HIGH_RISK 7 → security.
   await makeFinding(db, { id: 'finding.ph-broken-1', detectorId: 'broken-import' });
   await makeFinding(db, { id: 'finding.ph-broken-2', detectorId: 'broken-import' });

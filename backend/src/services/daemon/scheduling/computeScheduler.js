@@ -42,7 +42,7 @@ function llmAllowed(job, config) {
   const { pressures, budget } = job || {};
   const llm = (pressures && pressures.llmRequest) || {};
   if (actionUtility(llm, cfg) < cfg.llmUtilityThreshold) return { allowed: false, reason: 'utility-below-threshold' };
-  if ((budget && budget.wakesLeft || 0) <= 0) return { allowed: false, reason: 'wake-budget-exhausted' };
+  if ((budget?.wakesLeft ?? 0) <= 0) return { allowed: false, reason: 'wake-budget-exhausted' };
   if (pressures && pressures.deferReasoning === true) return { allowed: false, reason: 'machine-stressed-defer' };
   return { allowed: true, reason: 'utility-above-threshold' };
 }

@@ -166,7 +166,7 @@ function falseRate(stats) {
 async function listPromotions(db) {
   if (!db) return [];
   await migrateDaemonEvaluation(db);
-  return db.all('SELECT * FROM daemon_promotions ORDER BY decided_at DESC');
+  return db.all('SELECT * FROM daemon_promotions ORDER BY decided_at DESC, id DESC');
 }
 
 module.exports = {

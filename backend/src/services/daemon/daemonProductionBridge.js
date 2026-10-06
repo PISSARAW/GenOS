@@ -124,9 +124,13 @@ async function resolveTerritoryByRoot(db, rootPath) {
   }
 }
 
+function validEmission(db, event) {
+  return Boolean(db && event && event.rootPath && event.type);
+}
+
 async function emitTerritoryEvent(db, event) {
   try {
-    if (!db || !event || !event.rootPath || !event.type) return { emitted: false, reason: 'args-required' };
+    if (!validEmission(db, event)) return { emitted: false, reason: 'args-required' };
     const territoryId = await resolveTerritoryByRoot(db, event.rootPath);
     if (!territoryId) return { emitted: false, reason: 'no-territory-registered' };
     const bridge = bridgeService.createBridge({ db, policy: productionWakePolicy });

@@ -195,7 +195,7 @@ function pruneReports(dir, maxReports = 30) {
 }
 
 function saveReport(reportContent, reportsDir = null, maxReports = 30) {
-  const dir = reportsDir || path.resolve(__dirname, '../../../.genos/reports');
+  const dir = reportsDir || process.env.GENOS_REPORT_DIR || path.resolve(__dirname, '../../../.genos/reports');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   const latestFile = path.join(dir, 'proactive-audit-latest.md');

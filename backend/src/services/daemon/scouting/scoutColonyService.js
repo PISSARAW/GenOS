@@ -16,6 +16,9 @@
 
 const { getPhenotype, getAuthorityProfile } = require('../../agents/phenotypeRegistryService');
 const persistence = require('./scoutColonyPersistence');
+const cells = require('./scoutCellExecution');
+const authority = require('./scoutAuthority');
+const crypto = require('node:crypto');
 
 const COLONY_ID_PATTERN = /^colony\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const CELL_ID_PATTERN = /^scout\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -133,10 +136,11 @@ async function spawnColony(ctx) {
   if (!getPhenotype(RESIDENT_DAEMON_ID)) {
     return { spawned: false, errors: ['daemon-phenotype-unknown'] };
   }
+  if (!await authority.ownsTerritory(ctx.db, { daemonId: ctx.daemonId, territoryId: ctx.request.territoryId })) return { spawned: false, errors: ['registered-territory-owner-required'] };
   const request = normalizeRequest(ctx.request);
   const colony = createColony(ctx.daemonId, request);
-  colonyRegistry.set(colony.id, colony);
   await persistence.persistColony(ctx.db, colony);
+  colonyRegistry.set(colony.id, colony);
   return { spawned: true, colony: { ...colony } };
 }
 
@@ -158,6 +162,7 @@ function createColony(daemonId, request) {
 async function loadColonies(db) {
   const colonies = await persistence.loadColonies(db);
   for (const colony of colonies) colonyRegistry.set(colony.id, colony);
+  for (const cell of await persistence.loadCells(db)) cellRegistry.set(cell.id, cell);
   return colonies;
 }
 
@@ -190,19 +195,12 @@ async function runScoutCell(ctx) {
   if (typeof ctx.analyze !== 'function') {
     return { ran: false, errors: ['evidence-backed-analyzer-required'] };
   }
-  const result = await ctx.analyze({ territory: ctx.territory, goal: ctx.goal });
-  const validation = validateAnalysisResult(result, ctx.territory);
-  if (!validation.ok) return { ran: false, errors: validation.errors };
-  const cellState = createCellState(ctx, result);
-  cellRegistry.set(ctx.cellId, cellState);
-  cellState.state = 'COMPLETE';
-  cellState.completedAt = Date.now();
-  return {
-    ran: true, cellId: ctx.cellId, headSha: cellState.headSha,
-    provenanceRecordIds: cellState.provenanceRecordIds,
-    findings: cellState.findings, tokensUsed: cellState.tokensUsed,
-    analysisType: cellState.analysisType
-  };
+  const result = await cells.execute(ctx, { validate: validateAnalysisResult, create: createCellState });
+  if (result.ran) {
+    cellRegistry.set(ctx.cellId, result.state);
+    colonyRegistry.set(ctx.colonyId, result.colony);
+  }
+  return result;
 }
 
 function checkCellPreconditions(ctx) {
@@ -287,7 +285,7 @@ async function aggregateFindings(ctx) {
 function mergeAndDeduplicate(findings) {
   const seen = new Map();
   for (const f of findings) {
-    const key = `${f.type}:${f.scope}:${f.observation}`;
+    const key = JSON.stringify([f.type, f.scope, f.observation || f.claim]);
     if (!seen.has(key)) seen.set(key, f);
   }
   return Array.from(seen.values());
@@ -297,7 +295,7 @@ function buildTerritoryGraph(findings) {
   const nodes = new Map();
   const edges = [];
   for (const f of findings) {
-    const nodeId = `node.${f.type}.${Date.now().toString(36)}`;
+    const nodeId = `node.${crypto.createHash('sha256').update(JSON.stringify(f)).digest('hex').slice(0, 24)}`;
     nodes.set(nodeId, { id: nodeId, type: f.type, scope: f.scope });
     edges.push({ from: f.scope, to: nodeId, relation: 'observed' });
   }
@@ -328,8 +326,19 @@ async function dissolveColony(ctx) {
   return { dissolved: true, colonyId: ctx.colonyId, reason: colony.dissolveReason, cellCount: colony.cellIds.length, finalFindingCount: colony.findings.length };
 }
 
-function sweepScoutColonies(db) {
-  return persistence.sweepScoutColonies(db);
+async function sweepScoutColonies(db) {
+  const result = await persistence.sweepScoutColonies(db);
+  for (const colony of colonyRegistry.values()) {
+    if (colony.expiresAt <= Date.now()) { colony.state = 'DISSOLVED'; exhaustCells(colony); }
+  }
+  return result;
+}
+
+function exhaustCells(colony) {
+  for (const id of colony.cellIds) {
+    const cell = cellRegistry.get(id);
+    if (cell && cell.state !== 'COMPLETE') cell.state = 'EXHAUSTED';
+  }
 }
 
 function getColony(colonyId) {

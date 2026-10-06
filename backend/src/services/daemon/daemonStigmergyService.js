@@ -88,11 +88,10 @@ function toSqliteUtc() {
 async function evaporateMarkers(db, args) {
   if (!db || !args || !args.territoryId) return { evaporated: 0 };
   await migrateDaemonStigmergy(db);
-  const rate = Math.max(0, Math.min(1, Number(args.rate) || 0.1));
+  const rate = Math.max(0, Math.min(1, Number(args.rate ?? 0.1)));
   await db.run(
-    'UPDATE daemon_stigmergy_markers SET intensity = intensity * ?, updated_at = datetime(?) WHERE territory_id = ?',
+    'UPDATE daemon_stigmergy_markers SET intensity = intensity * ? WHERE territory_id = ?',
     1 - rate,
-    toSqliteUtc(),
     args.territoryId
   );
   const res = await db.run(

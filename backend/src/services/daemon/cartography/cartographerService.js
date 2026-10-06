@@ -15,16 +15,19 @@
  */
 
 const fs = require('node:fs');
+const territoryFiles = require('./territoryFiles');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const graphStore = require('./graphStore');
 const invalidation = require('./graphInvalidation');
 const jsAdapter = require('./languageAdapters/javascriptAdapter');
+const { migrateTerritoryGraph } = require('../../../db/migrations/migrateTerritoryGraph');
+const { withTransaction } = require('../../../db');
 const { migrateDaemonTerritory } = require('../../../db/migrations/migrateDaemonTerritory');
 
 const MAX_FILES = 2000;
 const MAX_FILE_BYTES = 200 * 1024;
-const SKIP_DIRS = new Set(['node_modules', '.git', '.genos', 'dist', 'build', 'target', 'coverage', '.next', 'vendor']);
+const SKIP_DIRS = territoryFiles.EXCLUDED;
 const JS_EXTENSIONS = new Set(['.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx']);
 
 function isJsFile(relPath) {
@@ -40,10 +43,11 @@ function toRelPosix(rootPath, absPath) {
 }
 
 function walkFiles(rootPath, scopePath) {
-  const base = path.join(rootPath, scopePath === '/' ? '' : scopePath);
+  if (!territoryFiles.validScope(rootPath, scopePath)) return [];
+  const base = path.resolve(rootPath, scopePath.replace(/^[/\\]+/, ''));
   const out = [];
   walkDir(base, rootPath, out);
-  return out.slice(0, MAX_FILES);
+  return out;
 }
 
 function walkDir(current, rootPath, out) {
@@ -54,9 +58,9 @@ function walkDir(current, rootPath, out) {
     return;
   }
   for (const entry of entries) {
-    if (out.length >= MAX_FILES) return;
+    if (out.length > MAX_FILES) return;
     if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) walkDir(path.join(current, entry.name), rootPath, out);
+      if (!SKIP_DIRS.has(entry.name) && !entry.name.startsWith('.genos-')) walkDir(path.join(current, entry.name), rootPath, out);
     } else if (entry.isFile()) {
       out.push(toRelPosix(rootPath, path.join(current, entry.name)));
     }
@@ -88,6 +92,7 @@ async function linkContains(db, link) {
 }
 
 async function indexFile(db, job) {
+  if (!territoryFiles.safeFile(job.rootPath, job.relPath, job.scopePath)) return { indexed: false, reason: 'outside-territory' };
   const abs = path.join(job.rootPath, job.relPath);
   const { content, reason } = readCappedFile(abs);
   if (content === null) return { indexed: false, reason };
@@ -178,7 +183,7 @@ function pickExistingFile(job, absPath) {
     return null;
   }
   const rel = toRelPosix(job.rootPath, absPath);
-  return rel.startsWith('..') ? null : rel;
+  return territoryFiles.safeFile(job.rootPath, rel, job.scopePath) ? rel : null;
 }
 
 function targetFileNodeId(job, targetRel) {
@@ -187,20 +192,33 @@ function targetFileNodeId(job, targetRel) {
 }
 
 async function scanTerritory(db, args) {
+  if (!territoryFiles.validScope(args.rootPath, args.scopePath)) return { scanned: false, reason: 'invalid-territory-root-or-scope' };
+  await migrateDaemonTerritory(db);
+  const territory = await db.get('SELECT root_path FROM daemon_territories WHERE id = ?', args.territoryId);
+  if (!territory || path.resolve(territory.root_path) !== path.resolve(args.rootPath)) return { scanned: false, reason: 'territory-root-mismatch' };
+  await migrateTerritoryGraph(db);
   const files = walkFiles(args.rootPath, args.scopePath || '/');
-  const totalFound = files.length;
+  return withTransaction(db, () => rebuildGraph(db, { ...args, files }));
+}
+
+async function rebuildGraph(db, args) {
+  await db.run('DELETE FROM territory_graph_edges WHERE territory_id = ?', args.territoryId);
+  await db.run('DELETE FROM territory_graph_nodes WHERE territory_id = ?', args.territoryId);
   let indexed = 0;
-  let truncated = false;
-  if (totalFound > MAX_FILES) truncated = true;
-  for (const relPath of files) {
-    const res = await indexFile(db, { territoryId: args.territoryId, rootPath: args.rootPath, relPath });
+  const truncated = args.files.length > MAX_FILES;
+  for (const relPath of args.files.slice(0, MAX_FILES)) {
+    const res = await indexFile(db, { territoryId: args.territoryId, rootPath: args.rootPath, scopePath: args.scopePath, relPath });
     if (res.indexed) indexed += 1;
   }
-  await markTerritoryIndexed(db, args.territoryId);
-  return { scanned: totalFound, indexed, truncated, maxFiles: MAX_FILES };
+  if (!truncated) await markTerritoryIndexed(db, args.territoryId);
+  else await db.run("UPDATE daemon_territories SET state = 'STALE', indexed_head_sha = NULL WHERE id = ? AND state != 'APOPTOTIC'", args.territoryId);
+  return { scanned: args.files.length, indexed, truncated, maxFiles: MAX_FILES };
 }
 
 async function updateFiles(db, args) {
+  const territory = await db.get('SELECT root_path, scope_path FROM daemon_territories WHERE id = ?', args.territoryId);
+  if (!territory || path.resolve(territory.root_path) !== path.resolve(args.rootPath)) throw new Error('Territory root mismatch');
+  if (!(args.files || []).every((file) => territoryFiles.safeFile(args.rootPath, file, territory.scope_path))) throw new Error('File outside territory');
   await invalidation.invalidateFiles(db, { territoryId: args.territoryId, files: args.files });
   let reindexed = 0;
   let skipped = 0;
@@ -220,7 +238,7 @@ async function updateFiles(db, args) {
 async function markTerritoryIndexed(db, territoryId) {
   await migrateDaemonTerritory(db);
   await db.run(
-    `UPDATE daemon_territories SET last_indexed_at = datetime('now'), indexed_head_sha = head_sha
+    `UPDATE daemon_territories SET last_indexed_at = datetime('now'), indexed_head_sha = head_sha, state = CASE WHEN state = 'APOPTOTIC' THEN state ELSE 'ACTIVE' END
      WHERE id = ?`,
     territoryId
   );
@@ -237,5 +255,6 @@ module.exports = {
   indexFile,
   walkFiles,
   isJsFile,
-  MAX_FILES
+  MAX_FILES,
+  markTerritoryIndexed
 };

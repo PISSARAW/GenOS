@@ -171,6 +171,7 @@ function enableAutostart(customConfig = {}) {
     };
   }
 
+  const autostartFile = path.join(startupDir, 'GenOS_Sentinel_Daemon.bat');
   try {
     if (!fs.existsSync(startupDir)) fs.mkdirSync(startupDir, { recursive: true });
 
@@ -180,9 +181,8 @@ function enableAutostart(customConfig = {}) {
       try { fs.unlinkSync(legacyFile); } catch (_) {}
     }
 
-    const autostartFile = path.join(startupDir, 'GenOS_Sentinel_Daemon.bat');
     const runnerScript = path.join(repoRoot, 'backend/bin/genos-daemon.cjs');
-    const nodeExe = process.execPath.replace(/\\/g, '\\\\');
+    const nodeExe = process.execPath;
 
     // The Startup folder must launch a durable, non-interactive process.
     // Use full path to node.exe to avoid PATH dependency.

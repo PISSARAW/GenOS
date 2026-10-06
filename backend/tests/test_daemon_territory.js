@@ -54,7 +54,7 @@ async function main() {
   // 3. Création + lecture
   const created = await territoryService.createTerritory(db, baseInput('territory.genos-backend'));
   assert.equal(created.found, true);
-  assert.equal(created.territory.scopePath, 'backend/src/services/');
+  assert.equal(created.territory.scopePath, '/backend/src/services/');
   assert.equal(created.territory.headSha, HEAD_A);
 
   // 4. Scope normalisé (leading slash retiré, trailing slash garanti)

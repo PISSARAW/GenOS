@@ -101,8 +101,11 @@ async function main() {
   assert.equal(claimed.episode.status, 'CLAIMED');
   assert.equal(claimed.episode.workerId, 'worker.repair-1');
   const closed = await repair.closeEpisode(db, { id: opened.episode.id, toStatus: 'SUCCEEDED' });
-  assert.equal(closed.closed, true);
-  assert.equal(closed.episode.status, 'SUCCEEDED');
+  assert.equal(closed.closed, false);
+  assert.deepEqual(closed.errors, ['post-repair-verification-required']);
+  const failed = await repair.closeEpisode(db, { id: opened.episode.id, workerId: 'worker.repair-1', toStatus: 'FAILED' });
+  assert.equal(failed.closed, true);
+  assert.equal(failed.episode.status, 'FAILED');
 
   // 6. Double claim sur épisode clos → refus
   const reclaim = await repair.claimEpisode(db, { id: opened.episode.id, workerId: 'worker.repair-2' });

@@ -46,7 +46,7 @@ async function main() {
   assert.ok(attention.length >= 2);
   assert.ok(Math.abs(attention[0].attention) >= Math.abs(attention[1].attention));
   for (const item of attention) {
-    assert.deepEqual(Object.keys(item).sort(), ['attention', 'kind', 'scope']);
+    assert.deepEqual(Object.keys(item).sort(), ['attention', 'isRepellent', 'kind', 'scope']);
   }
 
   // 5. Kind invalide refusé
@@ -60,7 +60,7 @@ async function main() {
   const deadEnd = stigmergy.buildBridgeSignal({ territoryId: T, scope: 'backend/db', kind: 'DEAD_END', intensity: 6 });
   assert.equal(deadEnd.type, 'epistemic_known_failure');
   assert.equal(deadEnd.isRepellent, true);
-  assert.equal(stigmergy.buildBridgeSignal({ territoryId: T, scope: 'x', kind: 'PERFORMANCE_REGRESSION' }), null);
+  assert.equal(stigmergy.buildBridgeSignal({ territoryId: T, scope: 'x', kind: 'PERFORMANCE_REGRESSION' }).type, 'epistemic_performance_regression');
 
   // 7. Forward échec-doux (bus en panne → pas de throw)
   const calls = [];

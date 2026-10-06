@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "holobionte:mission": "node bin/genos-holobionte-mission.cjs",
-    "test": "node tests/test_backend.js && npm run test:authority && npm run test:aeis && npm run test:syncytium && npm run test:axolotl && npm run test:biome",
+    "test": "node tests/test_backend.js && npm run test:authority && npm run test:aeis && npm run test:syncytium && npm run test:axolotl && npm run test:biome && npm run test:daemon",
     "test:syncytium": "node tests/run_syncytium_suite.js",
     "test:biome": "node tests/run_biome_suite.js",
     "test:axolotl": "node tests/test_axolotl_suite.js",
@@ -68,7 +68,7 @@
     "test:math-kernel": "node tests/test_math_kernel_e2e.js",
     "test:aeis": "node tests/run_aeis_suite.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
-    "daemon": "node bin/genos-daemon.cjs",
+    "daemon": "node bin/genos-daemon.cjs --daemon",
     "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
     "daemon:audit": "node bin/genos-daemon.cjs --scan-only",
     "autostart:enable": "node bin/genos-daemon.cjs --enable-autostart",
@@ -78,7 +78,9 @@
     "test:holobionte": "node tests/run_holobiont_suite.js",
     "test:metapopulation": "node tests/run_validation_suite.js metapopulation",
     "test:agow:completion": "node tests/test_agow_completion.js",
-    "test:morphogenesis": "node tests/run_morphogenesis_suite.js"
+    "test:morphogenesis": "node tests/run_morphogenesis_suite.js",
+    "daemon:resident": "node bin/genos-daemon.cjs",
+    "test:daemon": "node tests/run_daemon_suite.cjs"
   },
   "dependencies": {
     "@cedar-policy/cedar-wasm": "^4.13.0",

@@ -164,6 +164,7 @@ async function senseTerritory(db, territoryId, options) {
   const sample = await sampleTerritory(db, territoryId, options);
   return {
     territoryId,
+    sensed: Boolean(sample.territory),
     variables: deriveTerritoryVariables(sample),
     measured: [...MEASURED],
     deferred: [...DEFERRED],

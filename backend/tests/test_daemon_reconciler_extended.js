@@ -53,15 +53,14 @@ async function makeRepairableFinding(db, id) {
     createdBy: 'daemon.resident-1',
     limitations: ['probe']
   });
-  for (const toStatus of ['SUPPORTED', 'REPRODUCED', 'CAUSALLY_SUPPORTED', 'REPAIRABLE']) {
-    await findingService.transitionFinding(db, { id, toStatus });
-  }
+  // Fixture d'un épisode déjà admis ; la gate causale est testée par le runner réel.
+  await db.run("UPDATE daemon_findings SET status = 'REPAIRABLE', head_sha = (SELECT head_sha FROM daemon_territories WHERE id = ?) WHERE id = ?", T, id);
 }
 
 async function makeCoreTables(db) {
   await db.exec(`CREATE TABLE agents (id TEXT PRIMARY KEY, status TEXT, runtime_pid INTEGER,
-    runtime_started_at TEXT, workspace_id TEXT, updated_at TEXT)`);
-  await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, is_archived INTEGER DEFAULT 0, updated_at TEXT)`);
+    runtime_started_at TEXT, workspace_id TEXT, territory_id TEXT, updated_at TEXT)`);
+  await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, is_archived INTEGER DEFAULT 0, territory_id TEXT, updated_at TEXT)`);
 }
 
 async function main() {
@@ -104,6 +103,8 @@ async function main() {
     VALUES ('agent.zombie-1', 'completed', 4242, NULL, '${OLD}')`);
   await db.run(`INSERT INTO workspaces (id, is_archived, updated_at)
     VALUES ('ws.orphan-1', 0, '${OLD}')`);
+  await db.run('UPDATE agents SET territory_id = ?', T);
+  await db.run('UPDATE workspaces SET territory_id = ?', T);
   const first = await reconciler.sweep(db, { territoryId: T });
   assert.equal(first.newSuspects, 3);
   assert.equal(first.pendingSuspects, 3);

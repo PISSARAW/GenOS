@@ -1,5 +1,6 @@
 'use strict';
 
+process.env.GENOS_DB_BOOTSTRAP_SKIP = '1';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -14,6 +15,7 @@ function git(args, cwd) {
 
 async function main() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-d15-'));
+  process.env.GENOS_DB_PATH = path.join(base, 'telemetry.db');
   const repoPath = path.join(base, 'sample-repo');
   fs.mkdirSync(repoPath);
   git(['init', '-b', 'main'], repoPath);
@@ -48,6 +50,8 @@ async function main() {
   const autostart = require('../src/services/daemonAgentAutostart');
   assert.ok(/RepairEpisode/.test(worker.AUTOFIX_DEPRECATION_REASON));
 
+  await require('../src/services/telemetryObserver').flush(1000);
+  await require('../src/db').closeDatabase();
   try { git(['worktree', 'remove', '--force', session.worktree], repoPath); } catch (_) {}
   fs.rmSync(base, { recursive: true, force: true });
   assert.ok(autostart.runProactiveCycle, 'autostart entrypoint intact');

@@ -31,7 +31,7 @@ async function makeFinding(db, spec) {
   const created = await findingService.createFinding(db, {
     id: spec.id,
     territoryId: 'territory.ver-test',
-    claim: `verifier probe claim for ${spec.scope} with enough words`,
+    claim: spec.detector === 'broken-import' ? `${spec.scope} imports unresolvable relative specifier ./nope` : `verifier probe claim for ${spec.scope} with enough words`,
     scope: { type: 'file', value: spec.scope },
     headSha: HEAD_A,
     status: 'HYPOTHESIZED',

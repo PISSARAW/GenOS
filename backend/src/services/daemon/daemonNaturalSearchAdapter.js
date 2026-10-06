@@ -34,11 +34,12 @@ function observationHash(observation) {
 function buildHypothesisInput(observation) {
   const scope = observation.scope || {};
   return {
+    id: observationHash(observation),
     agentId: observation.daemonId || 'daemon.resident',
     statement: observation.claim,
     prediction: scope.value ? `observable at ${scope.type}:${scope.value}` : null,
     falsificationCondition: observation.falsification || 'contradicting observation on the same scope',
-    prior: 0.4,
+    confidence: 0.4,
     observationHash: observationHash(observation),
     territoryId: observation.territoryId,
     headSha: observation.headSha
@@ -55,7 +56,7 @@ function proposeFromObservation(ledger, observation) {
   if (!ledger || !validateObservation(observation)) return { proposed: false, reason: 'invalid-observation' };
   try {
     const input = buildHypothesisInput(observation);
-    const hypothesis = ledger.propose(input);
+    const hypothesis = ledger.hypotheses?.get(input.id) || ledger.propose(input);
     return { proposed: true, hypothesisId: hypothesis.id, status: hypothesis.status, observationHash: input.observationHash };
   } catch (error) {
     return { proposed: false, reason: error.message };

@@ -19,6 +19,8 @@ const lifecycle = require('../findings/findingLifecycleService');
 const graphStore = require('../cartography/graphStore');
 const eventLog = require('../daemonEventLog');
 const reproduction = require('./reproductionService');
+const receipts = require('./observationReceiptService');
+const extended = require('./extendedDetectorRules');
 
 async function verifyFinding(db, args) {
   if (!db || !args || !args.findingId) return { verified: false, reason: 'args-required' };
@@ -72,14 +74,12 @@ async function appendDraft(db, ctx, draft) {
     side: draft.side,
     evidenceType: draft.evidenceType,
     description: draft.description,
-    provenanceRecordId: draft.provenanceRecordId,
+    provenanceRecordId: await receipts.record(db, { findingId: ctx.finding.id,
+      territoryId: ctx.finding.territoryId, headSha: ctx.finding.headSha,
+      reference: draft.provenanceRecordId, description: draft.description,
+      metadata: draft.metadata || {}, sourceHash: ctx.territory ? receipts.sourceHash(ctx.territory, ctx.finding.scope) : null }),
     metadata: draft.metadata || {}
   });
-}
-
-async function applyDetectorRule(db, ctx) {
-  const rule = RULES[ctx.finding.detectorId] || ruleNoop;
-  return rule(db, ctx);
 }
 
 async function ruleNoop(db, ctx) {
@@ -122,9 +122,10 @@ async function ruleFlakySignal(db, ctx) {
 
 async function ruleBrokenImport(db, ctx) {
   const detectorRegistry = require('../investigation/anomalyDetectorRegistry');
+  if (!receipts.sourceHash(ctx.territory, ctx.finding.scope)) return { name: 'source-unavailable', transition: null };
   const builtin = detectorRegistry.defaultDetectors().find((d) => d.id === 'broken-import');
   const context = { territoryId: ctx.finding.territoryId, headSha: ctx.finding.headSha, rootPath: ctx.territory.rootPath, files: [ctx.finding.scope.value], events: [] };
-  const remaining = builtin.detect(context);
+  const remaining = builtin.detect(context).filter((observation) => observation.claim === ctx.finding.claim);
   if (remaining.length > 0) {
     await appendDraft(db, ctx, {
       side: 'supporting',
@@ -148,6 +149,7 @@ async function ruleBrokenImport(db, ctx) {
 
 async function ruleMissingSiblingTest(db, ctx) {
   const detectorRegistry = require('../investigation/anomalyDetectorRegistry');
+  if (!receipts.sourceHash(ctx.territory, ctx.finding.scope)) return { name: 'source-unavailable', transition: null };
   const builtin = detectorRegistry.defaultDetectors().find((d) => d.id === 'missing-sibling-test');
   const context = { territoryId: ctx.finding.territoryId, headSha: ctx.finding.headSha, rootPath: ctx.territory.rootPath, files: [ctx.finding.scope.value], events: [] };
   const remaining = builtin.detect(context);
@@ -199,7 +201,7 @@ function registerRule(detectorId, ruleFn) {
 }
 
 async function applyDetectorRule(db, ctx) {
-  const rule = customRules[ctx.finding.detectorId] || RULES[ctx.finding.detectorId] || ruleNoop;
+  const rule = customRules[ctx.finding.detectorId] || RULES[ctx.finding.detectorId] || (extended.ids.includes(ctx.finding.detectorId) ? extended.verify : ruleNoop);
   return rule(db, ctx);
 }
 

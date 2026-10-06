@@ -5,17 +5,33 @@
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
+const startupTestDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'genos-startup-'));
+process.env.GENOS_DB_PATH ||= path.join(startupTestDir, 'genos.db');
+process.env.GENOS_CONFIG_DIR ||= path.join(startupTestDir, 'config');
+process.env.GENOS_REPORT_DIR ||= path.join(startupTestDir, 'reports');
+const fixtureGithub = path.join(startupTestDir, 'repos');
+const fixtureRepo = path.join(fixtureGithub, 'GenOS-fixture');
+fs.mkdirSync(fixtureRepo, { recursive: true });
+fs.writeFileSync(path.join(fixtureRepo, 'package.json'), JSON.stringify({ name: 'daemon-fixture', version: '1.0.0' }));
+const git = (args) => require('child_process').execFileSync('git', args, { cwd: fixtureRepo, windowsHide: true, stdio: 'pipe' });
+git(['init']);
+git(['config', 'user.email', 'daemon-test@example.invalid']);
+git(['config', 'user.name', 'Daemon fixture']);
+git(['add', '.']);
+git(['commit', '-m', 'Initial test fixture']);
+process.env.GENOS_GITHUB_PROJECTS_DIR = fixtureGithub;
 const { apoptosis } = require('../bin/genos-apoptosis.cjs');
 const analyst = require('../src/services/proactiveGitHubAnalyst');
 const daemon = require('../src/services/daemonAgentAutostart');
 const controller = require('../src/controllers/daemonController');
+process.env.GENOS_DB_BOOTSTRAP_SKIP = '1';
 const { getDatabase, closeDatabase } = require('../src/db');
-const startupTestDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'genos-startup-'));
 
 async function runTests() {
   console.log('=== TEST 1: Script d\'Urgence Apoptose (genos-apoptosis.cjs) ===');
 
   const db = await getDatabase();
+  await require('../src/db/schema').initializeSchema(db);
   const testAgentId = `test_agent_apoptosis_${Date.now()}`;
 
   // Insertion d'un agent de test actif
@@ -43,7 +59,7 @@ async function runTests() {
 
   console.log('\n=== TEST 2: Analyseur GitHub Proactif (proactiveGitHubAnalyst) ===');
 
-  const repos = analyst.discoverRepositories();
+  const repos = analyst.discoverRepositories(fixtureGithub);
   assert(Array.isArray(repos), 'discoverRepositories doit retourner un tableau');
   assert(repos.length > 0, 'Au moins un dépôt Git doit être découvert (dont GenOS)');
   const currentRepo = repos.find((r) => r.path.toLowerCase().includes('genos'));
@@ -141,7 +157,7 @@ async function runTests() {
 
   // 4.3 POST /api/daemon/audit
   responseData = null;
-  await controller.runAudit({ body: { name: 'Sekou' } }, mockRes, (err) => { throw err; });
+  await controller.runAudit({ body: { githubDir: fixtureGithub, name: 'Sekou' } }, mockRes, (err) => { throw err; });
   assert.equal(responseData.success, true);
   assert(responseData.audit.totalRepos > 0);
   console.log(`  ✅ API POST /api/daemon/audit 200 OK (${responseData.audit.totalRepos} dépôts audités).`);

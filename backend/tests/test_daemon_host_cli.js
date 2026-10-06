@@ -27,6 +27,16 @@ async function openDb() {
   };
 }
 
+async function waitForTerritoryHead(db, expected) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const state = await territoryService.getTerritory(db, { id: 'territory.host-cli' });
+    if (state.territory.headSha === expected) return state;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('Territory commit was not persisted within five seconds.');
+}
+
 async function main() {
   const db = await openDb();
   assert.equal(await resolveRegisteredTerritory(db, 'territory.missing'), null);
@@ -63,6 +73,8 @@ async function main() {
   );
   assert.equal((await runtimeService.getDaemonState(runtime, { daemonId: 'daemon.host-cli' })).territoryId,
     'territory.host-cli');
+  await runtimeService.heartbeat(runtime, { daemonId: 'daemon.host-cli', activity: 'SURVEYING' });
+  await runtimeService.heartbeat(runtime, { daemonId: 'daemon.host-cli', activity: 'DORMANT' });
   const hostBridge = bridgeService.createBridge({ db, runtime, daemonId: 'daemon.host-cli' });
   const eventContext = {
     db, runtime, bridge: hostBridge, daemonId: 'daemon.host-cli', territoryId: 'territory.host-cli'
@@ -83,8 +95,7 @@ async function main() {
     signalType: 'text',
     signalData: { eventType: 'TERRITORY_COMMIT', headSha: 'b'.repeat(40) }
   });
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  const updated = await territoryService.getTerritory(db, { id: 'territory.host-cli' });
+  const updated = await waitForTerritoryHead(db, 'b'.repeat(40));
   assert.equal(updated.territory.headSha, 'b'.repeat(40));
   unsubscribe();
   await db.close();

@@ -3,9 +3,11 @@ const fs = require('fs');
 const path = require('path');
 
 const daemonSource = fs.readFileSync(path.join(__dirname, '..', 'bin', 'genos-daemon.cjs'), 'utf8');
+const compatibility = require('../bin/daemon-compatibility.cjs');
 const autostartSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'daemonAgentAutostart.js'), 'utf8');
 
-assert.match(daemonSource, /args\.includes\('--daemon'\)/, 'daemon mode must be explicit');
+assert.equal(compatibility.isCompatibilityMode(['--daemon']), true);
+assert.equal(compatibility.isCompatibilityMode(['--territory', 'territory.test']), false);
 assert.match(daemonSource, /setInterval\(/, 'daemon mode must schedule recurring cycles');
 assert.match(daemonSource, /process\.once\('SIGTERM', stop\)/, 'daemon mode must stop cleanly');
 assert.match(autostartSource, /--daemon --no-color/, 'Windows autostart must launch daemon mode');

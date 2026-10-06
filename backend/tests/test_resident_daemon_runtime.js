@@ -60,6 +60,7 @@ async function main() {
   assert.equal(reg.registered, true);
   assert.equal(reg.activity, 'BOOTSTRAPPING');
 
+  await runtime.heartbeat(rt, { daemonId: 'daemon.resident-1', activity: 'SURVEYING' });
   const beat = await runtime.heartbeat(rt, { daemonId: 'daemon.resident-1', activity: 'DORMANT', health: 'HEALTHY' });
   assert.equal(beat.updated, true);
   assert.equal(beat.activity, 'DORMANT');
@@ -84,7 +85,7 @@ async function main() {
     daemonId: 'daemon.resident-1', territoryId: 'territory.genos-backend'
   });
   assert.equal(resumed.resumed, true);
-  assert.equal(resumed.activity, 'DORMANT');
+  assert.equal(resumed.activity, 'BOOTSTRAPPING');
   assert.equal(resumed.revisions, 1);
   const afterRestart = await runtime.heartbeat(rt2, { daemonId: 'daemon.resident-1', revision: true });
   assert.equal(afterRestart.revisions, 2);

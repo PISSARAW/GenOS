@@ -20,6 +20,7 @@
 const { migrateDaemonRepair } = require('../../../db/migrations/migrateDaemonRepair');
 const findingService = require('../findings/findingService');
 const territoryService = require('../daemonTerritoryService');
+const verificationService = require('./repairVerificationService');
 
 const EPISODE_STATUSES = ['OPEN', 'CLAIMED', 'SUCCEEDED', 'FAILED', 'EXPIRED'];
 const TERMINAL_EPISODE = ['SUCCEEDED', 'FAILED', 'EXPIRED'];
@@ -73,10 +74,25 @@ function safeParseObject(text) {
   }
 }
 
+function validBudget(budget) {
+  return Number.isSafeInteger(budget.toolCalls) && budget.toolCalls > 0
+    && Number.isSafeInteger(budget.tokens) && budget.tokens > 0;
+}
+
+function validTtl(ttlMs) {
+  return Number.isSafeInteger(ttlMs) && ttlMs > 0 && ttlMs <= DEFAULT_TTL_MS;
+}
+
+function collectOptionalOpenErrors(input, errors) {
+  if (input.ttlMs !== undefined && !validTtl(input.ttlMs)) errors.push('invalid-ttl');
+  if (input.id !== undefined && !ID_PATTERN.test(input.id)) errors.push('invalid-id');
+}
+
 function collectOpenErrors(input, errors) {
   if (!FINDING_PATTERN.test(input.findingId || '')) errors.push('invalid-findingId');
   if (!CREATOR_PATTERN.test(input.createdBy || '')) errors.push('invalid-createdBy');
-  if (input.budget && typeof input.budget !== 'object') errors.push('invalid-budget');
+  if (input.budget && !validBudget(input.budget)) errors.push('invalid-budget');
+  collectOptionalOpenErrors(input, errors);
 }
 
 function validateOpenInput(input) {
@@ -110,14 +126,15 @@ async function openEpisode(db, args) {
   const validation = validateOpenInput(args);
   if (!validation.ok) return { opened: false, errors: validation.errors };
   await migrateDaemonRepair(db);
-  const existing = await db.get('SELECT * FROM daemon_repair_episodes WHERE finding_id = ? AND status NOT IN (?, ?)', args.findingId, 'EXPIRED', 'FAILED');
-  if (existing) return { opened: true, episode: rowToEpisode(existing), deduped: true };
   const finding = await findingService.getFinding(db, { id: args.findingId });
   if (!finding.found) return { opened: false, errors: ['unknown-finding'] };
   const gate = gateRepairable(finding.finding);
   if (!gate.ok) return { opened: false, errors: gate.errors };
   const territory = await territoryService.getTerritory(db, { id: finding.finding.territoryId });
   if (!territory.found) return { opened: false, errors: ['unknown-territory'] };
+  if (territory.territory.headSha !== finding.finding.headSha) return { opened: false, errors: ['repair-head-stale'] };
+  const existing = await db.get('SELECT * FROM daemon_repair_episodes WHERE finding_id = ?', args.findingId);
+  if (existing) return { opened: !['FAILED', 'EXPIRED'].includes(existing.status), episode: rowToEpisode(existing), deduped: true };
   return insertEpisode(db, { finding: finding.finding, args });
 }
 
@@ -185,45 +202,60 @@ function rowsToEpisodes(rows) {
   return (rows || []).map(rowToEpisode);
 }
 
+function claimError(stored, change) {
+  if (!stored.found) return 'not-found';
+  const episode = stored.episode;
+  if (episode.status !== 'OPEN') return 'forbidden-claim:' + episode.status;
+  if (!change.workerId) return 'workerId-required';
+  if (Date.parse(episode.expiresAt) <= Date.now()) return 'lease-expired';
+  if (change.scope && episode.scope.value !== change.scope.value) return 'scope-mismatch';
+  return null;
+}
+
 async function claimEpisode(db, change) {
   if (!db || !change || !change.id) return { claimed: false, errors: ['change-required'] };
   await migrateDaemonRepair(db);
   const episode = await getEpisode(db, { id: change.id });
-  if (!episode.found) return { claimed: false, errors: ['not-found'] };
-  if (episode.episode.status !== 'OPEN') return { claimed: false, errors: [`forbidden-claim:${episode.episode.status}`] };
-  if (!change.workerId) return { claimed: false, errors: ['workerId-required'] };
-  const lease = episode.episode.lease || {};
-  if (lease.expiresAt && new Date(lease.expiresAt).getTime() <= Date.now()) return { claimed: false, errors: ['lease-expired'] };
-  if (lease.scope && change.scope && lease.scope.value !== change.scope.value) return { claimed: false, errors: ['scope-mismatch'] };
-  await db.run(
+  const error = claimError(episode, change);
+  if (error) return { claimed: false, errors: [error] };
+  const result = await db.run(
     `UPDATE daemon_repair_episodes
      SET status = 'CLAIMED', worker_id = ?, workspace_path = ?, updated_at = datetime('now')
-     WHERE id = ?`,
+     WHERE id = ? AND status = 'OPEN'`,
     change.workerId,
     change.workspacePath || null,
     change.id
   );
+  if (!result?.changes) return { claimed: false, errors: ['claim-conflict'] };
   const stored = await getEpisode(db, { id: change.id });
   return { claimed: true, episode: stored.episode };
+}
+
+function closeError(stored, change) {
+  if (!stored.found) return 'not-found';
+  const episode = stored.episode;
+  if (episode.status !== 'CLAIMED') return 'forbidden-close:' + episode.status;
+  if (!['SUCCEEDED', 'FAILED'].includes(change.toStatus)) return 'invalid-close-status';
+  if (Date.parse(episode.expiresAt) <= Date.now()) return 'lease-expired';
+  if (change.workerId && change.workerId !== episode.workerId) return 'worker-mismatch';
+  return null;
 }
 
 async function closeEpisode(db, change) {
   if (!db || !change || !change.id) return { closed: false, errors: ['change-required'] };
   await migrateDaemonRepair(db);
   const episode = await getEpisode(db, { id: change.id });
-  if (!episode.found) return { closed: false, errors: ['not-found'] };
-  if (episode.episode.status !== 'CLAIMED') return { closed: false, errors: [`forbidden-close:${episode.episode.status}`] };
-  if (change.toStatus !== 'SUCCEEDED' && change.toStatus !== 'FAILED') {
-    return { closed: false, errors: ['invalid-close-status'] };
-  }
-  await db.run(
-    `UPDATE daemon_repair_episodes SET status = ?, updated_at = datetime('now') WHERE id = ?`,
+  const error = closeError(episode, change);
+  if (error) return { closed: false, errors: [error] };
+  if (change.toStatus === 'SUCCEEDED' && !await verificationService.verifiedReceipt(db, {
+    episode: episode.episode, verificationId: change.verification?.verificationId
+  })) return { closed: false, errors: ['post-repair-verification-required'] };
+  const result = await db.run(
+    `UPDATE daemon_repair_episodes SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = 'CLAIMED'`,
     change.toStatus,
     change.id
   );
-  if (change.toStatus === 'SUCCEEDED') {
-    await findingService.updateFinding(db, { id: episode.episode.findingId, status: 'REPAIRED' });
-  }
+  if (!result?.changes) return { closed: false, errors: ['close-conflict'] };
   const stored = await getEpisode(db, { id: change.id });
   return { closed: true, episode: stored.episode };
 }

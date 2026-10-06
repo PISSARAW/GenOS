@@ -107,6 +107,7 @@ async function measureEcologicalPressure(db, args) {
   await migrateDaemonStigmergy(db);
   const query = pressureWindow(args);
   const sensed = await interoception.senseTerritory(db, args.territoryId, query);
+  if (sensed.sensed === false) return { measured: false, reason: sensed.reason || 'unknown-territory' };
   const findings = await findingService.listFindings(db, { territoryId: args.territoryId });
   const recent = findings.filter((finding) => findingUpdatedRecently(finding, query));
   const live = recent.filter((f) => !['REFUTED', 'EXPIRED', 'STALE'].includes(f.status));
@@ -121,7 +122,7 @@ async function measureEcologicalPressure(db, args) {
 
 function pressureWindow(args) {
   return {
-    now: args.now || Date.now(),
+    now: args.now ?? Date.now(),
     windowMs: args.windowMs || DEFAULT_PRESSURE_WINDOW_MS
   };
 }

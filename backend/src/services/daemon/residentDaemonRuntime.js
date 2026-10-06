@@ -16,6 +16,7 @@
  * throw sur heartbeat manquant), autorité jamais élargie ici.
  */
 
+const { withTransaction } = require('../../db');
 const { migrateDaemonTerritory } = require('../../db/migrations/migrateDaemonTerritory');
 
 const ACTIVITIES = [
@@ -60,6 +61,7 @@ function createRuntime(db, options) {
     db: db || null,
     genomeRef: (options && options.genomeRef) || GENOME_REF,
     daemons: new Map(),
+    pending: new Map(),
     started: false
   };
 }
@@ -69,7 +71,16 @@ async function ensureRuntimeTables(runtime) {
   await migrateDaemonTerritory(runtime.db);
 }
 
-async function registerDaemon(runtime, input) {
+function registerDaemon(runtime, input) {
+  if (!runtime || !input) return Promise.resolve({ registered: false });
+  const pending = runtime.pending.get('__registration__') || Promise.resolve();
+  const register = () => registerDaemonUnlocked(runtime, input);
+  const work = pending.catch(() => {}).then(() => runtime.db ? withTransaction(runtime.db, register) : register());
+  runtime.pending.set('__registration__', work);
+  return work;
+}
+
+async function registerDaemonUnlocked(runtime, input) {
   if (!runtime || !input || !input.daemonId || !input.territoryId) return { registered: false };
   await ensureRuntimeTables(runtime);
   const prior = await findPriorState(runtime, input.daemonId);
@@ -87,7 +98,10 @@ async function registerDaemon(runtime, input) {
 }
 
 async function findPriorState(runtime, daemonId) {
-  if (!runtime.db) return null;
+  if (!runtime.db) {
+    const state = runtime.daemons.get(daemonId);
+    return state ? { territory_id: state.territoryId, health: state.health, cognitive_revisions: state.revisions, last_event_id: state.lastEventId } : null;
+  }
   return runtime.db.get('SELECT * FROM daemon_runtime_state WHERE daemon_id = ?', daemonId);
 }
 
@@ -96,16 +110,19 @@ function territoryConflict(prior, territoryId) {
 }
 
 async function findTerritoryOccupant(runtime, input) {
-  if (!runtime.db) return null;
-  try {
+  if (!runtime.db) {
+    for (const [id, state] of runtime.daemons) {
+      if (id !== input.daemonId && state.territoryId === input.territoryId) return id;
+    }
+    return null;
+  }
+  {
     const row = await runtime.db.get(
       'SELECT daemon_id FROM daemon_runtime_state WHERE territory_id = ? AND daemon_id != ? LIMIT 1',
       input.territoryId,
       input.daemonId
     );
     return (row && row.daemon_id) || null;
-  } catch (_) {
-    return null;
   }
 }
 
@@ -150,13 +167,23 @@ function restoreRuntimeState(input, prior) {
   };
 }
 
-async function heartbeat(runtime, tick) {
+function heartbeat(runtime, tick) {
+  if (!runtime || !tick || !tick.daemonId) return Promise.resolve({ updated: false });
+  const pending = runtime.pending.get(tick.daemonId) || Promise.resolve();
+  const work = pending.catch(() => {}).then(() => heartbeatUnlocked(runtime, tick));
+  runtime.pending.set(tick.daemonId, work);
+  return work;
+}
+
+async function heartbeatUnlocked(runtime, tick) {
   if (!runtime || !tick || !tick.daemonId) return { updated: false };
-  const entry = runtime.daemons.get(tick.daemonId);
-  if (!entry) return { updated: false, errors: ['unknown-daemon'] };
+  const prior = runtime.daemons.get(tick.daemonId);
+  if (!prior) return { updated: false, errors: ['unknown-daemon'] };
+  const entry = { ...prior };
   applyTickToEntry(entry, tick);
   const receipt = await persistHeartbeat(runtime, tick, entry);
   if (runtime.db && !receipt.persisted) return { updated: false, errors: ['persistence-missed'] };
+  runtime.daemons.set(tick.daemonId, entry);
   return { updated: true, activity: entry.activity, health: entry.health, revisions: entry.revisions, lastEventId: entry.lastEventId };
 }
 
@@ -208,6 +235,16 @@ async function getDaemonState(runtime, query) {
   };
 }
 
+async function listDaemonStates(runtime) {
+  if (!runtime) return [];
+  if (!runtime.db) return [...runtime.daemons].map(([daemonId, state]) => ({ daemonId, ...state }));
+  await ensureRuntimeTables(runtime);
+  const rows = await runtime.db.all('SELECT daemon_id FROM daemon_runtime_state ORDER BY daemon_id');
+  const states = [];
+  for (const row of rows) states.push(await getDaemonState(runtime, { daemonId: row.daemon_id }));
+  return states;
+}
+
 module.exports = {
   ACTIVITIES,
   HEALTHS,
@@ -217,5 +254,6 @@ module.exports = {
   createRuntime,
   registerDaemon,
   heartbeat,
-  getDaemonState
+  getDaemonState,
+  listDaemonStates
 };

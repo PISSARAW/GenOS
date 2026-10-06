@@ -288,6 +288,7 @@ Décision Natural Search : [ADR 0323 — reprise atomique](adr/0323-reprise-atom
 - [0302-benchmark-rival-autogen-local.md](adr/0302-benchmark-rival-autogen-local.md) — mesure LPT AutoGen local avec validation indépendante de l'affectation.
 - [0303-mesure-bornee-experimental-worker.md](adr/0303-mesure-bornee-experimental-worker.md) — expérience LPT exécutée avec mesure et reçu.
 - [0304-synthese-structuree-des-desaccords.md](adr/0304-synthese-structuree-des-desaccords.md) — conservation des positions contradictoires et de leurs sources.
+- [0336-cycle-resident-et-verification-des-daemons.md](adr/0336-cycle-resident-et-verification-des-daemons.md) — cycle complet, reprise durable et vérification de réparation.
 - [0305-fenetre-observation-resident-daemon.md](adr/0305-fenetre-observation-resident-daemon.md) — détection de dépassements dans une fenêtre bornée et référencée.
 - [0306-reconstruction-causes-declarees-forensic-worker.md](adr/0306-reconstruction-causes-declarees-forensic-worker.md) — reconstruction prudente des liens d'incident déclarés et référencés.
 - [0307-observation-litterale-scout-cell.md](adr/0307-observation-litterale-scout-cell.md) — détection littérale dans un corpus fourni, avec références et limites explicites.

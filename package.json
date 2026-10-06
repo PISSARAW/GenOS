@@ -20,7 +20,8 @@
     "check:adr": "python scripts/ci/check_adr_index.py",
     "check:wiring": "node scripts/ci/check_wiring_inventory.js && node backend/tests/test_lease_catalog_coherence.js",
     "docs:inventory": "node scripts/docs/generate-technical-inventory.js",
-    "docs:inventory:check": "node scripts/docs/generate-technical-inventory.js --check"
+    "docs:inventory:check": "node scripts/docs/generate-technical-inventory.js --check",
+    "test:daemon": "npm --prefix backend run test:daemon"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.13.0",

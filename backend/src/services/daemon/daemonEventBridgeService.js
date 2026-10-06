@@ -33,6 +33,7 @@ function createBridge(options) {
     db: opts.db || null,
     runtime: opts.runtime || null,
     daemonId: opts.daemonId || null,
+    deferInvestigation: opts.deferInvestigation === true,
     policy: opts.policy || wakePolicyService.createWakePolicy({})
   };
 }
@@ -55,29 +56,21 @@ async function applyCheapUpdate(bridge, event, receptor) {
   return { applied: true, kind: 'touch' };
 }
 
+async function refreshDelta(bridge, job) {
+  const { event, changedFiles } = job;
+  if (!changedFiles) return { refreshed: false, reason: 'changed-files-unavailable' };
+  if (!event.rootPath) return { refreshed: false, reason: 'root-unavailable' };
+  try {
+    const result = await cartographer.updateFiles(bridge.db, { territoryId: event.territoryId,
+      rootPath: event.rootPath, files: changedFiles });
+    return { refreshed: true, ...result };
+  } catch (_) { return { refreshed: false, reason: 'refresh-failed' }; }
+}
+
 async function applyHeadUpdate(bridge, event) {
   if (event.headSha) {
     const changedFiles = safeChangedFiles(event.payload && event.payload.changedFiles);
-    let refresh = { refreshed: false, reason: 'root-unavailable' };
-    if (changedFiles && event.rootPath && changedFiles.length) {
-      try {
-        const result = await cartographer.updateFiles(bridge.db, {
-          territoryId: event.territoryId, rootPath: event.rootPath, files: changedFiles
-        });
-        refresh = { refreshed: true, ...result };
-      } catch (_) {
-        refresh = { refreshed: false, reason: 'refresh-failed' };
-      }
-    } else if (changedFiles && changedFiles.length === 0) {
-      try {
-        const result = await cartographer.updateFiles(bridge.db, {
-          territoryId: event.territoryId, rootPath: event.rootPath, files: []
-        });
-        refresh = { refreshed: true, ...result };
-      } catch (_) { refresh = { refreshed: false, reason: 'refresh-failed' }; }
-    } else if (!changedFiles) {
-      refresh = { refreshed: false, reason: 'changed-files-unavailable' };
-    }
+    const refresh = await refreshDelta(bridge, { event, changedFiles });
     // Advance the commit cursor only after a known file delta has been
     // indexed. If indexing throws, the old head remains and the next sync
     // retries the same delta instead of treating stale graph data as current.
@@ -88,7 +81,8 @@ async function applyHeadUpdate(bridge, event) {
     const findings = await findingService.markStaleOnHead(bridge.db, {
       territoryId: event.territoryId, headSha: event.headSha
     });
-    return { applied: true, kind: 'head', ...res, findings, refresh };
+    if (res.updated && refresh.refreshed) await cartographer.markTerritoryIndexed(bridge.db, event.territoryId);
+    return { applied: res.updated === true, kind: 'head', ...res, findings, refresh };
   }
   await territoryService.touchObserved(bridge.db, { id: event.territoryId });
   return { applied: true, kind: 'touch' };
@@ -122,7 +116,7 @@ async function maybeWakeRuntime(bridge, event, receptor) {
     wakePolicyService.releaseWake(bridge.policy, ask);
     throw error;
   }
-  if (!heartbeat.updated) {
+  if (!heartbeat.updated || heartbeat.activity !== receptor.wakeActivity) {
     wakePolicyService.releaseWake(bridge.policy, ask);
     return { woke: false, reason: 'daemon-runtime-update-failed' };
   }
@@ -146,12 +140,13 @@ async function processPersistedEvent(bridge, event) {
   const investigation = await investigateAfterWake(bridge, {
     territoryId: event.territory_id,
     type: event.event_type
-  }, receptor, wake);
+  }, { receptor, wake });
   return { processed: true, woke: wake.woke, reason: wake.reason, investigation };
 }
 
-async function investigateAfterWake(bridge, event, receptor, wake) {
-  if (!wake.woke || receptor.priority !== 'high' || !bridge.db) return null;
+async function investigateAfterWake(bridge, event, outcome) {
+  const { receptor, wake } = outcome;
+  if (bridge.deferInvestigation || !wake.woke || receptor.priority !== 'high' || !bridge.db) return null;
   try {
     const result = await territoryService.getTerritory(bridge.db, { id: event.territoryId });
     if (!result.found) return { investigated: false, reason: 'unknown-territory' };
@@ -179,31 +174,27 @@ function parseEventPayload(raw) {
  * @param {object} bridge créé par createBridge
  * @param {object} event { type, territoryId, headSha?, now? }
  */
+async function compileHandoff(bridge, event, receptor) {
+  if (!receptor.handoffRequested || !bridge.db) return { handoffSignal: null, handoffError: null };
+  try {
+    const result = await handoffCompiler.compileBrief(bridge.db, { territoryId: event.territoryId,
+      mission: event.payload && event.payload.mission });
+    if (result.compiled && result.signal) return { handoffSignal: result.signal, handoffError: null };
+    return { handoffSignal: null, handoffError: result.reason || 'brief-not-compiled' };
+  } catch (error) { return { handoffSignal: null, handoffError: error.message || 'handoff-failed' }; }
+}
+
 async function ingestEvent(bridge, event) {
   const validation = validateBridgeEvent(event);
+  const owner = bridge.runtime?.daemons.get(bridge.daemonId);
+  if (owner && owner.territoryId !== event?.territoryId) return { ingested: false, errors: ['daemon-territory-mismatch'] };
   if (!validation.ok) return { ingested: false, errors: validation.errors };
   const receptor = receptorRegistry.getReceptorFor(event.type);
   const cheap = await applyCheapUpdate(bridge, event, receptor);
-  let handoffSignal = null;
-  let handoffError = null;
-  if (receptor.handoffRequested && bridge.db) {
-    try {
-      const result = await handoffCompiler.compileBrief(bridge.db, {
-        territoryId: event.territoryId,
-        mission: event.payload && event.payload.mission
-      });
-      if (result.compiled && result.signal) {
-        handoffSignal = result.signal;
-      } else {
-        handoffError = result.reason || 'brief-not-compiled';
-      }
-    } catch (error) {
-      handoffError = (error && error.message) || 'handoff-failed';
-    }
-  }
+  const { handoffSignal, handoffError } = await compileHandoff(bridge, event, receptor);
   const wake = await maybeWakeRuntime(bridge, event, receptor);
   const logged = await logIngestedEvent(bridge, event, { receptor, wake });
-  const investigation = await investigateAfterWake(bridge, event, receptor, wake);
+  const investigation = await investigateAfterWake(bridge, event, { receptor, wake });
   return {
     ingested: true,
     eventType: event.type,

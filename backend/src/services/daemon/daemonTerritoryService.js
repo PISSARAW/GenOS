@@ -105,6 +105,8 @@ function rowToTerritory(row) {
     parentTerritoryId: row.parent_territory_id || null,
     createdAt: row.created_at,
     lastObservedAt: row.last_observed_at,
+    lastIndexedAt: row.last_indexed_at || null,
+    indexedHeadSha: row.indexed_head_sha || null,
     state: row.state,
     metadata: safeParse(row.metadata_json)
   };
