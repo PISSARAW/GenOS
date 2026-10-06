@@ -37,7 +37,8 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 
 - [biomimetisme/](biomimetisme/README.md) — foraging web, spécialisations cellulaires, super-sens animaux, primitives de controle animal.
 - [nosologie/](nosologie/README.md) — pathologies du runtime, vue d'ensemble et 9 familles.
-- [natural-creative-ecology.md](natural-creative-ecology.md) — créativité émergente multi-échelle : imagination, exploration, plasticité, évolution, culture.
+- [natural-creative-ecology.md](natural-creative-ecology.md) — cadre de créativité multi-échelle et boucle causale exécutable sur trois familles numériques bornées.
+- [plan-implementation-natural-creative-ecology.md](plan-implementation-natural-creative-ecology.md) — lots livrés, preuves disponibles et critères scientifiques encore ouverts.
 - [signal-plane-zero-text.md](signal-plane-zero-text.md) — transport zero-text inter-agents : récepteurs, coalescing, EventBus, plasticité.
 - [natural-search-control-plane.md](natural-search-control-plane.md) — plan de contrôle de recherche naturelle : pression, progrès causal, ledger d'hypothèses, contrôleur.
 

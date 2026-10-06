@@ -10,6 +10,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [mcp-transport-config.md](mcp-transport-config.md) — transport MCP binaire, config profil, vérification.
 - [modeles-providers-routage.md](modeles-providers-routage.md) — providers, modèles, routage codex/hermes/local.
 - [mcp-solar-pro-hermes-nous-setup.md](mcp-solar-pro-hermes-nous-setup.md) — Solar Pro, MCP, Hermes, provider Nous : config, modèles, usage.
+- [experiences-nce.md](experiences-nce.md) — cycles numériques natifs, transfert culturel, vecteurs phénotypiques et ablations exécutées.
 - [persistance-et-donnees.md](persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [plugins-topologies-morphogenese.md](plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique : contrats, matrice, SQLite, fail-closed.
 - [resultats-formels-messagepack.md](resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.

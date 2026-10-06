@@ -2,9 +2,10 @@
 
 - **Statut** : Boucle causale exécutable et persistée pour trois familles de transformations numériques. `test_nce_native_cycle.js` exécute des processus réels, vérifie les snapshots POET, transmet une procédure entre agents et la réutilise après réouverture SQLite. `test_nce_executed_ablation.js` exécute six bras sur deux graines et conserve les résultats nuls. Les anciennes simulations restent explicitement des prototypes. La créativité générale et les tâches ouvertes arbitraires ne sont pas démontrées.
 - **Portée** : `backend/src/services/{curiosityService,curiosityExplorerService,curiosityBridgeService,nceIntegrationService,ncePromptService,nceEngines,representationalMutationEngine,exaptationEngine,playService,phenotypicDevelopmentService,phenotypeVectorService,culturalPhenotypeBridgeService,environmentGeneratorService,culturalTransmissionService,culturalSelectionService,culturalLearningService,poetExecutionEngine,poetBridgeService}.js`, `backend/bin/{genos-orchestrate.cjs,topologyHandlers.cjs,orchestratorActions.cjs,orchestratorMissionHelpers.cjs}`, `crates/genos-orchestrator/src/{drives,observer,planner}.rs`, `backend/tests/{nce_contract_tests,test_nce_workflows_e2e,test_play_narrative_service}.js`, `docs/08-philosophie.md`.
-- **Dernière revue** : 2026-10-05.
-- **Runtime et commandes** : [Expériences NCE exécutables](../03-reference/experiences-nce.md), ADR 0323.
-- **Dérivé** : [Mathematical Organism](mathematical-organism.md) — implémentation NCE pour la recherche mathématique.
+- **Dernière revue** : 2026-10-06.
+- **Runtime et commandes** : [Expériences NCE exécutables](../03-reference/experiences-nce.md), [ADR 0323](../adr/0323-nce-procedures-et-preuves-executables.md).
+- **Chemin natif** : `nceCausalCycleService`, `nceProcedureExecutor`, `nceEnvironmentFactory`, `creativePhenotypeVectorService`, `nceAblationService` et CLI `backend/bin/genos-nce-experiment.cjs`.
+- **Dérivé** : [Mathematical Organism](mathematical-organism.md) — prototype distinct de recherche mathématique inspiré de NCE.
 - **Plan de fermeture causale** : [Plan d'implémentation](plan-implementation-natural-creative-ecology.md) — lots, preuves attendues et limites des ablations.
 
 ---
@@ -491,22 +492,28 @@ CulturalLayer
 
 ## 12. Tests d'ablation
 
-### Protocole
+### Protocole exécuté
 
-```
-BASELINE → +curiosity → +exploration → +plasticity → +selfOrg → +evolution → +culture → FULL NCE
-```
+`nceAblationService` compare six bras : `baseline`, `withoutPlay`,
+`withoutCulture`, `withoutPhenotype`, `withoutPoet` et `full`. Chaque graine
+partage les mêmes partitions entre sujets indépendants ; l'ordre des bras est
+déterministe. Les reçus incluent vérifications, échecs et coûts. Moyenne et erreur
+standard portent sur les paires baseline/full effectivement mesurées.
 
-### Plan factoriel
+La régression à deux graines fournit un artefact correct. Elle obtient un gain
+avec culture et phénotype, y compris sans Play ou sans recherche POET. Elle
+atteste le câblage de cette tâche contrôlée ; elle ne démontre pas l'utilité de
+chaque mécanisme. `nceAblationTests.js` reste une simulation distincte.
+Voir les [commandes et limites](../03-reference/experiences-nce.md#ablations-exécutées).
 
-Avec 6 couches, un plan factoriel complet donne `2⁶ = 64` configurations.
+### Plan factoriel de recherche — non livré
 
-Permet de découvrir :
-- Culture seule inutile
-- Culture × Evolution très bénéfique
-- Interactions non-linéaires
+Les six couches conceptuelles permettraient `2⁶ = 64` configurations, après
+définition des interventions, du budget et de la puissance statistique. Ce plan
+pourrait étudier les interactions culture/évolution et les effets non linéaires ;
+aucun de ces effets n'est établi par les six bras actuels.
 
-### Métriques
+### Métriques envisagées pour ce plan
 
 | Métrique | Description |
 |----------|-------------|
@@ -532,7 +539,7 @@ Permet de découvrir :
 
 ### Ce que NCE n'est PAS
 
-NCE ne reproduit pas les architectures des systèmes ci-dessus. Il fournit le **substrat naturel commun** qui rend leurs comportements possibles — et les étend.
+Ces correspondances situent les hypothèses de conception de NCE. Les mécanismes et leurs preuves locales sont décrits dans cette fiche ; aucune équivalence de capacités ni supériorité sur ces systèmes n'est démontrée.
 
 ### Créativité comme émergence
 
@@ -565,6 +572,8 @@ const nceEnhancements = await nceIntegration.enhanceMissionWithNCE(mission, db);
 | `prompt` | Enrichi avec représentations, exaptations, curiosités |
 | `current_task` | Mis à jour avec enhancedPrompt |
 | `metadata_json` | Stocke nceMetadata |
+| `mission.nceExperiment` | Déclenche le cycle natif optionnel ; résultat dans `causalCycle`, erreurs dans `errors.causalCycle` |
+| `agent_phenotype_states` | Persiste procédure, répertoire, tradition, vecteurs et reçus avec contrôle de révision |
 | `strategyContract` | Non modifié (preuve requise) |
 | `tool leases` | Non modifiés (nécessite phénotype) |
 | `workers` | Non modifiés (nécessite topologie) |
@@ -583,7 +592,7 @@ Contrôle quels moteurs NCE sont actifs par topologie :
 
 Appliqué dans `ncePromptService.js:enhancePromptWithNCE()` : si `signals.X === false`, le moteur X est omis du prompt final.
 
-### Vérifications ciblées (2026-10-04)
+### Vérifications ciblées — état revu le 2026-10-06
 
 Une mission peut transmettre `requiredTools`, `requiredCapabilities`,
 `genomeId`, `initialPhenotype` et `culturalTransfer.artifact` sous forme camelCase
@@ -596,7 +605,10 @@ environnement généré seul ne compte comme exécution POET.
 
 La commande reproductible est `npm --prefix backend run test:nce`. Elle enchaîne
 les contrats, les parcours E2E Play et POET, le contrôle culturel durable, les
-preuves POET négatives et le statut des ablations.
+preuves POET négatives, procédures natives et ablations exécutées.
+`npm --prefix backend run test:nce:cli` couvre séparément la CLI et les contraintes
+de la base migrée. Le [bilan de livraison](../03-reference/experiences-nce.md#état-de-validation-de-la-livraison)
+précise les commandes passées et les validations globales encore indisponibles.
 
 - **Play** : le test traverse `runPlaySession`, capture et exécute un snapshot réel,
   vérifie l'isolation du workspace et la persistance SQLite de l'observation. Une
@@ -615,13 +627,18 @@ preuves POET négatives et le statut des ablations.
   planning change le score planning de 0 à 1, tandis que la compétence analysis reste à 0.
   La mesure soutient donc un effet limité à la capacité décrite par l'artefact; aucun
   transfert général n'est démontré.
-- **POET** : `enhanceMissionWithNCE` appelle la boucle d'exécution réelle sur un
+- **POET historique** : `enhanceMissionWithNCE` appelle la boucle d'exécution sur un
   split fourni; la fixture substitue le runtime d'agent mais utilise le stockage,
   les snapshots et la commande de vérification réels. Le vérificateur et ses
   fichiers protégés sont obligatoires; les cas artefact inchangé, échec terminal,
   altération du vérificateur, split identique et chemin sortant sont refusés.
-- **Ablations** : `nce_ablation_tests.js` demeure explicitement un prototype; aucun
-  résultat d'ablation ni conclusion scientifique n'est revendiqué.
+- **Cycle natif** : `test_nce_native_cycle.js` utilise un processus Node réel,
+  une procédure choisie sur training puis figée avant held-out, et un contrôle
+  par la procédure initiale. Le reçu lie le gain vérifié, la procédure transmise
+  et les vecteurs avant/après. L'acquisition est réutilisée après réouverture SQLite.
+- **Ablations** : `test_nce_executed_ablation.js` exécute six bras sur deux graines.
+  Le prototype `nceAblationTests.js` reste identifié comme simulation. Les
+  comparaisons observées sont limitées aux tâches contrôlées du protocole.
 
 ---
 
@@ -636,7 +653,7 @@ preuves POET négatives et le statut des ablations.
 1. **Pas de créativité générale** : les moteurs optimisent des métriques locales. `genos.phenotype.v3` représente la structure. Le vecteur distinct `genos.creative-phenotype.v1` implémente [N,Q,S,D,T,E,O,H] avec masque et références de preuve. Le cycle alimente N/Q/S/D/T/E selon les définitions locales documentées ; O/H restent inconnus sans mesures dédiées.
 2. **Pas de conscience** : la « simulation mentale » est un calcul de faisabilité sur des structures JSON.
 3. **Open-endedness bornée** : `nceEnvironmentFactory` génère automatiquement des tâches numériques avec vérificateurs protégés. Le cycle relie POET à l'acquisition d'une procédure et au changement de phénotype. Le catalogue fermé ne démontre aucune génération de questions ouvertes arbitraires.
-4. **Sélection culturelle partielle** : `culturalSelectionService` conserve un score scalaire pour les traits. Le chemin distinct de migration en métapopulation sélectionne des propagules versionnées par fronts de Pareto sur nouveauté et fitness de la source. `measureCulturalTransfer` établit un ordre benchmark-avant → intégration → benchmark-après et refuse les scores non finis. `test_nce_culture_tasks_durable.js` exécute trois tests d'intégration déterministes (workflow NCE bout en bout, causalité du transfert culturel, aller-retour de persistance phénotypique), puis les répète après réouverture SQLite : 0/3 → 3/3 → 3/3. Les empreintes SHA-256 du code exécuté et des sorties, ainsi que le vecteur phénotypique avant/après, sont conservés dans le rapport. Cette preuve mesure la réussite durable de workflows NCE contrôlés; elle ne démontre pas encore qu'un agent accomplit de façon autonome des tâches utilisateur ou acquiert une compétence générale.
+4. **Sélection culturelle partielle** : `culturalSelectionService` conserve un score scalaire pour les traits. Le chemin distinct de migration en métapopulation sélectionne des propagules versionnées par fronts de Pareto sur nouveauté et fitness de la source. `measureCulturalTransfer` établit un ordre benchmark-avant → intégration → benchmark-après et refuse les scores non finis. `test_nce_culture_tasks_durable.js` exécute trois tests d'intégration déterministes (workflow NCE bout en bout, causalité du transfert culturel, aller-retour de persistance phénotypique), puis les répète après réouverture SQLite : 0/3 → 3/3 → 3/3. Les empreintes SHA-256 du code exécuté et des sorties, ainsi que le vecteur phénotypique avant/après, sont conservés dans le rapport. Cette preuve historique porte sur des workflows contrôlés. Le nouveau cycle natif mesure en plus l'acquisition et la réutilisation d'une procédure numérique sur held-out ; aucune compétence générale sur des tâches utilisateur arbitraires n'est démontrée.
 5. **Coût computationnel** : l'évaluation de 7 moteurs augmente la latence.
 6. **Tests d'ablation** : le prototype reste une simulation. Le nouveau protocole exécute les six bras sur des tâches réelles bornées et conserve sorties, coûts et contrôles négatifs. Deux graines dans la régression ne constituent pas une validation statistique générale des moteurs.
 7. **Portée des mécanismes** : le runtime natif conserve les lignées culturelles et les procédures acquises. Les représentations riches et les tâches ouvertes générales restent conceptuelles. Les 25 mécanismes incluent des invariants et des analogies ; leur liste n'est pas une certification scientifique à 100 %.
@@ -653,7 +670,8 @@ Chaque mécanisme biologique doit correspondre à **un invariant computationnel 
 | Recombinaison | `score(A,B) = distance × compatibilité × potentiel` |
 | Exaptation | `proposal_score = (alignment + novelty + feasibility) / 3` |
 | Plasticité | `branches.length`, `avgStrength`, `history.length` |
-| Culture | `efficiency = fidelity × quality × (1 + skillGap)` |
+| Culture historique | `efficiency = fidelity × quality × (1 + skillGap)` : estimation heuristique, `measured: false` |
+| Culture native | Delta held-out vérifié, absence de régression training, transition de phénotype liée au reçu |
 | Environnement | `overallScore = capabilityScore × difficultyFactor` |
 
 ---
@@ -694,3 +712,6 @@ Chaque mécanisme biologique doit correspondre à **un invariant computationnel 
 | `d3e9ee5b` | Points 5-6 : POET attend l'agent via télémétrie, snapshot contract corrigé, pont NCE→Rust (`curiosity_hint`), `tissue_scheduler` |
 | `2c62dcab` | Points 9-10 : doc ablation correcte, `nceMetadata` persisté dans `metadata_json` |
 | `af9afe6b` | Vecteur phénotypique `genos.phenotype.v1`, flux Play/POET testés, Δ culturel sur tâche fixe et vérification des scores finis; ablations laissées prototypes |
+| `02d72271` | Mesures causales durcies, rollback et persistance phénotypique protégés |
+| `8e822d9b` | Procédures natives vérifiées, apprentissage culturel persistant et vecteur créatif |
+| `71709af7` | Ablations exécutées, CLI et contraintes SQLite de production ; empreinte de replay liée au délai et au vérificateur |
