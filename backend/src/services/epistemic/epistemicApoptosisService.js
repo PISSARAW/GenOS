@@ -24,7 +24,8 @@ const SEUILS = Object.freeze({
 
 function dissonanceFrom(signals) {
   if (!Array.isArray(signals)) return 0;
-  return signals.reduce((sum, s) => sum + (typeof s !== 'number' ? 1 : s), 0);
+  return signals.reduce((sum, s) => sum + (typeof s !== 'number' ? 1 :
+    Number.isFinite(s) ? Math.max(0, s) : 0), 0);
 }
 
 function niveauCorpsent(cumul) {
@@ -37,7 +38,7 @@ function niveauCorpsent(cumul) {
 
 function accumulate(agent, newSignals) {
   const d = dissonanceFrom(newSignals);
-  const prev = agent.epistemicDissonance || 0;
+  const prev = Number(agent.epistemicDissonance ?? agent.epistemic_dissonance) || 0;
   const after = prev + d;
   return {
     ...agent,

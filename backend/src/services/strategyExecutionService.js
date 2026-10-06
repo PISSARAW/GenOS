@@ -146,6 +146,9 @@ async function evaluateAeisPromotion(db, request) {
     report: promotion.report, domain: promotion.contract?.problem_profile?.domain || 'general',
     evaluation: aeisEvaluation, immuneMemory, runId: id, scopeId,
   });
+  await require('./epistemic/epistemicAuthorityState').observeEvaluation(db, {
+    evaluation: aeisEvaluation, agentId: promotion.agentId, runId: id, scopeId,
+  });
   return aeisEvaluation;
 }
 
@@ -155,6 +158,7 @@ async function approveRun(db, id, options) {
   if (!row) throw new Error(`Execution run ${id} not found`);
   if (row.status !== 'awaiting_approval') throw new Error(`Execution run ${id} is not awaiting approval`);
   const promotion = await promotionGate.loadPromotionContext(db, row, settings);
+  await require('./epistemic/epistemicAuthorityState').assertAuthority(db, promotion.agentId);
   if (!promotion.report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
   const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
   await promotionGate.assertPromotionContainment(db, promotion, settings);
@@ -169,6 +173,7 @@ async function approveRun(db, id, options) {
   if (promotionResult.controlRegulation?.arbitration?.status === 'blocked') {
     throw new Error(`Execution run ${id} AEIS homeostatic rearbitration blocked promotion.`);
   }
+  await require('./epistemic/epistemicAuthorityState').assertAuthority(db, promotion.agentId);
   await db.run('UPDATE strategy_execution_runs SET metrics_json = ? WHERE id = ?', JSON.stringify({
     ...events.safeJson(row.metrics_json, {}),
     aeisPressure: promotionResult.controlRegulation?.homeostasis?.pressure ?? null,

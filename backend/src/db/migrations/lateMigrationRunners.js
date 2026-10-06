@@ -17,4 +17,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('113-garage-fabric', 'Persist adaptive worker garage queue and leases', async (db) => {
     await require('./migrateGarageFabric').migrateGarageFabric(db);
   }),
+  createMigrationRunner('114-aeis-authority', 'Persist AEIS dissonance and deduplicated authority feedback', async (db) => {
+    await require('./migrateAeisAuthority').migrateAeisAuthority(db);
+  }),
 ];
