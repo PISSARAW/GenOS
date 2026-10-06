@@ -185,6 +185,10 @@ résultat du consommateur avec et sans contenu. Les tests
 logiciels testés : `globalWorkspaceService` n'étant appelé par aucun chemin de
 production, elle ne valide pas la disponibilité globale effective.
 
+Ce constat de câblage était valable lors de cet addendum. Le chemin
+`planMission → attachGlobalWorkspace` est présent dans la révision examinée
+le 2026-10-04 ; voir la [reprise documentée](reprise-validation-conscience-2026-10-04.md).
+
 La capture autobiographique reconnaît maintenant les événements de réussite
 et d'échec des actions d'orchestration. La copie d'efférence peut corréler
 l'événement à l'ID de l'action et sa décharge reste à usage unique. Cela ne
