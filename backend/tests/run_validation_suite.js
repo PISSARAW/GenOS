@@ -98,7 +98,10 @@ const suites = {
     ['Metapopulation regional persistence', 'test_metapopulation_regional_brain.js'],
     ['A-Team variant contracts', 'test_ateam_variant_acceptance.js'],
     ['Biocenose argumentation round', 'test_argumentation_runtime.js'],
-    ['Trinity variant contract fixtures', 'test_trinity_executable_harness.js']
+    ['Trinity variant contract fixtures', 'test_trinity_executable_harness.js'],
+    ['Trinity qualification contract', 'test_trinity_qualification_contract.js'],
+    ['Trinity L1 provenance', 'test_trinity_l1_provenance.js'],
+    ['Trinity L1 dispatch integration', 'test_trinity_l1_integration.js']
   ],
   grpc: [
     ['gRPC integration', 'test_grpc_services.js']

@@ -8,6 +8,7 @@ const { normalizeRelativePath, resolveContainedPath } = require('./pathSafety');
 const { hashWorkspace } = require('./trinitySnapshotService');
 const experiments = require('./trinityExperimentStore');
 const trinity = require('./trinityService');
+const qualification = require('./trinityQualificationDispatch');
 
 async function prepare(db, input) {
   const { context, parent, missionId, mission, members, selection } = input;
@@ -17,10 +18,15 @@ async function prepare(db, input) {
   const directory = resolveContainedPath(context.repoRoot, `.genos-agent-worlds/trinity-snapshots/${segment}`, 'Trinity snapshot');
   const budget = budgetPolicy(context.request, members.length, selection);
   const prior = await db.get('SELECT design_json, budget_policy_json, mission_snapshot_hash, status FROM trinity_experiments WHERE id = ?', missionId);
-  if (prior) return replayPreparation(prior, { mission, selection, budget, directory });
+  qualification.contractForRequest(context.request, mission);
+  if (prior) {
+    qualification.assertReplay(JSON.parse(prior.design_json), input);
+    return replayPreparation(prior, { mission, selection, budget, directory });
+  }
   const snapshot = await require('./trinitySealedSnapshot').seal({ repoRoot: context.repoRoot, source, missionId });
   const snapshotHash = snapshot.hash;
-  const design = dispatchDesign(input, directory);
+  const provenance = await qualification.seal({ ...input, snapshotHash, snapshotRoot: directory });
+  const design = { ...dispatchDesign(input, directory), ...provenance };
   await experiments.create(db, { id: missionId, missionId, domain: trinity.analyzeMission(mission).domain,
     snapshotHash, design, budgetPolicy: budget,
     isolationPolicy: { sharedMemory: 'read-only-snapshot', communication: 'forbidden', provenanceTracking: 'full' } });

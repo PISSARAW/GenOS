@@ -27,13 +27,17 @@ async function phase(context, stage, execute) {
   const existing = await db.get('SELECT input_hash, value_json FROM trinity_runtime_journal WHERE mission_id = ? AND stage = ?', missionId, stage);
   if (existing) {
     if (existing.input_hash !== hash) throw failure('TRINITY_REPLAY_CONFIGURATION_CHANGED');
-    return decode(existing.value_json);
+    const value = decode(existing.value_json);
+    await require('./trinityJournalTrace').replay(context, stage, JSON.parse(existing.value_json));
+    return value;
   }
-  const value = await execute();
-  const json = JSON.stringify({ value, digest: digest(value) });
-  if (Buffer.byteLength(json) > 16 * 1024 * 1024) throw failure('TRINITY_JOURNAL_BOUND_EXCEEDED');
-  await db.run('INSERT INTO trinity_runtime_journal (mission_id, stage, input_hash, value_json) VALUES (?, ?, ?, ?)', missionId, stage, hash, json);
-  return value;
+  return require('./trinityJournalTrace').execute(context, stage, async trace => {
+    const value = await execute();
+    const json = JSON.stringify({ value, digest: digest(value), trace, traceDigest: digest(trace) });
+    if (Buffer.byteLength(json) > 16 * 1024 * 1024) throw failure('TRINITY_JOURNAL_BOUND_EXCEEDED');
+    await db.run('INSERT INTO trinity_runtime_journal (mission_id, stage, input_hash, value_json) VALUES (?, ?, ?, ?)', missionId, stage, hash, json);
+    return value;
+  });
 }
 function decode(json) {
   const record = JSON.parse(json);

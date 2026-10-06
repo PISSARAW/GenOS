@@ -59,7 +59,11 @@ function analyzeMission(mission) {
 function compose(mission, options = {}) {
   const goal = String(mission || '').trim();
   if (!goal) throw Object.assign(new Error('Trinity mission is required.'), { code: 'TRINITY_MISSION_REQUIRED' });
+  const qualificationPrompt = require('./trinityQualificationDispatch').instruction({ trinityContract: options.qualificationContract }, mission);
   const analysis = analyzeMission(goal);
+  if (qualificationPrompt) {
+    analysis.members = analysis.members.map(member => ({ ...member, hypothesis: member.hypothesis + '\n' + qualificationPrompt }));
+  }
   const variantSelection = trinityVariants.selectForMission(goal, options);
   const design = variantSelection.experimentalDesign;
   const members = differentiation.differentiate(analysis.members, { goal, domain: analysis.domain, design });

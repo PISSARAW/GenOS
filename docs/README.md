@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Lot 1 Trinity : contrats et traces](06-qualite-preuves/lot-1-trinity-contrats-et-traces.md) — entrées scellées, registre historique et vérifications de L1.
+
 Ce dossier centralise la documentation technique, fonctionnelle et de gouvernance de GenOS.
 L'objectif est d'offrir une lecture homogène du système, du concept jusqu'à l'exploitation,
 sans jamais présenter une métaphore biologique comme une fonctionnalité prouvée.

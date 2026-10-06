@@ -16,7 +16,8 @@ function trinityOptionsFrom(context) {
     jury: context.request.trinity_jury || context.request.trinityJury,
     experimentalDesign: context.request.experimental_design || context.request.experimentalDesign,
     adaptiveBudgetConfig: context.request.trinity_adaptive_budget || context.request.trinityAdaptiveBudget,
-    qdConfig: context.request.trinity_qd || context.request.trinityQD
+    qdConfig: context.request.trinity_qd || context.request.trinityQD,
+    qualificationContract: context.request.trinityContract
   };
 }
 
@@ -39,7 +40,7 @@ function composeMembers(mission, options, assignments) {
   const composed = trinityService.compose(mission, {
     variantId: options.variant, experimentalDesign: options.experimentalDesign, trinityJury: options.jury,
     adaptiveBudgetConfig: options.adaptiveBudgetConfig,
-    qdConfig: options.qdConfig,
+    qdConfig: options.qdConfig, qualificationContract: options.qualificationContract,
     availableAdapters: trinityAdapters.dispatchAdapterNames(), trinityModels: models
   });
   const members = topologyWorkerKinds.applyTopologyWorkerKinds('trinity', assignModels(composed, models), assignments);
@@ -53,12 +54,11 @@ async function handle(input) {
   const mission = missionFrom(context);
   context.nceEnrichments = await buildNCEEnrichments(context, 'trinity');
   const assignments = workerAssignmentsFrom(context);
-  const { variant, jury, experimentalDesign, adaptiveBudgetConfig, qdConfig } = trinityOptionsFrom(context);
-  const members = composeMembers(mission, { variant, jury, experimentalDesign, adaptiveBudgetConfig, qdConfig }, assignments);
+  const options = trinityOptionsFrom(context);
+  const { jury } = options;
   const missionId = context.request.trinityMissionId
     || `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
-  const requiredSlots = await requiredWorldSlots({ db, missionId, members, qdConfig });
-  if (garage.available < requiredSlots) throw Object.assign(new Error('Trinity design requires ' + requiredSlots + ' free worker slots'), { code: 'WORKER_GARAGE_FULL' });
+  const members = await prepareMembers({ db, context, missionId, mission, options, assignments, garage });
   const release = await require('../src/services/trinityExecutionJournal').acquire(db, missionId + ':dispatch');
   try {
   const variantSelection = withDispatchRuntime(members, context.request);
@@ -76,6 +76,17 @@ async function handle(input) {
     capacity: workerGarage.getDynamicCapacity(context.orchestratorId), worlds: accepted, supervision
   } }));
   } finally { await release(); }
+}
+
+function prepareMembers(input) {
+  const { db, missionId, mission, options, assignments, garage } = input;
+  return require('../src/services/trinityJournalTrace').execute({ db, missionId,
+    configuration: { mission, options, assignments } }, 'prelaunch', async () => {
+    const members = composeMembers(mission, options, assignments);
+    const requiredSlots = await requiredWorldSlots({ db, missionId, members, qdConfig: options.qdConfig });
+    if (garage.available < requiredSlots) throw Object.assign(new Error('Trinity design requires ' + requiredSlots + ' free worker slots'), { code: 'WORKER_GARAGE_FULL' });
+    return members;
+  });
 }
 
 async function requiredWorldSlots(context) {

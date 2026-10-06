@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [lot-1-trinity-contrats-et-traces.md](lot-1-trinity-contrats-et-traces.md) — registre des 48 missions, contrats versionnés, traces et limites de qualification du lot L1.
+
 - [validation-nosologie.md](validation-nosologie.md) — résultats ciblés du 2026-10-06 et limites des vérifications globales.
 
 - [audit-affirmations-operationnelles.md](audit-affirmations-operationnelles.md) — vérification des contrats publiés, chemins, comportements et limites de couverture.
