@@ -55,6 +55,7 @@ async function main() {
       runId: 'refuted-run', assemblyId: checked.persistedAssemblyId,
       resultId: checked.assembly.results[0].resultId, test: report.claims[0].test,
     }), false, 'repeated evidence must not count twice');
+    await verifyFullRetention(db);
     console.log('AEIS immune memory is persisted, scoped and rejects unproven outcomes.');
   } finally {
     await closeDatabase();
@@ -63,6 +64,21 @@ async function main() {
       if (fs.existsSync(file)) fs.unlinkSync(file);
     }
   }
+}
+
+async function verifyFullRetention(db) {
+  await db.run('WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<1000) '
+    + 'INSERT INTO epistemic_immune_memory_scoped '
+    + '(scope_id,signature,pattern_json,domain,affinity,failures,successes,pending,created_at,updated_at) '
+    + "SELECT 'full-scope',CAST(x AS TEXT),'{}','general',1,0,1,0,'2000-01-01','2000-01-01' FROM n");
+  const entries = await repository.load(db, 'full-scope');
+  const antigen = { claim: 'new exposure survives a full memory' };
+  memory.recordOutcome(entries, antigen, { outcome: 'pending' });
+  await repository.save(db, entries, 'full-scope');
+  const rows = await repository.load(db, 'full-scope');
+  assert.equal(rows.length, 1000);
+  assert.ok(rows.some((row) => row.signature === memory.signatureFrom(antigen)),
+    'retention must keep the current exposure until its signed outcome is resolved');
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
