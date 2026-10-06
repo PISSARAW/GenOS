@@ -1302,5 +1302,8 @@ valident ni une quête GAIA de bout en bout ni des performances de benchmark.
 Voir [Foraging web, fovéation et navigation active](../01-concepts/biomimetisme/web-foraging.md)
 pour les limites et les étapes nécessaires à une boucle perception-action.
 
+Le dispatch explicite et l’adaptateur autonome utilisent le même exécuteur canonique. Les producteurs indépendants avancent selon leurs propres dépendances ; la réussite exige preuves, critères globaux et accusés versionnés. Le runner détaché observe aussi les équipes sans étage différé.
 
+Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).
 
+## Parcours de clôture A-Team

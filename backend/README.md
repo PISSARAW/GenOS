@@ -408,3 +408,9 @@ sequenceDiagram
     
     WSClient->>WSClient: Mise à jour dynamique de l'UI / Graphique
 ```
+
+## A-Team execution and evidence boundary
+
+Explicit dispatch and autonomous orchestration share `src/services/aTeam/execution/teamExecutionService.js`. Canonical workers are assigned before graph persistence. A runner lease and a persisted deadline protect resumption. Worker completion alone cannot complete the TeamRun: evidence, global criteria and exact versioned consumer receipts are required. The detached runner also monitors teams without deferred stages.
+
+The eleven variant evaluators remain separate from generic dispatch; multiteam planning does not launch verified sub-runs. Coverage measures mission contributions, not general expertise. See [the A-Team runtime contract](../docs/03-reference/runtime-a-team.md).

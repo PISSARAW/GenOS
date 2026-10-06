@@ -144,6 +144,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 
 - [trinity.md](02-orchestration/topologies/trinity.md) — orchestration comparée, baseline à trois mondes et variants expérimentaux à fan-out contrôlé.
 - [a-team.md](02-orchestration/topologies/a-team.md) — équipe multidisciplinaire d'agents.
+- [runtime-a-team.md](03-reference/runtime-a-team.md) — clôture canonique, preuves, accusés et reprise A-Team ; conformité globale partielle.
 - [biome.md](02-orchestration/topologies/biome.md) — orchestration par environnement et populations.
 - [biocenose.md](02-orchestration/topologies/biocenose.md) — orchestration communautaire.
 - [holobionte.md](02-orchestration/topologies/holobionte.md) — orchestration hôte-symbionte.

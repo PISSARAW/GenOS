@@ -480,5 +480,8 @@ sequenceDiagram
 
 - [AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — surface REST `/api/genomes` (list/get/import), opérations `POST /api/genomes/:id/operations/:op`, innovations (`/api/genomes/innovations`) et politique de signature (`/api/genomes/policy`).
 
+Les statuts worker, graphe et TeamRun ont des portées distinctes. Le rapport doit fournir les évaluations et références requises ; le consumer accuse la version et le digest exacts reçus. Voir [Référence du runtime A-Team](runtime-a-team.md).
 
+L'acceptation du dispatch et la présence de `teamRunId`, `workGraphId` ou d'un PID de runner ne sont pas une réponse de réussite métier. La clôture canonique retourne `{ teamRunId, status, accepted, coverage, results }` à ses adaptateurs ; seul `accepted: true` avec `COMPLETED` décrit l'intégration acceptée. Ces champs décrivent le résultat du service interne, sans ajouter une route REST ou RPC.
 
+## Résultats A-Team : dispatch et clôture

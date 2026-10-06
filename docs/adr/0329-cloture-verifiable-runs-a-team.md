@@ -27,3 +27,9 @@ La clôture attend tous les workers ou le délai, applique le gate d’intégrat
 ## Limites
 
 Ce changement ne transforme pas l’évaluateur isolé des onze variantes en exécuteur de sous-runs. Un événement de planification multiteam reste un plan. La décomposition lexicale d’une mission sans WorkGraph ne devient pas une extraction sémantique vérifiée. Les modèles et expériences conceptuels de la fiche A-Team conservent leurs limites documentées.
+
+## Contrat détaillé et alternatives
+
+La [référence runtime](../03-reference/runtime-a-team.md) distingue les états worker/nœud/run, rapports, accusés, échéance persistante et portée réelle de RCA/VEC. Le debrief est appelé après succès ou refus finalisé ; une interruption avant finalisation ne garantit pas son enregistrement.
+
+Alternatives rejetées : clôturer dès lancement ou statut `completed` d'un worker ; attendre toute une couche avant progression indépendante ; accepter un accusé sans version/digest exacts ; réinitialiser le délai lors d'une reprise. Ces choix masqueraient une preuve manquante ou modifieraient le contrat. Évaluateurs de variantes et adaptateurs de réparation restent distincts.

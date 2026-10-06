@@ -12,6 +12,7 @@ ni modifier leur contrat de mission.
 
 - [trinity.md](trinity.md) — orchestration comparée, baseline à trois mondes et variants expérimentaux à fan-out contrôlé.
 - [a-team.md](a-team.md) — équipe multidisciplinaire d'agents autonomes.
+- [Contrat runtime A-Team](../../03-reference/runtime-a-team.md) — états, rapports, clôture et limites des variantes.
 - [biome.md](biome.md) — orchestration par environnement et populations spécialisées.
 - [biocenose.md](biocenose.md) — orchestration communautaire (coopération, compétition, validation).
 - [holobionte.md](holobionte.md) — orchestration intégrée hôte-symbionte.

@@ -1376,3 +1376,16 @@ preuves altérées, budgets, rollback, messages et composition. La suite est
 incluse dans les tests par défaut du backend. Sa réussite porte sur ce
 contrat natif et ne certifie pas une mission LLM arbitraire ni les autres
 suites du dépôt. Voir la [référence Axolotl](../03-reference/axolotl-regeneration.md).
+
+## Validation ciblée A-Team : clôture et variantes
+
+Depuis la racine, exécuter séparément :
+
+```bash
+node backend/tests/test_ateam_runtime.js
+node backend/tests/test_ateam_dispatch_runtime.js
+node backend/tests/test_ateam_execution_e2e.js
+node backend/tests/test_ateam_variant_acceptance.js
+```
+
+Le test d'exécution couvre SQLite, processus Node, refus de preuves/schémas, critères globaux, progression indépendante, accusé périmé, bail obsolète et délai conservé à la reprise. Les 44 cas de variantes évaluent des contrats locaux, sans qualification de workers LLM ni de sous-runs multiteam génériques. Ces commandes ne remplacent pas `npm test`, `cargo test --workspace` et le gate de qualité. Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).
