@@ -16,6 +16,7 @@ async function execute(ecology, command, options = {}) {
 }
 
 const operationHandlers = {
+  adapt: (ecology, command) => require('../runtime/phenotypeAdaptationService').adapt(ecology, command),
   create: (ecology, command) => createPopulation(ecology, command.population),
   spawn: (ecology, command) => spawnPopulation(ecology, command.populationId, command.individuals),
   advance: (ecology, command) => advancePopulation(ecology, command.populationId, command.measurements),
@@ -40,6 +41,7 @@ function consumeResources(ecology, command) {
   const population = findPopulation(ecology, command.populationId);
   const niche = findNiche(ecology, population.nicheId);
   const result = resourceSteward.consume(population, niche, command.resources);
+  require('../runtime/budgetAccounting').charge(ecology, result.consumed.tokens);
   replacePopulation(ecology, result.population);
   const transactions = ecology.ecologicalState.resourceTransactions || [];
   ecology.ecologicalState.resourceTransactions = [...transactions, {

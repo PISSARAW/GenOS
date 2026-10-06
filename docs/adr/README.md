@@ -398,6 +398,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0333a](0333-biocenose-cycle-persistant-et-finalisation.md) | Biocénose : cycle persistant et finalisation vérifiable | Accepté | 2026-10-06 | Biocénose, délibération, reprise, preuves |
 | [0333b](0333-boucle-shev-et-reconciliation-durable.md) | Boucle SHEV et réconciliation durable | Voir le fichier | -- | -- |
 | [0333c](0333-cloture-runtime-agow.md) | Clôture des contrats runtime AGOW | Accepté | 2026-10-06 | AGOW, budgets, persistance, preuve |
+| [0334](0334-biome-boucle-ecologique-transactionnelle.md) | Biome : boucle écologique transactionnelle et exécution vérifiée | Accepté | 2026-10-06 | Biome, écologie, ressources, persistance et preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -47,13 +47,14 @@ function assessNiche(niche, capabilities) {
     opportunityScore: Number(niche.opportunityScore) || 0,
     occupancy: Number(niche.occupancy) || 0,
     carryingCapacity: Number(niche.carryingCapacity) || 0,
+    capacityKnown: niche.capacityKnown === true,
     fit: assessCompatibility({ requiredCapabilities: niche.requiredCapabilities, capabilities })
   };
 }
 
 function isAvailable(assessment) {
   const active = ['open', 'colonized'].includes(assessment.status);
-  const hasCapacity = assessment.carryingCapacity === 0 || assessment.occupancy < assessment.carryingCapacity;
+  const hasCapacity = !assessment.capacityKnown || assessment.occupancy < assessment.carryingCapacity;
   return active && hasCapacity && assessment.fit.compatible;
 }
 

@@ -14,7 +14,7 @@ function advance(state, input) {
   if (selected) allocations.push({ provider: selected.id, location: selected.location, score: selected.score, demand });
   return { state: { ...state, computeAllocations: allocations.slice(-100) }, decision: result,
     action: { type: selected ? (migration ? 'COMPUTE_LOCALITY_MIGRATION' : 'COMPUTE_PROVIDER_SELECTED') : 'COMPUTE_CAPACITY_INSUFFICIENT',
-      status: 'applied', provider: selected?.id || null } };
+      status: selected ? 'requested' : 'abstained', provider: selected?.id || null } };
 }
 
 function providerList(input) { return Array.isArray(input.providers) ? input.providers.slice(0, 100) : []; }

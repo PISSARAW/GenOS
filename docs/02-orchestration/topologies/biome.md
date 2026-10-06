@@ -1,8 +1,8 @@
 # Biome — Écologie Adaptative de GenOS
 
-- **Statut** : Partiel
-- **Portée** : onze contrôleurs de variant accessibles sur session; la boucle autonome complète et les connecteurs fournisseurs restent hors portée.
-- **Dernière revue** : 2026-10-03
+- **Statut** : Runtime écologique assemblé ; validation comparative à produire
+- **Portée** : onze variantes dans une boucle bornée, transactionnelle et persistante, avec adaptateurs autorisés, comptabilité réelle et gates de preuve.
+- **Dernière revue** : 2026-10-06
 
 > *Biome est le protocole de GenOS pour maintenir et faire évoluer un ensemble de populations spécialisées dans un environnement dynamique, sous ressources limitées, lorsque la structure optimale du travail n'est pas connue à l'avance et doit émerger de l'interaction entre niches, populations, ressources et résultats.*
 
@@ -48,25 +48,25 @@ Le dépôt possède déjà des briques réelles et opérationnelles :
 | Curiosité par progrès | ✓ | `curiosityService.js` |
 | Organismes procéduraux | ✓ | `proceduralOrganismService.js` |
 
-La matière première est là. Les contrôleurs des onze variants sont maintenant branchés aux sessions, mais le moteur écologique autonome complet n'est pas encore assemblé.
+Les briques sont assemblées par le [Runtime Biome](../../03-reference/runtime-biome.md).
+Les services de contrôle restent distincts des populations recrutées et des opérations exécutées.
 
-### 1.3 Le problème central : pas encore de boucle écologique autonome
+### 1.3 Boucle écologique persistante
 
-Un opérateur ou ordonnanceur doit encore invoquer explicitement `allocate()`, `forage()`, `health()` ou `advance_variant`. L'opération variante observe, décide et applique des changements bornés, mais ne relance pas seule un nouveau tour.
+Chaque cycle versionne les observations, découvre les niches, recrute des individus
+compatibles, intègre les résultats mesurés, applique la variante et les interactions,
+réalloue les ressources, régule la capacité et mesure les effets.
+Ces mutations partagent une transaction et une révision ; un échec annule le cycle.
 
-L'implémentation ultime doit **être la boucle écologique** :
+`BiomeRuntime.run` relance les tours avec une entrée fixe ou une fonction asynchrone
+d'observation. Les opérations MCP `cycle` et `run` continuent la même session.
+La reprise SQLite conserve les limites, le budget consommé, les preuves et l'historique.
+Les populations initiales sont vides ; les quatre rôles constituent le plan de contrôle.
 
-$$\text{observe} \rightarrow \text{estimate state} \rightarrow \text{decide} \rightarrow \text{transform} \rightarrow \text{reallocate} \rightarrow \text{observe effect} \rightarrow \circlearrowleft$$
-
-C'est le **chantier central** de Biome.
-
-Le runtime expérimental `BiomeRuntime` fournit désormais une boucle multi-ticks explicite
-pour les variants : chaque tick observe l'état, choisit une action via le variant actif,
-applique les changements dans la session puis évalue les conditions d'arrêt. Les populations
-et niches initiales sont dérivées des rôles de session et persistées dans l'état écologique.
-Cette boucle s'arrête sur ses limites de budget/itérations; elle ne constitue pas encore un
-ordonnanceur autonome permanent ni une preuve de réussite de la mission. La sortie reste
-soumise aux gates habituelles de preuves.
+L'exécution passe par un adaptateur configuré, une autorisation stricte, une réservation
+persistée et un vérificateur indépendant lié à l'empreinte de sortie. Ni l'inactivité,
+ni l'entropie, ni un succès de transport ne certifient l'objectif global.
+La conception est détaillée dans [ADR 0334](../../adr/0334-biome-boucle-ecologique-transactionnelle.md).
 
 ### 1.4 Les 4 rôles ne doivent pas être 4 workers
 
@@ -593,8 +593,8 @@ Les plus importants pour la V1 ultime : **Exploration, Resource, Resilience, Per
 
 ### 4.1.1 Effets runtime livrés et frontières
 
-`genos_topology_session` accepte `operation: "advance_variant"` et `variant_input`. Chaque
-cycle est journalisé, incrémente le tick écologique et laisse son état dans le snapshot.
+`genos_topology_session` accepte `operation: "advance_variant"` et `variant_input`. Les opérations `cycle` et `run` assemblent aussi
+la boucle complète. Chaque mutation est journalisée et versionnée dans le snapshot.
 
 | Variant | Effet appliqué par le cycle | Frontière actuelle |
 | --- | --- | --- |

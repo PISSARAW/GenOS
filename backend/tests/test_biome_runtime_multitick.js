@@ -61,6 +61,7 @@ async function main() {
   const budgetResults = await budgetRuntime.run({
     populations: [{ id: 'pop-1', demand: 10000, priority: 1 }],
     totalBudget: 100,
+    tokenCost: 10,
     allocate: true
   }, 20);
 

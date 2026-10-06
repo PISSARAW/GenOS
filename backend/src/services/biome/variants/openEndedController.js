@@ -76,7 +76,7 @@ function recordGeneration(state, ecology, promoted) {
 
 function generationResult(options) {
   const { state, context, candidates, promoted, history } = options;
-  const archive = context.archive.map((item) => ({ ...item, ...mergeOutcome(context.outcomes, item) }));
+  const archive = context.archive.map((item) => ({ ...item, ...context.outcomes.find(outcome => outcome.id === item.id) }));
   return { state: { ...state, environmentArchive: archive, generationHistory: history },
     decision: { pressureApplied: context.pressure, sterileStreak: context.sterileStreak, candidates: candidates.length,
       promoted, rejected: candidates.length - promoted.length, threshold: context.threshold,

@@ -12,7 +12,7 @@ assert.equal(composition.organization, 'energy_huddle');
 assert.deepEqual(composition.capabilityContract.required, ['EPISODIC_MEMORY', 'FOVEAL_PERCEPTION', 'QUORUM', 'RESILIENCE_RECOVERY', 'STIGMERGY', 'SWARM_METRICS', 'TOKEN_ECONOMY', 'WEB_FORAGING']);
 assert.deepEqual(composition.mechanisms, ['resource_allocation', 'optimal_foraging', 'quorum_sensing']);
 assert.ok(composition.members.every((member) => member.runtimeContext.sessionId === composition.sessionId));
-assert.ok(composition.members.every((member) => member.runtimeContext.biomeId && member.runtimeContext.populationId && member.runtimeContext.nicheId));
+assert.ok(composition.members.every((member) => member.runtimeContext.biomeId && member.runtimeContext.plane === member.role));
 assert.ok(composition.members.every((member) => member.mission.includes('BIOME VARIANT resource')));
 assert.deepEqual(Object.keys(composition.ecology), [
   'biomeId', 'missionId', 'scope', 'environment', 'environmentConstraints', 'opportunityMap', 'niches', 'populations', 'resourcePool',
@@ -60,7 +60,7 @@ const qualityCandidate = await biome.advanceSessionVariant(diversityBiome.sessio
 assert.equal(qualityCandidate.decision.accepted, true);
 const multiScaleBiome = await biome.composeBiome('Report ecosystem effects at multiple scales and multi-scale systems.');
   const scales = await biome.assessSessionHealth(multiScaleBiome.sessionId, ['scout']);
-  assert.equal(scales.ecologicalScales.population.count, 4);
+  assert.equal(scales.ecologicalScales.population.count, 0);
 const computeBiome = await biome.composeBiome('Allocate GPU compute across hardware resources.');
 const computeAllocation = await biome.allocateSessionResources(computeBiome.sessionId, [
   { id: 'gpu-ready', demand: 1, priority: 1, computeAvailability: 1 },

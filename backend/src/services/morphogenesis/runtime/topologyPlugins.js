@@ -50,52 +50,7 @@ async function runBiome(args, context) {
 }
 
 async function executeBiome(args, context) {
-  const popRuntime = require('../../biome/populations/populationRuntimeService');
-  const input = inputFrom(context, args);
-  const workerResults = collectMissionWorkers(args, input);
-  const individuals = individualsFrom(args, input);
-  const ecology = buildBiomeEcology(individuals);
-  const actions = [];
-  actions.push(await popRuntime.execute(ecology, { type: 'create', population: { populationId: 'pop-mission', nicheId: 'niche-mission' } }));
-  if (individuals.length > 0) {
-    actions.push(await popRuntime.execute(ecology, { type: 'spawn', populationId: 'pop-mission', individuals }));
-  }
-  actions.push(await popRuntime.execute(ecology, { type: 'advance', populationId: 'pop-mission', measurements: measurementsFrom(input) }));
-  return { ecology: summarizeEcology(ecology), actions: actions.map((result) => result && result.action), workerResults };
-}
-
-function individualsFrom(args, input) {
-  const fromWorkers = (args.workers || []).map(workerToIndividual).filter(Boolean);
-  const fromInput = Array.isArray(input.individuals) ? input.individuals : [];
-  return [...fromWorkers, ...fromInput];
-}
-
-function workerToIndividual(worker) {
-  if (!worker || typeof worker !== 'object') return null;
-  const id = worker.workerId || worker.agentId || worker.id || worker.individualId;
-  if (!id) return null;
-  return { individualId: String(id), capabilities: worker.capabilities || [] };
-}
-
-function buildBiomeEcology(individuals) {
-  return {
-    niches: [{ nicheId: 'niche-mission', status: 'open', carryingCapacity: Math.max(1, individuals.length), requiredCapabilities: [] }],
-    populations: [],
-    ecologicalState: {}
-  };
-}
-
-function measurementsFrom(input) {
-  return input.measurements || { productivity: 1 };
-}
-
-function summarizeEcology(ecology) {
-  const populations = ecology.populations || [];
-  return {
-    niches: (ecology.niches || []).length,
-    populations: populations.length,
-    individuals: populations.reduce((sum, pop) => sum + (pop.individuals || []).length, 0)
-  };
+  return require('../../biome/biomeTopologyMission').execute(args, context);
 }
 
 function installHolobionte(runtime) {

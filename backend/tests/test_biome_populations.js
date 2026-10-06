@@ -74,7 +74,9 @@ async function run() {
   const frozen = evolution.freezeIndividual(migrated.target, 'worker-a', { trehalose: 0.9 });
   assert.equal(frozen.population.individuals.length, 0);
   assert.equal(frozen.population.status, 'dormant');
-  const thawed = evolution.thawIndividual(frozen.population, 'worker-a');
+  const thawed = evolution.thawIndividual(frozen.population, 'worker-a', {
+    authorizeSporeRead: context => context.operation === 'spore:thaw' && context.vaultId === migrated.target.populationId
+  });
   assert.equal(thawed.individual.individualId, 'worker-a');
   assert.equal(thawed.population.status, 'growing');
 

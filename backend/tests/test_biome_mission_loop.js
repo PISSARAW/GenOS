@@ -25,6 +25,20 @@ async function main() {
   const bad = await runBiomeMission(session.sessionId, { ...base, budget: -1 }, {});
   assert.equal(bad.status, 'failed');
 
+  const revision = (await biome.sessionSnapshot(session.sessionId)).revision;
+  for (const cost of [-1, NaN, Infinity]) {
+    assert.equal((await runBiomeMission(session.sessionId, { ...base, proposal: { cost } }, {})).status, 'failed');
+  }
+  assert.equal((await biome.sessionSnapshot(session.sessionId)).revision, revision);
+  const asyncDenied = await runBiomeMission(session.sessionId, { ...base, adapter: 'real' }, { authorize: async () => false });
+  assert.equal(asyncDenied.status, 'abstained');
+  assert.equal((await biome.sessionSnapshot(session.sessionId)).revision, revision);
+  const truthyDenied = await runBiomeMission(session.sessionId, { ...base, adapter: 'real' }, { authorize: () => ({ approved: true }) });
+  assert.equal(truthyDenied.status, 'abstained');
+  assert.equal((await biome.sessionSnapshot(session.sessionId)).revision, revision);
+  await runBiomeMission(session.sessionId, { ...base, proposal: { cost: 10000 } }, {});
+  assert.equal((await biome.sessionSnapshot(session.sessionId)).revision, revision);
+
   console.log('Biome mission loop checks passed.');
 }
 

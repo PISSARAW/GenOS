@@ -9,6 +9,7 @@ function migrate({ ecology, populationId, individualId, targetPatch, migrationCo
   const debit = resourceSteward.consume(population, niche, migrationCost || {});
   const individuals = individualId ? moveIndividual(debit.population.individuals, individualId, targetPatch)
     : debit.population.individuals.map((item) => ({ ...item, patchId: targetPatch }));
+  require('../runtime/budgetAccounting').charge(ecology, debit.consumed.tokens);
   const updated = { ...debit.population, individuals, patchId: individualId ? debit.population.patchId : targetPatch };
   ecology.populations = ecology.populations.map((item) => item.populationId === populationId ? updated : item);
   recordMigration(ecology, { populationId, individualId, targetPatch, cost: debit.consumed });

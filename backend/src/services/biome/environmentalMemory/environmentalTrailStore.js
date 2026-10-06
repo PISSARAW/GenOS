@@ -1,6 +1,6 @@
 'use strict';
 
-const biofilm = require('../../biofilmMatrixService');
+function biofilm() { return require('../../biofilmMatrixService'); }
 const trailDecayService = require('./trailDecayService');
 
 function deposit(matrix, input = {}) {
@@ -17,11 +17,11 @@ function deposit(matrix, input = {}) {
     createdAt: Number(input.createdAt) || Date.now(), ttl: Math.max(1, Number(input.ttl) || 86400000),
     decayRate: clamp01(input.decayRate, 0.5)
   };
-  return biofilm.deposit(matrix, trail);
+  return biofilm().deposit(matrix, trail);
 }
 
 function read(matrix, location, now = Date.now()) {
-  return biofilm.read(matrix, { kind: 'environmental_trail' })
+  return biofilm().read(matrix, { kind: 'environmental_trail' })
     .filter((trail) => !location || trail.location === location)
     .map((trail) => trailDecayService.decay(trail, now)).filter((trail) => !trail.expired);
 }

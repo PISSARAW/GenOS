@@ -69,8 +69,8 @@ function eligiblePopulations({ populations, niches, key, signals }) {
     const score = ecologicalValue.scorePopulation({ population, niche, overrides: signals[population.populationId] || {} });
     return { populationId: population.populationId,
       minimum: Math.max(0, (profile.minimum || 0) - current),
-      preferred: Math.max(current, profile.preferred || 0),
-      maximum: Math.max(current, profile.maximum ?? Number.MAX_SAFE_INTEGER),
+      preferred: Math.max(0, (profile.preferred || 0) - current),
+      maximum: Math.max(0, (profile.maximum ?? Number.MAX_SAFE_INTEGER) - current),
       value: score.value,
       signals: score.signals,
       eligible: Boolean(niche && ['open', 'colonized', 'saturated', 'declining'].includes(niche.status)) };

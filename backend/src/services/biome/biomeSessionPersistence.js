@@ -1,6 +1,7 @@
 'use strict';
 
 const biofilmMatrix = require('../biofilmMatrixService');
+const { withTransaction } = require('../../db');
 const biomeSessionStore = require('./biomeSessionStore');
 const biomeStore = require('./biomeStore');
 
@@ -26,15 +27,17 @@ function rehydrate(record) {
   matrix.version = Number(state.matrix?.version) || 0;
   for (const [key, entry] of state.matrix?.entries || []) matrix.entries.set(key, entry);
   matrix.history = Array.isArray(state.matrix?.history) ? state.matrix.history : [];
-  return { sessionId: record.id, biomeId: state.biomeId || record.id, revision: record.revision, ...state,
+  return { sessionId: record.id, biomeId: state.biomeId || record.id, ...state, revision: record.revision,
     ecology: state.ecology || biomeStore.createBiomeState({ biomeId: state.biomeId || record.id, missionId: record.id }), matrix };
 }
 
 async function persist(session, db) {
   if (!db) return;
-  const saved = await biomeSessionStore.create(db, { id: session.sessionId, state: serialize(session) });
-  session.revision = saved.revision;
-  if (session.persistenceKey) await persistEnvironment(session, db);
+  await withTransaction(db, async transaction => {
+    const saved = await biomeSessionStore.create(transaction, { id: session.sessionId, state: serialize(session) });
+    session.revision = saved.revision;
+    if (session.persistenceKey) await persistEnvironment(session, transaction);
+  });
 }
 
 async function persistEnvironment(session, db) {
@@ -55,6 +58,12 @@ function restorePersistentEnvironment(session, stored) {
   session.ecology = { ...previous.ecology, biomeId: session.biomeId, missionId: session.sessionId, scope: 'persistent' };
   session.ecology.environment = { ...session.ecology.environment,
     unresolvedProblems: [...new Set([...(session.ecology.environment.unresolvedProblems || []), session.mission])] };
+  const priorRun = session.ecology.ecologicalState.runtime;
+  if (priorRun) {
+    session.ecology.ecologicalState.previousMissionRuns = [...(session.ecology.ecologicalState.previousMissionRuns || []), priorRun].slice(-20);
+    session.ecology.ecologicalState.runtime = { tick: 0, budgetUsed: 0, history: [],
+      resultIds: priorRun.resultIds || [], executions: priorRun.executions || {} };
+  }
   session.variantState = { ...(previous.variantState || {}), ...session.variantState };
   restoreMatrix(session.matrix, previous.matrix);
 }

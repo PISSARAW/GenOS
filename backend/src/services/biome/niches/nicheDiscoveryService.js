@@ -44,7 +44,10 @@ function isSupportedFailure(cluster) {
 
 function mergeCandidate(candidate, existing) {
   if (!existing) return candidate;
-  return createNiche({ ...candidate, ...existing, evidenceRefs: [...new Set([...candidate.evidenceRefs, ...existing.evidenceRefs])] });
+  return createNiche({ ...existing, descriptor: candidate.descriptor,
+    requiredCapabilities: candidate.requiredCapabilities, resourceProfile: candidate.resourceProfile,
+    opportunityScore: candidate.opportunityScore, justifiedUncertainty: candidate.justifiedUncertainty,
+    evidenceRefs: [...new Set([...candidate.evidenceRefs, ...existing.evidenceRefs])] });
 }
 
 function stableId(value) {

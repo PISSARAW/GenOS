@@ -13,25 +13,15 @@ function assessNicheCapacity({ niche, populations, measurements = {} }) {
   const marginalProductivity = Number.isFinite(measurements.marginalProductivity)
     ? measurements.marginalProductivity : meanProductivity(populations, niche.nicheId);
   const efficiency = Math.max(0, 1 + marginalProductivity) / (1 + coordinationCost + contention);
-  const localCapacity = base === null ? null : Math.floor(base * efficiency);
+  const estimate = base === null ? null : Math.floor(base * efficiency);
+  const localCapacity = nicheCapacity === null ? estimate : Math.min(nicheCapacity, estimate);
   return { nicheId: niche.nicheId, localCapacity, resourceCapacity, nicheCapacity,
     coordinationCost, marginalProductivity, contention, efficiency,
     limitingResources: resourceCapacity === null ? [] : limitingResourceKeys(resources, niche, resourceCapacity) };
 }
 
 function applyGarageLimit(capacities, niches, garageCapacity) {
-  if (!Number.isSafeInteger(garageCapacity) || garageCapacity < 0) {
-    throw Object.assign(new Error('Garage capacity must be a non-negative safe integer.'), { code: 'BIOME_GARAGE_CAPACITY_INVALID' });
-  }
-  const scores = new Map(niches.map((niche) => [niche.nicheId, niche.opportunityScore]));
-  let remaining = garageCapacity;
-  return capacities.map((entry) => ({ ...entry, score: scores.get(entry.nicheId) || 0 }))
-    .sort((left, right) => right.score - left.score || left.nicheId.localeCompare(right.nicheId))
-    .map((entry) => {
-      const capacity = entry.localCapacity === null ? remaining : Math.min(entry.localCapacity, remaining);
-      remaining = Math.max(0, remaining - capacity);
-      return { ...entry, capacity, garageCapacity };
-    });
+  return require('./garageCapacityAllocator').allocate(capacities, niches, garageCapacity);
 }
 
 function resolveGarageCapacity(value) {

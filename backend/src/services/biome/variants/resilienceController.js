@@ -33,15 +33,15 @@ function attemptRecovery(options) {
   if (!input.recolonizePopulationId || !evidenceRefs.length || cost > reserveTokens) return { population: null, reserveUsed: 0 };
   const population = recolonize(ecology, { populationId: input.recolonizePopulationId,
     candidates: input.individuals, evidenceRefs });
-  ecology.ecologicalState.recoveryBudgetReserve = typeof reserve === 'number'
-    ? reserveTokens - cost : { ...reserve, tokens: reserveTokens - cost };
+  if (typeof reserve === 'number') ecology.ecologicalState.recoveryBudgetReserve = reserveTokens - cost;
+  else ecology.ecologicalState.recoveryReserve = { ...reserve, tokens: reserveTokens - cost };
   return { population, reserveUsed: cost };
 }
 
 function markExtinct(ecology, ids, evidenceRefs) {
   if (!evidenceRefs.length && ids.length) throw variantError('Extinction confirmation requires evidence.', 'BIOME_VARIANT_EVIDENCE_REQUIRED');
   ecology.populations = ecology.populations.map((population) => ids.includes(population.populationId)
-    ? { ...population, status: 'extinct', individuals: [], refugialArchive: population.individuals }
+    ? { ...population, status: 'extinct', productivity: 0, individuals: [], refugialArchive: population.individuals }
     : population);
 }
 
@@ -51,7 +51,7 @@ function recolonize(ecology, options) {
   if (!source || source.status !== 'extinct') throw variantError('Recolonization requires an extinct population.', 'BIOME_RECOVERY_SOURCE_INVALID');
   const individuals = Array.isArray(candidates) && candidates.length ? candidates : source.refugialArchive || [];
   if (!individuals.length) throw variantError('Recolonization needs recovered individuals.', 'BIOME_RECOVERY_SOURCE_INVALID');
-  const population = { ...source, individuals, status: 'recolonized', recoveryEvidenceRefs: evidenceRefs };
+  const population = { ...source, individuals, productivity: 0, status: 'recolonized', recoveryEvidenceRefs: evidenceRefs };
   ecology.populations = ecology.populations.map((item) => item.populationId === populationId ? population : item);
   return population;
 }

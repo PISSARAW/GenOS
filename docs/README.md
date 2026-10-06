@@ -147,6 +147,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [a-team.md](02-orchestration/topologies/a-team.md) — équipe multidisciplinaire d'agents.
 - [runtime-a-team.md](03-reference/runtime-a-team.md) — clôture canonique, preuves, accusés et reprise A-Team ; conformité globale partielle.
 - [biome.md](02-orchestration/topologies/biome.md) — orchestration par environnement et populations.
+- [runtime-biome.md](03-reference/runtime-biome.md) — cycles transactionnels, ressources mesurées, adaptateurs et reprise Biome.
 - [biocenose.md](02-orchestration/topologies/biocenose.md) — orchestration communautaire.
 - [holobionte.md](02-orchestration/topologies/holobionte.md) — orchestration hôte-symbionte.
 - [syncytium.md](02-orchestration/topologies/syncytium.md) — état partagé, 13 variants et limites de preuve des missions.

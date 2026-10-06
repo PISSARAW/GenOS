@@ -247,7 +247,7 @@ const OPERATIONS = {
   },
   rhizome: { ...rhizomeOperations.OPERATIONS, snapshot: rhizomeSnapshot, evaluate_merge: evaluateRhizomeMerge, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, propagate: propagateRhizomeProcedure, signal: publishRhizomeSignal, locus: manageRhizomeLocus, branch_lease: manageRhizomeLease, fossil: readRhizomeFossil, plan_shortcuts: planRhizomeShortcuts, admit_shortcut: admitRhizomeShortcut, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome,
-    health: assessBiome, advance_variant: advanceBiomeVariant }
+    health: assessBiome, advance_variant: advanceBiomeVariant, ...require('./biome/biomeSessionTools') }
 };
 
 function operationHandler(topology, operation) {
@@ -262,13 +262,18 @@ async function applyTopologyOperation(db, args = {}, context = {}) {
   const record = await store.load(db, sessionId);
   if (!record) throw new Error(`Unknown topology session '${sessionId}'.`);
   const guarded = await require('./topologySessionCallerGuard').guardTopologyCall(db, record, args, context);
+  return dispatchTopologyOperation({ db, record, sessionId, operation, args: guarded });
+}
+
+async function dispatchTopologyOperation(context) {
+  const { db, record, sessionId, operation, args } = context;
   if (record.topology === 'syncytium' && operation === 'variant') {
     return require('./syncytium/variants/variantToolRouter').executeVariantAction({
-      db, record, sessionId, action: guarded.variant_action, request: guarded.variant_input || {}
+      db, record, sessionId, action: args.variant_action, request: args.variant_input || {}
     });
   }
   const handler = operationHandler(record.topology, operation);
-  if (handler) return handler(db, sessionId, guarded);
+  if (handler) return handler(db, sessionId, args);
   throw new Error(`Unsupported operation '${operation}' for ${record.topology} session.`);
 }
 

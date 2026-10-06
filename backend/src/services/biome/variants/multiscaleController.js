@@ -32,7 +32,7 @@ function upwardFeedback(ecology) {
 
 function downwardFeedback(ecology, constraints) {
   const blocked = (Array.isArray(constraints) ? constraints : []).filter((item) => ['blocked', 'exceeded', 'violated'].includes(item.status)
-    && Number.isFinite(item.maximum) && typeof item.resource === 'string');
+    && Number.isFinite(item.maximum) && require('../constants').RESOURCE_KEYS.includes(item.resource));
   const capped = blocked.map((item) => capResource(ecology, item.resource, item.maximum));
   ecology.ecologicalState.resourceCaps = { ...(ecology.ecologicalState.resourceCaps || {}),
     ...Object.fromEntries(blocked.map((item) => [item.resource, item.maximum])) };
@@ -40,16 +40,20 @@ function downwardFeedback(ecology, constraints) {
 }
 
 function capResource(ecology, resource, maximum) {
-  const available = ecology.populations.reduce((sum, item) => sum + (item.resourcePool[resource] || 0), 0);
-  const excess = Math.max(0, available - maximum);
-  if (excess > 0 && available > 0) {
-    ecology.populations = ecology.populations.map((population) => ({ ...population, resourcePool: {
-      ...population.resourcePool,
-      [resource]: Math.max(0, population.resourcePool[resource] - excess * population.resourcePool[resource] / available)
-    } }));
-  }
-  ecology.resourcePool[resource] = Math.min(ecology.resourcePool[resource] || 0, maximum);
-  return ecology.populations.filter((item) => item.resourcePool[resource] === 0).map((item) => item.populationId);
+  const holders = [ecology.resourcePool, ...ecology.populations.map(p => p.resourcePool)];
+  const available = holders.reduce((sum, vector) => sum + (vector[resource] || 0), 0);
+  const limit = Math.max(0, maximum);
+  if (available <= limit) return [];
+  const ratio = available > 0 ? limit / available : 0;
+  for (const vector of holders) vector[resource] = (vector[resource] || 0) * ratio;
+  const quarantine = ecology.ecologicalState.resourceQuarantine || {};
+  ecology.ecologicalState.resourceQuarantine = { ...quarantine, [resource]: (quarantine[resource] || 0) + available - limit };
+  return ecology.populations.map(p => p.populationId);
+}
+
+function enforceCaps(ecology) {
+  const caps = ecology.ecologicalState.resourceCaps || {};
+  for (const [resource, maximum] of Object.entries(caps)) capResource(ecology, resource, maximum);
 }
 
 function policy(input, level, fallback) {
@@ -63,4 +67,4 @@ function detectEmergence(previous, current) {
   return current.community.count > oldCommunities ? [{ type: 'COMMUNITY_FORMED', count: current.community.count }] : [];
 }
 
-module.exports = { advance };
+module.exports = { advance, enforceCaps };

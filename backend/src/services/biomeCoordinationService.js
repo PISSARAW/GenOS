@@ -11,7 +11,6 @@ const biofilmMatrix = require('./biofilmMatrixService');
 const biomeSessionStore = require('./biome/biomeSessionStore');
 const sessionPersistence = require('./biome/biomeSessionPersistence');
 const biomeStore = require('./biome/biomeStore');
-const { createEcologicalEvent } = require('./biome/contracts/ecologicalEvent');
 const environmentModelService = require('./biome/environment/environmentModelService');
 const nicheDiscoveryService = require('./biome/niches/nicheDiscoveryService');
 const nicheLifecycleService = require('./biome/niches/nicheLifecycleService');
@@ -26,11 +25,13 @@ const biomeVariantRuntime = require('./biome/variants/variantRuntimeService');
 const biomeVariantOperations = require('./biome/variants/variantSessionOperations');
 const { sourceOpportunities, advanceSuccessionPhase, healthAssessment, allocationOptions,
   allocateResources, forageStep, ecosystemHealth } = biomeVariantOperations;
-const crypto = require('crypto');
 const biomeRuntime = require('./biome/biomeRuntime');
 const DEFAULT_ORGANIZATION = 'energy_huddle';
 const MECHANISMS = ['resource_allocation', 'optimal_foraging', 'quorum_sensing'];
 const sessions = new Map();
+const applyOperation = require('./biome/runtime/sessionOperationRunner').createOperationRunner({
+  getSession, saveSession: session => sessions.set(session.sessionId, session)
+});
 async function composeBiome(mission, options = {}) {
   const goal = requiredMission(mission);
   const variant = biomeVariantPolicy.select(goal, options);
@@ -41,8 +42,8 @@ async function composeBiome(mission, options = {}) {
   const session = createSession({ goal, variant, organization, scope, sessionId, persistenceKey, options });
   initializeSuccession(session);
   await restorePersistent(session, options.db);
-  sessions.set(session.sessionId, session);
   await sessionPersistence.persist(session, options.db);
+  sessions.set(session.sessionId, session);
   return session;
 }
 
@@ -63,7 +64,7 @@ function createSession(context) {
     environmentId: persistenceKey || `${sessionId}:environment`, mission: goal, scope, environment: options.environment
   });
   const members = createMembers(goal, variant, sessionId);
-  const { populations, niches } = createInitialEcology(members);
+  const { populations, niches } = createInitialEcology();
   return {
     sessionId,
     biomeId: sessionId,
@@ -92,7 +93,7 @@ function createSession(context) {
 function createMembers(goal, variant, sessionId) {
   return biologicalModeService.compose('biome', goal).map((member) => ({ ...member, variant: variant.variant,
     mission: `${member.mission}\n\nBIOME VARIANT ${variant.variant}: ${variant.focus}`,
-    runtimeContext: { biomeId: sessionId, sessionId, populationId: `population-${member.role}`, nicheId: `niche-${member.role}` } }));
+    runtimeContext: { biomeId: sessionId, sessionId, plane: member.role } }));
 }
 
 function initializeSuccession(session) {
@@ -121,8 +122,8 @@ async function getSession(sessionId, db) {
 
 async function sessionSnapshot(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
-  return {
-    sessionId, mode: 'biome', version: session.matrix.version, variant: session.variant,
+  return structuredClone({
+    sessionId, mode: 'biome', revision: session.revision || 0, version: session.matrix.version, variant: session.variant,
     variantState: session.variantState || {},
     environment: session.ecology.environment,
     environmentConstraints: session.ecology.environmentConstraints,
@@ -131,8 +132,9 @@ async function sessionSnapshot(sessionId, options = {}) {
     opportunities: session.ecology.opportunityMap,
     niches: session.ecology.niches,
     populations: session.ecology.populations,
+    interactionGraph: session.ecology.interactionGraph, archive: session.ecology.archive,
     entries: biofilmMatrix.read(session.matrix)
-  };
+  });
 }
 
 async function advanceSessionVariant(sessionId, input = {}, options = {}) {
@@ -310,44 +312,21 @@ async function assessSessionHealth(sessionId, observations, options = {}) {
   } });
 }
 
-async function applyOperation({ sessionId, options, operation, input, apply }) {
-  const context = { sessionId, options, operation, input, apply, operationId: crypto.randomUUID(), timestamp: new Date().toISOString(), actorId: options.actorId || 'system' };
-  return options.db ? applyPersistedOperation(context) : applyMemoryOperation(context);
+async function executeSessionWork(sessionId, request, options = {}) {
+  return require('./biome/runtime/populationExecutionService').execute(sessionId, request, {
+    options, operate: applyOperation
+  });
 }
 
-async function applyPersistedOperation(context) {
-  const { sessionId, options, operation, input, apply, operationId, timestamp, actorId } = context;
-  return biomeSessionStore.mutate({ db: options.db, id: sessionId, actorId, operation, mutator: async (record) => {
-    const session = sessionPersistence.rehydrate(record);
-    const output = await apply(session);
-    session.ecology.tick += 1;
-    const resultingRevision = record.revision + 1;
-    const receipt = makeReceipt({ ...context, output, previousRevision: record.revision, resultingRevision });
-    return { state: sessionPersistence.serialize(session), event: { ...receipt }, result: { sessionId, ...output, receipt } };
-  } });
-}
-
-async function applyMemoryOperation(context) {
-  const session = await getSession(context.sessionId);
-  const previousRevision = session.revision || 0;
-  const output = await context.apply(session);
-  session.ecology.tick += 1;
-  session.revision = previousRevision + 1;
-  const receipt = makeReceipt({ ...context, output, previousRevision, resultingRevision: session.revision });
-  return { sessionId: context.sessionId, ...output, receipt };
-}
-
-function makeReceipt(context) {
-  const { sessionId, options, operation, input, operationId, timestamp, actorId, output, previousRevision, resultingRevision } = context;
-  const appliedActions = output.action ? [output.action]
-    : (output.allocations || []).map((allocation) => ({ type: 'RESOURCE_ALLOCATION', ...allocation }));
-  return createEcologicalEvent({ operationId, sessionId, actorId, previousRevision, resultingRevision, input,
-    decision: output.decision || output.patchYield?.decision || operation, appliedActions,
-    evidenceRefs: options.evidenceRefs || [], timestamp });
+async function advanceSessionCycle(sessionId, input = {}, options = {}) {
+  return applyOperation({ sessionId, options, operation: 'ecological_cycle', input,
+    apply: session => require('./biome/runtime/ecologicalCycle').advance(session, input, options) });
 }
 
 module.exports = {
   composeBiome,
+  advanceSessionCycle,
+  executeSessionWork,
   allocateResources,
   forageStep,
   ecosystemHealth,

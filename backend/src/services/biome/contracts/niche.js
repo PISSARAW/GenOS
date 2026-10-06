@@ -20,7 +20,7 @@ function createNiche(input = {}) {
     resourceProfile: normalizeResourceProfile(input.resourceProfile),
     carryingCapacity: nonNegative(input.carryingCapacity, 'carryingCapacity'),
     declaredCarryingCapacity: nonNegative(input.declaredCarryingCapacity ?? input.carryingCapacity, 'declaredCarryingCapacity'),
-    declaredCapacityKnown: input.declaredCapacityKnown === true || input.capacityKnown === true || Number(input.carryingCapacity) > 0,
+    declaredCapacityKnown: declaredKnown(input),
     capacityKnown: input.capacityKnown === true || Number(input.carryingCapacity) > 0,
     productivity: nonNegative(input.productivity, 'productivity'),
     uncertainty: nonNegative(input.uncertainty, 'uncertainty'),
@@ -29,6 +29,11 @@ function createNiche(input = {}) {
     occupancy: nonNegative(input.occupancy, 'occupancy'),
     status: enumValue({ value: input.status, choices: NICHE_STATUSES, field: 'status', fallback: 'candidate' })
   };
+}
+
+function declaredKnown(input) {
+  if (input.declaredCapacityKnown !== undefined) return input.declaredCapacityKnown === true;
+  return input.capacityKnown === true || Number(input.carryingCapacity) > 0;
 }
 
 function normalizeResourceProfile(profile = {}) {
