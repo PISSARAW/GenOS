@@ -242,11 +242,11 @@ function evolutionaryUnitChecks() {
   assert.ok(genome.genomeId);
   const uncertified = evolution.getGenomeCertificate(genome.genomeId);
   assert.equal(uncertified.certified, false);
-  const certified = evolution.certifyGenome(genome.genomeId, { fitness: 0.9 });
+  const certified = evolution.certifyGenome(genome.genomeId, { fitness: 0.9, genomeHash: 'hash-abc', evidenceRef: 'fixture-evaluation', provenance: { source: 'unit-test' } });
   assert.equal(certified.certified, true);
-  const fitness = evolution.evaluateLocalFitness({ ref: 'ind-1' }, { demeId: 'deme-evo' });
+  const fitness = evolution.evaluateLocalFitness({ ref: 'ind-1' }, { demeId: 'deme-evo', fitnessEvaluator: () => ({ fitness: 0.8, evidenceRef: 'fixture-evaluation', provenance: { source: 'unit-test' } }) });
   assert.ok(fitness.fitness >= 0 && fitness.fitness <= 1);
-  const same = evolution.evaluateLocalFitness({ ref: 'ind-1' }, { demeId: 'deme-evo' });
+  const same = evolution.evaluateLocalFitness({ ref: 'ind-1' }, { demeId: 'deme-evo', fitnessEvaluator: () => ({ fitness: 0.8, evidenceRef: 'fixture-evaluation', provenance: { source: 'unit-test' } }) });
   assert.equal(fitness.fitness, same.fitness, 'local fitness is reproducible');
   const speciation = evolution.detectSpeciation({ demeA: { demeId: 'a' }, demeB: { demeId: 'b' },
     migrationHistoryAB: [{ accepted: false }, { accepted: false }], migrationHistoryBA: [{ accepted: false }] });
@@ -301,8 +301,7 @@ async function classicPatchLoopChecks(db) {
 
   const trial = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId, maxCycles: 1 }, { db });
   assert.equal(trial.cycles[0].status, 'VERIFIED');
-  const started = trial.cycles[0].verification ? true : true;
-  assert.ok(started);
+  assert.equal(trial.cycles[0].verification.valid, true);
   const rows = await db.all(`SELECT status FROM metapopulation_colonizations WHERE metapopulation_id = ? AND patch_id = ?`, sessionId, 'patch-doomed');
   assert.ok(rows.some((row) => row.status === 'IN_TRIAL'), 'founder trial started automatically');
 }
@@ -345,7 +344,7 @@ async function heterogeneousLoopChecks(db) {
 
     const candidate = { propaguleId: 'hetero-1', type: 'STRATEGY', sourceDemeId: 'deme-h1', targetDemeId: 'deme-h2',
       payloadRef: 'strategy-sat-1', migrationReason: 'complementary', lineageRefs: ['lin-sat'], sourceEvidence: [],
-      provenance: { source: 'heterogeneous-test' }, sourceFitness: 0.9, novelty: 0.7, providerId: 'solver-sat', algorithmId: 'sat' };
+      provenance: { source: 'heterogeneous-test' }, expectedReceiverGain: 0.2, sourceFitness: 0.9, novelty: 0.7, providerId: 'solver-sat', algorithmId: 'sat' };
     const migration = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId, maxCycles: 1,
       migrationCandidates: [candidate], receivers: { 'deme-h2': { demeId: 'deme-h2', kind: 'heterogeneous-test' } } }, { db });
     assert.equal(migration.cycles[0].status, 'VERIFIED');

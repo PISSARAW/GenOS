@@ -2,25 +2,18 @@
 const metapopulationStore = require('../metapopulationStore');
 const daemonLeases = require('./persistentDaemonLeaseService');
 const { createHash, randomUUID } = require('crypto');
+const fs = require('node:fs/promises');
+const { provisionResidentWorkspace } = require('./residentWorkspaceService');
 
 async function registerResidentDaemon(context) {
-  const { db, metapopulationId, demeId, daemonId, ownerId, ttlMs } = context;
-  const existing = await daemonLeases.loadDaemonLease(db, metapopulationId, demeId);
+  const { db, metapopulationId, demeId, daemonId, ttlMs } = context;
+  const existing = await daemonLeases.loadLatestDaemonLease(db, metapopulationId, demeId);
   if (existing) return resumeRegisteredDaemon({ db, existing, daemonId, ttlMs });
-  const deme = await metapopulationStore.getDeme(db, metapopulationId, demeId);
-  if (deme?.workspacePath) throw daemonError('METAPOPULATION_DAEMON_WORKSPACE_CONFLICT');
-  await metapopulationStore.attachDemeWorkspace(db, {
-    metapopulationId,
-    demeId,
-    workspacePath: `/demes/${demeId}/workspace`,
-    workspaceOwnerId: ownerId || daemonId,
-    localBoundary: [],
-    budget: { limits: { maintenance: ttlMs || 600000 }, used: {} },
-  });
+  const workspace = await provisionResidentWorkspace(context);
   const lease = await daemonLeases.createDaemonLease({ db, metapopulationId, demeId, daemonId, ttlMs: ttlMs || 600000 });
   // Initialize memory store for this daemon
   await initDaemonMemory(db, { metapopulationId, demeId, daemonId });
-  return { daemonId, demeId, workspacePath: `/demes/${demeId}/workspace`, leaseId: lease.leaseId, expiresAt: new Date(lease.expiresAt).getTime() };
+  return { daemonId, demeId, workspacePath: workspace.workspacePath, leaseId: lease.leaseId, expiresAt: new Date(lease.expiresAt).getTime() };
 }
 
 async function resumeRegisteredDaemon(context) {
@@ -28,7 +21,8 @@ async function resumeRegisteredDaemon(context) {
   if (existing.daemonId !== daemonId) throw daemonError('METAPOPULATION_DAEMON_IDENTITY_CONFLICT');
   const lease = await daemonLeases.extendDaemonLease({ db, metapopulationId: existing.metapopulationId,
     demeId: existing.demeId, daemonId, ttlMs: ttlMs || existing.ttlMs || 600000 });
-  return { daemonId, demeId: existing.demeId, workspacePath: `/demes/${existing.demeId}/workspace`,
+  const deme = await metapopulationStore.getDeme(db, existing.metapopulationId, existing.demeId);
+  return { daemonId, demeId: existing.demeId, workspacePath: deme.workspacePath,
     leaseId: lease.leaseId, expiresAt: lease.expiresAt };
 }
 
@@ -48,7 +42,7 @@ async function maintainResidentDaemon(context) {
   if (now > daemon.expiresAt) {
     return { maintained: false, demeId, reason: 'LEASE_EXPIRED' };
   }
-  const fitness = maintenanceFitness(options, demeId);
+  const fitness = await maintenanceFitness(options, deme);
   const lineage = nextDaemonLineage(deme, daemon.daemonId);
   // Store fitness per mission/cycle
   await recordMissionFitness(db, { metapopulationId, demeId, missionId: options?.missionId || 'default', cycle: options?.cycle || 0, fitnessScore: fitness, budgetLimit: daemon.ttlMs });
@@ -58,8 +52,13 @@ async function maintainResidentDaemon(context) {
   return { maintained: true, demeId, fitness, lineage, expiresAt: renewed.expiresAt };
 }
 
-function maintenanceFitness(options, demeId) {
-  return options?.fitnessEvaluator?.(demeId) ?? 0.5;
+async function maintenanceFitness(options, deme) {
+  const score = typeof options?.fitnessEvaluator === 'function'
+    ? await options.fitnessEvaluator(deme.demeId) : deme.fitness?.score ?? deme.fitness?.local;
+  if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > 1) {
+    throw daemonError('METAPOPULATION_FITNESS_EVIDENCE_REQUIRED');
+  }
+  return score;
 }
 
 function nextDaemonLineage(deme, daemonId) {
@@ -85,6 +84,8 @@ async function initDaemonMemory(db, context) {
      VALUES (?, ?, ?, ?, ?, 1, 1.0, ?, ?)`,
     memoryId, metapopulationId, demeId, contentHash, JSON.stringify(initialContent), new Date().toISOString(), new Date().toISOString()
   );
+  await metapopulationStore.updateDemeProfile(db, { metapopulationId, demeId,
+    changes: { localMemoryRef: `memory:${demeId}:v1` } });
 }
 
 async function storeDaemonMemory(db, context) {
@@ -119,7 +120,10 @@ function hashContent(content) {
 
 async function applyMemoryDecay(context) {
   const { db, metapopulationId, demeId, decayRate, options } = context;
-  const now = Number(options?.now || Date.now());
+  const now = options?.now ? Number(new Date(options.now)) : Date.now();
+  if (!Number.isFinite(decayRate) || decayRate < 0 || decayRate > 1 || !Number.isFinite(now)) {
+    throw daemonError('METAPOPULATION_MEMORY_DECAY_INVALID');
+  }
   // Get the latest memory for this deme
   const latestMemory = await db.get(
     `SELECT memory_id, content_json, decay_factor, version, updated_at FROM daemon_memory
@@ -140,6 +144,8 @@ async function applyMemoryDecay(context) {
   const content = JSON.parse(latestMemory.content_json);
   content.decayApplied = { factor: decayFactor, at: new Date().toISOString() };
   const newMemory = await storeDaemonMemory(db, { metapopulationId, demeId, content, parentMemoryId: latestMemory.memory_id });
+  await db.run('UPDATE daemon_memory SET decay_factor = ? WHERE memory_id = ? AND metapopulation_id = ?',
+    decayFactor, newMemory.memoryId, metapopulationId);
 
   // Update deme's localMemoryRef to point to new version
   await metapopulationStore.updateDemeProfile(db, {
@@ -223,9 +229,12 @@ async function verifyRestoration(context) {
 
   if (lease.expiresAt < Date.now()) return { restored: false, reason: 'LEASE_EXPIRED' };
 
-  if (deme.workspaceOwnerId !== lease.daemonId) {
+  if (!deme.workspacePath || !deme.workspaceOwnerId) {
     return { restored: false, reason: 'IDENTITY_MISMATCH', expectedDaemonId: deme.workspaceOwnerId, actualDaemonId: lease.daemonId };
   }
+
+  const workspaceExists = await directoryExists(deme.workspacePath);
+  if (!workspaceExists) return { restored: false, reason: 'WORKSPACE_MISSING' };
 
   // Check memory continuity
   const memoryCount = await db.get(
@@ -244,6 +253,10 @@ async function verifyRestoration(context) {
     fitnessCycles: fitnessHistory.length,
     latestFitness: fitnessHistory[fitnessHistory.length - 1]?.fitness_score || null,
   };
+}
+
+async function directoryExists(workspacePath) {
+  return fs.stat(workspacePath).then((value) => value.isDirectory()).catch(() => false);
 }
 
 module.exports = {

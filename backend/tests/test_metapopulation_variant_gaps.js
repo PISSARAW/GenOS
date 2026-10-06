@@ -117,12 +117,18 @@ async function runtimeWiringChecks() {
 async function islandEliteWiring() {
   const state = islands.getSolverState('wire-solver', 'deme-wire', 2);
   islands.updateSolverState(state, { incumbentRef: 'inc-wire', lowerBound: 1, upperBound: 9, iterations: 5 });
-  const observed = { variant: 'island_search', variantPolicy: { eliteMigration: true }, demes: [], patches: [],
+  const observed = { variant: 'island_search', variantPolicy: { eliteMigration: true },
+    demes: [{ demeId: 'deme-wire', status: 'ACTIVE' }, { demeId: 'deme-remote', status: 'ACTIVE' }], patches: [],
     corridors: [{ corridorId: 'corridor-wire', enabled: true, capacity: 1,
       sourceDemeId: 'deme-wire', targetDemeId: 'deme-remote' }] };
-  const actions = await variantRuntime.executeVariantActions({ variant: 'island_search', observed,
-    input: { islandElites: [{ solverId: 'wire-solver', demeId: 'deme-wire', generation: 2, targetDemeId: 'deme-remote', counterexample: true }],
+  const registry = require('../src/services/metapopulation/migration/migrationAdapterRegistry');
+  registry.registerAdapter('ELITE', { validate: async () => ({ valid: true }),
+    assimilate: async () => ({ receiptId: 'elite-receipt', provenance: { source: 'receiver' } }) });
+  let actions;
+  try { actions = await variantRuntime.executeVariantActions({ variant: 'island_search', observed,
+    input: { islandElites: [{ solverId: 'wire-solver', demeId: 'deme-wire', generation: 2, targetDemeId: 'deme-remote', counterexample: true, expectedReceiverGain: 0.2 }],
       receiver: { agentId: 'receiver-wire' } }, options: {} });
+  } finally { registry.clearAdapter('ELITE'); }
   const elite = actions.find((action) => action.type === 'MIGRATE_PROPAGULE');
   assert.ok(elite);
   assert.equal(elite.propagule.migrationReason, 'counterexample');
@@ -174,15 +180,15 @@ async function markerExecutionChecks() {
     { type: 'ROTATE_SOURCE_SINK_ROLES', changes: [{ demeId: 'd', from: 'SOURCE', to: 'SINK' }] }, context);
   assert.equal(rotated.persisted, false);
   assert.equal(rotated.rotated, 0);
-  const elite = await controller.executeVariantAction(
-    { type: 'MIGRATE_ISLAND_ELITE', propagule: { propaguleId: 'island-elite-a-b-1' } }, context);
-  assert.equal(elite.migrated, true);
+  await assert.rejects(() => controller.executeVariantAction(
+    { type: 'MIGRATE_ISLAND_ELITE', propagule: { propaguleId: 'island-elite-a-b-1' } }, context),
+  { code: 'METAPOPULATION_CONTEXT_REQUIRED' });
   const proof = await controller.executeVariantAction(
     { type: 'PROOF_OF_DATA_MINIMIZATION', propaguleId: 'p1', proofId: 'pdm-p1-1' }, context);
-  assert.equal(proof.recorded, true);
+  assert.equal(proof.recorded, false);
   const attestation = await controller.executeVariantAction(
     { type: 'REQUIRE_RECEIVER_ATTESTATION', propaguleId: 'p1', targetRegion: 'region-b' }, context);
-  assert.equal(attestation.required, true);
+  assert.equal(attestation.recorded, false);
   const staged = await controller.executeVariantAction(
     { type: 'STAGE_FOUNDER_RESERVE', deficit: 2 }, context);
   assert.equal(staged.staged, false);

@@ -5,94 +5,76 @@ const recolonization = require('../patches/recolonizationService');
 const patchService = require('../patches/patchService');
 const patchLifecycle = require('../patches/patchLifecycleService');
 const demeLifecycle = require('../demes/demeLifecycleService');
-const evolution = require('../evolution/metapopulationEvolutionBridge');
-const search = require('../evolution/islandSearchBridge');
+const islands = require('./islandExecutionService');
 const corridors = require('../migration/corridorGraphService');
 const corridorStore = require('../migration/corridorStore');
-const classicPatchRuntime = require('./classicPatchRuntimeService');
 const ephemeralLeaseService = require('./ephemeralLeaseService');
 const persistentDaemonLeaseService = require('./persistentDaemonLeaseService');
 const persistentRuntimeService = require('./persistentRuntimeService');
 const migrationStore = require('../migration/migrationStore');
-const evolutionaryRuntime = require('../evolution/evolutionaryRuntimeService');
+const migrationLoop = require('./regionalMigrationLoopService');
 const culturalPersistentRuntime = require('../migration/culturalPersistentRuntimeService');
+const policyService = require('./regionalPolicyService');
 
 async function executeVariantAction(action, context) {
+  if (policyService.EVENT_ACTIONS[action.type]) return policyService.executePolicyAction(action, context);
   return EXECUTORS[action.type]?.(action, context) ?? executeRuntimeMarkerAction(action, context);
 }
 
 async function executeRuntimeMarkerAction(action, context) {
+  if (policyService.EVENT_ACTIONS[action.type]) return policyService.executePolicyAction(action, context);
   return RUNTIME_MARKERS[action.type]?.(action, context) ?? null;
 }
 
 const RUNTIME_MARKERS = Object.freeze({
-  TRIGGER_ISLAND_MIGRATION: async (action) => ({ type: action.type, triggered: true, interval: action.interval, reason: action.reason }),
-  TRIGGER_STEPPING_STONE_MIGRATION: async (action) => ({ type: action.type, triggered: true, interval: action.interval }),
+  ...Object.fromEntries(Object.keys(policyService.EVENT_ACTIONS).map((type) => [type, policyService.executePolicyAction])),
   ACTIVATE_RESERVE_CORRIDOR: activateReserveCorridor,
   DEPLOY_FOUNDER: deployFounder,
-  PROTECT_SOURCE: async (action) => ({ type: action.type, demeId: action.demeId, reason: action.reason, protected: true }),
-  RECOVERY_SLA_BREACH: async (action) => ({ type: action.type, demeId: action.demeId, slaMs: action.slaMs, breached: true }),
   ROTATE_SOURCE_SINK_ROLES: persistSourceSinkRoles,
-  MIGRATE_ISLAND_ELITE: async (action) => ({ type: action.type, propaguleId: action.propagule.propaguleId, migrated: true }),
-  REQUIRE_RECEIVER_ATTESTATION: async (action) => ({ type: action.type, propaguleId: action.propaguleId, targetRegion: action.targetRegion, required: true }),
-  DIVERSITY_FLOOR_BREACH: async (action) => ({ type: action.type, currentDiversity: action.currentDiversity, floor: action.floor, breached: true }),
-  ALLOW_CONTROLLED_EXTINCTION: async (action) => ({ type: action.type, demeId: action.demeId, allowed: true }),
-  PROTECT_FROM_EXTINCTION: async (action) => ({ type: action.type, demeId: action.demeId, uniqueCapabilities: action.uniqueCapabilities, protected: true }),
-  REJECT_FEDERATED_TRANSFER: async (action) => ({ type: action.type, propaguleId: action.propaguleId, reason: action.reason, rejected: true }),
-  REDACT_PROPAGULE: async (action) => ({ type: action.type, propaguleId: action.propaguleId, fields: action.fields, redacted: true }),
-  REQUIRE_SOVEREIGNTY_ACKNOWLEDGMENT: async (action) => ({ type: action.type, demeId: action.demeId, required: true }),
+  MIGRATE_ISLAND_ELITE: executeMigrant,
   MAINTAIN_RESIDENT_DAEMON: maintainResidentDaemonDb,
   UPDATE_DEME_MEMORY: updateDemeMemory,
-  INTER_MISSION_MIGRATION: async (action, context) => ({ type: action.type, scheduled: true, migration: interMissionSummary(action) }),
-  CHECK_SPECIATION: async (action) => ({ type: action.type, demeA: action.demeA, demeB: action.demeB,
-    ...evolutionaryRuntime.detectSpeciation(action) }),
+  INTER_MISSION_MIGRATION: executeMigrant,
   TRANSFER_CULTURE: transferCultureOffer,
   REJECT_CULTURE_TRANSFER: async (action) => ({ type: action.type, cultureId: action.cultureId, reason: action.reason, rejected: true }),
   MUTATE_CULTURE: mutateCulture,
   BUILD_CULTURAL_PHYLOGENY: buildPhylogeny,
-  COLLAPSE_DETECTED_POPULATE_VACANCY: async (action, context) => {
-    const session = await store.loadSession(context.options.db, context.input.metapopulationId);
-    const result = await classicPatchRuntime.runClassicPatchCycle(session, context.input, context.options);
-    return { type: action.type, ...result };
-  },
   STAGE_FOUNDER_RESERVE: stageFounderReserve,
-  PROOF_OF_DATA_MINIMIZATION: async (action) => ({ type: action.type, recorded: true, proven: action.proof?.withinPolicy === true
-    && action.proof?.proofId === action.proofId && action.proof?.contractId === action.contractId,
-    propaguleId: action.propaguleId, proofId: action.proofId, proof: action.proof, contractId: action.contractId }),
-  REQUIRE_RECEIVER_ATTESTATION: async (action) => ({ type: action.type, required: true, propaguleId: action.propaguleId, targetRegion: action.targetRegion }),
-  CREATE_EPHEMERAL_PATCH_LEASE: async (action, context) => {
-    if (!context.options.db) return { type: action.type, leaseId: null, reason: 'NO_DB' };
-    const lease = await ephemeralLeaseService.createEphemeralLease({ db: context.options.db,
-      metapopulationId: context.input.metapopulationId, patchId: action.patchId, ttlMs: action.ttlMs || 300000 });
-    return { type: action.type, leaseId: lease.leaseId, patchId: action.patchId, renewed: lease.renewed, expiresAt: lease.expiresAt };
-  },
-  RENEW_EPHEMERAL_PATCH_LEASE: async (action, context) => {
-    if (!context.options.db) return { type: action.type, leaseId: null, reason: 'NO_DB' };
-    const lease = await ephemeralLeaseService.extendEphemeralLease({ db: context.options.db,
-      metapopulationId: context.input.metapopulationId, patchId: action.patchId, ttlMs: action.ttlMs || 300000 });
-    return { type: action.type, leaseId: lease.leaseId, patchId: action.patchId, renewed: true, expiresAt: lease.expiresAt };
-  },
-  REGISTER_RESIDENT_DAEMON: async (action, context) => {
-    if (!context.options.db) return { type: action.type, daemonId: null, reason: 'NO_DB' };
-    const daemon = await persistentRuntimeService.registerResidentDaemon({ db: context.options.db,
-      metapopulationId: context.input.metapopulationId, demeId: action.demeId,
-      daemonId: action.daemonId || `daemon-${action.demeId}`, ownerId: action.ownerId,
-      ttlMs: action.ttlMs || 600000, options: context.options });
-    return { type: action.type, daemonId: daemon.daemonId, demeId: daemon.demeId, leaseId: daemon.leaseId, workspacePath: daemon.workspacePath, expiresAt: daemon.expiresAt };
-  },
-  MAINTAIN_RESIDENT_DAEMON_CYCLE: async (action, context) => {
-    if (!context.options.db) return { type: action.type, demeId: action.demeId, maintained: false, reason: 'NO_DB' };
-    const result = await persistentRuntimeService.maintainResidentDaemon({ db: context.options.db,
-      metapopulationId: context.input.metapopulationId, demeId: action.demeId, options: context.options });
-    return { type: action.type, demeId: action.demeId, maintained: result.maintained, ...result };
-  },
-  EXPIRE_RESIDENT_DAEMON: async (action, context) => {
-    if (!context.options.db) return { type: action.type, demeId: action.demeId, deactivated: false, reason: 'NO_DB' };
-    await persistentDaemonLeaseService.deactivateDaemonLease(context.options.db,
-      context.input.metapopulationId, action.demeId);
-    return { type: action.type, demeId: action.demeId, deactivated: true };
-  },
+  ...Object.fromEntries(['CREATE_EPHEMERAL_PATCH_LEASE', 'RENEW_EPHEMERAL_PATCH_LEASE',
+    'REGISTER_RESIDENT_DAEMON', 'MAINTAIN_RESIDENT_DAEMON_CYCLE', 'EXPIRE_RESIDENT_DAEMON']
+    .map((type) => [type, (action, context) => EXECUTORS[type](action, context)]))
 });
+
+async function executeMigrant(action, context) {
+  if (!context.options.db || !context.input.metapopulationId) {
+    throw Object.assign(new Error('Persistent migration context is required.'), { code: 'METAPOPULATION_CONTEXT_REQUIRED' });
+  }
+  const observed = context.observed;
+  const candidate = migrationLoop.candidateAction(action.propagule, {
+    receiver: action.receiver || context.input.receiver, trigger: {},
+    sourceReserveRatio: observed.variantPolicy?.sourceReserveRatio
+  }, observed);
+  if (!candidate) throw Object.assign(new Error('Migration does not satisfy receiver, utility or corridor gates.'),
+    { code: 'METAPOPULATION_MIGRATION_INELIGIBLE' });
+  const result = await migrationLoop.executeMigrationAction(candidate, context);
+  return { ...result, type: action.type, migrated: result.status === 'ACCEPTED' };
+}
+
+async function decayDemeMemory(action, context) {
+  const outcome = await persistentRuntimeService.applyMemoryDecay({ db: context.options.db,
+    metapopulationId: context.input.metapopulationId, demeId: action.demeId,
+    decayRate: action.decayRate, options: { now: context.input.now } });
+  return { type: action.type, ...outcome };
+}
+
+async function handleBridgeExtinction(action, context) {
+  const graph = await corridorStore.listGraph(context.options.db, context.input.metapopulationId);
+  const updated = graph.map((edge) => edge.sourceDemeId === action.bridgeDemeId
+    || edge.targetDemeId === action.bridgeDemeId ? { ...edge, enabled: false } : edge);
+  await corridorStore.replaceGraph(context.options.db, context.input.metapopulationId,
+    { topology: 'stepping-stone', corridors: updated });
+  return { type: action.type, bridgeDemeId: action.bridgeDemeId, suspended: true };
+}
 
 async function activateReserveCorridor(action, context) {
   const { input, options } = context;
@@ -122,12 +104,6 @@ async function deployFounder(action, context) {
   return { type: action.type, demeId: action.demeId, deployed: true, ...trial };
 }
 
-async function maintainResidentDaemon(action, context) {
-  const deme = await store.getDeme(context.options.db, context.input.metapopulationId, action.demeId);
-  const maintained = deme?.status === 'ACTIVE';
-  return { type: action.type, demeId: action.demeId, maintained, status: deme?.status || null };
-}
-
 async function maintainResidentDaemonDb(action, context) {
   const { input, options } = context;
   const db = options.db;
@@ -137,7 +113,7 @@ async function maintainResidentDaemonDb(action, context) {
     return { type: action.type, demeId, maintained: false, reason: 'DEME_NOT_ACTIVE' };
   }
   const activeLease = await persistentDaemonLeaseService.loadDaemonLease(db, input.metapopulationId, demeId);
-  if (!activeLease || activeLease.expiresAt < Date.now()) {
+  if (!activeLease?.active || activeLease.expiresAt < Date.now()) {
     return { type: action.type, demeId, maintained: false, reason: 'LEASE_EXPIRED' };
   }
   const extended = await persistentDaemonLeaseService.extendDaemonLease({ db, metapopulationId: input.metapopulationId, demeId, ttlMs: 600000 });
@@ -149,13 +125,21 @@ async function stageFounderReserve(action, context) {
   if (founders.length < action.deficit || !context.options.db) {
     return { type: action.type, staged: false, deficit: action.deficit, founders: [], reason: 'FOUNDER_RESERVE_UNAVAILABLE' };
   }
+  const { withTransaction } = require('../../../db');
+  return withTransaction(context.options.db, async () => {
   const event = await store.appendEvent(context.options.db, context.input.metapopulationId, {
     type: 'FOUNDER_RESERVE_STAGED', actor: 'metapopulation-runtime',
     occurredAt: new Date().toISOString(), provenance: { source: 'rescue-network-variant' },
     payload: { founders, deficit: action.deficit }
   });
-  return { type: action.type, staged: event.type === 'FOUNDER_RESERVE_STAGED', deficit: action.deficit,
+  const session = await store.loadSession(context.options.db, context.input.metapopulationId);
+  const memory = session.regionalMemory;
+  memory.founderReserve = [...(memory.founderReserve || []), ...founders];
+  await context.options.db.run('UPDATE metapopulation_sessions SET regional_memory_json = ? WHERE id = ?',
+    JSON.stringify(memory), context.input.metapopulationId);
+  return { type: action.type, staged: true, deficit: action.deficit,
     founders, eventRevision: event.revision };
+  });
 }
 
 async function persistSourceSinkRoles(action, context) {
@@ -171,11 +155,6 @@ async function updateDemeMemory(action, context) {
   await store.updateDemeProfile(context.options.db, { metapopulationId: context.input.metapopulationId,
     demeId: action.demeId, changes: { localMemoryRef: action.memoryRef } });
   return { type: action.type, demeId: action.demeId, memoryRef: action.memoryRef, updated: true };
-}
-
-function interMissionSummary(action) {
-  const { type, ...migration } = action;
-  return migration;
 }
 
 function residentDeme(demes, demeId) {
@@ -242,10 +221,10 @@ const EXECUTORS = Object.freeze({
   REWIRE_VARIANT_TOPOLOGY: (action, context) => topologyResult('REWIRE_VARIANT_TOPOLOGY', context.input,
     { ...context.options, candidateEdges: action.corridors }),
   START_RECOLONIZATION_TRIAL: startTrial,
-  EVOLVE_ISLAND: async (action, context) => ({ type: action.type,
-    ...(await evolution.evolveIsland(action.request, context.options)) }),
-  SEARCH_ISLAND: async (action, context) => ({ type: action.type,
-    ...(await search.searchIsland(action.request, context.options)) }),
+  DECAY_DEME_MEMORY: decayDemeMemory,
+  HANDLE_BRIDGE_EXTINCTION: handleBridgeExtinction,
+  EVOLVE_ISLAND: islands.evolveIsland,
+  SEARCH_ISLAND: islands.searchIsland,
   DISCOVER_EPHEMERAL_PATCH: createEphemeral,
   DORMANT_EPHEMERAL_DEME: (action, context) => demeLifecycle.transitionDeme({
     sessionId: context.input.metapopulationId, demeId: action.demeId, status: 'DORMANT' }, context.options),
@@ -286,7 +265,7 @@ const EXECUTORS = Object.freeze({
   },
   EXPIRE_RESIDENT_DAEMON: async (action, context) => {
     if (!context.options.db) return { type: action.type, demeId: action.demeId, deactivated: false, reason: 'NO_DB' };
-    await persistentLeaseService.deactivateDaemonLease(context.options.db, context.input.metapopulationId, action.demeId);
+    await persistentDaemonLeaseService.deactivateDaemonLease(context.options.db, context.input.metapopulationId, action.demeId);
     return { type: action.type, demeId: action.demeId, deactivated: true };
   },
 });

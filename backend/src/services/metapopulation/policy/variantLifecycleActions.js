@@ -38,13 +38,9 @@ function founderLineages(context) {
 
 async function hasPendingTrial(metapopulationId, patchId, options) {
   if (!options.db || !metapopulationId || !patchId) return false;
-  try {
-    const pending = await options.db.get(`SELECT colonization_id FROM metapopulation_colonizations
+  const pending = await options.db.get(`SELECT colonization_id FROM metapopulation_colonizations
       WHERE metapopulation_id = ? AND patch_id = ? AND status IN ('IN_TRIAL', 'COMPLETING')`, metapopulationId, patchId);
-    return Boolean(pending);
-  } catch (_) {
-    return false;
-  }
+return Boolean(pending);
 }
 
 async function rescueNetworkActions(observed, input, options) {
@@ -82,7 +78,7 @@ function founderDeployActions(input) {
 function founderReserveActions(observed, input) {
   if (!Number.isFinite(observed.variantPolicy?.founderReserveSize)) return [];
   const reserve = rescueNetworkRuntime.maintainFounderReserve(observed.demes,
-    { desiredSize: observed.variantPolicy.founderReserveSize, staged: input.stagedFounders });
+    { desiredSize: observed.variantPolicy.founderReserveSize, staged: input.stagedFounders || observed.regionalMemory?.founderReserve });
   return reserve.needsStaging
     ? [{ type: 'STAGE_FOUNDER_RESERVE', deficit: reserve.deficit, atRiskCount: reserve.atRiskCount,
       founders: (input.founderCandidates || []).filter((founder) => founder?.lineageId).slice(0, reserve.deficit) }]
@@ -140,8 +136,9 @@ async function persistentActions(observed, input, options) {
 
 function residentDaemonActions(observed) {
   if (observed.variantPolicy?.persistResidents !== true) return [];
-  return observed.demes.filter((d) => d.status === 'ACTIVE' && d.isResident === true)
-    .map((deme) => ({ type: 'MAINTAIN_RESIDENT_DAEMON', demeId: deme.demeId }));
+  return observed.demes.filter((d) => d.status === 'ACTIVE')
+    .map((deme) => ({ type: deme.isResident ? 'MAINTAIN_RESIDENT_DAEMON_CYCLE' : 'REGISTER_RESIDENT_DAEMON',
+      demeId: deme.demeId, daemonId: deme.daemonId || `daemon-${deme.demeId}` }));
 }
 
 function regionalMemoryActions(observed) {
@@ -149,10 +146,7 @@ function regionalMemoryActions(observed) {
   const decayRate = observed.variantPolicy.memoryDecayRate || 0.01;
   const actions = [];
   for (const deme of observed.demes.filter((d) => d.status === 'ACTIVE')) {
-    const agedMemory = ageMemory(deme.localMemoryRef, decayRate);
-    if (agedMemory !== deme.localMemoryRef) {
-      actions.push({ type: 'UPDATE_DEME_MEMORY', demeId: deme.demeId, memoryRef: agedMemory });
-    }
+    if (deme.localMemoryRef) actions.push({ type: 'DECAY_DEME_MEMORY', demeId: deme.demeId, decayRate });
   }
   return actions;
 }
@@ -161,9 +155,5 @@ function interMissionActions(input) {
   return (input.interMissionMigrations || []).map((migration) => ({ type: 'INTER_MISSION_MIGRATION', ...migration }));
 }
 
-function ageMemory(memoryRef, decayRate) {
-  if (!memoryRef || typeof memoryRef !== 'string') return memoryRef;
-  return `${memoryRef}::decayed-${decayRate}-${Date.now()}`;
-}
 
 module.exports = { classicPatchActions, rescueNetworkActions, ephemeralPatchActions, persistentActions, hasPendingTrial };

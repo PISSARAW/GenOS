@@ -44,6 +44,8 @@ function eliteMigrationActions(observed, input) {
   const actions = [];
   for (const elite of input.islandElites || []) {
     const source = islandSearchRuntime.getSolverState(elite.solverId, elite.demeId, elite.generation);
+    const stored = observed.demes.find((deme) => deme.demeId === elite.demeId)?.fitnessContext?.islandSearchStates?.[elite.solverId];
+    if (stored?.generation === elite.generation) Object.assign(source, stored, { incumbent: stored.incumbentRef });
     const migrant = islandSearchRuntime.buildIslandEliteMigrant(source, elite);
     if (!migrant) continue;
     const action = routableMigrationAction({ candidate: migrant, observed, input, reason: migrant.migrationReason });

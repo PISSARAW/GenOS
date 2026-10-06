@@ -25,14 +25,17 @@ function toRustRequest(input) {
 
 function validateRustReport(report, demeId) {
   if (!report || report.islandName !== demeId || !Number.isSafeInteger(report.generation) ||
-      !Number.isFinite(report.bestFitness) || !Number.isFinite(report.meanFitness)) {
+      !boundedFitness(report.bestFitness) || !boundedFitness(report.meanFitness)) {
     throw Object.assign(new Error('Rust evolution adapter returned an invalid report.'), { code: 'METAPOPULATION_RUST_REPORT_INVALID' });
   }
   return { engine: 'rust-multi-island', demeId, generation: report.generation, seed: report.seed,
     bestFitness: report.bestFitness, meanFitness: report.meanFitness,
+    ...(Array.isArray(report.individuals) ? { population: report.individuals } : {}),
     verifiedCount: Number.isSafeInteger(report.verifiedCount) ? report.verifiedCount : 0,
     rejectedCount: Number.isSafeInteger(report.rejectedCount) ? report.rejectedCount : 0 };
 }
+
+function boundedFitness(value) { return Number.isFinite(value) && value >= 0 && value <= 1; }
 
 function synchronizeProceduralPopulation(input = {}) {
   let state = procedural.metapopulation({ id: input.id, populations: input.populations, collapsed: input.collapsed });

@@ -43,6 +43,15 @@ async function loadDaemonLease(db, metapopulationId, demeId) {
   };
 }
 
+async function loadLatestDaemonLease(db, metapopulationId, demeId) {
+  const active = await loadDaemonLease(db, metapopulationId, demeId);
+  if (active) return active;
+  const row = await db.get('SELECT * FROM daemon_leases WHERE metapopulation_id = ? AND deme_id = ? ORDER BY created_at DESC LIMIT 1',
+    metapopulationId, demeId);
+  return row ? { leaseId: row.lease_id, metapopulationId, demeId, daemonId: row.daemon_id,
+    ttlMs: row.ttl_ms, expiresAt: Date.parse(row.expires_at), active: false } : null;
+}
+
 async function extendDaemonLease(context) {
   const { db, metapopulationId, demeId, daemonId, ttlMs } = context;
   const duration = ttlMs || 600000;
@@ -76,6 +85,7 @@ async function pruneExpiredDaemonLeases(db, metapopulationId) {
 module.exports = {
   createDaemonLease,
   loadDaemonLease,
+  loadLatestDaemonLease,
   extendDaemonLease,
   deactivateDaemonLease,
   pruneExpiredDaemonLeases,

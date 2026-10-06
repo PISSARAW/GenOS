@@ -105,7 +105,10 @@ déjà vérifié. Il est permis seulement pour un dème en risque protégé par 
 capacité régionale unique, avec un adaptateur receveur fournissant mesure et
 annulation ; le nombre d'essais reste plafonné. Une régression déclenche le
 rollback idempotent, la pénalité du corridor, une seconde mesure de fitness et
-la persistance du résultat. Les décisions d'extinction et les recolonisations
-ne sont pas encore pilotées automatiquement par cette boucle.
+la persistance du résultat. Les extinctions explicitement prouvées et les recolonisations sont pilotées par cette boucle avec un évaluateur local configuré.
+PLAN reste sans effet ; la preuve locale, l'occupation et le journal sont vérifiés et persistés.
+Les îlots conservent leurs profils et résultats, et les résidents utilisent des capsules réelles.
+Les mesures rescue permettent une reprise sans réassimilation.
+La suite dédiée est `npm --prefix backend run test:metapopulation` ; voir l'ADR 0330.
 Le benchmark actuel mesure les métriques régionales ; il ne constitue pas
 encore une comparaison scientifique à budget égal.

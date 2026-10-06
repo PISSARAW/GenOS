@@ -7,6 +7,7 @@ const { validatePropagule } = require('../contracts/propaguleContract');
 const migrationAdapters = require('../migration/migrationAdapterRegistry');
 const migrationService = require('../migration/propaguleMigrationService');
 const migrationStore = require('../migration/migrationStore');
+const { recordRescueEvidence } = require('../migration/rescueEvidenceStore');
 const rescueService = require('../migration/rescueEffectService');
 const metapopulationStore = require('../metapopulationStore');
 const { authorizeFederationTransfer } = require('../policy/metapopulationPolicyService');
@@ -118,10 +119,17 @@ function candidateAction(candidate, request, observed) {
 }
 
 function isActionEligible(context) {
+  if (!residentPair(context.candidate, context.observed.demes)) return false;
   return Boolean(context.corridor && context.adapter && isReceiver(context.request.receiver) &&
     sourceCapacityAvailable(context.candidate, context.request, context.observed) &&
     context.utility.worthwhile && rescueAttemptsAvailable(context.candidate, context.request, context.observed) &&
     rescueAdapterReady(context.candidate, context.request, context.adapter));
+}
+
+function residentPair(candidate, demes) {
+  const ids = [candidate.sourceDemeId, candidate.targetDemeId];
+  return ids.every((id) => demes.some((deme) => deme.demeId === id
+    && ['ACTIVE', 'STRESSED', 'AT_RISK', 'ESTABLISHING'].includes(deme.status)));
 }
 
 function sourceCapacityAvailable(candidate, request, observed) {
@@ -136,10 +144,14 @@ function sourceCapacityAvailable(candidate, request, observed) {
 }
 
 async function executeMigrationAction(action, context) {
-  const rescue = action.propagule.migrationReason.toLowerCase() === 'rescue';
-  const rescueContext = rescue ? await prepareRescue(action, context) : null;
+  const existing = await migrationStore.getMigration(context.options.db, context.input.metapopulationId, action.propagule.propaguleId);
   const migration = await migrationService.offerPropagule({ metapopulationId: context.input.metapopulationId,
     corridorId: action.corridorId, propagule: action.propagule }, context.options);
+  const rescue = action.propagule.migrationReason.toLowerCase() === 'rescue';
+  if (existing && ['ACCEPTED', 'REJECTED', 'ROLLED_BACK'].includes(existing.status)) {
+    return resumeResolvedMigration(action, existing, context);
+  }
+  const rescueContext = rescue ? await prepareRescue(action, context, migration) : null;
   const resolved = await migrationService.reviewPropagule({ metapopulationId: context.input.metapopulationId,
     migrationId: migration.migrationId, receiverDemeId: action.propagule.targetDemeId,
     receiver: action.receiver }, context.options);
@@ -149,17 +161,37 @@ async function executeMigrationAction(action, context) {
     selectionPolicy: action.propagule.selectionPolicy, utility: action.utility, rescueOutcome: outcome };
 }
 
+async function resumeResolvedMigration(action, migration, context) {
+  let outcome = migration.evidence.rescueOutcome || null;
+  if (migration.evidence.migrationReason === 'rescue' && migration.status !== 'REJECTED' && !outcome) {
+    const baseline = migration.evidence.rescueBaseline;
+    if (!baseline) throw rescueError('RESCUE_BASELINE_MISSING');
+    const deme = await metapopulationStore.getDeme(context.options.db, context.input.metapopulationId, migration.targetDemeId);
+    const state = { deme, baseline: measuredFitness(baseline.score), adapter: migrationAdapters.resolveAdapter(migration.type) };
+    outcome = await completeRescue({ action, migration, state, context });
+  }
+  return { type: action.type, migrationId: migration.migrationId, status: outcome?.status || migration.status,
+    rescueOutcome: outcome, resumed: true };
+}
+
 async function verifyMigrationActions(context) {
   const results = (Array.isArray(context.execution.results) ? context.execution.results : [])
     .filter((result) => result.type === 'MIGRATE_PROPAGULE');
+  const expected = context.plan.actions.filter((action) => action.type === 'MIGRATE_PROPAGULE');
+  if (expected.length !== results.length) return false;
   if (!results.length) return true;
-  const verified = await Promise.all(results.map(async (result) => {
-    const migration = await migrationStore.getMigration(context.options.db, context.input.metapopulationId, result.migrationId);
-    const terminal = ['ACCEPTED', 'REJECTED', 'ROLLED_BACK'].includes(migration?.status);
-    const rescueEvidence = !result.rescueOutcome || Boolean(migration?.evidence.rescueOutcome);
-    return migration && terminal && migration.status === result.status && rescueEvidence;
-  }));
+  const verified = await Promise.all(results.map((result) => verifyMigrationResult(result, context)));
   return verified.every(Boolean);
+}
+
+async function verifyMigrationResult(result, context) {
+  const migration = await migrationStore.getMigration(context.options.db, context.input.metapopulationId, result.migrationId);
+  if (!migration || !['ACCEPTED', 'REJECTED', 'ROLLED_BACK'].includes(migration.status)) return false;
+  if (migration.evidence.migrationReason === 'rescue' && migration.status !== 'REJECTED'
+    && !migration.evidence.rescueOutcome) return false;
+  return migration.status === result.status && context.plan.actions.some((action) =>
+    action.propagule?.propaguleId === migration.migrationId
+    && action.propagule.sourceDemeId === migration.sourceDemeId && action.propagule.targetDemeId === migration.targetDemeId);
 }
 
 function requests(input) {
@@ -187,40 +219,52 @@ function isCriticalRescue(candidate, request, observed) {
   return ['AT_RISK', 'STRESSED'].includes(target?.status) && contribution?.protectedFromLocalCull === true;
 }
 
-async function prepareRescue(action, context) {
+async function prepareRescue(action, context, migration) {
   const { input, options } = context;
   const deme = await metapopulationStore.getDeme(options.db, input.metapopulationId, action.propagule.targetDemeId);
   const storedFitness = fitnessScore(deme?.fitness);
   const maxFitness = Number(action.rescueOptions.maxTargetFitness ?? 0.35);
   if (!deme || storedFitness > maxFitness) throw rescueError('RESCUE_TARGET_NOT_AT_RISK');
   const used = await migrationStore.countRescueAttempts(options.db, input.metapopulationId, deme.demeId);
-  if (used >= action.rescueOptions.maxAttempts) throw rescueError('RESCUE_ATTEMPT_LIMIT');
+  if (used > action.rescueOptions.maxAttempts) throw rescueError('RESCUE_ATTEMPT_LIMIT');
   const adapter = migrationAdapters.resolveAdapter(action.propagule.type);
-  const baseline = measuredFitness(await adapter.measureFitness({ receiver: action.receiver,
-    demeId: deme.demeId, phase: 'before', propagule: action.propagule }));
+  const baseline = migration.evidence.rescueBaseline ? measuredFitness(migration.evidence.rescueBaseline.score)
+    : measuredFitness(await adapter.measureFitness({ receiver: action.receiver,
+      demeId: deme.demeId, phase: 'before', propagule: action.propagule }));
+  if (!migration.evidence.rescueBaseline) await recordRescueEvidence(options.db, input.metapopulationId,
+    { migrationId: migration.migrationId, baseline: { score: baseline, demeId: deme.demeId } });
   if (baseline > maxFitness) throw rescueError('RESCUE_TARGET_NOT_AT_RISK');
   return { deme, baseline, adapter };
 }
 
 async function completeRescue({ action, migration, state, context }) {
-  const after = measuredFitness(await state.adapter.measureFitness({ receiver: action.receiver,
+  const after = migration.evidence.rescueAssessment?.fitnessAfter ?? measuredFitness(await state.adapter.measureFitness({ receiver: action.receiver,
     demeId: state.deme.demeId, phase: 'after', migrationId: migration.migrationId }));
-  const outcome = rescueService.evaluateRescueOutcome({ trialId: migration.migrationId,
+  const outcome = migration.evidence.rescueAssessment || rescueService.evaluateRescueOutcome({ trialId: migration.migrationId,
     baselineFitness: state.baseline, fitnessAfter: after,
     allowedRegression: action.rescueOptions.allowedRegression,
     corridorPenalty: action.rescueOptions.corridorPenalty });
-  const status = outcome.rollback
-    ? await rollbackRescue({ action, migration, outcome, context }) : 'ACCEPTED';
+  if (!migration.evidence.rescueAssessment) await recordRescueEvidence(context.options.db, context.input.metapopulationId,
+    { migrationId: migration.migrationId, assessment: outcome });
+  const status = await rescueTerminalStatus({ action, migration, outcome, context });
   const finalFitness = outcome.rollback
     ? measuredFitness(await state.adapter.measureFitness({ receiver: action.receiver,
       demeId: state.deme.demeId, phase: 'after-rollback', migrationId: migration.migrationId })) : after;
   if (outcome.rollback && finalFitness < state.baseline - action.rescueOptions.allowedRegression) {
     throw rescueError('RESCUE_ROLLBACK_REGRESSION');
   }
-  await persistRescueFitness(state.deme, finalFitness, context);
-  await migrationStore.recordRescueOutcome(context.options.db, context.input.metapopulationId,
-    { migrationId: migration.migrationId, outcome: { ...outcome, finalFitness, status } });
+  const { withTransaction } = require('../../../db');
+  await withTransaction(context.options.db, async () => {
+    await persistRescueFitness(state.deme, finalFitness, context);
+    await migrationStore.recordRescueOutcome(context.options.db, context.input.metapopulationId,
+      { migrationId: migration.migrationId, outcome: { ...outcome, finalFitness, status } });
+  });
   return { ...outcome, finalFitness, status };
+}
+
+async function rescueTerminalStatus(context) {
+  if (context.migration.status === 'ROLLED_BACK') return 'ROLLED_BACK';
+  return context.outcome.rollback ? rollbackRescue(context) : 'ACCEPTED';
 }
 
 async function rollbackRescue({ action, migration, outcome, context }) {
@@ -265,4 +309,4 @@ function normalizePropagule(candidate, request) {
     ? 'rescue' : candidate.migrationReason || request.reason || 'regional-adaptation' };
 }
 
-module.exports = { planMigrationAction, executeMigrationAction, verifyMigrationActions };
+module.exports = { planMigrationAction, executeMigrationAction, verifyMigrationActions, candidateAction };

@@ -7,18 +7,14 @@ async function runRegionalRuntime(input = {}, options = {}) {
   requireRuntimeContext(input, options);
   const limit = cycleLimit(input.maxCycles);
   const cycles = [];
-  let startCycle = 1;
+  const lastVerified = await getLastVerifiedCycle(options.db, input.metapopulationId);
+  const startCycle = lastVerified ? lastVerified.cycle + 1 : 1;
+  input = { ...input };
+  if (input.resume === true && lastVerified) input.seed = lastVerified.seed;
 
-  if (input.resume === true) {
-    const lastVerified = await getLastVerifiedCycle(options.db, input.metapopulationId);
-    if (lastVerified) {
-      startCycle = lastVerified.cycle + 1;
-      input.seed = lastVerified.seed;
-    }
-  }
-
-  for (let index = startCycle - 1; index < limit; index += 1) {
-    const stopped = stopReason(input.stopConditions, index);
+  for (let offset = 0; offset < limit; offset += 1) {
+    const index = startCycle - 1 + offset;
+    const stopped = await persistedStopReason(input, options, offset);
     if (stopped) return { status: 'STOPPED', reason: stopped, cycles };
     const result = await runRegionalCycle({ ...input, cycle: index + 1 }, options);
     cycles.push(result);
@@ -32,7 +28,7 @@ async function runRegionalCycle(input = {}, options = {}) {
   requireRuntimeContext(input, options);
   const missing = missingAdapters(options.adapters);
   if (missing.length) return { status: 'BLOCKED', reason: 'ADAPTERS_MISSING', missingAdapters: missing, stages: STAGES };
-  const stop = stopReason(input.stopConditions, Number(input.cycle || 0) - 1);
+  const stop = await persistedStopReason(input, options, 0);
   if (stop) return { status: 'STOPPED', reason: stop, stages: STAGES };
   try {
     return await executeCycleStages(input, options);
@@ -44,18 +40,22 @@ async function runRegionalCycle(input = {}, options = {}) {
 async function executeCycleStages(input, options) {
   const adapter = options.adapters;
   const seed = input.seed || generateSeed();
-  const observed = await adapter.observe({ ...input, seed });
+  input = { ...input, seed };
+  const observed = await adapter.observe(input);
   const diagnosis = await adapter.diagnose(observed, input);
   const plan = await adapter.plan(diagnosis, observed, input);
   validatePlan(plan);
+  const stopped = await persistedStopReason(input, options, 0);
+  if (stopped) return { status: 'STOPPED', reason: stopped, cycle: input.cycle, stages: STAGES };
   const execution = await executePlan(adapter, { plan, diagnosis, observed, input });
   const verification = await adapter.verify(execution, plan, diagnosis, observed, input);
   if (!verification || verification.valid !== true) throw runtimeError('REGIONAL_VERIFY_FAILED', 'Regional cycle verification failed.');
   const status = plan.actions.length === 0 ? 'NO_ACTION' : 'VERIFIED';
-  await recordCycle(input, options, { type: 'REGIONAL_CYCLE_RECORDED', status, diagnosis, plan, execution, verification, seed });
-  if (status === 'VERIFIED') {
-    await persistCycleState(input, options, { observed, diagnosis, plan, execution, verification, seed });
-  }
+  const { withTransaction } = require('../../../db');
+  await withTransaction(options.db, async () => {
+    await recordCycle(input, options, { type: 'REGIONAL_CYCLE_RECORDED', status, diagnosis, plan, execution, verification, seed });
+    if (status === 'VERIFIED') await persistCycleState(input, options, { observed, diagnosis, plan, execution, verification, seed });
+  });
   return { status, cycle: input.cycle || null, stages: STAGES,
     actionCount: plan.actions.length, verification, seed };
 }
@@ -63,7 +63,7 @@ async function executeCycleStages(input, options) {
 async function persistCycleState(input, options, cycleData) {
   const { db } = options;
   const metapopulationId = input.metapopulationId;
-  const stateId = `cycle-${metapopulationId}-${input.cycle}-${Date.now()}`;
+  const stateId = require('crypto').randomUUID();
   const { withTransaction } = require('../../../db');
   await withTransaction(db, async () => {
     await db.run(
@@ -143,6 +143,15 @@ async function recordCycle(input, options, outcome) {
     provenance: { source: 'regionalRuntimeService', stages: STAGES },
     occurredAt: new Date().toISOString()
   }, { db: options.db, actor: input.actor });
+}
+
+async function persistedStopReason(input, options, cycleIndex) {
+  const supplied = stopReason(input.stopConditions, cycleIndex);
+  if (supplied) return supplied;
+  if (input.signal?.aborted) return 'STOP_REQUESTED';
+  const session = await options.db.get('SELECT status FROM metapopulation_sessions WHERE id = ?', input.metapopulationId);
+  if (!session) throw runtimeError('METAPOPULATION_SESSION_UNKNOWN', 'Unknown metapopulation session.');
+  return stopReason({ sessionStatus: session.status });
 }
 
 function validatePlan(plan) {

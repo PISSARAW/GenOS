@@ -74,6 +74,18 @@ const suites = {
     ['natural search full pipeline E2E', 'search/test_natural_search_full_pipeline_e2e.js'],
     ['natural search evolution', 'search/test_search_evolution.js']
   ],
+  metapopulation: [
+    ['completion', 'test_metapopulation_completion.js'],
+    ['durable', 'test_metapopulation_durable_execution.js'],
+    ['test_metapopulation_cultural_persistence.js', 'test_metapopulation_cultural_persistence.js'],
+    ['test_metapopulation_migration_review.js', 'test_metapopulation_migration_review.js'],
+    ['test_metapopulation_morphogenesis_integration.js', 'test_metapopulation_morphogenesis_integration.js'],
+    ['test_metapopulation_regional_brain.js', 'test_metapopulation_regional_brain.js'],
+    ['test_metapopulation_variants_runtime.js', 'test_metapopulation_variants_runtime.js'],
+    ['test_metapopulation_variant_gaps.js', 'test_metapopulation_variant_gaps.js'],
+    ['test_metapopulation_variant_selection.js', 'test_metapopulation_variant_selection.js'],
+    ['test_metapopulation_wiring.js', 'test_metapopulation_wiring.js'],
+  ],
   variantIntegration: [
     ['scout colony evidence and persistence', 'test_daemon_scout_colony.js'],
     ['Metapopulation regional persistence', 'test_metapopulation_regional_brain.js'],
@@ -185,6 +197,7 @@ suites.all = [
   ...suites.garage,
   ...suites.smoke,
   ...suites.variantIntegration,
+  ...suites.metapopulation,
   ...suites.signalPlane,
   ...suites.relationalPhysiology,
   ...suites.grpc,

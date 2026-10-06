@@ -6,7 +6,7 @@ const genomeRegistry = new Map();
 const speciationThreshold = 0.7;
 
 function registerGenomeLineage(demeId, genomeHash, metadata) {
-  const id = `genome-${demeId}-${Date.now()}`;
+  const id = `genome-${demeId}-${randomUUID()}`;
   const entry = { genomeId: id, demeId, genomeHash, metadata: metadata || {}, createdAt: new Date().toISOString(), certified: false };
   genomeRegistry.set(id, entry);
   return entry;
@@ -28,17 +28,29 @@ function getGenomeCertificate(genomeId) {
 function certifyGenome(genomeId, fitnessEvidence) {
   const genome = genomeRegistry.get(genomeId);
   if (!genome) return null;
+  validateFitnessEvidence(fitnessEvidence);
+  if (fitnessEvidence.genomeHash !== genome.genomeHash) throw evolutionError('METAPOPULATION_GENOME_EVIDENCE_MISMATCH');
   genome.certified = true;
   genome.fitnessEvidence = fitnessEvidence;
   return getGenomeCertificate(genomeId);
 }
 
 function evaluateLocalFitness(individual, context) {
-  const contextStr = JSON.stringify(context || {});
-  const hash = createHash('sha256').update(`${individual.ref || ''}:${contextStr}`).digest('hex').slice(0, 16);
-  const raw = parseInt(hash.slice(0, 8), 16) / 0xFFFFFFFF;
-  return { fitness: Math.max(0, Math.min(1, raw)), evidenceRef: hash };
+  if (typeof context?.fitnessEvaluator !== 'function') throw evolutionError('METAPOPULATION_FITNESS_EVALUATOR_REQUIRED');
+  const evidence = context.fitnessEvaluator(individual, context);
+  validateFitnessEvidence(evidence);
+  return evidence;
 }
+
+function validateFitnessEvidence(evidence) {
+  if (!Number.isFinite(evidence?.fitness) || evidence.fitness < 0 || evidence.fitness > 1
+    || typeof evidence.evidenceRef !== 'string' || !evidence.evidenceRef.trim()
+    || !evidence.provenance || typeof evidence.provenance !== 'object' || Array.isArray(evidence.provenance)) {
+    throw evolutionError('METAPOPULATION_FITNESS_EVIDENCE_INVALID');
+  }
+}
+
+function evolutionError(code) { return Object.assign(new Error(code), { code }); }
 
 function compareFitness(before, after) {
   return { delta: after - before, improved: after > before, direction: after > before ? 'up' : 'down' };
@@ -50,7 +62,7 @@ function detectSpeciation(context) {
   const divergence = 1 - compat * 0.5;
   return {
     divergence: Math.round(divergence * 100) / 100,
-    speciated: divergence > speciationThreshold,
+    speciated: migrationHistoryAB.length > 0 && migrationHistoryBA.length > 0 && divergence > speciationThreshold,
     threshold: speciationThreshold,
     reason: divergence > speciationThreshold ? 'DIVERGENCE_ABOVE_THRESHOLD' : 'NOT_SPECIATED',
   };
@@ -59,7 +71,8 @@ function detectSpeciation(context) {
 function acceptanceRate(historyAB, historyBA) {
   const total = historyAB.length + historyBA.length;
   if (!total) return 0.5;
-  return (acceptanceCount(historyAB) + acceptanceCount(historyBA)) / 2;
+  return (historyAB.filter((item) => item.accepted === true).length
+    + historyBA.filter((item) => item.accepted === true).length) / total;
 }
 
 function acceptanceCount(history) {
@@ -75,13 +88,14 @@ function crossIslandMigrantCertificate(context) {
     sourceDemeId,
     targetDemeId,
     seed: seed || migrantSeed(sourceDemeId, targetDemeId),
+    verified: false,
     generatedAt: new Date().toISOString(),
     reproducible: true,
   };
 }
 
 function migrantSeed(sourceDemeId, targetDemeId) {
-  return createHash('sha256').update(`${sourceDemeId}:${targetDemeId}:${Date.now()}`).digest('hex').slice(0, 16);
+  return createHash('sha256').update(`${sourceDemeId}:${targetDemeId}`).digest('hex').slice(0, 16);
 }
 
 function reproducibleSeedAttestor(context) {
@@ -108,7 +122,8 @@ function quantizeDescriptor(value) {
 
 function qdInsert(archive, individual) {
   const key = qdNicheKey(archive, individual.descriptor);
-  const fitness = Number(individual.fitness);
+  const fitness = individual.fitness;
+  if (!Number.isFinite(fitness) || fitness < 0 || fitness > 1) throw evolutionError('METAPOPULATION_QD_FITNESS_INVALID');
   const elite = archive.cells.get(key);
   archive.insertions += 1;
   if (elite && Number(elite.fitness) >= fitness) return { inserted: false, displaced: false, key, coverage: qdCoverage(archive) };

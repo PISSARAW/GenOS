@@ -6,6 +6,7 @@ const { migrateMetapopulationRuntime } = require('../../db/migrations/migrateMet
 const { validateRegionalEvent } = require('./contracts/regionalEventContract');
 const { validatePatch } = require('./contracts/patchContract');
 const { validateDeme } = require('./contracts/demeContract');
+const { FIELDS, profileForStorage, readDemeProfile } = require('./demes/demeProfileService');
 
 async function createSession(db, session, event) {
   await migrateMetapopulation(db);
@@ -155,12 +156,12 @@ async function createDeme(db, metapopulationId, input) {
       `INSERT INTO metapopulation_demes
        (deme_id, metapopulation_id, patch_id, status, members_json, local_state_ref, local_memory_ref,
         local_strategies_json, local_procedures_json, lineage_json, fitness_json, diversity,
-        last_heartbeat_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        last_heartbeat_at, created_at, updated_at, profile_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       deme.demeId, metapopulationId, deme.patchId, deme.status, JSON.stringify(deme.members),
       deme.localStateRef || null, deme.localMemoryRef || null, JSON.stringify(deme.localStrategies),
       JSON.stringify(deme.localProcedures), JSON.stringify(deme.lineage), JSON.stringify(deme.fitness),
-      deme.diversity, now, now, now
+      deme.diversity, now, now, now, JSON.stringify(profileForStorage(deme))
     );
     await db.run('UPDATE metapopulation_patches SET status = ?, current_deme_id = ?, updated_at = ? WHERE patch_id = ?', 'OCCUPIED', deme.demeId, now, deme.patchId);
     await commitEvent(db, metapopulationId, { type: 'DEME_CREATED', payload: { demeId: deme.demeId, patchId: deme.patchId } });
@@ -199,7 +200,7 @@ async function updateDemeProfile(db, input) {
   await migrateMetapopulation(db);
   const { metapopulationId, demeId } = input;
   const changes = input.changes || {};
-  const mutableFields = ['localStrategies', 'localProcedures', 'lineage', 'fitness', 'diversity', 'localMemoryRef'];
+  const mutableFields = ['localStrategies', 'localProcedures', 'lineage', 'fitness', 'diversity', 'localMemoryRef', ...FIELDS];
   if (Object.keys(changes).some((field) => !mutableFields.includes(field))) {
     throw storeError('METAPOPULATION_DEME_PROFILE_FIELD_INVALID', 'Deme profile contains a protected field.');
   }
@@ -210,9 +211,9 @@ async function updateDemeProfile(db, input) {
     const updated = validateDeme({ ...toDeme(currentRow), ...changes });
     const now = new Date().toISOString();
     await db.run(
-      'UPDATE metapopulation_demes SET local_strategies_json = ?, local_procedures_json = ?, lineage_json = ?, fitness_json = ?, diversity = ?, local_memory_ref = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?',
+      'UPDATE metapopulation_demes SET local_strategies_json = ?, local_procedures_json = ?, lineage_json = ?, fitness_json = ?, diversity = ?, local_memory_ref = ?, profile_json = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?',
       JSON.stringify(updated.localStrategies), JSON.stringify(updated.localProcedures), JSON.stringify(updated.lineage || {}),
-      JSON.stringify(updated.fitness), updated.diversity, updated.localMemoryRef || null, now, metapopulationId, demeId
+      JSON.stringify(updated.fitness), updated.diversity, updated.localMemoryRef || null, JSON.stringify(profileForStorage(updated)), now, metapopulationId, demeId
     );
     await commitEvent(db, metapopulationId, { type: 'DEME_PROFILE_UPDATED', payload: { demeId, fields: Object.keys(changes) } });
   });
@@ -341,6 +342,7 @@ function toPatch(row) {
 
 function toDeme(row) {
   return {
+    ...readDemeProfile(row.profile_json),
     demeId: row.deme_id, patchId: row.patch_id, status: row.status, members: parseJson(row.members_json),
     localStateRef: row.local_state_ref, localMemoryRef: row.local_memory_ref,
     localStrategies: parseJson(row.local_strategies_json), localProcedures: parseJson(row.local_procedures_json),
@@ -354,7 +356,7 @@ function toDeme(row) {
 function toCorridor(row) {
   return {
     corridorId: row.corridor_id, sourceDemeId: row.source_deme_id, targetDemeId: row.target_deme_id,
-    direction: 'directed', enabled: Boolean(row.enabled), capacity: row.capacity,
+    direction: 'directed', isReserve: parseJson(row.protocol_json).isReserve === true, enabled: Boolean(row.enabled), capacity: row.capacity,
     migrationCost: row.migration_cost, compatibility: row.compatibility,
     acceptedMigrations: row.accepted_migrations, rejectedMigrations: row.rejected_migrations,
     benefitHistory: parseJson(row.benefit_history_json), homogenizationRisk: row.homogenization_risk,

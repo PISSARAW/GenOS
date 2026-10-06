@@ -16,7 +16,7 @@ async function recordExtinction(db, input) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, extinctionId, input.metapopulationId, input.demeId, deme.patch_id,
     input.reason, JSON.stringify(input.provenance || {}), input.actor || 'metapopulation-runtime', now);
     await db.run('UPDATE metapopulation_demes SET status = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?', 'COLLAPSED', now, input.metapopulationId, input.demeId);
-    await db.run('UPDATE metapopulation_patches SET status = ?, current_deme_id = NULL, updated_at = ? WHERE metapopulation_id = ? AND patch_id = ?', 'VACANT', now, input.metapopulationId, deme.patch_id);
+    await db.run('UPDATE metapopulation_patches SET status = ?, current_deme_id = NULL, updated_at = ? WHERE metapopulation_id = ? AND patch_id = ? AND current_deme_id = ?', 'VACANT', now, input.metapopulationId, deme.patch_id, input.demeId);
     await appendEvent(db, input.metapopulationId, { patchId: deme.patch_id, demeId: input.demeId, reason: input.reason, occurredAt: now });
   });
   return { extinctionId, metapopulationId: input.metapopulationId, demeId: input.demeId, status: 'COLLAPSED' };
