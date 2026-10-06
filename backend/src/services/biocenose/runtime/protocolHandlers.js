@@ -14,19 +14,8 @@ const judgmentStore = require('../judgment/judgmentStore');
 const memberInvocation = require('./memberInvocationService');
 const sealedJudgmentPhase = require('./sealedJudgmentPhase');
 const variantOrchestrator = require('./variantOrchestrator');
-const DECISION_CHECKS = Object.freeze({
-  EVIDENCE_SUPPORTED: (item) => item.verifiedClaimIds?.length > 0,
-  EVIDENCE_WITH_DISSENT: (item) => item.verifiedClaimIds?.length > 0,
-  PROBABILITY_ESTIMATE: (item) => item.estimates?.length > 0,
-  PARETO_FRONT: (item) => item.options?.length > 0,
-  DESIGN_OPTIONS_REVIEW: (item) => item.options?.length > 0,
-  PLURALISM_PRESERVED: () => true,
-  REPRESENTATIVE_DISTRIBUTION: (item) => item.representative?.panelCount > 0
-    && item.representative?.distribution?.length > 0,
-  CLAIM_MAP: claimMapReady,
-  ARGUMENTS_ACCEPTED: (item) => item.argumentation?.labels?.length > 0
-    && item.unresolvedClaimIds?.length === 0
-});
+const revisedJudgments = require('./revisedJudgments');
+const stabilityService = require('./stabilityService');
 
 const STEP_HANDLERS = Object.freeze({
   collect_sealed_judgments: collectSealedJudgments,
@@ -149,6 +138,7 @@ async function collectBeliefRevisions(context) {
       reasonCodes: response.reasonCodes, evidenceRefs: response.evidenceRefs || [],
       criticalClaims: context.criticalClaims || []
     }));
+    updates[updates.length - 1].probabilities = response.probabilities;
   }
   return { updates };
 }
@@ -157,7 +147,11 @@ async function checkIndependence(context) {
   const session = await loadActiveSession(context);
   const active = session.members.filter((member) => member.status === 'ACTIVE'
     && member.role !== 'community_facilitator');
-  const report = effectiveSize.effectiveCommunitySize(active);
+  const observed = active.map((member) => {
+    const execution = context.modelExecutionByMember?.get(member.memberId);
+    return { ...member, actualProvider: execution?.provider, actualModel: execution?.model };
+  });
+  const report = effectiveSize.effectiveCommunitySize(observed);
   if (context.variantPolicy?.quarantineAware) {
     report.byzantine = variantOrchestrator.assertByzantineQuorum({ ...context, session: { ...session, members: active } });
   }
@@ -167,13 +161,14 @@ async function checkIndependence(context) {
 async function aggregateByQuestionType(context) {
   await movePhase(context, 'AGGREGATION');
   const session = await loadActiveSession(context);
-  const judgments = prior(context, 0).judgments;
+  const judgments = revisedJudgments.apply(prior(context, 0).judgments, prior(context, 4).updates);
   const claims = prior(context, 1).claims;
   const reviewResult = prior(context, 2);
-  const options = context.aggregationContext || {};
+  const options = require('./representativePanelService').prepare(context, session, context.aggregationContext || {});
   if (context.variantPolicy?.name === 'polycentric_council' && !options.clusters?.length) {
-    return variantOrchestrator.aggregatePolycentric({ context, session, claims,
+    const polycentric = await variantOrchestrator.aggregatePolycentric({ context, session, claims,
       reviews: reviewResult.reviews, invokeMember });
+    return withCommunityMetrics(polycentric, { context, session, judgments, claims });
   }
   const { persistent, forecastContext } = await variantForecastContexts({ context, session, judgments, options });
   const forecasts = selectForecasts({ context, session, judgments, options, persistent, forecastContext });
@@ -184,14 +179,21 @@ async function aggregateByQuestionType(context) {
     arguments: prior(context, 3).arguments,
     forecasts,
     verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy,
-    isTrustedReceipt: context.isTrustedReceipt, history,
+    isTrustedReceipt: options.isTrustedReceipt || context.isTrustedReceipt, history,
     members: session.members,
     quarantinedMemberIds: session.members.filter((member) => member.status === 'QUARANTINED')
       .map((member) => member.memberId)
   });
   const result = persistent ? { ...aggregation, persistentCommunity: persistent.report } : aggregation;
-  return forecastContext ? withForecastCalibration({ context, session, options, forecasts,
+  const calibrated = forecastContext ? await withForecastCalibration({ context, session, options, forecasts,
     forecastContext, result }) : result;
+  return withCommunityMetrics(calibrated, { context, session, judgments, claims });
+}
+
+function withCommunityMetrics(aggregation, input) {
+  return { ...aggregation, claimStatements: input.claims.map((claim) => claim.claim.statement),
+    quorum: require('../judgment/communityQuorumService').evaluate({ members: input.session.members,
+      judgments: input.judgments, constitution: input.context.constitution }) };
 }
 
 async function variantForecastContexts({ context, session, judgments, options }) {
@@ -250,10 +252,8 @@ async function recordCommunityJudgment(context) {
   const aggregation = prior(context, 6);
   const dissent = prior(context, 7);
   const openGate = dissent.gates.some((item) => item.promotion !== 'ALLOWED');
-  const stopping = {
-    ...(context.stopping || {}),
-    stableRoundCount: context.stopping?.stableRoundCount ?? (decisionReady(aggregation) || openGate ? 1 : 0)
-  };
+  const stopping = { ...(context.stopping || {}), ...await stabilityService.observe(context) };
+  if (openGate || require('../judgment/outcomeAssessment').needsHuman(aggregation)) stopping.terminalReviewRequired = true;
   if (context.variantPolicy?.minimumRounds > context.session.round + 1) stopping.stableRoundCount = 0;
   if (aggregation.delphi?.relativeSpread > 0.25
     && context.session.round + 1 < (context.constitution?.roundLimit || 1)) stopping.stableRoundCount = 0;
@@ -288,17 +288,6 @@ function anonymousArgument(item) {
   return { claimId: item.claimId, relation: item.relation, argument: item.argument };
 }
 
-
-function decisionReady(aggregation) {
-  if (aggregation.humanJudgmentRequired) return true;
-  if ((aggregation.unresolvedClaimIds || []).length) return false;
-  const check = DECISION_CHECKS[aggregation.outcome];
-  return check ? Boolean(check(aggregation)) : false;
-}
-
-function claimMapReady(aggregation) {
-  return aggregation.claims?.length > 0 && !aggregation.openQuestions?.length;
-}
 
 async function invokeMember(context, request) {
   const member = request.member;

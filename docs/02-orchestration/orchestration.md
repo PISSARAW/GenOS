@@ -629,7 +629,7 @@ Si une copie dépasse les seuils, le système refuse explicitement la branche.
 
 Dans [backend/src/services/agentFleetWorkers.js](../../backend/src/services/agentFleetWorkers.js) et [backend/src/services/workerGarageService.js](../../backend/src/services/workerGarageService.js) :
 
-- Par défaut : `GENOS_MAX_WORKERS = 8` (voir `backend/src/config/orchestratorConfig.js:16`), `MAX_AUTONOMOUS_WORKERS = 3` et capacité de projet `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT = 12` (minimum 12, suit `maxActiveWorkers`).
+- Sans surcharge d'environnement : `maxWorkers = 8`, `maxActiveWorkers = 8` et capacité de projet `maxActiveWorkersPerProject = 12`. Les valeurs sont calculées par [orchestratorConfig.js](../../backend/src/config/orchestratorConfig.js), avec un plancher projet de 12 ; la limite de création de flotte et la capacité d'exécution restent deux contrôles distincts.
 - Capacité 100+ = paramètre, pas benchmark : non mesuré bout-à-bout.
 - `GENOS_IN_PROCESS_WORKERS=1` (>12 agents, même boucle Node) casse l'isolation worktree/process : ne pas le présenter comme équivalent au mode isolé.
 - Paramétrable pour les déploiements à grande échelle (jusqu'à 100+ agents) :
@@ -638,7 +638,15 @@ Dans [backend/src/services/agentFleetWorkers.js](../../backend/src/services/agen
   - `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT` : plafond total de workers actifs par projet (s'adapte automatiquement à `GENOS_MAX_ACTIVE_WORKERS`).
   - `GENOS_INFERENCE_MAX_CONCURRENT` et `GENOS_INFERENCE_TENANT_QUEUE_CAPACITY` : régulation de la file d'inférence (adaptée automatiquement à la taille de la flotte).
   - `GENOS_SQLITE_BUSY_TIMEOUT_MS` : délai de verrouillage SQLite (30 000 ms par défaut).
-- En cas de saturation (`WORKER_GARAGE_FULL`), un message d'erreur actionnable indique immédiatement l'état et le remède : `Worker garage is full (slots: X/Y used — wait or increase MAX_ACTIVE_WORKERS)`.
+- Un appel direct de réservation saturé peut encore retourner `WORKER_GARAGE_FULL`. L'admission REST par [Garage Fabric](topologies/garage-fabric.md) conserve par défaut la mission dans une file SQLite ; `queueIfFull: false` demande un refus au lieu d'une attente. Claim et réservation locale/projet sont transactionnels ; un parent saturé ne bloque pas les autres demandes admissibles.
+
+Garage Fabric applique douze politiques sans changer la topologie, le contrat
+ou les permissions du worker. Son bail UUID clôture les callbacks anciens.
+La préemption est consentie (`preemptible: true`) et libère le slot seulement
+après arrêt confirmé et snapshot vérifié. La reprise utilise une nouvelle
+capsule de fichiers et le budget restant mesuré, pas la RAM du processus.
+Consulter la [référence opérateur](topologies/garage-fabric.md#12-api-operateur)
+pour la file, le journal et `freeze`, `resume`, `cancel`, `renew`.
 
 Pour opérer 100 agents simultanément de façon optimale, il est recommandé de structurer la mission en **tissus cellulaires** (ex: 10 escouades de 10 agents avec chacune sa cellule souche) plutôt qu'un essaim plat en *hub-and-spoke*.
 

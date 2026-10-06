@@ -6,6 +6,10 @@ runtime sont décrits dans [../topologies-et-capacites.md](../topologies-et-capa
 La [Morphogenèse](morphogenese.md) est le cadre transversal qui construit et compose
 ces organisations ; elle n'est pas un neuvième mode.
 
+[Garage Fabric](garage-fabric.md) est également transversal : il ordonne les
+exécutions des workers sous les plafonds de capacité, sans choisir leur topologie
+ni modifier leur contrat de mission.
+
 - [trinity.md](trinity.md) — orchestration comparée, baseline à trois mondes et variants expérimentaux à fan-out contrôlé.
 - [a-team.md](a-team.md) — équipe multidisciplinaire d'agents autonomes.
 - [biome.md](biome.md) — orchestration par environnement et populations spécialisées.
@@ -14,9 +18,9 @@ ces organisations ; elle n'est pas un neuvième mode.
 - [syncytium.md](syncytium.md) — modèle d'état partagé et runtime partiel à 13 variants ; campagne des 53 missions non attestée.
 - [protocole-missions-syncytium.md](protocole-missions-syncytium.md) — budgets, missions, workers, échanges, nosologie, télémétrie et preuves d’exécution.
 - [rhizome.md](rhizome.md) — missions par capacités, croissance vérifiée et routage borné ; [contrat runtime](../../03-reference/runtime-rhizome.md).
-- [metapopulation.md](metapopulation.md) — orchestration par populations semi-indépendantes.
+- [metapopulation.md](metapopulation.md) — populations semi-indépendantes, recolonisation et cycles régionaux persistants ; [contrat runtime](../../03-reference/runtime-metapopulation.md).
 - [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance et maturité des variants des topologies.
-- [garage-fabric.md](garage-fabric.md) — capacité adaptative, leases, file et réarrangement logique des workers.
+- [garage-fabric.md](garage-fabric.md) — douze politiques exécutables, file SQLite, baux clôturés et cycle snapshot/freeze/thaw vérifié.
 
 ## Voir aussi
 

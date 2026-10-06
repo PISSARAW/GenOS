@@ -92,14 +92,7 @@ function makeCandidates(input, count, population) {
 
 function invokeFixture(input, request, judgments) {
   if (request.phase === 'SEALED_JUDGMENT') {
-    const prior = Number(request.context.priorPosition);
-    const position = Number.isFinite(prior) ? prior : 0.2 + (judgments.length % 5) / 10;
-    const prediction = 0.25 + (judgments.length % 5) / 10;
-    const output = { judgment: { position, confidence: input.variant === 'byzantine_resilient_community' && judgments.length === 0 ? 0.99 : 0.8,
-    evidenceRefs: input.variant === 'byzantine_resilient_community' && judgments.length === 0 ? [] : ['fixture-proof'],
-    reasonCodes: ['NEW_EVIDENCE'], claims: [fixtureClaim(input)], assumptions: [], unknowns: [], abstentions: [], probabilities: [
-      { eventId: 'forecast-event', domain: 'general', probability: prediction }
-    ] } };
+    const output = sealedFixture({ input, request, count: judgments.length });
     judgments.push(output);
     return output;
   }
@@ -107,6 +100,17 @@ function invokeFixture(input, request, judgments) {
   if (request.phase === 'REVISION') return { changedClaims: [] };
   if (request.phase === 'LOCAL_COUNCIL_JUDGMENT') return { outcome: request.context.council.councilId === 'council_1' ? 'SHIP' : 'HOLD' };
   throw new Error(`Unexpected member phase ${request.phase}`);
+}
+
+function sealedFixture({ input, request, count }) {
+  const prior = Number(request.context.priorPosition);
+  const position = Number.isFinite(prior) ? prior : 0.2 + (count % 5) / 10;
+  const suspect = input.variant === 'byzantine_resilient_community' && count === 0;
+  return { judgment: { position, confidence: suspect ? 0.99 : 0.8,
+    evidenceRefs: suspect ? [] : ['fixture-proof'], reasonCodes: ['NEW_EVIDENCE'],
+    claims: [fixtureClaim(input)], assumptions: [], unknowns: [], abstentions: [],
+    probabilities: [{ eventId: 'forecast-event', domain: 'general', probability: 0.25 + (count % 5) / 10 }]
+  } };
 }
 
 function fixtureClaim(input) {
@@ -138,6 +142,11 @@ function assertMissionOutcome(variant, fixture) {
   assert.equal(result.status, 'COMPLETED', `${variant} runtime completes`);
   const aggregation = result.receipts.find((item) => item.step === 'aggregate_by_question_type')?.result;
   assert.ok(aggregation, `${variant} returns a question aggregation`);
+  assertVariantAggregation(variant, { community, aggregation });
+  assertVariantLifecycle(variant, fixture);
+}
+
+function assertVariantAggregation(variant, { community, aggregation }) {
   if (variant === 'representative_community') {
     assert.ok(community.formation.representative.sampleSize > 0);
     assert.ok(Object.values(community.formation.representative.weights).every((weight) => weight > 0));
@@ -152,6 +161,9 @@ function assertMissionOutcome(variant, fixture) {
     assert.ok(aggregation.polycentric?.clusters.length);
     assert.equal(aggregation.polycentric.status, 'FEDERATED_PLURALISM');
   }
+}
+
+function assertVariantLifecycle(variant, { community, result, events }) {
   if (variant === 'byzantine_resilient_community') {
     const quorum = result.receipts[0].result.byzantine;
     assert.ok(quorum?.faultDomains.domainCount > 0);
@@ -176,6 +188,7 @@ function assertMissionOutcome(variant, fixture) {
     assert.equal(judgment?.status, 'HUMAN_REVIEW_REQUIRED');
   }
   if (variant === 'hybrid_oracle_community') {
+    const aggregation = result.receipts.find((item) => item.step === 'aggregate_by_question_type').result;
     const review = result.receipts.find((item) => item.step === 'review_and_verify')?.result;
     assert.ok(review.verificationReceipts.length > 0);
     assert.ok(aggregation.results.some((item) => item.result.outcome === 'EVIDENCE_SUPPORTED'));

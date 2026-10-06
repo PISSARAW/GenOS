@@ -1,6 +1,8 @@
 # Domaine Métapopulation
 
-Ce dossier définit les contrats, la persistance et les services du modèle cible.
+Ce dossier implémente les contrats, la persistance et le runtime régional borné.
+Référence : [runtime Metapopulation](../../../../docs/03-reference/runtime-metapopulation.md)
+(revue du 2026-10-06, commit `5b18c834`).
 La façade publique reste `../metapopulationCoordinationService.js`.
 
 ## Ontologie
@@ -57,6 +59,9 @@ minimale des patches et de cette qualité. La régénération du graphe désacti
 les corridors retirés et conserve leurs compteurs et historiques.
 
 Le PR5 place les propagules offertes en quarantaine chez le dème receveur.
+Les décisions sont ACCEPT, REJECT, REQUEST_MORE_EVIDENCE (quarantaine conservée)
+et ADAPT_AND_ACCEPT (adaptation avec reçu puis revalidation). Réutiliser une
+identité pour une offre différente produit un conflit.
 Seul un adaptateur enregistré pour le type concerné peut valider localement
 le payload puis l'assimiler. Un rejet de validation est journalisé ; une
 assimilation acceptée exige un reçu avec provenance. Les adaptateurs reçoivent
@@ -108,7 +113,11 @@ rollback idempotent, la pénalité du corridor, une seconde mesure de fitness et
 la persistance du résultat. Les extinctions explicitement prouvées et les recolonisations sont pilotées par cette boucle avec un évaluateur local configuré.
 PLAN reste sans effet ; la preuve locale, l'occupation et le journal sont vérifiés et persistés.
 Les îlots conservent leurs profils et résultats, et les résidents utilisent des capsules réelles.
-Les mesures rescue permettent une reprise sans réassimilation.
+Les mesures rescue avant assimilation et avant rollback sont persistées ; la reprise
+respecte les effets déjà enregistrés. Fitness finale et issue sont atomiques.
+Le cycle vide rend NO_ACTION. La numérotation reprend après le dernier cycle
+vérifié ; maxCycles limite le nombre de cycles supplémentaires par appel.
+Les baux et capsules de résidents ne démarrent pas un processus de fond.
 La suite dédiée est `npm --prefix backend run test:metapopulation` ; voir l'ADR 0330.
 Le benchmark actuel mesure les métriques régionales ; il ne constitue pas
 encore une comparaison scientifique à budget égal.

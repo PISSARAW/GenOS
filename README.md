@@ -53,7 +53,7 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 - **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
 - **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
 - **Rhizome** — missions par capacités avec résultats signés, croissance et budgets atomiques, routage borné, reprise persistante et télémétrie du graphe réel. Voir le [contrat runtime](docs/03-reference/runtime-rhizome.md).
-- **Métapopulation** — quorum pondéré, plasticité des connexions et plan de récupération par lignage.
+- **Métapopulation** — runtime régional persistant : migrations revues par le receveur, extinction à preuves, recolonisation multi-lignage et reprise des cycles ; moteurs externes configurés par adaptateurs. Voir le [contrat runtime](docs/03-reference/runtime-metapopulation.md).
 
 Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).
 
@@ -68,6 +68,7 @@ Fonctionnalités implémentées :
 - **GenOS Studio** et backend Node.js : plan de contrôle, API REST, services gRPC et persistance SQLite WAL.
 - **CLI Rust** et serveur MCP stdio pour les opérations locales et les intégrations.
 - **Runtime agentique supervisé** : lance des runtimes configurés, collecte leurs événements, applique des budgets et conserve les résultats et preuves.
+- **[Garage Fabric](docs/02-orchestration/topologies/garage-fabric.md)** : douze politiques de circulation des workers, file SQLite durable, réservation transactionnelle, baux clôturés et préemption consentie avec snapshot vérifié. La reprise restaure les fichiers et le budget restant, pas la mémoire du processus ; ce service transversal n'est pas une neuvième topologie.
 - **Routage de modèles implémenté** : modèles distants via OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together et OpenRouter ; modèles locaux via Ollama, LM Studio et vLLM ; endpoints compatibles OpenAI configurables.
 - **Politiques de routage** configurables par agent, tenant ou environnement, avec ordre de fallback ; le mode parallèle est disponible avec une limite de coût explicite.
 - **Huit topologies d'orchestration** avec services de coordination et contrats de capacités. La présence d'un mode ne signifie pas que chaque capacité du profil est complète ou activée dans chaque installation.

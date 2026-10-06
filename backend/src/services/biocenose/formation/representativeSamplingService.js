@@ -9,7 +9,7 @@ function stratumKey(member, dimensions) {
 function stratify(input = {}) {
   const population = Array.isArray(input.population) ? input.population : [];
   if (!population.length) throw samplingError('BIOCENOSE_SAMPLING_EMPTY', 'Stratification requires a non-empty population.');
-  const dimensions = Array.isArray(input.dimensions) && input.dimensions.length ? input.dimensions : [...DEFAULT_STRATA];
+  const dimensions = comparisonDimensions(input);
   const strata = new Map();
   population.forEach((member, index) => {
     const key = stratumKey(member, dimensions);
@@ -17,8 +17,7 @@ function stratify(input = {}) {
     strata.get(key).push(String(member.memberId || `member_${index}`));
   });
   return {
-    dimensions,
-    populationSize: population.length,
+    dimensions, populationSize: population.length,
     strata: [...strata.entries()].map(([stratum, memberIds]) => ({
       stratum, memberIds, size: memberIds.length, share: Number((memberIds.length / population.length).toFixed(4))
     }))
@@ -90,35 +89,22 @@ function effectiveSampleSize(input = {}) {
   if (sumSquares <= 0) return { effectiveSampleSize: 0, nominalSize: values.length, efficiency: 0 };
   const ess = (sum * sum) / sumSquares;
   return {
-    effectiveSampleSize: Number(ess.toFixed(3)),
-    nominalSize: values.length,
+    effectiveSampleSize: Number(ess.toFixed(3)), nominalSize: values.length,
     efficiency: Number((ess / values.length).toFixed(3))
   };
 }
 
 function comparePanels(input = {}) {
-  const population = Array.isArray(input.population) ? input.population : [];
-  const sample = Array.isArray(input.sample) ? input.sample : [];
-  if (!population.length || !sample.length) throw samplingError('BIOCENOSE_SAMPLING_EMPTY',
-    'Panel comparison requires a non-empty population and representative sample.');
-  const dimensions = Array.isArray(input.dimensions) && input.dimensions.length ? input.dimensions : [...DEFAULT_STRATA];
-  const populationStrata = stratify({ population, dimensions }).strata;
-  const keyById = new Map(population.map((member, index) => [String(member.memberId || `member_${index}`),
-    stratumKey(member, dimensions)]));
-  const sampleItems = sample.map((item) => typeof item === 'string' ? { memberId: item } : item);
-  const naiveIds = new Set(population.slice(0, sampleItems.length)
-    .map((member, index) => String(member.memberId || `member_${index}`)));
-  const weights = input.weights || {};
-  const totalWeight = sampleItems.reduce((sum, item) => sum + Math.max(0, Number(weights[item.memberId]) || 0), 0);
+  const { dimensions, populationStrata, keyById, sampleItems, naiveIds, weights } = prepareComparison(input);
+  const totalWeight = sampleItems.reduce((sum, item) => sum + sampleWeight(weights, item), 0);
   const strata = populationStrata.map((stratum) => {
     const key = stratum.stratum;
     const representativeCount = sampleItems.filter((item) => keyById.get(item.memberId) === key).length;
     const naiveCount = [...naiveIds].filter((id) => keyById.get(id) === key).length;
     const weightedTotal = sampleItems.filter((item) => keyById.get(item.memberId) === key)
-      .reduce((sum, item) => sum + Math.max(0, Number(weights[item.memberId]) || 0), 0);
+      .reduce((sum, item) => sum + sampleWeight(weights, item), 0);
     return {
-      stratum: key,
-      populationShare: stratum.share,
+      stratum: key, populationShare: stratum.share,
       representativeSampleShare: representativeCount / sampleItems.length,
       weightedRepresentativeShare: totalWeight ? weightedTotal / totalWeight : 0,
       naiveSampleShare: naiveCount / naiveIds.size
@@ -131,6 +117,29 @@ function comparePanels(input = {}) {
     representativeWeighted: totalVariation('weightedRepresentativeShare'),
     naive: totalVariation('naiveSampleShare')
   } };
+}
+
+function sampleWeight(weights, item) {
+  return Math.max(0, Number(weights[item.memberId]) || 0);
+}
+
+function prepareComparison(input) {
+  const population = Array.isArray(input.population) ? input.population : [];
+  const sample = Array.isArray(input.sample) ? input.sample : [];
+  if (!population.length || !sample.length) throw samplingError('BIOCENOSE_SAMPLING_EMPTY',
+    'Panel comparison requires a non-empty population and representative sample.');
+  const dimensions = comparisonDimensions(input);
+  const populationStrata = stratify({ population, dimensions }).strata;
+  const keyById = new Map(population.map((member, index) => [String(member.memberId || `member_${index}`),
+    stratumKey(member, dimensions)]));
+  const sampleItems = sample.map((item) => typeof item === 'string' ? { memberId: item } : item);
+  const naiveIds = new Set(population.slice(0, sampleItems.length)
+    .map((member, index) => String(member.memberId || `member_${index}`)));
+  return { dimensions, populationStrata, keyById, sampleItems, naiveIds, weights: input.weights || {} };
+}
+
+function comparisonDimensions(input) {
+  return Array.isArray(input.dimensions) && input.dimensions.length ? input.dimensions : [...DEFAULT_STRATA];
 }
 
 function samplingError(code, message) {

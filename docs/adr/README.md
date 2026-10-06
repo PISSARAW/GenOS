@@ -369,7 +369,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0309](0309-evaluation-isolee-variants-a-team.md) | Évaluation isolée des variantes A-Team | Accepté | 2026-10-04 | A-Team, contrats de variante, preuve, dispatch |
 | [0310](0310-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
 | [0311](0311-autorisation-cedar-agents.md) | Autorisation Cedar des missions et du contrôle d'agents | Accepté | 2026-10-04 | autorisation, missions, délégation, relations |
-| [0312](0312-garage-fabric-adaptatif.md) | Garage Fabric adaptatif pour le control plane | Accepté — première tranche de fondation | 2026-10-05 | orchestration, workers, capacité, résilience |
+| [0312](0312-garage-fabric-adaptatif.md) | Garage Fabric adaptatif pour le control plane | Accepté — runtime durable, fencing et preuves terminales raccordés | 2026-10-05 | orchestration, workers, capacité, résilience |
 | [0313](0313-niveaux-maturite-et-criteres-certification.md) | Niveaux de maturité et critères de certification | Accepté | 2026-10-05 | Gouvernance, maturité, certification, métaphysique |
 | [0314](0314-critere-reussite-global-et-matrice-statut.md) | Critère de réussite global et matrice de statut des concepts | Accepté | 2026-10-05 | Gouvernance, statut, transparence, audit |
 | [0315](0315-terminologie-organisme-computationnel.md) | Terminologie : organisme computationnel vs biologique | Accepté | 2026-10-05 | Biomimétique, terminologie, anti-anthropomorphisme |
@@ -386,6 +386,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0332](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |
 | [0333](0333-cloture-runtime-agow.md) | Clôture des contrats runtime AGOW | Accepté | 2026-10-06 | AGOW, budgets, persistance, preuve |
 | [0323](0323-frontieres-preuve-execution-omega.md) | Frontières de preuve et d’exécution Omega | Accepté pour le durcissement du runtime, pas comme certificat de complétude. | -- | -- |
+| [0330a](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Accepté | 2026-10-06 | Metapopulation, persistance, migrations et preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
@@ -414,5 +415,3 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.
-
-- [ADR 0330 — Effets durables et reprise vérifiée de Metapopulation](0330-effets-durables-metapopulation.md)

@@ -235,11 +235,13 @@ async function aggregatePolycentric(input) {
     const responses = await localCouncilResponses(input, council);
     clusters.push(localCouncilOutcome(council.councilId, responses));
   }
-  const federated = councilService.federate({ clusters,
+  const hierarchy = require('../deliberation/hierarchicalDeliberationService').aggregateAtParent({
+    clusters, isTrustedReceipt: input.context.isTrustedReceipt });
+  const federated = councilService.federate({ clusters: hierarchy.clusters,
     delegatesPerCluster: input.context.aggregationContext?.delegatesPerCouncil || 2 });
   return { policy: 'hierarchical', questionType: input.session.questionType,
     outcome: federated.parentMustReview ? 'REVIEW_REQUIRED' : 'POLYCENTRIC_JUDGMENT',
-    polycentric: { councils, clusters, ...federated } };
+    polycentric: { councils, clusters: hierarchy.clusters, ...federated } };
 }
 
 async function localCouncilResponses(input, council) {
@@ -264,8 +266,13 @@ function localCouncilOutcome(clusterId, responses) {
     position, memberCount, share: responses.length ? memberCount / responses.length : 0
   }));
   const outcome = [...distribution].sort((left, right) => right.memberCount - left.memberCount)[0]?.position || 'ABSTAIN';
-  const dissent = responses.flatMap((item) => item.dissent ? [{ memberId: item.memberId, dissent: item.dissent }] : []);
+  const dissent = responses.flatMap((item) => normalizedDissent(item));
   return { clusterId, outcome, distribution, dissent, minorityEvidenceBypass: [] };
+}
+
+function normalizedDissent(item) {
+  const entries = Array.isArray(item.dissent) ? item.dissent : item.dissent ? [item.dissent] : [];
+  return entries.map((entry) => ({ ...entry, memberId: item.memberId }));
 }
 
 function stripOwner(claim) {

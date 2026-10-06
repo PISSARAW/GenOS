@@ -388,6 +388,16 @@ Côté Node : `metadata_json.workerKind`, `workerContract` reconstruit, `promptR
 | `workerBarrierTimeoutMs`, `timeoutMs` | `workerEvidenceBarrierQuiescence.js` | `barrier = workerBarrierTimeoutMs ?? min(8000, timeoutMs*0.35)` ou `60_000`. |
 | `strict` (barrière) | `workerEvidenceBarrier.js` | `strict!==false` rejette le partiel. |
 | Garage / limites d'affectation | `agentFleetWorkers.js` | Plafond d'enfants à la création. |
+| Garage / capacité d'exécution | `orchestratorConfig.js`, `workerGarageService.js` | Sans surcharge : 8 actifs par orchestrateur, 12 par projet (plancher 12). Réservation transactionnelle distincte du plafond de création. |
+| Garage / file et tentative | `garageAdmissionService.js`, `garageQueueStore.js`, `garageReservationGuard.js` | Mission persistée, claim à bail UUID et identité réservée ; aucun changement de `WorkerKind`, de rôle ou de lease MCP. |
+
+Le [Garage Fabric](../02-orchestration/topologies/garage-fabric.md) applique
+douze politiques de circulation aux workers existants. Les dépendances Garage
+référencent des demandes terminées avec preuve, pas seulement des rôles du
+pipeline. Une préemption consentie ne libère le slot qu'après arrêt confirmé
+et snapshot vérifié ; la reprise conserve l'identité, restaure une nouvelle
+capsule de fichiers et déduit la consommation du budget persisté. Les contrats
+typés et barrières d'évidence restent requis pour la tentative courante.
 
 Aucune variable ne réactive le spawn imbriqué. Le contrat de base est non délégant; seule l'incarnation persistée `sub_orchestrator` reçoit le contrat borné via `grantBoundedDelegation()`, puis passe par l'allowlist et les limites du dispatcher dédié.
 

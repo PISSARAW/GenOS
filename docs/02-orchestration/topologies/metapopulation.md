@@ -1,10 +1,15 @@
 # Metapopulation : Persistance Régionale malgré l'Instabilité Locale
 
-- **Statut** : spécification et état d'implémentation
+- **Statut** : runtime régional implémenté ; qualification produit expérimentale
 - **Portée** : persistance régionale par populations semi-indépendantes, migration et recolonisation
-- **Dernière revue** : 2026-10-03
+- **Dernière revue** : 2026-10-06
 
 > **Lecture du statut** — Les descriptions de rôles, variantes, scénarios et machines à états expriment le modèle visé lorsqu’elles sont présentées comme cible ou hypothèse. Les calculs, seuils et actions précédés de « réellement calculé », « implémenté » ou « défaut actuel » décrivent le code observé. Les analogies écologiques motivent le vocabulaire ; elles ne valident pas les performances du runtime.
+
+La [référence du runtime](../../03-reference/runtime-metapopulation.md) décrit les API,
+les schémas actuels, les adaptateurs requis et la preuve des dix suites dédiées
+au commit `5b18c834`. Les sections de conception restent des modèles lorsque
+leur portée est indiquée comme cible.
 
 ## 1. Définition
 
@@ -227,6 +232,7 @@ Deme {
     status: FOUNDING | ACTIVE | DECLINING | AT_RISK | COLLAPSED | RECOLONIZING | DORMANT
     healthSignal: signal liveness compact
 }
+```
 $$
 
 Le dème est la **population vivante**. Il évolue, se reproduit, mute, échange, et peut s'éteindre. Sa fitness est évaluée localement — `Fitness(x, deme_A) ≠ Fitness(x, deme_B)` par conception.
@@ -1029,122 +1035,25 @@ Les options configurables ne sont pas toutes appliquées à toutes les façades 
 consulter la signature du service utilisé. Les seuils doivent être validés par
 mission et ne sont pas des constantes universelles issues de la littérature.
 
-## 23. Contrat runtime
+## 23. Contrats actuels du runtime
 
-### 23.1 MetapopulationSession
+Les schémas précédemment présentés comme contrat mélangeaient modèle cible et
+champs d'API. Les [contrats JavaScript](../../../backend/src/services/metapopulation/contracts/)
+et la [référence du runtime](../../03-reference/runtime-metapopulation.md) font foi.
 
-```typescript
-interface MetapopulationSession {
-    sessionId: string
-    missionId: string
-    patchModel: Patch[]
-    demes: Deme[]
-    migrationGraph: MigrationRoute[]
-    topology: 'ring' | 'stepping_stone' | 'star' | 'small_world' |
-              'source_sink' | 'hierarchical' | 'adaptive'
-    status: 'FORMING' | 'ACTIVE' | 'RECOVERING' | 'DEGRADED' | 'ESCALATED'
-    tickCount: number
-    lambdaMax: number
-    antiSyncIndex: number
-}
-```
+| Objet | Contrat actuel |
+| --- | --- |
+| Session | `metapopulationId`, alias de façade `sessionId`, `patches`, `demes`, `migrationGraph: { corridors }`, `regionalMemory`, génération, révision et dates ISO |
+| Patch | `carryingCapacity`, environnement, ressources, exigences, qualité, accessibilité et statut ; `AVAILABLE` est distinct de `VACANT` |
+| Dème | Membres, stratégies, procédures, lignage, objet `fitness`, diversité et profil d'îlot persisté ; transition `FOUNDING → ESTABLISHING → ACTIVE` |
+| Propagule | `lineageRefs`, `sourceEvidence`, `provenance` et `payloadRef` ; types actuels incluant `TOOL_CONFIG`, `ELITE` et `BOUNDS` |
+| Corridor | Arc dirigé avec identité, capacité, compatibilité, poids, activation et historique |
+| Migration | Quarantaine `QUARANTINED`, acceptation, rejet ou rollback persistés ; demander des preuves ne crée pas d'acceptation |
+| Liveness | Observation fournie par les heartbeats ; absence de signal ou mesure inconnue ne prouve pas la santé ni l'extinction |
 
-### 23.2 Patch
-
-```typescript
-interface Patch {
-    patchId: string
-    environment: PatchEnvironment
-    capacity: number
-    quality: number
-    requirements: string[]
-    accessibility: number
-    status: 'VACANT' | 'OCCUPIED' | 'UNAVAILABLE' | 'QUARANTINED'
-    metadata: Record<string, unknown>
-}
-```
-
-### 23.3 Deme
-
-```typescript
-interface Deme {
-    demeId: string
-    patchId: string
-    members: string[]
-    localState: DemeLocalState
-    lineage: LineageRef
-    localFitness: number
-    diversity: number
-    status: 'FOUNDING' | 'ACTIVE' | 'DECLINING' | 'AT_RISK' |
-            'COLLAPSED' | 'RECOLONIZING' | 'DORMANT'
-    healthSignal: LivenessSignal
-    createdAt: number
-    lastProgressAt: number
-    migrantExports: number
-    migrantImports: number
-    collapseCount: number
-}
-```
-
-### 23.4 Propagule
-
-```typescript
-interface Propagule {
-    propaguleId: string
-    sourceDemeId: string
-    targetDemeId: string
-    type: 'AGENT' | 'GENOME' | 'COGNITIVE_RECIPE' | 'PROCEDURE' |
-          'MEMORY_FRAGMENT' | 'CLAIM' | 'COUNTEREXAMPLE' | 'ARTIFACT' |
-          'TEST' | 'VERIFIER' | 'STRATEGY' | 'TOOL_CONFIGURATION'
-    payloadRef: string
-    lineage: LineageRef
-    sourceFitness: number
-    novelty: number
-    migrationReason: 'elite' | 'novelty' | 'rescue' | 'complementary' |
-                     'counterexample' | 'cultural' | 'founder'
-    compatibilityEstimate: number
-    status: 'OFFERED' | 'QUARANTINE' | 'ACCEPTED' | 'REJECTED' | 'ADAPTED'
-    cost: number
-    createdAt: number
-    acceptedAt?: number
-    rejectedAt?: number
-    rejectionReason?: string
-    improvement?: number
-}
-```
-
-### 23.5 MigrationRoute
-
-```typescript
-interface MigrationRoute {
-    sourceDemeId: string
-    targetDemeId: string
-    direction: 'directed' | 'bidirectional'
-    weight: number
-    acceptedMigrations: number
-    rejectedMigrations: number
-    utility: number
-    adaptationHistory: CorridorAdjustment[]
-    frozen: boolean
-    lastAdjustmentAt: number
-}
-```
-
-### 23.6 LivenessSignal
-
-```typescript
-interface LivenessSignal {
-    demeId: string
-    timestamp: number
-    localStateVersion: number
-    health: number
-    lastEvidenceAt: number
-    migrationCapability: 'PUSH' | 'PULL' | 'BOTH' | 'NONE'
-    recoveryCapability: number
-    statusTag: 'NO_SIGNAL' | 'HEALTHY_SILENCE' | 'NO_NEW_INFO' |
-               'DISCONNECTED' | 'CRASHED' | 'STALLED' | 'UNKNOWN'
-}
-```
+`lambdaMax`, `antiSyncIndex`, `tickCount` et le schéma de télémétrie cible
+ne sont pas des champs obligatoires de la session persistée.
+La qualification d'un cycle vide est `NO_ACTION`.
 
 ---
 
@@ -1494,13 +1403,13 @@ Service de coordination : `metapopulationCoordinationService.js`.
 Capacités requises : `QUORUM`, `SYNAPTIC_PLASTICITY`, `RESILIENCE_RECOVERY`, `GENOME_EPIGENETICS`, `SWARM_METRICS`, `EPISODIC_MEMORY`, `SIGNALING_BUS`, `PROVENANCE`, `CAPSULES_SNAPSHOTS`, `EVIDENCE_BARRIER`, `EVOLUTION_REPRODUCTION`.
 Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils.
 
-Les dèmes sont instanciés par `biologicalModeService.compose('metapopulation', mission)` avec les cinq services de contrôle. Le moteur évolutionnaire Rust (`crates/genos-orchestrator/src/evolution.rs`) gère la dynamique génétique haute-performance pour la variante Evolutionary. La cryptobiose, la fossilisation, et la recolonisation sont opérées par leurs services respectifs.
+La composition fournit les rôles de contrôle ; les populations locales sont créées par les services Patch/Deme et conservées en SQLite. Le runtime Evolutionary appelle un adaptateur `options.rustEvolution` explicitement configuré vers le moteur Rust. Island Search exige `options.solverSearch`. Les références cryptobiose, snapshot et fossile préparent la reprise sans démontrer une restauration automatique par ces moteurs.
 
 ---
 
-## 32. Architecture cible et plan d'évolution
+## 32. Architecture et historique des livrables
 
-Cette section décrit l'architecture visée et l'ordre proposé des travaux. Les étapes constituent un plan, pas une affirmation que tous ces mécanismes sont déjà disponibles. La façade publique reste `metapopulationCoordinationService.js`. Les dynamiques multi-îlots réutilisent `crates/genos-orchestrator/src/evolution.rs`, les lignées procédurales `proceduralMetapopulationService.js`, les individus `AgentDNA` et `agentEvolutionService`, ainsi que les services existants de cryptobiose, snapshots, fossilisation, signaling bus et indépendance épistémique. Le plan ne crée pas un troisième moteur évolutionnaire.
+Cette section conserve le découpage des 18 livrables et distingue les fonctions livrées des intégrations externes à qualifier. Les garanties actuelles et leurs adaptateurs sont décrits en section 33. La façade publique reste `metapopulationCoordinationService.js`. Les dynamiques multi-îlots réutilisent `crates/genos-orchestrator/src/evolution.rs`, les lignées procédurales `proceduralMetapopulationService.js`, les individus `AgentDNA` et `agentEvolutionService`, ainsi que les services existants de cryptobiose, snapshots, fossilisation, signaling bus et indépendance épistémique. Le plan ne crée pas un troisième moteur évolutionnaire.
 
 ### 32.1 Modèle cible
 
@@ -1563,13 +1472,13 @@ phylogénie est reconstruite depuis les liens parentaux stockés. Voir
 | Scénario | Résultat attendu |
 |---|---|
 | Un worker tombe, mais la fonction locale reste viable | Le dème n'est pas déclaré éteint. |
-| Tous les workers d'un dème disparaissent | Dème `COLLAPSED`, patch `VACANT` ; les autres continuent si les fonctions régionales restent couvertes. |
+| Tous les workers observés sont indisponibles et aucune fonction locale ne reste viable | Dème `COLLAPSED`, patch `VACANT` ; les autres continuent si les fonctions régionales restent couvertes. |
 | Un claim migré n'a pas de provenance | Rejet. |
 | Une procédure migrée est incompatible | Adaptateur applicable ou rejet explicite. |
 | Un dème demande une compétence absente | Migration pull ciblée vers une source compatible. |
 | Le rescue détériore le dème cible | Rollback et corridor pénalisé selon le résultat. |
 | Une recolonisation échoue à l'essai local | Échec enregistré et patch laissé vacant. |
-| Une lignée a échoué pour la même cause | Elle est pénalisée comme fondatrice. |
+| Une lignée a échoué sur le même patch | Elle est exclue du nouveau founder set. |
 | Plusieurs dèmes partagent modèle et source | Leur poids de quorum indépendant diminue. |
 | Un dème est silencieux | Le silence n'est jamais interprété automatiquement comme une bonne santé. |
 | Les migrations homogénéisent les stratégies | Le contrôle anti-synchronie intervient. |
@@ -1604,7 +1513,7 @@ plus un candidat selon la politique demandée, vérifie l'utilité attendue et l
 corridor dirigé, puis place le propagule en quarantaine. L'adaptateur du
 receveur reste seul responsable de valider, assimiler avec reçu de provenance,
 ou rejeter. Le runtime relit ensuite l'issue terminale dans la persistance avant
-d'enregistrer le cycle comme vérifié.
+d'enregistrer les actions vérifiées. Un plan vide reste `NO_ACTION`.
 
 L'appelant fournit encore les candidats, les signaux et le contexte local du
 receveur. Une erreur pendant la revue laisse la migration en quarantaine pour
@@ -1612,12 +1521,12 @@ reprise idempotente. Le rescue est piloté avec mesures de fitness avant/après
 et rollback lorsqu'une capacité unique protégée régresse ; il requiert un
 adaptateur receveur dédié et garde un nombre d'essais borné. `classic_patch`
 automatise la sélection des fondateurs et l'ouverture du trial après collapse;
-un évaluateur local doit encore fournir la preuve de viabilité avant que la
-recolonisation soit terminée.
+le contrôleur évalue ensuite l'essai via `options.evaluateColonization` et
+termine la recolonisation uniquement sur une preuve locale valide.
 
 ## 33. Garanties exécutables du runtime régional
 
-Voir [ADR 0330](../../adr/0330-effets-durables-metapopulation.md). La suite `npm --prefix backend run test:metapopulation` couvre les 12 variants et les 4 profils historiques.
+Voir [ADR 0330](../../adr/0330-effets-durables-metapopulation.md). La suite `npm --prefix backend run test:metapopulation` couvre les 12 variants et les 4 profils historiques. La [référence opérationnelle](../../03-reference/runtime-metapopulation.md) précise les dix suites, leurs résultats et les limites de qualification.
 
 Le cerveau reçoit `extinctionReports` avec `demeId`, `evidence.workers`, `evidence.localFunctions` et `provenance`. BUSY, silence et absence de mesure restent insuffisants. PLAN ne démarre pas d'essai. `options.evaluateColonization` reçoit patch, fondateurs et clé d'idempotence, puis retourne `{ viable, fitness, provenance }` avec une fitness numérique dans [0, 1]. Une preuve invalide conserve l'essai en attente ; une acceptation crée un dème actif atomiquement.
 

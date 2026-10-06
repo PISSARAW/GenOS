@@ -1,9 +1,9 @@
 # Garage Fabric : circulation, conservation et reprise des workers
 
-- **Statut** : runtime Node raccorde, validation specialisee executable.
-- **Reference** : 2026-10-06 ; [ADR 0312](../../adr/0312-garage-fabric-adaptatif.md).
-- **Portee** : admission, capacite, file SQLite, preuve terminale, suspension,
-  restauration des fichiers et redemarrage borne.
+- **Statut** : Implémenté — runtime Node durable raccordé, validation spécialisée exécutable ; limites ci-dessous.
+- **Dernière revue** : 2026-10-06 ; [ADR 0312](../../adr/0312-garage-fabric-adaptatif.md).
+- **Portée** : admission, capacité, file SQLite, preuve terminale, suspension,
+  restauration des fichiers et redémarrage borné.
 - **Attention** : une validation du composant ne rend pas verte la validation
   globale du monorepo.
 
@@ -34,11 +34,14 @@ cela ne constitue pas un apprentissage par renforcement implicite.
 | garageQueueStore | Journal SQLite, idempotence, claims et fencing |
 | garageAdmissionService | Admission operateur et adoption du runtime |
 | garageQueueDispatcher | Reservation transactionnelle puis lancement |
+| [garageReservationGuard](../../../backend/src/services/garageReservationGuard.js) | Contrôle du claim courant et exclusion d'une identité déjà réservée |
 | garageRuntimeService | Bail executable, liaison au run, surveillance |
 | garageRuntimeEvidence | Preuve typee de la tentative courante |
 | garageProcessControl | Observation et arret effectivement confirme |
 | garagePreemptionService | Automate durable freeze/thaw |
 | garageCapsuleService | Snapshot des fichiers et budget restant |
+| [garageCapsuleRetention](../../../backend/src/services/garageCapsuleRetention.js) | Protection des fichiers pendant freezing et freeze_failed contre le GC |
+| [garageQueueControl](../../../backend/src/services/garageQueueControl.js) | Contrôle autorisé : freeze, resume, cancel et renew |
 | garageSchedulingService | Preemption, reprise, operation interrompue |
 | garageRoutingService | Affinite et cout observe |
 | workerGarageService | Capacite locale et projet |
@@ -54,6 +57,12 @@ obligatoires. L'admission differee REST utilise le dispatcher durable.
 Les workers Branch/Sandbox/Container non encore provisionnes passent par le
 cycle existant de creation de capsules. Un workspace deja provisionne
 n'est pas recopie.
+
+Raccordements vérifiables : [bootstrap de mission](../../../backend/src/services/agentRuntimeAdapter/missionExecution.js),
+[routes REST](../../../backend/src/routes/deployRoutes.js) et
+[sept suites Garage](../../../backend/tests/run_validation_suite.js).
+Les garanties du runtime supervisé restent décrites dans
+[Runtime agentique](../../01-concepts/runtime-agentique.md).
 
 ## 3. Douze modes et effets executables
 
@@ -220,14 +229,21 @@ Le freeze verrouille sa phase, demande l'arret, attend sa confirmation,
 puis capture le workspace isole. Les fichiers sont stockes sous le
 workspace durable, et non seulement dans le repertoire jetable du worker.
 
+La source doit être une capsule gérée (`.genos-agent-worlds` ou sous
+`GENOS_CAPSULE_ROOT`) dont le nom correspond au worker ou commence par son
+identifiant suivi de `_`. La racine partagée et la capsule d'un autre worker
+sont refusées, même si le chemin est fourni par un appelant.
+
 La capsule conserve identite, mission et consommation observee.
 Le thaw verifie la liaison, le SHA-256 de l'etat, le manifeste et les fichiers.
 Il materialise une nouvelle capsule, jamais le workspace partage de
 l'operateur. Un etat altere laisse le worker bloque.
 
-Pour tokens, cout et evenements : reste=max(0, allocation-consommation).
-Une dimension epuisee interdit la reprise. Un redemarrage ne regenere
-pas artificiellement le budget.
+Pour `tokens`, `costUsd`, `events` et `latencyMs` :
+`reste = max(0, allocation - consommation)`. Allocation et consommation
+proviennent du run persisté ; une dimension non mesurée ou épuisée interdit
+la reprise. Seule l'allocation de zéro token explicitement déterministe est
+admise. Un redémarrage ne régénère pas artificiellement le budget.
 
 Les capsules non froides peuvent etre remises en file lorsque la capacite
 revient. Cold_storage exige un reveil explicite.
@@ -276,6 +292,11 @@ Exemple de corps :
 La reponse 202 distingue queued, started, status et requestId :
 elle n'atteste pas un resultat.
 
+`queueIfFull` permet l'attente durable par défaut. Avec `queueIfFull: false`,
+une saturation produit un refus au lieu d'une attente. `dependsOn` contient
+des identifiants de demandes Garage, pas des noms de rôles : leur état
+`completed` exige lui aussi la preuve terminale de la tentative courante.
+
 Le corps ne remplace pas workspace, role persiste, identite du parent
 ou permissions d'outils. Un payload de signal reste une donnee non fiable.
 
@@ -316,6 +337,12 @@ nouveau processus, connexions concurrentes, scope, idempotence, ACK non
 probant, compensation, ancien bail, calcul deterministe reel, artefact
 type, recu forge, processus enfant vivant, payload durable, corruption,
 thaw, budget restant, controles operateur et les douze politiques.
+
+Les commandes ci-dessus s'exécutent depuis la racine du dépôt. Depuis
+`backend/`, lancer `node tests/run_validation_suite.js garage`.
+Le `npm test` racine inclut le profil Garage ; le `npm test` du seul backend
+ne remplace pas ce profil dédié. Un test vérifiant `freezing`/`freeze_failed`
+avec GC immédiat couvre la rétention du workspace source.
 
 Certains scenarios injectent les adaptateurs d'autorite ou de lancement.
 Cela isole les garanties du garage ; ce n'est pas une certification d'un

@@ -1,7 +1,7 @@
 # Contrat produit et définition de « terminé »
 
 - **Statut du document** : référence de périmètre
-- **Revue** : 2026-10-04
+- **Revue** : 2026-10-06 (Métapopulation)
 - **Source d'inventaire** : dépôt courant ; les statuts ci-dessous évaluent la preuve disponible, pas l'ambition des noms de services.
 
 Ce document est le registre produit de GenOS. Une capacité n'est annoncée comme
@@ -54,7 +54,7 @@ exécutées pour cette revue.
 | Holobionte | expérimental | `composeMode(mode: holobionte)` | hôte garde autorité, inférence locale et veto testables ; aucun droit implicite | runtime symbiote local, immunité, mémoire | `holobionteCoordinationService`, `symbioteRuntimeService`; tests de veto à publier |
 | Syncytium | partiel | `composeMode(mode: syncytium)` ; `genos_topology_session` ; runner baseline/Syncytium | actions typées des 13 variants et refus d'autorité vérifiables par reçus ; chaque mission exige son oracle indépendant et un budget mesuré | session persistée, contrats workers, fournisseur LLM, télémétrie | services de variant et catalogue de 53 énoncés disponibles ; 53 manifestes exécutables, preuves de convergence par réplica et campagne LLM complète à publier |
 | Rhizome | expérimental | `composeMode(mode: rhizome)` et croissance par provider adapter | la voie de croissance résout un provider, instancie une capacité, la fait vérifier et admettre avant de l'ajouter au routage ; le graphe ne croît que si un provider admissible et les preuves requises sont fournis | registre de providers, vérificateur, admission, bus, signaux | `growthExecutor`, `providerAdapterRegistry`, tests unitaires de cycle ; E2E de croissance et routage à publier |
-| Métapopulation | expérimental | `composeMode(mode: metapopulation)` | quorum et régénération bornés, lignage/mémoire traçables | quorum, plasticité, récupération | `metapopulationCoordinationService`; test d'intégration régénération à publier |
+| Métapopulation | expérimental ; runtime régional implémenté | `composeMode(mode: metapopulation)`, `runAutonomousRegionalRuntime` | PLAN sans effet, preuves locales, migrations revues, recolonisation et reprise persistée | SQLite, adaptateurs receveurs, évaluateurs locaux, Rust/solveur selon le variant | 10/10 suites dédiées au commit `5b18c834` ; [contrat et limites](runtime-metapopulation.md), [ADR 0330](../adr/0330-effets-durables-metapopulation.md) ; qualification externe et globale distincte |
 
 Les **19 organisations dynamiques** sont proposées par `dynamicOrganizationService`
 (`changeOrganization`, `runStep`). Le statut partiel est commun à ce registre :
