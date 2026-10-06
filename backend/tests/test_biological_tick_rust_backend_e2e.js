@@ -12,7 +12,7 @@ async function main() {
   const rustRoot = path.join(root, 'rust-state');
   const databaseFile = path.join(root, 'backend.sqlite');
   const missionId = 'mission-rust-backend-e2e';
-  const rustBinary = path.resolve(__dirname, '../../target/debug', process.platform === 'win32' ? 'genos.exe' : 'genos');
+  const rustBinary = process.env.GENOS_BIOLOGICAL_TEST_BIN || path.resolve(__dirname, '../../target/debug', process.platform === 'win32' ? 'genos.exe' : 'genos');
   const previousRoot = process.env.GENOS_STUDIO_ROOT;
   const previousBinary = process.env.GENOS_BIN;
   process.env.GENOS_STUDIO_ROOT = rustRoot;
@@ -48,8 +48,16 @@ async function main() {
       missionId, mission: 'E2E measured biological work', organizationId: 'org-e2e', projectId: 'project-e2e', timeoutMs: 60_000
     });
     assert.equal(second.rustMissionId, first.rustMissionId, 'Rust identity must be durable for a backend mission');
+    assert.ok(second.tick > first.tick, 'checkpoint recovery must advance the receipt tick');
+    const populationHead = await db.get('SELECT tick FROM rust_population_heads WHERE mission_id = ?', [missionId]);
+    assert.equal(populationHead.tick, second.tick);
+    const daughter = await db.get('SELECT genome_id FROM rust_cell_registry WHERE mission_id = ? AND cell_id = ?', [missionId, division.daughter_cell_id]);
+    assert.equal(daughter?.genome_id, division.daughter_genome_id, 'checkpoint recovery must preserve the division daughter');
     const secondRows = await db.all(`SELECT tick, cell_id, genome_id, payload_hash
-      FROM biological_execution_receipts WHERE mission_id = ? ORDER BY tick`, [missionId]);
+      FROM biological_execution_receipts WHERE mission_id = ?
+      AND receipt_schema = 'genos.biological-execution-receipt/v1' ORDER BY tick`, [missionId]);
+    assert.ok(secondRows.some((row) => row.tick === first.tick));
+    assert.ok(secondRows.some((row) => row.tick === second.tick));
     assert.ok(new Set(secondRows.map((row) => row.tick)).size > 1, 'ticks must advance across distinct CLI processes');
     assert.equal(new Set(secondRows.map((row) => row.cell_id)).size, 1, 'cell identity must resume across CLI processes');
     assert.equal(new Set(secondRows.map((row) => row.genome_id)).size, 1, 'genome identity must resume across CLI processes');

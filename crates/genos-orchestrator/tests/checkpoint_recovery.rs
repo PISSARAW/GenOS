@@ -16,6 +16,23 @@ fn checkpoint_manager_creation() {
 }
 
 #[test]
+fn checkpoint_restores_receipt_tick_without_reusing_a_sequence() {
+    let mut source = GenosEcosystem::new("tick-checkpoint");
+    source.receipt_tick = 7;
+    let value = serde_json::to_value(OrchestratorCheckpointState::from_ecosystem(&source)).unwrap();
+    let state: OrchestratorCheckpointState = serde_json::from_value(value.clone()).unwrap();
+    let mut restored = GenosEcosystem::new("tick-restored");
+    assert!(state.apply_to_ecosystem(&mut restored).unwrap());
+    assert_eq!(restored.receipt_tick, 7);
+    let report = restored.tick(&genos_orchestrator::Goal::Explore);
+    assert_eq!(report.tick, 8);
+    let mut legacy = value;
+    legacy.as_object_mut().unwrap().remove("receipt_tick");
+    let state: OrchestratorCheckpointState = serde_json::from_value(legacy).unwrap();
+    assert_eq!(state.receipt_tick, 0);
+}
+
+#[test]
 fn checkpoint_manager_records_and_checkpoints() {
     let dir = tempdir().unwrap();
     let mut manager = CheckpointManager::new(dir.path(), 3).unwrap();

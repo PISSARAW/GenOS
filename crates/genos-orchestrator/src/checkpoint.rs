@@ -23,6 +23,8 @@ pub struct OrchestratorCheckpointState {
     pub events: Vec<Event>,
     #[serde(default)]
     pub metabolism: Option<MetabolismCheckpoint>,
+    #[serde(default)]
+    pub receipt_tick: u64,
     /// Full-fidelity orchestrator snapshot (serde round-trip). Present for
     /// checkpoints taken after the fix; absent (`None`) for legacy ones.
     #[serde(default)]
@@ -42,6 +44,7 @@ impl OrchestratorCheckpointState {
             spore_tissue_map: HashMap::new(),
             events: Vec::new(),
             metabolism: None,
+            receipt_tick: 0,
             orchestrator: None,
             timestamp: chrono::Utc::now().to_rfc3339(),
         }
@@ -112,6 +115,7 @@ impl OrchestratorCheckpointState {
             spore_tissue_map: orch.spore_tissue_map.clone(),
             events: ecosystem.events.snapshot(),
             metabolism: Some(orch.metabolism.checkpoint()),
+            receipt_tick: ecosystem.receipt_tick,
             orchestrator: serde_json::to_value(orch).ok(),
             timestamp: chrono::Utc::now().to_rfc3339(),
         }
@@ -136,6 +140,7 @@ impl OrchestratorCheckpointState {
                         .restore_checkpoint(metabolism)?;
                 }
                 ecosystem.events = InMemoryEventStore::restore(self.events.clone())?;
+                ecosystem.receipt_tick = self.receipt_tick;
                 Ok(true)
             }
             None => {

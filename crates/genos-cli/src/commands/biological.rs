@@ -111,6 +111,7 @@ fn run_and_report(
     let mut ecosystem = GenosEcosystem::new(&cmd.mission);
     ecosystem.set_mission_id(mission_id);
     restore_or_seed(&mut ecosystem, &mut checkpoints, cmd)?;
+    restore_receipt_tick(&mut ecosystem, &store)?;
     let (report, mut receipts) = ecosystem
         .tick_and_persist_with_receipts(&Goal::Explore, &store)
         .map_err(|error| {
@@ -140,6 +141,47 @@ fn run_and_report(
         })
     );
     Ok(())
+}
+
+fn restore_receipt_tick(
+    ecosystem: &mut genos_orchestrator::GenosEcosystem,
+    store: &genos_store::BiologicalReceiptStore,
+) -> Result<(), String> {
+    let mission = serde_json::json!(ecosystem.mission_id);
+    let tick = store.read_all()?.iter()
+        .filter(|receipt| receipt["mission_id"] == mission)
+        .filter_map(|receipt| receipt["tick"].as_u64())
+        .max().unwrap_or(0);
+    ecosystem.receipt_tick = ecosystem.receipt_tick.max(tick);
+    Ok(())
+}
+
+#[cfg(test)]
+mod receipt_tick_tests {
+    use super::restore_receipt_tick;
+    use genos_orchestrator::GenosEcosystem;
+    use genos_store::BiologicalReceiptStore;
+    use serde_json::json;
+    use uuid::Uuid;
+
+    #[test]
+    fn legacy_checkpoint_recovers_tick_from_its_own_verified_journal() {
+        let path = std::env::temp_dir().join(format!("genos-tick-{}.jsonl", Uuid::new_v4()));
+        let store = BiologicalReceiptStore::open(&path);
+        let mission = Uuid::new_v4();
+        store.append_receipts(&[
+            json!({"mission_id": mission, "tick": 4}),
+            json!({"mission_id": Uuid::new_v4(), "tick": 90}),
+        ]).unwrap();
+        let mut ecosystem = GenosEcosystem::new("legacy-checkpoint");
+        ecosystem.set_mission_id(mission);
+        restore_receipt_tick(&mut ecosystem, &store).unwrap();
+        assert_eq!(ecosystem.receipt_tick, 4);
+        ecosystem.receipt_tick = 8;
+        restore_receipt_tick(&mut ecosystem, &store).unwrap();
+        assert_eq!(ecosystem.receipt_tick, 8);
+        std::fs::remove_file(path).unwrap();
+    }
 }
 
 fn restore_or_seed(
