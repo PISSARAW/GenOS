@@ -66,6 +66,7 @@ Fonctionnalités implémentées :
 - **Démo de débogage parallèle sûr** : `examples/safe-debugging-demo`, exécutable sans clé API.
 - **GenOS Studio** et backend Node.js : plan de contrôle, API REST, services gRPC et persistance SQLite WAL.
 - **CLI Rust** et serveur MCP stdio pour les opérations locales et les intégrations.
+- **Natural Search Control Plane** : contrôle de pression et de progrès, ledger d'hypothèses et reprise atomique SQLite des états des phases 6–12 ; transmission culturelle sous preuve. Voir le [contrat et ses limites](docs/01-concepts/natural-search-control-plane.md).
 - **Runtime agentique supervisé** : lance des runtimes configurés, collecte leurs événements, applique des budgets et conserve les résultats et preuves.
 - **Routage de modèles implémenté** : modèles distants via OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together et OpenRouter ; modèles locaux via Ollama, LM Studio et vLLM ; endpoints compatibles OpenAI configurables.
 - **Politiques de routage** configurables par agent, tenant ou environnement, avec ordre de fallback ; le mode parallèle est disponible avec une limite de coût explicite.

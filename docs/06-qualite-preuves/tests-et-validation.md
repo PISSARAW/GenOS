@@ -98,6 +98,7 @@ flowchart TD
 | `npm --prefix backend run test:tenancy` | exécute l'isolation tenant |
 | `npm --prefix backend run test:migration` | exécute les migrations ciblées |
 | `npm --prefix backend run test:recovery` | exécute les scénarios de reprise |
+| `npm --prefix backend run test:natural-search` | exécute les 21 scripts du contrat Natural Search : modules, reprise atomique, provenance, routage et culture |
 | `npm --prefix backend run test:providers` | valide les configurations/protocoles providers |
 | `npm --prefix backend run test:concurrency` | valide le seed concurrent SQLite |
 | `npm --prefix backend run test:grpc` | lance l'intégration gRPC locale |
@@ -112,6 +113,46 @@ Les évaluations et les gates suivent le contrat de résultat : une exception de
 calcul, une bissection incomplète ou un invariant refusé ne sont jamais convertis
 en score neutre ni en `success: true`. La réponse de transport reste disponible
 pour le diagnostic, mais elle ne constitue pas une validation métier.
+
+---
+
+### 3.2 Natural Search — reprise et intégrité
+
+Validation exécutée le 2026-10-06 sur `f101f24f` :
+`npm --prefix backend run test:natural-search` a passé les 21 scripts de
+`backend/tests/search/test_*.js`. Le lanceur échoue si un enfant échoue.
+
+| Preuve | Script dans `backend/tests/search/` |
+| --- | --- |
+| Round-trip des sept modules après fermeture/réouverture SQLite | `test_natural_search_module_restore.js` |
+| Ledger, preuves, modules, pression, hystérésis, prochaine décision à entrées égales ; douze événements concurrents et flush refusé | `test_natural_search_durability.js` |
+| Arrêt de processus après projections partielles ; reprise du checkpoint précédent ; conflit d'écrivain | `test_natural_search_crash.js` |
+| Provenance falsifiée, propriétaire étranger, format corrompu ou futur ; validation culturelle, livraison durable et isolation de périmètre | `test_natural_search_integrity.js` |
+| Rayon réellement exécuté, sorties évolution/replay/forage, protocole hypothèses, expiration et plasticité sur schéma réel | `test_natural_search_routing.js` |
+| Douze plans optimaux sur Blocksworld/TrapChain, validés par une BFS indépendante | `test_planning_gap.js` |
+
+Les fixtures de durabilité utilisent SQLite WAL avec clés étrangères et une
+télémétrie isolée de la base de production. La preuve de reprise porte sur
+`search_runtime_checkpoint`, et non sur l'atomicité des projections séparées.
+Le vieillissement réel de la fenêtre peut modifier la prochaine décision.
+
+La validation globale de cette révision a aussi passé `npm test` et
+`cargo test --workspace --offline -j 2` dans une copie isolée. Des exécutions
+initiales ont échoué par manque d'espace sur le volume initial ; caches,
+fichiers temporaires et build ont ensuite été placés sur un autre volume, sans
+modifier les tests. Les 34 fichiers source du lot passent le contrôle strict
+sans violation. Le contrôle global compte 338 violations, dont 189 au-delà
+du baseline, préexistantes et hors de ces changements.
+
+Ces résultats vérifient un contrat interne. Le harness planning-gap synthétique
+ne mesure pas l'efficacité causale des phases 6–12 en production. Le replay
+Natural Search ne restaure pas un workspace ; la culture exige une validation
+explicite de l'appelant et ne promeut aucune décision. Aucune certification du
+parcours MCP GenOS n'est déduite de ces tests.
+
+Voir [Natural Search](../01-concepts/natural-search-control-plane.md),
+[ADR 0323](../adr/0323-reprise-atomique-natural-search.md) et le
+[runbook de reprise](../04-exploitation/runbook-recovery.md#8-natural-search-checkpoint-recovery).
 
 ---
 

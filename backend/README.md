@@ -73,6 +73,33 @@ The strategy and primitive counts use the same family definitions composed by `s
 - **Human Approval Promotion Gate:** High-impact mutations and autonomous promotions require cryptographically signed human approval before merging.
 - **Minimal routing & request memory (ADR 0046):** Every `orchestrate` request first goes through `requestProfilerService` (`RequestProfile` + `request_class`), `executionRouterService` (minimal ladder `primitive -> procedure -> single_worker -> adaptive_worker -> specialists -> collective -> large_search`, escalate only on evidence) and `bestKnownResultService` (durable problem→champion memory). `backend/bin/requestMemoryBridge.cjs` short-circuits `genos-orchestrate.cjs`: valid champions are reused with no agents, deterministic arithmetic runs as a `primitive` with a receipt, mission summaries are archived as `PROVISIONAL`. Tables: `request_problems`, `request_results` (migration `071-request-memory`, contract `spec/request-memory.schema.json`).
 
+#### Natural Search Control Plane (`src/services/search/`)
+
+`agentProcessEventPipeline` calls `checkNaturalSearchControl`: measured progress
+and the hypothesis ledger feed a controller that selects and executes a search
+process. Phases 6–12 share the search genome, negative memory and culture with
+the runtime. Plasticity changes the search genome; speciation persists niches.
+Causal replay analyzes the bounded journal and does not restore a workspace.
+
+`search_runtime_checkpoint` is the authoritative version-1 SQLite checkpoint:
+ledger, evidence, pressure, hysteresis, sensor, counters and all seven module
+states are committed atomically. A revision check rejects stale writers;
+historical tables and `search_module_state` are projections and a legacy import
+path. Invalid state and failed writes produce errors. A failed flush retains
+live state and the previous committed checkpoint.
+
+Evidence provenance comes from the runtime source. `EVIDENCE_REPORT` is
+self-reported; tool results are observed. Cultural compilation requires explicit
+caller validation, reproducibility, a finite success rate in [0.7, 1] and two
+distinct observed or verified evidence references bound to supported hypotheses
+of the relevant family. Durable delivery is scoped to the same organization and
+project; received traits are candidates, with no decision promotion.
+
+Run the dedicated suite with `npm --prefix backend run test:natural-search`
+(21 scripts at the 2026-10-06 validation). See the [runtime contract](../docs/01-concepts/natural-search-control-plane.md),
+[ADR 0323](../docs/adr/0323-reprise-atomique-natural-search.md) and
+[recovery runbook](../docs/04-exploitation/runbook-recovery.md#8-natural-search-checkpoint-recovery).
+
 ### 5. Unified MCP Tool Registry (`src/services/mcpToolRegistry.js`)
 Maintains a declaration-driven backend registry for typed execution routing. Its current unique declaration count and registered biomimicry handler count are recorded in the dated [technical inventory](../docs/03-reference/inventaire-technique.md). MCP stdio servers expose a leased public subset:
 - `strategy`: Handled by `mcpStrategyTools.js`.
@@ -85,7 +112,7 @@ Persistent, territory-bound agentic processes maintaining an evidence-grounded m
 - **Event physiology** (`daemonEventBridgeService.js`, `daemonReceptorRegistry.js`, `daemonWakePolicyService.js`): deterministic receptors and bounded wake policy; accepted high-priority wakes run a bounded deterministic investigation that may create observed findings, with no LLM call.
 - **Cartographer** (`cartography/`): derived knowledge graph (directories, files, symbols, `CONTAINS`/`IMPORTS`); incremental updates provably equal clean rebuilds.
 - **Findings** (`findings/`): canonical epistemic objects with typed evidence (supporting/contradicting × 6 natures), closed lifecycle (`REFUTED`/`EXPIRED` terminal), provenance by reference.
-- **Investigator** (`investigation/`): deterministic detectors (test-regression, flaky-signal, broken-import, missing-sibling-test) producing observations, wired to the Natural Search ledger via `daemonNaturalSearchAdapter.js` (no duplicated engine).
+- **Investigator** (`investigation/`): deterministic detectors (test-regression, flaky-signal, broken-import, missing-sibling-test) producing observations, translated into hypotheses through `daemonNaturalSearchAdapter.js`, with an injected ledger and pressure model. The adapter owns no checkpoint; durable integration is the caller’s responsibility.
 - **Verifier** (`verification/`): epistemic immune system — head freshness, scope existence, per-detector rules; reproduction counts only strictly post-creation events.
 - **Stigmergy** (`daemonStigmergyService.js`): territorial pheromones steer attention, never truth; evaporation decay; fail-soft forwarding to `stigmergyInterProcessBridge`.
 - **Repair** (`repair/`): isolated `RepairEpisode` on `REPAIRABLE` findings — scoped lease (allowed commands, budget, expiry, `genos-repair/` branch), claimed and executed by a worker in an isolated capsule, never by the daemon; expired episodes reconciled.

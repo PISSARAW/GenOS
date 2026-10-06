@@ -68,6 +68,15 @@ faire passer des propositions pour des résultats mesurés.
   checkpoints; elle ne restaure pas un workspace externe. La spéciation crée
   des niches persistantes; elle ne lance pas de nouveaux agents.
 
+## Exploitation et preuve
+
+La [fiche Natural Search](../01-concepts/natural-search-control-plane.md)
+détaille les modules et leurs limites. La [suite dédiée](../06-qualite-preuves/tests-et-validation.md#32-natural-search--reprise-et-intégrité)
+a passé 21 scripts sur `f101f24f` le 2026-10-06. Le
+[runbook](../04-exploitation/runbook-recovery.md#8-natural-search-checkpoint-recovery)
+précise la reprise à la première initialisation de l'agent, les projections
+historiques et la conduite à tenir devant un état invalide ou un conflit de révision.
+
 ## Alternatives
 
 - Sept UPSERT indépendants : rejetés, car un crash peut séparer les générations.

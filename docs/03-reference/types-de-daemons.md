@@ -549,8 +549,14 @@ Source : `backend/src/services/daemon/daemonTerritoryInteroceptionService.js:25-
 
 - Zéro moteur dupliqué. `observationHash = sha256(territory|head|detector|scope|claim)[0:16]`,
   `prior 0.4`, `proposeFromObservation(ledger injecté)`, `mapTerritoryToPressure`.
-- Transforme `territorial observation → GenOS search event`. Les daemons deviennent
-  un nouveau milieu pour Natural Search, pas un second moteur.
+- Traduit une observation territoriale en proposition pour le ledger injecté,
+  et les signaux territoriaux en entrées pour le modèle de pression injecté.
+- L'adaptateur n'appelle pas lui-même le runtime de recherche ni son flush.
+  L'appelant porte l'intégration durable : les garanties du checkpoint atomique
+  concernent le chemin runtime décrit dans [Natural Search](../01-concepts/natural-search-control-plane.md)
+  et [ADR 0323](../adr/0323-reprise-atomique-natural-search.md).
+- Une proposition issue du daemon ne constitue pas une preuve vérifiée ni une
+  validation de transmission culturelle.
 
 Source : `backend/src/services/daemon/daemonNaturalSearchAdapter.js:11-82`.
 

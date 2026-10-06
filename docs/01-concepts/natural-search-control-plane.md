@@ -3,6 +3,7 @@
 - **Statut au 2026-10-06** : phases 1–12 raccordées au runtime backend.
   La reprise durable des états des phases 6–12 est implémentée et démontrée
   après arrêt brutal et réouverture SQLite.
+- **Dernière revue** : 2026-10-06.
 - **Portée** : contrôle de recherche interne dans `backend/src/services/search/`.
 - **Décisions** : [ADR 0032](../adr/0032-natural-search-control-plane.md) et
   [ADR 0323 — reprise atomique](../adr/0323-reprise-atomique-natural-search.md).
@@ -67,7 +68,23 @@ récepteur retire les candidats reçus devenus incompatibles.
 Le trait reçu devient un candidat. Il ne promeut aucune décision. Le runtime
 ne fabrique ni reproductibilité ni preuve indépendante.
 
-## Reprise durable
+## Architecture technique et reprise durable
+
+```mermaid
+flowchart TD
+    E[Événement métier ou protocole hypothèse] --> Q[File sérialisée par agent]
+    Q --> S[Senseur et ledger]
+    S --> C[Contrôleur : pression, rayon, hystérésis]
+    C --> A[Actuateur et modules partagés]
+    A --> P[Projections historiques]
+    P --> K[Checkpoint atomique version 1 et révision]
+    K --> R[Annonce du résultat]
+    K -->|Réouverture SQLite| Q
+```
+
+Le schéma représente le chemin d'une décision de recherche exécutée. La reprise
+lit le checkpoint engagé ; une projection isolée ne définit pas cet état.
+
 
 `search_runtime_checkpoint` est la source de reprise prioritaire. Le document
 versionné conserve ledger, preuves, pression exacte, processus, hystérésis,
@@ -97,13 +114,29 @@ arrêt brutal après projections partielles, douze événements concurrents,
 écrivain périmé, flush échoué, provenance falsifiée, identité étrangère,
 formats corrompus, routage réel, expiration et réception culturelle durable.
 
+| Scénario | Script dans `backend/tests/search/` |
+| --- | --- |
+| Sept états de module relus après fermeture SQLite | `test_natural_search_module_restore.js` |
+| État complet, prochaine décision, concurrence et flush refusé | `test_natural_search_durability.js` |
+| Arrêt brutal après projections partielles et écrivain périmé | `test_natural_search_crash.js` |
+| Provenance, formats, propriétaires et livraison culturelle | `test_natural_search_integrity.js` |
+| Rayon exécuté, sorties des processus, TTL et schéma de production | `test_natural_search_routing.js` |
+
 La plasticité est vérifiée avec un schéma d'agents sans colonnes fictives
 `topology` ou `tools`. Les fixtures de reprise utilisent WAL, les clés étrangères
 et une télémétrie isolée de la base de production.
 
 `npm test` et `cargo test --workspace --offline -j 2` : **passés**.
-Le contrôle qualité des fichiers de ces commits n'ajoute aucune violation.
-Le contrôle global reste affecté par la dette préexistante hors de ce périmètre.
+Ces résultats portent sur la révision `f101f24f`, dans une copie isolée du dépôt.
+Après des échecs dus au manque d'espace sur le disque initial, la validation
+globale a été exécutée avec caches, build et fichiers temporaires sur un autre
+volume, sans modifier les tests. Les 34 fichiers source changés passent le
+contrôle strict sans violation. Le contrôle global compte 338 violations,
+dont 189 au-delà du baseline, dans des fichiers préexistants hors de ce lot.
+Ces résultats ne constituent pas une certification du parcours MCP GenOS.
+
+Voir [Tests et validation](../06-qualite-preuves/tests-et-validation.md#32-natural-search--reprise-et-intégrité)
+et le [runbook de reprise](../04-exploitation/runbook-recovery.md#8-natural-search-checkpoint-recovery).
 
 ## Planning-gap et limites
 

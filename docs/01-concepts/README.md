@@ -39,7 +39,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [nosologie/](nosologie/README.md) — pathologies du runtime, vue d'ensemble et 9 familles.
 - [natural-creative-ecology.md](natural-creative-ecology.md) — créativité émergente multi-échelle : imagination, exploration, plasticité, évolution, culture.
 - [signal-plane-zero-text.md](signal-plane-zero-text.md) — transport zero-text inter-agents : récepteurs, coalescing, EventBus, plasticité.
-- [natural-search-control-plane.md](natural-search-control-plane.md) — plan de contrôle de recherche naturelle : pression, progrès causal, ledger d'hypothèses, contrôleur.
+- [natural-search-control-plane.md](natural-search-control-plane.md) — contrôle de pression et de progrès causal, ledger d'hypothèses, reprise atomique SQLite des phases 6–12 et transmission culturelle sous preuve.
 
 ## Voir aussi
 
