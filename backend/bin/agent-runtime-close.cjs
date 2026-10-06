@@ -321,7 +321,7 @@ async function handleCompleted(ctx, report, evidenceBlocker) {
       }
     });
   } else {
-    await handlePipelineSuccess(ctx, report, conclusionProvenance);
+    await require('./runtimeLearningDeadline.cjs').run({ ctx, operation: () => handlePipelineSuccess(ctx, report, conclusionProvenance) });
   }
 }
 
@@ -355,7 +355,7 @@ async function handleRuntimeFailure(ctx) {
   const errorExitCode = (code !== null && code !== undefined && code !== 0) ? code : (signal ? 128 : 1);
   process.exitCode = errorExitCode;
   emitRuntimeFailure(ctx);
-  await recordRuntimeFailure(ctx);
+  await require('./runtimeLearningDeadline.cjs').run({ ctx, operation: () => recordRuntimeFailure(ctx) });
 }
 
 function emitRuntimeFailure(ctx) {

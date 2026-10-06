@@ -10,14 +10,13 @@ const { encodeMission } = require('./runtimeProtocol');
 const { resolveExecutable, isLocalRuntime } = require('./agentRuntimeExecutable');
 const modelRouter = require('./modelRouter');
 const localModelDiscovery = require('./localModelDiscovery');
-const { decideFromEvent } = require('./orchestrationDecisionService');
-const actionExecutor = require('./orchestrationActionExecutor');
 const userProgress = require('./userProgressService');
 const {
   activeProcesses, activeWorkerBarriers, workerEvidenceRounds, emit, updateAgent
 } = require('./agentOrchestrationState');
-const { recordWorkerEvidence, hasDecisionEvidence, decisionEvidenceFailure } = require('./agentEvidenceService');
+const { recordWorkerEvidence } = require('./agentEvidenceService');
 const agentRecoveryService = require('./agentRecoveryService');
+const workerRecovery = require('./workerFailureRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const agentConscience = require('./agentConscienceService');
 const { terminateChild } = require('./processTermination');
@@ -74,48 +73,7 @@ function handleWorkerNoAnswer(ctx, event, eventType) {
   }, 'info');
 }
 
-function handleOrchestrationDecision(ctx, event, eventType) {
-  const { db, agentId, normalizedMission } = ctx;
-  const workerFailure = isWorkerFailureEvent(ctx.dispatchedAgent, eventType);
-  if (workerFailure || !hasDecisionEvidence(event)) {
-    if (!workerFailure) {
-      emit(normalizedMission.orchestratorAgentId || agentId, 'ORCHESTRATION_DECISION_BLOCKED', 'EVIDENCE_GATE', decisionEvidenceFailure(event), {
-        sourceAgentId: agentId, sourceEvent: eventType
-      }, 'warning', 'blocked');
-    }
-    return;
-  }
-  const decision = decideFromEvent(event);
-  if (!decision) return;
-  db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId)
-    .then((agent) => { applyOrchestrationDecision(ctx, agent, event, eventType, decision); })
-    .catch((error) => reportOrchestrationActionFailure({ ownerId: normalizedMission.orchestratorAgentId || agentId, agentId, event, decision, error }));
-}
-
-function applyOrchestrationDecision(ctx, ...args) {
-  const [agent, event, eventType, decision] = args;
-  const { agentId, workspaceRoot } = ctx;
-  const ownerId = agent?.parent_agent_id || agentId;
-  emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: agentId, sourceEvent: eventType, ...decision }, 'info');
-  if (decision.organization) {
-    agentRecoveryService.applyOrganizationDecision(ownerId, decision.organization, decision.reason)
-      .catch((error) => reportOrchestrationActionFailure({ ownerId, agentId, event, decision, error }));
-  }
-  actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot })
-    .catch((error) => reportOrchestrationActionFailure({ ownerId, agentId, event, decision, error }));
-}
-
-function reportOrchestrationActionFailure({ ownerId, agentId, event, decision, error }) {
-  const failure = {
-    sourceAgentId: agentId,
-    sourceEvent: event.eventType,
-    eventId: event.id,
-    tool: decision.tool,
-    error: error?.message || String(error)
-  };
-  emit(ownerId, 'ORCHESTRATION_ACTION_FAILED', decision.action, `Orchestration action '${decision.action}' raised an exception.`, failure, 'error', 'error');
-  return failure;
-}
+const { handle: handleOrchestrationDecision, reportFailure: reportOrchestrationActionFailure } = require('./orchestrationRuntimeDecision');
 
 function enqueueTrackedEvent(ctx, event) {
   const { agentId, state } = ctx;
@@ -155,9 +113,8 @@ function emitTrackedImpl(ctx, ...args) {
   const workerFailure = isWorkerFailureEvent(ctx.dispatchedAgent, eventType);
   if (workerFailure) agentRecoveryService.queueWorkerRecovery(ctx.normalizedMission, event);
   handleWorkerNoAnswer(ctx, event, eventType);
-  handleOrchestrationDecision(ctx, event, eventType);
   enqueueTrackedEvent(ctx, event);
-  ctx.processEventQueue(ctx);
+  if (!ctx.state.isProcessingEvents) ctx.state.eventProcessingPromise = ctx.processEventQueue(ctx);
   return event;
 }
 
@@ -369,6 +326,7 @@ async function superviseMission(options) {
   const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child, conscienceState, state };
   const emitTracked = (...args) => { return emitTrackedImpl(ctx, ...args); };
   ctx.emitTracked = emitTracked;
+  ctx.handleOrchestrationDecision = handleOrchestrationDecision;
   ctx.haltRuntime = haltRuntimeImpl;
   require('./agents/workerRuntimeBudgetService').startWorkerDeadline(ctx);
   ctx.processEventQueue = processEventQueueImpl;
@@ -397,4 +355,4 @@ async function superviseMission(options) {
 }
 
 module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest,
-  reportOrchestrationActionFailure, spawnRuntimeWithRetry };
+  reportOrchestrationActionFailure, spawnRuntimeWithRetry, handleOrchestrationDecision };

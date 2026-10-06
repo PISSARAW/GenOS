@@ -2,7 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { spawnSync } = require('node:child_process');
+const { execFile } = require('node:child_process');
+const { closeDatabase } = require('../src/db');
 const modelRouter = require('../src/services/modelRouter');
 const modelDiscovery = require('../src/services/localModelDiscovery');
 const { explicitLocalRoute } = require('../src/services/agentModelRoutingService');
@@ -81,17 +82,21 @@ async function main() {
     fs.writeFileSync(fakeCodex, `#!/usr/bin/env node
 const fs = require('fs'); let input = ''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { fs.writeFileSync(process.env.PROMPT_CAPTURE, input); process.stdout.write(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:JSON.stringify({outcome:'success',claims:[{statement:'done',evidence:['captured prompt']}],uncertainties:[],tests:[]})}})+'\\n'); process.stdout.write(JSON.stringify({type:'turn.completed'})+'\\n'); });
 `, { mode: 0o700 });
-    const runtime = spawnSync(process.execPath, [path.resolve(__dirname, '../bin/genos-agent-runtime.cjs')], {
+    const runtime = await new Promise((resolve) => {
+      const child = execFile(process.execPath, [path.resolve(__dirname, '../bin/genos-agent-runtime.cjs')], {
       cwd: directory,
-      input: JSON.stringify({
+      env: { ...process.env, GENOS_DB_PATH: path.join(directory, 'runtime.db'), CODEX_EXECUTABLE: fakeCodex, PROMPT_CAPTURE: capture, GENOS_BIN: path.join(directory, 'missing-genos'), GENOS_MCP_BIN: path.join(directory, 'missing-mcp'), GENOS_WORKSPACE_ROOT: directory, GENOS_EMBEDDING_PROVIDER: 'ollama', GENOS_EMBEDDING_URL: 'http://127.0.0.1:1', GENOS_EMBEDDING_TIMEOUT_MS: '100' },
+      timeout: 60000, encoding: 'buffer'
+      }, (error, stdout, stderr) => resolve({ status: error ? error.code : 0, error, stdout, stderr }));
+      child.stdin.end(JSON.stringify({
         agentId: 'orchestrator-local-review-test', executionMode: 'orchestrator', prompt: 'audit local advice',
         strategyContractJson: '{}', executionPolicyJson: '{}', toolLeaseJson: JSON.stringify(['genos_status']), genosCapsuleJson: '{}',
         autonomyPlanJson: JSON.stringify({ schema: 'test', localModelReview: { consulted: true, selectedModel: 'ollama://test', provider: 'ollama', advice: 'USE_THIS_LOCAL_EVIDENCE' } })
-      }),
-      env: { ...process.env, CODEX_EXECUTABLE: fakeCodex, PROMPT_CAPTURE: capture, GENOS_BIN: path.join(directory, 'missing-genos'), GENOS_MCP_BIN: path.join(directory, 'missing-mcp'), GENOS_WORKSPACE_ROOT: directory },
-      timeout: 30000
+      }));
     });
-    assert.equal(runtime.status, 0, `${runtime.error?.message || ''} ${runtime.stderr.toString()}`);
+    const runtimeEvents = [];
+    require('../src/services/runtimeProtocol').decodeEvents(runtime.stdout, (event) => runtimeEvents.push({ eventType: event.eventType, action: event.action }));
+    assert.equal(runtime.status, 0, `${runtime.error?.message || ''} ${runtime.stderr.toString()} ${JSON.stringify(runtimeEvents)}`);
     const capturedPrompt = fs.readFileSync(capture, 'utf8');
     assert.match(capturedPrompt, /USE_THIS_LOCAL_EVIDENCE/);
     assert.match(capturedPrompt, /accepted or rejected recommendations/);
@@ -99,4 +104,4 @@ const fs = require('fs'); let input = ''; process.stdin.on('data', chunk => inpu
   console.log('Orchestrator local-model routing: all assertions passed.');
 }
 
-main().catch((error) => { console.error(error); process.exitCode = 1; });
+main().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => closeDatabase());

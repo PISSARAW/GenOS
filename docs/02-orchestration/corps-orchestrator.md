@@ -2,14 +2,15 @@
 
 - **Statut** : Partiel
 - **Portée** : incarnation initiale et contraintes du control plane Node.js.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-06
 
 GenOS ne traite pas le démarrage d'une mission comme une simple décision
 abstraite. Le backend Node construit un corps minimal avant la supervision
 runtime : des percepts typés, un état du monde, des contrats d'actionneurs et
 des réflexes déterministes. Ce document décrit ce qui est effectivement
-branché au bootstrap d'une mission ; les boucles sensorielles continues et la
-mesure systématique des conséquences restent hors périmètre.
+branché au bootstrap et aux événements runtime validés d'une mission. Le corps
+relit le budget mesuré, les workers actifs, les échecs et la dette de preuve.
+L'acquisition continue de pixels IDE/navigateur reste hors périmètre.
 
 La boucle incarnee vise le cycle suivant :
 
@@ -113,19 +114,27 @@ le reçu de preuve et la barrière de promotion restent les sources de décision
 - Les réflexes restent déterministes et explicables par leur identifiant et
   leur raison, pour que la décision soit vérifiable dans la télémétrie.
 
-## Vérification
+## Conséquences runtime
 
-Le test ciblé est
-[`backend/tests/test_orchestrator_body.js`](../../backend/tests/test_orchestrator_body.js).
-Il couvre la construction du corps, des réflexes de preuve et d'interdiction,
-ainsi que le chemin de dormance. Il ne démontre pas la perception post-action
-sur un navigateur, un terminal ou un worker réel.
+Le pipeline attend `orchestratorEventEffects` après ses contrôles. Chaque
+observation pertinente produit un percept `action_consequence`, dont la preuve
+reste distincte du statut de transport. Le corps relit les métriques du run
+et compte les workers dont le PID est présent. Les événements répétés ne
+comptent pas deux fois pendant la supervision.
 
-## Limites actuelles
+Un budget inférieur à 1200 tokens, y compris zéro, désactive le nouveau
+dispatch. Les échecs et la dette de preuve imposent une preuve avant promotion.
+Le corps ne déclare pas qu'une dette indépendante est remboursée à partir
+d'un autre dossier réussi.
 
-Le corps est branché au control plane Node. Il ne prétend pas importer les
-garanties du kernel biomimétique Rust : les concepts Rust restent séparés tant
-qu'un reçu typé ou une entrée de journal primitive ne les relie pas à l'exécution
-Node. Les réflexes actuels protègent le démarrage et le dispatch ; la mesure des
-conséquences après patch, test, navigateur ou worker reste à étendre par des
-percepts post-action.
+## Vérification et limites
+
+`npm --prefix backend run test:orchestrator` couvre la construction du corps,
+le budget mesuré, la dette retenue, les reçus concurrents et la clôture des
+continuations. Voir [ADR 0335](../adr/0335-orchestrator-recus-proprietaires-et-cloture-prouvee.md).
+
+Le control plane Node reste distinct du kernel Rust. Les familles d'actionneurs
+déclarées n'acquièrent aucune permission supplémentaire. Les observations
+runtime ne démontrent pas une perception physique complète d'un navigateur
+ou de l'IDE. La reprise d'un reçu expiré exige une nouvelle livraison de son
+événement ; elle ne permet pas un merge automatique.

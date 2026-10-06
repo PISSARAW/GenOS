@@ -37,7 +37,7 @@ function maturityFailure(strategy, options) {
 }
 
 function highRiskFailure(strategy, profile, options) {
-  if (profile.risk === 'high' && strategy.maturity !== 'implemented' && !options.allowExperimentalAtHighRisk) {
+  if (profile.risk === 'high' && strategy.maturity !== 'ready' && !options.allowExperimentalAtHighRisk) {
     return 'non-implemented strategy blocked for high-risk problem';
   }
   return null;

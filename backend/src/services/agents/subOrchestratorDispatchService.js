@@ -70,8 +70,8 @@ async function createChild(db, parent, args) {
 }
 
 async function childOutcome(db, childId) {
-  const agent = await db.get('SELECT id, status, metadata_json FROM agents WHERE id = ?', childId);
-  if (!agent || !CHILD_TERMINAL_STATES.has(agent.status)) return null;
+  const agent = await db.get('SELECT id, status, metadata_json, runtime_pid FROM agents WHERE id = ?', childId);
+  if (!agent || agent.runtime_pid || !CHILD_TERMINAL_STATES.has(agent.status)) return null;
   if (agent.status !== 'completed') return failedChild(agent.status, 'CHILD_NOT_COMPLETED');
   return validateChildEvidence(db, agent);
 }

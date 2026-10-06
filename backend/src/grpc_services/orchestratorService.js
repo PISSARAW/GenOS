@@ -1,4 +1,5 @@
 const path = require('path');
+const { status } = require('@grpc/grpc-js');
 const { dispatchWorkerMission } = require('../services/orchestratorDispatchService');
 const { getDatabase } = require('../db');
 const workspaceLifecycle = require('../services/agentWorkspaceLifecycleService');
@@ -9,14 +10,14 @@ module.exports = {
   DispatchWorker: async (call, callback) => {
     try {
       const { orchestrator_id, worker_id, prompt, organization_id, project_id } = call.request || {};
-      if (!orchestrator_id || !worker_id || !prompt) {
-        return callback(null, { success: false, status: 'orchestrator_id, worker_id and prompt are required', garage_slot: 0 });
+      if ([orchestrator_id, worker_id, prompt].some((value) => typeof value !== 'string' || !value.trim())) {
+        return callback({ code: status.INVALID_ARGUMENT, message: 'orchestrator_id, worker_id and prompt are required' });
       }
       const ctx = { call, orchestrator_id, worker_id, prompt, organization_id, project_id };
       const result = await dispatchWorker(ctx);
       callbackResult(result, callback);
     } catch (err) {
-      callback(null, { success: false, status: err.message, garage_slot: 0 });
+      callback({ code: Number.isInteger(err.code) ? err.code : status.FAILED_PRECONDITION, message: err.message });
     }
   }
 };
@@ -27,6 +28,7 @@ async function dispatchWorker(ctx) {
   const worker = await fetchWorker(db, worker_id, orchestrator_id);
   if (!worker) throw new Error(`Worker ${worker_id} is not assigned to orchestrator ${orchestrator_id}`);
   assertTenantScope(worker, organization_id, project_id);
+  assertRequestContract(worker, call.request);
   assertWorkspacePresent(worker, worker_id);
   assertWorkspaceIsolated(worker);
   const workspaceRoot = await workspaceLifecycle.createIsolatedWorkspace(worker.workspaceRoot, worker_id);
@@ -42,7 +44,7 @@ async function dispatchWorker(ctx) {
 
 async function fetchWorker(db, worker_id, orchestrator_id) {
   return db.get(
-    `SELECT a.id AS worker_id, a.role AS role, a.workspace_id AS workspace_id, w.organization_id AS organizationId, w.project_id AS projectId, w.path AS workspaceRoot, a.model_tier AS modelTier, a.isolation_mode AS isolationMode
+    `SELECT a.id AS worker_id, a.role AS role, a.workspace_id AS workspaceId, w.organization_id AS organizationId, w.project_id AS projectId, w.path AS workspaceRoot, a.model_tier AS modelTier, a.isolation_mode AS isolationMode
      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
      WHERE a.id = ? AND a.parent_agent_id = ? AND a.execution_mode = 'worker'`,
     worker_id, orchestrator_id
@@ -52,6 +54,13 @@ async function fetchWorker(db, worker_id, orchestrator_id) {
 function assertTenantScope(worker, organization_id, project_id) {
   if (!organization_id || !project_id || organization_id !== worker.organizationId || project_id !== worker.projectId) {
     throw new Error('organization_id and project_id must match the worker tenant scope');
+  }
+}
+
+function assertRequestContract(worker, request) {
+  if (request.workspace_id && request.workspace_id !== worker.workspaceId) throw new Error('workspace_id must match the assigned worker workspace');
+  if (request.timeout_ms !== undefined && request.timeout_ms !== 0 && (!Number.isFinite(request.timeout_ms) || request.timeout_ms < 0)) {
+    throw Object.assign(new Error('timeout_ms must be positive when provided'), { code: status.INVALID_ARGUMENT });
   }
 }
 

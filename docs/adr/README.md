@@ -401,7 +401,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0334a](0334-biome-boucle-ecologique-transactionnelle.md) | Biome : boucle écologique transactionnelle et exécution vérifiée | Accepté | 2026-10-06 | Biome, écologie, ressources, persistance et preuves |
 | [0334c](0334-ontogenese-pilotage-reprise-et-retention.md) | Ontogenèse : pilotage opérateur, reprise et rétention vérifiables | Accepté | 2026-10-06 | Orchestration résidente, contrôle, persistance, exploitation |
 
-| [0336](0336-cycle-resident-et-verification-des-daemons.md) | Cycle résident et vérification des daemons | Accepté | 2026-10-06 | Daemons, territoires, persistance, réparation et preuves |
+| [0336](0336-cycle-resident-et-verification-des-daemons.md) | Cycle résident et vérification des daemons | Accepté | 2026-10-06 | Daemons, territoires, persistance, réparation et preuves || [0335](0335-orchestrator-recus-proprietaires-et-cloture-prouvee.md) | Orchestrator : reçus propriétaires et clôture prouvée | Accepté | 2026-10-06 | Orchestration, persistance, preuve |
+
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
 > fichiers sont conservés tels quels (renommage interdit sans migration

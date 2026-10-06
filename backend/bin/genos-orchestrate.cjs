@@ -11,6 +11,7 @@ const { getDatabase, closeDatabase, withWriteRetry } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
 const missionIdentity = require('../src/services/missionIdentityService');
+const { resolveFinalMissionStatus, missionExecutionTerminal } = require('../src/services/orchestratorMissionStatus');
 const telemetry = require('../src/services/telemetryObserver');
 const missionContinuity = require('../src/services/missionContinuityService');
 const { maybeDispatchContinuation } = require('./homeostasisContinuationHelper.cjs');
@@ -40,6 +41,7 @@ let request = {};
 try {
   const helper = require('./detachedSpawn.cjs');
   request = JSON.parse(helper.loadArgv(process.argv) || process.argv[2] || '{}');
+  require('./orchestratorRequestValidation.cjs').validatePayload(request);
 } catch (error) {
   process.stderr.write(`[genos-orchestrate] Invalid JSON payload argument: ${error.message}\n`);
   process.exit(1);
@@ -55,6 +57,8 @@ let id = action === 'dispatch_worker' ? request.workerId : null;
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
 const allowedCommands = normalizeAllowedCommands(policyRequest.allowed_commands) || [];
 const allowFileEdits = policyRequest.allow_file_edits === true;
+try { require('./orchestratorRequestValidation.cjs').validateRequest(action, { ...policyRequest, timeoutMs: policyRequest.timeoutMs ?? request.timeoutMs }); }
+catch (error) { process.stderr.write(error.message + '\n'); process.exit(1); }
 const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state', 'philosophy']);
 if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
@@ -101,14 +105,6 @@ async function waitForCompletion(db) {
 
 function isRetryableDatabaseError(error) {
   return error?.code === 'SQLITE_BUSY' || /busy|locked/i.test(error?.message || '');
-}
-
-function missionExecutionTerminal(agents, trinityWorlds) {
-  const terminal = ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'];
-  const allAgentsTerminal = agents.length && agents.every((agent) => !agent.runtime_pid && terminal.includes(agent.status));
-  const allTrinityTerminal = trinityWorlds.length === 0 ||
-    (trinityWorlds.length >= 3 && trinityWorlds.every((world) => terminal.includes(world.status)));
-  return Boolean(allAgentsTerminal && allTrinityTerminal);
 }
 
 async function observeMissionPulse(db, pulseTick) {
@@ -233,7 +229,7 @@ async function handleHomeostasisContinuation({ db, id, task, request, mission, c
   }
   return runBoundedContinuationLoop({
     db, id, task, evaluateMissionContinuity, summarizeAgents,
-    seed, dispatchOne
+    seed, dispatchOne, firstDispatch: first
   });
 }
 
@@ -274,9 +270,8 @@ async function runOrchestratedMission(db) {
 
 async function finalizeOrchestratedMission(input) {
   const { db, evaluation, morphology, nceEnhancements } = input;
-  const outcome = evaluation.outcome || input.outcome;
+  let outcome = evaluation.outcome || input.outcome;
   let { continuity, completionGate, evaluation: homeostasis, organism, mission } = evaluation;
-  const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
   const missionSuccess = completionGate.allowed === true;
   let finalVerdict = missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
 
@@ -288,13 +283,16 @@ async function finalizeOrchestratedMission(input) {
   homeostasis = contResult.evaluation;
   organism = contResult.organism;
   finalVerdict = contResult.finalVerdict;
+  outcome = contResult.outcome || outcome;
+  mission = contResult.mission || mission;
+  const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
   const finalStatus = resolveFinalMissionStatus(outcome, completionGate, { verdict: finalVerdict, coverage });
   finalVerdict = finalStatus.verdict;
   const dormant = await suspendUnsuccessfulMission({ db, mission, homeostasis, organism, finalStatus, continuity });
   if (dormant) finalVerdict = 'mission_dormant';
   if (missionId && !dormant) await missionIdentity.setStatus(db, missionId, finalStatus.success ? 'completed' : 'failed');
 
-  await persistMissionChampion(db, outcome);
+  if (finalStatus.success) await persistMissionChampion(db, outcome);
   emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
   if (!finalStatus.success && !dormant) process.exitCode = 2;
 }
@@ -312,19 +310,6 @@ function suspendUnsuccessfulMission(input) {
     evidence: continuity?.evidence || [], remainingWork: request.dormancy.remainingWork,
     eligibility: request.dormancy.eligibility || {}
   }).then((result) => result.entered === true);
-}
-
-function resolveFinalMissionStatus(outcome, completionGate, evidence) {
-  const { verdict, coverage } = evidence;
-  if (outcome.success && completionGate.allowed && verdict === 'completed'
-    && coverage?.verdict !== 'required-coverage-complete') {
-    return { success: false, verdict: 'required_coverage_incomplete' };
-  }
-  const success = outcome.success === true
-    && completionGate.allowed === true
-    && verdict === 'completed';
-  if (success || verdict !== 'completed') return { success, verdict };
-  return { success: false, verdict: completionGate.allowed === true ? outcome.verdict : 'homeostasis_blocked' };
 }
 
 async function executeMorphology({ morphology, outcome, finalVerdict, orchestratorId }) {

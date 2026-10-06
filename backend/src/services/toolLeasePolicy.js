@@ -54,6 +54,7 @@ const ORCHESTRATOR_CORE_LEASE = [
   'genos_worker_publish',
   'genos_worker_inbox',
   'genos_philosophy',
+  'genos_execute_primitive',
   'genos_report_progress'
 ];
 

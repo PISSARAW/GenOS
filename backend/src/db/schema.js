@@ -46,6 +46,7 @@ async function initializeSchema(db) {
     last_signal_type TEXT
   )`);
   await addOptionalColumns(db, OPTIONAL_COLUMN_STATEMENTS);
+  await require('./migrations/migrateOrchestrationReceipts').migrateOrchestrationReceipts(db);
   await applyVersionedMigrations(db);
   await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');
   for (const eventType of ['error', 'cognitive_drift', 'budget', 'blocked', 'human_escalation']) {

@@ -261,9 +261,10 @@ async function processEventQueueImpl(ctx) {
         options: { evidence: currentEvent.payload?.conceptEvidence }
       });
       if (await checkNaturalSearchControl(ctx, currentEvent, finalEvent)) continue;
+      await require('./orchestratorEventEffects').process(ctx, currentEvent);
       await advanceAutonomousRound(normalizedMission, currentEvent);
     } catch (err) {
-      console.error('Error processing event', err);
+      require('./orchestratorEventFailure').record(ctx, currentEvent, err);
     }
   }
   state.isProcessingEvents = false;
@@ -351,10 +352,7 @@ async function handleChildClose(ctx, code, signal) {
   try {
     clearTerminationTimer(ctx.child);
     await state.executionQueue;
-    const drainDeadline = Date.now() + 30000;
-    while ((state.isProcessingEvents || state.eventQueue.length > 0) && Date.now() < drainDeadline) {
-      await new Promise((resolve) => { setImmediate(resolve); });
-    }
+    await state.eventProcessingPromise;
   } catch (err) {
     console.error(`[AgentSupervisor] Error draining event queue for ${agentId}:`, err);
   } finally {

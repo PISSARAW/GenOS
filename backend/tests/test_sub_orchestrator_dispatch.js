@@ -44,7 +44,7 @@ async function verifyDispatchSupervision() {
     if (sql.includes('FROM workspaces')) return { path: 'C:/workspace' };
     if (sql.includes('telemetry_events')) return { payload_json: JSON.stringify({ evidenceReport: {
       outcome: 'success', claims: [{ statement: 'claim', evidence: ['source'] }],
-      workerArtifact: { type: 'dossier', content: { claims: [{ statement: 'claim', evidence: ['source'] }] }, provenance: { source: 'runtime' } }
+      workerArtifact: { type: 'dossier', content: { claims: [{ statement: 'claim', evidence: ['source'] }], scopeCompletion: { scopeRef: 'Review a bounded change.', completedRefs: ['runtime:child-1'] } }, provenance: { sourceRefs: ['runtime:child-1'] } }
     } }) };
     if (sql.includes('SELECT id, status, metadata_json')) return { id: 'child-1', status: 'completed', metadata_json: JSON.stringify({ workerContract: childContract }) };
     return { id: 'sub-1', role: 'sub_orchestrator', agent_type: 'GenOS', workspace_id: 'ws-1', cognitive_budget: 5000, execution_mode: 'worker', metadata_json: metadata() };

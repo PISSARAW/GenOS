@@ -204,21 +204,22 @@ async function finalizeChildClose({
   termination, missionDomainState, terminalEventSeen, emitTracked, executionQueue,
   workspaceLifecycle, workerGarage, emit, updateAgent
 }) {
-  await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
-  await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
+
   await consolidateOffline(db, agentId);
   await idleRecurrence(db, agentId);
   const operatorStop = resolveOperatorStop(child);
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
   const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
   const apoptosisTerminal = isApoptosisTerminal(persistedAgent);
-  const domainDowngradeRequired = persistedAgent.status === 'completed' && outcome.status === 'unverified';
+  const domainDowngradeRequired = persistedAgent.status === 'completed' && outcome.status !== 'completed';
   const shouldEmit = domainDowngradeRequired || shouldEmitCloseOutcome({ terminalEventSeen, termination, operatorStop, apoptosisTerminal });
   if (shouldEmit) {
     await updateAgent(agentId, outcome.status, outcome.task);
     emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
     await executionQueue;
   }
+  await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
+  await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
   if (dispatchedAgent.execution_mode === 'worker') {
     const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
     emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, buildGaragePayload(garage, workerGarage, agentId), 'info');

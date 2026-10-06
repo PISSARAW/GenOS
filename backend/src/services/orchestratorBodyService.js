@@ -61,7 +61,7 @@ function bodyInputs(ctx) {
 
 function missionIntentPercept(input) {
   const mission = input.mission;
-  return createPercept({ kind: 'mission_intent', source: SENSOR_SOURCES.ideVision, value: { promptPresent: Boolean(mission.prompt || mission.currentTask), goalCount: list(mission.openGoals).length }, cost: 0.01 });
+  return createPercept({ kind: 'mission_intent', source: SENSOR_SOURCES.ideVision, value: { promptPresent: Boolean(mission.prompt || mission.currentTask), goalCount: list(mission.openGoals).length, openGoals: list(mission.openGoals) }, cost: 0.01 });
 }
 
 function filesystemPercept(input) {
@@ -88,7 +88,7 @@ function spatialMemoryPercept(input) {
 function socialPercept(input) {
   const plan = input.plan;
   const workers = list(plan.dispatchWorkers || plan.workers);
-  return createPercept({ kind: 'social_state', source: SENSOR_SOURCES.socialPerception, value: { activeWorkers: workers.length, organization: plan.organization || null, disagreements: numberOr(plan.disagreements, 0) }, cost: 0.03 });
+  return createPercept({ kind: 'social_state', source: SENSOR_SOURCES.socialPerception, value: { activeWorkers: input.ctx?.activeWorkerCount ?? workers.length, organization: plan.organization || null, disagreements: numberOr(plan.disagreements, 0) }, cost: 0.03 });
 }
 
 function toolLeasePercept(input) {
@@ -153,7 +153,7 @@ function reflexesFor(worldState) {
   if (worldState.threat) {
     reflexes.push({ id: 'block_destructive_actuator', action: 'freeze', reason: 'Tool lease contains a destructive or recursive actuator.', actuator: 'SafetyActuator' });
   }
-  if (worldState.budget > 0 && worldState.budget < 1200) {
+  if (worldState.budget < 1200) {
     reflexes.push({ id: 'budget_conservation', action: 'network_silence', reason: 'ATP budget is below the worker dispatch threshold.', actuator: 'SafetyActuator' });
   }
   if (worldState.recentFailures >= 2) {

@@ -15,8 +15,8 @@ function isTerminalStatus(status) {
 async function waitUntilTerminal(db, agentId) {
   const deadline = Date.now() + CONTINUATION_WAIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const row = await db.get('SELECT status FROM agents WHERE id = ?', agentId);
-    if (row && isTerminalStatus(row.status)) {
+    const row = await db.get('SELECT status, runtime_pid FROM agents WHERE id = ?', agentId);
+    if (row && !row.runtime_pid && isTerminalStatus(row.status)) {
       return row.status;
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -85,6 +85,7 @@ async function waitForContinuationAndReevaluate(input = {}) {
       severity: 'warning'
     });
     // Still close the queue record on timeout
+    await require('../src/services/agentRuntimeAdapter').stopMission(contAgentId);
     if (decisionId) await closeContinuation(db, decisionId, 'terminated');
     return timeoutResult();
   }
@@ -111,6 +112,8 @@ async function waitForContinuationAndReevaluate(input = {}) {
 function applyReeval(current, reeval) {
   if (reeval.completionGate) current.completionGate = reeval.completionGate;
   if (reeval.evaluation) current.evaluation = reeval.evaluation;
+  if (reeval.outcome) current.outcome = reeval.outcome;
+  if (reeval.mission) current.mission = reeval.mission;
   if (reeval.organism) current.organism = reeval.organism;
   if (reeval.continuity) {
     const rounds = current.continuity.rounds;
@@ -125,7 +128,7 @@ function isSatisfied(current) {
 
 async function runSingleRound(input = {}) {
   const { db, id, task, evaluateMissionContinuity, summarizeAgents, current, dispatchOne, round } = input;
-  const dispatch = await dispatchOne(current);
+  const dispatch = round === 0 && input.firstDispatch ? input.firstDispatch : await dispatchOne(current);
   if (!dispatch.dispatched || !dispatch.dispatched.targetAgentId) return { done: true, current: { ...current, finalVerdict: dispatch.finalVerdict || current.finalVerdict } };
   current.continuity.dispatched = dispatch.dispatched;
   current.continuity.rounds.push({ round: round + 1, targetAgentId: dispatch.dispatched.targetAgentId });
@@ -133,6 +136,7 @@ async function runSingleRound(input = {}) {
     db, id, task, evaluateMissionContinuity, summarizeAgents, continuationResult: dispatch
   });
   applyReeval(current, reeval);
+  if (!reeval.evaluation) return { done: true, current: { ...current, finalVerdict: 'homeostasis_blocked' } };
   if (isSatisfied(current)) {
     current.finalVerdict = 'completed';
     return { done: true, current };
@@ -156,4 +160,4 @@ async function runBoundedContinuationLoop(input = {}) {
   return current;
 }
 
-module.exports = { waitForContinuationAndReevaluate, runBoundedContinuationLoop, CONTINUATION_WAIT_TIMEOUT_MS, TERMINAL_STATES, isTerminalStatus };
+module.exports = { waitForContinuationAndReevaluate, runBoundedContinuationLoop, CONTINUATION_WAIT_TIMEOUT_MS, TERMINAL_STATES, isTerminalStatus, applyReeval };

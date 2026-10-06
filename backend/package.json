@@ -80,7 +80,8 @@
     "test:agow:completion": "node tests/test_agow_completion.js",
     "test:morphogenesis": "node tests/run_morphogenesis_suite.js",
     "daemon:resident": "node bin/genos-daemon.cjs",
-    "test:daemon": "node tests/run_daemon_suite.cjs"
+    "test:daemon": "node tests/run_daemon_suite.cjs",
+    "test:orchestrator": "node tests/run_orchestrator_suite.cjs"
   },
   "dependencies": {
     "@cedar-policy/cedar-wasm": "^4.13.0",
