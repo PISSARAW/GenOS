@@ -13,7 +13,7 @@ Les compteurs sont agrégés par variante, puis les ratios sont calculés sur le
 | `invariantViolationEscapeRate` | `violationsPromotedOutsideSyncytium` | `invariantViolations` | Part des violations d'invariants promues hors de Syncytium. |
 | `relevantSynchronizationEfficiency` | `relevantUpdatesDelivered` | `allUpdatesDelivered` | Part des mises à jour délivrées qui étaient pertinentes. |
 
-Un ratio est marqué `measured: false` et sa valeur est `null` si son dénominateur vaut zéro. Chaque compteur fourni à l'agrégateur doit être un entier sûr positif ou nul ; le numérateur ne peut dépasser le dénominateur. Le runner conserve `null` pour les compteurs qu'il ne sait pas mesurer, notamment les opérations sûres sans coordination, les violations promues et les livraisons de mises à jour. Ces valeurs ne sont pas des zéros observés.
+Un ratio est marqué `measured: false` et sa valeur est `null` si son dénominateur vaut zéro ou si l'un de ses compteurs manque. Chaque compteur mesuré fourni à l'agrégateur doit être un entier sûr positif ou nul ; le numérateur ne peut dépasser le dénominateur. Le runner conserve `null` pour les compteurs qu'il ne sait pas mesurer, notamment les opérations sûres sans coordination, les violations promues et les livraisons de mises à jour. Ces valeurs ne sont pas des zéros observés.
 
 ## Format des exécutions
 
