@@ -112,7 +112,8 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [Nursery expérimentale GVX](02-orchestration/nursery-experimentale-gvx.md) — exécution de bras isolés avec artefacts vérifiés indépendamment.
 - [Monitoring longitudinal GVX](02-orchestration/monitoring-longitudinal-gvx.md) — suivi multi-contextes, arrêt sur régression et éligibilité de maturité.
 - [Plan de puissance benchmark GVX](02-orchestration/plan-puissance-benchmark-gvx.md) — réplication dérivée de l'effet minimal et de la variance attendue.
-- [Adaptateurs GVX runtime](02-orchestration/adaptateurs-gvx-runtime.md) — bridge outcome, branches AgentGit et vérificateurs inscrits.
+- [Adaptateurs GVX runtime](02-orchestration/adaptateurs-gvx-runtime.md) — cycle standard AGOW, bridge outcome et adaptateurs personnalisés.
+- [Profil d’exécution GVX](02-orchestration/profil-execution-gvx.md) — profils opérateur épinglés, évaluateur fixe, application, suivi et reprise.
 - [environnement-hote.md](03-reference/environnement-hote.md) — mesures de la machine, choix du disque et régulation des ressources.
 - [orchestration.md](02-orchestration/orchestration.md) — branches, preuve avant validation, survivants, fan-out.
 - [shev.md](02-orchestration/shev.md) — mandat durable, perception qualifiée, initiative et effet vérifié sur le projet.
@@ -205,6 +206,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 - [audit-affirmations-operationnelles.md](06-qualite-preuves/audit-affirmations-operationnelles.md) — audit code/documentation des contrats, routes, MCP, sécurité, persistance et reprise.
 - [plan-implementation-gvx.md](06-qualite-preuves/plan-implementation-gvx.md) — avancement des lots GVX et état des preuves attendues.
+- [validation-cycle-standard-gvx.md](06-qualite-preuves/validation-cycle-standard-gvx.md) — tests exécutés au commit `ac3423cb` et limites de leur portée.
 
 - [evaluation-qualite.md](06-qualite-preuves/evaluation-qualite.md) — évaluation, qualité, tests générés et exécutés.
 - [tests-et-validation.md](06-qualite-preuves/tests-et-validation.md) — validation du dépôt et suites de test.
@@ -255,7 +257,8 @@ Complément NCE : [ADR 0323 — procédures et preuves exécutables](adr/0323-nc
 - [0299-capacites-transversales-morphogenese.md](adr/0299-capacites-transversales-morphogenese.md) — cinq capacités opt-in de recherche, observation, mémoire et risque statistique.
 - [0206-decision-evidence-binding.md](adr/0206-decision-evidence-binding.md) — liaison transactionnelle des décisions à leurs références de preuve et à leur reçu de provenance.
 - [0270-control-plane-de-verification-gvx.md](adr/0270-control-plane-de-verification-gvx.md) — control plane séparé, signatures Ed25519 et preuves métier GVX.
-- [0272-execution-cycle-developpemental-gvx.md](adr/0272-execution-cycle-developpemental-gvx.md) — dispatch du cycle AGOW → GVX par adapters d'application épinglés.
+- [0272-execution-cycle-developpemental-gvx.md](adr/0272-execution-cycle-developpemental-gvx.md) — dispatch du cycle AGOW → GVX par adaptateurs épinglés.
+- [0328-cycle-standard-gvx-verifie-et-reprenable.md](adr/0328-cycle-standard-gvx-verifie-et-reprenable.md) — cycle standard AGOW, crédit après suivi, application atomique et reprise.
 - [0277-workflows-persistants-holobionte.md](adr/0277-workflows-persistants-holobionte.md) — orchestration bornée, reçus par étape et état partiel explicite des workflows Holobionte.
 - [0278-simulation-ecologique-bornee.md](adr/0278-simulation-ecologique-bornee.md) — simulation fitness/dysbiose séquentielle avec preuve par cycle et borne de vingt cycles.
 - [0279-calibration-immunitaire-decisionnelle.md](adr/0279-calibration-immunitaire-decisionnelle.md) — calibration qui bloque les décisions en sur-réaction et mémoire de lot persistée dans les reçus.

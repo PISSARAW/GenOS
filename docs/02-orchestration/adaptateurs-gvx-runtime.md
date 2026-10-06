@@ -24,6 +24,14 @@ ne certifie que l'égalité entre les octets lus et le SHA-256 déclaré. Fourni
 un `artifactReader` qui lit le contenu autorisé; GVX recalcule le SHA-256 avant
 d'accepter ce reçu d'intégrité.
 
-Le cycle standard peut utiliser le service externe Ed25519 et l’évaluateur de profils opérateur épinglés. Il fournit application et rollback AGOW, suivi indépendant et reprise. Les autres domaines gardent leurs adaptateurs métier explicites. Voir le [profil standard](profil-execution-gvx.md) et le [service externe](../05-securite-gouvernance/service-verificateur-gvx.md).
+## Adaptateurs du cycle standard
+
+Sans module personnalisé, `gvxLifecycleAdapterProvider` charge `gvxStandardLifecycleAdapters`. Il exige `GENOS_GVX_RUNTIME_PROFILE_ID` et la configuration du service externe Ed25519. Le profil signé est lié au scope et à l’agent ; il fournit politiques parent/candidate, contrôles, prédictions, critères et fenêtres de suivi. L’évaluateur fixe reste dans le processus de vérification.
+
+Le cycle applique la politique AGOW sous autorisation externe et comparaison atomique, exécute le suivi indépendant, puis demande le crédit signé après maturation. Le journal conserve chaque étape ; les leases SQLite protègent les opérations concurrentes. Une retransmission reprend les étapes manquantes, et un profil modifié pour un cycle existant est rejeté.
+
+Un module personnalisé peut exporter `createAdapters({ db, signal })` via `GENOS_GVX_LIFECYCLE_ADAPTER_MODULE` et son empreinte `GENOS_GVX_LIFECYCLE_ADAPTER_SHA256`. Il doit fournir le suivi et les vérificateurs distants exigés par le contrôleur. Les autres domaines gardent leurs adaptateurs métier explicites.
+
+Voir le [profil standard](profil-execution-gvx.md), le [service externe](../05-securite-gouvernance/service-verificateur-gvx.md) et la [validation fonctionnelle](../06-qualite-preuves/validation-cycle-standard-gvx.md).
 
 Voir [ADR 0267](../adr/0267-branchement-runtime-adaptateurs-gvx.md).

@@ -72,6 +72,8 @@ Fonctionnalités implémentées :
 - **Politiques de routage** configurables par agent, tenant ou environnement, avec ordre de fallback ; le mode parallèle est disponible avec une limite de coût explicite.
 - **Huit topologies d'orchestration** avec services de coordination et contrats de capacités. La présence d'un mode ne signifie pas que chaque capacité du profil est complète ou activée dans chaque installation.
 
+Le **cycle GVX standard AGOW** fournit mesures signées par un service séparé, application autorisée, suivi longitudinal, rollback, reprise et crédit idempotent pour des politiques déclaratives configurées. Voir le [profil d’exécution](docs/02-orchestration/profil-execution-gvx.md) et les [résultats fonctionnels](docs/06-qualite-preuves/validation-cycle-standard-gvx.md). Les autres lots GVX et la qualification empirique restent partiels.
+
 Les routes de modèles sont conditionnelles à votre environnement :
 
 - une route distante demande le réseau, un modèle déclaré et la clé du fournisseur correspondante ;

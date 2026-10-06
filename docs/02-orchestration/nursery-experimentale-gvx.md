@@ -17,4 +17,10 @@ Après vérification, les reçus indépendants sont évalués par le protocole e
 la promotion. La nursery ne garantit pas à elle seule que l'adaptateur d'hôte fournit une
 isolation système réelle; cet invariant doit être assuré par la plateforme d'exécution.
 
-Voir [ADR 0263](../adr/0263-nursery-experimentale-gvx.md).
+## Implémentation standard AGOW
+
+Le [profil d’exécution](profil-execution-gvx.md) fournit ces adaptateurs pour des politiques déclaratives AGOW. Le service externe crée un répertoire par exécution depuis le manifeste de sources épinglé, lance le même évaluateur fixe pour les bras parent et candidat, puis relit les sources. Les mesures persistées portent arm, condition, contrôles, coût déclaré, durée et identifiant du processus ; les vérificateurs les recoupent avec leur propre store signé.
+
+Le ledger conserve les résultats de chaque bras et les événements de début/fin avec des identifiants stables. La reprise réutilise les résultats déjà enregistrés. La séparation de répertoires et l’environnement minimal sont réservés au code de confiance ; le confinement OS et la séparation UID/GID sont décrits dans le profil.
+
+Voir [ADR 0263](../adr/0263-nursery-experimentale-gvx.md), [ADR 0328](../adr/0328-cycle-standard-gvx-verifie-et-reprenable.md) et la [validation du cycle standard](../06-qualite-preuves/validation-cycle-standard-gvx.md).

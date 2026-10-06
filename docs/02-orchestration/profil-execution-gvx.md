@@ -30,14 +30,22 @@ Le profil exige :
 | metrics, predictedMetrics, pathwayId | Métriques distinctes incluant safety, prédictions antérieures finies et voie cible |
 | assessmentProfile | Profil conservateur, minSamples entier >= 3, règle safety/maintain sans régression, amélioration strictement positive d'une autre métrique |
 | conditions.baseline, conditions.candidate | Même commande autorisée, même suite SHA-256 et même contexte |
-| monitorConditions | Au moins trois conditions distinctes, chacune avec commande autorisée, suite et contexte SHA-256 distinct |
-| allowedActions | Liste opérateur pouvant autoriser `gvx.somatic.apply` et `gvx.somatic.rollback` |
+| monitorConditions | Au moins trois conditions distinctes avec commande autorisée et suite SHA-256 ; les contextes SHA-256 sont tous distincts |
+| allowedActions | Liste opérateur ; autoriser `gvx.somatic.apply` exige aussi `gvx.somatic.rollback` |
 
 Les commandes passent la whitelist de `sandboxCommandPolicy`. L'évaluateur reçoit seulement le bras, la condition et la politique sous `GENOS_GVX_EVAL_ARM`, `GENOS_GVX_EVAL_CONDITION`, `GENOS_GVX_EVAL_POLICY`. Il produit exactement une ligne :
 
 `GVX_MEASUREMENT_JSON:{"metrics":{"accuracy":[0,1,1],"safety":[1,1,1]},"cost":0.01}`
 
 Ces valeurs doivent provenir des tâches réellement exécutées. Les séries contiennent au moins minSamples observations finies ; safety est bornée entre zéro et un. Le service matérialise un répertoire distinct par exécution à partir des seules sources déclarées, vérifie leurs hashes et le supprime après l’essai. GENOS_GVX_EVALUATION_WORKSPACE_ROOT peut définir une racine dédiée. Les dépendances nécessaires doivent figurer dans le manifeste. Le service relit les sources avant et après l’exécution, conserve les résultats signés et recalcule moyennes et effectifs. Le coût déclaré par l'évaluateur fixe est contrôlé contre le budget ; il ne remplace pas un compteur de facturation du fournisseur.
+
+## Mise en service
+
+1. Qualifier l’évaluateur fixe et ses tâches, déclarer toutes les sources et dépendances, puis valider le profil avec `genos-gvx-profile.cjs`. La commande affiche l’empreinte à configurer ; elle ne qualifie pas la pertinence métier des tâches.
+2. Provisionner hors du dépôt le profil, la clé privée, le jeton et le store persistant du service. Le service doit pouvoir lire la base de contrôle AGOW indiquée par `runtimeDatabaseFile`, avec les migrations GVX appliquées.
+3. Dans l’environnement du service, lancer `node backend/bin/genos-gvx-verifier.cjs`. L’écoute par défaut est `127.0.0.1:4011`, configurable par `GENOS_GVX_VERIFIER_HOST` et `GENOS_GVX_VERIFIER_PORT`.
+4. Configurer le backend avec l’identifiant de profil, l’URL, le jeton et la clé publique du service. Un signal qualifié au scope et à l’agent attendus déclenche le cycle ; un simple état `/healthz` du service ne vérifie pas cette configuration.
+5. Conserver base runtime, store signé et artefacts pour la reprise. Les secrets et fichiers générés restent hors Git.
 
 ## Isolation
 
@@ -49,6 +57,6 @@ Pour du code candidat hostile, déployer un exécuteur dédié avec confinement 
 
 Un signal qualifié déclenche hypothèse, prédiction SelfTwin, paire de mesures, assessment vérifié, autorisation, application atomique, trois comparaisons de suivi, vérification longitudinale et crédit signé. Une régression déclenche la restauration exacte du parent et aucun crédit positif. Une interruption conserve les preuves et opérations ; retransmettre le signal reprend les étapes manquantes. Une modification des contrôles d'un cycle existant est refusée.
 
-La consolidation exige trois reçus réussis distincts pour une voie et un contexte. Aucune promotion germinale automatique n'est ajoutée. Les fixtures de la suite GVX servent à vérifier ces contrats, pas à revendiquer une efficacité empirique.
+Les fenêtres de suivi d’une application produisent au plus un reçu de développement. La consolidation exige trois reçus réussis distincts pour une voie et un contexte. Aucune promotion germinale automatique n'est ajoutée. Les fixtures de la suite GVX servent à vérifier ces contrats, pas à revendiquer une efficacité empirique.
 
-Voir [ADR 0328](../adr/0328-cycle-standard-gvx-verifie-et-reprenable.md).
+Voir [ADR 0328](../adr/0328-cycle-standard-gvx-verifie-et-reprenable.md) et [validation du cycle standard](../06-qualite-preuves/validation-cycle-standard-gvx.md).

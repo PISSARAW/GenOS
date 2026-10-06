@@ -73,6 +73,14 @@ The strategy and primitive counts use the same family definitions composed by `s
 - **Human Approval Promotion Gate:** High-impact mutations and autonomous promotions require cryptographically signed human approval before merging.
 - **Minimal routing & request memory (ADR 0046):** Every `orchestrate` request first goes through `requestProfilerService` (`RequestProfile` + `request_class`), `executionRouterService` (minimal ladder `primitive -> procedure -> single_worker -> adaptive_worker -> specialists -> collective -> large_search`, escalate only on evidence) and `bestKnownResultService` (durable problem→champion memory). `backend/bin/requestMemoryBridge.cjs` short-circuits `genos-orchestrate.cjs`: valid champions are reused with no agents, deterministic arithmetic runs as a `primitive` with a receipt, mission summaries are archived as `PROVISIONAL`. Tables: `request_problems`, `request_results` (migration `071-request-memory`, contract `spec/request-memory.schema.json`).
 
+### GVX standard AGOW cycle
+
+`gvxStandardLifecycleAdapters` supplies the default adapters when no custom lifecycle module is configured. A pinned operator profile binds the agent and scope, parent/candidate policies, evaluator sources, paired controls, budgets and monitoring contexts. The separate Ed25519 verifier executes fixed trusted evaluators, persists signed measurements and checks the applied policy against the runtime database in read-only mode.
+
+The controller orders assessment, authorization, atomic application, independently verified monitoring, then signed receipt and idempotent plasticity credit. SQLite leases and the stage journal support recovery; regression restores the exact parent and prevents positive credit. Three monitoring windows yield at most one development receipt, while consolidation separately requires three distinct successful receipts.
+
+From the repository root, run `node backend/bin/genos-gvx-profile.cjs <profiles.json>` to validate configuration and `node backend/bin/genos-gvx-verifier.cjs` to start the configured service. The functional suite is `node backend/bin/test-gvx.cjs`. See the [operator profile](../docs/02-orchestration/profil-execution-gvx.md), [verifier service](../docs/05-securite-gouvernance/service-verificateur-gvx.md) and [validation report](../docs/06-qualite-preuves/validation-cycle-standard-gvx.md). These fixtures do not establish model efficacy or a qualified holdout campaign.
+
 ### 5. Unified MCP Tool Registry (`src/services/mcpToolRegistry.js`)
 Maintains a declaration-driven backend registry for typed execution routing. Its current unique declaration count and registered biomimicry handler count are recorded in the dated [technical inventory](../docs/03-reference/inventaire-technique.md). MCP stdio servers expose a leased public subset:
 - `strategy`: Handled by `mcpStrategyTools.js`.

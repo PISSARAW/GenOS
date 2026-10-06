@@ -13,7 +13,7 @@ Le service écoute par défaut sur `127.0.0.1:4011`. Il exige
 l'environnement et le système de fichiers du compte qui exécute ce service. Pour une
 frontière entre machines, publier le service derrière TLS avec authentification mutuelle.
 
-Le runtime reçoit seulement la clé publique dans `GENOS_GVX_VERIFIER_PUBLIC_KEY`,
+Le runtime reçoit seulement la clé publique dans `GENOS_GVX_VERIFIER_PUBLIC_KEY` ou `GENOS_GVX_VERIFIER_PUBLIC_KEY_FILE`,
 l'URL dans `GENOS_GVX_VERIFIER_URL` et le jeton d'accès dans
 `GENOS_GVX_VERIFIER_TOKEN`. Il construit le registre avec
 `gvxVerifierRegistry.fromRemoteControlPlane(ids, options)` et transmet ce registre à la
@@ -22,18 +22,18 @@ requirement, vérificateur et reçu. `creditVerifiedReceipt` n'accepte que le sc
 reçu GVX v2 signé par cette clé. L'ancien HMAC du service épistémique générique n'est
 pas une preuve suffisante pour accorder de la plasticité GVX.
 
-Le registre doit inclure les deux vérificateurs intégrés lorsqu'un cycle inclut
-l'évaluation somatique :
+Le cycle standard construit le registre à partir de la description signée du profil. Il épingle les trois vérificateurs `gvx-execution-metrics-v1`, `gvx-somatic-assessment-v1` et `gvx-longitudinal-assessment-v1`, avec leurs types et digests approuvés. `artifact-integrity-v1` reste disponible pour l’intégrité des octets, mais ne couvre pas les exigences de mesure et de suivi. Les intégrations personnalisées doivent épingler leurs propres descriptions de confiance.
 
-```js
-const registry = require('./gvxVerifierRegistry').fromRemoteControlPlane([
-  'artifact-integrity-v1', 'gvx-somatic-assessment-v1'
-], {
-  url: process.env.GENOS_GVX_VERIFIER_URL,
-  publicKey: process.env.GENOS_GVX_VERIFIER_PUBLIC_KEY,
-  token: process.env.GENOS_GVX_VERIFIER_TOKEN
-});
-```
+| Endpoint | Fonction |
+| --- | --- |
+| `GET /healthz` | État du processus |
+| `POST /v1/profile` | Description signée du profil autorisé et de ses vérificateurs |
+| `POST /v1/evaluate` | Exécution fixe, mesures signées et persistées |
+| `POST /v1/authorize` | Autorisation d’application ou de rollback liée aux hashes et au scope |
+| `POST /v1/verify` | Vérification d’artefact pour un requirement approuvé |
+| `POST /v1/development-receipt` | Émission du reçu après vérification des preuves et du claim |
+
+Les endpoints POST exigent le jeton Bearer. Les signatures et bindings restent vérifiés par le client même quand le transport HTTP réussit.
 
 ## Dispatch du cycle depuis AGOW
 
@@ -72,15 +72,17 @@ ne certifie pas les sémantiques d'un domaine sans vérificateur métier corresp
   télémétrie de l'agent sur trente minutes ;
 - `coordinationLoad` : part des événements de dispatch et coordination dans cette même
   fenêtre ;
-- `calibrationError` : erreur absolue moyenne des observations SelfTwin sur trente
-  minutes.
+- `calibrationError` : moyenne des valeurs `discrepancy.epsilon` des événements
+  `self_twin_discrepancy` sur trente minutes, au plus 100 valeurs.
 
 Ce sont des mesures opérationnelles bornées, pas des mesures de capacité système ou une
 calibration probabiliste. Une table absente, une fenêtre vide ou l'absence d'observations
-SelfTwin produit `unknown`; aucune valeur n'est imputée à zéro.
+SelfTwin produit `unknown`; aucune valeur n'est imputée à zéro. Le feedback du cycle
+standard est enregistré sous `self_twin_observation` ; ce type n’est pas consommé par le
+filtre actuel de calibration. Sa présence seule ne rend donc pas le capteur mesuré.
 
 Voir [ADR 0270](../adr/0270-control-plane-de-verification-gvx.md).
 
 ## Crédit après maturation
 
-Le service fournit aussi gvx-longitudinal-assessment-v1, qui exige au moins trois assessments positifs signés sur des contextes distincts et liés à l’application. Le reçu de crédit est lié à l’agent, la voie, le contexte et aux valeurs mesurées. Une même paire de mesures ne peut créditer une nouvelle décision. Les endpoints authentifiés /v1/profile, /v1/evaluate et /v1/authorize complètent /v1/verify et /v1/development-receipt. Le mode de séparation UID/GID et ses refus sont décrits dans le profil d’exécution.
+Le service fournit aussi gvx-longitudinal-assessment-v1, qui exige au moins trois assessments positifs signés sur des contextes distincts et liés à l’application. Le reçu de crédit est lié à l’agent, la voie, le contexte et aux valeurs mesurées. Une même application ne peut créditer une nouvelle décision : le store conserve durablement le claim consommé par scope, profil et application, même si l’appelant change l’identifiant de reçu ou ajoute des preuves. Les endpoints authentifiés /v1/profile, /v1/evaluate et /v1/authorize complètent /v1/verify et /v1/development-receipt. Le mode de séparation UID/GID et ses refus sont décrits dans le profil d’exécution. Les [tests fonctionnels exécutés](../06-qualite-preuves/validation-cycle-standard-gvx.md) couvrent succès, reprise, régression et refus de preuves falsifiées ou réattribuées.
