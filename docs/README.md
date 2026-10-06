@@ -156,6 +156,9 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
 - [contrat-mission-comparative.md](03-reference/contrat-mission-comparative.md) — schéma versionné des missions multi-populations et frontières entre runtime, topologie et banc d’essai.
 - [outils-mcp.md](03-reference/outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
+- [delegation-biscuit.md](03-reference/delegation-biscuit.md) — jetons attenués des sous-orchestrateurs.
+- [capsules-transport.md](03-reference/capsules-transport.md) — transport chiffré des capsules.
+- [traces-otlp.md](03-reference/traces-otlp.md) — traces filtrées après persistance.
 - [persistance-et-donnees.md](03-reference/persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [resultats-formels-messagepack.md](03-reference/resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [registre-philosophique.md](03-reference/registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.

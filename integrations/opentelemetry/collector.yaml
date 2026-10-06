@@ -1,0 +1,29 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4318
+
+processors:
+  redaction/genos:
+    allowed_keys:
+      - genos.session_hash
+      - genos.agent_hash
+      - genos.status
+      - genos.severity
+      - genos.tokens
+      - genos.cost_usd
+      - genos.reported_outcome
+    summary: silent
+  batch: {}
+
+exporters:
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [redaction/genos, batch]
+      exporters: [debug]

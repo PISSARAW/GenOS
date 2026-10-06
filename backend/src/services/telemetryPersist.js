@@ -64,6 +64,7 @@ async function persistHead(observer) {
   try {
     const db = await getDatabase();
     await persistOne(observer, db, queuedEvent);
+    try { require('./telemetryOtlpBridge').observePersistedEvent(queuedEvent); } catch (_) {}
     observer.persistedEvents += 1;
     observer.persistenceRetryDelayMs = 250;
     if (observer.persistedEvents % 1000 === 0) await observer.pruneHistory(db);
