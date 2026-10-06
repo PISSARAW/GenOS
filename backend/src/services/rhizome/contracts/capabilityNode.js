@@ -10,7 +10,7 @@ function normalizeProvider(value, index) {
   return {
     providerId: textValue(provider.providerId, `providers[${index}].providerId`),
     kind: enumValue(provider.kind, { allowed: PROVIDER_KINDS, field: `providers[${index}].kind` }),
-    reference: provider.reference === undefined ? null : textValue(provider.reference, `providers[${index}].reference`)
+    reference: provider.reference === undefined || provider.reference === null ? null : textValue(provider.reference, `providers[${index}].reference`)
   };
 }
 

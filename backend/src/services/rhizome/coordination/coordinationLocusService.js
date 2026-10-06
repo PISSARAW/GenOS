@@ -1,5 +1,7 @@
 'use strict';
 
+const metrics = require('../analytics/missionMetricsService');
+
 const { normalizeCoordinationLocus } = require('../contracts/coordinationLocus');
 
 function eligibleNodes(session, excluded = []) {
@@ -29,17 +31,29 @@ function assign(session, input) {
   return locus;
 }
 
-function transfer(session, input) {
+function transfer(session, input, options = {}) {
   const locus = session.coordinationLoci.find((item) => item.locusId === input.locusId);
   if (!locus) throw Object.assign(new Error(`Unknown coordination locus '${input.locusId}'.`), { code: 'RHIZOME_LOCUS_UNKNOWN' });
   const holderNodeId = input.holderNodeId || selectHolder(session, [locus.holderNodeId]);
   if (!eligibleNodes(session).some((item) => item.nodeId === holderNodeId) || holderNodeId === locus.holderNodeId) {
     throw Object.assign(new Error('Coordination locus transfer target is invalid.'), { code: 'RHIZOME_LOCUS_NO_HOLDER' });
   }
+  const leaseMs = transferLease(session, holderNodeId, options);
   const now = Number.isFinite(input.now) ? input.now : Date.now();
-  Object.assign(locus, { holderNodeId, reason: input.reason || 'temporary transfer', leaseUntil: new Date(now + (input.leaseMs || 60000)).toISOString() });
+  Object.assign(locus, { holderNodeId, reason: input.reason || 'temporary transfer', leaseUntil: new Date(now + leaseMs).toISOString() });
   session.graphVersion += 1;
   return locus;
+}
+
+function transferLease(session, holderNodeId, options) {
+  const policy = options.policy || metrics.DEFAULT_POLICY;
+  const node = session.nodes.find(item => item.nodeId === holderNodeId);
+  if (!Number.isFinite(policy.minTransferReliability) || policy.minTransferReliability < 0 || policy.minTransferReliability > 1
+    || node.reliability < policy.minTransferReliability) {
+    throw Object.assign(new Error('Coordination transfer reliability threshold is not satisfied.'), { code: 'RHIZOME_LOCUS_RELIABILITY_REQUIRED' });
+  }
+  const evaluation = metrics.assess(session, options);
+  return evaluation.leaseMs ?? metrics.DEFAULT_POLICY.minLeaseMs;
 }
 
 function drop(session, locusId) {
@@ -52,7 +66,7 @@ function drop(session, locusId) {
 
 function apply(input) {
   if (input.action === 'assign') return assign(input.session, input.locus);
-  if (input.action === 'transfer') return transfer(input.session, input.locus);
+  if (input.action === 'transfer') return transfer(input.session, input.locus, input.options);
   if (input.action === 'drop') return drop(input.session, input.locusId);
   throw Object.assign(new Error(`Unknown coordination locus action '${input.action}'.`), { code: 'RHIZOME_LOCUS_ACTION_INVALID' });
 }

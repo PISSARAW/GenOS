@@ -244,6 +244,22 @@ npm --prefix backend run test:holobionte
 
 Voir le [contrat d’exécution](../docs/03-reference/runtime-holobionte.md) pour les adaptateurs obligatoires, les erreurs, les quotas et les limites de validation.
 
+## Runtime Rhizome
+
+Le service persistant `src/services/rhizomeCoordinationService.js` fournit le graphe, les budgets atomiques, les résultats signés et les métriques. `src/services/rhizome/runtime/rhizomeRuntime.js` relie les providers réels et les vérificateurs indépendants à une boucle de mission bornée. Les six types de providers (`agent`, `daemon`, `tool`, `service`, `human`, `runtime`) demandent `start`, `probe`, `execute` et `stop` ; la composition seule ne produit aucune exécution vérifiée.
+
+Le [contrat runtime](../docs/03-reference/runtime-rhizome.md) décrit les callbacks, les preuves, les limites et les commandes CLI de télémétrie. Les listes `GENOS_RHIZOME_TRUSTED_PROVIDER_IDS` et `GENOS_RHIZOME_TRUSTED_VERIFIER_DIGESTS` sont configurées côté serveur pour les opérations MCP ; les arguments de l’appelant ne créent pas de confiance.
+
+Depuis la racine du dépôt :
+
+```bash
+npm --prefix backend run test:rhizome
+```
+
+La suite conserve les commandes, durées et codes de sortie dans un artefact ignoré. Le contrôle CLI live distinct vérifie export, HTTP, WebSocket et refus d’une source fermée ; son lancement est décrit dans le contrat.
+
+---
+
 ## Verification Test Suite
 
 The test suite validates database integrity, vector search, biological primitives, and orchestration safety:

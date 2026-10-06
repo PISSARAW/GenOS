@@ -170,27 +170,49 @@ fn restore_or_seed(
 
 pub fn handle_rhizome(cmd: &RhizomeCmd) -> Result<(), String> {
     match &cmd.subcommand {
-        Some(RhizomeSubcommands::Serve { port }) => rhizome_telemetry::run(*port),
+        Some(RhizomeSubcommands::Serve { port, source }) => {
+            if source.simulate {
+                return rhizome_telemetry::run_simulation(*port);
+            }
+            rhizome_telemetry::live_server::run(*port, live_source(source)?)
+        }
         Some(RhizomeSubcommands::Export {
             output,
             force,
             parents,
+            source,
         }) => {
             let opts = crate::commands::output_guard::WriteOptions {
                 force: *force,
                 parents: *parents,
             };
-            rhizome_telemetry::export_snapshot(output, &opts)?;
+            if source.simulate {
+                rhizome_telemetry::export_snapshot(output, &opts)?;
+            } else {
+                rhizome_telemetry::export_live(&live_source(source)?, output, &opts)?;
+            }
             println!(
                 "{}",
-                json!({
-                    "success": true,
-                    "operation": "rhizome_graph_export",
-                    "file": output
-                })
+                json!({"success":true, "operation":"rhizome_graph_export", "file":output,
+                "source": if source.simulate { "simulation" } else { "backend" }})
             );
             Ok(())
         }
         None => rhizome_telemetry::run(4790),
     }
+}
+
+fn live_source(
+    source: &crate::args::rhizome::RhizomeSource,
+) -> Result<rhizome_telemetry::live_source::LiveSource, String> {
+    Ok(rhizome_telemetry::live_source::LiveSource {
+        session: source
+            .session_id
+            .clone()
+            .ok_or("--session-id is required for live telemetry")?,
+        database: source
+            .database
+            .clone()
+            .ok_or("--database is required for live telemetry")?,
+    })
 }

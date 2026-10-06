@@ -13,7 +13,7 @@ ces organisations ; elle n'est pas un neuvième mode.
 - [holobionte.md](holobionte.md) — orchestration intégrée hôte-symbionte.
 - [syncytium.md](syncytium.md) — orchestration par état partagé et synchronisation continue.
 - [protocole-missions-syncytium.md](protocole-missions-syncytium.md) — budgets, missions, workers, échanges, nosologie, télémétrie et preuves d’exécution.
-- [rhizome.md](rhizome.md) — orchestration décentralisée par ramification de capacités.
+- [rhizome.md](rhizome.md) — missions par capacités, croissance vérifiée et routage borné ; [contrat runtime](../../03-reference/runtime-rhizome.md).
 - [metapopulation.md](metapopulation.md) — orchestration par populations semi-indépendantes.
 - [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance et maturité des variants des topologies.
 - [garage-fabric.md](garage-fabric.md) — capacité adaptative, leases, file et réarrangement logique des workers.

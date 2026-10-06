@@ -52,7 +52,7 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 - **Holobionte** — missions hôte-symbiotes contractuelles : admission, preuve indépendante, veto immunitaire, quotas, mémoire atomique et hôtes persistants. [Contrat et exemple](docs/03-reference/runtime-holobionte.md).
 - **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
 - **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
-- **Rhizome** — sessions composées, routage par capacité entre membres et traces stigmergiques.
+- **Rhizome** — missions par capacités avec résultats signés, croissance et budgets atomiques, routage borné, reprise persistante et télémétrie du graphe réel. Voir le [contrat runtime](docs/03-reference/runtime-rhizome.md).
 - **Métapopulation** — quorum pondéré, plasticité des connexions et plan de récupération par lignage.
 
 Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).

@@ -11,6 +11,7 @@ const boundaryDetector = require('./rhizome/boundary/boundaryDetector');
 const growthPlanner = require('./rhizome/growth/growthPlanner');
 const experimentalCoverage = require('./rhizome/growth/experimentalCoverageService');
 const routePlanner = require('./rhizome/routing/routePlanner');
+const routingPolicy = require('./rhizome/routing/routingPolicyService');
 const trailService = require('./rhizome/stigmergy/trailService');
 const routeOutcomeService = require('./rhizome/learning/routeOutcomeService');
 const conductivityService = require('./rhizome/routing/conductivityService');
@@ -26,6 +27,7 @@ const pruningService = require('./rhizome/pruning/pruningService');
 const routeQuarantineService = require('./rhizome/security/routeQuarantineService');
 const graphProjector = require('./rhizome/graph/rhizomeGraphProjector');
 const capabilityAdmission = require('./rhizome/security/capabilityAdmissionService');
+const growthAdmission = require('./rhizome/growth/growthAdmissionService');
 const directMemberRouter = require('./rhizome/routing/directMemberRouter');
 const variantPolicyService = require('./rhizome/variants/variantPolicyService');
 const pruningExecutorService = require('./rhizome/pruning/pruningExecutorService');
@@ -90,6 +92,8 @@ function canonicalSession(state, id) {
     leases: state.leases,
     repairScars: state.repairScars,
     routeLineage: state.routeLineage,
+    routeResults: state.routeResults,
+    growthLimits: state.growthLimits,
     budgets: state.budgets,
     status: state.status,
     variantSelection: state.variantSelection
@@ -150,10 +154,13 @@ async function composeRhizome(mission, options = {}) {
       leases: options.leases,
       repairScars: options.repairScars,
       routeLineage: options.routeLineage,
+      routeResults: options.routeResults,
+      growthLimits: options.growthLimits,
       budgets: options.budgets,
       status: options.status
     }),
     sessionId,
+    revision: 0,
     mission: goal,
     organization,
     variant: variant.name,
@@ -188,17 +195,30 @@ async function getSession(sessionId, db) {
   throw Object.assign(new Error(`Unknown rhizome session '${sessionId}'.`), { code: 'RHIZOME_SESSION_UNKNOWN' });
 }
 
+function requireDeadline(options) {
+  if (Number.isFinite(options.deadline) && Date.now() >= options.deadline) {
+    throw Object.assign(new Error('Rhizome mission deadline exceeded before mutation.'), { code: 'RHIZOME_DEADLINE_EXCEEDED' });
+  }
+}
+
 async function mutateSession(sessionId, options, change) {
-  if (!options.db) {
+  requireDeadline(options);
+  const cached = sessions.get(sessionId);
+  if (!options.db || cached?.variantPolicy?.session?.persistence === false) {
     const session = await getSession(sessionId);
-    const result = change.apply(session);
-    session.revision += 1;
+    const working = rehydrate({ id: sessionId, revision: session.revision, state: serialize(session) },
+      structuredClone(graphProjection(session)));
+    const result = change.apply(working);
+    requireDeadline(options);
+    working.revision = (session.revision || 0) + 1;
+    Object.assign(session, working);
     return { ...result, revision: session.revision };
   }
   const saved = await store.mutateRhizome(options.db, sessionId, async (record) => {
     const graph = await store.loadRhizomeGraph(options.db, sessionId);
     const session = rehydrate(record, graph);
     const result = change.apply(session);
+    requireDeadline(options);
     return { state: serialize(session), graph: graphProjection(session), event: { type: change.type, payload: change.payload }, result };
   });
   return { ...saved };
@@ -248,34 +268,17 @@ async function planGrowth(sessionId, gapId, options = {}) {
     options: { ...scopedOptions, threshold: options.threshold ?? session.variantPolicy.growth.threshold } });
 }
 
-function applyGrowthAdmission(session, input, admissionPolicy) {
-  if (!Number.isInteger(input.expectedGraphVersion) || input.expectedGraphVersion !== session.graphVersion) {
-    throw Object.assign(new Error('Growth candidate was planned against a stale graph.'), { code: 'RHIZOME_GROWTH_STALE' });
-  }
-  if (!Array.isArray(input.edges)) {
-    throw Object.assign(new Error('Growth edges must be an array.'), { code: 'RHIZOME_GROWTH_INVALID' });
-  }
-  const discovered = { ...input.node, state: 'DISCOVERED' };
-  const active = capabilityAdmission.admit(discovered, input.proof, admissionPolicy);
-  let updated = capabilityGraph.addNode({ ...session, nodes: [...session.nodes], edges: [...session.edges] }, discovered);
-  for (const edge of input.edges) updated = capabilityGraph.addEdge(updated, edge);
-  updated.nodes = updated.nodes.map((node) => node.nodeId === active.nodeId ? active : node);
-  updated.graphVersion += 1;
-  Object.assign(session, updated);
-  return { sessionId: session.sessionId, node: active, graphVersion: session.graphVersion };
-}
-
 async function admitGrowthCandidate(sessionId, input, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'GROWTH_ADMITTED',
     payload: { candidateId: input.candidateId, nodeId: input.node?.nodeId },
-    apply: (session) => applyGrowthAdmission(session, input, options.admissionPolicy)
+    apply: (session) => growthAdmission.apply(session, input, options.admissionPolicy)
   });
 }
 
 async function routeToCapability(sessionId, need, options = {}) {
   const session = await getSession(sessionId, options.db);
-  return routePlanner.plan(session, need, session.variantPolicy.routing);
+  return routePlanner.plan(session, need, routingPolicy.constrain(session.variantPolicy.routing, options.routing || options.routingPolicy));
 }
 
 async function evaporateTrails(sessionId, options = {}) {
@@ -326,7 +329,7 @@ async function manageCoordinationLocus(sessionId, input, options = {}) {
   return mutateSession(sessionId, options, {
     type: `LOCUS_${String(input.action || '').toUpperCase()}`,
     payload: { locusId: input.locus?.locusId || input.locusId || null, action: input.action },
-    apply: (session) => locusService.apply({ ...input, session })
+    apply: (session) => locusService.apply({ ...input, session, options })
   });
 }
 

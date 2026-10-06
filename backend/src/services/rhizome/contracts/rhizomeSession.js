@@ -60,6 +60,8 @@ function normalizeRhizomeSession(value) {
     leases: normalizeUnique(session.leases || [], { contract: normalizeLease, key: 'leaseId', field: 'leases' }),
     repairScars: Array.isArray(session.repairScars) ? session.repairScars.map((scar) => objectValue(scar, 'repairScars[]')) : [],
     routeLineage: Array.isArray(session.routeLineage) ? session.routeLineage.map((entry) => objectValue(entry, 'routeLineage[]')) : [],
+    routeResults: Array.isArray(session.routeResults) ? session.routeResults.map(entry => objectValue(entry, 'routeResults[]')) : [],
+    growthLimits: normalizeBudgets(session.growthLimits),
     budgets: normalizeBudgets(session.budgets),
     status: enumValue(session.status, { allowed: SESSION_STATES, field: 'status', fallback: 'ACTIVE' })
   };

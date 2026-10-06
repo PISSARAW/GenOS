@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const rhizome = require('../src/services/rhizomeCoordinationService');
 const admission = require('../src/services/rhizome/security/capabilityAdmissionService');
 const receipts = require('../src/services/epistemicVerifierReceiptService');
+const quarantine = require('../src/services/rhizome/security/routeQuarantineService');
 
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'rhizome-test-secret';
 
@@ -60,6 +61,9 @@ async function run() {
   );
   assert.equal((await rhizome.routeToCapability(session.sessionId, need)).selected, true);
 
+  await assert.rejects(() => rhizome.quarantineRoute(session.sessionId, { edgeIds: ['bridge'], evidence: proof }, { trustedVerifierDigests: ['trusted-verifier'] }), { code: 'RHIZOME_QUARANTINE_EVIDENCE_REQUIRED' });
+  proof.signedReceipt = receipts.issueReceipt({ resultId: proof.evidenceId,
+    evidenceDigest: quarantine.evidenceDigest({ ...proof, edgeIds: ['bridge'] }), verifierDigest: proof.verifierDigest, independent: true });
   await rhizome.quarantineRoute(session.sessionId, { edgeIds: ['bridge'], evidence: proof }, { trustedVerifierDigests: ['trusted-verifier'] });
   const snapshot = await rhizome.graphSnapshot(session.sessionId);
   assert.equal(snapshot.edges[0].status, 'QUARANTINED');

@@ -3,9 +3,11 @@
 const rhizome = require('../../rhizomeCoordinationService');
 const actionPlanner = require('./rhizomeActionPlanner');
 const actionExecutor = require('./rhizomeActionExecutor');
+const bounded = require('./boundedOperationService');
 
 async function tick(input) {
-  const options = input.options || {};
+  const options = { ...(input.options || {}), ...(Number.isFinite(input.deadline) ? { deadline: input.deadline } : {}) };
+  await rhizome.registerNeed(input.sessionId, input.need, options);
   const snapshot = await rhizome.graphSnapshot(input.sessionId, options);
   const route = await rhizome.routeToCapability(input.sessionId, input.need, options);
   const action = actionPlanner.plan(route, input.need);
@@ -19,11 +21,11 @@ async function tick(input) {
 async function runRoute(context) {
   const { input, options, snapshot, route, action } = context;
   const execution = await actionExecutor.execute({
-    route, need: input.need, execute: input.execute, verify: input.verify
+    route, need: input.need, execute: input.execute, verify: input.verify, timeoutMs: input.operationTimeoutMs, deadline: input.deadline
   });
   if (execution.status !== 'VERIFIED') return { status: execution.status, snapshot, route, action, execution };
   const outcome = await rhizome.recordRouteOutcome(input.sessionId, execution.receipt, {
-    ...options, trustedVerifierDigests: input.trustedVerifierDigests
+    ...options, trustedVerifierDigests: input.trustedVerifierDigests, latencyMs: execution.latencyMs
   });
   if (execution.receipt.outcome === 'FAILURE') {
     return recoverFailedRoute({ ...context, execution, outcome });
@@ -46,11 +48,11 @@ async function recoverFailedRoute(context) {
     return { ...fallback, status: growthFallback(fallback) ? fallback.status : 'ROUTE_FAILED_NO_ALTERNATIVE', execution, outcome, repair };
   }
   const retry = await actionExecutor.execute({
-    route: repair, need: input.need, execute: input.execute, verify: input.verify
+    route: repair, need: input.need, execute: input.execute, verify: input.verify, timeoutMs: input.operationTimeoutMs
   });
   if (retry.status !== 'VERIFIED') return { status: 'ROUTE_RETRY_UNVERIFIED', snapshot, route, action, execution, outcome, repair, retry };
   const retryOutcome = await rhizome.recordRouteOutcome(input.sessionId, retry.receipt, {
-    ...options, trustedVerifierDigests: input.trustedVerifierDigests
+    ...options, trustedVerifierDigests: input.trustedVerifierDigests, latencyMs: retry.latencyMs
   });
   return {
     status: retry.receipt.outcome === 'SUCCESS' ? 'ROUTE_RECOVERED' : 'ROUTE_RETRY_FAILED',
@@ -65,17 +67,28 @@ function growthFallback(result) {
 
 async function inspectGap(context) {
   const { input, options, snapshot, route, action } = context;
+  if (route.search?.exhausted) return { status: 'ROUTING_BUDGET_EXHAUSTED', snapshot, route, action };
   const gap = await rhizome.inspectCapabilityNeed(input.sessionId, input.need, options);
   if (!gap.gap) return { status: 'NO_ROUTE_OR_GAP', snapshot, route, action, gap };
-  if (!Array.isArray(input.candidates)) return { status: 'GAP_OPEN', snapshot, route, action, gap };
+  const candidates = await discoverCandidates(input, gap.gap);
+  if (candidates.failed) return { status: 'CANDIDATE_DISCOVERY_FAILED', reason: candidates.reason, snapshot, route, action, gap };
+  if (!Array.isArray(candidates.values)) return { status: 'GAP_OPEN', snapshot, route, action, gap };
   const growth = await rhizome.planGrowth(input.sessionId, gap.gap.gapId, {
-    ...options, candidates: input.candidates, threshold: input.growthThreshold
+    ...options, candidates: candidates.values, threshold: input.growthThreshold
   });
   if (!growth.permitted) return { status: 'GAP_OPEN', snapshot, route, action, gap, growth };
   const executeGrowth = input.services?.executeGrowth;
   if (typeof executeGrowth !== 'function') return { status: 'GROWTH_PROPOSED', snapshot, route, action, gap, growth };
   const execution = await executeGrowth({ sessionId: input.sessionId, need: input.need, gap: gap.gap, growth, options });
   return { status: execution.status, snapshot, route, action, gap, growth, execution };
+}
+
+async function discoverCandidates(input, gap) {
+  try {
+    const values = typeof input.candidates === 'function'
+      ? await bounded.run(input.candidates, { need: input.need, gap, deadline: input.deadline }, input.operationTimeoutMs) : input.candidates;
+    return { values };
+  } catch (error) { return { failed: true, reason: error.code || error.message }; }
 }
 
 module.exports = { tick };
