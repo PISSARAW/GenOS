@@ -2248,6 +2248,8 @@ repli `node:sqlite` explicite dans le reçu). Chaque feuille impose son
 contrat d'entrée (ballots Biocénose, `capability`+exécuteur+allocation
 Holobionte, mission Métapopulation) avec refus fermé sinon.
 
+Les missions Holobionte par capacité passent par `holobionteService.runHolobiontMission`, partagé avec la CLI. Elles exigent `executeCapability`, `verifyCapability` et une allocation ; un nouveau candidat exige aussi `trialCapabilityExecutor`. Le vérificateur indépendant lie sa preuve au résultat concret. Admission, quotas cumulés, veto immunitaire, contribution et mémoire atomiques, annulation et clôture suivent le [contrat Holobionte](../../03-reference/runtime-holobionte.md). Un reçu de feuille n’accorde aucune preuve supplémentaire à la sortie.
+
 Le runtime expose en outre `applyPatch` (pipeline
 validation→contrefactuel→adjudication→transaction→vérification→commit/rollback).
 `changeVariant({ nodeId, graph, newVariant, execContext })` refuse les mutations

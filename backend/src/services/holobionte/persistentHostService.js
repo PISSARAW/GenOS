@@ -10,7 +10,7 @@ function required(value, field) {
 
 function availableCapabilities(session) {
   const declared = Array.isArray(session.phenotype?.capabilities) ? session.phenotype.capabilities : [];
-  const resident = session.residentSymbionts.flatMap((item) => Array.isArray(item.capabilities) ? item.capabilities : []);
+  const resident = session.residentSymbionts.filter((item) => item.status === 'RESIDENT').flatMap((item) => Array.isArray(item.capabilities) ? item.capabilities : []);
   return new Set([...declared, ...resident]);
 }
 
@@ -21,17 +21,17 @@ function capabilityGap(session, requested = []) {
   return { available: [...available].sort(), required: [...new Set(requiredCapabilities)].sort(), missing };
 }
 
-async function findPersistentHost(db, hostId) {
+async function findPersistentHost(db, hostId, input) {
   const row = await db.get(`SELECT holobiont_id FROM holobiont_sessions
-    WHERE host_id = ? AND scope = 'PERSISTENT' AND status IN ('ACTIVE', 'QUIESCENT')
-    ORDER BY updated_at DESC, holobiont_id LIMIT 1`, hostId);
+    WHERE host_id = ? AND project_id IS ? AND workspace_id IS ? AND scope = 'PERSISTENT' AND status IN ('ACTIVE', 'QUIESCENT')
+    ORDER BY updated_at DESC, holobiont_id LIMIT 1`, hostId, input.projectId ?? null, input.workspaceId ?? null);
   return row ? store.getSession(db, row.holobiont_id) : null;
 }
 
 async function createPersistentHost(db, input) {
   if (!input.constitution) throw Object.assign(new Error('A Host constitution is required.'), { code: 'HOLOBIONT_CONSTITUTION_REQUIRED' });
   const session = await store.createSession(db, {
-    hostId: input.hostId, scope: 'PERSISTENT', constitution: input.constitution,
+    hostId: input.hostId, scope: 'PERSISTENT', projectId: input.projectId, workspaceId: input.workspaceId, constitution: input.constitution,
     constitutionId: input.constitution.constitutionId || null,
     phenotype: { capabilities: Array.isArray(input.capabilities) ? input.capabilities : [] }
   });
@@ -50,7 +50,7 @@ async function attachMission(context) {
 async function openPersistentHost(db, input = {}) {
   const hostId = required(input.hostId, 'hostId');
   const missionId = required(input.missionId, 'missionId');
-  let session = await findPersistentHost(db, hostId);
+  let session = await findPersistentHost(db, hostId, input);
   let reused = true;
   if (!session) {
     ({ session, reused } = await createPersistentHost(db, { ...input, hostId }));

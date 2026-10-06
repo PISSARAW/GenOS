@@ -3,6 +3,8 @@
 const planner = require('./symbiosisPlanner');
 const executor = require('./symbiosisExecutor');
 const health = require('./holobiontHealthLoop');
+const governance = require('./holobiontGovernanceLoop');
+const store = require('../holobiontStore');
 
 async function runCycle(db, input = {}, dependencies = {}) {
   const planCapability = dependencies.planCapability || planner.planCapability;
@@ -14,15 +16,13 @@ async function runCycle(db, input = {}, dependencies = {}) {
     rankedCandidates: plan.ranked || [], relationChoice: plan.relationChoice || null,
     discoveryRequired: true
   };
-  const execution = await executeCapability(db, plan, { ...input, executeCapability: input.executeCapability });
-  if (!execution.accepted) return { status: 'EXECUTION_REJECTED', execution };
-  const session = await require('../holobiontStore').getSession(db, plan.session.holobiontId);
-  const healthReport = await assessHealth(db, {
-    holobiontId: session.holobiontId, symbiontId: plan.resident.id,
-    resourcePressure: input.resourcePressure, dependencyScore: input.dependencyScore,
-    falseAlertRate: input.falseAlertRate, fitnessVector: input.fitnessVector,
-    dysbiosisSignals: input.dysbiosisSignals
-  });
+  const execution = await executeCapability(db, plan, input);
+  if (execution.accepted !== true) return { status: 'EXECUTION_REJECTED', execution };
+  const healthInput = { ...input, holobiontId: plan.session.holobiontId,
+    symbiontId: plan.resident.id, verifierId: execution.contribution?.verifierId };
+  const report = await assessHealth(db, healthInput);
+  const healthReport = await governance.applyHealthAction(db, healthInput, report);
+  const session = await store.getSession(db, plan.session.holobiontId);
   return {
     status: 'VERIFIED', holobiontId: session.holobiontId,
     sessionRevision: session.revision, capability: plan.capability,

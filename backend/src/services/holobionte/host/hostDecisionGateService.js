@@ -44,6 +44,7 @@ async function authorizeHostDecision(db, input = {}) {
     changedInvariants: input.changedInvariants
   });
   const immuneReview = await immunePlane.reviewSymbiontOutput({
+    db,
     symbiontId: session.hostId, claim: input.claim, resultHash: input.resultHash,
     evidenceRefs: input.evidenceRefs, verifierId: input.verifierId,
     riskScore: input.riskScore, selfVerified: input.selfVerified === true

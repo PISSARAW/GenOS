@@ -70,6 +70,7 @@
     "autostart:enable": "node bin/genos-daemon.cjs --enable-autostart",
     "autostart:disable": "node bin/genos-daemon.cjs --disable-autostart",
     "autostart:status": "node bin/genos-daemon.cjs --status",
+    "test:holobionte": "node tests/run_holobiont_suite.js",
     "test:metapopulation": "node tests/run_validation_suite.js metapopulation"
   },
   "dependencies": {

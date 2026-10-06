@@ -8,6 +8,7 @@
 
 const biologicalModeService = require('./biologicalModeService');
 const variants = require('./holobionte/variants');
+const missionRuntime = require('./holobionte/runtime/holobiontMissionService');
 const variantRuntime = require('./holobionte/variants/variantRuntimeService');
 const variantRuntimeController = require('./holobionte/variants/variantRuntimeController');
 const { runVariantMission } = require('./holobionte/variants/variantMissionExecutor');
@@ -50,16 +51,21 @@ function composeHolobionte(mission, options = {}) {
 function activateHolobionte(mission, context = {}) {
   const composition = composeHolobionte(mission, context);
   return {
-    activated: true,
-    holobiontId: `holobionte-${Date.now()}`,
+    activated: false,
+    executionStarted: false,
+    runtimeRequired: true,
+    holobiontId: null,
+    compositionId: `holobionte-${Date.now()}`,
     ...composition,
-    status: 'ACTIVE',
-    activatedAt: new Date().toISOString()
+    status: 'COMPOSED',
+    composedAt: new Date().toISOString()
   };
 }
 
 module.exports = {
   composeHolobionte,
   activateHolobionte,
+  ...missionRuntime,
+  runtime: require('./holobionte/runtime/holobiontRuntime'),
   variantRuntime: { ...variantRuntime, ...variantRuntimeController, runVariantMission }
 };

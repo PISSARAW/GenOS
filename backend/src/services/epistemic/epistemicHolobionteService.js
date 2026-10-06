@@ -79,7 +79,8 @@ function selectBestVerifier(verifiers) {
   return verifiers.reduce((a, b) => (a.affinity >= b.affinity ? a : b));
 }
 
-async function depositVerifierPheromone(antigen, verifierResults, verifiers) {
+async function depositVerifierPheromone(antigen, verifierResults, context) {
+  const verifiers = context.verifiers || [];
   if (!verifierResults.results || verifierResults.results.length === 0) return;
   const verified = verifierResults.results.filter(r => r.status === 'verified').length;
   const refuted = verifierResults.results.filter(r => r.status === 'refuted').length;
@@ -92,7 +93,7 @@ async function depositVerifierPheromone(antigen, verifierResults, verifiers) {
       locusHash: antigen.id ? `sha256:${crypto.createHash('sha256').update(antigen.id).digest('hex')}` : null,
       intensity: refuted > 0 ? 0.9 : 0.5,
       isRepellent: refuted > 0,
-    }, {});
+    }, { db: context.db });
   } catch (_) { /* stigmergie ne doit pas bloquer */ }
 }
 
@@ -205,7 +206,7 @@ async function immuneSymbiontReview(antigen, context = {}) {
     ? await runClonalSelectionCycle(bestVerifier, antigen, context)
     : { clones: [], selection: null, maturation: null, oracleResolved: false };
 
-  await depositVerifierPheromone(antigen, verifierResults, verifiers);
+  await depositVerifierPheromone(antigen, verifierResults, { ...context, verifiers });
 
   const regulator = blockReason
     ? regulatoryReview(antigen, blockReason, {

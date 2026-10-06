@@ -382,6 +382,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0328](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
 | [0329](0329-cloture-verifiable-runs-a-team.md) | Clôture vérifiable des runs A-Team | Accepté | 2026-10-06 | A-Team, dispatch, preuve et reprise |
 | [0331](0331-syncytium-rejeu-causal-et-preuve-de-completion.md) | Syncytium : rejeu causal et preuve de complétion | Voir le fichier | -- | -- |
+| [0330b](0330-holobionte-missions-contractuelles-verifiees.md) | Missions Holobionte contractuelles et vérifiées | Accepté | 2026-10-06 | Holobionte, exécution, immunité, ressources et persistance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

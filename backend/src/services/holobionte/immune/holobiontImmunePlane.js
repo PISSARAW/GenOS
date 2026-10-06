@@ -16,6 +16,8 @@ function summary(report) {
 function antigenFor(input) {
   const refs = Array.isArray(input.evidenceRefs) ? input.evidenceRefs : [];
   return {
+    id: input.resultHash,
+    producer: { actorId: input.symbiontId },
     claim: String(input.claim || `Holobiont symbiont ${input.symbiontId} result review`),
     risk: { score: Number(input.riskScore) || 0 },
     epitopes: {
@@ -29,7 +31,7 @@ function antigenFor(input) {
 
 async function reviewSymbiontOutput(input = {}) {
   const report = await immuneSymbiontReview(antigenFor(input), {
-    domain: 'holobionte', stakes: 'high', immuneMemory: input.immuneMemory || []
+    db: input.db, domain: 'holobionte', stakes: 'high', immuneMemory: input.immuneMemory || []
   });
   return summary(report);
 }

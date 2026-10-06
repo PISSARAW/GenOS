@@ -22,6 +22,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [ecologie-et-systemes-vivants.md](ecologie-et-systemes-vivants.md) — bus zero-texte, primitives écologiques, HGT, stigmergie, électrocytes, organisations dynamiques.
 - [registre-philosophique.md](registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
 - [contrats-philosophiques-ontogenese.md](contrats-philosophiques-ontogenese.md) — compilation des 375 contrats dans le plan de mission et le runtime harness Ontogenèse.
+- [runtime-holobionte.md](runtime-holobionte.md) — missions contractuelles, preuves indépendantes, quotas et clôture Holobionte.
 - [notifications-et-alertes.md](notifications-et-alertes.md) — préférences et alertes tenant-scoped.
 - [qualite-code-et-complexite.md](qualite-code-et-complexite.md) — seuils, périmètre et audit strict de la qualité du code.
 - [ontogenese-contrats.md](ontogenese-contrats.md) — contrats stables V1 de l'Ontogenèse : tables, config, états, claims, sélecteur, intégrateur, CLI.

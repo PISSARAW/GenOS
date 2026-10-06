@@ -81,6 +81,7 @@ async function recordMemory(db, input = {}) {
   }
   const record = memoryRecord(input, session);
   const review = await immunePlane.reviewSymbiontOutput({
+    db,
     symbiontId: session.hostId, claim: JSON.stringify(record.content),
     resultHash: record.resultHash, evidenceRefs: record.evidenceRefs,
     verifierId: input.authorId, riskScore: input.riskScore,
