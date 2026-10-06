@@ -366,8 +366,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0306](0306-reconstruction-causes-declarees-forensic-worker.md) | Reconstruction des causes déclarées du forensic worker | Accepté | 2026-10-04 | Workers, analyse d'incident, provenance |
 | [0307](0307-observation-litterale-scout-cell.md) | Observation littérale du scout cell | Accepté | 2026-10-04 | Workers, observation, provenance |
 | [0308](0308-transfert-subset-sum-teaching-worker.md) | Transfert contrôlé de subset_sum par le teaching worker | Accepté | 2026-10-04 | Workers, transmission, vérification |
-| [0309](0309-evaluation-isolee-variants-a-team.md) | Évaluation isolée des variantes A-Team | Accepté | 2026-10-04 | A-Team, contrats de variante, preuve, dispatch |
-| [0310](0310-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
+| [0309a](0309-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
+| [0309b](0309-evaluation-isolee-variants-a-team.md) | Évaluation isolée des variantes A-Team | Accepté | 2026-10-04 | A-Team, contrats de variante, preuve, dispatch |
+| [0310a](0310-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
+| [0310b](0310-autorisation-cedar-agents.md) | Autorisation Cedar des missions et du contrôle d'agents | Accepté | 2026-10-04 | autorisation, missions, délégation, relations |
 | [0311](0311-autorisation-cedar-agents.md) | Autorisation Cedar des missions et du contrôle d'agents | Accepté | 2026-10-04 | autorisation, missions, délégation, relations |
 | [0312](0312-garage-fabric-adaptatif.md) | Garage Fabric adaptatif pour le control plane | Accepté — runtime durable, fencing et preuves terminales raccordés | 2026-10-05 | orchestration, workers, capacité, résilience |
 | [0313](0313-niveaux-maturite-et-criteres-certification.md) | Niveaux de maturité et critères de certification | Accepté | 2026-10-05 | Gouvernance, maturité, certification, métaphysique |
@@ -377,16 +379,37 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0317](0317-interdictions-structurelles-autonomie-autofix.md) | Interdictions structurelles : autonomie, auto-promotion, autofix | Accepté — Coercitif | 2026-10-05 | Sécurité, architecture, CI gate |
 | [0318](0318-contrats-implementation-concepts.md) | Contrats d’implémentation des concepts | Accepté | 2026-10-05 | Registre philosophique, épistémologie, expérimentation |
 | [0319](0319-raccord-contrats-philosophiques-ontogenese.md) | Raccord des contrats philosophiques au cycle Ontogenèse | Accepté | 2026-10-05 | Ontogenèse, registre philosophique, preuve |
-| [0326](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
+| [0320](0320-compilation-procedurale-runtime.md) | Compilation procédurale runtime | Voir le fichier | -- | -- |
+| [0321](0321-economie-cognitive-omega-topologies.md) | Économie cognitive Omega et topologies | Voir le fichier | -- | -- |
+| [0322](0322-interop-gcir-omega-rust-node.md) | Interopérabilité G-CIR Omega Rust/Node | Voir le fichier | -- | -- |
+| [0323a](0323-biscuit-delegation-workers.md) | Jetons Biscuit pour la délégation bornée | Accepté | 2026-10-06 | autorisation, sous-orchestration, délégation |
+| [0323b](0323-frontieres-preuve-execution-omega.md) | Frontières de preuve et d’exécution Omega | Accepté pour le durcissement du runtime, pas comme certificat de complétude. | -- | -- |
+| [0324a](0324-biologie-execution-et-autorite-durable.md) | Biologie des exécutions et autorité durable | Voir le fichier | -- | -- |
+| [0324b](0324-capsules-secretstream-transport.md) | Capsules transportables par flux authentifié | Accepté | 2026-10-06 | continuité, cryptographie, restauration |
 | [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté | 2026-10-06 | Régénération, cognition, plasticité |
-| [0328](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
-| [0329](0329-cloture-verifiable-runs-a-team.md) | Clôture vérifiable des runs A-Team | Accepté | 2026-10-06 | A-Team, dispatch, preuve et reprise |
-| [0331](0331-syncytium-rejeu-causal-et-preuve-de-completion.md) | Syncytium : rejeu causal et preuve de complétion | Voir le fichier | -- | -- |
-| [0330b](0330-holobionte-missions-contractuelles-verifiees.md) | Missions Holobionte contractuelles et vérifiées | Accepté | 2026-10-06 | Holobionte, exécution, immunité, ressources et persistance |
-| [0332](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |
-| [0333](0333-cloture-runtime-agow.md) | Clôture des contrats runtime AGOW | Accepté | 2026-10-06 | AGOW, budgets, persistance, preuve |
-| [0323](0323-frontieres-preuve-execution-omega.md) | Frontières de preuve et d’exécution Omega | Accepté pour le durcissement du runtime, pas comme certificat de complétude. | -- | -- |
-| [0330a](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Accepté | 2026-10-06 | Metapopulation, persistance, migrations et preuves |
+| [0326](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
+| [0327](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
+| [0328a](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
+| [0328b](0328-laboratoire-qualite-diversite.md) | Laboratoire qualité-diversité et évolution bornée | Accepté | 2026-10-06 | morphogenèse, GVX, évaluation expérimentale |
+| [0329a](0329-cloture-verifiable-runs-a-team.md) | Clôture vérifiable des runs A-Team | Accepté | 2026-10-06 | A-Team, dispatch, preuve et reprise |
+| [0329b](0329-traces-otlp-apres-persistance.md) | Traces OpenTelemetry après persistance | Accepté | 2026-10-06 | observabilité, télémétrie, confidentialité |
+| [0330a](0330-bancs-agentdojo-browsergym.md) | Bancs externes pour l'immunité et la navigation | Accepté | 2026-10-06 | évaluation, sécurité, navigation |
+| [0330b](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Accepté | 2026-10-06 | Metapopulation, persistance, migrations et preuves |
+| [0330c](0330-holobionte-missions-contractuelles-verifiees.md) | Missions Holobionte contractuelles et vérifiées | Accepté | 2026-10-06 | Holobionte, exécution, immunité, ressources et persistance |
+| [0331a](0331-syncytium-rejeu-causal-et-preuve-de-completion.md) | Syncytium : rejeu causal et preuve de complétion | Voir le fichier | -- | -- |
+| [0331b](0331-wasmtime-heuristiques-bornees.md) | Exécution Wasmtime des heuristiques bornées | Accepté | 2026-10-06 | plugins, GVX, isolation |
+| [0332a](0332-adaptateur-openhands-sdk.md) | Adaptateur expérimental OpenHands SDK | Accepté | 2026-10-06 | workers développeurs, ontogenèse |
+| [0332b](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |
+| [0333a](0333-biocenose-cycle-persistant-et-finalisation.md) | Biocénose : cycle persistant et finalisation vérifiable | Accepté | 2026-10-06 | Biocénose, délibération, reprise, preuves |
+| [0333b](0333-cloture-runtime-agow.md) | Clôture des contrats runtime AGOW | Accepté | 2026-10-06 | AGOW, budgets, persistance, preuve |
+| [0333c](0333-reconciliation-activites-temporal.md) | Réconciliation des effets externes avant reprise Temporal | Accepté | 2026-10-06 | missions longues, effets externes, reprise |
+| [0334](0334-automerge-observations.md) | Automerge pour observations seulement | Accepté | 2026-10-06 | Syncytium, état partagé |
+| [0335](0335-propagation-differentielle.md) | Mesurer la propagation différentielle du Rhizome | Accepté | 2026-10-06 | Rhizome, RPE, calcul incrémental |
+| [0336](0336-sonde-capnproto.md) | Sonde Cap'n Proto sans migration implicite | Accepté | 2026-10-06 | transport interne, sérialisation |
+| [0337](0337-sonde-causale-shev.md) | Estimation causale exploratoire des interventions SHEV | Accepté | 2026-10-06 | SHEV, attribution des effets |
+| [0338](0338-comparaison-dgm-gvx.md) | Comparer les archives DGM et GVX sous contrat identique | Accepté | 2026-10-06 | GVX, ontogenèse, recherche comparative |
+| [0339](0339-traces-lean-dojo-et-dafny.md) | Traces LeanDojo-v2 et invariants Dafny | Accepté | 2026-10-06 | preuve formelle, budgets, leases |
+| [0340](0340-commandes-xgrammar.md) | Commandes compactes sous XGrammar | Accepté | 2026-10-06 | décodage contraint, outils, budgets |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
