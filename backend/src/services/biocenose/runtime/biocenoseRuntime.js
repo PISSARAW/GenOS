@@ -4,23 +4,35 @@ const communityStore = require('../communityStore');
 const controller = require('./communityController');
 const protocolHandlers = require('./protocolHandlers');
 const ecologicalController = require('./ecologicalController');
-const { createHash } = require('crypto');
 const variantPolicies = require('../variants/variantPolicyRouter');
+const journal = require('./roundJournal');
+const leases = require('./runtimeLeaseService');
+const { assertValidConstitution } = require('../governance/constitutionValidator');
+const { constitutionHash } = require('../governance/protocolVersioning');
+const ecologicalActions = require('./ecologicalActionExecutor');
+const adaptiveRounds = require('./adaptiveRoundService');
 
 async function runRound(input) {
   const prepared = await prepareRound(input);
+  const lease = await leases.acquire(input);
+  try { return await runPrepared({ input, prepared, lease }); }
+  finally { await leases.release(lease); }
+}
+
+async function runPrepared({ input, prepared, lease }) {
   const { constitution, variantPolicy, handlers, modelExecutionByMember, recordModelExecution } = prepared;
   let session = prepared.session;
   let result;
   do {
     result = await executeRound({ input, session, constitution, variantPolicy,
-      handlers, modelExecutionByMember, recordModelExecution });
+      handlers, modelExecutionByMember, recordModelExecution, lease });
     if (result.status !== 'IN_PROGRESS') return completeRound({ input, session, result, variantPolicy });
+    await completeRound({ input, session, result, variantPolicy });
     session = await communityStore.loadSession(input.db, input.communityId);
     if (session.round + 1 >= constitution.roundLimit) {
       return completeRound({ input, session, result, variantPolicy, roundLimitReached: true });
     }
-    session = await advanceRound(input, session);
+    session = await adaptiveRounds.prepareNext(input, session);
   } while (true);
 }
 
@@ -30,6 +42,10 @@ async function prepareRound(input) {
   const record = await communityStore.latestConstitution(input.db, input.communityId);
   if (!record) throw Object.assign(new Error('Biocenose constitution is missing.'), { code: 'BIOCENOSE_CONSTITUTION_UNKNOWN' });
   const constitution = record.constitution;
+  assertValidConstitution(record);
+  if (constitutionHash(constitution) !== record.constitutionHash || session.constitutionId !== record.constitutionId) {
+    throw Object.assign(new Error('Constitution integrity failed.'), { code: 'BIOCENOSE_CONSTITUTION_INTEGRITY_FAILED' });
+  }
   const variantPolicy = variantPolicies.select(constitution.variant);
   if (input.variant && variantPolicies.select(input.variant).name !== variantPolicy.name) {
     throw Object.assign(new Error('The selected Biocenose variant differs from the committed constitution.'), {
@@ -38,7 +54,9 @@ async function prepareRound(input) {
   }
   variantPolicies.assertCompatible(variantPolicy, constitution.questionType);
   const handlers = { ...protocolHandlers.createHandlers({ ...input, variantPolicy }), ...(input.handlers || {}) };
-  const modelExecutionByMember = new Map();
+  const events = await communityStore.listEvents(input.db, input.communityId);
+  const modelExecutionByMember = new Map(events.filter((event) => event.type === 'MODEL_PROVIDER_OBSERVED')
+    .map((event) => [event.payload.memberId, event.payload]));
   return { session, constitution, variantPolicy, handlers, modelExecutionByMember,
     recordModelExecution: modelObserver(input, modelExecutionByMember) };
 }
@@ -58,36 +76,48 @@ function modelObserver(input, modelExecutionByMember) {
 async function executeRound(context) {
   const { input, session, constitution, variantPolicy, handlers, modelExecutionByMember, recordModelExecution } = context;
   try {
+    const receipts = await journal.load({ ...input, round: session.round, constitutionHash: constitutionHash(constitution) });
+    if (session.status !== 'ACTIVE' && receipts.length === 9) {
+      return { status: 'COMPLETED', round: session.round, communityId: session.communityId, receipts, recovered: true };
+    }
     return await controller.runRound({ session, constitution, handlers,
+      receipts,
       context: { db: input.db, communityId: input.communityId, session, constitution,
         variantPolicy, modelExecutionByMember, recordModelExecution },
-      onStepComplete: (step) => recordStep(input, step) });
+      onStepComplete: async (step) => {
+        await leases.renew(context.lease);
+        return journal.save({ ...input, round: session.round, constitutionHash: constitutionHash(constitution) }, step);
+      } });
   } catch (error) {
     await recordBlockedStep(input, error);
     throw error;
   }
 }
 
-function advanceRound(input, session) {
-  return communityStore.appendEvent(input.db, {
-    communityId: input.communityId, actorId: input.actorId,
-    type: 'PHASE_CHANGED', payload: { from: session.phase, to: 'SEALED_JUDGMENT', reason: 'CONTINUE_DELIBERATION' },
-    patch: { phase: 'SEALED_JUDGMENT', round: session.round + 1 }
-  });
-}
-
 async function completeRound(context) {
   const { input, session, result, variantPolicy } = context;
-  const decision = ecologicalController.evaluate({
-    communityId: input.communityId, round: result.round, session,
+  const events = await communityStore.listEvents(input.db, input.communityId);
+  const existing = events.findLast((event) => event.type === 'ECOLOGICAL_CONTROL_DECISION' && event.payload.round === result.round);
+  const current = await communityStore.loadSession(input.db, input.communityId);
+  const decision = existing?.payload || ecologicalController.evaluate({
+    communityId: input.communityId, round: result.round, session: current,
     receipts: result.receipts, variantPolicy, executionNeeded: input.executionNeeded,
-    roundLimitReached: context.roundLimitReached === true
+    roundLimitReached: context.roundLimitReached === true || current.round + 1 >=
+      (await communityStore.latestConstitution(input.db, input.communityId)).constitution.roundLimit
   });
-  await communityStore.appendEvent(input.db, {
+  if (!existing) await communityStore.appendEvent(input.db, {
     communityId: input.communityId, actorId: input.actorId,
     type: 'ECOLOGICAL_CONTROL_DECISION', payload: decision, patch: {}
   });
-  return { ...result, ecologicalDecision: decision, followUpStatus: followUpStatus(decision) };
+  const action = await ecologicalActions.execute(input, decision);
+  return { ...result, ecologicalDecision: decision, ecologicalAction: action,
+    followUpStatus: actionFollowUp(action, decision) };
+}
+
+function actionFollowUp(action, decision) {
+  if (action.status === 'BLOCKED') return 'ACTION_BLOCKED';
+  if (action.status === 'COMPLETED') return 'ACTION_COMPLETED';
+  return followUpStatus(decision);
 }
 
 function followUpStatus(decision) {
@@ -95,14 +125,6 @@ function followUpStatus(decision) {
   if (decision.observation?.judgmentStatus !== 'DECIDED') return 'REVIEW_REQUIRED';
   if (decision.nextAction !== 'NO_FURTHER_ACTION') return 'ACTION_REQUIRED';
   return 'DECISION_RECORDED';
-}
-
-async function recordStep(input, step) {
-  const resultHash = createHash('sha256').update(JSON.stringify(step.result)).digest('hex');
-  return communityStore.appendEvent(input.db, {
-    communityId: input.communityId, type: 'DELIBERATION_STEP_COMPLETED',
-    payload: { step: step.step, resultHash }, patch: {}
-  });
 }
 
 async function recordBlockedStep(input, error) {

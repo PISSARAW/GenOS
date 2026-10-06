@@ -1,8 +1,37 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
-- **Statut** : Topologie disponible avec sessions persistées, services de délibération et contrôleur de tours bornés. Le parcours de bout en bout dépend encore des handlers fournis par l'appelant.
+- **Statut** : Cycle de délibération persistant avec handlers internes, reprise par reçus, douze variants exécutables et finalisation protégée par les gates de preuve. Les modèles, oracles et adaptateurs d'action restent des dépendances explicites.
 - **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole, recommandations de transition à la Morphogenèse et contrôleur de tours piloté par handlers explicites, évaluation Pareto et métriques de diversité.
-- **Dernière revue** : 2026-10-03
+- **Dernière revue** : 2026-10-06
+
+### Cycle persistant et garanties de finalisation
+
+L'[ADR 0333](../../adr/0333-biocenose-cycle-persistant-et-finalisation.md) décrit les
+compléments du runtime. `executeBiocenoseMission({ db, orchestratorId, mission, options,
+memberInvoker, verificationExecutor, isTrustedReceipt })` prépare la communauté et
+exécute ses tours. Avec `communityId`, il reprend une communauté persistée.
+
+- Les révisions acceptées, y compris leurs prévisions explicites, sont appliquées à
+  l'agrégation ; les engagements initiaux restent immuables.
+- Les neuf étapes sont transactionnelles et leurs reçus contrôlent l'ordre, le tour et
+  la constitution. Une étape interrompue est annulée ; les étapes terminées sont relues.
+- La stabilité utilise les agrégations des tours précédents. Les résultats mixtes
+  doivent couvrir chaque claim persisté et appliquer sa sémantique propre ; une
+  perspective normative conserve l'exigence de revue humaine.
+- Un oracle fourni est invoqué pour tous les variants disposant de sa capacité.
+  Les reçus hors périmètre sont exclus ; les preuves factuelles restent obligatoires.
+- Le panel représentatif et ses poids sont scellés dans la constitution. Le quorum
+  est publié comme métrique, sans devenir un oracle de vérité.
+- L'écologie est observée après chaque tour. `recruitmentCandidates` et `roleTargets`
+  permettent le recrutement entre deux tours. Un nouveau tour repart par engagements
+  scellés. `actionExecutors[action]` exécute un handoff ou une collecte externe ; son
+  reçu doit être accepté par `isTrustedActionReceipt` et lié à `communityId`, `action`
+  et `idempotencyKey`. Sans adaptateur, `ecologicalAction.status` vaut
+  `DEPENDENCY_REQUIRED` ; sans preuve, il vaut `BLOCKED`.
+
+Vérification : `npm --prefix backend run test:biocenose`. Cette suite couvre les
+douze variants, la reprise, les révisions, la stabilité et les frontières de preuve.
+Elle n'établit pas la supériorité causale de cette topologie sur des modèles réels.
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
 Morphogenèse choisit et compose les organisations adaptées à une mission ; Biocénose
@@ -114,7 +143,7 @@ Cette distinction est essentielle : les sections qui suivent décrivent le modè
   réintégration remet son état à `ACTIVE`. Les deux transitions sont atomiques et auditées.
   La quarantaine ne supprime pas le membre et ne prouve aucune intention malveillante.
   Les douze identifiants de variant sont reconnus et gelés dans la constitution. Les
-  comportements réellement appliqués et les variants encore partiels sont précisés à la
+  comportements exécutables et leurs limites sont précisés à la
   section 12 ; une sélection n'implique pas que tous les mécanismes théoriques soient présents ;
 - L'adaptateur Biocénose/Morphogenèse traduit le jugement final fourni au planner en
   signaux de transition : un désaccord testable propose Trinity, un jugement `DECIDED`
@@ -178,9 +207,12 @@ intégration peut remplacer l'invocation des membres et fournir un exécuteur de
 vérifications déterministes ; le runtime ne transforme pas une vérification absente en
 preuve ni une sortie de modèle invalide en jugement.
 
-Après chaque arrêt, le contrôleur écologique persiste un relevé des signaux du tour et une
-action proposée. Cette boucle observe et oriente ; elle ne recrute pas automatiquement,
-ne reblinde pas les membres et ne change pas le variant ou la topologie.
+Après chaque tour, le contrôleur écologique persiste un relevé des signaux et une
+action. Les adaptateurs explicitement fournis peuvent exécuter cette action avec un
+reçu vérifié. Entre deux tours, les candidats fournis peuvent combler les déficits
+de rôle ou de fournisseur ; une alerte de conformité supprime le feedback Delphi
+du tour suivant pour reformer les jugements indépendamment. Une action externe sans
+adaptateur reste `DEPENDENCY_REQUIRED`. Le variant et la constitution restent scellés.
 
 La constitution est persistée, versionnée et validée. La finalisation contrôle son
 identité et son hash, et applique les gates de reçus factuels et de dissent critique,
@@ -847,18 +879,18 @@ une revue humaine ; Hybrid Oracle Community bloque le traitement factuel sans v�
 déterministe. Epistemic Jury reste le protocole par défaut, et le graphe d'arguments est
 construit par le runtime commun.
 
-Les cinq variants ci-dessus restent déclarés `executionLevel: PARTIAL`, mais leurs parcours
-spécifiques ont désormais des effets runtime. Ce niveau décrit la couverture incomplète du
-contrat visé; il ne réduit ni leur valeur ni leur admissibilité au routage automatique. Le
-routeur choisit selon les signaux de mission et ne classe pas les variants par maturité.
+Les douze variants sont déclarés `executionLevel: EXECUTABLE`. Le runtime exécute leurs
+politiques et le cycle persistant décrit en tête de ce document. Ce niveau atteste un
+parcours implémenté ; les reçus et gates déterminent séparément la validité du jugement.
+Le routeur choisit selon les signaux de mission et les contraintes de constitution.
 
 | Variant | Effet runtime appliqué | Limite documentée |
 | --- | --- | --- |
 | Argumentation Community | Construit le graphe d'arguments à partir des claims, supports, attaques et reçus vérifiés de confiance; l'adjudication utilise les labels d'acceptabilité et tient compte des membres mis en quarantaine. | Un claim sans support accepté reste non résolu; ce parcours ne garantit pas à lui seul la vérité des prémisses. |
-| Polycentric Council | Agrège les jugements des sous-communautés, conserve les distributions locales et le dissent, puis fédère les résultats au niveau parent. | Les résultats des clusters doivent être fournis; divergences et preuves minoritaires non résolues restent visibles et peuvent imposer l'escalade. |
+| Polycentric Council | Invoque les conseils locaux, ou utilise les clusters fournis, conserve distributions et dissent, puis fédère les résultats au parent. | Les preuves minoritaires critiques imposent une revue parentale ; une sortie locale vide ou abstentionniste ne constitue pas un jugement résolu. |
 | Byzantine-Resilient Community | Filtre les éléments des membres mis en quarantaine et ne retient les reçus `VERIFIED` que si leur validateur de confiance les accepte. | Ce filtrage ne constitue pas une garantie BFT générale et ne démontre pas à lui seul une tolérance `N ≥ 3f + 1`. |
-| Representative Community | Agrège les votes pondérés d'un panel dont les sièges sont validés, uniques et de poids positif. | La sélection et la représentativité statistique du panel restent à établir en amont. |
-| Persistent Community | Consulte et conserve l'historique des jugements antérieurs à la ronde courante, avec stabilité et dissent préservé. | La portée longitudinale dépend du stockage et de l'identifiant de communauté; la maturité reste partielle. |
+| Representative Community | Sélectionne un panel stratifié, scelle ses poids dans la constitution et agrège les sièges uniques validés. | La représentativité dépend de la population candidate et des dimensions déclarées ; elle ne démontre pas la vérité des opinions. |
+| Persistent Community | Consulte l'historique, restaure réputation et ancienneté, applique la rotation et observe la stabilité entre tours persistés. | La continuité dépend du stockage durable et de l'identité des membres ; aucune mémoire externe n'est inventée. |
 
 ### 12.1 Epistemic Jury
 

@@ -1,11 +1,17 @@
 'use strict';
 
+const { withTransaction } = require('../../../db');
+
 async function execute(input) {
-  const receipts = [];
-  for (const step of input.plan.steps) {
-    const result = await performStep(input, step, receipts);
+  const receipts = [...(input.receipts || [])];
+  for (const step of input.plan.steps.slice(receipts.length)) {
+    const executeStep = async () => {
+      const result = await performStep(input, step, receipts);
+      if (input.onStepComplete) await input.onStepComplete({ step, result });
+      return result;
+    };
+    const result = input.context.db ? await withTransaction(input.context.db, executeStep) : await executeStep();
     receipts.push({ step, result, completedAt: new Date().toISOString() });
-    if (input.onStepComplete) await input.onStepComplete({ step, result });
   }
   return { status: 'COMPLETED', round: input.plan.round, receipts };
 }

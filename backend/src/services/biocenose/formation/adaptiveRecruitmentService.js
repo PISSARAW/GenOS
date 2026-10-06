@@ -15,7 +15,8 @@ async function recruit(input) {
   const current = normalizeMembers(session.members);
   const targets = { generator: 2, reviewer: 1, verifier: 1, ...(input.roleTargets || {}) };
   const gaps = diversityGaps(current, targets);
-  const candidates = normalizeCandidates(input.candidates).filter((candidate) => !current.some((member) => member.memberId === candidate.memberId));
+  const existingIds = new Set(session.members.map((member) => member.memberId));
+  const candidates = normalizeCandidates(input.candidates).filter((candidate) => !existingIds.has(candidate.memberId));
   const selected = selectForGaps({ candidates, roles: gaps.missingRoles, current, input });
   const recruited = [];
   for (const candidate of selected) recruited.push(await persist(input, candidate));
@@ -26,7 +27,7 @@ function normalizeMembers(members) {
   return (members || []).map((member) => ({
     ...member, role: normalizeRole(member.role),
     provider: member.provider || member.modelProvider || null
-  })).filter((member) => member.role);
+  })).filter((member) => member.role && (!member.status || member.status === 'ACTIVE'));
 }
 
 function normalizeRole(role) {
@@ -35,13 +36,18 @@ function normalizeRole(role) {
 }
 
 function selectForGaps(context) {
-  const selected = context.roles.flatMap((role) => selectCandidates(context.candidates, role, 1));
-  const providerDeficit = Math.max(0, Number(context.input.minimumProviders || 0) - currentProviderCount(context.current));
+  const selected = context.roles.flatMap((role) => {
+    const currentCount = context.current.filter((member) => member.role === role).length;
+    const target = Number(context.input.roleTargets?.[role] ?? ({ generator: 2, reviewer: 1, verifier: 1 })[role]);
+    return selectCandidates(context.candidates, role, Math.max(0, target - currentCount));
+  });
+  const providerDeficit = Math.max(0, Number(context.input.minimumProviders || 0) - currentProviderCount([...context.current, ...selected]));
   if (!providerDeficit) return selected;
   const seen = new Set([...context.current, ...selected].map((member) => member.memberId));
   const missingProviders = context.candidates.filter((member) => member.provider && !seen.has(member.memberId)
     && ![...context.current, ...selected].some((existing) => existing.provider === member.provider));
-  return [...selected, ...selectCandidates(missingProviders, context.input.diversityRole || 'generator', providerDeficit)];
+  const distinctProviders = [...new Map(missingProviders.map((member) => [member.provider, member])).values()];
+  return [...selected, ...selectCandidates(distinctProviders, context.input.diversityRole || 'generator', providerDeficit)];
 }
 
 function currentProviderCount(members) {

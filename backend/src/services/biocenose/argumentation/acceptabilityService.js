@@ -9,7 +9,7 @@ function attackEdges(input) {
   const list = Array.isArray(input.attacks) ? input.attacks : [];
   return list
     .map((edge) => ({ from: String(edge.from || ''), to: String(edge.to || '') }))
-    .filter((edge) => edge.from && edge.to && edge.from !== edge.to);
+    .filter((edge) => edge.from && edge.to);
 }
 
 function attackersOf(id, edges) {

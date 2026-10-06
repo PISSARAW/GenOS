@@ -8,6 +8,7 @@ const stoppingRule = require('./stoppingRuleService');
 const { assertValidConstitution } = require('../governance/constitutionValidator');
 const { constitutionHash } = require('../governance/protocolVersioning');
 const variantPolicies = require('../variants/variantPolicyRouter');
+const assessment = require('./outcomeAssessment');
 
 async function finalize(input) {
   const session = await communityStore.loadSession(input.db, input.communityId);
@@ -51,31 +52,22 @@ function validateActiveConstitution(constitution, session) {
 }
 
 function judgmentRecord(input, context) {
-  const humanReview = input.aggregation.humanJudgmentRequired === true;
-  const unresolved = hasUnresolvedOutcome(input.aggregation)
-    || (input.aggregation.unresolvedClaimIds || []).length > 0;
+  const humanReview = assessment.needsHuman(input.aggregation);
+  const unresolved = !assessment.ready(input.aggregation);
   const status = context.openCriticalDissent.length ? 'ESCALATED'
     : humanReview ? 'HUMAN_REVIEW_REQUIRED'
       : unresolved ? 'IRREDUCIBLE_DISAGREEMENT' : 'DECIDED';
   return {
-    status, questionType: input.aggregation.questionType, aggregation: input.aggregation,
+    status, decisionOutcome: assessment.decisionOutcome({ aggregation: input.aggregation, status,
+      dissentIds: context.preservedDissentIds, promotionGate: context.promotionGate,
+      independence: input.uncertainty?.independence, stopReason: context.stop.reason }),
+    questionType: input.aggregation.questionType, aggregation: input.aggregation,
     uncertainty: input.uncertainty ?? null, openCriticalDissentIds: context.openCriticalDissent.map((item) => item.dissentId),
     dissentGates: context.dissentGates, preservedDissentIds: context.preservedDissentIds,
     variant: context.variantPolicy.name, variantExecutionLevel: context.variantPolicy.executionLevel,
     promotionGate: context.promotionGate,
     stopReason: context.stop.reason
   };
-}
-
-function hasUnresolvedOutcome(aggregation) {
-  if (['UNRESOLVED', 'INSUFFICIENT_FORECASTS', 'NO_COMPARABLE_OPTIONS', 'REVIEW_REQUIRED', 'ARGUMENTS_UNRESOLVED']
-    .includes(aggregation.outcome)) return true;
-  if (['PARETO_FRONT', 'DESIGN_OPTIONS_REVIEW'].includes(aggregation.outcome)) {
-    return !(aggregation.options || []).length;
-  }
-  if (aggregation.outcome === 'PROBABILITY_ESTIMATE') return !(aggregation.estimates || []).length;
-  if (aggregation.outcome === 'CLAIM_MAP') return (aggregation.openQuestions || []).length > 0;
-  return false;
 }
 
 module.exports = { finalize };
