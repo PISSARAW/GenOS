@@ -71,6 +71,7 @@ function safeSignature(value) {
 }
 
 function validateReceipt(receipt, trustedVerifierDigests = []) {
+  if (!Array.isArray(trustedVerifierDigests)) return false;
   if (!receipt || !trustedVerifierDigests.includes(receipt.verifierDigest)) return false;
   if (Number.isNaN(Date.parse(receipt.checkedAt)) || !receipt.nonce) return false;
   let expected;

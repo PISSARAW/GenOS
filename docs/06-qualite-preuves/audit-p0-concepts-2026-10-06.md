@@ -164,3 +164,72 @@ Les preuves de reprise, scripts de sondage et matrices actualisées restent dans
 le sous-dossier local `p0-audit/continuation`. Les corrections ne ferment pas les
 obligations de holdout, de qualification complète des consommateurs, de provenance
 amont mémoire et de correction de la dette globale.
+
+## Seconde reprise P0 : consommateurs des reçus et de l'ADN
+
+La mise à jour des Pages audit et plan est autorisée explicitement par l'utilisateur
+et réussit. Une relecture conserve les 649 références uniques ; C576 est accessible.
+
+### Trois contre-exemples supplémentaires
+
+Le sondage du gate général `require_independent_verification`, hors contexte
+philosophique, accepte initialement trois reçus correctement signés : `verified`,
+`refuted` et `inconclusive`. Il exige maintenant `independent === true` et le statut
+`verified` ; les deux autres résultats restent signés mais sont inéligibles.
+
+`validateReceipt` accepte initialement une chaîne contenant le digest attendu à
+la place du tableau des vérificateurs approuvés. Il exige maintenant un tableau ;
+chaîne, null, objet et Set sont refusés sans être assimilés à une liste de confiance.
+
+Sur une vraie connexion SQLite en lecture seule (`PRAGMA query_only = ON`),
+`claimVerifierNonce` retourne initialement null malgré l'échec d'écriture et
+`applyPostPromotionPolicies` retourne success. La correction produit une violation
+`receipt_nonce_storage` et bloque les opérations aval. Une insertion doit attester
+exactement une ligne modifiée ; zéro signifie reçu rejoué, une réponse absente ou
+non confirmée signifie stockage indisponible. Le test conserve le cas positif et
+vérifie qu'un second appel ne crée aucune ligne supplémentaire.
+
+Ces contrôles qualifient le gate général et son API d'application après promotion.
+Le consommateur `strategyPromotionGate.applyPostPromotion` ne transmet pas de reçu
+indépendant dans son contexte actuel ; sa clôture utilise une nouvelle assemblée
+AEIS liée au run. La protection durable par nonce de cette voie complète n'est donc
+pas déduite du test de l'API. Lier chaque reçu aux obligations et à la décision reste
+un travail de qualification distinct.
+
+### Consommateurs ADN et mémoire
+
+`test_agent_dna.js` passe : décodage, expression de secours, sauvegarde et relecture
+SQLite, sélection et import de 24 génomes. Le trajet `saveGenome → phenotype_blob
+MsgPack → bestMatch → selectGenome` est lu ; les cas de sélection du test passent.
+`test_agent_dna_integration_closure.js` passe ses neuf contrôles, notamment effet
+de la méthylation sur le lease réel et propagation GRN. Ses mesures de fitness et
+son attestation JSON locale sont synthétiques, sans gain IA ni preuve de confiance
+cryptographique nouvelle.
+
+`test_cognitive_epistemic_check.js` passe les contrôles de schéma et de reçus.
+Ses commandes echo sont des fixtures de transport, pas des preuves SMT ou Lean.
+La lecture de `vectorMemoryCorpus` confirme que les éléments hydratés depuis SQL
+ne recopient pas les attributs de vérification libres dans le scoring.
+
+Six sondes du `verificationKernel` passent : même affirmation, autre ID, autre
+empreinte, réfutation, résultat inconclusif et vérificateur dépendant. Les reçus
+étrangers restent non vérifiés ; aucune de ces évaluations ne donne directement
+l'éligibilité à la promotion. Les reçus et profils sont des fixtures, sans oracle
+de vérité exécuté par ce sondage.
+
+La suite complète `npm test` passe à nouveau. Le gate staged accepte les quatre
+fichiers sources de cette seconde reprise avec zéro violation. Les deux tests Rust
+initialement bloqués au lien PDB, `token_bucket` et `topology_transition`, passent
+lors de la relance ciblée : 12 et 1 tests réussis.
+
+La relance `cargo test --workspace -j 1` échoue ensuite avec code 101 au lien de
+l'exemple `mission_autopoiesis`, erreur LNK1201 d'écriture PDB. Le disque ne conserve
+plus que 162 Mo libres. Aucune exécution des tests du workspace n'est annoncée.
+Les 29 fichiers de symboles PDB générés pendant cette relance et la relance ciblée
+sont retirés après contrôle des chemins, tailles et dates sous `target/debug/deps`
+et `target/debug/examples` ; environ 2,11 Go sont récupérés. Les journaux restent
+conservés et la validation Rust globale demeure ouverte.
+
+Le contrôle global observe désormais 297 violations, dont 153 nouvelles, sans
+modification de baseline. Les journaux et contre-exemples de cette reprise restent
+dans `p0-audit/continuation/phase-2`.

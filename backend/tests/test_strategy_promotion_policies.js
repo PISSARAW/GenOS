@@ -9,6 +9,7 @@ const promotionPolicy = require('../src/services/strategyPromotionPolicyService'
 
 async function run() {
   console.log('--- Testing Strategy Promotion Policies ---');
+  await require('./helpers/strategyVerifierReceiptGates').assertVerifierReceiptGates(promotionPolicy);
 
   // Test 1: evaluatePromotionGate unit checks
   const contractWithPolicies = {

@@ -206,7 +206,7 @@ function reportClaims(executionContext) {
 }
 
 function isReceiptLoaded(receipt) { return Boolean(receipt && typeof receipt === 'object'); }
-function hasRequiredFields(receipt) { return Boolean(receipt.independent && receipt.resultId && receipt.evidenceDigest && receipt.verifierDigest && receipt.signature && receipt.checkedAt && receipt.nonce); }
+function hasRequiredFields(receipt) { return Boolean(receipt.independent === true && receipt.status === 'verified' && receipt.resultId && receipt.evidenceDigest && receipt.verifierDigest && receipt.signature && receipt.checkedAt && receipt.nonce); }
 
 function hasTrustedDigests(digests) { return Array.isArray(digests) && digests.length > 0; }
 
@@ -230,6 +230,7 @@ function isIndependentVerification(executionContext, trustedVerifierDigests) {
 }
 
 function replayRefused() { return { policy: 'receipt_replay', message: 'Verifier receipt nonce was already consumed: replay refused.' }; }
+function nonceStorageRefused() { return { policy: 'receipt_nonce_storage', message: 'Verifier receipt nonce could not be durably consumed.' }; }
 
 function buildReplayedNonceViolation(executionContext) {
   const nonce = executionContext?.independentVerifierReceipt?.nonce;
@@ -249,7 +250,8 @@ async function claimVerifierNonce(db, executionContext) {
     await ensureNonceTable(db);
     const claimed = await db.run('INSERT OR IGNORE INTO verifier_receipt_nonces (nonce) VALUES (?)', nonce);
     if (claimed && claimed.changes === 0) return replayRefused();
-  } catch (_) { return null; }
+    if (!claimed || claimed.changes !== 1) return nonceStorageRefused();
+  } catch (_) { return nonceStorageRefused(); }
   return null;
 }
 
