@@ -125,8 +125,18 @@ async function superviseChild(context) {
   }
 }
 
+async function verifyDelegationCapability(parent, args) {
+  const publicKeyHex = process.env.GENOS_BISCUIT_DELEGATION_PUBLIC_KEY;
+  if (!publicKeyHex) return;
+  await require('./biscuitDelegationService').verifyDelegation({
+    token: args.delegationToken, agentId: parent.id,
+    childKind: childAssignment(args).workerKind, publicKeyHex,
+    revokedIds: parent.metadata.workerContract.revokedCapabilityIds || []
+  });
+}
 async function dispatchSubOrchestratorWorker(db, callerAgentId, args) {
   const parent = await loadAuthorizedParent(db, callerAgentId);
+  await verifyDelegationCapability(parent, args);
   const { child, mission } = await createChild(db, parent, args);
   const supervision = await superviseChild({ db, child, mission, parentAgentId: parent.id });
   return { configured: true, success: supervision.status === 'completed', status: supervision.status, transport: 'worker_dispatch', parentAgentId: parent.id, childAgentId: child.agentId, supervision };

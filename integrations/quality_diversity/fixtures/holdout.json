@@ -1,0 +1,80 @@
+[
+  {
+    "mission_id": "holdout-a",
+    "candidate_id": "single",
+    "workers": 1,
+    "verification_share": 0,
+    "context_fraction": 1,
+    "success": false,
+    "receipt": "",
+    "tokens": 700,
+    "budget_tokens": 1300,
+    "latency_ms": 1050,
+    "deadline_ms": 1100
+  },
+  {
+    "mission_id": "holdout-a",
+    "candidate_id": "duo",
+    "workers": 2,
+    "verification_share": 0.2,
+    "context_fraction": 0.8,
+    "success": true,
+    "receipt": "fixture:holdout-a:duo",
+    "tokens": 950,
+    "budget_tokens": 1300,
+    "latency_ms": 650,
+    "deadline_ms": 1100
+  },
+  {
+    "mission_id": "holdout-a",
+    "candidate_id": "verified",
+    "workers": 2,
+    "verification_share": 0.5,
+    "context_fraction": 0.7,
+    "success": true,
+    "receipt": "fixture:holdout-a:verified",
+    "tokens": 1100,
+    "budget_tokens": 1300,
+    "latency_ms": 780,
+    "deadline_ms": 1100
+  },
+  {
+    "mission_id": "holdout-b",
+    "candidate_id": "single",
+    "workers": 1,
+    "verification_share": 0,
+    "context_fraction": 1,
+    "success": true,
+    "receipt": "fixture:holdout-b:single",
+    "tokens": 650,
+    "budget_tokens": 1400,
+    "latency_ms": 900,
+    "deadline_ms": 1300
+  },
+  {
+    "mission_id": "holdout-b",
+    "candidate_id": "duo",
+    "workers": 2,
+    "verification_share": 0.2,
+    "context_fraction": 0.8,
+    "success": false,
+    "receipt": "",
+    "tokens": 1000,
+    "budget_tokens": 1400,
+    "latency_ms": 700,
+    "deadline_ms": 1300
+  },
+  {
+    "mission_id": "holdout-b",
+    "candidate_id": "verified",
+    "workers": 2,
+    "verification_share": 0.5,
+    "context_fraction": 0.7,
+    "success": true,
+    "receipt": "fixture:holdout-b:verified",
+    "tokens": 1200,
+    "budget_tokens": 1400,
+    "latency_ms": 850,
+    "deadline_ms": 1300
+  }
+]

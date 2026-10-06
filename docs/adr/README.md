@@ -382,30 +382,45 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0320](0320-compilation-procedurale-runtime.md) | Compilation procédurale runtime | Voir le fichier | -- | -- |
 | [0321](0321-economie-cognitive-omega-topologies.md) | Économie cognitive Omega et topologies | Voir le fichier | -- | -- |
 | [0322](0322-interop-gcir-omega-rust-node.md) | Interopérabilité G-CIR Omega Rust/Node | Voir le fichier | -- | -- |
-| [0323a](0323-frontieres-preuve-execution-omega.md) | Frontières de preuve et d’exécution Omega | Accepté pour le durcissement du runtime, pas comme certificat de complétude. | -- | -- |
-| [0323b](0323-reprise-atomique-natural-search.md) | Reprise atomique du Natural Search Control Plane | accepté | 2026-10-06 | contrôle de recherche, SQLite, preuves et reprise |
-| [0324](0324-biologie-execution-et-autorite-durable.md) | Biologie des exécutions et autorité durable | Voir le fichier | -- | -- |
+| [0323a](0323-biscuit-delegation-workers.md) | Jetons Biscuit pour la délégation bornée | Accepté | 2026-10-06 | autorisation, sous-orchestration, délégation |
+| [0323b](0323-frontieres-preuve-execution-omega.md) | Frontières de preuve et d’exécution Omega | Accepté pour le durcissement du runtime, pas comme certificat de complétude. | -- | -- |
+| [0323c](0323-reprise-atomique-natural-search.md) | Reprise atomique du Natural Search Control Plane | accepté | 2026-10-06 | contrôle de recherche, SQLite, preuves et reprise |
+| [0324a](0324-biologie-execution-et-autorite-durable.md) | Biologie des exécutions et autorité durable | Voir le fichier | -- | -- |
+| [0324b](0324-capsules-secretstream-transport.md) | Capsules transportables par flux authentifié | Accepté | 2026-10-06 | continuité, cryptographie, restauration |
 | [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté | 2026-10-06 | Régénération, cognition, plasticité |
 | [0326a](0326-audits-philosophiques-executables-et-preuves.md) | Audits philosophiques exécutables et preuves bornées | Voir le fichier | -- | -- |
 | [0326b](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
 | [0327a](0327-aeis-preuves-et-autorite-persistante.md) | AEIS : preuves exécutables et autorité persistante | Voir le fichier | -- | -- |
 | [0327b](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
 | [0327c](0327-trinity-comparaison-recherche-et-assemblage.md) | Comparaison commune, recherche et assemblage Trinity | Accepté | 2026-10-06 | Trinity, preuves, recherche expérimentale |
-| [0328](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
-| [0329](0329-cloture-verifiable-runs-a-team.md) | Clôture vérifiable des runs A-Team | Accepté | 2026-10-06 | A-Team, dispatch, preuve et reprise |
-| [0330a](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Voir le fichier | -- | -- |
-| [0330b](0330-holobionte-missions-contractuelles-verifiees.md) | Missions Holobionte contractuelles et vérifiées | Accepté | 2026-10-06 | Holobionte, exécution, immunité, ressources et persistance |
-| [0331](0331-syncytium-rejeu-causal-et-preuve-de-completion.md) | Syncytium : rejeu causal et preuve de complétion | Voir le fichier | -- | -- |
-| [0332a](0332-capacites-morphogenese-runtime.md) | Exécution et provenance des cinq capacités de morphogenèse | Accepté | 2026-10-06 | Backend, morphogenèse, mémoire et observation résidente |
-| [0332b](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |
+| [0328a](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
+| [0328b](0328-laboratoire-qualite-diversite.md) | Laboratoire qualité-diversité et évolution bornée | Accepté | 2026-10-06 | morphogenèse, GVX, évaluation expérimentale |
+| [0329a](0329-cloture-verifiable-runs-a-team.md) | Clôture vérifiable des runs A-Team | Accepté | 2026-10-06 | A-Team, dispatch, preuve et reprise |
+| [0329b](0329-traces-otlp-apres-persistance.md) | Traces OpenTelemetry après persistance | Accepté | 2026-10-06 | observabilité, télémétrie, confidentialité |
+| [0330a](0330-bancs-agentdojo-browsergym.md) | Bancs externes pour l'immunité et la navigation | Accepté | 2026-10-06 | évaluation, sécurité, navigation |
+| [0330b](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Voir le fichier | -- | -- |
+| [0330c](0330-holobionte-missions-contractuelles-verifiees.md) | Missions Holobionte contractuelles et vérifiées | Accepté | 2026-10-06 | Holobionte, exécution, immunité, ressources et persistance |
+| [0331a](0331-syncytium-rejeu-causal-et-preuve-de-completion.md) | Syncytium : rejeu causal et preuve de complétion | Voir le fichier | -- | -- |
+| [0331b](0331-wasmtime-heuristiques-bornees.md) | Exécution Wasmtime des heuristiques bornées | Accepté | 2026-10-06 | plugins, GVX, isolation |
+| [0332a](0332-adaptateur-openhands-sdk.md) | Adaptateur expérimental OpenHands SDK | Accepté | 2026-10-06 | workers développeurs, ontogenèse |
+| [0332b](0332-capacites-morphogenese-runtime.md) | Exécution et provenance des cinq capacités de morphogenèse | Accepté | 2026-10-06 | Backend, morphogenèse, mémoire et observation résidente |
+| [0332c](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |
 | [0333a](0333-biocenose-cycle-persistant-et-finalisation.md) | Biocénose : cycle persistant et finalisation vérifiable | Accepté | 2026-10-06 | Biocénose, délibération, reprise, preuves |
 | [0333b](0333-boucle-shev-et-reconciliation-durable.md) | Boucle SHEV et réconciliation durable | Voir le fichier | -- | -- |
 | [0333c](0333-cloture-runtime-agow.md) | Clôture des contrats runtime AGOW | Accepté | 2026-10-06 | AGOW, budgets, persistance, preuve |
-| [0334a](0334-biome-boucle-ecologique-transactionnelle.md) | Biome : boucle écologique transactionnelle et exécution vérifiée | Accepté | 2026-10-06 | Biome, écologie, ressources, persistance et preuves |
-| [0334b](0334-cycle-morphogenetique-executable-et-isole.md) | Cycle morphogénétique exécutable et isolé | Voir le fichier | -- | -- |
-| [0334c](0334-ontogenese-pilotage-reprise-et-retention.md) | Ontogenèse : pilotage opérateur, reprise et rétention vérifiables | Accepté | 2026-10-06 | Orchestration résidente, contrôle, persistance, exploitation |
-| [0335](0335-orchestrator-recus-proprietaires-et-cloture-prouvee.md) | Boucle orchestrator attendue et reçus propriétaires | Voir le fichier | -- | -- |
-| [0336](0336-cycle-resident-et-verification-des-daemons.md) | Cycle résident et vérification des daemons | Accepté | 2026-10-06 | Daemons, territoires, persistance, réparation et preuves |
+| [0333d](0333-reconciliation-activites-temporal.md) | Réconciliation des effets externes avant reprise Temporal | Accepté | 2026-10-06 | missions longues, effets externes, reprise |
+| [0334a](0334-automerge-observations.md) | Automerge pour observations seulement | Accepté | 2026-10-06 | Syncytium, état partagé |
+| [0334b](0334-biome-boucle-ecologique-transactionnelle.md) | Biome : boucle écologique transactionnelle et exécution vérifiée | Accepté | 2026-10-06 | Biome, écologie, ressources, persistance et preuves |
+| [0334c](0334-cycle-morphogenetique-executable-et-isole.md) | Cycle morphogénétique exécutable et isolé | Voir le fichier | -- | -- |
+| [0334d](0334-ontogenese-pilotage-reprise-et-retention.md) | Ontogenèse : pilotage opérateur, reprise et rétention vérifiables | Accepté | 2026-10-06 | Orchestration résidente, contrôle, persistance, exploitation |
+| [0335a](0335-orchestrator-recus-proprietaires-et-cloture-prouvee.md) | Boucle orchestrator attendue et reçus propriétaires | Voir le fichier | -- | -- |
+| [0335b](0335-propagation-differentielle.md) | Mesurer la propagation différentielle du Rhizome | Accepté | 2026-10-06 | Rhizome, RPE, calcul incrémental |
+| [0336a](0336-cycle-resident-et-verification-des-daemons.md) | Cycle résident et vérification des daemons | Accepté | 2026-10-06 | Daemons, territoires, persistance, réparation et preuves |
+| [0336b](0336-sonde-capnproto.md) | Sonde Cap'n Proto sans migration implicite | Accepté | 2026-10-06 | transport interne, sérialisation |
+| [0337](0337-sonde-causale-shev.md) | Estimation causale exploratoire des interventions SHEV | Accepté | 2026-10-06 | SHEV, attribution des effets |
+| [0338](0338-comparaison-dgm-gvx.md) | Comparer les archives DGM et GVX sous contrat identique | Accepté | 2026-10-06 | GVX, ontogenèse, recherche comparative |
+| [0339](0339-traces-lean-dojo-et-dafny.md) | Traces LeanDojo-v2 et invariants Dafny | Accepté | 2026-10-06 | preuve formelle, budgets, leases |
+| [0340](0340-commandes-xgrammar.md) | Commandes compactes sous XGrammar | Accepté | 2026-10-06 | décodage contraint, outils, budgets |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

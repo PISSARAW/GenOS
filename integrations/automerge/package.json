@@ -1,0 +1,1 @@
+{"name":"genos-automerge-observations","private":true,"version":"0.1.0","scripts":{"test":"node test_shared_notes.cjs"},"dependencies":{"@automerge/automerge":"3.5.0"}}

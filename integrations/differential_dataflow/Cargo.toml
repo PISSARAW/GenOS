@@ -1,0 +1,10 @@
+[package]
+name = "genos-incremental-dependencies"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+differential-dataflow = "=0.25.1"
+timely = "=0.31.0"
