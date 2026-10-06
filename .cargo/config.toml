@@ -1,0 +1,32 @@
+[build]
+rustflags = [
+    "-C", "debug-assertions=off",
+    "-C", "codegen-units=1",
+]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-C", "debuginfo=0",
+    "-C", "codegen-units=1",
+]
+linker = "link.exe"
+
+[profile.test]
+debug = false
+debug-assertions = false
+codegen-units = 1
+
+[profile.bench]
+debug = false
+debug-assertions = false
+codegen-units = 1
+
+[profile.dev]
+debug = 0
+codegen-units = 1
+
+[profile.release]
+debug = false
+debug-assertions = false
+codegen-units = 1
+lto = "thin"
