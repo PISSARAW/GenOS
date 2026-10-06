@@ -63,6 +63,7 @@ async function mark(db, input) {
 }
 async function assertAgentCurrent(db, agentId) {
   if (!agentId) return;
+  await require('./epistemic/epistemicAuthorityState').assertAuthority(db, agentId);
   const stale = await db.get(`WITH RECURSIVE ancestry(id,parent_agent_id) AS (
     SELECT id,parent_agent_id FROM agents WHERE id=?
     UNION SELECT a.id,a.parent_agent_id FROM agents a JOIN ancestry c ON a.id=c.parent_agent_id

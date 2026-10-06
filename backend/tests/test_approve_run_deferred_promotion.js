@@ -106,11 +106,8 @@ async function run() {
       resultId: persisted.evaluation.assembly.results[0].resultId, test: realReport.claims[0].test,
     });
     assert.equal(repeated, false, 'a retried run cannot increase affinity twice');
-    const proofEvaluation = await require('../src/services/epistemic/aeisPromotionBridge').evaluateReportWithAeis(realReport, {
-      trustedVerifierDigests: require('../src/services/verifierTrustRegistry').listVerifierDigests(),
-      allowedWorkspaceRoot: proofWorkspace,
-    });
-    assertPositiveAssembly(proofEvaluation);
+    assertPositiveAssembly(persisted.evaluation);
+    await assertRefutationFeedback({ db, contractRecord: { ...contractRecord, contract }, proofWorkspace });
 
     telemetry.off('telemetry', onTelemetry);
     console.log('✅ approveRun rejects unsigned evidence and accepts two genuine independent AEIS receipts.');
@@ -121,6 +118,28 @@ async function run() {
     for (const suffix of ['-shm', '-wal']) {
       if (fs.existsSync(`${dbPath}${suffix}`)) fs.unlinkSync(`${dbPath}${suffix}`);
     }
+  }
+}
+
+async function assertRefutationFeedback(spec) {
+  const { db, contractRecord, proofWorkspace } = spec;
+  const run = await strategyService.createExecutionRun(db, { agentId: 'agent-promo-test', contractRecord,
+    budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 } });
+  await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
+  await db.run("UPDATE strategy_execution_steps SET status = 'awaiting_approval' WHERE run_id = ? AND sequence = 7", run.id);
+  const options = { report: { outcome: 'success', claims: [{ statement: 'npm test outputs "not-emitted"',
+    evidence: [{ kind: 'reproducible_artifact', content: { fixture: 'negative-promotion' } }],
+    test: { command: 'npm test', expectOutput: 'not-emitted', replicas: {
+      proof: { cwd: path.join(proofWorkspace, 'a') }, source: { cwd: path.join(proofWorkspace, 'b') } } } }] },
+    humanApprovalReceipt: { approved: true, approvalId: 'negative-' + run.id, approverId: 'security_auditor',
+      approvedAt: new Date().toISOString(), payloadHash: strategyContracts.hashContract(contractRecord.contract).replace(/^sha256:/, '') } };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await assert.rejects(strategyService.approveRun(db, run.id, options), /epistemic assurance|AEIS/i);
+    assert.equal((await db.get('SELECT dissonance FROM aeis_agent_dissonance WHERE agent_id = ?', 'agent-promo-test')).dissonance, 1,
+      'a confirmed refutation reduces authority once, including on retry');
+    assert.equal((await db.get("SELECT SUM(failures) AS n FROM epistemic_immune_memory_scoped WHERE scope_id = 'local:local:ws-aeis-promo'")).n, attempt + 1,
+      'each fresh signed execution is a distinct immune observation');
+    assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', run.id)).status, 'awaiting_approval');
   }
 }
 
