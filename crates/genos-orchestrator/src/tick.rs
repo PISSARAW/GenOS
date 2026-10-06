@@ -1,7 +1,6 @@
 //! Boucle cognitive : observer → décider → agir, en un seul `tick`, et
 //! `run` qui itère jusqu'à l'arrêt en produisant un rapport global.
 
-use crate::GenosEcosystem;
 use crate::clinical_therapy::{
     diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology,
 };
@@ -9,6 +8,7 @@ use crate::planner::{Concept, Goal, WorldState};
 use crate::plasmids::Skill;
 use crate::signaling::SignalingCascade;
 use crate::trace::Verdict;
+use crate::GenosEcosystem;
 use crate::{director::Strategy, learning::context_from_state};
 use genos_biology::neurobiology::Neurotransmitter;
 use genos_biology::pathology::assess_agent_clinical_status;
@@ -18,7 +18,7 @@ use genos_cell::AgentCell;
 use genos_signal::SignalingMode;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -148,13 +148,16 @@ fn lifecycle_halt(eco: &mut GenosEcosystem) -> Option<TickReport> {
 impl GenosEcosystem {
     pub fn tick(&mut self, goal: &Goal) -> TickReport {
         if self.receipt_journal.is_none() && std::env::var_os("GENOS_BACKEND_URL").is_some() {
-            return self.halted_report("backend receipt delivery requires GENOS_BIOLOGICAL_JOURNAL");
+            return self
+                .halted_report("backend receipt delivery requires GENOS_BIOLOGICAL_JOURNAL");
         }
         let mut report = self.tick_unpersisted(goal);
         if let Some(path) = &self.receipt_journal {
             let store = genos_store::BiologicalReceiptStore::open(path);
             if let Err(message) = self.persist_tick_report(&mut report, &store) {
-                report.halt = Some(format!("receipt persistence/delivery failed after execution: {message}"));
+                report.halt = Some(format!(
+                    "receipt persistence/delivery failed after execution: {message}"
+                ));
             }
         }
         report
@@ -175,7 +178,7 @@ impl GenosEcosystem {
             return self.halted_report(&format!("checkpoint creatif invalide: {error}"));
         }
         self.director.set_context(context_from_state(&state));
-        let (decision, physical) = crate::physical_telemetry::decide(&self.director, &state, goal);
+        let (decision, physical) = self.decide_with_physics(&state, goal);
         self.director.physical_memory = Some((physical, decision.strategy));
         let mut report = TickReport {
             tick: self.receipt_tick,
@@ -189,13 +192,17 @@ impl GenosEcosystem {
             biological_receipts: Vec::new(),
         };
         if decision.halt.is_some() {
-            let _ = self.attempt_autonomous_reproduction_if_alive();
+            self.attempt_physical_reproduction();
             return report;
         }
         let mut sim = state.clone();
         for step in &decision.steps {
             // Métabolisme réel : chaque concept consomme de l'ATP.
-            if !self.orchestrator.metabolism.consume_for("tick.concept", step.concept.cost()) {
+            if !self
+                .orchestrator
+                .metabolism
+                .consume_for("tick.concept", step.concept.cost())
+            {
                 let mut receipt = self.execution_receipt(step.concept, false, false);
                 receipt.tick = report.tick;
                 self.record_biological_receipt(&receipt);
@@ -209,7 +216,10 @@ impl GenosEcosystem {
             let before = sim.progress(goal);
             sim.apply(step.concept);
             let after = sim.progress(goal);
+            let action_started = Instant::now();
             self.execute_concept(step.concept, &mut report);
+            self.physics
+                .record_action(step.concept, action_started.elapsed());
             let mut receipt = self.execution_receipt(step.concept, true, true);
             receipt.tick = report.tick;
             self.record_biological_receipt(&receipt);
@@ -222,7 +232,7 @@ impl GenosEcosystem {
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
         self.director
             .assign_credit(&report.executed, episode_reward);
-        let _ = self.attempt_autonomous_reproduction_if_alive();
+        self.attempt_physical_reproduction();
         report
     }
 
@@ -261,68 +271,9 @@ impl GenosEcosystem {
         );
     }
 
-    fn execution_receipt(
-        &self,
-        concept: Concept,
-        consumed: bool,
-        completed: bool,
-    ) -> BiologicalExecutionReceipt {
-        let cell_id = Some(self.orchestrator.orchestrator_id)
-            .filter(|cell_id| self.orchestrator.active_cells.contains_key(cell_id));
-        let genome_id = cell_id
-            .and_then(|cell_id| self.orchestrator.active_cells.get(&cell_id)?.genome_id)
-            .filter(|genome_id| self.orchestrator.genomes.contains_key(genome_id));
-        let genome_fingerprint = genome_id
-            .and_then(|genome_id| self.orchestrator.genomes.get(&genome_id))
-            .and_then(|genome| genome.fingerprint().ok())
-            .map(|fingerprint| fingerprint.content_hash);
-        BiologicalExecutionReceipt {
-            schema: "genos.biological-execution-receipt/v1".to_string(),
-            receipt_id: Uuid::new_v4(),
-            mission_id: self.mission_id,
-            cell_id,
-            genome_id,
-            genome_fingerprint,
-            population_json: None,
-            tick: 0,
-            execution_scope: "organism".to_string(),
-            operation: format!("{concept:?}"),
-            metabolic_register: "rust_orchestrator_metabolism".to_string(),
-            cost: concept.cost(),
-            cost_unit: "atp_token".to_string(),
-            consumed,
-            completed,
-            observed_at_unix_ms: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis(),
-        }
-    }
-
-    fn record_biological_receipt(&mut self, receipt: &BiologicalExecutionReceipt) {
-        self.record_event(
-            "BIOLOGICAL_EXECUTION_RECEIPT",
-            json!({
-                "schema": receipt.schema,
-                "receiptId": receipt.receipt_id,
-                "missionId": receipt.mission_id,
-                "cellId": receipt.cell_id,
-                "genomeId": receipt.genome_id,
-                "genomeFingerprint": receipt.genome_fingerprint,
-                "tick": receipt.tick,
-                "executionScope": receipt.execution_scope,
-                "operation": receipt.operation,
-                "metabolicRegister": receipt.metabolic_register,
-                "cost": receipt.cost,
-                "costUnit": receipt.cost_unit,
-                "consumed": receipt.consumed,
-                "completed": receipt.completed,
-                "observedAtUnixMs": receipt.observed_at_unix_ms
-            }),
-        );
-    }
     /// Itère des ticks jusqu'à l'arrêt (ou `max_ticks`) et agrège le bilan.
     pub fn run(&mut self, goal: &Goal, max_ticks: usize) -> MissionReport {
+        self.physics.begin_episode();
         let agents_before = self.orchestrator.active_cells.len();
         let mut executed: Vec<Concept> = Vec::new();
         let mut verdicts = 0usize;
@@ -345,11 +296,7 @@ impl GenosEcosystem {
             }
         }
         let reached = self.observe().goal_reached(goal);
-        self.director
-            .mission_physics
-            .entry(goal.mission_key())
-            .or_default()
-            .record_episode(reached);
+        self.finish_physics_episode(goal, reached);
         MissionReport {
             ticks,
             halted,

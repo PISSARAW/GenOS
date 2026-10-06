@@ -76,7 +76,7 @@ fn manifest(graph: &mut DependencyGraph, name: &str, text: &str) -> bool {
         }
         graph.declared.insert(name.into(), names);
     } else {
-        let Ok(value) = text.parse::<toml::Value>() else {
+        let Ok(value) = toml::from_str::<toml::Value>(text) else {
             return false;
         };
         let mut names = BTreeSet::new();

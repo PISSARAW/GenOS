@@ -2,7 +2,6 @@
 //! cognitifs, sensorimoteurs et persistants. Les crates restent accessibles via
 //! `genos_orchestrator::genos_store`, etc.
 
-use crate::BiomimeticOrchestrator;
 use crate::director::Director;
 use crate::evolution::Population;
 use crate::immune_cyber::CyberImmune;
@@ -15,11 +14,12 @@ use crate::signaling::SignalingCascade;
 use crate::snapshots::SnapshotVault;
 use crate::trace::TraceStore;
 use crate::virology::VirologyLab;
-use genos_biology::phenotype::{PhenotypeRegistry, create_default_registry};
+use crate::BiomimeticOrchestrator;
+use genos_biology::phenotype::{create_default_registry, PhenotypeRegistry};
 use genos_biology::quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
 use genos_biology::sensory::{AccessoryOlfactoryBulb, EcholocationConfig, EcholocationCortex};
 use genos_biology::specialized_cells::cnidocyte::DischargeImpact;
-use genos_biology::therapy::{SystemicTherapy, TherapyOutcome, apply_systemic_therapy_to_cell};
+use genos_biology::therapy::{apply_systemic_therapy_to_cell, SystemicTherapy, TherapyOutcome};
 use genos_biology::{
     Choanocyte, Cnidocyte, ElectricOrganStack, ElectricShockBurst, GlialCell, GlialEnvironment,
     GlialPipeline, Iridophore, ProkaryoticAgent, StomatalPore, Tracheid,
@@ -121,6 +121,7 @@ pub struct GenosEcosystem {
     pub population: Option<Population>,
     /// Simulation créative persistante, activée explicitement par l'appelant.
     pub creativity: Option<crate::creativity::PersistentCreativityEngine>,
+    pub physics: crate::physical_runtime::PhysicalRuntime,
 }
 
 use crate::ecosystem_params::{CrossoverParams, OscillatorParams};
@@ -180,6 +181,7 @@ impl GenosEcosystem {
             workspace_broadcasts: 0,
             population: None,
             creativity: None,
+            physics: crate::physical_runtime::PhysicalRuntime::default(),
         }
     }
 

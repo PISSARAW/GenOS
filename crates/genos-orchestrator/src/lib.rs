@@ -1,28 +1,26 @@
 pub mod adversarial_generator;
 pub mod adversarial_types;
-pub mod autopoiesis;
 pub mod animal_sensory_runtime;
+#[cfg(feature = "api")]
+pub mod authorized_therapy;
+pub mod autopoiesis;
 pub mod behaviors;
 pub mod checkpoint;
 pub mod clinical_therapy;
-#[cfg(feature = "api")]
-pub mod authorized_therapy;
 pub mod conscience;
-pub mod metrics_dashboard;
-pub mod creativity;
 pub mod core_self;
+pub mod creativity;
 pub mod diagnostics;
 pub mod director;
 pub mod director_beam;
 pub mod director_learning;
 pub mod director_persistence;
 pub mod director_planning;
+pub mod dna_ops;
 pub mod drives;
 pub mod durable_receipts;
-pub mod dna_ops;
 pub mod ecosystem;
 pub mod ecosystem_params;
-pub mod hgt_runtime;
 pub mod electric_quorum_runtime;
 pub mod environment;
 pub mod evolution;
@@ -30,6 +28,7 @@ pub mod evolution_types;
 pub(crate) mod execution_api;
 pub mod genome_ops;
 pub mod global_workspace;
+pub mod hgt_runtime;
 pub mod immune_cyber;
 pub mod instincts;
 pub mod kernel_cycle;
@@ -44,11 +43,11 @@ pub mod learning;
 pub mod lineage_archive;
 pub mod membrane_chemistry;
 pub mod metabolism;
-pub mod mission_receipt;
+pub mod metrics_dashboard;
+pub mod mission_biology_events;
 pub mod mission_division;
 pub mod mission_lineage;
-pub mod mission_biology_events;
-pub mod specialized_cell_runtime;
+pub mod mission_receipt;
 pub mod neuro;
 pub mod observer;
 pub mod orchestrator;
@@ -57,25 +56,21 @@ pub mod orchestrator_monitoring;
 pub mod orchestrator_spores;
 pub mod orchestrator_tissues;
 pub mod organism;
-pub mod population_registry;
-pub mod population_restore;
 pub mod organization;
 pub mod organization_step;
 pub mod phylogeny;
-pub mod physical_measurements;
-pub mod physical_workspace;
-pub mod physical_dependencies;
-pub mod physical_imports;
 pub mod physical_coverage;
+pub mod physical_dependencies;
 pub mod physical_git;
 pub mod physical_learning;
-pub mod physical_store;
-pub mod physical_policy;
-pub mod physical_search;
+pub mod physical_measurements;
 pub mod physical_telemetry;
+pub mod physical_workspace;
 pub mod physics;
 pub mod planner;
 pub mod plasmids;
+pub mod population_registry;
+pub mod population_restore;
 pub mod recruitment;
 pub mod reproduction_cycle;
 pub mod self_evolution;
@@ -83,6 +78,7 @@ pub mod sensorimotor;
 pub mod sensory;
 pub mod signaling;
 pub mod snapshots;
+pub mod specialized_cell_runtime;
 pub mod tick;
 pub mod tissue_scheduler;
 pub mod token_bucket;
@@ -97,6 +93,11 @@ pub mod thalamus;
 pub use conscience::{CognitiveRegulationState, Conscience};
 #[deprecated(since = "0.3", note = "Use CognitiveRegulationState instead")]
 pub type ConscienceState = CognitiveRegulationState;
+pub use adversarial_generator::AdversarialGenerator;
+pub use adversarial_types::{
+    AdversarialInjection, AdversarialScenario, FailureMode, InjectionTarget, InjectionType,
+    ScenarioCategory, SuccessCriteria,
+};
 pub use autopoiesis::{Membrane, SelfModel, SelfRepairReport};
 pub use core_self::{
     AgencyAttribution, AgencyComparator, Claim, CognitiveProvenance, CoreSelf, CoreSelfState,
@@ -119,23 +120,26 @@ pub use instincts::{
     InstinctActionExecutor, InstinctActionReceipt, InstinctActivation, InstinctSensorAdapter,
     InstinctState,
 };
-pub use learning::{Learner, LinearBandit, context_from_state};
+pub use learning::{context_from_state, Learner, LinearBandit};
 pub use metabolism::Metabolism;
+pub use metrics_dashboard::{
+    AdversarialMetrics, EpistemologyEvent, EpistemologyMetrics, GovernanceEvent, GovernanceMetrics,
+    InfrastructureMetrics, MetricsDashboard, OrchestratorMetrics, OrganismMetrics,
+};
 pub use orchestrator::BiomimeticOrchestrator;
 pub use organism::{OrganismConfig, OrganismReport};
 pub use organization::{
-    Organization, Superorganism, catalog, select_organization, select_superorganism,
+    catalog, select_organization, select_superorganism, Organization, Superorganism,
 };
 pub use organization_step::{
     adversarial_needs_recipient, aligned_heading, authority_for, follower_may_address,
-    global_summary, slime_conductivity, step_family, volitive_step, weighted_barycenter,
-    wolf_role,
+    global_summary, slime_conductivity, step_family, volitive_step, weighted_barycenter, wolf_role,
 };
 pub use physical_telemetry::{MissionPhysicsProfile, PhysicalTelemetry};
 pub use physics::{
-    ActionProfile, DecisionContext, Material, PhysicalState, Regime, UtilityInputs, action_profile,
-    classify_material, classify_material_explicit, determine_regime, inertia_threshold,
-    utility_score,
+    action_profile, classify_material, classify_material_explicit, determine_regime,
+    inertia_threshold, utility_score, ActionProfile, DecisionContext, Material, PhysicalState,
+    Regime, UtilityInputs,
 };
 pub use planner::{ActionStats, Concept, Goal, WorldState};
 pub use plasmids::{PlasmidBank, Skill};
@@ -153,9 +157,6 @@ pub use token_bucket::{
 pub use trace::{Outcome, ReplayReport, Verdict};
 pub use volition::VolitionState;
 pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
-pub use adversarial_types::{AdversarialScenario, AdversarialInjection, ScenarioCategory, InjectionTarget, InjectionType, FailureMode, SuccessCriteria};
-pub use adversarial_generator::AdversarialGenerator;
-pub use metrics_dashboard::{MetricsDashboard, OrchestratorMetrics, OrganismMetrics, GovernanceMetrics, EpistemologyMetrics, InfrastructureMetrics, AdversarialMetrics, GovernanceEvent, EpistemologyEvent};
 
 // Accès direct à tout l'écosystème GenOS depuis le crate orchestrateur.
 pub use genos_biology;
@@ -299,3 +300,13 @@ mod tests {
         ));
     }
 }
+
+mod physical_episode;
+pub mod physical_policy;
+pub mod physical_runtime;
+pub mod physical_store;
+mod tick_receipts;
+
+mod physical_search;
+
+mod physical_imports;
