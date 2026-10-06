@@ -12,6 +12,10 @@ pub struct ClinicalStatusReport {
     pub active_pathologies: Vec<Pathology>,
     pub dominant_category: Option<DiseaseCategory>,
     pub recommended_treatment: Option<String>,
+    #[serde(default)]
+    pub proposed_therapies: Vec<crate::therapy::SystemicTherapy>,
+    #[serde(default)]
+    pub invalid_markers: Vec<String>,
 }
 
 /// Évalue l'état clinique global d'une cellule
@@ -24,57 +28,95 @@ pub fn assess_agent_clinical_status(agent: &AgentCell) -> ClinicalStatusReport {
     {
         active_pathologies.push(pathology);
     }
-    let mut category_counts: Vec<(DiseaseCategory, usize)> = Vec::new();
-    for pathology in &active_pathologies {
-        let category = pathology.category();
-        if let Some((_, count)) = category_counts.iter_mut().find(|(known, _)| *known == category) {
-            *count += 1;
+    for pathology in crate::nosology::diagnose_markers(&agent.clinical) {
+        if let Some(known) = active_pathologies
+            .iter_mut()
+            .find(|p| p.same_diagnosis(&pathology))
+        {
+            *known = pathology;
         } else {
-            category_counts.push((category, 1));
+            active_pathologies.push(pathology);
         }
     }
-    let dominant_category = category_counts
-        .into_iter()
-        .max_by_key(|(_, count)| *count)
-        .map(|(category, _)| category);
-
-    let recommended_treatment = if active_pathologies
-        .iter()
-        .any(|p| p.category() == DiseaseCategory::Autoimmune)
-    {
-        Some("SystemicTherapy::Tocilizumab ou ImmunosuppressiveWash".to_string())
-    } else if active_pathologies
-        .iter()
-        .any(|p| p.category() == DiseaseCategory::Nosocomial)
-    {
-        Some("SystemicTherapy::QuarantineIsolation & Vaccine".to_string())
-    } else if active_pathologies
-        .iter()
-        .any(|p| p.category() == DiseaseCategory::Iatrogenic)
-    {
-        Some("SystemicTherapy::DetoxificationWashout ou Antidote".to_string())
-    } else if active_pathologies
-        .iter()
-        .any(|p| p.category() == DiseaseCategory::Degenerative)
-    {
-        Some("SystemicTherapy::StemCellReplacement ou ApoptoticPruning".to_string())
-    } else if active_pathologies
-        .iter()
-        .any(|p| p.category() == DiseaseCategory::Infectious)
-    {
-        Some("SystemicTherapy::Antiviral".to_string())
-    } else {
-        None
-    };
+    let proposed_therapies = crate::nosology::proposed_therapies(agent);
+    let invalid_markers = crate::nosology::invalid_markers(&agent.clinical);
+    let dominant_category = dominant_category(&active_pathologies);
+    let recommended_treatment = recommendation(&active_pathologies, &proposed_therapies);
 
     ClinicalStatusReport {
         cell_id: agent.cell_id.to_string(),
         name: agent.name.clone(),
-        is_healthy: active_pathologies.is_empty() && !agent.clinical.is_quarantined,
+        is_healthy: active_pathologies.is_empty()
+            && !agent.clinical.is_quarantined
+            && invalid_markers.is_empty(),
         is_quarantined: agent.clinical.is_quarantined,
         active_pathologies,
         dominant_category,
         recommended_treatment,
+        proposed_therapies,
+        invalid_markers,
+    }
+}
+
+fn dominant_category(pathologies: &[Pathology]) -> Option<DiseaseCategory> {
+    let mut counts: Vec<(DiseaseCategory, usize)> = Vec::new();
+    for pathology in pathologies {
+        let category = pathology.category();
+        if let Some((_, count)) = counts.iter_mut().find(|(known, _)| *known == category) {
+            *count += 1;
+        } else {
+            counts.push((category, 1));
+        }
+    }
+    counts
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(category, _)| category)
+}
+
+fn recommendation(
+    pathologies: &[Pathology],
+    proposed: &[crate::therapy::SystemicTherapy],
+) -> Option<String> {
+    if let Some(therapy) = proposed.first() {
+        return Some(format!("SystemicTherapy::{:?}", therapy));
+    }
+    let legacy = [
+        (
+            DiseaseCategory::Autoimmune,
+            "SystemicTherapy::Tocilizumab ou ImmunosuppressiveWash",
+        ),
+        (
+            DiseaseCategory::Nosocomial,
+            "SystemicTherapy::QuarantineIsolation & Vaccine",
+        ),
+        (
+            DiseaseCategory::Iatrogenic,
+            "SystemicTherapy::DetoxificationWashout ou AntidoteAdmin",
+        ),
+        (
+            DiseaseCategory::Degenerative,
+            "SystemicTherapy::StemCellReplacement",
+        ),
+        (DiseaseCategory::Infectious, "SystemicTherapy::Antiviral"),
+    ];
+    legacy
+        .iter()
+        .find(|(category, _)| {
+            pathologies
+                .iter()
+                .any(|p| legacy_category(p).as_ref() == Some(category))
+        })
+        .map(|(_, name)| (*name).to_string())
+}
+
+fn legacy_category(pathology: &Pathology) -> Option<DiseaseCategory> {
+    match pathology {
+        Pathology::Nosological { .. }
+        | Pathology::TherapyAdverseEffect { .. }
+        | Pathology::PrionAggregation { .. }
+        | Pathology::ContextualDecay { .. } => None,
+        _ => Some(pathology.category()),
     }
 }
 

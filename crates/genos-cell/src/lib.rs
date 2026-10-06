@@ -3,6 +3,7 @@ use uuid::Uuid;
 pub mod cognitive_regulation;
 pub use cognitive_regulation::{CognitiveRegulationState, EvaluationDelta};
 pub mod clinical;
+pub mod nosology;
 pub use clinical::{ClinicalState, DiseaseCategory, Pathology};
 pub mod interoception;
 pub use interoception::{BiologicalAnalogy, InteroceptionState, MachineInteroception};

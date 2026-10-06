@@ -19,6 +19,8 @@ pub use instinct::{
 };
 pub mod neurobiology;
 pub mod pathology;
+pub mod nosology_catalog;
+pub mod nosology;
 pub mod phenotype;
 pub mod quorum;
 pub use quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
@@ -42,6 +44,8 @@ pub use specialized_cells::tracheid::{
 pub mod spore;
 pub mod therapy;
 pub mod therapy_extended;
+mod therapy_dispatch;
+mod therapy_legacy;
 pub mod tissue;
 
 #[cfg(test)]

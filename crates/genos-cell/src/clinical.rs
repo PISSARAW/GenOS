@@ -69,6 +69,17 @@ pub enum Pathology {
     ContextualDecay { age_ticks: u64 },
     /// Infection virale exogène propagée par un virion actif
     ViralInfection { pathogen_signature: String },
+    /// Condition nosologique validée sur des marqueurs logiciels bornés.
+    Nosological {
+        condition: crate::nosology::NosologicalCondition,
+        severity: f64,
+    },
+    /// Effet secondaire simulé observé dans un marqueur existant.
+    TherapyAdverseEffect {
+        therapy: String,
+        marker: String,
+        severity: f64,
+    },
 }
 
 impl Pathology {
@@ -94,6 +105,8 @@ impl Pathology {
             | Pathology::ContextualDecay { .. } => DiseaseCategory::Degenerative,
 
             Pathology::ViralInfection { .. } => DiseaseCategory::Infectious,
+            Pathology::Nosological { condition, .. } => condition.category(),
+            Pathology::TherapyAdverseEffect { .. } => DiseaseCategory::Iatrogenic,
         }
     }
 
@@ -114,6 +127,8 @@ impl Pathology {
             Pathology::PrionAggregation { .. } => "Agrégation Prionique Cognitive",
             Pathology::ContextualDecay { .. } => "Dégénérescence Contextuelle",
             Pathology::ViralInfection { .. } => "Infection Virale Exogène",
+            Pathology::Nosological { condition, .. } => condition.name(),
+            Pathology::TherapyAdverseEffect { .. } => "Effet secondaire thérapeutique simulé",
         }
     }
 }
@@ -150,10 +165,16 @@ impl ClinicalState {
     /// Diagnostique et ajoute une pathologie
     pub fn diagnose(&mut self, pathology: Pathology) {
         let name = pathology.name();
-        if !self.active_pathologies.iter().any(|p| p.name() == name) {
-            self.clinical_log.push(format!("Diagnostic: {}", name));
-            self.active_pathologies.push(pathology);
+        if let Some(known) = self
+            .active_pathologies
+            .iter_mut()
+            .find(|p| p.same_diagnosis(&pathology))
+        {
+            *known = pathology;
+            return;
         }
+        self.clinical_log.push(format!("Diagnostic: {}", name));
+        self.active_pathologies.push(pathology);
     }
 
     /// Soigne une pathologie active

@@ -73,6 +73,7 @@ pub struct MissionReport {
 fn pre_deliberation(eco: &mut GenosEcosystem, state: &WorldState) -> Option<TickReport> {
     eco.maintain_autopoiesis();
     diagnose_active_virions(eco);
+    crate::clinical_therapy::diagnose_active_cells(eco);
     if let Some(report) = early_survival_gate(eco, state) {
         return Some(report);
     }

@@ -1,5 +1,4 @@
-use crate::pathology::{DiseaseCategory, Pathology};
-use genos_cell::AgentCell;
+use crate::pathology::Pathology;
 use serde::{Deserialize, Serialize};
 
 /// Les Thérapies Médicales ciblées pour soigner les agents cancéreux ou anormaux
@@ -60,14 +59,14 @@ pub enum SystemicTherapy {
     /// Remplacement cellulaire par cellules souches fraîches (apoptose douce + instanciation neuve)
     StemCellReplacement,
 
-    // Opérateurs métaboliques computationnels proposés.
+    // Opérateurs métaboliques computationnels normalisés.
     InsulinSensitizerMetformin,
     LevothyroxineHormoneReplacement,
     ColchicineInhibition,
     AllopurinolXanthineInhibitor,
     LysosomalUraturicPurge,
 
-    // Opérateurs vasculaires et neurologiques proposés.
+    // Opérateurs vasculaires et neurologiques normalisés.
     CoronaryReperfusionThrombolysis,
     VasodilatorFlowControl,
     AntiAdhesionVasodilator,
@@ -75,13 +74,13 @@ pub enum SystemicTherapy {
     NeuroprotectiveAstrocyticFlush,
     BloodBrainBarrierSealant,
 
-    // Opérateurs dégénératifs et musculosquelettiques proposés.
+    // Opérateurs dégénératifs et musculosquelettiques normalisés.
     LevodopaSupplementation,
     DeepBrainStimulation,
     Viscosupplementation,
     SenolyticPurge,
 
-    // Opérateurs infectieux, génétiques, oncologiques et psychiatriques proposés.
+    // Opérateurs infectieux, génétiques, oncologiques et psychiatriques normalisés.
     AntiretroviralCombination,
     AntimalarialACT,
     ExonSkippingAntisense,
@@ -92,8 +91,29 @@ pub enum SystemicTherapy {
     AntipsychoticAtypical,
     FetalCarrierReactivation,
 
-    // Opérateur environnemental proposé.
+    // Opérateur environnemental normalisé.
     ChelationTherapy,
+
+    // Compléments du catalogue nosologique versionné.
+    AntiTNFInhibitor,
+    BloodBrainBarrierSealing,
+    ExogenousInsulinInfusion,
+    AmyloidBetaPlaqueClearance,
+    Cd47SynapticRescue,
+    AlphaSynucleinDisaggregation,
+    MmpInhibitorAdministration,
+    AntitubercularQuadritherapy,
+    NeuraminidaseInhibitor,
+    StopCodonReadthrough,
+    VascularPruningAndFlush,
+    CognitiveResupply,
+    MonoamineReuptakeInhibitor,
+    EfferenceCopyReconstruction,
+    NmdaAllostericModulator,
+    CircadianRhythmReset,
+    AtypicalAntipsychoticMoodStabilizer,
+    FibrillarContextCleansing,
+    BloodBrainBarrierRestoration,
 }
 
 /// Résultat de l'application d'un traitement
@@ -105,240 +125,27 @@ pub struct TherapyOutcome {
     pub applied_markers: Vec<String>,
     pub induced_side_effects: Vec<Pathology>,
     pub message: String,
+    #[serde(default)]
+    pub status: TherapyStatus,
+    #[serde(default)]
+    pub marker_changes: Vec<MarkerChange>,
 }
 
-/// Applique une thérapie systémique directement sur une cellule
-pub fn apply_systemic_therapy_to_cell(
-    therapy: &SystemicTherapy,
-    cell: &mut AgentCell,
-) -> TherapyOutcome {
-    let mut cured = Vec::new();
-    let mut side_effects = Vec::new();
-    let therapy_name = format!("{:?}", therapy);
-
-    if let Some(reason) = crate::therapy_extended::safety_block(therapy, cell) {
-        cell.clinical.last_treatment_applied = Some(therapy_name.clone());
-        cell.clinical
-            .clinical_log
-            .push(format!("Refus de traitement {}: {}", therapy_name, reason));
-        return TherapyOutcome {
-            therapy_name,
-            cured_pathologies: Vec::new(),
-            applied_markers: Vec::new(),
-            induced_side_effects: Vec::new(),
-            message: format!("Traitement refusé: {}", reason),
-        };
-    }
-    if let Some((cured_pathologies, induced_side_effects)) =
-        crate::therapy_extended::apply_extended_therapy(therapy, cell)
-    {
-        cell.clinical.last_treatment_applied = Some(therapy_name.clone());
-        cell.clinical
-            .clinical_log
-            .push(format!("Traitement administré: {}", therapy_name));
-        let message = if cured_pathologies.is_empty() {
-            format!("Aucune cible correspondante pour {}", cell.name)
-        } else {
-            format!("Marqueur ciblé modifié pour {}", cell.name)
-        };
-        return TherapyOutcome {
-            therapy_name,
-            cured_pathologies: Vec::new(),
-            applied_markers: cured_pathologies,
-            induced_side_effects,
-            message,
-        };
-    }
-    cell.clinical.last_treatment_applied = Some(therapy_name.clone());
-    cell.clinical
-        .clinical_log
-        .push(format!("Traitement administré: {}", therapy_name));
-
-    match therapy {
-        SystemicTherapy::Tocilizumab => {
-            if cell
-                .clinical
-                .cure_pathology_by_name("Orage Cytokinique (IL-6 Storm)")
-            {
-                cured.push("Orage Cytokinique".to_string());
-            }
-            cell.clinical.inflammatory_index = (cell.clinical.inflammatory_index - 0.5).max(0.0);
-        }
-        SystemicTherapy::Corticosteroids(dose) => {
-            let d = *dose;
-            if cell
-                .clinical
-                .cure_pathology_by_name("Orage Cytokinique (IL-6 Storm)")
-            {
-                cured.push("Orage Cytokinique".to_string());
-            }
-            cell.clinical.inflammatory_index =
-                (cell.clinical.inflammatory_index - (d * 0.8)).max(0.0);
-
-            // Risque Iatrogène si surdose > 0.8
-            if d > 0.8 {
-                let coma = Pathology::SteroidInducedComa {
-                    administered_dose: d,
-                };
-                cell.clinical.diagnose(coma.clone());
-                side_effects.push(coma);
-            }
-        }
-        SystemicTherapy::ImmunosuppressiveWash | SystemicTherapy::SelfToleranceRecalibration => {
-            if cell
-                .clinical
-                .cure_pathology_by_name("Hyperactivation Macrophagique")
-            {
-                cured.push("Hyperactivation Macrophagique".to_string());
-            }
-            if cell.clinical.cure_pathology_by_name("Ciblage Auto-Immun") {
-                cured.push("Ciblage Auto-Immun".to_string());
-            }
-            cell.clinical.inflammatory_index = 0.0;
-        }
-        SystemicTherapy::QuarantineIsolation { capsule_id } => {
-            cell.clinical
-                .isolate(&format!("Isolement capsule {}", capsule_id));
-        }
-        SystemicTherapy::AntisepticPurge { target_signature } => {
-            if cell
-                .clinical
-                .cure_pathology_by_name("Contamination Croisée Nosocomiale")
-            {
-                cured.push(format!("Contamination Croisée ({})", target_signature));
-            }
-            if cell
-                .clinical
-                .cure_pathology_by_name("Infection Nosocomiale de Capsule")
-            {
-                cured.push("Infection Nosocomiale".to_string());
-            }
-            if cell.clinical.active_pathologies.is_empty() {
-                cell.clinical.discharge();
-            }
-        }
-        SystemicTherapy::DetoxificationWashout => {
-            if cell
-                .clinical
-                .cure_pathology_by_name("Coma Stéroïdien Iatrogène")
-            {
-                cured.push("Coma Stéroïdien Iatrogène".to_string());
-            }
-            if cell
-                .clinical
-                .cure_pathology_by_name("Blocage Récepteur Persistant")
-            {
-                cured.push("Blocage Récepteur Persistant".to_string());
-            }
-            if cell
-                .clinical
-                .cure_pathology_by_name("Dommage Collatéral Antibiotique")
-            {
-                cured.push("Dommage Collatéral Antibiotique".to_string());
-            }
-            cell.clinical
-                .clinical_log
-                .push("Détoxification systémique complétée".to_string());
-        }
-        SystemicTherapy::AntidoteAdmin { target_drug } => {
-            cell.clinical
-                .cure_pathology_by_name("Coma Stéroïdien Iatrogène");
-            cell.clinical
-                .cure_pathology_by_name("Blocage Récepteur Persistant");
-            cured.push(format!("Antidote contre {}", target_drug));
-        }
-        SystemicTherapy::HomeostaticDoseCorrection => {
-            cell.clinical
-                .cure_pathology_by_name("Coma Stéroïdien Iatrogène");
-            cell.clinical
-                .clinical_log
-                .push("Dose réajustée aux niveaux homéostatiques".to_string());
-        }
-        SystemicTherapy::TelomeraseActivation { extended_ticks } => {
-            cell.hayflick_limit = cell.hayflick_limit.saturating_add(*extended_ticks);
-            cell.is_senescent = false;
-            if cell
-                .clinical
-                .cure_pathology_by_name("Épuisement Télomérique")
-            {
-                cured.push("Épuisement Télomérique".to_string());
-            }
-            if cell
-                .clinical
-                .cure_pathology_by_name("Sénescence Réplicative")
-            {
-                cured.push("Sénescence Réplicative".to_string());
-            }
-        }
-        SystemicTherapy::StemCellReplacement => {
-            cell.bud_scars = 0;
-            cell.is_senescent = false;
-            cell.clinical
-                .active_pathologies
-                .retain(|p| p.category() != DiseaseCategory::Degenerative);
-            cured.push("Régénération complète par cellule souche".to_string());
-            cell.clinical
-                .clinical_log
-                .push("Remplacement par cellule souche effectué".to_string());
-        }
-        SystemicTherapy::IntensiveCareFluids => {
-            cell.clinical
-                .clinical_log
-                .push("Perfusion de réanimation administrée".to_string());
-        }
-        SystemicTherapy::Antibiotic => {
-            cell.clinical
-                .clinical_log
-                .push("Traitement antibiotique large spectre administré".to_string());
-        }
-        SystemicTherapy::Antiviral => {
-            if cell
-                .clinical
-                .cure_pathology_by_name("Infection Virale Exogène")
-            {
-                cured.push("Infection Virale Exogène".to_string());
-            }
-            cell.clinical
-                .clinical_log
-                .push("Traitement antiviral administré".to_string());
-        }
-        SystemicTherapy::InsulinSensitizerMetformin
-        | SystemicTherapy::LevothyroxineHormoneReplacement
-        | SystemicTherapy::ColchicineInhibition
-        | SystemicTherapy::AllopurinolXanthineInhibitor
-        | SystemicTherapy::LysosomalUraturicPurge
-        | SystemicTherapy::CoronaryReperfusionThrombolysis
-        | SystemicTherapy::VasodilatorFlowControl
-        | SystemicTherapy::AntiAdhesionVasodilator
-        | SystemicTherapy::AntiNmdReadthrough
-        | SystemicTherapy::NeuroprotectiveAstrocyticFlush
-        | SystemicTherapy::BloodBrainBarrierSealant
-        | SystemicTherapy::LevodopaSupplementation
-        | SystemicTherapy::DeepBrainStimulation
-        | SystemicTherapy::Viscosupplementation
-        | SystemicTherapy::SenolyticPurge
-        | SystemicTherapy::AntiretroviralCombination
-        | SystemicTherapy::AntimalarialACT
-        | SystemicTherapy::ExonSkippingAntisense
-        | SystemicTherapy::CFTRModulatorTriad
-        | SystemicTherapy::CartCellInfusion
-        | SystemicTherapy::KetamineRapidInfusion
-        | SystemicTherapy::MoodStabilizerLithium
-        | SystemicTherapy::AntipsychoticAtypical
-        | SystemicTherapy::FetalCarrierReactivation
-        | SystemicTherapy::ChelationTherapy => unreachable!("géré par therapy_extended"),
-        SystemicTherapy::Vaccine(spike) => {
-            cell.clinical
-                .clinical_log
-                .push(format!("Vaccination effectuée contre {}", spike));
-        }
-    }
-
-    TherapyOutcome {
-        therapy_name,
-        cured_pathologies: cured,
-        applied_markers: Vec::new(),
-        induced_side_effects: side_effects,
-        message: format!("Traitement complété pour l'agent {}", cell.name),
-    }
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TherapyStatus {
+    #[default]
+    Unspecified,
+    Applied,
+    NoTarget,
+    Refused,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct MarkerChange {
+    pub marker: String,
+    pub before: Option<f64>,
+    pub after: f64,
+}
+
+pub use crate::therapy_dispatch::apply_systemic_therapy_to_cell;
