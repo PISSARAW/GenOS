@@ -392,6 +392,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0331](0331-wasmtime-heuristiques-bornees.md) | Exécution Wasmtime des heuristiques bornées | Accepté | 2026-10-06 | plugins, GVX, isolation |
 | [0332](0332-adaptateur-openhands-sdk.md) | Adaptateur expérimental OpenHands SDK | Accepté | 2026-10-06 | workers développeurs, ontogenèse |
 | [0333](0333-reconciliation-activites-temporal.md) | Réconciliation des effets externes avant reprise Temporal | Accepté | 2026-10-06 | missions longues, effets externes, reprise |
+| [0334](0334-automerge-observations.md) | Automerge pour observations seulement | Accepté | 2026-10-06 | Syncytium, état partagé |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
