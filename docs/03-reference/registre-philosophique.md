@@ -182,3 +182,16 @@ non promouvable sans preuve indépendante.
 Les adaptateurs d’épistémologie sociale et de reliabilisme suivent la même
 règle : les indices de crédibilité, de corroboration ou de fréquence observée
 restent des éléments révisables, pas des autorités autonomes.
+
+Le [contrat du service de catégorisation](categorisation-philosophique.md)
+précise les quatre procédures locales, leurs conversions et leurs limites.
+Les variantes graduées comparent les candidats à l'instance de la requête,
+jamais au candidat lui-même. Une moyenne de similarité n'est ni une probabilité
+calibrée, ni une validation indépendante, ni la preuve d'exécution des 375 audits.
+
+La gate de contexte stratégique `philosophicalPromotionGuard` exige un reçu
+de vérificateur signé et un digest explicitement approuvé ; un booléen
+`independentVerification: true` ne suffit pas. Son test de provenance utilise
+un reçu synthétique signé pour vérifier acceptation, altération et absence
+de confiance. Il ne valide pas le contenu philosophique d'une mission réelle
+et ne remplace pas le service de maturité des contrats d'implémentation.

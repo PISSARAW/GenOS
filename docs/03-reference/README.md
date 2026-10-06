@@ -26,6 +26,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [pont-rust-et-hallucinations.md](pont-rust-et-hallucinations.md) — bridge REST vers `genos-cli`, replay et hallucinations.
 - [ecologie-et-systemes-vivants.md](ecologie-et-systemes-vivants.md) — bus zero-texte, primitives écologiques, HGT, stigmergie, électrocytes, organisations dynamiques.
 - [registre-philosophique.md](registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
+- [categorisation-philosophique.md](categorisation-philosophique.md) — comparaison à l'instance, procédures graduées, métriques, contre-exemples et limites.
 - [contrats-philosophiques-ontogenese.md](contrats-philosophiques-ontogenese.md) — compilation des 375 contrats dans le plan de mission et le runtime harness Ontogenèse.
 - [runtime-holobionte.md](runtime-holobionte.md) — missions contractuelles, preuves indépendantes, quotas et clôture Holobionte.
 - [notifications-et-alertes.md](notifications-et-alertes.md) — préférences et alertes tenant-scoped.

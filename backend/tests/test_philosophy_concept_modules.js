@@ -14,6 +14,26 @@ const deconstruction = require('../src/services/philosophy/deconstructionService
 const hermeneutics = require('../src/services/philosophy/hermeneuticsService');
 const differenceOntology = require('../src/services/philosophy/differenceOntologyService');
 
+const gradedQuery = {
+  model: 'prototype', instance: { size: 0 },
+  prototypes: [
+    { category: 'different', features: { size: 1 }, instance: { size: 1 } },
+    { category: 'matching', features: { size: 0 } }
+  ]
+};
+const gradedBefore = structuredClone(gradedQuery);
+const classified = categorization.classifyConcept(gradedQuery);
+assert.equal(classified.category, 'matching');
+assert.deepEqual(classified.scores.map((candidate) => candidate.score), [1, 0]);
+assert.deepEqual(gradedQuery, gradedBefore, 'classification must not mutate the query or candidates');
+assert.equal(categorization.classifyConcept({
+  model: 'exemplar', instance: { size: 0 }, topK: 2,
+  exemplars: [{ category: 'different', vector: { size: 1 } }, { category: 'different', features: { size: 0.8 } }]
+}).membership, 0.1);
+assert.equal(categorization.classifyConcept({
+  model: 'prototype', instance: { size: 0 }, prototypes: []
+}).category, null);
+
 assert.equal(semantic.analyzeExpression({ expression: 'étoile du matin' }).status, 'structured');
 assert.equal(semantic.resolveReference({ expression: 'Vénus', context: { Vénus: 'planet-2' } }).reference, 'planet-2');
 assert.equal(semantic.evaluateDefiniteDescription({ description: 'le roi', domain: [{ id: 'x', satisfies: true }] }).russell.true, true);

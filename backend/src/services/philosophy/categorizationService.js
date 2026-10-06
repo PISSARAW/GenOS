@@ -31,13 +31,13 @@ function isValidModel(model) {
 }
 
 function scoreAndSort(candidates, instance) {
-  return candidates.map(scoreCandidate).sort((a, b) => b.score - a.score);
+  return candidates.map((candidate) => scoreCandidate(candidate, instance)).sort((a, b) => b.score - a.score);
 }
 
-function scoreCandidate(candidate) {
+function scoreCandidate(candidate, instance) {
   return {
     category: candidate.category,
-    score: similarity(candidate.instance || candidate.features || candidate.vector || {}, candidate.features || candidate.vector || {}),
+    score: similarity(instance, candidate.features || candidate.vector || {}),
     typicality: candidate.typicality === undefined ? null : Number(candidate.typicality)
   };
 }
