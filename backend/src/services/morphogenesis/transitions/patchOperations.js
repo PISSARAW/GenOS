@@ -1,56 +1,123 @@
 'use strict';
+const operations = require('./patchGraphOperations');
+const { node, edge, nonEmpty } = operations;
 
-const { randomUUID } = require('crypto');
-
-function findNode(g, id) { return g.nodes.find(n => n.nodeId === id); }
-function filterNodes(g, fn) { g.nodes = g.nodes.filter(fn); }
-function filterEdges(g, fn) { g.edges = g.edges.filter(fn); }
-function pushEdge(g, e) { g.edges.push({ ...e, edgeId: e.edgeId || randomUUID() }); }
-function setNodeLifecycle(n, lc, ts) { n.lifecycle = lc; n[ts] = new Date().toISOString(); }
-function setNodePolicy(n, field, val) { n[field] = val; }
-
-function simpleHandler(graph, op, makeFn) { const fn = makeFn(op); if (fn) fn(graph, op); }
-function structuralHandler(graph, op, makeFn) { const fn = makeFn(op); if (fn) fn(graph, op); }
-
-const SIMPLE_OPS = {
-  ADD_NODE: (op) => (g) => g.nodes.push({ ...op.node, nodeId: op.node.nodeId || randomUUID() }),
-  REMOVE_NODE: (op) => (g) => { filterNodes(g, n => n.nodeId !== op.nodeId); filterEdges(g, e => e.fromNodeId !== op.nodeId && e.toNodeId !== op.nodeId); },
-  REPLACE_NODE: (op) => (g) => { const i = g.nodes.findIndex(n => n.nodeId === op.nodeId); if (i >= 0) g.nodes[i] = { ...g.nodes[i], ...op.newNode, nodeId: op.nodeId }; },
-  ADD_EDGE: (op) => (g) => pushEdge(g, op.edge),
-  REMOVE_EDGE: (op) => (g) => filterEdges(g, e => e.edgeId !== op.edgeId),
-  REWIRE: (op) => (g) => { const e = g.edges.find(e => e.edgeId === op.edgeId); if (e) { e.fromNodeId = op.newFrom || e.fromNodeId; e.toNodeId = op.newTo || e.toNodeId; } },
-  CHANGE_TOPOLOGY: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) { n.topology = op.newTopology; n.variant = op.newVariant || n.variant; n.kind = 'TOPOLOGY'; } },
-  CHANGE_VARIANT: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) n.variant = op.newVariant; },
-  CHANGE_BUDGET: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) n.budget = { ...n.budget, ...op.budgetDelta }; },
-  RESIZE_POPULATION: (op) => (g) => { const n = findNode(g, op.nodeId); if (!n) return; if (!Number.isInteger(op.size) || op.size < 0) throw new Error('RESIZE_POPULATION requires a non-negative integer size'); n.workers = (n.workers || []).slice(0, op.size); },
-  CHANGE_COMMUNICATION_POLICY: (op) => (g) => setNodePolicy(findNode(g, op.nodeId), 'communicationPolicy', op.newPolicy),
-  CHANGE_EVIDENCE_POLICY: (op) => (g) => setNodePolicy(findNode(g, op.nodeId), 'evidencePolicy', op.newPolicy),
-  FREEZE: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) setNodeLifecycle(n, 'frozen', 'frozenAt'); },
-  THAW: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) setNodeLifecycle(n, 'active', 'thawedAt'); },
-  QUIESCE: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) setNodeLifecycle(n, 'quiesced', 'quiescedAt'); },
-  PROMOTE: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) n.authorityBoundary = op.newAuthorityBoundary; },
-  DEMOTE: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) n.authorityBoundary = op.newAuthorityBoundary; }
-};
-
-const STRUCTURAL_OPS = {
-  NEST: (op) => (g) => { const p = findNode(g, op.parentId); const c = findNode(g, op.childId); if (p && c) { c.parentNodeId = op.parentId; p.children = [...(p.children || []), op.childId]; pushEdge(g, { type: 'CONTAINS', fromNodeId: op.parentId, toNodeId: op.childId }); } },
-  UNNEST: (op) => (g) => { const p = findNode(g, op.parentId); const c = findNode(g, op.childId); if (p && c) { c.parentNodeId = null; p.children = (p.children || []).filter(id => id !== op.childId); filterEdges(g, e => !(e.fromNodeId === op.parentId && e.toNodeId === op.childId && e.type === 'CONTAINS')); } },
-  SPLIT: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) { const [l, r] = op.splitResult; g.nodes.push(l, r); filterNodes(g, n => n.nodeId !== op.nodeId); } },
-  MERGE: (op) => (g) => { const ns = op.nodeIds.map(id => findNode(g, id)).filter(Boolean); if (ns.length >= 2) { const m = { ...ns[0], nodeId: randomUUID(), children: ns.flatMap(n => n.children || []) }; g.nodes.push(m); filterNodes(g, n => !op.nodeIds.includes(n.nodeId)); } },
-  MOVE_SUBTREE: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) n.parentNodeId = op.newParentId; },
-  ADD_BRIDGE: (op) => (g) => pushEdge(g, { type: 'COMMUNICATES', fromNodeId: op.fromNodeId, toNodeId: op.toNodeId, properties: { adapter: op.adapter, bridge: true } }),
-  REMOVE_BRIDGE: (op) => (g) => filterEdges(g, e => !(e.fromNodeId === op.fromNodeId && e.toNodeId === op.toNodeId && e.properties && e.properties.bridge === true)),
-  MIGRATE_WORKER: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) { n.workers = n.workers?.filter(w => w.id !== op.workerId) || []; const t = findNode(g, op.targetNodeId); if (t) t.workers = [...(t.workers || []), { id: op.workerId, ...op.workerData }]; } },
-  MIGRATE_STATE: (op) => (g) => { const s = findNode(g, op.fromNodeId); const t = findNode(g, op.toNodeId); if (s && t) t.state = { ...t.state, ...op.stateData }; }
-};
-
-const ALL_HANDLERS = { ...SIMPLE_OPS, ...STRUCTURAL_OPS };
-
-function applyOperation(graph, op) {
-  const make = ALL_HANDLERS[op.type];
-  if (!make) throw new Error(`Unsupported patch operation: ${op.type}`);
-  const apply = make(op);
-  if (typeof apply === 'function') apply(graph, op);
+function changeBudget(graph, op) {
+  const target = node(graph, op.nodeId);
+  const next = { ...target.budget };
+  if (!op.budgetDelta || typeof op.budgetDelta !== 'object') throw new Error('CHANGE_BUDGET requires budgetDelta');
+  for (const [key, delta] of Object.entries(op.budgetDelta)) {
+    const value = (next[key] || 0) + delta;
+    if (!Number.isFinite(delta) || !Number.isFinite(value) || value < 0) throw new Error('Invalid budget delta: ' + key);
+    next[key] = value;
+  }
+  target.budget = next;
 }
-
+function resizePopulation(graph, op) {
+  const target = node(graph, op.nodeId);
+  if (!Number.isInteger(op.size) || op.size < 0) throw new Error('RESIZE_POPULATION requires a non-negative integer size');
+  const workers = [...(target.workers || [])];
+  if (op.size <= workers.length) { target.workers = workers.slice(0, op.size); return; }
+  if (!Array.isArray(op.newWorkers) || op.newWorkers.length !== op.size - workers.length) {
+    throw new Error('Population growth requires admitted newWorkers');
+  }
+  const grown = workers.concat(structuredClone(op.newWorkers));
+  const ids = grown.map(worker => nonEmpty(worker.id || worker.individualId, 'worker id'));
+  if (new Set(ids).size !== ids.length) throw new Error('Duplicate worker in population');
+  target.workers = grown;
+}
+function migrateWorker(graph, op) {
+  const source = node(graph, op.nodeId);
+  const target = node(graph, op.targetNodeId);
+  const workers = source.workers || [];
+  const worker = workers.find(item => (item.id || item.individualId) === op.workerId);
+  if (!worker) throw new Error('MIGRATE_WORKER source worker is missing');
+  if ((target.workers || []).some(item => (item.id || item.individualId) === op.workerId)) throw new Error('Worker already exists in target');
+  target.workers = [...(target.workers || []), structuredClone(worker)];
+  source.workers = workers.filter(item => item !== worker);
+}
+function migrateState(graph, op) {
+  const source = node(graph, op.fromNodeId);
+  const target = node(graph, op.toNodeId);
+  if (source === target) throw new Error('MIGRATE_STATE requires different nodes');
+  if (!op.stateData || typeof op.stateData !== 'object') throw new Error('MIGRATE_STATE requires stateData');
+  target.state = { ...target.state, ...structuredClone(op.stateData) };
+  if (op.disposition === 'move') {
+    for (const key of Object.keys(op.stateData)) delete source.state[key];
+  }
+}
+function changeTopology(graph, op) {
+  const target = node(graph, op.nodeId);
+  target.topology = nonEmpty(op.newTopology, 'newTopology');
+  target.variant = op.newVariant || null;
+  target.kind = 'TOPOLOGY'; target.operator = null;
+}
+function changeLifecycle(graph, op, lifecycle) {
+  const target = node(graph, op.nodeId);
+  target.lifecycle = lifecycle;
+  target.lifecycleChangedAt = new Date().toISOString();
+}
+function setPolicy(graph, op, field) {
+  if (op.newPolicy === undefined) throw new Error('newPolicy is required');
+  node(graph, op.nodeId)[field] = structuredClone(op.newPolicy);
+}
+function setAuthority(graph, op) {
+  if (!Array.isArray(op.newAuthorityBoundary)) throw new Error('newAuthorityBoundary must be an array');
+  node(graph, op.nodeId).authorityBoundary = [...op.newAuthorityBoundary];
+}
+function rewire(graph, op) {
+  const target = edge(graph, op.edgeId);
+  const from = op.newFrom || target.fromNodeId;
+  const to = op.newTo || target.toNodeId;
+  node(graph, from); node(graph, to);
+  if (from === to) throw new Error('REWIRE cannot connect a node to itself');
+  if (target.type === 'CONTAINS') throw new Error('Use MOVE_SUBTREE to rewire containment');
+  target.fromNodeId = from; target.toNodeId = to;
+}
+function unnested(graph, op) {
+  const child = node(graph, op.childId);
+  if (child.parentNodeId !== op.parentId) throw new Error('UNNEST parent mismatch');
+  operations.detach(graph, child.nodeId);
+}
+function removeEdge(graph, op) {
+  const target = edge(graph, op.edgeId);
+  if (target.type === 'CONTAINS') throw new Error('Use UNNEST to remove containment');
+  graph.edges = graph.edges.filter(item => item !== target);
+}
+function removeBridge(graph, op) {
+  node(graph, op.fromNodeId); node(graph, op.toNodeId);
+  const bridges = graph.edges.filter(item => item.fromNodeId === op.fromNodeId
+    && item.toNodeId === op.toNodeId && item.properties?.bridge === true);
+  if (!bridges.length) throw new Error('REMOVE_BRIDGE references a missing bridge');
+  graph.edges = graph.edges.filter(item => !bridges.includes(item));
+}
+function addGraphEdge(graph, op) {
+  if (op.edge?.type === 'CONTAINS') throw new Error('Use NEST to add containment');
+  return operations.addEdge(graph, op.edge);
+}
+const handlers = {
+  ADD_NODE: (g, op) => operations.addNode(g, op.node), REMOVE_NODE: operations.removeNode,
+  REPLACE_NODE: operations.replaceNode, SPLIT: operations.split, MERGE: operations.merge,
+  NEST: (g, op) => operations.attach(g, op.childId, op.parentId), UNNEST: unnested,
+  MOVE_SUBTREE: (g, op) => operations.attach(g, op.nodeId, op.newParentId),
+  ADD_EDGE: addGraphEdge, REMOVE_EDGE: removeEdge, REWIRE: rewire,
+  CHANGE_TOPOLOGY: changeTopology,
+  CHANGE_VARIANT: (g, op) => { node(g, op.nodeId).variant = nonEmpty(op.newVariant, 'newVariant'); },
+  CHANGE_BUDGET: changeBudget, RESIZE_POPULATION: resizePopulation,
+  MIGRATE_WORKER: migrateWorker, MIGRATE_STATE: migrateState,
+  ADD_BRIDGE: (g, op) => operations.addEdge(g, { type: 'COMMUNICATES', fromNodeId: op.fromNodeId,
+    toNodeId: op.toNodeId, properties: { adapter: op.adapter, bridge: true } }),
+  REMOVE_BRIDGE: removeBridge,
+  CHANGE_COMMUNICATION_POLICY: (g, op) => setPolicy(g, op, 'communicationPolicy'),
+  CHANGE_EVIDENCE_POLICY: (g, op) => setPolicy(g, op, 'evidencePolicy'),
+  FREEZE: (g, op) => changeLifecycle(g, op, 'frozen'), THAW: (g, op) => changeLifecycle(g, op, 'active'),
+  QUIESCE: (g, op) => changeLifecycle(g, op, 'quiesced'), PROMOTE: setAuthority, DEMOTE: setAuthority
+};
+function applyOperation(graph, op) {
+  const handler = handlers[op?.type];
+  if (!handler) throw new Error('Unsupported patch operation: ' + op?.type);
+  const candidate = structuredClone(graph);
+  handler(candidate, op);
+  Object.assign(graph, candidate);
+}
 module.exports = { applyOperation };

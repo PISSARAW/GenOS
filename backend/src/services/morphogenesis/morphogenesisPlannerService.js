@@ -16,6 +16,8 @@ const { TOPOLOGY_IDS, classifyMorphologyLabel, isTopology } = require('./morphog
 const { resolveRequestedProfile, profileForGraph, applyProfileToPlan } = require('./registry/topologyProfileService');
 const { createTopologyRegistry } = require('./registry/topologyRegistry');
 
+const { tokenBudget } = require('./morphogenesisBudget');
+
 const topologyRegistry = createTopologyRegistry();
 
 function contractForTopology(topology) {
@@ -181,8 +183,9 @@ function buildContracts(ctx) {
 function buildPlanComponents(ctx, contracts) {
   const agents = ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [];
   const classified = classifyAgents(agents, ctx.proposedTopology || 'specialist_expert_committee');
-  const spawnList = planSpawns(contracts.missing, ctx.proposedTopology || 'specialist_expert_committee', ctx.budget || 0);
-  const budget = computeBudgetReallocation(classified.compatible, spawnList, ctx.budget || 0);
+  const tokens = tokenBudget(ctx.budget);
+  const spawnList = planSpawns(contracts.missing, ctx.proposedTopology || 'specialist_expert_committee', tokens);
+  const budget = computeBudgetReallocation(classified.compatible, spawnList, tokens);
   const sequence = buildTransitionSequence({ preserve: classified.compatible, retire: classified.incompatible.map((x) => x.agent), spawn: spawnList, rebind: [] });
   const fromVersion = ctx.currentState ? ctx.currentState.currentMorphologyVersion || 0 : 0;
   const topologyChanges = diffTopology(ctx.currentState || {}, { mode: ctx.proposedTopology || 'specialist_expert_committee' });

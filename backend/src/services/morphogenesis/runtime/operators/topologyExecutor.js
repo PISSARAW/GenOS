@@ -17,6 +17,7 @@ class TopologyExecutor extends BaseExecutor {
     }
 
     const result = await executor.execute({ topology, variant, workers }, context);
+    if (Array.isArray(result?.evidence)) context.evidence.push(...result.evidence);
     const output = withTopologyOutcome(result);
     const receipt = this.createReceipt(node, leafSummary(topology, { variant, workers, output }));
 
@@ -31,6 +32,7 @@ class TopologyExecutor extends BaseExecutor {
     }
 
     const raw = await topologyImpl.run({ topology, variant, workers, mission: graph.missionId }, context);
+    if (Array.isArray(raw?.evidence)) context.evidence.push(...raw.evidence);
     const output = raw && raw.output !== undefined ? raw.output : raw;
     const state = raw && raw.state !== undefined ? raw.state : context.state;
     return { output, receipt: null, state };

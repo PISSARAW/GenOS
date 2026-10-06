@@ -23,10 +23,17 @@ function changeErrors(plan) {
 }
 
 function validateMorphogenesisProposal(plan = {}) {
+  if (!plan || typeof plan !== 'object') return { valid: false, errors: ['proposal is required'] };
   const errors = plan.decision === 'NO_CHANGE' ? noChangeErrors(plan) : changeErrors(plan);
-  const cost = plan.transitionCost ?? (plan.expectedCost && plan.expectedCost.tokens) ?? 0;
-  if (!Number.isFinite(cost) || cost < 0) errors.push('transition cost must be non-negative');
+  errors.push(...decisionErrors(plan), ...costErrors(plan));
   return { valid: errors.length === 0, errors, decision: plan.decision === 'NO_CHANGE' ? 'NO_CHANGE' : 'APPLY' };
+}
+function decisionErrors(plan) {
+  return plan.decision && !['NO_CHANGE', 'APPLY'].includes(plan.decision) ? ['unsupported proposal decision'] : [];
+}
+function costErrors(plan) {
+  const cost = plan.transitionCost ?? plan.expectedCost?.tokens ?? 0;
+  return !Number.isFinite(cost) || cost < 0 ? ['transition cost must be non-negative'] : [];
 }
 
 module.exports = { validateMorphogenesisProposal };

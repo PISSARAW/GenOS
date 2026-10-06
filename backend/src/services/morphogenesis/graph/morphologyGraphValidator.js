@@ -11,6 +11,7 @@ function validateMorphologyGraph(graph) {
   errors.push(...graphIdentityErrors(graph, nodes, byId));
   errors.push(...nodeParentErrors(graph, nodes, byId));
   errors.push(...edgeErrors(edges, byId));
+  errors.push(...require('./morphologyContainmentValidation').containmentErrors(nodes, byId));
   if (hasContainmentCycle(nodes, edges)) errors.push('containment relationships must be acyclic');
   return { valid: errors.length === 0, errors };
 }

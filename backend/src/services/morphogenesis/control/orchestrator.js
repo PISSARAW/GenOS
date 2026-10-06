@@ -14,6 +14,8 @@ class ControlLoopOrchestrator {
     this.running = false;
     this.intervalHandle = null;
     this.tickCount = 0;
+    this.pendingTick = null;
+    this.lastError = null;
   }
 
   setContext(context) {
@@ -28,6 +30,7 @@ class ControlLoopOrchestrator {
     const pending = this.context.pendingMorphogenesisDecisions || [];
     this.context.pendingMorphogenesisDecisions = [...pending, decision].slice(-100);
     this.routeStructuralDecision(decision);
+    if (classifyAction(decision.action) === 'evolutionary') this.context.evolutionaryLoopRequested = true;
     const fastContext = { ...this.context, latestEvent: event, latestDecision: decision };
     const fast = await this.executeEventDecision(decision, fastContext);
     if (fast.executed) this.context.lastFastResult = fast;
@@ -58,7 +61,9 @@ class ControlLoopOrchestrator {
   async start() {
     if (this.running) return;
     this.running = true;
-    this.intervalHandle = setInterval(() => this.tick(), 1000);
+    this.intervalHandle = setInterval(() => {
+      this.tick().catch(error => { this.lastError = error.message; });
+    }, 1000);
   }
 
   async stop() {
@@ -70,19 +75,26 @@ class ControlLoopOrchestrator {
   }
 
   async tick() {
+    if (this.pendingTick) return this.pendingTick;
+    this.pendingTick = this.performTick();
+    try { return await this.pendingTick; } finally { this.pendingTick = null; }
+  }
+
+  async performTick() {
     this.tickCount++;
-    const now = Date.now();
 
     const fastResult = await this.fastLoop.run(this.context);
     if (fastResult.executed) this.context.lastFastResult = fastResult;
 
-    if (this.tickCount % 10 === 0 || this.context.structuralLoopRequested) {
-      this.context.structuralLoopRequested = false;
+    if (this.structuralLoop.shouldRun() || this.context.structuralLoopRequested) {
       const structuralResult = await this.structuralLoop.run(this.context);
-      if (structuralResult.executed) this.context.lastStructuralResult = structuralResult;
+      if (structuralResult.executed) {
+        this.context.lastStructuralResult = structuralResult;
+        this.context.structuralLoopRequested = false;
+      }
     }
 
-    if (this.tickCount % 3600 === 0) {
+    if (this.evolutionaryLoop.shouldRun(Date.now(), this.context)) {
       const evolutionaryResult = await this.evolutionaryLoop.run(this.context);
       if (evolutionaryResult.executed) this.context.lastEvolutionaryResult = evolutionaryResult;
     }

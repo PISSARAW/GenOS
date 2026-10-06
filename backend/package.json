@@ -76,7 +76,8 @@
     "shev": "node bin/genos-shev.cjs",
     "test:holobionte": "node tests/run_holobiont_suite.js",
     "test:metapopulation": "node tests/run_validation_suite.js metapopulation",
-    "test:agow:completion": "node tests/test_agow_completion.js"
+    "test:agow:completion": "node tests/test_agow_completion.js",
+    "test:morphogenesis": "node tests/run_morphogenesis_suite.js"
   },
   "dependencies": {
     "@cedar-policy/cedar-wasm": "^4.13.0",

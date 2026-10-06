@@ -50,7 +50,7 @@ async function gateNest() {
   assert.ok(result.output[0].verified_claims, 'Trinity branch must return verified_claims');
   assert.ok(result.output[1].explored_paths, 'Rhizome branch must return explored_paths');
   assert.ok(result.receipts.length >= 3, 'host + branches + operator receipts expected');
-  assert.ok(result.evidence.length > 0, 'evidence dossiers must be collected');
+  assert.equal(result.evidence.length, 0, 'unverified controller output and execution receipts must not invent evidence');
   return result;
 }
 

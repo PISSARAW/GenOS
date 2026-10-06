@@ -9,6 +9,7 @@ const { WrapExecutor } = require('./wrapExecutor');
 const { BridgeExecutor } = require('./bridgeExecutor');
 const { FederateExecutor } = require('./federateExecutor');
 const { TopologyExecutor } = require('./topologyExecutor');
+const { LeafExecutor } = require('./leafExecutor');
 
 const EXECUTORS = {
   NEST: NestExecutor,
@@ -21,9 +22,9 @@ const EXECUTORS = {
   FEDERATE: FederateExecutor,
   TOPOLOGY: TopologyExecutor,
   OPERATOR: null,
-  ADAPTER: null,
-  ENVIRONMENT: null,
-  DIRECT_WORKER: null
+  ADAPTER: LeafExecutor,
+  ENVIRONMENT: LeafExecutor,
+  DIRECT_WORKER: LeafExecutor
 };
 
 class ExecutorRegistry {
@@ -32,6 +33,7 @@ class ExecutorRegistry {
     this.executors = new Map();
     this.topologyRegistry = runtime.topologyRegistry || {};
     this.topologyExecutors = runtime.topologyExecutors || {};
+    this.nodeExecutors = runtime.nodeExecutors || {};
     this._initialize();
   }
 

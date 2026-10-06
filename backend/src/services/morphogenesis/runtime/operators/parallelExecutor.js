@@ -35,7 +35,7 @@ function branchContext(context, budget) {
   return {
     ...context,
     budget,
-    state: { ...context.state },
+    state: structuredClone(context.state || {}),
     evidence: [],
     receipts: [],
     sharedResources: context.sharedResources || {}

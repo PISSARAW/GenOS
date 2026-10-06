@@ -12,7 +12,8 @@ function blockedReceipt(step, child, reason) {
 
 function gateBlocked(output, policy) {
   if (!output) return true;
-  if (policy.minConfidence && output.confidence < policy.minConfidence) return true;
+  if (Number.isFinite(policy.minConfidence)
+    && (!Number.isFinite(output.confidence) || output.confidence < policy.minConfidence)) return true;
   if (policy.requiredClaims && !hasClaims(output, policy)) return true;
   return false;
 }
@@ -42,14 +43,14 @@ class SequenceExecutor extends BaseExecutor {
     const children = this.getChildren(node, graph);
     if (children.length === 0) throw new Error('SEQUENCE requires at least 1 child');
 
-    const currentContext = { ...context, evidence: [], receipts: [] };
+    const currentContext = { ...context, state: structuredClone(context.state || {}), evidence: [], receipts: [] };
     const steps = [];
 
     for (let index = 0; index < children.length; index += 1) {
       const child = children[index];
       const step = await this.runStep(child, graph, currentContext, index);
       steps.push(step.receipt);
-      if (step.blocked) break;
+      if (step.blocked) throw new Error(`SEQUENCE evidence gate rejected node ${child.nodeId}`);
     }
 
     const lastResult = steps.length > 0 ? steps[steps.length - 1] : null;

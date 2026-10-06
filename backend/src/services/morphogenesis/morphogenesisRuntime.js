@@ -69,7 +69,9 @@ function deriveForkRoles(strategyId, count, profile) {
 }
 
 class MorphogenesisRuntime {
-  constructor() {
+  constructor(options = {}) {
+    this._emit = options.emit || emit;
+    if (typeof this._emit !== 'function') throw new TypeError('Morphogenesis emitter must be a function');
     this._transitionEngine = null;
     this._agentGit = null;
     this._counterfactual = null;
@@ -136,12 +138,29 @@ async prepareMorphology(strategyContract, options = {}) {
     return morphology;
   }
 
+  configureRuntimeServices(services) {
+    const missing = require('./runtime/morphogenesisRuntimeV2').validateServices(services);
+    if (missing.length) throw new Error('Missing governed runtime services: ' + missing.join(', '));
+    this._runtimeServices = services;
+  }
+
   async executeMorphology(morphology, options = {}) {
-    return this._executeSimple(morphology, options);
+    const services = options.runtimeServices || this._runtimeServices;
+    if (!services) return this._executeSimple(morphology, options);
+    const result = await require('./runtime/morphogenesisRuntimeV2').runMorphogenesisRuntime({
+      ...options.runtimeContext, morphology, mode: options.mode || 'commit'
+    }, services);
+    const applied = result.committed === true && result.decision === 'APPLIED';
+    const event = applied ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED';
+    try {
+      this._emit(options.orchestratorId || 'morphogenesis', event, result.decision,
+        result.decision, { topology: morphology.topology, applied }, applied ? 'info' : 'warning');
+    } catch (error) { result.telemetryError = error.message; }
+    return { ...result, applied, proposed: !applied, topology: morphology.topology, agents: morphology.agents };
   }
 
   async _executeSimple(morphology, options) {
-    emit(options.orchestratorId || 'morphogenesis', 'MORPHOGENESIS_PROPOSED', 'TOPOLOGY_CHANGE_UNAVAILABLE', `No transition engine is configured; ${morphology.topology} remains a proposal.`, { topology: morphology.topology, agentCount: morphology.agents.length, applied: false }, 'warning');
+    this._emit(options.orchestratorId || 'morphogenesis', 'MORPHOGENESIS_PROPOSED', 'TOPOLOGY_CHANGE_UNAVAILABLE', `No transition engine is configured; ${morphology.topology} remains a proposal.`, { topology: morphology.topology, agentCount: morphology.agents.length, applied: false }, 'warning');
     return {
       applied: false,
       proposed: true,

@@ -147,9 +147,14 @@ function selectLocalVariant(topology, ctx) {
   try {
     return selector(ctx, mission);
   } catch (error) {
-    if (error.code === 'HOLOBIONT_VARIANT_INCOMPATIBLE') throw error;
+    if (error.code === 'HOLOBIONT_VARIANT_INCOMPATIBLE' && explicitHolobiontVariant(ctx)) throw error;
     return defaultSelection(error.code || 'SELECTOR_UNAVAILABLE');
   }
+}
+
+function explicitHolobiontVariant(ctx) {
+  const profile = ctx.problemProfile || {};
+  return Boolean(ctx.variantId || profile.variant || profile.variantId || profile.holobiontVariant);
 }
 
 const LOCAL_SELECTORS = Object.freeze({

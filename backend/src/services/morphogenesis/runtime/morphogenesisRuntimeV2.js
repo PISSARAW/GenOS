@@ -24,19 +24,32 @@ async function evaluateProposal(context, services) {
   const proposal = await services.repairOrSynthesize({ context, needs, diagnosis });
   const structural = validateMorphogenesisProposal(proposal);
   if (!structural.valid) return { accepted: false, reason: 'proposal_validation_failed', structural };
-  const typing = await services.typeCheck(proposal);
+  const assessment = await assessCandidate(context, services, proposal);
+  return { ...assessment, observation, diagnosis, needs, proposal };
+}
+
+async function assessCandidate(context, services, proposal) {
+  const typing = proposal.decision === 'NO_CHANGE' ? { valid: true, noChange: true } : await services.typeCheck(proposal);
   if (!typing || typing.valid !== true) return { accepted: false, reason: 'type_check_failed', typing };
   const hard = await services.hardGate({ proposal, context });
   if (!hard || hard.passed !== true) return { accepted: false, reason: 'hard_constraint_gate_failed', hard };
   const pareto = await services.paretoEvaluate({ proposal, context });
   if (!pareto || pareto.accepted !== true) return { accepted: false, reason: 'pareto_rejected', pareto };
+  return assessCounterfactual({ context, services, proposal, typing, hard, pareto });
+}
+
+async function assessCounterfactual(input) {
+  const { context, services, proposal, typing, hard, pareto } = input;
   const counterfactual = proposal.counterfactualRequired ? await runCounterfactual(services, proposal, context) : null;
-  return { accepted: true, observation, diagnosis, needs, proposal, typing, hard, pareto, counterfactual };
+  if (counterfactual && counterfactual.accepted !== true) return { accepted: false, reason: 'counterfactual_rejected', counterfactual };
+  return { accepted: true, typing, hard, pareto, counterfactual };
 }
 
 async function runCounterfactual(services, proposal, context) {
   if (typeof services.counterfactual !== 'function') throw new Error('counterfactual adapter is required for this proposal');
-  return services.counterfactual({ proposal, context });
+  const result = await services.counterfactual({ proposal, context });
+  if (!result || result.accepted !== true) return { accepted: false, result };
+  return result;
 }
 
 async function authorizeProposal(evaluated, context, services) {
@@ -44,6 +57,7 @@ async function authorizeProposal(evaluated, context, services) {
   const decision = await services.kernel.adjudicate({ proposal: evaluated.proposal, context, evaluations: evaluated });
   if (!decision || decision.valid !== true) return { decision, rejected: true };
   if (decision.decision === 'NO_CHANGE') return { decision, rejected: false, noChange: true };
+  if (decision.decision !== 'APPLY') return { decision, rejected: true };
   const governance = await services.governance({ decision, proposal: evaluated.proposal, context });
   return { decision, governance, rejected: !governance || governance.allowed !== true, noChange: false };
 }
@@ -52,15 +66,14 @@ async function commitDecision(input) {
   const { authorization, evaluated, context, services } = input;
   if (authorization.noChange) return { decision: 'NO_CHANGE', committed: false, reason: authorization.decision.reason, evidence: authorization.decision.evidence || [] };
   if (authorization.rejected) return { decision: 'REJECTED', committed: false, authorization };
-  const transition = await services.transition({ command: authorization.decision.command, proposal: evaluated.proposal, context });
+  const transition = await services.transition({ command: authorization.decision.command, proposal: evaluated.proposal, context, authorization, evaluations: evaluated });
   if (!transition || transition.committed !== true) return { decision: 'ROLLBACK', committed: false, transition };
-  const credit = await services.credit({ evaluated, transition, context });
-  const memory = await services.memory({ evaluated, transition, credit, context });
-  return { decision: 'APPLIED', committed: true, transition, credit, memory };
+  return finalizeCommit({ evaluated, transition, context, services });
 }
 
 async function runMorphogenesisRuntime(context, services) {
-  const mode = context?.mode === 'shadow' ? 'shadow' : 'commit';
+  const mode = context?.mode || 'commit';
+  if (!['shadow', 'commit'].includes(mode)) return { decision: 'REJECTED', committed: false, errors: ['unsupported runtime mode'] };
   const missing = validateServices(services, mode);
   if (missing.length) return { decision: 'REJECTED', committed: false, errors: missing.map((name) => `missing runtime service: ${name}`) };
   const evaluated = await evaluateProposal(context, services);
@@ -74,6 +87,18 @@ async function runMorphogenesisRuntime(context, services) {
   };
   const authorization = await authorizeProposal(evaluated, context, services);
   return commitDecision({ authorization, evaluated, context, services });
+}
+
+async function finalizeCommit(input) {
+  const { evaluated, transition, context, services } = input;
+  const result = { decision: 'APPLIED', committed: true, transition, credit: null, memory: null, learningErrors: [] };
+  try {
+    result.credit = await services.credit({ evaluated, transition, context });
+    result.memory = await services.memory({ evaluated, transition, credit: result.credit, context });
+  } catch (error) {
+    result.learningErrors.push(error.message);
+  }
+  return result;
 }
 
 module.exports = { REQUIRED_SERVICES, SHADOW_SERVICES, runMorphogenesisRuntime, validateServices };

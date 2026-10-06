@@ -1,6 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+// Le rollback mémoire est testé sans déclencher les sinks externes de télémétrie.
+const events = [];
+require('../src/services/telemetryObserver').emitEvent = event => { events.push(event); return event; };
 const { executeTransition } = require('../src/services/morphogenesis/transitionEngineService');
 const { getState } = require('../src/services/collectiveStateService');
 
@@ -23,6 +26,7 @@ async function main() {
   assert.equal(receipt.rollbackReceipt.memoryRestored, true);
   assert.equal(custom.agents.get('worker').role, 'old');
   assert.equal(shared.agents.has('worker'), false);
+  assert.ok(events.some(event => event.eventType === 'MORPHOGENESIS_TRANSITION_ROLLBACK'));
   console.log('custom collective state is restored after a failed transition: PASS');
 }
 

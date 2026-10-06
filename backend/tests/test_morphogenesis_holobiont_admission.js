@@ -35,9 +35,14 @@ function verifyCapability({ result, resultHash }) {
     evidenceRefs: ['proof:review-architecture-proof:' + resultHash] };
 }
 
+let testDb;
+
 async function main() {
+  testDb = await require('sqlite').open({ filename: ':memory:', driver: require('sqlite3').Database });
+  await require('../src/db/migrations/migrateHolobiontSessions').migrateHolobiontSessions(testDb);
+  await require('../src/services/topologySessionStore').ensureTable(testDb);
   let executions = 0;
-  const rejected = await runtime().execute(graph(), {
+  const rejected = await runtime().execute(graph(), { db: testDb,
     missionId: 'mission-trial-reject', capability: 'review-architecture', verifyCapability,
     allocation: { policy: { tokens: { basal: 1, preferred: 2, maximum: 5, burstAllowance: 0 } },
       available: { tokens: 10 } },
@@ -49,7 +54,7 @@ async function main() {
   assert.equal(rejected.output.status, 'ADMISSION_REJECTED');
   assert.equal(executions, 0, 'a rejected trial must never reach normal execution');
 
-  const admitted = await runtime().execute(graph(), {
+  const admitted = await runtime().execute(graph(), { db: testDb,
     missionId: 'mission-trial-pass', capability: 'review-architecture', verifyCapability,
     allocation: { policy: { tokens: { basal: 1, preferred: 2, maximum: 5, burstAllowance: 0 } },
       available: { tokens: 10 } },
@@ -65,10 +70,11 @@ async function main() {
   assert.equal(admitted.output.status, 'VERIFIED');
   assert.equal(executions, 1);
 
-  await assert.rejects(() => runtime().execute(graph(), {
+  await assert.rejects(() => runtime().execute(graph(), { db: testDb,
     capability: 'review-architecture', verifyCapability, executeCapability: async () => verifiedOutput()
   }), { code: 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED' });
   console.log('morphogenesis holobiont admission: passed');
 }
 
-main().catch((error) => { console.error(error); process.exit(1); });
+main().catch((error) => { console.error(error); process.exitCode = 1; })
+  .finally(async () => { if (testDb) await testDb.close(); await require('../src/db').closeDatabase(); });

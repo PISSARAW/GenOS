@@ -14,6 +14,8 @@ class PatchExecutor {
     this.adjudicator = opts.adjudicator;
     this.verifier = opts.verifier;
     this.snapshotter = opts.snapshotter;
+    this.counterfactual = opts.counterfactual;
+    this.committer = opts.committer;
   }
 
   async execute(patch, graph, context = {}) {
@@ -57,7 +59,14 @@ class PatchExecutor {
     exec.phase = 'counterfactual';
     const { patch, graph } = exec;
     exec.shadowGraph = this.applyPatch(patch, graph);
-    exec.counterfactualResult = await this.runtime.execute(exec.shadowGraph, exec.context.input);
+    if (this.runtime instanceof MorphologyRuntime) require('../runtime/runtimeGraphValidation').assertExecutableGraph(exec.shadowGraph);
+    if (typeof this.counterfactual === 'function') {
+      exec.counterfactualResult = await this.counterfactual({ graph: exec.shadowGraph, patch, context: exec.context });
+    } else {
+      if (this.runtime instanceof MorphologyRuntime) throw new Error('Isolated counterfactual adapter is required');
+      exec.counterfactualResult = await this.runtime.execute(exec.shadowGraph, exec.context.input);
+    }
+    if (typeof this.counterfactual === 'function' && exec.counterfactualResult?.accepted !== true) throw new Error('Counterfactual rejected the patch');
     exec.status = 'counterfactual_complete';
   }
 
@@ -70,7 +79,8 @@ class PatchExecutor {
 
   async runTransaction(exec) {
     exec.phase = 'transaction';
-    exec.appliedGraph = this.applyPatch(exec.patch, exec.graph);
+    if (exec.graph.version !== exec.patch.baseGraphVersion) throw new Error('MORPHOLOGY_VERSION_CONFLICT');
+    exec.appliedGraph = structuredClone(exec.shadowGraph);
     exec.appliedGraph.version = exec.graph.version + 1;
     exec.appliedGraph.parentVersion = exec.graph.version;
     exec.status = 'transaction_applied';
@@ -85,11 +95,27 @@ class PatchExecutor {
 
   async runCommit(exec) {
     exec.phase = 'commit';
-    exec.commitResult = { graph: exec.appliedGraph, patch: exec.patch };
+    if (exec.graph.version !== exec.patch.baseGraphVersion) throw new Error('MORPHOLOGY_VERSION_CONFLICT');
+    if (this.committer) {
+      exec.commitResult = await this.committer.commit({ graph: exec.appliedGraph, patch: exec.patch,
+        expectedVersion: exec.patch.baseGraphVersion, adjudication: exec.adjudication, verification: exec.verification });
+      if (exec.commitResult?.committed !== true) throw new Error('Versioned commit was not confirmed');
+      exec.commitResult = { ...exec.commitResult, graph: exec.commitResult.graph || exec.appliedGraph };
+    } else {
+      exec.commitResult = { graph: exec.appliedGraph, patch: exec.patch };
+    }
     exec.status = 'committed';
   }
 
-  async rollback(exec) { if (exec.snapshot && this.snapshotter) await this.snapshotter.restore(exec.snapshot); exec.rolledBack = true; }
+  async rollback(exec) {
+    try {
+      if (exec.snapshot && this.snapshotter) await this.snapshotter.restore(exec.snapshot);
+      exec.rolledBack = true;
+    } catch (error) {
+      exec.rolledBack = false;
+      exec.rollbackError = error.message;
+    }
+  }
 
   applyPatch(patch, graph) {
     const newGraph = JSON.parse(JSON.stringify(graph));

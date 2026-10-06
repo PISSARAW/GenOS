@@ -87,7 +87,29 @@ function isExhausted(value) {
 
 function applyAuthorityBoundary(context, boundary) {
   if (!boundary || !Array.isArray(boundary)) return context.authority;
-  return context.authority.filter(a => boundary.includes(a));
+  const authority = Array.isArray(context.authority) ? context.authority : [];
+  if (authority.includes('*')) return [...boundary];
+  return authority.filter(a => boundary.includes(a));
+}
+
+function cloneInput(value, seen = new WeakMap()) {
+  if (!value || typeof value !== 'object') return value;
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return value;
+  if (seen.has(value)) return seen.get(value);
+  const copy = Array.isArray(value) ? [] : {};
+  seen.set(value, copy);
+  for (const [key, item] of Object.entries(value)) copy[key] = cloneInput(item, seen);
+  return copy;
+}
+
+function intersectBudgets(parent, requested) {
+  const result = { ...parent, ...requested };
+  for (const [key, limit] of Object.entries(parent)) {
+    if (Number.isFinite(limit) && Number.isFinite(requested[key])) result[key] = Math.min(limit, requested[key]);
+    if (limit && typeof limit === 'object') result[key] = intersectBudgets(limit, requested[key] || {});
+  }
+  return result;
 }
 
 function createChildContext(parentContext, node, options = {}) {
@@ -99,9 +121,9 @@ function createChildContext(parentContext, node, options = {}) {
     parentExecutionId: parentContext.executionId,
     budget: allocateBudget(parentContext.budget, budgetFraction),
     authority: applyAuthorityBoundary(parentContext, node.authorityBoundary),
-    state: isolated ? { ...parentContext.state } : parentContext.state,
-    evidence: [...parentContext.evidence],
-    input: parentContext.output !== null && parentContext.output !== undefined ? parentContext.output : parentContext.input
+    state: isolated ? structuredClone({ ...parentContext.state, ...node.state }) : parentContext.state,
+    evidence: [],
+    input: cloneInput(parentContext.output !== null && parentContext.output !== undefined ? parentContext.output : parentContext.input)
   });
 }
 
@@ -113,5 +135,6 @@ module.exports = {
   mergeBudgets,
   checkBudgetExhausted,
   applyAuthorityBoundary,
-  createChildContext
+  createChildContext,
+  intersectBudgets
 };

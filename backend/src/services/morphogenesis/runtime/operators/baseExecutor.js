@@ -1,6 +1,6 @@
 'use strict';
 
-const { createChildContext, createReceipt, checkBudgetExhausted } = require('./executionContext');
+const { createChildContext, createReceipt, checkBudgetExhausted, intersectBudgets } = require('./executionContext');
 
 function findNode(graph, nodeId) {
   return graph.nodes.find((node) => node.nodeId === nodeId);
@@ -15,17 +15,7 @@ function collectChildOutputs(parent, child) {
 }
 
 function capBudgetToNode(childContext, node) {
-  const cap = node && node.budget;
-  if (!cap || typeof cap !== 'object') return;
-  for (const key of Object.keys(cap)) {
-    const limit = cap[key];
-    const current = childContext.budget && childContext.budget[key];
-    if (Number.isFinite(limit) && Number.isFinite(current)) {
-      childContext.budget[key] = Math.min(current, limit);
-    } else if (Number.isFinite(limit) && current === undefined) {
-      childContext.budget[key] = limit;
-    }
-  }
+  childContext.budget = intersectBudgets(childContext.budget, node.budget || {});
 }
 
 class BaseExecutor {
@@ -38,14 +28,19 @@ class BaseExecutor {
       throw new Error(`Budget exhausted for node ${node.nodeId}`);
     }
 
+    if (['frozen', 'quiesced', 'terminated', 'dormant'].includes(node.lifecycle)) {
+      throw new Error(`Node ${node.nodeId} is ${node.lifecycle}`);
+    }
     const childContext = createChildContext(context, node);
     capBudgetToNode(childContext, node);
+    if (checkBudgetExhausted(childContext)) throw new Error('Budget exhausted for node ' + node.nodeId);
     childContext.status = 'running';
 
     try {
       const result = await this.executeNode(node, graph, childContext);
       childContext.status = 'completed';
       childContext.output = result.output;
+      if (result.state !== undefined) childContext.state = result.state;
       childContext.completedAt = new Date().toISOString();
 
       if (result.receipt) {

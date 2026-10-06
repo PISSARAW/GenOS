@@ -21,7 +21,7 @@ class StructuralControlLoop {
   }
 
   async run(context) {
-    if (!this.shouldRun()) return { executed: false, reason: 'not_due' };
+    if (!this.shouldRun(Date.now(), context.structuralLoopRequested === true)) return { executed: false, reason: 'not_due' };
 
     this.lastRunAt = Date.now();
     this.runCount++;
@@ -43,14 +43,15 @@ class StructuralControlLoop {
     return { executed: true, runCount: this.runCount, proposals: filtered.length, results, timestamp: new Date().toISOString() };
   }
 
-  shouldRun(now = Date.now()) {
-    return loopIsDue('structural', { intervalMs: this.intervalMs, lastRunAt: this.lastRunAt, now });
+  shouldRun(now = Date.now(), force = false) {
+    return force || loopIsDue('structural', { intervalMs: this.intervalMs, lastRunAt: this.lastRunAt, now });
   }
 
   async collectProposals(context) {
     const proposals = [];
 
-    for (const node of context.nodes || []) {
+    if (Array.isArray(context.structuralProposals)) proposals.push(...context.structuralProposals);
+    for (const node of context.graph?.nodes || context.nodes || []) {
       const controller = context.controllerRegistry?.getController(node.topology, node);
       if (controller) {
         const adaptation = await controller.proposeAdaptation();
@@ -91,14 +92,20 @@ class StructuralControlLoop {
     try {
       const patch = this.createPatchFromProposal(proposal, context);
       const result = await this.patchExecutor.execute(patch, context.graph, context);
-      return { success: result.success, execution: result.execution };
+      if (result.success) {
+        context.graph = result.execution.commitResult.graph;
+        context.nodes = context.graph.nodes;
+        context.structuralProposals = (context.structuralProposals || []).filter(item => item !== proposal);
+      }
+      return { success: result.success, execution: result.execution, error: result.error };
     } catch (error) {
       return { success: false, error: error.message };
     }
   }
 
   createPatchFromProposal(proposal, context) {
-    const ops = [createOperation(proposal.type, proposal)];
+    const payload = normalizeProposal(proposal);
+    const ops = [createOperation(payload.type, payload)];
     return createMorphologyPatch({
       baseGraphVersion: context.graph.version,
       operations: ops,
@@ -107,13 +114,24 @@ class StructuralControlLoop {
       expectedGain: proposal.expectedGain || {},
       expectedCost: proposal.estimatedCost || {},
       authority: proposal.authority,
-      lease: proposal.lease
+      lease: proposal.lease,
+      rollbackPlan: proposal.rollbackPlan || context.rollbackPlan,
+      stateMigrationPlan: proposal.stateMigrationPlan || context.stateMigrationPlan
     });
   }
 
   getStatus() {
     return { loop: 'structural', intervalMs: this.intervalMs, hysteresisMs: this.hysteresisMs, lastRunAt: this.lastRunAt, runCount: this.runCount, pendingProposals: this.pendingProposals.size, executedCount: this.executedHistory.length };
   }
+}
+
+function normalizeProposal(proposal) {
+  const type = ({ TOPOLOGY_CHANGE: 'CHANGE_TOPOLOGY', VARIANT_CHANGE: 'CHANGE_VARIANT' })[String(proposal.type).toUpperCase()]
+    || String(proposal.type).toUpperCase();
+  const payload = { ...proposal, type };
+  if (type === 'CHANGE_VARIANT') payload.newVariant = proposal.newVariant || proposal.to;
+  if (type === 'CHANGE_TOPOLOGY') payload.newTopology = proposal.newTopology || proposal.to;
+  return payload;
 }
 
 class FlapDetector {
@@ -133,7 +151,8 @@ class FlapDetector {
 
   isFlapping(nodeId, actionType) {
     const key = `${nodeId}:${actionType}`;
-    const events = this.events.get(key) || [];
+    const events = (this.events.get(key) || []).filter(time => Date.now() - time < this.windowMs);
+    this.events.set(key, events);
     return events.length >= 3;
   }
 

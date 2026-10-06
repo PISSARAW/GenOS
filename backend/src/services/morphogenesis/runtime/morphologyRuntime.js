@@ -1,7 +1,7 @@
 'use strict';
 
 const { ExecutorRegistry } = require('./operators/registry');
-const { createExecutionContext } = require('./operators/executionContext');
+const { createExecutionContext, intersectBudgets } = require('./operators/executionContext');
 const { defaultRegistry } = require('../variants/variantRegistry');
 
 function mergeChildEvidence(parent, child) {
@@ -10,14 +10,17 @@ function mergeChildEvidence(parent, child) {
   if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
 }
 
-function recordExperience(input) {
-  const { store, graph, rootNode, result } = input;
+async function recordExperience(input) {
+  const { store, graph, rootNode, result, seenOutcomes } = input;
   if (!hasExperienceStore(store)) return;
   const output = result && result.output;
   const sample = measuredSample(output);
   if (!sample) return;
+  const receiptId = output.outcomeEvidence.receiptId;
+  if (seenOutcomes.has(receiptId)) return;
   try {
-    store.add(experienceRecord({ graph, rootNode, output, sample }));
+    await store.add(experienceRecord({ graph, rootNode, output, sample }));
+    seenOutcomes.add(receiptId);
   } catch (_) { /* learning must never break execution */ }
 }
 
@@ -28,22 +31,25 @@ function hasExperienceStore(store) {
 function experienceRecord(input) {
   const { graph, rootNode, output, sample } = input;
   return {
-    missionSignature: graph.missionId || graph.graphId,
+    missionSignature: output.outcomeEvidence.learningContext.problemSignature,
     problemProfile: {},
     initialMorphology: { topology: rootNode.topology, variant: rootNode.variant, operator: rootNode.operator },
     morphologyHistory: [{ version: graph.version, rootKind: rootNode.operator || rootNode.kind }],
     budget: graph.globalBudget || {},
+    verificationStrength: { receiptId: output.outcomeEvidence.receiptId,
+      evidenceDigest: output.outcomeEvidence.receipt.evidenceDigest },
     quality: sample.quality,
     evidenceQuality: sample.evidenceQuality,
-    finalOutcome: output.finalOutcome || 'measured',
+    finalOutcome: output.outcomeEvidence.success ? 'success' : 'failure',
     failures: output.failures || 0
   };
 }
 
 function measuredSample(output) {
-  const quality = Number(output?.quality);
-  const evidenceQuality = Number(output?.evidenceQuality);
-  if (!Number.isFinite(quality) || !Number.isFinite(evidenceQuality)) return null;
+  const { validateLearningEvidence } = require('../learning/outcomeEvidenceValidation');
+  if (!validateLearningEvidence(output?.outcomeEvidence)) return null;
+  const quality = Number(output.outcomeEvidence.value);
+  const evidenceQuality = 1;
   return {
     quality: Math.max(0, Math.min(1, quality)),
     evidenceQuality: Math.max(0, Math.min(1, evidenceQuality))
@@ -70,9 +76,13 @@ class MorphologyRuntime {
   constructor(options = {}) {
     this.topologyRegistry = options.topologyRegistry || {};
     this.topologyExecutors = options.topologyExecutors || {};
+    this.nodeExecutors = options.nodeExecutors || {};
     this.executorRegistry = new ExecutorRegistry(this);
     this.globalBudget = options.globalBudget || {};
     this.globalInvariants = options.globalInvariants || [];
+    this.experienceStore = options.experienceStore;
+    this.seenOutcomes = new Set();
+    this.counterfactual = options.counterfactual;
     this.eventHandlers = options.eventHandlers || {};
     this.variantRegistry = options.variantRegistry || defaultRegistry;
     if (options.installTopologyPlugins !== false) {
@@ -81,6 +91,8 @@ class MorphologyRuntime {
   }
 
   async execute(graph, input = {}) {
+    require('./runtimeGraphValidation').assertExecutableGraph(graph);
+    await this.assertGlobalInvariants(graph);
     const rootNode = graph.nodes.find(n => n.nodeId === graph.rootNodeId);
     if (!rootNode) throw new Error('Graph has no root node');
 
@@ -88,9 +100,9 @@ class MorphologyRuntime {
       missionId: graph.missionId,
       graphId: graph.graphId,
       nodeId: rootNode.nodeId,
-      budget: { ...this.globalBudget, ...graph.globalBudget },
-      authority: ['*'],
-      state: {},
+      budget: intersectBudgets(this.globalBudget, graph.globalBudget || {}),
+      authority: input.authority || ['*'],
+      state: structuredClone(input.initialState || {}),
       input: input
     });
 
@@ -111,7 +123,7 @@ class MorphologyRuntime {
       mergeChildEvidence(context, result.context);
 
       this.emit('complete', { graph, result, context });
-      recordExperience({ store: this.experienceStore, graph, rootNode, result });
+      await recordExperience({ store: this.experienceStore, seenOutcomes: this.seenOutcomes, graph, rootNode, result });
 
       return { output: result.output, receipts: context.receipts, evidence: context.evidence, state: result.context.state || context.state };
     } catch (error) {
@@ -146,6 +158,18 @@ class MorphologyRuntime {
     this.executorRegistry.registerTopology(topology, impl);
   }
 
+  async assertGlobalInvariants(graph) {
+    for (const invariant of this.globalInvariants) {
+      if (typeof invariant !== 'function') throw new Error('Global invariant must be an explicit verifier');
+      const result = await invariant(graph);
+      if (result !== true && result?.valid !== true) throw new Error('Global morphology invariant rejected the graph');
+    }
+  }
+
+  registerNodeExecutor(kind, executor) {
+    this.nodeExecutors[kind] = executor;
+  }
+
   registerTopologyExecutor(topology, executor) {
     this.executorRegistry.registerTopologyExecutor(topology, executor);
   }
@@ -174,7 +198,10 @@ class MorphologyRuntime {
     const executor = new PatchExecutor({
       runtime: this,
       adjudicator: execContext.adjudicator,
-      verifier: { verify: verifyPatched }
+      counterfactual: execContext.counterfactual || this.counterfactual,
+      committer: execContext.committer,
+      snapshotter: execContext.snapshotter,
+      verifier: { verify: verifyPatched.bind(this) }
     });
     return executor.execute(patch, graph, execContext);
 
@@ -183,6 +210,7 @@ class MorphologyRuntime {
       pushErrors(errors, validateMorphologyGraph(input.graph));
       pushErrors(errors, checkGraph({ graph: input.graph }));
       pushErrors(errors, checkBudgets({ graph: input.graph }));
+      await this.assertGlobalInvariants(input.graph);
       return { valid: errors.length === 0, errors };
     }
 
@@ -210,14 +238,11 @@ class MorphologyRuntime {
 
     const patch = variantPatch({
       graph, nodeId, newVariant, transition, context: execContext,
-      evidence: transition.requiresEvidence?.map(type => ({ type, present: true })) || []
+      evidence: execContext.evidence || []
     });
     const result = await this.applyPatch(patch, graph, execContext);
-    if (result.success) {
-      node.variant = newVariant;
-      node.variantChangedAt = new Date().toISOString();
-    }
-    return { success: result.success, changed: result.success, execution: result.execution };
+    return { success: result.success, changed: result.success,
+      graph: result.execution?.commitResult?.graph || graph, execution: result.execution };
   }
 }
 

@@ -61,11 +61,7 @@ class CompeteExecutor extends BaseExecutor {
   }
 
   allocateCompeteBudgets(budget, count) {
-    return Array.from({ length: count }, (_, i) => ({
-      ...budget,
-      tokens: budget.tokens ? budget.tokens / count : undefined,
-      compute: budget.compute ? budget.compute / count : undefined
-    }));
+    return Array.from({ length: count }, () => allocateBudget(budget, 1 / count));
   }
 
   selectWinner(results, node) {
