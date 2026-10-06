@@ -8,6 +8,7 @@ const deployController = require('../controllers/deployController');
 const agentDossierController = require('../controllers/agentDossierController');
 const agentConscienceController = require('../controllers/agentConscienceController');
 const strategyExecutionController = require('../controllers/strategyExecutionController');
+const garageController = require('../controllers/garageController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 const { paginateList } = require('../controllers/listPagination');
@@ -39,7 +40,10 @@ router.post('/agents/:id/ping', requireTenantScope({ write: true }), deployContr
 router.post('/agents/:id/events', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.ingestAgentEvent);
 router.post('/agents/:id/start', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.startAgent);
 router.get('/agents/:id/workers/garage', requireTenantScope(), deployController.getWorkerGarage);
-router.post('/agents/:id/workers/:workerId/dispatch', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.dispatchWorker);
+router.post('/agents/:id/workers/:workerId/dispatch', requirePermission('workspace:write'), requireTenantScope({ write: true }), garageController.submit);
+router.get('/agents/:id/workers/garage/queue', requireTenantScope(), garageController.list);
+router.get('/agents/:id/workers/garage/events', requireTenantScope(), garageController.events);
+router.post('/agents/:id/workers/garage/queue/:requestId/:action', requirePermission('workspace:write'), requireTenantScope({ write: true }), garageController.control);
 router.post('/agents/spawn', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.deployAgent);
 
 module.exports = router;

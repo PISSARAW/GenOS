@@ -29,6 +29,8 @@ const { trackWorkspace } = require('../agentWorkspaceLifecycleService');
 async function bootstrapMission(mission) {
   const ctx = await initializeMissionContext(mission);
   await resolveMissionContract(ctx);
+  await require('../garageAdmissionService').adopt(ctx);
+  await require('../garageAdmissionService').provisionWorker(ctx);
   await provisionWorkspaceAndModel(ctx);
   normalizeMissionBudgets(ctx);
   await provisionMissionCapsule(ctx);
@@ -42,6 +44,7 @@ async function bootstrapMission(mission) {
   await enforceMissionToolLease(ctx);
   computeRuntimeBudget(ctx);
   await createMissionExecutionRun(ctx);
+  await require('../garageRuntimeService').bindExecution(ctx);
   reportOrchestratorStart(ctx);
   return ctx;
 }
@@ -52,6 +55,7 @@ async function startMissionInternal(mission) {
   assertMissionNotCancelled(agentId);
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
+  await require('../garageRuntimeService').assertLease(db, normalizedMission);
   if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(normalizedMission)) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
     return require('../agents/deterministicWorkerRuntime').runDeterministicWorker(db, normalizedMission, executionRun);
@@ -104,6 +108,8 @@ function startMission(mission) {
   const start = startMissionInternal(mission).finally(async () => {
     const cancelled = cancelledStarts.has(agentId) || activeWorkerBarriers.get(agentId)?.cancelled === true;
     missionStarts.delete(agentId);
+    try { await require('../garageRuntimeService').finalizeAgent(agentId); }
+    catch (failure) { console.error('[GarageFabric] Runtime finalization failed:', failure.message); }
     cancelledStarts.delete(agentId);
     if (!cancelled) {
       emit(agentId, 'WORKER_RECOVERY_DECISION', 'RECOVERY_DISPATCH', `Checking for queued worker recovery after runtime shutdown for ${agentId}.`, {

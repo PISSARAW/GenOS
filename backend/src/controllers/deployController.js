@@ -8,7 +8,6 @@ const trinityDeployService = require('../services/deploy/trinityDeploy.service')
 const telemetry = require('../services/telemetryObserver');
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
 const workerGarage = require('../services/workerGarageService');
-const circuitBreaker = require('../services/circuitBreaker');
 const strategyContracts = require('../services/strategyContractService');
 const agentAuthority = require('../services/agentAuthorityService');
 const AgentRepository = require('../repositories/agent.repository');
@@ -16,11 +15,7 @@ const {
   buildStartMissionParams,
   buildStartAgentResponse,
   handleStartAgentError,
-  emitStartAgentTelemetry,
-  fetchScopedWorker,
-  startWorkerMissionWithFallback,
-  emitDispatchWorkerTelemetry,
-  handleDispatchWorkerError
+  emitStartAgentTelemetry
 } = require('./deployHelpers');
 
 function workspaceScope(req, alias = '') {
@@ -253,51 +248,7 @@ async function getWorkerGarage(req, res) {
 }
 
 async function dispatchWorker(req, res) {
-  const db = await getDatabase();
-  try {
-    const orchestratorId = req.params.id;
-    const workerId = req.params.workerId || req.body.workerId;
-
-    const circuit = circuitBreaker.canExecute('worker_deployment', 'operator');
-    if (!circuit.allowed) {
-      return res.status(503).json({ error: { code: circuit.reason, message: circuit.message } });
-    }
-
-    const scope = workspaceScope(req, 'ww');
-    const scopedPair = await fetchScopedWorker({ db, scope, workerId, orchestratorId });
-    if (!scopedPair) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Worker and orchestrator must belong to the selected project.' } });
-
-    await agentAuthority.authorizeMission(db, workerId, orchestratorId, scopedPair.workspace_id || null);
-
-    const slot = await workerGarage.reserveSlot(db, {
-      orchestratorId,
-      workerId,
-      name: req.body.name || workerGarage.workerName(req.body),
-      role: scopedPair.role,
-      mission: req.body.mission || 'Assigned mission'
-    });
-    await startWorkerMissionWithFallback({ db, req, scoped: scopedPair, workerId, orchestratorId });
-    emitDispatchWorkerTelemetry({ workerId, orchestratorId, req });
-    res.status(202).json({ ...slot, started: true, status: 'queued' });
-  } catch (err) {
-    if (err.code === 'WORKER_GARAGE_FULL' && req.body?.queueIfFull !== false) {
-      const queued = await workerGarage.garageFabric.enqueuePersistent(db, {
-        requestId: req.body?.requestId,
-        orchestratorId: req.params.id,
-        workerId: req.params.workerId || req.body?.workerId,
-        organizationId: req.tenant?.organizationId,
-        projectId: req.tenant?.projectId,
-        mission: req.body?.mission || 'Queued worker mission',
-        prompt: req.body?.prompt || req.body?.mission,
-        role: req.body?.role,
-        name: req.body?.name,
-        priority: req.body?.priority,
-        mode: req.body?.mode
-      });
-      return res.status(202).json({ queued: true, started: false, status: queued.status, requestId: queued.request_id, mode: queued.mode });
-    }
-    handleDispatchWorkerError(err, res);
-  }
+  return require('./garageController').submit(req, res);
 }
 
 async function getStrategyContract(req, res) {

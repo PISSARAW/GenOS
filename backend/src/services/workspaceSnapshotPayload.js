@@ -145,12 +145,12 @@ async function insertSnapshotRow(options) {
   }
 }
 
-async function capture({ db, workspace, label = 'Workspace snapshot', reason = 'Manual snapshot', author = 'studio', agentId = 'system', branchId = 'main', genome = {}, state = { status: 'quiescent' }, worldId = 'world-matrix-0' }) {
+async function capture({ db, workspace, sourcePath = workspace?.path, label = 'Workspace snapshot', reason = 'Manual snapshot', author = 'studio', agentId = 'system', branchId = 'main', genome = {}, state = { status: 'quiescent' }, worldId = 'world-matrix-0' }) {
   if (!workspace?.path || !fs.existsSync(workspace.path)) throw new Error(`Workspace path does not exist: ${workspace?.path || '<empty>'}`);
   await pruneSnapshotArtifacts({ db, workspaceId: workspace.id, workspacePath: workspace.path });
   const root = snapshotRoot(workspace.path, workspace.id);
   await fsp.mkdir(root, { recursive: true });
-  const files = await collectFiles(workspace.path);
+  const files = await collectFiles(sourcePath);
   const hash = manifestHash(files);
   const id = `snp-${Date.now().toString(36)}-${crypto.randomBytes(5).toString('hex')}`;
 
@@ -164,8 +164,8 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
     created_at: new Date().toISOString()
   };
 
-  await copyManifestPayload({ workspacePath: workspace.path, root, hash, files, manifestData });
-  await verifyStableWorkspace({ db, workspacePath: workspace.path, root, hash });
+  await copyManifestPayload({ workspacePath: sourcePath, root, hash, files, manifestData });
+  await verifyStableWorkspace({ db, workspacePath: sourcePath, root, hash });
   const manifestPath = path.join(root, hash, 'manifest.json');
   const gitCommit = await resolveGitCommit(workspace.path);
   const metadata = {

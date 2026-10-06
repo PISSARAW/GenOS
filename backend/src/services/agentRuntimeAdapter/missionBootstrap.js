@@ -67,6 +67,7 @@ async function initializeMissionContext(mission) {
   );
   assertMissionNotCancelled(agentId);
   await require('../missionExecutionAuthority').assertAuthority(db, normalizedMission.missionExecutionAuthority);
+  await require('../garageRuntimeService').assertLease(db, normalizedMission);
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);
   await resolveWorkerIdentity(normalizedMission, dispatchedAgent);
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;

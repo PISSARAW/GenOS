@@ -2,6 +2,15 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const suites = {
+  garage: [
+    ['Garage Fabric planning', 'test_garage_fabric.js'],
+    ['Garage durable store and concurrency', 'test_garage_runtime_store.js'],
+    ['Garage runtime dispatch', 'test_garage_runtime_dispatch.js'],
+    ['Garage typed runtime completion evidence', 'test_garage_runtime_evidence.js'],
+    ['Garage snapshot freeze thaw', 'test_garage_runtime_capsules.js'],
+    ['Garage twelve policies', 'test_garage_runtime_policies.js'],
+    ['Garage scoped controls and runtime adoption', 'test_garage_runtime_control.js']
+  ],
   smoke: [
     ['philosophy registry health', 'test_philosophy_registry_health.js'],
     ['indicator receipt validation', 'test_indicator_receipt_service.js'],
@@ -173,6 +182,7 @@ const suites = {
 };
 
 suites.all = [
+  ...suites.garage,
   ...suites.smoke,
   ...suites.variantIntegration,
   ...suites.signalPlane,

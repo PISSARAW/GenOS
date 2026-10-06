@@ -10,8 +10,8 @@ function run() {
   ]);
   assert.equal(fabric.chooseMode({ mode: 'agv' }).mode, 'agv');
 
-  const admission = fabric.planAdmission({ available: 0, urgency: 0.95, activeWorkers: [
-    { id: 'worker-low', status: 'running', priority: 0.1 },
+  const admission = fabric.planAdmission({ available: 0, urgency: 0.95, preemptible: true, activeWorkers: [
+    { id: 'worker-low', status: 'running', priority: 0.1, preemptible: true, snapshotCapable: true },
     { id: 'worker-safe', status: 'quarantined', priority: 0 }
   ] });
   assert.equal(admission.decision, 'preempt');
@@ -28,7 +28,7 @@ function run() {
   assert.equal(fabric.leaseExpired(lease, 2000), true);
   assert.throws(() => fabric.renewLease(lease, { now: 2000 }), { code: 'GARAGE_LEASE_EXPIRED' });
 
-  const snapshot = fabric.buildSnapshotPlan({ activeWorkers: [{ id: 'worker-a', status: 'running', priority: 0.2 }] });
+  const snapshot = fabric.buildSnapshotPlan({ activeWorkers: [{ id: 'worker-a', status: 'running', priority: 0.2, preemptible: true, snapshotCapable: true }] });
   assert.equal(snapshot.mustVerifySnapshot, true);
   console.log('Garage Fabric checks passed.');
 }

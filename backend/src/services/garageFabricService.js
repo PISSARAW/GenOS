@@ -29,7 +29,7 @@ function normalize(input = {}) {
     retrievalRate: clamp(finite(request.retrievalRate, 0.5), 0, 1),
     specialization: clamp(finite(request.specialization, 0), 0, 1),
     sharedState: clamp(finite(request.sharedState, 0), 0, 1),
-    preemptible: request.preemptible !== false,
+    preemptible: request.preemptible === true,
     queueable: request.queueable !== false,
     available: Math.max(0, Math.floor(finite(input.available, request.available || 0))),
     activeWorkers: Array.isArray(input.activeWorkers) ? input.activeWorkers : []
@@ -68,7 +68,7 @@ function activeWorkers(workers) {
 
 function preemptionCandidates(workers) {
   return activeWorkers(workers)
-    .filter((worker) => worker.preemptible !== false && !PROTECTED_STATES.has(worker.status))
+    .filter((worker) => worker.preemptible === true && worker.snapshotCapable === true && !PROTECTED_STATES.has(worker.status))
     .sort((left, right) => finite(left.priority, 0.5) - finite(right.priority, 0.5))
     .map((worker) => worker.id);
 }
@@ -78,9 +78,9 @@ function planAdmission(input = {}) {
   const selected = chooseMode(value);
   const active = activeWorkers(value.activeWorkers);
   const hasCapacity = value.available > 0;
-  const candidates = preemptionCandidates(value.activeWorkers);
+  const candidates = preemptionCandidates(value.activeWorkers.filter((worker) => Number(worker.priority) < value.priority));
   if (hasCapacity) return admissionResult({ value, selected, decision: 'admit', active, preempt: [], reason: null });
-  if (value.urgency >= 0.8 && value.preemptible && candidates.length) {
+  if (value.urgency >= 0.8 && require('./garagePolicies').resolve(selected.mode).preemption && candidates.length) {
     return admissionResult({ value, selected, decision: 'preempt', active, preempt: [candidates[0]], reason: 'urgent_capacity_reclaim' });
   }
   if (value.queueable) return admissionResult({ value, selected, decision: 'queue', active, preempt: [], reason: 'capacity_exhausted' });
@@ -103,10 +103,10 @@ function admissionResult(input) {
 
 function createLease(input = {}) {
   const now = finite(input.now, Date.now());
-  const ttlMs = Math.max(1000, Math.floor(finite(input.ttlMs, 300000)));
+  const ttlMs = Math.min(300000, Math.max(1000, Math.floor(finite(input.ttlMs, 300000))));
   if (!input.orchestratorId || !input.workerId) throw new Error('Lease requires an orchestratorId and workerId.');
   return {
-    leaseId: `${input.orchestratorId}:${input.workerId}:${now}`,
+    leaseId: crypto.randomUUID(),
     orchestratorId: input.orchestratorId,
     workerId: input.workerId,
     issuedAt: now,
@@ -116,13 +116,13 @@ function createLease(input = {}) {
 }
 
 function leaseExpired(lease, now = Date.now()) {
-  return !lease || finite(now, Date.now()) >= lease.expiresAt;
+  return !lease || !Number.isFinite(lease.expiresAt) || finite(now, Date.now()) >= lease.expiresAt;
 }
 
 function renewLease(lease, input = {}) {
   if (leaseExpired(lease, input.now)) throw Object.assign(new Error('Garage lease has expired.'), { code: 'GARAGE_LEASE_EXPIRED' });
   const now = finite(input.now, Date.now());
-  const ttlMs = Math.max(1000, Math.floor(finite(input.ttlMs, 300000)));
+  const ttlMs = Math.min(300000, Math.max(1000, Math.floor(finite(input.ttlMs, 300000))));
   return { ...lease, issuedAt: now, expiresAt: now + ttlMs };
 }
 
@@ -162,62 +162,6 @@ function buildSnapshotPlan(input = {}) {
   };
 }
 
-function requestId(request) {
-  return request.requestId || `garage-${Date.now()}-${crypto.randomUUID()}`;
-}
-
-function serializeRequest(request, id) {
-  return JSON.stringify({ ...request, requestId: id });
-}
-
-async function enqueuePersistent(db, request = {}) {
-  const normalized = normalize(request);
-  const id = requestId(request);
-  const selected = chooseMode(request);
-  await db.run(
-    `INSERT INTO garage_queue(request_id, orchestrator_id, worker_id, organization_id, project_id, mode, priority, request_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, request.orchestratorId, request.workerId || null, request.organizationId || null,
-    request.projectId || null, selected.mode, normalized.priority, serializeRequest(request, id)
-  );
-  return db.get('SELECT * FROM garage_queue WHERE request_id = ?', id);
-}
-
-async function claimNextPersistent(db, input = {}) {
-  const now = input.now || new Date().toISOString();
-  const row = await db.get(
-    `SELECT * FROM garage_queue WHERE orchestrator_id = ? AND status = 'queued'
-     ORDER BY priority DESC, created_at ASC, request_id ASC LIMIT 1`, input.orchestratorId
-  );
-  if (!row) return null;
-  const lease = createLease({ orchestratorId: row.orchestrator_id, workerId: row.worker_id || row.request_id, ttlMs: input.ttlMs, now: Date.parse(now) || Date.now() });
-  const result = await db.run(
-    `UPDATE garage_queue SET status = 'claimed', lease_id = ?, lease_expires_at = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE request_id = ? AND status = 'queued'`, lease.leaseId, new Date(lease.expiresAt).toISOString(), row.request_id
-  );
-  return result.changes ? { ...row, status: 'claimed', leaseId: lease.leaseId, leaseExpiresAt: lease.expiresAt } : null;
-}
-
-async function updatePersistent(db, input = {}) {
-  const status = input.status;
-  const allowed = new Set(['running', 'completed', 'cancelled', 'failed']);
-  if (!allowed.has(status)) throw new Error(`Unsupported garage queue status '${status}'.`);
-  const result = await db.run(
-    `UPDATE garage_queue SET status = ?, snapshot_id = COALESCE(?, snapshot_id), result_json = COALESCE(?, result_json), error_text = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE request_id = ? AND status IN ('claimed', 'running')`,
-    status, input.snapshotId || null, input.result ? JSON.stringify(input.result) : null, input.error || null, input.requestId
-  );
-  return result.changes === 1;
-}
-
-async function expirePersistent(db, input = {}) {
-  const cutoff = input.now || new Date().toISOString();
-  const result = await db.run(
-    `UPDATE garage_queue SET status = 'expired', error_text = 'Garage lease expired', updated_at = CURRENT_TIMESTAMP
-     WHERE status IN ('claimed', 'running') AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?`, cutoff
-  );
-  return result.changes || 0;
-}
 
 module.exports = {
   MODES,
@@ -228,8 +172,5 @@ module.exports = {
   renewLease,
   createQueue,
   buildSnapshotPlan,
-  enqueuePersistent,
-  claimNextPersistent,
-  updatePersistent,
-  expirePersistent
+  ...require('./garageQueueStore')
 };
