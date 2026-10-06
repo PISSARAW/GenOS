@@ -21,19 +21,34 @@ async function readWorker(db, member, budget) {
     WHERE agent_id = ? AND event_type = 'AGENT_STEP' ORDER BY id`, workerId);
   const usage = parse(completion?.payload_json)?.usage;
   const observations = raw.map((row) => parse(row.payload_json));
-  const measurement = { tokens: observations.some((event) => reportedTokens(event)),
-    events: Number.isSafeInteger(usage?.events),
-    costUsd: observations.some((event) => reportedCost(event)) };
+  const measurement = providerMeasurement(usage, observations);
   const measured = Boolean(usage) && Object.values(measurement).every(Boolean);
-  const normalized = usage ? { tokens: Number(usage.tokens), events: Number(usage.events),
-    costUsd: Number(usage.cost_usd) } : null;
-  const within = normalized && ['tokens', 'events', 'costUsd'].every((key) =>
-    Number.isFinite(normalized[key]) && normalized[key] >= 0
-    && (budget[key] === undefined || normalized[key] <= budget[key]));
+  const normalized = usage ? { tokens: usage.tokens, events: usage.events,
+    costUsd: usage.cost_usd } : null;
+  const within = withinBudget(normalized, budget);
   return { workerId, usage: normalized, measurement, measured, within: Boolean(within),
     verified: measured && Boolean(within),
-    reason: !completion ? 'missing_completion_receipt' : !measured ? 'provider_usage_unmeasured'
-      : !within ? 'worker_budget_exceeded' : null };
+    reason: failureReason(completion, measured, within) };
+}
+
+function providerMeasurement(usage, observations) {
+  return { tokens: Number.isFinite(usage?.tokens)
+      && observations.some((event) => reportedTokens(event)),
+    events: Number.isSafeInteger(usage?.events),
+    costUsd: Number.isFinite(usage?.cost_usd)
+      && observations.some((event) => reportedCost(event)) };
+}
+
+function withinBudget(usage, budget) {
+  return Boolean(usage) && ['tokens', 'events', 'costUsd'].every((key) =>
+    Number.isFinite(usage[key]) && usage[key] >= 0
+    && (budget[key] === undefined || usage[key] <= budget[key]));
+}
+
+function failureReason(completion, measured, within) {
+  if (!completion) return 'missing_completion_receipt';
+  if (!measured) return 'provider_usage_unmeasured';
+  return within ? null : 'worker_budget_exceeded';
 }
 
 function sumMeasured(workers, key) {
