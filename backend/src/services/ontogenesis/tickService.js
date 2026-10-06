@@ -30,6 +30,12 @@ const { haltForControl, observeExecution } = require('./executionLifecycle');
 const { processIntegration } = require('./integrationController');
 const { compileDevelopmentalContext } = require('./developmentalContextService');
 
+const { processInbox, operatorContext } = require('./inboxProcessor');
+const { reconcileExecution, cancelBlockedTask } = require('./recoveryController');
+
+const { prepareMission, preparationMatches } = require('./missionPreparationService');
+const { observeEvents, acknowledgeObservedEvents } = require('./eventObservationService');
+
 const NO_WAKE = ['STOPPING', 'STOPPED', 'EXECUTING', 'VERIFYING', 'INTEGRATING', 'INITIALIZING', 'PLANNING'];
 
 function eventForSchedule(kind) {
@@ -77,11 +83,11 @@ async function loadContext(db, input) {
   return ctx;
 }
 
-async function compileEmptyBacklog(db, project, tasks) {
-  if (tasks.length > 0) return null;
+async function compileEmptyBacklog(db, project, input) {
+  if (input.tasks.length > 0 || !input.compiled) return null;
   const responsibility = await require('../shev/responsibilityService').getResponsibility(db, project.id);
   if (responsibility?.status === 'active') return null;
-  const compiled = compileMission(project);
+  const compiled = input.compiled;
   const created = [];
   for (const task of linkCompiledTasks(compiled.tasks)) {
     const title = task.title;
@@ -159,7 +165,7 @@ async function dispatchWithHarness(db, ctx) {
 
 async function blockInvalidMission(db, ctx) {
   const error = ctx.mission?.morphology?.error;
-  if (!error) return null;
+  if (!error || ctx.control?.mode !== 'running' || ['STOPPED', 'PAUSED'].includes(ctx.project.state)) return null;
   await setProjectState(db, { projectId: ctx.project.id, state: 'WAITING_INPUT' });
   await notify(db, { projectId: ctx.project.id, kind: 'decision_needed',
     payload: { reason: `morphologie-invalide:${error}` } });
@@ -186,6 +192,8 @@ async function applyRuntime(db, ctx) {
   if (!ctx.harness) return null;
   const halted = await haltForControl(db, ctx, ctx.harness);
   if (halted) return halted;
+  const cancelled = await cancelBlockedTask(db, ctx);
+  if (cancelled) return cancelled;
   if (['VERIFYING', 'INTEGRATING'].includes(ctx.project.state)) return processIntegration(db, ctx);
   return null;
 }
@@ -222,46 +230,99 @@ async function reconcileWake(db, ctx) {
   return null;
 }
 
+
+async function controlWithoutHarness(db, ctx) {
+  if (!['paused', 'stopping', 'stopped'].includes(ctx.control?.mode)) return null;
+  const decision = stepLoop(snapshotOf(ctx));
+  const outcome = await applyDecision(db, ctx, decision);
+  return { ...outcome, decision };
+}
+
+async function haltBeforePlanning(db, ctx) {
+  if (!ctx.harness) return controlWithoutHarness(db, ctx);
+  const halted = await haltForControl(db, ctx, ctx.harness);
+  if (halted) return halted;
+  return cancelBlockedTask(db, ctx);
+}
+
+
+async function prepareMissionContext(db, ctx, input) {
+  ctx.mission = input.preparation.mission;
+  ctx.mission.operatorContext = await operatorContext(db, ctx.project.id);
+  ctx.mission.developmentalContext = await compileDevelopmentalContext(db, ctx.project);
+  ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
+    (capability) => ctx.mission.capabilities.includes(capability)
+  );
+  if (ctx.mission.morphology.selectedTopology) {
+    ctx.config.topologies = [ctx.mission.morphology.selectedTopology];
+  }
+  ctx.mission.plan = buildMissionCapabilityPlan({
+    project: ctx.project, task: ctx.selection.task || {}, mission: ctx.mission, config: ctx.config
+  });
+  return blockInvalidMission(db, ctx);
+}
+
+async function notifyExpiredQuestions(db, input) {
+  const expired = await expireDue(db, { projectId: input.projectId });
+  for (const questionId of expired) {
+    await notify(db, { projectId: input.projectId, kind: 'decision_needed', payload: { reason: `question-expiree:${questionId}` } });
+  }
+}
+
+
+async function loadClaimedContext(db, input, fence) {
+  const project = await getProject(db, input.projectId);
+  if (!preparationMatches(project, input.preparation)) return { changed: true };
+  const tasks = await listTasks(db, input.projectId);
+  await compileEmptyBacklog(db, project, { tasks, compiled: input.preparation.mission });
+  await processInbox(db, input.projectId);
+  const ctx = await loadContext(db, input);
+  ctx.fence = fence;
+  ctx.observedEvents = await observeEvents(db, input.projectId);
+  return ctx;
+}
+
+async function tickClaimed(db, input, fence) {
+  const fired = await fireDue(db, input.projectId, input.nowMs);
+  await notifyExpiredQuestions(db, input);
+  await require('../shev/runtimeService').tickProject(db, { projectId: input.projectId, fence });
+  await require('../shev/initiativeService').compilePending(db, input);
+  const ctx = await loadClaimedContext(db, input, fence);
+  if (ctx.changed) return { ticked: false, reason: 'contexte-projet-modifie' };
+  if (ctx.project.state === 'STOPPED') return { ticked: true, state: 'STOPPED', note: 'arrete' };
+  if (ctx.harness) await reconcileExecution(db, ctx);
+  const interrupted = await haltBeforePlanning(db, ctx);
+  if (interrupted) {
+    await acknowledgeObservedEvents(db, ctx, interrupted);
+    return { ticked: true, ...interrupted };
+  }
+  if (!input.preparation.mission) return { ticked: false, reason: 'contexte-controle-modifie' };
+  const blocked = await prepareMissionContext(db, ctx, input);
+  if (blocked) return blocked;
+  ctx.fence = fence;
+  await fence();
+  if (ctx.harness && ctx.project.state === 'EXECUTING') Object.assign(ctx, await observeExecution(db, ctx, ctx.harness));
+  const wake = await reconcileWake(db, ctx);
+  const decision = wake ? { event: wake, effects: [] } : stepLoop(snapshotOf(ctx));
+  const outcome = await applyDecision(db, ctx, decision);
+  await acknowledgeObservedEvents(db, ctx, outcome);
+  return { ticked: true, fired, decision, ...outcome };
+}
+
 async function tickOnce(db, input) {
   await ensureTables(db);
-  const claim = await acquireClaim(db, { projectId: input.projectId, owner: input.owner, ttlMs: 30000 });
+  const occupied = await db.get("SELECT project_id FROM ontogenesis_claims WHERE project_id = ? AND julianday(expires_at) > julianday('now')", [input.projectId]);
+  if (occupied) return { ticked: false, reason: 'claim-actif' };
+  const preparation = await prepareMission(db, input.projectId);
+  input = { ...input, preparation };
+  const claim = await acquireClaim(db, { projectId: input.projectId, owner: input.owner, ttlMs: 120000 });
   if (!claim.acquired) return { ticked: false, reason: 'claim-actif' };
-  const lease = { projectId: input.projectId, owner: input.owner, operationId: claim.operationId, ttlMs: 30000 };
+  const lease = { projectId: input.projectId, owner: input.owner, operationId: claim.operationId, ttlMs: 120000 };
   const fence = () => extendClaim(db, lease);
   const heartbeat = setInterval(() => { fence().catch(() => {}); }, 10000);
   heartbeat.unref();
   try {
-    const fired = await fireDue(db, input.projectId, input.nowMs);
-    const expired = await expireDue(db, { projectId: input.projectId });
-    for (const questionId of expired) {
-      await notify(db, { projectId: input.projectId, kind: 'decision_needed', payload: { reason: `question-expiree:${questionId}` } });
-    }
-    await require('../shev/runtimeService').tickProject(db, { projectId: input.projectId, fence });
-    await require('../shev/initiativeService').compilePending(db, input);
-    const project = await getProject(db, input.projectId);
-    const tasks = await listTasks(db, input.projectId);
-    await compileEmptyBacklog(db, project, tasks);
-    const ctx = await loadContext(db, input);
-    ctx.mission = compileMission(ctx.project);
-    ctx.mission.developmentalContext = await compileDevelopmentalContext(db, ctx.project);
-    ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
-      (capability) => ctx.mission.capabilities.includes(capability)
-    );
-    if (ctx.mission.morphology.selectedTopology) {
-      ctx.config.topologies = [ctx.mission.morphology.selectedTopology];
-    }
-    ctx.mission.plan = buildMissionCapabilityPlan({
-      project: ctx.project, task: ctx.selection.task || {}, mission: ctx.mission, config: ctx.config
-    });
-    const blocked = await blockInvalidMission(db, ctx);
-    if (blocked) return blocked;
-    ctx.fence = fence;
-    await fence();
-    await refreshExecutionContext(db, ctx);
-    const wake = await reconcileWake(db, ctx);
-    const decision = wake ? { event: wake, effects: [] } : stepLoop(snapshotOf(ctx));
-    const outcome = await applyDecision(db, ctx, decision);
-    return { ticked: true, fired, decision, ...outcome };
+    return await tickClaimed(db, input, fence);
   } finally {
     clearInterval(heartbeat);
     await releaseClaim(db, { projectId: input.projectId, owner: input.owner, operationId: claim.operationId });

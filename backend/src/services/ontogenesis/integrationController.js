@@ -8,13 +8,14 @@ const { treeHash, verifyChecks } = require('./proofService');
 const { reviewAction } = require('./reviewPolicy');
 const { failExecution } = require('./executionLifecycle');
 const { notify } = require('./notificationService');
+const { workerFailure } = require('./failurePolicy');
 const { verifyPhilosophicalObservations } = require('./philosophicalObservationService');
 
 async function verifyExecution(db, ctx) {
   const run = await activeExecution(db, ctx.project.id);
   if (!run) throw new Error('execution-introuvable');
   const result = JSON.parse(run.result_json);
-  if (result.success !== true) throw new Error(result.error || 'mission-non-verifiee');
+  if (result.success !== true) throw workerFailure(result);
   if (ctx.config.authority.allowTests !== true) throw new Error('tests-non-autorises');
   const candidate = workspaces.assertCandidate(ctx.project, result.candidateWorktree);
   const files = await workspaces.changedFiles(candidate, run.base_sha);

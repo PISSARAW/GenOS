@@ -4,10 +4,13 @@ const { activeExecution, updateExecution, finalizeExecution } = require('./execu
 const { setProjectState, setTaskStatus, bumpAttempt } = require('./projectStore');
 const { recordMemory } = require('./memoryService');
 const { notify } = require('./notificationService');
+const { failureState } = require('./failurePolicy');
 
 async function stopExecution(db, ctx, harness) {
   const run = await activeExecution(db, ctx.project.id);
   if (!run) return true;
+  const finalStop = ['stopping', 'stopped'].includes(ctx.control?.mode);
+  if (!finalStop && ['finished', 'verified'].includes(run.phase)) return true;
   if (!await harness.stop(run)) return false;
   await finalizeExecution(db, { run, phase: 'suspended' });
   await setTaskStatus(db, { taskId: run.task_id, status: 'todo' });
@@ -50,6 +53,11 @@ async function failState(db, ctx, reason) {
 }
 
 async function failExecution(db, ctx, error) {
+  const { withTransaction } = require('../../db');
+  return withTransaction(db, () => settleFailedExecution(db, ctx, error));
+}
+
+async function settleFailedExecution(db, ctx, error) {
   const run = await activeExecution(db, ctx.project.id);
   if (run) {
     await finalizeExecution(db, { run, phase: 'failed' });
@@ -57,10 +65,11 @@ async function failExecution(db, ctx, error) {
     await setTaskStatus(db, { taskId: run.task_id, status: 'todo' });
     await db.run("UPDATE ontogenesis_runs SET status = 'unverified' WHERE id = ?", [run.id]);
   }
-  await recordMemory(db, { projectId: ctx.project.id, kind: 'failure', content: error.message, provenance: { operationId: run && run.id } });
-  await setProjectState(db, { projectId: ctx.project.id, state: 'WAITING_INPUT' });
+  await recordMemory(db, { projectId: ctx.project.id, kind: 'failure', content: error.message, provenance: { operationId: run && run.id, topology: run && run.topology, taskId: run && run.task_id } });
+  const state = await failureState(db, run, error);
+  await setProjectState(db, { projectId: ctx.project.id, state });
   await notify(db, { projectId: ctx.project.id, kind: 'blocked', payload: { reason: error.message } });
-  return { state: 'WAITING_INPUT', note: error.message };
+  return { state, note: error.message };
 }
 
 module.exports = { haltForControl, observeExecution, failExecution, stopExecution };

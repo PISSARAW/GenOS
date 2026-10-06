@@ -50,6 +50,7 @@ function blockedReason(tasks) {
   if (tasks.some(isCorrupt)) return 'dependances-invalides';
   if (tasks.some((task) => task.status === 'todo')) return 'dependances-manquantes';
   if (tasks.some((task) => task.status === 'doing')) return 'execution-en-cours';
+  if (tasks.some((task) => task.status === 'blocked')) return 'taches-bloquees';
   return 'backlog-vide';
 }
 

@@ -558,4 +558,6 @@ technique positif masquerait une absence d'évidence réelle.
 
 - [campagne-agow-cloture.md](06-qualite-preuves/campagne-agow-cloture.md) — protocole, résultats et limites du banc local AGOW.
 
+- [ADR 0334 — Ontogenèse : pilotage, reprise et rétention](adr/0334-ontogenese-pilotage-reprise-et-retention.md).
+
 - Biologie computationnelle : [validation](06-qualite-preuves/validation-biologie-computationnelle.md) et [ADR 0324](adr/0324-biologie-execution-et-autorite-durable.md).

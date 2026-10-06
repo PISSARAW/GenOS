@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : contrôleur d'Ontogenèse (`backend/src/services/ontogenesis/`), machine à états, boucle de pilotage, sélection bornée, politique de réveil, persistance `ontogenesis_*` ; décision tracée par l'ADR 0235.
-- **Dernière revue** : 2026-10-05
+- **Dernière revue** : 2026-10-06
 
 > Convention de lecture de cette fiche : chaque affirmation porte son statut.
 > **Implémenté** = comportement présent dans le dépôt et vérifiable (chemin de fichier cité).
@@ -362,3 +362,15 @@ Exploitation (**Implémenté** pour le CLI et le tick local — `backend/bin/gen
 - [continuite-mission.md](continuite-mission.md) — organisme de mission et systèmes de survie.
 - [epistemologie-et-evidence.md](epistemologie-et-evidence.md) — preuves, succès ≠ vérité.
 - [../02-orchestration/topologies/morphogenese.md](../02-orchestration/topologies/morphogenese.md) — construction des organisations cognitives (le moteur que l'Ontogenèse pilote).
+
+## Raccords opérationnels du 6 octobre 2026
+
+L’inbox est consommée transactionnellement ; les messages et priorités disposent
+de commandes CLI. La reprise utilise la phase persistée, une tâche arrêtée ne peut
+plus être intégrée, et la pause conserve les candidats terminés/vérifiés. La boucle
+résidente est interruptible et silencieuse sans changement. La rétention optionnelle
+contrôle l’empreinte des capsules avant suppression. Voir le
+[guide opérateur](../04-exploitation/ontogenese.md) et
+[ADR 0334](../adr/0334-ontogenese-pilotage-reprise-et-retention.md).
+Le statut global reste partiel pour les garanties OS, le fournisseur externe et les
+validations indépendantes ; ces raccords ne les présentent pas comme acquis.

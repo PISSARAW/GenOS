@@ -118,6 +118,9 @@ async function dispatchTask(db, ctx, harness) {
   if (!canAdmit(ctx, reservationMb)) return { state: ctx.project.state, note: 'enveloppe-insuffisante' };
   await ctx.fence();
   const workspace = await harness.prepare(ctx.project);
+  await ctx.fence();
+  const control = await db.get('SELECT mode FROM ontogenesis_control WHERE project_id = ?', [ctx.project.id]);
+  if (control?.mode !== 'running') return { state: ctx.project.state, note: 'controle-modifie-avant-dispatch' };
   const task = ctx.selection.task;
   const input = { id: `onto_run_${randomUUID()}`, projectId: ctx.project.id, taskId: task.id,
     ...workspace, topology: selection.topology, variant: selection.variant, reservationMb,

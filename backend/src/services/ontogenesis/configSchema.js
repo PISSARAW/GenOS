@@ -5,6 +5,8 @@
  * Pur et déterministe : aucune E/S, aucun élargissement implicite.
  */
 
+const { validateExecutionConfig } = require('./configValidation');
+
 const CONFIG_VERSION = 1;
 const DEFAULT_BRANCH = 'codex/ontogenesis';
 
@@ -32,6 +34,10 @@ function checkBudgets(config, errors) {
   if (!Number.isFinite(budgets.tokens) || !(budgets.tokens > 0)) errors.push('budgets.tokens-positif-requis');
   if (!Number.isFinite(budgets.usd) || !(budgets.usd >= 0)) errors.push('budgets.usd-negatif-interdit');
   if (!Number.isFinite(budgets.seconds) || !(budgets.seconds > 0)) errors.push('budgets.seconds-positif-requis');
+  checkCollections(config, errors);
+}
+
+function checkCollections(config, errors) {
   if (config.topologies !== undefined && !Array.isArray(config.topologies)) {
     errors.push('topologies-tableau-requis');
   }
@@ -85,6 +91,7 @@ function validateProjectConfig(input) {
   checkCore(config, errors);
   checkAuthority(config, errors);
   checkExecution(config, errors);
+  validateExecutionConfig(config, errors);
   return { ok: errors.length === 0, errors, config };
 }
 

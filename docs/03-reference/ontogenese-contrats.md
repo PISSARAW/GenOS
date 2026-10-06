@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : contrats stables V1
-- **Dernière revue** : 2026-10-05
+- **Dernière revue** : 2026-10-06
 
 Référence des contrats persistants et comportementaux de l'Ontogenèse (ADR 0235).
 Sources : `backend/src/db/migrations/migrateOntogenesis.js` (migration 086),
@@ -20,7 +20,11 @@ Le raccord détaillé des concepts philosophiques est documenté séparément da
 
 ## 1. Tables `ontogenesis_*`
 
-12 tables. Migrations idempotentes (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`).
+Les 12 tables fondatrices ci-dessous viennent des migrations 086 et 088.
+Les extensions ajoutent notamment `ontogenesis_execution`, `ontogenesis_pressure`,
+`ontogenesis_spend`, les échéances, questions, canaux, hôtes et résumés : consulter
+les migrations `migrateOntogenesis*` pour leurs colonnes complètes.
+Les créations de tables et d'index sont idempotentes.
 Toutes les tables métier portent `project_id TEXT NOT NULL REFERENCES ontogenesis_projects(id) ON DELETE CASCADE`
 (sauf `ontogenesis_projects` elle-même et `ontogenesis_claims`, dont la clé primaire est `project_id` sans FK déclarée).
 
@@ -64,8 +68,8 @@ Colonnes et contraintes `CHECK` (recopie exacte des migrations) :
 | --- | --- | --- |
 | `version` | `1` | doit égaler `CONFIG_VERSION`, sinon `version-inconnue` |
 | `branch` | `'codex/ontogenesis'` | chaîne non vide requise, sinon `branch-requise` |
-| `budgets` | `{ tokens: 140000, usd: 1, seconds: 120 }` | objet requis sinon `budgets-requis` ; `tokens > 0` sinon `budgets.tokens-positif-requis` ; `seconds > 0` sinon `budgets.seconds-positif-requis` (`usd` non validé) |
-| `topologies` | `['trinity']` | non validé par `validateProjectConfig` |
+| `budgets` | `{ tokens: 140000, usd: 1, seconds: 120 }` | objet requis sinon `budgets-requis` ; `tokens > 0` sinon `budgets.tokens-positif-requis` ; `seconds > 0` sinon `budgets.seconds-positif-requis` (`tokens` et `seconds` finis positifs ; `usd` fini non négatif) |
+| `topologies` | `['trinity']` | liste non vide de noms connus ; `topologies-non-vides-requises` ou `topologie-inconnue` |
 | `memory` | `{ envelopeMb: 2048, reserveMb: 512 }` | objet requis sinon `memory-requis` ; `envelopeMb > 0` sinon `memory.envelopeMb-positif-requis` ; `reserveMb >= 0` sinon `memory.reserveMb-negatif-interdit` ; `reserveMb < envelopeMb` sinon `memory.reserve-inferieure-enveloppe` |
 | `allowPush` | `false` | `true` interdit : `allowPush-interdit-par-defaut` |
 | `allowMerge` | `false` | `true` interdit : `allowMerge-interdit-par-defaut` |
@@ -107,17 +111,19 @@ seul cet état autorise un réveil automatique ; la pause manuelle est persistan
 `claimService.js` : un seul détenteur par projet (PK `project_id` sur `ontogenesis_claims`).
 Entrée : `{ projectId, owner, ttlMs }`, TTL par défaut `60000` ms (`claimTtl`).
 
-| Opération | Sémantique exacte |
+| Opération | Sémantique |
 | --- | --- |
-| Acquisition | `INSERT` ; en cas d'échec (ligne existante), repli sur `renewIfExpired` |
-| Renouvellement (même `owner`) | `UPDATE` avec `operation_id = 'renewed:${Date.now()}'`, nouvelle `expires_at` ; retour `{ acquired: true, operationId, renewed: true }` |
-| Vol après expiration (`owner` différent, `expires_at <= datetime('now')`) | `UPDATE ... WHERE project_id = ? AND expires_at <= datetime('now')` avec `operation_id = '${owner}:${Date.now()}'` ; retour `{ acquired: true, operationId, stolen: true }`, sinon `{ acquired: false, reason: 'claim-actif' }` |
-| Ligne absente au renouvellement | `{ acquired: false, reason: 'claim-concurrent' }` |
-| Libération | `DELETE FROM ontogenesis_claims WHERE project_id = ? AND owner = ?` |
+| Acquisition | Insertion avec un UUID frais ; une contrainte de concurrence conduit à vérifier la ligne existante. |
+| Claim actif | Refus `claim-actif`, même pour le même propriétaire ; aucune réentrée implicite. |
+| Vol après expiration | Mise à jour conditionnée par `julianday(expires_at) <= julianday('now')` et nouveau UUID. |
+| Renouvellement | `extendClaim` conserve l'UUID et exige propriétaire, opération et expiration encore valide ; sinon `claim-perdu`. |
+| Libération | Suppression conditionnée par projet, propriétaire et opération. |
 
-Format des identifiants : création `${owner}:${Date.now()}`, renouvellement `renewed:${Date.now()}`.
-Expiration : `String(row.expires_at) <= new Date().toISOString()` (comparaison ISO).
-`operation_id` idempotent contre les doubles dispatchs.
+Le tick utilise un TTL de 120 secondes et un heartbeat toutes les 10 secondes.
+La compilation de mission a lieu avant le claim ; sa configuration est relue
+sous claim avant utilisation. Les effets d'exécution et d'intégration conservent
+le contrôle de fencing. Un calcul synchrone ne constitue pas une garantie de
+renouvellement temps réel du lease.
 
 ## 5. Inbox, événements, mémoire, notifications, approbations
 
@@ -138,7 +144,7 @@ préfixes d'identifiants `inbox_`, `evt_`, `mem_`, `notif_`, `appr_` + `crypto.r
 `recordMemory` et `notify` lèvent respectivement `memory-kind-invalide` et
 `notification-kind-invalide` sur kind inconnu.
 Listes pendantes triées par `created_at ASC` ; `markInbox` / `markNotified` mettent à jour
-le statut sans validation ; `consumeEvent` fixe `consumed = 1`.
+le statut (`markNotified` valide les statuts connus) ; `consumeEvent` fixe `consumed = 1`.
 
 Vue d'activité (`activityView.js`, pure) : `summarizeBacklog` compte
 `total/todo/doing/blocked/done` ; `summarizeRuns` compte `total/running/verified/unverified/failed` ;
@@ -276,7 +282,11 @@ attestation `integrated`. Voir la
 ## 9. CLI opérateur
 
 `backend/bin/genos-ontogenesis.cjs`.
-Usage : `node backend/bin/genos-ontogenesis.cjs <init|start|status|pause|resume|stop|autostart|prune> [options]`.
+Usage : `node backend/bin/genos-ontogenesis.cjs <commande> [options]`.
+Le [runbook opérateur](../04-exploitation/ontogenese.md) détaille les flags de
+`run`, `tick`, `task`, `tasks`, `message`, `priority`, `budgets`, `event`,
+`notifications`, `ack`, `schedule`, `stop-task` et `prune --artifacts`.
+`start` inscrit une intention persistante ; `run` lance le résident.
 Transport inter-processus via SQLite WAL (`ontogenesis_inbox`, `ontogenesis_events`,
 `ontogenesis_control`), jamais via le bus local du daemon.
 
@@ -318,9 +328,35 @@ Non-garanties (hors contrat) :
 - La mesure mémoire couvre la RAM physique libre et le RSS du superviseur ; une limite de heap
   Node ne couvre ni les enfants ni la mémoire native, et le bornage des processus détenus
   sous Windows (Job Objects) reste à étudier.
-- `budgets.usd` est stocké par défaut (`1`) mais non validé ; `topologies` n'est pas validé
-  par `validateProjectConfig`.
-- `markInbox` / `markNotified` n'appliquent aucune validation de statut côté service ;
-  seuls les `CHECK` SQL bornent les valeurs.
+- Les budgets sont des enveloppes et leur clôture est conservatrice ; ils ne constituent
+  pas une mesure indépendante des coûts facturés par un fournisseur.
+- `markInbox` reste une primitive interne ; les `CHECK` SQL bornent les valeurs.
+  `markNotified` refuse les statuts inconnus côté service.
 - `resolveVariant` replie silencieusement vers `default` (avec note de rationale) si la
   variante est indisponible ou si le catalogue est inaccessible.
+
+## 11. Pilotage et reprise (ADR 0334)
+
+Les messages en attente sont sélectionnés par lots de 100, puis appliqués chacun dans une transaction,
+avec provenance : priorité dans le même projet ou préférence opérateur. Une
+entrée invalide est rejetée ; une erreur SQLite annule le message courant et le conserve en attente. Le contexte
+worker reçoit les 20 dernières entrées de mémoire, bornées en taille.
+
+Les révisions de budget exigent une raison, aucune exécution active et aucun
+claim actif ; elles conservent les dépenses cumulées. Le réveil d'une attente
+opérateur emploie `user_reply`. Les événements déjà observés sont acquittés
+pour éviter qu'une ancienne réponse réveille une attente ultérieure.
+
+Une exécution persistée est rapprochée de l'état projet après redémarrage.
+La pause conserve les candidats terminés ou vérifiés ; l'arrêt d'une tâche
+annule son exécution avant promotion. Les erreurs worker explicitement
+réessayables sont bornées à trois tentatives ; une vérification refusée exige
+une intervention. La clôture d'échec, le compteur, la mémoire et les dépenses
+partagent une transaction SQLite.
+
+La rétention d'artefacts ne sélectionne que les exécutions terminales anciennes.
+Une capsule est supprimée uniquement dans l'espace géré, sans lien symbolique,
+avec empreinte vérifiée persistée inchangée. Les capsules modifiées ou sans
+preuve sont conservées ; les reçus, SHA et dépenses restent en base.
+
+Voir [ADR 0334](../adr/0334-ontogenese-pilotage-reprise-et-retention.md).

@@ -15,6 +15,8 @@ const { listTasks, getProject } = require('./projectStore');
 const { sampleMemory } = require('./memoryPressure');
 const { buildActivity } = require('./activityView');
 
+const { withTransaction } = require('../../db');
+
 const MODES = ['running', 'paused', 'stopping', 'stopped', 'sleeping_resource', 'waiting_input'];
 
 function isMode(value) {
@@ -27,6 +29,9 @@ async function getControl(db, projectId) {
 
 async function setMode(db, input) {
   if (!isMode(input.mode)) throw new Error('mode-inconnu');
+  const project = await getProject(db, input.projectId);
+  if (!project) throw new Error('projet-introuvable');
+  if (project.state === 'STOPPED' && input.mode === 'running') throw new Error('projet-arrete');
   await db.run(
     `UPDATE ontogenesis_control SET mode = ?, reason = ?, updated_at = datetime('now') WHERE project_id = ?`,
     [input.mode, input.reason || '', input.projectId]
@@ -34,23 +39,31 @@ async function setMode(db, input) {
 }
 
 async function pauseProject(db, input) {
-  await setMode(db, { projectId: input.projectId, mode: 'paused', reason: input.reason });
-  await postInbox(db, { projectId: input.projectId, kind: 'system', body: `pause:${input.reason || ''}` });
+  return withTransaction(db, async () => {
+    await setMode(db, { projectId: input.projectId, mode: 'paused', reason: input.reason });
+    await postInbox(db, { projectId: input.projectId, kind: 'system', body: `pause:${input.reason || ''}` });
+  });
 }
 
 async function resumeProject(db, input) {
-  await setMode(db, { projectId: input.projectId, mode: 'running', reason: '' });
-  await postEvent(db, { projectId: input.projectId, type: 'wake', payload: { reason: 'reprise-operateur' } });
+  return withTransaction(db, async () => {
+    await setMode(db, { projectId: input.projectId, mode: 'running', reason: '' });
+    await postEvent(db, { projectId: input.projectId, type: 'user_reply', payload: { reason: 'reprise-operateur' } });
+  });
 }
 
 async function stopProject(db, input) {
-  await setMode(db, { projectId: input.projectId, mode: 'stopping', reason: input.reason });
-  await postInbox(db, { projectId: input.projectId, kind: 'stop', body: input.reason || '' });
+  return withTransaction(db, async () => {
+    await setMode(db, { projectId: input.projectId, mode: 'stopping', reason: input.reason });
+    await postInbox(db, { projectId: input.projectId, kind: 'stop', body: input.reason || '' });
+  });
 }
 
 async function startProject(db, input) {
-  await setMode(db, { projectId: input.projectId, mode: 'running', reason: '' });
-  await postEvent(db, { projectId: input.projectId, type: 'wake', payload: { reason: 'demarrage-operateur' } });
+  return withTransaction(db, async () => {
+    await setMode(db, { projectId: input.projectId, mode: 'running', reason: '' });
+    await postEvent(db, { projectId: input.projectId, type: 'user_reply', payload: { reason: 'demarrage-operateur' } });
+  });
 }
 
 async function readRuns(db, projectId) {
@@ -124,7 +137,8 @@ async function getStatusView(db, input) {
 }
 
 function cutoffFor(olderThanDays) {
-  const count = Number.isInteger(olderThanDays) && olderThanDays >= 0 ? olderThanDays : 30;
+  const count = olderThanDays ?? 30;
+  if (!Number.isSafeInteger(count) || count < 0) throw new Error('retention-invalide');
   return `-${count} days`;
 }
 

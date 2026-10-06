@@ -56,7 +56,7 @@ function saveAutostartConfig(values) {
 function batContent(projectId) {
   if (!/^[A-Za-z0-9_-]+$/.test(projectId)) throw new Error('projectId-invalide');
   const escaped = projectId.replace(/"/g, '""');
-  return `@echo off\r\ncd /d "${repoRoot()}"\r\nnode "backend\\bin\\genos-ontogenesis.cjs" status --project "${escaped}" --json > NUL 2>&1\r\nif %errorlevel% neq 0 exit /b 1\r\nfor /f "tokens=2 delims=:" %%a in ('node "backend\\bin\\genos-ontogenesis.cjs" status --project "${escaped}" --json ^| findstr /c:"control"') do set CTRL=%%a\r\nset CTRL=%CTRL:\"=%\r\nset CTRL=%CTRL: =%\r\nif "%CTRL%"=="paused" exit /b 0\r\nif "%CTRL%"=="stopping" exit /b 0\r\nif "%CTRL%"=="stopped" exit /b 0\r\nstart "" /min "${process.execPath}" "backend\\bin\\genos-ontogenesis.cjs" run --project "${escaped}"\r\n`;
+  return `@echo off\r\ncd /d "${repoRoot()}"\r\nnode "backend\\bin\\genos-ontogenesis.cjs" status --project "${escaped}" --json > NUL 2>&1\r\nif %errorlevel% neq 0 exit /b 1\r\nfor /f "tokens=2 delims=:" %%a in ('node "backend\\bin\\genos-ontogenesis.cjs" status --project "${escaped}" --json ^| findstr /c:"control"') do set CTRL=%%a\r\nset CTRL=%CTRL:\"=%\r\nset CTRL=%CTRL: =%\r\nset CTRL=%CTRL:,=%\r\nif "%CTRL%"=="paused" exit /b 0\r\nif "%CTRL%"=="stopping" exit /b 0\r\nif "%CTRL%"=="stopped" exit /b 0\r\nstart "" /min "${process.execPath}" "backend\\bin\\genos-ontogenesis.cjs" run --project "${escaped}"\r\n`;
 }
 
 function batPath(directory) {

@@ -2,7 +2,7 @@
 
 /**
  * Interface opérateur de l'Ontogenèse (ADR 0235 §7).
- * Usage : node backend/bin/genos-ontogenesis.cjs <init|start|status|pause|resume|stop|autostart|prune> [--project ID] [...]
+ * Usage : node backend/bin/genos-ontogenesis.cjs <init|start|status|pause|resume|stop|run|tick|task|tasks|message|priority|budgets|event|notifications|ack|autostart|prune> [--project ID] [...]
  * Le transport entre processus passe par SQLite WAL (inbox, événements,
  * contrôle), jamais par le bus local du daemon.
  */
@@ -31,14 +31,21 @@ function flags(argv) {
 }
 
 function usage() {
-  console.log('Usage: genos-ontogenesis.cjs <init|start|status|pause|resume|stop|autostart|prune> [options]');
+  console.log('Usage: genos-ontogenesis.cjs <init|start|status|pause|resume|stop|run|tick|task|tasks|message|priority|budgets|event|notifications|ack|schedule|stop-task|autostart|prune> [options]');
   console.log('  init --root DIR [--branch B] [--objective TXT] [--project ID]');
   console.log('  start|status|pause|resume|stop --project ID [--reason TXT]');
   console.log('  autostart --on|--off [--project ID]');
-  console.log('  prune --project ID [--days N]');
   console.log('  status [--json]');
   console.log('  run --project ID [--interval-ms N] [--max-ticks N]');
   console.log('  tick --project ID');
+  console.log('  task --project ID --title TXT [--priority N] [--depends JSON] [--acceptance JSON]');
+  console.log('  tasks|notifications --project ID');
+  console.log('  message --project ID --body TXT');
+  console.log('  priority --project ID --task ID --priority N');
+  console.log('  budgets --project ID --tokens N --usd N --seconds N --reason TXT');
+  console.log('  event --project ID --type TYPE [--payload JSON]');
+  console.log('  ack --project ID --notification ID');
+  console.log('  prune --project ID [--days N] [--artifacts]');
 }
 
 function printStatus(view, asJson) {
@@ -100,6 +107,10 @@ async function runPrune(db, options) {
   if (!options.project) throw new Error('--project requis');
   const result = await control.pruneHistory(db, { projectId: options.project, olderThanDays: Number(options.days || 30) });
   console.log(`purge:evenements=${result.events} notifications=${result.notifications}`);
+  if (options.artifacts) {
+    const { pruneArtifacts } = require('../src/services/ontogenesis/retentionService');
+    console.log(JSON.stringify(await pruneArtifacts(db, { projectId: options.project, olderThanDays: Number(options.days ?? 30) })));
+  }
 }
 
 async function runTick(db, options) {
@@ -109,39 +120,22 @@ async function runTick(db, options) {
   console.log(JSON.stringify(outcome));
 }
 
-function sleepMs(duration) {
-  return new Promise((resolve) => { setTimeout(resolve, duration); });
-}
-
 async function runLoop(db, options) {
   if (!options.project) throw new Error('--project requis');
-  const { tickOnce } = require('../src/services/ontogenesis/tickService');
-  const interval = Number(options['interval-ms'] || 5000);
-  const max = Number(options['max-ticks'] || 0);
-  let count = 0;
-  let stopped = false;
-  const harness = createRuntimeHarness(db);
-  const signalStop = () => { stopped = true; };
+  const { runResidentLoop } = require('../src/services/ontogenesis/residentLoopService');
+  const controller = new AbortController();
+  const signalStop = () => controller.abort();
   process.once('SIGTERM', signalStop);
   process.once('SIGINT', signalStop);
-  while (continueLoop(stopped, count, max)) {
-    const outcome = await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}`, harness });
-    count += 1;
-    console.log(`tick:${count} ${JSON.stringify(outcome)}`);
-    if (outcome.state === 'STOPPED') break;
-    if (max !== 0 && count >= max) break;
-    await sleepMs(interval);
+  try {
+    await runResidentLoop(db, { projectId: options.project, owner: `cli:${process.pid}`,
+      harness: createRuntimeHarness(db), signal: controller.signal,
+      intervalMs: options['interval-ms'], maxTicks: options['max-ticks'] },
+    { onChange: (outcome) => console.log(JSON.stringify(outcome)) });
+  } finally {
+    process.removeListener('SIGTERM', signalStop);
+    process.removeListener('SIGINT', signalStop);
   }
-  process.removeListener('SIGTERM', signalStop);
-  process.removeListener('SIGINT', signalStop);
-  if (stopped) {
-    await control.stopProject(db, { projectId: options.project, reason: 'signal-operateur' });
-    await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}`, harness });
-  }
-}
-
-function continueLoop(stopped, count, max) {
-  return !stopped && (max === 0 || count < max);
 }
 
 async function runStopTask(db, options) {
@@ -162,6 +156,7 @@ async function runSchedule(db, options) {
 }
 
 const DB_COMMANDS = {
+  ...require('../src/services/ontogenesis/operatorCli.cjs'),
   init: runInit,
   prune: runPrune,
   tick: runTick,

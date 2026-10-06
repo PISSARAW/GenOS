@@ -11,6 +11,9 @@ const NOTIFICATION_KINDS = ['result', 'blocked', 'decision_needed'];
 
 async function notify(db, note) {
   if (!NOTIFICATION_KINDS.includes(note.kind)) throw new Error('notification-kind-invalide');
+  const payload = JSON.stringify(note.payload || {});
+  const existing = await db.get("SELECT id FROM ontogenesis_notifications WHERE project_id = ? AND kind = ? AND payload_json = ? AND status = 'pending' LIMIT 1", [note.projectId, note.kind, payload]);
+  if (existing) return existing.id;
   const id = note.id || `notif_${crypto.randomUUID()}`;
   await db.run(
     `INSERT INTO ontogenesis_notifications (id, project_id, kind, payload_json)

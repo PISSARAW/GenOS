@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { withTransaction } = require('../../db');
 
 /**
  * Persistance des projets et du backlog (ADR 0235).
@@ -12,6 +13,10 @@ function newId(prefix) {
 }
 
 async function createProject(db, project) {
+  return withTransaction(db, () => insertProject(db, project));
+}
+
+async function insertProject(db, project) {
   const id = project.id || newId('onto');
   await db.run(
     `INSERT INTO ontogenesis_projects
