@@ -60,10 +60,14 @@ function pruneDatabaseBackups(resolvedDbPath) {
     console.warn('[DB] Backup pruning failed (continuing boot):', error.message);
   }
 }
+function normalizedDbPath(value) {
+  return value === ':memory:' ? value : path.resolve(value);
+}
+
 async function getDatabase(dbFilePath) {
   assertControlPlaneBackendSelection();
   if (dbFilePath) {
-    const targetPath = path.resolve(dbFilePath);
+    const targetPath = normalizedDbPath(dbFilePath);
     process.env.GENOS_DB_PATH = targetPath;
     if (dbInstance) {
       if (currentDbPath === targetPath) {
@@ -81,7 +85,7 @@ async function getDatabase(dbFilePath) {
     storage.ensureDirs();
     defaultPath = storage.FILES.sqlite;
   }
-  const filename = dbFilePath ? path.resolve(dbFilePath) : path.resolve(defaultPath);
+  const filename = dbFilePath ? normalizedDbPath(dbFilePath) : normalizedDbPath(defaultPath);
   // Requests may reach the backend while it is still bootstrapping.  Reuse the
   // same connection/bootstrap promise instead of running two seed passes in
   // parallel inside one Node process.  A pending init for a *different* path
