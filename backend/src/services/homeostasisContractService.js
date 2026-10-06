@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { isDeepStrictEqual } = require('node:util');
 
 const HOMEOSTASIS_SCHEMA = 'genos.homeostasis/v1alpha1';
 
@@ -25,13 +26,13 @@ const VERIFIER_CATALOG = Object.freeze({
   },
   'context.path_equals': {
     description: 'Deep equality on a context path (spec.path against spec.expected)',
-    build: (spec) => (ctx) => resolvePath(ctx, spec.path) === spec.expected
+    build: (spec) => (ctx) => isDeepStrictEqual(resolvePath(ctx, spec.path), spec.expected)
   },
   'context.list_empty': {
-    description: 'List at a context path is empty or absent',
+    description: 'List at a context path exists and is empty',
     build: (spec) => (ctx) => {
       const value = resolvePath(ctx, spec.path);
-      return Array.isArray(value) ? value.length === 0 : true;
+      return Array.isArray(value) && value.length === 0;
     }
   },
   'evidence.present': {
@@ -102,7 +103,9 @@ function buildInvariant(input = {}) {
 function buildHomeostasisContract(input = {}) {
   const { resolveHomeostasisPolicy } = require('./homeostasisPolicyService');
   const policy = resolveHomeostasisPolicy({
-    minimumFunctionalCoverage: input.minimumFunctionalCoverage
+    minimumFunctionalCoverage: input.minimumFunctionalCoverage,
+    policyVersion: input.policyVersion,
+    classCoverage: input.classCoverage
   });
   const invariants = (input.invariants || []).map(i => buildInvariant(i));
   const requiredEvidence = Array.isArray(input.requiredEvidence) ? input.requiredEvidence.slice() : [];
@@ -113,7 +116,8 @@ function buildHomeostasisContract(input = {}) {
     requiredEvidence,
     minimumFunctionalCoverage: policy.minimumFunctionalCoverage,
     policyVersion: policy.version,
-    assembledAt: new Date().toISOString()
+    classCoverage: policy.classCoverage,
+    assembledAt: input.assembledAt || new Date().toISOString()
   };
 }
 
@@ -134,6 +138,7 @@ function serializeContract(contract) {
     requiredEvidence: contract.requiredEvidence,
     minimumFunctionalCoverage: contract.minimumFunctionalCoverage,
     policyVersion: contract.policyVersion,
+    ...(contract.policyVersion === 'genos.homeostasis-policy/v2' ? { classCoverage: contract.classCoverage } : {}),
     assembledAt: contract.assembledAt
   };
 }
@@ -146,6 +151,7 @@ function deserializeContract(payload = {}) {
     requiredEvidence: payload.requiredEvidence,
     minimumFunctionalCoverage: payload.minimumFunctionalCoverage,
     policyVersion: payload.policyVersion,
+    classCoverage: payload.classCoverage,
     assembledAt: payload.assembledAt
   });
 }
@@ -155,7 +161,7 @@ function evaluateInvariant(invariant, context) {
   let evaluation = null;
   try {
     evaluation = invariant.check(context);
-    satisfied = Boolean(evaluation);
+    satisfied = evaluation === true;
   } catch (error) {
     evaluation = { error: error.message || String(error) };
     satisfied = false;
@@ -180,10 +186,11 @@ function evaluateContract(contract, context) {
   const results = contract.invariants.map(inv => evaluateInvariant(inv, context));
   const evidence = evaluateRequiredEvidence(contract, context);
   const functionalSatisfied = results.filter(r => r.invariant.kind === FUNCTIONAL && r.satisfied).length;
-  const functionalRequired = contract.invariants.filter(i => i.kind === FUNCTIONAL).length || 1;
-  const functionalRatio = functionalSatisfied / functionalRequired;
+  const functionalRequired = contract.invariants.filter(i => i.kind === FUNCTIONAL).length;
+  const functionalRatio = functionalRequired ? functionalSatisfied / functionalRequired : 1;
   const totalSatisfied = results.filter(r => r.satisfied).length;
-  const invariantsSatisfied = results.length > 0 && totalSatisfied === results.length;
+  const classCoverage = evaluateClassCoverage(contract, results);
+  const invariantsSatisfied = results.length > 0 && Object.values(classCoverage).every(item => item.met);
   return {
     schema: HOMEOSTASIS_SCHEMA,
     policyVersion: contract.policyVersion,
@@ -197,6 +204,7 @@ function evaluateContract(contract, context) {
     functionalRatio,
     functionalMinCoverageMet: functionalRatio >= contract.minimumFunctionalCoverage,
     evidence,
+    classCoverage,
     classSatisfaction: {
       functional: results.filter(r => r.invariant.kind === FUNCTIONAL && r.satisfied).length,
       structural: results.filter(r => r.invariant.kind === STRUCTURAL && r.satisfied).length,
@@ -217,9 +225,20 @@ function homeostasisStatus(result) {
   if (!result || typeof result !== 'object') return 'unknown';
   if (result.homeostasisSatisfied) return 'homeostasis_satisfied';
   if (!result.evidence.satisfied) return 'evidence_missing';
+  if (result.classCoverage?.safety.met === false) return 'unsafe';
   if (result.functionalMinCoverageMet) return 'partially_stable';
-  if (result.classSatisfaction.safety < result.classSatisfaction.functional) return 'unsafe';
   return 'unstable';
+}
+
+function evaluateClassCoverage(contract, results) {
+  return Object.fromEntries(INVARIANT_CLASSES.map(kind => {
+    const required = results.filter(item => item.invariant.kind === kind);
+    const satisfied = required.filter(item => item.satisfied).length;
+    const ratio = required.length ? satisfied / required.length : 1;
+    const threshold = contract.policyVersion === 'genos.homeostasis-policy/v1'
+      ? 1 : contract.classCoverage[kind];
+    return [kind, { required: required.length, satisfied, ratio, threshold, met: ratio >= threshold }];
+  }));
 }
 
 module.exports = {
