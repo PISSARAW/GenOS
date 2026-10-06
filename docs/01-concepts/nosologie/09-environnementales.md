@@ -1,6 +1,6 @@
 # Nosologie 9 : Maladies Environnementales et Professionnelles dans GenOS
 
-> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+> **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
 
 ## 1. Introduction & Cadre Nosologique Environnemental
 
