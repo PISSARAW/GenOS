@@ -97,6 +97,8 @@ function createChildContext(parentContext, node, options = {}) {
     graphId: parentContext.graphId,
     nodeId: node.nodeId,
     parentExecutionId: parentContext.executionId,
+    capabilityDb: parentContext.capabilityDb,
+    statisticalContracts: parentContext.statisticalContracts,
     budget: allocateBudget(parentContext.budget, budgetFraction),
     authority: applyAuthorityBoundary(parentContext, node.authorityBoundary),
     state: isolated ? { ...parentContext.state } : parentContext.state,

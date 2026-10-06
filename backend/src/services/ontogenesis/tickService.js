@@ -23,6 +23,7 @@ const { expireDue } = require('./questionService');
 const { reviewAction } = require('./reviewPolicy');
 const { ensureDispatchRitual } = require('./ritualService');
 const { dueSchedules, markScheduleRan } = require('./scheduleService');
+const residentProbes = require('../morphogenesis/capabilities/residentProbeRuntime');
 const { ensureTables } = require('./executionStore');
 const { budgetState, memoryState } = require('./resourceGuard');
 const { dispatchTask } = require('./dispatchService');
@@ -58,12 +59,24 @@ function doingOf(tasks) {
 }
 
 async function fireDue(db, projectId, nowMs) {
-  const due = await dueSchedules(db, { projectId });
+  nowMs = nowMs ?? Date.now();
+  let probeCount = 0;
+  let fired = 0;
+  const due = await dueSchedules(db, { projectId, nowIso: new Date(nowMs).toISOString() });
   for (const row of due) {
+    const spec = JSON.parse(row.spec_json || '{}');
+    if (spec.policy === 'chronotaxis') {
+      if (probeCount >= 32) continue;
+      probeCount++;
+      const result = await residentProbes.dispatch(db, { row, nowMs });
+      if (!result.skipped && !result.deferred) fired++;
+      continue;
+    }
     await postEvent(db, { projectId, type: eventForSchedule(row.kind), payload: schedulePayload(row) });
     await markScheduleRan(db, { id: row.id, nowMs });
+    fired++;
   }
-  return due.length;
+  return fired;
 }
 
 async function loadContext(db, input) {
@@ -239,17 +252,7 @@ async function tickOnce(db, input) {
     const tasks = await listTasks(db, input.projectId);
     await compileEmptyBacklog(db, project, tasks);
     const ctx = await loadContext(db, input);
-    ctx.mission = compileMission(ctx.project);
-    ctx.mission.developmentalContext = await compileDevelopmentalContext(db, ctx.project);
-    ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
-      (capability) => ctx.mission.capabilities.includes(capability)
-    );
-    if (ctx.mission.morphology.selectedTopology) {
-      ctx.config.topologies = [ctx.mission.morphology.selectedTopology];
-    }
-    ctx.mission.plan = buildMissionCapabilityPlan({
-      project: ctx.project, task: ctx.selection.task || {}, mission: ctx.mission, config: ctx.config
-    });
+    await attachMissionContext(db, ctx);
     const blocked = await blockInvalidMission(db, ctx);
     if (blocked) return blocked;
     ctx.fence = fence;
@@ -266,3 +269,17 @@ async function tickOnce(db, input) {
 }
 
 module.exports = { tickOnce };
+
+async function attachMissionContext(db, ctx) {
+  ctx.mission = compileMission(ctx.project);
+  ctx.mission.developmentalContext = await compileDevelopmentalContext(db, ctx.project);
+  ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
+    (capability) => ctx.mission.capabilities.includes(capability)
+  );
+  if (ctx.mission.morphology.selectedTopology) {
+    ctx.config.topologies = [ctx.mission.morphology.selectedTopology];
+  }
+  ctx.mission.plan = buildMissionCapabilityPlan({
+    project: ctx.project, task: ctx.selection.task || {}, mission: ctx.mission, config: ctx.config
+  });
+}

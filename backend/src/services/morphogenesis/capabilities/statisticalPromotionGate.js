@@ -13,4 +13,9 @@ async function evaluate(db, contract) {
   }
 }
 
-module.exports = { evaluate };
+async function evaluateForNode(db, input) {
+  const inherited = await require('./riskLineage').promotion(db, input);
+  return inherited.applied ? inherited : evaluate(db, input.contract);
+}
+
+module.exports = { evaluate, evaluateForNode };

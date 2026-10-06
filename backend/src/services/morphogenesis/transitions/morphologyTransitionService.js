@@ -54,6 +54,7 @@ async function executeStages(context, adapters) {
     const comparison = await adapters.compare(experiment, context);
     const gate = await adapters.promotionGate(comparison, patch);
     if (!gate || gate.passed !== true) throw new Error('morphology promotion gate rejected the patch');
+    await statisticalGate(context);
     const applied = await adapters.applyPatch(branch, patch);
     const verification = await adapters.verify(applied, patch);
     if (!verification || verification.valid !== true) throw new Error('morphology patch verification failed');
@@ -77,3 +78,14 @@ async function transitionMorphology(context, adapters) {
 }
 
 module.exports = { TRANSITION_STAGES, transitionMorphology };
+
+async function statisticalGate(context) {
+  if (!context.db) {
+    if (context.statisticalContract) throw new Error('STATISTICAL_LEDGER_REQUIRED');
+    return;
+  }
+  const result = await require('../capabilities/statisticalPromotionGate').evaluateForNode(context.db, {
+    nodeId: context.graph.rootNodeId, contract: context.statisticalContract
+  });
+  if (!result.allowed) throw new Error(result.reason);
+}

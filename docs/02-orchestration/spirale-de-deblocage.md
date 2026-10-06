@@ -1,125 +1,124 @@
-# Spirale de déblocage — changer de méthode et de périmètre avec preuve
+# Spirale de déblocage — élargir des interventions vérifiées
 
-- **Statut** : Partiel — historique vérifié, refus des doublons et progression bornée persistante implémentés ; pilotage d'une mission entière à faire.
-- **Portée** : recherches et corrections qui stagnent après des tentatives observables.
-- **Dernière revue** : 2026-10-04.
+- **Statut** : planification, exécution avec restauration et recherche intégrées au backend.
+- **Portée** : recherche contrefactuelle sous budget et autorité explicites.
+- **Dernière revue** : 2026-10-06.
 
 ## 1. Domaine et objectif
 
-Une nouvelle formulation de prompt ne constitue pas toujours une nouvelle
-tentative. La spirale exige une différence opérationnelle : autre famille
-d'intervention, autre échelle admissible ou nouvelle preuve. Elle garde les
-petits changements prioritaires tant qu'ils restent plausibles et autorisés.
+Répéter une intervention sous un autre nom ne débloque pas une recherche.
+La spirale garde la mémoire des essais, préfère une intervention distincte
+dans le voisinage courant, puis élargit ce voisinage après des échecs vérifiés.
+Un succès vérifié permet de repartir au voisinage local.
 
-L'objectif est de sortir d'une impasse sans transformer systématiquement une
-correction locale en refonte d'architecture.
+L'échelle désigne une portée concrète déclarée par l'appelant : paramètre,
+outil, procédure, architecture ou environnement. L'élargissement ne confère
+aucune permission supplémentaire et n'efface aucune dépense.
 
-## 2. Contrat et modèle logique
+## 2. Contrat et invariants
 
-Une tentative déclarée contient `initialState`, `hypothesis`, `family`,
-`scale`, `evidenceRefs`, et éventuellement `replicationOf` avec
-`independentVerifierId`. La signature SHA-256 du tuple canonique permet de
-repérer la répétition exacte, y compris si le texte environnant varie.
+Un candidat porte une intervention, ses outils, contraintes, preuves,
+échelle et `verifierId`. Sa signature canonique inclut l'intervention.
+Les changements de libellé ne créent pas une intervention nouvelle.
+Une réplication désigne l'essai original et un autre vérificateur ; plusieurs
+réplications par le même vérificateur ne comptent pas comme indépendantes.
 
-Les échelles reconnues, dans l'ordre, sont `parameter`, `function`, `module`,
-`dependency`, `architecture`, `problem`. `maxScaleIndex` borne ce que le
-contrôleur peut proposer. Ce paramètre **ne confère pas une autorisation** de
-modifier le périmètre correspondant.
+L'ordre historique utilise l'ordre d'insertion SQLite, même quand les IDs
+ou les horodatages ont le même préfixe. Les preuves doivent rester résolubles.
+Un essai inachevé ou devenu invérifiable bloque la progression.
 
-```text
-distinct(x, historique) = réplication indépendante déclarée
-  OU [signature(x) inédite ET
-      (famille changée OU échelle changée OU preuve nouvelle)]
-```
+## 3. Algorithme
 
-Parmi les candidats distincts et bornés, le service choisit la plus petite
-échelle. L'ordre ne prétend pas résoudre l'optimisation globale du coût.
+`scaleLimit` compte les échecs consécutifs vérifiés au niveau courant.
+Le seuil configurable ouvre la prochaine échelle ; les échecs d'une ancienne
+échelle ne justifient pas plusieurs élargissements successifs. `planNext`
+écarte les signatures déjà tentées et celles qui dépassent la portée autorisée.
+La suite de rayons peut utiliser φ ; les gates reposent sur les preuves.
 
-## 3. Inspiration et limite géométrique
-
-La spirale logarithmique suggère un changement simultané d'orientation et de
-rayon. Dans GenOS, l'orientation correspond à la famille d'intervention et
-le rayon à l'échelle admise. L'espace des organisations est discret et n'est
-pas un plan géométrique. Le moteur courant n'utilise aucun facteur φ : le
-choix d'une progression géométrique sera comparé expérimentalement à des
-progressions plus lentes ou plus rapides.
+Un simple booléen `newEvidence` ne recentre pas la recherche. Le chemin
+opérationnel s'appuie sur les outcomes vérifiés du registre. Une nouvelle
+preuve peut recentrer via `recenterEvidenceRef` : un artefact
+`spiral-context-verification` doit lier le dernier essai, le nouvel état initial,
+le `contextVerifierId` attendu et ses preuves accessibles. La limite locale
+est rétablie et la référence est ajoutée au contrat ; ce n'est pas un succès fictif.
 
 ## 4. Architecture technique
 
 ```mermaid
 flowchart LR
-  A[Historique signé des tentatives] --> S[Filtre de distinction]
-  C[Mutations locales et globales] --> S
-  S --> L[Plus petite échelle admissible]
-  L --> T[Transition morphologique]
-  T --> G[Snapshot, comparaison, gate, vérification]
-  G --> A
+  H[Historique résolu] --> P[Plan borné]
+  C[Candidats distincts] --> P
+  P --> A[Autorisation explicite]
+  A --> S[Snapshot]
+  S --> E[Essai UNVERIFIED]
+  E --> V[Vérification liée au contrat]
+  V --> R[Trace persistée]
+  E --> X[Restauration dans finally]
 ```
 
-- [Moteur](../../backend/src/services/morphogenesis/capabilities/unblockSpiral.js) : signature, déduplication et sélection bornée.
-- [Historique persistant](../../backend/src/services/morphogenesis/capabilities/capabilityEvidenceStore.js) : table `morph_attempts`, indexée par `scopeId`.
-- [Recherche morphologique](../../backend/src/services/morphogenesis/synthesis/morphologySearchPolicy.js) : `chooseSearchScopePersisted` lit l'historique du scope, impose le plafond d'échelle et conserve la règle d'évaluation locale.
-- [Transition](../../backend/src/services/morphogenesis/transitions/morphologyTransitionService.js) : garde les étapes de snapshot, branche, comparaison, promotion et vérification.
-
-Le filtre ne supprime pas la règle existante : la recherche globale ne s'ouvre
-qu'après l'évaluation complète des mutations locales. Un candidat déjà tenté
-peut être réévalué comme réplication indépendante avec justification.
+[spiralRuntime](../../backend/src/services/morphogenesis/capabilities/spiralRuntime.js)
+coordonne le registre et les adaptateurs. `finish` recharge le contrat original,
+compare sa signature et vérifie un artefact `intervention-verification` portant
+le même vérificateur, la même signature et un statut admissible.
+[spiralSearch](../../backend/src/services/morphogenesis/synthesis/spiralSearch.js)
+branche cette exécution dans `CounterfactualSearch.search` quand `context.spiral`
+est fourni. Le résultat distingue explicitement ce mode par `verified-spiral`.
 
 ## 5. Processus d'exécution
 
-1. Enregistrer l'état initial, l'hypothèse, la famille, l'échelle et les
-   références de preuve. Un résultat `VERIFIED_FAILURE` ou `VERIFIED_SUCCESS`
-   exige un `outcomeRef` résolu ; un résultat absent reste `UNVERIFIED`.
-2. `recordAttempt` refuse dans la transaction une tentative équivalente, sauf
-   réplication avec un vérificateur indépendant distinct.
-3. `chooseSearchScopePersisted` lit le même périmètre. Deux échecs vérifiés
-   consécutifs autorisent au plus l'échelle suivante, dans la borne demandée.
-   Une preuve nouvelle ou un succès recentre la recherche locale.
-4. La proposition passe encore par les autorisations et le gate de transition
-   existants ; élargir la recherche ne confère aucune permission supplémentaire.
+1. Proposer un ensemble fini de candidats avec preuves accessibles.
+2. Résoudre l'historique, calculer la limite d'échelle, sélectionner un candidat.
+3. Obtenir l'autorisation de cette intervention auprès de la politique effective.
+4. Prendre le snapshot et enregistrer l'essai UNVERIFIED avant exécution.
+5. Vérifier l'outcome ; finaliser l'essai avec sa référence de preuve.
+6. Restaurer le snapshot, y compris si exécution, écriture ou vérification échoue.
+7. Replanifier seulement après résolution de tous les essais précédents.
+
+Les adaptateurs obligatoires sont `snapshot`, `execute`, `verify` et `restore`.
+L'autorisation est une fonction explicite, jamais déduite d'un score.
+La restauration doit être implémentée par le propriétaire de l'environnement.
 
 ## 6. Exemple
 
-Une requête lente a déjà reçu deux réécritures SQL sans mesure nouvelle.
-Répéter une troisième réécriture équivalente est refusé. Un essai d'indexation
-mesuré reste dans une petite échelle ; une modification du modèle de données
-ne devient candidate qu'une fois l'évaluation locale complète et son coût
-justifié.
+Deux modifications locales échouent sur le même test. Le seuil est atteint à
+cette échelle ; une intervention sur la procédure devient éligible. Elle ne
+peut pas modifier une infrastructure distante si cette action n'est pas autorisée.
+Un crash entre exécution et vérification laisse l'essai en attente de preuve.
 
-## 7. Validation
+## 7. Activation et reprise
 
-Le [test de contrat](../../backend/tests/test_morphogenesis_capabilities.js)
-vérifie le refus d'une répétition et le passage à un candidat distinct. Il
-teste aussi le branchement à la politique de recherche morphologique.
-Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
-exerce la persistance, le refus d'un doublon et l'ouverture après stagnation vérifiée.
+Dans le synthétiseur, fournir `db` et `spiral` avec `scopeId`, `runId`,
+`propose`, `authorize` et les adaptateurs. La boucle conserve son nombre maximal
+d'itérations. L'absence de candidat distinct renvoie un blocage explicite.
+Le CLI local expose `spiral.plan` et `spiral.finish` ; l'exécution d'une commande
+arbitraire n'est pas exposée par ces opérations.
 
-Une campagne doit séparer problèmes à solution locale et problèmes exigeant
-un changement de cadre. Mesurer le taux de déblocage, le coût jusqu'à la
-première solution valide, la part d'élargissements inutiles et les violations
-de périmètre. Comparer la politique à une recherche locale seule, à un
-élargissement systématique et à différentes progressions d'échelle.
+Pour reprendre un essai interrompu, produire une preuve liée au contrat original
+et le finaliser. Une référence nouvelle avec une signature différente est refusée.
+Une seconde finalisation identique est idempotente ; une finalisation contradictoire
+échoue. Restaurer un snapshot ne supprime pas l'historique des essais.
 
-## 8. Comparaison avec l'existant
+## 8. Validation et comparaison
 
-Biome possède déjà du foraging et des sauts de recherche. La morphogenèse
-garde déjà les mutations locales et une mémoire d'échecs. La nouvelle partie
-est le **contrat traçable de différence entre deux tentatives**, utilisable
-avant une mutation et auditable après son résultat.
+[test_capability_spiral_runtime](../../backend/tests/test_capability_spiral_runtime.js)
+exerce l'ordre d'insertion, les répétitions, l'élargissement borné, le refus
+d'autorisation, la restauration et le blocage sur interruption.
+[test_capability_integration_runtime](../../backend/tests/test_capability_integration_runtime.js)
+exerce le chemin du synthétiseur et son résultat opérationnel.
+
+Le benchmark fait varier le seuil d'élargissement sur des cibles synthétiques.
+Il compare les coûts et le taux de résolution ; il ne démontre pas que φ
+surpasse d'autres politiques. Des politiques peuvent produire le même parcours.
 
 ## 9. Limites et garde-fous
 
-- La signature détecte l'équivalence du contrat déclaré, pas toutes les
-  équivalences sémantiques possibles.
-- Le service ne choisit pas seul une nouvelle topologie et ne modifie pas les
-  permissions ; les gates d'autorité, de ressources et de preuve restent requis.
-- L'historique vérifie l'`outcomeRef` lors de l'enregistrement d'un résultat
-  déclaré vérifié ; la qualité de cette preuve dépend du résolveur fourni.
-- Un échec n'est pas une preuve que toute une famille de méthodes est épuisée.
-- L'activation reste opt-in via `attemptScopeId` et une base. Le contrôleur
-  ne pilote pas encore une mission entière ni son retour arrière.
+Une signature distingue les champs déclarés ; elle ne détecte pas toutes les
+équivalences sémantiques. Le snapshot et son confinement appartiennent au harnais.
+Les erreurs de restauration sont propagées. Un receipt n'autorise pas une action.
+Une expérience interrompue ne devient jamais un échec vérifié par expiration.
 
 ## 10. Références internes
 
-Voir [Morphogenèse](topologies/morphogenese.md), [Biome](topologies/biome.md)
-et [ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).
+Voir [Morphogenèse](topologies/morphogenese.md),
+[ADR initial](../adr/0299-capacites-transversales-morphogenese.md) et
+[ADR runtime](../adr/0332-capacites-morphogenese-runtime.md).

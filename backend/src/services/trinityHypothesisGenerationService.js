@@ -72,9 +72,7 @@ async function generate(input) {
 
 async function design(input) {
   const mission = input.normalizedMission.prompt || input.normalizedMission.currentTask || '';
-  const supplied = { ...(input.normalizedMission.trinityHypothesisDesign || {}),
-    integrationChecks: input.normalizedMission.trinityIntegrationChecks,
-    claimVerificationChecks: input.normalizedMission.trinityClaimVerificationChecks };
+  const supplied = await suppliedDesign(input);
   const base = trinityService.designHypotheses(mission, supplied);
   if (!generationRequested(supplied, base)) return base;
   try {
@@ -94,3 +92,17 @@ async function design(input) {
 }
 
 module.exports = { design };
+
+async function suppliedDesign(input) {
+  const supplied = { ...(input.normalizedMission.trinityHypothesisDesign || {}),
+    integrationChecks: input.normalizedMission.trinityIntegrationChecks,
+    claimVerificationChecks: input.normalizedMission.trinityClaimVerificationChecks };
+  const meristem = input.normalizedMission.epistemicMeristem;
+  if (meristem) {
+    const selected = await require('./morphogenesis/capabilities/trinityMeristemBridge').rankHypotheses(input.db, {
+      ...meristem, candidateHypotheses: supplied.candidateHypotheses || []
+    });
+    supplied.candidateHypotheses = selected.candidateHypotheses;
+  }
+  return supplied;
+}

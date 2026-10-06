@@ -10,8 +10,9 @@ function signature(value) {
   }
   if (!SCALES.includes(value.scale)) throw new Error('Unknown intervention scale');
   const canonical = [value.initialState, value.hypothesis, value.family, value.scale,
+    value.intervention || null,
     ...(value.evidenceRefs || []).map(String).sort()];
-  return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+  return crypto.createHash('sha256').update(JSON.stringify(require('./runtimeArtifacts').canonical(canonical))).digest('hex');
 }
 
 function hasNewEvidence(item, last) {
@@ -19,11 +20,7 @@ function hasNewEvidence(item, last) {
 }
 
 function distinct(item, context) {
-  if (item.replicationOf) {
-    return Boolean(item.independentVerifierId && item.independentVerifierId !== item.verifierId
-      && !context.attempts.some((attempt) => attempt.replicationOf === item.replicationOf
-        && attempt.independentVerifierId === item.independentVerifierId));
-  }
+  if (item.replicationOf) return validReplica(item, context.attempts);
   if (context.prior.has(signature(item))) return false;
   const last = context.last;
   return !last || item.family !== last.family || item.scale !== last.scale || hasNewEvidence(item, last);
@@ -50,7 +47,7 @@ function scaleLimit(input = {}) {
   const last = attempts.at(-1);
   if (!last) return { maxScaleIndex: Math.min(maximum, 1), reason: 'INITIAL_LOCAL_SEARCH' };
   const failures = consecutiveFailures(attempts);
-  if (last.outcomeStatus === 'VERIFIED_SUCCESS' || input.newEvidence === true) {
+  if (last.outcomeStatus === 'VERIFIED_SUCCESS') {
     return { maxScaleIndex: Math.min(maximum, 1), reason: 'RECENTER_ON_EVIDENCE' };
   }
   const current = SCALES.indexOf(last.scale);
@@ -73,11 +70,20 @@ function stagnationThreshold(value) {
 
 function consecutiveFailures(attempts) {
   let count = 0;
+  const scale = attempts.at(-1)?.scale;
   for (let index = attempts.length - 1; index >= 0; index--) {
-    if (attempts[index].outcomeStatus !== 'VERIFIED_FAILURE') break;
+    if (attempts[index].outcomeStatus !== 'VERIFIED_FAILURE' || attempts[index].scale !== scale) break;
     count++;
   }
   return count;
 }
 
 module.exports = { SCALES, signature, planNext, scaleLimit };
+
+function validReplica(item, attempts) {
+  const original = attempts.find((attempt) => attempt.attemptId === item.replicationOf);
+  return Boolean(original && item.independentVerifierId && item.verifierId === item.independentVerifierId
+    && item.independentVerifierId !== original.verifierId
+    && !attempts.some((attempt) => attempt.replicationOf === item.replicationOf
+      && attempt.independentVerifierId === item.independentVerifierId));
+}

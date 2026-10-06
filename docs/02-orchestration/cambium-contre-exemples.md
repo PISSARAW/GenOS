@@ -1,136 +1,119 @@
-# Cambium des contre-exemples — préserver les conditions d'une procédure
+# Cambium à contre-exemples — préserver les décisions pendant la compression
 
-- **Statut** : Partiel — registre, gate et rappel Holobionte conditionné aux témoins implémentés ; rejeu automatisé de la mémoire générale à faire.
-- **Portée** : procédures mémorisées avec témoins vérifiables et conditions d'application.
-- **Dernière revue** : 2026-10-04.
+- **Statut** : rejeu isolé, consolidation, rappel contextualisé et invalidation implémentés.
+- **Portée** : procédures déclaratives vérifiées du backend.
+- **Dernière revue** : 2026-10-06.
 
 ## 1. Domaine et objectif
 
-Une procédure utile n'est pas une règle universelle. Le cambium protège la
-frontière entre « appliquer » et « ne pas appliquer », en conservant les
-conditions, les versions d'environnement, les contre-exemples et les artefacts
-qui permettent de vérifier la distinction. Un seul contre-exemple pertinent
-peut valoir davantage que de nombreuses répétitions ordinaires.
+Compresser une mémoire peut effacer la condition qui rendait une procédure sûre.
+Le cambium conserve témoins et contre-exemples et compare les décisions avant
+et après compression sur leurs cas. La mémoire devient réutilisable dans ses
+conditions attestées ; elle s'abstient en dehors de ce domaine.
 
-L'objectif est d'éviter qu'une consolidation ou compression de mémoire
-réactive une conclusion devenue trop générale ou invérifiable.
+## 2. Contrat de mémoire
 
-## 2. Modèle logique
+Une procédure enregistrée porte `claimId`, `scopeId`, `verificationRef`,
+`environmentVersion`, `conditions` et au moins un témoin vérifié résoluble.
+La procédure déclarative utilise `rules: [{when, decision}]` ; les conditions
+et les règles comparent des faits concrets. Un contre-exemple ajoute une
+condition d'abstention avec son artefact ; il est conservé indépendamment
+du score ou de l'âge de la mémoire.
 
-Une claim procédurale enregistrée porte `claimId`, `scopeId`, procédure,
-`verificationRef`, `environmentVersion`, conditions et au moins un témoin
-`VERIFIED` dont la référence d'artefact est résolue avant écriture. Le reçu
-de vérification de la procédure doit lui aussi être résoluble. Un contre-exemple porte sa
-condition d'application et un artefact résoluble. L'ajout d'un contre-exemple
-fait passer la claim de `VERIFIED` à `QUALIFIED` ; il ne l'efface pas.
+Les anciens textes de procédure restent lisibles. La compression avec rejeu
+exige une procédure structurée et des artefacts contenant des `cases`.
+Une affirmation ne devient pas exécutable en évaluant du JavaScript arbitraire.
 
-La compression candidate est permise si :
+## 3. Décision et compression
 
-```text
-tous les témoins conservés et contre-exemples sont résolubles
-ET les décisions ciblées sont préservées par le comparateur injecté
-ET (un témoin subsiste OU la claim devient UNVERIFIED)
-```
+[cambiumDecision](../../backend/src/services/morphogenesis/capabilities/cambiumDecision.js)
+s'abstient si la version d'environnement diffère, si les conditions ne tiennent
+pas ou si un contre-exemple s'applique. Il parcourt ensuite les règles déclarées.
+Le rejeu compare les décisions de l'ancienne et de la nouvelle représentation
+sur tous les cas des témoins originaux et des contre-exemples.
 
-Le dernier terme est aussi protégé par un trigger SQLite : une suppression
-directe du dernier témoin d'une claim encore vérifiée ou qualifiée échoue. Les
-contre-exemples ne peuvent pas être supprimés directement de leur table.
-
-## 3. Inspiration biologique et limite
-
-Le cambium est une métaphore de croissance et de conservation de structure.
-Le service ne simule pas la croissance d'un arbre. Il sélectionne des liens
-de preuve et des frontières de décision dans une mémoire versionnée. Une
-politique de niveaux d'âge fondée sur φ serait une variante à comparer ; elle
-n'est pas nécessaire à l'invariant de préservation.
+La proposition de compression n'est acceptée que si ces décisions sont préservées.
+Un booléen ou un comparateur libre fourni par l'appelant n'est pas une preuve.
+Supprimer tous les témoins exige une dégradation explicite vers UNVERIFIED.
 
 ## 4. Architecture technique
 
 ```mermaid
 flowchart LR
-  P[Procédure et conditions] --> C[Claim du cambium]
-  W[Témoins résolus] --> C
-  X[Contre-exemples] --> C
-  C --> G[Gate de compression]
-  G --> V[Comparaison de décisions]
-  V -->|préservées| M[Mémoire candidate]
-  V -->|perdues| R[Refus]
+  E[Épisodes et témoins] --> C[Consolidation procédurale]
+  C --> M[Claim contextualisé]
+  X[Contre-exemples immuables] --> M
+  M --> P[Compression candidate]
+  P --> W[Worker isolé : décisions avant / après]
+  W --> G[Gate de préservation]
+  G --> R[Compression transactionnelle et preuve]
+  M --> D[Dépendances et invalidation transitive]
 ```
 
-- [Service Cambium](../../backend/src/services/morphogenesis/capabilities/cambiumService.js) : enregistrement, qualification et compression transactionnelle.
-- [Migration](../../backend/src/db/migrations/migrateMorphogenesisCapabilities.js) : claims, témoins, contre-exemples, contraintes SQL.
-- [Consolidation](../../backend/src/services/memory/consolidationPolicyService.js) : transporte conditions et références ; l'option `cambiumRequired` bloque une procédure sans applicabilité ou témoin déclaré.
-- [Mémoire Holobionte](../../backend/src/services/holobionte/memory/symbioticMemoryService.js) : enregistre le contrat optionnel et, au rappel, fournit conditions et contre-exemples seulement si les artefacts restent résolubles.
-- [Propagation des contre-exemples](../../backend/src/services/epistemicScheduler/counterexamplePropagation.js) : primitive existante d'invalidation de descendants, encore à relier au registre du Cambium.
+[cambiumReplay](../../backend/src/services/morphogenesis/capabilities/cambiumReplay.js)
+utilise un Worker avec heap de 32 Mo, stack de 2 Mo, timeout de cinq secondes
+et au plus 10 000 cas. Le résultat, les représentations et les différences
+de décision sont persistés avec leur empreinte.
+[cambiumConsolidationRuntime](../../backend/src/services/memory/cambiumConsolidationRuntime.js)
+relie classification, enregistrement et parents dans une transaction.
+Le rappel Holobionte transporte faits, version et résolution des preuves.
 
-`scopeId` confine la recherche d'une claim ; Holobionte le construit à partir
-de la portée et de l'identifiant de mission, workspace, projet ou hôte. Les
-appels directs doivent fournir le même scope. L'autorité de l'hôte et sa
-politique de données continuent à s'appliquer avant l'enregistrement.
+## 5. Processus d'exécution
 
-## 5. Processus d'exécution et validation
+1. Qualifier l'épisode pour la consolidation procédurale.
+2. Enregistrer le claim, ses conditions, témoins et références de vérification.
+3. Relier les parents dont dépend la procédure dans le même scope.
+4. Ajouter chaque contre-exemple avec condition et preuve accessibles.
+5. Proposer une compression avec témoins retenus et représentation candidate.
+6. Rejouer tous les cas originaux dans le worker ; refuser une décision différente.
+7. Écrire la représentation acceptée et les suppressions autorisées atomiquement.
 
-1. Le producteur fournit une procédure déjà admise par les contrôles de
-   mémoire existants, son reçu de vérification, ses conditions et des témoins.
-   Un résolveur interne confirme l'accessibilité des artefacts avant `registerProcedure`.
-2. Lorsqu'une exception est vérifiée, `attachCounterexample` confirme son
-   artefact et qualifie la claim dans le même scope.
-3. Avant compression, `evaluateCompression` vérifie les références
-   conservées et appelle `compareDecisions` sur les épreuves ciblées.
-4. `commitCompression` refait cette évaluation dans une transaction. Si le
-   dernier témoin doit partir, `degradeClaim` est exigé et le statut devient
-   `UNVERIFIED` avant la suppression.
-5. Le rappel d'une procédure protégée exige un résolveur. Il renvoie ses
-   conditions et contre-exemples lorsque les témoins restent accessibles ;
-   une claim `UNVERIFIED` ou un artefact perdu n'est pas rappelé.
-
-Le comparateur est une dépendance de confiance injectée, pas un test
-universel fourni automatiquement par le registre.
+L'ajout d'un contre-exemple qualifie le domaine de validité. Une invalidation
+explicitement étayée rend aussi les descendants UNVERIFIED. Le rappel revalide
+les preuves, les conditions des ancêtres et leurs contre-exemples avant de
+déclarer une mémoire utilisable. Les liens cycliques sont refusés.
 
 ## 6. Exemple
 
-Une opération peut être réessayée après timeout dans un service idempotent.
-Un autre service a produit l'effet avant de perdre sa réponse ; le retry y
-double cet effet. Le second cas devient un contre-exemple lié à la condition
-`idempotent`. Une compression qui ne conserve que « retry après timeout »
-est refusée si elle fait prendre la même décision dans les deux contextes.
+Une procédure « réessayer » est attestée dans l'environnement v1 pour une opération
+idempotente. Un cas non idempotent devient contre-exemple. Compresser la mémoire
+en supprimant cette distinction provoque une décision RETRY au lieu d'ABSTAIN :
+le rejeu refuse la compression, même si un comparateur externe prétend l'accepter.
 
-## 7. Épreuves et mesures
+## 7. Activation et exploitation
 
-Le [test de contrat](../../backend/tests/test_morphogenesis_capabilities.js)
-vérifie la qualification d'une claim, le refus de supprimer le dernier
-témoin, le refus d'un artefact non résoluble, la protection SQL d'un
-contre-exemple et la dégradation explicite à `UNVERIFIED`.
-Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
-vérifie le rappel contextualisé et le refus fermé après perte d'un témoin.
+L'API de consolidation reçoit `episode`, `history`, `memoryId`, `contract`
+et éventuellement `parentClaimIds`. Le CLI local expose `cambium.register`,
+`counterexample`, `compress`, `context`, `link` et `invalidate`.
+Pour le rappel, fournir `environmentVersion` et `facts` au lieu d'inférer
+que les conditions historiques s'appliquent au nouveau contexte.
 
-Le benchmark à réaliser doit contenir des exceptions rares, de nombreuses
-répétitions communes et des changements de version. À stockage égal,
-mesurer les mauvaises généralisations, témoins perdus, procédures réactivées
-à tort et coût de rappel. Les comparaisons doivent couvrir des décisions
-« appliquer » et « s'abstenir ».
+Le dernier témoin d'un claim vérifié ne peut pas être supprimé par SQL.
+Les contre-exemples ne peuvent pas être supprimés. Un timeout de rejeu refuse
+l'opération ; il n'autorise pas un résultat de secours optimiste.
 
-## 8. Comparaison avec l'existant
+## 8. Validation et comparaisons
 
-GenOS dispose déjà de mémoire négative, de reconsolidation et de propagation
-de contradictions. Le Cambium ajoute un **contrat de conservation des
-distinctions et des témoins**, vérifié avant une compression. Il ne remplace
-pas les couches existantes de persistance ou d'immunité Holobionte.
+[test_capability_cambium_runtime](../../backend/tests/test_capability_cambium_runtime.js)
+teste le comparateur mensonger, l'élargissement de conditions, le worker réel,
+le rappel hors domaine et l'invalidation transitive.
+Le test d'intégration exerce consolidation et rappel avec des faits incompatibles.
+
+Le benchmark compare le gate de préservation à des politiques simplifiées
+de rétention par récence, fréquence et âge. Il mesure des décisions modifiées
+sur un corpus synthétique ; ce n'est pas une qualification de toutes les
+mémoires LLM ni une preuve universelle de préservation sémantique.
 
 ## 9. Limites et garde-fous
 
-- Une référence résoluble aujourd'hui peut disparaître demain ; un audit
-  périodique d'accessibilité reste nécessaire.
-- Le hash d'un artefact ne remplace pas son contenu accessible.
-- Le registre ne choisit pas seul les épreuves ciblées ni ne prouve que le
-  comparateur couvre tous les cas importants.
-- Le chemin générique de compression de toutes les mémoires n'appelle pas
-  encore automatiquement ce gate ; l'usage actuel est explicite et opt-in.
-- Si les témoins indispensables dépassent la capacité de stockage, il faut
-  augmenter les ressources ou restreindre les garanties annoncées.
+La préservation vaut sur les cas conservés ; leur représentativité reste à
+évaluer. Une règle déclarative peut être erronée et néanmoins stable au rejeu.
+La gate de compression ne remplace pas la vérification initiale. Les versions
+d'environnement et les conditions sont déclarées explicitement. Une dépendance
+inaccessible rend la mémoire inutilisable ; un ancien statut VERIFIED ne suffit pas.
 
 ## 10. Références internes
 
-Voir [Morphogenèse](topologies/morphogenese.md), [Holobionte](topologies/holobionte.md),
-[Épistémologie et évidence](../01-concepts/epistemologie-et-evidence.md) et
-[ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).
+Voir [Morphogenèse](topologies/morphogenese.md),
+[ADR initial](../adr/0299-capacites-transversales-morphogenese.md) et
+[ADR runtime](../adr/0332-capacites-morphogenese-runtime.md).

@@ -526,3 +526,12 @@ La documentation du dépôt est pensée comme un système cohérent :
 
 Tout l'édifice est conçu pour éviter le faux « succès », où un transport ou un état
 technique positif masquerait une absence d'évidence réelle.
+
+### Exécution des cinq capacités transversales
+
+Voir [ADR 0332 — runtime et provenance](adr/0332-capacites-morphogenese-runtime.md)
+et les cinq guides : [Méristème](02-orchestration/meristeme-epistemique.md),
+[Spirale](02-orchestration/spirale-de-deblocage.md),
+[Chronotaxie](02-orchestration/chronotaxie-aperiodique.md),
+[Cambium](02-orchestration/cambium-contre-exemples.md),
+[Infini sous contrat](02-orchestration/infini-sous-contrat.md).

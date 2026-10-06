@@ -346,7 +346,9 @@ function nodeFrom(args, topology, context) {
 
 function inputFrom(context, args = {}) {
   const input = context.input && typeof context.input === 'object' ? context.input : {};
-  return { ...input, variantId: args.variant || input.variantId || null,
+  return { ...input, riskNodeId: context.nodeId,
+    statisticalContract: context.statisticalContracts?.[context.nodeId] || input.statisticalContract,
+    db: context.capabilityDb || input.db, variantId: args.variant || input.variantId || null,
     workers: Array.isArray(args.workers) ? args.workers : input.workers || [] };
 }
 

@@ -99,6 +99,9 @@ async function execute(sessionId, mission, context) {
   const acted = await act(sessionId, mission, context);
   if (acted.status === 'abstained') return abstained(sessionId, context, acted.reason);
   await verify(sessionId, mission, context);
+  const statistical = await require('../morphogenesis/capabilities/statisticalPromotionGate')
+    .evaluateForNode(context.opts.db, { nodeId: mission.riskNodeId || sessionId, contract: mission.statisticalContract });
+  if (!statistical.allowed) return abstained(sessionId, context, statistical.reason);
   return { ...receipt(sessionId, context, 'completed'), steps: context.steps };
 }
 

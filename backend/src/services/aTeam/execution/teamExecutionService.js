@@ -58,7 +58,9 @@ function assertLease(run, token) {
 
 async function finalizeExecution(input) {
   const { observed } = input;
-  const accepted = observed.promoted && observed.gate.passed;
+  const statistical = await require('../../morphogenesis/capabilities/statisticalPromotionGate')
+    .evaluateForNode(input.db, { nodeId: input.riskNodeId || input.teamRunId, contract: input.statisticalContract });
+  const accepted = observed.promoted && observed.gate.passed && statistical.allowed;
   const status = accepted ? 'COMPLETED' : observed.graph.nodes.some((node) => node.status === 'FAILED') ? 'FAILED' : 'BLOCKED';
   let run = await requireLease(input);
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision,

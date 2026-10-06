@@ -63,6 +63,8 @@ class BiomeRuntime {
   }
 
   async step(input = {}) {
+    if (input.experimentWave) require('../morphogenesis/capabilities/epistemicNicheRuntime')
+      .assign(this.ecology, input.experimentWave, input.individuals || []);
     if (this.tick >= this.maxTicks) {
       this.stopCondition = 'max_ticks_reached';
       return this.createStepResult({ shouldStop: true, stopCondition: this.stopCondition });

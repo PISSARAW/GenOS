@@ -7,7 +7,10 @@ async function read(db, member) {
   const agent = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
   const event = await db.get(`SELECT id, payload_json FROM telemetry_events WHERE agent_id = ?
     AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1`, member.workerId);
-  return assembleResult({ member, agent, event });
+  const result = assembleResult({ member, agent, event });
+  const statistical = await require('../morphogenesis/capabilities/statisticalPromotionGate')
+    .evaluateForNode(db, { nodeId: member.riskNodeId || member.workerId, contract: member.statisticalContract });
+  return statistical.allowed ? result : { ...result, status: 'unverified', statistical };
 }
 
 function assembleResult({ member, agent, event }) {

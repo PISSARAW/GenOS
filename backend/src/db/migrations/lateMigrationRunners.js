@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('115-capability-runtime', 'Persist sealed experiment waves, immutable probes, memory replays and statistical lineage', async (db) => {
+    await require('./migrateCapabilityRuntime').migrateCapabilityRuntime(db);
+  }),
   createMigrationRunner('109-signal-receptors', 'Persist scoped deterministic signal receptors', async (db) => {
     await require('./migrateSignalReceptors').migrateSignalReceptors(db);
   }),

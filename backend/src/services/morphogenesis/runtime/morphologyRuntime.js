@@ -81,6 +81,9 @@ class MorphologyRuntime {
   }
 
   async execute(graph, input = {}) {
+    if (input.statisticalRisk) await require('../capabilities/graphCapabilityRuntime')
+      .bindGraph(input.db, graph, input.statisticalRisk);
+    await require('../capabilities/graphCapabilityRuntime').assertBindings(input.db, graph);
     const rootNode = graph.nodes.find(n => n.nodeId === graph.rootNodeId);
     if (!rootNode) throw new Error('Graph has no root node');
 
@@ -94,6 +97,8 @@ class MorphologyRuntime {
       input: input
     });
 
+    context.capabilityDb = input.db;
+    context.statisticalContracts = input.statisticalContracts;
     context.status = 'running';
     return this.executeRoot(graph, rootNode, context);
   }
@@ -105,6 +110,9 @@ class MorphologyRuntime {
 
       const result = await executor.execute(rootNode, graph, context);
 
+      await require('../capabilities/graphCapabilityRuntime').verifyOutput(context.input.db, {
+        nodeId: rootNode.nodeId, contract: context.input.statisticalContracts?.[rootNode.nodeId]
+      });
       context.status = 'completed';
       context.output = result.output;
       context.completedAt = new Date().toISOString();
