@@ -21,6 +21,8 @@
 
 Le parcours borné des politiques AGOW est documenté dans le [profil d’exécution](../02-orchestration/profil-execution-gvx.md). La campagne empirique est différée conformément à la demande de privilégier l’implémentation ; les fixtures ne sont pas des résultats de modèle. Les autres domaines et les lots de transmission ou de méta-développement gardent leurs limites explicites.
 
+La [validation du cycle standard](validation-cycle-standard-gvx.md) rattache les résultats fonctionnels au commit `ac3423cb` : 21 fichiers de tests passés et contrôle qualité strict sans violation sur les 56 fichiers source du lot. Les vérifications globales du dépôt restent distinctes et n’ont pas toutes abouti.
+
 ## 1. Objectif et invariants
 
 GVX relie cinq processus distincts sans les confondre :

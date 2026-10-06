@@ -34,16 +34,18 @@ datasets, le registre de confiance et les clés du service de vérification. Le 
 par un runner est contrôlé après son retour; l'adaptateur d'exécution doit aussi appliquer
 le budget au cours du run.
 
-Au 2026-10-02, les baselines MBH-like/Lipson-like ne sont pas implémentées dans les
+Au 2026-10-06, les baselines MBH-like/Lipson-like ne sont pas implémentées dans les
 protocoles GVX et aucune campagne GVX holdout n'a été exécutée. Le dépôt contient une
 campagne AGOW locale sur données synthétiques, sans holdout métier indépendant; elle ne
 fournit pas un pilote représentatif pour paramétrer la puissance GVX. Aucun manifeste
-qualifié, jeu GVX train/holdout ni plugin de métriques métier n'est configuré; le runner
+qualifié, jeu GVX train/holdout ni vérificateur de métriques de campagne n'est configuré ; le runner
 n'a donc pas été lancé et l'état reste `not_run`. Avant exécution,
 chaque campagne doit fournir les jeux train/holdout séparés, l'origine et le hash des
 données, les modèles/outils et versions, le seed, les commandes, les budgets, ainsi que les
 hypothèses d'effet et de variance. Les résultats doivent publier les intervalles,
 exclusions et écarts au protocole; à défaut, l'état reste `not_run`.
+
+Les [profils standard AGOW](profil-execution-gvx.md) disposent de vérificateurs de mesures exécutées pour leur cycle somatique. Ils ne fournissent pas automatiquement les contrats de métriques, datasets et runners d’une campagne GVX. La [suite fonctionnelle](../06-qualite-preuves/validation-cycle-standard-gvx.md) exécutée au commit `ac3423cb` valide reprise, rollback et preuves ; elle ne remplace pas les comparaisons train/holdout. La campagne reste différée pour privilégier l’implémentation.
 
 Voir [ADR 0266](../adr/0266-plan-puissance-benchmarks-gvx.md) et
 [ADR 0275](../adr/0275-execution-campagne-gvx.md).

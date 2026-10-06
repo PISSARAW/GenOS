@@ -37,6 +37,15 @@ reproduction, et les 8 modes de composition (topologies).
 - [physiologie-relationnelle.md](physiologie-relationnelle.md) — contraintes relationnelles exécutables, noyau déterministe et filtrage de parenté du routage.
 - [protocole-execution-agents.md](protocole-execution-agents.md) — cycle de mission, budgets, topologies, workers, communication, nosologie, télémétrie et protocole de preuve.
 
+## Développement vérifié GVX
+
+- [profil-execution-gvx.md](profil-execution-gvx.md) — configuration du cycle standard AGOW et du service externe.
+- [adaptateurs-gvx-runtime.md](adaptateurs-gvx-runtime.md) — adaptateurs standard et intégrations personnalisées.
+- [nursery-experimentale-gvx.md](nursery-experimentale-gvx.md) — essais appariés et preuves de mesures exécutées.
+- [monitoring-longitudinal-gvx.md](monitoring-longitudinal-gvx.md) — suivi indépendant, reprise et rollback.
+- [lacunes-apprentissage-gvx.md](lacunes-apprentissage-gvx.md) — hypothèses et buts soumis à autorité.
+- [plan-puissance-benchmark-gvx.md](plan-puissance-benchmark-gvx.md) — protocole de campagne et qualification restante.
+
 ## Modes de composition
 
 - [topologies/](topologies/README.md) — Trinity, A-Team, Biome, Biocénose, Holobionte, Syncytium, Rhizome, Métapopulation.
