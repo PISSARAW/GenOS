@@ -94,7 +94,7 @@ Le catalogue Morphogenèse compte les variants spécifiques suivants, hors
 | Holobionte | 12 | Contrats et plans sélectionnables; moteurs/adaptateurs manquants selon le mécanisme. |
 | Syncytium | 13 | Sessions persistées et opérations CRDT; cela ne garantit pas un appel dans chaque mission. |
 | Rhizome | 12 | Sessions et dépôt/routage directs; pas de routage multi-hop automatique établi. |
-| Métapopulation | 16 | 12 identifiants décrits + 4 alias historiques; mécanismes partiels. |
+| Métapopulation | 16 | 12 identifiants + 4 alias historiques ; effets persistés, revue receveur et reprise vérifiés, adaptateurs externes requis. Voir le [contrat runtime](../03-reference/runtime-metapopulation.md). |
 | Biome | 11 | Sessions, opérations et boucle de mission vérifiable; actions réelles soumises aux gates. |
 | Trinity | 12 | Adaptateurs dédiés; présence au catalogue ne prouve pas un cycle complet validé. |
 

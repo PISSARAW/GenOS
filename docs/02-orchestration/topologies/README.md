@@ -14,7 +14,7 @@ ces organisations ; elle n'est pas un neuvième mode.
 - [syncytium.md](syncytium.md) — orchestration par état partagé et synchronisation continue.
 - [protocole-missions-syncytium.md](protocole-missions-syncytium.md) — budgets, missions, workers, échanges, nosologie, télémétrie et preuves d’exécution.
 - [rhizome.md](rhizome.md) — missions par capacités, croissance vérifiée et routage borné ; [contrat runtime](../../03-reference/runtime-rhizome.md).
-- [metapopulation.md](metapopulation.md) — orchestration par populations semi-indépendantes.
+- [metapopulation.md](metapopulation.md) — populations semi-indépendantes, recolonisation et cycles régionaux persistants ; [contrat runtime](../../03-reference/runtime-metapopulation.md).
 - [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance et maturité des variants des topologies.
 - [garage-fabric.md](garage-fabric.md) — capacité adaptative, leases, file et réarrangement logique des workers.
 

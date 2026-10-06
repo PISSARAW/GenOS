@@ -12,6 +12,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [modeles-providers-routage.md](modeles-providers-routage.md) — providers, modèles, routage codex/hermes/local.
 - [mcp-solar-pro-hermes-nous-setup.md](mcp-solar-pro-hermes-nous-setup.md) — Solar Pro, MCP, Hermes, provider Nous : config, modèles, usage.
 - [persistance-et-donnees.md](persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
+- [runtime-metapopulation.md](runtime-metapopulation.md) — sessions, contrats d’adaptateurs, migrations et reprise régionale vérifiée.
 - [plugins-topologies-morphogenese.md](plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique : contrats, matrice, SQLite, fail-closed.
 - [runtime-rhizome.md](runtime-rhizome.md) — exécution vérifiée, providers concrets, croissance et télémétrie Rhizome.
 - [resultats-formels-messagepack.md](resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.

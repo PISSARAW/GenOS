@@ -115,6 +115,20 @@ pour le diagnostic, mais elle ne constitue pas une validation métier.
 
 ---
 
+### 3.2 Validation ciblée Metapopulation
+
+Depuis la racine, `npm --prefix backend run test:metapopulation` exécute dix suites.
+La qualification du 2026-10-06 au commit `5b18c834` a obtenu 10/10, avec exécution
+séparée des suites, relecture des empreintes et reprise d'une fixture corrigée.
+Elle couvre les 12 variants et 4 profils historiques, la persistance, les preuves
+invalides et les interruptions rescue/rollback. Les fixtures d'adaptateurs ne
+certifient ni les moteurs externes ni la réussite d'une mission réelle.
+
+Ces résultats ne remplacent pas les trois checks globaux du dépôt.
+Le benchmark `node backend/bin/metapopulation-benchmark.cjs 1` mesure des
+calculateurs sur des fixtures synthétiques. Le [contrat runtime](../03-reference/runtime-metapopulation.md)
+détaille le périmètre vérifié et ses limites.
+
 ## 4. Tests unitaires Rust
 
 Les tests Rust se trouvent dans les crates. Par exemple, [crates/genos-cli/src/tests/mod.rs](../../crates/genos-cli/src/tests/mod.rs) exerce directement les handlers sans passer par un shell :

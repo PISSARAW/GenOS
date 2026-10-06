@@ -53,7 +53,7 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 - **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
 - **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
 - **Rhizome** — missions par capacités avec résultats signés, croissance et budgets atomiques, routage borné, reprise persistante et télémétrie du graphe réel. Voir le [contrat runtime](docs/03-reference/runtime-rhizome.md).
-- **Métapopulation** — quorum pondéré, plasticité des connexions et plan de récupération par lignage.
+- **Métapopulation** — runtime régional persistant : migrations revues par le receveur, extinction à preuves, recolonisation multi-lignage et reprise des cycles ; moteurs externes configurés par adaptateurs. Voir le [contrat runtime](docs/03-reference/runtime-metapopulation.md).
 
 Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).
 

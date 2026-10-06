@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-06 (Métapopulation)
 
 ---
 
@@ -25,7 +25,7 @@ délègue au registre, sinon refuse (`Topology not registered`). Code :
 | Biocénose | `BiocenoseController` (jury, ballots explicites) | non | gate §5 |
 | Biome | `populationRuntimeService` (`create→spawn→advance`) sur écologie in-memory construite des workers/input | non | gate §5 |
 | Holobionte | `runHolobiontMission` partagé avec la CLI : hôte, contrat, admission, exécution, vérification indépendante, gate immunitaire, contribution/mémoire atomiques, santé et clôture | Base persistante du control plane GenOS | gate §5 et contrat Holobionte |
-| Métapopulation | `runAutonomousRegionalRuntime` réel (session créée, adapters du `regionalBrain`, cycle `OBSERVE→…→VERIFY→RECORD`) | Base persistante du control plane GenOS | gate §5 |
+| Métapopulation | `runAutonomousRegionalRuntime` réel : PLAN sans effet, VERIFY par relecture et RECORD atomique ; cycle vide `NO_ACTION` | SQLite du control plane ; état des cycles reprenable | gate §5 et suite Metapopulation |
 
 Le plugin Rhizome de cette matrice conserve un contrôleur in-process simplifié. Le [runtime Rhizome persistant](runtime-rhizome.md) possède un cycle distinct avec providers réels, preuves indépendantes et budgets atomiques ; ces garanties ne sont pas acquises par la seule feuille MorphologyRuntime.
 
@@ -72,8 +72,10 @@ backend SQLite configuré pour le control plane et non d'une base de test
   qu'émettre une proposition; il n'applique pas le graphe ni ne crée de commit.
 - Les contrôleurs sont des modèles in-process simplifiés, pas les runtimes
   lourds (sessions distribuées, CRDT réseau, jury humain).
-- Le cycle Métapopulation sur région vide rend `VERIFIED` avec
-  `actionCount 0` : reçu honnête d'inactivité, pas preuve d'efficacité.
+- Le cycle Métapopulation sur région vide rend `NO_ACTION` avec
+  `actionCount: 0`. Les actions d’extinction, recolonisation, migration, recherche
+  ou évolution restent soumises à leurs preuves et adaptateurs ; voir le
+  [contrat runtime](runtime-metapopulation.md).
 - `MorphologyRuntime.changeVariant({ nodeId, graph, newVariant, execContext })`
   exige une transition enregistrée dans le `variantRegistry`, puis applique ses
   conditions et ses exigences de preuve avant le patch. Sans règle ou preuve,
