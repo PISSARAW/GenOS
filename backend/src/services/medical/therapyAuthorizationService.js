@@ -14,6 +14,7 @@ function requireApprover(input) {
 }
 async function issueAuthorization(db,input) {
   requireApprover(input);
+  require('./nosologyCatalogService').validateTherapy(input.therapy);
   const cell = await db.get(`SELECT * FROM rust_cell_registry WHERE mission_id=? AND cell_id=?`,input.missionId,input.cellId);
   if (!cell?.genome_id || !cell.genome_fingerprint) throw new Error('Durable clinical cell not found');
   const latest = await db.get(`SELECT MAX(tick) AS tick FROM rust_cell_registry WHERE mission_id=?`,input.missionId);

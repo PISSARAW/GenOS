@@ -1,4 +1,5 @@
 'use strict';
+require('./test_nosology_catalog');
 const assert = require('node:assert/strict');
 const { authorizeClinicalMutation,clinicalSignature } = require('../src/services/medical/therapyAuthorizationService');
 const { applyTherapy } = require('../src/services/medical/clinicalTherapyService');
