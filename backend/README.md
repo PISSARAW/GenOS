@@ -108,6 +108,29 @@ Cinq systèmes qui font passer GenOS d'agents sophistiqués à un écosystème g
 
 ---
 
+## Natural Creative Ecology — expériences exécutables
+
+Le backend fournit un cycle natif pour trois familles de transformations numériques :
+recherche de procédures, vérification POET sur snapshots, transfert culturel,
+persistance du phénotype et réutilisation après réouverture SQLite. Le vocabulaire
+de procédures est fermé ; les six bras d'ablation couvrent quatre mécanismes.
+Les dimensions O/H du vecteur créatif restent inconnues sans observations dédiées.
+
+Depuis la racine du dépôt, avec une configuration JSON et un fichier de rapport neuf :
+
+```bash
+node backend/bin/genos-nce-experiment.cjs cycle config.json .genos-agent-worlds/report.json
+node backend/bin/genos-nce-experiment.cjs ablation config.json .genos-agent-worlds/ablation.json
+```
+
+La configuration doit expliciter `root` et `databasePath`. Le bootstrap d'une
+nouvelle base exige `GENOS_ADMIN_PASSWORD`. Le statut `promoted` du reçu dépend
+des vérifications et du gain mesuré ; le code de sortie de la CLI ne suffit pas.
+
+Voir le [guide des expériences NCE](../docs/03-reference/experiences-nce.md) pour
+la configuration complète, les commandes de vérification, la reprise, les preuves
+et les limites. Décision : [ADR 0323](../docs/adr/0323-nce-procedures-et-preuves-executables.md).
+
 ## Directory Layout
 
 ```text
@@ -197,7 +220,7 @@ On first boot, the backend initializes `genos.db` (67+ tables), applies migratio
 genos_sk_admin_...
 ```
 - Set `GENOS_ADMIN_TOKEN` to define a static token.
-- Set `GENOS_ADMIN_PASSWORD` to configure the default `admin` user password.
+- Set `GENOS_ADMIN_PASSWORD` before creating the first `admin` user outside test mode; startup refuses an unset password.
 
 ---
 
@@ -215,7 +238,7 @@ genos_sk_admin_...
 | `GENOS_AGENT_EXECUTOR` | `codex` (code default when unset) | Cognitive harness: `codex`, `local`, `caller_mcp` or `solar-direct`. Resolved via the harness catalog (`src/services/harnessCatalog.js` + `src/services/harnessDrivers/`); `.env.example` pins `local` for containers/offline Ollama use |
 | `GENOS_GRPC_TLS_KEY` / `GENOS_GRPC_TLS_CERT` | *None* | Pair of regular files required to expose gRPC beyond loopback |
 | `GENOS_ADMIN_TOKEN` | *Generated* | Administrator API token |
-| `GENOS_ADMIN_PASSWORD` | `genos-admin` | Default password for local `admin` account |
+| `GENOS_ADMIN_PASSWORD` | *Required on first bootstrap outside tests* | Password for the initial local `admin` account |
 | `GENOS_EMBEDDING_PROVIDER` | `auto` | Preferred provider: `auto`, `xenova`, `ollama`, `openai` |
 | `GENOS_OLLAMA_ENDPOINT` | `http://127.0.0.1:11434/v1/chat/completions` | Endpoint URL for local Ollama instances |
 | `OPENAI_API_KEY` | *None* | API key for OpenAI model & embedding fallbacks |
@@ -235,6 +258,12 @@ node tests/test_runtime_budget_and_influence.js
 node tests/test_human_approval_promotion_gate.js
 node tests/test_intermediate_state_persistence.js
 node tests/test_worker_failure_recovery.js
+
+# NCE: contrats, parcours natifs et ablations (depuis backend/)
+npm run test:nce
+
+# CLI NCE avec migrations et contraintes SQLite de production
+npm run test:nce:cli
 ```
 
 

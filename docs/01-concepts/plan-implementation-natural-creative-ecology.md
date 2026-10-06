@@ -1,19 +1,36 @@
 # Plan d'implémentation — fermeture causale de la Natural Creative Ecology
 
-- **Statut** : Plan proposé — aucun résultat scientifique revendiqué
+- **Statut** : Lots exécutables livrés pour les familles numériques bornées ; aucune créativité générale revendiquée
 - **Portée** : parcours Play, développement et mesure du phénotype, transfert culturel, POET, puis protocole d'ablation
 - **Fiche de référence** : [Natural Creative Ecology](natural-creative-ecology.md)
-- **Dernière revue** : 2026-09-30
+- **Dernière revue** : 2026-10-06
+
+## Livraison logicielle — état revu le 2026-10-06
+
+| Lot | Réalisation vérifiable |
+| --- | --- |
+| 0 | Reçus versionnés, hashes, identifiants de cycle, idempotence, sauvegarde atomique de l'état et du reçu avec contrôle de révision |
+| 1 | Vecteur structurel v3 conservé ; vecteur créatif v1 à huit dimensions, masque de présence et preuves obligatoires |
+| 2 | Procédures exécutables transmises entre agents ; gain avant/après sur tâches contrôlées ; reprise SQLite ; contrôles négatifs |
+| 3 | Worker natif dans un vrai processus, Play sur snapshots, budgets nuls respectés, rollback sur échec de benchmark |
+| 4 | Générateur de trois familles vérifiables, sélection training figée avant held-out, procédure promue et phénotype persistés |
+| 5 | Six bras d'ablation réellement exécutés, deux graines dans la régression, sorties brutes et coûts conservés |
+
+Contrats, commandes et limites : [Expériences NCE](../03-reference/experiences-nce.md).
+Le tableau décrit la livraison bornée ; il ne clôt pas tous les critères de
+recherche du plan initial. Les observations de la section suivante sont historiques. Le lot 5
+n'établit pas une supériorité statistique générale ; O/H restent inconnus sans
+observations dédiées et les familles de tâches ouvertes restent hors du runtime natif.
 
 ## Objectif
 
 Établir une chaîne vérifiable entre les mécanismes NCE et leurs effets observés sur une tâche, sans confondre transport, exécution réussie, changement d'état et preuve causale. Les tests d'intégration doivent d'abord valider le comportement logiciel. Toute conclusion comparative ou scientifique attendra un protocole contrôlé et des répétitions suffisantes.
 
-## État de départ observé
+## État de départ historique
 
 - Le service `phenotypeVectorService` calcule déjà un vecteur `genos.phenotype.v1` de 23 valeurs; le test contractuel vérifie qu'il varie après un développement environnemental. Le manque à traiter est son alimentation par un état de phénotype réel, sa persistance/version et sa vérification dans le parcours runtime, pas la création initiale d'un vecteur.
 - `applyPhenotype` développe un état transmis dans la mission, mais ne charge ni ne persiste lui-même un état durable. Le résultat expose un résumé et le vecteur.
-- `applyCulture` sélectionne des traits culturels. `culturalLearningService` mesure un transfert avant/après sur un benchmark, mais cette mesure n'est pas reliée au développement du phénotype dans le flux NCE.
+- `applyCulture` sélectionne des traits culturels. `culturalLearningService` présentait des estimations de transfert, sans preuve d'exécution indépendante. Elles sont désormais identifiées comme heuristiques ; la mesure native et la persistance passent par `nceCausalCycleService` (ADR 0323).
 - Les tests Play et POET du workflow remplacent runtime et snapshots par des doublures. Ils valident le câblage du contrat, pas l'intégration E2E réelle.
 - `nceAblationTests.js` utilise un succès simulé tiré d'un générateur pseudo-aléatoire et un petit nombre de signaux. C'est un prototype de harness, pas une ablation exploitable pour inférer un effet.
 
@@ -22,12 +39,19 @@ Ces observations proviennent du code présent dans `backend/src/services/{nceEng
 ## Décisions de méthode
 
 1. Garder séparées les preuves de contrat, d'intégration, de causalité fonctionnelle et de validité scientifique.
-2. Toute comparaison causale réutilise une tâche, un environnement, un agent de départ, un budget et une graine identiques; seul le mécanisme ciblé varie.
+2. Toute comparaison causale doit contrôler les tâches, l'état initial, les limites de budget et les graines. Le harness livré partage le split et initialise des sujets indépendants par bras ; il conserve les coûts observés sans les égaliser. Leurs différences doivent rester visibles dans l'analyse.
 3. Une preuve positive requiert un résultat de tâche indépendant de l'indicateur du mécanisme. Les logs, métadonnées et vecteurs seuls attestent l'exécution ou l'état, pas l'amélioration.
 4. Les interventions et leurs résultats portent des identifiants corrélables, versions de schéma, état avant/après, provenance, graine et paramètres. Les chemins sans preuve restent explicitement `non vérifiés`.
 5. Les changements qui modifient les responsabilités ou la persistance entre services nécessitent un ADR avant implémentation, conformément aux règles du dépôt.
 
-## Lots d'implémentation
+## Lots d'implémentation — critères du plan initial
+
+Les critères ci-dessous restent la référence de conception. La réalisation
+native de l'ADR 0323 ajoute un service de procédures typées ; elle ne transforme
+pas les estimations historiques de `culturalLearningService` en preuves. Le
+vecteur structurel courant est `genos.phenotype.v3` ; les mentions de v1 ci-dessous
+désignent le format de départ. Les limites de validation du dépôt figurent dans
+le [bilan des expériences](../03-reference/experiences-nce.md#état-de-validation-de-la-livraison).
 
 ### Lot 0 — Contrats, état et instrumentation
 
@@ -79,7 +103,9 @@ Ces observations proviennent du code présent dans `backend/src/services/{nceEng
 
 **Sortie / gate** : reçu POET rejouable, lié à l'exécution terminée et à une vérification indépendante; aucun succès déduit du seul événement de télémétrie.
 
-**État après exécution du plan (2026-09-30)** : la vérification POET utilise maintenant le vrai stockage de snapshots et l'exécution isolée; la lecture du journal DB ignore les événements terminaux antérieurs au début de la mission. L'adaptateur qui démarre l'agent reste simulé dans ce test E2E. Le critère runtime réel ci-dessus reste donc ouvert avant de déclarer le flux POET entièrement validé.
+**Historique au 2026-09-30** : le premier test utilisait les vrais snapshots et une vérification isolée, mais substituait le démarrage de l'agent.
+
+**État courant** : `test_nce_native_cycle.js` ajoute un processus Node réel pour les procédures numériques, une sélection figée avant held-out et une reprise SQLite. Le test historique avec doublure reste utile pour ses cas ciblés. Cette livraison ferme le parcours natif borné ; elle ne valide pas tous les exécuteurs externes ni la suite Rust complète.
 
 ### Lot 5 — Ablations et protocole expérimental
 
@@ -89,9 +115,11 @@ Ces observations proviennent du code présent dans `backend/src/services/{nceEng
 - Définir avant exécution métrique primaire, métriques secondaires, taille d'échantillon, répétitions, exclusions, analyse, seuil d'effet, intervalles d'incertitude et arrêt. Rapporter coûts et résultats négatifs.
 - Répéter sur plusieurs tâches/environnements et vérifier que les tâches d'évaluation ne sont pas celles ayant servi à régler les mécanismes.
 
-**Sortie / gate** : résultats reproductibles avec données/protocole versionnés et revue indépendante. Avant cette gate, parler de « prototype d'ablation » uniquement.
+**Sortie / gate scientifique** : résultats reproductibles avec données/protocole versionnés et revue indépendante. Avant cette gate, qualifier séparément la simulation historique de « prototype » et le nouveau harness de « benchmark exécuté borné » ; aucun des deux ne justifie une supériorité générale.
 
-**État après exécution du plan (2026-09-30)** : le harness marque ses sorties `simulation-prototype`, expose l'absence de validité scientifique et ses limites; un test vérifie la répétabilité de la simulation pour débogage. Aucun benchmark réel, calcul de puissance ou campagne factorielle n'est livré. Cette partie demeure un prototype tant qu'un jeu de tâches et un protocole expérimental ne sont pas enregistrés.
+**Historique au 2026-09-30** : seul le harness `simulation-prototype` était disponible.
+
+**État courant** : `nceAblationService` exécute six bras, appariés par graine, sur des tâches numériques avec vérificateurs protégés. Les sorties brutes, erreurs, coûts et paires non mesurées sont conservés. La régression couvre deux graines ; calcul de puissance, factoriel à 64 configurations, revue indépendante et généralisation scientifique restent ouverts.
 
 ## Ordre de livraison et dépendances
 
@@ -112,9 +140,19 @@ Le lot 4 peut avancer en parallèle du lot 1. Le lot 2 dépend des contrats du l
 - Les tests vérifient les chemins de succès et de refus/échec; aucun résultat manquant n'est converti en succès.
 - Un replay fournit les mêmes états, interventions et vérifications avec les mêmes entrées et graines.
 - La chaîne culture → artefact reçu → mise à jour phénotypique → effet sur une tâche est observable, attribuable et falsifiable.
-- Les ablations restent hors des revendications de preuve jusqu'à validation du protocole expérimental.
+- Les ablations exécutées peuvent attester le câblage causal sur les tâches contrôlées ; les revendications comparatives générales attendent la validation du protocole scientifique.
 - La fiche [Natural Creative Ecology](natural-creative-ecology.md) reflète l'état livré, mentionne explicitement les simulations résiduelles et distingue maturité logicielle et validité scientifique.
 
-## Vérification prévue au moment de l'implémentation
+## Vérification et clôture restante
 
-Après implémentation, exécuter d'abord `npm --prefix backend run test:nce`, puis les nouveaux tests d'intégration ciblés. Avant livraison complète, appliquer la définition de done du dépôt : `python scripts/ci/check_code_quality.py`, `npm test` et `cargo test --workspace`. Ces commandes ne sont pas exécutées pour la rédaction du présent plan.
+Les commandes dédiées sont `npm --prefix backend run test:nce` et
+`npm --prefix backend run test:nce:cli`. Les résultats déjà obtenus, leur ordre
+d'exécution et les limites sont consignés dans le
+[bilan de validation](../03-reference/experiences-nce.md#état-de-validation-de-la-livraison).
+
+La clôture globale exige encore un contrôle qualité du dépôt accepté et une
+exécution complète de `cargo test --workspace` après résolution du manque
+d'espace disque. La validation scientifique exige un protocole préenregistré,
+davantage de tâches et répétitions, des observations dédiées pour O/H et une
+revue indépendante. La livraison logicielle bornée ne vaut pas certification
+« 100 % » de ces objectifs.

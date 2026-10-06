@@ -172,8 +172,9 @@ function attachOutcome(results, missionOutcome) {
   if (missionOutcome.solution) results.solution = missionOutcome.solution;
 }
 
-async function verifyAndScore(results, environment) {
+async function verifyAndScore(results, environment, signal) {
   const verificationResult = await verifySolutionInSnapshot(results, environment);
+  signal?.throwIfAborted();
   results.success = verificationResult.valid;
   results.score = verificationResult.score;
   results.verification = verificationResult;
@@ -193,11 +194,12 @@ async function executeAgentOnEnvironment(agent, environment, options) {
     results.baselineSnapshotHash = isolated.baselineSnapshotHash;
     results.executionWorkspace = isolated.workspacePath;
     await withDeadline({ timeoutMs: opts.timeoutMs },
-      (signal) => runAgentToTermination({ agent: executionAgent, environment: isolated, opts, results, signal }));
+      (signal) => executeRuntime({ agent: executionAgent, environment: isolated, opts, results, signal }));
   } catch (err) {
     results.error = err.message;
     if (process.env.GENOS_POET_DEBUG === '1') console.error(err.stack);
     results.success = false;
+    results.score = 0;
   } finally {
     if (results.executionWorkspace && options?.retainWorkspace !== true) {
       try { await fs.rm(results.executionWorkspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
@@ -206,6 +208,15 @@ async function executeAgentOnEnvironment(agent, environment, options) {
   }
   results.endedAt = new Date().toISOString();
   return results;
+}
+
+async function executeRuntime(ctx) {
+  if (ctx.agent.executor !== 'nce-procedure') return runAgentToTermination(ctx);
+  const { runProcedureAgent } = require('./nceProcedureExecutor');
+  ctx.results.termination = await runProcedureAgent(ctx);
+  ctx.results.artifact = await evidence.artifactEvidence(ctx.environment);
+  if (!ctx.results.artifact) throw new Error('NCE worker produced no artifact');
+  await verifyAndScore(ctx.results, ctx.environment, ctx.signal);
 }
 
 function normalizePoetOptions(options) {
@@ -242,7 +253,7 @@ async function runAgentToTermination(ctx) {
     if (!artifact || artifact.sha256 === before?.sha256) throw new Error('POET requires a new or changed file artifact');
     results.artifact = artifact;
     if (ctx.signal.aborted) return;
-    await verifyAndScore(results, environment);
+    await verifyAndScore(results, environment, ctx.signal);
   } finally {
     ctx.signal.removeEventListener('abort', cancel);
     terminationPromise.cancel();

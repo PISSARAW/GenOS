@@ -5,6 +5,20 @@ const { developFromEnvironment } = require('./phenotypicDevelopmentService');
 const { phenotypeVector } = require('./phenotypeVectorService');
 
 async function transferCultureToPhenotype(options) {
+  const state = options?.phenotypeState;
+  const previous = state && structuredClone(state);
+  try {
+    return await performTransfer(options);
+  } catch (error) {
+    if (previous) {
+      for (const key of Object.keys(state)) delete state[key];
+      Object.assign(state, previous);
+    }
+    throw error;
+  }
+}
+
+async function performTransfer(options) {
   const input = options || {};
   const state = input.phenotypeState;
   const artifact = input.artifact;
@@ -74,7 +88,7 @@ function validRequirements(value) {
 }
 
 function vectorChanged(before, after) {
-  return before.values.some((value, index) => value !== after.values[index]);
+  return JSON.stringify(before) !== JSON.stringify(after);
 }
 
 module.exports = { transferCultureToPhenotype };

@@ -100,6 +100,8 @@ async function run() {
         heldOut: [{ ...environment, id: 'invalid-heldout' }] }), /requires a workspace/);
     await assert.rejects(bridge.evaluateGeneralization([{ id: 'solver' }],
       { training: [environment], heldOut: [{ ...environment, id: 'copied' }] }), /content must be disjoint/);
+    await assert.rejects(bridge.evaluateGeneralization([{ id: 'solver' }],
+      { training: [environment], heldOut: [{ ...environment, id: 'renamed', goals: ['different wording'] }] }), /content must be disjoint/);
     const unsafe = { ...environment, artifactPath: '../outside.json' };
     await assert.rejects(require('../src/services/poetExecutionEvidence').artifactEvidence(unsafe), /inside/);
     await testSelection(db, root);
