@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const consolidation = require('./proceduralConsolidationService');
+const { verified } = require('./cognitiveOmegaProofBinding');
 
 const executors = new Map();
 const TABLES = `
@@ -25,6 +26,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS procedural_active_lookup
 function sha(value) { return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 
 const VOLATILE_CONTEXT_KEYS = new Set(['contextHash', 'requestId', 'sessionId', 'traceId', 'timestamp', 'observedAt']);
+const PARTITION_KEYS = ['domain', 'operation', 'organizationId', 'projectId', 'scope',
+  'authority', 'constraints', 'executorId', 'model', 'level'];
+
+function samePartition(left, right) {
+  return PARTITION_KEYS.every((key) => sha(normalizeContext(left?.[key]))
+    === sha(normalizeContext(right?.[key])));
+}
 
 function normalizeContext(value) {
   if (Array.isArray(value)) return value.map(normalizeContext);
@@ -64,6 +72,7 @@ function jaccard(left, right) {
 }
 
 function contextSimilarity(left, right) {
+  if (!samePartition(left, right)) return 0;
   const a = contextFeatures(left);
   const b = contextFeatures(right);
   return (jaccard(a.filter((item) => item.includes(':type:') || item.includes(':array:')), b.filter((item) => item.includes(':type:') || item.includes(':array:'))) * 0.7)
@@ -72,7 +81,14 @@ function contextSimilarity(left, right) {
 
 function contextSignature(context) { return sha(normalizeContext(context)); }
 
-function contextFor(options, contract) { return { domain: contract.nativeGraph?.domain || options.cognitiveDomain || 'runtime', operation: options.cognitiveOperation || contract.operation || 'INFER', topology: options.cognitiveTopology || null, level: options.cognitiveLevel || null }; }
+function contextFor(options, contract) {
+  return { domain: contract.domain || 'runtime', operation: contract.operation,
+    organizationId: options.organizationId ?? null, projectId: options.projectId ?? null,
+    scope: options.cognitiveScope ?? null, authority: options.cognitivePolicy ?? null,
+    constraints: options.cognitiveObjects?.constraints ?? null,
+    executorId: options.cognitiveProcedureExecutorId ?? null, model: options.model ?? null,
+    level: contract.economy?.level ?? null };
+}
 
 function matchThreshold(input) {
   return Math.max(0.5, Math.min(1, Number(input.contextSimilarityThreshold
@@ -80,6 +96,7 @@ function matchThreshold(input) {
 }
 
 function contextMatch(candidate, input) {
+  if (!samePartition(candidate.context, input.context)) return 0;
   if (candidate.contextHash === String(input.contextHash)) return 1;
   if (input.context == null || candidate.context == null) return 0;
   const similarity = contextSimilarity(candidate.context, input.context);
@@ -98,7 +115,9 @@ async function ensure(db) {
     'ALTER TABLE procedural_compiled_procedures ADD COLUMN context_json TEXT NOT NULL DEFAULT \'{}\'',
     'ALTER TABLE procedural_compiled_procedures ADD COLUMN context_signature TEXT NOT NULL DEFAULT \'\'',
   ]) {
-    try { await db.exec(statement); } catch (_) { /* columns already exist */ }
+    try { await db.exec(statement); } catch (error) {
+      if (!/duplicate column name/i.test(error.message)) throw error;
+    }
   }
 }
 
@@ -165,7 +184,7 @@ async function validate(candidate, input) {
     return { valid: false, reason: 'procedural_evidence_required' };
   }
   const result = await input.validator(candidate.procedure, candidate.traces);
-  const valid = result?.valid === true || result?.status === 'verified' || result?.reproducible === true;
+  const valid = verified({ ...result, valid: result?.valid ?? result?.reproducible });
   return { valid, result, reason: valid ? null : 'procedural_replay_failed' };
 }
 
@@ -201,6 +220,24 @@ function registerExecutor(id, executor) {
   return id;
 }
 
+async function reuseGate(match, input) {
+  const { procedure } = match;
+  const receipt = parseJson(match.row.receipt_json, null);
+  if (receipt?.digest !== sha({ procedure, validation: receipt?.validation })) {
+    return { status: 'blocked', reason: 'procedure_receipt_mismatch', llmCalls: 0 };
+  }
+  if (procedure.contextHash !== String(input.contextHash) && receipt.validation?.generalized !== true) {
+    return { status: 'blocked', reason: 'procedure_generalization_not_validated', llmCalls: 0 };
+  }
+  if (procedure.prerequisites?.length && typeof input.validatePrerequisites !== 'function') {
+    return { status: 'blocked', reason: 'procedure_prerequisites_unchecked', llmCalls: 0 };
+  }
+  if (input.validatePrerequisites && await input.validatePrerequisites(procedure, input) !== true) {
+    return { status: 'blocked', reason: 'procedure_prerequisites_failed', llmCalls: 0 };
+  }
+  return null;
+}
+
 async function reuse(db, input) {
   await ensure(db);
   const rows = await db.all(`SELECT procedure_json, receipt_json FROM procedural_compiled_procedures
@@ -213,6 +250,8 @@ async function reuse(db, input) {
     .sort((left, right) => right.contextMatch - left.contextMatch);
   const match = matches[0];
   if (!match) return { status: 'miss', reason: 'procedure_not_promoted', llmCalls: 0 };
+  const rejection = await reuseGate(match, input);
+  if (rejection) return rejection;
   const { procedure } = match;
   const executor = input.executor || executors.get(procedure.executorId);
   if (typeof executor !== 'function') return { status: 'blocked', reason: 'procedure_executor_missing', llmCalls: 0 };

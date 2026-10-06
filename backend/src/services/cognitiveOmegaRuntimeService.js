@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const registry = require('./cognitiveObligationRegistry');
+const proofBinding = require('./cognitiveOmegaProofBinding');
 
 const KINDS = new Set(['READ', 'SELECT', 'CALL', 'INFER', 'CHECK', 'EMIT']);
 
@@ -20,7 +21,7 @@ function resultValue(result) {
 }
 
 function verified(result) {
-  return result?.valid === true || result?.status === 'verified' || result?.status === 'formally_proved';
+  return proofBinding.verified(result);
 }
 
 function registryOperations(operations) {
@@ -117,7 +118,8 @@ function createRuntime(input = {}) {
     if (!allowed(state.policy, 'CALL', operation.reference)) return blocked('call_not_authorized', operation);
     const tool = tools.get(operation.reference);
     if (!tool) return blocked('tool_missing', operation);
-    const value = await tool({ arguments: operation.arguments || operation.input,
+    const input = operationInput(operation, state.values);
+    const value = await tool({ arguments: operation.arguments ?? input, input, operation,
       context: state.context, values: state.values });
     state.values[operation.id] = value;
     return { status: 'ready', value };
@@ -144,11 +146,14 @@ function createRuntime(input = {}) {
     const verifier = verifiers.get(operation.reference)
       || state.verifierRegistry?.get(operation.reference);
     if (!verifier) return blocked('verifier_missing', operation);
-    const receipt = await verifier({ candidate: operationInput(operation, state.values),
+    const candidate = structuredClone(operationInput(operation, state.values));
+    const candidateDigest = proofBinding.digest(candidate);
+    const receipt = await verifier({ candidate: structuredClone(candidate),
       context: { ...state.context, resultId: operation.id, proof: operation.proof || null }, values: state.values });
     if (!verified(receipt)) return blocked('verification_failed', operation);
     state.receipts[operation.id] = receipt;
-    state.values[operation.id] = operationInput(operation, state.values);
+    state.proofDigests[operation.id] = candidateDigest;
+    state.values[operation.id] = candidate;
     return { status: 'verified', receipt };
   }
 
@@ -156,14 +161,14 @@ function createRuntime(input = {}) {
     if (!state.allowEmit || !allowed(state.policy, 'EMIT', operation.reference)) {
       return blocked('emit_not_authorized', operation);
     }
-    const dependency = operation.dependsOn.map((id) => state.receipts[id]).find(Boolean);
-    if (!dependency || !verified(dependency)) return blocked('emit_requires_verified_receipt', operation);
+    const proof = proofBinding.emission(operation, state);
+    if (!proof) return blocked('emit_requires_verified_receipt', operation);
     const emitter = emitters.get(operation.reference);
     if (!emitter) return blocked('emitter_missing', operation);
-    const value = await emitter({ value: operationInput(operation, state.values), receipt: dependency,
+    const value = await emitter({ ...proof,
       context: { ...state.context, effect: operation.effectContract || null } });
     state.values[operation.id] = value;
-    return { status: 'emitted', value, receipt: dependency };
+    return { status: 'emitted', value, receipt: proof.receipt };
   }
 
   async function execute(input = {}) {
@@ -175,7 +180,7 @@ function createRuntime(input = {}) {
       obligations: registryOperations(operations) });
     if (plan.status === 'blocked') return blocked(plan.reason);
     const byId = new Map(operations.map((operation) => [operation.id, operation]));
-    const state = { context: input.context || {}, objects: input.objects || {}, values: {}, receipts: {},
+    const state = { context: input.context || {}, objects: input.objects || {}, values: {}, receipts: {}, proofDigests: {},
     policy: input.policy || {}, allowEmit: input.allowEmit === true,
     verifierRegistry: input.verifierRegistry || createDefaultVerifierRegistry(input), mmu: input.mmu || null };
     const results = [];

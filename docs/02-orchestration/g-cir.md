@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel ; noyau Omega livré localement, intégrations générales encore progressives
 - **Portée** : contrats cognitifs, admission, projection vers un modèle, visibilité et validation
-- **Dernière revue** : 2026-10-04
+- **Dernière revue** : 2026-10-06
 - **Décisions liées** : [ADR 0294](../adr/0294-contrat-residuel-cognitif-signal-plane.md), [ADR 0297](../adr/0297-g-cir-generation-hypotheses-trinity.md), [ADR 0299](../adr/0299-registre-obligations-g-cir.md)
 
 ---
@@ -256,21 +256,25 @@ absence de handler, permission ou reçu bloque l'exécution. Le runtime retourne
 un digest des résultats et ne considère jamais une réponse textuelle de modèle
 comme une preuve.
 
-### 6.1 Noyau cible
+### 6.1 Noyau Omega et adaptateurs historiques
 
-Le noyau proposé comprend six opérations. Leurs noms désignent une sémantique
+Le noyau Omega comprend six opérations. Leurs noms désignent une sémantique
 runtime, pas des tokens spéciaux universels pour les modèles.
 
-| Opération | Contrat attendu | Implémentation G-CIR actuelle |
+| Opération | Contrat attendu | Implémentation du runtime Node Omega |
 | --- | --- | --- |
-| `READ` | Résoudre une référence autorisée et versionnée | Hors périmètre |
-| `SELECT` | Construire la vue des dépendances utiles | Champs du signal ou mission et candidats Trinity |
-| `CALL` | Exécuter un outil autorisé | Existant dans GenOS, sans IR G-CIR général |
+| `READ` | Résoudre une référence autorisée et versionnée | Lecteur enregistré, magasin d'objets ou MMU ; permission revérifiée même en cache |
+| `SELECT` | Construire la vue des dépendances utiles | Sélecteur enregistré ou sélection des objets et dépendances du graphe |
+| `CALL` | Exécuter un outil autorisé | Handler enregistré, arguments issus du graphe et contrôle de permission |
 | `INFER` | Soumettre un résidu admis au modèle | Runtime Omega via `registerInferer`, plus Signal Plane et génération d'hypothèses Trinity |
-| `CHECK` | Vérifier le candidat avec méthode et périmètre | Registre épistémique générique et receipts signés |
-| `EMIT` | Publier selon permissions et reçus | Non branché sur ce chemin |
+| `CHECK` | Vérifier le candidat avec méthode et périmètre | Registre épistémique par défaut ou vérificateur enregistré ; résultat contradictoire refusé |
+| `EMIT` | Publier selon permissions et reçus | Actionneur autorisé, candidat lié à toutes ses dépendances de preuve |
 
-Le registre livré déclare les dépendances de `INPUT`, `GATE`, `INFER`, `CHECK`
+Ces points de dispatch ne garantissent pas la disponibilité des outils métier.
+Le serveur MCP Rust n'enregistre pas encore de backends de production pour
+`INFER`, `CHECK` et `EMIT` : leur absence bloque le graphe (voir section 12).
+
+Le registre historique déclare les dépendances de `INPUT`, `GATE`, `INFER`, `CHECK`
 et `EMIT` pour les deux adaptateurs. Chaque nœud a un identifiant, un type,
 un état et des dépendances. Un nœud satisfait ou imposé porte une justification ;
 un `CHECK` satisfait exige un reçu de vérification, un `EMIT` satisfait un reçu
@@ -460,7 +464,9 @@ réels. Le test du routeur utilise un stub pour vérifier la frontière d'appel.
    après crash ; les tests couvrent aussi son lien avec les reçus SQLite.
 4. Lier `CHECK` et `EMIT` aux vérificateurs et gates déjà autorisés ; rejeter
    les auto-déclarations de preuve et les effets répétés après redelivery.
-5. Définir des vecteurs binaires Node/Rust avant tout transport G-CIR canonique.
+5. Livré localement : vecteurs binaires Node/Rust, lecture v0/v1 et matrice
+   d'exécution avec handlers de test. Cela ne valide pas les bindings métier
+   du serveur MCP Rust ; voir l'[ADR 0322](../adr/0322-interop-gcir-omega-rust-node.md).
 6. Comparer sur des jeux figés le système courant, une prose courte, un rendu
    fixe et la résidualisation complète ; mesurer erreurs, tokens, coût et
    latence p50/p95 avec intervalles d'incertitude.
@@ -500,8 +506,10 @@ La décision Omega porte maintenant un bloc d'économie cognitive :
 calcule un niveau L0–L5 à partir du risque et de l'incertitude, sélectionne le
 meilleur ROI observé et attache tokens, latence, coût et risque au contrat.
 AGOW, Morphogenèse, RPE et Natural Search disposent de profils d'intégration
-explicites. Ce pilotage choisit la profondeur et les vérifications du graphe ;
-il ne transforme pas une estimation ROI en preuve de qualité.
+explicites. Le plan exprime une politique de risque ; il ne constitue pas une
+reconfiguration complète de l’organisation. La transformation conserve toutes
+les obligations du graphe et ne duplique pas un vérificateur pour simuler de
+l’indépendance. Une estimation ROI n’est pas une preuve de qualité.
 
 Le `modelRouter` transmet désormais ce plan au runtime Omega. Le MMU fourni par
 le contexte de requête est utilisé par `READ` pour résoudre les défauts de page;
@@ -518,8 +526,9 @@ vecteurs `spec/g-cir-omega-vectors.json`. Le test Node et le test `genos-mcp`
 doivent produire le même octet-par-octet et le même digest; le payload binaire
 est un JSON canonique UTF-8, tandis que le contrat logique expose un objet.
 
-- Le compilateur universel de missions libres et l'ISA exécutable inter-langages
-  restent hors périmètre ; les appels modèle applicatifs passent toutefois par
+- Le compilateur universel de missions libres reste hors périmètre. Les deux
+  runtimes partagent les six opérations, sans disposer de tous les mêmes
+  backends de production ; les appels modèle applicatifs passent par
   la passerelle Omega commune, avec un wrapper de compatibilité pour les anciens
   contrats.
 - Les vérificateurs spécialisés restent dépendants de leurs outils et de leurs
@@ -541,3 +550,23 @@ La prochaine étape est de relier les hypothèses retenues à des résultats
 expérimentaux vérifiés, puis de comparer la qualité et le coût de bout en bout
 avant d'élargir le déploiement. Ni le reçu d'inférence ni la sélection du
 triplet ne sont des résultats de `CHECK`.
+
+## 12. Durcissement du noyau Omega
+
+La suite `npm --prefix backend run test:omega` vérifie notamment les permissions
+MMU asynchrones et les accès en cache, l’expiration SQLite, la reprise après
+réouverture, la liaison candidat/preuve/effet et l’exécution des programmes
+explicites par le routeur. Les projections textuelles conservent la tâche et ses
+contraintes. Les procédures sont partitionnées par domaine et autorité ; leur
+généralisation nécessite une validation explicite.
+
+Le serveur Rust refuse les résultats et reçus fournis par la requête. Le pilote
+de fixtures de la matrice Node/Rust est un exécutable de test séparé. Cette matrice
+couvre les six opérations sur huit domaines et plusieurs refus, mais ses
+handlers simulés ne prouvent pas l’exécution d’un effet métier en production.
+
+La complétude à 100 % n’est pas acquise : il reste les bindings métier complets,
+les backends d’inférence et de vérification du serveur Rust, le pilotage effectif
+de toutes les topologies et la qualification empirique des politiques PGO.
+L’absence de ces capacités doit rester un refus explicite, jamais un résultat
+de succès injecté. Voir l’[ADR 0323](../adr/0323-frontieres-preuve-execution-omega.md).

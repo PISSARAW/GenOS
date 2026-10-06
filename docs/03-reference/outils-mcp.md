@@ -546,6 +546,26 @@ flowchart TD
    - Les effecteurs moteurs ne sont jamais tous débloqués simultanément. Le striatum recrute sélectivement l'un des 5 clusters d'affordance (`snapshot_persistence`, `orchestration_coordination`, `strategy_primitives`, `audit_inspection`, `diagnostics_remediation`).
    - Le modèle 7B reçoit seulement 1 à 3 schémas d'outils ultra-pertinents, éliminant la distraction d'attention et le risque de fausse affordance.
 
+## Exécution G-CIR Ω sur le serveur Rust
+
+Le point d'entrée JSON-RPC `omega/execute` du serveur Rust est distinct du
+catalogue `tools/call`. Il valide l'enveloppe et les références sémantiques,
+puis exécute le graphe Omega. Les associations `toolMap` passent par les
+contrôles habituels de chemins, d'arguments et de lease avant tout appel réel.
+
+Les champs de premier niveau `toolResults`, `inferenceResults`,
+`verificationReceipts` et `emissionResults` sont refusés avec
+`omega_untrusted_execution_results`. Un appelant ne peut pas fournir les
+résultats simulés du pilote de test pour fabriquer une exécution réussie.
+
+Le dispatch de production n'enregistre pas encore les backends `INFER`, `CHECK`
+et `EMIT` : un graphe qui les requiert est bloqué au premier handler absent.
+La matrice Node/Rust utilise un exécutable séparé
+`cargo run -p genos-mcp --example omega_execution_fixture` ; elle ne démontre
+pas la disponibilité de ces backends dans le serveur. Voir les
+[ADR 0322](../adr/0322-interop-gcir-omega-rust-node.md) et
+[0323](../adr/0323-frontieres-preuve-execution-omega.md).
+
 ## Voir aussi (AgentDNA)
 
 - [AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — outils MCP `genos_genome_compile|validate|inspect|cross|mutate|clone|decoy` et leur catalogue (`seedTools.js`, `mcpGenomeTools.js`).

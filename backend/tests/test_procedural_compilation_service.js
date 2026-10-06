@@ -11,6 +11,9 @@ const service = require('../src/services/proceduralCompilationService');
     steps: ['read', 'select', 'write'], input: { i }, success: true, evidenceRefs: [`receipt:${i}`] });
   const candidate = await service.compile(db, { agentId: 'a1', contextHash: 'ctx' });
   assert.equal(candidate.status, 'candidate');
+  const contradicted = await service.promote(db, { candidate,
+    validator: async () => ({ valid: true, status: 'refuted' }) });
+  assert.equal(contradicted.status, 'blocked');
   const promoted = await service.promote(db, { candidate,
     validator: async (procedure, traces) => ({ status: 'verified', procedureId: procedure.procedureId,
       replayed: traces.length }) });
@@ -42,5 +45,9 @@ const service = require('../src/services/proceduralCompilationService');
     executor: async ({ step, input }) => `${input}:${step}` });
   assert.equal(generalized.status, 'reused');
   assert.ok(generalized.contextMatch >= 0.8);
+  const crossDomain = await service.reuse(db, { agentId: 'a2', contextHash: 'ctx-green',
+    context: { ...nearbyContext, domain: 'worker', environment: 'green' },
+    executor: async () => { throw new Error('must not execute across domains'); } });
+  assert.equal(crossDomain.status, 'miss');
   console.log('Procedural compilation checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

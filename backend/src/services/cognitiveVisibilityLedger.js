@@ -16,7 +16,7 @@ function createLedger() {
   function materialize(input = {}) {
     const session = sessionOf(input.sessionId);
     const objectId = input.objectId || keyOf(input.value);
-    session.objects.set(objectId, { value: input.value, revision: session.revision,
+    session.objects.set(objectId, { value: input.value, revision: session.revision, scope: input.scope ?? null,
       expiresAt: input.expiresAt || null, valid: true });
     return { objectId, revision: session.revision, mode: 'materialized' };
   }
@@ -30,7 +30,9 @@ function createLedger() {
   function visible(input = {}) {
     const session = sessionOf(input.sessionId);
     const entry = session.objects.get(input.objectId);
-    const fresh = entry && entry.valid && (!entry.expiresAt || entry.expiresAt > Date.now());
+    const expires = typeof entry?.expiresAt === 'string' ? Date.parse(entry.expiresAt) : entry?.expiresAt;
+    const fresh = entry && entry.valid && entry.scope === (input.scope ?? null)
+      && (!entry.expiresAt || expires > Date.now());
     return { visible: Boolean(fresh), revision: session.revision,
       value: fresh ? entry.value : undefined };
   }

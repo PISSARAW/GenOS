@@ -44,6 +44,9 @@ struct OmegaWire(
     pub Option<String>,
 );
 
+#[path = "omega_graph_validation.rs"]
+mod graph_validation;
+
 pub fn validate(envelope: &OmegaEnvelope) -> Result<(), String> {
     if envelope.schema != SCHEMA {
         return Err(ERROR_SCHEMA_UNSUPPORTED.into());
@@ -66,7 +69,7 @@ pub fn validate(envelope: &OmegaEnvelope) -> Result<(), String> {
             return Err(ERROR_DUPLICATE_OPERATION.into());
         }
     }
-    Ok(())
+    graph_validation::validate(envelope)
 }
 
 pub fn decode(bytes: &[u8]) -> Result<OmegaEnvelope, String> {
@@ -113,7 +116,11 @@ fn migrate_legacy(mut envelope: OmegaEnvelope) -> Result<OmegaEnvelope, String> 
 pub fn read_compatible_json(bytes: &[u8]) -> Result<OmegaEnvelope, String> {
     let value: Value =
         serde_json::from_slice(bytes).map_err(|_| ERROR_ENVELOPE_INVALID.to_string())?;
-    let version = value.get("version").and_then(Value::as_u64).unwrap_or(1) as u8;
+    let version = match value.get("version") {
+        None => 1,
+        Some(raw) => raw.as_u64().and_then(|n| u8::try_from(n).ok())
+            .ok_or_else(|| ERROR_VERSION_UNSUPPORTED.to_string())?,
+    };
     let schema = value
         .get("schema")
         .and_then(Value::as_str)

@@ -22,6 +22,7 @@
     "test:validation": "node tests/run_validation_suite.js all",
     "test:properties": "node tests/test_property_invariants.js",
     "test:interop": "node tests/test_cognitive_omega_interop.js && node tests/test_cognitive_omega_cross_runtime_matrix.js",
+    "test:omega": "node tests/test_omega_safety_regressions.js && node tests/test_omega_persistent_recovery.js && node tests/test_gcir_omega.js && node tests/test_gcir_omega_runtime.js && node tests/test_gcir_omega_router_gateway.js && node tests/test_gcir_omega_domain_graph.js && node tests/test_cognitive_omega_semantic_registry.js && node tests/test_cognitive_mmu.js && node tests/test_cognitive_persistent_visibility.js && node tests/test_cognitive_economy_controller.js && node tests/test_cognitive_epistemic_check.js && node tests/test_procedural_compilation_service.js && node tests/test_cognitive_projection_profiler.js",
     "test:security": "node tests/run_validation_suite.js security",
     "test:mcp": "node tests/run_validation_suite.js mcp",
     "test:tenancy": "node tests/run_validation_suite.js tenancy",

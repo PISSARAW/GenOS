@@ -14,9 +14,9 @@ const mmu = createMmu({ workingSet, ledger, sessionId: 's1',
 (async () => {
   const loaded = await mmu.need({ sessionId: 's1', objectId: 'f1', reference: 'repo', scope: 'audit' });
   assert.equal(loaded.status, 'page_in');
-  assert.equal((await ledger.visible({ sessionId: 's1', objectId: 'f1' })).visible, true);
+  assert.equal((await ledger.visible({ sessionId: 's1', objectId: 'f1', scope: 'audit' })).visible, true);
   assert.equal(mmu.metrics().pageFaults, 1);
-  assert.equal((await mmu.need({ sessionId: 's1', objectId: 'f1', reference: 'repo' })).source, 'working_set');
+  assert.equal((await mmu.need({ sessionId: 's1', objectId: 'f1', reference: 'repo', scope: 'audit' })).source, 'working_set');
   assert.equal((await mmu.need({ sessionId: 's1', objectId: 'secret', reference: 'repo' })).reason, 'mmu_permission_denied');
   const prefetched = await mmu.prefetch([
     { sessionId: 's1', objectId: 'f2', reference: 'repo', probability: 0.8, valueOfInformation: 2, estimatedTokens: 4 },

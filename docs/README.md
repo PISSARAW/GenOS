@@ -308,6 +308,7 @@ Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-f
 - [0296-capacites-transversales-morphogenese.md](adr/0296-capacites-transversales-morphogenese.md) — première tranche des cinq capacités transversales de morphogenèse.
 - [0297-campagnes-biocenose-avec-sorties-verifiables.md](adr/0297-campagnes-biocenose-avec-sorties-verifiables.md) — rapports de campagnes réelles sans verdicts fabriqués.
 - [0297-g-cir-generation-hypotheses-trinity.md](adr/0297-g-cir-generation-hypotheses-trinity.md) — contrat G-CIR et reçus pour les hypothèses candidates Trinity.
+- [0323-frontieres-preuve-execution-omega.md](adr/0323-frontieres-preuve-execution-omega.md) — autorisations MMU, liaison candidat/preuve/émission, isolation des fixtures et limites de complétude Omega.
 - [0298-physiologie-relationnelle-executable.md](adr/0298-physiologie-relationnelle-executable.md) — restrictions relationnelles déterministes et filtrage de filiation dans le routage.
 - [0294-contrat-de-preuve-aeis.md](adr/0294-contrat-de-preuve-aeis.md) — lie l'énoncé AEIS au prédicat exécuté et à deux réplicas réellement séparés.
 - [0295-memoire-immunitaire-portee-et-oracle.md](adr/0295-memoire-immunitaire-portee-et-oracle.md) — persiste l'apprentissage AEIS sous portée tenant après résolution d'un oracle scellé.

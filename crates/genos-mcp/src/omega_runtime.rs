@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet};
+#[path = "omega_runtime_proofs.rs"]
+mod proofs;
+use proofs::verified;
 
 pub type Handler = Box<dyn Fn(OperationContext) -> Result<Value, String> + Send + Sync>;
 
@@ -292,14 +295,13 @@ impl OmegaRuntime {
         if !input.allow_emit {
             return blocked_operation(operation, "emit_not_authorized".into());
         }
-        let receipt = operation.3.iter().find_map(|id| receipts.get(id)).cloned();
-        if receipt.as_ref().is_none_or(|value| !verified(value)) {
+        let Some((candidate, receipt)) = proofs::emission(operation, values, receipts) else {
             return blocked_operation(operation, "emit_requires_verified_receipt".into());
-        }
+        };
         let Some(handler) = self.emitters.get(reference) else {
             return blocked_operation(operation, "emitter_missing".into());
         };
-        let result = handler(OperationContext { receipt, ..context });
+        let result = handler(OperationContext { receipt: Some(receipt), input: candidate, ..context });
         match result {
             Ok(value) => {
                 values.insert(operation.0.clone(), value);
@@ -331,14 +333,6 @@ fn operation_input(operation: &OmegaOperation, values: &BTreeMap<String, Value>)
         1 => inputs.into_iter().next().unwrap_or(Value::Null),
         _ => Value::Array(inputs),
     }
-}
-
-fn verified(value: &Value) -> bool {
-    value.get("valid").and_then(Value::as_bool) == Some(true)
-        || matches!(
-            value.get("status").and_then(Value::as_str),
-            Some("verified" | "formally_proved")
-        )
 }
 
 fn ready(operation: &OmegaOperation) -> OperationResult {

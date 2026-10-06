@@ -10,6 +10,7 @@ const proceduralCompilation = require('./proceduralCompilationService');
 const domainGraph = require('./cognitiveOmegaDomainGraphService');
 const projectionProfiler = require('./cognitiveProjectionProfilerService');
 const cognitiveEconomy = require('./cognitiveEconomyControllerService');
+const { executeNativeGraph, shouldExecuteNative } = require('./cognitiveOmegaRouterExecution');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -136,7 +137,8 @@ async function cognitiveRequest(options) {
     risk: options.cognitiveRisk, uncertainty: options.cognitiveUncertainty,
     irreversible: options.cognitiveIrreversible, highStakes: options.cognitiveHighStakes,
     tokens: options.maxTokens, latencyMs: options.timeoutMs, candidates: options.cognitiveCandidates });
-  const nativeGraph = options.cognitiveProgram ? null : (options.cognitiveDomain
+  const nativeGraph = options.cognitiveProgram ? { domain: options.cognitiveDomain || 'runtime',
+    operations: options.cognitiveProgram, objectStore: options.cognitiveObjects || {} } : (options.cognitiveDomain
     ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
       objects: options.cognitiveObjects, output: options.cognitiveOutput,
       verification: options.cognitiveVerification, evidenceRefs: options.cognitiveEvidenceRefs,
@@ -173,11 +175,15 @@ function omegaExecution(execution) {
   };
 }
 
-function createRequestMmu(options) {
+async function createRequestMmu(options) {
   if (options.cognitiveMmu) return options.cognitiveMmu;
   if (!options.db || typeof options.db.exec !== 'function') return null;
   const workingSet = workingSetService.createWorkingSet({ capacity: options.cognitiveWorkingSetCapacity });
-  const ledger = { materialize: (input) => visibilityLedger.materialize(options.db, input) };
+  const sessionId = options.cognitiveSessionId || options.agentId;
+  if (sessionId) await visibilityLedger.openSession(options.db, { sessionId, model: options.model,
+    modelVersion: options.cognitiveModelVersion, contextRevision: options.cognitiveContextRevision });
+  const ledger = { materialize: (input) => visibilityLedger.materialize(options.db, input),
+    visible: (input) => visibilityLedger.visible(options.db, input) };
   return cognitiveMmu.createMmu({ workingSet, ledger, resolvers: options.cognitiveResolvers,
     authorize: options.cognitiveAuthorizeObject, prefetchThreshold: options.cognitivePrefetchThreshold });
 }
@@ -244,60 +250,6 @@ async function executeInferenceThroughOmega({ candidates, context, mode, mmu, ec
   return { result: execution.values.model_infer, execution: omegaExecution(execution) };
 }
 
-function registerHandlers(runtime, handlers = {}) {
-  const register = (entries, method) => Object.entries(entries || {}).forEach(([reference, handler]) => {
-    if (typeof handler === 'function') runtime[method](reference, handler);
-  });
-  register(handlers.readers, 'registerReader');
-  register(handlers.selectors, 'registerSelector');
-  register(handlers.tools, 'registerTool');
-  register(handlers.inferers, 'registerInferer');
-  register(handlers.verifiers, 'registerVerifier');
-  register(handlers.emitters, 'registerEmitter');
-}
-
-function nativePolicy(graph) {
-  const operations = graph.operations || [];
-  const byKind = (kind) => operations.filter((operation) => operation.kind === kind).map((operation) => operation.reference);
-  return { read: byKind('READ'), select: byKind('SELECT'), call: byKind('CALL'),
-    infer: byKind('INFER'), check: byKind('CHECK'), emit: byKind('EMIT') };
-}
-
-function nativeContext(context, graph) {
-  return { model: context.model, operation: context.cognitiveContract?.operation || 'INFER',
-    sessionId: context.sessionId, scope: context.cognitiveScope, domain: graph.domain };
-}
-
-async function executeNativeGraph({ graph, candidates, context, mode, mmu, economy, options }) {
-  const runtime = createOmegaRuntime();
-  const handlers = options.cognitiveNativeHandlers || {};
-  registerHandlers(runtime, handlers);
-  const inferer = mode === 'parallel'
-    ? () => routeRunner.runParallel(candidates, context)
-    : () => routeRunner.runFallback(candidates, context);
-  (graph.operations || []).filter((operation) => operation.kind === 'INFER').forEach((operation) => {
-    runtime.registerInferer(operation.reference, inferer);
-  });
-  const execution = await runtime.execute({
-    context: nativeContext(context, graph), objects: graph.objectStore || {}, policy: nativePolicy(graph),
-    mmu, economy, allowEmit: options.cognitiveAllowEmit !== false && economy?.execution?.allowEmit === true,
-    verifierRegistry: options.cognitiveVerifierRegistry,
-    verifierHandlers: options.cognitiveVerifierHandlers,
-    verifierDescriptors: options.cognitiveVerificationDescriptors,
-    operations: graph.operations
-  });
-  if (execution.status === 'blocked') {
-    throw Object.assign(new Error(`Omega native graph blocked: ${execution.reason}`), {
-      code: 'OMEGA_NATIVE_GRAPH_BLOCKED', omegaExecution: omegaExecution(execution)
-    });
-  }
-  const infer = (graph.operations || []).find((operation) => operation.kind === 'INFER');
-  return { result: execution.values[infer?.id], execution: omegaExecution(execution) };
-}
-
-function shouldExecuteNative(contract) {
-  return Boolean(contract.nativeGraph);
-}
 
 function missingRouteError(policy, configured) {
   if (policy.preferLocal || configured[0] === 'auto') return Object.assign(new Error('No local chat-capable model is available for the requested route.'), { code: 'LOCAL_MODEL_REQUIRED' });
@@ -344,7 +296,7 @@ async function generate(options) {
   const candidates = await resolveCandidates(routedOptions, policy);
   routingPolicy.assertStrictPreferLocal(policy, candidates, routedOptions);
   const context = buildRouteContext(routedOptions, clock, remainingMs);
-  const mmu = createRequestMmu(opts);
+  const mmu = await createRequestMmu(opts);
   let procedural = null;
   let routed;
   let reused = null;

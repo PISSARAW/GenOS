@@ -90,22 +90,9 @@ function executionPolicy(selectedTopology, level, verificationPasses) {
 
 function shapeOperations(operations, economy) {
   const source = Array.isArray(operations) ? operations : [];
-  const passes = economy?.execution?.verificationPasses ?? 1;
-  const checks = source.filter((operation) => operation.kind === 'CHECK');
-  if (!checks.length) return source.map((operation) => ({ ...operation, dependsOn: [...(operation.dependsOn || [])] }));
-  const primary = checks[0];
-  const shaped = source.filter((operation) => operation.kind !== 'CHECK' && operation.kind !== 'EMIT')
-    .map((operation) => ({ ...operation, dependsOn: [...(operation.dependsOn || [])] }));
-  let previous = primary.dependsOn?.[0];
-  for (let index = 0; index < passes; index += 1) {
-    const check = { ...primary, id: index ? `${primary.id}_${index + 1}` : primary.id,
-      dependsOn: [previous] };
-    shaped.push(check);
-    previous = check.id;
-  }
-  const emit = source.find((operation) => operation.kind === 'EMIT');
-  if (emit && economy.execution?.allowEmit) shaped.push({ ...emit, dependsOn: [previous] });
-  return shaped;
+  // A cost policy cannot erase an obligation or manufacture independent evidence
+  // by repeating the same verifier. Effect authorization remains a runtime gate.
+  return source.map((operation) => ({ ...operation, dependsOn: [...(operation.dependsOn || [])] }));
 }
 
 function observe(input = {}) {

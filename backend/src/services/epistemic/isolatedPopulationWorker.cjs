@@ -1,7 +1,7 @@
 'use strict';
 
 const readline = require('node:readline');
-const { generate } = require('../modelProvider');
+const { generate } = require('../modelRouter');
 
 async function run() {
   const input = await readRequest();
