@@ -96,6 +96,7 @@ async function recordContribution(db, input = {}) {
   const context = await contributionContext(db, input);
   const record = contributionRecord(input, context);
   const immuneReview = await immunePlane.reviewSymbiontOutput({
+    db,
     symbiontId: record.symbiontId, resultHash: record.resultHash,
     evidenceRefs: record.evidenceRefs, verifierId: record.verifierId,
     claim: `Verified ${record.capability} contribution with score ${record.contributionScore}`,

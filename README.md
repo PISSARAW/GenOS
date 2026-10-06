@@ -49,7 +49,7 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 - **Trinity** — baseline comparative à trois mondes et douze variants à runners dédiés, avec gates de preuve ; les résultats incomplets escaladent (R3 pré-correctifs : 12/12 escalades, 0 merge ; qualification post-correctifs en attente).
 - **A-Team** — workers spécialisés par domaine, handoffs et arbitrage d'intégration.
 - **Biocénose** — consensus pondéré, quorum, métriques d'essaim et barrière d'évidence.
-- **Holobionte** — hôte avec veto immunitaire et workers symbiotes en inférence locale.
+- **Holobionte** — missions hôte-symbiotes contractuelles : admission, preuve indépendante, veto immunitaire, quotas, mémoire atomique et hôtes persistants. [Contrat et exemple](docs/03-reference/runtime-holobionte.md).
 - **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
 - **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
 - **Rhizome** — sessions composées, routage par capacité entre membres et traces stigmergiques.

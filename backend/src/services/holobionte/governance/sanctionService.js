@@ -170,6 +170,7 @@ async function sanctionSymbiont(db, input = {}) {
   if (!session) throw sanctionError('Holobiont session not found.', 'HOLOBIONT_SESSION_NOT_FOUND');
   const target = { session, ...validateSanction(session, input) };
   const review = await immunePlane.reviewSymbiontOutput({
+    db,
     symbiontId: target.symbiontId, claim: `Apply ${target.action} sanction: ${requiredText(input.reason, 'reason')}`,
     resultHash: `${session.holobiontId}:${target.symbiontId}:${session.revision}`,
     evidenceRefs: target.evidenceRefs, verifierId: input.verifierId,

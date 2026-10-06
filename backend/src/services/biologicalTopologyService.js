@@ -116,6 +116,13 @@ function readSyncytiumSchema() {
 
 async function composeHolobionte({ db, orchestratorId, mission, options = {} }) {
   const composition = holobionteCoordinationService.composeHolobiont(mission, options);
+  if (db?.exec) {
+    const opened = await require('./holobionteService').openMissionHost(db, { ...options,
+      hostId: options.hostId || orchestratorId, missionId: options.missionId || mission });
+    composition.holobiontId = opened.session.holobiontId;
+    composition.hostSession = opened.session;
+    composition.runtimeStatus = 'AWAITING_ADMISSION';
+  }
   await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Holobionte mode activation' });
   return composition;
 }

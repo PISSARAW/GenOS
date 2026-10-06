@@ -253,6 +253,20 @@ genos_sk_admin_...
 
 ---
 
+## Missions contractuelles Holobionte
+
+Le service `src/services/holobionteService.js` expose `runHolobiontMission` : ouverture de l’hôte, essai d’admission, exécution par capacité, vérification indépendante, décision immunitaire, contribution et mémoire atomiques, puis clôture ou quiescence. Le compositeur historique retourne `COMPOSED` ; ce statut ne prouve aucune exécution. Les adaptateurs fournissent l’isolation physique et les mesures de ressources.
+
+Depuis la racine du dépôt :
+
+```bash
+node examples/holobionte/run-mission.cjs
+node backend/bin/genos-holobionte-mission.cjs examples/holobionte/arithmetic-mission.cjs --preflight
+npm --prefix backend run test:holobionte
+```
+
+Voir le [contrat d’exécution](../docs/03-reference/runtime-holobionte.md) pour les adaptateurs obligatoires, les erreurs, les quotas et les limites de validation.
+
 ## Verification Test Suite
 
 The test suite validates database integrity, vector search, biological primitives, and orchestration safety:

@@ -113,8 +113,9 @@ function decisionFor(input, contribution, immuneReview) {
   return contribution >= MINIMUM_TRIAL_CONTRIBUTION ? 'ADMITTED' : 'REJECTED';
 }
 
-async function reviewTrial(input, receipt) {
+async function reviewTrial(input, receipt, db) {
   return immunePlane.reviewSymbiontOutput({
+    db,
     symbiontId: input.symbiontId, resultHash: receipt.resultHash,
     evidenceRefs: receipt.evidenceRefs, verifierId: receipt.verifierId,
     claim: `Trial contribution ${receipt.contributionScore} for ${receipt.capability}`,
@@ -135,7 +136,7 @@ async function evaluateTrial(db, input = {}) {
     throw admissionError('An active contract is required to evaluate a trial.', 'HOLOBIONT_CONTRACT_REQUIRED');
   }
   const { receipt, contribution } = trialReceipt(input, candidate, contract);
-  const immuneReview = await reviewTrial(input, receipt);
+  const immuneReview = await reviewTrial(input, receipt, db);
   receipt.immuneReview = immuneReview;
   const decision = decisionFor(input, contribution, immuneReview);
   const eventType = decision === 'ADMITTED' ? 'SYMBIONT_ADMITTED'

@@ -20,8 +20,8 @@ function testHolobionte() {
   assert.strictEqual(comp.members.length, 4);
 
   const act = activateHolobionte('Activate host');
-  assert.strictEqual(act.activated, true);
-  assert.strictEqual(act.status, 'ACTIVE');
+  assert.strictEqual(act.activated, false);
+  assert.strictEqual(act.status, 'COMPOSED');
 }
 
 testBiocenose();

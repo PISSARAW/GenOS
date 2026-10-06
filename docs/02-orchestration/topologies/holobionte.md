@@ -1,14 +1,14 @@
 # Holobionte : Protocole de Symbiose Cognitive Host-Symbionte avec Immunité Adaptative
 
-- **Statut** : Partiel
-- **Portée** : deux chemins coexistent : le compositeur historique à quatre rôles et un runtime persistant qui sélectionne des symbiotes résidents par capacité.
-- **Dernière revue** : 2026-09-25
+- **Statut** : Implémenté pour le runtime contractuel ; modèles biologiques conceptuels
+- **Portée** : missions par capacité avec admission, preuves indépendantes, décision de l’hôte, quotas, mémoire, santé et clôture ; composition historique à quatre rôles explicitement déclarative.
+- **Dernière revue** : 2026-10-06
 
-Le runtime persistant couvre les sessions, contrats, admission, exécution par capacité, santé, contribution, transmission et succession. Les schémas ci-dessous restent conceptuels lorsqu’ils décrivent des garanties plus larges que ces services. La sélection, les gates et les actions de santé ne rendent pas automatiquement chaque chemin historique conforme au nouveau runtime.
+Le runtime persistant couvre les sessions, contrats, admission, exécution par capacité, santé, contribution, transmission et succession. Les schémas ci-dessous restent conceptuels lorsqu’ils décrivent des garanties plus larges que ces services. Le service de mission commun et Morphogenesis utilisent les mêmes gates. La composition seule retourne COMPOSED, sans déclaration de succès d’exécution.
 
 ## 1. Définition
 
-Holobionte dans GenOS conserve un compositeur historique qui compose une mission en quatre rôles. Un second chemin, persistant, ouvre une session d’hôte, admet des symbiotes, choisit un résident selon la capacité demandée, exécute cette capacité et évalue l’état de santé. Ce runtime ne remplace pas automatiquement les anciens points d’entrée. Les modèles conceptuels de cette fiche ne constituent des garanties que lorsqu’un service et son intégration sont cités explicitement.
+Holobionte dans GenOS conserve un compositeur historique qui compose une mission en quatre rôles. Un second chemin, persistant, ouvre une session d’hôte, admet des symbiotes, choisit un résident selon la capacité demandée, exécute cette capacité et évalue l’état de santé. Le service de mission et Morphogenesis partagent ce runtime ; la composition historique demeure une description des rôles. Les modèles conceptuels de cette fiche ne constituent des garanties que lorsqu’un service et son intégration sont cités explicitement.
 
 Le modèle conceptuel repose sur une **symbiologie fonctionnelle avec autorité centrale** où :
 
@@ -23,7 +23,7 @@ Le mot « Holobionte » vient de la biologie : un holobionte est un organisme h�
 
 Les services effectivement reliés sont :
 - [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des quatre rôles et définition de leurs consignes.
-- [backend/src/services/holobionteService.js](../../../backend/src/services/holobionteService.js) : composition et activation déclarative d'une mission.
+- [backend/src/services/holobionteService.js](../../../backend/src/services/holobionteService.js) : composition déclarative et point d’entrée des missions contractuelles vérifiées.
 - [backend/src/services/holobionteCoordinationService.js](../../../backend/src/services/holobionteCoordinationService.js) : contrat de capacités, résumé de composition et veto de l'hôte.
 - [backend/src/services/immuneSystem.js](../../../backend/src/services/immuneSystem.js) : fonctions de contrôle de sortie utilisées par le veto.
 - [backend/src/services/symbioteRuntimeService.js](../../../backend/src/services/symbioteRuntimeService.js) : politique de routage local pour les rôles symbiotiques, embeddings locaux et validation de schéma.
@@ -1049,35 +1049,24 @@ sequenceDiagram
 
 ## 26. Implémentation et capacités (GenOS v3)
 
-La topologie est partiellement intégrée. Les services ci-dessous décrivent le runtime persistant disponible dans `backend/src/services/holobionte/`. La [matrice des capacités](../topologies-et-capacites.md) décrit les prérequis déclarés ; cette déclaration seule ne prouve pas l’exécution d’une capacité.
+Le [contrat du runtime Holobionte](../../03-reference/runtime-holobionte.md) décrit les entrées, sorties, commandes et limites exécutables. Le service commun ouvre l’hôte, réalise l’essai d’admission, sélectionne les résidents par capacité, exécute, vérifie, persiste et termine la mission. Morphogenesis utilise ce même chemin. La composition historique à quatre rôles est COMPOSED ; une base réelle peut ouvrir une session AWAITING_ADMISSION, sans attester une exécution.
 
-### Chemins d’exécution
+### Preuve, ressources et gouvernance
 
-- Le chemin historique `biologicalModeService` / `holobionteService` compose quatre rôles et produit une activation déclarative. Il ne faut pas le confondre avec le cycle persistant par capacité.
-- Au dispatch biologique, le membre `host_orchestrator` est le rôle du parent orchestrateur : il n'est ni créé comme worker enfant ni compté dans le garage. Seuls les trois symbiotes typés sont lancés comme workers ; le parent reçoit et intègre leurs résultats. Le budget de slots porte donc sur les workers, pas sur le membre hôte déclaratif.
-- `holobiontStore` et les contrats de session conservent l’état d’un hôte et de ses symbiotes. Les services d’admission, de choix de partenaire, de planification et d’exécution sélectionnent un résident pour une capacité demandée.
-- `holobiontRuntime.runCycle(db, input)` planifie la capacité, exécute le résident retenu, puis renvoie le rapport de santé et l’action suggérée. Un écart de capacité est renvoyé comme `CAPABILITY_GAP` ; une exécution rejetée reste distincte d’une exécution vérifiée.
-- `holobionteService.variantRuntime` expose les plans des douze variants ainsi que `selectPersistentVariant` et `evaluatePersistentVariant`. La sélection et les reçus d'évaluation sont persistés dans le journal d'événements de session, avec contrôle de révision, transition de variant approuvée et références de preuve validées indépendamment. Les reçus sont bornés et gardent les 100 évaluations les plus récentes dans l'état matérialisé.
-- Le variant `adaptive-microbiome` expose `runEcologicalCycle` : il observe les tendances de fitness, la diversité et les six signaux de dysbiose, puis produit une action et d'éventuelles propositions de remplacement. Le variant ne remplace pas automatiquement un résident : les essais et remplacements restent soumis aux preuves et à l'approbation.
-- Un cycle écologique et son reçu d'évaluation sont ajoutés atomiquement après validation de leurs preuves. La migration de `holobiont_events` élargit le contrôle SQLite tout en conservant les anciens événements; une preuve invalide ne doit laisser ni cycle ni reçu persisté.
-- Les adaptateurs connectent certains symbiotes existants (A-Team, daemon résident, Rhizome, Syncytium et Trinity). Leur présence ne signifie pas que tous les points d’entrée des topologies utilisent le runtime Holobionte.
+Le résultat concret doit être vérifié par un adaptateur indépendant. Son reçu lie l’empreinte SHA-256 aux références de preuve. Le gate immunitaire inspecte cette sortie avant la promotion. Contrat actif, révisions, baux d’outils, classes de données et autorité sont contrôlés. Contribution, mémoire et CAPABILITY_USED sont atomiques ; les ressources sont libérées après succès, erreur, révocation ou annulation.
 
-### Santé, contribution et transmission
+La mission borne les jetons cumulés des essais et étapes, la durée et le nombre d’étapes. Les allocations concurrentes consomment la disponibilité de l’hôte. Une mission terminée ferme sa session ou met l’hôte persistant en quiescence. Une session fermée ne peut exécuter une nouvelle capacité.
 
-- Le plan immunitaire et l’admission contrôlent les symbiotes selon les services correspondants ; calibration et détection de sur-réaction mesurent certains faux positifs. Ces contrôles ne relâchent pas les gates de sûreté.
-- Le registre de contribution calcule une fitness relationnelle à partir des événements et références de preuve disponibles. Le vecteur global comporte dix dimensions séparées, requiert des références de preuve et ne calcule pas de score agrégé par défaut.
-- Le détecteur de dysbiose reçoit six signaux normalisés entre 0 et 1, calcule un score heuristique et retourne `STABLE`, `WATCH` ou `ALERT`. Il ne dérive pas lui-même les signaux et n’applique aucune action automatique.
-- Les services de transmission couvrent héritage vertical, acquisition horizontale, transmission mixte et transfert procédural contrôlé. Validation, succession, résilience et impact keystone disposent également de services dédiés ; leurs sorties dépendent des données fournies et ne prouvent pas à elles seules un bénéfice causal.
+La santé dérive par défaut six signaux heuristiques du registre persistant et conserve le vecteur de fitness à dix dimensions sans agrégation implicite. La boucle applique WARN, THROTTLE, REDUCE_RESOURCES ou QUARANTINE avec preuves et conditions de récupération. Les décisions plus larges restent soumises à la gouvernance ; l’automatisme peut être désactivé.
 
-### Benchmark longitudinal
+### Variants, transmission et intégrations
 
-Le runner compare douze bras sur les mêmes 50 à 100 missions ordonnées. Chaque résultat exige des références de preuve et un identifiant de vérificateur. Il calcule succès, coûts, jetons et métriques de symbiose, mais retourne `promotionDecision: null` : l’évaluation ne promeut rien. Le runner est injectable ; les tests utilisent une fonction de mission simulée. Aucune campagne réelle de 600 à 1 200 exécutions n’est attestée par ces tests. Voir le [protocole du benchmark longitudinal](../../06-benchmarks/benchmark-longitudinal-holobionte.md) et l’[ADR 0105](../../../docs/adr/0105-benchmark-longitudinal-holobionte.md).
+Les douze variants persistants, les workflows bornés et leurs reçus restent disponibles. Chaque étape conserve l’hôte, le vérificateur et le signal de mission ; l’annulation est contrôlée avant persistance. Le cycle adaptive-microbiome produit des propositions de remplacement qui restent soumises à admission et approbation.
 
-### Limites à garder visibles
+Les services couvrent transmission verticale, horizontale, mixte et procédurale, succession, résilience et impact keystone. Les adaptateurs A-Team, daemon résident, Rhizome, Syncytium et Trinity ont des tests dédiés. Le dispatch biologique historique conserve le parent host_orchestrator et les trois workers symbiotiques ; un plan de rôles n’est pas une preuve de contribution exécutée.
 
-- Le compositeur historique reste une composition fixe à quatre rôles ; le runtime persistant est un chemin distinct.
-- L’évaluation de dysbiose est conditionnelle à la fourniture de signaux. Le rapport de santé ne déclenche pas automatiquement les actions suggérées.
-- Le vecteur de fitness n’est pas un indicateur de succès global et les dimensions ne sont pas agrégées implicitement.
-- Les tests valident les contrats et le runner avec des entrées synthétiques ; ils ne démontrent ni un gain de performance réel, ni une campagne longitudinale exécutée.
+### Validation et limites
 
-Les services associés sont notamment `holobionte/holobiontStore.js`, `holobionte/runtime/holobiontRuntime.js`, `holobionte/fitness/holobiontFitnessVectorService.js` et `holobionte/health/dysbiosisDetector.js`. Les décisions connexes sont indexées dans [l’index des ADR](../../../docs/adr/README.md), dont les ADR [0097](../../../docs/adr/0097-calibration-immunitaire-holobionte.md), [0103](../../../docs/adr/0103-vecteur-fitness-holobionte.md), [0104](../../../docs/adr/0104-dysbiose-holobionte.md), [0105](../../../docs/adr/0105-benchmark-longitudinal-holobionte.md), [0106](../../../docs/adr/0106-detection-surreaction-immunitaire-holobionte.md) et [0107](../../../docs/adr/0107-impact-keystone-holobionte.md).
+La suite dédiée est exécutée par npm --prefix backend run test:holobionte. Elle inclut les missions complètes sur SQLite en mémoire et les refus de preuve, de quota, d’accès, de révocation concurrente et d’annulation, ainsi que les intégrations et services existants. L’exemple examples/holobionte/run-mission.cjs effectue un calcul réel et indépendant de contrôle.
+
+L’intégrateur réalise l’isolation physique et les mesures via ses adaptateurs. Le runtime ne certifie pas une sandbox système à partir d’un callback. Le benchmark longitudinal compare douze bras sur 50 à 100 missions, sans promotion automatique ; les tests du runner utilisent des missions simulées. Aucune campagne réelle de 600 à 1 200 exécutions ni gain causal de performance n’est attesté. Voir le [protocole longitudinal](../../06-benchmarks/benchmark-longitudinal-holobionte.md) et l’[ADR 0330](../../adr/0330-holobionte-missions-contractuelles-verifiees.md).
