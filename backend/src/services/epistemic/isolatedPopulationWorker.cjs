@@ -1,17 +1,21 @@
 'use strict';
 
 const readline = require('node:readline');
-const { generate } = require('../modelRouter');
+console.log = console.info = (...args) => console.error(...args);
+const { generate } = require('../modelProvider');
 
 async function run() {
   const input = await readRequest();
   try {
     const result = await generate({ model: input.model, endpoint: input.endpoint, prompt: input.prompt, timeoutMs: input.timeoutMs, maxTokens: input.maxTokens, stream: false, enforceSchema: false });
-    process.stdout.write(JSON.stringify({ provider: input.provider, model: input.model, text: result.text || '', usage: result.usage || {} }));
+    finish({ provider: input.provider, model: input.model, text: result.text || '', usage: result.usage || {} });
   } catch (error) {
-    process.stdout.write(JSON.stringify({ provider: input.provider, model: input.model, error: error.message }));
-    process.exitCode = 1;
+    finish({ provider: input.provider, model: input.model, error: error.message }, 1);
   }
+}
+
+function finish(payload, code = 0) {
+  process.stdout.write(JSON.stringify(payload), () => process.exit(code));
 }
 
 function readRequest() {
@@ -23,4 +27,4 @@ function readRequest() {
   });
 }
 
-run().catch((error) => { process.stderr.write(error.message); process.exitCode = 1; });
+run().catch((error) => { process.stderr.write(error.message, () => process.exit(1)); });

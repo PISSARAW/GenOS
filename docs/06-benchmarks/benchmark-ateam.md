@@ -25,3 +25,7 @@ Le dépôt fournit le protocole et son test contractuel, pas encore un adaptateu
 connecté aux workers A-Team. Le test du harnais vérifie l'appariement et le gate de preuve ;
 il ne constitue pas un résultat de performance. Toute comparaison publiée doit inclure
 les données brutes, le nombre de scénarios/répétitions et les versions des modèles.
+
+## Portée des nouvelles preuves de clôture
+
+`test_ateam_execution_e2e.js` exerce SQLite et des sous-processus Node : promotion, refus, délais, baux et handoffs. Les 44 cas de variantes sont des tests de contrats isolés. Ils ne sont pas les essais des cinq bras de ce protocole, ni une mesure de gain de temps, de coût ou de qualité. Le bras « A-Team complète » désigne une configuration expérimentale cible, pas une certification de conformité à toute la fiche. Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).

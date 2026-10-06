@@ -20,14 +20,19 @@ async function verifyAcrossProviders(input) {
   const results = await Promise.all(providers.map((provider) => runProvider(input, provider)));
   const successful = results.filter((result) => result.status === 'completed');
   const independent = successful.length >= minimum && new Set(successful.map((r) => r.provider)).size >= minimum;
-  return { status: independent ? 'completed' : 'incomplete', independent, results, required: minimum };
+  const verdicts = new Set(successful.map((result) => result.verdict));
+  const verdict = independent && successful.length === providers.length && verdicts.size === 1
+    ? successful[0].verdict : 'uncertain';
+  return { status: independent ? 'completed' : 'incomplete', independent, verdict, results, required: minimum };
 }
 
 async function runProvider(input, provider) {
   try {
     const response = await input.runProvider({ provider, claim: input.claim, evidence: input.evidence });
     if (!response || typeof response.assessment !== 'string') throw new Error('provider assessment missing');
-    return { provider: providerKey(provider), model: provider.model || null, status: 'completed', assessment: response.assessment, counterexamples: response.counterexamples || [] };
+    const verdict = ['supports', 'refutes', 'uncertain'].includes(response.verdict) ? response.verdict : 'uncertain';
+    return { provider: providerKey(provider), model: provider.model || null, status: 'completed',
+      verdict, assessment: response.assessment, counterexamples: response.counterexamples || [] };
   } catch (error) {
     return { provider: providerKey(provider), status: 'error', error: error.message };
   }

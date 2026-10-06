@@ -158,6 +158,7 @@ function signVerifierResult(antigen, verifier, signed) {
     status: signed.outcome.status,
     verifierType: verifier.type,
     resultId: antigen.id,
+    verifierId: verifier.id || null,
     evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest || 'none',
     verifierDigest,
     observations: signed.outcome.observations,

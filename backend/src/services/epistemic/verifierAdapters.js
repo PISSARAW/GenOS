@@ -129,6 +129,7 @@ async function executeConfiguredTest(target, testConfig) {
       timeoutMs: target.timeout,
     });
     observations.push(observationRecord('test:execute', executionDetail(target.command, { ...execution, cwd: target.cwd })));
+    if (execution.timedOut) return { observations, counterexamples: [], status: 'inconclusive', reason: 'execution_timeout' };
     const counterexamples = collectTestCounterexamples(execution, testConfig);
     const status = counterexamples.length > 0 ? 'refuted' : 'verified';
     return { observations, counterexamples, status };
@@ -294,7 +295,7 @@ async function runArtifactAdapter(antigen, verifier, context) {
 
   const target = resolveSandboxTarget(artifactConfig, verifier, context || {});
   const execution = await executeConfiguredBuild(target, artifactConfig, observations);
-  if (!execution) return { observations, counterexamples, status: 'inconclusive' };
+  if (!execution || execution.timedOut) return { observations, counterexamples, status: 'inconclusive' };
   if (!execution.success) {
     counterexamples.push({
       type: 'artifact_build_failure',

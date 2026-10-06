@@ -81,6 +81,24 @@ The controller orders assessment, authorization, atomic application, independent
 
 From the repository root, run `node backend/bin/genos-gvx-profile.cjs <profiles.json>` to validate configuration and `node backend/bin/genos-gvx-verifier.cjs` to start the configured service. The functional suite is `node backend/bin/test-gvx.cjs`. See the [operator profile](../docs/02-orchestration/profil-execution-gvx.md), [verifier service](../docs/05-securite-gouvernance/service-verificateur-gvx.md) and [validation report](../docs/06-qualite-preuves/validation-cycle-standard-gvx.md). These fixtures do not establish model efficacy or a qualified holdout campaign.
 
+### AEIS : promotion et mémoire immunitaire
+
+Le chemin `approveRun()` exécute l'AEIS avant la promotion : prédicat de commande
+exact, quorum de deux vérificateurs indépendants avec reçus signés et
+ré-arbitration homéostatique. La politique multi-provider exige l'accord
+complet des providers distincts ; leurs workers utilisent des processus
+séparés et SQLite en mémoire.
+
+Les tables `epistemic_immune_memory_scoped` et `epistemic_immune_outcomes`
+conservent les observations confirmées par portée. La migration
+`114-aeis-authority` ajoute `aeis_agent_dissonance` et `aeis_dissonance_events`
+pour des restrictions d'autorité persistantes, applicables aux descendants.
+
+Depuis la racine : `npm --prefix backend run test:aeis`. Les tests utilisent
+SQLite, des commandes réelles et des réponses HTTP provider contrôlées.
+Voir [la fiche AEIS](../docs/01-concepts/adaptive-epistemic-immune-system.md)
+et [les gates de preuve](../docs/06-qualite-preuves/immunite-epistemique.md).
+
 ### 5. Unified MCP Tool Registry (`src/services/mcpToolRegistry.js`)
 Maintains a declaration-driven backend registry for typed execution routing. Its current unique declaration count and registered biomimicry handler count are recorded in the dated [technical inventory](../docs/03-reference/inventaire-technique.md). MCP stdio servers expose a leased public subset:
 - `strategy`: Handled by `mcpStrategyTools.js`.
@@ -408,3 +426,9 @@ sequenceDiagram
     
     WSClient->>WSClient: Mise à jour dynamique de l'UI / Graphique
 ```
+
+## A-Team execution and evidence boundary
+
+Explicit dispatch and autonomous orchestration share `src/services/aTeam/execution/teamExecutionService.js`. Canonical workers are assigned before graph persistence. A runner lease and a persisted deadline protect resumption. Worker completion alone cannot complete the TeamRun: evidence, global criteria and exact versioned consumer receipts are required. The detached runner also monitors teams without deferred stages.
+
+The eleven variant evaluators remain separate from generic dispatch; multiteam planning does not launch verified sub-runs. Coverage measures mission contributions, not general expertise. See [the A-Team runtime contract](../docs/03-reference/runtime-a-team.md).

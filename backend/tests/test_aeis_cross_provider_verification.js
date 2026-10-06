@@ -8,10 +8,11 @@ async function main() {
   const result = await verifyAcrossProviders({
     providers,
     claim: 'claim',
-    runProvider: async ({ provider }) => ({ assessment: `checked by ${provider.provider}` }),
+    runProvider: async ({ provider }) => ({ assessment: `checked by ${provider.provider}`, verdict: 'supports' }),
   });
   assert.equal(result.status, 'completed');
   assert.equal(result.results.length, 2);
+  assert.equal(result.verdict, 'supports');
   const unavailable = await verifyAcrossProviders({ providers: providers.slice(0, 1), runProvider: async () => ({ assessment: 'ok' }) });
   assert.equal(unavailable.independent, false);
   const partial = await verifyAcrossProviders({

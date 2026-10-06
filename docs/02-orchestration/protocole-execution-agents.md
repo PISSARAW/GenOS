@@ -224,3 +224,9 @@ des vérificateurs; ne jamais inventer des reçus ou des sources.
 - `backend/src/services/agentRuntimeAdapter/missionExecution.js`, `missionBootstrap.js`, `missionPlanning.js`.
 - `backend/src/services/agents/workerKindService.js`, `backend/src/services/telemetryObserver.js`.
 - `backend/src/services/medical/clinicalStateService.js`, `immuneSurveillanceService.js` et `docs/01-concepts/nosologie/vue-ensemble.md`.
+
+## Rapports et dépendances A-Team
+
+Un worker `completed` ne débloque pas à lui seul un consumer. Son rapport doit être promu selon les artefacts, schémas et critères. Le consumer reçoit les handoffs disponibles et rapporte leurs `handoffId`, `version` et `digest` exacts avec une évaluation positive et sourcée. Une erreur dans une branche ne bloque pas les branches sans dépendance envers elle.
+
+Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).

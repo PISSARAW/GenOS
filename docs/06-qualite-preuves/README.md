@@ -35,3 +35,5 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 - [../README.md](../README.md) — hub général.
 
 - [campagne-agow-cloture.md](campagne-agow-cloture.md) — baselines simplifiées, ablation, médiation et trois holdouts locaux AGOW.
+
+- [Contrat A-Team et validation ciblée](../03-reference/runtime-a-team.md) — clôture SQLite/processus Node, 44 cas isolés et limites de qualification.

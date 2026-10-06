@@ -47,7 +47,7 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 ## Huit topologies d'orchestration
 
 - **Trinity** — baseline comparative à trois mondes et douze variants à runners dédiés, avec gates de preuve ; les résultats incomplets escaladent (R3 pré-correctifs : 12/12 escalades, 0 merge ; qualification post-correctifs en attente).
-- **A-Team** — workers spécialisés par domaine, handoffs et arbitrage d'intégration.
+- **A-Team** — workers spécialisés, DAG à progression indépendante, handoffs versionnés et clôture sur preuve ; conformité globale partielle, évaluations de variantes distinctes. Voir [le contrat runtime](docs/03-reference/runtime-a-team.md).
 - **Biocénose** — consensus pondéré, quorum, métriques d'essaim et barrière d'évidence.
 - **Holobionte** — missions hôte-symbiotes contractuelles : admission, preuve indépendante, veto immunitaire, quotas, mémoire atomique et hôtes persistants. [Contrat et exemple](docs/03-reference/runtime-holobionte.md).
 - **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
@@ -56,6 +56,13 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 - **Métapopulation** — runtime régional persistant : migrations revues par le receveur, extinction à preuves, recolonisation multi-lignage et reprise des cycles ; moteurs externes configurés par adaptateurs. Voir le [contrat runtime](docs/03-reference/runtime-metapopulation.md).
 
 Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).
+
+Le [système immunitaire épistémique AEIS](docs/01-concepts/adaptive-epistemic-immune-system.md)
+relie la promotion à des preuves de commande exécutées indépendamment. Il inclut
+mémoire et autorité persistantes, recrutement de niches, ré-arbitration
+homéostatique et revues provider en processus séparés. La fiche précise les
+limites et la matrice de qualification ; les réponses provider locales contrôlées
+ne constituent pas une mesure de modèles externes.
 
 ---
 

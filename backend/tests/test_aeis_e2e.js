@@ -292,6 +292,8 @@ async function run() {
       r.counterexamples.some(c => c.type === 'output_mismatch')
     );
     assert.ok(refuted, 'le faux claim doit etre refute par output_mismatch');
+    assert.equal(result.allAccepted, false, 'a real refutation must reach the host veto');
+    assert.equal(result.anyBlocked, true);
   });
 
   await test('Une affirmation sans lien avec un test réussi est refusée', async () => {
@@ -309,7 +311,9 @@ async function run() {
       evidence: [{ kind: 'reproducible_artifact' }],
     }] }, { multiProviderEnabled: true, providerAllowlist: [] });
     assert.strictEqual(result.evaluation.eligible, false);
-    assert.strictEqual(result.assembly, null);
+    assert.equal(result.allAccepted, false);
+    assert.equal(result.anyBlocked, true);
+    assert.ok(result.assembly?.results.length, 'retain the signed refusal assembly for audit and confirmed counterproofs');
   });
 
   // 15. Sans assembly AEIS la promotion gate refuse
