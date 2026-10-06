@@ -147,7 +147,8 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [biome.md](02-orchestration/topologies/biome.md) — orchestration par environnement et populations.
 - [biocenose.md](02-orchestration/topologies/biocenose.md) — orchestration communautaire.
 - [holobionte.md](02-orchestration/topologies/holobionte.md) — orchestration hôte-symbionte.
-- [syncytium.md](02-orchestration/topologies/syncytium.md) — état partagé et synchronisation continue.
+- [syncytium.md](02-orchestration/topologies/syncytium.md) — état partagé, 13 variants et limites de preuve des missions.
+- [protocole-missions-syncytium.md](02-orchestration/topologies/protocole-missions-syncytium.md) — budget, matrice des 53 cas et preuves attendues.
 - [rhizome.md](02-orchestration/topologies/rhizome.md) — missions par capacités, croissance vérifiée, budgets et routage borné.
 - [metapopulation.md](02-orchestration/topologies/metapopulation.md) — populations semi-indépendantes.
 - [garage-fabric.md](02-orchestration/topologies/garage-fabric.md) — garage adaptatif des workers, leases et admission multi-stratégies.

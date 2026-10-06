@@ -23,6 +23,13 @@ génériques ne constituent pas une preuve de réussite d'un protocole spéciali
 Le verdict de campagne exige en outre un oracle indépendant des déclarations des
 workers.
 
+Les identifiants des workers sont attribués avant la construction d'une session
+spécialisée et réutilisés lors du lancement. Les manifestes peuvent référencer
+`worker:1` à `worker:5` dans les membres d'autorité, régions et noyaux ; ces
+références sont remplacées par les identités effectives avant compilation des
+domaines. Hard autorise les workers prévus par défaut quand aucune liste
+`authorityMembers` n'est fournie.
+
 ## Conséquences
 
 Les manifestes Hard, Hierarchical et Human–AI doivent fournir les membres,

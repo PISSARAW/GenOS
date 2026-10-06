@@ -254,15 +254,21 @@ function operationHandler(topology, operation) {
   return OPERATIONS[topology]?.[operation];
 }
 
-async function applyTopologyOperation(db, args = {}) {
+async function applyTopologyOperation(db, args = {}, context = {}) {
   const sessionId = String(args.session_id || args.sessionId || '').trim();
   const operation = String(args.operation || '').trim().toLowerCase();
   if (!sessionId) throw new Error('session_id is required.');
   if (operation === 'fossil') return readRhizomeFossil(db, sessionId);
   const record = await store.load(db, sessionId);
   if (!record) throw new Error(`Unknown topology session '${sessionId}'.`);
+  const guarded = await require('./topologySessionCallerGuard').guardTopologyCall(db, record, args, context);
+  if (record.topology === 'syncytium' && operation === 'variant') {
+    return require('./syncytium/variants/variantToolRouter').executeVariantAction({
+      db, record, sessionId, action: guarded.variant_action, request: guarded.variant_input || {}
+    });
+  }
   const handler = operationHandler(record.topology, operation);
-  if (handler) return handler(db, sessionId, args);
+  if (handler) return handler(db, sessionId, guarded);
   throw new Error(`Unsupported operation '${operation}' for ${record.topology} session.`);
 }
 

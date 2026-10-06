@@ -4,9 +4,12 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const benchmark = require('./syncytiumBenchmarkService');
 const semanticValidation = require('../../biologicalSemanticValidationService');
+const scenarioOracle = require('./syncytiumScenarioOracleService');
+const budgetEvidence = require('./syncytiumBudgetEvidenceService');
 const { listPolicies } = require('../variants/variantPolicyRegistry');
+const missionCatalog = require('../../../../fixtures/syncytium/missionCatalog.json');
 
-const SUPPORTED_VARIANTS = new Set(listPolicies().map((policy) => policy.id));
+const SUPPORTED_VARIANTS = new Set([...listPolicies().map((policy) => policy.id), 'transversal']);
 const MAX_WORKERS_PER_SCENARIO = 5;
 const CAMPAIGN_VARIANT_COUNT = 2;
 
@@ -32,7 +35,12 @@ function validateManifest(manifest) {
   if (!Number.isSafeInteger(manifest.repetitions) || manifest.repetitions < 1) throw invalid('repetitions must be a positive integer.');
   if (!Array.isArray(manifest.expectedClaims) || manifest.expectedClaims.length === 0) throw invalid('expectedClaims must contain at least one oracle claim.');
   if (manifest.expectedClaims.some((claim) => !claim || !claim.subject || !claim.predicate || claim.value === undefined)) throw invalid('Each expected claim needs subject, predicate, and value.');
-  if (!SUPPORTED_VARIANTS.has(manifest.variantId)) throw invalid('variantId must select one of the 13 registered Syncytium policies.');
+  if (!SUPPORTED_VARIANTS.has(manifest.variantId)) throw invalid('variantId must select a registered Syncytium policy or the transversal protocol.');
+  if (manifest.caseId) {
+    const scenario = missionCatalog.cases.find((item) => item.id === manifest.caseId);
+    if (!scenario || scenario.variantId !== manifest.variantId
+      || scenario.mission !== manifest.mission) throw invalid('caseId, variantId and mission must match the versioned catalog.');
+  }
   if (manifest.variantId === 'humanAi' && !manifest.configuration?.nuclei?.some((nucleus) => nucleus.kind === 'human')) {
     throw invalid('Human-AI campaigns require a configured human nucleus.');
   }
@@ -75,40 +83,54 @@ async function executeRun({ manifest, db, variant, repetition }) {
   const runtimeValidation = output.biologicalMode?.semanticValidation;
   const counts = metricCounts({ validation, runtimeValidation, baseline: variant.name === 'isolated_baseline' });
   const quality = qualityScore(manifest.expectedClaims, validation.claims);
+  const observedBudget = await budgetEvidence.measure(db, members, manifest.budget);
+  const oracle = variant.name === 'syncytium'
+    ? await scenarioOracle.evaluate(db, output.biologicalMode?.sessionId, manifest.oracle)
+      .catch((error) => ({ measured: false, pass: false,
+        reason: 'oracle_evaluation_error', code: error.code || null, error: error.message }))
+    : { measured: false, pass: false, reason: 'baseline_without_variant_oracle' };
   const topologyComplete = variant.name === 'isolated_baseline'
     ? output.biologicalMode?.status === 'accepted'
     : output.biologicalMode?.complete === true && output.biologicalMode?.status === 'completed';
   const executionValid = topologyComplete
     && !output.biologicalMode?.dispatchFailures?.length
-    && members.length > 0 && members.every((member) => member.status === 'completed');
+    && members.length > 0 && members.every((member) => member.status === 'completed')
+    && observedBudget.verified;
   const complete = executionValid
     && validation.status === 'complete'
-    && quality.value === 1;
+    && quality.value === 1 && (variant.name !== 'syncytium' || oracle.pass);
   return {
-    variant: variant.name, task: manifest.mission, repetition: repetition + 1,
+    variant: variant.name, caseId: manifest.caseId || null,
+    task: manifest.mission, repetition: repetition + 1,
     budget: manifest.budget, workerCount: members.length, validation,
-    quality, counts, executionValid, complete,
-    failures: collectFailures(output, members, runtimeValidation, quality),
+    quality, oracle, observedBudget, counts, executionValid, complete,
+    failures: collectFailures({ output, members, validation: runtimeValidation || validation,
+      quality, oracle, variantName: variant.name, observedBudget }),
     dispatchStatus: output.biologicalMode?.status || 'unknown'
   };
 }
 
-function collectFailures(output, members, validation, quality) {
+function collectFailures(input) {
+  const { output, members, validation, quality, oracle, variantName, observedBudget } = input;
   const failures = [...(output.biologicalMode?.dispatchFailures || [])];
   if (output.biologicalMode?.complete !== true && output.biologicalMode?.status !== 'accepted') failures.push('topology_incomplete');
   if (members.some((member) => member.status !== 'completed')) failures.push('worker_not_completed');
   if (validation?.status !== 'complete') failures.push('semantic_validation_incomplete');
   if (quality.value !== 1) failures.push('oracle_claims_not_fully_matched');
+  if (variantName === 'syncytium' && !oracle.pass) failures.push('independent_variant_oracle_failed');
+  if (!observedBudget.verified) failures.push('budget_usage_unverified_or_exceeded');
   return [...new Set(failures)];
 }
 
 function launchScenario({ manifest, variant }) {
   const root = path.resolve(__dirname, '../../../../../');
+  const transversal = manifest.variantId === 'transversal';
   const request = {
     action: 'dispatch_biological', mode: variant.mode, mission: manifest.mission,
     executionBudget: manifest.budget, timeoutMs: manifest.timeoutMs,
-    variant_id: manifest.variantId, worker_assignments: manifest.workerAssignments,
-    configuration: { ...(manifest.configuration || {}), useVariantRuntime: true },
+    variant_id: transversal ? undefined : manifest.variantId,
+    worker_assignments: manifest.workerAssignments,
+    configuration: { ...(manifest.configuration || {}), useVariantRuntime: !transversal },
     sessionOptions: manifest.sessionOptions
   };
   const perWorkerTimeout = manifest.timeoutMs || 600000;
@@ -134,7 +156,8 @@ function parseOutput(stdout) {
       if (parsed.biologicalMode) return parsed;
     } catch (_) {}
   }
-  throw invalid('Orchestrator returned no biologicalMode JSON output.');
+  return { biologicalMode: { status: 'failed', members: [], complete: false,
+    dispatchFailures: ['orchestrator_returned_no_biological_output'] } };
 }
 
 function metricCounts({ validation, runtimeValidation, baseline }) {
@@ -169,13 +192,28 @@ function reportCampaign(manifest, runs) {
     variant: run.variant, task: run.task, budget: run.budget, counts: run.counts
   })));
   const sameWorkerCount = workerCountsMatch(runs, manifest.repetitions);
+  const aggregateUsage = {
+    tokens: sumObserved(runs, 'tokens'),
+    costUsd: sumObserved(runs, 'costUsd')
+  };
+  const campaignBudgetVerified = runs.every((run) => run.observedBudget.verified)
+    && aggregateUsage.tokens !== null && aggregateUsage.costUsd !== null
+    && aggregateUsage.tokens <= manifest.campaignBudget.tokens
+    && aggregateUsage.costUsd <= manifest.campaignBudget.costUsd;
   return {
-    contract: 'GenOSBiologicalBenchmark/v1', mission: manifest.mission,
-    campaignBudget: manifest.campaignBudget,
+    contract: 'GenOSBiologicalBenchmark/v1', caseId: manifest.caseId || null,
+    mission: manifest.mission,
+    campaignBudget: manifest.campaignBudget, aggregateUsage, campaignBudgetVerified,
     repetitions: manifest.repetitions, equalBudget: comparison.equalBudget,
-    sameWorkerCount, comparable: comparison.equalBudget && sameWorkerCount && runs.every((run) => run.executionValid),
+    sameWorkerCount, comparable: comparison.equalBudget && sameWorkerCount
+      && campaignBudgetVerified && runs.every((run) => run.executionValid),
     comparison, quality: qualitySummary(runs), runs
   };
+}
+
+function sumObserved(runs, dimension) {
+  const values = runs.map((run) => run.observedBudget.observed[dimension]);
+  return values.every(Number.isFinite) ? values.reduce((sum, value) => sum + value, 0) : null;
 }
 
 function workerCountsMatch(runs, repetitions) {

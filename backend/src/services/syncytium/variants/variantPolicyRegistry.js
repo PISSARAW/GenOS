@@ -270,6 +270,7 @@ function policySummary(input) {
   const { policy, mission, configuration, context } = input;
   return {
     id: policy.id, fit: policy.analyzeFit(mission, context),
+    runtimeMode: configuration.useVariantRuntime === true ? 'specialized' : 'generic',
     consistencyZones: policy.configureConsistencyZones(configuration),
     invariants: policy.configureInvariants(configuration),
     replication: policy.configureReplication(), repair: policy.configureRepair(),

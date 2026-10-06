@@ -18,8 +18,10 @@ function createHardVariantService(syncytium) {
 
 function createSession(mission, options = {}, syncytium) {
   const members = uniqueMembers(options.authorityMembers);
+  const authorityPaths = [...new Set([HARD_LEASES,
+    ...Object.keys(options.schema?.fields || {}), ...Object.keys(options.fields || {})])];
   const domains = [...(options.nuclearDomains || options.domains || []), {
-    domainId: 'hard-authority', members, owns: [HARD_LEASES], mayRead: ['*']
+    domainId: 'hard-authority', members, owns: authorityPaths, mayRead: ['*']
   }];
   const schema = schemaService.compile({
     schemaId: 'syncytium-hard-v1',
