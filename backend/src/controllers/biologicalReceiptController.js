@@ -34,4 +34,19 @@ async function ingest(req, res, next) {
   }
 }
 
-module.exports = { ingest, missionBelongsToTenant };
+async function audit(req, res, next) {
+  try {
+    const missionId = req.params.missionId;
+    const db = await getDatabase();
+    if (!await missionBelongsToTenant(db, missionId, req.tenant)) {
+      return res.status(404).json({ error: { code: 'MISSION_NOT_FOUND', message: 'Mission is not available in this project.' } });
+    }
+    const result = await require('../services/biologicalReceiptQueryService').missionAudit(db, { missionId, limit: req.query.limit });
+    return res.json(result);
+  } catch (error) {
+    if (clientError(error)) return res.status(400).json({ error: { code: error.code, message: error.message } });
+    return next(error);
+  }
+}
+
+module.exports = { ingest, audit, missionBelongsToTenant };

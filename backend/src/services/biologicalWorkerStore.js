@@ -4,7 +4,7 @@ const { digest, encode, identity } = require('./biologicalIntegrity');
 const migrated = new WeakSet();
 
 async function ensure(db) {
-  if (migrated.has(db)) return;
+  if (migrated.has(db) && await db.get("SELECT name FROM sqlite_master WHERE name = 'biological_worker_receipts'")) return;
   await migrateBiologicalWorkerReceipts(db);
   migrated.add(db);
 }
