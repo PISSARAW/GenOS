@@ -291,7 +291,9 @@ async function persistWorker(db, details) {
 function workerInsertValues(details) {
   const { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, mission } = details;
   const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, {
-    prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id,
+    prompt: mission.prompt,
+    scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
+    orchestratorAgentId: parent.id, recoveryLease: mission.recoveryLease,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
   });
   workerKinds.grantBoundedDelegation(workerContract);

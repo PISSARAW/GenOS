@@ -33,7 +33,7 @@ function childAssignment(args) {
   const kind = String(args.workerKind || 'bounded_worker').trim().toLowerCase();
   if (!ALLOWED_CHILD_KINDS.has(kind)) throw Object.assign(new Error(`Child worker kind '${kind}' is outside the sub-orchestrator allowlist.`), { code: 'SUBORCHESTRATOR_CHILD_KIND_DENIED' });
   const role = String(args.role || kind).slice(0, 80);
-  return { role, workerKind: kind, label: `delegated-${kind}`, hypothesis: 'Complete the scoped subtask and return contract evidence.', capabilities: [] };
+  return { role, workerKind: kind, label: `delegated-${kind}`, hypothesis: 'Complete the scoped subtask and return contract evidence.', capabilities: [], ...(args.methodContract ? { methodContract: args.methodContract } : {}) };
 }
 
 async function ensureCapacity(db, parentId) {
@@ -56,6 +56,8 @@ async function createChild(db, parent, args) {
   const fleet = require('../agentFleetWorkers');
   const { withTransaction } = require('../../db');
   const mission = {
+    methodContract: args.methodContract,
+    timeoutMs: childTimeout(args.timeoutMs),
     prompt: String(args.mission).trim().slice(0, 12000), executor: 'local',
     workspaceRoot: (await db.get('SELECT path FROM workspaces WHERE id = ?', parent.workspace_id))?.path,
     executionPolicy: { allowFileEdits: false }, executionBudget: { events: 100 }
@@ -102,9 +104,17 @@ function parseJson(value) {
   try { return JSON.parse(value || '{}'); } catch (_) { return {}; }
 }
 
-async function waitForChild(db, childId) {
-  const deadline = Date.now() + CHILD_TIMEOUT_MS;
+function childTimeout(requested) {
+  return Number.isFinite(requested) && requested > 0 ? Math.min(requested, CHILD_TIMEOUT_MS) : CHILD_TIMEOUT_MS;
+}
+
+async function waitForChild(db, childId, options) {
+  const deadline = Date.now() + childTimeout(options.timeoutMs);
   while (Date.now() < deadline) {
+    if (require('../agentOrchestrationState').cancelledStarts.has(options.parentAgentId)) {
+      await require('../agentRuntimeAdapter').stopMission(childId);
+      return failedChild('terminated', 'MISSION_CANCELLED');
+    }
     const outcome = await childOutcome(db, childId);
     if (outcome) return outcome;
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -116,8 +126,8 @@ async function superviseChild(context) {
   const { db, child, mission, parentAgentId } = context;
   const { startMission } = require('../agentRuntimeAdapter');
   try {
-    await startMission({ ...mission, executionBudget: { ...mission.executionBudget, ...child.executionBudget }, agentId: child.agentId, role: child.role, workerKind: child.workerKind, orchestratorAgentId: parentAgentId, workspaceId: child.workspaceId });
-    const outcome = await waitForChild(db, child.agentId);
+    await startMission({ ...mission, executionBudget: { ...mission.executionBudget, ...child.executionBudget }, agentId: child.agentId, role: child.role, workerKind: child.workerKind, methodContract: child.methodContract || mission.methodContract, orchestratorAgentId: parentAgentId, workspaceId: child.workspaceId });
+    const outcome = await waitForChild(db, child.agentId, { timeoutMs: mission.timeoutMs, parentAgentId });
     if (outcome.status === 'timeout') await require('../agentRuntimeAdapter').stopMission(child.agentId);
     return outcome;
   } catch (error) {
@@ -139,7 +149,7 @@ async function dispatchSubOrchestratorWorker(db, callerAgentId, args) {
   await verifyDelegationCapability(parent, args);
   const { child, mission } = await createChild(db, parent, args);
   const supervision = await superviseChild({ db, child, mission, parentAgentId: parent.id });
-  return { configured: true, success: supervision.status === 'completed', status: supervision.status, transport: 'worker_dispatch', parentAgentId: parent.id, childAgentId: child.agentId, supervision };
+  return { configured: true, success: supervision.status === 'completed' && supervision.success === true, status: supervision.status, transport: 'worker_dispatch', parentAgentId: parent.id, childAgentId: child.agentId, supervision };
 }
 
 module.exports = { dispatchSubOrchestratorWorker, loadAuthorizedParent, childAssignment, MAX_CHILDREN, MAX_CHILD_TOKENS, CHILD_TIMEOUT_MS };

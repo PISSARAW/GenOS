@@ -1,5 +1,7 @@
 # Types de workers GenOS
 
+Mise à jour du 2026-10-06 : les 19 types disposent de méthodes natives structurées. Le [catalogue des méthodes exécutables](execution-native-workers.md) précise leurs entrées, leurs preuves et leurs limites de validation. Les états de disponibilité historiques ci-dessous doivent être lus avec cette mise à jour.
+
 - **Statut** : La campagne locale du 2026-09-25 couvrait les contrats des 19 kinds avec `qwen2.5:14b` ; elle ne mesurait ni les exécuteurs déterministes ni la parité avec des agents concurrents. Les contrats Rust et Node gardent des sémantiques distinctes ; la délégation du sous-orchestrateur n'a pas été exercée par cette campagne comme mission parent-enfant réelle.
 - **Portée** : `crates/genos-worker` (autorité Rust), registre Node des phénotypes et des `WorkerKind`, vocabulaire des rôles de mission, preuves et dispatch.
 - **Dernière revue** : 2026-09-25

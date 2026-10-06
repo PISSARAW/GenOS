@@ -36,6 +36,7 @@ const KIND_CAPABILITIES = Object.freeze({
 });
 
 const METHOD_CAPABILITIES = Object.freeze({
+  ...require('./workerNativeMethodCapabilities'),
   lpt: ['deterministic_procedure'], greedy: ['deterministic_procedure'], greedy_search: ['deterministic_procedure'],
   dynamic_programming: ['deterministic_procedure'], subset_sum: ['deterministic_procedure'],
   local_search: ['deterministic_procedure'], constraint_programming: ['deterministic_procedure'],
@@ -70,6 +71,7 @@ const ROLE_ALIASES = Object.freeze({
 });
 const { artifactInstruction } = require('./workerArtifactContract');
 const { workerPolicy } = require('./workerPolicyService');
+const { workerResources } = require('./workerResourcePolicy');
 const PROMPT_RULES = Object.freeze({
   scout_cell: 'Observe only. Return structured observations, references, confidence, and uncertainties; do not execute or modify files.',
   resident_daemon: 'Monitor the assigned territory and report findings with evidence; do not make mission decisions.',
@@ -109,13 +111,13 @@ function normalize(value) {
 function resolveWorkerKind(explicitKind, role) {
   const explicit = normalize(explicitKind);
   if (explicit) {
-    if (!KINDS[explicit]) throw Object.assign(new Error(`Unknown worker kind '${explicitKind}'.`), { code: 'UNKNOWN_WORKER_KIND' });
+    if (!Object.hasOwn(KINDS, explicit)) throw Object.assign(new Error(`Unknown worker kind '${explicitKind}'.`), { code: 'UNKNOWN_WORKER_KIND' });
     return explicit;
   }
   const normalizedRole = normalize(role);
   if (!normalizedRole) return 'bounded_worker';
-  if (KINDS[normalizedRole]) return normalizedRole;
-  if (ROLE_ALIASES[normalizedRole]) return ROLE_ALIASES[normalizedRole];
+  if (Object.hasOwn(KINDS, normalizedRole)) return normalizedRole;
+  if (Object.hasOwn(ROLE_ALIASES, normalizedRole)) return ROLE_ALIASES[normalizedRole];
   throw Object.assign(new Error(`Unknown worker role '${role}'.`), { code: 'UNKNOWN_WORKER_KIND' });
 }
 
@@ -176,13 +178,18 @@ function workerMissionContract(mission, kind) {
 
 function missionContractFields(mission) {
   return {
-    objective: mission.prompt || mission.currentTask || '',
-    scope: mission.scope || mission.workspaceRoot || '',
+    ...missionScopeFields(mission),
     methodContract: mission.methodContract,
     topologySessionId: mission.topologySessionId || null,
     nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
     hostId: mission.hostId || mission.workerAssignment?.hostId || null
   };
+}
+
+function missionScopeFields(mission) {
+  return { objective: mission.prompt || mission.currentTask || '',
+    scope: mission.scope || mission.workspaceRoot || '',
+    recoveryLease: mission.recoveryLease || mission.workerAssignment?.recoveryLease || null };
 }
 
 function resolveHostContractId(mission) {
@@ -243,7 +250,7 @@ function buildWorkerContract(kind, mission = {}) {
     niche: { domain: definition.kind === 'specialist' ? (mission.nicheDomain || mission.workerAssignment?.nicheDomain || 'declared_niche') : null },
     expressedCapabilities: expressedCapabilitiesFor(definition.kind),
     limits: workerLimits(definition.kind, subOrchestrator),
-    resources: workerResources(definition.kind)
+    resources: workerResources(definition.kind, mission)
   };
 }
 
@@ -264,16 +271,6 @@ const EXPRESSED_CAPABILITIES = Object.freeze({
 
 function expressedCapabilitiesFor(kind) {
   return [...(EXPRESSED_CAPABILITIES[kind] || [])];
-}
-
-function workerResources(kind) {
-  const policy = workerPolicy(kind);
-  return {
-    maxTokens: policy.maxTokens ?? 8000,
-    maxTimeMs: Object.hasOwn(policy, 'maxTimeMs') ? policy.maxTimeMs : 300000,
-    maxCpuMs: policy.maxCpuMs ?? 60000,
-    executionMode: policy.executionMode || 'model'
-  };
 }
 
 function grantBoundedDelegation(contract) {

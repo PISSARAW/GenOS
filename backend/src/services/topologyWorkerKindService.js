@@ -88,6 +88,7 @@ function roleRequirements(member) {
 
 function roleIntent(role) {
   if (Object.hasOwn(ROLE_REQUIREMENTS, role)) return ROLE_REQUIREMENTS[role];
+  if (Object.hasOwn(workerKinds.KIND_CAPABILITIES, role)) return workerKinds.KIND_CAPABILITIES[role];
   if (role.endsWith('_engineer') || role.endsWith('_scientist') || role === 'mathematician') {
     return ['domain_specialization'];
   }

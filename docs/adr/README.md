@@ -414,6 +414,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0334b](0334-biome-boucle-ecologique-transactionnelle.md) | Biome : boucle écologique transactionnelle et exécution vérifiée | Accepté | 2026-10-06 | Biome, écologie, ressources, persistance et preuves |
 | [0334c](0334-cycle-morphogenetique-executable-et-isole.md) | Cycle morphogénétique exécutable et isolé | Voir le fichier | -- | -- |
 | [0334d](0334-ontogenese-pilotage-reprise-et-retention.md) | Ontogenèse : pilotage opérateur, reprise et rétention vérifiables | Accepté | 2026-10-06 | Orchestration résidente, contrôle, persistance, exploitation |
+| [0334e](0334-registre-executeurs-workers.md) | Registre des exécuteurs natifs des 19 workers | Accepté | 2026-10-06 | Workers, runtime, contrats, preuve |
 | [0335a](0335-orchestrator-recus-proprietaires-et-cloture-prouvee.md) | Boucle orchestrator attendue et reçus propriétaires | Voir le fichier | -- | -- |
 | [0335b](0335-propagation-differentielle.md) | Mesurer la propagation différentielle du Rhizome | Accepté | 2026-10-06 | Rhizome, RPE, calcul incrémental |
 | [0336a](0336-cycle-resident-et-verification-des-daemons.md) | Cycle résident et vérification des daemons | Accepté | 2026-10-06 | Daemons, territoires, persistance, réparation et preuves |

@@ -34,7 +34,7 @@ function toolAction(toolName, args = {}) {
 function assertWorkerToolAllowed(contract, toolName, args = {}) {
   const kind = contract?.identity?.workerKind;
   const action = toolAction(toolName, args);
-  if (!kind || !workerKinds.KINDS[kind]) throw contractError(kind || 'unknown', action);
+  if (!kind || !Object.hasOwn(workerKinds.KINDS, kind)) throw contractError(kind || 'unknown', action);
   if (String(toolName).toLowerCase() === 'genos_topology_session'
     && (!contract.mission?.topologySessionId
       || (args.session_id || args.sessionId) !== contract.mission.topologySessionId)) {
@@ -48,18 +48,23 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
 async function enforcePersistedWorkerTool(db, agentId, toolCall) {
   const normalizedCall = typeof toolCall === 'string' ? { toolName: toolCall, args: {} } : (toolCall || {});
   const { toolName, args = {} } = normalizedCall;
-  const agent = await db.get('SELECT execution_mode, metadata_json, role FROM agents WHERE id = ?', agentId);
+  const agent = await db.get('SELECT execution_mode, metadata_json, role, parent_agent_id FROM agents WHERE id = ?', agentId);
   if (!agent || agent.execution_mode !== 'worker') return true;
-  let metadata = {};
-  try { metadata = typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {}; }
-  catch (_) { throw contractError('unknown', toolAction(toolName)); }
+  const metadata = persistedMetadata(agent, toolName);
   const kind = workerKinds.resolveWorkerKind(metadata.workerKind, agent.role);
   const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, {
     topologySessionId: metadata.topologySessionId
   });
   if (contract.identity?.workerKind !== kind) throw contractError('unknown', toolAction(toolName));
+  assertRuntimeContract(contract, kind);
+  if (agent.parent_agent_id && contract.identity.parentId !== agent.parent_agent_id) throw invalidContract();
   assertTopologySessionScope({ toolName, args, metadata, kind });
   return assertWorkerToolAllowed(contract, toolName, args);
+}
+
+function persistedMetadata(agent, toolName) {
+  try { return typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {}; }
+  catch (_) { throw contractError('unknown', toolAction(toolName)); }
 }
 
 function assertTopologySessionScope(input) {
@@ -97,6 +102,7 @@ function assertCanonicalContract(contract, kind) {
     hostCapabilities: contract.mission?.hostCapabilities,
     methodContract: contract.mission?.methodContract,
     topologySessionId: contract.mission?.topologySessionId,
+    workerTokenLimit: contract.resources?.maxTokens,
     workerAssignment: contract.assignment
   });
   assertAuthorityCeiling(contract.authority, canonical.authority, kind);
