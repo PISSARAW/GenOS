@@ -8,6 +8,18 @@
 
 ## Contexte
 
+### Évolution du 2026-10-06
+
+[ADR 0326](0326-audits-philosophiques-executables-et-preuves.md) ajoute au
+transport initial une vérification comportementale bornée : les concepts
+explicitement demandés exigent un manifeste lié à la mission et aux contrats,
+avec valeurs lues dans des sources JSON confinées. Les références ajoutées pour
+le contexte restent consultatives. L'intégrateur rejoue ces contrôles avant
+`verified`, pendant l'intégration et à la récupération d'un commit ; une preuve
+déclarée ou périmée ne suffit pas. Ce raccord n'atteste toujours pas la vérité
+externe, l'utilité d'une théorie ou une validation indépendante. Il n'accorde
+aucune lease ni promotion. Les sections suivantes conservent la décision initiale.
+
 Le registre philosophique possède 375 contrats d’implémentation préparés pour
 expérimentation. Avant cette décision, les contrats étaient consultables par le
 routeur philosophique, mais le cycle Ontogenèse ne les transportait pas dans son

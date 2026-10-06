@@ -13,6 +13,12 @@ const suites = {
   ],
   smoke: [
     ['philosophy registry health', 'test_philosophy_registry_health.js'],
+    ['philosophy executable contracts', 'test_philosophy_executable_contracts.js'],
+    ['philosophy compilation boundaries', 'test_philosophy_compilation_boundaries.js'],
+    ['philosophy contract transport', 'test_philosophy_contract_transport.js'],
+    ['ontogenesis resolution snapshot', 'test_ontogenesis_resolution_snapshot.js'],
+    ['philosophy observation binding', 'test_philosophy_observation_binding.js'],
+    ['philosophy ontogenesis integration', 'test_philosophy_ontogenesis_integration.js'],
     ['indicator receipt validation', 'test_indicator_receipt_service.js'],
     ['indicator evaluation persistence', 'test_indicator_evaluation_persistence.js'],
     ['storage bootstrap migration gate', 'test_storage_bootstrap_backend_gate.js'],

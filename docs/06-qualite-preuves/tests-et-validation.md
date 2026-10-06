@@ -1430,3 +1430,37 @@ node backend/tests/test_ateam_variant_acceptance.js
 ```
 
 Le test d'exécution couvre SQLite, processus Node, refus de preuves/schémas, critères globaux, progression indépendante, accusé périmé, bail obsolète et délai conservé à la reprise. Les 44 cas de variantes évaluent des contrats locaux, sans qualification de workers LLM ni de sous-runs multiteam génériques. Ces commandes ne remplacent pas `npm test`, `cargo test --workspace` et le gate de qualité. Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).
+
+## Audits philosophiques et raccord Ontogenèse
+
+Les tests de ce contrat logiciel s'exécutent depuis la racine :
+
+```bash
+node backend/tests/test_philosophy_executable_contracts.js
+node backend/tests/test_philosophy_compilation_boundaries.js
+node backend/tests/test_philosophy_observation_binding.js
+node backend/tests/test_philosophy_contract_transport.js
+node backend/tests/test_ontogenesis_resolution_snapshot.js
+node backend/tests/test_philosophy_ontogenesis_integration.js
+```
+
+Les sondes couvrent 375 profils et 13 500 cas : observations satisfaisantes,
+contre-exemples, données absentes, ablation et répétition dans quatre graphes
+simulés. Le transport Node MCP vérifie la pagination, la taille des réponses et
+le refus de lease. Les tests de compilation contrôlent une lecture fraîche du
+schéma par lot, le refus d'un schéma indisponible, les types d'entrée et la
+conservation des sources et interdictions. Le test d'indexation impose des
+snapshots locaux à l'appel et la visibilité d'un changement de capacité à
+l'appel suivant.
+
+Les tests de liaison couvrent les sources confinées, les empreintes périmées
+et la limite de 32 sources, refusée avant lecture du 33e fichier. Le test
+d'intégration emploie SQLite, des checks exécutés et des dépôts Git temporaires
+pour les 375 audits requis : manifestes manquants, mauvaise mission,
+modifications au fence et reprise après commit. Son worker est injecté : il ne démontre ni utilité
+sur des missions autonomes, ni validation indépendante des observations.
+
+Ces vérifications ne remplacent pas les trois gates globaux du dépôt. Leur
+succès signifie « audit logiciel borné testé », pas « 375 théories validées ».
+Voir [la référence des contrats](../03-reference/contrats-philosophiques-ontogenese.md)
+et [la matrice des profils](../03-reference/matrice-operationnelle-philosophique.md).

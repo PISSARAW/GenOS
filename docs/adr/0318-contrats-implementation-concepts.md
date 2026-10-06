@@ -7,6 +7,17 @@
 
 ## Contexte
 
+### Évolution du 2026-10-06
+
+Cette décision décrit le premier lot historique (21 pilotes, 354 mappings).
+[ADR 0326](0326-audits-philosophiques-executables-et-preuves.md) complète le
+compilateur par 375 profils d'audit exécutables et des expériences rejouables.
+Les mentions `mapped-pending-behavior` et « uniquement des lectures » ci-dessous
+décrivent donc l'état initial, pas le catalogue courant. La maturité de base
+reste `mechanism-linked` : les tests de fixtures ne prouvent pas les invariants
+philosophiques complets ni l'utilité sur missions réelles. La distinction entre
+contrat, preuve et autorité demeure inchangée.
+
 Le registre contient 375 entrées, mais une entrée philosophique ne décrit pas
 encore nécessairement un changement observable du runtime. Le registre ne doit
 ni devenir 375 modules, ni présenter une analogie comme une capacité validée.

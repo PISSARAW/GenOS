@@ -256,6 +256,34 @@ Les sorties sont rigoureusement bornees et unifiees : le module `boundedOutput.j
 
 ---
 
+### 6.1. Audits philosophiques bornés
+
+Sous la lease existante de `genos_philosophy`, trois opérations complètent la
+lecture des contrats : `executeImplementationContract`,
+`runImplementationExperiment` et `implementationExperimentCoverage`.
+Le schéma conserve `operation` et un objet `arguments` ; ces opérations
+n'ajoutent aucun outil, lease ou droit d'écriture.
+
+La première évalue `arguments.observations` pour `arguments.conceptId` et
+retourne un état d'audit, sans persister de mutation d'agent. `enabled: false`
+produit le contrôle sans effet. La deuxième retourne un reçu rejouable pour
+un contrat, avec contre-exemples et ablation. La troisième mesure les 375
+profils et retourne seulement les empreintes des reçus pour limiter la sortie.
+
+Les entrées et états d'audit sont bornés à 128 Kio. Le transport conserve sa
+limite globale : aucune réponse de contrat ne permet de la contourner.
+Les graphes des expériences sont simulés, les observations restent déclarées,
+et tous les résultats gardent `promotionEligible: false`. Un reçu admissible
+dans l'évaluation de maturité ne vaut pas autorisation de promotion.
+Voir la [référence des contrats](contrats-philosophiques-ontogenese.md) pour les
+formats, les preuves refusées et les limites de validation.
+
+`listImplementationContracts` utilise des pages d'au plus 100 contrats.
+La réponse contient `contracts`, `total`, `offset`, `limit`, `nextOffset` ;
+le filtre `target` précède la pagination. La santé ne renvoie pas le catalogue
+complet. Une limite hors de 1 à 100, un offset négatif ou un nombre non entier
+sont refusés, sans élargir la limite globale du transport.
+
 ## 7. Circuit breaker, quarantine et arret global
 
 Le circuit breaker de [backend/src/services/circuitBreaker.js](../../backend/src/services/circuitBreaker.js) applique une machine a trois etats :

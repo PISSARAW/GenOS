@@ -1,9 +1,5 @@
 'use strict';
-/**
- * Registre de raccordement des familles canoniques à l'Ontogenèse.
- * Il décrit les points d'appel disponibles sans transformer un concept
- * documentaire en capacité exécutable.
- */
+// Raccord des familles canoniques : points d'appel disponibles, sans confondre concept documentaire et capacité exécutable.
 const accessMatrix = require('../capabilityAccessMatrix');
 const capabilityGraph = require('../capabilityGraphService');
 const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
@@ -11,7 +7,9 @@ const conceptInventory = require('./canonicalConceptInventory');
 const runtimeConceptRegistry = require('../conceptRegistryService');
 const workerKinds = require('../agents/workerKindService');
 const implementationContracts = require('../implementationContractRouter');
-const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES,
+const { referenceFor: implementationContractReference } = require('./philosophicalMissionContract');
+const { resolveReference, graphExecutable, createLookup } = require('./canonicalReferenceResolver');
+const { LIFECYCLE_REFERENCES,
   INTERFACE_REFERENCES, CENTRAL_CHAIN_REFERENCES } = require('./canonicalConceptAliases');
 const LEGACY_DOMAIN_CATALOG = Object.freeze([
   ['foundations', ['mission', 'provenance', 'evidence', 'authority', 'lease', 'budget', 'workspace', 'promotion', 'recovery']],
@@ -94,12 +92,6 @@ function runtimeReference(concept, reference) {
   const target = normalize(reference);
   return normalize(concept.id) === target || (concept.aliases || []).some((alias) => normalize(alias) === target);
 }
-function philosophyReference(target) {
-  return PHILOSOPHY_ALIASES[target] || target;
-}
-function runtimeReferenceTarget(target) {
-  return RUNTIME_ALIASES[target] || target;
-}
 function workerReference(requested, target) {
   const definition = workerKinds.KINDS[target];
   if (!definition) return null;
@@ -123,10 +115,6 @@ function interfaceReference(requested, target) {
 function implementationContractFor(concept) {
   return implementationContracts.getImplementationContract(concept);
   }
-function implementationContractReference(contract) {
-  if (!contract) return null;
-  return { id: contract.id, category: contract.category, maturity: contract.maturity, compilationState: contract.compilationState || 'pilot', readiness: 'ready-for-experiment', scenarioId: contract.scenario?.id || null, experimentId: contract.experiment?.id || null, evidenceRequired: contract.experiment?.evidenceRequired || [], topologies: contract.experiment?.topologies || [], promotionEligible: false };
-}
 function centralChainReference(requested, target) {
   const service = CENTRAL_CHAIN_REFERENCES[target];
   if (!service) return null;
@@ -147,80 +135,30 @@ function topologyAllows(topology, concept) {
   const allowed = topologyTools(topology);
   return (concept.tools || []).some((tool) => allowed.has(tool));
  }
-function resolveConceptReference(reference, topology) {
-  const requested = requestedId(reference);
-  const target = normalize(requested);
-  const adapter = EXISTING_ADAPTERS[target];
-  if (adapter) return { requested, id: target, source: 'existing_adapter', available: Boolean(topology),
-    executable: Boolean(topology), access: adapter.access,
-    reason: topology ? null : 'topologie-requise', service: adapter.service };
-  const worker = workerReference(requested, target);
-  if (worker) return worker;
-  const lifecycle = lifecycleReference(requested, target);
-  if (lifecycle) return lifecycle;
-  const runtimeTarget = runtimeReferenceTarget(target);
-  const runtime = Object.values(runtimeConceptRegistry.getAllConcepts())
-    .find((concept) => runtimeReference(concept, runtimeTarget));
-  if (runtime) {
-    const execution = executionFields(runtime);
-    const compatible = topologyAllows(topology, runtime);
-    return { requested, id: runtime.id, source: 'runtime', available: compatible,
-      executable: execution.executable && compatible, reason: compatible ? null : 'topologie-incompatible',
-      compatibleTopologies: runtime.compatibleTopologies, tools: runtime.tools || [],
-      primitives: runtime.primitives || [], unavailablePrimitives: execution.unavailablePrimitives };
-  }
-  const capabilityId = CAPABILITY_ALIASES[target] || target;
-  const capability = capabilityCatalog().find((entry) => entry.capability === capabilityId
-    || normalize(entry.capability) === capabilityId.toLowerCase());
-  if (capability) return { requested, id: capability.capability, source: 'capability',
-    available: capability.state === 'operationnel', executable: capability.state === 'operationnel',
-    reason: capability.state === 'operationnel' ? null : `capacite-${capability.state}`, tools: capability.tools };
-  const interfaceConcept = interfaceReference(requested, target);
-  if (interfaceConcept) return interfaceConcept;
-  const chainConcept = centralChainReference(requested, target);
-  if (chainConcept) return chainConcept;
-  const philosophicalTarget = philosophyReference(target);
-  const philosophical = CONCEPT_DEFINITIONS.find((concept) => normalize(concept.id) === normalize(philosophicalTarget)
-    || (concept.aliases || []).some((alias) => normalize(alias) === normalize(philosophicalTarget)));
-  if (philosophical) {
-    const implementationContract = implementationContractFor(philosophical);
-    const available = topologyAllows(topology, { tools: ['genos_philosophy'] });
-    return { requested, id: philosophical.id, source: 'philosophy', available,
-      executable: false, access: 'read', reason: available ? 'lecture-philosophique' : 'outil-lecture-non-autorise',
-      tools: ['genos_philosophy'],
-      status: philosophical.status, service: philosophical.service || null,
-      implementationContract, implementationContractReference: implementationContractReference(implementationContract) };
-  }
-  const graphConcept = Object.values(capabilityGraph.getAllConcepts()).find((concept) => normalize(concept.id) === target
-    || (concept.aliases || []).some((alias) => normalize(alias) === target));
-  if (graphConcept) {
-    const available = topologyAllows(topology, { tools: graphConcept.tools, compatibleTopologies: graphConcept.compatible_topologies });
-    const executable = Boolean(graphConcept.tools.length
-      || (graphConcept.primitives.length && graphConcept.handlers.length === graphConcept.primitives.length));
-    return { requested, id: graphConcept.id, source: 'capability_graph', available,
-      executable: available && executable, reason: available ? null : 'topologie-incompatible',
-      graphKey: Object.entries(capabilityGraph.getAllConcepts()).find(([, concept]) => concept === graphConcept)?.[0],
-      tools: graphConcept.tools, primitives: graphConcept.primitives, handlers: graphConcept.handlers };
-  }
-  const documented = conceptInventory.entries().find((entry) => normalize(entry.id) === target);
-  if (documented) return { requested, id: documented.id, source: 'documentation', available: false,
-    executable: false, reason: 'concept-documentaire-sans-raccord-runtime', domain: documented.domain };
-  return { requested, id: requested, source: 'unknown', available: false, executable: false, reason: 'concept-inconnu' };
+function resolveConceptReference(reference, topology, context) {
+  return resolveReference({ reference, topology, ...context }, {
+    normalize, requestedId, adapters: EXISTING_ADAPTERS, matches: runtimeReference,
+    workerReference, lifecycleReference, interfaceReference, centralChainReference,
+    executionFields, topologyAllows, getContract: implementationContractFor,
+    referenceFor: implementationContractReference, capabilityCatalog
+  });
 }
 
-function resolveConceptReferences(references, topology) {
+function resolveConceptReferences(references, topology, capabilities = capabilityCatalog()) {
   const list = Array.isArray(references) ? references : (references ? [references] : []);
-  return list.map((reference) => resolveConceptReference(reference, topology));
+  const context = { capabilities, lookup: createLookup(normalize) };
+  return list.map((reference) => resolveConceptReference(reference, topology, context));
 }
 
-function coverageReport() {
+function coverageReport(capabilities = capabilityCatalog()) {
   const runtime = Object.values(runtimeConceptRegistry.getAllConcepts());
   const graph = Object.values(capabilityGraph.getAllConcepts());
   const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0,
     workerRuntime: 0, workerLifecycle: 0, interfaceRuntime: 0, centralChainRuntime: 0,
     existingAdapter: 0, documentationOnly: 0 };
+  const context = { capabilities, lookup: createLookup(normalize) };
   for (const entry of conceptInventory.entries()) {
-    const source = resolveConceptReference(entry.id).source;
+    const source = resolveConceptReference(entry.id, undefined, context).source;
     const category = { runtime: 'runtime', capability: 'operationalCapability', philosophy: 'philosophyRead',
       capability_graph: 'capabilityGraph', worker_runtime: 'workerRuntime', worker_lifecycle: 'workerLifecycle',
       interface_runtime: 'interfaceRuntime', central_chain_runtime: 'centralChainRuntime',
@@ -267,26 +205,28 @@ function executionFields(concept) {
   };
 }
 
-function conceptCatalog() {
-  const operational = new Set(capabilityCatalog().filter((entry) => entry.state === 'operationnel')
-    .map((entry) => entry.capability.toLowerCase()));
-  const documented = DOMAIN_CATALOG.flatMap((domain) => domain.concepts.map((id) => ({
-    id, domain: domain.id, state: operational.has(id) ? 'operationnel' : 'catalogue',
-    executable: operational.has(id), source: 'documentation'
-  })));
-  const philosophical = CONCEPT_DEFINITIONS.map((concept) => {
-    const implementationContract = implementationContractFor(concept);
-    return {
+function philosophicalCatalogEntry(concept) {
+  const implementationContract = implementationContractFor(concept);
+  return {
     implementationContract,
     id: concept.id, domain: concept.domain, state: concept.status || 'documented', executable: false,
     source: 'philosophy_registry', access: 'read', tools: ['genos_philosophy'],
     service: concept.service || null, mapping: concept.mapping || null,
     implementationContractReference: implementationContractReference(implementationContract)
-    };
-  });
+  };
+}
+
+function conceptCatalog(capabilities = capabilityCatalog()) {
+  const operational = new Set(capabilities.filter((entry) => entry.state === 'operationnel')
+    .map((entry) => entry.capability.toLowerCase()));
+  const documented = DOMAIN_CATALOG.flatMap((domain) => domain.concepts.map((id) => ({
+    id, domain: domain.id, state: operational.has(id) ? 'operationnel' : 'catalogue',
+    executable: operational.has(id), source: 'documentation'
+  })));
+  const philosophical = CONCEPT_DEFINITIONS.map(philosophicalCatalogEntry);
   const graph = Object.entries(capabilityGraph.getAllConcepts()).map(([graphKey, concept]) => ({
     id: concept.id, graphKey, domain: `capability_graph:${concept.category}`, state: concept.maturity || 'ready',
-    executable: Boolean(concept.tools.length || (concept.primitives.length && concept.handlers.length === concept.primitives.length)),
+    executable: graphExecutable(concept),
     source: 'capability_graph', tools: concept.tools, primitives: concept.primitives,
     handlers: concept.handlers, capabilities: concept.capabilities,
     compatibleTopologies: concept.compatible_topologies
@@ -323,12 +263,14 @@ function resolveMission(input = {}) {
   const capabilities = capabilityCatalog();
   const allowed = new Set(input.allowedCapabilities || []);
   const selectedDomains = new Set(domains);
-  const selectedConcepts = conceptCatalog().filter((entry) => selectedDomains.has(entry.domain));
-  const resolvedConcepts = resolveConceptReferences(input.requestedConcepts, input.topology);
+  const canonicalConcepts = conceptCatalog(capabilities);
+  const selectedConcepts = canonicalConcepts.filter((entry) => selectedDomains.has(entry.domain))
+    .map((entry) => structuredClone(entry));
+  const resolvedConcepts = resolveConceptReferences(input.requestedConcepts, input.topology, capabilities);
   const hasRequestedConcepts = resolvedConcepts.length > 0;
   return {
     domains, capabilities,
-    canonicalConcepts: conceptCatalog(), selectedConcepts,
+    canonicalConcepts, selectedConcepts,
     requestedConcepts: input.requestedConcepts || [], resolvedConcepts,
     blockedConcepts: resolvedConcepts.filter((concept) => !concept.available),
     runtimeConcepts: registeredConcepts(),
@@ -338,7 +280,7 @@ function resolveMission(input = {}) {
     strategy: strategyForMission(input.missionKind),
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
-    coverage: coverageReport(),
+    coverage: coverageReport(capabilities),
     failClosed: true
   };
 }

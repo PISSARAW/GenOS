@@ -6,6 +6,23 @@ const {
   readinessReport,
   assessPromotion,
 } = require('../philosophy/implementationContracts');
+const { execute } = require('../philosophy/contractRuntime');
+const experiments = require('../philosophy/contractExperiments');
+const { pageContracts } = require('../philosophy/contractPagination');
+const EXECUTION_OPERATIONS = ['executeImplementationContract', 'runImplementationExperiment', 'implementationExperimentCoverage'];
+
+function handleExecution(operation, args, definitions) {
+  if (operation === 'implementationExperimentCoverage') {
+    const report = experiments.runRegistryExperiments(compileRegistry(definitions).contracts);
+    return { ...report, receipts: report.receipts.map(({ contractId, contractHash, receiptHash, passed }) =>
+      ({ contractId, contractHash, receiptHash, passed })) };
+  }
+  const concept = definitions.find((item) => item.id === (args.conceptId || args.id));
+  if (!concept) throw new Error('Unknown implementation contract');
+  const contract = compileConcept(concept);
+  return operation === 'executeImplementationContract' ? execute(contract, args)
+    : experiments.runContractExperiment(contract);
+}
 
 function copy(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -13,18 +30,20 @@ function copy(value) {
 
 function implementationContractHealth(definitions) {
   const result = compileRegistry(definitions);
+  const { contracts, ...health } = result;
   return {
-    ...result,
+    ...health,
     registeredConcepts: definitions.length,
-    compiledConcepts: result.contracts.length,
+    compiledConcepts: contracts.length,
   };
 }
 
 function listImplementationContracts(definitions, args = {}) {
-  const result = compileRegistry(definitions);
-  return result.contracts
-    .filter((item) => !args.target || item.targets.includes(args.target))
-    .map(copy);
+  return implementationContractPage(definitions, args).contracts;
+}
+
+function implementationContractPage(definitions, args = {}) {
+  return pageContracts(compileRegistry(definitions).contracts, args);
 }
 
 function getImplementationContract(concept) {
@@ -38,7 +57,9 @@ function assessContractPromotion(concept, targetMaturity, evidence) {
 module.exports = {
   implementationContractHealth,
   listImplementationContracts,
+  implementationContractPage,
   getImplementationContract,
   readinessReport,
   assessContractPromotion,
+  EXECUTION_OPERATIONS, handleExecution,
 };

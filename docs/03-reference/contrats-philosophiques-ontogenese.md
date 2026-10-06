@@ -1,279 +1,420 @@
-# Contrats philosophiques dans l’Ontogenèse
+# Contrats philosophiques et Ontogenèse — exécution, preuves et limites
 
-- **Statut** : Partiel — préparation expérimentale raccordée, validation runtime séparée
-- **Portée** : résolution des concepts philosophiques, plans de mission et runtime harness
-- **Dernière revue** : 2026-10-05
-- **Référence principale** : [ADR 0319](../adr/0319-raccord-contrats-philosophiques-ontogenese.md)
+- **Statut** : Partiel — 375 audits logiciels bornés exécutables ; validation des 375 concepts sur missions réelles non établie
+- **Portée** : interprétations opérationnelles, état d’audit, sondes d’ablation et vérificateur Ontogenèse
+- **Dernière revue** : 2026-10-06
+- **Décisions** : [ADR 0318](../adr/0318-contrats-implementation-concepts.md), [ADR 0319](../adr/0319-raccord-contrats-philosophiques-ontogenese.md), [ADR 0326](../adr/0326-audits-philosophiques-executables-et-preuves.md)
 
-Cette fiche décrit comment les contrats d’implémentation des 375 concepts
-philosophiques entrent dans le cycle Ontogenèse. Elle distingue trois niveaux
-qui ne doivent jamais être confondus :
+## 1. Ce qui est implémenté et ce qui ne l’est pas
 
-1. le concept et sa tradition restent déclaratifs ;
-2. le contrat décrit un comportement à expérimenter ;
-3. le runtime peut recevoir ce contrat comme contexte, sans obtenir une
-   permission ni une promotion implicite.
+Le registre contient 375 identifiants. Chaque identifiant dispose désormais
+d’un profil explicite : primitive partagée, variable d’entrée, prédicat et
+interprétation opérationnelle. Aucun concept inconnu ne reçoit un profil
+exécutable de secours.
 
-La règle d’autorité reste celle du dépôt : un transport réussi n’est pas une
-preuve de décision valide.
+Cette couverture signifie **375 audits bornés**, pas 375 théories réalisées,
+375 solveurs spécialisés ni 375 fonctionnalités validées en production.
+Une vérification d’un booléen déclaré ne démontre ni la proposition
+philosophique ni la réalité externe de ce booléen.
 
-## 1. Définition et statut
+| Dimension | Réalité logicielle |
+| --- | --- |
+| Catalogue | 375 profils explicites, normalisés et contrôlés |
+| Mécanisme | calcul déterministe d’un critère déclaré et mise à jour d’un état d’audit |
+| Effet | évaluation enregistrée ; tâche de vérification et réserve de réponse si critère absent ou violé |
+| Falsification | cas satisfaisant, contre-exemple, donnée absente, ablation du mécanisme, répétition |
+| Organisation | propagation simulée sur quatre graphes ; aucune mission multi-agents lancée par ces sondes |
+| Ontogenèse | références scellées ; sources confinées ; replay d’audit avant intégration |
+| Validation générale | non établie ; aucun succès de transport ne la remplace |
 
-Un **contrat philosophique** est la compilation versionnée d’une entrée du
-registre vers une interprétation opérationnelle. Il contient notamment un
-invariant, un mécanisme partagé, des cibles GenOS, des observables, des tests de
-falsification, des limites, un scénario et une expérience comparative.
+Le compilateur conserve par défaut `maturity: mechanism-linked`, y compris
+pour les 21 anciens pilotes. Leur ancien niveau `tested` n’était pas attaché
+à des reçus ; il ne pouvait donc pas constituer une preuve.
+Exécuter une expérience retourne un reçu, sans modifier silencieusement le
+registre ni ses statuts historiques.
 
-Le compilateur se trouve dans
-`backend/src/philosophy/implementationContracts.js`. Il produit 375 contrats :
-21 pilotes détaillés et 354 contrats reliés à un mécanisme partagé avec l’état
-`mapped-pending-behavior`. Cet état signifie que le contrat est préparé pour une
-expérience ; il ne signifie pas que le comportement est intégré ou validé.
+La matrice exhaustive se trouve dans
+[la matrice opérationnelle](matrice-operationnelle-philosophique.md).
+Le profil source est [operationalProfiles.js](../../backend/src/philosophy/operationalProfiles.js).
 
-| État | Signification | Autorité accordée |
-| --- | --- | --- |
-| `ready-for-experiment` | schéma, scénario, falsification et matrice expérimentale valides | contexte de planification seulement |
-| `tested` | une expérience a produit un reçu de scénario admissible | aucune promotion seule |
-| `integrated` | scénario et runtime ont produit les reçus requis | soumission à la gate générale |
-| `validated` | scénario, runtime et vérification indépendante sont présents | décision de promotion encore gouvernée |
+## 2. Modèle formel
 
-La maturité du contrat est distincte du statut du concept (`implemented`,
-`partial`, `interpretive`, `disputed`, `planned` ou `registered`) et de la
-maturité du service associé.
-
-## 2. Pipeline complet
+Pour un contrat (c), un ensemble d’observations déclarées (o), un état
+(s) et un indicateur d’activation (a), le mécanisme calcule :
 
 ```text
-Registre philosophique
-        ↓
-Compilateur de contrats
-        ↓
-Résolution Ontogenèse
-        ↓
-Plan de capacité de mission
-        ↓
-Runtime harness / runner
-        ↓
-Observations + reçus
-        ↓
-Vérification indépendante
-        ↓
-Gate de promotion
+value = o[c.execution.field], seulement si la clé appartient à o
+verdict = unobserved | satisfied | violated
+s' = a ? enregistrer(verdict, tâches, réserves, s) : copie(s)
 ```
 
-Les contrats sont résolus à deux moments :
+Une absence reste `unobserved`, pas un succès. Un contre-exemple devient
+`violated`. Le prédicat décrit une condition bornée sur une donnée typée ;
+il ne décide pas de la vérité d’une théorie.
 
-- `canonicalConceptRegistry` attache le contrat complet et une référence
-  compacte à chaque entrée philosophique ;
-- `missionCapabilityPlanService` déduplique les contrats sélectionnés ou
-  explicitement demandés et les inscrit dans `philosophicalContracts`.
+L’état retourné comporte :
 
-Le `runtimeHarness` transmet ensuite cette liste au runner dans le champ
-`philosophicalContracts`. Le runner reçoit donc une spécification et ses
-conditions d’audit ; il ne reçoit pas de droit supplémentaire.
-
-## 3. Structure d’une référence transportée
-
-Le plan ne recopie pas nécessairement le contrat complet dans chaque message.
-Il transporte une référence compacte :
-
-```json
-{
-  "id": "epistemology.knowledge",
-  "category": "evaluation",
-  "maturity": "tested",
-  "compilationState": "pilot",
-  "readiness": "ready-for-experiment",
-  "scenarioId": "scenario.evaluation",
-  "experimentId": "experiment.ed9a1aae18606d9a",
-  "evidenceRequired": [
-    "scenario-input",
-    "scenario-output",
-    "comparison-receipt"
-  ],
-  "topologies": [
-    "isolated_critics",
-    "centralized",
-    "federated",
-    "peer_to_peer"
-  ],
-  "promotionEligible": false
-}
-```
-
-Les identifiants de scénario et d’expérience sont déterministes à partir de
-l’identifiant du concept et de la catégorie. Une modification de ces éléments
-doit donc produire une nouvelle empreinte expérimentale et être couverte par
-les tests du registre.
-
-## 4. Résolution dans le registre canonique
-
-`resolveConceptReference(reference, topology)` suit l’ordre de résolution
-existant : adaptateur, worker, cycle de vie, runtime, capacité, interface,
-chaîne centrale, philosophie, graphe de capacités, documentation.
-
-Lorsqu’une entrée philosophique est trouvée, la réponse comporte :
-
-| Champ | Rôle |
+| Champ | Sémantique |
 | --- | --- |
-| `source: philosophy` | indique que la référence vient du registre philosophique |
-| `available` | indique si la lecture est autorisée par la topologie demandée |
-| `executable: false` | interdit de présenter le concept comme primitive runtime |
-| `implementationContract` | contrat complet pour inspection et planification |
-| `implementationContractReference` | version compacte pour le plan et le runner |
-| `access: read` | limite l’usage à la lecture et à la préparation |
+| `assessments[id]` | critère évalué, statut et limites de vérité externe |
+| `verificationTasks` | vérifications requises pour les critères non satisfaits |
+| `responseCaveats` | réserves à remettre au planificateur de réponse |
+| `activeUncertainties` | variables encore à vérifier |
+| `promotionHeld` | barrière restrictive pour une exigence interne `core.*` non satisfaite |
 
-L’absence de topologie ou de capacité de lecture peut donc bloquer le concept
-dans `blockedConcepts`, sans supprimer son contrat du catalogue. Cette
-distinction permet de diagnostiquer un problème d’autorisation sans transformer
-un concept en capacité implicite.
+Une nouvelle observation satisfaisante retire la tâche et la réserve de
+ce contrat. Elle ne lève jamais une barrière de promotion préexistante.
+L’entrée n’est pas mutée ; l’état de sortie est une copie.
+Les observations et l'état sérialisés sont plafonnés à 128 Kio, y compris
+l'état après ajout de l'audit. Un dépassement est refusé, sans troncature.
+Ce plafond peut limiter une composition riche en réserves avant les 375
+contrats : la borne de sélection n'est pas une garantie de capacité mémoire.
 
-## 5. Plan de capacité Ontogenèse
+Ces réserves sont un état structuré, pas une garantie qu’un LLM les mentionnera
+dans sa réponse. Le raccordement automatique de chaque réserve à chaque
+générateur de réponse reste une validation distincte.
 
-`buildMissionCapabilityPlan()` conserve les champs historiques du plan et ajoute :
+## 3. Primitives partagées et cibles
+
+Les 375 entrées ne créent pas 375 modules. Elles alimentent onze primitives.
+
+| Primitive | Mécanisme | Cibles |
+| --- | --- | --- |
+| `self` | FunctionalSelfModel | agent, réflexion |
+| `world` | WorldObservationModel | monde, réflexion |
+| `belief` | BeliefCheckScheduler | monde, réflexion, réponse |
+| `evidence` | EvidenceBoundary | monde, réflexion, réponse |
+| `causal` | InterventionComparator | monde, réflexion |
+| `relations` | AccountabilityModel | relations, réflexion |
+| `topology` | TopologyAudit | topologie, relations |
+| `policy` | NormativeAudit | relations, réponse, réflexion |
+| `creative` | CreativeCriteriaPlanner | réponse, réflexion |
+| `interpretation` | SituatedInterpretation | monde, réponse, réflexion |
+| `logic` | DeclaredLogicAudit | monde, réflexion, réponse |
+
+Ces noms désignent les rôles de l’audit partagé. Par exemple,
+`DeclaredLogicAudit` n’est pas un solveur complet du premier ordre :
+il peut vérifier qu’un domaine ou un témoin a été fourni, mais cette seule
+présence ne démontre pas la validité de la formule.
+
+Les catégories restent `state`, `transformation`, `constraint`,
+`organization` et `evaluation`. Le scénario et l’expérience sont construits
+à partir de la catégorie effective du profil, pas d’un domaine de secours.
+
+## 4. Prédicats réellement calculés
+
+| Prédicat | Condition calculée |
+| --- | --- |
+| `present` | chaîne non vide après suppression des espaces périphériques |
+| `recorded` | tableau non vide |
+| `explicit` | booléen exactement égal à `true` |
+| `equal` | paire de deux valeurs structurellement égales |
+| `different` | paire de deux valeurs structurellement différentes |
+| `positive` | nombre fini strictement positif |
+| `zero` | nombre fini égal à zéro |
+| `probability` | nombre fini dans l’intervalle fermé [0, 1] |
+| `multiple` | au moins deux valeurs structurellement distinctes ; des objets JSON identiques ne comptent pas deux fois |
+| `ordered` | suite d’au moins deux nombres finis non décroissants |
+
+Ces conditions sont volontairement explicites. `recorded` ne vérifie pas
+le contenu historique d’une source ; `multiple` ne certifie pas
+l’indépendance de deux agents ; `probability` ne mesure pas une calibration.
+Lorsqu’un invariant exige davantage, il faut ajouter un mécanisme spécialisé,
+une mesure et des tests propres. La présence du profil ne dispense pas de ce travail.
+
+Les rôles de grille d’analyse et de théorie spéculative restent distincts des
+permissions. `runtimeAuthority: false` et `promotionEligible: false`
+accompagnent les audits et leurs résultats.
+
+## 5. Provenance, distinctions et tensions
+
+Le compilateur normalise les définitions brutes et les définitions fournies
+par le routeur de manière identique. Une référence Ontogenèse et un contrat
+lu par MCP possèdent ainsi la même empreinte.
+
+Les sources de l’interprétation sont les fichiers du dépôt. Le champ
+`sourceStatus: repository-interpretation-not-scholarly-verification`
+évite de présenter ces fichiers comme une vérification académique.
+La confiance historique héritée du registre n’est pas une confiance mesurée
+dans le mécanisme logiciel.
+
+[operationalRelations.js](../../backend/src/philosophy/operationalRelations.js)
+conserve des distinctions et des tensions de conception explicites :
+
+- mondes possibles ontologiques / sémantique modale ;
+- école deleuzienne / lentille / différence entre répétitions ;
+- contrat social éthique / procédure collective politique ;
+- formalisme artistique / musical / mathématique ;
+- utilité / correspondance, déontologie / utilitarisme ;
+- intention d’auteur / interprétation non exclusive.
+
+Ces liens ne fusionnent pas les identifiants. Ils n’affirment pas non plus une
+opposition historique absolue entre les traditions : leur statut est celui
+de relations de conception opérationnelle.
+Les conflits explicites des pilotes sont conservés lors de la compilation.
+
+## 6. Architecture technique
+
+```text
+conceptDefinitions → conceptRegistry → implementationContracts
+                              ↓
+               operationalProfiles + operationalRelations
+                              ↓
+             contractOperationalization + contractValidation
+                              ↓
+                 contractRuntime → état d’audit
+                       ↓                  ↓
+             contractExperiments    observations de mission
+                       ↓                  ↓
+              scénario rejoué      vérificateur Ontogenèse
+                       └──────── limites et gates séparées ────┘
+```
+
+| Fichier | Responsabilité |
+| --- | --- |
+| `operationalProfiles.js` | correspondance explicite des 375 identifiants |
+| `contractOperationalization.js` | cibles, catégorie, limites et interprétation exécutable |
+| `contractValidation.js` | schéma, cohérence des profils et conditions de préparation |
+| `operationalPredicates.js` | calculs typés et exemples de frontière |
+| `contractRuntime.js` | exécution isolée et composition de plusieurs audits |
+| `contractExperiments.js` | contrôle, ablation, répétition, reçu et replay |
+| `topologyAuditSimulation.js` | messages, convergence et panne d’un nœud dans les graphes simulés |
+| `contractFingerprint.js` | sérialisation canonique et SHA-256 du contrat complet |
+| `contractPromotion.js` | preuves reconnues, absences et portée de maturité |
+| `philosophicalMissionContract.js` | références scellées et exigences de mission |
+| `philosophicalObservationService.js` | lecture confinée, liaisons sources et replay |
+
+Une modification d’une limite, d’un profil ou de la provenance change
+l’empreinte du contrat. Un ancien reçu ne peut alors satisfaire l’évaluation
+du nouveau contrat.
+
+## 7. API et procédure locale
+
+Les opérations passent par `genos_philosophy` et conservent son lease existant.
+
+| Opération | Résultat |
+| --- | --- |
+| `getImplementationContract` | contrat complet, y compris `execution` |
+| `listImplementationContracts` | page du catalogue, filtrable par cible |
+| `implementationContractHealth` | couverture et erreurs du compilateur, sans contrats complets |
+| `implementationReadiness` | préparation structurale, pas exécution |
+| `executeImplementationContract` | état avant/après pour observations fournies |
+| `runImplementationExperiment` | reçu de scénario pour un contrat |
+| `implementationExperimentCoverage` | couverture et empreintes des reçus, sans exposer tous les cas |
+| `assessContractPromotion` | éligibilité bornée, preuves manquantes et limites |
+
+### Pagination et limites de transport
+
+`listImplementationContracts` retourne `{ contracts, total, offset, limit,
+nextOffset }`. `offset` est un entier positif ou nul ; `limit` est un entier
+entre 1 et 100, avec 100 par défaut. Le filtre `target` est appliqué avant
+pagination : `total` dénombre les contrats du résultat filtré. Une page au-delà
+de ce total est vide, avec `nextOffset: null`.
+
+Pour lire les 375 contrats, partir de `offset: 0`, puis reprendre le
+`nextOffset` retourné jusqu'à `null`. Les offsets négatifs ou non entiers et
+les limites hors bornes sont refusés. Le catalogue n'est pas renvoyé en bloc
+dans la santé : sa sérialisation complète dépasse la limite de réponse MCP.
+La pagination conserve cette limite et ne confère aucun droit supplémentaire.
+
+La compilation conserve les sources, interdictions et plans de falsification
+du contrat d'origine. Les sondes exécutables complètent ces plans ; elles ne
+prouvent pas que chaque expérience spécialisée a été réalisée. Le schéma est
+chargé une seule fois par compilation de registre et validé pour chacun des
+375 contrats. Il est relu à la compilation suivante : aucun cache permanent
+ne masque un schéma devenu indisponible ou illisible.
+
+Exemple d’exécution bornée :
 
 ```json
 {
-  "philosophicalContracts": {
-    "required": true,
-    "promotionEligible": false,
-    "contracts": ["… références compactes …"]
+  "operation": "executeImplementationContract",
+  "arguments": {
+    "conceptId": "epistemology.certainty-doubt",
+    "observations": { "doubt.verificationScheduled": false },
+    "state": {}
   }
 }
 ```
 
-Les entrées proviennent de l’union des concepts sélectionnés par le domaine et
-des concepts explicitement résolus. Elles sont dédupliquées par identifiant
-stable. Le plan est donc déterministe pour une même mission, une même
-topologie et un même registre.
+Cette entrée produit une tâche de vérification et une réserve. Elle n’exécute
+pas elle-même une recherche de source : le scheduler consommateur doit prendre
+en charge la tâche, sous les autorisations existantes.
 
-Le plan conserve également :
-
-- `resolvedConcepts`, y compris les concepts bloqués ;
-- `blockedConcepts` et `blockedCapabilities` ;
-- `topologyContract` et l’organisation choisie ;
-- `evidence`, qui exige des vérifications indépendantes avant promotion ;
-- `recovery`, qui garde les bornes de reprise et le dead-letter `WAITING_INPUT`.
-
-## 6. Transmission au runtime
-
-Le runtime harness construit une requête qui contient :
-
-```text
-conceptResolution       → provenance et disponibilité des références
-missionCapabilityPlan   → contrat de planification complet
-philosophicalContracts  → références des contrats philosophiques
-requiredTools           → leases déjà calculées par la topologie
-requiresEvidenceBeforePromotion = true
-```
-
-Le texte de mission expose les contrats comme contexte contrôlé. Il rappelle
-la topologie, la variante, les concepts bloqués et les preuves attendues. Un
-worker ne peut pas utiliser ce contexte pour modifier une lease, contourner
-`authority`, écrire hors du workspace ou promouvoir un résultat.
-
-```mermaid
-flowchart LR
-    R[Registre 375 concepts] --> C[Contrat d'implémentation]
-    C --> X[Résolution canonique]
-    X --> P[Plan de capacité]
-    P --> H[Runtime harness]
-    H --> W[Mission bornée]
-    W --> V[Vérification + reçus]
-    V --> G{Gate de promotion}
-    G -->|preuves absentes| B[Blocage explicite]
-    G -->|preuves suffisantes| D[Décision gouvernée]
-```
-
-## 7. Scénarios, topologies et preuves
-
-Chaque contrat déclare un scénario dans l’une des cinq catégories :
-
-| Catégorie | Perturbation | Observation attendue |
-| --- | --- | --- |
-| `state` | retirer ou perturber une représentation d’état | différence d’état détectée et tracée |
-| `transformation` | exécuter une variation contrôlée | transition et effet comparables |
-| `constraint` | soumettre une action interdite | action signalée ou refusée |
-| `organization` | comparer deux organisations | coût et distribution des décisions mesurés |
-| `evaluation` | retirer une preuve ou changer un critère | confiance ou verdict révisé |
-
-La matrice minimale compare `isolated_critics`, `centralized`, `federated` et
-`peer_to_peer`. Cette déclaration définit le protocole attendu ; elle ne prouve
-pas que chaque topologie a été exécutée ni qu’une variante est supérieure.
-
-Les preuves minimales du plan sont :
-
-1. `scenario-input` — entrée normalisée et contexte initial ;
-2. `scenario-output` — sortie observée et métriques ;
-3. `comparison-receipt` — comparaison contrôlée avec le baseline.
-
-Pour progresser, la barrière de maturité exige ensuite :
-
-| Cible | Reçus requis |
-| --- | --- |
-| `observable` | `observation-receipt` |
-| `tested` | `scenario-receipt` |
-| `integrated` | `scenario-receipt`, `runtime-receipt` |
-| `validated` | précédents + `independent-receipt` |
-
-`assessContractPromotion` signale les reçus manquants et maintient
-`promotionEligible: false`. Il ne remplace ni l’exécution, ni la gate générale,
-ni l’approbation éventuellement requise.
-
-## 8. Cycle de vie d’une mission
-
-1. **Planification** : résolution des concepts et compilation du plan.
-2. **Admission** : contrôle de topologie, budgets, leases et autorité.
-3. **Exécution** : runner isolé avec `requiresEvidenceBeforePromotion`.
-4. **Vérification** : contrôles configurés, empreinte du workspace et preuves.
-5. **Intégration** : passage par l’écrivain unique d’Ontogenèse.
-6. **Réévaluation** : conservation des échecs, décisions et contre-exemples.
-7. **Promotion** : uniquement après gate et preuves applicables.
-
-Un échec du contrat philosophique retourne une observation falsifiante ou un
-blocage ; il ne devient pas automatiquement une erreur de la théorie source.
-Inversement, un scénario réussi ne démontre pas une vérité philosophique
-générale : il démontre seulement un comportement dans le protocole exécuté.
-
-## 9. Vérification reproductible
-
-Les tests de raccordement sont :
+Une comparaison locale reproductible s’exécute sans provider ni mission distante :
 
 ```powershell
-node backend/tests/test_ontogenesis_concept_registry.js
-node backend/tests/test_ontogenesis_capability_plan.js
-node backend/tests/test_ontogenesis_mission_context.js
-node backend/tests/test_ontogenesis_developmental_runtime.js
-node backend/tests/test_ontogenesis_strategy_bridge.js
-npm --prefix backend run test:quality
+node backend/bin/genos-philosophy-audit.cjs --coverage
+node backend/bin/genos-philosophy-audit.cjs --contract epistemology.certainty-doubt
 ```
 
-Les tests vérifient notamment que :
+Les reçus de scénario décrivent trois cas, quatre graphes et trois graines
+(17, 42, 99), soit 36 observations par contrat, 13 500 pour le catalogue.
+Le mécanisme est activé, désactivé, puis rejoué sur les mêmes entrées.
+La réception du message est simulée dans chaque graphe ; le coût est un nombre
+de messages, pas un coût monétaire ni une latence de provider.
 
-- les 375 concepts restent présents dans le catalogue canonique ;
-- un concept philosophique expose son contrat et sa référence compacte ;
-- les contrats sélectionnés entrent dans le plan et la requête du harness ;
-- les références sont dédupliquées et restent non promouvables ;
-- les concepts non disponibles restent bloqués sans élargir les autorisations.
+Les quatre graphes ont des arêtes explicites. Une propagation calcule les
+destinations atteintes, messages dupliqués et tours de convergence. La suppression
+d’un nœud teste la portée restante. Le reçu indique toujours
+`actualTopologyExecution: false` et `actualRuntimeDispatch: false`.
 
-## 10. Limites et non-objectifs
+## 8. Raccord et vérification Ontogenèse
 
-- Le raccordement ne crée pas 375 modules runtime.
-- Un contrat `ready-for-experiment` n’est pas une preuve d’exécution.
-- Le harness ne certifie pas la validité philosophique d’une interprétation.
-- Les topologies déclarées doivent encore être exécutées avec des protocoles et
-  des baselines réelles pour produire des reçus.
-- L’absence de capacité `genos_philosophy` peut bloquer la lecture runtime ;
-  le contrat reste consultable dans le registre local.
-- La résolution de contrat ne modifie ni lease, ni budget, ni branche, ni
-  approbation humaine.
+Le registre canonique attache une référence contenant notamment :
+
+```text
+id, contractHash, category, maturity, compilationState,
+readiness, scenarioId, experimentId, evidenceRequired,
+topologies, execution, observationFile, promotionEligible
+```
+
+Le plan déduplique les références et ajoute `requiredForMission` :
+
+- les concepts explicitement résolus pour la mission deviennent des exigences ;
+- les concepts sélectionnés automatiquement comme contexte restent consultatifs.
+
+Une référence contextuelle n’accorde aucun droit et ne doit pas transformer
+une mission ordinaire en demande implicite de validation des 375 concepts.
+
+Le vérificateur utilise `.genos/philosophy-observations.json`, un artefact
+généré à ne pas commiter. Son format est :
+
+```json
+{
+  "missionId": "identifiant-reel-de-lexecution",
+  "contractHashes": {
+    "epistemology.knowledge": "empreinte-sha256-du-contrat-courant"
+  },
+  "bindings": {
+    "knowledge.layerSeparation": {
+      "file": ".genos/checks.json",
+      "pointer": "/knowledge/layerSeparation"
+    }
+  }
+}
+```
+
+Les identifiants et empreintes ci-dessus sont des emplacements d’exemple :
+l’exécution doit employer les valeurs réelles du plan.
+Le fichier de source doit exister après les vérifications configurées ; sa
+valeur est extraite par pointeur JSON, pas copiée aveuglément depuis la requête.
+
+Le vérificateur :
+
+1. reconstruit les contrats connus et compare leurs empreintes ;
+2. rejette les doublons et contrats inconnus ;
+3. exige le bon identifiant de mission ;
+4. lit l’artefact et ses sources sous confinement, sans traversée ni lien symbolique ;
+5. extrait les observations par clés propres, sans accès au prototype ;
+6. exécute les audits et refuse tout critère absent ou violé ;
+7. conserve empreintes des sources, de l’artefact et des états obtenus ;
+8. rejoue avant intégration pour détecter une modification ;
+9. recontrôle les sources dans le workspace intégré après les checks configurés ;
+10. répète le contrôle après fencing, après commit et lors de la récupération d'un commit.
+
+L’artefact candidat n’est pas copié comme code à commiter. Les checks du
+workspace intégré doivent produire leurs propres sources ; le vérificateur
+relit les liaisons candidates pour les confronter à ces sources.
+
+La capsule doit rester disponible pour récupérer une mission ayant des audits
+requis. Retrouver un commit par son identifiant d'opération ne dispense pas du
+replay. Si une preuve est modifiée pendant le fencing, aucun commit n'est effectué ;
+si elle change pendant le commit, la mission n'est pas finalisée comme intégrée.
+
+Le répertoire `.genos` n’est pas une autorisation d’écriture supplémentaire.
+Si le lease ou le périmètre autorisé interdit la production de l’artefact,
+la mission doit signaler cette absence et rester bloquée.
+
+### Bornes et refus
+
+| Condition | Refus |
+| --- | --- |
+| Contrat modifié | `contrat-philosophique-obsolete` |
+| Empreinte portée par l’artefact différente | `empreinte-contrat-obsolete` |
+| Autre mission | `observation-autre-mission` |
+| Variable non liée | `liaison-observation-requise` |
+| Pointeur absent | `observation-source-absente` |
+| Critère non satisfait | `audit-philosophique-rejete` |
+| Source secrète ou non JSON | `source-observation-interdite` |
+| Fichier supérieur à 128 Kio | `observation-philosophique-trop-grande` |
+| Plus de 32 sources | `budget-sources-philosophiques-depasse` |
+| Replay différent avant commit | `audit-philosophique-obsolete` ou `audit-philosophique-integre-different` |
+
+Un reçu runtime lie le calcul aux sources et au contenu vérifié. Il conserve
+`sourceFactsVerified: false` et `independentValidation: false` :
+une source produite par un worker n’est pas devenue une preuve indépendante
+de son contenu du seul fait que son hash est correct.
+
+## 9. Maturité et preuve admissible
+
+`assessContractPromotion` ne reconnaît plus des noms de reçus sous forme de
+chaînes comme preuves. Un reçu de scénario doit correspondre au contrat
+courant, avoir une empreinte correcte et résister au replay exécuté par le
+vérificateur. Recalculer le hash d’un résultat falsifié ne suffit pas.
+
+| Cible | Exigence | Éligibilité actuelle |
+| --- | --- | --- |
+| `observable` | reçu de scénario rejoué | audit logiciel borné seulement |
+| `tested` | reçu de scénario rejoué | audit logiciel borné seulement |
+| `integrated` | scénario et reçu runtime reconnu | bloquée dans ce service de maturité |
+| `validated` | précédents et vérification indépendante reconnue | bloquée |
+
+Le vérificateur Ontogenèse possède son propre reçu runtime et sa gate
+d’intégration. Il ne fournit pas encore une chaîne d’attestation reconnue
+par le service de maturité pour promouvoir automatiquement tous les concepts.
+Cette absence est explicite, pas remplacée par une auto-attestation.
+
+Même un reçu de scénario admissible ne produit pas `promotionEligible: true`.
+Le calcul d’éligibilité est distinct d’une autorisation de promotion.
+
+## 10. Validation, diagnostic et critères de fin
+
+```powershell
+node backend/tests/test_philosophy_registry_health.js
+node backend/tests/test_philosophy_executable_contracts.js
+node backend/tests/test_philosophy_compilation_boundaries.js
+node backend/tests/test_philosophy_contract_transport.js
+node backend/tests/test_philosophy_observation_binding.js
+node backend/tests/test_philosophy_ontogenesis_integration.js
+node backend/tests/test_ontogenesis_concept_registry.js
+node backend/tests/test_ontogenesis_resolution_snapshot.js
+node backend/tests/test_ontogenesis_capability_plan.js
+node backend/tests/test_ontogenesis_mission_context.js
+npm --prefix backend run test:ontogenesis
+python scripts/ci/check_code_quality.py
+npm test
+cargo test --workspace
+```
+
+Les tests de frontière doivent réfuter au minimum : moteur silencieux,
+contre-exemple accepté, donnée manquante présentée comme succès, reçu d’un
+autre contrat, reçu ancien, sortie falsifiée avec nouveau hash, mauvaise
+mission, source extérieure et disparition des barrières existantes.
+
+Le test d'intégration utilise les 375 audits, des checks exécutés et de vrais
+commits dans des dépôts temporaires. Le worker est injecté : ce test démontre
+les barrières et la reprise, pas l'utilité des concepts sur une mission autonome.
+
+Pour annoncer **100 % du plan initial**, les sondes bornées ne suffisent pas.
+Il reste nécessaire de produire, pour les interprétations retenues :
+
+- des mécanismes spécialisés lorsque l’invariant dépasse le prédicat déclaré ;
+- une validation de contenu des observations, pas seulement de leur transport ;
+- des missions représentatives avec corrections, attribution, obligations et coûts réellement mesurés ;
+- une composition de notions aux effets observables dans les consommateurs runtime ;
+- des comparaisons d’organisations réellement exécutées avec mêmes tâches et budgets ;
+- une attestation indépendante admise par la gouvernance de maturité.
+
+Les questions métaphysiques, l’expérience subjective et les théorèmes hors du
+périmètre d’un solveur ne sont pas des succès que le runtime peut fabriquer.
+Une interprétation trop ambiguë reste une grille d’analyse bornée.
 
 ## Voir aussi
 
-- [Registre philosophique](registre-philosophique.md) — source et gouvernance des 375 entrées.
-- [Contrats stables de l’Ontogenèse](ontogenese-contrats.md) — persistance, états, intégration et CLI.
-- [Ontogenèse](../01-concepts/ontogenese.md) — modèle conceptuel et boucle de mission.
-- [Morphogenèse](../02-orchestration/topologies/morphogenese.md) — sélection et composition des organisations.
-- [Schéma des contrats](../../spec/implementation-contract.schema.json) — format versionné.
-- [ADR 0318](../adr/0318-contrats-implementation-concepts.md) — compilation des contrats.
-- [ADR 0319](../adr/0319-raccord-contrats-philosophiques-ontogenese.md) — raccord au cycle Ontogenèse.
+- [Registre philosophique](registre-philosophique.md)
+- [Matrice opérationnelle exhaustive](matrice-operationnelle-philosophique.md)
+- [Ontogenèse](../01-concepts/ontogenese.md)
+- [Contrats stables Ontogenèse](ontogenese-contrats.md)
+- [Morphogenèse](../02-orchestration/topologies/morphogenese.md)
+- [Schéma des contrats](../../spec/implementation-contract.schema.json)

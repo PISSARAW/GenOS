@@ -24,14 +24,17 @@ Ce qui distingue l'Ontogenèse du runtime agentique décrit dans [runtime-agenti
 La règle épistémique GenOS s'applique sans exception : un transport réussi n'est pas une preuve de décision valide ; une tâche terminée sans preuves suffisantes reste non vérifiée, jamais promue (**Implémenté** — refus de promotion sans preuves dans `backend/src/services/ontogenesis/loopController.js`, fonction `stepVerifying`).
 
 Les 375 contrats philosophiques peuvent maintenant accompagner ce cycle sans
-élargir son autorité (**Partiel** — résolution, planification et transport vers
-le runner implémentés ; expériences runtime et validation indépendante encore
-séparées). Le chemin détaillé est décrit dans
+élargir son autorité (**Partiel** — résolution, planification, transport et audits
+logiciels bornés implémentés ; utilité sur missions réelles et validation
+indépendante non établies). Le chemin détaillé est décrit dans
 [Contrats philosophiques dans l’Ontogenèse](../03-reference/contrats-philosophiques-ontogenese.md) :
 `canonicalConceptRegistry` fournit la référence, `missionCapabilityPlanService`
 la déduplique dans `philosophicalContracts`, puis `runtimeHarness` la transmet
-avec les preuves et topologies attendues. Le champ `promotionEligible` reste
-`false` jusqu’aux gates existantes.
+avec les preuves et topologies attendues. Les concepts explicitement demandés
+imposent un audit avant `verified` ; les concepts ajoutés automatiquement restent
+consultatifs. L'audit lit des valeurs liées à des sources JSON confinées et refuse
+une observation absente, violée ou obsolète. Il vérifie ces déclarations, pas leur
+vérité externe. Le champ `promotionEligible` reste `false`.
 
 ## 2. Modèle formel
 
@@ -275,10 +278,24 @@ Réutilisation des contrats GenOS par leurs interfaces, jamais contournés (**Ca
 Les contrats d'implémentation philosophiques sont maintenant raccordés au cycle
 de mission : `canonicalConceptRegistry` résout le concept et son contrat,
 `missionCapabilityPlanService` transmet les références de scénario, de preuves et
-de topologies dans le plan, puis `runtimeHarness` les remet au runner. Ce raccord
-reste déclaratif et fail-closed : un contrat est utilisable pour préparer une
-expérience, mais `promotionEligible` reste `false` tant que les reçus runtime et
-la gate indépendante ne sont pas présents.
+de topologies dans le plan, puis `runtimeHarness` les remet au runner. Le raccord
+inclut désormais `philosophicalMissionContract.js` et
+`philosophicalObservationService.js` : les références comportent l'empreinte
+complète du contrat, le champ et le prédicat ; les observations de mission sont
+liées par un manifeste à des fichiers JSON du candidat. `integrationController`
+rejoue les audits au passage `verified`, avant la copie, sur les sources intégrées,
+après fencing, après commit et lors de sa récupération. Un manifeste présent mais
+lié à une autre mission ne suffit jamais. Les plafonds sont de 128 Kio par fichier,
+32 sources et 375 contrats ; les liens symboliques et chemins hors capsule sont
+refusés (**Implémenté** pour ces audits bornés).
+
+Les états d'audit exposent incertitudes, tâches de vérification et réserves ;
+ils ne représentent pas un modèle complet du monde, une révision des croyances
+ou un changement de topologie. La lecture d'une déclaration issue du worker
+n'est pas une validation indépendante (**Partiel** pour l'objectif philosophique).
+Le service de maturité rejoue les reçus de scénario mais ne reconnaît pas encore
+les attestations runtime/indépendantes : `integrated` et `validated` restent
+bloqués, et aucun reçu ne dispense des checks, leases, budgets et gates existants.
 
 ### 7.1 Maturité vérifiable par sous-système
 

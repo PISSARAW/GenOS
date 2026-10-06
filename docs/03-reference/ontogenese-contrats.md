@@ -11,7 +11,8 @@ Sources : `backend/src/db/migrations/migrateOntogenesis.js` (migration 086),
 `inboxService.js`, `memoryService.js`, `notificationService.js`, `activityView.js`,
 `integrationService.js`, `topologySelector.js`, `memoryPressure.js`,
 `backend/bin/genos-ontogenesis.cjs`, `canonicalConceptRegistry.js`,
-`missionCapabilityPlanService.js`, `runtimeHarness.js`.
+`missionCapabilityPlanService.js`, `runtimeHarness.js`,
+`philosophicalMissionContract.js`, `philosophicalObservationService.js`, `integrationController.js`.
 Tout écart entre ce document et ces fichiers est un bug de documentation.
 
 Le raccord détaillé des concepts philosophiques est documenté séparément dans
@@ -232,6 +233,45 @@ Statuts d'intégration : `pending`, `committed`, `conflict`, `rejected`
 `reconcileIntegration` retourne `{ status: 'introuvable' }` si la ligne est absente,
 `{ status: 'committed', sha }` si `result_sha` existe dans git ou si le tatouage est retrouvé
 (`recovered: true` dans ce second cas), sinon `{ status: <statut-ligne>, sha }`.
+
+### 8.1 Audit philosophique lié à une mission
+
+Pour les concepts explicitement demandés, le plan transporte une référence avec
+`contractHash`, `execution`, `observationFile` et `requiredForMission: true`.
+Les références de contexte ajoutées automatiquement portent `false` : elles ne
+créent pas une obligation imprévue pour une mission sans demande philosophique.
+
+Le runner produit `.genos/philosophy-observations.json` dans sa capsule :
+
+```json
+{
+  "missionId": "<ontogenesis_execution.id>",
+  "contractHashes": { "<concept-id>": "<SHA-256 du contrat canonique>" },
+  "bindings": { "<execution.field>": { "file": "evidence.json", "pointer": "/criterion" } }
+}
+```
+
+La source doit être un fichier JSON régulier confiné, sans segment symbolique ;
+les secrets, bases de données, `.git`, `node_modules`, `target` et `dist` sont
+refusés. Plafonds : 128 Kio par fichier, 32 sources, 375 contrats, pointeur de
+512 caractères et 16 segments. Une source absente, un profil changé, un contrat
+dupliqué, une autre mission ou un critère non satisfait bloquent la vérification.
+
+Le contrôleur conserve `result.philosophyAudit` : reçu borné avec `missionId`,
+`treeHash`, empreintes du manifeste, des sources, contrats et états d'audit.
+Avant intégration, il relit le candidat et exige la même empreinte de reçu.
+Après copie, il relit les sources intégrées en utilisant le manifeste conservé
+dans la capsule. Le manifeste `.genos/` n'est pas copié ni committé. Le contrôle
+est répété après fencing, après commit et lors d'une récupération. Une capsule
+indisponible empêche donc la récupération d'une mission ayant un audit requis.
+
+Ce reçu affirme `sourceFactsVerified: false`, `independentValidation: false` et
+`promotionEligible: false`. Il prouve les octets évalués et le prédicat borné,
+pas la vérité des déclarations, l'utilité d'une théorie ou son adoption par les
+autres composants. Le service de maturité n'accepte pas encore ce reçu comme
+attestation `integrated`. Voir la
+[référence détaillée](contrats-philosophiques-ontogenese.md) et
+[ADR 0326](../adr/0326-audits-philosophiques-executables-et-preuves.md).
 
 ## 9. CLI opérateur
 

@@ -7,6 +7,7 @@ const { processRows, processAlive, treeRows, ownsProcess } = require('./processR
 const { managedRoot, ensureIntegration } = require('./worktreeService');
 const { terminatePid } = require('../processTermination');
 const workerKinds = require('../agents/workerKindService');
+const { instructionFor } = require('./philosophicalMissionContract');
 
 const RUNNER = path.resolve(__dirname, '../../../bin/ontogenesisMissionRunner.cjs');
 
@@ -20,48 +21,71 @@ function createRuntimeHarness(db) {
   };
 }
 
-function requestFor(input) {
-  const checks = input.config.checks || [];
-  const roles = input.selection.workerRoles || [];
-  const plan = input.mission?.plan || {};
-  const resolution = input.mission?.concepts || {};
+function knownConceptIds(resolution, plan) {
   const resolvedIds = (resolution.resolvedConcepts || []).filter((concept) => concept.available).map((concept) => concept.id);
   const compatibleIds = (plan.compatibleRuntimeConcepts || []).map((concept) => concept.id);
-  const philosophicalContracts = plan.philosophicalContracts?.contracts
-    || (input.mission?.concepts?.resolvedConcepts || [])
+  return [...new Set([...resolvedIds, ...compatibleIds])];
+}
+
+function philosophicalReferences(mission, plan) {
+  return plan.philosophicalContracts?.contracts
+    || (mission.concepts?.resolvedConcepts || [])
       .map((concept) => concept.implementationContractReference).filter(Boolean);
+}
+
+function conceptRequestFields(mission, plan) {
+  const resolution = mission.concepts || {};
   const leasedTools = [...new Set((plan.runtimeLeaseCandidates || []).flatMap((candidate) => candidate.tools || []))];
+  return {
+    capabilityCatalog: mission.capabilityCatalog || [], conceptResolution: mission.concepts || null,
+    conceptLeaseCandidates: plan.runtimeLeaseCandidates || [],
+    philosophicalContracts: philosophicalReferences(mission, plan), runtimeBridges: plan.runtimeBridges || [],
+    strategyConcept: plan.strategy || null, compatibleConcepts: plan.compatibleRuntimeConcepts || [],
+    knownConcepts: knownConceptIds(resolution, plan), requiredTools: leasedTools
+  };
+}
+
+function capabilityRequestFields(mission, plan) {
+  const capabilities = mission.capabilities || [];
+  return {
+    capabilities, capabilityRequirements: capabilities,
+    capabilityContract: plan.topologyContract || { required: capabilities },
+    topologyContract: plan.topologyContract || null, existingCapabilities: capabilities,
+    requiredCapabilities: plan.capabilityRequirements || capabilities
+  };
+}
+
+function contextRequestFields(mission) {
+  return {
+    organization: mission.morphology?.selectedOrganization || undefined,
+    developmentalContext: mission.developmentalContext || null, morphologyPlan: mission.morphology || null,
+    missionCapabilityPlan: mission.plan || null, problemProfile: mission.profile || {}
+  };
+}
+
+function workerAssignmentsFor(roles) {
   const workerAssignments = Object.fromEntries(roles.map((role) => [role, {
     workerKind: role,
     workerRequirements: { requiredCapabilities: workerRequirementsFor(role), allowedKinds: [role] }
   }]));
+  return workerAssignments;
+}
+
+function requestFor(input) {
+  const checks = input.config.checks || [];
+  const roles = input.selection.workerRoles || [];
+  const mission = input.mission || {};
+  const plan = mission.plan || {};
   return {
     id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nCanonical concepts: ${conceptInstruction(input.mission?.plan)}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
     projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
     autonomousOrchestration: true, useMemoryContext: true,
     proposedTopology: input.selection.topology, morphologyTopology: input.selection.topology,
-    organization: input.mission?.morphology?.selectedOrganization || undefined,
-    capabilities: input.mission?.capabilities || [],
-    capabilityRequirements: input.mission?.capabilities || [],
-    capabilityContract: input.mission?.plan?.topologyContract || { required: input.mission?.capabilities || [] },
-    topologyContract: input.mission?.plan?.topologyContract || null,
-    capabilityCatalog: input.mission?.capabilityCatalog || [],
-    conceptResolution: input.mission?.concepts || null,
-    conceptLeaseCandidates: plan.runtimeLeaseCandidates || [],
-    philosophicalContracts,
-    runtimeBridges: plan.runtimeBridges || [],
-    strategyConcept: input.mission?.plan?.strategy || null,
-    compatibleConcepts: input.mission?.plan?.compatibleRuntimeConcepts || [],
-    developmentalContext: input.mission?.developmentalContext || null,
-    worker_assignments: workerAssignments,
-    morphologyPlan: input.mission?.morphology || null,
-    missionCapabilityPlan: input.mission?.plan || null,
-    problemProfile: input.mission?.profile || {},
+    ...conceptRequestFields(mission, plan),
+    ...capabilityRequestFields(mission, plan),
+    ...contextRequestFields(mission),
+    worker_assignments: workerAssignmentsFor(roles),
     requiresEvidenceBeforePromotion: true,
-    knownConcepts: [...new Set([...resolvedIds, ...compatibleIds])],
-    existingCapabilities: input.mission?.capabilities || [],
-    requiredTools: leasedTools,
-    requiredCapabilities: plan.capabilityRequirements || input.mission?.capabilities || [],
     workspaceRoot: input.worktree,
     trinityMode: input.selection.topology === 'trinity' ? 'explicit' : undefined,
     aTeamMode: input.selection.topology === 'a_team' ? 'explicit' : undefined,
@@ -90,13 +114,13 @@ function developmentalInstruction(context) {
 
 function conceptInstruction(plan) {
   const source = plan || {};
-  const compatible = Array.isArray(source.compatibleRuntimeConcepts) ? source.compatibleRuntimeConcepts : [];
-  const candidates = Array.isArray(source.runtimeLeaseCandidates) ? source.runtimeLeaseCandidates : [];
-  const blocked = Array.isArray(source.blockedCapabilities) ? source.blockedCapabilities : [];
-  const resolved = Array.isArray(source.resolvedConcepts) ? source.resolvedConcepts : [];
+  const compatible = arrayValue(source.compatibleRuntimeConcepts);
+  const candidates = arrayValue(source.runtimeLeaseCandidates);
+  const blocked = arrayValue(source.blockedCapabilities);
+  const resolved = arrayValue(source.resolvedConcepts);
   return JSON.stringify({
-    catalogueSize: Array.isArray(source.canonicalConcepts) ? source.canonicalConcepts.length : 0,
-    runtimeConcepts: Array.isArray(source.runtimeConcepts) ? source.runtimeConcepts.length : 0,
+    catalogueSize: arrayValue(source.canonicalConcepts).length,
+    runtimeConcepts: arrayValue(source.runtimeConcepts).length,
     strategy: source.strategy?.strategyId || source.strategy?.id || null,
     compatible: compatible.map((concept) => concept.id).filter(Boolean),
     leasedTools: [...new Set(candidates.flatMap((candidate) => candidate.tools || []))],
@@ -104,9 +128,14 @@ function conceptInstruction(plan) {
       available: concept.available, executable: concept.executable, access: concept.access, reason: concept.reason })),
     blocked: blocked.map((entry) => entry.capability || entry.id).filter(Boolean),
     blockedConcepts: resolved.filter((concept) => !concept.available).map((concept) => concept.id).filter(Boolean),
-    philosophicalContracts: source.philosophicalContracts?.contracts || []
-    , runtimeBridges: source.runtimeBridges || []
+    philosophicalContracts: source.philosophicalContracts?.contracts || [],
+    philosophicalAuditInstructions: instructionFor(source.philosophicalContracts?.contracts || []),
+    runtimeBridges: source.runtimeBridges || []
   });
+}
+
+function arrayValue(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function topologyInstruction(topology) {

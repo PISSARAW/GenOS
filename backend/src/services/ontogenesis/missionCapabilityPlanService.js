@@ -36,11 +36,12 @@ function buildRecoveryContract(config) {
 }
 
 function philosophicalContractRequirements(concepts) {
+  const requested = new Set((concepts.resolvedConcepts || []).map((concept) => concept.id));
   const entries = [...(concepts.resolvedConcepts || []), ...(concepts.selectedConcepts || [])]
     .filter((concept) => concept.implementationContractReference)
-    .map((concept) => concept.implementationContractReference);
+    .map((concept) => ({ ...concept.implementationContractReference, requiredForMission: requested.has(concept.id) }));
   const uniqueEntries = [...new Map(entries.map((entry) => [entry.id, entry])).values()];
-  return { required: uniqueEntries.length > 0, promotionEligible: false, contracts: uniqueEntries };
+  return { required: uniqueEntries.some((entry) => entry.requiredForMission), promotionEligible: false, contracts: uniqueEntries };
 }
 
 const COGNITIVE_RUNTIME_CONCEPTS = new Set([
@@ -48,6 +49,10 @@ const COGNITIVE_RUNTIME_CONCEPTS = new Set([
   'predictive_inference', 'self_world_distinction', 'world_model', 'flexible_agency',
   'causal_integration', 'valence_interoception', 'report_access'
 ]);
+
+function hasVariantRuntime(topology, organization) {
+  return topology === 'a_team' || Boolean(organization);
+}
 
 function runtimeBridgePlan({ mission, concepts, topology, organization }) {
   const resolvedIds = new Set((concepts.resolvedConcepts || []).map((concept) => concept.id));
@@ -68,17 +73,48 @@ function runtimeBridgePlan({ mission, concepts, topology, organization }) {
   if (required.has('PROVENANCE') || required.has('CAPSULES_SNAPSHOTS')) {
     bridges.push({ id: 'rust-node-contract', services: ['rustBridgeEvidenceService', 'rustNodeContractValidator'], trigger: 'snapshot-receipt-validation', promotionEligible: false });
   }
-  if (topology === 'a_team' || organization) {
+  if (hasVariantRuntime(topology, organization)) {
     bridges.push({ id: 'a-team-variant-runtime', service: 'variantExecutionRuntime', trigger: 'selected-variant', promotionEligible: false });
   }
   return bridges;
+}
+
+function conceptPlanFields(concepts) {
+  return {
+    domains: concepts.domains || [],
+    requestedConcepts: (concepts.selectedConcepts || []).map((concept) => concept.id)
+      .concat(concepts.selectedConcepts ? [] : (concepts.domains || [])),
+    resolvedConcepts: concepts.resolvedConcepts || [],
+    blockedConcepts: concepts.blockedConcepts || [],
+    canonicalConcepts: concepts.canonicalConcepts || [],
+    runtimeConcepts: concepts.runtimeConcepts || []
+  };
+}
+
+function runtimePlanFields(concepts) {
+  return {
+    compatibleRuntimeConcepts: concepts.compatibleRuntimeConcepts || [],
+    runtimeLeaseCandidates: concepts.runtimeLeaseCandidates || [],
+    strategy: concepts.strategy || null,
+    blockedCapabilities: concepts.unavailable || [],
+    philosophicalContracts: philosophicalContractRequirements(concepts)
+  };
+}
+
+function configurationPlanFields(config) {
+  return { authority: config.authority || {}, budgets: config.missionBudgets || config.budgets || {},
+    recovery: buildRecoveryContract(config) };
+}
+
+function capabilityRequirements(mission, concepts) {
+  return unique([...(mission.capabilities || []), ...operationalConcepts(concepts)]);
 }
 
 function buildMissionCapabilityPlan(input) {
   const mission = input.mission || {};
   const config = input.config || {};
   const concepts = mission.concepts || { operational: [], unavailable: [] };
-  const required = unique([...(mission.capabilities || []), ...operationalConcepts(concepts)]);
+  const required = capabilityRequirements(mission, concepts);
   const topology = input.selection?.topology || mission.morphology?.selectedTopology || null;
   const organization = mission.morphology?.selectedOrganization || null;
   const topologyContract = topologyCapabilityService.contractFor({ mode: topology, organization });
@@ -87,30 +123,18 @@ function buildMissionCapabilityPlan(input) {
     version: 1,
     projectId: input.project.id,
     taskId: input.task.id,
-    domains: concepts.domains || [],
-    requestedConcepts: (concepts.selectedConcepts || []).map((concept) => concept.id)
-      .concat(concepts.selectedConcepts ? [] : (concepts.domains || [])),
-    resolvedConcepts: concepts.resolvedConcepts || [],
-    blockedConcepts: concepts.blockedConcepts || [],
-    canonicalConcepts: concepts.canonicalConcepts || [],
-    runtimeConcepts: concepts.runtimeConcepts || [],
-    compatibleRuntimeConcepts: concepts.compatibleRuntimeConcepts || [],
-    runtimeLeaseCandidates: concepts.runtimeLeaseCandidates || [],
-    strategy: concepts.strategy || null,
+    ...conceptPlanFields(concepts),
+    ...runtimePlanFields(concepts),
     capabilityRequirements: required,
     capabilityCatalog: mission.capabilityCatalog || [],
-    blockedCapabilities: concepts.unavailable || [],
-    philosophicalContracts: philosophicalContractRequirements(concepts),
     runtimeBridges,
     morphology: mission.morphology || null,
     topology,
     organization,
     topologyContract,
     variant: input.selection && input.selection.variant,
-    authority: config.authority || {},
-    budgets: config.missionBudgets || config.budgets || {},
+    ...configurationPlanFields(config),
     evidence: buildEvidenceContract(input.task, mission),
-    recovery: buildRecoveryContract(config),
     failClosed: true
   };
 }

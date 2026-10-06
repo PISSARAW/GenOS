@@ -19,7 +19,7 @@ if (!registry.valid) {
   throw new Error(`Invalid philosophical concept registry: ${registry.errors.join('; ')}`);
 }
 const definitions = registry.concepts;
-const OPERATIONS = Object.freeze([
+const OPERATIONS = Object.freeze([...implementationContracts.EXECUTION_OPERATIONS,
   'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'applyRuntimeEffect',
   'listImplementationContracts', 'getImplementationContract', 'implementationContractHealth', 'implementationReadiness', 'assessContractPromotion',
   'listRelations', 'getNeighborhood', 'exportGraph', 'compareEthicalFrameworks',
@@ -41,7 +41,6 @@ function listConcepts(args = {}) {
     .filter((concept) => !filters.maturity || concept.serviceMaturity.level === filters.maturity)
     .map(copy);
 }
-
 function matchesNewFilters(concept, filters) {
   if (filters.role && concept.role !== filters.role) return false;
   if (filters.runtimeAuthority !== undefined && concept.runtimeAuthority !== filters.runtimeAuthority) return false;
@@ -361,7 +360,7 @@ async function handleSavedAnalysis(operation, args) {
 }
 const OPERATION_HANDLERS = Object.freeze({
   listConcepts: (args) => ({ concepts: listConcepts(args) }),
-  listImplementationContracts: (args) => ({ contracts: implementationContracts.listImplementationContracts(definitions, args) }),
+  listImplementationContracts: (args) => implementationContracts.implementationContractPage(definitions, args),
   getImplementationContract: (args) => ({ contract: implementationContracts.getImplementationContract(requireConcept(args.conceptId || args.id)) }),
   implementationContractHealth: () => implementationContracts.implementationContractHealth(definitions),
   implementationReadiness: () => implementationContracts.readinessReport(definitions),
@@ -386,6 +385,7 @@ async function handlePhilosophyRequest({ request } = {}) {
   const operation = String(request.operation || '').trim();
   if (!OPERATIONS.includes(operation)) throw new Error(`Unknown philosophy operation '${operation}'.`);
   const args = request.arguments && typeof request.arguments === 'object' ? request.arguments : {};
+  if (implementationContracts.EXECUTION_OPERATIONS.includes(operation)) return implementationContracts.handleExecution(operation, args, definitions);
   return OPERATION_HANDLERS[operation](args);
 }
 module.exports = {

@@ -8,6 +8,7 @@ const { treeHash, verifyChecks } = require('./proofService');
 const { reviewAction } = require('./reviewPolicy');
 const { failExecution } = require('./executionLifecycle');
 const { notify } = require('./notificationService');
+const { verifyPhilosophicalObservations } = require('./philosophicalObservationService');
 
 async function verifyExecution(db, ctx) {
   const run = await activeExecution(db, ctx.project.id);
@@ -19,7 +20,9 @@ async function verifyExecution(db, ctx) {
   const files = await workspaces.changedFiles(candidate, run.base_sha);
   workspaces.checkFiles(files, ctx.config.authority);
   const proof = await verifyChecks(candidate, ctx.config.checks, { timeoutMs: verificationTime(run) });
-  const verified = { ...result, ...proof, files };
+  const philosophyAudit = verifyPhilosophicalObservations(candidate, ctx.mission?.plan?.philosophicalContracts?.contracts || [],
+    { missionId: run.id, treeHash: proof.treeHash });
+  const verified = { ...result, ...proof, files, philosophyAudit };
   await updateExecution(db, { id: run.id, phase: 'verified', result: verified });
   await db.run("UPDATE ontogenesis_runs SET status = 'verified' WHERE id = ?", [run.id]);
   await db.run("UPDATE ontogenesis_projects SET state = 'INTEGRATING' WHERE id = ?", [ctx.project.id]);
@@ -39,6 +42,9 @@ async function candidateFor(ctx, run) {
   if (!checked.ok) throw new Error(checked.errors.join(','));
   const path = workspaces.assertCandidate(ctx.project, result.candidateWorktree);
   if (await treeHash(path) !== candidate.treeHash) throw new Error('preuve-contenu-obsolete');
+  const audit = verifyPhilosophicalObservations(path, ctx.mission?.plan?.philosophicalContracts?.contracts || [],
+    { missionId: run.id, treeHash: candidate.treeHash });
+  if (audit?.receiptHash !== candidate.philosophyAudit?.receiptHash) throw new Error('audit-philosophique-obsolete');
   return { ...candidate, worktree: path };
 }
 
@@ -53,7 +59,7 @@ async function integrateCandidate(db, ctx, run) {
   await integration.openIntegration(db, { id: run.id, projectId: ctx.project.id, taskId: run.task_id, baseSha: run.base_sha });
   const recovered = await integration.reconcileIntegration(db, git, { integrationId: run.id, operationId: run.id, worktree: run.worktree });
   if (recovered.status === 'committed') {
-    await verifyRecovered(run, recovered.sha);
+    await verifyRecovered(ctx, run, recovered.sha);
     return completeIntegration(db, ctx, { run, sha: recovered.sha });
   }
   const candidate = await candidateFor(ctx, run);
@@ -65,11 +71,14 @@ async function integrateCandidate(db, ctx, run) {
   await workspaces.copyCandidate({ candidate: candidate.worktree, integration: run.worktree, files: candidate.files, authority: ctx.config.authority });
   const proof = await verifyChecks(run.worktree, ctx.config.checks, { timeoutMs: verificationTime(run) });
   if (proof.treeHash !== candidate.treeHash) throw new Error('contenu-integre-different');
+  verifyIntegratedAudit(ctx, run, candidate);
   await ctx.fence();
+  verifyIntegratedAudit(ctx, run, candidate);
   await integration.stageFiles(git, run.worktree, candidate.files);
   const message = integration.buildCommitMessage({ tag: 'FEAT', title: `Ontogenese ${run.task_id}`, operationId: run.id, taskId: run.task_id });
   await integration.commitStaged(git, run.worktree, { message, files: candidate.files });
   if (await treeHash(run.worktree) !== candidate.treeHash) throw new Error('contenu-modifie-pendant-commit');
+  verifyIntegratedAudit(ctx, run, candidate);
   const sha = await integration.currentSha(git, run.worktree);
   await integration.setIntegrationResult(db, { id: run.id, status: 'committed', resultSha: sha, checks: proof.proofs });
   return completeIntegration(db, ctx, { run, sha });
@@ -81,13 +90,21 @@ function verificationTime(run) {
   return remaining;
 }
 
-async function verifyRecovered(run, sha) {
+function verifyIntegratedAudit(ctx, run, candidate) {
+  const audit = verifyPhilosophicalObservations(run.worktree, ctx.mission?.plan?.philosophicalContracts?.contracts || [],
+    { missionId: run.id, treeHash: candidate.treeHash, artifactRoot: candidate.worktree });
+  if (audit?.receiptHash !== candidate.philosophyAudit?.receiptHash) throw new Error('audit-philosophique-integre-different');
+}
+
+async function verifyRecovered(ctx, run, sha) {
   const git = integration.createShellGit();
   if (await integration.currentSha(git, run.worktree) !== sha) throw new Error('commit-recupere-head-deplace');
   const parent = await git.run(['rev-parse', `${sha}^`], run.worktree);
   if (parent.stdout.trim() !== run.base_sha) throw new Error('commit-recupere-base-differente');
   const result = JSON.parse(run.result_json);
   if (await treeHash(run.worktree) !== result.treeHash) throw new Error('commit-recupere-contenu-different');
+  const candidate = workspaces.assertCandidate(ctx.project, result.candidateWorktree);
+  verifyIntegratedAudit(ctx, run, { ...result, worktree: candidate });
 }
 
 async function completeIntegration(db, ctx, input) {

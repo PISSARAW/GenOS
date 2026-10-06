@@ -1,7 +1,11 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { validateSpec } = require('../services/specValidator');
+const { normalizeConcept } = require('./conceptRegistry');
+const { operationalize, PRIMITIVES } = require('./contractOperationalization');
+const { profileFor } = require('./operationalProfiles');
+const { validateContract, createContractValidator } = require('./contractValidation');
+const { promotionEvidence } = require('./contractPromotion');
 
 /**
  * Operational contracts are the executable boundary between a philosophical
@@ -9,19 +13,10 @@ const { validateSpec } = require('../services/specValidator');
  * proof that the philosophical position is true.
  */
 
-const TARGETS = Object.freeze([
-  'agent', 'relations', 'topology', 'world', 'reflection', 'response',
-]);
 const MATURITY = Object.freeze([
   'registered', 'defined', 'mechanism-linked', 'observable', 'tested',
   'integrated', 'validated',
 ]);
-const EVIDENCE_FOR_MATURITY = Object.freeze({
-  observable: ['observation-receipt'],
-  tested: ['scenario-receipt'],
-  integrated: ['scenario-receipt', 'runtime-receipt'],
-  validated: ['scenario-receipt', 'runtime-receipt', 'independent-receipt'],
-});
 
 function contract(id, ...values) {
   const [type, interpretation, invariant, mechanism, targets, observables, tests, limits, conflicts = []] = values;
@@ -43,7 +38,7 @@ function contract(id, ...values) {
     prohibitions: ['convertir une analogie en autorisation runtime'],
     violationCriteria: ['une décision modifie le comportement sans observation traçable'],
     responsibility: 'Le producteur de la décision conserve la justification et le résultat observé.',
-    maturity: 'tested',
+    maturity: 'mechanism-linked',
     status: 'candidate',
   };
 }
@@ -95,10 +90,11 @@ const SCENARIO_BY_CATEGORY = Object.freeze({
 const TOPOLOGY_VARIANTS = Object.freeze(['isolated_critics', 'centralized', 'federated', 'peer_to_peer']);
 
 function contractType(concept) {
+  if (['ethics', 'normative-ethics', 'politics', 'law'].includes(concept.domain)) return 'norm';
+  if (concept.domain === 'methods') return 'method';
   if (concept.role === 'lens') return 'lens';
   if (concept.role === 'speculative') return 'theory';
   if (concept.role === 'operational') return 'method';
-  if (['ethics', 'politics', 'law'].includes(concept.domain)) return 'norm';
   return 'notion';
 }
 
@@ -158,7 +154,7 @@ function provisionalContract(concept) {
     mechanismEvidence: 'mapping-only',
     observables: ['contract_completeness', 'behavioral_delta', 'evidence_coverage'],
     falsificationTests: ['Définir puis exécuter un test qui distingue ' + concept.id + ' d une absence de ce concept.'],
-    limits: concept.knownLimits?.length ? concept.knownLimits : ['Interprétation provisoire ; aucun mécanisme exécutable n est encore assigné.'],
+    limits: concept.knownLimits?.length ? concept.knownLimits : ['Interprétation de conception ; un audit borné ne démontre pas l invariant complet.'],
     permissions: [],
     obligations: ['conserver la provenance des observations et des décisions'],
     prohibitions: ['présenter ce contrat provisoire comme une capacité implémentée'],
@@ -171,17 +167,18 @@ function provisionalContract(concept) {
 }
 
 function compileConcept(concept) {
+  concept = normalizeConcept(concept);
   const definition = CONTRACTS.get(concept.id);
-  if (!definition) return provisionalContract(concept);
+  if (!definition) return operationalize(provisionalContract(concept), concept);
   const category = categoryForConcept(concept);
   const scenario = scenarioFor(category, concept.id);
-  return {
+  return operationalize({
     ...definition,
     category,
     family: concept.family || concept.domain,
     traditions: [concept.school].filter(Boolean),
     distinctions: concept.aliases || [],
-    conflicts: conflictRefs(concept),
+    conflicts: [...new Set([...definition.conflicts, ...conflictRefs(concept)])],
     confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
     sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
     scenario,
@@ -189,10 +186,12 @@ function compileConcept(concept) {
     source: concept.provenance || null,
     conceptStatus: concept.status,
     serviceMaturity: concept.serviceMaturity || null,
-  };
+  }, concept);
 }
 
 function categoryForConcept(concept) {
+  const profile = profileFor(concept.id);
+  if (profile) return PRIMITIVES[profile.primitive].category;
   if (['ethics', 'politics', 'law'].includes(concept.domain) || concept.role === 'norm') return 'constraint';
   if (['process', 'causality', 'computation'].includes(concept.domain)) return 'transformation';
   if (['social-cognition', 'identity'].includes(concept.domain)) return 'organization';
@@ -200,47 +199,22 @@ function categoryForConcept(concept) {
   return 'state';
 }
 
-function validateContract(contractValue) {
-  const errors = [];
-  if (!contractValue || typeof contractValue !== 'object') return ['contract must be an object'];
-  const schemaResult = validateSpec('implementation-contract.schema.json', contractValue);
-  if (!schemaResult.valid) errors.push(...schemaResult.errors);
-  if (contractValue.apiVersion !== 'genos.contract/v1') errors.push('apiVersion must be genos.contract/v1');
-  if (contractValue.kind !== 'ImplementationContract') errors.push('kind must be ImplementationContract');
-  for (const field of ['id', 'type', 'interpretation', 'invariant', 'mechanism', 'responsibility', 'status']) {
-    if (typeof contractValue[field] !== 'string' || !contractValue[field].trim()) errors.push(`${field} must be a non-empty string`);
-  }
-  if (!['state', 'transformation', 'constraint', 'organization', 'evaluation'].includes(contractValue.category)) {
-    errors.push('category is invalid');
-  }
-  if (!contractValue.scenario || contractValue.scenario.contractId !== contractValue.id) errors.push('scenario must identify its contract');
-  if (!contractValue.scenario?.stimulus || !contractValue.scenario?.observation) errors.push('scenario must define stimulus and observation');
-  if (!contractValue.experiment || contractValue.experiment.status !== 'planned') errors.push('experiment must be planned');
-  if (!contractValue.experiment?.topologies?.includes('isolated_critics')) errors.push('experiment must include the reference topology');
-  if (!TOPOLOGY_VARIANTS.every((topology) => contractValue.experiment?.topologies?.includes(topology))) errors.push('experiment must compare all topology variants');
-  if (!['scenario-input', 'scenario-output', 'comparison-receipt'].every((evidence) => contractValue.experiment?.evidenceRequired?.includes(evidence))) errors.push('experiment must define the comparison evidence set');
-  for (const field of ['targets', 'observables', 'falsificationTests', 'limits', 'obligations', 'prohibitions', 'violationCriteria']) {
-    if (!Array.isArray(contractValue[field]) || contractValue[field].length === 0) errors.push(`${field} must be a non-empty array`);
-  }
-  if (!TARGETS.every((target) => typeof target === 'string')) errors.push('invalid target vocabulary');
-  if (!contractValue.targets?.every((target) => TARGETS.includes(target))) errors.push('targets contains an unknown target');
-  if (!MATURITY.includes(contractValue.maturity)) errors.push('maturity is invalid');
-  return errors;
-}
-
 function compileRegistry(concepts) {
   const contracts = concepts.map(compileConcept).filter(Boolean);
-  const errors = contracts.flatMap((item) => validateContract(item).map((error) => item.id + ': ' + error));
-  const pilotCount = contracts.filter((item) => item.compilationState === undefined).length;
-  const mappedCount = contracts.filter((item) => item.compilationState === 'mapped-pending-behavior').length;
+  const validate = createContractValidator();
+  const errors = contracts.flatMap((item) => validate(item).map((error) => item.id + ': ' + error));
+  const pilotCount = contracts.filter((item) => CONTRACTS.has(item.id)).length;
+  const mappedCount = contracts.filter((item) => item.compilationState === 'executable-audit').length;
+  const pendingCount = contracts.filter((item) => item.compilationState !== 'executable-audit').length;
   const categoryCounts = Object.fromEntries([...new Set(contracts.map((item) => item.category))]
     .map((category) => [category, contracts.filter((item) => item.category === category).length]));
-  return { valid: errors.length === 0, contracts, errors, pilotCount, mappedCount, pendingCount: mappedCount, categoryCounts };
+  return { valid: errors.length === 0, contracts, errors, pilotCount, mappedCount, pendingCount, categoryCounts,
+    coverageScope: 'bounded-software-audit', validatedOnRealMissions: 0 };
 }
 
 function runReadinessProbe(contractValue) {
   const errors = validateContract(contractValue);
-  const mapped = contractValue.compilationState === 'mapped-pending-behavior' || contractValue.compilationState === undefined;
+  const mapped = contractValue.compilationState === 'executable-audit';
   if (!mapped) errors.push('mechanism is not mapped');
   return {
     contractId: contractValue.id,
@@ -270,16 +244,16 @@ function assessPromotion(contractValue, targetMaturity, evidence = []) {
   const currentIndex = MATURITY.indexOf(contractValue.maturity);
   const targetIndex = MATURITY.indexOf(targetMaturity);
   if (targetIndex <= currentIndex) errors.push('requested maturity must be higher than current maturity');
-  const required = EVIDENCE_FOR_MATURITY[targetMaturity] || [];
-  const missingEvidence = required.filter((item) => !evidence.includes(item));
+  const checked = promotionEvidence(contractValue, targetMaturity, evidence);
+  if (targetIndex > MATURITY.indexOf('mechanism-linked') && !checked.verifiedEvidence.length) errors.push('verified executable receipt required');
   return {
     contractId: contractValue.id,
     currentMaturity: contractValue.maturity,
     targetMaturity,
-    eligible: errors.length === 0 && missingEvidence.length === 0,
+    eligible: errors.length === 0 && checked.missingEvidence.length === 0,
     promotionEligible: false,
     errors,
-    missingEvidence,
+    ...checked,
   };
 }
 

@@ -52,7 +52,8 @@ try {
   assert.strictEqual(plan.recovery.rollback, true);
   assert.deepStrictEqual(plan.resolvedConcepts, []);
   assert.deepStrictEqual(plan.blockedConcepts, []);
-  assert.strictEqual(plan.philosophicalContracts.required, true);
+  assert.strictEqual(plan.philosophicalContracts.required, false);
+  assert.ok(plan.philosophicalContracts.contracts.every((contract) => contract.requiredForMission === false));
   assert.ok(plan.philosophicalContracts.contracts.length > 0);
   assert.strictEqual(compiled.tasks.length, 3);
   assert.strictEqual(compiled.tasks[1].dependsOn.length, 0);
@@ -81,6 +82,7 @@ try {
   assert.strictEqual(philosophyPlan.philosophicalContracts.required, true);
   const knowledgeContract = philosophyPlan.philosophicalContracts.contracts.find((contract) => contract.id === 'epistemology.knowledge');
   assert.ok(knowledgeContract);
+  assert.strictEqual(knowledgeContract.requiredForMission, true);
   assert.strictEqual(knowledgeContract.promotionEligible, false);
   const philosophyRequest = requestFor({ id: 'run-philosophy', project, task: { title: 'verifier', acceptance_json: '[]', id: 'task-1' },
     selection: { topology: 'a_team', variant: 'default', workerRoles: [] }, worktree: root,
