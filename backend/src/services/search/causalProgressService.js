@@ -6,6 +6,7 @@
  */
 
 const SEARCH_PROGRESS_WINDOW_MS = 90_000
+const { resolveProvenance, finiteGain } = require('./naturalSearchEvidence')
 const DEFAULT_EVIDENCE_WEIGHT = 0.35
 const DEFAULT_UNCERTAINTY_WEIGHT = 0.15
 const DEFAULT_CONSTRAINT_WEIGHT = 0.1
@@ -194,21 +195,21 @@ class CausalProgressService {
   ingestEvent(event) {
     if (!event || typeof event !== 'object') return this.report()
     const payload = event.payload || {}
-    const provenance = payload.provenance || PROVENANCE.SELF_REPORTED
+    const provenance = resolveProvenance(event)
 
     const provenanceWeight =
       PROVENANCE_WEIGHTS[provenance]
       ?? PROVENANCE_WEIGHTS[PROVENANCE.SELF_REPORTED]
 
-    const evidence = Number(payload.evidenceGain || 0)
-    const uncertainty = Number(payload.uncertaintyReduction || 0)
-    const constraints = Number(payload.constraintsResolved || 0)
-    const artifacts = Number(payload.verifiedArtifactDelta || 0)
-    const objective = Number(payload.objectiveDelta || 0)
-    const hypothesis = Number(payload.hypothesisInformationGain || 0)
-    const tokens = Number(payload.tokensConsumed || 0)
-    const time = Number(payload.timeConsumed || 0)
-    const cost = Number(payload.costConsumed || 0)
+    const evidence = finiteGain(payload.evidenceGain)
+    const uncertainty = finiteGain(payload.uncertaintyReduction)
+    const constraints = finiteGain(payload.constraintsResolved) * provenanceWeight
+    const artifacts = finiteGain(payload.verifiedArtifactDelta) * provenanceWeight
+    const objective = finiteGain(payload.objectiveDelta) * provenanceWeight
+    const hypothesis = finiteGain(payload.hypothesisInformationGain)
+    const tokens = finiteGain(payload.tokensConsumed)
+    const time = finiteGain(payload.timeConsumed)
+    const cost = finiteGain(payload.costConsumed)
 
     this.window.pushStep({
       evidenceGain: evidence * provenanceWeight,
@@ -246,6 +247,7 @@ class CausalProgressService {
 
   report() {
     const win = this.window
+    win.steps = win.steps.filter(step => step.ts >= Date.now() - win.windowMs)
     const wUseful = win.usefulProgress()
     const wRes = win.resourceConsumption()
     const wSteps = win.stepCount()

@@ -26,7 +26,11 @@ la fenêtre.
 
 Natural Search ne traite que les événements métier explicitement autorisés :
 étapes de l'agent hors marqueurs `THINK` et `VERIFY`, messages, résultats d'outils,
-rapports d'évidence et échecs de mission. Les marqueurs `item.started`,
+rapports d'évidence et échecs de mission. Le contrat revu le 2026-10-06 inclut
+aussi `HYPOTHESIS_PROPOSED`, `HYPOTHESIS_TEST_STARTED`, `HYPOTHESIS_PROGRESS`,
+`HYPOTHESIS_FALSIFIED` et `HYPOTHESIS_SUSPENDED`, traités dans la même file par
+agent ; les types sont normalisés en majuscules. Voir [ADR 0323](0323-reprise-atomique-natural-search.md)
+pour leur reprise durable. Les marqueurs `item.started`,
 `turn.started` et `turn.completed` ne comptent pas comme progrès. Ses propres
 événements restent exclus.
 

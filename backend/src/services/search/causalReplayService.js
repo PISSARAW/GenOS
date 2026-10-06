@@ -54,6 +54,11 @@ class CausalReplayService {
   }
 
   async replay(agentId, failedHypothesis, events, ledger) {
+    if (!Array.isArray(events) || events.length === 0) {
+      return { receipt: { action: 'REPLAY_SKIPPED', status: 'skipped', result: {
+        restorePoint: null, checkpointIndex: -1, checkpointCount: 0, stateRestored: false
+      } }, lastGoodCheckpoint: null };
+    }
     const checkpoints = this.createCheckpoints(events);
     const lastGoodCheckpoint = checkpoints.length > 1
       ? checkpoints[checkpoints.length - 2]
@@ -63,7 +68,7 @@ class CausalReplayService {
     emit(agentId, 'CAUSAL_REPLAY_INITIATED', 'REPLAY',
       `Replay from checkpoint ${lastGoodCheckpoint.start}`, {
         failedHypothesis: failedHypothesis.statement,
-        checkpointIndex: checkpoints.length - 2,
+        checkpointIndex: Math.max(0, checkpoints.length - 2),
         checkpointCount: checkpoints.length
       }, 'info');
 
@@ -72,10 +77,10 @@ class CausalReplayService {
         id: `replay_${Date.now()}`,
         process: 'REPLAY_CAUSAL',
         timestamp: Date.now(),
-        action: 'REPLAY_INITIATED',
+        action: 'REPLAY_ANALYZED',
         result: {
           restorePoint: `checkpoint_${lastGoodCheckpoint.start}`,
-          checkpointIndex: checkpoints.length - 2,
+          checkpointIndex: Math.max(0, checkpoints.length - 2),
           checkpointCount: checkpoints.length,
           stateRestored: false
         },

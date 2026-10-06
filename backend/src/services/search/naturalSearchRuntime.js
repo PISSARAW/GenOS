@@ -1,396 +1,200 @@
 const { emit } = require('../agentOrchestrationState');
 const swarmSentinel = require('../swarmSentinelService');
-const { NaturalSearchController, SEARCH_PROCESS, PHASE_ENTER } = require('./naturalSearchController');
+const { NaturalSearchController, SEARCH_PROCESS } = require('./naturalSearchController');
 const { NaturalSearchActuator } = require('./naturalSearchActuatorService');
-const { HypothesisLedger, HYPOTHESIS_STATUS, PROVENANCE } = require('./hypothesisLedgerService');
+const { HypothesisLedger } = require('./hypothesisLedgerService');
 const { CausalProgressService } = require('./causalProgressService');
 const { SearchPersistence } = require('./searchPersistenceService');
 const { SearchIntegration } = require('./searchIntegrationService');
 const { handlePostReceiptMemory } = require('./naturalSearchMemory');
 const { getDatabase } = require('../../db');
-
 const { ActuatorModules } = require('./actuatorModules');
 const { handleHypothesisProtocol } = require('./hypothesisEventProtocol');
-const { restoreModuleStates, persistModuleStates } = require('./moduleStatePersistence');
+const { flushCheckpoint, restoreCheckpoint, receiveCulture } = require('./searchRuntimeCheckpoint');
+const { ingestEvidence, ingestFailureEvidence, buildSearchSignals } = require('./naturalSearchEvidence');
 
 const agentSearchState = new Map();
+const pendingSearchState = new Map();
+const operations = new Map();
 let cachedDb = null;
 const NATURAL_SEARCH_INPUT_EVENTS = new Set([
   'AGENT_STEP', 'AGENT_MESSAGE', 'TOOL_EXECUTED', 'TOOL_RESULT', 'TOOL_CALL_COMPLETED',
-  'EVIDENCE_REPORT', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'
+  'EVIDENCE_REPORT', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED',
+  'HYPOTHESIS_PROPOSED', 'HYPOTHESIS_TEST_STARTED', 'HYPOTHESIS_PROGRESS',
+  'HYPOTHESIS_FALSIFIED', 'HYPOTHESIS_SUSPENDED'
 ]);
 const NON_PROGRESS_STEP_ACTIONS = new Set(['THINK', 'VERIFY']);
 
 async function ensureDb() {
-  if (cachedDb) return cachedDb;
-  try {
-    cachedDb = await getDatabase();
-    return cachedDb;
-  } catch (_) {
-    return null;
-  }
+  if (!cachedDb) cachedDb = await getDatabase();
+  return cachedDb;
 }
 
-async function flushSearchState(agentId) {
-  const searchState = agentSearchState.get(agentId);
-  if (!searchState) return;
-  const { ledger, causalProgress, persistence } = searchState;
-  if (!persistence || !persistence.db) return;
-  try {
-    const hypotheses = ledger.hypothesesForAgent(agentId);
-    await persistHypotheses(persistence, hypotheses);
-    await persistProofs(persistence, ledger, hypotheses);
-    await persistPressure(searchState, causalProgress, persistence);
-    await persistModuleStates(agentId, searchState);
-  } catch (err) {
-    console.warn(`[Natural Search] Flush error for ${agentId}:`, err.message);
-  }
-}
-
-async function persistHypotheses(persistence, hypotheses) {
-  for (const h of hypotheses) {
-    await persistence.saveHypothesis(h);
-  }
-}
-
-async function persistProofs(persistence, ledger, hypotheses) {
-  for (const h of hypotheses) {
-    const proofs = ledger.proofsByIds(h.proofIds);
-    for (const p of proofs) await persistence.saveProof(p);
-  }
-}
-
-async function persistPressure(searchState, causalProgress, persistence) {
-  const report = causalProgress.report();
-  await persistence.savePressureState(searchState.agentId || 'unknown', {
-    pressure: report.window.searchYield || 0,
-    confidence: 0,
-    causes: report.diagnostics.diminishingReturns ? ['diminishing_returns'] : [],
-    recommendedRadius: report.diagnostics.diminishingReturns ? 'local' : 'medium',
-    stepCount: searchState.stepCount,
-    lastProgressStep: searchState.lastProgressStep
-  });
+function enqueue(agentId, action) {
+  const previous = operations.get(agentId) || Promise.resolve();
+  const next = previous.catch(() => {}).then(action);
+  operations.set(agentId, next);
+  return next.finally(() => { if (operations.get(agentId) === next) operations.delete(agentId); });
 }
 
 async function getOrCreateSearchState(agentId, ctxDb = null) {
-  if (!agentSearchState.has(agentId)) {
-    const db = ctxDb || await ensureDb();
-    const persistence = new SearchPersistence(db);
-    const ledger = new HypothesisLedger({ budgetRatioThreshold: 0.8 });
-    const controller = new NaturalSearchController({ ledger });
-    const modules = new ActuatorModules({ ledger });
-    const actuator = new NaturalSearchActuator({
-      db, persistence, ledger,
-      searchGenome: { patches: new Map(), population: null, genome: null },
-      modules
-    });
-    modules.searchGenome = actuator.searchGenome;
-    const causalProgress = new CausalProgressService();
-    const integration = new SearchIntegration();
-    const searchState = {
-      agentId, ledger, controller, actuator, causalProgress, persistence, integration,
-      stepCount: 0, lastProgressStep: 0
-    };
-    agentSearchState.set(agentId, searchState);
-    if (db) {
-      await persistence.initTables();
-      await restoreSearchState(agentId, searchState);
-    }
-  }
-  return agentSearchState.get(agentId);
+  if (pendingSearchState.has(agentId)) return pendingSearchState.get(agentId);
+  if (agentSearchState.has(agentId)) return agentSearchState.get(agentId);
+  const pending = createSearchState(agentId, ctxDb);
+  pendingSearchState.set(agentId, pending);
+  try { return await pending; } finally { pendingSearchState.delete(agentId); }
 }
 
-async function restoreSearchState(agentId, state) {
-  const [rows, proofs, pressure] = await Promise.all([
-    state.persistence.loadHypothesesForAgent(agentId),
-    state.persistence.loadProofsForAgent(agentId),
-    state.persistence.loadPressureState(agentId)
-  ]);
-  state.ledger.load({
-    hypotheses: rows.map((row) => ({
-      ...row, agentId: row.agent_id, parentHypothesisId: row.parent_hypothesis_id,
-      branchId: row.branch_id, falsificationCondition: row.falsification_condition,
-      createdAt: row.created_at, lastTestedAt: row.last_tested_at,
-      lastProgressAt: row.last_progress_at, proofIds: []
-    })),
-    proofs: proofs.map((row) => ({
-      ...row, hypothesisId: row.hypothesis_id, evidenceRef: row.evidence_ref,
-      receiptRef: row.receipt_ref, sourceAgent: row.source_agent,
-      sourceTool: row.source_tool, createdAt: row.created_at,
-      independent: row.independent === 1
-    }))
-  });
-  if (pressure) {
-    state.stepCount = pressure.step_count || 0;
-    state.lastProgressStep = pressure.last_progress_step || 0;
-  }
-  await restoreModuleStates(agentId, state);
+async function createSearchState(agentId, ctxDb) {
+  const db = ctxDb || await ensureDb();
+  if (!db) throw new Error('Natural Search requires durable storage');
+  const persistence = new SearchPersistence(db);
+  const ledger = new HypothesisLedger({ budgetRatioThreshold: 0.8 });
+  const controller = new NaturalSearchController({ ledger });
+  const modules = new ActuatorModules({ ledger });
+  const actuator = new NaturalSearchActuator({ db, persistence, ledger, modules });
+  const integration = new SearchIntegration({ negativeMemory: modules.negativeMemory, culture: modules.cultureService });
+  const state = { agentId, ledger, controller, actuator, persistence, integration,
+    causalProgress: new CausalProgressService(), stepCount: 0, lastProgressStep: 0, causalEvents: [] };
+  await persistence.initTables();
+  await restoreCheckpoint(state);
+  await receiveCulture(state);
+  // Establish an authoritative checkpoint before the first event can partially write projections.
+  await flushCheckpoint(state);
+  agentSearchState.set(agentId, state);
+  return state;
 }
 
-async function clearSearchState(agentId) {
-  await flushSearchState(agentId);
-  agentSearchState.delete(agentId);
+async function flushCurrentState(agentId) {
+  if (pendingSearchState.has(agentId)) await pendingSearchState.get(agentId);
+  const state = agentSearchState.get(agentId);
+  if (state) await flushCheckpoint(state);
 }
 
-/**
- * Routage de provenance selon la source du signal — autorité runtime.
- * L'agent ne choisit jamais son niveau : payload.provenance et
- * payload.evidenceProvenance sont ignorés (SELF_REPORTED forcé par défaut).
- *   LLM output        → SELF_REPORTED
- *   Runtime/event     → INFERRED
- *   Tool execution    → OBSERVED
- *   Verifier/evidence → VERIFIED
- */
-function resolveProvenance(payload, eventType) {
-  if (['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType)) return PROVENANCE.VERIFIED;
-  if (eventType === 'TOOL_EXECUTED' || eventType === 'TOOL_RESULT') return PROVENANCE.OBSERVED;
-  if (eventType === 'AGENT_STEP' || eventType === 'AGENT_MESSAGE') return PROVENANCE.SELF_REPORTED;
-  return PROVENANCE.INFERRED;
+function flushSearchState(agentId) {
+  return enqueue(agentId, () => flushCurrentState(agentId));
 }
 
-function ingestEvidence(searchState, payload, eventType) {
-  const { ledger } = searchState;
-  if (payload.evidenceGain || payload.evidenceRef) {
-    const targetHypId = payload.hypothesisId || null;
-    if (!targetHypId) return;
-    const target = ledger.hypotheses.get(targetHypId);
-    if (!target) return;
-    if (target.status === HYPOTHESIS_STATUS.FALSIFIED) {
-      ledger.notify({ type: 'HYPOTHESIS_REJECTED_EVIDENCE_ON_FALSIFIED', hypothesisId: targetHypId });
-      return;
-    }
-    const provenance = resolveProvenance(payload, eventType);
-    ledger.addEvidence(targetHypId, {
-      direction: 'for', strength: payload.evidenceStrength || 0.5,
-      provenance, reliability: 0.7,
-      independent: true, evidenceRef: payload.evidenceRef || null
-    });
-    searchState.lastProgressStep = searchState.stepCount;
-  }
-}
-
-function maybeProposeHypothesis(searchState, payload, agentId) {
-  return handleHypothesisProtocol({ ledger: searchState.ledger, eventType: null, payload, agentId });
-}
-
-function handleLifecycleEvent(args) {
-  const { searchState, eventType, payload, agentId } = args;
-  return handleHypothesisProtocol({ ledger: searchState.ledger, eventType, payload, agentId });
-}
-
-/**
- * Point 11 — Création proactive d'hypothèses par le runtime.
- * Si aucune hypothèse active n'existe après plusieurs étapes sans progrès,
- * génère une hypothèse à partir du meilleur variant du génome de recherche.
- */
-function proactiveHypothesis(searchState, agentId) {
-  const { ledger, actuator } = searchState;
-  const activeHyps = ledger.activeHypotheses();
-  if (activeHyps.length > 0) return null;
-  const genome = actuator.searchGenome?.genome;
-  if (!genome) return null;
-
-  const statement = `Hypothèse proactive: explorer famille=${genome.hypothesisFamily}, stratégie=${genome.strategy}`;
-  const h = ledger.propose({
-    agentId,
-    statement,
-    prediction: null,
-    falsificationCondition: null,
-    confidence: 0.4
-  });
-  ledger.startTest(h.id);
-  return h;
-}
-
-function ingestFailureEvidence(searchState, event) {
-  const { ledger, integration } = searchState;
-  const agentId = searchState.agentId;
-  const targetHypId = event.payload?.hypothesisId || null;
-  if (!targetHypId) {
-    ledger.notify({ type: 'HYPOTHESIS_REJECTED_EVIDENCE_ON_FALSIFIED', hypothesisId: null });
-    return;
-  }
-  const target = ledger.hypotheses.get(targetHypId);
-  if (!target) return;
-  if (target.status === HYPOTHESIS_STATUS.FALSIFIED) {
-    ledger.notify({ type: 'HYPOTHESIS_REJECTED_EVIDENCE_ON_FALSIFIED', hypothesisId: targetHypId });
-    return;
-  }
-  const provenance = resolveProvenance(event.payload || {}, event.eventType);
-  ledger.addEvidence(targetHypId, {
-    direction: 'against', strength: 0.5, provenance,
-    reliability: 0.8, independent: true, evidenceRef: `error:${event.eventType}`
-  });
-
-  if (integration) {
-    try {
-      integration.recordNegative(agentId, target, { ref: event.eventType, strength: 0.5, reliability: 0.8 }, { signature: event.eventType, conditions: [], scope: 'agent' });
-    } catch (_) {}
-  }
-}
-
-function buildSearchContext(ctx, searchState) {
-  const { agentId } = ctx;
-  const { ledger, causalProgress } = searchState;
-  const causalReport = causalProgress.report();
-  const searchYield = causalReport.window.searchYield || 0;
-  const stepsSinceProgress = searchState.stepCount - searchState.lastProgressStep;
-  const falsifiedHyps = ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified').length;
-  const entropyMetrics = swarmSentinel.getAgentEntropy(agentId);
-
-  const lineagePressure = ledger.hypothesesForAgent(agentId).reduce((acc, h) => {
-    if (h.status === 'falsified') acc.falsifiedCount++;
-    if (h.status === 'supported') acc.supportedCount++;
-    return acc;
-  }, { falsifiedCount: 0, supportedCount: 0 });
-
-  return {
-    agentId, searchYield, stepsSinceProgress, falsifiedHypotheses: falsifiedHyps,
-    contradictions: 0, activeHypothesesCount: ledger.activeHypotheses().length,
-    budgetRatio: ctx.budgetRatio || 0.3, causalProgressReport: causalReport, entropyMetrics,
-    lineagePressure
-  };
-}
-
-function applyBudget(searchState, normalizedMission) {
-  if (normalizedMission?.executionBudget) {
-    searchState.causalProgress.setBudgets({
-      tokenBudget: normalizedMission.executionBudget.tokens || 100000,
-      costBudget: normalizedMission.executionBudget.costUsd || 1.0,
-      timeBudget: normalizedMission.executionBudget.timeSec || 600
-    });
-  }
-}
-
-function emitDecision(agentId, selection, searchCtx) {
-  emit(agentId, 'NATURAL_SEARCH_DECISION', 'SEARCH_CONTROL', selection.diagnostics.reason || '', {
-    process: selection.process, pressure: selection.pressure, classification: selection.classification,
-    searchYield: searchCtx.searchYield.toFixed(4), stepsSinceProgress: searchCtx.stepsSinceProgress,
-    falsifiedHypotheses: searchCtx.falsifiedHypotheses
-  }, 'info');
-}
-
-function emitAction(agentId, process, receipt) {
-  emit(agentId, 'NATURAL_SEARCH_ACTION', 'SEARCH_ACTUATOR', receipt.action, {
-    process, receiptId: receipt.id, success: receipt.status, result: receipt.status
-  }, receipt.status === 'success' ? 'info' : 'warning');
-}
-
-function executeProcess({ selection, searchCtx, actuator }) {
-  if (selection.process === SEARCH_PROCESS.CONTINUE) return Promise.resolve(null);
-
-  const agentId = searchCtx.agentId;
-  if (!agentId) {
-    console.warn('[Natural Search] executeProcess called without agentId');
-    return Promise.resolve(null);
-  }
-  return actuator.execute(selection.process, {
-    agentId,
-    lockInHypothesis: selection.lockInHypothesis || null,
-    lastKnownGood: `checkpoint_${agentId}`,
-    topology: searchCtx.topology || 'isolated',
-    tools: searchCtx.tools || ['grep', 'test']
+function clearSearchState(agentId) {
+  return enqueue(agentId, async () => {
+    await flushCurrentState(agentId);
+    agentSearchState.delete(agentId);
   });
 }
 
-async function persistSearchState(agentId, searchState, selection) {
-  const { ledger, causalProgress, persistence } = searchState;
-  if (!persistence || !persistence.db) return;
-  try {
-    const hypotheses = ledger.hypothesesForAgent(agentId);
-    for (const h of hypotheses) {
-      await persistence.saveHypothesis(h);
-      for (const proof of ledger.proofsByIds(h.proofIds)) await persistence.saveProof(proof);
-    }
-    await persistence.saveDecision(agentId, {
-      process: selection.process, classification: selection.classification,
-      pressure: selection.pressure, searchYield: selection.searchYield,
-      stepsSinceProgress: selection.stepsSinceProgress,
-      falsifiedHypotheses: selection.falsifiedHypotheses || 0,
-      diagnostics: selection.diagnostics
-    });
-    const report = causalProgress.report();
-    await persistence.savePressureState(agentId, {
-      pressure: report.window.searchYield || 0, confidence: 0,
-      causes: report.diagnostics.diminishingReturns ? ['diminishing_returns'] : [],
-      recommendedRadius: report.diagnostics.diminishingReturns ? 'local' : 'medium',
-      stepCount: searchState.stepCount, lastProgressStep: searchState.lastProgressStep
-    });
-    await persistModuleStates(agentId, searchState);
-  } catch (err) {
-    console.warn(`[Natural Search] Persistence error: ${err.message}`);
+function buildSearchContext(ctx, state) {
+  const report = state.causalProgress.report();
+  const hypotheses = state.ledger.hypothesesForAgent(ctx.agentId);
+  const lineagePressure = { falsifiedCount: 0, supportedCount: 0 };
+  for (const h of hypotheses) {
+    if (h.status === 'falsified') lineagePressure.falsifiedCount++;
+    if (h.status === 'supported') lineagePressure.supportedCount++;
   }
+  return { agentId: ctx.agentId, searchYield: report.window.searchYield,
+    stepsSinceProgress: state.stepCount - state.lastProgressStep,
+    falsifiedHypotheses: lineagePressure.falsifiedCount,
+    contradictions: [...state.ledger.proofs.values()].filter(p => p.direction === 'against').length,
+    activeHypothesesCount: state.ledger.activeHypotheses().length,
+    budgetRatio: ctx.budgetRatio ?? 0.3, causalProgressReport: report,
+    entropyMetrics: swarmSentinel.getAgentEntropy(ctx.agentId), lineagePressure,
+    events: state.causalEvents, infoGain: state.causalProgress.window.steps.at(-1)?.evidenceGain || 0,
+    validatedSearchOutcomes: ctx.validatedSearchOutcomes || null,
+    ...buildSearchSignals(state.ledger, ctx.agentId) };
+}
+
+function applyBudget(state, mission) {
+  if (!mission?.executionBudget) return;
+  const budget = mission.executionBudget;
+  state.causalProgress.setBudgets({ tokenBudget: budget.tokens || 100000,
+    costBudget: budget.costUsd || 1, timeBudget: budget.timeSec || 600 });
+}
+
+function ingestEvent(state, ctx, event) {
+  const payload = event.payload || {};
+  applyBudget(state, ctx.normalizedMission);
+  state.causalProgress.ingestEvent(event);
+  handleHypothesisProtocol({ ledger: state.ledger, eventType: event.eventType, payload, agentId: ctx.agentId });
+  ingestEvidence(state, event);
+  if (['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType)) {
+    ingestFailureEvidence(state, event);
+  }
+  state.causalEvents.push({ action: event.action || event.eventType, hypothesisId: payload.hypothesisId || null,
+    statement: payload.hypothesisStatement || state.ledger.hypotheses.get(payload.hypothesisId)?.statement || null,
+    isCheckpoint: payload.isCheckpoint === true || event.action === 'checkpoint' });
+  state.causalEvents = state.causalEvents.slice(-100);
+  state.stepCount++;
+  proposeAfterStagnation(state);
+}
+
+function proposeAfterStagnation(state) {
+  if (state.stepCount - state.lastProgressStep <= 5 || state.ledger.activeHypotheses().length) return;
+  const genome = state.actuator.searchGenome.genome;
+  if (state.integration.isPathBlocked(state.agentId, `${genome.hypothesisFamily} variant`)) return;
+  const h = state.ledger.propose({ agentId: state.agentId, confidence: 0.4,
+    statement: `Hypothèse proactive: famille=${genome.hypothesisFamily}, stratégie=${genome.strategy}` });
+  state.ledger.startTest(h.id);
+}
+
+async function executeSearchStep(state, ctx) {
+  const searchCtx = buildSearchContext(ctx, state);
+  if (searchCtx.validatedSearchOutcomes && !(await state.persistence.canTransmitCulture(
+    ctx.agentId, searchCtx.validatedSearchOutcomes.targetAgentId))) searchCtx.validatedSearchOutcomes = null;
+  const selection = state.controller.selectProcess(searchCtx);
+  state.controller.recordSelection(selection);
+  const failed = state.ledger.hypothesesForAgent(ctx.agentId).find(h => h.status === 'falsified');
+  const lockIn = state.ledger.detectLockIn()[0];
+  const hypothesis = failed || state.ledger.hypotheses.get(lockIn?.hypothesisId) || null;
+  const genome = state.actuator.searchGenome.genome;
+  const receipt = selection.process === SEARCH_PROCESS.CONTINUE ? null : await state.actuator.execute(selection.process, {
+    agentId: ctx.agentId, radius: selection.recommendedRadius, infoGain: searchCtx.infoGain,
+    events: searchCtx.events, lockInHypothesis: hypothesis, topology: genome.topology, tools: genome.operators,
+    successfulFamilies: searchCtx.successfulFamilies, failedFamilies: searchCtx.failedFamilies,
+    recommendedStrategies: searchCtx.recommendedStrategies
+  });
+  handlePostReceiptMemory({ searchState: state, selection, receipt, searchCtx, agentId: ctx.agentId,
+    eventType: ctx.eventType, hypothesisId: ctx.eventHypothesisId });
+  if (receipt?.status === 'failure') throw new Error(`Natural Search ${selection.process}: ${receipt.result.error}`);
+  await state.persistence.saveDecision(ctx.agentId, { ...selection, searchYield: searchCtx.searchYield,
+    stepsSinceProgress: searchCtx.stepsSinceProgress, falsifiedHypotheses: searchCtx.falsifiedHypotheses });
+  await flushCheckpoint(state);
+  emit(ctx.agentId, 'NATURAL_SEARCH_DECISION', 'SEARCH_CONTROL', selection.diagnostics.reason || '', selection, 'info');
+  if (receipt) emit(ctx.agentId, 'NATURAL_SEARCH_ACTION', 'SEARCH_ACTUATOR', receipt.action,
+    { process: selection.process, receiptId: receipt.id, status: receipt.status, result: receipt.result },
+    receipt.status === 'success' ? 'info' : 'warning');
+}
+
+async function processSearchEvent(ctx, event) {
+  const state = await getOrCreateSearchState(ctx.agentId, ctx.db);
+  await receiveCulture(state);
+  ingestEvent(state, ctx, event);
+  await executeSearchStep(state, { ...ctx, eventType: event.eventType, eventHypothesisId: event.payload?.hypothesisId });
 }
 
 async function checkNaturalSearchControl(ctx, event, finalEvent = null) {
   void finalEvent;
   if (!shouldProcessNaturalSearchEvent(event)) return false;
-  const { agentId, normalizedMission } = ctx;
+  const normalized = { ...event, eventType: String(event.eventType).trim().toUpperCase() };
   try {
-    const searchState = await getOrCreateSearchState(agentId, ctx.db);
-    await processSearchEvent(searchState, ctx, event);
+    await enqueue(ctx.agentId, () => processSearchEvent(ctx, normalized));
     return false;
   } catch (err) {
-    console.error(`[Natural Search Control] Error for ${agentId}:`, err.message);
-    emit(agentId, 'NATURAL_SEARCH_ERROR', 'SEARCH_ERROR', err.message, { error: err.message }, 'warning');
-    return false;
+    console.error(`[Natural Search Control] Error for ${ctx.agentId}:`, err.message);
+    emit(ctx.agentId, 'NATURAL_SEARCH_ERROR', 'SEARCH_ERROR', err.message, { error: err.message }, 'warning');
+    return true;
   }
 }
 
 function shouldProcessNaturalSearchEvent(event) {
-  const eventType = String(event?.eventType || '').trim().toUpperCase();
-  if (!NATURAL_SEARCH_INPUT_EVENTS.has(eventType)) return false;
+  const type = String(event?.eventType || '').trim().toUpperCase();
+  if (!NATURAL_SEARCH_INPUT_EVENTS.has(type)) return false;
   const payloadType = String(event.payload?.type || '').trim().toLowerCase();
   if (['item.started', 'turn.started', 'turn.completed'].includes(payloadType)) return false;
-  if (eventType !== 'AGENT_STEP') return true;
-  const action = String(event?.action || '').trim().toUpperCase();
-  return !NON_PROGRESS_STEP_ACTIONS.has(action);
+  return type !== 'AGENT_STEP' || !NON_PROGRESS_STEP_ACTIONS.has(String(event.action || '').trim().toUpperCase());
 }
-
-function handleEventIngestion({ searchState, ctx, event, eventType, agentId, normalizedMission }) {
-  applyBudget(searchState, normalizedMission);
-  searchState.causalProgress.ingestEvent(event);
-  ingestEvidence(searchState, event.payload || {}, eventType);
-  handleLifecycleEvent({ searchState, eventType, payload: event.payload || {}, agentId });
-  if (searchState.stepCount > 5 && (searchState.stepCount - searchState.lastProgressStep) > 5) {
-    proactiveHypothesis(searchState, agentId);
-  }
-  if (['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType)) {
-    ingestFailureEvidence(searchState, event);
-  }
-  searchState.stepCount++;
-}
-
-function resolveLockInHypothesis(selection, ledger) {
-  return selection.classification === 'HYPOTHESIS_LOCK_IN' ? (ledger.detectLockIn()[0]?.hypothesisId || null) : null;
-}
-
-async function executeSearchStep(searchState, ctx) {
-  const { ledger, controller, actuator } = searchState;
-  const searchCtx = buildSearchContext(ctx, searchState);
-  const selection = controller.selectProcess(searchCtx);
-  selection.lockInHypothesis = resolveLockInHypothesis(selection, ledger);
-  emitDecision(ctx.agentId, selection, searchCtx);
-  const receipt = await executeProcess({ selection, searchCtx, actuator });
-  if (receipt) emitAction(ctx.agentId, selection.process, receipt);
-  return { selection, searchCtx, receipt };
-}
-
-async function processSearchEvent(searchState, ctx, event) {
-  const eventType = event.eventType || 'AGENT_STEP';
-  const { agentId, normalizedMission } = ctx;
-  handleEventIngestion({ searchState, ctx, event, eventType, agentId, normalizedMission });
-  const { selection, searchCtx, receipt } = await executeSearchStep(searchState, ctx);
-  handlePostReceiptMemory({ searchState, selection, receipt, searchCtx, agentId, eventType });
-  await persistSearchState(agentId, searchState, selection);
-}
-
-module.exports = {
-  checkNaturalSearchControl, shouldProcessNaturalSearchEvent, getOrCreateSearchState,
-  clearSearchState, flushSearchState, ensureDb, initializeNaturalSearchRuntime
-};
 
 async function initializeNaturalSearchRuntime(db) {
-  if (db) cachedDb = db;
-  else cachedDb = await ensureDb();
+  cachedDb = db || await ensureDb();
 }
+
+module.exports = { checkNaturalSearchControl, shouldProcessNaturalSearchEvent, getOrCreateSearchState,
+  clearSearchState, flushSearchState, ensureDb, initializeNaturalSearchRuntime };

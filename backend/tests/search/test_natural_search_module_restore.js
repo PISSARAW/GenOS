@@ -1,4 +1,5 @@
 'use strict';
+require('./naturalSearchTestTelemetry');
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
@@ -12,6 +13,7 @@ const { SearchPersistence } = require('../../src/services/search/searchPersisten
 
 async function openTestDb(filename) {
   const db = await open({ filename, driver: sqlite3.Database });
+  await db.exec('PRAGMA foreign_keys=ON');
   await db.exec('CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, name TEXT, status TEXT DEFAULT \'active\')');
   await db.run('INSERT OR IGNORE INTO agents (id, name) VALUES (?, ?)', ['restore-agent', 'restore test']);
   await new SearchPersistence(db).initTables();
@@ -23,7 +25,7 @@ async function seedOperationalStates(state) {
   const genome = { id: 'genome-persisted', hypothesisFamily: 'causal', strategy: 'falsification', operators: ['replay'], exploration: { radius: 0.3 } };
   modules.searchGenome.genome = genome;
   state.actuator.searchGenome.genome = genome;
-  modules.affinityVariants = [{ id: 'variant-persisted', hypothesisFamily: 'causal' }];
+  modules.affinityVariants = [{ ...genome, id: 'variant-persisted' }];
   const patch = modules.ensurePatch('restore-agent');
   modules.recordForageStep(patch.id, 0.8, 1);
   await modules.causalReplay.replay('restore-agent', { id: 'hyp-replay', statement: 'unstable branch' }, [
@@ -34,7 +36,8 @@ async function seedOperationalStates(state) {
   modules.evolutionEngine.population = [genome];
   modules.evolutionEngine.generation = 7;
   modules.evolutionEngine.generationHistory = [{ generation: 7, bestFitness: 2 }];
-  const plasmid = modules.cultureService.compilePlasmid(genome, { environment: { task: 'restore' }, generations: 7, successRate: 1, reproducible: true });
+  const plasmid = modules.cultureService.compilePlasmid(genome, { environment: { task: 'restore' }, generations: 7,
+    successRate: 1, reproducible: true, evidenceRefs: ['restore-run-1', 'restore-run-2'] });
   modules.cultureService.transmit(plasmid.id, 'restore-agent');
 }
 

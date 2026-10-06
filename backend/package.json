@@ -37,7 +37,7 @@
     "test:apex-defense": "node tests/stress/test_apex_adversarial_defense_bench.js",
     "test:real-attacks": "node tests/stress/test_real_world_adversarial_attacks.js",
     "test:temporal": "node tests/stress/test_temporal_reasoning_bench.js",
-    "test:natural-search": "node tests/search/test_natural_search_controller.js && node tests/search/test_natural_search_runtime_e2e.js && node tests/search/test_natural_search_e2e_pipeline.js && node tests/search/test_natural_search_full_pipeline_e2e.js && node tests/search/test_natural_search_module_restore.js",
+    "test:natural-search": "node tests/search/run_natural_search_suite.js",
     "test:foraging": "node tests/test_foraging_browser_runtime.js && node tests/test_foraging_deadline.js",
     "test:planning-gap": "node tests/search/test_planning_gap.js",
     "test:multi-hop": "node tests/stress/test_cross_session_multi_hop_bench.js",

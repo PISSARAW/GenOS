@@ -64,7 +64,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [ontogenese.md](01-concepts/ontogenese.md) — orchestrateur résident de projet, missions bornées et vérifiées.
 - [gvx.md](01-concepts/gvx.md) — développement vérifié : transformations, preuves, interoception, plasticité et transmission.
 - [epistemologie-et-evidence.md](01-concepts/epistemologie-et-evidence.md) — preuves, croyance, succès ≠ vérité.
-- [natural-search-control-plane.md](01-concepts/natural-search-control-plane.md) — plan de contrôle de recherche naturelle : pression, progression causal, ledger d'hypothèses, contrôleur.
+- [natural-search-control-plane.md](01-concepts/natural-search-control-plane.md) — contrôle de pression et de progrès causal, ledger d'hypothèses, reprise atomique SQLite des phases 6–12 et transmission culturelle sous preuve.
 - [savoir-et-epistemologie.md](01-concepts/savoir-et-epistemologie.md) — savoir, croyance, Gettier, inférence, vérité et épistémologie sociale.
 - [conscience-esprit-mental.md](01-concepts/conscience-esprit-mental.md) — taxonomie de la conscience, de l'esprit et du mental.
 - [indicateurs-fonctionnels.md](01-concepts/indicateurs-fonctionnels.md) — suivi des indicateurs fonctionnels : implémentation, statut, limites.
@@ -237,6 +237,8 @@ Index : [adr/README.md](adr/README.md)
 - [0330-holobionte-missions-contractuelles-verifiees.md](adr/0330-holobionte-missions-contractuelles-verifiees.md) — mission commune, preuve indépendante, quotas et persistance atomique Holobionte.
 
 Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-fermeture-runtime-nce.md).
+
+Décision Natural Search : [ADR 0323 — reprise atomique](adr/0323-reprise-atomique-natural-search.md).
 
 - [0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — format héréditaire binaire `AgentDNA`.
 - [0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d'innovation et promotion sous gate.

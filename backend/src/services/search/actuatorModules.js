@@ -25,13 +25,15 @@ class ActuatorModules {
     this.evolutionEngine = new SearchEvolutionEngine({ populationSize: 6 });
     this.cultureService = new SearchCultureService();
     this.evolutionEngine.initialize();
+    this.searchGenome.population = this.evolutionEngine.population;
   }
 
   // === FORAGE — searchPatchService ===
   ensurePatch(agentId) {
-    let patch = this.patchService.patches.get(agentId);
+    let patch = [...this.patchService.patches.values()].find(p => p.metadata.agentId === agentId && !p.departed);
     if (!patch) {
-      patch = this.patchService.createPatch(agentId, 'search-region', { agentId });
+      const id = this.patchService.patches.has(agentId) ? `${agentId}:${require('crypto').randomUUID()}` : agentId;
+      patch = this.patchService.createPatch(id, 'search-region', { agentId });
     }
     return patch;
   }
@@ -46,13 +48,16 @@ class ActuatorModules {
 
   // === CLONAL AFFINITY — cognitiveAffinityService ===
   createAffinityVariants(baseGenome, count, radius) {
-    const variants = createVariants(baseGenome || this.searchGenome.genome, count || 4, radius || 'minimal');
+    const genome = baseGenome || this.searchGenome.genome;
+    const culturalTrait = this.cultureService.getCandidateTrait();
+    const variants = createVariants(culturalTrait ? { ...genome, ...culturalTrait } : genome, count || 4, radius || 'minimal');
     this.affinityVariants = variants;
     return variants;
   }
 
   selectAffinityVariant(variants, agentId) {
-    return selectBestVariant(variants, this.ledger, agentId);
+    const admissible = variants.filter(v => !this.isPathBlocked(agentId, `${v.hypothesisFamily} variant`));
+    return admissible.length ? selectBestVariant(admissible, this.ledger, agentId) : null;
   }
 
   // === HYPERMUTATION — searchGenomeService ===

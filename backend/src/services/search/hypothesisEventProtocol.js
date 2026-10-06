@@ -47,8 +47,17 @@ function autoGenerate(ledger, args) {
  * PROGRESS, FALSIFIED, SUSPENDED + proposition via hypothesisStatement
  * + auto-génération sur gain d'information.
  */
+function existingHypothesis(args) {
+  const { ledger, payload, agentId } = args;
+  const existing = ledger.hypotheses.get(payload.hypothesisId);
+  if (existing && existing.agentId !== agentId) throw new Error('Hypothesis belongs to another agent');
+  return existing;
+}
+
 function handleHypothesisProtocol(args) {
   const { ledger, eventType, payload, agentId } = args;
+  const existing = existingHypothesis(args);
+  if (existing && eventType === 'HYPOTHESIS_PROPOSED') return existing;
   if (eventType === 'HYPOTHESIS_PROPOSED') {
     if (!payload.hypothesisStatement && !payload.statement) return null;
     return proposeFromPayload(ledger, {

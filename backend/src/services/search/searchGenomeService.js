@@ -44,6 +44,8 @@ function pickN(arr, n) {
 function mutateGenome(genome, radius = 'medium') {
   const mutations = []
   const mutated = { ...genome, exploration: { ...genome.exploration }, operators: [...genome.operators], mutations: [...(genome.mutations || [])] }
+  mutated.id = crypto.randomBytes(6).toString('hex')
+  mutated.parentIds = [genome.id]
 
   const radiusMap = { minimal: 1, local: 2, medium: 3, structural: 4, radical: 6 }
   const numMutations = radiusMap[radius] || 3
@@ -80,7 +82,7 @@ function mutateGenome(genome, radius = 'medium') {
         break;
       case 'exploration':
         oldVal = `radius=${mutated.exploration.radius}`
-        mutated.exploration.radius = Math.min(1, mutated.exploration.radius + (Math.random() - 0.5) * 0.4)
+        mutated.exploration.radius = Math.max(0, Math.min(1, mutated.exploration.radius + (Math.random() - 0.5) * 0.4))
         newVal = `radius=${mutated.exploration.radius.toFixed(3)}`
         break;
     }
@@ -103,6 +105,8 @@ function mutateGenome(genome, radius = 'medium') {
 function crossoverGenome(genomeA, genomeB) {
   return {
     ...genomeA,
+    id: crypto.randomBytes(6).toString('hex'),
+    parentIds: [genomeA.id, genomeB.id],
     strategy: Math.random() < 0.5 ? genomeA.strategy : genomeB.strategy,
     operators: [...new Set([...genomeA.operators, ...genomeB.operators])].slice(0, 3),
     evidencePolicy: Math.random() < 0.5 ? genomeA.evidencePolicy : genomeB.evidencePolicy,

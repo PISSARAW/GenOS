@@ -1,7 +1,7 @@
 # Maturité des capacités biologiques
 
 - **Statut** : Référence — grille d'évaluation, pas revendication.
-- **Dernière revue** : 2026-10-05.
+- **Dernière revue** : 2026-10-06 (Natural Search ; autres lignes revues le 2026-10-05).
 - **Règle** : un statut exige le chemin de code et le test cités. Sans les
   deux, le statut est « proposition ».
 
@@ -88,7 +88,7 @@ vérification du chemin, du test et, pour « validée », des artefacts conserv�
 | 2 | Continuité de mission | `test_mission_succession_processes.js` : deux processus sur store WAL partagé, un seul successeur exécutable, perdant et ancien orchestrateur bloqués, réservation reprise après kill d'un processus | Étendre la preuve à un déploiement multi-instance réel | Successeur unique rechargé par un nouveau processus depuis le store persistant |
 | 3 | AEIS | `test_approve_run_deferred_promotion.js`: `approveRun()` refuse les reçus non authentifiés et accepte deux acteurs indépendants avec signatures et obligations vérifiées; `test_aeis_production_adapters.js` : vraie suite du dépôt exécutée deux fois, assemblée signée relue dans un autre processus SQLite, altérations refusées | Cas d'indisponibilité et de falsification sur le parcours de promotion ; les avis multi-fournisseurs restent `advisoryOnly` et ne promeuvent jamais | Cas positif et négatif E2E avec reçus réels persistés et rapport signé |
 | 4 | Causalité procédurale | Primitive `causal_diff` branchée aux forks/diffs et analyses persistés; `test_causal_primitive_persistence.js` passe | Valider le replay après interruption sur runner contrôlé et préciser la portée d'attribution; une analyse bornée ne prouve pas une causalité générale | E2E reproductible d'une divergence connue, avec snapshot, runner, environnement, budget et seed conservés |
-| 5 | Natural Search | `test_planning_gap.js` + oracle BFS (`planningGapOracle.js`) : GenOS 12/12 à 240 expansions, longueurs optimales sur les huit tâches Blocksworld (dont `bw-table-6` à 16) et les quatre TrapChain (8/10/8/13) ; heuristique TrapChain admissible (distance sans portes) | Étendre les mesures à d'autres tâches et domaines; la reconstruction depuis tout l'historique reste hors contrat | Résultats reproductibles à budget égal sans plan invalide |
+| 5 | Natural Search | `npm --prefix backend run test:natural-search` : 21 scripts passés le 2026-10-06 ; états des sept modules, prochaine décision à entrées égales, arrêt brutal, projections partielles, conflit de révision, preuve et culture durables ; `test_planning_gap.js` : 12/12 plans optimaux avec oracle BFS sur un jeu synthétique | Mesurer l'effet causal des phases 6–12 sur d'autres tâches et domaines ; le replay d'un workspace externe reste hors contrat | Reprise du checkpoint cohérent après crash démontrée ; efficacité métier à établir par mesures reproductibles à budget égal et ablations |
 | 6 | Mesure NCE et foraging | POET exécute et vérifie sur snapshot, généralisation sur split disjoint; foraging navigateur local passe; `test_foraging_deadline.js` : échéance globale annulant navigation (page fermée, aucune observation tardive) et tâche image (worker tué, aucun artefact tardif) | Vérifier avec runtime/fournisseur de production et tâches web externes; GAIA n'est pas disponible dans ce checkout | E2E de production, seeds et artefacts conservés; score GAIA seulement après exécution effective |
 | 7 | Indicateurs fonctionnels | Registre, reçus idempotents, workspace global, objectifs/planification allostatiques, synthèse cognitive et corrélation d'efférence MCP vérifiés par leurs tests ciblés | Définir puis mesurer les critères encore non couverts : compétition, récurrence et prédiction générative; séparer allostasie causale et synthèse de rapport des proxys actuels | Chaque résultat renvoie à une exécution mesurée; aucun indicateur n'est présenté comme preuve de conscience |
 | 8 | Parcours nosologique | Catalogue complet de marqueurs; diagnostics synchronisés, types validés, autorisation liée à la cellule/génome/état/reçu source; CLI et exécuteur durable branchés | Rejouer le parcours HTTP → Rust après résolution des limites de stockage et PDB Windows; conserver le statut proposé des mécanismes biologiques détaillés | Les tests ciblés prouvent application, refus, absence de cible et idempotence; aucun succès avant effet persisté, aucune validation globale déclarée |
@@ -104,6 +104,7 @@ vérification du chemin, du test et, pour « validée », des artefacts conserv�
 
 ## Voir aussi
 
+- [../natural-search-control-plane.md](../natural-search-control-plane.md) — contrat durable, preuves et limites des phases 6–12.
 - [inventaire-biologique.md](inventaire-biologique.md) — chemins de code.
 - [cellulaire-specialise.md](cellulaire-specialise.md) — limites détaillées.
 - [sens-animaux.md](sens-animaux.md) — limites détaillées.
