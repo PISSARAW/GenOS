@@ -425,3 +425,25 @@ le TUI relisent le même run ; les refus de scope et de preuve restent actifs.
 Les limites historiques ci-dessus sont conservées comme résultats des passes
 antérieures. Les fonctionnalités scientifiques du plan restent à qualifier
 séparément ; aucune généralisation du pilote synthétique n'est revendiquée.
+
+## Dixième reprise P0 : trois pilotes comparatifs B05
+
+Le [rapport B05](qualification-trois-pilotes-comparatifs-2026-10-07.md)
+clôture les trois pilotes exploratoires code, mémoire et raisonnement avec
+données versionnées, huit cas réservés par pilote, quatre bras, baselines,
+ablations, budgets comparables et oracle distinct. Deux campagnes gelées de
+96 résultats et 160 appels scorés chacune sont exécutées, la seconde par
+un opérateur IA distinct via collaboration sans historique primaire.
+Les reçus et coûts réels sont conservés ; 93 verdicts sur 96 concordent.
+
+GenOS obtient 8/8 en code et mémoire dans chaque campagne, 0/8 puis 1/8
+en raisonnement. Il égale les baselines code et raisonnement. Sans retrieval,
+le pilote mémoire fait aussi 8/8 : aucun bénéfice du retrieval n'est démontré.
+La première campagne Lean, invalidée pour une liaison multiligne défectueuse
+avant lecture de ses scores réservés, reste conservée avec son amendement.
+Aucune amélioration générale IA, promotion ou reproduction en laboratoire
+externe n'est revendiquée.
+
+Validation finale native : qualité 0 nouvelle violation, `npm test` code 0,
+`cargo test --workspace` 673 tests réussis. Les résultats historiques des
+reprises précédentes restent datés ; B05 est acquis pour ce périmètre borné.
