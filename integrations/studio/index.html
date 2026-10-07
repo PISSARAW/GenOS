@@ -12,7 +12,7 @@
 <button type="submit">Ouvrir l’exécution</button><button id="disconnect" type="button">Déconnecter</button>
 </form>
 <p id="message" role="status" aria-live="polite">Connectez-vous avec une clé autorisée sur ce projet.</p>
-<nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button><button data-target="dashboard-view" type="button">Supervision</button><button data-target="management-view" type="button">Gestion et commandes</button></nav>
+<nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button><button data-target="dashboard-view" type="button">Supervision</button><button data-target="management-view" type="button">Gestion et commandes</button><button data-target="files-view" type="button">Fichiers et snapshots</button></nav>
 <label>Workspace<input id="workspace-choice" list="workspaces"><datalist id="workspaces" data-runtime></datalist></label>
 <section id="inspection" data-view hidden>
 <h2>Exécution <span id="run-id" data-runtime></span></h2><p id="run-status" data-runtime></p><p id="workspace" data-runtime></p>
@@ -51,4 +51,15 @@
 <h3>Terminal contrôlé</h3><form id="terminal"><label>Commande<select id="terminal-command">
 <option>help</option><option>status</option><option>agents</option><option>ping</option><option>clear</option><option>halt</option><option>resume</option></select></label>
 <button data-permission="workspace:write">Exécuter la commande</button></form><pre id="terminal-output" data-runtime></pre></section>
+<section id="files-view" data-view hidden><h2>Fichiers et snapshots</h2>
+<button id="files-refresh" type="button">Charger les fichiers et snapshots</button><ul id="file-list" data-runtime></ul>
+<label>Chemin relatif<input id="file-path" placeholder="src/main.js"></label>
+<button id="file-open" type="button">Ouvrir le fichier</button>
+<label>Contenu UTF-8 — 256 Kio maximum<textarea id="file-content" rows="18" spellcheck="false"></textarea></label>
+<button id="file-save" type="button" data-permission="workspace:write">Sauvegarder le fichier</button>
+<button id="file-diff-button" type="button">Comparer les changements</button><p id="file-result" data-runtime></p><pre id="file-diff" data-runtime></pre>
+<h3>Snapshots</h3><ul id="editor-snapshots" data-runtime></ul>
+<button id="editor-snapshot" type="button" data-permission="workspace:write">Capturer un snapshot du workspace</button>
+<label>Snapshot à restaurer<input id="restore-id"></label><button id="restore-preview" type="button">Prévisualiser la restauration</button>
+<button id="restore" type="button" data-permission="workspace:write">Restaurer le snapshot</button><pre id="restore-result" data-runtime></pre></section>
 </main></body></html>
