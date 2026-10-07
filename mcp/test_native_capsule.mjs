@@ -14,7 +14,7 @@ const workspaceTemporary = fs.mkdtempSync(path.join(root, '.genos-mcp-audit-'));
 async function connect(studioRoot) {
   const client = new Client({ name: 'genos-native-capsule-test', version: '1' });
   const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(root, 'mcp/index.js')],
-    cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_MCP_LEASE: 'genos_capsule_create,genos_audit',
+    cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_MCP_LEASE: 'genos_capsule_create,genos_audit,genos_merge',
       GENOS_BIN: executable, GENOS_STUDIO_ROOT: studioRoot, GENOS_DB_PATH: path.join(temporary, 'test.db'),
       NODE_ENV: 'test' } });
   transport.stderr.on('data', () => {});
@@ -42,6 +42,13 @@ try {
     assert.notEqual(audit.isError, true, audit.content?.[0]?.text);
     assert.equal(JSON.parse(audit.content[0].text).status, 'APPROVED');
     assert.equal(JSON.parse(fs.readFileSync(workspaceAudit, 'utf8')).compliance_score, 1);
+
+    const beforeMerge = fs.readdirSync(path.join(matrix, 'capsules')).length;
+    const merge = await client.callTool({ name: 'genos_merge', arguments: {
+      branch_id: 'sandbox_boundary', conditions: 'all invariants passed' } });
+    assert.equal(merge.isError, true, 'unverified capsule metadata must not claim a branch merge');
+    assert.match(merge.content[0].text, /Merge not implemented:.*invariants/);
+    assert.equal(fs.readdirSync(path.join(matrix, 'capsules')).length, beforeMerge);
   } finally {
     await client.close();
   }
@@ -57,7 +64,7 @@ try {
   } finally {
     await blockedClient.close();
   }
-  console.log('Native capsule persistence, audit, and write-failure refusal verified through MCP stdio.');
+  console.log('Native capsule persistence, audit, write-failure and unverified-merge refusals verified through MCP stdio.');
 } finally {
   assert.ok(path.resolve(temporary).startsWith(`${path.resolve(os.tmpdir())}${path.sep}`));
   fs.rmSync(temporary, { recursive: true, force: true });
