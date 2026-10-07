@@ -91,7 +91,11 @@ function concatChunks(chunks) {
 }
 
 async function readResponseTextBounded(response, limit = MAX_MCP_HTTP_BYTES) {
-  if (!response.body || !response.body.getReader) return (await response.text()).slice(0, limit);
+  if (!response.body || !response.body.getReader) {
+    const text = await response.text();
+    if (text.length > limit) throw new Error(`MCP HTTP response exceeded the ${limit}-byte limit.`);
+    return text;
+  }
   const reader = response.body.getReader();
   const chunks = [];
   let size = 0;
@@ -139,7 +143,13 @@ function parseSsePayloads(text) {
 async function readMcpHttpResponse(response) {
   const contentType = response.headers.get('content-type') || '';
   const text = await readResponseTextBounded(response);
-  if (!contentType.includes('text/event-stream')) return JSON.parse(text);
+  if (!contentType.includes('text/event-stream')) {
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      throw new Error('MCP HTTP response contained invalid JSON-RPC data.');
+    }
+  }
   const payloads = parseSsePayloads(text);
   return payloads[payloads.length - 1];
 }
@@ -199,16 +209,21 @@ async function fetchHttpPhase(requestContext, optionsArg, ...rest) {
 }
 
 function createTimeoutRejection(timeout) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
+  let timer = null;
+  const promise = new Promise((resolve, reject) => {
+    timer = setTimeout(() => {
       reject(new Error(`MCP tool timed out after ${timeout}ms.`));
     }, timeout);
   });
+  promise.cancel = () => { if (timer) clearTimeout(timer); };
+  return promise;
 }
 
 function withTimeout(promise, timeoutMs) {
   const timeout = normalizeMcpTimeout(timeoutMs);
-  return Promise.race([promise, createTimeoutRejection(timeout)]);
+  const guard = createTimeoutRejection(timeout);
+  const settled = Promise.race([Promise.resolve(promise), guard]);
+  return settled.finally(() => guard.cancel());
 }
 
 async function resolveExecutionPolicy(db, request) {
@@ -284,8 +299,14 @@ async function screenChromatinLock(db, request) {
 async function checkToolAvailability(db, toolName) {
   const tool = await db.get('SELECT * FROM mcp_tools WHERE name = ?', toolName);
   const requiredStrings = require('./mcpArgumentValidation').REQUIRED_STRINGS;
-  const isRegisteredInLogic = Boolean(requiredStrings && requiredStrings[toolName]);
-  if (!tool && !require('./mcpStrategyTools').isStrategyTool(toolName) && !require('./mcpBioTools').isBioTool(toolName) && !isRegisteredInLogic) {
+  const hasValidationEntry = Boolean(requiredStrings && Object.prototype.hasOwnProperty.call(requiredStrings, toolName));
+  let isRegistryTool = false;
+  try {
+    isRegistryTool = require('./mcpToolRegistry').isSupportedTool(toolName);
+  } catch (_) {
+    isRegistryTool = false;
+  }
+  if (!tool && !require('./mcpStrategyTools').isStrategyTool(toolName) && !require('./mcpBioTools').isBioTool(toolName) && !hasValidationEntry && !isRegistryTool) {
     return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
   }
   if (tool && tool.is_locked === 1) {
@@ -300,24 +321,7 @@ function checkCircuitBreaker(toolName, circuitScope, args) {
   return { success: false, status: 'circuit_open', error: circuit.message };
 }
 
-function isVerdictTool(toolName) {
-  if (toolName.includes('test')) return true;
-  if (toolName.includes('verify')) return true;
-  if (toolName.includes('lint')) return true;
-  return toolName.includes('check');
-}
-
-function classifyDomainVerdict(text) {
-  if (text.includes('failed') || text.includes('failing') || text.includes('error')) return 'failure';
-  if (text.includes('pass') || text.includes('success') || text.includes('ok')) return 'success';
-  return 'unverified';
-}
-
-function applyDomainVerdict(toolName, result) {
-  if (!result.success) return;
-  if (!isVerdictTool(toolName)) return;
-  result.domainVerdict = classifyDomainVerdict(String(result.output || '').toLowerCase());
-}
+const { applyDomainVerdict } = require('./mcpExecutor/domainVerdict');
 
 async function execute(executionRequest) {
   const { agentId, organizationId, projectId, toolName, args = {}, taints = [] } = executionRequest;
@@ -360,7 +364,7 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
   const db = await getDatabase();
   await db.run('INSERT INTO audit_logs (actor, agent_id, action, resource, decision, reason, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', 'mcp-direct', null, 'MCP_DIRECT_CALL', normalizedToolName, 'allow', 'direct call guarded', JSON.stringify({ args, timeoutMs }));
   try {
-    const result = await executeConfiguredTransport({ toolName: normalizedToolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs), preValidated: true });
+    const result = await executeConfiguredTransport({ toolName: normalizedToolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
     recordCallResult(normalizedToolName, result);
     return result.output;
   } catch (error) {

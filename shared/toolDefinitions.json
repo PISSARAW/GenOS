@@ -209,7 +209,7 @@
           },
           "background": {
             "type": "boolean",
-            "description": "Defaults to false: wait for the mission and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached."
+            "description": "Defaults to true: return a launch receipt and run detached. Set false to wait for the mission within the MCP timeout."
           },
           "executor": {
             "type": "string",
@@ -224,7 +224,11 @@
           },
           "provider": {
             "type": "string",
-            "description": "Optional provider identity recorded for caller_mcp provenance."
+            "description": "Optional declared provider identity for caller_mcp provenance; GenOS does not infer it from the harness."
+          },
+          "modelId": {
+            "type": "string",
+            "description": "Optional declared model identity. Leave unspecified when the host does not disclose it."
           },
           "scenarios": {
             "type": "array",
@@ -353,7 +357,7 @@
           },
           "background": {
             "type": "boolean",
-            "description": "Defaults to false: wait for the worker and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached."
+            "description": "Defaults to true: return a launch receipt and run detached. Set false to wait for the worker within the MCP timeout."
           },
           "executor": {
             "type": "string",
@@ -368,7 +372,11 @@
           },
           "provider": {
             "type": "string",
-            "description": "Optional provider identity for the worker."
+            "description": "Optional declared provider identity for the worker; GenOS does not infer it from the harness."
+          },
+          "modelId": {
+            "type": "string",
+            "description": "Optional declared model identity. Leave unspecified when the host does not disclose it."
           },
           "scenarios": {
             "type": "array",

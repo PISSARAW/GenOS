@@ -7,10 +7,10 @@ Cause : le bridge MCP client Hermes impose un timeout de 30s sur les appels d'ou
 dépassent ce budget.
 
 Mitigation :
-- Utiliser `background: true` (valeur par défaut pour `genos_orchestrate`) pour obtenir un reçu d'acceptation immédiat sans attendre la fin.
-- Pour `genos_biological_mode` et `genos_delegate_worker`, le comportement asynchrone est inhérent — vérifier si des options de background existent.
+- `background: true` est désormais le défaut pour `genos_orchestrate` et `genos_delegate_worker` (`mcp/toolCallHandler.js`, `mcpContract.js`, `shared/toolDefinitions.json`) : un appel sans `background` retourne un reçu d'acceptation immédiat sans attendre la fin.
+- Un appel explicitement synchrone (`background: false`) reste borné par le timeout MCP (`DEFAULT_TOOL_TIMEOUT_MS = 30000ms`, configurable via `GENOS_MCP_TOOL_TIMEOUT_MS`, plafond 30 min).
+- Pour `genos_biological_mode`, le comportement asynchrone reste inhérent — préférer un suivi via télémétrie/progress plutôt qu'une attente synchrone.
 
-Investigations nécessaires :
-- [ ] Vérifier si Hermes expose une config de timeout MCP (GENOS_MCP_TOOL_TIMEOUT_MS côté serveur)
-- [ ] Vérifier si ces outils supportent un mode background/async dans les schémas
+Investigations restantes :
+- [ ] Vérifier si Hermes expose une config de timeout MCP côté client
 - [ ] Pour biological_mode : vérifier si la fonction dispatch_biological peut retourner immédiatement

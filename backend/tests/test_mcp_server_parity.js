@@ -11,9 +11,13 @@ const rustTools = [
   path.join('tools', 'catalog_tools.rs')
 ].map((file) => fs.readFileSync(path.join(repositoryRoot, 'crates', 'genos-mcp', 'src', file), 'utf8')).join('\n');
 
-for (const tool of ['genos_replay', 'genos_execute_primitive']) {
+const catalog = JSON.parse(sharedSource);
+const canonicalNames = catalog.tools.map((tool) => tool.name);
+assert(canonicalNames.includes('genos_replay'), 'canonical catalog must declare genos_replay');
+assert(canonicalNames.includes('genos_execute_primitive'), 'canonical catalog must declare genos_execute_primitive');
+for (const tool of canonicalNames) {
   assert(nodeSource.includes(`name: "${tool}"`) || sharedSource.includes(`"name": "${tool}"`), `${tool} must be exposed by Node MCP`);
-  assert(rustTools.includes(`"name": "${tool}"`), `${tool} must be exposed by Rust MCP`);
+  assert(rustTools.includes(`"name": "${tool}"`) || rustTools.includes(`"${tool}"`), `${tool} must be exposed by Rust MCP`);
 }
 
 console.log('MCP server parity checks passed.');

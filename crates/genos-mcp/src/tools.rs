@@ -218,7 +218,7 @@ mod lease_tests {
     #[test]
     fn backend_bridged_tools_come_from_canonical_catalog() {
         let tools = bridged_catalog_specs();
-        assert_eq!(tools.len(), 23);
+        assert_eq!(tools.len(), 27);
         assert!(tools.iter().all(|tool| tool.get("inputSchema").is_some()));
     }
 

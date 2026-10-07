@@ -24,6 +24,10 @@ const BRIDGED_TOOLS: &[&str] = &[
     "genos_record_experience",
     "genos_compile_memory",
     "genos_blame",
+    "genos_browser_act",
+    "genos_computer_use",
+    "genos_foveal_crop",
+    "genos_optimal_foraging",
 ];
 
 pub(super) fn bridged_catalog_specs() -> Vec<Value> {

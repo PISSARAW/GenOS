@@ -209,7 +209,7 @@
           },
           "background": {
             "type": "boolean",
-            "description": "Defaults to false: wait for the mission and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached."
+            "description": "Defaults to true: return a launch receipt and run detached. Set false to wait for the mission within the MCP timeout."
           },
           "executor": {
             "type": "string",
@@ -357,7 +357,7 @@
           },
           "background": {
             "type": "boolean",
-            "description": "Defaults to false: wait for the worker and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached."
+            "description": "Defaults to true: return a launch receipt and run detached. Set false to wait for the worker within the MCP timeout."
           },
           "executor": {
             "type": "string",
@@ -2625,8 +2625,6 @@
               "schema",
               "domains",
               "history",
-              "events",
-              "variant",
               "explain",
               "branch",
               "promote",
@@ -2635,6 +2633,8 @@
               "replicas",
               "health",
               "morphogenesis",
+              "events",
+              "variant",
               "add_node",
               "add_edge",
               "deposit",
@@ -2656,6 +2656,7 @@
               "admit_shortcut",
               "repair",
               "prune",
+              "evaluate_merge",
               "mission_metrics",
               "maintain",
               "set_variant",
@@ -2667,6 +2668,10 @@
               "cycle",
               "run"
             ]
+          },
+          "after_revision": {
+            "type": "integer",
+            "minimum": -1
           },
           "op": {
             "type": "object"
@@ -2797,6 +2802,42 @@
           },
           "threshold": {
             "type": "number"
+          },
+          "merge_evaluation": {
+            "type": "object",
+            "properties": {
+              "expected_graph_revision": {
+                "type": "string"
+              },
+              "policy": {
+                "type": "object"
+              },
+              "metrics": {
+                "type": "object"
+              },
+              "latency_samples_ms": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "expected_graph_revision",
+              "policy",
+              "metrics",
+              "latency_samples_ms",
+              "evidence_refs"
+            ],
+            "additionalProperties": false
           },
           "trail_kind": {
             "type": "string"

@@ -92,7 +92,7 @@ const TOOL_BASE_SCHEMAS = {
       mission: { type: 'string', description: 'Goal or user request to achieve.' },
       worker_assignments: workerAssignmentsSchema(),
       strategy: { type: 'string', description: 'Optional strategy hint from the available strategies.' },
-      background: { type: 'boolean', description: 'Defaults to false: wait for the mission and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached.' },
+      background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. Set false to wait for the mission within the MCP timeout.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor: Codex, Hermes/Nous, Antigravity host, or all discovered local models.' },
       provider: { type: 'string', description: 'Optional declared provider identity; GenOS does not infer it from the harness.' },
       modelId: { type: 'string', description: 'Optional declared model identity. Leave unspecified when the host does not disclose it.' },
@@ -119,7 +119,7 @@ const TOOL_BASE_SCHEMAS = {
     properties: {
       mission: { type: 'string', description: 'Sub-task for the delegated worker.' },
       role: { type: 'string', description: 'Specialized role of the worker.' },
-      background: { type: 'boolean', description: 'Defaults to false: wait for the worker and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached.' },
+      background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. Set false to wait for the worker within the MCP timeout.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor inherited by the worker.' },
       provider: { type: 'string', description: 'Optional declared provider identity for the worker; GenOS does not infer it from the harness.' },
       modelId: { type: 'string', description: 'Optional declared model identity. Leave unspecified when the host does not disclose it.' },

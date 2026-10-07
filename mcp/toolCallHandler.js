@@ -113,8 +113,8 @@ function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   const action = ORCHESTRATOR_ACTIONS[name];
   if (!action) throw new Error(`Tool '${name}' has no verified MCP route.`);
   const request = { action, ...args };
-  if (name === 'genos_delegate_worker') request.background = false;
-  if (name === 'genos_orchestrate' && request.background === undefined) request.background = false;
+  if (name === 'genos_delegate_worker' && request.background === undefined) request.background = true;
+  if (name === 'genos_orchestrate' && request.background === undefined) request.background = true;
   return runOrchestrator(request, { onTelemetry });
 }
 
