@@ -54,6 +54,7 @@
     "start": "node index.js",
     "test": "node test_lease.js && node test_identity_lease.js && node test_contract_parity.mjs && node test_tool_routing.mjs && node test_sampling_broker.mjs && node test_node_cli_fallback.mjs && node test_development.mjs && node test_signal_refusals.mjs",
     "test:smoke": "node test_smoke.mjs",
+    "test:native": "node test_native_snapshot.mjs",
     "test:checkpoint": "node test_checkpoint.mjs"
   },
   "dependencies": {
