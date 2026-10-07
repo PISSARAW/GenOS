@@ -1,3 +1,11 @@
+const Ajv = require('ajv');
+const PUBLIC_TOOLS = require('../../../shared/toolDefinitions.json').tools;
+const schemaCompiler = new Ajv({ strict: false });
+const publicValidators = new Map(PUBLIC_TOOLS.map((tool) => [tool.name, {
+  schema: tool.inputSchema,
+  validate: schemaCompiler.compile(tool.inputSchema)
+}]));
+
 const REQUIRED_STRINGS = {
   genos_philosophy: ['operation'],
   genos_agent_world_capsule: ['snapshot_id'],
@@ -184,8 +192,25 @@ function bioRequiredArgs(toolName) {
   return null;
 }
 
+function validatePublicSchema(toolName, args) {
+  const entry = publicValidators.get(toolName);
+  if (!entry) return null;
+  if (!entry.validate(args)) {
+    const fault = entry.validate.errors[0];
+    return invalid(fault.instancePath || fault.params?.missingProperty || 'args', fault.message);
+  }
+  for (const field of entry.schema.required || []) {
+    if (typeof args[field] === 'string' && args[field].trim() === '') {
+      return invalid(field, 'must be a non-empty string.');
+    }
+  }
+  return null;
+}
+
 function validateToolArguments(toolName, args = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return invalid('args', 'must be an object.');
+  const publicSchemaError = validatePublicSchema(toolName, args);
+  if (publicSchemaError) return publicSchemaError;
   // Validation générique: si le handler déclare required[], chaque champ doit
   // être fourni (non vide). Rejet => invalid_args, jamais de défaut silencieux.
   const required = bioRequiredArgs(toolName);

@@ -989,7 +989,6 @@
           }
         },
         "required": [
-          "primitive_name",
           "primitive_name"
         ],
         "additionalProperties": true

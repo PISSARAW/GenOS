@@ -81,6 +81,7 @@ function getToolInputSchema(toolName, baseSchema = {}) {
   applyToolSpecificOverrides(toolName, schema);
   applyRequiredStrings(toolName, schema);
   applyPrimitiveFields(schema);
+  schema.required = [...new Set(schema.required)];
   return schema;
 }
 
