@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "genos-mcp",
   "version": "3.0.0",
   "mcpName": "io.github.pissaraw/genos",
@@ -57,6 +57,6 @@
     "test:checkpoint": "node test_checkpoint.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0"
+    "@modelcontextprotocol/sdk": "^1.31.0"
   }
 }
