@@ -13,17 +13,9 @@ const HAS_BACKEND_RUNTIME = Boolean(REPO_ROOT
   && existsSync(path.join(REPO_ROOT, 'backend/src/services/mcpToolRegistry.js')));
 const REPO_REQUIRE = HAS_BACKEND_RUNTIME ? createRequire(path.join(REPO_ROOT, 'package.json')) : null;
 const DEVELOPMENT = REPO_REQUIRE ? REPO_REQUIRE('./backend/src/services/mcpDevelopmentTools.js') : null;
-const CATALOG_TOOLS = new Set(loadToolCatalog(REPO_ROOT).map((tool) => tool.name));
 const CATALOG = loadToolCatalog(REPO_ROOT);
-const REGISTERED_TOOL_NAMES = REPO_REQUIRE
-  ? new Set(REPO_REQUIRE('./backend/src/db/seedTools.js').MCP_TOOLS_LIST.map((tool) => tool.name))
-  : new Set();
-const BACKEND_BRIDGED_TOOL_NAMES = new Set([
-  'genos_fossil_record', 'genos_fossil_list', 'genos_fossil_strata', 'genos_fossil_excavate',
-  'genos_fossil_decode', 'genos_fossil_candidate', 'genos_topology_session', 'genos_signal_publish',
-  'genos_signal_read', 'genos_signal_purge', 'genos_signal_ground', 'genos_signal_electrocyte_vote',
-  'genos_signal_chemotactic_follow', 'genos_signal_plasmid_transfer', 'genos_signal_collective_decision'
-]);
+const CATALOG_TOOLS = new Set(CATALOG.map((tool) => tool.name));
+const BACKEND_REGISTRY = REPO_REQUIRE ? REPO_REQUIRE('./backend/src/services/mcpToolRegistry.js') : null;
 
 const CLI_TOOL_NAMES = new Set([
   'genos_snapshot', 'genos_replay', 'genos_capsule_create', 'genos_merge',
@@ -47,8 +39,7 @@ const ORCHESTRATOR_ACTIONS = Object.freeze({
 
 export function isToolCallRoutable(name) {
   if (name === 'genos_philosophy' && !HAS_BACKEND_RUNTIME) return false;
-  if (HAS_BACKEND_RUNTIME && CATALOG_TOOLS.has(name)
-    && (REGISTERED_TOOL_NAMES.has(name) || BACKEND_BRIDGED_TOOL_NAMES.has(name))) return true;
+  if (BACKEND_REGISTRY && CATALOG_TOOLS.has(name) && BACKEND_REGISTRY.isSupportedTool(name)) return true;
   return STRATEGY_TOOL_NAMES.has(name) || CLI_TOOL_NAMES.has(name)
     || Object.prototype.hasOwnProperty.call(ORCHESTRATOR_ACTIONS, name);
 }
@@ -178,6 +169,8 @@ async function dispatchTool(input) {
   if (Object.prototype.hasOwnProperty.call(ORCHESTRATOR_ACTIONS, name)) {
     return orchestratorCall({ name, args, runOrchestrator, onTelemetry });
   }
-  if (HAS_BACKEND_RUNTIME && CATALOG_TOOLS.has(name)) return registeredToolCall({ name, args });
+  if (BACKEND_REGISTRY && CATALOG_TOOLS.has(name) && BACKEND_REGISTRY.isSupportedTool(name)) {
+    return registeredToolCall({ name, args });
+  }
   return orchestratorCall({ name, args, runOrchestrator, onTelemetry });
 }

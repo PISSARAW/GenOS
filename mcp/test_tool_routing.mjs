@@ -18,6 +18,9 @@ assert.ok(routableNames.has('genos_philosophy'));
 assert.ok(routableNames.has('genos_fossil_record'));
 assert.ok(routableNames.has('genos_topology_session'));
 assert.ok(routableNames.has('genos_signal_publish'));
+for (const name of ['genos_optimal_foraging', 'genos_foveal_crop', 'genos_computer_use']) {
+  assert.ok(routableNames.has(name), `${name} must use its backend registry route`);
+}
 assert.ok(routable.length === catalog.length, 'every canonical tool must have a verified Node route');
 assert.ok(routable.every((tool) => typeof tool.inputSchema === 'object'));
 for (const name of capabilityMatrix.ROUTABLE_TOOLS) {
