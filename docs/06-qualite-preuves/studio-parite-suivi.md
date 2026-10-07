@@ -36,6 +36,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | F02.1 Base isolée | Livré par ce document | Git inspecté, checkout opérateur conservé |
 | F03.1 Contrats | Livré : ADR 0350 | Frontières UI/API/runtime, routes et sessions |
 | F04.1 Harnais | Qualifié Windows | Port attribué par l'OS, origine exacte, résultat structuré ; Edge 154.0.4258.62, aucune erreur de page |
+| F04.2 Contrat du benchmark | Qualifié par tests ciblés | Fixture positive vérifiée ; absence/échec/incomplétude refusés, service inchangé |
 | C01.1 Navigation | Qualifié Windows | Connexion séparée, contexte compact, cinq routes, liens de run et historique |
 | C02.1 Composants | Qualifié Windows, partiel | Fiches gestion/laboratoire, champs autorisés, inconnus et garanties fausses ; JSON secondaire |
 | C03.1 Responsive et clavier | Qualifié Windows, partiel | Cinq vues 390/1440 px, texte 200 %, labels et focus ; audit WCAG/lecteur d'écran non exécuté |
