@@ -91,16 +91,10 @@ async function handlePhilosophyRequest({ request, orchestratorId }) {
   const result = await philosophyRouter.handlePhilosophyRequest({ request, orchestratorId });
   process.stdout.write(JSON.stringify({ orchestratorId, philosophy: result }));
 }
-async function handleReportProgress({ db, request, orchestratorId, task }) {
-  const parent = await ensureProgressParent({ db, orchestratorId, task });
+async function handleReportProgress({ db, request, orchestratorId }) {
+  const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
   if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
   process.stdout.write(JSON.stringify(userProgress.report(progressPayload({ request, orchestratorId }))));
-}
-async function ensureProgressParent({ db, orchestratorId, task }) {
-  let parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
-  if (parent) return parent;
-  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
-  return db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
 }
 function progressPayload({ request, orchestratorId }) {
   return {
