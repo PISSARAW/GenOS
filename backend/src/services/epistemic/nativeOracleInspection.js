@@ -26,7 +26,7 @@ async function acceptedView(db, input) {
   try { await proofs.assertCurrent(db, { proof: accepted.proof, request: input,
     report: terminal.event.payload.evidenceReport || terminal.event.payload.report }); }
   catch (failure) { current = { satisfied: false, reason: failure.code || failure.message }; }
-  return { status: 'accepted_at_decision', domain: require('./oracleProcedureSubject').DOMAIN,
+  return { status: 'accepted_at_decision', domain: require('./nativeOracleDomains').definition(input.attestation.value.domain).subject.DOMAIN,
     decision: { status: accepted.acceptance.value.status, at: accepted.acceptance.value.decidedAt,
       hash: accepted.acceptance.hash }, attestation: { eventId: input.attestation.eventId, hash: input.attestation.hash },
     costs: input.attestation.value.costs, limits: input.allocation.value.limits,

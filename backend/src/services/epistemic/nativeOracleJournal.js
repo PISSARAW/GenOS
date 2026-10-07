@@ -5,7 +5,7 @@ const { withTransaction } = require('../../db');
 const values = require('../trinityProvenanceValues');
 const ledger = require('../gvxDevelopmentLedger');
 const authority = require('../missionEnvelopeAuthority');
-const subjects = require('./oracleProcedureSubject');
+const subjects = require('./nativeOracleDomains');
 
 function id(runId, kind) { return `gvx-run:${runId}:native-oracle-${kind}`; }
 
@@ -39,6 +39,7 @@ async function reserve(db, request) {
     if (Date.parse(expiresAt) <= Date.now()) throw values.failure('ORACLE_BUDGET_EXPIRED');
     const report = await observationReport(db, request.runId);
     const record = { schema: 'genos.native-oracle-reservation/v1', ...request, scope,
+      domain: subject.domain,
       nonce: randomUUID(), limits, expiresAt, authorityHash: current.hash,
       subjectHash: values.digest(subject), observationHash: subject.observationHash,
       reportHash: values.digest(report), createdAt: new Date().toISOString() };

@@ -4,7 +4,7 @@ const { withTransaction } = require('../../db');
 const values = require('../trinityProvenanceValues');
 const authority = require('../missionEnvelopeAuthority');
 const journal = require('./nativeOracleJournal');
-const subjects = require('./oracleProcedureSubject');
+const subjects = require('./nativeOracleDomains');
 const { keyFor, currentKeyId } = require('../epistemicReceiptKeyring');
 
 async function prepare(db, request) {
@@ -24,10 +24,11 @@ async function prepare(db, request) {
 async function execute(db, context) {
   const { allocation, saved } = context;
   const request = { runId: allocation.value.runId, agentId: allocation.value.agentId, scope: allocation.value.scope };
-  const antigen = require('./oracleProcedureClaim').build({ subject: allocation.subject, workspaceRoot: saved.envelope.workspaceRoot });
+  const domain = subjects.definition(allocation.subject.domain);
+  const antigen = domain.claim.build({ subject: allocation.subject, workspaceRoot: saved.envelope.workspaceRoot });
   const batch = await require('./verifierRuntimeBridge').executeVerifierWorkers(antigen,
-    ['subset_bitset', 'subset_enumeration'].map(strategy => ({ type: 'procedure_semantic', strategy: [strategy] })),
-    { db, nativeOracleSubject: request, nativeOracleAllocationHash: allocation.hash, nativeOracleDeadline: Date.parse(allocation.value.expiresAt),
+    [...domain.checks.STRATEGIES].map(strategy => ({ type: domain.verifierType, strategy: [strategy] })),
+    { db, ...subjects.executionOptions(allocation.subject, request), nativeOracleAllocationHash: allocation.hash, nativeOracleDeadline: Date.parse(allocation.value.expiresAt),
       timeoutMs: allocation.value.limits.latencyMs, verifierBudget: { remaining: allocation.value.limits.executions } });
   const trusted = saved.envelope.scope;
   const registry = require('../verifierTrustRegistry');
@@ -45,6 +46,7 @@ async function execute(db, context) {
     const scopeId = [trusted.organizationId, trusted.projectId, workspace.workspace_id].join(':');
     const assemblyId = await require('../aeisAssemblyStore').saveAssembly(db, assessed, { runId: request.runId, scopeId });
     const record = { schema: 'genos.native-oracle-attestation/v1', ...request, allocationHash: allocation.hash,
+      domain: subject.domain,
       authorityHash: saved.hash, subjectHash: allocation.value.subjectHash, reportHash: allocation.value.reportHash,
       assemblyId, scopeId, accepted, costs: costs(batch), validUntil: new Date(Math.min(Date.parse(subject.validUntil),
         Date.parse(saved.envelope.expiresAt))).toISOString(), completedAt: new Date().toISOString() };

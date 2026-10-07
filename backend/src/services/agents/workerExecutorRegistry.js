@@ -25,9 +25,11 @@ const EXECUTORS = Object.freeze({
 });
 
 const ARITHMETIC = ['check_arithmetic', 'workerArithmeticExecutor', 'assertArithmeticInput', 'runArithmetic'];
+const MEMORY = ['verify_memory_fidelity', 'workerMemoryVerification', 'assertMemoryInput', 'runMemory'];
 const ALWAYS_NATIVE = new Set(['procedural_executor', 'formal_worker']);
 
 function descriptor(kind, methodId) {
+  if (kind === 'verifier_worker' && methodId === MEMORY[0]) return MEMORY;
   if (kind === 'formal_worker' && methodId === 'check_arithmetic') return ARITHMETIC;
   const selected = Object.hasOwn(EXECUTORS, kind) ? EXECUTORS[kind] : null;
   if (!selected) return null;
@@ -65,7 +67,8 @@ async function executeNativeWorker(kind, method, context) {
 function executorCatalog() {
   return Object.entries(EXECUTORS).map(([kind, selected]) => ({ kind,
     methods: [...(Array.isArray(selected[0]) ? selected[0] : [selected[0]]),
-      ...(kind === 'formal_worker' ? ['check_arithmetic'] : [])] }));
+      ...(kind === 'formal_worker' ? ['check_arithmetic'] : []),
+      ...(kind === 'verifier_worker' ? [MEMORY[0]] : [])] }));
 }
 
 module.exports = { ALWAYS_NATIVE, hasNativeMethod, assertNativeInput, executeNativeWorker, executorCatalog };

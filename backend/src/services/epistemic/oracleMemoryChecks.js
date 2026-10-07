@@ -65,8 +65,13 @@ function consume(text, tokens, position) {
 function checkMemory(subject, strategy) {
   if (!STRATEGIES.has(strategy)) return outcome('inconclusive', 'memory_oracle_strategy_unavailable');
   if (!subject?.memory || !subject.source || !supported(subject.source)) return outcome('inconclusive', 'memory_oracle_domain_unavailable');
-  const matched = factsMatch(subject) && (strategy === 'memory_rendered' ? rendered(subject) : parsed(subject));
+  const matched = factsMatch(subject) && (strategy === 'memory_rendered' ? rendered(subject) : parsed(subject))
+    && verificationAccepted(subject);
   return { ...outcome(matched ? 'verified' : 'refuted', matched ? 'memory_fidelity_checked' : 'memory_source_contradiction'), strategy };
+}
+
+function verificationAccepted(subject) {
+  return subject.verification === undefined || subject.verification.verdict === 'accept';
 }
 
 module.exports = { VERSION, STRATEGIES, checkMemory };

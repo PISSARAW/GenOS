@@ -46,4 +46,4 @@ function executedVerifier(verifier, outcome) {
     executionId: detail.executionId, contextDigest: detail.inputDigest };
 }
 
-module.exports = { runProcedureOracle, executedVerifier };
+module.exports = { runProcedureOracle, executedVerifier, executionTimeout };

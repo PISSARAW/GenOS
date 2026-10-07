@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
+  verify_memory_fidelity: ['verify'],
   scoped_procedure: ['scoped_execution'],
   adapt_procedure: ['adaptive_strategy'],
   niche_procedure: ['domain_specialization'],

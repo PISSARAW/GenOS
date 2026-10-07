@@ -20,7 +20,7 @@ porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 | --- | --- | --- |
 | L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
 | L02 Autorité et confinement | Enveloppe du run, revalidation et réservation de délégation Node intégrées ; lot partiel | Raccordement des appels directs, qualification complète des compteurs et confinement effectif. |
-| L03 Oracles indépendants | Clôture native subset sum, fidélité mémoire et rétraction scoped des assemblées raccordées ; lot partiel | Couvrir code, formats mémoire restants, vérité source et autres domaines ; terminer les budgets et la clôture de vérification mémoire et la propagation entre magasins. |
+| L03 Oracles indépendants | Clôtures natives subset sum et fidélité mémoire sous budgets distincts, rétraction scoped des assemblées raccordée ; lot partiel | Couvrir code, formats mémoire restants, vérité source et autres domaines ; qualifier tous les crashes et la propagation entre magasins. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
 | L05 Harnais et baselines | Pilotes P0 exploratoires disponibles ; campagne P1 à entreprendre | Runner GVX raccordé au manifeste, holdout inaccessible au candidat, coûts complets et puissance adaptée. |
 | L22 Interfaces et observabilité | Clients de référence P0 qualifiés ; extension P1 à entreprendre | Inspection commune du manifeste, des coûts, preuves, rejets et reprises ; parité sémantique ciblée. |
@@ -398,6 +398,44 @@ Les journaux `npm-retraction-complete.log`, `cargo-retraction-complete.log`,
 La décision `decision-37234378-e0ac-4601-857e-ce0e63c25d7c` conserve le choix
 et les limites. Les validations portent sur le checkout partagé ; la
 reproduction indépendante en clone frais reste ouverte.
+
+## Extension L02/L03/L22 — run mémoire sous budget durable
+
+L'[ADR 0358](../adr/0358-verification-memoire-native-sous-budget-durable.md)
+raccorde `verify_memory_fidelity` au worker natif `verifier_worker`, à
+l'enveloppe d'autorité et au journal commun des oracles. Le run vérifie une
+mémoire persistée dans son tenant et une liaison attendue, avec sa propre
+allocation de deux processus et son échéance totale. Le budget du producteur
+n'est pas réutilisé. Les receipts lient séparément le run source et le run
+de vérification, la mémoire, les bindings et l'observation du verdict.
+
+La sonde part d'une promotion réelle et suit la nouvelle délégation,
+l'assemblée, les deux nonces et la promotion différée. Deux connexions
+concurrentes et un processus frais ne relancent pas le batch. Un budget
+insuffisant n'alloue aucun oracle. Les mémoires contradictoires, faux verdicts,
+rapports modifiés, expirations et sources rétractées sont refusés.
+
+Le checkpoint observé est `snap-19c9e081e7984063928c6d97ded86909`.
+Le batch direct conserve un budget local ; la réservation durable concerne
+la méthode du run. Une réservation interrompue avant attestation exige un
+nouveau run. La vérité source, l'utilité mémoire, les autres formats et
+magasins, l'oracle code, les pilotes représentatifs et la reproduction
+indépendante restent ouverts. Les **115 obligations** et les **six lots P1**
+restent ouverts.
+
+Validation : `npm test` complet et `cargo test --workspace` passent avec
+code 0. Les sondes mémoire et subset sum passent ; le gate qualité compte
+5 487 sources, quatre violations historiques et zéro nouvelle. Les dix-sept
+sources du commit ne présentent aucune violation. L'index ADR compte
+438 entrées sans problème. Les journaux `npm-memory-budget-complete.log`,
+`cargo-memory-budget-complete.log`, `quality-memory-budget-complete.log`,
+`native-memory-budget-qualified.log` et `native-domain-regression-first.log`
+sont conservés hors Git dans `p1-full`. La décision
+`decision-4ed161f3-bde3-43ad-af2f-72178482c232` conserve le choix et les limites.
+Les checks portent sur le checkout partagé, après les merges Studio ; ils
+ne constituent pas une reproduction indépendante du commit en clone frais.
+La conservation des coûts sur toutes les exceptions après lancement et la
+reprise de tous les crashes restent à qualifier.
 
 ## Traçabilité initiale du lancement
 

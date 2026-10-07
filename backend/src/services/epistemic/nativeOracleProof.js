@@ -2,7 +2,7 @@
 
 const values = require('../trinityProvenanceValues');
 const journal = require('./nativeOracleJournal');
-const subjects = require('./oracleProcedureSubject');
+const subjects = require('./nativeOracleDomains');
 
 async function read(db, input) {
   const attestation = await journal.read(db, { ...input, kind: 'attestation' });
@@ -27,16 +27,20 @@ function assertOwner(record, input) {
 }
 
 function assertAllocation(record, allocation) {
-  if (!allocation || allocation.hash !== record.allocationHash || allocation.value.subjectHash !== record.subjectHash
-      || allocation.value.reportHash !== record.reportHash || allocation.value.authorityHash !== record.authorityHash) {
-    throw values.failure('ORACLE_ALLOCATION_BINDING_MISMATCH');
-  }
+  assertAllocationBinding(record, allocation);
   const limits = allocation.value.limits;
   const costs = record.costs;
   assertCosts(costs, limits);
   const completed = Date.parse(record.completedAt);
   const expires = Date.parse(allocation.value.expiresAt);
   if (!Number.isFinite(completed) || !Number.isFinite(expires) || completed > expires) throw values.failure('ORACLE_BUDGET_EXCEEDED');
+}
+
+function assertAllocationBinding(record, allocation) {
+  if (!allocation || allocation.hash !== record.allocationHash) throw values.failure('ORACLE_ALLOCATION_BINDING_MISMATCH');
+  const fields = ['subjectHash', 'reportHash', 'authorityHash'];
+  if (fields.some(field => allocation.value[field] !== record[field])) throw values.failure('ORACLE_ALLOCATION_BINDING_MISMATCH');
+  if ((allocation.value.domain || 'subset_sum') !== (record.domain || 'subset_sum')) throw values.failure('ORACLE_ALLOCATION_BINDING_MISMATCH');
 }
 
 function assertCosts(costs, limits) {
@@ -54,8 +58,10 @@ async function assertCurrent(db, input) {
       || values.digest(report) !== proof.attestation.value.reportHash) throw values.failure('ORACLE_COMPLETION_RESULT_CHANGED');
   if (Date.now() >= Date.parse(proof.attestation.value.validUntil)) throw values.failure('ORACLE_ATTESTATION_EXPIRED');
   const result = proof.saved.evaluation.assembly.results[0];
-  subjects.assertAntigen({ id: result.resultId, formalResult: result, claim: result.canonicalStatement,
-    epitopes: { evidence: { digest: result.evidence.digest } } }, subject);
+  const domain = subjects.definition(subject.domain);
+  domain.subject.assertAntigen({ id: result.resultId, formalResult: result, claim: result.canonicalStatement,
+    epitopes: { evidence: { digest: result.evidence.digest } },
+    producer: domain.claim.build({ subject, workspaceRoot: authority.envelope.workspaceRoot }).producer }, subject);
   assertReceipts(proof, subject);
 }
 
@@ -79,14 +85,29 @@ function assertReceipt(receipt, subject) {
       || execution?.subject?.observationHash !== subject.observationHash
       || execution?.subject?.bindingHash !== subject.bindingHash) throw values.failure('ORACLE_RECEIPT_BINDING_MISMATCH');
   assertReceiptOwner(execution, subject);
+  assertReceiptDomain(receipt, subject);
   assertReceiptTime(receipt, subject);
-  if (!require('./oracleSubsetChecks').STRATEGIES.has(execution.postconditions?.strategy)
+  if (!subjects.definition(subject.domain).checks.STRATEGIES.has(execution.postconditions?.strategy)
       || execution.postconditions?.status !== 'verified') throw values.failure('ORACLE_STRATEGY_UNAVAILABLE');
 }
 
 function assertReceiptOwner(execution, subject) {
-  if (execution.subject.runId !== subject.content.runId || execution.subject.workerId !== subject.content.workerId
+  if (execution.subject.runId !== subject.runId || execution.subject.workerId !== subject.workerId
       || execution.subject.runBindingHash !== subject.runBindingHash) throw values.failure('ORACLE_RECEIPT_BINDING_MISMATCH');
+  if (subject.domain === 'memory_fidelity') assertMemoryReceiptOwner(execution, subject);
+}
+
+function assertMemoryReceiptOwner(execution, subject) {
+  if (execution.subject.memoryId !== subject.content.memory.id || execution.subject.sourceRunId !== subject.content.source.runId
+      || execution.subject.memoryBindingHash !== subject.memoryBindingHash || execution.postconditions.sourceTruth !== 'not_evaluated') {
+    throw values.failure('ORACLE_RECEIPT_BINDING_MISMATCH');
+  }
+}
+
+function assertReceiptDomain(receipt, subject) {
+  const type = subjects.definition(subject.domain).verifierType;
+  const expected = require('../verifierTrustRegistry').ensureVerifier(type).digest;
+  if (receipt.verifierDigest !== expected) throw values.failure('ORACLE_VERIFIER_IMPLEMENTATION_CHANGED');
 }
 
 function assertReceiptTime(receipt, subject) {

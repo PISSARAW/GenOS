@@ -27,6 +27,9 @@ const SOURCES = Object.freeze([
   'epistemic/oracleMemorySubject.js', 'epistemic/oracleMemoryChecks.js',
   'epistemic/oracleMemoryNativeEntry.cjs', 'epistemic/oracleMemoryAdapter.js', 'promotionMemoryReadGate.js',
   'aeisAssemblyStore.js', 'aeisAssemblyRetraction.js',
+  'epistemic/nativeOracleDomains.js', 'epistemic/oracleMemoryRuntimeSubject.js',
+  'epistemic/oracleMemoryClaim.js', 'agents/workerMemoryVerification.js',
+  'agents/workerExecutorRegistry.js', 'agents/workerNativeMethodCapabilities.js',
 ]);
 function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');

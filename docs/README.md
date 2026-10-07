@@ -625,3 +625,4 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0355 — Clôture native par oracles budgétés et nonces liés](adr/0355-cloture-native-par-oracles-budgetes-et-nonces-lies.md).
 - [ADR 0356 — Oracle mémoire de promotion et contrôle de lecture](adr/0356-oracle-memoire-de-promotion-et-controle-de-lecture.md).
 - [ADR 0357 — Rétraction des assemblées et mémoires dérivées](adr/0357-retraction-des-assemblees-et-memoires-derivees.md).
+- [ADR 0358 — Vérification mémoire native sous budget durable](adr/0358-verification-memoire-native-sous-budget-durable.md).
