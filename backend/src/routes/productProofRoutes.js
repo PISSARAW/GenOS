@@ -4,6 +4,10 @@ const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 
 const router = express.Router();
+router.get('/consumer-runs/:runId', requirePermission('read'), requireTenantScope(),
+  require('../controllers/consumerInspectionController').inspect);
+router.get('/consumer-agents/:agentId/latest', requirePermission('read'), requireTenantScope(),
+  require('../controllers/consumerInspectionController').inspect);
 router.get('/safe-debugging', controller.getSafeDebugging);
 router.post('/safe-debugging/run', requirePermission('experiment:run'), requireTenantScope({ write: true }), controller.runSafeDebugging);
 router.get('/safe-debugging/workspaces/:workspaceId', requireTenantScope(), controller.inspectWorkspace);

@@ -107,6 +107,10 @@ function validateStdpTenant(context, sourceRow, targetRow) {
   return null;
 }
 
+function validateTenantContext(context, sRow, tRow) {
+  return validateStdpTenant(context, sRow, tRow);
+}
+
 function resolveSynapseWeight(row, fallback) {
   return row ? row.weight : fallback;
 }
@@ -144,9 +148,7 @@ function validateParams(params) {
 }
 
 async function resolveIdsAndParams(context) {
-  const ids = resolveIds(context);
-  const params = resolveParams(context);
-  return { db: await databaseFor(context), ids, params };
+  return { db: await databaseFor(context), ids: resolveIds(context), params: resolveParams(context) };
 }
 
 async function detectAndValidatePair(db, context, ids) {
@@ -199,8 +201,8 @@ function computeUpdate(params, transmitterType, context) {
   return computeStdpUpdate({ learningRate: params.learningRate, deltaT: params.deltaT, tauPlus: params.tauPlus, tauMinus: params.tauMinus, neuromodulationFactor });
 }
 
-async function executeTransaction(db, ids, params) {
-  const { transmitterType, preSpikeAt, postSpikeAt, deltaT, orgId, projId, update } = params;
+async function executeTransaction(db, ids, opts) {
+  const { update, transmitterType, preSpikeAt, postSpikeAt, deltaT, orgId, projId } = opts;
   return withTransaction(db, async (tx) => {
     const initialWeight = Math.max(-20.0, Math.min(20.0, update > 0 ? update : 1.0 + update));
     await tx.run(
@@ -236,8 +238,7 @@ async function readUpdatedWeight(db, ids) {
   return resolveSynapseWeight(row, 0);
 }
 
-async function emitTelemetry(context, ids, params) {
-  const { deltaT, transmitterType, newWeight, update } = params;
+async function emitTelemetry(context, ids, { deltaT, transmitterType, newWeight, update }) {
   telemetry.emitEvent({
     eventType: 'STDP_SYNAPSE_UPDATED',
     agentId: firstTruthy(context.agentId, 'strategy_adapter'),
@@ -259,16 +260,17 @@ async function stdpUpdate(context) {
   if (validationError) return validationError;
   const deltaT = computeDeltaT(preSpikeAt, postSpikeAt);
   if (deltaT.error) return { success: false, error: deltaT.error };
-  const update = computeUpdate({ ...params, deltaT }, params.transmitterType, context);
+  Object.assign(params, { preSpikeAt, postSpikeAt, deltaT });
   const pairRows = await loadPairRows(db, ids);
   if (pairRows.error) return { success: false, error: pairRows.error };
   const { sRow, tRow } = pairRows;
   const tenantError = validateTenant(context, pairRows.sRow, pairRows.tRow);
   if (tenantError) return { success: false, error: tenantError.error };
   const { orgId, projId } = resolveOrgAndProj(context, sRow);
-  const newWeight = await executeTransaction(db, ids, { ...params, ...times, deltaT, orgId, projId, update });
-  await emitTelemetry(context, ids, { deltaT, transmitterType: params.transmitterType, newWeight, update });
-  return { success: true, sourceId: ids.sourceId, targetId: ids.targetId, deltaT, update, transmitterType: params.transmitterType, newWeight };
+  const updateValue = computeUpdate(params, params.transmitterType, context);
+  const newWeight = await executeTransaction(db, ids, { update: updateValue, transmitterType: params.transmitterType, preSpikeAt: params.preSpikeAt, postSpikeAt: params.postSpikeAt, deltaT: params.deltaT, orgId, projId });
+  await emitTelemetry(context, ids, { deltaT: params.deltaT, transmitterType: params.transmitterType, newWeight, update: updateValue });
+  return { success: true, sourceId: ids.sourceId, targetId: ids.targetId, deltaT: params.deltaT, update: updateValue, transmitterType: params.transmitterType, newWeight };
 }
 
 module.exports = { stdpUpdate, firstTruthy, firstNonNull };

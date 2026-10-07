@@ -25,9 +25,13 @@ mod system_parallel;
 mod system_generate;
 mod system_interactive;
 mod recovery;
+mod consumer;
 
 fn run_command(command: &Commands, yes: bool) {
     match command {
+        Commands::InspectRun { run_id, organization_id, project_id } => consumer::run(&consumer::Inspection {
+            run_id, organization_id, project_id,
+        }),
         Commands::Core(cmd) => core::handle_core(cmd, yes),
         Commands::Query(cmd) => query::handle_query(cmd, yes),
         Commands::Advanced(cmd) => advanced::handle_advanced(cmd, yes),

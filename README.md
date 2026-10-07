@@ -72,7 +72,7 @@ Fonctionnalités implémentées :
 
 - **Snapshots, forks, diffs et replay** pour versionner et comparer l'état d'un workspace.
 - **Démo de débogage parallèle sûr** : `examples/safe-debugging-demo`, exécutable sans clé API.
-- **GenOS Studio** et backend Node.js : plan de contrôle, API REST, services gRPC et persistance SQLite WAL.
+- **GenOS Studio** et backend Node.js : [client de supervision](integrations/studio/README.md) à `/studio/`, API REST, services gRPC et persistance SQLite WAL ; [VSIX VS Code de référence](integrations/ide/vscode/README.md) pour inspecter les mêmes runs.
 - **CLI Rust** et serveur MCP stdio pour les opérations locales et les intégrations.
 - **Natural Search Control Plane** : contrôle de pression et de progrès, ledger d'hypothèses et reprise atomique SQLite des états des phases 6–12 ; transmission culturelle sous preuve. Voir le [contrat et ses limites](docs/01-concepts/natural-search-control-plane.md).
 - **Runtime agentique supervisé** : lance des runtimes configurés, collecte leurs événements, applique des budgets et conserve les résultats et preuves.

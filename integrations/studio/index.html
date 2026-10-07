@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GenOS Studio</title><link rel="stylesheet" href="style.css"><script src="studio.js" defer></script></head>
+<body><main>
+<header><p>GENOS · SUPERVISION</p><h1>Studio</h1><p>Inspecter une exécution, ses preuves et son workspace.</p></header>
+<form id="connection">
+<label>Clé d’accès<input id="token" type="password" autocomplete="off" required></label>
+<label>Organisation<input id="organization" required></label>
+<label>Projet<input id="project" required></label>
+<label>Agent<input id="agent" required></label>
+<button type="submit">Ouvrir l’exécution</button><button id="disconnect" type="button">Déconnecter</button>
+</form>
+<p id="message" role="status" aria-live="polite">Connectez-vous avec une clé autorisée sur ce projet.</p>
+<section id="inspection" hidden>
+<h2>Exécution <span id="run-id"></span></h2><p id="run-status"></p><p id="workspace"></p>
+<button id="refresh" type="button">Actualiser</button>
+<h3>Étapes</h3><table><thead><tr><th>Étape</th><th>État observé</th></tr></thead><tbody id="steps"></tbody></table>
+<h3>Promotion</h3><p id="promotion"></p>
+<details><summary>Soumettre un dossier d’approbation signé</summary>
+<form id="approval"><label>Dossier JSON<textarea id="approval-json" rows="6" required></textarea></label>
+<button type="submit">Soumettre l’approbation</button></form></details>
+<h3>Provenance mémoire</h3><pre id="provenance"></pre>
+<h3>Snapshots du workspace</h3><ul id="snapshots"></ul>
+<button id="snapshot" type="button">Capturer un snapshot</button>
+</section></main></body></html>

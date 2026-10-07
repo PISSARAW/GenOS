@@ -8,6 +8,15 @@ pub mod recovery;
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Relire un run et sa provenance via le backend authentifié.
+    InspectRun {
+        #[arg(long)]
+        run_id: String,
+        #[arg(long)]
+        organization_id: String,
+        #[arg(long)]
+        project_id: String,
+    },
     #[command(flatten)]
     Core(core::CoreCommands),
     #[command(flatten)]

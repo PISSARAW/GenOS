@@ -121,7 +121,7 @@ async function scopedIntegration(req, db) {
 async function heartbeat(req, res) {
   const db = await getDatabase();
   const integration = await scopedIntegration(req, db);
-  if (!integration) return res.status(404).json({ error: { code: 'IDE_INTEGRATION_NOT_FOUND', message: 'IDE integration not found in this project.' } });
+  if (!integration || integration.status !== 'connected') return res.status(404).json({ error: { code: 'IDE_INTEGRATION_NOT_FOUND', message: 'Connected IDE integration not found in this project.' } });
   await db.run('UPDATE ide_integrations SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?', integration.id);
   res.json({ id: integration.id, status: 'connected', lastSeenAt: new Date().toISOString() });
 }

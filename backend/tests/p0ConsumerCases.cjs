@@ -24,7 +24,7 @@ module.exports = {
   L05: ['test_gvx_experiment_protocol.js', 'test_gvx_benchmark_protocol.js',
     'test_gvx_standard_cycle.js', 'test_evaluation_observability.js',
     'run_quality_suite.js'],
-  L22: ['test_backend.js', 'test_grpc_services.js', 'test_grpc_success_truthfulness.js',
+  L22: ['test_consumer_inspection.js', 'test_backend.js', 'test_grpc_services.js', 'test_grpc_success_truthfulness.js',
     'test_consumer_workflow_grpc.js',
     'test_mcp_http_transport.js', 'test_mcp_explicit_transport.js',
     'test_mcp_server_parity.js', 'test_ide_contract.js',

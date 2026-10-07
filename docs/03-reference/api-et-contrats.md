@@ -415,10 +415,18 @@ flowchart TB
     Gateway --> Handlers
 ```
 
-Les clients Web, extensions IDE et SDK de ce schéma sont des consommateurs
-possibles, pas des applications distribuées par ce dépôt. Le backend REST est
+Un Studio de supervision et un VSIX VS Code de référence sont livrés sous
+`integrations/studio` et `integrations/ide/vscode`. Les autres clients et SDK
+du schéma restent des consommateurs possibles. Le backend REST est
 Express ; Axum est utilisé par la CLI Rust pour ses fonctions locales, pas comme
 deuxième implémentation du backend REST.
+
+Les lectures `GET /api/product-proofs/consumer-runs/:runId` et
+`GET /api/product-proofs/consumer-agents/:agentId/latest` exigent `read` et un
+scope organisation/projet explicite. Elles relisent le journal scellé, les
+assemblages AEIS et les liens de provenance mémoire avant affichage ; les
+données d’un autre projet ne sont pas retournées. Le Studio transmet les
+approbations signées au contrôleur existant, avec les mêmes gates.
 
 ### 2. Séquence d'échange gRPC unaire
 

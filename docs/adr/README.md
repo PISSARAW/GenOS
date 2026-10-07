@@ -431,6 +431,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0344](0344-refactorings-qualite-et-frontieres-de-controle.md) | Refactorings de qualité et frontières de contrôle | accepté. | 2026-10-07. | -- |
 | [0345](0345-provenance-memoire-des-promotions.md) | Lier la mémoire de promotion à son exécution | accepté. | 2026-10-07. | -- |
 | [0346](0346-journal-de-reprise-des-promotions.md) | Journal de reprise des promotions | Accepté | 2026-10-07 | Promotions, persistance et récupération |
+| [0347](0347-clients-studio-et-vscode-de-reference.md) | Clients Studio et VS Code de référence | Accepté | 2026-10-07 | Consommateurs, interfaces et preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

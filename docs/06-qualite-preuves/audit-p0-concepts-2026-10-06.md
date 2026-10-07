@@ -413,3 +413,15 @@ revendiquée. Le lien global CLI/IDE/Studio/TUI et les holdouts restent partiels
 B06 reste partiel pour ces garanties plus fortes et les autres consommateurs.
 Les nouveaux chemins corrigés ne démontrent pas les fonctionnalités de recherche
 P1 proposées, une vérité philosophique ni un gain empirique IA.
+
+## Neuvième reprise P0 : clôture B06
+
+Le [rapport B06](qualification-b06-reprise-et-holdout-2026-10-07.md) clôture
+la qualification des parcours P0 implémentés. Il documente les promotions
+concurrentes avec lots frais, les six frontières de reprise du journal scellé,
+la publication Windows bornée, la provenance mémoire et un pilote IA réel.
+Le Studio livré, le VSIX installé dans un hôte VS Code natif, le CLI `g` et
+le TUI relisent le même run ; les refus de scope et de preuve restent actifs.
+Les limites historiques ci-dessus sont conservées comme résultats des passes
+antérieures. Les fonctionnalités scientifiques du plan restent à qualifier
+séparément ; aucune généralisation du pilote synthétique n'est revendiquée.

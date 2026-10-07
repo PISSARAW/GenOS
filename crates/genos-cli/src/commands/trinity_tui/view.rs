@@ -22,7 +22,9 @@ pub fn render(frame: &mut Frame, app: &TrinityApp) {
 
     render_header(frame, chunks[0], app);
 
-    if !app.live && app.show_dashboard && app.completed {
+    if app.live && app.show_dashboard {
+        render_summary_dashboard(frame, chunks[1], app);
+    } else if !app.live && app.show_dashboard && app.completed {
         render_full_dashboard(frame, chunks[1], app);
     } else {
         render_columns(frame, chunks[1], app);
@@ -76,18 +78,15 @@ fn render_columns(frame: &mut Frame, area: Rect, app: &TrinityApp) {
         if app.worlds.is_empty() {
             return;
         }
-        let idx = (focused.saturating_sub(1) as usize).min(app.worlds.len() - 1);
-        render_single_world(frame, area, &app.worlds[idx]);
-        return;
+        if let Some(world) = app.worlds.iter().find(|world| world.id == focused) {
+            render_single_world(frame, area, world);
+            return;
+        }
     }
 
     let col_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(33),
-            Constraint::Percentage(34),
-            Constraint::Percentage(33),
-        ])
+        .constraints(vec![Constraint::Ratio(1, app.worlds.len().max(1) as u32); app.worlds.len().max(1)])
         .split(area);
 
     for (i, world) in app.worlds.iter().enumerate() {
@@ -142,7 +141,7 @@ fn render_single_world(frame: &mut Frame, area: Rect, world: &WorldState) {
         .block(Block::default().borders(Borders::NONE))
         .gauge_style(Style::default().fg(border_color).bg(Color::DarkGray))
         .percent(world.progress)
-        .label(format!("{}% | {} tok | {}", world.progress, world.tokens, world.model_tier));
+        .label(world_metrics_label(world));
     frame.render_widget(gauge, meta_chunks[0]);
 
     let hypo_text = vec![Line::from(vec![
@@ -278,7 +277,13 @@ fn render_full_dashboard(frame: &mut Frame, area: Rect, _app: &TrinityApp) {
     frame.render_widget(paragraph, area);
 }
 
-fn render_footer(frame: &mut Frame, area: Rect, _app: &TrinityApp) {
+fn world_metrics_label(world: &WorldState) -> String {
+    let progress = if world.progress_known { format!("{}%", world.progress) } else { "Progress unknown".to_string() };
+    let tokens = if world.tokens_known { format!("{} tok", world.tokens) } else { "tokens unknown".to_string() };
+    format!("{progress} | {tokens} | {}", world.model_tier)
+}
+
+fn render_footer(frame: &mut Frame, area: Rect, app: &TrinityApp) {
     let line = Line::from(vec![
         Span::styled(" [q] ", Style::default().fg(Color::Black).bg(Color::White).add_modifier(Modifier::BOLD)),
         Span::styled("Quit  ", Style::default().fg(Color::White)),
@@ -286,8 +291,7 @@ fn render_footer(frame: &mut Frame, area: Rect, _app: &TrinityApp) {
         Span::styled("Toggle Dashboard  ", Style::default().fg(Color::White)),
         Span::styled(" [1/2/3] ", Style::default().fg(Color::Black).bg(Color::White).add_modifier(Modifier::BOLD)),
         Span::styled("Focus Column  ", Style::default().fg(Color::White)),
-        Span::styled(" [r] ", Style::default().fg(Color::Black).bg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::styled("Restart Execution  ", Style::default().fg(Color::White)),
+        Span::styled(if app.live { "" } else { " [r] Restart Execution " }, Style::default().fg(Color::White)),
     ]);
     let paragraph = Paragraph::new(vec![line]).alignment(Alignment::Center);
     frame.render_widget(paragraph, area);

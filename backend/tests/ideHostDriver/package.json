@@ -1,0 +1,1 @@
+{"name":"genos-qualification-driver","publisher":"genos-tests","version":"1.0.0","engines":{"vscode":"^1.100.0"},"main":"driver.cjs","activationEvents":["*"]}

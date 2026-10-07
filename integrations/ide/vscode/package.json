@@ -1,0 +1,18 @@
+{
+  "name": "genos-runtime-client",
+  "displayName": "GenOS Runtime",
+  "description": "Inspection du runtime GenOS avec authentification et scope projet.",
+  "version": "1.0.0",
+  "publisher": "genos",
+  "engines": { "vscode": "^1.100.0" },
+  "main": "./extension.cjs",
+  "activationEvents": ["onCommand:genos.connect", "onCommand:genos.inspect", "onCommand:genos.disconnect", "onCommand:genos.configure"],
+  "contributes": {
+    "commands": [
+      { "command": "genos.configure", "title": "GenOS: Configurer la connexion" },
+      { "command": "genos.connect", "title": "GenOS: Connecter le workspace" },
+      { "command": "genos.inspect", "title": "GenOS: Inspecter l’exécution" },
+      { "command": "genos.disconnect", "title": "GenOS: Déconnecter" }
+    ]
+  }
+}

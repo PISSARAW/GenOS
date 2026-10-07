@@ -12,7 +12,7 @@ Les intégrations IDE de GenOS exposent une couche de protocole permettant à un
 - rester identifiable lors d'une reconnexion ;
 - être révoqué explicitement.
 
-Le dépôt prend en charge contractuellement `vscode`, `jetbrains` et `antigravity`. Il contient le contrat, les routes HTTP et le service gRPC, mais ne contient pas une extension distribuable VS Code (`package.json` d'extension), un plugin JetBrains ou un adaptateur Antigravity spécifique. Le support implémenté est donc un **backend d'intégration IDE multi-client**, pas trois extensions clients complètes.
+Le dépôt prend en charge contractuellement `vscode`, `jetbrains` et `antigravity`. Il livre aussi un [client VS Code de référence](../../integrations/ide/vscode/README.md), empaquetable en VSIX, et un [Studio de supervision](../../integrations/studio/README.md). JetBrains et l’adaptateur IDE Antigravity restent à fournir ; leur configuration MCP ne constitue pas une extension du protocole IDE.
 
 Les sources de vérité sont :
 
@@ -331,7 +331,7 @@ sequenceDiagram
 
 ### 11.1 VS Code
 
-Une extension VS Code, externalisée de ce repo, télécharge le contrat, connecte le workspace ouvert avec un `clientId` généré et persistant, publie l'avancement d'une tâche GenOS et affiche les diagnostics de compatibilité. Les opérations de fichier sensibles passent par les primitives VFS autorisées plutôt que par une URL arbitraire.
+Le client de référence livré dans `integrations/ide/vscode` télécharge le contrat, connecte le workspace désigné avec un `clientId` persistant, envoie un heartbeat et affiche les diagnostics. La commande d’inspection ouvre le run, les snapshots et les liens de provenance dans un document JSON natif. La clé d’accès est placée dans SecretStorage ; la déconnexion révoque l’intégration. Ce client ne publie pas encore la progression des tâches de l’éditeur et ne modifie pas le VFS.
 
 ### 11.2 JetBrains
 
@@ -366,7 +366,7 @@ Cette analogie décrit des rôles techniques. Elle ne signifie pas qu'un éditeu
 
 | Sujet | GenOS | VS Code Remote/JetBrains Gateway | Plateformes d'agents IDE |
 | --- | --- | --- | --- |
-| Client livré | Contrat et serveur backend, clients à fournir | Clients et protocoles complets | Souvent extension propriétaire complète |
+| Client livré | Backend, Studio de référence et VSIX VS Code ; autres clients à fournir | Clients et protocoles complets | Souvent extension propriétaire complète |
 | Multi-IDE | Contrat unique pour trois identifiants | Souvent protocole propre à l'éditeur | Variable |
 | Authentification | Access keys/sessions + RBAC + tenant | Compte éditeur, SSH ou Gateway | Token SaaS et workspace |
 | Workspace | Référence durable + VFS sandbox | Synchronisation fichier/remote complète | Accès contrôlé au repo |
@@ -374,21 +374,21 @@ Cette analogie décrit des rôles techniques. Elle ne signifie pas qu'un éditeu
 | Reconnexion | `clientId` + index unique workspace | Gestion de session mature | Variable |
 | Versioning | semver majeur strict, mineur forward-compatible | Protocoles souvent versionnés | Variable |
 
-GenOS est plus proche d'un control plane d'intégration que d'un remplacement de VS Code Remote ou JetBrains Gateway. Sa force est d'associer chaque action IDE à une identité, un scope tenant, une télémétrie et un sandbox. Sa limite actuelle est l'absence de packages clients et de synchronisation temps réel de buffers/événements d'éditeur.
+GenOS est plus proche d'un control plane d'intégration que d'un remplacement de VS Code Remote ou JetBrains Gateway. Chaque action reste associée à une identité, un scope tenant et un sandbox. Le client VS Code couvre l’inspection ; la synchronisation temps réel des buffers et les packages JetBrains/Antigravity restent absents.
 
 ---
 
 ## 14. Limites et recommandations
 
-- Ne pas présenter `vscode`, `jetbrains` ou `antigravity` comme des extensions prêtes à installer depuis ce dépôt : ils sont des cibles contractuelles.
+- Le VSIX VS Code de référence est installable depuis ce dépôt ; JetBrains et Antigravity restent des cibles contractuelles.
 - Conserver un `clientId` stable et opaque par installation client/workspace.
 - Lire contrat, capacités et commandes avant d'activer une feature optionnelle.
 - Envoyer des heartbeats réguliers ; traiter `stale` comme un signal de supervision, sans révocation automatique. Un opérateur ou le client décide de reconnecter ou de révoquer.
 - Toujours joindre token et headers de tenant valides aux routes protégées.
 - Ne pas contourner le VFS sandbox par des chemins ou commandes directement construits côté client.
-- Ajouter des tests d'intégration HTTP pour connect/heartbeat/revoke et un client de référence avant de revendiquer une intégration IDE complète.
+- Le parcours B06 teste le VSIX installé dans un hôte VS Code réel : connexion, inspection, heartbeat, révocation et reconnexion. Les fonctions non exercées ne deviennent pas une intégration IDE complète.
 
-En résumé, GenOS possède un socle d'intégration IDE sûr et versionné : contrat partagé, identité durable, isolation tenant, progression observable, diagnostics et VFS contrôlé. La dernière étape, hors du code actuellement présent, est la livraison d'adaptateurs clients réels pour chaque IDE ciblé.
+Le socle comprend un contrat partagé, une identité durable, une isolation tenant, des diagnostics et un VFS contrôlé. Le client VS Code de référence et le Studio sont livrés ; les autres adaptateurs et la synchronisation de buffers constituent des extensions distinctes.
 
 
 

@@ -174,5 +174,7 @@ La [qualification B06](qualification-b06-reprise-et-holdout-2026-10-07.md)
 remplace les limites de concurrence et de reprise des promotions ci-dessus
 par les garanties bornées du journal scellé. Elle conserve les échecs précédents,
 qualifie les retries de publication Windows, un pilote IA réel et une session
-TUI live. Studio et l'extension IDE installée restent à exercer ; la maturité
-scientifique de tous les concepts n'est pas déduite de ce pilote.
+TUI live. La clôture documentée dans ce rapport apporte ensuite un Studio,
+un VSIX réellement installé dans VS Code, `g inspect-run` et le TUI sur le
+même run. B06 est acquis pour les parcours P0 implémentés ; la maturité
+scientifique de tous les concepts n'est pas déduite du pilote IA.

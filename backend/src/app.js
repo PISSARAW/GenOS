@@ -122,6 +122,11 @@ function createApp() {
   app.use(csrfCheck);
   app.use(xssSanitizer);
 
+  // Only static client assets are public; all runtime reads still use the API gate.
+  app.use('/studio', express.static(require('path').resolve(__dirname, '../../integrations/studio'), {
+    dotfiles: 'deny', index: 'index.html', redirect: true
+  }));
+
   // 3. Global authentication gate. No API surface is reachable without a
   // valid access key or session except the explicitly public probes and the
   // login/SSO/CSRF-issuance endpoints. Per-route permission checks apply on

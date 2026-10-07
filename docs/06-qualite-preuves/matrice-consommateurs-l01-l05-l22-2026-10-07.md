@@ -34,9 +34,9 @@ journaux de la passe finale sont référencés dans le
 | RE — REST | app → routes et contrôleurs → SQLite | API réelle avec serveur HTTP, contrats et rapports persistés | test_backend ; test_strategy_contracts ; test_compliance_integrations | Couverture des parcours testés ; pas de parité de toutes les routes |
 | GR — gRPC | workflow.proto → workflowService / mcpService → SQLite / executor | État réel sérialisé ; échec MCP structuré propagé ; périmètre contrôlé | test_grpc_services ; test_grpc_success_truthfulness ; test_consumer_workflow_grpc | 41 services sondés ; clé partagée de plateforme, pas de RBAC tenant individuel via gRPC |
 | MC — MCP | MCP HTTP / explicite / stdio ; catalogues Node et Rust | Transport et leases ; erreurs propagées | test_mcp_http_transport ; test_mcp_explicit_transport ; test_mcp_server_parity ; cargo test --workspace | Parité Node/Rust testée seulement sur un sous-ensemble ; pas de parité sémantique globale |
-| CL — CLI et façade g | g.ps1 → genos-simple-cli → genos-cli ; operator Node | Façade réelle --help exécutée ; contrôles CLI Rust et opérateur SQLite | operator-g-help.log ; cargo test --workspace ; test_ontogenesis_operator_cli | Aide du shim seulement ; aucune mutation destructive lancée ; pas de parcours commun CLI/backend complet |
-| ID — IDE | ideRoutes → ideController → ide_integrations | Contrat HTTP et compatibilité de version | test_ide_contract ; test_compliance_integrations | Connexion, commandes depuis une extension installée et état interinterfaces non exercés |
-| UI — Studio / TUI | API Studio ; CLI/TUI natif → trinityMonitorServer → SQLite | Session live TUI, données des trois mondes, navigation et sortie terminal | b06/tui-interaction.json ; fixture moniteur réelle | Moniteur borné qualifié ; client Studio web opérationnel absent de ce dépôt et extension IDE installée non exercée |
+| CL — CLI et façade g | g.ps1 → genos-simple-cli inspect-run → API ; CLI/TUI natif | Relecture authentifiée du run, provenance et snapshots ; refus anonyme et mauvais projet | b06/clients-verified/cli.log ; client-results.json | Lecture qualifiée ; la parité de chaque mutation des APIs n’est pas déduite de cette commande |
+| ID — IDE | VSIX installé → genos.ide/v1 → SQLite | Connexion, inspection en document JSON natif, heartbeat, révocation et reconnexion avec identité conservée | b06/clients-verified/ide-result.json ; ide-install.log ; ide-host.log | VS Code de référence ; pas de synchronisation des buffers ni de package JetBrains/Antigravity |
+| UI — Studio / TUI | Studio navigateur → API ; TUI natif → trinityMonitorServer → même SQLite | Approbation signée, refus sans signature, snapshot, provenance ; affichage live des seuls mondes observés | b06/clients-verified/studio.png ; tui.json ; client-results.json | Supervision des parcours implémentés ; progression et tokens non mesurés affichés inconnus |
 | OB — Observabilité | telemetryObserver / trace replay / audit logs / health | Sessions et IDs persistés, trace relue, audit tenant et sondes réelles | test_trace_replay_semantics ; test_audit_tenant_scope ; test_session_telemetry_identity ; test_deployment_health | Health/readiness ne démontrent pas la validité d’une décision ; export externe et alertes bout en bout non qualifiés |
 | MP — MsgPack | bioPolymerPersistenceService | Aller-retour binaire des données de fixture | test_bio_polymer_roundtrip | Ne démontre pas l’absence de perte de tous les formats des interfaces |
 
@@ -113,7 +113,7 @@ journaux de la passe finale sont référencés dans le
 | C566 | CLI Rust | L22 | CL | P |
 | C567 | Façade opérateur `g` | L22 | CL | P |
 | C568 | IDE `genos.ide/v1` | L22 | ID | P |
-| C569 | Studio | L22 | UI | N |
+| C569 | Studio | L22 | UI | P |
 | C570 | TUI | L22 | UI | P |
 | C575 | Event log | L22 | OB | P |
 | C576 | MsgPack | L22 | MP | Q |
@@ -174,8 +174,9 @@ journaux de la passe finale sont référencés dans le
   canaux, replay causal et effets externes non annulables.
 - L05 : pilote IA réel exécuté sur huit cas réservés avec oracle hors prompt ;
   restent les domaines représentatifs, coûts matériels, ablations et puissance.
-- L22 : parcours interactif Studio, extension IDE installée et parité
-  sémantique de toutes les surfaces sur un même run.
+- L22 : le parcours de référence Studio/VS Code/CLI/TUI relit le même run et
+  les mêmes liens de provenance ; restent la parité exhaustive des mutations,
+  les SDK et les autres packages IDE.
 
 Aucun gain IA ni aucune nouvelle fonctionnalité de recherche n’est établi par
 cette matrice. Les entrées du registre, les imports et les assertions de texte

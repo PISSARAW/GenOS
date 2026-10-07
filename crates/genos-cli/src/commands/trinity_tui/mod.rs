@@ -6,7 +6,7 @@ use std::io::stdout;
 use std::time::{Duration, Instant};
 
 use crossterm::{
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -51,6 +51,10 @@ fn handle_key_code(app: &mut TrinityApp, code: KeyCode) -> bool {
     }
 }
 
+fn handle_key(app: &mut TrinityApp, key: KeyEvent) -> bool {
+    key.kind == KeyEventKind::Press && handle_key_code(app, key.code)
+}
+
 type TuiTerminal = Terminal<CrosstermBackend<std::io::Stdout>>;
 
 fn setup_terminal() -> Result<TuiTerminal, String> {
@@ -68,7 +72,7 @@ fn process_step(terminal: &mut TuiTerminal, app: &mut TrinityApp, last_tick: &mu
     let timeout = tick_rate.saturating_sub(last_tick.elapsed());
     if event::poll(timeout).unwrap_or(false) {
         if let Ok(Event::Key(key)) = event::read() {
-            if handle_key_code(app, key.code) {
+            if handle_key(app, key) {
                 return Ok(true);
             }
         }
@@ -129,13 +133,28 @@ pub fn run_live(host: &str, port: u16, mission_id: Option<&str>) -> Result<(), S
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if event::poll(timeout).unwrap_or(false) {
             if let Ok(Event::Key(key)) = event::read() {
-                if handle_key_code(&mut app, key.code) {
+                if handle_key(&mut app, key) {
                     return Ok(());
                 }
             }
         }
         if last_tick.elapsed() >= tick_rate {
             last_tick = Instant::now();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dashboard_toggles_once_per_windows_key_press() {
+        let mut app = TrinityApp::new_live("key-test");
+        for kind in [KeyEventKind::Press, KeyEventKind::Repeat, KeyEventKind::Release] {
+            assert!(!handle_key(&mut app, KeyEvent::new_with_kind(KeyCode::Char('s'),
+                event::KeyModifiers::NONE, kind)));
+            assert!(app.show_dashboard);
         }
     }
 }

@@ -67,7 +67,7 @@ function deriveVerdict(status, score) {
 
 function deriveProgress(status, previousProgress = 0) {
   if (status === 'queued') return 0;
-  if (status === 'running') return Math.min(95, Math.max(10, previousProgress + 5));
+  if (status === 'running') return Math.min(95, Math.max(0, previousProgress));
   if (['completed', 'error', 'terminated', 'apoptosis', 'quarantined', 'blocked'].includes(status)) return 100;
   return previousProgress;
 }
@@ -140,7 +140,6 @@ class TrinityMonitorServer {
       const key = `${missionId}:${world.world_number}`;
       const previousProgress = this.progressByWorld.get(key) || 0;
       const progress = deriveProgress(status, previousProgress);
-      this.progressByWorld.set(key, progress);
       if (this.progressByWorld.size > MAX_PROGRESS_ENTRIES) {
         this.progressByWorld.delete(this.progressByWorld.keys().next().value);
       }
@@ -154,6 +153,7 @@ class TrinityMonitorServer {
         hypothesis: world.current_task || '',
         modelTier: world.model_tier || 'Standard',
         progress,
+        progressKnown: this.progressByWorld.has(key),
         evidenceScore: score,
         verdict: deriveVerdict(status, score),
         updatedAt: world.updated_at

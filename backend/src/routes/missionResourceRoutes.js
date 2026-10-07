@@ -11,9 +11,9 @@ const missionChecks = require('../services/missionRegenerationChecksService');
 const wakeRecovery = require('../services/survivalWakeRecoveryService');
 
 const router = express.Router();
-router.use(requireRole(['admin']));
+const adminOnly = requireRole(['admin']);
 
-router.post('/missions/:missionId/resources', async (req, res, next) => {
+router.post('/missions/:missionId/resources', adminOnly, async (req, res, next) => {
   try {
     const observation = await registry.record(await getDatabase(), {
       ...req.body, missionId: req.params.missionId,
@@ -23,7 +23,7 @@ router.post('/missions/:missionId/resources', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.get('/missions/:missionId/resources/:kind/:resourceKey', async (req, res, next) => {
+router.get('/missions/:missionId/resources/:kind/:resourceKey', adminOnly, async (req, res, next) => {
   try {
     const observation = await registry.latest(await getDatabase(), {
       missionId: req.params.missionId, kind: req.params.kind, resourceKey: req.params.resourceKey
@@ -33,7 +33,7 @@ router.get('/missions/:missionId/resources/:kind/:resourceKey', async (req, res,
   } catch (error) { return next(error); }
 });
 
-router.post('/missions/:missionId/wake', async (req, res, next) => {
+router.post('/missions/:missionId/wake', adminOnly, async (req, res, next) => {
   try {
     const db = await getDatabase();
     const mission = await missions.get(db, req.params.missionId);
@@ -52,7 +52,7 @@ router.post('/missions/:missionId/wake', async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
-router.post('/missions/:missionId/wake/retry', async (req, res, next) => {
+router.post('/missions/:missionId/wake/retry', adminOnly, async (req, res, next) => {
   try {
     const result = await wakeRecovery.retryAmbiguous(await getDatabase(), {
       missionId: req.params.missionId, evidenceRef: req.body?.evidenceRef,
@@ -62,7 +62,7 @@ router.post('/missions/:missionId/wake/retry', async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
-router.post('/missions/:missionId/regeneration-checks/:role', async (req, res, next) => {
+router.post('/missions/:missionId/regeneration-checks/:role', adminOnly, async (req, res, next) => {
   try {
     const policy = await missionChecks.configure(await getDatabase(), {
       missionId: req.params.missionId, role: req.params.role,
@@ -72,7 +72,7 @@ router.post('/missions/:missionId/regeneration-checks/:role', async (req, res, n
   } catch (error) { return next(error); }
 });
 
-router.get('/missions/:missionId/regeneration-checks/:role', async (req, res, next) => {
+router.get('/missions/:missionId/regeneration-checks/:role', adminOnly, async (req, res, next) => {
   try {
     const policy = await missionChecks.get(await getDatabase(), req.params.missionId, req.params.role);
     if (!policy) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No regeneration checks configured.' } });
