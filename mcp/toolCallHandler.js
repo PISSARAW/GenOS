@@ -102,7 +102,7 @@ function parseCliOutput(text) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
-function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
+async function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   // Fail-closed: un outil sans pont dedie est refuse explicitement au lieu
   // d'etre envoye vers une orchestration generique.
   const action = ORCHESTRATOR_ACTIONS[name];
@@ -110,7 +110,10 @@ function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   const request = { action, ...args };
   if (name === 'genos_delegate_worker' && request.background === undefined) request.background = true;
   if (name === 'genos_orchestrate' && request.background === undefined) request.background = true;
-  return runOrchestrator(request, { onTelemetry });
+  const text = await runOrchestrator(request, { onTelemetry });
+  const result = parseCliOutput(text);
+  if (result?.success === false) throw new Error(result.error || `Orchestrator action '${name}' failed.`);
+  return text;
 }
 
 async function philosophyCall(args) {

@@ -65,11 +65,34 @@ const failedCli = createToolCallHandler({
   runGenosCli: async () => JSON.stringify({ success: false, status: 'capability_unavailable', error: 'No verified snapshot.' }),
   executeStrategyTool: async () => null
 });
+const failedOrchestrator = createToolCallHandler({
+  runOrchestrator: async () => JSON.stringify({ success: false, error: 'No authorized organization change.' }),
+  runGenosCli: async () => '',
+  executeStrategyTool: async () => null
+});
 process.env.GENOS_MCP_LEASE = 'genos_snapshot';
 try {
   const response = await failedCli({ params: { name: 'genos_snapshot', arguments: { agent: 'agent.json', out: 'snapshot.json' } } });
   assert.equal(response.isError, true);
   assert.match(response.content[0].text, /No verified snapshot/);
+} finally {
+  if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE;
+  else process.env.GENOS_MCP_LEASE = previousLease;
+}
+process.env.GENOS_MCP_LEASE = 'genos_change_organization';
+try {
+  const response = await failedOrchestrator({ params: { name: 'genos_change_organization', arguments: {
+    organization: 'specialist_expert_committee' } } });
+  assert.equal(response.isError, true);
+  assert.match(response.content[0].text, /No authorized organization change/);
+  const accepted = createToolCallHandler({
+    runOrchestrator: async () => JSON.stringify({ status: 'accepted', missionId: 'queued-test' }),
+    runGenosCli: async () => '', executeStrategyTool: async () => null
+  });
+  const queued = await accepted({ params: { name: 'genos_change_organization', arguments: {
+    organization: 'specialist_expert_committee' } } });
+  assert.notEqual(queued.isError, true);
+  assert.equal(JSON.parse(queued.content[0].text).status, 'accepted');
 } finally {
   if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE;
   else process.env.GENOS_MCP_LEASE = previousLease;
