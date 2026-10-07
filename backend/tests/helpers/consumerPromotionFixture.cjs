@@ -6,7 +6,7 @@ const contracts = require('../../src/services/strategyContractService');
 const execution = require('../../src/services/strategyExecutionService');
 const { getDatabase } = require('../../src/db');
 
-async function prepare(root) {
+async function prepare(root, settings = {}) {
   const filename = path.join(root, 'promotion.db');
   const workspace = path.join(root, 'proof');
   for (const replica of ['a', 'b']) {
@@ -23,7 +23,9 @@ async function prepare(root) {
     'consumer-promotion-agent', 'Consumer promotion', 'orchestrator', 'running', 'orchestrator', 'consumer-ws');
   const record = await contracts.saveContract(db, { agentId: 'consumer-promotion-agent', problem: 'High risk verification requiring human approval' });
   const contract = record.contract;
+  contract.strategy_portfolio.push({ id: 'stdp_plasticity', primitives: ['stdp_update', 'cherry_pick_golden_path'] });
   contract.promotion.require_human_approval = true;
+  if (settings.merge) contract.promotion.merge_workspace_automatically = true;
   const hash = contracts.hashContract(contract);
   await db.run('UPDATE strategy_contracts SET contract_json = ?, contract_hash = ? WHERE id = ?', JSON.stringify(contract), hash, record.id);
   const run = await execution.createExecutionRun(db, { agentId: 'consumer-promotion-agent',
@@ -35,6 +37,17 @@ async function prepare(root) {
     test: { command: 'npm test', replicas: { proof: { cwd: path.join(workspace, 'a') }, source: { cwd: path.join(workspace, 'b') } } } }] },
     humanApprovalReceipt: { approved: true, approvalId: `approval-${run.id}`, approverId: 'fixture-human',
       approvedAt: new Date().toISOString(), payloadHash: hash.replace(/^sha256:/, '') } };
+  if (settings.merge) {
+    for (const kind of ['winner', 'target', 'base']) {
+      const directory = path.join(workspace, kind);
+      fs.mkdirSync(directory);
+      fs.writeFileSync(path.join(directory, 'one.txt'), kind === 'winner' ? 'new one' : 'old one');
+      fs.writeFileSync(path.join(directory, 'two.txt'), kind === 'winner' ? 'new two' : 'old two');
+    }
+    options.winnerWorkspaceRoot = path.join(workspace, 'winner');
+    options.targetWorkspaceRoot = path.join(workspace, 'target');
+    options.causalBaseWorkspaceRoot = path.join(workspace, 'base');
+  }
   return { db, filename, run, options };
 }
 

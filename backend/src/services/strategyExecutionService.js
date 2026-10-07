@@ -164,10 +164,18 @@ async function evaluateAeisPromotion(db, request) {
 
 async function approveRun(db, id, options) {
   const settings = options || {};
+  const journal = require('./promotionExecutionJournal');
+  const recovery = require('./promotionExecutionRecovery');
+  const reserved = await journal.read(db, id);
+  if (reserved) return recovery.resume(db, reserved, settings);
   const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
   if (!row) throw new Error(`Execution run ${id} not found`);
   if (row.status !== 'awaiting_approval') throw new Error(`Execution run ${id} is not awaiting approval`);
   const promotion = await promotionGate.loadPromotionContext(db, row, settings);
+  const binding = await journal.runBinding(db, id);
+  promotion.workspaceId = binding.workspace_id;
+  promotion.organizationId = binding.organization_id;
+  promotion.projectId = binding.project_id;
   await require('./epistemic/epistemicAuthorityState').assertAuthority(db, promotion.agentId);
   if (!promotion.report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
   const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
@@ -178,24 +186,9 @@ async function approveRun(db, id, options) {
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);
-  await require('./promotionVerifierNonceService').consume(db, { promotion, gateContext });
   const primitives = events.resolveStagePrimitives('conditional_promotion', promotion.contract.strategy_portfolio);
-  const promotionResult = await promotionGate.runPromotionPipeline(promotion, primitives, aeisEvaluation);
-  if (!promotionResult.success) throw new Error(`Execution run ${id} promotion failed: ${promotionResult.error || 'unknown error'}`);
-  if (promotionResult.controlRegulation?.arbitration?.status === 'blocked') {
-    throw new Error(`Execution run ${id} AEIS homeostatic rearbitration blocked promotion.`);
-  }
-  await require('./epistemic/epistemicAuthorityState').assertAuthority(db, promotion.agentId);
-  await db.run('UPDATE strategy_execution_runs SET metrics_json = ? WHERE id = ?', JSON.stringify({
-    ...events.safeJson(row.metrics_json, {}),
-    aeisPressure: promotionResult.controlRegulation?.homeostasis?.pressure ?? null,
-    aeisEvidenceScore: promotionResult.controlRegulation?.feedback?.evidenceScore ?? null,
-  }), id);
-  await promotionGate.applyPostPromotion(db, promotion, settings);
-  await promotionGate.finalizePromotion(db, promotion, settings);
-  await biologicalWorkers.finalize(db, id);
-  await selfModel.calibrate(db, id);
-  return events.getRun(db, id);
+  const saved = await journal.reserve(db, { promotion, gateContext, options: settings, primitives });
+  return recovery.resume(db, saved, settings);
 }
 
 module.exports = {

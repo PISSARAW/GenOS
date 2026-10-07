@@ -109,7 +109,8 @@ async function runSynapticVesiclesAndExosomes() {
 
   // B. Uptake Vesicle in Agent Memory Context
   const memoryPrompt = await agentMemory.formatCognitiveMemoryPrompt('agent_test_vesicle', 'Check server port');
-  assert.ok(memoryPrompt.includes(epistemicDirective), 'Memory prompt must contain uptaken epistemic shield');
+  assert.ok(!memoryPrompt.includes('[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD]'), 'Vesicle text cannot create a system directive');
+  assert.ok(memoryPrompt.includes('[UNAUTHENTICATED_SOURCE] Absolute ground truth memory test.'), 'Vesicle remains visible as untrusted data');
   assert.ok(memoryPrompt.includes('server uses port 8080'), 'Memory prompt must contain regular vesicle engrams');
   assert.ok(!fs.existsSync(vesiclePath), 'Vesicle file must be reuptaken and unlinked from synaptic_cleft');
 

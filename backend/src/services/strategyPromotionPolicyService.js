@@ -386,6 +386,7 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
 }
 
 module.exports = {
+  readWorkspaceFiles, computeWorkspaceChanges, safeDestination, resolveRealRoot, assertMergePreconditions,
   evaluatePromotionGate,
   applyPostPromotionPolicies,
   mergeWorkspaces,

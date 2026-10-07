@@ -162,7 +162,7 @@ async function cherryPickGoldenPath(context) {
   }
   const turns = resolved.turns;
   const result = vectorMemory.cherryPickGoldenPath(turns);
-  const db = await getDatabase();
+  const db = context.db || await getDatabase();
   const decisionId = 'dec-gp-' + crypto.createHash('sha256').update(JSON.stringify({ agentId: firstTruthy(context.agentId, 'strategy_adapter'), label: firstTruthy(context.label, 'Golden Path'), turns })).digest('hex').slice(0, 32);
   const { embed } = require('../embeddingProvider');
   const { textToVector } = require('../memoryScoring');

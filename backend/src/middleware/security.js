@@ -113,54 +113,71 @@ function localhostBearerBypass(req, origin, hasValidAuth) {
   return hasValidAuth;
 }
 
-async function csrfCheck(req, res, next) {
-  const mutatingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
-  if (!mutatingMethods.includes(req.method)) {
-    return next();
-  }
+function isMutatingMethod(method) {
+  return ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
+}
 
-  // Exempt auth verification and login from CSRF token requirement if token is in body
-  if (req.path.startsWith('/api/auth/verify') || req.path.startsWith('/api/auth/login')) {
-    return next();
-  }
+function isAuthEndpoint(path) {
+  return path.startsWith('/api/auth/verify') || path.startsWith('/api/auth/login');
+}
 
-  // SAML POST bindings cannot carry GenOS's browser CSRF token. Their
-  // authenticity is instead enforced by the ACS InResponseTo validation.
-  if (req.method === 'POST' && /^\/api\/sso\/saml\/[^/]+\/acs\/?$/.test(req.path)) {
-    return next();
-  }
+function isSamlAcsPath(path, method) {
+  return method === 'POST' && /^\/api\/sso\/saml\/[^/]+\/acs\/?$/.test(path);
+}
 
-  // Only a request whose credentials actually validate against the access-key
-  // store may bypass the CSRF token check. Merely *carrying* an Authorization
-  // header proves nothing: browsers do not attach attacker-chosen headers on
-  // cross-site form posts, so a forged header value must never count as auth.
-  let hasValidAuth = false;
-  if (req.headers.authorization || req.headers['x-access-key']) {
-    try {
-      hasValidAuth = (await resolveUserFromHeaders(req.headers)).isAuthenticated;
-    } catch (_) { hasValidAuth = false; }
-  }
+function shouldExemptFromCsrf(path, method) {
+  return isAuthEndpoint(path) || isSamlAcsPath(path, method);
+}
 
+async function hasValidAccessKey(req) {
+  if (!req.headers.authorization && !req.headers['x-access-key']) return false;
+  try {
+    return (await resolveUserFromHeaders(req.headers)).isAuthenticated;
+  } catch (_) { return false; }
+}
+
+function extractCsrfTokens(req) {
   const csrfHeader = String(req.headers['x-csrf-token'] || '');
   const origin = req.headers.origin;
-  const cookies = Object.fromEntries(String(req.headers.cookie || '').split(';').map((part) => part.trim().split(/=(.*)/s)).filter(([key]) => key));
+  const cookies = Object.fromEntries(
+    String(req.headers.cookie || '').split(';').map((part) => part.trim().split(/=(.*)/s))
+      .filter(([key]) => key)
+  );
   const csrfCookie = String(cookies.genos_csrf || '');
-  const validDoubleSubmit = csrfHeader.length >= 16 && csrfHeader.length === csrfCookie.length
-    && require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
-  const validIssuedToken = csrfHeader.length >= 16 && isKnownIssuedToken(csrfHeader);
+  return { csrfHeader, origin, csrfCookie };
+}
 
-  // CSRF only meaningfully applies to ambient-credential (browser) callers,
-  // which always send an Origin. Header-only API clients with no Origin must
-  // instead pass authentication (401 otherwise).
-  const csrfApplicable = Boolean(origin);
-  // Validated access-key callers, double-submit, issued tokens and the local
-  // CLI Bearer path are exempt. NODE_ENV is never trusted as an auth signal:
-  // a production deployment that sets NODE_ENV=test must not disable CSRF.
-  if (!csrfApplicable || validDoubleSubmit || validIssuedToken || hasValidAuth || localhostBearerBypass(req, origin, hasValidAuth)) {
+function isValidDoubleSubmit({ csrfHeader, csrfCookie }) {
+  return csrfHeader.length >= 16 && csrfHeader.length === csrfCookie.length
+    && require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
+}
+
+function isValidIssuedToken(csrfHeader) {
+  return csrfHeader.length >= 16 && isKnownIssuedToken(csrfHeader);
+}
+
+function shouldBypassCsrf({ origin, validDoubleSubmit, validIssuedToken, hasValidAuth, req }) {
+  if (!origin) return true;
+  if (validDoubleSubmit) return true;
+  if (validIssuedToken) return true;
+  if (hasValidAuth) return true;
+  if (localhostBearerBypass(req, origin, hasValidAuth)) return true;
+  return false;
+}
+
+async function csrfCheck(req, res, next) {
+  if (!isMutatingMethod(req.method)) return next();
+  if (shouldExemptFromCsrf(req.path, req.method)) return next();
+
+  const hasValidAuth = await hasValidAccessKey(req);
+  const { csrfHeader, origin, csrfCookie } = extractCsrfTokens(req);
+  const validDoubleSubmit = isValidDoubleSubmit({ csrfHeader, csrfCookie });
+  const validIssuedToken = isValidIssuedToken(csrfHeader);
+
+  if (shouldBypassCsrf({ origin, validDoubleSubmit, validIssuedToken, hasValidAuth, req })) {
     return next();
   }
 
-  // Reject foreign or untrusted mutating requests
   return res.status(403).json({
     error: { code: 'CSRF_VALIDATION_FAILED', message: 'Anti-CSRF verification failed. Missing X-CSRF-Token or valid Auth credentials.' }
   });

@@ -295,6 +295,9 @@ async function runPromotionPipeline(promotion, primitives, aeisEvaluation) {
   const list = Array.isArray(primitives) ? primitives : PROMOTION_FALLBACK_PRIMITIVES;
   try {
     return await adapter.executePipelineWithFeedback(list, {
+      db: promotion.db,
+      organizationId: promotion.organizationId,
+      projectId: promotion.projectId,
       agentId: promotion.agentId,
       orchestratorId: promotion.agentId,
       workspaceId: promotion.workspaceId,

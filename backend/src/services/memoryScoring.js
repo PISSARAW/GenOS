@@ -118,7 +118,7 @@ function enrichSummaryWithSourceMarker(item) {
 }
 
 function sanitizeMemorySourceText(item, text) {
-  const value = String(text || '');
+  const value = String(text || '').replace(/\[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD\]/gi, '[UNAUTHENTICATED_SOURCE]');
   if (isAuthenticSystemFact(item)) return value;
   return value.replace(/\[VERIFIED_SYSTEM_FACT\]/gi, '[UNAUTHENTICATED_SOURCE]');
 }

@@ -33,27 +33,12 @@ async function stagePayloadFiles(workspacePath, staging, files) {
   }
 }
 
-async function recoverPayloadRename(options) {
-  const { root, hash, staging, targetDir, payloadRoot, renameErr } = options;
-  if (!isBusyRenameError(renameErr)) throw renameErr;
-  if (await exists(path.join(targetDir, 'manifest.json'))) {
-    await snapshotIntegrity.verify(root, hash);
-    await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
-    return payloadRoot;
-  }
-  throw renameErr;
-}
-
 async function publishPayloadStaging(options) {
   const { root, hash, staging, payloadRoot, manifestData, files } = options;
   const manifestJson = manifestData ? { ...manifestData, version: 1, hash, files } : { version: 1, hash, files };
   await fsp.writeFile(path.join(staging, 'manifest.json'), JSON.stringify(manifestJson, null, 2));
   const targetDir = path.join(root, hash);
-  try {
-    await fsp.rename(staging, targetDir);
-  } catch (renameErr) {
-    await recoverPayloadRename({ root, hash, staging, targetDir, payloadRoot, renameErr });
-  }
+  await require('./snapshotPublishRetry').publish({ root, hash, staging, target: targetDir });
   return payloadRoot;
 }
 

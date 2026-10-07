@@ -52,28 +52,42 @@ function selectionDetail(winner, count) {
   return 'Selected winner ' + winnerId + ' from ' + count + ' candidates.';
 }
 
-async function select(context) {
-  const db = await getDatabase();
-  const candidates = normalizeSelectionCandidates(context);
-  if (candidates.length === 0) {
-    return { success: false, error: 'No candidates provided for selection.' };
-  }
+async function scoreCandidates(db, candidates, workspaceId) {
   const scored = [];
   for (const candidate of candidates) {
-    const entry = await scoreSelectionCandidate(db, candidate, context.workspaceId);
+    const entry = await scoreSelectionCandidate(db, candidate, workspaceId);
     if (entry) scored.push(entry);
   }
-  const uniqueScored = [...scored.reduce((byId, candidate) => {
+  return scored;
+}
+
+function deduplicateScored(scored) {
+  return [...scored.reduce((byId, candidate) => {
     const previous = byId.get(candidate.id);
     if (!previous || candidate.score > previous.score) byId.set(candidate.id, candidate);
     return byId;
   }, new Map()).values()];
+}
+
+function sortScored(uniqueScored) {
   uniqueScored.sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
+  return uniqueScored;
+}
+
+function pickWinnerAndLosers(uniqueScored) {
   const winner = uniqueScored[0] || null;
   const losers = uniqueScored.slice(1).map(s => s.id);
-  if (winner) {
-    await markSelectionOutcome(db, uniqueScored, winner.id);
+  return { winner, losers };
+}
+
+async function persistOutcome(db, uniqueScored, winnerId) {
+  if (winnerId) {
+    await markSelectionOutcome(db, uniqueScored, winnerId);
   }
+}
+
+function emitTelemetry(context, selection) {
+  const { winner, candidates, uniqueScored, losers } = selection;
   telemetry.emitEvent({
     eventType: 'EVOLUTION_SELECTION',
     agentId: context.orchestratorId || 'strategy_adapter',
@@ -82,6 +96,23 @@ async function select(context) {
     severity: 'info',
     payload: { winner, losers, scored: uniqueScored }
   });
+}
+
+async function databaseFor(context) {
+  return context.db || getDatabase();
+}
+
+async function select(context) {
+  const db = await databaseFor(context);
+  const candidates = normalizeSelectionCandidates(context);
+  if (candidates.length === 0) {
+    return { success: false, error: 'No candidates provided for selection.' };
+  }
+  const scored = await scoreCandidates(db, candidates, context.workspaceId);
+  const uniqueScored = sortScored(deduplicateScored(scored));
+  const { winner, losers } = pickWinnerAndLosers(uniqueScored);
+  await persistOutcome(db, uniqueScored, winner?.id);
+  emitTelemetry(context, { winner, candidates, uniqueScored, losers });
   return { success: !!winner, winner, losers, scored: uniqueScored };
 }
 

@@ -15,40 +15,84 @@ function principalId(user) {
   return user.keyId || user.username;
 }
 
-async function resolveTenant(req) {
+function extractTenantHeaders(req) {
   const organizationId = String(req.headers['x-organization-id'] || '').trim();
   const projectId = String(req.headers['x-project-id'] || '').trim();
-  if (!organizationId && !projectId) return null;
+  return { organizationId, projectId };
+}
+
+function validateTenantHeaders({ organizationId, projectId }) {
+  if (!organizationId && !projectId) return { valid: false, skip: true };
   if (!organizationId || !projectId) {
     const error = new Error('X-Organization-Id and X-Project-Id must be provided together');
     error.status = 400;
     error.code = 'INCOMPLETE_TENANT_SCOPE';
     throw error;
   }
-  const user = req.user || await resolveUserFromHeaders(req.headers);
-  const db = await getDatabase();
-  const project = await db.get('SELECT id, organization_id, status FROM projects WHERE id = ?', projectId);
+  return { valid: true };
+}
+
+async function getProject(db, projectId) {
+  return db.get('SELECT id, organization_id, status FROM projects WHERE id = ?', projectId);
+}
+
+function validateProject({ project, organizationId }) {
   if (!project || project.organization_id !== organizationId) return null;
-  if (user.permissions?.includes('all')) return { organizationId, projectId, principalId: principalId(user), status: project.status || 'active', user };
-  const principal = principalId(user);
-  // Project membership is the gate for a project scope: organization
-  // membership alone never grants access to a project (least privilege), but
-  // unlike the previous INNER-JOIN-in-disguise it is not required to hold an
-  // organization row either — a direct project member resolves without one.
-  const projectMembership = await db.get(
-    `SELECT role FROM project_memberships
-      WHERE project_id = ? AND principal_id = ?`,
+  return project;
+}
+
+async function checkGlobalAdmin({ user, project }) {
+  if (user.permissions?.includes('all')) {
+    return { organizationId: project.organization_id, projectId: project.id, principalId: principalId(user), status: project.status || 'active', user };
+  }
+  return null;
+}
+
+async function getProjectMembership(db, { projectId, principal }) {
+  return db.get(
+    `SELECT role FROM project_memberships WHERE project_id = ? AND principal_id = ?`,
     projectId, principal
   );
-  if (!projectMembership) return null;
-  const orgMembership = await db.get(
-    `SELECT role FROM organization_memberships
-      WHERE principal_id = ? AND organization_id = ?`,
+}
+
+async function getOrgMembership(db, { principal, organizationId }) {
+  return db.get(
+    `SELECT role FROM organization_memberships WHERE principal_id = ? AND organization_id = ?`,
     principal, organizationId
   );
-  const role = projectMembership.role || orgMembership?.role;
+}
+
+function determineRole({ projectMembership, orgMembership }) {
+  return projectMembership?.role || orgMembership?.role;
+}
+
+function buildTenantScope({ organizationId, projectId, principalId, role, project, user }) {
+  return { organizationId, projectId, principalId, role, status: project.status || 'active', user };
+}
+
+async function resolveTenant(req) {
+  const { organizationId, projectId } = extractTenantHeaders(req);
+  const headerValidation = validateTenantHeaders({ organizationId, projectId });
+  if (!headerValidation.valid) return null;
+
+  const user = req.user || await resolveUserFromHeaders(req.headers);
+  const db = await getDatabase();
+  const project = await getProject(db, projectId);
+  const validatedProject = validateProject({ project, organizationId });
+  if (!validatedProject) return null;
+
+  const globalAdminResult = await checkGlobalAdmin({ user, project: validatedProject });
+  if (globalAdminResult) return globalAdminResult;
+
+  const principal = principalId(user);
+  const projectMembership = await getProjectMembership(db, { projectId, principal });
+  if (!projectMembership) return null;
+
+  const orgMembership = await getOrgMembership(db, { principal, organizationId });
+  const role = determineRole({ projectMembership, orgMembership });
   if (!role) return null;
-  return { organizationId, projectId, principalId: principal, role, status: project.status || 'active', user };
+
+  return buildTenantScope({ organizationId, projectId, principalId: principal, role, project: validatedProject, user });
 }
 
 function canWriteScope(write, scope) {

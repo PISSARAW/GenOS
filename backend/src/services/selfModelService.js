@@ -217,7 +217,9 @@ function replayPassed(context) {
 }
 
 function hasIndependentEvidence(context) {
-  if (context.evidenceVerified === true || context.independentVerification === true) return true;
+  if (context.evidenceVerified === true) return true;
+  const receipt = context.independentVerifierReceipt;
+  if (receipt && typeof receipt === 'object' && receipt.status === 'verified' && receipt.independent === true) return true;
   const claims = context.report?.claims;
   return Array.isArray(claims) && claims.length > 0 && claims.every((claim) => Array.isArray(claim.evidence) && claim.evidence.length > 0);
 }

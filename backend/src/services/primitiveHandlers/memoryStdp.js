@@ -115,8 +115,12 @@ function resolveSynapseWeight(row, fallback) {
   return row ? row.weight : fallback;
 }
 
+async function databaseFor(context) {
+  return context.db || getDatabase();
+}
+
 async function stdpUpdate(context) {
-  const db = await getDatabase();
+  const db = await databaseFor(context);
   const ids = {
     sourceId: firstTruthy(context.sourceId, context.causeId),
     targetId: firstTruthy(context.targetId, context.effectId),

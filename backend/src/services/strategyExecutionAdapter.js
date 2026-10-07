@@ -27,9 +27,10 @@ function shouldAdaptStrategy(result = {}) {
 
 async function logPrimitiveResult(primitive, result, context = {}) {
   try {
-    const db = await getDatabase();
+    const db = context.db || await getDatabase();
     if (!db) return;
-    await primitiveJournal.recordPrimitiveExecution(db, { ...context, primitive, result, args: context.args || context });
+    const { db: connection, ...auditContext } = context;
+    await primitiveJournal.recordPrimitiveExecution(db, { ...auditContext, primitive, result, args: context.args || auditContext });
   } catch (err) {
     telemetry.emitEvent({
       eventType: 'STRATEGY_PRIMITIVE_AUDIT_FAILED',
@@ -101,7 +102,7 @@ class StrategyExecutionAdapter {
         const targetId = context.orchestratorId || context.agentId;
         if (targetId) {
           try {
-            const db = await getDatabase();
+            const db = context.db || await getDatabase();
             const agent = await db.get('SELECT id, parent_agent_id, execution_mode FROM agents WHERE id = ?', targetId);
             const orchestratorId = (agent && agent.execution_mode === 'worker' && agent.parent_agent_id)
               ? agent.parent_agent_id

@@ -130,25 +130,16 @@ async function retrieveAgentMemories(agentId, task, options) {
 }
 
 function isRegularVesicle(item) {
-  if (!item || !item.content) return false;
-  return item.content.indexOf('[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD]') === -1;
+  return Boolean(item && item.content);
 }
 
 function vesicleLine(item) {
-  return `  * ⚡ ${truncateWords(item.content, 250)}`;
+  return `  * ⚡ ${truncateWords(sanitizeMemorySourceText({}, item.content), 250)}`;
 }
 
 function regularVesicleLines(engrams) {
   const list = Array.isArray(engrams) ? engrams : [];
   return list.filter(isRegularVesicle).map(vesicleLine);
-}
-
-function findEpistemicShield(engrams) {
-  const list = Array.isArray(engrams) ? engrams : [];
-  for (const item of list) {
-    if (item && item.content && item.content.indexOf('[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD]') !== -1) return item.content;
-  }
-  return null;
 }
 
 function consumeAfterInjection(agentId, peekRequested) {
@@ -162,7 +153,7 @@ async function collectVesicleSections(agentId, opts) {
   const peekRequested = opts.peekVesicles === true;
   const engrams = await vesicles.peekVesicles(agentId, opts);
   return {
-    shield: findEpistemicShield(engrams),
+    shield: null,
     regular: regularVesicleLines(engrams),
     consume: consumeAfterInjection(agentId, peekRequested)
   };
