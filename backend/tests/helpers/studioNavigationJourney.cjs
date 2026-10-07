@@ -17,13 +17,19 @@ async function routes(page, output) {
   await page.locator('[data-target="inspection"]').click();
   assert.match(page.url(), /#\/runs\?run=/);
   await page.screenshot({ path: path.join(output, 'studio-navigation-desktop.png'), fullPage: true });
+  const currentHash = new URL(page.url()).hash;
+  await page.locator('.skip-link').focus();
+  await page.keyboard.press('Enter');
+  assert.equal(new URL(page.url()).hash, currentHash);
+  assert.equal(await page.locator('#view-content').evaluate(element => document.activeElement === element), true);
 }
 
 async function deepLink(page, spec) {
   const hash = '#/runs?run=' + encodeURIComponent(spec.run.id);
-  await page.goto(spec.settings.url + '/studio/' + hash);
+  await page.goto(spec.settings.url + '/studio/?token=not-a-real-secret' + hash);
   await page.reload();
   assert.equal(await page.locator('#inspection').isVisible(), false);
+  assert.equal(new URL(page.url()).search, '');
   assert.match(await page.locator('#onboarding-steps').textContent(), /Authentification — À faire/);
   await page.locator('#token').fill(spec.token);
   await page.locator('#organization').fill(spec.settings.organization);

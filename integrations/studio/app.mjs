@@ -26,7 +26,7 @@ export function disconnect() {
   for (const button of document.querySelectorAll('button')) button.disabled = false;
   applyPermissions(api);
   byId('message').textContent = 'Déconnecté.';
-  window.dispatchEvent(new Event('studio:session'));
+  window.dispatchEvent(new CustomEvent('studio:session', { detail: { reason: 'disconnect' } }));
 }
 
 function keepDraft(error, options) {
@@ -122,7 +122,7 @@ async function connect() {
     project: byId('project').value, agent: byId('agent').value });
   byId('token').value = '';
   clearView();
-  window.dispatchEvent(new Event('studio:session'));
+  window.dispatchEvent(new CustomEvent('studio:session', { detail: { reason: 'connect' } }));
   connectedShell(false);
   const success = await perform(async () => {
     const session = await api.request('/api/auth/session');
@@ -147,7 +147,7 @@ async function changeScope(event) {
   state.busy = false;
   api.setSession(session);
   clearView();
-  window.dispatchEvent(new Event('studio:session'));
+  window.dispatchEvent(new CustomEvent('studio:session', { detail: { reason: 'scope' } }));
   await perform(async () => { await discover(); if (session.agent) await refresh(); window.dispatchEvent(new Event('studio:ready')); });
 }
 

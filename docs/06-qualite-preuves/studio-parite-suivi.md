@@ -72,6 +72,12 @@ profond sans session, lecture après authentification, refus de run introuvable,
 contexte tenant inchangé et absence de stockage de clé. Aucune erreur de page.
 Le lien d'un workflow, d'un job ou d'un fichier sera qualifié avec son lot.
 
+C01.2 : le navigateur normalise également les paramètres URL non supportés,
+préserve la route lors du lien d'évitement et efface le run précédent sur
+changement de scope. Test navigateur réussi avec une fausse clé dans l'URL,
+jamais avec un secret réel. Le contrôle de session partagé réduit la
+complexité de navigation sans modifier ses contrôles.
+
 C02.1 : tests unitaires des projections réussis ; parcours navigateur réel
 réussi avec inspection de job et comparaison depuis les fiches, inspecteur
 technique fermé. Les autres sorties (actions, provenance, restauration)
