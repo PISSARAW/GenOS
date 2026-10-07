@@ -11,7 +11,8 @@ levée. Les sorties complètes de ces lots restent partiellement ouvertes.
 
 Le harnais `npm --prefix backend run test:p0-consumers` exécute 57 commandes
 séquentielles, conserve leurs sorties et vérifie les empreintes des sources
-backend, des protos, du catalogue partagé et du serveur MCP. Chaque commande
+backend, des protos, du catalogue partagé et du serveur MCP, hors dépendances
+et artefacts de mondes GenOS générés. Chaque commande
 reçoit une base et un Studio temporaires ; certains tests historiques ouvrent
 leur propre base de fixture. Aucun résultat de fixture n’est un gain IA mesuré.
 
@@ -34,6 +35,9 @@ leur propre base de fixture. Aucun résultat de fixture n’est un gain IA mesur
 - L’arrêt d’urgence appelait une fonction absente. La boucle manquante
   utilise désormais `killVerifiedAgent`, qui relit l’identité du PID avant
   de demander sa terminaison. Le test utilise sa propre base de fixture.
+- Le service de conformité accepte le scope administrateur local null sans
+  erreur et confine ses listes et lectures aux lignes locales. Un test SQLite
+  contrôle aussi les refus entre deux projets ; le parcours HTTP/export passe.
 
 ## Mémoire : preuve exécutée et frontière
 
@@ -122,14 +126,44 @@ Les preuves brutes sont locales, hors dépôt :
 `C:/Users/Shadow/.codex/visualizations/2026/10/06/01a11128-3c02-7882-a146-5b1ec06e3434/p0-consumers/`.
 `plan-source.json`, `selected-plan-references.json` et
 `concept-consumer-matrix.json` conservent le périmètre source.
-`suite-final/consumer-results.json` conserve codes, durées, hashes et
+`suite-stable/consumer-results.json` conserve codes, durées, hashes et
 journaux par commande. Les premières passes sont conservées : 40/46, puis
-46/46 avec une modification de source pendant l’exécution ; elles ne
-remplacent pas la passe finale sur sources stables.
+46/46 avec une modification de source pendant l’exécution, puis 56/57 sur
+sources stables (défaut scope null en conformité). Une passe suivante a
+capturé un changement concurrent du middleware CSRF et ses échecs ; elle est
+aussi conservée. La passe `suite-stable` réussit 57/57 mais observe un changement
+concurrent de `tenant.js`. Les sept parcours concernés sont donc rejoués via
+`tenant-recheck/runner.cjs`, qui emploie le même harnais et conserve un second
+manifeste d’empreintes. Cette reprise obtient 6/7 sans dérive : publication du
+snapshot de baseline refusée par Windows (`EPERM` sur rename), sans erreur du
+middleware. La passe suivante est conservée sous `tenant-recheck-final/`.
+Cette observation reste une limite de fiabilité du parcours snapshot ; son
+origine n’est pas attribuée à un antivirus ou à un autre processus sans preuve.
+Aucun résultat de passe avec dérive n’est présenté comme une validation
+intégralement stable.
 
 ## Validation finale
 
-Les résultats finaux sont consignés après achèvement des commandes, avec
-leurs codes de sortie. La qualification scientifique des nouvelles
-fonctionnalités du plan reste explicitement non démontrée.
+| Vérification | Résultat | Preuve locale |
+|---|---|---|
+| Harnais L01–L05/L22 | 57/57, exit 0 ; une dérive concurrente de tenant.js détectée | suite-stable/consumer-results.json |
+| Parcours affectés rejoués | 7/7, exit 0 ; zéro dérive de source | tenant-recheck-final/consumer-results.json |
+| Gate qualité | 5 327 sources, 109 violations admises, zéro nouvelle ; exit 0 | code-quality-source.log |
+| npm test | Exit 0 après correction de la fonction d’arrêt d’urgence | npm-test-after.log |
+| cargo test --workspace | 671 tests, 80 suites, zéro échec et zéro ignoré ; exit 0 | cargo-workspace.log |
+| Façade g.ps1 --help | Exit 0, CLI natif atteint | operator-g-help.log |
+| CSRF complémentaire | Exit 0 | csrf-after.log |
+| Index ADR | 421 fichiers, 421 lignes, zéro problème | scripts/ci/check_adr_index.py |
+| Whitespace Git | git diff --check : exit 0 | Vérification finale du checkout |
 
+`validation-summary.json` conserve les empreintes des journaux et les limites.
+La dernière comparaison des sources applicatives avec leur manifeste n’observe
+aucune divergence ; les mondes GenOS générés sont exclus de cette comparaison.
+
+La baseline qualité reste identique : SHA-256
+`B971F4E32783538077B37AFA0D5D0C83DFCFC88956BC684AFB8838D93184C944`.
+Les résultats et limites sont persistés dans GenOS ; cette persistance ne
+certifie pas leur vérité. La qualification scientifique des nouvelles
+fonctionnalités du plan reste explicitement non démontrée. B06 reste partiel
+pour les garanties plus fortes citées dans la matrice et la fiabilité Windows
+de publication des snapshots.

@@ -14,7 +14,7 @@ function hashFile(filename) {
 function sourceHashes(directory) {
   const hashes = {};
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === '.git') continue;
+    if (['node_modules', '.git', '.genos-agent-worlds', '.genos-runtime'].includes(entry.name)) continue;
     const filename = path.join(directory, entry.name);
     if (entry.isDirectory()) Object.assign(hashes, sourceHashes(filename));
     else if (/\.(js|cjs|json)$/.test(entry.name)) hashes[filename] = hashFile(filename);
