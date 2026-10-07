@@ -35,7 +35,11 @@ const labels = [
   ['analysisId', 'Analyse conservée'], ['inputAuthority', 'Autorité des entrées'], ['runtimeApplied', 'Appliqué au runtime'],
   ['scope', 'Portée'], ['organization', 'Organisation'], ['available', 'Capacités disponibles'],
   ['authorized', 'Capacités autorisées'], ['exercised', 'Capacités exercées'], ['contractIsExecution', 'Contrat valant exécution'],
-  ['reached', 'Quorum atteint sur ces entrées'], ['support', 'Support calculé'], ['abstentions', 'Abstentions']
+  ['reached', 'Quorum atteint sur ces entrées'], ['support', 'Support calculé'], ['abstentions', 'Abstentions'],
+  ['source', 'Source'], ['version', 'Version'], ['sensorId', 'Capteur'], ['informationGain', 'Gain d’information mesuré'],
+  ['planningOnly', 'Plan uniquement'], ['sensorAvailability', 'Disponibilité des capteurs'],
+  ['causalEstablished', 'Causalité établie'], ['subjectiveConsciousnessEstablished', 'Conscience subjective établie'],
+  ['expectedGain', 'Gain attendu déclaré'], ['target', 'Cible'], ['spent', 'Budget du plan utilisé']
 ];
 
 const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome', 'step', 'activeOrganization'];

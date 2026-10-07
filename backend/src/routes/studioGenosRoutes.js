@@ -59,4 +59,9 @@ const collective = require('../services/studioCollectiveService');
 router.get('/agents/:id/collective', requirePermission('read'), handle(collective.inspect));
 router.post('/agents/:id/collective/step', ...write, handle(collective.step));
 
+const perception = require('../services/studioPerceptionService');
+router.get('/agents/:id/perception', requirePermission('read'), handle(perception.inspect));
+router.post('/agents/:id/perception/plan', ...write, handle(perception.plan));
+router.post('/agents/:id/perception/probe', ...write, handle(perception.probe));
+
 module.exports = { router, handle, write };

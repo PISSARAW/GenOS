@@ -1,6 +1,7 @@
 import { encoded } from './ui.mjs';
 import { journeyView, journeyRead, journeyAction, journeyLink } from './journeyView.mjs';
 import { startCollective } from './collective.mjs';
+import { startPerception } from './perception.mjs';
 
 export function startOrganism() {
   const target = journeyView({ id: 'organism', title: 'Organisme et AgentDNA',
@@ -24,4 +25,5 @@ export function startOrganism() {
     confirm: 'Créer un nouveau candidat sans modifier la source, déployer un agent ou accorder une promotion ?' });
   journeyLink(target, 'research-view', 'Préparer une expérience et mesurer le candidat');
   startCollective(target);
+  startPerception(target);
 }

@@ -522,4 +522,25 @@ Qualification exécutée : `test_studio_collective.cjs` code 0, les 19 calculs,
 intégrité de l'analyse, refus tenant/droits et entrées invalides. Le navigateur
 `test:studio:specialized` passe sans interception API, viewport 390 px sans
 débordement, sortie purgée à la déconnexion. Routes et rendu passent.
-Les points E02–E05 sont encore à livrer dans leurs commits respectifs.
+E01 est committé en `4469a368` ; les points suivants ont leurs commits respectifs.
+
+### E02 — Perception et cognition
+
+Depuis Organisme, `#/perception` expose les capteurs déclarés et les 11 indicateurs
+du producteur cognitif, avec les reçus persistés et leur hash. Sans reçu, aucun
+indicateur n'est réputé exécuté. L'intégrité de contenu n'établit ni causalité ni
+conscience subjective ; une promotion enregistrée n'est pas réévaluée ici.
+Le plan de perception active réutilise le planificateur, budget 0–10, capacités
+de lecture et domaine code ; disponibilité runtime des capteurs non évaluée.
+La probe filesystem réutilise la lecture Studio confinée (256 Kio, pas de secrets,
+symlinks ou traversal), puis conserve une observation canonique de version/taille,
+sans contenu du fichier ni gain d'information inventé. Les analyses sont provisoires.
+
+Qualification : `test_studio_perception.cjs`, vrai fichier/version, reçu issu du
+producteur cognitif, refus tenant/droits, budget invalide, secret, chemin échappant
+et fichier absent. Les erreurs du validateur de chemin sont traduites en refus
+400 comme dans le contrôleur fichier, pas en succès ou panne serveur fictive.
+Le harnais navigateur ajoute plan et probe réels ; pas de boucle sensorimotrice,
+de fovéation, de GAIA ou de contrôle animal intégral revendiqués.
+Les deux commandes passent (code 0) ; l'altération d'un reçu est signalée sans
+confondre son statut stocké avec une preuve actuelle valide.

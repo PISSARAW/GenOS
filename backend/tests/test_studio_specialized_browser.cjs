@@ -27,6 +27,19 @@ async function collective(page, root) {
   return { analysisId: result.analysisId, organization: result.organization };
 }
 
+async function perception(page, root) {
+  await page.locator('[data-target="organism-view"]').click();
+  await page.getByRole('button', { name: 'Perception et cognition', exact: true }).click();
+  const initial = await action(page, { id: 'perception-inspect', route: root + '/perception', method: 'GET' });
+  assert.equal(initial.receipts.length, 0);
+  const plan = await action(page, { id: 'perception-plan', route: root + '/perception/plan' });
+  assert.equal(plan.planningOnly, true);
+  const probe = await action(page, { id: 'perception-probe', route: root + '/perception/probe', fields: { path: 'a/verify.cjs' } });
+  assert.equal(probe.informationGain, null);
+  assert.match(await page.locator('#perception-result-summary').textContent(), /workspace_observed/);
+  return { analysisId: probe.analysisId, version: probe.version, planId: plan.analysisId };
+}
+
 async function probe(spec) {
   const browser = await chromium.launch({ channel: process.env.B06_BROWSER_CHANNEL || 'msedge' });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -44,12 +57,15 @@ async function probe(spec) {
     const root = '/api/studio/agents/' + spec.settings.agent;
     const result = { collective: await collective(page, root) };
     await page.screenshot({ path: path.join(output, 'studio-collective.png'), fullPage: true });
+    result.perception = await perception(page, root);
+    await page.screenshot({ path: path.join(output, 'studio-perception.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.screenshot({ path: path.join(output, 'studio-specialized-mobile.png'), fullPage: true });
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
     assert.equal(await page.locator('[data-view]:visible').count(), 0);
     assert.equal(await page.locator('#collective-result').textContent(), '');
+    assert.equal(await page.locator('#perception-result').textContent(), '');
     assert.deepEqual(errors, []);
     const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: path.join(__dirname, '../..'), encoding: 'utf8', windowsHide: true }).trim();
     fs.writeFileSync(path.join(output, 'studio-specialized-qualified.json'), JSON.stringify({ ...result,
