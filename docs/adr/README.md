@@ -448,6 +448,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0357](0357-retraction-des-assemblees-et-memoires-derivees.md) | Rétraction des assemblées et mémoires dérivées | Accepté, qualification partielle de L01, L03 et L22. | -- | -- |
 | [0358](0358-verification-memoire-native-sous-budget-durable.md) | Vérification mémoire native sous budget durable | Accepté, extension partielle L02/L03/L22. | -- | -- |
 | [0359](0359-couts-durables-des-oracles-refuses-et-interrompus.md) | Coûts durables des oracles refusés et interrompus | Accepté, extension partielle L02/L03/L22, 2026-10-07. | -- | -- |
+| [0360](0360-studio-cible-unifiee-et-zones-de-livraison.md) | Studio : cible unifiée et zones de livraison | Accepté pour le contrat de cible ; implémentation incrémentale à venir. | 2026-10-07. | Studio, architecture produit, couverture et qualification. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

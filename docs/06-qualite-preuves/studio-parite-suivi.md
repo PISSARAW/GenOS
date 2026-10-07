@@ -205,3 +205,40 @@ certification du résultat fusionné. Des modifications concurrentes sont
 apparues pendant la préparation, dont `backend/package.json` et
 `docs/adr/README.md`, également modifiés par la fusion. L'avancement de v3 doit
 attendre leur stabilisation et conserver ces changements non commités.
+
+## Étape A — Cible unifiée fixée (2026-10-07)
+
+L'opérateur demande « Étape A — Fixer la cible et commite ». Le
+[contrat directeur](../03-reference/studio-contrat-directeur.md), version
+`STUDIO-TARGET-V1`, et l'[ADR 0360](../adr/0360-studio-cible-unifiee-et-zones-de-livraison.md)
+fixent la finalité, onze espaces, 21 zones Z00–Z20, 22 domaines GenOS,
+douze exigences propres à Studio et huit parcours de livraison. Les 40
+identifiants F/C/S historiques restent rattachés aux zones. Le registre exhaustif
+entrée par entrée est l'étape suivante, pas un résultat revendiqué ici.
+
+Le worktree Studio existant a été avancé par fast-forward de `8803fcf3` à
+`69e9d07e55db1581b514989c448f131d731d7676`, sans inclure les écritures non
+commitées du checkout principal. Cette étape ne change que la documentation.
+Le checkpoint GenOS cognitif `snap-82f128f37ea645319b562cf9e97a6607` a été créé
+et son fichier vérifié ; il n'est pas une sauvegarde des fichiers du worktree.
+
+### Vérifications exécutées avant commit
+
+| Commande / contrôle | Résultat et portée |
+| --- | --- |
+| `python scripts/ci/check_adr_index.py --update`, puis sans option | Index régénéré ; 440 fichiers, 440 entrées, zéro problème. |
+| `python scripts/ci/check_code_quality.py` | Code 0 ; 5494 sources, zéro violation. |
+| `git diff --check` | Code 0 ; aucun défaut d'espacement détecté. |
+| Sonde Node documentaire via `node -e` | Code 0 ; liens relatifs des deux nouveaux documents, présence des N01–N11, Z00–Z20, G01–G22, U01–U12, P01–P08 et des 40 identifiants F/C/S ; indexation vérifiée. |
+| `npm test` | Code 1 ; suite biologie 6/7, chargement de `./mcpExecutor/domainVerdict` impossible. Les suites suivantes du script ne sont pas exécutées. |
+| `cargo test --workspace` | Code 101 ; suites précédentes passantes, puis `genos-cli` 69/70 : échec de `commands::platform::world_path_tests::accepts_simple_id`, qui utilise le répertoire temporaire de l'environnement. Les suites suivantes ne sont pas certifiées. |
+
+Les logs ignorés sont dans `.genos-tests/studio-target-a/npm-test.log` et
+`.genos-tests/studio-target-a/cargo-test.log` du worktree de livraison. Cargo utilise
+le cache `target` du dépôt principal. Les deux échecs globaux portent sur du code
+inchangé par l'étape A ; cela ne prouve pas que toute la base est saine.
+Le module absent avait déjà été signalé dans la qualification de fusion ci-dessus.
+Les avertissements SQLite de la suite Node signalent aussi une configuration
+de base locale non accessible ; aucune correction ou copie d'un travail concurrent
+n'est ajoutée pour contourner ces résultats. Aucun runtime ou nouvel écran n'est
+qualifié par les contrôles documentaires. La qualification globale reste ouverte.
