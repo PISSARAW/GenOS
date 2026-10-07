@@ -52,7 +52,7 @@ async function handleForkAgent(ctx) {
   if (!await findCommandAgent(db, req, parentId)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${parentId}' is not available in this project.` } });
   const result = await new Promise((resolve, reject) => {
     const forkResponse = controllerResponse(resolve);
-    Promise.resolve(lineageController.cloneNode({ body: { nodeId: parentId } }, forkResponse)).catch(reject);
+    Promise.resolve(lineageController.cloneNode({ ...req, body: { nodeId: parentId } }, forkResponse)).catch(reject);
   });
   return res.status(result.status).json(result.payload);
 }
@@ -152,10 +152,10 @@ function terminalHelpOutput() {
   return 'GenOS Terminal Available Commands:\n  status   - Show current backend and breaker status\n  halt     - Block new MCP tool invocations through the kill switch\n  resume   - Reset the MCP kill switch\n  agents   - List persisted agents\n  ping     - Show backend health\n  clear    - Clear terminal buffer';
 }
 
-async function terminalStatusOutput(db) {
+async function terminalStatusOutput(db, req) {
   const cb = circuitBreaker.getStatus();
   const tools = await db.get('SELECT COUNT(*) as count FROM mcp_tools');
-  const agents = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
+  const agents = await db.get("SELECT COUNT(*) as count FROM agents a JOIN workspaces w ON w.id=a.workspace_id WHERE a.status = 'running' AND w.organization_id=? AND w.project_id=?", req.tenant.organizationId, req.tenant.projectId);
   const systemState = cb.isHalted ? 'HALTED' : 'OK';
   return `[SYSTEM ${systemState}] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.isHalted ? 'HALTED' : cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
 }
@@ -170,8 +170,8 @@ function terminalResumeOutput() {
   return '[RESUMED] Backend kill switch reset. MCP tool invocations may resume.';
 }
 
-async function terminalAgentsOutput(db) {
-  const agents = await db.all("SELECT id, name, status FROM agents WHERE status != 'terminated' ORDER BY created_at DESC");
+async function terminalAgentsOutput(db, req) {
+  const agents = await db.all("SELECT a.id, a.name, a.status FROM agents a JOIN workspaces w ON w.id=a.workspace_id WHERE a.status != 'terminated' AND w.organization_id=? AND w.project_id=? ORDER BY a.created_at DESC", req.tenant.organizationId, req.tenant.projectId);
   return agents.length > 0 ? agents.map((agent) => `${agent.name || agent.id} [${agent.status}]`).join('\n') : 'No persisted agents.';
 }
 
@@ -200,11 +200,15 @@ async function handleTerminal(req, res, next) {
     const cmd = (command || '').trim().toLowerCase();
     const db = await getDatabase();
 
+    if (!req.tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED' } });
     const handler = TERMINAL_COMMANDS.get(cmd);
     if (!handler) {
       return res.status(400).json({ error: { code: 'UNSUPPORTED_COMMAND', message: `Unsupported terminal command: ${command}` } });
     }
-    res.json({ output: await handler(db) });
+    if (['halt', 'abort', 'resume'].includes(cmd) && !req.user?.permissions?.includes('all')) {
+      return res.status(403).json({ error: { code: 'GLOBAL_CONTROL_REQUIRES_ADMIN', message: 'Global backend control requires administrator permission.' } });
+    }
+    res.json({ output: await handler(db, req) });
   } catch (error) {
     next(error);
   }

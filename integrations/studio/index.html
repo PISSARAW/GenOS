@@ -12,7 +12,7 @@
 <button type="submit">Ouvrir l’exécution</button><button id="disconnect" type="button">Déconnecter</button>
 </form>
 <p id="message" role="status" aria-live="polite">Connectez-vous avec une clé autorisée sur ce projet.</p>
-<nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button><button data-target="dashboard-view" type="button">Supervision</button></nav>
+<nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button><button data-target="dashboard-view" type="button">Supervision</button><button data-target="management-view" type="button">Gestion et commandes</button></nav>
 <label>Workspace<input id="workspace-choice" list="workspaces"><datalist id="workspaces" data-runtime></datalist></label>
 <section id="inspection" data-view hidden>
 <h2>Exécution <span id="run-id" data-runtime></span></h2><p id="run-status" data-runtime></p><p id="workspace" data-runtime></p>
@@ -40,4 +40,15 @@
 <p>Le graphe affiche au plus 100 nœuds ; les listes ci-dessous reprennent les données retournées.</p>
 <ul id="lineage-nodes" data-runtime></ul><ul id="lineage-edges" data-runtime></ul>
 <h3>Événements récents</h3><ol id="events" data-runtime></ol></section>
+<section id="management-view" data-view hidden><h2>Gestion et commandes</h2>
+<p>Les opérations ciblent l’organisation, le projet, l’agent et le workspace sélectionnés. Une demande acceptée reste à suivre jusqu’à son effet final.</p>
+<form id="management-read"><label>Consulter<select id="management-collection">
+<option value="agents">Agents</option><option value="workspaces">Workspaces</option><option value="organizations">Organisations</option>
+<option value="projects">Projets</option><option value="members">Membres de l’organisation</option><option value="workers">Workers</option>
+<option value="garage">Garage de l’orchestrateur</option><option value="queue">File du garage</option></select></label><button>Charger la liste</button></form>
+<pre id="management-data" data-runtime></pre><h3>Palette d’actions</h3><div id="management-actions"></div>
+<h3>Réponse du runtime</h3><pre id="management-result" data-runtime></pre>
+<h3>Terminal contrôlé</h3><form id="terminal"><label>Commande<select id="terminal-command">
+<option>help</option><option>status</option><option>agents</option><option>ping</option><option>clear</option><option>halt</option><option>resume</option></select></label>
+<button data-permission="workspace:write">Exécuter la commande</button></form><pre id="terminal-output" data-runtime></pre></section>
 </main></body></html>
