@@ -201,6 +201,7 @@ function registerWorkerShutdown(server, grpcServer, db) {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[GenOS Backend] Received ${signal}; draining requests.`);
+    if (process.env.GENOS_STUDIO_SUPERVISED === '1') await require('./src/services/studioStopService').stopAll(db);
     require('./src/services/survivalWakeSchedulerService').stop();
     await require('./src/services/garageRuntimeService').stop(db);
     await jobWorker.stopJobWorker({ drain: true, timeoutMs: 30000 });
@@ -210,13 +211,22 @@ function registerWorkerShutdown(server, grpcServer, db) {
     await trinityMonitorServer.stop();
     await telemetry.flush(5000);
     if (grpcServer) await new Promise((resolve) => grpcServer.tryShutdown(() => resolve()));
-    await new Promise((resolve) => server.close(() => resolve()));
+    const closed = new Promise((resolve) => server.close(() => resolve()));
+    server.closeAllConnections();
+    await closed;
     await telemetry.flush(1000);
     await closeDatabase();
     console.log('[GenOS Backend] Shutdown complete.');
+    if (process.env.GENOS_STUDIO_SUPERVISED === '1') process.exit(0);
   };
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
+  if (process.env.GENOS_STUDIO_SUPERVISED === '1') process.on('message', message => {
+    if (message?.type === 'studio:shutdown') shutdown('supervisor').catch(error => {
+      console.error('[GenOS Backend] Shutdown failed:', error);
+      process.exit(1);
+    });
+  });
 }
 
 function createHttpServer(app) {
@@ -264,6 +274,7 @@ async function runWorkerProcess() {
 }
 
 async function startServer() {
+  if (process.env.GENOS_STUDIO_SUPERVISED === '1') return runWorkerProcess();
   if (cluster.isPrimary) {
     runPrimaryProcess();
     return;

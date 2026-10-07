@@ -26,10 +26,11 @@ function isUnavailable(run) {
 
 function resultPayload(operation, run) {
   return {
+    version: 1,
     operation,
-    exitCode: run.exitCode,
-    result: run.json !== null ? run.json : run.stdout.trim(),
-    stderr: run.stderr.trim() || undefined
+    exitCode: run.exitCode ?? null,
+    result: run.json ?? run.stdout?.trim() ?? null,
+    stderr: run.stderr?.trim() || undefined
   };
 }
 
@@ -40,8 +41,9 @@ function addSpecValidation(payload, validated, run) {
 }
 
 function sendResult({ res, operation, run, validated } = {}) {
-  if (isUnavailable(run)) return res.status(503).json({ error: { code: run.code, message: run.error }, operation });
   const payload = resultPayload(operation, run);
+  payload.requestId = res.getHeader?.('X-Request-Id') || null;
+  if (isUnavailable(run)) return res.status(503).json({ ...payload, error: { code: run.code, message: run.error } });
   addSpecValidation(payload, validated, run);
 
   if (!run.ok || (Number.isInteger(run.exitCode) && run.exitCode !== 0)) {
@@ -55,6 +57,8 @@ async function getStatus(req, res) {
   const binPath = cli.resolveGenosBin();
   const available = fs.existsSync(binPath);
   const status = {
+    contractVersion: 1,
+    requestId: req.id,
     binary: binPath,
     available,
     root
@@ -101,6 +105,8 @@ async function createSnapshot(req, res) {
       const { getDatabase } = require('../db');
       const evidence = await persistSnapshotReceipt(await getDatabase(), built);
       return res.json({
+        version: 1,
+        requestId: req.id,
         operation: 'snapshot_create',
         exitCode: snapshot.exitCode,
         result: { reference: snapshotFile, snapshot: snapshotObject },

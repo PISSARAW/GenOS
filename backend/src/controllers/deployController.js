@@ -8,6 +8,7 @@ const trinityDeployService = require('../services/deploy/trinityDeploy.service')
 const telemetry = require('../services/telemetryObserver');
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
 const workerGarage = require('../services/workerGarageService');
+const studioStop = require('../services/studioStopService');
 const strategyContracts = require('../services/strategyContractService');
 const agentAuthority = require('../services/agentAuthorityService');
 const AgentRepository = require('../repositories/agent.repository');
@@ -150,8 +151,7 @@ async function deleteAgent(req, res, next) {
   const db = await getDatabase();
   try {
     if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
-    const persistedRuntime = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', req.params.id);
-    const stopped = runtimeAdapter.stopMission(req.params.id) || Boolean(persistedRuntime?.runtime_pid);
+    const { stopped } = await studioStop.stop(db, { agentId: req.params.id, scope: req.tenant });
     await db.run("DELETE FROM agents WHERE id = ?", req.params.id);
     telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'DELETE', detail: `Agent deleted by ${req.user?.keyId || req.user?.username || 'operator'}.`, severity: 'warning', payload: { actorPrincipalId: req.user?.keyId || null, actorLabel: req.user?.username || null, tenant: req.tenant || null, stopped } });
     res.json({ success: true, agentId: req.params.id, stopped });
@@ -162,12 +162,11 @@ async function stopAgent(req, res, next) {
   const db = await getDatabase();
   try {
     if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
-    const persistedRuntime = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', req.params.id);
-    const processStopped = runtimeAdapter.stopMission(req.params.id) || Boolean(persistedRuntime?.runtime_pid);
-    if (!processStopped) await workerGarage.enterIdleState(db, req.params.id, null);
+    const result = await studioStop.stop(db, { agentId: req.params.id, scope: req.tenant });
+    const processStopped = result.stopped;
     const agent = await db.get('SELECT status FROM agents WHERE id = ?', req.params.id);
     telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'STOP', detail: `Agent stop requested by ${req.user?.username || 'operator'}.`, severity: 'warning', payload: { actor: req.user?.username || null, tenant: req.tenant || null, processStopped } });
-    res.json({ stopped: processStopped, status: processStopped ? 'stopping' : (agent?.status || 'idle') });
+    res.json({ ...result, status: agent?.status || 'idle' });
   } catch (error) { next(error); }
 }
 
@@ -190,8 +189,7 @@ async function stopAgents(req, res, next) {
     const agentIds = await scopedAgentIds(db, req, requestedIds);
     let stopped = 0;
     for (const agentId of agentIds) {
-      if (runtimeAdapter.stopMission(agentId)) stopped += 1;
-      else await workerGarage.enterIdleState(db, agentId, null);
+      if ((await studioStop.stop(db, { agentId, scope: req.tenant })).stopped) stopped += 1;
     }
     res.json({ success: true, requested: agentIds.length, stopped });
   } catch (error) { next(error); }
@@ -204,7 +202,7 @@ async function deleteAgents(req, res, next) {
     const agentIds = await scopedAgentIds(db, req, requestedIds);
     let stopped = 0;
     for (const agentId of agentIds) {
-      if (runtimeAdapter.stopMission(agentId)) stopped += 1;
+      if ((await studioStop.stop(db, { agentId, scope: req.tenant })).stopped) stopped += 1;
       await db.run('DELETE FROM agents WHERE id = ?', agentId);
     }
     res.json({ success: true, deleted: agentIds.length, stopped });

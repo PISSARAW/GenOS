@@ -132,6 +132,7 @@ function createApp() {
   // login/SSO/CSRF-issuance endpoints. Per-route permission checks apply on
   // top of this gate.
   app.use(requireAuthentication);
+  app.use(require('./services/studioLifecycleService').admission);
 
   // 3b. Idempotency: dedupes retries sharing a key and replays the stored
   // response. Opt-in per request (header or mission identity); required=false

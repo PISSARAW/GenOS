@@ -29,6 +29,13 @@ L'arrêt runtime vérifie les processus gérés. Le redémarrage est une demande
 superviseur propriétaire, avec contrôle de disponibilité après nouvelle instance.
 Un processus externe non identifié n'est jamais déclaré arrêté.
 
+Le superviseur natif démarre un seul propriétaire SQLite/runtime plutôt que le
+pool cluster historique. Une demande admin confirmée ferme les admissions,
+vérifie les missions suivies et persiste une référence d'opération avant l'IPC.
+Le drainage IPC fonctionne également sous Windows. Un arrêt forcé ou en erreur
+ne provoque pas de redémarrage déclaré réussi. Le client exige une instance
+différente, prête et capable de relire l'opération persistée.
+
 La matrice des huit lots et les critères d'acceptation sont conservés dans
 [le contrat Studio](../03-reference/studio-parcours-et-acceptation.md).
 

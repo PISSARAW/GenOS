@@ -7,7 +7,7 @@ const telemetry = require('../services/telemetryObserver');
 const circuitBreaker = require('../services/circuitBreaker');
 const lineageController = require('./lineage');
 const snapshotStore = require('../services/workspaceSnapshotStore');
-const { stopMission, stopAllMissions } = require('../services/agentRuntimeAdapter');
+const studioStop = require('../services/studioStopService');
 
 async function findCommandWorkspace(db, req, workspaceId) {
   if (!workspaceId) return null;
@@ -64,9 +64,9 @@ async function handleKillAgent(ctx) {
   if (!targetId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
   const targetAgent = await findCommandAgent(db, req, targetId);
   if (!targetAgent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${targetId}' is not available in this project.` } });
-  const stopped = stopMission(targetId);
+  const { stopped, confirmed } = await studioStop.stop(db, { agentId: targetId, scope: req.tenant });
   await updateAgentStatus(db, { agentId: targetId, status: 'terminated', currentTask: 'Terminated by command palette', req });
-  return res.json({ success: true, agentId: targetId, stopped, status: 'terminated' });
+  return res.json({ success: true, agentId: targetId, stopped, confirmed, status: 'terminated' });
 }
 
 function handleInspectState(ctx) {
@@ -74,13 +74,10 @@ function handleInspectState(ctx) {
   return ctx.res.json({ success: true, state });
 }
 
-function handleRebootStudio(ctx) {
+async function handleRebootStudio(ctx) {
   const { res, req } = ctx;
   if (!hasConfirmation(req)) return res.status(409).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Rebooting Studio requires confirmed: true.' } });
-  const stoppedMissions = stopAllMissions().length;
-  circuitBreaker.resetHalt('studio_reboot');
-  telemetry.emitEvent({ eventType: 'STUDIO_REBOOT_REQUESTED', agentId: 'command_palette', action: 'REBOOT', detail: 'Studio restart requested by command palette', severity: 'warning', payload: { stoppedMissions } });
-  return res.status(202).json({ success: true, action: 'reboot_studio', stoppedMissions, restartRequired: true, message: 'Managed missions stopped. Restart the backend process through its supervisor.' });
+  return require('./studioLifecycleController').restart(req, res);
 }
 
 function snapshotMetadata(params, req) {

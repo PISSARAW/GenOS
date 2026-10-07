@@ -50,7 +50,11 @@
 <h3>Réponse du runtime</h3><pre id="management-result" data-runtime></pre>
 <h3>Terminal contrôlé</h3><form id="terminal"><label>Commande<select id="terminal-command">
 <option>help</option><option>status</option><option>agents</option><option>ping</option><option>clear</option><option>halt</option><option>resume</option></select></label>
-<button data-permission="workspace:write">Exécuter la commande</button></form><pre id="terminal-output" data-runtime></pre></section>
+<button data-permission="workspace:write">Exécuter la commande</button></form><pre id="terminal-output" data-runtime></pre>
+<h3>Exploitation du backend</h3><p>Le redémarrage global nécessite un administrateur et le superviseur natif. Le bridge Rust expose ses diagnostics sans simuler ses résultats.</p>
+<button id="operations-diagnostics" type="button">Diagnostiquer backend et Rust</button>
+<button id="operations-restart" type="button" data-permission="all">Redémarrer le backend global</button>
+<pre id="operations-result" data-runtime></pre></section>
 <section id="files-view" data-view hidden><h2>Fichiers et snapshots</h2>
 <button id="files-refresh" type="button">Charger les fichiers et snapshots</button><ul id="file-list" data-runtime></ul>
 <label>Chemin relatif<input id="file-path" placeholder="src/main.js"></label>
