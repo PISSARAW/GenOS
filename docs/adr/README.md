@@ -453,6 +453,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0362](0362-studio-parcours-pilote-borne-et-dependances.md) | Studio : parcours pilote borné et dépendances | Accepté ; qualification du pilote distincte de celle des missions générales. | 2026-10-07. | Studio, intégration HTTP, workspace, preuves et revue. |
 | [0363](0363-studio-parcours-genos-structurants.md) | Studio : parcours GenOS structurants | Accepté ; tranches livrées séparément, sans certification globale P04–P07. | 2026-10-07. | Studio, mondes, mémoire, AgentDNA et récupération. |
 | [0364](0364-studio-mecanismes-specialises.md) | Studio : mécanismes spécialisés et analyses bornées | Accepté ; qualification par tranche, pas des domaines complets. | 2026-10-07. | -- |
+| [0365](0365-studio-boucle-production-locale.md) | Studio : boucle de production locale | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -4,7 +4,7 @@ export const destinations = [
   ['laboratoire', 'research-view'], ['mondes', 'worlds-view'], ['memoire', 'knowledge-view'],
   ['organisme', 'organism-view'], ['reprise', 'recovery-view'], ['collectif', 'collective-view'],
   ['perception', 'perception-view'], ['biomimetique', 'biomimetic-view'], ['sante', 'health-view'],
-  ['referentiel', 'reference-view']
+  ['referentiel', 'reference-view'], ['production', 'production-view']
 ];
 
 function identifier(value) {

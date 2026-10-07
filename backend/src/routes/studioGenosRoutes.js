@@ -80,4 +80,5 @@ router.get('/agents/:id/reference', requirePermission('read'), handle(reference.
 router.get('/agents/:id/reference/concept', requirePermission('read'), handle(reference.inspect));
 router.post('/agents/:id/reference/logic', ...write, handle(reference.logic));
 
+router.use('/production', require('./studioProductionRoutes').router);
 module.exports = { router, handle, write };

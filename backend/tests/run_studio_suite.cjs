@@ -14,6 +14,7 @@ const suites = [
   'test_studio_biomimetic.cjs',
   'test_studio_health.cjs',
   'test_studio_reference.cjs',
+  'test_studio_production.cjs',
   'test_studio_routes.mjs', 'test_studio_records.mjs', 'test_studio_onboarding.mjs',
   'test_studio_events.mjs', 'test_studio_comparison.mjs', 'test_studio_management.cjs',
   'test_studio_files.cjs', 'test_studio_multiprocess.cjs', 'test_studio_operations.cjs', 'test_studio_restart.cjs',

@@ -6,6 +6,7 @@
 - [Studio : rejouer le pilote](04-exploitation/studio-parcours-pilote.md) — procédure P03 bornée, critères exécutables, captures et diagnostic.
 - [ADR 0363 — Parcours GenOS structurants](adr/0363-studio-parcours-genos-structurants.md) — étape D, destinations canoniques et frontières de preuve.
 - [ADR 0364 — Mécanismes spécialisés Studio](adr/0364-studio-mecanismes-specialises.md) — étape E, calculs bornés et analyses provisoires.
+- [ADR 0365 — Boucle de production locale](adr/0365-studio-boucle-production-locale.md) — étape F, version figée, adaptateur local et reprise sous CAS.
 - [Studio : mécanismes spécialisés](04-exploitation/studio-mecanismes-specialises.md) — procédures E01–E05, autorités, pagination et qualification.
 - [Studio : utiliser les parcours GenOS](04-exploitation/studio-parcours-genos.md) — procédures et qualification D01–D04, avec limites explicites.
 

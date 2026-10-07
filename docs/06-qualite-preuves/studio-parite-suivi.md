@@ -647,3 +647,22 @@ Le [guide spécialisé](../04-exploitation/studio-mecanismes-specialises.md)
 décrit procédures, sources et limites. Un commit par tranche E01–E05,
 sans fusion/push implicite. Les domaines spécialisés complets, le contrat
 STUDIO-TARGET-V1 et la parité universelle ne sont pas déclarés terminés.
+
+## Étape F — Boucle de production locale
+
+Base `62f72ddf`, checkpoint cognitif vérifié `snap-8a60b19cd47641f094fe4f97be731319`.
+L'[ADR 0365](../adr/0365-studio-boucle-production-locale.md) fixe trois points.
+La release canonique reste un objet du registre existant ; l'adaptateur Studio
+ne déploie pas un serveur cloud et ne contourne pas les gates de preuve.
+
+### F01 — Préparer une version figée
+
+`#/production` expose les workflows scoped et une préparation explicite de release.
+Le manifeste lie identifiant canonique, version persistée, graphe, métadonnées,
+empreinte et auteur authentifié. Une version préparée n'est pas servie : trafic
+déclaré zéro et état du registre `pending`. Relecture et inspection vérifient
+le manifeste et sa source. Une version altérée ou absente est refusée.
+Création additive/idempotente des tables Studio, sans migration destructive.
+Les tests HTTP vérifient nominal, doublon, tenant, auteur forgé, intégrité et
+droits/projet archivé. Le harnais navigateur utilise HTTP/SQLite réels, sans
+interception API ; captures et manifeste ignorés sous `.genos-tests/studio-production-f/`.

@@ -56,7 +56,9 @@ const labels = [
   ['runtimeAuthority', 'Autorité runtime déclarée'], ['runtimeVerified', 'Runtime qualifié par cette lecture'],
   ['executableDeclared', 'Exécutable déclaré par le catalogue'], ['formula', 'Formule'], ['rowCount', 'Valuations calculées'],
   ['semanticScope', 'Portée sémantique'], ['externalFactsVerified', 'Faits externes vérifiés'], ['promotionEligible', 'Éligible à promotion'],
-  ['definition', 'Définition'], ['role', 'Rôle conceptuel'], ['service', 'Service déclaré'], ['value', 'Valeur logique calculée']
+  ['definition', 'Définition'], ['role', 'Rôle conceptuel'], ['service', 'Service déclaré'], ['value', 'Valeur logique calculée'],
+  ['releaseId', 'Release'], ['workflowId', 'Workflow'], ['releaseHash', 'Empreinte de release'], ['createdBy', 'Auteur'],
+  ['metadataStatus', 'État du registre'], ['adapter', 'Adaptateur'], ['deploymentObserved', 'Version servie observée']
 ];
 
 const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome',
