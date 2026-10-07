@@ -46,18 +46,16 @@ function makeReviewArguments(claimId) {
 function makeReviewResponse(details) {
   const claim = details.claim;
   if (claim.claimId !== 'claim-a' && claim.claimId !== 'claim-b') {
-    return { review: { summary: 'Review', objections: [], evidenceRefs: [], arguments: [], counterexamples: [], dissent: [] } };
+    return { summary: 'Review', objections: [], evidenceRefs: [], arguments: [], counterexamples: [], dissent: [] };
   }
   const summary = claim.claimId === 'claim-a' ? 'Reviewing claim A' : 'Reviewing claim B';
   return {
-    review: {
-      summary,
-      objections: [],
-      evidenceRefs: [],
-      arguments: makeReviewArguments(claim.claimId),
-      counterexamples: [],
-      dissent: []
-    }
+    summary,
+    objections: [],
+    evidenceRefs: [],
+    arguments: makeReviewArguments(claim.claimId),
+    counterexamples: [],
+    dissent: []
   };
 }
 
