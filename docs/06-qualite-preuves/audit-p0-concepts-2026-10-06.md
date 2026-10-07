@@ -373,3 +373,12 @@ flag explicite (`includeGlobal`/`allowGlobal`), comme le corpus
 ne porte aucune colonne `verified`/`is_verified`/`internalSignature`/
 `systemSigned`, que `storeMemory` les ignore et qu'un `id` en `seed-*` seul
 reste sans marqueur (`test_memory_provenance_nonforgeable.js` : PASS).
+
+## Sixième reprise P0 : validation Rust ciblée
+
+`cargo test -p genos-store --lib` : 17/17 passent. `cargo test
+-p genos-orchestrator --test token_bucket` : 12/12 passent.
+`topology_transition` : 1/1 passe. Disque C: 5,62 Go libres au moment de
+ces runs (contre 162 Mo lors de l'échec de lien PDB documenté). Le workspace
+global (`cargo test --workspace`) n'est pas relancé dans cette reprise et sa
+validation reste ouverte ; ces résultats ciblés ne la valident pas.
