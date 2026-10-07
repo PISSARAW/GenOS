@@ -242,3 +242,27 @@ Les avertissements SQLite de la suite Node signalent aussi une configuration
 de base locale non accessible ; aucune correction ou copie d'un travail concurrent
 n'est ajoutée pour contourner ces résultats. Aucun runtime ou nouvel écran n'est
 qualifié par les contrôles documentaires. La qualification globale reste ouverte.
+
+## Étape B — Renforcement du socle existant
+
+La demande opérateur priorise désormais le socle (Z01/Z02/Z18/Z20) avant le
+registre détaillé, qui reste ouvert. L'[ADR 0361](../adr/0361-studio-socle-requetes-actions-et-brouillons.md)
+fixe trois points livrés avec un commit par point, sans nouveau moteur frontend
+ou extension d'autorité. Base : `b95dd362`, checkpoint cognitif vérifié
+`snap-4da0fd9605b640bd877064a6089412ff` ; ce n'est pas une sauvegarde des fichiers.
+
+### B01 — Contrat de requête et d'erreur
+
+`StudioClient` refuse les destinations hors `/api/` et les redirections ; la
+deadline couvre transport et décodage, y compris un transport ignorant AbortSignal.
+Le statut HTTP reste lisible si le JSON est invalide. Les réponses explicitement
+`success: false` restent des refus sous HTTP 200. Body false/0/null/chaîne vide
+est conservé. Annulation, timeout et session obsolète ont des erreurs distinctes.
+Les effets de mutation sans réponse ou sous erreur serveur restent inconnus ;
+aucune mutation n'est automatiquement rejouée. Les permissions restent au serveur.
+
+Probes exécutées : `node backend/tests/test_studio_client.mjs` et
+`node backend/tests/test_studio_request_safety.mjs`, code 0. La nouvelle suite
+est incluse dans `npm --prefix backend run test:studio`. L'index ADR est régénéré
+(441 entrées) et `git diff --check` passe. Ce point ne qualifie pas les providers
+réels ni les effets d'une mutation métier ; les suites globales restent distinctes.

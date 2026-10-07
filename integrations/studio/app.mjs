@@ -37,7 +37,7 @@ export function disconnect() {
 }
 
 function keepDraft(error, options) {
-  return options.preserveDraft && (error.status === 409 || error.name === 'AbortError' || error instanceof TypeError);
+  return options.preserveDraft && (error.status === 409 || error.name === 'AbortError' || error.kind === 'network' || error instanceof TypeError);
 }
 
 function showFailure(error, options) {
