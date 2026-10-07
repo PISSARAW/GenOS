@@ -441,6 +441,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0353](0353-delegation-worker-bornee-et-admission-runtime.md) | Délégation worker bornée et admission runtime | Accepté | 2026-10-07 | Autorité, délégation, budgets, P1 L02 |
 | [0354](0354-oracle-semantique-natif-et-sujet-runtime-scelle.md) | Oracle sémantique natif et sujet runtime scellé | Accepté | 2026-10-07 | Oracles, postconditions, AEIS, P1 L03 |
 | [0355](0355-cloture-native-par-oracles-budgetes-et-nonces-lies.md) | Clôture native par oracles budgétés et nonces liés | Accepté | 2026-10-07 | P1 L01, L02, L03 et L22, runtime, AEIS, promotion |
+| [0356](0356-oracle-memoire-de-promotion-et-controle-de-lecture.md) | Oracle mémoire de promotion et contrôle de lecture | Accepté | 2026-10-07 | P1 L01, L03 et L22, mémoire, AEIS |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

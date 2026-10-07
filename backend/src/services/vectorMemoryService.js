@@ -105,7 +105,8 @@ class VectorMemoryService {
     const limit = options.limit || 5;
     const queryVec = options.vector || (await embed(query)) || textToVector(query);
 
-    const fetchedCorpus = await this.fetchCorpus(db, query, queryVec, options);
+    const fetched = await this.fetchCorpus(db, query, queryVec, options);
+    const fetchedCorpus = await require('./promotionMemoryReadGate').filter(db, fetched);
     const existingIds = new Set(fetchedCorpus.map(i => i.id));
     const mergedSeed = SEED_EXPERIENCES.filter(s => !existingIds.has(s.id));
     const corpus = [...mergedSeed, ...fetchedCorpus];

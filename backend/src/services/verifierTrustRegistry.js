@@ -131,6 +131,7 @@ const KNOWN_VERIFIER_TYPES = [
   'counterexample',
   'repro',
   'procedure_semantic',
+  'memory_semantic',
 ];
 
 for (const type of KNOWN_VERIFIER_TYPES) {
