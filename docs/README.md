@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Socle P1 : suivi de lancement](06-qualite-preuves/suivi-p1-socle-2026-10-07.md) — première extension L01 de provenance GVX, validations et étapes restantes ; [ADR 0349](adr/0349-manifeste-experimental-gvx-et-provenance-p1.md).
+
 - [Trois pilotes comparatifs P0](06-qualite-preuves/qualification-trois-pilotes-comparatifs-2026-10-07.md) — données versionnées, baselines, ablations, budgets et reproduction ; [ADR 0348](adr/0348-trois-pilotes-comparatifs-reproductibles.md).
 
 - [Lot 2 Trinity : identités, capsules et profils](06-qualite-preuves/lot-2-trinity-identites-capsules-et-profils.md) — bootstrap corrélé, reprise vérifiée et critères de lancement des workers.

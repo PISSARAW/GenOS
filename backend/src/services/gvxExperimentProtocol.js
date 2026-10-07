@@ -1,7 +1,9 @@
 'use strict';
 
 const { randomUUID } = require('crypto');
-const { appendEvent } = require('./gvxDevelopmentLedger');
+const { appendEvent, getEvent } = require('./gvxDevelopmentLedger');
+const manifest = require('./gvxExperimentManifest');
+const { canonical, hash, error } = require('./gvxContracts');
 
 const TRINITY_ARMS = Object.freeze(['direct', 'structured', 'falsification']);
 const DESIGN_TYPES = Object.freeze(['paired', 'trinity', 'multi_arm', 'ablation']);
@@ -11,7 +13,7 @@ function validatePlan(plan) {
   if (!plan || typeof plan !== 'object') return ['experiment-object-required'];
   return [
     ...scopeErrors(plan), ...snapshotErrors(plan), ...designErrors(plan),
-    ...budgetErrors(plan), ...controlErrors(plan)
+    ...budgetErrors(plan), ...controlErrors(plan), ...versionErrors(plan)
   ];
 }
 
@@ -70,10 +72,17 @@ function controlErrors(plan) {
   return errors;
 }
 
+function versionErrors(input) {
+  if (input.protocolVersion !== undefined && ![1, 2].includes(input.protocolVersion)) return ['experiment-version-unsupported'];
+  if (input.protocolVersion === 2 && !input.provenance) return ['experiment-provenance-required'];
+  if (input.protocolVersion === 1 && input.provenance) return ['experiment-provenance-version-mismatch'];
+  return [];
+}
+
 function preparePlan(input) {
-  return {
+  const plan = {
     experimentId: input.experimentId || randomUUID(),
-    protocolVersion: 1,
+    protocolVersion: input.provenance ? 2 : 1,
     snapshotHash: input.snapshotHash,
     worldBudget: input.worldBudget,
     controls: { ...input.controls },
@@ -81,6 +90,8 @@ function preparePlan(input) {
     experimentDesign: { type: input.experimentDesign.type,
       arms: input.experimentDesign.arms.map((arm) => ({ ...arm, status: 'pending', outcome: null })) }
   };
+  if (input.provenance) plan.experimentalManifest = manifest.build(plan, input);
+  return input.provenance ? canonical(plan) : plan;
 }
 
 async function recordExperimentPlan(db, input) {
@@ -133,7 +144,9 @@ function buildFinishedPayload(plan, outcomes) {
 }
 
 async function recordExperimentOutcomes(db, context) {
+  await assertRegisteredPlan(db, context);
   const payload = buildFinishedPayload(context.plan, context.outcomes);
+  if (context.plan.experimentalManifest) payload.manifestHash = context.plan.experimentalManifest.hash;
   return appendEvent(db, {
     id: `gvx-experiment:${context.plan.experimentId}:finished`, candidateHash: context.candidateHash,
     organizationId: context.scope.organizationId, projectId: context.scope.projectId,
@@ -142,4 +155,25 @@ async function recordExperimentOutcomes(db, context) {
   });
 }
 
-module.exports = { TRINITY_ARMS, DESIGN_TYPES, validatePlan, recordExperimentPlan, assessOutcomes, recordExperimentOutcomes };
+async function readExperimentManifest(db, query) {
+  const event = await getEvent(db, `gvx-experiment:${query.experimentId}:started`,
+    { ...query.scope, entityId: query.entityId });
+  if (!event) return null;
+  const plan = event.payload.plan;
+  if (plan.protocolVersion === 1 && !plan.experimentalManifest) {
+    return { status: 'legacy_unlinked', plan, manifest: null, eventId: event.id };
+  }
+  if (plan.protocolVersion !== 2 || !plan.experimentalManifest) throw error('GVX_EXPERIMENT_MANIFEST_REQUIRED');
+  manifest.verify(plan.experimentalManifest, { plan, scope: query.scope, entityId: query.entityId, candidateHash: event.candidateHash });
+  return { status: 'linked', plan, manifest: plan.experimentalManifest, eventId: event.id };
+}
+
+async function assertRegisteredPlan(db, context) {
+  const registered = await readExperimentManifest(db, { ...context, experimentId: context.plan.experimentId });
+  if (!registered) throw error('GVX_EXPERIMENT_PLAN_NOT_REGISTERED');
+  if (hash(registered.plan) !== hash(context.plan)) throw error('GVX_EXPERIMENT_REGISTERED_PLAN_CHANGED');
+  if (context.plan.experimentalManifest) manifest.verify(context.plan.experimentalManifest, context);
+}
+
+module.exports = { TRINITY_ARMS, DESIGN_TYPES, validatePlan, recordExperimentPlan, assessOutcomes,
+  recordExperimentOutcomes, readExperimentManifest };
