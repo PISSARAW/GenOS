@@ -13,10 +13,29 @@ pub fn api_port() -> u16 {
     std::env::var("GENOS_PORT").ok().and_then(|value| value.parse().ok()).unwrap_or(8085)
 }
 
-pub fn apply_api_auth(request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+pub fn apply_api_auth<R>(request: R) -> R
+where
+    R: RequestBuilderExt,
+{
     match std::env::var("GENOS_API_KEY").or_else(|_| std::env::var("GENOS_API_TOKEN")) {
         Ok(token) if !token.trim().is_empty() => request.bearer_auth(token),
         _ => request,
+    }
+}
+
+pub trait RequestBuilderExt {
+    fn bearer_auth(self, token: String) -> Self;
+}
+
+impl RequestBuilderExt for reqwest::RequestBuilder {
+    fn bearer_auth(self, token: String) -> Self {
+        self.bearer_auth(token)
+    }
+}
+
+impl RequestBuilderExt for reqwest::blocking::RequestBuilder {
+    fn bearer_auth(self, token: String) -> Self {
+        self.bearer_auth(token)
     }
 }
 
