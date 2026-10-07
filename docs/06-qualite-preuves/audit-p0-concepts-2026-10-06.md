@@ -359,3 +359,17 @@ bénéfice scientifique n'est annoncé.
 
 B06 reste ouvert : autres consommateurs (holdouts, comparaisons, chemins hors
 mémoire/promotion) et mapping L01-L05/L22 externe à fournir avant clôture P0.
+
+## Cinquième reprise P0 : B02 résorbé et verrous mémoire entérinés
+
+Le contrôle global `scripts/ci/check_code_quality.py` observe 5 323 fichiers :
+112 violations, toutes admises par la baseline, **0 nouvelle**. Les 153
+nouvelles violations de la baseline initiale sont résorbées sans relâchement
+de la baseline. Le gate `--staged` reste vert sur les fichiers de ces reprises.
+
+Deux verrous complètent B06 : la portée globale GraphRAG exige désormais un
+flag explicite (`includeGlobal`/`allowGlobal`), comme le corpus
+(`graphRagService.scopeFilter`) ; un test verrouille que `genome_decisions`
+ne porte aucune colonne `verified`/`is_verified`/`internalSignature`/
+`systemSigned`, que `storeMemory` les ignore et qu'un `id` en `seed-*` seul
+reste sans marqueur (`test_memory_provenance_nonforgeable.js` : PASS).
