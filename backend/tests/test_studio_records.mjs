@@ -11,4 +11,10 @@ assert.equal(recordTitle({ title: '<script>not HTML</script>' }), '<script>not H
 assert.deepEqual(collectionGroups(null), []);
 assert.deepEqual(collectionGroups({ jobs: [] }), [['jobs', []]]);
 assert.deepEqual(collectionGroups({ status: 'queued' }), [['Dossier', [{ status: 'queued' }]]]);
+const restored = { success: true, restoredSnapshot: { id: 'target' }, safetySnapshot: { id: 'backup' } };
+assert.deepEqual(collectionGroups(restored).map(([title]) => title), ['Dossier', 'restoredSnapshot', 'safetySnapshot']);
+assert.deepEqual(recordFields({ affectedFilesCount: 0, durable: false, privateToken: 'never-show' }),
+  [['Payload durable', 'Non'], ['Fichiers concernés', '0']]);
+const comparison = { sameCapturedInputs: true, jobs: [] };
+assert.deepEqual(collectionGroups(comparison), [['Dossier', [comparison]], ['jobs', []]]);
 console.log('Studio records: unknowns, zero costs, false guarantees and allowlisted fields passed.');

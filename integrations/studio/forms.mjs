@@ -1,5 +1,6 @@
 import { api, perform, discover } from './app.mjs';
 import { byId, node, applyPermissions } from './ui.mjs';
+import { renderResponse } from './components.mjs';
 
 export function field(spec) {
   const [name, label, type = 'text', required = true, initial = ''] = spec;
@@ -39,7 +40,7 @@ export function actionForm(spec, container) {
       const input = values(form);
       const body = spec.body ? spec.body(input) : input;
       const response = await api.request(spec.path(input), { method: spec.method || 'POST', body });
-      byId(spec.output || 'management-result').textContent = JSON.stringify(response, null, 2);
+      renderResponse(spec.output || 'management-result', response);
       if (spec.after) await spec.after(response);
       else await discover();
       applyPermissions(api);

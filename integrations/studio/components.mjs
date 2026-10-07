@@ -4,7 +4,9 @@ import { collectionGroups, recordFields, recordTitle } from './records.mjs';
 const groupNames = {
   experiments: 'Expériences', datasets: 'Datasets', campaigns: 'Campagnes',
   jobs: 'Jobs', cases: 'Cas', claims: 'Hypothèses', evidence: 'Preuves',
-  reviews: 'Revues', agents: 'Agents', workspaces: 'Workspaces'
+  reviews: 'Revues', agents: 'Agents', workspaces: 'Workspaces',
+  targetSnapshot: 'Snapshot cible', restoredSnapshot: 'Snapshot restauré',
+  safetySnapshot: 'Snapshot de sécurité', workspace: 'Workspace', agent: 'Agent', claim: 'Hypothèse'
 };
 
 function card(record) {
@@ -37,4 +39,9 @@ export function renderData(target, data) {
   const content = groups.map(([title, items]) => group(title, items));
   if (!groups.length) content.push(node('p', 'Aucune donnée observée.'));
   byId(target).replaceChildren(...content);
+}
+
+export function renderResponse(target, data) {
+  renderData(target + '-summary', data);
+  byId(target).textContent = JSON.stringify(data, null, 2);
 }

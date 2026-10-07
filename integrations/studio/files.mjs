@@ -1,5 +1,6 @@
 import { api, perform } from './app.mjs';
 import { byId, encoded, node, displayList } from './ui.mjs';
+import { renderResponse } from './components.mjs';
 
 let opened = null;
 let baseline = '';
@@ -87,14 +88,14 @@ export function startFiles() {
   }));
   byId('restore-preview').addEventListener('click', () => perform(async () => {
     const data = await api.request(root() + '/rollback-preview?snapshotId=' + encoded(byId('restore-id').value));
-    byId('restore-result').textContent = JSON.stringify(data, null, 2);
+    renderResponse('restore-result', data);
   }));
   byId('restore').addEventListener('click', () => {
     if (!window.confirm('Restaurer ce snapshot ? Un snapshot de sécurité sera capturé avant restauration.')) return;
     perform(async () => {
       const data = await api.request(root() + '/restore', { body: { snapshotId: byId('restore-id').value } });
       reset();
-      byId('restore-result').textContent = JSON.stringify(data, null, 2);
+      renderResponse('restore-result', data);
       await listFiles();
     });
   });

@@ -103,7 +103,9 @@ async function editor(page, spec) {
   await page.locator('#restore-preview').click();
   await loaded(page);
   await page.locator('#restore').click();
-  await page.locator('#restore-result').filter({ hasText: 'snp-' }).waitFor();
+  await page.locator('#restore-result-summary').filter({ hasText: 'Snapshot de sécurité' }).waitFor();
+  assert.match(await page.locator('#restore-result-summary').textContent(), /snp-/);
+  assert.equal(await page.locator('#restore-result').isVisible(), false);
   await loaded(page);
   assert.equal(fs.readFileSync(path.join(workspace.path, 'browser-studio.html'), 'utf8'), '<div>preuve navigateur é</div>');
 }
@@ -113,6 +115,8 @@ async function lab(page, spec) {
   const protocol = await submit(page, { id: 'protocol-register', route: '/api/experiments/register-protocol',
     fields: { title: 'Browser research', seed: 7, protocol: '{"question":"Q?","falsification":"sortie différente"}', inputs: '{"case":"browser"}' } });
   assert.equal(protocol.executionStarted, false);
+  assert.match(await page.locator('#research-result-summary').textContent(), /Exécution démarrée.*Non/s);
+  assert.equal(await page.locator('#research-result').isVisible(), false);
   const claim = await submit(page, { id: 'claim-create', route: `/api/experiments/${protocol.experimentId}/evidence-ledger/claims`,
     fields: { statement: 'Hypothèse navigateur falsifiable' } });
   await page.locator('#claim-choice').fill(claim.claim.claimId);
@@ -160,6 +164,9 @@ async function run(spec, output) {
     assert.equal(await page.locator('#navigation').isVisible(), false);
     assert.equal(await page.locator('#file-content').inputValue(), '');
     assert.equal(await page.locator('#research-data').textContent(), '');
+    for (const id of ['research-result-summary', 'management-result-summary', 'restore-result-summary', 'provenance-summary']) {
+      assert.equal(await page.locator('#' + id).textContent(), '');
+    }
     assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
     assert.deepEqual(errors, []);
     return { platform: process.platform, browserVersion: browser.version(), errors,

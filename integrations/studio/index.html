@@ -33,7 +33,8 @@ Les diagnostics sont demandés explicitement ; ce guide ne crée aucun agent, pr
 <details><summary>Soumettre un dossier d’approbation signé</summary>
 <form id="approval"><label>Dossier JSON<textarea id="approval-json" rows="6" required></textarea></label>
 <button type="submit" data-permission="workspace:write">Soumettre l’approbation</button></form></details>
-<h3>Provenance mémoire</h3><pre id="provenance" data-runtime></pre>
+<h3>Provenance mémoire</h3><div id="provenance-summary" data-runtime></div>
+<details><summary>Inspecteur technique — provenance</summary><pre id="provenance" data-runtime></pre></details>
 <h3>Snapshots du workspace</h3><ul id="snapshots" data-runtime></ul>
 <button id="snapshot" type="button" data-permission="workspace:write">Capturer un snapshot</button>
 </section>
@@ -54,7 +55,8 @@ Les diagnostics sont demandés explicitement ; ce guide ne crée aucun agent, pr
 <option value="garage">Garage de l’orchestrateur</option><option value="queue">File du garage</option></select></label><button>Charger la liste</button></form>
 <div id="management-summary" data-runtime></div><details><summary>Inspecteur technique — gestion</summary>
 <pre id="management-data" data-runtime></pre></details><h3>Palette d’actions</h3><div id="management-actions"></div>
-<h3>Réponse du runtime</h3><pre id="management-result" data-runtime></pre>
+<h3>Réponse du runtime</h3><div id="management-result-summary" data-runtime></div>
+<details><summary>Inspecteur technique — réponse de gestion</summary><pre id="management-result" data-runtime></pre></details>
 <h3>Terminal contrôlé</h3><form id="terminal"><label>Commande<select id="terminal-command">
 <option>help</option><option>status</option><option>agents</option><option>ping</option><option>clear</option><option>halt</option><option>resume</option></select></label>
 <button data-permission="workspace:write">Exécuter la commande</button></form><pre id="terminal-output" data-runtime></pre>
@@ -72,7 +74,8 @@ Les diagnostics sont demandés explicitement ; ce guide ne crée aucun agent, pr
 <h3>Snapshots</h3><ul id="editor-snapshots" data-runtime></ul>
 <button id="editor-snapshot" type="button" data-permission="workspace:write">Capturer un snapshot du workspace</button>
 <label>Snapshot à restaurer<input id="restore-id"></label><button id="restore-preview" type="button">Prévisualiser la restauration</button>
-<button id="restore" type="button" data-permission="workspace:write">Restaurer le snapshot</button><pre id="restore-result" data-runtime></pre></section>
+<button id="restore" type="button" data-permission="workspace:write">Restaurer le snapshot</button>
+<div id="restore-result-summary" data-runtime></div><details><summary>Inspecteur technique — restauration</summary><pre id="restore-result" data-runtime></pre></details></section>
 <section id="research-view" data-view hidden><h2>Laboratoire</h2>
 <p>Enregistrer un protocole n’exécute aucun essai. Les budgets des protocoles sont déclarés, pas une limite d’exécution automatique. Les jobs figent leurs entrées ; le rejeu ne garantit pas un résultat de modèle identique. Les métriques et avis ne constituent pas une promotion.</p>
 <button id="research-refresh" type="button">Charger les expériences, datasets et jobs</button>
@@ -88,7 +91,8 @@ Les diagnostics sont demandés explicitement ; ce guide ne crée aucun agent, pr
 <label>Jobs à comparer (IDs séparés par virgules)<input id="job-comparison"></label><button id="jobs-compare" type="button">Comparer les jobs</button>
 <h3>Données observées</h3><div id="research-summary" data-runtime></div>
 <details><summary>Inspecteur technique — laboratoire</summary><pre id="research-data" data-runtime></pre></details>
-<h3>Actions de recherche</h3><div id="research-actions"></div><pre id="research-result" data-runtime></pre>
+<h3>Actions de recherche</h3><div id="research-actions"></div><div id="research-result-summary" data-runtime></div>
+<details><summary>Inspecteur technique — réponse de recherche</summary><pre id="research-result" data-runtime></pre></details>
 <h3>Arène locale</h3><p>Benchmark de recherche dans des tableaux triés, pas une évaluation d’agents cognitifs. Résultats en cache jusqu’au redémarrage.</p>
 <button id="arena-results" type="button">Résultats du benchmark</button><button id="arena-pareto" type="button">Comparer la frontière Pareto</button>
 <button id="arena-trace" type="button">Inspecter la trace locale</button></section>

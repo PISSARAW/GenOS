@@ -40,6 +40,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | F04.3 Contrat d'argumentation | Qualifié par tests ciblés | Invoker `context`, revue plate, identifiants persistés ; arguments et labels réellement assertés |
 | C01.1 Navigation | Qualifié Windows | Connexion séparée, contexte compact, cinq routes, liens de run et historique |
 | C02.1 Composants | Qualifié Windows, partiel | Fiches gestion/laboratoire, champs autorisés, inconnus et garanties fausses ; JSON secondaire |
+| C02.2 Réponses et provenance | Qualifié Windows, partiel | Fiches de réponse, cible/sécurité de restauration et empreintes ; JSON replié, effacement à la déconnexion |
 | C03.1 Responsive et clavier | Qualifié Windows, partiel | Cinq vues 390/1440 px, texte 200 %, labels et focus ; audit WCAG/lecteur d'écran non exécuté |
 | C04.1 Onboarding | Qualifié Windows, partiel | Guide de première lecture, session vs sélection, repli automatique et état vide de lignée |
 | Autres C/S | Planifiés / partiels selon matrice | Aucune clôture implicite |
@@ -94,6 +95,14 @@ C02.1 : tests unitaires des projections réussis ; parcours navigateur réel
 réussi avec inspection de job et comparaison depuis les fiches, inspecteur
 technique fermé. Les autres sorties (actions, provenance, restauration)
 restent à convertir dans des sous-points ultérieurs.
+
+C02.2 : réponses de gestion/recherche, provenance mémoire et restauration
+utilisent les mêmes projections métier. Les champs de l'enveloppe restent
+visibles même lorsqu'elle contient des listes ; snapshots cible, restauré et
+de sécurité disposent de fiches distinctes. Tests unitaires et navigateur
+réussis, dont réponse de protocole sans exécution, restauration physique et
+effacement de toutes les nouvelles fiches à la déconnexion. Les diagnostics
+d'exploitation et l'édition du dossier d'approbation restent techniques.
 
 C03.1 : dix captures desktop/mobile et tests de largeur des cinq vues,
 identifiant long, texte agrandi à 200 %, contrôle des labels et focus

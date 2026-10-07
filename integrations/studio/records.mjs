@@ -5,8 +5,16 @@ const labels = [
   ['inputsHash', 'Empreinte des entrées'], ['sourceJobId', 'Job source'],
   ['executionStarted', 'Exécution démarrée'], ['sameCapturedInputs', 'Entrées capturées identiques'],
   ['deterministicOutputGuaranteed', 'Sortie déterministe garantie'],
-  ['qualityGuarantee', 'Garantie de qualité'], ['costUsd', 'Coût observé (USD)']
+  ['qualityGuarantee', 'Garantie de qualité'], ['costUsd', 'Coût observé (USD)'],
+  ['success', 'Succès déclaré par le service'], ['experimentId', 'Expérience'],
+  ['hash', 'Empreinte'], ['parentHash', 'Empreinte parente'], ['assemblyId', 'Assemblage'],
+  ['assemblyAccepted', 'Assemblage accepté'], ['integrityChecked', 'Intégrité vérifiée'],
+  ['memories', 'Mémoires liées'], ['strategy', 'Stratégie'], ['label', 'Libellé'],
+  ['snapshotHash', 'Empreinte du snapshot'], ['durable', 'Payload durable'],
+  ['affectedFilesCount', 'Fichiers concernés']
 ];
+
+const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim'];
 
 export function humanValue(value) {
   if (value === null || value === undefined) return 'Inconnu';
@@ -30,5 +38,9 @@ export function collectionGroups(data) {
   if (Array.isArray(data)) return [['Résultats', data]];
   if (!data || typeof data !== 'object') return [];
   const groups = Object.entries(data).filter(([, value]) => Array.isArray(value));
-  return groups.length ? groups : [['Dossier', [data]]];
+  for (const key of nestedRecords) {
+    if (data[key] && typeof data[key] === 'object' && !Array.isArray(data[key])) groups.push([key, [data[key]]]);
+  }
+  if (recordFields(data).length || !groups.length) groups.unshift(['Dossier', [data]]);
+  return groups;
 }

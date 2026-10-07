@@ -1,6 +1,7 @@
 import { StudioClient } from './client.mjs';
 import { byId, encoded, node, options, applyPermissions, errorMessage, showView } from './ui.mjs';
 import { connectedShell } from './shell.mjs';
+import { renderResponse } from './components.mjs';
 
 export const api = new StudioClient();
 export const state = { current: null, runId: null, busy: false, epoch: 0 };
@@ -67,7 +68,7 @@ export function render(data) {
   byId('workspace').textContent = `Workspace : ${data.workspace.id} · ${data.workspace.name}`;
   byId('workspace-choice').value = data.workspace.id;
   byId('promotion').textContent = data.promotion ? `Journal vérifié : ${data.promotion.phase}` : 'Aucune promotion journalisée';
-  byId('provenance').textContent = JSON.stringify(data.provenance, null, 2);
+  renderResponse('provenance', data.provenance);
   byId('steps').replaceChildren(...data.run.steps.map(step => {
     const row = node('tr');
     row.append(node('td', step.stageKey), node('td', step.status));
