@@ -9,7 +9,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
-| [0348](0348-studio-modulaire-et-parcours-operateur.md) | Studio modulaire et parcours opérateur | Accepté | 2026-10-07 | Studio, contrats, exploitation, preuves |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
@@ -433,6 +432,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0345](0345-provenance-memoire-des-promotions.md) | Lier la mémoire de promotion à son exécution | accepté. | 2026-10-07. | -- |
 | [0346](0346-journal-de-reprise-des-promotions.md) | Journal de reprise des promotions | Accepté | 2026-10-07 | Promotions, persistance et récupération |
 | [0347](0347-clients-studio-et-vscode-de-reference.md) | Clients Studio et VS Code de référence | Accepté | 2026-10-07 | Consommateurs, interfaces et preuves |
+| [0348](0348-studio-modulaire-et-parcours-operateur.md) | Studio modulaire et parcours opérateur | Accepté | 2026-10-07 | Studio, contrats, exploitation, preuves |
+| [0350](0350-studio-parite-et-navigation-versionnee.md) | Studio : parité et navigation versionnée | Accepté. | 2026-10-07. | Studio, sessions, contrats et qualification. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

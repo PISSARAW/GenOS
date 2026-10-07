@@ -34,7 +34,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | --- | --- | --- |
 | F01.1 Matrice | Livré : aad3bf6b | Tous les lots F/C/S recensés ; benchmark concurrentiel non exécuté |
 | F02.1 Base isolée | Livré par ce document | Git inspecté, checkout opérateur conservé |
-| F03.1 Contrats | À réaliser | Frontières UI/API/runtime, routes et sessions |
+| F03.1 Contrats | Livré : ADR 0350 | Frontières UI/API/runtime, routes et sessions |
 | F04.1 Harnais | À réaliser | Ports isolés et qualification navigateur enrichie |
 | C01 Navigation | À réaliser | Connexion, contexte, routes et historique |
 | C02 Composants | À réaliser | Données métier lisibles et JSON secondaire |
