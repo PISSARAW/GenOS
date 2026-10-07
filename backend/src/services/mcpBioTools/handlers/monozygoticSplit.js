@@ -1,3 +1,4 @@
+const { probeBioFeature } = require('../featureProbe');
 const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 
@@ -21,30 +22,11 @@ function getCluster(clusterId) {
 }
 
 function handleMonozygoticSplit(args = {}, run) {
-  const action = args.action || 'status';
-  const clusterId = args.cluster_id || `monozygote-cluster-${Date.now()}`;
-  const parentGenomeId = args.parent_genome_id || 'gen-zygote-root';
-  const snapshotId = args.snapshot_id || 'snp-cleavage-origin';
-  const requestedCloneCount = args.clone_count === undefined ? 2 : Number(args.clone_count);
-  if (!Number.isSafeInteger(requestedCloneCount) || requestedCloneCount < 2 || requestedCloneCount > 128) {
-    return { configured: true, success: false, status: 'invalid_args', error: 'clone_count must be a safe integer from 2 to 128.' };
-  }
-  const cloneCount = requestedCloneCount;
-  const explorationSeeds = args.seeds === undefined ? [42, 1337] : args.seeds;
-  if (!Array.isArray(explorationSeeds) || explorationSeeds.length > 128 ||
-      !explorationSeeds.every(seed => Number.isSafeInteger(seed))) {
-    return { configured: true, success: false, status: 'invalid_args', error: 'seeds must be an array of at most 128 safe integers.' };
-  }
+  const options = monozygoticSplitOptions(args);
+  if (options.status === 'invalid_args') return options;
+  const { action, clusterId, parentGenomeId, snapshotId, requestedCloneCount, cloneCount, explorationSeeds } = options;
 
-  let cliOutput = null;
-  let cliFailed = false;
-  let cliErrorText = null;
-  if (typeof run === 'function') {
-    try {
-      const out = run(`genos biomimicry bio-feature --feature monozygotic_split --action ${quoteCliArg(action)} --param cluster_id=${quoteCliArg(clusterId)}`);
-      cliOutput = out ? out.toString() : null;
-    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
-  }
+  const { cliOutput, cliFailed, cliErrorText } = probeBioFeature(run, `genos biomimicry bio-feature --feature monozygotic_split --action ${quoteCliArg(action)} --param cluster_id=${quoteCliArg(clusterId)}`);
   if (cliFailed) {
     return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
@@ -52,69 +34,11 @@ function handleMonozygoticSplit(args = {}, run) {
   const cluster = getCluster(clusterId);
 
   if (action === 'cleave_monozygotic_twins') {
-    cluster.parentGenomeId = parentGenomeId;
-    cluster.snapshotId = snapshotId;
-    cluster.lineageId = `lin-mono-${crypto.createHash('md5').update(parentGenomeId).digest('hex').slice(0, 6)}`;
-
-    // Generate N identical clones sharing 100% genome DNA and baseline memory snapshot
-    cluster.clones = [];
-    for (let i = 0; i < cloneCount; i++) {
-      const seed = explorationSeeds.length ? explorationSeeds[i % explorationSeeds.length] : (i + 1) * 101;
-      const cloneId = `twin-clone-${i + 1}-${crypto.createHash('sha256').update(clusterId + i).digest('hex').slice(0, 6)}`;
-      
-      cluster.clones.push({
-        cloneId,
-        parentGenomeId,
-        genomeDnaHash: crypto.createHash('sha256').update(parentGenomeId + snapshotId).digest('hex'),
-        lineageId: cluster.lineageId,
-        generation: 2,
-        seed,
-        temperature: 0.2 + (i * 0.3), // varied sampling exploration
-        isogenicIdentityPercent: 100,
-        snapshotBaseline: snapshotId,
-        status: 'exploring_branch'
-      });
-    }
-
-    cluster.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'metadata_recorded',
-      transport: 'isogenic_cleavage_plane',
-      cluster_id: clusterId,
-      clone_count: cluster.clones.length,
-      lineage_id: cluster.lineageId,
-      clones: cluster.clones,
-      isogenic_guarantee: 'metadata hash only; biological/runtime identity is not verified',
-      execution_scope: 'metadata_simulation',
-      runtime_agents_created: false,
-      output: `Recorded ${cluster.clones.length} clone descriptors from snapshot '${snapshotId}'. No runtime agents or biological clones were created.`
-    };
+    return MonozygoticSplitCleaveMonozygoticTwins({ args, action, clusterId, parentGenomeId, snapshotId, requestedCloneCount, cloneCount, explorationSeeds, cluster, cliOutput, cliFailed, cliErrorText });
   }
 
   if (action === 'synchronize_cleavage_state') {
-    const trajectories = args.trajectories || [];
-    cluster.divergenceMetrics = {
-      evaluatedBranches: trajectories.length || cluster.clones.length,
-      consensusBaseline: cluster.snapshotId,
-      stateDivergenceScore: 0.18, // slight stochastic variance
-      isogenicLineageStable: true
-    };
-    cluster.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'cleavage_synchronized',
-      transport: 'isogenic_cleavage_plane',
-      cluster_id: clusterId,
-      divergence_metrics: cluster.divergenceMetrics,
-      execution_scope: 'metadata_simulation',
-      trajectories_evaluated: trajectories.length,
-      output: `Recorded metadata for ${trajectories.length} trajectories in cluster '${clusterId}'; no branches were synchronized or evaluated.`
-    };
+    return MonozygoticSplitSynchronizeCleavageState({ args, action, clusterId, parentGenomeId, snapshotId, requestedCloneCount, cloneCount, explorationSeeds, cluster, cliOutput, cliFailed, cliErrorText });
   }
 
   // Default: status
@@ -199,3 +123,94 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function MonozygoticSplitCleaveMonozygoticTwins({ args, action, clusterId, parentGenomeId, snapshotId, requestedCloneCount, cloneCount, explorationSeeds, cluster, cliOutput, cliFailed, cliErrorText }) {
+  cluster.parentGenomeId = parentGenomeId;
+  cluster.snapshotId = snapshotId;
+  cluster.lineageId = `lin-mono-${crypto.createHash('md5').update(parentGenomeId).digest('hex').slice(0, 6)}`;
+
+  // Generate N identical clones sharing 100% genome DNA and baseline memory snapshot
+  cluster.clones = [];
+  for (let i = 0; i < cloneCount; i++) {
+    const seed = explorationSeeds.length ? explorationSeeds[i % explorationSeeds.length] : (i + 1) * 101;
+    const cloneId = `twin-clone-${i + 1}-${crypto.createHash('sha256').update(clusterId + i).digest('hex').slice(0, 6)}`;
+
+    cluster.clones.push({
+      cloneId,
+      parentGenomeId,
+      genomeDnaHash: crypto.createHash('sha256').update(parentGenomeId + snapshotId).digest('hex'),
+      lineageId: cluster.lineageId,
+      generation: 2,
+      seed,
+      temperature: 0.2 + (i * 0.3), // varied sampling exploration
+      isogenicIdentityPercent: 100,
+      snapshotBaseline: snapshotId,
+      status: 'exploring_branch'
+    });
+  }
+
+  cluster.updatedAt = new Date().toISOString();
+
+  return {
+    configured: true,
+    success: true,
+    status: 'metadata_recorded',
+    transport: 'isogenic_cleavage_plane',
+    cluster_id: clusterId,
+    clone_count: cluster.clones.length,
+    lineage_id: cluster.lineageId,
+    clones: cluster.clones,
+    isogenic_guarantee: 'metadata hash only; biological/runtime identity is not verified',
+    execution_scope: 'metadata_simulation',
+    runtime_agents_created: false,
+    output: `Recorded ${cluster.clones.length} clone descriptors from snapshot '${snapshotId}'. No runtime agents or biological clones were created.`
+  };
+  }
+
+function MonozygoticSplitSynchronizeCleavageState({ args, action, clusterId, parentGenomeId, snapshotId, requestedCloneCount, cloneCount, explorationSeeds, cluster, cliOutput, cliFailed, cliErrorText }) {
+  const trajectories = args.trajectories || [];
+  cluster.divergenceMetrics = {
+    evaluatedBranches: trajectories.length || cluster.clones.length,
+    consensusBaseline: cluster.snapshotId,
+    stateDivergenceScore: 0.18, // slight stochastic variance
+    isogenicLineageStable: true
+  };
+  cluster.updatedAt = new Date().toISOString();
+
+  return {
+    configured: true,
+    success: true,
+    status: 'cleavage_synchronized',
+    transport: 'isogenic_cleavage_plane',
+    cluster_id: clusterId,
+    divergence_metrics: cluster.divergenceMetrics,
+    execution_scope: 'metadata_simulation',
+    trajectories_evaluated: trajectories.length,
+    output: `Recorded metadata for ${trajectories.length} trajectories in cluster '${clusterId}'; no branches were synchronized or evaluated.`
+  };
+  }
+
+function monozygoticSplitOptions(args) {
+  const action = args.action || 'status';
+  const clusterId = args.cluster_id || `monozygote-cluster-${Date.now()}`;
+  const parentGenomeId = args.parent_genome_id || 'gen-zygote-root';
+  const snapshotId = args.snapshot_id || 'snp-cleavage-origin';
+  const requestedCloneCount = args.clone_count === undefined ? 2 : Number(args.clone_count);
+  if (invalidCloneCount(requestedCloneCount)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'clone_count must be a safe integer from 2 to 128.' };
+  }
+  const cloneCount = requestedCloneCount;
+  const explorationSeeds = args.seeds === undefined ? [42, 1337] : args.seeds;
+  if (invalidExplorationSeeds(explorationSeeds)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'seeds must be an array of at most 128 safe integers.' };
+  }
+  return { action, clusterId, parentGenomeId, snapshotId, requestedCloneCount, cloneCount, explorationSeeds };
+}
+
+function invalidCloneCount(count) {
+  return !Number.isSafeInteger(count) || count < 2 || count > 128;
+}
+
+function invalidExplorationSeeds(seeds) {
+  return !Array.isArray(seeds) || seeds.length > 128 || !seeds.every(Number.isSafeInteger);
+}

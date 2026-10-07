@@ -21,14 +21,9 @@ function validateCognitiveGenes(genes, label = 'genome') {
   if (!genes || typeof genes !== 'object') throw new TypeError(`${label} genes are required.`);
   if (typeof genes.role !== 'string' || !genes.role.trim()) throw new TypeError(`${label}.role must be a non-empty string.`);
   if (typeof genes.strategy !== 'string' || !genes.strategy.trim()) throw new TypeError(`${label}.strategy must be a non-empty string.`);
-  if (!Array.isArray(genes.tools) || !genes.tools.length || genes.tools.some((tool) => typeof tool !== 'string' || !tool.trim())) {
-    throw new TypeError(`${label}.tools must contain at least one non-empty tool name.`);
-  }
-  for (const key of ['temp', 'topP']) {
-    if (!Number.isFinite(Number(genes[key])) || Number(genes[key]) < 0 || Number(genes[key]) > 1) {
-      throw new RangeError(`${label}.${key} must be a finite value in [0, 1].`);
-    }
-  }
+  assertCognitiveTools(genes, label);
+  assertCognitiveSampling(genes, label);
+
 }
 
 // Baseline evolutionary tree so fresh installs still render a meaningful DAG.
@@ -57,3 +52,17 @@ module.exports = {
   SEED_TREE_EDGES,
   SEED_DECISIONS
 };
+
+function assertCognitiveTools(genes, label) {
+  if (!Array.isArray(genes.tools) || !genes.tools.length || genes.tools.some((tool) => typeof tool !== 'string' || !tool.trim())) {
+    throw new TypeError(`${label}.tools must contain at least one non-empty tool name.`);
+  }
+}
+
+function assertCognitiveSampling(genes, label) {
+  for (const key of ['temp', 'topP']) {
+    if (!Number.isFinite(Number(genes[key])) || Number(genes[key]) < 0 || Number(genes[key]) > 1) {
+      throw new RangeError(`${label}.${key} must be a finite value in [0, 1].`);
+    }
+  }
+}

@@ -15,11 +15,7 @@ function normalizeReference(item, concepts) {
   if (!concept) throw new Error(`Unknown philosophical concept '${input.conceptId || input.id || ''}'.`);
   return {
     conceptId: concept.id,
-    interpretationStatus: input.interpretationStatus || concept.provenance.interpretationStatus || 'conceptual',
-    evidenceStatus: input.evidenceStatus || concept.provenance.evidenceStatus || 'documented',
-    provenanceRefs: Array.isArray(input.provenanceRefs) ? input.provenanceRefs : [],
-    provenanceVersion: input.provenanceVersion || concept.provenance.version || null,
-    sourceType: input.sourceType || concept.provenance.sourceType || null,
+    ...referenceProvenance(input, concept),
     maturity: concept.serviceMaturity.level
   };
 }
@@ -87,3 +83,13 @@ function memoryMetadata(philosophy) {
 }
 
 module.exports = { buildContext, evaluatePromotion, memoryMetadata, INTERPRETIVE_STATUSES };
+
+function referenceProvenance(input, concept) {
+  return {
+    interpretationStatus: input.interpretationStatus || concept.provenance.interpretationStatus || 'conceptual',
+    evidenceStatus: input.evidenceStatus || concept.provenance.evidenceStatus || 'documented',
+    provenanceRefs: Array.isArray(input.provenanceRefs) ? input.provenanceRefs : [],
+    provenanceVersion: input.provenanceVersion || concept.provenance.version || null,
+    sourceType: input.sourceType || concept.provenance.sourceType || null,
+  };
+}

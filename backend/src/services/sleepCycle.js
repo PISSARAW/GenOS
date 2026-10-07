@@ -310,45 +310,8 @@ async function runSleepCycle(db = null, options = {}) {
     };
   }
 
-  const {
-    weightDecayFactor = 0.9,
-    synapseDecayFactor = 0.95,
-    minTransmissionWeight = 0.05,
-    c3Threshold = 0.5,
-    cd47Threshold = 0.5,
-    orphanWeightThreshold = 0.1,
-    trajectoryRetentionDays = 7,
-    organizationId = null,
-    projectId = null,
-    enableProceduralConsolidation = true
-  } = options;
-
   try {
-    let exosomeStats = { success: true, absorbedCount: 0, engramsStored: 0, plasmidsAssimilated: 0, errors: [] };
-    let apoptosisCount = 0;
-    let proceduralStats = { consolidated: false, goldenPaths: 0, episodesMarked: 0 };
-
-    await withTransaction(database, async (tx) => {
-      await decaySynapticWeights(tx, weightDecayFactor, options);
-      await consolidateSynapses(tx, synapseDecayFactor, options);
-      const prunedSynapses = await pruneDeadSynapses(tx, { minTransmissionWeight, c3Threshold, cd47Threshold, organizationId, projectId });
-      await resetActivityHistory(tx, options);
-      apoptosisCount = await pruneOrphanedDecisions(tx, {
-        orphanWeightThreshold,
-        organizationId: options.organizationId || null,
-        projectId: options.projectId || null
-      });
-      const prunedTrajectories = await pruneTrajectories(tx, trajectoryRetentionDays, options);
-      exosomeStats = await synapticTransmission.absorbExosomes(tx);
-      exosomeStats.prunedTrajectories = prunedTrajectories;
-      exosomeStats.prunedSynapses = prunedSynapses?.changes || 0;
-      if (enableProceduralConsolidation) {
-        proceduralStats = await consolidateProceduralMemories(tx, {
-          organizationId: options.organizationId || null,
-          projectId: options.projectId || null
-        });
-      }
-    });
+    const { exosomeStats, apoptosisCount, proceduralStats } = await withTransaction(database, (tx) => sleepTransaction(tx, options));
 
     return {
       success: exosomeStats.success !== false,
@@ -360,15 +323,7 @@ async function runSleepCycle(db = null, options = {}) {
       exosomesAbsorbed: exosomeStats.absorbedCount,
       engramsStored: exosomeStats.engramsStored,
       plasmidsAssimilated: exosomeStats.plasmidsAssimilated,
-      proceduralConsolidation: {
-        consolidated: proceduralStats.consolidated,
-        goldenPaths: proceduralStats.goldenPaths || 0,
-        episodesMarked: proceduralStats.episodesMarked || 0,
-        goldenPathId: proceduralStats.goldenPathId || null,
-        pathLength: proceduralStats.pathLength || 0,
-        successRate: proceduralStats.successRate || 0,
-        reason: proceduralStats.reason || null,
-      },
+      proceduralConsolidation: proceduralConsolidationResult(proceduralStats),
       errors: exosomeStats.errors || []
     };
   } catch (error) {
@@ -386,3 +341,57 @@ module.exports = {
   runSleepCycle,
   sleepCycle: runSleepCycle
 };
+
+function proceduralConsolidationResult(proceduralStats) {
+  return {
+        consolidated: proceduralStats.consolidated,
+        goldenPaths: proceduralStats.goldenPaths || 0,
+        episodesMarked: proceduralStats.episodesMarked || 0,
+        goldenPathId: proceduralStats.goldenPathId || null,
+        pathLength: proceduralStats.pathLength || 0,
+        successRate: proceduralStats.successRate || 0,
+        reason: proceduralStats.reason || null,
+  };
+
+}
+
+async function sleepTransaction(tx, options) {
+  const {
+    weightDecayFactor = 0.9,
+    synapseDecayFactor = 0.95,
+    minTransmissionWeight = 0.05,
+    c3Threshold = 0.5,
+    cd47Threshold = 0.5,
+    orphanWeightThreshold = 0.1,
+    trajectoryRetentionDays = 7,
+    organizationId = null,
+    projectId = null,
+    enableProceduralConsolidation = true
+  } = options;
+
+  let exosomeStats = { success: true, absorbedCount: 0, engramsStored: 0, plasmidsAssimilated: 0, errors: [] };
+  let apoptosisCount = 0;
+  let proceduralStats = { consolidated: false, goldenPaths: 0, episodesMarked: 0 };
+
+
+  await decaySynapticWeights(tx, weightDecayFactor, options);
+  await consolidateSynapses(tx, synapseDecayFactor, options);
+  const prunedSynapses = await pruneDeadSynapses(tx, { minTransmissionWeight, c3Threshold, cd47Threshold, organizationId, projectId });
+  await resetActivityHistory(tx, options);
+  apoptosisCount = await pruneOrphanedDecisions(tx, {
+    orphanWeightThreshold,
+    organizationId: options.organizationId || null,
+    projectId: options.projectId || null
+  });
+  const prunedTrajectories = await pruneTrajectories(tx, trajectoryRetentionDays, options);
+  exosomeStats = await synapticTransmission.absorbExosomes(tx);
+  exosomeStats.prunedTrajectories = prunedTrajectories;
+  exosomeStats.prunedSynapses = prunedSynapses?.changes || 0;
+  if (enableProceduralConsolidation) {
+    proceduralStats = await consolidateProceduralMemories(tx, {
+      organizationId: options.organizationId || null,
+      projectId: options.projectId || null
+    });
+  }
+  return { exosomeStats, apoptosisCount, proceduralStats };
+}

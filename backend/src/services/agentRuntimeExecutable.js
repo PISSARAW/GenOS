@@ -81,9 +81,7 @@ function isLocalRuntime(executable) {
 }
 
 function configuredExecutable(mission = {}) {
-  const envVal = String(process.env.GENOS_AGENT_EXECUTOR || '').trim();
-  const missionExecutor = String(mission.executor || mission.runtime || '').trim();
-  const candidate = missionExecutor || envVal;
+  const candidate = runtimeCandidate(mission);
   const catalogHit = catalogExecutable(candidate, mission);
   if (catalogHit) return catalogHit;
 
@@ -91,13 +89,7 @@ function configuredExecutable(mission = {}) {
   if (resolveExecutor({ ...mission, executor: candidate }) === 'solar-direct') return SOLAR_RUNTIME_PATH;
 
   if (
-    candidate === 'local' ||
-    candidate === 'local-codex-runtime' ||
-    candidate === 'genos-local-runtime' ||
-    mission.agentType === 'Local' ||
-    mission.modelTier === 'Local' ||
-    mission.localRuntime === true ||
-    mission.execution_mode === 'local'
+    normalizeCatalogName(candidate, mission) === 'local'
   ) {
     return LOCAL_RUNTIME_PATH;
   }
@@ -126,17 +118,8 @@ function runtimeAvailability(executable) {
   if (/\.c?js$/i.test(target) && !fsSync.existsSync(target)) {
     return { available: false, reason: `Runtime script not found at ${target}` };
   }
-  const command = target === CODEX_RUNTIME_PATH
-    ? (process.env.CODEX_EXECUTABLE || 'codex')
-    : target;
-  const probe = spawnSync(command, ['--version'], { stdio: 'ignore', timeout: 5000 });
-  if (probe.error || probe.status !== 0) {
-    if (fsSync.existsSync(target)) {
-      return { available: true, reason: 'Local cognitive runtime script ready.' };
-    }
-    return { available: false, reason: `Runtime executable is unavailable: ${command}` };
-  }
-  return { available: true };
+  return probeRuntimeAvailability(target);
+
 }
 
 function resolveExecutable(executable, workspaceRoot) {
@@ -157,3 +140,24 @@ module.exports = {
   CALLER_MCP_RUNTIME_PATH,
   SOLAR_RUNTIME_PATH
 };
+
+function probeRuntimeAvailability(target) {
+  const command = target === CODEX_RUNTIME_PATH
+    ? (process.env.CODEX_EXECUTABLE || 'codex')
+    : target;
+  const probe = spawnSync(command, ['--version'], { stdio: 'ignore', timeout: 5000 });
+  if (probe.error || probe.status !== 0) {
+    if (fsSync.existsSync(target)) {
+      return { available: true, reason: 'Local cognitive runtime script ready.' };
+    }
+    return { available: false, reason: `Runtime executable is unavailable: ${command}` };
+  }
+  return { available: true };
+}
+
+function runtimeCandidate(mission) {
+  const envVal = String(process.env.GENOS_AGENT_EXECUTOR || '').trim();
+  const missionExecutor = String(mission.executor || mission.runtime || '').trim();
+  const candidate = missionExecutor || envVal;
+  return candidate;
+}

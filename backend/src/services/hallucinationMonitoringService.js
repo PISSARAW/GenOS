@@ -16,13 +16,7 @@ function asArray(value) {
 
 function isMeaningfulEvidenceItem(item) {
   if (item === null || item === undefined) return false;
-  if (typeof item === 'string') {
-    const trimmed = item.trim();
-    if (!trimmed) return false;
-    if (detectPlaceholderOrHallucination(trimmed).isPlaceholder) return false;
-    if (/^(?:none|n\/a|null|undefined|todo|unverified|fake|dummy|mock)(?:\b|[:\s])/i.test(trimmed)) return false;
-    return true;
-  }
+  if (typeof item === 'string') return meaningfulEvidenceText(item);
   if (typeof item === 'number' || typeof item === 'boolean') {
     return true;
   }
@@ -91,16 +85,7 @@ function inspectEvent(event = {}) {
   const payload = event.payload || {};
   const reasons = [];
   const observations = [];
-  const declared = Number(payload.hallucinations || 0);
-  if (event.eventType === 'HALLUCINATION_DETECTED' || event.eventType === 'UNVERIFIED_CLAIM' || payload.hallucinationDetected === true) {
-    reasons.push('runtime reported an unverified claim');
-    observations.push(1);
-  }
-  if (declared > 0) {
-    reasons.push(`runtime reported ${declared} hallucination${declared === 1 ? '' : 's'}`);
-    observations.push(declared);
-  }
-
+  inspectDeclaredHallucinations({ event, payload, reasons, observations });
   const unverifiedClaims = extractUnverifiedClaims(payload);
   if (unverifiedClaims.length) {
     reasons.push(`${unverifiedClaims.length} claim(s) explicitly lack evidence`);
@@ -114,21 +99,7 @@ function inspectEvent(event = {}) {
     observations.push(unsupportedClaims.length);
   }
 
-  const proposal = payload.proposal || payload.evidenceReport?.proposal || payload.report?.proposal;
-  if (proposal) {
-    if (!evidencePresent(proposal.proposal?.evidence || proposal.evidence)) {
-      reasons.push('local code proposal has no evidence statement');
-      observations.push(1);
-    }
-    const tests = asArray(proposal.tests);
-    if (!tests.length) {
-      reasons.push('local code proposal has no executed tests');
-      observations.push(1);
-    } else if (tests.some((test) => Number(test.exitCode) !== 0)) {
-      reasons.push('local code proposal has failing tests');
-      observations.push(1);
-    }
-  }
+  inspectProposalEvidence(payload, reasons, observations);
 
   return { detected: reasons.length > 0, count: observations.length ? Math.max(...observations) : 0, reasons };
 }
@@ -153,3 +124,42 @@ module.exports = {
   extractClaims,
   extractUnverifiedClaims
 };
+
+function meaningfulEvidenceText(item) {
+    const trimmed = item.trim();
+    if (!trimmed) return false;
+    if (detectPlaceholderOrHallucination(trimmed).isPlaceholder) return false;
+    if (/^(?:none|n\/a|null|undefined|todo|unverified|fake|dummy|mock)(?:\b|[:\s])/i.test(trimmed)) return false;
+    return true;
+
+}
+
+function inspectProposalEvidence(payload, reasons, observations) {
+  const proposal = payload.proposal || payload.evidenceReport?.proposal || payload.report?.proposal;
+  if (proposal) {
+    if (!evidencePresent(proposal.proposal?.evidence || proposal.evidence)) {
+      reasons.push('local code proposal has no evidence statement');
+      observations.push(1);
+    }
+    const tests = asArray(proposal.tests);
+    if (!tests.length) {
+      reasons.push('local code proposal has no executed tests');
+      observations.push(1);
+    } else if (tests.some((test) => Number(test.exitCode) !== 0)) {
+      reasons.push('local code proposal has failing tests');
+      observations.push(1);
+    }
+  }
+}
+
+function inspectDeclaredHallucinations({ event, payload, reasons, observations }) {
+  const declared = Number(payload.hallucinations || 0);
+  if (event.eventType === 'HALLUCINATION_DETECTED' || event.eventType === 'UNVERIFIED_CLAIM' || payload.hallucinationDetected === true) {
+    reasons.push('runtime reported an unverified claim');
+    observations.push(1);
+  }
+  if (declared > 0) {
+    reasons.push(`runtime reported ${declared} hallucination${declared === 1 ? '' : 's'}`);
+    observations.push(declared);
+  }
+}

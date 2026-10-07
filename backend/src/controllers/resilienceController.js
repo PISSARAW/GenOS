@@ -66,22 +66,34 @@ async function freezeCryptobiosis(req, res, next) {
   }
 }
 
+async function findSnapshot(db, req, snapshotId) {
+  return req.tenant
+    ? await db.get('SELECT cs.* FROM cryptobiosis_snapshots cs JOIN workspaces w ON w.id = cs.workspace_id WHERE cs.id = ? AND w.organization_id = ? AND w.project_id = ?', snapshotId, req.tenant.organizationId, req.tenant.projectId)
+    : await db.get('SELECT cs.* FROM cryptobiosis_snapshots cs JOIN workspaces w ON w.id = cs.workspace_id WHERE cs.id = ? AND w.organization_id IS NULL AND w.project_id IS NULL', snapshotId);
+}
+
+async function thawAgents(db, { agents, targetWorkspaceId, workspaceId }) {
+  for (const agent of agents) {
+    await db.run('UPDATE agents SET status = ?, current_task = ?, workspace_id = COALESCE(?, workspace_id), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND workspace_id = ?', agent.status, agent.currentTask || null, targetWorkspaceId || null, agent.id, workspaceId);
+  }
+}
+
+async function markSnapshotThawed(db, snapshotId, username) {
+  await db.run('UPDATE cryptobiosis_snapshots SET thawed_at = CURRENT_TIMESTAMP, thawed_by = ? WHERE id = ?', username || 'operator', snapshotId);
+}
+
 async function thawCryptobiosis(req, res, next) {
   try {
     const { snapshotId, targetWorkspaceId } = req.body || {};
     if (!snapshotId) return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'snapshotId is required.' } });
     const db = await getDatabase();
-    const persisted = req.tenant
-      ? await db.get('SELECT cs.* FROM cryptobiosis_snapshots cs JOIN workspaces w ON w.id = cs.workspace_id WHERE cs.id = ? AND w.organization_id = ? AND w.project_id = ?', snapshotId, req.tenant.organizationId, req.tenant.projectId)
-      : await db.get('SELECT cs.* FROM cryptobiosis_snapshots cs JOIN workspaces w ON w.id = cs.workspace_id WHERE cs.id = ? AND w.organization_id IS NULL AND w.project_id IS NULL', snapshotId);
+    const persisted = await findSnapshot(db, req, snapshotId);
     if (!persisted) return res.status(404).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: `Cryptobiosis snapshot '${snapshotId}' was not found.` } });
     if (targetWorkspaceId && !await scopedWorkspace(db, req, targetWorkspaceId)) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Target workspace '${targetWorkspaceId}' was not found.` } });
     resilienceService.hydrateCryptobiosis({ snapshotId: persisted.id, workspaceId: persisted.workspace_id, reason: persisted.reason, frozenAt: persisted.frozen_at, state: JSON.parse(persisted.state_json || '{}') });
     const result = await resilienceService.thawCryptobiosis(db, snapshotId, targetWorkspaceId);
-    for (const agent of result.state.agents || []) {
-      await db.run('UPDATE agents SET status = ?, current_task = ?, workspace_id = COALESCE(?, workspace_id), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND workspace_id = ?', agent.status, agent.currentTask || null, targetWorkspaceId || null, agent.id, persisted.workspace_id);
-    }
-    await db.run('UPDATE cryptobiosis_snapshots SET thawed_at = CURRENT_TIMESTAMP, thawed_by = ? WHERE id = ?', req.user?.username || 'operator', snapshotId);
+    await thawAgents(db, { agents: result.state.agents || [], targetWorkspaceId, workspaceId: persisted.workspace_id });
+    await markSnapshotThawed(db, snapshotId, req.user?.username || 'operator');
 
     telemetry.emitEvent({
       eventType: 'CRYPTOBIOSIS_THAWED',

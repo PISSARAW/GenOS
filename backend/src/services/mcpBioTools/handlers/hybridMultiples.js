@@ -1,3 +1,4 @@
+const { probeBioFeature } = require('../featureProbe');
 const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 
@@ -19,28 +20,11 @@ function getCluster(clusterId) {
 }
 
 function handleHybridMultiples(args = {}, run) {
-  const action = args.action || 'status';
-  const clusterId = args.cluster_id || `hybrid-cluster-${Date.now()}`;
-  const archetypes = (Array.isArray(args.archetypes) ? args.archetypes : [
-    { familyName: 'SymbolicProver', model: 'claude-3-5-sonnet', clonesPerFamily: 2 },
-    { familyName: 'EmpiricalFuzzer', model: 'gpt-4o', clonesPerFamily: 2 }
-  ]).map(arch => arch && typeof arch === 'object' ? { ...arch, clonesPerFamily: arch.clonesPerFamily ?? 2 } : arch);
-  if (archetypes.length > 16 || archetypes.some(arch => !arch ||
-      typeof arch.familyName !== 'string' || !arch.familyName.trim() || arch.familyName.length > 80 ||
-      typeof arch.model !== 'string' || !arch.model.trim() || arch.model.length > 120 ||
-      !Number.isSafeInteger(arch.clonesPerFamily) || arch.clonesPerFamily < 1 || arch.clonesPerFamily > 128)) {
-    return { configured: true, success: false, status: 'invalid_args', error: 'archetypes must contain at most 16 entries with a familyName, model, and clonesPerFamily from 1 to 128.' };
-  }
+  const options = hybridMultiplesOptions(args);
+  if (options.status === 'invalid_args') return options;
+  const { action, clusterId, archetypes } = options;
 
-  let cliOutput = null;
-  let cliFailed = false;
-  let cliErrorText = null;
-  if (typeof run === 'function') {
-    try {
-      const out = run(`genos biomimicry bio-feature --feature hybrid_multiples --action ${quoteCliArg(action)} --param cluster_id=${quoteCliArg(clusterId)}`);
-      cliOutput = out ? out.toString() : null;
-    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
-  }
+  const { cliOutput, cliFailed, cliErrorText } = probeBioFeature(run, `genos biomimicry bio-feature --feature hybrid_multiples --action ${quoteCliArg(action)} --param cluster_id=${quoteCliArg(clusterId)}`);
   if (cliFailed) {
     return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
@@ -48,74 +32,11 @@ function handleHybridMultiples(args = {}, run) {
   const cluster = getCluster(clusterId);
 
   if (action === 'generate_hybrid_cluster') {
-    cluster.families = [];
-    let agentSum = 0;
-
-    for (let fIdx = 0; fIdx < archetypes.length; fIdx++) {
-      const arch = archetypes[fIdx];
-      const clonesCount = arch.clonesPerFamily;
-      const familyLineageId = `lin-poly-${fIdx + 1}-${crypto.createHash('md5').update(arch.familyName).digest('hex').slice(0, 6)}`;
-      const clones = [];
-
-      for (let cIdx = 0; cIdx < clonesCount; cIdx++) {
-        clones.push({
-          agentId: `hybrid-${arch.familyName.toLowerCase()}-clone-${cIdx + 1}`,
-          family: arch.familyName,
-          model: arch.model,
-          lineageId: familyLineageId,
-          cloneIndex: cIdx + 1,
-          samplingSeed: (fIdx + 1) * 1000 + (cIdx + 1) * 11,
-          isogenicPairId: `isopair-${familyLineageId}`
-        });
-        agentSum++;
-      }
-
-      cluster.families.push({
-        familyName: arch.familyName,
-        model: arch.model,
-        lineageId: familyLineageId,
-        clonesCount,
-        clones
-      });
-    }
-
-    cluster.totalAgents = agentSum;
-    cluster.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'metadata_recorded',
-      transport: 'hybrid_embryonic_matrix',
-      cluster_id: clusterId,
-      families_count: cluster.families.length,
-      total_agents_count: cluster.totalAgents,
-      composition: `${cluster.families.length} family descriptors x clone descriptors = ${cluster.totalAgents} records`,
-      families: cluster.families,
-      execution_scope: 'metadata_simulation',
-      runtime_agents_created: false,
-      output: `Recorded ${cluster.families.length} family descriptors and ${cluster.totalAgents} clone descriptors for cluster '${clusterId}'. No runtime agents were deployed.`
-    };
+    return hybridMultiplesGenerateHybridCluster({ clusterId, archetypes, cluster });
   }
 
   if (action === 'evaluate_cluster_dispersion') {
-    cluster.dispersionMetrics = {
-      interFamilyDiversity: Number((cluster.families.length / Math.max(1, cluster.totalAgents)).toFixed(2)),
-      intraFamilyIsogenicStability: 1.0,
-      coverageScore: 0.94
-    };
-    cluster.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'dispersion_evaluated',
-      transport: 'hybrid_embryonic_matrix',
-      cluster_id: clusterId,
-      dispersion_metrics: cluster.dispersionMetrics,
-      execution_scope: 'metadata_simulation',
-      output: `Cluster '${clusterId}' metadata summary: Inter-Family Diversity = ${cluster.dispersionMetrics.interFamilyDiversity}, Intra-Family Stability = ${cluster.dispersionMetrics.intraFamilyIsogenicStability}. No empirical dispersion was evaluated.`
-    };
+    return hybridMultiplesEvaluateClusterDispersion({ clusterId, cluster });
   }
 
   // Default: status
@@ -200,3 +121,98 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function hybridMultiplesGenerateHybridCluster({ clusterId, archetypes, cluster }) {
+  cluster.families = [];
+  let agentSum = 0;
+
+  for (let fIdx = 0; fIdx < archetypes.length; fIdx++) {
+    const arch = archetypes[fIdx];
+    const clonesCount = arch.clonesPerFamily;
+    const familyLineageId = `lin-poly-${fIdx + 1}-${crypto.createHash('md5').update(arch.familyName).digest('hex').slice(0, 6)}`;
+    const clones = [];
+
+    for (let cIdx = 0; cIdx < clonesCount; cIdx++) {
+      clones.push({
+        agentId: `hybrid-${arch.familyName.toLowerCase()}-clone-${cIdx + 1}`,
+        family: arch.familyName,
+        model: arch.model,
+        lineageId: familyLineageId,
+        cloneIndex: cIdx + 1,
+        samplingSeed: (fIdx + 1) * 1000 + (cIdx + 1) * 11,
+        isogenicPairId: `isopair-${familyLineageId}`
+      });
+      agentSum++;
+    }
+
+    cluster.families.push({
+      familyName: arch.familyName,
+      model: arch.model,
+      lineageId: familyLineageId,
+      clonesCount,
+      clones
+    });
+  }
+
+  cluster.totalAgents = agentSum;
+  cluster.updatedAt = new Date().toISOString();
+
+  return {
+    configured: true,
+    success: true,
+    status: 'metadata_recorded',
+    transport: 'hybrid_embryonic_matrix',
+    cluster_id: clusterId,
+    families_count: cluster.families.length,
+    total_agents_count: cluster.totalAgents,
+    composition: `${cluster.families.length} family descriptors x clone descriptors = ${cluster.totalAgents} records`,
+    families: cluster.families,
+    execution_scope: 'metadata_simulation',
+    runtime_agents_created: false,
+    output: `Recorded ${cluster.families.length} family descriptors and ${cluster.totalAgents} clone descriptors for cluster '${clusterId}'. No runtime agents were deployed.`
+  };
+}
+
+function hybridMultiplesEvaluateClusterDispersion({ clusterId, cluster }) {
+  cluster.dispersionMetrics = {
+    interFamilyDiversity: Number((cluster.families.length / Math.max(1, cluster.totalAgents)).toFixed(2)),
+    intraFamilyIsogenicStability: 1.0,
+    coverageScore: 0.94
+  };
+  cluster.updatedAt = new Date().toISOString();
+
+  return {
+    configured: true,
+    success: true,
+    status: 'dispersion_evaluated',
+    transport: 'hybrid_embryonic_matrix',
+    cluster_id: clusterId,
+    dispersion_metrics: cluster.dispersionMetrics,
+    execution_scope: 'metadata_simulation',
+    output: `Cluster '${clusterId}' metadata summary: Inter-Family Diversity = ${cluster.dispersionMetrics.interFamilyDiversity}, Intra-Family Stability = ${cluster.dispersionMetrics.intraFamilyIsogenicStability}. No empirical dispersion was evaluated.`
+  };
+}
+
+function hybridMultiplesOptions(args) {
+  const action = args.action || 'status';
+  const clusterId = args.cluster_id || `hybrid-cluster-${Date.now()}`;
+  const archetypes = (Array.isArray(args.archetypes) ? args.archetypes : [
+    { familyName: 'SymbolicProver', model: 'claude-3-5-sonnet', clonesPerFamily: 2 },
+    { familyName: 'EmpiricalFuzzer', model: 'gpt-4o', clonesPerFamily: 2 }
+  ]).map(arch => arch && typeof arch === 'object' ? { ...arch, clonesPerFamily: arch.clonesPerFamily ?? 2 } : arch);
+  if (archetypes.length > 16 || archetypes.some(invalidArchetype)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'archetypes must contain at most 16 entries with a familyName, model, and clonesPerFamily from 1 to 128.' };
+  }
+  return { action, clusterId, archetypes };
+}
+
+function invalidArchetype(arch) {
+  if (!arch) return true;
+  if (invalidArchetypeText(arch.familyName, 80)) return true;
+  if (invalidArchetypeText(arch.model, 120)) return true;
+  return !Number.isSafeInteger(arch.clonesPerFamily) || arch.clonesPerFamily < 1 || arch.clonesPerFamily > 128;
+}
+
+function invalidArchetypeText(value, limit) {
+  return typeof value !== 'string' || !value.trim() || value.length > limit;
+}

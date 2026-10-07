@@ -64,14 +64,7 @@ function evaluateBeauty(args = {}) {
 }
 
 function evaluateSublime(args = {}) {
-  const subject = objectOrEmpty(args.subject || args.work || args);
-  const mathematical = clamp(subject.magnitude || subject.scale);
-  const dynamical = clamp(subject.force || subject.power);
-  const terror = clamp(subject.terror || subject.fear);
-  const representability = clamp(subject.representability);
-  const modes = [];
-  if (mathematical !== null && mathematical >= 0.5) modes.push('mathematical');
-  if (dynamical !== null && dynamical >= 0.5) modes.push('dynamical');
+  const { mathematical, dynamical, terror, representability, modes } = sublimeFeatures(args);
   return {
     concept: 'aesthetics.sublime',
     framework: ['kantian_mathematical', 'kantian_dynamical', 'burkean_terror', 'lyotardian_unpresentable'],
@@ -159,3 +152,15 @@ module.exports = {
   evaluateTaste,
   evaluateAestheticExperience
 };
+
+function sublimeFeatures(args) {
+  const subject = objectOrEmpty(args.subject || args.work || args);
+  const mathematical = clamp(subject.magnitude || subject.scale);
+  const dynamical = clamp(subject.force || subject.power);
+  const terror = clamp(subject.terror || subject.fear);
+  const representability = clamp(subject.representability);
+  const modes = [];
+  if (mathematical !== null && mathematical >= 0.5) modes.push('mathematical');
+  if (dynamical !== null && dynamical >= 0.5) modes.push('dynamical');
+  return { mathematical, dynamical, terror, representability, modes };
+}

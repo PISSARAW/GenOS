@@ -38,22 +38,7 @@ async function discoverCommands(workspacePath) {
     if (entry.isDirectory() && !['node_modules', '.git', 'target'].includes(entry.name)) roots.push(entry.name);
   }
   for (const root of roots) {
-    const commandPath = path.join(workspacePath, root);
-    const suffix = root ? ` (${root})` : '';
-    const idSuffix = root ? `-${root}` : '';
-    const scripts = await packageScripts(path.join(commandPath, 'package.json'));
-    if (scripts.test) {
-      commands.push({ id: `npm-test${idSuffix}`, label: `npm test${suffix}`, executable: 'npm', args: ['test'], cwd: root });
-    }
-    if (scripts.check) {
-      commands.push({ id: `npm-check${idSuffix}`, label: `npm run check${suffix}`, executable: 'npm', args: ['run', 'check'], cwd: root });
-    }
-    if (await exists(path.join(commandPath, 'pytest.ini')) || await exists(path.join(commandPath, 'pyproject.toml'))) {
-      commands.push({ id: `pytest${idSuffix}`, label: `pytest${suffix}`, executable: 'pytest', args: [], cwd: root });
-    }
-    if (await exists(path.join(commandPath, 'Cargo.toml'))) {
-      commands.push({ id: `cargo-test${idSuffix}`, label: `cargo test${suffix}`, executable: 'cargo', args: ['test'], cwd: root });
-    }
+    await discoverRootCommands(workspacePath, root, commands);
   }
   return commands;
 }
@@ -97,3 +82,22 @@ async function resolveWorkspaceTestCommand(workspaceId, commandId) {
 }
 
 module.exports = { inspectWorkspace, runWorkspaceTest, resolveWorkspaceTestCommand };
+
+async function discoverRootCommands(workspacePath, root, commands) {
+    const commandPath = path.join(workspacePath, root);
+    const suffix = root ? ` (${root})` : '';
+    const idSuffix = root ? `-${root}` : '';
+    const scripts = await packageScripts(path.join(commandPath, 'package.json'));
+    if (scripts.test) {
+      commands.push({ id: `npm-test${idSuffix}`, label: `npm test${suffix}`, executable: 'npm', args: ['test'], cwd: root });
+    }
+    if (scripts.check) {
+      commands.push({ id: `npm-check${idSuffix}`, label: `npm run check${suffix}`, executable: 'npm', args: ['run', 'check'], cwd: root });
+    }
+    if (await exists(path.join(commandPath, 'pytest.ini')) || await exists(path.join(commandPath, 'pyproject.toml'))) {
+      commands.push({ id: `pytest${idSuffix}`, label: `pytest${suffix}`, executable: 'pytest', args: [], cwd: root });
+    }
+    if (await exists(path.join(commandPath, 'Cargo.toml'))) {
+      commands.push({ id: `cargo-test${idSuffix}`, label: `cargo test${suffix}`, executable: 'cargo', args: ['test'], cwd: root });
+    }
+}

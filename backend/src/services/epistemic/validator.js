@@ -144,20 +144,7 @@ function validateClaimAgainstRules(claim, opts = {}) {
   const failures = [];
   const appliedRules = [];
 
-  // Type guard
-  if (!CLAIM_TYPES[claim.type] && !Object.values(CLAIM_TYPES).includes(claim.type)) {
-    failures.push(`unrecognized claim type: ${claim.type}`);
-  }
-
-  for (const rule of VALIDATION_RULES) {
-    if (rule.appliesTo !== true && !rule.appliesTo.includes(claim.type)) continue;
-    const result = applyRule(rule, claim);
-    appliedRules.push(result);
-    if (!result.passes) {
-      failures.push(result.why);
-    }
-  }
-
+  applyClaimRules(claim, failures, appliedRules);
   const hasMandatoryFailure = appliedRules.some(
     (r) => r.level === RULE_LEVELS.MANDATORY && !r.passes,
   );
@@ -168,16 +155,7 @@ function validateClaimAgainstRules(claim, opts = {}) {
   const tails = opts.tails || 0;
   const calibrated = confidenceWithStakes(claim, stakes, { curve, tails });
 
-  let verdict;
-  if (evidenceCheck.valid === false || hasMandatoryFailure) {
-    verdict = VERDICT.REJECT;
-  } else if (claim.type === CLAIM_TYPES.BELIEF && evQuality < 0.5) {
-    verdict = VERDICT.REQUIRES_DEBT;
-  } else if (evQuality < 0.3) {
-    verdict = VERDICT.QUARANTINE;
-  } else {
-    verdict = VERDICT.ACCEPT;
-  }
+  const verdict = claimVerdict({ evidenceCheck, hasMandatoryFailure, claim, evQuality });
 
   return {
     verdict,
@@ -342,3 +320,33 @@ module.exports = {
   autoResolveStakeableDebts,
   checkClaimConsistency,
 };
+
+function applyClaimRules(claim, failures, appliedRules) {
+  // Type guard
+  if (!CLAIM_TYPES[claim.type] && !Object.values(CLAIM_TYPES).includes(claim.type)) {
+    failures.push(`unrecognized claim type: ${claim.type}`);
+  }
+
+  for (const rule of VALIDATION_RULES) {
+    if (rule.appliesTo !== true && !rule.appliesTo.includes(claim.type)) continue;
+    const result = applyRule(rule, claim);
+    appliedRules.push(result);
+    if (!result.passes) {
+      failures.push(result.why);
+    }
+  }
+}
+
+function claimVerdict({ evidenceCheck, hasMandatoryFailure, claim, evQuality }) {
+  let verdict;
+  if (evidenceCheck.valid === false || hasMandatoryFailure) {
+    verdict = VERDICT.REJECT;
+  } else if (claim.type === CLAIM_TYPES.BELIEF && evQuality < 0.5) {
+    verdict = VERDICT.REQUIRES_DEBT;
+  } else if (evQuality < 0.3) {
+    verdict = VERDICT.QUARANTINE;
+  } else {
+    verdict = VERDICT.ACCEPT;
+  }
+  return verdict;
+}

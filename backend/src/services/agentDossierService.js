@@ -94,19 +94,7 @@ function synthesisInfluenceRecords(events) {
     if (event.eventType === 'DOSSIER_INFLUENCE_VERIFIED') {
       for (const wid of event.payload?.workerIds || []) verifiedWorkers.add(wid);
     }
-    const report = event.payload?.evidenceReport || event.payload?.report || (event.payload?.dossierInfluence ? event.payload : null);
-    if (Array.isArray(report?.dossierInfluence)) {
-      for (const entry of report.dossierInfluence) {
-        if (!entry || typeof entry !== 'object') continue;
-        records.push({
-          sourceAgentId: event.agentId,
-          workerId: entry.workerId,
-          influence: entry.influence,
-          usedClaims: Array.isArray(entry.usedClaims) ? entry.usedClaims : [],
-          recordedAt: event.createdAt
-        });
-      }
-    }
+  collectDossierInfluence(event, records);
   }
   return {
     verifiedWorkerIds: [...verifiedWorkers],
@@ -146,22 +134,12 @@ async function loadAgentDossier(db, agentId, tenant) {
   const children = family.filter((agent) => agent.parent_agent_id === agentId);
   const descendants = family.slice(1);
   const forks = descendants.filter((agent) => agent.lineage_relation !== 'independent');
-  const parentEdges = await db.all('SELECT source_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?', agentId).catch(() => []);
-  const parentAgentIds = parentEdges.length > 0
-    ? parentEdges.map((e) => e.source_node_id)
-    : (root.parent_agent_id ? [root.parent_agent_id] : []);
+  const parentAgentIds = await dossierParents(db, agentId, root);
   const genome = {
     identity: {
       id: root.id, name: root.name, nameMeaning: root.name_meaning, role: root.role, agentType: root.agent_type,
       executionMode: root.execution_mode, modelTier: root.model_tier, language: root.language,
-      conscience: {
-        dissonanceLevel: root.dissonance_level || 0,
-        eurekaCount: root.eureka_count || 0,
-        cognitiveBudget: root.cognitive_budget || 100,
-        cognitiveBaselineBudget: root.cognitive_baseline_budget || 100,
-        conscienceRevision: root.conscience_revision || 0,
-        isApoptotic: Boolean(root.is_apoptotic)
-      }
+      conscience: dossierConscience(root)
     },
     lineage: {
       parentAgentId: root.parent_agent_id,
@@ -196,3 +174,38 @@ async function loadAgentDossier(db, agentId, tenant) {
 }
 
 module.exports = { MAX_AGENT_FAMILY_DEPTH, loadAgentDossier, agentFamily, memoryRecords, mutationRecords, runtimeOrganizations, synthesisInfluenceRecords };
+
+function collectDossierInfluence(event, records) {
+    const report = event.payload?.evidenceReport || event.payload?.report || (event.payload?.dossierInfluence ? event.payload : null);
+    if (Array.isArray(report?.dossierInfluence)) {
+      for (const entry of report.dossierInfluence) {
+        if (!entry || typeof entry !== 'object') continue;
+        records.push({
+          sourceAgentId: event.agentId,
+          workerId: entry.workerId,
+          influence: entry.influence,
+          usedClaims: Array.isArray(entry.usedClaims) ? entry.usedClaims : [],
+          recordedAt: event.createdAt
+        });
+      }
+    }
+}
+
+async function dossierParents(db, agentId, root) {
+  const parentEdges = await db.all('SELECT source_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?', agentId).catch(() => []);
+  const parentAgentIds = parentEdges.length > 0
+    ? parentEdges.map((e) => e.source_node_id)
+    : (root.parent_agent_id ? [root.parent_agent_id] : []);
+  return parentAgentIds;
+}
+
+function dossierConscience(root) {
+  return {
+        dissonanceLevel: root.dissonance_level || 0,
+        eurekaCount: root.eureka_count || 0,
+        cognitiveBudget: root.cognitive_budget || 100,
+        cognitiveBaselineBudget: root.cognitive_baseline_budget || 100,
+        conscienceRevision: root.conscience_revision || 0,
+        isApoptotic: Boolean(root.is_apoptotic)
+      };
+}

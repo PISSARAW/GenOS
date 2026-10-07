@@ -12,6 +12,7 @@ const tests = [
   'test_evaluation_reproducibility.js',
   'test_evaluation_result_normalization.js',
   'test_metric_semantics.js',
+  'test_historical_quality_refactors.js',
   'test_no_answer_proof_remediation.js'
 ];
 

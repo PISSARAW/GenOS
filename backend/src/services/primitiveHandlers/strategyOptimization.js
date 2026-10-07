@@ -33,7 +33,7 @@ async function temperatureSchedule(context = {}) {
   const iterations = Number(context.iterations ?? 10);
   const initial = Number(context.initialTemperature ?? context.initial ?? 1);
   const cooling = Number(context.coolingRate ?? 0.95);
-  if (!Number.isInteger(iterations) || iterations < 1 || !Number.isFinite(initial) || initial <= 0 || !Number.isFinite(cooling) || cooling <= 0 || cooling >= 1) {
+  if (invalidTemperatureSchedule(iterations, initial, cooling)) {
     return { success: false, error: 'iterations, initialTemperature and coolingRate are invalid.', code: 'TEMPERATURE_INVALID' };
   }
   const temperatures = Array.from({ length: iterations }, (_, index) => initial * (cooling ** index));
@@ -51,3 +51,7 @@ async function resourceShift(context = {}) {
 }
 
 module.exports = { rankStates, preserveLosers, varianceAnalysis, temperatureSchedule, resourceShift };
+
+function invalidTemperatureSchedule(iterations, initial, cooling) {
+  return !Number.isInteger(iterations) || iterations < 1 || !Number.isFinite(initial) || initial <= 0 || !Number.isFinite(cooling) || cooling <= 0 || cooling >= 1;
+}

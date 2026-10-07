@@ -35,53 +35,12 @@ function buildBenchmark(problemSpec = {}) {
 
 function executeSolver(solverKey, values, target) {
   const startedAt = performance.now();
-  let index = -1;
-  let steps = 0;
-  const trace = [];
-
-  if (solverKey === 'react_solver') {
-    for (let i = 0; i < values.length; i += 1) {
-      steps += 1;
-      trace.push({ phase: 'Search', detail: `Checked index ${i}` });
-      if (values[i] === target) { index = i; break; }
-    }
-  } else if (solverKey === 'beam_solver') {
-    let left = 0;
-    let right = values.length - 1;
-    while (left <= right) {
-      const middle = Math.floor((left + right) / 2);
-      steps += 1;
-      trace.push({ phase: 'Search', detail: `Expanded best candidate at index ${middle}` });
-      if (values[middle] === target) { index = middle; break; }
-      if (values[middle] < target) left = middle + 1;
-      else right = middle - 1;
-    }
-  } else if (solverKey === 'genetic_solver') {
-    let low = 0;
-    let high = values.length - 1;
-    while (low <= high && target >= values[low] && target <= values[high]) {
-      const denominator = values[high] - values[low];
-      const probe = denominator === 0 ? low : low + Math.floor(((target - values[low]) * (high - low)) / denominator);
-      steps += 1;
-      trace.push({ phase: 'Hypothesis', detail: `Probed index ${probe}` });
-      if (values[probe] === target) { index = probe; break; }
-      if (values[probe] < target) low = probe + 1;
-      else high = probe - 1;
-    }
-  } else {
-    let left = 0;
-    let right = values.length - 1;
-    while (left <= right) {
-      const middle = Math.floor((left + right) / 2);
-      steps += 1;
-      trace.push({ phase: solverKey === 'reflexion_solver' ? 'Verification' : 'Search', detail: `Visited index ${middle}` });
-      if (values[middle] === target) { index = middle; break; }
-      if (values[middle] < target) left = middle + 1;
-      else right = middle - 1;
-    }
-  }
-
-  return { index, steps, executionTimeMs: Math.max(0, Number((performance.now() - startedAt).toFixed(3))), trace };
+  const state = { index: -1, steps: 0, trace: [], solverKey };
+  const searches = new Map([['react_solver', linearSearch], ['beam_solver', beamSearch], ['genetic_solver', geneticSearch]]);
+  const search = searches.get(solverKey) || binarySearch;
+  search(values, target, state);
+  return { index: state.index, steps: state.steps,
+    executionTimeMs: Math.max(0, Number((performance.now() - startedAt).toFixed(3))), trace: state.trace };
 }
 
 module.exports = {
@@ -89,3 +48,54 @@ module.exports = {
   buildBenchmark,
   executeSolver
 };
+
+function linearSearch(values, target, state) {
+  for (let i = 0; i < values.length; i += 1) {
+    state.steps += 1;
+    state.trace.push({ phase: 'Search', detail: `Checked index ${i}` });
+    if (values[i] === target) { state.index = i; break; }
+  }
+
+}
+
+function beamSearch(values, target, state) {
+  let left = 0;
+  let right = values.length - 1;
+  while (left <= right) {
+    const middle = Math.floor((left + right) / 2);
+    state.steps += 1;
+    state.trace.push({ phase: 'Search', detail: `Expanded best candidate at index ${middle}` });
+    if (values[middle] === target) { state.index = middle; break; }
+    if (values[middle] < target) left = middle + 1;
+    else right = middle - 1;
+  }
+
+}
+
+function geneticSearch(values, target, state) {
+  let low = 0;
+  let high = values.length - 1;
+  while (low <= high && target >= values[low] && target <= values[high]) {
+    const denominator = values[high] - values[low];
+    const probe = denominator === 0 ? low : low + Math.floor(((target - values[low]) * (high - low)) / denominator);
+    state.steps += 1;
+    state.trace.push({ phase: 'Hypothesis', detail: `Probed index ${probe}` });
+    if (values[probe] === target) { state.index = probe; break; }
+    if (values[probe] < target) low = probe + 1;
+    else high = probe - 1;
+  }
+
+}
+
+function binarySearch(values, target, state) {
+  let left = 0;
+  let right = values.length - 1;
+  while (left <= right) {
+    const middle = Math.floor((left + right) / 2);
+    state.steps += 1;
+    state.trace.push({ phase: state.solverKey === 'reflexion_solver' ? 'Verification' : 'Search', detail: `Visited index ${middle}` });
+    if (values[middle] === target) { state.index = middle; break; }
+    if (values[middle] < target) left = middle + 1;
+    else right = middle - 1;
+  }
+}

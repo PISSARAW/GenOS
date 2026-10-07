@@ -19,13 +19,7 @@ async function buildReport({ framework, workspaceId, generatedBy = 'studio', sco
   if (!FRAMEWORKS[framework]) throw Object.assign(new Error('Unsupported compliance framework'), { status: 400 });
   scope = scope || {};
   const db = await getDatabase();
-  const scoped = scope.organizationId && scope.projectId;
-  const params = scoped ? [scope.organizationId, scope.projectId] : [];
-  const [events, workspaces, snapshots] = await Promise.all([
-    db.get(scoped ? 'SELECT COUNT(*) AS count FROM telemetry_events WHERE organization_id = ? AND project_id = ?' : 'SELECT COUNT(*) AS count FROM telemetry_events WHERE organization_id IS NULL AND project_id IS NULL', ...params),
-    db.get(scoped ? 'SELECT COUNT(*) AS count FROM workspaces WHERE organization_id = ? AND project_id = ? AND is_archived = 0' : 'SELECT COUNT(*) AS count FROM workspaces WHERE organization_id IS NULL AND project_id IS NULL AND is_archived = 0', ...params),
-    db.get(scoped ? 'SELECT COUNT(*) AS count FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE w.organization_id = ? AND w.project_id = ?' : 'SELECT COUNT(*) AS count FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE w.organization_id IS NULL AND w.project_id IS NULL', ...params)
-  ]);
+  const { events, workspaces, snapshots } = await complianceCounts(db, scope);
   const evidence = evidenceFor({ events: events.count, workspaces: workspaces.count, snapshots: snapshots.count }, FRAMEWORKS[framework]);
   const score = evidence.length > 0 ? Math.round((evidence.filter((item) => item.status === 'pass').length / evidence.length) * 100) : 0;
   const report = { id: `cmp_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`, framework, title: FRAMEWORKS[framework].title, workspaceId: workspaceId || null, score, evidence, findings: evidence.filter((item) => item.status !== 'pass'), generatedBy };
@@ -63,3 +57,14 @@ function toMarkdown(report) {
 }
 
 module.exports = { FRAMEWORKS, buildReport, listReports, getReport, toMarkdown };
+
+async function complianceCounts(db, scope) {
+  const scoped = scope.organizationId && scope.projectId;
+  const params = scoped ? [scope.organizationId, scope.projectId] : [];
+  const [events, workspaces, snapshots] = await Promise.all([
+    db.get(scoped ? 'SELECT COUNT(*) AS count FROM telemetry_events WHERE organization_id = ? AND project_id = ?' : 'SELECT COUNT(*) AS count FROM telemetry_events WHERE organization_id IS NULL AND project_id IS NULL', ...params),
+    db.get(scoped ? 'SELECT COUNT(*) AS count FROM workspaces WHERE organization_id = ? AND project_id = ? AND is_archived = 0' : 'SELECT COUNT(*) AS count FROM workspaces WHERE organization_id IS NULL AND project_id IS NULL AND is_archived = 0', ...params),
+    db.get(scoped ? 'SELECT COUNT(*) AS count FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE w.organization_id = ? AND w.project_id = ?' : 'SELECT COUNT(*) AS count FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE w.organization_id IS NULL AND w.project_id IS NULL', ...params)
+  ]);
+  return { events, workspaces, snapshots };
+}

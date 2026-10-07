@@ -171,13 +171,7 @@ function primitiveFailureReason(step, result) {
   if (!result || result.success !== false) return null;
   // The pipeline wrapper ({ success, results }) carries no `error` of its own:
   // the real cause lives in the first failed primitive result.
-  const failed = Array.isArray(result.results)
-    ? result.results.find((entry) => entry && entry.result && entry.result.success === false)
-    : null;
-  const detail = result.error
-    || (failed && (failed.result.error || failed.result.code))
-    || (failed && failed.primitive)
-    || 'strategy primitive failed';
+  const detail = primitiveFailureDetail(result);
   const message = `Phase '${step.stage_key}' gate failed: ${detail}`;
   return message.endsWith('.') ? message : `${message}.`;
 }
@@ -279,3 +273,14 @@ module.exports = {
   policyViolation,
   executeStepPrimitives
 };
+
+function primitiveFailureDetail(result) {
+  const failed = Array.isArray(result.results)
+    ? result.results.find((entry) => entry && entry.result && entry.result.success === false)
+    : null;
+  const detail = result.error
+    || (failed && (failed.result.error || failed.result.code))
+    || (failed && failed.primitive)
+    || 'strategy primitive failed';
+  return detail;
+}

@@ -51,14 +51,7 @@ function normalizeConcept(concept) {
     school: concept.school,
     status: concept.status,
     service: concept.service || null,
-    authors: concept.authors || [],
-    works: concept.works || [],
-    definition: concept.definition || '',
-    examples: concept.examples || [],
-    relations: concept.relations || [],
-    claims: concept.claims || [],
-    adapters: concept.adapters || [],
-    evidenceLevel: concept.evidenceLevel || 'philosophical',
+    ...conceptCollections(concept),
     mapping: concept.mapping || mappingForConcept(concept.id),
     serviceMaturity: maturityForConcept(concept),
     provenance: concept.provenance || {
@@ -139,3 +132,16 @@ function registryHealth() {
 }
 
 module.exports = { normalizeConcept, validateRegistry, registryHealth, CLASSIFICATION_LEVELS, CLASSIFICATION_DEFAULTS };
+
+function conceptCollections(concept) {
+  return {
+    authors: concept.authors || [],
+    works: concept.works || [],
+    definition: concept.definition || '',
+    examples: concept.examples || [],
+    relations: concept.relations || [],
+    claims: concept.claims || [],
+    adapters: concept.adapters || [],
+    evidenceLevel: concept.evidenceLevel || 'philosophical',
+  };
+}

@@ -31,6 +31,69 @@ const {
 
 const { getDiff, bisect, rollback, previewRollback } = require('./workspaceControllerBisection');
 
+function buildWorkspaceCategories(w) {
+  const categories = [];
+  if (w.is_archived) {
+    categories.push('Archived/Sleeping Workspaces');
+  } else {
+    categories.push('Active Swarms (Supervised)');
+  }
+  if (w.name.includes('-fork') || w.name.includes('_fork')) {
+    categories.push('Experimental Timelines (Forks)');
+  } else {
+    categories.push('Root Universes');
+  }
+  return categories;
+}
+
+async function getWorkspaceTags(w) {
+  let tags = [];
+  try { tags = JSON.parse(w.tags || '[]'); } catch (e) {}
+  return tags;
+}
+
+async function getAgentCount(db, workspaceId) {
+  return (await db.get(
+    "SELECT COUNT(*) as count FROM agents WHERE workspace_id = ? AND status = 'running'",
+    workspaceId
+  ))?.count || 0;
+}
+
+async function getSnapshotCount(db, workspaceId) {
+  return (await db.get('SELECT COUNT(*) as count FROM workspace_snapshots WHERE workspace_id = ?', workspaceId))?.count || 0;
+}
+
+async function getTrajectoryCount(db, workspaceId) {
+  return (await db.get('SELECT COUNT(*) as count FROM trajectories WHERE workspace_id = ?', workspaceId))?.count || 0;
+}
+
+async function buildWorkspaceResult(w, db) {
+  const tags = await getWorkspaceTags(w);
+  const categories = buildWorkspaceCategories(w);
+  const agentCount = await getAgentCount(db, w.id);
+  const snapshotCount = await getSnapshotCount(db, w.id);
+  const trajectoryCount = await getTrajectoryCount(db, w.id);
+
+  return {
+    id: w.id,
+    title: w.name,
+    name: w.name,
+    path: w.path,
+    visibility: w.visibility || 'Private',
+    tags,
+    snapshots: snapshotCount,
+    agents: `${agentCount} Active`,
+    trajectories: trajectoryCount,
+    anomalies: w.anomalies_count || 0,
+    updated: w.updated_at || w.created_at || null,
+    language: w.language || 'TypeScript',
+    activityColor: w.anomalies_count > 0 ? '#cf222e' : '#0969da',
+    activityData: [],
+    categories,
+    description: w.description || `Workspace for ${w.name}`
+  };
+}
+
 async function listWorkspaces(req, res) {
   const db = await getDatabase();
   const scope = req.tenant
@@ -38,65 +101,41 @@ async function listWorkspaces(req, res) {
     : { clause: 'organization_id IS NULL AND project_id IS NULL', params: [] };
   const dbWorkspaces = await db.all(`SELECT * FROM workspaces WHERE ${scope.clause} ORDER BY updated_at DESC`, ...scope.params);
 
-  const result = await Promise.all(dbWorkspaces.map(async (w) => {
-    let tags = [];
-    try {
-      tags = JSON.parse(w.tags || '[]');
-    } catch (e) {}
-
-    const categories = [];
-    if (w.is_archived) {
-      categories.push('Archived/Sleeping Workspaces');
-    } else {
-      categories.push('Active Swarms (Supervised)');
-    }
-
-    const agentCount = await db.get(
-      "SELECT COUNT(*) as count FROM agents WHERE workspace_id = ? AND status = 'running'",
-      w.id
-    );
-    if (w.name.includes('-fork') || w.name.includes('_fork')) {
-      categories.push('Experimental Timelines (Forks)');
-    } else {
-      categories.push('Root Universes');
-    }
-
-    return {
-      id: w.id,
-      title: w.name,
-      name: w.name,
-      path: w.path,
-      visibility: w.visibility || 'Private',
-      tags,
-      snapshots: (await db.get('SELECT COUNT(*) as count FROM workspace_snapshots WHERE workspace_id = ?', w.id))?.count || 0,
-      agents: `${agentCount?.count || 0} Active`,
-      trajectories: (await db.get('SELECT COUNT(*) as count FROM trajectories WHERE workspace_id = ?', w.id))?.count || 0,
-      anomalies: w.anomalies_count || 0,
-      updated: w.updated_at || w.created_at || null,
-      language: w.language || 'TypeScript',
-      activityColor: w.anomalies_count > 0 ? '#cf222e' : '#0969da',
-      activityData: [],
-      categories,
-      description: w.description || `Workspace for ${w.name}`
-    };
-  }));
+  const result = await Promise.all(dbWorkspaces.map(w => buildWorkspaceResult(w, db)));
 
   res.json(result);
 }
 
+function sanitizeAndTrim(value) {
+  return typeof value === 'string' ? sanitizeString(value).trim() : value;
+}
+
+function isValidWorkspaceName(name) {
+  return typeof name === 'string' && /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/.test(name) && path.basename(name) === name && name !== '.' && name !== '..';
+}
+
+function isValidLanguage(language) {
+  return typeof language === 'string' && language.length > 0 && language.length <= 64;
+}
+
+function isValidDescription(description) {
+  return typeof description === 'string' && description.length <= 10_000;
+}
+
+function isValidVisibility(visibility) {
+  return ['Private', 'Public'].includes(visibility);
+}
+
 function validateWorkspaceInput(options = {}) {
   const { name, language, description, visibility } = options;
-  let cleanName = name;
-  let cleanLanguage = language;
-  let cleanDescription = description;
+  let cleanName = sanitizeAndTrim(name);
+  let cleanLanguage = sanitizeAndTrim(language);
+  let cleanDescription = sanitizeAndTrim(description);
 
-  if (typeof cleanName === 'string') cleanName = sanitizeString(cleanName).trim();
-  if (typeof cleanDescription === 'string') cleanDescription = sanitizeString(cleanDescription);
-  if (typeof cleanLanguage === 'string') cleanLanguage = sanitizeString(cleanLanguage).trim();
-  if (typeof cleanName !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/.test(cleanName) || path.basename(cleanName) !== cleanName || cleanName === '.' || cleanName === '..') {
+  if (!isValidWorkspaceName(cleanName)) {
     return { error: { code: 'INVALID_NAME', message: 'Workspace name must be 1-128 safe filename characters.' } };
   }
-  if (typeof cleanLanguage !== 'string' || !cleanLanguage || cleanLanguage.length > 64 || typeof cleanDescription !== 'string' || cleanDescription.length > 10_000 || !['Private', 'Public'].includes(visibility)) {
+  if (!isValidLanguage(cleanLanguage) || !isValidDescription(cleanDescription) || !isValidVisibility(visibility)) {
     return { error: { code: 'INVALID_WORKSPACE_FIELDS', message: 'language, description, and visibility are invalid.' } };
   }
   return { name: cleanName, language: cleanLanguage, description: cleanDescription, visibility };

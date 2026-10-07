@@ -3,29 +3,28 @@ const { getDatabase: defaultGetDatabase } = require('../../../db');
 async function handleSynapticPruneScale(args, run, getDatabase) {
   const dbGetter = typeof getDatabase === 'function' ? getDatabase : defaultGetDatabase;
   const db = await dbGetter();
-  const threshold = Number(args.threshold ?? 0.1) * Number(args.scale ?? 1.0);
-  const agentId = args.agent_id || args.agentId;
-  const orgId = args.organization_id || args.organizationId;
-  const projId = args.project_id || args.projectId;
+  const { threshold, agentId, orgId, projId } = pruneScope(args);
   let prunedCount = 0;
   if (db) {
-    let sql = 'DELETE FROM memory_synapses WHERE (ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5))';
-    const params = [threshold];
-    if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
-      sql += ' AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?) OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))';
-      params.push(agentId, agentId);
-    }
-    if (orgId) {
-      sql += ' AND (organization_id = ? OR organization_id IS NULL)';
-      params.push(orgId);
-    }
-    if (projId) {
-      sql += ' AND (project_id = ? OR project_id IS NULL)';
-      params.push(projId);
-    }
+  const { sql, params } = synapsePruneQuery({ threshold, agentId, orgId, projId });
     const res = await db.run(sql, ...params);
     prunedCount = res?.changes || 0;
 
+    await pruneOrphanedDecisions({ db, agentId, orgId, projId });
+  }
+  return {
+    configured: true, success: true, status: 'completed', transport: 'local_db',
+    output: JSON.stringify({ success: true, operation: 'prune_scale', agent_id: agentId || 'global', scale: args.scale ?? 1.0, pruned_synapses: prunedCount })
+  };
+}
+
+function handleSynapticPruneScaleError(e) {
+  return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
+}
+
+module.exports = { handleSynapticPruneScale, handleSynapticPruneScaleError };
+
+async function pruneOrphanedDecisions({ db, agentId, orgId, projId }) {
     const doomedParams = [];
     let doomedSql = `
       SELECT g.id FROM genome_decisions g
@@ -55,15 +54,30 @@ async function handleSynapticPruneScale(args, run, getDatabase) {
       const placeholders = doomedIds.map(() => '?').join(',');
       await db.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, ...doomedIds);
     }
-  }
-  return {
-    configured: true, success: true, status: 'completed', transport: 'local_db',
-    output: JSON.stringify({ success: true, operation: 'prune_scale', agent_id: agentId || 'global', scale: args.scale ?? 1.0, pruned_synapses: prunedCount })
-  };
 }
 
-function handleSynapticPruneScaleError(e) {
-  return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
+function pruneScope(args) {
+  const threshold = Number(args.threshold ?? 0.1) * Number(args.scale ?? 1.0);
+  const agentId = args.agent_id || args.agentId;
+  const orgId = args.organization_id || args.organizationId;
+  const projId = args.project_id || args.projectId;
+  return { threshold, agentId, orgId, projId };
 }
 
-module.exports = { handleSynapticPruneScale, handleSynapticPruneScaleError };
+function synapsePruneQuery({ threshold, agentId, orgId, projId }) {
+    let sql = 'DELETE FROM memory_synapses WHERE (ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5))';
+    const params = [threshold];
+    if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
+      sql += ' AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?) OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))';
+      params.push(agentId, agentId);
+    }
+    if (orgId) {
+      sql += ' AND (organization_id = ? OR organization_id IS NULL)';
+      params.push(orgId);
+    }
+    if (projId) {
+      sql += ' AND (project_id = ? OR project_id IS NULL)';
+      params.push(projId);
+    }
+  return { sql, params };
+}

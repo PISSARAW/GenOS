@@ -132,38 +132,7 @@ async function runSynapticIntegritySuite() {
   });
   check(bioPruneRes.success && bioPruneRes.transport === 'local_db', 'mcpBioTools executes prune_scale directly in-process via local_db without circular HTTP loop');
 
-  // -------------------------------------------------------------
-  // Point 4: Differential Sleep Cycle (LTP vs LTD)
-  // -------------------------------------------------------------
-  console.log('\n--- 4. Differential Sleep Cycle (LTP vs LTD) ---');
-  const ltpSrc = `dec-ltp-s-${Date.now()}`;
-  const ltpTgt = `dec-ltp-t-${Date.now()}`;
-  const ltdSrc = `dec-ltd-s-${Date.now()}`;
-  const ltdTgt = `dec-ltd-t-${Date.now()}`;
-  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', ltpSrc, 'LTP S', 'LTP test', testAgent, 1.0, testOrg, testProj);
-  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', ltpTgt, 'LTP T', 'LTP test', testAgent, 1.0, testOrg, testProj);
-  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight) VALUES (?, ?, ?, ?, ?)', ltdSrc, 'LTD S', 'LTD test', testAgent, 1.0);
-  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight) VALUES (?, ?, ?, ?, ?)', ltdTgt, 'LTD T', 'LTD test', testAgent, 1.0);
-
-  await db.run(
-    'INSERT INTO memory_synapses (source_id, target_id, weight, activity_history, c3_opsonization, cd47_expression, receptor_density) VALUES (?, ?, 1.0, 4, 0.8, 0.2, 1.0)',
-    ltpSrc, ltpTgt
-  );
-  await db.run(
-    'INSERT INTO memory_synapses (source_id, target_id, weight, activity_history, c3_opsonization, cd47_expression, receptor_density) VALUES (?, ?, 1.0, 0, 0.1, 1.0, 1.0)',
-    ltdSrc, ltdTgt
-  );
-
-  await vectorMemory.sleepCycle(db);
-
-  const ltpAfter = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', ltpSrc, ltpTgt);
-  const ltdAfter = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', ltdSrc, ltdTgt);
-
-  check(ltpAfter && ltpAfter.weight > 1.0, 'Active synapse underwent LTP weight potentiation during sleep');
-  check(ltpAfter && ltpAfter.c3_opsonization === 0.0 && ltpAfter.cd47_expression > 0.2, 'Active synapse cleared C3 opsonization and upregulated CD47 protection');
-  check(ltdAfter && ltdAfter.weight < 1.0, 'Inactive synapse underwent LTD synaptic depression');
-  check(ltpAfter && ltpAfter.activity_history === 2 && ltdAfter && ltdAfter.activity_history === 0, 'Activity history decayed (halved, not brutally reset) after consolidation');
-
+  const { ltpSrc, ltpTgt, ltdSrc, ltdTgt } = await testDifferentialSleep({ db, testAgent, testOrg, testProj });
   // -------------------------------------------------------------
   // Point 5: Synaptic Vesicles & Prompt Force Injection
   // -------------------------------------------------------------
@@ -224,3 +193,38 @@ if (require.main === module) {
 
 module.exports = { runSynapticIntegritySuite };
 
+
+async function testDifferentialSleep({ db, testAgent, testOrg, testProj }) {
+  // -------------------------------------------------------------
+  // Point 4: Differential Sleep Cycle (LTP vs LTD)
+  // -------------------------------------------------------------
+  console.log('\n--- 4. Differential Sleep Cycle (LTP vs LTD) ---');
+  const ltpSrc = `dec-ltp-s-${Date.now()}`;
+  const ltpTgt = `dec-ltp-t-${Date.now()}`;
+  const ltdSrc = `dec-ltd-s-${Date.now()}`;
+  const ltdTgt = `dec-ltd-t-${Date.now()}`;
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', ltpSrc, 'LTP S', 'LTP test', testAgent, 1.0, testOrg, testProj);
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', ltpTgt, 'LTP T', 'LTP test', testAgent, 1.0, testOrg, testProj);
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight) VALUES (?, ?, ?, ?, ?)', ltdSrc, 'LTD S', 'LTD test', testAgent, 1.0);
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight) VALUES (?, ?, ?, ?, ?)', ltdTgt, 'LTD T', 'LTD test', testAgent, 1.0);
+
+  await db.run(
+    'INSERT INTO memory_synapses (source_id, target_id, weight, activity_history, c3_opsonization, cd47_expression, receptor_density) VALUES (?, ?, 1.0, 4, 0.8, 0.2, 1.0)',
+    ltpSrc, ltpTgt
+  );
+  await db.run(
+    'INSERT INTO memory_synapses (source_id, target_id, weight, activity_history, c3_opsonization, cd47_expression, receptor_density) VALUES (?, ?, 1.0, 0, 0.1, 1.0, 1.0)',
+    ltdSrc, ltdTgt
+  );
+
+  await vectorMemory.sleepCycle(db);
+
+  const ltpAfter = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', ltpSrc, ltpTgt);
+  const ltdAfter = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', ltdSrc, ltdTgt);
+
+  check(ltpAfter && ltpAfter.weight > 1.0, 'Active synapse underwent LTP weight potentiation during sleep');
+  check(ltpAfter && ltpAfter.c3_opsonization === 0.0 && ltpAfter.cd47_expression > 0.2, 'Active synapse cleared C3 opsonization and upregulated CD47 protection');
+  check(ltdAfter && ltdAfter.weight < 1.0, 'Inactive synapse underwent LTD synaptic depression');
+  check(ltpAfter && ltpAfter.activity_history === 2 && ltdAfter && ltdAfter.activity_history === 0, 'Activity history decayed (halved, not brutally reset) after consolidation');
+  return { ltpSrc, ltpTgt, ltdSrc, ltdTgt };
+}

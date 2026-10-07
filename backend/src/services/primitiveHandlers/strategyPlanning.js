@@ -6,16 +6,7 @@ async function plan(context = {}) {
   if (!Array.isArray(rawSteps) || rawSteps.length === 0) {
     return { success: false, error: 'A non-empty steps array is required.', code: 'PLAN_STEPS_REQUIRED' };
   }
-  const steps = rawSteps.map((step, index) => {
-    const item = typeof step === 'string' ? { action: step } : step || {};
-    return {
-      id: String(item.id || `step-${index + 1}`),
-      order: index + 1,
-      action: String(item.action || item.name || '').trim(),
-      objective: String(item.objective || item.description || '').trim(),
-      dependsOn: Array.isArray(item.dependsOn) ? item.dependsOn.map(String) : []
-    };
-  });
+  const steps = rawSteps.map(normalizePlanStep);
   const invalid = steps.filter((step) => !step.action);
   if (invalid.length) return { success: false, error: 'Every plan step requires an action.', code: 'PLAN_STEP_INVALID' };
   const ids = new Set(steps.map((step) => step.id));
@@ -100,12 +91,7 @@ async function beliefUpdate(context = {}) {
 async function expectedInformationGain(context = {}) {
   const probes = Array.isArray(context.probes) ? context.probes : [];
   if (!probes.length) return { success: false, error: 'probes are required.', code: 'PROBES_REQUIRED' };
-  const scored = probes.map((probe, index) => {
-    const outcomes = Array.isArray(probe.outcomes) ? probe.outcomes : [];
-    const probabilities = outcomes.map((outcome) => Number(outcome.probability)).filter((value) => Number.isFinite(value) && value > 0);
-    const entropy = probabilities.reduce((sum, probability) => sum - probability * Math.log2(probability), 0);
-    return { ...probe, id: String(probe.id || `probe-${index + 1}`), expectedInformationGain: Number(entropy.toFixed(6)) };
-  }).sort((left, right) => right.expectedInformationGain - left.expectedInformationGain || left.id.localeCompare(right.id));
+  const scored = probes.map(scoreInformationProbe).sort((left, right) => right.expectedInformationGain - left.expectedInformationGain || left.id.localeCompare(right.id));
   return { success: true, probes: scored, best: scored[0] };
 }
 
@@ -118,13 +104,40 @@ async function nextProbe(context = {}) {
 async function analyzeTrajectory(context = {}) {
   const actions = context.actionHistory || context.actions || context.trajectory;
   if (!Array.isArray(actions) || !actions.length) return { success: false, error: 'actionHistory is required.', code: 'ACTION_HISTORY_REQUIRED' };
-  const counts = new Map();
-  for (const action of actions) {
-    const key = String(typeof action === 'string' ? action : action.action || action.tool || action.type || 'unknown');
-    counts.set(key, (counts.get(key) || 0) + 1);
-  }
+  const counts = trajectoryActionCounts(actions);
   const repeated = [...counts.entries()].filter(([, count]) => count > 1).sort((left, right) => right[1] - left[1]);
   return { success: true, sampleSize: actions.length, uniqueActions: counts.size, repeatedActions: repeated, repetitionRate: Number((1 - counts.size / actions.length).toFixed(6)), loopDetected: repeated.length > 0 && (1 - counts.size / actions.length) >= Number(context.threshold ?? 0.5) };
 }
 
 module.exports = { plan, roleForks, commonProbes, evidence, conditionalMutation, beliefUpdate, expectedInformationGain, nextProbe, analyzeTrajectory };
+
+function normalizePlanStep(step, index) {
+
+  const item = typeof step === 'string' ? { action: step } : step || {};
+  return {
+    id: String(item.id || `step-${index + 1}`),
+    order: index + 1,
+    action: String(item.action || item.name || '').trim(),
+    objective: String(item.objective || item.description || '').trim(),
+    dependsOn: Array.isArray(item.dependsOn) ? item.dependsOn.map(String) : []
+  };
+
+}
+
+function scoreInformationProbe(probe, index) {
+
+  const outcomes = Array.isArray(probe.outcomes) ? probe.outcomes : [];
+  const probabilities = outcomes.map((outcome) => Number(outcome.probability)).filter((value) => Number.isFinite(value) && value > 0);
+  const entropy = probabilities.reduce((sum, probability) => sum - probability * Math.log2(probability), 0);
+  return { ...probe, id: String(probe.id || `probe-${index + 1}`), expectedInformationGain: Number(entropy.toFixed(6)) };
+
+}
+
+function trajectoryActionCounts(actions) {
+  const counts = new Map();
+  for (const action of actions) {
+    const key = String(typeof action === 'string' ? action : action.action || action.tool || action.type || 'unknown');
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return counts;
+}

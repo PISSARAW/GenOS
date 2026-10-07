@@ -1,3 +1,4 @@
+const { probeBioFeature } = require('../featureProbe');
 const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
@@ -23,26 +24,11 @@ function getPair(pairId) {
 }
 
 async function handleConjoinedTwinBind(args = {}, run) {
-  const action = args.action || 'status';
-  // pair_id obligatoire: aucun défaut Date.now() silencieux (rejet invalid_args).
-  if (args.pair_id === undefined || args.pair_id === null || String(args.pair_id).trim() === '') {
-    return { configured: true, success: false, status: 'invalid_args', error: 'pair_id: is required.' };
-  }
-  const pairId = args.pair_id;
-  const twinA = args.twin_a || 'agent-core-A';
-  const twinB = args.twin_b || 'agent-core-B';
-  const initialPool = Number(args.shared_tokens) || 50000;
-  const organs = Array.isArray(args.shared_organs) ? args.shared_organs : ['shared_token_pool', 'thalamic_sensory_bridge', 'atomic_io_lock'];
+  const options = conjoinedTwinBindOptions(args);
+  if (options.status === 'invalid_args') return options;
+  const { action, pairId, twinA, twinB, initialPool, organs } = options;
 
-  let cliOutput = null;
-  let cliFailed = false;
-  let cliErrorText = null;
-  if (typeof run === 'function') {
-    try {
-      const out = run(`genos biomimicry bio-feature --feature conjoined_twin --action ${quoteCliArg(action)} --param pair_id=${quoteCliArg(pairId)}`);
-      cliOutput = out ? out.toString() : null;
-    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
-  }
+  const { cliOutput, cliFailed, cliErrorText } = probeBioFeature(run, `genos biomimicry bio-feature --feature conjoined_twin --action ${quoteCliArg(action)} --param pair_id=${quoteCliArg(pairId)}`);
   if (cliFailed) {
     return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
@@ -50,107 +36,15 @@ async function handleConjoinedTwinBind(args = {}, run) {
   const pair = getPair(pairId);
 
   if (action === 'bind_conjoined_twins') {
-    await createRelation({
-      id: stableRelationId('twin', `conjoined:${pairId}`), sourceAgentId: twinA, targetAgentId: twinB,
-      relationType: 'twin', organizationId: args.organization_id, projectId: args.project_id,
-      metadata: { pairId, subtype: 'conjoined', status: 'active', sharedOrgans: organs }
-    });
-    pair.twinA = twinA;
-    pair.twinB = twinB;
-    pair.sharedOrgans = organs;
-    pair.sharedTokenPool = initialPool;
-    pair.vitalCouplingScore = 0.98;
-    pair.status = 'conjoined_visceral_link_active';
-    pair.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'twins_conjoined',
-      execution_scope: 'metadata_simulation',
-      runtime_coupling_applied: false,
-      transport: 'visceral_conjoined_plane',
-      pair_id: pairId,
-      twins: [twinA, twinB],
-      shared_organs: organs,
-      shared_token_pool: pair.sharedTokenPool,
-      vital_coupling_score: pair.vitalCouplingScore,
-      output: `Conjoined-pair metadata recorded for '${twinA}' and '${twinB}'. Shared organs are labels only; no runtime coupling was applied.`
-    };
+    return conjoinedTwinBindBindConjoinedTwins({ args, pairId, twinA, twinB, initialPool, organs, pair });
   }
 
   if (action === 'transfuse_shared_resource') {
-    const amount = args.amount === undefined ? 1000 : Number(args.amount);
-    if (!Number.isSafeInteger(amount) || amount <= 0) {
-      return { configured: true, success: false, status: 'invalid_args', error: 'amount must be a positive safe integer.' };
-    }
-    const recipient = args.recipient === undefined ? pair.twinA : args.recipient;
-    if (recipient !== pair.twinA && recipient !== pair.twinB) {
-      return { configured: true, success: false, status: 'invalid_args', error: 'recipient must be one of the bound twins.' };
-    }
-    
-    if (pair.sharedTokenPool < amount) {
-      return {
-        configured: true,
-        success: false,
-        status: 'vital_depletion',
-        transport: 'visceral_conjoined_plane',
-        pair_id: pairId,
-        available_pool: pair.sharedTokenPool,
-        output: `Transfusion rejected: shared visceral token pool depleted (${pair.sharedTokenPool} < ${amount}).`
-      };
-    }
-
-    pair.sharedTokenPool -= amount;
-    pair.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'transfusion_complete',
-      execution_scope: 'metadata_simulation',
-      runtime_recipient_credited: false,
-      transport: 'visceral_conjoined_plane',
-      pair_id: pairId,
-      recipient,
-      amount_transfused: amount,
-      remaining_shared_pool: pair.sharedTokenPool,
-      output: `Recorded a ${amount}-token ledger debit for '${recipient}'. The runtime account was not credited; ${pair.sharedTokenPool} tokens remain in the simulated pool.`
-    };
+    return conjoinedTwinBindTransfuseSharedResource({ args, pairId, twinA, twinB, pair });
   }
 
   if (action === 'sever_conjoined_bind') {
-    if (args.force !== true && pair.vitalCouplingScore > 0.5) {
-      return {
-        configured: true,
-        success: false,
-        status: 'separation_surgery_high_risk',
-        transport: 'visceral_conjoined_plane',
-        pair_id: pairId,
-        vital_coupling_score: pair.vitalCouplingScore,
-        output: `Surgical separation blocked: vital coupling score is ${pair.vitalCouplingScore}. Set force=true or decouple shared organs first.`
-      };
-    }
-
-    pair.status = 'surgically_separated';
-    pair.vitalCouplingScore = 0.0;
-    pair.updatedAt = new Date().toISOString();
-    if (pair.twinA && pair.twinB) {
-      await createRelation({
-        id: stableRelationId('twin', `conjoined:${pairId}`), sourceAgentId: pair.twinA, targetAgentId: pair.twinB,
-        relationType: 'twin', organizationId: args.organization_id, projectId: args.project_id,
-        metadata: { pairId, subtype: 'conjoined', status: 'severed', sharedOrgans: pair.sharedOrgans }
-      });
-    }
-
-    return {
-      configured: true,
-      success: true,
-      status: 'surgically_separated',
-      transport: 'visceral_conjoined_plane',
-      pair_id: pairId,
-      output: `Conjoined twins '${pair.twinA}' and '${pair.twinB}' separated successfully into autonomous independent entities.`
-    };
+    return conjoinedTwinBindSeverConjoinedBind({ args, pairId, twinA, twinB, organs, pair });
   }
 
   // Default: status
@@ -237,3 +131,121 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+async function conjoinedTwinBindBindConjoinedTwins({ args, pairId, twinA, twinB, initialPool, organs, pair }) {
+  await createRelation({
+    id: stableRelationId('twin', `conjoined:${pairId}`), sourceAgentId: twinA, targetAgentId: twinB,
+    relationType: 'twin', organizationId: args.organization_id, projectId: args.project_id,
+    metadata: { pairId, subtype: 'conjoined', status: 'active', sharedOrgans: organs }
+  });
+  pair.twinA = twinA;
+  pair.twinB = twinB;
+  pair.sharedOrgans = organs;
+  pair.sharedTokenPool = initialPool;
+  pair.vitalCouplingScore = 0.98;
+  pair.status = 'conjoined_visceral_link_active';
+  pair.updatedAt = new Date().toISOString();
+
+  return {
+    configured: true,
+    success: true,
+    status: 'twins_conjoined',
+    execution_scope: 'metadata_simulation',
+    runtime_coupling_applied: false,
+    transport: 'visceral_conjoined_plane',
+    pair_id: pairId,
+    twins: [twinA, twinB],
+    shared_organs: organs,
+    shared_token_pool: pair.sharedTokenPool,
+    vital_coupling_score: pair.vitalCouplingScore,
+    output: `Conjoined-pair metadata recorded for '${twinA}' and '${twinB}'. Shared organs are labels only; no runtime coupling was applied.`
+  };
+}
+
+async function conjoinedTwinBindTransfuseSharedResource({ args, pairId, twinA, twinB, pair }) {
+  const amount = args.amount === undefined ? 1000 : Number(args.amount);
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'amount must be a positive safe integer.' };
+  }
+  const recipient = args.recipient === undefined ? pair.twinA : args.recipient;
+  if (recipient !== pair.twinA && recipient !== pair.twinB) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'recipient must be one of the bound twins.' };
+  }
+
+  if (pair.sharedTokenPool < amount) {
+    return {
+      configured: true,
+      success: false,
+      status: 'vital_depletion',
+      transport: 'visceral_conjoined_plane',
+      pair_id: pairId,
+      available_pool: pair.sharedTokenPool,
+      output: `Transfusion rejected: shared visceral token pool depleted (${pair.sharedTokenPool} < ${amount}).`
+    };
+  }
+
+  pair.sharedTokenPool -= amount;
+  pair.updatedAt = new Date().toISOString();
+
+  return {
+    configured: true,
+    success: true,
+    status: 'transfusion_complete',
+    execution_scope: 'metadata_simulation',
+    runtime_recipient_credited: false,
+    transport: 'visceral_conjoined_plane',
+    pair_id: pairId,
+    recipient,
+    amount_transfused: amount,
+    remaining_shared_pool: pair.sharedTokenPool,
+    output: `Recorded a ${amount}-token ledger debit for '${recipient}'. The runtime account was not credited; ${pair.sharedTokenPool} tokens remain in the simulated pool.`
+  };
+}
+
+async function conjoinedTwinBindSeverConjoinedBind({ args, pairId, twinA, twinB, organs, pair }) {
+  if (args.force !== true && pair.vitalCouplingScore > 0.5) {
+    return {
+      configured: true,
+      success: false,
+      status: 'separation_surgery_high_risk',
+      transport: 'visceral_conjoined_plane',
+      pair_id: pairId,
+      vital_coupling_score: pair.vitalCouplingScore,
+      output: `Surgical separation blocked: vital coupling score is ${pair.vitalCouplingScore}. Set force=true or decouple shared organs first.`
+    };
+  }
+
+  pair.status = 'surgically_separated';
+  pair.vitalCouplingScore = 0.0;
+  pair.updatedAt = new Date().toISOString();
+  if (pair.twinA && pair.twinB) {
+    await createRelation({
+      id: stableRelationId('twin', `conjoined:${pairId}`), sourceAgentId: pair.twinA, targetAgentId: pair.twinB,
+      relationType: 'twin', organizationId: args.organization_id, projectId: args.project_id,
+      metadata: { pairId, subtype: 'conjoined', status: 'severed', sharedOrgans: pair.sharedOrgans }
+    });
+  }
+
+  return {
+    configured: true,
+    success: true,
+    status: 'surgically_separated',
+    transport: 'visceral_conjoined_plane',
+    pair_id: pairId,
+    output: `Conjoined twins '${pair.twinA}' and '${pair.twinB}' separated successfully into autonomous independent entities.`
+  };
+}
+
+function conjoinedTwinBindOptions(args) {
+  const action = args.action || 'status';
+  // pair_id obligatoire: aucun défaut Date.now() silencieux (rejet invalid_args).
+  if (args.pair_id === undefined || args.pair_id === null || String(args.pair_id).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', error: 'pair_id: is required.' };
+  }
+  const pairId = args.pair_id;
+  const twinA = args.twin_a || 'agent-core-A';
+  const twinB = args.twin_b || 'agent-core-B';
+  const initialPool = Number(args.shared_tokens) || 50000;
+  const organs = Array.isArray(args.shared_organs) ? args.shared_organs : ['shared_token_pool', 'thalamic_sensory_bridge', 'atomic_io_lock'];
+  return { action, pairId, twinA, twinB, initialPool, organs };
+}

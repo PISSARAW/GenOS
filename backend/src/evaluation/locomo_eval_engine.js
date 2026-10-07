@@ -102,12 +102,7 @@ async function ingestConversationIntoConnectome(db, vectorMemory, sample) {
 }
 
 async function runLoCoMoEvaluation(options = {}) {
-  const modelUri = options.model || 'ollama://qwen2.5-coder:7b';
-  const maxSamples = options.maxSamples || null;
-  const maxQuestions = options.maxQuestions || null;
-  const targetConv = options.conv || null;
-  const outFile = options.outFile || path.resolve(__dirname, 'locomo_real_genos_results.json');
-
+  const { modelUri, maxSamples, maxQuestions, targetConv, outFile } = evaluationOptions(options);
   console.log('=== GenOS Native LoCoMo Blind Zero-Shot Evaluation ===');
   console.log(`Model: ${modelUri}`);
   console.log(`Dataset: ${DATA_PATH}`);
@@ -151,6 +146,67 @@ async function runLoCoMoEvaluation(options = {}) {
     console.log(`  -> Evaluating ${qas.length} questions for ${convId}...`);
     results.conversations[convId] = [];
 
+  await evaluateQuestions({ qas, vectorMemory, convId, modelUri, db, results });
+    // Persist checkpoint after each conversation
+    results.overall.mean_f1 = Number((results.overall.f1_sum / results.overall.total_q).toFixed(4));
+    results.overall.mean_em = Number((results.overall.em_sum / results.overall.total_q).toFixed(4));
+    fs.writeFileSync(outFile, JSON.stringify(results, null, 2), 'utf8');
+    console.log(`\n>>> [CHECKPOINT ${sIdx + 1}/${samples.length}] ${convId} completed!`);
+    console.log(`>>> Running Cumulative F1: ${(results.overall.mean_f1 * 100).toFixed(2)}% | Evaluated: ${results.overall.total_q}/1986`);
+    console.log(`>>> Checkpoint written to: ${outFile}\n`);
+  }
+
+  console.log('\n=== LoCoMo Real Evaluation Complete ===');
+  console.log(`Total Questions Evaluated: ${results.overall.total_q}`);
+  console.log(`Mean F1 Score: ${(results.overall.mean_f1 * 100).toFixed(2)}%`);
+  console.log(`Exact Match (EM): ${(results.overall.mean_em * 100).toFixed(2)}%`);
+  console.log('Category breakdown:');
+  for (const [cat, data] of Object.entries(results.category_scores)) {
+    if (data.count > 0) {
+      console.log(`  Cat ${cat}: ${(data.f1 / data.count * 100).toFixed(1)}% F1 (${data.count} questions)`);
+    }
+  }
+  console.log(`Results saved to: ${outFile}`);
+  return results;
+}
+
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  const getArg = (flag, fallback = null) => {
+    const idx = args.indexOf(flag);
+    return idx !== -1 && args[idx + 1] ? args[idx + 1] : fallback;
+  };
+
+  const options = {
+    model: getArg('--model', 'ollama://qwen2.5-coder:7b'),
+    maxSamples: getArg('--max-samples') ? parseInt(getArg('--max-samples'), 10) : null,
+    maxQuestions: getArg('--max-questions') ? parseInt(getArg('--max-questions'), 10) : null,
+    conv: getArg('--conv', null),
+    outFile: getArg('--out-file', null)
+  };
+
+  runLoCoMoEvaluation(options).catch(err => {
+    console.error('[FATAL]', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { runLoCoMoEvaluation, ingestConversationIntoConnectome, computeF1 };
+
+function runLoCoMoEvaluationCondition(m) {
+  return m.summary || m.content || '';
+}
+
+function evaluationOptions(options) {
+  const modelUri = options.model || 'ollama://qwen2.5-coder:7b';
+  const maxSamples = options.maxSamples || null;
+  const maxQuestions = options.maxQuestions || null;
+  const targetConv = options.conv || null;
+  const outFile = options.outFile || path.resolve(__dirname, 'locomo_real_genos_results.json');
+  return { modelUri, maxSamples, maxQuestions, targetConv, outFile };
+}
+
+async function evaluateQuestions({ qas, vectorMemory, convId, modelUri, db, results }) {
     for (let qIdx = 0; qIdx < qas.length; qIdx++) {
       const qa = qas[qIdx];
       const question = qa.question;
@@ -221,53 +277,4 @@ Answer:`;
 
       console.log(`    [Q ${qIdx + 1}/${qas.length}] Cat ${category} | Q: ${question.slice(0, 45)}... -> "${prediction}" (Gold: "${goldAnswer}") [F1: ${(f1 * 100).toFixed(0)}%]`);
     }
-
-    // Persist checkpoint after each conversation
-    results.overall.mean_f1 = Number((results.overall.f1_sum / results.overall.total_q).toFixed(4));
-    results.overall.mean_em = Number((results.overall.em_sum / results.overall.total_q).toFixed(4));
-    fs.writeFileSync(outFile, JSON.stringify(results, null, 2), 'utf8');
-    console.log(`\n>>> [CHECKPOINT ${sIdx + 1}/${samples.length}] ${convId} completed!`);
-    console.log(`>>> Running Cumulative F1: ${(results.overall.mean_f1 * 100).toFixed(2)}% | Evaluated: ${results.overall.total_q}/1986`);
-    console.log(`>>> Checkpoint written to: ${outFile}\n`);
-  }
-
-  console.log('\n=== LoCoMo Real Evaluation Complete ===');
-  console.log(`Total Questions Evaluated: ${results.overall.total_q}`);
-  console.log(`Mean F1 Score: ${(results.overall.mean_f1 * 100).toFixed(2)}%`);
-  console.log(`Exact Match (EM): ${(results.overall.mean_em * 100).toFixed(2)}%`);
-  console.log('Category breakdown:');
-  for (const [cat, data] of Object.entries(results.category_scores)) {
-    if (data.count > 0) {
-      console.log(`  Cat ${cat}: ${(data.f1 / data.count * 100).toFixed(1)}% F1 (${data.count} questions)`);
-    }
-  }
-  console.log(`Results saved to: ${outFile}`);
-  return results;
-}
-
-if (require.main === module) {
-  const args = process.argv.slice(2);
-  const getArg = (flag, fallback = null) => {
-    const idx = args.indexOf(flag);
-    return idx !== -1 && args[idx + 1] ? args[idx + 1] : fallback;
-  };
-
-  const options = {
-    model: getArg('--model', 'ollama://qwen2.5-coder:7b'),
-    maxSamples: getArg('--max-samples') ? parseInt(getArg('--max-samples'), 10) : null,
-    maxQuestions: getArg('--max-questions') ? parseInt(getArg('--max-questions'), 10) : null,
-    conv: getArg('--conv', null),
-    outFile: getArg('--out-file', null)
-  };
-
-  runLoCoMoEvaluation(options).catch(err => {
-    console.error('[FATAL]', err);
-    process.exit(1);
-  });
-}
-
-module.exports = { runLoCoMoEvaluation, ingestConversationIntoConnectome, computeF1 };
-
-function runLoCoMoEvaluationCondition(m) {
-  return m.summary || m.content || '';
 }

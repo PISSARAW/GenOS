@@ -5,11 +5,11 @@ const MCP_CONTRACT_VERSION = 'genos.mcp/v1';
 
 function toGrpcStatusCode(error) {
   const code = error?.code || error?.status || '';
-  if (code === 'INVALID_ARGUMENT' || code === 'BAD_REQUEST' || code === 'INVALID_TOOL') return grpc.status.INVALID_ARGUMENT;
-  if (code === 'NOT_FOUND' || code === 'TOOL_NOT_FOUND' || code === 'MCP_TOOL_NOT_FOUND' || code === 'not_found') return grpc.status.NOT_FOUND;
+  if (['INVALID_ARGUMENT', 'BAD_REQUEST', 'INVALID_TOOL'].includes(code)) return grpc.status.INVALID_ARGUMENT;
+  if (['NOT_FOUND', 'TOOL_NOT_FOUND', 'MCP_TOOL_NOT_FOUND', 'not_found'].includes(code)) return grpc.status.NOT_FOUND;
   if (['FORBIDDEN', 'PERMISSION_DENIED', 'ZERO_TRUST_DENIED', 'AGENT_ID_FORBIDDEN'].includes(code)) return grpc.status.PERMISSION_DENIED;
-  if (code === 'UNAVAILABLE' || code === 'SERVICE_UNAVAILABLE' || code === 'TOOL_LOCKED' || code === 'blocked' || code === 'circuit_open') return grpc.status.UNAVAILABLE;
-  if (code === 'failed' || code === 'MCP_TOOL_ERROR') return grpc.status.INTERNAL;
+  if (['UNAVAILABLE', 'SERVICE_UNAVAILABLE', 'TOOL_LOCKED', 'blocked', 'circuit_open'].includes(code)) return grpc.status.UNAVAILABLE;
+  if (['failed', 'MCP_TOOL_ERROR'].includes(code)) return grpc.status.INTERNAL;
   return grpc.status.INTERNAL;
 }
 
@@ -65,15 +65,19 @@ module.exports = {
       const options = {};
       if (Number.isFinite(threshold_mv) && threshold_mv !== 0) options.thresholdMv = threshold_mv;
       const gating = evaluateToolGating(query || '', candidate_tools || [], options);
-      callback(null, {
-        requires_tools: Boolean(gating.requiresTools),
-        disinhibited_tools: gating.disinhibitedTools || [],
-        membrane_potential_mv: Number(gating.membranePotentialMv || 0),
-        gate_state: gating.gateState || 'UNKNOWN',
-        reason: gating.decisionReason || gating.reason || ''
-      });
+      callback(null, gatingResponse(gating));
     } catch (err) {
       callback({ code: grpc.status.INTERNAL, message: err.message || 'Gating evaluation failed.' });
     }
   }
 };
+
+function gatingResponse(gating) {
+  return {
+        requires_tools: Boolean(gating.requiresTools),
+        disinhibited_tools: gating.disinhibitedTools || [],
+        membrane_potential_mv: Number(gating.membranePotentialMv || 0),
+        gate_state: gating.gateState || 'UNKNOWN',
+        reason: gating.decisionReason || gating.reason || ''
+  };
+}

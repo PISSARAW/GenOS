@@ -58,11 +58,7 @@ async function uptakeVesicles(targetAgentId = null, options = {}) {
   for (const file of files) {
     if (file.startsWith('vesicle_') && file.endsWith('.vesicle')) {
       const isBroadcast = /^vesicle_[0-9a-f]{8}-[0-9a-f]{4}/i.test(file);
-      if (targetAgentId) {
-        const cleanTarget = String(targetAgentId).replace(/[^a-zA-Z0-9_-]/g, '');
-        const targetPrefix = `vesicle_${cleanTarget}_`;
-        if (!file.startsWith(targetPrefix) && !isBroadcast) continue;
-      }
+      if (!vesicleMatchesTarget(file, targetAgentId, isBroadcast)) continue;
       const fullPath = path.join(cleftDir, file);
       try {
         const compressed = fs.readFileSync(fullPath);
@@ -89,26 +85,7 @@ async function depositExosome(params = {}) {
   if (!fs.existsSync(exosomeDir)) fs.mkdirSync(exosomeDir, { recursive: true });
 
   const { Exosome } = await getProtoTypes();
-  const engramsList = params.new_engrams || params.newEngrams || [];
-  const pName = params.plasmid_name || params.plasmidName || '';
-  const pCode = params.plasmid_code || params.plasmidCode || '';
-  const plasmidVector = Array.isArray(params.plasmid_vector || params.plasmidVector)
-    ? (params.plasmid_vector || params.plasmidVector).map(Number).filter(Number.isFinite)
-    : [];
-  const payload = {
-    new_engrams: engramsList,
-    newEngrams: engramsList,
-    plasmid_name: pName,
-    plasmidName: pName,
-    plasmid_code: pCode,
-    plasmidCode: pCode,
-    plasmid_vector: plasmidVector,
-    source_agent_id: params.source_agent_id || params.sourceAgentId || params.sender_id || '',
-    recipient_agent_id: params.recipient_agent_id || params.recipientAgentId || params.target_agent_id || '',
-    organization_id: params.organization_id || params.organizationId || '',
-    project_id: params.project_id || params.projectId || ''
-  };
-
+  const payload = exosomePayload(params);
   const message = Exosome.create(payload);
   const buffer = Exosome.encode(message).finish();
   const compressed = zlib.gzipSync(buffer);
@@ -250,3 +227,50 @@ module.exports = {
   depositExosome,
   absorbExosomes
 };
+
+function exosomePayload(params) {
+  const engramsList = params.new_engrams || params.newEngrams || [];
+  const { pName, pCode } = plasmidTextFields(params);
+  const plasmidVector = exosomeVector(params);
+  const payload = {
+    new_engrams: engramsList,
+    newEngrams: engramsList,
+    plasmid_name: pName,
+    plasmidName: pName,
+    plasmid_code: pCode,
+    plasmidCode: pCode,
+    plasmid_vector: plasmidVector,
+    ...exosomeIdentity(params)
+  };
+  return payload;
+}
+
+function vesicleMatchesTarget(file, targetAgentId, isBroadcast) {
+  if (!targetAgentId) return true;
+  const cleanTarget = String(targetAgentId).replace(/[^a-zA-Z0-9_-]/g, '');
+  return file.startsWith(`vesicle_${cleanTarget}_`) || isBroadcast;
+}
+
+function exosomeIdentity(params) {
+  return {
+    source_agent_id: params.source_agent_id || params.sourceAgentId || params.sender_id || '',
+    recipient_agent_id: params.recipient_agent_id || params.recipientAgentId || params.target_agent_id || '',
+    ...exosomeTenant(params)
+  };
+}
+
+function exosomeVector(params) {
+  const value = params.plasmid_vector || params.plasmidVector;
+  return Array.isArray(value) ? value.map(Number).filter(Number.isFinite) : [];
+}
+
+function plasmidTextFields(params) {
+  const pName = params.plasmid_name || params.plasmidName || '';
+  const pCode = params.plasmid_code || params.plasmidCode || '';
+  return { pName, pCode };
+}
+
+function exosomeTenant(params) {
+  return { organization_id: params.organization_id || params.organizationId || '',
+    project_id: params.project_id || params.projectId || '' };
+}

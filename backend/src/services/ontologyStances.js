@@ -79,35 +79,7 @@ function evaluateStanceCoherence({ agentId, stance, observables = [] }) {
     throw new Error(`Invalid stance: ${stance}`);
   }
 
-  const violations = [];
-  let coherence = 1.0;
-
-  for (const obs of observables) {
-    // Exemple : un "role" défini de façon essentielle (réaliste) mais traité comme étiquette (nominaliste)
-    // est une friction potentielle.
-    if (stance === ONTOLOGICAL_STANCES.NOMINALISM && obs.signal === 'essential_form') {
-      violations.push({
-        point: obs.description || 'Essentialisme détecté dans un système nominaliste',
-        severity: 'medium',
-      });
-      coherence -= 0.3;
-    }
-    if (stance === ONTOLOGICAL_STANCES.CONCEPTUALISM && obs.signal === 'mind_independent_form') {
-      violations.push({
-        point: obs.description || 'Forme indépendante de l\'esprit dans un système conceptualiste',
-        severity: 'low',
-      });
-      coherence -= 0.2;
-    }
-    if (stance === ONTOLOGICAL_STANCES.REALISM && obs.signal === 'purely_conceptual') {
-      violations.push({
-        point: obs.description || 'Concept pur dans un système réaliste',
-        severity: 'low',
-      });
-      coherence -= 0.3;
-    }
-  }
-
+  let { violations, coherence } = stanceObservations(stance, observables);
   coherence = Math.max(0, Math.min(1, coherence));
 
   return {
@@ -167,3 +139,35 @@ module.exports = {
   evaluateStanceCoherence,
   debateStances,
 };
+
+function stanceObservations(stance, observables) {
+  const state = { violations: [], coherence: 1.0 };
+  for (const obs of observables) assessStanceObservation(stance, obs, state);
+  return state;
+}
+function assessStanceObservation(stance, obs, state) {
+    // Exemple : un "role" défini de façon essentielle (réaliste) mais traité comme étiquette (nominaliste)
+    // est une friction potentielle.
+    if (stance === ONTOLOGICAL_STANCES.NOMINALISM && obs.signal === 'essential_form') {
+      state.violations.push({
+        point: obs.description || 'Essentialisme détecté dans un système nominaliste',
+        severity: 'medium',
+      });
+      state.coherence -= 0.3;
+    }
+    if (stance === ONTOLOGICAL_STANCES.CONCEPTUALISM && obs.signal === 'mind_independent_form') {
+      state.violations.push({
+        point: obs.description || 'Forme indépendante de l\'esprit dans un système conceptualiste',
+        severity: 'low',
+      });
+      state.coherence -= 0.2;
+    }
+    if (stance === ONTOLOGICAL_STANCES.REALISM && obs.signal === 'purely_conceptual') {
+      state.violations.push({
+        point: obs.description || 'Concept pur dans un système réaliste',
+        severity: 'low',
+      });
+      state.coherence -= 0.3;
+    }
+
+}

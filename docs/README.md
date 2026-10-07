@@ -260,6 +260,8 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 Index : [adr/README.md](adr/README.md)
 
+- [ADR 0348 — Élimination de la dette historique de qualité](adr/0348-elimination-dette-historique-qualite.md).
+
 - [0332-rhizome-execution-verifiee-et-telemetrie-reelle.md](adr/0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) — complétion Rhizome, sorties signées, croissance atomique et télémétrie réelle.
 
 - [0330-holobionte-missions-contractuelles-verifiees.md](adr/0330-holobionte-missions-contractuelles-verifiees.md) — mission commune, preuve indépendante, quotas et persistance atomique Holobionte.

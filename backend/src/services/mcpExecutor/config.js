@@ -107,47 +107,12 @@ function validateMcpUrl(value) {
 function parseArgs(value) {
   if (!value || typeof value !== 'string') return [];
   if (fs.existsSync(value)) return [value];
-  const args = [];
-  let current = '';
-  let inSingle = false;
-  let inDouble = false;
-  let escape = false;
-
+  const state = { args: [], current: '', inSingle: false, inDouble: false, escape: false };
   for (let i = 0; i < value.length; i++) {
-    const ch = value[i];
-    if (escape) {
-      current += ch;
-      escape = false;
-      continue;
-    }
-    if (ch === '\\') {
-      const next = value[i + 1];
-      if (next === '"' || next === "'" || next === '\\') {
-        escape = true;
-        continue;
-      }
-      current += ch;
-      continue;
-    }
-    if (ch === '"' && !inSingle) {
-      inDouble = !inDouble;
-      continue;
-    }
-    if (ch === "'" && !inDouble) {
-      inSingle = !inSingle;
-      continue;
-    }
-    if ((ch === ' ' || ch === '\t') && !inSingle && !inDouble) {
-      if (current.length) {
-        args.push(current);
-        current = '';
-      }
-      continue;
-    }
-    current += ch;
+    consumeArgumentCharacter(state, value[i], value[i + 1]);
   }
-  if (current.length) args.push(current);
-  return args;
+  if (state.current.length) state.args.push(state.current);
+  return state.args;
 }
 
 function bundledTransport(paths) {
@@ -198,3 +163,35 @@ module.exports = {
   parseArgs,
   configuredTransport
 };
+
+function consumeArgumentCharacter(state, ch, next) {
+  if (state.escape) {
+    state.current += ch;
+    state.escape = false;
+    return;
+  }
+  if (ch === '\\') {
+    if (['"', "'", '\\'].includes(next)) state.escape = true;
+    else state.current += ch;
+    return;
+  }
+  if (consumeArgumentQuote(state, ch)) return;
+  if ((ch === ' ' || ch === '\t') && !state.inSingle && !state.inDouble) {
+    if (state.current.length) state.args.push(state.current);
+    state.current = '';
+    return;
+  }
+  state.current += ch;
+}
+
+function consumeArgumentQuote(state, ch) {
+  if (ch === '"' && !state.inSingle) {
+    state.inDouble = !state.inDouble;
+    return true;
+  }
+  if (ch === "'" && !state.inDouble) {
+    state.inSingle = !state.inSingle;
+    return true;
+  }
+  return false;
+}

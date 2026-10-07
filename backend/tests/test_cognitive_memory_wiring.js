@@ -29,13 +29,7 @@ async function runCognitiveMemorySuite() {
 
   const db = await getDatabase();
 
-  // Test 1: Real Hybrid Search returns scored experiences
-  console.log('\n--- Test 1: Real Hybrid Vector & Lexical Search ---');
-  const searchRes = await vectorMemory.searchMemory('sqlite concurrency locking', { limit: 5 }, db);
-  assert(Array.isArray(searchRes.allScoredExperiences) && searchRes.allScoredExperiences.length > 0, 'allScoredExperiences is populated with real memories');
-  assert(searchRes.allScoredExperiences.every(e => typeof e.similarityScore === 'number' && !isNaN(e.similarityScore)), 'All returned experiences have valid numerical similarity scores');
-  assert(Array.isArray(searchRes.topSuccessfulGoldenPaths) && searchRes.topSuccessfulGoldenPaths.length > 0, 'topSuccessfulGoldenPaths contains ranked successful solutions');
-
+  await testHybridMemorySearch(db);
   // Test 2: Hebbian Learning & Synapse Creation
   console.log('\n--- Test 2: Hebbian Learning (Excitatory & Inhibitory Synapses) ---');
   const idA = `dec-test-a-${Date.now()}`;
@@ -112,12 +106,7 @@ async function runCognitiveMemorySuite() {
   await db.run('DELETE FROM genome_decisions WHERE id IN (?, ?, ?, ?, ?, ?)', idA, idB, idCorrection, doomedId, idC3Source, idC3Target);
   await db.run('DELETE FROM memory_synapses WHERE source_id IN (?, ?, ?) OR target_id IN (?, ?, ?)', idB, idCorrection, idC3Source, idA, idA, idC3Target);
 
-  // Test 5: Agent Prompt Context Injection
-  console.log('\n--- Test 5: Agent Cognitive Memory Prompt Injection ---');
-  const promptBlock = await agentMemory.formatCognitiveMemoryPrompt('Griot', 'wal concurrency database');
-  assert(typeof promptBlock === 'string' && promptBlock.includes('[MÉMOIRE COGNITIVE & EXPÉRIENCES PERTINENTES (GraphRAG)]'), 'formatCognitiveMemoryPrompt generates structured GraphRAG section');
-  assert(promptBlock.includes('SQLite') || promptBlock.includes('wal') || promptBlock.includes('Souvenirs'), 'Injected prompt contains relevant domain memories');
-
+  await testPromptContext();
   // Test 6: Vesicle Packaging & Protobuf Serialization
   console.log('\n--- Test 6: Synaptic Vesicle Protobuf & Gzip Packaging ---');
   const vesicleFile = await vectorMemory.releaseVesicles([
@@ -145,3 +134,20 @@ if (require.main === module) {
 }
 
 module.exports = { runCognitiveMemorySuite };
+
+async function testHybridMemorySearch(db) {
+  // Test 1: Real Hybrid Search returns scored experiences
+  console.log('\n--- Test 1: Real Hybrid Vector & Lexical Search ---');
+  const searchRes = await vectorMemory.searchMemory('sqlite concurrency locking', { limit: 5 }, db);
+  assert(Array.isArray(searchRes.allScoredExperiences) && searchRes.allScoredExperiences.length > 0, 'allScoredExperiences is populated with real memories');
+  assert(searchRes.allScoredExperiences.every(e => typeof e.similarityScore === 'number' && !isNaN(e.similarityScore)), 'All returned experiences have valid numerical similarity scores');
+  assert(Array.isArray(searchRes.topSuccessfulGoldenPaths) && searchRes.topSuccessfulGoldenPaths.length > 0, 'topSuccessfulGoldenPaths contains ranked successful solutions');
+}
+
+async function testPromptContext() {
+  // Test 5: Agent Prompt Context Injection
+  console.log('\n--- Test 5: Agent Cognitive Memory Prompt Injection ---');
+  const promptBlock = await agentMemory.formatCognitiveMemoryPrompt('Griot', 'wal concurrency database');
+  assert(typeof promptBlock === 'string' && promptBlock.includes('[MÉMOIRE COGNITIVE & EXPÉRIENCES PERTINENTES (GraphRAG)]'), 'formatCognitiveMemoryPrompt generates structured GraphRAG section');
+  assert(promptBlock.includes('SQLite') || promptBlock.includes('wal') || promptBlock.includes('Souvenirs'), 'Injected prompt contains relevant domain memories');
+}

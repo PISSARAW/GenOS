@@ -59,7 +59,7 @@ function encodeCigarDiff(originalLines = [], modifiedLines = []) {
   while (i < originalLines.length && j < modifiedLines.length) {
     if (originalLines[i] === modifiedLines[j]) {
       let matchCount = 0;
-      while (i < originalLines.length && j < modifiedLines.length && originalLines[i] === modifiedLines[j]) {
+      while (matchingCigarLines(originalLines, modifiedLines, { i, j })) {
         matchCount++;
         i++;
         j++;
@@ -100,3 +100,7 @@ module.exports = {
   processSynapticSpikes,
   encodeCigarDiff
 };
+
+function matchingCigarLines(original, modified, { i, j }) {
+  return i < original.length && j < modified.length && original[i] === modified[j];
+}

@@ -1,5 +1,8 @@
 'use strict';
 
+const { computeMorphologyUtility } = require('./morphogenesisUtility');
+const { selectionInputs } = require('./morphogenesisSelectionInputs');
+
 const { getPhenotype } = require('../agents/phenotypeRegistryService');
 const { contractFor, missingCapabilities } = require('../topologyCapabilityService');
 const { capabilityToolSet } = require('../toolLeasePolicy');
@@ -38,14 +41,7 @@ function candidateFor(topology, contracts, cost) {
 }
 
 function selectTopology(ctx, candidates) {
-  const labels = classifyMorphologyLabel(ctx.proposedTopology);
-  const organization = ctx.proposedOrganization || (labels.kind === 'organization' ? labels.id : null);
-  const minimum = Array.isArray(ctx.minimumMorphologyCandidates)
-    ? selectMinimumMorphology(ctx.minimumMorphologyCandidates, ctx.morphologyDemand || {}) : null;
-  const minimumTopology = minimum && minimum.valid && minimum.selected.level === 'simple_topology'
-    ? minimum.selected.candidate.topology || minimum.selected.candidate.id : null;
-  const requested = ctx.topologyProfile?.baseTopology || minimumTopology
-    || (isTopology(ctx.proposedTopology) ? ctx.proposedTopology : null);
+  const { organization, minimum, requested } = selectionInputs(ctx);
   if (requested && ctx.forceMorphologySelection !== true
     && (ctx.topologyProfile || (!ctx.problemProfile && !ctx.expression))) {
     return { candidate: findCandidate(candidates, requested), receipt: null, organization, minimum };
@@ -169,7 +165,7 @@ function availableCapsOf(state) {
   if (!agents) return [];
   const list = agents instanceof Map ? Array.from(agents.values()) : agents;
   if (!Array.isArray(list)) return [];
-  return list.flatMap((a) => a.capabilities || []);
+  return list.flatMap(agentCapabilities);
 }
 
 function buildContracts(ctx) {
@@ -188,7 +184,7 @@ function buildPlanComponents(ctx, contracts) {
   const budget = computeBudgetReallocation(classified.compatible, spawnList, tokens);
   const sequence = buildTransitionSequence({ preserve: classified.compatible, retire: classified.incompatible.map((x) => x.agent), spawn: spawnList, rebind: [] });
   const fromVersion = ctx.currentState ? ctx.currentState.currentMorphologyVersion || 0 : 0;
-  const topologyChanges = diffTopology(ctx.currentState || {}, { mode: ctx.proposedTopology || 'specialist_expert_committee' });
+  const topologyChanges = planTopologyChanges(ctx);
   return {
     fromVersion,
     reason: ctx.reason || 'morphogenesis',
@@ -228,49 +224,13 @@ function generateRollbackPlan(plan) {
     rollbackLatency: rev.reduce((sum, x) => sum + (x.estimatedDurationMs || 0), 0)
   };
 }
-function scoreCognitiveFit(morphology, cognitivePhenotype) {
-  if (!cognitivePhenotype) return 0;
-  const requiredCaps = morphology.requiredCapabilities || [];
-  const phenotypeCaps = cognitivePhenotype.capabilities || [];
-  if (requiredCaps.length === 0) return 0.5;
-  const owned = new Set(phenotypeCaps);
-  const covered = requiredCaps.filter((c) => owned.has(c)).length;
-  return covered / requiredCaps.length;
-}
 
-function scoreStrategyFit(morphology, strategyTrajectory) {
-  if (!strategyTrajectory) return 0;
-  const currentPhase = strategyTrajectory.currentPhase || 'explore';
-  const morphologyPhase = morphology.preferredPhase || 'any';
-  if (morphologyPhase === 'any') return 0.5;
-  return morphologyPhase === currentPhase ? 1.0 : 0.2;
-}
 
-function scoreRegulatoryFit(morphology, regulatoryState) {
-  if (!regulatoryState) return 0;
-  const constraints = regulatoryState.constraints || [];
-  const violations = constraints.filter((c) => c.blocks === morphology.topology);
-  return violations.length === 0 ? 1.0 : Math.max(0, 1.0 - violations.length * 0.3);
-}
 
-function computeMorphologyUtility(ctx) {
-  const { morphology, epistemicState, memoryContext, regulatoryState, cognitivePhenotype, strategyTrajectory } = ctx;
-  const progress = (epistemicState && epistemicState.expectedProgress) || 0;
-  const infoGain = (epistemicState && epistemicState.informationGain) || 0;
-  const evidenceGain = (epistemicState && epistemicState.evidenceGain) || 0;
-  const uncertaintyReduction = (epistemicState && epistemicState.uncertaintyReduction) || 0;
-  const memoryReuse = memoryContext ? memoryContext.reuseScore || 0 : 0;
-  const cognitiveFit = scoreCognitiveFit(morphology, cognitivePhenotype);
-  const strategyFit = scoreStrategyFit(morphology, strategyTrajectory);
-  const regulatoryFit = scoreRegulatoryFit(morphology, regulatoryState);
-  const resilienceGain = regulatoryState ? regulatoryState.resilienceScore || 0 : 0;
-  const tokenCost = morphology.tokenCost || 0;
-  const latency = morphology.latency || 0;
-  const transitionCost = morphology.transitionCost || 0;
-  const coordinationCost = morphology.coordinationCost || 0;
-  const risk = morphology.risk || 0;
-  return progress + infoGain + evidenceGain + uncertaintyReduction + memoryReuse + cognitiveFit + strategyFit + regulatoryFit + resilienceGain - tokenCost - latency - transitionCost - coordinationCost - risk;
-}
+
+
+
+
 
 function planMorphogenesis(ctx) {
   const judgment = ctx.communityJudgment;
@@ -347,9 +307,7 @@ function buildMorphogenesisPlan(ctx) {
   const chosen = selection.candidate;
   const { contracts, components, targetAgents, graph, expression } = chosen;
   const plan = chosen.plan;
-  plan.genotypeActions = planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db });
-  plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
-  plan.plasmidActions = planPlasmidActions({ requiredCapabilities: contracts.pc.required || [], availablePlasmids: ctx.availablePlasmids || [], targetAgents });
+  applyGeneticActions({ plan, ctx, contracts, targetAgents });
   Object.assign(plan, buildIdentityExtensions({ expression: ctx.expression || {}, problem: ctx.problem, event: ctx.event, checkpoint: ctx.checkpoint, ancestral: ctx.ancestral }));
   plan.rollbackPlan = generateRollbackPlan(plan);
   plan.selectedTopology = chosen.topology;
@@ -366,14 +324,7 @@ function buildMorphogenesisPlan(ctx) {
   plan.morphologyPatch = { operation: 'replace_root', graph };
   plan.morphologyExpression = expression;
   plan.controlReceipt = selection.receipt;
-  const utilityCtx = {
-    morphology: { requiredCapabilities: contracts.pc.required || [], topology: chosen.topology, tokenCost: plan.expectedCost ? plan.expectedCost.tokens : 0, latency: plan.expectedCost ? plan.expectedCost.latency : 0, transitionCost: plan.expectedCost ? plan.expectedCost.risk : 0, coordinationCost: 0, risk: plan.expectedCost ? plan.expectedCost.risk : 0 },
-    epistemicState: ctx.epistemicState,
-    memoryContext: ctx.memoryContext,
-    regulatoryState: ctx.regulatoryState,
-    cognitivePhenotype: ctx.cognitivePhenotype,
-    strategyTrajectory: ctx.strategyTrajectory
-  };
+  const utilityCtx = morphologyUtilityContext({ contracts, chosen, plan, ctx });
   plan.utility = computeMorphologyUtility(utilityCtx);
   extendPlan({ plan, reason: components.reason, pressures: ctx.pressure });
   // Compute Substrate Resolver: annotate each step with the optimal substrate
@@ -398,3 +349,27 @@ function validatePlan(ctx) {
 function estimateCost(plan) { return plan.expectedCost || { tokens: 0, latency: 0, risk: 0 }; }
 
 module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence, planGenotypeActions, planEpigeneticChanges, planPlasmidActions, annotatePlanWithSubstrates, computeMorphologyUtility, selectTopology, candidateFor, contractForTopology };
+
+function applyGeneticActions({ plan, ctx, contracts, targetAgents }) {
+  plan.genotypeActions = planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db });
+  plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
+  plan.plasmidActions = planPlasmidActions({ requiredCapabilities: contracts.pc.required || [], availablePlasmids: ctx.availablePlasmids || [], targetAgents });
+}
+
+function morphologyUtilityContext({ contracts, chosen, plan, ctx }) {
+  const utilityCtx = {
+    morphology: { requiredCapabilities: contracts.pc.required || [], topology: chosen.topology, tokenCost: plan.expectedCost ? plan.expectedCost.tokens : 0, latency: plan.expectedCost ? plan.expectedCost.latency : 0, transitionCost: plan.expectedCost ? plan.expectedCost.risk : 0, coordinationCost: 0, risk: plan.expectedCost ? plan.expectedCost.risk : 0 },
+    epistemicState: ctx.epistemicState,
+    memoryContext: ctx.memoryContext,
+    regulatoryState: ctx.regulatoryState,
+    cognitivePhenotype: ctx.cognitivePhenotype,
+    strategyTrajectory: ctx.strategyTrajectory
+  };
+  return utilityCtx;
+}
+
+function agentCapabilities(agent) { return agent.capabilities || []; }
+
+function planTopologyChanges(ctx) {
+  return diffTopology(ctx.currentState || {}, { mode: ctx.proposedTopology || 'specialist_expert_committee' });
+}

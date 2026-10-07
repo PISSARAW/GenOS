@@ -2,7 +2,6 @@
  * Comprehensive verification suite for GenOS gRPC Microservices & Core Services.
  * Tests proto loading, service registration, Ping health checks, and real domain RPC methods.
  */
-
 const assert = require('assert');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -24,48 +23,15 @@ const TEST_PORT = 50059;
 const testWorkerId = `worker-sub-${crypto.randomBytes(5).toString('hex')}`;
 const testGrpcSecret = `grpc-test-${crypto.randomBytes(24).toString('hex')}`;
 process.env.GENOS_GRPC_SHARED_SECRET = testGrpcSecret;
-
 async function runGrpcSuite() {
   console.log('=== STARTING GENOS gRPC MICROSERVICES VERIFICATION SUITE ===\n');
-
-  // 1. Boot local gRPC test server
-  const server = new grpc.Server();
-  const descriptors = loadAllProtos();
-
-  console.log(`[gRPC Test] Loaded ${Object.keys(descriptors).length} proto descriptors.`);
-  assert(Object.keys(descriptors).length >= 41, 'Must load at least 41 proto descriptors');
-
-  for (const [name, desc] of Object.entries(descriptors)) {
-    registerAllServices(server, desc);
-  }
-
-  let actualGrpcPort = TEST_PORT;
-  await new Promise((resolve, reject) => {
-    server.bindAsync(`127.0.0.1:${TEST_PORT}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
-      if (err || port === 0) {
-        server.bindAsync('127.0.0.1:0', grpc.ServerCredentials.createInsecure(), (err2, port2) => {
-          if (err2 || port2 === 0) return reject(err2 || new Error('Failed to bind gRPC port'));
-          actualGrpcPort = port2;
-          server.start();
-          console.log(`[gRPC Test] Server listening on fallback port ${port2}`);
-          resolve();
-        });
-        return;
-      }
-      actualGrpcPort = port;
-      server.start();
-      console.log(`[gRPC Test] Server listening on port ${port}`);
-      resolve();
-    });
-  });
-
+  const { server, descriptors, actualGrpcPort } = await bootGrpcServer();
   const clients = [];
   function createClient(serviceDef) {
     const client = new serviceDef(`127.0.0.1:${actualGrpcPort}`, grpc.credentials.createInsecure());
     clients.push(client);
     return client;
   }
-
   function callRpc(client, method, req = {}) {
     return new Promise((resolve, reject) => {
       const metadata = new grpc.Metadata();
@@ -76,37 +42,30 @@ async function runGrpcSuite() {
       });
     });
   }
-
   try {
     // --- 1. CoreService ---
     console.log('--- 1. Testing CoreService ---');
     const coreDesc = descriptors.core.genos.core.v1;
     const coreClient = createClient(coreDesc.CoreService);
-
     const corePing = await callRpc(coreClient, 'Ping');
-    assert(corePing.status.includes('Core') || corePing.status.includes('alive') || corePing.status.length > 0, 'CoreService Ping failed');
+    assert(isLiveCoreStatus(corePing.status), 'CoreService Ping failed');
     console.log(`  ✅ PASS: CoreService Ping -> "${corePing.status}"`);
-
     const health = await callRpc(coreClient, 'GetSystemHealth');
     assert.strictEqual(health.healthy, true, 'Health check must report healthy: true');
     console.log(`  ✅ PASS: CoreService GetSystemHealth -> healthy: ${health.healthy}, uptime: ${health.uptime}`);
-
     // --- 2. ArenaService ---
     console.log('\n--- 2. Testing ArenaService ---');
     const arenaDesc = descriptors.arena.genos.arena;
     const arenaClient = createClient(arenaDesc.ArenaService);
-
     const arenaPing = await callRpc(arenaClient, 'Ping');
     assert.strictEqual(arenaPing.status, 'Service Arena is alive via gRPC!');
     console.log(`  ✅ PASS: ArenaService Ping -> "${arenaPing.status}"`);
-
     const tournamentRes = await callRpc(arenaClient, 'RunTournament', { problem_id: 'test-search' });
     assert.strictEqual(tournamentRes.success, true, 'Tournament execution must succeed');
     assert(tournamentRes.winner, 'Tournament must designate a winner');
     const leaderboard = JSON.parse(tournamentRes.leaderboard_json);
     assert(Array.isArray(leaderboard) && leaderboard.length > 0, 'Leaderboard must be returned as array');
     console.log(`  ✅ PASS: ArenaService RunTournament -> Winner: ${tournamentRes.winner}, Solvers: ${leaderboard.length}`);
-
     const paretoRes = await callRpc(arenaClient, 'CalculatePareto', {
       candidates_json: JSON.stringify([
         { id: 'sol-1', executionTimeMs: 10, tokenCostUSD: 0.01, fitnessScore: 80, adversarialPassRate: 90 },
@@ -115,16 +74,13 @@ async function runGrpcSuite() {
     });
     assert(paretoRes.pareto_count >= 1, 'Must calculate at least 1 Pareto candidate');
     console.log(`  ✅ PASS: ArenaService CalculatePareto -> ${paretoRes.pareto_count} non-dominated solutions`);
-
     // --- 3. MemoryService ---
     console.log('\n--- 3. Testing MemoryService ---');
     const memDesc = descriptors.memory.genos.memory.v1;
     const memClient = createClient(memDesc.MemoryService);
-
     const memPing = await callRpc(memClient, 'Ping');
     assert.strictEqual(memPing.status, 'Service Memory is alive via gRPC!');
     console.log(`  ✅ PASS: MemoryService Ping -> "${memPing.status}"`);
-
     const storeRes = await callRpc(memClient, 'StoreMemory', {
       id: 'grpc-exp-01',
       content: 'Autonomous verification test experience via gRPC',
@@ -132,7 +88,6 @@ async function runGrpcSuite() {
     });
     assert.strictEqual(storeRes.success, true, 'StoreMemory must succeed');
     console.log('  ✅ PASS: MemoryService StoreMemory -> success: true');
-
     const searchRes = await callRpc(memClient, 'SearchMemory', {
       text: 'verification test',
       vector: new Array(768).fill(0.1),
@@ -140,16 +95,13 @@ async function runGrpcSuite() {
     });
     assert(Array.isArray(searchRes.results), 'SearchMemory results must be an array');
     console.log(`  ✅ PASS: MemoryService SearchMemory -> returned ${searchRes.results.length} memories`);
-
     // --- 4. SwarmService ---
     console.log('\n--- 4. Testing SwarmService ---');
     const swarmDesc = descriptors.swarm.genos.swarm;
     const swarmClient = createClient(swarmDesc.SwarmService);
-
     const swarmPing = await callRpc(swarmClient, 'Ping');
     assert.strictEqual(swarmPing.status, 'Service Swarm is alive via gRPC!');
     console.log(`  ✅ PASS: SwarmService Ping -> "${swarmPing.status}"`);
-
     const swarmMetricsRes = await callRpc(swarmClient, 'GetSwarmMetrics');
     assert(typeof swarmMetricsRes.entropy === 'number', 'Entropy must be numeric');
     assert(swarmMetricsRes.state, 'State must be present');
@@ -159,7 +111,6 @@ async function runGrpcSuite() {
     assert(Math.abs(swarmMetricsRes.entropy - expectedMetrics.rawEntropy) < 0.0001, 'Swarm gRPC entropy must match persisted telemetry');
     assert.strictEqual(swarmMetricsRes.state, expectedMetrics.cognitiveDriftState, 'Swarm gRPC state must match persisted telemetry');
     console.log(`  ✅ PASS: SwarmService GetSwarmMetrics -> state: ${swarmMetricsRes.state}, entropy: ${swarmMetricsRes.entropy}`);
-
     const swarmTopologyRes = await callRpc(swarmClient, 'GetSwarmTopology');
     assert(swarmTopologyRes.topology_json, 'Topology JSON must be returned');
     const topologyAgents = await db.all(`
@@ -171,16 +122,13 @@ async function runGrpcSuite() {
     const expectedTopology = swarmMetrics.getSwarmTopology(topologyAgents, topologyEvents);
     assert.deepStrictEqual(swarmTopologyRes.node_ids.sort(), expectedTopology.nodes.map((node) => node.id).sort(), 'Swarm gRPC topology must contain persisted agent nodes');
     console.log(`  ✅ PASS: SwarmService GetSwarmTopology -> nodes: ${swarmTopologyRes.node_ids.length}`);
-
     // --- 5. ResilienceService ---
     console.log('\n--- 5. Testing ResilienceService ---');
     const resDesc = descriptors.resilience.genos.resilience;
     const resClient = createClient(resDesc.ResilienceService);
-
     const resPing = await callRpc(resClient, 'Ping');
     assert.strictEqual(resPing.status, 'Service Resilience is alive via gRPC!');
     console.log(`  ✅ PASS: ResilienceService Ping -> "${resPing.status}"`);
-
     const freezeRes = await callRpc(resClient, 'FreezeState', {
       agent_id: 'agent-cryptobiosis-01',
       state_json: JSON.stringify({ mission: 'test', memoryCount: 42 })
@@ -188,33 +136,26 @@ async function runGrpcSuite() {
     assert(freezeRes.frozen === true, 'FreezeState must freeze successfully');
     assert(freezeRes.snapshot_id, 'FreezeState must return snapshotId');
     console.log(`  ✅ PASS: ResilienceService FreezeState -> snapshotId: ${freezeRes.snapshot_id}`);
-
     const thawRes = await callRpc(resClient, 'ThawState', { snapshot_id: freezeRes.snapshot_id });
     assert.strictEqual(thawRes.agent_id, 'agent-cryptobiosis-01');
     console.log(`  ✅ PASS: ResilienceService ThawState -> restored agentId: ${thawRes.agent_id}`);
-
     // --- 6. RustBridgeService ---
     console.log('\n--- 6. Testing RustBridgeService ---');
     const rustDesc = descriptors.rustBridge.genos.rustBridge;
     const rustClient = createClient(rustDesc.RustBridgeService);
-
     const rustPing = await callRpc(rustClient, 'Ping');
     assert.strictEqual(rustPing.status, 'Service RustBridge is alive via gRPC!');
     console.log(`  ✅ PASS: RustBridgeService Ping -> "${rustPing.status}"`);
-
     const bridgeHealth = await callRpc(rustClient, 'CheckBridgeHealth');
     assert(bridgeHealth.version.includes('GenOS'), 'Version must identify GenOS');
     console.log(`  ✅ PASS: RustBridgeService CheckBridgeHealth -> healthy: ${bridgeHealth.healthy}, path: ${bridgeHealth.binary_path}`);
-
     // --- 7. TelemetryService ---
     console.log('\n--- 7. Testing TelemetryService ---');
     const telDesc = descriptors.telemetry.genos.telemetry.v1;
     const telClient = createClient(telDesc.TelemetryService);
-
     const telPing = await callRpc(telClient, 'Ping');
     assert.strictEqual(telPing.status, 'Service Telemetry is alive via gRPC!');
     console.log(`  ✅ PASS: TelemetryService Ping -> "${telPing.status}"`);
-
     const emitRes = await callRpc(telClient, 'EmitEvent', {
       agent_id: 'agent-grpc-test',
       event_type: 'GRPC_TEST_EVENT',
@@ -226,16 +167,13 @@ async function runGrpcSuite() {
     });
     assert.strictEqual(emitRes.success, true);
     console.log('  ✅ PASS: TelemetryService EmitEvent -> success: true');
-
     // --- 8. WorkspaceService ---
     console.log('\n--- 8. Testing WorkspaceService ---');
     const wsDesc = descriptors.workspace.genos.workspace.v1;
     const wsClient = createClient(wsDesc.WorkspaceService);
-
     const wsPing = await callRpc(wsClient, 'Ping');
     assert.strictEqual(wsPing.status, 'Service Workspace is alive via gRPC!');
     console.log(`  ✅ PASS: WorkspaceService Ping -> "${wsPing.status}"`);
-
     await db.run("INSERT OR REPLACE INTO organizations (id, name) VALUES (?, ?)", 'grpc-org', 'gRPC test organization');
     await db.run("INSERT OR REPLACE INTO projects (id, organization_id, name) VALUES (?, ?, ?)", 'grpc-project', 'grpc-org', 'gRPC test project');
     await db.run(
@@ -254,7 +192,6 @@ async function runGrpcSuite() {
     });
     assert(provRes.workspace_root, 'Must return workspace_root');
     console.log(`  ✅ PASS: WorkspaceService ProvisionWorkspace -> root: ${provRes.workspace_root}`);
-
     // --- 9. AgentService & OrchestratorService ---
     console.log('\n--- 9. Testing AgentService & OrchestratorService ---');
     await db.run(
@@ -276,7 +213,6 @@ async function runGrpcSuite() {
     });
     assert.strictEqual(stopRes.stopped, false);
     console.log(`  ✅ PASS: AgentService StopMission -> stopped: ${stopRes.stopped}`);
-
     const orchDesc = descriptors.orchestrator.genos.orchestrator.v1;
     const orchClient = createClient(orchDesc.OrchestratorService);
     await db.run(
@@ -328,7 +264,6 @@ async function runGrpcSuite() {
     }
     assert.strictEqual(orchRes.success, true, `DispatchWorker failed: ${orchRes.status}`);
     console.log(`  ✅ PASS: OrchestratorService DispatchWorker -> status: ${orchRes.status}`);
-
     // --- 10. McpService ---
     console.log('\n--- 10. Testing McpService ---');
     const mcpDesc = descriptors.mcp.genos.mcp;
@@ -336,26 +271,13 @@ async function runGrpcSuite() {
     const mcpPing = await callRpc(mcpClient, 'Ping');
     assert.strictEqual(mcpPing.status, 'Service Mcp is alive via gRPC!');
     console.log(`  ✅ PASS: McpService Ping -> "${mcpPing.status}"`);
-
     const toolsList = await callRpc(mcpClient, 'ListTools');
     assert(Array.isArray(toolsList.tools), 'Tools must be an array');
     assert.strictEqual(toolsList.contract_version, 'genos.mcp/v1');
     console.log(`  ✅ PASS: McpService ListTools -> ${toolsList.tools.length} tools registered`);
-
     // --- 11. Testing Ping on All 41 Services ---
     console.log('\n--- 11. Testing Universal Health (Ping) Across All 41 Microservices ---');
     let pingedCount = 0;
-    function findServiceDefs(obj) {
-      const defs = [];
-      for (const k in obj) {
-        const val = obj[k];
-        if (val && (typeof val === 'function' || typeof val === 'object')) {
-          if (val.service) defs.push({ name: k, def: val });
-          else defs.push(...findServiceDefs(val));
-        }
-      }
-      return defs;
-    }
 
     for (const [modName, desc] of Object.entries(descriptors)) {
       for (const { name, def } of findServiceDefs(desc)) {
@@ -366,7 +288,6 @@ async function runGrpcSuite() {
       }
     }
     console.log(`  ✅ PASS: 100% of all ${pingedCount} gRPC microservices responded to Ping`);
-
     console.log('\n========================================');
     console.log(`ALL 41 gRPC MICROSERVICES & CORE SERVICES PASSED (${pingedCount} SERVICES VERIFIED)`);
     console.log('========================================\n');
@@ -385,7 +306,6 @@ async function runGrpcSuite() {
     else process.env.NODE_ENV = previousNodeEnv;
   }
 }
-
 if (require.main === module) {
   runGrpcSuite()
     .then(() => {
@@ -397,3 +317,51 @@ if (require.main === module) {
     });
 }
 module.exports = { runGrpcSuite };
+async function bootGrpcServer() {
+  // 1. Boot local gRPC test server
+  const server = new grpc.Server();
+  const descriptors = loadAllProtos();
+  console.log(`[gRPC Test] Loaded ${Object.keys(descriptors).length} proto descriptors.`);
+  assert(Object.keys(descriptors).length >= 41, 'Must load at least 41 proto descriptors');
+  for (const [name, desc] of Object.entries(descriptors)) {
+    registerAllServices(server, desc);
+  }
+  const actualGrpcPort = await bindGrpcServer(server);
+  return { server, descriptors, actualGrpcPort };
+}
+async function bindGrpcServer(server) {
+  let actualGrpcPort = TEST_PORT;
+  await new Promise((resolve, reject) => {
+    server.bindAsync(`127.0.0.1:${TEST_PORT}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
+      if (err || port === 0) {
+        server.bindAsync('127.0.0.1:0', grpc.ServerCredentials.createInsecure(), (err2, port2) => {
+          if (err2 || port2 === 0) return reject(err2 || new Error('Failed to bind gRPC port'));
+          actualGrpcPort = port2;
+          server.start();
+          console.log(`[gRPC Test] Server listening on fallback port ${port2}`);
+          resolve();
+        });
+        return;
+      }
+      actualGrpcPort = port;
+      server.start();
+      console.log(`[gRPC Test] Server listening on port ${port}`);
+      resolve();
+    });
+  });
+  return actualGrpcPort;
+}
+function findServiceDefs(obj) {
+      const defs = [];
+      for (const k in obj) {
+        const val = obj[k];
+        if (val && (typeof val === 'function' || typeof val === 'object')) {
+          if (val.service) defs.push({ name: k, def: val });
+          else defs.push(...findServiceDefs(val));
+        }
+      }
+      return defs;
+    }
+function isLiveCoreStatus(status) {
+  return status.includes('Core') || status.includes('alive') || status.length > 0;
+}

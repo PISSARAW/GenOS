@@ -128,10 +128,7 @@ async function localWorkerRoute(options = {}) {
   const load = machineLoad();
   const freeMemoryRatio = profile.freeMemoryBytes / profile.totalMemoryBytes;
   const models = await localModelDiscovery.discoverLocalModels();
-  const localCodeEnabled = process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS === '1';
-  const reviewRole = /reviewer|observer|red_team|blue_team/i.test(role || '');
-  const implementationRole = /implementation|coder|developer/i.test(role || '');
-  const eligible = (reviewRole || (localCodeEnabled && implementationRole)) && hostPolicy.allowLocalModel && load !== null && load < cpuCount * 0.8;
+  const eligible = localWorkerEligible({ role, hostPolicy, load, cpuCount });
   const chatModels = competentLocalModels(models, { role, modelTier, purpose: 'worker' });
   const policy = await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, chatModels.map((model) => model.uri));
   const orderedUris = policy.configured
@@ -152,3 +149,11 @@ async function localWorkerRoute(options = {}) {
 }
 
 module.exports = { modelUsage, consultLocalModels, modelScale, localPlanTimeoutMs, localCompetencyFloor, competentLocalModels, rankLocalModels, localWorkerRoute, explicitLocalRoute, machineLoad };
+
+function localWorkerEligible({ role, hostPolicy, load, cpuCount }) {
+  const localCodeEnabled = process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS === '1';
+  const reviewRole = /reviewer|observer|red_team|blue_team/i.test(role || '');
+  const implementationRole = /implementation|coder|developer/i.test(role || '');
+  const eligible = (reviewRole || (localCodeEnabled && implementationRole)) && hostPolicy.allowLocalModel && load !== null && load < cpuCount * 0.8;
+  return eligible;
+}
