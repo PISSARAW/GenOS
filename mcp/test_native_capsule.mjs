@@ -11,11 +11,12 @@ assert.ok(fs.existsSync(executable), 'Build genos-cli before running the native 
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-mcp-capsule-'));
 const workspaceTemporary = fs.mkdtempSync(path.join(root, '.genos-mcp-audit-'));
 
-async function connect(studioRoot) {
+async function connect(studioRoot, repoRoot = root) {
   const client = new Client({ name: 'genos-native-capsule-test', version: '1' });
   const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(root, 'mcp/index.js')],
-    cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_MCP_LEASE: 'genos_capsule_create,genos_audit,genos_merge,genos_v2_fork',
-      GENOS_BIN: executable, GENOS_STUDIO_ROOT: studioRoot, GENOS_DB_PATH: path.join(temporary, 'test.db'),
+    cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_MCP_LEASE: 'genos_capsule_create,genos_audit,genos_merge,genos_v2_fork,genos_v2_init',
+      GENOS_BIN: executable, GENOS_STUDIO_ROOT: studioRoot, GENOS_REPO_ROOT: repoRoot,
+      GENOS_DB_PATH: path.join(temporary, 'test.db'),
       NODE_ENV: 'test' } });
   transport.stderr.on('data', () => {});
   await client.connect(transport);
@@ -68,7 +69,20 @@ try {
   } finally {
     await blockedClient.close();
   }
-  console.log('Native capsule and audit proof, write-failure, merge and phantom-fork refusals verified through MCP stdio.');
+  const isolatedRoot = path.join(temporary, 'init-root');
+  fs.mkdirSync(isolatedRoot);
+  const initClient = await connect(isolatedRoot, isolatedRoot);
+  try {
+    const initialized = await initClient.callTool({ name: 'genos_v2_init', arguments: {} });
+    assert.notEqual(initialized.isError, true, initialized.content?.[0]?.text);
+    assert.equal(JSON.parse(initialized.content[0].text).success, true);
+    for (const directory of ['snapshots', 'capsules', '.genos']) {
+      assert.ok(fs.statSync(path.join(isolatedRoot, directory)).isDirectory());
+    }
+  } finally {
+    await initClient.close();
+  }
+  console.log('Native capsule, audit and isolated init proof; write-failure, merge and phantom-fork refusals verified.');
 } finally {
   assert.ok(path.resolve(temporary).startsWith(`${path.resolve(os.tmpdir())}${path.sep}`));
   fs.rmSync(temporary, { recursive: true, force: true });

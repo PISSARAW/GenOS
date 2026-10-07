@@ -30,7 +30,7 @@ Légende : `S` = appel MCP `stdio` réel avec preuve métier ; `B` = dispatch/tr
 | Workspace | `genos_merge` | N | Refus natif et MCP : aucune vérification d'invariants ni promotion de branche n'est implémentée. |
 | Workspace | `genos_audit` | S | Audit natif d'une capsule créée, fichier et score relus ; l'argument `snapshot_id` attend en réalité l'identifiant de capsule. |
 | Workspace | `genos_biomimicry` | R | Route/capability ; chaque action native reste à vérifier. |
-| Workspace | `genos_v2_init` | R | Pont présent ; initialisation réelle non qualifiée ici. |
+| Workspace | `genos_v2_init` | S | Les trois répertoires attendus sont créés par le CLI via MCP dans une racine jetable ; aucun provisioning plus large n'est revendiqué. |
 | Workspace | `genos_v2_fork` | N | L'ancien CLI fabriquait seulement un UUID ; refus natif et MCP tant qu'aucun état enfant/lignage n'est persisté. |
 | Signaux | `genos_signal_publish` | S | Signal ligand publié en `stdio` et ligne relue dans SQLite ; livraison à un destinataire non prouvée. |
 | Signaux | `genos_signal_read` | S | Lecture d'un signal dans la même portée organisation/projet, intégrité vérifiée ; seconde lecture vide après marquage `seen`. |
