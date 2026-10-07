@@ -23,8 +23,8 @@
 <form id="run-search"><label>Rechercher<input id="run-query" placeholder="ID, état ou raison"></label>
 <label>État<select id="run-status-filter"><option value="">Tous</option><option>running</option><option>awaiting_approval</option><option>completed</option><option>failed</option><option>blocked</option><option>cancelled</option></select></label>
 <button type="submit">Rechercher</button></form><ul id="run-list" data-runtime></ul>
-<h3>Étapes</h3><table><thead><tr><th>Étape</th><th>État observé</th></tr></thead><tbody id="steps" data-runtime></tbody></table>
-<h3>Métriques</h3><table><tbody id="metrics" data-runtime></tbody></table>
+<h3>Étapes</h3><table aria-label="Étapes de l’exécution"><thead><tr><th scope="col">Étape</th><th scope="col">État observé</th></tr></thead><tbody id="steps" data-runtime></tbody></table>
+<h3>Métriques</h3><table aria-label="Métriques de l’exécution"><tbody id="metrics" data-runtime></tbody></table>
 <h3>Trajectoire</h3><ol id="trajectory" data-runtime></ol>
 <h3>Promotion</h3><p id="promotion" data-runtime></p>
 <details><summary>Soumettre un dossier d’approbation signé</summary>

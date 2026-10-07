@@ -150,6 +150,7 @@ async function run(spec, output) {
     await supervision(page, spec);
     await editor(page, spec);
     await lab(page, spec);
+    const accessibility = await require('./studioAccessibilityJourney.cjs').run(page, output);
     const navigation = await require('./studioNavigationJourney.cjs').run(page, spec, output);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('[data-target="files-view"]').click();
@@ -163,7 +164,7 @@ async function run(spec, output) {
     assert.deepEqual(errors, []);
     return { platform: process.platform, browserVersion: browser.version(), errors,
       supervision: true, tenantEventRefusal: true, reconnect: true, editorConflictDraft: true,
-      durableRestore: true, protocol: true, frozenJobReplay: true, cancellation: true, mobile: true, navigation };
+      durableRestore: true, protocol: true, frozenJobReplay: true, cancellation: true, mobile: true, navigation, accessibility };
   } catch (error) {
     console.error('Studio views failure:', { message: await page.locator('#message').textContent(), errors });
     await page.screenshot({ path: path.join(output, 'studio-views-failure.png'), fullPage: true });

@@ -76,7 +76,9 @@ function renderMetrics() {
   if (!state.current) return;
   byId('metrics').replaceChildren(...runMetrics(state.current.run).map(([label, value]) => {
     const row = node('tr');
-    row.append(node('th', label), node('td', value));
+    const heading = node('th', label);
+    heading.scope = 'row';
+    row.append(heading, node('td', value));
     return row;
   }));
   displayList('trajectory', state.current.run.steps, step =>

@@ -38,7 +38,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | F04.1 Harnais | Qualifié Windows | Port attribué par l'OS, origine exacte, résultat structuré ; Edge 154.0.4258.62, aucune erreur de page |
 | C01.1 Navigation | Qualifié Windows | Connexion séparée, contexte compact, cinq routes, liens de run et historique |
 | C02.1 Composants | Qualifié Windows, partiel | Fiches gestion/laboratoire, champs autorisés, inconnus et garanties fausses ; JSON secondaire |
-| C03 Accessibilité | À réaliser | Contrôles de toutes les vues ; pas de certification présumée |
+| C03.1 Responsive et clavier | Qualifié Windows, partiel | Cinq vues 390/1440 px, texte 200 %, labels et focus ; audit WCAG/lecteur d'écran non exécuté |
 | C04 Onboarding | À réaliser | Guide et diagnostics sans création implicite |
 | Autres C/S | Planifiés / partiels selon matrice | Aucune clôture implicite |
 
@@ -76,6 +76,12 @@ C02.1 : tests unitaires des projections réussis ; parcours navigateur réel
 réussi avec inspection de job et comparaison depuis les fiches, inspecteur
 technique fermé. Les autres sorties (actions, provenance, restauration)
 restent à convertir dans des sous-points ultérieurs.
+
+C03.1 : dix captures desktop/mobile et tests de largeur des cinq vues,
+identifiant long, texte agrandi à 200 %, contrôle des labels et focus
+du titre après navigation. Les colonnes et valeurs longues se replient.
+Ce contrôle DOM ne remplace pas un audit complet d'accessibilité,
+une vérification de contrastes ni un test avec lecteur d'écran.
 
 Voir [la matrice](studio-parite-plan.md) et
 [la qualification des huit lots](studio-qualification.md).
