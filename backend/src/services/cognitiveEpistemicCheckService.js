@@ -133,14 +133,7 @@ function createRegistry(options = {}) {
     handlers.set(reference, { descriptor, handler, verifierDigest: ensureTrust(descriptor.type) });
     return reference;
   }
-  function resolve(intent, context = {}) {
-    if (intent && typeof intent === 'object') return intent;
-    const key = String(intent || '').trim().toLowerCase();
-    const configured = options.descriptors?.[key] || options.verificationDescriptors?.[key];
-    if (configured?.type) return { ...configured };
-    const type = INTENT_TYPES[key];
-    return type ? { type, domain: context.domain || undefined } : null;
-  }
+  const resolve = (intent, context = {}) => resolveVerifierIntent(intent, context, options);
   function get(reference) {
     const entry = handlers.get(reference);
     if (!entry) return null;
@@ -148,9 +141,7 @@ function createRegistry(options = {}) {
       const outcome = await entry.handler(candidate, { ...context, values,
         runIsolated: options.runIsolated || require('./sandboxExecutor').runIsolated });
       const status = outcome.status || 'inconclusive';
-      const receipt = issueReceipt({ resultId: context.resultId || reference,
-        evidenceDigest: digest(outcome.observations || outcome), verifierDigest: entry.verifierDigest,
-        status, evidenceTypes: [entry.descriptor.type], executionEvidence: outcome.observations || [] });
+      const receipt = createRegistryReceipt({ context, reference, outcome, entry, status });
       return { ...outcome, ...receipt, valid: status === 'verified' };
     };
   }
@@ -158,3 +149,22 @@ function createRegistry(options = {}) {
 }
 
 module.exports = { TYPES, createRegistry, digest };
+
+function createRegistryReceipt({ context, reference, outcome, entry, status }) {
+  return issueReceipt({ resultId: context.resultId || reference,
+        evidenceDigest: digest(outcome.observations || outcome), verifierDigest: entry.verifierDigest,
+        status, evidenceTypes: [entry.descriptor.type], executionEvidence: outcome.observations || [] });
+}
+
+function createRegistryCondition(type, context) {
+  return type ? { type, domain: context.domain || undefined } : null;
+}
+
+function resolveVerifierIntent(intent, context = {}, options) {
+    if (intent && typeof intent === 'object') return intent;
+    const key = String(intent || '').trim().toLowerCase();
+    const configured = options.descriptors?.[key] || options.verificationDescriptors?.[key];
+    if (configured?.type) return { ...configured };
+    const type = INTENT_TYPES[key];
+    return createRegistryCondition(type, context);
+  }

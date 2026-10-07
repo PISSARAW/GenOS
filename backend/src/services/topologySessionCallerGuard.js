@@ -2,13 +2,10 @@
 
 const MUTATIONS = new Set(['apply', 'branch', 'promote', 'variant']);
 
-async function guardTopologyCall(db, record, args, context = {}) {
+async function guardTopologyCall(db, record, { args, context = {} } = {}) {
   if (record.topology !== 'syncytium') return args;
   const operation = String(args.operation || '').toLowerCase();
-  if (record.state?.variantPolicy?.runtimeMode === 'specialized'
-    && ['apply', 'branch', 'promote'].includes(operation)) {
-    throw denied('Specialized variant sessions require a typed variant action.');
-  }
+  assertTypedVariantOperation(record, operation);
   const callerId = context.agentId || process.env.GENOS_AGENT_ID;
   if (!callerId) {
     if (MUTATIONS.has(operation)) throw denied('Syncytium mutations require an authenticated caller.');
@@ -36,23 +33,7 @@ function bindCaller(args, callerId) {
     ...args.transaction,
     operations: (args.transaction.operations || []).map((item) => bindActor(item, callerId))
   };
-  if (args.variant_input) {
-    const input = bindActor(args.variant_input, callerId);
-    output.variant_input = {
-      ...input,
-      o: bindActor(input.o || {}, callerId),
-      options: bindActor(input.options || {}, callerId),
-      ...(input.change ? { change: bindActor(input.change, callerId) } : {}),
-      ...(input.result ? { result: bindActor(input.result, callerId) } : {}),
-      ...(input.build ? { build: bindActor(input.build, callerId) } : {}),
-      ...(input.operation ? { operation: bindActor(input.operation, callerId) } : {}),
-      ...(input.operations ? { operations: input.operations.map((item) => bindActor(item, callerId)) } : {}),
-      ...(input.transaction ? { transaction: {
-        ...input.transaction,
-        operations: (input.transaction.operations || []).map((item) => bindActor(item, callerId))
-      } } : {})
-    };
-  }
+  bindVariantRequest(args, callerId, output);
   return output;
 }
 
@@ -66,3 +47,41 @@ function denied(message) {
 }
 
 module.exports = { guardTopologyCall };
+
+function bindNestedVariantPayload(input, callerId) {
+  return {
+    ...(input.change ? { change: bindActor(input.change, callerId) } : {}),
+    ...(input.result ? { result: bindActor(input.result, callerId) } : {}),
+    ...(input.build ? { build: bindActor(input.build, callerId) } : {}),
+    ...(input.operation ? { operation: bindActor(input.operation, callerId) } : {})
+  };
+}
+
+function bindNestedVariantCollections(input, callerId) {
+  return {
+    ...(input.operations ? { operations: input.operations.map((item) => bindActor(item, callerId)) } : {}),
+    ...(input.transaction ? { transaction: {
+      ...input.transaction,
+      operations: (input.transaction.operations || []).map((item) => bindActor(item, callerId))
+    } } : {})
+  };
+}
+
+function bindVariantRequest(args, callerId, output) {
+  if (!args.variant_input) return;
+  const input = bindActor(args.variant_input, callerId);
+  output.variant_input = {
+    ...input,
+    o: bindActor(input.o || {}, callerId),
+    options: bindActor(input.options || {}, callerId),
+    ...bindNestedVariantPayload(input, callerId),
+    ...bindNestedVariantCollections(input, callerId)
+  };
+}
+
+function assertTypedVariantOperation(record, operation) {
+if (record.state?.variantPolicy?.runtimeMode === 'specialized'
+    && ['apply', 'branch', 'promote'].includes(operation)) {
+    throw denied('Specialized variant sessions require a typed variant action.');
+  }
+}

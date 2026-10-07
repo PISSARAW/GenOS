@@ -138,6 +138,31 @@ function checkVerifierIndependence(verifierId, claimId) {
 // Independent verifier suggestion
 // ---------------------------------------------------------------------------
 
+function scoreVerifierEntry(entry, agentId, agentSources) {
+  const verifier = entry.verifier;
+  const independence = checkVerifierIndependence(verifier.type, agentId);
+  const sourceOverlap = agentSources.has(verifier.type) ? 0.3 : 0;
+  const score = Number((entry.fit * (independence.independent ? 1 : 0.5) * (1 - sourceOverlap)).toFixed(3));
+  return {
+    verifierType: verifier.type,
+    score,
+    independent: independence.independent,
+    fit: Number(entry.fit.toFixed(3)),
+    affinity: Number(verifier.affinity.toFixed(3)),
+    strategy: verifier.strategy
+  };
+}
+
+function rankVerifierCandidates({ catalog, domainHint, evidenceKinds, agentId, agentSources }) {
+  const ranked = suggestIndependentVerifierRanked(catalog, domainHint, evidenceKinds);
+  return ranked.map((entry) => scoreVerifierEntry(entry, agentId, agentSources));
+}
+
+function pickBestVerifier(candidates) {
+  const sorted = [...candidates].sort((a, b) => b.score - a.score);
+  return { sorted, best: sorted[0] };
+}
+
 function suggestIndependentVerifier(agentId, problemDomain) {
   if (!agentId) return { suggestion: null, reason: 'agentId required' };
 
@@ -150,31 +175,15 @@ function suggestIndependentVerifier(agentId, problemDomain) {
   const evidenceKinds = claims.map((c) => c.evidence?.[0]?.kind).filter(Boolean);
   const domainHint = problemDomain ? epitopeHint({ epitopes: { evidence: { kind: problemDomain } } }) : null;
 
-  const ranked = clonalRank(catalog, { epitopes: { evidence: { kind: domainHint || evidenceKinds[0] || 'observation' } } });
-
   const agentSources = new Set(claims.map((c) => c.provenance?.origin).filter(Boolean));
 
-  const candidates = [];
-  for (const entry of ranked) {
-    const verifier = entry.verifier;
-    const independence = checkVerifierIndependence(verifier.type, agentId);
-    const sourceOverlap = agentSources.has(verifier.type) ? 0.3 : 0;
-    const score = Number((entry.fit * (independence.independent ? 1 : 0.5) * (1 - sourceOverlap)).toFixed(3));
-    candidates.push({
-      verifierType: verifier.type,
-      score,
-      independent: independence.independent,
-      fit: Number(entry.fit.toFixed(3)),
-      affinity: Number(verifier.affinity.toFixed(3)),
-      strategy: verifier.strategy
-    });
-  }
+  const candidates = rankVerifierCandidates({ catalog, domainHint, evidenceKinds, agentId, agentSources });
 
-  candidates.sort((a, b) => b.score - a.score);
-  const best = candidates[0];
+  const picked = pickBestVerifier(candidates);
+  const best = picked.best;
 
   if (!best || best.score < 0.1) {
-    return { suggestion: null, reason: 'No sufficiently independent verifier found', candidates };
+    return { suggestion: null, reason: 'No sufficiently independent verifier found', candidates: picked.sorted };
   }
 
   return {
@@ -187,7 +196,7 @@ function suggestIndependentVerifier(agentId, problemDomain) {
         ? `Verifier ${best.verifierType} is independent and has highest fit for this domain`
         : `Best available verifier ${best.verifierType} (independence compromised)`
     },
-    alternatives: candidates.slice(1, 4).map((c) => ({ verifierType: c.verifierType, score: c.score, independent: c.independent })),
+    alternatives: picked.sorted.slice(1, 4).map((c) => ({ verifierType: c.verifierType, score: c.score, independent: c.independent })),
     computedAt: new Date().toISOString()
   };
 }
@@ -198,3 +207,7 @@ module.exports = {
   suggestIndependentVerifier,
   compareSignatures
 };
+
+function suggestIndependentVerifierRanked(catalog, domainHint, evidenceKinds) {
+  return clonalRank(catalog, { epitopes: { evidence: { kind: domainHint || evidenceKinds[0] || 'observation' } } });
+}

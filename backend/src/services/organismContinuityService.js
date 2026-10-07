@@ -53,6 +53,12 @@ function planSuccession(loss, reserve) {
     { id: successor ? successor.id : null, signature: `succession:${source.criticalFunction || 'unspecified'}` },
     memoryKeys
   );
+  return planSuccessionResult({ source, report, decision, successor, memoryKeys, regenerationPath });
+}
+
+module.exports = { enterDormancy, awakenDormant, pickSuccessor, planSuccession };
+
+function planSuccessionResult({ source, report, decision, successor, memoryKeys, regenerationPath }) {
   return {
     deceasedId: source.deceasedId || null,
     criticalFunction: source.criticalFunction || null,
@@ -63,5 +69,3 @@ function planSuccession(loss, reserve) {
     regenerationPath
   };
 }
-
-module.exports = { enterDormancy, awakenDormant, pickSuccessor, planSuccession };

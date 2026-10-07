@@ -9,7 +9,7 @@ function prepare(orchestratorId, variantId, configuration = {}) {
     `worker_${orchestratorId}_${index + 1}_${randomUUID().replaceAll('-', '').slice(0, 12)}`);
   const resolve = (principal) => {
     const match = /^worker:([1-5])$/.exec(String(principal || ''));
-    return match ? workerIds[Number(match[1]) - 1] || principal : principal;
+    return prepareCondition(match, workerIds, principal);
   };
   const configured = { ...configuration };
   if (variantId === 'hard') {
@@ -28,3 +28,7 @@ function prepare(orchestratorId, variantId, configuration = {}) {
 }
 
 module.exports = { prepare };
+
+function prepareCondition(match, workerIds, principal) {
+  return match ? workerIds[Number(match[1]) - 1] || principal : principal;
+}

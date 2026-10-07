@@ -23,9 +23,13 @@ function authorizeCompetitiveReplacement(input = {}) {
     && input.verifyRollbackSnapshot(input.rollbackSnapshot) === true;
   const approved = typeof input.approveReplacement === 'function'
     && input.approveReplacement(championId) === true;
+  return authorizeCompetitiveReplacementResult({ championId, trialVerified, restored, rollbackSafe, approved });
+}
+
+module.exports = { authorizeCompetitiveReplacement };
+
+function authorizeCompetitiveReplacementResult({ championId, trialVerified, restored, rollbackSafe, approved }) {
   return { championId, replacementAuthorized: trialVerified && restored && rollbackSafe && approved,
     blockedReasons: [!trialVerified && 'TRIAL_NOT_VERIFIED', !restored && 'RESTORATION_NOT_VERIFIED',
       !rollbackSafe && 'ROLLBACK_SNAPSHOT_NOT_VERIFIED', !approved && 'APPROVAL_REQUIRED'].filter(Boolean) };
 }
-
-module.exports = { authorizeCompetitiveReplacement };

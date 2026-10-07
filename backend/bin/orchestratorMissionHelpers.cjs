@@ -190,7 +190,7 @@ async function startOrchestratorMission(opts) {
   const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology } = opts;
   const entry = await announceTerritoryEntry(db, request);
   const groundedPrompt = await attachTerritoryBrief(db, enhancedPrompt, entry && entry.handoffSignal);
-  const mission = { agentId: id, missionId, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: promptWithWorkerAssignments(groundedPrompt, request), modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits, explicitWriteLease: policyRequest.explicit_write_lease === true || request.explicit_write_lease === true }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider, modelId: policyRequest.modelId || request.modelId, hostExecutionContext: request.hostExecutionContext, morphology, ...missionWorkspaceOptions(request), ...missionRuntimeContext(request) };
+  const mission = { agentId: id, missionId, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: promptWithWorkerAssignments(groundedPrompt, request), modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits, explicitWriteLease: policyRequest.explicit_write_lease === true || request.explicit_write_lease === true }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: startOrchestratorMissionCondition(policyRequest, request, useLocalRuntime), provider: policyRequest.provider || request.provider, modelId: policyRequest.modelId || request.modelId, hostExecutionContext: request.hostExecutionContext, morphology, ...missionWorkspaceOptions(request), ...missionRuntimeContext(request) };
   if (!missionId) return runtime.startMission(mission);
   return require('../src/services/missionSuccessionService').resumeWithAuthority(db, {
     mission, successorId: id, expectedOrchestratorId: request.expectedOrchestratorId || id,
@@ -348,3 +348,7 @@ module.exports = {
   buildNceInfo,
   tokenUsage
 };
+
+function startOrchestratorMissionCondition(policyRequest, request, useLocalRuntime) {
+  return policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined);
+}

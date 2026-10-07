@@ -595,3 +595,5 @@ et les cinq guides : [Méristème](02-orchestration/meristeme-epistemique.md),
 [Chronotaxie](02-orchestration/chronotaxie-aperiodique.md),
 [Cambium](02-orchestration/cambium-contre-exemples.md),
 [Infini sous contrat](02-orchestration/infini-sous-contrat.md).
+
+- [ADR 0344 — Refactorings de qualité et frontières de contrôle](adr/0344-refactorings-qualite-et-frontieres-de-controle.md).

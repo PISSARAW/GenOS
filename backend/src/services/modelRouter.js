@@ -137,19 +137,11 @@ async function cognitiveRequest(options) {
     risk: options.cognitiveRisk, uncertainty: options.cognitiveUncertainty,
     irreversible: options.cognitiveIrreversible, highStakes: options.cognitiveHighStakes,
     tokens: options.maxTokens, latencyMs: options.timeoutMs, candidates: options.cognitiveCandidates });
-  const nativeGraph = options.cognitiveProgram ? { domain: options.cognitiveDomain || 'runtime',
-    operations: options.cognitiveProgram, objectStore: options.cognitiveObjects || {} } : (options.cognitiveDomain
-    ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
-      objects: options.cognitiveObjects, output: options.cognitiveOutput,
-      verification: options.cognitiveVerification, evidenceRefs: options.cognitiveEvidenceRefs,
-      verificationDescriptor: options.cognitiveVerificationDescriptor,
-      effects: options.cognitiveEffects }) : null);
+  const nativeGraph = cognitiveRequestNativeGraph(options);
   const nativeExecutionGraph = nativeGraph ? { ...nativeGraph,
     operations: cognitiveEconomy.shapeOperations(nativeGraph.operations, economy) } : null;
   const program = options.cognitiveProgram || nativeGraph?.operations || null;
-  const selection = options.db && options.model && typeof options.db.all === 'function'
-    ? await projectionProfiler.select(options.db, { model: options.model,
-      task: options.cognitiveDomain || 'runtime' }) : null;
+  const selection = await selectCognitiveProjection(options);
   const contract = cognitiveOmega.compilePrompt({ prompt: options.cognitivePrompt || promptText(options.prompt), operation: options.cognitiveOperation,
     source: options.cognitiveSource, domain: options.cognitiveDomain, program,
     model: options.model, representation: selection?.representation,
@@ -287,8 +279,7 @@ async function generate(options) {
     throw Object.assign(new Error(`Cognitive compilation blocked: ${cognitiveContract.reason}`),
       { code: 'COGNITIVE_COMPILATION_BLOCKED', reason: cognitiveContract.reason });
   }
-  const routedOptions = { ...opts, prompt: cognitiveContract.routePrompt || cognitiveContract.prompt || opts.prompt,
-    cognitiveContract };
+  const routedOptions = generateRoutedOptions(opts, cognitiveContract);
   const clock = routingPolicy.computeDeadline(routedOptions);
   const remainingMs = () => Math.min(clock.timeout, clock.deadline - Date.now());
   if (remainingMs() <= 0) throw new Error('Model routing deadline exhausted before attempting a provider.');
@@ -314,13 +305,8 @@ async function generate(options) {
       promotionReceipt: reused.promotionReceipt };
   } else {
     const economyMode = cognitiveContract.economy?.execution?.mode;
-    const mode = economyMode === 'parallel' && candidates.length > 1 ? 'parallel'
-      : policy.mode === 'parallel' && candidates.length > 1 ? 'parallel' : 'fallback';
-    const executor = shouldExecuteNative(cognitiveContract)
-      ? executeNativeGraph({ graph: cognitiveContract.nativeExecutionGraph || cognitiveContract.nativeGraph,
-        candidates, context, mode, mmu,
-        economy: cognitiveContract.economy, options: opts })
-      : executeInferenceThroughOmega({ candidates, context, mode, mmu, economy: cognitiveContract.economy });
+    const mode = generateMode(economyMode, candidates, policy);
+    const executor = generateExecutor({ cognitiveContract, candidates, context, mode, mmu, opts });
     routed = await executor;
   }
   const result = routed.result;
@@ -332,20 +318,70 @@ async function generate(options) {
     }
   }
   const cognitiveResult = { ...cognitiveContract, execution: routed.execution, procedural };
-  if (opts.db && opts.model && typeof opts.db.run === 'function') {
-    await projectionProfiler.record(opts.db, { model: result.model || opts.model,
+  if (generateCondition(opts)) {
+    await generateValues2({ opts, result, cognitiveContract, startedAt });
+  }
+  await recordCognitiveEconomy({ opts, cognitiveContract, result, startedAt });
+  return withCognitiveResult(result, cognitiveResult);
+}; module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
+
+function cognitiveRequestNativeGraph(options) {
+  return options.cognitiveProgram ? { domain: options.cognitiveDomain || 'runtime',
+    operations: options.cognitiveProgram, objectStore: options.cognitiveObjects || {} } : (options.cognitiveDomain
+    ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
+      objects: options.cognitiveObjects, output: options.cognitiveOutput,
+      verification: options.cognitiveVerification, evidenceRefs: options.cognitiveEvidenceRefs,
+      verificationDescriptor: options.cognitiveVerificationDescriptor,
+      effects: options.cognitiveEffects }) : null);
+}
+
+function generateMode(economyMode, candidates, policy) {
+  return economyMode === 'parallel' && candidates.length > 1 ? 'parallel'
+      : policy.mode === 'parallel' && candidates.length > 1 ? 'parallel' : 'fallback';
+}
+
+async function selectCognitiveProjection(options) {
+  return options.db && options.model && typeof options.db.all === 'function'
+    ? await projectionProfiler.select(options.db, { model: options.model,
+      task: options.cognitiveDomain || 'runtime' }) : null;
+}
+
+function generateValues({ opts, cognitiveContract, result, startedAt }) {
+  return cognitiveEconomy.record(opts.db, { integration: opts.cognitiveIntegration || opts.cognitiveDomain,
+        topology: cognitiveContract.economy?.topology, level: cognitiveContract.economy?.level,
+        risk: opts.cognitiveRisk, tokens: result.usage?.total_tokens || result.usage?.totalTokens || result.tokens,
+        latencyMs: Date.now() - startedAt, costUsd: result.costUsd, quality: opts.cognitiveQuality });
+}
+
+function generateValues2({ opts, result, cognitiveContract, startedAt }) {
+  return projectionProfiler.record(opts.db, { model: result.model || opts.model,
       task: opts.cognitiveDomain || 'runtime', representation: cognitiveContract.representation,
       prompt: cognitiveContract.prompt, latencyMs: Date.now() - startedAt,
       costUsd: result.costUsd, quality: opts.cognitiveQuality,
       evidenceDigest: opts.cognitiveEvidenceDigest });
-  }
-  if (opts.db) {
+}
+
+function generateExecutor({ cognitiveContract, candidates, context, mode, mmu, opts }) {
+  return shouldExecuteNative(cognitiveContract)
+      ? executeNativeGraph({ graph: cognitiveContract.nativeExecutionGraph || cognitiveContract.nativeGraph,
+        candidates, context, mode, mmu,
+        economy: cognitiveContract.economy, options: opts })
+      : executeInferenceThroughOmega({ candidates, context, mode, mmu, economy: cognitiveContract.economy });
+}
+
+function generateRoutedOptions(opts, cognitiveContract) {
+  return { ...opts, prompt: cognitiveContract.routePrompt || cognitiveContract.prompt || opts.prompt,
+    cognitiveContract };
+}
+
+function generateCondition(opts) {
+  return opts.db && opts.model && typeof opts.db.run === 'function';
+}
+
+async function recordCognitiveEconomy({ opts, cognitiveContract, result, startedAt }) {
+if (opts.db) {
     try {
-      await cognitiveEconomy.record(opts.db, { integration: opts.cognitiveIntegration || opts.cognitiveDomain,
-        topology: cognitiveContract.economy?.topology, level: cognitiveContract.economy?.level,
-        risk: opts.cognitiveRisk, tokens: result.usage?.total_tokens || result.usage?.totalTokens || result.tokens,
-        latencyMs: Date.now() - startedAt, costUsd: result.costUsd, quality: opts.cognitiveQuality });
+      await generateValues({ opts, cognitiveContract, result, startedAt });
     } catch (_) { /* Economy telemetry cannot turn a valid model result into a route failure. */ }
   }
-  return withCognitiveResult(result, cognitiveResult);
-}; module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
+}

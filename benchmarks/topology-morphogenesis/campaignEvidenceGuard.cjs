@@ -11,7 +11,7 @@ function campaignIdentityFailures(results) {
 function missionEvidenceFailures(mission) {
   const failures = [];
   if (!mission.missionFile || !/^[a-f0-9]{64}$/.test(mission.missionSha256 || '')) failures.push(`${mission.name}: mission provenance missing`);
-  if (mission.receiptObjectSha256 !== null && !/^[a-f0-9]{64}$/.test(mission.receiptObjectSha256 || '')) failures.push(`${mission.name}: invalid receipt digest`);
+  if (missionEvidenceFailuresCondition(mission)) failures.push(`${mission.name}: invalid receipt digest`);
   if (!Array.isArray(mission.workers) || typeof mission.verification?.passed !== 'boolean') failures.push(`${mission.name}: execution evidence incomplete`);
   if (!mission.oracleVerification?.status) failures.push(`${mission.name}: oracle scope missing`);
   if (!mission.mechanismEvidence?.status) failures.push(`${mission.name}: mechanism evidence scope missing`);
@@ -25,3 +25,7 @@ function validateCampaignEvidence(results) {
 }
 
 module.exports = { validateCampaignEvidence };
+
+function missionEvidenceFailuresCondition(mission) {
+  return mission.receiptObjectSha256 !== null && !/^[a-f0-9]{64}$/.test(mission.receiptObjectSha256 || '');
+}

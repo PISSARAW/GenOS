@@ -85,13 +85,7 @@ async function applyDelta(context) {
   validateDelta(delta);
   const actorId = options.actorId || delta.author || 'soft-writer';
   const opId = options.opId || randomUUID();
-  const enriched = Object.assign({
-    deltaId: delta.deltaId || randomUUID(),
-    operationId: opId,
-    timestamp: Date.now(),
-    author: delta.author || 'anonymous',
-    vectorClock: delta.vectorClock || {}
-  }, delta);
+  const enriched = applyDeltaEnriched(delta, opId);
 
   const snapshot = await syncytium.snapshot(sessionId, options);
   const replicaId = options.replicaId || actorId;
@@ -180,7 +174,7 @@ async function compressState(context) {
   const { sessionId, options, syncytium } = context;
   const snapshot = await syncytium.snapshot(sessionId, options);
   const fields = snapshot.shared?.sharedFields || {};
-  const deltas = partitionService.uniqueDeltas([...fields.deltas || [], ...fields.localDeltas || [], ...fields.queuedDeltas || []]);
+  const deltas = compressStateDeltas(fields);
   const antiEntropyLog = fields.antiEntropyLog || [];
   const coveredIds = new Set(antiEntropyLog.map(e => e.deltaId));
   const prior = latestCompaction(fields.compactionLog || []);
@@ -189,21 +183,13 @@ async function compressState(context) {
   const compactedDeltaIds = [...new Set([...(prior?.compactedDeltaIds || []), ...toCompact.map((delta) => delta.deltaId)])].sort();
   const toKeep = deltas.filter((delta) => !compactedDeltaIds.includes(delta.deltaId));
   const newlyCompacted = compactedDeltaIds.filter((id) => !priorIds.has(id));
-  const metrics = toCompact.reduce((acc, d) => {
-    if (d.type === 'increment') acc.incrementCount = (acc.incrementCount || 0) + 1;
-    if (d.type === 'set')      acc.setCount = (acc.setCount || 0) + 1;
-    if (d.value !== undefined) acc.lastValue = d.value;
-    return acc;
-    }, { incrementCount: 0, setCount: 0, lastValue: undefined });
+  const metrics = compactionMetrics(toCompact);
   const compactedAt = Date.now();
   if (newlyCompacted.length === 0) return { compactedCount: compactedDeltaIds.length,
     compressedCount: 0, remainingDeltas: toKeep.length, preservedDeltaIds: toKeep.map((delta) => delta.deltaId),
     metrics: prior?.metrics || metrics, compactedAt: prior?.compactedAt || compactedAt };
   const entry = { generation: (prior?.generation || 0) + 1, compactedDeltaIds, metrics, compactedAt };
-  await syncytium.applyTransaction(sessionId, { txId: options.txId || randomUUID(), operations: [{
-    opId: options.opId || randomUUID(), actorId: options.actorId || 'soft-compactor',
-    kind: { type: 'typed_field', key: 'compactionLog', action: 'add', value: entry }
-  }], preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' }, options);
+  await syncytium.applyTransaction(sessionId, compressStateResult(options, entry, snapshot), options);
   return { compactedCount: compactedDeltaIds.length, compressedCount: newlyCompacted.length,
     remainingDeltas: toKeep.length, preservedDeltaIds: toKeep.map((delta) => delta.deltaId),
     metrics, compactedAt, generation: entry.generation };
@@ -344,7 +330,7 @@ async function softSnapshot(context) {
   const snapshot = await syncytium.snapshot(sessionId, options);
   const sf = snapshot.shared?.sharedFields || {};
 
-  const deltas = partitionService.uniqueDeltas([...sf.deltas || [], ...sf.localDeltas || [], ...sf.queuedDeltas || []]);
+  const deltas = softSnapshotDeltas(sf);
   const antiEntropyLog = sf.antiEntropyLog || [];
   const compacted = latestCompaction(sf.compactionLog || []);
   const stalenessBudget = sf.stalenessBudget;
@@ -377,3 +363,37 @@ async function softSnapshot(context) {
 }
 
 module.exports = { createSoftVariantService };
+
+function applyDeltaEnriched(delta, opId) {
+  return Object.assign({
+    deltaId: delta.deltaId || randomUUID(),
+    operationId: opId,
+    timestamp: Date.now(),
+    author: delta.author || 'anonymous',
+    vectorClock: delta.vectorClock || {}
+  }, delta);
+}
+
+function softSnapshotDeltas(sf) {
+  return partitionService.uniqueDeltas([...sf.deltas || [], ...sf.localDeltas || [], ...sf.queuedDeltas || []]);
+}
+
+function compressStateResult(options, entry, snapshot) {
+  return { txId: options.txId || randomUUID(), operations: [{
+    opId: options.opId || randomUUID(), actorId: options.actorId || 'soft-compactor',
+    kind: { type: 'typed_field', key: 'compactionLog', action: 'add', value: entry }
+  }], preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' };
+}
+
+function compressStateDeltas(fields) {
+  return partitionService.uniqueDeltas([...fields.deltas || [], ...fields.localDeltas || [], ...fields.queuedDeltas || []]);
+}
+
+function compactionMetrics(toCompact) {
+  return toCompact.reduce((acc, d) => {
+    if (d.type === 'increment') acc.incrementCount = (acc.incrementCount || 0) + 1;
+    if (d.type === 'set')      acc.setCount = (acc.setCount || 0) + 1;
+    if (d.value !== undefined) acc.lastValue = d.value;
+    return acc;
+    }, { incrementCount: 0, setCount: 0, lastValue: undefined });
+}

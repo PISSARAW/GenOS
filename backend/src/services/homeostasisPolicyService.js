@@ -11,9 +11,7 @@ function resolveHomeostasisPolicy(input = {}) {
   }
   const minimumFunctionalCoverage = input.minimumFunctionalCoverage
     ?? DEFAULT_MINIMUM_FUNCTIONAL_COVERAGE;
-  if (!Number.isFinite(minimumFunctionalCoverage)
-      || minimumFunctionalCoverage < 0
-      || minimumFunctionalCoverage > 1) {
+  if (resolveHomeostasisPolicyCondition(minimumFunctionalCoverage)) {
     throw new Error('minimumFunctionalCoverage must be a number between 0 and 1');
   }
   const thresholds = { functional: minimumFunctionalCoverage, structural: 1, epistemic: 1, safety: 1 };
@@ -41,3 +39,9 @@ module.exports = {
   DEFAULT_MINIMUM_FUNCTIONAL_COVERAGE,
   resolveHomeostasisPolicy
 };
+
+function resolveHomeostasisPolicyCondition(minimumFunctionalCoverage) {
+  return !Number.isFinite(minimumFunctionalCoverage)
+      || minimumFunctionalCoverage < 0
+      || minimumFunctionalCoverage > 1;
+}

@@ -28,7 +28,7 @@ const workerGarageService = require('../src/services/workerGarageService');
 
 const CORRELATION_ID = `vertical-slice-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
-function emitCorrelated(eventType, agentId, action, detail, payload = {}, severity = 'info') {
+function emitCorrelated(eventType, agentId, { action, detail, payload = {}, severity = 'info' } = {}) {
   telemetry.emitEvent({
     eventType,
     agentId,
@@ -56,7 +56,7 @@ async function runVerticalSlice() {
   // STEP 1: DÉCLARATION — Declare topology and capabilities
   // ============================================================
   console.log('\n[1/8] DÉCLARATION: Selecting biome topology...');
-  emitCorrelated('VERTICAL_SLICE_DECLARATION', 'test-orchestrator', 'DECLARE', 'Selecting biome topology with available capabilities', { topology: 'biome' });
+  emitCorrelated('VERTICAL_SLICE_DECLARATION', 'test-orchestrator', { action: 'DECLARE', detail: 'Selecting biome topology with available capabilities', payload: { topology: 'biome' } });
 
   const biomeContract = topology.contractFor({ mode: 'biome' });
   assert.ok(biomeContract.mode === 'biome', 'biome mode must be declared');
@@ -103,25 +103,25 @@ async function runVerticalSlice() {
   assert.ok(audit.provided.some(c => c.toUpperCase() === 'QUORUM'), 'QUORUM must be provided');
   assert.ok(audit.provided.some(c => c.toUpperCase() === 'TOKEN_ECONOMY'), 'TOKEN_ECONOMY must be provided');
   assert.ok(audit.provided.some(c => c.toUpperCase() === 'STIGMERGY'), 'STIGMERGY must be provided');
-  emitCorrelated('VERTICAL_SLICE_DECLARATION_COMPLETE', 'test-orchestrator', 'DECLARE', 'Topology selected with partial capability set', { provided: audit.provided, missing: audit.missing });
+  emitCorrelated('VERTICAL_SLICE_DECLARATION_COMPLETE', 'test-orchestrator', { action: 'DECLARE', detail: 'Topology selected with partial capability set', payload: { provided: audit.provided, missing: audit.missing } });
 
   // ============================================================
   // STEP 2: SÉLECTION DE TOPOLOGIE — Auto-selection by resident loop
   // ============================================================
   console.log('\n[2/8] SÉLECTION: Auto topology selection via resident loop...');
-  emitCorrelated('VERTICAL_SLICE_TOPOLOGY_SELECTION', 'test-orchestrator', 'SELECT', 'Resident loop selects biome based on mission context', { missionType: 'ecological', selectedTopology: 'biome' });
+  emitCorrelated('VERTICAL_SLICE_TOPOLOGY_SELECTION', 'test-orchestrator', { action: 'SELECT', detail: 'Resident loop selects biome based on mission context', payload: { missionType: 'ecological', selectedTopology: 'biome' } });
 
   // Simulate resident loop topology selection logic
   const missionContext = { type: 'ecological_coordination', budget: 'pooled', communication: 'shared_trail' };
   const selectedTopology = 'biome'; // In real implementation, this would be auto-selected
   assert.equal(selectedTopology, 'biome');
-  emitCorrelated('VERTICAL_SLICE_TOPOLOGY_SELECTED', 'test-orchestrator', 'SELECT', 'Biome topology selected', { selectedTopology, reason: 'ecological mission with pooled budget' });
+  emitCorrelated('VERTICAL_SLICE_TOPOLOGY_SELECTED', 'test-orchestrator', { action: 'SELECT', detail: 'Biome topology selected', payload: { selectedTopology, reason: 'ecological mission with pooled budget' } });
 
   // ============================================================
   // STEP 3: CAPTURE — Initialize mission with tool leases
   // ============================================================
   console.log('\n[3/8] CAPTURE: Initializing mission with tool leases...');
-  emitCorrelated('VERTICAL_SLICE_CAPTURE', 'test-orchestrator', 'CAPTURE', 'Creating mission with capability-based tool leases', { topology: 'biome' });
+  emitCorrelated('VERTICAL_SLICE_CAPTURE', 'test-orchestrator', { action: 'CAPTURE', detail: 'Creating mission with capability-based tool leases', payload: { topology: 'biome' } });
 
   // Get tool leases for biome capabilities
   const biomeLeases = {};
@@ -137,13 +137,13 @@ async function runVerticalSlice() {
 
   // Create orchestrator agent
   const orchestratorId = orchestratorIdFactory.createOrchestratorId('vertical-slice');
-  emitCorrelated('VERTICAL_SLICE_CAPTURE_COMPLETE', 'test-orchestrator', 'CAPTURE', 'Mission captured with tool leases', { orchestratorId, leases: Object.keys(biomeLeases) });
+  emitCorrelated('VERTICAL_SLICE_CAPTURE_COMPLETE', 'test-orchestrator', { action: 'CAPTURE', detail: 'Mission captured with tool leases', payload: { orchestratorId, leases: Object.keys(biomeLeases) } });
 
   // ============================================================
   // STEP 4: OBSERVATION — Observe initial state
   // ============================================================
   console.log('\n[4/8] OBSERVATION: Observing initial state via Rust bridge...');
-  emitCorrelated('VERTICAL_SLICE_OBSERVATION', 'test-orchestrator', 'OBSERVE', 'Capturing initial system state via snapshot', {});
+  emitCorrelated('VERTICAL_SLICE_OBSERVATION', 'test-orchestrator', { action: 'OBSERVE', detail: 'Capturing initial system state via snapshot', payload: {} });
 
 // Use Rust CLI directly to capture snapshot (provenance capability)
     const db = await setupTestDatabase();
@@ -155,17 +155,17 @@ async function runVerticalSlice() {
         snapshotId = run.json.snapshot_id;
       }
       console.log(`  Snapshot captured: ${snapshotId}`);
-      emitCorrelated('VERTICAL_SLICE_OBSERVATION_COMPLETE', 'test-orchestrator', 'OBSERVE', 'Initial snapshot captured', { snapshotId, provenance: 'rust-bridge', exitCode: run.exitCode });
+      emitCorrelated('VERTICAL_SLICE_OBSERVATION_COMPLETE', 'test-orchestrator', { action: 'OBSERVE', detail: 'Initial snapshot captured', payload: { snapshotId, provenance: 'rust-bridge', exitCode: run.exitCode } });
     } catch (err) {
       console.log(`  Snapshot capture failed (expected in test env): ${err.message}`);
-      emitCorrelated('VERTICAL_SLICE_OBSERVATION_PARTIAL', 'test-orchestrator', 'OBSERVE', 'Snapshot capture simulated', { simulated: true, error: err.message });
+      emitCorrelated('VERTICAL_SLICE_OBSERVATION_PARTIAL', 'test-orchestrator', { action: 'OBSERVE', detail: 'Snapshot capture simulated', payload: { simulated: true, error: err.message } });
     }
 
   // ============================================================
   // STEP 5: DÉCISION — Director selects strategy
   // ============================================================
   console.log('\n[5/8] DÉCISION: Director selects strategy for biome...');
-  emitCorrelated('VERTICAL_SLICE_DECISION', 'test-orchestrator', 'DECIDE', 'Director selects stigmergy-based coordination strategy', { topology: 'biome', strategy: 'stigmergy' });
+  emitCorrelated('VERTICAL_SLICE_DECISION', 'test-orchestrator', { action: 'DECIDE', detail: 'Director selects stigmergy-based coordination strategy', payload: { topology: 'biome', strategy: 'stigmergy' } });
 
   // Verify strategy portfolio capability is available
   const strategyTools = toolLeasePolicy.CAPABILITY_TOOLS.STRATEGY_PORTFOLIO || [];
@@ -180,13 +180,13 @@ async function runVerticalSlice() {
     requiredCapabilities: ['STIGMERGY', 'QUORUM', 'TOKEN_ECONOMY'],
     actions: ['pheromone_deposit', 'trail_selection', 'evaporation']
   };
-  emitCorrelated('VERTICAL_SLICE_DECISION_COMPLETE', 'test-orchestrator', 'DECIDE', 'Strategy decided', { decision });
+  emitCorrelated('VERTICAL_SLICE_DECISION_COMPLETE', 'test-orchestrator', { action: 'DECIDE', detail: 'Strategy decided', payload: { decision } });
 
   // ============================================================
   // STEP 6: ACTION — Execute stigmergic action via primitive
   // ============================================================
   console.log('\n[6/8] ACTION: Executing stigmergic action...');
-  emitCorrelated('VERTICAL_SLICE_ACTION', 'test-orchestrator', 'ACT', 'Executing pheromone deposit via primitive handler', { action: 'pheromone_deposit' });
+  emitCorrelated('VERTICAL_SLICE_ACTION', 'test-orchestrator', { action: 'ACT', detail: 'Executing pheromone deposit via primitive handler', payload: { action: 'pheromone_deposit' } });
 
   // Execute primitive handler for stigmergy
   const handlersRegistry = require('../src/services/primitiveHandlers/handlersRegistry');
@@ -199,15 +199,15 @@ async function runVerticalSlice() {
   });
   console.log(`  Pheromone deposit result: ${JSON.stringify(pheromoneResult).slice(0, 200)}`);
   // In test environment without full DB setup, accept simulated result
-  const actionSucceeded = pheromoneResult.success === true || (pheromoneResult.success === false && pheromoneResult.error?.includes('Orchestrator'));
+  const actionSucceeded = runVerticalSliceActionSucceeded(pheromoneResult);
   assert.ok(actionSucceeded, 'Pheromone deposit should not fail catastrophically (or fail only due to missing test DB state)');
-  emitCorrelated('VERTICAL_SLICE_ACTION_COMPLETE', 'test-orchestrator', 'ACT', 'Stigmergic action executed', { result: pheromoneResult });
+  emitCorrelated('VERTICAL_SLICE_ACTION_COMPLETE', 'test-orchestrator', { action: 'ACT', detail: 'Stigmergic action executed', payload: { result: pheromoneResult } });
 
   // ============================================================
   // STEP 7: VÉRIFICATION — Verify action produced evidence
   // ============================================================
   console.log('\n[7/8] VÉRIFICATION: Verifying action evidence...');
-  emitCorrelated('VERTICAL_SLICE_VERIFICATION', 'test-orchestrator', 'VERIFY', 'Checking evidence barrier and provenance', {});
+  emitCorrelated('VERTICAL_SLICE_VERIFICATION', 'test-orchestrator', { action: 'VERIFY', detail: 'Checking evidence barrier and provenance', payload: {} });
 
   // Verify evidence barrier would be satisfied
   const evidenceCapabilities = ['EVIDENCE_BARRIER', 'PROVENANCE'];
@@ -226,13 +226,13 @@ async function runVerticalSlice() {
     actionTraced: true
   };
   console.log(`  Verification: ${JSON.stringify(verification)}`);
-  emitCorrelated('VERTICAL_SLICE_VERIFICATION_COMPLETE', 'test-orchestrator', 'VERIFY', 'Evidence verified', { verification });
+  emitCorrelated('VERTICAL_SLICE_VERIFICATION_COMPLETE', 'test-orchestrator', { action: 'VERIFY', detail: 'Evidence verified', payload: { verification } });
 
   // ============================================================
   // STEP 8: MÉTRIQUES — Emit correlated metrics
   // ============================================================
   console.log('\n[8/8] MÉTRIQUES: Emitting correlated metrics...');
-  emitCorrelated('VERTICAL_SLICE_METRICS', 'test-orchestrator', 'METRICS', 'Vertical slice completed with full correlation', {
+  emitCorrelated('VERTICAL_SLICE_METRICS', 'test-orchestrator', { action: 'METRICS', detail: 'Vertical slice completed with full correlation', payload: {
     correlationId: CORRELATION_ID,
     durationMs: Date.now() - startedAt,
     stepsCompleted: 8,
@@ -240,7 +240,7 @@ async function runVerticalSlice() {
     topology: 'biome',
     organization: 'stigmergy_org',
     success: true
-  });
+  } });
 
   console.log(`\n=== VERTICAL SLICE COMPLETE (${Date.now() - startedAt}ms) ===`);
   console.log(`Correlation ID: ${CORRELATION_ID}`);
@@ -264,3 +264,6 @@ if (require.main === module) {
 }
 
 module.exports = { runVerticalSlice, CORRELATION_ID };
+function runVerticalSliceActionSucceeded(pheromoneResult) {
+  return pheromoneResult.success === true || (pheromoneResult.success === false && pheromoneResult.error?.includes('Orchestrator'));
+}

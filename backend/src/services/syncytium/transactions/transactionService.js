@@ -41,11 +41,7 @@ async function execute(context) {
 function validateFence(fence, sharedFields) {
   if (fence === undefined) return;
   const lease = sharedFields['hard.leases']?.[fence.resourceId];
-  const valid = fence && typeof fence.resourceId === 'string' && fence.resourceId
-    && typeof fence.actorId === 'string' && fence.actorId
-    && typeof fence.leaseToken === 'string' && fence.leaseToken
-    && Number.isSafeInteger(fence.number) && fence.number > 0
-    && lease?.holderId === fence.actorId && lease.leaseToken === fence.leaseToken
+  const valid = validateFenceCondition(fence, lease) && lease.leaseToken === fence.leaseToken
     && lease.fence === fence.number && lease.expiresAt > Date.now();
   if (!valid) throw transactionError('SYNCYTIUM_HARD_FENCE_STALE', 'Fenced transaction token is stale, expired or not owned by its actor.');
 }
@@ -217,3 +213,11 @@ function transactionError(code, message) {
 }
 
 module.exports = { apply };
+
+function validateFenceCondition(fence, lease) {
+  return fence && typeof fence.resourceId === 'string' && fence.resourceId
+    && typeof fence.actorId === 'string' && fence.actorId
+    && typeof fence.leaseToken === 'string' && fence.leaseToken
+    && Number.isSafeInteger(fence.number) && fence.number > 0
+    && lease?.holderId === fence.actorId;
+}

@@ -52,23 +52,15 @@ function buildSemanticReport(dossiers, options) {
     const tools = citedTools({ statement: proposition.statement, evidence: [] });
     for (const tool of tools) causalRelations.push({ claim: proposition.id, causedByTool: tool });
   }
-  const chronology = list.map((dossier, index) => ({ workerId: dossier.workerId || dossier.agentId || `worker_${index}`, role: dossier.role || null, claims: dossierClaims(dossier).length }));
+  const chronology = list.map((dossier, index) => (buildSemanticReportResult(dossier, index)));
   const topN = Math.max(1, Math.min(20, Math.floor(Number(settings.topN) || 5)));
   const salience = [...propositions].sort((a, b) => (b.statement.length || 0) - (a.statement.length || 0)).slice(0, topN).map((proposition) => proposition.id);
   const uncertainties = propositions.filter((proposition) => proposition.outcome === 'no_answer' || proposition.outcome === 'unknown').map((proposition) => proposition.id);
   const failed = propositions.filter((proposition) => proposition.outcome === 'failed');
-  const contradictions = [];
-  for (let i = 0; i < propositions.length; i++) {
-    for (let j = i + 1; j < propositions.length; j++) {
-      const norm = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
-      if (norm(propositions[i].statement) === norm(propositions[j].statement) && propositions[i].outcome !== propositions[j].outcome) {
-        contradictions.push([propositions[i].id, propositions[j].id]);
-      }
-    }
-  }
+  const contradictions = findSemanticContradictions(propositions);
   const omissions = list
     .filter((dossier) => dossierClaims(dossier).length === 0)
-    .map((dossier) => dossier.workerId || dossier.agentId || 'unknown');
+    .map((dossier) => buildSemanticReportCondition(dossier));
   return { propositions, causalRelations, chronology, salience, uncertainties, contradictions, omissions, adversaryNotes: failed.map((proposition) => proposition.id) };
 }
 
@@ -88,3 +80,24 @@ function renderingContract(report) {
 }
 
 module.exports = { buildSemanticReport, renderingContract };
+
+function buildSemanticReportResult(dossier, index) {
+  return { workerId: dossier.workerId || dossier.agentId || `worker_${index}`, role: dossier.role || null, claims: dossierClaims(dossier).length };
+}
+
+function buildSemanticReportCondition(dossier) {
+  return dossier.workerId || dossier.agentId || 'unknown';
+}
+
+function findSemanticContradictions(propositions) {
+const contradictions = [];
+  for (let i = 0; i < propositions.length; i++) {
+    for (let j = i + 1; j < propositions.length; j++) {
+      const norm = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
+      if (norm(propositions[i].statement) === norm(propositions[j].statement) && propositions[i].outcome !== propositions[j].outcome) {
+        contradictions.push([propositions[i].id, propositions[j].id]);
+      }
+    }
+  }
+return contradictions;
+}

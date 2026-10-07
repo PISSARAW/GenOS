@@ -29,12 +29,7 @@ function baseNodeFields(expr, nodeId, parentId) {
     workers: expr.workers || [],
     capabilities: expr.capabilities || [],
     observables: expr.observables || [],
-    authorityBoundary: expr.authorityBoundary || null,
-    stateBoundary: expr.stateBoundary || null,
-    evidencePolicy: expr.evidencePolicy || null,
-    communicationPolicy: expr.communicationPolicy || null,
-    resourcePolicy: expr.resourcePolicy || null,
-    lifecyclePolicy: expr.lifecyclePolicy || null,
+    ...nodePolicyFields(expr),
     lifecycle: 'proposed'
   };
 }
@@ -149,3 +144,13 @@ function linkParent(ctx, nodeId) {
 }
 
 module.exports = { flattenExpression };
+function nodePolicyFields(expr) {
+  return {
+    authorityBoundary: expr.authorityBoundary || null,
+    stateBoundary: expr.stateBoundary || null,
+    evidencePolicy: expr.evidencePolicy || null,
+    communicationPolicy: expr.communicationPolicy || null,
+    resourcePolicy: expr.resourcePolicy || null,
+    lifecyclePolicy: expr.lifecyclePolicy || null,
+  };
+}

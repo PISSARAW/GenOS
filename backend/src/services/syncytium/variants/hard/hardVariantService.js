@@ -78,12 +78,7 @@ async function runFenced(sessionId, request = {}, syncytium) {
     const lease = snapshot.shared.sharedFields[HARD_LEASES]?.[request.resourceId];
     assertLeaseOwner(lease, request, time(request.now));
     try {
-      const result = await syncytium.applyTransaction(sessionId, {
-        txId: request.txId || randomUUID(), operations: ordered.operations,
-        preconditions: [...(request.preconditions || []), { op: 'state_version', value: snapshot.shared.totalOps }],
-        commitPolicy: 'SERIALIZABLE', fence: { resourceId: request.resourceId, actorId: request.actorId,
-          leaseToken: request.leaseToken, number: request.fence }
-      }, { ...(request.options || {}), domainId: request.domainId || request.nucleusId });
+      const result = await runFencedValues({ syncytium, sessionId, request, ordered, snapshot });
       return { ...result, deterministicOrder: ordered.digest, fencingAttempts: attempts + 1 };
     } catch (error) {
       attempts += 1;
@@ -162,3 +157,12 @@ function hardError(message, code = 'SYNCYTIUM_HARD_FENCE_INVALID') {
 }
 
 module.exports = { createHardVariantService };
+
+function runFencedValues({ syncytium, sessionId, request, ordered, snapshot }) {
+  return syncytium.applyTransaction(sessionId, {
+        txId: request.txId || randomUUID(), operations: ordered.operations,
+        preconditions: [...(request.preconditions || []), { op: 'state_version', value: snapshot.shared.totalOps }],
+        commitPolicy: 'SERIALIZABLE', fence: { resourceId: request.resourceId, actorId: request.actorId,
+          leaseToken: request.leaseToken, number: request.fence }
+      }, { ...(request.options || {}), domainId: request.domainId || request.nucleusId });
+}

@@ -110,8 +110,11 @@ function deleteSession(rows, params) {
 }
 
 function fakeDb() {
-  const state = { rows: new Map(), events: [], rhizomeNodes: [], rhizomeEdges: [], syncytiumRevisions: new Map(), syncytiumOps: new Set() };
+  const state = { rows: new Map(), agents: new Map(), events: [], rhizomeNodes: [], rhizomeEdges: [], syncytiumRevisions: new Map(), syncytiumOps: new Set() };
   return {
+    registerWorker: (agentId, sessionId) => state.agents.set(agentId, {
+      execution_mode: 'worker', metadata_json: JSON.stringify({ topologySessionId: sessionId })
+    }),
     run: async (sql, ...params) => runStatement(state, sql, params),
     get: async (sql, ...params) => readRecord(state, sql, params),
     all: async (sql, ...params) => readRows(state, sql, params)
@@ -128,6 +131,7 @@ function readRows(state, sql, params) {
 
 function readRecord(state, sql, params) {
   const statement = String(sql).toUpperCase();
+  if (statement.includes('FROM AGENTS')) return state.agents.get(params[0]);
   if (statement.includes('SYNCYTIUM_SESSION_REVISIONS')) return { revision: state.syncytiumRevisions.get(params[0]) };
   if (statement.includes('SYNCYTIUM_APPLIED_OPS')) return state.syncytiumOps.has(`${params[0]}:${params[1]}`) ? { op_id: params[1] } : null;
   if (statement.includes('PERSISTENT_BIOME_ENVIRONMENTS')) {
@@ -211,9 +215,10 @@ function readRecord(state, sql, params) {
     opId: 'mcp-field-op', actorId: 'w1',
     kind: { type: 'set_field', key: 'mcp.status', value: 'ready' }
   };
+  db.registerWorker('w1', syn.sessionId);
   await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'apply', op: mcpOperation
-  });
+  }, { agentId: 'w1' });
   const deltas = await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'events', after_revision: 1
   });

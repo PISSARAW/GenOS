@@ -34,7 +34,15 @@ async function main() {
     next();
   });
   app.use('/api/signals', require('../src/routes/signalDeliveryRoutes'));
-  app.use((error, _req, res, _next) => res.status(error.status || 500).json({ error: error.message }));
+  // NOTE: Express ne route les erreurs que vers un middleware d'arité 4.
+  // Déclarer un 4e paramètre briserait la limite projet de 3 paramètres,
+  // l'arité est donc fixée explicitement (même motif que errorHandler.js).
+  function signalErrorHandler(...args) {
+    const [error, , res] = args;
+    return res.status(error.status || 500).json({ error: error.message });
+  }
+  Object.defineProperty(signalErrorHandler, 'length', { value: 4 });
+  app.use(signalErrorHandler);
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}/api/signals`;

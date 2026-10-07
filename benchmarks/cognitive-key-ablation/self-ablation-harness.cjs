@@ -83,6 +83,32 @@ const SCENARIOS = [
 
 // ── Simulateur de l'agent avec strates ablatables ───────────────
 
+function pickCalibrated(calibrated, action) {
+  return calibrated ? action : 'explore';
+}
+
+function decideUrgent(ctx) {
+  const { interoception, homeostasis, selfModel } = ctx;
+  const calibrated = Boolean(selfModel && selfModel.calibrated);
+  if (homeostasis && homeostasis.status === 'critical') return 'enter_survival_mode';
+  if (homeostasis && homeostasis.recommendations.includes('quarantine_and_repair')) {
+    return pickCalibrated(calibrated, 'quarantine');
+  }
+  if (interoception.energy < 0.3) return 'conserve_energy';
+  return null;
+}
+
+function decideLocal(ctx) {
+  const { interoception, event, lessons, selfModel } = ctx;
+  const calibrated = Boolean(selfModel && selfModel.calibrated);
+  if (interoception.integrity < 0.5) return pickCalibrated(calibrated, 'repair_membrane');
+  if (event.salience > 0.8 && interoception.stress > 0.5) {
+    return pickCalibrated(calibrated, 'pause_and_revise');
+  }
+  if (lessons.length >= 2) return 'apply_lessons';
+  return null;
+}
+
 function decideWithSelf(ctx) {
   // VOIE UNIQUE : toutes les ablations passent ici avec des entrées
   // lésées. Le self-model calibré conditionne les actions à fort enjeu
@@ -90,18 +116,10 @@ function decideWithSelf(ctx) {
   // l'agent ne peut pas s'engager et retombe sur un repli sûr.
   // Les leçons (mémoire) n'ouvrent la voie apply_lessons que si ≥ 2.
   // Les recommandations homeostatiques (flèche G) orientent l'action.
-  const { interoception, event, lessons, homeostasis, selfModel } = ctx;
-  const calibrated = Boolean(selfModel && selfModel.calibrated);
-  if (homeostasis && homeostasis.status === 'critical') return 'enter_survival_mode';
-  if (homeostasis && homeostasis.recommendations.includes('quarantine_and_repair')) {
-    return calibrated ? 'quarantine' : 'explore';
-  }
-  if (interoception.energy < 0.3) return 'conserve_energy';
-  if (interoception.integrity < 0.5) return calibrated ? 'repair_membrane' : 'explore';
-  if (event.salience > 0.8 && interoception.stress > 0.5) {
-    return calibrated ? 'pause_and_revise' : 'explore';
-  }
-  if (lessons.length >= 2) return 'apply_lessons';
+  const urgent = decideUrgent(ctx);
+  if (urgent) return urgent;
+  const local = decideLocal(ctx);
+  if (local) return local;
   return 'explore';
 }
 

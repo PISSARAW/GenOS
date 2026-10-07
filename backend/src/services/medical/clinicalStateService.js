@@ -67,14 +67,7 @@ async function getClinicalState(db, agentId) {
 
 function buildVitals(context, existing = {}) {
   const incoming = context.vitals && typeof context.vitals === 'object' ? context.vitals : {};
-  return {
-    cognitiveIntegrity: clamp01(context.cognitiveIntegrity ?? incoming.cognitiveIntegrity, existing.cognitiveIntegrity ?? 0.8),
-    stress: clamp01(context.stress ?? incoming.stress, existing.stress ?? 0),
-    energy: clamp01(context.energy ?? incoming.energy, existing.energy ?? 0.8),
-    budgetRatio: clamp01(context.budgetRatio ?? incoming.budgetRatio, existing.budgetRatio ?? 1.0),
-    dissonance: clamp01(context.dissonance ?? incoming.dissonance, existing.dissonance ?? 0),
-    apoptosisRisk: clamp01(context.apoptosisRisk ?? incoming.apoptosisRisk, existing.apoptosisRisk ?? 0),
-  };
+  return buildVitalsResult(context, incoming, existing);
 }
 
 function resolveCellCycle(context, existing) {
@@ -140,3 +133,22 @@ module.exports = {
   CELL_CYCLE_STATES, initClinicalState, getClinicalState, refreshClinicalState,
   computeWellness, recordImmuneEvent, getRecentImmuneEvents, getClinicalSummary,
 };
+
+function buildVitalsValues(context, incoming, existing) {
+  return clamp01(context.cognitiveIntegrity ?? incoming.cognitiveIntegrity, existing.cognitiveIntegrity ?? 0.8);
+}
+
+function buildVitalsValues2(context, incoming, existing) {
+  return clamp01(context.apoptosisRisk ?? incoming.apoptosisRisk, existing.apoptosisRisk ?? 0);
+}
+
+function buildVitalsResult(context, incoming, existing) {
+  return {
+    cognitiveIntegrity: buildVitalsValues(context, incoming, existing),
+    stress: clamp01(context.stress ?? incoming.stress, existing.stress ?? 0),
+    energy: clamp01(context.energy ?? incoming.energy, existing.energy ?? 0.8),
+    budgetRatio: clamp01(context.budgetRatio ?? incoming.budgetRatio, existing.budgetRatio ?? 1.0),
+    dissonance: clamp01(context.dissonance ?? incoming.dissonance, existing.dissonance ?? 0),
+    apoptosisRisk: buildVitalsValues2(context, incoming, existing),
+  };
+}

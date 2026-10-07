@@ -47,7 +47,7 @@ async function operateTopologySession(args = {}, caller = {}) {
     return { configured: true, success: true, status: 'topology_session_updated', ...result };
   } catch (error) {
     await require('./syncytium/benchmark/syncytiumRejectionReceiptService')
-      .record(db, args, error, caller.agentId || process.env.GENOS_AGENT_ID)
+      .record(db, args, { error, callerId: caller.agentId || process.env.GENOS_AGENT_ID })
       .catch(() => {});
     return { configured: true, success: false, status: 'tool_error', error: error.message, code: error.code || null };
   }

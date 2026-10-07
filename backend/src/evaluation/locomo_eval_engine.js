@@ -14,7 +14,7 @@ const DATA_PATH = path.resolve(__dirname, '../../../../locomo/data/locomo10.json
 
 function normalizeAnswer(s) {
   if (!s) return '';
-  const removePunct = (text) => text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+  const removePunct = (text) => text.replace(/[.,\/#!$%\^&\*;:{}=\-_\x60~()]/g, '');
   const whiteSpace = (text) => text.replace(/\s+/g, ' ').trim();
   const lower = (text) => text.toLowerCase();
   return whiteSpace(removePunct(lower(String(s))));
@@ -167,7 +167,7 @@ async function runLoCoMoEvaluation(options = {}) {
       }, db);
 
       const recalledItems = (memoryResult.allScoredExperiences || []).slice(0, 4);
-      const recalledContext = recalledItems.map(m => m.summary || m.content || '').join('\n\n');
+      const recalledContext = recalledItems.map(m => runLoCoMoEvaluationCondition(m)).join('\n\n');
 
       // 2. Build Zero-Shot Prompt with recalled episodic memory
       const prompt = `You are a precise factual assistant answering questions from conversational episodic memory.
@@ -267,3 +267,7 @@ if (require.main === module) {
 }
 
 module.exports = { runLoCoMoEvaluation, ingestConversationIntoConnectome, computeF1 };
+
+function runLoCoMoEvaluationCondition(m) {
+  return m.summary || m.content || '';
+}

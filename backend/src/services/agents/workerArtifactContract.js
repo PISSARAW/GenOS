@@ -36,12 +36,15 @@ function claimsAreSubstantiated(content) {
 
 function contentIsValid(type, content) {
   if (!hasRequiredFields(content, REQUIRED_FIELDS[type] || [])) return false;
-  if (type === 'scout_observation' && !hasStructuredObservations(content.observations)) return false;
-  if (type === 'dossier' && !claimsAreSubstantiated(content)) return false;
-  if (type === 'experiment_record' && !hasRecordedMeasurements(content)) return false;
-  if (type === 'training_packet' && !hasValidatedTrainingPacket(content)) return false;
-  if (type === 'creative_candidate' && !hasFalsifiableCandidate(content)) return false;
-  if (type === 'synthesis_dossier' && !hasPreservedSynthesis(content)) return false;
+  const validator = new Map([
+    ['scout_observation', (value) => hasStructuredObservations(value.observations)],
+    ['dossier', claimsAreSubstantiated],
+    ['experiment_record', hasRecordedMeasurements],
+    ['training_packet', hasValidatedTrainingPacket],
+    ['creative_candidate', hasFalsifiableCandidate],
+    ['synthesis_dossier', hasPreservedSynthesis]
+  ]).get(type);
+  if (validator && !validator(content)) return false;
   return specializedContentIsValid(type, content);
 }
 
@@ -86,11 +89,7 @@ function hasRecordedMeasurements(content) {
     && Array.isArray(content.protocol) && content.protocol.length > 0
     && content.protocol.every((step) => typeof step === 'string' && step.trim().length > 0)
     && Array.isArray(content.measurements) && content.measurements.length > 0
-    && content.measurements.every((measurement) => typeof measurement?.metric === 'string'
-      && measurement.metric.trim().length > 0
-      && Number.isFinite(measurement.value)
-      && typeof measurement.unit === 'string' && measurement.unit.trim().length > 0
-      && hasEvidenceReferences(measurement.evidence));
+    && content.measurements.every((measurement) => hasRecordedMeasurementsCondition(measurement));
 }
 
 function specializedContentIsValid(type, content) {
@@ -136,9 +135,7 @@ function isNonDiagnosticClinicalReport(content) {
 
 function containsClinicalDirective(content) {
   const text = collectText(content).join(' ').toLowerCase();
-  return /\b(?:you|the patient|patient|they)\s+(?:have|has|are|is diagnosed with)\b/.test(text)
-    || /\bdiagnosis\s*:\s*\S/.test(text)
-    || /\b(?:prescribe|take|start|stop|increase|decrease)\s+(?:the\s+)?(?:medication|dose|treatment|therapy)\b/.test(text)
+  return containsClinicalDirectiveCondition(text)
     || /\brecommend(?:s|ed)?\s+(?:a\s+)?(?:treatment|medication|therapy)\b/.test(text);
 }
 
@@ -228,17 +225,7 @@ function valueAtPath(value, path) {
 function inspectDossier(input) {
   const { parsed, expected, kind, provenance, issues } = input;
   if (!parsed || issues.length) return { artifact: null, issues };
-  const content = {
-    claims: parsed.claims,
-    ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
-    ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
-    ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
-    ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {}),
-    ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {}),
-    ...(kind === 'specialist' ? { specialtyAssessment: parsed.specialtyAssessment } : {}),
-    ...(kind === 'symbiotic_worker' ? { hostContribution: parsed.hostContribution } : {}),
-    ...(kind === 'sub_orchestrator' ? { childSummaries: parsed.childSummaries } : {})
-  };
+  const content = inspectDossierContent(parsed, kind);
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
   return { artifact: issues.length ? null : { type: expected, content, provenance: { ...(provenance || {}), sourceRefs } }, issues };
@@ -301,9 +288,7 @@ function validateWorkerArtifact(dossier, worker) {
   const kind = worker.workerContract?.identity?.workerKind;
   for (const expected of required) {
     const fields = REQUIRED_FIELDS[expected];
-    if (!artifact || artifact.type !== expected || !fields
-      || !artifact.content || !contentIsValid(expected, artifact.content)
-      || !hasProvenance(artifact) || kindArtifactIsInvalid({
+    if (validateWorkerArtifactCondition(artifact, expected, fields) || kindArtifactIsInvalid({
         kind, type: expected, content: artifact.content, contract: worker.workerContract
       })) {
       throw artifactError(worker.agentId, expected);
@@ -313,3 +298,37 @@ function validateWorkerArtifact(dossier, worker) {
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
+
+function containsClinicalDirectiveCondition(text) {
+  return /\b(?:you|the patient|patient|they)\s+(?:have|has|are|is diagnosed with)\b/.test(text)
+    || /\bdiagnosis\s*:\s*\S/.test(text)
+    || /\b(?:prescribe|take|start|stop|increase|decrease)\s+(?:the\s+)?(?:medication|dose|treatment|therapy)\b/.test(text);
+}
+
+function hasRecordedMeasurementsCondition(measurement) {
+  return typeof measurement?.metric === 'string'
+      && measurement.metric.trim().length > 0
+      && Number.isFinite(measurement.value)
+      && typeof measurement.unit === 'string' && measurement.unit.trim().length > 0
+      && hasEvidenceReferences(measurement.evidence);
+}
+
+function validateWorkerArtifactCondition(artifact, expected, fields) {
+  return !artifact || artifact.type !== expected || !fields
+      || !artifact.content || !contentIsValid(expected, artifact.content)
+      || !hasProvenance(artifact);
+}
+
+function inspectDossierContent(parsed, kind) {
+  return {
+    claims: parsed.claims,
+    ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
+    ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
+    ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
+    ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {}),
+    ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {}),
+    ...(kind === 'specialist' ? { specialtyAssessment: parsed.specialtyAssessment } : {}),
+    ...(kind === 'symbiotic_worker' ? { hostContribution: parsed.hostContribution } : {}),
+    ...(kind === 'sub_orchestrator' ? { childSummaries: parsed.childSummaries } : {})
+  };
+}

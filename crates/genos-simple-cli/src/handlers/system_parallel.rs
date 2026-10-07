@@ -32,15 +32,15 @@ fn run_with_auto(job: &AutoRun) {
             println!("{}", job.notice);
             cmd.args(["run", "-q", "-p", "genos-cli", "--"]);
             match &job.mode {
-                AutoMode::WithExtra { auto, .. } => cmd.args(*auto),
-                AutoMode::Bare { extra } => cmd.args(*extra),
+                AutoMode::WithExtra { auto, .. } => { cmd.args(*auto); }
+                AutoMode::Bare { extra } => { cmd.args(*extra); }
             }
         }
         false => {
             cmd.args(["run", "-q", "-p", "genos-cli", "--"]);
             match &job.mode {
-                AutoMode::WithExtra { extra, .. } => cmd.args(*extra),
-                AutoMode::Bare { extra } => cmd.args(*extra),
+                AutoMode::WithExtra { extra, .. } => { cmd.args(*extra); }
+                AutoMode::Bare { extra } => { cmd.args(*extra); }
             }
             cmd.args(job.args);
         }
@@ -128,4 +128,16 @@ pub fn mind(args: &[String]) {
 
 pub fn run_bare(extra: &[&str]) {
     run_genos_cli(extra, &[]);
+}
+
+pub async fn handle_two_parallel(args: &[String]) {
+    two_parallel(args);
+}
+
+pub async fn handle_tri_parallel(args: &[String]) {
+    tri_parallel(args);
+}
+
+pub async fn handle_multi_parallel(args: &[String]) {
+    multi_parallel(args);
 }

@@ -207,115 +207,18 @@ fn handle_fork(parent_id: Option<&str>) -> Result<(), String> {
 }
 
 fn handle_validate(file_path: &str) -> Result<(), String> {
-    let path = Path::new(file_path);
-    if !path.exists() {
-        return Err(format!("Genome file not found: {}", file_path));
-    }
-
-    let content = fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read genome file '{}': {}", file_path, e))?;
-
-    let val: serde_json::Value = if file_path.ends_with(".yaml") || file_path.ends_with(".yml") {
-        serde_yaml::from_str(&content)
-            .map_err(|e| format!("Invalid YAML format in '{}': {}", file_path, e))?
-    } else {
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Invalid JSON format in '{}': {}", file_path, e))?
+    let val = match super::agent_validate::load_genome_file(file_path) {
+        Ok(v) => v,
+        Err(e) => return Err(e),
     };
-
-    let mut errors = Vec::new();
-
-    if val.get("apiVersion").and_then(|v| v.as_str()).is_none() {
-        errors.push("Missing required field 'apiVersion'".to_string());
-    }
-
-    match val.get("kind").and_then(|v| v.as_str()) {
-        Some("AgentGenome") => {},
-        Some(other) => errors.push(format!("Field 'kind' must equal 'AgentGenome', found '{}'", other)),
-        None => errors.push("Missing required field 'kind'".to_string()),
-    }
-
-    if let Some(metadata) = val.get("metadata").and_then(|v| v.as_object()) {
-        if metadata.get("name").and_then(|v| v.as_str()).is_none() {
-            errors.push("Missing required field 'metadata.name'".to_string());
-        }
-        if metadata.get("version").and_then(|v| v.as_str()).is_none() {
-            errors.push("Missing required field 'metadata.version'".to_string());
-        }
-    } else {
-        errors.push("Missing required object 'metadata'".to_string());
-    }
-
-    if let Some(identity) = val.get("identity").and_then(|v| v.as_object()) {
-        if identity.get("role").and_then(|v| v.as_str()).is_none() {
-            errors.push("Missing required field 'identity.role'".to_string());
-        }
-    } else {
-        errors.push("Missing required object 'identity'".to_string());
-    }
-
-    if val.get("cognition").and_then(|v| v.as_object()).is_none() {
-        errors.push("Missing required object 'cognition'".to_string());
-    }
-
-    let has_memory = val.get("memory").and_then(|v| v.as_object()).is_some()
-        || val.get("memory_policy").and_then(|v| v.as_object()).is_some();
-    if !has_memory {
-        errors.push("Missing required object 'memory' or 'memory_policy'".to_string());
-    }
-
-    let has_models = val.get("models").and_then(|v| v.as_object()).is_some()
-        || val.get("model_policy").and_then(|v| v.as_object()).is_some();
-    if !has_models {
-        errors.push("Missing required object 'models' or 'model_policy'".to_string());
-    }
-
-    let has_tools = val.get("tools").and_then(|v| v.as_object()).is_some()
-        || val.get("tool_policy").and_then(|v| v.as_object()).is_some();
-    if !has_tools {
-        errors.push("Missing required object 'tools' or 'tool_policy'".to_string());
-    }
-
-    if let Some(policies) = val.get("policies") {
-        if !policies.is_object() && !policies.is_array() {
-            errors.push("Field 'policies' must be an object or an array".to_string());
+    let errors = super::agent_validate::collect_genome_errors(&val);
+    match errors.is_empty() {
+        false => Err(super::agent_validate::report_invalid_genome(file_path, &errors)),
+        true => {
+            super::agent_validate::report_valid_genome(file_path, &val);
+            Ok(())
         }
     }
-
-    if let Some(caps) = val.get("capabilities") {
-        if !caps.is_array() {
-            errors.push("Field 'capabilities' must be an array".to_string());
-        }
-    }
-
-    if !errors.is_empty() {
-        let output = json!({
-            "success": false,
-            "operation": "genome_validate",
-            "file": file_path,
-            "schema": "genome.schema.json",
-            "status": "INVALID",
-            "errors": errors
-        });
-        println!("{}", serde_json::to_string_pretty(&output).unwrap());
-        return Err(format!("Genome validation failed: {}", errors.join(", ")));
-    }
-
-    let output = json!({
-        "success": true,
-        "operation": "genome_validate",
-        "file": file_path,
-        "schema": "genome.schema.json",
-        "status": "VALID",
-        "genome": {
-            "name": val.get("metadata").and_then(|m| m.get("name")).and_then(|n| n.as_str()),
-            "role": val.get("identity").and_then(|i| i.get("role")).and_then(|r| r.as_str()),
-            "apiVersion": val.get("apiVersion").and_then(|a| a.as_str())
-        }
-    });
-
-    println!("{}", serde_json::to_string_pretty(&output).unwrap());
-    Ok(())
 }
 
 fn handle_ping(id: &str) -> Result<(), String> {

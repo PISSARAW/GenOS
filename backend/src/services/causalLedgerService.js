@@ -69,7 +69,19 @@ async function trace(db, agentId, query) {
     const stored = (await store.restoreObject(SCOPE, agentId)) || {};
     const edges = Array.isArray(stored.edges) ? stored.edges : [];
     const byId = new Map(edges.map((edge) => [edge.id, edge]));
-    const chain = [];
+    const chain = walkCausalChain(byId, options, depth);
+    return chain;
+  } catch (_) {
+    return [];
+  } finally {
+    if (opened && opened.close) await opened.close();
+  }
+}
+
+module.exports = { link, trace, SCOPE };
+
+function walkCausalChain(byId, options, depth) {
+const chain = [];
     const seen = new Set();
     let frontier = [options.id];
     for (let level = 0; level < depth && frontier.length; level++) {
@@ -84,12 +96,5 @@ async function trace(db, agentId, query) {
       }
       frontier = next;
     }
-    return chain;
-  } catch (_) {
-    return [];
-  } finally {
-    if (opened && opened.close) await opened.close();
-  }
+return chain;
 }
-
-module.exports = { link, trace, SCOPE };

@@ -29,13 +29,7 @@ async function maskLease(db, lease, options) {
   const floor = Number.isFinite(Number(settings.successFloor)) ? Number(settings.successFloor) : DEFAULT_SUCCESS_FLOOR;
   const tools = Array.isArray(lease) ? lease.filter((tool) => typeof tool === 'string') : [];
   if (!db || tools.length <= 1) return { lease: tools, masked: [], reason: tools.length <= 1 ? 'single_tool' : 'missing_db' };
-  const kept = [];
-  const masked = [];
-  for (const tool of tools) {
-    const reliability = await reliabilityOf(db, tool);
-    if (reliability !== null && reliability < floor) masked.push({ tool, reliability });
-    else kept.push(tool);
-  }
+  const { kept, masked } = await partitionLeaseReliability(db, tools, floor);
   if (!kept.length && masked.length) {
     const fallback = masked.sort((a, b) => b.reliability - a.reliability)[0];
     return { lease: [fallback.tool], masked: masked.filter((entry) => entry.tool !== fallback.tool), reason: 'fail_soft_best_remaining' };
@@ -44,3 +38,14 @@ async function maskLease(db, lease, options) {
 }
 
 module.exports = { maskLease, MIN_OBSERVATIONS, DEFAULT_SUCCESS_FLOOR };
+
+async function partitionLeaseReliability(db, tools, floor) {
+const kept = [];
+  const masked = [];
+  for (const tool of tools) {
+    const reliability = await reliabilityOf(db, tool);
+    if (reliability !== null && reliability < floor) masked.push({ tool, reliability });
+    else kept.push(tool);
+  }
+return { kept, masked };
+}

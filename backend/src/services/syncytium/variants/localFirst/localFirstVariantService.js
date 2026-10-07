@@ -87,43 +87,45 @@ async function syncFromPeer(context) {
   ] }, o);
 }
 
-async function partitionAndWorkOffline(context) {
-  const { sid, dev, ops, o, syn } = context;
-  assertDevId(dev, 'deviceId');
-  if (!Array.isArray(ops) || ops.length === 0)
-    throw new Error('LocalFirstError: operations must be a non-empty array');
-  const n = now(), duration = o?.offlineDurationMs === undefined ? MAX_OFFLINE : o.offlineDurationMs;
-  if (!Number.isSafeInteger(duration) || duration < 1 || duration > MAX_OFFLINE)
+function resolveOfflineDuration(o) {
+  const duration = o?.offlineDurationMs === undefined ? MAX_OFFLINE : o.offlineDurationMs;
+  if (partitionAndWorkOfflineCondition(duration)) {
     throw new Error('LocalFirstError: offlineDurationMs exceeds maximum allowed (7 days)');
-  const expiresAt = n + duration;
-  const actorId = defaultActor(o, dev);
-  const existing = (await syn.inspectReplicas(sid, o || {})).find((replica) => replica.replicaId === dev);
+  }
+  return duration;
+}
+
+function assertOfflineCapacity(existing, ops) {
   if ((existing?.offlineOperationCount || 0) + ops.length > 10000) {
     throw Object.assign(new Error('Offline operation queue budget is exhausted.'), { code: 'SYNCYTIUM_OFFLINE_QUEUE_FULL' });
   }
-  await syn.joinReplica(sid, { replicaId: dev, actorId }, o || {});
-  await syn.applyOperation(sid, { opId: randomUUID(), actorId,
+}
+
+async function openOfflineReplica(context) {
+  const { sid, dev, o, syn } = context;
+  const actorId = defaultActor(o, dev);
+  const existing = (await syn.inspectReplicas(sid, o || {})).find((replica) => replica.replicaId === dev);
+  return { actorId, existing };
+}
+
+async function partitionAndWorkOffline(context) {
+  const { sid, dev, ops, o, syn } = context;
+  assertDevId(dev, 'deviceId');
+  if (!Array.isArray(ops) || ops.length === 0) {
+    throw new Error('LocalFirstError: operations must be a non-empty array');
+  }
+  const n = now();
+  const duration = resolveOfflineDuration(o);
+  const expiresAt = n + duration;
+  const opened = await openOfflineReplica(context);
+  assertOfflineCapacity(opened.existing, ops);
+  await syn.joinReplica(sid, { replicaId: dev, actorId: opened.actorId }, o || {});
+  await syn.applyOperation(sid, { opId: randomUUID(), actorId: opened.actorId,
     kind: { type: 'typed_field', key: 'deviceReplicas', action: 'set', entryKey: dev,
       value: { deviceId: dev, lastSyncAt: n, operationCount: 0 } } }, o || {});
   await syn.partitionReplica(sid, dev, o || {});
-  const entries = ops.map((op, idx) => ({
-    operationId: op.operationId || `${dev}-${n}-${idx}`,
-    deviceId: dev, payload: op.payload,
-    operationType: op.operationType || 'mutation',
-    createdAt: n, expiresAt, sequence: idx
-  }));
-  const staged = [];
-  for (let index = 0; index < entries.length; index += 1) {
-    const entry = entries[index];
-    const requested = ops[index].operation;
-    const operation = requested && typeof requested === 'object' ? requested : {
-      kind: { type: 'typed_field', key: 'offlineQueue', action: 'add', value: entry }
-    };
-    staged.push(await syn.applyOperation(sid, {
-      ...operation, opId: entry.operationId, actorId,
-      offlinePolicy: 'ALLOW_LOCAL_MUTATION', offlineQueueLimit: 10000, offlineExpiresAt: expiresAt
-    }, { ...(o || {}), replicaId: dev }));
-  }
+  const entries = ops.map((op, idx) => (partitionAndWorkOfflineResult({ op, dev, n, idx, expiresAt })));
+  const staged = await stageOfflineEntries({ syn, sid, dev, o, actorId: opened.actorId, ops, entries, expiresAt });
   return { deviceId: dev, offline: true, staged: staged.length, entries,
     operationIds: entries.map((entry) => entry.operationId), localOnly: true };
 }
@@ -256,3 +258,36 @@ function buildDeviceReplicasSummary(dr) {
 }
 
 module.exports = { createLocalFirstVariantService };
+
+function partitionAndWorkOfflineResult({ op, dev, n, idx, expiresAt }) {
+  return {
+    operationId: op.operationId || `${dev}-${n}-${idx}`,
+    deviceId: dev, payload: op.payload,
+    operationType: op.operationType || 'mutation',
+    createdAt: n, expiresAt, sequence: idx
+  };
+}
+
+function partitionAndWorkOfflineOperation(requested, entry) {
+  return requested && typeof requested === 'object' ? requested : {
+      kind: { type: 'typed_field', key: 'offlineQueue', action: 'add', value: entry }
+    };
+}
+
+function partitionAndWorkOfflineCondition(duration) {
+  return !Number.isSafeInteger(duration) || duration < 1 || duration > MAX_OFFLINE;
+}
+
+async function stageOfflineEntries({ syn, sid, dev, o, actorId, ops, entries, expiresAt }) {
+const staged = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    const requested = ops[index].operation;
+    const operation = partitionAndWorkOfflineOperation(requested, entry);
+    staged.push(await syn.applyOperation(sid, {
+      ...operation, opId: entry.operationId, actorId,
+      offlinePolicy: 'ALLOW_LOCAL_MUTATION', offlineQueueLimit: 10000, offlineExpiresAt: expiresAt
+    }, { ...(o || {}), replicaId: dev }));
+  }
+return staged;
+}

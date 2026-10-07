@@ -20,14 +20,11 @@ function handleSpawn(args = {}) {
     { father_id: 'father_anthropic', provider: 'anthropic', model: 'claude-3-7-sonnet', bias_domain: 'formal_proof' },
     { father_id: 'father_google', provider: 'google', model: 'gemini-2.5-pro', bias_domain: 'rapid_context' }
   ] : args.paternal_inseminators;
-  const validText = (value, maxLength) => typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength;
-  if (!gestationContext || typeof gestationContext !== 'object' || Array.isArray(gestationContext) ||
-      !validText(gestationContext.workspace_id, 120) || !validText(gestationContext.task_goal, 2000)) {
+  const validText = (value, maxLength) => handleSpawnCondition3(value, maxLength);
+  if (handleSpawnCondition(gestationContext, validText)) {
     return { configured: true, success: false, status: 'invalid_args', error: 'shared_gestation_context must include a workspace_id (max 120 chars) and task_goal (max 2000 chars).' };
   }
-  if (!Array.isArray(fathers) || fathers.length < 2 || fathers.length > 16 || fathers.some(father => !father ||
-      !validText(father.father_id, 120) || !validText(father.provider, 80) ||
-      !validText(father.model, 120) || !validText(father.bias_domain, 120)) ||
+  if (!Array.isArray(fathers) || fathers.length < 2 || fathers.length > 16 || fathers.some(father => handleSpawnCondition2(father, validText)) ||
       new Set(fathers.map(father => father.father_id)).size !== fathers.length) {
     return { configured: true, success: false, status: 'invalid_args', error: 'paternal_inseminators must contain 2 to 16 entries with unique father_id and non-empty provider, model, and bias_domain.' };
   }
@@ -199,3 +196,18 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function handleSpawnCondition(gestationContext, validText) {
+  return !gestationContext || typeof gestationContext !== 'object' || Array.isArray(gestationContext) ||
+      !validText(gestationContext.workspace_id, 120) || !validText(gestationContext.task_goal, 2000);
+}
+
+function handleSpawnCondition2(father, validText) {
+  return !father ||
+      !validText(father.father_id, 120) || !validText(father.provider, 80) ||
+      !validText(father.model, 120) || !validText(father.bias_domain, 120);
+}
+
+function handleSpawnCondition3(value, maxLength) {
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength;
+}

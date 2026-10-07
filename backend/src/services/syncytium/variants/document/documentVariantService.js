@@ -81,13 +81,7 @@ async function updateBlock(sessionId, request = {}, syncytium) {
     && operation.kind.action === 'insert' && operation.kind.elementId === request.blockId);
   if (!priorInsert) throw documentError('The prior document block is no longer available.');
   const changeId = request.changeId || randomUUID();
-  return syncytium.applyTransaction(sessionId, { txId: changeId, operations: [
-    { opId: request.deleteOpId || randomUUID(), actorId: request.actorId, changeId,
-      kind: { type: 'typed_field', key: 'sections', action: 'delete', elementId: request.blockId } },
-    { opId: request.insertOpId || randomUUID(), actorId: request.actorId, changeId,
-      kind: { type: 'typed_field', key: 'sections', action: 'insert', elementId: block.blockId,
-        afterId: priorInsert.kind.afterId || null, value: block } }
-  ], preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' }, request.options || {});
+  return syncytium.applyTransaction(sessionId, updateBlockResult({ changeId, request, block, priorInsert, snapshot }), request.options || {});
 }
 
 async function addComment(sessionId, request = {}, syncytium) {
@@ -155,39 +149,51 @@ function validateAndBuildCompensations(snapshot, operations, request) {
   const previousUndo = snapshot.shared.sharedFields.document_undo.some((item) => grouped.some((operation) =>
     Array.isArray(item.undoOf) ? item.undoOf.includes(operation.opId) : item.undoOf === operation.opId));
   if (previousUndo) throw documentError('This document operation already has a compensating edit.');
-  const compensations = grouped.map((operation) => compensationFor(operation, request, operations, snapshot)).reverse();
+  const compensations = grouped.map((operation) => compensationFor(operation, request, { history: operations, snapshot: snapshot })).reverse();
   compensations.operationIds = grouped.map((operation) => operation.opId);
   return compensations;
 }
 
-function compensationFor(original, request, history, snapshot) {
-  if (original.kind?.key === 'comments' && original.kind.action === 'add') return {
+function commentRetractCompensation(original, request, snapshot) {
+  return {
     kind: { type: 'typed_field', key: 'commentEvents', action: 'add', value: {
       eventId: randomUUID(), commentId: original.kind.value.commentId, action: 'retract',
       revision: nextCommentRevision(snapshot.shared.sharedFields.commentEvents, original.kind.value.commentId),
       attribution: attribution(request), createdAt: Date.now()
     } }
   };
-  if (original.kind?.key === 'commentEvents' && original.kind.action === 'add'
-    && original.kind.value.action === 'retract') return {
+}
+
+function commentRestoreCompensation(original, request) {
+  return {
     kind: { type: 'typed_field', key: 'commentEvents', action: 'add', value: {
       eventId: randomUUID(), commentId: original.kind.value.commentId, action: 'restore',
       revision: (original.kind.value.revision || 0) + 1,
       attribution: attribution(request), createdAt: Date.now()
     } }
   };
-  if (original.kind?.key !== 'sections') throw documentError('Undo has no supported inverse for this document operation.');
-  if (original.kind.action === 'insert') return {
-    kind: { type: 'typed_field', key: 'sections', action: 'delete', elementId: original.kind.elementId }
-  };
-  if (original.kind.action !== 'delete') throw documentError('The document operation has no supported inverse.');
-  const priorInsert = history.find((operation) => operation.kind?.key === 'sections'
-    && operation.kind.action === 'insert' && operation.kind.elementId === original.kind.elementId);
+}
+
+function sectionDeleteCompensation(original, request, history) {
+  const priorInsert = history.find((operation) => compensationForCondition(operation, original));
   if (!priorInsert) throw documentError('The deleted block is no longer available for compensation.');
   const blockId = request.restoreBlockId || randomUUID();
   return { kind: { type: 'typed_field', key: 'sections', action: 'insert', elementId: blockId,
     afterId: priorInsert.kind.afterId || null,
     value: { ...priorInsert.kind.value, blockId, restoredBy: attribution(request) } } };
+}
+
+function compensationFor(original, request, { history, snapshot } = {}) {
+  if (original.kind?.key === 'comments' && original.kind.action === 'add') {
+    return commentRetractCompensation(original, request, snapshot);
+  }
+  if (compensationForCondition2(original)) return commentRestoreCompensation(original, request);
+  if (original.kind?.key !== 'sections') throw documentError('Undo has no supported inverse for this document operation.');
+  if (original.kind.action === 'insert') return {
+    kind: { type: 'typed_field', key: 'sections', action: 'delete', elementId: original.kind.elementId }
+  };
+  if (original.kind.action !== 'delete') throw documentError('The document operation has no supported inverse.');
+  return sectionDeleteCompensation(original, request, history);
 }
 
 function validateSchemaVersion(snapshot, request) {
@@ -204,8 +210,7 @@ async function readSnapshot(sessionId, options = {}, syncytium) {
   const latestCommentEvent = new Map();
   for (const event of commentEvents) {
     const previous = latestCommentEvent.get(event.commentId);
-    if (!previous || (event.revision || 0) > (previous.revision || 0)
-      || ((event.revision || 0) === (previous.revision || 0) && event.action === 'retract')) latestCommentEvent.set(event.commentId, event);
+    if (readSnapshotCondition(previous, event)) latestCommentEvent.set(event.commentId, event);
   }
   const retracted = new Set([...latestCommentEvent].filter(([, event]) => event.action === 'retract').map(([id]) => id));
   return { ...snapshot, shared: { ...snapshot.shared, sharedFields: { ...fields,
@@ -253,3 +258,28 @@ function documentError(message) {
 }
 
 module.exports = { createDocumentVariantService };
+
+function readSnapshotCondition(previous, event) {
+  return !previous || (event.revision || 0) > (previous.revision || 0)
+      || ((event.revision || 0) === (previous.revision || 0) && event.action === 'retract');
+}
+
+function updateBlockResult({ changeId, request, block, priorInsert, snapshot }) {
+  return { txId: changeId, operations: [
+    { opId: request.deleteOpId || randomUUID(), actorId: request.actorId, changeId,
+      kind: { type: 'typed_field', key: 'sections', action: 'delete', elementId: request.blockId } },
+    { opId: request.insertOpId || randomUUID(), actorId: request.actorId, changeId,
+      kind: { type: 'typed_field', key: 'sections', action: 'insert', elementId: block.blockId,
+        afterId: priorInsert.kind.afterId || null, value: block } }
+  ], preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' };
+}
+
+function compensationForCondition(operation, original) {
+  return operation.kind?.key === 'sections'
+    && operation.kind.action === 'insert' && operation.kind.elementId === original.kind.elementId;
+}
+
+function compensationForCondition2(original) {
+  return original.kind?.key === 'commentEvents' && original.kind.action === 'add'
+    && original.kind.value.action === 'retract';
+}

@@ -113,13 +113,7 @@ async function setFirebreak(context) {
   const snapshot = await context.syncytium.snapshot(context.sessionId, context.options || {});
   if (!snapshot.domains[context.regionId] || context.regionId === 'organism') throw hierarchyError(`Unknown region '${context.regionId}'.`);
   if (!context.active) assertBoundaryReconciled(snapshot, context);
-  return context.syncytium.applyTransaction(context.sessionId, {
-    txId: context.txId || randomUUID(), operations: [{
-      opId: context.opId || randomUUID(), actorId: context.actorId, domainId: 'organism',
-      kind: { type: 'typed_field', key: 'hierarchy.firebreaks', action: 'set', entryKey: context.regionId,
-        value: { regionId: context.regionId, active: context.active, reason: context.reason || null, updatedAt: Date.now() } }
-    }], preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
-  }, { ...(context.options || {}), domainId: 'organism' });
+  return setFirebreakValues(context, snapshot);
 }
 
 function assertBoundaryReconciled(snapshot, context) {
@@ -152,12 +146,7 @@ async function reconcileRegionalBoundary(context) {
   const boundaryState = Object.fromEntries(contractPaths.map((path) => [path, snapshot.shared.sharedFields[path]]));
   const receipt = { receiptId: context.receiptId || randomUUID(), regionId: context.regionId,
     contractPaths: [...contractPaths], boundaryState, reconciledAt: Date.now(), reconciledBy: context.actorId };
-  return context.syncytium.applyTransaction(context.sessionId, {
-    txId: context.txId || randomUUID(), operations: [{ opId: context.opId || randomUUID(),
-      actorId: context.actorId, domainId: 'organism', kind: { type: 'typed_field',
-        key: 'hierarchy.boundaryReconciliations', action: 'add', value: receipt } }],
-    preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
-  }, { ...(context.options || {}), domainId: 'organism' });
+  return reconcileRegionalBoundaryValues(context, receipt, snapshot);
 }
 
 async function assertRegionOpen(context) {
@@ -198,3 +187,22 @@ function hierarchyError(message) {
 }
 
 module.exports = { createHierarchicalVariantService };
+
+function setFirebreakValues(context, snapshot) {
+  return context.syncytium.applyTransaction(context.sessionId, {
+    txId: context.txId || randomUUID(), operations: [{
+      opId: context.opId || randomUUID(), actorId: context.actorId, domainId: 'organism',
+      kind: { type: 'typed_field', key: 'hierarchy.firebreaks', action: 'set', entryKey: context.regionId,
+        value: { regionId: context.regionId, active: context.active, reason: context.reason || null, updatedAt: Date.now() } }
+    }], preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
+  }, { ...(context.options || {}), domainId: 'organism' });
+}
+
+function reconcileRegionalBoundaryValues(context, receipt, snapshot) {
+  return context.syncytium.applyTransaction(context.sessionId, {
+    txId: context.txId || randomUUID(), operations: [{ opId: context.opId || randomUUID(),
+      actorId: context.actorId, domainId: 'organism', kind: { type: 'typed_field',
+        key: 'hierarchy.boundaryReconciliations', action: 'add', value: receipt } }],
+    preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
+  }, { ...(context.options || {}), domainId: 'organism' });
+}

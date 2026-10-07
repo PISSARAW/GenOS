@@ -45,6 +45,42 @@ function validateWcetRequest(request) {
   if (missingIdentity || missingBounds) throw controlError('WCET evidence requires taskId, evidenceId, environment, artifactId and positive measurement bounds.');
 }
 
+async function discardControlBranch(context) {
+  const { syncytium, sessionId, branchId, request, reason } = context;
+  await syncytium.discardSpeculativeBranch(sessionId, { branchId, reason, options: request.options || {} });
+}
+
+async function handleControlDeadlineMiss(context) {
+  const { syncytium, sessionId, request, branchId, elapsedMs } = context;
+  await discardControlBranch({ syncytium, sessionId, branchId, request, reason: 'DEADLINE_MISSED' });
+  const latest = await syncytium.snapshot(sessionId, request.options || {});
+  return applyFailsafe({ sessionId, request, snapshot: latest, reason: 'DEADLINE_MISSED', elapsedMs, syncytium });
+}
+
+async function runControlBranch(context) {
+  const { syncytium, sessionId, request, evidence } = context;
+  const startedAt = performance.now();
+  const branchId = `control-${request.taskId}-${randomUUID()}`;
+  let branchCreated = false;
+  try {
+    await syncytium.createSpeculativeBranch(sessionId, { branchId, options: request.options || {} });
+    branchCreated = true;
+    await applyControlOperations(syncytium, sessionId, { request, branchId });
+    const elapsedMs = performance.now() - startedAt;
+    if (Date.now() + evidence.upperBoundMs > request.deadlineAtMs) {
+      return handleControlDeadlineMiss({ syncytium, sessionId, request, branchId, elapsedMs });
+    }
+    const result = await syncytium.promoteSpeculativeBranch(sessionId, { branchId, options: request.options || {} });
+    return { ...result, control: { status: 'COMPLETED_WITHIN_BUDGET', elapsedMs,
+      wcetEvidenceId: evidence.evidenceId } };
+  } catch (error) {
+    if (branchCreated) await discardControlBranch({ syncytium, sessionId, branchId, request, reason: 'CONTROL_VALIDATION_FAILED' });
+    const latest = await syncytium.snapshot(sessionId, request.options || {});
+    return applyFailsafe({ sessionId, request, snapshot: latest,
+      reason: 'CONTROL_VALIDATION_FAILED', syncytium });
+  }
+}
+
 async function executeCycle(sessionId, request = {}, syncytium) {
   validateCycle(request);
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
@@ -52,36 +88,7 @@ async function executeCycle(sessionId, request = {}, syncytium) {
   if (!evidence || !evidenceFitsDeadline(evidence, request)) {
     return applyFailsafe({ sessionId, request, snapshot, reason: 'WCET_EVIDENCE_OR_DEADLINE_INVALID', syncytium });
   }
-  const startedAt = performance.now();
-  const branchId = `control-${request.taskId}-${randomUUID()}`;
-  let branchCreated = false;
-  try {
-    await syncytium.createSpeculativeBranch(sessionId, { branchId, options: request.options || {} });
-    branchCreated = true;
-    for (const operation of request.operations) {
-      await syncytium.applySpeculativeOperation(sessionId, {
-        branchId, operation, options: request.options || {}
-      });
-    }
-    const elapsedMs = performance.now() - startedAt;
-    if (Date.now() + evidence.upperBoundMs > request.deadlineAtMs) {
-      await syncytium.discardSpeculativeBranch(sessionId, { branchId, reason: 'DEADLINE_MISSED', options: request.options || {} });
-      branchCreated = false;
-      const latest = await syncytium.snapshot(sessionId, request.options || {});
-      return applyFailsafe({ sessionId, request, snapshot: latest, reason: 'DEADLINE_MISSED', elapsedMs, syncytium });
-    }
-    const result = await syncytium.promoteSpeculativeBranch(sessionId, { branchId, options: request.options || {} });
-    branchCreated = false;
-    return { ...result, control: { status: 'COMPLETED_WITHIN_BUDGET', elapsedMs,
-      wcetEvidenceId: evidence.evidenceId } };
-  } catch (error) {
-    if (branchCreated) await syncytium.discardSpeculativeBranch(sessionId, {
-      branchId, reason: 'CONTROL_VALIDATION_FAILED', options: request.options || {}
-    });
-    const latest = await syncytium.snapshot(sessionId, request.options || {});
-    return applyFailsafe({ sessionId, request, snapshot: latest,
-      reason: 'CONTROL_VALIDATION_FAILED', syncytium });
-  }
+  return runControlBranch({ syncytium, sessionId, request, evidence });
 }
 
 function findWcetEvidence(snapshot, evidenceId) {
@@ -187,3 +194,11 @@ function controlError(message) {
 }
 
 module.exports = { createRealtimeControlVariantService };
+
+async function applyControlOperations(syncytium, sessionId, { request, branchId }) {
+for (const operation of request.operations) {
+      await syncytium.applySpeculativeOperation(sessionId, {
+        branchId, operation, options: request.options || {}
+      });
+    }
+}

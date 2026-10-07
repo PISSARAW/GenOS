@@ -183,8 +183,7 @@ async function evaluateDurableHomeostasis(db, target) {
     missionId: mission.id,
     explicit: Boolean(mission.completionContract),
     expectedRevision: mission.expectedHomeostasisRevision,
-    proposed: () => mission.completionContract ? buildMissionHomeostasis(mission)
-      : inherited || scopedOrganismContract(organism, mission) || buildMissionHomeostasis(mission)
+    proposed: () => evaluateDurableHomeostasisCondition(mission, inherited, organism)
   });
   const execution = await executionEvidence.collect(db, mission.id);
   const evaluatedContext = executionEvidence.contextWithEvidence(context, execution);
@@ -288,3 +287,8 @@ module.exports = {
   transitionMissionToComplete,
   HOMEOSTASIS_SCHEMA
 };
+
+function evaluateDurableHomeostasisCondition(mission, inherited, organism) {
+  return mission.completionContract ? buildMissionHomeostasis(mission)
+      : inherited || scopedOrganismContract(organism, mission) || buildMissionHomeostasis(mission);
+}

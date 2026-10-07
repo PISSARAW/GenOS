@@ -67,9 +67,7 @@ function migrateLegacy(input = {}) {
       && !LEGACY_SCHEMAS.has(input.schema)) throw error(ERROR_CODES.SCHEMA_UNSUPPORTED);
   const operations = input.operations || input.ops || input.graph;
   if (!Array.isArray(operations)) throw error(ERROR_CODES.ENVELOPE_INVALID);
-  return { schema: SCHEMA, version: 1, id: input.id || input.runId || 'omega-legacy',
-    operations: operations.map(legacyOperation), policy: input.policy || input.permissions || {},
-    payload: input.payload ?? input.context ?? null };
+  return migrateLegacyResult(input, operations);
 }
 
 function read(input) {
@@ -158,3 +156,9 @@ function fuzzCampaign(options = {}) {
 module.exports = { SCHEMA, SUPPORTED_VERSIONS, ERROR_CODES, OmegaInteropError, normalize,
   READABLE_VERSIONS, validate, read, migrateLegacy, negotiateVersion, encode, decode, digest,
   fuzzDecode, fuzzCampaign, tuple };
+
+function migrateLegacyResult(input, operations) {
+  return { schema: SCHEMA, version: 1, id: input.id || input.runId || 'omega-legacy',
+    operations: operations.map(legacyOperation), policy: input.policy || input.permissions || {},
+    payload: input.payload ?? input.context ?? null };
+}

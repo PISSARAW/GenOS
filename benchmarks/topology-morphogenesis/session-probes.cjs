@@ -10,7 +10,7 @@ const biocenose = require('../../backend/src/services/biocenoseService');
 const holobionte = require('../../backend/src/services/holobionteCoordinationService');
 const metapopulation = require('../../backend/src/services/metapopulationCoordinationService');
 
-async function operate(sessionId, operation, args = {}, api = topology) {
+async function operate(sessionId, operation, { args = {}, api = topology } = {}) {
   const result = await api.operateTopologySession({ session_id: sessionId, operation, ...args });
   if (!result.success) throw new Error(`${operation}: ${result.error || 'operation refused'}`);
   return result;
@@ -35,7 +35,7 @@ function hasPassingInvariantReceipt(writes) {
 }
 
 async function probeBiome(sessionId, api = topology) {
-  const snapshot = await operate(sessionId, 'snapshot', {}, api);
+  const snapshot = await operate(sessionId, 'snapshot', { args: {}, api: api });
   const entries = snapshot.entries || [];
   const allocations = entries.filter((entry) => entry.kind === 'resource_allocation');
   const budget = allocations.reduce((sum, entry) => sum + (Number(entry.budget) || 0), 0);
@@ -51,10 +51,10 @@ async function probeBiome(sessionId, api = topology) {
 }
 
 async function probeSyncytium(sessionId, api = topology) {
-  const before = await operate(sessionId, 'snapshot', {}, api);
-  const after = await operate(sessionId, 'snapshot', {}, api);
-  const history = await operate(sessionId, 'history', {}, api);
-  const invariants = await operate(sessionId, 'invariants', {}, api);
+  const before = await operate(sessionId, 'snapshot', { args: {}, api: api });
+  const after = await operate(sessionId, 'snapshot', { args: {}, api: api });
+  const history = await operate(sessionId, 'history', { args: {}, api: api });
+  const invariants = await operate(sessionId, 'invariants', { args: {}, api: api });
   const operations = history.operations || [];
   const workerActors = new Set(operations.map((item) => item.actorId)
     .filter((actor) => actor && actor !== 'campaign-setup')).size;
@@ -69,7 +69,7 @@ async function probeSyncytium(sessionId, api = topology) {
 }
 
 async function probeRhizome(sessionId, api = topology) {
-  const after = await operate(sessionId, 'snapshot', {}, api);
+  const after = await operate(sessionId, 'snapshot', { args: {}, api: api });
   const nodeIds = new Set((after.graph?.nodes || []).map((node) => node.nodeId));
   const edgeIds = new Set((after.graph?.edges || []).map((edge) => edge.edgeId));
   const routeReceipt = (after.entries || []).find((entry) => entry.kind === 'route_execution' && entry.status === 'SUCCESS');

@@ -27,7 +27,7 @@ function stubDb() {
   return {
     get: async (sql, ...params) => {
       // AdaptiveStateService queries: SELECT payload_json FROM adaptive_state WHERE scope = ? AND key = ?
-      if (sql.includes('adaptive_state') && sql.includes('WHERE scope') && sql.includes('key')) {
+      if (stubDbCondition2(sql)) {
         const scope = params[0];
         const key = params[1];
         const fullKey = `adaptive_state|${scope}|${key}`;
@@ -74,8 +74,7 @@ function stubDb() {
           signal_id: signalId, subscriber_agent_id: subscriberAgentId, status
         }));
       }
-      if (sql.includes('adaptive_state') && !sql.includes('adaptive_state_events')
-        && (sql.includes('INSERT') || sql.includes('REPLACE'))) {
+      if (stubDbCondition(sql)) {
         // INSERT OR REPLACE INTO adaptive_state (scope, key, payload_json, version, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
         const [scope, key, payloadJson, version] = params;
         tables.set(`adaptive_state|${scope}|${key}`, payloadJson);
@@ -297,3 +296,12 @@ async function main() {
 }
 
 main();
+
+function stubDbCondition(sql) {
+  return sql.includes('adaptive_state') && !sql.includes('adaptive_state_events')
+        && (sql.includes('INSERT') || sql.includes('REPLACE'));
+}
+
+function stubDbCondition2(sql) {
+  return sql.includes('adaptive_state') && sql.includes('WHERE scope') && sql.includes('key');
+}

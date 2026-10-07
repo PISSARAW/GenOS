@@ -61,13 +61,8 @@ async function detectStagnation(db, agentId, options) {
   try {
     const failures = await failureRate(db, agentId).catch(() => null);
     signals.failureRate = failures;
-    if (failures !== null && failures >= (Number(settings.failureAt) || FAILURE_AT)) reasons.push('repeated_failure');
-    const surprise = await meanSurprise(db, agentId).catch(() => null);
-    signals.meanSurprise = surprise?.mean ?? null;
-    if (surprise && surprise.mean >= SURPRISE_AT) reasons.push('surprise_plateau');
-    const novelty = await meanNovelty(db, agentId).catch(() => null);
-    signals.meanNovelty = novelty?.mean ?? null;
-    if (novelty && novelty.mean < NOVELTY_BELOW) reasons.push('low_novelty');
+    if (detectStagnationCondition(failures, settings)) reasons.push('repeated_failure');
+    await measureStagnationSignals({ db, agentId, signals, reasons });
     return { stagnant: reasons.length > 0, reasons, signals };
   } catch (_) {
     return { stagnant: false, reasons: ['unavailable'], signals };
@@ -75,3 +70,16 @@ async function detectStagnation(db, agentId, options) {
 }
 
 module.exports = { detectStagnation };
+
+function detectStagnationCondition(failures, settings) {
+  return failures !== null && failures >= (Number(settings.failureAt) || FAILURE_AT);
+}
+
+async function measureStagnationSignals({ db, agentId, signals, reasons }) {
+const surprise = await meanSurprise(db, agentId).catch(() => null);
+    signals.meanSurprise = surprise?.mean ?? null;
+    if (surprise && surprise.mean >= SURPRISE_AT) reasons.push('surprise_plateau');
+    const novelty = await meanNovelty(db, agentId).catch(() => null);
+    signals.meanNovelty = novelty?.mean ?? null;
+    if (novelty && novelty.mean < NOVELTY_BELOW) reasons.push('low_novelty');
+}

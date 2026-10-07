@@ -56,46 +56,13 @@ pub struct OmegaRuntime {
     emitters: HashMap<String, Handler>,
 }
 
+use crate::omega_runtime::operations::{ReadArgs, InvokeArgs, CheckArgs, EmitArgs};
+
 struct ExecArgs<'a> {
     operation: &'a OmegaOperation,
     input: &'a ExecutionInput,
     values: &'a mut BTreeMap<String, Value>,
     receipts: &'a mut BTreeMap<String, Value>,
-}
-
-struct ReadArgs<'a> {
-    operation: &'a OmegaOperation,
-    context: OperationContext,
-    input: &'a ExecutionInput,
-    values: &'a mut BTreeMap<String, Value>,
-    reference: &'a str,
-}
-
-struct InvokeArgs<'a> {
-    operation: &'a OmegaOperation,
-    context: OperationContext,
-    handlers: &'a HashMap<String, Handler>,
-    values: &'a mut BTreeMap<String, Value>,
-    reference: &'a str,
-    missing: &'a str,
-}
-
-struct CheckArgs<'a> {
-    operation: &'a OmegaOperation,
-    context: OperationContext,
-    handlers: &'a HashMap<String, Handler>,
-    values: &'a mut BTreeMap<String, Value>,
-    receipts: &'a mut BTreeMap<String, Value>,
-    reference: &'a str,
-}
-
-struct EmitArgs<'a> {
-    operation: &'a OmegaOperation,
-    context: OperationContext,
-    input: &'a ExecutionInput,
-    values: &'a mut BTreeMap<String, Value>,
-    receipts: &'a BTreeMap<String, Value>,
-    reference: &'a str,
 }
 
 impl OmegaRuntime {
@@ -265,7 +232,7 @@ fn allowed(policy: &BTreeMap<String, Vec<String>>, kind: &str, reference: Option
     })
 }
 
-fn operation_input(operation: &OmegaOperation, values: &BTreeMap<String, Value>) -> Value {
+pub fn operation_input(operation: &OmegaOperation, values: &BTreeMap<String, Value>) -> Value {
     let inputs: Vec<Value> = operation
         .3
         .iter()
@@ -278,7 +245,7 @@ fn operation_input(operation: &OmegaOperation, values: &BTreeMap<String, Value>)
     }
 }
 
-fn ready(operation: &OmegaOperation) -> OperationResult {
+pub fn ready(operation: &OmegaOperation) -> OperationResult {
     OperationResult {
         id: operation.0.clone(),
         kind: operation.1.clone(),
@@ -287,7 +254,7 @@ fn ready(operation: &OmegaOperation) -> OperationResult {
     }
 }
 
-fn emitted(operation: &OmegaOperation) -> OperationResult {
+pub fn emitted(operation: &OmegaOperation) -> OperationResult {
     OperationResult {
         id: operation.0.clone(),
         kind: operation.1.clone(),
@@ -296,7 +263,7 @@ fn emitted(operation: &OmegaOperation) -> OperationResult {
     }
 }
 
-fn blocked_operation(operation: &OmegaOperation, reason: String) -> OperationResult {
+pub fn blocked_operation(operation: &OmegaOperation, reason: String) -> OperationResult {
     OperationResult {
         id: operation.0.clone(),
         kind: operation.1.clone(),
@@ -305,11 +272,11 @@ fn blocked_operation(operation: &OmegaOperation, reason: String) -> OperationRes
     }
 }
 
-fn blocked(reason: String) -> ExecutionResult {
+pub fn blocked(reason: String) -> ExecutionResult {
     blocked_with(Vec::new(), BTreeMap::new(), &reason)
 }
 
-fn blocked_with(
+pub fn blocked_with(
     results: Vec<OperationResult>,
     values: BTreeMap<String, Value>,
     reason: &str,
@@ -325,7 +292,7 @@ fn blocked_with(
     result
 }
 
-fn digest(results: &[OperationResult]) -> String {
+pub fn digest(results: &[OperationResult]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(serde_json::to_vec(results).unwrap_or_default());
     format!("sha256:{:x}", hasher.finalize())

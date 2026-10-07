@@ -1,33 +1,42 @@
 'use strict';
 
+function agentCapabilityGap(agent, required) {
+  const owned = new Set(agent.capabilities || []);
+  return required.filter((c) => !owned.has(c));
+}
+
+function coverageActionForGap(gap, genomes, agent) {
+  const exact = genomes.find((g) => gap.every((c) => (g.capabilities || []).includes(c)));
+  if (exact) {
+    return { action: 'clone', genomeId: exact.id, targetAgentId: agent.id, reasoning: 'Clone covers full gap', rollback: 'revert_genome' };
+  }
+  const partial = genomes.filter((g) => gap.some((c) => (g.capabilities || []).includes(c)));
+  if (partial.length >= 2) {
+    return { action: 'cross', genomeId: partial.map((g) => g.id), targetAgentId: agent.id, reasoning: 'Cross merges partial coverage', rollback: 'revert_genome' };
+  }
+  if (partial.length === 1) {
+    return { action: 'graft', genomeId: partial[0].id, targetAgentId: agent.id, reasoning: 'Graft adds missing capability', rollback: 'remove_graft' };
+  }
+  return { action: 'mutate', targetAgentId: agent.id, reasoning: 'No genome covers gap; mutation needed', rollback: 'revert_mutation' };
+}
+
+function genotypeActionsForAgent(agent, ctx) {
+  const gap = agentCapabilityGap(agent, ctx.requiredCapabilities || []);
+  if (gap.length === 0) {
+    return [{ action: 'reuse', targetAgentId: agent.id, reasoning: 'No capability gap; reuse existing genotype', rollback: 'none' }];
+  }
+  const actions = [coverageActionForGap(gap, ctx.availableGenomes || [], agent)];
+  if (gap.length > 2) {
+    actions.push({ action: 'speciate', targetAgentId: agent.id, reasoning: 'Large gap (' + gap.length + ') may require speciation', rollback: 'merge_species' });
+  }
+  return actions;
+}
+
 function planGenotypeActions(ctx) {
   const actions = [];
-  const genomes = ctx.availableGenomes || [];
   const targets = ctx.targetAgents || [];
-  const required = ctx.requiredCapabilities || [];
   for (const agent of targets) {
-    const owned = new Set(agent.capabilities || []);
-    const gap = required.filter((c) => !owned.has(c));
-    if (gap.length === 0) {
-      actions.push({ action: 'reuse', targetAgentId: agent.id, reasoning: 'No capability gap; reuse existing genotype', rollback: 'none' });
-      continue;
-    }
-    const exact = genomes.find((g) => gap.every((c) => (g.capabilities || []).includes(c)));
-    if (exact) {
-      actions.push({ action: 'clone', genomeId: exact.id, targetAgentId: agent.id, reasoning: 'Clone covers full gap', rollback: 'revert_genome' });
-    } else {
-      const partial = genomes.filter((g) => gap.some((c) => (g.capabilities || []).includes(c)));
-      if (partial.length >= 2) {
-        actions.push({ action: 'cross', genomeId: partial.map((g) => g.id), targetAgentId: agent.id, reasoning: 'Cross merges partial coverage', rollback: 'revert_genome' });
-      } else if (partial.length === 1) {
-        actions.push({ action: 'graft', genomeId: partial[0].id, targetAgentId: agent.id, reasoning: 'Graft adds missing capability', rollback: 'remove_graft' });
-      } else {
-        actions.push({ action: 'mutate', targetAgentId: agent.id, reasoning: 'No genome covers gap; mutation needed', rollback: 'revert_mutation' });
-      }
-    }
-    if (gap.length > 2) {
-      actions.push({ action: 'speciate', targetAgentId: agent.id, reasoning: 'Large gap (' + gap.length + ') may require speciation', rollback: 'merge_species' });
-    }
+    actions.push(...genotypeActionsForAgent(agent, ctx));
   }
   return actions;
 }

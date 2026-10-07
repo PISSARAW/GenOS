@@ -3,130 +3,13 @@ use std::path::{Component, Path, PathBuf};
 use serde_json::json;
 use crate::args::PlatformSubcommands;
 use super::output_guard::WriteOptions;
-fn read_dir_recursive(dir: &Path, root: &Path, content: &mut String) {
-    let Ok(canonical_dir) = dir.canonicalize() else { return; };
-    if !canonical_dir.starts_with(root) { return; }
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                if !path.ends_with(".git") && !path.ends_with("node_modules") && !path.ends_with("target") {
-                    read_dir_recursive(&path, root, content);
-                }
-            } else if let Ok(text) = fs::read_to_string(&path) {
-                content.push_str(&format!("\n--- File: {} ---\n{}\n", path.display(), text));
-            }
-        }
-    }
-}
-
-pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
+pub fn execute(cmd: crate::args::PlatformSubcommands) -> Result<(), String> {
     match cmd {
-        PlatformSubcommands::Ingest { document, index } => {
-            let idx = index.clone().unwrap_or_else(|| "default".to_string());
-            let index_dir = crate::commands::root_resolver::resolve_matrix_root().join("platform_indexes");
-            let _ = std::fs::create_dir_all(&index_dir);
-            let index_file = index_dir.join(format!("{}.json", idx));
-            
-            let content = if std::path::Path::new(&document).exists() {
-                std::fs::read_to_string(&document).unwrap_or_else(|_| document.clone())
-            } else {
-                document.clone()
-            };
-            
-            let mut docs: Vec<serde_json::Value> = if index_file.exists() {
-                let current = std::fs::read_to_string(&index_file).unwrap_or_else(|_| "[]".to_string());
-                serde_json::from_str(&current).unwrap_or_else(|_| vec![])
-            } else {
-                vec![]
-            };
-            
-            let doc_entry = json!({
-                "timestamp": chrono::Utc::now().to_rfc3339(),
-                "content": content,
-                "source": document
-            });
-            docs.push(doc_entry);
-            
-            match std::fs::write(&index_file, serde_json::to_string_pretty(&docs).unwrap()) {
-                Ok(_) => {
-                    println!("{}", serde_json::to_string_pretty(&json!({
-                        "operation": "platform_ingest",
-                        "document": document,
-                        "index": idx,
-                        "docs_in_index": docs.len(),
-                        "status": "INGESTED"
-                    })).unwrap());
-                    return Ok(());
-                }
-                Err(e) => return Err(format!("Failed to persist index '{}': {}", idx, e)),
-            }
-        }
-        PlatformSubcommands::Search { query, index } => {
-            let idx = index.unwrap_or_else(|| "default".to_string());
-            
-            // Actually search the repo
-            let root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            let query_path = Path::new(&query);
-            if query_path.is_absolute() || query_path.components().any(|component| matches!(component, Component::ParentDir)) {
-                return Err("platform search path must be relative and must not contain '..'".to_string());
-            }
-            let root = root.canonicalize().map_err(|error| format!("unable to resolve search root: {error}"))?;
-            let path = root.join(query_path);
-            let canonical_path = path.canonicalize().map_err(|error| format!("unable to resolve search path: {error}"))?;
-            if !canonical_path.starts_with(&root) {
-                return Err("platform search path escapes the workspace root".to_string());
-            }
-            
-            let mut context = String::new();
-            if path.exists() && path.is_dir() {
-                read_dir_recursive(&canonical_path, &root, &mut context);
-            } else {
-                context = "No files found or directory doesn't exist.".to_string();
-            }
-
-            // Truncate context to avoid token limits
-            if context.len() > 80_000 {
-                context.truncate(80_000);
-            }
-
-            let prompt = format!("You are an AI code analyzer. Here is the codebase for {}:\n\n{}\n\nProvide a very brief architectural summary of what this code does.", query, context);
-            
-            // Call the local GenOS API server
-            let client = reqwest::blocking::Client::new();
-            let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "genos-core-v3".to_string());
-            let body = json!({
-                "model": model_name,
-                "messages": [
-                    { "role": "user", "content": prompt }
-                ]
-            });
-            
-            let score = 0.95;
-            let llm_url = std::env::var("GENOS_LLM_URL").unwrap_or_else(|_| {
-                let host = std::env::var("GENOS_API_HOST").or_else(|_| std::env::var("GENOS_HOST")).unwrap_or_else(|_| "127.0.0.1".to_string());
-                let port = std::env::var("GENOS_API_PORT").or_else(|_| std::env::var("GENOS_PORT")).unwrap_or_else(|_| "8085".to_string());
-                format!("http://{host}:{port}/v1/chat/completions")
-            });
-            let response = client.post(&llm_url).json(&body).send()
-                .map_err(|error| format!("Platform search API unavailable: {}. Is the GenOS server running?", error))?;
-            if !response.status().is_success() {
-                return Err(format!("Platform search API returned HTTP {}.", response.status()));
-            }
-            let json_resp = response.json::<serde_json::Value>()
-                .map_err(|error| format!("Platform search API returned invalid JSON: {}", error))?;
-            let result_content = json_resp["choices"][0]["message"]["content"].as_str()
-                .ok_or_else(|| format!("Platform search API returned no assistant content: {}", json_resp))?;
-
-            println!("{}", json!({
-                "operation": "platform_search", "query": query, "index": idx, "matches": [
-                    { "content": result_content.trim(), "score": score }
-                ]
-            }));
-        }
+        crate::args::PlatformSubcommands::Ingest { document, index } => super::platform_ops::handle_ingest(&document, &index),
+        crate::args::PlatformSubcommands::Search { query, index } => super::platform_ops::handle_search(&query, &index),
     }
-    Ok(())
 }
+
 
 pub fn handle_cost_accounting(agent_id: &str, timeframe: Option<&str>) -> Result<(), String> {
     crate::commands::accounting::handle_cost_accounting(agent_id, timeframe)
@@ -196,15 +79,6 @@ pub struct WorldParams<'a> {
     pub seed: Option<&'a str>,
 }
 
-fn has_parent_component(path: &Path) -> bool {
-    for component in path.components() {
-        if matches!(component, Component::ParentDir) {
-            return true;
-        }
-    }
-    false
-}
-
 fn check_world_id_syntax(world_id: &str) -> Result<(), String> {
     if world_id.is_empty() {
         return Err("world_id must not be empty".to_string());
@@ -222,7 +96,7 @@ fn check_world_id_syntax(world_id: &str) -> Result<(), String> {
     if parsed.is_absolute() {
         return Err("world_id must be relative, not absolute".to_string());
     }
-    if has_parent_component(parsed) {
+    if super::platform_ops::has_parent_component(parsed) {
         return Err("world_id must not contain '..'".to_string());
     }
     Ok(())

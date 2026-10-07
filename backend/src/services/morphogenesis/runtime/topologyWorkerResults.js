@@ -23,7 +23,7 @@ function workerIdOf(value) {
 
 function hasTypedArtifact(report, worker) {
   const artifact = report.workerArtifact;
-  if (!artifact || typeof artifact.type !== 'string' || !artifact.content) return false;
+  if (hasTypedArtifactCondition(artifact)) return false;
   const expected = worker.workerArtifact || worker.artifactType;
   if (expected && artifact.type !== expected) return false;
   const refs = artifact.provenance?.sourceRefs || artifact.provenance?.evidenceRefs;
@@ -36,3 +36,7 @@ function workerResultsError(message) {
 }
 
 module.exports = { collectTopologyWorkerResults };
+
+function hasTypedArtifactCondition(artifact) {
+  return !artifact || typeof artifact.type !== 'string' || !artifact.content;
+}

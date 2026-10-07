@@ -456,3 +456,5 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 - [ADR 0330 — Effets durables et reprise vérifiée de Metapopulation](0330-effets-durables-metapopulation.md)
 
 - [0324-biologie-execution-et-autorite-durable.md](0324-biologie-execution-et-autorite-durable.md) — reçus des workers et autorité durable d’homéostasie.
+
+- [0344 — Refactorings de qualité et frontières de contrôle](0344-refactorings-qualite-et-frontieres-de-controle.md).

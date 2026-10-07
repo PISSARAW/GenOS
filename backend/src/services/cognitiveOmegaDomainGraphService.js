@@ -40,7 +40,7 @@ function readOperations(domain, records) {
     dependsOn: [], objectId: record.id, objectDigest: record.digest, visibility: record.visibility }));
 }
 
-function buildSelection(domain, records, reads, semantics, input) {
+function buildSelection(domain, records, { reads, semantics, input } = {}) {
   return { id: `select_${domain}`, kind: 'SELECT', reference: semantics.selector,
     dependsOn: reads.map((operation) => operation.id), objectRefs: records.map((record) => record.reference),
     fields: records.map((record) => record.field), selection: {
@@ -72,7 +72,7 @@ function build(input = {}) {
   const semantics = DOMAIN_SEMANTICS[domain];
   const records = resolveObjects(input, domain);
   const reads = readOperations(domain, records);
-  const selection = buildSelection(domain, records, reads, semantics, input);
+  const selection = buildSelection(domain, records, { reads: reads, semantics: semantics, input: input });
   const callId = `call_${domain}`; const inferId = `infer_${domain}`; const checkId = `check_${domain}`;
   const descriptor = verificationValue(input, semantics);
   const intent = verificationIntent(input, semantics);

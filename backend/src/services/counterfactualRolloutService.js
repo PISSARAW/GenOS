@@ -84,12 +84,12 @@ function dossierOutcome(dossier) {
   const events = dossier && Array.isArray(dossier.events) ? dossier.events : [];
   for (const event of events) {
     const payload = event.payload || {};
-    const outcome = payload.evidenceReport?.outcome || payload.report?.outcome || payload.outcome;
+    const outcome = dossierOutcomeOutcome(payload);
     if (outcome === 'success' || outcome === 'failed') return outcome;
   }
   for (const event of events) {
     if (event.eventType === 'AGENT_COMPLETED') return 'success';
-    if (event.eventType === 'AGENT_FAILED' || event.eventType === 'WORKER_TASK_FAILED' || event.eventType === 'AGENT_RUNTIME_ERROR') return 'failed';
+    if (dossierOutcomeCondition(event)) return 'failed';
   }
   return 'unknown';
 }
@@ -140,30 +140,8 @@ async function scoreBranches(input) {
     const worker = workers[index] || {};
     const dossier = pairDossier(options.dossiers, worker, index);
     const outcome = await branchStatus(options.db || null, worker.agentId, dossier);
-    let surprise = outcome === 'success' ? 0 : 1;
-    try {
-      const worldModel = require('./worldModelService');
-      const trajectoryId = await trajectoryOf(options, worker);
-      if (trajectoryId) {
-        const observed = await worldModel.observeTrajectory(options.db || null, options.orchestratorId, {
-          chainId: trajectoryId, outcomes: [{ success: outcome === 'success' }]
-        });
-        if (observed.matched) surprise = observed.meanSurprise;
-      } else {
-        const observed = await worldModel.observeTransition(options.db || null, options.orchestratorId, {
-          actionId: worker.agentId, success: outcome === 'success'
-        });
-        surprise = observed.surprise;
-      }
-    } catch (_) {}
-    scored.push({
-      branchId: worker.agentId || `branch_${index + 1}`,
-      action: worker.role || worker.name || 'world',
-      outcome,
-      surprise,
-      evidenceClaims: countClaims(dossier),
-      score: outcome === 'success' ? 0.5 + 0.5 * (1 - surprise) : 0
-    });
+    const surprise = await observeRolloutSurprise({ options, worker, outcome });
+    scoreBranchesValues({ scored, worker, index, outcome, surprise, dossier });
   }
   const competition = competeBranches(scored);
   const winner = competition.winner;
@@ -222,3 +200,42 @@ function replicateSpread(scored) {
 }
 
 module.exports = { planRollout, scoreBranches };
+
+function dossierOutcomeCondition(event) {
+  return event.eventType === 'AGENT_FAILED' || event.eventType === 'WORKER_TASK_FAILED' || event.eventType === 'AGENT_RUNTIME_ERROR';
+}
+
+function dossierOutcomeOutcome(payload) {
+  return payload.evidenceReport?.outcome || payload.report?.outcome || payload.outcome;
+}
+
+function scoreBranchesValues({ scored, worker, index, outcome, surprise, dossier }) {
+  return scored.push({
+      branchId: worker.agentId || `branch_${index + 1}`,
+      action: worker.role || worker.name || 'world',
+      outcome,
+      surprise,
+      evidenceClaims: countClaims(dossier),
+      score: outcome === 'success' ? 0.5 + 0.5 * (1 - surprise) : 0
+    });
+}
+
+async function observeRolloutSurprise({ options, worker, outcome }) {
+let surprise = outcome === 'success' ? 0 : 1;
+    try {
+      const worldModel = require('./worldModelService');
+      const trajectoryId = await trajectoryOf(options, worker);
+      if (trajectoryId) {
+        const observed = await worldModel.observeTrajectory(options.db || null, options.orchestratorId, {
+          chainId: trajectoryId, outcomes: [{ success: outcome === 'success' }]
+        });
+        if (observed.matched) surprise = observed.meanSurprise;
+      } else {
+        const observed = await worldModel.observeTransition(options.db || null, options.orchestratorId, {
+          actionId: worker.agentId, success: outcome === 'success'
+        });
+        surprise = observed.surprise;
+      }
+    } catch (_) {}
+return surprise;
+}

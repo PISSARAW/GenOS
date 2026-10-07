@@ -75,40 +75,35 @@ function handleSpawn(args = {}) {
   };
 }
 
-function handleQuorum(args) {
-  const clusterId = args.cluster_id;
-  const cloneOutputs = args.clone_outputs || [];
+function findQuorumRecord(clusterId) {
   const record = POLYEMBRYONY_REGISTRY.get(clusterId);
-
   if (!record) {
-    return {
-      configured: true,
-      success: false,
-      status: 'not_found',
-      error: `Polyembryonic cluster [${clusterId}] not found.`
-    };
+    return { error: { configured: true, success: false, status: 'not_found', error: `Polyembryonic cluster [${clusterId}] not found.` } };
   }
+  return { record };
+}
 
+function validateQuorumVotes(record, cloneOutputs) {
   if (!Array.isArray(cloneOutputs) || cloneOutputs.length > record.cleavageOrder) {
-    return { configured: true, success: false, status: 'invalid_args', error: 'clone_outputs must be an array with at most one vote per clone.' };
+    return { error: { configured: true, success: false, status: 'invalid_args', error: 'clone_outputs must be an array with at most one vote per clone.' } };
   }
   const knownCloneIds = new Set(record.clones.map(clone => clone.cloneId));
   const seenCloneIds = new Set();
   for (const item of cloneOutputs) {
-    if (!item || typeof item.clone_id !== 'string' || !knownCloneIds.has(item.clone_id) || seenCloneIds.has(item.clone_id) ||
-        typeof item.proposed_solution !== 'string' || !item.proposed_solution.trim()) {
-      return { configured: true, success: false, status: 'invalid_args', error: 'Each vote must contain a unique known clone_id and a non-empty proposed_solution.' };
+    if (handleQuorumCondition(item, knownCloneIds, seenCloneIds)) {
+      return { error: { configured: true, success: false, status: 'invalid_args', error: 'Each vote must contain a unique known clone_id and a non-empty proposed_solution.' } };
     }
     seenCloneIds.add(item.clone_id);
   }
+  return { ok: true };
+}
 
-  // Tally candidate solutions across isogenic clones
+function tallyQuorumVotes(cloneOutputs) {
   const tallies = {};
   cloneOutputs.forEach(item => {
     const sol = item.proposed_solution || 'no_solution';
     tallies[sol] = (tallies[sol] || 0) + 1;
   });
-
   let topSolution = null;
   let maxVotes = 0;
   for (const [sol, count] of Object.entries(tallies)) {
@@ -117,25 +112,39 @@ function handleQuorum(args) {
       topSolution = sol;
     }
   }
+  return { topSolution, maxVotes };
+}
 
-  const requiredThreshold = Math.ceil((record.cleavageOrder * 3) / 4); // 75% quorum threshold
-  const isQuorumReached = (maxVotes >= requiredThreshold);
-
+function buildQuorumResult(record, tally) {
+  const requiredThreshold = Math.ceil((record.cleavageOrder * 3) / 4);
+  const isQuorumReached = (tally.maxVotes >= requiredThreshold);
   return {
     configured: true,
     success: true,
     status: 'quorum_evaluated',
-    cluster_id: clusterId,
+    cluster_id: record.clusterId,
     cleavage_order: record.cleavageOrder,
-    votes_for_top_solution: maxVotes,
+    votes_for_top_solution: tally.maxVotes,
     required_quorum_threshold: requiredThreshold,
     quorum_reached: isQuorumReached,
-    promoted_solution: isQuorumReached ? topSolution : null,
-    consensus_ratio: maxVotes / record.cleavageOrder,
+    promoted_solution: isQuorumReached ? tally.topSolution : null,
+    consensus_ratio: tally.maxVotes / record.cleavageOrder,
     execution_scope: 'metadata_simulation',
     runtime_promotion_applied: false,
-    output: `Metadata quorum: ${maxVotes}/${record.cleavageOrder} distinct clone descriptors. ${isQuorumReached ? 'Threshold reached' : 'Threshold not reached'}; no runtime solution was promoted.`
+    output: `Metadata quorum: ${tally.maxVotes}/${record.cleavageOrder} distinct clone descriptors. ${isQuorumReached ? 'Threshold reached' : 'Threshold not reached'}; no runtime solution was promoted.`
   };
+}
+
+function handleQuorum(args) {
+  const clusterId = args.cluster_id;
+  const cloneOutputs = args.clone_outputs || [];
+  const found = findQuorumRecord(clusterId);
+  if (found.error) return found.error;
+  const record = found.record;
+  const valid = validateQuorumVotes(record, cloneOutputs);
+  if (valid.error) return valid.error;
+  const tally = tallyQuorumVotes(cloneOutputs);
+  return buildQuorumResult(record, tally);
 }
 
 function handleStatus(args) {
@@ -232,3 +241,8 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function handleQuorumCondition(item, knownCloneIds, seenCloneIds) {
+  return !item || typeof item.clone_id !== 'string' || !knownCloneIds.has(item.clone_id) || seenCloneIds.has(item.clone_id) ||
+        typeof item.proposed_solution !== 'string' || !item.proposed_solution.trim();
+}

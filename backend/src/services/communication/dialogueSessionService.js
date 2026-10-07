@@ -57,7 +57,7 @@ async function turnCount(db, escalationId) {
   return Number(row.n);
 }
 
-async function forceCloseUnresolved(db, escalationId, tokensUsed, reason) {
+async function forceCloseUnresolved(db, escalationId, { tokensUsed, reason } = {}) {
   await db.run(
     `INSERT OR IGNORE INTO dialogue_artifacts (escalation_id, kind, artifact_json) VALUES (?, 'UNRESOLVED', ?)`,
     [escalationId, JSON.stringify({ reason, tokensUsed })]
@@ -68,9 +68,7 @@ async function forceCloseUnresolved(db, escalationId, tokensUsed, reason) {
 
 async function appendTurn(input) {
   const db = await ensureVerbalTables(input.db);
-  const turnTokens = input.tokensUsed === undefined ? 0 : Number(input.tokensUsed);
-  if (!Number.isSafeInteger(turnTokens) || turnTokens < 0) throw new Error('tokensUsed must be a non-negative integer.');
-  if (typeof input.utterance !== 'string' || !input.utterance.trim()) throw new Error('A non-empty utterance is required.');
+  const turnTokens = validateDialogueInput(input);
   return withTransaction(db, async (tx) => {
     const session = await getSession({ db: tx, escalationId: input.escalationId });
     if (!session || session.status !== 'dialogue_open') {
@@ -79,11 +77,11 @@ async function appendTurn(input) {
     if (!session.participants.includes(input.speaker)) throw new Error('Speaker is not a participant in this dialogue.');
     const used = Number(session.tokensUsed) + turnTokens;
     if (session.deadlineAt && Date.now() >= Date.parse(session.deadlineAt)) {
-      return forceCloseUnresolved(tx, session.id, used, 'deadline_exhausted');
+      return forceCloseUnresolved(tx, session.id, { tokensUsed: used, reason: 'deadline_exhausted' });
     }
-    if (used > Number(session.tokenBudget)) return forceCloseUnresolved(tx, session.id, used, 'budget_exhausted');
+    if (used > Number(session.tokenBudget)) return forceCloseUnresolved(tx, session.id, { tokensUsed: used, reason: 'budget_exhausted' });
     const count = await turnCount(tx, session.id);
-    if (count >= Number(session.maxTurns)) return forceCloseUnresolved(tx, session.id, used, 'turn_limit_exhausted');
+    if (count >= Number(session.maxTurns)) return forceCloseUnresolved(tx, session.id, { tokensUsed: used, reason: 'turn_limit_exhausted' });
     const speechAct = analyzeSpeechAct({ utterance: input.utterance, speaker: input.speaker });
     const compiled = compileFromReport(speechAct, { utterance: input.utterance, speaker: input.speaker });
     const stored = Object.assign({}, speechAct, { compiled });
@@ -179,3 +177,10 @@ module.exports = {
   getSession,
   validateConventions
 };
+
+function validateDialogueInput(input) {
+const turnTokens = input.tokensUsed === undefined ? 0 : Number(input.tokensUsed);
+  if (!Number.isSafeInteger(turnTokens) || turnTokens < 0) throw new Error('tokensUsed must be a non-negative integer.');
+  if (typeof input.utterance !== 'string' || !input.utterance.trim()) throw new Error('A non-empty utterance is required.');
+return turnTokens;
+}

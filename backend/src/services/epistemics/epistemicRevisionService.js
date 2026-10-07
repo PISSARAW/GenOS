@@ -93,29 +93,9 @@ function detectContradiction(claimA, claimB) {
   const qualityB = evidenceQuality(claimB);
   const avgQuality = (qualityA + qualityB) / 2;
 
-  const negationPatterns = [
-    { a: /\bnot\b/, b: /\b(is|are|will|can)\b/ },
-    { a: /\bfalse\b/, b: /\btrue\b/ },
-    { a: /\bno\b/, b: /\byes\b/ },
-    { a: /\bnever\b/, b: /\balways\b/ }
-  ];
+  let { contradictionDetected, pattern } = matchNegationPatterns(stmtA, stmtB);
 
-  let contradictionDetected = false;
-  let pattern = null;
-  for (const p of negationPatterns) {
-    const aMatch = stmtA.match(p.a) && !stmtA.match(p.b);
-    const bMatch = stmtB.match(p.a) && !stmtB.match(p.b);
-    const aMatchInv = stmtA.match(p.b) && !stmtA.match(p.a);
-    const bMatchInv = stmtB.match(p.b) && !stmtB.match(p.a);
-    if ((aMatch && bMatchInv) || (bMatch && aMatchInv)) {
-      contradictionDetected = true;
-      pattern = p;
-      break;
-    }
-  }
-
-  const directNegation = (stmtA.startsWith('not ') && stmtA.slice(4) === stmtB) ||
-    (stmtB.startsWith('not ') && stmtB.slice(4) === stmtA);
+  const directNegation = detectContradictionDirectNegation(stmtA, stmtB);
   if (directNegation) {
     contradictionDetected = true;
     pattern = { a: /^not /, b: /.*/ };
@@ -125,16 +105,7 @@ function detectContradiction(claimA, claimB) {
     return { contradiction: false, similarity: 0 };
   }
 
-  return {
-    contradiction: true,
-    claimA: claimA.id,
-    claimB: claimB.id,
-    qualityA: Number(qualityA.toFixed(3)),
-    qualityB: Number(qualityB.toFixed(3)),
-    avgQuality: Number(avgQuality.toFixed(3)),
-    pattern: pattern ? pattern.a.source : 'direct_negation',
-    resolution: avgQuality < 0.4 ? 'escalate' : 'merge'
-  };
+  return detectContradictionResult({ claimA, claimB, qualityA, qualityB, avgQuality, pattern });
 }
 
 function handleContradiction(claimA, claimB) {
@@ -228,3 +199,49 @@ module.exports = {
   updateConfidence,
   computeCalibrationOutcomes
 };
+
+function detectContradictionDirectNegation(stmtA, stmtB) {
+  return (stmtA.startsWith('not ') && stmtA.slice(4) === stmtB) ||
+    (stmtB.startsWith('not ') && stmtB.slice(4) === stmtA);
+}
+
+function detectContradictionCondition({ aMatch, bMatchInv, bMatch, aMatchInv }) {
+  return (aMatch && bMatchInv) || (bMatch && aMatchInv);
+}
+
+function detectContradictionResult({ claimA, claimB, qualityA, qualityB, avgQuality, pattern }) {
+  return {
+    contradiction: true,
+    claimA: claimA.id,
+    claimB: claimB.id,
+    qualityA: Number(qualityA.toFixed(3)),
+    qualityB: Number(qualityB.toFixed(3)),
+    avgQuality: Number(avgQuality.toFixed(3)),
+    pattern: pattern ? pattern.a.source : 'direct_negation',
+    resolution: avgQuality < 0.4 ? 'escalate' : 'merge'
+  };
+}
+
+function matchNegationPatterns(stmtA, stmtB) {
+const negationPatterns = [
+    { a: /\bnot\b/, b: /\b(is|are|will|can)\b/ },
+    { a: /\bfalse\b/, b: /\btrue\b/ },
+    { a: /\bno\b/, b: /\byes\b/ },
+    { a: /\bnever\b/, b: /\balways\b/ }
+  ];
+
+  let contradictionDetected = false;
+  let pattern = null;
+  for (const p of negationPatterns) {
+    const aMatch = stmtA.match(p.a) && !stmtA.match(p.b);
+    const bMatch = stmtB.match(p.a) && !stmtB.match(p.b);
+    const aMatchInv = stmtA.match(p.b) && !stmtA.match(p.a);
+    const bMatchInv = stmtB.match(p.b) && !stmtB.match(p.a);
+    if (detectContradictionCondition({ aMatch, bMatchInv, bMatch, aMatchInv })) {
+      contradictionDetected = true;
+      pattern = p;
+      break;
+    }
+  }
+return { contradictionDetected, pattern };
+}

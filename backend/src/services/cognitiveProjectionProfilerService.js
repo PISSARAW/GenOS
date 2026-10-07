@@ -116,17 +116,17 @@ async function select(db, input = {}) {
   }
   if (policy?.status === 'active') {
     const active = items.find((item) => item.representation === policy.representation);
-    if (active && active.qualitySamples && active.avgQuality >= 0) {
+    if (selectCondition2(active)) {
       return { representation: active.representation, source: 'pgo_policy', profile: active, candidates: [] };
     }
   }
   const baseline = items.find((item) => item.representation === baselineName);
   const candidates = items.map((item) => ({ item, score: score(item, baseline) }))
-    .filter((entry) => entry.score !== null && entry.item.samples >= Number(input.minSamples || 3));
+    .filter((entry) => selectCondition(entry, input));
   candidates.sort((left, right) => left.score - right.score);
   const chosen = candidates[0]?.item;
   return { representation: chosen?.representation || baselineName,
-    source: chosen ? 'empirical' : 'baseline', profile: chosen || baseline || null,
+    source: chosen ? 'empirical' : 'baseline', profile: selectCondition3(chosen, baseline),
     candidates: candidates.map((entry) => ({ representation: entry.item.representation, score: entry.score })) };
 }
 
@@ -178,3 +178,15 @@ async function rollback(db, input) {
 }
 
 module.exports = { ensure, countTokens, record, profile, select, apply, rollback };
+
+function selectCondition(entry, input) {
+  return entry.score !== null && entry.item.samples >= Number(input.minSamples || 3);
+}
+
+function selectCondition2(active) {
+  return active && active.qualitySamples && active.avgQuality >= 0;
+}
+
+function selectCondition3(chosen, baseline) {
+  return chosen || baseline || null;
+}

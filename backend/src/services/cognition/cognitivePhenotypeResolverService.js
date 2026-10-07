@@ -72,15 +72,7 @@ function resolvePhenotype(ctx) {
     (key) => !constraints.blockedKeys.includes(key.id)
   );
   const keyMap = keyMapOf(availableKeys);
-  const prioritized = availableKeys
-    .map((key) => ({
-      key,
-      score: (adjustments.boost.includes(key.id) ? 2 : 0) -
-             (adjustments.penalize.includes(key.id) ? 1 : 0) +
-             (needs.some((need) => key.usefulWhen.includes(need)) ? 1 : 0)
-    }))
-    .filter((entry) => entry.score > 0 || needs.length === 0)
-    .sort((a, b) => b.score - a.score);
+  const prioritized = prioritizePhenotypeKeys(availableKeys, adjustments, needs);
   const selected = prioritized.slice(0, constraints.maxKeys).map((e) => e.key.id);
   if (selected.length === 0 && needs.length > 0) {
     const fallback = availableKeys.find((key) =>
@@ -107,15 +99,7 @@ function resolvePhenotype(ctx) {
       return key ? { id: key.id, label: key.label, instruction: key.instruction } : null;
     }).filter(Boolean),
     metrics: validation.metrics,
-    context: {
-      mission,
-      needs,
-      adjustments,
-      constraints,
-      failure: ctx.failure || null,
-      role: ctx.role || null,
-      epistemicState: ctx.epistemicState || null
-    },
+    context: resolvePhenotypeResult({ mission, needs, adjustments, constraints, ctx }),
     mutationBudget: DEFAULT_MUTATION_BUDGET,
     dnaUnchanged: true
   };
@@ -125,12 +109,7 @@ function getRecipeUtility(recipe, evidence) {
   if (!recipe || !recipe.keys) return 0;
   const keyMap = keyMapOf(COGNITIVE_KEYS);
   const needs = (evidence && evidence.needs) || [];
-  const coverage = needs.filter((need) =>
-    recipe.keys.some((keyId) => {
-      const key = keyMap.get(keyId);
-      return key && key.usefulWhen.includes(need);
-    })
-  ).length;
+  const coverage = recipeNeedCoverage(needs, recipe, keyMap);
   const totalNeeds = needs.length || 1;
   const coverageScore = coverage / totalNeeds;
   const cost = recipe.keys.reduce((total, keyId) => {
@@ -138,7 +117,7 @@ function getRecipeUtility(recipe, evidence) {
     return total + (key ? (COST_WEIGHTS[key.cost] || 0) : 0);
   }, 0);
   const costPenalty = Math.min(cost / 10, 0.5);
-  const pastPerformance = (evidence && evidence.pastPerformance && evidence.pastPerformance[recipe.id]) || 0;
+  const pastPerformance = getRecipeUtilityPastPerformance(evidence, recipe);
   const failurePenalty = (evidence && evidence.recentFailures || 0) * 0.1;
   return Number(Math.max(0, coverageScore - costPenalty + pastPerformance - failurePenalty).toFixed(4));
 }
@@ -153,20 +132,13 @@ function mutateRecipe(ctx) {
   const currentRecipe = ctx.currentRecipe;
   const pressure = ctx.pressure || {};
   const evidence = ctx.evidence || {};
-  if (!currentRecipe || !Array.isArray(currentRecipe.keys) || currentRecipe.keys.length === 0) return null;
+  if (mutateRecipeCondition(currentRecipe)) return null;
   const intensity = pressure.intensity || 1;
   const mutated = evolveMutate(currentRecipe, COGNITIVE_KEYS, {
     maxKeys: currentRecipe.keys.length + (intensity > 1 ? 1 : 0)
   });
   if (!mutated) return null;
-  const versioned = {
-    ...mutated,
-    id: `${currentRecipe.id}-v${(currentRecipe.version || 1) + 1}`,
-    version: (currentRecipe.version || 1) + 1,
-    parentVersion: currentRecipe.version || 1,
-    mutationReason: pressure.type || 'explore',
-    dnaUnchanged: true
-  };
+  const versioned = mutateRecipeVersioned(mutated, currentRecipe, pressure);
   const validation = validateRecipe(versioned, COGNITIVE_KEYS);
   if (!validation.valid) return null;
   return {
@@ -186,3 +158,55 @@ module.exports = {
   getRecipeUtility,
   canMutate
 };
+
+function getRecipeUtilityPastPerformance(evidence, recipe) {
+  return (evidence && evidence.pastPerformance && evidence.pastPerformance[recipe.id]) || 0;
+}
+
+function mutateRecipeVersioned(mutated, currentRecipe, pressure) {
+  return {
+    ...mutated,
+    id: `${currentRecipe.id}-v${(currentRecipe.version || 1) + 1}`,
+    version: (currentRecipe.version || 1) + 1,
+    parentVersion: currentRecipe.version || 1,
+    mutationReason: pressure.type || 'explore',
+    dnaUnchanged: true
+  };
+}
+
+function prioritizePhenotypeKeys(availableKeys, adjustments, needs) {
+  return availableKeys
+    .map((key) => ({
+      key,
+      score: (adjustments.boost.includes(key.id) ? 2 : 0) -
+             (adjustments.penalize.includes(key.id) ? 1 : 0) +
+             (needs.some((need) => key.usefulWhen.includes(need)) ? 1 : 0)
+    }))
+    .filter((entry) => entry.score > 0 || needs.length === 0)
+    .sort((a, b) => b.score - a.score);
+}
+
+function recipeNeedCoverage(needs, recipe, keyMap) {
+  return needs.filter((need) =>
+    recipe.keys.some((keyId) => {
+      const key = keyMap.get(keyId);
+      return key && key.usefulWhen.includes(need);
+    })
+  ).length;
+}
+
+function mutateRecipeCondition(currentRecipe) {
+  return !currentRecipe || !Array.isArray(currentRecipe.keys) || currentRecipe.keys.length === 0;
+}
+
+function resolvePhenotypeResult({ mission, needs, adjustments, constraints, ctx }) {
+  return {
+      mission,
+      needs,
+      adjustments,
+      constraints,
+      failure: ctx.failure || null,
+      role: ctx.role || null,
+      epistemicState: ctx.epistemicState || null
+    };
+}

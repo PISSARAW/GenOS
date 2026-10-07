@@ -31,15 +31,7 @@ async function executeVariantAction(input) {
   }
   const service = require('../../syncytiumCoordinationService');
   if (typeof service[action] !== 'function') throw new Error(`Variant action '${action}' is unavailable.`);
-  if (action === 'detectReservationDeadlock') return service[action](request.waitEdges || []);
-  if (action === 'planControlSchedule') return service[action](request.jobs || []);
-  if (CONTEXT_VARIANTS.has(variantId)) return service[action](contextRequest({ db, sessionId, variantId, request }));
-  if (THREE_ARG_INPUTS[action]) {
-    const input = request[THREE_ARG_INPUTS[action]] || request;
-    return service[action](sessionId, input, { ...(request.options || {}), db });
-  }
-  if (DIRECT_OPTIONS.has(action)) return service[action](sessionId, { ...request, db });
-  return service[action](sessionId, { ...request, options: { ...(request.options || {}), db } });
+  return routeVariantAction({ db, sessionId, action, request, variantId, service });
 }
 
 function contextRequest(input) {
@@ -51,3 +43,30 @@ function contextRequest(input) {
 }
 
 module.exports = { executeVariantAction, ACTIONS };
+
+function routeDirectVariantAction(context) {
+  const { sessionId, action, request, service } = context;
+  if (DIRECT_OPTIONS.has(action)) return service[action](sessionId, { ...request, db: context.db });
+  return service[action](sessionId, { ...request, options: { ...(request.options || {}), db: context.db } });
+}
+
+function routeShapedVariantAction(context) {
+  const { sessionId, action, request, service } = context;
+  if (THREE_ARG_INPUTS[action]) {
+    const input = request[THREE_ARG_INPUTS[action]] || request;
+    return service[action](sessionId, input, { ...(request.options || {}), db: context.db });
+  }
+  return routeDirectVariantAction(context);
+}
+
+function routeContextVariantAction(context) {
+  const { db, sessionId, action, request, variantId, service } = context;
+  if (CONTEXT_VARIANTS.has(variantId)) return service[action](contextRequest({ db, sessionId, variantId, request }));
+  return routeShapedVariantAction({ db, sessionId, action, request, service });
+}
+
+function routeVariantAction({ db, sessionId, action, request, variantId, service }) {
+  if (action === 'detectReservationDeadlock') return service[action](request.waitEdges || []);
+  if (action === 'planControlSchedule') return service[action](request.jobs || []);
+  return routeContextVariantAction({ db, sessionId, action, request, variantId, service });
+}

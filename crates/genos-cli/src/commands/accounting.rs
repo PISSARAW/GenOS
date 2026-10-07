@@ -56,105 +56,213 @@ fn parse_turn_timestamp(turn: &serde_json::Value) -> Option<i64> {
     None
 }
 
-pub fn compute_agent_tokens(agent_id: &str, timeframe: Option<&str>) -> Result<(usize, usize), String> {
-    let candidates = [
-        std::env::var("GENOS_WORKSPACE_ROOT").ok().map(PathBuf::from),
-        std::env::var("GENOS_ROOT").ok().map(PathBuf::from),
-        Some(PathBuf::from(".")),
-        std::env::current_dir().ok().and_then(|p| p.parent().map(|parent| parent.to_path_buf())),
-    ];
+fn env_root(name: &str) -> Option<PathBuf> {
+    match std::env::var(name) {
+        Ok(value) => Some(PathBuf::from(value)),
+        Err(_) => None,
+    }
+}
 
-    let mut found_path = None;
+fn parent_root() -> Option<PathBuf> {
+    match std::env::current_dir() {
+        Ok(current) => match current.parent() {
+            Some(parent) => Some(parent.to_path_buf()),
+            None => None,
+        },
+        Err(_) => None,
+    }
+}
+
+fn find_trajectory(agent_id: &str) -> Option<PathBuf> {
+    let candidates = [
+        env_root("GENOS_WORKSPACE_ROOT"),
+        env_root("GENOS_ROOT"),
+        Some(PathBuf::from(".")),
+        parent_root(),
+    ];
     for cand in candidates.into_iter().flatten() {
         let p = cand.join(".genos").join("trajectories").join(format!("{}.json", agent_id));
         if p.exists() {
-            found_path = Some(p);
-            break;
+            return Some(p);
         }
     }
+    None
+}
 
-    let trajectory_path = match found_path {
-        Some(p) => p,
-        None => {
-            return Err(format!("Trajectory file not found for agent '{}' at .genos/trajectories/{}.json", agent_id, agent_id));
+fn load_trajectory(path: &std::path::Path, agent_id: &str) -> Result<(serde_json::Value, String), String> {
+    match fs::read_to_string(path) {
+        Ok(content) => match serde_json::from_str(&content) {
+            Ok(parsed) => Ok((parsed, content)),
+            Err(e) => Err(format!("Malformed trajectory JSON for agent '{}': {}", agent_id, e)),
+        },
+        Err(e) => Err(format!("Failed to read trajectory for agent '{}': {}", agent_id, e)),
+    }
+}
+
+fn str_len_quarter(value: &serde_json::Value) -> usize {
+    match value.as_str() {
+        Some(s) => (s.len() + 3) / 4,
+        None => 0,
+    }
+}
+
+fn detail_len(turn: &serde_json::Value, primary: &str, fallback: &str) -> usize {
+    match turn.get(primary) {
+        Some(v) => {
+            let n = str_len_quarter(v);
+            if n > 0 {
+                return n;
+            }
+            match turn.get(fallback) {
+                Some(w) => str_len_quarter(w),
+                None => 0,
+            }
         }
+        None => match turn.get(fallback) {
+            Some(w) => str_len_quarter(w),
+            None => 0,
+        },
+    }
+}
+
+fn turn_prompt_tokens(turn: &serde_json::Value) -> usize {
+    match turn.get("prompt_tokens") {
+        Some(v) => match v.as_u64() {
+            Some(n) => n as usize,
+            None => detail_len(turn, "detail", "cmd"),
+        },
+        None => detail_len(turn, "detail", "cmd"),
+    }
+}
+
+fn turn_completion_tokens(turn: &serde_json::Value) -> usize {
+    match turn.get("completion_tokens") {
+        Some(v) => match v.as_u64() {
+            Some(n) => n as usize,
+            None => detail_len(turn, "action", "output"),
+        },
+        None => detail_len(turn, "action", "output"),
+    }
+}
+
+fn turn_in_window(turn: &serde_json::Value, max_age: Option<i64>, now: i64) -> bool {
+    match max_age {
+        None => true,
+        Some(limit) => match parse_turn_timestamp(turn) {
+            None => true,
+            Some(ts) => now - ts <= limit,
+        },
+    }
+}
+
+fn sum_turn_tokens(turns: &[serde_json::Value], max_age: Option<i64>, now: i64) -> (usize, usize) {
+    let mut prompt_sum = 0usize;
+    let mut completion_sum = 0usize;
+    for turn in turns {
+        if turn_in_window(turn, max_age, now) {
+            prompt_sum += turn_prompt_tokens(turn);
+            completion_sum += turn_completion_tokens(turn);
+        }
+    }
+    (prompt_sum, completion_sum)
+}
+
+fn u64_field(obj: &serde_json::Value, key: &str) -> u64 {
+    match obj.get(key) {
+        Some(v) => match v.as_u64() {
+            Some(n) => n,
+            None => 0,
+        },
+        None => 0,
+    }
+}
+
+fn usage_tokens(parsed: &serde_json::Value) -> Option<(usize, usize)> {
+    match parsed.get("usage") {
+        None => None,
+        Some(usage) => {
+            let p = u64_field(usage, "prompt_tokens") + u64_field(usage, "input_tokens");
+            let c = u64_field(usage, "completion_tokens") + u64_field(usage, "output_tokens");
+            if p > 0 {
+                return Some((p as usize, c as usize));
+            }
+            if c > 0 {
+                return Some((p as usize, c as usize));
+            }
+            None
+        }
+    }
+}
+
+fn metrics_tokens(parsed: &serde_json::Value) -> Option<(usize, usize)> {
+    match parsed.get("metrics") {
+        None => None,
+        Some(metrics) => match metrics.get("tokens") {
+            None => None,
+            Some(tokens) => {
+                let p = u64_field(tokens, "prompt");
+                let c = u64_field(tokens, "completion");
+                if p > 0 {
+                    return Some((p as usize, c as usize));
+                }
+                if c > 0 {
+                    return Some((p as usize, c as usize));
+                }
+                None
+            }
+        },
+    }
+}
+
+fn estimate_tokens(content: &str) -> (usize, usize) {
+    let prompt = (content.len() / 4).max(1);
+    let completion = (prompt / 3).max(1);
+    (prompt, completion)
+}
+
+fn turns_tokens(parsed: &serde_json::Value, max_age: Option<i64>, now: i64) -> Option<(usize, usize)> {
+    match parsed.get("turns") {
+        None => None,
+        Some(t) => match t.as_array() {
+            None => None,
+            Some(arr) => {
+                let (p, c) = sum_turn_tokens(arr, max_age, now);
+                if p > 0 {
+                    return Some((p, c));
+                }
+                if c > 0 {
+                    return Some((p, c));
+                }
+                None
+            }
+        },
+    }
+}
+
+pub fn compute_agent_tokens(agent_id: &str, timeframe: Option<&str>) -> Result<(usize, usize), String> {
+    let trajectory_path = match find_trajectory(agent_id) {
+        Some(p) => p,
+        None => return Err(format!("Trajectory file not found for agent '{}' at .genos/trajectories/{}.json", agent_id, agent_id)),
     };
-
-    let content = fs::read_to_string(&trajectory_path)
-        .map_err(|e| format!("Failed to read trajectory for agent '{}': {}", agent_id, e))?;
-
-    let parsed: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| format!("Malformed trajectory JSON for agent '{}': {}", agent_id, e))?;
-
+    let (parsed, content) = match load_trajectory(&trajectory_path, agent_id) {
+        Ok(v) => v,
+        Err(e) => return Err(e),
+    };
     let max_age_seconds = parse_timeframe_seconds(timeframe);
     let now = chrono::Utc::now().timestamp();
-
-    // If turns are present, filter and sum turn-level tokens
-    if let Some(turns) = parsed.get("turns").and_then(|t| t.as_array()) {
-        let mut prompt_sum = 0usize;
-        let mut completion_sum = 0usize;
-
-        for turn in turns {
-            if let Some(limit) = max_age_seconds {
-                if let Some(ts) = parse_turn_timestamp(turn) {
-                    if now - ts > limit {
-                        continue;
-                    }
-                }
-            }
-
-            let turn_prompt = turn.get("prompt_tokens")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize)
-                .unwrap_or_else(|| {
-                    turn.get("detail")
-                        .or_else(|| turn.get("cmd"))
-                        .and_then(|v| v.as_str())
-                        .map(|s| (s.len() + 3) / 4)
-                        .unwrap_or(0)
-                });
-
-            let turn_completion = turn.get("completion_tokens")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize)
-                .unwrap_or_else(|| {
-                    turn.get("action")
-                        .and_then(|v| v.as_str())
-                        .map(|s| (s.len() + 3) / 4)
-                        .unwrap_or(0)
-                });
-
-            prompt_sum += turn_prompt;
-            completion_sum += turn_completion;
-        }
-
-        if prompt_sum > 0 || completion_sum > 0 {
-            return Ok((prompt_sum, completion_sum));
-        }
+    match turns_tokens(&parsed, max_age_seconds, now) {
+        Some(v) => return Ok(v),
+        None => {},
     }
-
-    // Otherwise check top-level usage / metrics
-    if let Some(usage) = parsed.get("usage") {
-        let p = usage.get("prompt_tokens").or_else(|| usage.get("input_tokens")).and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-        let c = usage.get("completion_tokens").or_else(|| usage.get("output_tokens")).and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-        if p > 0 || c > 0 {
-            return Ok((p, c));
-        }
+    match usage_tokens(&parsed) {
+        Some(v) => return Ok(v),
+        None => {},
     }
-
-    if let Some(metrics) = parsed.get("metrics").and_then(|m| m.get("tokens")) {
-        let p = metrics.get("prompt").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-        let c = metrics.get("completion").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
-        if p > 0 || c > 0 {
-            return Ok((p, c));
-        }
+    match metrics_tokens(&parsed) {
+        Some(v) => return Ok(v),
+        None => {},
     }
-
-    // Default to character length estimation if no turns or usage fields exist
-    let char_count = content.len();
-    let prompt = (char_count / 4).max(1);
-    let completion = (prompt / 3).max(1);
-    Ok((prompt, completion))
+    Ok(estimate_tokens(&content))
 }
 
 #[cfg(test)]

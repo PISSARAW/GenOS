@@ -113,136 +113,43 @@ fn migrate_legacy(mut envelope: OmegaEnvelope) -> Result<OmegaEnvelope, String> 
     Ok(envelope)
 }
 
+#[path = "omega_compat.rs"]
+mod compat;
+
 pub fn read_compatible_json(bytes: &[u8]) -> Result<OmegaEnvelope, String> {
-    let value: Value =
-        serde_json::from_slice(bytes).map_err(|_| ERROR_ENVELOPE_INVALID.to_string())?;
-    let version = match value.get("version") {
-        None => 1,
-        Some(raw) => raw.as_u64().and_then(|n| u8::try_from(n).ok())
-            .ok_or_else(|| ERROR_VERSION_UNSUPPORTED.to_string())?,
+    let value = match compat::parse_envelope_value(bytes) {
+        Ok(v) => v,
+        Err(e) => return Err(e),
     };
-    let schema = value
-        .get("schema")
-        .and_then(Value::as_str)
-        .unwrap_or(SCHEMA);
-    if version == 0 || is_legacy_schema(schema) {
-        let operations = value
-            .get("operations")
-            .or_else(|| value.get("ops"))
-            .and_then(Value::as_array)
-            .ok_or(ERROR_ENVELOPE_INVALID)?
-            .iter()
-            .map(legacy_operation)
-            .collect::<Result<Vec<_>, _>>()?;
-        let policy = value
-            .get("policy")
-            .or_else(|| value.get("permissions"))
-            .and_then(Value::as_object)
-            .map(|items| {
-                items
-                    .iter()
-                    .map(|(key, values)| {
-                        let entries = values
-                            .as_array()
-                            .ok_or(ERROR_ENVELOPE_INVALID)?
-                            .iter()
-                            .map(|item| item.as_str().unwrap_or_default().to_string())
-                            .collect();
-                        Ok((key.clone(), entries))
-                    })
-                    .collect::<Result<Vec<_>, String>>()
-            })
-            .transpose()?
-            .unwrap_or_default();
-        let payload = value
-            .get("payload")
-            .cloned()
-            .or_else(|| value.get("context").cloned());
-        return migrate_legacy(OmegaEnvelope {
-            schema: schema.into(),
-            version,
-            id: value
-                .get("id")
-                .or_else(|| value.get("runId"))
-                .and_then(Value::as_str)
-                .unwrap_or("omega-legacy")
-                .into(),
-            operations,
-            policy,
-            payload,
-        });
+    let version = match compat::parse_version(&value) {
+        Ok(v) => v,
+        Err(e) => return Err(e),
+    };
+    let schema = compat::parse_schema(&value).to_string();
+    match compat::is_legacy_envelope(version, &schema) {
+        true => compat::build_legacy_envelope(&value, version, &schema),
+        false => compat::build_modern_envelope(&value, version, &schema),
     }
-    let operations = value
-        .get("operations")
-        .and_then(Value::as_array)
-        .ok_or(ERROR_ENVELOPE_INVALID)?
-        .iter()
-        .map(legacy_operation)
-        .collect::<Result<Vec<_>, _>>()?;
-    let policy = value
-        .get("policy")
-        .and_then(Value::as_object)
-        .map(|items| {
-            items
-                .iter()
-                .map(|(key, values)| {
-                    Ok((
-                        key.clone(),
-                        values
-                            .as_array()
-                            .ok_or(ERROR_ENVELOPE_INVALID)?
-                            .iter()
-                            .filter_map(Value::as_str)
-                            .map(String::from)
-                            .collect(),
-                    ))
-                })
-                .collect::<Result<Vec<_>, String>>()
-        })
-        .transpose()?
-        .unwrap_or_default();
-    let envelope = OmegaEnvelope {
-        schema: schema.into(),
-        version,
-        id: value
-            .get("id")
-            .and_then(Value::as_str)
-            .ok_or(ERROR_ENVELOPE_INVALID)?
-            .into(),
-        operations,
-        policy,
-        payload: value.get("payload").cloned(),
-    };
-    validate(&envelope)?;
-    Ok(envelope)
 }
 
 fn legacy_operation(value: &Value) -> Result<OmegaOperation, String> {
-    let text = |key: &str| value.get(key).and_then(Value::as_str).map(String::from);
-    let id = text("id")
-        .or_else(|| text("name"))
-        .ok_or(ERROR_OPERATION_INVALID)?;
-    let kind = text("kind")
-        .or_else(|| text("type"))
-        .ok_or(ERROR_OPERATION_INVALID)?;
-    let reference = text("reference").or_else(|| text("ref"));
-    let depends_on = value
-        .get("dependsOn")
-        .or_else(|| value.get("dependencies"))
-        .or_else(|| value.get("deps"))
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .map(String::from)
-                .collect()
-        })
-        .unwrap_or_default();
-    let state = text("state")
-        .or_else(|| text("status"))
-        .unwrap_or_else(|| "open".into());
+    let get_str = |key: &str| -> Option<String> { value.get(key).and_then(Value::as_str).map(String::from) };
+    let id = get_str("id").or_else(|| get_str("name")).ok_or(ERROR_OPERATION_INVALID)?;
+    let kind = get_str("kind").or_else(|| get_str("type")).ok_or(ERROR_OPERATION_INVALID)?;
+    let reference = get_str("reference").or_else(|| get_str("ref"));
+    let depends_on = extract_depends_on(value);
+    let state = get_str("state").or_else(|| get_str("status")).unwrap_or_else(|| "open".into());
     Ok(OmegaOperation(id, kind, reference, depends_on, state))
+}
+
+fn extract_depends_on(value: &Value) -> Vec<String> {
+    let keys = ["dependsOn", "dependencies", "deps"];
+    for key in keys {
+        if let Some(arr) = value.get(key).and_then(Value::as_array) {
+            return arr.iter().filter_map(Value::as_str).map(String::from).collect();
+        }
+    }
+    Vec::new()
 }
 
 pub fn encode(envelope: &OmegaEnvelope) -> Result<Vec<u8>, String> {

@@ -17,7 +17,7 @@ function computeChecksum(data) {
 
 function handleEncapsulate(args) {
   // host_agent_id obligatoire: aucun défaut Date.now() silencieux.
-  if (args.host_agent_id === undefined || args.host_agent_id === null || String(args.host_agent_id).trim() === '') {
+  if (handleEncapsulateCondition(args)) {
     return { configured: true, success: false, status: 'invalid_args', error: 'host_agent_id: is required.' };
   }
   const hostId = String(args.host_agent_id).trim();
@@ -29,7 +29,7 @@ function handleEncapsulate(args) {
   let cleanCheckpoint;
   try {
     const rawCheckpoint = args.clean_checkpoint === undefined ? { step: 0, memory: [], tools: [] } : args.clean_checkpoint;
-    if (!rawCheckpoint || typeof rawCheckpoint !== 'object' || Array.isArray(rawCheckpoint)) throw new Error('must be an object');
+    if (handleEncapsulateCondition2(rawCheckpoint)) throw new Error('must be an object');
     const serialized = JSON.stringify(rawCheckpoint);
     if (Buffer.byteLength(serialized, 'utf8') > 1024 * 1024) throw new Error('exceeds 1 MiB');
     cleanCheckpoint = JSON.parse(serialized);
@@ -260,3 +260,11 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function handleEncapsulateCondition(args) {
+  return args.host_agent_id === undefined || args.host_agent_id === null || String(args.host_agent_id).trim() === '';
+}
+
+function handleEncapsulateCondition2(rawCheckpoint) {
+  return !rawCheckpoint || typeof rawCheckpoint !== 'object' || Array.isArray(rawCheckpoint);
+}

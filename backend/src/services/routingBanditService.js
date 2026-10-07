@@ -254,30 +254,53 @@ async function canaryAllowed(db) {
   }
 }
 
+function explicitRouteChoice(list, settings) {
+  if (typeof settings.explicitRoute === 'string' && list.includes(settings.explicitRoute)) {
+    return { choice: settings.explicitRoute, mode: 'explicit', ordering: [settings.explicitRoute, ...list.filter((uri) => uri !== settings.explicitRoute)] };
+  }
+  return null;
+}
+
+function policyFallbackChoice(list, reason) {
+  return { choice: list[0], mode: 'policy', reason, ordering: list };
+}
+
+function banditOrderingChoice(list, top) {
+  const ordering = [top.uri, ...list.filter((uri) => uri !== top.uri)];
+  const disagreement = top.uri !== list[0];
+  return { choice: top.uri, mode: 'bandit', reason: disagreement ? 'disagreement' : 'agree', disagreement, ordering };
+}
+
+async function resolveBanditRecommendation(db, list, settings) {
+  const allowed = await canaryAllowed(db);
+  if (!allowed) return policyFallbackChoice(list, 'gate-closed');
+  const context = chooseWithGuardrailsContext(settings);
+  const rec = await recommend(db, { ...context, routes: list });
+  const top = rec.ordering[0];
+  const minPulls = Math.max(1, Math.floor(Number(settings.minPulls) || 5));
+  if (!top || top.pulls < minPulls) return policyFallbackChoice(list, 'cold');
+  return banditOrderingChoice(list, top);
+}
+
 async function chooseWithGuardrails(db, candidates, policy) {
   const list = Array.isArray(candidates) ? candidates.filter((uri) => typeof uri === 'string') : [];
   const settings = policy || {};
   if (!list.length) return { choice: null, mode: 'empty', ordering: [] };
-  if (typeof settings.explicitRoute === 'string' && list.includes(settings.explicitRoute)) {
-    return { choice: settings.explicitRoute, mode: 'explicit', ordering: [settings.explicitRoute, ...list.filter((uri) => uri !== settings.explicitRoute)] };
-  }
+  const explicit = explicitRouteChoice(list, settings);
+  if (explicit) return explicit;
   const rate = clampRate(settings.canaryRate, 0.05);
   if (hashBucket(settings.canaryKey || 'default') >= rate * 100) {
     return { choice: list[0], mode: 'policy', ordering: list };
   }
   try {
-    if (!(await canaryAllowed(db))) return { choice: list[0], mode: 'policy', reason: 'gate-closed', ordering: list };
-    const context = settings.context && typeof settings.context === 'object' ? settings.context : {};
-    const rec = await recommend(db, { ...context, routes: list });
-    const top = rec.ordering[0];
-    const minPulls = Math.max(1, Math.floor(Number(settings.minPulls) || 5));
-    if (!top || top.pulls < minPulls) return { choice: list[0], mode: 'policy', reason: 'cold', ordering: list };
-    const ordering = [top.uri, ...list.filter((uri) => uri !== top.uri)];
-    const disagreement = top.uri !== list[0];
-    return { choice: top.uri, mode: 'bandit', reason: disagreement ? 'disagreement' : 'agree', disagreement, ordering };
+    return await resolveBanditRecommendation(db, list, settings);
   } catch (_) {
     return { choice: list[0], mode: 'policy', ordering: list };
   }
 }
 
 module.exports = { observe, recommend, report, chooseWithGuardrails, evaluateLoggedHoldout, scoreCalibration, parseUsageRow, canaryAllowed, DIM, MAX_ARMS };
+
+function chooseWithGuardrailsContext(settings) {
+  return settings.context && typeof settings.context === 'object' ? settings.context : {};
+}

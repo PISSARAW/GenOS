@@ -16,8 +16,7 @@ function createLedger() {
   function materialize(input = {}) {
     const session = sessionOf(input.sessionId);
     const objectId = input.objectId || keyOf(input.value);
-    session.objects.set(objectId, { value: input.value, revision: session.revision, scope: input.scope ?? null,
-      expiresAt: input.expiresAt || null, valid: true });
+    createLedgerValues(session, objectId, input);
     return { objectId, revision: session.revision, mode: 'materialized' };
   }
   function invalidate(input = {}) {
@@ -31,8 +30,7 @@ function createLedger() {
     const session = sessionOf(input.sessionId);
     const entry = session.objects.get(input.objectId);
     const expires = typeof entry?.expiresAt === 'string' ? Date.parse(entry.expiresAt) : entry?.expiresAt;
-    const fresh = entry && entry.valid && entry.scope === (input.scope ?? null)
-      && (!entry.expiresAt || expires > Date.now());
+    const fresh = createLedgerFresh(entry, input, expires);
     return { visible: Boolean(fresh), revision: session.revision,
       value: fresh ? entry.value : undefined };
   }
@@ -40,3 +38,13 @@ function createLedger() {
 }
 
 module.exports = { createLedger };
+
+function createLedgerFresh(entry, input, expires) {
+  return entry && entry.valid && entry.scope === (input.scope ?? null)
+      && (!entry.expiresAt || expires > Date.now());
+}
+
+function createLedgerValues(session, objectId, input) {
+  return session.objects.set(objectId, { value: input.value, revision: session.revision, scope: input.scope ?? null,
+      expiresAt: input.expiresAt || null, valid: true });
+}

@@ -155,15 +155,8 @@ async function compareBranches(ctx) {
   if (!Array.isArray(branchIds) || branchIds.length < 2)
     throw err('need >=2 branchIds', 'SPEC_BAD_INPUT');
   const { reg, snaps } = await fetchRegSnaps(sid, o, syn);
-  const metricValues = ctx.metrics || o?.metrics || {};
-  const branches = await Promise.all(branchIds.map(async (id) => {
-    if (!reg[id]) throw err(`branch '${id}' not found`, 'SPEC_BRANCH_NOT_FOUND');
-    const b = reg[id];
-    const native = await syn.compareSpeculativeBranch(sid, { branchId: id, options: o });
-    return { branchId: id, status: b.status, label: b.label || null,
-      createdAt: b.createdAt, baseSnapshotId: b.baseSnapshotId,
-      snapshot: native.simulated, changedFields: native.changedFields, metric: metricValues[id] };
-  }));
+  const metricValues = compareBranchesMetricValues(ctx, o);
+  const branches = await compareNativeBranches({ branchIds, reg, syn, sid, o, metricValues });
   const metricName = ctx.metricName || o?.metricName;
   if (metricName && branches.some((branch) => !Number.isFinite(branch.metric))) {
     throw err(`Metric '${metricName}' requires one finite value for every branch`, 'SPEC_METRIC_INVALID');
@@ -286,3 +279,18 @@ async function fetchRegSnaps(sid, o, syn) {
 const fetchReg = fetchRegSnaps;
 
 module.exports = { createSpeculativeVariantService };
+
+function compareBranchesMetricValues(ctx, o) {
+  return ctx.metrics || o?.metrics || {};
+}
+
+async function compareNativeBranches({ branchIds, reg, syn, sid, o, metricValues }) {
+  return await Promise.all(branchIds.map(async (id) => {
+    if (!reg[id]) throw err(`branch '${id}' not found`, 'SPEC_BRANCH_NOT_FOUND');
+    const b = reg[id];
+    const native = await syn.compareSpeculativeBranch(sid, { branchId: id, options: o });
+    return { branchId: id, status: b.status, label: b.label || null,
+      createdAt: b.createdAt, baseSnapshotId: b.baseSnapshotId,
+      snapshot: native.simulated, changedFields: native.changedFields, metric: metricValues[id] };
+  }));
+}

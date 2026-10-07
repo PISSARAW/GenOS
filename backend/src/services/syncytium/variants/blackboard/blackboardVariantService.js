@@ -27,15 +27,8 @@ async function post(context) {
   const { sessionId, eventType, request = {}, syncytium } = context;
   validateEvent(eventType, request);
   const createdAt = request.createdAt ?? Date.now();
-  const event = {
-    eventId: request.eventId || randomUUID(), eventType,
-    objectType: request.objectType || eventType,
-    priority: request.priority || 0,
-    actorId: request.actorId, provenance: { actorId: request.actorId, nucleusId: request.nucleusId || null },
-    payload: request.payload, respondsTo: request.respondsTo || null, createdAt,
-    expiresAt: request.ttlMs ? createdAt + request.ttlMs : null
-  };
-  if (event.respondsTo) await validateRespondsTo(syncytium, sessionId, request.options || {}, event.respondsTo);
+  const event = postEvent(request, eventType, createdAt);
+  if (event.respondsTo) await validateRespondsTo(syncytium, sessionId, { options: request.options || {}, respondsTo: event.respondsTo });
   const result = await syncytium.applyOperation(sessionId, {
     opId: request.opId || randomUUID(), actorId: request.actorId,
     kind: { type: 'typed_field', key: 'events', action: 'add', value: event }
@@ -91,7 +84,7 @@ function validateEventType(objectType) {
   }
 }
 
-async function validateRespondsTo(syncytium, sessionId, options, respondsTo) {
+async function validateRespondsTo(syncytium, sessionId, { options, respondsTo } = {}) {
   const snapshot = await syncytium.snapshot(sessionId, options);
   const events = snapshot.shared.sharedFields.events || [];
   const target = events.find((event) => event.eventId === respondsTo);
@@ -144,3 +137,14 @@ function blackboardError(message) {
 }
 
 module.exports = { createBlackboardVariantService };
+
+function postEvent(request, eventType, createdAt) {
+  return {
+    eventId: request.eventId || randomUUID(), eventType,
+    objectType: request.objectType || eventType,
+    priority: request.priority || 0,
+    actorId: request.actorId, provenance: { actorId: request.actorId, nucleusId: request.nucleusId || null },
+    payload: request.payload, respondsTo: request.respondsTo || null, createdAt,
+    expiresAt: request.ttlMs ? createdAt + request.ttlMs : null
+  };
+}

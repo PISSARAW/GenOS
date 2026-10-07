@@ -21,6 +21,9 @@ mod core;
 mod query;
 mod advanced;
 mod system;
+mod system_parallel;
+mod system_generate;
+mod system_interactive;
 mod recovery;
 
 fn run_command(command: &Commands, yes: bool) {

@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod agent_validate;
 pub mod agent_mutate;
 pub mod accounting;
 pub mod api_server;
@@ -11,10 +12,12 @@ pub mod biomimicry_ops;
 pub mod biomimicry_sensory;
 pub mod biological;
 pub mod capsule;
+pub mod capsule_loop;
 pub mod capsule_audit;
 pub mod compliance;
 pub mod hallucination;
 pub mod platform;
+pub mod platform_ops;
 pub mod experiments;
 pub mod genome;
 pub mod genome_ops;

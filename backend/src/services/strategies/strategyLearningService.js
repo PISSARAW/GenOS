@@ -30,10 +30,10 @@ function recordExperience(ctx) {
     topology: topology || null,
     model: model || null,
     outcome,
-    tokens: Number.isFinite(tokens) ? tokens : null,
-    latency: Number.isFinite(latency) ? latency : null,
-    evidenceGain: Number.isFinite(evidenceGain) ? evidenceGain : null,
-    informationGain: Number.isFinite(informationGain) ? informationGain : null,
+    tokens: finiteMetric(tokens),
+    latency: finiteMetric(latency),
+    evidenceGain: finiteMetric(evidenceGain),
+    informationGain: finiteMetric(informationGain),
     recordedAt: new Date().toISOString(),
   };
 }
@@ -134,3 +134,7 @@ module.exports = {
   predictUtility,
   storeExperience,
 };
+
+function finiteMetric(value) {
+  return Number.isFinite(value) ? value : null;
+}

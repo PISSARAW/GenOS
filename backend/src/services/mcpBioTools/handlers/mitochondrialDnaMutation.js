@@ -84,8 +84,7 @@ function handleMitochondrialDnaMutation(args = {}) {
   if (typeof mtdnaId !== 'string' || !mtdnaId.trim() || mtdnaId.length > 120) {
     return { configured: true, success: false, status: 'invalid_args', error: 'id must be a non-empty string of at most 120 characters.' };
   }
-  if (action === 'mutate_mtdna_under_stress' && args.stress_level !== undefined &&
-      (typeof args.stress_level !== 'number' || !Number.isFinite(args.stress_level) || args.stress_level < 0.1 || args.stress_level > 5)) {
+  if (handleMitochondrialDnaMutationCondition(action, args)) {
     return { configured: true, success: false, status: 'invalid_args', error: 'stress_level must be a finite number from 0.1 to 5.' };
   }
   const record = getMtdnaRecord(mtdnaId);
@@ -181,3 +180,8 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function handleMitochondrialDnaMutationCondition(action, args) {
+  return action === 'mutate_mtdna_under_stress' && args.stress_level !== undefined &&
+      (typeof args.stress_level !== 'number' || !Number.isFinite(args.stress_level) || args.stress_level < 0.1 || args.stress_level > 5);
+}

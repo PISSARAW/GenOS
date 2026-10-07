@@ -84,19 +84,15 @@ function organizationFor(project, topology) {
   return { organization: configured, error: null };
 }
 
-function inferredTopology(project, profile, kind) {
+function configuredTopologySelection(project) {
   const config = projectConfig(project);
   const configured = config.topology || config.morphology?.topology;
   if (configured && !isTopology(configured)) return { topology: null, reason: 'topologie-configuree-inconnue' };
   if (configured) return { topology: configured, reason: 'configuration' };
-  const text = normalizeText(`${project.objective || ''} ${profile.stack.join(' ')}`);
-  if (/browser|navigat|forag|web.*collect|collect.*web/.test(text)) return { topology: 'biome', reason: 'perception-web' };
-  if (/crdt|etat partage|état partagé|coherence distrib|cohérence distrib/.test(text)) return { topology: 'syncytium', reason: 'etat-partage' };
-  if (/decentral|décentral|multi[- ]?branche|routage distrib|route distrib/.test(text)) return { topology: 'rhizome', reason: 'routage-distribue' };
-  if (/recuper|récupér|resilien|résilien|crash|panne/.test(text) || kind === 'repair') {
-    return { topology: 'metapopulation', reason: 'recuperation' };
-  }
-  if (/symbio|host|hote|hôte|immune/.test(text)) return { topology: 'holobionte', reason: 'relation-hote' };
+  return null;
+}
+
+function fallbackTopologyByKind(kind, profile) {
   if (kind === 'explore') return { topology: 'rhizome', reason: 'exploration' };
   if (kind === 'decide') return { topology: 'biocenose', reason: 'deliberation' };
   if (kind === 'verify') return { topology: 'trinity', reason: 'verification-comparative' };
@@ -104,6 +100,15 @@ function inferredTopology(project, profile, kind) {
     return { topology: 'a_team', reason: 'implementation-structuree' };
   }
   return { topology: 'trinity', reason: 'repli-evidence' };
+}
+
+function inferredTopology(project, profile, kind) {
+  const configured = configuredTopologySelection(project);
+  if (configured) return configured;
+  const text = normalizeText(`${project.objective || ''} ${profile.stack.join(' ')}`);
+  const objectiveTopology = topologyByObjective(text, kind);
+  if (objectiveTopology) return objectiveTopology;
+  return fallbackTopologyByKind(kind, profile);
 }
 
 function morphologyFor(input) {
@@ -187,3 +192,14 @@ function linkCompiledTasks(tasks) {
 }
 
 module.exports = { compileMission, linkCompiledTasks, classifyMission };
+
+function topologyByObjective(text, kind) {
+  if (/browser|navigat|forag|web.*collect|collect.*web/.test(text)) return { topology: 'biome', reason: 'perception-web' };
+  if (/crdt|etat partage|état partagé|coherence distrib|cohérence distrib/.test(text)) return { topology: 'syncytium', reason: 'etat-partage' };
+  if (/decentral|décentral|multi[- ]?branche|routage distrib|route distrib/.test(text)) return { topology: 'rhizome', reason: 'routage-distribue' };
+  if (/recuper|récupér|resilien|résilien|crash|panne/.test(text) || kind === 'repair') {
+    return { topology: 'metapopulation', reason: 'recuperation' };
+  }
+  if (/symbio|host|hote|hôte|immune/.test(text)) return { topology: 'holobionte', reason: 'relation-hote' };
+  return null;
+}

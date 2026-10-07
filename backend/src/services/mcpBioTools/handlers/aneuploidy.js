@@ -55,8 +55,8 @@ function handleMonosomyAction(record, aneId, targetChrom) {
 
 function handleConsensusAction(args) {
   const votes = args.votes === undefined ? ['APPROVE', 'APPROVE', 'REJECT'] : args.votes;
-  if (!Array.isArray(votes) || votes.length === 0 || votes.length > 128 ||
-      !votes.every(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 128)) {
+  if (handleConsensusActionCondition(votes) ||
+      !votes.every(v => handleConsensusActionCondition2(v))) {
     return { configured: true, success: false, status: 'invalid_args', error: 'votes must contain 1 to 128 non-empty strings (max 128 chars each).' };
   }
   const counts = new Map();
@@ -89,7 +89,7 @@ function handleAneuploidy(args = {}) {
   const action = args.action || 'status';
   const aneId = args.id || `aneu-${Date.now()}`;
   const targetChrom = args.target_chromosome || 'chrom_verifier';
-  if (typeof aneId !== 'string' || !aneId.trim() || aneId.length > 120 || typeof targetChrom !== 'string' || !VALID_CHROMOSOMES.has(targetChrom)) {
+  if (handleAneuploidyCondition(aneId, targetChrom)) {
     return { configured: true, success: false, status: 'invalid_args', error: 'id must be a non-empty string (max 120 chars); target_chromosome must be a known karyotype key.' };
   }
   const record = getAneuploidyRecord(aneId);
@@ -185,3 +185,15 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function handleAneuploidyCondition(aneId, targetChrom) {
+  return typeof aneId !== 'string' || !aneId.trim() || aneId.length > 120 || typeof targetChrom !== 'string' || !VALID_CHROMOSOMES.has(targetChrom);
+}
+
+function handleConsensusActionCondition(votes) {
+  return !Array.isArray(votes) || votes.length === 0 || votes.length > 128;
+}
+
+function handleConsensusActionCondition2(v) {
+  return typeof v === 'string' && v.trim().length > 0 && v.length <= 128;
+}

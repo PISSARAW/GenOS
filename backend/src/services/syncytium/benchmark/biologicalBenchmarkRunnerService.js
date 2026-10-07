@@ -29,29 +29,33 @@ async function runCampaign(manifest, db) {
   return reportCampaign(manifest, runs);
 }
 
-function validateManifest(manifest) {
-  if (!manifest || !String(manifest.mission || '').trim()) throw invalid('mission is required.');
+function assertManifestShape(manifest) {
+  if (validateManifestCondition5(manifest)) throw invalid('mission is required.');
   if (!manifest.budget || typeof manifest.budget !== 'object') throw invalid('budget is required.');
   if (!Number.isSafeInteger(manifest.repetitions) || manifest.repetitions < 1) throw invalid('repetitions must be a positive integer.');
+}
+
+function assertManifestClaims(manifest) {
   if (!Array.isArray(manifest.expectedClaims) || manifest.expectedClaims.length === 0) throw invalid('expectedClaims must contain at least one oracle claim.');
-  if (manifest.expectedClaims.some((claim) => !claim || !claim.subject || !claim.predicate || claim.value === undefined)) throw invalid('Each expected claim needs subject, predicate, and value.');
+  if (manifest.expectedClaims.some((claim) => validateManifestCondition2(claim))) throw invalid('Each expected claim needs subject, predicate, and value.');
   if (!SUPPORTED_VARIANTS.has(manifest.variantId)) throw invalid('variantId must select a registered Syncytium policy or the transversal protocol.');
-  if (manifest.caseId) {
-    const scenario = missionCatalog.cases.find((item) => item.id === manifest.caseId);
-    if (!scenario || scenario.variantId !== manifest.variantId
-      || scenario.mission !== manifest.mission) throw invalid('caseId, variantId and mission must match the versioned catalog.');
-  }
-  if (manifest.variantId === 'humanAi' && !manifest.configuration?.nuclei?.some((nucleus) => nucleus.kind === 'human')) {
-    throw invalid('Human-AI campaigns require a configured human nucleus.');
-  }
-  validateBudget(manifest.budget);
-  validateCampaignBudget(manifest);
-  if (manifest.timeoutMs !== undefined && (!Number.isSafeInteger(manifest.timeoutMs) || manifest.timeoutMs < 10000 || manifest.timeoutMs > 600000)) throw invalid('timeoutMs must be an integer from 10000 through 600000.');
+}
+
+function assertManifestTimeouts(manifest) {
+  if (validateManifestCondition(manifest)) throw invalid('timeoutMs must be an integer from 10000 through 600000.');
   const minimumScenarioTimeout = (manifest.timeoutMs || 600000) * Math.ceil(MAX_WORKERS_PER_SCENARIO / 2) + 30000;
-  if (manifest.scenarioTimeoutMs !== undefined
-    && (!Number.isSafeInteger(manifest.scenarioTimeoutMs) || manifest.scenarioTimeoutMs < minimumScenarioTimeout)) {
+  if (validateManifestCondition3(manifest, minimumScenarioTimeout)) {
     throw invalid(`scenarioTimeoutMs must cover three worker waves and startup margin (at least ${minimumScenarioTimeout} ms).`);
   }
+}
+
+function validateManifest(manifest) {
+  assertManifestShape(manifest);
+  assertManifestClaims(manifest);
+  validateScenarioIdentity(manifest);
+  validateBudget(manifest.budget);
+  validateCampaignBudget(manifest);
+  assertManifestTimeouts(manifest);
 }
 
 function validateCampaignBudget(manifest) {
@@ -89,16 +93,10 @@ async function executeRun({ manifest, db, variant, repetition }) {
       .catch((error) => ({ measured: false, pass: false,
         reason: 'oracle_evaluation_error', code: error.code || null, error: error.message }))
     : { measured: false, pass: false, reason: 'baseline_without_variant_oracle' };
-  const topologyComplete = variant.name === 'isolated_baseline'
-    ? output.biologicalMode?.status === 'accepted'
-    : output.biologicalMode?.complete === true && output.biologicalMode?.status === 'completed';
-  const executionValid = topologyComplete
-    && !output.biologicalMode?.dispatchFailures?.length
-    && members.length > 0 && members.every((member) => member.status === 'completed')
+  const topologyComplete = executeRunTopologyComplete(variant, output);
+  const executionValid = executeRunCondition(topologyComplete, output, members) && members.every((member) => member.status === 'completed')
     && observedBudget.verified;
-  const complete = executionValid
-    && validation.status === 'complete'
-    && quality.value === 1 && (variant.name !== 'syncytium' || oracle.pass);
+  const complete = executeRunComplete({ executionValid, validation, quality, variant, oracle });
   return {
     variant: variant.name, caseId: manifest.caseId || null,
     task: manifest.mission, repetition: repetition + 1,
@@ -242,3 +240,53 @@ function invalid(message) {
 }
 
 module.exports = { runCampaign, validateManifest, qualityScore, metricCounts };
+
+function validateManifestCondition(manifest) {
+  return manifest.timeoutMs !== undefined && (!Number.isSafeInteger(manifest.timeoutMs) || manifest.timeoutMs < 10000 || manifest.timeoutMs > 600000);
+}
+
+function validateManifestCondition2(claim) {
+  return !claim || !claim.subject || !claim.predicate || claim.value === undefined;
+}
+
+function validateManifestCondition3(manifest, minimumScenarioTimeout) {
+  return manifest.scenarioTimeoutMs !== undefined
+    && (!Number.isSafeInteger(manifest.scenarioTimeoutMs) || manifest.scenarioTimeoutMs < minimumScenarioTimeout);
+}
+
+function validateManifestCondition4(scenario, manifest) {
+  return !scenario || scenario.variantId !== manifest.variantId
+      || scenario.mission !== manifest.mission;
+}
+
+function validateManifestCondition5(manifest) {
+  return !manifest || !String(manifest.mission || '').trim();
+}
+
+function executeRunComplete({ executionValid, validation, quality, variant, oracle }) {
+  return executionValid
+    && validation.status === 'complete'
+    && quality.value === 1 && (variant.name !== 'syncytium' || oracle.pass);
+}
+
+function executeRunTopologyComplete(variant, output) {
+  return variant.name === 'isolated_baseline'
+    ? output.biologicalMode?.status === 'accepted'
+    : output.biologicalMode?.complete === true && output.biologicalMode?.status === 'completed';
+}
+
+function executeRunCondition(topologyComplete, output, members) {
+  return topologyComplete
+    && !output.biologicalMode?.dispatchFailures?.length
+    && members.length > 0;
+}
+
+function validateScenarioIdentity(manifest) {
+if (manifest.caseId) {
+    const scenario = missionCatalog.cases.find((item) => item.id === manifest.caseId);
+    if (validateManifestCondition4(scenario, manifest)) throw invalid('caseId, variantId and mission must match the versioned catalog.');
+  }
+  if (manifest.variantId === 'humanAi' && !manifest.configuration?.nuclei?.some((nucleus) => nucleus.kind === 'human')) {
+    throw invalid('Human-AI campaigns require a configured human nucleus.');
+  }
+}

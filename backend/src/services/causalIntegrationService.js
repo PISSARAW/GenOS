@@ -71,29 +71,8 @@ async function analyzeCircuit(db, agentId, options) {
     const outcome = matrix[0].map((_, bin) => (rows.some((row) => row.eventType === 'AGENT_COMPLETED' && binOf(row.created_at, spec) === bin) ? 1 : 0));
     const base = proxy.minCutIntegration(matrix);
     const baseDiff = proxy.differentiationOf(matrix);
-    const nodeAblations = matrix.map((row, position) => {
-      const masked = matrix.filter((_, other) => other !== position);
-      const cut = masked.length ? proxy.minCutIntegration(masked) : { integration: 0 };
-      const diff = masked.length ? proxy.differentiationOf(masked) : { repertoire: 0, entropy: 0 };
-      return {
-        node: agents[position],
-        dIntegration: cut.integration - base.integration,
-        dDifferentiation: diff.repertoire - baseDiff.repertoire,
-        recommendation: cut.integration - base.integration <= -0.3 ? 'protect_channel' : baseDiff.repertoire - diff.repertoire <= 0 && proxy.normalizedMI(row, outcome) < 0.1 ? 'prune_candidate' : 'observe'
-      };
-    });
-    const pairwise = [];
-    const hasOutcome = outcome.some((bit) => bit === 1);
-    for (let i = 0; i < matrix.length; i++) {
-      for (let j = i + 1; j < matrix.length; j++) {
-        const nmiA = hasOutcome ? proxy.normalizedMI(matrix[i], outcome) : 0;
-        const nmiB = hasOutcome ? proxy.normalizedMI(matrix[j], outcome) : 0;
-        const joint = hasOutcome ? proxy.normalizedMI(andAggregate(matrix[i], matrix[j]), outcome) : 0;
-        const pid = pidOf(nmiA, nmiB, joint);
-        const coupling = proxy.normalizedMI(matrix[i], matrix[j]);
-        pairwise.push({ a: agents[i], b: agents[j], coupling, ...pid, recommendation: recommendPair(pid, coupling) });
-      }
-    }
+    const nodeAblations = simulateNodeAblations({ matrix, agents, outcome, base, baseDiff });
+    const { pairwise, hasOutcome } = circuitPairwiseEvidence(matrix, outcome, agents);
     return {
       status: 'measured',
       agentId,
@@ -115,3 +94,33 @@ function binOf(createdAt, spec) {
 }
 
 module.exports = { analyzeCircuit };
+
+function simulateNodeAblations({ matrix, agents, outcome, base, baseDiff }) {
+  return matrix.map((row, position) => {
+      const masked = matrix.filter((_, other) => other !== position);
+      const cut = masked.length ? proxy.minCutIntegration(masked) : { integration: 0 };
+      const diff = masked.length ? proxy.differentiationOf(masked) : { repertoire: 0, entropy: 0 };
+      return {
+        node: agents[position],
+        dIntegration: cut.integration - base.integration,
+        dDifferentiation: diff.repertoire - baseDiff.repertoire,
+        recommendation: cut.integration - base.integration <= -0.3 ? 'protect_channel' : baseDiff.repertoire - diff.repertoire <= 0 && proxy.normalizedMI(row, outcome) < 0.1 ? 'prune_candidate' : 'observe'
+      };
+    });
+}
+
+function circuitPairwiseEvidence(matrix, outcome, agents) {
+const pairwise = [];
+    const hasOutcome = outcome.some((bit) => bit === 1);
+    for (let i = 0; i < matrix.length; i++) {
+      for (let j = i + 1; j < matrix.length; j++) {
+        const nmiA = hasOutcome ? proxy.normalizedMI(matrix[i], outcome) : 0;
+        const nmiB = hasOutcome ? proxy.normalizedMI(matrix[j], outcome) : 0;
+        const joint = hasOutcome ? proxy.normalizedMI(andAggregate(matrix[i], matrix[j]), outcome) : 0;
+        const pid = pidOf(nmiA, nmiB, joint);
+        const coupling = proxy.normalizedMI(matrix[i], matrix[j]);
+        pairwise.push({ a: agents[i], b: agents[j], coupling, ...pid, recommendation: recommendPair(pid, coupling) });
+      }
+    }
+return { pairwise, hasOutcome };
+}

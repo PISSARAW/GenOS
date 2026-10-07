@@ -93,7 +93,7 @@ function handlePolyploidy(args = {}) {
   if (typeof polyId !== 'string' || !polyId.trim() || polyId.length > 120) {
     return { configured: true, success: false, status: 'invalid_args', error: 'id must be a non-empty string of at most 120 characters.' };
   }
-  if (action === 'multiply_genome_ploidy' && args.ploidy_level !== undefined && ![2, 3, 4, 6, 8].includes(args.ploidy_level)) {
+  if (handlePolyploidyCondition(action, args)) {
     return { configured: true, success: false, status: 'invalid_args', error: 'ploidy_level must be one of 2, 3, 4, 6, or 8.' };
   }
   const record = getPolyploidyRecord(polyId);
@@ -188,3 +188,7 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function handlePolyploidyCondition(action, args) {
+  return action === 'multiply_genome_ploidy' && args.ploidy_level !== undefined && ![2, 3, 4, 6, 8].includes(args.ploidy_level);
+}

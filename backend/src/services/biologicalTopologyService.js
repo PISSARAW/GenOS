@@ -93,9 +93,7 @@ function composeBiocenose({ db, orchestratorId, mission, options = {} }) {
 
 async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
   const schema = options.sessionOptions?.schema || readSyncytiumSchema();
-  const initialConfiguration = { useVariantRuntime: true, ...(options.configuration || (schema ? {
-    fields: schema.fields, invariants: schema.invariants
-  } : {})) };
+  const initialConfiguration = composeSyncytiumInitialConfiguration(options, schema);
   const variantId = options.variantId || options.variant;
   const selectedVariantId = require('./syncytium/variants/variantPolicyRegistry')
     .selectPolicy(mission, { variantId }).id;
@@ -169,3 +167,9 @@ async function composeAxolotl(input) {
 }
 
 module.exports = { composeMode, normalizeMode };
+
+function composeSyncytiumInitialConfiguration(options, schema) {
+  return { useVariantRuntime: true, ...(options.configuration || (schema ? {
+    fields: schema.fields, invariants: schema.invariants
+  } : {})) };
+}

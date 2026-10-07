@@ -17,14 +17,34 @@ async function workerStates(db, receipt) {
     evidenceReport: parseWorkerReport(row.report_json) }));
 }
 
-function hasSubstantiveReport(report) {
-  if (!report || typeof report !== 'object') return false;
+function isSubstantiveClaim(claim) {
+  return typeof claim?.statement === 'string' && claim.statement.trim().length > 20;
+}
+
+function hasSubstantiveClaims(report) {
   const claims = Array.isArray(report.claims) ? report.claims : [];
-  if (claims.some((claim) => typeof claim?.statement === 'string' && claim.statement.trim().length > 20)) return true;
-  if (typeof report.artifactText === 'string' && report.artifactText.trim().length > 40) return true;
-  if (Array.isArray(report.tests) && report.tests.length > 0) return true;
+  return claims.some((claim) => isSubstantiveClaim(claim));
+}
+
+function hasArtifactText(report) {
+  return typeof report.artifactText === 'string' && report.artifactText.trim().length > 40;
+}
+
+function hasTestEvidence(report) {
+  return Array.isArray(report.tests) && report.tests.length > 0;
+}
+
+function hasEmbeddedContent(report) {
   const content = report.workerArtifact?.content || report.artifact?.content;
   return typeof content === 'string' && content.trim().length > 40;
+}
+
+function hasSubstantiveReport(report) {
+  if (!report || typeof report !== 'object') return false;
+  if (hasSubstantiveClaims(report)) return true;
+  if (hasArtifactText(report)) return true;
+  if (hasTestEvidence(report)) return true;
+  return hasEmbeddedContent(report);
 }
 
 function assessTopologyMission(input) {

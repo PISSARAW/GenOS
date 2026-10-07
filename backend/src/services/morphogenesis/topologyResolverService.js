@@ -139,10 +139,8 @@ function measuredDaemonSupport(id, context) {
   const headSha = String(support?.headSha || '');
   const validHead = /^[a-f0-9]{40}$/i.test(headSha);
   const currentHeadMatches = !currentHead || headSha.toLowerCase() === String(currentHead).toLowerCase();
-  const hasEvidence = typeof support?.evidenceRef === 'string' && Boolean(support.evidenceRef.trim())
-    && typeof support?.daemonId === 'string' && Boolean(support.daemonId.trim()) && validHead;
-  if (!hasEvidence || !currentHeadMatches || support.status !== 'HEALTHY'
-    || !territoryId || support.territoryId !== territoryId) return 0;
+  const hasEvidence = measuredDaemonSupportHasEvidence(support, validHead);
+  if (measuredDaemonSupportCondition({ hasEvidence, currentHeadMatches, support, territoryId })) return 0;
   const score = Number(support.score);
   return Number.isFinite(score) ? Math.max(0, Math.min(1, score)) : 0;
 }
@@ -242,3 +240,13 @@ function resolveTopology(ctx) {
 }
 
 module.exports = { TOPOLOGIES, ALL_IDS, scoreTopology, compareTopologies, getTransitionCost, resolveTopology, weightedScore };
+
+function measuredDaemonSupportHasEvidence(support, validHead) {
+  return typeof support?.evidenceRef === 'string' && Boolean(support.evidenceRef.trim())
+    && typeof support?.daemonId === 'string' && Boolean(support.daemonId.trim()) && validHead;
+}
+
+function measuredDaemonSupportCondition({ hasEvidence, currentHeadMatches, support, territoryId }) {
+  return !hasEvidence || !currentHeadMatches || support.status !== 'HEALTHY'
+    || !territoryId || support.territoryId !== territoryId;
+}

@@ -31,7 +31,7 @@ async function applyCodeChange(context) {
   const current = snapshot.shared.sharedFields.files || {};
   assertExpectedHash(change, current[filePath]);
   const file = inspector.inspect(filePath, change.content);
-  assertFileUnlocked(current[filePath], change.actorId, timeNow(change.now), change.lockToken);
+  assertFileUnlocked(current[filePath], change.actorId, { now: timeNow(change.now), lockToken: change.lockToken });
   file.expectedHash = change.expectedHash;
   return syncytium.applyTransaction(sessionId, { txId: change.txId || change.opId,
     operations: [{ opId: change.opId, actorId: change.actorId, role: change.role,
@@ -170,8 +170,7 @@ async function releaseLock(sessionId, request = {}, syncytium) {
     }
   }
   if (!released.length) throw codeError('SYNCYTIUM_CODE_LOCK_NOT_FOUND', 'Code file has no active lock.');
-  const result = await syncytium.applyTransaction(sessionId, { txId: request.txId || request.opId || randomUUID(),
-    operations, preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' }, request.options || {});
+  const result = await releaseLockValues({ syncytium, sessionId, request, operations, snapshot });
   return { ...result, released };
 }
 
@@ -212,17 +211,17 @@ function lockClosure(files, filePath) {
 function assertClosureUnlocked(context) {
   const { files, closure, actorId, now } = context;
   for (const path of closure) {
-    const blocking = foreignLock(files[path], actorId, now);
+    const blocking = foreignLock(files[path], actorId, { now: now });
     if (blocking) throw codeError('SYNCYTIUM_CODE_LOCK_CONFLICT', `File '${path}' is locked by '${blocking.actorId}'.`);
   }
 }
 
-function assertFileUnlocked(file, actorId, now, lockToken) {
-  const blocking = foreignLock(file, actorId, now, lockToken);
+function assertFileUnlocked(file, actorId, { now, lockToken } = {}) {
+  const blocking = foreignLock(file, actorId, { now: now, lockToken: lockToken });
   if (blocking) throw codeError('SYNCYTIUM_CODE_LOCK_CONFLICT', 'Code file is locked by another actor.');
 }
 
-function foreignLock(file, actorId, now, lockToken) {
+function foreignLock(file, actorId, { now, lockToken } = {}) {
   const lock = file?.lockedBy;
   if (!lock || !(lock.expiresAt > now)) return null;
   if (lock.actorId === actorId && lock.lockToken === lockToken) return null;
@@ -265,3 +264,8 @@ function codeError(code, message) {
 }
 
 module.exports = { createCodeVariantService };
+
+function releaseLockValues({ syncytium, sessionId, request, operations, snapshot }) {
+  return syncytium.applyTransaction(sessionId, { txId: request.txId || request.opId || randomUUID(),
+    operations, preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' }, request.options || {});
+}

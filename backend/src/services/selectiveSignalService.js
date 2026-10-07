@@ -99,10 +99,56 @@ async function deliverTo(db, signal, agentId) {
   return signalId;
 }
 
+function receptorDecision(params) {
+  const { receptor, signal, intensity, levels, now } = params;
+  if (!receptor.modalities.includes(signal.modality)) return { action: 'suppress', reason: 'no_receptor' };
+  const effective = intensity * effectiveLevel(levels, signal.signature, now);
+  if (effective < receptor.minIntensity) {
+    return { action: 'suppress', reason: levels[signal.signature] ? 'desensitized' : 'below_threshold' };
+  }
+  return { action: 'deliver' };
+}
+
+async function routeSignalToAgents(params) {
+  const { opened, agents, roles, signal, state } = params;
+  const delivered = [];
+  const suppressed = [];
+  for (const id of agents) {
+    const decision = receptorDecision({ receptor: receptorFor(roles[id]), signal, intensity: state.intensity, levels: state.levels, now: state.now });
+    if (decision.action === 'suppress') {
+      suppressed.push({ agentId: id, reason: decision.reason });
+      continue;
+    }
+    const outcome = await tryDeliverSignal({ opened, signal, agentId: id, state });
+    if (outcome.delivered) {
+      state.levels = outcome.levels;
+      delivered.push(id);
+    } else {
+      suppressed.push({ agentId: id, reason: 'delivery_failed' });
+    }
+  }
+  return { delivered, suppressed };
+}
+
+async function tryDeliverSignal(params) {
+  const { opened, signal, agentId, state } = params;
+  try {
+    await deliverTo(opened.db, signal, agentId);
+    return { delivered: true, levels: afterDelivery(state.levels, signal.signature, state.now) };
+  } catch (_) {
+    return { delivered: false };
+  }
+}
+
+async function persistSignalLevels(store, agentId, levels) {
+  try {
+    await store.persistObject(SCOPE, agentId, { levels }, Object.keys(levels).length);
+  } catch (_) {}
+}
+
 async function dispatch(db, signal) {
   if (!validSignal(signal)) throw new Error('dispatch requires modality, signature, agentId and numeric intensity');
-  const intensity = Math.max(0, Math.min(1, Number(signal.intensity)));
-  const now = Date.now();
+  const state = { intensity: Math.max(0, Math.min(1, Number(signal.intensity))), now: Date.now(), levels: {} };
   let opened = null;
   try {
     opened = await openDb(db);
@@ -110,30 +156,10 @@ async function dispatch(db, signal) {
     const agents = await lineageCircuit(opened.db, signal.agentId, 8);
     const roles = await agentRoles(opened.db, agents);
     const stored = (await store.restoreObject(SCOPE, signal.agentId)) || {};
-    let levels = stored.levels && typeof stored.levels === 'object' ? stored.levels : {};
-    const delivered = [];
-    const suppressed = [];
-    for (const id of agents) {
-      const receptor = receptorFor(roles[id]);
-      if (!receptor.modalities.includes(signal.modality)) {
-        suppressed.push({ agentId: id, reason: 'no_receptor' });
-        continue;
-      }
-      const effective = intensity * effectiveLevel(levels, signal.signature, now);
-      if (effective < receptor.minIntensity) {
-        suppressed.push({ agentId: id, reason: levels[signal.signature] ? 'desensitized' : 'below_threshold' });
-        continue;
-      }
-      try {
-        await deliverTo(opened.db, signal, id);
-        levels = afterDelivery(levels, signal.signature, now);
-        delivered.push(id);
-      } catch (_) {
-        suppressed.push({ agentId: id, reason: 'delivery_failed' });
-      }
-    }
-    await store.persistObject(SCOPE, signal.agentId, { levels }, Object.keys(levels).length).catch(() => {});
-    return { delivered, suppressed, modality: signal.modality, signature: signal.signature };
+    state.levels = dispatchLevels(stored);
+    const routed = await routeSignalToAgents({ opened, agents, roles, signal, state });
+    await persistSignalLevels(store, signal.agentId, state.levels);
+    return { delivered: routed.delivered, suppressed: routed.suppressed, modality: signal.modality, signature: signal.signature };
   } catch (_) {
     return { delivered: [], suppressed: [], modality: signal.modality, signature: signal.signature };
   } finally {
@@ -142,3 +168,7 @@ async function dispatch(db, signal) {
 }
 
 module.exports = { dispatch, RECEPTORS };
+
+function dispatchLevels(stored) {
+  return stored.levels && typeof stored.levels === 'object' ? stored.levels : {};
+}

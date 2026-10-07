@@ -56,39 +56,75 @@ async function rowsByIds(db, ids) {
   return (Array.isArray(rows) ? rows : []).map(bandit.parseUsageRow).filter(Boolean);
 }
 
+async function loadCanaryRecord(db, settings) {
+  const store = new AdaptiveStateService(db);
+  const record = (await store.restoreObject(SCOPE, settings.key || KEY)) || {};
+  return { store, record };
+}
+
+async function fetchCanaryDatasets(db, record) {
+  const reservedIds = (record.protocol.corpus?.reserved || []).map((item) => item.id);
+  const trainIds = (record.protocol.corpus?.train || []).map((item) => item.id);
+  const train = await rowsByIds(db, trainIds);
+  const reserved = await rowsByIds(db, reservedIds);
+  return { train, reserved };
+}
+
+async function finalizeCanaryRun({ store, settings, record, result }) {
+  await store.persistObject(SCOPE, settings.key || KEY, { ...record, lastResult: result }, 2);
+  return result;
+}
+
 async function runExperiment(db, options) {
   const settings = options || {};
   if (!db) return { passed: false, reason: 'missing db' };
   let record = null;
   try {
-    const store = new AdaptiveStateService(db);
-    record = (await store.restoreObject(SCOPE, settings.key || KEY)) || {};
+    const loaded = await loadCanaryRecord(db, settings);
+    record = loaded.record;
     if (!record.protocol) return { passed: false, reason: 'no frozen experiment' };
     validation.verifyManifest(record.protocol, record.manifestHash);
-    const reservedIds = (record.protocol.corpus?.reserved || []).map((item) => item.id);
-    const trainIds = (record.protocol.corpus?.train || []).map((item) => item.id);
-    const train = await rowsByIds(db, trainIds);
-    const reserved = await rowsByIds(db, reservedIds);
-    if (train.length < 10 || reserved.length < 4) return { passed: false, reason: 'insufficient_data' };
-    const overall = bandit.scoreCalibration(train, reserved);
-    const half = Math.floor(reserved.length / 2);
-    const first = bandit.scoreCalibration(train, reserved.slice(0, half));
-    const second = bandit.scoreCalibration(train, reserved.slice(half));
-    if (!overall || !first || !second) return { passed: false, reason: 'no overlapping arms' };
-    const replicated = first.mae <= record.threshold && second.mae <= record.threshold;
-    const passed = overall.mae <= record.threshold && replicated;
-    const result = { passed, mae: overall.mae, halves: [first.mae, second.mae], replicated, threshold: record.threshold, at: new Date().toISOString(), manifestHash: record.manifestHash };
-    await store.persistObject(SCOPE, settings.key || KEY, { ...record, lastResult: result }, 2);
-    return result;
+    const datasets = await fetchCanaryDatasets(db, record);
+    if (datasets.train.length < 10 || datasets.reserved.length < 4) return { passed: false, reason: 'insufficient_data' };
+    const result = scoreCanaryReplicas(datasets.train, datasets.reserved, record);
+    return await finalizeCanaryRun({ store: loaded.store, settings, record, result });
   } catch (error) {
-    try {
-      if (record) {
-        const store = new AdaptiveStateService(db);
-        await store.persistObject(SCOPE, settings.key || KEY, { ...record, lastResult: { passed: false, reason: error?.code || 'unavailable', at: new Date().toISOString() } }, 2);
-      }
-    } catch (_) {}
-    return { passed: false, reason: error?.code || error?.message || 'unavailable' };
+    await persistCanaryFailure(db, { settings, record, error });
+    return runExperimentResult(error);
   }
 }
 
 module.exports = { freezeExperiment, runExperiment };
+
+function runExperimentValues({ store, settings, record, error }) {
+  return store.persistObject(SCOPE, settings.key || KEY, { ...record, lastResult: { passed: false, reason: error?.code || 'unavailable', at: new Date().toISOString() } }, 2);
+}
+
+function runExperimentResult(error) {
+  return { passed: false, reason: error?.code || error?.message || 'unavailable' };
+}
+
+function runExperimentCondition(overall, first, second) {
+  return !overall || !first || !second;
+}
+
+function scoreCanaryReplicas(train, reserved, record) {
+const overall = bandit.scoreCalibration(train, reserved);
+    const half = Math.floor(reserved.length / 2);
+    const first = bandit.scoreCalibration(train, reserved.slice(0, half));
+    const second = bandit.scoreCalibration(train, reserved.slice(half));
+    if (runExperimentCondition(overall, first, second)) return { passed: false, reason: 'no overlapping arms' };
+    const replicated = first.mae <= record.threshold && second.mae <= record.threshold;
+    const passed = overall.mae <= record.threshold && replicated;
+    const result = { passed, mae: overall.mae, halves: [first.mae, second.mae], replicated, threshold: record.threshold, at: new Date().toISOString(), manifestHash: record.manifestHash };
+return result;
+}
+
+async function persistCanaryFailure(db, { settings, record, error }) {
+    try {
+      if (record) {
+        const store = new AdaptiveStateService(db);
+        await runExperimentValues({ store, settings, record, error });
+      }
+    } catch (_) {}
+}

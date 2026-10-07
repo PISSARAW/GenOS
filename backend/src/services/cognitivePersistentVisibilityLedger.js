@@ -23,7 +23,7 @@ async function ensureSchema(db) {
 
 function digest(value) { return `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`; }
 
-async function event(db, sessionId, type, revision, payload) {
+async function event(db, sessionId, { type, revision, payload } = {}) {
   await db.run(`INSERT INTO cognitive_visibility_events
     (event_id, session_id, event_type, revision, payload_blob) VALUES (?, ?, ?, ?, ?)`,
   [randomUUID(), sessionId, type, revision, pack(payload || {})]);
@@ -38,13 +38,10 @@ async function openSession(db, input = {}) {
       (session_id, model, model_version, context_revision) VALUES (?, ?, ?, ?)`,
     [input.sessionId, input.model || null, input.modelVersion || null, input.contextRevision || null]);
     row = await db.get('SELECT * FROM cognitive_visibility_sessions WHERE session_id = ?', input.sessionId);
-    await event(db, input.sessionId, 'session_opened', row.revision, input);
+    await event(db, input.sessionId, { type: 'session_opened', revision: row.revision, payload: input });
     return row;
   }
-  const changed = (input.model !== undefined && input.model !== null && input.model !== row.model)
-    || (input.modelVersion !== undefined && input.modelVersion !== null && input.modelVersion !== row.model_version)
-    || (input.contextRevision !== undefined && input.contextRevision !== null
-      && input.contextRevision !== row.context_revision);
+  const changed = openSessionChanged(input, row);
   if (changed) {
     await invalidate(db, { sessionId: input.sessionId, reason: 'session_context_changed' });
     row = await db.get('SELECT * FROM cognitive_visibility_sessions WHERE session_id = ?', input.sessionId);
@@ -53,7 +50,7 @@ async function openSession(db, input = {}) {
     [input.model ?? row.model, input.modelVersion ?? row.model_version,
       input.contextRevision ?? row.context_revision, input.sessionId]);
     row = await db.get('SELECT * FROM cognitive_visibility_sessions WHERE session_id = ?', input.sessionId);
-    await event(db, input.sessionId, 'session_context_changed', row.revision, input);
+    await event(db, input.sessionId, { type: 'session_context_changed', revision: row.revision, payload: input });
   }
   return row;
 }
@@ -69,8 +66,7 @@ async function materialize(db, input = {}) {
       revision = excluded.revision, valid = 1, invalidated_at = NULL`,
   [input.sessionId, input.objectId, digest(input.value), pack(input.value), input.scope || null,
     input.expiresAt || null, session.revision]);
-  await event(db, input.sessionId, 'fragment_materialized', session.revision,
-    { objectId: input.objectId, scope: input.scope || null });
+  await event(db, input.sessionId, { type: 'fragment_materialized', revision: session.revision, payload: { objectId: input.objectId, scope: input.scope || null } });
   return { sessionId: input.sessionId, objectId: input.objectId, revision: session.revision,
     mode: 'materialized_in_session' };
 }
@@ -86,8 +82,7 @@ async function invalidate(db, input = {}) {
     WHERE session_id = ? ${clause}`, [input.sessionId, ...ids]);
   await db.run(`UPDATE cognitive_visibility_sessions SET revision = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?`,
     [revision, input.sessionId]);
-  await event(db, input.sessionId, input.reason === 'compaction' ? 'compacted' : 'invalidated', revision,
-    { objectIds: ids, reason: input.reason || 'explicit' });
+  await event(db, input.sessionId, { type: input.reason === 'compaction' ? 'compacted' : 'invalidated', revision: revision, payload: { objectIds: ids, reason: input.reason || 'explicit' } });
   return { sessionId: input.sessionId, revision, invalidated: ids };
 }
 
@@ -133,3 +128,10 @@ async function recover(db, sessionId) {
 }
 
 module.exports = { ensureSchema, openSession, materialize, invalidate, compact, visible, recover };
+
+function openSessionChanged(input, row) {
+  return (input.model !== undefined && input.model !== null && input.model !== row.model)
+    || (input.modelVersion !== undefined && input.modelVersion !== null && input.modelVersion !== row.model_version)
+    || (input.contextRevision !== undefined && input.contextRevision !== null
+      && input.contextRevision !== row.context_revision);
+}

@@ -32,13 +32,9 @@ function planRegeneration(input = {}) {
   const candidate = input.replacementCandidate || null;
   const canReplace = replacementEligibility({ input, damage, candidate });
   const status = damage === 0 ? 'HEALTHY' : canReplace ? 'REPLACEMENT_READY' : 'RECOVERY_REQUIRED';
-  const cryptobiosisEligible = damage >= 0.8 && input.persistentHost === true
-    && typeof input.verifyRecoverySnapshot === 'function'
-    && input.verifyRecoverySnapshot(input.recoverySnapshot) === true;
-  const reservation = damage > 0 && typeof input.reserveRecoveryResources === 'function'
-    ? input.reserveRecoveryResources({ damage, candidate }) : null;
-  const resourcesReserved = damage === 0 || (reservation !== null
-    && typeof input.verifyRecoveryReservation === 'function' && input.verifyRecoveryReservation(reservation) === true);
+  const cryptobiosisEligible = planRegenerationCryptobiosisEligible(damage, input);
+  const reservation = planRegenerationReservation(damage, input, candidate);
+  const resourcesReserved = planRegenerationResourcesReserved(damage, reservation, input);
   return { status, replacementCandidate: canReplace ? candidate : null, reserveRequired: damage > 0,
     resourcesReserved, reservationReceipt: resourcesReserved && damage > 0 ? reservation : null,
     controlledApoptosisAllowed: apoptosisAllowed(input, canReplace, candidate) && resourcesReserved, evidenceRefs,
@@ -52,7 +48,7 @@ function simulateRegeneration(input = {}) {
   const history = stages.map((raw, index) => {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw Object.assign(new Error(`Stage ${index + 1} must be an object.`), { code: 'HOLOBIONT_REGENERATION_INVALID' });
     const tick = Number(raw.tick);
-    if (!Number.isInteger(tick) || tick < 0 || tick <= previousTick) {
+    if (simulateRegenerationCondition(tick, previousTick)) {
       throw Object.assign(new Error('Regeneration stage ticks must increase.'), { code: 'HOLOBIONT_REGENERATION_INVALID' });
     }
     previousTick = tick;
@@ -60,8 +56,32 @@ function simulateRegeneration(input = {}) {
     return { tick, damageScore: damage, evidenceRefs: damage > 0 ? evidence(raw.evidenceRefs) : [] };
   });
   const delta = history.at(-1).damageScore - history[0].damageScore;
+  return simulateRegenerationResult(delta, history);
+}
+
+module.exports = { planRegeneration, simulateRegeneration };
+
+function planRegenerationCryptobiosisEligible(damage, input) {
+  return damage >= 0.8 && input.persistentHost === true
+    && typeof input.verifyRecoverySnapshot === 'function'
+    && input.verifyRecoverySnapshot(input.recoverySnapshot) === true;
+}
+
+function planRegenerationResourcesReserved(damage, reservation, input) {
+  return damage === 0 || (reservation !== null
+    && typeof input.verifyRecoveryReservation === 'function' && input.verifyRecoveryReservation(reservation) === true);
+}
+
+function planRegenerationReservation(damage, input, candidate) {
+  return damage > 0 && typeof input.reserveRecoveryResources === 'function'
+    ? input.reserveRecoveryResources({ damage, candidate }) : null;
+}
+
+function simulateRegenerationResult(delta, history) {
   return { status: delta < 0 ? 'RECOVERING' : delta > 0 ? 'WORSENING' : 'STABLE', history,
     damageDelta: delta, replacementAuthorized: false, automaticApoptosis: false };
 }
 
-module.exports = { planRegeneration, simulateRegeneration };
+function simulateRegenerationCondition(tick, previousTick) {
+  return !Number.isInteger(tick) || tick < 0 || tick <= previousTick;
+}

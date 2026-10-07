@@ -128,12 +128,7 @@ function traceFrom(input) {
   }
   const evidence = Array.isArray(input.evidenceRefs) ? [...new Set(input.evidenceRefs)] : [];
   if (input.success && evidence.length === 0) throw new TypeError('Successful procedural traces require evidence.');
-  return { id: input.id || `trace:${sha({ agent: input.agentId, context: input.contextHash,
-    steps: input.steps, input: input.input, at: input.observedAt || Date.now() })}`,
-    agentId: String(input.agentId), contextHash: String(input.contextHash), context: normalizeContext(input.context || {}),
-    contextSignature: contextSignature(input.context || {}), trajectory: input.steps.slice(0, 64),
-    input: input.input ?? null, evidenceRefs: evidence, success: input.success === true,
-    observedAt: input.observedAt || new Date().toISOString() };
+  return traceFromResult(input, evidence);
 }
 
 async function recordTrace(db, input) {
@@ -267,3 +262,12 @@ async function reuse(db, input) {
 
 module.exports = { ensure, traceFrom, recordTrace, loadTraces, compile, validate, promote,
   compileAndPromote, registerExecutor, reuse, normalizeContext, contextSignature, contextSimilarity, contextFor };
+
+function traceFromResult(input, evidence) {
+  return { id: input.id || `trace:${sha({ agent: input.agentId, context: input.contextHash,
+    steps: input.steps, input: input.input, at: input.observedAt || Date.now() })}`,
+    agentId: String(input.agentId), contextHash: String(input.contextHash), context: normalizeContext(input.context || {}),
+    contextSignature: contextSignature(input.context || {}), trajectory: input.steps.slice(0, 64),
+    input: input.input ?? null, evidenceRefs: evidence, success: input.success === true,
+    observedAt: input.observedAt || new Date().toISOString() };
+}

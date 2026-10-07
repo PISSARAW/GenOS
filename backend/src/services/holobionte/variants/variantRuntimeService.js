@@ -8,39 +8,8 @@ const { reviewThreat, reviewThreatBatch } = require('./immuneThreatRuntimeServic
 const { planRegeneration, simulateRegeneration } = require('./regenerationRuntimeService');
 const { authorizeCompetitiveReplacement } = require('./competitiveReplacementRuntimeService');
 
-function invalid(message, code = 'HOLOBIONT_VARIANT_RUNTIME_INVALID') {
-  return Object.assign(new Error(message), { code });
-}
-
-function record(value, field) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid(`${field} must be an object.`);
-  return value;
-}
-
-function text(value, field) {
-  const result = String(value || '').trim();
-  if (!result) throw invalid(`${field} is required.`);
-  return result;
-}
-
-function evidence(value, field = 'evidenceRefs') {
-  const refs = Array.isArray(value) ? [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))] : [];
-  if (!refs.length) throw invalid(`${field} must contain evidence references.`, 'HOLOBIONT_EVIDENCE_REQUIRED');
-  return refs;
-}
-
-function score(value, field) {
-  const result = Number(value);
-  if (!Number.isFinite(result) || result < 0 || result > 1) throw invalid(`${field} must be between 0 and 1.`);
-  return result;
-}
-
-function sameBudget(left, right) {
-  const leftKeys = Object.keys(left).sort();
-  const rightKeys = Object.keys(right).sort();
-  return leftKeys.length === rightKeys.length && leftKeys.every((key, index) =>
-    key === rightKeys[index] && Number(left[key]) === Number(right[key]));
-}
+const { invalid, record, text, evidence, score, sameBudget } = require('./variantInputValidation');
+const { planPlacement, planPlacementBatch } = require('./variantPlacementService');
 
 function replacementGate(input, core) {
   if (input.replacementRequested !== true) return false;
@@ -138,156 +107,32 @@ function assessEcology(input = {}) {
     dysbiosis, automaticReplacement: false };
 }
 
+function checkEcologyPayload(result, cycle) {
+  if (simulateEcologyCondition(result)) throw invalid('Cycle evaluator returned an invalid record.');
+  const diversity = Number(result.diversity);
+  if (!Number.isInteger(diversity) || diversity < 0) throw invalid(`Cycle ${cycle + 1} diversity must be a non-negative integer.`);
+  return { cycleEvidence: evidence(result.evidenceRefs, `cycle ${cycle + 1} evidenceRefs`), fitness: score(result.fitness, `cycle ${cycle + 1} fitness`), diversity };
+}
+
 async function simulateEcology(input = {}) {
   const cycles = Number(input.cycles ?? 20);
-  if (!Number.isInteger(cycles) || cycles < 1 || cycles > 20) throw invalid('Ecology simulation is limited to 1–20 cycles.');
+  if (simulateEcologyCondition2(cycles)) throw invalid('Ecology simulation is limited to 1–20 cycles.');
   if (typeof input.evaluateCycle !== 'function') throw invalid('A cycle evaluator is required.', 'HOLOBIONT_ECOLOGY_EVALUATOR_REQUIRED');
   const history = [];
   let state = input.initialState || {};
   for (let cycle = 0; cycle < cycles; cycle += 1) {
     const result = await input.evaluateCycle({ cycle: cycle + 1, state, history: history.slice() });
-    if (!result || typeof result !== 'object' || Array.isArray(result)) throw invalid('Cycle evaluator returned an invalid record.');
-    const cycleEvidence = evidence(result.evidenceRefs, `cycle ${cycle + 1} evidenceRefs`);
-    const fitness = score(result.fitness, `cycle ${cycle + 1} fitness`);
-    const diversity = Number(result.diversity);
-    if (!Number.isInteger(diversity) || diversity < 0) throw invalid(`Cycle ${cycle + 1} diversity must be a non-negative integer.`);
-    history.push({ cycle: cycle + 1, fitness, evidenceRefs: cycleEvidence, diversity, dysbiosis: result.dysbiosis === true });
+    const checked = checkEcologyPayload(result, cycle);
+    history.push({ cycle: cycle + 1, fitness: checked.fitness, evidenceRefs: checked.cycleEvidence, diversity: checked.diversity, dysbiosis: result.dysbiosis === true });
     state = result.state || state;
     if (result.stop === true || result.dysbiosis === true) break;
   }
   const first = history[0];
   const last = history[history.length - 1];
   const delta = last.fitness - first.fitness;
-  const action = history.some((item) => item.dysbiosis) ? 'QUARANTINE_AND_REVIEW'
-    : last.diversity < Number(input.diversityFloor ?? 2) ? 'ACQUIRE_CANDIDATE'
-    : history.some((item, index) => index > 0 && item.fitness < history[index - 1].fitness) ? 'REVIEW_CONTRIBUTORS'
-      : 'CONTINUE';
+  const action = ecologyAction(history, last, input);
   return { status: 'SIMULATED', cyclesCompleted: history.length, history, fitnessDelta: delta,
     action, automaticReplacement: false, finalState: state };
-}
-
-function placementVariant(input) {
-  const requirement = String(input.variantId || 'local-first');
-  const edgeCore = requirement === 'edge-core/cloud-symbionts';
-  const localOnly = requirement === 'local-first' || edgeCore;
-  const wantsCloudCore = requirement === 'cloud-core/edge-symbionts' || requirement === 'cloud-core/edge-sync';
-  return { requirement, edgeCore, wantsCloudCore, localOnly,
-    requireConnectedEdge: requirement === 'cloud-core/edge-symbionts',
-    requireAsyncSync: requirement === 'cloud-core/edge-sync' };
-}
-
-function availableEngines(input) {
-  return new Set(Array.isArray(input.availableEngines) ? input.availableEngines : []);
-}
-
-function requestedHost(input, variant) {
-  if (variant.localOnly || input.offline === true) return 'local';
-  return variant.wantsCloudCore ? 'cloud' : input.preferredEngine || 'local';
-}
-
-function verifyFallback(input, engines) {
-  return input.allowLocalFallback === true && typeof input.verifyLocalFallback === 'function'
-    && input.verifyLocalFallback() === true && engines.has('local');
-}
-
-function chooseHost(context) {
-  const { input, variant, engines } = context;
-  const target = requestedHost(input, variant);
-  const verifiedFallback = verifyFallback(input, engines);
-  const host = engines.has(target) ? target : verifiedFallback ? 'local' : target;
-  return { requestedHost: target, host, fallback: host === target ? null : 'local' };
-}
-
-function placementGuards(context) {
-  const { input, variant, placement, engines } = context;
-  const classes = Array.isArray(input.dataClasses) ? input.dataClasses : [];
-  const restricted = new Set(Array.isArray(input.restrictedDataClasses) ? input.restrictedDataClasses : []);
-  const remoteNeeded = needsRemoteExecutor(input, variant, placement);
-  const engineReady = hasRequiredEngines({ input, variant, placement, engines });
-  const privacyBlocked = blocksRemoteData({ input, classes, restricted, remoteNeeded });
-  const cloudSymbionts = usesEdgeSymbionts(variant, placement);
-  const leaseValid = !cloudSymbionts || edgeLeaseAllowed(input.edgeLease, input.verifyEdgeLease, input.requiredEdgeCapability);
-  const edgeReady = !cloudSymbionts || variant.requireConnectedEdge !== true || input.edgeConnected === true;
-  const remoteReady = remoteExecutorHealthy(input, variant);
-  return { classes, restricted, remoteNeeded, engineReady, privacyBlocked, leaseValid, edgeReady, remoteReady, cloudSymbionts };
-}
-
-function remoteExecutorHealthy(input, variant) {
-  if (!variant.edgeCore || input.requiresRemoteCapability !== true) return true;
-  return typeof input.verifyCloudConnectivity === 'function'
-    && input.verifyCloudConnectivity(input.connectivityReceipt) === true;
-}
-
-function needsRemoteExecutor(input, variant, placement) {
-  return placement.host !== 'local' || (variant.edgeCore && input.requiresRemoteCapability === true);
-}
-
-function hasRequiredEngines(context) {
-  const { input, variant, placement, engines } = context;
-  const localHostReady = engines.has(placement.host);
-  if (!variant.edgeCore || input.requiresRemoteCapability !== true) return localHostReady;
-  return localHostReady && engines.has('cloud');
-}
-
-function blocksRemoteData(context) {
-  const { input, classes, restricted, remoteNeeded } = context;
-  return remoteNeeded && input.redacted !== true && classes.some((item) => restricted.has(item));
-}
-
-function usesEdgeSymbionts(variant, placement) {
-  return variant.wantsCloudCore && placement.host === 'cloud';
-}
-
-function placementReason(guards) {
-  if (!guards.engineReady) return 'ENGINE_UNAVAILABLE';
-  if (guards.privacyBlocked) return 'PRIVACY_REDACTION_REQUIRED';
-  if (!guards.leaseValid) return 'EDGE_LEASE_REQUIRED';
-  if (!guards.edgeReady) return 'EDGE_UNAVAILABLE';
-  if (!guards.remoteReady) return 'REMOTE_CONNECTIVITY_UNVERIFIED';
-  return null;
-}
-
-function placementResult(context) {
-  const { input, variant, placement, guards } = context;
-  const dataClasses = !guards.remoteNeeded ? guards.classes
-    : input.redacted === true ? guards.classes.filter((item) => !guards.restricted.has(item)) : guards.classes;
-  const symbionts = variant.edgeCore && input.requiresRemoteCapability === true ? 'cloud-on-demand'
-    : guards.cloudSymbionts ? 'edge' : placement.host;
-  const exportProof = placement.host === 'local' && !guards.remoteNeeded && typeof input.attestNoExport === 'function'
-    ? input.attestNoExport({ dataClasses: guards.classes }) : null;
-  const exportProofVerified = exportProof !== null && typeof input.verifyNoExport === 'function'
-    && input.verifyNoExport(exportProof) === true;
-  const reason = placementReason(guards) || (input.requireExportProof === true && !exportProofVerified ? 'NO_EXPORT_PROOF_REQUIRED' : null);
-  return { accepted: reason === null, host: placement.host, requestedHost: placement.requestedHost,
-    symbionts, fallback: placement.fallback, dataClasses,
-    pendingSync: variant.requireAsyncSync === true && input.edgeConnected !== true,
-    reason, exportProof, exportProofVerified };
-}
-
-function planPlacement(input = {}) {
-  const variant = placementVariant(input);
-  const engines = availableEngines(input);
-  const context = { input, variant, engines };
-  context.placement = chooseHost(context);
-  context.guards = placementGuards(context);
-  return placementResult(context);
-}
-
-function planPlacementBatch(input = {}) {
-  if (!Array.isArray(input.steps) || !input.steps.length) throw invalid('Placement batch requires at least one step.');
-  const steps = input.steps.map((raw, index) => {
-    const step = record(raw, `steps[${index}]`);
-    return { stepId: String(step.stepId || index), ...planPlacement({ ...input, ...step, steps: undefined }) };
-  });
-  return { accepted: steps.every((step) => step.accepted),
-    localCorePreserved: steps.every((step) => step.host === 'local'),
-    cloudOnDemandStepIds: steps.filter((step) => step.symbionts === 'cloud-on-demand').map((step) => step.stepId), steps };
-}
-
-function edgeLeaseAllowed(lease, verifier, requiredCapability) {
-  return Boolean(lease && typeof verifier === 'function' && verifier(lease) === true
-    && lease.leaseId && lease.deviceId && Date.parse(lease.expiresAt) > Date.now()
-    && Array.isArray(lease.capabilities) && lease.capabilities.includes(requiredCapability));
 }
 
 function addMemory(context, memory) {
@@ -383,6 +228,21 @@ function createProofHash(value) {
 
 function runEcologicalCycle(input = {}) {
   return require('./adaptiveMicrobiomeRuntimeService').runEcologicalCycle(input);
+}
+
+function simulateEcologyCondition(result) {
+  return !result || typeof result !== 'object' || Array.isArray(result);
+}
+
+function simulateEcologyCondition2(cycles) {
+  return !Number.isInteger(cycles) || cycles < 1 || cycles > 20;
+}
+
+function ecologyAction(history, last, input) {
+  return history.some((item) => item.dysbiosis) ? 'QUARANTINE_AND_REVIEW'
+    : last.diversity < Number(input.diversityFloor ?? 2) ? 'ACQUIRE_CANDIDATE'
+    : history.some((item, index) => index > 0 && item.fitness < history[index - 1].fitness) ? 'REVIEW_CONTRIBUTORS'
+      : 'CONTINUE';
 }
 
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, simulateEcology, planPlacement, planMemory,

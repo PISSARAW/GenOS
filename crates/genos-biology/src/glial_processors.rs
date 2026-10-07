@@ -53,53 +53,77 @@ impl GlialProcessor for AstrocyteProcessor {
     }
 }
 
+fn local_c3(base: f64, c4_over: bool, pro_inflam: bool) -> f64 {
+    let mut value = base;
+    if c4_over {
+        value += 0.5;
+    }
+    if pro_inflam {
+        value += 0.25;
+    }
+    value
+}
+
+fn should_prune(c3: f64, cd47: f64) -> bool {
+    c3 > C3_PRUNING_THRESHOLD && cd47 < CD47_PROTECTION_THRESHOLD
+}
+
+fn update_microglia_state(
+    micro: &mut Microglia,
+    plaques: &mut f64,
+    surge: &mut f64,
+) -> (bool, bool) {
+    if *plaques > 0.0 {
+        micro.state = MicrogliaState::Amoeboid;
+        *plaques -= 1.0;
+        micro.plaque_accumulation += 1.0;
+        if micro.plaque_accumulation > 10.0 {
+            micro.inflammatory_cytokines = (micro.inflammatory_cytokines + 5.0).min(100.0);
+            *surge += micro.inflammatory_cytokines;
+        }
+    } else {
+        micro.state = MicrogliaState::Sentinel;
+        micro.inflammatory_cytokines *= 0.9;
+        micro.plaque_accumulation = 0.0;
+    }
+    (micro.c4_overexpression, micro.is_pro_inflammatory)
+}
+
+fn prune_axon_terminals(agent: &mut GlialCell, flags: (bool, bool)) {
+    let Some(ns) = agent.nervous_system.as_mut() else {
+        return;
+    };
+    if ns.location != NervousSystemLocation::Central {
+        return;
+    }
+    ns.axon.terminals.retain(|synapse| {
+        let c3 = local_c3(synapse.c3_opsonization, flags.0, flags.1);
+        !should_prune(c3, synapse.cd47_expression)
+    });
+    prune_dendritic_spines(ns, flags);
+}
+
+fn prune_dendritic_spines(ns: &mut crate::glial::glial_cell::NervousSystem, flags: (bool, bool)) {
+    let Some(tree) = ns.dendritic_tree.as_mut() else {
+        return;
+    };
+    for comp in tree.compartments.iter_mut() {
+        comp.spines.retain(|spine| {
+            let c3 = local_c3(spine.c3_opsonization, flags.0, flags.1);
+            !should_prune(c3, spine.cd47_expression)
+        });
+    }
+}
+
 pub struct MicrogliaProcessor;
 
 impl GlialProcessor for MicrogliaProcessor {
     fn collect(&self, agent: &mut GlialCell, ctx: &mut GlialContext) {
-        let (mut pro_inflam, mut c4_over) = (false, false);
-
+        let mut flags = (false, false);
         if let Some(micro) = &mut agent.microglia {
-            if *ctx.env.amyloid_plaques > 0.0 {
-                micro.state = MicrogliaState::Amoeboid;
-                *ctx.env.amyloid_plaques -= 1.0;
-                micro.plaque_accumulation += 1.0;
-
-                if micro.plaque_accumulation > 10.0 {
-                    micro.inflammatory_cytokines = (micro.inflammatory_cytokines + 5.0).min(100.0);
-                    ctx.state.inflammation_surge += micro.inflammatory_cytokines;
-                }
-            } else {
-                micro.state = MicrogliaState::Sentinel;
-                micro.inflammatory_cytokines *= 0.9;
-                micro.plaque_accumulation = 0.0;
-            }
-            c4_over = micro.c4_overexpression;
-            pro_inflam = micro.is_pro_inflammatory;
+            flags = update_microglia_state(micro, ctx.env.amyloid_plaques, &mut ctx.state.inflammation_surge);
         }
-
-        if let Some(ns) = &mut agent.nervous_system {
-            if ns.location == NervousSystemLocation::Central {
-                ns.axon.terminals.retain(|synapse| {
-                    let local_c3 = synapse.c3_opsonization
-                        + if c4_over { 0.5 } else { 0.0 }
-                        + if pro_inflam { 0.25 } else { 0.0 };
-                    !(local_c3 > C3_PRUNING_THRESHOLD && synapse.cd47_expression < CD47_PROTECTION_THRESHOLD)
-                });
-
-                // Trogocytose microgliale postsynaptique : élagage des épines opsonisées par C3
-                if let Some(tree) = &mut ns.dendritic_tree {
-                    for comp in tree.compartments.iter_mut() {
-                        comp.spines.retain(|spine| {
-                            let local_c3 = spine.c3_opsonization
-                                + if c4_over { 0.5 } else { 0.0 }
-                                + if pro_inflam { 0.25 } else { 0.0 };
-                            !(local_c3 > C3_PRUNING_THRESHOLD && spine.cd47_expression < CD47_PROTECTION_THRESHOLD)
-                        });
-                    }
-                }
-            }
-        }
+        prune_axon_terminals(agent, flags);
     }
 
     fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext) {

@@ -38,77 +38,64 @@ function computeCodons(tokens) {
   return codons;
 }
 
-function handleFrameshiftMutation(args = {}) {
-  const action = args.action || 'status';
-  const shiftId = args.id || `mut-shift-${Date.now()}`;
-  const record = getFrameshiftRecord(shiftId);
+function frameshiftInsertResult(args, record, shiftId) {
+  processIndel(record, { isInsert: true, token: args.token, position: args.position });
+  return {
+    configured: true,
+    success: true,
+    status: 'insertion_frameshift_applied',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
+    transport: 'frameshift_engine',
+    shift_id: shiftId,
+    frame_shift_offset: record.readingFrameShift,
+    is_synchronized: record.isSynchronized,
+    codons: computeCodons(record.sequenceTokens),
+    output: `Simulation inserted a token and shifted its model frame by +1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}); runtime behavior is unchanged.`
+  };
+}
 
-  if (action === 'insert_token_frameshift') {
-    const position = args.position === undefined ? 0 : args.position;
-    if (!Number.isSafeInteger(position) || position < 0 || position > record.sequenceTokens.length) {
-      return { configured: true, success: false, status: 'invalid_args', error: 'position must be an integer from 0 through sequence length.' };
-    }
-    processIndel(record, { isInsert: true, token: args.token, position: args.position });
-    return {
-      configured: true,
-      success: true,
-      status: 'insertion_frameshift_applied',
-      execution_scope: 'metadata_simulation',
-      runtime_effect_applied: false,
-      transport: 'frameshift_engine',
-      shift_id: shiftId,
-      frame_shift_offset: record.readingFrameShift,
-      is_synchronized: record.isSynchronized,
-      codons: computeCodons(record.sequenceTokens),
-      output: `Simulation inserted a token and shifted its model frame by +1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}); runtime behavior is unchanged.`
-    };
+function frameshiftDeleteResult(args, record, shiftId) {
+  processIndel(record, { isInsert: false, position: args.position });
+  return {
+    configured: true,
+    success: true,
+    status: 'deletion_frameshift_applied',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
+    transport: 'frameshift_engine',
+    shift_id: shiftId,
+    frame_shift_offset: record.readingFrameShift,
+    is_synchronized: record.isSynchronized,
+    codons: computeCodons(record.sequenceTokens),
+    output: `Simulation deleted a token and shifted its model frame by -1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}); runtime behavior is unchanged.`
+  };
+}
+
+function frameshiftRealignResult(record, shiftId) {
+  const padNeeded = (3 - record.readingFrameShift) % 3;
+  for (let i = 0; i < padNeeded; i++) {
+    record.sequenceTokens.push(`COMPENSATORY_PAD_${i + 1}`);
   }
+  record.readingFrameShift = 0;
+  record.isSynchronized = true;
+  record.updatedAt = new Date().toISOString();
+  return {
+    configured: true,
+    success: true,
+    status: 'reading_frame_realigned',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
+    transport: 'frameshift_engine',
+    shift_id: shiftId,
+    pads_inserted: padNeeded,
+    is_synchronized: true,
+    codons: computeCodons(record.sequenceTokens),
+    output: `Reading frame realigned with ${padNeeded} compensatory pad(s). Synchronization restored.`
+  };
+}
 
-  if (action === 'delete_token_frameshift') {
-    const position = args.position === undefined ? 0 : args.position;
-    if (!Number.isSafeInteger(position) || position < 0 || position >= record.sequenceTokens.length) {
-      return { configured: true, success: false, status: 'invalid_args', error: 'position must identify an existing token.' };
-    }
-    processIndel(record, { isInsert: false, position: args.position });
-    return {
-      configured: true,
-      success: true,
-      status: 'deletion_frameshift_applied',
-      execution_scope: 'metadata_simulation',
-      runtime_effect_applied: false,
-      transport: 'frameshift_engine',
-      shift_id: shiftId,
-      frame_shift_offset: record.readingFrameShift,
-      is_synchronized: record.isSynchronized,
-      codons: computeCodons(record.sequenceTokens),
-      output: `Simulation deleted a token and shifted its model frame by -1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}); runtime behavior is unchanged.`
-    };
-  }
-
-  if (action === 'realign_reading_frame') {
-    const padNeeded = (3 - record.readingFrameShift) % 3;
-    for (let i = 0; i < padNeeded; i++) {
-      record.sequenceTokens.push(`COMPENSATORY_PAD_${i + 1}`);
-    }
-    record.readingFrameShift = 0;
-    record.isSynchronized = true;
-    record.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'reading_frame_realigned',
-      execution_scope: 'metadata_simulation',
-      runtime_effect_applied: false,
-      transport: 'frameshift_engine',
-      shift_id: shiftId,
-      pads_inserted: padNeeded,
-      is_synchronized: true,
-      codons: computeCodons(record.sequenceTokens),
-      output: `Reading frame realigned with ${padNeeded} compensatory pad(s). Synchronization restored.`
-    };
-  }
-
+function frameshiftStatusResult(record, shiftId) {
   return {
       configured: true,
       success: true,
@@ -122,6 +109,30 @@ function handleFrameshiftMutation(args = {}) {
     codons: computeCodons(record.sequenceTokens),
     output: `Frameshift engine '${shiftId}' active: offset=${record.readingFrameShift}, sync=${record.isSynchronized}.`
   };
+}
+
+function handleFrameshiftMutation(args = {}) {
+  const action = args.action || 'status';
+  const shiftId = args.id || `mut-shift-${Date.now()}`;
+  const record = getFrameshiftRecord(shiftId);
+  if (action === 'insert_token_frameshift') {
+    const position = args.position === undefined ? 0 : args.position;
+    if (handleFrameshiftMutationCondition2(position, record)) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'position must be an integer from 0 through sequence length.' };
+    }
+    return frameshiftInsertResult(args, record, shiftId);
+  }
+  if (action === 'delete_token_frameshift') {
+    const position = args.position === undefined ? 0 : args.position;
+    if (handleFrameshiftMutationCondition(position, record)) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'position must identify an existing token.' };
+    }
+    return frameshiftDeleteResult(args, record, shiftId);
+  }
+  if (action === 'realign_reading_frame') {
+    return frameshiftRealignResult(record, shiftId);
+  }
+  return frameshiftStatusResult(record, shiftId);
 }
 
 function handleFrameshiftMutationError(e) {
@@ -193,3 +204,11 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function handleFrameshiftMutationCondition(position, record) {
+  return !Number.isSafeInteger(position) || position < 0 || position >= record.sequenceTokens.length;
+}
+
+function handleFrameshiftMutationCondition2(position, record) {
+  return !Number.isSafeInteger(position) || position < 0 || position > record.sequenceTokens.length;
+}

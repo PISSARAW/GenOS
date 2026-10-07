@@ -20,7 +20,7 @@ const telemetry = require('../src/services/telemetryObserver');
 
 const CORRELATION_ID = `phase6-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
-function emitCorrelated(eventType, agentId, action, detail, payload = {}, severity = 'info') {
+function emitCorrelated(eventType, agentId, { action, detail, payload = {}, severity = 'info' } = {}) {
   telemetry.emitEvent({
     eventType,
     agentId,
@@ -39,7 +39,7 @@ async function runPhase6Tests() {
   // TEST 1: Parent-Child Delegation (sub_orchestrator)
   // ============================================================
   console.log('\n[1/7] Delegation: Parent-child (sub_orchestrator)...');
-  emitCorrelated('PHASE6_DELEGATION', 'test-sub-orchestrator', 'DELEGATE', 'Testing parent-child delegation');
+  emitCorrelated('PHASE6_DELEGATION', 'test-sub-orchestrator', { action: 'DELEGATE', detail: 'Testing parent-child delegation' });
 
   // Verify sub_orchestrator phenotype exists and has correct contract
   const workerKindService = require('../src/services/agents/workerKindService');
@@ -54,13 +54,13 @@ async function runPhase6Tests() {
   // SubOrchestrator has strategy authority but delegate is managed via grantBoundedDelegation
   console.log(`  SubOrchestrator: strategy=${subOrchestratorContract.authority?.strategy}, execute=${subOrchestratorContract.authority?.execute}`);
   console.log(`  Note: delegate authority granted via grantBoundedDelegation() at runtime`);
-  emitCorrelated('PHASE6_DELEGATION_COMPLETE', 'test-sub-orchestrator', 'DELEGATE', 'SubOrchestrator delegation verified');
+  emitCorrelated('PHASE6_DELEGATION_COMPLETE', 'test-sub-orchestrator', { action: 'DELEGATE', detail: 'SubOrchestrator delegation verified' });
 
   // ============================================================
   // TEST 2: Generalized Contract Method Execution
   // ============================================================
   console.log('\n[2/7] Contract Methods: Generalized execution...');
-  emitCorrelated('PHASE6_CONTRACT_METHODS', 'test-contract', 'EXECUTE', 'Testing contract method execution');
+  emitCorrelated('PHASE6_CONTRACT_METHODS', 'test-contract', { action: 'EXECUTE', detail: 'Testing contract method execution' });
 
   // Verify worker contracts can accept method contracts (structure only)
   const testContract = workerKindService.buildWorkerContract('AdaptiveWorker', {
@@ -71,13 +71,13 @@ async function runPhase6Tests() {
   
   assert.ok(testContract, 'Worker contract must be created');
   console.log(`  Worker contract created: ${JSON.stringify(Object.keys(testContract)).slice(0, 100)}`);
-  emitCorrelated('PHASE6_CONTRACT_METHODS_COMPLETE', 'test-contract', 'EXECUTE', 'Contract method execution verified');
+  emitCorrelated('PHASE6_CONTRACT_METHODS_COMPLETE', 'test-contract', { action: 'EXECUTE', detail: 'Contract method execution verified' });
 
   // ============================================================
   // TEST 3: Auto Brier, Quorum, Stigmergy Computations
   // ============================================================
   console.log('\n[3/7] Auto Computations: Brier, Quorum, Stigmergy...');
-  emitCorrelated('PHASE6_AUTO_COMPUTATIONS', 'test-swarm', 'COMPUTE', 'Testing auto Brier/quorum/stigmergy');
+  emitCorrelated('PHASE6_AUTO_COMPUTATIONS', 'test-swarm', { action: 'COMPUTE', detail: 'Testing auto Brier/quorum/stigmergy' });
 
   const collectiveConsensus = require('../src/services/primitiveHandlers/collectiveConsensus');
   const collective = require('../src/services/primitiveHandlers/collective');
@@ -115,13 +115,13 @@ async function runPhase6Tests() {
   });
   assert.ok(pheromoneResult, 'Pheromone deposit must work');
   console.log(`  Stigmergy: ${JSON.stringify(pheromoneResult).slice(0, 200)}`);
-  emitCorrelated('PHASE6_AUTO_COMPUTATIONS_COMPLETE', 'test-swarm', 'COMPUTE', 'Auto computations verified');
+  emitCorrelated('PHASE6_AUTO_COMPUTATIONS_COMPLETE', 'test-swarm', { action: 'COMPUTE', detail: 'Auto computations verified' });
 
   // ============================================================
   // TEST 4: Measure Swarm Algorithm Benefit
   // ============================================================
   console.log('\n[4/7] Swarm Benefit: Measuring algorithm benefit...');
-  emitCorrelated('PHASE6_SWARM_BENEFIT', 'test-swarm', 'MEASURE', 'Measuring swarm algorithm benefit');
+  emitCorrelated('PHASE6_SWARM_BENEFIT', 'test-swarm', { action: 'MEASURE', detail: 'Measuring swarm algorithm benefit' });
 
   const swarmMetrics = require('../src/services/swarmMetricsService');
   
@@ -141,7 +141,7 @@ async function runPhase6Tests() {
   // TEST 5: Auto ResidentDaemon Repair
   // ============================================================
   console.log('\n[5/7] ResidentDaemon: Auto repair pipeline...');
-  emitCorrelated('PHASE6_DAEMON_REPAIR', 'test-daemon', 'REPAIR', 'Testing auto daemon repair');
+  emitCorrelated('PHASE6_DAEMON_REPAIR', 'test-daemon', { action: 'REPAIR', detail: 'Testing auto daemon repair' });
 
   const residentDaemonRuntime = require('../src/services/daemon/residentDaemonRuntime');
   const daemonSupervisor = require('../src/services/daemon/daemonSupervisorService');
@@ -158,13 +158,13 @@ async function runPhase6Tests() {
   };
   
   console.log(`  Repair pipeline stages: ${Object.keys(repairPipeline).join(' -> ')}`);
-  emitCorrelated('PHASE6_DAEMON_REPAIR_COMPLETE', 'test-daemon', 'REPAIR', 'ResidentDaemon repair pipeline verified');
+  emitCorrelated('PHASE6_DAEMON_REPAIR_COMPLETE', 'test-daemon', { action: 'REPAIR', detail: 'ResidentDaemon repair pipeline verified' });
 
   // ============================================================
   // TEST 6: Governed Push/Merge After Repair
   // ============================================================
   console.log('\n[6/7] Governance: Push/merge after repair...');
-  emitCorrelated('PHASE6_GOVERNED_MERGE', 'test-governance', 'MERGE', 'Testing governed push/merge');
+  emitCorrelated('PHASE6_GOVERNED_MERGE', 'test-governance', { action: 'MERGE', detail: 'Testing governed push/merge' });
 
   const governance = {
     approval_required: true,
@@ -177,13 +177,13 @@ async function runPhase6Tests() {
   assert.ok(governance.evidence_verification, 'Must verify evidence');
   assert.ok(governance.rollback_capability, 'Must have rollback');
   console.log(`  Governance: ${JSON.stringify(governance)}`);
-  emitCorrelated('PHASE6_GOVERNED_MERGE_COMPLETE', 'test-governance', 'MERGE', 'Governed push/merge verified');
+  emitCorrelated('PHASE6_GOVERNED_MERGE_COMPLETE', 'test-governance', { action: 'MERGE', detail: 'Governed push/merge verified' });
 
   // ============================================================
   // TEST 7: CONSCIENCE_HOMEOSTASIS as Measurable Loop
   // ============================================================
   console.log('\n[7/7] Conscience: Homeostasis measurable loop...');
-  emitCorrelated('PHASE6_CONSCIENCE_HOMEOSTASIS', 'test-conscience', 'HOMEOSTASIS', 'Testing conscience homeostasis loop');
+  emitCorrelated('PHASE6_CONSCIENCE_HOMEOSTASIS', 'test-conscience', { action: 'HOMEOSTASIS', detail: 'Testing conscience homeostasis loop' });
 
   const conscienceService = require('../src/services/agentConscienceService');
   
@@ -204,7 +204,7 @@ async function runPhase6Tests() {
   };
   
   console.log(`  Homeostasis loop: ${Object.values(homeostasisLoop).join(' -> ')}`);
-  emitCorrelated('PHASE6_CONSCIENCE_HOMEOSTASIS_COMPLETE', 'test-conscience', 'HOMEOSTASIS', 'Conscience homeostasis verified');
+  emitCorrelated('PHASE6_CONSCIENCE_HOMEOSTASIS_COMPLETE', 'test-conscience', { action: 'HOMEOSTASIS', detail: 'Conscience homeostasis verified' });
 
   console.log('\n=== PHASE 6 SUMMARY ===');
   console.log('✅ Delegation: Parent-child (sub_orchestrator) contract verified');
