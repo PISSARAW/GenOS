@@ -93,6 +93,16 @@ try {
     organization: 'specialist_expert_committee' } } });
   assert.notEqual(queued.isError, true);
   assert.equal(JSON.parse(queued.content[0].text).status, 'accepted');
+  for (const invalid of ['', '{}', '[]', 'not-json']) {
+    const silent = createToolCallHandler({
+      runOrchestrator: async () => invalid,
+      runGenosCli: async () => '', executeStrategyTool: async () => null
+    });
+    const result = await silent({ params: { name: 'genos_change_organization', arguments: {
+      organization: 'specialist_expert_committee' } } });
+    assert.equal(result.isError, true, `Unstructured bridge response ${JSON.stringify(invalid)} must fail`);
+    assert.match(result.content[0].text, /no structured result/);
+  }
 } finally {
   if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE;
   else process.env.GENOS_MCP_LEASE = previousLease;

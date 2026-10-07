@@ -102,6 +102,11 @@ function parseCliOutput(text) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
+function isStructuredResult(result) {
+  return result && typeof result === 'object' && !Array.isArray(result)
+    && Object.keys(result).length > 0;
+}
+
 async function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   // Fail-closed: un outil sans pont dedie est refuse explicitement au lieu
   // d'etre envoye vers une orchestration generique.
@@ -112,6 +117,9 @@ async function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   if (name === 'genos_orchestrate' && request.background === undefined) request.background = true;
   const text = await runOrchestrator(request, { onTelemetry });
   const result = parseCliOutput(text);
+  if (!isStructuredResult(result)) {
+    throw new Error(`Orchestrator action '${name}' returned no structured result.`);
+  }
   if (result?.success === false) throw new Error(result.error || `Orchestrator action '${name}' failed.`);
   return text;
 }
