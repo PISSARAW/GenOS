@@ -6,6 +6,7 @@
 
 const diversity = require('./trinityDiversityPlanner');
 const pareto = require('./trinityParetoService');
+const profiles = require('./trinityWorkerProfiles');
 
 const BASE_RECIPES = ['direct', 'planned', 'self_correcting'];
 const DIVERSE_RECIPES = ['direct', 'planned', 'adversarial'];
@@ -57,12 +58,13 @@ function withAttack(member) {
   return {
     ...member,
     role: 'adversarial_reviewer',
-    hypothesis: `${ATTACK_HYPOTHESIS}`
+    hypothesis: `${ATTACK_HYPOTHESIS}\nOriginal world brief and qualification constraints: ${member.hypothesis}`
   };
 }
 
 function differentiateOne(member, index, ctx) {
-  const based = attackFor(ctx.design, index) ? withAttack(member) : member;
+  const falsifier = attackFor(ctx.design, index) || (ctx.design?.diversityPolicy === 'heterogeneous' && index === 2);
+  const based = falsifier ? withAttack(member) : member;
   const recipe = recipeFor(ctx.design, index);
   const objective = objectiveFor(ctx.design, index);
   return {
@@ -76,7 +78,9 @@ function differentiateOne(member, index, ctx) {
 }
 
 function differentiate(members, ctx) {
-  return members.map((member, index) => differentiateOne(member, index, ctx));
+  const prepared = profiles.apply(members, ctx);
+  const context = { ...ctx, domain: profiles.missionDomain(ctx) };
+  return prepared.map((member, index) => differentiateOne(member, index, context));
 }
 
 function describeOne(member, index, models) {
@@ -95,6 +99,7 @@ function diversityReceipt(members, models) {
   const worlds = members.map((member, index) => describeOne(member, index, models));
   const checked = diversity.validateDiversity(worlds);
   return {
+    basis: 'requested_configuration', observedRuntimeVerified: false,
     worlds: worlds.map((world) => ({ provider: world.provider, modelFamily: world.modelFamily, cognitiveRecipe: world.cognitiveRecipe })),
     minPairwiseDiversity: checked.diversity.minPairwiseDiversity,
     threshold: checked.threshold,

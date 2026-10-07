@@ -1,55 +1,44 @@
 'use strict';
 
+const fs = require('node:fs');
 const crypto = require('node:crypto');
 const ignition = require('./ignitionService');
-const experiment = require('./controlledCausalExperimentService');
-const { createReceipt } = require('./versionedContractService');
+const experiment = require('./replicatedCausalValidationService');
 
-const CANDIDATES = Object.freeze([
-  { id: 'candidate-a', drives: { urgency: 0.9, novelty: 0.4 } },
-  { id: 'candidate-b', drives: { urgency: 0.5, novelty: 0.8 } }
-]);
-
-function hash(value) {
-  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function sourceHash() {
+  return crypto.createHash('sha256').update(fs.readFileSync(require.resolve('./ignitionService'))).digest('hex');
 }
 
-function runArm(config, state) {
-  const result = ignition.competeWinners(state.candidates, config);
-  return { winners: result.winners, activations: result.activations, rounds: result.rounds };
+function runArm(config, state, context) {
+  const offset = (Math.abs(context.seed) % 7) / 100;
+  const candidates = state.candidates.map((item) => ({
+    ...item, drives: { urgency: item.drives.urgency + offset }
+  }));
+  const result = ignition.competeWinners(candidates, config);
+  return { seed: context.seed, environmentHash: context.environmentHash,
+    steps: result.rounds, metric: result.winners.length,
+    trajectory: [{ candidates, winners: result.winners, activations: result.activations }] };
 }
 
-function causalPayload(receipt) {
-  const baseline = receipt.baselineOutcome;
-  const candidate = receipt.candidateOutcome;
-  const changed = JSON.stringify(baseline) !== JSON.stringify(candidate);
-  return {
-    experimentId: 'concept-ignition-ablation-v1', snapshotId: `local-${hash(receipt).slice(0, 16)}`,
-    control: { label: 'normal competitive inhibition', metrics: { changed: false, winners: baseline.winners } },
-    intervention: { label: 'increased competitive inhibition', metrics: { changed, winners: candidate.winners } },
-    seeds: [0, 1], replicates: 2, metricsBefore: { winners: baseline.winners },
-    metricsAfter: { winners: candidate.winners }, pairedEffects: { winnerSetChanged: changed },
-    verdict: changed ? 'inconclusive' : 'refuted', evidenceRefs: ['concept:GENOS-IGNITION', 'probe:competitive-ablation']
-  };
-}
-
-function runLocalCausalCampaign() {
-  const raw = experiment.runControlledExperiment({
-    name: 'concept-ignition-ablation-v1',
-    control: { inhibition: 0.2, rounds: 3 },
-    intervention: { inhibition: 0.95, rounds: 3 },
-    initialState: { candidates: CANDIDATES },
-    runner: runArm,
-    trajectoryExtractor: (result) => result.winners
+async function runLocalCausalCampaign(options = {}) {
+  const environmentManifest = { mechanism: 'ignitionService.competeWinners',
+    sourceHash: sourceHash(), node: process.version,
+    runnerHash: crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex') };
+  const evidence = await experiment.runReplicatedExperiment({
+    experimentId: 'concept-ignition-ablation-v2', snapshotId: 'competition-initial-state-v2',
+    runId: 'concept-causal-campaign-v2', seeds: options.seeds || [11, 23, 37, 41, 53],
+    environmentManifest, environmentHash: experiment.digest(environmentManifest),
+    budget: { maxRuns: (options.seeds || [11, 23, 37, 41, 53]).length * 2, maxSteps: 3 },
+    control: { inhibition: 0, rounds: 3, margin: 0.15 },
+    intervention: { inhibition: 0.95, rounds: 3, margin: 0.15 },
+    initialState: { candidates: [
+      { id: 'candidate-a', drives: { urgency: 0.9 } },
+      { id: 'candidate-b', drives: { urgency: 0.88 } }
+    ] }, runner: runArm,
+    evidenceRefs: ['backend/src/services/ignitionService.js', 'intervention:lateral-inhibition']
   });
-  const payload = causalPayload(raw);
-  const receipt = createReceipt('CausalInterventionReceipt', payload, {
-    runId: 'concept-causal-campaign-v1', sourceRefs: ['backend/src/services/conceptCausalCampaignService.js']
-  });
-  return {
-    status: 'inconclusive', receipt, rawEvidence: raw,
-    limitation: 'Probe causale locale contrôlée ; elle ne valide ni la conscience ni la généralisation externe.'
-  };
+  return { status: evidence.receipt.payload.verdict, ...evidence, promotionAllowed: false,
+    limitation: 'Local paired intervention on a software mechanism; no external generalization or consciousness claim.' };
 }
 
-module.exports = { runLocalCausalCampaign, CANDIDATES };
+module.exports = { runLocalCausalCampaign };

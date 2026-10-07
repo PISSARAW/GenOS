@@ -1,0 +1,73 @@
+{
+  "agent_id": "a9ee6038-9af0-4944-ae46-2e3c2fa2b075",
+  "branch_id": "branch-d5e6a72d",
+  "created_at": "2026-10-05T14:39:53.836657600+00:00",
+  "genome": {
+    "apiVersion": "v0alpha1",
+    "capabilities": [
+      "inspect",
+      "reason",
+      "mutate"
+    ],
+    "cell_id": "a9ee6038-9af0-4944-ae46-2e3c2fa2b075",
+    "cognition": {
+      "conscience": {
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0
+      },
+      "organelles": []
+    },
+    "conscience": {
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0
+    },
+    "identity": {
+      "cell_id": "a9ee6038-9af0-4944-ae46-2e3c2fa2b075",
+      "name": "ArchitectureAnalyzer",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "role": "worker"
+    },
+    "kind": "AgentGenome",
+    "memory_policy": {
+      "consolidation": true,
+      "ltd_decay": true
+    },
+    "metadata": {
+      "name": "ArchitectureAnalyzer",
+      "version": "0.1.0"
+    },
+    "model_policy": {
+      "preferred": "default"
+    },
+    "name": "ArchitectureAnalyzer",
+    "objectives": {
+      "operational_mode": "autonomous",
+      "primary": "worker"
+    },
+    "policies": {
+      "hayflick_limit": 50,
+      "is_senescent": false
+    },
+    "role": "worker",
+    "tool_policy": {
+      "allowed_tools": [
+        "genos_inspect"
+      ]
+    }
+  },
+  "snapshot_id": "snap-d5e6a72d7b0e4f199ab904417cce5d7d",
+  "state": {
+    "dissonance": 0.0,
+    "entropy": 0.42,
+    "execution_status": "quiescent",
+    "genesis_hash": "2e2db6e66f63ed2d8c1e06555dc0cfbe3b58e4af796cef911df14c7efe379e27",
+    "working_memory": []
+  },
+  "world_id": "world-matrix-0"
+}

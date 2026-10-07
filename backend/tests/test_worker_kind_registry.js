@@ -82,11 +82,13 @@ assert.equal(workerKinds.buildWorkerContract('specialist', { nicheDomain: 'secur
 assert.equal(workerKinds.resolveWorkerKind(undefined, 'independent_reviewer'), 'verifier_worker');
 assert.equal(workerKinds.resolveWorkerKind(undefined, 'red_team'), 'red_worker');
 assert.equal(workerKinds.resolveWorkerKind(undefined, 'sub_orchestrator'), 'sub_orchestrator');
+assert.equal(workerKinds.resolveWorkerKind(undefined, 'Autonomous Orchestrator'), 'sub_orchestrator');
 assert.equal(workerKinds.resolveWorkerKind(undefined, 'verifier'), 'verifier_worker');
 for (const [alias, kind] of Object.entries(workerKinds.ROLE_ALIASES)) {
   assert.ok(Object.hasOwn(workerKinds.KINDS, kind), 'Alias must target a registered worker: ' + alias);
   assert.equal(workerKinds.resolveWorkerKind(undefined, alias), kind);
 }
+assert.equal(workerKinds.buildWorkerContract('bounded_worker', { writeLease: true }).authority.write, true);
 assert.equal(workerKinds.resolveWorkerKind(undefined, 'security_engineer'), 'specialist');
 assert.throws(() => workerKinds.resolveWorkerKind('unknown_kind'), { code: 'UNKNOWN_WORKER_KIND' });
 assert.equal(workerKinds.buildWorkerContract('sub_orchestrator').spawnBudget, 0);

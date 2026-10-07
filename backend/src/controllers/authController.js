@@ -48,69 +48,96 @@ function clearAuthAttempts(req, bucket) {
   authAttempts.delete(`${bucket}:${clientIp(req)}`);
 }
 
+async function handleRateLimit(req, res, bucket) {
+  const retryAfter = authRateLimit(req, bucket);
+  if (retryAfter) {
+    res.setHeader('Retry-After', String(retryAfter));
+    return res.status(429).json({ error: { code: 'AUTH_RATE_LIMITED', message: `Too many ${bucket} attempts.` } });
+  }
+  return null;
+}
+
+function extractToken(req) {
+  return (req.body && req.body.token) || req.headers.authorization || req.headers['x-access-key'];
+}
+
+function normalizeToken(token) {
+  return token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+}
+
+async function verifyAccessKey({ db, tokenHash, req, res }) {
+  const keyRecord = await db.get(
+    `SELECT * FROM access_keys
+     WHERE key_hash = ? AND is_active = 1
+       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+    tokenHash
+  );
+
+  if (!keyRecord) return false;
+
+  clearAuthAttempts(req, 'verify');
+  const rolePerms = ROLE_PERMISSIONS[keyRecord.role] || [];
+  let extraPerms = [];
+  try {
+    const parsed = JSON.parse(keyRecord.permissions || '[]');
+    extraPerms = Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
+  } catch (e) {}
+
+  await db.run('UPDATE access_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?', keyRecord.id);
+  telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Access key verified.', payload: { principalId: keyRecord.id, kind: 'access_key' } });
+  res.json({
+    valid: true,
+    role: keyRecord.role,
+    permissions: Array.from(new Set([...rolePerms, ...extraPerms])),
+    user: { username: keyRecord.label, role: keyRecord.role, keyId: keyRecord.id }
+  });
+  return true;
+}
+
+async function verifySession({ db, tokenHash, req, res }) {
+  const session = await db.get(
+    'SELECT * FROM sessions WHERE token_hash = ? AND revoked = 0 AND expires_at > CURRENT_TIMESTAMP',
+    tokenHash
+  );
+  if (!session) return false;
+
+  telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Session verified.', payload: { principalId: session.id, kind: 'session' } });
+  clearAuthAttempts(req, 'verify');
+  res.json({
+    valid: true,
+    role: session.role,
+    permissions: ROLE_PERMISSIONS[session.role] || ROLE_PERMISSIONS.viewer,
+    user: { username: session.username, role: session.role, keyId: session.id }
+  });
+  return true;
+}
+
+function sendRejectedResponse(res, req) {
+  telemetry.emitEvent({ eventType: 'AUTH_TOKEN_REJECTED', action: 'AUTH', detail: 'Invalid credential rejected.', severity: 'warning', payload: { ip: req.ip || null } });
+  return res.status(401).json({
+    valid: false,
+    error: { code: 'INVALID_TOKEN', message: 'Supplied token or access key is invalid or inactive' }
+  });
+}
+
 async function verifyToken(req, res, next) {
   try {
-    const retryAfter = authRateLimit(req, 'verify');
-    if (retryAfter) {
-      res.setHeader('Retry-After', String(retryAfter));
-      return res.status(429).json({ error: { code: 'AUTH_RATE_LIMITED', message: 'Too many token verification attempts.' } });
-    }
-    const token = (req.body && req.body.token) || req.headers.authorization || req.headers['x-access-key'];
+    const rateLimitResponse = await handleRateLimit(req, res, 'verify');
+    if (rateLimitResponse) return rateLimitResponse;
 
+    const token = extractToken(req);
     if (!token) {
       return res.status(400).json({ error: { code: 'MISSING_TOKEN', message: 'Token is required' } });
     }
 
-    const rawToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
-
+    const rawToken = normalizeToken(token);
     const db = await getDatabase();
     const tokenHash = hashKey(rawToken);
-    const keyRecord = await db.get(
-      `SELECT * FROM access_keys
-       WHERE key_hash = ? AND is_active = 1
-         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-      tokenHash
-    );
 
-    if (keyRecord) {
-      clearAuthAttempts(req, 'verify');
-      const rolePerms = ROLE_PERMISSIONS[keyRecord.role] || [];
-      let extraPerms = [];
-      try {
-        const parsed = JSON.parse(keyRecord.permissions || '[]');
-        extraPerms = Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
-      } catch (e) {}
+    if (await verifyAccessKey({ db, tokenHash, req, res })) return;
+    if (await verifySession({ db, tokenHash, req, res })) return;
 
-      await db.run('UPDATE access_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?', keyRecord.id);
-      telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Access key verified.', payload: { principalId: keyRecord.id, kind: 'access_key' } });
-      return res.json({
-        valid: true,
-        role: keyRecord.role,
-        permissions: Array.from(new Set([...rolePerms, ...extraPerms])),
-        user: { username: keyRecord.label, role: keyRecord.role, keyId: keyRecord.id }
-      });
-    }
-
-    const session = await db.get(
-      'SELECT * FROM sessions WHERE token_hash = ? AND revoked = 0 AND expires_at > CURRENT_TIMESTAMP',
-      tokenHash
-    );
-    if (session) {
-      telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Session verified.', payload: { principalId: session.id, kind: 'session' } });
-      clearAuthAttempts(req, 'verify');
-      return res.json({
-        valid: true,
-        role: session.role,
-        permissions: ROLE_PERMISSIONS[session.role] || ROLE_PERMISSIONS.viewer,
-        user: { username: session.username, role: session.role, keyId: session.id }
-      });
-    }
-
-    telemetry.emitEvent({ eventType: 'AUTH_TOKEN_REJECTED', action: 'AUTH', detail: 'Invalid credential rejected.', severity: 'warning', payload: { ip: req.ip || null } });
-    return res.status(401).json({
-      valid: false,
-      error: { code: 'INVALID_TOKEN', message: 'Supplied token or access key is invalid or inactive' }
-    });
+    return sendRejectedResponse(res, req);
   } catch (error) {
     if (next) return next(error);
     throw error;

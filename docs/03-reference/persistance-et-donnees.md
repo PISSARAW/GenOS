@@ -242,6 +242,28 @@ Le paramètre `synchronous` est configuré par `GENOS_SQLITE_SYNCHRONOUS`, via `
 
 ---
 
+### 6.3 Syncytium : état candidat et journal atomique
+
+Avec une base injectée, Syncytium prépare la mutation sur un candidat, puis
+valide et persiste ensemble l'état, la révision, l'opération réellement estampillée
+et l'événement. Un contrôle de révision empêche l'écriture sur une version périmée ;
+un échec du commit restaure aussi l'état en mémoire.
+
+| Table | Élément durable |
+| --- | --- |
+| `topology_sessions` | État JSON de la session et topologie. |
+| `syncytium_session_revisions` | Révision de persistance de la session. |
+| `syncytium_applied_ops` | Opération identifiée par session et `op_id`. |
+| `topology_session_events` | Journal ordonné par session et révision. |
+
+Le checkpoint CRDT conserve les empreintes d'opération connues et l'horloge
+Lamport après compaction ; les réplicas conservent leur contexte causal et leurs
+opérations en attente. La révision SQLite et `stateVersion` du snapshot sont
+distinctes : ce dernier utilise le nombre d'opérations CRDT `totalOps`.
+Sans `options.db`, une session Node reste volatile. Une `stateValidation` vérifiée
+n'est donc pas, isolément, une preuve de stockage durable. Voir le
+[contrat runtime Syncytium](runtime-syncytium.md) pour la reprise et les refus.
+
 ## 7. Index
 
 Les index B-tree servent les parcours fréquents : identifiants de tenant, temps de création, états de job, relations agent/workspace, synapses et versions de workflow. Les index uniques et partiels empêchent également des duplications sémantiquement invalides.

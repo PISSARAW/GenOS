@@ -9,6 +9,8 @@ async function workerSchema(db) {
     ALTER TABLE missions ADD COLUMN updated_at TEXT;
     CREATE TABLE agents (id TEXT PRIMARY KEY, execution_mode TEXT, parent_agent_id TEXT,
     organization_id TEXT, project_id TEXT, metadata_json TEXT, role TEXT, dna_json TEXT, workspace_id TEXT);
+    CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
+    INSERT INTO workspaces VALUES ('worker-workspace', 'org', 'project');
     CREATE TABLE mission_agents (mission_id TEXT, agent_id TEXT);
     CREATE TABLE strategy_contracts (id TEXT PRIMARY KEY, agent_id TEXT, version INTEGER, contract_json TEXT, contract_hash TEXT);
     CREATE TABLE strategy_execution_runs (id TEXT PRIMARY KEY, agent_id TEXT, contract_id TEXT, contract_version INTEGER,
@@ -19,7 +21,7 @@ async function workerSchema(db) {
       status TEXT DEFAULT 'planned', started_at TEXT, completed_at TEXT);
     INSERT INTO missions (mission_id, objective, status, orchestrator_agent_id)
       VALUES ('worker-mission', 'Compute subset sum with evidence', 'active', 'parent');
-    INSERT INTO agents (id, execution_mode, organization_id, project_id) VALUES ('parent', 'orchestrator', 'org', 'project');`);
+    INSERT INTO agents (id, execution_mode, organization_id, project_id, workspace_id) VALUES ('parent', 'orchestrator', 'org', 'project', 'worker-workspace');`);
 }
 
 async function addWorker(db, input = {}) {
@@ -27,8 +29,8 @@ async function addWorker(db, input = {}) {
   const metadata = { workerContract: { mission: { methodContract: {
     methodId: 'subset_sum', parameters: { values: [2, 3, 7], target: 5 }
   } } } };
-  await db.run(`INSERT INTO agents (id, execution_mode, parent_agent_id, organization_id, project_id, metadata_json, role)
-    VALUES (?, 'worker', 'parent', 'org', 'project', ?, 'procedural_executor')`, agentId, JSON.stringify(metadata));
+  await db.run(`INSERT INTO agents (id, execution_mode, parent_agent_id, organization_id, project_id, metadata_json, role, workspace_id)
+    VALUES (?, 'worker', 'parent', 'org', 'project', ?, 'procedural_executor', 'worker-workspace')`, agentId, JSON.stringify(metadata));
   await db.run('INSERT INTO mission_agents VALUES (?, ?)', 'worker-mission', agentId);
   const contract = { execution_pipeline: [], strategy_portfolio: [], promotion: input.promotion || {} };
   const id = `contract-${agentId}`;

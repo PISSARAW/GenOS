@@ -394,3 +394,22 @@ fixtures, sans holdout ni gain IA mesuré.
 (création, plan de reprise, checkpoints horodatés, restauration durable de
 lignée et d'état de veille, reprise de tick de reçu sans réutilisation de
 séquence). B07 reste acquis : appel réussi et fichier relu, reprise vérifiée.
+
+## Huitième reprise P0 : consommateurs L01–L05 et L22
+
+Le mapping externe a été retrouvé et relu dans la Page « Plan de réalisation
+et de validation de GenOS » : 115 références couvrent ces six lots. La demande
+historique de fournir ce mapping est levée. La qualification distingue les
+parcours réellement exécutés, les tests de contrat et les interfaces non exercées.
+
+Le [rapport de qualification](qualification-consommateurs-p0-2026-10-07.md)
+et sa [matrice nominative](matrice-consommateurs-l01-l05-l22-2026-10-07.md)
+consignent les preuves et frontières : mémoire relue dans un nouveau processus,
+provenance de promotion rattachée au run et au tenant, état gRPC réel, anti-rejeu
+durable après échec aval. Deux lots frais distincts peuvent encore être réservés
+pour un même run ; aucune sérialisation ni exécution exactement une fois n’est
+revendiquée. Le lien global CLI/IDE/Studio/TUI et les holdouts restent partiels.
+
+B06 reste partiel pour ces garanties plus fortes et les autres consommateurs.
+Les nouveaux chemins corrigés ne démontrent pas les fonctionnalités de recherche
+P1 proposées, une vérité philosophique ni un gain empirique IA.

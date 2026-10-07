@@ -9,7 +9,9 @@ const DEFAULT_PROFILE = { domain: 'software_engineering', artifact: 'technical',
 
 function domainProfile(text) {
   const t = String(text || '');
-  return DOMAIN_PROFILES.find(p => p.signals.some(s => s.test(t))) || DEFAULT_PROFILE;
+  const selected = DOMAIN_PROFILES.find(p => p.signals.some(s => s.test(t))) || DEFAULT_PROFILE;
+  const resolved = require('./trinityWorkerProfiles').missionDomain({ mission: t, domain: selected.domain });
+  return selected.domain === 'creative_writing' && resolved === 'software_engineering' ? DEFAULT_PROFILE : selected;
 }
 
 function missionSubject(text) {

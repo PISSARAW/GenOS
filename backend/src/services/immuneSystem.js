@@ -20,6 +20,7 @@ async function askLocalLLM(..._args) {
   const [prompt, complexity, agentId = 'griot', variantIndex = undefined, modelRouting = {}] = _args;
     try {
         const res = await generate({ agentId, prompt, complexity, maxTokens: 3000, variantIndex, ...modelRouting });
+        modelRouting.onResult?.(res);
         return res.text || res.content || res.response || String(res);
     } catch (e) {
         return null;

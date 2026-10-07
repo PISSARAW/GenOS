@@ -17,6 +17,7 @@ function evidenceFor(row, framework) {
 
 async function buildReport({ framework, workspaceId, generatedBy = 'studio', scope = {} }) {
   if (!FRAMEWORKS[framework]) throw Object.assign(new Error('Unsupported compliance framework'), { status: 400 });
+  scope = scope || {};
   const db = await getDatabase();
   const scoped = scope.organizationId && scope.projectId;
   const params = scoped ? [scope.organizationId, scope.projectId] : [];
@@ -34,8 +35,10 @@ async function buildReport({ framework, workspaceId, generatedBy = 'studio', sco
 
 async function listReports(framework, scope = {}) {
   const db = await getDatabase();
-  const conditions = ['organization_id = ?', 'project_id = ?'];
-  const params = [scope.organizationId, scope.projectId];
+  const scoped = scope?.organizationId && scope?.projectId;
+  const conditions = scoped ? ['organization_id = ?', 'project_id = ?']
+    : ['organization_id IS NULL', 'project_id IS NULL'];
+  const params = scoped ? [scope.organizationId, scope.projectId] : [];
   if (framework) { conditions.push('framework = ?'); params.push(framework); }
   const rows = await db.all(`SELECT * FROM compliance_reports WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC`, ...params);
   return rows.map(parseRow);
@@ -43,6 +46,10 @@ async function listReports(framework, scope = {}) {
 
 async function getReport(id, scope = {}) {
   const db = await getDatabase();
+  if (!scope?.organizationId || !scope?.projectId) {
+    const local = await db.get('SELECT * FROM compliance_reports WHERE id = ? AND organization_id IS NULL AND project_id IS NULL', id);
+    return local ? parseRow(local) : null;
+  }
   const row = await db.get('SELECT * FROM compliance_reports WHERE id = ? AND organization_id = ? AND project_id = ?', id, scope.organizationId, scope.projectId);
   return row ? parseRow(row) : null;
 }

@@ -13,6 +13,13 @@ function toGrpcStatusCode(error) {
   return grpc.status.INTERNAL;
 }
 
+function assertToolSucceeded(result) {
+  if (result?.success !== false && result?.isError !== true) return;
+  const error = result.error;
+  throw Object.assign(new Error(error?.message || error || 'MCP tool execution failed.'),
+    { code: result.code || error?.code || 'MCP_TOOL_ERROR' });
+}
+
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Mcp is alive via gRPC!" }),
 
@@ -38,6 +45,7 @@ module.exports = {
       }
       const args = arguments_json ? JSON.parse(arguments_json) : {};
       const res = await mcpExecutor.callTool(tool_name, args, timeout_ms);
+      assertToolSucceeded(res);
       callback(null, {
         success: true,
         content_json: JSON.stringify(res),

@@ -22,9 +22,9 @@ const REAFFERENCE_WEIGHT = 0.5;
 
 async function openDb(handle) {
   if (handle && typeof handle.get === 'function') return { db: handle, close: null };
-  const { getDatabase } = require('./db');
+  const { getDatabase } = require('../db');
   const db = await getDatabase();
-  return { db, close: () => require('./db').closeDatabase().catch(() => {}) };
+  return { db, close: null };
 }
 
 function clamp01(value) {
@@ -61,13 +61,18 @@ function copyLive(copy, now) {
 }
 
 function matchStrength(copy, event) {
-  const payload = event.payload || {};
   const detail = String(event.detail || '');
-  if (copy.actionId && (payload.sourceActionId === copy.actionId
-    || payload.sourceEventId === copy.actionId || payload.eventId === copy.actionId)) return 1;
+  const sourceId = sourceActionId(event.payload);
+  if (copy.expectedTypes.length && !copy.expectedTypes.includes(event.eventType)) return 0;
+  if (copy.actionId) return sourceId === copy.actionId ? 1 : 0;
   if (copy.expectedDetail && detail.includes(copy.expectedDetail)) return 1;
   if (copy.expectedTypes.includes(event.eventType)) return 0.7;
   return 0;
+}
+
+function sourceActionId(payload) {
+  if (!payload) return undefined;
+  return payload.sourceActionId || payload.sourceEventId || payload.eventId;
 }
 
 function pruneCopies(copies, now) {

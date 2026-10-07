@@ -294,7 +294,8 @@ function workerInsertValues(details) {
     prompt: mission.prompt,
     scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
     orchestratorAgentId: parent.id, recoveryLease: mission.recoveryLease,
-    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
+    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
+    workerTokenLimit: assignedTokens
   });
   workerKinds.grantBoundedDelegation(workerContract);
   return [id, identity.name, identity.name_meaning, assignment.role, ...require('./workerPreparationDetails').databasePlacement(details), parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0, JSON.stringify({ workerKind: assignment.workerKind, workerContract })];
@@ -334,10 +335,11 @@ function formatWorker(details) {
 }
 
 function workerIdentity(details) {
-  const { id, identity, assignment, parent, plan, prompt, mission } = details;
+  const { id, identity, assignment, parent, plan, prompt, mission, assignedTokens } = details;
   const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, {
     prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id,
-    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
+    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
+    workerTokenLimit: assignedTokens || mission.executionBudget?.tokens
   });
   workerKinds.grantBoundedDelegation(workerContract);
   return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerAssignment: assignment.workerAssignment || assignment, methodContract: assignment.methodContract || null, workerContract, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, ...require('./workerPreparationDetails').workerPlacement(assignment, parent, plan) };

@@ -107,7 +107,7 @@ function ethicalComparisonText(ethicalComparison) {
 
 function memoryContent(job, inputs, unproven) {
   const claimsText = inputs.raw.length > 0 ? formatClaimsText(inputs.raw) : '';
-  const tag = unproven ? '[UNVERIFIED_EVIDENCE][unverified/]' : '[VERIFIED_SYSTEM_FACT]';
+  const tag = unproven ? '[UNVERIFIED_EVIDENCE][unverified/]' : '[RECORDED_EXPERIENCE]';
   const philosophy = job.options?.philosophy;
   const epistemicContext = job.options?.epistemicContext || job.options?.epistemic_context;
   const ethicalComparison = job.options?.ethicalComparison || job.options?.ethical_comparison;

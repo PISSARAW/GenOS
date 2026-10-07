@@ -7,9 +7,11 @@ async function report(options) {
   if (!Array.isArray(options.indicators) || !options.indicators.length) throw new TypeError('Indicators required.');
   const reports = [];
   for (const indicatorId of options.indicators) {
-    const evidence = await collector.collect({ db: options.db, scope: options.scope, indicatorId });
+    const evidence = await collector.collect({ db: options.db, scope: options.scope, indicatorId,
+      verifierRegistry: options.verifierRegistry, artifactReader: options.artifactReader, contextHash: options.contextHash });
     reports.push({ ...evidence, nextStage: nextStage(evidence.highestStage),
-      operationalGate: gate.evaluate({ indicatorId, receipts: evidence.receipts }) });
+      operationalGate: gate.evaluate({ indicatorId, scope: options.scope,
+        contextHash: options.contextHash, receipts: evidence.receipts }) });
   }
   return { generatedAt: new Date().toISOString(), reports,
     claimsPromoted: reports.filter((item) => item.operationalGate.promotionAllowed).map((item) => item.indicatorId) };

@@ -39,6 +39,20 @@ Chaque élément fourni à `evaluateMorphogenesisBenchmarks(runs)` suit cette fo
 
 `variant`, `task`, `budget` et `counts` sont obligatoires. Le service retourne le nombre d'exécutions et les compteurs agrégés par variante. Le booléen global `equalBudget` indique si les budgets sont identiques entre les variantes pour chaque tâche ; il ne garantit pas à lui seul que les tâches ou les conditions expérimentales sont comparables.
 
+## Validation fonctionnelle et mesure empirique
+
+Le [contrat runtime](../03-reference/runtime-syncytium.md) et le
+[protocole de missions](../02-orchestration/topologies/protocole-missions-syncytium.md)
+distinguent les preuves de cohérence des résultats expérimentaux. Les 45 suites
+fonctionnelles relevées au 6 octobre 2026, associées au commit `4c4d4f33`, ne
+mesurent aucun des quatre ratios ci-dessus. Un reçu `stateValidation` vérifié
+porte sur l'état partagé de la session ; il ne certifie pas la provenance des
+compteurs de benchmark et ne fournit pas une attestation signée.
+
+Les 48 fixtures de routage déterministes ne remplacent pas les 52 missions LLM
+proposées. Tout gain annoncé nécessite sa propre campagne à budgets comparables,
+ses répétitions, son oracle et ses traces brutes.
+
 ## Runner de campagne et matrice
 
 `backend/bin/genos-biological-benchmark.cjs` reçoit un manifeste JSON en argument. Un manifeste individuel précise `mission`, `variantId`, `repetitions`, `budget` par worker (`tokens` et `costUsd` obligatoires), `campaignBudget`, `expectedClaims` et l'oracle de session. Il peut préciser `caseId`, `configuration`, `workerAssignments`, `timeoutMs`, `scenarioTimeoutMs` et `sessionOptions`. Le runner valide les plafonds avant le dispatch, lance le baseline isolé puis Syncytium pour chaque répétition, attend les workers, contrôle les claims et évalue l'oracle sur l'état et les reçus persistés. `comparable` exige notamment budgets et nombres de workers égaux, exécutions valides et dépenses vérifiées. `complete` exige aussi les claims attendus et, pour Syncytium, l'oracle.

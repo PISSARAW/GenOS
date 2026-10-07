@@ -17,6 +17,7 @@
     "test:capabilities": "node tests/test_morphogenesis_capabilities.js && node tests/test_morphogenesis_capabilities_phase2.js && node tests/run_capability_runtime_suite.js",
     "bench:capabilities": "node ../benchmarks/morphogenesis-capabilities/run.cjs",
     "test:quality": "node tests/run_quality_suite.js",
+    "test:p0-consumers": "node tests/run_p0_consumer_suite.cjs",
     "test:trinity": "node tests/run_trinity_suite.js",
     "test:biocenose": "node tests/run_biocenose_suite.js",
     "test:rhizome": "node tests/run_rhizome_suite.js",

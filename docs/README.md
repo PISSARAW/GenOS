@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Lot 2 Trinity : identités, capsules et profils](06-qualite-preuves/lot-2-trinity-identites-capsules-et-profils.md) — bootstrap corrélé, reprise vérifiée et critères de lancement des workers.
+
 - [Lot 1 Trinity : contrats et traces](06-qualite-preuves/lot-1-trinity-contrats-et-traces.md) — entrées scellées, registre historique et vérifications de L1.
 
 Ce dossier centralise la documentation technique, fonctionnelle et de gouvernance de GenOS.
@@ -174,6 +176,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [capsules-transport.md](03-reference/capsules-transport.md) — transport chiffré des capsules.
 - [traces-otlp.md](03-reference/traces-otlp.md) — traces filtrées après persistance.
 - [persistance-et-donnees.md](03-reference/persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
+- [runtime-syncytium.md](03-reference/runtime-syncytium.md) — contrats Node/MCP, causalité, réplicas et preuve de complétion.
 - [resultats-formels-messagepack.md](03-reference/resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [registre-philosophique.md](03-reference/registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
 - [contrats-philosophiques-ontogenese.md](03-reference/contrats-philosophiques-ontogenese.md) — raccord des 375 contrats philosophiques au plan de mission et au runtime harness Ontogenèse.
@@ -595,5 +598,11 @@ et les cinq guides : [Méristème](02-orchestration/meristeme-epistemique.md),
 [Chronotaxie](02-orchestration/chronotaxie-aperiodique.md),
 [Cambium](02-orchestration/cambium-contre-exemples.md),
 [Infini sous contrat](02-orchestration/infini-sous-contrat.md).
+
+### Qualification réelle de Trinity
+
+[Campagne du 6 octobre 2026](06-qualite-preuves/qualification-trinity-2026-10-06.md)
+— missions du document fourni, contrôles indépendants, réussites de livrables et
+limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scelles-trinity.md).
 
 - [ADR 0344 — Refactorings de qualité et frontières de contrôle](adr/0344-refactorings-qualite-et-frontieres-de-controle.md).

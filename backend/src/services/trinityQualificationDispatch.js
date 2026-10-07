@@ -40,6 +40,7 @@ async function seal(input) {
     requestedRuntime: requestedRuntime(context.request), workers: plannedWorkers(members),
     toolLeases: [] });
   return { qualificationContract: contract, qualificationStatus: contract ? 'contract_recorded' : 'legacy_unqualified',
+    workerProfiles: members.map(member => member.workerProfile || require('./trinityWorkerProfiles').describe(member)),
     runManifest: manifest, workerPromptHashes: members.map(member => manifestsHash(promptInput(member))) };
 }
 
@@ -73,6 +74,7 @@ async function recordStarted(context) {
   const previous = await manifests.read(db, runtimeCorrelation(context, input));
   const { manifest, correlation, contract } = runtimeManifest(context, { ...input, previous });
   await manifests.persist(db, manifest);
+  await require('./trinityCapsuleBinding').anchor(context, manifest);
   await traces.append(db, { correlation, stage: 'worker_runtime', status: 'started', eventId: 'worker-runtime:' + context.executionRun.id,
     details: { manifestHash: manifest.hash, qualificationStatus: contract ? 'contract_recorded' : 'legacy_unqualified',
       authorityHash: manifestsHash({ workerContract: mission.workerContract, executionPolicy: mission.executionPolicy,
@@ -114,6 +116,7 @@ function runtimeCorrelation(context, input) {
   return { missionId: mission.missionScope.missionId || input.experimentId, experimentId: input.experimentId,
     worldId: input.world.id, workerId: context.agentId, runId: context.executionRun.id, parentId: mission.orchestratorAgentId,
     tenantId: context.dispatchedAgent?.organization_id || null, workspaceRoot: mission.workspaceRoot,
+    snapshotId: context.genosCapsule?.snapshotId || null,
     snapshotHash: input.world.snapshot_hash };
 }
 

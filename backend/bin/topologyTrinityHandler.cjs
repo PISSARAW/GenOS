@@ -83,10 +83,22 @@ function prepareMembers(input) {
   return require('../src/services/trinityJournalTrace').execute({ db, missionId,
     configuration: { mission, options, assignments } }, 'prelaunch', async () => {
     const members = composeMembers(mission, options, assignments);
+    const preflight = require('../src/services/trinityWorkerProfiles').assertPrelaunch(members,
+      { toolLeaseByWorld: prelaunchLeases(input.context, members) });
     const requiredSlots = await requiredWorldSlots({ db, missionId, members, qdConfig: options.qdConfig });
     if (garage.available < requiredSlots) throw Object.assign(new Error('Trinity design requires ' + requiredSlots + ' free worker slots'), { code: 'WORKER_GARAGE_FULL' });
-    return members;
+    return members.map((member, index) => ({ ...member, workerProfile: preflight.profiles[index] }));
   });
+}
+
+function prelaunchLeases(context, members) {
+  const { buildLaunchCapabilities } = require('../src/services/agents/agentIncarnationPayloadService');
+  return Object.fromEntries(members.map(member => [member.worldNumber, buildLaunchCapabilities({
+    role: member.role, prompt: member.mission || context.task,
+    domain: context.request?.domain, mode: context.request?.mode,
+    organization: context.request?.organization, capabilitiesHint: member.capabilities,
+    budgetTokens: context.request?.execution_budget?.tokens ?? context.request?.executionBudget?.tokens
+  }).toolLease]));
 }
 
 async function requiredWorldSlots(context) {

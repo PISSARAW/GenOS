@@ -49,6 +49,17 @@ async function provisionWorker(ctx) {
   if (!['Branch', 'Sandbox', 'Container'].includes(mission.workspaceIsolation)) return;
   const source = mission.workspaceRoot;
   if (!source) return;
+  if (mission.missionScope?.trinityExperimentId) {
+    const delegated = await require('./trinityWorkerAuthority').delegation(ctx.db, {
+      agent: ctx.dispatchedAgent,
+      parent: await ctx.db.get('SELECT id,workspace_id FROM agents WHERE id = ?', mission.orchestratorAgentId)
+    });
+    if (!delegated) throw requests.error('GARAGE_SCOPE_INVALID', 'Trinity workspace is not bound to its parent.');
+    const workspace = await ctx.db.get('SELECT path FROM workspaces WHERE id = ?', delegated.workspace_id);
+    if (workspace.path !== source) throw requests.error('GARAGE_SCOPE_INVALID', 'Trinity runtime workspace differs from its binding.');
+    mission.workspaceProvisioned = true;
+    return;
+  }
   mission.workspaceRoot = await require('./agentWorkspaceLifecycleService').createIsolatedWorkspace(source, ctx.agentId);
   mission.workspaceProvisioned = true;
 }

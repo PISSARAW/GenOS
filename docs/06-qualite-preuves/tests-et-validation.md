@@ -89,7 +89,8 @@ flowchart TD
 
 | Commande | Rôle |
 |---|---|
-| `npm test` | délègue à `npm --prefix backend test`, donc `backend/tests/test_backend.js` |
+| `npm test` | exécute la suite backend, dont le profil Syncytium, puis les vérifications racine définies dans `package.json` |
+| `npm --prefix backend run test:syncytium` | découvre `test_syncytium*.js`, isole chaque suite et refuse tout échec ou timeout (120 s par suite) |
 | `npm run test:quality` | lance les tests de qualité/evaluation Node |
 | `npm --prefix backend run test:validation` | exécute tous les profils de validation Node |
 | `npm --prefix backend run test:properties` | génère 150 cas par propriété pour les leases MCP, la morphogenèse locale et la promotion de transition |
@@ -115,6 +116,7 @@ en score neutre ni en `success: true`. La réponse de transport reste disponible
 pour le diagnostic, mais elle ne constitue pas une validation métier.
 
 ---
+
 
 ### 3.2 Validation ciblée Metapopulation
 
@@ -1407,30 +1409,6 @@ Taux de Résolution Effectif Dynamique : 4 / 4 (100.0% Pass@1)
 
 Ces résultats décrivent uniquement cette configuration locale, ces versions d’outils, les fixtures et les services effectivement lancés. Le vert des tests ne démontre ni comportement universel ni adéquation d’un fournisseur externe ; un échec interrompant une suite laisse les scénarios ultérieurs non vérifiés.
 
-## Contrat natif Axolotl
-
-`npm --prefix backend run test:axolotl` lance huit suites : régénération
-partielle, apprentissage, sources cognitives, métamorphose, coût, sélection
-stratégique, runtime et gates de reprise. Elles utilisent SQLite et des
-workers Node réels pour les contrats de routage/rappel, avec concurrence,
-preuves altérées, budgets, rollback, messages et composition. La suite est
-incluse dans les tests par défaut du backend. Sa réussite porte sur ce
-contrat natif et ne certifie pas une mission LLM arbitraire ni les autres
-suites du dépôt. Voir la [référence Axolotl](../03-reference/axolotl-regeneration.md).
-
-## Validation ciblée A-Team : clôture et variantes
-
-Depuis la racine, exécuter séparément :
-
-```bash
-node backend/tests/test_ateam_runtime.js
-node backend/tests/test_ateam_dispatch_runtime.js
-node backend/tests/test_ateam_execution_e2e.js
-node backend/tests/test_ateam_variant_acceptance.js
-```
-
-Le test d'exécution couvre SQLite, processus Node, refus de preuves/schémas, critères globaux, progression indépendante, accusé périmé, bail obsolète et délai conservé à la reprise. Les 44 cas de variantes évaluent des contrats locaux, sans qualification de workers LLM ni de sous-runs multiteam génériques. Ces commandes ne remplacent pas `npm test`, `cargo test --workspace` et le gate de qualité. Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).
-
 ## Audits philosophiques et raccord Ontogenèse
 
 Les tests de ce contrat logiciel s'exécutent depuis la racine :
@@ -1464,3 +1442,29 @@ Ces vérifications ne remplacent pas les trois gates globaux du dépôt. Leur
 succès signifie « audit logiciel borné testé », pas « 375 théories validées ».
 Voir [la référence des contrats](../03-reference/contrats-philosophiques-ontogenese.md)
 et [la matrice des profils](../03-reference/matrice-operationnelle-philosophique.md).
+
+## Contrat natif Axolotl
+
+`npm --prefix backend run test:axolotl` lance huit suites : régénération
+partielle, apprentissage, sources cognitives, métamorphose, coût, sélection
+stratégique, runtime et gates de reprise. Elles utilisent SQLite et des
+workers Node réels pour les contrats de routage/rappel, avec concurrence,
+preuves altérées, budgets, rollback, messages et composition. La suite est
+incluse dans les tests par défaut du backend. Sa réussite porte sur ce
+contrat natif et ne certifie pas une mission LLM arbitraire ni les autres
+suites du dépôt. Voir la [référence Axolotl](../03-reference/axolotl-regeneration.md).
+
+
+
+## Validation ciblée A-Team : clôture et variantes
+
+Depuis la racine, exécuter séparément :
+
+```bash
+node backend/tests/test_ateam_runtime.js
+node backend/tests/test_ateam_dispatch_runtime.js
+node backend/tests/test_ateam_execution_e2e.js
+node backend/tests/test_ateam_variant_acceptance.js
+```
+
+Le test d'exécution couvre SQLite, processus Node, refus de preuves/schémas, critères globaux, progression indépendante, accusé périmé, bail obsolète et délai conservé à la reprise. Les 44 cas de variantes évaluent des contrats locaux, sans qualification de workers LLM ni de sous-runs multiteam génériques. Ces commandes ne remplacent pas `npm test`, `cargo test --workspace` et le gate de qualité. Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).

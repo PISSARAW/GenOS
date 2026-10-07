@@ -124,6 +124,11 @@ function buildCapsuleHint(isolation, capsuleId) {
   return `[CAPSULE] Isolation: ${isolation}. Capsule ID: ${capsuleId}.`;
 }
 
+function buildCapsulePaths(capsule) {
+  if (!capsule?.genomePath || !capsule?.snapshotPath) return '';
+  return `[CAPSULE PATHS]\nUse these exact supplied paths; do not derive paths from the name or capsule ID.\nGenome: ${capsule.genomePath}\nSnapshot: ${capsule.snapshotPath}`;
+}
+
 function buildWorkspaceHint(wsRoot) {
   return `[WORKSPACE] Root: ${wsRoot}`;
 }
@@ -138,7 +143,7 @@ function buildParasitismHint(isWorker, autonomyPlan) {
   return 'Parasitic pressure is enabled for this risk profile. If—and only if—you can construct a schema-valid parasite/agent genome manifest inside an isolated capsule, run genos_parasitic_pressure there with evolution enabled; keep its report as evidence and never merge it automatically.';
 }
 
-function buildAgentRuntimePrompt(ctx) {
+function runtimePromptParameters(ctx) {
   const params = {
     selfIntro: ctx.selfIntro,
     mission: ctx.mission,
@@ -163,18 +168,24 @@ function buildAgentRuntimePrompt(ctx) {
     capabilityManifest: ctx.capabilityManifest,
     capabilities: ctx.capabilities,
   };
+  return params;
+}
 
+function buildAgentRuntimePrompt(ctx) {
+  const params = runtimePromptParameters(ctx);
   const gating = resolveToolGating(params);
   const { effectiveLease, directive: gatingDirective } = applyToolGating(params.toolLease, gating);
-  const capsuleId = params.genosCapsule ? `${params.genosCapsule.id}_run_${Date.now()}` : '';
+  const capsuleId = params.genosCapsule?.id || '';
   const isolation = params.isolationMode || 'Branch';
-  const wsRoot = params.workspacePath || process.env.GENOS_WORKSPACE_ROOT || '';
+  const wsRoot = params.workspacePath || params.mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || '';
 
   return [
     `${params.selfIntro}`,
     `Agent role: ${params.mission.role || 'Autonomous implementation agent'}.`,
-    params.agentSelfBlock || '',
-    params.workerSelfBlock || '',
+    `[ASSIGNED MISSION]\n${params.mission.prompt || params.mission.currentTask || ''}`,
+    buildWorkerOutputInstruction(params),
+    params.agentSelfBlock,
+    params.workerSelfBlock,
     `${params.conscienceBlock}`,
     params.memoryBlock ? `${params.memoryBlock}` : '',
     params.authorityInstruction || '',
@@ -191,8 +202,17 @@ function buildAgentRuntimePrompt(ctx) {
     buildFileEditHint(params.isWorker, params.allowFileEdits),
     buildCommandHint(params.isWorker, params.allowedCommands),
     buildCapsuleHint(isolation, capsuleId),
+    buildCapsulePaths(params.genosCapsule),
     buildWorkspaceHint(wsRoot),
   ].filter(Boolean).join('\n\n');
+}
+
+function buildWorkerOutputInstruction(params) {
+  if (!params.isWorker) return '';
+  const { artifactInstruction } = require('../src/services/agents/workerArtifactContract');
+  const contract = typeof params.mission.workerContractJson === 'string'
+    ? JSON.parse(params.mission.workerContractJson) : params.mission.workerContract;
+  return artifactInstruction(contract);
 }
 
 function buildCapabilityBlock(isWorker, capabilities, manifest) {

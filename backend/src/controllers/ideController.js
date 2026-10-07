@@ -20,27 +20,73 @@ function isCompatibleVersion(version) {
 }
 
 async function contract(req, res) { res.json(CONTRACT); }
+function validateIdeType(ide) {
+  return CONTRACT.ides.includes(ide) ? null : { code: 'INVALID_IDE', message: 'ide must be vscode, jetbrains or antigravity' };
+}
+
+function validateWorkspaceId(workspaceId) {
+  return workspaceId ? null : { code: 'WORKSPACE_REQUIRED', message: 'workspaceId is required for an IDE integration.' };
+}
+
+function validateVersionCompat(version) {
+  return isCompatibleVersion(version) ? null : { code: 'INCOMPATIBLE_IDE_VERSION', message: `IDE version '${version}' is incompatible with contract ${CONTRACT.version}.` };
+}
+
+function validateMetadata(metadata) {
+  return (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) ? null : { code: 'INVALID_IDE_METADATA', message: 'metadata must be an object.' };
+}
+
+function validateClientId(clientId) {
+  return clientId === undefined || (typeof clientId === 'string' && clientId.trim() && clientId.length <= 256) ? null : { code: 'INVALID_IDE_CLIENT_ID', message: 'clientId must be a non-empty string of at most 256 characters.' };
+}
+
+function runValidations(validations) {
+  for (const v of validations) {
+    if (v) return { error: v };
+  }
+  return null;
+}
+
+function validateIdeBody(body) {
+  const { ide, workspaceId, clientId, version = CONTRACT.version, metadata = {} } = body || {};
+  const validationError = runValidations([
+    validateIdeType(ide),
+    validateWorkspaceId(workspaceId),
+    validateVersionCompat(version),
+    validateMetadata(metadata),
+    validateClientId(clientId)
+  ]);
+  if (validationError) return validationError;
+  return { ide, workspaceId, clientId: clientId?.trim() || null, version, metadata };
+}
+
+async function findWorkspace(db, { workspaceId, organizationId, projectId }) {
+  return db.get('SELECT id FROM workspaces WHERE id = ? AND organization_id = ? AND project_id = ?', workspaceId, organizationId, projectId);
+}
+
+async function findExistingIntegration(db, { clientId, workspaceId }) {
+  return clientId ? await db.get('SELECT id FROM ide_integrations WHERE client_id = ? AND workspace_id = ?', clientId, workspaceId) : null;
+}
+
+async function upsertIntegration(db, { existing, id, ide, workspaceId, clientId, version, metadata }) {
+  if (existing) {
+    await db.run('UPDATE ide_integrations SET ide = ?, version = ?, metadata_json = ?, status = \'connected\', last_seen_at = CURRENT_TIMESTAMP WHERE id = ?', ide, version, JSON.stringify(metadata), id);
+  } else {
+    await db.run('INSERT INTO ide_integrations (id, ide, workspace_id, client_id, version, metadata_json) VALUES (?, ?, ?, ?, ?, ?)', id, ide, workspaceId, clientId, version, JSON.stringify(metadata));
+  }
+}
+
 async function connect(req, res) {
-  const { ide, workspaceId, clientId, version = CONTRACT.version, metadata = {} } = req.body || {};
-  if (!CONTRACT.ides.includes(ide)) return res.status(400).json({ error: { code: 'INVALID_IDE', message: 'ide must be vscode, jetbrains or antigravity' } });
-  if (!workspaceId) return res.status(400).json({ error: { code: 'WORKSPACE_REQUIRED', message: 'workspaceId is required for an IDE integration.' } });
-  if (!isCompatibleVersion(version)) return res.status(426).json({ error: { code: 'INCOMPATIBLE_IDE_VERSION', message: `IDE version '${version}' is incompatible with contract ${CONTRACT.version}.` } });
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return res.status(400).json({ error: { code: 'INVALID_IDE_METADATA', message: 'metadata must be an object.' } });
-  if (clientId !== undefined && (typeof clientId !== 'string' || !clientId.trim() || clientId.length > 256)) return res.status(400).json({ error: { code: 'INVALID_IDE_CLIENT_ID', message: 'clientId must be a non-empty string of at most 256 characters.' } });
+  const validation = validateIdeBody(req.body);
+  if (validation.error) return res.status(400).json(validation.error);
+  const { ide, workspaceId, clientId, version, metadata } = validation;
   const db = await getDatabase();
-  const workspace = await db.get(
-    'SELECT id FROM workspaces WHERE id = ? AND organization_id = ? AND project_id = ?',
-    workspaceId,
-    req.tenant.organizationId,
-    req.tenant.projectId
-  );
+  const workspace = await findWorkspace(db, { workspaceId, organizationId: req.tenant.organizationId, projectId: req.tenant.projectId });
   if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found in this project.' } });
-  const normalizedClientId = clientId?.trim() || null;
-  const existing = normalizedClientId ? await db.get('SELECT id FROM ide_integrations WHERE client_id = ? AND workspace_id = ?', normalizedClientId, workspaceId) : null;
+  const existing = await findExistingIntegration(db, { clientId, workspaceId });
   const id = existing?.id || `ide_${crypto.randomBytes(8).toString('hex')}`;
-  if (existing) await db.run('UPDATE ide_integrations SET ide = ?, version = ?, metadata_json = ?, status = \'connected\', last_seen_at = CURRENT_TIMESTAMP WHERE id = ?', ide, version, JSON.stringify(metadata), id);
-  else await db.run('INSERT INTO ide_integrations (id, ide, workspace_id, client_id, version, metadata_json) VALUES (?, ?, ?, ?, ?, ?)', id, ide, workspaceId, normalizedClientId, version, JSON.stringify(metadata));
-  res.status(existing ? 200 : 201).json({ id, ide, workspaceId, clientId: normalizedClientId, version, status: 'connected', commands: CONTRACT.commands });
+  await upsertIntegration(db, { existing, id, ide, workspaceId, clientId, version, metadata });
+  res.status(existing ? 200 : 201).json({ id, ide, workspaceId, clientId, version, status: 'connected', commands: CONTRACT.commands });
 }
 async function list(req, res) {
   const db = await getDatabase();

@@ -17,6 +17,8 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [runtime-a-team.md](runtime-a-team.md) — exécution canonique, preuves, handoffs versionnés, couvertures et reprise A-Team.
 - [runtime-metapopulation.md](runtime-metapopulation.md) — sessions, contrats d’adaptateurs, migrations et reprise régionale vérifiée.
 - [plugins-topologies-morphogenese.md](plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique : contrats, matrice, SQLite, fail-closed.
+- [runtime-syncytium.md](runtime-syncytium.md) — admission causale, réplication, persistance et clôture vérifiée de l’état partagé.
+
 - [runtime-rhizome.md](runtime-rhizome.md) — exécution vérifiée, providers concrets, croissance et télémétrie Rhizome.
 - [resultats-formels-messagepack.md](resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [scheduler-epistemique.md](scheduler-epistemique.md) — ordonnancement par empreinte, nouveauté, dépendances, preuve et budget.
@@ -30,6 +32,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [categorisation-philosophique.md](categorisation-philosophique.md) — comparaison à l'instance, procédures graduées, métriques, contre-exemples et limites.
 - [contrats-philosophiques-ontogenese.md](contrats-philosophiques-ontogenese.md) — compilation des 375 contrats dans le plan de mission et le runtime harness Ontogenèse.
 - [runtime-holobionte.md](runtime-holobionte.md) — missions contractuelles, preuves indépendantes, quotas et clôture Holobionte.
+- [matrice-operationnelle-philosophique.md](matrice-operationnelle-philosophique.md) — 375 profils d'audit, champs et prédicats ; limites de la couverture logicielle.
 - [notifications-et-alertes.md](notifications-et-alertes.md) — préférences et alertes tenant-scoped.
 - [qualite-code-et-complexite.md](qualite-code-et-complexite.md) — seuils, périmètre et audit strict de la qualité du code.
 - [ontogenese-contrats.md](ontogenese-contrats.md) — contrats stables V1 de l'Ontogenèse : tables, config, états, claims, sélecteur, intégrateur, CLI.

@@ -42,6 +42,7 @@ function ensureWorkerParticipant(round, mission, workerId) {
 function buildWorkerEvidenceEntry(event, report, failure) {
   const entry = {
     eventType: event.eventType,
+    executionRunId: event.payload?.executionRunId || null,
     action: event.action,
     detail: String(event.detail || '').slice(0, 500)
   };

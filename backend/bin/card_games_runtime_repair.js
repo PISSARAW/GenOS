@@ -23,21 +23,21 @@ function startStaticServer(root) {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
 }
 
-async function probeRuntime({ browser, url, spec, arch }) {
-  const page = await browser.newPage();
+function describeError(e) {
+  if (e == null) return 'unknown error';
+  if (typeof e === 'string') return e;
+  return String(e.stack || e.message || e) || String(e.name || 'unknown error');
+}
+
+async function setupPageListeners(page) {
   const errors = [];
-  const describe = (e) => {
-    if (e == null) return 'unknown error';
-    if (typeof e === 'string') return e;
-    return String(e.stack || e.message || e) || String(e.name || 'unknown error');
-  };
-  page.on('pageerror', (e) => errors.push(describe(e)));
+  page.on('pageerror', (e) => errors.push(describeError(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('requestfailed', (r) => errors.push(`request failed: ${r.url()}`));
+  return errors;
+}
 
-  await page.goto(url, { waitUntil: 'networkidle0' });
-  await new Promise((r) => setTimeout(r, 400));
-
+async function checkNamespaces(page, arch) {
   const namespaces = arch.modules.map((m) => m.namespace);
   const missing = await page.evaluate((names) => {
     const absent = [];
@@ -52,10 +52,12 @@ async function probeRuntime({ browser, url, spec, arch }) {
     });
     return absent;
   }, namespaces);
-  missing.forEach((n) => errors.push(`namespace ${n} was never defined on window.CC`));
+  return missing.map((n) => `namespace ${n} was never defined on window.CC`);
+}
 
+async function testGames(page, spec) {
+  const errors = [];
   for (const game of spec.games) {
-    const before = errors.length;
     try {
       const clicked = await page.evaluate((id) => {
         const el = document.querySelector(`[data-game="${id}"]`);
@@ -68,76 +70,48 @@ async function probeRuntime({ browser, url, spec, arch }) {
     } catch (e) {
       errors.push(`clicking game ${game.id} threw: ${e.message}`);
     }
-    if (errors.length > before) {
-      errors.push(`the above failure(s) happened while starting game "${game.id}"`);
-    }
   }
+  return errors;
+}
+
+async function probeRuntime({ browser, url, spec, arch }) {
+  const page = await browser.newPage();
+  const errors = await setupPageListeners(page);
+
+  await page.goto(url, { waitUntil: 'networkidle0' });
+  await new Promise((r) => setTimeout(r, 400));
+
+  const namespaceErrors = await checkNamespaces(page, arch);
+  errors.push(...namespaceErrors);
+
+  const gameErrors = await testGames(page, spec);
+  errors.push(...gameErrors);
 
   await page.close();
   return errors;
 }
 
-function attributeError(message, arch) {
-  for (const mod of arch.modules) {
-    if (message.includes(mod.path)) return mod.path;
-    if (message.includes(`namespace ${mod.namespace} `)) return mod.path;
-    const leaf = mod.namespace.split('.').pop();
-    if (new RegExp(`setting '${leaf}'|reading '${leaf}'`).test(message)) return mod.path;
-  }
-  for (const mod of arch.modules) {
-    const leaf = path.basename(mod.path, '.js');
-    if (new RegExp(`\\b${leaf}s?\\b`, 'i').test(message)) return mod.path;
-  }
-  return null;
+function getQaAgent(spec) {
+  return spec.team.find((m) => /qa|test|quality|review/i.test(m.role)) || spec.team[0];
 }
 
-async function phaseRuntimeRepair({ helpers, state, spec, arch }) {
-  const { log, WORLD_DIR, saveState, checkJsSyntax, withCodeImmunity, writeArtifact, CONSTITUTION } = helpers;
-  log('Phase 7: runtime verification in a headless browser...');
-  let puppeteer;
-  try { puppeteer = require('puppeteer'); } catch (_) {
-    log('  puppeteer unavailable; skipping runtime verification.');
-    return;
+function groupErrorsByFile(errors, arch) {
+  const byFile = new Map();
+  const unattributed = [];
+  errors.forEach((msg) => {
+    const file = attributeError(msg, arch);
+    if (!file) { unattributed.push(msg); return; }
+    if (!byFile.has(file)) byFile.set(file, []);
+    byFile.get(file).push(msg);
+  });
+  if (unattributed.length) {
+    byFile.set('index.html', (byFile.get('index.html') || []).concat(unattributed));
   }
+  return byFile;
+}
 
-  const server = await startStaticServer(WORLD_DIR);
-  const url = `http://127.0.0.1:${server.address().port}/`;
-  const browser = await puppeteer.launch({ headless: 'new' });
-  const qa = spec.team.find((m) => /qa|test|quality|review/i.test(m.role)) || spec.team[0];
-  const rounds = Number(process.env.GENOS_RUNTIME_ROUNDS || 4);
-  const history = [];
-
-  try {
-    for (let round = 1; round <= rounds; round++) {
-      const errors = await probeRuntime({ browser, url, spec, arch });
-      const unique = [...new Set(errors)];
-      history.push({ round, errorCount: unique.length });
-      log(`  round ${round}: ${unique.length} runtime error(s)`);
-      unique.slice(0, 12).forEach((e) => log(`    ! ${e.split('\n')[0].slice(0, 160)}`));
-      if (!unique.length) { log('  runtime is clean.'); break; }
-      if (round === rounds) { log('  round budget exhausted.'); break; }
-
-      const byFile = new Map();
-      const unattributed = [];
-      unique.forEach((msg) => {
-        const file = attributeError(msg, arch);
-        if (!file) { unattributed.push(msg); return; }
-        if (!byFile.has(file)) byFile.set(file, []);
-        byFile.get(file).push(msg);
-      });
-      if (unattributed.length) {
-        byFile.set('index.html', (byFile.get('index.html') || []).concat(unattributed));
-      }
-
-      for (const [file, msgs] of byFile) {
-        const abs = path.join(WORLD_DIR, file);
-        if (!fs.existsSync(abs)) continue;
-        const current = fs.readFileSync(abs, 'utf8');
-        const mod = arch.modules.find((m) => m.path === file);
-        log(`  [runtime-repair] ${file} (${msgs.length} error(s)) by ${qa.agent_name}`);
-
-        const isHtml = file.endsWith('.html');
-        const prompt = `${qa.introduction}
+function buildRepairPrompt({ qa, spec, CONSTITUTION, arch, file, mod, msgs, current, isHtml }) {
+  return `${qa.introduction}
 You are fixing REAL runtime errors observed in a headless browser for ${spec.project_name}.
 ${CONSTITUTION}
 
@@ -159,31 +133,82 @@ ${mod ? `Make sure this file creates every namespace level it needs, e.g. CC.Gam
 Keep all existing working behaviour and keep the file complete.
 
 Reply with NOTHING except the full corrected file inside [ARTIFACT: ${file}] ... [/ARTIFACT].`;
+}
 
-        const fixed = await withCodeImmunity(prompt, {
-          agentId: qa.agent_name,
-          expectedPath: file,
-          maxRetries: 3,
-          validate: (code) => {
-            if (isHtml) {
-              if (!/<\/html>/i.test(code)) throw new Error('Document truncated: missing </html>.');
-              const absent = arch.modules.filter((m) => !code.includes(m.path)).map((m) => m.path);
-              if (absent.length) throw new Error(`index.html must keep a <script> tag for every module. Missing: ${absent.join(', ')}.`);
-            } else {
-              checkJsSyntax(code, file);
-              if (!code.includes('window.CC')) throw new Error('The (function (CC) { ... })(window.CC = window.CC || {}) wrapper must be preserved.');
-              if (/\b(?:import|export)\s/.test(code)) throw new Error('Module syntax is forbidden; keep classic scripts.');
-            }
-          }
-        });
+function getValidationOptions(isHtml, arch) {
+  return (code) => {
+    if (isHtml) {
+      if (!/<\/html>/i.test(code)) throw new Error('Document truncated: missing </html>.');
+      const absent = arch.modules.filter((m) => !code.includes(m.path)).map((m) => m.path);
+      if (absent.length) throw new Error(`index.html must keep a <script> tag for every module. Missing: ${absent.join(', ')}.`);
+    } else {
+      if (!code.includes('window.CC')) throw new Error('The (function (CC) { ... })(window.CC = window.CC || {}) wrapper must be preserved.');
+      if (/\b(?:import|export)\s/.test(code)) throw new Error('Module syntax is forbidden; keep classic scripts.');
+    }
+  };
+}
 
-        if (fixed) {
-          writeArtifact(file, fixed + '\n');
-          log(`    [repaired] ${file}`);
-        } else {
-          log(`    [APOPTOSIS] could not repair ${file}`);
-        }
-      }
+async function repairFile({ file, msgs, qa, spec, arch, helpers, WORLD_DIR }) {
+  const abs = path.join(WORLD_DIR, file);
+  if (!fs.existsSync(abs)) return;
+  const current = fs.readFileSync(abs, 'utf8');
+  const mod = arch.modules.find((m) => m.path === file);
+  const isHtml = file.endsWith('.html');
+  helpers.log(`  [runtime-repair] ${file} (${msgs.length} error(s)) by ${qa.agent_name}`);
+
+  const prompt = buildRepairPrompt({ qa, spec, CONSTITUTION: helpers.CONSTITUTION, arch, file, mod, msgs, current, isHtml });
+
+  const fixed = await helpers.withCodeImmunity(prompt, {
+    agentId: qa.agent_name,
+    expectedPath: file,
+    maxRetries: 3,
+    validate: getValidationOptions(isHtml, arch)
+  });
+
+  if (fixed) {
+    helpers.writeArtifact(file, fixed + '\n');
+    helpers.log(`    [repaired] ${file}`);
+  } else {
+    helpers.log(`    [APOPTOSIS] could not repair ${file}`);
+  }
+}
+
+async function runRepairRound({ round, browser, url, spec, arch, helpers, WORLD_DIR, qa, history, log }) {
+  const errors = await probeRuntime({ browser, url, spec, arch });
+  const unique = [...new Set(errors)];
+  history.push({ round, errorCount: unique.length });
+  log(`  round ${round}: ${unique.length} runtime error(s)`);
+  unique.slice(0, 12).forEach((e) => log(`    ! ${e.split('\n')[0].slice(0, 160)}`));
+  if (!unique.length) { log('  runtime is clean.'); return true; }
+  if (round === Number(process.env.GENOS_RUNTIME_ROUNDS || 4)) { log('  round budget exhausted.'); return true; }
+
+  const byFile = groupErrorsByFile(unique, arch);
+  for (const [file, msgs] of byFile) {
+    await repairFile({ file, msgs, qa, spec, arch, helpers, WORLD_DIR });
+  }
+  return false;
+}
+
+async function phaseRuntimeRepair({ helpers, state, spec, arch }) {
+  const { log, WORLD_DIR, saveState, checkJsSyntax, withCodeImmunity, writeArtifact, CONSTITUTION } = helpers;
+  log('Phase 7: runtime verification in a headless browser...');
+  let puppeteer;
+  try { puppeteer = require('puppeteer'); } catch (_) {
+    log('  puppeteer unavailable; skipping runtime verification.');
+    return;
+  }
+
+  const server = await startStaticServer(WORLD_DIR);
+  const url = `http://127.0.0.1:${server.address().port}/`;
+  const browser = await puppeteer.launch({ headless: 'new' });
+  const qa = getQaAgent(spec);
+  const rounds = Number(process.env.GENOS_RUNTIME_ROUNDS || 4);
+  const history = [];
+
+  try {
+    for (let round = 1; round <= rounds; round++) {
+      const done = await runRepairRound({ round, browser, url, spec, arch, helpers, WORLD_DIR, qa, history, log });
+      if (done) break;
     }
   } finally {
     await browser.close();

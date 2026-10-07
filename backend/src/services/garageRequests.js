@@ -41,13 +41,20 @@ function validateTiming(request) {
 }
 
 async function scope(db, request) {
-  const row = await db.get(`SELECT a.workspace_id, a.role, a.name, a.isolation_mode,
+  const row = await db.get(`SELECT a.id, a.workspace_id, a.parent_agent_id, a.role, a.name, a.isolation_mode,
+    p.id AS parent_id, p.workspace_id AS parent_workspace_id,
     w.organization_id, w.project_id FROM agents a JOIN agents p ON p.id = a.parent_agent_id
     LEFT JOIN workspaces w ON w.id = a.workspace_id
     WHERE a.id = ? AND p.id = ? AND a.execution_mode = 'worker'
-      AND p.execution_mode = 'orchestrator' AND a.workspace_id IS p.workspace_id`,
+      AND p.execution_mode = 'orchestrator'`,
   request.workerId, request.orchestratorId);
   if (!row) throw error('GARAGE_SCOPE_INVALID', 'Worker must belong to its orchestrator and workspace.');
+  if ((row.workspace_id || null) !== (row.parent_workspace_id || null)) {
+    const delegated = await require('./trinityWorkerAuthority').delegation(db, {
+      agent: row, parent: { id: row.parent_id, workspace_id: row.parent_workspace_id }
+    });
+    if (!delegated) throw error('GARAGE_SCOPE_INVALID', 'Worker has no sealed workspace delegation.');
+  }
   for (const [field, key] of [['organizationId', 'organization_id'], ['projectId', 'project_id']]) {
     if (request[field] && request[field] !== row[key]) throw error('GARAGE_SCOPE_INVALID', 'Request scope does not match persisted scope.');
   }

@@ -15,10 +15,51 @@ async function killVerifiedAgent(db, agent) {
   return { id: fresh.id, terminated: terminatePid(fresh.runtime_pid, fresh.runtime_executable), reason: 'TERMINATION_REQUESTED' };
 }
 
-async function terminateActiveAgents(db, activeAgents) {
-  const terminationResults = [];
-  for (const agent of activeAgents) terminationResults.push(await killVerifiedAgent(db, agent));
-  return terminationResults;
+async function openDatabase(dbPath) {
+  const db = await open({ filename: dbPath, driver: sqlite3.Database });
+  await db.run('PRAGMA busy_timeout = 5000;').catch(() => {});
+  await db.exec('BEGIN IMMEDIATE');
+  return db;
+}
+
+async function getActiveAgents(db) {
+  return db.all("SELECT id, runtime_pid, runtime_executable FROM agents WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')");
+}
+
+async function terminateActiveAgents(db, agents) {
+  const results = [];
+  for (const agent of agents) results.push(await killVerifiedAgent(db, agent));
+  return results;
+}
+
+async function updateAgentsToApoptosis(db) {
+  const res = await db.run(
+    "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')"
+  );
+  return res.changes || 0;
+}
+
+async function runCleanups(db) {
+  const cleanups = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup LIMIT 25').catch(() => []);
+  if (cleanups.length > 0) {
+    await Promise.race([
+      Promise.allSettled(cleanups.map(async (cleanup) => {
+        try {
+          await cleanupWorkspace(cleanup.workspace_root, cleanup.agent_id);
+          await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', cleanup.agent_id);
+        } catch (_) {}
+      })),
+      new Promise((r) => setTimeout(r, 2000))
+    ]);
+  }
+}
+
+async function logApoptosisTelemetry(db, stopped) {
+  await db.run(
+    `INSERT INTO telemetry_events (agent_id, event_type, action, detail, severity)
+     VALUES ('system', 'EMERGENCY_APOPTOSIS', 'APOPTOSIS_KILL_SWITCH', ?, 'critical')`,
+    `Arrêt d'urgence exécuté : ${stopped} agent(s) passé(s) en apoptose.`
+  ).catch(() => {});
 }
 
 async function apoptosis(customDbPath = null) {
@@ -30,42 +71,20 @@ async function apoptosis(customDbPath = null) {
       return { success: false, stoppedAgents: 0, reason: 'DB_NOT_FOUND', dbPath };
     }
 
-    db = await open({ filename: dbPath, driver: sqlite3.Database });
-    await db.run('PRAGMA busy_timeout = 5000;').catch(() => {});
-    await db.exec('BEGIN IMMEDIATE');
+    db = await openDatabase(dbPath);
     let terminationResults = [];
     let stopped = 0;
     try {
-      const activeAgents = await db.all("SELECT id, runtime_pid, runtime_executable FROM agents WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')");
+      const activeAgents = await getActiveAgents(db);
       terminationResults = await terminateActiveAgents(db, activeAgents);
-      const res = await db.run(
-        "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')"
-      );
-      stopped = res.changes || 0;
+      stopped = await updateAgentsToApoptosis(db);
       await db.exec('COMMIT');
     } catch (txErr) {
       await db.exec('ROLLBACK').catch(() => {});
       throw txErr;
     }
-    const cleanups = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup LIMIT 25').catch(() => []);
-    if (cleanups.length > 0) {
-      await Promise.race([
-        Promise.allSettled(cleanups.map(async (cleanup) => {
-          try {
-            await cleanupWorkspace(cleanup.workspace_root, cleanup.agent_id);
-            await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', cleanup.agent_id);
-          } catch (_) {}
-        })),
-        new Promise((r) => setTimeout(r, 2000))
-      ]);
-    }
-
-    // Inscription télémétrique de l'apoptose si la table est présente
-    await db.run(
-      `INSERT INTO telemetry_events (agent_id, event_type, action, detail, severity)
-       VALUES ('system', 'EMERGENCY_APOPTOSIS', 'APOPTOSIS_KILL_SWITCH', ?, 'critical')`,
-      `Arrêt d'urgence exécuté : ${stopped} agent(s) passé(s) en apoptose.`
-    ).catch(() => {});
+    await runCleanups(db);
+    await logApoptosisTelemetry(db, stopped);
 
     console.log(`[Apoptose d'Urgence] Exécutée avec succès. ${stopped} agent(s) stoppé(s).`);
     return { success: true, stoppedAgents: stopped, terminationResults, dbPath };

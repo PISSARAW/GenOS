@@ -39,24 +39,74 @@ async function createVersion(req, res, next) {
 async function renderPrompt(req, res, next) {
   try { const db = await getDatabase(); const s = scopeSql(req); const version = await db.get(`SELECT v.* FROM prompt_versions v JOIN prompts p ON p.id=v.prompt_id WHERE v.prompt_id = ? AND v.version = ? AND p.organization_id=? AND p.project_id=?`, req.params.id, Number(req.body?.version || 1), ...s.params); if (!version) return res.status(404).json({ error: { code: 'VERSION_NOT_FOUND', message: 'Prompt version not found.' } }); const variables = req.body?.variables || {}; const rendered = version.template.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], variables) ?? ''); res.json({ promptId: req.params.id, version: version.version, rendered, model: version.model }); } catch (e) { next(e); }
 }
+function validatePrompt(prompt) {
+  return typeof prompt === 'string' && Buffer.byteLength(prompt, 'utf8') <= 512 * 1024 ? null : { error: { code: 'PROMPT_TOO_LARGE', message: 'Prompt must be a string no larger than 512 KiB.' } };
+}
+
+function validateModels(models) {
+  if (!Array.isArray(models)) return { error: { code: 'INVALID_MODELS', message: 'At most 32 model URIs of 512 characters each are allowed.' } };
+  const selected = models.map((model) => String(model).trim()).filter(Boolean);
+  if (selected.length > 32 || selected.some((model) => model.length > 512)) {
+    return { error: { code: 'INVALID_MODELS', message: 'At most 32 model URIs of 512 characters each are allowed.' } };
+  }
+  return { models: selected };
+}
+
+function validateSizeLimits(variables, config) {
+  return jsonByteLength(variables) > 512 * 1024 || jsonByteLength(config) > 512 * 1024
+    ? { error: { code: 'JOB_CONFIG_TOO_LARGE', message: 'Model job variables and config exceed 512 KiB.' } }
+    : null;
+}
+
+function validateModelRequirement(models, config) {
+  return models.length === 0 && !config.modelRouting
+    ? { error: { code: 'MODEL_REQUIRED', message: 'Select a real model URI or provide a model routing policy.' } }
+    : null;
+}
+
+function renderTemplate(prompt, variables) {
+  return prompt.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], variables) ?? '');
+}
+
+function buildJobPriority(config) {
+  const requestedPriority = Number(config.priority ?? 0);
+  return Number.isFinite(requestedPriority) ? Math.max(0, Math.min(Math.floor(requestedPriority), 100)) : 0;
+}
+
+async function createModelJob(db, { id, rendered, models, priority, config, maxAttempts, timeoutMs, scope }) {
+  await createJobRecord(db, { id, rendered, models, priority, config, maxAttempts, timeoutMs, scope });
+  return { id, status: 'queued', models, rendered, priority, maxAttempts, timeoutMs };
+}
+
 async function playground(req, res, next) {
   try {
     const body = req.body || {};
     const { prompt = '', models = [], variables = {}, config: rawConfig = {} } = body;
     const config = rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig) ? rawConfig : {};
-    const selectedModels = Array.isArray(models) ? models.map((model) => String(model).trim()).filter(Boolean) : [];
-    if (typeof prompt !== 'string' || Buffer.byteLength(prompt, 'utf8') > 512 * 1024) return res.status(413).json({ error: { code: 'PROMPT_TOO_LARGE', message: 'Prompt must be a string no larger than 512 KiB.' } });
-    if (selectedModels.length > 32 || selectedModels.some((model) => model.length > 512)) return res.status(400).json({ error: { code: 'INVALID_MODELS', message: 'At most 32 model URIs of 512 characters each are allowed.' } });
-    if (jsonByteLength(variables) > 512 * 1024 || jsonByteLength(config) > 512 * 1024) return res.status(413).json({ error: { code: 'JOB_CONFIG_TOO_LARGE', message: 'Model job variables and config exceed 512 KiB.' } });
-    if (!selectedModels.length && !config.modelRouting) return res.status(400).json({ error: { code: 'MODEL_REQUIRED', message: 'Select a real model URI or provide a model routing policy.' } });
+
+    const promptError = validatePrompt(prompt);
+    if (promptError) return res.status(413).json(promptError);
+
+    const modelsResult = validateModels(models);
+    if (modelsResult.error) return res.status(400).json(modelsResult.error);
+    const selectedModels = modelsResult.models;
+
+    const sizeError = validateSizeLimits(variables, config);
+    if (sizeError) return res.status(413).json(sizeError);
+
+    const modelError = validateModelRequirement(selectedModels, config);
+    if (modelError) return res.status(400).json(modelError);
+
     const maxAttempts = jobMaxAttempts(config.maxAttempts);
     const timeoutMs = jobTimeoutMs(config.timeoutMs);
-    const rendered = prompt.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], variables) ?? '');
-    const db = await getDatabase(); const id = `model-${crypto.randomUUID()}`; const s = scopeSql(req);
-    const requestedPriority = Number(config.priority ?? 0);
-    const priority = Number.isFinite(requestedPriority) ? Math.max(0, Math.min(Math.floor(requestedPriority), 100)) : 0;
-    await db.run('INSERT INTO model_jobs(id,prompt,models_json,priority,config_json,max_attempts,timeout_ms,organization_id,project_id) VALUES(?,?,?,?,?,?,?,?,?)', id, rendered, JSON.stringify(selectedModels), priority, JSON.stringify(config), maxAttempts, timeoutMs, ...s.params);
-    res.status(202).json({ id, status: 'queued', models: selectedModels, rendered, priority, maxAttempts, timeoutMs });
+    const rendered = renderTemplate(prompt, variables);
+    const db = await getDatabase();
+    const id = `model-${crypto.randomUUID()}`;
+    const s = scopeSql(req);
+    const priority = buildJobPriority(config);
+
+    const job = await createModelJob(db, { id, rendered, models: selectedModels, priority, config, maxAttempts, timeoutMs, scope: s });
+    res.status(202).json(job);
   } catch (e) { next(e); }
 }
 async function listJobs(req, res, next) { try { const db = await getDatabase(); const s = scopeSql(req); const jobs = await db.all(`SELECT * FROM model_jobs WHERE ${s.clause} ORDER BY created_at DESC LIMIT 100`, ...s.params); res.json(jobs.map((job) => ({ ...job, models: parse(job.models_json, []), config: parse(job.config_json, {}), result: parse(job.result_json, null), error: parse(job.error_json, null) }))); } catch (e) { next(e); } }

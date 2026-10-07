@@ -1,7 +1,9 @@
 'use strict';
 
 function vector(value) {
-  return Array.isArray(value) ? value.map(Number).filter(Number.isFinite) : [];
+  if (!Array.isArray(value)) return [];
+  if (value.some((entry) => !Number.isFinite(entry))) throw new TypeError('Finite aligned perceptual vectors required.');
+  return [...value];
 }
 
 function predict(input) {
@@ -9,8 +11,11 @@ function predict(input) {
   const prior = vector(data.prior);
   const observation = vector(data.observation);
   const size = Math.max(prior.length, observation.length);
-  const precision = Math.max(0, Math.min(1, Number(data.precision) || 0.5));
-  const estimate = Array.from({ length: size }, (_, index) => (prior[index] || 0) * (1 - precision) + (observation[index] || 0) * precision);
+  const rawPrecision = data.precision ?? 0.5;
+  if (!Number.isFinite(rawPrecision)) throw new TypeError('Finite precision required.');
+  const precision = Math.max(0, Math.min(1, rawPrecision));
+  const estimate = Array.from({ length: size }, (_, index) => index >= observation.length
+    ? (prior[index] || 0) : (prior[index] || 0) * (1 - precision) + observation[index] * precision);
   return { prior, observation, estimate, precision, error: observation.map((value, index) => value - (prior[index] || 0)) };
 }
 

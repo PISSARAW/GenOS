@@ -58,34 +58,63 @@ async function create(req, res, next) {
   } catch (error) { next(error); }
 }
 
+function validateEnvironment(environment) {
+  if (!['staging', 'production'].includes(environment)) return { code: 'INVALID_ENVIRONMENT', message: 'environment must be staging or production.' };
+  return null;
+}
+
+function checkActiveRollout(db, releaseId) {
+  return db.get("SELECT id FROM release_rollouts WHERE release_id = ? AND status = 'running'", releaseId);
+}
+
+function checkPromotedRollout(db, releaseId) {
+  return db.get("SELECT id FROM release_rollouts WHERE release_id = ? AND status = 'promoted'", releaseId);
+}
+
+function isProductionOverride(req) {
+  return req.body?.force === true && typeof req.body?.overrideReason === 'string' && req.body.overrideReason.length > 0;
+}
+
+function validateProductionPromotion(release, promotedRollout, isOverride) {
+  if (['draft', 'pending', 'failed', 'rolled_back'].includes(release.status)) {
+    return { code: 'INVALID_RELEASE_STATUS', message: `Cannot promote release in status ${release.status} to production.` };
+  }
+  if (!promotedRollout && !isOverride) {
+    return { code: 'ROLLOUT_REQUIRED', message: 'Promotion to production requires a successful rollout or an explicit force override with overrideReason.' };
+  }
+  return null;
+}
+
+async function updateReleaseEnvironment(db, { releaseId, environment, scope }) {
+  const updated = await db.run(`UPDATE releases SET environment = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, environment, 'active', releaseId, ...scope.params);
+  if (updated.changes !== 1) return { error: { code: 'RELEASE_STATE_CHANGED', message: 'Release changed before promotion could be applied.' } };
+  return { id: releaseId, status: 'active', environment };
+}
+
 async function promote(req, res, next) {
   try {
     const db = await getDatabase();
     const release = await scopedRelease(db, req, req.params.id);
     if (!release) return res.status(404).json({ error: { code: 'RELEASE_NOT_FOUND', message: 'Release is outside the tenant scope.' } });
-    const active = await db.get("SELECT id FROM release_rollouts WHERE release_id = ? AND status = 'running'", release.id);
-    if (active) return res.status(409).json({ error: { code: 'ROLLOUT_IN_PROGRESS', message: 'Decide the active rollout before promotion.' } });
+    
+    const activeRollout = await checkActiveRollout(db, release.id);
+    if (activeRollout) return res.status(409).json({ error: { code: 'ROLLOUT_IN_PROGRESS', message: 'Decide the active rollout before promotion.' } });
     
     const environment = req.body?.environment || 'production';
-    if (!['staging', 'production'].includes(environment)) return res.status(400).json({ error: { code: 'INVALID_ENVIRONMENT', message: 'environment must be staging or production.' } });
-
+    const envError = validateEnvironment(environment);
+    if (envError) return res.status(400).json({ error: envError });
+    
     if (environment === 'production') {
-      if (['draft', 'pending', 'failed', 'rolled_back'].includes(release.status)) {
-        return res.status(400).json({ error: { code: 'INVALID_RELEASE_STATUS', message: `Cannot promote release in status ${release.status} to production.` } });
-      }
-
-      const promotedRollout = await db.get("SELECT id FROM release_rollouts WHERE release_id = ? AND status = 'promoted'", release.id);
-      const isOverride = req.body?.force === true && typeof req.body?.overrideReason === 'string' && req.body.overrideReason.length > 0;
-
-      if (!promotedRollout && !isOverride) {
-        return res.status(403).json({ error: { code: 'ROLLOUT_REQUIRED', message: 'Promotion to production requires a successful rollout or an explicit force override with overrideReason.' } });
-      }
+      const promotedRollout = await checkPromotedRollout(db, release.id);
+      const isOverride = isProductionOverride(req);
+      const prodError = validateProductionPromotion(release, promotedRollout, isOverride);
+      if (prodError) return res.status(400).json({ error: prodError });
     }
-
+    
     const scope = scopeSql(req);
-    const updated = await db.run(`UPDATE releases SET environment = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, environment, 'active', release.id, ...scope.params);
-    if (updated.changes !== 1) return res.status(409).json({ error: { code: 'RELEASE_STATE_CHANGED', message: 'Release changed before promotion could be applied.' } });
-    res.json({ id: release.id, status: 'active', environment });
+    const result = await updateReleaseEnvironment(db, { releaseId: release.id, environment, scope });
+    if (result.error) return res.status(409).json({ error: result.error });
+    res.json(result);
   } catch (error) { next(error); }
 }
 
@@ -99,41 +128,114 @@ async function rollback(req, res, next) {
   } catch (error) { next(error); }
 }
 
+function buildDefaultVariants(strategy) {
+  return strategy === 'canary' 
+    ? [{ name: 'stable', traffic: 95 }, { name: 'canary', traffic: 5 }] 
+    : [{ name: 'control', traffic: 50 }, { name: 'candidate', traffic: 50 }];
+}
+
+function validateVariants(variants, requiredNumber) {
+  if (!Array.isArray(variants) || variants.length < 2 || variants.some((variant) => !variant || typeof variant.name !== 'string' || !variant.name.trim())) {
+    return { error: { code: 'INVALID_VARIANTS', message: 'At least two named variants with traffic totaling 100 are required.' } };
+  }
+  
+  const variantNames = variants.map((variant) => variant.name.trim());
+  if (new Set(variantNames).size !== variantNames.length) return { error: { code: 'INVALID_VARIANTS', message: 'Variant names must be unique.' } };
+  
+  let traffic;
+  try {
+    const validatedVariants = variants.map((variant) => ({ ...variant, name: variant.name.trim(), traffic: requiredNumber(variant.traffic, 'variant traffic', { min: 0, max: 100 }) }));
+    traffic = validatedVariants.reduce((total, variant) => total + variant.traffic, 0);
+    if (Math.abs(traffic - 100) > 0.001) throw new Error('Variant traffic must total 100.');
+    return { variants: validatedVariants };
+  } catch (error) {
+    return { error: { code: 'INVALID_VARIANTS', message: error.message } };
+  }
+}
+
+function validateSlo(slo, requiredNumber) {
+  if (!slo || typeof slo !== 'object' || Array.isArray(slo)) return { error: { code: 'INVALID_VARIANTS', message: 'slo must be an object.' } };
+  try {
+    requiredNumber(slo.maxErrorRate, 'maxErrorRate', { min: 0, max: 1 });
+    requiredNumber(slo.maxAverageLatencyMs, 'maxAverageLatencyMs', { min: 0, max: 86_400_000 });
+    requiredNumber(slo.minRequests, 'minRequests', { integer: true, min: 1, max: 1_000_000_000 });
+    return { slo };
+  } catch (error) {
+    return { error: { code: 'INVALID_VARIANTS', message: error.message } };
+  }
+}
+
+function validateRolloutConfig({ strategy, body, requiredNumber }) {
+  if (!['canary', 'ab'].includes(strategy)) return { error: { code: 'INVALID_ROLLOUT_STRATEGY', message: 'strategy must be canary or ab.' } };
+  
+  const defaultVariants = buildDefaultVariants(strategy);
+  
+  const config = {
+    variants: body?.variants || defaultVariants,
+    slo: body?.slo || { maxErrorRate: 0.01, maxAverageLatencyMs: 3000, minRequests: 100 }
+  };
+
+  const variantsValidation = validateVariants(config.variants, requiredNumber);
+  if (variantsValidation.error) return variantsValidation;
+  config.variants = variantsValidation.variants;
+
+  const sloValidation = validateSlo(config.slo, requiredNumber);
+  if (sloValidation.error) return sloValidation;
+  config.slo = sloValidation.slo;
+
+  return { config };
+}
+
+async function insertRollout(db, { rolloutId, releaseId, scope, strategy, config }) {
+  await db.run('INSERT INTO release_rollouts(id,release_id,organization_id,project_id,strategy,config_json) VALUES(?,?,?,?,?,?)', rolloutId, releaseId, ...scope.params, strategy, JSON.stringify(config));
+  for (const variant of config.variants) await db.run('INSERT INTO release_rollout_metrics(rollout_id,variant) VALUES(?,?)', rolloutId, variant.name);
+}
+
 async function createRollout(req, res, next) {
   try {
     const db = await getDatabase();
     const release = await scopedRelease(db, req, req.params.id);
     if (!release) return res.status(404).json({ error: { code: 'RELEASE_NOT_FOUND', message: 'Release is outside the tenant scope.' } });
+    
     const strategy = String(req.body?.strategy || 'canary').toLowerCase();
-    if (!['canary', 'ab'].includes(strategy)) return res.status(400).json({ error: { code: 'INVALID_ROLLOUT_STRATEGY', message: 'strategy must be canary or ab.' } });
-    const config = {
-      variants: req.body?.variants || (strategy === 'canary' ? [{ name: 'stable', traffic: 95 }, { name: 'canary', traffic: 5 }] : [{ name: 'control', traffic: 50 }, { name: 'candidate', traffic: 50 }]),
-      slo: req.body?.slo || { maxErrorRate: 0.01, maxAverageLatencyMs: 3000, minRequests: 100 }
-    };
-    if (!Array.isArray(config.variants) || config.variants.length < 2 || config.variants.some((variant) => !variant || typeof variant.name !== 'string' || !variant.name.trim())) {
-      return res.status(400).json({ error: { code: 'INVALID_VARIANTS', message: 'At least two named variants with traffic totaling 100 are required.' } });
-    }
-    const variantNames = config.variants.map((variant) => variant.name.trim());
-    if (new Set(variantNames).size !== variantNames.length) return res.status(400).json({ error: { code: 'INVALID_VARIANTS', message: 'Variant names must be unique.' } });
-    let traffic;
-    try {
-      config.variants = config.variants.map((variant) => ({ ...variant, name: variant.name.trim(), traffic: requiredNumber(variant.traffic, 'variant traffic', { min: 0, max: 100 }) }));
-      traffic = config.variants.reduce((total, variant) => total + variant.traffic, 0);
-      if (Math.abs(traffic - 100) > 0.001) throw new Error('Variant traffic must total 100.');
-      const slo = config.slo;
-      if (!slo || typeof slo !== 'object' || Array.isArray(slo)) throw new Error('slo must be an object.');
-      requiredNumber(slo.maxErrorRate, 'maxErrorRate', { min: 0, max: 1 });
-      requiredNumber(slo.maxAverageLatencyMs, 'maxAverageLatencyMs', { min: 0, max: 86_400_000 });
-      requiredNumber(slo.minRequests, 'minRequests', { integer: true, min: 1, max: 1_000_000_000 });
-    } catch (error) {
-      return res.status(400).json({ error: { code: 'INVALID_VARIANTS', message: error.message } });
-    }
+    const configValidation = validateRolloutConfig({ strategy, config: req.body, requiredNumber });
+    if (configValidation.error) return res.status(400).json(configValidation.error);
+    
     const rolloutId = id('rollout');
     const scope = scopeSql(req);
-    await db.run('INSERT INTO release_rollouts(id,release_id,organization_id,project_id,strategy,config_json) VALUES(?,?,?,?,?,?)', rolloutId, release.id, ...scope.params, strategy, JSON.stringify(config));
-    for (const variant of config.variants) await db.run('INSERT INTO release_rollout_metrics(rollout_id,variant) VALUES(?,?)', rolloutId, variant.name);
-    res.status(201).json({ id: rolloutId, releaseId: release.id, strategy, status: 'running', ...config });
+    await insertRollout(db, { rolloutId, releaseId: release.id, scope, strategy, config: configValidation.config });
+    
+    res.status(201).json({ id: rolloutId, releaseId: release.id, strategy, status: 'running', ...configValidation.config });
   } catch (error) { next(error); }
+}
+
+function validateMetricInput({ variant, requests, errors, latencyMs, tokens, costUsd, validatedRequests }) {
+  if (typeof variant !== 'string' || !variant.trim()) return { error: { code: 'INVALID_VARIANT', message: 'variant must be a non-empty string.' } };
+  try {
+    return {
+      validatedRequests: requiredNumber(requests, 'requests', { integer: true, min: 0, max: 1_000_000_000 }),
+      validatedErrors: requiredNumber(errors, 'errors', { integer: true, min: 0, max: validatedRequests }),
+      validatedLatency: requiredNumber(latencyMs, 'latencyMs', { min: 0, max: 86_400_000 }),
+      validatedTokens: requiredNumber(tokens, 'tokens', { integer: true, min: 0, max: Number.MAX_SAFE_INTEGER }),
+      validatedCost: requiredNumber(costUsd, 'costUsd', { min: 0, max: Number.MAX_SAFE_INTEGER })
+    };
+  } catch (error) {
+    return { error: { code: error.code, message: error.message } };
+  }
+}
+
+async function updateRolloutMetrics(db, { rolloutId, variant, requestCount, errorCount, latencyMs, tokens, costUsd }) {
+  await db.run(`UPDATE release_rollout_metrics SET requests = requests + ?, errors = errors + ?, latency_ms_total = latency_ms_total + ?, tokens = tokens + ?, cost_usd = cost_usd + ?, updated_at = CURRENT_TIMESTAMP WHERE rollout_id = ? AND variant = ?`, requestCount, errorCount, latencyMs * requestCount, tokens, costUsd, rolloutId, variant);
+}
+
+async function insertUsageLedger(db, { id, scope, releaseId, rolloutId, variant, requestCount, costUsd, tokens }) {
+  await db.run('INSERT INTO usage_ledger(id,organization_id,project_id,release_id,category,quantity,cost_usd,metadata_json) VALUES(?,?,?,?,?,?,?,?)', id, ...scope.params, releaseId, 'rollout', requestCount, costUsd, JSON.stringify({ rolloutId, variant, tokens }));
+}
+
+async function resumeRolloutIfNeeded(db, { rollout, requestCount }) {
+  if (rollout.status === 'paused' && requestCount > 0) {
+    await db.run("UPDATE release_rollouts SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ?", rollout.id);
+  }
 }
 
 async function recordRolloutMetric(req, res, next) {
@@ -143,55 +245,84 @@ async function recordRolloutMetric(req, res, next) {
     const rollout = await db.get(`SELECT * FROM release_rollouts WHERE id = ? AND ${scope.clause}`, req.params.rolloutId, ...scope.params);
     if (!rollout) return res.status(404).json({ error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } });
     if (rollout.status !== 'running' && rollout.status !== 'paused') return res.status(409).json({ error: { code: 'ROLLOUT_CLOSED', message: 'Metrics can only be recorded on a running or paused rollout.' } });
+    
     const { variant, requests = 0, errors = 0, latencyMs = 0, tokens = 0, costUsd = 0 } = req.body || {};
-    if (typeof variant !== 'string' || !variant.trim()) return res.status(400).json({ error: { code: 'INVALID_VARIANT', message: 'variant must be a non-empty string.' } });
-    let validatedRequests;
-    let validatedErrors;
-    let validatedLatency;
-    let validatedTokens;
-    let validatedCost;
-    try {
-      validatedRequests = requiredNumber(requests, 'requests', { integer: true, min: 0, max: 1_000_000_000 });
-      validatedErrors = requiredNumber(errors, 'errors', { integer: true, min: 0, max: validatedRequests });
-      validatedLatency = requiredNumber(latencyMs, 'latencyMs', { min: 0, max: 86_400_000 });
-      validatedTokens = requiredNumber(tokens, 'tokens', { integer: true, min: 0, max: Number.MAX_SAFE_INTEGER });
-      validatedCost = requiredNumber(costUsd, 'costUsd', { min: 0, max: Number.MAX_SAFE_INTEGER });
-    } catch (error) {
-      return res.status(400).json({ error: { code: error.code, message: error.message } });
-    }
+    const validation = validateMetricInput({ variant, requests, errors, latencyMs, tokens, costUsd });
+    if (validation.error) return res.status(400).json(validation.error);
+    
+    const { validatedRequests, validatedErrors, validatedLatency, validatedTokens, validatedCost } = validation;
     const metric = await db.get('SELECT variant FROM release_rollout_metrics WHERE rollout_id = ? AND variant = ?', rollout.id, variant);
     if (!metric) return res.status(400).json({ error: { code: 'UNKNOWN_VARIANT', message: 'variant is not configured for this rollout.' } });
+    
     const requestCount = validatedRequests;
-    const errorCount = validatedErrors;
-    await db.run(`UPDATE release_rollout_metrics SET requests = requests + ?, errors = errors + ?, latency_ms_total = latency_ms_total + ?, tokens = tokens + ?, cost_usd = cost_usd + ?, updated_at = CURRENT_TIMESTAMP WHERE rollout_id = ? AND variant = ?`, requestCount, errorCount, validatedLatency * requestCount, validatedTokens, validatedCost, rollout.id, variant);
-    await db.run('INSERT INTO usage_ledger(id,organization_id,project_id,release_id,category,quantity,cost_usd,metadata_json) VALUES(?,?,?,?,?,?,?,?)', id('usage'), ...scope.params, rollout.release_id, 'rollout', requestCount, validatedCost, JSON.stringify({ rolloutId: rollout.id, variant, tokens: validatedTokens }));
-    if (rollout.status === 'paused' && requestCount > 0) {
-      await db.run("UPDATE release_rollouts SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ?", rollout.id);
-    }
+    await updateRolloutMetrics(db, { rolloutId: rollout.id, variant, requestCount, errorCount: validatedErrors, latencyMs: validatedLatency, tokens: validatedTokens, costUsd: validatedCost });
+    await insertUsageLedger(db, { id: id('usage'), scope, releaseId: rollout.release_id, rolloutId: rollout.id, variant, requestCount, costUsd: validatedCost, tokens: validatedTokens });
+    await resumeRolloutIfNeeded(db, { rollout, requestCount });
+    
     res.status(202).json({ rolloutId: rollout.id, variant, accepted: true });
   } catch (error) { next(error); }
+}
+
+function getCandidateVariantName(config, strategy) {
+  return (config.variants && config.variants.length > 1) 
+    ? config.variants[config.variants.length - 1].name 
+    : (strategy === 'canary' ? 'canary' : 'candidate');
+}
+
+function getCandidateMetric(metrics, candidateVariantName) {
+  return metrics.find(m => m.variant === candidateVariantName) || { requests: 0, errors: 0, latency_ms_total: 0 };
+}
+
+function calculateCandidateMetrics(candidateMetric) {
+  const candidateRequests = candidateMetric.requests;
+  const errorRate = candidateRequests ? candidateMetric.errors / candidateRequests : 0;
+  const averageLatencyMs = candidateRequests ? candidateMetric.latency_ms_total / candidateRequests : 0;
+  return { candidateRequests, errorRate, averageLatencyMs };
+}
+
+function checkSampleSize(totalRequests, policy) {
+  const minRequests = Math.max(1, number(policy.minRequests, 100));
+  return totalRequests < minRequests ? { status: 'paused', reason: 'insufficient_sample', totalRequests } : null;
+}
+
+function checkSloBreach({ errorRate, averageLatencyMs, policy, totalRequests }) {
+  if (errorRate > number(policy.maxErrorRate, 0.01) || averageLatencyMs > number(policy.maxAverageLatencyMs, 3000)) {
+    return { status: 'rolled_back', reason: 'slo_breach', totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
+  }
+  return null;
+}
+
+function findWinner(metrics) {
+  return [...metrics].sort((left, right) => 
+    (left.errors / Math.max(1, left.requests)) - (right.errors / Math.max(1, right.requests)) || 
+    (left.latency_ms_total / Math.max(1, left.requests)) - (right.latency_ms_total / Math.max(1, right.requests))
+  )[0]?.variant;
+}
+
+function checkCanaryUnderperformance(strategy, winner) {
+  if (strategy === 'canary' && winner === 'stable') {
+    return { status: 'rolled_back', reason: 'candidate_underperformed' };
+  }
+  return null;
 }
 
 function decide(metrics, config, strategy = 'canary') {
   const policy = config.slo || {};
   const totalRequests = metrics.reduce((sum, metric) => sum + metric.requests, 0);
   
-  const candidateVariantName = (config.variants && config.variants.length > 1) ? config.variants[config.variants.length - 1].name : (strategy === 'canary' ? 'canary' : 'candidate');
-  const candidateMetric = metrics.find(m => m.variant === candidateVariantName) || { requests: 0, errors: 0, latency_ms_total: 0 };
+  const candidateVariantName = getCandidateVariantName(config, strategy);
+  const candidateMetric = getCandidateMetric(metrics, candidateVariantName);
+  const { candidateRequests, errorRate, averageLatencyMs } = calculateCandidateMetrics(candidateMetric);
   
-  const candidateRequests = candidateMetric.requests;
-  const errorRate = candidateRequests ? candidateMetric.errors / candidateRequests : 0;
-  const averageLatencyMs = candidateRequests ? candidateMetric.latency_ms_total / candidateRequests : 0;
+  const sampleCheck = checkSampleSize(totalRequests, policy);
+  if (sampleCheck) return { ...sampleCheck, errorRate, averageLatencyMs };
   
-  const minRequests = Math.max(1, number(policy.minRequests, 100));
-  if (totalRequests < minRequests) return { status: 'paused', reason: 'insufficient_sample', totalRequests, errorRate, averageLatencyMs };
-  if (errorRate > number(policy.maxErrorRate, 0.01) || averageLatencyMs > number(policy.maxAverageLatencyMs, 3000)) return { status: 'rolled_back', reason: 'slo_breach', totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
+  const sloBreach = checkSloBreach({ errorRate, averageLatencyMs, policy, totalRequests });
+  if (sloBreach) return sloBreach;
   
-  const winner = [...metrics].sort((left, right) => (left.errors / Math.max(1, left.requests)) - (right.errors / Math.max(1, right.requests)) || (left.latency_ms_total / Math.max(1, left.requests)) - (right.latency_ms_total / Math.max(1, right.requests)))[0]?.variant;
-  
-  if (strategy === 'canary' && winner === 'stable') {
-    return { status: 'rolled_back', reason: 'candidate_underperformed', selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
-  }
+  const winner = findWinner(metrics);
+  const canaryCheck = checkCanaryUnderperformance(strategy, winner);
+  if (canaryCheck) return { ...canaryCheck, selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
   
   return { status: 'promoted', reason: 'slo_satisfied', selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
 }

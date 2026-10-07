@@ -12,10 +12,14 @@ function expand(members) {
 function cellMember(input) {
   const { base, cell, index } = input;
   const directive = 'FACTORIAL CELL ' + cell.cellId + ': ' + JSON.stringify(cell.factors) + '. Run this independent cell and return factorialCell {cellId, factors} exactly with measured evidence.';
+  const recipe = cell.factors.approach;
+  const mission = base.mission.replace(/Cognitive recipe: [a-z_]+\./g, 'Cognitive recipe: ' + recipe + '.');
   return { ...base, label: base.label + '_' + cell.cellId, worldNumber: index + 1, variantIndex: index,
-    modelTier: cell.factors.modelTier, role: base.role + '_' + cell.factors.approach + '_' + cell.factors.validation,
+    cognitiveRecipe: recipe, validationDepth: cell.factors.validation,
+    modelTier: cell.factors.modelTier, role: base.role,
     factorialCell: { cellId: cell.cellId, factors: cell.factors },
-    hypothesis: base.hypothesis + '\n' + directive, mission: base.mission + '\n' + directive };
+    hypothesis: base.hypothesis + '\n' + directive, mission: mission + '\n' + directive
+      + '\nValidation treatment: ' + cell.factors.validation + '. Report the checks actually executed; a depth label is not a receipt.' };
 }
 function factorialInstruction(assignment) {
   if (!assignment.factorialCell) return null;

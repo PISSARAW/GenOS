@@ -22,7 +22,8 @@ function testGate() {
   const receipts = kinds.map((kind, index) => ({ kind, verified: true, independentVerification: true,
     verifierId: 'trusted', evidenceClass: 'independent_requirement_verification',
     receiptHash: String(index + 1).padStart(64, '0') }));
-  assert.equal(gate.evaluate({ indicatorId: 'GWT-3', receipts }).promotionAllowed, true);
+  assert.equal(gate.evaluate({ indicatorId: 'GWT-3', receipts }).promotionAllowed, false,
+    'Self-declared verification booleans must never promote an indicator.');
   assert.equal(gate.evaluate({ indicatorId: 'GWT-3', receipts: [{ ...receipts[0], independentVerification: false }] }).eligible, false);
   assert.equal(gate.validReceipts([{ ...receipts[1], evidenceClass: 'test_result' }]).length, 0);
   assert.equal(gate.highestStage([]), 'not_assessed');

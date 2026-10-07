@@ -7,8 +7,7 @@ const queries = require('../src/services/biologicalReceiptQueryService');
 const { missionBelongsToTenant } = require('../src/controllers/biologicalReceiptController');
 
 async function tenant(db) {
-  await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
-    INSERT INTO workspaces VALUES ('workspace', 'org', 'project');
+  await db.exec(`INSERT INTO workspaces VALUES ('workspace', 'org', 'project');
     UPDATE agents SET workspace_id = 'workspace';`);
   assert.ok(await missionBelongsToTenant(db, 'worker-mission', { organizationId: 'org', projectId: 'project' }));
   assert.equal(await missionBelongsToTenant(db, 'worker-mission', { organizationId: 'other', projectId: 'project' }), undefined);

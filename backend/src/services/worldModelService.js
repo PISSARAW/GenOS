@@ -9,8 +9,8 @@
  * détail inattendu = 0.25). La surprise ≥ 0.5 lève le signal `surprise`
  * (déjà consommé par computeSalience) sur l'événement émis.
  * Registre borné (20 transitions) en adaptive_state scope 'world_model'.
- * Pas d'apprentissage de représentations : rollout contrefactuel = étape
- * suivante (brancher les mondes Trinity sur actions hypothétiques).
+ * Modèle génératif empirique séparé : transitions conditionnées sur l'état,
+ * rollout libre borné, sans extrapolation sur une paire état/action inconnue.
  */
 
 const { AdaptiveStateService } = require('./adaptiveStateService');
@@ -22,9 +22,9 @@ const SURPRISE_FLAG_AT = 0.5;
 
 async function openDb(handle) {
   if (handle && typeof handle.get === 'function') return { db: handle, close: null };
-  const { getDatabase } = require('./db');
+  const { getDatabase } = require('../db');
   const db = await getDatabase();
-  return { db, close: () => require('./db').closeDatabase().catch(() => {}) };
+  return { db, close: null };
 }
 
 function validPrediction(prediction) {
@@ -74,8 +74,9 @@ function stateMatchRatio(expected, observed) {
 }
 
 function scoreSurprise(predicted, observation) {
-  if (observation.success !== true) return 1;
   const data = observation || {};
+  if (typeof data.success !== 'boolean') return null;
+  if (data.success !== predicted.expectSuccess) return 1;
   const ratio = stateMatchRatio(predicted.expectedState, data.observedState);
   if (ratio !== null) return Math.round((1 - ratio) * 100) / 100;
   if (predicted.expectedDetail && !String(data.detail || '').includes(predicted.expectedDetail)) return 0.25;
@@ -120,15 +121,16 @@ function findPending(all, observation) {
   const solo = all.filter((entry) => entry.status === 'pending' && !entry.chainId);
   if (observation.actionId) {
     const exact = solo.find((entry) => entry.actionId === observation.actionId);
-    if (exact) return exact;
+    return exact || null;
   }
-  return solo.length ? solo[solo.length - 1] : null;
+  const unbound = solo.filter((entry) => !entry.actionId);
+  return unbound.length === 1 ? unbound[0] : null;
 }
 
 async function observeTransition(db, agentId, observation) {
   const data = observation || {};
   const fallback = { matched: false, surprise: data.success === true ? 0 : 1 };
-  if (!agentId) return fallback;
+  if (!agentId || typeof data.success !== 'boolean') return { ...fallback, surprise: null };
   let opened = null;
   try {
     opened = await openDb(db);
@@ -146,122 +148,7 @@ async function observeTransition(db, agentId, observation) {
 
 const TRAJECTORY_STEPS_MAX = 5;
 const UNCERTAINTY_GROWTH = 0.15;
-const SAMPLE_LIMIT = 150;
-const ROLLOUT_NODES_MAX = 13;
-
-const STATE_KEYS = ['filesChanged', 'testsPassed', 'testsFailed', 'costUsd', 'latencyMs', 'agentsActive', 'evidenceCount'];
-
-function encodeWorldState(input) {
-  const data = input && typeof input === 'object' ? input : null;
-  if (!data) return null;
-  const descriptor = {};
-  for (const key of STATE_KEYS) {
-    const value = Number(data[key]);
-    if (Number.isFinite(value)) descriptor[key] = value;
-  }
-  if (typeof data.success === 'boolean') descriptor.success = data.success;
-  return Object.keys(descriptor).length ? descriptor : null;
-}
-
-function deltaKey(delta) {
-  return JSON.stringify(delta);
-}
-
-function validSample(agentId, data) {
-  return !!agentId && typeof data.action === 'string' && !!data.action;
-}
-
-async function recordSample(db, agentId, sample) {
-  const data = sample || {};
-  if (!validSample(agentId, data)) return null;
-  const delta = encodeWorldState(data.delta);
-  if (!delta) return null;
-  let opened = null;
-  try {
-    opened = await openDb(db);
-    const store = new AdaptiveStateService(opened.db);
-    const stored = (await store.restoreObject(SCOPE, agentId)) || {};
-    const samples = Array.isArray(stored.samples) ? stored.samples : [];
-    const bounded = [...samples, { action: data.action.slice(0, 120), delta, at: new Date().toISOString() }].slice(-SAMPLE_LIMIT);
-    await store.persistObject(SCOPE, agentId, { ...stored, samples: bounded }, bounded.length);
-    return { action: data.action.slice(0, 120), samples: bounded.length };
-  } catch (_) {
-    return null;
-  } finally {
-    if (opened && opened.close) await opened.close();
-  }
-}
-
-function sampleDistribution(samples) {
-  const counts = {};
-  for (const entry of samples) {
-    const key = deltaKey(entry.delta);
-    counts[key] = (counts[key] || 0) + 1;
-  }
-  return Object.entries(counts)
-    .map(([key, count]) => ({ delta: JSON.parse(key), p: count / samples.length }))
-    .sort((a, b) => b.p - a.p)
-    .slice(0, 3);
-}
-
-async function predictState(db, agentId, input) {
-  const data = input || {};
-  if (!validSample(agentId, data)) return null;
-  let opened = null;
-  try {
-    opened = await openDb(db);
-    const stored = (await new AdaptiveStateService(opened.db).restoreObject(SCOPE, agentId)) || {};
-    const samples = (Array.isArray(stored.samples) ? stored.samples : []).filter((entry) => entry.action === data.action);
-    if (!samples.length) return null;
-    const distribution = sampleDistribution(samples);
-    const withSuccess = samples.filter((entry) => typeof entry.delta.success === 'boolean');
-    return {
-      action: data.action,
-      distribution,
-      uncertainty: 1 - distribution[0].p,
-      successRate: withSuccess.length ? withSuccess.filter((entry) => entry.delta.success).length / withSuccess.length : null,
-      n: samples.length
-    };
-  } catch (_) {
-    return null;
-  } finally {
-    if (opened && opened.close) await opened.close();
-  }
-}
-
-async function rolloutChildren(db, agentId, state) {
-  const { node, level, actions, frontier } = state;
-  for (const action of actions) {
-    if (state.total >= ROLLOUT_NODES_MAX) break;
-    state.total += 1;
-    let predicted = null;
-    try {
-      predicted = await predictState(db, agentId, { action });
-    } catch (_) {}
-    const child = { action, predicted, children: [], depth: level + 1 };
-    node.children.push(child);
-    frontier.push({ node: child, level: level + 1 });
-  }
-}
-
-async function rolloutFree(db, agentId, input) {
-  const data = input || {};
-  const actions = Array.isArray(data.actions) ? data.actions.filter((action) => typeof action === 'string') : [];
-  const depth = Math.max(1, Math.min(3, Math.floor(Number(data.depth) || 2)));
-  if (!agentId || !actions.length) return null;
-  const root = { action: null, children: [], depth: 0 };
-  const state = { total: 0, actions, frontier: null, node: null, level: 0 };
-  const frontier = [{ node: root, level: 0 }];
-  state.frontier = frontier;
-  while (frontier.length && state.total < ROLLOUT_NODES_MAX) {
-    const { node, level } = frontier.shift();
-    if (level >= depth) continue;
-    state.node = node;
-    state.level = level;
-    await rolloutChildren(db, agentId, state);
-  }
-  return root;
-}
+const { encodeWorldState, recordSample, predictState, rolloutFree } = require('./worldModelGenerativeService');
 
 function trajectoryUncertainty(base, step) {
   return Math.min(0.95, Math.max(0, base) + step * UNCERTAINTY_GROWTH);
@@ -305,6 +192,7 @@ function resolveTrajectorySteps(pending, outcomes) {
   for (let step = 0; step < pending.length && step < outcomes.length; step++) {
     const entry = pending[step];
     const data = outcomes[step] || {};
+    if (typeof data.success !== 'boolean') continue;
     const surprise = scoreSurprise(entry.predicted || {}, { success: data.success === true, detail: data.detail, observedState: data.observedState });
     surprises.push(surprise);
     entry.status = 'resolved';

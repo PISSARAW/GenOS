@@ -134,6 +134,8 @@ function pairSeed(seed, control, intervention) {
     difference,
     controlTrajectoryLength: control.trajectory.length,
     interventionTrajectoryLength: intervention.trajectory.length,
+    controlTrajectory: structuredClone(control.trajectory),
+    interventionTrajectory: structuredClone(intervention.trajectory),
     divergenceSteps: divergences,
   };
 }

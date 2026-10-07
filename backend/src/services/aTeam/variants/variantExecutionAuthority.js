@@ -218,4 +218,6 @@ module.exports = {
     const INCIDENT_TRANSITIONS = { ACTIVE: ['SITREP', 'HANDOVER', 'CLOSE'], HANDOVER_PENDING: ['HANDOVER_ACCEPTED', 'CLOSE'], CLOSED: [] };
     return (INCIDENT_TRANSITIONS[status] || []).includes(type);
   }
+
+
 };

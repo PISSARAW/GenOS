@@ -14,6 +14,11 @@ auto-montage caché. Le `TopologyExecutor` préfère un exécuteur dédié, sino
 délègue au registre, sinon refuse (`Topology not registered`). Code :
 `backend/src/services/morphogenesis/runtime/topologyPlugins.js`.
 
+Le contrôleur Syncytium de cette surface plugin possède son propre contrat.
+Le [runtime Node Syncytium](runtime-syncytium.md) active les treize services de
+variant dans le dispatch biologique et exige des preuves de clôture ; ces règles
+ne doivent pas être déduites du seul résultat déterministe du contrôleur plugin.
+
 ## 2. Matrice de câblage
 
 | Topologie | Mécanisme | Persistance | Vérifié |

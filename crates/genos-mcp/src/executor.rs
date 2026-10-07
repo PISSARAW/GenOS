@@ -1,13 +1,13 @@
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::env;
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::thread;
 
+mod backend_dispatch;
 mod executor_paths;
 mod executor_results;
-mod backend_dispatch;
 use executor_paths::{find_binary, resolve_bridge_path};
 use executor_results::{normalize_cli_result, normalize_primitive_result};
 use std::time::{Duration, Instant};

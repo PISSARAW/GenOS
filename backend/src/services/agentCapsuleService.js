@@ -3,10 +3,15 @@ const fs = require('fs/promises');
 const { appendBounded } = require('./boundedOutput');
 const { terminateChild } = require('./processTermination');
 const capsuleGate = require('./agentCapsuleGate');
+const securePaths = require('./trinityCapsulePaths');
+const seals = require('./trinityCapsuleSeal');
+const path = require('path');
 
-function run(command, args, timeoutMs = 120000) {
+function run(command, args, options = {}) {
+  const timeoutMs = options.timeoutMs || 120000;
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, GENOS_STUDIO_ROOT: options.root, GENOS_ROOT: options.root } });
     let stdout = '';
     let stderr = '';
     const timer = setTimeout(() => {
@@ -35,7 +40,7 @@ async function readJsonSafe(filepath) {
   }
 }
 
-async function provisionSynthetic(context = {}) {
+async function provisionSyntheticRaw(context = {}) {
   const ctx = context || {};
   const paths = capsuleGate.resolveCapsulePaths(ctx);
   const name = ctx.name || 'worker';
@@ -46,7 +51,7 @@ async function provisionSynthetic(context = {}) {
   const snapshotId = `snap-${crypto.randomBytes(16).toString('hex')}`;
   const genomeId = crypto.randomUUID();
   try {
-    await fs.mkdir(paths.bootstrap, { recursive: true });
+    securePaths.ensureDirectory(paths.bootstrap);
     const genomeData = {
       apiVersion: 'v0alpha1',
       bud_scars: 0,
@@ -78,12 +83,12 @@ async function provisionSynthetic(context = {}) {
       snapshotPath: paths.snapshotPath
     };
   } catch (error) {
-    await fs.rm(paths.root, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(securePaths.assertPath(paths.root), { recursive: true, force: true }).catch(() => {});
     throw error;
   }
 }
 
-async function provision(context = {}) {
+async function provisionRaw(context = {}) {
   const ctx = context || {};
   const paths = capsuleGate.resolveCapsulePaths(ctx);
   let executable;
@@ -91,24 +96,34 @@ async function provision(context = {}) {
     executable = capsuleGate.resolveExecutable(ctx.executable);
   } catch (err) {
     if (err.code === 'CAPSULE_EXECUTABLE_INVALID') throw err;
-    return provisionSynthetic(ctx);
+    if (ctx.correlation && ctx.fallbackSynthetic !== true) throw err;
+    ctx.bootstrapMode = 'synthetic';
+    ctx.fallbackReason = err.code || err.message;
+    return provisionSyntheticRaw(ctx);
   }
+  return provisionNative(ctx, paths, executable);
+}
+
+async function provisionNative(ctx, paths, executable) {
   const name = ctx.name || 'worker';
   const role = ctx.role || 'worker';
   const steps = String(ctx.budgetSteps || 100);
   try {
-    await fs.mkdir(paths.bootstrap, { recursive: true });
-    await run(executable, ['agent', 'create', '--name', name, '--role', role, '--out', paths.genomePath]);
-    await run(executable, ['snapshot', 'create', '--agent', paths.genomePath, '--out', paths.snapshotPath]);
+    securePaths.ensureDirectory(paths.bootstrap);
+    await run(executable, ['agent', 'create', '--name', name, '--role', role, '--out', paths.genomePath], { root: paths.root });
+    await run(executable, ['snapshot', 'create', '--agent', paths.genomePath, '--out', paths.snapshotPath], { root: paths.root });
     const output = await run(executable, [
       'capsule', 'create', '--snapshot', paths.snapshotPath,
       '--seed', ctx.workspaceRoot,
       '--budget-steps', steps
-    ]);
+    ], { root: paths.root });
     return await buildProvisionResult(JSON.parse(output), paths);
   } catch (error) {
-    await fs.rm(paths.root, { recursive: true, force: true }).catch(() => {});
-    return provisionSynthetic(ctx);
+    await fs.rm(securePaths.assertPath(paths.root), { recursive: true, force: true }).catch(() => {});
+    if (ctx.correlation && ctx.fallbackSynthetic !== true) throw error;
+    ctx.bootstrapMode = 'synthetic';
+    ctx.fallbackReason = error.code || error.message;
+    return provisionSyntheticRaw(ctx);
   }
 }
 
@@ -132,14 +147,37 @@ function resultIds(capsule, snapshot, paths) {
 
 async function buildProvisionResult(capsule, paths) {
   const safeCapsule = capsule || {};
+  const capsulePath = await verifyNativeCapsule(safeCapsule, paths);
   const snapshot = await snapshotOf(safeCapsule, paths);
   return {
     ...resultIds(safeCapsule, snapshot, paths),
     worldId: safeCapsule.live_world_id || 'world-main',
     root: paths.root,
     genomePath: paths.genomePath,
-    snapshotPath: paths.snapshotPath
+    snapshotPath: paths.snapshotPath,
+    capsulePath
   };
+}
+
+async function verifyNativeCapsule(capsule, paths) {
+  if (capsule.success !== true || capsule.verified !== true) throw new Error('Native capsule did not verify.');
+  const id = capsuleGate.assertSafeAgentId(capsule.capsule_id);
+  const capsulePath = securePaths.assertPath(path.join(paths.root, 'capsules', id + '.json'));
+  const persisted = JSON.parse(await fs.readFile(capsulePath, 'utf8'));
+  if (persisted.capsule_id !== id || persisted.hash !== capsule.hash) throw new Error('Native capsule persistence mismatch.');
+  return capsulePath;
+}
+
+function provision(context = {}) {
+  const ctx = { ...context };
+  if (!ctx.correlation) return provisionRaw(ctx);
+  return seals.provision(ctx, () => provisionRaw(ctx));
+}
+
+function provisionSynthetic(context = {}) {
+  const ctx = { ...context, bootstrapMode: 'synthetic' };
+  if (!ctx.correlation) return provisionSyntheticRaw(ctx);
+  return seals.provision(ctx, () => provisionSyntheticRaw(ctx));
 }
 
 module.exports = { provision, provisionSynthetic };

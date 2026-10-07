@@ -28,6 +28,8 @@ async function main() {
   assert.equal(new Set(members.map(member => member.label)).size, 16);
   assert.equal(new Set(members.map(member => member.factorialCell.cellId)).size, 16);
   assert.equal(design.expectedWorlds(members[0].variantSelection), 16);
+  const workerResolver = require('../src/services/topologyWorkerKindService');
+  for (const member of workerResolver.applyTopologyWorkerKinds('trinity', members)) assert.ok(member.workerKind);
   const assigned = design.assignFactorialModels(members, ['standard-model', 'frontier-model']);
   const treatments = assigned.map(member => ({ worldNumber: member.worldNumber,
     report: { factorialCell: member.factorialCell },

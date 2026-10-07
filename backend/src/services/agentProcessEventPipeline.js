@@ -15,6 +15,7 @@ const { activeProcesses, emit, updateAgent } = require('./agentOrchestrationStat
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const workerGarage = require('./workerGarageService');
 const { checkNaturalSearchControl, clearSearchState } = require('./search/naturalSearchRuntime');
+const conceptCycle = require('./agentConceptCycleBridgeService');
 
 function applyDomainStateFromEvent(context) {
   const { state, event, eventType, workerContract } = context;
@@ -253,15 +254,9 @@ async function processEventQueueImpl(ctx) {
       if (checkSwarmSentinel(ctx, currentEvent, finalEvent)) continue;
       if (checkInteractionDeadlock(ctx, currentEvent, finalEvent)) continue;
       if (await runConscienceCheck(ctx, currentEvent, observation)) continue;
-      await routeHierarchyEvent(ctx, currentEvent);
-      await require('./agow/agowRuntimeIngressService').process({ ctx, event: currentEvent, finalEvent });
-      await require('./runtimePredictiveBridgeService').process(ctx, currentEvent);
-      await require('./conceptRuntimeService').processEvent(db, {
-        agentId,
-        event: currentEvent,
-        options: { evidence: currentEvent.payload?.conceptEvidence }
-      });
+      await conceptCycle.observeCycle(ctx, { event: currentEvent, finalEvent, routeHierarchyEvent });
       if (await checkNaturalSearchControl(ctx, currentEvent, finalEvent)) continue;
+      await conceptCycle.advanceFeedback(ctx, currentEvent);
       await require('./orchestratorEventEffects').process(ctx, currentEvent);
       await advanceAutonomousRound(normalizedMission, currentEvent);
     } catch (err) {
@@ -289,7 +284,8 @@ function resolveWorkerTerminalStatus(eventType, eventStatus, state) {
   return rejectedWorkerCompletion(eventType, state) ? 'failed' : eventStatus;
 }
 function handleDecodedEvent(ctx, event) {
-  const payload = parseEventPayload(event);
+  event = require('./continuousExecution/runtimeBridge').guard(ctx, { ...event, payload: parseEventPayload(event) });
+  const payload = event.payload;
   applyDomainStateFromEvent({
     state: ctx.state, event: { ...event, payload }, eventType: event.eventType,
     workerContract: ctx.normalizedMission?.workerContract
@@ -352,6 +348,7 @@ async function handleChildClose(ctx, code, signal) {
   const { agentId, state } = ctx;
   try {
     clearTerminationTimer(ctx.child);
+    await require('./continuousExecution/runtimeBridge').close(ctx);
     await state.executionQueue;
     await state.eventProcessingPromise;
   } catch (err) {

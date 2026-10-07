@@ -27,39 +27,7 @@ async function findReusableWorker({ context, db }) {
     mission: context.task, role: String(context.request.role || 'implementation')
   });
 }
-function getRunnerStdio(processId) {
-  const logDir = process.env.GENOS_RUNNER_LOG_DIR;
-  if (!logDir) return ['pipe', 'pipe', 'pipe'];
-  try {
-    const fs = require('fs');
-    fs.mkdirSync(logDir, { recursive: true });
-    return ['pipe', 'pipe', 'pipe'];
-  } catch {
-    return ['pipe', 'pipe', 'pipe'];
-  }
-}
-function launchDetached(context, runnerRequest, detachedProcessId) {
-  const stdio = getRunnerStdio(detachedProcessId);
-  const env = buildRunnerEnv();
-  if (process.platform === 'win32') {
-    const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, windowsHide: true, stdio: 'ignore', env });
-    runner.unref();
-    return runner;
-  }
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, stdio, env });
-  runner.unref();
-  return runner;
-}
-function buildRunnerEnv() {
-  return {
-    ...process.env,
-    GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || '',
-    GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
-    GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
-    GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
-    GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator'
-  };
-}
+const { buildRunnerEnv } = require('./runnerSpawn.cjs');
 function spawnDetachedRunner(context, runnerRequest, runnerEnv) {
   const helper = require('./detachedSpawn.cjs');
   const args = [context.bridgePath, ...helper.toSpawnArgs(JSON.stringify(runnerRequest))];
@@ -270,20 +238,37 @@ function validateWorkspace(requested, source) {
   const norm = (value) => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
   if (requested && norm(requested) !== norm(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
 }
-async function insertWorker({ db, context, parent, request, name, role, workerKind }) {
-  const workerKinds = require('../src/services/agents/workerKindService');
+function buildWorkerContract({ workerKinds, workerKind, context, request }) {
   const contract = workerKinds.buildWorkerContract(workerKind, {
     prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId,
     methodContract: request.methodContract, workerAssignment: request.workerAssignment
   });
   if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
-  const metadata = JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null });
-  if (context.reusedWorker) {
-    await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);
-  } else {
-    await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, metadata_json) VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?, ?)`, context.id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId, `Worker scope: ${context.task}`, context.task, metadata);
-  }
+  return contract;
+}
+
+function buildWorkerMetadata(workerKind, contract, request) {
+  return JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null });
+}
+
+async function updateReusedWorker(db, context, metadata) {
+  await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);
+}
+
+async function insertNewWorker({ db, context, name, role, workerKind, parent, request, contract, metadata }) {
+  await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, metadata_json) VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?, ?)`, context.id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId, `Worker scope: ${context.task}`, context.task, metadata);
   if (context.missionId) await require('../src/services/missionIdentityService').attachAgent(db, { missionId: context.missionId, agentId: context.id, role });
+}
+
+async function insertWorker({ db, context, parent, request, name, role, workerKind }) {
+  const workerKinds = require('../src/services/agents/workerKindService');
+  const contract = buildWorkerContract({ workerKinds, workerKind, context, request });
+  const metadata = buildWorkerMetadata(workerKind, contract, request);
+  if (context.reusedWorker) {
+    await updateReusedWorker(db, context, metadata);
+  } else {
+    await insertNewWorker({ db, context, name, role, workerKind, parent, request, contract, metadata });
+  }
 }
 async function startWorker({ db, context, parent, reusable, worker }) {
   context.delegatedWorkerId = context.id; const garage = await workerGarage.reserveSlot(db, { orchestratorId: context.orchestratorId, workerId: context.id, name: worker.name, role: worker.role, mission: context.task });

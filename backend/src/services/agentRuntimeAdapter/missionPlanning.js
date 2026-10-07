@@ -86,6 +86,14 @@ function applyFanoutCorrection(mission, signal) {
   if (!signal) return;
   const factor = Number((1 - signal.strength).toFixed(3));
   const workers = Number(mission.executionPolicy.requestedWorkers || mission.workerCount || 0);
+  const explicitTrinity = mission.trinityMode === 'explicit'
+    || mission.proposedTopology === 'trinity'
+    || mission.morphologyTopology === 'trinity';
+  if (explicitTrinity && workers >= 3) {
+    mission.executionPolicy.workerFanoutFactor = 1;
+    mission.executionPolicy.workerFanoutLimit = 3;
+    return;
+  }
   mission.executionPolicy.workerFanoutFactor = factor;
   mission.executionPolicy.workerFanoutLimit = workers > 0 && factor > 0
     ? Math.max(1, Math.floor(workers * factor))
@@ -305,11 +313,18 @@ function incarnateOrchestrator(ctx) {
 
 async function createMissionExecutionRun(ctx) {
   const { db, agentId, runtimeBudget, contractRecord } = ctx;
+  try {
   ctx.executionRun = await strategyExecution.createExecutionRun(db, {
     agentId,
+    missionId: ctx.normalizedMission.missionId,
     budget: runtimeBudget,
     contractRecord
   });
+  } catch (error) {
+    try { await require('../trinityWorkerIdentity').recordRejected(db, { agentId, error }); }
+    catch (diagnosticError) { console.error('[WorkerIdentity] Diagnostic persistence failed:', diagnosticError.code || 'unknown'); }
+    throw error;
+  }
 }
 
 function reportOrchestratorStart(ctx) {

@@ -8,10 +8,12 @@ const REQUIREMENTS = Object.freeze({
   generalized: ['specification', 'implementation', 'local_causal_ablation', 'external_task_campaign'],
   operational: ['specification', 'implementation', 'local_causal_ablation', 'external_task_campaign', 'reserved_replication']
 });
-const TEST_CLASSES = new Set(['unit_test', 'test_result', 'integration_test']);
+const verification = require('./indicatorVerificationService');
 
 function evaluate(options) {
-  const receipts = validReceipts(options.receipts || []);
+  if (!options.indicatorId) throw new TypeError('Indicator identity required.');
+  const receipts = validReceipts(options.receipts || []).filter((item) => item.indicatorId === options.indicatorId
+    && verification.sameScope(item.scope, options.scope) && item.contextHash === options.contextHash);
   const target = options.targetStage || 'operational';
   if (!STAGES.includes(target)) throw new TypeError('Unknown consciousness evidence stage.');
   const missing = REQUIREMENTS[target].filter((kind) => !receipts.some((item) => item.kind === kind));
@@ -21,15 +23,15 @@ function evaluate(options) {
 }
 
 function validReceipts(receipts) {
-  return receipts.filter((item) => item?.independentVerification === true && item?.verified === true
-    && item.verifierId && !TEST_CLASSES.has(item.evidenceClass)
-    && /^[a-f0-9]{64}$/.test(item.receiptHash || '') && REQUIREMENTS.operational.includes(item.kind));
+  if (!Array.isArray(receipts)) return [];
+  return receipts.filter((item) => verification.isVerified(item) && REQUIREMENTS.operational.includes(item.kind));
 }
 
-function highestStage(receipts) {
+function highestStage(receipts, options = {}) {
   let highest = 'not_assessed';
   for (const stage of STAGES) {
-    if (evaluate({ indicatorId: 'unspecified', targetStage: stage, receipts }).eligible) highest = stage;
+    if (evaluate({ indicatorId: options.indicatorId || 'unspecified', scope: options.scope,
+      contextHash: options.contextHash, targetStage: stage, receipts }).eligible) highest = stage;
     else break;
   }
   return highest;

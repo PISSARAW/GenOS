@@ -173,6 +173,7 @@ async function approveRun(db, id, options) {
   const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
   await promotionGate.assertPromotionContainment(db, promotion, settings);
   const aeisEvaluation = await evaluateAeisPromotion(db, { promotion, id });
+  promotion.aeisAssemblyId = aeisEvaluation.persistedAssemblyId;
   const gateContext = promotionGate.buildGateContext({ promotion, options: settings, receipt, aeisEvaluation });
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);

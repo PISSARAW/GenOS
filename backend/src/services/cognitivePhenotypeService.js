@@ -111,7 +111,10 @@ function attachPhenotypesToPlan({ plan, missionText, options }) {
   });
   members.forEach((member, index) => {
     const phenotype = phenotypeFromRecipe(portfolio.recipes[index]);
-    if (phenotype) member.cognitiveRecipe = phenotype;
+    if (phenotype) {
+      if (typeof member.cognitiveRecipe === 'string') member.requestedCognitiveRecipe = member.cognitiveRecipe;
+      member.cognitiveRecipe = phenotype;
+    }
   });
   const attached = members.filter((member) => member.cognitiveRecipe).length;
   const report = {

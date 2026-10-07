@@ -16,6 +16,7 @@ const vesicles = require('./agentMemoryVesicles');
 const promptGenome = require('./promptGenomeService');
 const microRnaPrompt = require('./microRnaPromptService');
 const scope = require('./agentMemoryScope');
+const { sanitizeMemorySourceText } = require('./memoryScoring');
 
 function applyScope(list, task, opts) {
   return scope.filterScoped(filterUnverified(list), opts.missionScope, task);
@@ -176,15 +177,17 @@ function experienceWeight(entry) {
 
 function experienceLine(entry) {
   const title = entry.title ? `[${entry.title}] ` : '';
-  return `  * ${title}${truncateWords(entry.summary || entry.content || '', 250)}${experienceWeight(entry)}`;
+  const text = sanitizeMemorySourceText(entry, `${title}${entry.summary || entry.content || ''}`);
+  return `  * ${truncateWords(text, 250)}${experienceWeight(entry)}`;
 }
 
 function pitfallLine(entry) {
-  return `  * ⚠️ ${truncateWords(entry.summary || entry.content || entry.title || '', 200)}`;
+  const text = sanitizeMemorySourceText(entry, entry.summary || entry.content || entry.title);
+  return `  * ⚠️ ${truncateWords(text, 200)}`;
 }
 
 function goldenLine(entry) {
-  return `  * 🎯 ${formatGoldenPath(entry)}`;
+  return `  * 🎯 ${sanitizeMemorySourceText(entry, formatGoldenPath(entry))}`;
 }
 
 function episodeLine(episode) {

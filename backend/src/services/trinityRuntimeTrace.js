@@ -21,6 +21,8 @@ async function observe(context, event) {
 
 function assertCorrelation(context, correlation) {
   const mission = context.normalizedMission;
+  if (correlation.missionId !== (mission.missionScope.missionId || mission.missionScope.trinityExperimentId)
+    || correlation.runId !== context.executionRun.id) throw failure('TRINITY_WORKER_SCOPE_INVALID');
   if (correlation.workerId !== context.agentId) throw failure('TRINITY_WORKER_SCOPE_INVALID');
   if (correlation.experimentId !== mission.missionScope.trinityExperimentId) throw failure('TRINITY_WORKER_SCOPE_INVALID');
   if (correlation.parentId !== (mission.orchestratorAgentId ?? null)) throw failure('TRINITY_WORKER_SCOPE_INVALID');
@@ -43,4 +45,4 @@ function sameWorkspace(left, right) {
 }
 
 function failure(code) { return Object.assign(new Error(code), { code }); }
-module.exports = { observe };
+module.exports = { observe, assertCorrelation };

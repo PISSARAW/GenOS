@@ -15,25 +15,31 @@ function getStatus(req, res, next) {
   }
 }
 
+function extractConfigUpdates(body) {
+  const { name, personality, role, githubDir, openTerminalOnStartup, enabled } = body || {};
+  const updates = {};
+  if (name) updates.name = String(name).trim();
+  if (personality) updates.personality = String(personality).trim();
+  if (role) updates.role = String(role).trim();
+  if (githubDir) updates.githubDir = String(githubDir).trim();
+  if (typeof openTerminalOnStartup === 'boolean') updates.openTerminalOnStartup = openTerminalOnStartup;
+  if (typeof enabled === 'boolean') updates.enabled = enabled;
+  return updates;
+}
+
+function applyAutostartIfNeeded(enabled, saved, daemon) {
+  if (typeof enabled !== 'boolean') return { success: true };
+  return enabled ? daemon.enableAutostart(saved) : daemon.disableAutostart();
+}
+
 function configure(req, res, next) {
   try {
-    const { name, personality, role, githubDir, openTerminalOnStartup, enabled } = req.body || {};
-    const updates = {};
-    if (name) updates.name = String(name).trim();
-    if (personality) updates.personality = String(personality).trim();
-    if (role) updates.role = String(role).trim();
-    if (githubDir) updates.githubDir = String(githubDir).trim();
-    if (typeof openTerminalOnStartup === 'boolean') updates.openTerminalOnStartup = openTerminalOnStartup;
-    if (typeof enabled === 'boolean') updates.enabled = enabled;
-
-    const saved = daemon.saveDaemonConfig({ ...updates, ...(enabled === true ? { enabled: false } : {}) });
-    if (typeof enabled === 'boolean') {
-      const autostart = enabled ? daemon.enableAutostart(saved) : daemon.disableAutostart();
-      if (!autostart.success) {
-        return res.json({ success: false, config: daemon.getDaemonConfig(), autostart });
-      }
+    const updates = extractConfigUpdates(req.body);
+    const saved = daemon.saveDaemonConfig({ ...updates, ...(updates.enabled === true ? { enabled: false } : {}) });
+    const autostart = applyAutostartIfNeeded(updates.enabled, saved, daemon);
+    if (!autostart.success) {
+      return res.json({ success: false, config: daemon.getDaemonConfig(), autostart });
     }
-
     res.json({ success: true, config: daemon.getDaemonConfig() });
   } catch (err) {
     next(err);

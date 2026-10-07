@@ -14,9 +14,10 @@ const SENSITIVE_FILES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\.
 
 function snapshotRoot(workspacePath, workspaceId) {
   const configured = process.env.GENOS_SNAPSHOT_ROOT;
-  return configured
-    ? path.resolve(configured, String(workspaceId || 'workspace'))
-    : path.resolve(workspacePath, '.genos', 'workspace-snapshots');
+  if (!configured) return path.resolve(workspacePath, '.genos', 'workspace-snapshots');
+  const relative = String(workspaceId || 'workspace');
+  if (!isSafeRelative(relative)) throw new Error('Invalid snapshot workspace identity.');
+  return containedJoin(configured, relative);
 }
 
 function isSafeRelative(relativePath) {

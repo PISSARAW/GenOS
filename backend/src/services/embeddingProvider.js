@@ -72,115 +72,169 @@ async function embedWithGemini(text, apiKey, model) {
   return normalizeVector(rawVec, targetDim);
 }
 
+async function tryOllamaModernEndpoint(params) {
+  const { base, text, model, timeoutMs, targetDim } = params;
+  const embedUrl = base.endsWith('/api/embed') ? base : `${base}/api/embed`;
+  const response = await fetch(embedUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, input: text }),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
+  });
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const rawVec = payload?.embeddings?.[0] || null;
+  if (rawVec) return normalizeVector(rawVec, targetDim);
+  return null;
+}
+
+async function tryOllamaLegacyEndpoint(params) {
+  const { base, text, model, timeoutMs, targetDim } = params;
+  const legacyUrl = base.endsWith('/api/embeddings') ? base : `${base}/api/embeddings`;
+  const response = await fetch(legacyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt: text }),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
+  });
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const rawVec = payload?.embedding || null;
+  if (rawVec) return normalizeVector(rawVec, targetDim);
+  return null;
+}
+
 async function embedWithOllama(text, rawUrl, model) {
   const base = rawUrl.replace(/\/+$/, '');
   validateProviderEndpoint(base, { localOnly: true });
   const targetDim = Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768;
   const timeoutMs = Number(process.env.GENOS_EMBEDDING_TIMEOUT_MS) || 4000;
-  // Try modern /api/embed first
-  try {
-    const embedUrl = base.endsWith('/api/embed') ? base : `${base}/api/embed`;
-    const response = await fetch(embedUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, input: text }),
-      signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
-    });
-    if (response.ok) {
-      const payload = await response.json();
-      const rawVec = payload?.embeddings?.[0] || null;
-      if (rawVec) return normalizeVector(rawVec, targetDim);
-    }
-  } catch (_) {}
 
-  // Fallback to legacy /api/embeddings
-  try {
-    const legacyUrl = base.endsWith('/api/embeddings') ? base : `${base}/api/embeddings`;
-    const response = await fetch(legacyUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, prompt: text }),
-      signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
-    });
-    if (response.ok) {
-      const payload = await response.json();
-      const rawVec = payload?.embedding || null;
-      if (rawVec) return normalizeVector(rawVec, targetDim);
-    }
-  } catch (_) {}
+  const params = { base, text, model, timeoutMs, targetDim };
+  const modernResult = await tryOllamaModernEndpoint(params);
+  if (modernResult) return modernResult;
+
+  const legacyResult = await tryOllamaLegacyEndpoint(params);
+  if (legacyResult) return legacyResult;
 
   return null;
 }
 
-async function embed(text) {
-  const cleanText = String(text || '').trim();
-  if (!cleanText) return null;
+function buildEmbedConfig() {
+  return {
+    ollamaUrl: process.env.GENOS_EMBEDDING_URL ||
+      process.env.GENOS_OLLAMA_URL ||
+      process.env.OLLAMA_HOST ||
+      'http://127.0.0.1:11434',
+    ollamaModel: process.env.GENOS_EMBEDDING_MODEL ||
+      process.env.OLLAMA_EMBEDDING_MODEL ||
+      'nomic-embed-text'
+  };
+}
 
-  // 1. Check for remote OpenAI / Gemini embedding provider
+async function tryOpenAiEmbed(text) {
   const openAiKey = process.env.GENOS_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY;
-  if ((process.env.GENOS_EMBEDDING_PROVIDER === 'openai' || (!process.env.GENOS_EMBEDDING_PROVIDER && openAiKey)) && openAiKey) {
+  const provider = process.env.GENOS_EMBEDDING_PROVIDER;
+  if ((provider === 'openai' || (!provider && openAiKey)) && openAiKey) {
     try {
-      const vec = await embedWithOpenAi(cleanText, openAiKey, {
+      const vec = await embedWithOpenAi(text, openAiKey, {
         endpoint: process.env.GENOS_EMBEDDING_URL,
         model: process.env.GENOS_EMBEDDING_MODEL
       });
       if (vec) return vec;
     } catch (_) {}
   }
+  return null;
+}
 
+async function tryGeminiEmbed(text) {
+  if (process.env.GENOS_EMBEDDING_PROVIDER !== 'gemini') return null;
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GENOS_EMBEDDING_API_KEY;
-  if (process.env.GENOS_EMBEDDING_PROVIDER === 'gemini' && geminiKey) {
-    try {
-      const vec = await embedWithGemini(cleanText, geminiKey, process.env.GENOS_EMBEDDING_MODEL);
-      if (vec) return vec;
-    } catch (_) {}
-  }
-
-  // 2. Ollama / Local REST embedding provider
-  const ollamaUrl = process.env.GENOS_EMBEDDING_URL ||
-    process.env.GENOS_OLLAMA_URL ||
-    process.env.OLLAMA_HOST ||
-    'http://127.0.0.1:11434';
-  const ollamaModel = process.env.GENOS_EMBEDDING_MODEL ||
-    process.env.OLLAMA_EMBEDDING_MODEL ||
-    'nomic-embed-text';
-
+  if (!geminiKey) return null;
   try {
-    const vec = await embedWithOllama(cleanText, ollamaUrl, ollamaModel);
+    const vec = await embedWithGemini(text, geminiKey, process.env.GENOS_EMBEDDING_MODEL);
     if (vec) return vec;
   } catch (_) {}
-
-  // 3. In-process Xenova fallback if requested/available
-  if (process.env.GENOS_ENABLE_LOCAL_TRANSFORMERS === 'true') {
-    try {
-      const { pipeline, env } = require('@xenova/transformers');
-      env.allowLocalModels = true;
-      const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
-      const output = await extractor(cleanText, { pooling: 'mean', normalize: true });
-      if (output?.data) {
-        return normalizeVector(Array.from(output.data), Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768);
-      }
-    } catch (_) {}
-  }
-
   return null;
+}
+
+async function tryOllamaEmbed(text, config) {
+  try {
+    const vec = await embedWithOllama(text, config.ollamaUrl, config.ollamaModel);
+    if (vec) return vec;
+  } catch (_) {}
+  return null;
+}
+
+async function tryLocalTransformersEmbed(text) {
+  if (process.env.GENOS_ENABLE_LOCAL_TRANSFORMERS !== 'true') return null;
+  try {
+    const { pipeline, env } = require('@xenova/transformers');
+    env.allowLocalModels = true;
+    const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
+    const output = await extractor(text, { pooling: 'mean', normalize: true });
+    if (output?.data) {
+      return normalizeVector(Array.from(output.data), Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768);
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function tryProvidersInOrder(text, config) {
+  const openAiResult = await tryOpenAiEmbed(text);
+  if (openAiResult) return openAiResult;
+
+  const geminiResult = await tryGeminiEmbed(text);
+  if (geminiResult) return geminiResult;
+
+  const ollamaResult = await tryOllamaEmbed(text, config);
+  if (ollamaResult) return ollamaResult;
+
+  return tryLocalTransformersEmbed(text);
+}
+
+async function embed(text) {
+  const cleanText = String(text || '').trim();
+  if (!cleanText) return null;
+  const config = buildEmbedConfig();
+  return tryProvidersInOrder(text, config);
+}
+
+async function tryRemoteRerank(query, documents, config) {
+  const { endpoint, key, timeoutMs } = config;
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ query, documents }),
+      signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
+    });
+    if (response.ok) return (await response.json()).results || [];
+  } catch (_) {}
+  return null;
+}
+
+function computeLocalRerank(query, documents) {
+  const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  return (documents || []).map((doc) => {
+    const text = String(doc?.content || doc?.summary || doc?.semantic_summary || doc?.title || '').toLowerCase();
+    const matches = terms.reduce((score, term) => score + (text.includes(term) ? 1 : 0), 0);
+    const rerankScore = matches / Math.max(terms.length, 1);
+    return { ...doc, rerankScore };
+  }).sort((a, b) => b.rerankScore - a.rerankScore);
 }
 
 async function rerank(query, documents = []) {
   const endpoint = process.env.GENOS_RERANK_ENDPOINT;
   const key = process.env.GENOS_RERANK_API_KEY || process.env.GENOS_MODEL_API_KEY;
   const timeoutMs = Number(process.env.GENOS_RERANK_TIMEOUT_MS) || 3000;
-  if (endpoint && key) {
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ query, documents }),
-        signal: AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined
-      });
-      if (response.ok) return (await response.json()).results || [];
-    } catch (_) {}
-  }
+  const remoteConfig = { endpoint, key, timeoutMs };
+  const remoteResult = await tryRemoteRerank(query, documents, remoteConfig);
+  if (remoteResult) return remoteResult;
+  return computeLocalRerank(query, documents);
+}
+
+function computeLocalRerank(query, documents) {
   const terms = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
   return (documents || []).map((doc) => {
     const text = String(doc?.content || doc?.summary || doc?.semantic_summary || doc?.title || '').toLowerCase();

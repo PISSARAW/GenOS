@@ -3,7 +3,7 @@
 - **Statut** : protocole opératoire documenté à partir du runtime Node et de ses tests ciblés.
 - **Version du relevé** : 2026-10-06.
 - **Portée** : exécutions déterministes des 13 variants Syncytium, préparation d’une campagne avec travailleurs, collecte de preuves et limites de validation.
-- **À lire avec** : [Syncytium — modèle et garanties](syncytium.md), [topologies et capacités](../topologies-et-capacites.md).
+- **À lire avec** : [Syncytium — modèle et garanties](syncytium.md), [contrat runtime Node/MCP](../../03-reference/runtime-syncytium.md), [topologies et capacités](../topologies-et-capacites.md).
 
 ## 1. Ce que signifie « réussi »
 
@@ -16,6 +16,13 @@ Un variant réussit une mission seulement si son oracle propre passe. Le fait qu
 5. les données de preuve à conserver (identifiants d’opérations, versions, snapshot et résultat de l’oracle).
 
 Le résultat global est **PASS** seulement si toutes les assertions prévues passent. Un rejet est un succès uniquement quand le scénario exige précisément ce rejet et vérifie son motif. Les champs non mesurés restent `null`/« non mesuré » ; ils ne sont jamais interprétés comme zéro.
+
+Dans le dispatch biologique actuel, la clôture exige simultanément une
+`semanticValidation` complète, tous les workers attendus terminés sans erreur
+de dispatch et une `stateValidation` vérifiée sur la session autoritative.
+Ce second reçu exige des opérations CRDT, les invariants satisfaits, une
+matérialisation à la version courante et aucune opération hors ligne en attente.
+Il porte sur `committed_shared_state` ; il ne remplace pas l'oracle métier.
 
 ### Niveaux de charge
 
@@ -252,10 +259,11 @@ La campagne n’est complète que lorsque les **53 lignes** (52 missions de vari
 ## Renforcement du runtime au 6 octobre 2026
 
 Le dispatch biologique active les runtimes spécialisés par défaut. Fournir les
-préconditions propres au variant : notamment authorityMembers pour Hard,
-regions pour Hierarchical et les noyaux humains pour Human-AI. L'option explicite
-useVariantRuntime=false conserve une session de politique déclarative ; elle
-ne prouve pas l'exécution des opérations spécialisées.
+préconditions propres au variant : `authorityMembers` pour Hard, `regions` et
+`sharedContracts` pour Hierarchical, `nuclei` contenant au moins un noyau de
+`kind: "human"` pour Human–AI. L'option explicite `useVariantRuntime: false`
+conserve une session générique de politique. Un appel Node direct à
+`createPolicySession` exige `useVariantRuntime: true` pour le service spécialisé.
 
 Le rejeu respecte désormais les dépendances causales malgré des horloges murales
 décalées. Les registres multivaleurs distinguent causalité et concurrence ; les
@@ -268,8 +276,10 @@ commit. Les opérations hors ligne conservent leur contexte causal d'origine et
 leurs politiques de schéma. La promotion spéculative publie de nouveaux dots sur
 le principal, avec réévaluation des invariants et conservation du journal de
 branche. Les réparations de tick matérialisent l'état corrigé. Les snapshots
-historiques et journaux appliquent les projections de domaine ; leurs résultats
-ne permettent pas de modifier les preuves internes par alias mémoire.
+historiques et journaux Node appliquent les projections de domaine demandées ;
+leurs résultats ne permettent pas de modifier les preuves internes par alias
+mémoire. L'adaptateur MCP ne transmet pas encore le domaine aux inspections ;
+voir le [contrat des surfaces](../../03-reference/runtime-syncytium.md#surfaces-mcp-et-node).
 
 La clôture de mission exige deux contrôles distincts :
 
@@ -301,11 +311,13 @@ de routage représentent 48 missions déterministes ; elles ne sont pas une
 campagne de travailleurs LLM. Les 52 missions LLM proposées ailleurs dans ce
 protocole restent à exécuter avec leurs oracles et leurs preuves.
 
-Décision : [ADR 331](../../adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md).
+Décision : [ADR 0331](../../adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md).
 
 ### Relevé local des vérifications
 
-Le 6 octobre 2026, test:syncytium réussit **45 suites couvrant 13 variants**.
+Le relevé du 6 octobre 2026 associé au commit `4c4d4f33` constate que
+`test:syncytium` réussit **45 suites couvrant 13 variants**. Il décrit les
+vérifications exécutées à cette date, pas une certification de tout HEAD ultérieur.
 Les tests d'intégration de dispatch biologique, de routage (48 fixtures),
 d'adaptation Holobionte et de persistance des sessions réussissent. Le contrôle
 différentiel applique le vérificateur Python du dépôt au périmètre Syncytium

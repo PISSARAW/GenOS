@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [lot-2-trinity-identites-capsules-et-profils.md](lot-2-trinity-identites-capsules-et-profils.md) — liaisons mission/worker/run, capsules ancrées et prévalidation des profils du lot L2.
+
 - [lot-1-trinity-contrats-et-traces.md](lot-1-trinity-contrats-et-traces.md) — registre des 48 missions, contrats versionnés, traces et limites de qualification du lot L1.
 
 - [validation-nosologie.md](validation-nosologie.md) — résultats ciblés du 2026-10-06 et limites des vérifications globales.
@@ -34,11 +36,10 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 
 ## Voir aussi
 
+- [qualification-consommateurs-p0-2026-10-07.md](qualification-consommateurs-p0-2026-10-07.md) — parcours réels L01–L05/L22, provenance mémoire et limites des promotions.
+- [matrice-consommateurs-l01-l05-l22-2026-10-07.md](matrice-consommateurs-l01-l05-l22-2026-10-07.md) — 115 références du plan, consommateurs, tests et limites opposables.
+
 - [../01-concepts/epistemologie-et-evidence.md](../01-concepts/epistemologie-et-evidence.md) — cadre épistémique.
 - [../README.md](../README.md) — hub général.
-
-- [campagne-agow-cloture.md](campagne-agow-cloture.md) — baselines simplifiées, ablation, médiation et trois holdouts locaux AGOW.
-
-- [Contrat A-Team et validation ciblée](../03-reference/runtime-a-team.md) — clôture SQLite/processus Node, 44 cas isolés et limites de qualification.
 
 - [validation-biologie-computationnelle.md](validation-biologie-computationnelle.md) — reçus, autorité durable, reprise et résultats des contrôles du 2026-10-06.

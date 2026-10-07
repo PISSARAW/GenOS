@@ -10,6 +10,7 @@ const { encodeMission } = require('./runtimeProtocol');
 const { resolveExecutable, isLocalRuntime } = require('./agentRuntimeExecutable');
 const modelRouter = require('./modelRouter');
 const localModelDiscovery = require('./localModelDiscovery');
+const continuousExecution = require('./continuousExecution/runtimeBridge');
 const userProgress = require('./userProgressService');
 const {
   activeProcesses, activeWorkerBarriers, workerEvidenceRounds, emit, updateAgent
@@ -107,7 +108,8 @@ function haltRuntimeImpl(ctx, ...args) {
 function emitTrackedImpl(ctx, ...args) {
   const [eventType, action, detail, payload = {}, severity = 'info', status] = args;
   const eventPayload = buildTrackedEventPayload(payload, ctx.executionRun, ctx.contractRecord);
-  const event = emit(ctx.agentId, eventType, action, detail, eventPayload, severity, status);
+  const guarded = continuousExecution.guard(ctx, { eventType, action, detail, payload: eventPayload, severity, status }, false);
+  const event = emit(ctx.agentId, guarded.eventType, guarded.action, guarded.detail, guarded.payload, guarded.severity, guarded.status);
   recordWorkerEvidence(ctx.normalizedMission, event);
   reportUserMilestone(ctx, event);
   const workerFailure = isWorkerFailureEvent(ctx.dispatchedAgent, eventType);
@@ -150,31 +152,7 @@ function buildMissionIdentity(agentId, normalizedMission, dispatchedAgent) {
 }
 
 function buildMissionEnvelope(ctx, identity, runtimeStrategyContract) {
-  const { normalizedMission, dispatchedAgent, workspaceRoot, genosCapsule, runtimeBudget, autonomyPlan } = ctx;
-  return {
-    ...identity,
-    modelTier: normalizedMission.modelTier || '',
-    provider: normalizedMission.provider || '',
-    modelId: normalizedMission.modelId || '',
-    hostExecutionContextJson: JSON.stringify(normalizedMission.hostExecutionContext || {}),
-    workspaceRoot,
-    workspaceIsolation: normalizedMission.workspaceIsolation || '',
-    agentType: normalizedMission.agentType || '',
-    strategyContractJson: JSON.stringify(runtimeStrategyContract),
-    executionMode: dispatchedAgent.execution_mode,
-    orchestratorAgentId: normalizedMission.orchestratorAgentId || '', missionId: normalizedMission.missionId || '',
-    autonomyPlanJson: JSON.stringify(autonomyPlan || {}),
-    toolLeaseJson: JSON.stringify(normalizedMission.toolLease || []),
-    genosCapsuleJson: JSON.stringify(genosCapsule),
-    executionPolicyJson: JSON.stringify(normalizedMission.executionPolicy),
-    executionBudgetJson: JSON.stringify(runtimeBudget || {}),
-    localModel: normalizedMission.localModel || '', localRoutingPolicyJson: JSON.stringify(normalizedMission.localRoutingPolicy || {}),
-    variantIndex: Number.isInteger(normalizedMission.variantIndex) ? normalizedMission.variantIndex : 0,
-    capabilities: normalizedMission.capabilities || [],
-    capabilityManifestJson: normalizedMission.capabilityManifestJson || null,
-    workerKind: normalizedMission.workerKind || '',
-    workerContractJson: JSON.stringify(normalizedMission.workerContract || {}),
-  };
+  return require('./agentMissionEnvelopeService').build(ctx, identity, runtimeStrategyContract);
 }
 
 function buildCapabilityPayload(normalizedMission, resolvedExecutable) {
@@ -286,7 +264,13 @@ async function superviseMission(options) {
   // the repository root or from backend/.
   const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
+  const continuousObserver = await require('./continuousExecution/observer').create({
+    db, agentId, runId: executionRun.id, workspaceRoot, options: normalizedMission.continuousExecution
+  });
   const { spawnCmd, spawnArgs } = resolveSpawnCommand(resolvedExecutable);
+  const launcherObservation = await require('./trinityRuntimeAttestation').captureLaunch({
+    normalizedMission, workspaceRoot, resolvedExecutable, spawnSpec: { cmd: spawnCmd, args: spawnArgs }
+  });
   const child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
     cwd: workspaceRoot,
     env: buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
@@ -323,7 +307,7 @@ async function superviseMission(options) {
     stdoutBuffer: Buffer.alloc(0),
     stderrBuffer: ''
   };
-  const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child, conscienceState, state };
+  const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child, conscienceState, state, continuousObserver };
   const emitTracked = (...args) => { return emitTrackedImpl(ctx, ...args); };
   ctx.emitTracked = emitTracked;
   ctx.handleOrchestrationDecision = handleOrchestrationDecision;
@@ -335,6 +319,7 @@ async function superviseMission(options) {
   child.stdin.on('error', (error) => { handleStdinError(ctx, error); });
   child.on('error', (error) => { handleChildError(ctx, error); });
   child.on('close', (code, signal) => { handleChildClose(ctx, code, signal); });
+  continuousExecution.start(ctx);
   // Replay a spawn error that fired before ctx existed, and fail the mission
   // through the normal error path instead of crashing the bridge.
   if (earlyChildError) {
@@ -342,7 +327,9 @@ async function superviseMission(options) {
     throw Object.assign(new Error(`Runtime spawn failed: ${earlyChildError.message}`), { code: 'AGENT_RUNTIME_SPAWN_FAILED' });
   }
   await updateAgent(agentId, 'running', normalizedMission.prompt);
-  emitTracked('WORKER_RUNTIME_CAPABILITIES', 'LEASE', 'Worker runtime capabilities activated.', buildCapabilityPayload(normalizedMission, resolvedExecutable), 'info', 'running');
+  emitTracked('WORKER_RUNTIME_CAPABILITIES', 'LEASE', 'Worker runtime capabilities activated.', {
+    ...buildCapabilityPayload(normalizedMission, resolvedExecutable), ...continuousExecution.capabilities(ctx)
+  }, 'info', 'running');
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, {
     executable: resolvedExecutable,
     executionRunId: executionRun.id,
@@ -350,6 +337,11 @@ async function superviseMission(options) {
     replayManifest: buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, runtimeEnvironment, workspaceRoot, resolvedExecutable })
   }, 'info', 'running');
   await applyLocalRouting(ctx);
+  try { await require('./trinityRuntimeAttestation').recordLaunch(ctx, { observation: launcherObservation, pid: child.pid }); }
+  catch (failure) {
+    haltRuntimeImpl(ctx, 'runtime_provenance_failed', failure.message, 'Runtime launcher provenance failed.');
+    throw failure;
+  }
   child.stdin.end(encodeMission(buildMissionEnvelope(ctx, buildMissionIdentity(agentId, normalizedMission, dispatchedAgent), runtimeStrategyContract)));
   return { started: true, executionRun };
 }

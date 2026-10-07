@@ -37,7 +37,8 @@ async function handleRuntimeClose(ctx) {
   const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
   if (db && hasAgentInDb) {
     await persistConscience(ctx, code);
-  } else if (code === 0 && missingTools.length) {
+  }
+  if (code === 0 && missingTools.length) {
     handleMissingTools(ctx, missingTools);
   } else if (code === 0) {
     if (!(await handleSuccessfulReport(ctx))) { cleanup(); return; }
@@ -74,7 +75,9 @@ function handleMissingTools(ctx, missingTools) {
 
 async function handleSuccessfulReport(ctx) {
   const { finalReportText, agentName, nameMeaning, mission, emit, isWorker } = ctx;
-  const phagocytosis = immune.phagocytoseCodexReport(finalReportText, { agentName, nameMeaning, role: mission.role });
+  const canonical = require('../src/services/deterministicFinalReportService').compile(ctx.autonomyPlan);
+  const phagocytosis = canonical ? { ok: true, report: canonical }
+    : immune.phagocytoseCodexReport(finalReportText, { agentName, nameMeaning, role: mission.role });
   let report;
   if (phagocytosis.ok) {
     report = phagocytosis.report;

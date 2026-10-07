@@ -1,5 +1,6 @@
 'use strict';
 const { randomUUID } = require('crypto');
+const observer = require('../conceptActionObserverService');
 
 function toolOutcomePayload(context, result) {
   return {
@@ -27,8 +28,10 @@ async function runToolExecution({ context, executeConfiguredTransport, applyDoma
   context = { ...context, actionId, sourceActionId: actionId };
   const { agentId, toolName, args, circuitScope } = context;
   await recordToolEfference({ db: context.db, agentId, toolName, actionId });
+  const token = await observer.begin(context);
+  let outcome;
   try {
-    const result = await executeConfiguredTransport({ toolName, args });
+    const result = await executeConfiguredTransport({ toolName, args, agentId });
     applyDomainVerdict(toolName, result);
     if (result.success) circuitBreaker.recordSuccess(toolName, circuitScope);
     else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`, circuitScope);
@@ -37,13 +40,16 @@ async function runToolExecution({ context, executeConfiguredTransport, applyDoma
         telemetry, agentId, toolName, args, result, actionId
       });
     }
-    telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: toolOutcomePayload(context, result) });
-    return result;
+    const event = telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: toolOutcomePayload(context, result) });
+    outcome = { result, event };
   } catch (error) {
     circuitBreaker.recordFailure(toolName, error.message, circuitScope);
-    telemetry.emitEvent({ eventType: 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: error.message, severity: 'warning', payload: toolOutcomePayload(context, { error: error.message }) });
-    return { success: false, status: 'failed', error: error.message };
+    const result = { success: false, status: 'failed', error: error.message };
+    const event = telemetry.emitEvent({ eventType: 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: error.message, severity: 'warning', payload: toolOutcomePayload(context, result) });
+    outcome = { result, event };
   }
+  // Observation failures never turn successful transport into a second attempt.
+  return observer.finish(context, token, outcome);
 }
 
 module.exports = { recordToolEfference, runToolExecution, toolOutcomePayload };

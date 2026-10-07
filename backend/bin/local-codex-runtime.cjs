@@ -86,10 +86,10 @@ async function runMission(state, services) {
   });
   guardBudget(state);
   try {
-    const generation = createGeneration(state);
+    const generation = localSynthesis.canonicalGeneration(state.autonomyPlan) || createGeneration(state);
     const reply = await awaitGeneration(state, generation.generation, generation.abort);
     validateGeneration(reply, generation.fallback, state);
-    writeArtifacts(reply, state);
+    require('../src/services/localArtifactWriter').writeArtifacts(reply, state);
     await runPostPipeline(services, state, reply);
     emitCompletion(state, reply);
     process.exit(0);
@@ -132,7 +132,8 @@ function createGeneration(state) {
     validatorFn: griotValidator,
     maxRetries: 3,
     agentId: state.agentName,
-    modelRouting: { model: state.mission.localModel || undefined, variantIndex: state.mission.variantIndex, policy: state.localRoutingPolicy, signal: abort.signal, timeoutMs: perAttemptTimeoutMs, responseFormat: state.mission.executionMode === 'worker' ? 'json_object' : undefined, enforceSchema: false },
+    modelRouting: { model: state.mission.localModel || undefined, variantIndex: state.mission.variantIndex, policy: state.localRoutingPolicy, signal: abort.signal, timeoutMs: perAttemptTimeoutMs, responseFormat: state.mission.executionMode === 'worker' ? 'json_object' : undefined, enforceSchema: false,
+      onResult: result => { state.observedRoute = require('../src/services/localCompletionEvidence').observedRoute(result); } },
     stemCellFallback: fallback.message,
     onFallback: () => { fallback.used = true; }
   });
@@ -171,45 +172,6 @@ function validateGeneration(reply, fallback, state) {
   }
 }
 
-function writeArtifacts(reply, state) {
-  if (!state.allowFileEdits) return;
-  const artifactRegex = /\[ARTIFACT:\s*([^\]]+)\]([\s\S]*?)\[\/ARTIFACT\]/gi;
-  const deps = {
-    fsLib: require('fs'),
-    pathLib: require('path'),
-    workspaceRoot: state.workspaceRoot,
-    allowFileEdits: state.allowFileEdits
-  };
-  const writeErrors = [];
-  let match;
-  while ((match = artifactRegex.exec(reply)) !== null) {
-    const error = writeArtifact(deps, match[1], match[2]);
-    if (error) writeErrors.push(error);
-  }
-  if (writeErrors.length > 0) {
-    throw new Error(`Failed to write artifact files (${writeErrors.length} error(s)): ${writeErrors.join('; ')}`);
-  }
-}
-
-function writeArtifact(deps, filepathRaw, codeRaw) {
-  const filepath = filepathRaw.trim();
-  const code = codeRaw.trim();
-  try {
-    if (!deps.allowFileEdits) throw new Error(`File edits are not authorized by the GenOS execution policy for: ${filepath}`);
-    const absPath = deps.pathLib.resolve(deps.workspaceRoot, filepath);
-    const relativePath = deps.pathLib.relative(deps.workspaceRoot, absPath);
-    if (relativePath.startsWith('..') || deps.pathLib.isAbsolute(relativePath)) {
-      throw new Error(`Artifact path escapes the mission workspace: ${filepath}`);
-    }
-    deps.fsLib.mkdirSync(deps.pathLib.dirname(absPath), { recursive: true });
-    deps.fsLib.writeFileSync(absPath, code);
-    return null;
-  } catch (e) {
-    console.error("Erreur lors de l'ecriture du fichier:", e);
-    return e.message;
-  }
-}
-
 async function runPostPipeline(services, state, reply) {
   try {
     await services.strategyExecutionAdapter.executePipelineWithFeedback(
@@ -240,7 +202,7 @@ function emitCompletion(state, reply) {
     ? buildWorkerArtifact(kind, reply, provenance)
     : buildDossierArtifact(reply, provenance);
   if (!workerArtifact) throw new Error(`Local model did not return a valid '${workerKinds.kindDefinition(kind).artifact}' artifact.`);
-  const parsedReply = localSynthesis.parseReply(reply);
+  const parsedReply = localSynthesis.parseCompletionReply(reply);
   const report = {
     outcome: 'success',
     claims: localSynthesis.reportClaims(parsedReply, reply, state),
@@ -248,6 +210,7 @@ function emitCompletion(state, reply) {
     author: { name: state.agentName, meaning: state.nameMeaning, role: state.mission.role || 'Assistant IA de développement' }
   };
   localSynthesis.attachInfluence(report, parsedReply);
+  require('../src/services/localCompletionEvidence').attachFields(report, parsedReply);
   emitEvent(state, {
     eventType: 'EVIDENCE_REPORT',
     action: 'VERIFY_CLAIMS',
@@ -259,7 +222,7 @@ function emitCompletion(state, reply) {
     action: 'COMPLETE',
     detail: 'Local cognitive router completed with Epigenetic Canalization.',
     status: 'completed',
-    payload: {}
+    payload: state.observedRoute || {}
   });
 }
 

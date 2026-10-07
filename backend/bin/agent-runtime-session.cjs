@@ -116,7 +116,7 @@ function resolveIdentity(mission) {
 
 function buildAuthorityInstruction(mission, isWorker, autonomyPlan) {
   if (isWorker) {
-    return `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result. Use genos_organization_state to learn the current topology, genos_worker_inbox to receive permitted peer evidence, and genos_worker_publish to communicate only through that organization's enforced routing. Return final evidence to the orchestrator.`;
+    return `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result. If leased and available, use genos_organization_state, genos_worker_inbox and genos_worker_publish through the organization's enforced routing. An unavailable tool is not a prerequisite for completing the assigned local task. Return final evidence to the orchestrator.`;
   }
   if (autonomyPlan.synthesisOnly) {
     return 'You are the GenOS orchestrator in the enforced final-synthesis phase. The control plane has already completed every delegated worker, continuation round, and recovery listed in the attached dossiers. Compare all dossiers and produce the one official result. Do not dispatch, preview, or launch any new worker or Trinity world during this phase.';
@@ -221,6 +221,7 @@ function buildPrompt(state) {
 
 async function buildState(mission, data) {
   const state = createState(mission, data);
+  if (state.genosCapsule.sealPath) await require('../src/services/trinityCapsuleSeal').verify(state.genosCapsule);
   await loadConscienceState(state);
   state.conscienceBlock = agentConscience.formatConsciencePrompt(state.conscienceState);
   await loadMemoryBlock(state);
@@ -310,10 +311,13 @@ function buildSpawnEnv(state, isolatedCodexHome, isolatedTemp) {
 }
 
 function createInvocation(state, binaries) {
-  const codexLaunch = resolveCodexLaunch(process.env.CODEX_EXECUTABLE || 'codex');
+  const configuredExecutable = process.env.CODEX_EXECUTABLE || 'codex';
+  const candidate = /[\\/]node(?:\.exe)?$/i.test(configuredExecutable) ? 'codex' : configuredExecutable;
+  const codexLaunch = resolveCodexLaunch(candidate);
   const isolated = setupCodexHome();
   const mcp = buildMcpConfig(binaries);
-  const args = [...codexLaunch.args, 'exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust', '-c', 'approval_policy="never"'];
+  const args = [...codexLaunch.args, 'exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write',
+    '-c', 'approval_policy="on-request"', '-c', 'approvals_reviewer="auto_review"'];
   args.push(...codexRuntimeConfiguration.commandOptions(state.mission));
   args.push(...buildMcpServerArgs(state, binaries, mcp));
   args.push('-C', binaries.workspace, '-');

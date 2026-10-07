@@ -129,15 +129,3 @@ pub fn mind(args: &[String]) {
 pub fn run_bare(extra: &[&str]) {
     run_genos_cli(extra, &[]);
 }
-
-pub async fn handle_two_parallel(args: &[String]) {
-    two_parallel(args);
-}
-
-pub async fn handle_tri_parallel(args: &[String]) {
-    tri_parallel(args);
-}
-
-pub async fn handle_multi_parallel(args: &[String]) {
-    multi_parallel(args);
-}

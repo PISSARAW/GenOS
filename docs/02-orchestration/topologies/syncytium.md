@@ -944,7 +944,7 @@ stateDiagram-v2
 
 ## 15. Architecture technique prévue
 
-Cette section distingue les responsabilités de l'architecture cible des capacités réellement raccordées. Aucun audit de cohérence séparé n'est publié dans ce dépôt.
+Cette section distingue les responsabilités de l'architecture cible des capacités réellement raccordées. Le [contrat runtime Node](../../03-reference/runtime-syncytium.md) précise les API actuelles, les refus causaux, les projections de lecture et le reçu de complétion. Aucun audit de cohérence séparé n'est publié dans ce dépôt.
 
 ### Capacités raccordées au runtime
 
@@ -992,12 +992,16 @@ Une transition proposée n'est pas exécutée automatiquement. Pour une session 
 
 Le service de benchmark agrège des compteurs fournis par l'appelant et calcule quatre ratios : conflits sémantiques manqués, opérations sûres sans coordination, violations d'invariants promues hors Syncytium et mises à jour pertinentes délivrées. Un ratio sans dénominateur exploitable est retourné comme non mesuré. L'agrégateur compare les budgets par tâche, mais ne lance pas lui-même les scénarios : aucune campagne réelle ni aucun gain empirique n'est établi par cette capacité. Voir le [protocole de benchmark Syncytium](../../06-benchmarks/benchmark-syncytium.md).
 
-Le Syncytium doit s'intégrer au runtime GenOS au moyen des composants suivants :
+Le runtime actuel repose sur les composants Node suivants :
 
-- **Service de coordination :** `syncytiumCoordinationService.js` — commit pipeline, barrière de convergence et classification des opérations.
-- **Moteur CRDT Rust :** `crates/genos-cli/src/commands/syncytium_crdt/` — structures conflict-free avec horloges causales et journal immuable.
-- **Service de mission :** `syncytiumService.js` — analyse de mission et recommandation d'activation.
-- **État partagé :** registre de session et stockage de la topologie — cytoplasme partagé, versions causales et invariants.
+- **Coordination :** `backend/src/services/syncytiumCoordinationService.js` — admission, mutations atomiques, transactions, réplicas et branches.
+- **CRDT et histoire :** `backend/src/services/syncytium/crdt/` et `syncytium/history/` — horloges causales, rejeu, identités et snapshots.
+- **Variants :** `syncytium/variants/variantPolicyRegistry.js` — treize politiques et leurs services spécialisés.
+- **Clôture :** `backend/src/services/syncytiumMissionCompletionService.js` — état non vide, invariants exécutés, matérialisation courante et absence d'opérations hors ligne en attente, combinés à l'oracle des workers.
+- **Persistance :** session, révision, opérations et événements SQLite, lorsque la base est injectée.
+
+Le moteur CRDT Rust et les commandes de déploiement proposées ci-dessous relèvent
+de l'architecture cible. Leur description ne démontre pas la parité avec ce runtime Node.
 
 ### Capacités requises
 

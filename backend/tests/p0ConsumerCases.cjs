@@ -1,0 +1,32 @@
+'use strict';
+
+module.exports = {
+  L01: ['test_strategy_contracts.js', 'test_decision_evidence_binding.js',
+    'test_scientific_evidence_ledger.js', 'test_consumer_memory_provenance.js',
+    'test_promotion_verifier_nonces.js', 'test_consumer_promotion_limits.js'],
+  L02: ['test_cedar_agent_authority.js', 'test_biscuit_delegation.js',
+    'test_tool_lease_restriction.js', 'test_mcp_topology_lease.js',
+    'test_tenancy.js', 'test_aeis_sandbox.js',
+    'test_human_approval_promotion_gate.js', 'test_sso_provider_disclosure.js',
+    'test_compliance_tenant_scope.js', 'test_compliance_integrations.js',
+    'test_approval_payload_integrity.js', 'test_approval_separation_bypass.js', 'test_saml_validation.js',
+    'test_workspace_path_containment.js', 'test_path_traversal.js',
+    'test_mcp_input_paths.js', 'test_secret_vault_kdf.js', 'test_auth_public_surface.js',
+    'test_philosophical_promotion_guard.js', 'test_ethical_promotion_integration.js'],
+  L03: ['test_approve_run_deferred_promotion.js', 'test_cognitive_epistemic_check.js',
+    'test_aeis_verifier_lineage.js', 'test_aeis_provider_process_roundtrip.js'],
+  L04: ['test_agent_git_sqlite_e2e.js', 'test_agent_git_invariants_p0.js',
+    'test_agent_capsule.js', 'test_agent_replay_bisect_contract.js',
+    'test_replay_manifest.js', 'test_procedural_causal_forks.js',
+    'test_self_twin.js', 'test_philosophy_causality_service.js'],
+  L05: ['test_gvx_experiment_protocol.js', 'test_gvx_benchmark_protocol.js',
+    'test_gvx_standard_cycle.js', 'test_evaluation_observability.js',
+    'run_quality_suite.js'],
+  L22: ['test_backend.js', 'test_grpc_services.js', 'test_grpc_success_truthfulness.js',
+    'test_consumer_workflow_grpc.js',
+    'test_mcp_http_transport.js', 'test_mcp_explicit_transport.js',
+    'test_mcp_server_parity.js', 'test_ide_contract.js',
+    'test_ontogenesis_operator_cli.js', 'test_bio_polymer_roundtrip.js',
+    'test_deployment_health.js', 'test_trace_replay_semantics.js',
+    'test_audit_tenant_scope.js', 'test_session_telemetry_identity.js']
+};

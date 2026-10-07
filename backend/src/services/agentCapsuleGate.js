@@ -46,7 +46,7 @@ function resolveCapsulePaths(context) {
   const bootstrap = assertContained(path.join(root, 'bootstrap', agentId), base, 'bootstrap');
   const genomePath = assertContained(path.join(bootstrap, 'genome.json'), base, 'genome');
   const snapshotPath = assertContained(path.join(bootstrap, 'snapshot.json'), base, 'snapshot');
-  return { capsuleRoot, root, bootstrap, genomePath, snapshotPath, agentId };
+  return require('./trinityCapsulePaths').resolve(ctx, { capsuleRoot, root, bootstrap, genomePath, snapshotPath, agentId });
 }
 
 function assertExistingAbsolute(cmd) {

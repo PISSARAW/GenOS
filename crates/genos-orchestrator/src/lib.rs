@@ -73,6 +73,7 @@ pub mod population_registry;
 pub mod population_restore;
 pub mod recruitment;
 pub mod reproduction_cycle;
+pub mod sat;
 pub mod self_evolution;
 pub mod sensorimotor;
 pub mod sensory;

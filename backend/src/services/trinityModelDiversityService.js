@@ -4,6 +4,7 @@ const modelRouter = require('./modelRouter');
 const modelDiscovery = require('./localModelDiscovery');
 const differentiation = require('./trinityDifferentiationService');
 const { emit } = require('./agentOrchestrationState');
+const workerProfiles = require('./trinityWorkerProfiles');
 
 async function configuredModels(input) {
   const { db, agentId, organizationId, projectId, mission } = input;
@@ -15,7 +16,7 @@ async function configuredModels(input) {
   const localModels = await modelDiscovery.discoverChatModelUris().catch(() => []);
   const explicit = mission?.provider === 'ollama' && mission?.modelId
     ? [`ollama://${String(mission.modelId).replace(/^ollama:\/\//, '')}`] : [];
-  return [...new Set([...trinityModels, ...explicit, ...configured, ...envModels, ...providerModels, ...localModels]
+  return [...new Set([...(mission?.trinityModels || []), ...trinityModels, ...explicit, ...configured, ...envModels, ...providerModels, ...localModels]
     .map((uri) => String(uri || '').trim()).filter(Boolean))];
 }
 
@@ -45,7 +46,20 @@ async function prepare(input) {
 
 async function enforcePlan(input) {
   const trinity = input.autonomyPlan.trinity;
-  if (!trinity.activated || trinity.variantSelection.experimentalDesign.diversityPolicy !== 'heterogeneous') return;
+  if (!trinity.activated) return;
+  if (trinity.variantSelection.experimentalDesign.diversityPolicy === 'heterogeneous') {
+    await enforceHeterogeneous(input);
+    if (!trinity.activated) return;
+  }
+  trinity.members = require('./trinityWorldDesign').assignFactorialModels(trinity.members, input.normalizedMission.trinityModels || []);
+  trinity.members = require('./topologyWorkerKindService').applyTopologyWorkerKinds('trinity', trinity.members,
+    input.normalizedMission.workerAssignments || {});
+  trinity.workerPreflight = workerProfiles.assertPrelaunch(trinity.members, { toolLease: input.normalizedMission.toolLease });
+  trinity.members = trinity.members.map((member, index) => ({ ...member, workerProfile: trinity.workerPreflight.profiles[index] }));
+}
+
+async function enforceHeterogeneous(input) {
+  const trinity = input.autonomyPlan.trinity;
   const assignment = await prepare({
     db: input.db, agentId: input.agentId, organizationId: input.dispatchedAgent.organization_id,
     projectId: input.dispatchedAgent.project_id, mission: input.normalizedMission, members: trinity.members

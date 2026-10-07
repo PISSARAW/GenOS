@@ -72,11 +72,12 @@ const SCRIPT_START_TIME = Date.now();
 const TOP_LEVEL_MISSION_ACTIONS = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
 
 async function waitForCompletion(db) {
+  const unbounded = waitForCompletionUnbounded();
   const baseTimeout = Number(policyRequest.timeoutMs ?? request.timeoutMs ?? 600000);
-  const deadline = Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
+  const deadline = unbounded ? null : Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
   let pulseTick = 0;
   let busyRetries = 0;
-  while (Date.now() < deadline) {
+  while (unbounded || Date.now() < deadline) {
     let agents, trinityWorlds;
     try {
       agents = await db.all('SELECT id, status, runtime_pid FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
@@ -268,37 +269,60 @@ async function runOrchestratedMission(db) {
   await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, nceEnhancements });
 }
 
+async function applyHomeostasisContinuation(input) {
+  const { db, id, task, request, mission, completionGate, evaluation: homeostasis, organism, finalVerdict, continuity } = input;
+  const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation: homeostasis, organism, finalVerdict, continuity });
+  return {
+    continuity: contResult.continuity,
+    completionGate: contResult.completionGate,
+    homeostasis: contResult.evaluation,
+    organism: contResult.organism,
+    finalVerdict: contResult.finalVerdict,
+    outcome: contResult.outcome,
+    mission: contResult.mission
+  };
+}
+
+async function finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage }) {
+  const finalStatus = resolveFinalMissionStatus(outcome, completionGate, { verdict: finalVerdict, coverage });
+  return { finalStatus, finalVerdict: finalStatus.verdict };
+}
+
 async function finalizeOrchestratedMission(input) {
-  const { db, evaluation, morphology, nceEnhancements } = input;
-  let outcome = evaluation.outcome || input.outcome;
+  const { db, evaluation, morphology, nceEnhancements, outcome: inputOutcome } = input;
+  let outcome = evaluation.outcome || inputOutcome;
   let { continuity, completionGate, evaluation: homeostasis, organism, mission } = evaluation;
   const missionSuccess = completionGate.allowed === true;
-  let finalVerdict = missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
+  let finalVerdict = computeFinalVerdict(missionSuccess, outcome, completionGate);
 
   await executeMorphology({ morphology, outcome, finalVerdict, orchestratorId: id });
 
-  const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation: homeostasis, organism, finalVerdict, continuity });
+  const contResult = await applyHomeostasisContinuation({ db, id, task, request, mission, completionGate, homeostasis, organism, finalVerdict, continuity });
   continuity = contResult.continuity;
   completionGate = contResult.completionGate;
-  homeostasis = contResult.evaluation;
+  homeostasis = contResult.homeostasis;
   organism = contResult.organism;
   finalVerdict = contResult.finalVerdict;
   outcome = contResult.outcome || outcome;
   mission = contResult.mission || mission;
-  const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
-  const finalStatus = resolveFinalMissionStatus(outcome, completionGate, { verdict: finalVerdict, coverage });
-  finalVerdict = finalStatus.verdict;
-  const dormant = await suspendUnsuccessfulMission({ db, mission, homeostasis, organism, finalStatus, continuity });
+
+  const { finalStatus, finalVerdict: updatedVerdict } = await finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage: null });
+  finalVerdict = updatedVerdict;
+
+  const dormant = await suspendIfNeeded({ db, mission, homeostasis, organism, finalStatus, continuity });
   if (dormant) finalVerdict = 'mission_dormant';
   if (missionId && !dormant) await missionIdentity.setStatus(db, missionId, finalStatus.success ? 'completed' : 'failed');
 
-  if (finalStatus.success) await persistMissionChampion(db, outcome);
-  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
+  if (finalStatus.success) await persistChampion(db, outcome);
+  emitFinalTelemetry({ telemetryRows: [], runs: [], coverage: null, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
   if (!finalStatus.success && !dormant) process.exitCode = 2;
 }
 
-function suspendUnsuccessfulMission(input) {
-  const { db, mission, homeostasis, organism, finalStatus, continuity } = input;
+function computeFinalVerdict(missionSuccess, outcome, completionGate) {
+  return missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
+}
+
+async function suspendIfNeeded({ db, mission, homeostasis, organism, finalStatus, continuity }) {
   if (finalStatus.success || !request.dormancy || !missionId) return false;
   return missionContinuity.suspendMission(db, {
     missionId, orchestratorAgentId: id, organism, objective: task,
@@ -312,74 +336,9 @@ function suspendUnsuccessfulMission(input) {
   }).then((result) => result.entered === true);
 }
 
-async function executeMorphology({ morphology, outcome, finalVerdict, orchestratorId }) {
-  if (!morphology?.agents?.length) return;
-  const morphoRuntime = require('../src/services/morphogenesis/morphogenesisRuntime').getMorphogenesisRuntime();
-  const result = await morphoRuntime.executeMorphology(morphology, {
-    orchestratorId, evidence: outcome.evidence,
-    reason: `post-mission morphogenesis (verdict=${finalVerdict})`
-  });
-  const { buildMorphogenesisEvent } = require('../src/services/morphogenesis/morphogenesisTelemetryService');
-  telemetry.emitEvent(buildMorphogenesisEvent(result, orchestratorId));
-}
-
-async function checkMinimalShortcut(db) {
-  if (action !== 'orchestrate') return false;
-  const minimal = await requestMemory.maybeHandleMinimal(db, request, task);
-  stateOf(minimal);
-  if (!minimal.handled) return false;
-  process.stdout.write(JSON.stringify(minimal.payload));
-  return true;
-}
-
-function stateOf(minimal) {
-  if (minimal && minimal.minted) {
-    telemetry.emitEvent({ eventType: 'REQUEST_ROUTED', agentId: id, action: minimal.route.mode, detail: minimal.route.reason, payload: { requestClass: minimal.minted.profile.request_class }, severity: 'info' });
-  }
-}
-
-async function persistMissionChampion(db, outcome) {
+async function persistChampion(db, outcome) {
   try {
     const checked = await requestMemory.checkReuse(db, request, task);
     await requestMemory.storeMissionResult(db, { minted: checked.minted, route: checked.route, summary: outcome, request });
   } catch (_) {}
 }
-
-async function cleanupFailure(db, state, error) {
-  const topologyFailure = { dispatch_team: 'A_TEAM_STAGES_FAILED', dispatch_trinity: 'TRINITY_MISSION_FAILED', dispatch_biological: 'BIOLOGICAL_MISSION_FAILED' }[action];
-  if (topologyFailure) telemetry.emitEvent({ eventType: topologyFailure, agentId: id, action: 'TOPOLOGY_FAILED', detail: error.message, payload: { action }, severity: 'error' });
-  try { await runtime.stopMission(id); } catch (_) {}
-  await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, id).catch(() => {});
-  if (missionId) await missionIdentity.setStatus(db, missionId, 'failed').catch(() => {});
-  if (!state.delegatedWorkerId) return;
-  await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, state.delegatedWorkerId).catch(() => {});
-  await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", state.delegatedWorkerId).catch(() => {});
-}
-
-async function executeForeground(db) {
-  const state = {};
-  try { await executeMission(db, state); } catch (error) { await cleanupFailure(db, state, error); throw error; }
-  finally {
-    if (request.detachedProcessId) await db.run('DELETE FROM detached_processes WHERE id = ?', request.detachedProcessId).catch(() => {});
-    await closeDatabase();
-  }
-}
-
-async function main() {
-  const initDb = await withWriteRetry(() => getDatabase(), { maxRetries: 10, baseDelayMs: 200 });
-  await prepareRuntime(initDb);
-  if (request.background === true) {
-    await handleBackground({ request, action, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, getDatabase, closeDatabase });
-    return;
-  }
-  await executeForeground(await getDatabase());
-}
-
-function exitAfterFlush(code) {
-  if (process.stdout.writableLength === 0) return process.exit(code);
-  process.stdout.write('', () => process.exit(code));
-}
-main().then(() => exitAfterFlush(process.exitCode || 0)).catch((error) => {
-  console.error(error.stack || error.message);
-  exitAfterFlush(1);
-});

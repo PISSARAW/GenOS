@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté.
 - **Portée** : serveur MCP stdio JS (`mcp/index.js`), lease (`mcp/lease.js`), backend `mcpExecutor.js`, `mcpToolRegistry.js`, expéditeur `mcpDispatcher.js`, télémétrie `mcpTelemetry.js` ; validateurs de non-invocation directe `test_mcp_direct_call_enforcement.js`, `test_mcp_server_parity.js`.
-- **Dernière revue** : 2026-09-17.
+- **Dernière revue** : 2026-10-06.
 
 ## 1. Definition
 
@@ -82,6 +82,23 @@ La confiance vient de `GENOS_RHIZOME_TRUSTED_PROVIDER_IDS` et `GENOS_RHIZOME_TRU
 Cette surface n’instancie pas à elle seule les providers d’une mission. La boucle JavaScript et les six lifecycles concrets sont décrits dans le [contrat runtime Rhizome](runtime-rhizome.md), avec les commandes CLI séparant télémétrie réelle et simulation explicite.
 
 ---
+
+### 2.2 Sessions Syncytium
+
+`genos_topology_session` sélectionne le gestionnaire selon la topologie stockée
+de `session_id`. Pour Syncytium, `apply` reçoit `op` ou `transaction` et transmet
+`domain_id` à l'admission. Les inspections `snapshot`, `schema`, `domains`,
+`history`, `replicas`, `health` et `events` lisent actuellement la session entière :
+l'adaptateur ne relaie pas le domaine à ces lectures. Les projections Node ne
+constituent donc pas un contrat de projection MCP.
+
+`invariants` liste les définitions et contrôles manuels ; les prédicats exécutés
+sont attestés dans `health.consistency.invariantReceipts` et dans le reçu de
+clôture `stateValidation`. Les API Node de matérialisation, réconciliation et
+validation ne sont pas des opérations MCP supplémentaires. Le [contrat runtime](runtime-syncytium.md)
+détaille les opérations, les refus et la distinction entre promotion de
+coordination et gates de preuve de la façade spécialisée. La lease et les
+deny-lists continuent à borner l'accès à l'outil.
 
 ## 3. Leases, `enabled_tools` et `disabled_tools`
 

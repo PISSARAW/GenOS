@@ -9,7 +9,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
-| [0341](0341-trinity-contrats-et-traces-de-qualification.md) | Trinity : contrats et traces de qualification | Accepté | 2026-10-06 | Qualification, provenance, replay |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
@@ -389,7 +388,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0323d](0323-reprise-atomique-natural-search.md) | Reprise atomique du Natural Search Control Plane | accepté | 2026-10-06 | contrôle de recherche, SQLite, preuves et reprise |
 | [0324a](0324-biologie-execution-et-autorite-durable.md) | Biologie des exécutions et autorité durable | Voir le fichier | -- | -- |
 | [0324b](0324-capsules-secretstream-transport.md) | Capsules transportables par flux authentifié | Accepté | 2026-10-06 | continuité, cryptographie, restauration |
-| [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté | 2026-10-06 | Régénération, cognition, plasticité |
+| [0325a](0325-indicateurs-campagnes-et-frontieres-de-preuve.md) | Indicateurs, campagnes et frontières de preuve | Voir le fichier | -- | -- |
+| [0325b](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté | 2026-10-06 | Régénération, cognition, plasticité |
 | [0326a](0326-audits-philosophiques-executables-et-preuves.md) | Audits philosophiques exécutables et preuves bornées | Voir le fichier | -- | -- |
 | [0326b](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
 | [0327a](0327-aeis-preuves-et-autorite-persistante.md) | AEIS : preuves exécutables et autorité persistante | Voir le fichier | -- | -- |
@@ -406,7 +406,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0331b](0331-wasmtime-heuristiques-bornees.md) | Exécution Wasmtime des heuristiques bornées | Accepté | 2026-10-06 | plugins, GVX, isolation |
 | [0332a](0332-adaptateur-openhands-sdk.md) | Adaptateur expérimental OpenHands SDK | Accepté | 2026-10-06 | workers développeurs, ontogenèse |
 | [0332b](0332-capacites-morphogenese-runtime.md) | Exécution et provenance des cinq capacités de morphogenèse | Accepté | 2026-10-06 | Backend, morphogenèse, mémoire et observation résidente |
-| [0332c](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |
+| [0332c](0332-delegation-workspaces-scelles-trinity.md) | ADR 0332 Délégation des workspaces scellés Trinity | Voir le fichier | -- | -- |
+| [0332d](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |
 | [0333a](0333-biocenose-cycle-persistant-et-finalisation.md) | Biocénose : cycle persistant et finalisation vérifiable | Accepté | 2026-10-06 | Biocénose, délibération, reprise, preuves |
 | [0333b](0333-boucle-shev-et-reconciliation-durable.md) | Boucle SHEV et réconciliation durable | Voir le fichier | -- | -- |
 | [0333c](0333-cloture-runtime-agow.md) | Clôture des contrats runtime AGOW | Accepté | 2026-10-06 | AGOW, budgets, persistance, preuve |
@@ -424,6 +425,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0338](0338-comparaison-dgm-gvx.md) | Comparer les archives DGM et GVX sous contrat identique | Accepté | 2026-10-06 | GVX, ontogenèse, recherche comparative |
 | [0339](0339-traces-lean-dojo-et-dafny.md) | Traces LeanDojo-v2 et invariants Dafny | Accepté | 2026-10-06 | preuve formelle, budgets, leases |
 | [0340](0340-commandes-xgrammar.md) | Commandes compactes sous XGrammar | Accepté | 2026-10-06 | décodage contraint, outils, budgets |
+| [0341](0341-trinity-contrats-et-traces-de-qualification.md) | Trinity : contrats et traces de qualification | Accepté | 2026-10-06 | Qualification, provenance, replay |
+| [0342](0342-trinity-identites-capsules-et-profils-executables.md) | Trinity : identités, capsules et profils exécutables | Accepté | 2026-10-06 | Identité, isolation, workers, provenance |
+| [0343](0343-consommation-des-recus-avant-promotion.md) | Consommer les reçus avant les effets de promotion | accepté. | 2026-10-06. | -- |
+| [0344](0344-refactorings-qualite-et-frontieres-de-controle.md) | Refactorings de qualité et frontières de contrôle | accepté. | 2026-10-07. | -- |
+| [0345](0345-provenance-memoire-des-promotions.md) | Lier la mémoire de promotion à son exécution | accepté. | 2026-10-07. | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
@@ -452,8 +458,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.
-
-- [ADR 0330 — Effets durables et reprise vérifiée de Metapopulation](0330-effets-durables-metapopulation.md)
 
 - [0324-biologie-execution-et-autorite-durable.md](0324-biologie-execution-et-autorite-durable.md) — reçus des workers et autorité durable d’homéostasie.
 

@@ -175,13 +175,16 @@ function normalizeMissionBudgets(ctx) {
 
 async function provisionMissionCapsule(ctx) {
   const { agentId, normalizedMission, dispatchedAgent } = ctx;
+  const binding = await capsuleBinding(ctx);
   const genosCapsule = await agentCapsules.provision({
+    db: ctx.db,
     executable: ctx.runtimeEnvironment.GENOS_BIN,
     workspaceRoot: normalizedMission.workspaceRoot,
     capsuleRoot: normalizedMission.capsuleRoot,
     agentId,
     name: normalizedMission.name || dispatchedAgent.name || agentId,
     role: normalizedMission.role || dispatchedAgent.role || 'GenOS agent',
+    ...binding,
     budgetSteps: normalizedMission.executionBudget?.events || 100,
     fallbackSynthetic: true
   });
@@ -192,6 +195,20 @@ async function provisionMissionCapsule(ctx) {
     }, 'info');
   }
   ctx.genosCapsule = genosCapsule;
+}
+
+async function capsuleBinding(ctx) {
+  const { normalizedMission: mission, agentId, db } = ctx;
+  const experimentId = mission.missionScope?.trinityExperimentId;
+  if (!experimentId) return {};
+  const world = await db.get('SELECT id, snapshot_hash FROM trinity_worlds WHERE experiment_id = ? AND agent_id = ?',
+    experimentId, agentId);
+  if (!world || !ctx.executionRun?.id) throw Object.assign(new Error('Trinity capsule requires a bound world and execution run.'), { code: 'TRINITY_CAPSULE_SCOPE_INVALID' });
+  return { correlation: { missionId: mission.missionScope.missionId || experimentId,
+    trinityExperimentId: experimentId, worldId: world.id, workerId: agentId,
+    runId: ctx.executionRun.id, parentId: mission.orchestratorAgentId || null,
+    workspaceId: mission.workspaceId || null, tenantId: ctx.dispatchedAgent.organization_id || null },
+    sourceSnapshotHash: world.snapshot_hash };
 }
 
 async function enableMissionMonitoring(ctx) {

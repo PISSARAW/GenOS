@@ -2,62 +2,73 @@
  * GenOS Standardized Error Envelope Middleware
  */
 
+const HTTP_STATUS_MAP = {
+  BAD_REQUEST: 400,
+  INVALID_ARGUMENT: 400,
+  INVALID_INPUT: 400,
+  VALIDATION_ERROR: 400,
+  UNAUTHORIZED: 401,
+  AUTH_REQUIRED: 401,
+  FORBIDDEN: 403,
+  PERMISSION_DENIED: 403,
+  AGENT_ID_FORBIDDEN: 403,
+  ZERO_TRUST_DENIED: 403,
+  NOT_FOUND: 404,
+  TOOL_NOT_FOUND: 404,
+  WORKFLOW_NOT_FOUND: 404,
+  AGENT_NOT_FOUND: 404,
+  WORKSPACE_NOT_FOUND: 404,
+  CONFLICT: 409,
+  DUPLICATE_RESOURCE: 409,
+  UNPROCESSABLE_ENTITY: 422,
+  TOO_MANY_REQUESTS: 429,
+  TOOL_LOCKED: 503,
+  SERVICE_UNAVAILABLE: 503,
+  UNAVAILABLE: 503,
+  CIRCUIT_OPEN: 503,
+  BLOCKED: 503,
+  TIMEOUT: 504
+};
+
+const FALLBACK_PATTERNS = [
+  { pattern: 'NOT_FOUND', status: 404 },
+  { pattern: 'INVALID', status: 400 },
+  { pattern: 'BAD_REQUEST', status: 400 },
+  { pattern: 'UNAUTHORIZED', status: 401 },
+  { pattern: 'AUTH', status: 401 },
+  { pattern: 'FORBIDDEN', status: 403 },
+  { pattern: 'PERMISSION', status: 403 },
+  { pattern: 'UNAVAILABLE', status: 503 },
+  { pattern: 'LOCKED', status: 503 },
+  { pattern: 'CIRCUIT', status: 503 }
+];
+
 function mapHttpStatus(code, fallbackStatus = 500) {
   const normalizedCode = String(code || '').toUpperCase();
-  const mapping = {
-    BAD_REQUEST: 400,
-    INVALID_ARGUMENT: 400,
-    INVALID_INPUT: 400,
-    VALIDATION_ERROR: 400,
-    UNAUTHORIZED: 401,
-    AUTH_REQUIRED: 401,
-    FORBIDDEN: 403,
-    PERMISSION_DENIED: 403,
-    AGENT_ID_FORBIDDEN: 403,
-    ZERO_TRUST_DENIED: 403,
-    NOT_FOUND: 404,
-    TOOL_NOT_FOUND: 404,
-    WORKFLOW_NOT_FOUND: 404,
-    AGENT_NOT_FOUND: 404,
-    WORKSPACE_NOT_FOUND: 404,
-    CONFLICT: 409,
-    DUPLICATE_RESOURCE: 409,
-    UNPROCESSABLE_ENTITY: 422,
-    TOO_MANY_REQUESTS: 429,
-    TOOL_LOCKED: 503,
-    SERVICE_UNAVAILABLE: 503,
-    UNAVAILABLE: 503,
-    CIRCUIT_OPEN: 503,
-    BLOCKED: 503,
-    TIMEOUT: 504
-  };
-
-  if (mapping[normalizedCode] !== undefined) return mapping[normalizedCode];
-  if (normalizedCode.includes('NOT_FOUND')) return 404;
-  if (normalizedCode.includes('INVALID') || normalizedCode.includes('BAD_REQUEST')) return 400;
-  if (normalizedCode.includes('UNAUTHORIZED') || normalizedCode.includes('AUTH')) return 401;
-  if (normalizedCode.includes('FORBIDDEN') || normalizedCode.includes('PERMISSION')) return 403;
-  if (normalizedCode.includes('UNAVAILABLE') || normalizedCode.includes('LOCKED') || normalizedCode.includes('CIRCUIT')) return 503;
+  if (HTTP_STATUS_MAP[normalizedCode] !== undefined) return HTTP_STATUS_MAP[normalizedCode];
+  for (const { pattern, status } of FALLBACK_PATTERNS) {
+    if (normalizedCode.includes(pattern)) return status;
+  }
   return fallbackStatus;
 }
 
-function handleError({ error, request, response, next }) {
-  if (response.headersSent) {
-    return next(error);
-  }
-  const statusCode = Number.isInteger(error.status) ? error.status : mapHttpStatus(error.code, error.statusCode || 500);
-  const errorCode = error.code || (statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : 'ERROR');
-  const message = error.message || 'An unexpected error occurred';
-  const details = error.details;
+function extractRequestIds(request) {
   const store = require('../services/asyncContext').asyncLocalStorage.getStore();
   const requestId = request?.id || store?.get('requestId') || request?.headers?.['x-request-id'] || null;
   const traceId = store?.get('traceId') || request?.headers?.['x-trace-id'] || null;
+  return { requestId, traceId };
+}
 
-  if (statusCode === 500) {
-    console.error('[GenOS Server Error]', error);
-  }
+function extractErrorInfo(error, statusCode) {
+  return {
+    errorCode: error.code || (statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : 'ERROR'),
+    message: error.message || 'An unexpected error occurred',
+    details: error.details
+  };
+}
 
-  response.status(statusCode).json({
+function buildErrorBody({ errorCode, message, requestId, traceId, details }) {
+  return {
     error: {
       code: errorCode,
       message,
@@ -65,7 +76,30 @@ function handleError({ error, request, response, next }) {
       ...(traceId ? { traceId } : {}),
       ...(details ? { details } : {})
     }
-  });
+  };
+}
+
+function buildErrorResponse(error, request) {
+  const statusCode = Number.isInteger(error.status) ? error.status : mapHttpStatus(error.code, error.statusCode || 500);
+  const { requestId, traceId } = extractRequestIds(request);
+  const { errorCode, message, details } = extractErrorInfo(error, statusCode);
+
+  if (statusCode === 500) {
+    console.error('[GenOS Server Error]', error);
+  }
+
+  return {
+    statusCode,
+    body: buildErrorBody({ errorCode, message, requestId, traceId, details })
+  };
+}
+
+function handleError({ error, request, response, next }) {
+  if (response.headersSent) {
+    return next(error);
+  }
+  const { statusCode, body } = buildErrorResponse(error, request);
+  response.status(statusCode).json(body);
 }
 
 // NOTE: Express only routes errors to middleware whose `length` is four.

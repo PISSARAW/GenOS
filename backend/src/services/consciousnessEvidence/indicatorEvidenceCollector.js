@@ -11,22 +11,19 @@ async function collect(options) {
   const receipts = await verifyCandidates(candidates, options);
   const accepted = gate.validReceipts(receipts);
   return { indicatorId: options.indicatorId, receipts: accepted,
-    rejectedCount: candidates.length - accepted.length, highestStage: gate.highestStage(accepted) };
+    rejectedCount: candidates.length - accepted.length,
+    highestStage: gate.highestStage(accepted, options) };
 }
 
 async function verifyCandidates(candidates, options) {
   if (!options.verifierRegistry || typeof options.artifactReader !== 'function') return [];
-  const verifier = require('../gvxVerifierRegistry');
+  const verifier = require('./indicatorVerificationService');
   const receipts = [];
   for (const candidate of candidates) {
-    const result = await verifier.verifyEvidence({ registry: options.verifierRegistry,
-      artifactReader: options.artifactReader, evidence: candidate.evidence,
-      requirement: candidate.verifierRequirement || candidate.requirementKind });
-    if (!result.verified || result.evidenceClass === 'artifact_integrity_only') continue;
-    receipts.push({ ...candidate, kind: candidate.requirementKind, verified: true, independentVerification: true,
-      verifierId: result.verifierId, artifactHash: result.artifactHash,
-      receiptHash: require('node:crypto').createHash('sha256').update(JSON.stringify(result)).digest('hex'),
-      evidenceClass: result.evidenceClass });
+    try {
+      const receipt = await verifier.verify(candidate, options);
+      if (receipt) receipts.push(receipt);
+    } catch (_) { /* Rejected or unreadable artifacts cannot promote an indicator. */ }
   }
   return receipts;
 }

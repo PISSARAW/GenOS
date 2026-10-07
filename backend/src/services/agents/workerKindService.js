@@ -59,6 +59,7 @@ const METHOD_CAPABILITIES = Object.freeze({
 
 const ROLE_ALIASES = Object.freeze({
   worker: 'bounded_worker', implementation: 'bounded_worker', frontend_developer: 'bounded_worker',
+  autonomous_orchestrator: 'sub_orchestrator',
   independent_reviewer: 'verifier_worker', neutral_observer: 'scout_cell',
   verifier: 'verifier_worker',
   red_team: 'red_worker', blue_team: 'verifier_worker', analyst: 'verifier_worker',
@@ -66,6 +67,14 @@ const ROLE_ALIASES = Object.freeze({
   parallel_executor: 'bounded_worker', self_correcting_implementation: 'adaptive_worker',
   strategist: 'sub_orchestrator', literary_author: 'creative_worker',
   direct_author: 'creative_worker', planned_author: 'creative_worker',
+  self_correcting_literary_author: 'creative_worker',
+  basic_implementation: 'bounded_worker', interview_plan_implementation: 'specialist',
+  baseline_product_designer: 'bounded_worker', planned_product_designer: 'specialist',
+  usability_critic: 'verifier_worker',
+  baseline_security_engineer: 'bounded_worker', threat_model_engineer: 'specialist',
+  adversarial_security_engineer: 'red_worker',
+  baseline_data_engineer: 'bounded_worker', planned_data_engineer: 'specialist',
+  data_validation_engineer: 'verifier_worker',
   dramaturg: 'creative_worker', literary_critic: 'verifier_worker',
   ux_designer: 'specialist', backend_architect: 'specialist', security_engineer: 'specialist'
 });
@@ -127,8 +136,10 @@ function kindDefinition(kind) {
   return { kind: resolved, family, artifact, authorityPhenotype };
 }
 
-function applyAuthorityOverrides(kind, profile = {}) {
-  return { ...profile, write: false, ...(AUTHORITY_OVERRIDES[resolveWorkerKind(kind)] || {}) };
+function applyAuthorityOverrides(kind, profile = {}, mission = {}) {
+  const resolvedKind = resolveWorkerKind(kind);
+  const directWrite = mission.writeLease === true && resolvedKind === 'bounded_worker';
+  return { ...profile, write: directWrite, ...(AUTHORITY_OVERRIDES[resolvedKind] || {}) };
 }
 
 function assertMethodCompatibility(kind, methodContract) {
@@ -182,7 +193,9 @@ function missionContractFields(mission) {
     methodContract: mission.methodContract,
     topologySessionId: mission.topologySessionId || null,
     nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
-    hostId: mission.hostId || mission.workerAssignment?.hostId || null
+    hostId: mission.hostId || mission.workerAssignment?.hostId || null,
+    writeLease: mission.writeLease === true
+      || (mission.executionPolicy?.allowFileEdits === true && mission.workspaceProvisioned === true)
   };
 }
 
@@ -217,7 +230,7 @@ function workerAuthorityContract(kind, authorities, mission) {
     spawn: false, delegate: false, promote: Boolean(authorities.promote), topology: false,
     topologySession: Boolean(mission.topologySessionId),
     strategy: ['adaptive_worker', 'specialist', 'sub_orchestrator'].includes(kind),
-    communicate: ['resident_daemon', 'adaptive_worker', 'specialist', 'verifier_worker', 'red_worker', 'liaison_worker', 'sub_orchestrator'].includes(kind)
+    communicate: ['resident_daemon', 'bounded_worker', 'adaptive_worker', 'specialist', 'verifier_worker', 'red_worker', 'liaison_worker', 'sub_orchestrator'].includes(kind)
   };
 }
 
@@ -236,7 +249,7 @@ function buildWorkerContract(kind, mission = {}) {
   const definition = kindDefinition(kind);
   assertMethodCompatibility(definition.kind, mission.methodContract);
   const profile = require('./phenotypeRegistryService').getAuthorityProfile(definition.authorityPhenotype) || {};
-  const authorities = applyAuthorityOverrides(definition.kind, profile);
+  const authorities = applyAuthorityOverrides(definition.kind, profile, mission);
   const subOrchestrator = definition.kind === 'sub_orchestrator';
   return {
     version: 1,

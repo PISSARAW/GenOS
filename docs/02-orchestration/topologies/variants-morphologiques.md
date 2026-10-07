@@ -30,11 +30,17 @@ toutes ses garanties ou tous ses mécanismes disposent d'un adaptateur complet. 
 de couverture n'en fait pas un variant de valeur inférieure et ne doit pas, seule, empêcher
 son choix lorsque les signaux de mission lui correspondent.
 
-Le variant Syncytium `realtimeControl` possède désormais une qualification dédiée dans
-`backend/tests/test_syncytium_realtime_control_variant.js` : le watchdog persiste la sortie
-de sécurité sur expiration et le planificateur EDF identifie un échéancier non faisable.
-Cette preuve couvre ces deux comportements; elle ne certifie pas de garantie temps réel dur,
-de borne WCET universelle ni l'exécution d'un contrôleur matériel.
+Le [contrat runtime Syncytium](../../03-reference/runtime-syncytium.md), revu au
+2026-10-06, distingue le dispatch biologique, qui active les services spécialisés
+par défaut, et l'appel Node direct au registre, qui exige `useVariantRuntime: true`.
+Les préconditions de chaque variant restent nécessaires ; leur sélection seule
+ne prouve pas l'exécution de leurs opérations métier.
+
+Le variant `realtimeControl` possède une qualification dédiée dans
+`backend/tests/test_syncytium_realtime_control_variant.js` : le watchdog persiste
+son journal, le journal fail-safe et la sortie sûre dans une transaction, et le
+planificateur EDF identifie un échéancier non faisable. Cette preuve ne certifie
+ni temps réel dur, ni borne WCET universelle, ni contrôleur matériel.
 
 ## Contrat et résolution
 

@@ -79,4 +79,13 @@ function runProcedure(methodContract) {
     inputDigest: `sha256:${inputDigest}`, result: output } };
 }
 
-module.exports = { SUPPORTED, runProcedure };
+function assertProcedureInput(methodContract) {
+  const methodId = methodContract?.methodId;
+  const parameters = methodContract?.parameters || {};
+  if (!SUPPORTED.has(methodId)) throw inputError('A registered deterministic procedure is required.');
+  if (methodId === 'lpt') validateLptInput(parameters.jobs, parameters.machines);
+  else validateSubsetInput(parameters.values, parameters.target);
+  return true;
+}
+
+module.exports = { SUPPORTED, runProcedure, assertProcedureInput };

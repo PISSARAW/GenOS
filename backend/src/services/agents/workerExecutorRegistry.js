@@ -8,7 +8,7 @@ const EXECUTORS = Object.freeze({
   bounded_worker: ['scoped_procedure', 'workerScopedProcedures', 'assertScopedInput', 'runScoped'],
   adaptive_worker: ['adapt_procedure', 'workerScopedProcedures', 'assertAdaptiveInput', 'runAdaptive'],
   specialist: ['niche_procedure', 'workerScopedProcedures', 'assertNicheInput', 'runNiche'],
-  procedural_executor: [['lpt', 'subset_sum'], 'deterministicWorkerProcedures', null, 'runProcedure'],
+  procedural_executor: [['lpt', 'subset_sum'], 'deterministicWorkerProcedures', 'assertProcedureInput', 'runProcedure'],
   symbiotic_worker: ['host_procedure', 'workerScopedProcedures', 'assertHostInput', 'runHost'],
   verifier_worker: ['verify_procedure', 'deterministicWorkerVerifier', 'assertVerificationInput', 'runVerification'],
   red_worker: ['falsify_procedure', 'deterministicWorkerRed', 'assertRedInput', 'runRed'],

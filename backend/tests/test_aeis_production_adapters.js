@@ -64,7 +64,7 @@ async function run() {
     assert.ok(result.persistedAssemblyId);
     await closeDatabase();
     const child = spawnSync(process.execPath, [__filename, 'reload', database, result.persistedAssemblyId],
-      { env: process.env, encoding: 'utf8', timeout: 180000 });
+      { env: process.env, encoding: 'utf8', timeout: 30000 });
     assert.ifError(child.error);
     assert.equal(child.status, 0, child.stderr + child.stdout);
     console.log('Production AEIS adapters: distinct executable replicas, signed process evidence, restart and tamper rejection: PASS');

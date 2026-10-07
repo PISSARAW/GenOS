@@ -101,7 +101,12 @@ const suites = {
     ['Trinity variant contract fixtures', 'test_trinity_executable_harness.js'],
     ['Trinity qualification contract', 'test_trinity_qualification_contract.js'],
     ['Trinity L1 provenance', 'test_trinity_l1_provenance.js'],
-    ['Trinity L1 dispatch integration', 'test_trinity_l1_integration.js']
+    ['Trinity L1 dispatch integration', 'test_trinity_l1_integration.js'],
+    ['Trinity L2 mission identity', 'test_trinity_l2_identity.js'],
+    ['Trinity L2 capsule integrity', 'test_trinity_l2_capsules.js'],
+    ['Trinity L2 worker profiles', 'test_trinity_l2_profiles.js'],
+    ['Trinity L2 runtime provenance', 'test_trinity_l2_runtime.js'],
+    ['Trinity L2 dispatch integration', 'test_trinity_l2_integration.js']
   ],
   grpc: [
     ['gRPC integration', 'test_grpc_services.js']

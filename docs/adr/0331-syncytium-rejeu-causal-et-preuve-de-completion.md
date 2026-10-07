@@ -1,10 +1,10 @@
 # ADR 0331 — Syncytium : rejeu causal et preuve de complétion
 
-- Statut : Accepté
-- Date : 2026-10-06
-- Domaine : runtime Node, Syncytium, causalité, réplication, preuve
+- **Statut** : Accepté
+- **Date** : 2026-10-06
+- **Domaine** : runtime Node, Syncytium, causalité, réplication, preuve
 - Décideurs : maintenance GenOS
-- Lié à : [modèle Syncytium](../02-orchestration/topologies/syncytium.md), [protocole de preuve](../02-orchestration/topologies/protocole-missions-syncytium.md)
+- Lié à : [contrat runtime Node/MCP](../03-reference/runtime-syncytium.md), [modèle Syncytium](../02-orchestration/topologies/syncytium.md), [protocole de preuve](../02-orchestration/topologies/protocole-missions-syncytium.md)
 
 ## Contexte
 

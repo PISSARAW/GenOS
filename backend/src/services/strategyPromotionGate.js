@@ -324,45 +324,10 @@ async function applyPostPromotion(db, promotion, options) {
   throw new Error(`Execution run ${promotion.runId} workspace promotion failed: ${result.error || 'unknown error'}`);
 }
 
-function memorySummary(report, fallback) {
-  const claims = report && Array.isArray(report.claims) ? report.claims : [];
-  const statements = claims
-    .map((claim) => claim && claim.statement)
-    .filter((statement) => typeof statement === 'string' && statement);
-  if (statements.length) return statements.join('\n');
-  return fallback;
-}
-
-function memoryOutcome(report) {
-  if (!report || !report.outcome) return 'unknown';
-  return report.outcome;
-}
-
 async function markPromotionComplete(db, runId) {
   const now = new Date().toISOString();
   await db.run("UPDATE strategy_execution_steps SET status = 'completed', completed_at = ? WHERE run_id = ? AND status = 'awaiting_approval'", now, runId);
   await db.run("UPDATE strategy_execution_runs SET status = 'completed', completed_at = ? WHERE id = ? AND status = 'awaiting_approval'", now, runId);
-}
-
-async function recordPromotionMemory(promotion, options) {
-  try {
-    const agentMemory = require('./agentMemoryContext');
-    const agent = promotion.agent || {};
-    await agentMemory.compileExecutionMemory(
-      agent.name || promotion.agentId,
-      promotion.task,
-      memorySummary(promotion.report, options.summary || `Strategy promotion completed and approved for run ${promotion.runId}.`),
-      {
-        outcome: memoryOutcome(promotion.report),
-        approvedBy: options.approvedBy || 'human_gate',
-        evidenceReport: promotion.report,
-        philosophy: promotion.contract.philosophy,
-        epistemicContext: promotion.contract.epistemic_context,
-        provenanceHash: promotion.contract.philosophy?.provenanceHash || null,
-        ethicalComparison: promotion.contract.ethical_comparison
-      }
-    );
-  } catch (_) {}
 }
 
 function emitPromotionFinalized(promotion, options) {
@@ -380,7 +345,7 @@ function emitPromotionFinalized(promotion, options) {
 
 async function finalizePromotion(db, promotion, options) {
   await markPromotionComplete(db, promotion.runId);
-  await recordPromotionMemory(promotion, options);
+  await require('./strategyPromotionMemoryService').recordPromotionMemory(db, promotion, options);
   emitPromotionFinalized(promotion, options);
 }
 module.exports = {

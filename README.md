@@ -50,7 +50,7 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 - **A-Team** — workers spécialisés, DAG à progression indépendante, handoffs versionnés et clôture sur preuve ; conformité globale partielle, évaluations de variantes distinctes. Voir [le contrat runtime](docs/03-reference/runtime-a-team.md).
 - **Biocénose** — consensus pondéré, quorum, métriques d'essaim et barrière d'évidence.
 - **Holobionte** — missions hôte-symbiotes contractuelles : admission, preuve indépendante, veto immunitaire, quotas, mémoire atomique et hôtes persistants. [Contrat et exemple](docs/03-reference/runtime-holobionte.md).
-- **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
+- **Syncytium** — état partagé CRDT causal, 13 variants Node et clôture de mission soumise aux preuves des workers et de l’état partagé ([contrat runtime](docs/03-reference/runtime-syncytium.md)).
 - **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
 - **Rhizome** — missions par capacités avec résultats signés, croissance et budgets atomiques, routage borné, reprise persistante et télémétrie du graphe réel. Voir le [contrat runtime](docs/03-reference/runtime-rhizome.md).
 - **Métapopulation** — runtime régional persistant : migrations revues par le receveur, extinction à preuves, recolonisation multi-lignage et reprise des cycles ; moteurs externes configurés par adaptateurs. Voir le [contrat runtime](docs/03-reference/runtime-metapopulation.md).

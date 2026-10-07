@@ -164,14 +164,14 @@ async function run() {
     });
     const executionLatest = await request('GET', '/api/agents/agent-strategy-test/execution-runs/latest');
     assert.equal(executionLatest.status, 200);
-    assert.equal(executionLatest.body.status, 'awaiting_approval');
+    assert.equal(executionLatest.body.status, 'blocked', 'Declared replay and test success cannot replace verifier evidence');
     assert.equal(executionLatest.body.metrics.tokens, 150);
     assert.equal(executionLatest.body.metrics.cachedInputTokens, 60);
     assert.equal(executionLatest.body.metrics.billableTokens, 90);
     assert(executionLatest.body.adherence.deviations.some((item) => item.status === 'skipped'));
     const approved = await request('POST', `/api/execution-runs/${executionRun.id}/approve`, signedApproval(executionRun.id));
-    assert.equal(approved.status, 200);
-    assert.equal(approved.body.status, 'completed');
+    assert.equal(approved.status, 409, 'A signed approval cannot promote a blocked, unverified run');
+    assert.equal((await strategyExecution.getRun(db, executionRun.id)).status, 'blocked');
 
     const blockedRun = await strategyExecution.createExecutionRun(db, {
       agentId: 'agent-strategy-test', budget: { tokens: 10, costUsd: 1, latencyMs: 60000, events: 20 }

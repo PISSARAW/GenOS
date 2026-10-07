@@ -79,3 +79,4 @@ runtime et reprise. Les tests utilisent SQLite et des workers réels, avec des
 contrats épinglés, des cas de concurrence, de preuves altérées et de budgets
 épuisés. Le test de dispatch possède sa propre base de contrôle temporaire.
 La suite Axolotl est également incluse dans la chaîne de tests par défaut du backend.
+La suite Axolotl est également incluse dans la chaîne de tests par défaut du backend.

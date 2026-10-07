@@ -132,7 +132,7 @@ assert.equal(enforcement.toolAction('unregistered_worker_tool'), 'unknown');
 assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('scout_cell'), 'genos_inspect'), true);
 assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('scout_cell'), 'unregistered_worker_tool'), { code: 'WORKER_CONTRACT_DENIED' });
 assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('adaptive_worker'), 'genos_worker_publish'), true);
-assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('bounded_worker'), 'genos_worker_publish'), { code: 'WORKER_CONTRACT_DENIED' });
+assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('bounded_worker'), 'genos_worker_publish'), true);
 const assignedContract = workerKinds.buildWorkerContract('procedural_executor', {
   prompt: 'solve exactly', scope: '/repo', workerAssignment: { workerKind: 'procedural_executor' },
   methodContract: { version: 1, methodId: 'dynamic_programming' }

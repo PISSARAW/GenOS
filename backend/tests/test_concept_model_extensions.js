@@ -1,0 +1,35 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { memoryDb } = require('./test_concept_runtime');
+const world = require('../src/services/worldModelService');
+const perception = require('../src/services/generativePerceptualService');
+const binding = require('../src/services/perceptiveBindingService');
+async function main() {
+  const db = memoryDb();
+  await world.predictTransition(db, 'a', { action: 'fail', actionId: 'own', expectSuccess: false });
+  assert.equal((await world.observeTransition(db, 'a', { actionId: 'alien', success: false })).matched, false);
+  assert.equal((await world.observeTransition(db, 'a', { actionId: 'own', success: false })).surprise, 0);
+  for (const count of [0, 1]) await world.recordSample(db, 'a', { action: 'step', state: { filesChanged: count }, delta: { filesChanged: 1 } });
+  const rollout = await world.rolloutFree(db, 'a', { state: { filesChanged: 0 }, actions: ['step'], depth: 3 });
+  assert.equal(rollout.children[0].state.filesChanged, 1);
+  assert.equal(rollout.children[0].children[0].state.filesChanged, 2);
+  assert.equal(rollout.children[0].children[0].children[0].predicted, null);
+  for (const count of [1, 2, 3, 4, 5]) await world.recordSample(db, 'b', { action: 'multi', delta: { filesChanged: count } });
+  const distribution = await world.predictState(db, 'b', { action: 'multi' });
+  assert.equal(distribution.distribution.length, 5);
+  assert.ok(Math.abs(distribution.distribution.reduce((sum, entry) => sum + entry.p, 0) - 1) < 1e-12);
+  assert.deepEqual(perception.predict({ prior: [1], observation: [0], precision: 0 }).estimate, [1]);
+  assert.deepEqual(perception.predict({ prior: [1, 2], observation: [] }).estimate, [1, 2]);
+  assert.throws(() => perception.predict({ observation: [1, NaN, 2] }), /aligned/);
+  const first = binding.recurrentUpdate([], { items: [{ id: 'object', features: { color: 'red' } }] });
+  const maintained = binding.recurrentUpdate(first.bindings, { items: [] });
+  assert.equal(maintained.recurrence, true);
+  const occluded = binding.recurrentUpdate(first.bindings, { items: [{ id: 'object', occluded: true }] });
+  assert.equal(occluded.bindings[0].features.color, 'red');
+  assert.equal(maintained.graph.entities.length - binding.recurrentUpdate([], { items: [] }).graph.entities.length, 1);
+  let state = maintained.bindings;
+  for (let index = 0; index < 20; index += 1) state = binding.recurrentUpdate(state, { items: [] }).bindings;
+  assert.equal(state.length, 0);
+  console.log('Generative rollout, correlation and recurrent perception checks passed.');
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -20,10 +20,10 @@ function verifiedJson(row, field) {
 function biologyError(code) { return Object.assign(new Error(code), { code }); }
 
 async function bindRun(db, input) {
-  const agent = await db.get('SELECT * FROM agents WHERE id = ?', input.agentId);
+  const agent = await db.get('SELECT a.*, w.organization_id, w.project_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', input.agentId);
   if (agent?.execution_mode !== 'worker') return null;
   await ensure(db);
-  const mission = await missionForWorker(db, { agent, missionId: input.missionId });
+  const mission = await require('./trinityWorkerIdentity').resolve(db, { agentId: agent.id, missionId: input.missionId });
   const record = await require('./strategyContractService').getContractById(db, input.contractRecord.id);
   if (!record || record.version !== input.contractRecord.version
       || digest(record.contract) !== digest(input.contractRecord.contract)) {
@@ -33,20 +33,6 @@ async function bindRun(db, input) {
   await db.run(`INSERT INTO biological_worker_bindings (run_id, mission_id, agent_id, binding_hash, binding_json)
     VALUES (?, ?, ?, ?, ?)`, input.id, mission.mission_id, agent.id, digest(binding), encode(binding));
   return binding;
-}
-
-async function missionForWorker(db, input) {
-  const rows = await db.all(`SELECT m.* FROM missions m JOIN mission_agents ma ON ma.mission_id = m.mission_id
-    WHERE ma.agent_id = ? AND m.status = 'active' AND (? IS NULL OR m.mission_id = ?) LIMIT 2`,
-  input.agent.id, input.missionId || null, input.missionId || null);
-  if (rows.length !== 1) throw biologyError('BIOLOGICAL_WORKER_MISSION_AMBIGUOUS');
-  if (input.agent.parent_agent_id) {
-    const parent = await db.get('SELECT organization_id, project_id FROM agents WHERE id = ?', input.agent.parent_agent_id);
-    if (!parent || parent.organization_id !== input.agent.organization_id || parent.project_id !== input.agent.project_id) {
-      throw biologyError('BIOLOGICAL_WORKER_TENANT_MISMATCH');
-    }
-  }
-  return rows[0];
 }
 
 function buildBinding(input) {

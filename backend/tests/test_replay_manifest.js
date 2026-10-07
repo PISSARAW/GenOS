@@ -22,7 +22,8 @@ assert.equal(manifest.sessionId, 'run-1');
 assert.equal(manifest.prompt, 'Reproduce this session');
 assert.equal(manifest.model, 'ollama://model');
 assert.deepEqual(manifest.environmentKeys.includes('API_TOKEN'), false);
-assert.equal(manifest.environmentKeys.includes('GENOS_MODEL'), true);
+assert.equal(manifest.environmentKeys.includes('GENOS_MODEL'), false, 'Unknown runtime variables are excluded');
+assert.equal(manifest.environmentKeys.includes('NODE_ENV'), true);
 assert.equal(manifest.contractVersion, 2);
 
 console.log('Replay manifest wiring: PASS');

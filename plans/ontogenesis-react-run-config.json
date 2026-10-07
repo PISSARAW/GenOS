@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "branch": "codex/ontogenesis",
+  "budgets": { "tokens": 140000, "usd": 1, "seconds": 1200 },
+  "missionBudgets": { "tokens": 120000, "usd": 1, "seconds": 1200 },
+  "topologies": ["trinity"],
+  "organization": "strategy_arena",
+  "executor": "codex",
+  "availableCapabilities": ["execute", "verify", "coordinate", "analyze", "observe"],
+  "checks": [
+    { "program": "node", "args": ["-e", "const fs=require('fs'); if(!fs.existsSync('package.json')) process.exit(1); const p=JSON.parse(fs.readFileSync('package.json','utf8')); if(!p.scripts || !p.scripts.build) process.exit(1)"] },
+    { "program": "npm", "args": ["run", "build"] }
+  ],
+  "memory": { "envelopeMb": 2048, "reserveMb": 512 },
+  "allowPush": false,
+  "allowMerge": false,
+  "authority": {
+    "allowEdit": true,
+    "allowTests": true,
+    "allowCommit": true,
+    "paths": ["*"],
+    "branches": ["codex/ontogenesis"],
+    "rules": []
+  },
+  "concepts": [
+    "morphogenesis",
+    "trinity",
+    "evidence_first",
+    "provenance_integrity",
+    "falsification_principle",
+    "strategy_arena",
+    "adversarial_review",
+    "promotion_gate",
+    "quorum"
+  ]
+}

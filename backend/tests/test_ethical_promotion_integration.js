@@ -24,7 +24,9 @@ const reviewed = evaluatePromotionGate(contract, {
   ...baseContext,
   ethicalReview: { status: 'approved', provenanceVerified: true, evidenceVerified: true }
 });
-assert.equal(reviewed.eligible, true);
+assert.equal(reviewed.eligible, false, 'Ethical review does not replace the general evidence gates');
+assert.ok(!reviewed.violations.some((violation) => violation.policy === 'ethical_comparison_interpretation'));
+assert.ok(reviewed.violations.some((violation) => violation.policy === 'require_independent_verification'));
 
 const memory = memoryStore.buildMemoryRecord({
   agentId: 'worker-1',

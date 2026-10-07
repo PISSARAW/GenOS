@@ -59,7 +59,7 @@ function checkRestrictionOnlyNarrows() {
     policy
   );
   assert.deepEqual(restricted, ['genos_snapshot']);
-  assert.deepEqual(leasePolicy.restrictProvidedLease([], policy), [...policy]);
+  assert.deepEqual(leasePolicy.restrictProvidedLease([], policy), [], 'An explicit empty lease grants no tools');
   assert.deepEqual(leasePolicy.restrictProvidedLease(undefined, policy), [...policy]);
   const workerPolicy = leasePolicy.derivePolicyLease({ executionMode: 'worker', role: 'implementation', plan: {}, capabilities: [] });
   const workerRestricted = leasePolicy.restrictProvidedLease(['genos_run', 'genos_adversarial_review'], workerPolicy);

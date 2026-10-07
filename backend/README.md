@@ -376,6 +376,19 @@ l'[ADR 0323](../docs/adr/0323-frontieres-preuve-execution-omega.md) pour les
 invariants et les capacités encore manquantes. Ces tests ciblés ne remplacent
 pas les gates globaux du dépôt.
 
+## Runtime Syncytium
+
+Le [contrat runtime Syncytium](../docs/03-reference/runtime-syncytium.md) décrit
+l'admission causale, les identités d'opérations, les transactions persistées,
+les réplicas hors ligne et la promotion spéculative. Le dispatch biologique active
+les services des 13 variants par défaut, sous leurs préconditions de configuration.
+Un appel direct au registre doit activer explicitement `useVariantRuntime`.
+
+La clôture combine l'oracle des workers avec un reçu `stateValidation` calculé
+sur la session autoritative : opérations CRDT non vides, invariants satisfaits,
+snapshot à la version courante et aucune opération hors ligne en attente.
+Une réponse worker ou un succès transport seul laisse la mission partielle.
+
 ## Verification Test Suite
 
 ### Garage Fabric : ordonnanceur durable des workers
@@ -409,6 +422,9 @@ The test suite validates database integrity, vector search, biological primitive
 ```bash
 # Run the backend verification suite from backend/
 npm test
+
+# Run all discovered Syncytium suites from backend/
+npm run test:syncytium
 
 # Run the seven Garage Fabric suites from backend/
 node tests/run_validation_suite.js garage

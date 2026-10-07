@@ -8,6 +8,8 @@ const path = require('path');
 const { withTransaction } = require('../db');
 const { snapshotRoot, containedJoin, assertNoSymlinkPath, exists } = require('./workspaceSnapshotPaths');
 const { collectFiles, manifestHash, sha256 } = require('./workspaceSnapshotCollect');
+const securePaths = require('./trinityCapsulePaths');
+const snapshotIntegrity = require('./trinityCapsuleSnapshot');
 
 function isBusyRenameError(error) {
   return error && ['EEXIST', 'ENOTEMPTY', 'EPERM', 'EBUSY'].includes(error.code);
@@ -35,12 +37,10 @@ async function recoverPayloadRename(options) {
   const { root, hash, staging, targetDir, payloadRoot, renameErr } = options;
   if (!isBusyRenameError(renameErr)) throw renameErr;
   if (await exists(path.join(targetDir, 'manifest.json'))) {
+    await snapshotIntegrity.verify(root, hash);
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
     return payloadRoot;
   }
-  await fsp.cp(staging, targetDir, { recursive: true, force: true });
-  await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
-  if (await exists(path.join(targetDir, 'manifest.json'))) return payloadRoot;
   throw renameErr;
 }
 
@@ -59,8 +59,10 @@ async function publishPayloadStaging(options) {
 
 async function copyManifestPayload(options) {
   const { workspacePath, root, hash, files, manifestData } = options;
+  if (!/^[a-f0-9]{64}$/.test(hash) || manifestHash(files) !== hash) throw new Error('Invalid snapshot content hash.');
   const payloadRoot = path.join(root, hash, 'files');
-  if (await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
+  securePaths.ensureDirectory(root);
+  if (await exists(path.join(root, hash, 'manifest.json'))) return snapshotIntegrity.verify(root, hash);
   const staging = await fsp.mkdtemp(path.join(root, `.snapshot-${hash.slice(0, 12)}-`));
   try {
     await stagePayloadFiles(workspacePath, staging, files);
@@ -68,7 +70,7 @@ async function copyManifestPayload(options) {
     return payloadRoot;
   } catch (error) {
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
-    if (isBusyRenameError(error) && await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
+    if (isBusyRenameError(error) && await exists(path.join(root, hash, 'manifest.json'))) return snapshotIntegrity.verify(root, hash);
     throw error;
   }
 }

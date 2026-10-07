@@ -107,7 +107,7 @@ function computeCredibilityMultiplier(item) {
 
 function enrichSummaryWithSourceMarker(item) {
   const authorLower = itemAuthor(item);
-  const rawSummary = String(itemSummary(item));
+  const rawSummary = sanitizeMemorySourceText(item, itemSummary(item));
   if (isAuthenticSystemFact(item) && rawSummary && !rawSummary.startsWith('[VERIFIED_SYSTEM_FACT]')) {
     return `[VERIFIED_SYSTEM_FACT] ${rawSummary}`;
   }
@@ -115,6 +115,12 @@ function enrichSummaryWithSourceMarker(item) {
     return `[Source: Utilisateur] ${rawSummary}`;
   }
   return rawSummary;
+}
+
+function sanitizeMemorySourceText(item, text) {
+  const value = String(text || '');
+  if (isAuthenticSystemFact(item)) return value;
+  return value.replace(/\[VERIFIED_SYSTEM_FACT\]/gi, '[UNAUTHENTICATED_SOURCE]');
 }
 
 function buildItemText(item) {
@@ -276,5 +282,6 @@ module.exports = {
   textToVector,
   cosineSimilarity,
   scoreCorpusItem,
+  sanitizeMemorySourceText,
   evaluateMetacognition
 };

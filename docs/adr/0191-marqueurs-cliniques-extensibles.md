@@ -18,6 +18,7 @@ Les thérapies proposées par les rapports nosologiques ciblent des états qui n
 - Les clés sont contractuelles et doivent être documentées; une absence de cible n'est pas une guérison.
 - Une migration de persistance n'est pas nécessaire grâce à `serde(default)`.
 - Les opérateurs avec effets, préconditions ou interactions distincts gardent des clés et des vérifications séparées.
+
 ## Évolution documentée au 2026-10-06
 
 Le contexte ci-dessus conserve les constats de la décision initiale. L’[ADR 0326](0326-catalogue-nosologique-et-preuve-application.md) précise désormais le catalogue des 28 conditions et 48 opérateurs, les statuts d’application, les gardes et la persistance autorisée avant mise à jour mémoire. Les signatures paramétrées et mécanismes biologiques détaillés des fiches restent proposés au-delà du [catalogue courant](../01-concepts/nosologie/catalogue-runtime.md). Les états Node et Rust conservent des contrats distincts. Le [bilan daté](../06-qualite-preuves/validation-nosologie.md) sépare les vérifications ciblées réussies des limites globales et du parcours HTTP → Rust non validé.

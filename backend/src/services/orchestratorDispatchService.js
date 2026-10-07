@@ -7,6 +7,7 @@ function buildWorkerMission(input = {}) {
   const mission = {
     agentId: input.agentId,
     missionId: input.missionId,
+    missionScope: input.missionScope,
     orchestratorAgentId: input.orchestratorAgentId,
     prompt: input.prompt,
     role: input.role || 'worker',

@@ -29,7 +29,8 @@ function entity(agent) {
       agentId: agent.id,
       workspaceId: agent.workspace_id || '',
       executionMode: agent.execution_mode || '',
-      parentId: agent.parent_agent_id || ''
+      parentId: agent.parent_agent_id || '',
+      sealedDispatchParentId: agent.sealedDispatchParentId || ''
     },
     parents: []
   };

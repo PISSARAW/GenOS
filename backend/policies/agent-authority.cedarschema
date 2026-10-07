@@ -3,7 +3,8 @@ namespace GenOS {
     agentId: String,
     workspaceId: String,
     executionMode: String,
-    parentId: String
+    parentId: String,
+    sealedDispatchParentId: String
   };
   action "Control" appliesTo {
     principal: Agent,

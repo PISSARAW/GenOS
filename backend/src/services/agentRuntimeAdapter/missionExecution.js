@@ -33,7 +33,6 @@ async function bootstrapMission(mission) {
   await require('../garageAdmissionService').provisionWorker(ctx);
   await provisionWorkspaceAndModel(ctx);
   normalizeMissionBudgets(ctx);
-  await provisionMissionCapsule(ctx);
   await enableMissionMonitoring(ctx);
   await planMission(ctx);
   assertAutonomyPlanExecutable(ctx);
@@ -44,6 +43,7 @@ async function bootstrapMission(mission) {
   await enforceMissionToolLease(ctx);
   computeRuntimeBudget(ctx);
   await createMissionExecutionRun(ctx);
+  await provisionMissionCapsule(ctx);
   await require('../garageRuntimeService').bindExecution(ctx);
   await require('../trinityQualificationDispatch').recordStarted(ctx);
   reportOrchestratorStart(ctx);
@@ -59,11 +59,15 @@ async function startMissionInternal(mission) {
   await require('../garageRuntimeService').assertLease(db, normalizedMission);
   if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(normalizedMission)) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
+    await require('../trinityRuntimeAttestation').recordInProcess(ctx,
+      require.resolve('../agents/deterministicWorkerRuntime'), 'in-process-native');
     return require('../agents/deterministicWorkerRuntime').runDeterministicWorker(db, normalizedMission, executionRun);
   }
   const inProcessWorker = isInProcessWorker(dispatchedAgent, normalizedMission, ctx.executable);
   if (inProcessWorker) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
+    await require('../trinityRuntimeAttestation').recordInProcess(ctx,
+      require.resolve('../agentFleetService'), 'in-process-worker');
     return runLocalWorker(db, normalizedMission, executionRun);
   }
 

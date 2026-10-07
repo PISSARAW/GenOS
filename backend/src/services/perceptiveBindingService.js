@@ -24,7 +24,9 @@ function makeBinding(item, index) {
 }
 
 function carryForwardBinding(id, value) {
-  return { ...value, id, features: value.features || {}, relation: value.relation || null, confidence: Math.max(0, Number(value.confidence || 0) * 0.8), occlusionState: 'not_observed' };
+  return { ...value, id, features: value.features || {}, relation: value.relation || null,
+    confidence: Math.max(0, Number(value.confidence || 0) * 0.8),
+    missingCycles: (value.missingCycles || 0) + 1, occlusionState: 'not_observed' };
 }
 
 function buildPerceptGraph(bindings) {
@@ -36,15 +38,25 @@ function buildPerceptGraph(bindings) {
 function bindPercepts(input) {
   const items = Array.isArray(input?.items) ? input.items : [];
   const previous = input?.previous || {};
-  const bindings = items.map(makeBinding);
+  const bindings = items.map((item, index) => makeBinding(mergeObservation(item, previous), index));
   for (const [id, value] of Object.entries(previous)) if (!bindings.some((binding) => binding.id === id)) bindings.push(carryForwardBinding(id, value));
-  return bindings;
+  return bindings.filter((binding) => (binding.missingCycles || 0) <= 16 && binding.confidence >= 0.01).slice(-256);
+}
+
+function mergeObservation(item, previous) {
+  const prior = previous[item.id] || {};
+  return { ...prior, ...item, features: { ...prior.features, ...item.features } };
 }
 
 function recurrentUpdate(state, observation) {
   const current = Array.isArray(state) ? state : [];
   const next = bindPercepts({ items: observation?.items || [], previous: Object.fromEntries(current.map((item) => [item.id, item])) });
-  return { bindings: next, graph: buildPerceptGraph(next), recurrence: next.length > 0 && current.length > 0, resolvedOcclusions: next.filter((item) => item.confidence > 0.5).length };
+  const previous = new Map(current.map((item) => [item.id, item]));
+  const retained = next.filter((item) => previous.has(item.id));
+  const resolved = retained.filter((item) => previous.get(item.id).occlusionState !== 'visible'
+    && item.occlusionState === 'visible');
+  return { bindings: next, graph: buildPerceptGraph(next), recurrence: retained.length > 0,
+    retainedCount: retained.length, resolvedOcclusions: resolved.length };
 }
 
 function bindingPermutation(items) {
