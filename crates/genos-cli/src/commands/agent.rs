@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 use serde_json::json;
-use uuid::Uuid;
 use genos_cell::AgentCell;
 use crate::args::AgentSubcommands;
 use super::agent_mutate::handle_mutate;
@@ -192,18 +191,8 @@ fn handle_prune(agent_id: &str, threshold: f64) -> Result<(), String> {
     Ok(())
 }
 
-fn handle_fork(parent_id: Option<&str>) -> Result<(), String> {
-    let pid = parent_id.unwrap_or("ROOT");
-    let child_id = Uuid::new_v4().to_string();
-    let output = json!({
-        "success": true,
-        "operation": "agent_fork",
-        "parent_id": pid,
-        "child_id": child_id,
-        "generation": 1
-    });
-    println!("{}", serde_json::to_string(&output).unwrap());
-    Ok(())
+fn handle_fork(_parent_id: Option<&str>) -> Result<(), String> {
+    Err("Agent fork not implemented: no child state or lineage can be persisted by this command.".into())
 }
 
 fn handle_validate(file_path: &str) -> Result<(), String> {
