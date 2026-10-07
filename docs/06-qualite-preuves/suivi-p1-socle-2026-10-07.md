@@ -19,7 +19,7 @@ porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 | Lot | État de lancement | Travail suivant nécessaire |
 | --- | --- | --- |
 | L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
-| L02 Autorité et confinement | Enveloppe du run et revalidation runtime Node intégrées ; lot partiel | Raccordement des appels directs, compteurs spawn/délégation et confinement effectif. |
+| L02 Autorité et confinement | Enveloppe du run, revalidation et réservation de délégation Node intégrées ; lot partiel | Raccordement des appels directs, qualification complète des compteurs et confinement effectif. |
 | L03 Oracles indépendants | Composants AEIS/Lean et pilotes existants ; intégration P1 à entreprendre | Postconditions métier, fraîcheur, domaine et résolution vérifiée des références du manifeste. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
 | L05 Harnais et baselines | Pilotes P0 exploratoires disponibles ; campagne P1 à entreprendre | Runner GVX raccordé au manifeste, holdout inaccessible au candidat, coûts complets et puissance adaptée. |
@@ -218,7 +218,51 @@ positif sous enveloppe restent ouverts. Une mission sans réservation conserve
 `lease: null` ; un run sans liaison reste `legacy_unbound`. Ces états ne sont
 pas des preuves d'autorisation acquise. L02 et P1 restent ouverts.
 
-## Traçabilité du lancement
+## Extension L02 — délégation réelle et budgets réservés
+
+L'[ADR 0353](../adr/0353-delegation-worker-bornee-et-admission-runtime.md)
+raccorde le contrat de délégation bornée aux admissions Cedar, Garage et au
+bootstrap du runtime. Le checkpoint natif observé est
+`snap-5430b5826b58485f97b57d9851ba5e7f`. Le reproducer SQLite antérieur refusait
+le parent worker avec `ORCHESTRATOR_REQUIRED`.
+
+Le journal GVX réserve désormais les identités d'enfants et leurs plafonds
+cumulatifs de jetons modèle dans la transaction de création. Un enfant
+supprimé ne restitue pas sa réservation. La sonde à deux connexions vérifie
+une écriture effectivement concurrente, l'attente, le refus du dépassement
+et le rollback de l'enfant refusé. Ces réservations ne remplacent pas les
+mesures d'usage ni un confinement de processus.
+
+Le parcours natif réel crée sa capsule, exécute subset sum et publie le
+témoin `[0, 2]` pour la somme 10, avec zéro jeton modèle. La promotion reste
+refusée par `require_independent_verification`. Le refus est conservé dans
+le reçu bloqué et la télémétrie ; une seconde publication ne masque plus
+ce motif par `BIOLOGICAL_WORKER_RECEIPT_SEALED`. Un statut agent terminé et
+un dossier ne suffisent pas à déclarer le dispatch réussi.
+
+Le parcours positif sous oracle indépendant reste ouvert. Les copies de
+workspace ne sont pas atomiques avec la réservation SQLite, l'idempotence
+d'une requête complète et toutes les races de révocation ne sont pas
+qualifiées. Les **115 obligations** restent dans le registre de clôture ;
+cette extension ne clôture aucun lot et ne réduit pas P1.
+
+Validation : la sonde native de délégation, `npm test` complet et
+`cargo test --workspace` natif passent. Qualité globale : 5 401 sources,
+quatre violations historiques, zéro nouvelle ; index ADR : 430 entrées sans
+problème. La décision `decision-bef1bee4-43fc-4ae6-9615-5725ed595736` conserve
+les choix et limites. Les journaux `delegation-qualified.log`,
+`npm-delegation-final.log` et `cargo-delegation-complete.log` restent dans
+`p1-full`, hors Git. Les échecs précédents sont conservés. Les changements
+étrangers MCP/VFS/Rust du checkout partagé restent exclus de ce commit.
+
+L'examen L03 a également reproduit une limite du prédicat de receipt seul :
+une signature valide d'un vérificateur connu, datée de 2000 et portant sur
+un autre résultat, satisfait ce prédicat. La sonde ne teste pas le gate
+complet par défaut, qui impose aussi une assemblée AEIS liée aux résultats.
+Cette observation exige un raccordement sémantique au run, aux entrées et à
+la fraîcheur avant de déclarer un oracle natif qualifié.
+
+## Traçabilité initiale
 
 GenOS a fourni le checkpoint `snap-a7d8f742186b41f18d02828f1ba16d1b`, dont le
 fichier local a été observé, et la décision

@@ -14,7 +14,9 @@ async function publish(db, mission, event) {
   const progress = await recordExecutionEvent(db, mission.agentId, event);
   const failureEvent = ['AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType);
   if (progress?.halt && !failureEvent) {
-    throw error('WORKER_EXECUTION_HALTED', progress.reason || 'Execution guard halted the native worker.');
+    const failure = error('WORKER_EXECUTION_HALTED', progress.reason || 'Execution guard halted the native worker.');
+    failure.terminalReceiptPublished = Boolean(progress.biologicalReceipt);
+    throw failure;
   }
   recordWorkerEvidence(mission, event);
 }
@@ -47,7 +49,8 @@ async function fail(context, executionRun, failure) {
     executionRunId: executionRun.id,
     failure: { category: 'deterministic_execution', reason: failure.message, code: failure.code }
   }, 'warning', status);
-  await publish(db, mission, failed);
+  if (failure.terminalReceiptPublished) recordWorkerEvidence(mission, failed);
+  else await publish(db, mission, failed);
   return { started: false, executionRun, deterministic: true, error: failure.message, code: failure.code };
 }
 

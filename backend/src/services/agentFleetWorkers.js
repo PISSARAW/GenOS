@@ -1,4 +1,5 @@
 const circuitBreaker = require('./circuitBreaker');
+const path = require('node:path');
 const workerGarage = require('./workerGarageService');
 const workerKinds = require('./agents/workerKindService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
@@ -98,7 +99,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const context = buildWorkerContext({ parent, plan, mission, assignments });
   const usedNames = [];
   const workers = [];
-  const workerIds = assignments.map((assignment, index) => assignedWorkerId(assignment, { orchestratorId: orchestrator.id, index, teamRunId: plan.aTeam?.teamRun?.teamRunId }));
+  const workerIds = assignments.map((assignment, index) => assignedWorkerId(assignment, { orchestratorId: orchestrator.id, index,
+    teamRunId: plan.aTeam?.teamRun?.teamRunId, delegationOrdinal: plan.delegationOrdinal }));
   try {
     for (const [index, assignment] of assignments.entries()) {
       const typedAssignment = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
@@ -112,6 +114,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
 }
 
 function assignedWorkerId(assignment, context) {
+  if (Number.isSafeInteger(context.delegationOrdinal) && context.delegationOrdinal > 0) return `${context.orchestratorId}-d${context.delegationOrdinal}`;
   if (context.teamRunId && assignment.workerId) return assignment.workerId;
   return autonomousWorkerId(context.orchestratorId, context.index + 1);
 }
@@ -247,6 +250,7 @@ async function createWorkerWorkspace(workerContext, id) {
 
 function validatePromptBudget(details) {
   const { prompt, assignedTokens, assignment, id } = details;
+  if (require('./agents/workerExecutorRegistry').hasNativeMethod(assignment.workerKind, assignment.methodContract?.methodId)) return;
   const estimate = Math.ceil(Buffer.byteLength(prompt, 'utf8') / 4);
   if (assignedTokens > 0 && estimate >= assignedTokens) {
     throw Object.assign(new Error(`Worker '${assignment.label || id}' prompt consumes its token budget before generation (${estimate} >= ${assignedTokens}).`), { code: 'WORKER_PROMPT_BUDGET_EXCEEDED' });

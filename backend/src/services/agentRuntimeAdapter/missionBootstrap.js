@@ -103,8 +103,12 @@ async function resolveMissionContract(ctx) {
   const strategyContracts = require('../strategyContractService');
   let contractRecord = await strategyContracts.getLatestContract(db, agentId, dispatchedAgent.workspace_id);
   if (!contractRecord && normalizedMission.orchestratorAgentId) {
-    const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', normalizedMission.orchestratorAgentId);
+    const parent = await db.get('SELECT workspace_id, parent_agent_id, execution_mode FROM agents WHERE id = ?', normalizedMission.orchestratorAgentId);
     contractRecord = await strategyContracts.getLatestContract(db, normalizedMission.orchestratorAgentId, parent?.workspace_id || dispatchedAgent.workspace_id);
+    if (!contractRecord && parent?.execution_mode === 'worker') {
+      const root = await agentAuthority.requireOrchestrator(db, parent.parent_agent_id);
+      contractRecord = await strategyContracts.getLatestContract(db, root.id, root.workspace_id);
+    }
   }
   if (!contractRecord) throw new Error(`No strategy contract available for agent ${agentId}`);
   ctx.contractRecord = contractRecord;

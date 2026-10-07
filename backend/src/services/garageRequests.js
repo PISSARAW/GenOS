@@ -42,13 +42,13 @@ function validateTiming(request) {
 
 async function scope(db, request) {
   const row = await db.get(`SELECT a.id, a.workspace_id, a.parent_agent_id, a.role, a.name, a.isolation_mode,
-    p.id AS parent_id, p.workspace_id AS parent_workspace_id,
+    p.id AS parent_id, p.workspace_id AS parent_workspace_id, p.execution_mode AS parent_execution_mode,
     w.organization_id, w.project_id FROM agents a JOIN agents p ON p.id = a.parent_agent_id
     LEFT JOIN workspaces w ON w.id = a.workspace_id
-    WHERE a.id = ? AND p.id = ? AND a.execution_mode = 'worker'
-      AND p.execution_mode = 'orchestrator'`,
+    WHERE a.id = ? AND p.id = ? AND a.execution_mode = 'worker'`,
   request.workerId, request.orchestratorId);
   if (!row) throw error('GARAGE_SCOPE_INVALID', 'Worker must belong to its orchestrator and workspace.');
+  await authorizeParent(db, row);
   if ((row.workspace_id || null) !== (row.parent_workspace_id || null)) {
     const delegated = await require('./trinityWorkerAuthority').delegation(db, {
       agent: row, parent: { id: row.parent_id, workspace_id: row.parent_workspace_id }
@@ -59,6 +59,13 @@ async function scope(db, request) {
     if (request[field] && request[field] !== row[key]) throw error('GARAGE_SCOPE_INVALID', 'Request scope does not match persisted scope.');
   }
   return row;
+}
+
+async function authorizeParent(db, row) {
+  if (row.parent_execution_mode === 'orchestrator') return;
+  if (row.parent_execution_mode !== 'worker') throw error('GARAGE_SCOPE_INVALID', 'Unsupported parent execution mode.');
+  await require('./agentAuthorityService').authorizeMission(db, {
+    agentId: row.id, orchestratorAgentId: row.parent_id, workspaceId: row.workspace_id });
 }
 
 function defaults(input) {
