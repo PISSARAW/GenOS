@@ -167,3 +167,12 @@ certifie pas leur vérité. La qualification scientifique des nouvelles
 fonctionnalités du plan reste explicitement non démontrée. B06 reste partiel
 pour les garanties plus fortes citées dans la matrice et la fiabilité Windows
 de publication des snapshots.
+
+## Reprise B06 ultérieure
+
+La [qualification B06](qualification-b06-reprise-et-holdout-2026-10-07.md)
+remplace les limites de concurrence et de reprise des promotions ci-dessus
+par les garanties bornées du journal scellé. Elle conserve les échecs précédents,
+qualifie les retries de publication Windows, un pilote IA réel et une session
+TUI live. Studio et l'extension IDE installée restent à exercer ; la maturité
+scientifique de tous les concepts n'est pas déduite de ce pilote.

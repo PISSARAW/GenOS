@@ -145,6 +145,7 @@ async function persistGoldenPath(tx, context, payload) {
   }
   const workspaceId = await resolveWorkspaceId(tx, context);
   return trajectoryService.recordMissionTrajectory(tx, {
+    databaseOnly: context.databaseOnly,
     id: context.trajectoryId,
     agentId: context.agentId,
     workspaceId,

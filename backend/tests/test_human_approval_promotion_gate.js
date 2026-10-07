@@ -41,8 +41,11 @@ async function main() {
     const verified = await approve(spec.run.id, { ...signed(spec.run.id), ...spec.options });
     assert.equal(verified.status, 200, JSON.stringify(verified.body));
     assert.equal(verified.body.status, 'completed');
-    assert.equal((await approve(spec.run.id, { ...signed(spec.run.id), ...spec.options })).status, 409);
-    console.log('Human approval: signature alone refused; actual evidence replicas pass; completed run cannot be promoted again.');
+    const repeated = await approve(spec.run.id, { ...signed(spec.run.id), ...spec.options });
+    assert.equal(repeated.status, 200);
+    assert.equal(repeated.body.id, verified.body.id);
+    assert.equal((await spec.db.get("SELECT count(*) AS n FROM primitive_execution_journal WHERE agent_id = 'consumer-promotion-agent'")).n, 2);
+    console.log('Human approval: signature alone refused; actual evidence replicas pass; completed retry returns the same run without another pipeline.');
   } finally {
     await closeDatabase();
     fs.rmSync(root, { recursive: true, force: true });

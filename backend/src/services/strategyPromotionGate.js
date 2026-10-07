@@ -296,6 +296,7 @@ async function runPromotionPipeline(promotion, primitives, aeisEvaluation) {
   try {
     return await adapter.executePipelineWithFeedback(list, {
       db: promotion.db,
+      databaseOnly: Boolean(promotion.db),
       organizationId: promotion.organizationId,
       projectId: promotion.projectId,
       agentId: promotion.agentId,

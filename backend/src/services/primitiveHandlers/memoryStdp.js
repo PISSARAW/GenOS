@@ -51,8 +51,6 @@ function buildSkipResult(context, ids) {
 }
 
 function normalizeSpikeTimes(preSpikeAt, postSpikeAt) {
-  // Aucun timestamp fabriqué : sans spikeTimes réels (fournis ou relus depuis
-  // les décisions appariées), la mise à jour est refusée par l'appelant.
   if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt)) {
     return { error: 'Real preSpikeAt and postSpikeAt are required for STDP; refusing to fabricate spike times.' };
   }
@@ -95,8 +93,6 @@ function computeStdpUpdate(params) {
 }
 
 async function lookupDecisionRow(db, id) {
-  // Lecture seule : aucune décision synthétique n'est créée. Si la paire
-  // causale est introuvable, l'appelant refuse la mise à jour STDP.
   return db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', id);
 }
 
@@ -105,7 +101,7 @@ function validateStdpTenant(context, sourceRow, targetRow) {
     return 'STDP source and target memories must belong to the same tenant.';
   }
   if ((context.organizationId && context.organizationId !== sourceRow.organization_id)
-    || (context.projectId && context.projectId !== sourceRow.project_id)) {
+    || (context.projectId && context.projectId !== targetRow.project_id)) {
     return 'STDP memories are outside the requested tenant.';
   }
   return null;
@@ -119,69 +115,93 @@ async function databaseFor(context) {
   return context.db || getDatabase();
 }
 
-async function stdpUpdate(context) {
-  const db = await databaseFor(context);
-  const ids = {
+function resolveIds(context) {
+  return {
     sourceId: firstTruthy(context.sourceId, context.causeId),
     targetId: firstTruthy(context.targetId, context.effectId),
     preSpikeAt: Number(firstNonNull(context.preSpikeAt, context.preTimestamp)),
     postSpikeAt: Number(firstNonNull(context.postSpikeAt, context.postTimestamp))
   };
+}
+
+function resolveParams(context) {
   const tauMs = Number(firstNonNull(context.tauMs, 20));
-  const tauPlus = Number(firstNonNull(context.tauPlus, tauMs));
-  const tauMinus = Number(firstNonNull(context.tauMinus, tauMs));
-  const learningRate = Number(firstNonNull(context.learningRate, context.delta, 1));
-  const transmitterType = String(firstTruthy(context.transmitterType, 'glutamate')).toLowerCase();
+  return {
+    tauMs: Number(firstNonNull(context.tauMs, 20)),
+    tauPlus: Number(firstNonNull(context.tauPlus, tauMs)),
+    tauMinus: Number(firstNonNull(context.tauMinus, tauMs)),
+    learningRate: Number(firstNonNull(context.learningRate, context.delta, 1)),
+    transmitterType: String(firstTruthy(context.transmitterType, 'glutamate')).toLowerCase()
+  };
+}
 
+function validateParams(params) {
+  const timeError = validateStdpTimeConstants(params);
+  if (timeError) return { success: false, error: timeError };
+  const transmitterError = validateTransmitterType(params.transmitterType);
+  if (transmitterError) return { success: false, error: transmitterError };
+  return null;
+}
+
+async function resolveIdsAndParams(context) {
+  const ids = resolveIds(context);
+  const params = resolveParams(context);
+  return { db: await databaseFor(context), ids, params };
+}
+
+async function detectAndValidatePair(db, context, ids) {
   await detectCausalPair(db, context, ids);
-
   const skipResult = buildSkipResult(context, ids);
-  if (skipResult) {
-    return skipResult;
-  }
+  if (skipResult) return skipResult;
+  return null;
+}
 
+function resolveSpikeTimes(ids) {
   const times = normalizeSpikeTimes(ids.preSpikeAt, ids.postSpikeAt);
-  if (times.error) {
-    return { success: false, error: times.error };
-  }
-  const preSpikeAt = times.preSpikeAt;
-  const postSpikeAt = times.postSpikeAt;
+  if (times.error) return { error: times.error };
+  return { preSpikeAt: times.preSpikeAt, postSpikeAt: times.postSpikeAt };
+}
 
-  const timeError = validateStdpTimeConstants({ tauMs, tauPlus, tauMinus, learningRate });
-  if (timeError) {
-    return { success: false, error: timeError };
-  }
-  const transmitterError = validateTransmitterType(transmitterType);
-  if (transmitterError) {
-    return { success: false, error: transmitterError };
-  }
-
+function computeDeltaT(preSpikeAt, postSpikeAt) {
   const deltaT = postSpikeAt - preSpikeAt;
   if (deltaT === 0) {
-    return { success: false, error: 'preSpikeAt and postSpikeAt must differ for STDP.' };
+    return { error: 'preSpikeAt and postSpikeAt must differ for STDP.' };
   }
+  return deltaT;
+}
 
-  const neuromodulationFactor = resolveNeuromodulationFactor(transmitterType, context);
-  const update = computeStdpUpdate({ learningRate, deltaT, tauPlus, tauMinus, neuromodulationFactor });
-
+async function loadPairRows(db, ids) {
   const [sRow, tRow] = await Promise.all([
     lookupDecisionRow(db, ids.sourceId),
     lookupDecisionRow(db, ids.targetId)
   ]);
   if (!sRow || !tRow) {
-    return { success: false, error: `STDP refused: causal pair not found (sourceId=${ids.sourceId}, targetId=${ids.targetId}). No synthetic decision is created.` };
+    return { error: `STDP refused: causal pair not found (sourceId=${ids.sourceId}, targetId=${ids.targetId}). No synthetic decision is created.` };
   }
-  const orgId = firstTruthy(context.organizationId, sRow.organization_id, null);
-  const projId = firstTruthy(context.projectId, sRow.project_id, null);
-  const tenantError = validateStdpTenant(context, sRow, tRow);
-  if (tenantError) {
-    return { success: false, error: tenantError };
-  }
+  return { sRow, tRow };
+}
 
-  let row;
-  await withTransaction(db, async (tx) => {
-    // Poids signés : l'inhibition (GABA/LTD) vit sous zéro, plancher -20.0.
-    // Clamper à 0.01 effaçait toute plasticité négative.
+function resolveOrgAndProj(context, sRow) {
+  return {
+    orgId: firstTruthy(context.organizationId, sRow.organization_id, null),
+    projId: firstTruthy(context.projectId, sRow.project_id, null)
+  };
+}
+
+function validateTenant(context, sRow, tRow) {
+  const tenantError = validateStdpTenant(context, sRow, tRow);
+  if (tenantError) return { error: tenantError };
+  return null;
+}
+
+function computeUpdate(params, transmitterType, context) {
+  const neuromodulationFactor = resolveNeuromodulationFactor(transmitterType, context);
+  return computeStdpUpdate({ learningRate: params.learningRate, deltaT: params.deltaT, tauPlus: params.tauPlus, tauMinus: params.tauMinus, neuromodulationFactor });
+}
+
+async function executeTransaction(db, ids, params) {
+  const { transmitterType, preSpikeAt, postSpikeAt, deltaT, orgId, projId, update } = params;
+  return withTransaction(db, async (tx) => {
     const initialWeight = Math.max(-20.0, Math.min(20.0, update > 0 ? update : 1.0 + update));
     await tx.run(
       `INSERT INTO memory_synapses
@@ -207,19 +227,48 @@ async function stdpUpdate(context) {
        WHERE source_id = ? AND target_id = ?`,
       update, update, update, ids.sourceId, ids.targetId
     );
-    row = await tx.get('SELECT weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', ids.sourceId, ids.targetId);
+    return readUpdatedWeight(tx, ids);
   });
+}
 
-  const newWeight = resolveSynapseWeight(row, update);
+async function readUpdatedWeight(db, ids) {
+  const row = await db.get('SELECT weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', ids.sourceId, ids.targetId);
+  return resolveSynapseWeight(row, 0);
+}
+
+async function emitTelemetry(context, ids, params) {
+  const { deltaT, transmitterType, newWeight, update } = params;
   telemetry.emitEvent({
     eventType: 'STDP_SYNAPSE_UPDATED',
     agentId: firstTruthy(context.agentId, 'strategy_adapter'),
     action: 'STDP',
-    detail: 'Synapse ' + ids.sourceId + ' -> ' + ids.targetId + ' updated to weight ' + resolveSynapseWeight(row, firstNonNull(context.delta, update)),
+    detail: 'Synapse ' + ids.sourceId + ' -> ' + ids.targetId + ' updated to weight ' + newWeight,
     severity: 'info',
     payload: { sourceId: ids.sourceId, targetId: ids.targetId, deltaT, update, transmitterType, newWeight }
   });
-  return { success: true, sourceId: ids.sourceId, targetId: ids.targetId, deltaT, update, transmitterType, newWeight };
+}
+
+async function stdpUpdate(context) {
+  const { db, ids, params } = await resolveIdsAndParams(context);
+  const skipResult = await detectAndValidatePair(db, context, ids);
+  if (skipResult) return skipResult;
+  const times = resolveSpikeTimes(ids);
+  if (times.error) return { success: false, error: times.error };
+  const { preSpikeAt, postSpikeAt } = times;
+  const validationError = validateParams(params);
+  if (validationError) return validationError;
+  const deltaT = computeDeltaT(preSpikeAt, postSpikeAt);
+  if (deltaT.error) return { success: false, error: deltaT.error };
+  const update = computeUpdate({ ...params, deltaT }, params.transmitterType, context);
+  const pairRows = await loadPairRows(db, ids);
+  if (pairRows.error) return { success: false, error: pairRows.error };
+  const { sRow, tRow } = pairRows;
+  const tenantError = validateTenant(context, pairRows.sRow, pairRows.tRow);
+  if (tenantError) return { success: false, error: tenantError.error };
+  const { orgId, projId } = resolveOrgAndProj(context, sRow);
+  const newWeight = await executeTransaction(db, ids, { ...params, ...times, deltaT, orgId, projId, update });
+  await emitTelemetry(context, ids, { deltaT, transmitterType: params.transmitterType, newWeight, update });
+  return { success: true, sourceId: ids.sourceId, targetId: ids.targetId, deltaT, update, transmitterType: params.transmitterType, newWeight };
 }
 
 module.exports = { stdpUpdate, firstTruthy, firstNonNull };

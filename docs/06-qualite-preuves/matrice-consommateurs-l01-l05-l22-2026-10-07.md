@@ -22,7 +22,7 @@ journaux de la passe finale sont référencés dans le
 | AU — Autorité et tenant | agentAuthorityService / Cedar / biscuitDelegationService / auth / tenant | Refus d’identité, atténuation, révocation, scope et accès public | test_cedar_agent_authority ; test_biscuit_delegation ; test_tenancy ; test_auth_public_surface | Pas de qualification universelle de tous les handlers ni de toutes les mutations concurrentes |
 | LE — Leases | toolLeasePolicy → MCP dispatch | Lease vide explicite = aucun outil ; intersection et rôle périmé refusés | test_tool_lease_restriction ; test_mcp_topology_lease | Le lease autorise l’action ; il n’atteste pas son résultat |
 | SA — Confinement | workspaceRegistry / runIsolated / validation des chemins MCP | Traversée, chemins hors capsule et commandes refusées | test_aeis_sandbox ; test_workspace_path_containment ; test_path_traversal ; test_mcp_input_paths | Confinement applicatif testé ; aucun confinement OS universel revendiqué |
-| GO — Gouvernance | strategyExecutionController → approveRun ; platformApprovalExecution | Signature seule refusée ; preuves réelles requises ; séparation et payload contrôlés | test_human_approval_promotion_gate ; test_approval_separation_bypass | Nonces transactionnels ; deux lots frais pour un même run ne sont pas sérialisés |
+| GO — Gouvernance | strategyExecutionController → approveRun → journal scellé ; platformApprovalExecution | Signature seule refusée ; réservation unique avec lots frais ; reprise des effets committés | test_human_approval_promotion_gate ; test_promotion_execution_recovery ; test_approval_separation_bypass | Garantie bornée aux effets SQLite et postimages de fusion ; télémétrie et effets distants hors exactement une fois |
 | CO — Conformité | complianceRoutes → complianceService ; platformController | Rapport enregistré et export CSV via HTTP ; lecture locale et par projet en SQLite | test_compliance_integrations ; test_compliance_tenant_scope ; test_approval_payload_integrity | Intégrité du payload : contrôle statique complémentaire ; rapport logiciel ≠ certification réglementaire |
 | SS — Authentification / SSO | auth / ssoRoutes / secretVault | Surface publique contrôlée, métadonnées expurgées, SAML non signé refusé | test_auth_public_surface ; test_sso_provider_disclosure ; test_saml_validation | Aucun cycle OIDC ou SAML positif avec IdP réel ; SAML utilise un certificat de fixture |
 | SE — Secrets | secretVault → dérivation et chiffrement | KDF et validation du coffre | test_secret_vault_kdf ; test_replay_manifest | Pas d’audit exhaustif des canaux de fuite ; manifeste filtre les noms autorisés |
@@ -36,7 +36,7 @@ journaux de la passe finale sont référencés dans le
 | MC — MCP | MCP HTTP / explicite / stdio ; catalogues Node et Rust | Transport et leases ; erreurs propagées | test_mcp_http_transport ; test_mcp_explicit_transport ; test_mcp_server_parity ; cargo test --workspace | Parité Node/Rust testée seulement sur un sous-ensemble ; pas de parité sémantique globale |
 | CL — CLI et façade g | g.ps1 → genos-simple-cli → genos-cli ; operator Node | Façade réelle --help exécutée ; contrôles CLI Rust et opérateur SQLite | operator-g-help.log ; cargo test --workspace ; test_ontogenesis_operator_cli | Aide du shim seulement ; aucune mutation destructive lancée ; pas de parcours commun CLI/backend complet |
 | ID — IDE | ideRoutes → ideController → ide_integrations | Contrat HTTP et compatibilité de version | test_ide_contract ; test_compliance_integrations | Connexion, commandes depuis une extension installée et état interinterfaces non exercés |
-| UI — Studio / TUI | Studio web ; CLI/TUI | Entrées présentes dans le code et le registre | Inspection des entrées, sans test de parcours utilisateur | Aucune session interactive Studio/TUI qualifiée |
+| UI — Studio / TUI | API Studio ; CLI/TUI natif → trinityMonitorServer → SQLite | Session live TUI, données des trois mondes, navigation et sortie terminal | b06/tui-interaction.json ; fixture moniteur réelle | Moniteur borné qualifié ; client Studio web opérationnel absent de ce dépôt et extension IDE installée non exercée |
 | OB — Observabilité | telemetryObserver / trace replay / audit logs / health | Sessions et IDs persistés, trace relue, audit tenant et sondes réelles | test_trace_replay_semantics ; test_audit_tenant_scope ; test_session_telemetry_identity ; test_deployment_health | Health/readiness ne démontrent pas la validité d’une décision ; export externe et alertes bout en bout non qualifiés |
 | MP — MsgPack | bioPolymerPersistenceService | Aller-retour binaire des données de fixture | test_bio_polymer_roundtrip | Ne démontre pas l’absence de perte de tous les formats des interfaces |
 
@@ -114,7 +114,7 @@ journaux de la passe finale sont référencés dans le
 | C567 | Façade opérateur `g` | L22 | CL | P |
 | C568 | IDE `genos.ide/v1` | L22 | ID | P |
 | C569 | Studio | L22 | UI | N |
-| C570 | TUI | L22 | UI | N |
+| C570 | TUI | L22 | UI | P |
 | C575 | Event log | L22 | OB | P |
 | C576 | MsgPack | L22 | MP | Q |
 | C578 | Observabilité | L22 | OB | P |
@@ -172,11 +172,14 @@ journaux de la passe finale sont référencés dans le
   il ne crée pas un oracle scientifique.
 - L04 : capture complète des aléas et interventions, isolement de tous les
   canaux, replay causal et effets externes non annulables.
-- L05 : pilote IA à oracle réel, holdout effectivement inaccessible, coûts
-  complets, ablations et puissance recalculée sur données représentatives.
-- L22 : parcours interactifs Studio/TUI, extension IDE installée et parité
+- L05 : pilote IA réel exécuté sur huit cas réservés avec oracle hors prompt ;
+  restent les domaines représentatifs, coûts matériels, ablations et puissance.
+- L22 : parcours interactif Studio, extension IDE installée et parité
   sémantique de toutes les surfaces sur un même run.
 
 Aucun gain IA ni aucune nouvelle fonctionnalité de recherche n’est établi par
 cette matrice. Les entrées du registre, les imports et les assertions de texte
 ne sont pas traités comme des preuves d’un parcours exécuté.
+
+La [reprise B06](qualification-b06-reprise-et-holdout-2026-10-07.md) décrit les
+tests de panne, les snapshots Windows, le pilote IA exploratoire et le TUI live.

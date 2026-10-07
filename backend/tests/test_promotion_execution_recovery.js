@@ -33,9 +33,18 @@ async function assertCompleted(input) {
     assert.equal(row.phase, 'completed');
     const count = await db.get("SELECT count(*) AS n FROM primitive_execution_journal WHERE agent_id = 'consumer-promotion-agent'");
     assert.equal(count.n, row.payload.primitives.length, 'Each actual primitive has one committed execution');
+    const trajectory = await db.get("SELECT count(*) AS n FROM trajectories WHERE author_id = 'consumer-promotion-agent'");
+    assert.equal(trajectory.n, 1, 'One canonical golden-path trajectory survives transaction and recovery');
     const memory = await db.get("SELECT count(*) AS n FROM provenance_records WHERE subject_type = 'strategy_promotion'");
     assert.equal(memory.n, 1, 'One promotion provenance parent survives finalization');
     assert.equal((await execution.approveRun(db, input.runId, input.options)).status, 'completed');
+    await db.run("UPDATE strategy_execution_runs SET status = 'blocked' WHERE id = ?", input.runId);
+    await assert.rejects(execution.approveRun(db, input.runId, input.options), /PROMOTION_RUN_STATE_CHANGED/);
+    await db.run("UPDATE strategy_execution_runs SET status = 'completed' WHERE id = ?", input.runId);
+    const binding = await journal.runBinding(db, input.runId);
+    await db.run("UPDATE strategy_contracts SET contract_hash = 'altered' WHERE id = ?", binding.contract_id);
+    await assert.rejects(execution.approveRun(db, input.runId, input.options), /PROMOTION_BINDING_CHANGED/);
+    await db.run('UPDATE strategy_contracts SET contract_hash = ? WHERE id = ?', binding.contract_hash, binding.contract_id);
     await assert.rejects(execution.approveRun(db, input.runId, { ...input.options, summary: 'changed' }), /PROMOTION_REQUEST_CHANGED/);
     await db.run("UPDATE promotion_execution_journal SET phase = 'reserved' WHERE run_id = ?", input.runId);
     await assert.rejects(journal.read(db, input.runId), /PROMOTION_JOURNAL_INTEGRITY/);

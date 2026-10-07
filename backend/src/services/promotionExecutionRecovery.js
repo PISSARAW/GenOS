@@ -61,7 +61,7 @@ async function externalPostPromotion(db, row) {
 async function finalize(db, id) {
   return withTransaction(db, async () => {
     const row = await journal.read(db, id);
-    if (row.phase === 'completed') return events.getRun(db, id);
+    if (row.phase === 'completed') return completedRun(db, id);
     if (row.phase !== 'post_done') throw new Error('PROMOTION_RECONCILIATION_REQUIRED');
     const { promotion, options } = row.payload;
     await require('./epistemic/epistemicAuthorityState').assertAuthority(db, promotion.agentId);
@@ -81,6 +81,12 @@ async function finalize(db, id) {
   });
 }
 
+async function completedRun(db, id) {
+  const run = await events.getRun(db, id);
+  if (run?.status !== 'completed') throw new Error('PROMOTION_RUN_STATE_CHANGED');
+  return run;
+}
+
 async function resume(db, row, options) {
   if (journal.fingerprint(options) !== row.payload.optionsHash) throw new Error('PROMOTION_REQUEST_CHANGED');
   if (journal.fingerprint(await journal.runBinding(db, row.run_id)) !== journal.fingerprint(row.payload.binding)) {
@@ -89,7 +95,7 @@ async function resume(db, row, options) {
   gate.assertApprovalProof(row.payload.promotion, options, row.run_id);
   await gate.assertPromotionContainment(db, row.payload.promotion, options);
   await require('./epistemic/epistemicAuthorityState').assertAuthority(db, row.payload.promotion.agentId);
-  if (row.phase === 'completed') return events.getRun(db, row.run_id);
+  if (row.phase === 'completed') return completedRun(db, row.run_id);
   await require('./aeisAssemblyStore').readAssembly(db, row.payload.promotion.aeisAssemblyId);
   await transactionalPipeline(db, row.run_id);
   const post = await postPromotion(db, row.run_id);

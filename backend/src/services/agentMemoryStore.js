@@ -219,6 +219,7 @@ async function depositTaskExosome(job, record) {
 }
 
 async function maybeDepositExosome(job, record) {
+  if (job.options?.databaseOnly) return;
   if (record.failed || record.unproven || record.ethicalInterpretive || record.epistemicInterpretive) return;
   if (alreadyDeposited(job, record)) return;
   try {

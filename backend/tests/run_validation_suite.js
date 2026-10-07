@@ -136,6 +136,8 @@ const suites = {
     ['notification migration', 'test_notification_preference_migration.js']
   ],
   recovery: [
+    ['promotion execution recovery', 'test_promotion_execution_recovery.js'],
+    ['Windows snapshot publication', 'test_snapshot_publish_retry.js'],
     ['worker recovery', 'test_worker_failure_recovery.js'],
     ['causal bisection', 'test_automatic_bisection_recovery.js'],
     ['execution reconnection', 'test_execution_loop_reconnections.js']

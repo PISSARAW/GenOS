@@ -164,6 +164,7 @@ async function persistTrajectory(db, data) {
 }
 
 function persistTrajectoryFile(data, options, report) {
+  if (options.databaseOnly) return;
   try {
     const fs = require('fs');
     const path = require('path');

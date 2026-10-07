@@ -35,7 +35,7 @@ async function recordPromotionMemory(db, promotion, options) {
     const parent = await provenanceParent(db, promotion, scope);
     return await require('./agentMemoryContext').compileExecutionMemory(promotion.agentId, promotion.task,
       summary(promotion.report, options.summary || `Strategy promotion completed for run ${promotion.runId}.`), {
-        ...scope, outcome: promotion.report?.outcome || 'unknown', approvedBy: options.approvedBy || 'human_gate',
+        ...scope, databaseOnly: true, outcome: promotion.report?.outcome || 'unknown', approvedBy: options.approvedBy || 'human_gate',
         evidenceReport: promotion.report, philosophy: promotion.contract.philosophy,
         epistemicContext: promotion.contract.epistemic_context, provenanceHash: parent.payloadHash,
         ethicalComparison: promotion.contract.ethical_comparison
