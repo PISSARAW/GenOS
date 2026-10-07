@@ -207,6 +207,17 @@ function validatePublicSchema(toolName, args) {
   return null;
 }
 
+function validateToolEnums(toolName, args) {
+  const enums = {
+    genos_world_sandbox_execute: { backend: ['directory', 'hardlink', 'copy_on_write', 'cow'] },
+    genos_fossil_record: { mode: ['petrification', 'external_mold', 'internal_mold', 'trace'] }
+  };
+  for (const [field, values] of Object.entries(enums[toolName] || {})) {
+    if (args[field] !== undefined && !values.includes(args[field])) return invalid(field, `must be one of: ${values.join(', ')}.`);
+  }
+  return null;
+}
+
 function validateToolArguments(toolName, args = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return invalid('args', 'must be an object.');
   const publicSchemaError = validatePublicSchema(toolName, args);
@@ -320,15 +331,7 @@ function validateToolArguments(toolName, args = {}) {
     }
   }
 
-  const enumValues = {
-    backend: ['directory', 'hardlink', 'copy_on_write', 'cow'],
-    mode: ['petrification', 'external_mold', 'internal_mold', 'trace']
-  };
-  for (const [field, values] of Object.entries(enumValues)) {
-    if (args[field] !== undefined && !values.includes(args[field])) return invalid(field, `must be one of: ${values.join(', ')}.`);
-  }
-
-  return null;
+  return validateToolEnums(toolName, args);
 }
 
 module.exports = { validateToolArguments, REQUIRED_STRINGS };

@@ -14,6 +14,8 @@ const accepted = [
   ['genos_record_decision', { agentId: 'agent', title: 'choice', decision: 'keep', evidence: ['test'] }],
   ['genos_worker_publish', { kind: 'status', signal_type: 'ligand', signal_data: { intensity: 1 } }],
   ['genos_a_team_preview', { project_goal: 'build', sub_systems: ['backend'] }],
+  ['genos_biological_mode', { mode: 'biome', mission: 'inspect' }],
+  ['genos_signal_collective_decision', { mode: 'stigmergic', problem: 'choice', voters: [] }],
   ['genos_snapshot', { agent: 'agent.json', out: 'snapshot.json' }]
 ];
 for (const [name, args] of accepted) {
