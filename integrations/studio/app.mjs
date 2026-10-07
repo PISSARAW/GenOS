@@ -229,10 +229,10 @@ export function start() {
     event.preventDefault();
     perform(async () => {
       await api.request(`/api/execution-runs/${encoded(state.current.run.id)}/approve`,
-        { body: approvalBody() });
+        { body: approvalBody(), timeoutMs: 60000 });
       byId('approval-json').value = '';
       await refresh();
-    });
+    }, { preserveDraft: true });
   });
 }
 

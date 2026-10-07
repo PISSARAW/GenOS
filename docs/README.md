@@ -3,6 +3,7 @@
 - [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
 - [ADR 0361 — Studio : socle requêtes, actions et brouillons](adr/0361-studio-socle-requetes-actions-et-brouillons.md) — étape B, commits atomiques et qualification bornée.
 - [ADR 0362 — Studio : parcours pilote borné](adr/0362-studio-parcours-pilote-borne-et-dependances.md) — étape C, services réels, dépendances et limites de généralisation.
+- [Studio : rejouer le pilote](04-exploitation/studio-parcours-pilote.md) — procédure P03 bornée, critères exécutables, captures et diagnostic.
 
 - [Socle P1 : suivi](06-qualite-preuves/suivi-p1-socle-2026-10-07.md) — manifeste, cycle des claims et provenance runtime ; [115 obligations de clôture](06-qualite-preuves/obligations-cloture-p1.md).
 

@@ -320,3 +320,59 @@ backend ; un appel MCP sans le module échoue toujours, sans verdict inventé.
 `node backend/tests/test_studio_optional_mcp.cjs` passe : module absent simulé,
 import disponible et appel refusé avant effet. Le test est inclus dans la suite
 Studio. Ce changement ne livre pas le module absent ni une qualification MCP.
+
+### C02 — Pilote exécutable de bout en bout
+
+Le [guide de rejeu](../04-exploitation/studio-parcours-pilote.md) et
+`npm --prefix backend run test:studio:pilot` qualifient une tranche P03 sans
+interception API : Studio → HTTP réel → SQLite/fichiers → CAS → snapshots
+durables → refus de revue → assemblage vérifié → provenance persistée → purge.
+Le dossier d'approbation refusé reste visible et corrigible. Sa deadline client
+est de 60 secondes pour la vérification synchrone, sans changer le budget runtime
+ni les gates ; un effet incertain n'est jamais resoumis automatiquement.
+
+Le pilote final passe sous Windows/Edge 154.0.4258.62 : octets sauvegardés et
+restaurés vérifiés, 409 avec brouillon intact, snapshot de sécurité relu en DB,
+autre projet 404, secret 403, traversée 400 et approbation sans signature 403.
+Le refus conserve le run en attente sans provenance. La revue signée obtient
+un journal `completed`, un assemblage accepté, au moins deux résultats de
+vérificateurs et une mémoire intègre liée au hash parent. Les commandes `npm test`
+des répliques sont exécutées par le backend, pas remplacées par une fixture HTTP.
+Le navigateur ne signale aucune erreur de page ; le viewport 390 px ne déborde
+pas et la déconnexion purge le contenu sans stockage de session.
+
+Les captures desktop de restauration/promotion et mobile ont été inspectées.
+Elles montrent aussi les limites du run préparé : métriques inconnues et étapes
+initiales planifiées. Elles ne prouvent pas une trajectoire autonome antérieure.
+Les artefacts ignorés restent dans `.genos-tests/studio-pilot-c/` : manifeste
+`studio-pilot-qualified.json`, trois captures et logs. Le manifeste avant commit
+indique la base `61275fa4` et les hashes des sources réellement testées.
+L'autorité observée est `legacy_unbound`, les postconditions et la vérification
+native sont `not_evaluated`. Le pilote reste synthétique, sans LLM externe et
+sans revue humaine indépendante réelle ; toute la cible P03 n'est pas certifiée.
+
+### Qualification finale B/C — 2026-10-07
+
+| Contrôle | Résultat observé |
+| --- | --- |
+| `python scripts/ci/check_code_quality.py` | Code 0 ; 5 505 sources, zéro violation nouvelle ou totale. |
+| `python scripts/ci/check_adr_index.py` | Code 0 ; 442 ADR, 442 entrées, zéro problème. |
+| `git diff --check` | Code 0. |
+| `npm --prefix backend run test:studio` | Code 0 ; 16/16 suites Windows, services réels et frontières MCP inclus. |
+| `npm --prefix backend run test:studio:foundation` | Code 0 avant C02 ; DOM réel, API fixtures explicitement bornées. |
+| `npm --prefix backend run test:studio:pilot` | Code 0 après les assertions finales ; services réels, aucune interception API. |
+| `cargo test --workspace` | Code 0 hors sandbox Windows ; cache Cargo principal réutilisé. |
+| `npm test` | Code 1 après les suites précédentes passantes ; `test_p0_pilot_protocol.js` refuse l'intégrité de `public/code.json`. Les suites suivantes ne sont pas certifiées. |
+
+Les quatre assets de `benchmarks/p0-pilots/v1/dataset.lock.json` sont inchangés.
+La probe de hash en lecture seule confirme : hashes des octets LF différents du
+lock ; conversion en mémoire vers CRLF exactement égale aux quatre hashes attendus.
+Aucun fichier ni empreinte du dataset n'a été modifié pour contourner le gate.
+Le défaut global reste ouvert et distinct de la qualification Studio.
+Le chargement MCP absent ne bloque plus les suites indépendantes grâce à C01 ;
+il reste obligatoire et fail-closed au point d'exécution MCP.
+
+Commits B : `a3b6755f` (B01), `5ca266fa` (B02), `54030cbc` (B03).
+Prérequis C : `61275fa4` (C01). C02 conserve son propre commit et le manifeste
+d'exécution ; branche `codex/studio-v3-integration`, sans fusion ou push implicite.
+Le registre exhaustif et les autres zones de la cible restent ouverts.

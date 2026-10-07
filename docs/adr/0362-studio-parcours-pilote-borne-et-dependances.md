@@ -34,6 +34,11 @@ Aucune interception de réponse API n'est admise dans le scénario nominal du pi
 Les signatures sont produites par le harnais de test, jamais par le navigateur.
 Ce n'est pas la participation d'un humain indépendant réel.
 
+Le dossier d'approbation refusé reste visible et corrigible. La requête de revue
+synchrone, qui exécute des commandes de vérification, dispose d'une deadline
+client bornée à 60 secondes. Le budget runtime et les gates restent inchangés ;
+un timeout reste un effet inconnu, sans resoumission automatique.
+
 Les preuves conservées indiquent révision, runtime, navigateur, entrées, chemins
 relatifs, empreintes, refus, résultat de revue et portée. Elles ne contiennent
 ni token ni secrets de signature et restent ignorées par Git.
