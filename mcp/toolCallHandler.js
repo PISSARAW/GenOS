@@ -37,9 +37,13 @@ const ORCHESTRATOR_ACTIONS = Object.freeze({
   genos_philosophy: 'philosophy'
 });
 
+function hasBackendRoute(name) {
+  return Boolean(BACKEND_REGISTRY && CATALOG_TOOLS.has(name) && BACKEND_REGISTRY.isSupportedTool(name));
+}
+
 export function isToolCallRoutable(name) {
   if (name === 'genos_philosophy' && !HAS_BACKEND_RUNTIME) return false;
-  if (BACKEND_REGISTRY && CATALOG_TOOLS.has(name) && BACKEND_REGISTRY.isSupportedTool(name)) return true;
+  if (hasBackendRoute(name)) return true;
   return STRATEGY_TOOL_NAMES.has(name) || CLI_TOOL_NAMES.has(name)
     || Object.prototype.hasOwnProperty.call(ORCHESTRATOR_ACTIONS, name);
 }
@@ -169,7 +173,7 @@ async function dispatchTool(input) {
   if (Object.prototype.hasOwnProperty.call(ORCHESTRATOR_ACTIONS, name)) {
     return orchestratorCall({ name, args, runOrchestrator, onTelemetry });
   }
-  if (BACKEND_REGISTRY && CATALOG_TOOLS.has(name) && BACKEND_REGISTRY.isSupportedTool(name)) {
+  if (hasBackendRoute(name)) {
     return registeredToolCall({ name, args });
   }
   return orchestratorCall({ name, args, runOrchestrator, onTelemetry });
