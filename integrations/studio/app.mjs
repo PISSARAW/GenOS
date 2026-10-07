@@ -1,5 +1,6 @@
 import { StudioClient } from './client.mjs';
 import { byId, encoded, node, options, applyPermissions, errorMessage, showView } from './ui.mjs';
+import { connectedShell } from './shell.mjs';
 
 export const api = new StudioClient();
 export const state = { current: null, runId: null, busy: false, epoch: 0 };
@@ -20,7 +21,7 @@ export function disconnect() {
   state.busy = false;
   api.setSession(null);
   clearView();
-  byId('navigation').hidden = true;
+  connectedShell(false);
   byId('token').value = '';
   for (const button of document.querySelectorAll('button')) button.disabled = false;
   applyPermissions(api);
@@ -42,6 +43,7 @@ export async function perform(action, options = {}) {
   try {
     await action();
     if (epoch === state.epoch) byId('message').textContent = 'État runtime chargé.';
+    return epoch === state.epoch;
   } catch (error) {
     if (epoch !== state.epoch) return;
     if (error.status === 401) disconnect();
@@ -52,6 +54,7 @@ export async function perform(action, options = {}) {
       state.busy = false;
       buttons.forEach(button => { button.disabled = false; });
       applyPermissions(api);
+      window.dispatchEvent(new Event('studio:idle'));
     }
   }
 }
@@ -120,15 +123,18 @@ async function connect() {
   byId('token').value = '';
   clearView();
   window.dispatchEvent(new Event('studio:session'));
-  await perform(async () => {
+  connectedShell(false);
+  const success = await perform(async () => {
     const session = await api.request('/api/auth/session');
     api.session.permissions = session.user.permissions;
-    byId('navigation').hidden = false;
     showView('inspection');
     await discover();
     if (api.session.agent) await refresh();
-    window.dispatchEvent(new Event('studio:ready'));
   });
+  if (success && api.session) {
+    connectedShell(true);
+    window.dispatchEvent(new Event('studio:ready'));
+  }
 }
 
 async function changeScope(event) {
@@ -151,9 +157,6 @@ export function start() {
   for (const id of ['organization', 'project', 'agent']) byId(id).addEventListener('change', changeScope);
   byId('refresh').addEventListener('click', () => perform(refresh));
   byId('run-search').addEventListener('submit', event => { event.preventDefault(); perform(runList); });
-  for (const button of document.querySelectorAll('[data-target]')) {
-    button.addEventListener('click', () => { showView(button.dataset.target); window.dispatchEvent(new Event('studio:view')); });
-  }
   byId('snapshot').addEventListener('click', () => perform(async () => {
     await api.request(`/api/workspaces/${encoded(state.current.workspace.id)}/snapshots`,
       { body: { label: 'Studio', reason: 'Operator capture' } });

@@ -2,18 +2,20 @@
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GenOS Studio</title><link rel="stylesheet" href="style.css"><script src="studio.js" type="module"></script></head>
-<body><main>
+<body><a class="skip-link" href="#view-content">Aller au contenu</a><main id="view-content" tabindex="-1">
 <header><p>GENOS · SUPERVISION</p><h1>Studio</h1><p>Inspecter une exécution, ses preuves et son workspace.</p></header>
-<form id="connection">
+<section id="connection-panel" aria-label="Connexion au Studio"><form id="connection">
 <label>Clé d’accès<input id="token" type="password" autocomplete="off" required></label>
-<label>Organisation<input id="organization" list="organizations"><datalist id="organizations" data-runtime></datalist></label>
+<div id="connection-scope"><div id="scope-controls"><label>Organisation<input id="organization" list="organizations"><datalist id="organizations" data-runtime></datalist></label>
 <label>Projet<input id="project" list="projects"><datalist id="projects" data-runtime></datalist></label>
-<label>Agent<input id="agent" list="agents"><datalist id="agents" data-runtime></datalist></label>
-<button type="submit">Ouvrir l’exécution</button><button id="disconnect" type="button">Déconnecter</button>
-</form>
+<label>Agent<input id="agent" list="agents"><datalist id="agents" data-runtime></datalist></label></div></div>
+<button type="submit">Ouvrir l’exécution</button>
+</form></section>
+<div id="session-bar" aria-label="Contexte du projet" hidden><div id="context-scope"></div>
+<label>Workspace<input id="workspace-choice" list="workspaces"><datalist id="workspaces" data-runtime></datalist></label>
+<button id="disconnect" type="button">Déconnecter</button></div>
 <p id="message" role="status" aria-live="polite">Connectez-vous avec une clé autorisée sur ce projet.</p>
 <nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button><button data-target="dashboard-view" type="button">Supervision</button><button data-target="management-view" type="button">Gestion et commandes</button><button data-target="files-view" type="button">Fichiers et snapshots</button><button data-target="research-view" type="button">Laboratoire</button></nav>
-<label>Workspace<input id="workspace-choice" list="workspaces"><datalist id="workspaces" data-runtime></datalist></label>
 <section id="inspection" data-view hidden>
 <h2>Exécution <span id="run-id" data-runtime></span></h2><p id="run-status" data-runtime></p><p id="workspace" data-runtime></p>
 <button id="refresh" type="button">Actualiser</button>

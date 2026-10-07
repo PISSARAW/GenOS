@@ -36,7 +36,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | F02.1 Base isolée | Livré par ce document | Git inspecté, checkout opérateur conservé |
 | F03.1 Contrats | Livré : ADR 0350 | Frontières UI/API/runtime, routes et sessions |
 | F04.1 Harnais | Qualifié Windows | Port attribué par l'OS, origine exacte, résultat structuré ; Edge 154.0.4258.62, aucune erreur de page |
-| C01 Navigation | À réaliser | Connexion, contexte, routes et historique |
+| C01.1 Navigation | Qualifié Windows | Connexion séparée, contexte compact, cinq routes, liens de run et historique |
 | C02 Composants | À réaliser | Données métier lisibles et JSON secondaire |
 | C03 Accessibilité | À réaliser | Contrôles de toutes les vues ; pas de certification présumée |
 | C04 Onboarding | À réaliser | Guide et diagnostics sans création implicite |
@@ -65,6 +65,12 @@ Pour chaque point : vérifier qualité, exécuter les tests concernés, conserve
 captures/versions dans un répertoire ignoré et mettre à jour ce registre.
 Les gates globaux seront réexécutés avant la fin de cette tranche.
 Une validation Windows ne qualifie pas Linux/Docker ni un fournisseur réel.
+
+C01.1 : tests unitaires routes/client réussis et parcours navigateur enrichi
+réussi sous Edge 154.0.4258.62 : historique avant/arrière, rechargement de lien
+profond sans session, lecture après authentification, refus de run introuvable,
+contexte tenant inchangé et absence de stockage de clé. Aucune erreur de page.
+Le lien d'un workflow, d'un job ou d'un fichier sera qualifié avec son lot.
 
 Voir [la matrice](studio-parite-plan.md) et
 [la qualification des huit lots](studio-qualification.md).
