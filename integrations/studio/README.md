@@ -17,6 +17,16 @@ workspace. Pour un autre port ou HTTPS, régler `GENOS_ALLOWED_ORIGINS`.
 Le redémarrage Studio exige le superviseur propriétaire et une confirmation admin ;
 le lancement cluster historique ne promet pas cette capacité.
 
+Après authentification, le formulaire de clé est masqué et le contexte du
+projet reste accessible dans une barre dédiée. Le guide accompagne la première
+lecture sans créer d'agent ni exécuter de mission. Les vues sont adressables par
+`#/runs`, `#/supervision`, `#/gestion`, `#/fichiers` et `#/laboratoire`.
+Un dossier d'exécution peut être référencé par `#/runs/<run-id>` ; son ouverture
+exige une session autorisée dans le projet sélectionné. Le lien ne contient
+ni clé ni scope et ne sélectionne pas automatiquement un autre tenant.
+Précédent/suivant conserve les destinations ; les paramètres URL non supportés
+sont retirés. Un identifiant introuvable reste un refus explicite.
+
 ## Parcours disponibles
 
 - Inspection : runs, étapes, métriques observées, promotion signée, provenance
@@ -42,6 +52,15 @@ Déconnexion et changement de scope annulent les requêtes et effacent données 
 formulaires. Les valeurs runtime sont rendues avec `textContent`.
 Les permissions affichées ne remplacent pas l'autorisation serveur. Aucun rôle
 existant n'a été élargi : un opérateur sans `telemetry:read` voit un refus explicite.
+
+Les listes, réponses d'actions, empreintes de provenance et snapshots de
+restauration disposent de fiches métier. Les JSON complets restent accessibles
+dans des inspecteurs repliés. Un coût zéro, une garantie fausse et une donnée
+inconnue sont distincts. Les cinq vues ont été exercées à 390 et 1440 pixels,
+avec labels, navigation clavier, focus des titres et texte agrandi à 200 %.
+Cela ne constitue pas une certification WCAG ni un test de lecteur d'écran.
+La parité concurrentielle globale reste en cours : voir le
+[suivi du programme](../../docs/06-qualite-preuves/studio-parite-suivi.md).
 
 L'éditeur refuse secrets, chemins hors workspace, liens symboliques et liens
 physiques. Taille maximale : 256 KiB ; listing borné à 250 fichiers et 5000

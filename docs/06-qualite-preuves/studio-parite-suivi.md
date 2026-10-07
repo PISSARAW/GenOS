@@ -38,6 +38,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | F04.1 Harnais | Qualifié Windows | Port attribué par l'OS, origine exacte, résultat structuré ; Edge 154.0.4258.62, aucune erreur de page |
 | F04.2 Contrat du benchmark | Qualifié par tests ciblés | Fixture positive vérifiée ; absence/échec/incomplétude refusés, service inchangé |
 | F04.3 Contrat d'argumentation | Qualifié par tests ciblés | Invoker `context`, revue plate, identifiants persistés ; arguments et labels réellement assertés |
+| F04.4 Gate élargi | Non qualifié | Échec du bridge d'organisation, reproduit isolément ; aucun contournement |
 | C01.1 Navigation | Qualifié Windows | Connexion séparée, contexte compact, cinq routes, liens de run et historique |
 | C02.1 Composants | Qualifié Windows, partiel | Fiches gestion/laboratoire, champs autorisés, inconnus et garanties fausses ; JSON secondaire |
 | C02.2 Réponses et provenance | Qualifié Windows, partiel | Fiches de réponse, cible/sécurité de restauration et empreintes ; JSON replié, effacement à la déconnexion |
@@ -55,7 +56,7 @@ est persistée sous `decision-dbd96b47-212a-4d27-b3db-a2dc03f09d4b`, sans
 promotion. Les commits et résultats exécutables restent les preuves locales.
 L'activation effective des hooks n'est pas attestée.
 
-## Prochaines preuves
+## Preuves de la première tranche
 
 F04 : `npm --prefix backend run test:studio:browser` a réussi sur la
 base SQLite isolée, avec approbation réelle, refus tenant, reconnexion SSE,
@@ -66,7 +67,7 @@ hors sandbox a réussi. Les artefacts sont sous
 
 Pour chaque point : vérifier qualité, exécuter les tests concernés, conserver
 captures/versions dans un répertoire ignoré et mettre à jour ce registre.
-Les gates globaux seront réexécutés avant la fin de cette tranche.
+Les gates obligatoires ont été réexécutés ; résultats ci-dessous.
 Une validation Windows ne qualifie pas Linux/Docker ni un fournisseur réel.
 
 F04.2/F04.3 : les deux fixtures historiques sont alignées avec les services
@@ -93,8 +94,7 @@ complexité de navigation sans modifier ses contrôles.
 
 C02.1 : tests unitaires des projections réussis ; parcours navigateur réel
 réussi avec inspection de job et comparaison depuis les fiches, inspecteur
-technique fermé. Les autres sorties (actions, provenance, restauration)
-restent à convertir dans des sous-points ultérieurs.
+technique fermé. Les autres sorties ont ensuite été traitées en C02.2.
 
 C02.2 : réponses de gestion/recherche, provenance mémoire et restauration
 utilisent les mêmes projections métier. Les champs de l'enveloppe restent
@@ -118,3 +118,49 @@ et le provisioning guidé seront des sous-points suivants.
 
 Voir [la matrice](studio-parite-plan.md) et
 [la qualification des huit lots](studio-qualification.md).
+
+## Gates exécutés à la clôture de la tranche
+
+| Commande | Résultat observé |
+| --- | --- |
+| `python scripts/ci/check_code_quality.py` | Exit 0 ; 5402 sources, 105 dettes existantes, aucune nouvelle violation |
+| `npm test` | Exit 0, relance finale après les fiches C02.2 ; biologie/backend/garage |
+| `cargo test --workspace --offline -j 1` | Exit 0 ; compilation et tests du workspace, avertissements existants |
+| `npm --prefix backend run test:studio` | Exit 0 ; 11/11 suites sur win32 |
+| `npm --prefix backend run test:studio:browser` | Exit 0 ; Edge 154.0.4258.62, cinq vues, erreurs de page vides |
+| Tests benchmark biologique, argumentation et invocation de membres | Exit 0 ; services non modifiés |
+| `npm --prefix backend run test:validation` | Exit 1 dans `test_dynamic_organization.js:109`, après dépassement des fixtures corrigées |
+| `node backend/tests/test_dynamic_organization.js` | Exit 1 reproduit : sortie vide du bridge, parsing JSON impossible |
+
+Les tests Node utilisent des bases par suite sous `.genos-tests/`, et les
+fixtures de parcours créent leurs propres bases/workspaces temporaires.
+Les lancements de sockets et Edge nécessitent l'exécution autorisée hors
+sandbox Windows. Le target Rust existant du dépôt principal a servi de cache,
+sans suppression de fichiers ni de caches tiers. L'échec initial de compilation
+native en sandbox n'est pas compté comme un succès.
+
+Dix captures desktop/mobile des vues, capture de navigation et reçu
+`studio-qualified.json` sont dans `.genos-tests/studio-parity-proof/` (ignoré).
+Les captures de laboratoire et d'inspection ont été inspectées visuellement.
+Les avertissements de télémétrie SQLite dans certaines fixtures restent
+visibles ; une suite réussie ne signifie pas que tous les logs sont exempts
+d'erreurs. Aucun artefact généré, base ou secret n'est commité.
+
+## Reprise
+
+1. Fermer F04.4 : diagnostiquer le cycle d'entrée du bridge orchestration,
+   dont `executeMission` est déclaré mais n'est pas appelé par le script
+   observé ; qualifier sorties et refus sans lancer de mission opérateur.
+   Ne pas remplacer la sortie vide par un succès ni désactiver le test.
+2. Achever C02–C04 : formulaires typés, ergonomie des dossiers d'approbation,
+   audit complet d'accessibilité, templates/provisioning guidés.
+3. Passer à J2/C05–C12 : catalogue versionné, workflows, playground,
+   prompts/modèles/outils/déclencheurs/RAG, avec preuves backend et UI.
+4. Poursuivre J3–J7 selon la matrice ; benchmarks concurrentiels, domaines
+   spécifiques et qualification Linux/Docker restent ouverts.
+5. Auditer puis intégrer les divergences avec `v3` dans un point dédié ;
+   aucune fusion ni push n'a été effectué dans cette tranche.
+
+Le retour d'expérience GenOS est persisté sous
+`ef2354db-2d43-408c-82dd-167fe3b81f47`. Il conserve les observations fournies,
+sans les certifier ni accorder de promotion. Le programme global reste ouvert.

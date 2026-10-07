@@ -64,6 +64,17 @@ pas un certificat de correction du produit.
 Les huit lots livrés ne justifient donc pas une déclaration « produit à 100 % ».
 Les écarts ci-dessus restent explicitement à fermer.
 
+### Mise à jour — tranche de parité du 2026-10-07
+
+Le constat ci-dessus décrit la qualification des huit lots initiaux.
+Les sous-points F04.2/F04.3 ont ensuite corrigé les fixtures historiques du
+benchmark biologique et de l'argumentation, sans modifier leurs services.
+La relance de `test:validation` dépasse ces tests mais échoue désormais dans
+`test_dynamic_organization.js:109` : le bridge d'organisation renvoie une sortie
+vide, également reproduite par le test isolé. Le gate global étendu ne peut
+donc toujours pas être déclaré réussi. Les résultats et limites des nouvelles
+vues figurent dans le [suivi de parité](studio-parite-suivi.md).
+
 ## Reproduction
 
 Suivre AGENTS.md, puis exécuter les trois gates obligatoires et les scripts du
