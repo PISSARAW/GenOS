@@ -49,7 +49,7 @@ async function historical(db, input) {
     FROM gvx_development_events WHERE id=?`, journal.id(input.runId, 'acceptance'));
   if (!header) return null;
   const accepted = await journal.read(db, { ...input, kind: 'acceptance', scope: header });
-  const proof = await proofs.read(db, { ...input, reference, scope: header });
+  const proof = await proofs.read(db, { ...input, reference, scope: header, historical: true });
   assertAcceptance(accepted, proof);
   if (accepted.value.eventHash !== digest(input.event)) throw values.failure('ORACLE_DECISION_BINDING_MISMATCH');
   return { proof, acceptance: accepted, gateContext: proofs.context(proof) };

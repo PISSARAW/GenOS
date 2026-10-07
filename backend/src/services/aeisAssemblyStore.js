@@ -25,9 +25,11 @@ function seal(input) {
 async function pruneAssemblies(db, maxAgeDays = 90, maxRows = 10000) {
   const days = Math.min(3650, Math.max(1, Math.floor(Number(maxAgeDays) || 90)));
   const rows = Math.min(100000, Math.max(100, Math.floor(Number(maxRows) || 10000)));
-  await db.run("DELETE FROM aeis_assurance_assemblies WHERE created_at < datetime('now', ?)", `-${days} days`);
+  const table = await db.get("SELECT name FROM sqlite_master WHERE name='aeis_assembly_retractions'");
+  const retained = table ? ' AND id NOT IN (SELECT assembly_id FROM aeis_assembly_retractions)' : '';
+  await db.run("DELETE FROM aeis_assurance_assemblies WHERE created_at < datetime('now', ?)" + retained, `-${days} days`);
   await db.run(`DELETE FROM aeis_assurance_assemblies WHERE id NOT IN (
-    SELECT id FROM aeis_assurance_assemblies ORDER BY created_at DESC, rowid DESC LIMIT ?)`, rows);
+    SELECT id FROM aeis_assurance_assemblies ORDER BY created_at DESC, rowid DESC LIMIT ?)` + retained, rows);
 }
 
 async function saveAssembly(db, evaluation, context = {}) {
@@ -47,7 +49,7 @@ async function saveAssembly(db, evaluation, context = {}) {
   return id;
 }
 
-async function readAssembly(db, id) {
+async function readAssembly(db, id, options = {}) {
   const row = await db.get('SELECT * FROM aeis_assurance_assemblies WHERE id = ?', id);
   if (!row) throw new Error('AEIS assembly not found');
   const expected = seal({ id, payload: row.payload_json, manifest: row.manifest_json,
@@ -61,7 +63,9 @@ async function readAssembly(db, id) {
   if (!receipts.every((receipt) => validateReceipt(receipt, manifest.trustedDigests))) {
     throw new Error('AEIS receipt integrity failure');
   }
-  return { evaluation, manifest, runId: row.run_id, scopeId: row.scope_id };
+  const validity = await require('./aeisAssemblyRetraction').inspect(db, row);
+  if (options.historical !== true) require('./aeisAssemblyRetraction').assertActive(validity);
+  return { evaluation, manifest, runId: row.run_id, scopeId: row.scope_id, validity };
 }
 
 module.exports = { saveAssembly, readAssembly, pruneAssemblies };

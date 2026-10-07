@@ -20,7 +20,7 @@ porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 | --- | --- | --- |
 | L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
 | L02 Autorité et confinement | Enveloppe du run, revalidation et réservation de délégation Node intégrées ; lot partiel | Raccordement des appels directs, qualification complète des compteurs et confinement effectif. |
-| L03 Oracles indépendants | Clôture native subset sum et premier oracle de fidélité mémoire raccordés ; lot partiel | Couvrir code, formats mémoire restants, vérité source, rétractations et autres domaines ; terminer les budgets et la clôture de vérification mémoire. |
+| L03 Oracles indépendants | Clôture native subset sum, fidélité mémoire et rétraction scoped des assemblées raccordées ; lot partiel | Couvrir code, formats mémoire restants, vérité source et autres domaines ; terminer les budgets et la clôture de vérification mémoire et la propagation entre magasins. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
 | L05 Harnais et baselines | Pilotes P0 exploratoires disponibles ; campagne P1 à entreprendre | Runner GVX raccordé au manifeste, holdout inaccessible au candidat, coûts complets et puissance adaptée. |
 | L22 Interfaces et observabilité | Clients de référence P0 qualifiés ; extension P1 à entreprendre | Inspection commune du manifeste, des coûts, preuves, rejets et reprises ; parité sémantique ciblée. |
@@ -364,6 +364,40 @@ quatre violations historiques et zéro nouvelle ; l'index ADR compte
 La décision `decision-4c795363-5eac-436a-8647-fa61c58f542d` conserve le domaine
 et ses limites. Les contrôles portent sur le checkout partagé ; la
 reproduction indépendante du commit en clone frais reste ouverte.
+
+## Extension L01/L03/L22 — rétraction des assurances sources
+
+Le commit `09ca60e4` conserve l'oracle de fidélité mémoire. L'extension suivante,
+décrite par l'[ADR 0357](../adr/0357-retraction-des-assemblees-et-memoires-derivees.md),
+ajoute une rétraction signée durable et un endpoint HTTP protégé par
+`security:manage` et le tenant en écriture. Le hash attendu lie la rétraction
+à l'assemblée complète ; l'auteur vient du principal authentifié.
+
+La sonde suit une vraie promotion native et sa recherche mémoire. Après
+rétraction, les consommateurs refusent la source et excluent le souvenir.
+L'inspection garde le run terminé et l'acceptation à l'instant de décision,
+puis expose l'assurance actuellement retirée. Deux connexions concurrentes
+retournent la même rétraction ; un processus frais la retrouve. Une reprise
+modifiée, un autre tenant, un hash périmé ou une altération sont refusés.
+La purge conserve l'assemblée rétractée. La sonde HTTP vérifie les vrais
+middlewares et rejette un auteur forgé dans le corps.
+
+Le checkpoint observé est `snap-6ff71c8dae914d8897c045c94bd878a5`. La propagation
+automatique vers d'autres assemblées ou magasins mémoire et l'annulation des
+effets passés restent ouvertes. Le journal ne prouve pas le contre-exemple
+invoqué par l'administrateur et ne détecte pas le rollback de la base complète.
+Les **115 obligations** et **L01–L05 ainsi que L22** restent ouverts.
+
+Validation : `npm test` complet et `cargo test --workspace` passent avec code
+0. Les sondes natives et HTTP passent. Le gate qualité compte 5 428 sources,
+quatre violations historiques et zéro nouvelle ; les douze sources du commit
+ne présentent aucune violation. L'index ADR compte 434 entrées sans problème.
+Les journaux `npm-retraction-complete.log`, `cargo-retraction-complete.log`,
+`quality-retraction-complete.log`, `native-retraction-concurrency.log` et
+`http-retraction-first.log` sont conservés hors Git dans `p1-full`.
+La décision `decision-37234378-e0ac-4601-857e-ce0e63c25d7c` conserve le choix
+et les limites. Les validations portent sur le checkout partagé ; la
+reproduction indépendante en clone frais reste ouverte.
 
 ## Traçabilité initiale du lancement
 

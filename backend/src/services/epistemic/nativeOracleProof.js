@@ -13,7 +13,7 @@ async function read(db, input) {
   assertOwner(record, input);
   const allocation = await journal.read(db, { ...input, kind: 'reservation' });
   assertAllocation(record, allocation);
-  const saved = await require('../aeisAssemblyStore').readAssembly(db, record.assemblyId);
+  const saved = await require('../aeisAssemblyStore').readAssembly(db, record.assemblyId, { historical: input.historical === true });
   if (saved.runId !== input.runId || saved.scopeId !== record.scopeId || !record.accepted
       || saved.evaluation.allAccepted !== true) throw values.failure('ORACLE_ASSEMBLY_NOT_ACCEPTED');
   return { attestation, allocation, saved };
@@ -46,6 +46,7 @@ function assertCosts(costs, limits) {
 
 async function assertCurrent(db, input) {
   const { proof, request, report } = input;
+  await require('../aeisAssemblyStore').readAssembly(db, proof.attestation.value.assemblyId);
   const authority = await require('../missionEnvelopeAuthority').assertRun(db, request);
   if (authority.hash !== proof.attestation.value.authorityHash) throw values.failure('ORACLE_AUTHORITY_CHANGED');
   const subject = await subjects.load(db, { ...request, scope: proof.attestation.value.scope });

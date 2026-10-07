@@ -22,7 +22,7 @@ async function promotionEvidence(db, request) {
 async function inspectParent(db, parent, request) {
   const payload = verifyHash(parent);
   if (payload.runId !== request.runId || payload.agentId !== request.agentId) throw new Error('CONSUMER_PARENT_BINDING');
-  const stored = await require('./aeisAssemblyStore').readAssembly(db, payload.assemblyId);
+  const stored = await require('./aeisAssemblyStore').readAssembly(db, payload.assemblyId, { historical: true });
   const expected = [request.scope.organizationId, request.scope.projectId, request.workspaceId].join(':');
   if (stored.runId !== request.runId || stored.scopeId !== expected) throw new Error('CONSUMER_ASSEMBLY_BINDING');
   const memories = await db.all(`SELECT p.*, d.id AS memory_id, d.provenance_hash, d.created_by AS agent_id
@@ -37,6 +37,7 @@ async function inspectParent(db, parent, request) {
   }
   return { id: parent.id, hash: parent.payload_hash, assemblyId: payload.assemblyId,
     assemblyAccepted: stored.evaluation.allAccepted === true,
+    currentAssurance: stored.validity,
     verifierResultIds: payload.verifierResultIds, memories: views };
 }
 
