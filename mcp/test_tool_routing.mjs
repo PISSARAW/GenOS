@@ -93,6 +93,10 @@ try {
     organization: 'specialist_expert_committee' } } });
   assert.notEqual(queued.isError, true);
   assert.equal(JSON.parse(queued.content[0].text).status, 'accepted');
+  const conflicting = await accepted({ params: { name: 'genos_change_organization', arguments: {
+    organization: 'specialist_expert_committee', orchestrator_id: 'one', orchestratorId: 'two' } } });
+  assert.equal(conflicting.isError, true);
+  assert.match(conflicting.content[0].text, /Conflicting orchestrator identifiers/);
   for (const invalid of ['', '{}', '[]', 'not-json']) {
     const silent = createToolCallHandler({
       runOrchestrator: async () => invalid,

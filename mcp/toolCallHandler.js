@@ -107,12 +107,19 @@ function isStructuredResult(result) {
     && Object.keys(result).length > 0;
 }
 
+function orchestratorRequest(action, args) {
+  if (args.orchestrator_id && args.orchestratorId && args.orchestrator_id !== args.orchestratorId) {
+    throw new Error('Conflicting orchestrator identifiers.');
+  }
+  return { action, ...args, orchestratorId: args.orchestrator_id || args.orchestratorId };
+}
+
 async function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   // Fail-closed: un outil sans pont dedie est refuse explicitement au lieu
   // d'etre envoye vers une orchestration generique.
   const action = ORCHESTRATOR_ACTIONS[name];
   if (!action) throw new Error(`Tool '${name}' has no verified MCP route.`);
-  const request = { action, ...args };
+  const request = orchestratorRequest(action, args);
   if (name === 'genos_delegate_worker' && request.background === undefined) request.background = true;
   if (name === 'genos_orchestrate' && request.background === undefined) request.background = true;
   const text = await runOrchestrator(request, { onTelemetry });

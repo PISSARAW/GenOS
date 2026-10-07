@@ -40,7 +40,7 @@ try {
   await closeDatabase();
 
   await client.connect(transport);
-  const arguments_ = { orchestratorId: 'inbox-root' };
+  const arguments_ = { orchestrator_id: 'inbox-root' };
   const inbox = output(await client.callTool({ name: 'genos_worker_inbox', arguments: arguments_ }));
   assert.equal(inbox.state.organization, 'red_blue_coevolution');
   assert.equal(inbox.messages.length, 1);
@@ -50,6 +50,9 @@ try {
   const after = output(await client.callTool({ name: 'genos_worker_inbox',
     arguments: { ...arguments_, after_id: published.id } }));
   assert.equal(after.messages.length, 0);
+  const wrongParent = await client.callTool({ name: 'genos_worker_inbox',
+    arguments: { orchestrator_id: 'nonexistent-root' } });
+  assert.equal(wrongParent.isError, true, 'a wrong public parent ID must not fall back to a different active orchestrator');
   const state = output(await client.callTool({ name: 'genos_organization_state', arguments: arguments_ }));
   assert.equal(state.organization, 'red_blue_coevolution');
   assert.equal(state.messages, undefined);
