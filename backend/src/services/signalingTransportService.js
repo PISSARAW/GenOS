@@ -1,5 +1,5 @@
 const { getDatabase } = require('../db');
-const { SIGNAL_TYPES, formatSignalForTransport } = require('./biomimeticSignalingBus');
+const { SIGNAL_TYPES, formatSignalForTransport, unpackSignalPayload } = require('./biomimeticSignalingBus');
 const { routeCollectiveSignal } = require('./collectiveSignalOrganizationRouter');
 const signalRepressor = require('./signalRepressorService');
 const signalEventBus = require('./signalEventBus');
@@ -12,7 +12,7 @@ const signalDelivery = require('./signalDeliveryService');
 const { recordPendingDeliveries } = require('./signalDeliveryHelpers');
 const cognitiveJobs = require('./signalCognitiveJobsService');
 const cognitiveEscalation = require('./cognitiveEscalationService');
-const { createEnvelope } = require('./communication/communicationEnvelopeService');
+const { createEnvelope, verifyEnvelopePayload } = require('./communication/communicationEnvelopeService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 const { dispatchReceptorsIfNeeded } = require('./signalReceptorDispatchService');
 

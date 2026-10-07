@@ -14,7 +14,7 @@ const database = path.join(temporary, 'signal.db');
 const client = new Client({ name: 'signal-persistence-test', version: '1' });
 const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(root, 'mcp/index.js')],
   cwd: root, stderr: 'pipe', env: { ...process.env,
-    GENOS_MCP_LEASE: 'genos_signal_publish,genos_signal_purge,genos_signal_electrocyte_vote',
+    GENOS_MCP_LEASE: 'genos_signal_publish,genos_signal_read,genos_signal_ground,genos_signal_purge,genos_signal_electrocyte_vote',
     GENOS_DB_PATH: database, GENOS_DB_BACKUP_SKIP: '1', NODE_ENV: 'test' } });
 transport.stderr.on('data', () => {});
 
@@ -43,6 +43,33 @@ try {
     assert.equal(row.signal_type, 'ligand');
     assert.equal(row.topic, 'mcp-persistence');
 
+    await run(db, "INSERT INTO organizations (id, name) VALUES ('mcp-org', 'MCP Test Org')");
+    await run(db, "INSERT INTO projects (id, organization_id, name) VALUES ('mcp-project', 'mcp-org', 'MCP Project')");
+    await run(db, "INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('mcp-workspace', 'MCP Workspace', 'fixture', 'mcp-org', 'mcp-project')");
+    for (const agentId of ['mcp-sender', 'mcp-reader']) {
+      await run(db, 'INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [agentId, agentId, 'tester', 'idle', 'orchestrator', 'mcp-workspace']);
+    }
+    const scoped = output(await client.callTool({ name: 'genos_signal_publish', arguments: {
+      signal_type: 'ligand', signal_data: { semanticType: 'SCOPED_TEST', concentration: 0.5 },
+      orchestrator_id: 'mcp-sender' } }));
+    assert.equal(scoped.published, true);
+    const firstRead = output(await client.callTool({ name: 'genos_signal_read', arguments: { agent_id: 'mcp-reader' } }));
+    assert.equal(firstRead.count, 1);
+    assert.equal(firstRead.signals[0].signalId, scoped.signalId);
+    assert.equal(firstRead.signals[0].integrity.status, 'verified');
+    const delivery = await get(db, 'SELECT status FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?',
+      [scoped.signalId, 'mcp-reader']);
+    assert.equal(delivery.status, 'seen');
+    const secondRead = output(await client.callTool({ name: 'genos_signal_read', arguments: { agent_id: 'mcp-reader' } }));
+    assert.equal(secondRead.count, 0, 'a seen signal must not be replayed');
+    const grounded = output(await client.callTool({ name: 'genos_signal_ground', arguments: {
+      signal_id: scoped.signalId, agent_id: 'mcp-reader', grounding_level: 'transport_ack' } }));
+    assert.equal(grounded.status, 'grounding_recorded');
+    const groundRow = await get(db, 'SELECT grounding_level FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?',
+      [scoped.signalId, 'mcp-reader']);
+    assert.equal(groundRow.grounding_level, 'transport_ack');
+
     const vote = output(await client.callTool({ name: 'genos_signal_electrocyte_vote', arguments: {
       topic: 'mcp-vote', discharges: [{ agentId: 'a', voltageMv: 180, phaseAngle: 0 },
         { agentId: 'b', voltageMv: 180, phaseAngle: 0 }], threshold_mv: 300 } }));
@@ -58,7 +85,7 @@ try {
   } finally {
     await new Promise((resolve) => db.close(resolve));
   }
-  console.log('Signal publish, electrocyte vote, and expiry purge persisted through MCP stdio.');
+  console.log('Signal publish, scoped read, grounding, electrocyte vote, and expiry purge verified through MCP stdio.');
 } finally {
   await client.close();
   assert.ok(path.resolve(temporary).startsWith(`${path.resolve(os.tmpdir())}${path.sep}`));
