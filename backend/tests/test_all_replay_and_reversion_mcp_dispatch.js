@@ -1,7 +1,6 @@
 /**
  * @file test_all_replay_and_reversion_mcp_dispatch.js
- * @description Comprehensive integration test verifying all 4 Replay & Biological Reversion
- * primitives dispatched through the official GenOS dispatchTool interface.
+ * @description Verify four replay/reversion dispatch routes and their honest domain outcomes.
  */
 
 'use strict';
@@ -17,7 +16,7 @@ const ALL_4_REPLAY_TOOLS = [
 ];
 
 async function runAllReplayAndReversionMcpTests() {
-  console.log('=== VERIFYING FULL MCP WIRING FOR ALL 4 REPLAY & BIOLOGICAL REVERSION TOOLS ===\n');
+  console.log('=== VERIFYING REPLAY & REVERSION DISPATCH CONTRACTS ===\n');
 
   let verifiedCount = 0;
 
@@ -32,8 +31,11 @@ async function runAllReplayAndReversionMcpTests() {
     assert.strictEqual(dispatchResponse.kind, 'bio', `Dispatch response kind must be 'bio' for ${toolName}`);
     assert.strictEqual(dispatchResponse.result.configured, true, `Tool ${toolName} must report configured: true`);
     assert.strictEqual(dispatchResponse.result.success, true, `Tool ${toolName} must execute status successfully`);
+    if (toolName === 'genos_temporal_consciousness_transfer') {
+      assert.strictEqual(dispatchResponse.result.status, 'simulation_only');
+    }
 
-    console.log(`✅ [MCP DISPATCH VERIFIED] -> ${toolName} (kind: ${kind}, status: OK)`);
+    console.log(`✅ [MCP DISPATCH VERIFIED] -> ${toolName} (kind: ${kind}, status: ${dispatchResponse.result.status || 'available'})`);
     verifiedCount++;
   }
 
@@ -68,9 +70,10 @@ async function runAllReplayAndReversionMcpTests() {
     baseline_snapshot_id: 'snap-git-baseline',
     future_memories: [{ failure: 'TIMEOUT_DB', fix: 'ADD_INDEX' }]
   });
-  assert.strictEqual(consciousnessRes.result.success, true);
-  assert.strictEqual(consciousnessRes.result.new_iteration, 2);
-  console.log('✅ Deep Verified: Temporal Consciousness Transfer Replay');
+  assert.strictEqual(consciousnessRes.result.success, false);
+  assert.strictEqual(consciousnessRes.result.status, 'not_implemented');
+  assert.strictEqual(consciousnessRes.result.new_iteration, undefined);
+  console.log('✅ Honest refusal verified: Temporal Consciousness Transfer is not implemented');
 
   // 4. Novikov Causal Rebase
   const novikovRes = await dispatchTool('genos_temporal_novikov_causal_rebase', {
@@ -82,7 +85,7 @@ async function runAllReplayAndReversionMcpTests() {
   assert.strictEqual(novikovRes.result.self_consistent, true);
   console.log('✅ Deep Verified: Novikov Self-Consistent Causal Rebase');
 
-  console.log('\n🎉 ALL 4 REPLAY & REVERSION BIOMIMETIC TOOLS ARE 100% OPERATIONAL VIA MCP DISPATCH!\n');
+  console.log('\nAll four routes respond; temporal consciousness transfer explicitly refuses execution.\n');
 }
 
 runAllReplayAndReversionMcpTests().catch((err) => {
