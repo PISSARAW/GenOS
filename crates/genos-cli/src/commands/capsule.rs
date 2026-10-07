@@ -152,9 +152,13 @@ fn handle_create(snapshot: &str, seed: Option<&str>, budget_steps: Option<u32>) 
     let verified = capsule.verify();
 
     let capsule_dir = crate::commands::root_resolver::resolve_matrix_root().join("capsules");
-    let _ = fs::create_dir_all(&capsule_dir);
+    fs::create_dir_all(&capsule_dir)
+        .map_err(|error| format!("Failed to create capsule directory '{}': {}", capsule_dir.display(), error))?;
     let path = capsule_dir.join(format!("{}.json", capsule.capsule_id));
-    let _ = fs::write(&path, serde_json::to_string_pretty(&capsule).unwrap());
+    let serialized = serde_json::to_string_pretty(&capsule)
+        .map_err(|error| format!("Failed to serialize capsule: {}", error))?;
+    fs::write(&path, serialized)
+        .map_err(|error| format!("Failed to write capsule '{}': {}", path.display(), error))?;
 
     let output = json!({
         "success": true,
