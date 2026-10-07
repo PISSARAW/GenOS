@@ -31,8 +31,11 @@ async function complete(context, executionRun, result) {
   }, 'info', 'running');
   await publish(db, mission, evidence);
   assertActive(context);
+  const nativeOracleRef = await require('../epistemic/nativeOracleCoordinator').prepare(db, {
+    agentId: mission.agentId, runId: executionRun.id });
+  assertActive(context);
   const completed = emit(mission.agentId, 'AGENT_COMPLETED', mission.workerKind, 'Native worker completed.', {
-    executionRunId: executionRun.id, evidenceReport,
+    executionRunId: executionRun.id, evidenceReport, ...(nativeOracleRef ? { nativeOracleRef } : {}),
     usage: { input_tokens: 0, output_tokens: 0, tokens: 0, cost_usd: 0 }
   }, 'info', 'completed');
   await publish(db, mission, completed);

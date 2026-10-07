@@ -21,6 +21,9 @@ const SOURCES = Object.freeze([
   'epistemic/oracleNativeProcess.js', 'epistemic/oracleProcedureSubject.js', 'epistemic/oracleProcedureAdapter.js',
   'biologicalWorkerStore.js', 'biologicalIntegrity.js', 'gvxMissionProvenance.js',
   'gvxDevelopmentLedger.js', 'gvxLedgerIntegrity.js', 'trinityProvenanceValues.js', 'formalResultService.js',
+  'epistemic/nativeOracleBudget.js', 'epistemic/nativeOracleJournal.js', 'epistemic/oracleProcedureClaim.js',
+  'epistemic/nativeOracleCoordinator.js', 'epistemic/nativeOracleProof.js', 'epistemic/nativeOracleGate.js',
+  'missionEnvelopeAuthority.js', 'promotionVerifierNonceService.js',
 ]);
 function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');

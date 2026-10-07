@@ -78,15 +78,26 @@ async function resolveRunOutcome(db, row, context) {
   const flags = runEventFlags(event);
   let guardrailReason = events.policyViolation(event) || blockedReason(event, flags.blocked) || events.exceededGuardrail(metrics, budget);
   const contract = await completionContract(db, row);
+  let nativeVerification = null;
   if (flags.completed && !guardrailReason) {
-    guardrailReason = promotionGate.completionGuardrail(contract, event.payload, row.agent_id)
-      || await selfModelCompletionBlock(db, row.agent_id, event.payload);
+    const checked = await nativeCompletionGate(db, { row, event, contract });
+    nativeVerification = checked.verification;
+    guardrailReason = checked.reason || await selfModelCompletionBlock(db, row.agent_id,
+      { ...event.payload, ...(nativeVerification?.gateContext || {}) });
   }
   const approvalRequired = flags.completed && !guardrailReason && requiresHumanApproval(contract);
   return {
     event, delta, metrics, flags, contract, approvalRequired, guardrailReason,
-    agentId: context.agentId, contractId: row.contract_id, rowStatus: row.status, now: new Date().toISOString()
+    agentId: context.agentId, contractId: row.contract_id, rowStatus: row.status, now: new Date().toISOString(), nativeVerification
   };
+}
+
+async function nativeCompletionGate(db, input) {
+  try {
+    const verification = await require('./epistemic/nativeOracleGate').context(db, input);
+    return { verification, reason: promotionGate.completionGuardrail(input.contract, input.event.payload,
+      { agentId: input.row.agent_id, gateContext: verification?.gateContext }) };
+  } catch (failure) { return { verification: null, reason: failure.code || failure.message }; }
 }
 
 function applyPhaseGate(outcome, steps, event) {
@@ -266,6 +277,7 @@ async function persistRunProgress(db, row, progress) {
     completedRunAt(status, outcome.now),
     row.id
   );
+  await require('./epistemic/nativeOracleGate').accept(db, { verification: outcome.nativeVerification, status, event: outcome.event });
   return { run: await events.getRun(db, row.id), halt: Boolean(progress.guardrailReason), reason: progress.guardrailReason, failed: outcome.flags.failed };
 }
 

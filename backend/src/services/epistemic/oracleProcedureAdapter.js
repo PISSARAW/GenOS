@@ -10,7 +10,8 @@ async function runProcedureOracle(antigen, verifier, context) {
   if (verifier.strategy?.length !== 1 || !STRATEGIES.has(strategy)) throw values.failure('ORACLE_STRATEGY_UNAVAILABLE');
   const subject = await subjectStore.load(context.db, context.nativeOracleSubject);
   subjectStore.assertAntigen(antigen, subject);
-  const executed = await executor.run(subject.content, { strategy, timeoutMs: context.timeoutMs });
+  const executed = await executor.run(subject.content, { strategy, timeoutMs: executionTimeout(context) });
+  if (context.nativeOracleDeadline && Date.now() > context.nativeOracleDeadline) throw values.failure('ORACLE_BUDGET_EXPIRED');
   const current = await subjectStore.load(context.db, context.nativeOracleSubject);
   if (values.digest(current) !== values.digest(subject)) throw values.failure('ORACLE_SUBJECT_CHANGED');
   const detail = { ...executed.detail, outcome: executed.result.status,
@@ -18,11 +19,19 @@ async function runProcedureOracle(antigen, verifier, context) {
       bindingHash: subject.bindingHash, runBindingHash: subject.runBindingHash,
       observationHash: subject.observationHash, observedAt: subject.observedAt, validUntil: subject.validUntil },
     postconditions: executed.result };
+  if (context.nativeOracleAllocationHash) detail.subject.allocationHash = context.nativeOracleAllocationHash;
   return { status: executed.result.status, reason: executed.result.reason,
     observations: [{ step: 'procedure:semantic_postconditions', result: executed.result.status,
       detail, timestamp: new Date().toISOString() }],
     counterexamples: executed.result.status === 'refuted' ? [{ type: 'subset_postcondition_false',
       description: 'The observed solver result contradicts independently computed subset postconditions.' }] : [] };
+}
+
+function executionTimeout(context) {
+  if (!context.nativeOracleDeadline) return context.timeoutMs;
+  const remaining = context.nativeOracleDeadline - Date.now();
+  if (remaining < 1) throw values.failure('ORACLE_BUDGET_EXPIRED');
+  return Math.min(context.timeoutMs || 30000, remaining);
 }
 
 function executedVerifier(verifier, outcome) {

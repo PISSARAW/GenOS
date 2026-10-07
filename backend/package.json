@@ -8,7 +8,7 @@
     "dev": "node server.js",
     "holobionte:mission": "node bin/genos-holobionte-mission.cjs",
     "test": "node tests/test_backend.js && npm run test:authority && npm run test:aeis && npm run test:syncytium && npm run test:axolotl && npm run test:biome && npm run test:daemon && npm run test:capsules && npm run test:otel && npm run test:workers && node tests/test_consumer_inspection.js && node tests/test_model_provider_sampling.js && node tests/test_p0_pilot_protocol.js && npm run test:p1-socle",
-    "test:p1-socle": "node tests/test_gvx_experiment_manifest.js && node tests/test_scientific_claim_lifecycle.js && node tests/test_gvx_runtime_provenance.js && node tests/test_scientific_claim_atomic_consumer.js && node tests/test_mission_authority_envelope.js && node tests/test_bounded_worker_delegation.js",
+    "test:p1-socle": "node tests/test_gvx_experiment_manifest.js && node tests/test_scientific_claim_lifecycle.js && node tests/test_gvx_runtime_provenance.js && node tests/test_scientific_claim_atomic_consumer.js && node tests/test_mission_authority_envelope.js && node tests/test_bounded_worker_delegation.js && node tests/test_native_oracle_completion.js",
     "test:b06-clients": "node tests/run_b06_client_journey.cjs",
     "test:syncytium": "node tests/run_syncytium_suite.js",
     "test:biome": "node tests/run_biome_suite.js",

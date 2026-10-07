@@ -187,7 +187,8 @@ async function runSingleVerifier(antigen, verifier, ctx) {
     enriched,
     { worker, timeoutMs: ctx.opts.timeoutMs || 30000, testConfig: enriched.test,
       artifactConfig: enriched.artifact, allowedWorkspaceRoot: ctx.opts.allowedWorkspaceRoot,
-      db: ctx.opts.db, nativeOracleSubject: ctx.opts.nativeOracleSubject }
+      db: ctx.opts.db, nativeOracleSubject: ctx.opts.nativeOracleSubject, nativeOracleDeadline: ctx.opts.nativeOracleDeadline,
+      nativeOracleAllocationHash: ctx.opts.nativeOracleAllocationHash }
   );
   const executionWorkspace = outcome.observations?.find((item) => item.detail?.executionId)?.detail.cwd;
   const executed = verifier.type === 'procedure_semantic'

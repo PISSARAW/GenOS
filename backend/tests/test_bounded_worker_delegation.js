@@ -14,7 +14,7 @@ const bounded = require('../src/services/agents/boundedDelegationAuthority');
 const authority = require('../src/services/agentAuthorityService');
 const { getDatabase, closeDatabase } = require('../src/db');
 
-async function seed(db, workspace) {
+async function seed(db, workspace, options = {}) {
   await db.run("INSERT INTO organizations (id,name) VALUES ('delegation-org','Delegation scope')");
   await db.run("INSERT INTO projects (id,organization_id,name) VALUES ('delegation-project','delegation-org','Delegation')");
   await db.run(`INSERT INTO workspaces (id,name,path,organization_id,project_id)
@@ -28,7 +28,7 @@ async function seed(db, workspace) {
   await db.run("INSERT INTO missions (mission_id,objective,orchestrator_agent_id) VALUES ('delegation-mission','Compute a witnessed result','delegation-root')");
   await db.run("INSERT INTO mission_agents (mission_id,agent_id,role) VALUES ('delegation-mission','delegation-root','orchestrator'),('delegation-mission','delegation-sub','sub_orchestrator')");
   await require('../src/services/strategyContractService').saveContract(db, {
-    agentId: 'delegation-root', workspaceId: 'delegation-ws', problem: 'Compute a bounded subset sum with native evidence' });
+    agentId: 'delegation-root', workspaceId: 'delegation-ws', problem: 'Compute a bounded subset sum with native evidence', ...options });
 }
 
 async function addChild(db, input) {
@@ -120,4 +120,5 @@ async function main() {
   }
 }
 
-main().catch(failure => { console.error(failure); process.exitCode = 1; });
+if (require.main === module) main().catch(failure => { console.error(failure); process.exitCode = 1; });
+module.exports = { seed, addChild };

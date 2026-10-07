@@ -122,6 +122,7 @@ function buildPromotion(ctx) {
     require_replay: problemProfile.requires_reproducibility || highRisk,
     require_independent_verification: true,
     require_epistemic_assurance: true,
+    native_verification: { executions: 2, latencyMs: 10000 },
     epistemic_verifier_digests: resolveTrustedVerifierDigests(ctx),
     require_human_approval: highRisk || problemProfile.reversibility === 'low' || portfolioHasUnimplemented(portfolio) || Boolean(philosophy?.requireHumanApproval),
     philosophy_hold: Boolean(philosophy?.holdPromotion),

@@ -97,6 +97,7 @@ async function loadPromotionContext(db, row, options) {
     turns: options.turns || []
   };
   collectPromotionEvidence(steps, acc, row.id);
+  if (!acc.report) acc.report = await require('./epistemic/nativeOracleGate').recordedReport(db, { runId: row.id, agentId: row.agent_id });
   return {
     runId: row.id,
     agentId: row.agent_id,
@@ -210,8 +211,9 @@ function assertPromotionGate(contract, gateContext) {
   throw new Error(`Promotion gate refused: ${describeViolations(evaluation.violations)}`);
 }
 
-function completionGuardrail(contract, payload, agentId) {
+function completionGuardrail(contract, payload, subject) {
   const data = payload || {};
+  const trusted = typeof subject === 'object' ? subject : { agentId: subject };
   const report = data.evidenceReport || data.report;
   const promotionPolicy = require('./strategyPromotionPolicyService');
   const evaluation = promotionPolicy.evaluatePromotionGate(contract, {
@@ -222,10 +224,11 @@ function completionGuardrail(contract, payload, agentId) {
     epistemicEvidence: data.epistemicEvidence,
     epistemicEvidenceVerified: data.epistemicEvidenceVerified,
     epistemicVerification: data.epistemicVerification,
-    agentId,
+    agentId: trusted.agentId,
     humanApproved: false,
     report,
-    ethicalReview: data.ethicalReview
+    ethicalReview: data.ethicalReview,
+    ...(trusted.gateContext || {})
   });
   const blocking = evaluation.violations.filter((violation) => violation.policy !== 'require_human_approval');
   if (blocking.length) return `Promotion gate blocked (${blocking[0].policy}): ${blocking[0].message}`;

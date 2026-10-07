@@ -48,7 +48,8 @@ async function receipt(db, input) {
   }
   return { receiptId: value.receiptId, sha256: value.payloadHash, runId: value.runId,
     workerId: value.workerId, costs: value.costs, recordedResult: value.result,
-    integrity: 'verified', postconditions: 'not_evaluated' };
+    integrity: 'verified', postconditions: 'not_evaluated',
+    nativeVerification: await require('./epistemic/nativeOracleInspection').inspect(db, { runId: value.runId, agentId: value.workerId }) };
 }
 
 function assertReceipt(input, receipt) {

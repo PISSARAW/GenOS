@@ -295,6 +295,43 @@ Le workspace Rust a été validé dans cette continuation et n'a pas été modif
 par cette extension JavaScript. Les tests portent sur le checkout partagé ;
 ils ne remplacent pas une reproduction indépendante du commit en clone frais.
 
+## Extension L03 — clôture native et promotion différée
+
+L'[ADR 0355](../adr/0355-cloture-native-par-oracles-budgetes-et-nonces-lies.md)
+raccorde les deux oracles au gate terminal réel, avec une réservation durable
+des processus et une échéance totale scellée dans l'enveloppe. Les receipts
+signés portent le hash de réservation. Le service résout une référence de
+preuve liée au run et au rapport ; il consomme les deux nonces au moment de
+l'acceptation. Une approbation humaine obligatoire reste distincte.
+
+La sonde native réelle passe pour la clôture par défaut et pour la promotion
+différée. Elle refuse les références modifiées, un autre propriétaire, un
+rapport changé, le replay, l'expiration, un budget insuffisant et un quorum
+inconclusif. Deux connexions concurrentes ne créent pas deux allocations ;
+un nouveau processus retrouve la même attestation. L'inspection conserve la
+décision historique et expose séparément la fraîcheur actuelle. Les durées
+sont mesurées, le coût local en dollars reste inconnu.
+
+Le checkpoint natif de départ est `snap-3b4cc32205b5478fbb84d3dc4ddb32f5`.
+Une allocation abandonnée avant attestation exige un nouveau run ; la reprise
+transparente de tous les crashes et l'exécution de processus exactement une
+fois ne sont pas qualifiées. Les oracles code et mémoire, les autres domaines,
+les fronts directs, le confinement OS, les pilotes et la reproduction
+indépendante du commit restent ouverts. Les **115 obligations** restent dans
+le registre et **L01–L05 ainsi que L22 restent ouverts**.
+
+Validation : `npm test` complet et `cargo test --workspace` passent avec
+code 0. La sonde native complète passe également. Le gate qualité compte
+5 418 sources, quatre violations historiques et zéro nouvelle ; l'index ADR
+compte 432 entrées sans problème. Les journaux `npm-completion-final.log`,
+`cargo-completion.log`, `native-completion-scope.log` et
+`quality-completion-final.log` restent dans `p1-full`, hors Git. Les tentatives
+échouées sont conservées. La décision
+`decision-061aa9ce-1dda-4cd2-a2ad-0e6f56af9689` conserve le choix et ses limites.
+Les résultats concernent le checkout partagé et ne constituent pas une
+reproduction indépendante en clone frais. Les changements étrangers
+MCP, VFS et Rust restent exclus du commit.
+
 ## Traçabilité initiale du lancement
 
 GenOS a fourni le checkpoint `snap-a7d8f742186b41f18d02828f1ba16d1b`, dont le
