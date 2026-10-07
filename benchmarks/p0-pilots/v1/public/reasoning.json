@@ -1,0 +1,116 @@
+[
+  {
+    "id": "reasoning-00-add_zero",
+    "split": "train",
+    "family": "add_zero",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ n : Nat, n + 0 = n",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": [],
+    "exampleSolution": {
+      "proof": "by intro n; rfl"
+    }
+  },
+  {
+    "id": "reasoning-01-identity",
+    "split": "train",
+    "family": "identity",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ p : Prop, p → p",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": [],
+    "exampleSolution": {
+      "proof": "by intro p h; exact h"
+    }
+  },
+  {
+    "id": "reasoning-02-and_left",
+    "split": "dev",
+    "family": "and_left",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ p q : Prop, p ∧ q → p",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-03-zero_add",
+    "split": "dev",
+    "family": "zero_add",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ n : Nat, 0 + n = n",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-04-and_swap",
+    "split": "holdout",
+    "family": "and_swap",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ p q : Prop, p ∧ q → q ∧ p",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-05-or_swap",
+    "split": "holdout",
+    "family": "or_swap",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ p q : Prop, p ∨ q → q ∨ p",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-06-compose",
+    "split": "holdout",
+    "family": "compose",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ p q r : Prop, (p → q) → (q → r) → p → r",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-07-explosion",
+    "split": "holdout",
+    "family": "explosion",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ p q : Prop, ¬p → (p → q)",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-08-add_comm",
+    "split": "holdout",
+    "family": "add_comm",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ n m : Nat, n + m = m + n",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-09-mul_one",
+    "split": "holdout",
+    "family": "mul_one",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ n : Nat, n * 1 = n",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-10-le_refl",
+    "split": "holdout",
+    "family": "le_refl",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ n : Nat, n ≤ n",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  },
+  {
+    "id": "reasoning-11-zero_le",
+    "split": "holdout",
+    "family": "zero_le",
+    "theoremName": "benchmark_target",
+    "formalStatement": "∀ n : Nat, 0 ≤ n",
+    "naturalStatement": "Prove the stated proposition in core Lean 4.",
+    "imports": []
+  }
+]

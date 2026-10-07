@@ -1,0 +1,15 @@
+{
+  "id": "p0-three-pilots-v1",
+  "origin": "authored synthetic bounded tasks",
+  "splits": {
+    "train": 2,
+    "dev": 2,
+    "holdout": 8
+  },
+  "assets": {
+    "public/code.json": "2d4fdedd89ee2364bcdf465f5461136642ad5844b87a198f9e0ca0f1739f5d18",
+    "public/memory.json": "672e7862d55bcf8beb3b02ef0e78068dbb9430c5c22754cb73a6643a5a29ebe4",
+    "public/reasoning.json": "188033adfae64000e76245db62fc95607868a896a742bae46c4969e6265c57f5",
+    "evaluation/oracles.json": "eec0e3632d941f71ad22340782c1e6edb7f46f7de3809a0f4d69f958a6bcced1"
+  }
+}

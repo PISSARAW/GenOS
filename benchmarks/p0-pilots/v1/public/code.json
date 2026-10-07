@@ -1,0 +1,308 @@
+[
+  {
+    "id": "code-00-sum",
+    "split": "train",
+    "family": "sum",
+    "description": "Return a + b.",
+    "buggyExpression": "a-b",
+    "visibleTests": [
+      {
+        "input": [
+          2,
+          3,
+          0
+        ],
+        "expected": 5
+      },
+      {
+        "input": [
+          -2,
+          4,
+          0
+        ],
+        "expected": 2
+      }
+    ],
+    "exampleSolution": {
+      "expression": "a+b"
+    }
+  },
+  {
+    "id": "code-01-max",
+    "split": "train",
+    "family": "max",
+    "description": "Return the greater of a and b.",
+    "buggyExpression": "Math.min(a,b)",
+    "visibleTests": [
+      {
+        "input": [
+          2,
+          3,
+          0
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          -2,
+          -4,
+          0
+        ],
+        "expected": -2
+      }
+    ],
+    "exampleSolution": {
+      "expression": "Math.max(a,b)"
+    }
+  },
+  {
+    "id": "code-02-distance",
+    "split": "dev",
+    "family": "distance",
+    "description": "Return the absolute difference between a and b.",
+    "buggyExpression": "a-b",
+    "visibleTests": [
+      {
+        "input": [
+          2,
+          5,
+          0
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          6,
+          2,
+          0
+        ],
+        "expected": 4
+      }
+    ]
+  },
+  {
+    "id": "code-03-clamp",
+    "split": "dev",
+    "family": "clamp",
+    "description": "Clamp a to the inclusive interval [b,c], with b <= c.",
+    "buggyExpression": "Math.max(a,c)",
+    "visibleTests": [
+      {
+        "input": [
+          9,
+          0,
+          5
+        ],
+        "expected": 5
+      },
+      {
+        "input": [
+          -2,
+          0,
+          5
+        ],
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "id": "code-04-modulo",
+    "split": "holdout",
+    "family": "modulo",
+    "description": "Return a modulo positive integer b, in [0,b). a is an integer.",
+    "buggyExpression": "a%b",
+    "visibleTests": [
+      {
+        "input": [
+          -1,
+          5,
+          0
+        ],
+        "expected": 4
+      },
+      {
+        "input": [
+          7,
+          5,
+          0
+        ],
+        "expected": 2
+      }
+    ]
+  },
+  {
+    "id": "code-05-median",
+    "split": "holdout",
+    "family": "median",
+    "description": "Return the median of the three numbers a,b,c, including ties.",
+    "buggyExpression": "(a+b+c)/3",
+    "visibleTests": [
+      {
+        "input": [
+          1,
+          9,
+          3
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          4,
+          4,
+          9
+        ],
+        "expected": 4
+      }
+    ]
+  },
+  {
+    "id": "code-06-ceil_div",
+    "split": "holdout",
+    "family": "ceil_div",
+    "description": "Return the least integer >= a/b. a >= 0 and b is a positive integer.",
+    "buggyExpression": "Math.floor(a/b)",
+    "visibleTests": [
+      {
+        "input": [
+          7,
+          3,
+          0
+        ],
+        "expected": 3
+      },
+      {
+        "input": [
+          6,
+          3,
+          0
+        ],
+        "expected": 2
+      }
+    ]
+  },
+  {
+    "id": "code-07-floor_mean",
+    "split": "holdout",
+    "family": "floor_mean",
+    "description": "Return floor((a+b)/2), including negative a and b.",
+    "buggyExpression": "Math.round((a+b)/2)",
+    "visibleTests": [
+      {
+        "input": [
+          -3,
+          0,
+          0
+        ],
+        "expected": -2
+      },
+      {
+        "input": [
+          2,
+          5,
+          0
+        ],
+        "expected": 3
+      }
+    ]
+  },
+  {
+    "id": "code-08-inside",
+    "split": "holdout",
+    "family": "inside",
+    "description": "Return a boolean: a is in the inclusive interval [b,c], with b <= c.",
+    "buggyExpression": "a>b&&a<c",
+    "visibleTests": [
+      {
+        "input": [
+          0,
+          0,
+          5
+        ],
+        "expected": true
+      },
+      {
+        "input": [
+          6,
+          0,
+          5
+        ],
+        "expected": false
+      }
+    ]
+  },
+  {
+    "id": "code-09-leap",
+    "split": "holdout",
+    "family": "leap",
+    "description": "a is a Gregorian year from 1600 to 2400. Return true for a leap year.",
+    "buggyExpression": "a%4===0",
+    "visibleTests": [
+      {
+        "input": [
+          1900,
+          0,
+          0
+        ],
+        "expected": false
+      },
+      {
+        "input": [
+          2000,
+          0,
+          0
+        ],
+        "expected": true
+      }
+    ]
+  },
+  {
+    "id": "code-10-ring",
+    "split": "holdout",
+    "family": "ring",
+    "description": "Positions a,b are in [0,c), c>0. Return the shorter circular distance.",
+    "buggyExpression": "Math.abs(a-b)",
+    "visibleTests": [
+      {
+        "input": [
+          1,
+          9,
+          10
+        ],
+        "expected": 2
+      },
+      {
+        "input": [
+          2,
+          4,
+          10
+        ],
+        "expected": 2
+      }
+    ]
+  },
+  {
+    "id": "code-11-mix",
+    "split": "holdout",
+    "family": "mix",
+    "description": "Return the weighted mean c*a + (1-c)*b, for c in [0,1].",
+    "buggyExpression": "(1-c)*a+c*b",
+    "visibleTests": [
+      {
+        "input": [
+          10,
+          0,
+          0.25
+        ],
+        "expected": 2.5
+      },
+      {
+        "input": [
+          5,
+          9,
+          0
+        ],
+        "expected": 9
+      }
+    ]
+  }
+]

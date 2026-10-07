@@ -211,7 +211,7 @@ async function performRequest(options, controller) {
   assertModelConfigured(configuration, apiKey);
   const nativeOllama = configuration.provider === 'ollama' && /\/api\/chat\/?$/i.test(endpoint);
   const outputLimit = Number.isFinite(Number(options.maxTokens)) && Number(options.maxTokens) > 0 ? Math.floor(Number(options.maxTokens)) : null;
-  const body = buildRequestBody({ provider: configuration.provider, modelName: configuration.modelName, prompt: options.prompt, outputLimit, seed: options.seed, stream: options.stream, nativeOllama, responseFormat: options.responseFormat, computerUse: options.computerUse, displayWidth: options.displayWidth, displayHeight: options.displayHeight });
+  const body = buildRequestBody({ provider: configuration.provider, modelName: configuration.modelName, prompt: options.prompt, outputLimit, seed: options.seed, stream: options.stream, nativeOllama, temperature: options.temperature, contextTokens: options.contextTokens, responseFormat: options.responseFormat, computerUse: options.computerUse, displayWidth: options.displayWidth, displayHeight: options.displayHeight });
   const headers = buildHeaders(configuration.provider, apiKey, options.computerUse);
   const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
   return consumeResponse({ options, configuration, nativeOllama }, response);
@@ -235,12 +235,12 @@ async function generateDirect(options) {
   }
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat, enforceSchema = true }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint, priority = 'bulk', agentId, organizationId, projectId, seed, temperature, contextTokens, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat, enforceSchema = true }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
   const configuration = modelConfiguration(model, endpoint);
   const isOpenAiCompatible = ['openai', 'ollama', 'lmstudio', 'vllm', 'openai-compatible', 'groq', 'deepseek', 'together', 'openrouter', 'mistral'].includes(configuration.provider);
   const effectiveFormat = responseFormat || (enforceSchema && isOpenAiCompatible ? 'json_object' : undefined);
-  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, stream, signal, displayWidth, displayHeight, responseFormat: effectiveFormat, enforceSchema };
+  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, temperature, contextTokens, stream, signal, displayWidth, displayHeight, responseFormat: effectiveFormat, enforceSchema };
   const targetEndpoint = endpoint || configuration.endpoint;
   if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
     return inferenceGateway.schedule(() => generateDirect(options), { provider: configuration.provider, priority, agentId, organizationId, projectId });

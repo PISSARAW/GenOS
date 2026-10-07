@@ -1,0 +1,73 @@
+{
+  "id": "p0-three-pilots-v1",
+  "kind": "exploratory-comparative-pilot",
+  "model": "ollama://qwen2.5-coder:7b",
+  "modelDigest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+  "endpoint": "http://127.0.0.1:11434/api/chat",
+  "temperature": 0,
+  "contextTokens": 4096,
+  "inputByteLimit": 12000,
+  "seeds": [
+    801,
+    802
+  ],
+  "timeoutMs": 120000,
+  "caseDeadlineMs": 300000,
+  "toolTimeoutMs": 30000,
+  "leanVersion": "4.34.0",
+  "splits": {
+    "train": 2,
+    "dev": 2,
+    "holdout": 8
+  },
+  "pilots": {
+    "code": {
+      "arms": [
+        "direct",
+        "tool-assisted",
+        "genos",
+        "no-evidence-gate"
+      ],
+      "callsPerCase": 2,
+      "maxOutputTokens": 256,
+      "checksPerCase": 2,
+      "selection": "First passing public test in genos and tool-assisted; second candidate in direct and no-evidence-gate"
+    },
+    "memory": {
+      "arms": [
+        "raw-memory",
+        "genos",
+        "no-trust-boundary",
+        "no-retrieval"
+      ],
+      "callsPerCase": 1,
+      "maxOutputTokens": 128,
+      "checksPerCase": 0,
+      "memoryBlockBytes": 2048,
+      "selection": "One response; exact record value evaluated after inference"
+    },
+    "reasoning": {
+      "arms": [
+        "direct",
+        "tool-assisted",
+        "genos",
+        "no-evidence-gate"
+      ],
+      "callsPerCase": 2,
+      "maxOutputTokens": 384,
+      "checksPerCase": 2,
+      "selection": "First passing kernel proof in genos and tool-assisted; second candidate in direct and no-evidence-gate"
+    }
+  },
+  "controls": {
+    "pairedOrder": "Deterministic seeded permutation within each task",
+    "development": "Only train and dev may be used to debug protocol; holdout never feeds selection or prompt tuning",
+    "reproduction": "Second frozen campaign with fresh processes and workspaces under an independent operator; independent Python adjudication",
+    "budgets": "Identical model call, output, context, timeout and checker caps within each pilot. Actual token and latency usage reported; memory controls padded to equal UTF8 byte length, not exact tokens.",
+    "toolAssistedBaseline": "Also the no-independent-fork ablation; sequential feedback rather than independent candidates.",
+    "errors": "All failures, invalid output, abstention and timeouts retained in denominator. No score-driven exclusion.",
+    "analysis": "Paired task differences and exact discordance test; exploratory 8-task cohorts. Reproduction is not pooled as independent additional tasks.",
+    "promotion": "No benchmark score authorizes production promotion"
+  }
+}
+

@@ -94,12 +94,19 @@ function buildOpenAiBody(params) {
   if (nativeOllama) {
     return { model: modelName, messages: [{ role: 'user', content: prompt }], stream,
       ...(responseFormat ? { format: ollamaFormat(responseFormat) } : {}),
-      ...(outputLimit || seed != null ? { options: { ...(outputLimit ? { num_predict: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) } } : {}) };
+      ...(Object.keys(require('./modelProviderSampling').nativeOptions(params)).length
+        ? { options: require('./modelProviderSampling').nativeOptions(params) } : {}) };
   }
-  return { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}), ...(responseFormat ? { response_format: openAiResponseFormat(responseFormat) } : {}) };
+  return { model: modelName, messages: [{ role: 'user', content: prompt }], stream,
+    ...require('./modelProviderSampling').samplingFields(params),
+    ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}), ...(responseFormat ? { response_format: openAiResponseFormat(responseFormat) } : {}) };
 }
 
 function buildRequestBody(params) {
+  require('./modelProviderSampling').samplingFields(params);
+  if (params.temperature !== undefined && ['anthropic', 'gemini'].includes(params.provider)) {
+    throw new Error('Explicit sampling temperature is unsupported for this provider.');
+  }
   if (params.provider === 'anthropic') return buildAnthropicBody(params);
   if (params.provider === 'gemini') return buildGeminiBody(params);
   return buildOpenAiBody(params);
@@ -259,7 +266,7 @@ function attachSchemaValidation(result, text) {
 }
 
 function buildFinalResponse(info) {
-  const usage = info.payload.usage || info.payload.usageMetadata || {};
+  const usage = require('./modelProviderUsage').usageFor(info.payload, info.provider);
   const usageReceipt = providerUsageReceipt(firstNonNull(info.payload.id, info.payload.responseId), usage);
   return {
     text: info.text,
@@ -269,6 +276,7 @@ function buildFinalResponse(info) {
     outputTokens: firstNonNull(usage.output_tokens, usage.completion_tokens, usage.candidatesTokenCount, estimateTokenCount(info.text)),
     provider: info.provider,
     servedModel: firstTruthy(info.payload.model, info.modelName),
+    tokenUsageMeasured: require('./modelProviderUsage').measuredUsage(usage),
     ...(usageReceipt ? { usageReceipt } : {})
   };
 }
