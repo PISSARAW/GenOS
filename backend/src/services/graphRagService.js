@@ -33,12 +33,24 @@ function ragScope(options = {}) {
  * @param {object} db
  * @returns {Promise<object[]>}
  */
+function globalAllowed(options = {}) {
+  return options.includeGlobal === true || options.allowGlobal === true;
+}
+
+function scopeFilter(alias, column, ctx) {
+  if (!ctx.value) return '';
+  const ref = alias ? `${alias}.${column}` : column;
+  if (ctx.global) return ` AND (${ref} = ? OR ${ref} IS NULL)`;
+  return ` AND ${ref} = ?`;
+}
+
 function buildTraversalQuery(topIds, options) {
   const tenant = options.tenant || options;
   const ownerClause = options.ownerId ? ' AND gd.created_by = ?' : '';
-  const nodeScope = tenant.organizationId ? ' AND (gd.organization_id = ? OR gd.organization_id IS NULL)' : '';
-  const orgScope = tenant.organizationId ? ' AND (ms.organization_id = ? OR ms.organization_id IS NULL)' : '';
-  const projectScope = tenant.projectId ? ' AND (ms.project_id = ? OR ms.project_id IS NULL)' : '';
+  const global = globalAllowed({ ...tenant, ...options });
+  const nodeScope = scopeFilter('gd', 'organization_id', { value: tenant.organizationId, global });
+  const orgScope = scopeFilter('ms', 'organization_id', { value: tenant.organizationId, global });
+  const projectScope = scopeFilter('ms', 'project_id', { value: tenant.projectId, global });
   const params = [...topIds];
   if (options.ownerId) params.push(options.ownerId);
   if (tenant.organizationId) params.push(tenant.organizationId, tenant.organizationId);
@@ -74,7 +86,10 @@ function collectEdgeWeights(synapses, topIds) {
 async function fetchConnectedDecisions(ids, db, options) {
   const tenant = options.tenant || options;
   const ownerId = options.ownerId || '';
-  const clauses = [ownerId ? ' AND created_by = ?' : '', tenant.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : '', tenant.projectId ? ' AND (project_id = ? OR project_id IS NULL)' : ''];
+  const global = globalAllowed({ ...tenant, ...options });
+  const org = { value: tenant.organizationId, global };
+  const proj = { value: tenant.projectId, global };
+  const clauses = [ownerId ? ' AND created_by = ?' : '', scopeFilter('', 'organization_id', org), scopeFilter('', 'project_id', proj)];
   const params = [...ids, ...(ownerId ? [ownerId] : []), ...(tenant.organizationId ? [tenant.organizationId] : []), ...(tenant.projectId ? [tenant.projectId] : [])];
   return db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE id IN (${ids.map(() => '?').join(',')})${clauses.join('')}`, ...params);
 }
@@ -264,20 +279,16 @@ async function expandGraphRag(topItems = [], db = null, options = {}) {
 const nerService = require('./nerService');
 const { getDatabase } = require('../db');
 
-/**
- * Ingests a document into the Knowledge Graph with entity extraction and synaptic wiring
- * @param {string} docId
- * @param {string} text
- * @param {object} dbInstance
- * @returns {Promise<{ docId: string, entitiesCount: number, relationsCount: number }>}
- */
-async function ingestDocument(docId, text, options = {}) {
-  const scope = ragScope(options);
-  if (typeof docId !== 'string' || !docId.trim() || docId.length > 256) throw new Error('Document id must be a non-empty string of at most 256 characters.');
-  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > MAX_GRAPH_DOCUMENT_BYTES) throw new Error('Document text exceeds the configured size limit.');
-  const db = options.dbInstance || await getDatabase();
-  const { entities, relations } = await nerService.extractEntities(text);
+function validateDocumentInput(docId, text) {
+  if (typeof docId !== 'string' || !docId.trim() || docId.length > 256) {
+    throw new Error('Document id must be a non-empty string of at most 256 characters.');
+  }
+  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > MAX_GRAPH_DOCUMENT_BYTES) {
+    throw new Error('Document text exceeds the configured size limit.');
+  }
+}
 
+async function prepareDocumentRecord(docId, text, scope) {
   const content = String(text || '').slice(0, 1000);
   const title = `Document ${docId}`;
   const { embed } = require('./embeddingProvider');
@@ -288,6 +299,10 @@ async function ingestDocument(docId, text, options = {}) {
   if (existing && (existing.organization_id !== scope.organizationId || existing.project_id !== scope.projectId)) {
     throw new Error('Document id already belongs to another memory scope.');
   }
+  return { title, content, buffer };
+}
+
+async function persistDocument(db, docId, record, scope) {
   await db.run(
     `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
      VALUES (?, ?, ?, ?, 'graph_rag', 'document', 1.0, ?, ?)
@@ -295,8 +310,25 @@ async function ingestDocument(docId, text, options = {}) {
        embedding_blob = excluded.embedding_blob, category = excluded.category
      WHERE genome_decisions.organization_id IS excluded.organization_id
        AND genome_decisions.project_id IS excluded.project_id`,
-    docId, title, content, buffer, scope.organizationId, scope.projectId
+    docId, record.title, record.content, record.buffer, scope.organizationId, scope.projectId
   );
+}
+
+/**
+ * Ingests a document into the Knowledge Graph with entity extraction and synaptic wiring
+ * @param {string} docId
+ * @param {string} text
+ * @param {object} dbInstance
+ * @returns {Promise<{ docId: string, entitiesCount: number, relationsCount: number }>}
+ */
+async function ingestDocument(docId, text, options = {}) {
+  const scope = ragScope(options);
+  validateDocumentInput(docId, text);
+  const db = options.dbInstance || await getDatabase();
+  const { entities, relations } = await nerService.extractEntities(text);
+
+  const record = await prepareDocumentRecord(docId, text, scope);
+  await persistDocument(db, docId, record, scope);
 
   const enriched = await nerService.enrichKnowledgeGraph(db, { text, decisionId: docId, scope });
 
