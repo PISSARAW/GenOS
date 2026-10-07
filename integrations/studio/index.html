@@ -13,6 +13,7 @@
 </form>
 <p id="message" role="status" aria-live="polite">Connectez-vous avec une clé autorisée sur ce projet.</p>
 <nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button><button data-target="dashboard-view" type="button">Supervision</button><button data-target="management-view" type="button">Gestion et commandes</button><button data-target="files-view" type="button">Fichiers et snapshots</button></nav>
+<nav aria-label="Laboratoire"><button data-target="research-view" type="button">Laboratoire</button></nav>
 <label>Workspace<input id="workspace-choice" list="workspaces"><datalist id="workspaces" data-runtime></datalist></label>
 <section id="inspection" data-view hidden>
 <h2>Exécution <span id="run-id" data-runtime></span></h2><p id="run-status" data-runtime></p><p id="workspace" data-runtime></p>
@@ -66,4 +67,22 @@
 <button id="editor-snapshot" type="button" data-permission="workspace:write">Capturer un snapshot du workspace</button>
 <label>Snapshot à restaurer<input id="restore-id"></label><button id="restore-preview" type="button">Prévisualiser la restauration</button>
 <button id="restore" type="button" data-permission="workspace:write">Restaurer le snapshot</button><pre id="restore-result" data-runtime></pre></section>
+<section id="research-view" data-view hidden><h2>Laboratoire</h2>
+<p>Enregistrer un protocole n’exécute aucun essai. Les budgets des protocoles sont déclarés, pas une limite d’exécution automatique. Les jobs figent leurs entrées ; le rejeu ne garantit pas un résultat de modèle identique. Les métriques et avis ne constituent pas une promotion.</p>
+<button id="research-refresh" type="button">Charger les expériences, datasets et jobs</button>
+<label>Expérience<input id="experiment-choice" list="experiments"><datalist id="experiments" data-runtime></datalist></label>
+<button id="research-inspect" type="button">Inspecter protocole et preuves</button>
+<label>Hypothèse<input id="claim-choice" list="claims"><datalist id="claims" data-runtime></datalist></label>
+<ul id="research-claims" data-runtime></ul>
+<label>Dataset<input id="dataset-choice" list="datasets"><datalist id="datasets" data-runtime></datalist></label>
+<button id="dataset-inspect" type="button">Inspecter les cas du dataset</button>
+<label>Campagne<input id="campaign-choice" list="campaigns"><datalist id="campaigns" data-runtime></datalist></label>
+<label>Job<input id="job-choice" list="jobs"><datalist id="jobs" data-runtime></datalist></label>
+<button id="job-inspect" type="button">Inspecter le job</button>
+<label>Jobs à comparer (IDs séparés par virgules)<input id="job-comparison"></label><button id="jobs-compare" type="button">Comparer les jobs</button>
+<h3>Données observées</h3><pre id="research-data" data-runtime></pre>
+<h3>Actions de recherche</h3><div id="research-actions"></div><pre id="research-result" data-runtime></pre>
+<h3>Arène locale</h3><p>Benchmark de recherche dans des tableaux triés, pas une évaluation d’agents cognitifs. Résultats en cache jusqu’au redémarrage.</p>
+<button id="arena-results" type="button">Résultats du benchmark</button><button id="arena-pareto" type="button">Comparer la frontière Pareto</button>
+<button id="arena-trace" type="button">Inspecter la trace locale</button></section>
 </main></body></html>

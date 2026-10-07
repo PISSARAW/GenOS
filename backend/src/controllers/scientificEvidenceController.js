@@ -57,6 +57,8 @@ async function recordEvidence(req, res, next) {
 
 async function recordAssessment(req, res, next) {
   try {
+    const claim = await req.scientificEvidenceDb.get('SELECT claim_id FROM scientific_claims WHERE claim_id=? AND experiment_id=?', req.params.claimId, req.scientificExperiment.id);
+    if (!claim) return res.status(404).json({ error: { code: 'SCIENTIFIC_CLAIM_NOT_FOUND', message: 'Hypothèse introuvable dans cette expérience.' } });
     const result = await ledger(req).recordAssessment({
       claimId: req.params.claimId, kind: req.body?.kind, position: req.body?.position,
       verifierStatus: req.body?.verifierStatus, rationale: req.body?.rationale,

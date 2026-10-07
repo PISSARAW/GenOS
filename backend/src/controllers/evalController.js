@@ -132,7 +132,11 @@ async function validateGradersForJob({ db, datasetId, graders, judgeModel }) {
 }
 
 async function createJobRecord({ db, scope, id, campaignId, datasetId, config }) {
-  await db.run('INSERT INTO evaluation_jobs(id,campaign_id,dataset_id,config_json,status,organization_id,project_id) VALUES(?,?,?,?,?,?,?)', id, campaignId, datasetId, JSON.stringify(config), 'queued', ...scope.params);
+  await require('../services/studioEvaluationService').load(db, id);
+  await require('../db').withTransaction(db, async tx => {
+    await tx.run('INSERT INTO evaluation_jobs(id,campaign_id,dataset_id,config_json,status,organization_id,project_id) VALUES(?,?,?,?,?,?,?)', id, campaignId, datasetId, JSON.stringify(config), 'queued', ...scope.params);
+    await require('../services/studioEvaluationService').capture(tx, { id, datasetId, config });
+  });
 }
 
 async function createJob(req, res, next) {
