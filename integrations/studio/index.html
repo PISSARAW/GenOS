@@ -12,7 +12,7 @@
 <button type="submit">Ouvrir l’exécution</button><button id="disconnect" type="button">Déconnecter</button>
 </form>
 <p id="message" role="status" aria-live="polite">Connectez-vous avec une clé autorisée sur ce projet.</p>
-<nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button></nav>
+<nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button><button data-target="dashboard-view" type="button">Supervision</button></nav>
 <label>Workspace<input id="workspace-choice" list="workspaces"><datalist id="workspaces" data-runtime></datalist></label>
 <section id="inspection" data-view hidden>
 <h2>Exécution <span id="run-id" data-runtime></span></h2><p id="run-status" data-runtime></p><p id="workspace" data-runtime></p>
@@ -22,6 +22,8 @@
 <label>État<select id="run-status-filter"><option value="">Tous</option><option>running</option><option>awaiting_approval</option><option>completed</option><option>failed</option><option>blocked</option><option>cancelled</option></select></label>
 <button type="submit">Rechercher</button></form><ul id="run-list" data-runtime></ul>
 <h3>Étapes</h3><table><thead><tr><th>Étape</th><th>État observé</th></tr></thead><tbody id="steps" data-runtime></tbody></table>
+<h3>Métriques</h3><table><tbody id="metrics" data-runtime></tbody></table>
+<h3>Trajectoire</h3><ol id="trajectory" data-runtime></ol>
 <h3>Promotion</h3><p id="promotion" data-runtime></p>
 <details><summary>Soumettre un dossier d’approbation signé</summary>
 <form id="approval"><label>Dossier JSON<textarea id="approval-json" rows="6" required></textarea></label>
@@ -29,4 +31,13 @@
 <h3>Provenance mémoire</h3><pre id="provenance" data-runtime></pre>
 <h3>Snapshots du workspace</h3><ul id="snapshots" data-runtime></ul>
 <button id="snapshot" type="button" data-permission="workspace:write">Capturer un snapshot</button>
-</section></main></body></html>
+</section>
+<section id="dashboard-view" data-view hidden><h2>Supervision</h2>
+<label><input id="live-toggle" type="checkbox" checked>Suivi temps réel</label><p id="stream-status" data-runtime>Connexion inactive</p>
+<button id="dashboard-refresh" type="button" data-permission="telemetry:read">Actualiser la supervision</button>
+<ul id="dashboard-stats" data-runtime></ul><h3>Lignées et branches</h3>
+<svg id="lineage-graph" data-runtime role="img" aria-label="Graphe des lignées observées"></svg>
+<p>Le graphe affiche au plus 100 nœuds ; les listes ci-dessous reprennent les données retournées.</p>
+<ul id="lineage-nodes" data-runtime></ul><ul id="lineage-edges" data-runtime></ul>
+<h3>Événements récents</h3><ol id="events" data-runtime></ol></section>
+</main></body></html>

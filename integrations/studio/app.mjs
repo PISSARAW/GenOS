@@ -65,7 +65,7 @@ export function render(data) {
     return row;
   }));
   byId('snapshots').replaceChildren(...data.snapshots.map(snapshot => node('li', `${snapshot.id} · ${snapshot.label}`)));
-  byId('inspection').hidden = false;
+  byId('inspection').hidden = document.querySelector('[data-target="inspection"]').getAttribute('aria-pressed') !== 'true';
   window.dispatchEvent(new Event('studio:loaded'));
 }
 
@@ -120,6 +120,7 @@ async function connect() {
     showView('inspection');
     await discover();
     if (api.session.agent) await refresh();
+    window.dispatchEvent(new Event('studio:ready'));
   });
 }
 
@@ -132,7 +133,7 @@ async function changeScope() {
   api.setSession(session);
   clearView();
   window.dispatchEvent(new Event('studio:session'));
-  await perform(async () => { await discover(); if (session.agent) await refresh(); });
+  await perform(async () => { await discover(); if (session.agent) await refresh(); window.dispatchEvent(new Event('studio:ready')); });
 }
 
 export function start() {
