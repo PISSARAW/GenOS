@@ -18,7 +18,7 @@ const transport = new StdioClientTransport({ command: process.execPath, args: [p
   cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_DB_PATH: database,
     GENOS_REPO_ROOT: root, GENOS_ORCHESTRATOR_BRIDGE: path.join(root, 'backend/bin/genos-orchestrate.cjs'),
     GENOS_DB_BACKUP_SKIP: '1', GENOS_AGENT_ID: 'inbox-worker', GENOS_EXECUTION_MODE: 'worker',
-    GENOS_MCP_LEASE: 'genos_worker_inbox,genos_organization_state', NODE_ENV: 'test' } });
+    GENOS_MCP_LEASE: 'genos_worker_publish,genos_worker_inbox,genos_organization_state', NODE_ENV: 'test' } });
 let stderr = '';
 transport.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
 
@@ -56,7 +56,23 @@ try {
   const state = output(await client.callTool({ name: 'genos_organization_state', arguments: arguments_ }));
   assert.equal(state.organization, 'red_blue_coevolution');
   assert.equal(state.messages, undefined);
-  console.log('Worker inbox returns persisted, integrity-checked messages through MCP stdio.');
+  const workerPublication = output(await client.callTool({ name: 'genos_worker_publish', arguments: {
+    orchestrator_id: 'inbox-root', recipient_agent_id: 'inbox-root', kind: 'evidence', signal_type: 'ligand',
+    signal_data: { event: 'mcp_worker_published' } } }));
+  assert.ok(Number.isInteger(workerPublication.id));
+  assert.equal(workerPublication.recipientAgentId, 'inbox-root');
+  const observed = await getDatabase(database);
+  const row = await observed.get('SELECT sender_agent_id, signal_type, delivery FROM agent_organization_messages WHERE id = ?',
+    workerPublication.id);
+  assert.equal(row.sender_agent_id, 'inbox-worker');
+  assert.equal(row.signal_type, 'ligand');
+  assert.equal(row.delivery, 'delivered');
+  const parentInbox = await organization.inbox(observed, { orchestratorId: 'inbox-root',
+    requesterAgentId: 'inbox-root', afterId: published.id });
+  assert.equal(parentInbox.messages[0].signal.event, 'mcp_worker_published');
+  assert.equal(parentInbox.messages[0].integrity.status, 'verified');
+  await closeDatabase();
+  console.log('Worker inbox and publication persist routed, integrity-checked messages through MCP stdio.');
 } finally {
   await client.close();
   await closeDatabase();

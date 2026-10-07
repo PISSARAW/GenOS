@@ -1654,6 +1654,10 @@
             "type": "string",
             "description": "Owning orchestrator that may react to the collective signal."
           },
+          "recipient_agent_id": {
+            "type": "string",
+            "description": "Explicit recipient, required by adversarial pair routing."
+          },
           "scenarios": {
             "type": "array",
             "items": {
