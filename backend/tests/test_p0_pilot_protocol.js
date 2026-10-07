@@ -27,4 +27,8 @@ assert.equal(select('genos', [{ check: { passed: false } }]), -1);
 assert.equal(select('genos', [{ check: { passed: true } }, { check: { passed: false } }]), 0);
 assert.equal(select('no-evidence-gate', [{ check: { passed: true } }, { check: { passed: false } }]), 1);
 assert.equal(Buffer.byteLength(require(path.join(root, 'memory-probe.cjs')).padded('raw', 2048)), 2048);
+const proof = 'by\n  intro n\n  rfl';
+const theorem = { formalStatement: '∀ n : Nat, n + 0 = n' };
+assert.ok(require(path.join(root, 'reasoning-probe.cjs')).sourceFor(theorem, { proof }).endsWith(proof));
+assert.throws(() => require(path.join(root, 'reasoning-probe.cjs')).sourceFor(theorem, { proof: 'by sorry' }));
 console.log('P0 pilot contracts: versioned disjoint splits, bounded code and evidence selection passed.');

@@ -11,8 +11,7 @@ function sourceFor(task, candidate) {
   if (/\b(?:IO|System|extern|native_decide|ofReduceBool|implemented_by|namespace|end|attribute|syntax)\b/.test(proof || '')) {
     throw new Error('Forbidden proof capability');
   }
-  const body = proof.trim().replace(/^by\b/, '').trim();
-  return boundSource(task, body.split('\n').map(line => '  ' + line).join('\n'));
+  return boundSource(task, proof.trim()).replace('\n:= by\n', '\n:=\n');
 }
 
 function kernelAudit(stdout) {

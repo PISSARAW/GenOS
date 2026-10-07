@@ -30,8 +30,8 @@ et leurs canaris ne sont jamais injectés dans les prompts du modèle.
 Le premier développement a produit 24 résultats et 41 appels incluant la
 chauffe, sans erreur de transport ni dérive. Les huit bras code/mémoire
 obtiennent tous 2/2 ; les quatre bras de raisonnement obtiennent chacun 1/2.
-L'échec Lean demeure un résultat observé et n'est pas effacé par une référence
-écrite à la main.
+Ces résultats historiques restent conservés, mais le premier développement
+Lean utilisait la liaison d'instrumentation défectueuse décrite ci-dessous.
 
 Trois capsules initiales ont échoué avant toute inférence réservée : leur
 périmètre omettait respectivement un module `backend/bin`, un schéma protobuf
@@ -47,6 +47,29 @@ Empreinte du manifeste gelé :
 Les sources sont copiées ; les dépendances sont liées à l'installation locale
 et contrôlées par empreinte avant/après. Il n'existe pas d'immutabilité imposée
 par le système d'exploitation. Aucun `.env`, secret ni base réelle n'est copié.
+
+## Amendement d'instrumentation
+
+La première campagne réservée, `primary-v1`, a terminé ses 161 appels et
+96 résultats, sans erreur de transport ni dérive. Une preuve multiligne
+correcte sur la tâche d'apprentissage `reasoning-00-add_zero` reproduit ensuite
+une réfutation indue : l'ajout d'indentation faisait interpréter `rfl` comme
+un argument de `intro`. Cette campagne est conservée et déclarée invalide
+dans `qualification-invalid.json`, **avant lecture de ses scores réservés**.
+
+Le correctif conserve intégralement le bloc `by` sous l'en-tête imposé.
+Une sonde réelle vérifie désormais les deux formes de preuve, avec ligne
+unique et plusieurs lignes ; le contrat interdit toujours `sorry` et les
+commandes dangereuses. `amend.cjs` construit une nouvelle capsule depuis
+l'original, sans reprendre les modifications du checkout partagé. Il n'autorise
+que trois écarts : liaison Lean, sonde et script d'amendement.
+
+Empreinte du manifeste amendé :
+`59a452dc4e83632d3ef9b06c8437f89c4d904b1a04c3b6364c588735b9d893b3`.
+Les jeux, prompts, modèle, budgets, règles de sélection, dépendances et outils
+sont identiques. Aucune adaptation n'utilise les réponses ou labels réservés.
+Cet amendement est transparent ; les nouvelles campagnes demeurent des
+comparaisons exploratoires et ne constituent pas un essai confirmatoire.
 
 ## Portée de l'interprétation
 

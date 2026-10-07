@@ -28,8 +28,11 @@ async function probes(context) {
   const proof = await require('./reasoning-probe.cjs').check(task, { proof: 'by intro n; rfl' }, context);
   assert.equal(proof.passed, true);
   assert.equal(proof.receipt.status, 'passed');
+  const multiline = await require('./reasoning-probe.cjs').check(task,
+    { proof: 'by\n  intro n\n  rfl' }, { ...context, branchId: 'multiline-train' });
+  assert.equal(multiline.passed, true);
   return { publicPositive: valid, publicNegative: bad, absentOracle: absent,
-    publicOverfitAccepted: overfit, memory: { retrieved: prepared.retrievedIds.length }, kernel: proof };
+    publicOverfitAccepted: overfit, memory: { retrieved: prepared.retrievedIds.length }, kernel: proof, multiline };
 }
 
 async function main() {

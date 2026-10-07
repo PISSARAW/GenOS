@@ -113,3 +113,11 @@ Les résultats, prompts et reçus produits restent hors Git. Consulter le
 [rapport de qualification](../../../docs/06-qualite-preuves/qualification-trois-pilotes-comparatifs-2026-10-07.md)
 pour les exécutions effectivement réalisées et leurs limites. Aucun score ne
 remplace les preuves requises pour une promotion en production.
+
+Un amendement d'instrumentation conservé dans `amend.cjs` répare uniquement
+la liaison des preuves Lean multilignes et sa sonde d'apprentissage. Il part
+de la capsule initiale et refuse toute autre modification de source : jeux,
+prompts, budgets, sélection, dépendances et modèle restent identiques. La
+campagne initiale est conservée et déclarée invalide avant lecture de ses
+scores réservés. Les nouvelles campagnes restent exploratoires, sous le
+manifeste amendé explicitement identifié.
