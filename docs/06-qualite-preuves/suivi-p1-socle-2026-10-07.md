@@ -473,6 +473,24 @@ SQLite reste dans le journal de la suite réussie. La décision
 Les vérifications concernent le checkout partagé ; les modifications étrangères
 MCP, VFS et Rust ne font pas partie de ce commit.
 
+La poursuite après `69e9d07e` qualifie aussi l'arrêt du contrôle plane après
+la fermeture réelle de l'oracle et avant le fait final. La sonde observe un
+PID, un code de sortie zéro et un verdict `verified`, puis arrête le processus
+de contrôle. Cette observation de test n'est pas ajoutée au journal de
+production : le coût durable reste inconnu, le quorum absent et le relancement
+refusé, y compris dans un processus frais. Le fichier du checkpoint
+`snap-fe84d8a5704245a7a956d1479b66b3c0` a été observé. Ces deux fenêtres ne
+qualifient pas les crashes pendant le processus ni toutes les reprises.
+
+La nouvelle exécution complète de `npm test` inclut les deux sondes et termine
+avec code 0. `cargo test --workspace` et le gate qualité passent également ;
+les trois sources de cette poursuite sont sans violation en contrôle strict.
+Les journaux `npm-oracle-postclose-complete.log`,
+`cargo-oracle-postclose-complete.log` et `quality-oracle-postclose-complete.log`
+restent hors Git dans `p1-full`, avec les traces du PID observé et du coût
+durable inconnu. La décision `decision-d99a80d9-bbdf-4565-98cf-a107481cc7b3`
+conserve la séparation entre observation de test et fait durable de production.
+
 ## Traçabilité initiale du lancement
 
 GenOS a fourni le checkpoint `snap-a7d8f742186b41f18d02828f1ba16d1b`, dont le

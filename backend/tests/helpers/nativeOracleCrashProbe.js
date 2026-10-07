@@ -5,15 +5,18 @@ const { fork } = require('node:child_process');
 const path = require('node:path');
 const journal = require('../../src/services/epistemic/nativeOracleJournal');
 
-async function qualify(db) {
+async function qualify(db, phase = 'intent') {
   const source = await require('../test_native_memory_budget').source(db);
-  const child = fork(path.join(__dirname, 'nativeOracleCrashChild.cjs'), [JSON.stringify(source.method)],
+  const child = fork(path.join(__dirname, 'nativeOracleCrashChild.cjs'), [JSON.stringify(source.method), phase],
     { cwd: path.resolve(__dirname, '../../..'), silent: true, windowsHide: true });
   const exited = new Promise(resolve => child.once('exit', resolve));
   try {
-    const request = await waitForIntent(child);
+    const { request, execution } = await waitForBarrier(child);
+    assert.equal(execution.phase, phase);
+    if (phase === 'finished') assertRealClosure(execution);
     const allocation = await journal.read(db, { ...request, kind: 'reservation' });
     assert.equal(allocation.value.executionAccounting, 'genos.native-oracle-execution/v1');
+    assert.equal(await journal.read(db, { ...request, kind: `execution_${execution.strategy}_finished` }), null);
     child.kill();
     await exited;
     const view = await require('../../src/services/epistemic/nativeOracleInspection').inspect(db, request);
@@ -28,23 +31,35 @@ async function qualify(db) {
     await freshProcess(request, view.costs);
     const again = await require('../../src/services/epistemic/nativeOracleInspection').inspect(db, request);
     assert.deepEqual(again.costs, view.costs);
-    console.log('Real control-plane crash after durable intent: unknown costs retained, fresh replay refused without relaunch.');
+    console.log(JSON.stringify({ schema: 'genos.test.oracle-crash-observation/v1', phase,
+      executionId: execution.executionId, processId: execution.processId ?? null,
+      exitCode: execution.exitCode ?? null, processOutcome: execution.processOutcome ?? null,
+      durationMs: execution.durationMs ?? null, durableCosts: view.costs }));
+    console.log(`Real control-plane crash at ${phase}: unknown costs retained, fresh replay refused without relaunch.`);
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill();
     await exited;
   }
 }
 
-function waitForIntent(child) {
+function assertRealClosure(execution) {
+  assert.ok(execution.processId > 0);
+  assert.equal(execution.exitCode, 0);
+  assert.equal(execution.timedOut, false);
+  assert.equal(execution.processOutcome, 'verified');
+  assert.ok(execution.durationMs >= 0);
+}
+
+function waitForBarrier(child) {
   return new Promise((resolve, reject) => {
     let stderr = '';
     child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
     child.stdout.resume();
-    const timer = setTimeout(() => reject(new Error('Crash probe missed the durable intent. ' + stderr)), 20000);
+    const timer = setTimeout(() => reject(new Error('Crash probe missed the execution barrier. ' + stderr)), 20000);
     child.once('error', failure => { clearTimeout(timer); reject(failure); });
     child.once('exit', () => { clearTimeout(timer); reject(new Error('Crash probe exited before the barrier. ' + stderr)); });
     child.on('message', item => {
-      if (item.schema === 'genos.test.oracle-intent/v1') { clearTimeout(timer); resolve(item.request); }
+      if (item.schema === 'genos.test.oracle-barrier/v1') { clearTimeout(timer); resolve(item); }
     });
   });
 }

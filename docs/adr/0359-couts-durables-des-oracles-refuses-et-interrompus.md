@@ -51,17 +51,23 @@ nouveau rapport contradictoire par le parcours de production ou expire
 l'échéance du batch. Chaque abandon conserve le processus et sa durée,
 son reçu biologique refusé et sa relecture dans un processus frais.
 
-Un processus de contrôle enfant est arrêté après l'enregistrement durable
-de son intention. Son état incomplet et ses coûts inconnus sont relus ; les
-reprises refusent le relancement. Une attestation volontairement privée du
+Un processus de contrôle enfant est arrêté dans deux fenêtres : après
+l'enregistrement durable de son intention, puis après la fermeture réelle
+d'un oracle mais avant l'enregistrement de son fait final. La seconde sonde
+observe un PID, un code de sortie zéro et des postconditions vérifiées avant
+l'arrêt du contrôle plane. Dans les deux cas, le journal conserve l'état
+incomplet et des totaux inconnus ; les reprises refusent le relancement.
+La trace observée avant le crash reste dans le journal de test, sans être
+transformée en fait durable de production. Une attestation volontairement privée du
 champ `complete`, mais authentifiée par le journal réel, échoue au contrôle
 de liaison aux coûts mesurés. Les scénarios utilisent des processus distincts
 pour éviter la réutilisation de connexions SQLite mises en cache.
 
 ## Limites
 
-La sonde de crash couvre la fenêtre après intention et avant lancement. Elle
-ne qualifie pas tous les crashes, les échecs d'écriture disque, les processus
+Les sondes de crash couvrent les fenêtres après intention et avant lancement,
+puis après fermeture de l'oracle et avant fait final. Elles ne qualifient pas
+tous les crashes, les échecs d'écriture disque, les processus
 orphelins ou l'exécution exactement une fois. Les intentions non résolues
 restent inconnues et exigent un nouveau run ; aucune reprise transparente
 n'est promise. Le rollback de toute la base n'est pas détecté ici.
