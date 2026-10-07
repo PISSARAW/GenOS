@@ -8,7 +8,12 @@ const root = path.resolve(__dirname, '../../benchmarks/p0-pilots/v1');
 const protocol = require(path.join(root, 'protocol.json'));
 const { compile, execute } = require(path.join(root, 'expression.cjs'));
 const { select } = require(path.join(root, 'arm.cjs'));
-require(path.join(root, 'environment.cjs')).validateAssets();
+const environment = require(path.join(root, 'environment.cjs'));
+const lock = environment.validateAssets();
+const sample = fs.readFileSync(path.join(root, 'public/code.json'), 'utf8');
+assert.equal(environment.assetDigest(sample), lock.assets['public/code.json']);
+assert.equal(environment.assetDigest(sample.replace(/\r?\n/g, '\r\n')), lock.assets['public/code.json']);
+assert.notEqual(environment.assetDigest(sample + 'tampered'), lock.assets['public/code.json']);
 
 for (const pilot of Object.keys(protocol.pilots)) {
   const tasks = require(path.join(root, 'public', pilot + '.json'));

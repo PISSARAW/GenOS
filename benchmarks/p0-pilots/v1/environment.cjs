@@ -9,6 +9,7 @@ const { execFileSync } = require('node:child_process');
 const root = path.resolve(__dirname, '../../..');
 const digest = value => crypto.createHash('sha256').update(
   typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(value)).digest('hex');
+const assetDigest = value => digest(String(value).replace(/\r?\n/g, '\r\n'));
 
 function hashes(directory, prefix = '', dependencies = false) {
   const result = {};
@@ -51,7 +52,8 @@ function drift(expected, current) {
 function validateAssets() {
   const lock = JSON.parse(fs.readFileSync(path.join(__dirname, 'dataset.lock.json')));
   for (const [name, hash] of Object.entries(lock.assets)) {
-    if (digest(fs.readFileSync(path.join(__dirname, name))) !== hash) throw new Error('Versioned dataset integrity failure: ' + name);
+    const text = fs.readFileSync(path.join(__dirname, name), 'utf8');
+    if (assetDigest(text) !== hash) throw new Error('Versioned dataset integrity failure: ' + name);
   }
   return lock;
 }
@@ -84,4 +86,4 @@ function hostIdentity() {
     cpuCount: os.cpus().length, totalMemory: os.totalmem() };
 }
 
-module.exports = { root, digest, hashes, sourceHashes, dependencyHashes, drift, validateAssets, modelIdentity, leanIdentity, hostIdentity };
+module.exports = { root, digest, assetDigest, hashes, sourceHashes, dependencyHashes, drift, validateAssets, modelIdentity, leanIdentity, hostIdentity };
