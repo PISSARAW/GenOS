@@ -435,6 +435,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0348a](0348-elimination-dette-historique-qualite.md) | Élimination de la dette historique de qualité | Accepté | 2026-10-07 | Qualité, services, orchestration |
 | [0348b](0348-trois-pilotes-comparatifs-reproductibles.md) | Trois pilotes comparatifs reproductibles | Accepté | 2026-10-07 | Évaluation, modèles, mémoire et preuves |
 | [0349](0349-manifeste-experimental-gvx-et-provenance-p1.md) | Manifeste expérimental GVX et provenance P1 | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
+| [0350](0350-cycle-immuable-des-claims-scientifiques.md) | Cycle immuable des claims scientifiques | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

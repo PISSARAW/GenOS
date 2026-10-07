@@ -22,6 +22,7 @@ async function sealScientificWave(db, input) {
     if (!assessment || assessment.assessment_kind !== 'verifier' || assessment.verifier_status !== 'verified') {
       throw new Error('VERIFIED_SCIENTIFIC_ASSESSMENT_REQUIRED');
     }
+    await assertActiveClaim(db, assessment);
     const author = await db.get('SELECT created_by FROM scientific_claims WHERE claim_id = ?', [assessment.claim_id]);
     if (author.created_by === assessment.created_by) throw new Error('INDEPENDENT_EXPERIMENT_VERIFIER_REQUIRED');
     if (JSON.parse(assessment.scope_json).scopeId !== input.scopeId) throw new Error('SCIENTIFIC_SCOPE_MISMATCH');
@@ -35,6 +36,12 @@ async function sealScientificWave(db, input) {
     results.push({ experimentId: item.experimentId, verificationRef, evidenceRefs });
   }
   return waves.sealWave(db, { ...input, results, resolveArtifact: artifacts.resolver(db, input.scopeId) });
+}
+async function assertActiveClaim(db, assessment) {
+  const lifecycle = require('../../scientificClaimLifecycle');
+  const claim = await lifecycle.scopedClaim(db, { claimId: assessment.claim_id, experimentId: assessment.experiment_id });
+  const state = await lifecycle.inspect(db, claim);
+  if (state.status !== 'proposed') throw new Error('SCIENTIFIC_CLAIM_INACTIVE');
 }
 async function copyEvidence(db, input) {
   const item = await db.get('SELECT * FROM scientific_evidence WHERE evidence_id = ? AND claim_id = ?', [input.evidenceId, input.claimId]);

@@ -58,11 +58,24 @@ async function recordEvidence(req, res, next) {
 async function recordAssessment(req, res, next) {
   try {
     const result = await ledger(req).recordAssessment({
+      experimentId: req.scientificExperiment.id,
       claimId: req.params.claimId, kind: req.body?.kind, position: req.body?.position,
       verifierStatus: req.body?.verifierStatus, rationale: req.body?.rationale,
       evidenceRefs: req.body?.evidenceRefs || [], createdBy: actor(req)
     });
     res.status(201).json({ success: true, assessment: result });
+  } catch (error) { next(error); }
+}
+
+async function recordClaimTransition(req, res, next) {
+  try {
+    const result = await ledger(req).recordClaimTransition({
+      experimentId: req.scientificExperiment.id, claimId: req.params.claimId,
+      eventId: req.body?.eventId, expectedHeadHash: req.body?.expectedHeadHash,
+      status: req.body?.status, rationale: req.body?.rationale,
+      evidenceRefs: req.body?.evidenceRefs || [], createdBy: actor(req)
+    });
+    res.status(201).json({ success: true, event: result });
   } catch (error) { next(error); }
 }
 
@@ -85,4 +98,4 @@ async function attachExperimentScope(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { attachExperimentScope, createLedger, inspectLedger, recordClaim, recordEvidence, recordAssessment };
+module.exports = { attachExperimentScope, createLedger, inspectLedger, recordClaim, recordEvidence, recordAssessment, recordClaimTransition };

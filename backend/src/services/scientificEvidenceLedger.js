@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const lifecycle = require('./scientificClaimLifecycle');
 
 const LEVELS = new Set(['L1', 'L2', 'L3', 'L4', 'L5']);
 const TOPOLOGIES = new Set(['holobionte', 'syncytium', 'a-team', 'biocenose', 'trinity', 'biome', 'rhizome', 'metapopulation']);
@@ -141,7 +142,9 @@ function validateEvidenceContext(item, claim) {
 }
 
 async function recordAssessment(db, input) {
-  const claim = await db.get('SELECT claim_id FROM scientific_claims WHERE claim_id = ?', input.claimId);
+  const claim = input.experimentId === undefined
+    ? await db.get('SELECT claim_id FROM scientific_claims WHERE claim_id = ?', input.claimId)
+    : await lifecycle.scopedClaim(db, input);
   if (!claim) throw invalid('Scientific claim does not exist.', 'SCIENTIFIC_CLAIM_UNKNOWN');
   const item = await validatedAssessment(db, input);
   await db.run(`INSERT INTO scientific_assessments
@@ -219,7 +222,8 @@ async function inspectClaim(db, claim) {
   return {
     claimId: claim.claim_id, statement: claim.statement, scope: JSON.parse(claim.scope_json),
     assumptions: JSON.parse(claim.assumptions_json), evidence: evidence.map(parseEvidence),
-    assessments: assessments.map(parseAssessment), status: classifyClaim(evidence, assessments)
+    assessments: assessments.map(parseAssessment), status: classifyClaim(evidence, assessments),
+    lifecycle: await lifecycle.inspect(db, claim)
   };
 }
 
@@ -246,6 +250,7 @@ function createScientificEvidenceLedger(db) {
     recordClaim: (input) => recordClaim(db, input),
     recordEvidence: (input) => recordEvidence(db, input),
     recordAssessment: (input) => recordAssessment(db, input),
+    recordClaimTransition: (input) => lifecycle.record(db, input),
     inspectExperiment: (input) => inspectExperiment(db, input.experimentId)
   };
 }

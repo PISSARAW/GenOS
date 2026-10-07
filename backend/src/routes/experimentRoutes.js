@@ -17,6 +17,7 @@ router.get('/:experimentId/evidence-ledger', scientificEvidenceController.inspec
 router.post('/:experimentId/evidence-ledger/claims', requirePermission('experiment:write'), requireTenantScope({ write: true }), scientificEvidenceController.recordClaim);
 router.post('/:experimentId/evidence-ledger/claims/:claimId/evidence', requirePermission('experiment:write'), requireTenantScope({ write: true }), scientificEvidenceController.recordEvidence);
 router.post('/:experimentId/evidence-ledger/claims/:claimId/assessments', requirePermission('experiment:write'), requireTenantScope({ write: true }), scientificEvidenceController.recordAssessment);
+router.post('/:experimentId/evidence-ledger/claims/:claimId/transitions', requirePermission('experiment:write'), requireTenantScope({ write: true }), scientificEvidenceController.recordClaimTransition);
 
 router.get('/', experimentController.listExperiments);
 router.get('/recent', experimentController.getRecentExperiments);

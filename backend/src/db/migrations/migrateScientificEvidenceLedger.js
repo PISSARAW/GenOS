@@ -52,6 +52,23 @@ async function migrateScientificEvidenceLedger(db) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS scientific_assessments_claim_idx ON scientific_assessments(claim_id, created_at);
+    CREATE TABLE IF NOT EXISTS scientific_claim_events (
+      event_id TEXT PRIMARY KEY,
+      claim_id TEXT NOT NULL REFERENCES scientific_claims(claim_id),
+      previous_hash TEXT NOT NULL,
+      event_hash TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      UNIQUE (claim_id, previous_hash)
+    );
+    CREATE INDEX IF NOT EXISTS scientific_claim_events_claim_idx ON scientific_claim_events(claim_id);
+    CREATE TRIGGER IF NOT EXISTS scientific_claim_events_no_update
+      BEFORE UPDATE ON scientific_claim_events BEGIN SELECT RAISE(ABORT, 'scientific claim events are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS scientific_claim_events_no_delete
+      BEFORE DELETE ON scientific_claim_events BEGIN SELECT RAISE(ABORT, 'scientific claim events are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS scientific_claims_no_update
+      BEFORE UPDATE ON scientific_claims BEGIN SELECT RAISE(ABORT, 'scientific claims are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS scientific_claims_no_delete
+      BEFORE DELETE ON scientific_claims BEGIN SELECT RAISE(ABORT, 'scientific claims are immutable'); END;
     CREATE TRIGGER IF NOT EXISTS scientific_evidence_no_update
       BEFORE UPDATE ON scientific_evidence BEGIN SELECT RAISE(ABORT, 'scientific evidence is immutable'); END;
     CREATE TRIGGER IF NOT EXISTS scientific_evidence_no_delete

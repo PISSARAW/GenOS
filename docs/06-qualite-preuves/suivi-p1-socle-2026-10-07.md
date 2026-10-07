@@ -1,6 +1,6 @@
 # Suivi du socle P1 — 2026-10-07
 
-- **Statut** : P1 démarré ; première extension L01 intégrée et qualifiée sur fixtures ; L01 reste partiel.
+- **Statut** : P1 démarré ; manifeste GVX et cycle des claims scientifiques intégrés et qualifiés sur fixtures ; L01 reste partiel.
 - **Portée** : L01 à L05 et L22, après clôture P0 au périmètre convenu.
 - **Dernière revue** : 2026-10-07.
 
@@ -15,7 +15,7 @@ intégré, qualifié, évalué et répliqué restent distincts.
 
 | Lot | État de lancement | Travail suivant nécessaire |
 | --- | --- | --- |
-| L01 Contrats et provenance | Première extension GVX intégrée et qualifiée sur fixtures ; lot partiel | Relier les missions générales et les reçus existants ; lifecycle des claims et rétractations ; compatibilité des autres consommateurs. |
+| L01 Contrats et provenance | Manifeste GVX et cycle scientifique qualifiés sur fixtures ; lot partiel | Relier les missions générales et les reçus existants ; propager les rétractations entre consommateurs et références GVX ; compatibilité des autres consommateurs. |
 | L02 Autorité et confinement | Contrats existants qualifiés par P0 ; extension P1 à entreprendre | Enveloppe commune liée au manifeste, révocation pendant le run, limites spawn/délégation et refus hors scope. |
 | L03 Oracles indépendants | Composants AEIS/Lean et pilotes existants ; intégration P1 à entreprendre | Postconditions métier, fraîcheur, domaine et résolution vérifiée des références du manifeste. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
@@ -77,6 +77,63 @@ par le manifeste. Les tests du nursery utilisent un vérificateur réel
 d'intégrité sur des bytes de fixture, sans oracle de succès métier ni modèle.
 La reprise conserve un bras déjà committé ; aucun effet externe exactement
 une fois n'est revendiqué. L01 complet, P1 complet et gain IA restent ouverts.
+
+## Deuxième extension L01 — cycle scientifique
+
+L'[ADR 0350](../adr/0350-cycle-immuable-des-claims-scientifiques.md)
+ajoute au registre scientifique existant un historique immuable des rejets
+et rétractations. Les preuves et assessments antérieurs restent lisibles.
+Une rétractation est terminale et ne peut pas devenir une vérification.
+L'inspection fournit le dernier hash à transmettre avec une transition.
+Deux connexions qui proposent un successeur à ce même hash ne peuvent pas
+le faire accepter toutes deux ; le perdant doit relire l'état, HTTP 409.
+Le rejeu identique reste stable après une transition ultérieure.
+
+Le nouvel endpoint REST hérite des contrôles de tenant et d'écriture.
+Le contrôleur impose l'acteur authentifié et l'expérience de l'URL.
+Le chemin des assessments reçoit également cette liaison : un claim
+appartenant à une autre expérience est refusé, même si son identifiant est
+connu. Les appels internes historiques sans expérience restent compatibles.
+Les sondes de scope invoquent les contrôleurs sur SQLite réel ; elles ne
+constituent pas une nouvelle qualification complète de l'authentification HTTP.
+
+Trinity/Meristem refuse une nouvelle vague lorsqu'il observe un claim rejeté
+ou rétracté, malgré un ancien assessment `verified`. Les artefacts déjà
+consommés ne sont pas révoqués ; une rétractation pendant le scellement n'est
+pas encore réservée atomiquement. Les manifestes GVX historiques conservent
+leurs déclarations initiales et ne sont pas réécrits.
+
+Validation de cette extension :
+
+- Nouveau test `test_scientific_claim_lifecycle` : migration répétée sur
+  données existantes, refus de scope et de transitions invalides, deux
+  connexions concurrentes, rejeu, refus Meristem, restart dans un autre
+  processus, immutabilité et altérations forcées ; code 0.
+- Registre scientifique existant, suite runtime des capacités et manifeste
+  GVX : codes 0.
+- `npm test` : code 0, avec découverte des deux tests `test:p1-socle`.
+- `cargo test --workspace` : code 0, 80 suites, compilation sur D: sans PDB.
+- Qualité stricte des sept sources P1 : zéro violation ; index ADR :
+  427 fichiers et lignes, zéro problème.
+- Qualité globale : **code 1**, une nouvelle violation dans
+  `crates/genos-mcp/src/validation.rs`, fonction `apply_special_validations`
+  de complexité 11. Ce fichier était déjà modifié par un autre travail et
+  reste hors du commit P1. La qualification globale de qualité n'est donc
+  pas acquise pour l'état partagé observé.
+
+Les journaux et empreintes restent hors Git sous
+`C:/Users/Shadow/.codex/visualizations/2026/10/06/01a11128-3c02-7882-a146-5b1ec06e3434/p1-l01-claims`.
+Le dernier ajout de sonde de migration a été rejoué après la suite globale ;
+il ne modifie pas l'implémentation validée. Les empreintes locales ne sont
+pas une attestation contre une réécriture complète par un administrateur.
+
+La décision GenOS `decision-fb0fd128-6362-4861-b551-a9880babc9c3` a été
+persistée. Deux appels de checkpoint ont dépassé 120 secondes sans reçu
+ni fichier observé : cette continuation n'a pas de checkpoint GenOS vérifié.
+L01 reste partiel, notamment pour les missions générales, la résolution des
+reçus et la propagation des rétractations. L02 à L05 et L22 restent ouverts.
+L'expérience GenOS `d45758b2-0dbb-4ffe-b8e7-e22e5a5ca13e` conserve les
+résultats et ces limites ; sa persistance ne vaut pas validation du code.
 
 ## Traçabilité du lancement
 
