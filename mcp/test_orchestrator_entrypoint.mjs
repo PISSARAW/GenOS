@@ -30,6 +30,11 @@ try {
   assert.equal(progress.event.detail, 'Bridge is running');
   const parent = await get('SELECT execution_mode FROM agents WHERE id = ?', ['entry-test-root']);
   assert.equal(parent.execution_mode, 'orchestrator');
+  const uninitialized = execFileSync(process.execPath, [bridge, JSON.stringify({ action: 'organization_state',
+    orchestratorId: 'entry-test-root' })], { cwd: root,
+    env: { ...env, GENOS_AGENT_ID: 'entry-test-root' }, encoding: 'utf8' });
+  assert.equal(JSON.parse(uninitialized).status, 'not_initialized');
+  assert.equal(JSON.parse(uninitialized).organization, undefined);
 
   const invalid = spawnSync(process.execPath, [bridge, JSON.stringify({ action: 'change_organization',
     orchestratorId: 'entry-test-root', organization: 'nonexistent_topology' })],

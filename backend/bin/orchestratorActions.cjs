@@ -181,7 +181,7 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
   const result = action === 'organization_state'
     ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
     : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
-  process.stdout.write(JSON.stringify(result || { orchestratorId, organization: 'specialist_expert_committee', version: 0 }));
+  process.stdout.write(JSON.stringify(result || { orchestratorId, status: 'not_initialized' }));
 }
 function requiredOrganizationActor() {
   const actor = String(process.env.GENOS_AGENT_ID || '').trim();

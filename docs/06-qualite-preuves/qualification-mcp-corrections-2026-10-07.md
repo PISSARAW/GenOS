@@ -17,7 +17,7 @@ Légende : `S` = appel MCP `stdio` réel avec preuve métier ; `B` = dispatch/tr
 | Orchestration | `genos_change_strategy` | R | Contrat/dispatch. |
 | Orchestration | `genos_report_progress` | R | Contrat/dispatch. |
 | Orchestration | `genos_change_organization` | R | Contrat/dispatch. |
-| Orchestration | `genos_organization_state` | R | Contrat/dispatch ; identité runtime désormais requise, mais visibilité métier complète non qualifiée. |
+| Orchestration | `genos_organization_state` | R | État initial non créé signalé `not_initialized` au lieu d'une topologie fictive ; identité runtime requise. Visibilité métier complète non qualifiée. |
 | Orchestration | `genos_worker_publish` | S | Publication worker en `stdio` avec identité runtime liée ; ligne relue dans SQLite et signal routé vers l’inbox parent avec intégrité vérifiée. La consommation par un second processus worker reste hors campagne. |
 | Orchestration | `genos_worker_inbox` | S | Message ciblé relu en `stdio` depuis SQLite, intégrité vérifiée et curseur `after_id` testé. Le routage ne renvoie plus le seul état de l'organisation. |
 | Orchestration | `genos_trinity_launch` | R | Mondes comparatifs non exécutés dans cette campagne. |
