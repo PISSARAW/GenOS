@@ -73,6 +73,7 @@ async function main() {
     assert.equal(invalidStatus.status, 400);
     assert.equal(invalidStatus.body.error.code, 'INVALID_RUN_STATUS');
     await assertIntegrity(spec, context);
+    await require('./helpers/assemblyRetractionHttpProbes').qualify(spec, request);
     console.log('Consumer inspection: tenant isolation, real promotion provenance, tamper refusal and mission admin boundaries passed.');
   } finally {
     await new Promise(resolve => server.close(resolve));

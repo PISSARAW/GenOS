@@ -53,6 +53,7 @@ async function qualify(db, input) {
   await forgedClaims(db, { row, request });
   const foreign = { ...request, scope: { ...request.scope, projectId: 'foreign-project' } };
   await assert.rejects(subjects.load(db, foreign), { code: 'MEMORY_ORACLE_SCOPE_MISMATCH' });
+  await require('./nativeMemoryRetractionProbes').qualify(db, { row, request, subject });
   console.log('Memory oracle: real promoted memory, two fresh processes and signed AEIS fidelity; contradictory content and hash-valid false claims rejected.');
 }
 

@@ -4,6 +4,8 @@ const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 
 const router = express.Router();
+router.post('/assemblies/:assemblyId/retract', requirePermission('security:manage'), requireTenantScope({ write: true }),
+  require('../controllers/aeisRetractionController').retract);
 router.get('/consumer-runs/:runId', requirePermission('read'), requireTenantScope(),
   require('../controllers/consumerInspectionController').inspect);
 router.get('/consumer-agents/:agentId/runs', requirePermission('read'), requireTenantScope(),

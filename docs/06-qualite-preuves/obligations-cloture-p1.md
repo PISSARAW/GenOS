@@ -13,7 +13,7 @@ Le critère de sortie de chaque lot s'ajoute aux fonctionnalités et tests ci-de
 | C002 | État versionné | L01 | Versionner séparément croyances, permissions et état externe | **A** — Tester quelles composantes expliquent une divergence | À qualifier |
 | C003 | Exécution contrefactuelle | L04 | Interventions sur une seule décision dans des mondes appariés | **A** — Estimer son effet causal sur la réussite | À qualifier |
 | C004 | Branches, forks, snapshots, diffs et replay | L04 | Comparer forks et diffs avec aléas communs et contrôle des effets externes | **A** — Distinguer variation stochastique et effet du changement | À qualifier |
-| C008 | Provenance | L01 | Construire un graphe des dépendances entre sources et décisions | **B** — Mesurer la propagation des rétractations | À qualifier |
+| C008 | Provenance | L01 | Construire un graphe des dépendances entre sources et décisions | **B** — Mesurer la propagation des rétractations | Partiel : rétraction signée d'assemblée vers lecture mémoire ; propagation générale et mesure comparative ouvertes |
 | C009 | Reçus vérifiables | L03 | Lier reçus, entrées, versions et vérification sémantique | **B** — Détecter les preuves valides techniquement mais non pertinentes | Partiel : postconditions subset sum et fidélité mémoire ; code, vérité source et campagne comparative ouverts |
 | C011 | Autorité explicite | L02 | Séparer autorisation d'agir et confiance dans une conclusion | **I** — Tester leur confusion sous ambiguïté | À qualifier |
 | C012 | Leases d’outils | L02 | Adapter les leases au risque observé sans auto-augmentation de droits | **I** — Mesurer utilité et violations d'autorité | À qualifier |
