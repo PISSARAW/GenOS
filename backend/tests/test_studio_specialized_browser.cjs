@@ -12,7 +12,14 @@ function fingerprints() {
   const files = fs.readdirSync(path.join(__dirname, '../../integrations/studio')).filter(file => /\.(mjs|js|css|html)$/.test(file))
     .map(file => 'integrations/studio/' + file);
   files.push(...fs.readdirSync(path.join(__dirname, '../src/services')).filter(file => /^studio.*\.js$/.test(file)).map(file => 'backend/src/services/' + file),
-    'backend/src/routes/studioGenosRoutes.js', 'backend/tests/test_studio_specialized_browser.cjs');
+    'backend/src/routes/studioGenosRoutes.js', 'backend/tests/test_studio_specialized_browser.cjs',
+    'backend/tests/helpers/studioClinicalFixture.cjs', 'backend/tests/helpers/studioGenosFixture.cjs',
+    'backend/tests/helpers/studioGenosBrowserJourney.cjs');
+  files.push(...['propositionalLogicService', 'curiosityService', 'ncePromptService', 'neurobiologyBiophysics',
+    'swarmTopologyAlgorithms', 'organizationAlgorithms', 'conceptRuntimeService', 'medical/clinicalStateService',
+    'medical/immuneSurveillanceService', 'perception/activePerceptionPlannerService', 'perception/observationService',
+    'ontogenesis/canonicalConceptInventory', 'ontogenesis/canonicalConceptRegistry', 'philosophyRouter',
+    'topologyCapabilityService', 'immuneThreats'].map(name => 'backend/src/services/' + name + '.js'));
   return Object.fromEntries(files.map(file => [file, crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname, '../..', file))).digest('hex')]));
 }
 
@@ -67,7 +74,33 @@ async function health(page, context) {
   const diagnosis = await action(page, { id: 'health-diagnose', route: root + '/health/diagnose' });
   assert.equal(diagnosis.confirmed, true);
   assert.match(await page.locator('#health-result-summary').textContent(), /Causalité établieNon/);
+  assert.match(await page.locator('#health-result-summary').textContent(), /Classification confirmée par seuilsOui/);
+  assert.doesNotMatch(await page.locator('#health-result-summary').textContent(), /Arrêt confirmé/);
   return { scanId: scan.analysisId, biopsyRef: biopsy.biopsyRef, diagnosisId: diagnosis.analysisId };
+}
+
+async function reference(page, root) {
+  await page.locator('[data-target="reference-view"]').click();
+  const list = await action(page, { id: 'reference-list', route: root + '/reference?namespace=philosophy&q=logic.propositional&domain=&offset=0&limit=50',
+    method: 'GET', fields: { namespace: 'philosophy', q: 'logic.propositional' } });
+  assert.equal(list.items[0].id, 'logic.propositional');
+  const detail = await action(page, { id: 'reference-inspect', route: root + '/reference/concept?namespace=philosophy&id=logic.propositional', method: 'GET' });
+  assert.equal(detail.contract.runtimeAuthority, false);
+  const logic = await action(page, { id: 'reference-logic', route: root + '/reference/logic' });
+  assert.equal(logic.classification, 'tautology');
+  assert.match(await page.locator('#reference-result-summary').textContent(), /Faits externes vérifiésNon/);
+  return { conceptId: detail.concept.id, analysisId: logic.analysisId, classification: logic.classification };
+}
+
+async function accessibleViews(page) {
+  for (const id of ['collective', 'perception', 'biomimetic', 'health', 'reference']) {
+    await page.locator(`[data-target="${id}-view"]`).evaluate(button => button.click());
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, id);
+    assert.equal(await page.locator(`#${id}-view h2`).evaluate(element => document.activeElement === element), true, id);
+    const unnamed = await page.locator(`#${id}-view input, #${id}-view textarea`).evaluateAll(elements =>
+      elements.filter(element => !element.labels?.length).map(element => element.name));
+    assert.deepEqual(unnamed, [], id);
+  }
 }
 
 async function probe(spec) {
@@ -93,19 +126,28 @@ async function probe(spec) {
     await page.screenshot({ path: path.join(output, 'studio-biomimetic.png'), fullPage: true });
     result.health = await health(page, { spec, root });
     await page.screenshot({ path: path.join(output, 'studio-health.png'), fullPage: true });
+    result.reference = await reference(page, root);
+    await page.screenshot({ path: path.join(output, 'studio-reference.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await accessibleViews(page);
     await page.screenshot({ path: path.join(output, 'studio-specialized-mobile.png'), fullPage: true });
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await accessibleViews(page);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await page.keyboard.press('Tab');
+    assert.notEqual(await page.evaluate(() => document.activeElement.tagName), 'BODY');
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
     assert.equal(await page.locator('[data-view]:visible').count(), 0);
     assert.equal(await page.locator('#collective-result').textContent(), '');
     assert.equal(await page.locator('#perception-result').textContent(), '');
     assert.equal(await page.locator('#biomimetic-result').textContent(), '');
     assert.equal(await page.locator('#health-result').textContent(), '');
+    assert.equal(await page.locator('#reference-result').textContent(), '');
     assert.deepEqual(errors, []);
     const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: path.join(__dirname, '../..'), encoding: 'utf8', windowsHide: true }).trim();
     fs.writeFileSync(path.join(output, 'studio-specialized-qualified.json'), JSON.stringify({ ...result,
-      revision, sourceHashes: fingerprints(), qualifiedAt: new Date().toISOString(), apiInterception: false, errors }, null, 2));
+      revision, sourceHashes: fingerprints(), qualifiedAt: new Date().toISOString(), apiInterception: false, errors,
+      accessibilityProbes: { mobile390: true, text200Percent: true, labels: true, titleFocus: true, tab: true } }, null, 2));
     console.log('Studio specialized browser: real APIs and sourced analyses passed.');
   } finally { await browser.close(); }
 }

@@ -11,10 +11,9 @@ function tokenize(source) {
 
 function parseFormula(source) {
   const tokens = tokenize(source);
-  let pos = 0;
-  const peek = () => tokens[pos];
-  const take = () => tokens[pos++];
-  const ctx = { tokens, peek, take, pos };
+  const ctx = { tokens, pos: 0 };
+  ctx.peek = () => tokens[ctx.pos];
+  ctx.take = () => tokens[ctx.pos++];
   const ast = parseExpression(ctx, 1);
   if (ctx.pos !== tokens.length) throw new Error('Unexpected token in formula.');
   return ast;

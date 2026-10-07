@@ -8,7 +8,13 @@ const groupNames = {
   targetSnapshot: 'Snapshot cible', restoredSnapshot: 'Snapshot restauré',
   safetySnapshot: 'Snapshot de sécurité', workspace: 'Workspace', agent: 'Agent', claim: 'Hypothèse',
   affectedFiles: 'Fichiers concernés', checkpoints: 'Checkpoints agent', relatives: 'Agents apparentés',
-  sections: 'Sections AgentDNA', genes: 'Gènes', genomes: 'Génomes', incidents: 'Incidents du projet', memory: 'Mémoire'
+  sections: 'Sections AgentDNA', genes: 'Gènes', genomes: 'Génomes', incidents: 'Incidents du projet', memory: 'Mémoire',
+  topologies: 'Topologies', organizations: 'Organisations collectives', capabilities: 'Capacités requises',
+  sensors: 'Capteurs déclarés', indicators: 'Indicateurs', receipts: 'Reçus persistés', probes: 'Probes proposées',
+  conditions: 'Conditions du modèle', therapies: 'Thérapies du catalogue', categories: 'Familles',
+  immuneEvents: 'Événements immunitaires', pathologies: 'Pathologies runtime', aeisEvidence: 'Preuves AEIS liées au run',
+  items: 'Fiches du registre', domains: 'Domaines', relations: 'Relations', neighbors: 'Fiches voisines',
+  atoms: 'Propositions', rows: 'Table de vérité', detections: 'Anomalies du modèle', threats: 'Signatures trouvées'
 };
 
 function card(record) {

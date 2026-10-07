@@ -50,11 +50,17 @@ const labels = [
   ['diagnosisScope', 'Portée du diagnostic'], ['threatScope', 'Portée du scan'], ['absenceProvesSafety', 'Absence prouvant la sécurité'],
   ['category', 'Famille'], ['event_type', 'Type d’événement'], ['created_at', 'Date persistée'], ['wellnessScore', 'Score du modèle clinique'],
   ['clinicalStateObserved', 'État clinique persisté disponible'], ['historicalAccepted', 'Accepté historiquement'],
-  ['currentAssuranceStatus', 'Validité actuelle AEIS']
+  ['currentAssuranceStatus', 'Validité actuelle AEIS'], ['namespace', 'Registre'], ['total', 'Résultats'],
+  ['offset', 'Position'], ['limit', 'Limite'], ['nextOffset', 'Page suivante'], ['hasMore', 'Autres pages disponibles'],
+  ['domain', 'Domaine'], ['school', 'École'], ['maturity', 'Maturité déclarée'], ['classification', 'Classification'],
+  ['runtimeAuthority', 'Autorité runtime déclarée'], ['runtimeVerified', 'Runtime qualifié par cette lecture'],
+  ['executableDeclared', 'Exécutable déclaré par le catalogue'], ['formula', 'Formule'], ['rowCount', 'Valuations calculées'],
+  ['semanticScope', 'Portée sémantique'], ['externalFactsVerified', 'Faits externes vérifiés'], ['promotionEligible', 'Éligible à promotion'],
+  ['definition', 'Définition'], ['role', 'Rôle conceptuel'], ['service', 'Service déclaré'], ['value', 'Valeur logique calculée']
 ];
 
 const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome',
-  'step', 'activeOrganization', 'clinicalState'];
+  'step', 'activeOrganization', 'clinicalState', 'concept', 'contract'];
 
 export function humanValue(value) {
   if (value === null || value === undefined) return 'Inconnu';
@@ -66,7 +72,12 @@ export function humanValue(value) {
 
 export function recordFields(record) {
   return labels.filter(([key]) => Object.hasOwn(record, key))
-    .map(([key, label]) => [label, humanValue(record[key])]);
+    .map(field => [recordLabel(record, field), humanValue(record[field[0]])]);
+}
+
+function recordLabel(record, field) {
+  if (field[0] === 'confirmed' && record.diagnosisScope) return 'Classification confirmée par seuils';
+  return field[1];
 }
 
 export function recordTitle(record) {

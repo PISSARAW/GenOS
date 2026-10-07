@@ -584,3 +584,66 @@ E03 : commit `c47ff51a`. Immunité adaptative complète, calibration FP/FN et
 traitements autonomes sous autorisations restent des parcours distincts.
 `test_studio_health.cjs` et `test:studio:specialized` passent (code 0). Le champ
 temporel utilisé est `detected_at` du schéma réel ; aucun champ fictif n'est ajouté.
+
+### E05 — Référentiel canonique, écoles et logique
+
+`#/referentiel` rend l'inventaire canonique intégral parcourable par pages,
+avec recherche, domaines et empreinte de catalogue. Les trois registres restent
+distincts : documenté, runtime déclaré, philosophie. Une entrée n'est pas réputée
+exécutée ou autorisée par sa seule présence. L'inspection philosophique expose
+contrat, maturité, classification et voisinage sans dispatcher générique.
+La pagination API peut lier `catalogHash` et refuse les versions changées 409 ;
+le formulaire conserve une pagination manuelle, sans binding automatique du hash.
+
+L'analyse logique réutilise le moteur propositionnel, limitée à 200 caractères,
+huit atomes et 256 valuations. Tautologie, contradiction et contingence sont
+calculées réellement ; l'analyse persistée demeure provisoire et non promotrice.
+Les faits externes ne sont pas vérifiés par la table de vérité.
+
+Le parseur existant rejetait même `A` : sa consommation avançait un curseur
+local alors que le contrôle final lisait sa copie initiale. Le skill diagnostic
+a consigné cette hypothèse ; une seule source de curseur corrige le défaut,
+sans remplacer la sémantique du moteur. Tests propositionnels, modaux,
+déontiques/dynamiques, non classiques et routeur philosophique passent (code 0).
+`test_studio_reference.cjs` parcourt et réconcilie tous les identifiants canoniques,
+vérifie contrats, classifications, intégrité des analyses et refus de scope,
+droits, pagination, formule ou catalogue invalides.
+
+La revue visuelle a aussi révélé une collision du champ `confirmed` : le rendu
+nosologique disait « arrêt confirmé ». Il distingue désormais « classification
+confirmée par seuils » du véritable arrêt, avec assertions de rendu et navigateur.
+Les lignes de table de vérité et titres de groupes sont lisibles en français.
+E04 est committé en `a5bb5627` ; E05 porte ce bilan et sa documentation.
+
+### Qualification transversale E
+
+| Vérification | Résultat exécuté |
+| --- | --- |
+| `npm --prefix backend run test:studio` | Code 0 ; 25/25 suites sur Windows, y compris les cinq familles E. |
+| `test:studio:specialized` | Code 0 ; cinq parcours HTTP/SQLite/fichiers/moteurs réels, aucune interception API. |
+| `test:studio:genos` / `test:studio:pilot` | Codes 0 ; régressions D et C sur services et CLI réels. |
+| `test:studio:foundation` | Code 0 ; régression B sur vrai DOM et API de fixture. |
+| `python scripts/ci/check_code_quality.py` | Code 0 ; 5540 sources, zéro violation nouvelle. |
+| `python scripts/ci/check_adr_index.py` | Code 0 ; 444 ADR, 444 entrées, zéro problème. |
+| `cargo test --workspace` | Code 0, cache du dépôt principal réutilisé. |
+| `npm test` | Code 1 ; intégrité P0 `public/code.json` refusée ; suite globale non certifiée. |
+| `test_philosophical_adapters.js` | Code 1 ; le test attend `supervenes: true`, mais le service retourne `null` / `not_established`. |
+
+La probe P0 en lecture seule confirme les quatre hashes attendus uniquement
+après conversion LF → CRLF en mémoire, sans modifier les datasets ni leur lock.
+La divergence philosophique est également reproduite en chargeant en mémoire
+le service du commit de base `a39bc995` : même résultat `null`, fichiers inchangés.
+Elle précède les appels au parseur corrigé et n'est pas masquée en affirmant
+une supervenience établie. Ces deux écarts restent hors des tranches livrées.
+
+Le manifeste E conserve date, révision, hashes frontend/façade/moteurs/harnais,
+identifiants d'analyses et probes 390 px, texte 200 %, labels, focus et Tab.
+Les cinq sorties sont purgées à la déconnexion. L'état clinique du test E04
+est une fixture persistée explicitement, pas une observation médicale autonome.
+Un rejeu après commit rattache la preuve au HEAD ; les logs et captures restent
+ignorés sous `.genos-tests/studio-specialized-e/`.
+
+Le [guide spécialisé](../04-exploitation/studio-mecanismes-specialises.md)
+décrit procédures, sources et limites. Un commit par tranche E01–E05,
+sans fusion/push implicite. Les domaines spécialisés complets, le contrat
+STUDIO-TARGET-V1 et la parité universelle ne sont pas déclarés terminés.

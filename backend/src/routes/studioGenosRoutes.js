@@ -75,4 +75,9 @@ router.post('/agents/:id/health/biopsy', ...write, handle(health.biopsy));
 router.post('/agents/:id/health/diagnose', ...write, handle(health.diagnose));
 router.post('/agents/:id/health/threats', ...write, handle(health.threats));
 
+const reference = require('../services/studioReferenceService');
+router.get('/agents/:id/reference', requirePermission('read'), handle(reference.list));
+router.get('/agents/:id/reference/concept', requirePermission('read'), handle(reference.inspect));
+router.post('/agents/:id/reference/logic', ...write, handle(reference.logic));
+
 module.exports = { router, handle, write };
