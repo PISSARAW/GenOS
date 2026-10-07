@@ -3,6 +3,7 @@ import { byId, encoded, node, options, applyPermissions, errorMessage, showView 
 import { connectedShell } from './shell.mjs';
 import { renderResponse } from './components.mjs';
 import { holdButtons, preserveFailure, uncertainEffect } from './actionState.mjs';
+import { requestContextChange } from './contextGuard.mjs';
 
 export const api = new StudioClient();
 export const state = { current: null, runId: null, busy: false, epoch: 0, runOffset: 0, runSearch: '' };
@@ -22,7 +23,8 @@ export function clearView() {
   window.dispatchEvent(new Event('studio:cleared'));
 }
 
-export function disconnect() {
+export function disconnect(options = {}) {
+  if (!options.force && !requestContextChange('disconnect')) return;
   state.epoch += 1;
   state.busy = false;
   api.setSession(null);
@@ -40,7 +42,7 @@ export function disconnect() {
 function showFailure(error, options) {
   byId('message').dataset.tone = 'error';
   if (error.status === 401) {
-    disconnect();
+    disconnect({ force: true });
     byId('message').textContent = 'Session expirée. Reconnectez-vous.';
     byId('message').dataset.tone = 'error';
     return;
@@ -170,6 +172,7 @@ export async function discover() {
 }
 
 async function connect() {
+  if (!requestContextChange('connect')) return;
   state.epoch += 1;
   state.busy = false;
   api.setSession({ token: byId('token').value, organization: byId('organization').value,
@@ -194,6 +197,10 @@ async function connect() {
 
 async function changeScope(event) {
   if (!api.session) return;
+  if (!requestContextChange('scope')) {
+    for (const id of ['organization', 'project', 'agent']) byId(id).value = api.session[id] || '';
+    return;
+  }
   if (event.target.id === 'organization') byId('project').value = '';
   if (event.target.id !== 'agent') byId('agent').value = '';
   const session = { ...api.session, organization: byId('organization').value,

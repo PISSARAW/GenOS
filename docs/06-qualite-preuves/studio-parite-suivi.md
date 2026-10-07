@@ -279,3 +279,28 @@ invitation au rejeu automatique. Le flag UI de réussite ne remplace aucune preu
 `node backend/tests/test_studio_action_state.mjs` passe : contrôles initialement
 désactivés, réseau/timeout/protocole, refus 403/404/409, priorité du 401 et distinction
 lecture réessayable/mutation incertaine. B01 reste couvert par ses deux probes.
+
+### B03 — Brouillon et frontières de contexte
+
+Le fichier édité demande confirmation avant changement d'organisation/projet/agent,
+workspace ou déconnexion manuelle. Un refus restaure les sélecteurs et ne change
+pas la session ; une acceptation purge le contexte précédent. La fermeture signale
+le brouillon via `beforeunload`, sous réserve de la politique du navigateur.
+HTTP 401, y compris le flux SSE, force la purge sans confirmation : un brouillon
+ne permet pas de conserver une session expirée. Aucune entrée n'est stockée dans
+localStorage/sessionStorage ; les formulaires autres que l'éditeur n'ont pas encore
+de garde de changement de contexte. La fonctionnalité n'est pas une autosauvegarde.
+
+`node backend/tests/test_studio_context_guard.mjs` passe : contexte propre, refus
+des quatre transitions, abandon confirmé, avertissement de fermeture et nettoyage
+des listeners. Les parcours navigateur de socle et pilote doivent qualifier le
+branchement réel aux sélecteurs et la priorité de l'expiration.
+
+Le test `node backend/tests/test_studio_foundation_browser.cjs` passe sous Edge
+headless, hors sandbox Windows après échec de lancement dans celui-ci. Il exerce
+le véritable DOM avec des API fixtures : refus de changement de projet/workspace
+et déconnexion, conservation du draft sur 403/409/502 et réseau, état initial des
+boutons, effet incertain et purge forcée sur 401 non JSON sans dialogue. L'abandon
+confirmé est aussi exercé. Ce test n'est pas une certification du backend.
+Capture ignorée : `.genos-tests/studio-foundation-b/studio-foundation-draft.png`.
+Le script dédié est `npm --prefix backend run test:studio:foundation`.

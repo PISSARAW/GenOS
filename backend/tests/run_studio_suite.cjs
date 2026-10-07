@@ -3,6 +3,7 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const suites = [
   'test_studio_client.mjs', 'test_studio_request_safety.mjs', 'test_studio_action_state.mjs',
+  'test_studio_context_guard.mjs',
   'test_studio_routes.mjs', 'test_studio_records.mjs', 'test_studio_onboarding.mjs',
   'test_studio_events.mjs', 'test_studio_comparison.mjs', 'test_studio_management.cjs',
   'test_studio_files.cjs', 'test_studio_multiprocess.cjs', 'test_studio_operations.cjs', 'test_studio_restart.cjs',

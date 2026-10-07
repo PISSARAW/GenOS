@@ -1,16 +1,20 @@
 import { api, perform } from './app.mjs';
 import { byId, encoded, node, displayList } from './ui.mjs';
 import { renderResponse } from './components.mjs';
+import { installDraftGuard, requestContextChange } from './contextGuard.mjs';
 
 let opened = null;
 let baseline = '';
 let fileEntries = [];
+let draftWorkspace = '';
+const dirty = () => byId('file-content').value !== baseline;
 const root = () => '/api/workspaces/' + encoded(byId('workspace-choice').value);
 const endpoint = () => root() + '/file?path=' + encoded(byId('file-path').value);
 
 function reset() {
   opened = null;
   baseline = '';
+  draftWorkspace = byId('workspace-choice').value;
   byId('file-content').value = '';
   byId('file-path').value = '';
   byId('restore-id').value = '';
@@ -55,6 +59,7 @@ async function openFile() {
   const data = await api.request(endpoint());
   opened = { path: data.path, version: data.version, workspace: byId('workspace-choice').value };
   baseline = data.content;
+  draftWorkspace = opened.workspace;
   byId('file-content').value = data.content;
   byId('file-result').textContent = 'Version chargée : ' + data.version;
   renderFiles();
@@ -74,6 +79,7 @@ async function saveFile() {
     body: { version, contentBase64: base64(content) } });
   opened = { path, workspace, version: response.version };
   baseline = content;
+  draftWorkspace = workspace;
   renderFiles();
   byId('file-result').textContent = 'Sauvegarde vérifiée : ' + response.version;
 }
@@ -91,9 +97,19 @@ function previewDiff() {
 }
 
 export function startFiles() {
+  installDraftGuard({ dirty });
+  byId('file-content').addEventListener('input', () => {
+    if (!draftWorkspace) draftWorkspace = byId('workspace-choice').value;
+  });
   byId('file-query').addEventListener('input', renderFiles);
   window.addEventListener('studio:cleared', reset);
-  byId('workspace-choice').addEventListener('change', reset);
+  byId('workspace-choice').addEventListener('change', () => {
+    if (!requestContextChange('workspace')) {
+      byId('workspace-choice').value = draftWorkspace;
+      return;
+    }
+    reset();
+  });
   byId('files-refresh').addEventListener('click', () => perform(listFiles));
   byId('file-open').addEventListener('click', () => {
     if (byId('file-content').value !== baseline && !window.confirm('Abandonner les modifications non sauvegardées ?')) return;

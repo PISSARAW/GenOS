@@ -130,7 +130,7 @@ function renderMetrics() {
 
 const stream = new EventStream(api, { event: eventReceived,
   status: text => { byId('stream-status').textContent = text; },
-  expired: disconnect, sync: async () => { await dashboard(); scheduleRefresh(); } });
+  expired: () => disconnect({ force: true }), sync: async () => { await dashboard(); scheduleRefresh(); } });
 
 export function startSupervision() {
   window.matchMedia('(max-width:600px)').addEventListener('change', () => {
