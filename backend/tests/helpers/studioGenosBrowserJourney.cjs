@@ -44,4 +44,16 @@ async function knowledge(page, spec) {
   return { memoryId: memory.id, transferId: transferred.id, parentHash: transferred.parentHash };
 }
 
-module.exports = { action, worlds, knowledge };
+async function organism(page) {
+  await page.locator('[data-target="organism-view"]').click();
+  const original = await action(page, { id: 'organism-inspect', route: '/api/studio/genomes/studio-source-genome',
+    method: 'GET', fields: { genomeId: 'studio-source-genome' } });
+  assert.ok(original.sections.some(section => section.name === 'META'));
+  const mutated = await action(page, { id: 'organism-mutate', route: '/api/studio/genomes/studio-source-genome/mutate' });
+  assert.equal(mutated.sourceHash, original.genome.contentHash);
+  assert.equal(mutated.deployed, false);
+  assert.match(await page.locator('#organism-result-summary').textContent(), /Promotion accordéeNon/);
+  return { sourceHash: mutated.sourceHash, candidateId: mutated.genomeRef, eventId: mutated.eventId };
+}
+
+module.exports = { action, worlds, knowledge, organism };

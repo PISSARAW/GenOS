@@ -7,6 +7,7 @@ const suites = [
   'test_studio_optional_mcp.cjs',
   'test_studio_worlds.cjs',
   'test_studio_memory.cjs',
+  'test_studio_genome.cjs',
   'test_studio_routes.mjs', 'test_studio_records.mjs', 'test_studio_onboarding.mjs',
   'test_studio_events.mjs', 'test_studio_comparison.mjs', 'test_studio_management.cjs',
   'test_studio_files.cjs', 'test_studio_multiprocess.cjs', 'test_studio_operations.cjs', 'test_studio_restart.cjs',

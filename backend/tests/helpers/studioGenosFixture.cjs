@@ -39,4 +39,11 @@ async function writeRefusals(spec, route) {
   await spec.db.run("UPDATE project_memberships SET role = 'member' WHERE project_id = 'b06-project'");
 }
 
-module.exports = { withFixture, writeRefusals };
+async function seedGenome(spec) {
+  const model = require('../../src/services/agentDna').decodeFile(path.join(__dirname, '../../../agents/dna/fondations/preuve_evidence.dna'));
+  await require('../../src/services/agentDnaStore').saveGenome(spec.db, model, {
+    id: 'studio-source-genome', organizationId: 'b06-org', projectId: 'b06-project' });
+  return model;
+}
+
+module.exports = { withFixture, writeRefusals, seedGenome };

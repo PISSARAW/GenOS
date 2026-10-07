@@ -32,6 +32,12 @@ bornées. Les inconnues restent inconnues. Les actions sont explicites et
 confirmées lorsque nécessaire ; lectures/transmissions ne valent pas promotion.
 Préserver routes existantes et liens profonds.
 
+L'adaptateur AgentDNA matérialise uniquement les octets du génome scoped exact,
+puis réutilise les arguments et le CLI natif. Le store historique chargeant par
+ID ou nom global n'est pas utilisé pour résoudre cette source. Un ID candidat
+aléatoire évite le remplacement d'une ressource existante. Création et événement
+sont atomiques ; la version source est recontrôlée après le processus natif.
+
 ## Conséquences
 
 Les concepts ont des parcours observables et réutilisent les états d'erreur,

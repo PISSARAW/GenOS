@@ -13,7 +13,7 @@ function handle(operation) {
     try {
       const db = await getDatabase();
       const result = await operation(db, { scope: req.tenant, agentId: req.params.id,
-        body: req.body || {}, query: req.query, memoryId: req.params.memoryId,
+        body: req.body || {}, query: req.query, memoryId: req.params.memoryId, genomeId: req.params.genomeId,
         actor: req.user.keyId || req.user.username });
       res.json(result);
     } catch (error) { next(error); }
@@ -45,5 +45,10 @@ router.get('/memories', requirePermission('read'), handle(memory.list));
 router.get('/memories/:memoryId', requirePermission('read'), handle(memory.inspect));
 router.post('/memories', ...write, handle(memory.record));
 router.post('/memories/:memoryId/transfer', ...write, handle(memory.transfer));
+
+const genome = require('../services/studioGenomeService');
+router.get('/genomes', requirePermission('read'), handle(genome.list));
+router.get('/genomes/:genomeId', requirePermission('read'), handle(genome.inspect));
+router.post('/genomes/:genomeId/mutate', ...write, handle(genome.mutate));
 
 module.exports = { router, handle, write };

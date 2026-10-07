@@ -425,3 +425,24 @@ ignorée sous `.genos-tests/studio-genos-d/studio-memory.png`.
 Routes, rendu des valeurs inconnues et gate qualité passent.
 Limites : pas de retrieval sémantique, consolidation automatique ou transfert
 entre tenants ; source liée ne signifie pas conclusion actuelle validée.
+
+### D03 — Organisme et AgentDNA
+
+Destination `#/organisme` : génomes du projet, sections réellement présentes,
+gènes, signature et phénotype déclaré. La source est lue par ID exact dans son
+tenant, décodée et liée à son hash ; aucun lookup global par nom n'est utilisé.
+Mutation candidate via les arguments CLI existants : taux 0–1, seed explicite,
+version source obligatoire vérifiée avant exécution et avant persistance.
+Le candidat et son événement MUTATION sont persistés atomiquement avec parent,
+hash source, acteur et paramètres. La source n'est pas remplacée ; aucun agent
+n'est déployé, aucun effet fonctionnel ou promotion n'est annoncé.
+
+`node backend/tests/test_studio_genome.cjs` et le navigateur D01–D03 passent
+avec le vrai CLI Rust et `GENOS_BIN` désignant le binaire debug du dépôt principal.
+Probes : lecture étrangère 404, rate/seed invalides 400, version périmée 409,
+mutation native persistée en `candidate`, événement parent et source inchangée,
+refus RBAC/read-only/projet archivé. La fixture AgentDNA comporte six sections,
+pas toutes les sections optionnelles du format ; aucun compteur fictif n'est ajouté.
+Gate qualité et routes passent. Capture ignorée : `studio-organism.png`.
+Limites : pas de composition complète d'organismes, de mesure cognitive ni de
+promotion automatique ; le laboratoire est la prochaine destination de mesure.

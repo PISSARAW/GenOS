@@ -21,10 +21,15 @@ const labels = [
   ['evidence_status', 'Statut des sources'], ['provenanceHash', 'Empreinte de provenance'],
   ['provenance_hash', 'Empreinte de provenance'], ['content', 'Contenu'],
   ['sourceDecisionId', 'Mémoire source'], ['targetAgentId', 'Agent destinataire'],
-  ['truthValidated', 'Vérité validée'], ['promotionGranted', 'Promotion accordée']
+  ['truthValidated', 'Vérité validée'], ['promotionGranted', 'Promotion accordée'],
+  ['contentHash', 'Empreinte du contenu'], ['content_hash', 'Empreinte du contenu'],
+  ['signed', 'Signature présente'], ['signatureValid', 'Signature valide'], ['generation', 'Génération'],
+  ['instruction', 'Instruction déclarée'], ['bytes', 'Octets'], ['rate', 'Taux de mutation'],
+  ['seed', 'Seed'], ['genomeRef', 'Génome candidat'], ['sourceGenomeId', 'Génome source'],
+  ['sourceHash', 'Empreinte source'], ['functionalEffectMeasured', 'Effet fonctionnel mesuré'], ['deployed', 'Déployé']
 ];
 
-const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory'];
+const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome'];
 
 export function humanValue(value) {
   if (value === null || value === undefined) return 'Inconnu';

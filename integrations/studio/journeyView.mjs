@@ -55,7 +55,9 @@ export function journeyRead(target, spec) {
     event.preventDefault();
     perform(async () => {
       const input = Object.fromEntries(new FormData(form));
-      renderResponse(target.output, await api.request(spec.path(input), spec.options?.(input)));
+      const data = await api.request(spec.path(input), spec.options?.(input));
+      renderResponse(target.output, data);
+      if (spec.after) await spec.after(data);
     }, { preserveDraft: true });
   });
   target.actions.append(form);

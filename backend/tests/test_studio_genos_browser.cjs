@@ -7,6 +7,7 @@ const { withFixture } = require('./helpers/studioGenosFixture.cjs');
 const journeys = require('./helpers/studioGenosBrowserJourney.cjs');
 
 async function probe(spec) {
+  await require('./helpers/studioGenosFixture.cjs').seedGenome(spec);
   const browser = await chromium.launch({ channel: process.env.B06_BROWSER_CHANNEL || 'msedge' });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const errors = [];
@@ -23,6 +24,8 @@ async function probe(spec) {
     const result = { apiInterception: false, browserVersion: browser.version(), worlds: await journeys.worlds(page) };
     result.knowledge = await journeys.knowledge(page, spec);
     await page.screenshot({ path: path.join(output, 'studio-memory.png'), fullPage: true });
+    result.organism = await journeys.organism(page);
+    await page.screenshot({ path: path.join(output, 'studio-organism.png'), fullPage: true });
     await page.locator('[data-target="worlds-view"]').click();
     await page.screenshot({ path: path.join(output, 'studio-worlds.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -31,6 +34,7 @@ async function probe(spec) {
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
     assert.equal(await page.locator('#worlds-result').textContent(), '');
     assert.equal(await page.locator('#knowledge-result').textContent(), '');
+    assert.equal(await page.locator('#organism-result').textContent(), '');
     assert.equal(await page.locator('[name="rightAgentId"]').inputValue(), '');
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(output, 'studio-genos-qualified.json'), JSON.stringify(result, null, 2));
