@@ -82,13 +82,13 @@ async function main() {
   const spec = await require('./helpers/b06ClientFixture.cjs').prepare();
   const apiPort = await freePort();
   const monitorPort = await freePort();
+  spec.settings.url = `http://127.0.0.1:${apiPort}`;
+  process.env.GENOS_ALLOWED_ORIGINS = spec.settings.url;
   process.env.GENOS_TRINITY_MONITOR_PORT = String(monitorPort);
   process.env.GENOS_TRINITY_MONITOR_TOKEN = crypto.randomBytes(24).toString('hex');
   const app = require('../src/app').createApp();
   const server = app.listen(apiPort, '127.0.0.1');
   await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
-  spec.settings.url = `http://127.0.0.1:${server.address().port}`;
-  process.env.GENOS_ALLOWED_ORIGINS = spec.settings.url;
   const monitor = require('../src/services/trinityMonitorServer');
   monitor.start();
   await new Promise((resolve, reject) => {
