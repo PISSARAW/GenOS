@@ -7,7 +7,7 @@
  * `mcp/toolDefinitions.json` is its bundled fallback — the two files must be
  * byte-identical. For tools owned by the backend contract
  * (`backend/src/services/mcpContract.js`), the advertised `inputSchema` is
- * regenerated from `getFullToolSchema` so the catalog matches validation.
+ * enriched from `getFullToolSchema` without deleting existing public fields.
  *
  * Usage: node scripts/sync_tool_catalogs.cjs
  */
@@ -51,6 +51,15 @@ const PIPELINE_ENTRY = {
   description: 'Execute an ordered pipeline of registered GenOS strategy primitives with shared context and telemetry.',
 };
 
+function mergeSchema(generated, existing = {}) {
+  return {
+    ...generated,
+    ...existing,
+    properties: { ...generated.properties, ...existing.properties },
+    required: [...new Set([...(generated.required || []), ...(existing.required || [])])]
+  };
+}
+
 function main() {
   const contract = require(path.join(REPO_ROOT, 'backend', 'src', 'services', 'mcpContract.js'));
   const shared = JSON.parse(fs.readFileSync(SHARED_PATH, 'utf8'));
@@ -69,7 +78,7 @@ function main() {
       console.warn(`[sync] backend contract has no base schema for ${tool.name}; keeping catalog schema.`);
       continue;
     }
-    tool.inputSchema = contract.getFullToolSchema(tool.name);
+    tool.inputSchema = mergeSchema(contract.getFullToolSchema(tool.name), tool.inputSchema);
   }
 
   const payload = `${JSON.stringify({ tools }, null, 2)}\n`;
@@ -78,4 +87,6 @@ function main() {
   console.log(`[sync] wrote ${tools.length} tools to shared/ and mcp/ catalogs.`);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { mergeSchema };
