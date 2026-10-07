@@ -17,10 +17,14 @@ const labels = [
   ['fromCommitId', 'Checkpoint source'], ['clonedAgentId', 'Agent cloné'],
   ['path', 'Champ comparé'], ['left', 'État source'], ['right', 'État alternatif'],
   ['identical', 'États identiques'], ['cloneIsolation', 'Isolation du clone'],
-  ['automaticPromotion', 'Promotion automatique']
+  ['automaticPromotion', 'Promotion automatique'], ['evidenceStatus', 'Statut des sources'],
+  ['evidence_status', 'Statut des sources'], ['provenanceHash', 'Empreinte de provenance'],
+  ['provenance_hash', 'Empreinte de provenance'], ['content', 'Contenu'],
+  ['sourceDecisionId', 'Mémoire source'], ['targetAgentId', 'Agent destinataire'],
+  ['truthValidated', 'Vérité validée'], ['promotionGranted', 'Promotion accordée']
 ];
 
-const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim'];
+const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory'];
 
 export function humanValue(value) {
   if (value === null || value === undefined) return 'Inconnu';

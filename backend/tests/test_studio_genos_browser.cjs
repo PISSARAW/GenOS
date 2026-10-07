@@ -21,6 +21,8 @@ async function probe(spec) {
     await page.getByRole('button', { name: 'Ouvrir l’exécution' }).click();
     await page.locator('#run-status').filter({ hasText: 'awaiting_approval' }).waitFor();
     const result = { apiInterception: false, browserVersion: browser.version(), worlds: await journeys.worlds(page) };
+    result.knowledge = await journeys.knowledge(page, spec);
+    await page.screenshot({ path: path.join(output, 'studio-memory.png'), fullPage: true });
     await page.locator('[data-target="worlds-view"]').click();
     await page.screenshot({ path: path.join(output, 'studio-worlds.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -28,6 +30,7 @@ async function probe(spec) {
     await page.screenshot({ path: path.join(output, 'studio-genos-mobile.png'), fullPage: true });
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
     assert.equal(await page.locator('#worlds-result').textContent(), '');
+    assert.equal(await page.locator('#knowledge-result').textContent(), '');
     assert.equal(await page.locator('[name="rightAgentId"]').inputValue(), '');
     assert.deepEqual(errors, []);
     fs.writeFileSync(path.join(output, 'studio-genos-qualified.json'), JSON.stringify(result, null, 2));

@@ -1,7 +1,7 @@
 export const destinations = [
   ['runs', 'inspection'], ['supervision', 'dashboard-view'],
   ['gestion', 'management-view'], ['fichiers', 'files-view'],
-  ['laboratoire', 'research-view'], ['mondes', 'worlds-view']
+  ['laboratoire', 'research-view'], ['mondes', 'worlds-view'], ['memoire', 'knowledge-view']
 ];
 
 function identifier(value) {

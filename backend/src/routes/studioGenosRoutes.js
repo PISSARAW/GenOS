@@ -13,7 +13,8 @@ function handle(operation) {
     try {
       const db = await getDatabase();
       const result = await operation(db, { scope: req.tenant, agentId: req.params.id,
-        body: req.body || {}, query: req.query, actor: req.user.keyId || req.user.username });
+        body: req.body || {}, query: req.query, memoryId: req.params.memoryId,
+        actor: req.user.keyId || req.user.username });
       res.json(result);
     } catch (error) { next(error); }
   };
@@ -38,5 +39,11 @@ router.post('/agents/:id/clone', ...write, delegate(lineage.cloneNode));
 router.post('/agents/:id/compare', requirePermission('read'), delegate(async (req, res) => {
   await lineage.diffAgents({ ...req, body: { leftAgentId: req.params.id, rightAgentId: req.body.rightAgentId } }, res);
 }));
+
+const memory = require('../services/studioMemoryService');
+router.get('/memories', requirePermission('read'), handle(memory.list));
+router.get('/memories/:memoryId', requirePermission('read'), handle(memory.inspect));
+router.post('/memories', ...write, handle(memory.record));
+router.post('/memories/:memoryId/transfer', ...write, handle(memory.transfer));
 
 module.exports = { router, handle, write };

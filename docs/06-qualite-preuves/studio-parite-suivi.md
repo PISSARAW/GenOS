@@ -404,3 +404,24 @@ Artefacts ignorés sous `.genos-tests/studio-genos-d/`.
 Limites : le clone ne crée pas un workspace isolé, la branche n'exécute aucun
 candidat et la comparaison n'effectue aucune promotion. Rejeu causal,
 falsification automatisée et exécution d'alternatives isolées restent ouverts.
+
+### D02 — Connaissances et mémoire
+
+Destination `#/memoire` : recherche par mots-clés bornée à 100 décisions du
+projet, enregistrement de justification et références de provenance, inspection
+d'intégrité et transmission à un agent du même projet. `persistDecision` conserve
+le statut provisoire sans sources ; une transmission conserve l'ID/hash/contenu
+source, l'acteur, le destinataire et la raison, avec provenance parent liée.
+Elle ne valide pas la vérité et n'accorde aucune promotion. Aucun provider ou
+embedding externe n'est appelé. L'auteur d'une décision vient du principal
+authentifié, pas du formulaire ; les mémoires non scellées ne sont pas transmissibles.
+
+`node backend/tests/test_studio_memory.cjs` passe : recherche scoped, statut
+provisoire, auteur non falsifiable, transmission réellement persistée, hash parent,
+référence invalide 400, mémoire étrangère 404, altération refusée 409 et contrôles
+RBAC/projet archivé/read-only. Le parcours navigateur D01/D02 passe sans API
+interceptée et qualifie la transmission depuis le formulaire. Capture mémoire
+ignorée sous `.genos-tests/studio-genos-d/studio-memory.png`.
+Routes, rendu des valeurs inconnues et gate qualité passent.
+Limites : pas de retrieval sémantique, consolidation automatique ou transfert
+entre tenants ; source liée ne signifie pas conclusion actuelle validée.

@@ -30,4 +30,18 @@ async function worlds(page) {
   return { checkpoint: snapshot.snapshotId, branch: branch.branchId, clone: clone.clonedAgentId };
 }
 
-module.exports = { action, worlds };
+async function knowledge(page, spec) {
+  await page.locator('[data-target="knowledge-view"]').click();
+  const memory = await action(page, { id: 'knowledge-record', route: '/api/studio/memories',
+    fields: { title: 'Browser experience', content: 'Transport does not prove a decision.' } });
+  assert.equal(memory.evidenceStatus, 'provisional');
+  await action(page, { id: 'knowledge-inspect', route: '/api/studio/memories/' + memory.id, method: 'GET' });
+  assert.match(await page.locator('#knowledge-result-summary').textContent(), /Vérité validéeNon/);
+  const transferred = await action(page, { id: 'knowledge-transfer', route: '/api/studio/memories/' + memory.id + '/transfer',
+    fields: { targetAgentId: spec.settings.agent, reason: 'Preserve origin' } });
+  assert.equal(transferred.parentHash, memory.provenanceHash);
+  assert.equal(transferred.promotionGranted, false);
+  return { memoryId: memory.id, transferId: transferred.id, parentHash: transferred.parentHash };
+}
+
+module.exports = { action, worlds, knowledge };
