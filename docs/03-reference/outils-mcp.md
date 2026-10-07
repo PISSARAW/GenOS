@@ -65,6 +65,8 @@ Cette séparation est intentionnelle : publier un schéma aide un client à form
 
 Un retour `accepted` atteste le lancement d'une opération asynchrone, pas son achèvement ni sa promotion. Hors du catalogue public de 48 outils, le handler backend `genos_temporal_consciousness_transfer` est `reference_only` : l'action d'exécution renvoie `success: false` et `status: not_implemented` ; son inspection de statut est une simulation, sans restauration d'agent.
 
+Dans la famille des signaux publics, `genos_signal_plasmid_transfer` et les modes `plasmid`/`stigmergic` de `genos_signal_collective_decision` ne disposent pas d'adaptateur exécutant un transfert ou une décision : ils renvoient `success: false`, `status: not_implemented`. Un nombre de destinataires calculé est un aperçu, pas une preuve de transfert. Le mode `electrocyte` calcule un résultat ; le champ `consensusReached` indique séparément si un consensus est atteint.
+
 ---
 
 ### 2.1 Sessions Rhizome

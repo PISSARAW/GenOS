@@ -186,6 +186,9 @@ async function handleSignalChemotacticFollow(args, run) {
     locus_hash || '',
     since || null,
   );
+  if (result.error) {
+    return { configured: true, success: false, status: 'tool_error', error: result.error, transport: 'zero_text' };
+  }
   return {
     configured: true,
     success: true,
@@ -218,11 +221,12 @@ async function handleSignalPlasmidTransfer(args, run) {
   );
   return {
     configured: true,
-    success: true,
-    status: result.status,
-    mode: result.mode,
+    success: false,
+    status: 'not_implemented',
+    mode: 'plasmid',
     problem: result.problem,
-    recipients: result.recipients,
+    proposedRecipients: result.recipients,
+    error: 'No plasmid decision transfer was executed.',
     transport: 'zero_text',
   };
 }
@@ -241,17 +245,25 @@ function handleSignalPlasmidTransferError(e) {
 
 async function handleSignalCollectiveDecision(args, run) {
   const { problem, voters, mode } = args || {};
+  const selectedMode = mode || 'electrocyte';
   const result = await orchestrateCollectiveDecision(
     problem || 'default',
     voters || [],
-    mode || 'electrocyte',
+    selectedMode,
   );
+  return collectiveDecisionResult(result, selectedMode, problem);
+}
+
+function collectiveDecisionResult(result, mode, problem) {
+  const implemented = mode === 'electrocyte';
   return {
     configured: true,
-    success: true,
-    status: result.status,
-    mode: result.mode,
-    problem: result.problem,
+    success: implemented,
+    status: implemented ? 'electrocyte_decision' : 'not_implemented',
+    mode,
+    problem: problem || 'default',
+    consensusReached: implemented ? result.consensusReached : undefined,
+    error: implemented ? undefined : 'This collective decision mode has no execution adapter.',
     transport: 'zero_text',
   };
 }
