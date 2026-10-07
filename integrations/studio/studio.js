@@ -102,7 +102,6 @@ async function perform(action) {
       clearView();
       byId('message').textContent = 'Session expirée. Reconnectez-vous.';
     } else {
-      clearView();
       byId('message').textContent = errorMessage(error);
     }
   } finally { busy = false; buttons.forEach(button => { button.disabled = false; }); }

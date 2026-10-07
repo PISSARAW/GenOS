@@ -88,6 +88,13 @@ async function run(spec, output) {
     assert.equal(provenance.length, 1);
     assert.equal(provenance[0].assemblyAccepted, true);
     assert.equal(provenance[0].memories.length, 1);
+    await page.route('**/api/product-proofs/consumer-agents/*/latest', route =>
+      route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UPSTREAM' } }) }));
+    await page.getByRole('button', { name: 'Actualiser' }).click();
+    await page.locator('#message').filter({ hasText: '502' }).waitFor();
+    assert.equal(await page.locator('#inspection').isVisible(), true);
+    assert.equal(await page.locator('#run-id').textContent(), spec.run.id);
+    await page.unroute('**/api/product-proofs/consumer-agents/*/latest');
     await page.screenshot({ path: path.join(output, 'studio.png'), fullPage: true });
     const result = { runId: spec.run.id, workspaceId: spec.settings.workspace,
       provenance, snapshotText: await page.locator('#snapshots').textContent(), errors };
