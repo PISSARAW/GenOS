@@ -46,13 +46,22 @@ try {
   const experience = await client.callTool({ name: 'genos_record_experience', arguments: {
     agentId: 'codex-test', actionInput: 'Run lease and persistence probes', observationOutput: 'Executable integration probes passed', rewardScore: 1 } });
   assert.ok(stateStore.successfulMcp(experience), `The real experience response must satisfy the session gate: ${JSON.stringify(experience)}`);
+  const failure = `lease-failure-${Date.now()}`;
+  const compiled = output(await client.callTool({ name: 'genos_compile_memory', arguments: {
+    agentId: 'codex-test', facts: ['explicit leases are required'], failures: [failure], source_refs: ['test:development'] } }));
+  assert.equal(compiled.compiledCount, 2);
+  assert.equal(compiled.memoryIds.length, 2);
+  const searched = output(await client.callTool({ name: 'genos_search_failures', arguments: { query: failure } }));
+  assert.ok(searched.failures.some((item) => JSON.stringify(item).includes(failure)));
+  const provenance = output(await client.callTool({ name: 'genos_blame', arguments: { target_id: 'codex-test' } }));
+  assert.ok(provenance.evidence.length > 0);
   const sqlite = require('../backend/node_modules/sqlite3');
   const db = new sqlite.Database(database, sqlite.OPEN_READONLY);
   const row = await new Promise((resolve, reject) => db.get('SELECT content FROM genome_decisions WHERE id = ?', decision.decisionId,
     (error, result) => error ? reject(error) : resolve(result)));
   assert.equal(JSON.parse(row.content).evidence[0], 'test:lease-denied');
   await new Promise((resolve) => db.close(resolve));
-  console.log('Real MCP discovery, lease denial, diagnosis, trajectory analysis and SQLite decision persistence verified.');
+  console.log('Seven development MCP tools verified through stdio, memory persistence, search and provenance.');
 } finally {
   await client.close();
   fs.rmSync(temporary, { recursive: true, force: true });
