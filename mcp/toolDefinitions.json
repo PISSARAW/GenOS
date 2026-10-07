@@ -1130,9 +1130,17 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "orchestrator_id": {
+            "type": "string",
+            "description": "Owning orchestrator whose strategy portfolio may change."
+          },
+          "need": {
+            "type": "string",
+            "description": "Current mission need used to evaluate the requested strategy."
+          },
           "strategy": {
             "type": "string",
-            "description": "Target strategy identifier."
+            "description": "Requested primary strategy identifier; eligibility may cause a different selection."
           },
           "reason": {
             "type": "string",

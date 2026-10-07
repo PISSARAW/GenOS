@@ -6,6 +6,7 @@ const execution = require('../src/services/strategyExecutionService');
 const adaptation = require('../src/services/strategyAdaptationService');
 const { listStrategies } = require('../src/strategies/strategyRegistry');
 const { getDatabase, closeDatabase } = require('../src/db');
+process.env.GENOS_ADMIN_PASSWORD ||= 'strategy-adaptation-test-password';
 
 async function run() {
   const current = contracts.buildStrategyContract({ problem: 'Implement a small API endpoint.' });
@@ -28,6 +29,16 @@ async function run() {
     { tokens: 60, costUsd: 3.5, latencyMs: 750, events: 7 }
   );
   assert.throws(() => adaptation.planAdaptation(current, { need: 'security' }), (error) => error.code === 'STRATEGY_REASON_REQUIRED');
+  const requested = adaptation.planAdaptation(current, { need: 'Implement a small API endpoint.',
+    requestedPrimary: 'deterministic_direct_path', reason: 'Direct deterministic checks are sufficient.' });
+  assert.equal(requested.candidate.selected_strategy.primary, 'deterministic_direct_path');
+  assert.throws(() => adaptation.planAdaptation(current, { need: 'Implement a small API endpoint.',
+    requestedPrimary: 'unknown_strategy', reason: 'Should reject unknown targets.' }),
+  (error) => error.code === 'STRATEGY_REQUEST_UNKNOWN');
+  const fallback = adaptation.planAdaptation(current, { need: 'Implement a small API endpoint.',
+    requestedPrimary: 'falsifiable_hypothesis_tree', reason: 'Probe whether the requested strategy is eligible.' });
+  assert.notEqual(fallback.candidate.selected_strategy.primary, 'falsifiable_hypothesis_tree');
+  assert.equal(fallback.candidate.selected_strategy.fallback.requested, 'falsifiable_hypothesis_tree');
 
   const dbPath = path.resolve(__dirname, 'strategy-adaptation-test.db');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);

@@ -14,7 +14,7 @@ Légende : `S` = appel MCP `stdio` réel avec preuve métier ; `B` = dispatch/tr
 | Fossiles | `genos_fossil_candidate` | B | Génome candidat relu en SQLite ; absence de base refusée. |
 | Orchestration | `genos_orchestrate` | R | Lancement/dispatch ; issue de mission non démontrée. |
 | Orchestration | `genos_delegate_worker` | R | Délégation routée ; travail terminé non démontré. |
-| Orchestration | `genos_change_strategy` | R | Contrat/dispatch. |
+| Orchestration | `genos_change_strategy` | S | Identifiant de stratégie demandé honoré sous politique d’éligibilité ; contrat v2 et run `planned` relus en SQLite après appel `stdio`, identifiant inconnu refusé. L’exécution du run n’est pas démontrée. |
 | Orchestration | `genos_report_progress` | R | Contrat/dispatch. |
 | Orchestration | `genos_change_organization` | S | Deux changements de topologie par MCP `stdio`, transitions de versions 1 et 2 relues dans SQLite. |
 | Orchestration | `genos_organization_state` | S | États actifs versions 1 et 2 relus en `stdio` après transitions ; état absent signalé `not_initialized`, identité runtime requise. |

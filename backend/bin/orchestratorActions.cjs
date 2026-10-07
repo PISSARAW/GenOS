@@ -128,7 +128,7 @@ async function handlePrimitive({ request, orchestratorId }) {
 }
 async function handleStrategy({ db, request, orchestratorId }) {
   const transition = await strategyAdaptation.changeStrategy(db, {
-    orchestratorId, need: request.need || request.strategy, reason: request.reason,
+    orchestratorId, need: request.need, requestedPrimary: request.strategy, reason: request.reason,
     problemProfile: request.problem_profile, maxCostLevel: request.max_cost_level,
     allowExperimental: request.allow_experimental, allowPrototype: request.allow_prototype,
     allowExperimentalAtHighRisk: request.allow_experimental_at_high_risk,
