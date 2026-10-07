@@ -37,12 +37,14 @@ le scope ou l’intégrité ne permettent pas la lecture.
 
 Playwright est une dépendance de développement du backend. Après `npm ci` à
 la racine et `npm ci --prefix backend`, le parcours complet se lance depuis
-n’importe quel dossier avec :
+n’importe quel dossier avec Edge installé, sans configuration supplémentaire :
 
 ```powershell
-$env:B06_BROWSER = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
 npm --prefix backend run test:b06-clients
 ```
+
+Un autre navigateur Chromium peut être choisi avec `B06_BROWSER_CHANNEL` ou
+un exécutable précis avec `B06_BROWSER`.
 
 Le harnais crée automatiquement `artifacts/b06-client-journey` (ou utilise
 le dossier fourni en premier argument). Il vérifie aussi les réponses 401,

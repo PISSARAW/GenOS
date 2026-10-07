@@ -47,7 +47,10 @@ async function negativeUiCases(page, spec) {
 }
 
 async function run(spec, output) {
-  const browser = await chromium.launch({ executablePath: process.env.B06_BROWSER });
+  const launchOptions = process.env.B06_BROWSER
+    ? { executablePath: process.env.B06_BROWSER }
+    : { channel: process.env.B06_BROWSER_CHANNEL || 'msedge' };
+  const browser = await chromium.launch(launchOptions);
   const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
   const errors = [];
   const responses = [];
