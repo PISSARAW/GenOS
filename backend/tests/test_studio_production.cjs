@@ -16,6 +16,9 @@ async function probe(spec) {
   assert.equal((await request(spec, route, { project: 'b06-other' })).status, 404);
   assert.equal((await request(spec, root + '/releases', { body: { workflowId: 'studio-app', version: 1 } })).status, 409);
   assert.equal((await request(spec, root + '/releases', { body: { workflowId: 'studio-app', version: 2 } })).status, 404);
+  const served = await require('./helpers/studioProductionJourney.cjs').publication(spec, frozen.value);
+  await require('./helpers/studioProductionRollbackProbe.cjs').probe(spec, { release: frozen.value, run: served.run });
+  await spec.db.run("UPDATE project_memberships SET role='member' WHERE project_id='b06-project'");
   await spec.db.run("UPDATE workflow_versions SET graph_json = '{}' WHERE id = 'studio-app-v1'");
   assert.equal((await request(spec, route)).value.error.code, 'RELEASE_SOURCE_CHANGED');
   await writeRefusals(spec, root + '/releases');

@@ -7,4 +7,11 @@ async function seed(spec) {
   await spec.db.run(`INSERT INTO workflow_versions(id,workflow_id,version,graph_json,metadata_json)
     VALUES('studio-app-v1','studio-app',1,?,'{}')`, graph);
 }
-module.exports = { seed };
+async function secondVersion(spec) {
+  const graph = JSON.stringify({ nodes: [{ id: 'start', type: 'input' }, { id: 'middle', type: 'output' }, { id: 'done', type: 'output' }],
+    edges: [{ source: 'start', target: 'middle' }, { source: 'middle', target: 'done' }] });
+  await spec.db.run(`INSERT INTO workflow_versions(id,workflow_id,version,graph_json,metadata_json)
+    VALUES('studio-app-v2','studio-app',2,?,'{}')`, graph);
+  await spec.db.run('UPDATE workflows SET version=2, graph_json=? WHERE id=?', graph, 'studio-app');
+}
+module.exports = { seed, secondVersion };

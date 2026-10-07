@@ -58,7 +58,11 @@ const labels = [
   ['semanticScope', 'Portée sémantique'], ['externalFactsVerified', 'Faits externes vérifiés'], ['promotionEligible', 'Éligible à promotion'],
   ['definition', 'Définition'], ['role', 'Rôle conceptuel'], ['service', 'Service déclaré'], ['value', 'Valeur logique calculée'],
   ['releaseId', 'Release'], ['workflowId', 'Workflow'], ['releaseHash', 'Empreinte de release'], ['createdBy', 'Auteur'],
-  ['metadataStatus', 'État du registre'], ['adapter', 'Adaptateur'], ['deploymentObserved', 'Version servie observée']
+  ['metadataStatus', 'État du registre'], ['adapter', 'Adaptateur'], ['deploymentObserved', 'Version servie observée'],
+  ['environment', 'Environnement'], ['revision', 'Révision du slot'], ['localPublished', 'Version disponible localement'],
+  ['endpoint', 'Endpoint authentifié'], ['rollbackScope', 'Portée du retour arrière'], ['executionCompleted', 'Exécution terminée'],
+  ['runId', 'Appel workflow'], ['reviewId', 'Revue'], ['decision', 'Décision humaine'], ['actor', 'Acteur'],
+  ['expiresAt', 'Expiration de la revue'], ['independentReview', 'Revue indépendante établie']
 ];
 
 const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome',

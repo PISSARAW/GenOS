@@ -18,4 +18,12 @@ function handle(operation) {
 router.get('/workflows', requirePermission('read'), handle(store.list));
 router.post('/releases', ...write, handle(store.freeze));
 router.get('/releases/:releaseId', requirePermission('read'), handle(store.inspect));
+const deployment = require('../services/studioProductionDeployment');
+const review = require('../services/studioProductionReview');
+router.post('/releases/:releaseId/reviews', ...write, handle(review.review));
+router.get('/workflows/:workflowId/slots/:environment', requirePermission('read'), handle(deployment.inspect));
+router.post('/workflows/:workflowId/slots/:environment/publish', ...write, handle(deployment.publish));
+router.post('/workflows/:workflowId/slots/:environment/rollback', ...write, handle(deployment.rollback));
+router.post('/workflows/:workflowId/slots/:environment/invoke', requirePermission('experiment:run'),
+  requireTenantScope({ write: true }), handle(deployment.invoke));
 module.exports = { router, handle, write };

@@ -20,6 +20,8 @@ Ajouter des tables Studio de manifeste, slots staging/production par workflow,
 événements attribués, revues, invocations et retours. Leur création est additive
 et idempotente à la première requête Studio. Le moteur existant exécute les
 `workflow_runs`, avec vérification de la version figée avant exécution.
+Les admissions Studio utilisent le préfixe réservé `wfr-studio-` : leur binding
+est obligatoire, tandis que les runs historiques gardent leur contrat existant.
 
 L'adaptateur est un endpoint authentifié local de mise en file ; il ne déploie
 ni serveur cloud ni fournisseur tiers. Une admission n'est pas une exécution.

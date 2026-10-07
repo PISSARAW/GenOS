@@ -666,3 +666,24 @@ Création additive/idempotente des tables Studio, sans migration destructive.
 Les tests HTTP vérifient nominal, doublon, tenant, auteur forgé, intégrité et
 droits/projet archivé. Le harnais navigateur utilise HTTP/SQLite réels, sans
 interception API ; captures et manifeste ignorés sous `.genos-tests/studio-production-f/`.
+
+### F02 — Publication locale, revue et retour arrière
+
+F01 : commit `da38b058`, tests HTTP et navigateur code 0, gate staged strict zéro.
+Les slots staging/production sont liés au workflow et versionnés sous CAS.
+L'endpoint authentifié admet un `workflow_run` de la release figée, pas la
+version courante par défaut. Le worker existant vérifie le binding et la source
+avant exécution ; une admission reste `queued`, pas un succès inventé.
+
+La production exige la dernière revue approuvée de la release exacte, par un
+owner/admin explicitement membre du projet. Une exécution staging terminée et
+son empreinte de sortie sont requises. Revue d'une heure, revalidation des droits,
+source, hash et état de run ; ni override forcé ni indépendance prétendue.
+L'approbation autorise une publication locale, pas une promotion cognitive.
+Un rejet ultérieur rend les approbations précédentes inutilisables.
+
+Le rollback rétablit la valeur précédente du slot, ou retire la première
+publication. Précondition de révision, historique et acteur sont persistés
+atomiquement. Il ne supprime pas les runs admis et n'annule pas leurs effets.
+Le test utilise un workflow structurel à deux nœuds, exécuté réellement avec
+deux spans : cela ne valide pas la qualité d'un modèle ou un déploiement cloud.

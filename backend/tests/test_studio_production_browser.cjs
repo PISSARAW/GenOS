@@ -20,20 +20,22 @@ function sources() {
   return Object.fromEntries(files.map(file => [file, digest(fs.readFileSync(path.join(__dirname, '../..', file)))]));
 }
 
-async function journey(page) {
+async function journey(page, spec) {
   const frozen = await action(page, { id: 'production-freeze', route: '/api/studio/production/releases',
     fields: { workflowId: 'studio-app', version: '1' } });
   const inspected = await action(page, { id: 'production-inspect', route: '/api/studio/production/releases/' + frozen.releaseId, method: 'GET' });
   assert.equal(inspected.integrityChecked, true);
   assert.equal(inspected.deploymentObserved, false);
   assert.match(await page.locator('#production-result-summary').textContent(), /Version servie observéeNon/);
-  return { releaseId: frozen.releaseId, releaseHash: frozen.releaseHash };
+  const served = await require('./helpers/studioProductionBrowserJourney.cjs').deployment(page, { spec, frozen });
+  return { releaseId: frozen.releaseId, releaseHash: frozen.releaseHash, served };
 }
 
 async function probe(spec) {
   await require('./helpers/studioProductionFixture.cjs').seed(spec);
   const browser = await chromium.launch({ channel: process.env.B06_BROWSER_CHANNEL || 'msedge' });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  page.setDefaultTimeout(15000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('dialog', dialog => dialog.accept());
@@ -45,7 +47,7 @@ async function probe(spec) {
     await page.getByRole('button', { name: 'Ouvrir l’exécution' }).click();
     await page.locator('#run-status').filter({ hasText: 'awaiting_approval' }).waitFor();
     await page.locator('[data-target="production-view"]').click();
-    const result = await journey(page);
+    const result = await journey(page, spec);
     await page.screenshot({ path: path.join(output, 'studio-production.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -67,6 +69,9 @@ async function probe(spec) {
       qualifiedAt: new Date().toISOString(), sourceHashes: sources(), apiInterception: false, errors,
       accessibility: { mobile390: true, text200: true, labels: true, keyboard: true } }, null, 2));
     console.log('Studio production browser: real frozen release preparation passed.');
+  } catch (error) {
+    await page.screenshot({ path: path.join(output, 'studio-production-failure.png'), fullPage: true }).catch(() => {});
+    throw error;
   } finally { await browser.close(); }
 }
 withFixture(probe).catch(error => { console.error(error); process.exitCode = 1; });
