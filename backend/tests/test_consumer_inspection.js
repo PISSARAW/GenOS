@@ -30,6 +30,7 @@ async function assertIntegrity(spec, context) {
 }
 
 async function main() {
+  assert.equal(inspection.escapeLikePattern('%_\\'), '\\%\\_\\\\');
   const spec = await fixture.prepare();
   const server = require('../src/app').createApp().listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));

@@ -51,6 +51,10 @@ async function inspect(db, request) {
   });
 }
 
+function escapeLikePattern(value) {
+  return String(value).replace(/[\\%_]/g, character => `\\${character}`);
+}
+
 async function listRuns(db, request) {
   const limit = Math.max(1, Math.min(50, Math.floor(Number(request.limit) || 20)));
   const offset = Math.max(0, Math.floor(Number(request.offset) || 0));
@@ -60,7 +64,7 @@ async function listRuns(db, request) {
   const filters = ['r.agent_id = ?', 'w.organization_id = ?', 'w.project_id = ?'];
   if (query) {
     filters.push('(r.id LIKE ? OR r.status LIKE ? OR COALESCE(r.guardrail_reason, \'\') LIKE ?)');
-    const pattern = `%${query}%`;
+    const pattern = `%${escapeLikePattern(query)}%`;
     terms.push(pattern, pattern, pattern);
   }
   if (status) {
@@ -69,7 +73,7 @@ async function listRuns(db, request) {
   }
   const rows = await db.all(`SELECT r.* FROM strategy_execution_runs r
     JOIN agents a ON a.id = r.agent_id JOIN workspaces w ON w.id = a.workspace_id
-    WHERE ${filters.join(' AND ')} ORDER BY r.created_at DESC, r.rowid DESC LIMIT ? OFFSET ?`, ...terms, limit + 1, offset);
+    WHERE ${filters.join(' AND ')} ESCAPE '\\' ORDER BY r.created_at DESC, r.rowid DESC LIMIT ? OFFSET ?`, ...terms, limit + 1, offset);
   const hasMore = rows.length > limit;
   const runs = await Promise.all(rows.slice(0, limit).map(row => events.hydrateRun(db, row)));
   return { runs, query, status, limit, offset, hasMore, nextOffset: hasMore ? offset + limit : null };
@@ -100,4 +104,4 @@ async function inspectConsistent(db, request) {
     provenance, snapshots };
 }
 
-module.exports = { inspect, listRuns };
+module.exports = { inspect, listRuns, escapeLikePattern };
