@@ -40,6 +40,18 @@ async function perception(page, root) {
   return { analysisId: probe.analysisId, version: probe.version, planId: plan.analysisId };
 }
 
+async function biomimetic(page, root) {
+  await page.locator('[data-target="organism-view"]').click();
+  await page.getByRole('button', { name: 'Créativité et biophysique', exact: true }).click();
+  const creative = await action(page, { id: 'biomimetic-creative', route: root + '/biomimetic/creative' });
+  assert.ok(creative.learningProgress > 0);
+  assert.equal(creative.creativeEffectMeasured, false);
+  const physics = await action(page, { id: 'biomimetic-physics', route: root + '/biomimetic/physics' });
+  assert.equal(physics.isNmdaSpike, false);
+  assert.match(await page.locator('#biomimetic-result-summary').textContent(), /Appliqué au runtimeNon/);
+  return { creativeId: creative.analysisId, physicsId: physics.analysisId, attenuatedVoltage: physics.attenuatedVoltage };
+}
+
 async function probe(spec) {
   const browser = await chromium.launch({ channel: process.env.B06_BROWSER_CHANNEL || 'msedge' });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -59,6 +71,8 @@ async function probe(spec) {
     await page.screenshot({ path: path.join(output, 'studio-collective.png'), fullPage: true });
     result.perception = await perception(page, root);
     await page.screenshot({ path: path.join(output, 'studio-perception.png'), fullPage: true });
+    result.biomimetic = await biomimetic(page, root);
+    await page.screenshot({ path: path.join(output, 'studio-biomimetic.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.screenshot({ path: path.join(output, 'studio-specialized-mobile.png'), fullPage: true });
@@ -66,6 +80,7 @@ async function probe(spec) {
     assert.equal(await page.locator('[data-view]:visible').count(), 0);
     assert.equal(await page.locator('#collective-result').textContent(), '');
     assert.equal(await page.locator('#perception-result').textContent(), '');
+    assert.equal(await page.locator('#biomimetic-result').textContent(), '');
     assert.deepEqual(errors, []);
     const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: path.join(__dirname, '../..'), encoding: 'utf8', windowsHide: true }).trim();
     fs.writeFileSync(path.join(output, 'studio-specialized-qualified.json'), JSON.stringify({ ...result,

@@ -64,4 +64,8 @@ router.get('/agents/:id/perception', requirePermission('read'), handle(perceptio
 router.post('/agents/:id/perception/plan', ...write, handle(perception.plan));
 router.post('/agents/:id/perception/probe', ...write, handle(perception.probe));
 
+const biomimetic = require('../services/studioBiomimeticService');
+router.post('/agents/:id/biomimetic/creative', ...write, handle(biomimetic.creative));
+router.post('/agents/:id/biomimetic/physics', ...write, handle(biomimetic.physics));
+
 module.exports = { router, handle, write };

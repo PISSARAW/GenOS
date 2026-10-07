@@ -39,7 +39,11 @@ const labels = [
   ['source', 'Source'], ['version', 'Version'], ['sensorId', 'Capteur'], ['informationGain', 'Gain d’information mesuré'],
   ['planningOnly', 'Plan uniquement'], ['sensorAvailability', 'Disponibilité des capteurs'],
   ['causalEstablished', 'Causalité établie'], ['subjectiveConsciousnessEstablished', 'Conscience subjective établie'],
-  ['expectedGain', 'Gain attendu déclaré'], ['target', 'Cible'], ['spent', 'Budget du plan utilisé']
+  ['expectedGain', 'Gain attendu déclaré'], ['target', 'Cible'], ['spent', 'Budget du plan utilisé'],
+  ['curiosityScore', 'Score de curiosité calculé'], ['learningProgress', 'Progrès calculé sur l’historique déclaré'],
+  ['enhancedPrompt', 'Prompt enrichi'], ['creativeEffectMeasured', 'Effet créatif mesuré'], ['creativeScope', 'Portée créative'],
+  ['attenuatedVoltage', 'Amplitude atténuée'], ['outputVoltage', 'Amplitude résultante'], ['isNmdaSpike', 'Spike NMDA du modèle'],
+  ['physicalScope', 'Portée physique'], ['hostEffectMeasured', 'Effet hôte mesuré']
 ];
 
 const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome', 'step', 'activeOrganization'];

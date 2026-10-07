@@ -2,6 +2,7 @@ import { encoded } from './ui.mjs';
 import { journeyView, journeyRead, journeyAction, journeyLink } from './journeyView.mjs';
 import { startCollective } from './collective.mjs';
 import { startPerception } from './perception.mjs';
+import { startBiomimetic } from './biomimetic.mjs';
 
 export function startOrganism() {
   const target = journeyView({ id: 'organism', title: 'Organisme et AgentDNA',
@@ -26,4 +27,5 @@ export function startOrganism() {
   journeyLink(target, 'research-view', 'Préparer une expérience et mesurer le candidat');
   startCollective(target);
   startPerception(target);
+  startBiomimetic(target);
 }

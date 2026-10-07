@@ -544,3 +544,18 @@ Le harnais navigateur ajoute plan et probe réels ; pas de boucle sensorimotrice
 de fovéation, de GAIA ou de contrôle animal intégral revendiqués.
 Les deux commandes passent (code 0) ; l'altération d'un reçu est signalée sans
 confondre son statut stocké avec une preuve actuelle valide.
+
+### E03 — Créativité et biophysique
+
+Depuis Organisme, `#/biomimetique` calcule curiosité/progrès sur historique déclaré
+et enrichit un prompt par représentation NCE, via les services existants.
+Un historique sans progrès produit un score nul, pas une nouveauté fictivement
+efficace. Les nombres, longueurs et historiques sont bornés et attribués au
+principal. Le second outil calcule atténuation Rall et spike NMDA, sans modifier
+l'hôte, le worker ou son organisme. Les deux analyses sont provisoires et scellées.
+
+`test_studio_biomimetic.cjs` passe : calculs comparés aux équations, variation
+du seuil/spike, enrichissement conservé, score sans progrès nul, valeurs invalides,
+droits et tenant refusés. Le navigateur exécute les deux outils sans interception.
+Ni mission NCE complète, ni effet créatif, ni pression/régulation physique de
+l'hôte ne sont établis par ces modèles déclarés. E02 : commit `a935a1ee`.
