@@ -12,15 +12,32 @@ const groupNames = {
 function card(record) {
   const item = node('article');
   item.className = 'record-card';
-  item.append(node('h4', recordTitle(record)));
+  const title = record.name || record.title || record.statement || record.label || 'Dossier observé';
+  item.append(node('h4', title));
   const list = node('dl');
   const fields = recordFields(record);
   for (const [label, value] of fields) {
+    if (technicalField(label)) continue;
     list.append(node('dt', label), node('dd', value));
   }
   if (!fields.length) item.append(node('p', 'Dossier disponible dans l’inspecteur technique.'));
   else item.append(list);
+  const technical = fields.filter(([label]) => technicalField(label));
+  if (technical.length) item.append(technicalDetails(technical));
   return item;
+}
+
+function technicalField(label) {
+  return /Identifiant|Empreinte|Assemblage$|Snapshot$|Job source|Hypothèse$|Expérience$/.test(label);
+}
+
+function technicalDetails(fields) {
+  const detail = node('details');
+  detail.append(node('summary', 'Identifiants et empreintes'));
+  const list = node('dl');
+  for (const [label, value] of fields) list.append(node('dt', label), node('dd', value));
+  detail.append(list);
+  return detail;
 }
 
 function group(title, items) {
@@ -29,9 +46,40 @@ function group(title, items) {
   section.append(node('h3', groupNames[title] || title));
   if (!items.length) section.append(node('p', 'Aucun élément dans ce projet.'));
   const records = items.slice(0, 100).filter(item => item && typeof item === 'object');
-  section.append(...records.map(card));
+  if (records.length > 1) section.append(recordTable(records));
+  else section.append(...records.map(card));
   if (items.length > 100) section.append(node('p', 'Affichage limité aux 100 premiers éléments retournés.'));
   return section;
+}
+
+function recordTable(records) {
+  const container = node('div');
+  container.className = 'record-table';
+  const table = node('table');
+  table.setAttribute('aria-label', 'Dossiers observés');
+  const head = node('thead');
+  const header = node('tr');
+  for (const label of ['Dossier', 'État observé', 'Champs']) {
+    const heading = node('th', label);
+    heading.scope = 'col';
+    header.append(heading);
+  }
+  head.append(header);
+  const body = node('tbody');
+  for (const record of records) {
+    const row = node('tr');
+    const fields = recordFields(record);
+    const status = fields.find(([label]) => label === 'État observé');
+    const detail = node('details');
+    detail.append(node('summary', 'Inspecter'), card(record));
+    const cell = node('td');
+    cell.append(detail);
+    row.append(node('td', recordTitle(record)), node('td', status?.[1] || 'Inconnu'), cell);
+    body.append(row);
+  }
+  table.append(head, body);
+  container.append(table);
+  return container;
 }
 
 export function renderData(target, data) {
