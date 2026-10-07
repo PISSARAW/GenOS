@@ -3,6 +3,7 @@ body{margin:0}main{max-width:960px;margin:48px auto;padding:0 24px 48px}
 header p:first-child{color:#72ddc2;letter-spacing:.12em;font-size:.8rem}
 h1{font-size:3rem;margin:.3em 0}h2{font-size:1.2rem;overflow-wrap:anywhere}
 form{display:flex;flex-wrap:wrap;gap:16px;padding:24px;background:#1e293b;border-radius:12px}
+.compact-form{padding:12px;margin:12px 0;align-items:end}.compact-form label{flex:1 1 220px}
 label{display:flex;flex-direction:column;gap:8px;flex:1 1 180px}
 input,textarea,button{font:inherit;padding:10px;border:1px solid #64748b;border-radius:6px}
 button{cursor:pointer;background:#275d57;color:white;align-self:end}
@@ -10,3 +11,4 @@ button:disabled{opacity:.5;cursor:wait}#message{padding:16px;border-left:3px sol
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #475569}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#1e293b;padding:16px}
 details{margin:16px 0}summary{cursor:pointer}section>button{margin:8px 0}
+#run-list{padding-left:20px}#run-list button{margin:4px 0;background:#334d70}

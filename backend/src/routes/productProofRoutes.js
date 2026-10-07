@@ -6,6 +6,8 @@ const { requireTenantScope } = require('../middleware/tenant');
 const router = express.Router();
 router.get('/consumer-runs/:runId', requirePermission('read'), requireTenantScope(),
   require('../controllers/consumerInspectionController').inspect);
+router.get('/consumer-agents/:agentId/runs', requirePermission('read'), requireTenantScope(),
+  require('../controllers/consumerInspectionController').listRuns);
 router.get('/consumer-agents/:agentId/latest', requirePermission('read'), requireTenantScope(),
   require('../controllers/consumerInspectionController').inspect);
 router.get('/safe-debugging', controller.getSafeDebugging);

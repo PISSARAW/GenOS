@@ -5,9 +5,10 @@ Le backend sert ce client à `http://localhost:4000/studio/` après
 projet et un agent appartenant à ce projet. Pour un autre port ou une origine
 HTTPS, configurer `GENOS_ALLOWED_ORIGINS` selon la politique backend.
 
-Le client affiche le dernier run de cet agent, ses étapes et métriques
-disponibles, le journal de promotion vérifié, les liens de provenance mémoire
-et les snapshots du workspace. « Capturer un snapshot » appelle le store réel.
+Le client affiche les runs de cet agent (recherche par identifiant, état ou
+raison), leurs étapes et métriques disponibles, le journal de promotion
+vérifié, les liens de provenance mémoire et les snapshots du workspace.
+« Capturer un snapshot » appelle le store réel.
 Un dossier JSON signé peut être soumis au contrôleur de promotion existant.
 La clé de signature reste chez l’opérateur : elle n’est ni fournie ni fabriquée
 par le navigateur. Le serveur refuse une signature ou des preuves manquantes.
@@ -31,3 +32,19 @@ $env:GENOS_API_TOKEN = '<clé autorisée>'
 
 La commande retourne le dossier JSON ou un code d’échec lorsque la clé,
 le scope ou l’intégrité ne permettent pas la lecture.
+
+## Validation navigateur
+
+Playwright est une dépendance de développement du backend. Après `npm ci` à
+la racine et `npm ci --prefix backend`, le parcours complet se lance depuis
+n’importe quel dossier avec :
+
+```powershell
+$env:B06_BROWSER = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+npm --prefix backend run test:b06-clients
+```
+
+Le harnais crée automatiquement `artifacts/b06-client-journey` (ou utilise
+le dossier fourni en premier argument). Il vérifie aussi les réponses 401,
+non JSON, les délais dépassés, les pertes réseau et le double-clic sur
+Actualiser.

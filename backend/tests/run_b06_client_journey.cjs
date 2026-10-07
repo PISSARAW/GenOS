@@ -5,6 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+const REPOSITORY_ROOT = path.resolve(__dirname, '../..');
+
 function sources() {
   const files = [];
   function visit(directory) {
@@ -16,7 +18,9 @@ function sources() {
     }
   }
   for (const directory of ['backend/src', 'integrations/studio', 'integrations/ide/vscode',
-    'backend/tests/ideHostDriver', 'crates/genos-cli/src', 'crates/genos-simple-cli/src']) visit(directory);
+    'backend/tests/ideHostDriver', 'crates/genos-cli/src', 'crates/genos-simple-cli/src']) {
+    visit(path.join(REPOSITORY_ROOT, directory));
+  }
   return Object.fromEntries(files.map(filename => [filename.replaceAll('\\', '/'),
     crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')]));
 }
@@ -47,7 +51,7 @@ async function waitForFinish(output) {
 }
 
 async function main() {
-  const output = path.resolve(process.argv[2]);
+  const output = path.resolve(process.argv[2] || path.join(REPOSITORY_ROOT, 'artifacts', 'b06-client-journey'));
   fs.mkdirSync(output, { recursive: true });
   const before = sources();
   const spec = await require('./helpers/b06ClientFixture.cjs').prepare();

@@ -13,4 +13,17 @@ async function inspect(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { inspect };
+async function listRuns(req, res, next) {
+  try {
+    if (!req.tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED' } });
+    const db = await require('../db').getDatabase();
+    const result = await require('../services/consumerInspectionService').listRuns(db, {
+      agentId: req.params.agentId, scope: req.tenant, query: req.query.q,
+      status: req.query.status, limit: req.query.limit
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+module.exports = { inspect, listRuns };

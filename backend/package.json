@@ -126,6 +126,7 @@
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
-    "fast-check": "^4.10.2"
+    "fast-check": "^4.10.2",
+    "playwright": "^1.63.0"
   }
 }

@@ -51,6 +51,28 @@ async function inspect(db, request) {
   });
 }
 
+async function listRuns(db, request) {
+  const limit = Math.max(1, Math.min(50, Math.floor(Number(request.limit) || 20)));
+  const query = String(request.query || '').trim();
+  const status = String(request.status || '').trim();
+  const terms = [request.agentId, request.scope.organizationId, request.scope.projectId];
+  const filters = ['r.agent_id = ?', 'w.organization_id = ?', 'w.project_id = ?'];
+  if (query) {
+    filters.push('(r.id LIKE ? OR r.status LIKE ? OR COALESCE(r.guardrail_reason, \'\') LIKE ?)');
+    const pattern = `%${query}%`;
+    terms.push(pattern, pattern, pattern);
+  }
+  if (status) {
+    filters.push('r.status = ?');
+    terms.push(status);
+  }
+  const rows = await db.all(`SELECT r.* FROM strategy_execution_runs r
+    JOIN agents a ON a.id = r.agent_id JOIN workspaces w ON w.id = a.workspace_id
+    WHERE ${filters.join(' AND ')} ORDER BY r.created_at DESC, r.rowid DESC LIMIT ?`, ...terms, limit);
+  const runs = await Promise.all(rows.map(row => events.hydrateRun(db, row)));
+  return { runs, query, status, limit };
+}
+
 async function resolveRunId(db, request) {
   if (request.runId) return request.runId;
   const row = await db.get(`SELECT r.id FROM strategy_execution_runs r
@@ -76,4 +98,4 @@ async function inspectConsistent(db, request) {
     provenance, snapshots };
 }
 
-module.exports = { inspect };
+module.exports = { inspect, listRuns };

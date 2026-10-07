@@ -55,6 +55,9 @@ async function main() {
     assert.equal(view.provenance[0].assemblyAccepted, true);
     assert.equal(view.provenance[0].memories[0].agentId, 'consumer-promotion-agent');
     assert.equal((await request(spec, '/api/product-proofs/consumer-agents/consumer-promotion-agent/latest')).body.run.id, spec.run.id);
+    const listed = await request(spec, '/api/product-proofs/consumer-agents/consumer-promotion-agent/runs?q=completed&status=completed');
+    assert.equal(listed.status, 200);
+    assert.deepEqual(listed.body.runs.map(run => run.id), [spec.run.id]);
     await assertIntegrity(spec, context);
     console.log('Consumer inspection: tenant isolation, real promotion provenance, tamper refusal and mission admin boundaries passed.');
   } finally {

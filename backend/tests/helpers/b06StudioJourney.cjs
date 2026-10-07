@@ -17,6 +17,35 @@ async function waitState(page, text) {
   await page.locator('#run-status').filter({ hasText: text }).waitFor({ state: 'visible', timeout: 30000 });
 }
 
+async function negativeUiCases(page, spec) {
+  const latest = '**/api/product-proofs/consumer-agents/*/latest';
+  await page.route(latest, route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAUTHORIZED' } }) }));
+  await login(page, spec, spec.settings.project);
+  await page.locator('#message').filter({ hasText: 'Session expirée' }).waitFor();
+  assert.equal(await page.locator('#inspection').isVisible(), false);
+  await page.unroute(latest);
+
+  await page.route(latest, route => route.fulfill({ status: 502, contentType: 'text/plain', body: 'upstream unavailable' }));
+  await login(page, spec, spec.settings.project);
+  await page.locator('#message').filter({ hasText: 'Réponse backend invalide' }).waitFor();
+  await page.unroute(latest);
+
+  await page.evaluate(() => { document.body.dataset.requestTimeoutMs = '20'; });
+  await page.route(latest, async route => {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    try { await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); } catch (_) { /* request timed out as expected */ }
+  });
+  await login(page, spec, spec.settings.project);
+  await page.locator('#message').filter({ hasText: 'délai imparti' }).waitFor();
+  await page.unroute(latest);
+  await page.evaluate(() => { delete document.body.dataset.requestTimeoutMs; });
+
+  await page.route(latest, route => route.abort('internetdisconnected')); // Network loss must be visible to the operator.
+  await login(page, spec, spec.settings.project);
+  await page.locator('#message').filter({ hasText: 'Backend inaccessible' }).waitFor();
+  await page.unroute(latest);
+}
+
 async function run(spec, output) {
   const browser = await chromium.launch({ executablePath: process.env.B06_BROWSER });
   const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
@@ -32,6 +61,12 @@ async function run(spec, output) {
     await login(page, spec, spec.settings.project);
     await waitState(page, 'awaiting_approval');
     assert.equal(await page.locator('#run-id').textContent(), spec.run.id);
+    await page.locator('#run-list li').filter({ hasText: spec.run.id }).waitFor();
+    const latestResponsesBeforeDoubleClick = responses.filter(response => response.path.includes('/latest')).length;
+    await page.getByRole('button', { name: 'Actualiser' }).dblclick();
+    await page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
+    const latestResponsesAfterDoubleClick = responses.filter(response => response.path.includes('/latest')).length;
+    assert.equal(latestResponsesAfterDoubleClick - latestResponsesBeforeDoubleClick, 1);
     await page.getByText('Soumettre un dossier d’approbation signé').click();
     await page.locator('#approval-json').fill('{}');
     await page.getByRole('button', { name: 'Soumettre l’approbation' }).click();
@@ -58,6 +93,7 @@ async function run(spec, output) {
     assert.equal(await page.locator('#provenance').textContent(), '');
     assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
     assert.deepEqual(errors, []);
+    await negativeUiCases(page, spec);
     return result;
   } catch (error) {
     fs.writeFileSync(path.join(output, 'studio-failure.json'), JSON.stringify({ message: await page.locator('#message').textContent(), errors, responses }));
