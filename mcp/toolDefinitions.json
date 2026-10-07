@@ -1387,6 +1387,10 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "orchestrator_id": {
+            "type": "string",
+            "description": "Owning orchestrator whose organization may change."
+          },
           "organization": {
             "type": "string",
             "description": "Target organization topology."
@@ -1513,6 +1517,10 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "orchestrator_id": {
+            "type": "string",
+            "description": "Owning orchestrator whose organization is read."
+          },
           "scenarios": {
             "type": "array",
             "items": {
