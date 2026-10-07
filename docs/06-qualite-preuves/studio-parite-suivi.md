@@ -376,3 +376,31 @@ Commits B : `a3b6755f` (B01), `5ca266fa` (B02), `54030cbc` (B03).
 Prérequis C : `61275fa4` (C01). C02 conserve son propre commit et le manifeste
 d'exécution ; branche `codex/studio-v3-integration`, sans fusion ou push implicite.
 Le registre exhaustif et les autres zones de la cible restent ouverts.
+
+## Étape D — Parcours GenOS structurants
+
+L'[ADR 0363](../adr/0363-studio-parcours-genos-structurants.md) fixe quatre
+tranches D01–D04 rattachées à P04–P07, sans les déclarer entièrement terminés.
+Base `ded03ed2`, checkpoint cognitif vérifié `snap-bc75f35226704b2ea29a4fc16196f57e`.
+Le worktree principal V3 et ses modifications concurrentes restent hors périmètre.
+
+### D01 — Mondes et lignages
+
+Destination `#/mondes` : checkpoint d'agent lié à son snapshot workspace durable,
+référence de branche, clone inactif, comparaison des états et liens vers preuves
+et revue. La façade `/api/studio` exige un tenant explicite même pour l'admin,
+RBAC et projet actif pour écrire. L'identité d'agent vient de la route.
+La lecture retourne au plus 100 checkpoints et 100 agents apparentés.
+
+`node backend/tests/test_studio_worlds.cjs` et
+`npm --prefix backend run test:studio:genos` passent sur services réels, sans
+interception API : persistance du checkpoint et de sa branche, clone `idle`,
+workspace partagé explicite, comparaison, refus étranger 404, viewer 403,
+membre read-only 403 et projet archivé 409. La navigation laboratoire et la purge
+à la déconnexion sont vérifiées ; viewport 390 px sans débordement.
+Routes et gate qualité passent ; index ADR régénéré (443 entrées).
+Artefacts ignorés sous `.genos-tests/studio-genos-d/`.
+
+Limites : le clone ne crée pas un workspace isolé, la branche n'exécute aucun
+candidat et la comparaison n'effectue aucune promotion. Rejeu causal,
+falsification automatisée et exécution d'alternatives isolées restent ouverts.

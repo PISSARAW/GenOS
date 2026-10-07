@@ -162,6 +162,7 @@ function createApp() {
   app.use('/api/signals', signalReceptorRoutes);
   app.use('/api/frameworks', frameworkRoutes);
   app.use('/api/product-proofs', productProofRoutes);
+  app.use('/api/studio', require('./routes/studioGenosRoutes').router);
   app.use('/api/rust', rustBridgeRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);

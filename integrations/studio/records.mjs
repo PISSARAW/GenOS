@@ -11,7 +11,13 @@ const labels = [
   ['assemblyAccepted', 'Assemblage accepté'], ['integrityChecked', 'Intégrité vérifiée'],
   ['memories', 'Mémoires liées'], ['strategy', 'Stratégie'], ['label', 'Libellé'],
   ['snapshotHash', 'Empreinte du snapshot'], ['durable', 'Payload durable'],
-  ['affectedFilesCount', 'Fichiers concernés']
+  ['affectedFilesCount', 'Fichiers concernés'], ['snapshotId', 'Snapshot'],
+  ['workspaceSnapshotId', 'Snapshot workspace'], ['workspaceSnapshotHash', 'Empreinte workspace'],
+  ['agentId', 'Agent'], ['workspaceId', 'Workspace'], ['refName', 'Branche'],
+  ['fromCommitId', 'Checkpoint source'], ['clonedAgentId', 'Agent cloné'],
+  ['path', 'Champ comparé'], ['left', 'État source'], ['right', 'État alternatif'],
+  ['identical', 'États identiques'], ['cloneIsolation', 'Isolation du clone'],
+  ['automaticPromotion', 'Promotion automatique']
 ];
 
 const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim'];
