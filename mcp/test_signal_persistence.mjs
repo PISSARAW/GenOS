@@ -14,7 +14,7 @@ const database = path.join(temporary, 'signal.db');
 const client = new Client({ name: 'signal-persistence-test', version: '1' });
 const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(root, 'mcp/index.js')],
   cwd: root, stderr: 'pipe', env: { ...process.env,
-    GENOS_MCP_LEASE: 'genos_signal_publish,genos_signal_read,genos_signal_ground,genos_signal_purge,genos_signal_electrocyte_vote',
+    GENOS_MCP_LEASE: 'genos_signal_publish,genos_signal_read,genos_signal_ground,genos_signal_purge,genos_signal_electrocyte_vote,genos_signal_chemotactic_follow,genos_signal_collective_decision',
     GENOS_DB_PATH: database, GENOS_DB_BACKUP_SKIP: '1', NODE_ENV: 'test' } });
 transport.stderr.on('data', () => {});
 
@@ -79,13 +79,31 @@ try {
     const voltage = await get(db, "SELECT COUNT(*) AS count FROM signal_blobs WHERE signal_type = 'voltage' AND topic = 'mcp-vote'");
     assert.equal(voltage.count, 1, 'vote must persist its voltage signal');
 
+    const trail = output(await client.callTool({ name: 'genos_signal_publish', arguments: {
+      signal_type: 'pheromone', signal_data: { intensity: 0.6 }, topic: 'mcp-gradient' } }));
+    assert.equal(trail.published, true);
+    const gradient = output(await client.callTool({ name: 'genos_signal_chemotactic_follow', arguments: {
+      agent_id: 'mcp-reader', locus_hash: 'mcp-gradient' } }));
+    assert.equal(gradient.status, 'chemotactic_gradient');
+    assert.equal(gradient.signalsRead, 1);
+    assert.equal(gradient.netGradient, 0.6);
+
+    const collective = output(await client.callTool({ name: 'genos_signal_collective_decision', arguments: {
+      problem: 'mcp-choice', mode: 'electrocyte', voters: [{ agentId: 'a', position: 2, weight: 0 },
+        { agentId: 'b', position: 2, weight: 0 }] } }));
+    assert.equal(collective.status, 'electrocyte_decision');
+    assert.equal(collective.consensusReached, true);
+    const collectiveSignal = await get(db,
+      "SELECT COUNT(*) AS count FROM signal_blobs WHERE signal_type = 'voltage' AND topic = 'dec_mcp-choice'");
+    assert.equal(collectiveSignal.count, 1);
+
     await run(db, "UPDATE signal_blobs SET expires_at = datetime('now', '-1 day') WHERE signal_id = ?", [published.signalId]);
     output(await client.callTool({ name: 'genos_signal_purge', arguments: {} }));
     assert.equal(await get(db, 'SELECT signal_id FROM signal_blobs WHERE signal_id = ?', [published.signalId]), undefined);
   } finally {
     await new Promise((resolve) => db.close(resolve));
   }
-  console.log('Signal publish, scoped read, grounding, electrocyte vote, and expiry purge verified through MCP stdio.');
+  console.log('Signal transport, grounding, votes, gradient, and expiry purge verified through MCP stdio.');
 } finally {
   await client.close();
   assert.ok(path.resolve(temporary).startsWith(`${path.resolve(os.tmpdir())}${path.sep}`));
