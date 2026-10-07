@@ -70,6 +70,16 @@ Cela ne constitue pas une certification WCAG ni un test de lecteur d'écran.
 La parité concurrentielle globale reste en cours : voir le
 [suivi du programme](../../docs/06-qualite-preuves/studio-parite-suivi.md).
 
+La refonte visuelle compose désormais une navigation latérale, des vues
+liste/dossier/inspecteur, un explorateur filtrable à côté de l’éditeur et
+une comparaison alignée des jobs. Les onglets du run sont utilisables avec
+flèches, Home et End. Les actions sont filtrables et les formulaires se
+replient après succès. Les empreintes restent consultables sur demande.
+Sur mobile, contexte, preuves, snapshots et actions avancées se déplient
+à la demande. Les régions de défilement sont accessibles au clavier.
+Voir le [bilan de refonte](../../docs/06-qualite-preuves/studio-refonte-visuelle.md)
+pour les preuves, conditions locales et limites restantes.
+
 L'éditeur refuse secrets, chemins hors workspace, liens symboliques et liens
 physiques. Taille maximale : 256 KiB ; listing borné à 250 fichiers et 5000
 entrées. Écritures Studio et restaurations sont sérialisées via SQLite et un

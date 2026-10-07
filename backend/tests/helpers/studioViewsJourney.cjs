@@ -144,7 +144,8 @@ async function lab(page, spec) {
 async function run(spec, output) {
   await spec.db.run("UPDATE access_keys SET role='admin' WHERE id='b06-key'");
   const browser = await chromium.launch({ executablePath: process.env.B06_BROWSER });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
+  const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('dialog', dialog => dialog.accept());
@@ -154,6 +155,7 @@ async function run(spec, output) {
     await supervision(page, spec);
     await editor(page, spec);
     await lab(page, spec);
+    const design = await require('./studioDesignJourney.cjs').run(page, spec, output);
     const accessibility = await require('./studioAccessibilityJourney.cjs').run(page, output);
     const navigation = await require('./studioNavigationJourney.cjs').run(page, spec, output);
     await page.setViewportSize({ width: 390, height: 844 });
@@ -171,7 +173,7 @@ async function run(spec, output) {
     assert.deepEqual(errors, []);
     return { platform: process.platform, browserVersion: browser.version(), errors,
       supervision: true, tenantEventRefusal: true, reconnect: true, editorConflictDraft: true,
-      durableRestore: true, protocol: true, frozenJobReplay: true, cancellation: true, mobile: true, navigation, accessibility };
+      durableRestore: true, protocol: true, frozenJobReplay: true, cancellation: true, mobile: true, navigation, accessibility, design };
   } catch (error) {
     console.error('Studio views failure:', { message: await page.locator('#message').textContent(), errors });
     await page.screenshot({ path: path.join(output, 'studio-views-failure.png'), fullPage: true });
