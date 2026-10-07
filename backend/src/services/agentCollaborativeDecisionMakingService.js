@@ -36,14 +36,15 @@ const relational = require('./crossAgentRelationalService');
 async function electocyteDecision(topic, discharges, options = {}) {
   const decision = evaluateElectrocyteConsensus(discharges, options);
   const signalId = `dec_${topic}_${Date.now()}`;
-  await publishSignal({
+  const publication = await publishSignal({
     signalType: SIGNAL_TYPES.VOLTAGE,
     signalData: { decision: decision.consensusReached, topic, ...decision },
     topic,
     signalId,
     ttlMs: 60_000,
   });
-  return decision;
+  return { ...decision, signalId, published: publication.published === true,
+    suppressionReason: publication.suppressionReason || null };
 }
 
 /** Suit le gradient chimiotactique pour un agent donné. */

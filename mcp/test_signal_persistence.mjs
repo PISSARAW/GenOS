@@ -76,6 +76,10 @@ try {
     assert.equal(vote.status, 'electrocyte_decision');
     assert.equal(vote.participantCount, 2);
     assert.equal(vote.consensusReached, true);
+    const suppressedVote = await client.callTool({ name: 'genos_signal_electrocyte_vote', arguments: {
+      topic: 'mcp-vote', discharges: [{ agentId: 'a', voltageMv: 180, phaseAngle: 0 }], threshold_mv: 300 } });
+    assert.equal(suppressedVote.isError, true, 'a coalesced vote must not claim publication');
+    assert.match(suppressedVote.content[0].text, /not published/i);
     const voltage = await get(db, "SELECT COUNT(*) AS count FROM signal_blobs WHERE signal_type = 'voltage' AND topic = 'mcp-vote'");
     assert.equal(voltage.count, 1, 'vote must persist its voltage signal');
 
@@ -93,6 +97,10 @@ try {
         { agentId: 'b', position: 2, weight: 0 }] } }));
     assert.equal(collective.status, 'electrocyte_decision');
     assert.equal(collective.consensusReached, true);
+    const suppressedCollective = await client.callTool({ name: 'genos_signal_collective_decision', arguments: {
+      problem: 'mcp-choice', mode: 'electrocyte', voters: [{ agentId: 'a', position: 2, weight: 0 }] } });
+    assert.equal(suppressedCollective.isError, true, 'a coalesced collective vote must not claim publication');
+    assert.match(suppressedCollective.content[0].text, /not published/i);
     const collectiveSignal = await get(db,
       "SELECT COUNT(*) AS count FROM signal_blobs WHERE signal_type = 'voltage' AND topic = 'dec_mcp-choice'");
     assert.equal(collectiveSignal.count, 1);

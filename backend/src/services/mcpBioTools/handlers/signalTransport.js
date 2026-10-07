@@ -151,10 +151,14 @@ async function handleSignalElectrocyteVote(args, run) {
     discharges || [],
     { thresholdMv: threshold_mv != null ? Number(threshold_mv) : undefined }
   );
+  const published = result.published === true;
   return {
     configured: true,
-    success: true,
-    status: 'electrocyte_decision',
+    success: published,
+    status: published ? 'electrocyte_decision' : 'signal_suppressed',
+    error: published ? undefined : result.suppressionReason || 'Electrocyte vote signal was not published.',
+    signalId: result.signalId,
+    published,
     consensusReached: result.consensusReached,
     totalVoltageMv: result.totalVoltageMv,
     thresholdMv: result.thresholdMv,
@@ -255,16 +259,22 @@ async function handleSignalCollectiveDecision(args, run) {
 }
 
 function collectiveDecisionResult(result, mode, problem) {
-  const implemented = mode === 'electrocyte';
+  if (mode === 'electrocyte') return electrocyteDecisionResult(result, problem);
   return {
-    configured: true,
-    success: implemented,
-    status: implemented ? 'electrocyte_decision' : 'not_implemented',
-    mode,
-    problem: problem || 'default',
-    consensusReached: implemented ? result.consensusReached : undefined,
-    error: implemented ? undefined : 'This collective decision mode has no execution adapter.',
-    transport: 'zero_text',
+    configured: true, success: false, status: 'not_implemented', mode, problem: problem || 'default',
+    error: 'This collective decision mode has no execution adapter.', transport: 'zero_text'
+  };
+}
+
+function electrocyteDecisionResult(result, problem) {
+  const published = result.published === true;
+  return {
+    configured: true, success: published, status: published ? 'electrocyte_decision' : 'signal_suppressed',
+    mode: 'electrocyte', problem: problem || 'default',
+    consensusReached: published ? result.consensusReached : undefined,
+    signalId: result.signalId, published,
+    error: published ? undefined : result.suppressionReason || 'Collective vote signal was not published.',
+    transport: 'zero_text'
   };
 }
 

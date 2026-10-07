@@ -36,10 +36,10 @@ Légende : `S` = appel MCP `stdio` réel avec preuve métier ; `B` = dispatch/tr
 | Signaux | `genos_signal_read` | S | Lecture d'un signal dans la même portée organisation/projet, intégrité vérifiée ; seconde lecture vide après marquage `seen`. |
 | Signaux | `genos_signal_purge` | S | Signal expiré artificiellement puis supprimé via appel MCP, absence vérifiée en SQLite. |
 | Signaux | `genos_signal_ground` | S | Accusé `transport_ack` enregistré après lecture et relu dans `signal_deliveries` ; niveaux supérieurs non qualifiés. |
-| Signaux | `genos_signal_electrocyte_vote` | S | Deux décharges donnent le consensus attendu ; signal voltage persisté et relu. |
+| Signaux | `genos_signal_electrocyte_vote` | S | Deux décharges donnent le consensus attendu ; signal voltage persisté et relu. Un second vote coalescé est refusé, sans succès fictif. |
 | Signaux | `genos_signal_chemotactic_follow` | S | Phéromone persistée, gradient `0,6` relu en `stdio` ; erreur de base traitée comme échec MCP. |
 | Signaux | `genos_signal_plasmid_transfer` | N | Aucun transfert exécuté ; refus MCP `not_implemented` testé en `stdio`. |
-| Signaux | `genos_signal_collective_decision` | S/N | Mode électrocyte : consensus et signal voltage persisté ; modes plasmide/stigmergie refusés en `stdio`. |
+| Signaux | `genos_signal_collective_decision` | S/N | Mode électrocyte : consensus et signal voltage persisté, refus si coalescé ; modes plasmide/stigmergie refusés en `stdio`. |
 | Topologie | `genos_topology_session` | B | Tests backend de lease et de morphogenèse ; pas une preuve de toutes les opérations. |
 | Stratégie | `genos_execute_primitive` | R | Catalogue et registre ; chaque primitive demande sa propre preuve. |
 | Stratégie | `genos_execute_strategy_pipeline` | R | Contrat et route ; pipeline métier non qualifiée ici. |
