@@ -70,6 +70,12 @@ if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' &&
 
 const SCRIPT_START_TIME = Date.now();
 const TOP_LEVEL_MISSION_ACTIONS = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
+const missionAux = require('./orchestratorMissionAux.cjs');
+
+function waitForCompletionUnbounded() {
+  return policyRequest.unbounded === true || policyRequest.noTimeout === true
+    || request.unbounded === true || request.noTimeout === true;
+}
 
 async function waitForCompletion(db) {
   const unbounded = waitForCompletionUnbounded();
@@ -235,7 +241,7 @@ async function handleHomeostasisContinuation({ db, id, task, request, mission, c
 }
 
 async function executeMission(db, state) {
-  if (await checkMinimalShortcut(db)) return;
+  if (await missionAux.checkMinimalShortcut({ db, action, requestMemory, request, task, telemetry, id })) return;
   await initializeMission({ db, action, orchestratorId, task });
   if (await executeRequestedAction({ db, state })) return;
   await runOrchestratedMission(db);
@@ -295,7 +301,7 @@ async function finalizeOrchestratedMission(input) {
   const missionSuccess = completionGate.allowed === true;
   let finalVerdict = computeFinalVerdict(missionSuccess, outcome, completionGate);
 
-  await executeMorphology({ morphology, outcome, finalVerdict, orchestratorId: id });
+  await missionAux.executeMorphology({ morphology, outcome, finalVerdict, orchestratorId: id, telemetry });
 
   const contResult = await applyHomeostasisContinuation({ db, id, task, request, mission, completionGate, homeostasis, organism, finalVerdict, continuity });
   ({ continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission } = destructureContResult(contResult, { continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission }));
@@ -348,3 +354,43 @@ async function persistChampion(db, outcome) {
     await requestMemory.storeMissionResult(db, { minted: checked.minted, route: checked.route, summary: outcome, request });
   } catch (_) {}
 }
+
+async function cleanupFailure(db, state, error) {
+  const topologyFailure = { dispatch_team: 'A_TEAM_STAGES_FAILED', dispatch_trinity: 'TRINITY_MISSION_FAILED', dispatch_biological: 'BIOLOGICAL_MISSION_FAILED' }[action];
+  if (topologyFailure) telemetry.emitEvent({ eventType: topologyFailure, agentId: id, action: 'TOPOLOGY_FAILED', detail: error.message, payload: { action }, severity: 'error' });
+  if (!['orchestrate', 'dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological'].includes(action)) return;
+  try { await runtime.stopMission(id); } catch (_) {}
+  await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, id).catch(() => {});
+  if (missionId) await missionIdentity.setStatus(db, missionId, 'failed').catch(() => {});
+  if (!state.delegatedWorkerId) return;
+  await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, state.delegatedWorkerId).catch(() => {});
+  await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", state.delegatedWorkerId).catch(() => {});
+}
+
+async function executeForeground(db) {
+  const state = {};
+  try { await executeMission(db, state); } catch (error) { await cleanupFailure(db, state, error); throw error; }
+  finally {
+    if (request.detachedProcessId) await db.run('DELETE FROM detached_processes WHERE id = ?', request.detachedProcessId).catch(() => {});
+    await closeDatabase();
+  }
+}
+
+async function main() {
+  const initDb = await withWriteRetry(() => getDatabase(), { maxRetries: 10, baseDelayMs: 200 });
+  await prepareRuntime(initDb);
+  if (request.background === true) {
+    await handleBackground({ request, action, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, getDatabase, closeDatabase });
+    return;
+  }
+  await executeForeground(await getDatabase());
+}
+
+function exitAfterFlush(code) {
+  if (process.stdout.writableLength === 0) return process.exit(code);
+  process.stdout.write('', () => process.exit(code));
+}
+main().then(() => exitAfterFlush(process.exitCode || 0)).catch((error) => {
+  console.error(error.stack || error.message);
+  exitAfterFlush(1);
+});

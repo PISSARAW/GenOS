@@ -19,7 +19,7 @@ Légende : `S` = appel MCP `stdio` réel avec preuve métier ; `B` = dispatch/tr
 | Orchestration | `genos_change_organization` | R | Contrat/dispatch. |
 | Orchestration | `genos_organization_state` | R | Contrat/dispatch. |
 | Orchestration | `genos_worker_publish` | R | Schéma objet/chaîne validé ; livraison métier non démontrée. |
-| Orchestration | `genos_worker_inbox` | R | Contrat/dispatch. |
+| Orchestration | `genos_worker_inbox` | S | Message ciblé relu en `stdio` depuis SQLite, intégrité vérifiée et curseur `after_id` testé. Le routage ne renvoie plus le seul état de l'organisation. |
 | Orchestration | `genos_trinity_launch` | R | Mondes comparatifs non exécutés dans cette campagne. |
 | Orchestration | `genos_a_team_preview` | R | Schéma tableau/chaîne validé ; équipe non exécutée. |
 | Orchestration | `genos_biological_mode` | R | Modes propres à l'outil validés ; mission non terminée dans cette campagne. |
@@ -55,6 +55,6 @@ Légende : `S` = appel MCP `stdio` réel avec preuve métier ; `B` = dispatch/tr
 | Interaction | `genos_foveal_crop` | D | Service image externe non qualifié. |
 | Interaction | `genos_optimal_foraging` | D | Service de recherche externe non qualifié. |
 
-Vérifications générales obtenues sur le worktree isolé : catalogue et routage Node 48/48, suite MCP Node, profil MCP backend, 21 tests Rust MCP, `npm test`, `cargo test --workspace`, suite native MCP et gate qualité Python. Elles ne remplacent pas les preuves métier manquantes dans les lignes `R` et `D`. Le pont d'orchestration convertit désormais `success: false` en erreur MCP ; `status: accepted` reste seulement un accusé de réception.
+Vérifications générales obtenues sur le worktree isolé : catalogue et routage Node 48/48, suite MCP Node, profil MCP backend, 21 tests Rust MCP, `npm test`, `cargo test --workspace`, suite native MCP et gate qualité Python. Elles ne remplacent pas les preuves métier manquantes dans les lignes `R` et `D`. Le pont d'orchestration convertit désormais `success: false` en erreur MCP ; `status: accepted` reste seulement un accusé de réception. Le point d'entrée du script d'orchestration, absent dans `v3`, est restauré et testé sur une base jetable ; les lignes `R` ne sont pas automatiquement promues pour autant.
 
 Le handler backend hors catalogue public `genos_temporal_consciousness_transfer` reste `reference_only` : une demande d'exécution retourne `success: false`, `status: not_implemented`. Le test ne revendique plus de restauration d'état d'agent.
