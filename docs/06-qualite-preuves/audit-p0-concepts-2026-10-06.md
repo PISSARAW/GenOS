@@ -1,9 +1,33 @@
 # Audit P0 des concepts GenOS
 
-- **Statut** : audit initial réalisé ; qualification des consommateurs et pilotes ouverte.
+- **Statut** : P0 clôturé pour le périmètre convenu des lots B01 à B07.
 - **Portée** : 649 références du programme de recherche ; contrats, chemins candidats,
   baseline de tests et conditions d'entrée du socle P1.
-- **Dernière revue** : 2026-10-06.
+- **Dernière revue** : 2026-10-07.
+
+## Statut consolidé au 2026-10-07
+
+Les reprises consignées ci-dessous ferment les obligations P0. Les résultats
+initiaux et les limites des passes intermédiaires sont conservés comme historique ;
+leurs mentions « ouvert » ou « partiel » ne décrivent pas le statut consolidé.
+
+| Lot | Statut | Preuve de clôture |
+| --- | --- | --- |
+| B01 | Clôturé | Dépendances verrouillées rétablies ; chaîne complète `npm test` exécutée avec code 0. |
+| B02 | Clôturé | Gate global sans nouvelle violation ; baseline de dette non relâchée. |
+| B03 | Clôturé | Cas positifs soutenus par preuves qualifiées ; raccourcis de provenance et reçus négatifs refusés. |
+| B04 | Clôturé | MsgPack raccordé ; aller-retour, entrée corrompue, migration SQLite et idempotence vérifiés. |
+| B05 | Clôturé, exploratoire | [Trois pilotes comparatifs](qualification-trois-pilotes-comparatifs-2026-10-07.md) : données versionnées, jeux réservés, baselines, ablations, budgets comparables et reproduction aveugle par un opérateur IA distinct sur le même hôte. |
+| B06 | Clôturé au périmètre implémenté | [Consommateurs L01–L05 et L22](qualification-b06-reprise-et-holdout-2026-10-07.md) : provenance mémoire, promotions concurrentes, reprise, snapshot Windows et clients interactifs qualifiés. |
+| B07 | Clôturé | Checkpoint créé et relu ; cinq contrôles de reprise exécutés avec succès. |
+
+La validation finale consignée dans le rapport B05 donne **0 nouvelle violation**,
+`npm test` avec code 0 et **673 tests Rust réussis** via `cargo test --workspace`.
+La dette historique admise par la baseline demeure distincte des écarts P0 résorbés.
+
+Cette clôture porte sur le socle technique et sa qualification bornée. Les fonctions
+de recherche P1 et la démonstration d'un gain général en IA restent à réaliser.
+Les limites des pilotes et des garanties de reprise restent celles de leurs rapports.
 
 ## Périmètre et méthode
 
@@ -66,7 +90,7 @@ Le premier appel de checkpoint GenOS a expiré sans fichier. Lors de la reprise 
 un nouvel appel a réussi et son fichier a été observé. La persistance GenOS des
 décisions et expériences demeure distincte de la vérification et de la promotion.
 
-## Qualification à poursuivre
+## Qualification initialement à poursuivre (historique)
 
 | Priorité | Travail | Critère observable |
 | --- | --- | --- |
@@ -85,9 +109,11 @@ il qualifie le cycle sur fixture, pas un gain du receveur. Les campagnes GVX hol
 et les baselines MBH-like/Lipson-like restent à qualifier conformément au
 [plan de puissance](../02-orchestration/plan-puissance-benchmark-gvx.md).
 
-P0 conserve sa couverture complète et ses écarts ouverts. Sa clôture exige les
-consommateurs qualifiés et les trois pilotes ; aucun gain de recherche ni passage
-à P1 n'est annoncé par la seule couverture du catalogue.
+À cette passe initiale, P0 conserve sa couverture complète et ses écarts ouverts.
+Sa clôture exige alors les consommateurs qualifiés et les trois pilotes ; aucun
+gain de recherche ni passage à P1 n'est annoncé par la seule couverture du catalogue.
+Ces obligations sont closes par les reprises ultérieures au périmètre consolidé
+en tête de document.
 
 ## Reprise P0 après le commit documentaire
 
