@@ -46,6 +46,7 @@ async function bootstrapMission(mission) {
   await provisionMissionCapsule(ctx);
   await require('../garageRuntimeService').bindExecution(ctx);
   await require('../trinityQualificationDispatch').recordStarted(ctx);
+  await require('../missionEnvelopeAuthority').seal(ctx);
   reportOrchestratorStart(ctx);
   return ctx;
 }
@@ -53,6 +54,7 @@ async function bootstrapMission(mission) {
 async function startMissionInternal(mission) {
   const ctx = await bootstrapMission(mission);
   const { agentId, normalizedMission, db, dispatchedAgent, executionRun } = ctx;
+  await require('../missionEnvelopeAuthority').assertRun(db, { agentId, runId: executionRun.id, mission: normalizedMission });
   assertMissionNotCancelled(agentId);
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);

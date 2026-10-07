@@ -620,6 +620,6 @@ et les cinq guides : [Méristème](02-orchestration/meristeme-epistemique.md),
 limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scelles-trinity.md).
 
 - [ADR 0344 — Refactorings de qualité et frontières de contrôle](adr/0344-refactorings-qualite-et-frontieres-de-controle.md).
-
 - [ADR 0352 — Composition Studio et inspecteurs de preuves](adr/0352-studio-composition-et-inspecteurs-de-preuves.md).
 - [Studio — refonte visuelle et qualification](06-qualite-preuves/studio-refonte-visuelle.md).
+- [ADR 0355 — Clôture native par oracles budgétés et nonces liés](adr/0355-cloture-native-par-oracles-budgetes-et-nonces-lies.md).

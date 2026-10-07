@@ -32,6 +32,8 @@ async function verifyDispatchSupervision() {
   const originalCreate = fleet.createAutonomousWorkers;
   const originalStart = runtime.startMission;
   const originalStop = runtime.stopMission;
+  const bounded = require('../src/services/agents/boundedDelegationAuthority');
+  const originalBounded = { parent: bounded.parent, capacity: bounded.capacity, bind: bounded.bind };
   const state = require('../src/services/agentOrchestrationState');
   const childMethod = { version: 1, methodId: 'scoped_procedure', parameters: { procedure: { version: 1, methodId: 'subset_sum', parameters: { values: [1], target: 1 } } } };
   let startRequest;
@@ -39,14 +41,15 @@ async function verifyDispatchSupervision() {
     assert.equal(options.plan.dispatchWorkers[0].workerKind, 'bounded_worker');
     assert.deepEqual(options.plan.dispatchWorkers[0].methodContract, childMethod);
     assert.deepEqual(options.mission.methodContract, childMethod);
-    assert.equal(options.plan.tokenPolicy.total, 5000);
-    return [{ agentId: 'child-1', role: 'bounded_worker', workerKind: 'bounded_worker', workspaceId: 'ws-1', executionBudget: { tokens: 5000 } }];
+    assert.equal(options.plan.tokenPolicy.total, 2000);
+    return [{ agentId: 'child-1', role: 'bounded_worker', workerKind: 'bounded_worker', workspaceId: 'ws-1', executionBudget: { tokens: 2000 } }];
   };
   runtime.startMission = async (request) => { startRequest = request; return { success: true, artifact: 'dossier' }; };
   const childContract = { identity: { workerKind: 'bounded_worker' }, evidence: { requiredArtifacts: ['dossier'] } };
   const db = { get: async (sql) => {
     if (sql.includes('COUNT(*)')) return { count: 0 };
     if (sql.includes('FROM workspaces')) return { path: 'C:/workspace' };
+    if (sql.includes('FROM strategy_execution_runs')) return { id: 'child-run', status: 'completed' };
     if (sql.includes('telemetry_events')) return { payload_json: JSON.stringify({ evidenceReport: {
       outcome: 'success', claims: [{ statement: 'claim', evidence: ['source'] }],
       workerArtifact: { type: 'dossier', content: { claims: [{ statement: 'claim', evidence: ['source'] }], scopeCompletion: { scopeRef: 'Review a bounded change.', completedRefs: ['runtime:child-1'] } }, provenance: { sourceRefs: ['runtime:child-1'] } }
@@ -54,6 +57,9 @@ async function verifyDispatchSupervision() {
     if (sql.includes('SELECT id, status, metadata_json')) return { id: 'child-1', status: 'completed', metadata_json: JSON.stringify({ workerContract: childContract }) };
     return { id: 'sub-1', role: 'sub_orchestrator', agent_type: 'GenOS', workspace_id: 'ws-1', cognitive_budget: 5000, execution_mode: 'worker', metadata_json: metadata() };
   } };
+  bounded.parent = async () => ({ agent: await db.get('parent'), contract: { limits: { maxTokens: 10000 } } });
+  bounded.capacity = async () => ({ count: 0, remainingChildren: 5, remainingTokens: 10000 });
+  bounded.bind = async () => ({});
   try {
     const result = await dispatchSubOrchestratorWorker(db, 'sub-1', { mission: 'Review a bounded change.', methodContract: childMethod, timeoutMs: 1234 });
     assert.equal(result.status, 'completed');
@@ -63,7 +69,7 @@ async function verifyDispatchSupervision() {
     assert.equal(startRequest.orchestratorAgentId, 'sub-1');
     assert.deepEqual(startRequest.methodContract, childMethod);
     assert.equal(startRequest.timeoutMs, 1234);
-    assert.equal(startRequest.executionBudget.tokens, 5000);
+    assert.equal(startRequest.executionBudget.tokens, 2000);
     let stopped;
     runtime.startMission = async () => { state.cancelledStarts.add('sub-1'); return { success: true }; };
     runtime.stopMission = async (id) => { stopped = id; };
@@ -75,6 +81,7 @@ async function verifyDispatchSupervision() {
     fleet.createAutonomousWorkers = originalCreate;
     runtime.startMission = originalStart;
     runtime.stopMission = originalStop;
+    Object.assign(bounded, originalBounded);
     state.cancelledStarts.delete('sub-1');
   }
 }

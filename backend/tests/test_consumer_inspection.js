@@ -43,6 +43,8 @@ async function main() {
     assert.equal(pending.status, 200);
     assert.equal(pending.body.run.status, 'awaiting_approval');
     assert.equal(pending.body.promotion, null);
+    assert.equal(pending.body.executionAuthority.status, 'legacy_unbound');
+    assert.equal(pending.body.executionAuthority.postconditions, 'not_evaluated');
     assert.deepEqual(pending.body.provenance, []);
     assert.equal((await request(spec, '/api/missions/b06/resources/tool/key')).status, 403);
     assert.equal((await request(spec, '/api/missions/b06/wake', { body: {} })).status, 403);

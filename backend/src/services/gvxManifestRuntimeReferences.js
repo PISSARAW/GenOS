@@ -11,6 +11,8 @@ async function resolve(db, manifest) {
   const scope = manifest.payload.scope;
   const binding = await runs.readRun(db, { runId: source.run.id, scope });
   assertBinding(source, binding);
+  const executionAuthority = await require('./missionEnvelopeAuthority').inspect(db, {
+    runId: source.run.id, agentId: scope.entityId, scope: { organizationId: scope.organizationId, projectId: scope.projectId } });
   const receipts = [];
   for (const reference of source.receiptRefs) receipts.push(await receipt(db, { reference, source, scope }));
   const artifacts = [];
@@ -19,7 +21,7 @@ async function resolve(db, manifest) {
   for (const claim of source.claims) claims.push(await scientificClaim(db, { claim, scope }));
   const lineage = [];
   for (const ancestor of source.lineage) lineage.push(await parent(db, { ancestor, scope, missionId: source.mission.id }));
-  return { status: 'runtime_resolved', binding, receipts, artifacts, claims, lineage,
+  return { status: 'runtime_resolved', binding, receipts, artifacts, claims, lineage, executionAuthority,
     claimsActive: claims.every(claim => claim.status === 'proposed'), postconditions: 'not_evaluated', promotionAllowed: false };
 }
 
@@ -46,7 +48,8 @@ async function receipt(db, input) {
   }
   return { receiptId: value.receiptId, sha256: value.payloadHash, runId: value.runId,
     workerId: value.workerId, costs: value.costs, recordedResult: value.result,
-    integrity: 'verified', postconditions: 'not_evaluated' };
+    integrity: 'verified', postconditions: 'not_evaluated',
+    nativeVerification: await require('./epistemic/nativeOracleInspection').inspect(db, { runId: value.runId, agentId: value.workerId }) };
 }
 
 function assertReceipt(input, receipt) {

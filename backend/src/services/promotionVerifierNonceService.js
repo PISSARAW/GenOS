@@ -46,12 +46,13 @@ function independentReceipts(assembly) {
   return receipts;
 }
 
-async function consumeReceipts(db, receipts) {
-  for (const receipt of receipts) {
+async function consumeReceipts(db, input) {
+  for (const receipt of input.receipts) {
+    if (await require('./epistemic/nativeOracleGate').ownsNonce(db, { receipt, promotion: input.promotion })) continue;
     const violation = await claimVerifierNonce(db, { independentVerifierReceipt: receipt });
     if (violation) refuse(violation.message, violation.policy);
   }
-  return { consumed: receipts.length };
+  return { consumed: input.receipts.length };
 }
 
 async function consume(db, input) {
@@ -65,7 +66,7 @@ async function consume(db, input) {
     const scopeId = await trustedRunScope(db, promotion);
     const saved = await readAssembly(db, assemblyId);
     assertAssemblyBinding(saved, promotion, scopeId);
-    return consumeReceipts(db, independentReceipts(saved.evaluation.assembly));
+    return consumeReceipts(db, { receipts: independentReceipts(saved.evaluation.assembly), promotion });
   });
 }
 

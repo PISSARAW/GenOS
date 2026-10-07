@@ -15,7 +15,7 @@ function requireDelegationContract(metadata) {
   const contract = metadata.workerContract;
   if (metadata.workerKind !== 'sub_orchestrator' || contract?.identity?.workerKind !== 'sub_orchestrator'
     || contract.authority?.delegate !== true || contract.authority?.spawn !== true
-    || contract.delegationDepth !== 1 || contract.spawnBudget !== MAX_CHILDREN
+    || contract.delegationDepth !== 1 || contract.spawnBudget < 1 || contract.spawnBudget > MAX_CHILDREN
     || !Number.isFinite(contract.delegationExpiresAt) || Date.now() >= contract.delegationExpiresAt) {
     throw Object.assign(new Error('Caller has no active bounded sub-orchestration contract.'), { code: 'WORKER_CONTRACT_DENIED' });
   }
@@ -36,18 +36,18 @@ function childAssignment(args) {
   return { role, workerKind: kind, label: `delegated-${kind}`, hypothesis: 'Complete the scoped subtask and return contract evidence.', capabilities: [], ...(args.methodContract ? { methodContract: args.methodContract } : {}) };
 }
 
-async function ensureCapacity(db, parentId) {
-  const row = await db.get("SELECT COUNT(*) AS count FROM agents WHERE parent_agent_id = ? AND execution_mode = 'worker'", parentId);
-  if (Number(row?.count || 0) >= MAX_CHILDREN) throw Object.assign(new Error('Sub-orchestrator reached its five-child lifetime limit.'), { code: 'SUBORCHESTRATOR_CHILD_LIMIT' });
-}
-
-function workerPlan(parent, assignment) {
+function workerPlan(parent, assignment, remaining) {
   const cognitiveBudget = Math.max(1, Number(parent.cognitive_budget) || 1);
   const contractBudget = Math.max(1, Number(parent.metadata.workerContract.limits?.maxTokens) || MAX_CHILD_TOKENS);
-  const tokens = Math.min(MAX_CHILD_TOKENS, contractBudget, cognitiveBudget);
+  const tokens = Math.min(MAX_CHILD_TOKENS, contractBudget, cognitiveBudget,
+    Math.floor(remaining.remainingTokens / remaining.remainingChildren));
+  if (tokens <= 0 && !require('./workerExecutorRegistry').hasNativeMethod(assignment.workerKind, assignment.methodContract?.methodId)) {
+    throw Object.assign(new Error('Delegated model-token budget is exhausted.'), { code: 'SUBORCHESTRATOR_TOKEN_LIMIT' });
+  }
   return {
     dispatchWorkers: [assignment], strategyContract: { primary: 'tree-search' },
-    tokenPolicy: { total: tokens, workerShare: 1, orchestratorReserve: 0, rounds: { initial: { perWorkerTokens: tokens } } }
+    tokenPolicy: { total: tokens, workerShare: 1 / remaining.remainingChildren, orchestratorReserve: 0,
+      rounds: { initial: { perWorkerTokens: tokens } } }
   };
 }
 
@@ -63,19 +63,36 @@ async function createChild(db, parent, args) {
     executionPolicy: { allowFileEdits: false }, executionBudget: { events: 100 }
   };
   const workers = await withTransaction(db, async () => {
-    await ensureCapacity(db, parent.id);
-    return fleet.createAutonomousWorkers(db, { id: parent.id, agent_type: parent.agent_type }, {
-      plan: workerPlan(parent, assignment), mission
+    const bounded = require('./boundedDelegationAuthority');
+    const current = await bounded.parent(db, parent.id);
+    mission.missionId = current.missionId;
+    const remaining = await bounded.capacity(db, current);
+    const plan = workerPlan({ ...current.agent, metadata: { workerContract: current.contract } }, assignment, remaining);
+    plan.delegationOrdinal = remaining.count + 1;
+    const created = await fleet.createAutonomousWorkers(db, { id: parent.id, agent_type: parent.agent_type }, {
+      plan, mission
     });
+    if (created.length !== 1) throw Object.assign(new Error('Delegation requires exactly one persisted child.'), { code: 'DELEGATION_BINDING_INVALID' });
+    await bounded.bind(db, { parentId: parent.id, childId: created[0].agentId, allocation: plan.tokenPolicy.total });
+    return created;
   });
   return { child: workers[0], mission };
 }
 
 async function childOutcome(db, childId) {
   const agent = await db.get('SELECT id, status, metadata_json, runtime_pid FROM agents WHERE id = ?', childId);
-  if (!agent || agent.runtime_pid || !CHILD_TERMINAL_STATES.has(agent.status)) return null;
-  if (agent.status !== 'completed') return failedChild(agent.status, 'CHILD_NOT_COMPLETED');
-  return validateChildEvidence(db, agent);
+  if (!agent) return null;
+  const run = await db.get('SELECT id, status, guardrail_reason FROM strategy_execution_runs WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1', childId);
+  if (['blocked', 'failed', 'cancelled', 'awaiting_approval'].includes(run?.status)) {
+    return { ...failedChild(run?.status || agent.status, 'CHILD_EXECUTION_NOT_VERIFIED'),
+      runId: run?.id || null, reason: run?.guardrail_reason || 'Missing completed execution run.' };
+  }
+  if (agent.runtime_pid) return null;
+  if (run?.status === 'completed' && ['completed', 'idle'].includes(agent.status)) {
+    return validateChildEvidence(db, { ...agent, status: 'completed' });
+  }
+  if (!CHILD_TERMINAL_STATES.has(agent.status)) return null;
+  return failedChild(agent.status, 'CHILD_NOT_COMPLETED');
 }
 
 function failedChild(childStatus, code) {
@@ -126,7 +143,8 @@ async function superviseChild(context) {
   const { db, child, mission, parentAgentId } = context;
   const { startMission } = require('../agentRuntimeAdapter');
   try {
-    await startMission({ ...mission, executionBudget: { ...mission.executionBudget, ...child.executionBudget }, agentId: child.agentId, role: child.role, workerKind: child.workerKind, methodContract: child.methodContract || mission.methodContract, orchestratorAgentId: parentAgentId, workspaceId: child.workspaceId });
+    await startMission({ ...mission, workspaceRoot: child.workspaceRoot || mission.workspaceRoot,
+      workspaceProvisioned: Boolean(child.workspaceRoot), executionBudget: { ...mission.executionBudget, ...child.executionBudget }, agentId: child.agentId, role: child.role, workerKind: child.workerKind, methodContract: child.methodContract || mission.methodContract, orchestratorAgentId: parentAgentId, workspaceId: child.workspaceId });
     const outcome = await waitForChild(db, child.agentId, { timeoutMs: mission.timeoutMs, parentAgentId });
     if (outcome.status === 'timeout') await require('../agentRuntimeAdapter').stopMission(child.agentId);
     return outcome;

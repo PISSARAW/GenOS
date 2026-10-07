@@ -97,12 +97,15 @@ async function inspectConsistent(db, request) {
   request.runId, request.scope.organizationId, request.scope.projectId);
   if (!workspace) return null;
   const run = await events.getRun(db, request.runId);
+  const executionAuthority = await require('./missionEnvelopeAuthority').inspect(db, {
+    runId: run.id, agentId: run.agentId, scope: request.scope });
+  const nativeVerification = await require('./epistemic/nativeOracleInspection').inspect(db, { runId: run.id, agentId: run.agentId });
   const journal = await require('./promotionExecutionJournal').read(db, request.runId);
   const provenance = await promotionEvidence(db, { ...request, workspaceId: workspace.id, agentId: run.agentId });
   const snapshots = await db.all(`SELECT id, label, step_number FROM workspace_snapshots
     WHERE workspace_id = ? ORDER BY step_number DESC LIMIT 100`, workspace.id);
   return { workspace, run, promotion: journal ? { phase: journal.phase, integrityChecked: true } : null,
-    provenance, snapshots };
+    provenance, snapshots, executionAuthority, nativeVerification };
 }
 
 module.exports = { inspect, listRuns, escapeLikePattern, VALID_RUN_STATUSES };

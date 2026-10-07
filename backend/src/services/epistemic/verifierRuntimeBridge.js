@@ -186,14 +186,17 @@ async function runSingleVerifier(antigen, verifier, ctx) {
     antigen,
     enriched,
     { worker, timeoutMs: ctx.opts.timeoutMs || 30000, testConfig: enriched.test,
-      artifactConfig: enriched.artifact, allowedWorkspaceRoot: ctx.opts.allowedWorkspaceRoot }
+      artifactConfig: enriched.artifact, allowedWorkspaceRoot: ctx.opts.allowedWorkspaceRoot,
+      db: ctx.opts.db, nativeOracleSubject: ctx.opts.nativeOracleSubject, nativeOracleDeadline: ctx.opts.nativeOracleDeadline,
+      nativeOracleAllocationHash: ctx.opts.nativeOracleAllocationHash }
   );
   const executionWorkspace = outcome.observations?.find((item) => item.detail?.executionId)?.detail.cwd;
-  const executed = { ...verifier, executionWorkspace };
+  const executed = verifier.type === 'procedure_semantic'
+    ? require('./oracleProcedureAdapter').executedVerifier(verifier, outcome) : { ...verifier, executionWorkspace };
   const independence = executionWorkspace
     ? evaluateVerifierIndependence(executed, antigen, ctx.executedVerifiers)
     : { independent: false, distance: 0, reason: 'missing_execution_workspace', descriptor: buildVerifierDescriptor(executed, antigen, worker) };
-  return { result: signVerifierResult(antigen, verifier, { outcome, independence }), executed };
+  return { result: signVerifierResult(antigen, executed, { outcome, independence }), executed };
 }
 
 function consumeVerifierBudget(budget) {

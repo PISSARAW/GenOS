@@ -11,12 +11,14 @@ const { assertActive, executionContext } = require('./workerNativeLifecycle');
 const { error } = require('./workerNativeEvidence');
 
 async function publish(db, mission, event) {
-  recordWorkerEvidence(mission, event);
   const progress = await recordExecutionEvent(db, mission.agentId, event);
   const failureEvent = ['AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType);
   if (progress?.halt && !failureEvent) {
-    throw error('WORKER_EXECUTION_HALTED', progress.reason || 'Execution guard halted the native worker.');
+    const failure = error('WORKER_EXECUTION_HALTED', progress.reason || 'Execution guard halted the native worker.');
+    failure.terminalReceiptPublished = Boolean(progress.biologicalReceipt);
+    throw failure;
   }
+  recordWorkerEvidence(mission, event);
 }
 
 async function complete(context, executionRun, result) {
@@ -29,8 +31,11 @@ async function complete(context, executionRun, result) {
   }, 'info', 'running');
   await publish(db, mission, evidence);
   assertActive(context);
+  const nativeOracleRef = await require('../epistemic/nativeOracleCoordinator').prepare(db, {
+    agentId: mission.agentId, runId: executionRun.id });
+  assertActive(context);
   const completed = emit(mission.agentId, 'AGENT_COMPLETED', mission.workerKind, 'Native worker completed.', {
-    executionRunId: executionRun.id, evidenceReport,
+    executionRunId: executionRun.id, evidenceReport, ...(nativeOracleRef ? { nativeOracleRef } : {}),
     usage: { input_tokens: 0, output_tokens: 0, tokens: 0, cost_usd: 0 }
   }, 'info', 'completed');
   await publish(db, mission, completed);
@@ -47,7 +52,8 @@ async function fail(context, executionRun, failure) {
     executionRunId: executionRun.id,
     failure: { category: 'deterministic_execution', reason: failure.message, code: failure.code }
   }, 'warning', status);
-  await publish(db, mission, failed);
+  if (failure.terminalReceiptPublished) recordWorkerEvidence(mission, failed);
+  else await publish(db, mission, failed);
   return { started: false, executionRun, deterministic: true, error: failure.message, code: failure.code };
 }
 
@@ -55,6 +61,7 @@ async function runDeterministicWorker(db, mission, executionRun) {
   const context = executionContext(db, mission);
   const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
   try {
+    await require('../missionEnvelopeAuthority').assertRun(db, { agentId: mission.agentId, runId: executionRun.id, mission });
     assertActive(context);
     assertRuntimeContract(mission.workerContract, mission.workerKind);
     assertAssignmentMatches(mission.workerContract, { ...mission, methodContract: method });

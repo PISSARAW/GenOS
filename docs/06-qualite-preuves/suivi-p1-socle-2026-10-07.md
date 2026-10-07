@@ -1,6 +1,6 @@
 # Suivi du socle P1 — 2026-10-07
 
-- **Statut** : P1 en cours ; manifeste, cycle scientifique et provenance runtime Node intégrés ; phase non clôturée.
+- **Statut** : P1 en cours ; provenance runtime Node et premières frontières communes d'autorité intégrées ; phase non clôturée.
 - **Portée** : L01 à L05 et L22, après clôture P0 au périmètre convenu.
 - **Dernière revue** : 2026-10-07.
 
@@ -19,8 +19,8 @@ porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 | Lot | État de lancement | Travail suivant nécessaire |
 | --- | --- | --- |
 | L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
-| L02 Autorité et confinement | Contrats existants qualifiés par P0 ; extension P1 à entreprendre | Enveloppe commune liée au manifeste, révocation pendant le run, limites spawn/délégation et refus hors scope. |
-| L03 Oracles indépendants | Composants AEIS/Lean et pilotes existants ; intégration P1 à entreprendre | Postconditions métier, fraîcheur, domaine et résolution vérifiée des références du manifeste. |
+| L02 Autorité et confinement | Enveloppe du run, revalidation et réservation de délégation Node intégrées ; lot partiel | Raccordement des appels directs, qualification complète des compteurs et confinement effectif. |
+| L03 Oracles indépendants | Premier adaptateur natif subset sum raccordé à AEIS ; lot partiel | Raccorder les preuves à la clôture et au manifeste, puis couvrir code, mémoire et les autres domaines de raisonnement. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
 | L05 Harnais et baselines | Pilotes P0 exploratoires disponibles ; campagne P1 à entreprendre | Runner GVX raccordé au manifeste, holdout inaccessible au candidat, coûts complets et puissance adaptée. |
 | L22 Interfaces et observabilité | Clients de référence P0 qualifiés ; extension P1 à entreprendre | Inspection commune du manifeste, des coûts, preuves, rejets et reprises ; parité sémantique ciblée. |
@@ -176,7 +176,163 @@ L'intégrité des références reste distincte d'un oracle indépendant :
 familles de reçus, les versions déclarées, l'autorité commune, les holdouts et
 les critères scientifiques restent à qualifier. L01 et P1 restent ouverts.
 
-## Traçabilité du lancement
+## Première extension L02 — enveloppe d'autorité runtime
+
+L'[ADR 0352](../adr/0352-enveloppe-immuable-et-revalidation-de-lautorite-runtime.md)
+scelle les permissions effectives du run dans le journal GVX. Cette enveloppe
+est distincte des claims et reçus scientifiques. Les frontières de lancement,
+de proposition locale, de décision d'orchestration et de publication relisent
+scope, identité, membership, état de mission, autorité épistémique du lignage,
+génération du token et échéance. Le token brut n'est pas publié.
+
+Une publication refusée bloque le run et n'alimente pas une mémoire de succès
+ni les effets suivants. La rotation d'autorité et la progression sont
+transactionnelles. La sonde à deux connexions SQLite réserve une écriture
+réelle pour vérifier la sérialisation entre publication et rotation. Un enfant
+Node silencieux est arrêté par le monitor après rotation. L'enveloppe historique
+et les reçus déjà produits restent consultables.
+
+La sonde `test_mission_authority_envelope` passe également depuis le cwd
+backend et relit l'enveloppe dans un nouveau processus. La suite workers
+conserve ses 18 suites. Les fixtures historiques du cycle natif déclarent
+explicitement l'absence de journal d'autorité ; elles ne remplacent pas les
+sondes SQLite. Les tests ont détecté puis corrigé une lecture absente dans
+cette fixture et un cwd non épinglé dans la reproduction enfant.
+
+La décision `decision-edff4b1f-ee44-4af4-acde-144bf0c44332` conserve la portée
+de cette extension. Le lecteur des consommateurs REST et des manifestes GVX
+expose séparément l'enveloppe, son état actuel d'autorisation et
+`postconditions: not_evaluated` ; il refuse un scope étranger.
+
+Validation finale : `npm test` code 0, cinq sondes P1 et inspection REST
+rejouées code 0, qualité globale 5 398 sources avec quatre violations
+historiques et zéro nouvelle, index ADR 429 entrées sans problème. Le dernier
+`cargo test --workspace` natif passe ; cette extension ne modifie pas Rust.
+Les journaux sont conservés dans `p1-full`, dont les deux tentatives npm
+échouées avant corrections. L'état partagé ne constitue pas un snapshot
+atomique de tous les travaux du dépôt.
+
+Le confinement OS, les appels REST/gRPC/MCP directs,
+les compteurs de spawn/délégation et une qualification complète du bootstrap
+positif sous enveloppe restent ouverts. Une mission sans réservation conserve
+`lease: null` ; un run sans liaison reste `legacy_unbound`. Ces états ne sont
+pas des preuves d'autorisation acquise. L02 et P1 restent ouverts.
+
+## Extension L02 — délégation réelle et budgets réservés
+
+L'[ADR 0353](../adr/0353-delegation-worker-bornee-et-admission-runtime.md)
+raccorde le contrat de délégation bornée aux admissions Cedar, Garage et au
+bootstrap du runtime. Le checkpoint natif observé est
+`snap-5430b5826b58485f97b57d9851ba5e7f`. Le reproducer SQLite antérieur refusait
+le parent worker avec `ORCHESTRATOR_REQUIRED`.
+
+Le journal GVX réserve désormais les identités d'enfants et leurs plafonds
+cumulatifs de jetons modèle dans la transaction de création. Un enfant
+supprimé ne restitue pas sa réservation. La sonde à deux connexions vérifie
+une écriture effectivement concurrente, l'attente, le refus du dépassement
+et le rollback de l'enfant refusé. Ces réservations ne remplacent pas les
+mesures d'usage ni un confinement de processus.
+
+Le parcours natif réel crée sa capsule, exécute subset sum et publie le
+témoin `[0, 2]` pour la somme 10, avec zéro jeton modèle. La promotion reste
+refusée par `require_independent_verification`. Le refus est conservé dans
+le reçu bloqué et la télémétrie ; une seconde publication ne masque plus
+ce motif par `BIOLOGICAL_WORKER_RECEIPT_SEALED`. Un statut agent terminé et
+un dossier ne suffisent pas à déclarer le dispatch réussi.
+
+Le parcours positif sous oracle indépendant reste ouvert. Les copies de
+workspace ne sont pas atomiques avec la réservation SQLite, l'idempotence
+d'une requête complète et toutes les races de révocation ne sont pas
+qualifiées. Les **115 obligations** restent dans le registre de clôture ;
+cette extension ne clôture aucun lot et ne réduit pas P1.
+
+Validation : la sonde native de délégation, `npm test` complet et
+`cargo test --workspace` natif passent. Qualité globale : 5 401 sources,
+quatre violations historiques, zéro nouvelle ; index ADR : 430 entrées sans
+problème. La décision `decision-bef1bee4-43fc-4ae6-9615-5725ed595736` conserve
+les choix et limites. Les journaux `delegation-qualified.log`,
+`npm-delegation-final.log` et `cargo-delegation-complete.log` restent dans
+`p1-full`, hors Git. Les échecs précédents sont conservés. Les changements
+étrangers MCP/VFS/Rust du checkout partagé restent exclus de ce commit.
+
+L'examen L03 a également reproduit une limite du prédicat de receipt seul :
+une signature valide d'un vérificateur connu, datée de 2000 et portant sur
+un autre résultat, satisfait ce prédicat. La sonde ne teste pas le gate
+complet par défaut, qui impose aussi une assemblée AEIS liée aux résultats.
+Cette observation exige un raccordement sémantique au run, aux entrées et à
+la fraîcheur avant de déclarer un oracle natif qualifié.
+
+## Extension L03 — premier oracle sémantique natif
+
+L'[ADR 0354](../adr/0354-oracle-semantique-natif-et-sujet-runtime-scelle.md)
+raccorde `procedure_semantic` au registre et au bridge AEIS existants. Le
+sujet provient du contrat et de l'observation appliquée d'un run GVX réel,
+avec contrôles de propriétaire, tenant, claim canonique, contenu et domaine.
+Un bitset et une énumération exhaustive vérifient les postconditions subset
+sum dans des processus et workspaces frais, sans importer le solveur.
+
+La sonde réelle passe avec signature et assemblée AEIS. Les faux témoins,
+faux négatifs, comptes erronés, modifications du résultat ou du scope et
+preuves vieillies sont refusés. Les labels candidats ne peuvent pas fabriquer
+l'indépendance de deux exécutions du même algorithme. Le dépassement du
+domaine d'énumération, limité à vingt valeurs, reste explicitement inconclusif.
+
+Ces receipts ne réécrivent pas le run historique bloqué. Le raccordement au
+gate terminal et au manifeste, le nonce et la fraîcheur au point de décision,
+les budgets d'ensemble, les oracles code et mémoire et les autres domaines
+de raisonnement restent ouverts. Le checkpoint natif observé est
+`snap-5a3a797b7432401286bce39905cd6136`. Le confinement OS n'est pas établi.
+L03 et les **115 obligations de P1** restent ouverts.
+
+Validation après intégration : `npm test` complet code 0, sonde native code 0,
+qualité globale 5 407 sources, quatre violations historiques et zéro nouvelle,
+index ADR 431 entrées sans problème. Le test a aussi contrôlé que deux labels
+différents pour le même algorithme ne produisent pas deux stratégies
+indépendantes. La décision `decision-bcc87e92-5f62-4b01-a55d-e75005aba9e4`
+conserve ces limites. Le journal `npm-native-oracle-complete.log` et la sonde
+`native-oracle-qualified.log` sont conservés hors Git dans `p1-full`.
+Le workspace Rust a été validé dans cette continuation et n'a pas été modifié
+par cette extension JavaScript. Les tests portent sur le checkout partagé ;
+ils ne remplacent pas une reproduction indépendante du commit en clone frais.
+
+## Extension L03 — clôture native et promotion différée
+
+L'[ADR 0355](../adr/0355-cloture-native-par-oracles-budgetes-et-nonces-lies.md)
+raccorde les deux oracles au gate terminal réel, avec une réservation durable
+des processus et une échéance totale scellée dans l'enveloppe. Les receipts
+signés portent le hash de réservation. Le service résout une référence de
+preuve liée au run et au rapport ; il consomme les deux nonces au moment de
+l'acceptation. Une approbation humaine obligatoire reste distincte.
+
+La sonde native réelle passe pour la clôture par défaut et pour la promotion
+différée. Elle refuse les références modifiées, un autre propriétaire, un
+rapport changé, le replay, l'expiration, un budget insuffisant et un quorum
+inconclusif. Deux connexions concurrentes ne créent pas deux allocations ;
+un nouveau processus retrouve la même attestation. L'inspection conserve la
+décision historique et expose séparément la fraîcheur actuelle. Les durées
+sont mesurées, le coût local en dollars reste inconnu.
+
+Le checkpoint natif de départ est `snap-3b4cc32205b5478fbb84d3dc4ddb32f5`.
+Une allocation abandonnée avant attestation exige un nouveau run ; la reprise
+transparente de tous les crashes et l'exécution de processus exactement une
+fois ne sont pas qualifiées. Les oracles code et mémoire, les autres domaines,
+les fronts directs, le confinement OS, les pilotes et la reproduction
+indépendante du commit restent ouverts. Les **115 obligations** restent dans
+le registre et **L01–L05 ainsi que L22 restent ouverts**.
+
+Validation : `npm test` complet et `cargo test --workspace` passent avec
+code 0. La sonde native complète passe également. Le gate qualité compte
+5 418 sources, quatre violations historiques et zéro nouvelle ; l'index ADR
+compte 432 entrées sans problème. Les journaux `npm-completion-final.log`,
+`cargo-completion.log`, `native-completion-scope.log` et
+`quality-completion-final.log` restent dans `p1-full`, hors Git. Les tentatives
+échouées sont conservées. La décision
+`decision-061aa9ce-1dda-4cd2-a2ad-0e6f56af9689` conserve le choix et ses limites.
+Les résultats concernent le checkout partagé et ne constituent pas une
+reproduction indépendante en clone frais. Les changements étrangers
+MCP, VFS et Rust restent exclus du commit.
+
+## Traçabilité initiale du lancement
 
 GenOS a fourni le checkpoint `snap-a7d8f742186b41f18d02828f1ba16d1b`, dont le
 fichier local a été observé, et la décision

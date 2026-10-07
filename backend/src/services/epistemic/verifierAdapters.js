@@ -330,6 +330,7 @@ const ADAPTER_ALIASES = {
 };
 
 function selectAdapter(verifier) {
+  if (verifier.type === 'procedure_semantic') return require('./oracleProcedureAdapter').runProcedureOracle;
   if (verifier.artifact) return runArtifactAdapter;
   if (verifier.test) return runTestAdapter;
   if (ADAPTER_MAP[verifier.type]) return ADAPTER_MAP[verifier.type];

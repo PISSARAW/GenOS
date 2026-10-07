@@ -16,14 +16,16 @@ async function finalize(db, runId) {
   const observations = await store.observations(db, runId);
   const snapshot = evidence.evidenceSnapshot(observations);
   const terminal = evidence.terminalObservation(observations);
+  const verification = terminal && await require('./epistemic/nativeOracleGate').historical(db, {
+    runId, agentId: binding.workerId, event: terminal.event });
   const guardrail = terminal ? require('./strategyPromotionGate').completionGuardrail(
-    binding.genome.strategyContract, terminal.event.payload, binding.workerId) : 'Missing terminal observation';
-  const receipt = buildReceipt({ binding, run, observations, snapshot, guardrail });
+    binding.genome.strategyContract, terminal.event.payload, { agentId: binding.workerId, gateContext: verification?.gateContext }) : 'Missing terminal observation';
+  const receipt = buildReceipt({ binding, run, observations, snapshot, guardrail, verification });
   return store.putReceipt(db, receipt);
 }
 
 function buildReceipt(input) {
-  const { binding, run, observations, snapshot, guardrail } = input;
+  const { binding, run, observations, snapshot, guardrail, verification } = input;
   const receipt = { schema: 'genos.worker-biological-execution-receipt/v1', runtime: 'node-worker',
     receiptId: identity(['genos.worker-receipt/v1', run.id]), missionId: binding.missionId,
     runId: run.id, workerId: binding.workerId, cellId: binding.cellId, genomeId: binding.genomeId,
@@ -35,7 +37,21 @@ function buildReceipt(input) {
       gate: 'strategy_execution_gate', reason: run.guardrailReason || guardrail || null },
     evidence: snapshot, completedAt: run.completedAt || null };
   receipt.budgetAssessment = evidence.budgetAssessment(receipt, binding);
+  if (verification) {
+    receipt.semanticVerification = semanticVerification(verification);
+    receipt.budgetAssessment.satisfied &&= receipt.semanticVerification.budgetAssessment.satisfied;
+  }
   return receipt;
+}
+
+function semanticVerification(verification) {
+  const attestation = verification.proof.attestation;
+  const costs = attestation.value.costs;
+  const limits = verification.proof.allocation.value.limits;
+  return { schema: 'genos.native-oracle-receipt-reference/v1', eventId: attestation.eventId, hash: attestation.hash,
+    acceptanceHash: verification.acceptance.hash, costs,
+    budgetAssessment: { limits, satisfied: costs.processes <= limits.executions && costs.runtimeMs <= limits.latencyMs,
+      localComputeUsdMeasured: costs.localComputeUsd !== null } };
 }
 
 async function record(db, request) {

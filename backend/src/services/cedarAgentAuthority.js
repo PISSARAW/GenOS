@@ -30,7 +30,8 @@ function entity(agent) {
       workspaceId: agent.workspace_id || '',
       executionMode: agent.execution_mode || '',
       parentId: agent.parent_agent_id || '',
-      sealedDispatchParentId: agent.sealedDispatchParentId || ''
+      sealedDispatchParentId: agent.sealedDispatchParentId || '',
+      boundedDelegationChildId: agent.boundedDelegationChildId || ''
     },
     parents: []
   };

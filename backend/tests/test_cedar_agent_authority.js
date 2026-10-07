@@ -18,6 +18,10 @@ assert.throws(() => cedar.validatePolicy('permit(principal, action, missing);'),
 assert.equal(decision(parent, parent, 'StartMission'), true);
 assert.equal(decision(parent, worker, 'StartMission'), true);
 assert.equal(decision(worker, worker, 'StartMission'), false);
+const delegated = { id: 'delegated', execution_mode: 'worker', parent_agent_id: worker.id, workspace_id: worker.workspace_id };
+assert.equal(decision(worker, delegated, 'StartMission'), false);
+assert.equal(decision({ ...worker, boundedDelegationChildId: delegated.id }, delegated, 'StartMission'), true);
+assert.equal(decision({ ...worker, boundedDelegationChildId: 'different-child' }, delegated, 'StartMission'), false);
 assert.equal(decision(peer, worker, 'StartMission'), false);
 assert.equal(decision(parent, foreign, 'StartMission'), false);
 assert.equal(cedar.authorize({ principal: parent, resource: worker, action: 'StartMission', workspaceId: 'workspace-b' }), false);
@@ -44,7 +48,7 @@ async function verifyRuntimeBoundary() {
     (error) => error.code === 'AGENT_CONTROL_FORBIDDEN');
   rows.set(parent.id, { ...rows.get(parent.id), execution_mode: 'worker' });
   await assert.rejects(() => authority.authorizeMission(db, { agentId: worker.id, orchestratorAgentId: parent.id }),
-    (error) => error.code === 'ORCHESTRATOR_REQUIRED');
+    (error) => error.code === 'WORKER_CONTRACT_DENIED');
 }
 
 verifyRuntimeBoundary().then(() => console.log('Cedar agent authority: all assertions passed.'))

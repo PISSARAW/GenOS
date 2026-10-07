@@ -45,8 +45,9 @@ function assertMissionAgent(agent, agentId, workspaceId) {
 async function authorizeWorker(db, agent, orchestratorAgentId) {
   if (!orchestratorAgentId) throw authorityError('WORKER_REQUIRES_ORCHESTRATOR', `Worker '${agent.name}' cannot start itself; its orchestrator must dispatch the mission.`);
   if (agent.parent_agent_id !== orchestratorAgentId) throw authorityError('WORKER_ORCHESTRATOR_MISMATCH', `Worker '${agent.name}' is not assigned to orchestrator '${orchestratorAgentId}'.`);
-  const parent = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ? AND execution_mode = \'orchestrator\'', orchestratorAgentId);
+  const parent = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ?', orchestratorAgentId);
   if (!parent) throw authorityError('ORCHESTRATOR_REQUIRED', `Orchestrator '${orchestratorAgentId}' was not found.`);
+  if (parent.execution_mode === 'worker') return require('./agents/boundedDelegationAuthority').authorize(db, { agent, parent });
   const resource = (parent.workspace_id || null) === (agent.workspace_id || null) ? agent
     : await require('./trinityWorkerAuthority').delegation(db, { agent, parent });
   if (!resource) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Worker '${agent.id}' has no workspace delegation from orchestrator '${orchestratorAgentId}'.`);

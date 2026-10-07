@@ -21,6 +21,9 @@ function conflict() {
   return Object.assign(new Error('Mission execution authority is stale'), { code: 'MISSION_AUTHORITY_STALE' });
 }
 async function rotate(db, input) {
+  return require('../db').withTransaction(db, () => rotateBound(db, input));
+}
+async function rotateBound(db, input) {
   await ensureTable(db);
   const current = await db.get('SELECT * FROM mission_execution_authority WHERE mission_id=?', input.missionId);
   if (reusableAuthority(current, input)) return current;

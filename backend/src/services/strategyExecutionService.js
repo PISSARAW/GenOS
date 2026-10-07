@@ -31,6 +31,8 @@ function normalizedBudget(input) {
 
 function compileExecutionPlan(contract, budgetInput) {
   const budget = normalizedBudget(budgetInput);
+  const verification = require('./epistemic/nativeOracleBudget').compile(contract, budgetInput?.verification, budget);
+  if (verification) budget.verification = verification;
   const pipeline = contract.execution_pipeline || [];
   const strategyIds = (contract.strategy_portfolio || []).map((item) => item.id);
   return {
@@ -39,7 +41,8 @@ function compileExecutionPlan(contract, budgetInput) {
       sequence,
       stageKey,
       strategyIds,
-      plannedBudget: Object.fromEntries(Object.entries(budget).map(([key, value]) => [key, Number((value / Math.max(pipeline.length, 1)).toFixed(3))]))
+      plannedBudget: Object.fromEntries(Object.entries(budget).filter(([, value]) => typeof value === 'number')
+        .map(([key, value]) => [key, Number((value / Math.max(pipeline.length, 1)).toFixed(3))]))
     }))
   };
 }
@@ -106,6 +109,7 @@ async function recordExecutionEvent(db, agentId, event) {
   }
   const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival,
+    authorityRefusal: saved.authorityRefusal || null,
     duplicate: saved.duplicate === true, biologicalReceipt: saved.biologicalReceipt || null };
 }
 
@@ -129,6 +133,9 @@ async function observeSurvivalEvent({ db, agentId, event, run }) {
 
 async function evaluateAeisPromotion(db, request) {
   const { promotion, id } = request;
+  const native = await require('./epistemic/nativeOracleGate').forPromotion(db, {
+    runId: id, agentId: promotion.agentId, report: promotion.report });
+  if (native) return native.gateContext.aeisEvaluation;
   const workspace = await db.get(
     'SELECT w.id, w.path, w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
     promotion.agentId,
@@ -184,6 +191,9 @@ async function approveRun(db, id, options) {
   const aeisEvaluation = await evaluateAeisPromotion(db, { promotion, id });
   promotion.aeisAssemblyId = aeisEvaluation.persistedAssemblyId;
   const gateContext = promotionGate.buildGateContext({ promotion, options: settings, receipt, aeisEvaluation });
+  const native = await require('./epistemic/nativeOracleGate').forPromotion(db, {
+    runId: id, agentId: promotion.agentId, report: promotion.report });
+  if (native) Object.assign(gateContext, native.gateContext);
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);

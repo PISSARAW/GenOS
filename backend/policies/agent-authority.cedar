@@ -9,6 +9,16 @@ when {
 
 permit (principal, action == GenOS::Action::"StartMission", resource)
 when {
+  principal.workspaceId == context.workspaceId &&
+  resource.workspaceId == context.workspaceId &&
+  principal.executionMode == "worker" &&
+  resource.executionMode == "worker" &&
+  resource.parentId == principal.agentId &&
+  principal.boundedDelegationChildId == resource.agentId
+};
+
+permit (principal, action == GenOS::Action::"StartMission", resource)
+when {
   resource.workspaceId == context.workspaceId &&
   principal.executionMode == "orchestrator" &&
   resource.executionMode == "worker" &&

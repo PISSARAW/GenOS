@@ -195,9 +195,10 @@ function maybeExecuteDecision(mission, event) {
 }
 async function publishLocalSuccess(ctx) {
   const { recordWorkerEvidence } = require('./agentEvidenceService');
+  const progress = await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, ctx.event);
+  if (progress?.halt) throw Object.assign(new Error(progress.reason), { code: 'WORKER_EXECUTION_HALTED' });
   recordWorkerEvidence(ctx.mission, ctx.event);
   reportMilestone(ctx.mission, ctx.event);
-  await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, ctx.event);
   await advanceAutonomousRound(ctx.mission, ctx.event);
   maybeEmitDecisionBlocked(ctx.mission, ctx.event);
   maybeExecuteDecision(ctx.mission, ctx.event);
@@ -279,6 +280,8 @@ async function runGenerationStage(ctx) {
 async function runEvidenceStage(ctx) {
   const consumed = consumedTokensOf(ctx.result);
   throwIfConsumedOverBudget(consumed, ctx.budget);
+  await require('./missionEnvelopeAuthority').assertRun(ctx.db, {
+    agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission });
   const proposal = await resolveProposal({ codeWorker: ctx.codeWorker, workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text });
   throwIfProposalFailed(proposal);
   const parseStartedAt = Date.now();
@@ -335,12 +338,14 @@ async function publishLocalFailure(ctx) {
 }
 
 async function runLocalWorker(db, mission, executionRun) {
+  await require('./missionEnvelopeAuthority').assertRun(db, { agentId: mission.agentId, runId: executionRun.id, mission });
   await updateAgent(mission.agentId, 'running', mission.prompt);
   await emitLocalStarted({ db: db, mission: mission, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
   const stageTimings = {};
   try {
     const generation = await runGenerationStage({ db: db, mission: mission, stageTimings: stageTimings });
     const evidence = await runEvidenceStage({
+      db, executionRun,
       result: generation.result,
       budget: generation.budget,
       codeWorker: generation.codeWorker,

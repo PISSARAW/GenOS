@@ -20,6 +20,7 @@ async function transactionalPipeline(db, id) {
     const row = await journal.read(db, id);
     if (row.phase !== 'reserved') return row;
     const { promotion, evaluation, primitives } = row.payload;
+    await require('./epistemic/nativeOracleGate').forPromotion(db, promotion);
     if (!primitives.every(item => TRANSACTIONAL_PRIMITIVES.has(item))) {
       throw new Error('PROMOTION_NON_TRANSACTIONAL_PRIMITIVE: explicit effect reconciliation required');
     }
@@ -35,6 +36,7 @@ async function postPromotion(db, id) {
     if (row.phase === 'post_pending') return row;
     if (row.phase !== 'pipeline_done') return row;
     const { promotion, options } = row.payload;
+    await require('./epistemic/nativeOracleGate').forPromotion(db, promotion);
     if (promotion.contract.promotion?.merge_workspace_automatically && options.winnerWorkspaceRoot && options.targetWorkspaceRoot) {
       const mergePlan = await workspaceRecovery.plan(options);
       const claim = await db.run('INSERT OR IGNORE INTO promotion_workspace_claims (target_path, run_id) VALUES (?, ?)', mergePlan.target, id);
@@ -52,6 +54,7 @@ async function externalPostPromotion(db, row) {
     const current = await journal.read(db, row.run_id);
     if (current.phase !== 'post_pending') return;
     const { promotion, options } = current.payload;
+    await require('./epistemic/nativeOracleGate').forPromotion(db, promotion);
     await workspaceRecovery.apply(current.result.mergePlan);
     await gate.applyPostPromotion(db, promotion, { ...options, winnerWorkspaceRoot: undefined, targetWorkspaceRoot: undefined });
     await journal.advance(db, current, { phase: 'post_done' });
@@ -64,6 +67,7 @@ async function finalize(db, id) {
     if (row.phase === 'completed') return completedRun(db, id);
     if (row.phase !== 'post_done') throw new Error('PROMOTION_RECONCILIATION_REQUIRED');
     const { promotion, options } = row.payload;
+    await require('./epistemic/nativeOracleGate').forPromotion(db, promotion);
     await require('./epistemic/epistemicAuthorityState').assertAuthority(db, promotion.agentId);
     const run = await db.get('SELECT status, metrics_json FROM strategy_execution_runs WHERE id = ?', id);
     if (run.status !== 'awaiting_approval') throw new Error('PROMOTION_RUN_STATE_CHANGED');

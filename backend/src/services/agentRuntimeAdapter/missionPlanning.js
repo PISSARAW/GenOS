@@ -317,7 +317,7 @@ async function createMissionExecutionRun(ctx) {
   ctx.executionRun = await strategyExecution.createExecutionRun(db, {
     agentId,
     missionId: ctx.normalizedMission.missionId,
-    budget: runtimeBudget,
+    budget: { ...runtimeBudget, verification: ctx.normalizedMission.executionBudget?.verification },
     contractRecord
   });
   } catch (error) {

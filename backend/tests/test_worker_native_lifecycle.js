@@ -22,6 +22,7 @@ strategy.recordExecutionEvent = async (_db, _agentId, event) => {
   return { halt: haltEvidence && event.eventType === 'EVIDENCE_REPORT', reason: 'test guard' };
 };
 const { runDeterministicWorker } = require('../src/services/agents/deterministicWorkerRuntime');
+const legacyDatabase = { get: async () => undefined };
 
 function reset() {
   events.length = 0;
@@ -32,7 +33,7 @@ function reset() {
 async function main() {
   const mission = missionFor('bounded_worker', scoped, process.cwd());
   const run = { id: 'native-run' };
-  const passed = await runDeterministicWorker({}, mission, run);
+  const passed = await runDeterministicWorker(legacyDatabase, mission, run);
   assert.equal(passed.started, true);
   assert.deepEqual(statuses, ['running', 'completed']);
   assert.deepEqual(events.map((item) => item.eventType), ['DETERMINISTIC_WORKER_STARTED', 'EVIDENCE_REPORT', 'AGENT_COMPLETED']);
@@ -40,27 +41,27 @@ async function main() {
   assert.ok(writes.indexOf('database:EVIDENCE_REPORT') < writes.indexOf('database:AGENT_COMPLETED'));
   reset();
   haltEvidence = true;
-  const halted = await runDeterministicWorker({}, mission, run);
+  const halted = await runDeterministicWorker(legacyDatabase, mission, run);
   assert.equal(halted.code, 'WORKER_EXECUTION_HALTED');
   assert.equal(events.some((item) => item.eventType === 'AGENT_COMPLETED'), false);
   assert.equal(statuses.at(-1), 'error');
   haltEvidence = false;
   reset();
   state.cancelledStarts.add(mission.agentId);
-  const cancelled = await runDeterministicWorker({}, mission, run);
+  const cancelled = await runDeterministicWorker(legacyDatabase, mission, run);
   state.cancelledStarts.delete(mission.agentId);
   assert.equal(cancelled.code, 'MISSION_CANCELLED');
   assert.deepEqual(statuses, ['terminated']);
   reset();
   const expired = { ...mission, workerContract: { ...mission.workerContract, resources: { ...mission.workerContract.resources, maxTimeMs: 0 } } };
-  assert.equal((await runDeterministicWorker({}, expired, run)).code, 'WORKER_DEADLINE_EXCEEDED');
+  assert.equal((await runDeterministicWorker(legacyDatabase, expired, run)).code, 'WORKER_DEADLINE_EXCEEDED');
   assert.equal(events.some((item) => item.eventType === 'DETERMINISTIC_WORKER_STARTED'), false);
   assert.deepEqual(await require('../src/services/workerPreparationDetails').resolveRoute({ db: {}, parent: {}, assignment: { workerKind: mission.workerKind, methodContract: scoped }, mission: {} }), {});
   reset();
   const altered = { ...mission, methodContract: method('scoped_procedure', { procedure: {
     version: 1, methodId: 'subset_sum', parameters: { values: [1], target: 1 }
   } }) };
-  assert.equal((await runDeterministicWorker({}, altered, run)).code, 'WORKER_METHOD_MISMATCH');
+  assert.equal((await runDeterministicWorker(legacyDatabase, altered, run)).code, 'WORKER_METHOD_MISMATCH');
   assert.equal(events.some((item) => item.eventType === 'AGENT_COMPLETED'), false);
   console.log('Native lifecycle: evidence persistence, guard halt, cancellation, immutable input and zero usage PASS');
 }
