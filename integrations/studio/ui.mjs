@@ -39,5 +39,6 @@ export function showView(id) {
   for (const section of document.querySelectorAll('[data-view]')) section.hidden = section.id !== id;
   for (const button of document.querySelectorAll('[data-target]')) {
     button.setAttribute('aria-pressed', String(button.dataset.target === id));
+    if (button.dataset.target === id) byId('view-label').textContent = button.textContent;
   }
 }

@@ -23,6 +23,10 @@ export function values(form) {
   }));
 }
 
+function actionTone(spec) {
+  return spec.method === 'DELETE' || /-cancel$|-stop$/.test(spec.id) ? 'danger' : 'primary';
+}
+
 export function actionForm(spec, container) {
   const detail = node('details');
   detail.append(node('summary', spec.title));
@@ -32,6 +36,7 @@ export function actionForm(spec, container) {
   const button = node('button', spec.title);
   button.type = 'submit';
   button.dataset.permission = spec.permission || 'workspace:write';
+  button.className = actionTone(spec);
   form.append(button);
   form.addEventListener('submit', event => {
     event.preventDefault();
@@ -44,6 +49,7 @@ export function actionForm(spec, container) {
       if (spec.after) await spec.after(response);
       else await discover();
       applyPermissions(api);
+      detail.open = false;
     });
   });
   detail.append(form);

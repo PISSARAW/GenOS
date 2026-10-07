@@ -31,6 +31,8 @@ export function disconnect() {
   for (const button of document.querySelectorAll('button')) button.disabled = false;
   applyPermissions(api);
   byId('message').textContent = 'Déconnecté.';
+  byId('message').dataset.tone = 'neutral';
+  byId('view-label').textContent = 'Espace de travail';
   window.dispatchEvent(new CustomEvent('studio:session', { detail: { reason: 'disconnect' } }));
 }
 
@@ -39,9 +41,11 @@ function keepDraft(error, options) {
 }
 
 function showFailure(error, options) {
+  byId('message').dataset.tone = 'error';
   if (error.status === 401) {
     disconnect();
     byId('message').textContent = 'Session expirée. Reconnectez-vous.';
+    byId('message').dataset.tone = 'error';
     return;
   }
   const keepView = error.code === 'INVALID_APPROVAL_JSON' || (options.preserveView && error.status >= 500);
@@ -55,11 +59,15 @@ export async function perform(action, options = {}) {
   const epoch = state.epoch;
   state.busy = true;
   byId('message').textContent = 'Chargement de l’état runtime…';
+  byId('message').dataset.tone = 'loading';
   const buttons = [...document.querySelectorAll('button:not(#disconnect)')];
   buttons.forEach(button => { button.disabled = true; });
   try {
     await action();
-    if (epoch === state.epoch) byId('message').textContent = 'État runtime chargé.';
+    if (epoch === state.epoch) {
+      byId('message').textContent = 'État runtime chargé.';
+      byId('message').dataset.tone = 'success';
+    }
     return epoch === state.epoch;
   } catch (error) {
     if (epoch !== state.epoch) return;
@@ -79,6 +87,10 @@ export function render(data) {
   state.runId = data.run.id;
   byId('run-id').textContent = data.run.id;
   byId('run-status').textContent = `État : ${data.run.status}`;
+  byId('run-status').dataset.status = data.run.status;
+  for (const button of byId('run-list').querySelectorAll('button')) {
+    button.setAttribute('aria-current', String(button.dataset.runId === data.run.id));
+  }
   byId('workspace').textContent = `Workspace : ${data.workspace.id} · ${data.workspace.name}`;
   byId('workspace-choice').value = data.workspace.id;
   byId('promotion').textContent = data.promotion ? `Journal vérifié : ${data.promotion.phase}` : 'Aucune promotion journalisée';
@@ -101,8 +113,16 @@ function renderRuns(data, append) {
   const existing = append ? [...byId('run-list').children] : [];
   const rows = data.runs.map(run => {
     const item = node('li');
-    const button = node('button', `${run.id} · ${run.status}`);
+    const button = node('button');
+    const label = node('span', run.id);
+    label.className = 'technical-id';
+    const status = node('span', run.status);
+    status.className = 'status-badge';
+    status.dataset.status = run.status;
+    button.append(label, status);
     button.type = 'button';
+    button.dataset.runId = run.id;
+    button.setAttribute('aria-current', String(run.id === state.runId));
     button.addEventListener('click', () => perform(() => loadRun(run.id)));
     item.append(button);
     return item;

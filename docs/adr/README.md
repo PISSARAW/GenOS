@@ -439,6 +439,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0350a](0350-cycle-immuable-des-claims-scientifiques.md) | Cycle immuable des claims scientifiques | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
 | [0350b](0350-studio-parite-et-navigation-versionnee.md) | Studio : parité et navigation versionnée | Accepté. | 2026-10-07. | Studio, sessions, contrats et qualification. |
 | [0351](0351-provenance-runtime-des-missions-et-references-gvx.md) | Provenance runtime des missions et références GVX | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
+| [0352](0352-studio-composition-et-inspecteurs-de-preuves.md) | Studio : composition et inspecteurs de preuves | Accepté. | 2026-10-07. | Studio, ergonomie et composants d’observation. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
