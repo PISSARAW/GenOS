@@ -68,4 +68,11 @@ const biomimetic = require('../services/studioBiomimeticService');
 router.post('/agents/:id/biomimetic/creative', ...write, handle(biomimetic.creative));
 router.post('/agents/:id/biomimetic/physics', ...write, handle(biomimetic.physics));
 
+const health = require('../services/studioHealthService');
+router.get('/agents/:id/health', requirePermission('read'), handle(health.inspect));
+router.post('/agents/:id/health/scan', ...write, handle(health.scan));
+router.post('/agents/:id/health/biopsy', ...write, handle(health.biopsy));
+router.post('/agents/:id/health/diagnose', ...write, handle(health.diagnose));
+router.post('/agents/:id/health/threats', ...write, handle(health.threats));
+
 module.exports = { router, handle, write };

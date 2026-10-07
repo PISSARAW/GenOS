@@ -52,6 +52,24 @@ async function biomimetic(page, root) {
   return { creativeId: creative.analysisId, physicsId: physics.analysisId, attenuatedVoltage: physics.attenuatedVoltage };
 }
 
+async function health(page, context) {
+  const { spec, root } = context;
+  await page.locator('[data-target="recovery-view"]').click();
+  await page.getByRole('button', { name: 'Immunité et nosologie', exact: true }).click();
+  const initial = await action(page, { id: 'health-inspect', route: root + '/health', method: 'GET' });
+  assert.equal(initial.clinicalState, null);
+  const refusal = await action(page, { id: 'health-scan', route: root + '/health/scan', status: 409 });
+  assert.equal(refusal.error.code, 'CLINICAL_STATE_UNOBSERVED');
+  await require('./helpers/studioClinicalFixture.cjs').seedClinical(spec);
+  const scan = await action(page, { id: 'health-scan', route: root + '/health/scan' });
+  assert.ok(scan.detections.some(item => item.pathologyType === 'mutation_drift'));
+  const biopsy = await action(page, { id: 'health-biopsy', route: root + '/health/biopsy' });
+  const diagnosis = await action(page, { id: 'health-diagnose', route: root + '/health/diagnose' });
+  assert.equal(diagnosis.confirmed, true);
+  assert.match(await page.locator('#health-result-summary').textContent(), /Causalité établieNon/);
+  return { scanId: scan.analysisId, biopsyRef: biopsy.biopsyRef, diagnosisId: diagnosis.analysisId };
+}
+
 async function probe(spec) {
   const browser = await chromium.launch({ channel: process.env.B06_BROWSER_CHANNEL || 'msedge' });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -73,6 +91,8 @@ async function probe(spec) {
     await page.screenshot({ path: path.join(output, 'studio-perception.png'), fullPage: true });
     result.biomimetic = await biomimetic(page, root);
     await page.screenshot({ path: path.join(output, 'studio-biomimetic.png'), fullPage: true });
+    result.health = await health(page, { spec, root });
+    await page.screenshot({ path: path.join(output, 'studio-health.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.screenshot({ path: path.join(output, 'studio-specialized-mobile.png'), fullPage: true });
@@ -81,6 +101,7 @@ async function probe(spec) {
     assert.equal(await page.locator('#collective-result').textContent(), '');
     assert.equal(await page.locator('#perception-result').textContent(), '');
     assert.equal(await page.locator('#biomimetic-result').textContent(), '');
+    assert.equal(await page.locator('#health-result').textContent(), '');
     assert.deepEqual(errors, []);
     const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: path.join(__dirname, '../..'), encoding: 'utf8', windowsHide: true }).trim();
     fs.writeFileSync(path.join(output, 'studio-specialized-qualified.json'), JSON.stringify({ ...result,

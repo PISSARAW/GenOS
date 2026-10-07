@@ -559,3 +559,28 @@ du seuil/spike, enrichissement conservé, score sans progrès nul, valeurs inval
 droits et tenant refusés. Le navigateur exécute les deux outils sans interception.
 Ni mission NCE complète, ni effet créatif, ni pression/régulation physique de
 l'hôte ne sont établis par ces modèles déclarés. E02 : commit `a935a1ee`.
+
+### E04 — Immunité et nosologie agentiques
+
+Depuis Diagnostic/reprise, `#/sante` lit le catalogue nosologique, ses neuf
+familles et thérapies déclarées, ainsi que l'état clinique persisté, les événements
+et pathologies de l'agent. Les assemblages AEIS proviennent de l'inspecteur
+consommateur existant, avec intégrité/binding vérifiés et distinction acceptation
+historique/validité actuelle ; un dossier absent reste vide.
+
+Sans état clinique, le scan est refusé 409, sans initialisation de valeurs idéales.
+La surveillance réutilise ses seuils et consigne l'événement. Biopsie et
+classification réutilisent les services existants avec binding à l'agent, puis
+conservent les analyses provisoires. L'état clinique n'est pas réécrit par le scan,
+aucune thérapie ou quarantaine n'est appliquée. Classification par seuils ne vaut
+pas cause établie, effet thérapeutique ou conseil médical pour un humain.
+
+Le scan de signatures innées traite un texte borné sans l'exécuter et conserve
+uniquement son empreinte/taille et les signatures trouvées, pas le texte source.
+Absence de signature ne prouve pas la sécurité. Qualification : HTTP et navigateur
+réels, refus sans état, modèle persisté de fixture avec dérive, biopsie/classification,
+absence de traitement, état inchangé, isolation et contrôles d'autorité.
+E03 : commit `c47ff51a`. Immunité adaptative complète, calibration FP/FN et
+traitements autonomes sous autorisations restent des parcours distincts.
+`test_studio_health.cjs` et `test:studio:specialized` passent (code 0). Le champ
+temporel utilisé est `detected_at` du schéma réel ; aucun champ fictif n'est ajouté.

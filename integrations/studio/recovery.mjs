@@ -1,6 +1,7 @@
 import { api } from './app.mjs';
 import { byId, encoded, node } from './ui.mjs';
 import { journeyView, journeyRead, journeyAction, journeyLink } from './journeyView.mjs';
+import { startHealth } from './health.mjs';
 
 let inspected = null;
 let selectedSnapshot = null;
@@ -47,5 +48,6 @@ export function startRecovery() {
   open.addEventListener('click', openRecovery);
   target.actions.append(open);
   journeyLink(target, 'research-view', 'Consigner une hypothèse et son test');
+  startHealth(target);
   window.addEventListener('studio:cleared', () => { inspected = null; selectedSnapshot = null; confirmedStop = false; });
 }

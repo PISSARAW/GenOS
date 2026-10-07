@@ -43,10 +43,18 @@ const labels = [
   ['curiosityScore', 'Score de curiosité calculé'], ['learningProgress', 'Progrès calculé sur l’historique déclaré'],
   ['enhancedPrompt', 'Prompt enrichi'], ['creativeEffectMeasured', 'Effet créatif mesuré'], ['creativeScope', 'Portée créative'],
   ['attenuatedVoltage', 'Amplitude atténuée'], ['outputVoltage', 'Amplitude résultante'], ['isNmdaSpike', 'Spike NMDA du modèle'],
-  ['physicalScope', 'Portée physique'], ['hostEffectMeasured', 'Effet hôte mesuré']
+  ['physicalScope', 'Portée physique'], ['hostEffectMeasured', 'Effet hôte mesuré'],
+  ['clinicalSource', 'Source clinique'], ['automaticTherapy', 'Thérapie automatique'], ['pathologyType', 'Pathologie runtime'],
+  ['biopsyRef', 'Biopsie'], ['recommendedTherapy', 'Thérapie proposée par le modèle'], ['confidence', 'Score du modèle'],
+  ['quarantineRecommended', 'Quarantaine proposée'], ['quarantineApplied', 'Quarantaine appliquée'],
+  ['diagnosisScope', 'Portée du diagnostic'], ['threatScope', 'Portée du scan'], ['absenceProvesSafety', 'Absence prouvant la sécurité'],
+  ['category', 'Famille'], ['event_type', 'Type d’événement'], ['created_at', 'Date persistée'], ['wellnessScore', 'Score du modèle clinique'],
+  ['clinicalStateObserved', 'État clinique persisté disponible'], ['historicalAccepted', 'Accepté historiquement'],
+  ['currentAssuranceStatus', 'Validité actuelle AEIS']
 ];
 
-const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome', 'step', 'activeOrganization'];
+const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome',
+  'step', 'activeOrganization', 'clinicalState'];
 
 export function humanValue(value) {
   if (value === null || value === undefined) return 'Inconnu';

@@ -3,7 +3,7 @@ export const destinations = [
   ['gestion', 'management-view'], ['fichiers', 'files-view'],
   ['laboratoire', 'research-view'], ['mondes', 'worlds-view'], ['memoire', 'knowledge-view'],
   ['organisme', 'organism-view'], ['reprise', 'recovery-view'], ['collectif', 'collective-view'],
-  ['perception', 'perception-view'], ['biomimetique', 'biomimetic-view']
+  ['perception', 'perception-view'], ['biomimetique', 'biomimetic-view'], ['sante', 'health-view']
 ];
 
 function identifier(value) {
