@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Studio : parcours et acceptation](03-reference/studio-parcours-et-acceptation.md) — livraison en huit lots et [ADR 0348](adr/0348-studio-modulaire-et-parcours-operateur.md).
+
 - [Lot 2 Trinity : identités, capsules et profils](06-qualite-preuves/lot-2-trinity-identites-capsules-et-profils.md) — bootstrap corrélé, reprise vérifiée et critères de lancement des workers.
 
 - [Lot 1 Trinity : contrats et traces](06-qualite-preuves/lot-1-trinity-contrats-et-traces.md) — entrées scellées, registre historique et vérifications de L1.

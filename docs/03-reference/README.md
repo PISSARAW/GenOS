@@ -1,5 +1,7 @@
 # 03 — Référence technique
 
+- [Studio : parcours et acceptation](studio-parcours-et-acceptation.md) — huit lots, contrats et critères vérifiables.
+
 Contrats et surfaces exposées par GenOS. Ces documents décrivent des interfaces
 stables (REST, gRPC, MCP, CLI) et le modèle de données.
 
