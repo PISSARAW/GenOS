@@ -24,6 +24,7 @@ async function deepLink(page, spec) {
   await page.goto(spec.settings.url + '/studio/' + hash);
   await page.reload();
   assert.equal(await page.locator('#inspection').isVisible(), false);
+  assert.match(await page.locator('#onboarding-steps').textContent(), /Authentification — À faire/);
   await page.locator('#token').fill(spec.token);
   await page.locator('#organization').fill(spec.settings.organization);
   await page.locator('#project').fill(spec.settings.project);
@@ -32,6 +33,8 @@ async function deepLink(page, spec) {
   await page.locator('#run-status').filter({ hasText: 'completed' }).waitFor();
   assert.equal(await page.locator('#run-id').textContent(), spec.run.id);
   assert.equal(await page.locator('#token').inputValue(), '');
+  assert.equal(await page.locator('#onboarding').getAttribute('open'), null);
+  assert.match(await page.locator('#onboarding-steps').textContent(), /Première lecture — Dossier chargé/);
   assert.equal(new URL(page.url()).search, '');
   await page.evaluate(() => { location.hash = '#/runs?run=foreign-run'; });
   await page.locator('#message').filter({ hasText: '404' }).waitFor();

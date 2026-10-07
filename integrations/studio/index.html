@@ -4,6 +4,9 @@
 <title>GenOS Studio</title><link rel="stylesheet" href="style.css"><script src="studio.js" type="module"></script></head>
 <body><a class="skip-link" href="#view-content">Aller au contenu</a><main id="view-content" tabindex="-1">
 <header><p>GENOS · SUPERVISION</p><h1>Studio</h1><p>Inspecter une exécution, ses preuves et son workspace.</p></header>
+<details id="onboarding" open><summary>Guide de démarrage — ouvrir un premier dossier</summary>
+<ol id="onboarding-steps"></ol><p>Si une capacité est indisponible, ouvrez Gestion et commandes puis Diagnostiquer backend et Rust.
+Les diagnostics sont demandés explicitement ; ce guide ne crée aucun agent, protocole ou essai.</p></details>
 <section id="connection-panel" aria-label="Connexion au Studio"><form id="connection">
 <label>Clé d’accès<input id="token" type="password" autocomplete="off" required></label>
 <div id="connection-scope"><div id="scope-controls"><label>Organisation<input id="organization" list="organizations"><datalist id="organizations" data-runtime></datalist></label>
@@ -39,6 +42,7 @@
 <button id="dashboard-refresh" type="button" data-permission="telemetry:read">Actualiser la supervision</button>
 <ul id="dashboard-stats" data-runtime></ul><h3>Lignées et branches</h3>
 <svg id="lineage-graph" data-runtime role="img" aria-label="Graphe des lignées observées"></svg>
+<p id="lineage-status" data-runtime role="status">Aucune lecture de lignée effectuée.</p>
 <p>Le graphe affiche au plus 100 nœuds ; les listes ci-dessous reprennent les données retournées.</p>
 <ul id="lineage-nodes" data-runtime></ul><ul id="lineage-edges" data-runtime></ul>
 <h3>Événements récents</h3><ol id="events" data-runtime></ol></section>

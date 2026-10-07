@@ -34,6 +34,9 @@ export async function dashboard() {
 }
 
 function renderGraph(graph) {
+  byId('lineage-status').textContent = graph.nodes.length
+    ? graph.nodes.length + ' nœuds retournés ; au plus 100 dessinés. La couverture globale n’est pas garantie.'
+    : 'Aucune lignée retournée pour ce projet. Vérifiez le projet sélectionné et la collecte ; cet écran ne fabrique aucune branche.';
   const names = new Map(graph.nodes.map(item => [item.id, item.label || item.id]));
   displayList('lineage-nodes', graph.nodes, item => `${item.label || item.id} · ${item.type} · ${item.summary || ''}`);
   displayList('lineage-edges', graph.edges, edge =>

@@ -39,7 +39,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | C01.1 Navigation | Qualifié Windows | Connexion séparée, contexte compact, cinq routes, liens de run et historique |
 | C02.1 Composants | Qualifié Windows, partiel | Fiches gestion/laboratoire, champs autorisés, inconnus et garanties fausses ; JSON secondaire |
 | C03.1 Responsive et clavier | Qualifié Windows, partiel | Cinq vues 390/1440 px, texte 200 %, labels et focus ; audit WCAG/lecteur d'écran non exécuté |
-| C04 Onboarding | À réaliser | Guide et diagnostics sans création implicite |
+| C04.1 Onboarding | Qualifié Windows, partiel | Guide de première lecture, session vs sélection, repli automatique et état vide de lignée |
 | Autres C/S | Planifiés / partiels selon matrice | Aucune clôture implicite |
 
 ## Limites de l'outillage
@@ -82,6 +82,12 @@ identifiant long, texte agrandi à 200 %, contrôle des labels et focus
 du titre après navigation. Les colonnes et valeurs longues se replient.
 Ce contrôle DOM ne remplace pas un audit complet d'accessibilité,
 une vérification de contrastes ni un test avec lecteur d'écran.
+
+C04.1 : projection unitaire du guide et parcours navigateur réussis.
+Le guide distingue sélection renseignée, session authentifiée et dossier chargé.
+Il ne lance aucun effet externe. Après première lecture il se replie ; les
+diagnostics restent une action explicite de Gestion. Les templates exécutables
+et le provisioning guidé seront des sous-points suivants.
 
 Voir [la matrice](studio-parite-plan.md) et
 [la qualification des huit lots](studio-qualification.md).
