@@ -638,3 +638,5 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0357 — Rétraction des assemblées et mémoires dérivées](adr/0357-retraction-des-assemblees-et-memoires-derivees.md).
 - [ADR 0358 — Vérification mémoire native sous budget durable](adr/0358-verification-memoire-native-sous-budget-durable.md).
 - [ADR 0359 — Coûts durables des oracles refusés et interrompus](adr/0359-couts-durables-des-oracles-refuses-et-interrompus.md).
+- [ADR 0360 — Oracle code borné sur artefact scellé](adr/0360-oracle-code-borne-sur-artefact-scelle.md).
+- [ADR 0361 — Rejeu apparié avec aléas adressés](adr/0361-rejeu-apparie-avec-aleas-adresses.md).

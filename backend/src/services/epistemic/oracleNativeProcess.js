@@ -77,6 +77,7 @@ async function observe(options, execution) {
 function entryFor(kind) {
   if (!kind || kind === 'subset') return require.resolve('./oracleNativeEntry.cjs');
   if (kind === 'memory') return require.resolve('./oracleMemoryNativeEntry.cjs');
+  if (kind === 'code') return require.resolve('./oracleCodeNativeEntry.cjs');
   throw new Error('ORACLE_KIND_UNAVAILABLE');
 }
 

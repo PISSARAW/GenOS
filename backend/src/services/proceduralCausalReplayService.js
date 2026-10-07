@@ -64,7 +64,7 @@ async function loadCompletedFork(db, forkId) {
   return fork;
 }
 
-async function causalDiff(db, input) {
+async function inspectDiff(db, input) {
   await ensureDiffSchema(db);
   const baseline = await loadCompletedFork(db, input.baselineForkId);
   const intervention = await loadCompletedFork(db, input.interventionForkId);
@@ -74,11 +74,21 @@ async function causalDiff(db, input) {
     throw new Error('CAUSAL_FORK_PAIR_MISMATCH');
   }
   const diff = buildDiff(baseline, intervention);
+  const experiment = await db.get('SELECT * FROM procedural_causal_experiments WHERE experiment_id=?', baseline.experiment_id);
+  const controls = require('./pairedReplayRuntime').comparison(experiment, [baseline, intervention], input);
+  if (controls.status !== 'legacy_declared') diff.replayControls = controls;
+  return diff;
+}
+
+async function causalDiff(db, input) {
+  const diff = await inspectDiff(db, input);
   const diffHash = digest(diff);
   const diffId = `causal_diff_${diffHash.slice(0, 24)}`;
   await db.run(`INSERT OR IGNORE INTO procedural_causal_diffs
     (diff_id, experiment_id, baseline_fork_id, intervention_fork_id, diff_hash, diff_json)
-    VALUES (?, ?, ?, ?, ?, ?)`, [diffId, baseline.experiment_id, baseline.fork_id, intervention.fork_id, diffHash, JSON.stringify(diff)]);
+    VALUES (?, ?, ?, ?, ?, ?)`, [diffId, diff.experimentId, diff.baselineForkId, diff.interventionForkId, diffHash, JSON.stringify(diff)]);
+  const stored = await db.get('SELECT diff_id,diff_hash FROM procedural_causal_diffs WHERE baseline_fork_id=? AND intervention_fork_id=?', [diff.baselineForkId, diff.interventionForkId]);
+  if (stored.diff_hash !== diffHash) throw new Error('CAUSAL_DIFF_CHANGED');
   return { diffId, diffHash, ...diff };
 }
 
@@ -112,6 +122,7 @@ async function claimFork(db, fork) {
 async function persistRunResult(db, input) {
   const stateHash = digest(input.result);
   await transaction(db, async () => {
+    if (input.replayBinding) await require('./pairedReplayRuntime').assertCurrent(db, input.replayBinding);
     const updated = await db.run(`UPDATE procedural_causal_forks
       SET status = 'completed', lease_token = NULL, lease_until = NULL, updated_at = datetime('now')
       WHERE fork_id = ? AND checkpoint_version = ? AND lease_token = ? AND status = 'running'
@@ -119,7 +130,8 @@ async function persistRunResult(db, input) {
     [input.forkId, input.checkpointVersion, input.leaseToken]);
     if (updated.changes !== 1) throw new Error('CAUSAL_FORK_LEASE_CONFLICT');
     await recordEvent(db, { forkId: input.forkId, eventType: 'RUN_RESULT', stateHash,
-      payload: { result: input.result } });
+      payload: { result: input.result,
+        ...(input.replayObservation ? { replayObservation: input.replayObservation } : {}) } });
   });
   return stateHash;
 }
@@ -140,6 +152,7 @@ async function replayFork(db, input) {
   const fork = await loadFork(db, input.forkId);
   if (!fork) throw new Error(`Unknown causal fork '${input.forkId}'.`);
   const { experiment, budget, arm } = await verifyReplayInputs(db, fork, input);
+  const paired = require('./pairedReplayRuntime').open(experiment, fork, input);
   if (!['pending', 'paused', 'failed', 'running'].includes(fork.status)) throw new Error('CAUSAL_FORK_NOT_RESUMABLE');
   const startHash = digest(fork.state);
   const leaseToken = await claimFork(db, fork);
@@ -148,17 +161,23 @@ async function replayFork(db, input) {
     const result = await input.runner(arm, structuredClone(fork.state), {
       seed: fork.seed, budget: budget.maxSteps, environmentHash: experiment.environment_hash,
       resume: fork.checkpoint_version > 0,
+      ...(paired ? { pairedReplay: paired.context } : {}),
       signal: input.signal,
       checkpoint: async (state) => {
+        await require('./pairedReplayRuntime').assertCurrent(db, { experiment, fork, input });
         const saved = await checkpointFork(db, { forkId: fork.fork_id, expectedVersion: checkpointVersion,
-          leaseToken, state, status: 'running' });
+          leaseToken, state, status: 'running',
+          ...(paired ? { replayBinding: { experiment, fork, input } } : {}),
+          ...(paired ? { replayObservation: paired.observation() } : {}) });
         checkpointVersion = saved.checkpointVersion;
         return saved;
       },
     });
     if (input.signal?.aborted) throw Object.assign(new Error('CAUSAL_EXPERIMENT_ABORTED'), { code: 'CAUSAL_EXPERIMENT_ABORTED' });
+    require('./pairedReplayProtocol').verifyRunner(experiment, input);
+    await require('./pairedReplayRuntime').assertCurrent(db, { experiment, fork, input });
     const resultHash = await persistRunResult(db, { forkId: fork.fork_id, checkpointVersion,
-      leaseToken, result });
+      leaseToken, result, ...(paired ? { replayObservation: paired.observation(), replayBinding: { experiment, fork, input } } : {}) });
     return { forkId: fork.fork_id, startHash, resultHash, result };
   } catch (error) {
     await markFailed(db, { forkId: fork.fork_id, leaseToken, aborted: input.signal?.aborted, error });
@@ -166,4 +185,4 @@ async function replayFork(db, input) {
   }
 }
 
-module.exports = { causalDiff, replayFork, compareTrajectories };
+module.exports = { causalDiff, inspectDiff, replayFork, compareTrajectories };

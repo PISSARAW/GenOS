@@ -61,6 +61,7 @@ async function ensureSchema(db) {
     snapshot_states_json: "TEXT NOT NULL DEFAULT '{}'", arms_json: "TEXT NOT NULL DEFAULT '{}'",
     seeds_json: "TEXT NOT NULL DEFAULT '[]'", runner_hash: 'TEXT',
     environment_manifest_json: "TEXT NOT NULL DEFAULT '{}'",
+    replay_contract_json: 'TEXT', replay_protocol_hash: 'TEXT',
   });
   await ensureColumns(db, 'procedural_causal_forks', { lease_token: 'TEXT', lease_until: 'TEXT' });
   await ensureColumns(db, 'procedural_causal_fork_events', { previous_hash: 'TEXT', event_hash: 'TEXT' });
@@ -120,18 +121,21 @@ async function createExperiment(db, spec) {
   validateExperiment(spec);
   await ensureSchema(db);
   const experimentId = spec.experimentId || id('causal_exp');
+  const replay = require('./pairedReplayProtocol').create({ ...spec, experimentId });
   const snapshotHashes = Object.fromEntries(spec.snapshots.map((item) => [item.snapshotId, digest(item.state)]));
   const snapshotStates = Object.fromEntries(spec.snapshots.map((item) => [item.snapshotId, item.state]));
   const environmentHash = digest(spec.environmentManifest);
   await db.run(`INSERT INTO procedural_causal_experiments
     (experiment_id, protocol_version, snapshot_refs_json, snapshot_hashes_json,
      snapshot_states_json, arms_json, seeds_json, runner_hash, environment_manifest_json,
-     runner_id, environment_id, environment_hash, budget_json, analysis_json, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [
+     runner_id, environment_id, environment_hash, budget_json, analysis_json,
+     replay_contract_json, replay_protocol_hash, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [
     experimentId, spec.protocolVersion, serialize(spec.snapshots.map(({ snapshotId }) => snapshotId)),
     serialize(snapshotHashes), serialize(snapshotStates), serialize(spec.arms), serialize(spec.seeds),
-    spec.runnerHash || null, serialize(spec.environmentManifest), spec.runnerId, spec.environmentId, environmentHash,
+    replay.runnerHash, serialize(spec.environmentManifest), spec.runnerId, spec.environmentId, environmentHash,
     serialize(spec.budget), serialize(spec.analysis),
+    replay.contract, replay.hash,
   ]);
   return { experimentId, snapshotHashes, environmentHash, status: 'pending' };
 }
@@ -164,6 +168,7 @@ async function createFork(db, input) {
   await ensureSchema(db);
   const experiment = await db.get('SELECT * FROM procedural_causal_experiments WHERE experiment_id = ?', [input.experimentId]);
   if (!experiment) throw new Error(`Unknown causal experiment '${input.experimentId}'.`);
+  require('./pairedReplayProtocol').verify(experiment, input);
   const hashes = JSON.parse(experiment.snapshot_hashes_json);
   const states = JSON.parse(experiment.snapshot_states_json);
   const seeds = JSON.parse(experiment.seeds_json);
@@ -181,7 +186,8 @@ async function createFork(db, input) {
       forkId, input.experimentId, input.snapshotId, forkHash, input.arm, input.seed, stateJson, forkHash,
     ]);
     await recordEvent(db, { forkId, eventType: 'FORK_CREATED', stateHash: forkHash,
-      payload: { snapshotId: input.snapshotId, arm: input.arm, seed: input.seed } });
+      payload: { snapshotId: input.snapshotId, arm: input.arm, seed: input.seed,
+        ...(experiment.replay_protocol_hash ? { protocolHash: experiment.replay_protocol_hash } : {}) } });
   });
   return { forkId, experimentId: input.experimentId, snapshotId: input.snapshotId, snapshotHash: forkHash, arm: input.arm, seed: input.seed, status: 'pending' };
 }
@@ -197,6 +203,7 @@ async function checkpointFork(db, input) {
   }
   const stateHash = digest(input.state);
   await transaction(db, async () => {
+    if (input.replayBinding) await require('./pairedReplayRuntime').assertCurrent(db, input.replayBinding);
     const updated = await db.run(`UPDATE procedural_causal_forks
       SET state_json = ?, state_hash = ?, status = ?, checkpoint_version = checkpoint_version + 1,
           error_json = ?, updated_at = datetime('now'), lease_until = datetime('now', '+60 seconds')
@@ -206,9 +213,14 @@ async function checkpointFork(db, input) {
     ]);
     if (updated.changes !== 1) throw new Error('CAUSAL_CHECKPOINT_CONFLICT');
     await recordEvent(db, { forkId: input.forkId, eventType: 'CHECKPOINT', stateHash,
-      payload: { status: input.status, version: input.expectedVersion + 1 } });
+      payload: checkpointPayload(input) });
   });
   return { forkId: input.forkId, stateHash, status: input.status, checkpointVersion: input.expectedVersion + 1 };
+}
+
+function checkpointPayload(input) {
+  return { status: input.status, version: input.expectedVersion + 1,
+    ...(input.replayObservation ? { replayObservation: input.replayObservation } : {}) };
 }
 
 async function loadFork(db, forkId) {

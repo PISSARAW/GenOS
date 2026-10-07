@@ -77,6 +77,10 @@ function analyzeSnapshots(input) {
 }
 
 async function persistSnapshotAnalysis(db, input) {
+  return require('../db').withTransaction(db, () => persistBoundAnalysis(db, input));
+}
+
+async function persistBoundAnalysis(db, input) {
   await ensureSchema(db);
   await db.exec(`CREATE TABLE IF NOT EXISTS procedural_causal_diffs (
     diff_id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL, baseline_fork_id TEXT NOT NULL,
@@ -85,10 +89,13 @@ async function persistSnapshotAnalysis(db, input) {
   );`);
   const experiment = await loadExperiment(db, input.experimentId);
   if (!experiment) throw new Error('Unknown causal experiment for snapshot analysis.');
+  const protocol = require('./pairedReplayProtocol');
+  protocol.verify(experiment, input);
   const pinnedSnapshots = new Set(JSON.parse(experiment.snapshot_refs_json));
-  const groups = await loadPairedDifferences(db, input, pinnedSnapshots);
+  const groups = await loadPairedDifferences(db, { ...input, pairedReplayRequired: protocol.enabled(experiment) }, pinnedSnapshots);
   const evidenceRefs = groups.flatMap((group) => group.diffIds.map((diffId) => `diff:${diffId}`));
   const analysis = { ...analyzeSnapshots({ ...input, groups }), evidenceRefs };
+  if (protocol.enabled(experiment)) analysis.replayControls = require('./pairedReplayConsumer').metadata(experiment);
   const payload = JSON.stringify(analysis);
   const analysisHash = crypto.createHash('sha256').update(payload).digest('hex');
   const analysisId = `causal_analysis_${analysisHash.slice(0, 24)}`;
@@ -113,16 +120,21 @@ async function loadPairedDifferences(db, input, pinnedSnapshots) {
     }
     const differences = [];
     for (const diffId of group.diffIds) {
-      const row = await db.get('SELECT diff_json FROM procedural_causal_diffs WHERE diff_id = ? AND experiment_id = ?', [diffId, input.experimentId]);
-      const diff = row && JSON.parse(row.diff_json);
-      if (!diff || diff.snapshotId !== group.snapshotId || !Number.isFinite(diff.scoreDelta)) {
-        throw new Error(`Invalid paired causal diff '${diffId}' for snapshot '${group.snapshotId}'.`);
-      }
-      differences.push(diff.scoreDelta);
+      differences.push(await loadDifference(db, input, { diffId, snapshotId: group.snapshotId }));
     }
     groups.push({ snapshotId: group.snapshotId, differences, diffIds: [...group.diffIds] });
   }
   return groups;
+}
+
+async function loadDifference(db, input, { diffId, snapshotId }) {
+  const row = await db.get('SELECT * FROM procedural_causal_diffs WHERE diff_id = ? AND experiment_id = ?', [diffId, input.experimentId]);
+  const diff = row && JSON.parse(row.diff_json);
+  if (!diff || diff.snapshotId !== snapshotId || !Number.isFinite(diff.scoreDelta)) {
+    throw new Error(`Invalid paired causal diff '${diffId}' for snapshot '${snapshotId}'.`);
+  }
+  if (input.pairedReplayRequired) await require('./pairedReplayConsumer').currentDiff(db, row, input);
+  return diff.scoreDelta;
 }
 
 module.exports = { analyzeSnapshots, persistSnapshotAnalysis };

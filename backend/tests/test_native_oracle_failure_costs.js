@@ -108,6 +108,7 @@ async function main() {
     mutation: db => probes.subjectMutation(db, assertAborted),
     expiry: db => probes.budgetExpiry(db, assertAborted),
     crash: require('./helpers/nativeOracleCrashProbe').qualify,
+    crash_after_close: db => require('./helpers/nativeOracleCrashProbe').qualify(db, 'finished'),
     binding: require('./helpers/nativeOracleCostBindingProbe').qualify };
   if (process.argv[2]) return isolated(cases[process.argv[2]]);
   for (const name of Object.keys(cases)) {

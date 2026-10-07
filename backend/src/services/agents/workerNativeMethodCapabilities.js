@@ -2,6 +2,7 @@
 
 module.exports = Object.freeze({
   verify_memory_fidelity: ['verify'],
+  verify_code_postconditions: ['verify'],
   scoped_procedure: ['scoped_execution'],
   adapt_procedure: ['adaptive_strategy'],
   niche_procedure: ['domain_specialization'],
