@@ -8,6 +8,7 @@ const byId = id => document.getElementById(id);
 
 function errorMessage(error) {
   if (error.name === 'AbortError') return 'Le backend n’a pas répondu dans le délai imparti.';
+  if (error.code === 'INVALID_APPROVAL_JSON') return 'Dossier d’approbation JSON invalide.';
   if (error instanceof SyntaxError) return 'Réponse backend invalide (JSON attendu).';
   if (error instanceof TypeError) return 'Backend inaccessible. Vérifiez la connexion réseau.';
   return error.message;
@@ -127,7 +128,9 @@ byId('snapshot').addEventListener('click', () => perform(async () => {
 byId('approval').addEventListener('submit', event => {
   event.preventDefault();
   perform(async () => {
-    const body = JSON.parse(byId('approval-json').value);
+    let body;
+    try { body = JSON.parse(byId('approval-json').value); }
+    catch (_) { const error = new Error('Dossier d’approbation JSON invalide.'); error.code = 'INVALID_APPROVAL_JSON'; throw error; }
     await request(`/api/execution-runs/${encodeURIComponent(current.run.id)}/approve`, body);
     byId('approval-json').value = ''; await refresh();
   });

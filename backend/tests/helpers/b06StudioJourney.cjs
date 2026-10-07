@@ -68,6 +68,9 @@ async function run(spec, output) {
     const latestResponsesAfterDoubleClick = responses.filter(response => response.path.includes('/latest')).length;
     assert.equal(latestResponsesAfterDoubleClick - latestResponsesBeforeDoubleClick, 1);
     await page.getByText('Soumettre un dossier d’approbation signé').click();
+    await page.locator('#approval-json').fill('{invalid');
+    await page.getByRole('button', { name: 'Soumettre l’approbation' }).click();
+    await page.locator('#message').filter({ hasText: 'Dossier d’approbation JSON invalide' }).waitFor();
     await page.locator('#approval-json').fill('{}');
     await page.getByRole('button', { name: 'Soumettre l’approbation' }).click();
     await page.locator('#message').filter({ hasText: '403' }).waitFor();
