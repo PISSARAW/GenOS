@@ -304,3 +304,19 @@ boutons, effet incertain et purge forcée sur 401 non JSON sans dialogue. L'aban
 confirmé est aussi exercé. Ce test n'est pas une certification du backend.
 Capture ignorée : `.genos-tests/studio-foundation-b/studio-foundation-draft.png`.
 Le script dédié est `npm --prefix backend run test:studio:foundation`.
+
+## Étape C — Parcours pilote borné
+
+L'[ADR 0362](../adr/0362-studio-parcours-pilote-borne-et-dependances.md) définit
+la tranche P03 à qualifier sans APIs interceptées. Checkpoint cognitif vérifié :
+`snap-b357311035934195b34bbf27ed696750`. Les changements du checkout principal,
+dont le module MCP non suivi, ne sont pas importés dans le worktree Studio.
+
+### C01 — Dépendance MCP obligatoire seulement au point d'exécution
+
+Le verdict de domaine est chargé au tout début de `mcpExecutor.execute`, avant
+tout accès DB et effet. Les parcours qui n'exécutent pas MCP peuvent charger le
+backend ; un appel MCP sans le module échoue toujours, sans verdict inventé.
+`node backend/tests/test_studio_optional_mcp.cjs` passe : module absent simulé,
+import disponible et appel refusé avant effet. Le test est inclus dans la suite
+Studio. Ce changement ne livre pas le module absent ni une qualification MCP.

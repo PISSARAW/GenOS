@@ -450,6 +450,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0359](0359-couts-durables-des-oracles-refuses-et-interrompus.md) | Coûts durables des oracles refusés et interrompus | Accepté, extension partielle L02/L03/L22, 2026-10-07. | -- | -- |
 | [0360](0360-studio-cible-unifiee-et-zones-de-livraison.md) | Studio : cible unifiée et zones de livraison | Accepté pour le contrat de cible ; implémentation incrémentale à venir. | 2026-10-07. | Studio, architecture produit, couverture et qualification. |
 | [0361](0361-studio-socle-requetes-actions-et-brouillons.md) | Studio : socle des requêtes, actions et brouillons | Accepté ; livraison par points B01–B03, qualification bornée. | 2026-10-07. | Studio, transport, contexte, erreurs et conservation des entrées. |
+| [0362](0362-studio-parcours-pilote-borne-et-dependances.md) | Studio : parcours pilote borné et dépendances | Accepté ; qualification du pilote distincte de celle des missions générales. | 2026-10-07. | Studio, intégration HTTP, workspace, preuves et revue. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
