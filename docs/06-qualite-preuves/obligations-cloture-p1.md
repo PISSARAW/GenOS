@@ -3,7 +3,7 @@
 - **Objectif** : terminer L01 à L05 et L22, sans réduire la portée aux extensions déjà réalisées.
 - **Sources relues** : [programme](https://chatgpt.com/space/page_f582a574b6d4819182c266e9d429d922) et [catalogue](https://chatgpt.com/space/page_5b78a1edf28481918630a902c5ee1b7f), le 2026-10-07.
 - **Périmètre** : 115 des 649 références du programme. Les répétitions sont conservées et distinguées par leur ordre dans le catalogue.
-- **État de ce registre** : obligations ouvertes ; les preuves P0 et les deux premières extensions P1 doivent être confrontées à chaque obligation avant validation.
+- **État de ce registre** : obligations ouvertes ; les preuves P0 et les extensions P1 de provenance runtime et d'autorité doivent être confrontées à chaque obligation avant validation.
 
 Le critère de sortie de chaque lot s'ajoute aux fonctionnalités et tests ci-dessous. Un test logiciel ou un hash valide ne constitue pas à lui seul une validation scientifique. Les traces d'exécution, résultats contradictoires, exclusions, coûts et limites doivent être conservés.
 

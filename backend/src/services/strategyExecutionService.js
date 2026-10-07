@@ -106,6 +106,7 @@ async function recordExecutionEvent(db, agentId, event) {
   }
   const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival,
+    authorityRefusal: saved.authorityRefusal || null,
     duplicate: saved.duplicate === true, biologicalReceipt: saved.biologicalReceipt || null };
 }
 

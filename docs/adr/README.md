@@ -437,6 +437,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0349](0349-manifeste-experimental-gvx-et-provenance-p1.md) | Manifeste expérimental GVX et provenance P1 | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
 | [0350](0350-cycle-immuable-des-claims-scientifiques.md) | Cycle immuable des claims scientifiques | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
 | [0351](0351-provenance-runtime-des-missions-et-references-gvx.md) | Provenance runtime des missions et références GVX | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
+| [0352](0352-enveloppe-immuable-et-revalidation-de-lautorite-runtime.md) | Enveloppe immuable et revalidation de l'autorité runtime | Accepté | 2026-10-07 | Autorité, missions, permissions, révocation, P1 L02 |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

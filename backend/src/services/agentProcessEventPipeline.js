@@ -244,6 +244,7 @@ async function processEventQueueImpl(ctx) {
     const currentEvent = state.eventQueue.shift();
     try {
       const decision = await strategyExecution.recordExecutionEvent(db, agentId, currentEvent);
+      require('./missionEnvelopeAuthorityMonitor').assertEvent(ctx, decision);
       await require('./trinityRuntimeTrace').observe(ctx, currentEvent);
       const eventType = currentEvent.eventType;
       const finalEvent = isFinalEvent(eventType, currentEvent);

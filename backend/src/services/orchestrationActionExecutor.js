@@ -49,6 +49,8 @@ async function runAction(context, args) {
   let result;
   const stopHeartbeat = receipts.heartbeat(context);
   try {
+    await require('./missionEnvelopeAuthority').assertTool(context.db, {
+      agentId: context.orchestratorId, toolName: context.decision.tool });
     if (context.decision.organization) await require('./agentRecoveryService').applyOrganizationDecision(context.orchestratorId, context.decision.organization, context.decision.reason);
     result = await mcp.execute({ agentId: context.orchestratorId, toolName: context.decision.tool, args });
     result = verifiedResult(context, args, result);

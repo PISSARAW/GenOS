@@ -257,6 +257,8 @@ async function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
 }
 
 async function superviseMission(options) {
+  await require('./missionEnvelopeAuthority').assertRun(options.db, {
+    agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission });
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const conscienceState = await agentConscience.loadConscienceState(db, agentId);
@@ -313,6 +315,7 @@ async function superviseMission(options) {
   ctx.handleOrchestrationDecision = handleOrchestrationDecision;
   ctx.haltRuntime = haltRuntimeImpl;
   require('./agents/workerRuntimeBudgetService').startWorkerDeadline(ctx);
+  require('./missionEnvelopeAuthorityMonitor').start(ctx);
   ctx.processEventQueue = processEventQueueImpl;
   child.stdout.on('data', (chunk) => { handleStdoutData(ctx, chunk); });
   child.stderr.on('data', (chunk) => { handleStderrData(ctx, chunk); });

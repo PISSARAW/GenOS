@@ -11,12 +11,12 @@ const { assertActive, executionContext } = require('./workerNativeLifecycle');
 const { error } = require('./workerNativeEvidence');
 
 async function publish(db, mission, event) {
-  recordWorkerEvidence(mission, event);
   const progress = await recordExecutionEvent(db, mission.agentId, event);
   const failureEvent = ['AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType);
   if (progress?.halt && !failureEvent) {
     throw error('WORKER_EXECUTION_HALTED', progress.reason || 'Execution guard halted the native worker.');
   }
+  recordWorkerEvidence(mission, event);
 }
 
 async function complete(context, executionRun, result) {
@@ -55,6 +55,7 @@ async function runDeterministicWorker(db, mission, executionRun) {
   const context = executionContext(db, mission);
   const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
   try {
+    await require('../missionEnvelopeAuthority').assertRun(db, { agentId: mission.agentId, runId: executionRun.id, mission });
     assertActive(context);
     assertRuntimeContract(mission.workerContract, mission.workerKind);
     assertAssignmentMatches(mission.workerContract, { ...mission, methodContract: method });

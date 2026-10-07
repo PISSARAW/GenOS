@@ -270,8 +270,13 @@ async function persistRunProgress(db, row, progress) {
 }
 
 async function recordExecutionEvent(db, agentId, event) {
+  return require('../db').withTransaction(db, () => recordAuthorizedEvent(db, agentId, event));
+}
+
+async function recordAuthorizedEvent(db, agentId, event) {
   const row = await findActiveRun(db, agentId, eventRunId(event));
   if (!row) return null;
+  event = await require('./missionEnvelopeAuthority').guardEvent(db, { runId: row.id, agentId, event });
   const outcome = await resolveRunOutcome(db, row, { agentId, event });
   const steps = await db.all('SELECT * FROM strategy_execution_steps WHERE run_id = ? ORDER BY sequence', row.id);
   const gateIndex = events.stepIndex(event, steps.length);
@@ -280,7 +285,8 @@ async function recordExecutionEvent(db, agentId, event) {
   const guardrailReason = await advanceExecutionStep(db, { steps, index }, outcome);
   await skipRemainingSteps(db, { rowId: row.id, event, guardrailReason, now: outcome.now });
   const saved = await persistRunProgress(db, row, { outcome, guardrailReason });
-  return { run: saved.run, halt: saved.halt, reason: saved.reason, failed: saved.failed, guardrailReason };
+  return { run: saved.run, halt: saved.halt, reason: saved.reason, failed: saved.failed, guardrailReason,
+    authorityRefusal: event.payload?.authorityRefusal || null };
 }
 
 module.exports = {

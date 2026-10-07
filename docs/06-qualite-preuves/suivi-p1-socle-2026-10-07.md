@@ -1,6 +1,6 @@
 # Suivi du socle P1 — 2026-10-07
 
-- **Statut** : P1 en cours ; manifeste, cycle scientifique et provenance runtime Node intégrés ; phase non clôturée.
+- **Statut** : P1 en cours ; provenance runtime Node et premières frontières communes d'autorité intégrées ; phase non clôturée.
 - **Portée** : L01 à L05 et L22, après clôture P0 au périmètre convenu.
 - **Dernière revue** : 2026-10-07.
 
@@ -19,7 +19,7 @@ porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 | Lot | État de lancement | Travail suivant nécessaire |
 | --- | --- | --- |
 | L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
-| L02 Autorité et confinement | Contrats existants qualifiés par P0 ; extension P1 à entreprendre | Enveloppe commune liée au manifeste, révocation pendant le run, limites spawn/délégation et refus hors scope. |
+| L02 Autorité et confinement | Enveloppe du run et revalidation runtime Node intégrées ; lot partiel | Raccordement des appels directs, compteurs spawn/délégation et confinement effectif. |
 | L03 Oracles indépendants | Composants AEIS/Lean et pilotes existants ; intégration P1 à entreprendre | Postconditions métier, fraîcheur, domaine et résolution vérifiée des références du manifeste. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
 | L05 Harnais et baselines | Pilotes P0 exploratoires disponibles ; campagne P1 à entreprendre | Runner GVX raccordé au manifeste, holdout inaccessible au candidat, coûts complets et puissance adaptée. |
@@ -175,6 +175,48 @@ L'intégrité des références reste distincte d'un oracle indépendant :
 `postconditions: not_evaluated`, promotion refusée par le lecteur. Les autres
 familles de reçus, les versions déclarées, l'autorité commune, les holdouts et
 les critères scientifiques restent à qualifier. L01 et P1 restent ouverts.
+
+## Première extension L02 — enveloppe d'autorité runtime
+
+L'[ADR 0352](../adr/0352-enveloppe-immuable-et-revalidation-de-lautorite-runtime.md)
+scelle les permissions effectives du run dans le journal GVX. Cette enveloppe
+est distincte des claims et reçus scientifiques. Les frontières de lancement,
+de proposition locale, de décision d'orchestration et de publication relisent
+scope, identité, membership, état de mission, autorité épistémique du lignage,
+génération du token et échéance. Le token brut n'est pas publié.
+
+Une publication refusée bloque le run et n'alimente pas une mémoire de succès
+ni les effets suivants. La rotation d'autorité et la progression sont
+transactionnelles. La sonde à deux connexions SQLite réserve une écriture
+réelle pour vérifier la sérialisation entre publication et rotation. Un enfant
+Node silencieux est arrêté par le monitor après rotation. L'enveloppe historique
+et les reçus déjà produits restent consultables.
+
+La sonde `test_mission_authority_envelope` passe également depuis le cwd
+backend et relit l'enveloppe dans un nouveau processus. La suite workers
+conserve ses 18 suites. Les fixtures historiques du cycle natif déclarent
+explicitement l'absence de journal d'autorité ; elles ne remplacent pas les
+sondes SQLite. Les tests ont détecté puis corrigé une lecture absente dans
+cette fixture et un cwd non épinglé dans la reproduction enfant.
+
+La décision `decision-edff4b1f-ee44-4af4-acde-144bf0c44332` conserve la portée
+de cette extension. Le lecteur des consommateurs REST et des manifestes GVX
+expose séparément l'enveloppe, son état actuel d'autorisation et
+`postconditions: not_evaluated` ; il refuse un scope étranger.
+
+Validation finale : `npm test` code 0, cinq sondes P1 et inspection REST
+rejouées code 0, qualité globale 5 398 sources avec quatre violations
+historiques et zéro nouvelle, index ADR 429 entrées sans problème. Le dernier
+`cargo test --workspace` natif passe ; cette extension ne modifie pas Rust.
+Les journaux sont conservés dans `p1-full`, dont les deux tentatives npm
+échouées avant corrections. L'état partagé ne constitue pas un snapshot
+atomique de tous les travaux du dépôt.
+
+Le confinement OS, les appels REST/gRPC/MCP directs,
+les compteurs de spawn/délégation et une qualification complète du bootstrap
+positif sous enveloppe restent ouverts. Une mission sans réservation conserve
+`lease: null` ; un run sans liaison reste `legacy_unbound`. Ces états ne sont
+pas des preuves d'autorisation acquise. L02 et P1 restent ouverts.
 
 ## Traçabilité du lancement
 
