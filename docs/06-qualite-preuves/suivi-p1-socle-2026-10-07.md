@@ -20,7 +20,7 @@ porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 | --- | --- | --- |
 | L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
 | L02 Autorité et confinement | Enveloppe du run, revalidation et réservation de délégation Node intégrées ; lot partiel | Raccordement des appels directs, qualification complète des compteurs et confinement effectif. |
-| L03 Oracles indépendants | Composants AEIS/Lean et pilotes existants ; intégration P1 à entreprendre | Postconditions métier, fraîcheur, domaine et résolution vérifiée des références du manifeste. |
+| L03 Oracles indépendants | Premier adaptateur natif subset sum raccordé à AEIS ; lot partiel | Raccorder les preuves à la clôture et au manifeste, puis couvrir code, mémoire et les autres domaines de raisonnement. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
 | L05 Harnais et baselines | Pilotes P0 exploratoires disponibles ; campagne P1 à entreprendre | Runner GVX raccordé au manifeste, holdout inaccessible au candidat, coûts complets et puissance adaptée. |
 | L22 Interfaces et observabilité | Clients de référence P0 qualifiés ; extension P1 à entreprendre | Inspection commune du manifeste, des coûts, preuves, rejets et reprises ; parité sémantique ciblée. |
@@ -262,7 +262,40 @@ complet par défaut, qui impose aussi une assemblée AEIS liée aux résultats.
 Cette observation exige un raccordement sémantique au run, aux entrées et à
 la fraîcheur avant de déclarer un oracle natif qualifié.
 
-## Traçabilité initiale
+## Extension L03 — premier oracle sémantique natif
+
+L'[ADR 0354](../adr/0354-oracle-semantique-natif-et-sujet-runtime-scelle.md)
+raccorde `procedure_semantic` au registre et au bridge AEIS existants. Le
+sujet provient du contrat et de l'observation appliquée d'un run GVX réel,
+avec contrôles de propriétaire, tenant, claim canonique, contenu et domaine.
+Un bitset et une énumération exhaustive vérifient les postconditions subset
+sum dans des processus et workspaces frais, sans importer le solveur.
+
+La sonde réelle passe avec signature et assemblée AEIS. Les faux témoins,
+faux négatifs, comptes erronés, modifications du résultat ou du scope et
+preuves vieillies sont refusés. Les labels candidats ne peuvent pas fabriquer
+l'indépendance de deux exécutions du même algorithme. Le dépassement du
+domaine d'énumération, limité à vingt valeurs, reste explicitement inconclusif.
+
+Ces receipts ne réécrivent pas le run historique bloqué. Le raccordement au
+gate terminal et au manifeste, le nonce et la fraîcheur au point de décision,
+les budgets d'ensemble, les oracles code et mémoire et les autres domaines
+de raisonnement restent ouverts. Le checkpoint natif observé est
+`snap-5a3a797b7432401286bce39905cd6136`. Le confinement OS n'est pas établi.
+L03 et les **115 obligations de P1** restent ouverts.
+
+Validation après intégration : `npm test` complet code 0, sonde native code 0,
+qualité globale 5 407 sources, quatre violations historiques et zéro nouvelle,
+index ADR 431 entrées sans problème. Le test a aussi contrôlé que deux labels
+différents pour le même algorithme ne produisent pas deux stratégies
+indépendantes. La décision `decision-bcc87e92-5f62-4b01-a55d-e75005aba9e4`
+conserve ces limites. Le journal `npm-native-oracle-complete.log` et la sonde
+`native-oracle-qualified.log` sont conservés hors Git dans `p1-full`.
+Le workspace Rust a été validé dans cette continuation et n'a pas été modifié
+par cette extension JavaScript. Les tests portent sur le checkout partagé ;
+ils ne remplacent pas une reproduction indépendante du commit en clone frais.
+
+## Traçabilité initiale du lancement
 
 GenOS a fourni le checkpoint `snap-a7d8f742186b41f18d02828f1ba16d1b`, dont le
 fichier local a été observé, et la décision

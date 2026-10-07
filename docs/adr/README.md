@@ -439,6 +439,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0351](0351-provenance-runtime-des-missions-et-references-gvx.md) | Provenance runtime des missions et références GVX | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
 | [0352](0352-enveloppe-immuable-et-revalidation-de-lautorite-runtime.md) | Enveloppe immuable et revalidation de l'autorité runtime | Accepté | 2026-10-07 | Autorité, missions, permissions, révocation, P1 L02 |
 | [0353](0353-delegation-worker-bornee-et-admission-runtime.md) | Délégation worker bornée et admission runtime | Accepté | 2026-10-07 | Autorité, délégation, budgets, P1 L02 |
+| [0354](0354-oracle-semantique-natif-et-sujet-runtime-scelle.md) | Oracle sémantique natif et sujet runtime scellé | Accepté | 2026-10-07 | Oracles, postconditions, AEIS, P1 L03 |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

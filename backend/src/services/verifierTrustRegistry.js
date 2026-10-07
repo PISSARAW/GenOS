@@ -130,6 +130,7 @@ const KNOWN_VERIFIER_TYPES = [
   'benchmark',
   'counterexample',
   'repro',
+  'procedure_semantic',
 ];
 
 for (const type of KNOWN_VERIFIER_TYPES) {

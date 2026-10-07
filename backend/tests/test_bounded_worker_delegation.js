@@ -93,6 +93,7 @@ async function nativeDispatch(db) {
   assert.equal(saved.envelope.missionId, 'delegation-mission');
   assert.equal(saved.envelope.limits.tokens, 0);
   console.log('Delegated native child: real bootstrap and computation, zero model budget, sealed authority and independent-proof refusal preserved.');
+  return { runId: row.id, workerId: result.childAgentId };
 }
 
 async function main() {
@@ -107,7 +108,9 @@ async function main() {
   process.env.GENOS_DISABLE_WORKSPACE_GC = '1';
   const db = await getDatabase(process.env.GENOS_DB_PATH);
   try {
-    await seed(db, workspace); await bindings(db); await nativeDispatch(db);
+    await seed(db, workspace); await bindings(db);
+    const executed = await nativeDispatch(db);
+    await require('./helpers/nativeOracleProbes').qualify(db, executed);
     await require('./helpers/boundedDelegationProbes').qualify(db, { addChild, filename: process.env.GENOS_DB_PATH });
   }
   finally {
