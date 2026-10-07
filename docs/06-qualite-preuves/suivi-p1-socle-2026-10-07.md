@@ -437,6 +437,42 @@ ne constituent pas une reproduction indépendante du commit en clone frais.
 La conservation des coûts sur toutes les exceptions après lancement et la
 reprise de tous les crashes restent à qualifier.
 
+## Extension L02/L03/L22 — coûts des refus et interruptions
+
+Le commit `e278bac9` conserve la vérification mémoire sous budget durable.
+L'[ADR 0359](../adr/0359-couts-durables-des-oracles-refuses-et-interrompus.md)
+sépare les faits d'exécution de leur acceptation sémantique. Une intention
+durable précède chaque lancement ; un fait final conserve son PID et sa durée.
+L'inspection et le reçu biologique refusé conservent ces coûts après retrait
+de source, nouveau rapport contradictoire ou expiration post-exécution.
+
+La sonde arrêtant réellement le processus de contrôle après intention expose
+une exécution non résolue et des totaux inconnus, puis refuse le relancement
+dans un processus frais. Elle couvre cette fenêtre, sans qualifier les autres
+crashes ni promettre une exécution exactement une fois. Une attestation
+authentifiée qui omet un champ de coût est refusée sous une nouvelle
+réservation. Les allocations historiques sans journal d'exécution restent
+explicitement `legacy_untracked`.
+
+Le checkpoint observé est `snap-f2e7df53964c4f3eb051f81e60fdacda` ; son fichier
+local a été relu. Le coût local en dollars, les défaillances disque, les
+processus orphelins, les autres formats mémoire, l'oracle code et les campagnes
+représentatives restent ouverts. Les **115 obligations** et les **six lots P1**
+restent ouverts ; ces contrôles ne constituent pas une reproduction indépendante.
+
+Validation : `npm test` complet, avec découverte de la nouvelle sonde, et
+`cargo test --workspace` terminent avec code 0. Le gate qualité compte
+5 495 sources, quatre violations historiques et zéro nouvelle ; les vingt
+sources préparées pour le commit passent le contrôle strict sans violation.
+L'index ADR compte 439 entrées sans problème. Les journaux
+`npm-oracle-cost-complete.log`, `cargo-oracle-cost-complete.log`,
+`quality-oracle-cost-final.log` et `oracle-cost-final-receipts.log` restent
+hors Git dans `p1-full`. L'avertissement du poll Garage après fermeture de
+SQLite reste dans le journal de la suite réussie. La décision
+`decision-cd66ed20-a915-4e5e-9637-4e8123c15526` conserve le choix et ses limites.
+Les vérifications concernent le checkout partagé ; les modifications étrangères
+MCP, VFS et Rust ne font pas partie de ce commit.
+
 ## Traçabilité initiale du lancement
 
 GenOS a fourni le checkpoint `snap-a7d8f742186b41f18d02828f1ba16d1b`, dont le

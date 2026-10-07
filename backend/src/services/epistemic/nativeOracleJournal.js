@@ -39,6 +39,7 @@ async function reserve(db, request) {
     if (Date.parse(expiresAt) <= Date.now()) throw values.failure('ORACLE_BUDGET_EXPIRED');
     const report = await observationReport(db, request.runId);
     const record = { schema: 'genos.native-oracle-reservation/v1', ...request, scope,
+      executionAccounting: 'genos.native-oracle-execution/v1',
       domain: subject.domain,
       nonce: randomUUID(), limits, expiresAt, authorityHash: current.hash,
       subjectHash: values.digest(subject), observationHash: subject.observationHash,

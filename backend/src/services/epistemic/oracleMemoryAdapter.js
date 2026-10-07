@@ -12,16 +12,21 @@ async function runMemoryOracle(antigen, verifier, context) {
   const subject = await loader.load(context.db, request);
   subjects.assertAntigen(antigen, subject);
   const result = await require('./oracleNativeProcess').run(subject.content, { kind: 'memory', strategy,
-    timeoutMs: require('./oracleProcedureAdapter').executionTimeout(context) });
-  if (context.nativeOracleDeadline && Date.now() > context.nativeOracleDeadline) throw values.failure('ORACLE_BUDGET_EXPIRED');
-  const current = await loader.load(context.db, request);
-  if (values.digest(current) !== values.digest(subject)) throw values.failure('MEMORY_ORACLE_SUBJECT_CHANGED');
+    timeoutMs: require('./oracleProcedureAdapter').executionTimeout(context), onExecution: context.onOracleExecution });
   const detail = { ...result.detail, outcome: result.result.status, postconditions: result.result,
     subject: { memoryId: subject.content.memory.id, runId: subject.content.source.runId, bindingHash: values.digest(subject.binding) } };
   if (context.nativeMemoryRuntimeSubject) detail.subject = runtimeBinding(subject, context.nativeOracleAllocationHash);
+  try { await assertCurrentSubject(subject, { loader, request, context }); }
+  catch (failure) { return require('./nativeOracleOutcome').failed(detail, 'memory:source_fidelity', failure); }
   return { status: result.result.status, reason: result.result.reason,
     observations: [{ step: 'memory:source_fidelity', result: result.result.status, detail, timestamp: new Date().toISOString() }],
     counterexamples: result.result.status === 'refuted' ? [{ type: 'memory_source_contradiction', description: 'The memory contradicts its recorded promotion report.' }] : [] };
+}
+
+async function assertCurrentSubject(subject, input) {
+  if (input.context.nativeOracleDeadline && Date.now() > input.context.nativeOracleDeadline) throw values.failure('ORACLE_BUDGET_EXPIRED');
+  const current = await input.loader.load(input.context.db, input.request);
+  if (values.digest(current) !== values.digest(subject)) throw values.failure('MEMORY_ORACLE_SUBJECT_CHANGED');
 }
 
 module.exports = { runMemoryOracle };

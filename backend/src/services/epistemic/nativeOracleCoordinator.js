@@ -6,6 +6,7 @@ const authority = require('../missionEnvelopeAuthority');
 const journal = require('./nativeOracleJournal');
 const subjects = require('./nativeOracleDomains');
 const { keyFor, currentKeyId } = require('../epistemicReceiptKeyring');
+const executionJournal = require('./nativeOracleExecutionJournal');
 
 async function prepare(db, request) {
   const saved = await authority.read(db, request.runId);
@@ -15,10 +16,12 @@ async function prepare(db, request) {
   const allocation = await journal.reserve(db, request);
   if (!allocation.owned) {
     const prior = await journal.read(db, { ...request, scope: allocation.value.scope, kind: 'attestation' });
+    if (await journal.read(db, { ...request, scope: allocation.value.scope, kind: 'abort' })) throw values.failure('ORACLE_EXECUTION_ABORTED');
     if (!prior) throw values.failure('ORACLE_ALLOCATION_ALREADY_RESERVED');
     return { eventId: prior.eventId, hash: prior.hash };
   }
-  return execute(db, { allocation, saved });
+  try { return await execute(db, { allocation, saved }); }
+  catch (failure) { await executionJournal.abort(db, { allocation, failure }); throw failure; }
 }
 
 async function execute(db, context) {
@@ -29,13 +32,16 @@ async function execute(db, context) {
   const batch = await require('./verifierRuntimeBridge').executeVerifierWorkers(antigen,
     [...domain.checks.STRATEGIES].map(strategy => ({ type: domain.verifierType, strategy: [strategy] })),
     { db, ...subjects.executionOptions(allocation.subject, request), nativeOracleAllocationHash: allocation.hash, nativeOracleDeadline: Date.parse(allocation.value.expiresAt),
-      timeoutMs: allocation.value.limits.latencyMs, verifierBudget: { remaining: allocation.value.limits.executions } });
+      timeoutMs: allocation.value.limits.latencyMs, verifierBudget: { remaining: allocation.value.limits.executions },
+      onOracleExecution: executionJournal.observer(db, allocation) });
   const trusted = saved.envelope.scope;
   const registry = require('../verifierTrustRegistry');
   const assembly = require('./aeisPromotionBridge').buildAssuranceAssemblyFromHolobionte([antigen],
     [{ immune: { verifierResults: { results: batch.results } } }], { trustedVerifierDigests: registry.listVerifierDigests() });
   const evaluation = require('../epistemicAssuranceService').evaluateEpistemicAssurance(assembly);
-  const accepted = evaluation.eligible && batch.results.every(result => result.status === 'verified');
+  const measured = await executionJournal.costs(db, { allocation });
+  const accepted = evaluation.eligible && batch.results.every(result => result.status === 'verified')
+    && measured.complete && measured.processes === 2;
   const assessed = { assembly, evaluation, allAccepted: accepted, anyBlocked: !accepted };
   return withTransaction(db, async () => {
     await authority.assertRun(db, request);
@@ -48,17 +54,11 @@ async function execute(db, context) {
     const record = { schema: 'genos.native-oracle-attestation/v1', ...request, allocationHash: allocation.hash,
       domain: subject.domain,
       authorityHash: saved.hash, subjectHash: allocation.value.subjectHash, reportHash: allocation.value.reportHash,
-      assemblyId, scopeId, accepted, costs: costs(batch), validUntil: new Date(Math.min(Date.parse(subject.validUntil),
+      assemblyId, scopeId, accepted, costs: measured, validUntil: new Date(Math.min(Date.parse(subject.validUntil),
         Date.parse(saved.envelope.expiresAt))).toISOString(), completedAt: new Date().toISOString() };
     const result = await journal.append(db, { kind: 'attestation', scope: trusted, record });
     return { eventId: result.eventId, hash: result.hash };
   });
-}
-
-function costs(batch) {
-  const executions = batch.results.flatMap(result => result.receipt?.executionEvidence || []);
-  return { processes: executions.length, runtimeMs: executions.reduce((total, item) => total + item.durationMs, 0),
-    modelTokens: 0, providerUsd: 0, localComputeUsd: null };
 }
 
 module.exports = { prepare };

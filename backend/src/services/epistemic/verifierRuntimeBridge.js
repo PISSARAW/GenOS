@@ -190,7 +190,7 @@ async function runSingleVerifier(antigen, verifier, ctx) {
       artifactConfig: enriched.artifact, allowedWorkspaceRoot: ctx.opts.allowedWorkspaceRoot,
       db: ctx.opts.db, nativeOracleSubject: ctx.opts.nativeOracleSubject, nativeOracleDeadline: ctx.opts.nativeOracleDeadline,
       nativeOracleAllocationHash: ctx.opts.nativeOracleAllocationHash, nativeMemorySubject: ctx.opts.nativeMemorySubject,
-      nativeMemoryRuntimeSubject: ctx.opts.nativeMemoryRuntimeSubject }
+      nativeMemoryRuntimeSubject: ctx.opts.nativeMemoryRuntimeSubject, onOracleExecution: ctx.opts.onOracleExecution }
   );
   const executionWorkspace = outcome.observations?.find((item) => item.detail?.executionId)?.detail.cwd;
   const executed = ['procedure_semantic', 'memory_semantic'].includes(verifier.type)

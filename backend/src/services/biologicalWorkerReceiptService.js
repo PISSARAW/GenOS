@@ -20,7 +20,12 @@ async function finalize(db, runId) {
     runId, agentId: binding.workerId, event: terminal.event });
   const guardrail = terminal ? require('./strategyPromotionGate').completionGuardrail(
     binding.genome.strategyContract, terminal.event.payload, { agentId: binding.workerId, gateContext: verification?.gateContext }) : 'Missing terminal observation';
+  const oracleExecution = await require('./epistemic/nativeOracleCostReceipt').forRun(db, binding);
   const receipt = buildReceipt({ binding, run, observations, snapshot, guardrail, verification });
+  if (oracleExecution) {
+    receipt.oracleExecution = oracleExecution;
+    receipt.budgetAssessment.satisfied &&= oracleExecution.budgetAssessment.satisfied;
+  }
   return store.putReceipt(db, receipt);
 }
 

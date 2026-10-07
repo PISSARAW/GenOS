@@ -13,6 +13,10 @@ async function read(db, input) {
   assertOwner(record, input);
   const allocation = await journal.read(db, { ...input, kind: 'reservation' });
   assertAllocation(record, allocation);
+  if (allocation.value.executionAccounting === 'genos.native-oracle-execution/v1') {
+    const measured = await require('./nativeOracleExecutionJournal').costs(db, { allocation });
+    if (values.digest(measured) !== values.digest(record.costs)) throw values.failure('ORACLE_COST_BINDING_MISMATCH');
+  }
   const saved = await require('../aeisAssemblyStore').readAssembly(db, record.assemblyId, { historical: input.historical === true });
   if (saved.runId !== input.runId || saved.scopeId !== record.scopeId || !record.accepted
       || saved.evaluation.allAccepted !== true) throw values.failure('ORACLE_ASSEMBLY_NOT_ACCEPTED');
@@ -44,6 +48,7 @@ function assertAllocationBinding(record, allocation) {
 }
 
 function assertCosts(costs, limits) {
+  if (costs.complete === false) throw values.failure('ORACLE_COSTS_INCOMPLETE');
   if (costs.processes !== 2 || costs.processes > limits.executions || !Number.isFinite(costs.runtimeMs)
       || costs.runtimeMs < 0 || costs.runtimeMs > limits.latencyMs) throw values.failure('ORACLE_BUDGET_EXCEEDED');
 }

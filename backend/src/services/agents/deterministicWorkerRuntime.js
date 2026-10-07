@@ -50,6 +50,7 @@ async function fail(context, executionRun, failure) {
   await updateAgent(mission.agentId, status, failure.message);
   const failed = emit(mission.agentId, cancelled ? 'AGENT_HALTED' : 'AGENT_FAILED', mission.workerKind, failure.message, {
     executionRunId: executionRun.id,
+    usage: { input_tokens: 0, output_tokens: 0, tokens: 0, cost_usd: 0 },
     failure: { category: 'deterministic_execution', reason: failure.message, code: failure.code }
   }, 'warning', status);
   if (failure.terminalReceiptPublished) recordWorkerEvidence(mission, failed);

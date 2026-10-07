@@ -19,7 +19,7 @@ function execute(input, options) {
     let stderr = '';
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; child.kill(); }, options.timeoutMs);
-    child.on('error', failure => { clearTimeout(timer); reject(failure); });
+    child.on('error', failure => { clearTimeout(timer); failure.processId = child.pid; reject(failure); });
     child.stdout.on('data', chunk => { stdout += chunk; if (stdout.length > 16384) child.kill(); });
     child.stderr.on('data', chunk => { stderr += chunk; if (stderr.length > 16384) child.kill(); });
     child.stdin.on('error', () => {});
@@ -37,16 +37,41 @@ async function run(subject, options) {
   const input = JSON.stringify({ subject, strategy: options.strategy });
   if (Buffer.byteLength(input) > 131072) { await fs.rm(cwd, { recursive: true, force: true }); throw new Error('ORACLE_INPUT_TOO_LARGE'); }
   const started = Date.now();
+  const base = { executionId: randomUUID(), strategy: options.strategy, cwd,
+    inputDigest: `sha256:${createHash('sha256').update(input).digest('hex')}`,
+    executable: process.execPath, implementation: entry, startedAt: new Date(started).toISOString(),
+    timeoutMs: Math.min(30000, Math.max(1, Number(options.timeoutMs) || 10000)) };
   try {
-    const execution = await execute(input, { cwd, entry, timeoutMs: Math.min(30000, Math.max(1, Number(options.timeoutMs) || 10000)) });
-    const result = execution.code === 0 && !execution.timedOut ? JSON.parse(execution.stdout)
-      : { status: 'inconclusive', reason: execution.timedOut ? 'oracle_timeout' : 'oracle_process_failed' };
-    if (result.processId && result.processId !== execution.processId) throw new Error('ORACLE_PROCESS_ID_MISMATCH');
-    return { result, detail: { executionId: randomUUID(), processId: execution.processId, cwd,
+    await observe(options, { ...base, phase: 'intent' });
+    const execution = await measuredExecution(input, { cwd, entry, timeoutMs: base.timeoutMs });
+    const result = parseResult(execution);
+    const detail = { ...base, processId: execution.processId || null,
       exitCode: execution.code, timedOut: execution.timedOut, durationMs: Date.now() - started,
-      inputDigest: `sha256:${createHash('sha256').update(input).digest('hex')}`,
-      executable: process.execPath, implementation: entry } };
+      spawnError: execution.spawnError || null };
+    await observe(options, { ...detail, phase: 'finished', processOutcome: result.status, processReason: result.reason || null });
+    return { result, detail };
   } finally { await fs.rm(cwd, { recursive: true, force: true }); }
+}
+
+async function measuredExecution(input, options) {
+  try { return await execute(input, options); }
+  catch (failure) { return { code: null, timedOut: false, stdout: '', processId: failure.processId || null,
+    spawnError: failure.code || failure.message }; }
+}
+
+function parseResult(execution) {
+  if (execution.timedOut) return { status: 'inconclusive', reason: 'oracle_timeout' };
+  if (execution.code !== 0) return { status: 'inconclusive', reason: 'oracle_process_failed' };
+  try {
+    const result = JSON.parse(execution.stdout);
+    if (!['verified', 'refuted', 'inconclusive'].includes(result?.status)) throw new Error('Invalid oracle result');
+    if (result.processId && result.processId !== execution.processId) return { status: 'inconclusive', reason: 'oracle_process_id_mismatch' };
+    return result;
+  } catch (_) { return { status: 'inconclusive', reason: 'oracle_response_invalid' }; }
+}
+
+async function observe(options, execution) {
+  if (options.onExecution) await options.onExecution(execution);
 }
 
 function entryFor(kind) {

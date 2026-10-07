@@ -12,9 +12,17 @@ async function inspect(db, request) {
   const allocation = await journal.read(db, { ...request, scope, kind: 'reservation' });
   if (!allocation) return { status: 'not_evaluated' };
   const attestation = await journal.read(db, { ...request, scope, kind: 'attestation' });
-  if (!attestation) return { status: 'reserved', limits: allocation.value.limits, expiresAt: allocation.value.expiresAt };
+  if (!attestation) return unfinishedView(db, { request: { ...request, scope }, allocation });
   if (!attestation.value.accepted) return { status: 'refused', costs: attestation.value.costs, promotionAllowed: false };
   return acceptedView(db, { ...request, attestation, allocation });
+}
+
+async function unfinishedView(db, { request, allocation }) {
+  const aborted = await journal.read(db, { ...request, kind: 'abort' });
+  if (aborted && aborted.value.allocationHash !== allocation.hash) throw require('../trinityProvenanceValues').failure('ORACLE_ABORT_BINDING_INVALID');
+  const costs = await require('./nativeOracleExecutionJournal').costs(db, { allocation });
+  return { status: aborted ? 'aborted' : 'reserved', reason: aborted?.value.reason || null,
+    costs, limits: allocation.value.limits, expiresAt: allocation.value.expiresAt, promotionAllowed: false };
 }
 
 async function acceptedView(db, input) {

@@ -10,21 +10,26 @@ async function runProcedureOracle(antigen, verifier, context) {
   if (verifier.strategy?.length !== 1 || !STRATEGIES.has(strategy)) throw values.failure('ORACLE_STRATEGY_UNAVAILABLE');
   const subject = await subjectStore.load(context.db, context.nativeOracleSubject);
   subjectStore.assertAntigen(antigen, subject);
-  const executed = await executor.run(subject.content, { strategy, timeoutMs: executionTimeout(context) });
-  if (context.nativeOracleDeadline && Date.now() > context.nativeOracleDeadline) throw values.failure('ORACLE_BUDGET_EXPIRED');
-  const current = await subjectStore.load(context.db, context.nativeOracleSubject);
-  if (values.digest(current) !== values.digest(subject)) throw values.failure('ORACLE_SUBJECT_CHANGED');
+  const executed = await executor.run(subject.content, { strategy, timeoutMs: executionTimeout(context), onExecution: context.onOracleExecution });
   const detail = { ...executed.detail, outcome: executed.result.status,
     subject: { runId: subject.content.runId, workerId: subject.content.workerId,
       bindingHash: subject.bindingHash, runBindingHash: subject.runBindingHash,
       observationHash: subject.observationHash, observedAt: subject.observedAt, validUntil: subject.validUntil },
     postconditions: executed.result };
   if (context.nativeOracleAllocationHash) detail.subject.allocationHash = context.nativeOracleAllocationHash;
+  try { await assertCurrentSubject(context, subject); }
+  catch (failure) { return require('./nativeOracleOutcome').failed(detail, 'procedure:semantic_postconditions', failure); }
   return { status: executed.result.status, reason: executed.result.reason,
     observations: [{ step: 'procedure:semantic_postconditions', result: executed.result.status,
       detail, timestamp: new Date().toISOString() }],
     counterexamples: executed.result.status === 'refuted' ? [{ type: 'subset_postcondition_false',
       description: 'The observed solver result contradicts independently computed subset postconditions.' }] : [] };
+}
+
+async function assertCurrentSubject(context, subject) {
+  if (context.nativeOracleDeadline && Date.now() > context.nativeOracleDeadline) throw values.failure('ORACLE_BUDGET_EXPIRED');
+  const current = await subjectStore.load(context.db, context.nativeOracleSubject);
+  if (values.digest(current) !== values.digest(subject)) throw values.failure('ORACLE_SUBJECT_CHANGED');
 }
 
 function executionTimeout(context) {
