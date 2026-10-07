@@ -62,11 +62,17 @@ async function run(spec, output) {
     await waitState(page, 'awaiting_approval');
     assert.equal(await page.locator('#run-id').textContent(), spec.run.id);
     await page.locator('#run-list li').filter({ hasText: spec.run.id }).waitFor();
-    const latestResponsesBeforeDoubleClick = responses.filter(response => response.path.includes('/latest')).length;
+    const inspectionResponsesBeforeDoubleClick = responses.filter(response => response.path.includes('/consumer-runs/')).length;
     await page.getByRole('button', { name: 'Actualiser' }).dblclick();
     await page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
-    const latestResponsesAfterDoubleClick = responses.filter(response => response.path.includes('/latest')).length;
-    assert.equal(latestResponsesAfterDoubleClick - latestResponsesBeforeDoubleClick, 1);
+    const inspectionResponsesAfterDoubleClick = responses.filter(response => response.path.includes('/consumer-runs/')).length;
+    assert.equal(inspectionResponsesAfterDoubleClick - inspectionResponsesBeforeDoubleClick, 1);
+    await page.route('**/api/product-proofs/consumer-agents/*/latest', route =>
+      route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { code: 'LATEST_DISABLED' } }) }));
+    await page.getByRole('button', { name: 'Actualiser' }).click();
+    await page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
+    assert.equal(await page.locator('#run-id').textContent(), spec.run.id);
+    await page.unroute('**/api/product-proofs/consumer-agents/*/latest');
     await page.getByText('Soumettre un dossier d’approbation signé').click();
     await page.locator('#approval-json').fill('{invalid');
     await page.getByRole('button', { name: 'Soumettre l’approbation' }).click();

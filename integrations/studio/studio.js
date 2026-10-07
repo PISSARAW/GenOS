@@ -2,6 +2,7 @@
 
 let session = null;
 let current = null;
+let selectedRunId = null;
 let busy = false;
 const REQUEST_TIMEOUT_MS = 10000;
 const byId = id => document.getElementById(id);
@@ -36,6 +37,7 @@ async function request(path, body) {
 
 function clearView() {
   current = null;
+  selectedRunId = null;
   byId('inspection').hidden = true;
   for (const id of ['run-id', 'run-status', 'workspace', 'promotion', 'provenance', 'steps', 'snapshots', 'run-list']) {
     byId(id).replaceChildren();
@@ -56,6 +58,7 @@ function renderRuns(data) {
 
 function render(data) {
   current = data;
+  selectedRunId = data.run.id;
   byId('run-id').textContent = data.run.id;
   byId('run-status').textContent = `État : ${data.run.status}`;
   byId('workspace').textContent = `Workspace : ${data.workspace.id} · ${data.workspace.name}`;
@@ -75,6 +78,7 @@ function render(data) {
 }
 
 async function loadRun(runId) {
+  selectedRunId = runId;
   render(await request(`/api/product-proofs/consumer-runs/${encodeURIComponent(runId)}`));
 }
 
@@ -85,7 +89,10 @@ async function refreshRuns() {
 }
 
 async function refresh() {
-  await Promise.all([request(`/api/product-proofs/consumer-agents/${encodeURIComponent(session.agent)}/latest`).then(render), refreshRuns()]);
+  const endpoint = selectedRunId
+    ? `/api/product-proofs/consumer-runs/${encodeURIComponent(selectedRunId)}`
+    : `/api/product-proofs/consumer-agents/${encodeURIComponent(session.agent)}/latest`;
+  await Promise.all([request(endpoint).then(render), refreshRuns()]);
 }
 
 async function perform(action) {
