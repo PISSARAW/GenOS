@@ -266,3 +266,16 @@ Probes exécutées : `node backend/tests/test_studio_client.mjs` et
 est incluse dans `npm --prefix backend run test:studio`. L'index ADR est régénéré
 (441 entrées) et `git diff --check` passe. Ce point ne qualifie pas les providers
 réels ni les effets d'une mutation métier ; les suites globales restent distinctes.
+
+### B02 — États d'action et conservation des entrées
+
+La libération d'une action restaure l'état initial des boutons avant de réappliquer
+les permissions. Une actualisation transitoirement échouée conserve le dernier
+dossier avec mention « actualisation non confirmée ». Les formulaires d'action
+conservent leurs entrées lors des refus et erreurs ; HTTP 401 purge toujours la
+session. Un effet de mutation inconnu reçoit une consigne d'inspection, pas une
+invitation au rejeu automatique. Le flag UI de réussite ne remplace aucune preuve.
+
+`node backend/tests/test_studio_action_state.mjs` passe : contrôles initialement
+désactivés, réseau/timeout/protocole, refus 403/404/409, priorité du 401 et distinction
+lecture réessayable/mutation incertaine. B01 reste couvert par ses deux probes.

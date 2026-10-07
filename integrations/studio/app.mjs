@@ -2,6 +2,7 @@ import { StudioClient } from './client.mjs';
 import { byId, encoded, node, options, applyPermissions, errorMessage, showView } from './ui.mjs';
 import { connectedShell } from './shell.mjs';
 import { renderResponse } from './components.mjs';
+import { holdButtons, preserveFailure, uncertainEffect } from './actionState.mjs';
 
 export const api = new StudioClient();
 export const state = { current: null, runId: null, busy: false, epoch: 0, runOffset: 0, runSearch: '' };
@@ -36,10 +37,6 @@ export function disconnect() {
   window.dispatchEvent(new CustomEvent('studio:session', { detail: { reason: 'disconnect' } }));
 }
 
-function keepDraft(error, options) {
-  return options.preserveDraft && (error.status === 409 || error.name === 'AbortError' || error.kind === 'network' || error instanceof TypeError);
-}
-
 function showFailure(error, options) {
   byId('message').dataset.tone = 'error';
   if (error.status === 401) {
@@ -48,10 +45,12 @@ function showFailure(error, options) {
     byId('message').dataset.tone = 'error';
     return;
   }
-  const keepView = error.code === 'INVALID_APPROVAL_JSON' || (options.preserveView && error.status >= 500);
-  if (!keepView && !keepDraft(error, options)) clearView();
+  const keepView = preserveFailure(error, options);
+  if (!keepView) clearView();
   byId('message').textContent = errorMessage(error) +
-    (options.preserveView && keepView ? ' Dernier dossier conservé ; actualisation non confirmée.' : '');
+    (options.preserveView && keepView ? ' Dernier dossier conservé ; actualisation non confirmée.' : '') +
+    (uncertainEffect(error) ? ' Effet non confirmé : inspectez l’état avant de réessayer.' : '');
+  byId('message').dataset.errorKind = error.kind || 'unknown';
 }
 
 export async function perform(action, options = {}) {
@@ -60,8 +59,8 @@ export async function perform(action, options = {}) {
   state.busy = true;
   byId('message').textContent = 'Chargement de l’état runtime…';
   byId('message').dataset.tone = 'loading';
-  const buttons = [...document.querySelectorAll('button:not(#disconnect)')];
-  buttons.forEach(button => { button.disabled = true; });
+  delete byId('message').dataset.errorKind;
+  const releaseButtons = holdButtons(document);
   try {
     await action();
     if (epoch === state.epoch) {
@@ -75,7 +74,7 @@ export async function perform(action, options = {}) {
   } finally {
     if (epoch === state.epoch) {
       state.busy = false;
-      buttons.forEach(button => { button.disabled = false; });
+      releaseButtons();
       applyPermissions(api);
       window.dispatchEvent(new Event('studio:idle'));
     }

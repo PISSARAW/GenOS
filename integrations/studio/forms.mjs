@@ -50,7 +50,7 @@ export function actionForm(spec, container) {
       else await discover();
       applyPermissions(api);
       detail.open = false;
-    });
+    }, { preserveDraft: true });
   });
   detail.append(form);
   container.append(detail);
