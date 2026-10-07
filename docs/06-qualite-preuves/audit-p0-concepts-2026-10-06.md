@@ -382,3 +382,15 @@ reste sans marqueur (`test_memory_provenance_nonforgeable.js` : PASS).
 ces runs (contre 162 Mo lors de l'échec de lien PDB documenté). Le workspace
 global (`cargo test --workspace`) n'est pas relancé dans cette reprise et sa
 validation reste ouverte ; ces résultats ciblés ne la valident pas.
+
+## Septième reprise P0 : pilotes sandbox et reprise checkpoint (B05/B07)
+
+`test_aeis_sandbox.js` : 9/9 passent (`runIsolated` exécute `npm test`,
+refus de `rm -rf /`, `exitCode != 0` détecté, `runTestAdapter` et
+`runArtifactAdapter` réels, indépendance évaluée avant signature, reçus
+d'indépendance valides). Les sondes pilotes B05 restent exécutables sur
+fixtures, sans holdout ni gain IA mesuré.
+`cargo test -p genos-orchestrator --test checkpoint_recovery` : 5/5 passent
+(création, plan de reprise, checkpoints horodatés, restauration durable de
+lignée et d'état de veille, reprise de tick de reçu sans réutilisation de
+séquence). B07 reste acquis : appel réussi et fichier relu, reprise vérifiée.
