@@ -35,7 +35,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | F01.1 Matrice | Livré : aad3bf6b | Tous les lots F/C/S recensés ; benchmark concurrentiel non exécuté |
 | F02.1 Base isolée | Livré par ce document | Git inspecté, checkout opérateur conservé |
 | F03.1 Contrats | Livré : ADR 0350 | Frontières UI/API/runtime, routes et sessions |
-| F04.1 Harnais | À réaliser | Ports isolés et qualification navigateur enrichie |
+| F04.1 Harnais | Qualifié Windows | Port attribué par l'OS, origine exacte, résultat structuré ; Edge 154.0.4258.62, aucune erreur de page |
 | C01 Navigation | À réaliser | Connexion, contexte, routes et historique |
 | C02 Composants | À réaliser | Données métier lisibles et JSON secondaire |
 | C03 Accessibilité | À réaliser | Contrôles de toutes les vues ; pas de certification présumée |
@@ -53,6 +53,13 @@ promotion. Les commits et résultats exécutables restent les preuves locales.
 L'activation effective des hooks n'est pas attestée.
 
 ## Prochaines preuves
+
+F04 : `npm --prefix backend run test:studio:browser` a réussi sur la
+base SQLite isolée, avec approbation réelle, refus tenant, reconnexion SSE,
+conflit éditeur, restauration, protocole, rejeu et annulation.
+Le démarrage Edge dans le sandbox Windows a échoué ; la relance autorisée
+hors sandbox a réussi. Les artefacts sont sous
+`.genos-tests/studio-parity-proof/`, jamais une preuve Linux.
 
 Pour chaque point : vérifier qualité, exécuter les tests concernés, conserver
 captures/versions dans un répertoire ignoré et mettre à jour ce registre.
