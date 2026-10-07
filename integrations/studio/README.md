@@ -47,4 +47,6 @@ npm --prefix backend run test:b06-clients
 Le harnais crée automatiquement `artifacts/b06-client-journey` (ou utilise
 le dossier fourni en premier argument). Il vérifie aussi les réponses 401,
 non JSON, les délais dépassés, les pertes réseau et le double-clic sur
-Actualiser.
+Actualiser. Le client VS Code est testé lorsqu’il est disponible ; pour
+exiger sa présence et échouer si VS Code est absent ou en cours de mise à
+jour, définir `B06_REQUIRE_IDE=1`.
