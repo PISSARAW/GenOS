@@ -55,4 +55,8 @@ const recovery = require('../services/studioRecoveryService');
 router.get('/agents/:id/diagnostic', requirePermission('read'), handle(recovery.inspect));
 router.post('/agents/:id/stop', ...write, requirePermission('emergency_kill'), handle(recovery.stop));
 
+const collective = require('../services/studioCollectiveService');
+router.get('/agents/:id/collective', requirePermission('read'), handle(collective.inspect));
+router.post('/agents/:id/collective/step', ...write, handle(collective.step));
+
 module.exports = { router, handle, write };

@@ -31,10 +31,14 @@ const labels = [
   ['processObservation', 'Observation du processus'], ['confirmed', 'Arrêt confirmé'], ['stopped', 'Processus arrêté'],
   ['dissonance', 'Dissonance déclarée'], ['cognitiveBudget', 'Budget cognitif déclaré'],
   ['diagnosisEstablished', 'Diagnostic établi'], ['externalEffectsReversible', 'Effets externes réversibles'],
-  ['recoveryScope', 'Portée de récupération'], ['severity', 'Sévérité']
+  ['recoveryScope', 'Portée de récupération'], ['severity', 'Sévérité'],
+  ['analysisId', 'Analyse conservée'], ['inputAuthority', 'Autorité des entrées'], ['runtimeApplied', 'Appliqué au runtime'],
+  ['scope', 'Portée'], ['organization', 'Organisation'], ['available', 'Capacités disponibles'],
+  ['authorized', 'Capacités autorisées'], ['exercised', 'Capacités exercées'], ['contractIsExecution', 'Contrat valant exécution'],
+  ['reached', 'Quorum atteint sur ces entrées'], ['support', 'Support calculé'], ['abstentions', 'Abstentions']
 ];
 
-const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome'];
+const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome', 'step', 'activeOrganization'];
 
 export function humanValue(value) {
   if (value === null || value === undefined) return 'Inconnu';

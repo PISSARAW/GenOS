@@ -40,7 +40,7 @@ export function journeyView(spec) {
   const button = node('button', spec.title);
   button.type = 'button';
   button.dataset.target = view.id;
-  byId('navigation').append(button);
+  (spec.parent?.actions || byId('navigation')).append(button);
   window.addEventListener('studio:cleared', () => {
     for (const form of view.querySelectorAll('form')) form.reset();
   });

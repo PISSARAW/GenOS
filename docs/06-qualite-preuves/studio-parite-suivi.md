@@ -501,3 +501,25 @@ portant cette qualification. Un commit par tranche, sans fusion ni push implicit
 Le [guide opérateur](../04-exploitation/studio-parcours-genos.md) précise les étapes,
 autorités et limites. P04–P07 complets, G01–G22 et la parité universelle restent
 ouverts ; ces quatre tranches ne les déclarent pas terminés.
+
+## Étape E — Mécanismes spécialisés
+
+Base `a39bc995`, checkpoint cognitif vérifié `snap-b9afcf338995465f84ab5f72c5000598`.
+L'[ADR 0364](../adr/0364-studio-mecanismes-specialises.md) fixe E01–E05,
+sans confondre catalogue, calcul déclaré, observation et capacité runtime validée.
+
+### E01 — Collectifs sous contrat
+
+Depuis Organisme, `#/collectif` expose huit topologies et les 19 organisations
+du catalogue runtime, leurs capacités requises et l'organisation persistée de
+l'agent lorsqu'elle existe. Disponibilité et autorité non mesurées restent inconnues.
+Un pas collectif réutilise `runTopologyStep` sur données déclarées bornées ;
+aucun worker, routage, budget ou état d'organisation n'est modifié. La sortie est
+scellée comme analyse provisoire avec acteur authentifié et agent scoped, puis
+inspectable dans Mémoire. Cela n'accorde aucune promotion ou autorité collective.
+
+Qualification exécutée : `test_studio_collective.cjs` code 0, les 19 calculs,
+intégrité de l'analyse, refus tenant/droits et entrées invalides. Le navigateur
+`test:studio:specialized` passe sans interception API, viewport 390 px sans
+débordement, sortie purgée à la déconnexion. Routes et rendu passent.
+Les points E02–E05 sont encore à livrer dans leurs commits respectifs.
