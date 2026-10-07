@@ -118,6 +118,27 @@ le scope ou l’intégrité ne permettent pas la lecture.
 
 ## Validation navigateur
 
+Les parcours GenOS structurants disposent de destinations Mondes, Mémoire,
+Organisme/AgentDNA et Diagnostic/reprise. Voir le
+[guide opérateur](../../docs/04-exploitation/studio-parcours-genos.md).
+`npm --prefix backend run test:studio:genos` les qualifie avec backend, SQLite,
+fichiers, CLI et processus réels, sans interception API ; Edge et le CLI natif
+sont requis. Les artefacts restent ignorés sous `.genos-tests/studio-genos-d/`.
+Ces tranches ne certifient pas tout P04–P07 ni une promotion implicite.
+
+Les mécanismes spécialisés E01–E05 sont décrits dans le
+[guide opérateur](../../docs/04-exploitation/studio-mecanismes-specialises.md).
+`npm --prefix backend run test:studio:specialized` exerce les cinq parcours avec
+HTTP, SQLite, fichiers et moteurs existants, sans interception API. Les captures
+et le manifeste de sources restent ignorés sous `.genos-tests/studio-specialized-e/`.
+Analyses provisoires, contrats déclarés et observations ne sont pas des promotions.
+
+La [boucle de production locale](../../docs/04-exploitation/studio-boucle-production.md)
+relie release figée, staging, revue owner/admin, publication, appels, retours et
+rollback CAS. `npm --prefix backend run test:studio:production` utilise le moteur
+workflow existant et des APIs réelles ; ses preuves restent sous
+`.genos-tests/studio-production-f/`. Aucun déploiement cloud ou HA n'est certifié.
+
 Playwright est une dépendance de développement du backend. Après `npm ci` à
 la racine et `npm ci --prefix backend`, le parcours complet se lance depuis
 n’importe quel dossier avec Edge installé, sans configuration supplémentaire :

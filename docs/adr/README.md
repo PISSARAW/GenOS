@@ -448,8 +448,14 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0357](0357-retraction-des-assemblees-et-memoires-derivees.md) | Rétraction des assemblées et mémoires dérivées | Accepté, qualification partielle de L01, L03 et L22. | -- | -- |
 | [0358](0358-verification-memoire-native-sous-budget-durable.md) | Vérification mémoire native sous budget durable | Accepté, extension partielle L02/L03/L22. | -- | -- |
 | [0359](0359-couts-durables-des-oracles-refuses-et-interrompus.md) | Coûts durables des oracles refusés et interrompus | Accepté, extension partielle L02/L03/L22, 2026-10-07. | -- | -- |
-| [0360](0360-oracle-code-borne-sur-artefact-scelle.md) | Oracle code borné sur artefact scellé | Accepté, extension partielle L02/L03/L22. | -- | -- |
-| [0361](0361-rejeu-apparie-avec-aleas-adresses.md) | Rejeu apparié avec aléas adressés | Accepté, extension partielle L01/L02/L04. | -- | -- |
+| [0360a](0360-oracle-code-borne-sur-artefact-scelle.md) | Oracle code borné sur artefact scellé | Accepté, extension partielle L02/L03/L22. | -- | -- |
+| [0360b](0360-studio-cible-unifiee-et-zones-de-livraison.md) | Studio : cible unifiée et zones de livraison | Accepté pour le contrat de cible ; implémentation incrémentale à venir. | 2026-10-07. | Studio, architecture produit, couverture et qualification. |
+| [0361a](0361-rejeu-apparie-avec-aleas-adresses.md) | Rejeu apparié avec aléas adressés | Accepté, extension partielle L01/L02/L04. | -- | -- |
+| [0361b](0361-studio-socle-requetes-actions-et-brouillons.md) | Studio : socle des requêtes, actions et brouillons | Accepté ; livraison par points B01–B03, qualification bornée. | 2026-10-07. | Studio, transport, contexte, erreurs et conservation des entrées. |
+| [0362](0362-studio-parcours-pilote-borne-et-dependances.md) | Studio : parcours pilote borné et dépendances | Accepté ; qualification du pilote distincte de celle des missions générales. | 2026-10-07. | Studio, intégration HTTP, workspace, preuves et revue. |
+| [0363](0363-studio-parcours-genos-structurants.md) | Studio : parcours GenOS structurants | Accepté ; tranches livrées séparément, sans certification globale P04–P07. | 2026-10-07. | Studio, mondes, mémoire, AgentDNA et récupération. |
+| [0364](0364-studio-mecanismes-specialises.md) | Studio : mécanismes spécialisés et analyses bornées | Accepté ; qualification par tranche, pas des domaines complets. | 2026-10-07. | -- |
+| [0365](0365-studio-boucle-production-locale.md) | Studio : boucle de production locale | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

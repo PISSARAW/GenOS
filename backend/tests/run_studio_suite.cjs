@@ -2,7 +2,20 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const suites = [
-  'test_studio_client.mjs', 'test_studio_routes.mjs', 'test_studio_records.mjs', 'test_studio_onboarding.mjs',
+  'test_studio_client.mjs', 'test_studio_request_safety.mjs', 'test_studio_action_state.mjs',
+  'test_studio_context_guard.mjs',
+  'test_studio_optional_mcp.cjs',
+  'test_studio_worlds.cjs',
+  'test_studio_memory.cjs',
+  'test_studio_genome.cjs',
+  'test_studio_recovery.cjs',
+  'test_studio_collective.cjs',
+  'test_studio_perception.cjs',
+  'test_studio_biomimetic.cjs',
+  'test_studio_health.cjs',
+  'test_studio_reference.cjs',
+  'test_studio_production.cjs',
+  'test_studio_routes.mjs', 'test_studio_records.mjs', 'test_studio_onboarding.mjs',
   'test_studio_events.mjs', 'test_studio_comparison.mjs', 'test_studio_management.cjs',
   'test_studio_files.cjs', 'test_studio_multiprocess.cjs', 'test_studio_operations.cjs', 'test_studio_restart.cjs',
   'test_studio_research.cjs'

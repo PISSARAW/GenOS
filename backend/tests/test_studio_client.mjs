@@ -5,7 +5,7 @@ const session = { token: 'test-only', organization: 'one', project: 'alpha', per
 let pending;
 const client = new StudioClient((_path, options) => new Promise(resolve => { pending = { resolve, options }; }));
 client.setSession(session);
-const old = client.request('/read');
+const old = client.request('/api/read');
 client.setSession({ ...session, project: 'beta' });
 assert.equal(pending.options.signal.aborted, true);
 pending.resolve({ ok: true, json: async () => ({ foreign: true }) });
@@ -16,5 +16,5 @@ client.setSession(null);
 assert.throws(() => client.headers(), /Session absente/);
 const refused = new StudioClient(async () => ({ ok: false, status: 403, json: async () => ({ error: { code: 'DENIED' } }) }));
 refused.setSession(session);
-await assert.rejects(refused.request('/write'), error => error.status === 403 && error.code === 'DENIED');
+await assert.rejects(refused.request('/api/write'), error => error.status === 403 && error.code === 'DENIED');
 console.log('Studio client: obsolete responses, scope cancellation, permissions and refusals passed.');

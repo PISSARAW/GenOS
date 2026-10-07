@@ -1,5 +1,16 @@
 # Documentation GenOS
 
+- [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
+- [ADR 0361 — Studio : socle requêtes, actions et brouillons](adr/0361-studio-socle-requetes-actions-et-brouillons.md) — étape B, commits atomiques et qualification bornée.
+- [ADR 0362 — Studio : parcours pilote borné](adr/0362-studio-parcours-pilote-borne-et-dependances.md) — étape C, services réels, dépendances et limites de généralisation.
+- [Studio : rejouer le pilote](04-exploitation/studio-parcours-pilote.md) — procédure P03 bornée, critères exécutables, captures et diagnostic.
+- [ADR 0363 — Parcours GenOS structurants](adr/0363-studio-parcours-genos-structurants.md) — étape D, destinations canoniques et frontières de preuve.
+- [ADR 0364 — Mécanismes spécialisés Studio](adr/0364-studio-mecanismes-specialises.md) — étape E, calculs bornés et analyses provisoires.
+- [ADR 0365 — Boucle de production locale](adr/0365-studio-boucle-production-locale.md) — étape F, version figée, adaptateur local et reprise sous CAS.
+- [Studio : boucle de production locale](04-exploitation/studio-boucle-production.md) — guide opérateur F01–F03, observations et limites.
+- [Studio : mécanismes spécialisés](04-exploitation/studio-mecanismes-specialises.md) — procédures E01–E05, autorités, pagination et qualification.
+- [Studio : utiliser les parcours GenOS](04-exploitation/studio-parcours-genos.md) — procédures et qualification D01–D04, avec limites explicites.
+
 - [Socle P1 : suivi](06-qualite-preuves/suivi-p1-socle-2026-10-07.md) — manifeste, cycle des claims et provenance runtime ; [115 obligations de clôture](06-qualite-preuves/obligations-cloture-p1.md).
 
 - [Trois pilotes comparatifs P0](06-qualite-preuves/qualification-trois-pilotes-comparatifs-2026-10-07.md) — données versionnées, baselines, ablations, budgets et reproduction ; [ADR 0348](adr/0348-trois-pilotes-comparatifs-reproductibles.md).

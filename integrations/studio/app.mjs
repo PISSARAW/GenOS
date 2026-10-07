@@ -2,6 +2,8 @@ import { StudioClient } from './client.mjs';
 import { byId, encoded, node, options, applyPermissions, errorMessage, showView } from './ui.mjs';
 import { connectedShell } from './shell.mjs';
 import { renderResponse } from './components.mjs';
+import { holdButtons, preserveFailure, uncertainEffect } from './actionState.mjs';
+import { requestContextChange } from './contextGuard.mjs';
 
 export const api = new StudioClient();
 export const state = { current: null, runId: null, busy: false, epoch: 0, runOffset: 0, runSearch: '' };
@@ -13,7 +15,7 @@ export function clearView() {
   state.runSearch = '';
   byId('run-more').hidden = true;
   byId('run-list').setAttribute('aria-busy', 'false');
-  byId('inspection').hidden = true;
+  for (const view of document.querySelectorAll('[data-view]')) view.hidden = true;
   for (const element of document.querySelectorAll('[data-runtime]')) element.replaceChildren();
   byId('approval-json').value = '';
   byId('workspace-choice').value = '';
@@ -21,7 +23,8 @@ export function clearView() {
   window.dispatchEvent(new Event('studio:cleared'));
 }
 
-export function disconnect() {
+export function disconnect(options = {}) {
+  if (!options.force && !requestContextChange('disconnect')) return;
   state.epoch += 1;
   state.busy = false;
   api.setSession(null);
@@ -36,22 +39,20 @@ export function disconnect() {
   window.dispatchEvent(new CustomEvent('studio:session', { detail: { reason: 'disconnect' } }));
 }
 
-function keepDraft(error, options) {
-  return options.preserveDraft && (error.status === 409 || error.name === 'AbortError' || error instanceof TypeError);
-}
-
 function showFailure(error, options) {
   byId('message').dataset.tone = 'error';
   if (error.status === 401) {
-    disconnect();
+    disconnect({ force: true });
     byId('message').textContent = 'Session expirée. Reconnectez-vous.';
     byId('message').dataset.tone = 'error';
     return;
   }
-  const keepView = error.code === 'INVALID_APPROVAL_JSON' || (options.preserveView && error.status >= 500);
-  if (!keepView && !keepDraft(error, options)) clearView();
+  const keepView = preserveFailure(error, options);
+  if (!keepView) clearView();
   byId('message').textContent = errorMessage(error) +
-    (options.preserveView && keepView ? ' Dernier dossier conservé ; actualisation non confirmée.' : '');
+    (options.preserveView && keepView ? ' Dernier dossier conservé ; actualisation non confirmée.' : '') +
+    (uncertainEffect(error) ? ' Effet non confirmé : inspectez l’état avant de réessayer.' : '');
+  byId('message').dataset.errorKind = error.kind || 'unknown';
 }
 
 export async function perform(action, options = {}) {
@@ -60,8 +61,8 @@ export async function perform(action, options = {}) {
   state.busy = true;
   byId('message').textContent = 'Chargement de l’état runtime…';
   byId('message').dataset.tone = 'loading';
-  const buttons = [...document.querySelectorAll('button:not(#disconnect)')];
-  buttons.forEach(button => { button.disabled = true; });
+  delete byId('message').dataset.errorKind;
+  const releaseButtons = holdButtons(document);
   try {
     await action();
     if (epoch === state.epoch) {
@@ -75,7 +76,7 @@ export async function perform(action, options = {}) {
   } finally {
     if (epoch === state.epoch) {
       state.busy = false;
-      buttons.forEach(button => { button.disabled = false; });
+      releaseButtons();
       applyPermissions(api);
       window.dispatchEvent(new Event('studio:idle'));
     }
@@ -171,6 +172,7 @@ export async function discover() {
 }
 
 async function connect() {
+  if (!requestContextChange('connect')) return;
   state.epoch += 1;
   state.busy = false;
   api.setSession({ token: byId('token').value, organization: byId('organization').value,
@@ -195,6 +197,10 @@ async function connect() {
 
 async function changeScope(event) {
   if (!api.session) return;
+  if (!requestContextChange('scope')) {
+    for (const id of ['organization', 'project', 'agent']) byId(id).value = api.session[id] || '';
+    return;
+  }
   if (event.target.id === 'organization') byId('project').value = '';
   if (event.target.id !== 'agent') byId('agent').value = '';
   const session = { ...api.session, organization: byId('organization').value,
@@ -223,10 +229,10 @@ export function start() {
     event.preventDefault();
     perform(async () => {
       await api.request(`/api/execution-runs/${encoded(state.current.run.id)}/approve`,
-        { body: approvalBody() });
+        { body: approvalBody(), timeoutMs: 60000 });
       byId('approval-json').value = '';
       await refresh();
-    });
+    }, { preserveDraft: true });
   });
 }
 

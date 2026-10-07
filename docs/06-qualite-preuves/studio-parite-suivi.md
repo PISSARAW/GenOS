@@ -205,3 +205,541 @@ certification du résultat fusionné. Des modifications concurrentes sont
 apparues pendant la préparation, dont `backend/package.json` et
 `docs/adr/README.md`, également modifiés par la fusion. L'avancement de v3 doit
 attendre leur stabilisation et conserver ces changements non commités.
+
+## Étape A — Cible unifiée fixée (2026-10-07)
+
+L'opérateur demande « Étape A — Fixer la cible et commite ». Le
+[contrat directeur](../03-reference/studio-contrat-directeur.md), version
+`STUDIO-TARGET-V1`, et l'[ADR 0360](../adr/0360-studio-cible-unifiee-et-zones-de-livraison.md)
+fixent la finalité, onze espaces, 21 zones Z00–Z20, 22 domaines GenOS,
+douze exigences propres à Studio et huit parcours de livraison. Les 40
+identifiants F/C/S historiques restent rattachés aux zones. Le registre exhaustif
+entrée par entrée est l'étape suivante, pas un résultat revendiqué ici.
+
+Le worktree Studio existant a été avancé par fast-forward de `8803fcf3` à
+`69e9d07e55db1581b514989c448f131d731d7676`, sans inclure les écritures non
+commitées du checkout principal. Cette étape ne change que la documentation.
+Le checkpoint GenOS cognitif `snap-82f128f37ea645319b562cf9e97a6607` a été créé
+et son fichier vérifié ; il n'est pas une sauvegarde des fichiers du worktree.
+
+### Vérifications exécutées avant commit
+
+| Commande / contrôle | Résultat et portée |
+| --- | --- |
+| `python scripts/ci/check_adr_index.py --update`, puis sans option | Index régénéré ; 440 fichiers, 440 entrées, zéro problème. |
+| `python scripts/ci/check_code_quality.py` | Code 0 ; 5494 sources, zéro violation. |
+| `git diff --check` | Code 0 ; aucun défaut d'espacement détecté. |
+| Sonde Node documentaire via `node -e` | Code 0 ; liens relatifs des deux nouveaux documents, présence des N01–N11, Z00–Z20, G01–G22, U01–U12, P01–P08 et des 40 identifiants F/C/S ; indexation vérifiée. |
+| `npm test` | Code 1 ; suite biologie 6/7, chargement de `./mcpExecutor/domainVerdict` impossible. Les suites suivantes du script ne sont pas exécutées. |
+| `cargo test --workspace` | Code 101 ; suites précédentes passantes, puis `genos-cli` 69/70 : échec de `commands::platform::world_path_tests::accepts_simple_id`, qui utilise le répertoire temporaire de l'environnement. Les suites suivantes ne sont pas certifiées. |
+
+Les logs ignorés sont dans `.genos-tests/studio-target-a/npm-test.log` et
+`.genos-tests/studio-target-a/cargo-test.log` du worktree de livraison. Cargo utilise
+le cache `target` du dépôt principal. Les deux échecs globaux portent sur du code
+inchangé par l'étape A ; cela ne prouve pas que toute la base est saine.
+Le module absent avait déjà été signalé dans la qualification de fusion ci-dessus.
+Les avertissements SQLite de la suite Node signalent aussi une configuration
+de base locale non accessible ; aucune correction ou copie d'un travail concurrent
+n'est ajoutée pour contourner ces résultats. Aucun runtime ou nouvel écran n'est
+qualifié par les contrôles documentaires. La qualification globale reste ouverte.
+
+## Étape B — Renforcement du socle existant
+
+La demande opérateur priorise désormais le socle (Z01/Z02/Z18/Z20) avant le
+registre détaillé, qui reste ouvert. L'[ADR 0361](../adr/0361-studio-socle-requetes-actions-et-brouillons.md)
+fixe trois points livrés avec un commit par point, sans nouveau moteur frontend
+ou extension d'autorité. Base : `b95dd362`, checkpoint cognitif vérifié
+`snap-4da0fd9605b640bd877064a6089412ff` ; ce n'est pas une sauvegarde des fichiers.
+
+### B01 — Contrat de requête et d'erreur
+
+`StudioClient` refuse les destinations hors `/api/` et les redirections ; la
+deadline couvre transport et décodage, y compris un transport ignorant AbortSignal.
+Le statut HTTP reste lisible si le JSON est invalide. Les réponses explicitement
+`success: false` restent des refus sous HTTP 200. Body false/0/null/chaîne vide
+est conservé. Annulation, timeout et session obsolète ont des erreurs distinctes.
+Les effets de mutation sans réponse ou sous erreur serveur restent inconnus ;
+aucune mutation n'est automatiquement rejouée. Les permissions restent au serveur.
+
+Probes exécutées : `node backend/tests/test_studio_client.mjs` et
+`node backend/tests/test_studio_request_safety.mjs`, code 0. La nouvelle suite
+est incluse dans `npm --prefix backend run test:studio`. L'index ADR est régénéré
+(441 entrées) et `git diff --check` passe. Ce point ne qualifie pas les providers
+réels ni les effets d'une mutation métier ; les suites globales restent distinctes.
+
+### B02 — États d'action et conservation des entrées
+
+La libération d'une action restaure l'état initial des boutons avant de réappliquer
+les permissions. Une actualisation transitoirement échouée conserve le dernier
+dossier avec mention « actualisation non confirmée ». Les formulaires d'action
+conservent leurs entrées lors des refus et erreurs ; HTTP 401 purge toujours la
+session. Un effet de mutation inconnu reçoit une consigne d'inspection, pas une
+invitation au rejeu automatique. Le flag UI de réussite ne remplace aucune preuve.
+
+`node backend/tests/test_studio_action_state.mjs` passe : contrôles initialement
+désactivés, réseau/timeout/protocole, refus 403/404/409, priorité du 401 et distinction
+lecture réessayable/mutation incertaine. B01 reste couvert par ses deux probes.
+
+### B03 — Brouillon et frontières de contexte
+
+Le fichier édité demande confirmation avant changement d'organisation/projet/agent,
+workspace ou déconnexion manuelle. Un refus restaure les sélecteurs et ne change
+pas la session ; une acceptation purge le contexte précédent. La fermeture signale
+le brouillon via `beforeunload`, sous réserve de la politique du navigateur.
+HTTP 401, y compris le flux SSE, force la purge sans confirmation : un brouillon
+ne permet pas de conserver une session expirée. Aucune entrée n'est stockée dans
+localStorage/sessionStorage ; les formulaires autres que l'éditeur n'ont pas encore
+de garde de changement de contexte. La fonctionnalité n'est pas une autosauvegarde.
+
+`node backend/tests/test_studio_context_guard.mjs` passe : contexte propre, refus
+des quatre transitions, abandon confirmé, avertissement de fermeture et nettoyage
+des listeners. Les parcours navigateur de socle et pilote doivent qualifier le
+branchement réel aux sélecteurs et la priorité de l'expiration.
+
+Le test `node backend/tests/test_studio_foundation_browser.cjs` passe sous Edge
+headless, hors sandbox Windows après échec de lancement dans celui-ci. Il exerce
+le véritable DOM avec des API fixtures : refus de changement de projet/workspace
+et déconnexion, conservation du draft sur 403/409/502 et réseau, état initial des
+boutons, effet incertain et purge forcée sur 401 non JSON sans dialogue. L'abandon
+confirmé est aussi exercé. Ce test n'est pas une certification du backend.
+Capture ignorée : `.genos-tests/studio-foundation-b/studio-foundation-draft.png`.
+Le script dédié est `npm --prefix backend run test:studio:foundation`.
+
+## Étape C — Parcours pilote borné
+
+L'[ADR 0362](../adr/0362-studio-parcours-pilote-borne-et-dependances.md) définit
+la tranche P03 à qualifier sans APIs interceptées. Checkpoint cognitif vérifié :
+`snap-b357311035934195b34bbf27ed696750`. Les changements du checkout principal,
+dont le module MCP non suivi, ne sont pas importés dans le worktree Studio.
+
+### C01 — Dépendance MCP obligatoire seulement au point d'exécution
+
+Le verdict de domaine est chargé au tout début de `mcpExecutor.execute`, avant
+tout accès DB et effet. Les parcours qui n'exécutent pas MCP peuvent charger le
+backend ; un appel MCP sans le module échoue toujours, sans verdict inventé.
+`node backend/tests/test_studio_optional_mcp.cjs` passe : module absent simulé,
+import disponible et appel refusé avant effet. Le test est inclus dans la suite
+Studio. Ce changement ne livre pas le module absent ni une qualification MCP.
+
+### C02 — Pilote exécutable de bout en bout
+
+Le [guide de rejeu](../04-exploitation/studio-parcours-pilote.md) et
+`npm --prefix backend run test:studio:pilot` qualifient une tranche P03 sans
+interception API : Studio → HTTP réel → SQLite/fichiers → CAS → snapshots
+durables → refus de revue → assemblage vérifié → provenance persistée → purge.
+Le dossier d'approbation refusé reste visible et corrigible. Sa deadline client
+est de 60 secondes pour la vérification synchrone, sans changer le budget runtime
+ni les gates ; un effet incertain n'est jamais resoumis automatiquement.
+
+Le pilote final passe sous Windows/Edge 154.0.4258.62 : octets sauvegardés et
+restaurés vérifiés, 409 avec brouillon intact, snapshot de sécurité relu en DB,
+autre projet 404, secret 403, traversée 400 et approbation sans signature 403.
+Le refus conserve le run en attente sans provenance. La revue signée obtient
+un journal `completed`, un assemblage accepté, au moins deux résultats de
+vérificateurs et une mémoire intègre liée au hash parent. Les commandes `npm test`
+des répliques sont exécutées par le backend, pas remplacées par une fixture HTTP.
+Le navigateur ne signale aucune erreur de page ; le viewport 390 px ne déborde
+pas et la déconnexion purge le contenu sans stockage de session.
+
+Les captures desktop de restauration/promotion et mobile ont été inspectées.
+Elles montrent aussi les limites du run préparé : métriques inconnues et étapes
+initiales planifiées. Elles ne prouvent pas une trajectoire autonome antérieure.
+Les artefacts ignorés restent dans `.genos-tests/studio-pilot-c/` : manifeste
+`studio-pilot-qualified.json`, trois captures et logs. Le manifeste avant commit
+indique la base `61275fa4` et les hashes des sources réellement testées.
+L'autorité observée est `legacy_unbound`, les postconditions et la vérification
+native sont `not_evaluated`. Le pilote reste synthétique, sans LLM externe et
+sans revue humaine indépendante réelle ; toute la cible P03 n'est pas certifiée.
+
+### Qualification finale B/C — 2026-10-07
+
+| Contrôle | Résultat observé |
+| --- | --- |
+| `python scripts/ci/check_code_quality.py` | Code 0 ; 5 505 sources, zéro violation nouvelle ou totale. |
+| `python scripts/ci/check_adr_index.py` | Code 0 ; 442 ADR, 442 entrées, zéro problème. |
+| `git diff --check` | Code 0. |
+| `npm --prefix backend run test:studio` | Code 0 ; 16/16 suites Windows, services réels et frontières MCP inclus. |
+| `npm --prefix backend run test:studio:foundation` | Code 0 avant C02 ; DOM réel, API fixtures explicitement bornées. |
+| `npm --prefix backend run test:studio:pilot` | Code 0 après les assertions finales ; services réels, aucune interception API. |
+| `cargo test --workspace` | Code 0 hors sandbox Windows ; cache Cargo principal réutilisé. |
+| `npm test` | Code 1 après les suites précédentes passantes ; `test_p0_pilot_protocol.js` refuse l'intégrité de `public/code.json`. Les suites suivantes ne sont pas certifiées. |
+
+Les quatre assets de `benchmarks/p0-pilots/v1/dataset.lock.json` sont inchangés.
+La probe de hash en lecture seule confirme : hashes des octets LF différents du
+lock ; conversion en mémoire vers CRLF exactement égale aux quatre hashes attendus.
+Aucun fichier ni empreinte du dataset n'a été modifié pour contourner le gate.
+Le défaut global reste ouvert et distinct de la qualification Studio.
+Le chargement MCP absent ne bloque plus les suites indépendantes grâce à C01 ;
+il reste obligatoire et fail-closed au point d'exécution MCP.
+
+Commits B : `a3b6755f` (B01), `5ca266fa` (B02), `54030cbc` (B03).
+Prérequis C : `61275fa4` (C01). C02 conserve son propre commit et le manifeste
+d'exécution ; branche `codex/studio-v3-integration`, sans fusion ou push implicite.
+Le registre exhaustif et les autres zones de la cible restent ouverts.
+
+## Étape D — Parcours GenOS structurants
+
+L'[ADR 0363](../adr/0363-studio-parcours-genos-structurants.md) fixe quatre
+tranches D01–D04 rattachées à P04–P07, sans les déclarer entièrement terminés.
+Base `ded03ed2`, checkpoint cognitif vérifié `snap-bc75f35226704b2ea29a4fc16196f57e`.
+Le worktree principal V3 et ses modifications concurrentes restent hors périmètre.
+
+### D01 — Mondes et lignages
+
+Destination `#/mondes` : checkpoint d'agent lié à son snapshot workspace durable,
+référence de branche, clone inactif, comparaison des états et liens vers preuves
+et revue. La façade `/api/studio` exige un tenant explicite même pour l'admin,
+RBAC et projet actif pour écrire. L'identité d'agent vient de la route.
+La lecture retourne au plus 100 checkpoints et 100 agents apparentés.
+
+`node backend/tests/test_studio_worlds.cjs` et
+`npm --prefix backend run test:studio:genos` passent sur services réels, sans
+interception API : persistance du checkpoint et de sa branche, clone `idle`,
+workspace partagé explicite, comparaison, refus étranger 404, viewer 403,
+membre read-only 403 et projet archivé 409. La navigation laboratoire et la purge
+à la déconnexion sont vérifiées ; viewport 390 px sans débordement.
+Routes et gate qualité passent ; index ADR régénéré (443 entrées).
+Artefacts ignorés sous `.genos-tests/studio-genos-d/`.
+
+Limites : le clone ne crée pas un workspace isolé, la branche n'exécute aucun
+candidat et la comparaison n'effectue aucune promotion. Rejeu causal,
+falsification automatisée et exécution d'alternatives isolées restent ouverts.
+
+### D02 — Connaissances et mémoire
+
+Destination `#/memoire` : recherche par mots-clés bornée à 100 décisions du
+projet, enregistrement de justification et références de provenance, inspection
+d'intégrité et transmission à un agent du même projet. `persistDecision` conserve
+le statut provisoire sans sources ; une transmission conserve l'ID/hash/contenu
+source, l'acteur, le destinataire et la raison, avec provenance parent liée.
+Elle ne valide pas la vérité et n'accorde aucune promotion. Aucun provider ou
+embedding externe n'est appelé. L'auteur d'une décision vient du principal
+authentifié, pas du formulaire ; les mémoires non scellées ne sont pas transmissibles.
+
+`node backend/tests/test_studio_memory.cjs` passe : recherche scoped, statut
+provisoire, auteur non falsifiable, transmission réellement persistée, hash parent,
+référence invalide 400, mémoire étrangère 404, altération refusée 409 et contrôles
+RBAC/projet archivé/read-only. Le parcours navigateur D01/D02 passe sans API
+interceptée et qualifie la transmission depuis le formulaire. Capture mémoire
+ignorée sous `.genos-tests/studio-genos-d/studio-memory.png`.
+Routes, rendu des valeurs inconnues et gate qualité passent.
+Limites : pas de retrieval sémantique, consolidation automatique ou transfert
+entre tenants ; source liée ne signifie pas conclusion actuelle validée.
+
+### D03 — Organisme et AgentDNA
+
+Destination `#/organisme` : génomes du projet, sections réellement présentes,
+gènes, signature et phénotype déclaré. La source est lue par ID exact dans son
+tenant, décodée et liée à son hash ; aucun lookup global par nom n'est utilisé.
+Mutation candidate via les arguments CLI existants : taux 0–1, seed explicite,
+version source obligatoire vérifiée avant exécution et avant persistance.
+Le candidat et son événement MUTATION sont persistés atomiquement avec parent,
+hash source, acteur et paramètres. La source n'est pas remplacée ; aucun agent
+n'est déployé, aucun effet fonctionnel ou promotion n'est annoncé.
+
+`node backend/tests/test_studio_genome.cjs` et le navigateur D01–D03 passent
+avec le vrai CLI Rust et `GENOS_BIN` désignant le binaire debug du dépôt principal.
+Probes : lecture étrangère 404, rate/seed invalides 400, version périmée 409,
+mutation native persistée en `candidate`, événement parent et source inchangée,
+refus RBAC/read-only/projet archivé. La fixture AgentDNA comporte six sections,
+pas toutes les sections optionnelles du format ; aucun compteur fictif n'est ajouté.
+Gate qualité et routes passent. Capture ignorée : `studio-organism.png`.
+Limites : pas de composition complète d'organismes, de mesure cognitive ni de
+promotion automatique ; le laboratoire est la prochaine destination de mesure.
+
+### D04 — Diagnostic et reprise
+
+Destination `#/reprise` : incidents du projet, état persisté, observation du PID,
+garanties du dernier run et snapshots du workspace associé. Les valeurs absentes
+restent inconnues ; aucun diagnostic causal n'est fabriqué. L'arrêt réutilise le
+service existant, exige confirmation, écriture et `emergency_kill`, puis vérifie
+la terminaison. Un runtime externe non vérifiable est refusé.
+
+La préparation exige un arrêt confirmé et la prévisualisation d'un snapshot ;
+les chemins des fichiers concernés sont rendus avant l'intervention. Elle rejoint
+l'éditeur existant avec le bon workspace/snapshot et respecte la garde de brouillon.
+La restauration reste séparée, confirmée et accompagnée d'un snapshot de sécurité.
+Une nouvelle lecture de diagnostic invalide la préparation précédente.
+La purge masque désormais toutes les vues et efface résultats/champs des parcours.
+
+`node backend/tests/test_studio_recovery.cjs` passe : lecture scoped, admin sans
+tenant 403, agent étranger 404, absence de confirmation 409, arrêt externe refusé,
+processus réel géré terminé, RBAC/read-only/projet archivé. Le navigateur D01–D04
+arrête réellement son processus de fixture, modifie puis restaure `a/verify.cjs`,
+vérifie les octets et le snapshot de sécurité, sans réponse API interceptée.
+Captures desktop/mobile inspectées ; aucune erreur de page, aucun débordement à
+390 px et texte 200 %, champs nommés, focus de titre et Tab vérifiés.
+
+Limites : la présence d'un PID ne prouve pas son identité ; le garde frontend ne
+verrouille pas atomiquement les nouveaux démarrages pendant la restauration.
+La reprise porte sur les fichiers, pas les effets externes ni une réparation
+nosologique automatique. Les fixtures ne prouvent pas une mission autonome.
+
+### Qualification finale D — 2026-10-07
+
+| Contrôle | Résultat observé |
+| --- | --- |
+| `npm --prefix backend run test:studio` | Code 0 ; 20/20 suites, dont quatre nouveaux services GenOS. |
+| `npm --prefix backend run test:studio:genos` | Code 0 ; quatre parcours, services HTTP/SQLite/filesystem et CLI natif, sans interception API. |
+| `npm --prefix backend run test:studio:foundation` | Code 0 ; gardes et transitions B sans régression. |
+| `npm --prefix backend run test:studio:pilot` | Code 0 ; pilote C réel, refus, restauration et promotion vérifiée. |
+| `python scripts/ci/check_code_quality.py` | Code 0 ; 5 522 sources, zéro violation. |
+| `python scripts/ci/check_adr_index.py` | Code 0 ; 443 ADR, 443 entrées, zéro problème. |
+| `git diff --check` | Code 0. |
+| `cargo test --workspace` | Code 0 ; cache du dépôt principal réutilisé. |
+| `npm test` | Code 1 ; intégrité P0 `public/code.json` refusée ; suites suivantes non certifiées. |
+
+La probe en lecture seule confirme encore les quatre hashes attendus uniquement
+après conversion LF → CRLF en mémoire ; aucun dataset ni lock n'a été modifié.
+Les logs globaux restent ignorés sous `.genos-tests/studio-genos-d/`.
+Le manifeste navigateur conserve la date, la révision, les hashes des sources
+réellement testées et du binaire ; un rejeu après commit rattache la preuve au HEAD.
+La validation globale n'est donc pas déclarée entièrement verte.
+
+Commits : `8458738d` (D01), `dcab4715` (D02), `aa660b86` (D03), puis commit D04
+portant cette qualification. Un commit par tranche, sans fusion ni push implicite.
+Le [guide opérateur](../04-exploitation/studio-parcours-genos.md) précise les étapes,
+autorités et limites. P04–P07 complets, G01–G22 et la parité universelle restent
+ouverts ; ces quatre tranches ne les déclarent pas terminés.
+
+## Étape E — Mécanismes spécialisés
+
+Base `a39bc995`, checkpoint cognitif vérifié `snap-b9afcf338995465f84ab5f72c5000598`.
+L'[ADR 0364](../adr/0364-studio-mecanismes-specialises.md) fixe E01–E05,
+sans confondre catalogue, calcul déclaré, observation et capacité runtime validée.
+
+### E01 — Collectifs sous contrat
+
+Depuis Organisme, `#/collectif` expose huit topologies et les 19 organisations
+du catalogue runtime, leurs capacités requises et l'organisation persistée de
+l'agent lorsqu'elle existe. Disponibilité et autorité non mesurées restent inconnues.
+Un pas collectif réutilise `runTopologyStep` sur données déclarées bornées ;
+aucun worker, routage, budget ou état d'organisation n'est modifié. La sortie est
+scellée comme analyse provisoire avec acteur authentifié et agent scoped, puis
+inspectable dans Mémoire. Cela n'accorde aucune promotion ou autorité collective.
+
+Qualification exécutée : `test_studio_collective.cjs` code 0, les 19 calculs,
+intégrité de l'analyse, refus tenant/droits et entrées invalides. Le navigateur
+`test:studio:specialized` passe sans interception API, viewport 390 px sans
+débordement, sortie purgée à la déconnexion. Routes et rendu passent.
+E01 est committé en `4469a368` ; les points suivants ont leurs commits respectifs.
+
+### E02 — Perception et cognition
+
+Depuis Organisme, `#/perception` expose les capteurs déclarés et les 11 indicateurs
+du producteur cognitif, avec les reçus persistés et leur hash. Sans reçu, aucun
+indicateur n'est réputé exécuté. L'intégrité de contenu n'établit ni causalité ni
+conscience subjective ; une promotion enregistrée n'est pas réévaluée ici.
+Le plan de perception active réutilise le planificateur, budget 0–10, capacités
+de lecture et domaine code ; disponibilité runtime des capteurs non évaluée.
+La probe filesystem réutilise la lecture Studio confinée (256 Kio, pas de secrets,
+symlinks ou traversal), puis conserve une observation canonique de version/taille,
+sans contenu du fichier ni gain d'information inventé. Les analyses sont provisoires.
+
+Qualification : `test_studio_perception.cjs`, vrai fichier/version, reçu issu du
+producteur cognitif, refus tenant/droits, budget invalide, secret, chemin échappant
+et fichier absent. Les erreurs du validateur de chemin sont traduites en refus
+400 comme dans le contrôleur fichier, pas en succès ou panne serveur fictive.
+Le harnais navigateur ajoute plan et probe réels ; pas de boucle sensorimotrice,
+de fovéation, de GAIA ou de contrôle animal intégral revendiqués.
+Les deux commandes passent (code 0) ; l'altération d'un reçu est signalée sans
+confondre son statut stocké avec une preuve actuelle valide.
+
+### E03 — Créativité et biophysique
+
+Depuis Organisme, `#/biomimetique` calcule curiosité/progrès sur historique déclaré
+et enrichit un prompt par représentation NCE, via les services existants.
+Un historique sans progrès produit un score nul, pas une nouveauté fictivement
+efficace. Les nombres, longueurs et historiques sont bornés et attribués au
+principal. Le second outil calcule atténuation Rall et spike NMDA, sans modifier
+l'hôte, le worker ou son organisme. Les deux analyses sont provisoires et scellées.
+
+`test_studio_biomimetic.cjs` passe : calculs comparés aux équations, variation
+du seuil/spike, enrichissement conservé, score sans progrès nul, valeurs invalides,
+droits et tenant refusés. Le navigateur exécute les deux outils sans interception.
+Ni mission NCE complète, ni effet créatif, ni pression/régulation physique de
+l'hôte ne sont établis par ces modèles déclarés. E02 : commit `a935a1ee`.
+
+### E04 — Immunité et nosologie agentiques
+
+Depuis Diagnostic/reprise, `#/sante` lit le catalogue nosologique, ses neuf
+familles et thérapies déclarées, ainsi que l'état clinique persisté, les événements
+et pathologies de l'agent. Les assemblages AEIS proviennent de l'inspecteur
+consommateur existant, avec intégrité/binding vérifiés et distinction acceptation
+historique/validité actuelle ; un dossier absent reste vide.
+
+Sans état clinique, le scan est refusé 409, sans initialisation de valeurs idéales.
+La surveillance réutilise ses seuils et consigne l'événement. Biopsie et
+classification réutilisent les services existants avec binding à l'agent, puis
+conservent les analyses provisoires. L'état clinique n'est pas réécrit par le scan,
+aucune thérapie ou quarantaine n'est appliquée. Classification par seuils ne vaut
+pas cause établie, effet thérapeutique ou conseil médical pour un humain.
+
+Le scan de signatures innées traite un texte borné sans l'exécuter et conserve
+uniquement son empreinte/taille et les signatures trouvées, pas le texte source.
+Absence de signature ne prouve pas la sécurité. Qualification : HTTP et navigateur
+réels, refus sans état, modèle persisté de fixture avec dérive, biopsie/classification,
+absence de traitement, état inchangé, isolation et contrôles d'autorité.
+E03 : commit `c47ff51a`. Immunité adaptative complète, calibration FP/FN et
+traitements autonomes sous autorisations restent des parcours distincts.
+`test_studio_health.cjs` et `test:studio:specialized` passent (code 0). Le champ
+temporel utilisé est `detected_at` du schéma réel ; aucun champ fictif n'est ajouté.
+
+### E05 — Référentiel canonique, écoles et logique
+
+`#/referentiel` rend l'inventaire canonique intégral parcourable par pages,
+avec recherche, domaines et empreinte de catalogue. Les trois registres restent
+distincts : documenté, runtime déclaré, philosophie. Une entrée n'est pas réputée
+exécutée ou autorisée par sa seule présence. L'inspection philosophique expose
+contrat, maturité, classification et voisinage sans dispatcher générique.
+La pagination API peut lier `catalogHash` et refuse les versions changées 409 ;
+le formulaire conserve une pagination manuelle, sans binding automatique du hash.
+
+L'analyse logique réutilise le moteur propositionnel, limitée à 200 caractères,
+huit atomes et 256 valuations. Tautologie, contradiction et contingence sont
+calculées réellement ; l'analyse persistée demeure provisoire et non promotrice.
+Les faits externes ne sont pas vérifiés par la table de vérité.
+
+Le parseur existant rejetait même `A` : sa consommation avançait un curseur
+local alors que le contrôle final lisait sa copie initiale. Le skill diagnostic
+a consigné cette hypothèse ; une seule source de curseur corrige le défaut,
+sans remplacer la sémantique du moteur. Tests propositionnels, modaux,
+déontiques/dynamiques, non classiques et routeur philosophique passent (code 0).
+`test_studio_reference.cjs` parcourt et réconcilie tous les identifiants canoniques,
+vérifie contrats, classifications, intégrité des analyses et refus de scope,
+droits, pagination, formule ou catalogue invalides.
+
+La revue visuelle a aussi révélé une collision du champ `confirmed` : le rendu
+nosologique disait « arrêt confirmé ». Il distingue désormais « classification
+confirmée par seuils » du véritable arrêt, avec assertions de rendu et navigateur.
+Les lignes de table de vérité et titres de groupes sont lisibles en français.
+E04 est committé en `a5bb5627` ; E05 porte ce bilan et sa documentation.
+
+### Qualification transversale E
+
+| Vérification | Résultat exécuté |
+| --- | --- |
+| `npm --prefix backend run test:studio` | Code 0 ; 25/25 suites sur Windows, y compris les cinq familles E. |
+| `test:studio:specialized` | Code 0 ; cinq parcours HTTP/SQLite/fichiers/moteurs réels, aucune interception API. |
+| `test:studio:genos` / `test:studio:pilot` | Codes 0 ; régressions D et C sur services et CLI réels. |
+| `test:studio:foundation` | Code 0 ; régression B sur vrai DOM et API de fixture. |
+| `python scripts/ci/check_code_quality.py` | Code 0 ; 5540 sources, zéro violation nouvelle. |
+| `python scripts/ci/check_adr_index.py` | Code 0 ; 444 ADR, 444 entrées, zéro problème. |
+| `cargo test --workspace` | Code 0, cache du dépôt principal réutilisé. |
+| `npm test` | Code 1 ; intégrité P0 `public/code.json` refusée ; suite globale non certifiée. |
+| `test_philosophical_adapters.js` | Code 1 ; le test attend `supervenes: true`, mais le service retourne `null` / `not_established`. |
+
+La probe P0 en lecture seule confirme les quatre hashes attendus uniquement
+après conversion LF → CRLF en mémoire, sans modifier les datasets ni leur lock.
+La divergence philosophique est également reproduite en chargeant en mémoire
+le service du commit de base `a39bc995` : même résultat `null`, fichiers inchangés.
+Elle précède les appels au parseur corrigé et n'est pas masquée en affirmant
+une supervenience établie. Ces deux écarts restent hors des tranches livrées.
+
+Le manifeste E conserve date, révision, hashes frontend/façade/moteurs/harnais,
+identifiants d'analyses et probes 390 px, texte 200 %, labels, focus et Tab.
+Les cinq sorties sont purgées à la déconnexion. L'état clinique du test E04
+est une fixture persistée explicitement, pas une observation médicale autonome.
+Un rejeu après commit rattache la preuve au HEAD ; les logs et captures restent
+ignorés sous `.genos-tests/studio-specialized-e/`.
+
+Le [guide spécialisé](../04-exploitation/studio-mecanismes-specialises.md)
+décrit procédures, sources et limites. Un commit par tranche E01–E05,
+sans fusion/push implicite. Les domaines spécialisés complets, le contrat
+STUDIO-TARGET-V1 et la parité universelle ne sont pas déclarés terminés.
+
+## Étape F — Boucle de production locale
+
+Base `62f72ddf`, checkpoint cognitif vérifié `snap-8a60b19cd47641f094fe4f97be731319`.
+L'[ADR 0365](../adr/0365-studio-boucle-production-locale.md) fixe trois points.
+La release canonique reste un objet du registre existant ; l'adaptateur Studio
+ne déploie pas un serveur cloud et ne contourne pas les gates de preuve.
+
+### F01 — Préparer une version figée
+
+`#/production` expose les workflows scoped et une préparation explicite de release.
+Le manifeste lie identifiant canonique, version persistée, graphe, métadonnées,
+empreinte et auteur authentifié. Une version préparée n'est pas servie : trafic
+déclaré zéro et état du registre `pending`. Relecture et inspection vérifient
+le manifeste et sa source. Une version altérée ou absente est refusée.
+Création additive/idempotente des tables Studio, sans migration destructive.
+Les tests HTTP vérifient nominal, doublon, tenant, auteur forgé, intégrité et
+droits/projet archivé. Le harnais navigateur utilise HTTP/SQLite réels, sans
+interception API ; captures et manifeste ignorés sous `.genos-tests/studio-production-f/`.
+
+### F02 — Publication locale, revue et retour arrière
+
+F01 : commit `da38b058`, tests HTTP et navigateur code 0, gate staged strict zéro.
+Les slots staging/production sont liés au workflow et versionnés sous CAS.
+L'endpoint authentifié admet un `workflow_run` de la release figée, pas la
+version courante par défaut. Le worker existant vérifie le binding et la source
+avant exécution ; une admission reste `queued`, pas un succès inventé.
+
+La production exige la dernière revue approuvée de la release exacte, par un
+owner/admin explicitement membre du projet. Une exécution staging terminée et
+son empreinte de sortie sont requises. Revue d'une heure, revalidation des droits,
+source, hash et état de run ; ni override forcé ni indépendance prétendue.
+L'approbation autorise une publication locale, pas une promotion cognitive.
+Un rejet ultérieur rend les approbations précédentes inutilisables.
+
+Le rollback rétablit la valeur précédente du slot, ou retire la première
+publication. Précondition de révision, historique et acteur sont persistés
+atomiquement. Il ne supprime pas les runs admis et n'annule pas leurs effets.
+Le test utilise un workflow structurel à deux nœuds, exécuté réellement avec
+deux spans : cela ne valide pas la qualité d'un modèle ou un déploiement cloud.
+
+### F03 — Observer, conserver les retours et améliorer
+
+F02 : commit `67d78dce`, probes HTTP et navigateur passent, gate staged strict zéro.
+Le dossier opérationnel relie slots actuels, invocations, statut, traces, revues
+et retours. Observation historique et version actuellement disponible restent
+distinctes ; coûts/débit/latence non instrumentés restent inconnus.
+Le retour est attribué au principal, lié à release/run/hash de sortie et conservé
+comme mémoire provisoire scellée ; aucune amélioration ou promotion automatique.
+La prochaine version repasse staging et revue, sans réécriture du moteur.
+
+Qualification ciblée : worker réel, deux versions (2/3 nœuds), rollback vers v1
+et nouvel appel v1 alors que le workflow courant est v2, course CAS (un gagnant),
+expiration, révocation d'autorité, rejet remplaçant l'approbation, hash/source/
+binding invalides, refus tenant/droits et mémoire du retour inspectée.
+Un binding supprimé après admission et une source altérée avant exécution
+font réellement échouer le run. Les appels historiques gardent leur contrat.
+Les régressions version snapshot, contrats jobs, deadline, cancel idempotent
+et propagation du scope MCP passent avec environnement de test configuré.
+Le premier lancement de cancel sans password de test échouait au bootstrap ;
+le rejeu avec configuration isolée est distingué de cette erreur d'environnement.
+
+Le harnais navigateur F exerce préparation → staging → run terminé → revue
+refusée puis autorisée → publication → appel production → retrait → observation
+historique → retour. Il utilise HTTP/SQLite/worker réels sans interception API,
+avec fixture structurelle explicitement limitée et aucun fournisseur externe.
+La propagation du workflow vers le formulaire d'appel a été corrigée après
+un timeout dû à la validation HTML d'un champ requis vide, puis rejouée.
+Captures et manifeste ignorés incluent date, révision et hashes des sources.
+
+Le [guide opérateur](../04-exploitation/studio-boucle-production.md) définit
+préconditions, droits, suivi, reprise et inconnus. Le périmètre livré est local,
+pas une certification globale des publications externes, canaux, SSO, HA,
+sauvegardes globales ou C25/C26 complets. Aucun merge/push implicite.
+
+### Qualification transversale F
+
+| Vérification | Résultat exécuté |
+| --- | --- |
+| `npm --prefix backend run test:studio` | Code 0 ; 26/26 suites Windows. |
+| `test:studio:production` | Code 0 ; boucle F complète sur HTTP/SQLite/worker réels, sans interception API. |
+| `test:studio:specialized` / `test:studio:genos` / `test:studio:pilot` | Codes 0 ; régressions E/D/C sur services réels. |
+| `test:studio:foundation` | Code 0 ; vrai DOM, API de fixture, portée B conservée. |
+| Contrôle qualité | Code 0 ; 5556 sources, zéro violation ; gate staged strict avant chaque commit. |
+| Index ADR | Code 0 ; 445 fichiers et entrées, zéro problème. |
+| `cargo test --workspace` | Code 0, cache de compilation existant. |
+| `npm test` | Code 1 ; intégrité P0 `public/code.json` ; pas de certification globale verte. |
+
+La probe en lecture seule confirme encore les quatre empreintes P0 uniquement
+après conversion LF → CRLF en mémoire, sans édition des datasets/locks.
+La divergence de supervenience enregistrée en E n'est pas corrigée par F.
+Les logs globaux, captures desktop/mobile et manifeste de sources restent
+ignorés. Le rejeu final après commit rattache la boucle navigateur au HEAD.
+F03 porte cette qualification et le guide ; F01 `da38b058`, F02 `67d78dce`.
+La revue visuelle a fait préciser les slots : staging publié et production
+retirée portent des noms/états lisibles, pas deux lignes génériques inconnues.

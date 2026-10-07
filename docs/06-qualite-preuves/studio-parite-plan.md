@@ -4,6 +4,17 @@
 - **Dernière revue** : 2026-10-07.
 - **Base** : `codex/studio-completion`, huit lots initiaux à `6a3c7b6f`.
 
+## Articulation avec la cible unifiée
+
+Le [contrat directeur STUDIO-TARGET-V1](../03-reference/studio-contrat-directeur.md)
+fixe désormais la cible commune aux besoins concurrentiels, aux domaines GenOS
+et aux exigences intrinsèques de Studio ([ADR 0360](../adr/0360-studio-cible-unifiee-et-zones-de-livraison.md)).
+Il conserve tous les identifiants de cette matrice et les rattache aux zones Z00–Z20.
+Les états « à la base » ci-dessous restent historiques ; le suivi et les preuves
+décrivent les livraisons. Les 22 domaines GenOS doivent être détaillés concept par
+concept : les dix axes S01–S10 ne constituent pas leur inventaire exhaustif.
+L'étape A fixe la cible, sans qualifier de nouvelles capacités ou annoncer la parité.
+
 ## Contrat de livraison
 
 Un lot se décompose en points atomiques numérotés : un commit par point.

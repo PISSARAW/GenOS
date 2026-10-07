@@ -17,4 +17,8 @@ assert.deepEqual(recordFields({ affectedFilesCount: 0, durable: false, privateTo
   [['Payload durable', 'Non'], ['Fichiers concernés', '0']]);
 const comparison = { sameCapturedInputs: true, jobs: [] };
 assert.deepEqual(collectionGroups(comparison), [['Dossier', [comparison]], ['jobs', []]]);
+assert.deepEqual(recordFields({ confirmed: true }), [['Arrêt confirmé', 'Oui']]);
+const diagnosisFields = recordFields({ confirmed: true, diagnosisScope: 'agent_model_thresholds' });
+assert.ok(diagnosisFields.some(([label, value]) => label === 'Classification confirmée par seuils' && value === 'Oui'));
+assert.equal(diagnosisFields.some(([label]) => label === 'Arrêt confirmé'), false);
 console.log('Studio records: unknowns, zero costs, false guarantees and allowlisted fields passed.');

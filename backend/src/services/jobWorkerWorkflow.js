@@ -24,6 +24,7 @@ function checkpointOutput(checkpoint) {
 }
 
 async function loadRunnableWorkflow(db, run) {
+  await require('./studioProductionDeployment').assertExecution(db, run);
   await assertNotCancelled(db, 'workflow_runs', { id: run.id, message: 'Workflow run was cancelled.', code: 'WORKFLOW_CANCELLED' });
   const workflow = await db.get(
     `SELECT w.*, v.graph_json AS version_graph_json, v.metadata_json AS version_metadata_json

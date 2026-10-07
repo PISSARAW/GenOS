@@ -11,10 +11,67 @@ const labels = [
   ['assemblyAccepted', 'Assemblage accepté'], ['integrityChecked', 'Intégrité vérifiée'],
   ['memories', 'Mémoires liées'], ['strategy', 'Stratégie'], ['label', 'Libellé'],
   ['snapshotHash', 'Empreinte du snapshot'], ['durable', 'Payload durable'],
-  ['affectedFilesCount', 'Fichiers concernés']
+  ['affectedFilesCount', 'Fichiers concernés'], ['snapshotId', 'Snapshot'],
+  ['workspaceSnapshotId', 'Snapshot workspace'], ['workspaceSnapshotHash', 'Empreinte workspace'],
+  ['agentId', 'Agent'], ['workspaceId', 'Workspace'], ['refName', 'Branche'],
+  ['fromCommitId', 'Checkpoint source'], ['clonedAgentId', 'Agent cloné'],
+  ['path', 'Champ comparé'], ['left', 'État source'], ['right', 'État alternatif'],
+  ['identical', 'États identiques'], ['cloneIsolation', 'Isolation du clone'],
+  ['automaticPromotion', 'Promotion automatique'], ['evidenceStatus', 'Statut des sources'],
+  ['evidence_status', 'Statut des sources'], ['provenanceHash', 'Empreinte de provenance'],
+  ['provenance_hash', 'Empreinte de provenance'], ['content', 'Contenu'],
+  ['sourceDecisionId', 'Mémoire source'], ['targetAgentId', 'Agent destinataire'],
+  ['truthValidated', 'Vérité validée'], ['promotionGranted', 'Promotion accordée'],
+  ['contentHash', 'Empreinte du contenu'], ['content_hash', 'Empreinte du contenu'],
+  ['signed', 'Signature présente'], ['signatureValid', 'Signature valide'], ['generation', 'Génération'],
+  ['instruction', 'Instruction déclarée'], ['bytes', 'Octets'], ['rate', 'Taux de mutation'],
+  ['seed', 'Seed'], ['genomeRef', 'Génome candidat'], ['sourceGenomeId', 'Génome source'],
+  ['sourceHash', 'Empreinte source'], ['functionalEffectMeasured', 'Effet fonctionnel mesuré'], ['deployed', 'Déployé'],
+  ['runtimePid', 'Processus'], ['processAlive', 'Processus vivant observé'],
+  ['processObservation', 'Observation du processus'], ['confirmed', 'Arrêt confirmé'], ['stopped', 'Processus arrêté'],
+  ['dissonance', 'Dissonance déclarée'], ['cognitiveBudget', 'Budget cognitif déclaré'],
+  ['diagnosisEstablished', 'Diagnostic établi'], ['externalEffectsReversible', 'Effets externes réversibles'],
+  ['recoveryScope', 'Portée de récupération'], ['severity', 'Sévérité'],
+  ['analysisId', 'Analyse conservée'], ['inputAuthority', 'Autorité des entrées'], ['runtimeApplied', 'Appliqué au runtime'],
+  ['scope', 'Portée'], ['organization', 'Organisation'], ['available', 'Capacités disponibles'],
+  ['authorized', 'Capacités autorisées'], ['exercised', 'Capacités exercées'], ['contractIsExecution', 'Contrat valant exécution'],
+  ['reached', 'Quorum atteint sur ces entrées'], ['support', 'Support calculé'], ['abstentions', 'Abstentions'],
+  ['source', 'Source'], ['version', 'Version'], ['sensorId', 'Capteur'], ['informationGain', 'Gain d’information mesuré'],
+  ['planningOnly', 'Plan uniquement'], ['sensorAvailability', 'Disponibilité des capteurs'],
+  ['causalEstablished', 'Causalité établie'], ['subjectiveConsciousnessEstablished', 'Conscience subjective établie'],
+  ['expectedGain', 'Gain attendu déclaré'], ['target', 'Cible'], ['spent', 'Budget du plan utilisé'],
+  ['curiosityScore', 'Score de curiosité calculé'], ['learningProgress', 'Progrès calculé sur l’historique déclaré'],
+  ['enhancedPrompt', 'Prompt enrichi'], ['creativeEffectMeasured', 'Effet créatif mesuré'], ['creativeScope', 'Portée créative'],
+  ['attenuatedVoltage', 'Amplitude atténuée'], ['outputVoltage', 'Amplitude résultante'], ['isNmdaSpike', 'Spike NMDA du modèle'],
+  ['physicalScope', 'Portée physique'], ['hostEffectMeasured', 'Effet hôte mesuré'],
+  ['clinicalSource', 'Source clinique'], ['automaticTherapy', 'Thérapie automatique'], ['pathologyType', 'Pathologie runtime'],
+  ['biopsyRef', 'Biopsie'], ['recommendedTherapy', 'Thérapie proposée par le modèle'], ['confidence', 'Score du modèle'],
+  ['quarantineRecommended', 'Quarantaine proposée'], ['quarantineApplied', 'Quarantaine appliquée'],
+  ['diagnosisScope', 'Portée du diagnostic'], ['threatScope', 'Portée du scan'], ['absenceProvesSafety', 'Absence prouvant la sécurité'],
+  ['category', 'Famille'], ['event_type', 'Type d’événement'], ['created_at', 'Date persistée'], ['wellnessScore', 'Score du modèle clinique'],
+  ['clinicalStateObserved', 'État clinique persisté disponible'], ['historicalAccepted', 'Accepté historiquement'],
+  ['currentAssuranceStatus', 'Validité actuelle AEIS'], ['namespace', 'Registre'], ['total', 'Résultats'],
+  ['offset', 'Position'], ['limit', 'Limite'], ['nextOffset', 'Page suivante'], ['hasMore', 'Autres pages disponibles'],
+  ['domain', 'Domaine'], ['school', 'École'], ['maturity', 'Maturité déclarée'], ['classification', 'Classification'],
+  ['runtimeAuthority', 'Autorité runtime déclarée'], ['runtimeVerified', 'Runtime qualifié par cette lecture'],
+  ['executableDeclared', 'Exécutable déclaré par le catalogue'], ['formula', 'Formule'], ['rowCount', 'Valuations calculées'],
+  ['semanticScope', 'Portée sémantique'], ['externalFactsVerified', 'Faits externes vérifiés'], ['promotionEligible', 'Éligible à promotion'],
+  ['definition', 'Définition'], ['role', 'Rôle conceptuel'], ['service', 'Service déclaré'], ['value', 'Valeur logique calculée'],
+  ['releaseId', 'Release'], ['workflowId', 'Workflow'], ['releaseHash', 'Empreinte de release'], ['createdBy', 'Auteur'],
+  ['metadataStatus', 'État du registre'], ['adapter', 'Adaptateur'], ['deploymentObserved', 'Version servie observée'],
+  ['environment', 'Environnement'], ['revision', 'Révision du slot'], ['localPublished', 'Version disponible localement'],
+  ['endpoint', 'Endpoint authentifié'], ['rollbackScope', 'Portée du retour arrière'], ['executionCompleted', 'Exécution terminée'],
+  ['runId', 'Appel workflow'], ['reviewId', 'Revue'], ['decision', 'Décision humaine'], ['actor', 'Acteur'],
+  ['expiresAt', 'Expiration de la revue'], ['independentReview', 'Revue indépendante établie'],
+  ['observationScope', 'Source des observations'], ['historicalObservation', 'Observation historique'],
+  ['authorizationRechecked', 'Autorisation revalidée par cette lecture'], ['throughputMeasured', 'Débit mesuré'],
+  ['feedbackId', 'Mémoire du retour'], ['outputHash', 'Empreinte de sortie'], ['traceId', 'Trace'], ['nextStep', 'Étape suivante'],
+  ['count', 'Nombre persisté'], ['note', 'Justification'], ['body', 'Retour conservé'], ['action', 'Action'],
+  ['started_at', 'Début persisté'], ['completed_at', 'Fin persistée'], ['expires_at', 'Expiration persistée']
 ];
 
-const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim'];
+const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome',
+  'step', 'activeOrganization', 'clinicalState', 'concept', 'contract'];
 
 export function humanValue(value) {
   if (value === null || value === undefined) return 'Inconnu';
@@ -26,7 +83,12 @@ export function humanValue(value) {
 
 export function recordFields(record) {
   return labels.filter(([key]) => Object.hasOwn(record, key))
-    .map(([key, label]) => [label, humanValue(record[key])]);
+    .map(field => [recordLabel(record, field), humanValue(record[field[0]])]);
+}
+
+function recordLabel(record, field) {
+  if (field[0] === 'confirmed' && record.diagnosisScope) return 'Classification confirmée par seuils';
+  return field[1];
 }
 
 export function recordTitle(record) {
