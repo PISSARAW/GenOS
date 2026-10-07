@@ -22,7 +22,7 @@ async function approvalRequest(context = {}) {
   const action = String(context.action || '').trim();
   if (!organizationId || !projectId || !action) return { success: false, error: 'organizationId, projectId and action are required.', code: 'APPROVAL_INPUT_REQUIRED' };
   const id = `strategy-approval-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, organization_id, project_id, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, action, context.agentId || null, context.risk || 'high', Number(context.uncertainty || 0), context.requestedBy || context.agentId || 'strategy', organizationId, projectId, JSON.stringify(context.payload || context));
+  await persistApprovalRequest({ db, context, id, action, organizationId, projectId });
   return { success: true, approvalId: id, status: 'pending', action, organizationId, projectId };
 }
 
@@ -46,3 +46,7 @@ async function deadLetterQueue(context = {}) {
 }
 
 module.exports = { uncertaintyGate, activeRefusal, approvalRequest, driftThreshold, deadLetterQueue };
+
+async function persistApprovalRequest({ db, context, id, action, organizationId, projectId }) {
+  await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, organization_id, project_id, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, action, context.agentId || null, context.risk || 'high', Number(context.uncertainty || 0), context.requestedBy || context.agentId || 'strategy', organizationId, projectId, JSON.stringify(context.payload || context));
+}

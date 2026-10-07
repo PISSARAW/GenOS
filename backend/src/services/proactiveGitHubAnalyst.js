@@ -41,14 +41,7 @@ function discoverRepositories(githubRoot = null, maxDepth = 2) {
       if (fs.existsSync(path.join(repoPath, '.git'))) {
         repos.push({ name: entry.name, path: repoPath });
       } else if (maxDepth > 1) {
-        try {
-          const subEntries = fs.readdirSync(repoPath, { withFileTypes: true });
-          for (const sub of subEntries) {
-            if (sub.isDirectory() && fs.existsSync(path.join(repoPath, sub.name, '.git'))) {
-              repos.push({ name: `${entry.name}/${sub.name}`, path: path.join(repoPath, sub.name) });
-            }
-          }
-        } catch (_) {}
+  discoverNestedRepositories(repoPath, entry, repos);
       }
     }
   } catch (err) {
@@ -112,10 +105,7 @@ function analyzeRepository(repoPath) {
 }
 
 function generateProactiveReport(analyses, agentConfig = {}) {
-  const agentName = agentConfig.name || 'Sekou';
-  const personality = agentConfig.personality || "Gardien vigilant et analyste d'architecture de l'écosystème.";
-  const role = agentConfig.role || 'Autonomous GitHub Auditor & Sentinel';
-
+  const { agentName, personality, role } = proactiveReporterIdentity(agentConfig);
   const total = analyses.length;
   const dirtyRepos = analyses.filter((a) => a.dirty);
   const unpushedRepos = analyses.filter((a) => a.ahead > 0);
@@ -143,25 +133,7 @@ function generateProactiveReport(analyses, agentConfig = {}) {
   const urgent = [...new Set([...dirtyRepos, ...unpushedRepos, ...behindRepos])];
   if (urgent.length > 0) {
     md += `## ⚠️ Projets Nécessitant Votre Attention (${urgent.length})\n\n`;
-    for (const repo of urgent) {
-      md += `### 📁 [${repo.name}](${repo.path}) (\`${repo.techStack}\` | branche \`${repo.branch}\`)\n`;
-      if (repo.dirty) {
-        md += `- **Modifications locales** : ${repo.totalChanges} fichier(s) (${repo.modifiedCount} modifiés, ${repo.untrackedCount} non suivis).\n`;
-        if (repo.statusSample.length > 0) {
-          md += `  \`\`\`text\n  ${repo.statusSample.join('\n  ')}\n  \`\`\`\n`;
-        }
-      }
-      if (repo.ahead > 0) {
-        md += `- **Commits en attente de push** : 🚀 **${repo.ahead}** commit(s) devant \`origin/${repo.branch}\`.\n`;
-      }
-      if (repo.behind > 0) {
-        md += `- **Commits distants en attente de pull** : 📥 **${repo.behind}** commit(s) derrière le serveur distant.\n`;
-      }
-      if (repo.recentCommits.length > 0) {
-        md += `- **Dernière activité** : \`${repo.recentCommits[0]}\`\n`;
-      }
-      md += `\n`;
-    }
+    md += attentionReport(urgent);
   } else {
     md += `## ✨ Sérénité Totale\n\nTous vos dépôts sont propres et synchronisés avec leurs serveurs distants ! Excellent travail.\n\n`;
   }
@@ -233,3 +205,45 @@ module.exports = {
   saveReport,
   runFullAudit
 };
+
+function discoverNestedRepositories(repoPath, entry, repos) {
+        try {
+          const subEntries = fs.readdirSync(repoPath, { withFileTypes: true });
+          for (const sub of subEntries) {
+            if (sub.isDirectory() && fs.existsSync(path.join(repoPath, sub.name, '.git'))) {
+              repos.push({ name: `${entry.name}/${sub.name}`, path: path.join(repoPath, sub.name) });
+            }
+          }
+        } catch (_) {}
+}
+
+function attentionReport(urgent) {
+  let md = '';
+    for (const repo of urgent) {
+      md += `### 📁 [${repo.name}](${repo.path}) (\`${repo.techStack}\` | branche \`${repo.branch}\`)\n`;
+      if (repo.dirty) {
+        md += `- **Modifications locales** : ${repo.totalChanges} fichier(s) (${repo.modifiedCount} modifiés, ${repo.untrackedCount} non suivis).\n`;
+        if (repo.statusSample.length > 0) {
+          md += `  \`\`\`text\n  ${repo.statusSample.join('\n  ')}\n  \`\`\`\n`;
+        }
+      }
+      if (repo.ahead > 0) {
+        md += `- **Commits en attente de push** : 🚀 **${repo.ahead}** commit(s) devant \`origin/${repo.branch}\`.\n`;
+      }
+      if (repo.behind > 0) {
+        md += `- **Commits distants en attente de pull** : 📥 **${repo.behind}** commit(s) derrière le serveur distant.\n`;
+      }
+      if (repo.recentCommits.length > 0) {
+        md += `- **Dernière activité** : \`${repo.recentCommits[0]}\`\n`;
+      }
+      md += `\n`;
+    }
+  return md;
+}
+
+function proactiveReporterIdentity(agentConfig) {
+  const agentName = agentConfig.name || 'Sekou';
+  const personality = agentConfig.personality || "Gardien vigilant et analyste d'architecture de l'écosystème.";
+  const role = agentConfig.role || 'Autonomous GitHub Auditor & Sentinel';
+  return { agentName, personality, role };
+}

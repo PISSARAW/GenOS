@@ -32,13 +32,7 @@ async function independentReports(context = {}) {
 async function neutralObserver(context = {}) {
   const reports = reportsFrom(context);
   if (!reports.length) return { success: false, error: 'Reports are required for neutral observation.', code: 'REPORTS_REQUIRED' };
-  const scored = reports.map((report, index) => ({
-    id: String(report.id || `report-${index + 1}`),
-    author: String(report.author || report.agentId || `reviewer-${index + 1}`),
-    verdict: String(report.verdict || report.conclusion || 'undetermined').trim(),
-    evidenceCount: evidenceCount(report),
-    supported: evidenceCount(report) > 0
-  }));
+  const scored = reports.map(scoreObserverReport);
   const supported = scored.filter((report) => report.supported);
   const verdicts = new Map();
   for (const report of supported) verdicts.set(report.verdict, (verdicts.get(report.verdict) || 0) + 1);
@@ -89,3 +83,13 @@ async function securityCoevolution(context = {}) {
 }
 
 module.exports = { independentReports, neutralObserver, synthesizeReports, securityCoevolution };
+
+function scoreObserverReport(report, index) {
+  return {
+    id: String(report.id || `report-${index + 1}`),
+    author: String(report.author || report.agentId || `reviewer-${index + 1}`),
+    verdict: String(report.verdict || report.conclusion || 'undetermined').trim(),
+    evidenceCount: evidenceCount(report),
+    supported: evidenceCount(report) > 0
+  };
+}

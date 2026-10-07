@@ -127,51 +127,26 @@ class AnthonyOrchestrator {
 // CLI runner
 async function main() {
     const orchestrator = new AnthonyOrchestrator();
-    const args = process.argv.slice(2);
-    const command = args[0];
+    const [command, ...args] = process.argv.slice(2);
+    const input = args.join(' ');
+    const handlers = new Map([
+        ['thalamus', () => JSON.stringify(orchestrator.thalamicFilter([input]), null, 2)],
+        ['hippocampus', () => orchestrator.hippocampalConsolidate(args)],
+        ['epigenetics', () => orchestrator.createEpigeneticPointer(input)],
+        ['immune', () => orchestrator.immuneKeyCompress(input)],
+        ['nk', () => orchestrator.naturalKillerScan(input)],
+        ['methylate', () => JSON.stringify(orchestrator.methylateTruth(input), null, 2)],
+        ['pdl1', () => orchestrator.pdl1BlockerScan(input)],
+        ['spiegelman', () => compareSpiegelmanInput(orchestrator, input)],
+        ['thymus', () => orchestrator.thymusSaboteur(input)],
+    ]);
+    const handler = handlers.get(command);
+    console.log(handler ? handler() : '[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1, spiegelman, thymus');
+}
 
-    if (command === 'thalamus') {
-        const input = args.slice(1).join(' ');
-        const result = orchestrator.thalamicFilter([input]);
-        console.log(JSON.stringify(result, null, 2));
-    } else if (command === 'hippocampus') {
-        const inputHistory = args.slice(1);
-        const result = orchestrator.hippocampalConsolidate(inputHistory);
-        console.log(result);
-    } else if (command === 'epigenetics') {
-        const rawData = args.slice(1).join(' ');
-        const result = orchestrator.createEpigeneticPointer(rawData);
-        console.log(result);
-    } else if (command === 'immune') {
-        const errorLog = args.slice(1).join(' ');
-        const result = orchestrator.immuneKeyCompress(errorLog);
-        console.log(result);
-    } else if (command === 'nk') {
-        const testCode = args.slice(1).join(' ');
-        const result = orchestrator.naturalKillerScan(testCode);
-        console.log(result);
-    } else if (command === 'methylate') {
-        const truth = args.slice(1).join(' ');
-        const result = orchestrator.methylateTruth(truth);
-        console.log(JSON.stringify(result, null, 2));
-    } else if (command === 'pdl1') {
-        const code = args.slice(1).join(' ');
-        const result = orchestrator.pdl1BlockerScan(code);
-        console.log(result);
-    } else if (command === 'spiegelman') {
-        // Mocking CLI args for simplicity (oldCode and newCode separated by '|||')
-        const parts = args.slice(1).join(' ').split('|||');
-        const oldCode = parts[0] || '';
-        const newCode = parts[1] || '';
-        const result = orchestrator.spiegelmanMonitor(oldCode, newCode);
-        console.log(result);
-    } else if (command === 'thymus') {
-        const sourceCode = args.slice(1).join(' ');
-        const result = orchestrator.thymusSaboteur(sourceCode);
-        console.log(result);
-} else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1, spiegelman, thymus`);
-    }
+function compareSpiegelmanInput(orchestrator, input) {
+    const parts = input.split('|||');
+    return orchestrator.spiegelmanMonitor(parts[0] || '', parts[1] || '');
 }
 
 // Support execution directly or import

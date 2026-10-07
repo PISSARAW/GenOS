@@ -66,26 +66,10 @@ function normalizedDbPath(value) {
 
 async function getDatabase(dbFilePath) {
   assertControlPlaneBackendSelection();
-  if (dbFilePath) {
-    const targetPath = normalizedDbPath(dbFilePath);
-    process.env.GENOS_DB_PATH = targetPath;
-    if (dbInstance) {
-      if (currentDbPath === targetPath) {
-        return dbInstance;
-      }
-      await closeDatabase();
-    }
-  } else if (dbInstance) {
-    return dbInstance;
-  }
-  const legacyPath = path.resolve(__dirname, '../../genos.db');
-  let defaultPath = process.env.GENOS_DB_PATH || legacyPath;
-  if (!process.env.GENOS_DB_PATH && !fs.existsSync(legacyPath)) {
-    const storage = require('../storage/storagePaths');
-    storage.ensureDirs();
-    defaultPath = storage.FILES.sqlite;
-  }
-  const filename = dbFilePath ? normalizedDbPath(dbFilePath) : normalizedDbPath(defaultPath);
+  const existing = await reuseDatabase(dbFilePath);
+  if (existing) return existing;
+  const filename = databaseFilename(dbFilePath);
+
   // Requests may reach the backend while it is still bootstrapping.  Reuse the
   // same connection/bootstrap promise instead of running two seed passes in
   // parallel inside one Node process.  A pending init for a *different* path
@@ -97,51 +81,8 @@ async function getDatabase(dbFilePath) {
     await closeDatabase();
   }
   pendingDbPath = filename;
-  dbInitialization = (async () => {
-    const db = await open({
-      filename,
-      driver: sqlite3.Database
-    });
-    installBusyRetry(db);
-    initializingDb = db;
-    try {
-      sqliteVec.load(db.db);
-    } catch (err) {
-      console.warn('[DB] sqlite-vec extension could not be loaded:', err.message);
-    }
-    const skipBootstrap = process.env.GENOS_DB_BOOTSTRAP_SKIP === '1';
-    // Reduce SQLITE_BUSY under concurrent writers (bridge + spawned runtime,
-    // multiple agents): wait longer instead of failing immediately, and prefer WAL.
-    try {
-      await configureConnectionPragmas(db, skipBootstrap);
-    } catch (pragmaError) {
-      console.warn('[DB] Could not apply SQLite pragmas:', pragmaError.message);
-    }
-    // Best-effort pre-migration backup — must never block boot or starve a
-    // concurrent writer (e.g. a freshly spawned worker that needs its own
-    // connection). A failure is logged once and the boot continues.
-    if (!skipBootstrap && process.env.GENOS_DB_BACKUP_SKIP !== '1') {
-      try {
-        backupDatabaseFile(filename);
-      } catch (backupError) {
-        console.warn('[DB] Pre-migration backup skipped:', backupError.message);
-      }
-    }
-    if (!skipBootstrap) {
-      await initializeSchema(db);
-      await seedDatabase(db);
-    }
-    configureEpistemicStores(db);
-    // Initialisation best-effort du persister d'état adaptatif hors-process
-    // (Q-values, attractions, stigmergie, registres MCP) : ne jamais bloquer le boot.
-    if (!skipBootstrap) {
-      try { await require('../services/adaptiveStateBootstrap').ensureAdaptivePersister(db); } catch (_) {}
-    }
-    dbInstance = db;
-    currentDbPath = filename;
-    initializingDb = null;
-    return dbInstance;
-  })();
+  dbInitialization = initializeConnection(filename);
+
   try {
     return await dbInitialization;
   } catch (error) {
@@ -252,3 +193,79 @@ module.exports = {
   installBusyRetry,
   backupDatabaseFile
 };
+
+async function initializeConnection(filename) {
+
+    const db = await open({
+      filename,
+      driver: sqlite3.Database
+    });
+    installBusyRetry(db);
+    initializingDb = db;
+    try {
+      sqliteVec.load(db.db);
+    } catch (err) {
+      console.warn('[DB] sqlite-vec extension could not be loaded:', err.message);
+    }
+    const skipBootstrap = process.env.GENOS_DB_BOOTSTRAP_SKIP === '1';
+    // Reduce SQLITE_BUSY under concurrent writers (bridge + spawned runtime,
+    // multiple agents): wait longer instead of failing immediately, and prefer WAL.
+    try {
+      await configureConnectionPragmas(db, skipBootstrap);
+    } catch (pragmaError) {
+      console.warn('[DB] Could not apply SQLite pragmas:', pragmaError.message);
+    }
+    // Best-effort pre-migration backup — must never block boot or starve a
+    // concurrent writer (e.g. a freshly spawned worker that needs its own
+    // connection). A failure is logged once and the boot continues.
+    if (!skipBootstrap && process.env.GENOS_DB_BACKUP_SKIP !== '1') {
+      try {
+        backupDatabaseFile(filename);
+      } catch (backupError) {
+        console.warn('[DB] Pre-migration backup skipped:', backupError.message);
+      }
+    }
+    if (!skipBootstrap) {
+      await initializeSchema(db);
+      await seedDatabase(db);
+    }
+    configureEpistemicStores(db);
+    // Initialisation best-effort du persister d'état adaptatif hors-process
+    // (Q-values, attractions, stigmergie, registres MCP) : ne jamais bloquer le boot.
+    if (!skipBootstrap) {
+      try { await require('../services/adaptiveStateBootstrap').ensureAdaptivePersister(db); } catch (_) {}
+    }
+    dbInstance = db;
+    currentDbPath = filename;
+    initializingDb = null;
+    return dbInstance;
+
+}
+
+function databaseFilename(dbFilePath) {
+  const legacyPath = path.resolve(__dirname, '../../genos.db');
+  let defaultPath = process.env.GENOS_DB_PATH || legacyPath;
+  if (!process.env.GENOS_DB_PATH && !fs.existsSync(legacyPath)) {
+    const storage = require('../storage/storagePaths');
+    storage.ensureDirs();
+    defaultPath = storage.FILES.sqlite;
+  }
+  const filename = dbFilePath ? normalizedDbPath(dbFilePath) : normalizedDbPath(defaultPath);
+  return filename;
+}
+
+async function reuseDatabase(dbFilePath) {
+  if (dbFilePath) {
+    const targetPath = normalizedDbPath(dbFilePath);
+    process.env.GENOS_DB_PATH = targetPath;
+    if (dbInstance) {
+      if (currentDbPath === targetPath) {
+        return dbInstance;
+      }
+      await closeDatabase();
+    }
+  } else if (dbInstance) {
+    return dbInstance;
+  }
+  return dbInstance;
+}

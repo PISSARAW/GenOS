@@ -50,7 +50,7 @@ function diffStructuralStates(left, right, prefix = '') {
     const a = left?.[key];
     const b = right?.[key];
 
-    if (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) {
+    if (areNestedRecords(a, b)) {
       differences.push(...diffStructuralStates(a, b, path));
     } else if (JSON.stringify(a) !== JSON.stringify(b)) {
       differences.push({ path, left: a ?? null, right: b ?? null });
@@ -316,3 +316,7 @@ main().catch((err) => {
   console.error('Fatal benchmark error:', err);
   process.exit(1);
 });
+
+function areNestedRecords(a, b) {
+  return a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b);
+}

@@ -29,9 +29,7 @@ function resolve(framework) {
 async function execute(framework, input = {}, { config = {}, options = {} } = {}) {
   const target = options.target || resolve(framework);
   const traceId = options.traceId || crypto.randomUUID().replace(/-/g, '');
-  const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0
-    ? Math.min(Math.floor(Number(options.timeoutMs)), 30 * 60 * 1000)
-    : 30000;
+  const timeoutMs = frameworkTimeout(options);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
@@ -40,7 +38,7 @@ async function execute(framework, input = {}, { config = {}, options = {} } = {}
   try {
     const response = await (options.fetchFn || fetch)(target.endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', traceparent: traceparent(traceId), ...(target.apiKey ? { Authorization: `Bearer ${target.apiKey}` } : {}) },
+      headers: frameworkHeaders(target, traceId),
       body: JSON.stringify(body(framework, input, config)),
       signal: controller.signal
     });
@@ -59,3 +57,15 @@ async function execute(framework, input = {}, { config = {}, options = {} } = {}
 }
 
 module.exports = { FRAMEWORKS, execute, resolve, traceparent, body };
+
+function frameworkTimeout(options) {
+  const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0
+    ? Math.min(Math.floor(Number(options.timeoutMs)), 30 * 60 * 1000)
+    : 30000;
+  return timeoutMs;
+}
+
+function frameworkHeaders(target, traceId) {
+  return { 'Content-Type': 'application/json', traceparent: traceparent(traceId),
+    ...(target.apiKey ? { Authorization: `Bearer ${target.apiKey}` } : {}) };
+}

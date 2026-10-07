@@ -7,12 +7,7 @@ const genosCli = require('../genosCli');
 
 async function schizogonyBurst(context = {}) {
   const db = await getDatabase();
-  const agentId = context.agentId || context.orchestratorId || context.nodeId || 'schizont_root';
-  const merozoiteCount = Number(context.merozoiteCount ?? context.count ?? 4);
-  const mutationRate = Number(context.mutationRate !== undefined ? context.mutationRate : 0.05);
-  const seed = context.seed || 'mcts_schizogony_burst';
-  const workspaceId = context.workspaceId || 'workspace-default';
-
+  const { agentId, merozoiteCount, mutationRate, seed, workspaceId } = schizogonyOptions(context);
   const divisionResult = await genosCli.runCellDivision({
     agentId,
     mode: 'schizogony',
@@ -21,12 +16,8 @@ async function schizogonyBurst(context = {}) {
     seed
   });
 
-  if (!divisionResult.ok || !divisionResult.json?.success) {
-    return {
-      success: false,
-      error: divisionResult.stderr || divisionResult.json?.error || 'Schizogony CLI execution failed'
-    };
-  }
+  const failure = cellDivisionFailure(divisionResult);
+  if (failure) return failure;
 
   const data = divisionResult.json;
   const progenyIds = data.progeny_genome_ids || [];
@@ -97,12 +88,7 @@ async function backpropagate(context = {}) {
   const nodeId = context.nodeId || context.node_id || context.selectedNode?.id || context.candidateId;
   if (!nodeId) return { success: false, error: 'nodeId is required for backpropagate.' };
 
-  const rewardScore = typeof context.rewardScore === 'number'
-    ? context.rewardScore
-    : (typeof context.reward === 'number' ? context.reward : (context.isFailure ? -1.0 : 1.0));
-  const isFailure = context.isFailure === true || rewardScore < 0;
-  const maxDepth = Number.isInteger(context.maxDepth) ? context.maxDepth : 10;
-
+  const { rewardScore, isFailure, maxDepth } = backpropagationOptions(context);
   const updatedNodes = [];
   let currentId = nodeId;
   let depth = 0;
@@ -111,32 +97,8 @@ async function backpropagate(context = {}) {
     const nodeRow = await db.get('SELECT id, score, visits, metadata FROM lineage_nodes WHERE id = ?', currentId);
     if (!nodeRow) break;
 
-    const oldVisits = Number(nodeRow.visits) || 0;
-    const oldScore = Number(nodeRow.score) || 0;
-    const newVisits = oldVisits + 1;
-
-    let newScore;
-    if (isFailure) {
-      const penalty = Math.abs(rewardScore);
-      newScore = Math.max(-10.0, ((oldScore * oldVisits) - penalty) / newVisits);
-    } else {
-      newScore = ((oldScore * oldVisits) + rewardScore) / newVisits;
-    }
-    newScore = Number(newScore.toFixed(4));
-
-    let meta = {};
-    try {
-      meta = typeof nodeRow.metadata === 'string' ? JSON.parse(nodeRow.metadata || '{}') : (nodeRow.metadata || {});
-    } catch (_) {}
-
-    if (isFailure) {
-      meta.failureCount = (meta.failureCount || 0) + 1;
-      if (meta.failureCount >= (context.pruneThreshold || 2)) {
-        meta.pruned = true;
-        meta.prunedReason = 'Dead end threshold reached in backpropagate';
-      }
-    }
-
+  const { newVisits, newScore } = backpropagatedScore(nodeRow, isFailure, rewardScore);
+  const meta = backpropagatedMetadata(nodeRow, isFailure, context);
     await db.run(
       'UPDATE lineage_nodes SET visits = ?, score = ?, metadata = ? WHERE id = ?',
       newVisits,
@@ -155,15 +117,7 @@ async function backpropagate(context = {}) {
     depth++;
   }
 
-  telemetry.emitEvent({
-    eventType: 'SEARCH_BACKPROPAGATE',
-    agentId: context.agentId || context.orchestratorId || 'strategy_adapter',
-    action: 'BACKPROPAGATE',
-    detail: `Backpropagated reward ${rewardScore} across ${updatedNodes.length} lineage node(s).`,
-    severity: isFailure ? 'warning' : 'info',
-    payload: { nodeId, rewardScore, isFailure, updatedNodes }
-  });
-
+  emitBackpropagation({ context, nodeId, rewardScore, isFailure, updatedNodes });
   return {
     success: true,
     nodeId,
@@ -175,3 +129,75 @@ async function backpropagate(context = {}) {
 }
 
 module.exports = { schizogonyBurst, backpropagate };
+
+function schizogonyOptions(context) {
+  const agentId = context.agentId || context.orchestratorId || context.nodeId || 'schizont_root';
+  const merozoiteCount = Number(context.merozoiteCount ?? context.count ?? 4);
+  const mutationRate = Number(context.mutationRate !== undefined ? context.mutationRate : 0.05);
+  const seed = context.seed || 'mcts_schizogony_burst';
+  const workspaceId = context.workspaceId || 'workspace-default';
+  return { agentId, merozoiteCount, mutationRate, seed, workspaceId };
+}
+
+function backpropagationOptions(context) {
+  const rewardScore = typeof context.rewardScore === 'number'
+    ? context.rewardScore
+    : (typeof context.reward === 'number' ? context.reward : (context.isFailure ? -1.0 : 1.0));
+  const isFailure = context.isFailure === true || rewardScore < 0;
+  const maxDepth = Number.isInteger(context.maxDepth) ? context.maxDepth : 10;
+  return { rewardScore, isFailure, maxDepth };
+}
+
+function backpropagatedScore(nodeRow, isFailure, rewardScore) {
+    const oldVisits = Number(nodeRow.visits) || 0;
+    const oldScore = Number(nodeRow.score) || 0;
+    const newVisits = oldVisits + 1;
+
+    let newScore;
+    if (isFailure) {
+      const penalty = Math.abs(rewardScore);
+      newScore = Math.max(-10.0, ((oldScore * oldVisits) - penalty) / newVisits);
+    } else {
+      newScore = ((oldScore * oldVisits) + rewardScore) / newVisits;
+    }
+    newScore = Number(newScore.toFixed(4));
+  return { newVisits, newScore };
+}
+
+function backpropagatedMetadata(nodeRow, isFailure, context) {
+    let meta = {};
+    try {
+      meta = typeof nodeRow.metadata === 'string' ? JSON.parse(nodeRow.metadata || '{}') : (nodeRow.metadata || {});
+    } catch (_) {}
+
+    if (isFailure) {
+      meta.failureCount = (meta.failureCount || 0) + 1;
+      if (meta.failureCount >= (context.pruneThreshold || 2)) {
+        meta.pruned = true;
+        meta.prunedReason = 'Dead end threshold reached in backpropagate';
+      }
+    }
+  return meta;
+}
+
+function emitBackpropagation({ context, nodeId, rewardScore, isFailure, updatedNodes }) {
+  telemetry.emitEvent({
+    eventType: 'SEARCH_BACKPROPAGATE',
+    agentId: context.agentId || context.orchestratorId || 'strategy_adapter',
+    action: 'BACKPROPAGATE',
+    detail: `Backpropagated reward ${rewardScore} across ${updatedNodes.length} lineage node(s).`,
+    severity: isFailure ? 'warning' : 'info',
+    payload: { nodeId, rewardScore, isFailure, updatedNodes }
+  });
+}
+
+function cellDivisionFailure(divisionResult) {
+  if (!divisionResult.ok || !divisionResult.json?.success) {
+    return {
+      success: false,
+      error: divisionResult.stderr || divisionResult.json?.error || 'Schizogony CLI execution failed'
+    };
+  }
+
+  return null;
+}

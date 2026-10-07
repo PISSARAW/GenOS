@@ -33,9 +33,7 @@ function invalidUrl(message) {
 async function resolvePublicWebhookTarget(rawUrl) {
   let parsed;
   try { parsed = new URL(String(rawUrl || '')); } catch (_) { throw invalidUrl('Webhook URL must be a valid absolute HTTPS URL.'); }
-  if (parsed.protocol !== 'https:') throw invalidUrl('Webhook URL must use HTTPS.');
-  if (parsed.username || parsed.password) throw invalidUrl('Webhook URL must not embed credentials.');
-  if (BLOCKED_HOSTNAME_PATTERN.test(parsed.hostname)) throw invalidUrl('Webhook URL must not target internal hostnames.');
+  assertWebhookHostname(parsed);
   const lookups = await dns.lookup(parsed.hostname, { all: true }).catch(() => []);
   if (!lookups.length) throw invalidUrl(`Webhook hostname does not resolve: ${parsed.hostname}`);
   for (const entry of lookups) {
@@ -129,3 +127,9 @@ function dispatch(event) {
 }
 
 module.exports = { dispatch, accepts, assertPublicWebhookUrl, resolvePublicWebhookTarget };
+
+function assertWebhookHostname(parsed) {
+  if (parsed.protocol !== 'https:') throw invalidUrl('Webhook URL must use HTTPS.');
+  if (parsed.username || parsed.password) throw invalidUrl('Webhook URL must not embed credentials.');
+  if (BLOCKED_HOSTNAME_PATTERN.test(parsed.hostname)) throw invalidUrl('Webhook URL must not target internal hostnames.');
+}

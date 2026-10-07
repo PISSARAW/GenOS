@@ -36,26 +36,36 @@ async function listWorkflows(req, res, next) {
   } catch (error) { next(error); }
 }
 
+function validateWorkflowInput({ name, workspaceId, graph, metadata }) {
+  if (!name || typeof name !== 'string') return { error: { code: 'INVALID_NAME', message: 'Workflow name is required.' } };
+  const validation = validateGraph(graph);
+  if (!validation.valid) return { error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } };
+  if (jsonByteLength(graph) > 2 * 1024 * 1024 || jsonByteLength(metadata) > 512 * 1024) {
+    return { error: { code: 'WORKFLOW_PAYLOAD_TOO_LARGE', message: 'Workflow graph and metadata exceed the configured size limits.' } };
+  }
+  if (!workspaceId || typeof workspaceId !== 'string') return { error: { code: 'WORKSPACE_REQUIRED', message: 'workspaceId is required.' } };
+  return null;
+}
+
+async function insertWorkflowAndVersion(tx, { id, workspaceId, name, description, graph, metadata, s }) {
+  await tx.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json, organization_id, project_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)', id, workspaceId, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata), ...s.params);
+  await tx.run('INSERT INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json) VALUES (?, ?, ?, ?, ?)', `wfv-${crypto.randomUUID()}`, id, 1, JSON.stringify(graph), JSON.stringify(metadata));
+}
+
 async function createWorkflow(req, res, next) {
   try {
     const db = await getDatabase();
     const { name, workspaceId, description = '', graph = { nodes: [], edges: [] }, metadata = {} } = req.body || {};
-    if (!name || typeof name !== 'string') return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workflow name is required.' } });
-    const validation = validateGraph(graph);
-    if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
-    if (jsonByteLength(graph) > 2 * 1024 * 1024 || jsonByteLength(metadata) > 512 * 1024) return res.status(413).json({ error: { code: 'WORKFLOW_PAYLOAD_TOO_LARGE', message: 'Workflow graph and metadata exceed the configured size limits.' } });
-    if (!workspaceId || typeof workspaceId !== 'string') return res.status(400).json({ error: { code: 'WORKSPACE_REQUIRED', message: 'workspaceId is required.' } });
-    const id = `wf-${crypto.randomUUID()}`;
+    const validationError = validateWorkflowInput({ name, workspaceId, graph, metadata });
+    if (validationError) return res.status(400).json(validationError);
+
     const s = scopeSql(req);
-    if (workspaceId && !await db.get(`SELECT id FROM workspaces WHERE id = ? AND ${s.clause}`, workspaceId, ...s.params)) {
-      return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found in this project.' } });
-    }
     const workspace = await db.get(`SELECT id FROM workspaces WHERE id = ? AND ${s.clause}`, workspaceId, ...s.params);
     if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found in this project.' } });
-    await withTransaction(db, async (tx) => {
-      await tx.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json, organization_id, project_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)', id, workspace.id, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata), ...s.params);
-      await tx.run('INSERT INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json) VALUES (?, ?, ?, ?, ?)', `wfv-${crypto.randomUUID()}`, id, 1, JSON.stringify(graph), JSON.stringify(metadata));
-    });
+
+    const id = `wf-${crypto.randomUUID()}`;
+    await withTransaction(db, (tx) => insertWorkflowAndVersion(tx, { id, workspaceId, name, description, graph, metadata, s }));
+
     res.status(201).json(mapWorkflow(await db.get('SELECT * FROM workflows WHERE id = ?', id)));
   } catch (error) { next(error); }
 }
@@ -69,28 +79,101 @@ async function getWorkflow(req, res, next) {
   } catch (error) { next(error); }
 }
 
+function validateWorkflowStatus(status) {
+  return ['draft', 'staging', 'published', 'archived'].includes(status);
+}
+
+function canModifyPublishedWorkflow(existing, reqBody) {
+  return existing.status === 'published' && (reqBody?.graph || reqBody?.name || reqBody?.description !== undefined || reqBody?.metadata);
+}
+
+async function findExistingWorkflow(db, req, id) {
+  const s = scopeSql(req);
+  return db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, id, ...s.params);
+}
+
+function validateStatusTransition(existingStatus, nextStatus) {
+  if (!workflowTransitionAllowed(existingStatus, nextStatus)) {
+    return { error: { code: 'INVALID_STATUS_TRANSITION', message: `Workflow cannot transition from ${existingStatus} to ${nextStatus}.` } };
+  }
+  return null;
+}
+
+function validateGraphUpdate(graph) {
+  const validation = validateGraph(graph);
+  if (!validation.valid) return { error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } };
+  return null;
+}
+
+async function updateWorkflowRecord({ db, req, existing, sClause, sParams }) {
+  const graph = req.body?.graph || parseJson(existing.graph_json, {});
+  const nextStatus = req.body?.status || existing.status;
+  const nextVersion = Number(existing.version || 0) + 1;
+  const metadata = req.body?.metadata || parseJson(existing.metadata_json, {});
+
+  const result = await withTransaction(db, async (tx) => {
+    const update = await tx.run(`UPDATE workflows SET name = ?, description = ?, version = ?, status = ?, graph_json = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ? AND ${sClause}`, req.body?.name || existing.name, req.body?.description ?? existing.description, nextVersion, nextStatus, JSON.stringify(graph), JSON.stringify(metadata), req.params.id, existing.version, ...sParams);
+    if (update.changes !== 1) return null;
+    await tx.run('INSERT INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json) VALUES (?, ?, ?, ?, ?)', `wfv-${crypto.randomUUID()}`, req.params.id, nextVersion, JSON.stringify(graph), JSON.stringify(metadata));
+    return update;
+  });
+  return result;
+}
+
+async function handleWorkflowNotFound(existing, res) {
+  if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
+  return null;
+}
+
+function validateStatusInput(status) {
+  return ['draft', 'staging', 'published', 'archived'].includes(status);
+}
+
+async function validateWorkflowRequest(req, existing) {
+  const statusError = validateWorkflowStatus(req.body?.status);
+  if (req.body?.status && !validateWorkflowStatus(req.body?.status)) return { error: { code: 'INVALID_STATUS', message: 'Workflow status must be draft, staging, published, or archived.' } };
+
+  const transitionError = validateStatusTransition(existing.status, req.body?.status || existing.status);
+  if (transitionError) return { error: transitionError };
+
+  if (canModifyPublishedWorkflow(existing, req.body)) return { error: { code: 'PUBLISHED_WORKFLOW_IMMUTABLE', message: 'Published workflows cannot be modified; create a new version.' } };
+
+  const graphError = validateGraphUpdate(req.body?.graph || parseJson(existing.graph_json, {}));
+  if (graphError) return { error: graphError };
+
+  return null;
+}
+
+function getStatusCode(error) {
+  if (error.code === 'INVALID_STATUS') return 400;
+  if (error.code === 'INVALID_STATUS_TRANSITION') return 409;
+  if (error.code === 'PUBLISHED_WORKFLOW_IMMUTABLE') return 409;
+  return 422;
+}
+
+async function respondWithWorkflow({ db, req, s, res }) {
+  res.json(mapWorkflow(await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params)));
+}
+
+async function processWorkflowUpdate(req, res, next) {
+  const db = await getDatabase();
+  const s = scopeSql(req);
+  const existing = await findExistingWorkflow(db, req, req.params.id);
+  const notFoundError = await handleWorkflowNotFound(existing, res);
+  if (notFoundError) return notFoundError;
+
+  const validationError = await validateWorkflowRequest(req, existing);
+  if (validationError) return res.status(getStatusCode(validationError.error)).json(validationError);
+
+  const result = await updateWorkflowRecord({ db, req, existing, sClause: s.clause, sParams: s.params });
+  if (!result) return res.status(409).json({ error: { code: 'WORKFLOW_VERSION_CONFLICT', message: 'Workflow changed while it was being updated.' } });
+
+  await respondWithWorkflow({ db, req, s, res });
+}
+
 async function updateWorkflow(req, res, next) {
   try {
-    const db = await getDatabase();
-    const s = scopeSql(req); const existing = await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params);
-    if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
-    const graph = req.body?.graph || parseJson(existing.graph_json, {});
-    if (req.body?.status && !['draft', 'staging', 'published', 'archived'].includes(req.body.status)) return res.status(400).json({ error: { code: 'INVALID_STATUS', message: 'Workflow status must be draft, staging, published, or archived.' } });
-    const nextStatus = req.body?.status || existing.status;
-    if (!workflowTransitionAllowed(existing.status, nextStatus)) return res.status(409).json({ error: { code: 'INVALID_STATUS_TRANSITION', message: `Workflow cannot transition from ${existing.status} to ${nextStatus}.` } });
-    if (existing.status === 'published' && (req.body?.graph || req.body?.name || req.body?.description !== undefined || req.body?.metadata)) return res.status(409).json({ error: { code: 'PUBLISHED_WORKFLOW_IMMUTABLE', message: 'Published workflows cannot be modified; create a new version.' } });
-    const validation = validateGraph(graph);
-    if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
-    const nextVersion = Number(existing.version || 0) + 1;
-    const metadata = req.body?.metadata || parseJson(existing.metadata_json, {});
-    const result = await withTransaction(db, async (tx) => {
-      const update = await tx.run(`UPDATE workflows SET name = ?, description = ?, version = ?, status = ?, graph_json = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ? AND ${s.clause}`, req.body?.name || existing.name, req.body?.description ?? existing.description, nextVersion, nextStatus, JSON.stringify(graph), JSON.stringify(metadata), req.params.id, existing.version, ...s.params);
-      if (update.changes !== 1) return null;
-      await tx.run('INSERT INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json) VALUES (?, ?, ?, ?, ?)', `wfv-${crypto.randomUUID()}`, req.params.id, nextVersion, JSON.stringify(graph), JSON.stringify(metadata));
-      return update;
-    });
-    if (!result) return res.status(409).json({ error: { code: 'WORKFLOW_VERSION_CONFLICT', message: 'Workflow changed while it was being updated.' } });
-    res.json(mapWorkflow(await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params)));
+    await processWorkflowUpdate(req, res, next);
   } catch (error) { next(error); }
 }
 

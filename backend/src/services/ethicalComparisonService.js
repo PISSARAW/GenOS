@@ -44,13 +44,13 @@ function compareEthicalFrameworks({ scenario, frameworks = Object.keys(FRAMEWORK
   if (!scenario || typeof scenario !== 'object') throw new Error('ethicalComparisonService requires a scenario object');
   if (!Array.isArray(frameworks) || frameworks.length < 2) throw new Error('ethicalComparisonService requires at least two frameworks');
   const evaluations = frameworks.map((name) => evaluateFramework(name, argumentsByFramework[name] || defaultArguments(name, scenario)));
-  const verdicts = evaluations.map((evaluation) => evaluation.result.verdict || evaluation.result.observations?.verdict || null);
+  const verdicts = evaluations.map((evaluation) => frameworkVerdict(evaluation));
   const uniqueVerdicts = [...new Set(verdicts.filter(Boolean))];
   return {
     scenario,
     evaluations,
     agreements: uniqueVerdicts.length === 1 ? frameworks : [],
-    disagreements: uniqueVerdicts.length > 1 ? evaluations.map((evaluation) => ({ framework: evaluation.framework, verdict: evaluation.result.verdict || evaluation.result.observations?.verdict || null })) : [],
+    disagreements: uniqueVerdicts.length > 1 ? evaluations.map((evaluation) => ({ framework: evaluation.framework, verdict: frameworkVerdict(evaluation) })) : [],
     unresolvedConflicts: uniqueVerdicts.length > 1 ? ['Frameworks use non-equivalent normative criteria.'] : [],
     provenance: comparisonProvenance(scenario, evaluations, { evidenceRefs, assumptions }),
     evidenceStatus: evidenceRefs.length ? 'documented' : 'unverified',
@@ -62,3 +62,7 @@ function compareEthicalFrameworks({ scenario, frameworks = Object.keys(FRAMEWORK
 }
 
 module.exports = { FRAMEWORKS, compareEthicalFrameworks };
+
+function frameworkVerdict(evaluation) {
+  return evaluation.result.verdict || evaluation.result.observations?.verdict || null;
+}

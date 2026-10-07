@@ -87,43 +87,24 @@ function bail(label, payload, code) {
     health = await probeHealth();
     console.log('[INFO] Health backend OK —', JSON.stringify(health));
   } catch (e) {
-    bail('HEALTH', { error: e.message || e }, 2);
+    bail('HEALTH', { error: scanFailureDetail(e) }, 2);
   }
 
   const orchestratorId = 'mcp_orchestrator_autoscan_' + require('crypto').randomUUID().slice(0, 8);
 
-  try {
-    const db = await getDb();
-    await ensureOrchestrator(db, orchestratorId);
-    const dynamicOrg = getDynamicOrg();
-    orgState = await dynamicOrg.getState(db, orchestratorId);
-    if (!orgState) {
-      await dynamicOrg.changeOrganization(db, { orchestratorId, organization: 'specialist_expert_committee', reason: 'Autoscan initialisation' });
-      orgState = await dynamicOrg.getState(db, orchestratorId);
-    }
-  } catch (e) {
-    bail('ORG', { error: e.message || e, orchestratorId }, 3);
-  }
-
+  orgState = await loadOrganization(orchestratorId);
   try {
     const db = await getDb();
     const dynamicOrg = getDynamicOrg();
     inbox = await dynamicOrg.inbox(db, { orchestratorId, requesterAgentId: orchestratorId, limit: 1000 });
   } catch (e) {
-    bail('INBOX', { error: e.message || e, orchestratorId }, 3);
+    bail('INBOX', { error: scanFailureDetail(e), orchestratorId }, 3);
   }
 
   if (!orgState || typeof orgState !== 'object') bail('ORG', orgState, 4);
   if (!inbox || typeof inbox !== 'object') bail('INBOX', inbox, 4);
 
-  const messages = Array.isArray(inbox.messages) ? inbox.messages : [];
-  const unread = messages.filter(m => m && m.read === false).length;
-  const total = messages.length;
-
-  console.log('[INFO] organisation_state:', JSON.stringify({ organization: orgState.organization, version: orgState.version }));
-  console.log(`[INFO] Boîte worker: ${total} message(s), ${unread} non lu(s)`);
-  messages.forEach((m, i) => console.log(`  [${i}] ${m.kind || 'n/a'} — read=${!!m.read} — ${(m.content || JSON.stringify(m)).slice(0, 120)}`));
-
+  const { unread, total } = summarizeInbox(inbox, orgState);
   const report = {
     scan_time: TIMESTAMP,
     host: HOST,
@@ -146,3 +127,35 @@ function bail(label, payload, code) {
   console.error('[ERREUR] Scan échoué:', err && err.stack ? err.stack : err);
   process.exit(9);
 });
+
+async function loadOrganization(orchestratorId) {
+  let orgState;
+  try {
+    const db = await getDb();
+    await ensureOrchestrator(db, orchestratorId);
+    const dynamicOrg = getDynamicOrg();
+    orgState = await dynamicOrg.getState(db, orchestratorId);
+    if (!orgState) {
+      await dynamicOrg.changeOrganization(db, { orchestratorId, organization: 'specialist_expert_committee', reason: 'Autoscan initialisation' });
+      orgState = await dynamicOrg.getState(db, orchestratorId);
+    }
+  } catch (e) {
+    bail('ORG', { error: scanFailureDetail(e), orchestratorId }, 3);
+  }
+  return orgState;
+}
+
+function summarizeInbox(inbox, orgState) {
+  const messages = Array.isArray(inbox.messages) ? inbox.messages : [];
+  const unread = messages.filter(m => m && m.read === false).length;
+  const total = messages.length;
+
+  console.log('[INFO] organisation_state:', JSON.stringify({ organization: orgState.organization, version: orgState.version }));
+  console.log(`[INFO] Boîte worker: ${total} message(s), ${unread} non lu(s)`);
+  messages.forEach((m, i) => console.log(`  [${i}] ${m.kind || 'n/a'} — read=${!!m.read} — ${(m.content || JSON.stringify(m)).slice(0, 120)}`));
+  return { unread, total };
+}
+
+function scanFailureDetail(error) {
+  return error.message || error;
+}

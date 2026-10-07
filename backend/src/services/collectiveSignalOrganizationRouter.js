@@ -104,31 +104,7 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
       routingMode: Array.isArray(recipientAgentIds) ? 'scope_mismatch' : 'local_only' };
   }
 
-  try {
-    const ws = await db.get(
-      `SELECT a.execution_mode as executionMode, w.organization_id as organizationId, w.project_id as projectId
-       FROM agents a JOIN workspaces w ON a.workspace_id = w.id WHERE a.id = ?`,
-      orchestratorId
-    );
-    scope = { orgId: ws?.organizationId, projId: ws?.projectId };
-    if (scope.orgId && scope.projId) await plasticity.loadWeights(db);
-    const rows = Array.isArray(recipientAgentIds)
-      ? await fetchRequestedRecipients({ db, senderId: orchestratorId, scope, requestedIds: [...new Set(recipientAgentIds)] })
-      : ws?.executionMode === 'orchestrator' ? await fetchAgentRecipients(db, orchestratorId, scope) : [];
-    for (const row of rows) {
-      const channelWeight = plasticity.getChannelWeight(orchestratorId, row.id);
-      recipients.push({ kind: 'agent', agentId: row.id, agentName: row.name, weight: channelWeight.weight });
-    }
-    // Sort by plasticity weight descending (most reinforced channels first)
-    recipients.sort((a, b) => (b.weight || 0) - (a.weight || 0));
-    if (!Array.isArray(recipientAgentIds)) {
-      for (const row of await fetchOrgBudgetRecipients(db, scope.projId ? scope.orgId : null)) {
-        recipients.push({ kind: 'organization', organizationId: row.id, organizationName: row.name, budgetMv: row.budget_mv });
-      }
-    }
-  } catch (e) {
-    console.warn('[SignalRouter] routeCollectiveSignal query failed, local-only routing:', e.message);
-  }
+  ({ scope } = await routedRecipients({ db, orchestratorId, recipientAgentIds, recipients }));
 
   const constrained = constrainRecipients(recipients.filter((recipient) => recipient.kind === 'agent'), recipientAgentIds);
   const finalRecipients = Array.isArray(recipientAgentIds) ? constrained.recipients : recipients;
@@ -138,10 +114,8 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
     topic,
     recipients: finalRecipients,
     routed: !constrained.mismatch && finalRecipients.length > 0,
-    routingMode: constrained.mismatch ? 'scope_mismatch' : finalRecipients.length ? 'distributed' : 'local_only',
-    scope: scope.orgId && scope.projId
-      ? { organizationId: scope.orgId, projectId: scope.projId }
-      : null,
+    routingMode: signalRoutingMode(constrained, finalRecipients),
+    scope: signalScope(scope),
   };
 }
 
@@ -159,3 +133,47 @@ module.exports = {
   extractTopic,
   SIGNAL_TOPIC_PREFIXES,
 };
+
+async function routedRecipients({ db, orchestratorId, recipientAgentIds, recipients }) {
+  let scope = { orgId: null, projId: null };
+  try {
+    const ws = await db.get(
+      `SELECT a.execution_mode as executionMode, w.organization_id as organizationId, w.project_id as projectId
+       FROM agents a JOIN workspaces w ON a.workspace_id = w.id WHERE a.id = ?`,
+      orchestratorId
+    );
+    scope = { orgId: ws?.organizationId, projId: ws?.projectId };
+    if (scope.orgId && scope.projId) await plasticity.loadWeights(db);
+  const rows = await signalRecipientRows({ db, recipientAgentIds, orchestratorId, scope, ws });
+    for (const row of rows) {
+      const channelWeight = plasticity.getChannelWeight(orchestratorId, row.id);
+      recipients.push({ kind: 'agent', agentId: row.id, agentName: row.name, weight: channelWeight.weight });
+    }
+    // Sort by plasticity weight descending (most reinforced channels first)
+    recipients.sort((a, b) => (b.weight || 0) - (a.weight || 0));
+    if (!Array.isArray(recipientAgentIds)) {
+      for (const row of await fetchOrgBudgetRecipients(db, scope.projId ? scope.orgId : null)) {
+        recipients.push({ kind: 'organization', organizationId: row.id, organizationName: row.name, budgetMv: row.budget_mv });
+      }
+    }
+  } catch (e) {
+    console.warn('[SignalRouter] routeCollectiveSignal query failed, local-only routing:', e.message);
+  }
+
+  return { scope };
+}
+
+async function signalRecipientRows({ db, recipientAgentIds, orchestratorId, scope, ws }) {
+    const rows = Array.isArray(recipientAgentIds)
+      ? await fetchRequestedRecipients({ db, senderId: orchestratorId, scope, requestedIds: [...new Set(recipientAgentIds)] })
+      : ws?.executionMode === 'orchestrator' ? await fetchAgentRecipients(db, orchestratorId, scope) : [];
+  return rows;
+}
+
+function signalRoutingMode(constrained, recipients) {
+  return constrained.mismatch ? 'scope_mismatch' : recipients.length ? 'distributed' : 'local_only';
+}
+
+function signalScope(scope) {
+  return scope.orgId && scope.projId ? { organizationId: scope.orgId, projectId: scope.projId } : null;
+}

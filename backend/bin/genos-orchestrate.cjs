@@ -298,13 +298,7 @@ async function finalizeOrchestratedMission(input) {
   await executeMorphology({ morphology, outcome, finalVerdict, orchestratorId: id });
 
   const contResult = await applyHomeostasisContinuation({ db, id, task, request, mission, completionGate, homeostasis, organism, finalVerdict, continuity });
-  continuity = contResult.continuity;
-  completionGate = contResult.completionGate;
-  homeostasis = contResult.homeostasis;
-  organism = contResult.organism;
-  finalVerdict = contResult.finalVerdict;
-  outcome = contResult.outcome || outcome;
-  mission = contResult.mission || mission;
+  ({ continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission } = destructureContResult(contResult, { continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission }));
 
   const { finalStatus, finalVerdict: updatedVerdict } = await finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage: null });
   finalVerdict = updatedVerdict;
@@ -316,6 +310,18 @@ async function finalizeOrchestratedMission(input) {
   if (finalStatus.success) await persistChampion(db, outcome);
   emitFinalTelemetry({ telemetryRows: [], runs: [], coverage: null, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
   if (!finalStatus.success && !dormant) process.exitCode = 2;
+}
+
+function destructureContResult(contResult, fallback) {
+  return {
+    continuity: contResult.continuity ?? fallback.continuity,
+    completionGate: contResult.completionGate ?? fallback.completionGate,
+    homeostasis: contResult.homeostasis ?? fallback.homeostasis,
+    organism: contResult.organism ?? fallback.organism,
+    finalVerdict: contResult.finalVerdict ?? fallback.finalVerdict,
+    outcome: contResult.outcome ?? fallback.outcome,
+    mission: contResult.mission ?? fallback.mission
+  };
 }
 
 function computeFinalVerdict(missionSuccess, outcome, completionGate) {

@@ -43,20 +43,7 @@ async function runAdversarialTests() {
   await new Promise(r => server.listen(TEST_PORT, r));
 
   try {
-    // 1. Role Boundary: Viewer trying to execute destructive MCP tool
-    console.log('[Test 1] Viewer attempting to execute destructive tool genos_restore...');
-    const viewerToolRes = await request({
-      method: 'POST',
-      path: '/api/mcp/execute',
-      headers: { Authorization: `Bearer ${TEST_VIEWER_TOKEN}` }
-    }, { toolName: 'genos_restore', args: {} });
-    console.log('  Viewer destructive tool result:', viewerToolRes.status, viewerToolRes.body && viewerToolRes.body.error ? viewerToolRes.body.error.code : 'UNKNOWN');
-    if (viewerToolRes.status === 403 || viewerToolRes.status === 503) {
-      console.log('  -> PASS: Viewer blocked from destructive execution');
-    } else {
-      throw new Error('Viewer allowed destructive execution!');
-    }
-
+  await testViewerRoleBoundary();
     // 2. Unauthenticated write attempt on workspace
     console.log('[Test 2] Unauthenticated write to /api/workspaces...');
     const unauthWsRes = await request({
@@ -131,3 +118,19 @@ runAdversarialTests().catch(err => {
   console.error('Adversarial test error:', err);
   process.exit(1);
 });
+
+async function testViewerRoleBoundary() {
+    // 1. Role Boundary: Viewer trying to execute destructive MCP tool
+    console.log('[Test 1] Viewer attempting to execute destructive tool genos_restore...');
+    const viewerToolRes = await request({
+      method: 'POST',
+      path: '/api/mcp/execute',
+      headers: { Authorization: `Bearer ${TEST_VIEWER_TOKEN}` }
+    }, { toolName: 'genos_restore', args: {} });
+    console.log('  Viewer destructive tool result:', viewerToolRes.status, viewerToolRes.body && viewerToolRes.body.error ? viewerToolRes.body.error.code : 'UNKNOWN');
+    if (viewerToolRes.status === 403 || viewerToolRes.status === 503) {
+      console.log('  -> PASS: Viewer blocked from destructive execution');
+    } else {
+      throw new Error('Viewer allowed destructive execution!');
+    }
+}

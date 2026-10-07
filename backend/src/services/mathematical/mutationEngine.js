@@ -42,16 +42,10 @@ function createMathematicalPlasmid(options = {}) {
     capability: options.capability || '',
     source: options.source || '',
     target: options.target || null,
-    provenance: Object.assign({
-      transferredAt: new Date().toISOString(),
-      sourceFitness: options.sourceFitness || null,
-      sourceGeneration: options.sourceGeneration || 0,
-      originalDiscovery: options.originalDiscovery || null,
-    }, options.provenance),
-    validityDomain: { assumptions: vd.assumptions || [], constraints: vd.constraints || [], domain: vd.domain || 'general' },
+    ...plasmidProvenance(options, vd),
     proofReceipt: options.proofReceipt || null,
     semanticFingerprint: options.semanticFingerprint || computeSemanticFingerprint(options),
-    compatibility: { requiredFitness: c.requiredFitness ?? 0.1, excludedDomains: c.excludedDomains || [], requiredRepresentations: c.requiredRepresentations || [] },
+    compatibility: plasmidCompatibility(c),
     assimilationStatus: 'pending',
   };
 }
@@ -330,3 +324,19 @@ module.exports = {
   PLASMID_TYPES,
   computeSemanticFingerprint,
 };
+
+function plasmidProvenance(options, vd) {
+  return {
+    provenance: Object.assign({
+      transferredAt: new Date().toISOString(),
+      sourceFitness: options.sourceFitness || null,
+      sourceGeneration: options.sourceGeneration || 0,
+      originalDiscovery: options.originalDiscovery || null,
+    }, options.provenance),
+    validityDomain: { assumptions: vd.assumptions || [], constraints: vd.constraints || [], domain: vd.domain || 'general' },
+  };
+}
+
+function plasmidCompatibility(c) {
+  return { requiredFitness: c.requiredFitness ?? 0.1, excludedDomains: c.excludedDomains || [], requiredRepresentations: c.requiredRepresentations || [] };
+}

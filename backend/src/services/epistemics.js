@@ -146,14 +146,7 @@ function evaluatePerception(epistemicData, intendedOperation = null) {
 }
 
 function validateMemoryPerception(memoryItem, options = {}) {
-  const content = typeof memoryItem === 'string'
-    ? memoryItem
-    : (memoryItem?.summary || memoryItem?.content || memoryItem?.title || '');
-  const tags = Array.isArray(memoryItem?.tags) ? memoryItem.tags : [];
-  const isObsolete = tags.includes('obsolete_suppressed') || /\[obsolete\/corrected fact/i.test(content);
-  const isUnverified = tags.includes('unverified') || tags.includes('unproven') || /\[unverified/i.test(content);
-  const placeholder = detectPlaceholderOrHallucination(content);
-
+  const { content, isObsolete, isUnverified, placeholder } = memoryPerceptionFeatures(memoryItem);
   const epistemic = new EpistemicData('memory_core', content, true);
   if (isObsolete || isUnverified || placeholder.isPlaceholder) {
     epistemic.markInvalid('generate');
@@ -170,10 +163,7 @@ function validateMemoryPerception(memoryItem, options = {}) {
 }
 
 function validateToolPerception(toolResult, toolName = 'unknown', options = {}) {
-  const isError = !toolResult || toolResult.success === false || !!toolResult.error;
-  const output = toolResult ? (toolResult.output ?? toolResult.content ?? toolResult) : '';
-  const placeholder = detectPlaceholderOrHallucination(output);
-
+  const { isError, output, placeholder } = toolPerceptionFeatures(toolResult);
   const epistemic = new EpistemicData(`tool:${toolName}`, output, false);
   if (isError || placeholder.isPlaceholder) {
     epistemic.markInvalid('generate');
@@ -196,3 +186,21 @@ module.exports = {
   validateToolPerception
 };
 
+
+function memoryPerceptionFeatures(memoryItem) {
+  const content = typeof memoryItem === 'string'
+    ? memoryItem
+    : (memoryItem?.summary || memoryItem?.content || memoryItem?.title || '');
+  const tags = Array.isArray(memoryItem?.tags) ? memoryItem.tags : [];
+  const isObsolete = tags.includes('obsolete_suppressed') || /\[obsolete\/corrected fact/i.test(content);
+  const isUnverified = tags.includes('unverified') || tags.includes('unproven') || /\[unverified/i.test(content);
+  const placeholder = detectPlaceholderOrHallucination(content);
+  return { content, isObsolete, isUnverified, placeholder };
+}
+
+function toolPerceptionFeatures(toolResult) {
+  const isError = !toolResult || toolResult.success === false || !!toolResult.error;
+  const output = toolResult ? (toolResult.output ?? toolResult.content ?? toolResult) : '';
+  const placeholder = detectPlaceholderOrHallucination(output);
+  return { isError, output, placeholder };
+}

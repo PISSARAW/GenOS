@@ -29,6 +29,10 @@ assert.throws(() => runner.validateManifest({ ...manifest, timeoutMs: 120000, sc
 const completeOutput = { members: [{ status: 'completed' }, { status: 'completed' }], dispatchFailures: [], stateValidation: { status: 'verified' } };
 applySemanticValidation(completeOutput, { status: 'complete', workerCount: 2, coveredWorkers: 2 }, 2);
 assert.equal(completeOutput.complete, true);
+const unverifiedOutput = { members: [{ status: 'completed' }], dispatchFailures: [] };
+applySemanticValidation(unverifiedOutput, { status: 'complete', workerCount: 1, coveredWorkers: 1 }, 1);
+assert.equal(unverifiedOutput.complete, false, 'Semantic coverage cannot replace shared-state verification');
+assert.equal(unverifiedOutput.status, 'partial');
 const partialOutput = { members: [{ status: 'error' }], dispatchFailures: [{ role: 'guardian', reason: 'worker_status_error' }] };
 applySemanticValidation(partialOutput, { status: 'complete', workerCount: 1, coveredWorkers: 1 }, 2);
 assert.equal(partialOutput.complete, false);

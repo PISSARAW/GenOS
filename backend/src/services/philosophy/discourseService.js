@@ -7,8 +7,7 @@ function analyzeReportedSpeech(input = {}) {
   if (!reportedText) throw new Error('reportedText must be a non-empty string.');
   const mode = input.mode || 'direct';
   if (!MODES.has(mode)) throw new Error(`Unknown reported-speech mode '${mode}'.`);
-  const sourceSpeaker = input.sourceSpeaker || null;
-  const reportingSpeaker = input.reportingSpeaker || null;
+  const { sourceSpeaker, reportingSpeaker } = speechSpeakers(input);
   return {
     kind: 'ReportedSpeech',
     mode,
@@ -40,3 +39,9 @@ function analyzeDiscourse(input = {}) {
 }
 
 module.exports = { MODES, analyzeReportedSpeech, analyzeDiscourse };
+
+function speechSpeakers(input) {
+  const sourceSpeaker = input.sourceSpeaker || null;
+  const reportingSpeaker = input.reportingSpeaker || null;
+  return { sourceSpeaker, reportingSpeaker };
+}

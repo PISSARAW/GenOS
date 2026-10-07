@@ -74,7 +74,7 @@ function detectSemanticCycle(sequence, options = {}) {
 
     if (!delta.isNovel && !delta.isProgress) {
       stagnantRounds++;
-      const participants = sequence.slice(i - windowSize, i + 1).map((m) => m.from || m.sender || m.agentId || m.actor || '?');
+      const participants = sequence.slice(i - windowSize, i + 1).map(cycleParticipant);
       participants.forEach((p) => stagnantParticipants.add(p));
     } else {
       stagnantRounds = 0;
@@ -86,7 +86,7 @@ function detectSemanticCycle(sequence, options = {}) {
         hasCycle: true,
         loopType: 'semantic_stagnation',
         cycleParticipants: [...stagnantParticipants],
-        detectedCycle: sequence.slice(i - stagnantRounds, i + 1).map((m) => m.action || m.tool || m.eventType || '?'),
+        detectedCycle: sequence.slice(i - stagnantRounds, i + 1).map(cycleAction),
         budgetPenalized: 0,
         recommendation: 'Loop stagnation detected — no information gain across N transitions. Inject novel evidence or terminate cycle.',
         deltas: deltas.slice(-stagnantRounds - 1),
@@ -116,14 +116,7 @@ async function penalizeBudget(db, targetAgentId, cycleParticipants = []) {
 }
 
 async function cycleDetection(context = {}) {
-  const rawMessages = context.messages || context.turns || context.history || [];
-  const maxRepeats = Number.isInteger(context.maxRepeats) ? context.maxRepeats : 2;
-
-  const seqResult = detectSemanticCycle(rawMessages, {
-    windowSize: context.windowSize || 6,
-    minStagnantRounds: context.minStagnantRounds || 3,
-  });
-
+  const seqResult = cycleFromContext(context);
   if (!seqResult.hasCycle) {
     return {
       success: true,
@@ -179,3 +172,22 @@ async function cycleDetection(context = {}) {
 }
 
 module.exports = { cycleDetection, detectSemanticCycle, computeDeltaInformation, penalizeBudget, extractSemanticSnapshot };
+
+function cycleParticipant(message) {
+  return message.from || message.sender || message.agentId || message.actor || '?';
+}
+
+function cycleAction(message) {
+  return message.action || message.tool || message.eventType || '?';
+}
+
+function cycleFromContext(context) {
+  const rawMessages = context.messages || context.turns || context.history || [];
+  const maxRepeats = Number.isInteger(context.maxRepeats) ? context.maxRepeats : 2;
+
+  const seqResult = detectSemanticCycle(rawMessages, {
+    windowSize: context.windowSize || 6,
+    minStagnantRounds: context.minStagnantRounds || 3,
+  });
+  return seqResult;
+}

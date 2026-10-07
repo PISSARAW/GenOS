@@ -46,40 +46,14 @@ function ensureRoot(rootOverride = null) {
 }
 
 function parseCommandLine(commandLine) {
-  const args = [];
-  let current = '';
-  let quote = null;
+  const state = { args: [], current: '', quote: null };
   const str = String(commandLine);
   for (let i = 0; i < str.length; i++) {
-    const char = str[i];
-    const nextChar = str[i + 1];
-
-    if (char === '\\') {
-      if (quote === "'") {
-        current += char;
-      } else if (nextChar === '"' || nextChar === '\\' || (quote === null && /\s/.test(nextChar))) {
-        current += nextChar;
-        i++;
-      } else {
-        current += char;
-      }
-    } else if (quote) {
-      if (char === quote) quote = null;
-      else current += char;
-    } else if (char === '"' || char === "'") {
-      quote = char;
-    } else if (/\s/.test(char)) {
-      if (current) {
-        args.push(current);
-        current = '';
-      }
-    } else {
-      current += char;
-    }
+    i += consumeCommandCharacter(state, str[i], str[i + 1]);
   }
-  if (quote) throw new Error('Unterminated quote in GenOS CLI command.');
-  if (current) args.push(current);
-  return args;
+  if (state.quote) throw new Error('Unterminated quote in GenOS CLI command.');
+  if (state.current) state.args.push(state.current);
+  return state.args;
 }
 
 module.exports = {
@@ -91,3 +65,31 @@ module.exports = {
   ensureRoot,
   parseCommandLine
 };
+
+function consumeCommandCharacter(state, char, nextChar) {
+  if (char === '\\') {
+    const escaped = escapedCommandCharacter(char, nextChar, state.quote);
+    state.current += escaped.value;
+    return escaped.advance;
+  }
+  if (state.quote) {
+    if (char === state.quote) state.quote = null;
+    else state.current += char;
+  } else if (['"', "'"].includes(char)) {
+    state.quote = char;
+  } else if (/\s/.test(char)) {
+    if (state.current) state.args.push(state.current);
+    state.current = '';
+  } else {
+    state.current += char;
+  }
+  return 0;
+}
+
+function escapedCommandCharacter(char, nextChar, quote) {
+  if (quote === "'") return { value: char, advance: 0 };
+  if (nextChar === '"' || nextChar === '\\' || (quote === null && /\s/.test(nextChar))) {
+    return { value: nextChar, advance: 1 };
+  }
+  return { value: char, advance: 0 };
+}

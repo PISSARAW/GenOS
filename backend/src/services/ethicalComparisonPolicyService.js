@@ -15,10 +15,7 @@ function normalizeComparison(input) {
   const interpretationStatus = input.interpretationStatus || 'interpretive';
   const evidenceStatus = input.evidenceStatus || (evidenceRefs.length ? 'documented' : 'unverified');
   const unresolvedConflicts = list(input.unresolvedConflicts);
-  const requiresReview = input.humanReviewRequired !== false
-    || input.decisionStatus !== REVIEW_STATUS
-    || unresolvedConflicts.length > 0
-    || interpretationStatus !== 'final';
+  const requiresReview = comparisonRequiresReview(input, unresolvedConflicts, interpretationStatus);
   return {
     decisionStatus: input.decisionStatus || 'requires-human-judgment',
     interpretationStatus,
@@ -27,8 +24,7 @@ function normalizeComparison(input) {
     evidenceRefs,
     assumptions,
     unresolvedConflicts,
-    provenanceHash: provenance.provenanceHash || input.provenanceHash || null,
-    provenanceComplete: Boolean(provenance.provenanceHash && frameworkConcepts.length && evidenceRefs.length),
+    ...comparisonProvenanceFields(input, frameworkConcepts, evidenceRefs),
     requireHumanApproval: requiresReview,
     holdPromotion: requiresReview,
   };
@@ -88,3 +84,17 @@ function memoryMetadata(comparison) {
 }
 
 module.exports = { buildPromotionPolicy, evaluatePromotionContext, memoryMetadata, normalizeComparison };
+
+function comparisonRequiresReview(input, unresolvedConflicts, interpretationStatus) {
+  const requiresReview = input.humanReviewRequired !== false
+    || input.decisionStatus !== REVIEW_STATUS
+    || unresolvedConflicts.length > 0
+    || interpretationStatus !== 'final';
+  return requiresReview;
+}
+
+function comparisonProvenanceFields(input, frameworkConcepts, evidenceRefs) {
+  const provenance = input.provenance || {};
+  return { provenanceHash: provenance.provenanceHash || input.provenanceHash || null,
+    provenanceComplete: Boolean(provenance.provenanceHash && frameworkConcepts.length && evidenceRefs.length) };
+}

@@ -191,19 +191,7 @@ function schedule(fn, { provider = 'local', priority = 'bulk', agentId, organiza
   return new Promise((resolve, reject) => {
     let task;
     const timeout = queueTimeoutMs();
-    const timer = timeout > 0 ? setTimeout(() => {
-      if (!task.queued) return;
-      task.queued = false;
-      const lane = PRIORITIES[task.priority] === 0 ? 'interactive' : 'bulk';
-      const index = state.queues[lane].indexOf(task);
-      if (index >= 0) state.queues[lane].splice(index, 1);
-      const providerEntry = state.perProvider.get(task.provider);
-      if (providerEntry) providerEntry.queued -= 1;
-      const error = new Error(`Inference task waited ${timeout}ms in queue; rejecting to bound latency.`);
-      error.code = 'INFERENCE_QUEUE_TIMEOUT';
-      emitTransition('INFERENCE_QUEUE_TIMEOUT', task, { detail: error.message, severity: 'warning' });
-      reject(error);
-    }, timeout) : null;
+    const timer = timeout > 0 ? setTimeout(() => expireQueuedTask(task, timeout, reject), timeout) : null;
 
     task = {
       provider, priority: PRIORITIES[priority] === 0 ? 'interactive' : 'bulk', agentId,
@@ -244,3 +232,19 @@ module.exports = {
   stats,
   reset
 };
+
+function expireQueuedTask(task, timeout, reject) {
+
+  if (!task.queued) return;
+  task.queued = false;
+  const lane = PRIORITIES[task.priority] === 0 ? 'interactive' : 'bulk';
+  const index = state.queues[lane].indexOf(task);
+  if (index >= 0) state.queues[lane].splice(index, 1);
+  const providerEntry = state.perProvider.get(task.provider);
+  if (providerEntry) providerEntry.queued -= 1;
+  const error = new Error(`Inference task waited ${timeout}ms in queue; rejecting to bound latency.`);
+  error.code = 'INFERENCE_QUEUE_TIMEOUT';
+  emitTransition('INFERENCE_QUEUE_TIMEOUT', task, { detail: error.message, severity: 'warning' });
+  reject(error);
+
+}

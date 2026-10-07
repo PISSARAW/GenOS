@@ -22,11 +22,10 @@ function parseProposal(text) {
   const match = String(text || '').match(/\{[\s\S]*\}/);
   if (!match) throw new Error('Local worker did not return a JSON patch proposal.');
   const proposal = JSON.parse(match[0]);
-  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || proposal.format !== 'genos.file-replacement/v1' || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
+  assertProposalSchema(proposal);
   if (proposal.patches.length > 12 || proposal.tests.length < 1 || proposal.tests.length > 2) throw new Error('Patch proposal must contain one or two capsule tests.');
-  for (const patch of proposal.patches) {
-    if (!patch || Object.keys(patch).some((key) => !['path', 'content'].includes(key)) || !safePath(patch.path) || typeof patch.content !== 'string' || Buffer.byteLength(patch.content) > 200000) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
-  }
+  assertProposalPatches(proposal);
+
   return proposal;
 }
 function allowedTest(command, root) {
@@ -137,3 +136,13 @@ async function executeProposal({ workspaceRoot, text }) {
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles, tests, merged: false, testStatus: 'passed' };
 }
 module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState, restorePatchState };
+
+function assertProposalSchema(proposal) {
+  if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || proposal.format !== 'genos.file-replacement/v1' || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
+}
+
+function assertProposalPatches(proposal) {
+  for (const patch of proposal.patches) {
+    if (!patch || Object.keys(patch).some((key) => !['path', 'content'].includes(key)) || !safePath(patch.path) || typeof patch.content !== 'string' || Buffer.byteLength(patch.content) > 200000) throw new Error(`Unsafe patch proposal for '${patch?.path || '<unknown>'}'.`);
+  }
+}

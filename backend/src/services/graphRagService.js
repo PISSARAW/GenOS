@@ -124,84 +124,17 @@ async function fetchTemporalAnchors(timeAnchors = [], db = null, { ownerId = '',
   if (!db || !timeAnchors.length) return [];
   const temporalItems = [];
   const horizonHours = Number.isFinite(options.horizonHours) ? options.horizonHours : 24;
-  const horizonMs = horizonHours * 3600 * 1000;
-
   for (const anchor of timeAnchors) {
     if (!anchor.createdAt) continue;
     const anchorTime = new Date(anchor.createdAt).getTime();
     if (Number.isNaN(anchorTime)) continue;
-
-    const minTime = new Date(anchorTime - horizonMs).toISOString();
-    const maxTime = new Date(anchorTime + horizonMs).toISOString();
-
+    const bounds = { ...options, ownerId, minTime: new Date(anchorTime - horizonHours * 3600 * 1000).toISOString(),
+      maxTime: new Date(anchorTime + horizonHours * 3600 * 1000).toISOString() };
     try {
-      let pastQuery = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE created_at < ? AND created_at >= ? AND id != ?';
-      const pastParams = [anchor.createdAt, minTime, anchor.id];
-      if (ownerId) {
-        pastQuery += ' AND created_by = ?';
-        pastParams.push(ownerId);
-      }
-      if (options.organizationId) {
-        pastQuery += ' AND organization_id = ?';
-        pastParams.push(options.organizationId);
-      }
-      if (options.projectId) {
-        pastQuery += ' AND project_id = ?';
-        pastParams.push(options.projectId);
-      }
-      pastQuery += ' ORDER BY created_at DESC LIMIT 1';
-
-      const prev = await db.get(pastQuery, ...pastParams);
-      if (prev) {
-        temporalItems.push({
-          id: prev.id,
-          title: prev.title,
-          category: prev.category,
-          status: prev.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
-          summary: prev.content,
-          tags: ['genome', 'temporal_context_past'],
-          author: prev.created_by,
-          createdAt: prev.created_at,
-          vector: decodeEmbeddingBlob(prev.embedding_blob),
-          synaptic_weight: prev.synaptic_weight || 1.0,
-          similarityScore: Number(((prev.synaptic_weight || 1.0) * 0.35).toFixed(4)),
-          cosineMetric: 0.45
-        });
-      }
-
-      let nextQuery = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE created_at > ? AND created_at <= ? AND id != ?';
-      const nextParams = [anchor.createdAt, maxTime, anchor.id];
-      if (ownerId) {
-        nextQuery += ' AND created_by = ?';
-        nextParams.push(ownerId);
-      }
-      if (options.organizationId) {
-        nextQuery += ' AND organization_id = ?';
-        nextParams.push(options.organizationId);
-      }
-      if (options.projectId) {
-        nextQuery += ' AND project_id = ?';
-        nextParams.push(options.projectId);
-      }
-      nextQuery += ' ORDER BY created_at ASC LIMIT 1';
-
-      const next = await db.get(nextQuery, ...nextParams);
-      if (next) {
-        temporalItems.push({
-          id: next.id,
-          title: next.title,
-          category: next.category,
-          status: next.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
-          summary: next.content,
-          tags: ['genome', 'temporal_context_future'],
-          author: next.created_by,
-          createdAt: next.created_at,
-          vector: decodeEmbeddingBlob(next.embedding_blob),
-          synaptic_weight: next.synaptic_weight || 1.0,
-          similarityScore: Number(((next.synaptic_weight || 1.0) * 0.35).toFixed(4)),
-          cosineMetric: 0.45
-        });
-      }
+      const prev = await temporalNeighbor(db, anchor, { ...bounds, direction: 'past' });
+      if (prev) temporalItems.push(temporalMemoryRecord(prev, 'past'));
+      const next = await temporalNeighbor(db, anchor, { ...bounds, direction: 'future' });
+      if (next) temporalItems.push(temporalMemoryRecord(next, 'future'));
     } catch {}
   }
   return temporalItems;
@@ -224,54 +157,14 @@ async function expandGraphRag(topItems = [], db = null, options = {}) {
   if (topIds.length > 0 && db) {
     const synapticNeighbors = await traverseSynapses(topIds, db, options);
     for (const item of synapticNeighbors) {
-      if (!topItems.find(t => t.id === item.id) && !connectedItems.find(c => c.id === item.id)) {
+      if (isNewMemory(item.id, topItems, connectedItems)) {
         connectedItems.push(item);
       }
     }
   }
 
-  // 2. Temporal Reasoning (Time Cells)
-  if (topItems.length > 0 && db) {
-    const timeAnchors = topItems.slice(0, 2);
-    const timeNeighbors = await fetchTemporalAnchors(timeAnchors, db, { ...options, ownerId: options.ownerId || '' });
-    for (const item of timeNeighbors) {
-      if (!topItems.find(t => t.id === item.id) && !connectedItems.find(c => c.id === item.id)) {
-        connectedItems.push(item);
-      }
-    }
-  }
-
-  // 3. Dynamic Vector Multi-Hop Fallback
-  if (topItems.length > 0 && options.hormone !== 'adrenaline' && Array.isArray(options.corpus)) {
-    const bestMemVec = topItems[0].vector;
-    if (bestMemVec && bestMemVec.length > 0) {
-      const neighbors = options.corpus
-        .filter(item => item.id !== topItems[0].id && item.vector && item.vector.length > 0)
-        .map(item => ({ item, sim: cosineSimilarity(bestMemVec, item.vector) }))
-        .filter(x => x.sim > 0.55)
-        .sort((a, b) => b.sim - a.sim)
-        .slice(0, 4);
-
-      for (const n of neighbors) {
-        if (!topItems.find(t => t.id === n.item.id) && !connectedItems.find(c => c.id === n.item.id)) {
-          connectedItems.push({
-            id: n.item.id,
-            title: n.item.title,
-            category: n.item.category,
-            status: 'SUCCESS',
-            summary: n.item.summary,
-            tags: [...(n.item.tags || []), 'vector_hop'],
-            author: n.item.author,
-            createdAt: n.item.createdAt,
-            vector: n.item.vector || [],
-            synaptic_weight: n.item.synaptic_weight || 1.0,
-            similarityScore: Number((n.sim * 0.5).toFixed(4)),
-            cosineMetric: n.sim
-          });
-        }
-      }
-    }
-  }
+  await expandTemporalHops({ topItems, db, options, connectedItems });
+  expandVectorHops(topItems, options, connectedItems);
 
   return connectedItems;
 }
@@ -288,7 +181,7 @@ function validateDocumentInput(docId, text) {
   }
 }
 
-async function prepareDocumentRecord(docId, text, scope) {
+async function prepareDocumentRecord(docId, text, { db, ...scope }) {
   const content = String(text || '').slice(0, 1000);
   const title = `Document ${docId}`;
   const { embed } = require('./embeddingProvider');
@@ -302,7 +195,7 @@ async function prepareDocumentRecord(docId, text, scope) {
   return { title, content, buffer };
 }
 
-async function persistDocument(db, docId, record, scope) {
+async function persistDocument(db, docId, { record, scope }) {
   await db.run(
     `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
      VALUES (?, ?, ?, ?, 'graph_rag', 'document', 1.0, ?, ?)
@@ -327,8 +220,8 @@ async function ingestDocument(docId, text, options = {}) {
   const db = options.dbInstance || await getDatabase();
   const { entities, relations } = await nerService.extractEntities(text);
 
-  const record = await prepareDocumentRecord(docId, text, scope);
-  await persistDocument(db, docId, record, scope);
+  const record = await prepareDocumentRecord(docId, text, { ...scope, db });
+  await persistDocument(db, docId, { record, scope });
 
   const enriched = await nerService.enrichKnowledgeGraph(db, { text, decisionId: docId, scope });
 
@@ -395,3 +288,78 @@ module.exports = {
   queryKnowledgeGraph,
   ingestDocument
 };
+
+async function temporalNeighbor(db, anchor, options) {
+  const past = options.direction === 'past';
+  let query = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE '
+    + (past ? 'created_at < ? AND created_at >= ?' : 'created_at > ? AND created_at <= ?') + ' AND id != ?';
+  const params = [anchor.createdAt, past ? options.minTime : options.maxTime, anchor.id];
+  for (const [key, column] of [['ownerId', 'created_by'], ['organizationId', 'organization_id'], ['projectId', 'project_id']]) {
+    if (options[key]) { query += ' AND ' + column + ' = ?'; params.push(options[key]); }
+  }
+  query += past ? ' ORDER BY created_at DESC LIMIT 1' : ' ORDER BY created_at ASC LIMIT 1';
+  return db.get(query, ...params);
+}
+
+function temporalMemoryRecord(row, direction) {
+  return { id: row.id, title: row.title, category: row.category,
+    status: row.category === 'Failure' ? 'FAILURE' : 'SUCCESS', summary: row.content,
+    tags: ['genome', 'temporal_context_' + direction], author: row.created_by, createdAt: row.created_at,
+    vector: decodeEmbeddingBlob(row.embedding_blob), synaptic_weight: row.synaptic_weight || 1.0,
+    similarityScore: Number(((row.synaptic_weight || 1.0) * 0.35).toFixed(4)), cosineMetric: 0.45 };
+}
+
+function expandVectorHops(topItems, options, connectedItems) {
+  // 3. Dynamic Vector Multi-Hop Fallback
+  if (topItems.length > 0 && options.hormone !== 'adrenaline' && Array.isArray(options.corpus)) {
+    const bestMemVec = topItems[0].vector;
+    if (bestMemVec && bestMemVec.length > 0) {
+      const neighbors = options.corpus
+        .filter(item => item.id !== topItems[0].id && item.vector && item.vector.length > 0)
+        .map(item => ({ item, sim: cosineSimilarity(bestMemVec, item.vector) }))
+        .filter(x => x.sim > 0.55)
+        .sort((a, b) => b.sim - a.sim)
+        .slice(0, 4);
+
+      for (const n of neighbors) {
+        if (isNewMemory(n.item.id, topItems, connectedItems)) {
+          connectedItems.push(vectorHopRecord(n));
+        }
+      }
+    }
+  }
+}
+
+function isNewMemory(id, topItems, connectedItems) {
+  return !topItems.find(t => t.id === id) && !connectedItems.find(c => c.id === id);
+}
+
+function vectorHopRecord(n) {
+  return {
+            id: n.item.id,
+            title: n.item.title,
+            category: n.item.category,
+            status: 'SUCCESS',
+            summary: n.item.summary,
+            tags: [...(n.item.tags || []), 'vector_hop'],
+            author: n.item.author,
+            createdAt: n.item.createdAt,
+            vector: n.item.vector || [],
+            synaptic_weight: n.item.synaptic_weight || 1.0,
+            similarityScore: Number((n.sim * 0.5).toFixed(4)),
+            cosineMetric: n.sim
+  };
+}
+
+async function expandTemporalHops({ topItems, db, options, connectedItems }) {
+  // 2. Temporal Reasoning (Time Cells)
+  if (topItems.length > 0 && db) {
+    const timeAnchors = topItems.slice(0, 2);
+    const timeNeighbors = await fetchTemporalAnchors(timeAnchors, db, { ...options, ownerId: options.ownerId || '' });
+    for (const item of timeNeighbors) {
+      if (!topItems.find(t => t.id === item.id) && !connectedItems.find(c => c.id === item.id)) {
+        connectedItems.push(item);
+      }
+    }
+  }
+}

@@ -249,44 +249,36 @@ async function handleInput(input, orchestrator) {
     if (!trimmed) return null;
     const [command, ...rest] = trimmed.split(/\s+/);
     const argument = rest.join(' ');
+    const handlers = new Map([
+        ['help', () => HELP], ['?', () => HELP],
+        ['agents', () => orchestrator.agents.map((a) => `${a.id.padEnd(9)} ${a.role} — ${a.description}`).join('\n')],
+        ['status', () => orchestrator.status()],
+        ['task', () => submitTask(orchestrator, argument)],
+        ['history', () => `[Orchestrator] Historique :\n${orchestrator.renderHistory()}`],
+        ['snapshot', () => saveSnapshot(orchestrator, argument)],
+        ['snapshots', () => `[Orchestrator] Snapshots : ${orchestrator.listSnapshots().join(', ') || 'aucun'}`],
+        ['restore', () => restoreSnapshot(orchestrator, argument)],
+        ['exit', () => '__EXIT__'], ['quit', () => '__EXIT__'], ['q', () => '__EXIT__'],
+    ]);
+    const handler = handlers.get(command.toLowerCase());
+    if (handler) return handler();
+    return submitTask(orchestrator, trimmed);
+}
 
-    switch (command.toLowerCase()) {
-        case 'help':
-        case '?':
-            return HELP;
-        case 'agents':
-            return orchestrator.agents
-                .map((a) => `${a.id.padEnd(9)} ${a.role} — ${a.description}`)
-                .join('\n');
-        case 'status':
-            return orchestrator.status();
-        case 'task':
-            if (!argument) return '[Orchestrator] Usage : task <description>';
-            orchestrator.enqueue(argument);
-            return orchestrator.renderOutcome(await orchestrator.processNext());
-        case 'history':
-            return `[Orchestrator] Historique :\n${orchestrator.renderHistory()}`;
-        case 'snapshot':
-            if (!argument) return '[Orchestrator] Usage : snapshot <nom>';
-            orchestrator.snapshot(argument);
-            return null;
-        case 'snapshots': {
-            const list = orchestrator.listSnapshots();
-            return `[Orchestrator] Snapshots : ${list.join(', ') || 'aucun'}`;
-        }
-        case 'restore': {
-            if (!argument) return '[Orchestrator] Usage : restore <nom>';
-            const error = orchestrator.restore(argument);
-            return error ?? `[Orchestrator] Snapshot "${argument}" restauré.`;
-        }
-        case 'exit':
-        case 'quit':
-        case 'q':
-            return '__EXIT__';
-        default:
-            orchestrator.enqueue(trimmed);
-            return orchestrator.renderOutcome(await orchestrator.processNext());
-    }
+async function submitTask(orchestrator, argument) {
+    if (!argument) return '[Orchestrator] Usage : task <description>';
+    orchestrator.enqueue(argument);
+    return orchestrator.renderOutcome(await orchestrator.processNext());
+}
+function saveSnapshot(orchestrator, argument) {
+    if (!argument) return '[Orchestrator] Usage : snapshot <nom>';
+    orchestrator.snapshot(argument);
+    return null;
+}
+function restoreSnapshot(orchestrator, argument) {
+    if (!argument) return '[Orchestrator] Usage : restore <nom>';
+    const error = orchestrator.restore(argument);
+    return error ?? `[Orchestrator] Snapshot "${argument}" restauré.`;
 }
 
 async function main() {

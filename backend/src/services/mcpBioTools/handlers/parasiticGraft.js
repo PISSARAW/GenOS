@@ -1,3 +1,4 @@
+const { probeBioFeature } = require('../featureProbe');
 const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 
@@ -21,28 +22,11 @@ function getGraft(graftId) {
 }
 
 function handleParasiticGraft(args = {}, run) {
-  const action = args.action || 'status';
-  // Hôte obligatoire (host_id ou autosite_id): aucun défaut silencieux.
-  const autositeId = args.host_id || args.autosite_id;
-  if (autositeId === undefined || autositeId === null || String(autositeId).trim() === '') {
-    return { configured: true, success: false, status: 'invalid_args', error: 'host_id: is required.' };
-  }
-  const graftId = args.graft_id || `graft-${Date.now()}`;
-  const arrestedId = args.arrested_twin_id || 'agent-twin-stalled';
-  const limbs = Array.isArray(args.limbs) ? args.limbs : [
-    { limbName: 'auxiliary_ast_parser', capability: 'ast_analysis', costRating: 0.1 },
-    { limbName: 'residual_memory_cache', capability: 'fast_lookup', costRating: 0.05 }
-  ];
+  const options = parasiticGraftOptions(args);
+  if (options.status === 'invalid_args') return options;
+  const { action, autositeId, graftId, arrestedId, limbs } = options;
 
-  let cliOutput = null;
-  let cliFailed = false;
-  let cliErrorText = null;
-  if (typeof run === 'function') {
-    try {
-      const out = run(`genos biomimicry bio-feature --feature parasitic_graft --action ${quoteCliArg(action)} --param graft_id=${quoteCliArg(graftId)}`);
-      cliOutput = out ? out.toString() : null;
-    } catch (cliProbeError) { cliFailed = true; cliErrorText = cliProbeError && cliProbeError.message ? cliProbeError.message : String(cliProbeError); }
-  }
+  const { cliOutput, cliFailed, cliErrorText } = probeBioFeature(run, `genos biomimicry bio-feature --feature parasitic_graft --action ${quoteCliArg(action)} --param graft_id=${quoteCliArg(graftId)}`);
   if (cliFailed) {
     return { configured: true, success: false, status: 'tool_error', error: cliErrorText };
   }
@@ -50,56 +34,11 @@ function handleParasiticGraft(args = {}, run) {
   const graft = getGraft(graftId);
 
   if (action === 'graft_arrested_twin') {
-    graft.autositeAgentId = autositeId;
-    graft.arrestedTwinId = arrestedId;
-    graft.graftedLimbs = limbs;
-    graft.harvestedTokens = Number(args.harvested_residual_tokens) || 12500;
-    graft.status = 'parasite_assimilated_as_limb';
-    graft.updatedAt = new Date().toISOString();
-
-    return {
-      configured: true,
-      success: true,
-      status: 'parasite_grafted',
-      transport: 'autosite_parasitic_plane',
-      graft_id: graftId,
-      autosite_agent_id: autositeId,
-      assimilated_twin_id: arrestedId,
-      grafted_limbs_count: limbs.length,
-      limbs: graft.graftedLimbs,
-      harvested_tokens: graft.harvestedTokens,
-      output: `Arrested twin '${arrestedId}' converted into parasitic auxiliary appendage for autosite '${autositeId}'. Harvested ${graft.harvestedTokens} residual tokens.`
-    };
+    return ParasiticGraftGraftArrestedTwin({ args, action, autositeId, graftId, arrestedId, limbs, graft, cliOutput, cliFailed, cliErrorText });
   }
 
   if (action === 'invoke_parasitic_limb') {
-    const limbName = args.limb_name || (graft.graftedLimbs[0] ? graft.graftedLimbs[0].limbName : 'default_limb');
-    const inputPayload = args.payload || {};
-    const limb = graft.graftedLimbs.find(l => l.limbName === limbName);
-
-    if (!limb) {
-      return {
-        configured: true,
-        success: false,
-        status: 'limb_not_found',
-        transport: 'autosite_parasitic_plane',
-        graft_id: graftId,
-        output: `Parasitic limb '${limbName}' not found on autosite '${graft.autositeAgentId}'.`
-      };
-    }
-
-    return {
-      configured: true,
-      success: true,
-      status: 'limb_invoked',
-      transport: 'autosite_parasitic_plane',
-      graft_id: graftId,
-      autosite_agent_id: graft.autositeAgentId,
-      invoked_limb: limbName,
-      overhead_tokens_consumed: 5, // ultra-low passive overhead
-      result: `Parasitic limb [${limbName}] executed successfully: ${JSON.stringify(inputPayload)}`,
-      output: `Autosite '${graft.autositeAgentId}' executed subordinate parasitic limb '${limbName}' with zero autonomous container cost.`
-    };
+    return ParasiticGraftInvokeParasiticLimb({ args, action, autositeId, graftId, arrestedId, limbs, graft, cliOutput, cliFailed, cliErrorText });
   }
 
   // Default: status
@@ -185,3 +124,72 @@ module.exports = {
   getAdaptivePersister,
   getSnapshot,
   onMutation};
+
+function ParasiticGraftGraftArrestedTwin({ args, action, autositeId, graftId, arrestedId, limbs, graft, cliOutput, cliFailed, cliErrorText }) {
+  graft.autositeAgentId = autositeId;
+  graft.arrestedTwinId = arrestedId;
+  graft.graftedLimbs = limbs;
+  graft.harvestedTokens = Number(args.harvested_residual_tokens) || 12500;
+  graft.status = 'parasite_assimilated_as_limb';
+  graft.updatedAt = new Date().toISOString();
+
+  return {
+    configured: true,
+    success: true,
+    status: 'parasite_grafted',
+    transport: 'autosite_parasitic_plane',
+    graft_id: graftId,
+    autosite_agent_id: autositeId,
+    assimilated_twin_id: arrestedId,
+    grafted_limbs_count: limbs.length,
+    limbs: graft.graftedLimbs,
+    harvested_tokens: graft.harvestedTokens,
+    output: `Arrested twin '${arrestedId}' converted into parasitic auxiliary appendage for autosite '${autositeId}'. Harvested ${graft.harvestedTokens} residual tokens.`
+  };
+  }
+
+function ParasiticGraftInvokeParasiticLimb({ args, action, autositeId, graftId, arrestedId, limbs, graft, cliOutput, cliFailed, cliErrorText }) {
+  const limbName = args.limb_name || (graft.graftedLimbs[0] ? graft.graftedLimbs[0].limbName : 'default_limb');
+  const inputPayload = args.payload || {};
+  const limb = graft.graftedLimbs.find(l => l.limbName === limbName);
+
+  if (!limb) {
+    return {
+      configured: true,
+      success: false,
+      status: 'limb_not_found',
+      transport: 'autosite_parasitic_plane',
+      graft_id: graftId,
+      output: `Parasitic limb '${limbName}' not found on autosite '${graft.autositeAgentId}'.`
+    };
+  }
+
+  return {
+    configured: true,
+    success: true,
+    status: 'limb_invoked',
+    transport: 'autosite_parasitic_plane',
+    graft_id: graftId,
+    autosite_agent_id: graft.autositeAgentId,
+    invoked_limb: limbName,
+    overhead_tokens_consumed: 5, // ultra-low passive overhead
+    result: `Parasitic limb [${limbName}] executed successfully: ${JSON.stringify(inputPayload)}`,
+    output: `Autosite '${graft.autositeAgentId}' executed subordinate parasitic limb '${limbName}' with zero autonomous container cost.`
+  };
+  }
+
+function parasiticGraftOptions(args) {
+  const action = args.action || 'status';
+  // Hôte obligatoire (host_id ou autosite_id): aucun défaut silencieux.
+  const autositeId = args.host_id || args.autosite_id;
+  if (autositeId === undefined || autositeId === null || String(autositeId).trim() === '') {
+    return { configured: true, success: false, status: 'invalid_args', error: 'host_id: is required.' };
+  }
+  const graftId = args.graft_id || `graft-${Date.now()}`;
+  const arrestedId = args.arrested_twin_id || 'agent-twin-stalled';
+  const limbs = Array.isArray(args.limbs) ? args.limbs : [
+    { limbName: 'auxiliary_ast_parser', capability: 'ast_analysis', costRating: 0.1 },
+    { limbName: 'residual_memory_cache', capability: 'fast_lookup', costRating: 0.05 }
+  ];
+  return { action, autositeId, graftId, arrestedId, limbs };
+}

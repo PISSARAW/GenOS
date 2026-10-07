@@ -20,17 +20,23 @@ function validateRelativePath(field, value) {
 
 export function validateCliArguments(toolName, args = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return 'Tool arguments must be a JSON object.';
+  const requiredError = validateRequiredFields(toolName, args);
+  if (requiredError) return requiredError;
+  for (const field of ['agent', 'out', 'snapshot', 'snapshot_id', 'branch_id', 'output']) {
+    if (args[field] !== undefined) {
+      const error = validateRelativePath(field, args[field]);
+      if (error) return error;
+    }
+  }
+  return null;
+}
+
+function validateRequiredFields(toolName, args) {
   if (toolName === 'genos_replay') {
     if (!nonEmptyString(args.snapshot) && !nonEmptyString(args.snapshot_id)) return 'snapshot or snapshot_id must be provided.';
   } else {
     for (const field of REQUIRED_CLI_FIELDS[toolName] || []) {
       if (!nonEmptyString(args[field])) return `${field} must be a non-empty string.`;
-    }
-  }
-  for (const field of ['agent', 'out', 'snapshot', 'snapshot_id', 'branch_id', 'output']) {
-    if (args[field] !== undefined) {
-      const error = validateRelativePath(field, args[field]);
-      if (error) return error;
     }
   }
   return null;
