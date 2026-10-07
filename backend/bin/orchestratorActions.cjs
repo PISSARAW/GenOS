@@ -161,7 +161,7 @@ async function handleOrganizationChange({ db, request, orchestratorId }) {
   process.stdout.write(JSON.stringify(transition));
 }
 async function handleOrganizationPublish({ db, request, orchestratorId }) {
-  const senderAgentId = process.env.GENOS_AGENT_ID || request.senderAgentId || orchestratorId;
+  const senderAgentId = requiredOrganizationActor();
   const published = await dynamicOrganization.publish(db, {
     orchestratorId, senderAgentId, recipientAgentId: request.recipientAgentId || request.recipient_agent_id,
     kind: request.kind, content: request.content, payload: request.payload,
@@ -177,11 +177,16 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
   process.stdout.write(JSON.stringify(published));
 }
 async function handleOrganizationRead({ db, request, action, orchestratorId }) {
-  const requesterAgentId = process.env.GENOS_AGENT_ID || request.requesterAgentId || orchestratorId;
+  const requesterAgentId = requiredOrganizationActor();
   const result = action === 'organization_state'
     ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
     : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
   process.stdout.write(JSON.stringify(result || { orchestratorId, organization: 'specialist_expert_committee', version: 0 }));
+}
+function requiredOrganizationActor() {
+  const actor = String(process.env.GENOS_AGENT_ID || '').trim();
+  if (!actor) throw new Error('GENOS_AGENT_ID is required for organization communication.');
+  return actor;
 }
 async function handleTeam(opts) {
   const handlers = require('../bin/topologyHandlers.cjs');
