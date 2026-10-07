@@ -9,10 +9,12 @@ async function main() {
   const server = require('../src/app').createApp().listen(14600, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   spec.settings.url = `http://127.0.0.1:${server.address().port}`;
-  const output = path.join(spec.root, 'browser');
-  fs.mkdirSync(output);
+  const output = process.env.GENOS_STUDIO_TEST_ARTIFACTS || path.join(spec.root, 'browser');
+  fs.mkdirSync(output, { recursive: true });
   try {
     await require('./helpers/b06StudioJourney.cjs').run(spec, output);
+    const result = await require('./helpers/studioViewsJourney.cjs').run(spec, output);
+    fs.writeFileSync(path.join(output, 'studio-qualified.json'), JSON.stringify(result, null, 2));
     console.log('Studio browser: real approval, provenance, snapshot, tenant refusal and disconnect passed.');
   } finally {
     await new Promise(resolve => server.close(resolve));

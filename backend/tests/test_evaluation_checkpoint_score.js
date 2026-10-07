@@ -3,6 +3,7 @@ const { executeEvaluation } = require('../src/services/jobWorker');
 
 const scores = [];
 const db = {
+  async exec(sql) { assert.match(sql, /CREATE TABLE IF NOT EXISTS evaluation_job_inputs/); },
   async all() {
     return ['a', 'b', 'c'].map((id) => ({
       id,
@@ -10,7 +11,11 @@ const db = {
       expected_json: JSON.stringify(id === 'c' ? 'different' : id)
     }));
   },
-  async get(sql) { if (sql.includes('evaluation_jobs')) return { status: 'running' }; throw new Error(`Unexpected query: ${sql}`); },
+  async get(sql) {
+    if (sql.includes('evaluation_job_inputs')) return null;
+    if (sql.includes('evaluation_jobs')) return { status: 'running' };
+    throw new Error(`Unexpected query: ${sql}`);
+  },
   async run(sql, ...args) {
     if (sql.startsWith('UPDATE evaluation_jobs SET result_json = ? WHERE')) scores.push(JSON.parse(args[0]).score);
     return { changes: 1 };

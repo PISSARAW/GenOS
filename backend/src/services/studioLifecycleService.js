@@ -16,7 +16,8 @@ async function status(db, scope) {
     'SELECT * FROM studio_restart_requests WHERE id=? AND organization_id=? AND project_id=?',
     scope.operationId, scope.organizationId, scope.projectId) : null;
   return { version: 1, instanceId, pid: process.pid, ready: !draining,
-    supervised: process.env.GENOS_STUDIO_SUPERVISED === '1' && typeof process.send === 'function',
+    mcpHalted: require('./circuitBreaker').getStatus().isHalted,
+    supervised: process.env.GENOS_STUDIO_SUPERVISED === '1' && process.connected === true && typeof process.send === 'function',
     operation: operation ? { id: operation.id, state: operation.instance_id === instanceId ? 'requested' : 'completed',
       previousInstanceId: operation.instance_id, createdAt: operation.created_at } : null };
 }

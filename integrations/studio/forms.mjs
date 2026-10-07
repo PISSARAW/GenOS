@@ -9,6 +9,7 @@ export function field(spec) {
   input.name = name;
   input.required = required;
   input.value = initial;
+  input.defaultValue = initial;
   if (type === 'number') { input.min = '0'; input.step = 'any'; }
   wrapper.append(input);
   return wrapper;

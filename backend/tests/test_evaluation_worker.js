@@ -4,6 +4,7 @@ const { executeEvaluation } = require('../src/services/jobWorker');
 async function main() {
   const updates = [];
   const db = {
+    async exec(sql) { assert.match(sql, /CREATE TABLE IF NOT EXISTS evaluation_job_inputs/); },
     async all(sql) {
       assert.match(sql, /dataset_cases/);
       return [{
@@ -16,6 +17,7 @@ async function main() {
       }];
     },
     async get(sql) {
+      if (sql.includes('evaluation_job_inputs')) return null;
       if (sql.includes('evaluation_jobs')) return { status: 'running' };
       throw new Error(`Unexpected db.get: ${sql}`);
     },

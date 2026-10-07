@@ -11,6 +11,7 @@ function reset() {
   baseline = '';
   byId('file-content').value = '';
   byId('file-path').value = '';
+  byId('restore-id').value = '';
 }
 
 async function listFiles() {
@@ -49,11 +50,12 @@ function base64(text) {
 async function saveFile() {
   const workspace = byId('workspace-choice').value;
   const path = byId('file-path').value;
+  const content = byId('file-content').value;
   const version = opened?.path === path && opened.workspace === workspace ? opened.version : 'missing';
   const response = await api.request(endpoint(), { method: 'PUT',
-    body: { version, contentBase64: base64(byId('file-content').value) } });
+    body: { version, contentBase64: base64(content) } });
   opened = { path, workspace, version: response.version };
-  baseline = byId('file-content').value;
+  baseline = content;
   byId('file-result').textContent = 'Sauvegarde vérifiée : ' + response.version;
 }
 
@@ -73,8 +75,11 @@ export function startFiles() {
   window.addEventListener('studio:cleared', reset);
   byId('workspace-choice').addEventListener('change', reset);
   byId('files-refresh').addEventListener('click', () => perform(listFiles));
-  byId('file-open').addEventListener('click', () => perform(openFile));
-  byId('file-save').addEventListener('click', () => perform(saveFile));
+  byId('file-open').addEventListener('click', () => {
+    if (byId('file-content').value !== baseline && !window.confirm('Abandonner les modifications non sauvegardées ?')) return;
+    perform(openFile);
+  });
+  byId('file-save').addEventListener('click', () => perform(saveFile, { preserveDraft: true }));
   byId('file-diff-button').addEventListener('click', previewDiff);
   byId('editor-snapshot').addEventListener('click', () => perform(async () => {
     await api.request(root() + '/snapshots', { body: { label: 'Studio editor', reason: 'Capture manuelle' } });

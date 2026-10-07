@@ -1,6 +1,6 @@
 # Studio — parcours et acceptation
 
-- **Statut** : Implémentation en cours ; qualification par lot.
+- **Statut** : Huit lots implémentés ; parcours Windows qualifiés, écarts explicites.
 - **Portée** : Studio web et contrats backend requis par les huit lots.
 - **Dernière revue** : 2026-10-07.
 
@@ -43,6 +43,9 @@ exactes, sorties, versions et identifiants des commits sont conservés dans les
 artefacts ignorés. Les gates qualité, npm et Rust sont obligatoires à la clôture.
 
 ## Références
+
+- [Qualification exécutée et écarts](../06-qualite-preuves/studio-qualification.md).
+- [Runbook Studio](../04-exploitation/studio-exploitation.md).
 
 - [ADR 0348](../adr/0348-studio-modulaire-et-parcours-operateur.md).
 - [Contrat produit](contrat-produit-et-completude.md).

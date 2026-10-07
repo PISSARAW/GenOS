@@ -195,6 +195,13 @@ function startIdleTickSchedulerIfDesignated() {
   }
 }
 
+async function drainStudioJobs() {
+  await jobWorker.stopJobWorker({ drain: true, timeoutMs: 30000 });
+  if (process.env.GENOS_STUDIO_SUPERVISED === '1' && jobWorker.inFlightJobs.size) {
+    throw new Error('Job drain not confirmed; supervised restart refused.');
+  }
+}
+
 function registerWorkerShutdown(server, grpcServer, db) {
   let shuttingDown = false;
   const shutdown = async (signal) => {
@@ -204,7 +211,7 @@ function registerWorkerShutdown(server, grpcServer, db) {
     if (process.env.GENOS_STUDIO_SUPERVISED === '1') await require('./src/services/studioStopService').stopAll(db);
     require('./src/services/survivalWakeSchedulerService').stop();
     await require('./src/services/garageRuntimeService').stop(db);
-    await jobWorker.stopJobWorker({ drain: true, timeoutMs: 30000 });
+    await drainStudioJobs();
     signalPlaneSubscriber.stopSignalPlaneSubscriber();
     try { await plasticity.flushPendingWrites(); }
     catch (error) { console.error('[GenOS Backend] Plasticity flush failed:', error); }

@@ -89,7 +89,10 @@ function writeUnlocked(workspace, input) {
   return { path: file.relative, version: digest(buffer), bytes: buffer.length, saved: true };
 }
 
-const write = (workspace, input) => withRestoreLock(workspace.path, () => writeUnlocked(workspace, input));
+function write(workspace, input) {
+  const operation = () => withRestoreLock(workspace.path, () => writeUnlocked(workspace, input));
+  return input.db ? require('../db').withTransaction(input.db, operation) : operation();
+}
 
 function visit(context, directory) {
   if (context.depth > 16 || context.visited >= 5000) { context.truncated = true; return; }
@@ -112,7 +115,10 @@ function addEntry(context, directory, entry) {
     context.truncated ||= child.truncated;
     return;
   }
-  if (entry.isFile()) context.files.push({ path: relative, bytes: fs.statSync(target).size });
+  if (entry.isFile()) {
+    const stat = fs.statSync(target);
+    if (stat.nlink === 1) context.files.push({ path: relative, bytes: stat.size });
+  }
 }
 
 function list(workspace) {

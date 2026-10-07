@@ -20,7 +20,7 @@ async function handle(req, res, operation) {
 const list = (req, res) => handle(req, res, workspace => files.list(workspace));
 const read = (req, res) => handle(req, res, workspace => files.read(workspace, req.query.path));
 const write = (req, res) => handle(req, res, async workspace => {
-  const result = await files.write(workspace, { ...req.body, path: req.query.path });
+  const result = await files.write(workspace, { ...req.body, path: req.query.path, db: await getDatabase() });
   require('../services/telemetryObserver').emitEvent({ eventType: 'STUDIO_FILE_SAVED', agentId: req.user?.username,
     action: 'WRITE', detail: result.path, payload: { workspaceId: workspace.id, organizationId: req.tenant.organizationId,
       projectId: req.tenant.projectId, version: result.version } });

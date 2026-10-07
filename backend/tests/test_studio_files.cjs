@@ -42,11 +42,32 @@ async function main() {
     assert.equal((await request(spec, route)).value.content, original);
     const workspace = await spec.db.get("SELECT path FROM workspaces WHERE id='consumer-ws'");
     assert.equal(fs.readFileSync(path.join(workspace.path, 'studio-test.html'), 'utf8'), original);
+    await hostileFiles(spec, { workspace, base, options });
     console.log('Studio files: exact HTML/UTF-8, concurrent conflict, tenant/path refusals and durable restoration passed.');
   } finally {
     await new Promise(resolve => server.close(resolve));
     await require('../src/db').closeDatabase();
     fs.rmSync(spec.root, { recursive: true, force: true });
   }
+}
+
+async function hostileFiles(spec, context) {
+  const { workspace, base, options } = context;
+  const outside = path.join(spec.root, 'private-test.txt');
+  fs.writeFileSync(outside, 'PRIVATE_TEST_ONLY');
+  fs.linkSync(outside, path.join(workspace.path, 'linked.txt'));
+  assert.equal((await request(spec, base + '/file?path=linked.txt')).status, 403);
+  assert.equal((await request(spec, base + '/file?path=linked.txt', options('missing', 'replace'))).status, 403);
+  assert.equal(fs.readFileSync(outside, 'utf8'), 'PRIVATE_TEST_ONLY');
+  const directory = path.join(spec.root, 'outside-dir');
+  fs.mkdirSync(directory);
+  fs.writeFileSync(path.join(directory, 'hidden.txt'), 'PRIVATE_DIRECTORY');
+  fs.symlinkSync(directory, path.join(workspace.path, 'linked-dir'), process.platform === 'win32' ? 'junction' : 'dir');
+  assert.ok([400, 403].includes((await request(spec, base + '/file?path=linked-dir%2Fhidden.txt')).status));
+  for (const protectedPath of ['con.txt', 'name.txt:Zone.Identifier', 'trailing.']) {
+    assert.equal((await request(spec, base + '/file?path=' + encodeURIComponent(protectedPath))).status, 403);
+  }
+  const list = await request(spec, base + '/editor-files');
+  assert.ok(!list.value.files.some(file => file.path.startsWith('linked-dir/')));
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -10,6 +10,8 @@ export function clearView() {
   byId('inspection').hidden = true;
   for (const element of document.querySelectorAll('[data-runtime]')) element.replaceChildren();
   byId('approval-json').value = '';
+  byId('workspace-choice').value = '';
+  for (const form of document.querySelectorAll('form[data-action]')) form.reset();
   window.dispatchEvent(new Event('studio:cleared'));
 }
 
@@ -26,7 +28,11 @@ export function disconnect() {
   window.dispatchEvent(new Event('studio:session'));
 }
 
-export async function perform(action) {
+function keepDraft(error, options) {
+  return options.preserveDraft && (error.status === 409 || error.name === 'AbortError' || error instanceof TypeError);
+}
+
+export async function perform(action, options = {}) {
   if (state.busy) return;
   const epoch = state.epoch;
   state.busy = true;
@@ -39,7 +45,7 @@ export async function perform(action) {
   } catch (error) {
     if (epoch !== state.epoch) return;
     if (error.status === 401) disconnect();
-    else clearView();
+    else if (!keepDraft(error, options)) clearView();
     byId('message').textContent = error.status === 401 ? 'Session expirée. Reconnectez-vous.' : errorMessage(error);
   } finally {
     if (epoch === state.epoch) {
@@ -103,6 +109,7 @@ export async function discover() {
   const [agents, workspaces] = await Promise.all([api.request('/api/agents'), api.request('/api/workspaces')]);
   options('agents', agents);
   options('workspaces', workspaces);
+  if (!workspaces.some(item => item.id === byId('workspace-choice').value)) byId('workspace-choice').value = workspaces[0]?.id || '';
 }
 
 async function connect() {
@@ -124,8 +131,10 @@ async function connect() {
   });
 }
 
-async function changeScope() {
+async function changeScope(event) {
   if (!api.session) return;
+  if (event.target.id === 'organization') byId('project').value = '';
+  if (event.target.id !== 'agent') byId('agent').value = '';
   const session = { ...api.session, organization: byId('organization').value,
     project: byId('project').value, agent: byId('agent').value };
   state.epoch += 1;

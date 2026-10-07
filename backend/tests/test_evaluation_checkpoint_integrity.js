@@ -3,10 +3,15 @@ const { executeEvaluation } = require('../src/services/jobWorker');
 
 let finalResult;
 const db = {
+  async exec(sql) { assert.match(sql, /CREATE TABLE IF NOT EXISTS evaluation_job_inputs/); },
   async all() {
     return [{ id: 'case-1', input_json: JSON.stringify({ output: 'answer' }), expected_json: JSON.stringify('answer') }];
   },
-  async get(sql) { if (sql.includes('evaluation_jobs')) return { status: 'running' }; throw new Error(`Unexpected query: ${sql}`); },
+  async get(sql) {
+    if (sql.includes('evaluation_job_inputs')) return null;
+    if (sql.includes('evaluation_jobs')) return { status: 'running' };
+    throw new Error(`Unexpected query: ${sql}`);
+  },
   async run(sql, ...args) {
     if (sql.includes('status = ?')) finalResult = JSON.parse(args[1]);
     return { changes: 1 };

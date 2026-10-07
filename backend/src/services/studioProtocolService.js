@@ -11,10 +11,14 @@ function validate(input) {
   if (!String(input.title || '').trim()) throw invalid('Titre requis.');
   if (!Number.isSafeInteger(input.seed)) throw invalid('Seed entier explicite requis.');
   if (!input.protocol?.question || !input.protocol?.falsification) throw invalid('Question et critère de falsification requis.');
-  if (!input.inputs || typeof input.inputs !== 'object' || Array.isArray(input.inputs)) throw invalid('Entrées JSON objet requises.');
+  validateInputs(input.inputs);
   validateBudget(input.budget);
   if (!['L1', 'L2', 'L3', 'L4', 'L5'].includes(input.proofLevel || 'L1')) throw invalid('Niveau persistant L1–L5 requis.');
   if (Buffer.byteLength(JSON.stringify(input)) > 262144) throw invalid('Protocole limité à 256 Kio.');
+}
+
+function validateInputs(inputs) {
+  if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs)) throw invalid('Entrées JSON objet requises.');
 }
 
 function validateBudget(budget) {

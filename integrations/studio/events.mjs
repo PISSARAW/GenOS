@@ -55,11 +55,12 @@ export class EventStream {
   }
 
   async connect(serial, delay) {
-    this.controller = new AbortController();
-    this.api.controllers.add(this.controller);
+    const controller = new AbortController();
+    this.controller = controller;
+    this.api.controllers.add(controller);
     try {
       const response = await this.api.transport('/api/telemetry/stream', {
-        headers: this.api.headers(), signal: this.controller.signal, cache: 'no-store' });
+        headers: this.api.headers(), signal: controller.signal, cache: 'no-store' });
       if (serial !== this.serial) return;
       if (!response.ok) {
         this.callbacks.status('Flux refusé : ' + response.status);
@@ -72,7 +73,7 @@ export class EventStream {
       await readEvents(response.body, event => { if (serial === this.serial) this.receive(event); });
     } catch (error) {
       if (serial === this.serial) this.callbacks.status('Connexion interrompue — nouvelle tentative');
-    } finally { this.api.controllers.delete(this.controller); }
+    } finally { this.api.controllers.delete(controller); }
     if (serial !== this.serial) return;
     this.timer = setTimeout(() => this.connect(serial, Math.min(delay * 2, 30000)), delay);
   }

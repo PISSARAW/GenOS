@@ -8,7 +8,7 @@ let refreshTimer;
 function scheduleRefresh() {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(async () => {
-    if (!api.session || !state.current) return;
+    if (!api.session || !state.current || !byId('live-toggle').checked) return;
     if (state.busy) { scheduleRefresh(); return; }
     await perform(refresh);
   }, 500);
@@ -91,12 +91,20 @@ export function startSupervision() {
   window.addEventListener('studio:session', () => { stream.stop(); clearTimeout(refreshTimer); });
   window.addEventListener('studio:loaded', renderMetrics);
   window.addEventListener('studio:ready', () => {
+    if (!byId('live-toggle').checked) {
+      byId('stream-status').textContent = 'Actualisation manuelle';
+      return;
+    }
     byId('stream-status').textContent = api.allowed('telemetry:read') ? 'Connexion…' : 'Permission telemetry:read requise.';
     stream.start();
   });
   byId('dashboard-refresh').addEventListener('click', () => perform(dashboard));
   byId('live-toggle').addEventListener('change', () => {
     if (byId('live-toggle').checked) stream.start();
-    else { stream.stop(); byId('stream-status').textContent = 'Actualisation manuelle'; }
+    else {
+      stream.stop();
+      clearTimeout(refreshTimer);
+      byId('stream-status').textContent = 'Actualisation manuelle';
+    }
   });
 }

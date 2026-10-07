@@ -41,6 +41,15 @@ La matrice des huit lots et les critères d'acceptation sont conservés dans
 
 ## Conséquences
 
+Les écritures conditionnelles et restaurations Studio prennent une transaction
+SQLite avant le verrou local, dans le même ordre. Cela sérialise les acteurs
+backend coopératifs entre processus sans prétendre verrouiller tout acteur OS.
+
+Les jobs d'évaluation capturent cas et configuration avec empreinte des cas et provenance
+du rejeu. Un historique sans capture est refusé pour le rejeu fidèle.
+Les protocoles scientifiques enregistrent seed, budget et entrées ; leur budget
+reste déclaré et leur enregistrement ne remplace pas un moteur de trials.
+
 Chaque lot dispose d'un commit et de tests adaptés. Les nouvelles interfaces
 respectent les gates existants et les limites de qualité du dépôt. Les preuves
 générées et les secrets restent hors Git. La qualification d'une plateforme
