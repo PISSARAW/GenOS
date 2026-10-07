@@ -15,7 +15,7 @@ export function clearView() {
   state.runSearch = '';
   byId('run-more').hidden = true;
   byId('run-list').setAttribute('aria-busy', 'false');
-  byId('inspection').hidden = true;
+  for (const view of document.querySelectorAll('[data-view]')) view.hidden = true;
   for (const element of document.querySelectorAll('[data-runtime]')) element.replaceChildren();
   byId('approval-json').value = '';
   byId('workspace-choice').value = '';

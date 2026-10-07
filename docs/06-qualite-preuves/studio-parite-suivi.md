@@ -446,3 +446,58 @@ pas toutes les sections optionnelles du format ; aucun compteur fictif n'est ajo
 Gate qualité et routes passent. Capture ignorée : `studio-organism.png`.
 Limites : pas de composition complète d'organismes, de mesure cognitive ni de
 promotion automatique ; le laboratoire est la prochaine destination de mesure.
+
+### D04 — Diagnostic et reprise
+
+Destination `#/reprise` : incidents du projet, état persisté, observation du PID,
+garanties du dernier run et snapshots du workspace associé. Les valeurs absentes
+restent inconnues ; aucun diagnostic causal n'est fabriqué. L'arrêt réutilise le
+service existant, exige confirmation, écriture et `emergency_kill`, puis vérifie
+la terminaison. Un runtime externe non vérifiable est refusé.
+
+La préparation exige un arrêt confirmé et la prévisualisation d'un snapshot ;
+les chemins des fichiers concernés sont rendus avant l'intervention. Elle rejoint
+l'éditeur existant avec le bon workspace/snapshot et respecte la garde de brouillon.
+La restauration reste séparée, confirmée et accompagnée d'un snapshot de sécurité.
+Une nouvelle lecture de diagnostic invalide la préparation précédente.
+La purge masque désormais toutes les vues et efface résultats/champs des parcours.
+
+`node backend/tests/test_studio_recovery.cjs` passe : lecture scoped, admin sans
+tenant 403, agent étranger 404, absence de confirmation 409, arrêt externe refusé,
+processus réel géré terminé, RBAC/read-only/projet archivé. Le navigateur D01–D04
+arrête réellement son processus de fixture, modifie puis restaure `a/verify.cjs`,
+vérifie les octets et le snapshot de sécurité, sans réponse API interceptée.
+Captures desktop/mobile inspectées ; aucune erreur de page, aucun débordement à
+390 px et texte 200 %, champs nommés, focus de titre et Tab vérifiés.
+
+Limites : la présence d'un PID ne prouve pas son identité ; le garde frontend ne
+verrouille pas atomiquement les nouveaux démarrages pendant la restauration.
+La reprise porte sur les fichiers, pas les effets externes ni une réparation
+nosologique automatique. Les fixtures ne prouvent pas une mission autonome.
+
+### Qualification finale D — 2026-10-07
+
+| Contrôle | Résultat observé |
+| --- | --- |
+| `npm --prefix backend run test:studio` | Code 0 ; 20/20 suites, dont quatre nouveaux services GenOS. |
+| `npm --prefix backend run test:studio:genos` | Code 0 ; quatre parcours, services HTTP/SQLite/filesystem et CLI natif, sans interception API. |
+| `npm --prefix backend run test:studio:foundation` | Code 0 ; gardes et transitions B sans régression. |
+| `npm --prefix backend run test:studio:pilot` | Code 0 ; pilote C réel, refus, restauration et promotion vérifiée. |
+| `python scripts/ci/check_code_quality.py` | Code 0 ; 5 522 sources, zéro violation. |
+| `python scripts/ci/check_adr_index.py` | Code 0 ; 443 ADR, 443 entrées, zéro problème. |
+| `git diff --check` | Code 0. |
+| `cargo test --workspace` | Code 0 ; cache du dépôt principal réutilisé. |
+| `npm test` | Code 1 ; intégrité P0 `public/code.json` refusée ; suites suivantes non certifiées. |
+
+La probe en lecture seule confirme encore les quatre hashes attendus uniquement
+après conversion LF → CRLF en mémoire ; aucun dataset ni lock n'a été modifié.
+Les logs globaux restent ignorés sous `.genos-tests/studio-genos-d/`.
+Le manifeste navigateur conserve la date, la révision, les hashes des sources
+réellement testées et du binaire ; un rejeu après commit rattache la preuve au HEAD.
+La validation globale n'est donc pas déclarée entièrement verte.
+
+Commits : `8458738d` (D01), `dcab4715` (D02), `aa660b86` (D03), puis commit D04
+portant cette qualification. Un commit par tranche, sans fusion ni push implicite.
+Le [guide opérateur](../04-exploitation/studio-parcours-genos.md) précise les étapes,
+autorités et limites. P04–P07 complets, G01–G22 et la parité universelle restent
+ouverts ; ces quatre tranches ne les déclarent pas terminés.

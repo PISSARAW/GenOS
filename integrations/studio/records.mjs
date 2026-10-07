@@ -26,7 +26,12 @@ const labels = [
   ['signed', 'Signature présente'], ['signatureValid', 'Signature valide'], ['generation', 'Génération'],
   ['instruction', 'Instruction déclarée'], ['bytes', 'Octets'], ['rate', 'Taux de mutation'],
   ['seed', 'Seed'], ['genomeRef', 'Génome candidat'], ['sourceGenomeId', 'Génome source'],
-  ['sourceHash', 'Empreinte source'], ['functionalEffectMeasured', 'Effet fonctionnel mesuré'], ['deployed', 'Déployé']
+  ['sourceHash', 'Empreinte source'], ['functionalEffectMeasured', 'Effet fonctionnel mesuré'], ['deployed', 'Déployé'],
+  ['runtimePid', 'Processus'], ['processAlive', 'Processus vivant observé'],
+  ['processObservation', 'Observation du processus'], ['confirmed', 'Arrêt confirmé'], ['stopped', 'Processus arrêté'],
+  ['dissonance', 'Dissonance déclarée'], ['cognitiveBudget', 'Budget cognitif déclaré'],
+  ['diagnosisEstablished', 'Diagnostic établi'], ['externalEffectsReversible', 'Effets externes réversibles'],
+  ['recoveryScope', 'Portée de récupération'], ['severity', 'Sévérité']
 ];
 
 const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome'];

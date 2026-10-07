@@ -6,7 +6,9 @@ const groupNames = {
   jobs: 'Jobs', cases: 'Cas', claims: 'Hypothèses', evidence: 'Preuves',
   reviews: 'Revues', agents: 'Agents', workspaces: 'Workspaces',
   targetSnapshot: 'Snapshot cible', restoredSnapshot: 'Snapshot restauré',
-  safetySnapshot: 'Snapshot de sécurité', workspace: 'Workspace', agent: 'Agent', claim: 'Hypothèse'
+  safetySnapshot: 'Snapshot de sécurité', workspace: 'Workspace', agent: 'Agent', claim: 'Hypothèse',
+  affectedFiles: 'Fichiers concernés', checkpoints: 'Checkpoints agent', relatives: 'Agents apparentés',
+  sections: 'Sections AgentDNA', genes: 'Gènes', genomes: 'Génomes', incidents: 'Incidents du projet', memory: 'Mémoire'
 };
 
 function card(record) {
@@ -48,6 +50,12 @@ function group(title, items) {
   const records = items.slice(0, 100).filter(item => item && typeof item === 'object');
   if (records.length > 1) section.append(recordTable(records));
   else section.append(...records.map(card));
+  const values = items.slice(0, 100).filter(item => ['string', 'number'].includes(typeof item));
+  if (values.length) {
+    const list = node('ul');
+    list.append(...values.map(item => node('li', String(item))));
+    section.append(list);
+  }
   if (items.length > 100) section.append(node('p', 'Affichage limité aux 100 premiers éléments retournés.'));
   return section;
 }

@@ -8,10 +8,15 @@ export function journeyView(spec) {
   view.id = spec.id + '-view';
   view.dataset.view = '';
   view.hidden = true;
+  view.className = 'journey-view';
   const header = node('div');
   header.className = 'view-heading';
   const heading = node('div');
-  heading.append(node('p', 'PARCOURS GENOS'), node('h2', spec.title), node('p', spec.intro));
+  const eyebrow = node('p', 'PARCOURS GENOS');
+  eyebrow.className = 'eyebrow';
+  const intro = node('p', spec.intro);
+  intro.className = 'muted';
+  heading.append(eyebrow, node('h2', spec.title), intro);
   header.append(heading);
   const steps = node('ol');
   steps.className = 'panel';
