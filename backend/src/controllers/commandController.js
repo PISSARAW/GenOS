@@ -7,7 +7,7 @@ const telemetry = require('../services/telemetryObserver');
 const circuitBreaker = require('../services/circuitBreaker');
 const lineageController = require('./lineage');
 const snapshotStore = require('../services/workspaceSnapshotStore');
-const { stopMission, stopAllMissions } = require('../services/agentRuntimeAdapter');
+const studioStop = require('../services/studioStopService');
 
 async function findCommandWorkspace(db, req, workspaceId) {
   if (!workspaceId) return null;
@@ -52,7 +52,7 @@ async function handleForkAgent(ctx) {
   if (!await findCommandAgent(db, req, parentId)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${parentId}' is not available in this project.` } });
   const result = await new Promise((resolve, reject) => {
     const forkResponse = controllerResponse(resolve);
-    Promise.resolve(lineageController.cloneNode({ body: { nodeId: parentId } }, forkResponse)).catch(reject);
+    Promise.resolve(lineageController.cloneNode({ ...req, body: { nodeId: parentId } }, forkResponse)).catch(reject);
   });
   return res.status(result.status).json(result.payload);
 }
@@ -64,9 +64,9 @@ async function handleKillAgent(ctx) {
   if (!targetId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
   const targetAgent = await findCommandAgent(db, req, targetId);
   if (!targetAgent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${targetId}' is not available in this project.` } });
-  const stopped = stopMission(targetId);
+  const { stopped, confirmed } = await studioStop.stop(db, { agentId: targetId, scope: req.tenant });
   await updateAgentStatus(db, { agentId: targetId, status: 'terminated', currentTask: 'Terminated by command palette', req });
-  return res.json({ success: true, agentId: targetId, stopped, status: 'terminated' });
+  return res.json({ success: true, agentId: targetId, stopped, confirmed, status: 'terminated' });
 }
 
 function handleInspectState(ctx) {
@@ -74,13 +74,10 @@ function handleInspectState(ctx) {
   return ctx.res.json({ success: true, state });
 }
 
-function handleRebootStudio(ctx) {
+async function handleRebootStudio(ctx) {
   const { res, req } = ctx;
   if (!hasConfirmation(req)) return res.status(409).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Rebooting Studio requires confirmed: true.' } });
-  const stoppedMissions = stopAllMissions().length;
-  circuitBreaker.resetHalt('studio_reboot');
-  telemetry.emitEvent({ eventType: 'STUDIO_REBOOT_REQUESTED', agentId: 'command_palette', action: 'REBOOT', detail: 'Studio restart requested by command palette', severity: 'warning', payload: { stoppedMissions } });
-  return res.status(202).json({ success: true, action: 'reboot_studio', stoppedMissions, restartRequired: true, message: 'Managed missions stopped. Restart the backend process through its supervisor.' });
+  return require('./studioLifecycleController').restart(req, res);
 }
 
 function snapshotMetadata(params, req) {
@@ -152,10 +149,10 @@ function terminalHelpOutput() {
   return 'GenOS Terminal Available Commands:\n  status   - Show current backend and breaker status\n  halt     - Block new MCP tool invocations through the kill switch\n  resume   - Reset the MCP kill switch\n  agents   - List persisted agents\n  ping     - Show backend health\n  clear    - Clear terminal buffer';
 }
 
-async function terminalStatusOutput(db) {
+async function terminalStatusOutput(db, req) {
   const cb = circuitBreaker.getStatus();
   const tools = await db.get('SELECT COUNT(*) as count FROM mcp_tools');
-  const agents = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
+  const agents = await db.get("SELECT COUNT(*) as count FROM agents a JOIN workspaces w ON w.id=a.workspace_id WHERE a.status = 'running' AND w.organization_id=? AND w.project_id=?", req.tenant.organizationId, req.tenant.projectId);
   const systemState = cb.isHalted ? 'HALTED' : 'OK';
   return `[SYSTEM ${systemState}] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.isHalted ? 'HALTED' : cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
 }
@@ -170,8 +167,8 @@ function terminalResumeOutput() {
   return '[RESUMED] Backend kill switch reset. MCP tool invocations may resume.';
 }
 
-async function terminalAgentsOutput(db) {
-  const agents = await db.all("SELECT id, name, status FROM agents WHERE status != 'terminated' ORDER BY created_at DESC");
+async function terminalAgentsOutput(db, req) {
+  const agents = await db.all("SELECT a.id, a.name, a.status FROM agents a JOIN workspaces w ON w.id=a.workspace_id WHERE a.status != 'terminated' AND w.organization_id=? AND w.project_id=? ORDER BY a.created_at DESC", req.tenant.organizationId, req.tenant.projectId);
   return agents.length > 0 ? agents.map((agent) => `${agent.name || agent.id} [${agent.status}]`).join('\n') : 'No persisted agents.';
 }
 
@@ -200,11 +197,15 @@ async function handleTerminal(req, res, next) {
     const cmd = (command || '').trim().toLowerCase();
     const db = await getDatabase();
 
+    if (!req.tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED' } });
     const handler = TERMINAL_COMMANDS.get(cmd);
     if (!handler) {
       return res.status(400).json({ error: { code: 'UNSUPPORTED_COMMAND', message: `Unsupported terminal command: ${command}` } });
     }
-    res.json({ output: await handler(db) });
+    if (['halt', 'abort', 'resume'].includes(cmd) && !req.user?.permissions?.includes('all')) {
+      return res.status(403).json({ error: { code: 'GLOBAL_CONTROL_REQUIRES_ADMIN', message: 'Global backend control requires administrator permission.' } });
+    }
+    res.json({ output: await handler(db, req) });
   } catch (error) {
     next(error);
   }

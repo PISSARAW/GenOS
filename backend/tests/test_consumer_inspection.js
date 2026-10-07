@@ -61,6 +61,12 @@ async function main() {
     assert.deepEqual(listed.body.runs.map(run => run.id), [spec.run.id]);
     assert.equal(listed.body.hasMore, false);
     assert.equal(listed.body.nextOffset, null);
+    const nextPage = await request(spec, '/api/product-proofs/consumer-agents/consumer-promotion-agent/runs?offset=1');
+    assert.equal(nextPage.status, 200);
+    assert.equal(nextPage.body.offset, 1);
+    assert.deepEqual(nextPage.body.runs, []);
+    assert.equal((await request(spec, '/api/product-proofs/consumer-agents/consumer-promotion-agent/runs?offset=1',
+      { project: 'b06-other' })).body.runs.length, 0);
     const invalidStatus = await request(spec, '/api/product-proofs/consumer-agents/consumer-promotion-agent/runs?status=not-a-status');
     assert.equal(invalidStatus.status, 400);
     assert.equal(invalidStatus.body.error.code, 'INVALID_RUN_STATUS');

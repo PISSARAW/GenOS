@@ -24,7 +24,7 @@ async function listRuns(req, res, next) {
     const db = await require('../db').getDatabase();
     const result = await inspectionService.listRuns(db, {
       agentId: req.params.agentId, scope: req.tenant, query: req.query.q,
-      status: req.query.status, limit: req.query.limit
+      status: req.query.status, limit: req.query.limit, offset: req.query.offset
     });
     res.setHeader('Cache-Control', 'no-store');
     res.json(result);

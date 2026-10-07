@@ -10,6 +10,8 @@ const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 
 router.use(requireTenantScope());
+router.post('/register-protocol', requirePermission('experiment:write'), requireTenantScope({ write: true }), require('../controllers/studioProtocolController').run);
+router.post('/:experimentId/replay-inputs', requirePermission('experiment:write'), requireTenantScope({ write: true }), require('../controllers/studioProtocolController').run);
 
 router.use('/:experimentId/evidence-ledger', scientificEvidenceController.attachExperimentScope);
 router.post('/:experimentId/evidence-ledger', requirePermission('experiment:write'), requireTenantScope({ write: true }), scientificEvidenceController.createLedger);

@@ -16,7 +16,9 @@ async function runArenaTests(options = {}) {
   assert(paretoRes.status === 200 && Array.isArray(paretoRes.body.paretoFront), 'GET /api/arena/pareto returned Pareto Front');
   assert(paretoRes.body.kneePointRecommendation !== null, 'Mathematical Knee-Point identified successfully');
 
-  const traceRes = await request({ method: 'GET', path: '/api/arena/trace?tournamentId=test-01' });
+  const refused = await request({ method: 'GET', path: '/api/arena/trace?tournamentId=test-01' });
+  assert(refused.status === 404, 'Unknown tournament cannot borrow another trace');
+  const traceRes = await request({ method: 'GET', path: '/api/arena/trace?tournamentId=' + tournRes.body.tournamentId });
   assert(traceRes.status === 200 && traceRes.body.spans.length > 0, 'GET /api/arena/trace exported OpenTelemetry trace spans');
 }
 

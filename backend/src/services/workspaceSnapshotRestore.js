@@ -72,7 +72,8 @@ async function restoreUnlocked({ db, workspace, reference, author = 'studio' }) 
 
 async function restore({ db, workspace, reference, author = 'studio' }) {
   if (!workspace?.path) throw new Error('Workspace path is required for restore.');
-  return withRestoreLock(workspace.path, () => restoreUnlocked({ db, workspace, reference, author }));
+  return require('../db').withTransaction(db, () =>
+    withRestoreLock(workspace.path, () => restoreUnlocked({ db, workspace, reference, author })));
 }
 
 function formatReversePatchLine(file, maps) {

@@ -8,6 +8,7 @@ const workspaceController = require('../controllers/workspaceController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 const { paginateList } = require('../controllers/listPagination');
+const studioFiles = require('../controllers/studioFilesController');
 
 router.use(requireTenantScope());
 
@@ -17,6 +18,9 @@ router.get('/diff', workspaceController.getDiff);
 router.post('/bisect', requirePermission('workspace:write'), requireTenantScope({ write: true }), workspaceController.bisect);
 router.post('/rollback', requirePermission('workspace:write'), requireTenantScope({ write: true }), workspaceController.rollback);
 router.get('/:id/files', workspaceController.getWorkspaceFiles);
+router.get('/:id/editor-files', requirePermission('read'), studioFiles.list);
+router.get('/:id/file', requirePermission('read'), studioFiles.read);
+router.put('/:id/file', requirePermission('workspace:write'), requireTenantScope({ write: true }), studioFiles.write);
 router.get('/:id/rollback-preview', workspaceController.previewRollback);
 router.get('/:id', workspaceController.getWorkspaceById);
 router.get('/:id/snapshots', workspaceController.getSnapshots);

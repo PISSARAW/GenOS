@@ -433,9 +433,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0346](0346-journal-de-reprise-des-promotions.md) | Journal de reprise des promotions | Accepté | 2026-10-07 | Promotions, persistance et récupération |
 | [0347](0347-clients-studio-et-vscode-de-reference.md) | Clients Studio et VS Code de référence | Accepté | 2026-10-07 | Consommateurs, interfaces et preuves |
 | [0348a](0348-elimination-dette-historique-qualite.md) | Élimination de la dette historique de qualité | Accepté | 2026-10-07 | Qualité, services, orchestration |
-| [0348b](0348-trois-pilotes-comparatifs-reproductibles.md) | Trois pilotes comparatifs reproductibles | Accepté | 2026-10-07 | Évaluation, modèles, mémoire et preuves |
+| [0348b](0348-studio-modulaire-et-parcours-operateur.md) | Studio modulaire et parcours opérateur | Accepté | 2026-10-07 | Studio, contrats, exploitation, preuves |
+| [0348c](0348-trois-pilotes-comparatifs-reproductibles.md) | Trois pilotes comparatifs reproductibles | Accepté | 2026-10-07 | Évaluation, modèles, mémoire et preuves |
 | [0349](0349-manifeste-experimental-gvx-et-provenance-p1.md) | Manifeste expérimental GVX et provenance P1 | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
-| [0350](0350-cycle-immuable-des-claims-scientifiques.md) | Cycle immuable des claims scientifiques | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
+| [0350a](0350-cycle-immuable-des-claims-scientifiques.md) | Cycle immuable des claims scientifiques | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
+| [0350b](0350-studio-parite-et-navigation-versionnee.md) | Studio : parité et navigation versionnée | Accepté. | 2026-10-07. | Studio, sessions, contrats et qualification. |
 | [0351](0351-provenance-runtime-des-missions-et-references-gvx.md) | Provenance runtime des missions et références GVX | Accepté | 2026-10-07 | Expérimentation, contrats et provenance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par

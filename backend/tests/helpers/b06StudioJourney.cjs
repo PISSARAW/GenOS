@@ -65,6 +65,7 @@ async function run(spec, output) {
     await waitState(page, 'awaiting_approval');
     assert.equal(await page.locator('#run-id').textContent(), spec.run.id);
     await page.locator('#run-list li').filter({ hasText: spec.run.id }).waitFor();
+    await require('./studioPaginationJourney.cjs').run(page, spec);
     const inspectionResponsesBeforeDoubleClick = responses.filter(response => response.path.includes('/consumer-runs/')).length;
     await page.getByRole('button', { name: 'Actualiser' }).dblclick();
     await page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
@@ -115,6 +116,7 @@ async function run(spec, output) {
     await negativeUiCases(page, spec);
     return result;
   } catch (error) {
+    console.error('Studio browser failure', { message: await page.locator('#message').textContent(), errors, responses });
     fs.writeFileSync(path.join(output, 'studio-failure.json'), JSON.stringify({ message: await page.locator('#message').textContent(), errors, responses }));
     await page.screenshot({ path: path.join(output, 'studio-failure.png'), fullPage: true });
     throw error;

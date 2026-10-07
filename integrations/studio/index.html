@@ -1,32 +1,101 @@
 <!doctype html>
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GenOS Studio</title><link rel="stylesheet" href="style.css"><script src="studio.js" defer></script></head>
-<body><main>
+<title>GenOS Studio</title><link rel="stylesheet" href="style.css"><script src="studio.js" type="module"></script></head>
+<body><a class="skip-link" href="#view-content">Aller au contenu</a><main id="view-content" tabindex="-1">
 <header><p>GENOS · SUPERVISION</p><h1>Studio</h1><p>Inspecter une exécution, ses preuves et son workspace.</p></header>
-<form id="connection">
+<details id="onboarding" open><summary>Guide de démarrage — ouvrir un premier dossier</summary>
+<ol id="onboarding-steps"></ol><p>Si une capacité est indisponible, ouvrez Gestion et commandes puis Diagnostiquer backend et Rust.
+Les diagnostics sont demandés explicitement ; ce guide ne crée aucun agent, protocole ou essai.</p></details>
+<section id="connection-panel" aria-label="Connexion au Studio"><form id="connection">
 <label>Clé d’accès<input id="token" type="password" autocomplete="off" required></label>
-<label>Organisation<input id="organization" required></label>
-<label>Projet<input id="project" required></label>
-<label>Agent<input id="agent" required></label>
-<button type="submit">Ouvrir l’exécution</button><button id="disconnect" type="button">Déconnecter</button>
-</form>
+<div id="connection-scope"><div id="scope-controls"><label>Organisation<input id="organization" list="organizations"><datalist id="organizations" data-runtime></datalist></label>
+<label>Projet<input id="project" list="projects"><datalist id="projects" data-runtime></datalist></label>
+<label>Agent<input id="agent" list="agents"><datalist id="agents" data-runtime></datalist></label></div></div>
+<button type="submit">Ouvrir l’exécution</button>
+</form></section>
+<div id="session-bar" aria-label="Contexte du projet" hidden><div id="context-scope"></div>
+<label>Workspace<input id="workspace-choice" list="workspaces"><datalist id="workspaces" data-runtime></datalist></label>
+<button id="disconnect" type="button">Déconnecter</button></div>
 <p id="message" role="status" aria-live="polite">Connectez-vous avec une clé autorisée sur ce projet.</p>
-<section id="inspection" hidden>
-<h2>Exécution <span id="run-id"></span></h2><p id="run-status"></p><p id="workspace"></p>
+<nav id="navigation" hidden aria-label="Vues du Studio"><button data-target="inspection" type="button">Exécutions</button><button data-target="dashboard-view" type="button">Supervision</button><button data-target="management-view" type="button">Gestion et commandes</button><button data-target="files-view" type="button">Fichiers et snapshots</button><button data-target="research-view" type="button">Laboratoire</button></nav>
+<section id="inspection" data-view hidden>
+<h2>Exécution <span id="run-id" data-runtime></span></h2><p id="run-status" data-runtime></p><p id="workspace" data-runtime></p>
 <button id="refresh" type="button">Actualiser</button>
 <h3>Runs de l’agent</h3>
 <form id="run-search" class="compact-form"><label>Rechercher<input id="run-query" autocomplete="off" placeholder="ID, état ou raison"></label>
 <label>État<select id="run-status-filter"><option value="">Tous</option><option>running</option><option>awaiting_approval</option><option>completed</option><option>failed</option><option>blocked</option><option>cancelled</option></select></label>
 <button type="submit">Rechercher</button></form>
-<ul id="run-list" aria-live="polite" aria-busy="false"></ul>
+<ul id="run-list" data-runtime aria-live="polite" aria-busy="false"></ul>
 <button id="run-more" type="button" hidden>Charger plus de runs</button>
-<h3>Étapes</h3><table><thead><tr><th>Étape</th><th>État observé</th></tr></thead><tbody id="steps"></tbody></table>
-<h3>Promotion</h3><p id="promotion"></p>
+<h3>Étapes</h3><table aria-label="Étapes de l’exécution"><thead><tr><th scope="col">Étape</th><th scope="col">État observé</th></tr></thead><tbody id="steps" data-runtime></tbody></table>
+<h3>Métriques</h3><table aria-label="Métriques de l’exécution"><tbody id="metrics" data-runtime></tbody></table>
+<h3>Trajectoire</h3><ol id="trajectory" data-runtime></ol>
+<h3>Promotion</h3><p id="promotion" data-runtime></p>
 <details><summary>Soumettre un dossier d’approbation signé</summary>
 <form id="approval"><label>Dossier JSON<textarea id="approval-json" rows="6" required></textarea></label>
-<button type="submit">Soumettre l’approbation</button></form></details>
-<h3>Provenance mémoire</h3><pre id="provenance"></pre>
-<h3>Snapshots du workspace</h3><ul id="snapshots"></ul>
-<button id="snapshot" type="button">Capturer un snapshot</button>
-</section></main></body></html>
+<button type="submit" data-permission="workspace:write">Soumettre l’approbation</button></form></details>
+<h3>Provenance mémoire</h3><div id="provenance-summary" data-runtime></div>
+<details><summary>Inspecteur technique — provenance</summary><pre id="provenance" data-runtime></pre></details>
+<h3>Snapshots du workspace</h3><ul id="snapshots" data-runtime></ul>
+<button id="snapshot" type="button" data-permission="workspace:write">Capturer un snapshot</button>
+</section>
+<section id="dashboard-view" data-view hidden><h2>Supervision</h2>
+<label><input id="live-toggle" type="checkbox" checked>Suivi temps réel</label><p id="stream-status" data-runtime>Connexion inactive</p>
+<button id="dashboard-refresh" type="button" data-permission="telemetry:read">Actualiser la supervision</button>
+<ul id="dashboard-stats" data-runtime></ul><h3>Lignées et branches</h3>
+<svg id="lineage-graph" data-runtime role="img" aria-label="Graphe des lignées observées"></svg>
+<p id="lineage-status" data-runtime role="status">Aucune lecture de lignée effectuée.</p>
+<p>Le graphe affiche au plus 100 nœuds ; les listes ci-dessous reprennent les données retournées.</p>
+<ul id="lineage-nodes" data-runtime></ul><ul id="lineage-edges" data-runtime></ul>
+<h3>Événements récents</h3><ol id="events" data-runtime></ol></section>
+<section id="management-view" data-view hidden><h2>Gestion et commandes</h2>
+<p>Les opérations ciblent l’organisation, le projet, l’agent et le workspace sélectionnés. Une demande acceptée reste à suivre jusqu’à son effet final.</p>
+<form id="management-read"><label>Consulter<select id="management-collection">
+<option value="agents">Agents</option><option value="workspaces">Workspaces</option><option value="organizations">Organisations</option>
+<option value="projects">Projets</option><option value="members">Membres de l’organisation</option><option value="workers">Workers</option>
+<option value="garage">Garage de l’orchestrateur</option><option value="queue">File du garage</option></select></label><button>Charger la liste</button></form>
+<div id="management-summary" data-runtime></div><details><summary>Inspecteur technique — gestion</summary>
+<pre id="management-data" data-runtime></pre></details><h3>Palette d’actions</h3><div id="management-actions"></div>
+<h3>Réponse du runtime</h3><div id="management-result-summary" data-runtime></div>
+<details><summary>Inspecteur technique — réponse de gestion</summary><pre id="management-result" data-runtime></pre></details>
+<h3>Terminal contrôlé</h3><form id="terminal"><label>Commande<select id="terminal-command">
+<option>help</option><option>status</option><option>agents</option><option>ping</option><option>clear</option><option>halt</option><option>resume</option></select></label>
+<button data-permission="workspace:write">Exécuter la commande</button></form><pre id="terminal-output" data-runtime></pre>
+<h3>Exploitation du backend</h3><p>Le redémarrage global nécessite un administrateur et le superviseur natif. Le bridge Rust expose ses diagnostics sans simuler ses résultats.</p>
+<button id="operations-diagnostics" type="button">Diagnostiquer backend et Rust</button>
+<button id="operations-restart" type="button" data-permission="all">Redémarrer le backend global</button>
+<pre id="operations-result" data-runtime></pre></section>
+<section id="files-view" data-view hidden><h2>Fichiers et snapshots</h2>
+<button id="files-refresh" type="button">Charger les fichiers et snapshots</button><ul id="file-list" data-runtime></ul>
+<label>Chemin relatif<input id="file-path" placeholder="src/main.js"></label>
+<button id="file-open" type="button">Ouvrir le fichier</button>
+<label>Contenu UTF-8 — 256 Kio maximum<textarea id="file-content" rows="18" spellcheck="false"></textarea></label>
+<button id="file-save" type="button" data-permission="workspace:write">Sauvegarder le fichier</button>
+<button id="file-diff-button" type="button">Comparer les changements</button><p id="file-result" data-runtime></p><pre id="file-diff" data-runtime></pre>
+<h3>Snapshots</h3><ul id="editor-snapshots" data-runtime></ul>
+<button id="editor-snapshot" type="button" data-permission="workspace:write">Capturer un snapshot du workspace</button>
+<label>Snapshot à restaurer<input id="restore-id"></label><button id="restore-preview" type="button">Prévisualiser la restauration</button>
+<button id="restore" type="button" data-permission="workspace:write">Restaurer le snapshot</button>
+<div id="restore-result-summary" data-runtime></div><details><summary>Inspecteur technique — restauration</summary><pre id="restore-result" data-runtime></pre></details></section>
+<section id="research-view" data-view hidden><h2>Laboratoire</h2>
+<p>Enregistrer un protocole n’exécute aucun essai. Les budgets des protocoles sont déclarés, pas une limite d’exécution automatique. Les jobs figent leurs entrées ; le rejeu ne garantit pas un résultat de modèle identique. Les métriques et avis ne constituent pas une promotion.</p>
+<button id="research-refresh" type="button">Charger les expériences, datasets et jobs</button>
+<label>Expérience<input id="experiment-choice" list="experiments"><datalist id="experiments" data-runtime></datalist></label>
+<button id="research-inspect" type="button">Inspecter protocole et preuves</button>
+<label>Hypothèse<input id="claim-choice" list="claims"><datalist id="claims" data-runtime></datalist></label>
+<ul id="research-claims" data-runtime></ul>
+<label>Dataset<input id="dataset-choice" list="datasets"><datalist id="datasets" data-runtime></datalist></label>
+<button id="dataset-inspect" type="button">Inspecter les cas du dataset</button>
+<label>Campagne<input id="campaign-choice" list="campaigns"><datalist id="campaigns" data-runtime></datalist></label>
+<label>Job<input id="job-choice" list="jobs"><datalist id="jobs" data-runtime></datalist></label>
+<button id="job-inspect" type="button">Inspecter le job</button>
+<label>Jobs à comparer (IDs séparés par virgules)<input id="job-comparison"></label><button id="jobs-compare" type="button">Comparer les jobs</button>
+<h3>Données observées</h3><div id="research-summary" data-runtime></div>
+<details><summary>Inspecteur technique — laboratoire</summary><pre id="research-data" data-runtime></pre></details>
+<h3>Actions de recherche</h3><div id="research-actions"></div><div id="research-result-summary" data-runtime></div>
+<details><summary>Inspecteur technique — réponse de recherche</summary><pre id="research-result" data-runtime></pre></details>
+<h3>Arène locale</h3><p>Benchmark de recherche dans des tableaux triés, pas une évaluation d’agents cognitifs. Résultats en cache jusqu’au redémarrage.</p>
+<button id="arena-results" type="button">Résultats du benchmark</button><button id="arena-pareto" type="button">Comparer la frontière Pareto</button>
+<button id="arena-trace" type="button">Inspecter la trace locale</button></section>
+</main></body></html>

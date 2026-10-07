@@ -4,6 +4,14 @@
 
 - [Trois pilotes comparatifs P0](06-qualite-preuves/qualification-trois-pilotes-comparatifs-2026-10-07.md) — données versionnées, baselines, ablations, budgets et reproduction ; [ADR 0348](adr/0348-trois-pilotes-comparatifs-reproductibles.md).
 
+- [Studio : programme de parité](06-qualite-preuves/studio-parite-plan.md) — capacités, critères, jalons et limites du programme validé.
+- [Studio : suivi de parité](06-qualite-preuves/studio-parite-suivi.md) — base isolée, commits, tests et écarts non masqués.
+- [ADR 0350 — Studio, parité et navigation](adr/0350-studio-parite-et-navigation-versionnee.md) — frontières de session, routes et rendu.
+
+- [Studio : parcours et acceptation](03-reference/studio-parcours-et-acceptation.md) — livraison en huit lots et [ADR 0348](adr/0348-studio-modulaire-et-parcours-operateur.md).
+
+- [Studio : exploitation native](04-exploitation/studio-exploitation.md) et [qualification](06-qualite-preuves/studio-qualification.md) — parcours Windows exécutés et écarts restants.
+
 - [Lot 2 Trinity : identités, capsules et profils](06-qualite-preuves/lot-2-trinity-identites-capsules-et-profils.md) — bootstrap corrélé, reprise vérifiée et critères de lancement des workers.
 
 - [Lot 1 Trinity : contrats et traces](06-qualite-preuves/lot-1-trinity-contrats-et-traces.md) — entrées scellées, registre historique et vérifications de L1.

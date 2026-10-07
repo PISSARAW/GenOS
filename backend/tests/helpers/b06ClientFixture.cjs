@@ -13,6 +13,7 @@ async function prepare() {
   process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = crypto.randomBytes(32).toString('hex');
   process.env.GENOS_STUDIO_ROOT = path.join(root, 'studio');
   process.env.GENOS_WORKSPACES_ROOT = root;
+  process.env.GENOS_WORKSPACE_ROOT = root;
   const spec = await require('./consumerPromotionFixture.cjs').prepare(root);
   const token = crypto.randomBytes(32).toString('hex');
   await spec.db.run("INSERT INTO organizations (id, name) VALUES ('b06-org', 'B06 consumers')");

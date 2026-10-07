@@ -35,9 +35,19 @@ async function getTournament(req, res, next) {
   }
 }
 
+function inputError(body) {
+  const rounds = body.rounds ?? 3;
+  if (!Number.isInteger(rounds) || rounds < 1 || rounds > 100) return 'ARENA_ROUNDS_INVALID';
+  if (JSON.stringify(body).length > 262144) return 'ARENA_INPUTS_INVALID';
+  if (body.solvers && (!Array.isArray(body.solvers) || body.solvers.length > 8)) return 'ARENA_SOLVERS_INVALID';
+  return null;
+}
+
 async function runTournament(req, res, next) {
   try {
     const { problemSpec, solvers, rounds, agentIds = [] } = req.body || {};
+    const invalid = inputError(req.body || {});
+    if (invalid) return res.status(400).json({ error: { code: invalid } });
     const result = arenaService.runTournament(problemSpec, solvers, rounds || 3, agentIds);
     saveTournament(scopeKey(req), result);
     result.leaderboard.forEach((solver) => telemetry.emitEvent({
@@ -68,15 +78,13 @@ async function getPareto(req, res, next) {
 async function getTrace(req, res, next) {
   try {
     const { tournamentId, format } = req.query;
-    // Unknown ids fall back to the most recent tournament: Studio inspectors
-    // request traces by id from their local history, which may predate a
-    // backend restart that reset the in-memory tournament cache.
     const tournament = tournaments.get(scopeKey(req));
+    if (tournamentId && tournament?.tournamentId !== tournamentId) return res.status(404).json({ error: { code: 'TOURNAMENT_NOT_FOUND' } });
     if (!tournament) {
       return res.json({ traceId: null, format: format || 'json-dag', exportedAt: null, spans: [] });
     }
     const solverKeys = tournament.leaderboard.map((solver) => solver.solverKey);
-    const trace = arenaService.exportTrace(tournamentId || tournament.tournamentId, format, solverKeys);
+    const trace = arenaService.exportTournamentTrace(tournament, { tournamentId: tournament.tournamentId, format, solverKeys });
     res.json(trace);
   } catch (err) {
     next(err);

@@ -2,7 +2,7 @@ const { stopMissionChildren, stopPersistedRuntime } = require('./missionShutdown
 const { activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingContinuations, pendingWorkerRecoveries, emit } = require('../agentOrchestrationState');
 const { terminateChild } = require('../processTermination');
 
-async function stopMission(agentId) {
+async function stopMission(agentId, options = {}) {
   pendingContinuations.delete(agentId);
   pendingWorkerRecoveries.delete(agentId);
   autonomousRounds.delete(agentId);
@@ -13,11 +13,11 @@ async function stopMission(agentId) {
   if (barrier) {
     barrier.cancelled = true;
     activeWorkerBarriers.delete(agentId);
-    await Promise.all([...barrier.workerIds].map((workerId) => stopMission(workerId)));
+    if (!options.single) await Promise.all([...barrier.workerIds].map((workerId) => stopMission(workerId)));
     barrierStopped = true;
   }
 
-  if (await stopMissionChildren(agentId, stopMission)) barrierStopped = true;
+  if (!options.single && await stopMissionChildren(agentId, stopMission)) barrierStopped = true;
 
   const child = activeProcesses.get(agentId);
   if (child) {

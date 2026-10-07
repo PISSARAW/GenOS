@@ -54,6 +54,8 @@ function validateEvaluationConfig(parsed) {
 
 async function loadEvaluationCases(db, job) {
   if (!job.dataset_id) return [];
+  const snapshot = await require('./studioEvaluationService').load(db, job.id);
+  if (snapshot) return snapshot.cases;
   const orgId = job.organization_id;
   const projId = job.project_id;
   if (orgId !== null && projId !== null) {

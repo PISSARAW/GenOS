@@ -6,15 +6,17 @@
  */
 
 async function runCommandPaletteTests(options = {}) {
-  const { request, assert, token } = options;
+  const { request, assert, token, smokeTenantHeaders } = options;
   console.log('\n--- 11. Command Palette, Terminal & Emergency Kill Switch ---');
   const unauthTerm = await request({ method: 'POST', path: '/api/terminal', skipDefaultAuth: true }, { command: 'status' });
   assert(unauthTerm.status === 401, 'Unauthenticated POST /api/terminal rejected with 401');
 
+  const unscoped = await request({ method: 'POST', path: '/api/terminal' }, { command: 'status' });
+  assert(unscoped.status === 403, 'Authenticated terminal requires an explicit tenant');
   const termRes = await request({
     method: 'POST',
     path: '/api/terminal',
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}`, ...smokeTenantHeaders }
   }, { command: 'status' });
   assert(termRes.status === 200 && termRes.body.output.includes('SYSTEM OK'), 'Authenticated POST /api/terminal executed');
 

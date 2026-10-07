@@ -26,7 +26,8 @@ assert.throws(() => runner.validateManifest({ ...manifest, budget: { tokens: 0 }
 assert.throws(() => runner.validateManifest({ ...manifest, campaignBudget: { tokens: 999 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ ...manifest, budget: { tokens: 100, costUsd: 0.02 }, campaignBudget: { tokens: 1000, costUsd: 0.19 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ ...manifest, timeoutMs: 120000, scenarioTimeoutMs: 120000 }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
-const completeOutput = { members: [{ status: 'completed' }, { status: 'completed' }], dispatchFailures: [], stateValidation: { status: 'verified' } };
+const completeOutput = { members: [{ status: 'completed' }, { status: 'completed' }], dispatchFailures: [],
+  stateValidation: { status: 'verified' } };
 applySemanticValidation(completeOutput, { status: 'complete', workerCount: 2, coveredWorkers: 2 }, 2);
 assert.equal(completeOutput.complete, true);
 const unverifiedOutput = { members: [{ status: 'completed' }], dispatchFailures: [] };
@@ -38,6 +39,13 @@ applySemanticValidation(partialOutput, { status: 'complete', workerCount: 1, cov
 assert.equal(partialOutput.complete, false);
 assert.equal(partialOutput.status, 'partial');
 assert.equal(partialOutput.semanticValidation.status, 'incomplete');
+for (const stateValidation of [undefined, { status: 'failed' }, { status: 'incomplete' }]) {
+  const unverifiedOutput = { members: [{ status: 'completed' }], dispatchFailures: [], stateValidation };
+  applySemanticValidation(unverifiedOutput, { status: 'complete', workerCount: 1, coveredWorkers: 1 }, 1);
+  assert.equal(unverifiedOutput.complete, false, 'Semantic coverage cannot replace shared-state verification');
+  assert.equal(unverifiedOutput.status, 'partial');
+  assert.equal(unverifiedOutput.semanticValidation.status, 'incomplete');
+}
 assert.equal(runner.qualityScore(
   [{ subject: 'avatar', predicate: 'required', value: true }],
   [{ subject: 'avatar', predicate: 'required', value: true }]

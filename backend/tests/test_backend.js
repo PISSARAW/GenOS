@@ -113,7 +113,7 @@ async function runTests() {
     await runGeneticsTests({ request, assert, token: MILITARY_OVERRIDE_TOKEN, smokeTenantHeaders });
     await runMemoryTests({ request, assert, smokeTenantHeaders });
     await runWorkspaceTests({ request, assert, token: MILITARY_OVERRIDE_TOKEN, smokeTenantHeaders, coreWorkspacePath });
-    await runCommandPaletteTests({ request, assert, token: MILITARY_OVERRIDE_TOKEN });
+    await runCommandPaletteTests({ request, assert, token: MILITARY_OVERRIDE_TOKEN, smokeTenantHeaders });
 
     console.log(`\n========================================`);
     console.log(`TEST RESULTS: ${passedCount.count} PASSED, ${failedCount.count} FAILED`);

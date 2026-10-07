@@ -496,6 +496,33 @@ sequenceDiagram
     - `GatingRequest` : `{ string query = 1; repeated string candidate_tools = 2; float threshold_mv = 3; }`
     - `GatingResponse` : `{ bool requires_tools = 1; repeated string disinhibited_tools = 2; float membrane_potential_mv = 3; string gate_state = 4; string reason = 5; }`
 
+## Extensions Studio
+
+Ces routes exigent un tenant autorisé via les headers organisation/projet ;
+leurs effets restent soumis aux permissions et gates existants.
+
+| Route | Contrat |
+| --- | --- |
+| `GET /api/studio/status` | Version, instance, PID, readiness, superviseur, kill-switch MCP ; opération optionnelle privée au tenant |
+| `POST /api/studio/restart` | Admin global, scope et `confirmed: true` ; 202 est une acceptation, pas une preuve de restart |
+| `GET /api/workspaces/:id/editor-files` | Listing borné des chemins éditables, secrets et liens exclus |
+| `GET /api/workspaces/:id/file?path=...` | Texte UTF-8 et version SHA-256, sans cache |
+| `PUT /api/workspaces/:id/file?path=...` | Corps `{ version, contentBase64 }` ; version attendue ou `missing`, conflit 409 |
+| `POST /api/experiments/register-protocol` | Workspace, titre, protocole, seed, budget et entrées ; enregistrement sans exécution automatique |
+| `POST /api/experiments/:experimentId/replay-inputs` | Nouveau protocole avec provenance, sans recopier une réussite |
+| `POST /api/evals/jobs/:id/replay` | Cas/configuration capturés ; refus 409 des historiques sans capture ou des empreintes invalides |
+| `GET /api/evals/compare?ids=id1,id2` | Deux à huit jobs du tenant ; métriques et égalité des entrées, aucune garantie de promotion |
+
+Les commandes utilisent `/api/command` et `/api/terminal`, pas un shell distant.
+L'écriture conditionnelle et la restauration de snapshot prennent le même
+verrou transactionnel SQLite, puis le verrou local du workspace ; les acteurs
+filesystem non coopératifs ne sont pas couverts. Le diagnostic
+`GET /api/rust/status` expose `contractVersion: 1` et un `requestId`.
+Les réponses normalisées d'exécution distinguent disponibilité, code de sortie,
+stdout JSON et stderr ; cela ne certifie pas une décision scientifique.
+Voir [l'exploitation Studio](../04-exploitation/studio-exploitation.md) et
+[sa qualification](../06-qualite-preuves/studio-qualification.md).
+
 ## Voir aussi (AgentDNA)
 
 - [AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — surface REST `/api/genomes` (list/get/import), opérations `POST /api/genomes/:id/operations/:op`, innovations (`/api/genomes/innovations`) et politique de signature (`/api/genomes/policy`).

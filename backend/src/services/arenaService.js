@@ -88,14 +88,19 @@ function calculateParetoFront(candidateSolutions = []) {
 }
 
 function exportTrace(tournamentId, format = 'json-dag', solverKeys = Object.keys(SOLVER_PROFILES)) {
-  const recorded = lastTournamentResult ? lastTournamentResult.leaderboard || [] : [];
+  return exportTournamentTrace(lastTournamentResult, { tournamentId, format, solverKeys });
+}
+
+function exportTournamentTrace(tournament, options = {}) {
+  const recorded = tournament ? tournament.leaderboard || [] : [];
+  const format = options.format || 'json-dag';
   if (recorded.length === 0) {
     return { traceId: null, format, exportedAt: null, spans: [] };
   }
   const recordedByKey = new Map(recorded.map(recordedSolverEntry));
-  const traceId = `trace-${tournamentId || lastTournamentResult.tournamentId}`;
+  const traceId = `trace-${options.tournamentId || tournament.tournamentId}`;
   const context = { traceId, recordedByKey };
-  const spans = solverKeys.map((key, index) => {
+  const spans = (options.solverKeys || recorded.map(item => item.solverKey)).map((key, index) => {
     return buildTraceSpan(key, index, context);
   });
 
@@ -113,7 +118,8 @@ module.exports = {
   runTournament,
   calculateParetoFront,
   findKneePoint,
-  exportTrace
+  exportTrace,
+  exportTournamentTrace
 };
 
 const arenaTaskEvaluation = require('./arenaTaskEvaluation');
