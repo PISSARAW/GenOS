@@ -449,6 +449,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0358](0358-verification-memoire-native-sous-budget-durable.md) | Vérification mémoire native sous budget durable | Accepté, extension partielle L02/L03/L22. | -- | -- |
 | [0359](0359-couts-durables-des-oracles-refuses-et-interrompus.md) | Coûts durables des oracles refusés et interrompus | Accepté, extension partielle L02/L03/L22, 2026-10-07. | -- | -- |
 | [0360](0360-oracle-code-borne-sur-artefact-scelle.md) | Oracle code borné sur artefact scellé | Accepté, extension partielle L02/L03/L22. | -- | -- |
+| [0361](0361-rejeu-apparie-avec-aleas-adresses.md) | Rejeu apparié avec aléas adressés | Accepté, extension partielle L01/L02/L04. | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

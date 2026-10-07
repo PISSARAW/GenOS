@@ -71,11 +71,16 @@ function canonicalGraph(graph) {
 }
 
 async function persistCausalGraph(db, input) {
+  return require('../db').withTransaction(db, () => persistBoundGraph(db, input));
+}
+
+async function persistBoundGraph(db, input) {
   await ensureSchema(db);
   await ensureEvidenceSchema(db);
   validateGraph(input.graph);
-  await verifyEvidenceReferences(db, input);
+  const experiment = await verifyEvidenceReferences(db, input);
   const graph = canonicalGraph(input.graph);
+  if (require('./pairedReplayProtocol').enabled(experiment)) graph.replayControls = require('./pairedReplayConsumer').metadata(experiment);
   const payload = JSON.stringify(graph);
   const graphHash = crypto.createHash('sha256').update(payload).digest('hex');
   const graphId = `causal_graph_${graphHash.slice(0, 24)}`;
@@ -107,12 +112,15 @@ async function ensureEvidenceSchema(db) {
 async function verifyEvidenceReferences(db, input) {
   const experiment = await loadExperiment(db, input.experimentId);
   if (!experiment) throw new Error('Unknown causal experiment for evidence graph.');
+  require('./pairedReplayProtocol').verify(experiment, input);
   const snapshots = JSON.parse(experiment.snapshot_hashes_json);
   for (const ref of input.graph.evidenceRefs) {
     if (!(await evidenceReferenceExists(db, ref, { experimentId: input.experimentId, snapshots }))) {
       throw new Error(`Causal graph evidence reference is not persisted for this experiment: ${ref}`);
     }
   }
+  await require('./pairedReplayConsumer').graph(db, { experiment, input });
+  return experiment;
 }
 
 async function evidenceReferenceExists(db, ref, context) {

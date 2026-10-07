@@ -20,8 +20,8 @@ porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 | --- | --- | --- |
 | L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
 | L02 Autorité et confinement | Enveloppe du run, revalidation et réservation de délégation Node intégrées ; lot partiel | Raccordement des appels directs, qualification complète des compteurs et confinement effectif. |
-| L03 Oracles indépendants | Clôtures natives subset sum et fidélité mémoire sous budgets distincts, rétraction scoped des assemblées raccordée ; lot partiel | Couvrir code, formats mémoire restants, vérité source et autres domaines ; qualifier tous les crashes et la propagation entre magasins. |
-| L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
+| L03 Oracles indépendants | Clôtures natives subset sum, fidélité mémoire et code arithmétique borné sous budgets distincts ; lot partiel | Couvrir projets code généraux, formats mémoire restants, vérité source et autres domaines ; qualifier tous les crashes et la propagation entre magasins. |
+| L04 Mondes et replay | Replay procédural apparié avec source épinglée et aléas adressés observés ; lot partiel | Raccorder le nursery GVX, qualifier confinement, dépendances complètes, providers et bisection causale. |
 | L05 Harnais et baselines | Pilotes P0 exploratoires disponibles ; campagne P1 à entreprendre | Runner GVX raccordé au manifeste, holdout inaccessible au candidat, coûts complets et puissance adaptée. |
 | L22 Interfaces et observabilité | Clients de référence P0 qualifiés ; extension P1 à entreprendre | Inspection commune du manifeste, des coûts, preuves, rejets et reprises ; parité sémantique ciblée. |
 
@@ -539,6 +539,64 @@ entrées sans problème. Les journaux `npm-native-code-complete.log`,
 Le journal npm conserve un avertissement du poll SignalPlane après fermeture
 de SQLite ; la suite termine néanmoins avec code 0. Ces résultats concernent
 le checkout partagé, sans constituer une reproduction indépendante du commit.
+
+## Extension L01/L02/L04 — replay apparié et dérivations actuelles
+
+Après `7148e6f5`, l'[ADR 0361](../adr/0361-rejeu-apparie-avec-aleas-adresses.md)
+introduit le protocole opt-in `genos.paired-replay/v2` dans les primitives
+procédurales. Il épingle la source du runner réellement enregistré, le scope,
+les snapshots, les bras et les événements futurs. Les tirages sont adressés
+par seed, événement et slot ; un tirage supplémentaire ne décale pas les
+événements suivants. Le runtime conserve les demandes observées dans le
+checkpoint et le résultat, puis les relit lors de la reprise et du diff.
+
+La sonde exécute douze forks sur deux snapshots et trois seeds. Elle localise
+la première divergence du défaut injecté à l'index 1, reprend un checkpoint
+dans un processus frais et confronte deux connexions sur un lease. Les
+handlers d'analyse et de graphe relisent les preuves actuelles dans une
+transaction ; une nouvelle observation fausse, malgré sa chaîne de hashes
+cohérente, invalide aussi les dérivations mises en cache.
+
+Les premières vérifications ont révélé une incompatibilité des paramètres
+SQL multiples avec l'adaptateur historique ; le correctif conserve le format
+tableau. Cette première sonde avait atteint la base par défaut et rencontré
+un échec de sauvegarde par manque d'espace. La base par défaut est conservée ;
+la nouvelle vérification historique utilise une base et des racines temporaires
+explicites sur D:. Le fichier temporaire de la sonde échouée a été supprimé.
+
+Les décisions restent locales, dans l'ADR et les preuves hors Git : le refus
+antérieur de transmission de détails internes à GenOS n'a pas été contourné.
+La copie locale de l'entrée agent `paired-replay-agent-local.json` est observée,
+SHA-256 `C77D517346CCA99B5DBE8B492F2A70133BEFBA7130495AD544EC7EF0F4B924C7` ;
+ce fichier n'est pas présenté comme un nouveau snapshot exécuté par GenOS.
+
+La source textuelle ne scelle pas les closures ou tous les globaux. Le relevé
+ne contrôle que `randomFor`, et son comptage ne couvre pas les appels perdus
+après le dernier checkpoint d'un segment interrompu. Les limites
+`causalGuarantee: false` et `runtimeAuthority: false` restent visibles jusque
+dans les dérivations. Ces fixtures et leur bootstrap ne démontrent pas un
+gain IA ou une campagne représentative. Bisection générale, confinement OS,
+providers, coûts complets, nursery GVX et reproduction indépendante restent
+ouverts. Les **115 obligations** et les **six lots P1** restent ouverts.
+
+La dernière contre-épreuve refuse un diff sans adresse d'aléa commune
+réellement observée, malgré deux forks achevés. `npm test` a été relancé après
+ce correctif et termine avec code 0. `cargo test --workspace` termine aussi
+avec code 0 ; aucune source Rust n'a changé entre ce passage et le dernier
+correctif JavaScript. Le gate compte 5 520 sources, quatre violations
+historiques et zéro nouvelle ; les 13 sources du commit passent le contrôle
+strict. L'index ADR compte 441 entrées sans problème.
+
+Les journaux `npm-paired-final-complete.log`, `cargo-paired-complete.log`,
+`quality-paired-absence.log`, `quality-paired-staged.log`,
+`paired-replay-absence-qualified.log` et
+`paired-replay-legacy-auth-configured.log` restent hors Git dans `p1-full`.
+La régression historique utilise une configuration administrateur de test
+dans sa base temporaire, après une première relecture isolée qui signalait
+une télémétrie non persistée faute de configuration. Le journal npm garde
+l'avertissement du poll SignalPlane après fermeture de SQLite dans une suite
+réussie. Les validations concernent le checkout partagé ; les modifications
+étrangères MCP, VFS et Rust sont conservées et exclues de ce commit.
 
 ## Traçabilité initiale du lancement
 

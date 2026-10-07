@@ -53,10 +53,10 @@ Le critère de sortie de chaque lot s'ajoute aux fonctionnalités et tests ci-de
 | C369 | Observabilité | L22 | Observabilité reliée aux hypothèses et décisions | **K** — Mesurer pouvoir diagnostique des traces | À qualifier |
 | C370 | Approbation de gouvernance | L02 | Approbation humaine ciblée selon valeur d'information | **I** — Mesurer erreurs évitées par interruption | À qualifier |
 | C371 | Compliance | L02 | Contrôles exécutables liés aux règles réellement applicables | **I** — Mesurer violations et faux blocages | À qualifier |
-| C499 | Causalité | L04 | Modèle causal avec interventions contrôlées et limites d'identifiabilité | **A** — Mesurer récupération des causes connues | À qualifier |
+| C499 | Causalité | L04 | Modèle causal avec interventions contrôlées et limites d'identifiabilité | **A** — Mesurer récupération des causes connues | Partiel : première divergence du défaut synthétique connue localisée ; modèle général et identifiabilité ouverts |
 | C500 | Loi | L04 | Lois candidates avec prédictions et contre-exemples scellés | **A** — Mesurer généralisation hors observations initiales | À qualifier |
-| C501 | Contrefactuel | L04 | Contrefactuels avec hypothèses structurelles et aléas appariés | **A** — Mesurer validité des effets prédits | À qualifier |
-| C502 | Déterminisme | L04 | Rejeu distinguant déterminisme logiciel et stochastique des providers | **A** — Mesurer part reproductible des divergences | À qualifier |
+| C501 | Contrefactuel | L04 | Contrefactuels avec hypothèses structurelles et aléas appariés | **A** — Mesurer validité des effets prédits | Partiel : protocole opt-in, aléas adressés observés, checkpoint et scope liés ; effets généraux et providers ouverts |
+| C502 | Déterminisme | L04 | Rejeu distinguant déterminisme logiciel et stochastique des providers | **A** — Mesurer part reproductible des divergences | Partiel : source du runner et aléas logiciels contrôlés dans la fixture ; stochasticité des providers et dépendances complètes ouvertes |
 | C504 | Temps B-series | L04 | Ordre temporel causal indépendant de l'horloge de lecture | **A** — Mesurer cohérence des traces distribuées | À qualifier |
 | C509 | Monde possible | L04 | Définir mondes par états, interventions et contraintes explicites | **A** — Mesurer comparabilité des mondes | À qualifier |
 | C510 | Accessibilité entre mondes | L02 | Calculer accessibilité sous conservation des invariants et permissions | **I** — Mesurer transitions possibles et interdites | À qualifier |
@@ -132,7 +132,7 @@ Le critère de sortie de chaque lot s'ajoute aux fonctionnalités et tests ci-de
 | L01 | Manifeste et liens entre reçus ; relecture dans un nouveau processus, altération détectée, compatibilité, faux succès refusé | ADR 0349 et 0350 ; manifeste GVX et cycle scientifique | Partiel |
 | L02 | Enveloppe commune ; autorité, révocation, expiration, chemins et effets hors scope refusés ; permissions préservées et budgets contrôlés pendant le run | Autorité de mission, leases, sandbox et tests P0 à raccorder | Ouvert |
 | L03 | Trois domaines ; postconditions réelles, séparation du candidat et de l'évaluateur ; domaine, fraîcheur et indépendance ; absence d'oracle explicite | Domaines natifs subset sum, fidélité mémoire et code arithmétique borné ; ADR 0360 ; généralisation et pilotes P0 à qualifier | Ouvert |
-| L04 | Branches appariées, diff causal, replay et bisection ; versions/aléas, isolation, recherche de fuites, cause injectée localisée, effets externes non annulables | Snapshots, AgentGit, nursery et exécution GVX à étendre | Ouvert |
+| L04 | Branches appariées, diff causal, replay et bisection ; versions/aléas, isolation, recherche de fuites, cause injectée localisée, effets externes non annulables | ADR 0361 : replay procédural avec source et aléas adressés, dérivations actuelles ; bisection, confinement et nursery GVX à étendre | Partiel |
 | L05 | Campagnes préenregistrées, datasets épinglés, acquisition/validation/test, baselines, ablations, coûts complets et statistiques ; holdout inaccessible ; puissance depuis données représentatives | Pilotes P0 et runner GVX à étendre | Ouvert |
 | L22 | REST/gRPC/MCP/stdio/CLI/g/IDE/Studio/TUI sur le même état ; parité, logs reconstruisant les décisions, formats sans perte, état épistémique visible | Parcours B06 et inspection des consommateurs P0 à étendre | Ouvert |
 
