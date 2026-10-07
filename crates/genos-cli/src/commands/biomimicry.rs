@@ -124,8 +124,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             execute_phenotype(&agent_id, uv_exposure, temperature)
         }
         BiomimicrySubcommands::BioFeature { feature, action, param } => {
-            handle_bio_feature(&feature, &action, &param);
-            Ok(())
+            handle_bio_feature(&feature, &action, &param)
         }
         BiomimicrySubcommands::NetworkQuorum { agent_id, threshold, action_id } => {
             handle_network_quorum(&agent_id, threshold, &action_id)

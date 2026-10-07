@@ -1,6 +1,6 @@
 use serde_json::json;
 
-pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) {
+pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) -> Result<(), String> {
     match feature {
         "active_sensing" => handle_active_sensing(action, params),
         "checkpoint" => handle_checkpoint_gate(action, params),
@@ -23,13 +23,9 @@ pub fn handle_bio_feature(feature: &str, action: &str, params: &[String]) {
         "cnidocyte" | "nematocyst" | "electrocyte" | "electric_organ" | "choanocyte" | "iridophore" | "guard_cell" | "tracheid" | "prokaryote" => {
             crate::commands::biomimicry_cells::handle_specialized_cell(feature, action, params);
         }
-        _ => {
-            println!("{}", json!({
-                "success": true, "operation": "bio_feature",
-                "feature": feature, "action": action, "params": params, "status": "executed"
-            }));
-        }
+        _ => return Err(format!("Unknown biomimicry feature '{}'.", feature)),
     }
+    Ok(())
 }
 
 pub fn extract_param(params: &[String], key: &str) -> Option<String> {

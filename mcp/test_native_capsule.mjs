@@ -14,7 +14,7 @@ const workspaceTemporary = fs.mkdtempSync(path.join(root, '.genos-mcp-audit-'));
 async function connect(studioRoot, repoRoot = root) {
   const client = new Client({ name: 'genos-native-capsule-test', version: '1' });
   const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(root, 'mcp/index.js')],
-    cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_MCP_LEASE: 'genos_capsule_create,genos_audit,genos_merge,genos_v2_fork,genos_v2_init',
+    cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_MCP_LEASE: 'genos_capsule_create,genos_audit,genos_merge,genos_v2_fork,genos_v2_init,genos_biomimicry',
       GENOS_BIN: executable, GENOS_STUDIO_ROOT: studioRoot, GENOS_REPO_ROOT: repoRoot,
       GENOS_DB_PATH: path.join(temporary, 'test.db'),
       NODE_ENV: 'test' } });
@@ -54,6 +54,10 @@ try {
     const fork = await client.callTool({ name: 'genos_v2_fork', arguments: { parent_id: 'mcp-parent' } });
     assert.equal(fork.isError, true, 'a generated UUID without child state is not a fork');
     assert.match(fork.content[0].text, /Agent fork not implemented:.*child state/);
+    const unknownFeature = await client.callTool({ name: 'genos_biomimicry', arguments: {
+      feature: 'nonexistent_feature', action: 'execute' } });
+    assert.equal(unknownFeature.isError, true, 'unknown biomimicry features must not claim execution');
+    assert.match(unknownFeature.content[0].text, /Unknown biomimicry feature/);
   } finally {
     await client.close();
   }
@@ -82,7 +86,7 @@ try {
   } finally {
     await initClient.close();
   }
-  console.log('Native capsule, audit and isolated init proof; write-failure, merge and phantom-fork refusals verified.');
+  console.log('Native capsule, audit and init proof; write-failure, merge, phantom-fork and unknown-feature refusals verified.');
 } finally {
   assert.ok(path.resolve(temporary).startsWith(`${path.resolve(os.tmpdir())}${path.sep}`));
   fs.rmSync(temporary, { recursive: true, force: true });

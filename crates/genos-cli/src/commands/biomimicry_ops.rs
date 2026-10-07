@@ -75,7 +75,7 @@ pub fn handle_tissue(command: TissueCommand<'_>) {
     }
 }
 
-pub fn handle_bio_feature(feature: &str, action: &str, param: &[String]) {
+pub fn handle_bio_feature(feature: &str, action: &str, param: &[String]) -> Result<(), String> {
     match feature {
         "spore" => {
             let genome = Genome::new("BIO_FEATURE_SPORE");
@@ -103,9 +103,10 @@ pub fn handle_bio_feature(feature: &str, action: &str, param: &[String]) {
             }));
         }
         _ => {
-            crate::commands::biomimicry_features::handle_bio_feature(feature, action, param);
+            crate::commands::biomimicry_features::handle_bio_feature(feature, action, param)?;
         }
     }
+    Ok(())
 }
 
 pub fn parse_uuid(input: &str) -> Uuid {
