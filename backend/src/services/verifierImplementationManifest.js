@@ -32,6 +32,11 @@ const SOURCES = Object.freeze([
   'agents/workerExecutorRegistry.js', 'agents/workerNativeMethodCapabilities.js',
   'epistemic/nativeOracleExecutionJournal.js', 'epistemic/nativeOracleOutcome.js',
   'epistemic/nativeOracleCostReceipt.js',
+  'epistemic/codeExpressionCompiler.js', 'epistemic/codeExpressionInterpreter.js',
+  'epistemic/codePostconditionContract.js', 'epistemic/codeArtifactSource.js',
+  'epistemic/oracleCodeChecks.js', 'epistemic/oracleCodeSubject.js', 'epistemic/oracleCodeClaim.js',
+  'epistemic/oracleCodeAdapter.js', 'epistemic/oracleCodeNativeEntry.cjs', 'agents/workerCodeVerification.js',
+  'epistemic/oracleCodeReceiptBinding.js',
 ]);
 function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');

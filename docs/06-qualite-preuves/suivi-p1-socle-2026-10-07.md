@@ -491,6 +491,55 @@ restent hors Git dans `p1-full`, avec les traces du PID observé et du coût
 durable inconnu. La décision `decision-d99a80d9-bbdf-4565-98cf-a107481cc7b3`
 conserve la séparation entre observation de test et fait durable de production.
 
+## Extension L02/L03/L22 — oracle code sur artefact scellé
+
+Après `a36e5403`, l'[ADR 0360](../adr/0360-oracle-code-borne-sur-artefact-scelle.md)
+ajoute la méthode native `verify_code_postconditions`. Elle lit un vrai fichier
+`.gexpr` du workspace assigné et relie son hash au contrat versionné
+`euclidean_modulo_v1`. Les deux processus frais couvrent les 264 couples
+du domaine fini. Le run possède son propre budget durable, son observation
+typée, son assemblée et son approbation réelle, reprise sans nouveaux nonces.
+
+Les treize parcours de `test_native_code_completion.js` passent. Ils couvrent
+les sorties zéro avec code faux et verdict forgé, le programme indisponible,
+le fichier modifié après un processus, les entrées adverses et le budget
+insuffisant. Une assemblée et un receipt authentifiés annonçant une couverture
+d'un seul cas sont refusés au gate de promotion. Les coûts des deux processus
+restent visibles et aucun nonce n'est consommé. La relecture dans un processus
+frais retrouve exactement la même attestation ; une modification après
+approbation invalide l'assurance actuelle sans réécrire la décision passée.
+
+Les premières sondes ont été corrigées pour contrôler le refus structuré du
+dispatcher et isoler chaque entrée invalide de sa capacité de délégation.
+La relecture bloquante attend la fin du poll Garage, dont un verrou SQLite
+empêchait une première tentative. Le journal `native-code-qualified.log`
+conserve le passage complet après ces corrections. Le checkpoint
+`snap-9b4ef6145afb4ffaaeba076fdffeb38e` a été relu localement avant les edits.
+
+Le domaine est public et les deux stratégies partagent le même interpréteur.
+Il ne qualifie ni des projets généraux, ni un holdout, ni un gain d'IA.
+Le confinement OS complet et la reproduction en clone indépendant restent
+ouverts. La clôture des **115 obligations** et des **six lots P1** reste ouverte.
+Les changements MCP, VFS et Rust présents dans le checkout sont étrangers
+à cette poursuite et sont exclus du commit.
+
+L'approbation automatique a refusé `genos_record_decision` pour cette poursuite,
+considérant la destination MCP non vérifiée pour les détails et chemins internes.
+Cette décision distante n'a pas été persistée et aucun nouvel envoi n'a été
+tenté. Le choix et les limites sont conservés dans l'ADR et dans les preuves
+locales hors Git ; cette conservation ne certifie pas la validité des résultats.
+
+`npm test`, `cargo test --workspace` et le gate qualité terminent avec code 0.
+La suite complète découvre les treize nouvelles sondes. Le contrôle qualité
+compte 5 511 sources, quatre violations historiques et zéro nouvelle ; les
+25 sources du commit passent le contrôle strict. L'index ADR compte 440
+entrées sans problème. Les journaux `npm-native-code-complete.log`,
+`cargo-native-code-complete.log`, `quality-native-code-complete.log` et
+`quality-native-code-staged.log` restent hors Git dans `p1-full`.
+Le journal npm conserve un avertissement du poll SignalPlane après fermeture
+de SQLite ; la suite termine néanmoins avec code 0. Ces résultats concernent
+le checkout partagé, sans constituer une reproduction indépendante du commit.
+
 ## Traçabilité initiale du lancement
 
 GenOS a fourni le checkpoint `snap-a7d8f742186b41f18d02828f1ba16d1b`, dont le

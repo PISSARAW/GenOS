@@ -132,6 +132,7 @@ const KNOWN_VERIFIER_TYPES = [
   'repro',
   'procedure_semantic',
   'memory_semantic',
+  'code_semantic',
 ];
 
 for (const type of KNOWN_VERIFIER_TYPES) {
