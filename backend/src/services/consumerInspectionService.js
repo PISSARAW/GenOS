@@ -64,7 +64,7 @@ async function listRuns(db, request) {
   const terms = [request.agentId, request.scope.organizationId, request.scope.projectId];
   const filters = ['r.agent_id = ?', 'w.organization_id = ?', 'w.project_id = ?'];
   if (query) {
-    filters.push('(r.id LIKE ? OR r.status LIKE ? OR COALESCE(r.guardrail_reason, \'\') LIKE ?)');
+    filters.push('(r.id LIKE ? ESCAPE \'\\\' OR r.status LIKE ? ESCAPE \'\\\' OR COALESCE(r.guardrail_reason, \'\') LIKE ? ESCAPE \'\\\')');
     const pattern = `%${escapeLikePattern(query)}%`;
     terms.push(pattern, pattern, pattern);
   }
@@ -74,7 +74,7 @@ async function listRuns(db, request) {
   }
   const rows = await db.all(`SELECT r.* FROM strategy_execution_runs r
     JOIN agents a ON a.id = r.agent_id JOIN workspaces w ON w.id = a.workspace_id
-    WHERE ${filters.join(' AND ')} ESCAPE '\\' ORDER BY r.created_at DESC, r.rowid DESC LIMIT ? OFFSET ?`, ...terms, limit + 1, offset);
+    WHERE ${filters.join(' AND ')} ORDER BY r.created_at DESC, r.rowid DESC LIMIT ? OFFSET ?`, ...terms, limit + 1, offset);
   const hasMore = rows.length > limit;
   const runs = await Promise.all(rows.slice(0, limit).map(row => events.hydrateRun(db, row)));
   return { runs, query, status, limit, offset, hasMore, nextOffset: hasMore ? offset + limit : null };
