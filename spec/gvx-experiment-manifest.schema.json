@@ -60,7 +60,11 @@
       "properties": {
         "mission": {
           "type": "object", "additionalProperties": false, "required": ["id", "contractHash"],
-          "properties": { "id": { "$ref": "#/$defs/id" }, "contractHash": { "$ref": "#/$defs/hash" } }
+          "properties": {
+            "id": { "$ref": "#/$defs/id" }, "contractHash": { "$ref": "#/$defs/hash" },
+            "runtime": { "const": "genos-node" }, "bindingHash": { "$ref": "#/$defs/hash" }
+          },
+          "dependentRequired": { "runtime": ["bindingHash"], "bindingHash": ["runtime"] }
         },
         "run": {
           "type": "object", "additionalProperties": false, "required": ["id", "parentRunId"],
@@ -75,6 +79,7 @@
             "type": "object", "additionalProperties": false, "required": ["id", "statementHash", "status", "sourceRefs"],
             "properties": {
               "id": { "$ref": "#/$defs/id" }, "statementHash": { "$ref": "#/$defs/hash" },
+              "scientificExperimentId": { "$ref": "#/$defs/id" },
               "status": { "enum": ["proposed", "rejected", "retracted"] }, "sourceRefs": { "$ref": "#/$defs/ids" }
             }
           }

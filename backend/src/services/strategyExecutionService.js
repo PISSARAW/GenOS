@@ -67,7 +67,8 @@ async function createBoundExecutionRun(db, context) {
       JSON.stringify(step.strategyIds), JSON.stringify(step.plannedBudget)
     );
   }
-  await require('./biologicalWorkerStore').bindRun(db, { ...context, id, contractRecord, budget: plan.budget });
+  const workerBinding = await require('./biologicalWorkerStore').bindRun(db, { ...context, id, contractRecord, budget: plan.budget });
+  await require('./gvxMissionProvenance').bindRun(db, { ...context, id, contractRecord, budget: plan.budget, workerBinding });
   return events.getRun(db, id);
 }
 

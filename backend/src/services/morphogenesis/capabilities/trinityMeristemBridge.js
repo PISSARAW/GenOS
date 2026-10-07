@@ -15,6 +15,9 @@ async function rankHypotheses(db, input) {
   return { candidateHypotheses, coverageReceiptCount: receipts.length, ranked };
 }
 async function sealScientificWave(db, input) {
+  return require('../../../db').withTransaction(db, () => sealBoundScientificWave(db, input));
+}
+async function sealBoundScientificWave(db, input) {
   const results = [];
   for (const item of input.results) {
     const assessment = await db.get(`SELECT a.*, c.experiment_id, c.scope_json

@@ -88,6 +88,10 @@ function eventPayload(input, lifecycle) {
 }
 
 async function record(db, input) {
+  return require('../db').withTransaction(db, () => appendTransition(db, input));
+}
+
+async function appendTransition(db, input) {
   if (input.evidenceRefs !== undefined && !Array.isArray(input.evidenceRefs)) throw invalid('SCIENTIFIC_LIFECYCLE_INVALID');
   const claim = await scopedClaim(db, input);
   const lifecycle = await inspect(db, claim);

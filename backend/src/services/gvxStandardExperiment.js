@@ -39,6 +39,7 @@ function experimentInput(context, input) {
     worldId: hash({ experimentId, role }), isolationId: `${experimentId}:${role}`,
     snapshotHash: context.profile.parentHash, strategyId: `${context.profile.id}:${role}`, budget: context.profile.maxCost }));
   return { scope: context.scope, entityId: context.scope.entityId, experimentId,
+    ...(input.provenance || context.provenance ? { provenance: input.provenance || context.provenance } : {}),
     candidateHash: context.profile.candidateHash, snapshotHash: context.profile.parentHash,
     worldBudget: context.profile.maxCost, controls: context.profile.controls,
     verifierRequirements: context.profile.metrics.map((name) => `gvx-somatic-metric:${name}`),

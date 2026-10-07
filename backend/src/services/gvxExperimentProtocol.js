@@ -98,6 +98,7 @@ async function recordExperimentPlan(db, input) {
   const errors = validatePlan(input);
   if (errors.length) throw Object.assign(new Error(errors.join(',')), { code: 'GVX_EXPERIMENT_INVALID', errors });
   const plan = preparePlan(input);
+  if (plan.experimentalManifest) await require('./gvxManifestRuntimeReferences').resolve(db, plan.experimentalManifest);
   return appendEvent(db, {
     id: `gvx-experiment:${plan.experimentId}:started`, candidateHash: input.candidateHash,
     organizationId: input.scope.organizationId, projectId: input.scope.projectId,
@@ -144,9 +145,19 @@ function buildFinishedPayload(plan, outcomes) {
 }
 
 async function recordExperimentOutcomes(db, context) {
+  return require('../db').withTransaction(db, () => recordBoundOutcomes(db, context));
+}
+
+async function recordBoundOutcomes(db, context) {
   await assertRegisteredPlan(db, context);
   const payload = buildFinishedPayload(context.plan, context.outcomes);
-  if (context.plan.experimentalManifest) payload.manifestHash = context.plan.experimentalManifest.hash;
+  if (context.plan.experimentalManifest) {
+    payload.manifestHash = context.plan.experimentalManifest.hash;
+    payload.runtimeReferences = await require('./gvxManifestRuntimeReferences').resolve(db, context.plan.experimentalManifest);
+    if (payload.runtimeReferences.claimsActive === false) {
+      payload.assessment = { ...payload.assessment, status: 'blocked', reason: 'source-claim-inactive' };
+    }
+  }
   return appendEvent(db, {
     id: `gvx-experiment:${context.plan.experimentId}:finished`, candidateHash: context.candidateHash,
     organizationId: context.scope.organizationId, projectId: context.scope.projectId,
@@ -165,7 +176,8 @@ async function readExperimentManifest(db, query) {
   }
   if (plan.protocolVersion !== 2 || !plan.experimentalManifest) throw error('GVX_EXPERIMENT_MANIFEST_REQUIRED');
   manifest.verify(plan.experimentalManifest, { plan, scope: query.scope, entityId: query.entityId, candidateHash: event.candidateHash });
-  return { status: 'linked', plan, manifest: plan.experimentalManifest, eventId: event.id };
+  const runtimeReferences = await require('./gvxManifestRuntimeReferences').resolve(db, plan.experimentalManifest);
+  return { status: 'linked', plan, manifest: plan.experimentalManifest, eventId: event.id, runtimeReferences };
 }
 
 async function assertRegisteredPlan(db, context) {

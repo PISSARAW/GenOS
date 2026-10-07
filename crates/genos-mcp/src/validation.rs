@@ -102,14 +102,19 @@ fn get_required_fields(name: &str) -> &[&str] {
 }
 
 fn apply_special_validations(name: &str, object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    validate_execution_tool_arguments(name, object)?;
+    if name == "genos_philosophy" {
+        validate_philosophy_arguments(object)?;
+    }
+    Ok(())
+}
+
+fn validate_execution_tool_arguments(name: &str, object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
     if name == "genos_replay" {
         validate_genos_replay(object)?;
     }
     if name == "genos_a_team_preview" && !object.get("sub_systems").is_some_and(serde_json::Value::is_array) {
         return Err("sub_systems must be an array.".into());
-    }
-    if name == "genos_philosophy" {
-        validate_philosophy_arguments(object)?;
     }
     Ok(())
 }

@@ -1,6 +1,6 @@
 # Documentation GenOS
 
-- [Socle P1 : suivi de lancement](06-qualite-preuves/suivi-p1-socle-2026-10-07.md) — première extension L01 de provenance GVX, validations et étapes restantes ; [ADR 0349](adr/0349-manifeste-experimental-gvx-et-provenance-p1.md).
+- [Socle P1 : suivi](06-qualite-preuves/suivi-p1-socle-2026-10-07.md) — manifeste, cycle des claims et provenance runtime ; [115 obligations de clôture](06-qualite-preuves/obligations-cloture-p1.md).
 
 - [Trois pilotes comparatifs P0](06-qualite-preuves/qualification-trois-pilotes-comparatifs-2026-10-07.md) — données versionnées, baselines, ablations, budgets et reproduction ; [ADR 0348](adr/0348-trois-pilotes-comparatifs-reproductibles.md).
 

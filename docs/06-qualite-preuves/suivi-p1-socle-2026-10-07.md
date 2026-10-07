@@ -1,6 +1,6 @@
 # Suivi du socle P1 — 2026-10-07
 
-- **Statut** : P1 démarré ; manifeste GVX et cycle des claims scientifiques intégrés et qualifiés sur fixtures ; L01 reste partiel.
+- **Statut** : P1 en cours ; manifeste, cycle scientifique et provenance runtime Node intégrés ; phase non clôturée.
 - **Portée** : L01 à L05 et L22, après clôture P0 au périmètre convenu.
 - **Dernière revue** : 2026-10-07.
 
@@ -12,10 +12,13 @@ La Page a été relue au démarrage. Sa note P0 du 6 octobre est historique ; la
 [clôture locale P0](audit-p0-concepts-2026-10-06.md) et les rapports du 7 octobre
 conservent les preuves ultérieures. Les six niveaux spécifié, implémenté,
 intégré, qualifié, évalué et répliqué restent distincts.
+Le [registre de clôture](obligations-cloture-p1.md) conserve les **115 entrées**
+de P1, leurs fonctionnalités et leurs tests du catalogue. L'objectif actif
+porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 
 | Lot | État de lancement | Travail suivant nécessaire |
 | --- | --- | --- |
-| L01 Contrats et provenance | Manifeste GVX et cycle scientifique qualifiés sur fixtures ; lot partiel | Relier les missions générales et les reçus existants ; propager les rétractations entre consommateurs et références GVX ; compatibilité des autres consommateurs. |
+| L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
 | L02 Autorité et confinement | Contrats existants qualifiés par P0 ; extension P1 à entreprendre | Enveloppe commune liée au manifeste, révocation pendant le run, limites spawn/délégation et refus hors scope. |
 | L03 Oracles indépendants | Composants AEIS/Lean et pilotes existants ; intégration P1 à entreprendre | Postconditions métier, fraîcheur, domaine et résolution vérifiée des références du manifeste. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
@@ -134,6 +137,44 @@ L01 reste partiel, notamment pour les missions générales, la résolution des
 reçus et la propagation des rétractations. L02 à L05 et L22 restent ouverts.
 L'expérience GenOS `d45758b2-0dbb-4ffe-b8e7-e22e5a5ca13e` conserve les
 résultats et ces limites ; sa persistance ne vaut pas validation du code.
+
+## Troisième extension L01 — références runtime et consommateurs atomiques
+
+L'[ADR 0351](../adr/0351-provenance-runtime-des-missions-et-references-gvx.md)
+relie les missions et runs Node réels au journal GVX existant. La relecture
+résout un reçu de procédure biologique exécutée, ses observations et coûts,
+les bytes d'artefacts enregistrés, les claims scientifiques et le parent du
+manifeste. Les anciens manifestes déclaratifs restent compatibles.
+
+Une rétractation apparaît dans l'état courant sans modifier le manifeste
+initial. La clôture GVX et le scellement Meristem vérifient puis publient
+dans la même transaction que la barrière de rétractation. Les sondes retiennent
+l'écriture SQLite réelle pour vérifier qu'une transition concurrente attend
+la publication ; la relecture suivante observe ensuite le claim rétracté.
+Cette réservation corrige la limite de concurrence décrite historiquement
+dans la deuxième extension. Les artefacts déjà consommés restent historiques.
+
+Validation native de l'état partagé :
+
+- `npm test` : code 0 ; les quatre sondes `test:p1-socle` sont découvertes.
+- `cargo test --workspace` et `cargo test -p genos-mcp` : codes 0.
+- Qualité globale : 5 394 sources, quatre violations historiques,
+  **zéro nouvelle**, code 0. L'extraction du dispatch Rust résout la nouvelle
+  violation signalée à la deuxième extension sans augmenter la baseline.
+- Index ADR : 428 fichiers et lignes, zéro problème.
+
+Les journaux restent hors Git dans
+`C:/Users/Shadow/.codex/visualizations/2026/10/06/01a11128-3c02-7882-a146-5b1ec06e3434/p1-full`.
+Le checkpoint natif `snap-20dee92a791d4f0e948081b6763abaf1` a été créé et
+son fichier observé après un timeout MCP. La décision
+`decision-ebfc4f43-1980-4b1d-a52a-49fe2f501907` et l'expérience
+`9707da85-8452-4c1e-89ab-be1d1d96ac91` conservent la portée et les résultats.
+Cette persistance ne certifie pas les postconditions métier.
+
+L'intégrité des références reste distincte d'un oracle indépendant :
+`postconditions: not_evaluated`, promotion refusée par le lecteur. Les autres
+familles de reçus, les versions déclarées, l'autorité commune, les holdouts et
+les critères scientifiques restent à qualifier. L01 et P1 restent ouverts.
 
 ## Traçabilité du lancement
 
