@@ -269,3 +269,93 @@ une exécution exactement une fois après crash, ni la sérialisation d'approbat
 produisant deux lots frais. Un échec aval conserve les nonces consommés. Les
 holdouts, les comparaisons scientifiques et les autres consommateurs restent à
 qualifier. Les preuves de cette reprise sont dans `p0-audit/continuation/phase-3`.
+
+## Quatrième reprise P0 : B06 partiel — provenance mémoire et bornes de reprise/concurrence
+
+Le mapping externe des lots L01 à L05 et L22 (programme de recherche, liens
+`chatgpt.com/space`) n'existe pas dans le dépôt ; seul B06 les cite. Cette
+reprise qualifie donc B06 par parcours fonctionnels, sans prétendre couvrir un
+lot externe : provenance mémoire d'une part, reprise et concurrence des
+promotions d'autre part. Aucune équivalence lot externe ↔ domaine interne
+n'est inférée.
+
+### Parcours mémoire réellement lu
+
+`vectorMemoryService.searchMemory` → `vectorMemoryCorpus.fetchCorpus` →
+hydratation SQL (`hydrateTrajectories`, `hydrateDecisions`, requêtes de repli)
+→ `memoryScoring.scoreCorpusItem`. Les constructeurs hydratés
+(`buildDecisionItem`, `buildFallbackDecisionItem`, `buildTrajectoryItem`,
+`buildFallbackTrajectoryItem`) ne recopient que `id, title, category, status,
+summary/content, tags, author, createdAt, synaptic_weight, vector, distance,
+f_score, rrf_score`. Aucun attribut libre de vérification (`verified`,
+`is_verified`, `internalSignature`, `systemSigned`) n'est recopié depuis SQL.
+Le boost de crédibilité `×1.2` et le marqueur `[VERIFIED_SYSTEM_FACT]`
+(`memoryScoring.isAuthenticSystemFact`) exigent un tel attribut déjà présent
+sur l'item scoré ; un `id` en `seed-*` ou un `author` auto-déclaré seul ne
+l'obtient pas. Vérifié : `seed-fake-001`/`memory_seed` sans attribut reste à
+crédibilité `1.0`, sans marqueur ; le même item avec `systemSigned: true`
+obtient le marqueur et le boost (écart mesuré `0.0053` contre `0.0158` sur
+requête disjointe, avant clamp).
+
+`graphRagService.fetchConnectedDecisions` ne sélectionne que les colonnes
+sûres (`id, title, category, content, created_by, created_at,
+synaptic_weight, embedding_blob`) ; aucune voie d'hydratation revue ne
+transporte d'attribut de vérification libre vers le scoring.
+
+`test_memory_quality_provenance_contamination.js` passe ses six contrôles :
+vecteur 768-D normalisé, prompt préservé, isolation multi-tenant stricte
+(`org_alpha` contre `org_beta`), refus du spoof (`author: system` et `id`
+seed seul sans marqueur, `systemSigned` seul avec marqueur), rejet des
+hallucinations dans `compileExecutionMemory` (`null` sur placeholder,
+`Failure` sur échec), vésicules cloisonnées par destinataire.
+
+Limites mémoire conservées : l'authentification amont de `systemSigned` /
+`verified` (qui signe, avec quelle clé et quel contrôle à l'écriture) reste à
+qualifier ; les `SEED_EXPERIENCES` en mémoire n'ont aucun attribut et ne sont
+pas boostées. Écart relevé sans correction dans cette reprise :
+`graphRagService` accepte les lignes globales via `OR ... IS NULL`
+inconditionnel, alors que `vectorMemoryCorpus` exige `includeGlobal: true`
+explicite ; l'incohérence de portée globale entre les deux chemins reste à
+trancher. Aucun gain IA, holdout ou apprentissage n'est mesuré.
+
+### Parcours promotion réellement relu
+
+`strategyExecutionService.approveRun` : contexte de promotion → autorité →
+rapport de preuve exigé → preuve d'approbation → confinement →
+`evaluateAeisPromotion` → contexte de gate → contraintes du modèle de soi →
+`assertPromotionGate` → `promotionVerifierNonceService.consume` (transaction :
+périmètre propriétaire du run en `awaiting_approval`, relecture de l'assemblée
+persistée, liaison run/scope, assemblée acceptée, reçus indépendants tous
+positifs et liés à l'empreinte de leur résultat, consommation des nonces) →
+`runPromotionPipeline` → mise à jour métriques → `applyPostPromotion` →
+`finalizePromotion` (`markPromotionComplete`, `recordPromotionMemory`,
+télémétrie). La consommation précède donc le pipeline ; un trigger refusant
+l'insertion empêche tout appel au pipeline et laisse le run en attente.
+
+`test_approve_run_deferred_promotion.js` passe : refus sans rapport, refus
+sans reçus indépendants signés, acceptation avec deux reçus AEIS réels issus
+de deux répliques exécutables (`npm test` sur fixtures), nonces observés
+persistés avant les effets du pipeline, mémoire immunitaire résolue une fois,
+rejeu du même run refusé, écriture nonce en échec bloquante, réfutation
+comptée sans promotion.
+
+`test_promotion_verifier_nonces.js` passe : liaison (autre run, autre scope,
+`refuted`, `inconclusive`, résultat étranger, nonce numérique refusés avec
+`PROMOTION_RECEIPT_BINDING`), rollback (lot partiellement rejoué annulé sans
+résidu, lecture seule refusée), rejeu concurrent sur une connexion (un seul
+succès) et sur deux connexions SQLite réelles (un seul succès,
+`promotionNonceConcurrency.assertSeparateConnections`), run terminé refusé.
+
+Limites de reprise et de concurrence confirmées par lecture, inchangées :
+la transaction ne couvre que la consommation des nonces, pas les effets
+externes du pipeline ; un échec aval conserve les nonces consommés sans
+rejeu du même lot ; deux approbations produisant deux lots frais distincts
+ne sont pas sérialisées ; un crash entre consommation et finalisation laisse
+des nonces consommés pour un run non finalisé ; `applyPostPromotion`
+(`strategyPromotionGate`) ne transmet pas de reçu indépendant dans son
+contexte actuel, la protection durable de cette voie repose uniquement sur
+le `consume` en amont. Aucune exécution exactement-une-fois après crash ni
+bénéfice scientifique n'est annoncé.
+
+B06 reste ouvert : autres consommateurs (holdouts, comparaisons, chemins hors
+mémoire/promotion) et mapping L01-L05/L22 externe à fournir avant clôture P0.
