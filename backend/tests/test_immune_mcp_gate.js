@@ -13,12 +13,17 @@ const originalTransport = executor.executeConfiguredTransport;
 executor.executeConfiguredTransport = async () => { throw new Error('transport must not be reached'); };
 
 (async () => {
-  const result = await executor.execute({ agentId: 'immune-test', organizationId: 'org', projectId: 'project', toolName: 'genos_run', args: { command: 'echo ok; drop table users' } });
+  const request = { organizationId: 'org', projectId: 'project', toolName: 'genos_run', args: { command: 'select x union select y' } };
+  const denied = await executor.execute({ ...request, agentId: 'immune-test' });
+  assert.equal(denied.status, 'deny');
+  assert.equal(denied.policy.reason, 'agent_permission_missing');
+  assert.equal(audit.length, 1, 'unauthorized calls must not reach the immune scanner');
+  const result = await executor.execute({ ...request, agentId: 'system' });
   assert.equal(result.success, false);
   assert.equal(result.status, 'blocked');
   assert.ok(result.threats.includes('SQL_INJECTION'));
-  assert.ok(audit.length > 0);
+  assert.equal(audit.length, 3, 'authorized calls receive policy and immune audit entries');
   dbModule.getDatabase = originalDb;
   executor.executeConfiguredTransport = originalTransport;
-  console.log('Immune threat gate blocks dangerous MCP payloads before transport.');
+  console.log('MCP permission denial precedes the immune gate; authorized threats stop before transport.');
 })().catch((error) => { dbModule.getDatabase = originalDb; executor.executeConfiguredTransport = originalTransport; console.error(error); process.exitCode = 1; });
