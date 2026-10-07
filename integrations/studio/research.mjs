@@ -3,6 +3,7 @@ import { byId, encoded, node, options } from './ui.mjs';
 import { actionForm } from './forms.mjs';
 import { researchActions } from './researchActions.mjs';
 import { renderData } from './components.mjs';
+import { renderComparison } from './comparison.mjs';
 
 function showData(data) {
   renderData('research-summary', data);
@@ -46,7 +47,9 @@ export function startResearch() {
     const ids = byId('job-comparison').value.split(',').map(value => value.trim()).join(',');
     const data = await api.request('/api/evals/compare?ids=' + encoded(ids));
     showData(data);
+    renderComparison('research-summary', data);
     const note = node('p', 'Entrées capturées identiques : ' + (data.sameCapturedInputs ? 'Oui' : 'Non') + ' · aucune promotion implicite.');
+    note.className = 'comparison-note';
     byId('research-summary').prepend(note);
   }));
   for (const [id, path] of [['arena-results', '/api/arena/tournament'], ['arena-pareto', '/api/arena/pareto'], ['arena-trace', '/api/arena/trace']]) {
