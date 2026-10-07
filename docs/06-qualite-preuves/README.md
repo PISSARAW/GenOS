@@ -1,6 +1,7 @@
 # 06 — Qualité et preuves
 
 - [studio-parite-plan.md](studio-parite-plan.md) — matrice du programme validé, capacités communes et différenciation, acceptation et jalons.
+- [studio-parite-suivi.md](studio-parite-suivi.md) — points livrés, base Git, risques de consolidation et preuves de la reprise.
 
 - [studio-qualification.md](studio-qualification.md) — huit lots Studio, preuves Windows et écarts Linux/validation étendue.
 

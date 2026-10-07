@@ -1,6 +1,7 @@
 # Documentation GenOS
 
 - [Studio : programme de parité](06-qualite-preuves/studio-parite-plan.md) — capacités, critères, jalons et limites du programme validé.
+- [Studio : suivi de parité](06-qualite-preuves/studio-parite-suivi.md) — base isolée, commits, tests et écarts non masqués.
 
 - [Studio : parcours et acceptation](03-reference/studio-parcours-et-acceptation.md) — livraison en huit lots et [ADR 0348](adr/0348-studio-modulaire-et-parcours-operateur.md).
 
