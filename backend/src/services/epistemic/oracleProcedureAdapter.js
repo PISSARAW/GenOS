@@ -38,8 +38,8 @@ function executedVerifier(verifier, outcome) {
   const detail = outcome.observations?.find(item => item.detail?.executionId)?.detail;
   if (!detail) return { ...verifier, executionWorkspace: undefined };
   const strategy = detail.postconditions.strategy || verifier.strategy[0];
-  return { id: detail.executionId, type: 'procedure_semantic',
-    verifierDigest: require('../verifierTrustRegistry').ensureVerifier('procedure_semantic').digest,
+  return { id: detail.executionId, type: verifier.type,
+    verifierDigest: require('../verifierTrustRegistry').ensureVerifier(verifier.type).digest,
     actorId: `native-oracle-${detail.processId}-${detail.executionId}`,
     model: `${process.version}:${strategy}`, version: '1.0', strategy: [strategy],
     workspaceId: detail.cwd, executionWorkspace: detail.cwd,

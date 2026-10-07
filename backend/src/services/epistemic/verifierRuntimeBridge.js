@@ -156,6 +156,7 @@ function signVerifierResult(antigen, verifier, signed) {
   const signedReceipt = issueReceipt(preReceipt);
   return {
     status: signed.outcome.status,
+    reason: signed.outcome.reason || null,
     verifierType: verifier.type,
     resultId: antigen.id,
     verifierId: verifier.id || null,
@@ -188,10 +189,10 @@ async function runSingleVerifier(antigen, verifier, ctx) {
     { worker, timeoutMs: ctx.opts.timeoutMs || 30000, testConfig: enriched.test,
       artifactConfig: enriched.artifact, allowedWorkspaceRoot: ctx.opts.allowedWorkspaceRoot,
       db: ctx.opts.db, nativeOracleSubject: ctx.opts.nativeOracleSubject, nativeOracleDeadline: ctx.opts.nativeOracleDeadline,
-      nativeOracleAllocationHash: ctx.opts.nativeOracleAllocationHash }
+      nativeOracleAllocationHash: ctx.opts.nativeOracleAllocationHash, nativeMemorySubject: ctx.opts.nativeMemorySubject }
   );
   const executionWorkspace = outcome.observations?.find((item) => item.detail?.executionId)?.detail.cwd;
-  const executed = verifier.type === 'procedure_semantic'
+  const executed = ['procedure_semantic', 'memory_semantic'].includes(verifier.type)
     ? require('./oracleProcedureAdapter').executedVerifier(verifier, outcome) : { ...verifier, executionWorkspace };
   const independence = executionWorkspace
     ? evaluateVerifierIndependence(executed, antigen, ctx.executedVerifiers)

@@ -13,7 +13,7 @@ function environment() {
 
 function execute(input, options) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [require.resolve('./oracleNativeEntry.cjs')], {
+    const child = spawn(process.execPath, [options.entry], {
       cwd: options.cwd, env: environment(), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
@@ -32,20 +32,27 @@ function execute(input, options) {
 }
 
 async function run(subject, options) {
+  const entry = entryFor(options.kind);
   const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-subset-oracle-'));
   const input = JSON.stringify({ subject, strategy: options.strategy });
   if (Buffer.byteLength(input) > 131072) { await fs.rm(cwd, { recursive: true, force: true }); throw new Error('ORACLE_INPUT_TOO_LARGE'); }
   const started = Date.now();
   try {
-    const execution = await execute(input, { cwd, timeoutMs: Math.min(30000, Math.max(1, Number(options.timeoutMs) || 10000)) });
+    const execution = await execute(input, { cwd, entry, timeoutMs: Math.min(30000, Math.max(1, Number(options.timeoutMs) || 10000)) });
     const result = execution.code === 0 && !execution.timedOut ? JSON.parse(execution.stdout)
       : { status: 'inconclusive', reason: execution.timedOut ? 'oracle_timeout' : 'oracle_process_failed' };
     if (result.processId && result.processId !== execution.processId) throw new Error('ORACLE_PROCESS_ID_MISMATCH');
     return { result, detail: { executionId: randomUUID(), processId: execution.processId, cwd,
       exitCode: execution.code, timedOut: execution.timedOut, durationMs: Date.now() - started,
       inputDigest: `sha256:${createHash('sha256').update(input).digest('hex')}`,
-      executable: process.execPath, implementation: require.resolve('./oracleNativeEntry.cjs') } };
+      executable: process.execPath, implementation: entry } };
   } finally { await fs.rm(cwd, { recursive: true, force: true }); }
+}
+
+function entryFor(kind) {
+  if (!kind || kind === 'subset') return require.resolve('./oracleNativeEntry.cjs');
+  if (kind === 'memory') return require.resolve('./oracleMemoryNativeEntry.cjs');
+  throw new Error('ORACLE_KIND_UNAVAILABLE');
 }
 
 module.exports = { run };

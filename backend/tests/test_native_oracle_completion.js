@@ -60,6 +60,7 @@ async function humanApproval(db) {
   assert.equal(approved.status, 'completed');
   assert.equal((await db.all('SELECT nonce FROM verifier_receipt_nonces')).length, before);
   assert.equal((await service.approveRun(db, row.id, options)).status, 'completed');
+  await require('./helpers/nativeMemoryProbes').qualify(db, { runId: row.id, agentId: row.agent_id });
   console.log('Real native approval: human proof required, promotion completed and retry did not consume nonces again.');
 }
 

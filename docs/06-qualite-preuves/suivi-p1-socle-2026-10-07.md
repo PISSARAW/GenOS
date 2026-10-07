@@ -20,7 +20,7 @@ porte sur l'ensemble de cette phase, et ne se limite pas aux extensions L01.
 | --- | --- | --- |
 | L01 Contrats et provenance | Manifeste, cycle scientifique et liaison runtime Node intégrés ; lot partiel | Adapter les autres familles de reçus, poursuivre la propagation des rétractations et la compatibilité des consommateurs. |
 | L02 Autorité et confinement | Enveloppe du run, revalidation et réservation de délégation Node intégrées ; lot partiel | Raccordement des appels directs, qualification complète des compteurs et confinement effectif. |
-| L03 Oracles indépendants | Premier adaptateur natif subset sum raccordé à AEIS ; lot partiel | Raccorder les preuves à la clôture et au manifeste, puis couvrir code, mémoire et les autres domaines de raisonnement. |
+| L03 Oracles indépendants | Clôture native subset sum et premier oracle de fidélité mémoire raccordés ; lot partiel | Couvrir code, formats mémoire restants, vérité source, rétractations et autres domaines ; terminer les budgets et la clôture de vérification mémoire. |
 | L04 Mondes et replay | Snapshots et reprises bornées existants ; extension P1 à entreprendre | Branches appariées, journal d'interventions, aléas épinglés, recherche de fuites et bisection causale. |
 | L05 Harnais et baselines | Pilotes P0 exploratoires disponibles ; campagne P1 à entreprendre | Runner GVX raccordé au manifeste, holdout inaccessible au candidat, coûts complets et puissance adaptée. |
 | L22 Interfaces et observabilité | Clients de référence P0 qualifiés ; extension P1 à entreprendre | Inspection commune du manifeste, des coûts, preuves, rejets et reprises ; parité sémantique ciblée. |
@@ -331,6 +331,39 @@ compte 432 entrées sans problème. Les journaux `npm-completion-final.log`,
 Les résultats concernent le checkout partagé et ne constituent pas une
 reproduction indépendante en clone frais. Les changements étrangers
 MCP, VFS et Rust restent exclus du commit.
+
+## Extension L03 — oracle de fidélité mémoire et lecture réelle
+
+L'[ADR 0356](../adr/0356-oracle-memoire-de-promotion-et-controle-de-lecture.md)
+ajoute un oracle mémoire au registre AEIS. Il confronte le contenu et les
+claims du souvenir au rapport du journal de promotion signé, avec le run,
+le tenant et l'assemblée source acceptée. Deux processus frais utilisent une
+reconstruction et une lecture positionnelle du format attendu.
+
+La sonde suit une promotion réelle, puis vérifie des receipts signés et
+une assemblée AEIS. Le souvenir valide est retrouvé par la vraie recherche
+mémoire ; les textes ajoutés et les claims contradictoires, même sous un
+hash recalculé, sont réfutés et exclus de la lecture cognitive. L'inspection
+affiche la fidélité séparément de l'intégrité. Le verdict conserve
+`sourceTruth: not_evaluated` : fidélité de copie, vérité source et utilité du
+souvenir restent trois questions distinctes.
+
+Le checkpoint MCP observé est `snap-6b3ede21b806409e855303b1c80979c7`.
+Le domaine couvre seulement les mémoires de promotion `Experience` à
+références textuelles, sans contexte interprétatif. Les formats restants,
+la rétraction source, les budgets durables et la clôture de vérification
+mémoire, l'oracle code et les pilotes restent ouverts. Le périmètre conserve
+les **115 obligations**, avec **L01–L05 et L22 toujours ouverts**.
+
+Validation de cette extension : `npm test` complet, `cargo test --workspace`
+et sonde native passent avec code 0. Le gate qualité relève 5 424 sources,
+quatre violations historiques et zéro nouvelle ; l'index ADR compte
+433 entrées sans problème. Les journaux `npm-memory-complete.log`,
+`cargo-memory.log`, `native-memory-qualified-final.log` et
+`quality-memory-complete.log` sont conservés hors Git dans `p1-full`.
+La décision `decision-4c795363-5eac-436a-8647-fa61c58f542d` conserve le domaine
+et ses limites. Les contrôles portent sur le checkout partagé ; la
+reproduction indépendante du commit en clone frais reste ouverte.
 
 ## Traçabilité initiale du lancement
 

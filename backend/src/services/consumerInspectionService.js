@@ -30,9 +30,14 @@ async function inspectParent(db, parent, request) {
     WHERE p.parent_hash = ? AND p.organization_id = ? AND p.project_id = ?
       AND d.organization_id = p.organization_id AND d.project_id = p.project_id LIMIT 100`,
   parent.payload_hash, request.scope.organizationId, request.scope.projectId);
+  const views = [];
+  for (const row of memories) {
+    const memory = await db.get('SELECT * FROM genome_decisions WHERE id=?', row.memory_id);
+    views.push({ ...memoryView(row, payload), fidelity: await require('./promotionMemoryReadGate').inspect(db, memory) });
+  }
   return { id: parent.id, hash: parent.payload_hash, assemblyId: payload.assemblyId,
     assemblyAccepted: stored.evaluation.allAccepted === true,
-    verifierResultIds: payload.verifierResultIds, memories: memories.map(row => memoryView(row, payload)) };
+    verifierResultIds: payload.verifierResultIds, memories: views };
 }
 
 function memoryView(row, parent) {
