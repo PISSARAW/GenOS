@@ -2,6 +2,7 @@ import { api, perform } from './app.mjs';
 import { byId, encoded } from './ui.mjs';
 import { actionForm } from './forms.mjs';
 import { managementActions } from './managementActions.mjs';
+import { renderData } from './components.mjs';
 
 const reads = {
   agents: () => '/api/agents',
@@ -21,6 +22,7 @@ export function startManagement() {
     perform(async () => {
       const data = await api.request(reads[byId('management-collection').value]());
       byId('management-data').textContent = JSON.stringify(data, null, 2);
+      renderData('management-summary', data);
     });
   });
   byId('terminal').addEventListener('submit', event => {

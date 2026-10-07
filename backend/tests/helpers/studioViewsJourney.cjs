@@ -125,12 +125,13 @@ async function lab(page, spec) {
   const job = await submit(page, { id: 'job-create', route: '/api/evals/jobs' });
   await require('../../src/services/jobWorker').processOnce();
   await page.locator('#job-inspect').click();
-  await page.locator('#research-data').filter({ hasText: '"completed"' }).waitFor();
+  await page.locator('#research-summary').filter({ hasText: 'completed' }).waitFor();
   await loaded(page);
   const replay = await submit(page, { id: 'job-replay', route: `/api/evals/jobs/${job.id}/replay` });
   await page.locator('#job-comparison').fill(job.id + ',' + replay.id);
   await page.locator('#jobs-compare').click();
-  await page.locator('#research-data').filter({ hasText: '"sameCapturedInputs": true' }).waitFor();
+  await page.locator('#research-summary').filter({ hasText: 'Entrées capturées identiques : Oui' }).waitFor();
+  assert.equal(await page.locator('#research-data').isVisible(), false);
   await loaded(page);
   const cancelled = await submit(page, { id: 'job-cancel', route: `/api/evals/jobs/${replay.id}/cancel` });
   assert.equal(cancelled.status, 'cancelled');

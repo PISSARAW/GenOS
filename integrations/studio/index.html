@@ -48,7 +48,8 @@
 <option value="agents">Agents</option><option value="workspaces">Workspaces</option><option value="organizations">Organisations</option>
 <option value="projects">Projets</option><option value="members">Membres de l’organisation</option><option value="workers">Workers</option>
 <option value="garage">Garage de l’orchestrateur</option><option value="queue">File du garage</option></select></label><button>Charger la liste</button></form>
-<pre id="management-data" data-runtime></pre><h3>Palette d’actions</h3><div id="management-actions"></div>
+<div id="management-summary" data-runtime></div><details><summary>Inspecteur technique — gestion</summary>
+<pre id="management-data" data-runtime></pre></details><h3>Palette d’actions</h3><div id="management-actions"></div>
 <h3>Réponse du runtime</h3><pre id="management-result" data-runtime></pre>
 <h3>Terminal contrôlé</h3><form id="terminal"><label>Commande<select id="terminal-command">
 <option>help</option><option>status</option><option>agents</option><option>ping</option><option>clear</option><option>halt</option><option>resume</option></select></label>
@@ -81,7 +82,8 @@
 <label>Job<input id="job-choice" list="jobs"><datalist id="jobs" data-runtime></datalist></label>
 <button id="job-inspect" type="button">Inspecter le job</button>
 <label>Jobs à comparer (IDs séparés par virgules)<input id="job-comparison"></label><button id="jobs-compare" type="button">Comparer les jobs</button>
-<h3>Données observées</h3><pre id="research-data" data-runtime></pre>
+<h3>Données observées</h3><div id="research-summary" data-runtime></div>
+<details><summary>Inspecteur technique — laboratoire</summary><pre id="research-data" data-runtime></pre></details>
 <h3>Actions de recherche</h3><div id="research-actions"></div><pre id="research-result" data-runtime></pre>
 <h3>Arène locale</h3><p>Benchmark de recherche dans des tableaux triés, pas une évaluation d’agents cognitifs. Résultats en cache jusqu’au redémarrage.</p>
 <button id="arena-results" type="button">Résultats du benchmark</button><button id="arena-pareto" type="button">Comparer la frontière Pareto</button>

@@ -2,6 +2,12 @@ import { api, perform } from './app.mjs';
 import { byId, encoded, node, options } from './ui.mjs';
 import { actionForm } from './forms.mjs';
 import { researchActions } from './researchActions.mjs';
+import { renderData } from './components.mjs';
+
+function showData(data) {
+  renderData('research-summary', data);
+  byId('research-data').textContent = JSON.stringify(data, null, 2);
+}
 
 async function collections() {
   const [experiments, datasets, campaigns, jobs] = await Promise.all([
@@ -11,13 +17,13 @@ async function collections() {
   options('datasets', datasets);
   options('campaigns', campaigns);
   options('jobs', jobs);
-  byId('research-data').textContent = JSON.stringify({ experiments, datasets, campaigns, jobs }, null, 2);
+  showData({ experiments, datasets, campaigns, jobs });
 }
 
 async function inspect() {
   const id = byId('experiment-choice').value;
   const data = await api.request('/api/experiments/' + encoded(id) + '/evidence-ledger');
-  byId('research-data').textContent = JSON.stringify(data, null, 2);
+  showData(data);
   options('claims', data.claims.map(claim => ({ id: claim.claimId, name: claim.statement })));
   byId('research-claims').replaceChildren(...data.claims.map(claim => node('li',
     `${claim.statement} · ${claim.status.position} · vérification : ${claim.status.verifierStatus} · promotion non accordée`)));
@@ -25,7 +31,7 @@ async function inspect() {
 
 async function inspectJob() {
   const job = await api.request('/api/evals/jobs/' + encoded(byId('job-choice').value));
-  byId('research-data').textContent = JSON.stringify(job, null, 2);
+  showData(job);
 }
 
 export function startResearch() {
@@ -34,15 +40,18 @@ export function startResearch() {
   byId('research-inspect').addEventListener('click', () => perform(inspect));
   byId('job-inspect').addEventListener('click', () => perform(inspectJob));
   byId('dataset-inspect').addEventListener('click', () => perform(async () => {
-    byId('research-data').textContent = JSON.stringify(await api.request('/api/evals/datasets/' + encoded(byId('dataset-choice').value) + '/cases'), null, 2);
+    showData(await api.request('/api/evals/datasets/' + encoded(byId('dataset-choice').value) + '/cases'));
   }));
   byId('jobs-compare').addEventListener('click', () => perform(async () => {
     const ids = byId('job-comparison').value.split(',').map(value => value.trim()).join(',');
-    byId('research-data').textContent = JSON.stringify(await api.request('/api/evals/compare?ids=' + encoded(ids)), null, 2);
+    const data = await api.request('/api/evals/compare?ids=' + encoded(ids));
+    showData(data);
+    const note = node('p', 'Entrées capturées identiques : ' + (data.sameCapturedInputs ? 'Oui' : 'Non') + ' · aucune promotion implicite.');
+    byId('research-summary').prepend(note);
   }));
   for (const [id, path] of [['arena-results', '/api/arena/tournament'], ['arena-pareto', '/api/arena/pareto'], ['arena-trace', '/api/arena/trace']]) {
     byId(id).addEventListener('click', () => perform(async () => {
-      byId('research-data').textContent = JSON.stringify(await api.request(path), null, 2);
+      showData(await api.request(path));
     }));
   }
   window.addEventListener('studio:cleared', () => {
