@@ -61,6 +61,9 @@ async function main() {
     assert.deepEqual(listed.body.runs.map(run => run.id), [spec.run.id]);
     assert.equal(listed.body.hasMore, false);
     assert.equal(listed.body.nextOffset, null);
+    const invalidStatus = await request(spec, '/api/product-proofs/consumer-agents/consumer-promotion-agent/runs?status=not-a-status');
+    assert.equal(invalidStatus.status, 400);
+    assert.equal(invalidStatus.body.error.code, 'INVALID_RUN_STATUS');
     await assertIntegrity(spec, context);
     console.log('Consumer inspection: tenant isolation, real promotion provenance, tamper refusal and mission admin boundaries passed.');
   } finally {

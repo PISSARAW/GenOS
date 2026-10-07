@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const events = require('./strategyExecutionEvents');
+const VALID_RUN_STATUSES = new Set(['planned', 'running', 'awaiting_approval', 'completed', 'failed', 'blocked', 'cancelled']);
 
 function verifyHash(record) {
   const actual = crypto.createHash('sha256').update(record.payload_json).digest('hex');
@@ -104,4 +105,4 @@ async function inspectConsistent(db, request) {
     provenance, snapshots };
 }
 
-module.exports = { inspect, listRuns, escapeLikePattern };
+module.exports = { inspect, listRuns, escapeLikePattern, VALID_RUN_STATUSES };
