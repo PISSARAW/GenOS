@@ -321,9 +321,8 @@ function checkCircuitBreaker(toolName, circuitScope, args) {
   return { success: false, status: 'circuit_open', error: circuit.message };
 }
 
-const { applyDomainVerdict } = require('./mcpExecutor/domainVerdict');
-
 async function execute(executionRequest) {
+  const { applyDomainVerdict } = require('./mcpExecutor/domainVerdict');
   const { agentId, organizationId, projectId, toolName, args = {}, taints = [] } = executionRequest;
   const db = await getDatabase();
   await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
