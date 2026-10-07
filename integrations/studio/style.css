@@ -12,3 +12,4 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;bor
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#1e293b;padding:16px}
 details{margin:16px 0}summary{cursor:pointer}section>button{margin:8px 0}
 #run-list{padding-left:20px}#run-list button{margin:4px 0;background:#334d70}
+#run-list [role="status"]{color:#94a3b8;padding:8px 0}

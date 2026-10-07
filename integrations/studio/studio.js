@@ -59,6 +59,7 @@ function renderRuns(data, append = false) {
   });
   if (!items.length && !existing.length) {
     const empty = document.createElement('li');
+    empty.setAttribute('role', 'status');
     empty.textContent = 'Aucun run trouvé.';
     byId('run-list').replaceChildren(empty);
   } else byId('run-list').replaceChildren(...existing, ...items);
