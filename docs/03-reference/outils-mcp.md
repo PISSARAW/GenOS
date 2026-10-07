@@ -45,7 +45,7 @@ fonctionnelle, mise en file de message et traitement métier. Le contrat natif
 est porté par le backend Node ; la présence du dispatch générique dans un autre
 catalogue ne démontre pas la parité de ce runtime Axolotl.
 
-GenOS possede plusieurs representations du catalogue, chacune ayant une responsabilite differente. La source canonique des schemas publics est `shared/toolDefinitions.json` (36 outils) ; `mcp/toolDefinitions.json` en est la copie embarquee de repli, utilisee uniquement quand le serveur JS tourne hors racine du depot (`mcp/catalog.js`). Les deux fichiers doivent rester synchronises :
+GenOS possède plusieurs représentations du catalogue, chacune ayant une responsabilité différente. La source canonique des schémas publics est `shared/toolDefinitions.json` (48 outils au 7 octobre 2026) ; `mcp/toolDefinitions.json` en est la copie embarquée de repli, utilisée uniquement quand le serveur JS tourne hors racine du dépôt (`mcp/catalog.js`). Les deux fichiers doivent rester synchronisés :
 
 | Surface | Role | Exemples |
 | --- | --- | --- |
@@ -61,7 +61,9 @@ Les effectifs (strategies, primitives, outils declares) ne sont pas figes dans l
 - `bio` pour les outils biomimetiques ;
 - `cli` pour les outils commencant par `genos_` et supportes par le registre.
 
-Cette separation est intentionnelle : publier un schema aide un client a formuler l'appel, mais seul le registre runtime doit pouvoir autoriser un dispatch. De plus, la parite stricte des schemas est maintenue entre les implementations Rust (`public_tool_specs`) et JavaScript (par exemple `genos_replay` supportant indifferemment `snapshot` ou `snapshot_id` via `anyOf`, et `genos_worker_publish` avec `kind` obligatoire et `content` facultatif pour les signaux purs).
+Cette séparation est intentionnelle : publier un schéma aide un client à formuler l'appel, mais seul le registre runtime doit pouvoir autoriser un dispatch. Les tests JavaScript vérifient la copie du catalogue et le routage des 48 outils ; le serveur Rust possède son propre catalogue sous lease. Le test de parité backend ne prouve qu'une correspondance minimale entre les deux serveurs, pas l'identité de tous leurs schémas ni l'exécution métier de chaque outil. `genos_replay` accepte `snapshot` ou `snapshot_id` via `anyOf` ; `genos_worker_publish` exige `kind`, `signal_type` et `signal_data`.
+
+Un retour `accepted` atteste le lancement d'une opération asynchrone, pas son achèvement ni sa promotion. Hors du catalogue public de 48 outils, le handler backend `genos_temporal_consciousness_transfer` est `reference_only` : l'action d'exécution renvoie `success: false` et `status: not_implemented` ; son inspection de statut est une simulation, sans restauration d'agent.
 
 ---
 
