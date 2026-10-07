@@ -1,0 +1,23 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const fixture = require('./helpers/b06ClientFixture.cjs');
+
+async function main() {
+  const spec = await fixture.prepare();
+  process.env.GENOS_ALLOWED_ORIGINS = spec.settings.url;
+  const server = require('../src/app').createApp().listen(14600, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  spec.settings.url = `http://127.0.0.1:${server.address().port}`;
+  const output = path.join(spec.root, 'browser');
+  fs.mkdirSync(output);
+  try {
+    await require('./helpers/b06StudioJourney.cjs').run(spec, output);
+    console.log('Studio browser: real approval, provenance, snapshot, tenant refusal and disconnect passed.');
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    await require('../src/db').closeDatabase();
+    fs.rmSync(spec.root, { recursive: true, force: true });
+  }
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });

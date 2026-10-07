@@ -60,6 +60,7 @@ async function run(spec, output) {
     assert.deepEqual(errors, []);
     return result;
   } catch (error) {
+    console.error('Studio browser failure', { message: await page.locator('#message').textContent(), errors, responses });
     fs.writeFileSync(path.join(output, 'studio-failure.json'), JSON.stringify({ message: await page.locator('#message').textContent(), errors, responses }));
     await page.screenshot({ path: path.join(output, 'studio-failure.png'), fullPage: true });
     throw error;

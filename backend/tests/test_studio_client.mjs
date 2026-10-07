@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { StudioClient } from '../../integrations/studio/client.mjs';
+
+const session = { token: 'test-only', organization: 'one', project: 'alpha', permissions: ['read'] };
+let pending;
+const client = new StudioClient((_path, options) => new Promise(resolve => { pending = { resolve, options }; }));
+client.setSession(session);
+const old = client.request('/read');
+client.setSession({ ...session, project: 'beta' });
+assert.equal(pending.options.signal.aborted, true);
+pending.resolve({ ok: true, json: async () => ({ foreign: true }) });
+await assert.rejects(old, error => error.name === 'AbortError');
+assert.equal(client.allowed('workspace:write'), false);
+assert.equal(client.headers()['X-Project-Id'], 'beta');
+client.setSession(null);
+assert.throws(() => client.headers(), /Session absente/);
+const refused = new StudioClient(async () => ({ ok: false, status: 403, json: async () => ({ error: { code: 'DENIED' } }) }));
+refused.setSession(session);
+await assert.rejects(refused.request('/write'), error => error.status === 403 && error.code === 'DENIED');
+console.log('Studio client: obsolete responses, scope cancellation, permissions and refusals passed.');

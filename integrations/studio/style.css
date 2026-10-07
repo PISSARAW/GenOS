@@ -10,3 +10,8 @@ button:disabled{opacity:.5;cursor:wait}#message{padding:16px;border-left:3px sol
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #475569}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#1e293b;padding:16px}
 details{margin:16px 0}summary{cursor:pointer}section>button{margin:8px 0}
+select{font:inherit;padding:10px;border-radius:6px;background:#1e293b;color:inherit}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}nav[hidden],[hidden]{display:none!important}
+button[aria-pressed=true]{outline:2px solid #72ddc2}input,textarea,select{min-width:0;box-sizing:border-box}
+textarea{width:100%}li{margin:8px 0;overflow-wrap:anywhere}*:focus-visible{outline:3px solid #72ddc2;outline-offset:3px}
+@media(max-width:600px){main{margin:16px auto;padding:0 12px 24px}form{padding:12px}h1{font-size:2rem}th,td{padding:6px}}
