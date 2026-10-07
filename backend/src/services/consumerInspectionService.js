@@ -53,6 +53,7 @@ async function inspect(db, request) {
 
 async function listRuns(db, request) {
   const limit = Math.max(1, Math.min(50, Math.floor(Number(request.limit) || 20)));
+  const offset = Math.max(0, Math.floor(Number(request.offset) || 0));
   const query = String(request.query || '').trim();
   const status = String(request.status || '').trim();
   const terms = [request.agentId, request.scope.organizationId, request.scope.projectId];
@@ -68,9 +69,10 @@ async function listRuns(db, request) {
   }
   const rows = await db.all(`SELECT r.* FROM strategy_execution_runs r
     JOIN agents a ON a.id = r.agent_id JOIN workspaces w ON w.id = a.workspace_id
-    WHERE ${filters.join(' AND ')} ORDER BY r.created_at DESC, r.rowid DESC LIMIT ?`, ...terms, limit);
-  const runs = await Promise.all(rows.map(row => events.hydrateRun(db, row)));
-  return { runs, query, status, limit };
+    WHERE ${filters.join(' AND ')} ORDER BY r.created_at DESC, r.rowid DESC LIMIT ? OFFSET ?`, ...terms, limit + 1, offset);
+  const hasMore = rows.length > limit;
+  const runs = await Promise.all(rows.slice(0, limit).map(row => events.hydrateRun(db, row)));
+  return { runs, query, status, limit, offset, hasMore, nextOffset: hasMore ? offset + limit : null };
 }
 
 async function resolveRunId(db, request) {

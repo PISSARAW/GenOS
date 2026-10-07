@@ -3,6 +3,7 @@
 let session = null;
 let current = null;
 let selectedRunId = null;
+let runOffset = 0;
 let busy = false;
 const REQUEST_TIMEOUT_MS = 10000;
 const byId = id => document.getElementById(id);
@@ -38,14 +39,16 @@ async function request(path, body) {
 function clearView() {
   current = null;
   selectedRunId = null;
+  runOffset = 0;
   byId('inspection').hidden = true;
   for (const id of ['run-id', 'run-status', 'workspace', 'promotion', 'provenance', 'steps', 'snapshots', 'run-list']) {
     byId(id).replaceChildren();
   }
 }
 
-function renderRuns(data) {
-  byId('run-list').replaceChildren(...data.runs.map(run => {
+function renderRuns(data, append = false) {
+  const existing = append ? [...byId('run-list').children] : [];
+  const items = data.runs.map(run => {
     const item = document.createElement('li');
     const button = document.createElement('button');
     button.type = 'button';
@@ -53,7 +56,14 @@ function renderRuns(data) {
     button.addEventListener('click', () => perform(() => loadRun(run.id)));
     item.append(button);
     return item;
-  }));
+  });
+  if (!items.length && !existing.length) {
+    const empty = document.createElement('li');
+    empty.textContent = 'Aucun run trouvé.';
+    byId('run-list').replaceChildren(empty);
+  } else byId('run-list').replaceChildren(...existing, ...items);
+  runOffset = data.nextOffset ?? 0;
+  byId('run-more').hidden = !data.hasMore;
 }
 
 function render(data) {
@@ -82,10 +92,12 @@ async function loadRun(runId) {
   render(await request(`/api/product-proofs/consumer-runs/${encodeURIComponent(runId)}`));
 }
 
-async function refreshRuns() {
+async function refreshRuns({ append = false } = {}) {
   const query = encodeURIComponent(byId('run-query').value);
   const status = encodeURIComponent(byId('run-status-filter').value);
-  renderRuns(await request(`/api/product-proofs/consumer-agents/${encodeURIComponent(session.agent)}/runs?q=${query}&status=${status}`));
+  const offset = append ? runOffset : 0;
+  const data = await request(`/api/product-proofs/consumer-agents/${encodeURIComponent(session.agent)}/runs?q=${query}&status=${status}&limit=20&offset=${offset}`);
+  renderRuns(data, append);
 }
 
 async function refresh() {
@@ -127,6 +139,7 @@ byId('disconnect').addEventListener('click', () => {
 });
 byId('refresh').addEventListener('click', () => perform(refresh));
 byId('run-search').addEventListener('submit', event => { event.preventDefault(); perform(refreshRuns); });
+byId('run-more').addEventListener('click', () => perform(() => refreshRuns({ append: true })));
 byId('snapshot').addEventListener('click', () => perform(async () => {
   await request(`/api/workspaces/${encodeURIComponent(current.workspace.id)}/snapshots`, { label: 'Studio', reason: 'Operator capture' });
   await refresh();
