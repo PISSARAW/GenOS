@@ -37,6 +37,7 @@ L'intégration finale sera un point séparé, avec résolution et tests.
 | F03.1 Contrats | Livré : ADR 0350 | Frontières UI/API/runtime, routes et sessions |
 | F04.1 Harnais | Qualifié Windows | Port attribué par l'OS, origine exacte, résultat structuré ; Edge 154.0.4258.62, aucune erreur de page |
 | F04.2 Contrat du benchmark | Qualifié par tests ciblés | Fixture positive vérifiée ; absence/échec/incomplétude refusés, service inchangé |
+| F04.3 Contrat d'argumentation | Qualifié par tests ciblés | Invoker `context`, revue plate, identifiants persistés ; arguments et labels réellement assertés |
 | C01.1 Navigation | Qualifié Windows | Connexion séparée, contexte compact, cinq routes, liens de run et historique |
 | C02.1 Composants | Qualifié Windows, partiel | Fiches gestion/laboratoire, champs autorisés, inconnus et garanties fausses ; JSON secondaire |
 | C03.1 Responsive et clavier | Qualifié Windows, partiel | Cinq vues 390/1440 px, texte 200 %, labels et focus ; audit WCAG/lecteur d'écran non exécuté |
@@ -66,6 +67,16 @@ Pour chaque point : vérifier qualité, exécuter les tests concernés, conserve
 captures/versions dans un répertoire ignoré et mettre à jour ce registre.
 Les gates globaux seront réexécutés avant la fin de cette tranche.
 Une validation Windows ne qualifie pas Linux/Docker ni un fournisseur réel.
+
+F04.2/F04.3 : les deux fixtures historiques sont alignées avec les services
+inchangés. La fixture biologique ne confond plus couverture sémantique et
+vérification d'état. La fixture d'argumentation lit le contexte public, renvoie
+la revue à plat et cible les identifiants persistés générés par le service.
+Elle exige désormais une agrégation grounded, des arguments SUPPORT/ATTACK
+persistés et des labels IN/OUT, avec une issue non résolue. L'absence
+d'agrégation n'est plus un simple message de log suivi d'un succès.
+Les jugements et reçus du vérificateur restent injectés pour ce test ; aucune
+preuve de sécurité réelle ni indépendance de fournisseurs n'est revendiquée.
 
 C01.1 : tests unitaires routes/client réussis et parcours navigateur enrichi
 réussi sous Edge 154.0.4258.62 : historique avant/arrière, rechargement de lien

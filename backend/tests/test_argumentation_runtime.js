@@ -10,7 +10,8 @@ const { ROUND_STEPS } = require('../src/services/biocenose/runtime/deliberationP
 
 /**
  * Test argumentation_community variant through full runtime
- * Verifies grounded labelling with relations, cycles, IN/OUT/UNDECIDED statuses
+ * Verifies persisted SUPPORT/ATTACK relations and grounded unresolved labels.
+ * Injected judgments and verifier receipts are fixtures, not real security evidence.
  */
 function makeSealedJudgment() {
   return {
@@ -31,33 +32,23 @@ function makeSealedJudgment() {
 }
 
 function makeReviewArguments(claimId) {
-  if (claimId === 'claim-a') {
-    return [
-      { relation: 'SUPPORT', argument: { statement: 'Security audit passed', argumentId: 'arg-1' } },
-      { relation: 'ATTACK', argument: { statement: 'Vulnerability found in auth module', argumentId: 'arg-2', targetClaimId: 'claim-b' } }
-    ];
-  }
   return [
-    { relation: 'SUPPORT', argument: { statement: 'CVE-2024-XXXX confirms vulnerability', argumentId: 'arg-3' } },
-    { relation: 'ATTACK', argument: { statement: 'Mitigation in place reduces risk', argumentId: 'arg-4', targetClaimId: 'claim-a' } }
+    { relation: 'SUPPORT', argument: { statement: 'Fixture support for the assigned claim' } },
+    { relation: 'ATTACK', argument: { statement: 'Fixture objection to the assigned claim', targetClaimId: claimId } }
   ];
 }
 
 function makeReviewResponse(details) {
   const claim = details.claim;
-  if (claim.claimId !== 'claim-a' && claim.claimId !== 'claim-b') {
-    return { review: { summary: 'Review', objections: [], evidenceRefs: [], arguments: [], counterexamples: [], dissent: [] } };
-  }
-  const summary = claim.claimId === 'claim-a' ? 'Reviewing claim A' : 'Reviewing claim B';
+  assert.equal(typeof claim.claimId, 'string');
+  assert.ok(claim.claim.statement);
   return {
-    review: {
-      summary,
-      objections: [],
-      evidenceRefs: [],
-      arguments: makeReviewArguments(claim.claimId),
-      counterexamples: [],
-      dissent: []
-    }
+    summary: 'Reviewing ' + claim.claim.statement,
+    objections: [],
+    evidenceRefs: [],
+    arguments: makeReviewArguments(claim.claimId),
+    counterexamples: [],
+    dissent: []
   };
 }
 
@@ -67,7 +58,7 @@ function makeRevisionResponse() {
 
 function makeMemberInvoker() {
   return async (request) => {
-    const { phase, details } = request;
+    const { phase, context: details } = request;
     if (phase === 'SEALED_JUDGMENT') return makeSealedJudgment();
     if (phase === 'REVIEW') return makeReviewResponse(details);
     if (phase === 'REVISION') return makeRevisionResponse();
@@ -91,19 +82,14 @@ function makeLoggingHandlers(handlers) {
 
 function assertArgumentationAggregation(aggregation) {
   assert.ok(aggregation, 'Should have aggregation step');
-  console.log('Aggregation outcome:', aggregation.result.outcome);
-  console.log('Aggregation keys:', Object.keys(aggregation.result));
-  if (aggregation.result.argumentation) {
-    console.log('Has argumentation results');
-    console.log('   Semantics:', aggregation.result.argumentation.semantics);
-    console.log('   Labels:', JSON.stringify(aggregation.result.argumentation.labels, null, 2));
-    console.log('   Cycles:', aggregation.result.argumentation.cyclicArgumentIds);
-    console.log('   Contradictions:', aggregation.result.argumentation.contradictions);
-    console.log('   Unresolved:', aggregation.result.argumentation.unresolvedClaimIds);
-    return;
-  }
-  console.log('No argumentation results');
-  console.log('Full result:', JSON.stringify(aggregation.result, null, 2).substring(0, 3000));
+  const { argumentation } = aggregation.result;
+  assert.ok(argumentation, 'Missing argumentation cannot be reported as a pass');
+  assert.equal(argumentation.semantics, 'grounded');
+  assert.equal(argumentation.labels.length, 2);
+  assert.ok(Object.values(argumentation.graphLabels).includes('IN'));
+  assert.ok(Object.values(argumentation.graphLabels).includes('OUT'));
+  assert.ok(argumentation.unresolvedClaimIds.length > 0);
+  assert.equal(aggregation.result.outcome, 'ARGUMENTS_UNRESOLVED');
 }
 
 async function testArgumentationCommunityRuntime() {
@@ -145,6 +131,15 @@ async function testArgumentationCommunityRuntime() {
     console.log('\n\n=== Final Result ===');
     console.log('Round status:', result.status);
     console.log('Receipts:', result.receipts.map(r => r.step));
+    const graph = result.receipts.find(r => r.step === 'build_argument_graph');
+    assert.ok(graph.result.arguments.length >= 4, 'Both claims must receive persisted arguments');
+    const claims = result.receipts.find(r => r.step === 'build_claim_graph').result.claims;
+    assert.equal(claims.length, 2);
+    for (const claim of claims) {
+      const assigned = graph.result.arguments.filter(item => item.claimId === claim.claimId);
+      assert.ok(assigned.some(item => item.relation === 'SUPPORT'));
+      assert.ok(assigned.some(item => item.relation === 'ATTACK'));
+    }
 
     // Verify aggregation was called with argumentation
     const aggregation = result.receipts.find(r => r.step === 'aggregate_by_question_type');
