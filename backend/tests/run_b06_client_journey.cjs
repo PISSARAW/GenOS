@@ -4,8 +4,17 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const net = require('node:net');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../..');
+
+async function freePort() {
+  const probe = net.createServer();
+  await new Promise((resolve, reject) => { probe.once('error', reject); probe.listen(0, '127.0.0.1', resolve); });
+  const port = probe.address().port;
+  await new Promise(resolve => probe.close(resolve));
+  return port;
+}
 
 function sources() {
   const files = [];
@@ -55,14 +64,23 @@ async function main() {
   fs.mkdirSync(output, { recursive: true });
   const before = sources();
   const spec = await require('./helpers/b06ClientFixture.cjs').prepare();
-  process.env.GENOS_ALLOWED_ORIGINS = spec.settings.url;
-  process.env.GENOS_TRINITY_MONITOR_PORT = '14601';
+  const apiPort = await freePort();
+  const monitorPort = await freePort();
+  process.env.GENOS_TRINITY_MONITOR_PORT = String(monitorPort);
   process.env.GENOS_TRINITY_MONITOR_TOKEN = crypto.randomBytes(24).toString('hex');
   const app = require('../src/app').createApp();
-  const server = app.listen(14600, '127.0.0.1');
+  const server = app.listen(apiPort, '127.0.0.1');
   await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
+  spec.settings.url = `http://127.0.0.1:${server.address().port}`;
+  process.env.GENOS_ALLOWED_ORIGINS = spec.settings.url;
   const monitor = require('../src/services/trinityMonitorServer');
   monitor.start();
+  await new Promise((resolve, reject) => {
+    if (monitor.instance.server.listening) return resolve();
+    monitor.instance.server.once('listening', resolve);
+    monitor.instance.server.once('error', reject);
+  });
+  const actualMonitorPort = monitor.instance.server.address().port;
   try {
     const studio = await require('./helpers/b06StudioJourney.cjs').run(spec, output);
     const ide = await require('./helpers/b06IdeJourney.cjs').run(spec, output);
@@ -79,7 +97,7 @@ async function main() {
     assert.equal(repeatedMonitor.worlds.length, 1);
     assert.equal(repeatedMonitor.worlds[0].progress, initialMonitor.worlds[0].progress);
     assert.equal(repeatedMonitor.worlds[0].progressKnown, false);
-    fs.writeFileSync(path.join(output, 'monitor-session.json'), JSON.stringify({ runId: spec.run.id, port: 14601,
+    fs.writeFileSync(path.join(output, 'monitor-session.json'), JSON.stringify({ runId: spec.run.id, port: actualMonitorPort,
       token: process.env.GENOS_TRINITY_MONITOR_TOKEN }));
     if (process.env.B06_KEEP_SERVER === '1') await waitForFinish(output);
     const after = sources();
