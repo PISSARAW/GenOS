@@ -155,13 +155,22 @@ function strategyResult(res) {
 }
 
 function fossilResult(output) {
-  return { configured: true, success: output.success !== false, status: output.success === false ? 'tool_error' : 'completed', transport: 'fossilization_service', output };
+  const success = output?.success === true;
+  return { configured: true, success, status: success ? 'completed' : 'tool_error',
+    transport: 'fossilization_service', error: success ? undefined : output?.error || 'Fossil operation did not complete.', output };
+}
+
+function fossilCandidateResult(output) {
+  const success = Boolean(output?.candidateGenomeRef && ['candidate', 'evaluated'].includes(output.status));
+  const status = success ? 'candidate' : output?.status === 'skipped' ? 'capability_unavailable' : 'tool_error';
+  return { configured: true, success, status, transport: 'fossilization_service',
+    error: success ? undefined : output?.reason || output?.error || 'No candidate was created.', output };
 }
 
 async function fossilTool(toolName, args) {
   const fossilization = require('../../fossilizationService');
   const db = await require('../../../db').getDatabase();
-  if (toolName === 'genos_fossil_record') return fossilResult(await fossilization.recordFossil({ ...args, lineage_id: args.lineage_id }, db));
+  if (toolName === 'genos_fossil_record') return fossilResult(await fossilization.recordFossil(args, db));
   if (toolName === 'genos_fossil_list') {
     const fossils = await fossilization.listFossils(db, args);
     return fossilResult({ success: true, fossils, total: fossils.length });
@@ -173,7 +182,7 @@ async function fossilTool(toolName, args) {
     const excavated = await fossilization.excavateFossil(db, args.fossil_id, args);
     if (!excavated.success || !excavated.integrity_verified) return fossilResult({ success: false, error: 'Fossil integrity verification failed.' });
     const innovation = require('../../agentDnaInnovation');
-    return fossilResult(await innovation.captureFromFossil({
+    return fossilCandidateResult(await innovation.captureFromFossil({
       db,
       record: { ...excavated.specimen, organization_id: args.organization_id, project_id: args.project_id },
       integrityVerified: true,

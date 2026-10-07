@@ -133,10 +133,10 @@ function buildFossilRecord(input = {}) {
     // Strate explicite respectée telle quelle ; sinon strate dérivée scopée.
     stratum_id: coalesce(input.stratumId, input.stratum_id, null)
       || scopedStratum(stratumOf(recordedAt), organizationId, projectId),
-    hard_parts: asArray(input.hardParts),
-    soft_parts_lost: asArray(input.softPartsLost),
-    phenotype_markers: asArray(input.phenotypeMarkers),
-    mineral_payload: input.mineralPayload === undefined ? null : input.mineralPayload,
+    hard_parts: asArray(coalesce(input.hardParts, input.hard_parts)),
+    soft_parts_lost: asArray(coalesce(input.softPartsLost, input.soft_parts_lost)),
+    phenotype_markers: asArray(coalesce(input.phenotypeMarkers, input.phenotype_markers)),
+    mineral_payload: coalesce(input.mineralPayload, input.mineral_payload),
     organization_id: organizationId,
     project_id: projectId
   };
