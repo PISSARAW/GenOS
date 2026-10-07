@@ -32,11 +32,11 @@ Légende : `S` = appel MCP `stdio` réel avec preuve métier ; `B` = dispatch/tr
 | Workspace | `genos_biomimicry` | R | Route/capability ; chaque action native reste à vérifier. |
 | Workspace | `genos_v2_init` | R | Pont présent ; initialisation réelle non qualifiée ici. |
 | Workspace | `genos_v2_fork` | R | Contrat ; fork réel non qualifié ici. |
-| Signaux | `genos_signal_publish` | R | Sous-système testé, pas d'appel client MCP avec livraison durable ici. |
+| Signaux | `genos_signal_publish` | S | Signal ligand publié en `stdio` et ligne relue dans SQLite ; livraison à un destinataire non prouvée. |
 | Signaux | `genos_signal_read` | R | Sous-système testé, pas de lecture client MCP liée à une livraison ici. |
-| Signaux | `genos_signal_purge` | R | Route présente ; purge effective non démontrée ici. |
+| Signaux | `genos_signal_purge` | S | Signal expiré artificiellement puis supprimé via appel MCP, absence vérifiée en SQLite. |
 | Signaux | `genos_signal_ground` | R | Route présente ; grounding persistant non démontré ici. |
-| Signaux | `genos_signal_electrocyte_vote` | R | Calcul disponible ; reçu MCP complet non qualifié ici. |
+| Signaux | `genos_signal_electrocyte_vote` | S | Deux décharges donnent le consensus attendu ; signal voltage persisté et relu. |
 | Signaux | `genos_signal_chemotactic_follow` | R | Une erreur de base est désormais un échec MCP, pas un succès. |
 | Signaux | `genos_signal_plasmid_transfer` | N | Aucun transfert exécuté ; refus MCP `not_implemented` testé en `stdio`. |
 | Signaux | `genos_signal_collective_decision` | R/N | Mode électrocyte calculé ; modes plasmide/stigmergie refusés en `stdio`. |
