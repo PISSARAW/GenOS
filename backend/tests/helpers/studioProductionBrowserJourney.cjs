@@ -37,6 +37,21 @@ async function deployment(page, context) {
   assert.equal(rolled.releaseId, null);
   assert.equal(rolled.externalEffectsReversible, false);
   assert.equal(frozen.releaseId, published.releaseId);
-  return { ...result, productionRunId: invoked.runId, finalRevision: rolled.revision };
+  const observed = await action(page, { id: 'production-run', route: root + '/releases/' + frozen.releaseId + '/runs/' + invoked.runId,
+    method: 'GET', fields: { releaseId: frozen.releaseId, runId: invoked.runId } });
+  assert.equal(observed.executionCompleted, true);
+  assert.equal(observed.spans.length, 2);
+  const feedback = await action(page, { id: 'production-feedback', route: root + '/releases/' + frozen.releaseId + '/feedback',
+    fields: { releaseId: frozen.releaseId, body: 'Prochaine version a verifier sur davantage de cas' } });
+  assert.equal(feedback.evidenceStatus, 'provisional');
+  const operations = await action(page, { id: 'production-operations', route: root + '/releases/' + frozen.releaseId + '/operations',
+    method: 'GET', fields: { releaseId: frozen.releaseId } });
+  assert.equal(operations.deploymentObserved, true);
+  assert.equal(operations.costUsd, null);
+  assert.equal(operations.slots.find(item => item.environment === 'production').releaseId, null);
+  assert.equal(operations.slots.find(item => item.environment === 'production').status, 'non publié');
+  assert.equal(operations.slots.find(item => item.environment === 'staging').status, 'publié');
+  assert.match(await page.locator('#production-result-summary').textContent(), /non publié/);
+  return { ...result, productionRunId: invoked.runId, finalRevision: rolled.revision, feedbackId: feedback.feedbackId };
 }
 module.exports = { deployment };

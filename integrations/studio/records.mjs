@@ -62,7 +62,12 @@ const labels = [
   ['environment', 'Environnement'], ['revision', 'Révision du slot'], ['localPublished', 'Version disponible localement'],
   ['endpoint', 'Endpoint authentifié'], ['rollbackScope', 'Portée du retour arrière'], ['executionCompleted', 'Exécution terminée'],
   ['runId', 'Appel workflow'], ['reviewId', 'Revue'], ['decision', 'Décision humaine'], ['actor', 'Acteur'],
-  ['expiresAt', 'Expiration de la revue'], ['independentReview', 'Revue indépendante établie']
+  ['expiresAt', 'Expiration de la revue'], ['independentReview', 'Revue indépendante établie'],
+  ['observationScope', 'Source des observations'], ['historicalObservation', 'Observation historique'],
+  ['authorizationRechecked', 'Autorisation revalidée par cette lecture'], ['throughputMeasured', 'Débit mesuré'],
+  ['feedbackId', 'Mémoire du retour'], ['outputHash', 'Empreinte de sortie'], ['traceId', 'Trace'], ['nextStep', 'Étape suivante'],
+  ['count', 'Nombre persisté'], ['note', 'Justification'], ['body', 'Retour conservé'], ['action', 'Action'],
+  ['started_at', 'Début persisté'], ['completed_at', 'Fin persistée'], ['expires_at', 'Expiration persistée']
 ];
 
 const nestedRecords = ['targetSnapshot', 'restoredSnapshot', 'safetySnapshot', 'workspace', 'agent', 'claim', 'memory', 'genome',

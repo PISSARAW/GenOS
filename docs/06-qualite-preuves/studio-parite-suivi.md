@@ -687,3 +687,59 @@ publication. Précondition de révision, historique et acteur sont persistés
 atomiquement. Il ne supprime pas les runs admis et n'annule pas leurs effets.
 Le test utilise un workflow structurel à deux nœuds, exécuté réellement avec
 deux spans : cela ne valide pas la qualité d'un modèle ou un déploiement cloud.
+
+### F03 — Observer, conserver les retours et améliorer
+
+F02 : commit `67d78dce`, probes HTTP et navigateur passent, gate staged strict zéro.
+Le dossier opérationnel relie slots actuels, invocations, statut, traces, revues
+et retours. Observation historique et version actuellement disponible restent
+distinctes ; coûts/débit/latence non instrumentés restent inconnus.
+Le retour est attribué au principal, lié à release/run/hash de sortie et conservé
+comme mémoire provisoire scellée ; aucune amélioration ou promotion automatique.
+La prochaine version repasse staging et revue, sans réécriture du moteur.
+
+Qualification ciblée : worker réel, deux versions (2/3 nœuds), rollback vers v1
+et nouvel appel v1 alors que le workflow courant est v2, course CAS (un gagnant),
+expiration, révocation d'autorité, rejet remplaçant l'approbation, hash/source/
+binding invalides, refus tenant/droits et mémoire du retour inspectée.
+Un binding supprimé après admission et une source altérée avant exécution
+font réellement échouer le run. Les appels historiques gardent leur contrat.
+Les régressions version snapshot, contrats jobs, deadline, cancel idempotent
+et propagation du scope MCP passent avec environnement de test configuré.
+Le premier lancement de cancel sans password de test échouait au bootstrap ;
+le rejeu avec configuration isolée est distingué de cette erreur d'environnement.
+
+Le harnais navigateur F exerce préparation → staging → run terminé → revue
+refusée puis autorisée → publication → appel production → retrait → observation
+historique → retour. Il utilise HTTP/SQLite/worker réels sans interception API,
+avec fixture structurelle explicitement limitée et aucun fournisseur externe.
+La propagation du workflow vers le formulaire d'appel a été corrigée après
+un timeout dû à la validation HTML d'un champ requis vide, puis rejouée.
+Captures et manifeste ignorés incluent date, révision et hashes des sources.
+
+Le [guide opérateur](../04-exploitation/studio-boucle-production.md) définit
+préconditions, droits, suivi, reprise et inconnus. Le périmètre livré est local,
+pas une certification globale des publications externes, canaux, SSO, HA,
+sauvegardes globales ou C25/C26 complets. Aucun merge/push implicite.
+
+### Qualification transversale F
+
+| Vérification | Résultat exécuté |
+| --- | --- |
+| `npm --prefix backend run test:studio` | Code 0 ; 26/26 suites Windows. |
+| `test:studio:production` | Code 0 ; boucle F complète sur HTTP/SQLite/worker réels, sans interception API. |
+| `test:studio:specialized` / `test:studio:genos` / `test:studio:pilot` | Codes 0 ; régressions E/D/C sur services réels. |
+| `test:studio:foundation` | Code 0 ; vrai DOM, API de fixture, portée B conservée. |
+| Contrôle qualité | Code 0 ; 5556 sources, zéro violation ; gate staged strict avant chaque commit. |
+| Index ADR | Code 0 ; 445 fichiers et entrées, zéro problème. |
+| `cargo test --workspace` | Code 0, cache de compilation existant. |
+| `npm test` | Code 1 ; intégrité P0 `public/code.json` ; pas de certification globale verte. |
+
+La probe en lecture seule confirme encore les quatre empreintes P0 uniquement
+après conversion LF → CRLF en mémoire, sans édition des datasets/locks.
+La divergence de supervenience enregistrée en E n'est pas corrigée par F.
+Les logs globaux, captures desktop/mobile et manifeste de sources restent
+ignorés. Le rejeu final après commit rattache la boucle navigateur au HEAD.
+F03 porte cette qualification et le guide ; F01 `da38b058`, F02 `67d78dce`.
+La revue visuelle a fait préciser les slots : staging publié et production
+retirée portent des noms/états lisibles, pas deux lignes génériques inconnues.

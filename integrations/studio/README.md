@@ -133,6 +133,12 @@ HTTP, SQLite, fichiers et moteurs existants, sans interception API. Les captures
 et le manifeste de sources restent ignorés sous `.genos-tests/studio-specialized-e/`.
 Analyses provisoires, contrats déclarés et observations ne sont pas des promotions.
 
+La [boucle de production locale](../../docs/04-exploitation/studio-boucle-production.md)
+relie release figée, staging, revue owner/admin, publication, appels, retours et
+rollback CAS. `npm --prefix backend run test:studio:production` utilise le moteur
+workflow existant et des APIs réelles ; ses preuves restent sous
+`.genos-tests/studio-production-f/`. Aucun déploiement cloud ou HA n'est certifié.
+
 Playwright est une dépendance de développement du backend. Après `npm ci` à
 la racine et `npm ci --prefix backend`, le parcours complet se lance depuis
 n’importe quel dossier avec Edge installé, sans configuration supplémentaire :

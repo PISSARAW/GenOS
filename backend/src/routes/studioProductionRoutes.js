@@ -26,4 +26,8 @@ router.post('/workflows/:workflowId/slots/:environment/publish', ...write, handl
 router.post('/workflows/:workflowId/slots/:environment/rollback', ...write, handle(deployment.rollback));
 router.post('/workflows/:workflowId/slots/:environment/invoke', requirePermission('experiment:run'),
   requireTenantScope({ write: true }), handle(deployment.invoke));
+const operations = require('../services/studioProductionOperations');
+router.get('/releases/:releaseId/operations', requirePermission('read'), handle(operations.inspect));
+router.get('/releases/:releaseId/runs/:runId', requirePermission('read'), handle(operations.inspectRun));
+router.post('/releases/:releaseId/feedback', ...write, handle(operations.feedback));
 module.exports = { router, handle, write };

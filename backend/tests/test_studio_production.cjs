@@ -17,11 +17,14 @@ async function probe(spec) {
   assert.equal((await request(spec, root + '/releases', { body: { workflowId: 'studio-app', version: 1 } })).status, 409);
   assert.equal((await request(spec, root + '/releases', { body: { workflowId: 'studio-app', version: 2 } })).status, 404);
   const served = await require('./helpers/studioProductionJourney.cjs').publication(spec, frozen.value);
-  await require('./helpers/studioProductionRollbackProbe.cjs').probe(spec, { release: frozen.value, run: served.run });
+  const improved = await require('./helpers/studioProductionRollbackProbe.cjs').probe(spec, { release: frozen.value, run: served.run });
+  const safety = require('./helpers/studioProductionSafetyProbe.cjs');
+  await safety.feedback(spec, { release: frozen.value, runId: improved.restoredRunId });
+  await safety.queuedTamper(spec, improved.nextRelease);
   await spec.db.run("UPDATE project_memberships SET role='member' WHERE project_id='b06-project'");
   await spec.db.run("UPDATE workflow_versions SET graph_json = '{}' WHERE id = 'studio-app-v1'");
   assert.equal((await request(spec, route)).value.error.code, 'RELEASE_SOURCE_CHANGED');
   await writeRefusals(spec, root + '/releases');
-  console.log('Studio production: frozen scoped versions, attribution, tamper and authority refusals passed.');
+  console.log('Studio production: frozen versions, real queue, reviews, CAS, v2 to v1 rollback, scoped observations, feedback and tamper refusals passed.');
 }
 withFixture(probe).catch(error => { console.error(error); process.exitCode = 1; });

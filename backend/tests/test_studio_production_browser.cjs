@@ -16,7 +16,11 @@ function sources() {
     .map(file => 'backend/src/services/' + file), 'backend/src/routes/studioProductionRoutes.js',
     'backend/src/services/jobWorkerWorkflow.js', 'backend/tests/test_studio_production_browser.cjs',
     'backend/tests/helpers/studioProductionFixture.cjs', 'backend/tests/helpers/studioGenosFixture.cjs',
-    'backend/tests/helpers/studioGenosBrowserJourney.cjs');
+    'backend/tests/helpers/studioGenosBrowserJourney.cjs', 'backend/tests/helpers/studioProductionBrowserJourney.cjs',
+    'backend/src/services/decisionEvidenceService.js', 'backend/src/services/jobWorkerOrchestrator.js',
+    'backend/src/services/jobWorkerClaim.js', 'backend/src/services/jobWorkerRetry.js',
+    'backend/src/routes/studioGenosRoutes.js', 'backend/src/middleware/tenant.js', 'backend/src/middleware/auth.js',
+    'backend/src/controllers/validation/graphValidation.js', 'backend/src/services/studioSpecialistInput.js');
   return Object.fromEntries(files.map(file => [file, digest(fs.readFileSync(path.join(__dirname, '../..', file)))]));
 }
 
@@ -47,7 +51,9 @@ async function probe(spec) {
     await page.getByRole('button', { name: 'Ouvrir l’exécution' }).click();
     await page.locator('#run-status').filter({ hasText: 'awaiting_approval' }).waitFor();
     await page.locator('[data-target="production-view"]').click();
+    assert.equal(await page.locator('#production-view h2').evaluate(element => document.activeElement === element), true);
     const result = await journey(page, spec);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: path.join(output, 'studio-production.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -67,8 +73,8 @@ async function probe(spec) {
     const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim();
     fs.writeFileSync(path.join(output, 'studio-production-qualified.json'), JSON.stringify({ ...result, revision,
       qualifiedAt: new Date().toISOString(), sourceHashes: sources(), apiInterception: false, errors,
-      accessibility: { mobile390: true, text200: true, labels: true, keyboard: true } }, null, 2));
-    console.log('Studio production browser: real frozen release preparation passed.');
+      accessibility: { mobile390: true, text200: true, labels: true, keyboard: true, titleFocus: true } }, null, 2));
+    console.log('Studio production browser: real freeze, staging execution, review, production invocation, rollback, observation and feedback passed.');
   } catch (error) {
     await page.screenshot({ path: path.join(output, 'studio-production-failure.png'), fullPage: true }).catch(() => {});
     throw error;

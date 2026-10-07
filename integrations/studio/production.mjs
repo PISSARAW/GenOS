@@ -1,13 +1,14 @@
 import { encoded } from './ui.mjs';
 import { journeyView, journeyRead, journeyAction, journeyLink } from './journeyView.mjs';
 import { startDeployment } from './productionDeployment.mjs';
+import { startProductionOperations } from './productionOperations.mjs';
 export function startProduction() {
   const root = '/api/studio/production';
   const target = journeyView({ id: 'production', title: 'Publier et exploiter',
     intro: 'Figer une version puis observer ce que sert réellement l’adaptateur local, sans confondre publication et vérité.',
     steps: ['Choisir un workflow exécutable et une version persistée. Figer son graphe et ses métadonnées avec une empreinte.',
-      'Inspecter la version avant toute publication. Une release préparée ne sert encore aucun trafic.',
-      'Une publication exige ses préconditions et son autorité propres. Aucun déploiement cloud ou effet externe réversible n’est présumé.'] });
+      'Publier en staging, appeler et observer le résultat avant la revue owner/admin. Une admission n’est pas une exécution terminée.',
+      'Publier localement sous revue liée au hash, observer les appels puis conserver les retours pour une nouvelle version. Le rollback ne concerne que les prochains appels.'] });
   journeyRead(target, { id: 'production-workflows', title: 'Lister les workflows du projet', path: () => root + '/workflows' });
   journeyAction(target, { id: 'production-freeze', title: 'Figer une version de release', path: () => root + '/releases',
     fields: [['workflowId', 'Workflow'], ['version', 'Version persistée', 'number', true, '1']],
@@ -22,6 +23,7 @@ export function startProduction() {
   journeyRead(target, { id: 'production-inspect', title: 'Inspecter la release figée', fields: [['releaseId', 'Release']],
     path: data => root + '/releases/' + encoded(data.releaseId) });
   startDeployment(target);
+  startProductionOperations(target);
   journeyLink(target, 'knowledge-view', 'Retrouver les décisions et preuves');
   journeyLink(target, 'recovery-view', 'Rejoindre Diagnostic et reprise');
   return target;

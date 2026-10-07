@@ -14,7 +14,9 @@ const groupNames = {
   conditions: 'Conditions du modèle', therapies: 'Thérapies du catalogue', categories: 'Familles',
   immuneEvents: 'Événements immunitaires', pathologies: 'Pathologies runtime', aeisEvidence: 'Preuves AEIS liées au run',
   items: 'Fiches du registre', domains: 'Domaines', relations: 'Relations', neighbors: 'Fiches voisines',
-  atoms: 'Propositions', rows: 'Table de vérité', detections: 'Anomalies du modèle', threats: 'Signatures trouvées'
+  atoms: 'Propositions', rows: 'Table de vérité', detections: 'Anomalies du modèle', threats: 'Signatures trouvées',
+  workflows: 'Workflows du projet', runs: 'Appels observés', counts: 'Comptages persistés', slots: 'Versions disponibles',
+  feedback: 'Retours conservés', spans: 'Étapes tracées', events: 'Historique local'
 };
 
 function card(record) {
