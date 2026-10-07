@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [studio-parite-plan.md](studio-parite-plan.md) — matrice du programme validé, capacités communes et différenciation, acceptation et jalons.
+
 - [studio-qualification.md](studio-qualification.md) — huit lots Studio, preuves Windows et écarts Linux/validation étendue.
 
 - [lot-2-trinity-identites-capsules-et-profils.md](lot-2-trinity-identites-capsules-et-profils.md) — liaisons mission/worker/run, capsules ancrées et prévalidation des profils du lot L2.
