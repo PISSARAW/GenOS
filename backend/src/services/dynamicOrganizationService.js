@@ -154,6 +154,7 @@ async function getState(db, orchestratorId) {
 }
 
 async function getStateForMember(db, orchestratorId, requesterAgentId) {
+  await assertOrchestrator(db, orchestratorId);
   await assertMember(db, orchestratorId, requesterAgentId);
   return getState(db, orchestratorId);
 }
@@ -273,9 +274,10 @@ async function ensureActiveState(db, orchestratorId) {
 async function publish(db, options = {}) {
   const { orchestratorId, senderAgentId, recipientAgentId, kind = 'evidence', content, payload = {}, signalType, signalData } = options;
   await ensureTables(db);
-  const state = await ensureActiveState(db, orchestratorId);
+  await assertOrchestrator(db, orchestratorId);
   const sender = await assertMember(db, orchestratorId, senderAgentId);
   if (recipientAgentId) await assertMember(db, orchestratorId, recipientAgentId);
+  const state = await ensureActiveState(db, orchestratorId);
   const normalizedKind = String(kind).trim().toLowerCase();
   if (!MESSAGE_KINDS.has(normalizedKind)) throw organizationError('INVALID_MESSAGE_KIND', `Unsupported organization message kind '${kind}'.`);
   let signalInfo = resolveSignalPayload(content, signalType, signalData);
@@ -362,8 +364,9 @@ async function fetchOrganizationMembers(db, orchestratorId) {
 async function inbox(db, options = {}) {
   const { orchestratorId, requesterAgentId, afterId = 0, limit = 20 } = options;
   await ensureTables(db);
-  const state = await ensureActiveState(db, orchestratorId);
+  await assertOrchestrator(db, orchestratorId);
   await assertMember(db, orchestratorId, requesterAgentId);
+  const state = await ensureActiveState(db, orchestratorId);
   const scope = await fetchAgentScope(db, orchestratorId);
   const query = { orchestratorId, version: state.version, scope, afterId, requesterAgentId, limit };
   const rows = await fetchInboxMessages(db, query);

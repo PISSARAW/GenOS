@@ -32,6 +32,16 @@ async function run() {
     await db.run("INSERT INTO agents(id,name,role,status,execution_mode) VALUES ('org-root','Root','orchestrator','running','orchestrator')");
     await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('org-a','A','implementation','running','worker','org-root')");
     await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('org-b','B','reviewer','running','worker','org-root')");
+    await db.run("INSERT INTO agents(id,name,role,status,execution_mode) VALUES ('org-uninitialized','Uninitialized','orchestrator','running','orchestrator')");
+    await assert.rejects(() => organization.publish(db, { orchestratorId: 'org-uninitialized',
+      senderAgentId: 'org-a', kind: 'evidence', signalType: 'ligand', signalData: { event: 'unauthorized' } }),
+    (error) => error.code === 'ORGANIZATION_ACCESS_DENIED');
+    await assert.rejects(() => organization.inbox(db, { orchestratorId: 'org-uninitialized', requesterAgentId: 'org-a' }),
+      (error) => error.code === 'ORGANIZATION_ACCESS_DENIED');
+    assert.equal(await organization.getState(db, 'org-uninitialized'), null,
+      'an unauthorized caller must not initialize another organization');
+    await assert.rejects(() => organization.getStateForMember(db, 'missing-root', 'missing-root'),
+      (error) => error.code === 'ORCHESTRATOR_NOT_FOUND');
 
     const initial = await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'specialist_expert_committee', reason: 'independent reports', changedBy: 'org-root' });
     assert.equal(initial.version, 1);
