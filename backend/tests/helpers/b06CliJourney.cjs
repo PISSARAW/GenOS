@@ -18,7 +18,8 @@ async function run(spec, output) {
   assert.equal(view.run.id, spec.run.id);
   assert.equal(view.promotion.phase, 'completed');
   assert.equal(view.provenance[0].memories.length, 1);
-  const binary = path.join(process.env.CARGO_TARGET_DIR || path.resolve('target'), 'debug', 'g.exe');
+  const targetRoot = process.env.CARGO_TARGET_DIR || path.resolve(__dirname, '../../../target');
+  const binary = path.join(targetRoot, 'debug', 'g.exe');
   await assert.rejects(execute(binary, args, { env: { ...env, GENOS_API_TOKEN: '' }, windowsHide: true }), error => error.code === 1);
   const foreign = args.slice(); foreign[foreign.length - 1] = 'b06-other';
   await assert.rejects(execute(binary, foreign, { env, windowsHide: true }), error => error.code === 1);
