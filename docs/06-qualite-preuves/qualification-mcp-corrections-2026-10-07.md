@@ -41,8 +41,8 @@ Légende : `S` = appel MCP `stdio` réel avec preuve métier ; `B` = dispatch/tr
 | Signaux | `genos_signal_plasmid_transfer` | N | Aucun transfert exécuté ; refus MCP `not_implemented` testé en `stdio`. |
 | Signaux | `genos_signal_collective_decision` | S/N | Mode électrocyte : consensus et signal voltage persisté, refus si coalescé ; modes plasmide/stigmergie refusés en `stdio`. |
 | Topologie | `genos_topology_session` | B | Tests backend de lease et de morphogenèse ; pas une preuve de toutes les opérations. |
-| Stratégie | `genos_execute_primitive` | R | Catalogue et registre ; chaque primitive demande sa propre preuve. |
-| Stratégie | `genos_execute_strategy_pipeline` | R | Contrat et route ; pipeline métier non qualifiée ici. |
+| Stratégie | `genos_execute_primitive` | S | Arguments publics `args` transmis ; `expected_information_gain` renvoie le meilleur test attendu, nom inconnu refusé. Les autres primitives ne sont pas certifiées. |
+| Stratégie | `genos_execute_strategy_pipeline` | S | Pipeline ordonné `expected_information_gain` → `next_probe` exécuté en `stdio` ; les autres compositions restent à qualifier. |
 | Développement | `genos_search_failures` | S | Recherche d'un échec créé dans la même base temporaire. |
 | Développement | `genos_diagnose` | S | Hypothèses valides acceptées, absence refusée. |
 | Développement | `genos_analyze_trajectory` | S | Boucle détectée sur historique contrôlé. |

@@ -160,7 +160,7 @@ async function handleExecutePrimitive(args) {
     return runPipeline(primitives, firstTruthy(args.context, args));
   }
   const primitive = firstTruthy(args.primitive, args.primitive_name, args.name) || '';
-  return runPrimitive(primitive, firstTruthy(args.context, args));
+  return runPrimitive(primitive, firstTruthy(args.args, args.context, args));
 }
 
 async function handleExecuteStrategyPipeline(args) {
