@@ -3,8 +3,23 @@
  */
 
 const { getDatabase } = require('../../db');
+const crypto = require('crypto');
 const { workspaceScope, loadAgentForScope, readString, actorName, optionalId, orDefault, nullish } = require('./helpers');
 const workspaceSnapshots = require('../../services/workspaceSnapshotStore');
+
+const RESTORABLE_AGENT_FIELDS = [
+  'name', 'name_meaning', 'role', 'model_tier', 'language', 'isolation_mode', 'dissonance_level',
+  'eureka_count', 'cognitive_budget', 'cognitive_baseline_budget', 'cognitive_max_dissonance',
+  'is_apoptotic', 'status', 'current_task'
+];
+
+function digest(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function restorableAgentState(agent) {
+  return Object.fromEntries(RESTORABLE_AGENT_FIELDS.map((field) => [field, agent[field] ?? null]));
+}
 
 function newAgentSnapshotId(prefix = 'agent-state') {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -36,9 +51,43 @@ async function captureAgentWorkspace(options) {
   return { id: snapshot.id, hash: snapshot.snapshotHash, workspaceId: workspace.id };
 }
 
-function encodeAgentSnapshot(agent, workspaceSnapshot) {
-  if (!workspaceSnapshot) return agent;
-  return { ...agent, _genosSnapshot: { schemaVersion: 1, workspaceSnapshot } };
+function encodeAgentSnapshot(agent, workspaceSnapshot, capturedAt) {
+  const agentState = restorableAgentState(agent);
+  const components = {
+    agentState: { status: 'captured', hash: digest(agentState) },
+    workspace: workspaceSnapshot
+      ? { status: 'captured', snapshotId: workspaceSnapshot.id, hash: workspaceSnapshot.hash }
+      : { status: 'not-applicable', reason: 'Agent has no workspace.' },
+    runtime: { status: 'unsupported' },
+    llmContext: { status: 'unsupported' },
+    memoriesAndRelations: { status: 'unsupported' },
+    orchestrator: { status: 'unsupported', reason: 'No backend checkpoint reference was supplied.' }
+  };
+  const consistency = 'agent-stable; workspace-capture-verified';
+  const bundle = { schemaVersion: 1, capturedAt, consistency, components };
+  bundle.hash = digest({ agentState, workspaceSnapshot, components, capturedAt, consistency });
+  return { ...agent, _genosSnapshot: { schemaVersion: 2, workspaceSnapshot, organismSnapshot: bundle } };
+}
+
+function verifyOrganismSnapshot(state) {
+  const bundle = state?._genosSnapshot?.organismSnapshot;
+  if (!bundle) return { valid: true, legacy: true };
+  const agentState = restorableAgentState(state);
+  const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot || null;
+  const { hash, ...manifest } = bundle;
+  const expected = digest({ agentState, workspaceSnapshot, components: manifest.components, capturedAt: manifest.capturedAt, consistency: manifest.consistency });
+  return { valid: hash === expected, legacy: false, hash, expected };
+}
+
+async function captureOrganismState(options) {
+  const { db, scope, agent, req, snapshotId, reason } = options;
+  const beforeHash = digest(restorableAgentState(agent));
+  const workspaceSnapshot = await captureAgentWorkspace({ db, scope, agent, req, snapshotId, reason });
+  const latestAgent = await loadAgentForScope(db, scope, agent.id);
+  if (!latestAgent || digest(restorableAgentState(latestAgent)) !== beforeHash) {
+    throw Object.assign(new Error('Agent state changed during organism snapshot capture; capture aborted.'), { code: 'ORGANISM_SNAPSHOT_BARRIER_CHANGED' });
+  }
+  return encodeAgentSnapshot(agent, workspaceSnapshot, new Date().toISOString());
 }
 
 async function restoreSnapshotWorkspace(options) {
@@ -57,6 +106,10 @@ async function restoreSnapshotWorkspace(options) {
 
 async function restoreAgentStateSnapshot(options) {
   const { db, scope, agent, state } = options;
+  const integrity = verifyOrganismSnapshot(state);
+  if (!integrity.valid) {
+    throw Object.assign(new Error('Organism snapshot manifest hash does not match its captured components.'), { code: 'ORGANISM_SNAPSHOT_INTEGRITY_FAILED' });
+  }
   const workspaceRestore = await restoreSnapshotWorkspace({ db, scope, agent, state });
   try {
     await applySnapshotState(db, state, agent.id);
@@ -93,10 +146,10 @@ async function snapshotAgentState(req, res) {
   if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent is not available in the current tenant.' } });
   const snapshotId = newAgentSnapshotId();
   const reason = req.body?.reason || 'Agent state snapshot';
-  const workspaceSnapshot = await captureAgentWorkspace({ db, scope, agent, req, snapshotId, reason });
-  const state = encodeAgentSnapshot(agent, workspaceSnapshot);
+  const state = await captureOrganismState({ db, scope, agent, req, snapshotId, reason });
+  const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot;
   await db.run('INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, created_by) VALUES (?, ?, ?, ?, ?, ?)', snapshotId, agent.id, agent.workspace_id, JSON.stringify(state), reason, actorName(req));
-  return res.status(201).json({ success: true, snapshotId, workspaceSnapshotId: workspaceSnapshot?.id || null, workspaceSnapshotHash: workspaceSnapshot?.hash || null, agentId: agent.id, createdAt: new Date().toISOString() });
+  return res.status(201).json({ success: true, snapshotId, workspaceSnapshotId: workspaceSnapshot?.id || null, workspaceSnapshotHash: workspaceSnapshot?.hash || null, organismSnapshot: state._genosSnapshot.organismSnapshot, agentId: agent.id, createdAt: new Date().toISOString() });
 }
 
 async function commitAgentState(req, res) {
@@ -110,13 +163,13 @@ async function commitAgentState(req, res) {
   if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent is not available in the current tenant.' } });
   const parent = await db.get('SELECT id FROM agent_state_snapshots WHERE agent_id = ? AND ref_name = ? ORDER BY created_at DESC, id DESC LIMIT 1', agentId, refName);
   const commitId = newAgentSnapshotId('agent-commit');
-  const workspaceSnapshot = await captureAgentWorkspace({ db, scope, agent, req, snapshotId: commitId, reason: 'Agent commit' });
-  const state = encodeAgentSnapshot(agent, workspaceSnapshot);
+  const state = await captureOrganismState({ db, scope, agent, req, snapshotId: commitId, reason: 'Agent commit' });
+  const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot;
   await db.run(
     'INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, commit_message, parent_snapshot_id, ref_name, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     commitId, agent.id, agent.workspace_id, JSON.stringify(state), 'Agent commit', message, optionalId(parent), refName, actorName(req)
   );
-  return res.status(201).json({ success: true, commitId, parentCommitId: optionalId(parent), workspaceSnapshotId: workspaceSnapshot?.id || null, agentId, refName, message });
+  return res.status(201).json({ success: true, commitId, parentCommitId: optionalId(parent), workspaceSnapshotId: workspaceSnapshot?.id || null, organismSnapshot: state._genosSnapshot.organismSnapshot, agentId, refName, message });
 }
 
 async function branchAgentState(req, res) {
@@ -177,6 +230,7 @@ async function restoreAgentState(req, res) {
 
 module.exports = {
   applySnapshotState,
+  verifyOrganismSnapshot,
   restoreAgentStateSnapshot,
   snapshotAgentState,
   commitAgentState,

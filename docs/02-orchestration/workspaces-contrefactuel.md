@@ -114,6 +114,21 @@ du même workspace. Une restauration ou un checkout réapplique d’abord les fi
 avec un snapshot de sécurité préservé, puis les champs d’état de l’agent. Le replay
 appliqué suit le même chemin et vérifie ensuite l’état agent relu en base.
 
+Les nouveaux snapshots et commits d’agent incluent aussi un manifeste
+`_genosSnapshot.organismSnapshot` versionné. Son hash SHA-256 lie les champs
+d’agent restaurables, la référence et l’empreinte du workspace, l’instant de
+capture et le statut des composants. Après la capture du workspace, le backend
+relit les champs d’agent : si leur hash a changé, il refuse de publier le snapshot
+d’état. La restauration vérifie le manifeste avant de modifier les fichiers ou
+la ligne `agents`. Les snapshots historiques sans manifeste restent acceptés,
+mais leur intégrité du bundle est considérée comme non vérifiée.
+
+Ce manifeste coordonne uniquement l’état d’agent stocké dans `agents` et le
+workspace durable. Il marque le runtime, le contexte LLM, les mémoires et
+relations, ainsi que le checkpoint de l’orchestrateur comme non capturés. Il ne
+garantit donc pas une image atomique de tout l’organisme ni la reprise des
+processus actifs. Voir [ADR 0366](../adr/0366-manifeste-snapshot-organisme.md).
+
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 
 Le service [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée pour les agents des environnements d’exécution isolés.

@@ -93,6 +93,12 @@ async function main() {
     await controller.snapshotAgentState(request, saved.res);
     assert.equal(saved.get().code, 201);
     assert.ok(saved.get().body.workspaceSnapshotId);
+    const capturedState = JSON.parse(fixture.state.agentSnapshots[0].state_json);
+    const integrity = require('../src/controllers/lineage/snapshots').verifyOrganismSnapshot;
+    assert.equal(integrity(capturedState).valid, true);
+    assert.equal(capturedState._genosSnapshot.organismSnapshot.components.runtime.status, 'unsupported');
+    capturedState._genosSnapshot.organismSnapshot.components.agentState.hash = 'tampered';
+    assert.equal(integrity(capturedState).valid, false);
 
     fixture.state.agent.status = 'completed';
     fixture.state.agent.cognitive_budget = 3;

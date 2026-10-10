@@ -452,10 +452,14 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0360b](0360-studio-cible-unifiee-et-zones-de-livraison.md) | Studio : cible unifiée et zones de livraison | Accepté pour le contrat de cible ; implémentation incrémentale à venir. | 2026-10-07. | Studio, architecture produit, couverture et qualification. |
 | [0361a](0361-rejeu-apparie-avec-aleas-adresses.md) | Rejeu apparié avec aléas adressés | Accepté, extension partielle L01/L02/L04. | -- | -- |
 | [0361b](0361-studio-socle-requetes-actions-et-brouillons.md) | Studio : socle des requêtes, actions et brouillons | Accepté ; livraison par points B01–B03, qualification bornée. | 2026-10-07. | Studio, transport, contexte, erreurs et conservation des entrées. |
-| [0362](0362-studio-parcours-pilote-borne-et-dependances.md) | Studio : parcours pilote borné et dépendances | Accepté ; qualification du pilote distincte de celle des missions générales. | 2026-10-07. | Studio, intégration HTTP, workspace, preuves et revue. |
-| [0363](0363-studio-parcours-genos-structurants.md) | Studio : parcours GenOS structurants | Accepté ; tranches livrées séparément, sans certification globale P04–P07. | 2026-10-07. | Studio, mondes, mémoire, AgentDNA et récupération. |
-| [0364](0364-studio-mecanismes-specialises.md) | Studio : mécanismes spécialisés et analyses bornées | Accepté ; qualification par tranche, pas des domaines complets. | 2026-10-07. | -- |
+| [0362a](0362-point-entree-du-pont-orchestration-mcp.md) | Exécuter le pont d’orchestration MCP et préserver ses échecs | accepté. | 2026-10-07. | -- |
+| [0362b](0362-studio-parcours-pilote-borne-et-dependances.md) | Studio : parcours pilote borné et dépendances | Accepté ; qualification du pilote distincte de celle des missions générales. | 2026-10-07. | Studio, intégration HTTP, workspace, preuves et revue. |
+| [0363a](0363-identite-des-messages-organisation-mcp.md) | Lier les messages d’organisation à l’identité runtime | accepté. | 2026-10-07. | -- |
+| [0363b](0363-studio-parcours-genos-structurants.md) | Studio : parcours GenOS structurants | Accepté ; tranches livrées séparément, sans certification globale P04–P07. | 2026-10-07. | Studio, mondes, mémoire, AgentDNA et récupération. |
+| [0364a](0364-selection-explicite-des-strategies-mcp.md) | Relier la stratégie demandée au sélecteur sous preuve | accepté. | 2026-10-07. | -- |
+| [0364b](0364-studio-mecanismes-specialises.md) | Studio : mécanismes spécialisés et analyses bornées | Accepté ; qualification par tranche, pas des domaines complets. | 2026-10-07. | -- |
 | [0365](0365-studio-boucle-production-locale.md) | Studio : boucle de production locale | Voir le fichier | -- | -- |
+| [0366](0366-manifeste-snapshot-organisme.md) | Manifeste vérifiable de snapshot d'organisme | Accepté, portée backend partielle | 2026-10-10 | Snapshots, cohérence, intégrité |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
