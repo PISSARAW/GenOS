@@ -640,3 +640,5 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0359 — Coûts durables des oracles refusés et interrompus](adr/0359-couts-durables-des-oracles-refuses-et-interrompus.md).
 - [ADR 0360 — Oracle code borné sur artefact scellé](adr/0360-oracle-code-borne-sur-artefact-scelle.md).
 - [ADR 0361 — Rejeu apparié avec aléas adressés](adr/0361-rejeu-apparie-avec-aleas-adresses.md).
+- [ADR 0366 — Manifeste de snapshot d'organisme](adr/0366-manifeste-snapshot-organisme.md).
+- [ADR 0367 — Sections durables des snapshots d'organisme](adr/0367-sections-durables-snapshot-organisme.md).

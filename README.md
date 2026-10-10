@@ -70,7 +70,7 @@ ne constituent pas une mesure de modèles externes.
 
 Fonctionnalités implémentées :
 
-- **Snapshots de workspace et d'état d'agent**, forks, diffs et replay ; les bundles agent/workspace portent un manifeste d'intégrité, sans capturer la RAM, le contexte LLM ni l'organisme entier ([portée](docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)).
+- **Snapshots de workspace et d'état d'agent**, forks, diffs et replay ; le manifeste vérifié couvre aussi les mémoires persistées, les relations, l'état runtime durable, les échanges visibles du routeur LLM et les références immuables des checkpoints Rust associés. La RAM des processus et l'état caché des fournisseurs LLM restent hors portée ([portée](docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)).
 - **Démo de débogage parallèle sûr** : `examples/safe-debugging-demo`, exécutable sans clé API.
 - **GenOS Studio** et backend Node.js : [client opérateur modulaire](integrations/studio/README.md) à `/studio/`, inspection, supervision, gestion, fichiers et laboratoire ; [qualification et limites](docs/06-qualite-preuves/studio-qualification.md). API REST, services gRPC et persistance SQLite WAL ; [VSIX VS Code de référence](integrations/ide/vscode/README.md) pour inspecter les mêmes runs.
 - **CLI Rust** et serveur MCP stdio pour les opérations locales et les intégrations.

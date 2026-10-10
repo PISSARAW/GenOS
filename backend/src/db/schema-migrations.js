@@ -23,6 +23,7 @@ async function applyVersionedMigrations(db) {
   await ensureGenomeColumns(db);
   await createGenomeInnovationTables(db);
   await ensureAgentSnapshotColumns(db);
+  await require('./migrations/migrateOrganismModelTurns').migrateOrganismModelTurns(db);
   await createAgentGitTables(db);
   await ensureAgentGitObjectColumns(db);
   await createAgentGitHistoryTables(db);

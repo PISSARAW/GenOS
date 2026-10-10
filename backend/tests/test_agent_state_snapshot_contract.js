@@ -96,7 +96,8 @@ async function main() {
     const capturedState = JSON.parse(fixture.state.agentSnapshots[0].state_json);
     const integrity = require('../src/controllers/lineage/snapshots').verifyOrganismSnapshot;
     assert.equal(integrity(capturedState).valid, true);
-    assert.equal(capturedState._genosSnapshot.organismSnapshot.components.runtime.status, 'unsupported');
+    assert.equal(capturedState._genosSnapshot.organismSnapshot.components.runtime.status, 'not-applicable');
+    assert.equal(capturedState._genosSnapshot.persistedState.schemaVersion, 3);
     capturedState._genosSnapshot.organismSnapshot.components.agentState.hash = 'tampered';
     assert.equal(integrity(capturedState).valid, false);
 
@@ -109,7 +110,8 @@ async function main() {
 
     assert.equal(restored.get().body.restored, true);
     assert.equal(restored.get().body.workspaceRestored, true);
-    assert.equal(fixture.state.agent.status, 'running');
+    assert.equal(fixture.state.agent.status, 'blocked');
+    assert.equal(restored.get().body.runtimeRestartRequired, true);
     assert.equal(fixture.state.agent.cognitive_budget, 80);
     assert.equal(fixture.state.agent.current_task, 'initial task');
     assert.equal(await fs.readFile(filePath, 'utf8'), 'snapshot source');

@@ -12,6 +12,8 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrchestratorCheckpointState {
+    #[serde(default)]
+    pub mission_id: Option<Uuid>,
     pub director_state: DirectorState,
     pub organisms: HashMap<String, serde_json::Value>,
     pub active_cells: HashMap<Uuid, serde_json::Value>,
@@ -35,6 +37,7 @@ pub struct OrchestratorCheckpointState {
 impl OrchestratorCheckpointState {
     pub fn new() -> Self {
         Self {
+            mission_id: None,
             director_state: DirectorState::default(),
             organisms: HashMap::new(),
             active_cells: HashMap::new(),
@@ -50,7 +53,7 @@ impl OrchestratorCheckpointState {
         }
     }
 
-    pub fn from_ecosystem(ecosystem: &GenosEcosystem) -> Self {
+    pub fn from_ecosystem(ecosystem: &GenosEcosystem) -> Result<Self, String> {
         let orch = &ecosystem.orchestrator;
         let director = &ecosystem.director;
         let mut organisms = HashMap::new();
@@ -105,7 +108,8 @@ impl OrchestratorCheckpointState {
             );
         }
 
-        Self {
+        Ok(Self {
+            mission_id: ecosystem.mission_id,
             director_state: director.export_state(),
             organisms,
             active_cells,
@@ -116,37 +120,32 @@ impl OrchestratorCheckpointState {
             events: ecosystem.events.snapshot(),
             metabolism: Some(orch.metabolism.checkpoint()),
             receipt_tick: ecosystem.receipt_tick,
-            orchestrator: serde_json::to_value(orch).ok(),
+            orchestrator: Some(serde_json::to_value(orch).map_err(|error| error.to_string())?),
             timestamp: chrono::Utc::now().to_rfc3339(),
-        }
+        })
     }
 
     /// Restores a checkpoint into a live orchestrator. Returns `Ok(true)` on
     /// full-fidelity restore, `Ok(false)` for legacy checkpoints that only
-    /// carry summaries (director state + spore map are restored, the rest is
-    /// left untouched instead of being silently dropped). Hard failures
+    /// carry summaries (the live ecosystem stays untouched). Hard failures
     /// (corrupt snapshot) return `Err`.
     pub fn apply_to_ecosystem(&self, ecosystem: &mut GenosEcosystem) -> Result<bool, String> {
-        ecosystem.director.import_state(self.director_state.clone());
         match &self.orchestrator {
             Some(snapshot) => {
-                let restored: crate::orchestrator::BiomimeticOrchestrator =
+                let mut restored: crate::orchestrator::BiomimeticOrchestrator =
                     serde_json::from_value(snapshot.clone()).map_err(|e| e.to_string())?;
-                ecosystem.orchestrator = restored;
                 if let Some(metabolism) = self.metabolism.clone() {
-                    ecosystem
-                        .orchestrator
-                        .metabolism
-                        .restore_checkpoint(metabolism)?;
+                    restored.metabolism.restore_checkpoint(metabolism)?;
                 }
-                ecosystem.events = InMemoryEventStore::restore(self.events.clone())?;
+                let events = InMemoryEventStore::restore(self.events.clone())?;
+                ecosystem.director.import_state(self.director_state.clone());
+                ecosystem.orchestrator = restored;
+                ecosystem.events = events;
                 ecosystem.receipt_tick = self.receipt_tick;
+                ecosystem.mission_id = self.mission_id;
                 Ok(true)
             }
-            None => {
-                ecosystem.orchestrator.spore_tissue_map = self.spore_tissue_map.clone();
-                Ok(false)
-            }
+            None => Ok(false),
         }
     }
 }
@@ -171,7 +170,7 @@ impl CheckpointManager {
             last_checkpoint_seq: 0,
         };
 
-        if let Ok(Some(checkpoint)) = manager.checkpoint_store.load() {
+        if let Some(checkpoint) = manager.checkpoint_store.load()? {
             manager.last_checkpoint_seq = checkpoint.seq_id;
         }
 

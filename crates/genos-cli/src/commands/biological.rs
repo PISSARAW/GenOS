@@ -100,7 +100,7 @@ fn run_and_report(
     mission_id: uuid::Uuid,
     journal_dir: &std::path::Path,
 ) -> Result<(), String> {
-    use genos_orchestrator::checkpoint::{CheckpointManager, OrchestratorCheckpointState};
+    use genos_orchestrator::checkpoint::CheckpointManager;
     use genos_orchestrator::{GenosEcosystem, planner::Goal};
     use genos_store::BiologicalReceiptStore;
 
@@ -126,10 +126,7 @@ fn run_and_report(
             .map_err(|error| format!("mission division receipt was not persisted: {error:?}"))?;
         receipts.push(serde_json::to_value(division).map_err(|error| error.to_string())?);
     }
-    let state = OrchestratorCheckpointState::from_ecosystem(&ecosystem);
-    checkpoints
-        .create_checkpoint(&state)
-        .map_err(|error| format!("mission checkpoint was not persisted: {error}"))?;
+    save_checkpoint(&mut checkpoints, &ecosystem)?;
     println!(
         "{}",
         json!({
@@ -141,6 +138,15 @@ fn run_and_report(
         })
     );
     Ok(())
+}
+
+fn save_checkpoint(
+    checkpoints: &mut genos_orchestrator::checkpoint::CheckpointManager,
+    ecosystem: &genos_orchestrator::GenosEcosystem,
+) -> Result<(), String> {
+    let state = genos_orchestrator::checkpoint::OrchestratorCheckpointState::from_ecosystem(ecosystem)?;
+    checkpoints.create_checkpoint(&state)
+        .map_err(|error| format!("mission checkpoint was not persisted: {error}"))
 }
 
 fn restore_receipt_tick(
@@ -200,6 +206,9 @@ fn restore_or_seed(
     let state: genos_orchestrator::checkpoint::OrchestratorCheckpointState =
         serde_json::from_value(checkpoint.orchestrator_state)
             .map_err(|error| format!("mission checkpoint is invalid: {error}"))?;
+    if state.mission_id != cmd.mission_id {
+        return Err("mission checkpoint identity does not match the requested mission".into());
+    }
     if !state.apply_to_ecosystem(ecosystem)? {
         return Err("legacy mission checkpoint cannot restore full organism state".into());
     }

@@ -114,20 +114,41 @@ du même workspace. Une restauration ou un checkout réapplique d’abord les fi
 avec un snapshot de sécurité préservé, puis les champs d’état de l’agent. Le replay
 appliqué suit le même chemin et vérifie ensuite l’état agent relu en base.
 
-Les nouveaux snapshots et commits d’agent incluent aussi un manifeste
-`_genosSnapshot.organismSnapshot` versionné. Son hash SHA-256 lie les champs
-d’agent restaurables, la référence et l’empreinte du workspace, l’instant de
-capture et le statut des composants. Après la capture du workspace, le backend
-relit les champs d’agent : si leur hash a changé, il refuse de publier le snapshot
-d’état. La restauration vérifie le manifeste avant de modifier les fichiers ou
-la ligne `agents`. Les snapshots historiques sans manifeste restent acceptés,
-mais leur intégrité du bundle est considérée comme non vérifiée.
+Les snapshots et commits d’agent récents incluent un manifeste
+`_genosSnapshot.organismSnapshot` version 3. Son hash SHA-256 lie l’identité de
+l’agent et du workspace, les champs restaurables, la référence du workspace,
+les sections SQLite, les références de checkpoint Rust, l’instant de capture
+et le statut des composants. La capture du workspace précède une transaction
+SQLite : le backend relit les champs de l’agent, puis copie les mémoires
+épisodiques et autobiographiques, le modèle de soi, les décisions, les synapses,
+les relations, `agent_runtime_state`, le dernier événement de télémétrie comme
+curseur de reprise vérifiable
+et les échanges visibles de `organism_model_turns`. La charge SQLite est bornée
+à 16 Mio. Si l’état de l’agent a changé, si un processus supervisé est actif,
+si un appel LLM est en attente ou si une relation traverse le périmètre du
+tenant, la capture échoue sans publier de snapshot d’agent.
 
-Ce manifeste coordonne uniquement l’état d’agent stocké dans `agents` et le
-workspace durable. Il marque le runtime, le contexte LLM, les mémoires et
-relations, ainsi que le checkpoint de l’orchestrateur comme non capturés. Il ne
-garantit donc pas une image atomique de tout l’organisme ni la reprise des
-processus actifs. Voir [ADR 0366](../adr/0366-manifeste-snapshot-organisme.md).
+Le routeur Node conserve la requête avant l’inférence et son résultat ensuite,
+avec empreintes séparées. Cela permet de relire le contexte *visible* du routeur ;
+les contextes internes du fournisseur et les runtimes externes qui ne passent
+pas par ce routeur ne sont pas capturés. L’état runtime durable est copié, mais
+la RAM, les handles et un processus en cours ne sont pas sérialisés. Les
+checkpoints Rust des missions biologiques associées sont référencés par mission,
+séquence et SHA-256 et sont vérifiés à la lecture ; restaurer un snapshot d’agent
+ne replace pas automatiquement le curseur d’une mission Rust, surtout si elle
+est partagée avec d’autres agents.
+
+La restauration vérifie le manifeste et les références Rust avant de toucher au
+workspace. Elle prend un snapshot de sécurité des fichiers et des sections
+SQLite, puis restaure les champs de l’agent et les données persistées dans une
+transaction. Un agent auparavant en cours d’exécution revient en état `blocked`
+et doit être relancé explicitement ; aucun succès d’inférence ou de mission
+n’est déduit de cette restauration. Les historiques LLM restent des traces
+persistantes et ne sont pas rejoués automatiquement. Les anciens snapshots
+restent lisibles avec leurs garanties d’origine. Il n’existe toujours pas de
+restauration atomique de l’organisme entier entre fichiers, SQLite, processus
+et missions Rust. Voir [ADR 0366](../adr/0366-manifeste-snapshot-organisme.md)
+et [ADR 0367](../adr/0367-sections-durables-snapshot-organisme.md).
 
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 

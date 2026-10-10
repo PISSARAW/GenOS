@@ -241,8 +241,6 @@ async function executeInferenceThroughOmega({ candidates, context, mode, mmu, ec
   }
   return { result: execution.values.model_infer, execution: omegaExecution(execution) };
 }
-
-
 function missingRouteError(policy, configured) {
   if (policy.preferLocal || configured[0] === 'auto') return Object.assign(new Error('No local chat-capable model is available for the requested route.'), { code: 'LOCAL_MODEL_REQUIRED' });
   return Object.assign(new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.'), { code: 'MODEL_ROUTE_REQUIRED' });
@@ -271,7 +269,7 @@ async function resolvePolicy(opts) {
   return policyFrom(opts.policy || await loadPolicy(opts.db, { agentId: opts.agentId, organizationId: opts.organizationId, projectId: opts.projectId }) || envPolicy());
 }
 
-async function generate(options) {
+async function generateCore(options) {
   const opts = options || {};
   const startedAt = Date.now();
   const cognitiveContract = await cognitiveRequest(opts);
@@ -323,7 +321,21 @@ async function generate(options) {
   }
   await recordCognitiveEconomy({ opts, cognitiveContract, result, startedAt });
   return withCognitiveResult(result, cognitiveResult);
-}; module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
+}
+async function generate(options) {
+  const turns = require('./organismModelTurns');
+  const turnId = await turns.begin(options);
+  try {
+    const result = await generateCore(options);
+    await turns.complete(options?.db, turnId, result);
+    return result;
+  } catch (error) {
+    await turns.fail(options?.db, turnId, error);
+    throw error;
+  }
+}
+
+module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
 
 function cognitiveRequestNativeGraph(options) {
   return options.cognitiveProgram ? { domain: options.cognitiveDomain || 'runtime',

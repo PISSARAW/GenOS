@@ -460,6 +460,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0364b](0364-studio-mecanismes-specialises.md) | Studio : mécanismes spécialisés et analyses bornées | Accepté ; qualification par tranche, pas des domaines complets. | 2026-10-07. | -- |
 | [0365](0365-studio-boucle-production-locale.md) | Studio : boucle de production locale | Voir le fichier | -- | -- |
 | [0366](0366-manifeste-snapshot-organisme.md) | Manifeste vérifiable de snapshot d'organisme | Accepté, portée backend partielle | 2026-10-10 | Snapshots, cohérence, intégrité |
+| [0367](0367-sections-durables-snapshot-organisme.md) | Sections durables des snapshots d'organisme | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

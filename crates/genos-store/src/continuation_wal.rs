@@ -231,6 +231,7 @@ impl OrchestrationCheckpoint {
 
 pub struct CheckpointStore {
     path: PathBuf,
+    store_dir: PathBuf,
 }
 
 impl CheckpointStore {
@@ -239,21 +240,67 @@ impl CheckpointStore {
         fs::create_dir_all(&store_dir)?;
         Ok(Self {
             path: store_dir.join("orchestration.checkpoint.json"),
+            store_dir,
         })
     }
 
     pub fn save(&self, checkpoint: &OrchestrationCheckpoint) -> std::io::Result<()> {
         let json = serde_json::to_string_pretty(checkpoint)?;
+        let hash = hex::encode(sha2::Sha256::digest(json.as_bytes()));
+        let target = self.store_dir.join(format!("checkpoint-{}-{hash}.json", checkpoint.seq_id));
+        if !target.exists() {
+            let staging = self.store_dir.join(format!(".checkpoint-{}.tmp", uuid::Uuid::new_v4()));
+            fs::write(&staging, json.as_bytes())?;
+            if let Err(error) = fs::rename(&staging, &target) {
+                let _ = fs::remove_file(&staging);
+                if !target.exists() { return Err(error); }
+            }
+        }
+        if fs::read(&target)? != json.as_bytes() {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "checkpoint hash collision or corruption"));
+        }
         fs::write(&self.path, json)
     }
 
     pub fn load(&self) -> std::io::Result<Option<OrchestrationCheckpoint>> {
-        if !self.path.exists() {
-            return Ok(None);
+        let latest = self.latest_immutable()?;
+        if latest.is_some() { return Ok(latest); }
+        if !self.path.exists() { return Ok(None); }
+        Ok(Some(serde_json::from_slice(&fs::read(&self.path)?)?))
+    }
+
+    fn latest_immutable(&self) -> std::io::Result<Option<OrchestrationCheckpoint>> {
+        let mut latest: Option<OrchestrationCheckpoint> = None;
+        let mut seen = std::collections::HashSet::new();
+        for entry in fs::read_dir(&self.store_dir)? {
+            let entry = entry?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if !name.starts_with("checkpoint-") || !name.ends_with(".json") { continue; }
+            let checkpoint = Self::read_immutable(&entry.path(), &name)?;
+            if !seen.insert(checkpoint.seq_id) {
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "ambiguous checkpoint sequence"));
+            }
+            if latest.as_ref().is_none_or(|current| checkpoint.seq_id > current.seq_id) {
+                latest = Some(checkpoint);
+            }
         }
-        let content = fs::read_to_string(&self.path)?;
-        let checkpoint = serde_json::from_str(&content)?;
-        Ok(Some(checkpoint))
+        Ok(latest)
+    }
+
+    fn read_immutable(path: &std::path::Path, name: &str) -> std::io::Result<OrchestrationCheckpoint> {
+        if !fs::symlink_metadata(path)?.file_type().is_file() {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "checkpoint must be a regular file"));
+        }
+        let content = fs::read(path)?;
+        let hash = hex::encode(sha2::Sha256::digest(&content));
+        if !name.ends_with(&format!("-{hash}.json")) {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "checkpoint digest mismatch"));
+        }
+        let checkpoint: OrchestrationCheckpoint = serde_json::from_slice(&content)?;
+        if name != format!("checkpoint-{}-{hash}.json", checkpoint.seq_id) {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "checkpoint sequence mismatch"));
+        }
+        Ok(checkpoint)
     }
 }
 
@@ -324,5 +371,29 @@ mod tests {
         let loaded = store.load().unwrap().unwrap();
         assert_eq!(loaded.seq_id, 5);
         assert_eq!(loaded.orchestrator_state["state"], "running");
+    }
+
+    #[test]
+    fn immutable_checkpoint_history_rejects_corruption() {
+        let dir = tempdir().unwrap();
+        let store = CheckpointStore::new(dir.path()).unwrap();
+        store.save(&OrchestrationCheckpoint::new(1, serde_json::json!({ "state": "first" }))).unwrap();
+        store.save(&OrchestrationCheckpoint::new(2, serde_json::json!({ "state": "second" }))).unwrap();
+        assert_eq!(store.load().unwrap().unwrap().seq_id, 2);
+        let first = fs::read_dir(dir.path()).unwrap()
+            .map(|entry| entry.unwrap().path())
+            .find(|path| path.file_name().unwrap().to_string_lossy().starts_with("checkpoint-1-"))
+            .unwrap();
+        fs::write(first, b"tampered").unwrap();
+        assert_eq!(store.load().unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn immutable_checkpoint_history_rejects_ambiguous_sequence() {
+        let dir = tempdir().unwrap();
+        let store = CheckpointStore::new(dir.path()).unwrap();
+        store.save(&OrchestrationCheckpoint::new(4, serde_json::json!({ "state": "first" }))).unwrap();
+        store.save(&OrchestrationCheckpoint::new(4, serde_json::json!({ "state": "second" }))).unwrap();
+        assert_eq!(store.load().unwrap_err().kind(), std::io::ErrorKind::InvalidData);
     }
 }
