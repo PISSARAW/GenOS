@@ -325,11 +325,14 @@ function keepCandidate(candidate, filters) {
 async function findExperts(input) {
   const db = await ensureTables(input.db);
   const weights = weightsOf(input);
+  const requested = [...new Set(Array.isArray(input.requestedAgentIds) ? input.requestedAgentIds : [])];
+  const marks = requested.map(() => '?').join(',');
+  const requestedFilter = requested.length ? ` AND e.agent_id IN (${marks})` : '';
   const rows = await db.all(
     `SELECT e.*, a.model_tier AS model_tier FROM agent_expertise e
-     LEFT JOIN agents a ON a.id = e.agent_id WHERE e.domain = ?
+     LEFT JOIN agents a ON a.id = e.agent_id WHERE e.domain = ?${requestedFilter}
      ORDER BY e.competence DESC LIMIT 200`,
-    input.domain
+    [input.domain, ...requested]
   );
   const filters = filtersOf(input, await independenceRows(db, input.independenceFrom || []));
   const matches = [];

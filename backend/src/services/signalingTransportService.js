@@ -1,4 +1,4 @@
-const { getDatabase } = require('../db');
+const { getDatabase, withTransaction } = require('../db');
 const { SIGNAL_TYPES, formatSignalForTransport, unpackSignalPayload } = require('./biomimeticSignalingBus');
 const { routeCollectiveSignal } = require('./collectiveSignalOrganizationRouter');
 const signalRepressor = require('./signalRepressorService');
@@ -9,7 +9,7 @@ const tensor = require('./tensorCompatibilityService');
 const signalMetrics = require('./signalMetricsService');
 const { checkRateLimit, validatePayloadSize, validateArgs, retryDbOperation } = require('./signalValidationUtils');
 const signalDelivery = require('./signalDeliveryService');
-const { recordPendingDeliveries } = require('./signalDeliveryHelpers');
+const { recordPendingDeliveries, routedAgentIds } = require('./signalDeliveryHelpers');
 const cognitiveJobs = require('./signalCognitiveJobsService');
 const cognitiveEscalation = require('./cognitiveEscalationService');
 const { createEnvelope, verifyEnvelopePayload } = require('./communication/communicationEnvelopeService');
@@ -47,9 +47,8 @@ function repressionFor({ type, topic, signalData, repressors }) {
   return signalRepressor.applyRepressors({ kind: type, topic, signalData }, repressors);
 }
 
-async function persistSignalRow(row) {
+async function persistSignalRow(row, db) {
   try {
-    const db = await getDatabase();
     await retryDbOperation(() =>
       db.run(
         `INSERT INTO signal_blobs
@@ -58,7 +57,6 @@ async function persistSignalRow(row) {
         [row.signal_id, row.signal_type, row.signal_blob, row.content, row.topic, row.sender_agent_id, row.expires_at]
       )
     );
-    signalMetrics.recordPublish();
   } catch (e) {
     signalMetrics.recordDbError(e);
     throw Object.assign(new Error(`Signal persistence failed after retries: ${e.message}`), {
@@ -66,6 +64,18 @@ async function persistSignalRow(row) {
       cause: e,
     });
   }
+}
+
+async function persistRoutedSignal(signal, recipients) {
+  const db = await getDatabase();
+  const row = buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic,
+    senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt });
+  await withTransaction(db, async (tx) => {
+    await persistSignalRow(row, tx);
+    await recordPendingDeliveries(tx, signal.id, recipients);
+  });
+  signalMetrics.recordPublish();
+  for (const rid of recipients) signalMetrics.recordDeliveryEnqueued();
 }
 
 function validateTensor(signal) {
@@ -141,7 +151,7 @@ function scopeMismatchResult(signal, routing) {
 
 async function routeAndDispatch(signal, routing) {
   // Destinataires AVANT dispatch : les récepteurs ciblés matchent dessus, jamais sur l'émetteur.
-  const recipientAgentIds = (routing.recipients || []).filter((r) => r.kind === 'agent' && r.agentId).map((r) => r.agentId);
+  const recipientAgentIds = routedAgentIds(routing);
   const dispatchResult = await dispatchReceptorsIfNeeded({
       signalId: signal.id,
       signalType: signal.formatted.signalType,
@@ -154,6 +164,8 @@ async function routeAndDispatch(signal, routing) {
       publishSignal,
       scope: routing.scope,
     });
+  await persistRoutedSignal(signal, dispatchResult.llmRequired ? [] : recipientAgentIds);
+  pushLocalLog(signal.id, signal.formatted);
   signalMetrics.recordDispatch();
   if (dispatchResult.dispatched) signalMetrics.recordTrigger();
   updatePlasticityForRecipients(signal, dispatchResult, routing);
@@ -171,8 +183,6 @@ async function routeAndDispatch(signal, routing) {
   }
   if (recipientAgentIds.length > 0) {
     signalMetrics.recordSignalRouted();
-    for (const rid of recipientAgentIds) signalMetrics.recordDeliveryEnqueued();
-    await recordPendingDeliveries(signal.id, recipientAgentIds);
   } else {
     signalMetrics.recordOutcome('ignored');
   }
@@ -208,11 +218,9 @@ async function publishSignal(params) {
     signalData: signal.signalData,
     topic: signal.topic,
     senderAgentId: signal.senderAgentId,
+    recipientAgentIds: routedAgentIds(routing),
   });
   if (!coalesced) return handleSuppressed(signal);
-
-  await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
-  pushLocalLog(signal.id, signal.formatted);
 
   return await routeAndDispatch(signal, routing);
 }

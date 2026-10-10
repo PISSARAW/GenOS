@@ -128,6 +128,24 @@ function createAdditionalSignalPlaneCases(context) {
     console.log('[PASS] testReceptorFailureEscalates');
   }
 
+  async function testEffectiveAudienceChangeIsPublished() {
+    resetState();
+    await testDb.run("UPDATE agents SET status = 'active' WHERE id IN ('worker-1', 'worker-2')");
+    const params = { signalType: 'ligand', signalData: { semanticType: 'AUDIENCE_CHANGE' },
+      topic: 'effective-audience-change', senderAgentId: 'orch-1' };
+    const first = await transport.publishSignal(params);
+    await testDb.run("UPDATE agents SET status = 'completed' WHERE id = 'worker-2'");
+    try {
+      const second = await transport.publishSignal(params);
+      assert.equal(first.published, true);
+      assert.equal(second.published, true, 'Changed routed audience must not be coalesced');
+      assert.notEqual(second.signalId, first.signalId);
+    } finally {
+      await testDb.run("UPDATE agents SET status = 'active' WHERE id = 'worker-2'");
+    }
+    console.log('[PASS] testEffectiveAudienceChangeIsPublished');
+  }
+
   return async function runAdditionalSignalPlaneCases() {
     await testScopedReadCannotStealDelivery();
     await testRejectedRecipientIsNotPersisted();
@@ -135,6 +153,7 @@ function createAdditionalSignalPlaneCases(context) {
     await testReceptorCannotUpdateOtherProject();
     await testReadRespectsTargetedAudience();
     await testReceptorFailureEscalates();
+    await testEffectiveAudienceChangeIsPublished();
     await testReadAndAckFailuresAreVisible();
   };
 }

@@ -219,8 +219,15 @@ function validSubOrchestratorContract(contract) {
   return contract.authority?.spawn === true && contract.authority?.delegate === true
     && contract.spawnBudget >= 1 && contract.spawnBudget <= 5
     && contract.delegationDepth === 1 && contract.limits?.maxChildren === contract.spawnBudget
-    && contract.limits?.maxTokens <= 10000 && Number.isFinite(contract.delegationExpiresAt)
+    && validDelegationTokenBudget(contract)
+    && Number.isFinite(contract.delegationExpiresAt)
     && Date.now() < contract.delegationExpiresAt;
+}
+
+function validDelegationTokenBudget(contract) {
+  const tokens = contract.limits?.maxTokens;
+  return Number.isSafeInteger(tokens) && tokens >= 1 && tokens <= 10000
+    && tokens <= contract.resources?.maxTokens;
 }
 
 function delegationIsDisabled(contract) {

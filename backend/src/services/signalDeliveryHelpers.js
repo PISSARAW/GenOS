@@ -1,10 +1,13 @@
 const { getDatabase } = require('../db');
 const { recordPendingDelivery, markDelivered: markDeliveryDelivered } = require('./signalDeliveryService');
 
-async function recordPendingDeliveries(signalId, recipientAgentIds) {
+function routedAgentIds(routing) {
+  return (routing.recipients || []).filter((r) => r.kind === 'agent' && r.agentId).map((r) => r.agentId);
+}
+
+async function recordPendingDeliveries(db, signalId, recipientAgentIds) {
   if (!signalId || !recipientAgentIds || !recipientAgentIds.length) return;
   try {
-    const db = await getDatabase();
     for (const recipientId of recipientAgentIds) {
       if (!await recordPendingDelivery(db, signalId, recipientId)) {
         throw new Error(`Failed to persist delivery for ${signalId} to ${recipientId}`);
@@ -28,4 +31,4 @@ async function markSignalDelivered(signalId, recipientId) {
   }
 }
 
-module.exports = { recordPendingDeliveries, markSignalDelivered };
+module.exports = { recordPendingDeliveries, markSignalDelivered, routedAgentIds };

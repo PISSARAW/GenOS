@@ -60,6 +60,9 @@ function assertIntentContent(intent) {
   if (intent.requestedAudience !== undefined && intent.requestedAudience !== null && !Array.isArray(intent.requestedAudience)) {
     throw new Error('CommunicationIntent.requestedAudience must be an array or null.');
   }
+  if (intent.requestedAudience?.length > 50) {
+    throw new Error('CommunicationIntent.requestedAudience exceeds the selective audience limit.');
+  }
 }
 
 function restrictAudience(informed, requested) {
@@ -185,7 +188,8 @@ function necessityPass(intent) {
 function audienceQueryOf(intent, refs, input) {
   const independent = intent.independenceRequired ? [intent.senderAgentId] : [];
   return { db: input.db, senderId: intent.senderAgentId, domain: intent.domain, semanticRefs: refs,
-    maxCandidates: input.maxCandidates, independenceFrom: independent,
+    maxCandidates: input.maxCandidates, requestedAgentIds: intent.requestedAudience,
+    requiresAction: intent.requiresAction, independenceFrom: independent,
     independenceThreshold: input.independenceThreshold, maxCost: input.maxCost, weights: input.weights };
 }
 

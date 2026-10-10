@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Obstacle 4 : communication et consolidation scientifique](06-qualite-preuves/obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée de GQWF v2, Garage Fabric, Signal Plane, preuves et G-CIR Ω ; [ADR 0377](adr/0377-consolidation-scientifique-par-references-versionnees.md).
+
 - [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
 - [ADR 0361 — Studio : socle requêtes, actions et brouillons](adr/0361-studio-socle-requetes-actions-et-brouillons.md) — étape B, commits atomiques et qualification bornée.
 - [ADR 0362 — Studio : parcours pilote borné](adr/0362-studio-parcours-pilote-borne-et-dependances.md) — étape C, services réels, dépendances et limites de généralisation.
@@ -287,6 +289,7 @@ Index : [adr/README.md](adr/README.md)
 - [ADR 0372 — Fondation des garages hiérarchiques et plafond projet](adr/0372-fondation-garages-hierarchiques-et-plafond-projet.md).
 - [ADR 0374 — Registre durable des domaines Garage](adr/0374-registre-durable-des-domaines-garage.md).
 - [ADR 0376 — Plafond projet sur l'ascendance Garage](adr/0376-plafond-projet-sur-ascendance-garage.md).
+- [ADR 0379 — Octroi borné de délégation au sous-orchestrateur](adr/0379-octroi-borne-delegation-sous-orchestrateur.md).
 
 - [ADR 0348 — Élimination de la dette historique de qualité](adr/0348-elimination-dette-historique-qualite.md).
 

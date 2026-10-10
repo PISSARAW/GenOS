@@ -262,6 +262,7 @@ class ProofArtifact {
     const receipt = await leanGate.verifyNode({
       nodeId: leanNodeId,
       source,
+      ...(this._formalization ? { formalization: this._formalization } : {}),
       timeoutMs: 300000,
       leanExecutable: 'lean',
     });

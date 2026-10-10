@@ -13,7 +13,9 @@ function tokenCeiling(policy, mission, native) {
 function workerResources(kind, mission = {}) {
   const policy = workerPolicy(kind);
   const native = policy.executionMode === 'deterministic' || hasNativeMethod(kind, mission.methodContract?.methodId);
-  return { maxTokens: tokenCeiling(policy, mission, native),
+  const delegated = kind === 'sub_orchestrator' && Number.isSafeInteger(mission.workerTokenLimit)
+    && mission.workerTokenLimit > 0;
+  return { maxTokens: tokenCeiling(policy, mission, native && !delegated),
     maxTimeMs: policy.maxTimeMs ?? 300000, maxCpuMs: policy.maxCpuMs ?? 60000,
     executionMode: native ? 'deterministic' : 'model' };
 }
