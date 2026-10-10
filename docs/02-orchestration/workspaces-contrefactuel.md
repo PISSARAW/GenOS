@@ -158,6 +158,25 @@ constitue pas une image du processus. Le manifeste indique
 restaurable. Une session Codex archivée est signalée séparément par
 `externalCodexRuntime: captured-encrypted-session`. Les checkpoints Rust
 des missions biologiques sont référencés par mission, séquence et SHA-256.
+
+Sur Windows, macOS et Linux, `GET /api/agents/snapshot-capabilities` expose le mode
+de capture du backend courant. `snapshotMode: "logical"` est le seul mode
+accepté. Une demande `snapshotMode: "process-memory"` ou
+`processMemory: true` échoue en HTTP 422 avant toute capture ;
+`restoreProcessMemory: true` échoue aussi avant toute restauration. La
+réponse de capacités indique séparément la capture logique, la RAM, le contexte
+caché du fournisseur et la restauration globale. Cette négociation évite de
+présenter un checkpoint logique comme une image de RAM sur une plateforme où
+aucun adaptateur de restauration n'existe.
+
+QEMU fournit des snapshots de machine virtuelle incluant CPU, RAM, périphériques
+et disques sur ces trois hôtes, sous réserve d'une VM correctement configurée.
+Le runtime d'agent GenOS s'exécute actuellement comme processus de l'hôte ;
+aucune VM supervisée par GenOS ne contient encore ce processus. Un éventuel
+backend QEMU devra d'abord lancer et attester l'agent dans la VM, définir la
+cohérence des ressources externes et relier ses snapshots au cycle de vie de
+l'agent. Voir [ADR 0375](../adr/0375-portabilite-snapshots-memoire.md).
+
 Un pointeur de tête vérifié sélectionne le checkpoint à reprendre ; le tick Rust
 et la restauration prennent le même verrou de mission. Si la mission est
 partagée, chaque autre agent doit être arrêté et son état durable ainsi que

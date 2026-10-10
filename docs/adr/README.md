@@ -464,6 +464,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0368](0368-reprise-curseur-mission-et-frontieres-runtime.md) | Reprise du curseur de mission et frontières runtime | Accepté | 2026-10-10 | Snapshots, missions Rust |
 | [0369](0369-racines-gqwf-et-vues-durables.md) | Racines de fichiers GQWF et vues durables | Accepté, portée noyau backend | 2026-10-10 | Workspaces, snapshots, isolation |
 | [0370](0370-checkpoint-logique-local-et-continuite-llm-opaque.md) | Checkpoint logique local et continuité LLM opaque | Accepté, portée limitée | 2026-10-10 | Snapshots, runtime local, modèles |
+| [0375](0375-portabilite-snapshots-memoire.md) | Portabilité des snapshots mémoire | Négociation acceptée ; backend VM proposé | 2026-10-10 | Snapshots, runtime, portabilité |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

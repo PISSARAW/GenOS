@@ -180,14 +180,14 @@ artefacts présents :
 | --- | --- | --- |
 | Linux x86_64, Docker | image backend `node:22-bookworm-slim` épinglée ; SQLite sur volume local ; REST et gRPC | build propre, migration, health/readiness, scénario API+gRPC, redémarrage avec persistance |
 | Windows x86_64, hôte natif | Windows 10/11 64 bits ; PowerShell ; installateur/CLI si fournis | installation propre, démarrage backend/CLI, chemins/sandbox, migrations et désinstallation vérifiés |
-| macOS | **hors cible de support complète** dans ce contrat | support à ajouter après CI/build Rust+Node, installation et parcours E2E natifs |
+| macOS 64 bits, hôte natif | cible de support ajoutée ; qualification encore ouverte | build Rust+Node, dépendances natives, installation, migrations, chemins/sandbox, parcours REST+gRPC et reprise E2E natifs |
 | Node.js | 22.12+ (aligné sur le prérequis dépôt) ; Node 20.19+ seulement si pipeline dédié le maintient | dépendances natives installées et suites backend/MCP ciblées réussies sur chaque version annoncée |
-| Rust | stable 1.88+ | `cargo build/test --workspace` sur Linux et Windows x86_64 ; préciser la cible distribuée |
+| Rust | stable 1.88+ | `cargo build/test --workspace` sur Linux, Windows et macOS ; préciser les architectures distribuées |
 | SQLite | version du lockfile/dépendance backend, WAL ; fichier sur stockage local fiable, instance propriétaire unique | migrations depuis DB vide et version supportée précédente ; persistance/recovery validés |
 | IDE, navigateur, modèle distant/local | non universels : versions des clients, moteurs et fournisseurs doivent être listées par intégration avant statut implémenté | test d'intégration versionné ; pas de promesse de compatibilité implicite |
 
 La version complète ne promet pas de haute disponibilité multi-nœuds : le backend
-documenté utilise SQLite et une instance propriétaire de la base. macOS, clusters
+documenté utilise SQLite et une instance propriétaire de la base. Clusters
 distribués, conformité générale, connecteurs tiers non inventoriés et modes
 expérimentaux ne font pas partie du contrat complet tant qu'un ADR, une cible CI et
 des preuves dédiées ne les ajoutent pas.
@@ -197,7 +197,7 @@ des preuves dédiées ne les ajoutent pas.
 Une version GenOS est **complète** lorsque chaque élément inclus au périmètre est
 marqué implémenté, dispose d'une interface et de critères acceptés, a des preuves
 rejouables (unitaire + intégration, et E2E pour un parcours utilisateur), passe les
-cibles Linux/Docker et Windows ci-dessus, et que ses dépendances/versions sont
+cibles Linux/Docker, Windows et macOS ci-dessus, et que ses dépendances/versions sont
 publiées. Les éléments partiels, expérimentaux, prévus et hors périmètre restent
 visibles dans le registre et ne peuvent être présentés comme livrés. Les preuves
 E2E, benchmarks et validations manuelles doivent conserver commande/protocole,

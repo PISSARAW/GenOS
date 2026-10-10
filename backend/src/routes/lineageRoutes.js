@@ -15,6 +15,7 @@ router.get('/lineage', lineageController.getLineage);
 router.post('/nodes/inspect', lineageController.inspectNode);
 router.post('/agents/diff', lineageController.diffAgents);
 router.post('/agents/merge', requirePermission('workspace:write'), lineageController.mergeAgents);
+router.get('/agents/snapshot-capabilities', requirePermission('read'), lineageController.snapshotCapabilities);
 router.post('/agents/snapshot', requirePermission('workspace:write'), lineageController.snapshotAgentState);
 router.post('/agents/commit', requirePermission('workspace:write'), lineageController.commitAgentState);
 router.post('/agents/branch', requirePermission('workspace:write'), lineageController.branchAgentState);
