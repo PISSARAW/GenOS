@@ -18,11 +18,20 @@ function validateRelativePath(field, value) {
   return null;
 }
 
-export function validateCliArguments(toolName, args = {}) {
-  if (!args || typeof args !== 'object' || Array.isArray(args)) return 'Tool arguments must be a JSON object.';
-  const requiredError = validateRequiredFields(toolName, args);
-  if (requiredError) return requiredError;
-  for (const field of ['agent', 'out', 'snapshot', 'snapshot_id', 'branch_id', 'output']) {
+function validateReplayArgs(args) {
+  if (!nonEmptyString(args.snapshot) && !nonEmptyString(args.snapshot_id)) return 'snapshot or snapshot_id must be provided.';
+  return null;
+}
+
+function validateRequiredFields(toolName, args) {
+  for (const field of REQUIRED_CLI_FIELDS[toolName] || []) {
+    if (!nonEmptyString(args[field])) return `${field} must be a non-empty string.`;
+  }
+  return null;
+}
+
+function validatePathFields(args) {
+  for (const field of ['agent', 'out', 'snapshot', 'snapshot_id', 'branch_id', 'parent_id', 'output']) {
     if (args[field] !== undefined) {
       const error = validateRelativePath(field, args[field]);
       if (error) return error;
@@ -31,13 +40,11 @@ export function validateCliArguments(toolName, args = {}) {
   return null;
 }
 
-function validateRequiredFields(toolName, args) {
-  if (toolName === 'genos_replay') {
-    if (!nonEmptyString(args.snapshot) && !nonEmptyString(args.snapshot_id)) return 'snapshot or snapshot_id must be provided.';
-  } else {
-    for (const field of REQUIRED_CLI_FIELDS[toolName] || []) {
-      if (!nonEmptyString(args[field])) return `${field} must be a non-empty string.`;
-    }
-  }
-  return null;
+export function validateCliArguments(toolName, args = {}) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return 'Tool arguments must be a JSON object.';
+  const requiredError = toolName === 'genos_replay'
+    ? validateReplayArgs(args)
+    : validateRequiredFields(toolName, args);
+  if (requiredError) return requiredError;
+  return validatePathFields(args);
 }
