@@ -40,6 +40,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [relations-inter-agents.md](relations-inter-agents.md) — relations typées entre agents (29 types, 6 classes, persistance, fiches et schémas par type).
 - [physiologie-relationnelle.md](physiologie-relationnelle.md) — contraintes relationnelles exécutables, noyau déterministe et filtrage de parenté du routage.
 - [regulation-workers-protocole.md](regulation-workers-protocole.md) — protocole et preuves de récupération des 19 types natifs.
+- [qualification-regulation-ressources-orchestrate.md](qualification-regulation-ressources-orchestrate.md) — travaux et preuves requis pour la recharge externe et la planification complète.
 - [protocole-execution-agents.md](protocole-execution-agents.md) — cycle de mission, budgets, topologies, workers, communication, nosologie, télémétrie et protocole de preuve.
 
 ## Développement vérifié GVX
