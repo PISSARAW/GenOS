@@ -28,7 +28,7 @@ async function qualify(db, phase = 'intent') {
     assert.equal(await journal.read(db, { ...request, kind: 'attestation' }), null);
     await assert.rejects(require('../../src/services/epistemic/nativeOracleCoordinator').prepare(db, request),
       { code: 'ORACLE_ALLOCATION_ALREADY_RESERVED' });
-    await freshProcess(request, view.costs);
+    await contendedReplay(db, { request, costs: view.costs });
     const again = await require('../../src/services/epistemic/nativeOracleInspection').inspect(db, request);
     assert.deepEqual(again.costs, view.costs);
     console.log(JSON.stringify({ schema: 'genos.test.oracle-crash-observation/v1', phase,
@@ -48,6 +48,18 @@ function assertRealClosure(execution) {
   assert.equal(execution.timedOut, false);
   assert.equal(execution.processOutcome, 'verified');
   assert.ok(execution.durationMs >= 0);
+}
+
+async function contendedReplay(db, observation) {
+  let entered;
+  const locked = new Promise(resolve => { entered = resolve; });
+  const writer = require('../../src/db').withTransaction(db, async () => {
+    entered();
+    await new Promise(resolve => setTimeout(resolve, 100));
+  });
+  await locked;
+  try { await freshProcess(observation.request, observation.costs); }
+  finally { await writer; }
 }
 
 function waitForBarrier(child) {
@@ -73,10 +85,10 @@ async function freshProcess(request, costs) {
     .catch(async error=>{if(error.code!=='ORACLE_ALLOCATION_ALREADY_RESERVED')throw error;
       console.log(JSON.stringify(await require('./backend/src/services/epistemic/nativeOracleInspection').inspect(db,request)));})
     .catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>db.close());`;
-  const child = require('node:child_process').spawnSync(process.execPath,
+  const execute = require('node:util').promisify(require('node:child_process').execFile);
+  const child = await execute(process.execPath,
     ['-e', script, process.env.GENOS_DB_PATH, JSON.stringify(request)],
     { cwd: path.resolve(__dirname, '../../..'), encoding: 'utf8', timeout: 10000, windowsHide: true });
-  assert.equal(child.status, 0, child.stderr);
   assert.deepEqual(JSON.parse(child.stdout).costs, costs);
 }
 

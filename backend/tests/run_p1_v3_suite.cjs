@@ -6,7 +6,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const tests = ['test_gvx_experimental_nursery.js', 'test_gvx_paired_replay_bridge.js',
-  'test_gvx_candidate_dataset.js', 'test_gvx_candidate_metric_binding.js'];
+  'test_gvx_candidate_dataset.js', 'test_gvx_candidate_metric_binding.js', 'test_failure_memory_scope.js',
+  'test_failure_memory_effect_order.js'];
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-p1-v3-'));
 const env = { ...process.env, GENOS_DISABLE_DOTENV: '1', GENOS_DB_BACKUP_SKIP: '1',
   GENOS_DB_PATH: path.join(directory, 'fallback.db'), GENOS_STUDIO_ROOT: path.join(directory, 'studio'),

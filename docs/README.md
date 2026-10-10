@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Qualification P1 mémoire négative et stdio au 2026-10-10](06-qualite-preuves/qualification-p1-l22-2026-10-10.md) — scopes, résultats métier Node/Rust, leases et contre-épreuves ; [ADR 0388](adr/0388-portee-memoire-negative-et-parite-stdio-reelle.md).
+
 - [Qualification P1 avec V3 au 2026-10-10](06-qualite-preuves/qualification-p1-v3-2026-10-10.md) — nursery/replay, projection évaluateur, Lean réel et reproduction ; [ADR 0387](adr/0387-pont-nursery-replay-et-projection-evaluateur.md).
 
 - [Obstacle 4 : communication et consolidation scientifique](06-qualite-preuves/obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée de GQWF v2, Garage Fabric, Signal Plane, preuves et G-CIR Ω ; [ADR 0377](adr/0377-consolidation-scientifique-par-references-versionnees.md).

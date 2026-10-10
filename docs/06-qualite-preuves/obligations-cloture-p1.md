@@ -78,7 +78,7 @@ du socle et conserve les 115 obligations. Le programme a été relu intégraleme
 | C562 | API REST | L22 | API REST exposant manifestes et résultats expérimentaux versionnés | **K** — Mesurer reproductibilité inter-clients, prérequis technique | À qualifier |
 | C563 | gRPC | L22 | gRPC avec contrats de causalité, deadlines et idempotence | **K** — Mesurer cohérence des expériences distribuées | À qualifier |
 | C564 | MCP | L22 | MCP annonçant préconditions, preuves et portée des outils | **K** — Mesurer décisions correctes au-delà du transport | À qualifier |
-| C565 | MCP stdio | L22 | MCP stdio avec tests de parité sémantique et leases | **K** — Mesurer divergence entre implémentations | À qualifier |
+| C565 | MCP stdio | L22 | MCP stdio avec tests de parité sémantique et leases | **K** — Mesurer divergence entre implémentations | Partiel : lectures métier Node/Rust, refus d’arguments, retrait mémoire et leases expirant en session ; autres outils et accumulation du circuit ouverts ; audit L22 du 2026-10-10 |
 | C566 | CLI Rust | L22 | CLI Rust rejouant une expérience depuis son manifeste | **K** — Mesurer reproduction hors interface d'origine | À qualifier |
 | C567 | Façade opérateur `g` | L22 | Façade g exposant hypothèses, coût et état des preuves | **K** — Mesurer erreurs opérateur | À qualifier |
 | C568 | IDE `genos.ide/v1` | L22 | IDE reliant changements, hypothèses et résultats vérifiés | **K** — Mesurer vitesse et qualité de diagnostic | À qualifier |
@@ -99,7 +99,7 @@ du socle et conserve les 115 obligations. Le programme a été relu intégraleme
 | C588 | Identité | L02 | Identités distinctes de principal, modèle et instance agentique | **I** — Mesurer erreurs de responsabilité | À qualifier |
 | C589 | Autorité | L02 | Autorité attribuée et révoquée avec preuve de propagation | **I** — Mesurer usage après révocation | À qualifier |
 | C590 | RBAC | L02 | RBAC complété par contexte et limites d'action vérifiés | **I** — Mesurer droits excessifs, prérequis technique | À qualifier |
-| C591 | Scopes tenant | L02 | Scopes tenant propagés dans mémoire, signaux et preuves | **I** — Mesurer fuites entre tenants | À qualifier |
+| C591 | Scopes tenant | L02 | Scopes tenant propagés dans mémoire, signaux et preuves | **I** — Mesurer fuites entre tenants | Partiel : portée organisation/projet de mémoire négative et refus avant embedding ; identité authentifiée, signaux et preuves ouverts ; audit L22 du 2026-10-10 |
 | C592 | Multi-tenant | L02 | Expériences d'interférence multi-tenant sous budgets partagés | **I** — Mesurer isolation et équité | À qualifier |
 | C593 | Organisation | L02 | Contrats organisationnels liant responsabilité et délégation | **I** — Mesurer conflits d'autorité | À qualifier |
 | C595 | Workspace | L02 | Workspace confinant effets, données et artefacts de branches | **I** — Mesurer contamination expérimentale | À qualifier |
@@ -134,10 +134,12 @@ du socle et conserve les 115 obligations. Le programme a été relu intégraleme
 | Lot | Livrable et critère | Sources actuelles | État |
 | --- | --- | --- | --- |
 | L01 | Manifeste et liens entre reçus ; relecture dans un nouveau processus, altération détectée, compatibilité, faux succès refusé | ADR 0349, 0350, 0381, 0382 et 0387 ; Lean réel, producteur et relecture durable dans un processus frais ; compatibilité et périmètre général ouverts | Partiel |
-| L02 | Enveloppe commune ; autorité, révocation, expiration, chemins et effets hors scope refusés ; permissions préservées et budgets contrôlés pendant le run | Autorité de mission, leases, sandbox et tests P0 à raccorder | Ouvert |
+| L02 | Enveloppe commune ; autorité, révocation, expiration, chemins et effets hors scope refusés ; permissions préservées et budgets contrôlés pendant le run | Autorité de mission et P0 ; ADR 0388 : scopes déclarés de mémoire négative et refus avant effets ; authentification et couverture générale ouvertes | Partiel |
 | L03 | Trois domaines ; postconditions réelles, séparation du candidat et de l'évaluateur ; domaine, fraîcheur et indépendance ; absence d'oracle explicite | Domaines natifs subset sum, fidélité mémoire et code arithmétique borné ; Lean réel ; ADR 0360 et 0387 ; campagne représentative et indépendance OS ouvertes | Partiel |
 | L04 | Branches appariées, diff causal, replay et bisection ; versions/aléas, isolation, recherche de fuites, cause injectée localisée, effets externes non annulables | ADR 0361 et 0387 : replay procédural, nursery liée aux forks réels et cache revalidé ; confinement, providers et effets externes ouverts | Partiel |
 | L05 | Campagnes préenregistrées, datasets épinglés, acquisition/validation/test, baselines, ablations, coûts complets et statistiques ; holdout inaccessible ; puissance depuis données représentatives | Deux campagnes Ollama sur capsule gelée, opérateur indépendant, baselines et ablations ; projection évaluateur et hash signé ; holdout représentatif inaccessible et puissance ouverts | Partiel |
-| L22 | REST/gRPC/MCP/stdio/CLI/g/IDE/Studio/TUI sur le même état ; parité, logs reconstruisant les décisions, formats sans perte, état épistémique visible | Parcours B06 et inspection des consommateurs P0 à étendre | Ouvert |
+| L22 | REST/gRPC/MCP/stdio/CLI/g/IDE/Studio/TUI sur le même état ; parité, logs reconstruisant les décisions, formats sans perte, état épistémique visible | B06 et P0 ; ADR 0388 : stdio métier Node/Rust et contre-épreuves indépendantes ; autres outils, circuit et interfaces ouverts | Partiel |
 
 Les résultats devront être ajoutés avec un chemin de preuve, la commande exécutée, la révision, le périmètre effectivement testé et la limite restante. Aucun lot n'est clos par le seul remplissage de cette table.
+
+Extension bornée : [qualification mémoire négative et stdio du 2026-10-10](qualification-p1-l22-2026-10-10.md).

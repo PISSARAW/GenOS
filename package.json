@@ -3,6 +3,7 @@
     "test": "npm run test:biology && npm --prefix backend test && npm run test:garage && npm run test:p1-v3",
     "test:p1-v3": "node backend/tests/run_p1_v3_suite.cjs",
     "qualify:p1-lean": "node backend/tests/qualify_scientific_lean_live.cjs",
+    "qualify:p1-stdio": "node backend/tests/qualify_p1_stdio.cjs",
     "test:biology": "node backend/tests/run_biology_suite.cjs",
     "test:garage": "node backend/tests/run_validation_suite.js garage",
     "test:quality": "npm --prefix backend run test:quality",

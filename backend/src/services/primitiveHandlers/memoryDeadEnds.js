@@ -20,22 +20,24 @@ const {
 } = require('./memoryFailureSearch');
 
 async function searchFailures(context = {}) {
+  require('../failureMemoryScope').selection(context);
   const db = await getDatabase();
   const query = context.query || context.task || '';
   const limit = context.limit || 10;
   if (!query.trim()) {
-    const rows = await fetchDecisionFailures(db, context.organizationId || null, limit);
+    const rows = await fetchDecisionFailures(db, context, limit);
     const failures = stripBlobs(rows);
     return { success: true, failureCount: failures.length, failures: failures };
   }
   const queryVec = await resolveQueryVector(query);
-  const rows = await fetchDecisionFailures(db, context.organizationId || null, 50);
+  const rows = await fetchDecisionFailures(db, context, 50);
   const ranked = scoreCandidates(queryVec, rows, formatSearchHit);
   const scoped = require('../agentMemoryScope').filterScoped(ranked.slice(0, limit), context.missionScope, query);
   return { success: true, failureCount: scoped.length, failures: scoped };
 }
 
 async function avoidKnownDeadEnds(context = {}) {
+  require('../failureMemoryScope').selection(context);
   const db = await getDatabase();
   const query = buildQueryText(context);
   const threshold = typeof context.threshold === 'number' ? context.threshold : 0.60;

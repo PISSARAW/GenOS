@@ -59,7 +59,7 @@ fn handle_tools_call(req: &Value, id: Option<Value>, workspace: &Path) -> Option
         .unwrap_or("");
     let empty_args = json!({});
     let args = match params.and_then(|p| p.get("arguments")) {
-        Some(Value::Null) | None => &empty_args,
+        None => &empty_args,
         Some(val) => val,
     };
     if let Err(error) = validate_path_arguments(args, workspace) {
@@ -260,6 +260,15 @@ mod tests {
             "operation": "applyRuntimeEffect",
             "arguments": { "apply": true }
         })).is_err());
+    }
+
+    #[test]
+    fn process_request_rejects_explicit_null_tool_arguments() {
+        let request = json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": { "name": "genos_search_failures", "arguments": null } });
+        let response = process_request(&request.to_string(), Path::new(".")).expect("response");
+        assert_eq!(response["result"]["isError"], true);
+        assert!(response["result"]["content"][0]["text"].as_str().unwrap().contains("JSON object"));
     }
 
     #[test]

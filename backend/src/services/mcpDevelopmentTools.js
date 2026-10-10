@@ -13,6 +13,8 @@ function isDevelopmentTool(name) {
 
 function validateInput(name, args) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Arguments must be an object.');
+  const error = require('./mcpArgumentValidation').validateToolArguments(name, args);
+  if (error) throw error;
   if (name === 'genos_diagnose') validateHypotheses(args);
   if (name === 'genos_record_decision') validateDecision(args);
 }

@@ -477,6 +477,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0387](0387-pont-nursery-replay-et-projection-evaluateur.md) | Pont nursery/replay et projection de l’évaluateur | Accepté pour l’intégration bornée | 2026-10-10 | Expériences GVX, replay et évaluation |
 
+| [0388](0388-portee-memoire-negative-et-parite-stdio-reelle.md) | Portée de la mémoire négative et parité stdio réelle | Accepté pour la qualification bornée | 2026-10-10 | Mémoire négative, scopes et consommateurs MCP |
+
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
 > fichiers sont conservés tels quels (renommage interdit sans migration
