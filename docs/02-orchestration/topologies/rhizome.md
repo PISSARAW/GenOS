@@ -6,6 +6,14 @@
 - **Lecture** : cette page décrit le modèle prévu de Rhizome, en particulier les rôles et comportements des sections 4 à 21. Les formules et réglages de ces sections sont des spécifications ou des exemples, pas nécessairement des mécanismes actifs. La section 3 marque chaque formule selon son statut ; les sections 22 et 24 situent l'implémentation actuelle.
 
 
+## Snapshot d'agent lié à une mission Rhizome
+
+La capture optionnelle `topologySnapshot` lie l'agent à la mission, vérifie
+graphe, journal, révision et preuves propres aux douze variants. La reprise
+exige une session dormante ou en quarantaine, sans bail de branche actif ;
+elle ne rembobine pas le graphe collectif. Voir la
+[référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
 ## 1. Définition
 
 Rhizome dans GenOS est le protocole d'orchestration qui fait croître une mission comme un **réseau décentralisé de capacités reliées par des ponts locaux**. Au lieu de construire une hiérarchie fixe ou de répartir la mission dans des branches isolées, Rhizome ajoute des points de coordination là où le réseau rencontre un manque, une frontière ou une nouvelle dépendance.

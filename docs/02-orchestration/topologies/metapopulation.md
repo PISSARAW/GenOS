@@ -11,6 +11,15 @@ les schémas actuels, les adaptateurs requis et la preuve des dix suites dédié
 au commit `5b18c834`. Les sections de conception restent des modèles lorsque
 leur portée est indiquée comme cible.
 
+## Snapshot d'agent lié à un dème
+
+La capture optionnelle `topologySnapshot` lie l'agent, son workspace et son
+dème à la session régionale. Elle vérifie la frontière d'événements, les
+migrations et les registres propres aux seize variants. La région doit être
+quiescente ou fermée, sans effet en vol ; la reprise ne rembobine aucun dème
+ni corridor. Voir la
+[référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
 ## 1. Définition
 
 Metapopulation dans GenOS est le mécanisme d'orchestration qui exécute une mission comme un **réseau de populations semi-indépendantes, localement adaptées et partiellement redondantes, capables d'échanger sélectivement des individus ou des connaissances, de survivre à des extinctions locales et de recoloniser les capacités perdues sans synchroniser tout le collectif**.

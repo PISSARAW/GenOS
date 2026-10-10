@@ -197,6 +197,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des types de workers, profils Node et limites d’intégration.
 - [types-de-daemons.md](03-reference/types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
 - [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
+- [snapshots-topologiques.md](03-reference/snapshots-topologiques.md) — contrat de capture et de reprise pour les huit topologies et chaque variant.
 - [contrat-mission-comparative.md](03-reference/contrat-mission-comparative.md) — schéma versionné des missions multi-populations et frontières entre runtime, topologie et banc d’essai.
 - [outils-mcp.md](03-reference/outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
 - [axolotl-regeneration.md](03-reference/axolotl-regeneration.md) — contrat des primitives, persistance, états, budgets et limites d’admission.

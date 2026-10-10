@@ -57,6 +57,26 @@ Content-Type: application/json
 
 Le controller normalise aussi `tool_name`/`timeout_ms` au niveau de l'envelope, mais les arguments d'outils doivent suivre le schema MCP. Le resultat repond `200` lorsqu'il est reussi, `502` lorsqu'un transport MCP configure echoue, et `503` lorsqu'il n'est pas configure ou qu'un garde-fou le bloque.
 
+### Snapshots d'agent liés à une topologie
+
+Sous `/api`, `POST /agents/snapshot` et `POST /agents/commit` exigent
+`workspace:write` et acceptent en option
+`topologySnapshot: { topologyId, variantId, sessionId }`. Le client fournit
+`agentId` comme pour tout snapshot d'agent, mais ne fournit ni état collectif
+ni identité de workspace : le serveur retrouve le workspace et le tenant,
+puis vérifie le lien avec la session et son variant persistés. Le manifeste
+est retourné dans `topologySnapshot` et lié au hash de `organismSnapshot`.
+
+`POST /agents/restore`, `/checkout` et `/reset` exigent aussi
+`workspace:write`. Si le snapshot cible porte ce manifeste, une recapture
+topologique précède toute modification de fichiers et se répète avant la
+validation SQLite. Une réponse acceptée contient
+`topologySnapshot: { allowed: true, restorable: false, plan: ... }` : seule
+la reprise de l'agent et de son workspace est autorisée. Une dérive donne
+`TOPOLOGY_SNAPSHOT_DRIFT` ; une identité ou une preuve incompatible échoue
+également fermé. Les snapshots antérieurs sans option gardent leur contrat.
+Voir les [préconditions et variants](snapshots-topologiques.md).
+
 ### Garage Fabric : admission durable et contrôle des workers
 
 Les [routes de déploiement](../../backend/src/routes/deployRoutes.js) exposent

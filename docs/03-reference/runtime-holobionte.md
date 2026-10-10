@@ -5,6 +5,14 @@
 
 Le point d’entrée est [holobionteService.js](../../backend/src/services/holobionteService.js), qui expose runHolobiontMission, openMissionHost, admitMissionSymbiont et preflightHolobiontMission. Le cycle de capacité reste accessible par holobiontRuntime.runCycle. Voir l’[ADR 0330](../adr/0330-holobionte-missions-contractuelles-verifiees.md).
 
+## Snapshot topologique
+
+Un snapshot d'agent peut référencer une session Holobionte avec
+`topologySnapshot`. L'adaptateur scelle les reçus, le journal, la mémoire et
+les champs propres aux douze variants. La reprise attend un hôte quiescent ou
+fermé ; elle ne rejoue pas les effets d'outil ou distants. Voir
+[snapshots topologiques](snapshots-topologiques.md).
+
 ## Exécuter l’exemple
 
 Depuis la racine, après installation des dépendances du backend :

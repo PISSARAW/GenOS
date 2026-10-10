@@ -4,6 +4,11 @@ Ce document décrit comment chaque **topologie d'orchestration** de GenOS est
 câblée au runtime, quels **concepts** (capacités) elle exige, et comment ces
 capacités deviennent **effectives** (leases d'outils, organisation).
 
+Les snapshots d'état d'agent peuvent être liés à une session et à un variant
+de chacun des huit modes. Ce contrôle de reprise est optionnel et distinct du
+registre déclaratif de capacités : voir le
+[contrat des snapshots topologiques](../03-reference/snapshots-topologiques.md).
+
 ## 1. Deux couches
 
 - **Composition / topologie** : *qui* exécute et *comment* ils communiquent.

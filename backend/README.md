@@ -53,10 +53,16 @@ For the agent-state Git API, its correspondence with Git, and the boundary betwe
 The JSON files under `spec/` are exchange contracts for manifests, snapshots, events, lineage, and schema-service responses. They are validated by the runtime schema validator and selected CLI/API boundaries. They are not a serialization of the SQLite schema.
 
 Les routes de snapshot d'agent (`/agents/snapshot`, commit, restore et checkout)
-publient un manifeste d'organisme version 4. Il lie les champs d'agent, le
+publient un manifeste d'organisme version 4 par défaut. Avec l'option
+`topologySnapshot`, la version 5 lie aussi la session et le variant de l'une
+des huit topologies. Le manifeste lie les champs d'agent, le
 workspace, les données SQLite durables de l'agent et les références vérifiées
 des checkpoints biologiques Rust. `organism_model_turns` journalise les appels
 qui passent par `modelRouter`, avec empreinte de la requête et de la réponse.
+L'adaptateur topologique capture une frontière et des références collectives
+scellées. Restore et checkout la revérifient avant d'écrire le workspace ;
+la session collective reste en place. Voir le
+[contrat des snapshots topologiques](../docs/03-reference/snapshots-topologiques.md).
 La capture d'un runtime local actif attend sa pause coopérative à un checkpoint
 sûr ; les autres exécutables actifs et les appels modèle en cours sont refusés. La
 restauration préserve un snapshot de sécurité, puis rétablit les sections SQLite

@@ -221,6 +221,8 @@ ainsi que [ADR 0373](../adr/0373-barriere-capture-runtime-local-actif.md).
 tenant du contexte authentifié ; le client ne fournit aucun état topologique.
 Les huit identifiants pris en charge sont `trinity`, `a_team`, `biocenose`,
 `holobionte`, `syncytium`, `rhizome`, `metapopulation` et `biome`.
+Cette option concerne les routes de snapshot d'état d'agent, pas une capture
+directe de `workspaceSnapshotStore` ou un objet AgentGit.
 
 | Topologie | Frontière et preuves propres aux variants |
 | --- | --- |
@@ -247,7 +249,10 @@ plus, la reprise est refusée. Une réponse acceptée indique
 `topologySnapshot.allowed: true` et `restorable: false` : la restauration
 concerne l'agent et son workspace ; elle ne rembobine pas le collectif. Les
 snapshots antérieurs sans manifeste conservent leur comportement historique.
-Voir [ADR 0385](../adr/0385-contrat-snapshot-topologique.md).
+Le manifeste topologique ne signe pas la base indépendamment et ne rend pas
+atomiques les effets externes. Les préconditions, noms et champs propres à
+chaque variant sont dans la [référence technique](../03-reference/snapshots-topologiques.md).
+Voir aussi [ADR 0385](../adr/0385-contrat-snapshot-topologique.md).
 
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 

@@ -11,6 +11,13 @@ Cette documentation décrit la transposition des primitives Git vers les agents 
 - le **Git de l’état agentique**, implémenté par `agentGitService`, qui versionne l’identité, les décisions, les mémoires, les exécutions, les plasmides et les permissions d’un agent dans SQLite ;
 - le **Git du workspace**, implémenté par les services de workspace et le daemon, qui manipule des fichiers, des branches et des worktrees réels.
 
+Les routes Lineage `POST /api/agents/snapshot` et `/commit` utilisent un
+troisième contrat, le snapshot d'organisme lié au workspace. Leur option
+`topologySnapshot` vérifie la session et le variant de l'une des huit
+topologies lors de la capture et de la reprise. Elle ne modifie ni les objets
+`agent_git_objects` ni les refs AgentGit ; voir la
+[référence des snapshots topologiques](../03-reference/snapshots-topologiques.md).
+
 GenOS ne transforme donc pas un agent en dépôt Git classique. Il applique les invariants utiles de Git à un état cognitif et opérationnel, avec isolation tenant/workspace, hash, signature, hooks, refs et audit.
 
 Références d’implémentation :

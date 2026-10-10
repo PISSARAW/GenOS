@@ -6,6 +6,14 @@
 
 Le runtime persistant couvre les sessions, contrats, admission, exécution par capacité, santé, contribution, transmission et succession. Les schémas ci-dessous restent conceptuels lorsqu’ils décrivent des garanties plus larges que ces services. Le service de mission commun et Morphogenesis utilisent les mêmes gates. La composition seule retourne COMPOSED, sans déclaration de succès d’exécution.
 
+## Snapshot d'agent lié à l'hôte
+
+La capture optionnelle `topologySnapshot` lie l'hôte à sa session, référence
+constitution, symbiontes, journal, contrats, ledger et mémoire, et scelle les
+champs propres aux douze variants. La reprise exige un hôte quiescent ou fermé
+sans essai d'admission en cours. Les effets distants et d'outils restent en
+place. Voir la [référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
 ## 1. Définition
 
 Holobionte dans GenOS conserve un compositeur historique qui compose une mission en quatre rôles. Un second chemin, persistant, ouvre une session d’hôte, admet des symbiotes, choisit un résident selon la capacité demandée, exécute cette capacité et évalue l’état de santé. Le service de mission et Morphogenesis partagent ce runtime ; la composition historique demeure une description des rôles. Les modèles conceptuels de cette fiche ne constituent des garanties que lorsqu’un service et son intégration sont cités explicitement.

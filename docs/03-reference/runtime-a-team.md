@@ -5,6 +5,14 @@
 - **Dernière revue** : 2026-10-06.
 - **Décision** : [ADR 0329](../adr/0329-cloture-verifiable-runs-a-team.md).
 
+## Snapshot topologique
+
+L'option `topologySnapshot` des routes de snapshot d'agent capture les
+références du TeamRun, du WorkGraph et des handoffs, avec une entrée propre à
+chacun des onze variants. Le restore et le checkout vérifient un run terminal
+sans bail avant de toucher au workspace. Contrat et matrice des variants :
+[snapshots topologiques](snapshots-topologiques.md).
+
 ## Parcours et autorité
 
 Le dispatch explicite (`aTeamDispatchService`) et l'adaptateur autonome

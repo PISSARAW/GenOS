@@ -3,6 +3,14 @@
 Le runtime assemble les onze variantes dans une boucle écologique bornée et persistante.
 L'architecture est décrite dans [ADR 0334](../adr/0334-biome-boucle-ecologique-transactionnelle.md).
 
+## Snapshot topologique
+
+La reprise `BiomeRuntime.restore` ci-dessous concerne la session Biome
+persistée. L'option `topologySnapshot` d'un snapshot d'agent suit un autre
+contrat : elle vérifie l'écologie, le biofilm, le journal et les onze variants
+avant de restaurer le workspace de cet agent, sans réécrire le Biome partagé.
+Voir [snapshots topologiques](snapshots-topologiques.md).
+
 ## Cycle et reprise
 
 `BiomeRuntime.create(mission, options)` compose une session avec un environnement.
