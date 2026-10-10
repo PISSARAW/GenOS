@@ -5,6 +5,7 @@ Date : 2026-10-10
 Domaine : snapshots, persistance, orchestrateur
 Décideurs : équipe GenOS
 Lié à : [ADR 0366](0366-manifeste-snapshot-organisme.md)
+Suite : [ADR 0368](0368-reprise-curseur-mission-et-frontieres-runtime.md) définit la sélection vérifiée du curseur Rust et la garde des missions partagées.
 
 ## Contexte
 

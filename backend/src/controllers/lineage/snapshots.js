@@ -64,7 +64,9 @@ function encodeAgentSnapshot(agent, workspaceSnapshot, extras) {
     runtime: { status: persisted.sections.runtime || persisted.sections.runtimeCursor
       ? 'captured-durable-state' : 'not-applicable',
     hash: digest({ state: persisted.sections.runtime, cursor: persisted.sections.runtimeCursor }) },
+    processMemory: { status: 'unsupported', reason: 'The supervised process exposes no serializable memory checkpoint.' },
     llmContext: { status: persisted.sections.modelTurns.some((turn) => turn.status === 'pending') ? 'pending-call' : 'captured-visible-context', hash: digest(persisted.sections.modelTurns) },
+    providerHiddenContext: { status: 'unsupported', reason: 'The model provider exposes no hidden-context export contract.' },
     memoriesAndRelations: { status: 'captured', hash: persisted.hash },
     orchestrator: orchestrator.length
       ? { status: 'captured-reference', references: orchestrator }
@@ -102,22 +104,29 @@ async function captureOrganismState(options) {
   if (agent.runtime_pid || require('../../services/agentOrchestrationState').activeProcesses.has(agent.id)) {
     throw Object.assign(new Error('Stop the agent runtime before capturing a consistent organism snapshot.'), { code: 'ORGANISM_SNAPSHOT_RUNTIME_ACTIVE', status: 409 });
   }
-  const beforeHash = digest(restorableAgentState(agent));
-  const workspaceSnapshot = await captureAgentWorkspace({ db, scope, agent, req, snapshotId, reason });
-  return withTransaction(db, async () => {
-    const latestAgent = await loadAgentForScope(db, scope, agent.id);
-    if (!latestAgent || digest(restorableAgentState(latestAgent)) !== beforeHash) {
-      throw Object.assign(new Error('Agent state changed during organism snapshot capture; capture aborted.'), { code: 'ORGANISM_SNAPSHOT_BARRIER_CHANGED', status: 409 });
-    }
-    const persisted = await persistedState.capture(db, agent.id, scope);
-    if (persisted.sections.modelTurns.some((turn) => turn.status === 'pending')) {
-      throw Object.assign(new Error('Model inference is in progress; organism snapshot capture aborted.'), { code: 'ORGANISM_SNAPSHOT_MODEL_PENDING', status: 409 });
-    }
-    const orchestrator = await orchestratorCheckpoint.capture(db, agent.id);
-    const state = encodeAgentSnapshot(latestAgent, workspaceSnapshot,
-      { capturedAt: new Date().toISOString(), persisted, orchestrator });
-    await persist(state);
-    return state;
+  const missions = await orchestratorCheckpoint.linkedMissions(db, agent.id);
+  return orchestratorCheckpoint.withMissionLocks(missions, async () => {
+    const beforeHash = digest(restorableAgentState(agent));
+    const workspaceSnapshot = await captureAgentWorkspace({ db, scope, agent, req, snapshotId, reason });
+    return withTransaction(db, async () => {
+      const latestAgent = await loadAgentForScope(db, scope, agent.id);
+      if (!latestAgent || digest(restorableAgentState(latestAgent)) !== beforeHash) {
+        throw Object.assign(new Error('Agent state changed during organism snapshot capture; capture aborted.'), { code: 'ORGANISM_SNAPSHOT_BARRIER_CHANGED', status: 409 });
+      }
+      const currentMissions = await orchestratorCheckpoint.linkedMissions(db, agent.id);
+      if (JSON.stringify(currentMissions) !== JSON.stringify(missions)) {
+        throw Object.assign(new Error('Agent mission mapping changed during capture.'), { code: 'ORGANISM_SNAPSHOT_MISSION_CHANGED', status: 409 });
+      }
+      const persisted = await persistedState.capture(db, agent.id, scope);
+      if (persisted.sections.modelTurns.some((turn) => turn.status === 'pending')) {
+        throw Object.assign(new Error('Model inference is in progress; organism snapshot capture aborted.'), { code: 'ORGANISM_SNAPSHOT_MODEL_PENDING', status: 409 });
+      }
+      const orchestrator = await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope });
+      const state = encodeAgentSnapshot(latestAgent, workspaceSnapshot,
+        { capturedAt: new Date().toISOString(), persisted, orchestrator });
+      await persist(state);
+      return state;
+    });
   });
 }
 
@@ -138,19 +147,40 @@ async function restoreSnapshotWorkspace(options) {
 async function restoreAgentStateSnapshot(options) {
   const { db, scope, agent, state } = options;
   const references = await verifyRestoreTarget({ agent, state });
+  return orchestratorCheckpoint.withMissionLocks(references || [], async () => {
+    if (references?.length && !await orchestratorCheckpoint.verify(references)) throw new Error('Rust mission checkpoint changed during restore.');
+    await orchestratorCheckpoint.assertCoherent(db, { agentId: agent.id, references: references || [], scope });
+    return restoreLockedSnapshot({ db, scope, agent, state, references: references || [] });
+  });
+}
+
+async function restoreLockedSnapshot(options) {
+  const { db, scope, agent, state, references } = options;
+  const current = references.length ? await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope }) : [];
+  const flags = await orchestratorCheckpoint.active(references);
+  const previous = current.map((reference, index) => ({ ...reference, rewound: flags[index].rewound }));
   const workspaceRestore = await restoreSnapshotWorkspace({ db, scope, agent, state });
   let safetySnapshotId = null;
   try {
-    safetySnapshotId = await withTransaction(db, () => applyPersistedRestore({ db, scope, agent, state,
-      workspaceSnapshot: workspaceRestore?.safetySnapshot || null }));
+    await orchestratorCheckpoint.select(references);
+    safetySnapshotId = await withTransaction(db, async () => {
+      await orchestratorCheckpoint.assertCoherent(db, { agentId: agent.id, references, scope });
+      return applyPersistedRestore({ db, scope, agent, state,
+        workspaceSnapshot: workspaceRestore?.safetySnapshot || null, previous });
+    });
   } catch (error) {
+    await orchestratorCheckpoint.select(previous).catch((rollbackError) => {
+      error.message += ` Rust cursor rollback also failed: ${rollbackError.message}`;
+    });
     await rollbackWorkspaceAfterFailure({ db, scope, agent, workspaceRestore, error });
     throw error;
   }
   return { workspaceRestored: Boolean(workspaceRestore), workspaceSnapshotId: state._genosSnapshot?.workspaceSnapshot?.id || null,
     runtimeRestartRequired: state._genosSnapshot?.schemaVersion >= 3 && state.status === 'running',
     runtimeReplayCursorId: state._genosSnapshot?.persistedState?.sections?.runtimeCursor?.id || null,
-    orchestratorResumeRequired: Boolean(references?.length), safetySnapshotId };
+    orchestratorResumeRequired: false, orchestratorCursorRestored: references.length > 0,
+    processMemoryRestored: false, providerHiddenContextRestored: false,
+    safetySnapshotId };
 }
 
 async function verifyRestoreTarget(options) {
@@ -173,8 +203,8 @@ async function verifyRestoreTarget(options) {
 }
 
 async function applyPersistedRestore(options) {
-  const { db, scope, agent, state, workspaceSnapshot } = options;
-  const safetySnapshotId = await persistPreRestoreSafety({ db, scope, agent, workspaceSnapshot });
+  const { db, scope, agent, state, workspaceSnapshot, previous } = options;
+  const safetySnapshotId = await persistPreRestoreSafety({ db, scope, agent, workspaceSnapshot, previous });
   const requiresRestart = state._genosSnapshot?.schemaVersion >= 3 && state.status === 'running';
   await applySnapshotState(db, requiresRestart ? { ...state, status: 'blocked' } : state, agent.id);
   if (state._genosSnapshot?.persistedState) {
@@ -195,11 +225,11 @@ async function rollbackWorkspaceAfterFailure(options) {
 }
 
 async function persistPreRestoreSafety(options) {
-  const { db, scope, agent, workspaceSnapshot } = options;
+  const { db, scope, agent, workspaceSnapshot, previous } = options;
   const current = await loadAgentForScope(db, scope, agent.id);
   if (!current) throw new Error('Agent disappeared before restore.');
   const persisted = await persistedState.capture(db, agent.id, scope);
-  const orchestrator = await orchestratorCheckpoint.capture(db, agent.id);
+  const orchestrator = previous.length ? previous : await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope });
   const reference = workspaceSnapshot ? { id: workspaceSnapshot.id,
     hash: workspaceSnapshot.snapshotHash, workspaceId: agent.workspace_id } : null;
   const state = encodeAgentSnapshot(current, reference,

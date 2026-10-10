@@ -281,6 +281,10 @@ impl CheckpointManager {
         self.checkpoint_store.load()
     }
 
+    pub fn is_rewound(&self) -> std::io::Result<bool> {
+        self.checkpoint_store.is_rewound()
+    }
+
     pub fn get_wal(&self) -> &ContinuationWal {
         &self.wal
     }

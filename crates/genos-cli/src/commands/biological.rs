@@ -92,7 +92,12 @@ fn run_mission_tick(cmd: &BiologicalCmd) -> Result<(), String> {
     let journal_dir = root.join("biological-receipts");
     std::fs::create_dir_all(&journal_dir)
         .map_err(|error| format!("receipt journal unavailable: {error}"))?;
-    run_and_report(cmd, mission_id, &journal_dir)
+    run_locked_mission(cmd, mission_id, &journal_dir)
+}
+
+fn run_locked_mission(cmd: &BiologicalCmd, mission_id: uuid::Uuid, journal_dir: &std::path::Path) -> Result<(), String> {
+    let _lock = super::biological_lock::MissionLock::acquire(journal_dir.join(format!("{mission_id}.lock")))?;
+    run_and_report(cmd, mission_id, journal_dir)
 }
 
 fn run_and_report(
@@ -111,7 +116,7 @@ fn run_and_report(
     let mut ecosystem = GenosEcosystem::new(&cmd.mission);
     ecosystem.set_mission_id(mission_id);
     restore_or_seed(&mut ecosystem, &mut checkpoints, cmd)?;
-    restore_receipt_tick(&mut ecosystem, &store)?;
+    reconcile_receipt_tick(&checkpoints, &mut ecosystem, &store)?;
     let (report, mut receipts) = ecosystem
         .tick_and_persist_with_receipts(&Goal::Explore, &store)
         .map_err(|error| {
@@ -140,6 +145,15 @@ fn run_and_report(
     Ok(())
 }
 
+fn reconcile_receipt_tick(
+    checkpoints: &genos_orchestrator::checkpoint::CheckpointManager,
+    ecosystem: &mut genos_orchestrator::GenosEcosystem,
+    store: &genos_store::BiologicalReceiptStore,
+) -> Result<(), String> {
+    if checkpoints.is_rewound().map_err(|error| error.to_string())? { return Ok(()); }
+    restore_receipt_tick(ecosystem, store)
+}
+
 fn save_checkpoint(
     checkpoints: &mut genos_orchestrator::checkpoint::CheckpointManager,
     ecosystem: &genos_orchestrator::GenosEcosystem,
@@ -164,7 +178,8 @@ fn restore_receipt_tick(
 
 #[cfg(test)]
 mod receipt_tick_tests {
-    use super::restore_receipt_tick;
+    use super::{reconcile_receipt_tick, restore_receipt_tick};
+    use genos_orchestrator::checkpoint::CheckpointManager;
     use genos_orchestrator::GenosEcosystem;
     use genos_store::BiologicalReceiptStore;
     use serde_json::json;
@@ -187,6 +202,24 @@ mod receipt_tick_tests {
         restore_receipt_tick(&mut ecosystem, &store).unwrap();
         assert_eq!(ecosystem.receipt_tick, 8);
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn selected_old_checkpoint_keeps_its_receipt_cursor() {
+        let root = std::env::temp_dir().join(format!("genos-rewound-{}", Uuid::new_v4()));
+        let manager = CheckpointManager::new(root.join("continuity"), 1).unwrap();
+        let store = BiologicalReceiptStore::open(root.join("receipts.jsonl"));
+        let mission = Uuid::new_v4();
+        store.append_receipts(&[json!({"mission_id": mission, "tick": 9})]).unwrap();
+        let mut ecosystem = GenosEcosystem::new("rewound-checkpoint");
+        ecosystem.set_mission_id(mission);
+        ecosystem.receipt_tick = 2;
+        std::fs::write(root.join("continuity").join("orchestration.head.json"),
+            json!({"name": format!("checkpoint-1-{}.json", "a".repeat(64)), "rewound": true}).to_string()).unwrap();
+        reconcile_receipt_tick(&manager, &mut ecosystem, &store).unwrap();
+        assert_eq!(ecosystem.receipt_tick, 2);
+        drop(manager);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
 

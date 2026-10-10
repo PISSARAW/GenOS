@@ -31,9 +31,12 @@ async function main() {
     assert.equal(captured.sections.relations.length, 1);
     await db.run("UPDATE episodic_memories SET action_input = 'after' WHERE id = 'snapshot-memory'");
     await db.run("UPDATE agent_relations SET familiarity = 9 WHERE id = 'snapshot-relation'");
+    const futureTurn = await turns.begin({ db, agentId: 'snapshot-agent', prompt: 'Future request', model: 'test-model' });
+    await turns.complete(db, futureTurn, { text: 'Future response', model: 'test-model' });
     await withTransaction(db, () => state.restore(db, 'snapshot-agent', { payload: captured, scope }));
     assert.equal((await db.get("SELECT action_input FROM episodic_memories WHERE id = 'snapshot-memory'")).action_input, 'before');
     assert.equal((await db.get("SELECT familiarity FROM agent_relations WHERE id = 'snapshot-relation'")).familiarity, 0);
+    assert.deepEqual((await db.all('SELECT id FROM organism_model_turns WHERE agent_id = ?', 'snapshot-agent')).map((row) => row.id), [turn]);
 
     const forged = structuredClone(captured);
     forged.sections.memories[0].agent_id = 'snapshot-peer';

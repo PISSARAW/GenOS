@@ -2,6 +2,7 @@ pub mod capsule;
 pub mod biological_receipt;
 pub mod cryptobiosis;
 pub mod continuation_wal;
+mod checkpoint_head;
 pub mod event;
 pub mod fossil;
 pub mod memory;

@@ -132,23 +132,29 @@ Le routeur Node conserve la requête avant l’inférence et son résultat ensui
 avec empreintes séparées. Cela permet de relire le contexte *visible* du routeur ;
 les contextes internes du fournisseur et les runtimes externes qui ne passent
 pas par ce routeur ne sont pas capturés. L’état runtime durable est copié, mais
-la RAM, les handles et un processus en cours ne sont pas sérialisés. Les
-checkpoints Rust des missions biologiques associées sont référencés par mission,
-séquence et SHA-256 et sont vérifiés à la lecture ; restaurer un snapshot d’agent
-ne replace pas automatiquement le curseur d’une mission Rust, surtout si elle
-est partagée avec d’autres agents.
+la RAM, les handles et un processus en cours ne sont pas sérialisés. Le manifeste
+signale explicitement ces deux capacités indisponibles. Les checkpoints Rust
+des missions biologiques sont référencés par mission, séquence et SHA-256.
+Un pointeur de tête vérifié sélectionne le checkpoint à reprendre ; le tick Rust
+et la restauration prennent le même verrou de mission. Si la mission est
+partagée, chaque autre agent doit être arrêté et son état durable ainsi que
+son workspace doivent correspondre à leur empreinte de capture. Une dérive
+du groupe refuse la restauration avant toute modification.
 
 La restauration vérifie le manifeste et les références Rust avant de toucher au
 workspace. Elle prend un snapshot de sécurité des fichiers et des sections
 SQLite, puis restaure les champs de l’agent et les données persistées dans une
-transaction. Un agent auparavant en cours d’exécution revient en état `blocked`
+transaction. Les tours LLM visibles sont réappliqués, sans rejouer les appels
+au fournisseur. Le curseur Rust est repositionné pendant le verrou de mission ;
+les reçus historiques restent immuables et le nouveau parcours peut donc
+produire des reçus portant un numéro de tick déjà observé, avec des identifiants
+distincts. Un agent auparavant en cours d’exécution revient en état `blocked`
 et doit être relancé explicitement ; aucun succès d’inférence ou de mission
-n’est déduit de cette restauration. Les historiques LLM restent des traces
-persistantes et ne sont pas rejoués automatiquement. Les anciens snapshots
+n’est déduit de cette restauration. Les anciens snapshots
 restent lisibles avec leurs garanties d’origine. Il n’existe toujours pas de
 restauration atomique de l’organisme entier entre fichiers, SQLite, processus
 et missions Rust. Voir [ADR 0366](../adr/0366-manifeste-snapshot-organisme.md)
-et [ADR 0367](../adr/0367-sections-durables-snapshot-organisme.md).
+et [ADR 0368](../adr/0368-reprise-curseur-mission-et-frontieres-runtime.md).
 
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 

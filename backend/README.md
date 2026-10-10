@@ -59,9 +59,12 @@ des checkpoints biologiques Rust. `organism_model_turns` journalise les appels
 qui passent par `modelRouter`, avec empreinte de la requête et de la réponse.
 La capture échoue si un runtime supervisé ou un appel modèle est actif. La
 restauration préserve un snapshot de sécurité, puis rétablit les sections SQLite
-dans une transaction. Elle ne relance pas le processus et ne repositionne pas
-automatiquement un checkpoint de mission Rust partagée. Le [contrat détaillé](../docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)
-et l'[ADR 0367](../docs/adr/0367-sections-durables-snapshot-organisme.md)
+dans une transaction, y compris les tours LLM visibles. Elle sélectionne le
+checkpoint Rust capturé sous verrou de mission ; pour une mission partagée, les
+autres agents doivent être arrêtés et inchangés depuis la capture. Elle ne
+relance pas le processus et ne restaure ni sa RAM ni le contexte caché du
+fournisseur LLM. Le [contrat détaillé](../docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)
+et l'[ADR 0368](../docs/adr/0368-reprise-curseur-mission-et-frontieres-runtime.md)
 décrivent les frontières de cohérence.
 
 SQLite tables and columns under `src/db/` are internal persistence contracts. They evolve through startup migrations and may contain operational fields that are intentionally absent from the public JSON schemas. A valid JSON manifest therefore does not imply that every field is directly persisted, and a successful database migration does not replace JSON contract validation.

@@ -143,6 +143,8 @@ async function restore(db, agentId, options) {
   validateSections(sections, agentId, scope);
   await verifyRuntimeCursor(db, sections.runtimeCursor);
   await assertSynapsePeers(db, scope, sections);
+  const pending = await db.get("SELECT 1 AS active FROM organism_model_turns WHERE agent_id = ? AND status = 'pending' LIMIT 1", agentId);
+  if (pending) throw Object.assign(new Error('Model inference is in progress during restore.'), { code: 'ORGANISM_RESTORE_MODEL_PENDING', status: 409 });
   await replacePersistedRows(db, agentId, sections);
   return { modelTurns: sections.modelTurns.length, runtimeRestartRequired: true };
 }
@@ -165,6 +167,7 @@ function validateRuntimeAndModel(sections, agentId, scope) {
   if (sections.runtime && sections.runtime.agent_id !== agentId) throw new Error('Snapshot runtime owner mismatch.');
   if (sections.runtimeCursor && sections.runtimeCursor.agent_id !== agentId) throw new Error('Snapshot runtime cursor owner mismatch.');
   if (sections.modelTurns.some((turn) => turn.agent_id !== agentId)) throw new Error('Snapshot model context owner mismatch.');
+  if (sections.modelTurns.some((turn) => turn.status === 'pending')) throw new Error('Snapshot contains unfinished model inference.');
   for (const turn of sections.modelTurns) {
     assertScope(turn, scope);
     assertModelTurn(turn);
@@ -194,6 +197,8 @@ async function replacePersistedRows(db, agentId, sections) {
   }
   await db.run('DELETE FROM agent_runtime_state WHERE agent_id = ?', agentId);
   if (sections.runtime) await insertRow(db, 'agent_runtime_state', sections.runtime);
+  await db.run('DELETE FROM organism_model_turns WHERE agent_id = ?', agentId);
+  for (const turn of sections.modelTurns) await insertRow(db, 'organism_model_turns', turn);
 }
 
 module.exports = { capture, verify, restore, digest };

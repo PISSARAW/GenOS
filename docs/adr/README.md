@@ -461,6 +461,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0365](0365-studio-boucle-production-locale.md) | Studio : boucle de production locale | Voir le fichier | -- | -- |
 | [0366](0366-manifeste-snapshot-organisme.md) | Manifeste vérifiable de snapshot d'organisme | Accepté, portée backend partielle | 2026-10-10 | Snapshots, cohérence, intégrité |
 | [0367](0367-sections-durables-snapshot-organisme.md) | Sections durables des snapshots d'organisme | Voir le fichier | -- | -- |
+| [0368](0368-reprise-curseur-mission-et-frontieres-runtime.md) | Reprise du curseur de mission et frontières runtime | Accepté | 2026-10-10 | Snapshots, missions Rust |
+| [0369](0369-racines-gqwf-et-vues-durables.md) | Racines de fichiers GQWF et vues durables | Accepté, portée noyau backend | 2026-10-10 | Workspaces, snapshots, isolation |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

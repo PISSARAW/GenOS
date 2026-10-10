@@ -24,10 +24,22 @@ async function main() {
     assert.equal(references[0].shared, true);
     assert.equal(references[0].hash, hash);
     assert.equal(await checkpoints.verify(references), true);
+    const laterBytes = Buffer.from(JSON.stringify({ seq_id: 9, orchestrator_state: {
+      mission_id: rustMissionId, orchestrator: { ready: true } } }));
+    const laterName = `checkpoint-9-${crypto.createHash('sha256').update(laterBytes).digest('hex')}.json`;
+    await fs.writeFile(path.join(directory, laterName), laterBytes);
+    assert.equal((await checkpoints.latest(rustMissionId)).seq, 9);
+    await checkpoints.select(references);
+    assert.equal((await checkpoints.latest(rustMissionId)).seq, 7);
+    assert.equal(JSON.parse(await fs.readFile(path.join(directory, 'orchestration.head.json'), 'utf8')).rewound, true);
+    await checkpoints.withMissionLocks(references, async () => {
+      await assert.rejects(() => checkpoints.withMissionLocks(references, async () => {}),
+        { code: 'ORGANISM_MISSION_BUSY' });
+    });
     await fs.writeFile(path.join(directory, name), 'corrupt');
     await assert.rejects(() => checkpoints.verify(references), /digest mismatch/);
     await fs.rm(path.join(directory, name));
-    await assert.rejects(() => checkpoints.capture(db, 'agent-1'), /no verifiable checkpoint/);
+    await assert.rejects(() => checkpoints.capture(db, 'agent-1'), /head references a missing checkpoint/);
     console.log('Rust checkpoint reference integrity passed.');
   } finally {
     if (previous === undefined) delete process.env.GENOS_STUDIO_ROOT;
