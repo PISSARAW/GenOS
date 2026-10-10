@@ -1,6 +1,7 @@
 'use strict';
 
 const { dispatchBiologicalMembersCore } = require('./biologicalMemberDispatcherCore.cjs');
+const metapopulationMissionResults = require('../metapopulation/metapopulationMissionResultService.js');
 
 async function reviewMetapopulationCandidates({ db, context, parent, members, candidates }) {
   const reviewMembers = members.map((member) => ({

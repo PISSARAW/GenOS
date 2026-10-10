@@ -78,6 +78,35 @@ function response() {
   };
 }
 
+async function testTopologyRestoreGuard(options) {
+  const { controller, fixture, request, filePath, integrity } = options;
+  const helper = require('../src/controllers/lineage/topologySnapshots');
+  const originalCapture = helper.capture;
+  const originalPreflight = helper.preflight;
+  try {
+    helper.capture = async () => ({ hash: 'topology-hash', bindings: {
+      topologyId: 'trinity', variantId: 'controlled', sessionId: 'experiment-1' } });
+    const saved = response();
+    await controller.snapshotAgentState({ ...request, body: { ...request.body,
+      topologySnapshot: { topologyId: 'trinity', variantId: 'controlled', sessionId: 'experiment-1' } } },
+    saved.res);
+    assert.equal(saved.get().code, 201);
+    const captured = JSON.parse(fixture.state.agentSnapshots.at(-1).state_json);
+    assert.equal(integrity(captured).valid, true);
+    assert.equal(captured._genosSnapshot.organismSnapshot.schemaVersion, 5);
+    await fs.writeFile(filePath, 'changed after topology capture');
+    helper.preflight = async () => { throw Object.assign(new Error('Topology changed.'), {
+      code: 'TOPOLOGY_SNAPSHOT_DRIFT' }); };
+    await assert.rejects(() => controller.restoreAgentState({ ...request,
+      body: { agentId: agent.id, snapshotId: saved.get().body.snapshotId } }, response().res),
+    (error) => error.code === 'TOPOLOGY_SNAPSHOT_DRIFT');
+    assert.equal(await fs.readFile(filePath, 'utf8'), 'changed after topology capture');
+  } finally {
+    helper.capture = originalCapture;
+    helper.preflight = originalPreflight;
+  }
+}
+
 async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-agent-state-'));
   const filePath = path.join(root, 'source.txt');
@@ -115,6 +144,7 @@ async function main() {
     assert.equal(fixture.state.agent.cognitive_budget, 80);
     assert.equal(fixture.state.agent.current_task, 'initial task');
     assert.equal(await fs.readFile(filePath, 'utf8'), 'snapshot source');
+    await testTopologyRestoreGuard({ controller, fixture, request, filePath, integrity });
     console.log('Agent state and workspace restore contract passed.');
   } finally {
     dbModule.getDatabase = originalGetDatabase;

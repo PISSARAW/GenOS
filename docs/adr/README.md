@@ -473,6 +473,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0377](0377-consolidation-scientifique-par-references-versionnees.md) | Consolider les résultats scientifiques par références versionnées | Proposé ; raccordement de bout en bout non implémenté. | 2026-10-10. | Communication, preuves, GQWF, G-CIR. |
 | [0379](0379-octroi-borne-delegation-sous-orchestrateur.md) | Octroi borné de délégation au sous-orchestrateur | Accepté pour la tranche locale | 2026-10-10 | Sous-orchestration, contrats workers, jetons modèle |
 | [0383](0383-economie-tokens-conditionnee-aux-preuves.md) | Économie de tokens conditionnée aux preuves | Accepté pour la tranche locale ; contrôleur conjoint proposé. | 2026-10-10. | Continuations, mémoire cognitive, routage et mesure. |
+| [0385](0385-contrat-snapshot-topologique.md) | Contrat de vérification des snapshots topologiques | Accepté | 2026-10-10 | Topologies, snapshots, reprise |
 
 | [0387](0387-pont-nursery-replay-et-projection-evaluateur.md) | Pont nursery/replay et projection de l’évaluateur | Accepté pour l’intégration bornée | 2026-10-10 | Expériences GVX, replay et évaluation |
 

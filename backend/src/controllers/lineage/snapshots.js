@@ -14,6 +14,7 @@ const providerContinuity = require('../../services/organismProviderContinuity');
 const captureBarrier = require('../../services/agentRuntimeCaptureBarrier');
 const snapshotComponents = require('../../services/organismSnapshotComponents');
 const snapshotCapabilities = require('../../services/organismSnapshotCapabilities');
+const topologySnapshots = require('./topologySnapshots');
 
 const RESTORABLE_AGENT_FIELDS = [
   'name', 'name_meaning', 'role', 'model_tier', 'language', 'isolation_mode', 'dissonance_level',
@@ -60,34 +61,48 @@ async function captureAgentWorkspace(options) {
 }
 
 function encodeAgentSnapshot(agent, workspaceSnapshot, extras) {
-  const { capturedAt, persisted, orchestrator, activePhase } = extras;
+  const { capturedAt, persisted, orchestrator, activePhase, topologySnapshot } = extras;
   const agentState = restorableAgentState(agent);
   const components = snapshotComponents.build({ agentState, workspaceSnapshot, persisted, orchestrator, activePhase });
+  if (topologySnapshot) components.topology = { status: 'captured-reference', hash: topologySnapshot.hash,
+    restore: 'verify-only' };
   const consistency = snapshotComponents.consistency(activePhase);
-  const bundle = { schemaVersion: 4, capturedAt, consistency, components };
-  bundle.hash = digest({ agentId: agent.id, workspaceId: agent.workspace_id || null,
-    agentState, workspaceSnapshot, persisted, orchestrator, components, capturedAt, consistency });
-  return { ...agent, _genosSnapshot: { schemaVersion: 5, workspaceSnapshot,
-    persistedState: persisted, orchestratorCheckpoints: orchestrator, organismSnapshot: bundle } };
+  const bundle = { schemaVersion: topologySnapshot ? 5 : 4, capturedAt, consistency, components };
+  const signed = { agentId: agent.id, workspaceId: agent.workspace_id || null,
+    agentState, workspaceSnapshot, persisted, orchestrator, components, capturedAt, consistency };
+  if (topologySnapshot) signed.topologySnapshot = topologySnapshot;
+  bundle.hash = digest(signed);
+  return { ...agent, _genosSnapshot: { schemaVersion: topologySnapshot ? 6 : 5, workspaceSnapshot,
+    persistedState: persisted, orchestratorCheckpoints: orchestrator, ...(topologySnapshot ? { topologySnapshot } : {}),
+    organismSnapshot: bundle } };
 }
 
 function verifyOrganismSnapshot(state) {
   const bundle = state?._genosSnapshot?.organismSnapshot;
   if (!bundle) return { valid: true, legacy: true };
-  if (![1, 2, 3, 4].includes(bundle.schemaVersion)) return { valid: false, legacy: false };
-  const agentState = restorableAgentState(state);
-  const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot || null;
+  if (![1, 2, 3, 4, 5].includes(bundle.schemaVersion)) return { valid: false, legacy: false };
   const { hash, ...manifest } = bundle;
-  const base = { agentState, workspaceSnapshot, components: manifest.components, capturedAt: manifest.capturedAt, consistency: manifest.consistency };
   const persisted = state._genosSnapshot.persistedState;
-  const orchestrator = state._genosSnapshot.orchestratorCheckpoints;
-  const expected = bundle.schemaVersion >= 3
-    ? digest({ agentId: state.id, workspaceId: state.workspace_id || null,
-      agentState, workspaceSnapshot, persisted, orchestrator, components: manifest.components,
-      capturedAt: manifest.capturedAt, consistency: manifest.consistency })
-    : bundle.schemaVersion === 2 ? digest({ agentState, workspaceSnapshot, persisted, components: manifest.components, capturedAt: manifest.capturedAt, consistency: manifest.consistency }) : digest(base);
+  const expected = expectedOrganismHash(state, bundle, manifest);
   const componentsValid = bundle.schemaVersion < 2 || persistedState.verify(persisted);
   return { valid: hash === expected && componentsValid, legacy: false, hash, expected };
+}
+
+function expectedOrganismHash(state, bundle, manifest) {
+  const agentState = restorableAgentState(state);
+  const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot || null;
+  const persisted = state._genosSnapshot.persistedState;
+  const orchestrator = state._genosSnapshot.orchestratorCheckpoints;
+  const components = manifest.components;
+  const capturedAt = manifest.capturedAt;
+  const consistency = manifest.consistency;
+  const full = { agentId: state.id, workspaceId: state.workspace_id || null,
+    agentState, workspaceSnapshot, persisted, orchestrator, components, capturedAt, consistency };
+  if (bundle.schemaVersion >= 5) return digest({ ...full, topologySnapshot: state._genosSnapshot.topologySnapshot });
+  if (bundle.schemaVersion >= 3) return digest(full);
+  if (bundle.schemaVersion === 2) return digest({ agentState, workspaceSnapshot, persisted, components,
+    capturedAt, consistency });
+  return digest({ agentState, workspaceSnapshot, components, capturedAt, consistency });
 }
 
 async function captureOrganismState(options) {
@@ -120,8 +135,10 @@ async function captureOrganismState(options) {
           throw Object.assign(new Error('Model inference is in progress; organism snapshot capture aborted.'), { code: 'ORGANISM_SNAPSHOT_MODEL_PENDING', status: 409 });
         }
         const orchestrator = await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope });
+        const topologySnapshot = await topologySnapshots.capture({ db, scope, agent, req });
         const state = encodeAgentSnapshot(latestAgent, workspaceSnapshot,
-          { capturedAt: new Date().toISOString(), persisted, orchestrator, activePhase: barrier?.phase });
+          { capturedAt: new Date().toISOString(), persisted, orchestrator, activePhase: barrier?.phase,
+            topologySnapshot });
         barrier?.assertAlive();
         await persist(state);
         barrier?.assertAlive();
@@ -159,6 +176,7 @@ async function restoreAgentStateSnapshot(options) {
 
 async function restoreLockedSnapshot(options) {
   const { db, scope, agent, state, references } = options;
+  let topologyPreflight = await topologySnapshots.preflight({ db, scope, agent, state });
   const resumable = snapshotComponents.resumeCheckpoint(state);
   const current = references.length ? await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope }) : [];
   const flags = await orchestratorCheckpoint.active(references);
@@ -168,6 +186,7 @@ async function restoreLockedSnapshot(options) {
   try {
     await orchestratorCheckpoint.select(references);
     safetySnapshotId = await withTransaction(db, async () => {
+      topologyPreflight = await topologySnapshots.preflight({ db, scope, agent, state });
       await orchestratorCheckpoint.assertCoherent(db, { agentId: agent.id, references, scope });
       return applyPersistedRestore({ db, scope, agent, state,
         workspaceSnapshot: workspaceRestore?.safetySnapshot || null, previous });
@@ -179,7 +198,8 @@ async function restoreLockedSnapshot(options) {
     await rollbackWorkspaceAfterFailure({ db, scope, agent, workspaceRestore, error });
     throw error;
   }
-  return snapshotComponents.restoreSummary({ state, resumable, workspaceRestore, references, safetySnapshotId });
+  return { ...snapshotComponents.restoreSummary({ state, resumable, workspaceRestore, references, safetySnapshotId }),
+    topologySnapshot: topologyPreflight };
 }
 
 async function verifyRestoreTarget(options) {
@@ -205,7 +225,8 @@ async function verifyRestoreTarget(options) {
 
 async function applyPersistedRestore(options) {
   const { db, scope, agent, state, workspaceSnapshot, previous } = options;
-  const safetySnapshotId = await persistPreRestoreSafety({ db, scope, agent, workspaceSnapshot, previous });
+  const safetySnapshotId = await persistPreRestoreSafety({ db, scope, agent, workspaceSnapshot, previous,
+    topologySnapshot: state._genosSnapshot?.topologySnapshot });
   const requiresRestart = Boolean(runtimeCheckpoint.resumable(state._genosSnapshot?.persistedState?.sections?.runtime))
     || Boolean(codexCheckpoint.parse(state._genosSnapshot?.persistedState?.sections?.runtime))
     || state._genosSnapshot?.schemaVersion >= 3 && state.status === 'running';
@@ -228,7 +249,7 @@ async function rollbackWorkspaceAfterFailure(options) {
 }
 
 async function persistPreRestoreSafety(options) {
-  const { db, scope, agent, workspaceSnapshot, previous } = options;
+  const { db, scope, agent, workspaceSnapshot, previous, topologySnapshot } = options;
   const current = await loadAgentForScope(db, scope, agent.id);
   if (!current) throw new Error('Agent disappeared before restore.');
   const persisted = await persistedState.capture(db, agent.id, scope);
@@ -236,7 +257,7 @@ async function persistPreRestoreSafety(options) {
   const reference = workspaceSnapshot ? { id: workspaceSnapshot.id,
     hash: workspaceSnapshot.snapshotHash, workspaceId: agent.workspace_id } : null;
   const state = encodeAgentSnapshot(current, reference,
-    { capturedAt: new Date().toISOString(), persisted, orchestrator });
+    { capturedAt: new Date().toISOString(), persisted, orchestrator, topologySnapshot });
   const id = newAgentSnapshotId('agent-safety');
   await db.run('INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, created_by) VALUES (?, ?, ?, ?, ?, ?)',
     id, agent.id, agent.workspace_id, JSON.stringify(state), 'Pre-restore safety snapshot', 'agent-state-restore');
@@ -268,7 +289,7 @@ async function snapshotAgentState(req, res) {
   const state = await captureOrganismState({ db, scope, agent, req, snapshotId, reason,
     persist: (captured) => db.run('INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, created_by) VALUES (?, ?, ?, ?, ?, ?)', snapshotId, agent.id, agent.workspace_id, JSON.stringify(captured), reason, actorName(req)) });
   const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot;
-  return res.status(201).json({ success: true, snapshotId, workspaceSnapshotId: workspaceSnapshot?.id || null, workspaceSnapshotHash: workspaceSnapshot?.hash || null, organismSnapshot: state._genosSnapshot.organismSnapshot, agentId: agent.id, createdAt: new Date().toISOString() });
+  return res.status(201).json({ success: true, snapshotId, workspaceSnapshotId: workspaceSnapshot?.id || null, workspaceSnapshotHash: workspaceSnapshot?.hash || null, organismSnapshot: state._genosSnapshot.organismSnapshot, topologySnapshot: state._genosSnapshot.topologySnapshot || null, agentId: agent.id, createdAt: new Date().toISOString() });
 }
 
 async function commitAgentState(req, res) {
@@ -288,7 +309,7 @@ async function commitAgentState(req, res) {
       'INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, commit_message, parent_snapshot_id, ref_name, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       commitId, agent.id, agent.workspace_id, JSON.stringify(captured), 'Agent commit', message, optionalId(parent), refName, actorName(req)) });
   const workspaceSnapshot = state._genosSnapshot.workspaceSnapshot;
-  return res.status(201).json({ success: true, commitId, parentCommitId: optionalId(parent), workspaceSnapshotId: workspaceSnapshot?.id || null, organismSnapshot: state._genosSnapshot.organismSnapshot, agentId, refName, message });
+  return res.status(201).json({ success: true, commitId, parentCommitId: optionalId(parent), workspaceSnapshotId: workspaceSnapshot?.id || null, organismSnapshot: state._genosSnapshot.organismSnapshot, topologySnapshot: state._genosSnapshot.topologySnapshot || null, agentId, refName, message });
 }
 
 async function branchAgentState(req, res) {

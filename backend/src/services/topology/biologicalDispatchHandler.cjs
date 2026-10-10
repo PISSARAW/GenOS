@@ -19,8 +19,8 @@ async function prepareBiologicalContext(db, context) {
   const mission = handleBiologicalMission(context);
   await persistBiologicalMissionTick({ db, context, parent, mission });
   context.nceEnrichments = await buildNCEEnrichments(context, 'biological');
-  const composition = await composeBiologicalMode(db, context, mode, mission);
-  if (mode === 'syncytium' && composition.sessionId) {
+  const composition = await composeBiologicalMode({ db, context, mode, mission });
+  if (composition.sessionId) {
     context.topologySession = { sessionId: composition.sessionId, revision: composition.revision || 0 };
   }
   return { parent, mode, mission, composition };

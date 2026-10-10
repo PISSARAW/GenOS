@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { ensureTopologyWorker } = require('../src/services/topologyWorkerPersistenceService');
+const { persistWorkerIdentity } = require('../src/services/topology/workerLauncher.cjs');
 
 function fakeDb() {
   const agents = new Map();
@@ -33,6 +34,11 @@ async function main() {
   assert.equal(row.about, `Worker scope: ${identity.mission}`);
   assert.equal(JSON.parse(row.metadata_json).workerKind, 'bounded_worker');
   assert.equal(JSON.parse(row.metadata_json).topologySessionId, identity.topologySessionId);
+  await persistWorkerIdentity({ db, context: { orchestratorId: 'orchestrator_1', task: 'Inspect biome',
+    request: { mode: 'biome' }, topologySession: { sessionId: 'biome-1' } },
+  member: { role: 'implementation' }, parent: { workspace_id: 'workspace-1', isolation_mode: 'Branch',
+    model_tier: 'standard' }, workerId: 'biome-worker' });
+  assert.equal(JSON.parse(db.agents.get('biome-worker').metadata_json).topologySessionId, 'biome-1');
   assert.deepEqual(await ensureTopologyWorker(db, identity), { workerId: identity.workerId, created: false });
   await assert.rejects(
     () => ensureTopologyWorker(db, { ...identity, parentId: 'other_parent' }),

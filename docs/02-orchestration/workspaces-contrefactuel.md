@@ -9,6 +9,7 @@
 Cette documentation décrit la gestion des workspaces, des branches, des snapshots et du contre-factuel tel qu’ils sont effectivement implémentés dans le dépôt GenOS. Elle ne décrit pas un concept générique de “sandbox” de bout en bout : elle reflète les services et les mécanismes réellement présents dans le code, notamment :
 
 - [backend/src/services/workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js)
+- [backend/src/services/topologySnapshotService.js](../../backend/src/services/topologySnapshotService.js)
 - [backend/src/services/bisectionService.js](../../backend/src/services/bisectionService.js)
 - [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js)
 - [backend/src/services/vfsSandboxService.js](../../backend/src/services/vfsSandboxService.js)
@@ -211,6 +212,42 @@ restauration atomique de l’organisme entier entre fichiers, SQLite, processus
 et missions Rust. Voir [ADR 0366](../adr/0366-manifeste-snapshot-organisme.md)
 et [ADR 0370](../adr/0370-checkpoint-logique-local-et-continuite-llm-opaque.md),
 ainsi que [ADR 0373](../adr/0373-barriere-capture-runtime-local-actif.md).
+
+### 3.2.1 Manifeste topologique optionnel
+
+`POST /api/agents/snapshot` et `POST /api/agents/commit` acceptent en option
+`topologySnapshot: { "topologyId": "trinity", "variantId": "controlled",
+"sessionId": "..." }`. Le serveur déduit l'agent, le workspace et la portée
+tenant du contexte authentifié ; le client ne fournit aucun état topologique.
+Les huit identifiants pris en charge sont `trinity`, `a_team`, `biocenose`,
+`holobionte`, `syncytium`, `rhizome`, `metapopulation` et `biome`.
+
+| Topologie | Frontière et preuves propres aux variants |
+| --- | --- |
+| Trinity | Monde et baseline scellée, journal de phases, politique expérimentale du variant. |
+| A-Team | TeamRun, WorkGraph, passages de relais, baux et politique d'organisation. |
+| Biocénose | Constitution engagée, membres, tours, votes, dissensus et reçus de décision. |
+| Holobionte | Hôte et symbiontes, journal, contrats, ledger, mémoire, immunité et effets d'outils. |
+| Syncytium | Snapshot CRDT matérialisé, frontière causale, schéma du variant et répliques. |
+| Rhizome | Graphe, journal contigu, budget, preuves et baux de mission. |
+| Métapopulation | Dèmes, corridors, migrations, colonisations, culture et frontière régionale. |
+| Biome | Écologie, biofilm, ressources, environnement et journal des cycles. |
+
+L'adaptateur du variant vérifie le lien entre l'agent et la session, puis capture
+une frontière de cohérence et des composants scellés. Le manifeste est inclus
+dans l'empreinte du snapshot d'organisme et retourné dans la réponse. Un
+composant `reference-only` désigne un état collectif observé, pas une copie
+restaurable. Une donnée manquante, un variant incohérent ou une preuve
+insuffisante fait échouer la capture.
+
+Lors d'un `checkout` ou d'un `restore`, le backend compare le manifeste à l'état
+actuel avant de modifier les fichiers, puis revérifie cette frontière avant la
+validation SQLite. Si la session a avancé ou si la propriété ne correspond
+plus, la reprise est refusée. Une réponse acceptée indique
+`topologySnapshot.allowed: true` et `restorable: false` : la restauration
+concerne l'agent et son workspace ; elle ne rembobine pas le collectif. Les
+snapshots antérieurs sans manifeste conservent leur comportement historique.
+Voir [ADR 0385](../adr/0385-contrat-snapshot-topologique.md).
 
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 

@@ -2,7 +2,11 @@
 
 const { waitForMetapopulationWorkers } = require('./metapopulationWaiter.cjs');
 const { reviewMetapopulationCandidates } = require('./metapopulationReviewer.cjs');
-const { dispatchBiologicalMembersCore, dispatchRhizomeMissionMembers, selectMembers } = require('./biologicalMemberDispatcherCore.cjs');
+const { dispatchBiologicalMembersCore, selectMembers } = require('./biologicalMemberDispatcherCore.cjs');
+const { dispatchRhizomeMissionMembers } = require('./rhizomeResultsApplier.cjs');
+const workerGarage = require('../workerGarageService.js');
+const metapopulationMissionResults = require('../metapopulation/metapopulationMissionResultService.js');
+const { isVerifiedResult } = require('./biologicalHelpers.cjs');
 
 async function dispatchBiologicalMembers({ db, context, mode, parent, members }) {
   const garage = await workerGarage.state(db, context.orchestratorId);
