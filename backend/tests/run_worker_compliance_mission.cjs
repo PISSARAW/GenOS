@@ -12,6 +12,9 @@ const { assertRuntimeContract, assertWorkerToolAllowed } = require('../src/servi
 const { extractEvidenceReport } = require('../src/services/agentEvidenceService');
 const { workerComplianceScenario } = require('./fixtures/workerComplianceScenarios');
 const { expectedUnavailable } = require('./workerComplianceSummary.cjs');
+const perceptionProbe = process.env.GENOS_COMPLIANCE_PERCEPTION === '1'
+  ? require('./workerPerceptionProbe.cjs')
+  : { INPUT: null, prepare() {}, async run() { return null; }, async settle() { return true; } };
 
 function inside(root, target) {
   const relative = path.relative(path.resolve(root), path.resolve(target));
@@ -47,6 +50,8 @@ async function missionFor(context) {
   const strategy = await contracts.getLatestContract(db, parentId, workspaceId);
   const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`,
     hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local',
+    specialtyNiche: 'scheduling', nicheDomain: 'scheduling',
+    hostContractId: 'compliance-host', hostCapabilities: ['host_bound'],
     methodContract: complianceMethod(kind) };
   const created = await fleet.createAutonomousWorkers(db, { id: parentId, agent_type: 'GenOS' }, {
     plan: { strategyContract: { primary: strategy.contract.selected_strategy.primary }, tokenPolicy: { total: 5000, workerShare: 0.6, orchestratorReserve: 0.4, allocation: 'fixed' }, dispatchWorkers: [assignment] },
@@ -66,6 +71,7 @@ function complianceMethod(kind) {
       claim: '2 + 2 = 4', toolchainVersion: process.env.GENOS_COMPLIANCE_LEAN_VERSION
     } };
   }
+  if (kind === 'formal_worker') return { version: 1, methodId: 'check_arithmetic', parameters: { claim: '2 + 2 = 4' } };
   if (kind === 'verifier_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER === '1') {
     const procedure = { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } };
     const candidateReceipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
@@ -138,9 +144,9 @@ async function validateMission(context) {
   const refusalsValidated = validateExpectedRefusals(kind, metadata.workerContract);
   const persistedContract = metadata.workerKind === kind && metadata.workerContract.identity.workerKind === kind;
   const parentBound = metadata.workerContract.identity.parentId === parentId;
-  const runtimeStarted = Boolean(execution);
+  const runtimeStarted = execution?.started === true;
   const passed = successfulOutcome({ agent, report, artifact, expected, correctReference, refusalsValidated, persistedContract, parentBound, runtimeStarted });
-  const errorCode = execution?.errorCode;
+  const errorCode = executionErrorCode(execution);
   return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, errorCode, expectedUnavailable: expectedUnavailable(kind, errorCode), error: passed ? null : artifactValidationError || execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
 }
 
@@ -264,17 +270,22 @@ async function runOne({ runId, kind }) {
   let execution = null;
   try {
     context = await createWorkerContext({ db, parentId, workspaceId, rootWorkspace, kind, model, runId });
+    perceptionProbe.prepare(context);
     execution = await executeWorkerMission(context);
+    const perception = await perceptionProbe.run(context, execution);
+    if (perception) perception.runtimeSettled = await perceptionProbe.settle(context.worker.agentId);
     const result = await validateMission({ ...context, db, execution });
+    result.perception = perception;
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result)}\n`);
-    if (!result.passed && !result.expectedUnavailable) process.exitCode = 1;
+    if (!perceptionProbe.INPUT && !result.passed && !result.expectedUnavailable) process.exitCode = 1;
   } catch (error) {
     const result = failedMissionResult({ runId, kind, parentId, error, context, execution });
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result)}\n`);
-    if (!result.expectedUnavailable) process.exitCode = 1;
+    if (!perceptionProbe.INPUT && !result.expectedUnavailable) process.exitCode = 1;
   } finally {
+    await require('../src/services/garageRuntimeService').stop(db);
     await require('../src/services/telemetryObserver').flush(5000).catch(() => undefined);
     await closeDatabase();
   }
@@ -288,7 +299,7 @@ function failedMissionResult(options) {
     workerId: context?.worker?.agentId || null,
     persistedContract: Boolean(context?.metadata?.workerContract?.identity?.workerKind === kind),
     parentBound: Boolean(context?.metadata?.workerContract?.identity?.parentId === parentId),
-    runtimeStarted: Boolean(execution),
+    runtimeStarted: execution?.started === true,
     status: execution ? 'execution_failed' : 'not_started',
     outcome: null,
     expectedArtifact: kinds.kindDefinition(kind).artifact,
@@ -313,14 +324,21 @@ async function createWorkerContext(options) {
   const metadata = JSON.parse(row.metadata_json);
   if (metadata.workerKind !== kind || metadata.workerContract?.identity?.workerKind !== kind) throw new Error(`Persistent worker contract mismatch for ${kind}.`);
   if (!inside(process.env.GENOS_CAPSULE_ROOT, worker.workspaceRoot || rootWorkspace)) throw new Error(`Worker workspace escaped isolated capsule root: ${worker.workspaceRoot}`);
-  return { db, runId, worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, scenario };
+  const missionId = `compliance-mission-${runId}-${kind}`;
+  await db.run("INSERT INTO missions (mission_id, objective, status, orchestrator_agent_id) VALUES (?, ?, 'active', ?)", missionId, `Compliance mission for ${kind}`, parentId);
+  await db.run('INSERT INTO mission_agents (mission_id, agent_id, role) VALUES (?, ?, ?)', missionId, worker.agentId, kind);
+  return { db, runId, worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, scenario, missionId };
+}
+
+function executionErrorCode(execution) {
+  return execution?.errorCode || execution?.code;
 }
 
 async function executeWorkerMission(context) {
-  const { worker, metadata, parentId, workspaceId, rootWorkspace, kind, model } = context;
+  const { worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, missionId } = context;
   const timeoutMs = Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000;
   try {
-    return await runtime.startMission({ agentId: worker.agentId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true });
+    return await runtime.startMission({ agentId: worker.agentId, missionId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId: worker.workspaceId || workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true, ...(perceptionProbe.INPUT ? { continuousExecution: { mode: 'control', files: [perceptionProbe.INPUT], intervalMs: 100 } } : {}) });
   } catch (error) { return { error: error.message, errorCode: error.code || null }; }
 }
 
