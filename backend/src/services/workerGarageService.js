@@ -184,9 +184,26 @@ async function state(db, orchestratorId) {
   };
 }
 
+async function assertWorkerScope(db, domain, workerId) {
+  if (!workerId) return;
+  const worker = await db.get('SELECT id, workspace_id FROM agents WHERE id = ?', workerId);
+  if (worker?.workspace_id && worker.workspace_id !== domain.workspace_id) {
+    const tables = await db.get(`SELECT COUNT(*) AS count FROM sqlite_master
+      WHERE name IN ('trinity_worlds','trinity_experiments')`);
+    const delegated = tables.count === 2 && await require('./trinityWorkerAuthority').delegation(db, {
+      agent: worker, parent: { id: domain.manager_id, workspace_id: domain.workspace_id }
+    });
+    if (delegated) return;
+    const error = new Error('Worker workspace does not match its garage domain.');
+    error.code = 'GARAGE_SCOPE_INVALID';
+    throw error;
+  }
+}
+
 async function requireAvailableSlot(db, orchestratorId, workerId = null) {
   const garage = await state(db, orchestratorId);
-  await require('./garageDomainService').ensureDomain(db, orchestratorId, garage.capacity);
+  const domain = await require('./garageDomainService').ensureDomain(db, orchestratorId, garage.capacity);
+  await assertWorkerScope(db, domain, workerId);
   const alreadyActive = workerId && garage.activeWorkers.some((worker) => worker.id === workerId);
   const limit = garage.capacity;
   if (!alreadyActive && garage.available === 0) {
@@ -195,20 +212,12 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
     error.garage = garage;
     throw error;
   }
-  const project = await db.get('SELECT w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', orchestratorId);
-  if (project?.project_id) {
-    const activeProject = await db.get(`SELECT COUNT(*) AS count
-      FROM agents a LEFT JOIN agents parent ON parent.id = a.parent_agent_id
-      JOIN workspaces w ON w.id = COALESCE(a.workspace_id, parent.workspace_id)
-      WHERE a.execution_mode = 'worker'
-        AND (a.status = 'running' OR (a.status = 'blocked' AND a.current_task = 'Stopping on operator request')
-          OR EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = a.id
-            AND (q.phase IN ('freezing','freeze_failed','cancelling') OR (q.status IN ('claimed','running') AND q.phase = 'ready'))))
-        AND w.organization_id = ? AND w.project_id = ?`, project.organization_id, project.project_id);
-    if (!alreadyActive && Number(activeProject?.count || 0) >= projectCapacity()) {
-      const error = new Error(`Project '${project.project_id}' already has ${projectCapacity()} active workers.`);
+  if (domain.project_id) {
+    const activeProject = await require('./garageProjectCapacity').countActive(db, domain);
+    if (!alreadyActive && activeProject >= projectCapacity()) {
+      const error = new Error(`Project '${domain.project_id}' already has ${projectCapacity()} active workers.`);
       error.code = 'PROJECT_WORKER_CAPACITY_FULL';
-      error.garage = { ...garage, projectCapacity: projectCapacity(), projectOccupied: Number(activeProject?.count || 0), available: 0 };
+      error.garage = { ...garage, projectCapacity: projectCapacity(), projectOccupied: activeProject, available: 0 };
       throw error;
     }
   }

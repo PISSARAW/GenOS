@@ -176,11 +176,15 @@ La reservation utilise BEGIN IMMEDIATE pour les controles local et projet,
 y compris pour les appelants directs historiques. La capacite dynamique
 sauvegardee dans les metadonnees du parent peut etre rehydratee.
 
-Le plafond projet compte les workers actifs du projet meme lorsque leur
-parent direct est un worker. Ce comptage utilise leur `workspace_id` persiste
-ou, s'il manque, celui du parent immediat. Une chaine d'ancetres sans
-workspace doit etre normalisee avant d'etendre cette garantie a une
-hierarchie recursive ([ADR 0372](../../adr/0372-fondation-garages-hierarchiques-et-plafond-projet.md)).
+Le plafond projet compte les workers actifs meme sous plusieurs managers.
+Pour un worker sans workspace propre, il remonte jusqu'au premier ancetre
+porteur d'un workspace, dans la limite de 32 liens. Le projet du manager vient
+du domaine Garage durable. Un workspace explicite different du domaine est
+refuse lors d'une reservation directe sauf delegation Trinity scellee dans
+le meme perimetre. Une ascendance entierement sans
+workspace valide doit encore etre normalisee avant la delegation recursive
+([ADR 0372](../../adr/0372-fondation-garages-hierarchiques-et-plafond-projet.md),
+[ADR 0376](../../adr/0376-plafond-projet-sur-ascendance-garage.md)).
 
 La premiere admission enregistre aussi un domaine Garage durable. Ses
 plafonds de file et de workers actifs bornent les admissions locales. La vue
