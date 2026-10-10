@@ -104,6 +104,7 @@ function assertCanonicalContract(contract, kind) {
     topologySessionId: contract.mission?.topologySessionId,
     writeLease: contract.mission?.writeLease === true,
     workerTokenLimit: contract.resources?.maxTokens,
+    delegatedTokenLimit: contract.resources?.maxDelegatedTokens,
     workerAssignment: contract.assignment
   });
   assertAuthorityCeiling(contract.authority, canonical.authority, kind);
@@ -227,7 +228,7 @@ function validSubOrchestratorContract(contract) {
 function validDelegationTokenBudget(contract) {
   const tokens = contract.limits?.maxTokens;
   return Number.isSafeInteger(tokens) && tokens >= 1 && tokens <= 10000
-    && tokens <= contract.resources?.maxTokens;
+    && tokens <= (contract.resources?.maxDelegatedTokens ?? contract.resources?.maxTokens);
 }
 
 function delegationIsDisabled(contract) {

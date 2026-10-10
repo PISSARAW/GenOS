@@ -288,7 +288,8 @@ function expressedCapabilitiesFor(kind) {
 
 function grantBoundedDelegation(contract) {
   if (contract.identity?.workerKind !== 'sub_orchestrator') return contract;
-  if (!Number.isSafeInteger(contract.resources?.maxTokens) || contract.resources.maxTokens < 1) {
+  const allocated = contract.resources?.maxDelegatedTokens ?? contract.resources?.maxTokens;
+  if (!Number.isSafeInteger(allocated) || allocated < 1) {
     throw Object.assign(new Error('Sub-orchestrator needs a positive model-token allocation.'), { code: 'SUBORCHESTRATOR_TOKEN_LIMIT' });
   }
   contract.authority.spawn = true;
@@ -297,7 +298,7 @@ function grantBoundedDelegation(contract) {
   contract.spawnBudget = 5;
   contract.delegationDepth = 1;
   contract.delegationExpiresAt = Date.now() + 3600000;
-  contract.limits = { ...contract.limits, maxChildren: 5, maxTokens: Math.min(10000, contract.resources.maxTokens) };
+  contract.limits = { ...contract.limits, maxChildren: 5, maxTokens: Math.min(10000, allocated) };
   return contract;
 }
 
