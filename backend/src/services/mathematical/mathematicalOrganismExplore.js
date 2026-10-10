@@ -136,7 +136,7 @@ async function verify(runtime, attempts) {
     }
 
     if (success) {
-      verified.push({ ...attempt, verified: true, artifact });
+      verified.push({ ...attempt, verified: true, artifact, leanSource });
       recordSuccess(runtime, attempt);
     } else {
       recordFailure(runtime, attempt);

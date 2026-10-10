@@ -3,6 +3,7 @@
 const { createHash } = require('node:crypto');
 const { receiptDigest } = require('../epistemicScheduler/leanIncrementalGate');
 const { globalRegistry } = require('../mathematical/verificationRegistry');
+const { isReplayedAttestation } = require('../scientificReceiptAuthority');
 const { naturalStatementFingerprint } = require('../mathematical/formalizationArtifact');
 const { withTransaction } = require('../../db');
 
@@ -118,9 +119,10 @@ function normalizeReference(input) {
     validityDomain: input.validityDomain, dependencies: normalizedDependencies(input.dependencies || []) };
 }
 
-function receiptIsAuthenticated(receipt, expectedDigest) {
+function receiptIsAuthenticated(receipt, expectedDigest, attestation) {
   return Boolean(receipt) && receipt.status === 'passed' && receipt.receiptDigest === expectedDigest &&
-    receiptDigest(receipt) === expectedDigest && globalRegistry.isReceiptValid(expectedDigest);
+    receiptDigest(receipt) === expectedDigest &&
+    (globalRegistry.isReceiptValid(expectedDigest) || isReplayedAttestation(attestation));
 }
 
 function receiptMatchesReference(receipt, reference, canonicalDigest) {
@@ -130,8 +132,9 @@ function receiptMatchesReference(receipt, reference, canonicalDigest) {
     receipt.environmentDigest === reference.environmentDigest;
 }
 
-function assertReceipt(reference, receipt, expectedDigest) {
-  if (!receiptIsAuthenticated(receipt, expectedDigest)) {
+function assertReceipt(reference, attestation, expectedDigest) {
+  const receipt = attestation.receipt;
+  if (!receiptIsAuthenticated(receipt, expectedDigest, attestation)) {
     throw fail('SCI_REF_RECEIPT_REJECTED', 'Independent Lean receipt is unavailable or invalid.');
   }
   const canonicalDigest = naturalStatementFingerprint(reference.canonicalStatement);
@@ -160,7 +163,7 @@ function assertPublicationAttestation(reference, attestation, expectedDigest) {
       attestation.receipt.nodeId !== reference.objectId) {
     throw fail('SCI_REF_PUBLICATION_BINDING', 'Receipt has no trusted binding to this reference version.');
   }
-  assertReceipt(reference, attestation.receipt, expectedDigest);
+  assertReceipt(reference, attestation, expectedDigest);
   return publicationBindingDigest(reference, expectedDigest);
 }
 

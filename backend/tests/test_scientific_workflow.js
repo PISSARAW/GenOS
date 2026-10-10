@@ -15,7 +15,10 @@ const hash = (value) => `sha256:${createHash('sha256').update(value).digest('hex
 async function fixture() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
-    INSERT INTO workspaces VALUES ('w1', 'org', 'project');`);
+    INSERT INTO workspaces VALUES ('w1', 'org', 'project');
+    CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT);
+    INSERT INTO agents VALUES ('agent-author', 'w1');
+    INSERT INTO agents VALUES ('agent-consumer', 'w1');`);
   const graph = new MathematicalDependencyGraph();
   graph.addNode({ nodeId: 'source', type: 'theorem', canonicalStatement: '0 = 0', status: 'formalized' });
   graph.addNode({ nodeId: 'derived', type: 'theorem', canonicalStatement: '1 = 1', status: 'formalized' });
@@ -54,11 +57,32 @@ async function run() {
   try {
     const source = await inputFor(f, { objectId: 'source', statement: '0 = 0',
       source: 'theorem source : 0 = 0 := by rfl' });
+    await assert.rejects(() => f.workflow.subscribeReference({
+      ref: source.reference, consumerAgentId: 'foreign',
+    }), (error) => error.code === 'SCI_REF_PARTICIPANT_SCOPE');
+    await assert.rejects(() => f.workflow.subscribeReference({
+      ref: { ...source.reference, objectId: ' source ' }, consumerAgentId: 'agent-consumer',
+    }), (error) => error.code === 'SCI_REF_INVALID');
+    const subscription = await f.workflow.subscribeReference({
+      ref: source.reference, consumerAgentId: 'agent-consumer',
+    });
+    assert.equal(subscription.created, true);
+    assert.equal((await f.workflow.subscribeReference({
+      ref: source.reference, consumerAgentId: 'agent-consumer',
+    })).created, false);
+    await assert.rejects(() => f.workflow.publishVerified({ ...source,
+      senderAgentId: 'foreign' }), (error) => error.code === 'SCI_REF_PARTICIPANT_SCOPE');
     const sourceResult = await f.workflow.publishVerified(source);
     assert.equal(sourceResult.status, 'verified');
+    assert.deepEqual(sourceResult.recipients, ['agent-consumer']);
+    const subscribed = await f.db.get(`SELECT state FROM scientific_reference_subscriptions
+      WHERE consumer_agent_id = 'agent-consumer'`);
+    assert.equal(subscribed.state, 'satisfied');
     const derived = await inputFor(f, { objectId: 'derived', statement: '1 = 1',
       source: 'theorem derived : 1 = 1 := by rfl',
       dependencies: [{ ...source.reference, receiptDigest: source.receiptDigest }] });
+    await assert.rejects(() => f.workflow.publishVerified({ ...derived,
+      consumerAgentId: 'foreign' }), (error) => error.code === 'SCI_REF_PARTICIPANT_SCOPE');
     await f.workflow.publishVerified({ ...derived, consumerAgentId: 'agent-consumer' });
     const before = await f.db.get(`SELECT state FROM scientific_obligations LIMIT 1`);
     assert.equal(before.state, 'open');
@@ -81,6 +105,8 @@ async function run() {
     assert.equal(rolledBack.status, 'verified');
     const result = await f.workflow.retract(retraction);
     assert.equal(result.affectedCount, 1);
+    assert.equal((await f.db.get(`SELECT state FROM scientific_reference_subscriptions
+      WHERE consumer_agent_id = 'agent-consumer'`)).state, 'stale');
     const rows = await f.db.all(`SELECT object_id, status FROM scientific_references ORDER BY object_id`);
     assert.deepEqual(rows.map((row) => [row.object_id, row.status]),
       [['derived', 'stale'], ['source', 'stale']]);
@@ -91,7 +117,7 @@ async function run() {
     assert.deepEqual(visible.map((row) => [row.session_id, row.valid]),
       [['session-1', 0], ['session-2', 0]]);
     const events = await f.db.all(`SELECT event_type, recipient_agent_id, payload_json
-      FROM scientific_outbox ORDER BY priority DESC`);
+      FROM scientific_outbox WHERE event_type != 'publish' ORDER BY priority DESC`);
     assert.deepEqual(events.map((row) => row.event_type), ['retract', 'invalidate']);
     assert.ok(events.every((row) => row.recipient_agent_id === 'agent-consumer'));
     assert.ok(events.every((row) => JSON.parse(row.payload_json).senderAgentId === 'agent-author'));

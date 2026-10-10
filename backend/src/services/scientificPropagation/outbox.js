@@ -49,9 +49,10 @@ async function claimEvents(db, input) {
   const claim = normalizeClaim(input);
   return withTransaction(db, async (tx) => {
     const rows = await tx.all(`SELECT * FROM scientific_outbox
-      WHERE state = 'pending' OR (state = 'claimed' AND claimed_until_ms <= ?)
+      WHERE (state = 'pending' AND next_attempt_ms <= ?)
+        OR (state = 'claimed' AND claimed_until_ms <= ?)
       ORDER BY priority DESC, created_at ASC, event_id ASC LIMIT ?`,
-    [claim.nowMs, claim.limit]);
+    [claim.nowMs, claim.nowMs, claim.limit]);
     const claimed = [];
     for (const row of rows) {
       const token = crypto.randomUUID();
@@ -60,8 +61,9 @@ async function claimEvents(db, input) {
         SET state = 'claimed', claimed_by = ?, claim_token = ?,
             claimed_until_ms = ?, attempts = attempts + 1
         WHERE event_id = ? AND
-          (state = 'pending' OR (state = 'claimed' AND claimed_until_ms <= ?))`,
-      [claim.workerId, token, until, row.event_id, claim.nowMs]);
+          ((state = 'pending' AND next_attempt_ms <= ?)
+            OR (state = 'claimed' AND claimed_until_ms <= ?))`,
+      [claim.workerId, token, until, row.event_id, claim.nowMs, claim.nowMs]);
       if (update.changes) claimed.push({ ...row, claimed_by: claim.workerId,
         claim_token: token, claimed_until_ms: until, attempts: row.attempts + 1 });
     }
@@ -79,11 +81,14 @@ async function ackEvent(db, input) {
 }
 
 async function releaseEvent(db, input) {
+  const attempts = Math.max(1, Number(input.attempts) || 1);
+  const delayMs = Math.min(60000, 500 * (2 ** Math.min(attempts - 1, 7)));
+  const nextAttemptMs = (Number(input.nowMs) || Date.now()) + delayMs;
   const result = await db.run(`UPDATE scientific_outbox
     SET state = 'pending', claimed_by = NULL, claim_token = NULL,
-        claimed_until_ms = NULL
+        claimed_until_ms = NULL, next_attempt_ms = ?
     WHERE event_id = ? AND state = 'claimed' AND claimed_by = ? AND claim_token = ?`,
-  [input.eventId, input.workerId, input.claimToken]);
+  [nextAttemptMs, input.eventId, input.workerId, input.claimToken]);
   return result.changes === 1;
 }
 
