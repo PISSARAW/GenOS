@@ -150,10 +150,12 @@ async function state(db, orchestratorId) {
     const persisted = JSON.parse(parent.metadata_json).garageCapacity;
     if (Number.isFinite(persisted)) setDynamicCapacity(orchestratorId, persisted);
   }
+  const domain = await require('./garageDomainService').readDomain(db, orchestratorId);
+  const capacity = Math.min(getDynamicCapacity(orchestratorId), domain?.active_capacity || Infinity);
   const isParentDead = parent && (Boolean(parent.is_apoptotic) || ['apoptosis', 'terminated', 'completed', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status));
   if (isParentDead) {
     return {
-      capacity: getDynamicCapacity(orchestratorId),
+      capacity,
       occupied: 0,
       available: 0,
       activeWorkers: [],
@@ -173,7 +175,6 @@ async function state(db, orchestratorId) {
     orchestratorId
   );
   const activeWorkers = dbWorkers;
-  const capacity = getDynamicCapacity(orchestratorId);
 
   return {
     capacity,
@@ -185,8 +186,9 @@ async function state(db, orchestratorId) {
 
 async function requireAvailableSlot(db, orchestratorId, workerId = null) {
   const garage = await state(db, orchestratorId);
+  await require('./garageDomainService').ensureDomain(db, orchestratorId, garage.capacity);
   const alreadyActive = workerId && garage.activeWorkers.some((worker) => worker.id === workerId);
-  const limit = getDynamicCapacity(orchestratorId);
+  const limit = garage.capacity;
   if (!alreadyActive && garage.available === 0) {
     const error = new Error(`Worker garage is full (slots: ${garage.occupied}/${limit} used — wait or increase MAX_ACTIVE_WORKERS). Orchestrator '${orchestratorId}' cannot dispatch more workers.`);
     error.code = 'WORKER_GARAGE_FULL';
@@ -196,17 +198,12 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
   const project = await db.get('SELECT w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', orchestratorId);
   if (project?.project_id) {
     const activeProject = await db.get(`SELECT COUNT(*) AS count
-      FROM agents a JOIN workspaces w ON w.id = a.workspace_id
+      FROM agents a LEFT JOIN agents parent ON parent.id = a.parent_agent_id
+      JOIN workspaces w ON w.id = COALESCE(a.workspace_id, parent.workspace_id)
       WHERE a.execution_mode = 'worker'
         AND (a.status = 'running' OR (a.status = 'blocked' AND a.current_task = 'Stopping on operator request')
           OR EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = a.id
             AND (q.phase IN ('freezing','freeze_failed','cancelling') OR (q.status IN ('claimed','running') AND q.phase = 'ready'))))
-        AND a.parent_agent_id IN (
-          SELECT o.id FROM agents o
-          WHERE o.execution_mode = 'orchestrator'
-            AND o.status NOT IN ('completed', 'terminated', 'apoptosis', 'error')
-            AND (o.is_apoptotic = 0 OR o.is_apoptotic IS NULL)
-        )
         AND w.organization_id = ? AND w.project_id = ?`, project.organization_id, project.project_id);
     if (!alreadyActive && Number(activeProject?.count || 0) >= projectCapacity()) {
       const error = new Error(`Project '${project.project_id}' already has ${projectCapacity()} active workers.`);
@@ -242,8 +239,8 @@ async function reserveSlotInternal(db, { orchestratorId, workerId, name, role, m
     error.code = 'WORKER_NOT_IDLE';
     throw error;
   }
-  await requireAvailableSlot(db, orchestratorId, workerId);
-  const limit = getDynamicCapacity(orchestratorId);
+  const admission = await requireAvailableSlot(db, orchestratorId, workerId);
+  const limit = admission.capacity;
   const reservation = await db.run(
     `UPDATE agents SET name = ?, role = ?, current_task = ?, status = 'running', updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle'

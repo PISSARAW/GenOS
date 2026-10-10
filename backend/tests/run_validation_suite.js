@@ -5,6 +5,7 @@ const suites = {
   garage: [
     ['Garage Fabric planning', 'test_garage_fabric.js'],
     ['Garage durable store and concurrency', 'test_garage_runtime_store.js'],
+    ['Garage durable hierarchy and capacity', 'test_garage_domains.js'],
     ['Garage runtime dispatch', 'test_garage_runtime_dispatch.js'],
     ['Garage typed runtime completion evidence', 'test_garage_runtime_evidence.js'],
     ['Garage snapshot freeze thaw', 'test_garage_runtime_capsules.js'],

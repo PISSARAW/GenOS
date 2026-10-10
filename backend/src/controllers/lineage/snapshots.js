@@ -13,6 +13,7 @@ const codexCheckpoint = require('../../services/codexRuntimeCheckpoint');
 const providerContinuity = require('../../services/organismProviderContinuity');
 const captureBarrier = require('../../services/agentRuntimeCaptureBarrier');
 const snapshotComponents = require('../../services/organismSnapshotComponents');
+const snapshotCapabilities = require('../../services/organismSnapshotCapabilities');
 
 const RESTORABLE_AGENT_FIELDS = [
   'name', 'name_meaning', 'role', 'model_tier', 'language', 'isolation_mode', 'dissonance_level',
@@ -255,6 +256,7 @@ async function applySnapshotState(db, state, agentId) {
 }
 
 async function snapshotAgentState(req, res) {
+  snapshotCapabilities.assertRequest(req.body);
   const agentId = readString(req.body, 'agentId');
   if (!agentId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
   const db = await getDatabase();
@@ -270,6 +272,7 @@ async function snapshotAgentState(req, res) {
 }
 
 async function commitAgentState(req, res) {
+  snapshotCapabilities.assertRequest(req.body);
   const agentId = readString(req.body, 'agentId');
   const message = readString(req.body, 'message');
   const refName = readString(req.body, 'refName', 'main');
@@ -316,6 +319,7 @@ async function loadCheckoutSnapshot(db, context) {
 }
 
 async function checkoutAgentState(req, res) {
+  snapshotCapabilities.assertRequest(req.body);
   const agentId = readString(req.body, 'agentId');
   const snapshotId = readString(req.body, 'snapshotId');
   const refName = readString(req.body, 'refName');
@@ -331,6 +335,7 @@ async function checkoutAgentState(req, res) {
 }
 
 async function restoreAgentState(req, res) {
+  snapshotCapabilities.assertRequest(req.body);
   const agentId = readString(req.body, 'agentId');
   const snapshotId = readString(req.body, 'snapshotId');
   if (!agentId || !snapshotId) return res.status(400).json({ error: { code: 'AGENT_SNAPSHOT_REQUIRED', message: 'agentId and snapshotId are required.' } });
@@ -345,6 +350,7 @@ async function restoreAgentState(req, res) {
 }
 
 module.exports = {
+  snapshotCapabilities: (_req, res) => res.json(snapshotCapabilities.report()),
   applySnapshotState,
   verifyOrganismSnapshot,
   restoreAgentStateSnapshot,

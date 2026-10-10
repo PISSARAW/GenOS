@@ -53,7 +53,7 @@ async function capacity(test) {
 
 async function run() {
   const test = await fixture();
-  try { await persistence(test); await fencing(test); await capacity(test); await projectCapacity(test); }
+  try { await persistence(test); await fencing(test); await capacity(test); await projectCapacity(test); await nestedProjectCapacity(test); }
   finally { await test.close(); }
   console.log('Garage runtime store: durable restart, idempotency, scope, fencing and atomic capacity passed.');
 }
@@ -73,6 +73,33 @@ async function projectCapacity(test) {
     assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
     assert.equal(results.find((result) => result.status === 'rejected').reason.code, 'PROJECT_WORKER_CAPACITY_FULL');
     assert.equal((await test.db.get("SELECT COUNT(*) AS count FROM agents WHERE execution_mode = 'worker' AND status = 'running'")).count, limit);
+  } finally { await second.close(); }
+}
+
+async function nestedProjectCapacity(test) {
+  const limit = garage.projectCapacity();
+  await test.db.run("UPDATE agents SET status = 'idle' WHERE execution_mode = 'worker'");
+  await test.db.run(`INSERT INTO agents(id,execution_mode,status,workspace_id,parent_agent_id)
+    VALUES ('nested-sub','worker','running','ws','other-orch')`);
+  for (let index = 0; index < limit - 2; index++) {
+    await test.db.run(`INSERT INTO agents(id,execution_mode,status,workspace_id,parent_agent_id)
+      VALUES (?,'worker','running',?,'nested-sub')`, `nested-${index}`, index === 0 ? null : 'ws');
+  }
+  await test.db.run(`INSERT INTO agents(id,execution_mode,status,workspace_id,parent_agent_id)
+    VALUES ('other-candidate','worker','idle','ws','other-orch')`);
+  const second = await open(test.filename);
+  try {
+    const results = await Promise.allSettled([
+      garage.reserveSlot(test.db, { orchestratorId: 'orch', workerId: 'worker-5', name: 'worker-5', role: 'implementation', mission: 'bounded' }),
+      garage.reserveSlot(second, { orchestratorId: 'other-orch', workerId: 'other-candidate', name: 'other-candidate', role: 'implementation', mission: 'bounded' })
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(results.find((result) => result.status === 'rejected').reason.code, 'PROJECT_WORKER_CAPACITY_FULL');
+    const occupied = await test.db.get(`SELECT COUNT(*) AS count FROM agents a
+      LEFT JOIN agents parent ON parent.id = a.parent_agent_id
+      JOIN workspaces w ON w.id = COALESCE(a.workspace_id, parent.workspace_id)
+      WHERE a.execution_mode = 'worker' AND a.status = 'running' AND w.project_id = 'project'`);
+    assert.equal(occupied.count, limit, 'descendants share the project ceiling with their ancestors');
   } finally { await second.close(); }
 }
 

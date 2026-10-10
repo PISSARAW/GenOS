@@ -32,6 +32,7 @@ cela ne constitue pas un apprentissage par renforcement implicite.
 | garagePolicies | Classement, dependances et limites par voie |
 | garageRequests | Validation, identite et perimetre persistes |
 | garageQueueStore | Journal SQLite, idempotence, claims et fencing |
+| garageDomainService | Binding durable parent/racine/perimetre et plafonds locaux |
 | garageAdmissionService | Admission operateur et adoption du runtime |
 | garageQueueDispatcher | Reservation transactionnelle puis lancement |
 | [garageReservationGuard](../../../backend/src/services/garageReservationGuard.js) | Contrôle du claim courant et exclusion d'une identité déjà réservée |
@@ -174,6 +175,20 @@ ni artefact valide ne devient pas une preuve par le seul effet de migration.
 La reservation utilise BEGIN IMMEDIATE pour les controles local et projet,
 y compris pour les appelants directs historiques. La capacite dynamique
 sauvegardee dans les metadonnees du parent peut etre rehydratee.
+
+Le plafond projet compte les workers actifs du projet meme lorsque leur
+parent direct est un worker. Ce comptage utilise leur `workspace_id` persiste
+ou, s'il manque, celui du parent immediat. Une chaine d'ancetres sans
+workspace doit etre normalisee avant d'etendre cette garantie a une
+hierarchie recursive ([ADR 0372](../../adr/0372-fondation-garages-hierarchiques-et-plafond-projet.md)).
+
+La premiere admission enregistre aussi un domaine Garage durable. Ses
+plafonds de file et de workers actifs bornent les admissions locales. La vue
+`garage_active_reservations` projette les places occupees depuis les agents
+et claims persistants ; elle ne constitue pas un second compteur independant.
+Le binding parent/racine/perimetre est immuable. La profondeur de delegation
+worker reste celle de l'[ADR 0353](../../adr/0353-delegation-worker-bornee-et-admission-runtime.md),
+malgre ce registre ([ADR 0374](../../adr/0374-registre-durable-des-domaines-garage.md)).
 
 Les demandes dont le parent ou le projet est plein sont sautees.
 Un parent sature ne doit pas bloquer un autre parent admissible.
@@ -332,11 +347,11 @@ npm test
 cargo test --workspace
 ```
 
-Sept suites specialisees couvrent plans purs, SQLite reel, lecture par un
+Huit suites specialisees couvrent plans purs, SQLite reel, lecture par un
 nouveau processus, connexions concurrentes, scope, idempotence, ACK non
 probant, compensation, ancien bail, calcul deterministe reel, artefact
 type, recu forge, processus enfant vivant, payload durable, corruption,
-thaw, budget restant, controles operateur et les douze politiques.
+thaw, budget restant, controles operateur, domaines durables et les douze politiques.
 
 Les commandes ci-dessus s'exécutent depuis la racine du dépôt. Depuis
 `backend/`, lancer `node tests/run_validation_suite.js garage`.
