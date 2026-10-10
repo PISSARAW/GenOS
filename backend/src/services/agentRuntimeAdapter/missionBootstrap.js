@@ -70,10 +70,10 @@ async function initializeMissionContext(mission) {
   await require('../garageRuntimeService').assertLease(db, normalizedMission);
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);
   if (normalizedMission.resumeCheckpointId) {
-    await require('../localRuntimeCheckpoint').assertResumeRequest(db, {
+    await require('../runtimeCheckpointRequest').assertResumeRequest(db, {
       checkpointId: normalizedMission.resumeCheckpointId, agentId,
       workspaceId: dispatchedAgent.workspace_id,
-      localRuntime: require('../agentRuntimeExecutable').isLocalRuntime(executable)
+      executable
     });
   }
   await resolveWorkerIdentity(normalizedMission, dispatchedAgent);

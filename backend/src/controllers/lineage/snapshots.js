@@ -9,7 +9,10 @@ const workspaceSnapshots = require('../../services/workspaceSnapshotStore');
 const persistedState = require('../../services/organismPersistedState');
 const orchestratorCheckpoint = require('../../services/organismOrchestratorCheckpoint');
 const runtimeCheckpoint = require('../../services/localRuntimeCheckpoint');
+const codexCheckpoint = require('../../services/codexRuntimeCheckpoint');
 const providerContinuity = require('../../services/organismProviderContinuity');
+const captureBarrier = require('../../services/agentRuntimeCaptureBarrier');
+const snapshotComponents = require('../../services/organismSnapshotComponents');
 
 const RESTORABLE_AGENT_FIELDS = [
   'name', 'name_meaning', 'role', 'model_tier', 'language', 'isolation_mode', 'dissonance_level',
@@ -56,32 +59,10 @@ async function captureAgentWorkspace(options) {
 }
 
 function encodeAgentSnapshot(agent, workspaceSnapshot, extras) {
-  const { capturedAt, persisted, orchestrator } = extras;
+  const { capturedAt, persisted, orchestrator, activePhase } = extras;
   const agentState = restorableAgentState(agent);
-  const continuation = providerContinuity.references(persisted.sections.modelTurns);
-  let resumableRuntime = null;
-  try { resumableRuntime = runtimeCheckpoint.resumable(persisted.sections.runtime); }
-  catch (_) { /* Preserve an unsafe pre-restore safety snapshot without claiming resumability. */ }
-  const components = {
-    agentState: { status: 'captured', hash: digest(agentState) },
-    workspace: workspaceSnapshot
-      ? { status: 'captured', snapshotId: workspaceSnapshot.id, hash: workspaceSnapshot.hash }
-      : { status: 'not-applicable', reason: 'Agent has no workspace.' },
-    runtime: { status: resumableRuntime ? 'captured-resumable-checkpoint'
-      : persisted.sections.runtime || persisted.sections.runtimeCursor ? 'captured-durable-state' : 'not-applicable',
-    hash: digest({ state: persisted.sections.runtime, cursor: persisted.sections.runtimeCursor }) },
-    processMemory: { status: 'unsupported', reason: 'The supervised process exposes no serializable memory checkpoint.' },
-    llmContext: { status: persisted.sections.modelTurns.some((turn) => turn.status === 'pending') ? 'pending-call' : 'captured-visible-context', hash: digest(persisted.sections.modelTurns) },
-    providerHiddenContext: { status: 'unsupported', reason: 'The model provider exposes no hidden-context export contract.' },
-    providerContinuity: continuation.length
-      ? { status: 'captured-reference', hash: digest(continuation), count: continuation.length }
-      : { status: 'not-applicable', reason: 'No provider continuation was captured.' },
-    memoriesAndRelations: { status: 'captured', hash: persisted.hash },
-    orchestrator: orchestrator.length
-      ? { status: 'captured-reference', references: orchestrator }
-      : { status: 'not-applicable', reason: 'No Rust biological mission is linked to this agent.' }
-  };
-  const consistency = 'agent-stable; workspace-capture-verified; sqlite-transaction';
+  const components = snapshotComponents.build({ agentState, workspaceSnapshot, persisted, orchestrator, activePhase });
+  const consistency = snapshotComponents.consistency(activePhase);
   const bundle = { schemaVersion: 4, capturedAt, consistency, components };
   bundle.hash = digest({ agentId: agent.id, workspaceId: agent.workspace_id || null,
     agentState, workspaceSnapshot, persisted, orchestrator, components, capturedAt, consistency });
@@ -110,34 +91,45 @@ function verifyOrganismSnapshot(state) {
 
 async function captureOrganismState(options) {
   const { db, scope, agent, req, snapshotId, reason, persist } = options;
-  if (agent.runtime_pid || require('../../services/agentOrchestrationState').activeProcesses.has(agent.id)) {
-    throw Object.assign(new Error('Stop the agent runtime before capturing a consistent organism snapshot.'), { code: 'ORGANISM_SNAPSHOT_RUNTIME_ACTIVE', status: 409 });
-  }
-  const missions = await orchestratorCheckpoint.linkedMissions(db, agent.id);
-  return orchestratorCheckpoint.withMissionLocks(missions, async () => {
-    const beforeHash = digest(restorableAgentState(agent));
-    const workspaceSnapshot = await captureAgentWorkspace({ db, scope, agent, req, snapshotId, reason });
-    return withTransaction(db, async () => {
-      const latestAgent = await loadAgentForScope(db, scope, agent.id);
-      if (!latestAgent || digest(restorableAgentState(latestAgent)) !== beforeHash) {
-        throw Object.assign(new Error('Agent state changed during organism snapshot capture; capture aborted.'), { code: 'ORGANISM_SNAPSHOT_BARRIER_CHANGED', status: 409 });
-      }
-      const currentMissions = await orchestratorCheckpoint.linkedMissions(db, agent.id);
-      if (JSON.stringify(currentMissions) !== JSON.stringify(missions)) {
-        throw Object.assign(new Error('Agent mission mapping changed during capture.'), { code: 'ORGANISM_SNAPSHOT_MISSION_CHANGED', status: 409 });
-      }
-      const persisted = await persistedState.capture(db, agent.id, scope);
-      runtimeCheckpoint.captured(persisted.sections.runtime);
-      if (persisted.sections.modelTurns.some((turn) => turn.status === 'pending')) {
-        throw Object.assign(new Error('Model inference is in progress; organism snapshot capture aborted.'), { code: 'ORGANISM_SNAPSHOT_MODEL_PENDING', status: 409 });
-      }
-      const orchestrator = await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope });
-      const state = encodeAgentSnapshot(latestAgent, workspaceSnapshot,
-        { capturedAt: new Date().toISOString(), persisted, orchestrator });
-      await persist(state);
-      return state;
+  const barrier = await captureBarrier.pause(agent);
+  try {
+    const missions = await orchestratorCheckpoint.linkedMissions(db, agent.id);
+    return await orchestratorCheckpoint.withMissionLocks(missions, async () => {
+      barrier?.assertAlive();
+      const beforeHash = digest(restorableAgentState(agent));
+      const workspaceSnapshot = await captureAgentWorkspace({ db, scope, agent, req, snapshotId, reason });
+      barrier?.assertAlive();
+      return withTransaction(db, async () => {
+        const latestAgent = await loadAgentForScope(db, scope, agent.id);
+        if (!latestAgent || digest(restorableAgentState(latestAgent)) !== beforeHash) {
+          throw Object.assign(new Error('Agent state changed during organism snapshot capture; capture aborted.'), { code: 'ORGANISM_SNAPSHOT_BARRIER_CHANGED', status: 409 });
+        }
+        const currentMissions = await orchestratorCheckpoint.linkedMissions(db, agent.id);
+        if (JSON.stringify(currentMissions) !== JSON.stringify(missions)) {
+          throw Object.assign(new Error('Agent mission mapping changed during capture.'), { code: 'ORGANISM_SNAPSHOT_MISSION_CHANGED', status: 409 });
+        }
+        const persisted = await persistedState.capture(db, agent.id, scope);
+        runtimeCheckpoint.captured(persisted.sections.runtime);
+        await codexCheckpoint.captured(db, persisted.sections.runtime, agent.id);
+        if (barrier && runtimeCheckpoint.resumable(persisted.sections.runtime)?.phase !== barrier.phase) {
+          throw Object.assign(new Error('Runtime checkpoint changed after the pause acknowledgement.'),
+            { code: 'ORGANISM_SNAPSHOT_BARRIER_CHANGED', status: 409 });
+        }
+        if (persisted.sections.modelTurns.some((turn) => turn.status === 'pending')) {
+          throw Object.assign(new Error('Model inference is in progress; organism snapshot capture aborted.'), { code: 'ORGANISM_SNAPSHOT_MODEL_PENDING', status: 409 });
+        }
+        const orchestrator = await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope });
+        const state = encodeAgentSnapshot(latestAgent, workspaceSnapshot,
+          { capturedAt: new Date().toISOString(), persisted, orchestrator, activePhase: barrier?.phase });
+        barrier?.assertAlive();
+        await persist(state);
+        barrier?.assertAlive();
+        return state;
+      });
     });
-  });
+  } finally {
+    barrier?.release();
+  }
 }
 
 async function restoreSnapshotWorkspace(options) {
@@ -156,7 +148,7 @@ async function restoreSnapshotWorkspace(options) {
 
 async function restoreAgentStateSnapshot(options) {
   const { db, scope, agent, state } = options;
-  const references = await verifyRestoreTarget({ agent, state });
+  const references = await verifyRestoreTarget({ db, agent, state });
   return orchestratorCheckpoint.withMissionLocks(references || [], async () => {
     if (references?.length && !await orchestratorCheckpoint.verify(references)) throw new Error('Rust mission checkpoint changed during restore.');
     await orchestratorCheckpoint.assertCoherent(db, { agentId: agent.id, references: references || [], scope });
@@ -166,7 +158,7 @@ async function restoreAgentStateSnapshot(options) {
 
 async function restoreLockedSnapshot(options) {
   const { db, scope, agent, state, references } = options;
-  const resumableRuntime = runtimeCheckpoint.resumable(state._genosSnapshot?.persistedState?.sections?.runtime);
+  const resumable = snapshotComponents.resumeCheckpoint(state);
   const current = references.length ? await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope }) : [];
   const flags = await orchestratorCheckpoint.active(references);
   const previous = current.map((reference, index) => ({ ...reference, rewound: flags[index].rewound }));
@@ -186,24 +178,11 @@ async function restoreLockedSnapshot(options) {
     await rollbackWorkspaceAfterFailure({ db, scope, agent, workspaceRestore, error });
     throw error;
   }
-  return { workspaceRestored: Boolean(workspaceRestore), workspaceSnapshotId: state._genosSnapshot?.workspaceSnapshot?.id || null,
-    runtimeRestartRequired: restartRequired(state, resumableRuntime),
-    runtimeResumeAvailable: Boolean(resumableRuntime),
-    runtimeCheckpointId: resumableRuntime ? state._genosSnapshot.persistedState.sections.runtime.id : null,
-    runtimeReplayCursorId: state._genosSnapshot?.persistedState?.sections?.runtimeCursor?.id || null,
-    orchestratorResumeRequired: false, orchestratorCursorRestored: references.length > 0,
-    processMemoryRestored: false, providerHiddenContextRestored: false,
-    providerContinuityRestored: false,
-    providerContinuationAvailable: providerContinuity.available(state._genosSnapshot?.persistedState?.sections?.modelTurns || []),
-    safetySnapshotId };
-}
-
-function restartRequired(state, resumableRuntime) {
-  return Boolean(resumableRuntime) || state._genosSnapshot?.schemaVersion >= 3 && state.status === 'running';
+  return snapshotComponents.restoreSummary({ state, resumable, workspaceRestore, references, safetySnapshotId });
 }
 
 async function verifyRestoreTarget(options) {
-  const { agent, state } = options;
+  const { db, agent, state } = options;
   if (agent.runtime_pid || require('../../services/agentOrchestrationState').activeProcesses.has(agent.id)) {
     throw Object.assign(new Error('Stop the agent runtime before restoring an organism snapshot.'), { code: 'ORGANISM_RESTORE_RUNTIME_ACTIVE', status: 409 });
   }
@@ -215,6 +194,7 @@ async function verifyRestoreTarget(options) {
     throw Object.assign(new Error('Organism snapshot manifest hash does not match its captured components.'), { code: 'ORGANISM_SNAPSHOT_INTEGRITY_FAILED', status: 409 });
   }
   runtimeCheckpoint.captured(state._genosSnapshot?.persistedState?.sections?.runtime);
+  await codexCheckpoint.captured(db, state._genosSnapshot?.persistedState?.sections?.runtime, agent.id);
   const references = state._genosSnapshot?.orchestratorCheckpoints;
   if (references && !await orchestratorCheckpoint.verify(references)) {
     throw Object.assign(new Error('Rust mission checkpoint reference is missing or corrupt.'), { code: 'ORGANISM_ORCHESTRATOR_CHECKPOINT_INVALID', status: 409 });
@@ -226,6 +206,7 @@ async function applyPersistedRestore(options) {
   const { db, scope, agent, state, workspaceSnapshot, previous } = options;
   const safetySnapshotId = await persistPreRestoreSafety({ db, scope, agent, workspaceSnapshot, previous });
   const requiresRestart = Boolean(runtimeCheckpoint.resumable(state._genosSnapshot?.persistedState?.sections?.runtime))
+    || Boolean(codexCheckpoint.parse(state._genosSnapshot?.persistedState?.sections?.runtime))
     || state._genosSnapshot?.schemaVersion >= 3 && state.status === 'running';
   await applySnapshotState(db, requiresRestart ? { ...state, status: 'blocked' } : state, agent.id);
   if (state._genosSnapshot?.persistedState) {

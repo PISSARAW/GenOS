@@ -6,6 +6,12 @@ Domaine : snapshots, runtime local, modèles
 Décideurs : équipe GenOS
 Lié à : [ADR 0368](0368-reprise-curseur-mission-et-frontieres-runtime.md)
 
+Évolution : [ADR 0373](0373-barriere-capture-runtime-local-actif.md) ajoute la
+capture pendant une pause sûre du runtime local et la reprise d'une session
+Codex après un tour achevé. Les mentions ci-dessous d'un refus de tout
+processus actif et de Codex systématiquement éphémère décrivent la décision
+initiale de cette ADR.
+
 ## Contexte
 
 Le snapshot durable conserve `agent_runtime_state` et les tours LLM visibles,

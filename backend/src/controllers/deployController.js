@@ -225,10 +225,10 @@ async function startAgent(req, res) {
     if (!contract) return res.status(409).json({ error: { code: 'STRATEGY_CONTRACT_REQUIRED', message: 'No strategy contract is available for this agent.' } });
     const mission = buildStartMissionParams({ agent, contract, req });
     if (mission.resumeCheckpointId) {
-      await require('../services/localRuntimeCheckpoint').assertResumeRequest(db, {
+      await require('../services/runtimeCheckpointRequest').assertResumeRequest(db, {
         checkpointId: mission.resumeCheckpointId, agentId: agent.id,
         workspaceId: agent.workspace_id,
-        localRuntime: runtimeAdapter.isLocalRuntime(runtimeAdapter.configuredExecutable(mission))
+        executable: runtimeAdapter.configuredExecutable(mission)
       });
     }
     const startPromise = runtimeAdapter.startMission(mission);

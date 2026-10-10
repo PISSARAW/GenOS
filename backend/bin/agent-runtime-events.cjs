@@ -180,6 +180,7 @@ function driftFor(state) {
 }
 
 function handleTurnCompleted(state, event) {
+  state.codexTurnCompleted = true;
   const drift = driftFor(state);
   if (drift && drift.warning) {
     state.emit({ eventType: 'INFLAMMATION_DETECTED', action: 'MACROPHAGE', detail: 'Dérive cognitive ou répétition excessive observée.', severity: 'warning', payload: drift });
@@ -190,7 +191,9 @@ function handleTurnCompleted(state, event) {
 
 function dispatchEvent(state, event) {
   const type = String(event.type || '');
-  if (type === 'turn.started') emitTurnStarted(state, event);
+  if (type === 'thread.started' && /^[a-f0-9-]{36}$/.test(event.thread_id || '')) {
+    state.codexThreadId = event.thread_id;
+  } else if (type === 'turn.started') emitTurnStarted(state, event);
   else if (type === 'item.started') emitItemStarted(state, event);
   else if (type === 'item.completed') handleItemCompleted(state, event);
   else if (type === 'turn.completed') handleTurnCompleted(state, event);
