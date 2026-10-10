@@ -656,3 +656,5 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0390 — Fork d’agent depuis un snapshot scellé](adr/0390-fork-agent-depuis-snapshot-scelle.md).
 - [ADR 0391 — Substitution ponctuelle AgentDNA candidate](adr/0391-mutation-ponctuelle-agentdna-candidate.md).
 - [ADR 0392 — Archive héritée vérifiable pour un agent forké](adr/0392-archive-heritee-fork-agent.md).
+- [ADR 0393 — Budget délégué du sous-orchestrateur natif](adr/0393-budget-delegue-sous-orchestrateur-natif.md)
+- [ADR 0394 — Préflight vérifiable de restauration d'organisme](adr/0394-preflight-restauration-organisme.md)

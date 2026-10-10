@@ -92,6 +92,19 @@ l'agent et l'enregistrement sources, `inherited: true` et `executable: false`.
 Le reçu indique `runtimeTransferred: false` : ni contexte du modèle ni
 exécution d'organisme ne sont transférés.
 
+`genos_agent_state_restore_inspect` examine en **lecture seule** un snapshot
+scellé pour une éventuelle restauration du **même agent**. Le client fournit
+`agent_id` et `snapshot_id` ; `agent_id` doit égaler `GENOS_MCP_AGENT_ID`, et le
+tenant provient exclusivement de `GENOS_MCP_ORGANIZATION_ID` et
+`GENOS_MCP_PROJECT_ID` côté serveur. La lease explicite de l'outil est
+requise. Le reçu décrit les domaines contrôlés et les codes de blocage ; les
+messages internes, notamment les chemins locaux, ne sont pas exposés par MCP.
+`ready` est une observation **instantanée**, pas une réservation ni une promesse
+de restauration ultérieure. `globalAtomic: false` signale l'absence de
+transaction globale entre workspace, SQLite et runtime. L'inspection ne
+restaure aucun état, ne démarre aucun processus et n'offre aucune garantie
+de reprise après crash.
+
 Un retour `accepted` atteste le lancement d'une opération asynchrone, pas son achèvement ni sa promotion. Hors du catalogue public, le handler backend `genos_temporal_consciousness_transfer` est `reference_only` : l'action d'exécution renvoie `success: false` et `status: not_implemented` ; son inspection de statut est une simulation, sans restauration d'agent.
 
 Dans la famille des signaux publics, `genos_signal_plasmid_transfer` et les modes `plasmid`/`stigmergic` de `genos_signal_collective_decision` ne disposent pas d'adaptateur exécutant un transfert ou une décision : ils renvoient `success: false`, `status: not_implemented`. Un nombre de destinataires calculé est un aperçu, pas une preuve de transfert. Le mode `electrocyte` calcule un résultat ; le champ `consensusReached` indique séparément si un consensus est atteint.

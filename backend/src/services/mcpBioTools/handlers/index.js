@@ -85,6 +85,7 @@ const { handleTransdifferentiation, handleTurritopsisError } = require('./turrit
 const { handleYamanakaReprogramming, handleYamanakaError } = require('./yamanakaReprogramming');
 const { handleAgentForkSnapshot, handleAgentForkSnapshotError } = require('./agentForkSnapshot');
 const { handleInheritedMemoryRead, handleInheritedMemoryReadError } = require('./agentInheritedMemoryRead');
+const { handleAgentStateRestoreInspect, handleAgentStateRestoreInspectError } = require('./agentStateRestoreInspect');
 const { handleConsciousnessTransfer, handleConsciousnessError } = require('./consciousnessTransfer');
 const { handleNovikovCausalRebase, handleNovikovError } = require('./novikovCausalRebase');
 const { handleBrowserScout, handleBrowserScoutError } = require('./browserScout');
@@ -191,6 +192,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_yamanaka_reprogramming: { handle: handleYamanakaReprogramming, error: handleYamanakaError },
   genos_agent_fork_snapshot: { handle: handleAgentForkSnapshot, error: handleAgentForkSnapshotError },
   genos_agent_inherited_memory_read: { handle: handleInheritedMemoryRead, error: handleInheritedMemoryReadError },
+  genos_agent_state_restore_inspect: { handle: handleAgentStateRestoreInspect, error: handleAgentStateRestoreInspectError },
   genos_temporal_consciousness_transfer: { handle: handleConsciousnessTransfer, error: handleConsciousnessError },
   genos_temporal_novikov_causal_rebase: { handle: handleNovikovCausalRebase, error: handleNovikovError },
   // H38/H39: canonical temporal names above; biomimicry aliases below for doc

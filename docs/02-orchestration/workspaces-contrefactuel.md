@@ -212,6 +212,14 @@ et missions Rust. Voir [ADR 0366](../adr/0366-manifeste-snapshot-organisme.md)
 et [ADR 0370](../adr/0370-checkpoint-logique-local-et-continuite-llm-opaque.md),
 ainsi que [ADR 0373](../adr/0373-barriere-capture-runtime-local-actif.md).
 
+Avant une restauration, `POST /agents/restore/inspect` lit le snapshot du
+même agent et rend un reçu par domaine (`agent`, `workspace`, `persistedState`,
+`orchestrator`, `runtime`). Il vérifie notamment les octets du payload du
+workspace, les propriétaires des sections SQLite et l'absence d'inférence ou
+de processus actif. `ready: true` ne vaut que pour l'instant de l'inspection :
+le restaurateur revalide, et le reçu garde `globalAtomic: false`. Voir
+[ADR 0394](../adr/0394-preflight-restauration-organisme.md).
+
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 
 Le service [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée pour les agents des environnements d’exécution isolés.

@@ -6,6 +6,7 @@ const { getLineage, inspectNode, getGenomeGraph, synthesizeGenome, recordDecisio
 const { diffAgents } = require('./diff');
 const { mergeAgents } = require('./merge');
 const { snapshotCapabilities, snapshotAgentState, commitAgentState, branchAgentState, checkoutAgentState, restoreAgentState } = require('./snapshots');
+const { inspectAgentRestore } = require('./restoreInspect');
 const { cherryPickAgentState } = require('./cherryPick');
 const { replayAgentState, bisectAgentState } = require('./replay');
 const { cloneNode, cloneFromAgent, cloneFromNode, insertClonedAgent } = require('./clone');
@@ -24,6 +25,7 @@ module.exports = {
   checkoutAgentState,
   cherryPickAgentState,
   restoreAgentState,
+  inspectAgentRestore,
   replayAgentState,
   bisectAgentState,
   cloneNode,

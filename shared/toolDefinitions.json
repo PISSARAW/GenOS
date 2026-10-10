@@ -3588,6 +3588,21 @@
       }
     },
     {
+      "name": "genos_agent_state_restore_inspect",
+      "category": "Workspace Control",
+      "risk": "Low",
+      "description": "Inspect a sealed snapshot for same-agent state restoration. Read-only preflight; does not restore workspace, runtime, process memory or hidden provider context.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "snapshot_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "required": ["agent_id", "snapshot_id"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "genos_agent_inherited_memory_read",
       "category": "Workspace Control",
       "risk": "Low",

@@ -478,6 +478,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0390](0390-fork-agent-depuis-snapshot-scelle.md) | Fork d'agent depuis un snapshot scellé | expérimental, service backend direct | 2026-10-10 | snapshots, workspaces isolés, filiation et budget |
 | [0391](0391-mutation-ponctuelle-agentdna-candidate.md) | Substitution ponctuelle dans un AgentDNA candidat | accepté pour la création d'un candidat isolé | 2026-10-10 | AgentDNA, mutation candidate et Studio |
 | [0392](0392-archive-heritee-fork-agent.md) | Archive héritée vérifiable pour un agent forké | expérimental, lecture seule | 2026-10-10 | mémoire durable, snapshots d'organisme, filiation |
+| [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
+| [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

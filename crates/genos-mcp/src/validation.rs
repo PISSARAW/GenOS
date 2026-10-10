@@ -87,6 +87,7 @@ fn get_required_fields(name: &str) -> &[&str] {
         "genos_capsule_create" => &["snapshot_id"],
         "genos_agent_fork_snapshot" => &["agent_id", "snapshot_id", "idempotency_key"],
         "genos_agent_inherited_memory_read" => &["agent_id", "kind"],
+        "genos_agent_state_restore_inspect" => &["agent_id", "snapshot_id"],
         "genos_change_strategy" => &["strategy", "reason"],
         "genos_report_progress" => &["phase", "message"],
         "genos_change_organization" => &["organization", "reason"],
@@ -108,6 +109,9 @@ fn apply_special_validations(name: &str, object: &serde_json::Map<String, serde_
     if name == "genos_philosophy" {
         validate_philosophy_arguments(object)?;
     }
+    if name == "genos_agent_state_restore_inspect" {
+        validate_restore_inspect(object)?;
+    }
     Ok(())
 }
 
@@ -123,6 +127,19 @@ fn validate_execution_tool_arguments(name: &str, object: &serde_json::Map<String
     }
     if name == "genos_a_team_preview" && !object.get("sub_systems").is_some_and(serde_json::Value::is_array) {
         return Err("sub_systems must be an array.".into());
+    }
+    Ok(())
+}
+
+fn validate_restore_inspect(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    if object.len() != 2 || object.keys().any(|key| !["agent_id", "snapshot_id"].contains(&key.as_str())) {
+        return Err("Unsupported restore inspection argument.".into());
+    }
+    for field in ["agent_id", "snapshot_id"] {
+        if object.get(field).and_then(serde_json::Value::as_str)
+            .is_some_and(|value| value.chars().count() > 256) {
+            return Err(format!("{field} must be at most 256 characters."));
+        }
     }
     Ok(())
 }

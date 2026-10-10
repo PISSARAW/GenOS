@@ -278,6 +278,16 @@ mod tests {
         }
         assert!(validate_tool_arguments("genos_agent_inherited_memory_read",
             &json!({"agent_id":"child","kind":"decisions","limit":20})).is_ok());
+        for invalid in [
+            json!({}),
+            json!({"agent_id":"a"}),
+            json!({"agent_id":"a","snapshot_id":"s","extra":true}),
+            json!({"agent_id":"a","snapshot_id":"x".repeat(257)}),
+        ] {
+            assert!(validate_tool_arguments("genos_agent_state_restore_inspect", &invalid).is_err());
+        }
+        assert!(validate_tool_arguments("genos_agent_state_restore_inspect",
+            &json!({"agent_id":"a","snapshot_id":"s"})).is_ok());
         assert!(validate_tool_arguments("genos_philosophy", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "listConcepts" })).is_ok());
         assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "saveAnalysis" })).is_err());
