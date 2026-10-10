@@ -159,6 +159,7 @@ async function invokeProvider(ctx, prepared, uri) {
       seed: ctx.seed,
       stream: ctx.stream,
       responseFormat: ctx.responseFormat,
+      providerContinuity: ctx.providerContinuity,
       enforceSchema: ctx.enforceSchema,
       responseFormat: ctx.responseFormat,
       signal: attempt.controller.signal,
@@ -265,7 +266,8 @@ function summarizeFailures(attempts) {
 async function runFallback(candidates, ctx) {
   const attempts = [];
   let discoveryRefreshed = false;
-  const planned = await applyBanditCanary(candidates, ctx);
+  const planned = ctx.providerContinuity
+    ? { candidates, bandit: null } : await applyBanditCanary(candidates, ctx);
   for (const uri of planned.candidates) {
     try {
       const result = await attemptRoute(ctx, uri);

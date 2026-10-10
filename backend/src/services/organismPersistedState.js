@@ -64,7 +64,7 @@ async function capture(db, agentId, scope) {
   const cursor = await db.get('SELECT * FROM telemetry_events WHERE agent_id = ? ORDER BY id DESC LIMIT 1', agentId);
   sections.runtimeCursor = cursor ? encodeRow(cursor) : null;
   sections.modelTurns = (await db.all(
-    'SELECT * FROM organism_model_turns WHERE agent_id = ? ORDER BY created_at, id', agentId
+    'SELECT * FROM organism_model_turns WHERE agent_id = ? ORDER BY rowid', agentId
   )).map(encodeRow);
   for (const turn of sections.modelTurns) assertModelTurn(turn);
   await assertCaptureScope(db, { agentId, scope, sections });

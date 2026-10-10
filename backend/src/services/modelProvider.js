@@ -202,6 +202,17 @@ async function consumeResponse(context, response) {
 
 async function performRequest(options, controller) {
   const configuration = modelConfiguration(options.model, options.endpoint);
+  if (options.providerContinuity?.mode === 'openai-responses') {
+    if (configuration.provider !== 'openai') {
+      throw Object.assign(new Error('Provider continuity is only supported for OpenAI Responses.'),
+        { code: 'PROVIDER_CONTINUATION_UNSUPPORTED' });
+    }
+    const apiKey = resolveProviderApiKey(configuration.provider);
+    assertModelConfigured(configuration, apiKey);
+    return require('./modelProviderResponses').generate({ ...options,
+      modelName: configuration.modelName, apiKey, prior: options.providerContinuity.prior,
+      signal: controller.signal });
+  }
   const endpoint = options.endpoint || configuration.endpoint;
   const localOnly = LOCAL_PROVIDERS.includes(configuration.provider);
   validateProviderEndpoint(endpoint, { localOnly });
@@ -235,12 +246,12 @@ async function generateDirect(options) {
   }
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint, priority = 'bulk', agentId, organizationId, projectId, seed, temperature, contextTokens, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat, enforceSchema = true }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint, priority = 'bulk', agentId, organizationId, projectId, seed, temperature, contextTokens, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat, enforceSchema = true, providerContinuity }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
   const configuration = modelConfiguration(model, endpoint);
   const isOpenAiCompatible = ['openai', 'ollama', 'lmstudio', 'vllm', 'openai-compatible', 'groq', 'deepseek', 'together', 'openrouter', 'mistral'].includes(configuration.provider);
   const effectiveFormat = responseFormat || (enforceSchema && isOpenAiCompatible ? 'json_object' : undefined);
-  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, temperature, contextTokens, stream, signal, displayWidth, displayHeight, responseFormat: effectiveFormat, enforceSchema };
+  const options = { model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint, seed, temperature, contextTokens, stream, signal, displayWidth, displayHeight, responseFormat: effectiveFormat, enforceSchema, providerContinuity };
   const targetEndpoint = endpoint || configuration.endpoint;
   if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
     return inferenceGateway.schedule(() => generateDirect(options), { provider: configuration.provider, priority, agentId, organizationId, projectId });

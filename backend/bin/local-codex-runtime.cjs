@@ -73,10 +73,12 @@ async function main(rawInput) {
 
   const services = { strategyExecutionAdapter, agentMemory };
   await buildPromptContext(state, services);
+  state.resumeCheckpoint = await require('../src/services/localRuntimeCheckpoint').load(state);
   await runMission(state, services);
 }
 
 async function runMission(state, services) {
+  const checkpoint = require('../src/services/localRuntimeCheckpoint');
   emitEvent(state, {
     eventType: 'AGENT_PLAN_CREATED',
     action: 'PLAN',
@@ -86,12 +88,23 @@ async function runMission(state, services) {
   });
   guardBudget(state);
   try {
-    const generation = localSynthesis.canonicalGeneration(state.autonomyPlan) || createGeneration(state);
-    const reply = await awaitGeneration(state, generation.generation, generation.abort);
-    validateGeneration(reply, generation.fallback, state);
+    let reply = state.resumeCheckpoint?.reply || null;
+    if (!state.resumeCheckpoint) await checkpoint.save(state, 'prepared');
+    if (!reply) {
+      await checkpoint.save(state, 'inference');
+      const generation = localSynthesis.canonicalGeneration(state.autonomyPlan) || createGeneration(state);
+      reply = await awaitGeneration(state, generation.generation, generation.abort);
+      validateGeneration(reply, generation.fallback, state);
+      await checkpoint.save(state, 'generated', reply);
+    }
     require('../src/services/localArtifactWriter').writeArtifacts(reply, state);
-    await runPostPipeline(services, state, reply);
+    if (state.resumeCheckpoint?.phase !== 'evaluated') {
+      await checkpoint.save(state, 'evaluating', reply);
+      await runPostPipeline(services, state, reply);
+      await checkpoint.save(state, 'evaluated', reply);
+    }
     emitCompletion(state, reply);
+    await checkpoint.save(state, 'completed', reply);
     process.exit(0);
   } catch (e) {
     emitFailure(state, e);
@@ -189,7 +202,9 @@ async function runPostPipeline(services, state, reply) {
       }
     );
     await services.agentMemory.compileExecutionMemory(state.agentName, state.prompt, reply, { outcome: 'success', missionScope: state.mission.missionScope });
-  } catch (e) {}
+  } catch (e) {
+    if (state.mission.runtimeCheckpointEnabled) throw e;
+  }
 }
 
 function emitCompletion(state, reply) {

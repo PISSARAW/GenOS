@@ -15,11 +15,18 @@ function worker(mission) {
 function execution(ctx) {
   const mission = ctx.normalizedMission;
   return { workspaceRoot: ctx.workspaceRoot, workspaceIsolation: mission.workspaceIsolation || '',
+    ...checkpoint(ctx),
     agentType: mission.agentType || '', executionMode: ctx.dispatchedAgent.execution_mode,
     orchestratorAgentId: mission.orchestratorAgentId || '', missionId: mission.missionId || '',
     autonomyPlanJson: JSON.stringify(ctx.autonomyPlan || {}), toolLeaseJson: JSON.stringify(mission.toolLease || []),
     genosCapsuleJson: JSON.stringify(ctx.genosCapsule), executionPolicyJson: JSON.stringify(mission.executionPolicy),
     executionBudgetJson: JSON.stringify(ctx.runtimeBudget || {}) };
+}
+
+function checkpoint(ctx) {
+  return { workspaceId: ctx.normalizedMission.workspaceId || ctx.dispatchedAgent.workspace_id || '',
+    resumeCheckpointId: ctx.normalizedMission.resumeCheckpointId || '',
+    runtimeCheckpointEnabled: require('./agentRuntimeExecutable').isLocalRuntime(ctx.resolvedExecutable) };
 }
 
 function build(ctx, identity, runtimeStrategyContract) {

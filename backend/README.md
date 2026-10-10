@@ -53,7 +53,7 @@ For the agent-state Git API, its correspondence with Git, and the boundary betwe
 The JSON files under `spec/` are exchange contracts for manifests, snapshots, events, lineage, and schema-service responses. They are validated by the runtime schema validator and selected CLI/API boundaries. They are not a serialization of the SQLite schema.
 
 Les routes de snapshot d'agent (`/agents/snapshot`, commit, restore et checkout)
-publient un manifeste d'organisme version 3. Il lie les champs d'agent, le
+publient un manifeste d'organisme version 4. Il lie les champs d'agent, le
 workspace, les données SQLite durables de l'agent et les références vérifiées
 des checkpoints biologiques Rust. `organism_model_turns` journalise les appels
 qui passent par `modelRouter`, avec empreinte de la requête et de la réponse.
@@ -63,8 +63,15 @@ dans une transaction, y compris les tours LLM visibles. Elle sélectionne le
 checkpoint Rust capturé sous verrou de mission ; pour une mission partagée, les
 autres agents doivent être arrêtés et inchangés depuis la capture. Elle ne
 relance pas le processus et ne restaure ni sa RAM ni le contexte caché du
-fournisseur LLM. Le [contrat détaillé](../docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)
-et l'[ADR 0368](../docs/adr/0368-reprise-curseur-mission-et-frontieres-runtime.md)
+fournisseur LLM. Le runtime local GenOS peut cependant écrire un checkpoint
+logique aux étapes sûres ; la réponse de restauration donne alors un
+`runtimeCheckpointId` à transmettre explicitement à `POST /agents/:id/start`
+comme `resumeCheckpointId`. Un appel du routeur avec
+`providerContinuity: { mode: 'openai-responses' }` utilise, si elle existe, la
+référence de réponse OpenAI chiffrée du même agent et de la même session.
+`GENOS_SECRET_KEY` est requis ; le fournisseur n'est contacté qu'au tour
+suivant. Le [contrat détaillé](../docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)
+et l'[ADR 0370](../docs/adr/0370-checkpoint-logique-local-et-continuite-llm-opaque.md)
 décrivent les frontières de cohérence.
 
 SQLite tables and columns under `src/db/` are internal persistence contracts. They evolve through startup migrations and may contain operational fields that are intentionally absent from the public JSON schemas. A valid JSON manifest therefore does not imply that every field is directly persisted, and a successful database migration does not replace JSON contract validation.

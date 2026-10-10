@@ -47,6 +47,10 @@ message AgentMission {
   string host_execution_context_json = 33;
   // Cognitive rotation index assigned by the Trinity dispatcher.
   int32 variant_index = 34;
+  // Explicit, verified logical checkpoint for the bundled local runtime.
+  string resume_checkpoint_id = 35;
+  bool runtime_checkpoint_enabled = 36;
+  string workspace_id = 37;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }
