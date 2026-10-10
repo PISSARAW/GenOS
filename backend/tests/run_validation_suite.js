@@ -118,7 +118,9 @@ const suites = {
     ['MCP permissions', 'test_mcp_permission_scope_contract.js'],
     ['MCP HTTP transport', 'test_mcp_http_transport.js'],
     ['MCP explicit transport', 'test_mcp_explicit_transport.js'],
-    ['MCP server parity', 'test_mcp_server_parity.js']
+    ['MCP server parity', 'test_mcp_server_parity.js'],
+    ['MCP inherited archive', 'test_mcp_inherited_memory_read.js'],
+    ['MCP agent restore inspection', 'test_mcp_agent_state_restore_inspect.js']
   ],
   security: [
     ['public route allowlist', 'test_auth_public_surface.js'],

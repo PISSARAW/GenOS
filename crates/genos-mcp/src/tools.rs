@@ -218,8 +218,16 @@ mod lease_tests {
     #[test]
     fn backend_bridged_tools_come_from_canonical_catalog() {
         let tools = bridged_catalog_specs();
-        assert_eq!(tools.len(), 27);
+        assert!(tools.iter().any(|tool| tool.get("name").and_then(serde_json::Value::as_str)
+            == Some("genos_signal_publish")));
         assert!(tools.iter().all(|tool| tool.get("inputSchema").is_some()));
+        assert!(tools.iter().all(|tool| tool.get("name").and_then(serde_json::Value::as_str)
+            .is_some_and(crate::executor::backend_dispatch::is_bridged_tool)));
+        for unavailable in ["genos_browser_act", "genos_computer_use",
+            "genos_foveal_crop", "genos_optimal_foraging"] {
+            assert!(tools.iter().all(|tool| tool.get("name").and_then(serde_json::Value::as_str)
+                != Some(unavailable)));
+        }
     }
 
     #[test]

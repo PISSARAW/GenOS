@@ -15,13 +15,30 @@ const agent = {
 
 async function getRecord(options) {
   const { sql, args, state, workspace } = options;
-  if (sql.includes('SELECT w.id, w.name, w.path')) return args[0] === workspace.id ? workspace : null;
-  if (sql.includes('SELECT a.* FROM agents')) return { ...state.agent };
+  if (sql.includes('SELECT w.id')) return scopedWorkspace(workspace, args);
+  if (sql.includes('SELECT a.* FROM agents')) return scopedAgent(state, args);
+  if (sql.includes("SELECT 1 AS active FROM organism_model_turns")) return pendingTurn(state);
   if (sql.includes('SELECT s.*, w.path AS workspace_path')) return findWorkspaceSnapshot(state, workspace, args);
   if (sql.includes('SELECT step_number FROM workspace_snapshots')) return findSnapshotStep(state, args[0]);
   if (sql.includes('SELECT 1 FROM workspace_snapshots')) return hasSnapshotHash(state, args[0]);
   if (sql.includes('agent_state_snapshots')) return state.agentSnapshots.find((row) => row.id === args[0]) || null;
   return null;
+}
+
+function scopedWorkspace(workspace, args) {
+  return args[0] === workspace.id && tenantMatches(args) ? workspace : null;
+}
+
+function scopedAgent(state, args) {
+  return tenantMatches(args) ? { ...state.agent } : null;
+}
+
+function pendingTurn(state) {
+  return state.pending ? { active: 1 } : null;
+}
+
+function tenantMatches(args) {
+  return args.length < 3 || args[1] === agent.organization_id && args[2] === agent.project_id;
 }
 
 function findWorkspaceSnapshot(state, workspace, args) {
@@ -52,7 +69,7 @@ function saveWorkspaceSnapshot(state, args) {
 }
 
 function saveAgentSnapshot(state, args) {
-  state.agentSnapshots.push({ id: args[0], state_json: args[3] });
+  state.agentSnapshots.push({ id: args[0], workspace_id: args[2], state_json: args[3] });
 }
 
 function updateAgentState(state, args) {
@@ -129,6 +146,62 @@ async function main() {
     assert.equal(capturedState._genosSnapshot.persistedState.schemaVersion, 3);
     capturedState._genosSnapshot.organismSnapshot.components.agentState.hash = 'tampered';
     assert.equal(integrity(capturedState).valid, false);
+
+    const inspect = require('../src/services/organismRestorePreflight').inspect;
+    const sealed = JSON.parse(fixture.state.agentSnapshots[0].state_json);
+    const scope = { clause: 'w.organization_id = ? AND w.project_id = ?',
+      params: [agent.organization_id, agent.project_id] };
+    const ready = await inspect({ db: fixture.db, scope, agent: fixture.state.agent, state: sealed });
+    assert.equal(ready.ready, true);
+    assert.equal(ready.globalAtomic, false);
+    assert.equal(ready.readinessScope, 'instantaneous');
+    assert.equal(ready.domains.workspace.status, 'ready');
+    const forged = structuredClone(sealed);
+    forged.current_task = 'forged';
+    const badSeal = await inspect({ db: fixture.db, scope, agent: fixture.state.agent, state: forged });
+    assert.equal(badSeal.ready, false);
+    assert.equal(badSeal.blockers[0].code, 'ORGANISM_SNAPSHOT_INTEGRITY_FAILED');
+    fixture.state.agent.runtime_pid = 42;
+    const active = await inspect({ db: fixture.db, scope, agent: fixture.state.agent, state: sealed });
+    assert.equal(active.ready, false);
+    assert.equal(active.blockers.some((item) => item.code === 'ORGANISM_RESTORE_RUNTIME_ACTIVE'), true);
+    fixture.state.agent.runtime_pid = null;
+    fixture.state.pending = true;
+    const pending = await inspect({ db: fixture.db, scope, agent: fixture.state.agent, state: sealed });
+    assert.equal(pending.ready, false);
+    assert.equal(pending.blockers.some((item) => item.code === 'ORGANISM_RESTORE_MODEL_PENDING'), true);
+    fixture.state.pending = false;
+    const metadata = JSON.parse(fixture.state.snapshots[0].metadata);
+    const payloadFile = path.join(metadata.storagePath, 'files', 'source.txt');
+    const originalMetadata = fixture.state.snapshots[0].metadata;
+    fixture.state.snapshots[0].metadata = JSON.stringify({ ...metadata,
+      snapshotContext: { ...metadata.snapshotContext, agent_id: 'other-agent' } });
+    const foreignManifest = await inspect({ db: fixture.db, scope, agent: fixture.state.agent, state: sealed });
+    assert.equal(foreignManifest.ready, false);
+    assert.equal(foreignManifest.blockers.some((item) => item.code === 'ORGANISM_WORKSPACE_SNAPSHOT_MISMATCH'), true);
+    fixture.state.snapshots[0].metadata = originalMetadata;
+    await fs.writeFile(payloadFile, 'tampered payload');
+    const corrupt = await inspect({ db: fixture.db, scope, agent: fixture.state.agent, state: sealed });
+    assert.equal(corrupt.ready, false);
+    assert.equal(corrupt.blockers.some((item) => item.code === 'ORGANISM_WORKSPACE_PAYLOAD_INVALID'), true);
+    assert.equal(corrupt.blockers.some((item) => item.message.includes(root)), false);
+    await fs.writeFile(payloadFile, 'snapshot source');
+    const foreignScope = { ...scope, params: ['other-org', 'other-project'] };
+    const foreign = await inspect({ db: fixture.db, scope: foreignScope, agent: fixture.state.agent, state: sealed });
+    assert.equal(foreign.ready, false);
+    assert.equal(foreign.blockers[0].code, 'ORGANISM_SNAPSHOT_OWNER_MISMATCH');
+    const inspected = response();
+    await controller.inspectAgentRestore({ ...request, body: { agentId: agent.id,
+      snapshotId: saved.get().body.snapshotId } }, inspected.res);
+    assert.equal(inspected.get().body.ready, true);
+    const deniedTenant = response();
+    await controller.inspectAgentRestore({ ...request,
+      tenant: { organizationId: 'foreign-org', projectId: 'foreign-project' },
+      body: { agentId: agent.id, snapshotId: saved.get().body.snapshotId } }, deniedTenant.res);
+    assert.equal(deniedTenant.get().code, 404);
+    await assert.rejects(() => controller.inspectAgentRestore({ ...request,
+      body: { agentId: agent.id, snapshotId: saved.get().body.snapshotId,
+        processMemory: true } }, response().res), (error) => error.code === 'ORGANISM_PROCESS_MEMORY_UNAVAILABLE');
 
     fixture.state.agent.status = 'completed';
     fixture.state.agent.cognitive_budget = 3;

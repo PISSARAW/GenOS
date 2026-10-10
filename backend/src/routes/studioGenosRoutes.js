@@ -50,6 +50,7 @@ const genome = require('../services/studioGenomeService');
 router.get('/genomes', requirePermission('read'), handle(genome.list));
 router.get('/genomes/:genomeId', requirePermission('read'), handle(genome.inspect));
 router.post('/genomes/:genomeId/mutate', ...write, handle(genome.mutate));
+router.post('/genomes/:genomeId/point-mutate', ...write, handle(genome.pointMutate));
 
 const recovery = require('../services/studioRecoveryService');
 router.get('/agents/:id/diagnostic', requirePermission('read'), handle(recovery.inspect));

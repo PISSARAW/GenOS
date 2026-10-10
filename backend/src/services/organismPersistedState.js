@@ -135,18 +135,58 @@ async function insertRow(db, table, row) {
 }
 
 async function restore(db, agentId, options) {
+  await inspectRestore(db, agentId, options);
+  await replacePersistedRows(db, agentId, options.payload.sections);
+  return { modelTurns: options.payload.sections.modelTurns.length, runtimeRestartRequired: true };
+}
+
+async function inspectRestore(db, agentId, options) {
   const { payload, scope } = options;
   if (!verify(payload)) {
-    throw Object.assign(new Error('Persisted organism state hash is invalid.'), { code: 'ORGANISM_STATE_INTEGRITY_FAILED', status: 409 });
+    throw Object.assign(new Error('Persisted organism state hash is invalid.'),
+      { code: 'ORGANISM_STATE_INTEGRITY_FAILED', status: 409 });
   }
   const { sections } = payload;
   validateSections(sections, agentId, scope);
   await verifyRuntimeCursor(db, sections.runtimeCursor);
   await assertSynapsePeers(db, scope, sections);
+  await assertRelationPeers(db, { scope, agentId, relations: sections.relations });
   const pending = await db.get("SELECT 1 AS active FROM organism_model_turns WHERE agent_id = ? AND status = 'pending' LIMIT 1", agentId);
-  if (pending) throw Object.assign(new Error('Model inference is in progress during restore.'), { code: 'ORGANISM_RESTORE_MODEL_PENDING', status: 409 });
-  await replacePersistedRows(db, agentId, sections);
-  return { modelTurns: sections.modelTurns.length, runtimeRestartRequired: true };
+  if (pending) {
+    throw Object.assign(new Error('Model inference is in progress during restore.'),
+      { code: 'ORGANISM_RESTORE_MODEL_PENDING', status: 409 });
+  }
+  for (const [name, spec] of Object.entries(TABLES)) {
+    await assertInsertableColumns(db, spec.name, sections[name]);
+  }
+  await assertInsertableColumns(db, 'agent_runtime_state', sections.runtime ? [sections.runtime] : []);
+  await assertInsertableColumns(db, 'organism_model_turns', sections.modelTurns);
+  return { valid: true, sections: Object.keys(sections) };
+}
+
+async function assertRelationPeers(db, options) {
+  const { scope, agentId, relations } = options;
+  for (const relation of relations) {
+    const peerId = relation.source_agent_id === agentId
+      ? relation.target_agent_id : relation.source_agent_id;
+    const peer = await db.get(`SELECT a.id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
+      WHERE a.id = ? AND ${scope.clause}`, peerId, ...scope.params);
+    if (!peer) {
+      throw Object.assign(new Error('Related agent is outside the restore tenant.'),
+        { code: 'ORGANISM_RELATION_SCOPE_MISMATCH', status: 403 });
+    }
+  }
+}
+
+async function assertInsertableColumns(db, table, rows) {
+  if (!rows.length) return;
+  const columns = new Set((await db.all(`PRAGMA table_info(${table})`)).map((column) => column.name));
+  for (const row of rows) {
+    if (!row || !Object.keys(row).length || Object.keys(row).some((key) => !columns.has(key))) {
+      throw Object.assign(new Error(`Snapshot contains unsupported ${table} columns.`),
+        { code: 'ORGANISM_STATE_COLUMNS_INVALID', status: 409 });
+    }
+  }
 }
 
 function validateSections(sections, agentId, scope) {
@@ -201,4 +241,4 @@ async function replacePersistedRows(db, agentId, sections) {
   for (const turn of sections.modelTurns) await insertRow(db, 'organism_model_turns', turn);
 }
 
-module.exports = { capture, verify, restore, digest };
+module.exports = { capture, verify, restore, inspectRestore, digest };

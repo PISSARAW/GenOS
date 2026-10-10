@@ -45,7 +45,7 @@ fonctionnelle, mise en file de message et traitement métier. Le contrat natif
 est porté par le backend Node ; la présence du dispatch générique dans un autre
 catalogue ne démontre pas la parité de ce runtime Axolotl.
 
-GenOS possède plusieurs représentations du catalogue, chacune ayant une responsabilité différente. La source canonique des schémas publics est `shared/toolDefinitions.json` (48 outils au 7 octobre 2026) ; `mcp/toolDefinitions.json` en est la copie embarquée de repli, utilisée uniquement quand le serveur JS tourne hors racine du dépôt (`mcp/catalog.js`). Les deux fichiers doivent rester synchronisés :
+GenOS possède plusieurs représentations du catalogue, chacune ayant une responsabilité différente. La source canonique des schémas publics est `shared/toolDefinitions.json` ; `mcp/toolDefinitions.json` en est la copie embarquée de repli, utilisée uniquement quand le serveur JS tourne hors racine du dépôt (`mcp/catalog.js`). Les deux fichiers doivent rester synchronisés :
 
 | Surface | Role | Exemples |
 | --- | --- | --- |
@@ -61,9 +61,51 @@ Les effectifs (strategies, primitives, outils declares) ne sont pas figes dans l
 - `bio` pour les outils biomimetiques ;
 - `cli` pour les outils commencant par `genos_` et supportes par le registre.
 
-Cette séparation est intentionnelle : publier un schéma aide un client à formuler l'appel, mais seul le registre runtime doit pouvoir autoriser un dispatch. Les tests JavaScript vérifient la copie du catalogue et le routage des 48 outils ; le serveur Rust possède son propre catalogue sous lease. Le test de parité backend ne prouve qu'une correspondance minimale entre les deux serveurs, pas l'identité de tous leurs schémas ni l'exécution métier de chaque outil. `genos_replay` accepte `snapshot` ou `snapshot_id` via `anyOf` ; `genos_worker_publish` exige `kind`, `signal_type` et `signal_data`. Une topologie adversariale exige aussi `recipient_agent_id` pour router vers la paire explicite.
+Cette séparation est intentionnelle : publier un schéma aide un client à formuler l'appel, mais seul le registre runtime doit pouvoir autoriser un dispatch. Les tests JavaScript vérifient la copie du catalogue et le routage des outils ; le serveur Rust possède son propre catalogue sous lease. Le test de parité backend ne prouve qu'une correspondance minimale entre les deux serveurs, pas l'identité de tous leurs schémas ni l'exécution métier de chaque outil. `genos_replay` accepte `snapshot` ou `snapshot_id` via `anyOf` ; `genos_worker_publish` exige `kind`, `signal_type` et `signal_data`. Une topologie adversariale exige aussi `recipient_agent_id` pour router vers la paire explicite.
 
-Un retour `accepted` atteste le lancement d'une opération asynchrone, pas son achèvement ni sa promotion. Hors du catalogue public de 48 outils, le handler backend `genos_temporal_consciousness_transfer` est `reference_only` : l'action d'exécution renvoie `success: false` et `status: not_implemented` ; son inspection de statut est une simulation, sans restauration d'agent.
+Le nouvel outil `genos_agent_fork_snapshot` crée un agent enfant **inactif** et un
+workspace isolé à partir d'un snapshot d'agent scellé et de son snapshot de
+workspace vérifié. Il débite le budget du parent et persiste la lignée. Son reçu
+indique `runtimeStarted: false`, `memoryCloned: false` et
+`organismRuntimeRestored: false` : ce fork n'est pas un transfert de conscience
+ni une exécution autonome. L'opération est idempotente pour une même clé et
+un même budget.
+
+L'accès MCP exige la lease explicite `genos_agent_fork_snapshot` et les
+variables côté serveur `GENOS_MCP_ALLOW_AGENT_FORK=true`,
+`GENOS_MCP_ORGANIZATION_ID`, `GENOS_MCP_PROJECT_ID`,
+`GENOS_MCP_AGENT_ID` et `GENOS_MCP_FORK_ROOT` (chemin absolu
+hors du workspace source). Le client fournit `agent_id`, `snapshot_id`,
+`idempotency_key` et `budget` ; `agent_id` doit correspondre à
+l'identité liée au serveur. Le tenant et le répertoire cible ne sont jamais
+pris dans les arguments du client.
+
+`genos_agent_inherited_memory_read` lit une archive attribuée au parent depuis
+le snapshot scellé lié à un enfant forké. Il ne copie aucune ligne dans les
+mémoires actives de l'enfant. Le client fournit `agent_id` (l'enfant), `kind`
+(`memories`, `autobiographicalEpisodes` ou `decisions`) et éventuellement
+`limit` (1 à 50, 20 par défaut). Le serveur impose `agent_id` égal à `GENOS_MCP_AGENT_ID` et détermine le tenant depuis ses propres variables
+`GENOS_MCP_ORGANIZATION_ID` et `GENOS_MCP_PROJECT_ID`. L'outil demande sa
+lease explicite. Les souvenirs et épisodes ne renvoient que des métadonnées
+bornées ; les décisions renvoient un texte borné. Chaque élément indique
+l'agent et l'enregistrement sources, `inherited: true` et `executable: false`.
+Le reçu indique `runtimeTransferred: false` : ni contexte du modèle ni
+exécution d'organisme ne sont transférés.
+
+`genos_agent_state_restore_inspect` examine en **lecture seule** un snapshot
+scellé pour une éventuelle restauration du **même agent**. Le client fournit
+`agent_id` et `snapshot_id` ; `agent_id` doit égaler `GENOS_MCP_AGENT_ID`, et le
+tenant provient exclusivement de `GENOS_MCP_ORGANIZATION_ID` et
+`GENOS_MCP_PROJECT_ID` côté serveur. La lease explicite de l'outil est
+requise. Le reçu décrit les domaines contrôlés et les codes de blocage ; les
+messages internes, notamment les chemins locaux, ne sont pas exposés par MCP.
+`ready` est une observation **instantanée**, pas une réservation ni une promesse
+de restauration ultérieure. `globalAtomic: false` signale l'absence de
+transaction globale entre workspace, SQLite et runtime. L'inspection ne
+restaure aucun état, ne démarre aucun processus et n'offre aucune garantie
+de reprise après crash.
+
+Un retour `accepted` atteste le lancement d'une opération asynchrone, pas son achèvement ni sa promotion. Hors du catalogue public, le handler backend `genos_temporal_consciousness_transfer` est `reference_only` : l'action d'exécution renvoie `success: false` et `status: not_implemented` ; son inspection de statut est une simulation, sans restauration d'agent.
 
 Dans la famille des signaux publics, `genos_signal_plasmid_transfer` et les modes `plasmid`/`stigmergic` de `genos_signal_collective_decision` ne disposent pas d'adaptateur exécutant un transfert ou une décision : ils renvoient `success: false`, `status: not_implemented`. Un nombre de destinataires calculé est un aperçu, pas une preuve de transfert. Le mode `electrocyte` calcule un résultat ; le champ `consensusReached` indique séparément si un consensus est atteint.
 

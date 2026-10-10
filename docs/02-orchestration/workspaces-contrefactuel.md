@@ -254,6 +254,14 @@ atomiques les effets externes. Les préconditions, noms et champs propres à
 chaque variant sont dans la [référence technique](../03-reference/snapshots-topologiques.md).
 Voir aussi [ADR 0385](../adr/0385-contrat-snapshot-topologique.md).
 
+Avant une restauration, `POST /agents/restore/inspect` lit le snapshot du
+même agent et rend un reçu par domaine (`agent`, `workspace`, `persistedState`,
+`orchestrator`, `runtime`). Il vérifie notamment les octets du payload du
+workspace, les propriétaires des sections SQLite et l'absence d'inférence ou
+de processus actif. `ready: true` ne vaut que pour l'instant de l'inspection :
+le restaurateur revalide, et le reçu garde `globalAtomic: false`. Voir
+[ADR 0394](../adr/0394-preflight-restauration-organisme.md).
+
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 
 Le service [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée pour les agents des environnements d’exécution isolés.

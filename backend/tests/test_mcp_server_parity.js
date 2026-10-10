@@ -8,7 +8,8 @@ const sharedSource = fs.readFileSync(path.join(repositoryRoot, 'shared', 'toolDe
 const rustTools = [
   'tools.rs',
   path.join('tools', 'base_specs.rs'),
-  path.join('tools', 'catalog_tools.rs')
+  path.join('tools', 'catalog_tools.rs'),
+  path.join('executor', 'backend_dispatch.rs')
 ].map((file) => fs.readFileSync(path.join(repositoryRoot, 'crates', 'genos-mcp', 'src', file), 'utf8')).join('\n');
 
 const catalog = JSON.parse(sharedSource);
