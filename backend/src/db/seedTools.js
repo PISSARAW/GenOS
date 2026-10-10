@@ -26,6 +26,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_snapshot', cat: 'Workspace Control', risk: 'Low', desc: 'Captures full workspace timeline snapshot' },
   { name: 'genos_restore', cat: 'Workspace Control', risk: 'High', desc: 'Destructive rollback to prior snapshot' },
   { name: 'genos_fork', cat: 'Workspace Control', risk: 'Amber', desc: 'Forks workspace into parallel universe' },
+  { name: 'genos_agent_fork_snapshot', cat: 'Workspace Control', risk: 'Amber', desc: 'Creates an idle agent and isolated workspace from a sealed snapshot' },
   { name: 'genos_merge', cat: 'Workspace Control', risk: 'High', desc: 'Merges an isolated branch under evidence gates' },
   { name: 'genos_run', cat: 'Workspace Control', risk: 'High', desc: 'Executes sandboxed terminal commands' },
   { name: 'genos_inspect', cat: 'Workspace Control', risk: 'Low', desc: 'Inspects file AST and workspace state' },

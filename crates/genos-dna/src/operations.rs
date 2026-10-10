@@ -336,7 +336,7 @@ fn merge_parent_grn(dna: &mut AgentDna, parent: &AgentDna) {
     }
 }
 
-fn rebuild_inheriting(genome: &Genome, parent: &AgentDna, metadata: (&str, Provenance)) -> AgentDna {
+pub(crate) fn rebuild_inheriting(genome: &Genome, parent: &AgentDna, metadata: (&str, Provenance)) -> AgentDna {
     let (name, provenance) = metadata;
     let mut dna = AgentDna::from_genome(genome, name, provenance);
     dna.epigenome = parent.epigenome.clone();

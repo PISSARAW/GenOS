@@ -3588,6 +3588,23 @@
       }
     },
     {
+      "name": "genos_agent_fork_snapshot",
+      "category": "Workspace Control",
+      "risk": "Amber",
+      "description": "Create an idle child agent and isolated workspace from a sealed agent snapshot. Requires a server-bound agent and trusted fork root; does not start a runtime or clone memory.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_id": { "type": "string", "minLength": 1 },
+          "snapshot_id": { "type": "string", "minLength": 1 },
+          "idempotency_key": { "type": "string", "minLength": 1 },
+          "budget": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["agent_id", "snapshot_id", "idempotency_key", "budget"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "genos_v2_fork",
       "category": "Workspace Control",
       "risk": "Amber",

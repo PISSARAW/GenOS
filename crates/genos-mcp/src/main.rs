@@ -253,6 +253,18 @@ mod tests {
         assert!(validate_tool_arguments("genos_snapshot", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_replay", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_snapshot", &json!({ "agent": "a", "out": "b" })).is_ok());
+        for invalid in [
+            json!({}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k"}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":0}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":-1}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":1.5}),
+            json!({"agent_id":" ","snapshot_id":"s","idempotency_key":"k","budget":1}),
+        ] {
+            assert!(validate_tool_arguments("genos_agent_fork_snapshot", &invalid).is_err());
+        }
+        assert!(validate_tool_arguments("genos_agent_fork_snapshot",
+            &json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":1})).is_ok());
         assert!(validate_tool_arguments("genos_philosophy", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "listConcepts" })).is_ok());
         assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "saveAnalysis" })).is_err());

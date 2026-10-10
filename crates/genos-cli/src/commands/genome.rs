@@ -36,6 +36,12 @@ pub fn execute(cmd: GenomeSubcommands) -> Result<(), String> {
                 write: WriteOptions { force, parents },
             })
         }
+        GenomeSubcommands::PointMutate { input, output, locus, position, base, force, parents } => {
+            genome_ops::handle_point_mutate(genome_ops::PointMutationRequest {
+                input: &input, output: &output, locus, position, base,
+                write: WriteOptions { force, parents },
+            })
+        }
         GenomeSubcommands::Clone { input, output, mode, daughter_volume, mutation_rate, seed, force, parents } => {
             genome_ops::handle_clone(genome_ops::CloneRequest {
                 input: &input, output: &output, mode, daughter_volume, mutation_rate, seed,

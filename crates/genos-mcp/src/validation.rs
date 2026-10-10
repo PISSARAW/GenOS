@@ -85,6 +85,7 @@ fn get_required_fields(name: &str) -> &[&str] {
         "genos_orchestrate" | "genos_delegate_worker" => &["mission"],
         "genos_snapshot" => &["agent", "out"],
         "genos_capsule_create" => &["snapshot_id"],
+        "genos_agent_fork_snapshot" => &["agent_id", "snapshot_id", "idempotency_key"],
         "genos_change_strategy" => &["strategy", "reason"],
         "genos_report_progress" => &["phase", "message"],
         "genos_change_organization" => &["organization", "reason"],
@@ -113,10 +114,20 @@ fn validate_execution_tool_arguments(name: &str, object: &serde_json::Map<String
     if name == "genos_replay" {
         validate_genos_replay(object)?;
     }
+    if name == "genos_agent_fork_snapshot" {
+        validate_agent_fork_snapshot(object)?;
+    }
     if name == "genos_a_team_preview" && !object.get("sub_systems").is_some_and(serde_json::Value::is_array) {
         return Err("sub_systems must be an array.".into());
     }
     Ok(())
+}
+
+fn validate_agent_fork_snapshot(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    match object.get("budget").and_then(serde_json::Value::as_u64) {
+        Some(budget) if budget > 0 => Ok(()),
+        _ => Err("budget must be a positive integer.".into()),
+    }
 }
 
 fn validate_genos_replay(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {

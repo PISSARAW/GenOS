@@ -57,6 +57,7 @@ const REQUIRED_STRINGS = {
   genos_capsule_create: ['snapshot_id'],
   genos_v2_init: [],
   genos_v2_fork: [],
+  genos_agent_fork_snapshot: ['agent_id', 'snapshot_id', 'idempotency_key'],
   genos_trinity_launch: ['mission'],
   genos_a_team_preview: ['project_goal', 'sub_systems'],
   genos_audit: ['snapshot_id'],
