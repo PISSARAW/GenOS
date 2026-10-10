@@ -35,8 +35,18 @@ function validateExpectedRefusals(kind, contract) {
 }
 
 async function seedParent(options) {
-  const { db, parentId, workspaceId, workspaceRoot } = options;
-  await db.run('INSERT OR IGNORE INTO workspaces (id,name,path,language) VALUES (?,?,?,?)', workspaceId, `Isolated worker compliance ${workspaceId}`, workspaceRoot, 'TypeScript');
+  const { db, parentId, workspaceId, workspaceRoot, kind, runId } = options;
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1' && kind === 'sub_orchestrator') {
+    const organizationId = `compliance-org-${runId}`;
+    const projectId = `compliance-project-${runId}`;
+    await db.run('INSERT OR IGNORE INTO organizations (id,name) VALUES (?,?)', organizationId, organizationId);
+    await db.run('INSERT OR IGNORE INTO projects (id,organization_id,name) VALUES (?,?,?)', projectId, organizationId, projectId);
+    await db.run('INSERT OR IGNORE INTO workspaces (id,name,path,language,organization_id,project_id) VALUES (?,?,?,?,?,?)',
+      workspaceId, `Isolated worker compliance ${workspaceId}`, workspaceRoot, 'TypeScript',
+      organizationId, projectId);
+  } else {
+    await db.run('INSERT OR IGNORE INTO workspaces (id,name,path,language) VALUES (?,?,?,?)', workspaceId, `Isolated worker compliance ${workspaceId}`, workspaceRoot, 'TypeScript');
+  }
   await db.run(`INSERT OR IGNORE INTO agents (id,name,role,status,agent_type,execution_mode,workspace_id,cognitive_budget,cognitive_baseline_budget,model_tier,language,isolation_mode,parent_agent_id,metadata_json) VALUES (?,?,?,'idle',?,'orchestrator',?,100000,100000,'Local','TypeScript','Branch',NULL,'{}')`, parentId, 'Compliance orchestrator', 'compliance', 'GenOS', workspaceId);
   const contract = contracts.buildStrategyContract({ mission: 'Run one isolated worker kind compliance mission.', allowPrototype: true });
   if (!(await contracts.getLatestContract(db, parentId, workspaceId))) await contracts.saveContract(db, { agentId: parentId, workspaceId, contract, createdBy: 'worker-compliance-harness' });
@@ -47,15 +57,22 @@ async function missionFor(context) {
   const strategy = await contracts.getLatestContract(db, parentId, workspaceId);
   const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`,
     hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local',
-    methodContract: complianceMethod(kind) };
+    methodContract: complianceMethod(kind, context.rootWorkspace),
+    ...(process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1' && kind === 'symbiotic_worker'
+      ? { hostContractId: 'host-native', hostCapabilities: ['deterministic_procedure'] } : {}) };
   const created = await fleet.createAutonomousWorkers(db, { id: parentId, agent_type: 'GenOS' }, {
     plan: { strategyContract: { primary: strategy.contract.selected_strategy.primary }, tokenPolicy: { total: 5000, workerShare: 0.6, orchestratorReserve: 0.4, allocation: 'fixed' }, dispatchWorkers: [assignment] },
-    mission: { prompt: `${scenario.prompt} Fixture data: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
+    mission: { prompt: `${scenario.prompt} Fixture data: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT,
+      recoveryLease: kind === 'recovery_worker' ? { action: 'restore_checkpoint', path: 'state.txt' } : null,
+      executionPolicy: { allowFileEdits: kind === 'recovery_worker' }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
   });
   return created[0];
 }
 
-function complianceMethod(kind) {
+function complianceMethod(kind, rootWorkspace) {
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1') {
+    return require('./helpers/nativeWorkerFixtures').fixtures(rootWorkspace)[kind];
+  }
   const local = localComplianceMethod(kind);
   if (local) return local;
   if (kind === 'procedural_executor') return { version: 1, methodId: 'lpt', parameters: {
@@ -306,21 +323,31 @@ function failedMissionResult(options) {
 
 async function createWorkerContext(options) {
   const { db, parentId, workspaceId, rootWorkspace, kind, model, runId } = options;
-  await seedParent({ db, parentId, workspaceId, workspaceRoot: rootWorkspace });
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1' && kind === 'recovery_worker') {
+    fs.writeFileSync(path.join(rootWorkspace, 'state.txt'), 'damaged');
+  }
+  await seedParent({ db, parentId, workspaceId, workspaceRoot: rootWorkspace, kind, runId });
   const scenario = workerComplianceScenario(kind);
-  const worker = await missionFor({ db, parentId, workspaceId, kind, model, scenario });
+  const worker = await missionFor({ db, parentId, workspaceId, rootWorkspace, kind, model, scenario });
+  let missionId = null;
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1') {
+    const identity = require('../src/services/missionIdentityService');
+    missionId = `compliance-mission-${runId}-${kind}`;
+    await identity.create(db, { missionId, objective: scenario.prompt, orchestratorAgentId: parentId });
+    await identity.attachAgent(db, { missionId, agentId: worker.agentId, role: kind });
+  }
   const row = await db.get('SELECT metadata_json FROM agents WHERE id = ?', worker.agentId);
   const metadata = JSON.parse(row.metadata_json);
   if (metadata.workerKind !== kind || metadata.workerContract?.identity?.workerKind !== kind) throw new Error(`Persistent worker contract mismatch for ${kind}.`);
   if (!inside(process.env.GENOS_CAPSULE_ROOT, worker.workspaceRoot || rootWorkspace)) throw new Error(`Worker workspace escaped isolated capsule root: ${worker.workspaceRoot}`);
-  return { db, runId, worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, scenario };
+  return { db, runId, worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, scenario, missionId };
 }
 
 async function executeWorkerMission(context) {
-  const { worker, metadata, parentId, workspaceId, rootWorkspace, kind, model } = context;
+  const { worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, missionId } = context;
   const timeoutMs = Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000;
   try {
-    return await runtime.startMission({ agentId: worker.agentId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true });
+    return await runtime.startMission({ agentId: worker.agentId, missionId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: kind === 'recovery_worker', silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true });
   } catch (error) { return { error: error.message, errorCode: error.code || null }; }
 }
 
