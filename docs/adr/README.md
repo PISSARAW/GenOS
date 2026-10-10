@@ -486,6 +486,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
 | [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
 
+| [0389](0389-autorite-des-consommateurs-memoire-rest-et-grpc.md) | Autorité des consommateurs mémoire REST et gRPC | Accepté pour la qualification bornée | 2026-10-10 | Principals, scopes, révocation et mémoire |
+
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
 > fichiers sont conservés tels quels (renommage interdit sans migration

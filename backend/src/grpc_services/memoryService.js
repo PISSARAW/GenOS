@@ -1,9 +1,10 @@
 const vectorMemory = require('../services/vectorMemoryService');
+const authority = require('./memoryAuthorization');
 
 function searchResult(entry) {
   return {
-    id: entry.id || 'mem-1',
-    content: entry.content || entry.title || '',
+    id: entry.id,
+    content: entry.summary || entry.content || entry.title || '',
     embedding: entry.vector || []
   };
 }
@@ -13,26 +14,29 @@ module.exports = {
 
   StoreMemory: async (call, callback) => {
     try {
+      const tenant = await authority.authorize(call, { write: true });
       const { id, content, embedding } = call.request || {};
-      await vectorMemory.storeMemory('grpc-client', content || '', embedding || null, {
-        id: id || `exp-${Date.now()}`,
+      const storedId = await vectorMemory.storeMemory(tenant.principalId, content || '', embedding?.length ? embedding : null, {
+        id: id || undefined, organizationId: tenant.organizationId, projectId: tenant.projectId,
         title: 'gRPC Memory'
       });
-      callback(null, { success: true });
+      callback(null, { success: true, memory_id: storedId });
     } catch (err) {
-      callback(null, { success: false });
+      callback(authority.errorStatus(err));
     }
   },
 
   SearchMemory: async (call, callback) => {
     try {
-      const { text, vector, limit } = call.request || {};
-      const query = (vector && vector.length > 0) ? vector : (text || '');
-      const searchRes = await vectorMemory.searchMemory('grpc-client', query, limit || 5);
-      const results = (searchRes.allScoredExperiences || []).map(searchResult);
+      const tenant = await authority.authorize(call);
+      const options = authority.searchOptions(call);
+      const query = call.request?.text || '';
+      const searchRes = await vectorMemory.searchMemory(query, { ...options,
+        organizationId: tenant.organizationId, projectId: tenant.projectId });
+      const results = (searchRes.allScoredExperiences || []).slice(0, options.limit).map(searchResult);
       callback(null, { results });
     } catch (err) {
-      callback(null, { results: [] });
+      callback(authority.errorStatus(err));
     }
   },
 
