@@ -23,6 +23,9 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('113-garage-fabric', 'Persist adaptive worker garage queue and leases', async (db) => {
     await require('./migrateGarageFabric').migrateGarageFabric(db);
   }),
+  createMigrationRunner('116-garage-domains', 'Persist scoped garage domains and active capacity projection', async (db) => {
+    await require('./migrateGarageDomains').migrateGarageDomains(db);
+  }),
   createMigrationRunner('114-gvx-runtime', 'Fence resumable GVX cycles and reversible runtime operations', async (db) => {
     await require('./migrateGvxRuntime').migrateGvxRuntime(db);
   }),

@@ -19,9 +19,10 @@ async function enqueuePersistent(db, input = {}) {
       if (previous.request_hash !== fingerprint) throw requests.error('GARAGE_IDEMPOTENCY_CONFLICT', 'Request id already has different content.');
       return previous;
     }
+    const domain = await require('./garageDomainService').ensureDomain(db, request.orchestratorId);
     const pending = await db.get(`SELECT COUNT(*) AS count FROM garage_queue
       WHERE orchestrator_id = ? AND status IN ('queued','claimed','running')`, request.orchestratorId);
-    if (pending.count >= 1000) throw requests.error('GARAGE_QUEUE_FULL', 'Orchestrator queue limit reached.');
+    if (pending.count >= domain.queue_capacity) throw requests.error('GARAGE_QUEUE_FULL', 'Orchestrator queue limit reached.');
     await db.run(`INSERT INTO garage_queue(request_id, orchestrator_id, worker_id, organization_id,
       project_id, mode, priority, request_json, request_hash, phase, policy_json, deadline_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, request.requestId, request.orchestratorId,

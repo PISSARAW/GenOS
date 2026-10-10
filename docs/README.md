@@ -283,6 +283,9 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 Index : [adr/README.md](adr/README.md)
 
+- [ADR 0372 — Fondation des garages hiérarchiques et plafond projet](adr/0372-fondation-garages-hierarchiques-et-plafond-projet.md).
+- [ADR 0374 — Registre durable des domaines Garage](adr/0374-registre-durable-des-domaines-garage.md).
+
 - [ADR 0348 — Élimination de la dette historique de qualité](adr/0348-elimination-dette-historique-qualite.md).
 
 - [0332-rhizome-execution-verifiee-et-telemetrie-reelle.md](adr/0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) — complétion Rhizome, sorties signées, croissance atomique et télémétrie réelle.
