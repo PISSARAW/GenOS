@@ -5,12 +5,13 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { chromium } = require('playwright');
 const { request } = require('./studioRequest.cjs');
+const tasks = require('./studioTaskNavigation.cjs');
 
 const fileRoute = '/api/workspaces/consumer-ws/file?path=a%2Fverify.cjs';
 const candidate = "const assert = require('node:assert/strict');\nassert.equal(2 + 2, 4);\nconsole.log('consumer proof');\n";
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const loaded = page => page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
-const runState = (page, status) => page.locator('#run-status').filter({ hasText: status }).waitFor({ timeout: 60000 });
+const runState = (page, status) => page.locator('#run-status').filter({ hasText: status }).waitFor({ state: 'attached', timeout: 60000 });
 
 async function login(page, spec) {
   await page.goto(spec.settings.url + '/studio/');
@@ -34,7 +35,7 @@ async function editAndSnapshot(page, spec) {
   await loaded(page);
   assert.equal(fs.readFileSync(spec.file, 'utf8'), candidate);
   const response = page.waitForResponse(value => value.url().endsWith('/snapshots') && value.request().method() === 'POST');
-  await page.locator('#editor-snapshot').click();
+  await tasks.click(page, page.locator('#editor-snapshot'));
   const captured = await response;
   assert.equal(captured.status(), 201);
   const snapshot = await captured.json();
@@ -51,12 +52,12 @@ async function conflictAndRestore(page, spec, snapshotId) {
     version: current.value.version, contentBase64: Buffer.from(concurrent).toString('base64') } });
   assert.equal(updated.status, 200);
   const draft = candidate + '// unsaved operator draft\n';
-  await page.locator('#file-content').fill(draft);
+  await tasks.fill(page, page.locator('#file-content'), draft);
   await page.locator('#file-save').click();
   await page.locator('#message').filter({ hasText: '409' }).waitFor();
   assert.equal(await page.locator('#file-content').inputValue(), draft);
   assert.equal(fs.readFileSync(spec.file, 'utf8'), concurrent);
-  await page.locator('#restore-id').fill(snapshotId);
+  await tasks.fill(page, page.locator('#restore-id'), snapshotId);
   await page.locator('#restore-preview').click();
   await loaded(page);
   page.once('dialog', dialog => dialog.accept());
@@ -87,7 +88,7 @@ async function tenantRefusals(spec) {
 
 async function approve(page, spec) {
   await page.locator('[data-target="inspection"]').click();
-  await page.getByText('Soumettre un dossier d’approbation signé').click();
+  await tasks.reveal(page, page.locator('#approval-json'));
   await page.locator('#approval-json').fill('{}');
   await page.getByRole('button', { name: 'Soumettre l’approbation' }).click();
   await page.locator('#message').filter({ hasText: '403' }).waitFor();
@@ -119,6 +120,7 @@ async function approve(page, spec) {
 }
 
 async function disconnect(page) {
+  await page.locator('.session-context > summary').click();
   await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
   assert.equal(await page.locator('#inspection').isVisible(), false);
   assert.equal(await page.locator('#file-content').inputValue(), '');

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const tasks = require('./helpers/studioTaskNavigation.cjs');
 
 const fixtures = {
   '/api/auth/session': { user: { permissions: ['workspace:write'] } },
@@ -36,13 +37,13 @@ async function login(page) {
 async function guards(page) {
   const refused = dialog => dialog.dismiss();
   page.on('dialog', refused);
-  await page.locator('#workspace-choice').fill('foreign-workspace');
+  await tasks.fill(page, page.locator('#workspace-choice'), 'foreign-workspace');
   await page.locator('#workspace-choice').dispatchEvent('change');
   assert.equal(await page.locator('#workspace-choice').inputValue(), 'workspace');
-  await page.locator('#project').fill('foreign-project');
+  await tasks.fill(page, page.locator('#project'), 'foreign-project');
   await page.locator('#project').dispatchEvent('change');
   assert.equal(await page.locator('#project').inputValue(), 'project');
-  await page.locator('#disconnect').click();
+  await tasks.click(page, page.locator('#disconnect'));
   assert.equal(await page.locator('#session-bar').isVisible(), true);
   assert.equal(await page.locator('#file-content').inputValue(), 'draft to keep');
   page.off('dialog', refused);
@@ -84,7 +85,7 @@ async function acceptedDiscard(page) {
   await login(page);
   page.removeAllListeners('dialog');
   page.once('dialog', dialog => dialog.accept());
-  await page.locator('#workspace-choice').fill('other-workspace');
+  await tasks.fill(page, page.locator('#workspace-choice'), 'other-workspace');
   await page.locator('#workspace-choice').dispatchEvent('change');
   assert.equal(await page.locator('#workspace-choice').inputValue(), 'other-workspace');
   assert.equal(await page.locator('#file-content').inputValue(), '');
@@ -101,6 +102,7 @@ async function main() {
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/**', fixtureApi);
     await page.goto(server.url);
+    await require('./helpers/studioRecordBrowserProbe.cjs').run(page);
     await login(page);
     await guards(page);
     await failures(page);
@@ -112,7 +114,7 @@ async function main() {
     await page.unroute('**/api/workspaces/workspace/file?**');
     await acceptedDiscard(page);
     assert.deepEqual(errors, []);
-    console.log('Studio foundation browser: real DOM, fixture API; cancelled transitions, accepted discard, draft errors, original controls, uncertain effect and forced 401 purge passed.');
+    console.log('Studio foundation browser: record selection/filter/keyboard/unknown states, real DOM, fixture API; context guards, draft errors, uncertain effect and forced 401 purge passed.');
   } finally {
     await browser?.close();
     await server.close();

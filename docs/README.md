@@ -6,6 +6,8 @@
 
 - [Qualification P1 avec V3 au 2026-10-10](06-qualite-preuves/qualification-p1-v3-2026-10-10.md) — nursery/replay, projection évaluateur, Lean réel et reproduction ; [ADR 0387](adr/0387-pont-nursery-replay-et-projection-evaluateur.md).
 
+- [Studio : essai sur cinq niveaux de missions](06-qualite-preuves/studio-essai-cinq-niveaux.md) — parcours réels, vérifications persistées et limites d'autonomie et de production.
+
 - [Obstacle 4 : communication et consolidation scientifique](06-qualite-preuves/obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée de GQWF v2, Garage Fabric, Signal Plane, preuves et G-CIR Ω ; [ADR 0377](adr/0377-consolidation-scientifique-par-references-versionnees.md).
 
 - [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
@@ -15,6 +17,7 @@
 - [ADR 0363 — Parcours GenOS structurants](adr/0363-studio-parcours-genos-structurants.md) — étape D, destinations canoniques et frontières de preuve.
 - [ADR 0364 — Mécanismes spécialisés Studio](adr/0364-studio-mecanismes-specialises.md) — étape E, calculs bornés et analyses provisoires.
 - [ADR 0365 — Boucle de production locale](adr/0365-studio-boucle-production-locale.md) — étape F, version figée, adaptateur local et reprise sous CAS.
+- [ADR 0388 — Studio organisé par tâches](adr/0388-studio-vues-centrees-sur-les-taches.md) — une tâche visible, opérations séparées, inspecteur de nœud et accessibilité.
 - [Studio : boucle de production locale](04-exploitation/studio-boucle-production.md) — guide opérateur F01–F03, observations et limites.
 - [Studio : mécanismes spécialisés](04-exploitation/studio-mecanismes-specialises.md) — procédures E01–E05, autorités, pagination et qualification.
 - [Studio : utiliser les parcours GenOS](04-exploitation/studio-parcours-genos.md) — procédures et qualification D01–D04, avec limites explicites.
@@ -650,6 +653,7 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0344 — Refactorings de qualité et frontières de contrôle](adr/0344-refactorings-qualite-et-frontieres-de-controle.md).
 - [ADR 0352 — Composition Studio et inspecteurs de preuves](adr/0352-studio-composition-et-inspecteurs-de-preuves.md).
 - [Studio — refonte visuelle et qualification](06-qualite-preuves/studio-refonte-visuelle.md).
+- [Studio — surfaces dominantes et qualification du 10 octobre](06-qualite-preuves/studio-surfaces-dominantes.md).
 - [ADR 0355 — Clôture native par oracles budgétés et nonces liés](adr/0355-cloture-native-par-oracles-budgetes-et-nonces-lies.md).
 - [ADR 0356 — Oracle mémoire de promotion et contrôle de lecture](adr/0356-oracle-memoire-de-promotion-et-controle-de-lecture.md).
 - [ADR 0357 — Rétraction des assemblées et mémoires dérivées](adr/0357-retraction-des-assemblees-et-memoires-derivees.md).

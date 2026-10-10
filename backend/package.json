@@ -9,6 +9,8 @@
     "studio:supervised": "node bin/genos-studio-supervisor.cjs",
     "test:studio": "node tests/run_studio_suite.cjs",
     "test:studio:browser": "node tests/test_studio_browser.cjs",
+    "test:studio:builder": "node tests/test_studio_builder_browser.cjs",
+    "test:studio:density": "node tests/test_studio_density_browser.cjs",
     "test:studio:foundation": "node tests/test_studio_foundation_browser.cjs",
     "test:studio:pilot": "node tests/test_studio_pilot.cjs",
     "test:studio:genos": "node tests/test_studio_genos_browser.cjs",
