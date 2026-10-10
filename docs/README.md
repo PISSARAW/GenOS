@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Studio : essai sur cinq niveaux de missions](06-qualite-preuves/studio-essai-cinq-niveaux.md) — parcours réels, vérifications persistées et limites d'autonomie et de production.
+
 - [Obstacle 4 : communication et consolidation scientifique](06-qualite-preuves/obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée de GQWF v2, Garage Fabric, Signal Plane, preuves et G-CIR Ω ; [ADR 0377](adr/0377-consolidation-scientifique-par-references-versionnees.md).
 
 - [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
