@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [obstacle-4-communication-consolidation-scientifique-2026-10-10.md](obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée et flux cible pour la consolidation scientifique.
+
 - [studio-parite-plan.md](studio-parite-plan.md) — matrice du programme validé, capacités communes et différenciation, acceptation et jalons.
 - [studio-parite-suivi.md](studio-parite-suivi.md) — points livrés, base Git, risques de consolidation et preuves de la reprise.
 

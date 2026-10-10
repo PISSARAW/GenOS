@@ -12,7 +12,7 @@ const {
   activeWorkerBarriers, emit, updateAgent
 } = require('../agentOrchestrationState');
 const { buildLaunchCapabilities } = require('../agents/agentIncarnationPayloadService');
-const { createIsolatedWorkspace, cleanupWorkspace } = require('../agentWorkspaceLifecycleService');
+const { createIsolatedWorkspace, cleanupWorkspace, forgetWorkspace } = require('../agentWorkspaceLifecycleService');
 const { createOrchestratorId } = require('../orchestratorIdFactory');
 const agentEvolution = require('../agentEvolutionService');
 const { getDatabase, withTransaction } = require('../../db');
@@ -251,7 +251,11 @@ async function emitSlotReleased(db, worker, message) {
 }
 
 async function cancelRecoveryDispatch(db, target, workspace) {
-  if (workspace.workspaceRoot) await bestEffort(cleanupWorkspace(workspace.workspaceRoot, workspace.capsuleName || target.targetId));
+  if (workspace.workspaceRoot) {
+    const capsuleId = workspace.capsuleName || target.targetId;
+    const outcome = await bestEffort(cleanupWorkspace(workspace.workspaceRoot, capsuleId, { rollbackUnlaunched: target.targetId }));
+    if (outcome === 'removed' || outcome === 'worktree-removed') await bestEffort(forgetWorkspace(capsuleId));
+  }
   await updateAgent(target.targetId, 'blocked', 'Recovery stopped with the orchestrator evidence barrier');
   await emitSlotReleased(db, { targetId: target.targetId, orchId: target.orchestratorId, workerName: target.name }, {
     detail: `Worker '${target.name}' released its active slot due to recovery barrier cancellation.`,

@@ -27,8 +27,16 @@ assert.deepEqual(exported.leaves, ['c1', 't1']);
 assert.equal(exported.nodes.length, 4);
 assert.equal(exported.edges.length, 3);
 
-const propagated = new CounterexamplePropagator({ graph });
-propagated.propagate({ targetId: 'l1', counterexampleResultId: 'result:c1', domainFingerprint: 'domain:d' });
-assert.equal(graph.getNode('t1').status, 'invalidated');
+const propagated = new CounterexamplePropagator({
+  graph,
+  verifyCounterexample: async () => ({
+    status: 'validated', targetId: 'l1', counterexampleResultId: 'result:c1',
+    domainFingerprint: 'domain:d', receiptDigest: `sha256:${'b'.repeat(64)}`,
+  }),
+});
 
-console.log('Epistemic scheduler mathematical dependency graph passed.');
+(async () => {
+  await propagated.propagate({ targetId: 'l1', counterexampleResultId: 'result:c1', domainFingerprint: 'domain:d' });
+  assert.equal(graph.getNode('t1').status, 'invalidated');
+  console.log('Epistemic scheduler mathematical dependency graph passed.');
+})().catch((error) => { console.error(error); process.exit(1); });

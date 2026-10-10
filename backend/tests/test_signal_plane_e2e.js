@@ -125,6 +125,8 @@ async function testLlmEscalationPath() {
   });
 
   assert.strictEqual(result.llmRequired, true, 'llmRequired=true when no receptor matches');
+  const unexpectedDelivery = await testDb.get('SELECT signal_id FROM signal_deliveries WHERE signal_id = ?', result.signalId);
+  assert.strictEqual(unexpectedDelivery, undefined, 'Unmatched signal does not enqueue worker delivery');
 
   const escalationSignal = busEvents.find((e) => e.signalId === result.signalId);
   assert.ok(escalationSignal, 'Real bus event captured for escalation signal');
@@ -152,8 +154,6 @@ async function testLlmEscalationPath() {
 function testCoalescingPath() {
   resetState();
   const senderA = 'csnd-a-' + Date.now();
-  const senderB = 'csnd-b-' + Date.now();
-  const senderC = 'csnd-c-' + Date.now();
   const topic = 'ctop-' + Date.now();
   const opts = { refractoryMs: 0, coalesceMs: 60000 };
 
@@ -166,13 +166,13 @@ function testCoalescingPath() {
 
   const result2 = signalCoalescer.coalesce({
     signalId: 'sig-c2', signalType: 'ligand', topic,
-    senderAgentId: senderB, signalData: { concentration: 0.7 },
+    senderAgentId: senderA, signalData: { concentration: 0.7 },
   }, opts);
   assert.strictEqual(result2, null, 'Second signal buffered, not emitted');
 
   const result3 = signalCoalescer.coalesce({
     signalId: 'sig-c3', signalType: 'ligand', topic,
-    senderAgentId: senderC, signalData: { concentration: 0.9 },
+    senderAgentId: senderA, signalData: { concentration: 0.9 },
   }, opts);
   assert.strictEqual(result3, null, 'Third signal buffered, not emitted');
 
@@ -285,32 +285,57 @@ async function testDurablePollWakePath() {
   console.log('[PASS] testDurablePollWakePath');
 }
 
+async function testFailedReceptorDoesNotDeliverToWorkers() {
+  resetState();
+  receptor.registerReceptor({ id: 'receptor-action-failure', targetLigand: 'ACTION_FAILURE',
+    threshold: 0.5, action: 'update_agent',
+    actionData: { agentId: 'missing-agent', status: 'running' } });
+  const result = await transport.publishSignal({ signalId: 'sig-action-failure',
+    signalType: 'ligand', signalData: { semanticType: 'ACTION_FAILURE', concentration: 0.9 },
+    topic: 'failed-receptor', senderAgentId: 'orch-1', recipientAgentIds: ['worker-1'] });
+  const deliveries = await testDb.all('SELECT subscriber_agent_id FROM signal_deliveries WHERE signal_id = ?', result.signalId);
+  assert.strictEqual(result.llmRequired, true, 'Failed receptor escalates to cognition');
+  assert.deepStrictEqual(deliveries, [], 'Failed receptor does not create worker deliveries');
+  console.log('[PASS] testFailedReceptorDoesNotDeliverToWorkers');
+}
+
 async function testPublicationRequiresDurableDelivery() {
   resetState();
+  await testDb.run("UPDATE agents SET status = 'idle', current_task = NULL WHERE id = 'worker-1'");
   receptor.registerReceptor({
     id: 'receptor-delivery-failure', targetLigand: 'DELIVERY_FAILURE',
     threshold: 0.5, action: 'update_agent',
     actionData: { agentId: 'worker-1', status: 'running' }
   });
   const originalRun = testDb.run.bind(testDb);
+  let deliveryWrites = 0;
   testDb.run = async (sql, ...values) => {
     if (String(sql).includes('INSERT') && String(sql).includes('signal_deliveries')) {
-      throw new Error('injected delivery write failure');
+      deliveryWrites++;
+      if (values[0]?.[1] === 'worker-2') throw new Error('injected delivery write failure');
     }
     return originalRun(sql, ...values);
   };
   try {
     await assert.rejects(
       transport.publishSignal({
+        signalId: 'sig-atomic-delivery-failure',
         signalType: 'ligand', signalData: { semanticType: 'DELIVERY_FAILURE' },
         topic: 'durable-delivery-failure', senderAgentId: 'orch-1',
-        recipientAgentIds: ['worker-1']
+        recipientAgentIds: ['worker-1', 'worker-2']
       }),
       /Failed to persist delivery/
     );
   } finally {
     testDb.run = originalRun;
   }
+  assert.ok(deliveryWrites >= 2, 'Failure occurred on the second recipient');
+  const blob = await testDb.get('SELECT signal_id FROM signal_blobs WHERE signal_id = ?', 'sig-atomic-delivery-failure');
+  const deliveries = await testDb.all('SELECT subscriber_agent_id FROM signal_deliveries WHERE signal_id = ?', 'sig-atomic-delivery-failure');
+  const worker = await testDb.get("SELECT status FROM agents WHERE id = 'worker-1'");
+  assert.strictEqual(blob, undefined, 'Blob insert rolls back with delivery failure');
+  assert.deepStrictEqual(deliveries, [], 'Earlier recipient insert rolls back');
+  assert.strictEqual(worker.status, 'running', 'Receptor effect is separate from the persistence transaction');
   console.log('[PASS] testPublicationRequiresDurableDelivery');
 }
 
@@ -338,6 +363,7 @@ async function runAllTests() {
   await testDeliveryAckCycle();
   await testWakeHandlerPath();
   await testDurablePollWakePath();
+  await testFailedReceptorDoesNotDeliverToWorkers();
   await testPublicationRequiresDurableDelivery();
   await testSignalIdCannotOverwritePayload();
   const runAdditional = createAdditionalSignalPlaneCases({

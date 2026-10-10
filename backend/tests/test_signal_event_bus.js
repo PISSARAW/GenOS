@@ -130,12 +130,46 @@ async function testCoalescerDifferentSenders() {
 
   const sig2 = { signalId: 's2', signalType: 'ligand', topic, senderAgentId: 'b', signalData: {} };
   const result2 = coalescer.coalesce(sig2, { refractoryMs: 0, coalesceMs: 60000 });
-  assert.strictEqual(result2, null, 'Second sender buffered inside open window (true coalescing)');
-  // Le premier signal est inclus dans le buffer (jamais perdu) : [s1, s2].
-  assert.strictEqual(coalescer.getBufferedCount(topic), 2, 'Both signals buffered (first included)');
-  const aggregated = coalescer.flushAndAggregate(topic);
-  assert.ok(aggregated, 'Buffered signals aggregate into one emission');
-  assert.strictEqual(aggregated.coalescedCount, 2, 'Aggregate covers both buffered signals');
+  assert.ok(result2, 'Different sender emits independently');
+  assert.strictEqual(coalescer.getBufferedCount(topic), 2, 'Each sender has a separate buffer');
+  const firstGroup = coalescer.flushAndAggregate(topic);
+  const secondGroup = coalescer.flushAndAggregate(topic);
+  assert.strictEqual(firstGroup.coalescedCount, 1, 'Flush preserves first sender identity');
+  assert.strictEqual(secondGroup.coalescedCount, 1, 'Flush preserves second sender identity');
+}
+
+function testDistinctScientificSignals() {
+  resetCoalescer();
+  const base = { signalType: 'ligand', topic: 'scientific-result', senderAgentId: 'researcher' };
+  const first = coalescer.coalesce({ ...base, signalId: 'finding-a',
+    signalData: { eventType: 'proof', artifactRef: 'claim-a', version: 1, idempotencyKey: 'proof-a-v1' } });
+  const duplicate = coalescer.coalesce({ ...base, signalId: 'finding-a-copy',
+    signalData: { eventType: 'proof', artifactRef: 'claim-a', version: 1, idempotencyKey: 'proof-a-v1' } });
+  const other = coalescer.coalesce({ ...base, signalId: 'finding-b',
+    signalData: { eventType: 'proof', artifactRef: 'claim-b', version: 1 } });
+  const newer = coalescer.coalesce({ ...base, signalId: 'finding-a-v2',
+    signalData: { eventType: 'proof', artifactRef: 'claim-a', version: 2 } });
+  const otherSemanticRef = coalescer.coalesce({ ...base, signalId: 'finding-c',
+    signalData: { eventType: 'proof', communicationEnvelope: { semanticRefs: ['claim-c'] } } });
+  const nextSemanticRef = coalescer.coalesce({ ...base, signalId: 'finding-d',
+    signalData: { eventType: 'proof', communicationEnvelope: { semanticRefs: ['claim-d'] } } });
+  const revoked = coalescer.coalesce({ ...base, signalId: 'finding-a-retracted',
+    signalData: { eventType: 'claim_retracted', artifactRef: 'claim-a', version: 2 } });
+  const counterexampleA = coalescer.coalesce({ ...base, signalId: 'counterexample-a',
+    signalData: { eventType: 'counterexample_validated', artifactRef: 'claim-a', version: 2,
+      idempotencyKey: 'counterexample-batch', counterexampleResultId: 'counterexample-a', receiptDigest: 'sha256:a' } });
+  const counterexampleB = coalescer.coalesce({ ...base, signalId: 'counterexample-b',
+    signalData: { eventType: 'counterexample_validated', artifactRef: 'claim-a', version: 2,
+      idempotencyKey: 'counterexample-batch', counterexampleResultId: 'counterexample-b', receiptDigest: 'sha256:b' } });
+  const unkeyedA = coalescer.coalesce({ ...base, signalId: 'unkeyed-a',
+    signalData: { eventType: 'finding', artifactRef: 'claim-a', version: 2 } });
+  const unkeyedB = coalescer.coalesce({ ...base, signalId: 'unkeyed-b',
+    signalData: { eventType: 'finding', artifactRef: 'claim-a', version: 2 } });
+  assert.ok(first && other && newer && otherSemanticRef && nextSemanticRef && revoked,
+    'Distinct artifacts, versions, semantic refs and revocations must pass');
+  assert.ok(counterexampleA && counterexampleB, 'Distinct counterexample results must both pass');
+  assert.ok(unkeyedA && unkeyedB, 'Referenced events without an idempotency key must both pass');
+  assert.strictEqual(duplicate, null, 'Duplicate event/version is suppressed');
 }
 
 async function testCoalescerWindowExpires() {
@@ -188,7 +222,10 @@ async function run() {
   console.log('[PASS] Coalescer allows different topics');
 
   await testCoalescerDifferentSenders();
-  console.log('[PASS] Coalescer coalesces different senders in window');
+  console.log('[PASS] Coalescer separates different senders');
+
+  testDistinctScientificSignals();
+  console.log('[PASS] Distinct scientific signals survive coalescing');
 
   await testCoalescerWindowExpires();
   console.log('[PASS] Coalescer expires suppressed buffers');

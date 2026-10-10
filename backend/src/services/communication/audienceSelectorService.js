@@ -4,7 +4,7 @@ const { findExperts } = require('./transactiveMemoryService');
 const { computeKnowledgeDelta } = require('./commonGroundService');
 
 function limitOf(input) {
-  const asked = Number(input.maxCandidates || 8);
+  const asked = Number(input.maxCandidates || input.requestedAgentIds?.length || 8);
   if (asked < 1) return 1;
   if (asked > 50) return 50;
   return Math.floor(asked);
@@ -15,6 +15,7 @@ async function rankCandidates(input) {
   return findExperts({
     db: input.db, domain: input.domain, capability: input.capability,
     requiredTools: input.requiredTools, count: limitOf(input),
+    requestedAgentIds: input.requestedAgentIds,
     independenceFrom: fromIds, independenceThreshold: input.independenceThreshold,
     maxCost: input.maxCost, weights: input.weights
   });
@@ -97,7 +98,7 @@ async function selectAudience(input) {
   const candidates = await rankCandidates(input);
   const refs = input.semanticRefs || [];
   const enriched = await attachUnknownRefs({ db: input.db, senderId: input.senderId, candidates, refs });
-  const informed = enriched.filter((candidate) => candidate.unknownRefs.length > 0);
+  const informed = enriched.filter((candidate) => candidate.unknownRefs.length > 0 || input.requiresAction);
   const ids = informed.map((candidate) => candidate.agentId);
   const roles = await rolesOf(input.db, ids);
   const groups = capVariants(groupByVariant(informed, refs, roles));

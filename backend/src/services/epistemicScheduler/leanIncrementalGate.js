@@ -3,6 +3,7 @@
 const { createHash } = require('node:crypto');
 const { pack } = require('msgpackr');
 const { globalRegistry } = require('../mathematical/verificationRegistry');
+const { FormalizationArtifact, FormalizationRegistry, naturalStatementFingerprint, formalStatementFingerprint } = require('../mathematical/formalizationArtifact');
 
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const PLACEHOLDER_PROOF = /\b(?:sorry|admit)\b/u;
@@ -20,10 +21,53 @@ function validateConfiguration(options) {
 
 function receiptDigest(receipt) {
   return digest(pack([
-    receipt.nodeId, receipt.sourceDigest, receipt.toolchainVersion,
+    receipt.nodeId, receipt.canonicalStatementDigest, receipt.formalStatementDigest,
+    receipt.sourceDigest, receipt.toolchainVersion,
     receipt.environmentDigest, receipt.dependencyReceiptDigests,
     receipt.status, receipt.axioms, receipt.checkedAt,
   ]));
+}
+
+function formalizationError(node, formalization, registry) {
+  if (!formalization || Object.getPrototypeOf(formalization) !== FormalizationArtifact.prototype || !Object.isFrozen(formalization)) {
+    return 'A frozen FormalizationArtifact is required for formal binding.';
+  }
+  if (naturalStatementFingerprint(formalization.naturalStatement) !== formalization.naturalStatementFingerprint ||
+      formalStatementFingerprint(formalization.formalStatement) !== formalization.formalStatementFingerprint) {
+    return 'Formalization fingerprints are invalid.';
+  }
+  if (node.canonicalStatement !== formalization.naturalStatement &&
+      node.canonicalStatement !== formalization.formalStatement) {
+    return 'Formalization does not match the canonical statement.';
+  }
+  // A natural-language mapping requires the gate's registered authority.
+  // Registry membership does not itself prove semantic equivalence.
+  if (node.canonicalStatement !== formalization.formalStatement &&
+      registry?.getByCanonical(node.canonicalStatement) !== formalization) {
+    return 'Formalization is not registered for the canonical statement.';
+  }
+  return null;
+}
+
+function sourceBindingError(node, input, registry) {
+  const formalization = input.formalization;
+  if (formalization !== undefined) {
+    const error = formalizationError(node, formalization, registry);
+    if (error) return error;
+  }
+  const authority = formalization || new FormalizationArtifact({
+    naturalStatement: node.canonicalStatement, formalStatement: node.canonicalStatement,
+  });
+  const binding = FormalizationArtifact.prototype.checkSourceBinding.call(authority, input.source);
+  return binding.matched ? null : `Lean source statement mismatch: ${binding.error}`;
+}
+
+function statementDigests(node, input) {
+  return {
+    canonicalStatementDigest: naturalStatementFingerprint(node.canonicalStatement),
+    formalStatementDigest: input.formalization?.formalStatementFingerprint ||
+      formalStatementFingerprint(node.canonicalStatement),
+  };
 }
 
 class LeanIncrementalGate {
@@ -34,6 +78,7 @@ class LeanIncrementalGate {
     this.toolchainVersion = options.toolchainVersion;
     this.environmentDigest = options.environmentDigest;
     this.allowedAxioms = new Set(options.allowedAxioms || []);
+    this.setFormalizationRegistry(options.formalizationRegistry || null);
     this.clock = options.clock || (() => new Date().toISOString());
     // Default publish: register verified receipts in the global registry if no
     // explicit registry is provided, so the VerificationRegistry becomes the
@@ -46,6 +91,13 @@ class LeanIncrementalGate {
       if (userPublish) userPublish(receipt);
     };
     this.receipts = new Map();
+  }
+
+  setFormalizationRegistry(registry) {
+    if (registry !== null && !(registry instanceof FormalizationRegistry)) {
+      throw new Error('A FormalizationRegistry is required for formal binding.');
+    }
+    this.formalizationRegistry = registry;
   }
 
   prerequisiteIds(nodeId) {
@@ -70,9 +122,12 @@ class LeanIncrementalGate {
   }
 
   rejectedReceipt(nodeId, reason, source = '') {
+    const node = this.graph.getNode(nodeId);
     const receipt = {
       nodeId, status: 'failed', reason,
-      sourceDigest: digest(Buffer.from(source)),
+      canonicalStatementDigest: node ? naturalStatementFingerprint(node.canonicalStatement) : null,
+      formalStatementDigest: null,
+      sourceDigest: digest(Buffer.from(typeof source === 'string' ? source : '')),
       toolchainVersion: this.toolchainVersion,
       environmentDigest: this.environmentDigest,
       dependencyReceiptDigests: this.dependencyReceipts(nodeId).map((item) => item.receiptDigest),
@@ -92,7 +147,7 @@ class LeanIncrementalGate {
     if (!this.prerequisitesVerified(input.nodeId)) return 'All prerequisite lemmas require passing Lean receipts.';
     if (typeof input.source !== 'string' || !input.source.trim()) return 'Lean source is required.';
     if (PLACEHOLDER_PROOF.test(input.source)) return 'Lean placeholders sorry/admit are forbidden.';
-    return null;
+    return sourceBindingError(node, input, this.formalizationRegistry);
   }
 
   forbiddenAxioms(axioms = []) {
@@ -113,6 +168,7 @@ class LeanIncrementalGate {
     const receipt = {
       nodeId: input.nodeId, status: passed ? 'passed' : 'failed',
       reason: passed ? null : (forbidden.length ? 'forbidden_axioms' : 'lean_execution_failed'),
+      ...statementDigests(this.graph.getNode(input.nodeId), input),
       sourceDigest: digest(Buffer.from(input.source)), toolchainVersion: this.toolchainVersion,
       environmentDigest: this.environmentDigest, dependencyReceiptDigests,
       axioms: execution.axioms || [], checkedAt: this.clock(),

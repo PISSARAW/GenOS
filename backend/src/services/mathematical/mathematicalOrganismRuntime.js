@@ -55,6 +55,7 @@ class MathematicalOrganismRuntime {
     this.leanGate = options.leanGate || null;
     this.dependencyGraph = new MathematicalDependencyGraph();
     this.formalizationRegistry = createFormalizationRegistry();
+    if (this.leanGate) this.setLeanGate(this.leanGate);
     this.symbiontExecutor = createSymbiontExecutor();
     this.generation = 0;
     this.budget = options.budget || { tokens: 10000, cpu: 3600 };
@@ -122,6 +123,7 @@ class MathematicalOrganismRuntime {
 
   setLeanGate(leanGate) {
     this.leanGate = leanGate;
+    if (leanGate) leanGate.setFormalizationRegistry(this.formalizationRegistry);
   }
 
   async step() {

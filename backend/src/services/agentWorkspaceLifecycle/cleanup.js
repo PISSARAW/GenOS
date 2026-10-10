@@ -5,7 +5,7 @@ const { spawnGit } = require('../../utils/fs');
 const { runCommand, withGitRepoLock } = require('./git');
 const { bestEffort } = require('./support');
 const { CLEANUP_RETRY_DELAY_MS, RUNTIME_DIR_NAME, gcDelayMs } = require('./constants');
-const { ensureEpochMarker, readEpochMarker, isAgentRuntimeAlive } = require('./epoch');
+const { ensureEpochMarker, readEpochMarker, isAgentRuntimeAlive, isProcessAlive } = require('./epoch');
 const { getDatabase } = require('../../db');
 
 const activeWorktrees = new Map();
@@ -15,9 +15,14 @@ async function ensureCleanupTable(db) {
     CREATE TABLE IF NOT EXISTS agent_capsule_cleanup (
       agent_id TEXT PRIMARY KEY,
       workspace_root TEXT NOT NULL,
+      epoch TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  const columns = await db.all('PRAGMA table_info(agent_capsule_cleanup)');
+  if (!columns.some((column) => column.name === 'epoch')) {
+    await db.exec('ALTER TABLE agent_capsule_cleanup ADD COLUMN epoch TEXT');
+  }
 }
 
 function capsuleMarkerRoot(resolvedRoot, filesystemRoot) {
@@ -69,24 +74,27 @@ async function trackWorkspace(agentId, workspaceRoot) {
   const db = await require('../../db').getDatabase();
   await ensureCleanupTable(db);
   await db.run(
-    'INSERT INTO agent_capsule_cleanup(agent_id, workspace_root) VALUES (?, ?) ON CONFLICT(agent_id) DO UPDATE SET workspace_root = excluded.workspace_root',
-    agentId, resolvedWorkspaceRoot
+    'INSERT INTO agent_capsule_cleanup(agent_id, workspace_root, epoch) VALUES (?, ?, ?) ON CONFLICT(agent_id) DO UPDATE SET workspace_root = excluded.workspace_root, epoch = excluded.epoch',
+    agentId, resolvedWorkspaceRoot, epoch
   );
 }
 
 async function forgetWorkspace(agentId, cleanupDisk = false) {
   const tracked = activeWorktrees.get(agentId);
-  activeWorktrees.delete(agentId);
   try {
     const db = await getDatabase();
     await ensureCleanupTable(db);
-    const row = await db.get('SELECT workspace_root FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
-    await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
+    const row = await db.get('SELECT workspace_root, epoch FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
     const targetRoot = tracked?.workspaceRoot || row?.workspace_root;
     if (cleanupDisk && targetRoot) {
-      const options = tracked?.epoch ? { expectedEpoch: tracked.epoch } : {};
-      await cleanupWorkspace(targetRoot, agentId, options);
+      const expectedEpoch = tracked?.epoch || row?.epoch;
+      if (!expectedEpoch) return;
+      const options = { expectedEpoch };
+      const outcome = await cleanupWorkspace(targetRoot, agentId, options);
+      if (outcome !== 'removed' && outcome !== 'worktree-removed') return;
     }
+    activeWorktrees.delete(agentId);
+    await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
   } catch (_) {
     // Forgetting is best-effort: a missing row must never block the caller.
   }
@@ -116,15 +124,19 @@ async function gitCommonDir(workspaceRoot) {
   }
 }
 
-async function removeWorktreeIfPresent(resolvedRoot) {
+async function removeWorktreeIfPresent(resolvedRoot, beforeRemove) {
   const base = { root: resolvedRoot, removed: false, wasWorktree: false, failed: false, commonGitDir: null };
   if (!isWorktreeRoot(resolvedRoot)) return base;
   const commonGitDir = await gitCommonDir(resolvedRoot);
   try {
     const executionDir = commonGitDir ? path.dirname(commonGitDir) : process.cwd();
-    await withGitRepoLock(executionDir, async () => {
+    const guard = await withGitRepoLock(executionDir, async () => {
+      const reason = await beforeRemove();
+      if (reason) return reason;
       await spawnGit(executionDir, ['worktree', 'remove', '--force', resolvedRoot]);
+      return null;
     });
+    if (guard) return { ...base, guard, wasWorktree: true, commonGitDir };
     return { ...base, removed: true, wasWorktree: true, commonGitDir };
   } catch (_) {
     return { ...base, failed: true, wasWorktree: true, commonGitDir };
@@ -157,6 +169,65 @@ async function pruneWorktree(worktree) {
   await pruneGuessedRepo(worktree.root);
 }
 
+async function rollbackEligibility({ db, agentId, root, epoch, targetId }) {
+  const tracked = activeWorktrees.get(agentId);
+  if (!tracked || tracked.workspaceRoot !== root || tracked.epoch !== epoch) return 'owner-changed';
+  if (!await ownsTrackedCapsule(db, agentId, tracked)) return 'owner-changed';
+  const row = await db.get('SELECT status, runtime_pid FROM agents WHERE id = ?', targetId);
+  const { activeProcesses } = require('../agentOrchestrationState');
+  if (!row || row.status !== 'running') return 'agent-not-reserved';
+  if (row.runtime_pid || activeProcesses.has(targetId)) return 'runtime-alive';
+  return null;
+}
+
+async function cleanupEligibility({ db, agentId, root, epoch, rollbackTargetId }) {
+  if (epoch && await readEpochMarker(root) !== epoch) return 'epoch-mismatch';
+  if (!agentId) return null;
+  if (rollbackTargetId) return rollbackEligibility({ db, agentId, root, epoch, targetId: rollbackTargetId });
+  const row = await db.get('SELECT status, runtime_pid FROM agents WHERE id = ?', agentId);
+  const { activeProcesses, TERMINAL_AGENT_STATUSES } = require('../agentOrchestrationState');
+  if (!row || !TERMINAL_AGENT_STATUSES.has(row.status)) return 'agent-not-terminal';
+  if (activeProcesses.has(agentId) || isProcessAlive(row.runtime_pid)) return 'runtime-alive';
+  return null;
+}
+
+async function ownsTrackedCapsule(db, agentId, tracked) {
+  if (activeWorktrees.get(agentId) !== tracked) return false;
+  const row = await db.get('SELECT workspace_root, epoch FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
+  return row?.workspace_root === tracked.workspaceRoot && row.epoch === tracked.epoch;
+}
+
+async function removeEligibleCapsule(context) {
+  const { root, agentId, db, epoch, rollbackTargetId } = context;
+  const recheck = () => cleanupEligibility({ db, agentId, root, epoch, rollbackTargetId });
+  const beforeRemoval = await recheck();
+  if (beforeRemoval) return beforeRemoval;
+  const worktree = await removeWorktreeIfPresent(root, recheck);
+  if (worktree.guard) return worktree.guard;
+  if (worktree.failed) return 'worktree-remove-failed';
+  if (fsSync.existsSync(root)) {
+    const reason = await recheck();
+    if (reason) return reason;
+    await fs.rm(root, { recursive: true, force: true });
+  }
+  await bestEffort(cleanupRuntimeDir(root, agentId));
+  await bestEffort(pruneWorktree(worktree));
+  return worktree.removed ? 'worktree-removed' : 'removed';
+}
+
+async function cleanupEpoch({ db, agentId, root, expectedEpoch }) {
+  if (!agentId) return { epoch: expectedEpoch || null };
+  await ensureCleanupTable(db);
+  const row = await db.get('SELECT workspace_root, epoch FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
+  if (row) {
+    if (row.workspace_root !== root || !row.epoch) return { reason: 'owner-changed' };
+    if (expectedEpoch && expectedEpoch !== row.epoch) return { reason: 'epoch-mismatch' };
+    return { epoch: row.epoch };
+  }
+  if (activeWorktrees.has(agentId)) return { reason: 'owner-changed' };
+  return { epoch: expectedEpoch || await readEpochMarker(root) };
+}
+
 /**
  * Reclaim a disposable capsule.
  *
@@ -171,36 +242,37 @@ async function cleanupWorkspace(workspaceRoot, agentId = null, options = {}) {
   const resolvedRoot = path.resolve(workspaceRoot || '');
   assertSafeCapsuleRoot(resolvedRoot);
   assertAgentOwnership(resolvedRoot, agentId);
-  const expectedEpoch = options.expectedEpoch;
-  if (expectedEpoch) {
-    const currentEpoch = await readEpochMarker(resolvedRoot);
-    if (currentEpoch !== expectedEpoch) return 'epoch-mismatch';
-  }
-  const worktree = await removeWorktreeIfPresent(resolvedRoot);
-  if (worktree.failed && !expectedEpoch) return 'worktree-remove-failed';
-  await bestEffort(fs.rm(resolvedRoot, { recursive: true, force: true }));
-  await bestEffort(cleanupRuntimeDir(resolvedRoot, agentId));
-  await bestEffort(pruneWorktree(worktree));
-  return worktree.removed ? 'worktree-removed' : 'removed';
+  const db = agentId ? (options.db || await getDatabase()) : null;
+  const resolvedEpoch = await cleanupEpoch({ db, agentId, root: resolvedRoot, expectedEpoch: options.expectedEpoch });
+  if (resolvedEpoch.reason) return resolvedEpoch.reason;
+  const expectedEpoch = resolvedEpoch.epoch;
+  if (agentId && !expectedEpoch) return 'epoch-mismatch';
+  const rollbackTargetId = options.rollbackUnlaunched;
+  const eligibility = await cleanupEligibility({ db, agentId, root: resolvedRoot, epoch: expectedEpoch, rollbackTargetId });
+  if (eligibility) return eligibility;
+  return removeEligibleCapsule({ root: resolvedRoot, agentId, db, epoch: expectedEpoch, rollbackTargetId });
 }
 
 function createReclaimer(agentId, tracked, retries) {
   return async () => {
     try {
       const db = await getDatabase();
+      if (!await ownsTrackedCapsule(db, agentId, tracked)) return { agentId, via: 'owner-changed' };
       if (await require('../garageCapsuleRetention').retained(db, agentId)) {
         tracked.scheduled = false;
         setTimeout(() => scheduleWorkspaceCleanup(agentId, 0, retries), CLEANUP_RETRY_DELAY_MS).unref();
         return { agentId, workspaceRoot: tracked.workspaceRoot, via: 'garage-capture-pending' };
       }
-      const via = await cleanupWorkspace(tracked.workspaceRoot, agentId, { expectedEpoch: tracked.epoch });
-      if (via === 'epoch-mismatch' || via === 'worktree-remove-failed') {
+      const via = await cleanupWorkspace(tracked.workspaceRoot, agentId, { expectedEpoch: tracked.epoch, db });
+      if (via !== 'removed' && via !== 'worktree-removed') {
         tracked.scheduled = false;
         return { agentId, workspaceRoot: tracked.workspaceRoot, via };
       }
+      if (!await ownsTrackedCapsule(db, agentId, tracked)) return { agentId, via: 'owner-changed' };
       activeWorktrees.delete(agentId);
       await ensureCleanupTable(db);
-      await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
+      await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ? AND workspace_root = ? AND epoch = ?',
+        agentId, tracked.workspaceRoot, tracked.epoch);
       return { agentId, workspaceRoot: tracked.workspaceRoot, via };
     } catch (_) {
       tracked.scheduled = false;
@@ -215,14 +287,18 @@ function createReclaimer(agentId, tracked, retries) {
 async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0) {
   const tracked = activeWorktrees.get(agentId);
   if (!tracked || tracked.scheduled) return false;
+  const delay = forceDelay !== null ? forceDelay : gcDelayMs();
+  if (delay < 0) return false;
+  const db = await getDatabase();
+  if (!await ownsTrackedCapsule(db, agentId, tracked)) return false;
+  const eligibility = await cleanupEligibility({ db, agentId, root: tracked.workspaceRoot, epoch: tracked.epoch });
+  if (eligibility) return false;
   try {
-    await require('../gqwf/workers').captureWorker(await getDatabase(), agentId);
+    await require('../gqwf/workers').captureWorker(db, agentId);
   } catch (error) {
     console.error(`[GQWF] Worker ${agentId} candidate capture failed:`, error);
     return false;
   }
-  const delay = forceDelay !== null ? forceDelay : gcDelayMs();
-  if (delay < 0) return false;
   tracked.scheduled = true;
   const reclaim = createReclaimer(agentId, tracked, retries);
   if (delay === 0) bestEffort(reclaim());
@@ -232,7 +308,7 @@ async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0)
 
 async function reconcileWorkspaceCleanup(db) {
   await ensureCleanupTable(db);
-  const rows = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup');
+  const rows = await db.all('SELECT agent_id, workspace_root, epoch FROM agent_capsule_cleanup');
   let reconciled = 0;
   for (const row of rows) {
     // A capsule whose directory has already been reclaimed (e.g. OS temp purge,
@@ -243,10 +319,9 @@ async function reconcileWorkspaceCleanup(db) {
       await bestEffort(db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', row.agent_id));
       continue;
     }
-    const epoch = await ensureEpochMarker(row.workspace_root);
-    activeWorktrees.set(row.agent_id, { workspaceRoot: row.workspace_root, epoch });
-    await scheduleWorkspaceCleanup(row.agent_id, 0);
-    reconciled += 1;
+    if (!row.epoch || await readEpochMarker(row.workspace_root) !== row.epoch) continue;
+    activeWorktrees.set(row.agent_id, { workspaceRoot: row.workspace_root, epoch: row.epoch });
+    if (await scheduleWorkspaceCleanup(row.agent_id, 0)) reconciled += 1;
   }
   return reconciled;
 }

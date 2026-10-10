@@ -14,21 +14,53 @@ graph.addNode({
 graph.addNode({ nodeId: 'lemma-unknown', dependencies: ['lemma-a'], domainFingerprint: 'domain:unknown', status: 'running' });
 
 const published = [];
+const receiptDigest = `sha256:${'a'.repeat(64)}`;
+const evidence = new Map([['result:counterexample-1', {
+  status: 'validated', targetId: 'lemma-a',
+  counterexampleResultId: 'result:counterexample-1',
+  domainFingerprint: 'domain:integers', receiptDigest,
+}]]);
+assert.throws(() => new CounterexamplePropagator({ graph }), /verifier is required/);
 const propagator = new CounterexamplePropagator({
   graph, publish: (event) => published.push(event), clock: () => '2026-09-19T13:00:00.000Z',
-});
-const result = propagator.propagate({
-  targetId: 'lemma-a', counterexampleResultId: 'result:counterexample-1', domainFingerprint: 'domain:integers',
+  verifyCounterexample: async ({ counterexampleResultId }) => evidence.get(counterexampleResultId) || null,
 });
 
-assert.equal(graph.getNode('lemma-a').status, 'refuted');
-assert.equal(graph.getNode('lemma-b').status, 'invalidated');
-assert.equal(graph.getNode('theorem-c').status, 'invalidated');
-assert.equal(graph.getNode('lemma-disjoint').status, 'running');
-assert.equal(graph.getNode('lemma-unknown').status, 'suspended');
-assert.equal(result.events.length, 4);
-assert.deepEqual(result.events, published);
-assert.ok(published.every((event) => event.occurredAt === '2026-09-19T13:00:00.000Z'));
-assert.throws(() => propagator.propagate({ targetId: 'lemma-a' }), /required/);
+(async () => {
+  const request = { targetId: 'lemma-a', counterexampleResultId: 'result:counterexample-1', domainFingerprint: 'domain:integers' };
+  await assert.rejects(propagator.propagate({ ...request, counterexampleResultId: 'invented' }), /verification rejected/);
+  await assert.rejects(propagator.propagate({ ...request, domainFingerprint: 'domain:other' }), /domain does not match/);
+  evidence.set('result:counterexample-1', { ...evidence.get('result:counterexample-1'), targetId: 'lemma-b' });
+  await assert.rejects(propagator.propagate(request), /verification rejected/);
+  evidence.set('result:counterexample-1', { ...evidence.get('result:counterexample-1'), targetId: 'lemma-a', domainFingerprint: 'domain:other' });
+  await assert.rejects(propagator.propagate(request), /verification rejected/);
+  evidence.set('result:counterexample-1', { ...evidence.get('result:counterexample-1'), domainFingerprint: 'domain:integers', receiptDigest: 'sha256:fake' });
+  await assert.rejects(propagator.propagate(request), /verification rejected/);
+  assert.equal(graph.getNode('lemma-a').status, 'verified');
+  assert.equal(graph.getNode('lemma-b').status, 'running');
+  assert.equal(published.length, 0);
 
-console.log('Epistemic scheduler counterexample propagation passed.');
+  evidence.set('result:counterexample-1', { ...evidence.get('result:counterexample-1'), receiptDigest });
+  const stale = new CounterexamplePropagator({
+    graph, verifyCounterexample: async () => {
+      graph.updateStatus('lemma-a', 'queued');
+      return evidence.get('result:counterexample-1');
+    },
+  });
+  await assert.rejects(stale.propagate(request), /changed during verification/);
+  graph.updateStatus('lemma-a', 'verified');
+  assert.equal(published.length, 0);
+  const result = await propagator.propagate(request);
+  assert.equal(graph.getNode('lemma-a').status, 'refuted');
+  assert.equal(graph.getNode('lemma-b').status, 'invalidated');
+  assert.equal(graph.getNode('theorem-c').status, 'invalidated');
+  assert.equal(graph.getNode('lemma-disjoint').status, 'running');
+  assert.equal(graph.getNode('lemma-unknown').status, 'suspended');
+  assert.equal(result.events.length, 4);
+  assert.equal(result.receiptDigest, receiptDigest);
+  assert.deepEqual(result.events, published);
+  assert.ok(published.every((event) => event.occurredAt === '2026-09-19T13:00:00.000Z'));
+  await assert.rejects(propagator.propagate({ targetId: 'lemma-a' }), /required/);
+
+  console.log('Epistemic scheduler counterexample propagation passed.');
+})().catch((error) => { console.error(error); process.exit(1); });

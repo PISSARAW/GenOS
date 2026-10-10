@@ -19,6 +19,10 @@ const coalescingBuffer = new Map();
 
 const DEFAULT_REFRACTORY_MS = 2000;
 const DEFAULT_COALESCE_MS = 500;
+const REFERENCE_KEYS = ['artifactRef', 'artifact_id', 'claimId', 'proofId', 'resultRef',
+  'ref', 'artifactRefs', 'targetId', 'nodeId'];
+const EVENT_ID_KEYS = ['idempotencyKey', 'eventId', 'scientificEventId', 'resultId',
+  'counterexampleResultId', 'receiptDigest'];
 
 function hashTopic(topic) {
   return crypto.createHash('sha256').update(topic || '').digest('hex').slice(0, 8);
@@ -26,6 +30,53 @@ function hashTopic(topic) {
 
 function buildRefractoryKey(senderId, topic) {
   return `${senderId || 'system'}:${topic || 'default'}`;
+}
+
+function signalIdentity(signal) {
+  const data = signal.signalData || {};
+  const event = firstDefined(data, ['eventType', 'event_type', 'semanticType']);
+  const references = referenceIdentity(data);
+  const eventIds = identityFields(data, EVENT_ID_KEYS);
+  const version = firstDefined(data, ['artifactVersion', 'version', 'revision']);
+  const recipients = [...(signal.recipientAgentIds || [])].sort();
+  const idempotencyKey = firstDefined(data, ['idempotencyKey', 'eventId', 'scientificEventId']);
+  if (references.present && !idempotencyKey) return null;
+  const payloadDigest = references.present ? scientificPayloadDigest(data) : '';
+  return JSON.stringify([signal.senderAgentId || 'system', signal.topic || 'default',
+    signal.signalType || '', event, references, version, eventIds,
+    data.verification?.receiptDigest || '', payloadDigest,
+    recipients]);
+}
+
+function referenceIdentity(data) {
+  const refs = identityFields(data, REFERENCE_KEYS);
+  const semanticRefs = [...(data.communicationEnvelope?.semanticRefs || [])].sort();
+  const artifactRefs = [...(data.communicationEnvelope?.artifactRefs || [])].sort();
+  return { refs, semanticRefs, artifactRefs,
+    present: Boolean(Object.keys(refs).length + semanticRefs.length + artifactRefs.length) };
+}
+
+function scientificPayloadDigest(data) {
+  const { communicationEnvelope, ...payload } = data;
+  return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+function identityFields(data, keys) {
+  return Object.fromEntries(keys.filter((key) => data[key] !== undefined
+    && data[key] !== null && data[key] !== '').map((key) => [key, data[key]]));
+}
+
+function firstDefined(data, keys) {
+  for (const key of keys) {
+    if (data[key] !== undefined && data[key] !== null && data[key] !== '') return data[key];
+  }
+  return '';
+}
+
+function isRetraction(signal) {
+  const data = signal.signalData || {};
+  return [data.eventType, data.event_type, data.semanticType, data.status]
+    .some((event) => /retract|revok|invalidat|withdraw/i.test(String(event || '')));
 }
 
 function checkRefractory(senderId, topic, opts = {}) {
@@ -115,11 +166,13 @@ function bufferSignal(signal, topic, opts = {}) {
 }
 
 function flushBufferedTopic(topic) {
-  const buf = coalescingBuffer.get(topic);
-  if (!buf) return [];
-  clearTimeout(buf.timer);
-  coalescingBuffer.delete(topic);
-  return buf.signals;
+  for (const [key, buf] of coalescingBuffer) {
+    if (key !== topic && (buf.signals[0]?.topic || 'default') !== topic) continue;
+    clearTimeout(buf.timer);
+    coalescingBuffer.delete(key);
+    return buf.signals;
+  }
+  return [];
 }
 
 function flushAndAggregate(topic, opts = {}) {
@@ -142,24 +195,31 @@ function clearAllCoalescerState() {
 function coalesce(signal, opts = {}) {
   const now = opts.now ?? Date.now();
   const topic = signal.topic || 'default';
+  if (isRetraction(signal)) return aggregateSignals([signal], topic);
+  const identity = signalIdentity(signal);
+  if (!identity) return aggregateSignals([signal], topic);
   const senderId = signal.senderAgentId;
-  const refractory = checkRefractory(senderId, topic, { now, refractoryMs: opts.refractoryMs });
+  const refractory = checkRefractory(senderId, identity, { now, refractoryMs: opts.refractoryMs });
   if (!refractory.allowed) return null;
-  const coalesceResult = shouldCoalesce(signal, topic, { now, coalesceMs: opts.coalesceMs });
+  const coalesceResult = shouldCoalesce(signal, identity, { now, coalesceMs: opts.coalesceMs });
   if (!coalesceResult.shouldEmit) return null;
-  recordEmission(senderId, topic, { now });
+  recordEmission(senderId, identity, { now });
   if (coalesceResult.aggregated.length <= 1) {
-    bufferSignal(signal, topic, { now, coalesceMs: opts.coalesceMs });
+    bufferSignal(signal, identity, { now, coalesceMs: opts.coalesceMs });
   }
   return aggregateSignals(coalesceResult.aggregated, topic);
 }
 
 function getBufferedTopics() {
-  return [...coalescingBuffer.keys()];
+  return [...new Set([...coalescingBuffer.values()].map((buf) => buf.signals[0]?.topic || 'default'))];
 }
 
 function getBufferedCount(topic) {
-  return coalescingBuffer.get(topic)?.signals.length || 0;
+  let count = 0;
+  for (const [key, buf] of coalescingBuffer) {
+    if (key === topic || (buf.signals[0]?.topic || 'default') === topic) count += buf.signals.length;
+  }
+  return count;
 }
 
 module.exports = {
