@@ -3588,6 +3588,22 @@
       }
     },
     {
+      "name": "genos_agent_inherited_memory_read",
+      "category": "Workspace Control",
+      "risk": "Low",
+      "description": "Read bounded inherited archive projections from a sealed parent snapshot: memory and episode metadata, plus bounded decision text. Read-only; no runtime or memory transfer.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "kind": { "type": "string", "enum": ["memories", "autobiographicalEpisodes", "decisions"] },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 50 }
+        },
+        "required": ["agent_id", "kind"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "genos_agent_fork_snapshot",
       "category": "Workspace Control",
       "risk": "Amber",

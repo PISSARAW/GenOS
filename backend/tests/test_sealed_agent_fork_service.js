@@ -25,7 +25,10 @@ async function schema(db) {
     CREATE TABLE lineage_nodes (id TEXT PRIMARY KEY, workspace_id TEXT, agent_id TEXT, snapshot_id TEXT,
       label TEXT, node_type TEXT, metadata TEXT);
     CREATE TABLE lineage_edges (id TEXT PRIMARY KEY, workspace_id TEXT, source_node_id TEXT,
-      target_node_id TEXT, edge_type TEXT, metadata TEXT);`);
+      target_node_id TEXT, edge_type TEXT, metadata TEXT);
+    CREATE TABLE episodic_memories (id TEXT PRIMARY KEY, agent_id TEXT, observation_output TEXT);
+    CREATE TABLE autobiographical_episodes (id TEXT PRIMARY KEY, agent_id TEXT, situation_json TEXT);
+    CREATE TABLE genome_decisions (id TEXT PRIMARY KEY, created_by TEXT, title TEXT);`);
 }
 
 function sealedState(reference) {
@@ -36,7 +39,15 @@ function sealedState(reference) {
   const agentState = Object.fromEntries(['name', 'name_meaning', 'role', 'model_tier', 'language',
     'isolation_mode', 'dissonance_level', 'eureka_count', 'cognitive_budget', 'cognitive_baseline_budget',
     'cognitive_max_dissonance', 'is_apoptotic', 'status', 'current_task'].map(key => [key, state[key] ?? null]));
-  const persisted = { schemaVersion: 3, sections: {}, hash: hash({}) };
+  const sections = {
+    memories: [{ id: 'memory-1', agent_id: 'source-agent', organization_id: 'org-1', project_id: 'project-1',
+      observation_output: 'parent observation' }],
+    autobiographicalEpisodes: [{ id: 'episode-1', agent_id: 'source-agent', organization_id: 'org-1',
+      project_id: 'project-1', situation_json: '{"goal":"source"}' }],
+    decisions: [{ id: 'decision-1', created_by: 'source-agent', organization_id: 'org-1', project_id: 'project-1',
+      title: 'parent decision' }], modelTurns: []
+  };
+  const persisted = { schemaVersion: 3, sections, hash: hash(sections) };
   const capturedAt = '2026-10-10T00:00:00.000Z';
   const consistency = 'agent-stable; workspace-capture-verified; sqlite-transaction';
   const components = {};
@@ -45,6 +56,20 @@ function sealedState(reference) {
       workspaceSnapshot: reference, persisted, orchestrator: [], components, capturedAt, consistency }) };
   state._genosSnapshot = { workspaceSnapshot: reference, persistedState: persisted,
     orchestratorCheckpoints: [], organismSnapshot: organism };
+  return state;
+}
+
+function resealState(state) {
+  const manifest = state._genosSnapshot.organismSnapshot;
+  const persisted = state._genosSnapshot.persistedState;
+  persisted.hash = hash(persisted.sections);
+  const agentState = Object.fromEntries(['name', 'name_meaning', 'role', 'model_tier', 'language',
+    'isolation_mode', 'dissonance_level', 'eureka_count', 'cognitive_budget', 'cognitive_baseline_budget',
+    'cognitive_max_dissonance', 'is_apoptotic', 'status', 'current_task'].map(key => [key, state[key] ?? null]));
+  manifest.hash = hash({ agentId: state.id, workspaceId: state.workspace_id, agentState,
+    workspaceSnapshot: state._genosSnapshot.workspaceSnapshot, persisted,
+    orchestrator: state._genosSnapshot.orchestratorCheckpoints, components: manifest.components,
+    capturedAt: manifest.capturedAt, consistency: manifest.consistency });
   return state;
 }
 
@@ -73,6 +98,12 @@ async function fixture(root) {
     'workspace-snapshot', 'source-ws', workspaceHash, metadata);
   await db.run('INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json) VALUES (?, ?, ?, ?)',
     'agent-snapshot', 'source-agent', 'source-ws', JSON.stringify(state));
+  await db.run('INSERT INTO episodic_memories (id, agent_id, observation_output) VALUES (?, ?, ?)',
+    'memory-1', 'source-agent', 'parent observation');
+  await db.run('INSERT INTO autobiographical_episodes (id, agent_id, situation_json) VALUES (?, ?, ?)',
+    'episode-1', 'source-agent', '{"goal":"source"}');
+  await db.run('INSERT INTO genome_decisions (id, created_by, title) VALUES (?, ?, ?)',
+    'decision-1', 'source-agent', 'parent decision');
   return { db, source, state };
 }
 
@@ -122,7 +153,8 @@ async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-sealed-fork-'));
   let db;
   try {
-    ({ db } = await fixture(root));
+    const saved = await fixture(root);
+    db = saved.db;
     const input = { db, tenant: { organizationId: 'org-1', projectId: 'project-1' }, agentId: 'source-agent',
       snapshotId: 'agent-snapshot', idempotencyKey: 'request-1', budget: 30, forkRoot: path.join(root, 'forks') };
     await assertRejected({ ...input, tenant: { organizationId: 'org-2', projectId: 'project-1' } }, 'FORK_SOURCE_NOT_FOUND');
@@ -131,13 +163,20 @@ async function main() {
     assert.equal(result.status, 'snapshot_fork_created');
     assert.equal(result.runtimeStarted, false);
     assert.equal(result.memoryCloned, false);
+    assert.equal(result.inheritedArchiveAvailable, true);
+    assert.deepEqual(result.inheritedArchiveCounts, { memories: 1, autobiographicalEpisodes: 1, decisions: 1 });
     assert.equal(await fs.readFile(path.join(root, 'forks', result.childWorkspaceId, 'proof.txt'), 'utf8'), 'sealed source');
     assert.equal((await db.get('SELECT cognitive_budget FROM agents WHERE id = ?', 'source-agent')).cognitive_budget, 50);
     assert.equal((await db.get('SELECT COUNT(*) AS n FROM lineage_edges')).n, 1);
+    assert.equal((await db.get('SELECT COUNT(*) AS n FROM episodic_memories WHERE agent_id = ?', result.childAgentId)).n, 0);
+    assert.equal((await db.get('SELECT COUNT(*) AS n FROM autobiographical_episodes WHERE agent_id = ?', result.childAgentId)).n, 0);
+    assert.equal((await db.get('SELECT COUNT(*) AS n FROM genome_decisions WHERE created_by = ?', result.childAgentId)).n, 0);
     const retry = await forkFromSealedSnapshot(input);
     assert.equal(retry.reused, true);
     assert.equal(retry.childAgentId, result.childAgentId);
     assert.equal((await db.get('SELECT cognitive_budget FROM agents WHERE id = ?', 'source-agent')).cognitive_budget, 50);
+    await fs.writeFile(path.join(root, 'forks', result.childWorkspaceId, 'proof.txt'), 'legitimate child change');
+    assert.equal((await forkFromSealedSnapshot(input)).reused, true);
     await assertRejected({ ...input, budget: 31 }, 'FORK_IDEMPOTENCY_CONFLICT');
     const interrupted = { ...input, idempotencyKey: 'request-2', budget: 10 };
     const originalRun = db.run.bind(db);
@@ -149,12 +188,26 @@ async function main() {
     db.run = originalRun;
     assert.equal((await db.get('SELECT cognitive_budget FROM agents WHERE id = ?', 'source-agent')).cognitive_budget, 50);
     assert.equal((await db.get('SELECT COUNT(*) AS n FROM agents')).n, 2);
+    const forkNames = await fs.readdir(path.join(root, 'forks'));
+    const orphanName = forkNames.find(name => name !== result.childWorkspaceId);
+    const orphanFile = path.join(root, 'forks', orphanName, 'proof.txt');
+    await fs.writeFile(orphanFile, 'tampered orphan');
+    await assert.rejects(() => forkFromSealedSnapshot(interrupted), /Fork destination differs/);
+    await fs.writeFile(orphanFile, 'sealed source');
     const recovered = await forkFromSealedSnapshot(interrupted);
     assert.equal(recovered.reused, false);
     assert.equal((await db.get('SELECT cognitive_budget FROM agents WHERE id = ?', 'source-agent')).cognitive_budget, 40);
     await testMcpEntry(input);
     await db.run('UPDATE agent_state_snapshots SET state_json = ? WHERE id = ?', JSON.stringify({ id: 'source-agent' }), 'agent-snapshot');
     await assertRejected({ ...input, idempotencyKey: 'request-3' }, 'FORK_SNAPSHOT_UNSEALED');
+    const foreign = JSON.parse(JSON.stringify(saved.state));
+    foreign._genosSnapshot.persistedState.sections.memories[0].agent_id = 'foreign-agent';
+    await db.run('UPDATE agent_state_snapshots SET state_json = ? WHERE id = ?', JSON.stringify(resealState(foreign)), 'agent-snapshot');
+    await assertRejected({ ...input, idempotencyKey: 'request-4' }, 'FORK_ARCHIVE_INVALID');
+    const pending = JSON.parse(JSON.stringify(saved.state));
+    pending._genosSnapshot.persistedState.sections.modelTurns.push({ status: 'pending', agent_id: 'source-agent' });
+    await db.run('UPDATE agent_state_snapshots SET state_json = ? WHERE id = ?', JSON.stringify(resealState(pending)), 'agent-snapshot');
+    await assertRejected({ ...input, idempotencyKey: 'request-5' }, 'FORK_ARCHIVE_INVALID');
     console.log('Sealed agent fork service contract passed.');
   } finally {
     if (db) await db.close();

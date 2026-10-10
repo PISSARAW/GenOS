@@ -9,6 +9,7 @@ const { withTransaction } = require('../db');
 const { collectFiles } = require('./workspaceSnapshotCollect');
 const { readManifest, getSnapshot, materialize, verifyContentHash } = require('./workspaceSnapshotMaterialize');
 const { verifyOrganismSnapshot } = require('../controllers/lineage/snapshots');
+const { buildArchiveDescriptor } = require('./sealedForkArchiveDescriptor');
 
 function refusal(code, message) {
   return Object.assign(new Error(message), { code });
@@ -93,18 +94,22 @@ async function destination(input, ids, source) {
   return { root, target };
 }
 
-async function verifyDirectory(target, source, marker) {
+async function verifyMarker(target, marker) {
   const entry = await fsp.lstat(target);
   if (!entry.isDirectory() || entry.isSymbolicLink()) throw refusal('FORK_DESTINATION_CONFLICT', 'Fork destination is not a directory.');
   const markerDirectory = path.join(target, '.genos');
   const markerPath = path.join(markerDirectory, 'fork-origin.json');
   const directoryEntry = await fsp.lstat(markerDirectory);
   const markerEntry = await fsp.lstat(markerPath);
-  if (directoryEntry.isSymbolicLink() || markerEntry.isSymbolicLink() || !markerEntry.isFile()) {
+  if (directoryEntry.isSymbolicLink() || markerEntry.isSymbolicLink() || !markerEntry.isFile() || markerEntry.size > 8192) {
     throw refusal('FORK_DESTINATION_CONFLICT', 'Fork provenance marker is not a regular file.');
   }
   const stored = JSON.parse(await fsp.readFile(markerPath, 'utf8'));
   if (JSON.stringify(stored) !== JSON.stringify(marker)) throw refusal('FORK_DESTINATION_CONFLICT', 'Fork destination belongs to another operation.');
+}
+
+async function verifyDirectory(target, source, marker) {
+  await verifyMarker(target, marker);
   verifyContentHash(await collectFiles(target), source.manifest.files, 'Fork destination differs from its sealed snapshot.');
 }
 
@@ -129,16 +134,23 @@ async function prepareDirectory(location, source, marker) {
 }
 
 async function existingChild(context) {
-  const { input, ids, source, location } = context;
-  const row = await input.db.get(`SELECT a.id, a.metadata_json, a.workspace_id, w.path FROM agents a JOIN workspaces w ON w.id = a.workspace_id
+  const { input, ids, source, location, marker } = context;
+  const row = await input.db.get(`SELECT a.id, a.metadata_json, a.workspace_id, a.parent_agent_id, w.path FROM agents a JOIN workspaces w ON w.id = a.workspace_id
     WHERE a.id = ? AND w.organization_id = ? AND w.project_id = ?`,
   ids.agentId, input.tenant.organizationId, input.tenant.projectId);
   if (!row) return null;
   const metadata = JSON.parse(row.metadata_json || '{}');
-  if (row.workspace_id !== ids.workspaceId || row.path !== location.target || metadata.sourceSnapshotId !== input.snapshotId ||
-      metadata.sourceSnapshotHash !== source.organismHash || metadata.budget !== input.budget) {
+  const observed = [row.workspace_id, row.path, row.parent_agent_id, metadata.sourceSnapshotId,
+    metadata.sourceSnapshotHash, metadata.budget, metadata.inheritedArchive];
+  const expected = [ids.workspaceId, location.target, input.agentId, input.snapshotId,
+    source.organismHash, input.budget, source.archive];
+  if (JSON.stringify(observed) !== JSON.stringify(expected)) {
     throw refusal('FORK_IDEMPOTENCY_CONFLICT', 'The idempotency key is already bound to another fork.');
   }
+  const edge = await input.db.get('SELECT id FROM lineage_edges WHERE id = ? AND workspace_id = ? AND target_node_id = ?',
+    `edge_${ids.agentId}`, ids.workspaceId, ids.agentId);
+  if (!edge) throw refusal('FORK_LINEAGE_MISSING', 'Fork lineage edge is missing.');
+  await verifyMarker(location.target, marker);
   return receipt(context, true);
 }
 
@@ -147,7 +159,9 @@ function receipt(context, reused) {
   return { success: true, status: 'snapshot_fork_created', childAgentId: ids.agentId,
     childWorkspaceId: ids.workspaceId, sourceAgentId: input.agentId, sourceSnapshotId: input.snapshotId,
     sourceSnapshotHash: source.organismHash, workspaceSnapshotHash: source.workspaceSnapshot.snapshot_hash,
-    budget: input.budget, runtimeStarted: false, memoryCloned: false, organismRuntimeRestored: false, reused };
+    budget: input.budget, runtimeStarted: false, memoryCloned: false, organismRuntimeRestored: false,
+    inheritedArchiveAvailable: true, inheritedArchiveSections: Object.keys(source.archive.counts),
+    inheritedArchiveCounts: source.archive.counts, inheritedArchiveHash: source.archive.sectionsHash, reused };
 }
 
 async function persistChild(context) {
@@ -168,7 +182,7 @@ async function persistChild(context) {
     source.agent.language, `Sealed fork from ${input.snapshotId}`, input.tenant.organizationId, input.tenant.projectId);
     const metadata = JSON.stringify({ sourceSnapshotId: input.snapshotId, sourceSnapshotHash: source.organismHash,
       workspaceSnapshotHash: source.workspaceSnapshot.snapshot_hash, budget: input.budget, idempotencyKeyHash:
-      crypto.createHash('sha256').update(input.idempotencyKey).digest('hex') });
+      crypto.createHash('sha256').update(input.idempotencyKey).digest('hex'), inheritedArchive: source.archive });
     await input.db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id,
       cognitive_budget, cognitive_baseline_budget, model_tier, language, isolation_mode, parent_agent_id,
       lineage_relation, metadata_json, current_task) VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'Branch', ?, 'fork', ?, ?)`,
@@ -191,13 +205,22 @@ async function persistChild(context) {
 async function forkFromSealedSnapshot(input) {
   validateInput(input);
   const source = await loadSource(input);
+  source.archive = buildArchiveDescriptor(source, input);
   const ids = childIds(input);
   const location = await destination(input, ids, source);
   const marker = { sourceAgentId: input.agentId, sourceSnapshotId: input.snapshotId,
     sourceSnapshotHash: source.organismHash, workspaceSnapshotHash: source.workspaceSnapshot.snapshot_hash,
     childAgentId: ids.agentId, childWorkspaceId: ids.workspaceId };
-  await prepareDirectory(location, source, marker);
-  return persistChild({ input, ids, source, location });
+  const context = { input, ids, source, location, marker };
+  const found = await existingChild(context);
+  if (found) return found;
+  try { await prepareDirectory(location, source, marker); }
+  catch (error) {
+    const committed = await existingChild(context);
+    if (committed) return committed;
+    throw error;
+  }
+  return persistChild(context);
 }
 
 module.exports = { forkFromSealedSnapshot };

@@ -259,12 +259,25 @@ mod tests {
             json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":0}),
             json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":-1}),
             json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":1.5}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":9_007_199_254_740_992_u64}),
             json!({"agent_id":" ","snapshot_id":"s","idempotency_key":"k","budget":1}),
         ] {
             assert!(validate_tool_arguments("genos_agent_fork_snapshot", &invalid).is_err());
         }
         assert!(validate_tool_arguments("genos_agent_fork_snapshot",
             &json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":1})).is_ok());
+        for invalid in [
+            json!({}),
+            json!({"agent_id":"child","kind":"unknown"}),
+            json!({"agent_id":"child","kind":"memories","limit":0}),
+            json!({"agent_id":"child","kind":"memories","limit":51}),
+            json!({"agent_id":"child","kind":"memories","limit":1.5}),
+            json!({"agent_id":"child","kind":"memories","extra":true}),
+        ] {
+            assert!(validate_tool_arguments("genos_agent_inherited_memory_read", &invalid).is_err());
+        }
+        assert!(validate_tool_arguments("genos_agent_inherited_memory_read",
+            &json!({"agent_id":"child","kind":"decisions","limit":20})).is_ok());
         assert!(validate_tool_arguments("genos_philosophy", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "listConcepts" })).is_ok());
         assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "saveAnalysis" })).is_err());

@@ -21,6 +21,7 @@ const BRIDGED_TOOLS: &[&str] = &[
     "genos_signal_plasmid_transfer",
     "genos_signal_collective_decision",
     "genos_agent_fork_snapshot",
+    "genos_agent_inherited_memory_read",
     "genos_search_failures",
     "genos_diagnose",
     "genos_analyze_trajectory",
@@ -92,6 +93,7 @@ mod tests {
             1
         );
         assert!(is_bridged_tool("genos_agent_fork_snapshot"));
+        assert!(is_bridged_tool("genos_agent_inherited_memory_read"));
     }
 
     #[test]

@@ -28,10 +28,11 @@ workspace parent. Il crée ensuite dans une transaction SQLite le workspace,
 l'agent inactif, une ancre de snapshot, le nœud enfant et l'arête de filiation.
 La même transaction réserve le budget enfant en le débitant du parent. Les
 identifiants dérivent de la portée, de la source et de la clé d'idempotence.
-Une reprise de la même requête vérifie les fichiers matérialisés et retourne
-le même enfant sans nouveau débit. Si une interruption survient après la
-matérialisation et avant la transaction, le répertoire orphelin ne peut être
-repris qu'avec sa provenance et ses octets intacts.
+Une reprise de la même requête retourne le même enfant sans nouveau débit.
+Pour un enfant déjà persisté, elle vérifie la provenance et la lignée sans
+interdire les modifications légitimes de son workspace. Si une interruption
+survient après la matérialisation et avant la transaction, le répertoire
+orphelin ne peut être repris qu'avec sa provenance et ses octets intacts.
 
 ## Limites
 
