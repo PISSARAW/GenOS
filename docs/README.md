@@ -652,12 +652,5 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0367 — Sections durables des snapshots d'organisme](adr/0367-sections-durables-snapshot-organisme.md).
 - [ADR 0368 — Reprise du curseur de mission et frontières runtime](adr/0368-reprise-curseur-mission-et-frontieres-runtime.md).
 - [ADR 0375 — Portabilité des snapshots mémoire](adr/0375-portabilite-snapshots-memoire.md).
-<<<<<<< HEAD
-=======
-- [ADR 0390 — Fork d’agent depuis un snapshot scellé](adr/0390-fork-agent-depuis-snapshot-scelle.md).
-- [ADR 0391 — Substitution ponctuelle AgentDNA candidate](adr/0391-mutation-ponctuelle-agentdna-candidate.md).
-- [ADR 0392 — Archive héritée vérifiable pour un agent forké](adr/0392-archive-heritee-fork-agent.md).
-- [ADR 0393 — Budget délégué du sous-orchestrateur natif](adr/0393-budget-delegue-sous-orchestrateur-natif.md)
-- [ADR 0394 — Préflight vérifiable de restauration d'organisme](adr/0394-preflight-restauration-organisme.md)
 - [ADR 0395 — Workspaces privés pour les capsules de workers](adr/0395-workspaces-prives-pour-capsules-de-workers.md).
->>>>>>> 790de27b ([FIX] Lier les capsules de workers aux workspaces privés)
+- [ADR 0396 — Observer les workers supervisés pendant leur mission](adr/0396-observation-continue-des-workers-supervises.md).
