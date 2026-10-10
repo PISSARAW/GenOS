@@ -143,8 +143,9 @@ point sûr. La reprise se demande explicitement avec
 workspace, l'exécutable local et l'empreinte du prompt. Le runtime Codex peut
 aussi archiver une session après un tour achevé, sous forme de journal chiffré
 avec `GENOS_SECRET_KEY`. La restauration vérifie sa présence et son empreinte ;
-`runtimeCheckpointId` permet ensuite une reprise explicite par
-`codex exec resume` dans un `CODEX_HOME` isolé. Ce chemin reprend le contexte
+`runtimeCheckpointId` et `externalCodexResumeAvailable` permettent ensuite
+une reprise explicite par `codex exec resume` dans un `CODEX_HOME` isolé. Ce
+chemin reprend le contexte
 visible d'un tour terminé, pas une commande Codex en cours.
 
 Le routeur Node conserve la requête avant l’inférence et son résultat ensuite,
