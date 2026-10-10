@@ -473,6 +473,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0377](0377-consolidation-scientifique-par-references-versionnees.md) | Consolider les résultats scientifiques par références versionnées | Proposé ; raccordement de bout en bout non implémenté. | 2026-10-10. | Communication, preuves, GQWF, G-CIR. |
 | [0378](0378-reference-gqwf-dans-snapshot-organisme.md) | Référencer une racine GQWF dans un snapshot d'organisme | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, fichiers, GQWF |
 | [0379](0379-octroi-borne-delegation-sous-orchestrateur.md) | Octroi borné de délégation au sous-orchestrateur | Accepté pour la tranche locale | 2026-10-10 | Sous-orchestration, contrats workers, jetons modèle |
+| [0383](0383-restauration-opt-in-racine-gqwf-organisme.md) | Restaurer les fichiers d'organisme depuis une racine GQWF | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, GQWF, restauration |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

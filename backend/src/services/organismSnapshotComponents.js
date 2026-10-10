@@ -53,7 +53,7 @@ function build(input) {
     workspace: workspaceComponent(workspaceSnapshot),
     ...(workspaceSnapshot?.gqwfRootHash ? { gqwfFileRoot: {
       status: 'captured-reference', rootHash: workspaceSnapshot.gqwfRootHash,
-      sourceSnapshotId: workspaceSnapshot.id, restorable: false
+      sourceSnapshotId: workspaceSnapshot.id, restorable: true
     } } : {}),
     runtime: runtimeComponent(persisted, activePhase),
     processMemory: { status: 'unsupported', reason: 'No process memory dump and restore adapter is integrated with the supervised runtime.' },
@@ -79,7 +79,7 @@ function restoreSummary(input) {
     workspaceRestored: Boolean(workspaceRestore),
     workspaceSnapshotId: state._genosSnapshot?.workspaceSnapshot?.id || null,
     gqwfRootHash: state._genosSnapshot?.workspaceSnapshot?.gqwfRootHash || null,
-    gqwfRootRestored: false,
+    gqwfRootRestored: workspaceRestore?.strategy === 'gqwf-root-copy',
     runtimeRestartRequired: Boolean(resumable) || state._genosSnapshot?.schemaVersion >= 3 && state.status === 'running',
     runtimeResumeAvailable: Boolean(resumable),
     runtimeCheckpointId: resumable ? state._genosSnapshot.persistedState.sections.runtime.id : null,

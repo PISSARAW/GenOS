@@ -31,9 +31,10 @@ function backupSnapshotRef(workspace, backup) {
 }
 
 async function applyRestorePayload(options) {
-  const { workspace, target, backup, staging, backupStaging } = options;
-  const verified = await materialize(target, staging);
+  const { workspace, target, backup, staging, backupStaging, materializeTarget, progress } = options;
+  const verified = materializeTarget ? await materializeTarget(target, staging) : await materialize(target, staging);
   await materialize(backupSnapshotRef(workspace, backup), backupStaging);
+  progress.changed = true;
   await removeWorkspaceFiles(workspace.path);
   await copyMaterializedFiles(staging, verified.files, workspace.path);
   verifyContentHash(await collectFiles(workspace.path), verified.files, `Snapshot restore checksum mismatch for ${workspace.path}.`);
@@ -52,17 +53,19 @@ async function rollbackRestore(options) {
   }
 }
 
-async function restoreUnlocked({ db, workspace, reference, author = 'studio' }) {
+async function restoreUnlocked({ db, workspace, reference, author = 'studio', materializeTarget }) {
   const target = await getSnapshot(db, workspace.id, reference);
   const backup = await capture({ db, workspace, label: 'Pre-restore safety snapshot', reason: `Before restoring ${target.id}`, author });
 
   const staging = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-restore-'));
   const backupStaging = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-restore-backup-'));
+  const progress = { changed: false };
   try {
-    await applyRestorePayload({ workspace, target, backup, staging, backupStaging });
-    return { success: true, restoredSnapshot: target, safetySnapshot: backup, strategy: 'manifest-copy' };
+    await applyRestorePayload({ workspace, target, backup, staging, backupStaging, materializeTarget, progress });
+    return { success: true, restoredSnapshot: target, safetySnapshot: backup,
+      strategy: materializeTarget ? 'gqwf-root-copy' : 'manifest-copy' };
   } catch (error) {
-    await rollbackRestore({ error, workspace, backup, backupStaging });
+    if (progress.changed) await rollbackRestore({ error, workspace, backup, backupStaging });
     throw error;
   } finally {
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
@@ -70,10 +73,10 @@ async function restoreUnlocked({ db, workspace, reference, author = 'studio' }) 
   }
 }
 
-async function restore({ db, workspace, reference, author = 'studio' }) {
+async function restore({ db, workspace, reference, author = 'studio', materializeTarget }) {
   if (!workspace?.path) throw new Error('Workspace path is required for restore.');
   return require('../db').withTransaction(db, () =>
-    withRestoreLock(workspace.path, () => restoreUnlocked({ db, workspace, reference, author })));
+    withRestoreLock(workspace.path, () => restoreUnlocked({ db, workspace, reference, author, materializeTarget })));
 }
 
 function formatReversePatchLine(file, maps) {

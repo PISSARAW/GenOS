@@ -6,6 +6,8 @@
 - **Décideurs** : Équipe GenOS
 - **Lié à** : [ADR 0367](0367-sections-durables-snapshot-organisme.md), [ADR 0369](0369-racines-gqwf-et-vues-durables.md)
 
+La restauration explicite depuis cette racine est ajoutée par l'[ADR 0383](0383-restauration-opt-in-racine-gqwf-organisme.md).
+
 ## Contexte
 
 Un snapshot d'organisme référence déjà un snapshot de workspace et des sections

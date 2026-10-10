@@ -15,7 +15,7 @@ function report() {
     },
     gqwfFileRoot: {
       captureAvailable: supported,
-      restoreAvailable: false,
+      restoreAvailable: supported,
       requestFlag: 'gqwfV2'
     },
     processMemory: {
