@@ -133,6 +133,7 @@ const KNOWN_VERIFIER_TYPES = [
   'procedure_semantic',
   'memory_semantic',
   'code_semantic',
+  'worker_semantic',
 ];
 
 for (const type of KNOWN_VERIFIER_TYPES) {

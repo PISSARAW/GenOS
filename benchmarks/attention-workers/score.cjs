@@ -21,9 +21,11 @@ const indices = kind => content(kind).result?.indices || content(kind).procedure
   || content(kind).demonstration?.indices || [];
 const checks = [
   ['19 types persistants', types.every(kind => rows[kind].created && rows[kind].agentId)],
-  ['18 artefacts validés', types.filter(kind => rows[kind].artifactValid).length === 18],
+  ['19 artefacts validés', types.every(kind => rows[kind].artifactValid)],
+  ['19 décisions vérifiées', types.every(kind => rows[kind].run?.status === 'completed')],
   ['Child réel du sous orchestrateur', rows.sub_orchestrator.children?.length === 1
-    && rows.sub_orchestrator.children[0].artifactValid === true],
+    && rows.sub_orchestrator.children[0].artifactValid === true
+    && rows.sub_orchestrator.children[0].run?.status === 'completed'],
   ['Scout : seule la source cible est retenue', content('scout_cell').observations?.length === 1
     && content('scout_cell').observations[0].sourceRefs?.[0] === 'corpus://target'],
   ['Daemon : échantillon faible écarté', content('resident_daemon').anomalies?.length === 1
@@ -38,9 +40,9 @@ const checks = [
     && content('forensic_worker').causalChain[0].to === 'alert'],
   ['Teaching : 3 + 7 et transfert', indices('teaching_worker').join(',') === '0,2'
     && content('teaching_worker').transferCheck?.passed === true],
-  ['Créatif : sélection par ordre attestée', /^First combination/.test(content('creative_worker').selectionRule || '')],
-  ['Sous orchestrateur bloqué', rows.sub_orchestrator.run?.status === 'failed'
-    && rows.sub_orchestrator.children?.[0]?.run?.status === 'blocked']
+  ['Créatif : sélection pertinente', content('creative_worker').selectionRule === 'Goal-aligned evidence ranking'],
+  ['Sous orchestrateur vérifié', rows.sub_orchestrator.run?.status === 'completed'
+    && rows.sub_orchestrator.children?.[0]?.run?.status === 'completed']
 ];
 const result = { source: 'real-worker-<type>.json', total: checks.length,
   passed: checks.filter(([, pass]) => pass).length,

@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, randomBytes } = require('node:crypto');
 const repo = path.resolve(__dirname, '..', '..');
 const backend = path.join(repo, 'backend');
 const requestedKind = process.argv[2];
@@ -20,6 +20,11 @@ process.env.GENOS_STUDIO_ROOT = path.join(root, 'studio');
 process.env.GENOS_CAPSULE_ROOT = path.join(root, 'capsules');
 process.env.GENOS_WORKSPACES_ROOT = root;
 process.env.GENOS_DISABLE_WORKSPACE_GC = '1';
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= randomBytes(32).toString('hex');
+process.env.GENOS_SNAPSHOT_ROOT = path.join(outputRoot, 'snapshots');
+process.env.TMP = path.join(outputRoot, 'work', 'tmp');
+process.env.TEMP = process.env.TMP;
+process.env.TMPDIR = process.env.TMP;
 const { getDatabase, closeDatabase } = require(path.join(backend, 'src', 'db'));
 const fleet = require(path.join(backend, 'src', 'services', 'agentFleetWorkers'));
 const runtime = require(path.join(backend, 'src', 'services', 'agentRuntimeAdapter'));
@@ -158,6 +163,8 @@ async function runKind(db, kind) {
 async function main() {
   await fs.mkdir(root, { recursive: true });
   await fs.mkdir(path.dirname(output), { recursive: true });
+  await fs.mkdir(process.env.GENOS_SNAPSHOT_ROOT, { recursive: true });
+  await fs.mkdir(process.env.TMP, { recursive: true });
   await persist();
   const db = await getDatabase(process.env.GENOS_DB_PATH);
   try {

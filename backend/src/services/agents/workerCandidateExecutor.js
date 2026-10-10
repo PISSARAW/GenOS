@@ -6,6 +6,11 @@ function validDimension(dimension) {
   return text(dimension?.name, 128) && list(dimension.options, (item) => text(item, 256), 10);
 }
 
+function validEvidence(item, refs) {
+  return text(item?.dimension, 128) && text(item.option, 256)
+    && text(item.goalCue, 128) && refs.includes(item.sourceRef);
+}
+
 function assertCandidateInput(method) {
   const input = methodInput(method, 'combine_candidates');
   if (!list(input.dimensions, validDimension, 4)) throw error('WORKER_CREATIVE_INPUT_INVALID', 'Provide 1-4 bounded dimensions.');
@@ -16,27 +21,35 @@ function assertCandidateInput(method) {
     throw error('WORKER_CREATIVE_INPUT_INVALID', 'Assumptions and a falsification test are required.');
   }
   if (!list(input.sourceRefs, (item) => text(item, 256), 20)) throw error('WORKER_CREATIVE_INPUT_INVALID', 'Source references are required.');
+  if (!text(input.goal) || !list(input.evidence, (item) => validEvidence(item, input.sourceRefs), 40)) {
+    throw error('WORKER_CREATIVE_INPUT_INVALID', 'A goal and attributed option evidence are required.');
+  }
   const combinations = input.dimensions.reduce((total, item) => total * item.options.length, 1);
   if (combinations > 100) throw error('WORKER_CREATIVE_INPUT_INVALID', 'Candidate budget is at most 100 combinations.');
   return true;
 }
 
-function enumerate(dimensions) {
-  let combinations = [''];
-  for (const dimension of dimensions) {
-    combinations = combinations.flatMap((prefix) => dimension.options.map((option) =>
-      `${prefix}${prefix ? '; ' : ''}${dimension.name}: ${option}`));
-  }
-  return [...new Set(combinations)];
+function rankCandidates(dimensions, input) {
+  const goal = input.goal.toLocaleLowerCase();
+  const combinations = dimensions.reduce((rows, dimension) => rows.flatMap((row) =>
+    dimension.options.map((option) => [...row, { dimension: dimension.name, option }])), [[]]);
+  return combinations.map((parts) => {
+    const matches = input.evidence.filter((item) => goal.includes(item.goalCue.toLocaleLowerCase())
+      && parts.some((part) => part.dimension === item.dimension && part.option === item.option));
+    return { candidate: parts.map((part) => `${part.dimension}: ${part.option}`).join('; '),
+      score: matches.length, evidence: [...new Set(matches.map((item) => item.sourceRef))] };
+  }).sort((a, b) => b.score - a.score || a.candidate.localeCompare(b.candidate, 'en'));
 }
 
 function runCandidates(method) {
   assertCandidateInput(method);
   const input = method.parameters;
-  const candidates = enumerate(input.dimensions);
-  const output = { candidate: candidates[0], alternatives: candidates.slice(1),
+  const candidates = rankCandidates(input.dimensions, input);
+  const output = { candidate: candidates[0].candidate,
+    alternatives: candidates.slice(1).map((item) => item.candidate),
+    selectedEvidence: candidates[0].evidence, candidateScores: candidates,
     assumptions: input.assumptions, falsificationTest: input.falsificationTest,
-    selectionRule: 'First combination in the supplied order; quality and novelty unverified.' };
+    selectionRule: 'Goal-aligned evidence ranking' };
   return resultReport(method, output, { type: 'creative_candidate',
     statement: `${candidates.length} combinations generated from supplied design dimensions; parent review required.`,
     sourceRefs: input.sourceRefs });
