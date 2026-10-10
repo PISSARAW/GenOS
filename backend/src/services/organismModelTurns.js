@@ -16,7 +16,8 @@ function requestOf(options) {
     requestedModel: options.model || null,
     sessionId: options.cognitiveSessionId || options.agentId,
     responseFormat: options.responseFormat || null,
-    maxTokens: options.maxTokens || null
+    maxTokens: options.maxTokens || null,
+    providerContinuityMode: options.providerContinuity?.mode || null
   };
 }
 
@@ -28,8 +29,103 @@ function responseOf(result) {
     model: result?.model || null,
     provider: result?.provider || null,
     inputTokens: result?.inputTokens || 0,
-    outputTokens: result?.outputTokens || 0
+    outputTokens: result?.outputTokens || 0,
+    providerContinuity: sealedContinuity(result?.providerContinuity)
   };
+}
+
+function sealedContinuity(continuity) {
+  if (!continuity) return null;
+  const { responseId, ...metadata } = continuity;
+  return { ...metadata, sealedResponseId: require('./secretVault').encrypt(responseId) };
+}
+
+function assertContinuationRequest(options) {
+  if (options.providerContinuity.mode !== 'openai-responses' || !/^openai:\/\/.+/.test(options.model || '')) {
+    throw Object.assign(new Error('Provider continuity requires one explicit OpenAI model.'),
+      { code: 'PROVIDER_CONTINUATION_UNSUPPORTED' });
+  }
+  if (!options.db || !options.agentId || typeof options.db.exec !== 'function') {
+    throw Object.assign(new Error('Provider continuity requires a durable agent session.'),
+      { code: 'PROVIDER_CONTINUATION_SESSION_REQUIRED' });
+  }
+  if (!process.env.GENOS_SECRET_KEY) {
+    throw Object.assign(new Error('Provider continuity requires GENOS_SECRET_KEY.'),
+      { code: 'PROVIDER_CONTINUATION_KEY_REQUIRED' });
+  }
+}
+
+function scopeArgs(options) {
+  return [options.agentId, options.cognitiveSessionId || options.agentId,
+    options.organizationId || null, options.projectId || null];
+}
+
+async function assertNoPending(db, args) {
+  const pending = await db.get(`SELECT id FROM organism_model_turns
+    WHERE agent_id = ? AND session_id = ? AND organization_id IS ? AND project_id IS ?
+      AND status = 'pending' LIMIT 1`, ...args);
+  if (pending) {
+    throw Object.assign(new Error('A provider call is already in progress for this session.'),
+      { code: 'PROVIDER_CONTINUATION_PENDING' });
+  }
+}
+
+function unsealPrevious(stored, model) {
+  if (!stored?.sealedResponseId) {
+    throw Object.assign(new Error('Previous model turn has no provider continuation.'),
+      { code: 'PROVIDER_CONTINUATION_UNAVAILABLE' });
+  }
+  let prior;
+  try { prior = { ...stored, responseId: require('./secretVault').decrypt(stored.sealedResponseId) }; }
+  catch (_) { throw Object.assign(new Error('Provider continuation cannot be decrypted.'),
+    { code: 'PROVIDER_CONTINUATION_INVALID' }); }
+  require('./modelProviderResponses').validatePrior(prior, model);
+  return prior;
+}
+
+async function loadPrevious(db, args, model) {
+  const row = await db.get(`SELECT response_json, response_hash FROM organism_model_turns
+    WHERE agent_id = ? AND session_id = ? AND organization_id IS ? AND project_id IS ?
+      AND status = 'completed' ORDER BY rowid DESC LIMIT 1`, ...args);
+  if (!row) return null;
+  if (!row.response_json || digestRaw(row.response_json) !== row.response_hash) {
+    throw Object.assign(new Error('Provider continuation turn is corrupt.'),
+      { code: 'PROVIDER_CONTINUATION_INVALID' });
+  }
+  let stored;
+  try { stored = JSON.parse(row.response_json).providerContinuity; }
+  catch (_) { throw Object.assign(new Error('Provider continuation turn is malformed.'),
+    { code: 'PROVIDER_CONTINUATION_INVALID' }); }
+  return unsealPrevious(stored, model);
+}
+
+async function prepareContinuation(options) {
+  if (!options?.providerContinuity) return options;
+  assertContinuationRequest(options);
+  const args = scopeArgs(options);
+  await assertNoPending(options.db, args);
+  const prior = options.providerContinuity.reset === true
+    ? null : await loadPrevious(options.db, args, options.model);
+  return { ...options, providerContinuity: { mode: 'openai-responses', prior } };
+}
+
+async function runWithTurn(options, generateCore) {
+  const start = async () => {
+    const prepared = await prepareContinuation(options);
+    return { prepared, turnId: await begin(prepared) };
+  };
+  const { prepared, turnId } = options?.providerContinuity
+    ? await require('../db').withTransaction(options.db, start) : await start();
+  try {
+    const result = await generateCore(prepared);
+    await complete(prepared?.db, turnId, result);
+    if (!result?.providerContinuity) return result;
+    const { responseId: _secret, ...publicContinuity } = result.providerContinuity;
+    return { ...result, providerContinuity: publicContinuity };
+  } catch (error) {
+    await fail(prepared?.db, turnId, error);
+    throw error;
+  }
 }
 
 async function begin(options) {
@@ -66,4 +162,4 @@ async function fail(db, id, error) {
   );
 }
 
-module.exports = { begin, complete, fail, encoded };
+module.exports = { begin, complete, fail, encoded, prepareContinuation, runWithTurn };

@@ -115,7 +115,7 @@ avec un snapshot de sécurité préservé, puis les champs d’état de l’agen
 appliqué suit le même chemin et vérifie ensuite l’état agent relu en base.
 
 Les snapshots et commits d’agent récents incluent un manifeste
-`_genosSnapshot.organismSnapshot` version 3. Son hash SHA-256 lie l’identité de
+`_genosSnapshot.organismSnapshot` version 4. Son hash SHA-256 lie l’identité de
 l’agent et du workspace, les champs restaurables, la référence du workspace,
 les sections SQLite, les références de checkpoint Rust, l’instant de capture
 et le statut des composants. La capture du workspace précède une transaction
@@ -124,22 +124,58 @@ SQLite : le backend relit les champs de l’agent, puis copie les mémoires
 les relations, `agent_runtime_state`, le dernier événement de télémétrie comme
 curseur de reprise vérifiable
 et les échanges visibles de `organism_model_turns`. La charge SQLite est bornée
-à 16 Mio. Si l’état de l’agent a changé, si un processus supervisé est actif,
-si un appel LLM est en attente ou si une relation traverse le périmètre du
-tenant, la capture échoue sans publier de snapshot d’agent.
+à 16 Mio. Si l’état de l’agent a changé, si un appel LLM est en attente ou si
+une relation traverse le périmètre du tenant, la capture échoue sans publier de
+snapshot d’agent. Un processus actif est accepté uniquement pour le runtime
+local GenOS lorsqu'il confirme sa pause à un checkpoint sûr. Les autres
+exécutables actifs sont refusés.
+
+Le runtime local fourni avec GenOS écrit des checkpoints logiques versionnés
+dans `agent_runtime_state`. Les phases `prepared`, `generated` et `evaluated`
+sont capturables après arrêt, ou pendant l'exécution si le processus atteint
+une barrière de pause coopérative dans les 30 secondes. Le backend garde le
+processus en pause pendant la capture et le libère dans tous les cas. Les
+phases `inference` et `evaluating` ne sont pas des points de capture : l'issue
+de l'appel ou de l'effet externe est incertaine. Une
+restauration expose `runtimeResumeAvailable` et `runtimeCheckpointId` pour un
+point sûr. La reprise se demande explicitement avec
+`POST /agents/:id/start` et `resumeCheckpointId` ; elle vérifie l'agent, le
+workspace, l'exécutable local et l'empreinte du prompt. Le runtime Codex peut
+aussi archiver une session après un tour achevé, sous forme de journal chiffré
+avec `GENOS_SECRET_KEY`. La restauration vérifie sa présence et son empreinte ;
+`runtimeCheckpointId` et `externalCodexResumeAvailable` permettent ensuite
+une reprise explicite par `codex exec resume` dans un `CODEX_HOME` isolé. Ce
+chemin reprend le contexte
+visible d'un tour terminé, pas une commande Codex en cours.
 
 Le routeur Node conserve la requête avant l’inférence et son résultat ensuite,
 avec empreintes séparées. Cela permet de relire le contexte *visible* du routeur ;
 les contextes internes du fournisseur et les runtimes externes qui ne passent
 pas par ce routeur ne sont pas capturés. L’état runtime durable est copié, mais
-la RAM, les handles et un processus en cours ne sont pas sérialisés. Le manifeste
-signale explicitement ces deux capacités indisponibles. Les checkpoints Rust
+la RAM et les handles ne sont pas sérialisés. La pause du runtime local ne
+constitue pas une image du processus. Le manifeste indique
+`runtime.activeCapture` et la phase de pause ; la RAM littérale reste non
+restaurable. Une session Codex archivée est signalée séparément par
+`externalCodexRuntime: captured-encrypted-session`. Les checkpoints Rust
 des missions biologiques sont référencés par mission, séquence et SHA-256.
 Un pointeur de tête vérifié sélectionne le checkpoint à reprendre ; le tick Rust
 et la restauration prennent le même verrou de mission. Si la mission est
 partagée, chaque autre agent doit être arrêté et son état durable ainsi que
 son workspace doivent correspondre à leur empreinte de capture. Une dérive
 du groupe refuse la restauration avant toute modification.
+
+Le routeur accepte en option `providerContinuity: { mode: 'openai-responses' }`
+avec un modèle `openai://` explicite. Il stocke la référence de réponse
+chiffrée avec `GENOS_SECRET_KEY` dans le tour SQLite, et la réutilise seulement
+pour la même session, le même tenant et le même modèle. La restauration du
+snapshot remet la référence en base, sans appel au fournisseur. La réponse API
+indique `providerContinuationAvailable` mais garde
+`providerContinuityRestored: false` : seul un appel ultérieur accepté confirme
+la continuité. Une référence absente, expirée ou incompatible bloque cet
+appel ; aucun autre modèle n'est choisi silencieusement. Le raisonnement brut
+et la mémoire interne du fournisseur ne sont jamais annoncés comme restaurés.
+Pour ouvrir volontairement une nouvelle chaîne après un tour sans référence,
+le demandeur passe `providerContinuity: { mode: 'openai-responses', reset: true }`.
 
 La restauration vérifie le manifeste et les références Rust avant de toucher au
 workspace. Elle prend un snapshot de sécurité des fichiers et des sections
@@ -154,7 +190,8 @@ n’est déduit de cette restauration. Les anciens snapshots
 restent lisibles avec leurs garanties d’origine. Il n’existe toujours pas de
 restauration atomique de l’organisme entier entre fichiers, SQLite, processus
 et missions Rust. Voir [ADR 0366](../adr/0366-manifeste-snapshot-organisme.md)
-et [ADR 0368](../adr/0368-reprise-curseur-mission-et-frontieres-runtime.md).
+et [ADR 0370](../adr/0370-checkpoint-logique-local-et-continuite-llm-opaque.md),
+ainsi que [ADR 0373](../adr/0373-barriere-capture-runtime-local-actif.md).
 
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 

@@ -276,10 +276,11 @@ async function superviseMission(options) {
   const child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
     cwd: workspaceRoot,
     env: buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: isLocalRuntime(resolvedExecutable) ? ['pipe', 'pipe', 'pipe', 'ipc'] : ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32'
   });
   child.genosDetached = process.platform !== 'win32';
+  child.genosCaptureBarrier = isLocalRuntime(resolvedExecutable);
   // Attach the error handler synchronously: a spawn that fails immediately
   // (ENOENT under antivirus scan, missing runtime) emits 'error' before the
   // async setup below completes, and an unhandled 'error' event crashes the

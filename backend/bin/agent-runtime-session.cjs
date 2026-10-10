@@ -1,7 +1,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
+const { cleanup, setupCodexHome } = require('./agent-runtime-home.cjs');
 const codexRuntimeConfiguration = require('../src/services/codexRuntimeConfiguration');
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 const workerRecovery = require('../src/services/workerFailureRecoveryService');
@@ -27,7 +27,10 @@ async function runSession(raw) {
   const data = parseMission(mission);
   if (!data) return;
   const state = await buildState(mission, data);
-  startRuntime(state);
+  if (mission.resumeCheckpointId) {
+    state.resumeCodex = await require('../src/services/codexRuntimeCheckpoint').load(state);
+  }
+  await startRuntime(state);
 }
 
 function decodeMission(raw) {
@@ -235,39 +238,6 @@ function emitEvent(event) {
   return process.stdout.write(encodeEvent({ ...event, payloadJson: JSON.stringify(event.payload || {}) }));
 }
 
-function cleanup(state) {
-  if (state.cleanedUp) return;
-  state.cleanedUp = true;
-  if (state.latencyTimer) clearTimeout(state.latencyTimer);
-  fs.rmSync(state.isolatedRuntimeRoot || state.isolatedCodexHome, { recursive: true, force: true });
-}
-
-function setupCodexHome() {
-  const hostCodexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
-  // Codex refuses to install its helper binaries when CODEX_HOME and the
-  // process temp directory live under the Windows system temp root. Keep both
-  // isolated per-run directories under the runner's writable, non-temp area.
-  const configuredRoot = process.env.GENOS_RUNNER_LOG_DIR;
-  const runtimeParent = configuredRoot && path.isAbsolute(configuredRoot)
-    ? configuredRoot
-    : path.resolve(__dirname, '../..', '.genos-runner-logs');
-  fs.mkdirSync(runtimeParent, { recursive: true });
-  const isolatedRuntimeRoot = fs.mkdtempSync(path.join(runtimeParent, 'genos-runtime-'));
-  const isolatedCodexHome = path.join(isolatedRuntimeRoot, 'codex-home');
-  const isolatedTemp = path.join(isolatedRuntimeRoot, 'tmp');
-  fs.mkdirSync(isolatedCodexHome, { recursive: true });
-  fs.mkdirSync(isolatedTemp, { recursive: true });
-  const hostAuth = path.join(hostCodexHome, 'auth.json');
-  if (fs.existsSync(hostAuth)) fs.copyFileSync(hostAuth, path.join(isolatedCodexHome, 'auth.json'));
-  fs.writeFileSync(path.join(isolatedCodexHome, 'config.toml'), '[features]\nhooks = true\n', { mode: 0o600 });
-  const policyHook = path.resolve(__dirname, 'genos-pre-tool-policy.cjs');
-  fs.writeFileSync(path.join(isolatedCodexHome, 'hooks.json'), JSON.stringify({
-    description: 'Enforce the execution policy attached to a GenOS mission.',
-    hooks: { PreToolUse: [{ matcher: '^(Bash|apply_patch)$', hooks: [{ type: 'command', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(policyHook)}`, timeout: 10 }] }] }
-  }), { mode: 0o600 });
-  return { home: isolatedCodexHome, root: isolatedRuntimeRoot, temp: isolatedTemp };
-}
-
 function buildMcpConfig(binaries) {
   const mcpNodeScript = path.resolve(__dirname, '../../mcp/index.js');
   const mcpCommand = binaries.mcpBinary && fs.existsSync(binaries.mcpBinary)
@@ -310,23 +280,34 @@ function buildSpawnEnv(state, isolatedCodexHome, isolatedTemp) {
   };
 }
 
-function createInvocation(state, binaries) {
+async function createInvocation(state, binaries) {
   const configuredExecutable = process.env.CODEX_EXECUTABLE || 'codex';
   const candidate = /[\\/]node(?:\.exe)?$/i.test(configuredExecutable) ? 'codex' : configuredExecutable;
   const codexLaunch = resolveCodexLaunch(candidate);
   const isolated = setupCodexHome();
+  try {
+    if (state.resumeCodex) {
+      await require('../src/services/codexRuntimeCheckpoint').materialize(state.db,
+        state.resumeCodex.row, { agentId: state.mission.agentId, home: isolated.home });
+    }
+  } catch (error) {
+    fs.rmSync(isolated.root, { recursive: true, force: true });
+    throw error;
+  }
   const mcp = buildMcpConfig(binaries);
-  const args = [...codexLaunch.args, 'exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write',
+  const args = [...codexLaunch.args, 'exec', '--json', '--skip-git-repo-check', '--sandbox', 'workspace-write',
     '-c', 'approval_policy="on-request"', '-c', 'approvals_reviewer="auto_review"'];
+  args.push('-C', binaries.workspace);
+  if (state.resumeCodex) args.push('resume', state.resumeCodex.checkpoint.threadId);
   args.push(...codexRuntimeConfiguration.commandOptions(state.mission));
   args.push(...buildMcpServerArgs(state, binaries, mcp));
-  args.push('-C', binaries.workspace, '-');
+  args.push('-');
   return { command: codexLaunch.command, args, codexHome: isolated.home,
     runtimeRoot: isolated.root, env: buildSpawnEnv(state, isolated.home, isolated.temp) };
 }
 
-function spawnChild(state, binaries) {
-  const invocation = createInvocation(state, binaries);
+async function spawnChild(state, binaries) {
+  const invocation = await createInvocation(state, binaries);
   state.isolatedCodexHome = invocation.codexHome;
   state.isolatedRuntimeRoot = invocation.runtimeRoot;
   // Preserve TOML/JSON quoting and Windows paths as literal argv entries.
@@ -363,7 +344,14 @@ function wireProcessEvents(state) {
   });
 }
 
-function handleChildClose(state, code, signal) {
+async function handleChildClose(state, code, signal) {
+  if (code === 0 && !state.budgetStopped) {
+    try { await require('../src/services/codexRuntimeCheckpoint').save(state); }
+    catch (error) {
+      state.emit({ eventType: 'AGENT_STEP', action: 'CHECKPOINT_UNAVAILABLE',
+        detail: `Codex session checkpoint unavailable: ${error.message}`, severity: 'warning' });
+    }
+  }
   return handleRuntimeClose({
     code, signal, budgetStopped: state.budgetStopped, emit: state.emit,
     cleanup: () => { cleanup(state); }, requiredTools: state.requiredTools, observedTools: state.observedTools,
@@ -376,9 +364,9 @@ function handleChildClose(state, code, signal) {
   });
 }
 
-function startRuntime(state) {
+async function startRuntime(state) {
   const binaries = resolveBinaries();
-  spawnChild(state, binaries);
+  await spawnChild(state, binaries);
   state.emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Codex implementation runtime accepted the mission.', status: 'running', currentTask: state.mission.prompt });
   runMemoryPipeline(state);
   const latencyLimit = events.budgetLimit(state, 'latencyMs');

@@ -223,7 +223,15 @@ async function startAgent(req, res) {
     await agentAuthority.authorizeMission(db, agent.id, req.body?.orchestratorAgentId, agent.workspace_id);
     const contract = await strategyContracts.getLatestContract(db, agent.id);
     if (!contract) return res.status(409).json({ error: { code: 'STRATEGY_CONTRACT_REQUIRED', message: 'No strategy contract is available for this agent.' } });
-    const startPromise = runtimeAdapter.startMission(buildStartMissionParams({ agent, contract, req }));
+    const mission = buildStartMissionParams({ agent, contract, req });
+    if (mission.resumeCheckpointId) {
+      await require('../services/runtimeCheckpointRequest').assertResumeRequest(db, {
+        checkpointId: mission.resumeCheckpointId, agentId: agent.id,
+        workspaceId: agent.workspace_id,
+        executable: runtimeAdapter.configuredExecutable(mission)
+      });
+    }
+    const startPromise = runtimeAdapter.startMission(mission);
     const result = await Promise.race([
       startPromise.then((value) => value),
       new Promise((resolve) => setTimeout(() => resolve({ started: true, queued: true }), 25))

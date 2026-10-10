@@ -126,7 +126,8 @@ function buildRouteContext(opts, clock, remainingMs) {
     requiredCapabilities: opts.requiredCapabilities || [],
     onToken: opts.onToken || defaultOnToken,
     remainingMs,
-    cognitiveContract: opts.cognitiveContract
+    cognitiveContract: opts.cognitiveContract,
+    providerContinuity: opts.providerContinuity
   };
 }
 
@@ -260,6 +261,7 @@ async function finishCandidates(opts, policy, configured) {
 }
 
 async function resolveCandidates(opts, policy) {
+  if (opts.providerContinuity) return [opts.model];
   let configured = candidateModels(opts.model, policy);
   if (!configured.length) configured = await loadProviderCandidates(opts.db);
   return finishCandidates(opts, policy, configured);
@@ -289,10 +291,12 @@ async function generateCore(options) {
   let procedural = null;
   let routed;
   let reused = null;
-  try {
-    reused = await reuseProceduralExecution(opts, cognitiveContract);
-  } catch (error) {
-    procedural = { status: 'telemetry_failed', reason: error.message };
+  if (!opts.providerContinuity) {
+    try {
+      reused = await reuseProceduralExecution(opts, cognitiveContract);
+    } catch (error) {
+      procedural = { status: 'telemetry_failed', reason: error.message };
+    }
   }
   if (reused) {
     routed = { result: resultFromProcedure(reused), execution: {
@@ -323,16 +327,7 @@ async function generateCore(options) {
   return withCognitiveResult(result, cognitiveResult);
 }
 async function generate(options) {
-  const turns = require('./organismModelTurns');
-  const turnId = await turns.begin(options);
-  try {
-    const result = await generateCore(options);
-    await turns.complete(options?.db, turnId, result);
-    return result;
-  } catch (error) {
-    await turns.fail(options?.db, turnId, error);
-    throw error;
-  }
+  return require('./organismModelTurns').runWithTurn(options, generateCore);
 }
 
 module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
@@ -374,7 +369,7 @@ function generateValues2({ opts, result, cognitiveContract, startedAt }) {
 }
 
 function generateExecutor({ cognitiveContract, candidates, context, mode, mmu, opts }) {
-  return shouldExecuteNative(cognitiveContract)
+  return !opts.providerContinuity && shouldExecuteNative(cognitiveContract)
       ? executeNativeGraph({ graph: cognitiveContract.nativeExecutionGraph || cognitiveContract.nativeGraph,
         candidates, context, mode, mmu,
         economy: cognitiveContract.economy, options: opts })

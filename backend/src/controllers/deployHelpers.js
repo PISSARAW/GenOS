@@ -11,6 +11,7 @@ function buildStartMissionParams(params) {
     executionMode: params.agent.execution_mode,
     workspaceId: params.agent.workspace_id,
     workspaceRoot: params.agent.workspace_root,
+    resumeCheckpointId: params.req.body?.resumeCheckpointId || null,
     workspaceIsolation: params.agent.isolation_mode,
     agentType: params.agent.agent_type,
     orchestratorAgentId: params.req.body?.orchestratorAgentId,
