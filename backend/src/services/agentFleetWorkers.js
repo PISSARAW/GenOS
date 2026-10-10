@@ -104,7 +104,10 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   try {
     for (const [index, assignment] of assignments.entries()) {
       const typedAssignment = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
-      workers.push(await createWorker({ db, orchestrator, assignment: typedAssignment, index, id: workerIds[index], usedNames, ...context }));
+      const worker = await createWorker({ db, orchestrator, assignment: typedAssignment, index, id: workerIds[index], usedNames, ...context });
+      workers.push(worker);
+      if (mission.executionPolicy?.gqwfV2 === true) worker.gqwf = await require('./gqwf/workers').bindWorker(db,
+        { workerId: worker.agentId, workspaceId: parent.workspace_id, capsulePath: worker.workspaceRoot });
     }
   } catch (error) {
     error.createdWorkers = await includePersistedWorkers(db, parent.id, { workers, workerIds });

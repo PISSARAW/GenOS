@@ -156,6 +156,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [primitives-executables.md](02-orchestration/primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
 - [workflows-et-jobs.md](02-orchestration/workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
 - [workspaces-contrefactuel.md](02-orchestration/workspaces-contrefactuel.md) — snapshots, bisection, restore, blast radius.
+- [GQWF v2](02-orchestration/gqwf-v2.md) — vues privées durables et racines de fichiers adressées par contenu.
 - [git-agents.md](02-orchestration/git-agents.md) — transposition de Git aux états d'agents.
 - [reproduction-et-replication.md](02-orchestration/reproduction-et-replication.md) — mitose, budding, méiose, clonage.
 - [dossiers-agents-et-conscience.md](02-orchestration/dossiers-agents-et-conscience.md) — dossiers de preuves et conscience opérationnelle.

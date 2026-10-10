@@ -48,6 +48,7 @@ async function initializeSchema(db) {
   await addOptionalColumns(db, OPTIONAL_COLUMN_STATEMENTS);
   await require('./migrations/migrateOrchestrationReceipts').migrateOrchestrationReceipts(db);
   await applyVersionedMigrations(db);
+  await require('../services/gqwf/schema').migrateGqwf(db);
   await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');
   for (const eventType of ['error', 'cognitive_drift', 'budget', 'blocked', 'human_escalation']) {
     await db.run('INSERT OR IGNORE INTO notification_preferences (event_type) VALUES (?)', eventType);

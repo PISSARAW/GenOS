@@ -23,6 +23,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [primitives-executables.md](primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
 - [workflows-et-jobs.md](workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
 - [workspaces-contrefactuel.md](workspaces-contrefactuel.md) — snapshots, bisection, restore, blast radius.
+- [gqwf-v2.md](gqwf-v2.md) — racines de fichiers partagées, vues durables et limites du noyau GQWF.
 - [git-agents.md](git-agents.md) — transposition de Git aux états d'agents.
 - [reproduction-et-replication.md](reproduction-et-replication.md) — mitose, budding, méiose, clonage.
 - [dossiers-agents-et-conscience.md](dossiers-agents-et-conscience.md) — dossiers de preuves, conscience opérationnelle et transitions.

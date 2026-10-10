@@ -215,6 +215,12 @@ function createReclaimer(agentId, tracked, retries) {
 async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0) {
   const tracked = activeWorktrees.get(agentId);
   if (!tracked || tracked.scheduled) return false;
+  try {
+    await require('../gqwf/workers').captureWorker(await getDatabase(), agentId);
+  } catch (error) {
+    console.error(`[GQWF] Worker ${agentId} candidate capture failed:`, error);
+    return false;
+  }
   const delay = forceDelay !== null ? forceDelay : gcDelayMs();
   if (delay < 0) return false;
   tracked.scheduled = true;

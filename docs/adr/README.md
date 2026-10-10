@@ -463,6 +463,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0367](0367-sections-durables-snapshot-organisme.md) | Sections durables des snapshots d'organisme | Voir le fichier | -- | -- |
 | [0368](0368-reprise-curseur-mission-et-frontieres-runtime.md) | Reprise du curseur de mission et frontières runtime | Accepté | 2026-10-10 | Snapshots, missions Rust |
 | [0369](0369-racines-gqwf-et-vues-durables.md) | Racines de fichiers GQWF et vues durables | Accepté, portée noyau backend | 2026-10-10 | Workspaces, snapshots, isolation |
+| [0371](0371-raccordement-gqwf-aux-capsules-workers.md) | Raccorder les capsules workers aux vues GQWF | Accepté, activation explicite | 2026-10-10 | Workspaces, workers, snapshots |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

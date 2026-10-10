@@ -75,7 +75,9 @@ async function runDeterministicWorker(db, mission, executionRun) {
     const result = await executeNativeWorker(mission.workerKind, method, context);
     return await complete(context, executionRun, result);
   } catch (failure) {
-    return fail(context, executionRun, failure);
+    return await fail(context, executionRun, failure);
+  } finally {
+    await require('../agentWorkspaceLifecycleService').scheduleWorkspaceCleanup(mission.agentId);
   }
 }
 

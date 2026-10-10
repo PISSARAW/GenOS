@@ -240,6 +240,7 @@ function applyExecutionPolicy(ctx) {
       ? [...new Set(normalizedMission.executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
       : [],
     allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true,
+    gqwfV2: normalizedMission.executionPolicy?.gqwfV2 === true,
     explicitWriteLease: normalizedMission.executionPolicy?.explicitWriteLease === true,
     requestedWorkers: Number.isFinite(requestedWorkers) && requestedWorkers > 0 ? requestedWorkers : 0,
     silentUpdates

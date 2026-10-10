@@ -60,11 +60,12 @@ assert.strictEqual(plan.controlRegulation.arbitration.actionMode, 'probe');
 assert.strictEqual(plan.controlRegulation.arbitration.reversibleOnly, true);
 assert.strictEqual(plan.controlRegulation.arbitration.humanReviewRequired, true);
 assert(plan.controlRegulation.expectedFeedback.includes('replayVerified'));
-const regulatedMission = { prompt: 'Inspect the incident', executionPolicy: { allowFileEdits: true } };
+const regulatedMission = { prompt: 'Inspect the incident', executionPolicy: { allowFileEdits: true, gqwfV2: true } };
 applyExecutionPolicy({ normalizedMission: regulatedMission, dispatchedAgent: { execution_mode: 'worker' }, autonomyPlan: plan });
 assert.strictEqual(regulatedMission.executionPolicy.actionMode, 'probe');
 assert.strictEqual(regulatedMission.executionPolicy.humanReviewRequired, true);
 assert.strictEqual(regulatedMission.executionPolicy.allowFileEdits, false);
+assert.strictEqual(regulatedMission.executionPolicy.gqwfV2, true);
 
 const probeMission = { prompt: 'Diagnose uncertainty', executionPolicy: { allowFileEdits: true } };
 applyExecutionPolicy({
@@ -73,6 +74,7 @@ applyExecutionPolicy({
   autonomyPlan: { controlRegulation: { arbitration: { actionMode: 'probe', humanReviewRequired: true } } }
 });
 assert.strictEqual(probeMission.executionPolicy.allowFileEdits, false);
+assert.strictEqual(probeMission.executionPolicy.gqwfV2, false);
 assert.strictEqual(probeMission.requiresEvidenceBeforePromotion, true);
 
 const blockedPlan = buildAutonomyPlan({ problem_profile: { type: 'general' }, strategy_portfolio: [], branches: [] }, { tokens: 500000 });
