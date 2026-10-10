@@ -472,6 +472,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0376](0376-plafond-projet-sur-ascendance-garage.md) | Plafond projet sur l'ascendance Garage | Accepté pour la tranche locale | 2026-10-10 | Garage Fabric, capacité projet, sous-orchestration |
 | [0377](0377-consolidation-scientifique-par-references-versionnees.md) | Consolider les résultats scientifiques par références versionnées | Proposé ; raccordement de bout en bout non implémenté. | 2026-10-10. | Communication, preuves, GQWF, G-CIR. |
 | [0379](0379-octroi-borne-delegation-sous-orchestrateur.md) | Octroi borné de délégation au sous-orchestrateur | Accepté pour la tranche locale | 2026-10-10 | Sous-orchestration, contrats workers, jetons modèle |
+| [0381](0381-autorite-recus-scientifiques-rejouable.md) | Autorité des reçus scientifiques restaurable par rejeu Lean | Voir le fichier | -- | -- |
+| [0382](0382-publication-scientifique-ciblee-par-producteur.md) | Production et abonnement scientifique ciblés | Voir le fichier | -- | -- |
+| [0383](0383-studio-construction-workflows-canoniques.md) | ADR 0383 Construction de workflows canoniques dans Studio | Accepté pour une tranche de construction de workflows. | 2026-10-10. | Studio, construction, versions, exécution et publication. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

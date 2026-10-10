@@ -133,6 +133,25 @@ L'UI ne signe pas à la place de l'opérateur et n'élargit pas ses pouvoirs.
 
 ## Suivi
 
+### Suite produit lancée le 10 octobre 2026
+
+Les six priorités issues de la comparaison prolongent STUDIO-TARGET-V1 ; elles
+ne remplacent ni les domaines C/S ni les zones Z00–Z20. Chaque point atomique
+porte un commit et une qualification explicite, sans clôture implicite du domaine.
+
+| Priorité | Zones | Première livraison et sortie attendue |
+| --- | --- | --- |
+| G1 Construction | Z03/Z05/Z06 | Workflows visuels/JSON et essai sur worker existant ; poursuivre agents, prompts versionnés, providers et outils. |
+| G2 Représentations métier | Z08/Z09/Z11/Z13 | Graphes accessibles, timelines, diffs et comparaisons reliés aux objets réels. |
+| G3 Sélection et navigation | Z01/Z02 | Sélecteurs tenant-scoped et liens qui évitent de recopier des identifiants. |
+| G4 Mesures | Z07/Z09 | Coûts, latences, erreurs et ressources observés ; inconnus conservés si instrumentation absente. |
+| G5 Travail collectif et exploitation | Z05/Z16/Z17/Z18 | Revues, assignations, intégrations et déploiement qualifiés par adaptateur. |
+| G6 Parcours GenOS continu | Z08/Z10/Z12/Z13/Z15 | Alternatives, preuves, décisions et reprise navigables sans effacer leurs limites. |
+
+G1 est décomposé en G1.1 préconditions de version, G1.2 construction visuelle/JSON
+et G1.3 qualification du parcours. L'[ADR 0383](../adr/0383-studio-construction-workflows-canoniques.md)
+fixe la réutilisation des objets canoniques et les limites de cette première tranche.
+
 Voir [la qualification initiale](studio-qualification.md), puis
 [le suivi du programme](studio-parite-suivi.md). Aucun lot de la matrice
 ne peut être déclaré entièrement terminé par un sous-point isolé.
