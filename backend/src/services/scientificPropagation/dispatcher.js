@@ -1,5 +1,6 @@
 const { claimEvents, ackEvent, releaseEvent } = require('./outbox');
 const { decodeSignalRow } = require('../signalEnvelopeCodec');
+const { referenceStatus } = require('./referenceState');
 
 function signalIdFor(eventId) {
   if (!/^[a-f0-9]{64}$/i.test(eventId)) throw new Error('Invalid scientific outbox event id');
@@ -47,6 +48,14 @@ function publishAccepted(result, expectedSignalId) {
     && result.suppressed !== true;
 }
 
+async function publishDisposition(db, row, ref) {
+  if (row.event_type !== 'publish') return 'send';
+  const status = await referenceStatus(db, ref);
+  if (status === 'stale') return 'superseded';
+  if (status !== 'verified') throw new Error('Scientific publish reference is unavailable');
+  return 'send';
+}
+
 async function dispatchClaim(db, input) {
   const { row, publishSignal, workerId } = input;
   const claim = { eventId: row.event_id, workerId, claimToken: row.claim_token };
@@ -60,18 +69,22 @@ async function dispatchClaim(db, input) {
     if (await hasDurableDelivery(db, delivery)) {
       return { eventId: row.event_id, acked: await ackEvent(db, claim), recovered: true };
     }
+    if (await publishDisposition(db, row, delivery.ref) === 'superseded') {
+      return { eventId: row.event_id, acked: await ackEvent(db, claim), superseded: true };
+    }
     const result = await publishSignal(params);
     if (!publishAccepted(result, params.signalId)) throw new Error('Signal not durably routed');
     if (!await hasDurableDelivery(db, delivery)) throw new Error('Signal delivery absent');
     return { eventId: row.event_id, acked: await ackEvent(db, claim), recovered: false };
   } catch (error) {
-    await releaseEvent(db, claim);
+    await releaseEvent(db, { ...claim, attempts: row.attempts });
     return { eventId: row.event_id, acked: false, reason: error.message };
   }
 }
 
 async function dispatchOutbox(db, input) {
-  const publishSignal = input?.publishSignal || require('../signalingTransportService').publishSignal;
+  const publishSignal = input?.publishSignal ||
+    ((params) => require('./transport').publishScientificSignal(db, params));
   if (typeof publishSignal !== 'function') throw new Error('publishSignal function required');
   const rows = await claimEvents(db, input);
   const outcomes = [];

@@ -90,16 +90,20 @@ rétracte la référence, ses dépendants et ses événements dans une transacti
 SQLite. Le READ G-CIR Node résout une URI canonique sous contrôle de portée,
 matérialise les octets visibles dans le ledger et bloque l'inférence si la
 résolution échoue ; la rétractation invalide la version dans les sessions déjà
-matérialisées. Le dispatcher d'outbox vérifie une livraison Signal Plane durable
-et son enveloppe avant acquittement. Des tests SQLite en mémoire couvrent ces
+matérialisées. Le dispatcher d'outbox crée une enveloppe Signal Plane ciblée et
+une livraison durable, sans dépendre d'un effet récepteur ; le subscriber le
+sonde et il vérifie l'enveloppe avant acquittement. Un échec est repris avec
+un délai borné. Des tests SQLite en mémoire couvrent ces
 invariants et le retour arrière transactionnel.
+Une publication devenue obsolète avant livraison est acquittée comme
+supplantée, sans émettre de notification ; le transport revérifie le statut
+dans la transaction qui inscrit le blob et sa livraison.
 
-Ce code est une API locale : aucun ordonnanceur de dispatcher, worker producteur,
-bootstrap d'autorité de reçus après redémarrage, récepteur scientifique dédié
-ni politique d'audience experte ne sont encore raccordés en production. Un
-signal sans récepteur déterministe peut être escaladé au modèle sans livraison
-au destinataire ; l'outbox reste alors en attente. Les effets externes des
-récepteurs ne sont pas atomiques avec son acquittement. Le contenu est encore
+Le worker producteur, le bootstrap d'autorité de reçus après redémarrage et la
+politique d'audience experte ne sont pas encore raccordés en production. La
+livraison ciblée ne prouve pas que le destinataire ait traité ou compris le
+résultat. Les effets externes des récepteurs ne sont pas atomiques avec leur
+acquittement. Le contenu est encore
 dupliqué en BLOB SQLite, sans référence CAS GQWF. Aucun benchmark à 10 000
 identités ni parité du resolver Rust n'est établi.
 

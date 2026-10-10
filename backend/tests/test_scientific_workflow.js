@@ -15,7 +15,10 @@ const hash = (value) => `sha256:${createHash('sha256').update(value).digest('hex
 async function fixture() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
-    INSERT INTO workspaces VALUES ('w1', 'org', 'project');`);
+    INSERT INTO workspaces VALUES ('w1', 'org', 'project');
+    CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT);
+    INSERT INTO agents VALUES ('agent-author', 'w1');
+    INSERT INTO agents VALUES ('agent-consumer', 'w1');`);
   const graph = new MathematicalDependencyGraph();
   graph.addNode({ nodeId: 'source', type: 'theorem', canonicalStatement: '0 = 0', status: 'formalized' });
   graph.addNode({ nodeId: 'derived', type: 'theorem', canonicalStatement: '1 = 1', status: 'formalized' });
@@ -54,11 +57,15 @@ async function run() {
   try {
     const source = await inputFor(f, { objectId: 'source', statement: '0 = 0',
       source: 'theorem source : 0 = 0 := by rfl' });
+    await assert.rejects(() => f.workflow.publishVerified({ ...source,
+      senderAgentId: 'foreign' }), (error) => error.code === 'SCI_REF_PARTICIPANT_SCOPE');
     const sourceResult = await f.workflow.publishVerified(source);
     assert.equal(sourceResult.status, 'verified');
     const derived = await inputFor(f, { objectId: 'derived', statement: '1 = 1',
       source: 'theorem derived : 1 = 1 := by rfl',
       dependencies: [{ ...source.reference, receiptDigest: source.receiptDigest }] });
+    await assert.rejects(() => f.workflow.publishVerified({ ...derived,
+      consumerAgentId: 'foreign' }), (error) => error.code === 'SCI_REF_PARTICIPANT_SCOPE');
     await f.workflow.publishVerified({ ...derived, consumerAgentId: 'agent-consumer' });
     const before = await f.db.get(`SELECT state FROM scientific_obligations LIMIT 1`);
     assert.equal(before.state, 'open');

@@ -16,6 +16,7 @@ const cognitiveWorker = require('./signalCognitiveWorkerService');
 const signalDelivery = require('./signalDeliveryService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 const signalMetrics = require('./signalMetricsService');
+const scientificPropagation = require('./scientificPropagation');
 
 const registeredWakeHandlers = new Map();
 const CLAIM_OWNER = `${process.pid}:${randomUUID()}`;
@@ -23,6 +24,8 @@ const CLAIM_LEASE_MS = 60_000;
 const POLL_INTERVAL_MS = 500;
 let pollTimer = null;
 let pollInProgress = false;
+let scientificPollInProgress = false;
+let scientificReadyDb = null;
 
 /**
  * Register a wake handler for a specific agent.
@@ -169,6 +172,29 @@ async function pollPendingDeliveries() {
   }
 }
 
+async function pollScientificOutbox(dbOverride = null) {
+  if (scientificPollInProgress) return;
+  scientificPollInProgress = true;
+  try {
+    const db = dbOverride || await getDatabase();
+    if (scientificReadyDb !== db) {
+      await scientificPropagation.ensureTables(db);
+      scientificReadyDb = db;
+    }
+    const outcomes = await scientificPropagation.dispatchOutbox(db,
+      { workerId: CLAIM_OWNER, limit: 25 });
+    for (const outcome of outcomes) {
+      if (!outcome.acked) {
+        console.warn(`[SignalPlaneSubscriber] Scientific outbox ${outcome.eventId}: ${outcome.reason}`);
+      }
+    }
+  } catch (error) {
+    logPollFailure(error);
+  } finally {
+    scientificPollInProgress = false;
+  }
+}
+
 function logPollFailure(error) {
   console.warn(`[SignalPlaneSubscriber] Durable poll failed: ${error.message}`);
 }
@@ -194,12 +220,14 @@ function startSignalPlaneSubscriber() {
   }
   if (!pollTimer) {
     pollTimer = setInterval(() => {
+      pollScientificOutbox().catch(logPollFailure);
       pollPendingDeliveries().catch(logPollFailure);
       cognitiveWorker.pollCognitiveJobs().catch(logPollFailure);
     }, POLL_INTERVAL_MS);
     pollTimer.unref?.();
   }
   pollPendingDeliveries().catch(logPollFailure);
+  pollScientificOutbox().catch(logPollFailure);
   cognitiveWorker.pollCognitiveJobs().catch(logPollFailure);
   console.log('[SignalPlaneSubscriber] Started — listening for routed signals');
 }
@@ -217,4 +245,5 @@ module.exports = {
   unregisterWakeHandler,
   stopSignalPlaneSubscriber,
   pollPendingDeliveries,
+  pollScientificOutbox,
 };

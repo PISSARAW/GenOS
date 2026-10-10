@@ -21,7 +21,21 @@ function requireWorkflow(input) {
   }
 }
 
+async function assertParticipantScope(db, ref, agentId) {
+  const row = await db.get(`SELECT a.workspace_id, w.organization_id, w.project_id
+    FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, agentId);
+  if (!row || row.workspace_id !== ref.workspaceId ||
+      row.organization_id !== ref.organizationId || row.project_id !== ref.projectId) {
+    throw Object.assign(new Error('Scientific participant is outside reference scope.'),
+      { code: 'SCI_REF_PARTICIPANT_SCOPE' });
+  }
+}
+
 async function publishWithin(tx, store, input) {
+  await assertParticipantScope(tx, input.reference, input.senderAgentId);
+  if (input.consumerAgentId) {
+    await assertParticipantScope(tx, input.reference, input.consumerAgentId);
+  }
   const published = await store.publishVerified(tx, input);
   await propagation.registerDependencies(tx, {
     consumerRef: published.ref,
@@ -42,6 +56,7 @@ async function publishWithin(tx, store, input) {
 
 async function retractWithin(tx, store, input) {
   const ref = typeof input.ref === 'string' ? references.parseReference(input.ref) : input.ref;
+  await assertParticipantScope(tx, ref, input.senderAgentId);
   const recipients = await propagation.getDependentAgents(tx, ref);
   const source = await store.markStale(tx, input);
   const cascade = await propagation.invalidateDependents(tx, {

@@ -47,12 +47,17 @@ async function ensureTables(db) {
       claim_token TEXT,
       claimed_until_ms INTEGER,
       attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_ms INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       acked_at TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_scientific_outbox_claim
       ON scientific_outbox(state, priority DESC, created_at);
   `);
+  const columns = await db.all('PRAGMA table_info(scientific_outbox)');
+  if (!columns.some((column) => column.name === 'next_attempt_ms')) {
+    await db.exec('ALTER TABLE scientific_outbox ADD COLUMN next_attempt_ms INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
 module.exports = { ensureTables };
