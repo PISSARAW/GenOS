@@ -13,6 +13,11 @@ function report() {
       activeLocalRuntimeAtSafePoint: supported,
       requiresStoppedRuntimeForRestore: true
     },
+    gqwfFileRoot: {
+      captureAvailable: supported,
+      restoreAvailable: false,
+      requestFlag: 'gqwfV2'
+    },
     processMemory: {
       captureAvailable: false,
       restoreAvailable: false,
@@ -35,6 +40,10 @@ function requestedMemory(body) {
 }
 
 function assertRequest(body) {
+  if (body?.gqwfV2 !== undefined && typeof body.gqwfV2 !== 'boolean') {
+    throw Object.assign(new Error('gqwfV2 must be a boolean.'),
+      { code: 'ORGANISM_GQWF_MODE_INVALID', status: 400 });
+  }
   if (!requestedMemory(body)) return;
   throw Object.assign(new Error('Process memory capture and restore require a supervised VM backend that is not integrated.'),
     { code: 'ORGANISM_PROCESS_MEMORY_UNAVAILABLE', status: 422 });

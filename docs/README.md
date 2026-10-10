@@ -649,3 +649,4 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0367 — Sections durables des snapshots d'organisme](adr/0367-sections-durables-snapshot-organisme.md).
 - [ADR 0368 — Reprise du curseur de mission et frontières runtime](adr/0368-reprise-curseur-mission-et-frontieres-runtime.md).
 - [ADR 0375 — Portabilité des snapshots mémoire](adr/0375-portabilite-snapshots-memoire.md).
+- [ADR 0378 — Référence GQWF dans un snapshot d'organisme](adr/0378-reference-gqwf-dans-snapshot-organisme.md).

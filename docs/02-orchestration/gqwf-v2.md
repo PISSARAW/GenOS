@@ -1,6 +1,6 @@
 # GQWF v2 — Racines de fichiers et vues durables
 
-- **Statut** : Partiel — noyau backend et raccordement explicite des workers autonomes implémentés.
+- **Statut** : Partiel — noyau backend, workers autonomes et référence opt-in des snapshots d'organisme implémentés.
 - **Portée** : projection de fichiers, overlays, merge, matérialisation, tête versionnée.
 - **Dernière revue** : 2026-10-10.
 
@@ -54,6 +54,14 @@ sur import, fork, lecture, matérialisation, test et promotion.
 Le pont v1 relit le manifeste historique avec son vérificateur existant et
 conserve un lien `snapshot_id → root_hash`. Il n'active pas automatiquement
 GQWF pour les captures ou restaurations d'organisme.
+
+Une capture ou un commit d'organisme peut demander `gqwfV2: true`. Après le
+snapshot historique, GenOS importe son payload vérifié et couvre la racine
+GQWF dans le hash du manifeste d'organisme. La réponse fournit
+`gqwfRootHash`. Avant restauration, le lien entre snapshot historique et
+racine est vérifié ; un lien manquant ou incohérent refuse la restauration.
+Le payload historique reste la source de la restauration et la réponse indique
+`gqwfRootRestored: false`. Ce pont est décrit dans l'[ADR 0378](../adr/0378-reference-gqwf-dans-snapshot-organisme.md).
 
 Validation ciblée : `node backend/tests/test_gqwf_fabric.js`. Les gates généraux
 du dépôt restent requis pour toute livraison.
