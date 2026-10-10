@@ -271,6 +271,7 @@ async function persistWorker(db, details) {
     try {
       await withTransaction(db, async () => {
         await db.run(`INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic, metadata_json) VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?, ?)`, ...workerInsertValues(details));
+        await require('./workerWorkspaceBindingService').bindFleetWorkerWorkspace(db, details);
         const debit = await db.run(`UPDATE agents SET cognitive_budget = ROUND(MAX(0, COALESCE(cognitive_budget, 0) - ?), 6), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND (cognitive_budget >= ? OR (? - cognitive_budget) < 0.0001)`, perWorkerCognitiveBudget, parent.id, perWorkerCognitiveBudget, perWorkerCognitiveBudget);
         if (debit.changes !== 1) {
           throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
@@ -294,7 +295,6 @@ async function persistWorker(db, details) {
     }
   }
 }
-
 function workerInsertValues(details) {
   const { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, mission } = details;
   const workerContract = fleetWorkerContract(details);
@@ -351,7 +351,7 @@ function formatWorker(details) {
 function workerIdentity(details) {
   const { id, identity, assignment, parent, plan, prompt } = details;
   const workerContract = details.workerContract || fleetWorkerContract(details);
-  return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerAssignment: assignment.workerAssignment || assignment, methodContract: assignment.methodContract || null, workerContract, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, ...require('./workerPreparationDetails').workerPlacement(assignment, parent, plan) };
+  return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerAssignment: assignment.workerAssignment || assignment, methodContract: assignment.methodContract || null, workerContract, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, ...require('./workerPreparationDetails').workerPlacement(assignment, parent, plan), workspaceId: details.workspaceId || parent.workspace_id };
 }
 
 function inheritedWorkerEngine(mission) {

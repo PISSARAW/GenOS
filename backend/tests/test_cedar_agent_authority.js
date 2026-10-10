@@ -24,6 +24,12 @@ assert.equal(decision({ ...worker, boundedDelegationChildId: delegated.id }, del
 assert.equal(decision({ ...worker, boundedDelegationChildId: 'different-child' }, delegated, 'StartMission'), false);
 assert.equal(decision(peer, worker, 'StartMission'), false);
 assert.equal(decision(parent, foreign, 'StartMission'), false);
+const capsule = { ...foreign, capsuleDispatchParentId: parent.id };
+assert.equal(cedar.authorize({ principal: parent, resource: capsule, action: 'StartMission', workspaceId: 'workspace-b' }), true);
+assert.equal(cedar.authorize({ principal: parent, resource: capsule, action: 'Control', workspaceId: 'workspace-b' }), true);
+assert.equal(cedar.authorize({ principal: parent, resource: foreign, action: 'StartMission', workspaceId: 'workspace-b' }), false);
+assert.equal(cedar.authorize({ principal: parent, resource: foreign, action: 'Control', workspaceId: 'workspace-b' }), false);
+assert.equal(cedar.authorize({ principal: parent, resource: { ...capsule, capsuleDispatchParentId: 'other' }, action: 'StartMission', workspaceId: 'workspace-b' }), false);
 assert.equal(cedar.authorize({ principal: parent, resource: worker, action: 'StartMission', workspaceId: 'workspace-b' }), false);
 assert.equal(decision(parent, worker, 'Control'), true);
 assert.equal(decision(worker, worker, 'Control'), true);

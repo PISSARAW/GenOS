@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "test": "npm run test:biology && npm --prefix backend test && npm run test:garage",
+    "test": "npm run test:biology && npm run test:worker-workspaces && npm --prefix backend test && npm run test:garage",
+    "test:worker-workspaces": "node backend/tests/test_worker_workspace_binding.js",
     "test:biology": "node backend/tests/run_biology_suite.cjs",
     "test:garage": "node backend/tests/run_validation_suite.js garage",
     "test:quality": "npm --prefix backend run test:quality",

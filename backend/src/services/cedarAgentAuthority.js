@@ -31,6 +31,7 @@ function entity(agent) {
       executionMode: agent.execution_mode || '',
       parentId: agent.parent_agent_id || '',
       sealedDispatchParentId: agent.sealedDispatchParentId || '',
+      capsuleDispatchParentId: agent.capsuleDispatchParentId || '',
       boundedDelegationChildId: agent.boundedDelegationChildId || ''
     },
     parents: []

@@ -73,7 +73,7 @@ async function bindBound(db, input) {
   const fresh = await parent(db, input.parentId);
   const agent = await db.get('SELECT * FROM agents WHERE id = ?', input.childId);
   const contract = agent && metadata(agent).workerContract;
-  assertChild(agent, contract, fresh);
+  await assertChild(db, { agent, contract, authorized: fresh });
   const modelTokens = contract.resources.maxTokens;
   const budget = await capacity(db, fresh, agent.id);
   if (modelTokens > budget.remainingTokens) throw denied('SUBORCHESTRATOR_TOKEN_LIMIT');
@@ -89,18 +89,27 @@ async function bindBound(db, input) {
   return { ...binding, hash: values.digest(binding) };
 }
 
-function assertChild(agent, contract, authorized) {
+function assertChildContract(agent, contract, authorized) {
   if (agent?.execution_mode !== 'worker' || agent.parent_agent_id !== authorized.agent.id
-      || agent.workspace_id !== authorized.agent.workspace_id || !CHILD_KINDS.has(contract?.identity?.workerKind)) throw denied();
+      || !CHILD_KINDS.has(contract?.identity?.workerKind)) throw denied();
   enforcement.assertRuntimeContract(contract, contract.identity.workerKind);
   if (contract.identity.parentId !== authorized.agent.id || contract.authority.spawn || contract.authority.delegate
       || contract.spawnBudget !== 0 || contract.delegationDepth !== 0) throw denied('UNSUPPORTED_WORKER_DELEGATION');
 }
 
+async function assertChild(db, input) {
+  const { agent, contract, authorized } = input;
+  assertChildContract(agent, contract, authorized);
+  if (agent.workspace_id === authorized.agent.workspace_id) return agent;
+  const resource = await require('../workerWorkspaceBindingService').delegation(db, { agent, parent: authorized.agent });
+  if (!resource) throw denied();
+  return resource;
+}
+
 async function authorize(db, input) {
   const authorized = await parent(db, input.parent.id);
   const contract = metadata(await db.get('SELECT * FROM agents WHERE id = ?', input.agent.id)).workerContract;
-  assertChild(input.agent, contract, authorized);
+  const resource = await assertChild(db, { agent: input.agent, contract, authorized });
   const event = await ledger.getEvent(db, `gvx-delegation:${input.agent.id}`, authorized.scope);
   const binding = event?.payload.binding;
   if (event?.payload.kind !== 'bounded_worker_delegation' || binding?.schema !== SCHEMA
@@ -108,7 +117,7 @@ async function authorize(db, input) {
       || binding.childContractHash !== values.digest(contract) || binding.childId !== input.agent.id
       || binding.rootId !== authorized.root.id || !bindingIsCurrent(binding, authorized, contract)) throw denied('DELEGATION_BINDING_INVALID');
   const principal = { ...authorized.agent, boundedDelegationChildId: input.agent.id };
-  if (!require('../cedarAgentAuthority').authorize({ principal, resource: input.agent,
+  if (!require('../cedarAgentAuthority').authorize({ principal, resource,
     action: 'StartMission', workspaceId: input.agent.workspace_id })) throw denied('MISSION_CEDAR_DENIED');
   return input.agent;
 }
