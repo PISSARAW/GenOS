@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const { getDatabase, closeDatabase } = require('../src/db');
 const authority = require('../src/services/agentAuthorityService');
+const garage = require('../src/services/workerGarageService');
 
 async function main() {
   process.env.GENOS_ADMIN_PASSWORD ||= 'trinity-authority-test-only';
@@ -22,6 +23,7 @@ async function main() {
     assert.equal((await launch()).id, 'worker');
     const garageScope = () => require('../src/services/garageRequests').scope(db, { workerId: 'worker', orchestratorId: 'parent' });
     assert.equal((await garageScope()).workspace_id, 'trinity_workspace_worker');
+    assert.equal((await garage.requireAvailableSlot(db, 'parent', 'worker')).occupied, 0);
     const mutations = [
       ["UPDATE workspaces SET organization_id='foreign',project_id='foreign' WHERE id='trinity_workspace_worker'", "UPDATE workspaces SET organization_id='org',project_id='project' WHERE id='trinity_workspace_worker'"],
       ["UPDATE workspaces SET path='other' WHERE id='trinity_workspace_worker'", "UPDATE workspaces SET path='private' WHERE id='trinity_workspace_worker'"],
@@ -34,6 +36,7 @@ async function main() {
       await db.run(mutate);
       await assert.rejects(launch, { code: 'ORCHESTRATOR_WORKSPACE_MISMATCH' });
       await assert.rejects(garageScope, { code: 'GARAGE_SCOPE_INVALID' });
+      await assert.rejects(garage.requireAvailableSlot(db, 'parent', 'worker'), { code: 'GARAGE_SCOPE_INVALID' });
       await db.run(restore);
     }
     await assert.rejects(() => authority.authorizeMission(db, { agentId: 'worker', orchestratorAgentId: 'wrong-parent' }), { code: 'WORKER_ORCHESTRATOR_MISMATCH' });

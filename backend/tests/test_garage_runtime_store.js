@@ -79,28 +79,34 @@ async function projectCapacity(test) {
 async function nestedProjectCapacity(test) {
   const limit = garage.projectCapacity();
   await test.db.run("UPDATE agents SET status = 'idle' WHERE execution_mode = 'worker'");
+  await test.db.run(`INSERT INTO agents(id,execution_mode,status,workspace_id,parent_agent_id,metadata_json)
+    VALUES ('nested-sub','worker','running',NULL,'other-orch','{"workerKind":"sub_orchestrator"}')`);
   await test.db.run(`INSERT INTO agents(id,execution_mode,status,workspace_id,parent_agent_id)
-    VALUES ('nested-sub','worker','running','ws','other-orch')`);
-  for (let index = 0; index < limit - 2; index++) {
+    VALUES ('nested-middle','worker','running',NULL,'nested-sub'),
+      ('nested-deep','worker','running',NULL,'nested-middle')`);
+  for (let index = 0; index < limit - 4; index++) {
     await test.db.run(`INSERT INTO agents(id,execution_mode,status,workspace_id,parent_agent_id)
-      VALUES (?,'worker','running',?,'nested-sub')`, `nested-${index}`, index === 0 ? null : 'ws');
+      VALUES (?,'worker','running',NULL,'nested-deep')`, `nested-${index}`);
   }
   await test.db.run(`INSERT INTO agents(id,execution_mode,status,workspace_id,parent_agent_id)
-    VALUES ('other-candidate','worker','idle','ws','other-orch')`);
+    VALUES ('nested-candidate','worker','idle',NULL,'nested-sub')`);
   const second = await open(test.filename);
   try {
     const results = await Promise.allSettled([
       garage.reserveSlot(test.db, { orchestratorId: 'orch', workerId: 'worker-5', name: 'worker-5', role: 'implementation', mission: 'bounded' }),
-      garage.reserveSlot(second, { orchestratorId: 'other-orch', workerId: 'other-candidate', name: 'other-candidate', role: 'implementation', mission: 'bounded' })
+      garage.reserveSlot(second, { orchestratorId: 'nested-sub', workerId: 'nested-candidate', name: 'nested-candidate', role: 'implementation', mission: 'bounded' })
     ]);
     assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
     assert.equal(results.find((result) => result.status === 'rejected').reason.code, 'PROJECT_WORKER_CAPACITY_FULL');
-    const occupied = await test.db.get(`SELECT COUNT(*) AS count FROM agents a
-      LEFT JOIN agents parent ON parent.id = a.parent_agent_id
-      JOIN workspaces w ON w.id = COALESCE(a.workspace_id, parent.workspace_id)
-      WHERE a.execution_mode = 'worker' AND a.status = 'running' AND w.project_id = 'project'`);
-    assert.equal(occupied.count, limit, 'descendants share the project ceiling with their ancestors');
+    const occupied = await require('../src/services/garageProjectCapacity').countActive(test.db,
+      { organization_id: 'org', project_id: 'project' });
+    assert.equal(occupied, limit, 'descendants share the project ceiling through multiple ancestors');
   } finally { await second.close(); }
+  await test.db.run("INSERT INTO workspaces(id,organization_id,project_id) VALUES ('foreign-ws','org','project')");
+  await test.db.run(`INSERT INTO agents(id,execution_mode,status,workspace_id,parent_agent_id)
+    VALUES ('foreign-worker','worker','idle','foreign-ws','orch')`);
+  await assert.rejects(garage.reserveSlot(test.db, { orchestratorId: 'orch', workerId: 'foreign-worker',
+    name: 'foreign-worker', role: 'implementation', mission: 'bounded' }), { code: 'GARAGE_SCOPE_INVALID' });
 }
 
 run().catch((failure) => { console.error(failure); process.exitCode = 1; });

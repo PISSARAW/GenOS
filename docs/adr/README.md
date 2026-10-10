@@ -467,6 +467,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0372](0372-fondation-garages-hierarchiques-et-plafond-projet.md) | Fondation des garages hiérarchiques et plafond projet | Accepté pour la tranche de sûreté ; hiérarchie non implémentée | 2026-10-10 | Garage Fabric, capacité, sous-orchestration |
 | [0374](0374-registre-durable-des-domaines-garage.md) | Registre durable des domaines Garage | Accepté pour la tranche SQLite locale | 2026-10-10 | Garage Fabric, capacité, sous-orchestration |
 | [0375](0375-portabilite-snapshots-memoire.md) | Portabilité des snapshots mémoire | Négociation acceptée ; backend VM proposé | 2026-10-10 | Snapshots, runtime, portabilité |
+| [0376](0376-plafond-projet-sur-ascendance-garage.md) | Plafond projet sur l'ascendance Garage | Accepté pour la tranche locale | 2026-10-10 | Garage Fabric, capacité projet, sous-orchestration |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
