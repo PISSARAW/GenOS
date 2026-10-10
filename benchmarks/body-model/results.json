@@ -1,0 +1,98 @@
+{
+  "runAt": "2026-10-10T15:07:25.093Z",
+  "results": [
+    {
+      "id": "R1",
+      "verdict": "PASS",
+      "criterion": "Les mesures internes sont isolées par identifiant d’agent.",
+      "detail": {
+        "a": {
+          "energy": 0.8,
+          "memory_pressure": 0.02,
+          "social_state": 0.5,
+          "model_drift": 0,
+          "context_pressure": 0,
+          "integrity": 1,
+          "stress": 0
+        },
+        "b": {
+          "energy": 0.2,
+          "memory_pressure": 0.8,
+          "social_state": 0.5,
+          "model_drift": 0,
+          "context_pressure": 0,
+          "integrity": 1,
+          "stress": 0
+        },
+        "queries": 12
+      }
+    },
+    {
+      "id": "R2",
+      "verdict": "PASS",
+      "criterion": "Un changement extérieur ne modifie pas le budget propre ; une variation du budget propre le modifie.",
+      "detail": {
+        "budgetExterneChange": 5000,
+        "budgetPropreChange": 700
+      }
+    },
+    {
+      "id": "C1",
+      "verdict": "FAIL",
+      "criterion": "Sans mesure du budget, le capteur ne doit pas déclarer une valeur mesurée avec confiance 1.",
+      "detail": "budget absent représenté par {\"kind\":\"metabolic_budget\",\"source\":\"proprioception\",\"value\":{\"tokens\":0,\"workerShare\":0,\"orchestratorReserve\":0},\"confidence\":1,\"cost\":0.01,\"timestamp\":\"2026-10-10T15:07:25.081Z\"}"
+    },
+    {
+      "id": "C2",
+      "verdict": "PASS",
+      "criterion": "Les percepts de budget et de workspace gardent des sources distinctes.",
+      "detail": {
+        "budgetSource": "proprioception",
+        "workspaceSource": "filesystem_touch"
+      }
+    },
+    {
+      "id": "E1",
+      "verdict": "PASS",
+      "criterion": "Le registre signale explicitement les effecteurs sans suivi causal.",
+      "detail": {
+        "covered": 2,
+        "uncovered": 2,
+        "no_agent_identity": 1,
+        "out_of_band": 1,
+        "outside_node_boundary": 1
+      }
+    },
+    {
+      "id": "E2",
+      "verdict": "FAIL",
+      "criterion": "Une commande motrice doit être liée à un agent propriétaire.",
+      "detail": "effecteur sans identité exécuté : {\"outcomeId\":\"280ced60-36df-46e9-80e3-64c7a019ff81\",\"status\":\"completed\",\"environmentRef\":\"env://agent-B\",\"intentId\":\"move-1\",\"observedStateRef\":null,\"evidenceRefs\":[\"receipt:foreign\"],\"metrics\":{}}\n\n1 !== 0\n"
+    },
+    {
+      "id": "A1",
+      "verdict": "PASS",
+      "criterion": "Une conséquence est attribuée au soi seulement si le type et l’action correspondent.",
+      "detail": {
+        "wrong": {
+          "matched": false
+        },
+        "right": {
+          "matched": true,
+          "copyId": "eff_1791644845084_1fa0",
+          "attenuation": 0.5,
+          "strength": 1
+        },
+        "replay": {
+          "matched": false
+        }
+      }
+    },
+    {
+      "id": "A2",
+      "verdict": "FAIL",
+      "criterion": "Un événement attribué à un autre agent ne doit pas être réattribué au soi malgré un identifiant d’action identique.",
+      "detail": "événement externe attribué au soi : {\"matched\":true,\"copyId\":\"eff_1791644845092_b45\",\"attenuation\":0.5,\"strength\":1}\n\ntrue !== false\n"
+    }
+  ]
+}
