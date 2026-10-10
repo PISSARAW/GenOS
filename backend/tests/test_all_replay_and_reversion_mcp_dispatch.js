@@ -73,7 +73,7 @@ async function runAllReplayAndReversionMcpTests() {
   assert.strictEqual(consciousnessRes.result.success, false);
   assert.strictEqual(consciousnessRes.result.status, 'not_implemented');
   assert.strictEqual(consciousnessRes.result.new_iteration, undefined);
-  console.log('✅ Honest refusal verified: Temporal Consciousness Transfer is not implemented');
+  console.log('✅ Deep Verified: Temporal Consciousness Transfer refuses unsupported replay honestly');
 
   // 4. Novikov Causal Rebase
   const novikovRes = await dispatchTool('genos_temporal_novikov_causal_rebase', {

@@ -88,6 +88,15 @@ async function directCallGuard(toolName, args) {
   if (!directToolLeaseAllows(toolName)) throw Object.assign(new Error(`Tool '${toolName}' is outside the active MCP lease.`), { code: 'MCP_TOOL_LEASE_DENIED' });
   const argumentError = validateToolArguments(toolName, args);
   if (argumentError) throw argumentError;
+  if (toolName === 'genos_biomimicry' && !directBiologicalFeatureLeaseAllows(args || {})) {
+    throw Object.assign(new Error('The active MCP lease does not grant this biological feature/action.'), { code: 'MCP_BIOLOGICAL_CAPABILITY_LEASE_DENIED' });
+  }
+  const { validateMcpInputPaths } = require('./dispatch');
+  try {
+    validateMcpInputPaths(args || {});
+  } catch (pathError) {
+    throw pathError;
+  }
   const circuit = circuitBreaker.canExecute(toolName, 'operator', 'global', args);
   if (!circuit.allowed) throw Object.assign(new Error(circuit.message), { code: circuit.reason || 'MCP_CIRCUIT_OPEN' });
   return circuit;

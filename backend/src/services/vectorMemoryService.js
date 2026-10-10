@@ -58,7 +58,7 @@ class VectorMemoryService {
     const buffer = Buffer.from(float32.buffer);
     // Un contenu identique ne doit pas ressusciter l'ancien embedding :
     // le conflit met à jour contenu + embedding + métadonnées.
-    await db.run(
+    const stored = await db.run(
       `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
@@ -67,10 +67,13 @@ class VectorMemoryService {
          embedding_blob = excluded.embedding_blob,
          category = excluded.category,
          synaptic_weight = excluded.synaptic_weight,
-         last_accessed_at = CURRENT_TIMESTAMP`,
+         last_accessed_at = CURRENT_TIMESTAMP
+       WHERE genome_decisions.organization_id IS excluded.organization_id
+         AND genome_decisions.project_id IS excluded.project_id`,
       id, title, normalizedContent, buffer, agentId, category, synapticWeight,
       orgId, projId
     );
+    if (stored.changes === 0) throw Object.assign(new Error('Memory identifier belongs to another scope.'), { code: 'MEMORY_SCOPE_CONFLICT' });
     return id;
   }
 

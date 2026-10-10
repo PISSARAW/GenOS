@@ -21,6 +21,17 @@ Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`
 runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
+La création inscrit `preparing` avant le dossier, puis `open` après sa
+matérialisation. La libération traverse `releasing` avant `released`. Un nouvel
+appel à `releaseLease` reprend une suppression interrompue ; `materializeRoot`
+réconcilie au plus 100 libérations en attente du même workspace et refuse une
+nouvelle création si des préparations ou quarantaines subsistent.
+`reconcileReleasingLeases` peut être appelé explicitement pour poursuivre le
+nettoyage. Après arrêt des producteurs, `recoverPreparations: true` traite
+aussi les préparations inachevées ; cette reprise reste explicite au
+redémarrage. Un dossier sans marqueur de propriété est conservé en
+quarantaine. Voir l'[ADR 0378](../adr/0378-reprise-des-baux-gqwf.md).
+
 ## Workers physiques et vues durables
 
 Une mission peut activer `executionPolicy.gqwfV2: true`. Après création de sa

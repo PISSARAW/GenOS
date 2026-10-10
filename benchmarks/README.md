@@ -1,5 +1,10 @@
 # Référence expérimentale GenOS
 
+Le [banc GQWF local](gqwf-overlays/README.md) mesure séparément la création de
+vues logiques, l'écriture d'overlays et la matérialisation de fichiers. Il ne
+constitue pas une comparaison modèle seul contre GenOS ni une mesure de
+runtimes agents.
+
 Ce répertoire définit le protocole commun pour comparer un modèle seul à ce même
 modèle assisté par GenOS. Les anciens benchmarks restent utilisables pour leurs
 questions propres, mais leurs résultats ne constituent pas une comparaison

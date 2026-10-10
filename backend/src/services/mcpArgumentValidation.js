@@ -33,9 +33,19 @@ const REQUIRED_STRINGS = {
   genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source'],
   genos_biological_mode: ['mode', 'mission'],
   genos_fossil_record: ['lineage_id', 'reason'],
+  genos_fossil_list: [],
+  genos_fossil_strata: [],
   genos_fossil_excavate: ['fossil_id'],
   genos_fossil_decode: ['fossil_id'],
   genos_fossil_candidate: ['fossil_id'],
+  genos_signal_ground: ['signal_id', 'agent_id', 'grounding_level'],
+  genos_diagnose: ['task', 'hypotheses'],
+  genos_analyze_trajectory: ['actionHistory'],
+  genos_record_decision: ['agentId', 'title', 'decision', 'evidence'],
+  genos_record_experience: ['agentId', 'actionInput', 'observationOutput'],
+  genos_compile_memory: ['agentId'],
+  genos_blame: ['target_id'],
+  genos_search_failures: [],
   genos_genome_compile: ['input', 'out'],
   genos_genome_validate: ['file'],
   genos_genome_inspect: ['file'],
@@ -225,7 +235,8 @@ function validateToolArguments(toolName, args = {}) {
   // Validation générique: si le handler déclare required[], chaque champ doit
   // être fourni (non vide). Rejet => invalid_args, jamais de défaut silencieux.
   const required = bioRequiredArgs(toolName);
-  if (required) {
+  const statusInspection = args.action === undefined || args.action === null || args.action === 'status';
+  if (required && !statusInspection) {
     for (const field of required) {
       // 'a|b' = au moins l'un des deux doit être fourni (alias acceptés).
       const alternatives = String(field).split('|');
@@ -235,6 +246,11 @@ function validateToolArguments(toolName, args = {}) {
       });
       if (!provided) return invalid(alternatives[0], 'is required.');
     }
+  }
+  const declaredRequired = REQUIRED_STRINGS[toolName] || [];
+  for (const field of declaredRequired) {
+    const error = validateString(args[field], field, true);
+    if (error) return error;
   }
 
   if (toolName === 'genos_synaptic_stdp_update') {

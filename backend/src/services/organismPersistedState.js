@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { withTransaction } = require('../db');
 
 const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
 const TABLES = Object.freeze({
@@ -109,6 +110,17 @@ function verify(payload) {
   return Buffer.byteLength(json) <= MAX_PAYLOAD_BYTES && payload.hash === digest(payload.sections);
 }
 
+async function assertRelationsUnchanged(db, agentId, payload) {
+  if (!verify(payload)) {
+    throw Object.assign(new Error('Persisted organism state hash is invalid.'), { code: 'ORGANISM_STATE_INTEGRITY_FAILED', status: 409 });
+  }
+  if (!Array.isArray(payload.sections.relations)) throw new Error('Snapshot relations section is invalid.');
+  const current = await readRows(db, TABLES.relations, agentId);
+  if (digest(current) !== digest(payload.sections.relations)) {
+    throw Object.assign(new Error('Shared relations changed since the snapshot.'), { code: 'ORGANISM_RESTORE_RELATION_CONFLICT', status: 409 });
+  }
+}
+
 function assertOwner(name, row, context) {
   const { agentId, decisionIds } = context;
   if (['memories', 'autobiographicalEpisodes', 'selfModels'].includes(name) && row.agent_id !== agentId) {
@@ -135,6 +147,10 @@ async function insertRow(db, table, row) {
 }
 
 async function restore(db, agentId, options) {
+  return withTransaction(db, () => restoreInTransaction(db, agentId, options));
+}
+
+async function restoreInTransaction(db, agentId, options) {
   const { payload, scope } = options;
   if (!verify(payload)) {
     throw Object.assign(new Error('Persisted organism state hash is invalid.'), { code: 'ORGANISM_STATE_INTEGRITY_FAILED', status: 409 });
@@ -145,6 +161,7 @@ async function restore(db, agentId, options) {
   await assertSynapsePeers(db, scope, sections);
   const pending = await db.get("SELECT 1 AS active FROM organism_model_turns WHERE agent_id = ? AND status = 'pending' LIMIT 1", agentId);
   if (pending) throw Object.assign(new Error('Model inference is in progress during restore.'), { code: 'ORGANISM_RESTORE_MODEL_PENDING', status: 409 });
+  await assertRelationsUnchanged(db, agentId, payload);
   await replacePersistedRows(db, agentId, sections);
   return { modelTurns: sections.modelTurns.length, runtimeRestartRequired: true };
 }
@@ -201,4 +218,4 @@ async function replacePersistedRows(db, agentId, sections) {
   for (const turn of sections.modelTurns) await insertRow(db, 'organism_model_turns', turn);
 }
 
-module.exports = { capture, verify, restore, digest };
+module.exports = { capture, verify, restore, digest, assertRelationsUnchanged };

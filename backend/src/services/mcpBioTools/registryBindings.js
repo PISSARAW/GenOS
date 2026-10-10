@@ -7,7 +7,6 @@ const REGISTRIES = [
   ['chromosomalInversion', 'chromosomal_inversion', 'chromosomalInversionRegistry'],
   ['chromosomalTranslocation', 'chromosomal_translocation', 'chromosomalTranslocationRegistry'],
   ['conjoinedTwinBind', 'conjoined_twin', 'conjoinedTwinRegistry'],
-  ['consciousnessTransfer', 'consciousness_transfer', 'consciousnessRegistry'],
   ['cryptophasia', 'cryptophasia', 'cryptophasiaRegistry', 'dialectRegistry'],
   ['dynamicTripletExpansion', 'dynamic_triplet_expansion', 'dynamicTripletExpansionRegistry', 'dynamicExpansionRegistry'],
   ['embryonicDiapause', 'embryonic_diapause', 'diapauseRegistry', 'DIAPAUSE_REGISTRY'],

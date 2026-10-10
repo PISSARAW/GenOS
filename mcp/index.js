@@ -40,7 +40,12 @@ function toolTimeoutMs() {
 
 function appendBounded(value, chunk) {
   const next = value + chunk.toString();
-  return next.length > MAX_OUTPUT_BYTES ? next.slice(-MAX_OUTPUT_BYTES) : next;
+  return next.length > MAX_OUTPUT_BYTES ? next.slice(0, MAX_OUTPUT_BYTES) : next;
+}
+
+function withTelemetryTimeout(promise) {
+  const guard = new Promise((resolve) => setTimeout(() => resolve(undefined), 2000));
+  return Promise.race([Promise.resolve(promise).catch(() => undefined), guard]);
 }
 
 function processStdoutChunk({ state, chunk, onStdout }) {
@@ -54,7 +59,7 @@ function processStdoutChunk({ state, chunk, onStdout }) {
     }
     try {
       const event = JSON.parse(line.slice("GENOS_STREAM:".length));
-      if (onStdout) state.callbackChain = state.callbackChain.then(() => onStdout(event));
+      if (onStdout) state.callbackChain = state.callbackChain.then(() => withTelemetryTimeout(onStdout(event)));
     } catch (_) {
       state.output = appendBounded(state.output, `${line}\n`);
     }

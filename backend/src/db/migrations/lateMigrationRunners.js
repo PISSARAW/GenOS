@@ -32,4 +32,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('114-aeis-authority', 'Persist AEIS dissonance and deduplicated authority feedback', async (db) => {
     await require('./migrateAeisAuthority').migrateAeisAuthority(db);
   }),
+  createMigrationRunner('117-organism-restore-journal', 'Fence and reconcile incomplete organism restores', async (db) => {
+    await require('./migrateOrganismRestoreJournal').migrateOrganismRestoreJournal(db);
+  }),
 ];

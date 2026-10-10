@@ -101,7 +101,9 @@ async function loadEpisodes(agentId, opts) {
 async function searchFailureMemories(task, opts) {
   try {
     const primitives = require('./primitiveHandlers/memory');
-    const res = await primitives.searchFailures({ query: task, limit: 3, organizationId: opts.organizationId });
+    const res = await primitives.searchFailures({ query: task, limit: 3,
+      organizationId: opts.organizationId, projectId: opts.projectId,
+      includeGlobal: opts.includeGlobal, missionScope: opts.missionScope });
     if (!res || !Array.isArray(res.failures)) return [];
     return res.failures.filter(similarEnough).map(toPitfall);
   } catch (error) {

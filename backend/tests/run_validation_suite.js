@@ -118,6 +118,7 @@ const suites = {
     ['MCP permissions', 'test_mcp_permission_scope_contract.js'],
     ['MCP HTTP transport', 'test_mcp_http_transport.js'],
     ['MCP explicit transport', 'test_mcp_explicit_transport.js'],
+    ['MCP sealed agent restore', 'test_mcp_agent_state_restore.js'],
     ['MCP server parity', 'test_mcp_server_parity.js']
   ],
   security: [
