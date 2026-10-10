@@ -10,6 +10,12 @@
  */
 
 const regulatoryState = require('./regulatoryStateService');
+const Ajv2020 = require('ajv/dist/2020');
+const addFormats = require('ajv-formats');
+const snapshotSchema = require('../../../../spec/regulatory-snapshot.schema.json');
+const validator = new Ajv2020({ allErrors: true });
+addFormats(validator);
+const validateRegulatorySnapshot = validator.compile(snapshotSchema);
 
 function clamp01(value, fallback = 0) {
   const n = Number(value);
@@ -44,21 +50,16 @@ function toSnapshot(agentId) {
   };
 }
 
-function missingFields(snapshot) {
-  const errors = [];
-  if (!snapshot.agentId) errors.push('missing agentId');
-  if (!snapshot.drives) errors.push('missing drives');
-  if (!snapshot.modulators) errors.push('missing modulators');
-  if (!snapshot.cognitive) errors.push('missing cognitive');
-  return errors;
+function validateSnapshot(snapshot) {
+  const valid = validateRegulatorySnapshot(snapshot);
+  return { valid, errors: valid ? [] : validateRegulatorySnapshot.errors.map((item) =>
+    `${item.instancePath || '/'} ${item.message}`) };
 }
 
-function validateSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object') return { valid: false, errors: ['not_an_object'] };
-  const errors = missingFields(snapshot);
-  if (!Number.isInteger(snapshot.revision)) errors.push('bad revision');
-  if (Number(snapshot.revision) < 0) errors.push('negative revision');
-  return { valid: errors.length === 0, errors };
+function functional(snapshot) {
+  return validateSnapshot(snapshot).valid && snapshot.drives.energy >= 0.4
+    && snapshot.drives.integrity >= 0.5 && snapshot.drives.survival < 0.7
+    && snapshot.modulators.stress <= 0.7;
 }
 
 function checkRevision(current, expected) {
@@ -73,6 +74,7 @@ function rpeValue(rpe) {
 
 function applyRpe(agentId, rpe) {
   const raw = rpeValue(rpe);
+  if (!Number.isFinite(raw) || raw === 0) return regulatoryState.getState(agentId);
   const value = clamp01((raw + 1) / 2, 0.5);
   const prev = regulatoryState.getState(agentId);
   const positive = raw > 0;
@@ -105,4 +107,4 @@ function modulationWeights(snapshot) {
   };
 }
 
-module.exports = { toSnapshot, validateSnapshot, checkRevision, applyRpe, modulationWeights };
+module.exports = { toSnapshot, validateSnapshot, functional, checkRevision, applyRpe, modulationWeights };

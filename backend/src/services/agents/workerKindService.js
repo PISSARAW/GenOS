@@ -191,6 +191,7 @@ function missionContractFields(mission) {
   return {
     ...missionScopeFields(mission),
     methodContract: mission.methodContract,
+    regulatoryRecovery: mission.regulatoryRecovery || null,
     topologySessionId: mission.topologySessionId || null,
     nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
     hostId: mission.hostId || mission.workerAssignment?.hostId || null,

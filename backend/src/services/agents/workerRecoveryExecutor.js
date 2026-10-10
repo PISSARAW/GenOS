@@ -54,6 +54,19 @@ async function checkCurrent(target, expected) {
   }
 }
 
+async function replaceWithRetry(options) {
+  const { temporary, target, input, context } = options;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await checkCurrent(target, input.expectedCurrentDigest);
+    assertActive(context);
+    try { return await fs.rename(temporary, target); }
+    catch (failure) {
+      if (!['EPERM', 'EBUSY'].includes(failure.code) || attempt === 9) throw failure;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+}
+
 async function restoreFile(target, input, context) {
   const { mission } = context;
   const temporary = `${target}.genos-${randomUUID()}.tmp`;
@@ -63,7 +76,7 @@ async function restoreFile(target, input, context) {
     await resolveTarget(mission, input);
     await checkCurrent(target, input.expectedCurrentDigest);
     assertActive(context);
-    await fs.rename(temporary, target);
+    await replaceWithRetry({ temporary, target, input, context });
     const restoredDigest = digest(await fs.readFile(target));
     if (restoredDigest !== input.checkpointDigest) throw error('WORKER_RECOVERY_VERIFY_FAILED', 'Restored state does not match the checkpoint.');
     return restoredDigest;

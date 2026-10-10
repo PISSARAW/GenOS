@@ -50,13 +50,23 @@ test('Un retour neutre ne doit pas accroître la pression interne', () => {
     `stress: ${before.stress} -> ${after.stress}; cortisol: ${before.hormones.cortisol} -> ${after.hormones.cortisol}`);
 });
 
-test('La boucle de feedback restaure énergie et intégrité dégradées', () => {
+test('Le feedback seul ne restaure pas des ressources sans action vérifiée', () => {
   const id = fresh();
   state.updateState(id, { energy: 0.2, integrity: 0.3 });
   for (let i = 0; i < 20; i++) bridge.applyRpe(id, 1);
   const actual = state.getState(id);
-  assert.ok(actual.energy >= 0.4 && actual.integrity >= 0.5,
-    `energy=${actual.energy}; integrity=${actual.integrity}`);
+  assert.equal(actual.energy, 0.2);
+  assert.equal(actual.integrity, 0.3);
+});
+
+test('Le retour neutre conserve la révision et les hormones non ciblées', () => {
+  const id = fresh();
+  state.updateState(id, { hormones: { serotonin: 0.8, adrenaline: 0.7 } });
+  const before = state.getState(id);
+  assert.equal(bridge.applyRpe(id, 0).revision, before.revision);
+  bridge.applyRpe(id, 1);
+  assert.equal(state.getState(id).hormones.serotonin, 0.8);
+  assert.equal(state.getState(id).hormones.adrenaline, 0.7);
 });
 
 test('La validation rejette une variable interne hors de [0,1]', () => {

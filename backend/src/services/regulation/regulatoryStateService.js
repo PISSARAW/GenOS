@@ -103,12 +103,9 @@ function updateState(agentId, patch) {
 }
 
 function sanitizeHormones(h) {
-  return {
-    dopamine: h.dopamine !== undefined ? clamp01(h.dopamine) : DEFAULT_DOPAMINE,
-    cortisol: h.cortisol !== undefined ? clamp01(h.cortisol) : DEFAULT_CORTISOL,
-    serotonin: h.serotonin !== undefined ? clamp01(h.serotonin) : DEFAULT_SEROTONIN,
-    adrenaline: h.adrenaline !== undefined ? clamp01(h.adrenaline) : DEFAULT_ADRENALINE
-  };
+  const known = ['dopamine', 'cortisol', 'serotonin', 'adrenaline'];
+  return Object.fromEntries(known.filter((key) => h[key] !== undefined)
+    .map((key) => [key, clamp01(h[key])]));
 }
 
 /**
@@ -146,9 +143,34 @@ function getRegulatoryMode(state) {
   return 'NORMAL';
 }
 
+function validStoredIdentity(agentId, stored) {
+  return Boolean(agentId) && stored?.agentId === String(agentId)
+    && Number.isInteger(stored.revision) && stored.revision >= 0;
+}
+
+function validStoredValues(stored) {
+  const scalar = ['energy', 'integrity', 'curiosity', 'survival', 'stress', 'threat'];
+  const hormones = ['dopamine', 'cortisol', 'serotonin', 'adrenaline'];
+  const inRange = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+  return scalar.every((key) => inRange(stored[key]))
+    && hormones.every((key) => inRange(stored.hormones?.[key]))
+    && inRange(stored.cognitive?.uncertainty);
+}
+
+function hydrateState(agentId, stored) {
+  if (!validStoredIdentity(agentId, stored) || !validStoredValues(stored)) {
+    throw new Error('Invalid persisted regulatory state.');
+  }
+  const state = { ...stored, hormones: { ...stored.hormones }, cognitive: { ...stored.cognitive } };
+  state.cognitive.mode = getRegulatoryMode(state);
+  stateStore.set(String(agentId), state);
+  return state;
+}
+
 module.exports = {
   getState,
   updateState,
+  hydrateState,
   computeDominantDrive,
   getRegulatoryMode,
   createDefaultSnapshot

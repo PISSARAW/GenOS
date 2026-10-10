@@ -1,19 +1,31 @@
-# Protocole de validation de la régulation des workers natifs
+# Régulation supervisée des 19 types de workers natifs
 
-- **Type** : preuve expérimentale et plan de validation
-- **Statut** : partiel, régulation autonome non démontrée
+- **Type** : preuve expérimentale et protocole de validation
+- **Statut** : implémenté pour la restauration d'état simulé depuis un checkpoint vérifié
 - **Portée** : les 19 types de `workerKindService.KINDS` dans `runDeterministicWorker`
 - **Dernière revue** : 2026-10-10
 
-## Observation reproductible
+## Contrat vérifié
 
-Sur la révision `f1563cb8`, la sonde [`test_real_worker_regulation.cjs`](../../backend/tests/probes/test_real_worker_regulation.cjs) crée une base SQLite isolée, instancie chaque vrai worker avec son contrat natif, puis appelle le runtime réel. Le parent, la mission et les contrats sont préparés par la sonde ; la planification complète n'est pas couverte. Le `sub_orchestrator` délègue à un véritable enfant. Les événements de démarrage, de preuve et de fin sont vérifiables par [`audit_real_worker_regulation.py`](../../backend/tests/probes/audit_real_worker_regulation.py).
+Le runtime vérifie avant et après la méthode : énergie ≥ 0,4 ; intégrité ≥ 0,5 ; survie < 0,7 ; stress ≤ 0,7. Ces seuils sont ceux de `regulatoryBridgeService.functional`. Le cortisol est suivi mais n'est pas un seuil d'admission. Un état hors plage entraîne un refus `REGULATORY_RECOVERY_REQUIRED`, sauf si le contrat persisté référence un checkpoint sain restauré par un vrai `recovery_worker`.
 
-Chaque état initial est perturbé à énergie 0,2 ; intégrité 0,3 ; survie 0,8 ; stress 0,9 ; cortisol 0,9. La sonde vérifie énergie ≥ 0,4, intégrité ≥ 0,5, survie < 0,7 et stress ≤ 0,7 après le run. Les seuils reflètent les branches actuelles de `regulatoryStateService`, sauf celui de l'intégrité qui correspond au choix `RECOVER`. Ils constituent une hypothèse de test, pas encore un contrat produit approuvé.
+Le superviseur compare le checkpoint SQLite, le contrat et le run du `recovery_worker`, le rapport de preuve, le reçu de restauration et le SHA-256 du fichier réellement restauré. Il consomme le checkpoint une seule fois et persiste l'état restauré avec une nouvelle révision. Le snapshot suit [`regulatory-snapshot.schema.json`](../../spec/regulatory-snapshot.schema.json). Un RPE nul ne modifie pas l'état ; le feedback seul ne relève pas énergie ou intégrité.
 
-Résultat : **19/19 runs terminés ; 0/19 états corrigés ; 0/19 révisions modifiées pendant les runs**. Les 19 triplets d'événements sont persistés. Un appel explicite à `applyRpe(+1)` après les runs réduit le stress de 0,9 à 0,85 et augmente la révision de 1 à 2 : le témoin prouve que la sonde détecte une mise à jour. La réussite du worker signifie donc exécution de méthode et preuve, pas retour dans une plage fonctionnelle.
+## Résultats du 10 octobre 2026
 
-Les six tests de service dans [`test_regulatory_services.cjs`](../../backend/tests/probes/test_regulatory_services.cjs) ont relevé trois autres écarts : un RPE nul augmente stress et cortisol ; les retours positifs répétés ne restaurent ni énergie ni intégrité ; `validateSnapshot` accepte une énergie négative, contrairement à [`regulatory-snapshot.schema.json`](../../spec/regulatory-snapshot.schema.json). Ces observations sont distinctes de la matrice des workers.
+La sonde [`test_real_worker_regulation.cjs`](../../backend/tests/probes/test_real_worker_regulation.cjs) crée une base SQLite isolée, un parent et des contrats, puis utilise le vrai `runDeterministicWorker`. Pour chaque type, deux cycles partent d'énergie 0,2, intégrité 0,3, survie 0,8, stress 0,9 et cortisol 0,9. Chaque cycle emploie un nouveau checkpoint sain et un vrai `recovery_worker`. Le `sub_orchestrator` délègue lui-même à un véritable enfant.
+
+| Essai | Résultat |
+| --- | --- |
+| Récupération, 19 types × 2 cycles | 38/38 runs terminés et 38/38 états dans la plage |
+| Durabilité | 38/38 états relus correctement depuis SQLite |
+| Preuves du cycle natif | 38/38 triplets démarrage, rapport, fin ; audit par run |
+| Checkpoint consommé une seconde fois | Refusé |
+| Perturbation sans preuve, 19 types | 19/19 refus avant méthode |
+| Fichier restauré puis altéré | Refusé avant méthode |
+| Services de régulation | 7/7 tests réussis |
+
+Les JSON et bases de la sonde sont dans un dossier frère du dépôt, `../regulation-probe-results/`, sur le même disque. Les preuves de run sont relues par [`audit_real_worker_regulation.py`](../../backend/tests/probes/audit_real_worker_regulation.py). La matrice native existante vérifie séparément les 19 méthodes et contrats d'artefacts.
 
 ## Reproduction
 
@@ -22,17 +34,15 @@ Depuis la racine du dépôt, avec les dépendances installées :
 ```powershell
 node --test backend/tests/probes/test_regulatory_services.cjs
 node backend/tests/probes/test_real_worker_regulation.cjs
-python backend/tests/probes/audit_real_worker_regulation.py
+$env:GENOS_REGULATION_RECOVERY='1'
+node backend/tests/probes/test_real_worker_regulation.cjs
+python backend/tests/probes/audit_real_worker_regulation.py resultats-workers-recuperes.json
+$env:GENOS_REGULATION_TAMPER='1'
+node backend/tests/probes/test_real_worker_regulation.cjs
 ```
 
-Les deux commandes Node renvoient actuellement le code **1** : trois tests de service échouent et le critère fonctionnel des workers échoue. La commande Python vérifie les événements enregistrés. Les bases et JSON sont écrits dans `backend/tests/probes/.regulation-results/`, exclu de Git. `GENOS_REGULATION_OUTPUT_DIR` peut déplacer ce dossier. Des auxiliaires peuvent signaler un tick après fermeture de la base ; l'audit doit être effectué avant d'interpréter ce signal comme un échec des runs.
+Toutes ces commandes renvoient 0 si leur critère est satisfait. `GENOS_REGULATION_OUTPUT_DIR` déplace les données générées. L'essai sans récupération et l'essai altéré réussissent précisément lorsque le runtime refuse l'exécution. Des messages auxiliaires `not a git repository` ou de snapshot concurrent peuvent apparaître dans le dossier de sonde ; les statuts de run et les événements SQLite sont les critères vérifiés.
 
-## Travail nécessaire pour une réussite complète
+## Limites de la qualification
 
-1. **Fixer le contrat de régulation.** Définir par variable la plage, la source de mesure, la durée maximale hors plage, les perturbations admissibles et le comportement si la récupération est impossible. Préciser ce que signifie « régulé » pour chacun des 19 types, y compris un worker sans action réparatrice propre et l'enfant du `sub_orchestrator`.
-2. **Rendre l'état fiable.** Valider le snapshot avec le schéma complet, traiter le RPE nul comme neutre, persister l'état et sa révision par agent, puis vérifier la reprise après redémarrage et les écritures concurrentes.
-3. **Fermer la boucle sur le chemin natif.** Lire l'état avant et après l'action, relier un reçu vérifié à un changement mesurable, appliquer les transitions autorisées et repasser par les garde-fous existants. La boucle doit pouvoir choisir une récupération, une conservation ou un arrêt sûr. Elle ne doit jamais augmenter artificiellement énergie ou intégrité juste pour satisfaire le test ; une restauration doit être étayée par une ressource ou un acte réparateur.
-4. **Exercer les 19 types sous perturbations.** Vérifier plusieurs cycles, des seuils proches, des perturbations combinées, les échecs de méthode, l'épuisement du budget, la concurrence, la reprise SQLite et la délégation réelle. Chaque run doit fournir l'état initial, les actions, les reçus, les révisions et l'état final.
-5. **Poser le critère de sortie.** Pour chaque cas récupérable et chaque type : retour dans les plages dans le délai contractuel, avec preuves et sans contournement d'autorité. Pour chaque cas non récupérable : arrêt ou escalade documenté, sans fausse déclaration de succès. Exiger 19/19 types couverts, puis la matrice native, le gate qualité, les suites Node et Rust pertinentes.
-
-L'actuel `deterministicWorkerRuntime` exécute la méthode, publie la preuve et marque le run terminé sans appel au service régulatoire. Le point d'intégration candidat est le cycle de publication des reçus et de fin de run ; le choix exact doit préserver les contrôles d'autorité et les contrats de preuve.
+Le parent, la mission et les contrats de la sonde sont préparés directement en base. Le protocole ne couvre pas la planification de `genos_orchestrate`, les workers non déterministes, ni la reconstitution de ressources externes. La restauration prouvée est un rollback de l'état **simulé**. Lorsque les variables reflètent une ressource réelle, il faut une mesure externe et un acte de récupération distinct. Voir [ADR 0395](../adr/0395-regulation-supervisee-workers-natifs.md).
