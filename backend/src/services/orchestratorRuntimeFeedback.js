@@ -40,7 +40,7 @@ async function process(ctx, event) {
   await refreshMeasuredBudget(ctx);
   const workers = await ctx.db.get("SELECT COUNT(*) AS count FROM agents WHERE parent_agent_id = ? AND execution_mode = 'worker' AND runtime_pid IS NOT NULL", ctx.agentId);
   ctx.activeWorkerCount = Number(workers?.count || 0);
-  const body = bodyService.buildOrchestratorBody(ctx);
+  const body = await require('./orchestratorBodyAuthority').bind(ctx, bodyService.buildOrchestratorBody(ctx));
   body.percepts.push(feedbackPercept(event));
   body.sourceEventId = event.id;
   ctx.orchestratorBody = body;

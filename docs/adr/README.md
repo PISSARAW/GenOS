@@ -485,6 +485,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
 | [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
 | [0396](0396-frontiere-corporelle-agent-et-provenance.md) | Frontière corporelle et provenance du soi agentique | accepté, portée Node | 2026-10-10 | corps de l'orchestrator, action motrice, CoreSelf |
+| [0397](0397-recus-corporels-et-limites-de-provenance.md) | Reçus corporels et limites de provenance | accepté, portée Node et missions scellées | 2026-10-10 | modèle corporel, autorité de mission, MCP, provenance des claims |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -257,7 +257,7 @@ async function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
 }
 
 async function superviseMission(options) {
-  await require('./missionEnvelopeAuthority').assertRun(options.db, {
+  const authority = await require('./missionEnvelopeAuthority').assertRun(options.db, {
     agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission });
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
@@ -273,12 +273,24 @@ async function superviseMission(options) {
   const launcherObservation = await require('./trinityRuntimeAttestation').captureLaunch({
     normalizedMission, workspaceRoot, resolvedExecutable, spawnSpec: { cmd: spawnCmd, args: spawnArgs }
   });
-  const child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
+  const bodyActionId = authority.status === 'authorized'
+    ? await require('./runtimeProcessReceipt').predict({ db, agentId,
+      runId: executionRun.id, executable: resolvedExecutable }) : null;
+  const filesystemReceipt = bodyActionId && isLocalRuntime(resolvedExecutable)
+    ? await require('./runtimeFilesystemReceipt').begin({ db, agentId,
+      runId: executionRun.id, workspaceRoot }) : null;
+  let child;
+  try { child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
     cwd: workspaceRoot,
     env: buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
     stdio: isLocalRuntime(resolvedExecutable) ? ['pipe', 'pipe', 'pipe', 'ipc'] : ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32'
-  });
+  }); } catch (error) {
+    if (bodyActionId) await require('./runtimeProcessReceipt').spawnFailed({ db, agentId,
+      runId: executionRun.id, actionId: bodyActionId, code: error.code });
+    await require('./runtimeFilesystemReceipt').fail(filesystemReceipt, error.code || 'SPAWN_FAILED');
+    throw error;
+  }
   child.genosDetached = process.platform !== 'win32';
   child.genosCaptureBarrier = isLocalRuntime(resolvedExecutable);
   // Attach the error handler synchronously: a spawn that fails immediately
@@ -310,7 +322,7 @@ async function superviseMission(options) {
     stdoutBuffer: Buffer.alloc(0),
     stderrBuffer: ''
   };
-  const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child, conscienceState, state, continuousObserver };
+  const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child, conscienceState, state, continuousObserver, bodyActionId, filesystemReceipt };
   const emitTracked = (...args) => { return emitTrackedImpl(ctx, ...args); };
   ctx.emitTracked = emitTracked;
   ctx.handleOrchestrationDecision = handleOrchestrationDecision;
@@ -337,6 +349,7 @@ async function superviseMission(options) {
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, {
     executable: resolvedExecutable,
     executionRunId: executionRun.id,
+    sourceActionId: bodyActionId,
     autonomyPlan,
     replayManifest: buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, runtimeEnvironment, workspaceRoot, resolvedExecutable })
   }, 'info', 'running');

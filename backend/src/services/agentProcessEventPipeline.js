@@ -364,7 +364,8 @@ async function handleChildClose(ctx, code, signal) {
     await finalizeChildClose({
       db: ctx.db, agentId, dispatchedAgent: ctx.dispatchedAgent, normalizedMission: ctx.normalizedMission, child: ctx.child, code, signal, stderrBuffer: state.stderrBuffer,
       termination: state.termination, missionDomainState: state.missionDomainState, terminalEventSeen: state.terminalEventSeen, emitTracked: ctx.emitTracked, executionQueue: state.executionQueue,
-      workspaceLifecycle, workerGarage, emit, updateAgent
+      workspaceLifecycle, workerGarage, emit, updateAgent, bodyActionId: ctx.bodyActionId,
+      executionRun: ctx.executionRun, filesystemReceipt: ctx.filesystemReceipt
     });
   } catch (err) {
     console.error(`[AgentSupervisor] Error finalizing agent process close for ${agentId}:`, err);

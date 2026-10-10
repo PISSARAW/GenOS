@@ -71,7 +71,8 @@ function extractOrigin(claimJson) {
 async function selfOriginRatio(db, agentId) {
   try {
     const rows = await db.all(`SELECT claim_json FROM epistemic_claims
-      WHERE producer_agent_id = ? AND status = 'active' LIMIT 200`, agentId);
+      WHERE producer_agent_id = ? AND producer_authority_hash IS NOT NULL
+      AND status = 'active' LIMIT 200`, agentId);
     let self = 0;
     let total = 0;
     for (const row of rows || []) {

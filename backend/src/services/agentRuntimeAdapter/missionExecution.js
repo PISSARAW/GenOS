@@ -47,6 +47,7 @@ async function bootstrapMission(mission) {
   await require('../garageRuntimeService').bindExecution(ctx);
   await require('../trinityQualificationDispatch').recordStarted(ctx);
   await require('../missionEnvelopeAuthority').seal(ctx);
+  await require('../orchestratorBodyAuthority').bind(ctx);
   reportOrchestratorStart(ctx);
   return ctx;
 }

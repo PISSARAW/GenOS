@@ -170,7 +170,7 @@ async function batchReviseOnEvidence(subject, newEvidenceKind, newEvidence) {
     const revised = { ...original, evidence: [...(original.evidence || []), evidence] };
     const revision = requestRevisionWithHooks(original, revised, { reason: 'new_evidence' });
     revisions.push(revision);
-    await persistClaim({ ...revised, revision: Number(row.revision || 0) + 1 }, { before: original, reason: 'new_evidence', agentId: row.producer_agent_id });
+    await persistClaim({ ...revised, revision: Number(row.revision || 0) + 1 }, { before: original, reason: 'new_evidence' });
   }
   return { revised: true, status: 'completed', subject, evidenceKind: newEvidenceKind, count: revisions.length, skipped, revisions };
 }
@@ -194,26 +194,29 @@ function configureRevisionStore(db) {
 async function persistClaim(claim, options = {}) {
   if (!revisionStore || !claim?.id) return;
   const revision = Number(claim.revision || 0);
-  const producerAgentId = typeof options.agentId === 'string' && options.agentId.trim() ? options.agentId : null;
+  const producer = await require('./claimProducerAuthority').resolve(revisionStore, options);
   await revisionStore.run(
-    `INSERT INTO epistemic_claims (id, subject, claim_json, quality, revision, producer_agent_id, status, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+    `INSERT INTO epistemic_claims (id, subject, claim_json, quality, revision,
+       producer_agent_id, producer_run_id, producer_authority_hash, status, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET subject = excluded.subject, claim_json = excluded.claim_json,
        quality = excluded.quality, revision = excluded.revision,
-       producer_agent_id = COALESCE(excluded.producer_agent_id, epistemic_claims.producer_agent_id),
        status = 'active', updated_at = CURRENT_TIMESTAMP`,
-    claim.id, claim.subject || null, JSON.stringify(claim), evidenceQuality(claim), revision, producerAgentId
+    claim.id, claim.subject || null, JSON.stringify(claim), evidenceQuality(claim), revision,
+    producer?.agentId || null, producer?.runId || null, producer?.authorityHash || null
   );
-  if (options.before) {
-    const revisionId = `rev_${crypto.createHash('sha256').update(`${claim.id}:${revision}:${options.reason || 'revision'}`).digest('hex').slice(0, 32)}`;
-    await revisionStore.run(
-      `INSERT OR IGNORE INTO epistemic_claim_revisions
-       (id, claim_id, revision, before_json, after_json, reason, before_quality, after_quality)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      revisionId, claim.id, revision, JSON.stringify(options.before), JSON.stringify(claim),
-      options.reason || 'revision', evidenceQuality(options.before), evidenceQuality(claim)
-    );
-  }
+  if (options.before) await persistClaimRevision(claim, options, revision);
+}
+
+async function persistClaimRevision(claim, options, revision) {
+  const revisionId = `rev_${crypto.createHash('sha256').update(`${claim.id}:${revision}:${options.reason || 'revision'}`).digest('hex').slice(0, 32)}`;
+  await revisionStore.run(
+    `INSERT OR IGNORE INTO epistemic_claim_revisions
+     (id, claim_id, revision, before_json, after_json, reason, before_quality, after_quality)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    revisionId, claim.id, revision, JSON.stringify(options.before), JSON.stringify(claim),
+    options.reason || 'revision', evidenceQuality(options.before), evidenceQuality(claim)
+  );
 }
 
 function onBeforeRevision(fn) {

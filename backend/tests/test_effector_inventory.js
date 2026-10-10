@@ -27,7 +27,7 @@ function verifyRegistry() {
     assert.ok(effector.sourceRefs.length > 0, `${effector.id} needs a source reference`);
     for (const source of effector.sourceRefs) assert.ok(fs.existsSync(path.join(__dirname, '..', '..', source)), source);
   }
-  assert.ok(registry.effectors.some((effector) => effector.status === 'uncovered'));
+  assert.ok(registry.effectors.some((effector) => effector.status !== 'covered'));
 }
 
 async function verifyMcpCorrelation() {

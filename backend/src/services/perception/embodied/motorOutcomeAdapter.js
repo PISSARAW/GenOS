@@ -18,7 +18,7 @@ async function execute(options) {
   return { outcomeId: randomUUID(), status: outcome.status, agentId: options.agentId,
     actuatorId: options.environment.actuatorId, environmentRef: options.environmentRef,
     intentId: options.intent.intentId, observedStateRef: outcome.observedStateRef || null,
-    evidenceRefs: outcome.evidenceRefs, metrics: outcome.metrics || {} };
+    evidenceRefs: outcome.evidenceRefs, metrics: outcome.metrics || {}, result: outcome.result };
 }
 
 function requiresApproval(options) { return options.intent.irreversible === true && options.approvalGranted !== true; }

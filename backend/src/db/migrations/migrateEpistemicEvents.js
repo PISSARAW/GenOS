@@ -25,6 +25,8 @@ async function migrateEpistemicEvents(db) {
     organization_id TEXT,
     project_id TEXT,
     producer_agent_id TEXT,
+    producer_run_id TEXT,
+    producer_authority_hash TEXT,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_epistemic_claims_subject ON epistemic_claims(subject, status);`);
@@ -34,6 +36,8 @@ async function migrateEpistemicEvents(db) {
   await ensureColumn({ db, table: 'epistemic_claims', column: 'organization_id', definition: 'TEXT' });
   await ensureColumn({ db, table: 'epistemic_claims', column: 'project_id', definition: 'TEXT' });
   await ensureColumn({ db, table: 'epistemic_claims', column: 'producer_agent_id', definition: 'TEXT' });
+  await ensureColumn({ db, table: 'epistemic_claims', column: 'producer_run_id', definition: 'TEXT' });
+  await ensureColumn({ db, table: 'epistemic_claims', column: 'producer_authority_hash', definition: 'TEXT' });
   await db.exec('CREATE INDEX IF NOT EXISTS idx_epistemic_claims_producer ON epistemic_claims(producer_agent_id, status)');
   await db.exec(`CREATE TABLE IF NOT EXISTS epistemic_claim_revisions (
     id TEXT PRIMARY KEY,

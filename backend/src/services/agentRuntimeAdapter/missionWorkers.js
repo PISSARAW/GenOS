@@ -214,23 +214,48 @@ function emitDispatchSelected(ctx, assignments) {
   emit(ctx.agentId, 'WORKER_DISPATCH_SELECTED', 'DISPATCH_WORKERS', `Selected ${assignments.length} worker assignment(s) for dispatch.`, {
     requestedWorkers: ctx.autonomyPlan.workers?.length || assignments.length,
     selectedWorkers: assignments.length,
+    sourceActionId: ctx.workerDispatchActionId || null,
     assignments: assignments.map((assignment) => ({ label: assignment.label, role: assignment.role }))
   }, 'info');
 }
 
 async function dispatchSelectedWorkers(ctx, assignments) {
+  ctx.workerDispatchActionId = await predictWorkerDispatch(ctx, assignments);
   emitDispatchSelected(ctx, assignments);
   let autonomousWorkers = [];
   try {
     autonomousWorkers = await createAutonomousWorkers(ctx.db, ctx.dispatchedAgent, ctx.autonomyPlan, ctx.normalizedMission);
     assertWorkerDispatchMatches(assignments, autonomousWorkers);
+    await observeWorkerDispatch(ctx, { status: 'created', workerIds: autonomousWorkers.map((worker) => worker.agentId) });
   } catch (error) {
     autonomousWorkers = Array.isArray(error.createdWorkers) ? error.createdWorkers : autonomousWorkers;
     await cleanupUnlaunchedWorkers(ctx, autonomousWorkers, error);
+    await observeWorkerDispatch(ctx, { status: 'failed', code: error.code || 'worker_creation_error' });
     emitDispatchFailed(ctx, assignments, { workers: autonomousWorkers, error: error });
     throw error;
   }
   return autonomousWorkers;
+}
+
+async function predictWorkerDispatch(ctx, assignments) {
+  if (!assignments.length || !ctx.executionRun?.id || !ctx.normalizedMission?.executionAuthorityRef) return null;
+  const receipts = require('../bodyActionReceiptService');
+  const actionId = receipts.actionId();
+  await receipts.predict({ db: ctx.db, agentId: ctx.agentId, runId: ctx.executionRun.id,
+    actionId, effectorId: 'worker_dispatch',
+    prediction: { expected: 'workers_created', count: assignments.length } });
+  await require('../efferenceCopyService').predict(ctx.db, ctx.agentId, {
+    actionId, action: 'worker_dispatch',
+    expectedTypes: ['WORKER_DISPATCH_RECONCILED', 'WORKER_DISPATCH_FAILED']
+  }).catch((error) => console.error('[WorkerDispatch] Efference copy unavailable:', error.message));
+  return actionId;
+}
+
+async function observeWorkerDispatch(ctx, outcome) {
+  if (!ctx.workerDispatchActionId) return;
+  await require('../bodyActionReceiptService').observe({ db: ctx.db, agentId: ctx.agentId,
+    runId: ctx.executionRun.id, actionId: ctx.workerDispatchActionId,
+    effectorId: 'worker_dispatch', outcome });
 }
 
 async function cleanupUnlaunchedWorkers(ctx, workers, error) {
@@ -251,6 +276,7 @@ function emitDispatchFailed(ctx, assignments, outcome) {
       requestedWorkers: ctx.autonomyPlan.workers?.length || assignments.length,
       selectedWorkers: assignments.length,
       createdWorkers: workers.length,
+      sourceActionId: ctx.workerDispatchActionId || null,
       errorCode: error.code || 'WORKER_DISPATCH_FAILED'
   }, 'error');
 }
@@ -261,6 +287,7 @@ function emitDispatchReconciled(ctx, assignments, workers) {
       requestedWorkers: ctx.autonomyPlan.workers?.length || assignments.length,
       selectedWorkers: assignments.length,
       createdWorkers: workers.length,
+      sourceActionId: ctx.workerDispatchActionId || null,
       workerIds: workers.map((worker) => worker.agentId),
       status: 'created'
     }, 'info');

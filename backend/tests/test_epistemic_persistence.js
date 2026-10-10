@@ -19,12 +19,12 @@ async function main() {
   revision.configureRevisionStore(db);
   bus.configureEventStore(db);
   const claim = { id: 'claim-1', type: 'factual', subject: 'runtime', evidence: [{ kind: 'observation', what: 'old' }] };
-  await revision.persistClaim(claim, { agentId: 'agent-A' });
+  await revision.persistClaim(claim);
   const result = await revision.batchReviseOnEvidence('runtime', 'test_result', { result: 'new' });
   assert.equal(result.status, 'completed');
   assert.equal(result.count, 1);
   assert.equal(claims.get('claim-1').evidence.length, 2);
-  assert.equal(claims.get('claim-1').producer_agent_id, 'agent-A');
+  assert.equal(claims.get('claim-1').producer_agent_id, null);
   bus.publishAndRecord('claim_revised', { claimId: 'claim-1', subject: 'runtime' });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(events.length, 1);

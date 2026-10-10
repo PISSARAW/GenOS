@@ -14,6 +14,7 @@ function memoryDb() {
       ? { payload_json: states.get(`${scope}|${key}`) } : null,
     all: async (sql, agentId) => {
       assert.match(sql, /producer_agent_id = \?/);
+      assert.match(sql, /producer_authority_hash IS NOT NULL/);
       return claims[agentId] || [];
     },
     run: async (...args) => {

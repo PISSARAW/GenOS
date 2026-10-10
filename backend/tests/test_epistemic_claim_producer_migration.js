@@ -17,11 +17,14 @@ async function main() {
     await migrateEpistemicEvents(db);
     const columns = await db.all('PRAGMA table_info(epistemic_claims)');
     assert(columns.some((column) => column.name === 'producer_agent_id'));
+    assert(columns.some((column) => column.name === 'producer_run_id'));
+    assert(columns.some((column) => column.name === 'producer_authority_hash'));
     revision.configureRevisionStore(db);
-    await revision.persistClaim({ id: 'claim-A', subject: 'body', origin: 'SelfGenerated' }, { agentId: 'agent-A' });
-    await revision.persistClaim({ id: 'claim-B', subject: 'body', origin: 'ExternalObserved' }, { agentId: 'agent-B' });
+    await assert.rejects(revision.persistClaim({ id: 'claim-A', subject: 'body', origin: 'SelfGenerated' },
+      { agentId: 'agent-A' }), { code: 'EPISTEMIC_PRODUCER_AUTHORITY_REQUIRED' });
+    await revision.persistClaim({ id: 'claim-B', subject: 'body', origin: 'ExternalObserved' });
     const owned = await db.all("SELECT id FROM epistemic_claims WHERE producer_agent_id = ? AND status = 'active'", 'agent-A');
-    assert.deepEqual(owned.map((row) => row.id), ['claim-A']);
+    assert.deepEqual(owned, []);
     console.log('Epistemic claims migration and producer scope passed.');
   } finally {
     revision.configureRevisionStore(null);

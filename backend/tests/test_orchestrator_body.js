@@ -24,6 +24,8 @@ const body = bodyService.buildOrchestratorBody(sampleContext());
 assert.equal(body.loop.join(' -> '), 'perceive -> interpret -> decide -> act -> sense_consequences -> learn');
 assert(body.percepts.every((percept) => percept.kind && percept.source && percept.timestamp));
 assert(body.percepts.every((percept) => percept.sensorOwnerAgentId === 'body-orchestrator'));
+assert(body.percepts.every((percept) => percept.provenanceStatus === 'context_unverified'
+  && percept.observationAttested === false));
 assert.equal(body.percepts.find((percept) => percept.kind === 'filesystem_state').observedDomain, 'world');
 assert.equal(body.percepts.find((percept) => percept.kind === 'metabolic_budget').observedDomain, 'self');
 assert.deepEqual(body.effectors.map((effector) => effector.ownerAgentId), ['body-orchestrator', 'body-orchestrator']);

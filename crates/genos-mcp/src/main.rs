@@ -100,14 +100,21 @@ fn handle_tools_call(req: &Value, id: Option<Value>, workspace: &Path) -> Option
         "id": id,
         "result": {
             "content": [{ "type": "text", "text": text }],
-            "isError": code != 0
+            "isError": code != 0,
+            "_meta": { "genos.body": { "attribution": "external_unattributed", "agentId": null } }
         }
     }))
 }
 
 fn handle_omega_execute(req: &Value, id: Option<Value>, workspace: &Path) -> Option<Value> {
+    let mut result = omega_dispatch::execute(req.get("params").unwrap_or(&Value::Null), workspace);
+    if let Value::Object(ref mut fields) = result {
+        fields.insert("_meta".into(), json!({ "genos.body": {
+            "attribution": "external_unattributed", "agentId": null
+        } }));
+    }
     Some(json!({ "jsonrpc": "2.0", "id": id,
-        "result": omega_dispatch::execute(req.get("params").unwrap_or(&Value::Null), workspace) }))
+        "result": result }))
 }
 
 fn handle_ping(id: Option<Value>) -> Option<Value> {
@@ -335,5 +342,6 @@ mod tests {
         let response = process_request(&request.to_string(), Path::new(".")).expect("response");
         assert_eq!(response["result"]["status"], "emitted");
         assert_eq!(response["result"]["values"]["select"]["ok"], true);
+        assert_eq!(response["result"]["_meta"]["genos.body"]["attribution"], "external_unattributed");
     }
 }

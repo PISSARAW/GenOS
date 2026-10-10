@@ -129,7 +129,8 @@ function collectMissionPercepts(ctx) {
     evidencePercept(input),
     temporalPercept(input)
   ].map((percept) => ({ ...percept, sensorOwnerAgentId: ctx.agentId || null,
-    observedDomain: OBSERVED_DOMAINS[percept.kind] || 'unknown' }));
+    observedDomain: OBSERVED_DOMAINS[percept.kind] || 'unknown',
+    provenanceStatus: 'context_unverified', observationAttested: false }));
 }
 
 function valueFor(percepts, kind) {

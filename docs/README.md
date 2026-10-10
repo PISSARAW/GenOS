@@ -667,3 +667,4 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0393 — Budget délégué du sous-orchestrateur natif](adr/0393-budget-delegue-sous-orchestrateur-natif.md)
 - [ADR 0394 — Préflight vérifiable de restauration d'organisme](adr/0394-preflight-restauration-organisme.md)
 - [ADR 0396 — Frontière corporelle et provenance du soi agentique](adr/0396-frontiere-corporelle-agent-et-provenance.md)
+- [ADR 0397 — Reçus corporels et limites de provenance](adr/0397-recus-corporels-et-limites-de-provenance.md)
