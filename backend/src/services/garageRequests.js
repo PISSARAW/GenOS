@@ -50,10 +50,12 @@ async function scope(db, request) {
   if (!row) throw error('GARAGE_SCOPE_INVALID', 'Worker must belong to its orchestrator and workspace.');
   await authorizeParent(db, row);
   if ((row.workspace_id || null) !== (row.parent_workspace_id || null)) {
-    const delegated = await require('./trinityWorkerAuthority').delegation(db, {
+    const binding = {
       agent: row, parent: { id: row.parent_id, workspace_id: row.parent_workspace_id }
-    });
-    if (!delegated) throw error('GARAGE_SCOPE_INVALID', 'Worker has no sealed workspace delegation.');
+    };
+    const delegated = await require('./trinityWorkerAuthority').delegation(db, binding)
+      || await require('./workerWorkspaceBindingService').delegation(db, binding);
+    if (!delegated) throw error('GARAGE_SCOPE_INVALID', 'Worker has no workspace delegation.');
   }
   for (const [field, key] of [['organizationId', 'organization_id'], ['projectId', 'project_id']]) {
     if (request[field] && request[field] !== row[key]) throw error('GARAGE_SCOPE_INVALID', 'Request scope does not match persisted scope.');

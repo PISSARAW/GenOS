@@ -5,6 +5,7 @@ namespace GenOS {
     executionMode: String,
     parentId: String,
     sealedDispatchParentId: String,
+    capsuleDispatchParentId: String,
     boundedDelegationChildId: String
   };
   action "Control" appliesTo {

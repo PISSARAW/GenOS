@@ -4,6 +4,7 @@
 - **Portée** : routes REST de snapshot et de commit d'état d'agent, puis restore, checkout et reset de ces snapshots.
 - **Dernière revue** : 2026-10-10.
 - **Décision** : [ADR 0385](../adr/0385-contrat-snapshot-topologique.md).
+- **Capsules de workers** : [ADR 0395](../adr/0395-workspaces-prives-pour-capsules-de-workers.md).
 
 Implémentation : [contrat de scellement](../../backend/src/services/topologySnapshotContract.js),
 [service commun](../../backend/src/services/topologySnapshotService.js),
@@ -50,6 +51,27 @@ avec topologie utilise la version 5 du manifeste d'organisme et la version 6 de
 `_genosSnapshot` ; sans cette option, les versions 4 et 5 restent employées.
 Les empreintes détectent une modification de données ; elles ne constituent
 pas une signature indépendante de SQLite.
+
+## Nouveaux workspaces de workers
+
+Chaque capsule isolée d'un worker ordinaire est désormais enregistrée comme
+workspace privé avant son exécution. L'agent pointe vers cette capsule ; sa
+portée organisation/projet est héritée du workspace parent. Trinity conserve
+son workspace de monde scellé. Lorsqu'un worker est réutilisé, sa nouvelle
+capsule reçoit un autre identifiant et les snapshots de l'ancienne capsule
+gardent leur cible d'origine. Le nettoyage automatique conserve une capsule
+tant qu'un agent y est rattaché ou qu'elle porte des snapshots de workspace,
+y compris leur payload de fichiers.
+Le démarrage vérifie l'enregistrement de nettoyage et le marqueur d'époque de
+la capsule avant d'accorder la délégation Cedar du parent. Le garage et les
+sous-workers à délégation bornée utilisent la même frontière.
+
+La création du workspace ne produit pas de snapshot topologique automatique.
+Il faut demander `POST /api/agents/snapshot` ou `/commit` avec
+`topologySnapshot`, puis satisfaire les vérifications de l'adaptateur pour la
+session et le variant. Les capsules créées avant ce rattachement ne sont pas
+migrées automatiquement. Un ancien snapshot ne peut pas être restauré dans le
+nouveau workspace, puisque son identité et son chemin diffèrent.
 
 `POST /api/agents/restore`, `/checkout` et `/reset` vérifient l'intégrité,
 l'identité et la frontière topologique **avant** la restauration du workspace,

@@ -48,14 +48,19 @@ async function authorizeWorker(db, agent, orchestratorAgentId) {
   const parent = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ?', orchestratorAgentId);
   if (!parent) throw authorityError('ORCHESTRATOR_REQUIRED', `Orchestrator '${orchestratorAgentId}' was not found.`);
   if (parent.execution_mode === 'worker') return require('./agents/boundedDelegationAuthority').authorize(db, { agent, parent });
-  const resource = (parent.workspace_id || null) === (agent.workspace_id || null) ? agent
-    : await require('./trinityWorkerAuthority').delegation(db, { agent, parent });
+  const resource = await workerMissionResource(db, agent, parent);
   if (!resource) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Worker '${agent.id}' has no workspace delegation from orchestrator '${orchestratorAgentId}'.`);
   await requireOrchestrator(db, orchestratorAgentId);
   if (!cedarAuthority.authorize({ principal: parent, resource, action: 'StartMission', workspaceId: agent.workspace_id })) {
     throw authorityError('MISSION_CEDAR_DENIED', `Cedar denied mission dispatch for worker '${agent.id}'.`);
   }
   return agent;
+}
+
+async function workerMissionResource(db, agent, parent) {
+  if ((parent.workspace_id || null) === (agent.workspace_id || null)) return agent;
+  return await require('./trinityWorkerAuthority').delegation(db, { agent, parent })
+    || require('./workerWorkspaceBindingService').delegation(db, { agent, parent });
 }
 
 function authorizeOrchestratorMission(agent) {
@@ -109,12 +114,20 @@ async function authorizeAgentControl(db, targetOrOptions, ...legacyArgs) {
   if (!target) throw authorityError('AGENT_NOT_FOUND', `Agent '${targetId}' was not found.`);
   if (workspaceId && target.workspace_id !== workspaceId) throw authorityError('AGENT_WORKSPACE_MISMATCH', `Agent '${targetId}' is outside the requested workspace.`);
   const actor = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ?', actorId || '');
-  if (!actor || actor.workspace_id !== target.workspace_id) throw authorityError('AGENT_CONTROL_FORBIDDEN', 'The acting agent cannot control this target.');
+  const resource = actor && await controlResource(db, actor, target);
+  if (!resource) throw authorityError('AGENT_CONTROL_FORBIDDEN', 'The acting agent cannot control this target.');
   await require('./missionExecutionAuthority').assertAgentCurrent(db, actor.id);
-  if (!canDirectlyControl(actor, target) || !cedarAuthority.authorize({ principal: actor, resource: target, action: 'Control', workspaceId: target.workspace_id })) {
+  if (!canDirectlyControl(actor, target) || !cedarAuthority.authorize({ principal: actor, resource, action: 'Control', workspaceId: target.workspace_id })) {
     throw authorityError('AGENT_CONTROL_FORBIDDEN', 'Only the target or its orchestrator may control this agent.');
   }
   return target;
+}
+
+async function controlResource(db, actor, target) {
+  if (actor.workspace_id === target.workspace_id) return target;
+  if (actor.id !== target.parent_agent_id) return null;
+  return await require('./trinityWorkerAuthority').delegation(db, { agent: target, parent: actor })
+    || require('./workerWorkspaceBindingService').delegation(db, { agent: target, parent: actor });
 }
 
 module.exports = { EXECUTION_MODES, normalizeExecutionMode, requireOrchestrator, authorizeMission, authorizeAgentControl, assertToolLeaseFresh };
