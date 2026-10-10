@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { AxeBuilder } = require('@axe-core/playwright');
 const tasks = require('./studioTaskNavigation.cjs');
+const views = ['inspection', 'dashboard-view', 'management-view', 'files-view', 'research-view',
+  'builder-view', 'worlds-view', 'knowledge-view', 'organism-view', 'recovery-view', 'reference-view', 'production-view'];
 
 async function tabs(page) {
   await page.locator('[data-target=inspection]').click();
@@ -54,7 +56,7 @@ async function lineage(page, spec) {
 }
 
 async function accessibility(page, output) {
-  for (const view of ['inspection', 'dashboard-view', 'management-view', 'files-view', 'research-view']) {
+  for (const view of views) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('[data-target="' + view + '"]').click();
     const result = await new AxeBuilder({ page }).analyze();
@@ -78,11 +80,23 @@ async function accessibility(page, output) {
   await page.setViewportSize({ width: 1440, height: 1000 });
 }
 
+async function inspectorAccessibility(page) {
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await tasks.reveal(page, page.locator('#builder-node-label'));
+    const result = await new AxeBuilder({ page }).analyze();
+    assert.deepEqual(result.violations.map(item => ({ id: item.id, nodes: item.nodes.map(n => n.target) })), [], 'node inspector ' + width);
+    await page.keyboard.press('Escape');
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+}
+
 async function run(page, spec, output) {
   await tabs(page);
   await filters(page);
   await lineage(page, spec);
   await accessibility(page, output);
+  await inspectorAccessibility(page);
   await page.locator('[data-target=research-view]').click();
   await tasks.reveal(page, page.locator('.comparison-scroll table'));
   assert.equal(await page.locator('.comparison-scroll table').count(), 1);
@@ -91,7 +105,8 @@ async function run(page, spec, output) {
   const ids = await page.locator('[id]').evaluateAll(elements => elements.map(element => element.id));
   assert.equal(new Set(ids).size, ids.length);
   return { keyboardTabs: true, selectedRun: true, commandFilters: true, fileFilterSelection: true,
-    realFixtureLineage: true, alignedComparison: true, axeFiveViews: true, mobileDrawers: true, uniqueIds: true };
+    realFixtureLineage: true, alignedComparison: true, axeFiveViews: true, axeViews: views,
+    axeNodeInspector: true, mobileDrawers: true, uniqueIds: true };
 }
 
 module.exports = { run };

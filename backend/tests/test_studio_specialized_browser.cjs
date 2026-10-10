@@ -138,7 +138,7 @@ async function probe(spec) {
     await page.locator('#reference-view .task-choice select').focus();
     await page.keyboard.press('Tab');
     assert.notEqual(await page.evaluate(() => document.activeElement.tagName), 'BODY');
-    await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
+    await tasks.click(page, page.locator('#disconnect'));
     assert.equal(await page.locator('[data-view]:visible').count(), 0);
     assert.equal(await page.locator('#collective-result').textContent(), '');
     assert.equal(await page.locator('#perception-result').textContent(), '');

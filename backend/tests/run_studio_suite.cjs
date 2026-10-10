@@ -6,6 +6,7 @@ const suites = [
   'test_studio_context_guard.mjs',
   'test_studio_workflow_version.cjs',
   'test_studio_workflow_draft.mjs',
+  'test_studio_workflow_layout.mjs',
   'test_studio_optional_mcp.cjs',
   'test_studio_worlds.cjs',
   'test_studio_memory.cjs',

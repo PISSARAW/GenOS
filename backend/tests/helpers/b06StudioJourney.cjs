@@ -112,6 +112,7 @@ async function run(spec, output) {
     await page.screenshot({ path: path.join(output, 'studio.png'), fullPage: true });
     const result = { runId: spec.run.id, workspaceId: spec.settings.workspace,
       provenance, snapshotText: await page.locator('#snapshots').textContent(), errors };
+    await page.locator('.session-context > summary').click();
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
     assert.equal(await page.locator('#inspection').isVisible(), false);
     assert.equal(await page.locator('#provenance').textContent(), '');

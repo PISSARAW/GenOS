@@ -43,7 +43,7 @@ async function guards(page) {
   await tasks.fill(page, page.locator('#project'), 'foreign-project');
   await page.locator('#project').dispatchEvent('change');
   assert.equal(await page.locator('#project').inputValue(), 'project');
-  await page.locator('#disconnect').click();
+  await tasks.click(page, page.locator('#disconnect'));
   assert.equal(await page.locator('#session-bar').isVisible(), true);
   assert.equal(await page.locator('#file-content').inputValue(), 'draft to keep');
   page.off('dialog', refused);
@@ -102,6 +102,7 @@ async function main() {
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/**', fixtureApi);
     await page.goto(server.url);
+    await require('./helpers/studioRecordBrowserProbe.cjs').run(page);
     await login(page);
     await guards(page);
     await failures(page);
@@ -113,7 +114,7 @@ async function main() {
     await page.unroute('**/api/workspaces/workspace/file?**');
     await acceptedDiscard(page);
     assert.deepEqual(errors, []);
-    console.log('Studio foundation browser: real DOM, fixture API; cancelled transitions, accepted discard, draft errors, original controls, uncertain effect and forced 401 purge passed.');
+    console.log('Studio foundation browser: record selection/filter/keyboard/unknown states, real DOM, fixture API; context guards, draft errors, uncertain effect and forced 401 purge passed.');
   } finally {
     await browser?.close();
     await server.close();

@@ -51,6 +51,10 @@ async function drafts(page) {
   await tasks.view(page, 'builder-view');
   await tasks.fill(page, page.locator('#builder-name'), 'Brouillon conservé');
   await tasks.reveal(page, page.locator('#builder-node-label'));
+  assert.equal(await page.locator('#node-inspector-dialog').evaluate(element => element.matches(':modal')), false);
+  const inspector = await page.locator('#node-inspector-dialog').boundingBox();
+  const canvas = await page.locator('#builder-canvas').boundingBox();
+  assert.ok(canvas.x + canvas.width <= inspector.x, 'Desktop inspector must sit beside the canvas');
   assert.equal(await page.locator('#builder-name').inputValue(), 'Brouillon conservé');
   assert.equal(await page.locator('#builder-node-prompt').isVisible(), false);
   await tasks.select(page, page.locator('#builder-node-kind'), 'llm');
@@ -71,6 +75,22 @@ async function drafts(page) {
   const pane = await page.locator('#builder-view-task-graph').evaluate(element => ({ height: element.clientHeight, content: element.scrollHeight }));
   assert.ok(pane.content <= pane.height + 1, JSON.stringify(pane));
   await page.screenshot({ path: path.join(output, 'studio-focused-builder.png') });
+}
+
+async function zoom(page) {
+  await tasks.view(page, 'builder-view');
+  await tasks.reveal(page, page.locator('#builder-save'));
+  const graph = await page.locator('#builder-json').inputValue();
+  const svg = page.locator('#builder-canvas svg');
+  const before = (await svg.boundingBox()).width;
+  await page.getByRole('button', { name: 'Agrandir le graphe', exact: true }).click();
+  assert.ok((await svg.boundingBox()).width > before);
+  await page.getByRole('button', { name: 'Ajuster le graphe à la largeur', exact: true }).click();
+  await page.getByRole('button', { name: 'Rétablir le zoom à 100%', exact: true }).click();
+  assert.equal(await page.locator('#canvas-zoom-label').textContent(), '100%');
+  assert.equal(await page.locator('#builder-json').inputValue(), graph);
+  const bounds = await page.locator('#builder-canvas').boundingBox();
+  assert.ok(bounds.y < 260 && bounds.height > 550, JSON.stringify(bounds));
 }
 
 async function operations(page) {
@@ -94,6 +114,7 @@ async function mobile(page) {
   await tasks.view(page, 'builder-view');
   await tasks.reveal(page, page.locator('#builder-node-label'));
   assert.equal(await page.locator('#node-inspector-dialog').isVisible(), true);
+  assert.equal(await page.locator('#node-inspector-dialog').evaluate(element => element.matches(':modal')), true);
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#node-inspector-dialog').isVisible(), false);
   await tasks.reveal(page, page.locator('#builder-save'));
@@ -121,6 +142,7 @@ async function probe(spec) {
   try {
     await login(page, spec);
     const desktop = await allViews(page);
+    await zoom(page);
     await drafts(page);
     await operations(page);
     await page.setViewportSize({ width: 1280, height: 720 });
@@ -130,6 +152,7 @@ async function probe(spec) {
     assert.ok(graph.content <= graph.height + 1, JSON.stringify(graph));
     await page.screenshot({ path: path.join(output, 'studio-focused-compact.png') });
     await mobile(page);
+    await page.locator('.session-context summary').click();
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
     assert.equal(await page.locator('#node-inspector-dialog').isVisible(), false);
     assert.equal(await page.locator('#builder-name').inputValue(), '');
@@ -137,7 +160,8 @@ async function probe(spec) {
     fs.writeFileSync(path.join(output, 'qualified.json'), JSON.stringify({
       revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim(),
       qualifiedAt: new Date().toISOString(), sourceHashes: hashes(), apiInterception: false,
-      desktop, compact, mobile390: true, text200: true, draftsPreserved: true, errors,
+      desktop, compact, mobile390: true, text200: true, draftsPreserved: true,
+      functionalZoom: true, desktopNonModalInspector: true, mobileModalInspector: true, errors,
       limits: ['Long datasets and forms remain locally scrollable; no claim that every content fits at any zoom.']
     }, null, 2));
     console.log('Studio density: every view bounded, one task/action, preserved drafts, keyboard, mobile, zoom and purge passed.');

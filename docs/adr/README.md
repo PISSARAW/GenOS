@@ -476,6 +476,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0382](0382-publication-scientifique-ciblee-par-producteur.md) | Production et abonnement scientifique ciblés | Voir le fichier | -- | -- |
 | [0383](0383-studio-construction-workflows-canoniques.md) | ADR 0383 Construction de workflows canoniques dans Studio | Accepté pour une tranche de construction de workflows. | 2026-10-10. | Studio, construction, versions, exécution et publication. |
 | [0388](0388-studio-vues-centrees-sur-les-taches.md) | Studio organisé par tâches visibles | Accepté | 2026-10-10 | Studio, navigation, densité et accessibilité |
+| [0390](0390-studio-surfaces-dominantes-et-inspecteurs.md) | ADR 0390 Studio : surfaces dominantes et inspecteurs contextuels | Accepté. | 2026-10-10. | Studio, présentation, navigation et accessibilité. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

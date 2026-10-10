@@ -25,7 +25,7 @@ async function construct(page) {
   await tasks.fill(page, page.locator('#builder-name'), 'Parcours de construction');
   await tasks.fill(page, page.locator('#builder-node-label'), 'Entrée configurée');
   await page.locator('#builder-node-apply').click();
-  await page.locator('#builder-add-kind').selectOption('output');
+  await tasks.select(page, page.locator('#builder-add-kind'), 'output');
   await page.locator('#builder-node-add').click();
   await page.locator('#builder-node-label').fill('Vérification');
   await page.locator('#builder-node-apply').click();
@@ -168,7 +168,7 @@ async function probe(spec) {
     await page.keyboard.press('Enter');
     assert.equal(await page.locator('#builder-node-id').inputValue(), 'output');
     await publishedLifecycle(page, { ...result, spec });
-    await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
+    await tasks.click(page, page.locator('#disconnect'));
     assert.equal(await page.locator('#builder-name').inputValue(), '');
     assert.equal(await page.locator('#builder-runs').textContent(), '');
     assert.equal(await page.locator('#builder-workflow option').count(), 0);

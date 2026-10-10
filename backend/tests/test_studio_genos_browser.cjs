@@ -62,7 +62,7 @@ async function probe(spec) {
     await page.locator('#recovery-view .task-choice select').focus();
     await page.keyboard.press('Tab');
     assert.notEqual(await page.evaluate(() => document.activeElement.tagName), 'BODY');
-    await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
+    await tasks.click(page, page.locator('#disconnect'));
     assert.equal(await page.locator('#worlds-result').textContent(), '');
     assert.equal(await page.locator('#knowledge-result').textContent(), '');
     assert.equal(await page.locator('#organism-result').textContent(), '');

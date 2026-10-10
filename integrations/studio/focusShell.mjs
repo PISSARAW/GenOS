@@ -2,6 +2,8 @@ import { byId, node } from './ui.mjs';
 import { organizeViews } from './focusViews.mjs';
 import { revealTask } from './taskDeck.mjs';
 import { nodeInspector } from './nodeInspector.mjs';
+import { compactChrome, groupNavigation } from './productShell.mjs';
+import { canvasControls } from './canvasControls.mjs';
 
 function navigationChoice() {
   const label = node('label', 'Espace');
@@ -65,6 +67,9 @@ export function startFocusedWorkspace() {
   organizeViews();
   nodeInspector();
   navigationChoice();
+  groupNavigation();
   disclosure();
+  compactChrome();
+  canvasControls();
   bindings();
 }

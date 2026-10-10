@@ -120,6 +120,7 @@ async function approve(page, spec) {
 }
 
 async function disconnect(page) {
+  await page.locator('.session-context > summary').click();
   await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
   assert.equal(await page.locator('#inspection').isVisible(), false);
   assert.equal(await page.locator('#file-content').inputValue(), '');

@@ -173,6 +173,7 @@ async function run(spec, output) {
     await tasks.view(page, 'files-view');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.screenshot({ path: path.join(output, 'studio-mobile.png'), fullPage: true });
+    await page.locator('.session-context > summary').click();
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
     assert.equal(await page.locator('#navigation').isVisible(), false);
     assert.equal(await page.locator('#file-content').inputValue(), '');

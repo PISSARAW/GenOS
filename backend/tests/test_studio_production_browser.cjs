@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
+const tasks = require('./helpers/studioTaskNavigation.cjs');
 const { withFixture } = require('./helpers/studioGenosFixture.cjs');
 const { action } = require('./helpers/studioGenosBrowserJourney.cjs');
 const { digest } = require('../src/services/studioProductionStore');
@@ -67,7 +68,7 @@ async function probe(spec) {
     await page.locator('#production-view .task-choice select').focus();
     await page.keyboard.press('Tab');
     assert.notEqual(await page.evaluate(() => document.activeElement.tagName), 'BODY');
-    await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
+    await tasks.click(page, page.locator('#disconnect'));
     assert.equal(await page.locator('[data-view]:visible').count(), 0);
     assert.equal(await page.locator('#production-result').textContent(), '');
     assert.deepEqual(errors, []);

@@ -85,7 +85,10 @@ export class WorkflowEditor {
   }
 
   activate(id) {
-    if (this.select(id)) window.dispatchEvent(new Event('studio:node-selected'));
+    if (this.select(id)) {
+      document.querySelector('.node-palette').open = false;
+      window.dispatchEvent(new Event('studio:node-selected'));
+    }
   }
 
   draw(next) {

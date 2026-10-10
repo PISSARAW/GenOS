@@ -55,22 +55,31 @@ function inspector() {
 
 function graphPane() {
   const pane = panel('Graphe du workflow');
-  const palette = node('div');
-  palette.className = 'builder-toolbar';
-  palette.append(control('builder-add-kind', 'Nouveau nœud', { tag: 'select', options: ['input', 'output', 'llm', 'tool', 'parallel', 'loop'] }),
+  pane.className += ' canvas-panel';
+  pane.querySelector('h3').className = 'sr-only';
+  const tools = node('div');
+  tools.className = 'canvas-tools';
+  const palette = node('details');
+  palette.className = 'node-palette';
+  palette.append(node('summary', '+ Ajouter un nœud'));
+  const fields = node('div');
+  fields.className = 'builder-toolbar';
+  fields.append(control('builder-add-kind', 'Nouveau nœud', { tag: 'select', options: ['input', 'output', 'llm', 'tool', 'parallel', 'loop'] }),
     button('builder-node-add', 'Ajouter un nœud'));
+  palette.append(fields);
+  tools.append(palette);
   const canvas = node('div');
   canvas.id = 'builder-canvas';
   canvas.className = 'workflow-canvas';
   canvas.tabIndex = 0;
-  canvas.setAttribute('aria-label', 'Graphe, défilement horizontal disponible');
+  canvas.setAttribute('aria-label', 'Graphe du workflow, zoom et défilement disponibles');
   const edges = node('ul');
   edges.id = 'builder-edges';
   const links = node('div');
   links.className = 'builder-toolbar';
   links.append(control('builder-edge-source', 'Depuis le nœud', { tag: 'select' }),
     control('builder-edge-target', 'Vers le nœud', { tag: 'select' }), button('builder-edge-add', 'Relier les nœuds'));
-  pane.append(palette, canvas, links, edges);
+  pane.append(tools, canvas, links, edges);
   return pane;
 }
 
@@ -105,8 +114,11 @@ export function buildView() {
   version.setAttribute('role', 'status');
   identity.append(control('builder-name', 'Nom du workflow'), control('builder-description', 'Description'),
     control('builder-status', 'État après sauvegarde', { tag: 'select', options: ['draft', 'staging', 'published', 'archived'] }), version,
-    button('builder-save', 'Sauvegarder la version', 'workspace:write'), button('builder-validate', 'Valider le graphe'),
-    button('builder-publish', 'Préparer la publication'));
+    button('builder-save', 'Sauvegarder', 'workspace:write'), button('builder-validate', 'Valider'),
+    button('builder-publish', 'Publier…'));
+  identity.querySelector('#builder-save').setAttribute('aria-label', 'Sauvegarder la version');
+  identity.querySelector('#builder-validate').setAttribute('aria-label', 'Valider le graphe');
+  identity.querySelector('#builder-publish').setAttribute('aria-label', 'Préparer la publication');
   const layout = node('div');
   layout.className = 'builder-layout';
   layout.append(graphPane(), inspector());

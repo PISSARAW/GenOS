@@ -59,8 +59,8 @@ function research() {
   taskDeck(byId('research-view'), [group('explore', 'Explorer', [byId('research-refresh'), context]),
     group('actions', 'Protocoles et actions', [byId('research-action-filter').parentElement, byId('research-filter-status'), actions]),
     group('compare', 'Comparer', [element('.comparison-panel')]),
-    group('result', 'Résultats', [byId('research-summary'), byId('research-data').parentElement,
-      byId('research-result-summary'), byId('research-result').parentElement]),
+    group('result', 'Résultats', [byId('research-summary'), byId('research-data').parentElement]),
+    group('response', 'Réponse d’action', [byId('research-result-summary'), byId('research-result').parentElement]),
     group('arena', 'Arène', [arena]), group('guide', 'Repères', [limits])]);
 }
 
