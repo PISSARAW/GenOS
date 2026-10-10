@@ -103,12 +103,14 @@ export function startFiles() {
   });
   byId('file-query').addEventListener('input', renderFiles);
   window.addEventListener('studio:cleared', reset);
-  byId('workspace-choice').addEventListener('change', () => {
+  byId('workspace-choice').addEventListener('change', event => {
     if (!requestContextChange('workspace')) {
       byId('workspace-choice').value = draftWorkspace;
+      event.stopImmediatePropagation();
       return;
     }
     reset();
+    window.dispatchEvent(new Event('studio:workspace'));
   });
   byId('files-refresh').addEventListener('click', () => perform(listFiles));
   byId('file-open').addEventListener('click', () => {

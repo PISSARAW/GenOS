@@ -26,5 +26,11 @@ export function startProduction() {
   startProductionOperations(target);
   journeyLink(target, 'knowledge-view', 'Retrouver les décisions et preuves');
   journeyLink(target, 'recovery-view', 'Rejoindre Diagnostic et reprise');
+  window.addEventListener('studio:workflow-publication', event => {
+    const form = target.actions.querySelector('[data-action="production-freeze"]');
+    form.elements.workflowId.value = event.detail.workflowId;
+    form.elements.version.value = event.detail.version;
+    form.closest('details').open = true;
+  });
   return target;
 }
