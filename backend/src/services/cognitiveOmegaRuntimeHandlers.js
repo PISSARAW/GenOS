@@ -1,6 +1,7 @@
 'use strict';
 
 const proofBinding = require('./cognitiveOmegaProofBinding');
+const scientificVisibility = require('./cognitiveScientificReferenceVisibility');
 
 function blocked(reason, operation) {
   return { status: 'blocked', reason, operation: operation?.id || null };
@@ -34,6 +35,13 @@ function semanticSelection(operation, values) {
 
 async function read(operation, state, readers) {
     if (!allowed(state.policy, 'READ', operation.reference)) return blocked('read_not_authorized', operation);
+    if (operation.reference?.startsWith(scientificVisibility.PREFIX)) {
+      return scientificVisibility.read(operation, state);
+    }
+    return ordinaryRead(operation, state, readers);
+  }
+
+async function ordinaryRead(operation, state, readers) {
     const reader = readers.get(operation.reference);
     let value;
     if (reader) value = await reader({ reference: operation.reference, context: state.context });

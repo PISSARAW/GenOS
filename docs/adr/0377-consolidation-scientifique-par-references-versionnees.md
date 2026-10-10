@@ -1,6 +1,6 @@
 # ADR 0377 — Consolider les résultats scientifiques par références versionnées
 
-- **Statut** : Proposé ; raccordement de bout en bout non implémenté.
+- **Statut** : Proposé ; première tranche locale exécutable, raccordement autonome non achevé.
 - **Date** : 2026-10-10.
 - **Domaine** : Communication, preuves, GQWF, G-CIR.
 - **Décideurs** : Maintenance GenOS, en revue.
@@ -74,6 +74,34 @@ de coût ou de débit ne sera revendiqué qu'après mesure du cycle complet :
 import, capture, livraison, page-in, inférence, vérification et promotion.
 
 ## Mise en œuvre et validation
+
+### Tranche exécutable du 10 octobre 2026
+
+`scientificReferences` persiste une identité complète et sa version, les octets
+UTF-8 exacts, les empreintes et le reçu Lean lié par une autorité injectée. La
+résolution contrôle la portée, les dépendances et le reçu à chaque lecture ;
+elle échoue fermée si cette autorité n'est plus disponible après reprise. Seuls
+les énoncés formels directs sont admis : aucune équivalence texte naturel–Lean
+n'est inférée. Une rétractation exige un reçu distinct lié à la cible.
+
+`scientificPropagation` persiste l'index inverse, les obligations, les
+suspensions et l'outbox prioritaire. `scientificWorkflowService` publie ou
+rétracte la référence, ses dépendants et ses événements dans une transaction
+SQLite. Le READ G-CIR Node résout une URI canonique sous contrôle de portée,
+matérialise les octets visibles dans le ledger et bloque l'inférence si la
+résolution échoue ; la rétractation invalide la version dans les sessions déjà
+matérialisées. Le dispatcher d'outbox vérifie une livraison Signal Plane durable
+et son enveloppe avant acquittement. Des tests SQLite en mémoire couvrent ces
+invariants et le retour arrière transactionnel.
+
+Ce code est une API locale : aucun ordonnanceur de dispatcher, worker producteur,
+bootstrap d'autorité de reçus après redémarrage, récepteur scientifique dédié
+ni politique d'audience experte ne sont encore raccordés en production. Un
+signal sans récepteur déterministe peut être escaladé au modèle sans livraison
+au destinataire ; l'outbox reste alors en attente. Les effets externes des
+récepteurs ne sont pas atomiques avec son acquittement. Le contenu est encore
+dupliqué en BLOB SQLite, sans référence CAS GQWF. Aucun benchmark à 10 000
+identités ni parité du resolver Rust n'est établi.
 
 1. Fermer les failles de cycle de vie des capsules, de binding des preuves et
    de livraison/coalescing avant de publier des objets scientifiques.
