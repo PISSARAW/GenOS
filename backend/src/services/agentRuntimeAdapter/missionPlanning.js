@@ -256,6 +256,7 @@ function computeRuntimeBudget(ctx) {
   const { autonomyPlan, normalizedRuntimeBudget, dispatchedAgent } = ctx;
   if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(ctx.normalizedMission)) {
     ctx.runtimeBudget = { ...normalizedRuntimeBudget, tokens: 0, deterministic: true };
+    ctx.runtimeBudgetStatus = 'allocated';
     return;
   }
   const runtimeBudget = autonomyPlan
@@ -273,6 +274,7 @@ function computeRuntimeBudget(ctx) {
     throw Object.assign(new Error(`Runtime budget coherence check failed: ${budgetCheck.reason}`), { code: 'BUDGET_COHERENCE_FAILURE' });
   }
   ctx.runtimeBudget = runtimeBudget;
+  ctx.runtimeBudgetStatus = 'allocated';
 }
 
 function applyBodyActions(ctx) {

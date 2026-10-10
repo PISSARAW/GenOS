@@ -35,10 +35,16 @@ async function verifyMcpCorrelation() {
   const context = { db, agentId: 'inventory-test', toolName: 'genos_snapshot', actionId: 'mcp-action-42' };
   await recordToolEfference(context);
   const payload = toolOutcomePayload({ ...context, sourceActionId: context.actionId }, { status: 'ok' });
-  const event = await discharge(db, context.agentId, { eventType: 'WORKFLOW_MCP_TOOL_COMPLETED', payload });
+  assert.equal((await discharge(db, context.agentId, {
+    agentId: 'other-agent', eventType: 'WORKFLOW_MCP_TOOL_COMPLETED', payload
+  })).matched, false);
+  assert.equal((await discharge(db, context.agentId, {
+    eventType: 'WORKFLOW_MCP_TOOL_COMPLETED', payload
+  })).matched, false);
+  const event = await discharge(db, context.agentId, { agentId: context.agentId, eventType: 'WORKFLOW_MCP_TOOL_COMPLETED', payload });
   assert.equal(event.matched, true);
   assert.equal(event.strength, 1);
-  assert.equal((await discharge(db, context.agentId, { eventType: 'WORKFLOW_MCP_TOOL_COMPLETED', payload })).matched, false);
+  assert.equal((await discharge(db, context.agentId, { agentId: context.agentId, eventType: 'WORKFLOW_MCP_TOOL_COMPLETED', payload })).matched, false);
 }
 
 verifyRegistry();

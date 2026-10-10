@@ -157,7 +157,7 @@ async function batchReviseOnEvidence(subject, newEvidenceKind, newEvidence) {
   // In a full implementation this would query the evidence_claims table.
   if (!revisionStore) return { revised: false, status: 'store_unavailable', subject };
   if (!subject || !newEvidenceKind) return { revised: false, status: 'invalid_input', subject, error: 'subject and evidence kind are required.' };
-  const rows = await revisionStore.all('SELECT id, claim_json, revision FROM epistemic_claims WHERE subject = ? AND status = \'active\'', subject);
+  const rows = await revisionStore.all('SELECT id, claim_json, revision, producer_agent_id FROM epistemic_claims WHERE subject = ? AND status = \'active\'', subject);
   const evidence = { kind: newEvidenceKind, ...(newEvidence || {}) };
   const revisions = [];
   const skipped = [];
@@ -170,7 +170,7 @@ async function batchReviseOnEvidence(subject, newEvidenceKind, newEvidence) {
     const revised = { ...original, evidence: [...(original.evidence || []), evidence] };
     const revision = requestRevisionWithHooks(original, revised, { reason: 'new_evidence' });
     revisions.push(revision);
-    await persistClaim({ ...revised, revision: Number(row.revision || 0) + 1 }, { before: original, reason: 'new_evidence' });
+    await persistClaim({ ...revised, revision: Number(row.revision || 0) + 1 }, { before: original, reason: 'new_evidence', agentId: row.producer_agent_id });
   }
   return { revised: true, status: 'completed', subject, evidenceKind: newEvidenceKind, count: revisions.length, skipped, revisions };
 }
@@ -194,12 +194,15 @@ function configureRevisionStore(db) {
 async function persistClaim(claim, options = {}) {
   if (!revisionStore || !claim?.id) return;
   const revision = Number(claim.revision || 0);
+  const producerAgentId = typeof options.agentId === 'string' && options.agentId.trim() ? options.agentId : null;
   await revisionStore.run(
-    `INSERT INTO epistemic_claims (id, subject, claim_json, quality, revision, status, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+    `INSERT INTO epistemic_claims (id, subject, claim_json, quality, revision, producer_agent_id, status, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET subject = excluded.subject, claim_json = excluded.claim_json,
-       quality = excluded.quality, revision = excluded.revision, status = 'active', updated_at = CURRENT_TIMESTAMP`,
-    claim.id, claim.subject || null, JSON.stringify(claim), evidenceQuality(claim), revision
+       quality = excluded.quality, revision = excluded.revision,
+       producer_agent_id = COALESCE(excluded.producer_agent_id, epistemic_claims.producer_agent_id),
+       status = 'active', updated_at = CURRENT_TIMESTAMP`,
+    claim.id, claim.subject || null, JSON.stringify(claim), evidenceQuality(claim), revision, producerAgentId
   );
   if (options.before) {
     const revisionId = `rev_${crypto.createHash('sha256').update(`${claim.id}:${revision}:${options.reason || 'revision'}`).digest('hex').slice(0, 32)}`;

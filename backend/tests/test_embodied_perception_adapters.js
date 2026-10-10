@@ -17,16 +17,28 @@ async function main() {
   assert.throws(() => percepts.normalize({ modality: 'vision', artifactRef: 'a', entityId: 'x',
     semanticSummary: Buffer.from('raw image') }), /compact summary/);
   let executions = 0;
-  const environment = { execute: async () => { executions += 1;
+  const environment = { ownerAgentId: 'agent-A', actuatorId: 'motor-A', toolName: 'move', execute: async () => { executions += 1;
     return { status: 'completed', observedStateRef: 'state://1', evidenceRefs: ['receipt:1'], metrics: { success: 1 } }; } };
-  const blocked = await motor.execute({ environmentRef: 'env://1', intent: { intentId: 'delete', action: 'delete', irreversible: true }, environment });
+  const authority = { assert: async () => true };
+  const options = { agentId: 'agent-A', environmentRef: 'env://1', environment, authority };
+  const blocked = await motor.execute({ ...options, intent: { intentId: 'delete', action: 'delete', irreversible: true } });
   assert.equal(blocked.status, 'blocked');
   assert.equal(executions, 0);
-  const completed = await motor.execute({ environmentRef: 'env://1', intent: { intentId: 'move', action: 'move' }, environment });
+  const foreign = await motor.execute({ ...options, environment: { ...environment, ownerAgentId: 'agent-B' },
+    intent: { intentId: 'foreign', action: 'move' } });
+  assert.equal(foreign.reason, 'motor-actuator-owner-mismatch');
+  assert.equal(executions, 0);
+  const denied = await motor.execute({ ...options, authority: { assert: async () => false },
+    intent: { intentId: 'denied', action: 'move' } });
+  assert.equal(denied.reason, 'motor-actuator-authority-denied');
+  assert.equal(executions, 0);
+  const completed = await motor.execute({ ...options, intent: { intentId: 'move', action: 'move' } });
   assert.equal(completed.status, 'completed');
+  assert.equal(completed.agentId, 'agent-A');
+  assert.equal(completed.actuatorId, 'motor-A');
   assert.equal(executions, 1);
-  await assert.rejects(() => motor.execute({ environmentRef: 'env://1', intent: { intentId: 'move', action: 'move' },
-    environment: { execute: async () => ({ status: 'completed', evidenceRefs: [] }) } }), /requires evidence/);
+  await assert.rejects(() => motor.execute({ ...options, intent: { intentId: 'move', action: 'move' },
+    environment: { ...environment, execute: async () => ({ status: 'completed', evidenceRefs: [] }) } }), /requires evidence/);
   console.log('Embodied percept binding and motor-outcome adapter checks passed.');
 }
 

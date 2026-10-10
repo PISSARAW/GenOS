@@ -29,6 +29,7 @@ async function refreshMeasuredBudget(ctx) {
   const metrics = JSON.parse(run.metrics_json || '{}');
   if (!Number.isFinite(budget.tokens) || !Number.isFinite(metrics.tokens)) return;
   ctx.runtimeBudget = { ...ctx.runtimeBudget, tokens: Math.max(0, budget.tokens - metrics.tokens) };
+  ctx.runtimeBudgetStatus = 'measured';
 }
 
 async function process(ctx, event) {

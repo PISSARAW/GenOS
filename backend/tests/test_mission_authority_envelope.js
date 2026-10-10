@@ -64,6 +64,18 @@ async function immutableAndFresh(ctx, filename) {
   await assert.rejects(authority.assertRun(ctx.db, { ...input(ctx), agentId: 'parent' }), { code: 'EXECUTION_AUTHORITY_ACTOR_MISMATCH' });
   await assert.rejects(authority.assertTool(ctx.db, { agentId: 'worker', toolName: 'genos_fork' }), { code: 'EXECUTION_AUTHORITY_TOOL_DENIED' });
   assert.equal((await authority.assertTool(ctx.db, { agentId: 'worker', toolName: 'genos_search_failures' })).status, 'authorized');
+  const motor = require('../src/services/perception/embodied/motorOutcomeAdapter');
+  let motorCalls = 0;
+  const environment = { ownerAgentId: 'worker', actuatorId: 'search', toolName: 'genos_search_failures',
+    execute: async () => { motorCalls += 1; return { status: 'completed', evidenceRefs: ['receipt:search'] }; } };
+  const motorInput = { db: ctx.db, agentId: 'worker', environmentRef: 'env://worker', environment,
+    intent: { intentId: 'search-1', action: 'search' } };
+  assert.equal((await motor.execute(motorInput)).status, 'completed');
+  const foreign = await motor.execute({ ...motorInput, agentId: 'parent' });
+  assert.equal(foreign.reason, 'motor-actuator-owner-mismatch');
+  const unleased = await motor.execute({ ...motorInput, environment: { ...environment, toolName: 'genos_fork' } });
+  assert.equal(unleased.reason, 'motor-actuator-authority-denied');
+  assert.equal(motorCalls, 1);
 }
 
 async function refusedCurrent(ctx, probe) {

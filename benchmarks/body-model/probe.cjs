@@ -112,14 +112,17 @@ function telemetryDb() {
   await probe('E2', 'Une commande motrice doit être liée à un agent propriétaire.', async () => {
     let executions = 0;
     const result = await motor.execute({
+      agentId: 'agent-A',
       environmentRef: 'env://agent-B',
       intent: { intentId: 'move-1', action: 'move' },
-      environment: { execute: async () => {
+      authority: { assert: async () => true },
+      environment: { ownerAgentId: 'agent-B', actuatorId: 'motor-B', toolName: 'move', execute: async () => {
         executions += 1;
         return { status: 'completed', evidenceRefs: ['receipt:foreign'] };
       } }
     });
-    assert.equal(executions, 0, `effecteur sans identité exécuté : ${JSON.stringify(result)}`);
+    assert.equal(executions, 0);
+    assert.equal(result.status, 'blocked');
     return result;
   });
 
@@ -127,13 +130,13 @@ function telemetryDb() {
     const db = memoryDb();
     await efference.predict(db, 'agent-A', { action: 'move', actionId: 'action-A', expectedTypes: ['MOVED'] });
     const wrong = await efference.discharge(db, 'agent-A', {
-      eventType: 'MOVED', payload: { sourceActionId: 'action-B' }
+      agentId: 'agent-A', eventType: 'MOVED', payload: { sourceActionId: 'action-B' }
     });
     const right = await efference.discharge(db, 'agent-A', {
-      eventType: 'MOVED', payload: { sourceActionId: 'action-A' }
+      agentId: 'agent-A', eventType: 'MOVED', payload: { sourceActionId: 'action-A' }
     });
     const replay = await efference.discharge(db, 'agent-A', {
-      eventType: 'MOVED', payload: { sourceActionId: 'action-A' }
+      agentId: 'agent-A', eventType: 'MOVED', payload: { sourceActionId: 'action-A' }
     });
     assert.equal(wrong.matched, false);
     assert.equal(right.matched, true);
@@ -145,11 +148,12 @@ function telemetryDb() {
     const db = memoryDb();
     await efference.predict(db, 'agent-A', { action: 'move', actionId: 'shared-action', expectedTypes: ['MOVED'] });
     const foreign = await efference.discharge(db, 'agent-A', {
-      eventType: 'MOVED', payload: { sourceActionId: 'shared-action', agentId: 'agent-B' }
+      agentId: 'agent-B', eventType: 'MOVED', payload: { sourceActionId: 'shared-action' }
     });
     assert.equal(foreign.matched, false, `événement externe attribué au soi : ${JSON.stringify(foreign)}`);
     return foreign;
   });
 
   console.log(JSON.stringify({ runAt: new Date().toISOString(), results }, null, 2));
+  if (results.some((result) => result.verdict === 'FAIL')) process.exitCode = 1;
 })().catch((error) => { console.error(error); process.exitCode = 1; });

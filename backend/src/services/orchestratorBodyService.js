@@ -11,6 +11,12 @@ const SENSOR_SOURCES = Object.freeze({
   temporalPerception: 'temporal_perception'
 });
 
+const OBSERVED_DOMAINS = Object.freeze({
+  mission_intent: 'world', filesystem_state: 'world', terminal_state: 'self',
+  metabolic_budget: 'self', spatial_memory: 'self', social_state: 'social',
+  tool_lease: 'self', evidence_state: 'self', temporal_state: 'self'
+});
+
 const DESTRUCTIVE_TOOLS = new Set([
   'genos_orchestrate', 'genos_delete', 'genos_reset', 'genos_force_push',
   'git_reset_hard', 'git_clean', 'shell_unbounded'
@@ -55,8 +61,9 @@ function createPercept(input) {
 function bodyInputs(ctx) {
   const mission = ctx.normalizedMission || {};
   const plan = ctx.autonomyPlan || {};
-  const budget = ctx.runtimeBudget || ctx.normalizedRuntimeBudget || mission.executionBudget || {};
-  return { ctx, mission, plan, budget };
+  const budget = ctx.runtimeBudget || {};
+  const budgetStatus = ctx.runtimeBudgetStatus || (ctx.runtimeBudget ? 'allocated' : 'unknown');
+  return { ctx, mission, plan, budget, budgetStatus };
 }
 
 function missionIntentPercept(input) {
@@ -77,7 +84,12 @@ function terminalPercept(input) {
 function budgetPercept(input) {
   const budget = input.budget;
   const policy = input.plan.tokenPolicy || {};
-  return createPercept({ kind: 'metabolic_budget', source: SENSOR_SOURCES.proprioception, value: { tokens: numberOr(budget.tokens, 0), workerShare: numberOr(budget.workerShare, policy.workerShare || 0), orchestratorReserve: numberOr(budget.orchestratorReserve, policy.orchestratorReserve || 0) }, cost: 0.01 });
+  const known = Number.isFinite(budget.tokens) && budget.tokens >= 0;
+  return createPercept({ kind: 'metabolic_budget', source: SENSOR_SOURCES.proprioception,
+    value: { tokens: known ? budget.tokens : null, status: known ? input.budgetStatus : 'unknown',
+      workerShare: numberOr(budget.workerShare, policy.workerShare || 0),
+      orchestratorReserve: numberOr(budget.orchestratorReserve, policy.orchestratorReserve || 0) },
+    confidence: known ? 1 : 0, cost: 0.01 });
 }
 
 function spatialMemoryPercept(input) {
@@ -116,7 +128,8 @@ function collectMissionPercepts(ctx) {
     toolLeasePercept(input),
     evidencePercept(input),
     temporalPercept(input)
-  ];
+  ].map((percept) => ({ ...percept, sensorOwnerAgentId: ctx.agentId || null,
+    observedDomain: OBSERVED_DOMAINS[percept.kind] || 'unknown' }));
 }
 
 function valueFor(percepts, kind) {
@@ -129,14 +142,17 @@ function buildWorldState(percepts) {
   const social = valueFor(percepts, 'social_state');
   const evidence = valueFor(percepts, 'evidence_state');
   const lease = valueFor(percepts, 'tool_lease');
-  const tokens = numberOr(budget.tokens, 0);
+  const budgetKnown = ['allocated', 'measured'].includes(budget.status) && Number.isFinite(budget.tokens);
+  const tokens = budgetKnown ? budget.tokens : null;
   const recentFailures = numberOr(evidence.recentFailures, 0);
   const evidenceDebt = list(evidence.debt);
-  const budgetPressure = tokens <= 0 ? 1 : clamp01(1 - (tokens / 12000));
+  const budgetPressure = !budgetKnown || tokens <= 0 ? 1 : clamp01(1 - (tokens / 12000));
   const failurePressure = clamp01(recentFailures / 3);
-  const uncertainty = evidenceDebt.length > 0 || recentFailures > 0;
+  const uncertainty = !budgetKnown || evidenceDebt.length > 0 || recentFailures > 0;
   return {
     budget: tokens,
+    budgetKnown,
+    budgetStatus: budget.status || 'unknown',
     stress: clamp01((budgetPressure * 0.45) + (failurePressure * 0.35) + (uncertainty ? 0.2 : 0)),
     uncertain: uncertainty,
     threat: list(lease.tools).some((tool) => DESTRUCTIVE_TOOLS.has(tool)),
@@ -153,8 +169,9 @@ function reflexesFor(worldState) {
   if (worldState.threat) {
     reflexes.push({ id: 'block_destructive_actuator', action: 'freeze', reason: 'Tool lease contains a destructive or recursive actuator.', actuator: 'SafetyActuator' });
   }
-  if (worldState.budget < 1200) {
-    reflexes.push({ id: 'budget_conservation', action: 'network_silence', reason: 'ATP budget is below the worker dispatch threshold.', actuator: 'SafetyActuator' });
+  if (!worldState.budgetKnown || worldState.budget < 1200) {
+    const reason = worldState.budgetKnown ? 'ATP budget is below the worker dispatch threshold.' : 'Runtime budget is unknown; worker dispatch requires a measured allocation.';
+    reflexes.push({ id: 'budget_conservation', action: 'network_silence', reason, actuator: 'SafetyActuator' });
   }
   if (worldState.recentFailures >= 2) {
     reflexes.push({ id: 'failure_inflammation', action: 'replay_or_escalate', reason: 'Repeated failures raised inflammation above the adaptation threshold.', actuator: 'StrategyActuator' });
@@ -177,12 +194,14 @@ function survivalReflexes(survival) {
 }
 
 function buildOrchestratorBody(ctx) {
-  const percepts = collectMissionPercepts(ctx || {});
+  const context = ctx || {};
+  const percepts = collectMissionPercepts(context);
   const worldState = buildWorldState(percepts);
   const survival = evaluateSurvival({
     ...worldState,
+    energy: worldState.budgetKnown ? undefined : 0.5,
     uncertainty: worldState.uncertain ? 1 : 0,
-    ...(ctx.normalizedMission?.survivalState || {})
+    ...(context.normalizedMission?.survivalState || {})
   });
   return {
     loop: ['perceive', 'interpret', 'decide', 'act', 'sense_consequences', 'learn'],
@@ -190,6 +209,9 @@ function buildOrchestratorBody(ctx) {
     worldState,
     survival,
     actuators: ACTUATORS,
+    effectors: list(context.normalizedMission?.toolLease).map((toolName) => ({
+      toolName, ownerAgentId: context.agentId || null, status: context.agentId ? 'leased' : 'owner_unknown'
+    })),
     reflexes: [...reflexesFor(worldState), ...survivalReflexes(survival)]
   };
 }

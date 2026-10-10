@@ -1,5 +1,5 @@
 {
-  "runAt": "2026-10-10T15:07:25.093Z",
+  "runAt": "2026-10-10T15:26:12.427Z",
   "results": [
     {
       "id": "R1",
@@ -38,9 +38,21 @@
     },
     {
       "id": "C1",
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "criterion": "Sans mesure du budget, le capteur ne doit pas déclarer une valeur mesurée avec confiance 1.",
-      "detail": "budget absent représenté par {\"kind\":\"metabolic_budget\",\"source\":\"proprioception\",\"value\":{\"tokens\":0,\"workerShare\":0,\"orchestratorReserve\":0},\"confidence\":1,\"cost\":0.01,\"timestamp\":\"2026-10-10T15:07:25.081Z\"}"
+      "detail": {
+        "kind": "metabolic_budget",
+        "source": "proprioception",
+        "value": {
+          "tokens": null,
+          "status": "unknown",
+          "workerShare": 0,
+          "orchestratorReserve": 0
+        },
+        "confidence": 0,
+        "cost": 0.01,
+        "timestamp": "2026-10-10T15:26:12.418Z"
+      }
     },
     {
       "id": "C2",
@@ -65,9 +77,17 @@
     },
     {
       "id": "E2",
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "criterion": "Une commande motrice doit être liée à un agent propriétaire.",
-      "detail": "effecteur sans identité exécuté : {\"outcomeId\":\"280ced60-36df-46e9-80e3-64c7a019ff81\",\"status\":\"completed\",\"environmentRef\":\"env://agent-B\",\"intentId\":\"move-1\",\"observedStateRef\":null,\"evidenceRefs\":[\"receipt:foreign\"],\"metrics\":{}}\n\n1 !== 0\n"
+      "detail": {
+        "outcomeId": "b2acdecd-d590-4988-bc58-8658074fa7e3",
+        "status": "blocked",
+        "reason": "motor-actuator-owner-mismatch",
+        "agentId": "agent-A",
+        "actuatorId": "motor-B",
+        "environmentRef": "env://agent-B",
+        "evidenceRefs": []
+      }
     },
     {
       "id": "A1",
@@ -79,7 +99,7 @@
         },
         "right": {
           "matched": true,
-          "copyId": "eff_1791644845084_1fa0",
+          "copyId": "eff_1791645972420_d77",
           "attenuation": 0.5,
           "strength": 1
         },
@@ -90,9 +110,11 @@
     },
     {
       "id": "A2",
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "criterion": "Un événement attribué à un autre agent ne doit pas être réattribué au soi malgré un identifiant d’action identique.",
-      "detail": "événement externe attribué au soi : {\"matched\":true,\"copyId\":\"eff_1791644845092_b45\",\"attenuation\":0.5,\"strength\":1}\n\ntrue !== false\n"
+      "detail": {
+        "matched": false
+      }
     }
   ]
 }

@@ -23,6 +23,10 @@ function sampleContext() {
 const body = bodyService.buildOrchestratorBody(sampleContext());
 assert.equal(body.loop.join(' -> '), 'perceive -> interpret -> decide -> act -> sense_consequences -> learn');
 assert(body.percepts.every((percept) => percept.kind && percept.source && percept.timestamp));
+assert(body.percepts.every((percept) => percept.sensorOwnerAgentId === 'body-orchestrator'));
+assert.equal(body.percepts.find((percept) => percept.kind === 'filesystem_state').observedDomain, 'world');
+assert.equal(body.percepts.find((percept) => percept.kind === 'metabolic_budget').observedDomain, 'self');
+assert.deepEqual(body.effectors.map((effector) => effector.ownerAgentId), ['body-orchestrator', 'body-orchestrator']);
 assert.equal(body.worldState.budget, 800);
 assert.equal(body.worldState.activeWorkers, 1);
 assert(body.worldState.uncertain);
@@ -34,6 +38,37 @@ assert(body.reflexes.some((reflex) => reflex.id === 'homeostasis_guard'));
 assert(body.reflexes.some((reflex) => reflex.id === 'failure_inflammation'));
 assert(body.reflexes.some((reflex) => reflex.id === 'evidence_debt_gate'));
 assert.equal(body.actuators.FileActuator.rollback, true);
+
+const unknown = bodyService.buildOrchestratorBody({ normalizedMission: { executionBudget: { tokens: 10000 } } });
+const missingBudget = unknown.percepts.find((percept) => percept.kind === 'metabolic_budget');
+assert.equal(missingBudget.value.tokens, null);
+assert.equal(missingBudget.value.status, 'unknown');
+assert.equal(missingBudget.confidence, 0);
+assert.equal(unknown.worldState.budget, null);
+assert.equal(unknown.worldState.budgetKnown, false);
+assert(unknown.reflexes.some((reflex) => reflex.id === 'budget_conservation'));
+
+const zero = bodyService.buildOrchestratorBody({ runtimeBudget: { tokens: 0 } });
+assert.equal(zero.worldState.budget, 0);
+assert.equal(zero.worldState.budgetKnown, true);
+
+const finalContext = sampleContext();
+finalContext.normalizedRuntimeBudget = { tokens: 10000 };
+finalContext.runtimeBudget = { tokens: 4000 };
+finalContext.normalizedMission.toolLease = ['genos_snapshot'];
+const finalBody = bodyService.buildOrchestratorBody(finalContext);
+assert.equal(finalBody.worldState.budget, 4000);
+assert.deepEqual(finalBody.worldState.availableTools, ['genos_snapshot']);
+
+const allocatedContext = sampleContext();
+allocatedContext.normalizedRuntimeBudget = { tokens: 10000, workerShare: 0.6, orchestratorReserve: 0.4 };
+allocatedContext.autonomyPlan.tokenPolicy = { total: 10000, workerShare: 0.6, orchestratorReserve: 0.4 };
+delete allocatedContext.runtimeBudget;
+missionPlanning.computeRuntimeBudget(allocatedContext);
+missionPlanning.incarnateOrchestrator(allocatedContext);
+assert.equal(allocatedContext.orchestratorBody.worldState.budget, 4000);
+assert.equal(allocatedContext.orchestratorBody.worldState.budgetStatus, 'allocated');
+assert.deepEqual(allocatedContext.orchestratorBody.worldState.availableTools, ['genos_snapshot', 'genos_run']);
 
 const ctx = sampleContext();
 missionPlanning.incarnateOrchestrator(ctx);

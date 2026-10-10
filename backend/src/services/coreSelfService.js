@@ -4,10 +4,10 @@
  * CoreSelf — frontière self/world et attribution d'agency (strate P1).
  *
  * Strate décrite par spec/agent-self.schema.json#CoreSelfLayer :
- * agencyCalibration (part réelle d'actions attribuées au soi, calibrée par
- * l'erreur de prédiction), lastAttributions (10 dernières, bornées) et
+ * agencyCalibration (part d'attributions au soi pondérée par l'erreur de
+ * prédiction), selfAttributionRate, meanPredictionError, lastAttributions et
  * selfOriginRatio (fraction des claims actifs d'origine SelfGenerated ou
- * SelfObserved, heuristique lexicale sur claim_json).
+ * SelfObserved, limitée aux claims explicitement liés à l'agent).
  *
  * L'historique est persisté dans adaptive_state (scope core_self) et alimenté
  * à chaque run terminal par selfModelService.calibrate : erreur de prédiction
@@ -30,6 +30,17 @@ function clamp01(value) {
 function meanError(entries) {
   if (!entries.length) return 0;
   return entries.reduce((total, entry) => total + entry.predictionError, 0) / entries.length;
+}
+
+function selfAttributionRate(entries) {
+  if (!entries.length) return 0;
+  return entries.filter((entry) => entry.attributedToSelf === true).length / entries.length;
+}
+
+function calibratedAgency(entries) {
+  if (!entries.length) return 0;
+  return entries.reduce((total, entry) => total +
+    (entry.attributedToSelf === true ? 1 - clamp01(entry.predictionError) : 0), 0) / entries.length;
 }
 
 function validAttribution(attribution) {
@@ -57,9 +68,10 @@ function extractOrigin(claimJson) {
   }
 }
 
-async function selfOriginRatio(db) {
+async function selfOriginRatio(db, agentId) {
   try {
-    const rows = await db.all(`SELECT claim_json FROM epistemic_claims WHERE status = 'active' LIMIT 200`);
+    const rows = await db.all(`SELECT claim_json FROM epistemic_claims
+      WHERE producer_agent_id = ? AND status = 'active' LIMIT 200`, agentId);
     let self = 0;
     let total = 0;
     for (const row of rows || []) {
@@ -95,9 +107,11 @@ async function loadCoreSelf(db, agentId) {
     const stored = (await store.restoreObject(SCOPE, agentId)) || {};
     const entries = Array.isArray(stored.entries) ? stored.entries : [];
     if (!entries.length) return null;
-    const ratio = await selfOriginRatio(db);
+    const ratio = await selfOriginRatio(db, agentId);
     const core = {
-      agencyCalibration: clamp01(1 - meanError(entries)),
+      agencyCalibration: clamp01(calibratedAgency(entries)),
+      selfAttributionRate: clamp01(selfAttributionRate(entries)),
+      meanPredictionError: clamp01(meanError(entries)),
       lastAttributions: entries.slice(-SHOWN_LIMIT)
     };
     if (ratio !== null) core.selfOriginRatio = ratio;
