@@ -59,6 +59,7 @@ async function retractWithin(tx, store, input) {
   await assertParticipantScope(tx, ref, input.senderAgentId);
   const recipients = await propagation.getDependentAgents(tx, ref);
   const source = await store.markStale(tx, input);
+  await propagation.staleSubscriptions(tx, source.ref);
   const cascade = await propagation.invalidateDependents(tx, {
     ref: source.ref, reason: input.reason,
     retractionReceiptId: input.retractionReceiptId,
@@ -106,7 +107,19 @@ function createScientificWorkflow(options = {}) {
     await ensureTables(db);
     return withTransaction(db, (tx) => retractWithin(tx, referenceStore, input));
   }
-  return Object.freeze({ publishVerified, retract });
+  async function subscribeReference(input) {
+    if (typeof input?.consumerAgentId !== 'string' || !input.consumerAgentId.trim()) {
+      throw new Error('Scientific subscription requires consumerAgentId.');
+    }
+    const ref = typeof input.ref === 'string' ? references.parseReference(input.ref) :
+      references.parseReference(references.formatReference(input.ref));
+    await ensureTables(db);
+    return withTransaction(db, async (tx) => {
+      await assertParticipantScope(tx, ref, input.consumerAgentId);
+      return propagation.subscribeReference(tx, { ref, consumerAgentId: input.consumerAgentId });
+    });
+  }
+  return Object.freeze({ publishVerified, retract, subscribeReference });
 }
 
 module.exports = { createScientificWorkflow };

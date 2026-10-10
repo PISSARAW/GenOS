@@ -53,6 +53,10 @@ class MathematicalOrganismRuntime {
     this.strategyRepertoire = new ProofStrategyRepertoire();
     this.forager = new LiteratureForager({ envMeanReturnRate: options.envMeanReturnRate ?? 0.35 });
     this.leanGate = options.leanGate || null;
+    this.scientificProducer = options.scientificProducer || null;
+    if (this.scientificProducer && typeof this.scientificProducer.publishVerified !== 'function') {
+      throw new Error('Scientific producer must expose publishVerified.');
+    }
     this.dependencyGraph = new MathematicalDependencyGraph();
     this.formalizationRegistry = createFormalizationRegistry();
     if (this.leanGate) this.setLeanGate(this.leanGate);
@@ -140,6 +144,17 @@ class MathematicalOrganismRuntime {
     allocate(this);
     const attempts = await explore(this, questions);
     const verified = await verify(this, attempts);
+    if (this.scientificProducer) {
+      for (const attempt of verified) {
+        try {
+          attempt.scientificReference = await this.scientificProducer.publishVerified(attempt);
+        } catch (error) {
+          this.history.push({ event: 'scientific_publication_failed', step: this.currentStep,
+            attempt: attempt.id, reason: error.message, timestamp: new Date().toISOString() });
+          throw error;
+        }
+      }
+    }
     select(this);
     mutate(this);
     // M3 : Symbiosis — exécute les solveurs liés aux représentations de niches
@@ -226,12 +241,15 @@ class MathematicalOrganismRuntime {
 
   async run(maxSteps = 100) {
     this.running = true;
-    for (let i = 0; i < maxSteps && this.running; i++) {
-      const continueRun = await this.step();
-      if (!continueRun) break;
+    try {
+      for (let i = 0; i < maxSteps && this.running; i++) {
+        const continueRun = await this.step();
+        if (!continueRun) break;
+      }
+      return getSummary(this);
+    } finally {
+      this.running = false;
     }
-    this.running = false;
-    return getSummary(this);
   }
 
   /**

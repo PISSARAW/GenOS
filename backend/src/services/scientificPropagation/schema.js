@@ -23,6 +23,18 @@ async function ensureTables(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_scientific_obligations_dependency
       ON scientific_obligations(dependency_key, state);
+    CREATE TABLE IF NOT EXISTS scientific_reference_subscriptions (
+      reference_key TEXT NOT NULL,
+      reference_ref_json TEXT NOT NULL,
+      consumer_agent_id TEXT NOT NULL,
+      state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open', 'satisfied', 'stale')),
+      satisfaction_receipt_id TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (reference_key, consumer_agent_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_scientific_subscriptions_reference
+      ON scientific_reference_subscriptions(reference_key, state);
     CREATE TABLE IF NOT EXISTS scientific_suspensions (
       consumer_key TEXT NOT NULL,
       origin_key TEXT NOT NULL,

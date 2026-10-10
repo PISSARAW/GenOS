@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const { normalizeRef, referenceKey } = require('./referenceKey');
 const { enqueueEvent } = require('./outbox');
+const { subscribedAgents, satisfySubscriptions, staleSubscriptions } = require('./subscriptions');
 
 function obligationId(consumerKey, dependencyKey, agentId) {
   return crypto.createHash('sha256').update([consumerKey, dependencyKey, agentId || ''].join('\0')).digest('hex');
@@ -52,7 +53,7 @@ async function satisfyObligations(db, input) {
     SET state = 'satisfied', satisfaction_receipt_id = ?, updated_at = CURRENT_TIMESTAMP
     WHERE dependency_key = ? AND state = 'open'`,
   [receiptId, referenceKey(input.ref)]);
-  return result.changes;
+  return result.changes + await satisfySubscriptions(db, input);
 }
 
 async function getDependentAgents(db, ref) {
@@ -61,7 +62,8 @@ async function getDependentAgents(db, ref) {
       ON o.consumer_key = e.consumer_key AND o.dependency_key = e.dependency_key
     WHERE e.dependency_key = ? AND e.state = 'active' AND o.consumer_agent_id IS NOT NULL`,
   [referenceKey(ref)]);
-  return rows.map((row) => row.consumer_agent_id);
+  const subscribers = await subscribedAgents(db, ref, ['open', 'satisfied']);
+  return [...new Set([...rows.map((row) => row.consumer_agent_id), ...subscribers])];
 }
 
 async function consumersFor(db, input) {
@@ -71,7 +73,8 @@ async function consumersFor(db, input) {
       ON o.consumer_key = e.consumer_key AND o.dependency_key = e.dependency_key
     WHERE e.dependency_key = ? AND e.state = 'active' AND o.state = 'open'
       AND o.consumer_agent_id IS NOT NULL`, [referenceKey(input.ref)]);
-  return rows.map((row) => row.consumer_agent_id);
+  const subscribers = await subscribedAgents(db, input.ref, ['open']);
+  return [...new Set([...rows.map((row) => row.consumer_agent_id), ...subscribers])];
 }
 
 async function staleDependent(db, context) {
@@ -80,6 +83,8 @@ async function staleDependent(db, context) {
   const agents = await db.all(`SELECT DISTINCT consumer_agent_id FROM scientific_obligations
     WHERE consumer_key = ? AND dependency_key = ? AND consumer_agent_id IS NOT NULL`,
   [edge.consumer_key, edge.dependency_key]);
+  const consumerRef = JSON.parse(edge.consumer_ref_json);
+  const subscribers = await subscribedAgents(db, consumerRef, ['open', 'satisfied']);
   await db.run(`UPDATE scientific_dependency_edges SET state = 'stale'
     WHERE consumer_key = ? AND dependency_key = ?`, [edge.consumer_key, edge.dependency_key]);
   await db.run(`UPDATE scientific_obligations SET state = 'stale', updated_at = CURRENT_TIMESTAMP
@@ -88,10 +93,10 @@ async function staleDependent(db, context) {
     (consumer_key, origin_key, retraction_receipt_id, retraction_receipt_digest, reason)
     VALUES (?, ?, ?, ?, ?)`,
   [edge.consumer_key, originKey, retractionReceiptId, retractionReceiptDigest, reason]);
-  const consumerRef = JSON.parse(edge.consumer_ref_json);
+  await staleSubscriptions(db, consumerRef);
   const events = await enqueueEvent(db, {
     eventType: 'invalidate', ref: consumerRef,
-    recipients: agents.map((row) => row.consumer_agent_id),
+    recipients: [...new Set([...agents.map((row) => row.consumer_agent_id), ...subscribers])],
     idempotencyKey: `${originKey}:${retractionReceiptId}`,
     payload: { sourceRef, retractionReceiptId, retractionReceiptDigest, reason, senderAgentId },
   });
