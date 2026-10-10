@@ -114,6 +114,7 @@ function buildRouteContext(opts, clock, remainingMs) {
     agentId: opts.agentId,
     organizationId: opts.organizationId,
     projectId: opts.projectId,
+    workspaceId: opts.workspaceId,
     sessionId: opts.cognitiveSessionId || opts.agentId || null,
     cognitiveScope: opts.cognitiveScope || null,
     seed: opts.seed,

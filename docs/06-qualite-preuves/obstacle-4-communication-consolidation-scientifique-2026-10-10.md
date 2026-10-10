@@ -1,6 +1,6 @@
 # Obstacle 4 — Communication et consolidation scientifique, revue du 10 octobre 2026
 
-- **Statut** : audit du dépôt et cible d'architecture ; flux scientifique de bout en bout non qualifié.
+- **Statut** : audit du dépôt et cible d'architecture ; tranche locale implémentée, flux autonome non qualifié.
 - **Portée** : Signal Plane, politique de communication, Garage Fabric, GQWF v2, preuves et G-CIR Ω.
 - **Dernière revue** : 2026-10-10.
 
@@ -22,24 +22,27 @@ des dépendances, un contenu adressé par hash et un reçu de vérification
 indépendant. La politique existante choisit les consommateurs pertinents ; le
 Signal Plane livre une notification compacte ; G-CIR ne matérialise que le
 contexte nécessaire à une obligation ouverte. L'[ADR 0377](../adr/0377-consolidation-scientifique-par-references-versionnees.md)
-décrit la décision proposée. Son statut « proposé » est intentionnel.
+décrit la décision proposée et sa première tranche exécutable. Son statut
+« proposé » reste intentionnel tant que le flux autonome n'est pas qualifié.
 
 ## Ce qui existe et ce qui manque
 
 | Sujet | État observé | Écart bloquant |
 | --- | --- | --- |
 | Admission et workspaces | Garage Fabric a des domaines, files et quotas ; GQWF v2 conserve racines, overlays et baux. | La racine n'inclut pas tout l'environnement d'exécution, Git ou l'état d'un organisme ; le raccordement worker reste partiel. |
-| Choix des destinataires | `CommunicationPolicyEngine`, mémoire transactive et common ground permettent silence, ciblage et delta sémantique. | Aucun index durable des obligations scientifiques par objet/version ; la connaissance disponible dans un garage n'atteste pas la visibilité individuelle. |
-| Transport | Signal Plane a des livraisons durables et des récepteurs. | Les effets d'un récepteur et la transaction de livraison ne forment pas encore un seul flux repris par outbox. |
-| Preuve | Les objets de formalisation et le gate Lean lient maintenant le header vérifié à l'énoncé formel ou canonique. | Le lien sémantique entre texte naturel et formalisation n'est pas démontré par le seul succès Lean ; les reçus restent à relier aux références partagées. |
-| Contre-exemples | Le propagateur refuse maintenant une réfutation sans vérificateur indépendant et reçu lié à la cible. | Le graphe utilisé ici est en mémoire ; persistance, reprise et propagation interprocessus restent à faire. |
-| Contexte modèle | G-CIR Ω distingue opérations et visibilité. | La résolution autorisée de références scientifiques, leur matérialisation versionnée et leur invalidation dans le reçu de visibilité ne sont pas raccordées de bout en bout. |
+| Choix des destinataires | `CommunicationPolicyEngine` permet silence et ciblage ; un index SQLite relie maintenant dépendances, versions et obligations par agent. | L'audience experte et l'abonnement avant publication ne sont pas raccordés ; une vue de garage n'atteste toujours pas la visibilité individuelle. |
+| Transport | Signal Plane possède des livraisons durables ; l'outbox scientifique priorise les rétractations et vérifie la livraison avant acquittement. | Le dispatcher n'est pas ordonnancé en production ; sans récepteur scientifique, un signal peut être escaladé sans livraison ciblée. Les effets des récepteurs ne sont pas atomiques avec l'acquittement. |
+| Preuve | Le store scientifique lie reçu Lean, identité/version, source, environnement, dépendances et octets ; le resolver échoue fermé. | L'autorité de reçus reste à reconstituer au redémarrage ; le lien sémantique texte naturel–Lean n'est pas démontré. |
+| Contre-exemples | La rétractation scientifique locale exige un reçu indépendant, rend les dérivés obsolètes et inscrit l'outbox dans la même transaction. | Le pont depuis le propagateur historique en mémoire et la reprise interprocessus restent à raccorder. |
+| Contexte modèle | Le READ G-CIR Node résout l'URI scientifique, inscrit les octets visibles et invalide la version dans toutes les sessions concernées. | Pas de resolver scientifique Rust ni de preuve de capacité à 10 000 identités. |
 
 Les correctifs de cette revue ferment quatre risques locaux : suppression de
 capsule soumise à l'epoch et à l'arrêt du processus, liaison de l'énoncé dans le
 gate Lean, non-confusion des événements scientifiques au coalescing, et sélection
-de l'audience demandée avant la limite SQL. Ils ne constituent pas une preuve du
-flux complet ni d'une capacité de 10 000 workers.
+de l'audience demandée avant la limite SQL. La tranche suivante ajoute le
+registre versionné, la transaction de publication/rétractation, l'outbox et le
+READ G-CIR, vérifiés dans des tests SQLite en mémoire. Ces résultats ne
+constituent pas une preuve du flux autonome ni d'une capacité de 10 000 workers.
 
 ## Flux cible minimal
 

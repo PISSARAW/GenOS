@@ -50,7 +50,8 @@ async function executeNativeGraph({ graph, candidates, context, mode, mmu, econo
     if (!handlers.inferers?.[operation.reference]) runtime.registerInferer(operation.reference, inferer);
   });
   const execution = await runtime.execute({
-    context: nativeContext(context, graph), objects: graph.objectStore || {}, policy: options.cognitivePolicy || nativePolicy(graph),
+    context: { ...nativeContext(context, graph), scientificReferenceStore: options.cognitiveScientificReferenceStore },
+    objects: graph.objectStore || {}, policy: options.cognitivePolicy || nativePolicy(graph),
     mmu, economy, allowEmit: options.cognitiveAllowEmit !== false && economy?.execution?.allowEmit === true,
     verifierRegistry: options.cognitiveVerifierRegistry,
     verifierHandlers: options.cognitiveVerifierHandlers,
