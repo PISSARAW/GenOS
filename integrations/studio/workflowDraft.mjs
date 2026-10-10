@@ -3,6 +3,19 @@ export function initialGraph() {
     { id: 'output', type: 'output', data: { label: 'Sortie' } }], edges: [{ source: 'input', target: 'output' }] };
 }
 
+export function workflowWrite(value, loaded, workspaceId) {
+  if (!loaded) return { ...value, workspaceId };
+  if (loaded.status !== 'published') return { ...value, expectedVersion: loaded.version };
+  const changed = ['name', 'description', 'graph', 'metadata'].some(key =>
+    JSON.stringify(value[key]) !== JSON.stringify(loaded[key] ?? ''));
+  if (changed) throw new Error('Version publiée immuable : créez un nouveau workflow pour modifier son contenu.');
+  return { status: value.status, expectedVersion: loaded.version };
+}
+
+export function draftUnchanged(sent, current, inspectorPending) {
+  return sent === current && !inspectorPending;
+}
+
 export function parseGraph(text) {
   const graph = JSON.parse(text);
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) throw new Error('Le graphe doit contenir les listes nodes et edges.');

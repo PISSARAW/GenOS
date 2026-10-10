@@ -2,7 +2,7 @@ import { api } from './app.mjs';
 import { byId, encoded, options } from './ui.mjs';
 import { renderResponse } from './components.mjs';
 import { uncertainEffect } from './actionState.mjs';
-import { initialGraph } from './workflowDraft.mjs';
+import { initialGraph, workflowWrite, draftUnchanged } from './workflowDraft.mjs';
 import { WorkflowEditor } from './builderEditor.mjs';
 import { renderWorkflowRuns } from './builderRuns.mjs';
 
@@ -55,6 +55,8 @@ export class BuilderSession {
     this.baseline = this.fingerprint();
     byId('builder-version').textContent = workflow ? `Version ${workflow.version} · ${workflow.status} · ${workflow.id}` : 'Nouveau brouillon local';
     byId('builder-runs').replaceChildren();
+    byId('builder-result').replaceChildren();
+    byId('builder-result-summary').replaceChildren();
   }
 
   requireSaved() {
@@ -75,6 +77,8 @@ export class BuilderSession {
     const workflow = await api.request('/api/workflows/' + encoded(id));
     if (workflow.workspace_id !== byId('workspace-choice').value) throw new Error('Le workflow n’appartient pas au workspace sélectionné.');
     this.reset(workflow);
+    await this.catalog();
+    byId('builder-workflow').value = workflow.id;
   }
 
   async mutate(endpoint, spec) {
@@ -94,9 +98,9 @@ export class BuilderSession {
     if (!value.name.trim()) throw new Error('Le nom du workflow est requis.');
     if (this.draftWorkspace !== byId('workspace-choice').value) throw new Error('Le contexte du workspace a changé. Ouvrez un nouveau brouillon.');
     const sent = this.fingerprint();
-    const body = this.loaded ? { ...value, expectedVersion: this.loaded.version } : { ...value, workspaceId: this.draftWorkspace };
+    const body = workflowWrite(value, this.loaded, this.draftWorkspace);
     const result = await this.mutate(this.loaded ? this.path() : '/api/workflows', { method: this.loaded ? 'PUT' : 'POST', body });
-    if (sent === this.fingerprint()) this.reset(result);
+    if (draftUnchanged(sent, this.fingerprint(), this.editor.pending())) this.reset(result);
     else {
       this.loaded = result;
       this.baseline = sent;

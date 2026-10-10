@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { initialGraph, parseGraph, insertNode, replaceNode, removeNode, connectNodes, removeEdge,
-  changeSummary } from '../../integrations/studio/workflowDraft.mjs';
+  changeSummary, workflowWrite, draftUnchanged } from '../../integrations/studio/workflowDraft.mjs';
 
 const original = { ...initialGraph(), extension: { future: true } };
 original.nodes[1].futureRuntime = { untouched: 42 };
@@ -28,4 +28,11 @@ assert.equal(removeEdge(linked, 1).edges.length, 1);
 assert.equal(removeNode(linked, 'output').edges.length, 0);
 assert.deepEqual(changeSummary(original, added).added, ['llm-1']);
 assert.equal(changeSummary(original, renamed).linksChanged, true);
+const published = { name: 'Scellé', description: '', graph: original, metadata: {}, status: 'published', version: 4 };
+assert.deepEqual(workflowWrite({ ...published, status: 'archived' }, published, 'ws'), { status: 'archived', expectedVersion: 4 });
+assert.throws(() => workflowWrite({ ...published, name: 'Altéré' }, published, 'ws'), /immuable/);
+assert.equal(workflowWrite({ name: 'Nouveau' }, null, 'ws').workspaceId, 'ws');
+assert.equal(draftUnchanged('sent', 'sent', false), true);
+assert.equal(draftUnchanged('sent', 'edited while saving', false), false);
+assert.equal(draftUnchanged('sent', 'sent', true), false);
 console.log('Studio workflow draft: lossless unknown fields, immutable edits, node renaming, link cleanup and invalid input refusals passed.');

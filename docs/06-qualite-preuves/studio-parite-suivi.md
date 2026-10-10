@@ -1,7 +1,7 @@
 # Studio — suivi de la parité
 
 - **Statut** : Programme en cours ; aucune parité globale revendiquée.
-- **Dernière revue** : 2026-10-07.
+- **Dernière revue** : 2026-10-10.
 
 ## F02 — Base et risques de consolidation
 
@@ -743,3 +743,72 @@ ignorés. Le rejeu final après commit rattache la boucle navigateur au HEAD.
 F03 porte cette qualification et le guide ; F01 `da38b058`, F02 `67d78dce`.
 La revue visuelle a fait préciser les slots : staging publié et production
 retirée portent des noms/états lisibles, pas deux lignes génériques inconnues.
+
+## G1 — Première tranche de construction, 10 octobre 2026
+
+La reprise utilise `codex/studio-product-parity`, isolée depuis `v3` à
+`ce2b89a5`. Les modifications des autres chats dans le checkout principal
+ne sont ni arrêtées, ni déplacées, ni incluses. Aucune fusion ou publication
+distante n'est implicite dans ce lancement.
+
+G1.1, commit `0ab1690c`, ajoute les préconditions `expectedVersion` aux
+sauvegardes et admissions de workflow. Un client historique qui omet cette
+précondition reste compatible ; Studio la fournit. Les refus 409/400/404/403
+sont vérifiés sur HTTP et SQLite réels. La probe initiale a révélé un HTTP 500
+à la création : trois helpers déjà utilisés mais non importés ont été reliés,
+puis le scénario rejoué. Cette correction ne réécrit pas le worker.
+
+G1.2, commit `6251e5d1`, ajoute **Construire** : catalogue scoped, graphe SVG
+sélectionnable, inspecteur, connexions, édition JSON conservant les extensions,
+sauvegarde versionnée, validation, entrée de playground et observation.
+Les conflits conservent le brouillon. Les effets incertains interdisent un retry
+automatique. Le passage vers la production remplit le workflow/version exacts
+sans figer, approuver ni déployer à la place de l'opérateur.
+
+G1.3 qualifie le parcours avec HTTP/SQLite/worker réels, sans interception API :
+trois nœuds structurels, trois spans persistés, conflit avec un second client,
+rechargement confirmé, publication préparée et purge à la déconnexion.
+La revue des captures a fait synchroniser le catalogue après rechargement et
+effacer les anciens résultats lors d'un changement de workflow. Le libellé
+racine et celui de `data` sont harmonisés à l'édition. Un lien affiché devenu
+obsolète après édition JSON est refusé sans modifier le graphe.
+L'archivage d'un workflow publié transmet uniquement la transition d'état ;
+une édition de son contenu reste refusée. La probe navigateur vérifie les deux
+cas, sans confondre état `published` du registre et déploiement de production.
+
+| Qualification exécutée | Résultat |
+| --- | --- |
+| Suite Studio | 28/28, code 0 sous Windows. |
+| Navigateur constructeur | Code 0 ; scénario réel, captures desktop/mobile, noms accessibles, texte 200 %, clavier du graphe et absence d'erreur JS. |
+| Navigateurs socle, pilote, GenOS, spécialisés, production | Les cinq commandes terminent avec code 0. |
+| Gate staged strict G1.1/G1.2/G1.3 | Zéro violation sur les sources ajoutées ou modifiées. |
+| Contrôle qualité global | Code 0, 5672 sources, une violation de baseline, zéro nouvelle violation. |
+| Index ADR | Code 0, 466 fichiers et entrées, zéro problème. |
+| `npm test` global | Code 1 ; matrice native workers, `SUBORCHESTRATOR_TOKEN_LIMIT`, pas une validation globale verte. |
+| `cargo test --workspace` | Code 1 pendant la compilation ; linker Windows `LNK1105`, erreur 112, disque plein. Les tests Rust ne sont pas qualifiés par ce lancement. |
+
+Le [guide opérateur](../04-exploitation/studio-construire-workflow.md) détaille
+les droits, versions, reprise et limites. Captures et manifeste daté/haché
+restent ignorés sous `.genos-tests/studio-builder-g/`. La fixture structurelle
+ne valide pas un fournisseur LLM, un outil externe ni une publication cloud.
+Les coûts restent inconnus ; la durée reflète les horodatages persistés.
+
+Cette livraison ne clôture pas G1 ni C05–C12. Restent notamment les catalogues
+agents/providers/outils, les prompts versionnés, le canvas déplaçable et
+l'undo/redo, puis les priorités G2–G6 de la
+[suite produit](studio-parite-plan.md#suite-produit-lancée-le-10-octobre-2026).
+Les résultats ciblés ci-dessus ne constituent pas une certification globale.
+
+L'échec npm survient à la construction de la mission du sous-orchestrateur,
+avant son exécution : `nativeWorkerFixtures.missionFor` ne fournit pas
+l'allocation positive exigée par `grantBoundedDelegation`. La fixture réelle
+reproduit ce refus sans importer Studio. La comparaison avec `ce2b89a5` ne
+montre aucune modification des trois fichiers impliqués (fixture, matrice native,
+service d'autorité). Ils ne sont pas corrigés dans ce lot UI ; aucun gate de
+ressources n'est contourné pour obtenir un résultat vert.
+
+La compilation globale Rust a épuisé l'espace du disque partagé. Deux sorties
+exécutables incomplètes du linker ont été retirées, régénérables par Cargo ;
+aucune source, base de données ou configuration n'a été supprimée. Le cache
+partagé est ensuite observé indisponible ; ce lot ne relance pas une compilation
+complète ni un nettoyage général des artefacts des autres travaux.

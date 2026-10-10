@@ -21,7 +21,7 @@ function readInspector() {
 function patch(value) {
   const properties = { kind: value.kind, model: value.model, prompt: value.prompt, tool: value.tool,
     agentId: value.agent, args: JSON.parse(value.args) };
-  return { id: value.id.trim(), type: value.kind, ...properties, data: { label: value.label, ...properties } };
+  return { id: value.id.trim(), type: value.kind, label: value.label, ...properties, data: { label: value.label, ...properties } };
 }
 
 function renderLinks(graph, change) {
@@ -82,7 +82,7 @@ export class WorkflowEditor {
   change(next) {
     byId('builder-json').value = JSON.stringify(next, null, 2);
     this.draw(next);
-    renderLinks(next, index => this.editGraph(() => this.change(removeEdge(this.graph(), index))));
+    renderLinks(next, index => this.editGraph(() => this.removeLink(next, index)));
     const diff = changeSummary(this.baseGraph, next);
     byId('builder-changes').textContent = `${diff.added.length} nœud(s) ajouté(s), ${diff.removed.length} supprimé(s), ` +
       `${diff.modified.length} modifié(s). Liens modifiés : ${diff.linksChanged ? 'oui' : 'non'}. Validation serveur requise.`;
@@ -129,6 +129,14 @@ export class WorkflowEditor {
   link() {
     this.change(connectNodes(this.graph(), { source: byId('builder-edge-source').value,
       target: byId('builder-edge-target').value }));
+  }
+
+  removeLink(displayed, index) {
+    const current = this.graph();
+    if (JSON.stringify(displayed.edges) !== JSON.stringify(current.edges)) {
+      throw new Error('Appliquez le JSON modifié avant de retirer un lien affiché.');
+    }
+    this.change(removeEdge(current, index));
   }
 }
 
