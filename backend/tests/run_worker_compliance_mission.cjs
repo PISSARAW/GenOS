@@ -144,7 +144,7 @@ async function validateMission(context) {
   const refusalsValidated = validateExpectedRefusals(kind, metadata.workerContract);
   const persistedContract = metadata.workerKind === kind && metadata.workerContract.identity.workerKind === kind;
   const parentBound = metadata.workerContract.identity.parentId === parentId;
-  const runtimeStarted = execution?.started === true;
+  const runtimeStarted = await wasRuntimeStarted(db, worker.agentId, execution);
   const passed = successfulOutcome({ agent, report, artifact, expected, correctReference, refusalsValidated, persistedContract, parentBound, runtimeStarted });
   const errorCode = executionErrorCode(execution);
   return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, errorCode, expectedUnavailable: expectedUnavailable(kind, errorCode), error: passed ? null : artifactValidationError || execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
@@ -258,6 +258,24 @@ function saveResult(result) {
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 }
 
+async function wasRuntimeStarted(db, workerId, execution) {
+  if (execution?.started === true) return true;
+  const nativeStart = await db.get("SELECT 1 AS started FROM telemetry_events WHERE agent_id = ? AND event_type = 'DETERMINISTIC_WORKER_STARTED' LIMIT 1", workerId);
+  return nativeStart?.started === 1;
+}
+
+async function executeAndProbe(context) {
+  const native = Boolean(perceptionProbe.INPUT)
+    && ['procedural_executor', 'formal_worker'].includes(context.kind);
+  const pendingExecution = executeWorkerMission(context);
+  if (native) {
+    const perception = await perceptionProbe.run(context, null);
+    return { execution: await pendingExecution, perception };
+  }
+  const execution = await pendingExecution;
+  return { execution, perception: await perceptionProbe.run(context, execution) };
+}
+
 async function runOne({ runId, kind }) {
   const model = process.env.GENOS_LOCAL_MODEL;
   if (!model) throw new Error('Set GENOS_LOCAL_MODEL to an explicitly selected local model URI.');
@@ -271,8 +289,9 @@ async function runOne({ runId, kind }) {
   try {
     context = await createWorkerContext({ db, parentId, workspaceId, rootWorkspace, kind, model, runId });
     perceptionProbe.prepare(context);
-    execution = await executeWorkerMission(context);
-    const perception = await perceptionProbe.run(context, execution);
+    const observed = await executeAndProbe(context);
+    execution = observed.execution;
+    const perception = observed.perception;
     if (perception) perception.runtimeSettled = await perceptionProbe.settle(context.worker.agentId);
     const result = await validateMission({ ...context, db, execution });
     result.perception = perception;
@@ -338,7 +357,8 @@ async function executeWorkerMission(context) {
   const { worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, missionId } = context;
   const timeoutMs = Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000;
   try {
-    return await runtime.startMission({ agentId: worker.agentId, missionId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId: worker.workspaceId || workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true, ...(perceptionProbe.INPUT ? { continuousExecution: { mode: 'control', files: [perceptionProbe.INPUT], intervalMs: 100 } } : {}) });
+    const nativeObservation = ['procedural_executor', 'formal_worker'].includes(kind);
+    return await runtime.startMission({ agentId: worker.agentId, missionId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId: worker.workspaceId || workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true, ...(perceptionProbe.INPUT ? { continuousExecution: { mode: nativeObservation ? 'observe' : 'control', files: [perceptionProbe.INPUT], intervalMs: 100, ...(nativeObservation ? { observationWindowMs: 2500 } : {}) } } : {}) });
   } catch (error) { return { error: error.message, errorCode: error.code || null }; }
 }
 

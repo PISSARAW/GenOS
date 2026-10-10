@@ -36,6 +36,7 @@ test('continuous execution is opt-in and its configuration is bounded', async ()
   assert.throws(() => policy.normalize({ mode: 'control', maxScans: -1 }));
   assert.throws(() => policy.normalize({ mode: 'control', intervalMs: 1 }));
   assert.throws(() => policy.normalize({ mode: 'control', maxPendingWrites: 1000 }));
+  assert.throws(() => policy.normalize({ mode: 'observe', intervalMs: 100, observationWindowMs: 100 }));
 });
 
 test('timer perceives an external change during a mission without a manual scan', async () => {
