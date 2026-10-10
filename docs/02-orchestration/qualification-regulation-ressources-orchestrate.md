@@ -5,6 +5,8 @@
 - **Portée** : régulation supervisée des 19 types de workers natifs
 - **Dernière revue** : 2026-10-10
 
+Le [plan de mise en oeuvre](plan-implementation-regulation-ressources-orchestrate.md) ordonne les changements et leurs critères de sortie.
+
 ## État constaté
 
 Le [protocole actuel](regulation-workers-protocole.md) démontre 38 récupérations sur 38 exécutions natives, à raison de deux cycles par type. Le superviseur vérifie le contrat, le run et le reçu d'un `recovery_worker`, le fichier restauré et le checkpoint SQLite avant de restaurer l'état réglementaire simulé. La sonde crée directement parent, mission et contrats. Elle ne passe pas par la planification complète de `genos_orchestrate`.
