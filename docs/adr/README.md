@@ -473,7 +473,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0377](0377-consolidation-scientifique-par-references-versionnees.md) | Consolider les résultats scientifiques par références versionnées | Proposé ; raccordement de bout en bout non implémenté. | 2026-10-10. | Communication, preuves, GQWF, G-CIR. |
 | [0379](0379-octroi-borne-delegation-sous-orchestrateur.md) | Octroi borné de délégation au sous-orchestrateur | Accepté pour la tranche locale | 2026-10-10 | Sous-orchestration, contrats workers, jetons modèle |
 | [0395](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
-| [0396](0396-observation-continue-des-workers-supervises.md) | Observation continue des workers supervisés | accepté, preuve bornée | 2026-10-10 | workers, perception, preuves |
+| [0396](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
+| [0397](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

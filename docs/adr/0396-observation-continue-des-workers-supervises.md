@@ -18,7 +18,8 @@ Une mission de worker avec `continuousExecution.mode` égal à `observe` ou
 `control` emprunte le superviseur de processus. Elle garde son exécuteur et
 son modèle local. Le mode `off` conserve le routage existant. Les méthodes
 natives restent sur leur chemin déterministe, avant le routage des workers
-supervisés ; elles ne disposent pas encore d'une perception continue.
+supervisés. Leur observation bornée a été ajoutée par
+[l'ADR 0397](0397-perception-des-workers-natifs-et-revision-locale.md).
 
 ## Conséquences et preuves
 

@@ -6,6 +6,14 @@ function integer(value, fallback, maximum) {
   return value;
 }
 
+function nativeWindow(options, intervalMs) {
+  const duration = integer(options.observationWindowMs, 0, 10000);
+  if (duration && duration < intervalMs * 2) {
+    throw new Error('Native observation window must allow at least two scans.');
+  }
+  return duration;
+}
+
 function normalize(options) {
   if (options === undefined) return { mode: 'off' };
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('Invalid continuous execution configuration.');
@@ -13,12 +21,15 @@ function normalize(options) {
   if (!['off', 'observe', 'control'].includes(mode)) throw new Error('Unknown continuous execution mode.');
   if (mode === 'off') return { mode };
   if (options.intervalMs !== undefined && options.intervalMs < 100) throw new Error('Observation interval must be at least 100 ms.');
+  const intervalMs = integer(options.intervalMs, 250, 60000);
+  const observationWindowMs = nativeWindow(options, intervalMs);
   return {
     mode, files: options.files,
-    intervalMs: integer(options.intervalMs, 250, 60000),
+    intervalMs,
     maxScans: integer(options.maxScans, 256, 10000),
     maxVerifications: integer(options.maxVerifications, 16, 128),
-    maxPendingWrites: integer(options.maxPendingWrites, 32, 128)
+    maxPendingWrites: integer(options.maxPendingWrites, 32, 128),
+    observationWindowMs
   };
 }
 

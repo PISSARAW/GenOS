@@ -30,6 +30,15 @@ function onChange(ctx, change) {
   const state = ctx.continuousObserver.state;
   if (state.mode === 'control') markUnverified(ctx, change.reason);
   require('./sensoriumBridge').publish(ctx, change.observations);
+  if (change.observations.length && ctx.child?.genosCaptureBarrier) {
+    try {
+      ctx.child.send({ type: 'genos-observation-update', agentId: ctx.agentId,
+        runId: ctx.executionRun.id, planRevision: state.planRevision,
+        observations: change.observations }, (error) => {
+        if (error) state.coverageFailure = 'observation_delivery_failed';
+      });
+    } catch (_) { state.coverageFailure = 'observation_delivery_failed'; }
+  }
   ctx.emitTracked('CONTINUOUS_OBSERVATION', 'OBSERVE', 'Mission dependencies changed or observation coverage was lost.', {
     planRevision: state.planRevision, mode: state.mode, reason: change.reason,
     observations: change.observations, requiresReassessment: state.mode === 'control'
@@ -80,7 +89,7 @@ function capabilities(ctx) {
   const observer = ctx.continuousObserver;
   if (!observer) return { continuousObservation: false };
   return { continuousObservation: true, mode: observer.state.mode, planRevision: 0,
-    livePlanUpdate: false, resultFreshnessGate: observer.state.mode === 'control',
+    livePlanUpdate: Boolean(ctx.child?.genosCaptureBarrier), resultFreshnessGate: observer.state.mode === 'control',
     dependencies: observer.state.baselines.map((item) => item.target) };
 }
 

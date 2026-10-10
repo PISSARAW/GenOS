@@ -10,38 +10,59 @@ function prepare(context) {
   fs.writeFileSync(path.join(context.worker.workspaceRoot, INPUT), 'state-a');
 }
 
-async function readState(db, runId) {
-  if (!runId) return null;
-  const row = await db.get("SELECT payload_json FROM adaptive_state WHERE scope = 'continuous_execution' AND key = ?", runId);
-  return row ? JSON.parse(row.payload_json) : null;
+async function readState(db, runId, agentId) {
+  if (runId) {
+    const row = await db.get("SELECT payload_json FROM adaptive_state WHERE scope = 'continuous_execution' AND key = ?", runId);
+    return row ? JSON.parse(row.payload_json) : null;
+  }
+  const rows = await db.all("SELECT payload_json FROM adaptive_state WHERE scope = 'continuous_execution'");
+  return rows.map((row) => JSON.parse(row.payload_json)).find((state) => state.agentId === agentId) || null;
 }
 
 async function waitFor(db, runId, probe) {
   const deadline = Date.now() + probe.timeoutMs;
   do {
-    const state = await readState(db, runId);
+    const state = await readState(db, runId, probe.agentId);
     if (state && probe.condition(state)) return state;
     await delay(50);
   } while (Date.now() < deadline);
-  return readState(db, runId);
+  return readState(db, runId, probe.agentId);
+}
+
+async function waitForRebased(db, agentId) {
+  const deadline = Date.now() + 90000;
+  do {
+    const row = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'LOCAL_GENERATION_REBASED' ORDER BY id DESC LIMIT 1", agentId);
+    if (row) return JSON.parse(row.payload_json);
+    await delay(100);
+  } while (Date.now() < deadline);
+  return null;
 }
 
 async function run(context, execution) {
   const runId = execution?.executionRun?.id;
-  const initial = await waitFor(context.db, runId, { condition: () => true, timeoutMs: 1000 });
+  const agentId = context.worker.agentId;
+  const initial = await waitFor(context.db, runId, { agentId, condition: () => true, timeoutMs: 60000 });
   if (!initial) return { observerAvailable: false, observedCount: 0, planRevision: 0,
     reason: execution?.deterministic ? 'native_worker_has_no_continuous_observer' : 'observer_not_started' };
+  const observedRunId = initial.runId;
   const file = path.join(context.worker.workspaceRoot, INPUT);
   fs.writeFileSync(file, 'state-b');
-  await waitFor(context.db, runId, { condition: (state) => state.observations.length >= 1, timeoutMs: 3000 });
+  await waitFor(context.db, observedRunId, { condition: (state) => state.observations.length >= 1, timeoutMs: 3000 });
   fs.writeFileSync(file, 'state-c');
-  const state = await waitFor(context.db, runId, { condition: (current) => current.observations.length >= 2, timeoutMs: 3000 });
+  const state = await waitFor(context.db, observedRunId, { condition: (current) => current.observations.length >= 2, timeoutMs: 3000 });
   const rows = await context.db.all("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'PERCEPTION_OBSERVED' ORDER BY id", context.worker.agentId);
-  const receipts = rows.map((row) => JSON.parse(row.payload_json));
+  const rebased = process.env.GENOS_PERCEPTION_REACTIVE === '1'
+    ? await waitForRebased(context.db, agentId) : null;
+  return observationSummary({ state, rows, runId: observedRunId, rebased });
+}
+
+function observationSummary({ state, rows, runId, rebased }) {
   return { observerAvailable: true, observedCount: state?.observations.length || 0,
     planRevision: state?.planRevision || 0, invalidated: state?.invalidated === true,
-    telemetryCount: receipts.length, distinctDigests: new Set((state?.observations || []).map((item) => item.digest)).size,
+    telemetryCount: rows.length, distinctDigests: new Set((state?.observations || []).map((item) => item.digest)).size,
     runBound: (state?.observations || []).every((item) => item.runId === runId),
+    ...(process.env.GENOS_PERCEPTION_REACTIVE === '1' ? { rebased: rebased?.payload || rebased } : {}),
     reason: (state?.observations.length || 0) >= 2 ? null : 'two_changes_not_observed_during_mission' };
 }
 

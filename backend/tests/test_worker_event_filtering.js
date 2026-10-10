@@ -26,6 +26,11 @@ function verifySentinelFiltering() {
     assert.equal(result.intervention, false);
   }
   assert.equal(swarmSentinel.getAgentEntropy(agentId).sampleSize, 0);
+  for (let index = 0; index < 4; index += 1) {
+    swarmSentinel.inspectEvent(agentId, { eventType: 'PERCEPTION_OBSERVED', action: 'filesystem' });
+    swarmSentinel.inspectEvent(agentId, { eventType: 'CONTINUOUS_OBSERVATION', action: 'OBSERVE' });
+  }
+  assert.equal(swarmSentinel.getAgentEntropy(agentId).sampleSize, 0);
   swarmSentinel.clearAgent(agentId);
 }
 
