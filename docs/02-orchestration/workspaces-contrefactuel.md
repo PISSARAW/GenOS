@@ -102,6 +102,14 @@ Le mécanisme :
 - vérifie à la fin que le snapshot est cohérent.
 
 Le payload de fichiers peut être partagé quand deux snapshots ont le même hash.
+Les nouvelles capsules de workers ordinaires sont enregistrées comme workspaces
+privés avec la portée tenant du parent avant leur exécution. Une réutilisation
+de worker crée un nouvel identifiant de workspace, afin que les anciens
+snapshots gardent leur cible. Le nettoyage automatique préserve une capsule
+tant qu'un agent y est rattaché ou que des snapshots de workspace y sont
+enregistrés. Trinity conserve le rattachement spécialisé de
+chaque monde scellé. Voir [ADR 0395](../adr/0395-workspaces-prives-pour-capsules-de-workers.md)
+et le [contrat topologique](../03-reference/snapshots-topologiques.md).
 Le contexte propre à chaque snapshot (`snapshot_id`, agent, branche, génome,
 état et monde) est conservé dans les métadonnées de sa ligne SQLite et réappliqué
 à la lecture du manifeste. La déduplication des fichiers ne fait donc pas partager

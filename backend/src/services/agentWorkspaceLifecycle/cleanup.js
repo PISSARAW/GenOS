@@ -180,6 +180,15 @@ async function rollbackEligibility({ db, agentId, root, epoch, targetId }) {
   return null;
 }
 
+async function snapshotRetention(db, root) {
+  const snapshots = await db.get(`SELECT COUNT(*) AS count FROM workspace_snapshots s
+    JOIN workspaces w ON w.id = s.workspace_id WHERE w.path = ?`, root);
+  if (Number(snapshots?.count || 0) > 0) return 'workspace-snapshots-retained';
+  const assigned = await db.get(`SELECT COUNT(*) AS count FROM agents a
+    JOIN workspaces w ON w.id = a.workspace_id WHERE w.path = ?`, root);
+  return Number(assigned?.count || 0) > 0 ? 'assigned-workspace-retained' : null;
+}
+
 async function cleanupEligibility({ db, agentId, root, epoch, rollbackTargetId }) {
   if (epoch && await readEpochMarker(root) !== epoch) return 'epoch-mismatch';
   if (!agentId) return null;
@@ -188,7 +197,7 @@ async function cleanupEligibility({ db, agentId, root, epoch, rollbackTargetId }
   const { activeProcesses, TERMINAL_AGENT_STATUSES } = require('../agentOrchestrationState');
   if (!row || !TERMINAL_AGENT_STATUSES.has(row.status)) return 'agent-not-terminal';
   if (activeProcesses.has(agentId) || isProcessAlive(row.runtime_pid)) return 'runtime-alive';
-  return null;
+  return snapshotRetention(db, root);
 }
 
 async function ownsTrackedCapsule(db, agentId, tracked) {
