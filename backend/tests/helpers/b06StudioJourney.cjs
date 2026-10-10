@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { chromium } = require('playwright');
+const tasks = require('./studioTaskNavigation.cjs');
 
 async function login(page, spec, project) {
   await page.locator('#token').fill(spec.token);
@@ -14,7 +15,7 @@ async function login(page, spec, project) {
 }
 
 async function waitState(page, text) {
-  await page.locator('#run-status').filter({ hasText: text }).waitFor({ state: 'visible', timeout: 30000 });
+  await page.locator('#run-status').filter({ hasText: text }).waitFor({ state: 'attached', timeout: 30000 });
 }
 
 async function negativeUiCases(page, spec) {
@@ -25,11 +26,13 @@ async function negativeUiCases(page, spec) {
   assert.equal(await page.locator('#inspection').isVisible(), false);
   await page.unroute(latest);
 
+  await page.reload();
   await page.route(latest, route => route.fulfill({ status: 502, contentType: 'text/plain', body: 'upstream unavailable' }));
   await login(page, spec, spec.settings.project);
   await page.locator('#message').filter({ hasText: 'Réponse backend invalide' }).waitFor();
   await page.unroute(latest);
 
+  await page.reload();
   await page.evaluate(() => { document.body.dataset.requestTimeoutMs = '20'; });
   await page.route(latest, async route => {
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -40,6 +43,7 @@ async function negativeUiCases(page, spec) {
   await page.unroute(latest);
   await page.evaluate(() => { delete document.body.dataset.requestTimeoutMs; });
 
+  await page.reload();
   await page.route(latest, route => route.abort('internetdisconnected')); // Network loss must be visible to the operator.
   await login(page, spec, spec.settings.project);
   await page.locator('#message').filter({ hasText: 'Backend inaccessible' }).waitFor();
@@ -61,6 +65,7 @@ async function run(spec, output) {
     await login(page, spec, 'b06-other');
     await page.locator('#message').filter({ hasText: '404' }).waitFor();
     assert.equal(await page.locator('#inspection').isVisible(), false);
+    await page.reload();
     await login(page, spec, spec.settings.project);
     await waitState(page, 'awaiting_approval');
     assert.equal(await page.locator('#run-id').textContent(), spec.run.id);
@@ -77,16 +82,15 @@ async function run(spec, output) {
     await page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
     assert.equal(await page.locator('#run-id').textContent(), spec.run.id);
     await page.unroute('**/api/product-proofs/consumer-agents/*/latest');
-    await page.getByText('Soumettre un dossier d’approbation signé').click();
+    await tasks.reveal(page, page.locator('#approval-json'));
     await page.locator('#approval-json').fill('{invalid');
     await page.getByRole('button', { name: 'Soumettre l’approbation' }).click();
     await page.locator('#message').filter({ hasText: 'Dossier d’approbation JSON invalide' }).waitFor();
     await page.locator('#approval-json').fill('{}');
     await page.getByRole('button', { name: 'Soumettre l’approbation' }).click();
     await page.locator('#message').filter({ hasText: '403' }).waitFor();
-    await login(page, spec, spec.settings.project);
     await waitState(page, 'awaiting_approval');
-    await page.locator('#approval-json').fill(JSON.stringify(require('./b06ClientFixture.cjs').approval(spec)));
+    await tasks.fill(page, page.locator('#approval-json'), JSON.stringify(require('./b06ClientFixture.cjs').approval(spec)));
     await page.getByRole('button', { name: 'Soumettre l’approbation' }).click();
     await waitState(page, 'completed');
     await page.getByRole('button', { name: 'Capturer un snapshot' }).click();

@@ -2,6 +2,7 @@ import { api } from './app.mjs';
 import { byId, encoded, node } from './ui.mjs';
 import { journeyView, journeyRead, journeyAction, journeyLink } from './journeyView.mjs';
 import { startHealth } from './health.mjs';
+import { revealTask } from './taskDeck.mjs';
 
 let inspected = null;
 let selectedSnapshot = null;
@@ -26,6 +27,7 @@ function openRecovery() {
   }
   document.querySelector('[data-target="files-view"]').click();
   byId('restore-id').value = selectedSnapshot;
+  revealTask(byId('restore-id'));
 }
 
 export function startRecovery() {

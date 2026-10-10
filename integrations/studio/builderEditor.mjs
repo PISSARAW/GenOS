@@ -18,6 +18,14 @@ function readInspector() {
   return Object.fromEntries(fields.map(key => [key, byId('builder-node-' + key).value]));
 }
 
+function visibleFields(kind) {
+  const llm = /llm|agent|model/.test(kind);
+  const tool = /tool/.test(kind);
+  for (const key of ['model', 'prompt']) byId('builder-node-' + key).closest('label').hidden = !llm;
+  byId('builder-node-agent').closest('label').hidden = !tool;
+  for (const key of ['tool', 'args']) byId('builder-node-' + key).closest('label').hidden = !tool;
+}
+
 function patch(value) {
   const properties = { kind: value.kind, model: value.model, prompt: value.prompt, tool: value.tool,
     agentId: value.agent, args: JSON.parse(value.args) };
@@ -65,18 +73,24 @@ export class WorkflowEditor {
       kind.append(choice);
     }
     for (const key of fields) byId('builder-node-' + key).value = values[key];
+    visibleFields(values.kind);
     this.inspectorBaseline = JSON.stringify(readInspector());
   }
 
   select(id) {
-    if (this.pending() && !window.confirm('Abandonner les changements du nœud non appliqués ?')) return;
+    if (this.pending() && !window.confirm('Abandonner les changements du nœud non appliqués ?')) return false;
     this.loadInspector(this.graph().nodes.find(item => item.id === id));
     this.draw(this.graph());
+    return true;
+  }
+
+  activate(id) {
+    if (this.select(id)) window.dispatchEvent(new Event('studio:node-selected'));
   }
 
   draw(next) {
     renderCanvas(byId('builder-canvas'), next, { selected: this.selected,
-      select: id => this.localAction(() => this.select(id)) });
+      select: id => this.localAction(() => this.activate(id)) });
   }
 
   change(next) {
@@ -108,7 +122,7 @@ export class WorkflowEditor {
   add() {
     const next = insertNode(this.graph(), byId('builder-add-kind').value);
     this.change(next);
-    this.select(next.nodes.at(-1).id);
+    this.activate(next.nodes.at(-1).id);
   }
 
   apply() {
@@ -118,6 +132,7 @@ export class WorkflowEditor {
     this.selected = value.id;
     this.change(next);
     this.loadInspector(next.nodes.find(item => item.id === this.selected));
+    window.dispatchEvent(new Event('studio:node-applied'));
   }
 
   remove() {
@@ -141,6 +156,7 @@ export class WorkflowEditor {
 }
 
 function bindEditor(editor) {
+  byId('builder-node-kind').addEventListener('change', () => visibleFields(byId('builder-node-kind').value));
   byId('builder-node-add').addEventListener('click', () => editor.editGraph(() => editor.add()));
   byId('builder-node-apply').addEventListener('click', () => editor.localAction(() => editor.apply()));
   byId('builder-node-remove').addEventListener('click', () => editor.editGraph(() => editor.remove()));

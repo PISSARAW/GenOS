@@ -2,9 +2,11 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { AxeBuilder } = require('@axe-core/playwright');
+const tasks = require('./studioTaskNavigation.cjs');
 
 async function tabs(page) {
   await page.locator('[data-target=inspection]').click();
+  await tasks.reveal(page, page.locator('#trace-timeline-tab'));
   await page.locator('#trace-timeline-tab').focus();
   await page.keyboard.press('ArrowRight');
   assert.equal(await page.locator('#trace-steps-tab').getAttribute('aria-selected'), 'true');
@@ -17,17 +19,17 @@ async function tabs(page) {
 
 async function filters(page) {
   await page.locator('[data-target=management-view]').click();
-  await page.locator('#management-action-filter').fill('agent');
+  await tasks.fill(page, page.locator('#management-action-filter'), 'agent');
   assert.ok(await page.locator('#management-actions details:visible').count() > 0);
   assert.equal(await page.locator('form[data-action=project-create]').locator('..').isVisible(), false);
   await page.locator('#management-action-filter').fill('aucune-action-xyz');
   assert.equal(await page.locator('#management-actions details:visible').count(), 0);
-  assert.match(await page.locator('#management-filter-status').textContent(), /0 action/);
+  assert.match(await page.locator('#management-filter-status').textContent(), /0 opération/);
   await page.locator('#management-action-filter').fill('');
   await page.locator('[data-target=files-view]').click();
-  await page.locator('#files-refresh').click();
+  await tasks.click(page, page.locator('#files-refresh'));
   await page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
-  await page.locator('#file-query').fill('a/verify');
+  await tasks.fill(page, page.locator('#file-query'), 'a/verify');
   assert.equal(await page.locator('#file-list button').count(), 1);
   await page.locator('#file-list button').click();
   await page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
@@ -42,7 +44,7 @@ async function lineage(page, spec) {
   await spec.db.run("INSERT INTO lineage_nodes (id,workspace_id,label,node_type,state_summary) VALUES ('studio-design-fork','consumer-ws','Alternative fixture','fork','Branche isolée, aucune promotion')");
   await spec.db.run("INSERT INTO lineage_edges (id,workspace_id,source_node_id,target_node_id,edge_type) VALUES ('studio-design-edge','consumer-ws','studio-design-root','studio-design-fork','fork')");
   await page.locator('[data-target=dashboard-view]').click();
-  await page.locator('#dashboard-refresh').click();
+  await tasks.click(page, page.locator('#dashboard-refresh'));
   await page.locator('#message').filter({ hasText: 'État runtime chargé' }).waitFor();
   const node = page.locator('#lineage-graph [role=button]').filter({ has: page.locator('text', { hasText: 'Alternative fixture' }) });
   await node.focus();
@@ -82,6 +84,7 @@ async function run(page, spec, output) {
   await lineage(page, spec);
   await accessibility(page, output);
   await page.locator('[data-target=research-view]').click();
+  await tasks.reveal(page, page.locator('.comparison-scroll table'));
   assert.equal(await page.locator('.comparison-scroll table').count(), 1);
   assert.match(await page.locator('.comparison-scroll').textContent(), /Inconnu ≠ zéro/);
   await page.screenshot({ path: path.join(output, 'studio-design-comparison.png'), fullPage: true });

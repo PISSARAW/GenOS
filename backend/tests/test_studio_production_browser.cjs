@@ -64,6 +64,7 @@ async function probe(spec) {
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await page.locator('#production-view .task-choice select').focus();
     await page.keyboard.press('Tab');
     assert.notEqual(await page.evaluate(() => document.activeElement.tagName), 'BODY');
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();

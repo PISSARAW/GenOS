@@ -7,6 +7,7 @@ const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
 const { withFixture } = require('./helpers/studioGenosFixture.cjs');
 const journeys = require('./helpers/studioGenosBrowserJourney.cjs');
+const tasks = require('./helpers/studioTaskNavigation.cjs');
 
 function sourceHashes() {
   const files = fs.readdirSync(path.join(__dirname, '../../integrations/studio')).filter(file => /\.(mjs|js|css|html)$/.test(file))
@@ -17,7 +18,7 @@ function sourceHashes() {
 }
 
 async function checkView(page, view) {
-  await page.locator(`[data-target="${view}-view"]`).click();
+  await tasks.view(page, view + '-view');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, view);
   assert.equal(await page.locator(`#${view}-view h2`).evaluate(element => document.activeElement === element), true);
   const unnamed = await page.locator('input:visible,select:visible,textarea:visible').evaluateAll(elements =>
@@ -58,6 +59,7 @@ async function probe(spec) {
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     for (const view of ['worlds', 'knowledge', 'organism', 'recovery']) await checkView(page, view);
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await page.locator('#recovery-view .task-choice select').focus();
     await page.keyboard.press('Tab');
     assert.notEqual(await page.evaluate(() => document.activeElement.tagName), 'BODY');
     await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();

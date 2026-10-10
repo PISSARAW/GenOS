@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const tasks = require('./helpers/studioTaskNavigation.cjs');
 
 const fixtures = {
   '/api/auth/session': { user: { permissions: ['workspace:write'] } },
@@ -36,10 +37,10 @@ async function login(page) {
 async function guards(page) {
   const refused = dialog => dialog.dismiss();
   page.on('dialog', refused);
-  await page.locator('#workspace-choice').fill('foreign-workspace');
+  await tasks.fill(page, page.locator('#workspace-choice'), 'foreign-workspace');
   await page.locator('#workspace-choice').dispatchEvent('change');
   assert.equal(await page.locator('#workspace-choice').inputValue(), 'workspace');
-  await page.locator('#project').fill('foreign-project');
+  await tasks.fill(page, page.locator('#project'), 'foreign-project');
   await page.locator('#project').dispatchEvent('change');
   assert.equal(await page.locator('#project').inputValue(), 'project');
   await page.locator('#disconnect').click();
@@ -84,7 +85,7 @@ async function acceptedDiscard(page) {
   await login(page);
   page.removeAllListeners('dialog');
   page.once('dialog', dialog => dialog.accept());
-  await page.locator('#workspace-choice').fill('other-workspace');
+  await tasks.fill(page, page.locator('#workspace-choice'), 'other-workspace');
   await page.locator('#workspace-choice').dispatchEvent('change');
   assert.equal(await page.locator('#workspace-choice').inputValue(), 'other-workspace');
   assert.equal(await page.locator('#file-content').inputValue(), '');

@@ -7,9 +7,11 @@ const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
 const { withFixture } = require('./helpers/studioGenosFixture.cjs');
 const { request } = require('./helpers/studioRequest.cjs');
+const tasks = require('./helpers/studioTaskNavigation.cjs');
 const output = path.join(__dirname, '../../.genos-tests/studio-builder-g');
 
 async function click(page, spec) {
+  await tasks.reveal(page, page.locator('#builder-' + spec.id));
   const [response] = await Promise.all([page.waitForResponse(response =>
     new URL(response.url()).pathname === spec.path && response.request().method() === (spec.method || 'POST')),
   page.locator('#builder-' + spec.id).click()]);
@@ -20,18 +22,17 @@ async function click(page, spec) {
 }
 
 async function construct(page) {
-  await page.locator('#builder-name').fill('Parcours de construction');
-  await page.locator('#builder-node-label').fill('Entrée configurée');
+  await tasks.fill(page, page.locator('#builder-name'), 'Parcours de construction');
+  await tasks.fill(page, page.locator('#builder-node-label'), 'Entrée configurée');
   await page.locator('#builder-node-apply').click();
   await page.locator('#builder-add-kind').selectOption('output');
   await page.locator('#builder-node-add').click();
   await page.locator('#builder-node-label').fill('Vérification');
   await page.locator('#builder-node-apply').click();
-  await page.locator('#builder-edge-source').selectOption('input');
+  await tasks.select(page, page.locator('#builder-edge-source'), 'input');
   await page.locator('#builder-edge-target').selectOption('output-1');
   await page.locator('#builder-edge-add').click();
-  const advanced = page.locator('#builder-json').locator('xpath=ancestor::details');
-  await advanced.locator('summary').click();
+  await tasks.reveal(page, page.locator('#builder-json'));
   const graph = JSON.parse(await page.locator('#builder-json').inputValue());
   graph.extension = { preserved: 'unknown graph property' };
   graph.nodes[0].futureConfig = { preserved: true };
@@ -40,13 +41,13 @@ async function construct(page) {
   await page.locator('#builder-json').fill(JSON.stringify(graph));
   await page.locator('#builder-json-apply').click();
   assert.equal(await page.locator('#builder-node-label').inputValue(), 'Libellé canonique');
-  await page.locator('#builder-node-label').fill('Libellé harmonisé');
+  await tasks.fill(page, page.locator('#builder-node-label'), 'Libellé harmonisé');
   await page.locator('#builder-node-apply').click();
   const patched = JSON.parse(await page.locator('#builder-json').inputValue());
   assert.equal(patched.nodes[0].label, 'Libellé harmonisé');
   assert.equal(patched.nodes[0].data.label, 'Libellé harmonisé');
   await staleLink(page);
-  await page.locator('#builder-metadata').fill('{"futureMetadata":{"preserved":true}}');
+  await tasks.fill(page, page.locator('#builder-metadata'), '{"futureMetadata":{"preserved":true}}');
   return click(page, { id: 'save', path: '/api/workflows', status: 201 });
 }
 
@@ -54,21 +55,21 @@ async function staleLink(page) {
   const graph = JSON.parse(await page.locator('#builder-json').inputValue());
   graph.edges.reverse();
   const text = JSON.stringify(graph);
-  await page.locator('#builder-json').fill(text);
-  await page.locator('#builder-edges button').first().click();
+  await tasks.fill(page, page.locator('#builder-json'), text);
+  await tasks.click(page, page.locator('#builder-edges button').first());
   await page.locator('#message').filter({ hasText: 'Appliquez le JSON modifié' }).waitFor();
   assert.equal(await page.locator('#builder-json').inputValue(), text);
-  await page.locator('#builder-json-apply').click();
+  await tasks.click(page, page.locator('#builder-json-apply'));
 }
 
 async function execute(page, context) {
   const route = '/api/workflows/' + context.workflow.id;
   const validated = await click(page, { id: 'validate', path: route + '/validate' });
   assert.equal(validated.valid, true);
-  await page.locator('#builder-status').selectOption('staging');
+  await tasks.select(page, page.locator('#builder-status'), 'staging');
   const staged = await click(page, { id: 'save', path: route, method: 'PUT' });
   assert.equal(staged.version, 2);
-  await page.locator('#builder-run-input').fill('{"fixture":"real structural worker"}');
+  await tasks.fill(page, page.locator('#builder-run-input'), '{"fixture":"real structural worker"}');
   const run = await click(page, { id: 'run', path: route + '/runs', status: 202 });
   assert.equal(run.status, 'queued');
   await require('../src/services/jobWorker').processOnce();
@@ -86,12 +87,12 @@ async function conflicts(page, context) {
   const external = await request(context.spec, context.route, { method: 'PUT',
     body: { expectedVersion: 2, name: 'Modification concurrente' } });
   assert.equal(external.status, 200);
-  await page.locator('#builder-name').fill('Brouillon à conserver');
+  await tasks.fill(page, page.locator('#builder-name'), 'Brouillon à conserver');
   await click(page, { id: 'save', path: context.route, method: 'PUT', status: 409 });
   assert.equal(await page.locator('#builder-name').inputValue(), 'Brouillon à conserver');
   assert.equal((await request(context.spec, context.route)).value.name, 'Modification concurrente');
   page.once('dialog', dialog => dialog.dismiss());
-  await page.locator('#builder-load').click();
+  await tasks.click(page, page.locator('#builder-load'));
   assert.equal(await page.locator('#builder-name').inputValue(), 'Brouillon à conserver');
   page.once('dialog', dialog => dialog.accept());
   await click(page, { id: 'load', path: context.route, method: 'GET' });
@@ -117,12 +118,12 @@ async function publishedLifecycle(page, context) {
     body: { expectedVersion: 3, status: 'published' } });
   assert.equal(published.status, 200);
   await click(page, { id: 'load', path: context.route, method: 'GET' });
-  await page.locator('#builder-name').fill('Modification interdite');
-  await page.locator('#builder-save').click();
+  await tasks.fill(page, page.locator('#builder-name'), 'Modification interdite');
+  await tasks.click(page, page.locator('#builder-save'));
   await page.locator('#message').filter({ hasText: 'Version publiée immuable' }).waitFor();
   assert.equal((await request(context.spec, context.route)).value.version, 4);
-  await page.locator('#builder-name').fill(published.value.name);
-  await page.locator('#builder-status').selectOption('archived');
+  await tasks.fill(page, page.locator('#builder-name'), published.value.name);
+  await tasks.select(page, page.locator('#builder-status'), 'archived');
   const archived = await click(page, { id: 'save', path: context.route, method: 'PUT' });
   assert.equal(archived.status, 'archived');
   assert.deepEqual(archived.graph, published.value.graph);
@@ -150,6 +151,7 @@ async function probe(spec) {
     await conflicts(page, { ...result, spec });
     await click(page, { id: 'observe', path: result.route + '/runs', method: 'GET' });
     assert.match(await page.locator('#builder-workflow option:checked').textContent(), /v3/);
+    await tasks.reveal(page, page.locator('#builder-save'));
     await page.evaluate(() => { document.activeElement.blur(); window.scrollTo(0, 0); });
     await page.screenshot({ path: path.join(output, 'studio-builder-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
