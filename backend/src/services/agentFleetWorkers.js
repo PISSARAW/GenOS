@@ -90,7 +90,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const assignments = plan.dispatchWorkers || [];
   validateAssignments(assignments);
   const parent = await db.get(
-        `SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
+        `SELECT a.id, a.name, a.agent_type, a.execution_mode, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
           a.cognitive_budget, a.cognitive_baseline_budget,
           w.path AS workspace_path, w.organization_id, w.project_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
     orchestrator.id
@@ -297,15 +297,22 @@ async function persistWorker(db, details) {
 
 function workerInsertValues(details) {
   const { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, mission } = details;
-  const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, {
+  const workerContract = fleetWorkerContract(details);
+  details.workerContract = workerContract;
+  return [id, identity.name, identity.name_meaning, assignment.role, ...require('./workerPreparationDetails').databasePlacement(details), parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0, JSON.stringify({ workerKind: assignment.workerKind, workerContract })];
+}
+
+function fleetWorkerContract(details) {
+  const { assignment, parent, mission, assignedTokens } = details;
+  const contract = workerKinds.buildWorkerContract(assignment.workerKind, {
     prompt: mission.prompt,
     scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
     orchestratorAgentId: parent.id, recoveryLease: mission.recoveryLease,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
-    workerTokenLimit: assignedTokens
+    workerTokenLimit: assignedTokens || mission.executionBudget?.tokens
   });
-  workerKinds.grantBoundedDelegation(workerContract);
-  return [id, identity.name, identity.name_meaning, assignment.role, ...require('./workerPreparationDetails').databasePlacement(details), parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0, JSON.stringify({ workerKind: assignment.workerKind, workerContract })];
+  if (parent.execution_mode === 'orchestrator') workerKinds.grantBoundedDelegation(contract);
+  return contract;
 }
 
 function resolveGenotypeRef(evolution) {
@@ -336,19 +343,14 @@ function formatWorker(details) {
   const capabilities = assignmentCapabilities(assignment);
   const toolLease = effectiveToolLease(assignment, capabilities, dnaSelection);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const worker = { ...workerIdentity({ id, identity, assignment, parent, plan, prompt, mission }), ...workerRuntime({ parent, route, workspaceRoot, toolLease, capabilities, assignments: assignmentList, mission }), ...buildWorkerMeta(details) };
+  const worker = { ...workerIdentity(details), ...workerRuntime({ parent, route, workspaceRoot, toolLease, capabilities, assignments: assignmentList, mission }), ...buildWorkerMeta(details) };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }
 
 function workerIdentity(details) {
-  const { id, identity, assignment, parent, plan, prompt, mission, assignedTokens } = details;
-  const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, {
-    prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id,
-    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
-    workerTokenLimit: assignedTokens || mission.executionBudget?.tokens
-  });
-  workerKinds.grantBoundedDelegation(workerContract);
+  const { id, identity, assignment, parent, plan, prompt } = details;
+  const workerContract = details.workerContract || fleetWorkerContract(details);
   return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerAssignment: assignment.workerAssignment || assignment, methodContract: assignment.methodContract || null, workerContract, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, ...require('./workerPreparationDetails').workerPlacement(assignment, parent, plan) };
 }
 

@@ -102,6 +102,19 @@ assert.equal(delegatedNodeContract.authority.delegate, true);
 assert.equal(delegatedNodeContract.delegationDepth, 1);
 assert.equal(delegatedNodeContract.spawnBudget, 5);
 assert.equal(enforcement.assertRuntimeContract(delegatedNodeContract, 'sub_orchestrator'), true);
+const fleet = require('../src/services/agentFleetWorkers');
+const assignment = { role: 'sub_orchestrator', workerKind: 'sub_orchestrator', label: 'nested', hypothesis: 'Check scope' };
+const workerInput = { id: 'nested-1', identity: { name: 'Nested', name_meaning: 'Test', introduction: 'Test' },
+  assignment, parent: { id: 'parent-1', execution_mode: 'worker' }, plan: {}, prompt: 'Check scope',
+  mission: { prompt: 'Check scope' }, assignedTokens: 2400 };
+const nestedIdentity = fleet.workerIdentity(workerInput);
+assert.equal(nestedIdentity.workerContract.spawnBudget, 0);
+assert.equal(nestedIdentity.workerContract.authority.delegate, false);
+const rootIdentity = fleet.workerIdentity({ ...workerInput, parent: { id: 'root-1', execution_mode: 'orchestrator' } });
+assert.equal(rootIdentity.workerContract.limits.maxTokens, 2400);
+assert.equal(rootIdentity.workerContract.resources.maxTokens, 2400);
+assert.equal(fleet.workerIdentity({ ...workerInput, workerContract: rootIdentity.workerContract }).workerContract,
+  rootIdentity.workerContract);
 assert.equal(workerKinds.buildWorkerContract('formal_worker').resources.maxTokens, 0);
 assert.match(rustFunctionBody(presetSource, 'procedural_preset'), /resources\.tokens\s*=\s*0/);
 console.log('Rust and Node worker kind identifiers, families, and artifacts match; runtime projections remain distinct.');
