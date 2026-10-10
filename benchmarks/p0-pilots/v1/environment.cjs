@@ -25,7 +25,7 @@ function hashes(directory, prefix = '', dependencies = false) {
 
 function sourceHashes() {
   const result = {};
-  for (const directory of ['backend/src', 'backend/bin', 'backend/proto', 'backend/policies', 'scripts', 'mcp', 'shared', 'benchmarks/p0-pilots/v1',
+  for (const directory of ['backend/src', 'backend/bin', 'backend/proto', 'backend/policies', 'scripts', 'mcp', 'shared', 'spec', 'benchmarks/p0-pilots/v1',
     'benchmarks/suites/formal_math/v1/oracle', 'benchmarks/suites/formal_math/v1/public']) {
     const found = hashes(path.join(root, directory));
     for (const [name, hash] of Object.entries(found)) result[directory + '/' + name] = hash;

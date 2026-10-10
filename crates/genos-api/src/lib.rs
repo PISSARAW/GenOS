@@ -135,6 +135,10 @@ mod tests {
 
     #[test]
     fn test_server_poisoned_mutex_recovery() {
+        let _mock_guard = MOCK_LLM_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("GENOS_MOCK_LLM", "1");
+        }
         let mut auth = TenantAuth::new();
         auth.register_tenant("test_client", "sk-secret-token");
         let limiter = std::sync::Arc::new(Mutex::new(RateLimiter::new(10, 1)));
@@ -159,5 +163,9 @@ mod tests {
         let (status, _, body) = handle_http_request(&req, &auth, &limiter);
         assert_eq!(status, 200);
         assert!(body.contains("chat.completion"));
+        assert!(body.contains("SIMULATION EXPLICITE"));
+        unsafe {
+            std::env::remove_var("GENOS_MOCK_LLM");
+        }
     }
 }

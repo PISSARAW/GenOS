@@ -7,11 +7,15 @@
 
 Le critère de sortie de chaque lot s'ajoute aux fonctionnalités et tests ci-dessous. Un test logiciel ou un hash valide ne constitue pas à lui seul une validation scientifique. Les traces d'exécution, résultats contradictoires, exclusions, coûts et limites doivent être conservés.
 
+Le [bilan V3 du 2026-10-10](qualification-p1-v3-2026-10-10.md) actualise les preuves
+du socle et conserve les 115 obligations. Le programme a été relu intégralement
+à cette date ; le catalogue n’est pas déclaré relu de nouveau.
+
 | Réf. | Concept | Lot | Fonctionnalité attendue | Test attendu | État |
 | --- | --- | --- | --- | --- | --- |
 | C001 | Runtime d’agents reproductible et supervisé | L04 | Replay avec environnement, outils et aléas capturés | **A** — Mesurer la reproductibilité malgré le non-déterminisme des modèles | À qualifier |
 | C002 | État versionné | L01 | Versionner séparément croyances, permissions et état externe | **A** — Tester quelles composantes expliquent une divergence | À qualifier |
-| C003 | Exécution contrefactuelle | L04 | Interventions sur une seule décision dans des mondes appariés | **A** — Estimer son effet causal sur la réussite | À qualifier |
+| C003 | Exécution contrefactuelle | L04 | Interventions sur une seule décision dans des mondes appariés | **A** — Estimer son effet causal sur la réussite | Partiel : nursery liée aux forks appariés réellement exécutés et reprise revalidée ; effet causal sur la réussite IA ouvert |
 | C004 | Branches, forks, snapshots, diffs et replay | L04 | Comparer forks et diffs avec aléas communs et contrôle des effets externes | **A** — Distinguer variation stochastique et effet du changement | À qualifier |
 | C008 | Provenance | L01 | Construire un graphe des dépendances entre sources et décisions | **B** — Mesurer la propagation des rétractations | Partiel : rétraction signée d'assemblée vers lecture mémoire ; propagation générale et mesure comparative ouvertes |
 | C009 | Reçus vérifiables | L03 | Lier reçus, entrées, versions et vérification sémantique | **B** — Détecter les preuves valides techniquement mais non pertinentes | Partiel : subset sum, fidélité mémoire et code arithmétique borné ; reçu signé avec couverture fausse refusé ; coûts durables et crash borné ; code général, vérité source et campagne comparative ouverts |
@@ -41,13 +45,13 @@ Le critère de sortie de chaque lot s'ajoute aux fonctionnalités et tests ci-de
 | C294 | Checkpoint | L04 | Checkpoint séparant état interne et effets externes irréversibles | **A** — Mesurer reprise fidèle | À qualifier |
 | C296 | Rejeu causal | L04 | Rejeu avec interventions et causalité explicites | **A** — Mesurer attribution de la divergence | À qualifier |
 | C297 | Bisection causale | L04 | Bisection sur événements, hypothèses et changements d'environnement | **A** — Mesurer localisation de la cause | À qualifier |
-| C300 | Capsule | L04 | Capsule avec dépendances, aléas et conditions de validité | **A** — Mesurer portabilité expérimentale | À qualifier |
+| C300 | Capsule | L04 | Capsule avec dépendances, aléas et conditions de validité | **A** — Mesurer portabilité expérimentale | Partiel : sources, dépendances et schémas gelés, deux processus et opérateurs sans dérive ; portabilité inter-hôtes ouverte |
 | C301 | Workspace contrefactuel | L04 | Workspace avec journal des interventions et contrôle des fuites | **A** — Mesurer indépendance entre mondes | À qualifier |
 | C302 | Git agentique | L04 | Associer chaque changement Git à hypothèse et preuve | **A** — Mesurer traçabilité des décisions de code | À qualifier |
 | C303 | AgentGit | L04 | Fusionner code, mémoire et preuves avec détection de contradictions | **D** — Mesurer cohérence après merge agentique | À qualifier |
 | C304 | Trajectoire | L04 | Comparer trajectoires complètes à résultat final identique | **A** — Mesurer coût, risque et mécanismes | À qualifier |
-| C306 | Campagne d’évaluation | L05 | Préenregistrer une campagne avec tâches finales gelées | **B** — Mesurer robustesse et reproductibilité | À qualifier |
-| C307 | Benchmark | L05 | Benchmark avec vérités terrain, variantes et perturbations cachées | **B** — Mesurer généralisation et contamination | À qualifier |
+| C306 | Campagne d’évaluation | L05 | Préenregistrer une campagne avec tâches finales gelées | **B** — Mesurer robustesse et reproductibilité | Partiel : manifestes, capsules et opérateur indépendant ; campagne représentative et puissance ouvertes |
+| C307 | Benchmark | L05 | Benchmark avec vérités terrain, variantes et perturbations cachées | **B** — Mesurer généralisation et contamination | Partiel : projection retirant l’évaluateur avant le runner, reçu lié au hash candidat ; confinement OS et contamination hors argument ouverts |
 | C364 | Sandbox VFS | L02 | VFS traçant effets et testant confinement entre branches | **I** — Mesurer fuites et reproductibilité | À qualifier |
 | C365 | Capsules/snapshots | L04 | Capsules portables avec dépendances et limites de replay | **A** — Mesurer reprise inter-hôtes | À qualifier |
 | C369 | Observabilité | L22 | Observabilité reliée aux hypothèses et décisions | **K** — Mesurer pouvoir diagnostique des traces | À qualifier |
@@ -105,7 +109,7 @@ Le critère de sortie de chaque lot s'ajoute aux fonctionnalités et tests ci-de
 | C601 | Séparation des responsabilités | L02 | Séparer proposition, mesure, autorisation et promotion | **I** — Mesurer collusion et auto-approbation | À qualifier |
 | C602 | Gestion du risque | L02 | Risque calibré sur probabilités, gravité et exposition | **I** — Mesurer prévisions de dommages | À qualifier |
 | C603 | Compliance | L02 | Conformité par contrôles exécutables selon contexte applicable | **I** — Mesurer couverture et faux blocages | À qualifier |
-| C604 | Auditabilité | L22 | Audit permettant reconstruction d'une décision et de ses alternatives | **K** — Mesurer fidélité par auditeurs indépendants | À qualifier |
+| C604 | Auditabilité | L22 | Audit permettant reconstruction d'une décision et de ses alternatives | **K** — Mesurer fidélité par auditeurs indépendants | Partiel : opérateur indépendant sans scores primaires, artefacts et contre-épreuves conservés ; fidélité d’audit de tous les consommateurs ouverte |
 | C605 | Conservation des preuves | L02 | Conserver preuves avec fraîcheur et possibilité de rétractation | **D** — Mesurer effets des durées de rétention | À qualifier |
 | C606 | Gouvernance des données | L02 | Tracer collecte, transformations, usage et suppression des données | **I** — Mesurer conformité et contamination | À qualifier |
 | C607 | Sandbox | L02 | Sandbox testée sur effets observables et canaux de fuite | **I** — Mesurer confinement réel | À qualifier |
@@ -129,11 +133,11 @@ Le critère de sortie de chaque lot s'ajoute aux fonctionnalités et tests ci-de
 
 | Lot | Livrable et critère | Sources actuelles | État |
 | --- | --- | --- | --- |
-| L01 | Manifeste et liens entre reçus ; relecture dans un nouveau processus, altération détectée, compatibilité, faux succès refusé | ADR 0349 et 0350 ; manifeste GVX et cycle scientifique | Partiel |
+| L01 | Manifeste et liens entre reçus ; relecture dans un nouveau processus, altération détectée, compatibilité, faux succès refusé | ADR 0349, 0350, 0381, 0382 et 0387 ; Lean réel, producteur et relecture durable dans un processus frais ; compatibilité et périmètre général ouverts | Partiel |
 | L02 | Enveloppe commune ; autorité, révocation, expiration, chemins et effets hors scope refusés ; permissions préservées et budgets contrôlés pendant le run | Autorité de mission, leases, sandbox et tests P0 à raccorder | Ouvert |
-| L03 | Trois domaines ; postconditions réelles, séparation du candidat et de l'évaluateur ; domaine, fraîcheur et indépendance ; absence d'oracle explicite | Domaines natifs subset sum, fidélité mémoire et code arithmétique borné ; ADR 0360 ; généralisation et pilotes P0 à qualifier | Ouvert |
-| L04 | Branches appariées, diff causal, replay et bisection ; versions/aléas, isolation, recherche de fuites, cause injectée localisée, effets externes non annulables | ADR 0361 : replay procédural avec source et aléas adressés, dérivations actuelles ; bisection, confinement et nursery GVX à étendre | Partiel |
-| L05 | Campagnes préenregistrées, datasets épinglés, acquisition/validation/test, baselines, ablations, coûts complets et statistiques ; holdout inaccessible ; puissance depuis données représentatives | Pilotes P0 et runner GVX à étendre | Ouvert |
+| L03 | Trois domaines ; postconditions réelles, séparation du candidat et de l'évaluateur ; domaine, fraîcheur et indépendance ; absence d'oracle explicite | Domaines natifs subset sum, fidélité mémoire et code arithmétique borné ; Lean réel ; ADR 0360 et 0387 ; campagne représentative et indépendance OS ouvertes | Partiel |
+| L04 | Branches appariées, diff causal, replay et bisection ; versions/aléas, isolation, recherche de fuites, cause injectée localisée, effets externes non annulables | ADR 0361 et 0387 : replay procédural, nursery liée aux forks réels et cache revalidé ; confinement, providers et effets externes ouverts | Partiel |
+| L05 | Campagnes préenregistrées, datasets épinglés, acquisition/validation/test, baselines, ablations, coûts complets et statistiques ; holdout inaccessible ; puissance depuis données représentatives | Deux campagnes Ollama sur capsule gelée, opérateur indépendant, baselines et ablations ; projection évaluateur et hash signé ; holdout représentatif inaccessible et puissance ouverts | Partiel |
 | L22 | REST/gRPC/MCP/stdio/CLI/g/IDE/Studio/TUI sur le même état ; parité, logs reconstruisant les décisions, formats sans perte, état épistémique visible | Parcours B06 et inspection des consommateurs P0 à étendre | Ouvert |
 
 Les résultats devront être ajoutés avec un chemin de preuve, la commande exécutée, la révision, le périmètre effectivement testé et la limite restante. Aucun lot n'est clos par le seul remplissage de cette table.

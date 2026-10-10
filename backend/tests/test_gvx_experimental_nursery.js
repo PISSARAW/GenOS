@@ -9,7 +9,7 @@ const { fromTrustedRegistry } = require('../src/services/gvxVerifierRegistry');
 const verifierControlPlane = require('../src/services/gvxVerifierControlPlaneRegistry');
 
 verifierControlPlane.registerVerifierImplementation({ id: 'artifact', requirements: ['task'],
-  verify: async ({ artifact }) => ({ verified: artifact.toString() === 'trusted' }) });
+  verify: async ({ artifact }) => ({ verified: artifact.toString().startsWith('trusted') }) });
 
 async function main() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
@@ -27,6 +27,16 @@ async function main() {
     artifactReader: async () => Buffer.from('trusted') });
   assert.equal(result.assessment.status, 'ready_for_independent_review');
   assert.equal(result.promotionAllowed, false);
+  for (const cachedArtifact of ['now-invalid', 'trusted-but-changed']) {
+  await assert.rejects(nursery.run({ db, scope, entityId: 'agent', snapshotHash: hash, worldBudget: 1,
+    experimentId: result.experimentId,
+    controls: { model: 'test', toolsetHash: hash, environmentHash: hash }, verifierRequirements: ['task'],
+    experimentDesign: { type: 'paired', arms: [arm('a', 'baseline', 'wa'), arm('b', 'candidate', 'wb')] },
+    verifierRegistry: fromTrustedRegistry(['artifact']),
+    createIsolatedWorld: async () => { throw new Error('cached arm must not execute again'); },
+    runWorld: async () => { throw new Error('cached arm must not execute again'); },
+    artifactReader: async () => Buffer.from(cachedArtifact) }), { code: 'GVX_NURSERY_CACHED_EVIDENCE_INVALID' });
+  }
   assert.throws(() => require('../src/services/gvxVerifierRegistry').validateRegistry({ trustSource: 'control_plane', verifiers: [] }), /trusted-control-plane/);
   await db.close();
   console.log('GVX experimental nursery checks passed.');
