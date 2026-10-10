@@ -12,7 +12,7 @@ const tests = [
   'test_concept_cycle_bridge.js',
   'test_consciousness_evidence_suite.js', 'test_generative_perceptual.js',
   'test_perceptive_binding.js', 'test_effector_inventory.js',
-  'test_organ_ablation_bench.js', 'test_reverberation_causal_effect.js',
+  'test_organ_ablation_bench.js', 'test_verified_token_economy.js', 'test_reverberation_causal_effect.js',
   'test_replicated_causal_validation_service.js', 'test_replicated_causal_runtime_integration.js',
   'test_truth_graph_semantic_pipeline.js'
 ];

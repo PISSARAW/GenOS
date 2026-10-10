@@ -221,12 +221,16 @@ function resolveResponseContent(provider, payload, nativeOllama) {
 
 function buildStreamResponse(streamed, context) {
   const usageReceipt = providerUsageReceipt(streamed.responseId, streamed.usage);
+  const usage = streamed.usage || {};
   return {
     text: streamed.text,
-    inputTokens: firstNonNull(streamed.usage && streamed.usage.prompt_tokens, estimateTokenCount(promptText(context.options.prompt))),
-    outputTokens: firstNonNull(streamed.usage && streamed.usage.completion_tokens, estimateTokenCount(streamed.text)),
+    inputTokens: firstNonNull(usage.input_tokens, usage.prompt_tokens, usage.promptTokenCount,
+      estimateTokenCount(promptText(context.options.prompt))),
+    outputTokens: firstNonNull(usage.output_tokens, usage.completion_tokens, usage.candidatesTokenCount,
+      estimateTokenCount(streamed.text)),
     provider: context.provider,
     servedModel: firstTruthy(streamed.servedModel, context.modelName),
+    tokenUsageMeasured: require('./modelProviderUsage').measuredUsage(usage),
     ...(usageReceipt ? { usageReceipt } : {})
   };
 }

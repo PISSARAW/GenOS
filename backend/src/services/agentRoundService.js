@@ -84,7 +84,6 @@ function queueContinuationMission(context) {
   const previous = state.workers.get(survivor.agentId);
   const assignedTokens = continuationTokens(continuation, index);
   const report = extractEvidenceReport(survivor.payload) || {};
-  const dossier = JSON.stringify(report).slice(0, 8000);
   const consumed = consumedFromPayload(survivor.payload);
   const budget = budgetFromPrevious(previous);
   const continuationId = `cont_${crypto.randomUUID()}`;

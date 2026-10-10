@@ -28,6 +28,10 @@ Module._load = function hook(request) {
 const SERVICES = path.join(__dirname, '..', 'src', 'services');
 const HERE = (name) => require(path.join(SERVICES, name));
 
+function verified(success, evidenceRef = 'fixture:independent-gate') {
+  return { status: 'verified', success, evidenceRef };
+}
+
 function stubDb() {
   const tables = new Map();
   return {
@@ -131,8 +135,8 @@ async function testLearningChangesBehavior() {
   const bandit = HERE('routingBanditService');
   const db = stubDb();
   for (let i = 0; i < 8; i++) {
-    await bandit.observe(db, { routeUri: 'good://m', success: true, costUsd: 0.01, latencyMs: 500 });
-    await bandit.observe(db, { routeUri: 'bad://m', success: false });
+    await bandit.observe(db, { routeUri: 'good://m', success: true, verification: verified(true), costUsd: 0.01, latencyMs: 500 });
+    await bandit.observe(db, { routeUri: 'bad://m', success: false, verification: verified(false) });
   }
   const trained = await bandit.chooseWithGuardrails(db, ['bad://m', 'good://m'], { canaryRate: 1, canaryKey: 'k', minPulls: 5 });
   const cold = await bandit.chooseWithGuardrails(stubDb(), ['bad://m', 'good://m'], { canaryRate: 1, canaryKey: 'k', minPulls: 5 });
@@ -213,8 +217,8 @@ async function testHoldoutProtocol() {
   const manifest = protocol.manifestHash;
   const db = stubDb();
   for (const item of [...train, ...dev]) {
-    await bandit.observe(db, { routeUri: item.arm, success: true, costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
-    await bandit.observe(db, { routeUri: item.arm === 'a://m' ? 'b://m' : 'a://m', success: false, costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
+    await bandit.observe(db, { routeUri: item.arm, success: true, verification: verified(true), costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
+    await bandit.observe(db, { routeUri: item.arm === 'a://m' ? 'b://m' : 'a://m', success: false, verification: verified(false), costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
   }
   validation.verifyManifest(protocol, manifest);
   let hits = 0;
@@ -236,8 +240,8 @@ async function testWorldToRouting() {
     await world.recordSample(db, 'routing', { action: 'bad://m', delta: { success: false, costUsd: 0.5, latencyMs: 20000 } });
   }
   const rec = await bandit.recommend(db, { routes: ['bad://m', 'good://m'] });
-  assert.strictEqual(rec.ordering[0].uri, 'good://m', 'monde non consomme: ' + JSON.stringify(rec.ordering));
-  console.log('ok - monde -> routage (froid mais informe)');
+  assert.strictEqual(rec.ordering[0].uri, 'bad://m', 'world model transport data must not label mission outcomes');
+  console.log('ok - modele du monde non verifie isole du bandit');
 }
 
 async function testLoggedHoldout() {
@@ -248,8 +252,8 @@ async function testLoggedHoldout() {
     rows.push({
       id: `u${i}`,
       metadata_json: JSON.stringify(good
-        ? { model: 'good://m', costUsd: 0.01, latencyMs: 500 }
-        : { model: 'bad://m', costUsd: 0.8, latencyMs: 20000 })
+        ? { model: 'good://m', verification: verified(true), costUsd: 0.01, latencyMs: 500 }
+        : { model: 'bad://m', verification: verified(false), costUsd: 0.8, latencyMs: 20000 })
     });
   }
   const db = stubDb();
@@ -332,7 +336,7 @@ async function testCanaryExperiment() {
   const rows = [];
   for (let i = 0; i < 40; i++) {
     const good = i % 2 === 0;
-    rows.push({ id: `u${i}`, metadata_json: JSON.stringify(good ? { model: 'good://m', costUsd: 0.01, latencyMs: 500 } : { model: 'bad://m', costUsd: 0.8, latencyMs: 20000 }) });
+    rows.push({ id: `u${i}`, metadata_json: JSON.stringify(good ? { model: 'good://m', verification: verified(true), costUsd: 0.01, latencyMs: 500 } : { model: 'bad://m', verification: verified(false), costUsd: 0.8, latencyMs: 20000 }) });
   }
   const db = stubDb();
   db.all = async (sql) => (sql.includes('FROM usage_ledger') ? rows : []);

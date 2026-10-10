@@ -204,6 +204,32 @@ function buildMemorySections(memories, regular) {
   return sections;
 }
 
+function historicalBudget(options) {
+  const requested = Number(options?.historicalMemoryTokenBudget);
+  if (!Number.isFinite(requested) || requested < 0) return 2000;
+  return Math.min(2000, Math.floor(requested));
+}
+
+function estimateMemoryTokens(text) {
+  return Math.ceil(Buffer.byteLength(text, 'utf8') / 4);
+}
+
+function emptyMemorySelection() {
+  return { experiences: [], pitfalls: [], goldenPaths: [], episodes: [] };
+}
+
+function selectHistoricalMemories(memories, options) {
+  const selected = emptyMemorySelection();
+  const budget = historicalBudget(options);
+  for (const kind of ['pitfalls', 'goldenPaths', 'experiences', 'episodes']) {
+    for (const entry of memories[kind] || []) {
+      selected[kind].push(entry);
+      if (estimateMemoryTokens(buildMemorySections(selected, []).join('\n\n')) > budget) selected[kind].pop();
+    }
+  }
+  return selected;
+}
+
 function assemblePromptBlock(sections, shield) {
   if (sections.length === 0 && !shield) return '';
   let block = '';
@@ -231,7 +257,8 @@ async function formatCognitiveMemoryPrompt(agentId, task, options) {
   try {
     const memories = await retrieveAgentMemories(agentId, task, opts);
     const injections = await collectVesicleSections(agentId, opts);
-    const sections = buildMemorySections(memories, injections.regular);
+    const selected = selectHistoricalMemories(memories, opts);
+    const sections = buildMemorySections(selected, injections.regular);
     const promptBlock = assemblePromptBlock(sections, injections.shield);
     await injections.consume();
     return `${assembleGenomeBlock(opts)}${promptBlock}`;
@@ -291,5 +318,6 @@ module.exports = {
   retrieveAgentMemories,
   formatCognitiveMemoryPrompt,
   formatGoldenPath,
-  truncateWords
+  truncateWords,
+  selectHistoricalMemories
 };

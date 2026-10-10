@@ -33,6 +33,7 @@ async function attachMissionMemoryContext(normalizedMission, agentId) {
       sessionId: normalizedMission.sessionId,
       taskId: normalizedMission.taskId,
       missionScope: normalizedMission.missionScope,
+      historicalMemoryTokenBudget: normalizedMission.historicalMemoryTokenBudget,
       promptGenome: normalizedMission.promptGenome,
       promptRegulators: normalizedMission.promptRegulators,
       promptRegulatorState: normalizedMission.promptRegulatorState
