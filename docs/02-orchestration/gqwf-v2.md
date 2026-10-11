@@ -21,6 +21,12 @@ Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`
 runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
+Le verdict de publication doit être lié au workspace, au nom et à la
+génération de la tête, à sa racine précédente et à la racine candidate.
+Les octets de chaque blob sont vérifiés avant le verdict puis avant le CAS.
+Ce durcissement ne fournit pas encore de vérificateur runtime ni de reçu
+indépendant : la promotion générale reste bloquée. Voir l'[ADR 0399](../adr/0399-liaison-recu-promotion-gqwf.md).
+
 ## Workers physiques et vues durables
 
 Une mission peut activer `executionPolicy.gqwfV2: true`. Après création de sa

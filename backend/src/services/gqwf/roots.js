@@ -3,6 +3,7 @@
 const { withTransaction } = require('../../db');
 const { importWorkspace } = require('./import');
 const { createManifest } = require('./manifest');
+const { readBlob } = require('./objects');
 const storage = require('./storage');
 
 async function importBase(db, input) {
@@ -63,14 +64,31 @@ async function initializeHead(db, input) {
   return { rootHash: input.rootHash, generation: 0 };
 }
 
+async function assertCandidateIntegrity(db, input) {
+  const workspace = await storage.workspace(db, input.workspaceId);
+  const manifest = await storage.root(db, input.workspaceId, input.candidateHash);
+  for (const file of manifest.files) {
+    const bytes = await readBlob(workspace.path, file.hash);
+    if (bytes.length !== file.size) throw new Error('GQWF candidate file size mismatch.');
+  }
+}
+
+function assertPromotionVerdict(input, verdict) {
+  const bound = verdict?.success === true && verdict.workspaceId === input.workspaceId
+    && verdict.headName === input.name && verdict.previousHash === input.expectedHash
+    && verdict.generation === input.expectedGeneration && verdict.candidateHash === input.candidateHash;
+  if (!bound || typeof verdict.evidenceId !== 'string' || !verdict.evidenceId.trim()) {
+    throw new Error('GQWF promotion lacks verified candidate evidence bound to this head.');
+  }
+}
+
 async function publishCandidate(db, input, verifier) {
   if (typeof verifier !== 'function') throw new Error('GQWF promotion verifier is unavailable.');
-  await storage.root(db, input.workspaceId, input.candidateHash);
+  await assertCandidateIntegrity(db, input);
   const verdict = await verifier(input);
-  if (verdict?.success !== true || verdict.candidateHash !== input.candidateHash || !verdict.evidenceId) {
-    throw new Error('GQWF promotion lacks verified candidate evidence.');
-  }
+  assertPromotionVerdict(input, verdict);
   return withTransaction(db, async () => {
+    await assertCandidateIntegrity(db, input);
     const changed = await db.run(`UPDATE gqwf_heads SET root_hash = ?, generation = generation + 1
       WHERE workspace_id = ? AND name = ? AND root_hash = ? AND generation = ?`,
     input.candidateHash, input.workspaceId, input.name, input.expectedHash, input.expectedGeneration);
