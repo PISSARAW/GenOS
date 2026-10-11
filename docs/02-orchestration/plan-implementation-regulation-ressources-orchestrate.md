@@ -1,7 +1,7 @@
 # Plan d'implémentation — régulation avec ressource externe et orchestration complète
 
 - **Type** : plan de réalisation
-- **Statut** : en cours ; lots 0 à 2 implémentés, lot 3 partiel, lots 4 à 6 ouverts
+- **Statut** : en cours ; lots 0 à 2 implémentés, lots 3 et 4 partiels, lots 5 et 6 ouverts
 - **Portée** : les 19 types natifs, superviseur et `genos_orchestrate`
 - **Dernière revue** : 2026-10-11
 
@@ -9,7 +9,14 @@ Ce plan réalise les [critères de qualification](qualification-regulation-resso
 
 ## Avancement vérifié au 11 octobre 2026
 
-Le fournisseur distinct, son ledger conservatif, les preuves signées et la méthode native `replenish_external_quota` sont implémentés. Une sonde ciblée vérifie le refus d'un worker hors plage, la recharge par un vrai `recovery_worker`, la relecture du solde et la reprise supervisée. Elle prépare encore le parent, le helper, les contrats et les runs dans SQLite ; cette réussite **ne valide pas** la planification par `genos_orchestrate` ni la matrice externe 19 × 2. Le coordinateur de récupération automatique, la réconciliation après crash et la qualification de bout en bout restent ouverts.
+Le fournisseur distinct, son ledger conservatif, les preuves signées et la méthode native `replenish_external_quota` sont implémentés. Une sonde ciblée vérifie le refus d'un worker hors plage, la recharge par un vrai `recovery_worker`, la relecture du solde et la reprise supervisée. Elle prépare encore le parent, le helper, les contrats et les runs dans SQLite ; cette réussite **ne valide pas** la planification par `genos_orchestrate` ni la matrice externe 19 × 2. Le coordinateur de récupération automatique, la réconciliation après crash et la qualification de bout en bout restent ouverts. Un second incrément ajoute `native_objectives` à `genos_orchestrate` : le catalogue sélectionne le type natif par `methodId`, réserve les tokens et refuse une divergence de type, méthode ou budget au dispatch. Une sonde de plan passe pour les 19 types. Un essai du vrai CLI a créé un `scout_cell` et exécuté `scan_literal` jusqu'à `AGENT_COMPLETED`, mais le run a ensuite été bloqué par `require_independent_verification` et le parent a expiré faute de modèle local exploitable (`llama-server` absent). Ce trajet reste **non qualifié** au statut terminal.
+### Travaux bloquants observés
+
+1. Faire planifier et créer par `genos_orchestrate` le `recovery_worker`, son bail et la référence au run de réparation avant le worker cible. La sonde positive ne doit plus insérer ces objets dans SQLite.
+2. Rendre la récupération durable aux frontières `planned → transfer → receipt → measurement → applied → verified`, avec réconciliation par `operationId` après crash et sans double débit de réserve.
+3. Fournir une vérification indépendante admissible par `require_independent_verification` pour chaque méthode native. Le `scout_cell` observé a terminé sa méthode puis son run est passé à `blocked` faute de cette preuve ; le garde de promotion ne doit pas être contourné.
+4. Rendre disponible un exécuteur de synthèse du parent ou une clôture déterministe prouvée pour les missions entièrement natives. L'essai local a expiré après échec de chargement du binaire `llama-server` par Ollama.
+5. Lancer les 38 parcours externes par le véritable outil MCP, attendre leurs statuts terminaux et auditer plans, contrats, runs, reçus, soldes et registre fournisseur. Ajouter refus de falsification, mauvaise mission, budget, concurrence et redémarrage.
 ## Choix technique de départ
 
 Utiliser des **crédits d'exécution** comme ressource extérieure mesurable. Un processus fournisseur contrôlé possède sa propre base et son registre `réserve / solde par compte / dépensé`. Le backend GenOS ne peut modifier ces valeurs qu'au moyen de l'API du fournisseur. Celui-ci signe les reçus avec une clé privée ; GenOS connaît seulement la clé publique. Pour une réserve initiale `C0`, l'invariant est `réserve + Σ soldes + dépensé = C0`. Un transfert accroît le solde d'un worker et diminue la réserve du même montant ; une consommation déplace des crédits du solde vers `dépensé`.

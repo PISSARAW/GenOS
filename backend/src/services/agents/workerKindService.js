@@ -323,4 +323,4 @@ function evidenceRule(contract) {
   return artifactInstruction(contract);
 }
 
-module.exports = { KINDS, KIND_CAPABILITIES, METHOD_CAPABILITIES, ROLE_ALIASES, PROMPT_RULES, AUTHORITY_OVERRIDES, normalize, resolveWorkerKind, kindDefinition, applyAuthorityOverrides, assertMethodCompatibility, buildWorkerContract, grantBoundedDelegation, promptRule, evidenceRule };
+module.exports = { KINDS, KIND_CAPABILITIES, METHOD_CAPABILITIES, ROLE_ALIASES, PROMPT_RULES, AUTHORITY_OVERRIDES, normalize, resolveWorkerKind, kindDefinition, applyAuthorityOverrides, assertMethodCompatibility, requiredMethodCapabilities, buildWorkerContract, grantBoundedDelegation, promptRule, evidenceRule };

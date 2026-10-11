@@ -213,7 +213,7 @@ function missionWorkspaceOptions(request) {
 function missionRuntimeContext(request) {
   const fields = ['organization', 'capabilities', 'capabilityRequirements', 'capabilityContract',
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
-    'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments',
+    'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'missionCapabilityPlan', 'problemProfile', 'requiresEvidenceBeforePromotion'];
   return Object.fromEntries(fields.filter((field) => request[field] !== undefined)
     .map((field) => [field, request[field]]));

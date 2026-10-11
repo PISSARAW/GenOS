@@ -85,3 +85,6 @@ Le verdict « réussite complète » exige tous les points suivants :
 - `python scripts/ci/check_code_quality.py`, `npm test` et `cargo test --workspace` réussis après les changements de code.
 
 À ce jour, le verdict demeure : **régulation simulée vérifiée ; reconstitution extérieure et planification complète non démontrées**.
+## État de qualification au 11 octobre 2026
+
+Le fournisseur externe et la reprise supervisée ciblée sont prouvés par `backend/tests/probes/test_external_credit_provider.cjs` et `test_external_credit_supervision.cjs`. La sélection de méthode et type natifs passe pour 19 types avec `test_native_mission_plan.cjs`. L'essai direct de `genos_orchestrate` sur un `scout_cell` a produit la preuve native, mais le run a été bloqué par l'exigence de vérification indépendante et le parent a expiré car le modèle local ne charge pas `llama-server`. La matrice 19 × 2 depuis le vrai outil, la création automatique du helper et la clôture terminale ne sont pas encore démontrées.
