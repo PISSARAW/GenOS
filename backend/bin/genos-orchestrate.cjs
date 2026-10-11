@@ -274,7 +274,8 @@ async function runOrchestratedMission(db) {
   const agents = await waitForCompletion(db);
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
-  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, nceEnhancements });
+  const audit = await gatherTelemetryAndCoverage(db, id);
+  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, nceEnhancements, audit });
 }
 
 async function applyHomeostasisContinuation(input) {
@@ -297,7 +298,7 @@ async function finalizeMissionStatus({ db, outcome, completionGate, finalVerdict
 }
 
 async function finalizeOrchestratedMission(input) {
-  const { db, evaluation, morphology, nceEnhancements, outcome: inputOutcome } = input;
+  const { db, evaluation, morphology, nceEnhancements, outcome: inputOutcome, audit } = input;
   let outcome = evaluation.outcome || inputOutcome;
   let { continuity, completionGate, evaluation: homeostasis, organism, mission } = evaluation;
   const missionSuccess = completionGate.allowed === true;
@@ -308,7 +309,7 @@ async function finalizeOrchestratedMission(input) {
   const contResult = await applyHomeostasisContinuation({ db, id, task, request, mission, completionGate, homeostasis, organism, finalVerdict, continuity });
   ({ continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission } = destructureContResult(contResult, { continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission }));
 
-  const { finalStatus, finalVerdict: updatedVerdict } = await finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage: null });
+  const { finalStatus, finalVerdict: updatedVerdict } = await finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage: audit.coverage });
   finalVerdict = updatedVerdict;
 
   const dormant = await suspendIfNeeded({ db, mission, homeostasis, organism, finalStatus, continuity });
@@ -316,7 +317,7 @@ async function finalizeOrchestratedMission(input) {
   if (missionId && !dormant) await missionIdentity.setStatus(db, missionId, finalStatus.success ? 'completed' : 'failed');
 
   if (finalStatus.success) await persistChampion(db, outcome);
-  emitFinalTelemetry({ telemetryRows: [], runs: [], coverage: null, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
+  emitFinalTelemetry({ ...audit, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
   if (!finalStatus.success && !dormant) process.exitCode = 2;
 }
 

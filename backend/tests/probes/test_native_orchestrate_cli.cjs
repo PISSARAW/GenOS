@@ -109,15 +109,25 @@ async function main() {
     assert.equal((await require('../../src/services/biologicalWorkerStore').receipt(db, workerRun.id)).result.verified, true);
     const mission = await db.get('SELECT status FROM missions WHERE mission_id=?', authority.envelope.missionId);
     const apoptosisTelemetry = await readApoptosisTelemetry(environment.GENOS_MCP_TELEMETRY_FILE);
+    const cliResult = JSON.parse(stdout.trim().split(/\r?\n/).at(-1));
     const complete = exitCode === 0 && parent.status === 'completed' && parentRun.status === 'completed' && mission?.status === 'completed';
     const audit = { schema: 'genos.native-orchestrate-attempt/v1', result: complete ? 'complete' : 'incomplete',
       cliExitCode: exitCode, parentId: parent.id, parentStatus: parent.status, parentRunId: parentRun.id,
       parentRunStatus: parentRun.status, parentGuardrail: parentRun.guardrail_reason || null, missionStatus: mission?.status || null,
       planDigest: plan.digest, selected: plan.selected, workerId, workerRunId: workerRun.id,
       workerRunStatus: workerRun.status, independentVerifiers: attestation.value.costs.processes,
-      verifierStatuses: verifications.map(item => item.status), apoptosisTelemetry, outputRoot: root };
+      verifierStatuses: verifications.map(item => item.status), missionHomeostasisSatisfied: cliResult.continuity?.homeostasisSatisfied === true,
+      completionGateAllowed: cliResult.completionGate?.allowed === true, cliVerdict: cliResult.verdict,
+      coverageVerdict: cliResult.coverage?.verdict || null,
+      missingRequiredTools: cliResult.coverage?.orchestration?.missingRequiredTools || [], apoptosisTelemetry, outputRoot: root };
     await fs.writeFile(path.join(root, 'audit.json'), JSON.stringify(audit, null, 2) + '\n');
     process.stdout.write(JSON.stringify(audit) + '\n');
+    assert.equal(parent.status, 'completed', 'the real orchestrator did not finish');
+    assert.equal(parentRun.status, 'completed', 'the orchestrator execution run did not finish');
+    assert.equal(workerRun.status, 'completed', 'the real worker execution run did not finish');
+    assert.equal(cliResult.continuity?.homeostasisSatisfied, true, 'mission homeostasis did not pass');
+    assert.equal(cliResult.completionGate?.allowed, true, 'the homeostasis completion gate did not pass');
+    assert.ok(cliResult.coverage?.verdict, 'the CLI did not report its required orchestration coverage audit');
   } finally { await closeDatabase(); }
 }
 

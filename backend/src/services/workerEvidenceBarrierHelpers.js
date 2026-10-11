@@ -95,10 +95,19 @@ function applySynthesisPlan(ctx) {
 }
 
 function synthesisDossier(dossier) {
-  return { workerId: dossier.workerId, events: (dossier.events || [])
-    .filter((event) => event.evidenceReport)
-    .map((event) => ({ evidenceReport: { outcome: event.evidenceReport.outcome || 'unknown',
-      claims: event.evidenceReport.claims || [] } })) };
+  const reports = (dossier.events || []).filter((event) => event.evidenceReport);
+  const acceptedCompletions = reports.filter((event) => event.eventType === 'AGENT_COMPLETED'
+    && event.evidenceReport.outcome === 'success' && event.nativeOracleRef);
+  const selected = acceptedCompletions.length ? acceptedCompletions : reports;
+  const seen = new Set();
+  const events = selected.filter((event) => {
+    const key = JSON.stringify(event.evidenceReport);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map((event) => ({ executionRunId: event.executionRunId, nativeOracleRef: event.nativeOracleRef,
+    evidenceReport: { outcome: event.evidenceReport.outcome || 'unknown', claims: event.evidenceReport.claims || [] } }));
+  return { workerId: dossier.workerId, events };
 }
 
 function topologyWorkerResult(dossier) {
