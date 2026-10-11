@@ -98,11 +98,11 @@ async function testEfferenceAndWorld() {
   const world = HERE('worldModelService');
   const db = stubDb();
   await efference.predict(db, 'a', { action: 'go', expectedTypes: ['DID'] });
-  const hit = await efference.discharge(db, 'a', { eventType: 'DID', detail: 'd', payload: { eventId: 'unrelated' } });
+  const hit = await efference.discharge(db, 'a', { agentId: 'a', eventType: 'DID', detail: 'd', payload: { eventId: 'unrelated' } });
   assert.strictEqual(hit.matched, true);
   await efference.predict(db, 'a', { action: 'bound action', actionId: 'source-7', expectedTypes: ['ORCHESTRATION_ACTION_EXECUTED'] });
   const bound = await efference.discharge(db, 'a', {
-    eventType: 'ORCHESTRATION_ACTION_EXECUTED', payload: { eventId: 'source-7' }
+    agentId: 'a', eventType: 'ORCHESTRATION_ACTION_EXECUTED', payload: { eventId: 'source-7' }
   });
   assert.strictEqual(bound.matched, true, 'action receipt must consume only its correlated efference copy');
   assert.strictEqual(bound.strength, 1);

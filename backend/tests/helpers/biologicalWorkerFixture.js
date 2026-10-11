@@ -31,7 +31,7 @@ async function addWorker(db, input = {}) {
   } } } };
   await db.run(`INSERT INTO agents (id, execution_mode, parent_agent_id, organization_id, project_id, metadata_json, role, workspace_id)
     VALUES (?, 'worker', 'parent', 'org', 'project', ?, 'procedural_executor', 'worker-workspace')`, agentId, JSON.stringify(metadata));
-  await db.run('INSERT INTO mission_agents VALUES (?, ?)', 'worker-mission', agentId);
+  await db.run('INSERT INTO mission_agents (mission_id, agent_id) VALUES (?, ?)', 'worker-mission', agentId);
   const contract = { execution_pipeline: [], strategy_portfolio: [], promotion: input.promotion || {} };
   const id = `contract-${agentId}`;
   await db.run('INSERT INTO strategy_contracts VALUES (?, ?, 1, ?, ?)', id, agentId, JSON.stringify(contract), `sha256:${digest(contract)}`);

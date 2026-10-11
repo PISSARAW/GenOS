@@ -1,5 +1,6 @@
 const { run } = require('./_shared');
 const fs = require('fs/promises');
+const fsSync = require('fs');
 const path = require('path');
 const { getDatabase } = require('../db');
 
@@ -89,10 +90,12 @@ async function discoverRootCommands(workspacePath, root, commands) {
     const idSuffix = root ? `-${root}` : '';
     const scripts = await packageScripts(path.join(commandPath, 'package.json'));
     if (scripts.test) {
-      commands.push({ id: `npm-test${idSuffix}`, label: `npm test${suffix}`, executable: 'npm', args: ['test'], cwd: root });
+      commands.push({ id: `npm-test${idSuffix}`, label: `npm test${suffix}`,
+        ...npmInvocation(['test']), sandboxCommand: 'npm test', cwd: root });
     }
     if (scripts.check) {
-      commands.push({ id: `npm-check${idSuffix}`, label: `npm run check${suffix}`, executable: 'npm', args: ['run', 'check'], cwd: root });
+      commands.push({ id: `npm-check${idSuffix}`, label: `npm run check${suffix}`,
+        ...npmInvocation(['run', 'check']), sandboxCommand: 'npm run check', cwd: root });
     }
     if (await exists(path.join(commandPath, 'pytest.ini')) || await exists(path.join(commandPath, 'pyproject.toml'))) {
       commands.push({ id: `pytest${idSuffix}`, label: `pytest${suffix}`, executable: 'pytest', args: [], cwd: root });
@@ -100,4 +103,11 @@ async function discoverRootCommands(workspacePath, root, commands) {
     if (await exists(path.join(commandPath, 'Cargo.toml'))) {
       commands.push({ id: `cargo-test${idSuffix}`, label: `cargo test${suffix}`, executable: 'cargo', args: ['test'], cwd: root });
     }
+}
+
+function npmInvocation(args) {
+  if (process.platform !== 'win32') return { executable: 'npm', args };
+  const cli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  if (fsSync.existsSync(cli)) return { executable: process.execPath, args: [cli, ...args] };
+  return { executable: 'npm', args };
 }

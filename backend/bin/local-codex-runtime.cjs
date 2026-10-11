@@ -104,11 +104,9 @@ async function runMission(state, services) {
       await checkpoint.save(state, 'generated', reply);
       await captureBarrier.safePoint('generated');
     }
-    if (observationInbox.currentRevision() > (state.observationRevision || 0)) {
-      reply = await generate();
-      await checkpoint.save(state, 'generated', reply);
-    }
+    reply = await refreshObservedReply(state, reply, { generate, checkpoint });
     require('../src/services/localArtifactWriter').writeArtifacts(reply, state);
+    await require('../src/services/runtimeFileWriteIpc').flush();
     if (state.resumeCheckpoint?.phase !== 'evaluated') {
       await checkpoint.save(state, 'evaluating', reply);
       await runPostPipeline(services, state, reply);
@@ -119,9 +117,17 @@ async function runMission(state, services) {
     await checkpoint.save(state, 'completed', reply);
     process.exit(0);
   } catch (e) {
+    await require('../src/services/runtimeFileWriteIpc').flush().catch(() => {});
     emitFailure(state, e);
     process.exit(1);
   }
+}
+
+async function refreshObservedReply(state, reply, services) {
+  if (observationInbox.currentRevision() <= (state.observationRevision || 0)) return reply;
+  const refreshed = await services.generate();
+  await services.checkpoint.save(state, 'generated', refreshed);
+  return refreshed;
 }
 
 function guardBudget(state) {

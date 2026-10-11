@@ -487,10 +487,15 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
 | [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
 | [0395](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
-| [0396](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
-| [0397](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
-| [0399](0399-commit-versionne-et-profil-morphologique.md) | Commit versionné et profil morphologique dans le graphe | Accepté | 2026-10-11 | Morphogenèse, transitions et profils de topologie |
-| [0400](0400-autorite-et-quiescence-des-sessions-biome.md) | Autorité et quiescence des sessions Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0396a](0396-frontiere-corporelle-agent-et-provenance.md) | Frontière corporelle et provenance du soi agentique | accepté, portée Node | 2026-10-10 | corps de l'orchestrator, action motrice, CoreSelf |
+| [0396b](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
+| [0397a](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
+| [0397b](0397-recus-corporels-et-limites-de-provenance.md) | Reçus corporels et limites de provenance | accepté, portée Node et missions scellées | 2026-10-10 | modèle corporel, autorité de mission, MCP, provenance des claims |
+| [0398](0398-capacite-mcp-et-ecritures-directes.md) | Capacité MCP et écritures directes | accepté, couverture conditionnelle | 2026-10-11 | identité d'agent, MCP Rust, fichiers, claims |
+| [0399a](0399-commit-versionne-et-profil-morphologique.md) | Commit versionné et profil morphologique dans le graphe | Accepté | 2026-10-11 | Morphogenèse, transitions et profils de topologie |
+| [0399b](0399-liaison-recu-promotion-gqwf.md) | Lier le reçu de promotion GQWF à la tête et aux octets | Accepté pour la frontière de publication du noyau backend. | 2026-10-11. | GQWF, preuves, promotion. |
+| [0400a](0400-autorite-et-quiescence-des-sessions-biome.md) | Autorité et quiescence des sessions Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0400b](0400-promotion-trinity-gqwf-opt-in.md) | Publier une racine GQWF depuis une promotion Trinity vérifiée | Accepté, activation explicite. | 2026-10-11. | Trinity, GQWF, promotion. |
 | [0401](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
 | [0402](0402-execution-publique-explicite-biocenose.md) | Exécution publique explicite de Biocénose | accepté | 2026-10-11 | Biocénose, MCP, délibération persistante |
 | [0403](0403-frontiere-quiescente-metapopulation.md) | Frontière quiescente des snapshots Métapopulation | Voir le fichier | -- | -- |

@@ -673,8 +673,13 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0393 — Budget délégué du sous-orchestrateur natif](adr/0393-budget-delegue-sous-orchestrateur-natif.md)
 - [ADR 0394 — Préflight vérifiable de restauration d'organisme](adr/0394-preflight-restauration-organisme.md)
 - [ADR 0395 — Workspaces privés pour les capsules de workers](adr/0395-workspaces-prives-pour-capsules-de-workers.md).
+- [ADR 0396 — Frontière corporelle et provenance du soi agentique](adr/0396-frontiere-corporelle-agent-et-provenance.md).
 - [ADR 0396 — Observer les workers supervisés pendant leur mission](adr/0396-observation-continue-des-workers-supervises.md).
 - [ADR 0397 — Perception native et révision du prompt local](adr/0397-perception-des-workers-natifs-et-revision-locale.md).
+- [ADR 0397 — Reçus corporels et limites de provenance](adr/0397-recus-corporels-et-limites-de-provenance.md).
+- [ADR 0398 — Capacité MCP et écritures directes](adr/0398-capacite-mcp-et-ecritures-directes.md).
+- [ADR 0399 — Reçu de promotion GQWF lié aux octets](adr/0399-liaison-recu-promotion-gqwf.md).
+- [ADR 0400 — Promotion Trinity vers GQWF opt-in](adr/0400-promotion-trinity-gqwf-opt-in.md).
 - [ADR 0399 — Commit versionné et profil morphologique](adr/0399-commit-versionne-et-profil-morphologique.md).
 - [ADR 0400 — Autorité et quiescence des sessions Biome](adr/0400-autorite-et-quiescence-des-sessions-biome.md).
 - [ADR 0401 — Preuve d’arrêt de mission Holobionte](adr/0401-preuve-arret-mission-holobionte.md).

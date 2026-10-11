@@ -36,17 +36,18 @@ async function bootstrapMission(mission) {
   await enableMissionMonitoring(ctx);
   await planMission(ctx);
   assertAutonomyPlanExecutable(ctx);
-  incarnateOrchestrator(ctx);
   await require('./missionLease').attachMissionMemoryContext(ctx.normalizedMission, ctx.agentId);
   assertMissionNotCancelled(ctx.agentId);
   applyExecutionPolicy(ctx);
   await enforceMissionToolLease(ctx);
   computeRuntimeBudget(ctx);
+  incarnateOrchestrator(ctx);
   await createMissionExecutionRun(ctx);
   await provisionMissionCapsule(ctx);
   await require('../garageRuntimeService').bindExecution(ctx);
   await require('../trinityQualificationDispatch').recordStarted(ctx);
   await require('../missionEnvelopeAuthority').seal(ctx);
+  await require('../orchestratorBodyAuthority').bind(ctx);
   reportOrchestratorStart(ctx);
   return ctx;
 }

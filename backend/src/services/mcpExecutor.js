@@ -23,7 +23,6 @@ const {
 } = require('./mcpExecutor/efferenceBridge');
 
 const {
-  DEFAULT_MCP_TIMEOUT_MS,
   MAX_MCP_TIMEOUT_MS,
   MAX_MCP_BUFFER_BYTES,
   MAX_MCP_ERROR_BYTES,
@@ -33,7 +32,6 @@ const {
   normalizeMcpTimeout,
   directToolLeaseAllows,
   getToolRegistry,
-  directCallGuard,
   validateMcpUrl,
   parseArgs,
   configuredTransport
@@ -339,6 +337,10 @@ async function execute(executionRequest) {
   if (unavailable) return unavailable;
   const circuitFault = checkCircuitBreaker(toolName, circuitScope, args);
   if (circuitFault) return circuitFault;
+  const binding = agentId
+    ? await require('./missionEnvelopeAuthority').assertTool(db, { agentId, toolName })
+    : { status: 'legacy_unbound' };
+  if (binding.status === 'authorized') return require('./mcpExecutor/bodyMotorBridge').runBoundMotorTool({ db, agentId, toolName, args, circuitScope, binding });
   return runCorrelatedToolExecution({
     context: { db, agentId, toolName, args, circuitScope },
     executeConfiguredTransport,
@@ -348,30 +350,6 @@ async function execute(executionRequest) {
   });
 }
 
-function recordCallResult(toolName, result) {
-  if (result.success) {
-    circuitBreaker.recordSuccess(toolName);
-    return;
-  }
-  if (result.configured) circuitBreaker.recordFailure(toolName, result.error || result.output || 'MCP tool failed.');
-  throw Object.assign(new Error(result.error || result.output || `MCP tool '${toolName}' failed.`), { code: result.code || 'MCP_TOOL_ERROR' });
-}
-
-async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS) {
-  const normalizedToolName = String(toolName || '').trim();
-  await directCallGuard(normalizedToolName, args);
-  const db = await getDatabase();
-  await db.run('INSERT INTO audit_logs (actor, agent_id, action, resource, decision, reason, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', 'mcp-direct', null, 'MCP_DIRECT_CALL', normalizedToolName, 'allow', 'direct call guarded', JSON.stringify({ args, timeoutMs }));
-  try {
-    const result = await executeConfiguredTransport({ toolName: normalizedToolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
-    recordCallResult(normalizedToolName, result);
-    return result.output;
-  } catch (error) {
-    circuitBreaker.recordFailure(normalizedToolName, error.message);
-    throw error;
-  }
-}
-
 module.exports = {
   execute,
   executeConfiguredTransport,
@@ -379,7 +357,7 @@ module.exports = {
   checkChromatinLock,
   normalizeMcpTimeout,
   listTools,
-  callTool,
+  callTool: require('./mcpExecutor/directCall').callTool,
   mcpTransportEnvironment,
   validateMcpUrl,
   resolveMcpOutputPath,

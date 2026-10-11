@@ -100,16 +100,33 @@ async function exerciseMerge(context, state) {
 async function exercisePromotion(context, baseHash, candidateHash) {
   const blocked = createFabric(context.db);
   await blocked.initializeHead({ workspaceId: 'ws-a', name: 'main', rootHash: baseHash });
-  await assert.rejects(blocked.publishCandidate({ workspaceId: 'ws-a', name: 'main',
-    expectedHash: baseHash, expectedGeneration: 0, candidateHash }), /verifier is unavailable/);
-  const verified = createFabric(context.db, { verifyPromotion: async (input) => ({
-    success: true, candidateHash: input.candidateHash, evidenceId: 'verified-receipt-1'
-  }) });
-  const published = await verified.publishCandidate({ workspaceId: 'ws-a', name: 'main',
-    expectedHash: baseHash, expectedGeneration: 0, candidateHash });
+  const request = { workspaceId: 'ws-a', name: 'main',
+    expectedHash: baseHash, expectedGeneration: 0, candidateHash };
+  await assert.rejects(blocked.publishCandidate(request), /verifier is unavailable/);
+  const verdict = { success: true, workspaceId: 'ws-a', headName: 'main',
+    previousHash: baseHash, generation: 0, candidateHash, evidenceId: 'verified-receipt-1' };
+  for (const [field, value] of Object.entries({ workspaceId: 'ws-b', headName: 'other',
+    previousHash: candidateHash, generation: 1, candidateHash: baseHash, evidenceId: '' })) {
+    const forged = createFabric(context.db, { verifyPromotion: async () => ({ ...verdict, [field]: value }) });
+    await assert.rejects(forged.publishCandidate(request), /evidence bound to this head/);
+  }
+  const manifest = await context.db.get('SELECT manifest_json FROM gqwf_roots WHERE workspace_id = ? AND root_hash = ?', 'ws-a', candidateHash);
+  const file = JSON.parse(manifest.manifest_json).files.find((entry) => entry.path === 'c.txt');
+  const objectPath = path.join(context.workspacePath, '.genos', 'gqwf', 'blobs', file.hash.slice(0, 2), file.hash);
+  const original = await fs.readFile(objectPath);
+  const verified = createFabric(context.db, { verifyPromotion: async () => verdict });
+  await fs.writeFile(objectPath, 'corrupt');
+  await assert.rejects(verified.publishCandidate(request), /integrity check failed/);
+  await fs.writeFile(objectPath, original);
+  const racing = createFabric(context.db, { verifyPromotion: async () => {
+    await fs.writeFile(objectPath, 'changed-after-check');
+    return verdict;
+  } });
+  await assert.rejects(racing.publishCandidate(request), /integrity check failed/);
+  await fs.writeFile(objectPath, original);
+  const published = await verified.publishCandidate(request);
   assert.equal(published.generation, 1);
-  await assert.rejects(verified.publishCandidate({ workspaceId: 'ws-a', name: 'main',
-    expectedHash: baseHash, expectedGeneration: 0, candidateHash }), /head changed/);
+  await assert.rejects(verified.publishCandidate(request), /head changed/);
   assert.deepEqual(await verified.getHead({ workspaceId: 'ws-a', name: 'main' }),
     { rootHash: candidateHash, generation: 1 });
 }

@@ -19,6 +19,7 @@ async function main() {
   const event = { id: 'failed-test', eventType: 'EVIDENCE_REPORT', payload: { outcome: 'failure' } };
   const body = await feedback.process(ctx, event);
   assert.equal(body.worldState.budget, 700);
+  assert.equal(body.worldState.budgetStatus, 'measured');
   assert.equal(ctx.normalizedMission.autonomousOrchestration, false);
   assert.equal(ctx.normalizedMission.requiresEvidenceBeforePromotion, true);
   assert.deepEqual(body.worldState.openGoals, ['verify patch']);
