@@ -86,7 +86,9 @@ async function waitForCompletion(db) {
   while (unbounded || Date.now() < deadline) {
     let agents, trinityWorlds;
     try {
-      agents = await db.all('SELECT id, status, runtime_pid FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
+      agents = await db.all(`SELECT a.id, a.status, a.runtime_pid,
+        (SELECT r.status FROM strategy_execution_runs r WHERE r.agent_id = a.id ORDER BY r.rowid DESC LIMIT 1) AS latest_run_status
+        FROM agents a WHERE a.id = ? OR a.parent_agent_id = ?`, id, id);
       trinityWorlds = await db.all(
         `SELECT agent_id, status FROM trinity_worlds
          WHERE experiment_id GLOB ? AND datetime(created_at) >= datetime(?)

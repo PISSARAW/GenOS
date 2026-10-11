@@ -56,6 +56,8 @@ async function immutableAndFresh(ctx, filename) {
     { cwd: path.resolve(__dirname, '../..'), encoding: 'utf8', timeout: 30000 });
   assert.equal(child.status, 0, child.stderr);
   assert.deepEqual(JSON.parse(child.stdout), { status: 'authorized', hash: saved.hash });
+  const narrowed = { ...ctx.normalizedMission, toolLease: [] };
+  assert.equal((await authority.assertRun(ctx.db, { ...input(ctx), mission: narrowed })).status, 'authorized');
   const widened = structuredClone(ctx.normalizedMission);
   widened.toolLease.push('genos_fork');
   await assert.rejects(authority.assertRun(ctx.db, { ...input(ctx), mission: widened }), { code: 'EXECUTION_AUTHORITY_CONTEXT_CHANGED' });

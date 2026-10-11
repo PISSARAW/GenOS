@@ -81,3 +81,16 @@ L'énergie réglementaire liée à cette ressource doit être dérivée d'une le
 ## Premier incrément livrable
 
 Commencer par les lots **0 puis 1**. Leur sortie doit être une preuve autonome qu'un fournisseur distinct transfère des crédits avec conservation, mesure indépendante, signature et idempotence. Ce socle rend ensuite testable la méthode native du lot 2 ; la planification complète n'est déclarée prête qu'après le lot 5.
+
+## Avancement observé au 11 octobre 2026 — CLI réel
+
+La sonde `backend/tests/probes/test_native_orchestrate_cli.cjs` confirme la planification native autonome, la création normale du worker, l'autorité scellée, l'exécution de `scan_literal` et la vérification par deux processus indépendants. Le rejeu après les correctifs, audité dans `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-QYCIaz\audit.json`, conclut `incomplete`: `workerRunStatus=completed`, `parentStatus=apoptosis`, `parentRunStatus=failed` et `missionStatus=failed`. La preuve ferme les blocages d'identité d'autorité et d'attente terminale du worker, pas la clôture de mission.
+
+Les changements ajoutent aussi le passage de `missionId` au runtime des workers, la liaison du workspace demandé au parent et au contrat, la normalisation JSON de l'enveloppe d'autorité, l'acceptation d'un bail réduit, la persistance du workspace sandbox d'un snapshot et la détection d'un run terminal quand l'agent est `idle`. Vérification exécutée le 11 octobre 2026 : `python scripts/ci/check_code_quality.py` (0 violation nouvelle), `npm test` (code 0) et `cargo test --workspace` (code 0), plus les tests ciblés et le rejeu CLI ci-dessus. Ces gates valident le dépôt; elles ne changent pas le verdict négatif de la mission CLI.
+
+### Prochaines étapes bloquantes
+
+1. Tracer les trois observations qui incrémentent `hallucination_count` du parent sans événement `HALLUCINATION_DETECTED` dans `telemetry_events`; corriger la télémétrie ou la détection selon la source constatée.
+2. Permettre la clôture d'une mission entièrement native à partir des preuves admises des workers, tout en conservant la barrière d'oracle indépendant. Exiger un statut terminal `completed` dans la sonde CLI positive.
+3. Compléter les oracles indépendants pour les 19 types, puis relier le superviseur, le `recovery_worker` planifié et le fournisseur externe à la même mission `genos_orchestrate`.
+4. Rejouer les campagnes 19 types × 2 cycles et les contrôles négatifs depuis D:, puis passer les trois gates qualité.

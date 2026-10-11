@@ -85,6 +85,14 @@ Le verdict « réussite complète » exige tous les points suivants :
 - `python scripts/ci/check_code_quality.py`, `npm test` et `cargo test --workspace` réussis après les changements de code.
 
 À ce jour, le verdict demeure : **régulation simulée vérifiée ; reconstitution extérieure et planification complète non démontrées**.
+
+## Mise à jour du 11 octobre 2026 — premier dispatch par le vrai CLI
+
+La sonde `backend/tests/probes/test_native_orchestrate_cli.cjs` lance le véritable `backend/bin/genos-orchestrate.cjs` sous D:, sans créer manuellement la mission, le parent, le contrat du worker ni son run. Le plan autonome choisit `scout_cell / scan_literal`; le worker réel termine son run avec une autorité scellée et une attestation d'oracle acceptée par deux vérificateurs distincts. Le rejeu après correctifs reproduit le résultat, avec audit brut sous `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-QYCIaz\audit.json`.
+
+Cette tentative n'est pas une réussite de mission : le run du worker est `completed`, mais le parent passe en `apoptosis`, son run est `failed` et la mission est `failed` (code CLI 2). Le parent a accumulé trois observations d'hallucination, mais la table `telemetry_events` de cet essai ne contient pas les événements `HALLUCINATION_DETECTED` correspondants. Il faut tracer ces observations au point où le compteur est incrémenté et fournir une clôture du parent qui traite le résultat du worker avec une preuve admise. Le test de fin de parcours doit exiger le statut terminal `completed`; le seul succès du worker ne valide pas `genos_orchestrate`.
+
+Les correctifs préparés pour transmettre `missionId` au worker, conserver le workspace dans le contrat et reconnaître un agent `idle` dont le dernier run est terminal règlent trois blocages de transport/attente rencontrés en route. La création et la persistance du workspace sandbox des snapshots ont aussi été corrigées et couvertes par un test ciblé. Ces corrections ne ferment pas les lots A ou B : la recharge externe supervisée n'est toujours pas liée à ce parcours CLI, et seul `scan_literal` a passé l'oracle natif dans cet essai.
 ## État de qualification au 11 octobre 2026
 
 Le fournisseur externe et la reprise supervisée ciblée sont prouvés par `backend/tests/probes/test_external_credit_provider.cjs` et `test_external_credit_supervision.cjs`. La sélection de méthode et type natifs passe pour 19 types avec `test_native_mission_plan.cjs`. La matrice externe ciblée 19 × 2 passe avec audit indépendant (38/38), sous contrats créés par la sonde.

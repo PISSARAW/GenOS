@@ -46,6 +46,8 @@ function assertCompletionGates() {
   assert.equal(status.resolveFinalMissionStatus({ success: false, verdict: 'failed' }, { allowed: true }, { verdict: 'completed', coverage }).success, false);
   assert.equal(status.agentsQuiescent([{ status: 'completed', runtime_pid: 42 }]), false);
   assert.equal(status.agentsQuiescent([{ status: 'completed', runtime_pid: null }]), true);
+  assert.equal(status.agentsQuiescent([{ status: 'idle', runtime_pid: null, latest_run_status: 'completed' }]), true);
+  assert.equal(status.agentsQuiescent([{ status: 'idle', runtime_pid: null, latest_run_status: 'running' }]), false);
   assert.equal(status.agentsQuiescent([]), false);
 }
 

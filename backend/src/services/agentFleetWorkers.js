@@ -370,7 +370,7 @@ function workerRuntime(details) {
   const hostExecutionContext = mission.executor === 'caller_mcp'
     ? require('./hostExecutionContext').bindHostToolLease(mission.hostExecutionContext, toolLease)
     : undefined;
-  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, capabilities, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
+  return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, capabilities, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
 }
 
 function buildExecutionBudget(details) {

@@ -45,27 +45,33 @@ async function writeSandboxManifest(context) {
   return sandboxPath;
 }
 
+async function ensureAgentSandboxWorkspace(db, agentId) {
+  const workspaceId = `ws-sandbox-${agentId || 'default'}`;
+  const sandboxPath = await writeSandboxManifest({ agentId });
+  await db.run('INSERT OR IGNORE INTO workspaces (id, name, path, visibility, language) VALUES (?, ?, ?, ?, ?)',
+    workspaceId, `Agent Sandbox Workspace ${agentId || 'default'}`, sandboxPath, 'Private', 'TypeScript');
+  return scopedWorkspace(db, workspaceId);
+}
+
+async function resolveSnapshotWorkspace(db, context) {
+  let workspaceId = context.workspaceId || await resolveAgentWorkspaceId(db, context);
+  let workspace = workspaceId ? await scopedWorkspace(db, workspaceId) : null;
+  if (workspaceId && !workspace) return { error: `Workspace '${workspaceId}' not found.` };
+  if (!workspaceId || isRepoRootWorkspace(workspace)) {
+    workspace = await ensureAgentSandboxWorkspace(db, context.agentId);
+  }
+  return workspace ? { workspace } : { error: `Workspace '${workspaceId}' not found.` };
+}
+
 function isRepoRootWorkspace(workspace) {
   return workspace.path === '.' || workspace.path === './' || path.resolve(workspace.path) === path.resolve(process.cwd());
 }
 
 async function snapshot(context) {
   const db = await getDatabase();
-  let workspaceId = context.workspaceId || await resolveAgentWorkspaceId(db, context);
-  if (!workspaceId) {
-    const sandboxPath = await writeSandboxManifest(context);
-    const wsId = `ws-sandbox-${context.agentId || 'default'}`;
-    // The workspaces table has a unique (organization, project, name) index, so
-    // every agent sandbox must carry a distinct name; otherwise the INSERT is
-    // silently ignored and the following lookup reports "not found".
-    await db.run('INSERT OR IGNORE INTO workspaces (id, name, path, visibility, language) VALUES (?, ?, ?, ?, ?)', wsId, `Agent Sandbox Workspace ${context.agentId || 'default'}`, sandboxPath, 'Private', 'TypeScript');
-    workspaceId = wsId;
-  }
-  let workspace = await scopedWorkspace(db, workspaceId);
-  if (workspace && isRepoRootWorkspace(workspace)) {
-    workspace = { id: `ws-sandbox-${context.agentId || 'default'}`, path: await writeSandboxManifest(context) };
-  }
-  if (!workspace) return { success: false, error: `Workspace '${workspaceId}' not found.` };
+  const resolved = await resolveSnapshotWorkspace(db, context);
+  if (resolved.error) return { success: false, error: resolved.error };
+  const workspace = resolved.workspace;
   const snap = await workspaceSnapshotStore.capture({
     db,
     workspace,
