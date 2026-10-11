@@ -5,6 +5,7 @@ const path = require('node:path');
 const catalog = require('../../shared/toolDefinitions.json').tools;
 const codexProfile = require('../../integrations/codex/development-profile.json');
 const coherence = require('./check_mcp_coherence');
+const { rustServer } = require('./inventory_mcp');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const NATIVE_REFUSALS = Object.freeze({
@@ -32,9 +33,12 @@ function offCatalogTransfer() {
 function audit() {
   const routed = new Set(coherence.audit().verified.names);
   const leased = new Set(codexProfile.tools);
+  const rust = rustServer();
+  const rustDeclared = new Set(rust.declaredTools);
   const tools = catalog.map((tool) => ({
     name: tool.name,
     routeVerified: routed.has(tool.name),
+    rustAdvertised: rustDeclared.has(tool.name),
     codexDevelopmentLease: leased.has(tool.name),
     nativeStatus: refusalIsDeclared(tool.name) ? 'explicit_refusal' : 'not_assessed',
     domainOutcome: 'not_assessed_by_static_inventory'
@@ -43,8 +47,10 @@ function audit() {
     schema: 'genos.mcp-qualification-inventory/v1',
     evidenceBoundary: 'A declared route or lease does not prove a successful domain outcome.',
     summary: { catalogued: tools.length, routed: tools.filter((tool) => tool.routeVerified).length,
+      rustAdvertised: tools.filter((tool) => tool.rustAdvertised).length,
       codexLeased: tools.filter((tool) => tool.codexDevelopmentLease).length,
       explicitNativeRefusals: tools.filter((tool) => tool.nativeStatus === 'explicit_refusal').length },
+    rustUnavailable: rust.unavailableInRust,
     tools,
     offCatalog: [offCatalogTransfer()]
   };

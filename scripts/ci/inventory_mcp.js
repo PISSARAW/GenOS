@@ -11,6 +11,10 @@ const lib = require('./inventory_lib');
 const CANONICAL = 'shared/toolDefinitions.json';
 const BUNDLED = 'mcp/toolDefinitions.json';
 
+function readIfExists(file) {
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+}
+
 function catalogShapes() {
   const canonical = lib.readJson(CANONICAL);
   const bundled = lib.readJson(BUNDLED);
@@ -50,19 +54,24 @@ function rustServer() {
   const tools = path.join(dir, 'tools.rs');
   const catalogTools = path.join(dir, 'tools/catalog_tools.rs');
   const baseSpecs = path.join(dir, 'tools/base_specs.rs');
+  const bridge = path.join(dir, 'executor/backend_dispatch.rs');
   const main = path.join(dir, 'main.rs');
-  const src = fs.existsSync(tools) ? fs.readFileSync(tools, 'utf8') : '';
-  const catalogSrc = fs.existsSync(catalogTools) ? fs.readFileSync(catalogTools, 'utf8') : '';
-  const baseSrc = fs.existsSync(baseSpecs) ? fs.readFileSync(baseSpecs, 'utf8') : '';
+  const src = readIfExists(tools);
+  const catalogSrc = readIfExists(catalogTools);
+  const baseSrc = readIfExists(baseSpecs);
+  const bridgeSrc = readIfExists(bridge);
+  const bridgeList = bridgeSrc.split('const BRIDGED_TOOLS: &[&str] = &[')[1]?.split('];')[0] || '';
+  const unavailableList = src.match(/for unavailable in \[([\s\S]*?)\]/)?.[1] || '';
   const names = [...new Set([
-    ...[...src.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)].map((m) => m[1]),
-    ...[...catalogSrc.matchAll(/"(genos_[^"]+)"/g)].map((m) => m[1]),
-    ...[...baseSrc.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)].map((m) => m[1])
+    ...[...baseSrc.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)].map((m) => m[1]),
+    ...[...bridgeList.matchAll(/"(genos_[^"]+)"/g)].map((m) => m[1])
   ])].sort();
   return { entry: 'crates/genos-mcp/src/main.rs',
     leaseEnv: src.includes('GENOS_MCP_LEASE') && src.includes('GENOS_MCP_DISABLED_TOOLS'),
-    outsideLeaseRefusal: fs.existsSync(main) && fs.readFileSync(main, 'utf8').includes('outside the active GenOS MCP lease'),
-    declaredTools: names };
+    outsideLeaseRefusal: readIfExists(main).includes('outside the active GenOS MCP lease'),
+    canonicalBridge: catalogSrc.includes('shared/toolDefinitions.json'),
+    declaredTools: names,
+    unavailableInRust: [...unavailableList.matchAll(/"(genos_[^"]+)"/g)].map((m) => m[1]).sort() };
 }
 
 function backendDispatch() {
@@ -93,4 +102,4 @@ if (require.main === module) {
     + `node tests ${result.nodeServer.tests.length}.`);
 }
 
-module.exports = { audit };
+module.exports = { audit, rustServer };
