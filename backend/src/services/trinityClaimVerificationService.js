@@ -48,7 +48,8 @@ function buildVerifier(input) {
     version: '1.0',
     strategy: ['independent-replay', `command:${command.id}`],
     workspaceId,
-    test: { command: [command.executable, ...command.args].join(' '), cwd: path.join(cwd, command.cwd || ''), timeoutMs: 120000 }
+    test: { command: command.sandboxCommand || [command.executable, ...command.args].join(' '),
+      cwd: path.join(cwd, command.cwd || ''), timeoutMs: 120000 }
   };
 }
 
@@ -88,11 +89,12 @@ async function verifyOne(input) {
     const resultId = `trinity-claim-${crypto.randomBytes(10).toString('hex')}`;
     const antigen = buildAntigen({ id: resultId, claim, digest, sourceAgentId, sourceWorkspaceId: candidate.candidateWorkspaceId, report });
     const verifier = buildVerifier({ id: `${resultId}:${commandId}`, command: commandInfo.command, cwd: verifierRoot, workspaceId: verifierWorkspaceId });
-    const output = await verifierBridge.executeVerifierWorkers(antigen, [verifier], { timeoutMs: 120000 });
+    const output = await verifierBridge.executeVerifierWorkers(antigen, [verifier], {
+      timeoutMs: 120000, allowedWorkspaceRoot: verifierRoot });
     const trustedDigests = verifierTrust.resolveTrustedVerifierDigests({});
     const receipt = assertIndependentReceipt({
       result: output.results[0], expectedId: resultId, digest, trustedDigests,
-      sourceAgentId, sourceWorkspaceId: candidate.candidateWorkspaceId, verifierWorkspaceId
+      sourceAgentId, sourceWorkspaceId: candidate.candidateWorkspaceId, verifierWorkspaceId: verifierRoot
     });
     return {
       claim: claimKey(claim), commandId, verifierWorkspaceHash: cloneHash,

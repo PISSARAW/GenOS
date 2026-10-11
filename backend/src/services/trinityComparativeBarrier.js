@@ -388,7 +388,7 @@ async function storeCandidateWorkspace({ db, targetDir, result, winnerWorkspace 
     await db.run(
       `INSERT INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id)
        VALUES (?, ?, ?, 'Private', ?, ?, ?, ?, ?)`,
-      candidateWorkspaceId, `Trinity candidate World ${result.selectedWorld}`, targetDir,
+      candidateWorkspaceId, `Trinity candidate ${candidateWorkspaceId}`, targetDir,
       winnerWorkspace.language || 'Mixed', `Quarantined Trinity candidate awaiting verification for world ${result.selectedWorld}.`,
       JSON.stringify(['trinity_candidate', 'quarantined']),
       winnerWorkspace.organization_id || null, winnerWorkspace.project_id || null

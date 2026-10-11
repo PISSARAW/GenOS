@@ -38,6 +38,19 @@ des contrôles incomplets bloquent cette tête. Ce parcours ne remplace pas la
 capsule physique et ne généralise pas encore la publication GQWF aux autres
 workers. Voir l'[ADR 0400](../adr/0400-promotion-trinity-gqwf-opt-in.md).
 
+La qualification de cette promotion exécute `promoteWinner` sur une base SQLite
+réelle et un workspace physique. Elle couvre un test `npm` dans la candidate,
+le même test dans une capsule de vérification indépendante, la signature
+AgentGit, la tête et son événement GQWF, le rejeu après réouverture de la base,
+le refus d'un test échoué, le rollback de la tête si la décision échoue après
+publication et le refus d'un événement altéré. Le résultat de
+comparaison est fourni par la fixture : ce test ne lance pas les trois workers
+d'une mission Trinity complète. Sur Windows, la commande `npm` est résolue vers
+son CLI Node pour l'exécution directe ; le vérificateur garde la commande
+autorisée `npm test` et sa propre racine de confinement.
+
+Validation : `node backend/tests/test_gqwf_trinity_mission_qualification.js`.
+
 ## Workers physiques et vues durables
 
 Une mission peut activer `executionPolicy.gqwfV2: true`. Après création de sa
