@@ -148,7 +148,7 @@ function createState(mission, data) {
     db: null,
     hasAgentInDb: false,
     pendingConscienceOp: Promise.resolve(),
-    requiredTools: new Set(data.isWorker ? [] : (data.autonomyPlan.mandatoryTools || [])),
+    requiredTools: new Set(data.isWorker ? [] : (data.autonomyPlan.mandatoryTools || data.autonomyPlan.requiredTools || [])),
     observedTools: new Set(),
     buffer: '',
     stderr: '',

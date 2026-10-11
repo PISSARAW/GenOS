@@ -80,6 +80,8 @@ function entryFor(kind) {
   if (kind === 'code') return require.resolve('./oracleCodeNativeEntry.cjs');
   if (kind === 'scout') return require.resolve('./oracleScoutNativeEntry.cjs');
   if (kind === 'monitor') return require.resolve('./oracleMonitorNativeEntry.cjs');
+  if (kind === 'credit') return require.resolve('./oracleExternalCreditNativeEntry.cjs');
+  if (kind === 'worker-artifact') return require.resolve('./oracleWorkerArtifactNativeEntry.cjs');
   throw new Error('ORACLE_KIND_UNAVAILABLE');
 }
 

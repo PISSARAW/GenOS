@@ -39,10 +39,20 @@ function validateAccount(mission, account) {
 }
 
 function validHelperRecord({ row, metadata, mission, target }) {
-  return row?.status === 'completed' && row.run_status === 'completed'
+  return ['completed', 'idle'].includes(String(row?.status || '').toLowerCase())
+    && row.run_status === 'completed'
     && row.parent_agent_id === mission.orchestratorAgentId
     && row.workspace_id === target.row.workspace_id
     && metadata.workerKind === 'recovery_worker';
+}
+
+async function hasDurableWorkerCompletion(db, workerId, runId) {
+  const events = await db.all(`SELECT payload_json FROM telemetry_events
+    WHERE agent_id=? AND event_type='AGENT_COMPLETED' ORDER BY rowid DESC LIMIT 20`, workerId);
+  return events.some((event) => {
+    try { return parse(event.payload_json).executionRunId === runId; }
+    catch (_) { return false; }
+  });
 }
 
 function validHelperScope(method, lease, reference) {
@@ -66,7 +76,7 @@ async function recoveryWorker(db, mission, target) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_REQUIRED', 'A completed recovery worker is required.');
   }
   const row = await db.get(`SELECT a.id,a.status,a.parent_agent_id,a.workspace_id,a.metadata_json,
-    r.status AS run_status FROM agents a JOIN strategy_execution_runs r ON r.agent_id=a.id
+    r.id AS run_id,r.status AS run_status FROM agents a JOIN strategy_execution_runs r ON r.agent_id=a.id
     WHERE a.id=? AND r.id=?`, ref.recoveryAgentId, ref.recoveryRunId);
   const metadata = parse(row?.metadata_json);
   const method = metadata.workerContract?.mission?.methodContract;
@@ -74,7 +84,8 @@ async function recoveryWorker(db, mission, target) {
   const input = method?.parameters;
   if (!validHelperRecord({ row, metadata, mission, target })
     || !validHelperScope(method, lease, ref)
-    || !validHelperAccount({ input, lease, mission, target })) {
+    || !validHelperAccount({ input, lease, mission, target })
+    || !await hasDurableWorkerCompletion(db, ref.recoveryAgentId, ref.recoveryRunId)) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Recovery worker run or persisted lease does not match the target.');
   }
   return input;
@@ -104,7 +115,7 @@ async function evidence(db, reference, input) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Native credit evidence is missing.');
   }
   const signed = provider.checkReceipt(receipt, input);
-  const observed = provider.checkObservation(observation, input);
+  const observed = provider.checkHistoricalObservation(observation, input);
   if (!isDeepStrictEqual(signed, await provider.operation(input))
     || !measurementMatches(observed, signed, input)) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Native evidence differs from provider operation.');
@@ -140,6 +151,7 @@ async function ensureExternalFunctional(db, mission) {
   const proof = await evidence(db, target.recovery, input);
   const after = await provider.balance(target.account);
   if (after.accountVersion !== proof.signed.afterVersion
+    || after.balance !== proof.signed.after
     || after.balance < Math.ceil(after.capacity * 0.4)) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Measured balance remains below the functional threshold.');
   }

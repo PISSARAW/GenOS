@@ -312,39 +312,10 @@ async function runArtifactAdapter(antigen, verifier, context) {
    Dispatch vers l'adapter approprié
    ============================================================ */
 
-const ADAPTER_MAP = {
-  test: runTestAdapter,
-  coverage: runCoverageAdapter,
-  behavior: runBehaviorAdapter,
-  artifact: runArtifactAdapter,
-};
-
-const ADAPTER_ALIASES = {
-  testResult: 'test',
-  replay: 'test',
-  counterexample: 'behavior',
-  source: 'behavior',
-  proof: 'artifact',
-  repro: 'artifact',
-  benchmark: 'artifact',
-};
-
 function selectAdapter(verifier) {
-  if (verifier.type === 'code_semantic') return require('./oracleCodeAdapter').runCodeOracle;
-  if (verifier.type === 'procedure_semantic') return require('./oracleProcedureAdapter').runProcedureOracle;
-  if (verifier.type === 'memory_semantic') return require('./oracleMemoryAdapter').runMemoryOracle;
-  if (verifier.type === 'native_method_semantic') return nativeMethodAdapter(verifier);
-  if (verifier.artifact) return runArtifactAdapter;
-  if (verifier.test) return runTestAdapter;
-  if (ADAPTER_MAP[verifier.type]) return ADAPTER_MAP[verifier.type];
-  const aliased = ADAPTER_ALIASES[verifier.type];
-  return (aliased && ADAPTER_MAP[aliased]) || null;
-}
-
-function nativeMethodAdapter(verifier) {
-  const strategy = verifier.strategy?.[0] || '';
-  return strategy.startsWith('monitor_')
-    ? require('./oracleMonitorAdapter').runMonitorOracle : require('./oracleScoutAdapter').runScoutOracle;
+  return require('./verifierAdapterSelection').selectAdapter(verifier, {
+    test: runTestAdapter, coverage: runCoverageAdapter, behavior: runBehaviorAdapter, artifact: runArtifactAdapter
+  });
 }
 
 async function executeVerifierWithAdapter(antigen, verifier, context) {

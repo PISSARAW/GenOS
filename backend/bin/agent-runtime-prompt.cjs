@@ -93,7 +93,7 @@ function buildStrategyBlock(runtimeContract, strategyContract) {
 
 function buildAutonomyBlock(isWorker, autonomyPlan, runtimeAutonomyPlan) {
   if (isWorker || !autonomyPlan.schema) return '';
-  return `Autonomous orchestration plan. Its phases and tools are decision gates, not a mandatory script: choose and invoke only the smallest safe tools justified by current evidence. Record every elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`;
+  return `Autonomous orchestration plan. Execute the required tools for each required phase when its stated preconditions are met. For additional decision gates, use only the smallest safe tools justified by evidence. Record each elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`;
 }
 
 function buildSilenceBlock(isWorker, executionPolicy) {

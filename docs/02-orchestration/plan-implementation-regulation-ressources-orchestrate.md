@@ -1,7 +1,7 @@
 # Plan d'implémentation — régulation avec ressource externe et orchestration complète
 
 - **Type** : plan de réalisation
-- **Statut** : en cours ; lots 0 à 2 implémentés, lots 3 à 5 partiels, lot 6 ouvert
+- **Statut** : en cours ; ressource, supervision et plan natif des 19 types implémentés ; qualification terminale ouverte
 - **Portée** : les 19 types natifs, superviseur et `genos_orchestrate`
 - **Dernière revue** : 2026-10-11
 
@@ -12,12 +12,27 @@ Ce plan réalise les [critères de qualification](qualification-regulation-resso
 Le fournisseur distinct, son ledger conservatif, les preuves signées et la méthode native `replenish_external_quota` sont implémentés. Une sonde ciblée vérifie le refus d'un worker hors plage, la recharge par un vrai `recovery_worker`, la relecture du solde et la reprise supervisée. Elle prépare encore le parent, le helper, les contrats et les runs dans SQLite ; cette réussite **ne valide pas** la planification par `genos_orchestrate` ni la matrice externe 19 × 2. Le coordinateur de récupération automatique, la réconciliation après crash et la qualification de bout en bout par `genos_orchestrate` restent ouverts. Un second incrément ajoute `native_objectives` à `genos_orchestrate` : le catalogue sélectionne le type natif par `methodId`, réserve les tokens et refuse une divergence de type, méthode ou budget au dispatch. Une sonde de plan passe pour les 19 types. La campagne externe ciblée 19 × 2 et son auditeur indépendant passent également (38/38), sous contrats préparés par la sonde. Un essai du vrai CLI a créé un `scout_cell` et exécuté `scan_literal` jusqu'à `AGENT_COMPLETED`, mais le run a ensuite été bloqué par `require_independent_verification` et le parent a expiré faute de modèle local exploitable (`llama-server` absent). Ce trajet reste **non qualifié** au statut terminal.
 Le plan natif réserve maintenant l'identifiant de chaque worker avant sa création et le dispatch refuse un identifiant substitué. Cette identité stable est nécessaire pour lier ensuite le compte externe et la récupération au worker planifié.
 
+## Mise à jour du 11 octobre 2026 — matrice par le vrai CLI
+
+`test_native_orchestrate_external_credit_matrix.cjs` a fait planifier par `genos-orchestrate.cjs` les 19 types natifs et leurs 19 `recovery_worker` dédiés. Pour chaque type, l'audit a validé le run du worker et du helper, l'identité et la méthode scellées, le reçu fournisseur signé, le solde relu à 7/10, l'énergie réglementaire à 0,7, deux vérificateurs indépendants `verified` et un lien durable vers le run de récupération. Le `sub_orchestrator` a également exécuté un enfant persistant. Ces 39 runs sont réels et ont passé leurs contrôles avant la clôture parent.
+
+L'entrée runtime a d'abord dépassé 1 Mio à cause du plan morphogénétique et des dossiers complets. `agentMissionEnvelopeService` transmet maintenant une projection bornée qui conserve le plan natif, les outils requis et les dossiers nécessaires au rapport final. La correction du rapport canonique a éliminé l'erreur de dossiers manquants. L'attestation externe reste vérifiée avec une observation fraîche à l'instant des deux vérifications; sa validité de preuve est étendue à dix minutes pour que la synthèse multi-lots puisse relire un reçu signé durable.
+
+Le rejeu `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-pl7rIg\audit.json` s'arrête encore avant la réussite terminale : le runtime CLI n'a pas émis les appels `genos_snapshot` et `genos_search_failures` imposés à son plan de prévol, et l'invariant parent bloque la mission. Le coverage audit du CLI et les 19 chaînes de workers passent, mais le run du parent est `blocked`; ce rejeu ne constitue donc pas une réussite complète.
+
+### Travail restant pour la réussite complète
+
+1. Rendre les outils MCP de prévol disponibles au runtime du vrai `genos_orchestrate` CLI sur D:, puis prouver leurs reçus durables et leur ordre avant tout dispatch. Le connecteur MCP de la session pointe encore sur C: et refuse le workspace D:; une simple mention dans le prompt ne satisfait pas l'invariant.
+2. Réussir une mission terminale avec les 19 types dans le même parcours : parent, mission, runs et completion gate tous `completed`, homéostasie satisfaite, aucun invariant manquant.
+3. Exécuter deux cycles intégrés par type (38 objectifs autonomes, 38 récupérations planifiées), puis les refus de reçu falsifié, mauvais tenant/mission/worker, budget ou lease insuffisant, rejeu, concurrence et crash/redémarrage après transfert.
+4. Après le branchement MCP, relancer les gates : `python scripts/ci/check_code_quality.py`, `npm test` et `cargo test --workspace`. Ces trois gates passent sur la révision présente; elles ne lèvent pas l'invariant MCP runtime ni ne remplacent la qualification intégrée 19 × 2.
+
 ### Travaux bloquants observés
 
-1. Faire planifier et créer par `genos_orchestrate` le `recovery_worker`, son bail et la référence au run de réparation avant le worker cible. La sonde positive ne doit plus insérer ces objets dans SQLite.
+1. Prévol MCP du parent : rendre `genos_snapshot` et `genos_search_failures` réellement appelables et observables dans le runtime CLI D:, avec reçus durables avant dispatch.
 2. Rendre la récupération durable aux frontières `planned → transfer → receipt → measurement → applied → verified`, avec réconciliation par `operationId` après crash et sans double débit de réserve.
    La réponse HTTP perdue après le transfert est désormais récupérée par lecture signée de `operationId`, et la sonde injecte cette perte. La reprise après crash du backend et la journalisation des frontières restent à faire.
-3. Fournir une vérification indépendante admissible par `require_independent_verification` pour chaque méthode native. Des domaines testés existent maintenant pour `scan_literal`, `monitor_samples` et `subset_sum`, avec run terminé par deux processus vérificateurs ; les autres méthodes restent à couvrir. Le garde de promotion ne doit pas être contourné.
+3. Fournir une vérification indépendante admissible par `require_independent_verification` pour chaque méthode native sélectionnée dans la matrice finale. Des domaines testés existent pour `scan_literal`, `monitor_samples`, `subset_sum` et le reçu d'artefact worker; couvrir toutes les méthodes retenues sans contourner le garde de promotion.
 4. Rendre disponible un exécuteur de synthèse du parent ou une clôture déterministe prouvée pour les missions entièrement natives. L'essai local a expiré après échec de chargement du binaire `llama-server` par Ollama.
 5. Lancer les 38 parcours externes par le véritable outil MCP configuré sur D:, attendre leurs statuts terminaux et auditer plans, contrats, runs, reçus, soldes et registre fournisseur. Le MCP actuellement connecté vise C: et a refusé le mismatch de workspace avant dispatch ; ne pas compter cet essai. Ajouter refus de falsification, mauvaise mission, budget, concurrence et redémarrage.
 ## Choix technique de départ

@@ -87,7 +87,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const plan = options.plan ?? options;
   const mission = options.mission ?? (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
-  validateAssignments(assignments);
+  validateAssignments(assignments, plan);
   const parent = await db.get(
         `SELECT a.id, a.name, a.agent_type, a.execution_mode, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
           a.cognitive_budget, a.cognitive_baseline_budget,
@@ -135,13 +135,7 @@ async function includePersistedWorkers(db, parentId, context) {
   return [...workers, ...rows.filter((worker) => !knownIds.has(worker.agentId))];
 }
 
-function validateAssignments(assignments) {
-  const maximum = workerGarage.maxActiveWorkers();
-  if (!assignments.length) return;
-  if (assignments.length > maximum) {
-    throw Object.assign(new Error(`Autonomous worker fan-out exceeds the ${maximum}-worker limit.`), { code: 'WORKER_FANOUT_LIMIT' });
-  }
-}
+const { validateAssignments } = require('./workerAssignmentValidation');
 
 function buildWorkerContext(context) {
   const { parent, plan, mission, assignments } = context;
@@ -312,7 +306,8 @@ function fleetWorkerContract(details) {
     externalCredit: assignment.externalCredit || mission.externalCredit,
     regulatoryExternalRecovery: assignment.regulatoryExternalRecovery || mission.regulatoryExternalRecovery,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
-    workerTokenLimit: assignedTokens || mission.executionBudget?.tokens
+    workerTokenLimit: assignedTokens || mission.executionBudget?.tokens,
+    delegatedTokenLimit: assignment.delegatedTokenLimit
   });
   if (parent.execution_mode === 'orchestrator') workerKinds.grantBoundedDelegation(contract);
   return contract;
@@ -397,4 +392,4 @@ function splitBudget(value, index, assignments) {
   return Number((base + bonus + extra).toFixed(6));
 }
 
-module.exports = { assignedWorkerId, createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };
+module.exports = { assignedWorkerId, createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity, validateAssignments };

@@ -1,7 +1,7 @@
 'use strict';
 
 const values = require('../trinityProvenanceValues');
-const MAXIMUM = Object.freeze({ executions: 2, latencyMs: 10000 });
+const MAXIMUM = Object.freeze({ executions: 2, latencyMs: 30000 });
 
 function bounded(value, maximum) {
   if (!Number.isSafeInteger(value) || value < 0 || value > maximum) throw values.failure('ORACLE_BUDGET_INVALID');

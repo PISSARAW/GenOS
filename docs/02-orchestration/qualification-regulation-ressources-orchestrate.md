@@ -1,7 +1,7 @@
 # Qualification restante : ressources externes et planification complète
 
 - **Type** : protocole de qualification et liste de travaux
-- **Statut** : à réaliser ; aucune des deux preuves finales n'est acquise
+- **Statut** : en cours ; la reprise externe réelle est vérifiée une fois par type, mais la mission complète `genos_orchestrate` est encore bloquée
 - **Portée** : régulation supervisée des 19 types de workers natifs
 - **Dernière revue** : 2026-10-10
 
@@ -9,7 +9,7 @@ Le [plan de mise en oeuvre](plan-implementation-regulation-ressources-orchestrat
 
 ## État constaté
 
-Le [protocole actuel](regulation-workers-protocole.md) démontre 38 récupérations sur 38 exécutions natives, à raison de deux cycles par type. Le superviseur vérifie le contrat, le run et le reçu d'un `recovery_worker`, le fichier restauré et le checkpoint SQLite avant de restaurer l'état réglementaire simulé. La sonde crée directement parent, mission et contrats. Elle ne passe pas par la planification complète de `genos_orchestrate`.
+Le protocole antérieur couvre la restauration simulée sur 38 exécutions. Le nouveau fournisseur externe séparé, le registre SQLite, les reçus Ed25519, les vérificateurs indépendants et les helpers `recovery_worker` sont maintenant exécutés par le vrai CLI pour chacun des 19 types (une fois chacun). Le run de chaque cible et helper est terminé et vérifié, mais le parent `genos_orchestrate` échoue encore sur les appels MCP de prévol non observés. Le CLI ne prouve donc pas encore une mission terminale réussie ni deux cycles intégrés par type.
 
 | Composant existant | Ce qu'il ne démontre pas |
 | --- | --- |
@@ -117,3 +117,13 @@ Le reçu du scout et celui du monitor emploient une sérialisation canonique des
 | 19 kinds × 2 cycles avec crédit externe et recovery helper planifié | Pas encore exécuté par le parcours complet `genos_orchestrate`. |
 
 Une tentative de `genos_orchestrate` MCP connecté a échoué avant dispatch : son backend pointe sur `C:\Users\Shadow\Documents\GitHub\GenOS`, et le contrôle d’identité a rejeté la différence avec le workspace demandé sur D:. Aucun état du dépôt C: n’a été changé. Cette tentative ne compte pas comme exécution qualifiante. Le CLI sous D: et le parcours MCP avec workspace D: restent à valider.
+
+## Mise à jour du 11 octobre 2026 — matrice native CLI
+
+Le probe `backend/tests/probes/test_native_orchestrate_external_credit_matrix.cjs` utilise le vrai CLI, le vrai planificateur GenOS, les workers de la flotte et un fournisseur HTTP séparé avec ledger SQLite et reçus Ed25519. Dans `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-pl7rIg\audit.json`, les 19 types ont chacun un worker natif réel et un helper de récupération planifié; les 19 helpers et 19 workers sont terminés, les 19 comptes sont à 7/10, l'énergie est à 0,7, les deux vérificateurs indépendants ont `verified`, le registre conserve les crédits, et le sous-orchestrateur a un enfant persistant.
+
+**Verdict : succès des 19 chaînes worker/récupération, mais mission complète refusée.** Le parent n'a pas observé `genos_snapshot` ni `genos_search_failures`; `HARD_INVARIANT_FAILURE` bloque son run et la mission échoue. L'appel d'orchestration et le coverage audit sont visibles, mais ne remplacent pas les reçus MCP de prévol. Le runtime actuel ne dispose pas d'une session MCP configurée pour le workspace D:, tandis que le connecteur de la session pointe sur C:.
+
+La projection d'entrée du runtime élimine maintenant les traces morphogénétiques volumineuses et conserve `nativeMissionPlan`, les outils requis et les dossiers de synthèse. L'entrée mesurée du parent est passée d'environ 1,31 Mio à environ 450 Kio. Le dossier complet est conservé uniquement dans l'état durable GenOS et la synthèse reçoit les dossiers source requis pour compiler son rapport canonique. Les preuves de récupération restent admissibles pendant dix minutes pour la synthèse; les vérificateurs exigent toujours qu'elles aient été observées dans les 30 secondes lors de leur évaluation indépendante.
+
+La dernière campagne CLI couvre **un cycle par type**. Il reste à brancher l'exécution réelle des outils MCP de prévol avant dispatch, réussir le statut terminal `completed` du parent et de la mission, puis exécuter les 19 types × 2 cycles intégrés ainsi que les contrôles négatifs et de reprise après crash/redémarrage. Les critères de [réussite complète](#c-dossier-de-preuve-et-verdict) ne sont donc pas encore tous atteints.

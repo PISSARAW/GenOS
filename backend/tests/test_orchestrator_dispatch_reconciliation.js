@@ -65,7 +65,7 @@ async function assertReservationRollback() {
   };
   try {
     await assert.rejects(() => pipeline.executeWorkerPipeline({
-      db: {},
+      db: { get: async () => null, all: async () => [] },
       orchestratorId: 'root',
       workers: [
         { agentId: 'worker-one', label: 'one', name: 'Worker One', role: 'reviewer' },
