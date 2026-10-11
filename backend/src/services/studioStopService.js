@@ -2,6 +2,7 @@
 
 const state = require('./agentOrchestrationState');
 const { stopVerified } = require('./garageProcessControl');
+const workerGarage = require('./workerGarageService');
 
 function failure(code, message) {
   return Object.assign(new Error(message), { code, status: 409 });
@@ -33,7 +34,7 @@ function validate(rows, options) {
 async function lineage(db, agentId) {
   const rows = await db.all(`WITH RECURSIVE family(id) AS (
     SELECT id FROM agents WHERE id=? UNION SELECT a.id FROM agents a JOIN family f ON a.parent_agent_id=f.id
-  ) SELECT a.id,a.status,a.runtime_pid,w.organization_id,w.project_id FROM family f
+  ) SELECT a.id,a.status,a.execution_mode,a.runtime_pid,w.organization_id,w.project_id FROM family f
     JOIN agents a ON a.id=f.id LEFT JOIN workspaces w ON w.id=a.workspace_id LIMIT 1001`, agentId);
   const ids = new Set(rows.map(row => row.id));
   for (const row of rows) {
@@ -53,7 +54,9 @@ async function stop(db, options) {
       await stopVerified({ db, workerId: row.id, timeoutMs: options.timeoutMs,
         stopMission: id => require('./agentRuntimeAdapter').stopMission(id, { single: true }) });
     } catch (error) { error.status = 409; throw error; }
-    await db.run("UPDATE agents SET status='idle',runtime_pid=NULL,runtime_executable=NULL,runtime_started_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?", row.id);
+    await db.run('UPDATE agents SET runtime_pid=NULL,runtime_executable=NULL,runtime_started_at=NULL WHERE id=?', row.id);
+    if (row.execution_mode === 'worker') await workerGarage.enterIdleState(db, row.id);
+    else await workerGarage.enterOrchestratorIdleState(db, row.id);
   }
   return { confirmed: true, stopped: tracked > 0, agents: rows.map(row => row.id) };
 }
