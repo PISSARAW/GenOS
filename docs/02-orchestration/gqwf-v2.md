@@ -1,8 +1,8 @@
 # GQWF v2 — Racines de fichiers et vues durables
 
-- **Statut** : Partiel — noyau backend, workers autonomes et capture/restauration opt-in des fichiers d'organisme implémentés.
+- **Statut** : Partiel — noyau backend, workers autonomes, promotion Trinity et capture/restauration des fichiers d'organisme disponibles en opt-in.
 - **Portée** : projection de fichiers, overlays, merge, matérialisation, tête versionnée.
-- **Dernière revue** : 2026-10-10.
+- **Dernière revue** : 2026-10-11.
 
 Le noyau [GQWF](../../backend/src/services/gqwf/index.js) ajoute une représentation
 logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../adr/0369-racines-gqwf-et-vues-durables.md).
@@ -24,8 +24,19 @@ exige `expectedHash` et `expectedGeneration`.
 Le verdict de publication doit être lié au workspace, au nom et à la
 génération de la tête, à sa racine précédente et à la racine candidate.
 Les octets de chaque blob sont vérifiés avant le verdict puis avant le CAS.
-Ce durcissement ne fournit pas encore de vérificateur runtime ni de reçu
-indépendant : la promotion générale reste bloquée. Voir l'[ADR 0399](../adr/0399-liaison-recu-promotion-gqwf.md).
+Ce durcissement seul ne fournit pas de vérificateur runtime. La promotion
+générale reste bloquée hors des parcours munis d'une vérification réelle.
+Voir l'[ADR 0399](../adr/0399-liaison-recu-promotion-gqwf.md).
+
+Le parcours Trinity peut désormais demander `executionPolicy.gqwfV2: true`.
+Après les contrôles d'intégration et la vérification de la candidate, GenOS
+importe sa projection de fichiers, inscrit sa racine dans les métadonnées d'un
+objet AgentGit signé, puis déplace une tête `trinity/<expérience>` dans le
+workspace source. La décision Trinity et l'événement de tête sont persistés
+dans la même transaction SQLite. Une signature invalide, un reçu mal lié ou
+des contrôles incomplets bloquent cette tête. Ce parcours ne remplace pas la
+capsule physique et ne généralise pas encore la publication GQWF aux autres
+workers. Voir l'[ADR 0400](../adr/0400-promotion-trinity-gqwf-opt-in.md).
 
 ## Workers physiques et vues durables
 
@@ -43,8 +54,8 @@ une nouvelle tentative. La racine candidate ne modifie aucune tête publiée.
 Les capsules physiques continuent de fournir Git, les dépendances et les outils
 d'exécution. La projection GQWF contient les fichiers admis par la politique de
 snapshot, pas une image complète de l'environnement. Ce raccordement ne
-concerne pas encore les autres points d'entrée workers ni la qualification
-Trinity. Voir l'[ADR 0371](../adr/0371-raccordement-gqwf-aux-capsules-workers.md).
+concerne pas encore les autres points d'entrée workers. La promotion Trinity
+décrite plus haut est un parcours distinct. Voir l'[ADR 0371](../adr/0371-raccordement-gqwf-aux-capsules-workers.md).
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,

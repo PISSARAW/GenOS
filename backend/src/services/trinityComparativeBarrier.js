@@ -115,7 +115,8 @@ async function applyTrinityComparison(ctx) {
   trinity.comparison = buildComparison(result);
   trinity.comparison.synthesizedClaims = synthesizedClaimsFor(result);
   trinity.comparison.promotion = await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId,
-      result, statisticalContract: trinity.statisticalContract || null });
+      result, statisticalContract: trinity.statisticalContract || null,
+      gqwfV2: ctx.normalizedMission?.executionPolicy?.gqwfV2 === true });
   emitComparison(ctx, trinity, result);
   return result;
 }
@@ -157,7 +158,9 @@ async function createMergeArtifact(db, params) {
     targetDir = await workspaceLifecycle.createIsolatedWorkspace(sourceDir, candidateId);
     const contentHash = await prepareCandidateArtifact({ db, targetDir, sourceDir, result });
   const candidateWorkspaceId = await storeCandidateWorkspace({ db, targetDir, result, winnerWorkspace });
-    const artifact = { sourceWorkspace: sourceDir, targetWorkspace: targetDir, candidateWorkspaceId, contentHash,
+    const artifact = { sourceWorkspace: sourceDir, sourceWorkspaceId: winnerWorkspace.id,
+      sourceAgentId: winnerAgent.id,
+      targetWorkspace: targetDir, candidateWorkspaceId, contentHash,
       assemblyReceipt: result.assemblyReceipt || null, worldNumber: result.selectedWorld, role: result.selectedRole, status: 'quarantined' };
     emit(orchestratorId, 'TRINITY_MERGE_ARTIFACT_CREATED', 'MERGE', `Created isolated candidate artifact from World ${result.selectedWorld} (${result.selectedRole}).`, artifact, 'info');
     return artifact;
@@ -324,10 +327,15 @@ async function verifyCandidatePromotion(db, input, { winner, artifact }) {
     const git = require('./agentGitService');
     const gitRequest = { user: { username: 'trinity-runtime' }, body: {} };
     await assertCandidate(artifact, verification.contentHash);
+    const gqwf = input.gqwfV2 === true ? await require('./gqwf/trinityPromotion').prepare(db, artifact) : null;
     const commit = await git.createCommit(gitRequest, {
       agentId: winner.agentId,
       refName: `trinity/${experiment.id}`,
-      metadata: { experimentId: experiment.id, worldNumber: result.selectedWorld, contentHash: verification.contentHash, candidateWorkspaceId: artifact.candidateWorkspaceId, integrationChecks: verification.integrationChecks, claimChecks: verification.claimChecks, assemblyReceipt: artifact.assemblyReceipt }
+      metadata: { experimentId: experiment.id, worldNumber: result.selectedWorld,
+        contentHash: verification.contentHash, candidateWorkspaceId: artifact.candidateWorkspaceId,
+        integrationChecks: verification.integrationChecks, claimChecks: verification.claimChecks,
+        assemblyReceipt: artifact.assemblyReceipt,
+        ...(gqwf ? { gqwfRootHash: gqwf.candidateHash, gqwfWorkspaceId: gqwf.workspaceId } : {}) }
     });
     const stored = await git.getObject(db, gitRequest, commit.id);
     if (!stored || !git.verifyObjectSignature(stored)) throw new Error('AgentGit candidate reference signature is invalid.');
@@ -337,6 +345,10 @@ async function verifyCandidatePromotion(db, input, { winner, artifact }) {
     artifact.agentGit = decision.agentGit;
     const { withTransaction } = require('../db');
     await withTransaction(db, async (tx) => {
+      if (gqwf) decision.gqwf = await require('./gqwf/trinityPromotion').publish(tx, {
+        prepared: gqwf, artifact, experimentId: experiment.id, candidateWorkspaceId: artifact.candidateWorkspaceId,
+        contentHash: verification.contentHash, integrationChecks: verification.integrationChecks,
+        claimsCoveredByChecks: verification.claimsCoveredByChecks, objectId: commit.id, agentId: winner.agentId });
       await updateWorldStatuses(tx, result, winner);
       await tx.run("UPDATE trinity_worlds SET status = 'promoted', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
       await tx.run(
