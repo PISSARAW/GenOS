@@ -77,6 +77,49 @@ async function testCaptureAndForget(db) {
   assert(!recent.some((episode) => episode.id === old.id), 'forgotten episodes must not surface in recall');
 }
 
+async function testUnverifiedAndBlockedEvents(db) {
+  const invalid = await captureTelemetryEvent({ id: 'unverified-report', eventType: 'EVIDENCE_REPORT',
+    agentId: 'blocked_agent', timestamp: new Date().toISOString(),
+    payload: { evidenceReport: { outcome: 'success', workerArtifact: { type: 'dossier' } } } }, db);
+  assert.equal(invalid, null, 'a self-declared report must not count as validated evidence');
+  const blockedEvent = (id) => ({ id, eventType: 'AGENT_FAILED', agentId: 'blocked_agent',
+    timestamp: new Date().toISOString(), payload: { missionId: id,
+      failure: { code: 'ORACLE_DOMAIN_UNAVAILABLE', reason: 'ORACLE_DOMAIN_UNAVAILABLE' } } });
+  const first = await captureTelemetryEvent(blockedEvent('oracle-block-1'), db);
+  const duplicate = await captureTelemetryEvent(blockedEvent('oracle-block-1'), db);
+  assert.equal(first.id, duplicate.id, 'repeated telemetry must not produce duplicate episodes');
+  assert.equal(first.outcome.status, 'blocked');
+  await captureTelemetryEvent(blockedEvent('oracle-block-2'), db);
+  await captureTelemetryEvent({ ...blockedEvent('oracle-budget-1'),
+    payload: { failure: { code: 'ORACLE_BUDGET_EXPIRED' } } }, db);
+  const lessons = await lessonService.consolidateLessons({ agentId: 'blocked_agent' }, db);
+  assert.equal(lessons.length, 0, 'unsupported oracle domains must not teach a failed worker strategy');
+  for (const [index, status] of ['success', 'failed'].entries()) {
+    await episodeStore.recordEpisode({ agentId: 'contradictory_agent', missionId: `contrast-${index}`,
+      kind: 'bounded_worker', salience: 0.7, situation: { goal: 'repeat task' },
+      decision: { selectedStrategy: 'same_method' }, outcome: { status } }, db);
+  }
+  assert.equal((await lessonService.consolidateLessons({ agentId: 'contradictory_agent' }, db)).length,
+    0, 'one success and one failure cannot establish a reusable lesson');
+  for (const index of [1, 2]) await episodeStore.recordEpisode({
+    agentId: 'tenant-agent', missionId: `tenant-${index}`, kind: 'strategy_change', salience: 0.8,
+    organizationId: 'org-a', projectId: 'project-a', situation: { goal: 'tenant task' },
+    decision: { selectedStrategy: 'verified_method' }, outcome: { status: 'success' }
+  }, db);
+  await lessonService.consolidateLessons({ agentId: 'tenant-agent' }, db);
+  assert.equal((await lessonService.getLessons({ agentId: 'tenant-agent',
+    organizationId: 'org-a', projectId: 'project-a' }, db)).length, 1);
+  assert.equal((await lessonService.getLessons({ agentId: 'tenant-agent',
+    organizationId: 'org-b', projectId: 'project-b' }, db)).length, 0);
+  for (const index of [1, 2]) await episodeStore.recordEpisode({
+    agentId: 'legacy-worker', missionId: `unverified-${index}`, kind: 'bounded_worker',
+    salience: 0.8, situation: { goal: 'unverified task' },
+    decision: { selectedStrategy: 'claimed_success' }, outcome: { status: 'success' }
+  }, db);
+  assert.equal((await lessonService.consolidateLessons({ agentId: 'legacy-worker' }, db)).length,
+    0, 'old worker success labels without accepted mission provenance must stay audit-only');
+}
+
 async function testLessonConsolidationAndRecall(db) {
   const baseEpisode = (status, i) => ({
     agentId: 'orchestrator_01',
@@ -98,7 +141,7 @@ async function testLessonConsolidationAndRecall(db) {
   assert.equal(lesson.recommendedAction, 'reuse_strategy_first');
   assert(lesson.confidence > 0.5 && lesson.confidence <= 0.95);
 
-  const stored = await lessonService.getLessons({ scope: 'strategy_change' }, db);
+  const stored = await lessonService.getLessons({ agentId: 'orchestrator_01', scope: 'strategy_change' }, db);
   assert(stored.some((l) => l.id === lesson.id), 'consolidated lesson must be persisted and retrievable');
 
   const recall = await recallService.recallForSituation(
@@ -109,7 +152,9 @@ async function testLessonConsolidationAndRecall(db) {
   assert(recall.episodes.length > 0, 'recall must surface relevant prior episodes');
   assert(recall.lessons.length > 0, 'recall must surface relevant lessons');
   assert(recall.summary.includes('Autobiographical recall'));
-  assert(recall.adjustments.confidenceBoost > 0, 'a reuse lesson must boost confidence rather than restrict it');
+  assert.equal(recall.adjustments.riskDelta, 0.05, 'validated repeated success raises bounded risk tolerance');
+  const otherAgent = await lessonService.getLessons({ agentId: 'untrained-worker', scope: 'strategy_change' }, db);
+  assert.equal(otherAgent.length, 0, 'another agent must not inherit an autobiographical lesson implicitly');
 }
 
 async function run() {
@@ -120,6 +165,7 @@ async function run() {
     testSalience();
     await testPerceptionMemoryLoop(db);
     await testCaptureAndForget(db);
+    await testUnverifiedAndBlockedEvents(db);
     await testLessonConsolidationAndRecall(db);
     console.log('Autobiographical memory: salience, capture, forgetting, lesson consolidation and recall passed.');
   } finally {

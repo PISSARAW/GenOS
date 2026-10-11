@@ -36,7 +36,7 @@ function validateExpectedRefusals(kind, contract) {
 
 async function seedParent(options) {
   const { db, parentId, workspaceId, workspaceRoot, kind, runId } = options;
-  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1' && kind === 'sub_orchestrator') {
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1') {
     const organizationId = `compliance-org-${runId}`;
     const projectId = `compliance-project-${runId}`;
     await db.run('INSERT OR IGNORE INTO organizations (id,name) VALUES (?,?)', organizationId, organizationId);
@@ -147,18 +147,40 @@ function additionalComplianceMethod(kind) {
 
 async function validateMission(context) {
   const { db, worker, metadata, parentId, kind, scenario, execution } = context;
-  const { agent, report, eventPayload } = await readWorkerOutcome(db, worker.agentId);
+  const { agent, report, eventPayload, executionRun } = await readWorkerOutcome(db, worker.agentId);
   const artifactValidationError = validateArtifactForMission(report, worker.agentId, metadata.workerContract);
   const expected = kinds.kindDefinition(kind).artifact;
-  const artifact = report?.workerArtifact?.type || null;
-  const correctReference = correctMissionReference(kind, report, scenario);
+  const artifact = report?.workerArtifact?.type ?? null;
+  const correctReference = hasCorrectReference(kind, report, scenario);
   const refusalsValidated = validateExpectedRefusals(kind, metadata.workerContract);
-  const persistedContract = metadata.workerKind === kind && metadata.workerContract.identity.workerKind === kind;
+  const persistedContract = metadata.workerKind === kind
+    && metadata.workerContract.identity.workerKind === kind;
   const parentBound = metadata.workerContract.identity.parentId === parentId;
   const runtimeStarted = Boolean(execution);
-  const passed = successfulOutcome({ agent, report, artifact, expected, correctReference, refusalsValidated, persistedContract, parentBound, runtimeStarted });
+  const passed = successfulOutcome({ executionRun, report, artifact, expected, correctReference,
+    refusalsValidated, persistedContract, parentBound, runtimeStarted });
   const errorCode = execution?.errorCode;
-  return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, errorCode, expectedUnavailable: expectedUnavailable(kind, errorCode), error: passed ? null : artifactValidationError || execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
+  return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId,
+    persistedContract, parentBound, runtimeStarted, status: agent.status,
+    executionStatus: executionRun?.status ?? null, outcome: report?.outcome ?? null,
+    expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference,
+    refusalsValidated, stageTimings: eventPayload.stageTimings ?? {},
+    artifactDiagnostics: eventPayload.workerArtifactDiagnostics ?? null, passed, errorCode,
+    expectedUnavailable: expectedUnavailable(kind, errorCode), error: passed ? null
+      : firstMessage(artifactValidationError, execution?.error,
+        executionRun?.guardrail_reason, report?.error) };
+}
+
+function firstMessage(...values) {
+  return values.find(Boolean) ?? 'Positive evidence or expected refusal scenarios did not satisfy the contract.';
+}
+
+function hasCorrectReference(kind, report, scenario) {
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL !== '1') {
+    return correctMissionReference(kind, report, scenario);
+  }
+  const refs = report?.workerArtifact?.provenance?.sourceRefs;
+  return Array.isArray(refs) && refs.length > 0;
 }
 
 function correctMissionReference(kind, report, scenario) {
@@ -246,9 +268,12 @@ function validateArtifactForMission(report, workerId, workerContract) {
 
 async function readWorkerOutcome(db, workerId) {
   const agent = await db.get('SELECT status FROM agents WHERE id = ?', workerId);
-  const row = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','AGENT_COMPLETED','AGENT_FAILED','AGENT_HALTED') ORDER BY id DESC LIMIT 1", workerId);
-  const event = row ? JSON.parse(row.payload_json) : null;
-  return { agent, report: event ? extractEvidenceReport(event) : null, eventPayload: event?.payload || event || {} };
+  const evidence = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1", workerId);
+  const terminal = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('AGENT_COMPLETED','AGENT_FAILED','AGENT_HALTED') ORDER BY id DESC LIMIT 1", workerId);
+  const executionRun = await db.get('SELECT status, guardrail_reason FROM strategy_execution_runs WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1', workerId);
+  const event = terminal ? JSON.parse(terminal.payload_json) : null;
+  return { agent, executionRun, report: evidence ? extractEvidenceReport(JSON.parse(evidence.payload_json)) : null,
+    eventPayload: event?.payload || event || {} };
 }
 
 function hasFixtureReference(report, sourceRef) {
@@ -257,7 +282,7 @@ function hasFixtureReference(report, sourceRef) {
 
 function successfulOutcome(result) {
   return result.persistedContract && result.parentBound && result.runtimeStarted
-    && result.agent.status === 'completed' && result.report?.outcome === 'success'
+    && result.executionRun?.status === 'completed' && result.report?.outcome === 'success'
     && result.artifact === result.expected && result.correctReference && result.refusalsValidated;
 }
 
@@ -277,11 +302,15 @@ async function runOne({ runId, kind }) {
   const workspaceId = `compliance-workspace-${runId}-${kind}`;
   const parentId = `compliance-parent-${runId}-${kind}`;
   const db = await getDatabase(process.env.GENOS_DB_PATH);
+  const telemetry = require('../src/services/telemetryObserver');
+  const autobiography = require('../src/services/autobiographicalMemory/captureService');
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1') autobiography.attachAutobiographicalCapture(telemetry);
   let context = null;
   let execution = null;
   try {
     context = await createWorkerContext({ db, parentId, workspaceId, rootWorkspace, kind, model, runId });
-    execution = await executeWorkerMission(context);
+    execution = await require('./helpers/workerComplianceRepetitions.cjs').run({
+      context, telemetry, autobiography, executeWorkerMission });
     const result = await validateMission({ ...context, db, execution });
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -292,7 +321,10 @@ async function runOne({ runId, kind }) {
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.expectedUnavailable) process.exitCode = 1;
   } finally {
-    await require('../src/services/telemetryObserver').flush(5000).catch(() => undefined);
+    await telemetry.flush(5000).catch(() => undefined);
+    await autobiography.flushAutobiographicalCapture();
+    if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1') autobiography.detachAutobiographicalCapture(telemetry);
+    await require('../src/services/garageRuntimeService').stop(db);
     await closeDatabase();
   }
 }

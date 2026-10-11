@@ -34,17 +34,25 @@ async function measure(db, row) {
   const completed = await latestEvent(db, row.id, 'AGENT_COMPLETED');
   const failed = await latestEvent(db, row.id, 'AGENT_FAILED');
   const episodes = await db.get('SELECT COUNT(*) AS n FROM autobiographical_episodes WHERE agent_id = ?', row.id);
+  const lessons = await db.get('SELECT COUNT(*) AS n FROM autobiographical_lessons WHERE agent_id = ? AND active = 1', row.id);
+  const runs = await db.get('SELECT COUNT(*) AS n FROM strategy_execution_runs WHERE agent_id = ?', row.id);
+  const missionRecall = await latestEvent(db, row.id, 'AUTOBIOGRAPHICAL_RECALL_COMPLETED');
+  const missionRecallPayload = parsed(missionRecall?.payload_json);
   const scope = await db.get(`SELECT w.organization_id AS organizationId, w.project_id AS projectId
     FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, row.id);
   const plan = { selfModel: { decisionPolicy: { riskTolerance: 0.5, evidenceStrictness: 0.5 },
     limits: {}, state: { confidence: 0.5 } } };
   const recall = await recallBeforePlanning({ db, agentId: row.id,
-    normalizedMission: { prompt: 'Analyze the assigned synthetic fixture again.', kind: 'mission_end',
+    normalizedMission: { prompt: metadata.workerContract?.mission?.objective || '',
+      workerKind: metadata.workerKind, workerContract: metadata.workerContract,
       organizationId: scope?.organizationId || undefined, projectId: scope?.projectId || undefined },
     autonomyPlan: plan });
   return { kind: metadata.workerKind, workerId: row.id, status: row.status,
     artifact: verifiedArtifact(evidence, agent), nativeCompletedEvent: Boolean(completed),
-    finalFailure: failed?.detail || null, episodesPersisted: episodes.n,
+    finalFailure: failed?.detail || null, runsObserved: runs.n, episodesPersisted: episodes.n,
+    lessonsPersisted: lessons.n, missionRecall: missionRecallPayload,
+    missionPolicyChanged: ['riskTolerance', 'evidenceStrictness'].some((key) =>
+      missionRecallPayload.policyBefore?.[key] !== missionRecallPayload.policyAfter?.[key]),
     lessonsRecalled: recall.lessons.length, policyAfterRestart: plan.selfModel.decisionPolicy };
 }
 

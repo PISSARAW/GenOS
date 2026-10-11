@@ -175,7 +175,9 @@ const suites = {
     ['native forensic', 'test_deterministic_worker_forensic.js'],
     ['native scout', 'test_deterministic_worker_scout.js'],
     ['native teaching', 'test_deterministic_worker_teaching.js'],
-    ['bounded sub-orchestration dispatch', 'test_sub_orchestrator_dispatch.js']
+    ['bounded sub-orchestration dispatch', 'test_sub_orchestrator_dispatch.js'],
+    ['autobiographical worker memory boundaries', 'test_autobiographical_memory.js'],
+    ['individual recall policy', 'test_autobiographical_orchestrator_recall.js']
   ],
   epistemicScheduler: [
     ['active task fingerprints', 'test_epistemic_scheduler_active_registry.js'],

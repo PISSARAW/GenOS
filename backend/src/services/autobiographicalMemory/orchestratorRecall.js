@@ -11,14 +11,20 @@ function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, Number(value) || 0));
 }
 
+function firstValue(...values) {
+  return values.find(Boolean);
+}
+
 function buildSituation({ agentId, normalizedMission }) {
+  const workerGoal = normalizedMission.workerKind
+    ? normalizedMission.workerContract?.mission?.objective : undefined;
   return {
     agentId,
-    organizationId: normalizedMission.organizationId || normalizedMission.organization_id,
-    projectId: normalizedMission.projectId || normalizedMission.project_id,
-    missionId: normalizedMission.missionId || normalizedMission.executionRunId || normalizedMission.runId,
-    kind: normalizedMission.autobiographicalKind || normalizedMission.kind,
-    goal: normalizedMission.prompt || normalizedMission.currentTask || normalizedMission.goal || ''
+    organizationId: firstValue(normalizedMission.organizationId, normalizedMission.organization_id),
+    projectId: firstValue(normalizedMission.projectId, normalizedMission.project_id),
+    missionId: firstValue(normalizedMission.missionId, normalizedMission.executionRunId, normalizedMission.runId),
+    kind: firstValue(normalizedMission.autobiographicalKind, normalizedMission.workerKind, normalizedMission.kind),
+    goal: firstValue(workerGoal, normalizedMission.prompt, normalizedMission.currentTask, normalizedMission.goal, '')
   };
 }
 
@@ -127,6 +133,7 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
   try {
     const recall = await recallForSituation(buildSituation({ agentId, normalizedMission }), {}, db);
     const adjustments = boundedAdjustments(recall.adjustments);
+    const policyBefore = { ...(autonomyPlan.selfModel?.decisionPolicy || {}) };
     recall.recalled = true;
     autonomyPlan.autobiographicalRecall = recall;
     attachRecallContext(normalizedMission, recall);
@@ -147,6 +154,8 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
       episodeCount: recall.episodes.length,
       lessonCount: recall.lessons.length,
       adjustments,
+      policyBefore,
+      policyAfter: { ...(autonomyPlan.selfModel?.decisionPolicy || {}) },
       integration: autonomyPlan.integrationProxy?.status || 'unavailable'
     } });
     emitRecall({ agentId, eventType: 'AUTOBIOGRAPHICAL_ADJUSTMENTS_APPLIED', detail: 'Bounded autobiographical adjustments were applied to the decision policy.', payload: { adjustments } });
