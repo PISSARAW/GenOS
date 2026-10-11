@@ -27,7 +27,8 @@ function startProvider() {
     child = spawn(process.execPath, [providerFile], { cwd: root, windowsHide: true,
       env: { ...process.env, GENOS_CREDIT_PROVIDER_DB: dbPath,
         GENOS_CREDIT_PROVIDER_KEY_PATH: privatePath, GENOS_CREDIT_PROVIDER_TOKEN: token,
-        GENOS_CREDIT_PROVIDER_INITIAL: '1000' } });
+        GENOS_CREDIT_PROVIDER_INITIAL: '1000',
+        GENOS_CREDIT_PROVIDER_DROP_TRANSFER_ONCE: '1' } });
     let buffer = '';
     let errors = '';
     child.stderr.on('data', (chunk) => { errors += chunk.toString(); });
@@ -84,6 +85,8 @@ async function main() {
     const native = await registry.executeNativeWorker('recovery_worker', method,
       { mission, deadline: Date.now() + 30000 });
     assert.equal(native.evidenceReport.outcome, 'success');
+    assert.equal(fs.readFileSync(dbPath + '.dropped-response', 'utf8'), input.operationId);
+    assert.equal((await adapter.operation(input)).operationId, input.operationId);
     const first = { receipt: native.output.creditReceipt,
       observation: native.output.creditObservation };
     assert.equal(adapter.checkObservation(first.observation, input).balance, 7);
@@ -119,7 +122,8 @@ async function main() {
     await stopProvider();
     await assert.rejects(adapter.balance(account), { code: 'EXTERNAL_CREDIT_UNAVAILABLE' });
     process.stdout.write(JSON.stringify({ schema: 'genos.external-credit-probe/v1',
-      output: root, conserved: true, idempotent: true, restart: true, concurrent: true }) + '\n');
+      output: root, conserved: true, idempotent: true, restart: true, concurrent: true,
+      lostResponseReconciled: true }) + '\n');
   } finally {
     await stopProvider();
   }

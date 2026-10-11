@@ -14,6 +14,7 @@ Le fournisseur distinct, son ledger conservatif, les preuves signées et la mét
 
 1. Faire planifier et créer par `genos_orchestrate` le `recovery_worker`, son bail et la référence au run de réparation avant le worker cible. La sonde positive ne doit plus insérer ces objets dans SQLite.
 2. Rendre la récupération durable aux frontières `planned → transfer → receipt → measurement → applied → verified`, avec réconciliation par `operationId` après crash et sans double débit de réserve.
+   La réponse HTTP perdue après le transfert est désormais récupérée par lecture signée de `operationId`, et la sonde injecte cette perte. La reprise après crash du backend et la journalisation des frontières restent à faire.
 3. Fournir une vérification indépendante admissible par `require_independent_verification` pour chaque méthode native. Le `scout_cell` observé a terminé sa méthode puis son run est passé à `blocked` faute de cette preuve ; le garde de promotion ne doit pas être contourné.
 4. Rendre disponible un exécuteur de synthèse du parent ou une clôture déterministe prouvée pour les missions entièrement natives. L'essai local a expiré après échec de chargement du binaire `llama-server` par Ollama.
 5. Lancer les 38 parcours externes par le véritable outil MCP, attendre leurs statuts terminaux et auditer plans, contrats, runs, reçus, soldes et registre fournisseur. Ajouter refus de falsification, mauvaise mission, budget, concurrence et redémarrage.

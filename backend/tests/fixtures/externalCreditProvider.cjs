@@ -16,6 +16,7 @@ const privateKey = fs.readFileSync(keyPath);
 const db = new sqlite3.Database(dbPath);
 db.configure('busyTimeout', 5000);
 let queue = Promise.resolve();
+let dropTransferOnce = process.env.GENOS_CREDIT_PROVIDER_DROP_TRANSFER_ONCE === '1';
 const run = (sql, values = []) => new Promise((resolve, reject) => db.run(sql, values, function done(error) {
   if (error) reject(error); else resolve({ changes: this.changes });
 }));
@@ -181,6 +182,14 @@ const ROUTES = Object.freeze({
   'GET /balance': observation, 'GET /operation': operation, 'GET /ledger': ledger
 });
 
+function dropTransferResponse(req, body) {
+  if (!dropTransferOnce || req.method !== 'POST' || req.url !== '/transfer') return false;
+  dropTransferOnce = false;
+  fs.writeFileSync(dbPath + '.dropped-response', body.operationId);
+  req.socket.destroy();
+  return true;
+}
+
 async function route(req, body) {
   const url = new URL(req.url, 'http://127.0.0.1');
   const input = req.method === 'GET' ? Object.fromEntries(url.searchParams) : body;
@@ -205,6 +214,7 @@ async function handle(req, res) {
     }
     const body = raw ? JSON.parse(raw) : {};
     const result = await route(req, body);
+    if (dropTransferResponse(req, body)) return;
     res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(result));
   } catch (error) {
     res.writeHead(409, { 'content-type': 'application/json' })

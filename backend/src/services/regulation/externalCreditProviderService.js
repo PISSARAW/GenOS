@@ -99,7 +99,13 @@ function checkReceipt(signed, input) {
 }
 
 async function transfer(input) {
-  const receipt = await request('/transfer', input, 'POST');
+  let receipt;
+  try {
+    receipt = await request('/transfer', input, 'POST');
+  } catch (error) {
+    if (error.code !== 'EXTERNAL_CREDIT_UNAVAILABLE') throw error;
+    receipt = await request('/operation', { operationId: input.operationId });
+  }
   const value = checkReceipt(receipt, input);
   const signedObservation = await request('/balance', input);
   const observed = checkObservation(signedObservation, input);
