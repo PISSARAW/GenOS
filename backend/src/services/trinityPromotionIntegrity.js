@@ -24,7 +24,8 @@ function promotionRecord(experiment, decision) {
   return { promoted: experiment.status === 'promoted', idempotent: true,
     reason: decision.reason || experiment.failure_reason || null, worldNumber: decision.worldNumber,
     jury: decision.jury || null, artifact: decision.artifact || decision.candidateArtifact || null,
-    verification: decision.verification || null, agentGit: decision.agentGit || null };
+    verification: decision.verification || null, agentGit: decision.agentGit || null,
+    gqwf: decision.gqwf || null };
 }
 
 async function assertSignedReference(db, result) {
@@ -33,6 +34,22 @@ async function assertSignedReference(db, result) {
   const metadata = JSON.parse(object?.metadata_json || '{}');
   if (!object || !git.verifyObjectSignature(object) || metadata.contentHash !== result.verification.contentHash) {
     throw Object.assign(new Error('Trinity signed reference is missing or changed.'), { code: 'TRINITY_PROMOTION_SIGNATURE_INVALID' });
+  }
+  if (result.gqwf) await assertGqwfReference(db, { result, object, metadata });
+}
+
+async function assertGqwfReference(db, context) {
+  const { result, object, metadata } = context;
+  const workspaceId = metadata.gqwfWorkspaceId;
+  const name = `trinity/${metadata.experimentId}`;
+  const head = await db.get('SELECT root_hash, generation FROM gqwf_heads WHERE workspace_id = ? AND name = ?', workspaceId, name);
+  const event = await db.get(`SELECT root_hash, evidence_id FROM gqwf_head_events
+    WHERE workspace_id = ? AND name = ? AND generation = ?`, workspaceId, name, result.gqwf.generation);
+  if (head?.root_hash !== result.gqwf.rootHash || head.generation !== result.gqwf.generation
+    || event?.root_hash !== metadata.gqwfRootHash || event.evidence_id !== object.id
+    || result.gqwf.evidenceId !== object.id) {
+    throw Object.assign(new Error('Trinity GQWF promoted head or evidence changed.'),
+      { code: 'TRINITY_PROMOTION_GQWF_INVALID' });
   }
 }
 module.exports = { assertCandidate, previousPromotion };
