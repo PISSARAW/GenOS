@@ -84,7 +84,6 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   if (!circuit.allowed) {
     throw new Error(`Worker deployment rejected: ${circuit.message}`);
   }
-  
   const plan = options.plan ?? options;
   const mission = options.mission ?? (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
@@ -100,7 +99,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const usedNames = [];
   const workers = [];
   const workerIds = assignments.map((assignment, index) => assignedWorkerId(assignment, { orchestratorId: orchestrator.id, index,
-    teamRunId: plan.aTeam?.teamRun?.teamRunId, delegationOrdinal: plan.delegationOrdinal }));
+    teamRunId: plan.aTeam?.teamRun?.teamRunId, delegationOrdinal: plan.delegationOrdinal, nativeMissionPlan: Boolean(plan.nativeMissionPlan) }));
   try {
     for (const [index, assignment] of assignments.entries()) {
       const typedAssignment = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
@@ -118,6 +117,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
 
 function assignedWorkerId(assignment, context) {
   if (Number.isSafeInteger(context.delegationOrdinal) && context.delegationOrdinal > 0) return `${context.orchestratorId}-d${context.delegationOrdinal}`;
+  if (context.nativeMissionPlan && assignment.workerId) return assignment.workerId;
   if (context.teamRunId && assignment.workerId) return assignment.workerId;
   return autonomousWorkerId(context.orchestratorId, context.index + 1);
 }

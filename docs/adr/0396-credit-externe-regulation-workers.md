@@ -18,6 +18,7 @@ L'ADR 0395 restaure un snapshot régulatoire simulé à partir d'un checkpoint v
 4. Le `recovery_worker` possède une méthode `replenish_external_quota` distincte de `restore_checkpoint`. Son résultat est admissible seulement si contrat, run, reçu signé, observation fraîche et identité du worker cible concordent.
 5. L'énergie liée au crédit est dérivée du solde externe divisé par la capacité du compte. Les autres variables conservent leurs capteurs. Un état interne prétendument sain ne peut contourner une mesure externe insuffisante.
 6. La voie `checkpoint_restore` existante demeure typée et séparée. Les missions sans contrat de crédit externe utilisent encore la politique de l'ADR 0395. Une mission à crédit externe échoue fermée si le fournisseur, la preuve ou la mesure manque.
+7. Pour une mission à objectifs natifs, le plan réserve l'identifiant opaque de chaque worker avant sa création. Le dispatch compare la liste exécutée au digest du plan, puis vérifie identifiant, type, méthode et budget. Cette identité scellée pourra lier le compte externe et le bail de récupération au worker cible ; le helper automatique reste à implémenter.
 
 ## Conséquences
 

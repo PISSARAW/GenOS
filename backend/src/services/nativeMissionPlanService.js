@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const registry = require('./agents/workerExecutorRegistry');
 const kinds = require('./agents/workerKindService');
 const { buildAllocation } = require('./tokenAllocationService');
+const { autonomousWorkerId } = require('./agentRoundService');
 
 function invalid(code, message) {
   return Object.assign(new Error(message), { code });
@@ -19,7 +20,7 @@ function selectKind(methodId) {
   return matches[0].kind;
 }
 
-function assignmentFor(objective, index) {
+function assignmentFor(objective, index, parentId) {
   const method = objective?.methodContract;
   if (typeof objective?.goal !== 'string' || !objective.goal.trim()
     || method?.version !== 1 || typeof method.methodId !== 'string'
@@ -29,7 +30,8 @@ function assignmentFor(objective, index) {
   const workerKind = selectKind(method.methodId);
   registry.assertNativeInput(workerKind, method);
   const capabilities = kinds.requiredMethodCapabilities(method);
-  return { label: `native-objective-${index + 1}`, hypothesis: objective.goal,
+  return { label: `native-objective-${index + 1}`,
+    workerId: autonomousWorkerId(parentId, index + 1), hypothesis: objective.goal,
     role: workerKind, workerKind, methodContract: method, capabilities,
     rationale: `Unique native executor for ${method.methodId}.`,
     successCriteria: objective.successCriteria, modelTier: 'standard',
@@ -50,24 +52,44 @@ function allocationFor(plan, count) {
   return rounds;
 }
 
+function assertParentId(mission) {
+  if (typeof mission.agentId !== 'string' || !mission.agentId.trim()) {
+    throw invalid('NATIVE_OBJECTIVE_PARENT_REQUIRED', 'A persisted orchestrator identity is required.');
+  }
+}
+
+function planDigest(assignments) {
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(assignments)).digest('hex')}`;
+}
+
+function assertNativePlanDigest(plan) {
+  const sealed = plan?.nativeMissionPlan;
+  if (!sealed) return;
+  const selected = plan.dispatchWorkers;
+  if (!Array.isArray(selected) || selected.length !== sealed.selected
+    || planDigest(selected) !== sealed.digest || planDigest(sealed.assignments) !== sealed.digest) {
+    throw invalid('NATIVE_OBJECTIVE_PLAN_CHANGED', 'Native dispatch assignments differ from the selected plan.');
+  }
+}
+
 function applyNativeMissionPlan(plan, mission) {
   const objectives = mission.native_objectives || mission.nativeObjectives;
   if (objectives === undefined) return plan;
   if (!Array.isArray(objectives) || !objectives.length || objectives.length > 19) {
     throw invalid('NATIVE_OBJECTIVE_INVALID', 'Provide between 1 and 19 native objectives.');
   }
+  assertParentId(mission);
   if (plan.trinity?.activated || plan.aTeam?.activated) {
     throw invalid('NATIVE_OBJECTIVE_TOPOLOGY_CONFLICT', 'Native objectives cannot override an active team topology.');
   }
-  const selected = objectives.map(assignmentFor);
+  const selected = objectives.map((objective, index) => assignmentFor(objective, index, mission.agentId));
   const rounds = allocationFor(plan, selected.length);
   plan.workers = selected;
   plan.dispatchWorkers = selected;
   plan.tokenPolicy.rounds = rounds;
-  const digest = crypto.createHash('sha256').update(JSON.stringify(selected)).digest('hex');
   plan.nativeMissionPlan = { schema: 'genos.native-mission-plan/v1',
     requested: objectives.length, selected: selected.length,
-    digest: `sha256:${digest}`, assignments: selected };
+    digest: planDigest(selected), assignments: selected };
   if (mission.agentId) require('./agentOrchestrationState').emit(mission.agentId,
     'NATIVE_MISSION_PLAN_SELECTED', 'PLAN_NATIVE_WORKERS',
     'Selected native worker kinds and methods from mission objectives.',
@@ -75,4 +97,4 @@ function applyNativeMissionPlan(plan, mission) {
   return plan;
 }
 
-module.exports = { applyNativeMissionPlan, selectKind };
+module.exports = { applyNativeMissionPlan, assertNativePlanDigest, selectKind };

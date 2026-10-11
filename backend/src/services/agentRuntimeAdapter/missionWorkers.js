@@ -174,6 +174,7 @@ function registerAutonomousRound(ctx, autonomousWorkers) {
 
 async function orchestrateAutonomousWorkers(ctx) {
   if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return [];
+  require('../nativeMissionPlanService').assertNativePlanDigest(ctx.autonomyPlan);
   const requested = Array.isArray(ctx.autonomyPlan?.dispatchWorkers) ? ctx.autonomyPlan.dispatchWorkers : [];
   let assignments = capAssignments(requested, ctx);
   if (ctx.autonomyPlan?.nativeMissionPlan && assignments.length !== requested.length) {
@@ -185,6 +186,7 @@ async function orchestrateAutonomousWorkers(ctx) {
     return [];
   }
   const bound = bindDispatchAssignments(ctx.autonomyPlan, assignments);
+  require('../nativeMissionPlanService').assertNativePlanDigest(ctx.autonomyPlan);
   assignments = bound.assignments;
   if (bound.binding) {
     emit(ctx.agentId, 'MORPHOGENESIS_MISSION_DISPATCH_BOUND', 'DISPATCH_WORKERS',
@@ -306,7 +308,8 @@ function linkWorker(member, workers) {
 function assertNativeDispatch(assignments, workers, plan) {
   const expectedTokens = plan.tokenPolicy?.rounds?.initial?.workerTokens || [];
   const mismatch = assignments.some((assignment, index) =>
-    workers[index]?.workerKind !== assignment.workerKind
+    workers[index]?.agentId !== assignment.workerId
+    || workers[index]?.workerKind !== assignment.workerKind
     || !isDeepStrictEqual(workers[index]?.methodContract, assignment.methodContract)
     || workers[index]?.executionBudget?.tokens !== expectedTokens[index]);
   if (mismatch) {
