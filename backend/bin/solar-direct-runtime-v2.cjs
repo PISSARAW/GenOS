@@ -18,6 +18,7 @@ const agentMemory = require('../src/services/agentMemoryContext');
 const path = require('path');
 const fs = require('fs');
 const solarTools = require('./solar-tool-runtime.cjs');
+const { writeArtifact } = require('./solarDirectFileActuator.cjs');
 
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
@@ -102,11 +103,13 @@ async function runMission(state, services) {
     });
     validateGeneration(reply, state);
     writeArtifacts(reply, state);
+    await require('../src/services/runtimeFileWriteIpc').flush();
     await runPostPipeline(services, state, reply);
     guardCompletionBudget(state);
     emitCompletion(state, reply);
     process.exit(0);
   } catch (e) {
+    await require('../src/services/runtimeFileWriteIpc').flush().catch(() => {});
     emitFailure(state, e);
     process.exit(1);
   }
@@ -154,25 +157,6 @@ function writeArtifacts(reply, state) {
   }
   if (writeErrors.length > 0) {
     throw new Error(`Failed to write artifact files (${writeErrors.length} error(s)): ${writeErrors.join('; ')}`);
-  }
-}
-
-function writeArtifact(deps, filepathRaw, codeRaw) {
-  const filepath = filepathRaw.trim();
-  const code = codeRaw.trim();
-  try {
-    if (!deps.allowFileEdits) throw new Error(`File edits are not authorized by the GenOS execution policy for: ${filepath}`);
-    const absPath = deps.pathLib.resolve(deps.workspaceRoot, filepath);
-    const relativePath = deps.pathLib.relative(deps.workspaceRoot, absPath);
-    if (relativePath.startsWith('..') || deps.pathLib.isAbsolute(relativePath)) {
-      throw new Error(`Artifact path escapes the mission workspace: ${filepath}`);
-    }
-    deps.fsLib.mkdirSync(deps.pathLib.dirname(absPath), { recursive: true });
-    deps.fsLib.writeFileSync(absPath, code);
-    return null;
-  } catch (e) {
-    console.error("Erreur lors de l'ecriture du fichier:", e);
-    return e.message;
   }
 }
 

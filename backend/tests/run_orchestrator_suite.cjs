@@ -7,6 +7,9 @@ const { spawnSync } = require('node:child_process');
 
 const related = [
   'test_topology_orchestrator_dispatch_members.js', 'test_self_model_service.js',
+  'test_core_self_boundary.js', 'test_embodied_perception_adapters.js',
+  'test_effector_inventory.js', 'test_epistemic_persistence.js',
+  'test_epistemic_claim_producer_migration.js',
   'test_homeostasis_continuation.js', 'test_homeostasis_durable_authority.js',
   'test_homeostasis_authority_receipts.js', 'test_mission_continuity.js',
   'test_mission_regeneration.js', 'test_mission_identity.js', 'test_worker_runtime_completion.js'

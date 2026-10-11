@@ -27,7 +27,9 @@ pure. Chaque capteur produit un objet commun :
 {
   "kind": "metabolic_budget",
   "source": "proprioception",
-  "value": { "tokens": 800 },
+  "sensorOwnerAgentId": "orchestrator-A",
+  "observedDomain": "self",
+  "value": { "tokens": 800, "status": "allocated" },
   "confidence": 1,
   "cost": 0.01,
   "timestamp": "2026-09-16T00:00:00.000Z"
@@ -37,6 +39,10 @@ pure. Chaque capteur produit un objet commun :
 Les capteurs implementes couvrent l'intention de mission, le workspace, le
 terminal, le budget, la memoire spatiale, l'etat social des workers, le bail
 d'outils, la dette de preuve et le temps.
+Le propriétaire du capteur est distinct du domaine mesuré : un capteur de
+fichiers appartenant à l'agent observe le monde, tandis que le budget et le
+bail décrivent l'agent. Une absence de budget produit `tokens: null`,
+`status: unknown` et `confidence: 0` ; un vrai zéro reste une allocation connue.
 
 ## WorldState
 
@@ -45,6 +51,8 @@ Les percepts sont condenses en `worldState` avant toute action couteuse :
 ```json
 {
   "budget": 800,
+  "budgetKnown": true,
+  "budgetStatus": "allocated",
   "stress": 0.82,
   "uncertain": true,
   "threat": false,
@@ -68,6 +76,10 @@ caractere reversible ou non de l'action.
 Ces contrats sont declaratifs pour l'instant : ils documentent et transportent
 les limites attendues, mais n'autorisent pas seuls une action. Les gates, leases
 et validations existants restent l'autorite effective.
+La liste `effectors` du corps décrit seulement les outils du bail final avec
+leur `ownerAgentId`; elle ne transforme pas les contrats déclaratifs en
+permissions. L'adaptateur moteur vérifie son propriétaire et l'autorité de la
+mission avant d'appeler l'effecteur.
 
 ## Réflexes actifs
 
@@ -78,7 +90,8 @@ peu nombreux et déterministes :
 - `block_destructive_actuator` : gèle le démarrage si un bail contient un outil
   destructif ou recursif interdit.
 - `budget_conservation` : active `network_silence` et désactive le dispatch de
-  nouveaux workers lorsque le budget descend sous le seuil ATP minimal.
+  nouveaux workers lorsque le budget descend sous le seuil ATP minimal ou
+  lorsque l'allocation est inconnue.
 - `failure_inflammation` : signale qu'une reprise ou escalade est requise après
   échecs répétés.
 - `evidence_debt_gate` : marque la mission comme exigeant une preuve typee

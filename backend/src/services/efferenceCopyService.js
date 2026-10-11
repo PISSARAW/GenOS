@@ -155,7 +155,7 @@ async function predict(db, agentId, prediction) {
 }
 
 async function discharge(db, agentId, event) {
-  if (!agentId || !event) return { matched: false };
+  if (!agentId || !event || event.agentId !== agentId) return { matched: false };
   let opened = null;
   try {
     opened = await openDb(db);

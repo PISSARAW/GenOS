@@ -54,9 +54,13 @@ le dernier run traité. Elle ajuste la confiance de façon graduelle; elle ne
 rend jamais une promotion plus permissive. Chaque run terminal enregistre
 aussi une attribution d'agency (`coreSelfService`, scope `core_self`) :
 erreur de prédiction = |succès attendu − succès observé|, soi = exécution
-sans délégation. L'agency calibrée vaut 1 − erreur moyenne (20 dernières
-attributions) ; le ratio d'origine soi est omis sans données au lieu d'être
-inventé. `mergeLearned` fusionne des correctifs (faiblesses mesurées) dans
+sans délégation. `selfAttributionRate` mesure la part réellement attribuée au
+soi, `meanPredictionError` la qualité des prédictions et
+`agencyCalibration` la part du soi pondérée par cette qualité (20 dernières
+attributions). Les événements externes ne gonflent donc plus ce score.
+`selfOriginRatio` ne lit que les claims portant un producteur explicitement
+lié à l'agent ; les claims historiques sans producteur restent inconnus.
+`mergeLearned` fusionne des correctifs (faiblesses mesurées) dans
 l'état appris sans écraser la calibration.
 
 ## Banc métacognitif et opt-out

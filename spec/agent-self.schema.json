@@ -139,8 +139,10 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1,
-          "description": "Proportion réelle d'actions attribuées au soi."
+          "description": "Part d'attributions au soi pondérée par leur erreur de prédiction."
         },
+        "selfAttributionRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "meanPredictionError": { "type": "number", "minimum": 0, "maximum": 1 },
         "lastAttributions": {
           "type": "array",
           "items": {
