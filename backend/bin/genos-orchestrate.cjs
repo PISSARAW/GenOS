@@ -86,7 +86,9 @@ async function waitForCompletion(db) {
   while (unbounded || Date.now() < deadline) {
     let agents, trinityWorlds;
     try {
-      agents = await db.all('SELECT id, status, runtime_pid FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
+      agents = await db.all(`SELECT a.id, a.status, a.runtime_pid,
+        (SELECT r.status FROM strategy_execution_runs r WHERE r.agent_id = a.id ORDER BY r.rowid DESC LIMIT 1) AS latest_run_status
+        FROM agents a WHERE a.id = ? OR a.parent_agent_id = ?`, id, id);
       trinityWorlds = await db.all(
         `SELECT agent_id, status FROM trinity_worlds
          WHERE experiment_id GLOB ? AND datetime(created_at) >= datetime(?)
@@ -274,7 +276,8 @@ async function runOrchestratedMission(db) {
   const agents = await waitForCompletion(db);
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
-  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, morphologySnapshot, nceEnhancements });
+  const audit = await gatherTelemetryAndCoverage(db, id);
+  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, morphologySnapshot, nceEnhancements, audit });
 }
 
 async function applyHomeostasisContinuation(input) {
@@ -290,14 +293,12 @@ async function applyHomeostasisContinuation(input) {
     mission: contResult.mission
   };
 }
-
 async function finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage }) {
   const finalStatus = resolveFinalMissionStatus(outcome, completionGate, { verdict: finalVerdict, coverage });
   return { finalStatus, finalVerdict: finalStatus.verdict };
 }
-
 async function finalizeOrchestratedMission(input) {
-  const { db, evaluation, morphology, morphologySnapshot, nceEnhancements, outcome: inputOutcome } = input;
+  const { db, evaluation, morphology, morphologySnapshot, nceEnhancements, outcome: inputOutcome, audit } = input;
   let outcome = evaluation.outcome || inputOutcome;
   let { continuity, completionGate, evaluation: homeostasis, organism, mission } = evaluation;
   const missionSuccess = completionGate.allowed === true;
@@ -309,7 +310,7 @@ async function finalizeOrchestratedMission(input) {
   const contResult = await applyHomeostasisContinuation({ db, id, task, request, mission, completionGate, homeostasis, organism, finalVerdict, continuity });
   ({ continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission } = destructureContResult(contResult, { continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission }));
 
-  const { finalStatus, finalVerdict: updatedVerdict } = await finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage: null });
+  const { finalStatus, finalVerdict: updatedVerdict } = await finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage: audit.coverage });
   finalVerdict = updatedVerdict;
 
   const dormant = await suspendIfNeeded({ db, mission, homeostasis, organism, finalStatus, continuity });
@@ -317,7 +318,7 @@ async function finalizeOrchestratedMission(input) {
   if (missionId && !dormant) await missionIdentity.setStatus(db, missionId, finalStatus.success ? 'completed' : 'failed');
 
   if (finalStatus.success) await persistChampion(db, outcome);
-  emitFinalTelemetry({ telemetryRows: [], runs: [], coverage: null, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
+  emitFinalTelemetry({ ...audit, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
   if (!finalStatus.success && !dormant) process.exitCode = 2;
 }
 

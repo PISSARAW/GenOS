@@ -8,6 +8,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../../db');
 const episodeStore = require('./episodeStore');
+const workerKinds = require('../agents/workerKindService').KINDS;
 
 const MIN_SUPPORT_FOR_LESSON = 2;
 const MAX_CONFIDENCE = 0.95;
@@ -18,7 +19,8 @@ function clusterKeyFor(episode) {
 }
 
 function isSuccess(episode) {
-  return episode.outcome?.status === 'success';
+  if (episode.outcome?.status !== 'success') return false;
+  return !workerKinds[episode.kind] || episode.outcome.missionAccepted === true;
 }
 
 function isFailure(episode) {
@@ -28,7 +30,8 @@ function isFailure(episode) {
 function groupByCluster(episodes) {
   const clusters = new Map();
   for (const episode of episodes) {
-    const key = JSON.stringify([episode.organizationId || null, episode.projectId || null, clusterKeyFor(episode)]);
+    const key = JSON.stringify([episode.agentId, episode.organizationId || null,
+      episode.projectId || null, clusterKeyFor(episode)]);
     if (!clusters.has(key)) clusters.set(key, []);
     clusters.get(key).push(episode);
   }
@@ -37,7 +40,7 @@ function groupByCluster(episodes) {
 
 function reuseConditionsFor(episode) {
   const conditions = [episode.kind];
-  if (episode.situation?.goal) conditions.push(String(episode.situation.goal).slice(0, 60));
+  if (episode.situation?.goal) conditions.push(String(episode.situation.goal).slice(0, 500));
   return [...new Set(conditions)];
 }
 
@@ -59,17 +62,19 @@ function lessonIdFor(key) {
 }
 
 function buildLessonFromCluster(key, episodes) {
-  const [organizationId, projectId, clusterKey] = JSON.parse(key);
+  const [agentId, organizationId, projectId, clusterKey] = JSON.parse(key);
   const successes = episodes.filter(isSuccess);
   const failures = episodes.filter(isFailure);
   const support = successes.length + failures.length;
-  if (support < MIN_SUPPORT_FOR_LESSON) return null;
+  if (support < MIN_SUPPORT_FOR_LESSON
+    || Math.max(successes.length, failures.length) < MIN_SUPPORT_FOR_LESSON) return null;
   const claim = claimFor(clusterKey, successes.length, failures.length);
   const dominant = failures.length >= successes.length ? failures : successes;
   const counter = failures.length >= successes.length ? successes : failures;
   const supportConfidence = 0.5 + (0.45 * (support / (support + 4)) * (Math.abs(successes.length - failures.length) / support));
   return {
     id: lessonIdFor(key),
+    agentId,
     organizationId,
     projectId,
     scope: clusterKey.split('::')[0],
@@ -87,11 +92,12 @@ async function upsertLesson(lesson, dbOverride) {
   const db = dbOverride || await getDatabase();
   await db.run(
     `INSERT INTO autobiographical_lessons (
-      id, scope, organization_id, project_id, active, claim, confidence, supporting_episodes_json, counter_examples_json,
+      id, agent_id, scope, organization_id, project_id, active, claim, confidence, supporting_episodes_json, counter_examples_json,
       reuse_conditions_json, avoid_conditions_json, recommended_action, updated_at
-    ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET
       claim = excluded.claim,
+      agent_id = excluded.agent_id,
       organization_id = excluded.organization_id,
       project_id = excluded.project_id,
       active = 1,
@@ -102,17 +108,30 @@ async function upsertLesson(lesson, dbOverride) {
       avoid_conditions_json = excluded.avoid_conditions_json,
       recommended_action = excluded.recommended_action,
       updated_at = CURRENT_TIMESTAMP`,
-    lesson.id, lesson.scope, lesson.organizationId, lesson.projectId, lesson.claim, lesson.confidence,
+    lesson.id, lesson.agentId, lesson.scope, lesson.organizationId, lesson.projectId, lesson.claim, lesson.confidence,
     JSON.stringify(lesson.supportingEpisodes), JSON.stringify(lesson.counterExamples),
     JSON.stringify(lesson.reuseConditions), JSON.stringify(lesson.avoidConditions), lesson.recommendedAction
   );
   return lesson;
 }
 
+async function verifiedCompletion(db, episode) {
+  if (episode.outcome?.status !== 'completed_unverified') return episode;
+  const run = episode.missionId && await db.get(
+    'SELECT status, agent_id FROM strategy_execution_runs WHERE id = ?', episode.missionId);
+  const success = run?.status === 'completed' && run.agent_id === episode.agentId
+    && episode.outcome.artifactValidated === true
+    && Array.isArray(episode.outcome.evidence) && episode.outcome.evidence.length > 0;
+  return success ? { ...episode,
+    outcome: { ...episode.outcome, status: 'success', missionAccepted: true } } : episode;
+}
+
 async function consolidateLessons(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
   const episodes = await episodeStore.getRecentEpisodes({ ...options, allTenants: true, limit: options.limit || 500 }, db);
-  const clusters = groupByCluster(episodes);
+  const verified = [];
+  for (const episode of episodes) verified.push(await verifiedCompletion(db, episode));
+  const clusters = groupByCluster(verified);
   const produced = [];
   for (const [key, clusterEpisodes] of clusters) {
     const lesson = buildLessonFromCluster(key, clusterEpisodes);
@@ -125,6 +144,7 @@ function rowToLesson(row) {
   if (!row) return null;
   return {
     id: row.id,
+    agentId: row.agent_id || null,
     scope: row.scope,
     organizationId: row.organization_id || null,
     projectId: row.project_id || null,
@@ -144,6 +164,8 @@ async function getLessons(options = {}, dbOverride = null) {
   if (Boolean(options.organizationId) !== Boolean(options.projectId)) throw new Error('Organization and project scope must be provided together.');
   const clauses = [];
   const params = [];
+  if (options.agentId) { clauses.push('agent_id = ?'); params.push(options.agentId); }
+  else { clauses.push('agent_id IS NULL'); }
   if (options.scope) { clauses.push('scope = ?'); params.push(options.scope); }
   if (options.organizationId) { clauses.push('organization_id = ?'); params.push(options.organizationId); }
   else { clauses.push('organization_id IS NULL'); }

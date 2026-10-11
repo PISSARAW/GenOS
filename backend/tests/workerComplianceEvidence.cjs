@@ -9,6 +9,12 @@ async function readExecutionRun(db, execution) {
   return db.get('SELECT status,guardrail_reason FROM strategy_execution_runs WHERE id = ?', execution.executionRun.id);
 }
 
+async function wasRuntimeStarted(db, workerId, execution) {
+  if (execution?.started === true) return true;
+  const row = await db.get("SELECT 1 AS started FROM telemetry_events WHERE agent_id = ? AND event_type = 'DETERMINISTIC_WORKER_STARTED' LIMIT 1", workerId);
+  return row?.started === 1;
+}
+
 async function inspectOracle(db, execution, workerId) {
   if (!execution?.deterministic || !execution?.executionRun?.id) return { status: 'not_applicable' };
   const checked = await require('../src/services/epistemic/nativeOracleInspection').inspect(db,
@@ -58,5 +64,5 @@ function saveResult(result) {
   fs.renameSync(temporary, reportPath);
 }
 
-module.exports = { readExecutionRun, inspectOracle, oracleAccepted, missionError,
+module.exports = { readExecutionRun, inspectOracle, oracleAccepted, missionError, wasRuntimeStarted,
   successfulOutcome, saveResult };

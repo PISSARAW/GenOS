@@ -13,6 +13,7 @@ const jobWorker = require('./src/services/jobWorker');
 const { enableGriotAutostart } = require('./src/services/griotAutostart');
 const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
 const workspaceSnapshotStore = require('./src/services/workspaceSnapshotStore');
+const organismRestoreRecovery = require('./src/services/organismRestoreRecovery');
 const signalPlaneSubscriber = require('./src/services/signalPlaneSubscriber');
 const plasticity = require('./src/services/synapticPlasticityService');
 const { terminatePid, processMatches } = require('./src/services/processTermination');
@@ -123,6 +124,7 @@ async function bootstrapWorkerDatabase() {
   if (process.env.GENOS_RUNTIME_MAINTENANCE === '1') {
     await circuitBreaker.hydrateToolLocks(db);
     await runtimeAdapter.reconcilePersistedRuntimes(db);
+    await organismRestoreRecovery.recoverPending(db);
     require('./src/services/survivalWakeSchedulerService').start(db);
     await reconcileDetachedProcesses(db);
     await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
@@ -130,6 +132,10 @@ async function bootstrapWorkerDatabase() {
       console.warn(`[GenOS Backend] Snapshot artifact reconciliation skipped: ${error.message}`);
     });
   }
+  if (process.env.GENOS_STUDIO_SUPERVISED === '1' && process.env.GENOS_RUNTIME_MAINTENANCE !== '1') {
+    await organismRestoreRecovery.recoverPending(db);
+  }
+  await organismRestoreRecovery.waitUntilClear(db);
   if (process.env.GENOS_JOB_WORKER === '1') { // One explicitly assigned worker processes background jobs.
     jobWorker.startJobWorker();
   }

@@ -471,24 +471,35 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0375](0375-portabilite-snapshots-memoire.md) | Portabilité des snapshots mémoire | Négociation acceptée ; backend VM proposé | 2026-10-10 | Snapshots, runtime, portabilité |
 | [0376](0376-plafond-projet-sur-ascendance-garage.md) | Plafond projet sur l'ascendance Garage | Accepté pour la tranche locale | 2026-10-10 | Garage Fabric, capacité projet, sous-orchestration |
 | [0377](0377-consolidation-scientifique-par-references-versionnees.md) | Consolider les résultats scientifiques par références versionnées | Proposé ; raccordement de bout en bout non implémenté. | 2026-10-10. | Communication, preuves, GQWF, G-CIR. |
-| [0378](0378-reference-gqwf-dans-snapshot-organisme.md) | Référencer une racine GQWF dans un snapshot d'organisme | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, fichiers, GQWF |
+| [0378a](0378-reference-gqwf-dans-snapshot-organisme.md) | Référencer une racine GQWF dans un snapshot d'organisme | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, fichiers, GQWF |
+| [0378b](0378-reprise-des-baux-gqwf.md) | Reprise de la libération des baux GQWF | Accepté pour la tranche SQLite locale | 2026-10-10 | GQWF, matérialisation, reprise après panne |
 | [0379](0379-octroi-borne-delegation-sous-orchestrateur.md) | Octroi borné de délégation au sous-orchestrateur | Accepté pour la tranche locale | 2026-10-10 | Sous-orchestration, contrats workers, jetons modèle |
+| [0380](0380-journal-reprise-snapshot-organisme.md) | Journal de reprise des restaurations d'organisme | Voir le fichier | -- | -- |
 | [0381](0381-autorite-recus-scientifiques-rejouable.md) | Autorité des reçus scientifiques restaurable par rejeu Lean | Voir le fichier | -- | -- |
 | [0382](0382-publication-scientifique-ciblee-par-producteur.md) | Production et abonnement scientifique ciblés | Voir le fichier | -- | -- |
 | [0383a](0383-economie-tokens-conditionnee-aux-preuves.md) | Économie de tokens conditionnée aux preuves | Accepté pour la tranche locale ; contrôleur conjoint proposé. | 2026-10-10. | Continuations, mémoire cognitive, routage et mesure. |
 | [0383b](0383-restauration-opt-in-racine-gqwf-organisme.md) | Restaurer les fichiers d'organisme depuis une racine GQWF | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, GQWF, restauration |
+| [0383c](0383-studio-construction-workflows-canoniques.md) | ADR 0383 Construction de workflows canoniques dans Studio | Accepté pour une tranche de construction de workflows. | 2026-10-10. | Studio, construction, versions, exécution et publication. |
+| [0384](0384-livraison-ciblee-des-decisions-mcp.md) | Livraison ciblée des décisions MCP | accepté | 2026-10-10 | signaux MCP, décisions collectives |
 | [0385](0385-contrat-snapshot-topologique.md) | Contrat de vérification des snapshots topologiques | Accepté | 2026-10-10 | Topologies, snapshots, reprise |
+| [0386](0386-restauration-etat-agent-mcp.md) | Restauration d'état d'agent par l'entrée MCP temporelle | accepté pour l'entrée backend hors catalogue public | 2026-10-10 | MCP, snapshots d'agent, restauration |
 | [0387](0387-pont-nursery-replay-et-projection-evaluateur.md) | Pont nursery/replay et projection de l’évaluateur | Accepté pour l’intégration bornée | 2026-10-10 | Expériences GVX, replay et évaluation |
-| [0388](0388-portee-memoire-negative-et-parite-stdio-reelle.md) | Portée de la mémoire négative et parité stdio réelle | Accepté pour la qualification bornée | 2026-10-10 | Mémoire négative, scopes et consommateurs MCP |
+| [0388a](0388-portee-memoire-negative-et-parite-stdio-reelle.md) | Portée de la mémoire négative et parité stdio réelle | Accepté pour la qualification bornée | 2026-10-10 | Mémoire négative, scopes et consommateurs MCP |
+| [0388b](0388-studio-vues-centrees-sur-les-taches.md) | ADR 0388 Studio organisé par tâches visibles | Accepté. | 2026-10-10. | Studio, navigation, densité et accessibilité. |
 | [0389](0389-autorite-des-consommateurs-memoire-rest-et-grpc.md) | Autorité des consommateurs mémoire REST et gRPC | Accepté pour la qualification bornée | 2026-10-10 | Principals, scopes, révocation et mémoire |
-| [0390](0390-fork-agent-depuis-snapshot-scelle.md) | Fork d'agent depuis un snapshot scellé | expérimental, service backend direct | 2026-10-10 | snapshots, workspaces isolés, filiation et budget |
+| [0390a](0390-fork-agent-depuis-snapshot-scelle.md) | Fork d'agent depuis un snapshot scellé | expérimental, service backend direct | 2026-10-10 | snapshots, workspaces isolés, filiation et budget |
+| [0390b](0390-studio-surfaces-dominantes-et-inspecteurs.md) | ADR 0390 Studio : surfaces dominantes et inspecteurs contextuels | Accepté. | 2026-10-10. | Studio, présentation, navigation et accessibilité. |
 | [0391](0391-mutation-ponctuelle-agentdna-candidate.md) | Substitution ponctuelle dans un AgentDNA candidat | accepté pour la création d'un candidat isolé | 2026-10-10 | AgentDNA, mutation candidate et Studio |
 | [0392](0392-archive-heritee-fork-agent.md) | Archive héritée vérifiable pour un agent forké | expérimental, lecture seule | 2026-10-10 | mémoire durable, snapshots d'organisme, filiation |
 | [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
 | [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
-| [0395](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
-| [0396a](0396-frontiere-corporelle-agent-et-provenance.md) | Frontière corporelle et provenance du soi agentique | accepté, portée Node | 2026-10-10 | corps de l'orchestrator, action motrice, CoreSelf |
-| [0396b](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
+| [0395a](0395-attention-workspace-et-preuves-par-worker.md) | Attention du workspace et preuve par méthode native | Voir le fichier | -- | -- |
+| [0395b](0395-memoire-autobiographique-individuelle-et-resultats-verifies.md) | Mémoire autobiographique individuelle et résultats vérifiés | Voir le fichier | -- | -- |
+| [0395c](0395-regulation-supervisee-workers-natifs.md) | Régulation supervisée des workers natifs par checkpoint vérifié | Accepté pour les workers natifs en environnement simulé | 2026-10-10 | Exécution native, régulation, persistance, récupération |
+| [0395d](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
+| [0396a](0396-credit-externe-regulation-workers.md) | Crédit externe mesuré pour la régulation des workers | En cours | 2026-10-11 | Régulation, ressources, orchestration, preuves |
+| [0396b](0396-frontiere-corporelle-agent-et-provenance.md) | Frontière corporelle et provenance du soi agentique | accepté, portée Node | 2026-10-10 | corps de l'orchestrator, action motrice, CoreSelf |
+| [0396c](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
 | [0397a](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
 | [0397b](0397-recus-corporels-et-limites-de-provenance.md) | Reçus corporels et limites de provenance | accepté, portée Node et missions scellées | 2026-10-10 | modèle corporel, autorité de mission, MCP, provenance des claims |
 | [0398](0398-capacite-mcp-et-ecritures-directes.md) | Capacité MCP et écritures directes | accepté, couverture conditionnelle | 2026-10-11 | identité d'agent, MCP Rust, fichiers, claims |

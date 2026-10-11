@@ -86,11 +86,11 @@ async function testMcpBioToolsExecution() {
     executedCmd = cmd;
     return 'ok';
   };
-  const stigRes = handleStigmergy({ action: 'read', target_file: 'C:\\test\\path.txt' }, mockRun);
+  const stigRes = await handleStigmergy({ action: 'read', target_file: 'C:\\test\\path.txt' }, mockRun);
   assert.strictEqual(stigRes.success, true);
   assert(executedCmd.includes('--target-file "C:\\\\test\\\\path.txt"'));
 
-  const missingFileRes = handleStigmergy({ action: 'read' }, mockRun);
+  const missingFileRes = await handleStigmergy({ action: 'read' }, mockRun);
   assert.strictEqual(missingFileRes.success, false);
   assert.strictEqual(missingFileRes.status, 'tool_error');
 }

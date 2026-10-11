@@ -175,18 +175,16 @@ async function executeRemoteTransport(toolName, args, timeoutMs) {
   };
 }
 
-async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000, preValidated = false, agentId = null }) {
+async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000, agentId = null }) {
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
   if (!normalizedToolName) return invalidToolResult();
   let stericDocking = null;
-  if (!preValidated) {
-    const validationContext = { registry, toolName: normalizedToolName, args, executionKind };
-    const rejection = preValidateTool(validationContext);
-    if (rejection) return rejection;
-    stericDocking = validationContext.docking || null;
-  }
+  const validationContext = { registry, toolName: normalizedToolName, args, executionKind };
+  const rejection = preValidateTool(validationContext);
+  if (rejection) return rejection;
+  stericDocking = validationContext.docking || null;
   if (normalizedToolName === 'genos_delegate_worker') {
     const result = await executeToolLogic(normalizedToolName, args, { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, db: await require('../../db').getDatabase() });
     return withDocking(result, stericDocking);

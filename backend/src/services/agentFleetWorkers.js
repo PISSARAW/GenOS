@@ -84,7 +84,6 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   if (!circuit.allowed) {
     throw new Error(`Worker deployment rejected: ${circuit.message}`);
   }
-  
   const plan = options.plan ?? options;
   const mission = options.mission ?? (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
@@ -100,7 +99,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const usedNames = [];
   const workers = [];
   const workerIds = assignments.map((assignment, index) => assignedWorkerId(assignment, { orchestratorId: orchestrator.id, index,
-    teamRunId: plan.aTeam?.teamRun?.teamRunId, delegationOrdinal: plan.delegationOrdinal }));
+    teamRunId: plan.aTeam?.teamRun?.teamRunId, delegationOrdinal: plan.delegationOrdinal, nativeMissionPlan: Boolean(plan.nativeMissionPlan) }));
   try {
     for (const [index, assignment] of assignments.entries()) {
       const typedAssignment = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
@@ -118,6 +117,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
 
 function assignedWorkerId(assignment, context) {
   if (Number.isSafeInteger(context.delegationOrdinal) && context.delegationOrdinal > 0) return `${context.orchestratorId}-d${context.delegationOrdinal}`;
+  if (context.nativeMissionPlan && assignment.workerId) return assignment.workerId;
   if (context.teamRunId && assignment.workerId) return assignment.workerId;
   return autonomousWorkerId(context.orchestratorId, context.index + 1);
 }
@@ -308,6 +308,9 @@ function fleetWorkerContract(details) {
     prompt: mission.prompt,
     scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
     orchestratorAgentId: parent.id, recoveryLease: mission.recoveryLease,
+    externalCreditLease: assignment.externalCreditLease || mission.externalCreditLease,
+    externalCredit: assignment.externalCredit || mission.externalCredit,
+    regulatoryExternalRecovery: assignment.regulatoryExternalRecovery || mission.regulatoryExternalRecovery,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
     workerTokenLimit: assignedTokens || mission.executionBudget?.tokens
   });
@@ -367,7 +370,7 @@ function workerRuntime(details) {
   const hostExecutionContext = mission.executor === 'caller_mcp'
     ? require('./hostExecutionContext').bindHostToolLease(mission.hostExecutionContext, toolLease)
     : undefined;
-  return { workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, capabilities, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
+  return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, capabilities, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
 }
 
 function buildExecutionBudget(details) {
@@ -389,9 +392,6 @@ function splitBudget(value, index, assignments) {
   const remainder = total - base * count;
   const bonusSlots = Math.floor(remainder);
   const fractional = remainder - bonusSlots;
-  // Whole remainder units go to the first workers; the inevitable fractional
-  // residue is kept by the first worker. index === 0 also carries any remainder
-  // so the split never sums above the available total.
   const bonus = index < bonusSlots ? 1 : 0;
   const extra = index === 0 ? fractional : 0;
   return Number((base + bonus + extra).toFixed(6));

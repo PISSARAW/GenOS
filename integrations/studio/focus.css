@@ -1,0 +1,79 @@
+body[data-connected=true]{height:100dvh;overflow:hidden}
+body[data-connected=true] .workspace-shell{height:100dvh;display:flex;flex-direction:column;min-height:0}
+body[data-connected=true] .topbar{padding:8px 20px;min-height:48px;flex:none}
+body[data-connected=true] main{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;padding:12px 20px;gap:8px;overflow:hidden}
+body[data-connected=true] footer{display:none}
+body[data-connected=true] .sidebar{padding:18px 12px}
+body[data-connected=true] .sidebar-caption{margin:24px 10px 10px}
+body[data-connected=true] #navigation{min-height:0;overflow:auto;gap:2px}
+body[data-connected=true] #navigation button{padding:8px 10px}
+body[data-connected=true] .sidebar-note{display:none}
+body[data-connected=true] #message{margin:0;padding:6px 12px;flex:none;max-height:72px;overflow:auto}
+body[data-connected=true] #session-bar{padding:0 10px;align-items:center;flex-wrap:nowrap;flex:none}
+body[data-connected=true] .session-context{position:relative;flex:1;min-width:0}
+body[data-connected=true] .session-context>summary{display:list-item;min-height:38px;padding:8px 2px}
+body[data-connected=true] #disconnect{min-height:34px;padding:5px 10px}
+body[data-connected=true] .session-context[open] .session-fields{position:absolute;left:0;top:100%;width:min(780px,calc(100vw - 60px));z-index:12;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 16px 50px #0008;max-height:65dvh;overflow:auto}
+body[data-connected=true] #onboarding{position:relative;flex:none;margin:0}
+body[data-connected=true] #onboarding>summary{min-height:32px;padding:6px 0}
+body[data-connected=true] #onboarding[open]>.onboarding-content{position:absolute;left:0;right:0;z-index:11;background:var(--surface);padding:16px;margin:0;border:1px solid var(--border);max-height:50dvh;overflow:auto}
+body[data-connected=true] .focused-view:not([hidden]){display:flex;flex-direction:column;flex:1;min-height:0;gap:8px;overflow:hidden}
+body[data-connected=true] .focused-view>.view-heading{margin:0;flex:none;min-height:32px}
+body[data-connected=true] .view-heading h2{font-size:1.2rem;margin:0}
+body[data-connected=true] .view-heading .eyebrow,body[data-connected=true] .view-heading .muted,body[data-connected=true] .view-heading>div>p:not([class]){display:none}
+.task-deck{display:flex;flex-direction:column;flex:1;min-height:0;gap:10px}
+.task-tabs{display:flex;gap:6px;flex:none;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:6px}
+.task-tabs button{min-height:36px;padding:6px 12px;background:transparent;border-color:transparent}
+.task-tabs button[aria-selected=true]{background:#19372f;color:var(--accent);border-color:#30594b}
+.task-choice,.navigation-choice{display:none}
+.task-pane{min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;padding:2px;scrollbar-gutter:stable}
+.task-pane>.panel{margin:0}.task-pane>details{margin:0}.task-pane>button{margin-bottom:10px}
+.task-pane .focus-columns{display:grid;grid-template-columns:minmax(200px,.8fr) minmax(0,2fr);gap:12px;height:100%;min-height:0}
+.focus-columns>.panel{min-height:0;overflow:auto}
+.task-pane>.action-list{display:flex;flex-direction:column;gap:14px;max-width:880px}
+.operation-choice{flex:none}.operation-body{min-height:0}.operation-pane form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+.operation-pane form button{justify-self:start}
+.operation-pane>details{margin:0!important;border:0!important;background:transparent!important;padding:0!important}
+.operation-pane>details>summary{font-weight:600;padding:6px 0}
+.builder-primary-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.builder-primary-actions #builder-version{flex:1 1 220px;margin:0;font-size:.72rem}
+body[data-connected=true] .builder-layout{grid-template-columns:minmax(0,1fr);margin:0;gap:12px}
+#builder-view-task-graph{display:flex;flex-direction:column}
+#builder-view-task-graph .builder-layout{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+#builder-view-task-graph .builder-layout>section{display:flex;flex-direction:column;min-height:0}
+body[data-connected=true] #builder-view-task-graph .workflow-canvas{flex:1;height:auto;min-height:120px}
+body[data-connected=true] .builder-inspector label{margin:8px 0}
+body[data-connected=true] .builder-layout .panel{padding:12px}
+body[data-connected=true] .builder-toolbar{margin:8px 0;gap:8px}
+body[data-connected=true] .workflow-canvas{height:clamp(160px,calc(100dvh - 570px),420px);max-height:none;min-height:0}
+body[data-connected=true] #builder-changes{font-size:.72rem;margin:8px 0}
+body[data-connected=true] #file-content{min-height:180px;height:calc(100dvh - 520px);resize:vertical}
+body[data-connected=true] #run-list,body[data-connected=true] #file-list{max-height:calc(100dvh - 480px)}
+#node-inspector-dialog{max-width:min(720px,calc(100vw - 24px));width:100%;max-height:85dvh;padding:12px;background:var(--surface);color:inherit;border:1px solid var(--border);border-radius:12px}
+#node-inspector-dialog .builder-inspector{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border:0;padding:12px;margin:0}
+#node-inspector-dialog .builder-inspector h3{grid-column:1/-1}
+body[data-connected=true] #node-inspector-dialog label{margin:0}
+#node-inspector-dialog label:has(textarea){grid-column:1/-1}
+#node-inspector-dialog textarea{min-height:70px;height:90px}
+#node-inspector-dialog::backdrop{background:#0009}.mobile-inspector-button{margin:0!important}
+@media(max-width:900px){
+ body[data-connected=true]{display:flex;flex-direction:column}
+ body[data-connected=true] .sidebar{position:static;display:flex;flex-direction:row;align-items:center;gap:14px;padding:8px 12px;flex:none}
+ body[data-connected=true] #navigation{display:none}
+ body[data-connected=true] .workspace-shell{height:auto;flex:1;margin:0}
+ body[data-connected=true] .navigation-choice{display:flex;flex:1;margin:0;font-size:.65rem;gap:0}
+ .navigation-choice select{min-height:34px;padding:4px 8px;font-size:.75rem}
+ body[data-connected=true] main{padding:8px 12px}
+ body[data-connected=true] .builder-layout{grid-template-columns:minmax(0,1fr)}
+ .task-pane .focus-columns{grid-template-columns:minmax(0,1fr);height:auto}
+}
+@media(max-width:600px){
+ .task-tabs{display:none}.task-choice{display:flex;flex:none;flex-direction:row;align-items:center;gap:12px}
+ #node-inspector-dialog .builder-inspector{grid-template-columns:minmax(0,1fr)}
+ .task-choice select{min-height:36px;padding:6px 10px}.operation-pane form{grid-template-columns:minmax(0,1fr)}
+ body[data-connected=true] .topbar{padding:6px 12px;min-height:38px}
+ body[data-connected=true] .session-context[open] .session-fields{width:calc(100vw - 48px)}
+ body[data-connected=true] .workflow-canvas{height:160px;min-height:0;max-height:none}
+ .builder-primary-actions #builder-version{flex-basis:100%;max-height:42px;overflow:auto}
+ .builder-primary-actions button{flex:1 1 auto;padding:6px 8px;min-height:36px}
+}

@@ -1,17 +1,17 @@
 /**
  * @file consciousnessTransfer.js
- * @description Registry-only temporal replay simulation; it does not restore an agent runtime.
+ * @description Legacy temporal alias: sealed agent-state restore, never consciousness transfer.
  *
- * CLASSIFICATION: reference_only
- * Ce service ne N'IMPLÉMENTE PAS le transfert de conscience. C'est un registre
- * de simulation de rejeu temporel (snapshot replay) sans restauration d'état d'agent.
- * Les champs success=false, status='not_implemented'/'simulation_only' sont systématiques.
+ * CLASSIFICATION: agent_state_restore_only
+ * Le statut historique reste une simulation. L'exécution ne restaure qu'un
+ * snapshot scellé dans la portée MCP de confiance, sans mémoire future.
  */
 
 'use strict';
 
 const consciousnessRegistry = new Map(); /* persisterHook: consciousnessRegistry */
 const MAX_REGISTRY_ENTRIES = 1000;
+const SUPPORTED_ACTIONS = new Set(['status', 'execute_transfer', 'replay_with_memories', 'restore_snapshot']);
 
 function registryMap() {
   return module.exports.consciousnessRegistry || consciousnessRegistry;
@@ -35,6 +35,7 @@ function getOrCreateConsciousness(agentId, baselineId = 'snap-baseline-t0') {
 }
 
 function executeConsciousnessTransfer(record, baselineId, futureMemories = []) {
+  const requestedMemoriesCount = Array.isArray(futureMemories) ? futureMemories.length : 0;
   return {
     configured: true,
     success: false,
@@ -43,17 +44,28 @@ function executeConsciousnessTransfer(record, baselineId, futureMemories = []) {
     action: 'execute_transfer',
     agent_id: record.agent_id,
     restored_baseline: baselineId || record.baseline_snapshot_id,
-    injected_memories_count: Array.isArray(futureMemories) ? futureMemories.length : 0,
-    output: 'Replay was not executed: this handler has no snapshot restore or runtime memory injection adapter.'
+    injected_memories_count: 0,
+    requested_memories_count: requestedMemoriesCount,
+    output: 'Future-memory injection is unsupported; only sealed agent-state restoration is available.'
   };
 }
 
 function handleConsciousnessTransfer(params = {}) {
+  const action = params.action || 'status';
+  if (!SUPPORTED_ACTIONS.has(action)) throw new Error('Unsupported temporal state-restore action.');
+  if (action === 'restore_snapshot' || (action === 'execute_transfer' && params.future_memories === undefined)) {
+    return require('../../mcpAgentStateRestoreService').restoreAgentSnapshot({
+      agent_id: params.agent_id, baseline_snapshot_id: params.baseline_snapshot_id,
+      future_memories: params.future_memories,
+    });
+  }
+  return simulatedConsciousnessStatus(params, action);
+}
+
+function simulatedConsciousnessStatus(params, action) {
   const agentId = params.agent_id || params.target_id || 'agent-time-traveler-1';
   if (typeof agentId !== 'string' || agentId.length > 128) throw new Error('Replay simulation agent id must be a string of at most 128 characters.');
   const record = getOrCreateConsciousness(agentId, params.baseline_snapshot_id);
-  const action = params.action || 'status';
-
   if (action === 'execute_transfer' || action === 'replay_with_memories') {
     return executeConsciousnessTransfer(record, params.baseline_snapshot_id, params.future_memories);
   }

@@ -1,31 +1,52 @@
-const assert = require('node:assert/strict');
-const recall = require('../src/services/autobiographicalMemory/orchestratorRecall');
+'use strict';
 
-function fakeDb() {
-  return {
-    all: async (query) => query.includes('autobiographical_episodes')
-      ? [{ id: 'episode-1', agent_id: 'orch-1', mission_id: null, kind: 'strategy_change', salience: 0.8, situation_json: '{"goal":"repair orchestration"}', decision_json: '{"selectedStrategy":"safe-retry"}', action_json: '{}', outcome_json: '{"status":"success"}', lesson_json: '{}', is_forgotten: 0, created_at: new Date().toISOString() }]
-      : [{ id: 'lesson-1', scope: 'strategy_change', claim: 'Prefer safe-retry', confidence: 0.8, supporting_episodes_json: '["episode-1"]', counter_examples_json: '[]', reuse_conditions_json: '["strategy_change"]', avoid_conditions_json: '[]', recommended_action: 'reuse_strategy_first', updated_at: new Date().toISOString() }]
-  };
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+process.env.GENOS_ADMIN_PASSWORD ||= 'autobiographical-recall-test-only';
+const { getDatabase, closeDatabase } = require('../src/db');
+const episodes = require('../src/services/autobiographicalMemory/episodeStore');
+const lessons = require('../src/services/autobiographicalMemory/lessonService');
+const { recallBeforePlanning } = require('../src/services/autobiographicalMemory/orchestratorRecall');
+
+async function seed(db) {
+  for (const index of [1, 2]) await episodes.recordEpisode({
+    agentId: 'orch-1', missionId: `recall-${index}`, kind: 'strategy_change', salience: 0.8,
+    situation: { goal: 'repair orchestration' }, decision: { selectedStrategy: 'unsafe-retry' },
+    outcome: { status: 'failed' }
+  }, db);
+  const produced = await lessons.consolidateLessons({ agentId: 'orch-1' }, db);
+  assert.equal(produced.length, 1);
+}
+
+async function probe(db, agentId) {
+  const plan = { selfModel: { decisionPolicy: { riskTolerance: 0.35, evidenceStrictness: 0.82 },
+    limits: {}, state: { confidence: 0.5 } } };
+  const result = await recallBeforePlanning({ db, agentId,
+    normalizedMission: { prompt: 'repair orchestration', kind: 'strategy_change' }, autonomyPlan: plan });
+  return { result, plan };
 }
 
 async function run() {
-  const plan = { selfModel: { decisionPolicy: { riskTolerance: 0.35, evidenceStrictness: 0.82 }, limits: {} } };
-  const result = await recall.recallBeforePlanning({
-    db: fakeDb(),
-    agentId: 'orch-1',
-    normalizedMission: { prompt: 'repair orchestration', kind: 'strategy_change' },
-    autonomyPlan: plan
-  });
-  assert.equal(result.episodes.length, 1);
-  assert.equal(result.lessons.length, 1);
-  assert.equal(plan.autobiographicalRecall.recalled, true);
-  assert.equal(plan.autobiographicalAdjustments.confidenceBoost, 0.05);
-  assert.equal(plan.selfModel.decisionPolicy.confidenceBoost, undefined);
-  assert.equal(plan.selfModel.decisionPolicy.riskTolerance, 0.35);
-  assert.equal(plan.selfModel.decisionPolicy.evidenceStrictness, 0.82);
-  assert.equal(plan.selfModel.limits.riskTolerance, 0.35);
-  console.log('Autobiographical orchestrator recall integration passed.');
+  const dbPath = path.join(__dirname, 'test-autobiographical-orchestrator-recall.db');
+  if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+  const db = await getDatabase(dbPath);
+  try {
+    await seed(db);
+    const trained = await probe(db, 'orch-1');
+    assert.equal(trained.result.episodes.length, 2);
+    assert.equal(trained.result.lessons.length, 1);
+    assert(Math.abs(trained.plan.selfModel.decisionPolicy.riskTolerance - 0.25) < 1e-9);
+    assert(Math.abs(trained.plan.selfModel.decisionPolicy.evidenceStrictness - 0.92) < 1e-9);
+    assert(Math.abs(trained.plan.selfModel.limits.riskTolerance - 0.25) < 1e-9);
+    const control = await probe(db, 'orch-untrained');
+    assert.equal(control.result.lessons.length, 0);
+    assert.equal(control.plan.selfModel.decisionPolicy.riskTolerance, 0.35);
+    console.log('Autobiographical recall changes only the trained agent policy.');
+  } finally {
+    await closeDatabase();
+    for (const suffix of ['', '-shm', '-wal']) if (fs.existsSync(dbPath + suffix)) fs.unlinkSync(dbPath + suffix);
+  }
 }
 
-run().catch((error) => { console.error(error); process.exit(1); });
+run().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -23,6 +23,8 @@ Un parent en mode `worker` produit un contrat sans délégation. Le plafond de
 jetons délégués ne dépasse jamais l'allocation modèle du worker ; le contrôle
 du contrat persistant rejette toute augmentation ultérieure de ce plafond.
 La flotte renvoie le contrat exact qui a été persisté.
+Pour une méthode native déterministe, cette allocation reste l'enveloppe des
+enfants délégués ; l'exécution propre du parent consomme zéro jeton modèle.
 
 Si `coordinate_children` s'exécute en méthode native, sa propre exécution
 consomme zéro jeton modèle. Le plafond de délégation reste distinct : il exige

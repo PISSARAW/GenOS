@@ -160,14 +160,16 @@ function morphologyMetadata(morphology) {
 async function prepareMission(opts) {
   const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
   const contracts = require('../src/services/strategyContractService');
+  const workspaceId = request.workspaceId || request.workspace_id || null;
+  if (workspaceId) await bindOrchestratorWorkspace({ db, agentId: id, workspaceId, request });
   const existing = await db.get(`SELECT metadata_json FROM agents WHERE id = ?`, id).catch(() => null);
   const metadataJson = mergeMetadataJson(existing?.metadata_json, { nceMetadata });
-  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?)`, id, enhancedPrompt, metadataJson);
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json, workspace_id) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?, ?)`, id, enhancedPrompt, metadataJson, workspaceId);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
   const evaluationMode = contractEvaluationMode(policyRequest, request);
   const requestedPrimary = request.strategyConcept?.strategyId
     || request.strategyConcept?.id || request.strategyConceptId;
-  const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt,
+  const strategyContract = await contracts.saveContract(db, { agentId: id, workspaceId, problem: enhancedPrompt,
     requestedPrimary, evaluationMode, createdBy: 'mcp_orchestrate' });
 
   // Morphogenesis: determine topology, agents, and substrate requirements
@@ -186,6 +188,25 @@ async function prepareMission(opts) {
   applyLatencyBudget(missionBudget, requestTimeoutMs);
   const useLocalRuntime = checkLocalRuntime(policyRequest, request);
   return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology };
+}
+
+async function bindOrchestratorWorkspace({ db, agentId, workspaceId, request }) {
+  const workspace = await db.get('SELECT id,path,organization_id,project_id FROM workspaces WHERE id = ?', workspaceId);
+  if (!workspace) throw Object.assign(new Error(`Workspace '${workspaceId}' does not exist.`), { code: 'MISSION_WORKSPACE_NOT_FOUND' });
+  if (!workspace.organization_id || !workspace.project_id) {
+    throw Object.assign(new Error(`Workspace '${workspaceId}' has no complete tenant scope.`), { code: 'MISSION_WORKSPACE_SCOPE_REQUIRED' });
+  }
+  const requestedRoot = request.workspaceRoot || request.workspace_root;
+  if (requestedRoot && path.resolve(workspace.path) !== path.resolve(requestedRoot)) {
+    throw Object.assign(new Error(`Workspace '${workspaceId}' path does not match the requested mission root.`), { code: 'MISSION_WORKSPACE_PATH_MISMATCH' });
+  }
+  const current = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agentId);
+  if (current?.workspace_id && current.workspace_id !== workspaceId) {
+    throw Object.assign(new Error(`Orchestrator '${agentId}' already belongs to another workspace.`), { code: 'ORCHESTRATOR_WORKSPACE_MISMATCH' });
+  }
+  await db.run('UPDATE agents SET workspace_id = ? WHERE id = ? AND (workspace_id IS NULL OR workspace_id = ?)', workspaceId, agentId, workspaceId);
+  const saved = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agentId);
+  if (saved?.workspace_id !== workspaceId) throw Object.assign(new Error('Orchestrator workspace binding changed concurrently.'), { code: 'ORCHESTRATOR_WORKSPACE_MISMATCH' });
 }
 
 function buildGarageInput(request, morphology, strategyContract) {
@@ -223,7 +244,7 @@ async function startOrchestratorMission(opts) {
 
 function missionWorkspaceOptions(request) {
   const workspaceRoot = request.workspaceRoot || request.workspace_root;
-  return { workspaceRoot,
+  return { workspaceId: request.workspaceId || request.workspace_id, workspaceRoot,
     workspaceProvisioned: request.workspaceProvisioned === true,
     unbounded: request.unbounded === true,
     noTimeout: request.noTimeout === true,
@@ -236,7 +257,7 @@ function missionWorkspaceOptions(request) {
 function missionRuntimeContext(request) {
   const fields = ['organization', 'capabilities', 'capabilityRequirements', 'capabilityContract',
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
-    'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments',
+    'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
     'morphologyPlan', 'missionCapabilityPlan', 'problemProfile', 'requiresEvidenceBeforePromotion'];
   return Object.fromEntries(fields.filter((field) => request[field] !== undefined)
     .map((field) => [field, request[field]]));

@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { spawnSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const path = require('node:path');
 const { openDatabase } = require('./biologyDatabase');
 const journal = require('../../src/services/epistemic/nativeOracleJournal');
@@ -43,8 +43,7 @@ async function freshProcess(request) {
   const script = `process.env.GENOS_DISABLE_DOTENV='1';const db=require('./backend/tests/helpers/biologyDatabase').openDatabase(process.argv[1]);
     require('./backend/src/services/epistemic/nativeOracleCoordinator').prepare(db,JSON.parse(process.argv[2]))
     .then(value=>console.log(JSON.stringify(value))).catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>db.close());`;
-  const child = spawnSync(process.execPath, ['-e', script, process.env.GENOS_DB_PATH, JSON.stringify(request)],
-    { cwd: path.resolve(__dirname, '../../..'), encoding: 'utf8', timeout: 10000, windowsHide: true });
+  const child = await runProbe(script, request);
   assert.equal(child.status, 0, child.stderr);
   const db = openDatabase(process.env.GENOS_DB_PATH);
   try {
@@ -53,6 +52,20 @@ async function freshProcess(request) {
     assert.deepEqual(JSON.parse(child.stdout), { eventId: attestation.eventId, hash: attestation.hash });
     assert.equal(attestation.value.costs.processes, 2);
   } finally { await db.close(); }
+}
+
+function runProbe(script, request) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['-e', script, process.env.GENOS_DB_PATH,
+      JSON.stringify(request)], { cwd: path.resolve(__dirname, '../../..'), windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => child.kill(), 10000);
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', status => { clearTimeout(timer); resolve({ status, stdout, stderr }); });
+  });
 }
 
 module.exports = { contention };

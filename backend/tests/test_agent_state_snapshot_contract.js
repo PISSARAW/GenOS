@@ -59,6 +59,7 @@ async function saveRecord(options) {
   const { sql, args, state } = options;
   if (sql.includes('INSERT INTO workspace_snapshots')) return saveWorkspaceSnapshot(state, args);
   if (sql.includes('INSERT INTO agent_state_snapshots')) return saveAgentSnapshot(state, args);
+  if (sql.includes("UPDATE agents SET status = 'blocked'")) { state.agent.status = 'blocked'; return; }
   if (sql.includes('UPDATE agents SET')) return updateAgentState(state, args);
 }
 
@@ -78,10 +79,11 @@ function updateAgentState(state, args) {
 }
 
 function createDatabase(workspacePath) {
-  const state = { agent: { ...agent }, snapshots: [], agentSnapshots: [] };
+  const state = { agent: { ...agent }, snapshots: [], agentSnapshots: [], relationsChanged: false };
   const workspace = { id: agent.workspace_id, name: 'workspace', path: workspacePath };
   return { state, db: {
-    all: async (sql, ...args) => sql.includes('SELECT snapshot_hash') ? state.snapshots.filter((row) => row.workspace_id === args[0]) : [],
+    all: async (sql, ...args) => sql.includes('SELECT snapshot_hash') ? state.snapshots.filter((row) => row.workspace_id === args[0])
+      : sql.includes('SELECT * FROM agent_relations') && state.relationsChanged ? [{ id: 'peer-change' }] : [],
     get: async (sql, ...args) => getRecord({ sql, args, state, workspace }),
     run: async (sql, ...args) => saveRecord({ sql, args, state })
   } };
@@ -207,6 +209,13 @@ async function main() {
     fixture.state.agent.cognitive_budget = 3;
     fixture.state.agent.current_task = 'mutated task';
     await fs.writeFile(filePath, 'mutated source');
+    fixture.state.relationsChanged = true;
+    await assert.rejects(() => controller.restoreAgentState({ ...request,
+      body: { agentId: agent.id, snapshotId: saved.get().body.snapshotId } }, response().res),
+    (error) => error.code === 'ORGANISM_RESTORE_RELATION_CONFLICT');
+    assert.equal(await fs.readFile(filePath, 'utf8'), 'mutated source');
+    assert.equal(fixture.state.agent.status, 'completed');
+    fixture.state.relationsChanged = false;
     const restored = response();
     await controller.restoreAgentState({ ...request, body: { agentId: agent.id, snapshotId: saved.get().body.snapshotId } }, restored.res);
 

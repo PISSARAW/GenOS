@@ -1,0 +1,16 @@
+.builder-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:16px 0}
+.builder-toolbar label{flex:1 1 180px;min-width:0}.builder-toolbar button{flex:0 1 auto}
+.builder-view>.panel,.builder-layout{margin-bottom:16px}.builder-view .panel>label{display:block;margin:12px 0}
+.builder-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(230px,1fr);gap:16px;align-items:start}
+.builder-inspector textarea{min-height:100px}.builder-inspector button{margin:4px 0}
+.workflow-canvas{overflow:auto;max-height:460px;max-width:100%;border:1px solid var(--border);border-radius:10px;background:#0b1421}
+.workflow-canvas svg{display:block;max-width:none}.workflow-node{cursor:pointer}.workflow-node rect{fill:#172f3b;stroke:#496176;stroke-width:2}
+.workflow-node[aria-pressed=true] rect,.workflow-node:focus rect{fill:#1a4037;stroke:var(--accent);stroke-width:3}
+.workflow-node text{fill:#e2eef6;font-size:14px;pointer-events:none}.workflow-node .workflow-kind{fill:var(--accent);font-size:11px}
+.workflow-edge{stroke:#7ca2b6;stroke-width:2;fill:none}.workflow-canvas marker path{fill:#7ca2b6}
+#builder-edges{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0}#builder-edges li{margin:0}
+#builder-version,#builder-changes{margin:14px 0;color:var(--accent);overflow-wrap:anywhere}
+#builder-json,#builder-metadata,#builder-node-args{font-family:ui-monospace,Consolas,monospace}
+#builder-runs .timeline code{font-size:.7rem;overflow-wrap:anywhere}#builder-runs pre{max-width:100%;overflow:auto}
+@media(max-width:1000px){.builder-layout{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.builder-toolbar button,.builder-toolbar label{flex:1 1 100%}.workflow-canvas{max-height:320px}}

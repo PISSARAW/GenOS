@@ -8,6 +8,7 @@ const { open } = require('sqlite');
 const { createFabric, migrateGqwf } = require('../src/services/gqwf');
 const legacyAdapter = require('../src/services/gqwf/legacy');
 const workerBridge = require('../src/services/gqwf/workers');
+const { putBlob, readBlob, blobPath } = require('../src/services/gqwf/objects');
 const { collectFiles, manifestHash } = require('../src/services/workspaceSnapshotCollect');
 
 async function fixture() {
@@ -131,6 +132,159 @@ async function exercisePromotion(context, baseHash, candidateHash) {
     { rootHash: candidateHash, generation: 1 });
 }
 
+async function exerciseLeaseRecovery(context, rootHash) {
+  const fabric = createFabric(context.db);
+  const stranded = await fabric.materializeRoot({ workspaceId: 'ws-a', rootHash });
+  await context.db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ?", stranded.leaseId);
+  await context.db.exec(`ALTER TABLE gqwf_leases RENAME TO gqwf_leases_new;
+    CREATE TABLE gqwf_leases (
+      id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, root_hash TEXT NOT NULL,
+      path TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('open', 'ingested', 'released')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workspace_id, root_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
+    );
+    INSERT INTO gqwf_leases SELECT * FROM gqwf_leases_new;
+    DROP TABLE gqwf_leases_new;`);
+  await migrateGqwf(context.db);
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', stranded.leaseId)).status, 'releasing');
+  assert.deepEqual(await context.db.all('PRAGMA foreign_key_check;'), []);
+  await context.db.close();
+  context.db = await open({ filename: path.join(context.root, 'gqwf.sqlite'), driver: sqlite3.Database });
+  await migrateGqwf(context.db);
+  assert.deepEqual(await context.db.all('PRAGMA foreign_key_check;'), []);
+  const resumed = createFabric(context.db);
+  const next = await resumed.materializeRoot({ workspaceId: 'ws-a', rootHash });
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', stranded.leaseId)).status, 'released');
+  await assert.rejects(fs.stat(stranded.path), { code: 'ENOENT' });
+  assert.deepEqual(await resumed.releaseLease({ workspaceId: 'ws-a', leaseId: stranded.leaseId }), { released: true });
+  await context.db.run("UPDATE gqwf_leases SET status = 'releasing' WHERE id = ?", next.leaseId);
+  await fs.rm(next.path, { recursive: true, force: true });
+  assert.deepEqual(await resumed.releaseLease({ workspaceId: 'ws-a', leaseId: next.leaseId }), { released: true });
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', next.leaseId)).status, 'released');
+  const failed = await resumed.materializeRoot({ workspaceId: 'ws-a', rootHash });
+  const originalRemove = fs.rm;
+  fs.rm = async (target, options) => {
+    if (target === failed.path) throw new Error('injected GQWF removal failure');
+    return originalRemove(target, options);
+  };
+  try {
+    await assert.rejects(resumed.releaseLease({ workspaceId: 'ws-a', leaseId: failed.leaseId }), /injected GQWF removal failure/);
+  } finally {
+    fs.rm = originalRemove;
+  }
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', failed.leaseId)).status, 'releasing');
+  await resumed.releaseLease({ workspaceId: 'ws-a', leaseId: failed.leaseId });
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', failed.leaseId)).status, 'released');
+  const guarded = await resumed.materializeRoot({ workspaceId: 'ws-a', rootHash });
+  const outside = path.join(context.root, 'outside');
+  await fs.mkdir(outside);
+  await fs.writeFile(path.join(outside, 'keep.txt'), 'safe');
+  await context.db.run('UPDATE gqwf_leases SET path = ? WHERE id = ?', outside, guarded.leaseId);
+  await assert.rejects(resumed.releaseLease({ workspaceId: 'ws-a', leaseId: guarded.leaseId }), /outside its managed root/);
+  assert.equal(await fs.readFile(path.join(outside, 'keep.txt'), 'utf8'), 'safe');
+}
+
+async function exerciseBlobDedup(context) {
+  const bytes = Buffer.from('gqwf-shared-blob-dedup-v1');
+  const hash = await putBlob(context.workspacePath, bytes);
+  const originalOpen = fs.open;
+  fs.open = async () => { throw new Error('duplicate blob attempted staging'); };
+  try {
+    assert.equal(await putBlob(context.workspacePath, bytes), hash);
+  } finally {
+    fs.open = originalOpen;
+  }
+  assert((await readBlob(context.workspacePath, hash)).equals(bytes));
+  const originalLstat = fs.lstat;
+  fs.lstat = async (target) => {
+    if (target === blobPath(context.workspacePath, hash)) {
+      return { isFile: () => true, isSymbolicLink: () => false, nlink: 2 };
+    }
+    return originalLstat(target);
+  };
+  try {
+    await assert.rejects(putBlob(context.workspacePath, bytes), /private regular file/);
+  } finally {
+    fs.lstat = originalLstat;
+  }
+  const raced = Buffer.from('gqwf-concurrent-blob-dedup-v1');
+  const results = await Promise.all([putBlob(context.workspacePath, raced), putBlob(context.workspacePath, raced)]);
+  assert.equal(results[0], results[1]);
+  assert((await readBlob(context.workspacePath, results[0])).equals(raced));
+  await fs.writeFile(blobPath(context.workspacePath, hash), 'corrupt');
+  await assert.rejects(putBlob(context.workspacePath, bytes), /integrity check failed/);
+}
+
+async function exercisePreparationRecovery(context, rootHash) {
+  const fabric = createFabric(context.db);
+  const parent = path.join(context.workspacePath, '.genos', 'gqwf', 'materialized');
+  const legacyPath = await fs.mkdtemp(path.join(parent, 'lease-'));
+  await context.db.run(`INSERT INTO gqwf_leases (id, workspace_id, root_hash, path, status)
+    VALUES ('legacy-markerless', 'ws-a', ?, ?, 'releasing')`, rootHash, legacyPath);
+  await fabric.reconcileReleasingLeases({ workspaceId: 'ws-a' });
+  await assert.rejects(fs.stat(legacyPath), { code: 'ENOENT' });
+  const insert = async (id) => {
+    const leasePath = path.join(parent, `lease-${id}`);
+    await context.db.run(`INSERT INTO gqwf_leases (id, workspace_id, root_hash, path, status)
+      VALUES (?, 'ws-a', ?, ?, 'preparing')`, id, rootHash, leasePath);
+    return leasePath;
+  };
+  const beforeDirectory = await insert('before-directory');
+  const beforeMarker = await insert('before-marker');
+  await fs.mkdir(beforeMarker);
+  const beforeOpen = await insert('before-open');
+  await fs.mkdir(beforeOpen);
+  await fs.writeFile(path.join(beforeOpen, '.genos-gqwf-lease'), 'before-open');
+  const unregistered = path.join(parent, 'lease-unregistered');
+  await fs.mkdir(unregistered);
+  await assert.rejects(fabric.materializeRoot({ workspaceId: 'ws-a', rootHash }), /preparation unresolved/);
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', 'before-open')).status, 'preparing');
+  assert.equal((await fs.stat(beforeMarker)).isDirectory(), true);
+  const result = await fabric.reconcileReleasingLeases({ workspaceId: 'ws-a', recoverPreparations: true });
+  assert.equal(result.quarantined, 1);
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', 'before-directory')).status, 'released');
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', 'before-marker')).status, 'quarantined');
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', 'before-open')).status, 'released');
+  await assert.rejects(fs.stat(beforeDirectory), { code: 'ENOENT' });
+  await assert.rejects(fs.stat(beforeOpen), { code: 'ENOENT' });
+  assert.equal((await fs.stat(beforeMarker)).isDirectory(), true);
+  assert.equal((await fs.stat(unregistered)).isDirectory(), true);
+  await assert.rejects(fabric.releaseLease({ workspaceId: 'ws-a', leaseId: 'before-marker' }), /ownership proof/);
+  await assert.rejects(fabric.materializeRoot({ workspaceId: 'ws-a', rootHash }), /preparation unresolved/);
+  await fs.rm(beforeMarker, { recursive: true, force: true });
+  await context.db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'quarantined'", 'before-marker');
+  const next = await fabric.materializeRoot({ workspaceId: 'ws-a', rootHash });
+  await fabric.releaseLease({ workspaceId: 'ws-a', leaseId: next.leaseId });
+  const originalMkdir = fs.mkdir;
+  let collidedPath;
+  fs.mkdir = async (target, options) => {
+    if (typeof target === 'string' && target.startsWith(`${parent}${path.sep}lease-`) && !options) {
+      collidedPath = target;
+      await originalMkdir(target);
+      await fs.writeFile(path.join(target, 'keep.txt'), 'collision');
+      throw Object.assign(new Error('injected EEXIST'), { code: 'EEXIST' });
+    }
+    return originalMkdir(target, options);
+  };
+  try {
+    await assert.rejects(fabric.materializeRoot({ workspaceId: 'ws-a', rootHash }), /injected EEXIST/);
+  } finally {
+    fs.mkdir = originalMkdir;
+  }
+  assert.equal(await fs.readFile(path.join(collidedPath, 'keep.txt'), 'utf8'), 'collision');
+  const collisionRow = await context.db.get('SELECT id, status FROM gqwf_leases WHERE path = ?', collidedPath);
+  assert.equal(collisionRow.status, 'quarantined');
+  await fs.rm(collidedPath, { recursive: true, force: true });
+  await context.db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ?", collisionRow.id);
+  const replaced = await fabric.materializeRoot({ workspaceId: 'ws-a', rootHash });
+  await fs.rm(replaced.path, { recursive: true, force: true });
+  await fs.mkdir(replaced.path);
+  await fs.writeFile(path.join(replaced.path, 'keep.txt'), 'external');
+  await assert.rejects(fabric.releaseLease({ workspaceId: 'ws-a', leaseId: replaced.leaseId }), /ownership proof/);
+  assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', replaced.leaseId)).status, 'quarantined');
+  assert.equal(await fs.readFile(path.join(replaced.path, 'keep.txt'), 'utf8'), 'external');
+}
+
 async function exerciseWorkerBridge(context) {
   const capsule = path.join(context.root, 'worker-capsule');
   await fs.mkdir(capsule);
@@ -188,6 +342,9 @@ async function main() {
     await fs.writeFile(blobPath, await fs.readFile(path.join(context.workspacePath, manifest.files[0].path)));
     await fs.writeFile(path.join(context.workspacePath, 'CON'), 'reserved');
     await assert.rejects(state.fabric.importBase({ workspaceId: 'ws-a' }), /not portable/);
+    await exerciseLeaseRecovery(context, state.base.rootHash);
+    await exercisePreparationRecovery(context, state.base.rootHash);
+    await exerciseBlobDedup(context);
     await context.db.close();
     context.db = await open({ filename: path.join(context.root, 'gqwf.sqlite'), driver: sqlite3.Database });
     const reopened = createFabric(context.db);

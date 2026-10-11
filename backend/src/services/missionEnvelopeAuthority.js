@@ -42,11 +42,12 @@ async function build(ctx, binding) {
   const root = await fs.realpath(mission.workspaceRoot);
   const duration = Math.min(binding.budget.latencyMs, Number(mission.timeoutMs) || binding.budget.latencyMs);
   if (!Number.isFinite(duration) || duration <= 0) throw values.failure('EXECUTION_AUTHORITY_DEADLINE_INVALID');
+  const planSnapshot = JSON.parse(JSON.stringify(ctx.autonomyPlan || {}));
   const envelope = values.canonical({ schema: SCHEMA, runId: binding.runId, scope: binding.scope,
     missionId: binding.mission.id, orchestratorId: missionRecord.orchestrator_agent_id,
     bindingHash: binding.hash, identity, workspaceRoot: root,
     toolLease: [...new Set(mission.toolLease || [])].sort(),
-    capabilities: mission.capabilities || [], planHash: values.digest(ctx.autonomyPlan || {}),
+    capabilities: mission.capabilities || [], planHash: values.digest(planSnapshot),
     limits: binding.budget, expiresAt: new Date(Date.now() + duration).toISOString(),
     lease: await state.lease(ctx.db, binding.mission.id) });
   require('./agentAuthorityService').assertToolLeaseFresh({ id: ctx.agentId,
@@ -84,11 +85,19 @@ async function assertRun(db, input) {
 }
 
 async function assertMission(saved, mission) {
-  if (mission.missionId !== saved.envelope.missionId) throw values.failure('EXECUTION_AUTHORITY_CONTEXT_CHANGED');
+  if (mission.missionId !== saved.envelope.missionId) throw contextChanged('mission identity changed');
   const root = await fs.realpath(mission.workspaceRoot);
-  if (root !== saved.envelope.workspaceRoot || values.digest([...new Set(mission.toolLease || [])].sort())
-      !== values.digest(saved.envelope.toolLease)) throw values.failure('EXECUTION_AUTHORITY_CONTEXT_CHANGED');
+  if (root !== saved.envelope.workspaceRoot) throw contextChanged('workspace root changed');
+  const actualTools = [...new Set(mission.toolLease || [])];
+  const sealedTools = new Set(saved.envelope.toolLease);
+  if (actualTools.some(tool => !sealedTools.has(tool))) {
+    throw contextChanged(`tool lease widened (${JSON.stringify(actualTools.filter(tool => !sealedTools.has(tool)).sort())})`);
+  }
   if (mission.executionAuthorityRef?.hash !== saved.hash) throw values.failure('EXECUTION_AUTHORITY_REFERENCE_CHANGED');
+}
+
+function contextChanged(reason) {
+  return Object.assign(new Error(`Execution authority context changed: ${reason}.`), { code: 'EXECUTION_AUTHORITY_CONTEXT_CHANGED' });
 }
 
 async function guardEvent(db, input) {

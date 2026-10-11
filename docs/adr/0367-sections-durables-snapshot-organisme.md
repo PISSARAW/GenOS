@@ -32,6 +32,12 @@ globale annoncée sur cette base aurait été trompeuse.
   des fichiers et de SQLite ; restaurer les données persistées dans une
   transaction. Un processus doit être relancé explicitement et les checkpoints
   de missions Rust ne sont pas repositionnés par l'API d'agent.
+- Comparer toutes les relations incidentes avec la capture avant de restaurer
+  les fichiers ou de sélectionner un curseur Rust, puis refaire ce contrôle
+  dans la transaction SQLite avant toute suppression. Une relation modifiée,
+  ajoutée ou supprimée provoque un conflit HTTP 409
+  (`ORGANISM_RESTORE_RELATION_CONFLICT`) pour préserver l'état du pair. Sans
+  version fiable par relation, ce refus reste conservateur.
 
 ## Conséquences
 

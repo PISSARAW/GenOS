@@ -41,7 +41,8 @@ function runTests() {
   assert.strictEqual(transferRes.configured, true);
   assert.strictEqual(transferRes.success, false);
   assert.strictEqual(transferRes.status, 'not_implemented');
-  assert.strictEqual(transferRes.injected_memories_count, 2);
+  assert.strictEqual(transferRes.injected_memories_count, 0);
+  assert.strictEqual(transferRes.requested_memories_count, 2);
   assert.strictEqual(transferRes.restored_baseline, 'snap-git-commit-initial');
   console.log('✅ PASS: Unsupported replay fails honestly without claiming state transfer');
 
@@ -55,8 +56,12 @@ function runTests() {
   });
   assert.strictEqual(transferRes2.success, false);
   assert.strictEqual(transferRes2.status, 'not_implemented');
-  assert.strictEqual(transferRes2.injected_memories_count, 1);
+  assert.strictEqual(transferRes2.injected_memories_count, 0);
+  assert.strictEqual(transferRes2.requested_memories_count, 1);
   console.log('✅ PASS: Unsupported replay fails honestly without claiming state transfer');
+
+  assert.throws(() => handleConsciousnessTransfer({ action: 'travel_back', agent_id: 'time_loop_worker' }),
+    /Unsupported temporal state-restore action/);
 
   console.log('🎉 ALL CONSCIOUSNESS TRANSFER TESTS PASSED!');
 }

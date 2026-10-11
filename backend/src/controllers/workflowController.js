@@ -2,6 +2,8 @@ const crypto = require('crypto');
 const { getDatabase, withTransaction } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
 const { validateGraph } = require('./validation/graphValidation');
+const { versionConflict } = require('./validation/workflowVersion');
+const { jobMaxAttempts, jobTimeoutMs, jsonByteLength } = require('./argumentBounds');
 
 function parseJson(value, fallback) {
   try { return JSON.parse(value); } catch (_) { return fallback; }
@@ -130,6 +132,8 @@ function validateStatusInput(status) {
 }
 
 async function validateWorkflowRequest(req, existing) {
+  const conflict = versionConflict(req.body, existing.version);
+  if (conflict) return conflict;
   const statusError = validateWorkflowStatus(req.body?.status);
   if (req.body?.status && !validateWorkflowStatus(req.body?.status)) return { error: { code: 'INVALID_STATUS', message: 'Workflow status must be draft, staging, published, or archived.' } };
 
@@ -145,6 +149,8 @@ async function validateWorkflowRequest(req, existing) {
 }
 
 function getStatusCode(error) {
+  if (error.code === 'INVALID_EXPECTED_VERSION') return 400;
+  if (error.code === 'WORKFLOW_VERSION_CONFLICT') return 409;
   if (error.code === 'INVALID_STATUS') return 400;
   if (error.code === 'INVALID_STATUS_TRANSITION') return 409;
   if (error.code === 'PUBLISHED_WORKFLOW_IMMUTABLE') return 409;
@@ -191,6 +197,8 @@ async function createRun(req, res, next) {
     const db = await getDatabase();
     const s = scopeSql(req); const workflow = await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params);
     if (!workflow) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
+    const conflict = versionConflict(req.body, workflow.version);
+    if (conflict) return res.status(getStatusCode(conflict.error)).json(conflict);
     if (!['staging', 'published'].includes(workflow.status)) {
       return res.status(409).json({ error: { code: 'WORKFLOW_NOT_RUNNABLE', message: 'Only staging or published workflows can be run.' } });
     }

@@ -342,7 +342,6 @@ async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) 
     abstention
   }, 'info');
 }
-
 function applyAbstentionToMission(mission, model, bench) {
   try {
     const abstention = require('./abstentionService');
@@ -354,7 +353,6 @@ function applyAbstentionToMission(mission, model, bench) {
     return { abstain: false, reason: 'unassessed' };
   }
 }
-
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {
   const missionBudget = normalizedMission.executionBudget || {};
   const regulationBudget = {
@@ -367,6 +365,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
     ? buildAutonomyPlan(contractRecord.contract, regulationBudget)
     : null;
   if (!autonomyPlan) {
+    await require('./autobiographicalMemory/workerRecall').applyWorkerRecall({ db, agentId, normalizedMission });
     return autonomyPlan;
   }
   const effectiveWorkerShare = resolveEffectiveWorkerShare(autonomyPlan, configuredWorkerShare);
@@ -393,6 +392,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });
   await applyOrganizationState({ db, agentId, autonomyPlan, normalizedMission });
   applyMissionCapabilityContract(autonomyPlan, normalizedMission);
+  require('./nativeMissionPlanService').applyNativeMissionPlan(autonomyPlan, normalizedMission);
   autonomyPlan.controlRegulation = regulateAutonomyPlan(contractRecord.contract, regulationBudget, autonomyPlan);
   emitControlRegulation(agentId, autonomyPlan);
   return autonomyPlan;
