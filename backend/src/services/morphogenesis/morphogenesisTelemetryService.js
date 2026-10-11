@@ -8,6 +8,8 @@ function buildMorphogenesisEvent(result, orchestratorId) {
   const committed = transitionCommitted(result);
   const topology = result?.topology || null;
   const transitionId = result?.transitionId || result?.receipt?.transitionId || null;
+  const payload = { topology, committed, transitionId, commitId: result?.commitId || null };
+  if (result?.variantId) payload.variantId = result.variantId;
   return {
     eventType: committed ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED',
     agentId: orchestratorId,
@@ -15,7 +17,7 @@ function buildMorphogenesisEvent(result, orchestratorId) {
     detail: committed
       ? `Committed ${topology || 'unresolved'} morphology with ${result?.agents?.length || 0} agents`
       : `Morphology ${topology || 'unresolved'} evaluated without a commit receipt`,
-    payload: { topology, committed, transitionId, commitId: result?.commitId || null },
+    payload,
     severity: committed ? 'info' : 'warning'
   };
 }

@@ -1,4 +1,5 @@
 const RELATIONAL_SIGNAL_SCHEMA = require('./relationalPhysiology/signalToolSchema');
+const PUBLIC_TOOL_NAMES = new Set(require('../../../shared/toolDefinitions.json').tools.map((tool) => tool.name));
 const REQUIRED_STRINGS = {
   genos_agent_world_capsule: ['snapshot_id'],
   genos_world_sandbox_execute: ['world_id', 'command', 'backend'],
@@ -81,7 +82,7 @@ function getToolInputSchema(toolName, baseSchema = {}) {
   };
   applyToolSpecificOverrides(toolName, schema);
   applyRequiredStrings(toolName, schema);
-  applyPrimitiveFields(schema);
+  if (!PUBLIC_TOOL_NAMES.has(toolName)) applyPrimitiveFields(schema);
   return { ...schema, required: [...new Set(schema.required)] };
 }
 
@@ -260,15 +261,15 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       mode: { type: 'string', enum: ['biome', 'syncytium', 'holobionte', 'biocenose', 'rhizome', 'metapopulation'], description: 'Biological organization mode.' },
-        mission: { type: 'string', description: 'Mission shared by the collective.' },
-        variant_id: { type: 'string', description: 'Optional variant identifier for the selected topology; unknown or incompatible variants are rejected.' },
-        scope: { type: 'string', description: 'Optional session scope such as mission, workspace, project, or persistent.' },
+        mission: { type: 'string', description: 'Mission shared by the collective.' }, variant_id: { type: 'string', description: 'Optional variant identifier for the selected topology; unknown or incompatible variants are rejected.' },
+        execute_round: { type: 'boolean', description: 'Run the persisted Biocenose deliberation.' }, community_id: { type: 'string', description: 'Existing Biocenose community to continue.' },
+        resume_token: { type: 'string', description: 'Bearer continuation proof.' }, expected_revision: { type: 'integer', minimum: 0 }, scope: { type: 'string', description: 'Optional session scope such as mission, workspace, project, or persistent.' },
         persistence_key: { type: 'string', description: 'Stable project key for carrying a persistent Biome environment across missions.' },
         configuration: { type: 'object', description: 'Optional topology-specific runtime configuration.' },
         worker_assignments: workerAssignmentsSchema(),
         orchestrator_id: { type: 'string', description: 'Orchestrator whose organization should be changed.' },
     },
-    required: ['mode', 'mission'],
+    required: ['mode'], anyOf: [{ required: ['mission'] }, { required: ['community_id'] }],
   },
   genos_topology_session: {
     type: 'object',
@@ -373,7 +374,6 @@ function getGatedToolSchemas(query, candidateTools = [], options = {}) {
   const { evaluateToolGating } = require('./biomimeticToolGatingService');
   const candidates = candidateTools.length > 0 ? candidateTools : Object.keys(TOOL_BASE_SCHEMAS);
   const gating = evaluateToolGating(query, candidates, options);
-
   const disinhibited = gating.disinhibitedTools || [];
   const schemas = {};
   for (const tool of disinhibited) {

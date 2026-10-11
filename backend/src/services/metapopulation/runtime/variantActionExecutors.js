@@ -185,7 +185,8 @@ async function transferCultureOffer(action, context) {
   const offered = await migrationStore.offerMigration(options.db, { metapopulationId: input.metapopulationId,
     corridorId: corridor.corridorId,
     propagule: culturePropagule({ culture, sourceDemeId, targetDemeId, transmission: action.transmission }) });
-  return { type: action.type, cultureId: culture.id, offered: true, migrationId: offered.migrationId, status: offered.status };
+  return { type: action.type, cultureId: culture.id, offered: true, migrationId: offered.migrationId,
+    status: offered.status, transferCompleted: offered.status === 'ACCEPTED' };
 }
 
 function culturePropagule(context) {

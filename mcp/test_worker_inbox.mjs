@@ -14,10 +14,12 @@ process.env.GENOS_ADMIN_PASSWORD ||= 'mcp-worker-inbox-test-password';
 const { getDatabase, closeDatabase } = require('../backend/src/db');
 const organization = require('../backend/src/services/dynamicOrganizationService');
 const client = new Client({ name: 'worker-inbox-test', version: '1' });
+// The parent initializes this fixture before the MCP child handles requests.
 const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(root, 'mcp/index.js')],
   cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_DB_PATH: database,
     GENOS_REPO_ROOT: root, GENOS_ORCHESTRATOR_BRIDGE: path.join(root, 'backend/bin/genos-orchestrate.cjs'),
-    GENOS_DB_BACKUP_SKIP: '1', GENOS_AGENT_ID: 'inbox-worker', GENOS_EXECUTION_MODE: 'worker',
+    GENOS_DB_BACKUP_SKIP: '1', GENOS_DB_BOOTSTRAP_SKIP: '1',
+    GENOS_AGENT_ID: 'inbox-worker', GENOS_EXECUTION_MODE: 'worker',
     GENOS_MCP_LEASE: 'genos_worker_publish,genos_worker_inbox,genos_organization_state', NODE_ENV: 'test' } });
 let stderr = '';
 transport.stderr.on('data', (chunk) => { stderr += chunk.toString(); });

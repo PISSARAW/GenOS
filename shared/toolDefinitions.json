@@ -140,6 +140,14 @@
             "type": "string",
             "description": "Goal or user request to achieve."
           },
+          "topologyId": {
+            "type": "string",
+            "description": "Optional topology selection for the mission proposal; does not apply a morphogenesis transition."
+          },
+          "variantId": {
+            "type": "string",
+            "description": "Optional variant selection for the mission proposal; does not apply a morphogenesis transition."
+          },
           "worker_assignments": {
             "type": "object",
             "description": "Optional per-role runtime and method contracts. Use a registered methodId such as dynamic_programming or evolutionary_search, or declare requiredCapabilities for a custom method.",
@@ -2426,6 +2434,23 @@
             "type": "string",
             "description": "Optional variant identifier for the selected topology; unknown or incompatible variants are rejected."
           },
+          "execute_round": {
+            "type": "boolean",
+            "description": "For Biocenose only, run the persisted deliberation after composition. Missing model, oracle, or human authority remains a blocking or review state; cycle completion is not promotion."
+          },
+          "community_id": {
+            "type": "string",
+            "description": "Existing Biocenose community to continue; requires execute_round, resume_token and expected_revision."
+          },
+          "resume_token": {
+            "type": "string",
+            "description": "Bearer continuation proof returned by the first explicit cycle execution."
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Persisted community revision expected before continuation."
+          },
           "scope": {
             "type": "string",
             "description": "Optional session scope such as mission, workspace, project, or persistent."
@@ -2609,8 +2634,11 @@
           }
         },
         "required": [
-          "mode",
-          "mission"
+          "mode"
+        ],
+        "anyOf": [
+          { "required": ["mission"] },
+          { "required": ["community_id"] }
         ],
         "additionalProperties": true
       }
@@ -2640,6 +2668,7 @@
             "type": "string",
             "enum": [
               "snapshot",
+              "materialize",
               "apply",
               "schema",
               "domains",

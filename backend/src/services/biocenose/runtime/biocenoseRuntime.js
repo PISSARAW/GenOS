@@ -53,12 +53,22 @@ async function prepareRound(input) {
     });
   }
   variantPolicies.assertCompatible(variantPolicy, constitution.questionType);
+  if (variantPolicy.requireDeterministicVerifier && hasHandlerOverride(input.handlers)) {
+    throw Object.assign(new Error('Hybrid Oracle requires canonical deliberation handlers.'), {
+      code: 'BIOCENOSE_HYBRID_ORACLE_HANDLER_OVERRIDE_FORBIDDEN'
+    });
+  }
   const handlers = { ...protocolHandlers.createHandlers({ ...input, variantPolicy }), ...(input.handlers || {}) };
   const events = await communityStore.listEvents(input.db, input.communityId);
   const modelExecutionByMember = new Map(events.filter((event) => event.type === 'MODEL_PROVIDER_OBSERVED')
     .map((event) => [event.payload.memberId, event.payload]));
   return { session, constitution, variantPolicy, handlers, modelExecutionByMember,
     recordModelExecution: modelObserver(input, modelExecutionByMember) };
+}
+
+function hasHandlerOverride(handlers) {
+  const steps = require('./deliberationPlanner').ROUND_STEPS;
+  return Object.keys(handlers || {}).some((name) => steps.includes(name));
 }
 
 function modelObserver(input, modelExecutionByMember) {

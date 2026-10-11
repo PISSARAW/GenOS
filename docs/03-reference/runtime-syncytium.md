@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté pour les contrats Node décrits ; garanties bornées à leur portée.
 - **Portée** : admission, persistance, réplication et clôture du runtime Node Syncytium.
-- **Dernière revue** : 2026-10-06.
+- **Dernière revue** : 2026-10-11.
 - **Référence de validation** : commit `4c4d4f33`, [ADR 0331](../adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md).
 
 Cette fiche décrit les services Node actuels. Le [modèle Syncytium](../02-orchestration/topologies/syncytium.md)
@@ -17,6 +17,20 @@ distincts. L'option `topologySnapshot` exige une matérialisation actuelle, une
 frontière causale cohérente, des répliques réconciliées et les champs requis
 par le variant avant le restore ou checkout du workspace. Elle ne rembobine
 pas la session partagée. Voir [snapshots topologiques](snapshots-topologiques.md).
+
+L'opération MCP `materialize` crée un snapshot durable de la session partagée
+après vérification de l'état non vide, des invariants et des réplicas à la
+frontière courante. Elle exige un appelant autorisé et rend un reçu contenant
+`snapshotId`, version et frontière ; une nouvelle mutation rend ce reçu périmé.
+Après la fin des workers et leur validation sémantique, le dispatch utilise le
+même gate avant sa validation d'état. Le refus conserve le statut `partial`.
+Le snapshot topologique d'agent reste `verify-only` : aucun retour arrière du
+CRDT partagé n'est implémenté ([ADR 0405](../adr/0405-materialisation-syncytium-preuve-de-cloture.md)).
+
+Pour un appelant identifié, le garde de session accepte un worker lié à la
+session persistée ou son orchestrateur parent avec un worker du même workspace
+lié à cette session. Un autre rôle ou un orchestrateur sans ce lien est refusé
+avant `materialize` et les autres opérations ([ADR 0411](../adr/0411-appelant-lie-session-syncytium.md)).
 
 ## Services et activation
 
@@ -38,6 +52,15 @@ Les préconditions du variant restent obligatoires : `authorityMembers` pour Har
 un noyau de `kind: "human"` pour Human–AI. L'identité des principaux et noyaux
 reste vérifiée par les opérations concernées. Une politique sélectionnée ne
 prouve pas que ses opérations métier ont été exécutées.
+
+Pour Human–AI, une approbation d'action critique porte le contenu JSON revu
+(64 Kio au plus) et l'identifiant de l'agent autorisé. La consommation refuse
+un autre contenu ou agent. Elle exige également un consentement humain courant
+de portée `session` pour cet agent ; une absence ou un retrait refuse
+l'enregistrement ([ADR 0426](../adr/0426-consentement-explicite-human-ai-syncytium.md)).
+Le reçu `authorized_recorded` prouve uniquement
+l'enregistrement dans l'état partagé ; l'effet externe exige une preuve distincte
+([ADR 0414](../adr/0414-approbation-liee-a-laction-human-ai-syncytium.md)).
 
 ## Admission, causalité et identité
 
@@ -90,6 +113,7 @@ un `mode` fourni par l'appelant ne change pas cette topologie.
 | Opérations MCP Syncytium | Portée actuelle |
 | --- | --- |
 | `snapshot`, `schema`, `domains`, `history`, `replicas`, `health`, `events` | Inspection de la session entière dans l'adaptateur actuel. |
+| `materialize` | Snapshot durable avec contrôle des invariants, de la frontière des réplicas et reçu vérifié. |
 | `apply` | Opération `op` ou `transaction` ; `domain_id` est transmis à l'admission. |
 | `explain`, `conflicts` | Explication et inspection des conflits. |
 | `branch`, `promote` | Création et promotion via le service de coordination. |
@@ -99,7 +123,7 @@ un `mode` fourni par l'appelant ne change pas cette topologie.
 L'adaptateur MCP ne relaie pas `domain_id` aux inspections ci-dessus. Les reçus
 d'exécution des prédicats se lisent dans `health.consistency.invariantReceipts`,
 puis dans `stateValidation` lors de la clôture. La liste MCP `invariants` seule
-n'atteste pas leur exécution. `createSnapshot`, `listSnapshots`,
+n'atteste pas leur exécution. `listSnapshots`,
 `reconcileReplica`, `acknowledgeReplica` et `validateSession` sont des API Node,
 pas des noms d'opération de cet adaptateur. Voir [outils MCP](outils-mcp.md).
 

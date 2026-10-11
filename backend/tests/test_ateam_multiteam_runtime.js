@@ -17,15 +17,13 @@ async function run() {
       contracts: [{ contractId: 'api-ui', fromTeamId: 'api', toTeamId: 'web', provides: ['schema'], acceptanceCriteria: ['schema accepted'] }]
     });
     const calls = [];
-    const result = await runtime.advanceProgramRun({ db: {}, programId: 'program-1', executeTeam: async (task) => {
+    await assert.rejects(runtime.advanceProgramRun({ db: {}, programId: 'program-1', executeTeam: async (task) => {
       calls.push(task.teamId);
-      if (task.teamId === 'api') return { status: 'SUCCEEDED', childRunId: 'child-api' };
+      if (task.teamId === 'api') return { status: 'SUCCEEDED', childRunId: 'child-api', evidenceRefs: ['evidence://api'] };
       return { status: 'SUCCEEDED', childRunId: 'child-web', verifiedContractIds: ['api-ui'], evidenceRefs: ['evidence://schema'] };
-    } });
-    assert.deepEqual(calls, ['api', 'web']);
-    assert.equal(result.status, 'SUCCEEDED');
-    assert.equal(result.teams[1].receipt.verified, true);
-    assert.equal(records.get('program-1').revision, 2);
+    } }), { code: 'ATEAM_MTS_SUBRUN_PROOF_REQUIRED' });
+    assert.deepEqual(calls, ['api']);
+    assert.equal(records.get('program-1').revision, 0);
 
     await runtime.createProgramRun({
       db: {}, programId: 'program-2',
@@ -39,12 +37,22 @@ async function run() {
     } });
     assert.deepEqual(blockedCalls, ['producer']);
     assert.equal(waiting.teams[1].status, 'PENDING');
+    const retried = await runtime.advanceProgramRun({ db: {}, programId: 'program-2', executeTeam: async (task) => {
+      assert.equal(task.existingChildRunId, null);
+      return { status: 'WAITING', childRunId: 'child-producer' };
+    } });
+    assert.equal(retried.teams[0].receipt.childRunId, 'child-producer');
+    await assert.rejects(runtime.advanceProgramRun({ db: {}, programId: 'program-2',
+      executeTeam: async (task) => {
+        assert.equal(task.existingChildRunId, 'child-producer');
+        return { status: 'WAITING', childRunId: 'different-child' };
+      } }), { code: 'ATEAM_MTS_CHILD_IDENTITY_CONFLICT' });
     await assert.rejects(runtime.advanceProgramRun({ db: {}, programId: 'missing', executeTeam: async () => ({ status: 'SUCCEEDED' }) }), { code: 'ATEAM_MTS_PROGRAM_UNKNOWN' });
   } finally {
     sessions.save = originalSave;
     sessions.load = originalLoad;
   }
-  console.log('A-Team multiteam runtime persists verified subteam execution and blocks consumers.');
+  console.log('A-Team multiteam runtime refuses unverified success and blocks consumers.');
 }
 
 async function saveRecord(records, record) {

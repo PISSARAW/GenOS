@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel ; les douze variants ont un chemin d'exécution branché au superviseur. Les contrôles de preuves restent bloquants ; la campagne R3 pré-correctifs a produit 12/12 escalades et aucune promotion, et le runtime corrigé reste à requalifier.
 - **Portée** : trois mondes pour le parcours de base ; le plan factoriel lance seize cellules, la diversité peut ajouter des réplicas et la récursion lance une mission Trinity enfant. Les reçus et gates décrits ci-dessous déterminent si chaque parcours est complet.
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-11
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
@@ -14,6 +14,16 @@ phases. Chacun des douze variants apporte ses paramètres expérimentaux au
 manifeste. Une reprise de workspace exige une expérience terminale et une
 frontière inchangée ; elle ne restaure pas l'expérience collective. Voir la
 [référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+Une sélection automatique `composed` conserve son preset dans `selectedPreset` ;
+la capture accepte ce preset seulement si le plan persisté correspond au plan
+compilé du preset. Un plan modifié ou un preset incohérent est refusé.
+
+Pour `oracular`, le monde 1 doit publier sa distribution dans le journal de
+télémétrie avant le premier résultat des mondes 2 et 3. Le reçu est lié au
+rapport et à l'ordre des événements persistés. Une distribution apparue après
+les résultats reste incomplète. Pour `recursive`, une limite de profondeur,
+budget, coût marginal ou cycle est un arrêt borné, pas une preuve de résolution :
+le gate escalade. Voir [ADR 0406](../../adr/0406-frontieres-preuves-variants-trinity.md).
 
 ## Extension exécutable du 2026-10-06
 
@@ -2305,6 +2315,30 @@ Pour chaque mission, Trinity enregistre :
 > **Et si les trois échouent de la même manière : Trinity doit détecter la monoculture cognitive et générer une nouvelle expérience.**
 
 Trinity n'est pas un système qui trouve la bonne réponse. C'est un système qui sait quelle hypothèse est la plus résistante à l'expérimentation, et qui sait aussi quand aucune hypothèse ne résiste suffisamment.
+
+### 9.1 Qualification des douze variants après R3
+
+La campagne R3 du 3 octobre 2026 reste un constat pré-correctifs : douze
+escalades, aucune promotion. Pour une nouvelle campagne, fournir un JSON qui
+associe chacun des douze noms de variant à son identifiant de mission distinct,
+puis exécuter en lecture seule :
+
+```bash
+node backend/bin/trinity-nominal-campaign.cjs <database.sqlite> <manifest.json>
+```
+
+La sortie JSON donne un verdict et les raisons par variant. La qualification
+exige la sélection observée, les mondes terminés, la trace durable du runner,
+les contrôles d'intégration du candidat et la signature AgentGit vérifiée.
+L'outil ne lance pas les missions et ne promeut aucun monde. Une campagne
+ancienne dépourvue de traces de gates reste non qualifiée. Les douze missions
+post-correctifs doivent être exécutées avec leurs propres vérificateurs et
+contrôles d'intégration; les reçus auto-déclarés ne suffisent pas. Voir ADR 0415.
+
+Elle requiert aussi l'empreinte SHA-256 commune aux mondes initiaux, leurs
+racines de workspace distinctes et la chaîne durable des six transitions de
+`designed` à `promoted`, liée au snapshot scellé. Voir
+[ADR 0425](../../adr/0425-liaison-campagne-nominale-trinity-aux-scellages.md).
 
 ## 10. Références scientifiques
 

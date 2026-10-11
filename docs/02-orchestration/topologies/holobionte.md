@@ -1071,6 +1071,30 @@ La santé dérive par défaut six signaux heuristiques du registre persistant et
 
 Les douze variants persistants, les workflows bornés et leurs reçus restent disponibles. Chaque étape conserve l’hôte, le vérificateur et le signal de mission ; l’annulation est contrôlée avant persistance. Le cycle adaptive-microbiome produit des propositions de remplacement qui restent soumises à admission et approbation.
 
+### Frontières d'opération des variants persistants
+
+| Variant | Opération observée | Limite actuelle |
+| --- | --- | --- |
+| `organelle` | fermeture des dépendances et essai d'essentialité | remplacement du cœur soumis à une procédure distincte |
+| `adaptive-microbiome` | cycle écologique, fitness et proposition de recrutement | aucune substitution automatique |
+| `immune-critical` | revue de menaces et de lots | effet immunitaire réel limité aux services spécialisés |
+| `local-first` | plan de placement et preuve déclarée de non-export | pas d'isolation réseau attestée par ce plan |
+| `regenerative` | plan et simulation de récupération | pas de remplacement externe déclenché par la simulation |
+| `cloud-core/edge-symbionts` | placement et réconciliation d'événements | transport fournisseur non attesté |
+| `edge-core/cloud-symbionts` | placement local et cloud à la demande | exécution cloud non attestée |
+| `memory-rich` | plan de consolidation et de conflits | aucune écriture mémoire issue du plan seul |
+| `competitive-partner` | classement et autorisation conditionnelle | remplacement réel soumis au cycle de vie distinct |
+| `procedural` | recrutement, contrat et essai d'admission | transmission procédurale non déclenchée par le plan |
+| `tool` | invocation contrôlée avant l'exécuteur par le résident, le contrat actif et le manifeste | sandbox système et effet externe restent à attester par l'intégrateur |
+| `cloud-core/edge-sync` | placement, réconciliation et simulation de synchronisation | aucune livraison réseau prouvée par la simulation |
+
+Pour `tool`, un refus est journalisé avant l'appel de l'exécuteur; une exception
+pendant l'appel porte `UNKNOWN_EFFECT`, sans prétendre annuler l'action externe.
+Une sortie exécutée mais rejetée par le vérificateur indépendant est journalisée
+`UNVERIFIED`.
+Le reçu d'une exécution acceptée contient l'empreinte du contrat et sa révision.
+Voir [ADR 0420](../../adr/0420-frontiere-contrat-outil-holobionte.md).
+
 Les services couvrent transmission verticale, horizontale, mixte et procédurale, succession, résilience et impact keystone. Les adaptateurs A-Team, daemon résident, Rhizome, Syncytium et Trinity ont des tests dédiés. Le dispatch biologique historique conserve le parent host_orchestrator et les trois workers symbiotiques ; un plan de rôles n’est pas une preuve de contribution exécutée.
 
 ### Validation et limites

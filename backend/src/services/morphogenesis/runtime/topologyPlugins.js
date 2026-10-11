@@ -171,14 +171,26 @@ async function executeMetapopulation(args, context) {
   const workerResults = collectMissionWorkers(args, input);
   const mission = missionTextFrom(args, input, context);
   const { createRuntimeDb } = require('./sqliteDb');
-  const created = await createRuntimeDb();
+  const created = await createRuntimeDb({ db: input.db });
   try {
     await migrateMetapopulation(created.db);
     const coordination = require('../../metapopulationCoordinationService');
-    const session = await coordination.createMetapopulationSession(mission, sessionOptions(args, input, created.db));
+    const session = input.metapopulationId
+      ? await coordination.getMetapopulationSession(input.metapopulationId, { db: created.db })
+      : await coordination.createMetapopulationSession(mission, sessionOptions(args, input, created.db));
+    if (input.variantId && session.variant !== require('../../metapopulation/policy/metapopulationPolicyService')
+      .resolveMetapopulationVariant({ variant: input.variantId }).variant) {
+      throw Object.assign(new Error('Requested variant differs from the persisted regional session.'),
+        { code: 'METAPOPULATION_VARIANT_MISMATCH' });
+    }
+    if (!session.demes.length) return { status: 'BLOCKED', reason: 'REGION_UNPOPULATED',
+      complete: false, missionVerified: false, sessionId: session.sessionId,
+      variant: session.variant, driver: created.driver, workerResults };
     const brain = require('../../metapopulation/runtime/regionalBrainService');
-    const result = await brain.runAutonomousRegionalRuntime({ metapopulationId: session.metapopulationId, maxCycles: 1 }, { db: created.db, workerResults });
-    return { ...result, driver: created.driver, workerResults };
+    const result = await brain.runAutonomousRegionalRuntime({ ...input,
+      metapopulationId: session.metapopulationId, maxCycles: 1 }, { db: created.db, workerResults });
+    return { ...result, complete: false, missionVerified: false,
+      sessionId: session.sessionId, variant: session.variant, driver: created.driver, workerResults };
   } finally {
     await created.close();
   }
@@ -195,7 +207,8 @@ function missionTextFrom(args, input, context) {
 }
 
 function sessionOptions(args, input, db) {
-  return { db, missionId: input.missionId || args.mission, actor: input.actorId || 'morphogenesis-runtime' };
+  return { db, missionId: input.missionId || undefined, variant: input.variantId || args.variant,
+    orchestratorId: input.actorId || undefined, actor: input.actorId || 'morphogenesis-runtime' };
 }
 
 async function migrateMetapopulation(db) {

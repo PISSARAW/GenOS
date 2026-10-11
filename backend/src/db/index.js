@@ -187,6 +187,7 @@ async function withTransaction(db, callback) {
 }
 module.exports = {
   getDatabase,
+  databasePath: () => currentDbPath,
   closeDatabase,
   withTransaction,
   withWriteRetry,

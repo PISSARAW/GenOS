@@ -48,6 +48,7 @@ class PatchExecutor {
     if (patch.baseGraphVersion !== graph.version) throw new Error(`Patch baseGraphVersion ${patch.baseGraphVersion} != graph version ${graph.version}`);
     if (typeof this.adjudicator?.adjudicate !== 'function') throw new Error('Patch adjudicator is required');
     if (typeof this.verifier?.verify !== 'function') throw new Error('Patch verifier is required');
+    if (typeof this.committer?.commit !== 'function') throw new Error('Versioned patch committer is required');
     if (this.typeChecker) { const tc = await this.typeChecker.check(patch, graph); if (!tc.valid) throw new Error(`Type check failed: ${tc.errors.join('; ')}`); }
     if (this.budgetValidator) { const bc = await this.budgetValidator.check(patch, graph, context); if (!bc.valid) throw new Error(`Budget validation failed: ${bc.errors.join('; ')}`); }
     if (this.authorityValidator) { const ac = await this.authorityValidator.check(patch, context); if (!ac.valid) throw new Error(`Authority validation failed: ${ac.errors.join('; ')}`); }
@@ -96,14 +97,10 @@ class PatchExecutor {
   async runCommit(exec) {
     exec.phase = 'commit';
     if (exec.graph.version !== exec.patch.baseGraphVersion) throw new Error('MORPHOLOGY_VERSION_CONFLICT');
-    if (this.committer) {
-      exec.commitResult = await this.committer.commit({ graph: exec.appliedGraph, patch: exec.patch,
-        expectedVersion: exec.patch.baseGraphVersion, adjudication: exec.adjudication, verification: exec.verification });
-      if (exec.commitResult?.committed !== true) throw new Error('Versioned commit was not confirmed');
-      exec.commitResult = { ...exec.commitResult, graph: exec.commitResult.graph || exec.appliedGraph };
-    } else {
-      exec.commitResult = { graph: exec.appliedGraph, patch: exec.patch };
-    }
+    exec.commitResult = await this.committer.commit({ graph: exec.appliedGraph, patch: exec.patch,
+      expectedVersion: exec.patch.baseGraphVersion, adjudication: exec.adjudication, verification: exec.verification });
+    if (exec.commitResult?.committed !== true) throw new Error('Versioned commit was not confirmed');
+    exec.commitResult = { ...exec.commitResult, graph: exec.commitResult.graph || exec.appliedGraph };
     exec.status = 'committed';
   }
 

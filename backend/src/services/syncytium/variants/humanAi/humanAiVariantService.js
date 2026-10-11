@@ -2,6 +2,7 @@
 
 const schemaService = require('../../../syncytiumSchemaService');
 const { randomUUID } = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
 
 const NUCLEUS_KINDS = new Set(['human', 'llm_worker', 'test_daemon', 'security_verifier']);
 const AUTHORITY_FIELDS = ['human.approvals', 'human.control', 'human.consent', 'human.audit'];
@@ -81,7 +82,7 @@ function fieldDefinition(path) {
 
 async function setConsent(sessionId, request = {}, syncytium) {
   requireIdentity(request);
-  if (!request.agentId || typeof request.granted !== 'boolean') throw humanError('Consent requires agentId and a boolean granted value.');
+  validateConsentRequest(request);
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
   assertHuman(snapshot, request.actorId);
   const current = snapshot.shared.sharedFields['human.consent']?.[request.agentId];
@@ -89,6 +90,13 @@ async function setConsent(sessionId, request = {}, syncytium) {
   return applyMap({ sessionId, request: { ...request, nucleusId: 'human-authority' }, field: 'human.consent', key: request.agentId,
     value: { agentId: request.agentId, granted: request.granted, scope: request.scope || 'session', actorId: request.actorId, reason: request.reason || null, updatedAt: Date.now() },
     action: 'set', syncytium, stateVersion: snapshot.shared.totalOps });
+}
+
+function validateConsentRequest(request) {
+  if (!request.agentId || typeof request.granted !== 'boolean') throw humanError('Consent requires agentId and a boolean granted value.');
+  if (request.scope !== undefined && request.scope !== 'session') {
+    throw humanError('Human-AI consent currently supports only the session scope.');
+  }
 }
 
 async function setPause(sessionId, request = {}, syncytium) {
@@ -176,9 +184,7 @@ async function addComment(sessionId, request = {}, syncytium) {
 
 async function submitApproval(sessionId, request = {}, syncytium) {
   requireIdentity(request);
-  if (!request.nucleusId || !request.approvalId || !request.actionId || !['approved', 'rejected'].includes(request.decision)) {
-    throw humanError('Approval requires a human nucleus, approvalId, actionId and decision.');
-  }
+  const approvedAction = validateApprovalRequest(request);
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
   const humans = snapshot.domains['human-authority']?.members || [];
   if (!humans.includes(request.actorId)) throw humanError('Only a human principal may approve a critical action.');
@@ -186,20 +192,38 @@ async function submitApproval(sessionId, request = {}, syncytium) {
   if (existing) throw Object.assign(new Error('Approval identifiers are immutable.'), { code: 'SYNCYTIUM_APPROVAL_EXISTS' });
   return applyMap({ sessionId, request: { ...request, nucleusId: 'human-authority' }, field: 'human.approvals', key: request.approvalId, value: {
     approvalId: request.approvalId, actionId: request.actionId, decision: request.decision,
+    executorId: request.executorId, action: approvedAction,
     approverId: request.actorId, reason: request.reason || null, createdAt: Date.now()
   }, action: 'set', syncytium, stateVersion: snapshot.shared.totalOps });
+}
+
+function validateApprovalRequest(request) {
+  if (!request.approvalId || !request.actionId || !request.executorId
+    || !['approved', 'rejected'].includes(request.decision) || !isRecord(request.action)) {
+    throw humanError('Approval requires approvalId, actionId, executorId, action and decision.');
+  }
+  const serialized = JSON.stringify(request.action);
+  if (!serialized || Buffer.byteLength(serialized) > 65536) {
+    throw humanError('Approval action must be a JSON object of at most 64 KiB.');
+  }
+  const approvedAction = JSON.parse(serialized);
+  if (!isDeepStrictEqual(approvedAction, request.action)) {
+    throw humanError('Approval action must be a JSON object of at most 64 KiB.');
+  }
+  return approvedAction;
 }
 
 async function executeApproved(sessionId, request = {}, syncytium) {
   requireIdentity(request);
   validateCriticalAction(request);
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
-  enforceHumanControls(snapshot, request.actorId);
   const approval = findMatchingApproval(snapshot, request);
+  enforceHumanControls(snapshot, request.actorId);
   ensureUnusedApproval(snapshot.shared.sharedFields['critical.actions'], request.approvalId);
   const record = {
     actionId: request.actionId, approvalId: request.approvalId, actorId: request.actorId,
-    action: request.action, intent: request.intent || null, status: 'executed', executedAt: Date.now()
+    action: JSON.parse(JSON.stringify(approval.action)), intent: request.intent || null,
+    status: 'authorized_recorded', recordedAt: Date.now()
   };
   const operation = mapOperation({ request, field: 'critical.actions', key: request.actionId, action: 'set', value: record });
   const result = await syncytium.applyTransaction(sessionId, {
@@ -214,8 +238,9 @@ function enforceHumanControls(snapshot, agentId) {
     throw Object.assign(new Error('Human authority has paused this Syncytium session.'), { code: 'SYNCYTIUM_HUMAN_PAUSED' });
   }
   const consent = snapshot.shared.sharedFields['human.consent']?.[agentId];
-  if (consent && !consent.granted) {
-    throw Object.assign(new Error('Human consent for this agent has been withdrawn.'), { code: 'SYNCYTIUM_HUMAN_CONSENT_WITHDRAWN' });
+  if (consent?.granted !== true || consent.agentId !== agentId || consent.scope !== 'session') {
+    throw Object.assign(new Error('Current session consent from human authority is required.'),
+      { code: 'SYNCYTIUM_HUMAN_CONSENT_REQUIRED' });
   }
 }
 
@@ -261,7 +286,8 @@ function validateCriticalAction(request) {
 
 function findMatchingApproval(snapshot, request) {
   const approval = snapshot.shared.sharedFields['human.approvals']?.[request.approvalId];
-  if (!approval || approval.actionId !== request.actionId || approval.decision !== 'approved') {
+  if (!approval || approval.actionId !== request.actionId || approval.decision !== 'approved'
+    || approval.executorId !== request.actorId || !isDeepStrictEqual(approval.action, request.action)) {
     throw Object.assign(new Error('No matching human approval exists.'), { code: 'SYNCYTIUM_APPROVAL_REQUIRED' });
   }
   return approval;

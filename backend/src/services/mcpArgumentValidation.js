@@ -31,11 +31,21 @@ const REQUIRED_STRINGS = {
   genos_parasitic_pressure: ['manifest'],
   genos_bisect_agent: ['agent_id', 'predicate'],
   genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source'],
-  genos_biological_mode: ['mode', 'mission'],
+  genos_biological_mode: ['mode'],
   genos_fossil_record: ['lineage_id', 'reason'],
+  genos_fossil_list: [],
+  genos_fossil_strata: [],
   genos_fossil_excavate: ['fossil_id'],
   genos_fossil_decode: ['fossil_id'],
   genos_fossil_candidate: ['fossil_id'],
+  genos_signal_ground: ['signal_id', 'agent_id', 'grounding_level'],
+  genos_diagnose: ['task'],
+  genos_analyze_trajectory: [],
+  genos_record_decision: ['agentId', 'title', 'decision'],
+  genos_record_experience: ['agentId', 'actionInput', 'observationOutput'],
+  genos_compile_memory: ['agentId'],
+  genos_blame: ['target_id'],
+  genos_search_failures: [],
   genos_genome_compile: ['input', 'out'],
   genos_genome_validate: ['file'],
   genos_genome_inspect: ['file'],
@@ -51,7 +61,7 @@ const REQUIRED_STRINGS = {
   genos_report_progress: ['phase', 'message'],
   genos_change_organization: ['organization', 'reason'],
   genos_organization_state: [],
-  genos_worker_publish: ['kind', 'signal_type', 'signal_data'],
+  genos_worker_publish: ['kind', 'signal_type'],
   genos_evolution_assimilate_plasmid: ['agent_id', 'plasmid_id'],
   genos_worker_inbox: [],
   genos_capsule_create: ['snapshot_id'],
@@ -61,7 +71,7 @@ const REQUIRED_STRINGS = {
   genos_agent_inherited_memory_read: ['agent_id', 'kind'],
   genos_agent_state_restore_inspect: ['agent_id', 'snapshot_id'],
   genos_trinity_launch: ['mission'],
-  genos_a_team_preview: ['project_goal', 'sub_systems'],
+  genos_a_team_preview: ['project_goal'],
   genos_audit: ['snapshot_id'],
   genos_biomimicry: ['feature', 'action'],
   // Primitives de stratégie — arity variable (un seul paramètre primit spécifie le comportement)
@@ -228,7 +238,8 @@ function validateToolArguments(toolName, args = {}) {
   // Validation générique: si le handler déclare required[], chaque champ doit
   // être fourni (non vide). Rejet => invalid_args, jamais de défaut silencieux.
   const required = bioRequiredArgs(toolName);
-  if (required) {
+  const statusInspection = args.action === undefined || args.action === null || args.action === 'status';
+  if (required && !statusInspection) {
     for (const field of required) {
       // 'a|b' = au moins l'un des deux doit être fourni (alias acceptés).
       const alternatives = String(field).split('|');
@@ -238,6 +249,11 @@ function validateToolArguments(toolName, args = {}) {
       });
       if (!provided) return invalid(alternatives[0], 'is required.');
     }
+  }
+  const declaredRequired = REQUIRED_STRINGS[toolName] || [];
+  for (const field of declaredRequired) {
+    const error = validateString(args[field], field, true);
+    if (error) return error;
   }
 
   if (toolName === 'genos_synaptic_stdp_update') {
@@ -317,7 +333,8 @@ function validateToolArguments(toolName, args = {}) {
   for (const [field, value] of Object.entries(args)) {
     if (typeof value === 'string') {
       if (value.includes('\0')) return invalid(field, 'contains null bytes.');
-      if (!FREEFORM_FIELDS.has(field) && !(toolName === 'genos_biomimicry_cryptophasia' && field === 'intent')) {
+      const decisionText = toolName === 'genos_record_decision' && (field === 'title' || field === 'decision');
+      if (!FREEFORM_FIELDS.has(field) && !decisionText && !(toolName === 'genos_biomimicry_cryptophasia' && field === 'intent')) {
         if (/[\r\n]/.test(value) || /["'`\\;|&<>$]/.test(value)) return invalid(field, 'contains forbidden command characters.');
         if (/\s/.test(value)) return invalid(field, 'must not contain whitespace.');
       }

@@ -136,7 +136,8 @@ const MARKER_VERIFIERS = Object.freeze({
     const culture = await culturalPersistentRuntime.getCulture({ db, metapopulationId, cultureId: item.cultureId });
     if (!culture || culture.version !== expected.culture.version) return false;
     const migration = await migrationStore.getMigration(db, metapopulationId, item.migrationId);
-    return migration && ['QUARANTINED', 'ACCEPTED', 'REJECTED'].includes(migration.status);
+    return migration && ['QUARANTINED', 'ACCEPTED', 'REJECTED'].includes(migration.status)
+      && item.transferCompleted === (migration.status === 'ACCEPTED');
   },
   REJECT_CULTURE_TRANSFER: async ({ item, expected }) => {
     return item.rejected === true && item.cultureId === expected.cultureId && item.reason === expected.reason;

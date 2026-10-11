@@ -325,6 +325,14 @@ async function enterIdleState(db, agentId, orchestratorId) {
   return false;
 }
 
+async function enterOrchestratorIdleState(db, agentId) {
+  const result = await db.run(
+    `UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND execution_mode = 'orchestrator'`, agentId
+  );
+  return result.changes === 1;
+}
+
 function armWakeHandler(workerId, poll = true) {
   registerWakeHandler(workerId, async (signal) => {
     const signalData = JSON.stringify(signal.signalData || {}).slice(0, 12000);
@@ -368,6 +376,7 @@ module.exports = {
   reserveSlot,
   releaseSlot,
   enterIdleState,
+  enterOrchestratorIdleState,
   armWakeHandler,
   rearmIdleWorkers,
   getDynamicCapacity,

@@ -58,7 +58,8 @@ async function run(context, execution) {
 }
 
 function observationSummary({ state, rows, runId, rebased }) {
-  return { observerAvailable: true, observedCount: state?.observations.length || 0,
+  return { observerAvailable: true, observedRunId: runId,
+    observedCount: state?.observations.length || 0,
     planRevision: state?.planRevision || 0, invalidated: state?.invalidated === true,
     telemetryCount: rows.length, distinctDigests: new Set((state?.observations || []).map((item) => item.digest)).size,
     runBound: (state?.observations || []).every((item) => item.runId === runId),

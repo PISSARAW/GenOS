@@ -1,7 +1,7 @@
 # Plan d'implémentation des variants des huit topologies
 
 - **Statut** : Implémentation en cours; couverture initiale branchée sur les huit topologies
-- **Dernière revue** : 2026-10-06 (Métapopulation)
+- **Dernière revue** : 2026-10-11 (parcours public et frontières de snapshot)
 - **Décision d'architecture** : [ADR 0124](../../adr/0124-selection-automatique-des-variants.md)
 
 ## Objectif
@@ -75,6 +75,121 @@ topologies avant de promouvoir leur maturité.
   délai long explicitement demandé ne fait donc plus expirer la comparaison à 180 secondes.
   Le test `test_trinity_supervisor_timeout.js` couvre la valeur par défaut, le délai demandé,
   sa borne maximale et les tailles de chambre standard/factorielle.
+
+### Vérification des frontières — 2026-10-11
+
+Le dispatch public transmet maintenant une topologie et un variant explicites validés,
+projette le profil local dans le graphe morphologique et conserve ce choix dans le
+reçu. Une proposition ou une réponse de transport ne constitue pas un commit : le
+commit versionné exige un `committer` et une preuve de transition. Le chemin
+post-mission reste une proposition tant que le pont de production avec le noyau Rust,
+la gouvernance et la transition CAS n'est pas disponible.
+
+Les corrections de cette vague portent sur des frontières observables : composition
+et taille du garage A-Team ; cycle public explicite Biocénose ; quiescence Biome et
+Métapopulation ; arrêt prouvé Holobionte ; identité de mission Rhizome ; matérialisation
+et clôture Syncytium ; preset, Oracle et récursion Trinity. Les ADR 0399 à 0407
+décrivent les contrats et leurs limites. Les tests ciblés vérifient ces frontières ;
+ils ne démontrent pas encore la réussite de missions représentatives pour chacun des
+95 variants canoniques.
+
+Une relance A-Team refuse désormais une politique d'autorité différente sous la même
+clé idempotente. Le programme `multiteam` conserve son graphe et ses membres, mais le
+dispatch générique ne lance toujours pas automatiquement les sous-runs.
+
+### Deuxième vague — 2026-10-11
+
+- Le parcours post-mission appelle le planner et la gouvernance Rust par une
+  commande de lecture seule. Faute de proposition persistée, il soumet un
+  ensemble vide : `NO_CHANGE`, `REJECTED` ou `UNAVAILABLE` restent des
+  diagnostics sans autorité de commit ([ADR 0412](../../adr/0412-pont-rust-morphogenese-lecture-seule.md)).
+- A-Team refuse l'exécution générique de `multiteam` et les faux reçus de
+  sous-runs. Une sélection automatique peut se rabattre sur `project_dag`
+  sous ses propres préconditions, avec la raison du repli ; une sélection
+  explicite `multiteam` reste refusée ([ADR 0408](../../adr/0408-frontiere-preuve-multiteam-a-team.md)).
+- Biocénose reprend une communauté existante par le dispatch biologique,
+  avec identité de continuation et précondition de révision. Le jeton de
+  reprise passe par `stdin` du CLI. Le transport ne
+  recrée pas la communauté pour satisfaire une demande de reprise
+  ([ADR 0410](../../adr/0410-reprise-publique-liee-a-la-communaute-biocenose.md)).
+- Syncytium lie l'appelant identifié à la session : worker membre ou
+  orchestrateur parent ayant un worker dans le même workspace. Un parent
+  étranger ne peut pas matérialiser la session ([ADR 0411](../../adr/0411-appelant-lie-session-syncytium.md)).
+
+Restent à construire avant une activation complète : l'autorité Rust
+authentifiée, la liaison proposition–snapshot–décision au CAS, un exécuteur
+`multiteam` qui charge et vérifie les sous-runs, ainsi que la qualification
+de missions représentatives pour les 95 variants canoniques.
+
+### Troisième vague — 2026-10-11
+
+- Morphogenèse persiste le graphe préparé. Un verdict `unverified` déclenche
+  une proposition du resolver Rust, persistée avec son empreinte et relue avec
+  le snapshot avant adjudication. La décision demeure consultative : le graphe
+  n'est pas un snapshot restaurable, et l'autorité authentifiée ainsi que le
+  CAS de transition manquent toujours ([ADR 0416](../../adr/0416-propositions-rust-liees-snapshot-morphologie.md)).
+- A-Team prépare des TeamRuns enfants durables et idempotents, liés au programme,
+  au parent, à l'orchestrateur, aux membres et au budget. Le lancement et la
+  clôture vérifiée des sous-runs restent à brancher ; `SUCCEEDED` demeure refusé
+  ([ADR 0413](../../adr/0413-preparation-durable-sous-runs-a-team.md)).
+- Biocénose refuse les reçus Hybrid Oracle dont les identifiants de claim,
+  vérificateur ou communauté ne correspondent pas. L'authenticité de l'oracle
+  reste à établir par l'intégration de confiance
+  ([ADR 0417](../../adr/0417-liaison-recus-hybrid-oracle-biocenose.md)).
+- Syncytium Human–AI lie une approbation au contenu revu et à l'agent autorisé.
+  Son reçu atteste l'enregistrement, pas un effet externe ; une preuve d'exécution
+  distincte reste nécessaire ([ADR 0414](../../adr/0414-approbation-liee-a-laction-human-ai-syncytium.md)).
+- Trinity refuse une continuation adaptive ou QD sans rapport final et preuves
+  requises. Une campagne en lecture seule qualifie les traces des douze variants,
+  mais aucune nouvelle mission nominale n'a été exécutée dans cette vague : les
+  douze restent non qualifiés ([ADR 0415](../../adr/0415-qualification-nominale-trinity-sur-traces-durables.md)).
+
+### Quatrième vague — 2026-10-11
+
+- Morphogenèse ferme le commit de graphe fondé sur des booléens d'autorisation
+  fournis par l'appelant. Un reçu SQLite relisible lie la décision Rust
+  consultative à la proposition et au snapshot ; l'autorité authentifiée et le
+  snapshot de transition restaurable manquent encore pour `APPLY`
+  ([ADR 0418](../../adr/0418-fermeture-commit-morphologie-et-recu-rust.md)).
+- Biome `compute` tient compte des ressources du travail demandé et retourne
+  une abstention si aucun provider annoncé n'est faisable. La capacité annoncée
+  ne certifie pas les ressources physiques
+  ([ADR 0419](../../adr/0419-capacite-reelle-du-travail-compute-biome.md)).
+- Holobionte `tool` vérifie le résident et le contrat persistant avant l'appel
+  externe, puis journalise refus, effet incertain ou résultat non vérifié. Cette
+  frontière n'est pas une sandbox du système hôte
+  ([ADR 0420](../../adr/0420-frontiere-contrat-outil-holobionte.md)).
+- Rhizome fixe cinq variants à la session ; une transition impliquant l'un
+  d'eux requiert une nouvelle session. Les autres transitions gardent une trace
+  de la politique précédente et de la révision
+  ([ADR 0421](../../adr/0421-transitions-de-variant-liees-a-la-session-rhizome.md)).
+- Métapopulation lie le résultat du solveur à son dème, problème, seed et
+  référence de preuve avant persistance. La qualité de l'objectif externe
+  reste à vérifier indépendamment
+  ([ADR 0422](../../adr/0422-liaison-des-resultats-solveur-metapopulation.md)).
+
+### Cinquième vague — 2026-10-11
+
+- Morphogenèse V2 refuse le mode `commit` avant les callbacks injectables :
+  ceux-ci ne peuvent plus publier `APPLIED`. Le mode `shadow` reste disponible ;
+  l'autorité Rust et le snapshot de transition restent à intégrer
+  ([ADR 0423](../../adr/0423-fermeture-mode-commit-v2-morphogenese.md)).
+- A-Team relit le TeamRun et le WorkGraph enfants, mais conserve le programme
+  `WAITING` même après leur clôture : aucun reçu indépendant de budget ou de
+  contrat ne permet encore `SUCCEEDED`
+  ([ADR 0424](../../adr/0424-promotion-conditionnelle-des-sous-runs-a-team.md)).
+- Trinity exige une empreinte de snapshot initial commune, des chemins de
+  workspace distincts et la chaîne de transitions persistée avant une
+  qualification nominale. Les douze missions restent à rejouer après correctif
+  ([ADR 0425](../../adr/0425-liaison-campagne-nominale-trinity-aux-scellages.md)).
+- Syncytium Human–AI exige désormais un consentement explicite, courant et de
+  portée `session` pour l'agent qui enregistre l'action approuvée. Le reçu ne
+  prouve toujours pas un effet externe
+  ([ADR 0426](../../adr/0426-consentement-explicite-human-ai-syncytium.md)).
+- Biocénose Hybrid Oracle revérifie un reçu HMAC lié au claim exact et au tour
+  lors du routage, de l'agrégation et de la promotion. La signature locale ne
+  prouve pas la vérité de l'oracle externe
+  ([ADR 0427](../../adr/0427-recus-signes-hybrid-oracle-biocenose.md)).
 
 ## Plan par vagues
 

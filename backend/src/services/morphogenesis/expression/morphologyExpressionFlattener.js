@@ -61,8 +61,14 @@ function extraFields(expr) {
     quorum: expr.quorum ?? null,
     selector: expr.selector || null,
     mergeStrategy: expr.mergeStrategy || null,
-    localProfile: expr.localProfile || null
+    localProfile: localProfileFor(expr)
   };
+}
+
+function localProfileFor(expr) {
+  if (expr.localProfile) return expr.localProfile;
+  if (expr.kind !== 'TOPOLOGY') return null;
+  return expr.metadata?.topologyProfile || null;
 }
 
 function subBudget(budget, count) {

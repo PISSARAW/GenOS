@@ -30,8 +30,14 @@ async function main() {
     const request = { executionId: 'durable-execution', populationId: 'population:niche-compute',
       individualId: 'worker', providerId: 'biome-local-test', capability: 'calculate',
       input: { value: 2 }, resources: { tokens: 5 } };
+    await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
+      CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT, execution_mode TEXT, metadata_json TEXT);`);
+    await db.run('INSERT INTO workspaces (id) VALUES (?)', 'biome-test-workspace');
+    await db.run('INSERT INTO agents VALUES (?, ?, ?, ?)', 'biome-test-worker', 'biome-test-workspace',
+      'worker', JSON.stringify({ topologySessionId: runtime.sessionId }));
+    const caller = { agentId: 'biome-test-worker' };
     const cycle = await tools.applyTopologyOperation(db, { session_id: runtime.sessionId,
-      operation: 'cycle', expected_revision: 1, variant_input: { executions: [request] } });
+      operation: 'cycle', expected_revision: 1, variant_input: { executions: [request] } }, caller);
     assert.equal(cycle.executions[0].execution.status, 'verified');
     assert.equal(cycle.measurements.resources.budgetUsed, 2);
     assert.equal(cycle.tick, 2);
@@ -40,7 +46,7 @@ async function main() {
     assert.equal(calls, 1);
     const before = await biome.sessionSnapshot(runtime.sessionId, { db });
     await assert.rejects(() => tools.applyTopologyOperation(db, { session_id: runtime.sessionId,
-      operation: 'cycle', expected_revision: 0, variant_input: { executions: [request] } }), { code: 'BIOME_SESSION_CONFLICT' });
+      operation: 'cycle', expected_revision: 0, variant_input: { executions: [request] } }, caller), { code: 'BIOME_SESSION_CONFLICT' });
     assert.deepEqual(await biome.sessionSnapshot(runtime.sessionId, { db }), before);
     await db.close();
     db = await open({ filename, driver: sqlite3.Database });

@@ -8,6 +8,11 @@ const { emit } = require('../agentOrchestrationState');
  */
 
 const BIO_TOPOLOGY_ROLES = Object.freeze({
+  a_team: [
+    { role: 'expert', modelTier: 'standard' },
+    { role: 'integrator', modelTier: 'frontier' },
+    { role: 'reviewer', modelTier: 'frontier' },
+  ],
   rhizome: [
     { role: 'scout', modelTier: 'standard' },
     { role: 'forager', modelTier: 'standard' },
@@ -68,6 +73,22 @@ function deriveForkRoles(strategyId, count, profile) {
   return Array.from({ length: count }, (_, i) => `world_${i}`);
 }
 
+function resolveMissionVariant(morphology, options) {
+  const { createTopologyRegistry } = require('./registry/topologyRegistry');
+  const registry = createTopologyRegistry();
+  if (!registry.list().includes(morphology.topology)) {
+    if (options.variantId) throw new Error(`Variant ${options.variantId} requires a registered topology`);
+    return;
+  }
+  const { resolveRequestedProfile, profileForGraph } = require('./registry/topologyProfileService');
+  const selection = resolveRequestedProfile({
+    variantId: options.variantId, mission: options.mission || '', problemProfile: options.profile || {}
+  }, morphology.topology, registry.variants);
+  morphology.variantId = selection?.selectedVariant?.variantId || 'default';
+  morphology.variantSelection = selection?.variantSelection || null;
+  morphology.topologyProfile = profileForGraph(selection);
+}
+
 class MorphogenesisRuntime {
   constructor(options = {}) {
     this._emit = options.emit || emit;
@@ -100,7 +121,13 @@ async prepareMorphology(strategyContract, options = {}) {
       substrate: { planner: 'cpu', execution: 'cpu' },
     };
 
-    const normalizedStrategy = strategyId.toLowerCase();
+    const normalizedStrategy = String(options.topologyId || strategyId).toLowerCase();
+    if (options.topologyId) {
+      const { createTopologyRegistry } = require('./registry/topologyRegistry');
+      if (!createTopologyRegistry().list().includes(normalizedStrategy)) {
+        throw new Error(`Unknown requested topology: ${options.topologyId}`);
+      }
+    }
 
     if (normalizedStrategy.includes('fork') || normalizedStrategy.includes('counterfactual')) {
       const requestedForks = Number(profile.fork_count || profile.requested_workers || 3);
@@ -135,6 +162,7 @@ async prepareMorphology(strategyContract, options = {}) {
       morphology.substrate = { ...morphology.substrate, ...annotated };
     }
 
+    resolveMissionVariant(morphology, options);
     return morphology;
   }
 
@@ -154,18 +182,21 @@ async prepareMorphology(strategyContract, options = {}) {
     const event = applied ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED';
     try {
       this._emit(options.orchestratorId || 'morphogenesis', event, result.decision,
-        result.decision, { topology: morphology.topology, applied }, applied ? 'info' : 'warning');
+        result.decision, { topology: morphology.topology, variantId: morphology.variantId || null,
+          applied }, applied ? 'info' : 'warning');
     } catch (error) { result.telemetryError = error.message; }
-    return { ...result, applied, proposed: !applied, topology: morphology.topology, agents: morphology.agents };
+    return { ...result, applied, proposed: !applied, topology: morphology.topology,
+      variantId: morphology.variantId || null, agents: morphology.agents };
   }
 
   async _executeSimple(morphology, options) {
-    this._emit(options.orchestratorId || 'morphogenesis', 'MORPHOGENESIS_PROPOSED', 'TOPOLOGY_CHANGE_UNAVAILABLE', `No transition engine is configured; ${morphology.topology} remains a proposal.`, { topology: morphology.topology, agentCount: morphology.agents.length, applied: false }, 'warning');
+    this._emit(options.orchestratorId || 'morphogenesis', 'MORPHOGENESIS_PROPOSED', 'TOPOLOGY_CHANGE_UNAVAILABLE', `No transition engine is configured; ${morphology.topology} remains a proposal.`, { topology: morphology.topology, variantId: morphology.variantId || null, agentCount: morphology.agents.length, applied: false }, 'warning');
     return {
       applied: false,
       proposed: true,
       agents: morphology.agents,
       topology: morphology.topology,
+      variantId: morphology.variantId || null,
     };
   }
 }

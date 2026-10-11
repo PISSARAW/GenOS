@@ -245,6 +245,7 @@ async function processEventQueueImpl(ctx) {
     try {
       const decision = await strategyExecution.recordExecutionEvent(db, agentId, currentEvent);
       require('./missionEnvelopeAuthorityMonitor').assertEvent(ctx, decision);
+      await require('./epistemic/runtimeClaimProducer').record(db, { agentId, event: currentEvent, decision });
       await require('./trinityRuntimeTrace').observe(ctx, currentEvent);
       const eventType = currentEvent.eventType;
       const finalEvent = isFinalEvent(eventType, currentEvent);
@@ -355,6 +356,8 @@ async function handleChildClose(ctx, code, signal) {
   } catch (err) {
     console.error(`[AgentSupervisor] Error draining event queue for ${agentId}:`, err);
   } finally {
+    if (ctx.mcpActorToken) await require('./mcpActorCapability').revoke(ctx.db, ctx.mcpActorToken)
+      .catch(error => console.error('[AgentSupervisor] MCP actor revocation failed:', error));
     activeProcesses.delete(agentId);
     swarmSentinel.clearAgent(agentId);
     await clearSearchState(agentId);
@@ -364,7 +367,8 @@ async function handleChildClose(ctx, code, signal) {
     await finalizeChildClose({
       db: ctx.db, agentId, dispatchedAgent: ctx.dispatchedAgent, normalizedMission: ctx.normalizedMission, child: ctx.child, code, signal, stderrBuffer: state.stderrBuffer,
       termination: state.termination, missionDomainState: state.missionDomainState, terminalEventSeen: state.terminalEventSeen, emitTracked: ctx.emitTracked, executionQueue: state.executionQueue,
-      workspaceLifecycle, workerGarage, emit, updateAgent
+      workspaceLifecycle, workerGarage, emit, updateAgent, bodyActionId: ctx.bodyActionId,
+      executionRun: ctx.executionRun, filesystemReceipt: ctx.filesystemReceipt
     });
   } catch (err) {
     console.error(`[AgentSupervisor] Error finalizing agent process close for ${agentId}:`, err);

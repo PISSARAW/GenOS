@@ -62,6 +62,7 @@ async function finish(action, outcome, signal) {
   const sample = await world.recordSample(action.db, action.agentId, { action: action.action, state: action.before.state, delta });
   deadline.requireActive(signal);
   const efference = await require('./efferenceCopyService').discharge(action.db, action.agentId, {
+    agentId: action.agentId,
     eventType: outcome.result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED',
     payload: { sourceActionId: action.actionId }
   });

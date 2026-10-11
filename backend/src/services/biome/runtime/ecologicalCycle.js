@@ -39,7 +39,7 @@ async function advance(session, input, options) {
   await verifyGoal(session, measurements, options);
   runtime.stopCondition = ecologicalStop(session, measurements);
   ecology.ecologicalState.health = measurements.health;
-  ecology.status = runtime.goalVerification?.verified ? 'completed' : 'active';
+  ecology.status = ecologyStatus(runtime);
   runtime.history = [...runtime.history, { tick: runtime.tick, variant: session.variant,
     decision: variant.decision, actions, measurements }].slice(-200);
   biofilm.deposit(session.matrix, { key: `cycle:${runtime.tick}`, kind: 'ecological_cycle',
@@ -155,6 +155,11 @@ function goalReceipt(result, expected) {
   const evidence = Array.isArray(result?.evidenceRefs) && result.evidenceRefs.some(ref => typeof ref === 'string' && ref.trim());
   return { verified: matched && evidence && result.verified === true, ...expected,
     evidenceRefs: evidence ? result.evidenceRefs : [] };
+}
+
+function ecologyStatus(runtime) {
+  if (runtime.goalVerification?.verified) return 'completed';
+  return runtime.stopCondition ? 'dormant' : 'active';
 }
 
 function error(code, message) { return Object.assign(new Error(message), { code }); }

@@ -3,6 +3,8 @@
 const missionMetrics = require('./analytics/missionMetricsService');
 const needs = require('./runtime/needRegistryService');
 const edgeTrails = require('./stigmergy/edgeTrailDecayService');
+const SESSION_BOUND_VARIANTS = new Set(['persistent', 'ephemeral', 'private',
+  'cross_representation', 'procedural']);
 
 function create(input) {
   return Object.assign({}, ...[
@@ -66,9 +68,20 @@ function policies(input) {
 
 function switchVariant(session, name, service) {
   const policy = service.resolve(name);
+  assertTransitionAllowed(session.variant, policy.name);
+  const priorVariant = session.variant;
   session.variant = policy.name;
   session.variantPolicy = policy;
-  return { sessionId: session.sessionId, variant: policy.name };
+  return { sessionId: session.sessionId, priorVariant, variant: policy.name,
+    graphVersion: session.graphVersion };
+}
+
+function assertTransitionAllowed(current, target) {
+  if (current === target) return;
+  if (SESSION_BOUND_VARIANTS.has(current) || SESSION_BOUND_VARIANTS.has(target)) {
+    throw Object.assign(new Error('Rhizome session-bound variants require a new session for transition.'),
+      { code: 'RHIZOME_VARIANT_TRANSITION_REQUIRES_NEW_SESSION' });
+  }
 }
 
 function nestedTopology(input) {

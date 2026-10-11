@@ -4,13 +4,28 @@
  * @file detachedSpawn.cjs
  * @description Payload-file transport for detached runners. Windows splits a
  * JSON argument on spaces when cmd.exe is involved, so payloads above
- * FILE_THRESHOLD travel via a temp file and the child reads --payload-file.
+ * FILE_THRESHOLD travel via a temp file. MCP continuations use stdin.
  */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const FILE_THRESHOLD = 15000;
+const STDIN_LIMIT = 1024 * 1024;
+
+function readStdinPayload() {
+  const chunks = [];
+  const buffer = Buffer.alloc(65536);
+  let size = 0;
+  while (size <= STDIN_LIMIT) {
+    const count = fs.readSync(0, buffer, 0, Math.min(buffer.length, STDIN_LIMIT + 1 - size), null);
+    if (count === 0) break;
+    chunks.push(Buffer.from(buffer.subarray(0, count)));
+    size += count;
+  }
+  if (size > STDIN_LIMIT) throw new Error('Payload from stdin exceeds 1 MiB.');
+  return Buffer.concat(chunks, size).toString('utf8');
+}
 
 function runtimeDirectory() {
   const configured = process.env.GENOS_RUNNER_LOG_DIR;
@@ -37,6 +52,7 @@ function toSpawnArgs(text) {
 
 function loadArgv(argv) {
   const args = Array.isArray(argv) ? argv : [];
+  if (args.includes('--payload-stdin')) return readStdinPayload();
   const flag = args.indexOf('--payload-file');
   if (flag === -1) return null;
   const file = args[flag + 1];

@@ -11,6 +11,9 @@ async function executeTeamRun(input) {
   const run = await runStore.load(input.db, input.teamRunId);
   if (!run) throw coded('Unknown A-Team run.', 'ATEAM_RUN_UNKNOWN');
   assertLease(run, input.runnerToken);
+  if (run.execution?.organizationPolicy?.variant === 'multiteam') {
+    throw coded('Multiteam completion requires verified child TeamRuns.', 'ATEAM_MTS_EXECUTOR_REQUIRED');
+  }
   const plan = { ...input.plan, members: input.plan.members };
   const { now, sleep, deadline } = await timingFor(input, run);
   const refresh = () => observeWithLease(input, { plan, now, deadline });

@@ -64,7 +64,8 @@ async function patchPipeline() {
   let executed = 0;
   const runtime = new MorphologyRuntime({ installTopologyPlugins: false });
   runtime.execute = async () => { executed++; return {}; };
-  const adapters = { runtime, adjudicator: { adjudicate: async () => ({ approved: true }) }, verifier: { verify: async () => ({ valid: true }) } };
+  const adapters = { runtime, adjudicator: { adjudicate: async () => ({ approved: true }) }, verifier: { verify: async () => ({ valid: true }) },
+    committer: { commit: async () => ({ committed: true, receiptId: 'persisted-test-receipt' }) } };
   const denied = await new PatchExecutor(adapters).execute(patch, graph);
   assert.equal(denied.success, false); assert.equal(executed, 0); assert.match(denied.error, /Isolated counterfactual/);
   const committed = await new PatchExecutor({ ...adapters, counterfactual: async () => ({ accepted: true }),

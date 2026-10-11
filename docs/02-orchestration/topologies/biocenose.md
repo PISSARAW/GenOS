@@ -4,6 +4,23 @@
 - **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole, recommandations de transition à la Morphogenèse et contrôleur de tours piloté par handlers explicites, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-10-06
 
+## Déclenchement public du cycle
+
+`genos_biological_mode` avec `mode: "biocenose"` prépare et retourne la
+communauté. Le booléen `execute_round: true` demande aussi l'exécution du
+cycle persistant. La réponse distingue l'état du cycle, celui de la communauté,
+la suite écologique et le statut du jugement ; `topology_cycle_recorded` ne
+signifie pas une promotion. Elle fournit `communityId`, le variant, des
+empreintes des reçus par étape et le jugement éventuellement enregistré.
+L'absence d'un modèle, d'un oracle de confiance ou d'une autorité humaine
+reste un refus ou une escalade. Une reprise utilise `community_id`,
+`resume_token`, `expected_revision`, le même `orchestrator_id` et
+`execute_round: true`, sans reconstituer la communauté. Le jeton n'est remis
+qu'à la première exécution explicite et doit être conservé comme un secret.
+Le plugin générique de Morphogenèse n'est pas raccordé à cette opération.
+Voir les [ADR 0402](../../adr/0402-execution-publique-explicite-biocenose.md)
+et [0410](../../adr/0410-reprise-publique-liee-a-la-communaute-biocenose.md).
+
 ## Snapshot d'agent lié à une communauté
 
 La capture optionnelle `topologySnapshot` vérifie l'appartenance à la
@@ -885,8 +902,20 @@ Adversarial Assembly exige et route vers un reviewer adversarial ; Forecasting C
 les prévisions dépourvues de poids de calibration et d'indépendance ; Minority-Preserving
 Jury référence tous les dissents persistés dans le jugement ; Human–AI Deliberation impose
 une revue humaine ; Hybrid Oracle Community bloque le traitement factuel sans vérificateur
-déterministe. Epistemic Jury reste le protocole par défaut, et le graphe d'arguments est
-construit par le runtime commun.
+déterministe. Pour ce dernier variant, un reçu `VERIFIED` doit déjà porter les
+identifiants exacts du claim, du vérificateur et de la communauté, ainsi qu'un
+identifiant de reçu et une référence de preuve non vides avant l'appel au
+validateur de confiance. Le runtime ne complète plus ces champs à la place de
+l'oracle. Hybrid Oracle exige aussi un `epistemicReceipt` HMAC valide, signé
+avec la clé serveur et lié au contenu exact du claim, au tour, à la communauté,
+au vérificateur, à l'identifiant du reçu et à sa référence de preuve. Le
+routage, l'agrégation et le gate final le revérifient contre la session. Les
+handlers de délibération ne sont pas remplaçables pour ce variant ;
+sans clé configurée ou sans signature, le claim factuel reste en revue. Cette
+signature locale ne prouve pas la vérité d'un oracle externe ; le validateur
+fourni par l'intégration reste nécessaire ([ADR 0427](../../adr/0427-recus-signes-hybrid-oracle-biocenose.md)). Epistemic Jury reste
+le protocole par défaut, et le graphe d'arguments est construit par le runtime
+commun.
 
 Les douze variants sont déclarés `executionLevel: EXECUTABLE`. Le runtime exécute leurs
 politiques et le cycle persistant décrit en tête de ce document. Ce niveau atteste un

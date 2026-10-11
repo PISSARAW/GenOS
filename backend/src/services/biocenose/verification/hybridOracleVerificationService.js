@@ -1,12 +1,15 @@
 'use strict';
 
 const verifierRouter = require('./verifierRouter');
+const receiptProof = require('./hybridOracleReceiptProof');
 
 async function routeAndVerify(input) {
   const { context, session, claim, receipts } = input;
   const verificationClaim = { ...(claim.claim || claim), claimId: claim.claimId || claim.claim?.claimId };
   assertMixedClaimType(context, session, verificationClaim);
-  const verification = verifierRouter.route({ claim: verificationClaim, members: session.members });
+  const members = context.variantPolicy?.requireDeterministicVerifier
+    ? session.members.filter((member) => member.status === 'ACTIVE') : session.members;
+  const verification = verifierRouter.route({ claim: verificationClaim, members });
   assertRequiredVerifier({ context, session, verification, claim: verificationClaim });
   const required = requiresVerification(context, session, verificationClaim);
   if (!required && (!verification.deterministicAvailable || typeof context.verificationExecutor !== 'function')) return;
@@ -22,8 +25,12 @@ async function routeAndVerify(input) {
 async function collectReceipts(input) {
   const { context, session, claim, verification, receipts } = input;
   for (const verifier of verification.verifiers) {
-    const receipt = await context.verificationExecutor({ claim, verifier, communityId: session.communityId });
-    if (isBoundReceipt(receipt, claim, verifier) && isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) {
+    const receipt = await context.verificationExecutor({ claim, verifier,
+      communityId: session.communityId, round: session.round });
+    if (isBoundReceipt({ receipt, claim, verifier, session, strict: context.variantPolicy?.requireDeterministicVerifier })
+      && (!context.variantPolicy?.requireDeterministicVerifier
+        || receiptProof.verify({ receipt, claim, verifier, session }))
+      && isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) {
       receipts.push({ ...receipt, claimId: claim.claimId, verifierId: verifier.memberId });
     }
   }
@@ -39,10 +46,22 @@ function assertMixedClaimType(context, session, claim) {
   }
 }
 
-function isBoundReceipt(receipt, claim, verifier) {
-  return receipt && (!receipt.claimId || receipt.claimId === claim.claimId)
+function isBoundReceipt(input) {
+  const { receipt, claim, verifier, session, strict } = input;
+  if (!receipt) return false;
+  if (strict) return isStrictBinding({ receipt, claim, verifier, session });
+  return (!receipt.claimId || receipt.claimId === claim.claimId)
     && (!receipt.verifierId || receipt.verifierId === verifier.memberId);
 }
+
+function isStrictBinding({ receipt, claim, verifier, session }) {
+  return [claim.claimId, verifier.memberId, session.communityId].every(nonEmptyString)
+    && receipt.claimId === claim.claimId && receipt.verifierId === verifier.memberId
+    && receipt.communityId === session.communityId && nonEmptyString(receipt.receiptId)
+    && nonEmptyString(receipt.evidenceRef);
+}
+
+function nonEmptyString(value) { return typeof value === 'string' && Boolean(value.trim()); }
 
 function assertRequiredVerifier({ context, session, verification, claim }) {
   if (requiresVerification(context, session, claim) && !verification.deterministicAvailable) {

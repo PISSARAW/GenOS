@@ -53,6 +53,14 @@ async function finalizeBiologicalOutput({ db, context, mode, mission, members, a
 }
 
 async function handleBiological(db, context) {
+  if (context.request.execute_round === true || context.request.community_id) {
+    const result = await require('../topologyMcpTools.js').composeBiologicalMode({
+      ...context.request, mode: context.request.mode,
+      orchestrator_id: context.orchestratorId
+    });
+    process.stdout.write(JSON.stringify(result));
+    return;
+  }
   const { parent, mode, mission, composition } = await prepareBiologicalContext(db, context);
   const { members, accepted, semanticValidation } = await dispatchAndValidate({ db, context, mode, parent, composition });
   const out = await finalizeBiologicalOutput({ db, context, mode, mission, members, accepted, composition, semanticValidation, parent });

@@ -77,7 +77,7 @@ async function createMetapopulationSession(mission, options = {}) {
   const now = new Date().toISOString();
   const session = validateMetapopulationSession({
     metapopulationId: id,
-    missionId: options.missionId || id,
+    missionId: missionIdentity(options, id),
     mission: composition.mission,
     organization: composition.organization,
     scope: options.scope || composition.scope || 'mission',
@@ -105,6 +105,10 @@ async function createMetapopulationSession(mission, options = {}) {
   const result = { ...composition, ...session, sessionId: id, persistence: options.db ? 'durable' : 'memory' };
   sessions.set(id, result);
   return result;
+}
+
+function missionIdentity(options, sessionId) {
+  return options.missionId || options.orchestratorId || sessionId;
 }
 
 async function getMetapopulationSession(metapopulationId, options = {}) {
@@ -335,6 +339,7 @@ async function rollbackRescueMigration(input, options = {}) {
 module.exports = {
   composeMetapopulation,
   createMetapopulationSession,
+  quiesceForSnapshot: require('./metapopulation/runtime/snapshotQuiescenceService').quiesceForSnapshot,
   getMetapopulationSession,
   recordMetapopulationEvent,
   listMetapopulationEvents,

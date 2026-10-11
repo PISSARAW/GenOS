@@ -909,6 +909,10 @@ exécutés par le runtime. Les politiques réelles sont définies dans
 est décrite par [ADR 0130](../../adr/0130-runtime-comportemental-des-variants-rhizome.md).
 En particulier, Small-World sélectionne des hubs observés et protège les points
 d'articulation, mais ne crée pas de raccourcis sans preuve d'admission.
+Les variantes `persistent`, `ephemeral`, `private`, `cross_representation` et
+`procedural` restent liées à leur session. Une transition manuelle vers ou depuis
+ces variantes est refusée ; il faut créer une nouvelle session pour changer leurs
+obligations de preuve ou leur portée. Voir [ADR 0421](../../adr/0421-transitions-de-variant-liees-a-la-session-rhizome.md).
 
 ## 17. Machine à états d'un nœud Rhizome
 

@@ -14,6 +14,7 @@ const trialGraphs = [];
 const runtime = { execute: async (input) => { trialGraphs.push(input); return { quality: 0.8 }; } };
 const adjudicator = { adjudicate: async () => ({ approved: true }) };
 const verifier = { verify: async () => ({ valid: true, errors: [] }) };
+const committer = { commit: async ({ graph: committedGraph }) => ({ committed: true, graph: committedGraph, receiptId: 'versioned-test-receipt' }) };
 
 async function main() {
   const missing = await new PatchExecutor({ runtime }).execute(patch, graph);
@@ -22,13 +23,16 @@ async function main() {
   const missingVerifier = await new PatchExecutor({ runtime, adjudicator }).execute(patch, graph);
   assert.equal(missingVerifier.success, false);
   assert.match(missingVerifier.error, /verifier is required/);
+  const missingCommitter = await new PatchExecutor({ runtime, adjudicator, verifier }).execute(patch, graph);
+  assert.equal(missingCommitter.success, false);
+  assert.match(missingCommitter.error, /committer is required/);
   const rejected = await new PatchExecutor({ runtime, adjudicator: { adjudicate: async () => ({ approved: 1 }) }, verifier }).execute(patch, graph);
   assert.equal(rejected.success, false);
   assert.equal(rejected.execution.commitResult, null);
   const unverified = await new PatchExecutor({ runtime, adjudicator, verifier: { verify: async () => ({ valid: 1 }) } }).execute(patch, graph);
   assert.equal(unverified.success, false);
   assert.equal(unverified.execution.commitResult, null);
-  const committed = await new PatchExecutor({ runtime, adjudicator, verifier }).execute(patch, graph);
+  const committed = await new PatchExecutor({ runtime, adjudicator, verifier, committer }).execute(patch, graph);
   assert.equal(committed.success, true);
   assert.equal(committed.execution.commitResult.graph.nodes[0].variant, 'adaptive');
   assert.equal(committed.execution.commitResult.graph.version, 2);
@@ -38,7 +42,7 @@ async function main() {
   const registry = { getTransition: () => ({ requiresEvidence: ['trial'] }),
     canTransition: (...args) =>
       ({ allowed: args[4].evidence?.some((item) => item.type === 'trial') === true, reason: 'Required evidence not present' }) };
-  const resolver = new VariantResolver({ registry, patchExecutor: new PatchExecutor({ runtime, adjudicator, verifier }) });
+  const resolver = new VariantResolver({ registry, patchExecutor: new PatchExecutor({ runtime, adjudicator, verifier, committer }) });
   const denied = await resolver.changeVariant('root', graph, { rollbackPlan }, 'adaptive');
   assert.equal(denied.success, false);
   assert.equal(denied.changed, false);

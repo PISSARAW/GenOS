@@ -1,10 +1,11 @@
 'use strict';
 
 const { RESOURCE_KEYS } = require('../constants');
+const { createResourceVector } = require('../contracts/resourceVector');
 
 function advance(state, input) {
   const providers = providerList(input);
-  const demand = vector(input.demand);
+  const demand = requiredDemand(input);
   const feasible = rankProviders(providers, demand, input);
   const selected = feasible[0] || null;
   const allocations = [...(state.computeAllocations || [])];
@@ -18,6 +19,12 @@ function advance(state, input) {
 }
 
 function providerList(input) { return Array.isArray(input.providers) ? input.providers.slice(0, 100) : []; }
+function requiredDemand(input) {
+  const requested = vector(input.demand);
+  if (!input.computeWork) return requested;
+  const work = createResourceVector(input.computeWork.resources || {});
+  return Object.fromEntries(RESOURCE_KEYS.map(key => [key, Math.max(requested[key], work[key])]));
+}
 function rankProviders(providers, demand, input) {
   return providers.map((provider) => scoreProvider({ provider, demand, input }))
     .filter((provider) => provider.feasible).sort((a, b) => a.score - b.score || a.id.localeCompare(b.id));

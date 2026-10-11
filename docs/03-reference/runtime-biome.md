@@ -132,7 +132,12 @@ Le résultat `goalVerified` reste séparé des actions et des mesures écologiqu
 La sélection d'un fournisseur Compute est une demande. Un champ `computeWork`
 avec identité d'exécution, population, individu, capacité, ressources et entrée
 raccorde directement le fournisseur choisi à un adaptateur autorisé. Sans ce
-travail concret, la sélection reste une recommandation. Les expérimentations
+travail concret, la sélection reste une recommandation. La capacité est calculée
+sur le maximum, ressource par ressource, de `demand` et des ressources réellement
+réservées par `computeWork`. Si aucun fournisseur ne couvre ce besoin, le cycle
+journalise `COMPUTE_CAPACITY_INSUFFICIENT` et renvoie un résultat d'exécution
+`abstained/no_feasible_provider`, sans appeler l'adaptateur. Une sélection ne
+prouve ni une exécution ni un résultat vérifié. Les expérimentations
 adversariales restent des scénarios abstraits bornés. Les mesures de qualité,
 les sources et les évaluations de nouveaux environnements viennent des outils
 et vérificateurs de l'hôte.

@@ -1,5 +1,9 @@
 # Documentation GenOS
 
+- [Cinquième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#cinquième-vague--2026-10-11) — fermeture du commit V2, sous-runs A-Team, qualification Trinity, consentement Syncytium et reçus Biocénose ; [ADR 0423](adr/0423-fermeture-mode-commit-v2-morphogenese.md) à [0427](adr/0427-recus-signes-hybrid-oracle-biocenose.md).
+
+- [Quatrième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#quatrième-vague--2026-10-11) — reçus Rust consultatifs, frontières Biome et Holobionte, transitions Rhizome et preuve du solveur Métapopulation ; [ADR 0418](adr/0418-fermeture-commit-morphologie-et-recu-rust.md) à [0422](adr/0422-liaison-des-resultats-solveur-metapopulation.md).
+
 - [Qualification P1 des consommateurs mémoire au 2026-10-10](06-qualite-preuves/qualification-p1-consommateurs-memoire-2026-10-10.md) — recherche REST/gRPC, ingestion attribuée, retraits d’accès et fallback de prompt ; [ADR 0389](adr/0389-autorite-des-consommateurs-memoire-rest-et-grpc.md).
 
 - [Qualification P1 mémoire négative et stdio au 2026-10-10](06-qualite-preuves/qualification-p1-l22-2026-10-10.md) — scopes, résultats métier Node/Rust, leases et contre-épreuves ; [ADR 0388](adr/0388-portee-memoire-negative-et-parite-stdio-reelle.md).
@@ -665,11 +669,36 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0367 — Sections durables des snapshots d'organisme](adr/0367-sections-durables-snapshot-organisme.md).
 - [ADR 0368 — Reprise du curseur de mission et frontières runtime](adr/0368-reprise-curseur-mission-et-frontieres-runtime.md).
 - [ADR 0375 — Portabilité des snapshots mémoire](adr/0375-portabilite-snapshots-memoire.md).
+- [ADR 0378 — Référence GQWF dans un snapshot d'organisme](adr/0378-reference-gqwf-dans-snapshot-organisme.md).
+- [ADR 0383 — Restauration opt-in depuis une racine GQWF](adr/0383-restauration-opt-in-racine-gqwf-organisme.md).
 - [ADR 0390 — Fork d’agent depuis un snapshot scellé](adr/0390-fork-agent-depuis-snapshot-scelle.md).
 - [ADR 0391 — Substitution ponctuelle AgentDNA candidate](adr/0391-mutation-ponctuelle-agentdna-candidate.md).
 - [ADR 0392 — Archive héritée vérifiable pour un agent forké](adr/0392-archive-heritee-fork-agent.md).
 - [ADR 0393 — Budget délégué du sous-orchestrateur natif](adr/0393-budget-delegue-sous-orchestrateur-natif.md)
 - [ADR 0394 — Préflight vérifiable de restauration d'organisme](adr/0394-preflight-restauration-organisme.md)
 - [ADR 0395 — Workspaces privés pour les capsules de workers](adr/0395-workspaces-prives-pour-capsules-de-workers.md).
+- [ADR 0396 — Frontière corporelle et provenance du soi agentique](adr/0396-frontiere-corporelle-agent-et-provenance.md).
 - [ADR 0396 — Observer les workers supervisés pendant leur mission](adr/0396-observation-continue-des-workers-supervises.md).
 - [ADR 0397 — Perception native et révision du prompt local](adr/0397-perception-des-workers-natifs-et-revision-locale.md).
+- [ADR 0397 — Reçus corporels et limites de provenance](adr/0397-recus-corporels-et-limites-de-provenance.md).
+- [ADR 0398 — Capacité MCP et écritures directes](adr/0398-capacite-mcp-et-ecritures-directes.md).
+- [ADR 0399 — Reçu de promotion GQWF lié aux octets](adr/0399-liaison-recu-promotion-gqwf.md).
+- [ADR 0400 — Promotion Trinity vers GQWF opt-in](adr/0400-promotion-trinity-gqwf-opt-in.md).
+- [ADR 0399 — Commit versionné et profil morphologique](adr/0399-commit-versionne-et-profil-morphologique.md).
+- [ADR 0400 — Autorité et quiescence des sessions Biome](adr/0400-autorite-et-quiescence-des-sessions-biome.md).
+- [ADR 0401 — Preuve d’arrêt de mission Holobionte](adr/0401-preuve-arret-mission-holobionte.md).
+- [ADR 0402 — Exécution publique explicite Biocénose](adr/0402-execution-publique-explicite-biocenose.md).
+- [ADR 0403 — Frontière quiescente Métapopulation](adr/0403-frontiere-quiescente-metapopulation.md).
+- [ADR 0404 — Liaison mission et snapshot Rhizome](adr/0404-liaison-mission-et-snapshot-rhizome.md).
+- [ADR 0405 — Matérialisation Syncytium et preuve de clôture](adr/0405-materialisation-syncytium-preuve-de-cloture.md).
+- [ADR 0406 — Frontières de preuve des variants Trinity](adr/0406-frontieres-preuves-variants-trinity.md).
+- [ADR 0407 — Frontière post-mission de Morphogenèse](adr/0407-frontiere-post-mission-morphogenese.md).
+- [ADR 0408 — Frontière de preuve multiteam A-Team](adr/0408-frontiere-preuve-multiteam-a-team.md).
+- [ADR 0410 — Reprise publique liée à la communauté Biocénose](adr/0410-reprise-publique-liee-a-la-communaute-biocenose.md).
+- [ADR 0411 — Appelant lié à la session Syncytium](adr/0411-appelant-lie-session-syncytium.md).
+- [ADR 0412 — Pont Rust de Morphogenèse en lecture seule](adr/0412-pont-rust-morphogenese-lecture-seule.md).
+- [ADR 0413 — Préparation durable des sous-runs A-Team](adr/0413-preparation-durable-sous-runs-a-team.md).
+- [ADR 0414 — Approbation liée à l'action Human–AI Syncytium](adr/0414-approbation-liee-a-laction-human-ai-syncytium.md).
+- [ADR 0415 — Qualification nominale Trinity sur traces durables](adr/0415-qualification-nominale-trinity-sur-traces-durables.md).
+- [ADR 0416 — Propositions Rust liées au snapshot de morphologie](adr/0416-propositions-rust-liees-snapshot-morphologie.md).
+- [ADR 0417 — Liaison des reçus Hybrid Oracle Biocénose](adr/0417-liaison-recus-hybrid-oracle-biocenose.md).

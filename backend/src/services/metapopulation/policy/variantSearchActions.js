@@ -34,7 +34,8 @@ function periodicMigrationTrigger(observed, input) {
     diversityScore: input.diversityScore,
     synchronizationRisk: input.synchronizationRisk
   });
-  return input.generation % interval === 0
+  const generation = Number.isSafeInteger(input.generation) ? input.generation : input.cycle;
+  return Number.isSafeInteger(generation) && generation > 0 && generation % interval === 0
     ? [{ type: 'TRIGGER_ISLAND_MIGRATION', interval, reason: 'PERIODIC_INTERVAL' }]
     : [];
 }

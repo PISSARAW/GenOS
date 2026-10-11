@@ -5,6 +5,7 @@ const { test } = require('node:test');
 const adapter = require('../src/services/topologySnapshots/biome');
 const snapshots = require('../src/services/topologySnapshotService');
 const variants = require('../src/services/biome/variants/variantPolicyService');
+const { digest } = require('../src/services/topologySnapshotContract');
 
 snapshots.registerAdapter('biome', adapter);
 
@@ -100,4 +101,23 @@ test('Biome refuses a forged tenant scope and snapshot binding', async () => {
     scope: { clause: '1=1', params: [] } }), { code: 'BIOME_SNAPSHOT_SCOPE_INVALID' });
   await assert.rejects(snapshots.preflightRestore({ ...sample.context,
     workspaceId: 'workspace-2', manifest }), { code: 'TOPOLOGY_SNAPSHOT_OWNER_MISMATCH' });
+});
+
+test('Biome refuses unresolved external executions at a dormant boundary', async () => {
+  const sample = fixture();
+  sample.state.ecology.status = 'dormant';
+  sample.state.ecology.ecologicalState.runtime.executions = { pending: { status: 'indeterminate' } };
+  await assert.rejects(snapshots.capture(sample.context), { code: 'BIOME_SNAPSHOT_ACTIVE' });
+});
+
+test('Biome variant proof hashes fields actually produced by specialized controllers', async () => {
+  const fields = { exploration: 'noveltyArchive', open_ended: 'environmentArchive',
+    knowledge: 'sources', compute: 'computeAllocations', multi_scale: 'scaleState' };
+  for (const [variant, field] of Object.entries(fields)) {
+    const sample = fixture(variant);
+    sample.state.variantState[field] = { observed: variant };
+    const manifest = await snapshots.capture(sample.context);
+    const hashes = manifest.components.find((item) => item.id === 'variant-policy').payload.specializedHashes;
+    assert.equal(hashes[field], digest(sample.state.variantState[field]), variant);
+  }
 });

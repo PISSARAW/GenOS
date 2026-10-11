@@ -17,6 +17,7 @@ import { loadToolSchemaResolver } from "./contract.js";
 import { loadStrategyBridge } from "./strategyBridge.js";
 import { createSamplingBroker } from "./samplingBroker.js";
 import { createHostExecutionContext } from "./hostExecutionContext.mjs";
+import { bridgePayloadTransport } from "./orchestratorPayloadTransport.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -125,9 +126,13 @@ function resolveGenosBin() {
   return null;
 }
 
-function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs(), env = process.env, onStdout }) {
+function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs(), env = process.env, onStdout, stdinText }) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, env, shell: false, detached: process.platform !== "win32" });
+    if (stdinText !== undefined) {
+      child.stdin.on('error', () => {});
+      child.stdin.end(stdinText);
+    }
     const state = { output: "", remainder: "", callbackChain: Promise.resolve() };
     let err = "";
     let settled = false;
@@ -262,9 +267,10 @@ function createTelemetryRelay({ topology, onTelemetry }) {
 
 async function executeBridge({ payload, bridge, executor, relay }) {
   try {
+    const transport = bridgePayloadTransport({ payload, bridge, executor });
     const result = await runExecutable({
       cmd: process.execPath,
-      args: [bridge, JSON.stringify({ ...payload, executor })],
+      ...transport,
       cwd: workingDir,
       env: { ...process.env, GENOS_STREAM_TELEMETRY: '1', ...(relay.streamFile ? { GENOS_MCP_TELEMETRY_FILE: relay.streamFile } : {}), GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_TOOL_URL: samplingBroker.toolUrl, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token },
       onStdout: relay.deliver

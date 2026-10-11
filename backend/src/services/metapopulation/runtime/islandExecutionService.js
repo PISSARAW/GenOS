@@ -52,8 +52,15 @@ function verifyIslandResult(action, result, session) {
   if (action.type === 'EVOLVE_ISLAND') return result.engine === 'rust-multi-island'
     && deme.generation === result.generation && deme.fitness.score === result.bestFitness;
   const state = deme.fitnessContext?.islandSearchStates?.[action.request.solverId];
+  return verifySearchState(action, result, state);
+}
+
+function verifySearchState(action, result, state) {
   return result.engine === 'island-search-adapter' && state?.problemRef === action.request.problemRef
-    && state.incumbentRef === result.incumbentRef && state.iterations === result.totalIterations;
+    && state.seed === result.seed && state.evidenceRef === result.evidenceRef
+    && typeof result.evidenceRef === 'string' && Boolean(result.evidenceRef.trim())
+    && state.incumbentRef === result.incumbentRef
+    && state.iterations === result.totalIterations;
 }
 
 module.exports = { evolveIsland, searchIsland, verifyIslandResult };

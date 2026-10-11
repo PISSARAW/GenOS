@@ -124,6 +124,7 @@ async function sessionSnapshot(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
   return structuredClone({
     sessionId, mode: 'biome', revision: session.revision || 0, version: session.matrix.version, variant: session.variant,
+    status: session.ecology.status,
     variantState: session.variantState || {},
     environment: session.ecology.environment,
     environmentConstraints: session.ecology.environmentConstraints,

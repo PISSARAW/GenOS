@@ -1,3 +1,5 @@
+const PUBLIC_TOOL_NAMES = new Set(require('./toolDefinitions.json').tools.map((tool) => tool.name));
+
 const REQUIRED_STRINGS = {
   genos_agent_world_capsule: ['snapshot_id'],
   genos_world_sandbox_execute: ['world_id', 'command', 'backend'],
@@ -80,7 +82,7 @@ function getToolInputSchema(toolName, baseSchema = {}) {
   };
   applyToolSpecificOverrides(toolName, schema);
   applyRequiredStrings(toolName, schema);
-  applyPrimitiveFields(schema);
+  if (!PUBLIC_TOOL_NAMES.has(toolName)) applyPrimitiveFields(schema);
   schema.required = [...new Set(schema.required)];
   return schema;
 }

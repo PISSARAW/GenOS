@@ -137,6 +137,26 @@ function requestedMissionBudget(policyRequest, request) {
     || request.executionBudget || request.execution_budget || {}) };
 }
 
+function requestedTopology(request) {
+  return request.topologyId || request.topology_id || request.topology;
+}
+
+function requestedVariant(request) {
+  return request.variant_id || request.variantId || request.variant;
+}
+
+function missionMorphologyOptions(input) {
+  return { profile: input.strategyContract.profile, fork_count: input.request.fork_count,
+    domains: input.request.domains, topologyId: requestedTopology(input.request),
+    variantId: requestedVariant(input.request), mission: input.enhancedPrompt };
+}
+
+function morphologyMetadata(morphology) {
+  return { topology: morphology.topology, variantId: morphology.variantId || null,
+    variantSelection: morphology.variantSelection || null, agentCount: morphology.agents?.length,
+    strategy: morphology.strategy };
+}
+
 async function prepareMission(opts) {
   const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
   const contracts = require('../src/services/strategyContractService');
@@ -154,10 +174,13 @@ async function prepareMission(opts) {
   const morphogenesis = require('../src/services/morphogenesis/morphogenesisRuntime');
   const morphoRuntime = morphogenesis.getMorphogenesisRuntime();
   await morphoRuntime.init();
-  const morphology = await morphoRuntime.prepareMorphology(strategyContract.contract, { profile: strategyContract.profile, fork_count: request.fork_count, domains: request.domains });
+  const morphology = await morphoRuntime.prepareMorphology(strategyContract.contract,
+    missionMorphologyOptions({ strategyContract, request, enhancedPrompt }));
 
   const garageDecision = decideGarageCapacity(buildGarageInput(request, morphology, strategyContract));
-  await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?`, mergeMetadataJson(metadataJson, { garageCapacity: garageDecision.capacity, garageDecision, morphology: { topology: morphology.topology, agentCount: morphology.agents?.length, strategy: morphology.strategy } }), id);
+  await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?`, mergeMetadataJson(metadataJson, {
+    garageCapacity: garageDecision.capacity, garageDecision, morphology: morphologyMetadata(morphology)
+  }), id);
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
   const missionBudget = requestedMissionBudget(policyRequest, request);
   applyLatencyBudget(missionBudget, requestTimeoutMs);
@@ -167,8 +190,8 @@ async function prepareMission(opts) {
 
 function buildGarageInput(request, morphology, strategyContract) {
   return { contract: strategyContract.contract, topology: request.action,
-    teamMembers: morphology.agents?.length,
-    variantId: request.variant_id || request.variantId || request.variant,
+    teamMembers: morphology.agents || [],
+    variantId: requestedVariant(request),
     experimentalDesign: request.experimental_design || request.experimentalDesign,
     qdConfig: request.trinity_qd || request.trinityQD };
 }

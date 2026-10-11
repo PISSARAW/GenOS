@@ -83,16 +83,17 @@ async function cliCall({ args, runGenosCli }) {
   const commands = {
     genos_snapshot: ['snapshot', 'create', '--agent', args.agent, '--out', args.out, '--force'],
     genos_replay: ['replay', 'basic', '--snapshot', args.snapshot || args.snapshot_id],
-    genos_capsule_create: ['capsule', 'create', '--snapshot', args.snapshot_id || 'ROOT', ...(args.seed ? ['--seed', args.seed] : [])],
+    genos_capsule_create: ['capsule', 'create', '--snapshot', args.snapshot_id, ...(args.seed ? ['--seed', args.seed] : [])],
     genos_merge: ['merge', args.branch_id, ...(args.conditions ? ['--conditions', args.conditions] : [])],
     genos_audit: ['audit', args.snapshot_id, '--output', args.output || 'audit.log'],
     genos_biomimicry: ['biomimicry', 'bio-feature', '--feature', args.feature, '--action', args.action],
     genos_v2_init: ['init'],
-    genos_v2_fork: ['agent', 'fork', '--parent-id', args.parent_id || 'ROOT']
+    genos_v2_fork: ['agent', 'fork', '--parent-id', args.parent_id]
   };
   const command = commands[args.toolName];
   if (!command) throw new Error(`Unsupported CLI tool '${args.toolName}'.`);
   const text = await runGenosCli(withBiomimicryParams(command, args), args);
+  if (!text || !String(text).trim()) throw new Error(`CLI tool '${args.toolName}' returned empty output.`);
   const result = parseCliOutput(text);
   if (result?.success === false) throw new Error(result.error || 'CLI operation was not completed.');
   return text;
@@ -120,15 +121,30 @@ async function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   const action = ORCHESTRATOR_ACTIONS[name];
   if (!action) throw new Error(`Tool '${name}' has no verified MCP route.`);
   const request = orchestratorRequest(action, args);
-  if (name === 'genos_delegate_worker' && request.background === undefined) request.background = true;
-  if (name === 'genos_orchestrate' && request.background === undefined) request.background = true;
+  configureBiocenoseExecution(name, args, request);
+  if (request.background === undefined
+    && (name === 'genos_orchestrate' || name === 'genos_delegate_worker' || name === 'genos_biological_mode')) {
+    request.background = true;
+  }
   const text = await runOrchestrator(request, { onTelemetry });
   const result = parseCliOutput(text);
   if (!isStructuredResult(result)) {
     throw new Error(`Orchestrator action '${name}' returned no structured result.`);
   }
-  if (result?.success === false) throw new Error(result.error || `Orchestrator action '${name}' failed.`);
+  assertOrchestratorResult(name, result);
   return text;
+}
+
+function configureBiocenoseExecution(name, args, request) {
+  if (name === 'genos_biological_mode' && (args.execute_round === true || args.community_id)) {
+    request.background = false;
+  }
+}
+
+function assertOrchestratorResult(name, result) {
+  if (result?.success !== false) return;
+  throw new Error(name === 'genos_biological_mode' ? JSON.stringify(result)
+    : result.error || `Orchestrator action '${name}' failed.`);
 }
 
 async function philosophyCall(args) {

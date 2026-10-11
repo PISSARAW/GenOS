@@ -471,11 +471,13 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0375](0375-portabilite-snapshots-memoire.md) | Portabilité des snapshots mémoire | Négociation acceptée ; backend VM proposé | 2026-10-10 | Snapshots, runtime, portabilité |
 | [0376](0376-plafond-projet-sur-ascendance-garage.md) | Plafond projet sur l'ascendance Garage | Accepté pour la tranche locale | 2026-10-10 | Garage Fabric, capacité projet, sous-orchestration |
 | [0377](0377-consolidation-scientifique-par-references-versionnees.md) | Consolider les résultats scientifiques par références versionnées | Proposé ; raccordement de bout en bout non implémenté. | 2026-10-10. | Communication, preuves, GQWF, G-CIR. |
+| [0378](0378-reference-gqwf-dans-snapshot-organisme.md) | Référencer une racine GQWF dans un snapshot d'organisme | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, fichiers, GQWF |
 | [0379](0379-octroi-borne-delegation-sous-orchestrateur.md) | Octroi borné de délégation au sous-orchestrateur | Accepté pour la tranche locale | 2026-10-10 | Sous-orchestration, contrats workers, jetons modèle |
 | [0381](0381-autorite-recus-scientifiques-rejouable.md) | Autorité des reçus scientifiques restaurable par rejeu Lean | Voir le fichier | -- | -- |
 | [0382](0382-publication-scientifique-ciblee-par-producteur.md) | Production et abonnement scientifique ciblés | Voir le fichier | -- | -- |
 | [0383a](0383-economie-tokens-conditionnee-aux-preuves.md) | Économie de tokens conditionnée aux preuves | Accepté pour la tranche locale ; contrôleur conjoint proposé. | 2026-10-10. | Continuations, mémoire cognitive, routage et mesure. |
-| [0383b](0383-studio-construction-workflows-canoniques.md) | ADR 0383 Construction de workflows canoniques dans Studio | Accepté pour une tranche de construction de workflows. | 2026-10-10. | Studio, construction, versions, exécution et publication. |
+| [0383b](0383-restauration-opt-in-racine-gqwf-organisme.md) | Restaurer les fichiers d'organisme depuis une racine GQWF | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, GQWF, restauration |
+| [0383c](0383-studio-construction-workflows-canoniques.md) | ADR 0383 Construction de workflows canoniques dans Studio | Accepté pour une tranche de construction de workflows. | 2026-10-10. | Studio, construction, versions, exécution et publication. |
 | [0385](0385-contrat-snapshot-topologique.md) | Contrat de vérification des snapshots topologiques | Accepté | 2026-10-10 | Topologies, snapshots, reprise |
 | [0387](0387-pont-nursery-replay-et-projection-evaluateur.md) | Pont nursery/replay et projection de l’évaluateur | Accepté pour l’intégration bornée | 2026-10-10 | Expériences GVX, replay et évaluation |
 | [0388a](0388-portee-memoire-negative-et-parite-stdio-reelle.md) | Portée de la mémoire négative et parité stdio réelle | Accepté pour la qualification bornée | 2026-10-10 | Mémoire négative, scopes et consommateurs MCP |
@@ -488,8 +490,41 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
 | [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
 | [0395](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
-| [0396](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
-| [0397](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
+| [0396a](0396-frontiere-corporelle-agent-et-provenance.md) | Frontière corporelle et provenance du soi agentique | accepté, portée Node | 2026-10-10 | corps de l'orchestrator, action motrice, CoreSelf |
+| [0396b](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
+| [0397a](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
+| [0397b](0397-recus-corporels-et-limites-de-provenance.md) | Reçus corporels et limites de provenance | accepté, portée Node et missions scellées | 2026-10-10 | modèle corporel, autorité de mission, MCP, provenance des claims |
+| [0398](0398-capacite-mcp-et-ecritures-directes.md) | Capacité MCP et écritures directes | accepté, couverture conditionnelle | 2026-10-11 | identité d'agent, MCP Rust, fichiers, claims |
+| [0399a](0399-commit-versionne-et-profil-morphologique.md) | Commit versionné et profil morphologique dans le graphe | Accepté | 2026-10-11 | Morphogenèse, transitions et profils de topologie |
+| [0399b](0399-liaison-recu-promotion-gqwf.md) | Lier le reçu de promotion GQWF à la tête et aux octets | Accepté pour la frontière de publication du noyau backend. | 2026-10-11. | GQWF, preuves, promotion. |
+| [0400a](0400-autorite-et-quiescence-des-sessions-biome.md) | Autorité et quiescence des sessions Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0400b](0400-promotion-trinity-gqwf-opt-in.md) | Publier une racine GQWF depuis une promotion Trinity vérifiée | Accepté, activation explicite. | 2026-10-11. | Trinity, GQWF, promotion. |
+| [0401](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
+| [0402](0402-execution-publique-explicite-biocenose.md) | Exécution publique explicite de Biocénose | accepté | 2026-10-11 | Biocénose, MCP, délibération persistante |
+| [0403](0403-frontiere-quiescente-metapopulation.md) | Frontière quiescente des snapshots Métapopulation | Voir le fichier | -- | -- |
+| [0404](0404-liaison-mission-et-snapshot-rhizome.md) | Liaison de mission et frontière de snapshot Rhizome | Accepté | 2026-10-11 | Rhizome, identité de mission, reprise |
+| [0405](0405-materialisation-syncytium-preuve-de-cloture.md) | Matérialisation Syncytium avant preuve de clôture | Accepté | 2026-10-11 | Syncytium, MCP, clôture de mission |
+| [0406](0406-frontieres-preuves-variants-trinity.md) | Frontières de preuve des variants Trinity | Accepté, avec qualification de mission réelle encore ouverte. | -- | -- |
+| [0407](0407-frontiere-post-mission-morphogenese.md) | Frontière de la morphogenèse après mission | accepté | 2026-10-11 | orchestrateur public, morphogenèse, autorité |
+| [0408](0408-frontiere-preuve-multiteam-a-team.md) | Frontière de preuve des sous-runs A-Team multiteam | accepté | 2026-10-11 | A-Team, multiteam, autorité et preuves |
+| [0410](0410-reprise-publique-liee-a-la-communaute-biocenose.md) | Reprise publique liée à la communauté Biocénose | accepté | 2026-10-11 | Biocénose, MCP, identité de session |
+| [0411](0411-appelant-lie-session-syncytium.md) | Appelant lié à la session Syncytium | Accepté | 2026-10-11 | Syncytium, identité MCP, frontières de session |
+| [0412](0412-pont-rust-morphogenese-lecture-seule.md) | Pont Rust de décision morphogénétique en lecture seule | accepté | 2026-10-11 | orchestrateur public, noyau Rust, gouvernance |
+| [0413](0413-preparation-durable-sous-runs-a-team.md) | Préparation durable des sous-runs A-Team | accepté | 2026-10-11 | A-Team multiteam, autorité orchestrateur, budget |
+| [0414](0414-approbation-liee-a-laction-human-ai-syncytium.md) | Approbation liée à l'action Human–AI Syncytium | Accepté | 2026-10-11 | Syncytium, Human–AI, autorité humaine |
+| [0415](0415-qualification-nominale-trinity-sur-traces-durables.md) | Qualification nominale Trinity sur traces durables | Accepté, qualification des douze variants en attente de missions post-correctifs | -- | -- |
+| [0416](0416-propositions-rust-liees-snapshot-morphologie.md) | Propositions Rust liées au snapshot de morphologie | accepté | 2026-10-11 | morphogenèse après mission, persistance, noyau Rust |
+| [0417](0417-liaison-recus-hybrid-oracle-biocenose.md) | Liaison des reçus Hybrid Oracle à leur périmètre | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, preuves factuelles |
+| [0418](0418-fermeture-commit-morphologie-et-recu-rust.md) | Fermer le commit morphologique déclaratif et conserver le refus Rust | accepté | 2026-10-11 | morphogenèse, graphe versionné, décision Rust |
+| [0419](0419-capacite-reelle-du-travail-compute-biome.md) | Capacité du fournisseur liée au travail Compute de Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0420](0420-frontiere-contrat-outil-holobionte.md) | Contrat persistant avant invocation d'un outil Holobionte | Accepté. | -- | -- |
+| [0421](0421-transitions-de-variant-liees-a-la-session-rhizome.md) | Transitions de variant liées à la session Rhizome | Accepté | 2026-10-11 | Rhizome, variants, persistance et confidentialité |
+| [0422](0422-liaison-des-resultats-solveur-metapopulation.md) | Lier le résultat du solveur à son îlot et à sa preuve | Accepté le 11 octobre 2026. | -- | -- |
+| [0423](0423-fermeture-mode-commit-v2-morphogenese.md) | Fermer le mode commit injectable de Morphogenèse V2 | accepté | 2026-10-11 | morphogenèse, autorité, transition de production |
+| [0424](0424-promotion-conditionnelle-des-sous-runs-a-team.md) | Observation des sous-runs A-Team sans promotion | Accepté le 11 octobre 2026. | -- | -- |
+| [0425](0425-liaison-campagne-nominale-trinity-aux-scellages.md) | Lier la campagne nominale Trinity aux scellages durables | Accepté. | -- | -- |
+| [0426](0426-consentement-explicite-human-ai-syncytium.md) | Consentement explicite avant l'action Human–AI Syncytium | Accepté | 2026-10-11 | Syncytium, Human–AI, autorité humaine |
+| [0427](0427-recus-signes-hybrid-oracle-biocenose.md) | Reçu signé lié au claim pour Hybrid Oracle | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, promotion factuelle |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

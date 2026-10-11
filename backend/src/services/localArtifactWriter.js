@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { parseReply } = require('./localRuntimeSynthesis');
+const writeIpc = require('./runtimeFileWriteIpc');
 
 function writeArtifact(state, name, content) {
   const target = path.resolve(state.workspaceRoot, name.trim());
@@ -10,7 +11,14 @@ function writeArtifact(state, name, content) {
     throw new Error(`Artifact path escapes the mission workspace: ${name}`);
   }
   fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.writeFileSync(target, content.trim());
+  const root = fs.realpathSync(state.workspaceRoot);
+  const parent = fs.realpathSync(path.dirname(target));
+  if (parent !== root && !parent.startsWith(`${root}${path.sep}`)) {
+    throw new Error(`Artifact path traverses outside the mission workspace: ${name}`);
+  }
+  const bytes = content.trim();
+  fs.writeFileSync(target, bytes);
+  writeIpc.record(relative, bytes);
 }
 
 function writeArtifacts(reply, state) {

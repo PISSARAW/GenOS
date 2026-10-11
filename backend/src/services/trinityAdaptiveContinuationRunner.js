@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const adaptive = require('./trinityAdaptiveBudgetService');
 const barrier = require('./trinityComparativeBarrier');
 const novelty = require('./trinityNoveltyArchive');
+const evidenceAudit = require('./trinityEvidenceAudit');
 
 const TERMINAL = new Set(['completed', 'error', 'failed', 'terminated', 'apoptosis', 'unverified', 'quarantined']);
 
@@ -23,7 +24,12 @@ async function run(input) {
   const starts = await Promise.all(continuations.map((item) => startContinuation({ ...input, item })));
   const finished = await Promise.all(starts.map((item) => waitForContinuation(db, item, input.timeoutMs)));
 
-  return { status: 'executed', allocation, reports: await barrier.buildWorldReportsFromMission(db, input.missionId),
+  const continuedReports = await barrier.buildWorldReportsFromMission(db, input.missionId);
+  if (finished.some((item) => !validContinuationReport(continuedReports.find((world) => world.agentId === item.workerId)))) {
+    return { status: 'incomplete', reason: 'continuation_evidence_missing', allocation,
+      reports: continuedReports, initialReports: reports };
+  }
+  return { status: 'executed', allocation, reports: continuedReports,
     initialReports: reports, continuationWorkers: finished.map((item) => item.workerId), decisionAuthority: 'none' };
 }
 
@@ -67,8 +73,32 @@ function validReplicaBudget(config) {
 }
 
 function validNicheReceipt(world, targetNiche) {
-  return Boolean(world?.report?.behaviorVector && world.report.qdTargetNiche === targetNiche
-    && novelty.assignNiche({ vector: world.report.behaviorVector }) === targetNiche);
+  const report = world?.report;
+  return Boolean(validContinuationReport(world) && report.qdTargetNiche === targetNiche
+    && validBehaviorVector(report.behaviorVector)
+    && referencesVerified(report.behaviorVectorEvidence, verifiedEvidenceIds(report))
+    && novelty.assignNiche({ vector: report.behaviorVector }) === targetNiche);
+}
+
+function validBehaviorVector(vector) {
+  return Array.isArray(vector) && vector.length >= 2
+    && vector.every((value) => Number.isFinite(value) && value >= 0 && value <= 1);
+}
+
+function verifiedEvidenceIds(report) {
+  const evidence = Array.isArray(report?.evidence) ? report.evidence : [];
+  return new Set(evidence.filter((item) => evidenceAudit.isVerifiedReceipt(item?.verificationReceipt || item?.receipt))
+    .map((item) => String(item.id || '')).filter(Boolean));
+}
+
+function referencesVerified(refs, verified) {
+  return Array.isArray(refs) && refs.length > 0 && refs.every((id) => verified.has(String(id)));
+}
+
+function validContinuationReport(world) {
+  const report = world?.report;
+  return world?.outcome === 'success' && report?.outcome === 'success' && !report.failure
+    && verifiedEvidenceIds(report).size > 0;
 }
 
 async function startReplica(input) {
@@ -170,4 +200,5 @@ async function waitForContinuation(db, continuation, timeoutMs) {
   throw new Error(`Adaptive continuation timed out for worker ${continuation.workerId}.`);
 }
 
-module.exports = { run, runQualityDiversityReplicas, replicaId, dispatchOnce, waitForContinuation };
+module.exports = { run, runQualityDiversityReplicas, replicaId, dispatchOnce, waitForContinuation,
+  validContinuationReport, validNicheReceipt };

@@ -11,9 +11,10 @@ const { buildOperationalPolicy } = require('./variants/operationalVariantPolicy'
 
 function prepareDispatchPolicy(input = {}) {
   const mission = input.mission || {};
-  const plan = buildVariantPlan({ ...mission, interfaceCount: countInterfaces(input.members), parallelWorkstreams: countIndependent(input.members) });
+  const plan = compatibleVariantPlan({ ...mission, interfaceCount: countInterfaces(input.members),
+    parallelWorkstreams: countIndependent(input.members) }, input.members || []);
   const memberCount = declaredMemberCount(mission, plan, input.members);
-  if (mission.variant && memberCount < plan.minMembers) throw coded(`Variant '${plan.variant}' requires at least ${plan.minMembers} members.`, 'ATEAM_VARIANT_TEAM_TOO_SMALL');
+  if (memberCount < plan.minMembers) throw coded(`Variant '${plan.variant}' requires at least ${plan.minMembers} members.`, 'ATEAM_VARIANT_TEAM_TOO_SMALL');
   if (plan.variant === 'multiteam' && !Array.isArray(mission.teams)) throw coded('Multiteam dispatch requires explicit subteam definitions.', 'ATEAM_MULTITEAM_INPUT_REQUIRED');
   const members = applyMemberPolicy(attachStageContracts(input.members || [], mission), plan);
   const graph = compileWorkGraph({ teamRunId: input.teamRunId, members });
@@ -26,6 +27,20 @@ function prepareDispatchPolicy(input = {}) {
     boundarySpanners: assignBoundarySpanners(boundaries.interfaces, members), budgetAllocation: budget
   };
   return { members: attachVariantInstructions(attachBudgets(members, budget), policy), policy };
+}
+
+function compatibleVariantPlan(mission, members) {
+  const selected = buildVariantPlan(mission);
+  if (mission.variant) return selected;
+  if (selected.variant === 'multiteam') return fallbackPlan(mission, selected, 'verified_subrun_executor_unavailable');
+  if (selected.variant !== 'expert_committee' || members.length >= selected.minMembers) return selected;
+  return fallbackPlan(mission, selected, 'team_below_min_members');
+}
+
+function fallbackPlan(mission, selected, reason) {
+  const fallback = buildVariantPlan({ ...mission, variant: 'project_dag' });
+  return { ...fallback, evidence: { ...fallback.evidence, explicit: false,
+    fallbackFrom: selected.variant, fallbackReason: reason } };
 }
 
 function declaredMemberCount(mission, plan, members) {

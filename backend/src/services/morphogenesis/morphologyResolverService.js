@@ -17,7 +17,8 @@ function resolveExpression(input) {
   const leaves = topologies.map((topology) => topologyExpression(
     topology,
     topology === input.selectedTopology ? input.topologyProfile?.selectedVariant : null,
-    { metadata: topology === input.selectedTopology ? input.topologyProfile || {} : {} },
+    { metadata: topology === input.selectedTopology && input.topologyProfile
+      ? { topologyProfile: input.topologyProfile } : {} },
   ));
   if (leaves.length === 1) return leaves[0];
   return parallelExpression(leaves, {

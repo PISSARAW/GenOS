@@ -8,6 +8,7 @@ const quorum = require('../src/services/biocenose/byzantine/byzantineQuorumServi
 const sampling = require('../src/services/biocenose/formation/representativeSamplingService');
 const reputation = require('../src/services/biocenose/calibration/persistentReputationService');
 const aggregation = require('../src/services/biocenose/question/communityAggregationService');
+const { signedOracleReceipt } = require('./helpers/biocenoseHybridReceipt');
 
 const VARIANT_IDS = ['epistemic_jury', 'delphi_community', 'adversarial_assembly', 'forecasting_crowd',
   'argumentation_community', 'polycentric_council', 'byzantine_resilient_community', 'minority_preserving_jury',
@@ -280,12 +281,14 @@ function testPersistentReputation() {
 }
 
 async function testHybridOracleMixedClaimsRequireTrustedReceipt() {
+  process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'biocenose-variant-test-only';
   const oracle = require('../src/services/biocenose/verification/hybridOracleVerificationService');
   const context = { variantPolicy: router.select('hybrid_oracle_community'),
     isTrustedReceipt: (receipt) => receipt.oracle === 'trusted' };
-  const session = { communityId: 'c1', questionType: 'MIXED',
-    members: [{ memberId: 'v1', role: 'verifier', verificationKinds: ['formal_proof'] }] };
-  const claim = { claimId: 'claim-1', claim: { type: 'FACTUAL', verification: { kinds: ['formal_proof'] } } };
+  const session = { communityId: 'c1', round: 0, questionType: 'MIXED',
+    members: [{ memberId: 'v1', role: 'verifier', status: 'ACTIVE', verificationKinds: ['formal_proof'] }] };
+  const claim = { claimId: 'claim-1', claim: { statement: '2 + 2 = 4', type: 'FACTUAL',
+    verification: { kinds: ['formal_proof'] } } };
   const receipts = [];
   await assert.rejects(() => oracle.routeAndVerify({ context, session,
     claim: { claimId: 'claim-untyped', claim: { statement: 'Unclassified claim.' } }, receipts }),
@@ -294,15 +297,44 @@ async function testHybridOracleMixedClaimsRequireTrustedReceipt() {
   await assert.rejects(() => oracle.routeAndVerify({ context: { ...context, verificationExecutor: async () => ({}) },
     session: noVerifierSession, claim, receipts }),
   (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  const rotatedSession = { ...session, members: [{ ...session.members[0], status: 'ROTATED' }] };
+  await assert.rejects(() => oracle.routeAndVerify({ context, session: rotatedSession, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
   await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
     (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
   context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r1', oracle: 'untrusted' });
   await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
     (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
   context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted',
+    claimId: 'claim-1', verifierId: 'v1', communityId: 'other-community', evidenceRef: 'proof:r2' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted',
+    claimId: 'claim-1', verifierId: 'other-verifier', communityId: 'c1', evidenceRef: 'proof:r2' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted',
+    claimId: 'claim-1', verifierId: 'v1', communityId: 'c1', evidenceRef: 'proof:r2' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async ({ claim: body, verifier }) => signedOracleReceipt({
+    claim: body, verifier, session });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session,
+    claim: { claim: { type: 'FACTUAL', verification: { kinds: ['formal_proof'] } } }, receipts }),
+  (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
   await oracle.routeAndVerify({ context, session, claim, receipts });
   assert.deepEqual(receipts.map((receipt) => receipt.claimId), ['claim-1']);
+  context.verificationExecutor = async ({ claim: body, verifier }) => {
+    const receipt = signedOracleReceipt({ claim: body, verifier, session });
+    return { ...receipt, evidenceRef: 'tampered-proof' };
+  };
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts: [] }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
 }
+
 function testMixedClaimsUseTheirOwnQuestionType() {
   const result = aggregation.aggregate({ questionType: 'MIXED', claims: [
     { claimId: 'factual-1', claim: { type: 'FACTUAL', statement: 'Claim', verification: { kinds: ['formal_proof'] } } },

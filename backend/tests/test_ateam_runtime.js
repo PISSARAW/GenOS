@@ -57,6 +57,12 @@ async function run() {
       await assert.rejects(runtime.createRun({ ...input, members: [{ ...members[0], ...change }, members[1]] }), { code: 'ATEAM_RUN_IDEMPOTENCY_CONFLICT' });
     }
     await assert.rejects(runtime.createRun({ ...input, requiredCapabilities: [{ capability: 'security' }] }), { code: 'ATEAM_RUN_IDEMPOTENCY_CONFLICT' });
+    const authorityPolicy = { variant: 'matrix_team', authorityMatrix: { functionalOwnerId: 'api', productOwnerId: 'web' } };
+    const keyed = { ...input, idempotencyKey: 'authority-policy', execution: { organizationPolicy: authorityPolicy } };
+    await runtime.createRun(keyed);
+    await assert.rejects(runtime.createRun({ ...keyed, execution: { organizationPolicy: {
+      ...authorityPolicy, authorityMatrix: { ...authorityPolicy.authorityMatrix, productOwnerId: 'api' }
+    } } }), { code: 'ATEAM_RUN_IDEMPOTENCY_CONFLICT' });
   } finally {
     sessions.save = originalSave;
     sessions.load = originalLoad;

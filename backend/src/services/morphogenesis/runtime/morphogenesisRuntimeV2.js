@@ -52,53 +52,23 @@ async function runCounterfactual(services, proposal, context) {
   return result;
 }
 
-async function authorizeProposal(evaluated, context, services) {
-  if (!services.kernel || typeof services.kernel.adjudicate !== 'function') throw new Error('Rust kernel adjudication adapter is required');
-  const decision = await services.kernel.adjudicate({ proposal: evaluated.proposal, context, evaluations: evaluated });
-  if (!decision || decision.valid !== true) return { decision, rejected: true };
-  if (decision.decision === 'NO_CHANGE') return { decision, rejected: false, noChange: true };
-  if (decision.decision !== 'APPLY') return { decision, rejected: true };
-  const governance = await services.governance({ decision, proposal: evaluated.proposal, context });
-  return { decision, governance, rejected: !governance || governance.allowed !== true, noChange: false };
-}
-
-async function commitDecision(input) {
-  const { authorization, evaluated, context, services } = input;
-  if (authorization.noChange) return { decision: 'NO_CHANGE', committed: false, reason: authorization.decision.reason, evidence: authorization.decision.evidence || [] };
-  if (authorization.rejected) return { decision: 'REJECTED', committed: false, authorization };
-  const transition = await services.transition({ command: authorization.decision.command, proposal: evaluated.proposal, context, authorization, evaluations: evaluated });
-  if (!transition || transition.committed !== true) return { decision: 'ROLLBACK', committed: false, transition };
-  return finalizeCommit({ evaluated, transition, context, services });
-}
-
 async function runMorphogenesisRuntime(context, services) {
   const mode = context?.mode || 'commit';
   if (!['shadow', 'commit'].includes(mode)) return { decision: 'REJECTED', committed: false, errors: ['unsupported runtime mode'] };
+  if (mode === 'commit') return { decision: 'REJECTED', committed: false,
+    code: 'MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE',
+    errors: ['authenticated Rust authority, restorable transition snapshot and versioned commit are required'] };
   const missing = validateServices(services, mode);
   if (missing.length) return { decision: 'REJECTED', committed: false, errors: missing.map((name) => `missing runtime service: ${name}`) };
   const evaluated = await evaluateProposal(context, services);
   if (!evaluated.accepted) return { decision: 'REJECTED', committed: false, evaluation: evaluated };
-  if (mode === 'shadow') return {
+  return {
     decision: 'SHADOWED',
     committed: false,
     authorityPending: 'rust_kernel_and_governance',
     proposal: evaluated.proposal,
     evaluation: evaluated
   };
-  const authorization = await authorizeProposal(evaluated, context, services);
-  return commitDecision({ authorization, evaluated, context, services });
-}
-
-async function finalizeCommit(input) {
-  const { evaluated, transition, context, services } = input;
-  const result = { decision: 'APPLIED', committed: true, transition, credit: null, memory: null, learningErrors: [] };
-  try {
-    result.credit = await services.credit({ evaluated, transition, context });
-    result.memory = await services.memory({ evaluated, transition, credit: result.credit, context });
-  } catch (error) {
-    result.learningErrors.push(error.message);
-  }
-  return result;
 }
 
 module.exports = { REQUIRED_SERVICES, SHADOW_SERVICES, runMorphogenesisRuntime, validateServices };

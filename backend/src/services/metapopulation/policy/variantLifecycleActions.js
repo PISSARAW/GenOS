@@ -79,9 +79,10 @@ function founderReserveActions(observed, input) {
   if (!Number.isFinite(observed.variantPolicy?.founderReserveSize)) return [];
   const reserve = rescueNetworkRuntime.maintainFounderReserve(observed.demes,
     { desiredSize: observed.variantPolicy.founderReserveSize, staged: input.stagedFounders || observed.regionalMemory?.founderReserve });
-  return reserve.needsStaging
+  const founders = (input.founderCandidates || []).filter((founder) => founder?.lineageId).slice(0, reserve.deficit);
+  return reserve.needsStaging && founders.length === reserve.deficit
     ? [{ type: 'STAGE_FOUNDER_RESERVE', deficit: reserve.deficit, atRiskCount: reserve.atRiskCount,
-      founders: (input.founderCandidates || []).filter((founder) => founder?.lineageId).slice(0, reserve.deficit) }]
+      founders }]
     : [];
 }
 

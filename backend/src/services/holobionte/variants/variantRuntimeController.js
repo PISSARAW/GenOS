@@ -146,19 +146,78 @@ async function evaluatePersistentVariant(db, input = {}) {
   const state = session.variantState || {};
   if (!state.variantId) throw error('Select a variant before evaluating it.', 'HOLOBIONT_VARIANT_REQUIRED');
   const execute = operationFor(state, input.operation);
-  const runtimeInput = input.runtimeInput || {};
-  const { result, cyclePayload } = await evaluateOperation({ session, state, input, execute, runtimeInput });
-  const refs = await verifiedResult(result, input, { operation: input.operation });
+  const boundary = await authorizeOperation({ db, input, session, state });
+  const runtimeInput = boundary?.runtimeInput || input.runtimeInput || {};
+  const { result, cyclePayload } = await executeOperationWithAudit({ db, session, state, input, execute, runtimeInput, boundary });
+  await requireAcceptedToolResult({ db, input, session, state, result, boundary });
+  const refs = await verifiedResultWithAudit({ db, input, session, state, result, boundary });
   input.signal?.throwIfAborted();
   const receipt = { evaluationId: randomUUID(), variantId: state.variantId, operation: input.operation,
     resultHash: `sha256:${createHash('sha256').update(JSON.stringify(result)).digest('hex')}`,
-    evidenceRefs: refs, result, actorId: input.actorId || null, evaluatedAt: new Date().toISOString() };
+    evidenceRefs: refs, result, authorityProof: boundary?.proof || null,
+    actorId: input.actorId || null, evaluatedAt: new Date().toISOString() };
   if (JSON.stringify(receipt).length > 65536) throw error('Variant evaluation receipt exceeds the persistence limit.', 'HOLOBIONT_VARIANT_RECEIPT_TOO_LARGE');
   const events = cyclePayload ? [{ eventType: 'ECOLOGICAL_CYCLE_COMPLETED', payload: cyclePayload }] : [];
   events.push({ eventType: 'VARIANT_RUNTIME_EVALUATED', payload: receipt });
   const revision = await store.appendEvents(db, { holobiontId: session.holobiontId,
     expectedRevision: session.revision, actorId: input.actorId, events });
   return { receipt, sessionRevision: revision };
+}
+
+async function executeOperationWithAudit(context) {
+  try {
+    return await evaluateOperation(context);
+  } catch (failure) {
+    if (context.input.operation !== 'executeToolInvocation') throw failure;
+    const receipt = { evaluationId: randomUUID(), variantId: context.state.variantId,
+      operation: context.input.operation, status: 'UNKNOWN_EFFECT', reason: failure.code || 'TOOL_EXECUTION_FAILED',
+      authorityProof: context.boundary?.proof || null, evaluatedAt: new Date().toISOString() };
+    await store.appendEvent(context.db, { holobiontId: context.session.holobiontId,
+      expectedRevision: context.session.revision, eventType: 'VARIANT_RUNTIME_EVALUATED',
+      actorId: context.input.actorId, payload: receipt });
+    throw failure;
+  }
+}
+
+async function requireAcceptedToolResult(context) {
+  const { db, input, session, state, result, boundary } = context;
+  if (input.operation !== 'executeToolInvocation' || result?.executed === true && result?.accepted === true) return;
+  const receipt = { evaluationId: randomUUID(), variantId: state.variantId,
+    operation: input.operation, status: 'UNVERIFIED', reason: result?.reason || 'TOOL_RESULT_NOT_ACCEPTED',
+    authorityProof: boundary?.proof || null, evaluatedAt: new Date().toISOString() };
+  await store.appendEvent(db, { holobiontId: session.holobiontId, expectedRevision: session.revision,
+    eventType: 'VARIANT_RUNTIME_EVALUATED', actorId: input.actorId, payload: receipt });
+  throw error('Tool invocation result was not accepted.', 'HOLOBIONT_TOOL_OPERATION_UNVERIFIED');
+}
+
+async function verifiedResultWithAudit(context) {
+  const { db, input, session, state, result, boundary } = context;
+  try {
+    return await verifiedResult(result, input, { operation: input.operation });
+  } catch (failure) {
+    if (input.operation !== 'executeToolInvocation') throw failure;
+    const receipt = { evaluationId: randomUUID(), variantId: state.variantId,
+      operation: input.operation, status: 'UNVERIFIED', reason: failure.code || 'EVIDENCE_CHECK_FAILED',
+      authorityProof: boundary?.proof || null, evaluatedAt: new Date().toISOString() };
+    await store.appendEvent(db, { holobiontId: session.holobiontId, expectedRevision: session.revision,
+      eventType: 'VARIANT_RUNTIME_EVALUATED', actorId: input.actorId, payload: receipt });
+    throw failure;
+  }
+}
+
+async function authorizeOperation(context) {
+  const { db, input, session, state } = context;
+  if (input.operation !== 'executeToolInvocation') return null;
+  const boundary = await require('./toolOperationBoundary').authorize(db, {
+    session, state, runtimeInput: input.runtimeInput || {}
+  });
+  if (boundary.allowed) return boundary;
+  const refusal = { evaluationId: randomUUID(), variantId: state.variantId,
+    operation: input.operation, status: 'REFUSED', reason: boundary.reason,
+    authorityProof: boundary.proof, evaluatedAt: new Date().toISOString() };
+  await store.appendEvent(db, { holobiontId: session.holobiontId, expectedRevision: session.revision,
+    eventType: 'VARIANT_RUNTIME_EVALUATED', actorId: input.actorId, payload: refusal });
+  throw error(`Tool invocation refused: ${boundary.reason}.`, 'HOLOBIONT_TOOL_OPERATION_REFUSED');
 }
 
 async function evaluateWorkflowStep(db, input) {

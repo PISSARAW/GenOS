@@ -3,18 +3,26 @@
 const statisticalGate = require('../../morphogenesis/capabilities/statisticalPromotionGate');
 
 async function evaluate(input, session, persistedClaims) {
-  const result = evaluateAggregation(input, persistedClaims);
-  enforceTypedFacts(input, result, persistedClaims);
-  if (input.variantPolicy?.requireHumanReview) {
+  const scoped = scopedReceipts(input, session, persistedClaims);
+  const result = evaluateAggregation(scoped, persistedClaims);
+  enforceTypedFacts(scoped, result, persistedClaims);
+  if (scoped.variantPolicy?.requireHumanReview) {
     result.aggregation = { ...result.aggregation, humanJudgmentRequired: true };
   }
-  const dissent = await evaluateDissent(input, session.communityId);
-  const gated = await applyStatistical(input, result, dissent);
+  const dissent = await evaluateDissent(scoped, session.communityId);
+  const gated = await applyStatistical(scoped, result, dissent);
   return {
     aggregation: gated.aggregation,
     gate: gated.gate,
     dissent
   };
+}
+
+function scopedReceipts(input, session, claims) {
+  if (!input.variantPolicy?.requireDeterministicVerifier) return input;
+  const receipts = require('../verification/hybridOracleReceiptProof').trustedForSession({ session,
+    claims, receipts: input.verificationReceipts, isTrustedReceipt: input.isTrustedReceipt });
+  return { ...input, verificationReceipts: receipts };
 }
 
 function enforceTypedFacts(input, result, persistedClaims) {

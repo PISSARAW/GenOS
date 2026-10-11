@@ -29,6 +29,7 @@ async function run() {
     const cycles = await runtime.run(input, 3);
     assert.equal(cycles.length, 3, variant);
     assert.equal(cycles.at(-1).stopCondition, 'max_ticks_reached', variant);
+    assert.equal(runtime.getState().ecology.status, 'dormant', variant);
     const snapshot = await biome.sessionSnapshot(runtime.sessionId);
     assert.equal(snapshot.revision, 3, variant);
     assert.equal(snapshot.ecologicalState.runtime.history.length, 3, variant);

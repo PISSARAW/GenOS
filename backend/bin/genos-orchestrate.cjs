@@ -265,6 +265,8 @@ async function runOrchestratedMission(db) {
   const nceEnhancements = await applyNceEnhancements(buildNceInput(request), db, orchestratorId);
   const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements, task);
   const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
+  const morphologySnapshot = await missionAux.persistMorphologySnapshot({
+    db, missionId: missionId || id, morphology, telemetry, agentId: id });
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
@@ -272,7 +274,7 @@ async function runOrchestratedMission(db) {
   const agents = await waitForCompletion(db);
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
-  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, nceEnhancements });
+  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, morphologySnapshot, nceEnhancements });
 }
 
 async function applyHomeostasisContinuation(input) {
@@ -295,13 +297,14 @@ async function finalizeMissionStatus({ db, outcome, completionGate, finalVerdict
 }
 
 async function finalizeOrchestratedMission(input) {
-  const { db, evaluation, morphology, nceEnhancements, outcome: inputOutcome } = input;
+  const { db, evaluation, morphology, morphologySnapshot, nceEnhancements, outcome: inputOutcome } = input;
   let outcome = evaluation.outcome || inputOutcome;
   let { continuity, completionGate, evaluation: homeostasis, organism, mission } = evaluation;
   const missionSuccess = completionGate.allowed === true;
   let finalVerdict = computeFinalVerdict(missionSuccess, outcome, completionGate);
 
-  await missionAux.executeMorphology({ morphology, outcome, finalVerdict, orchestratorId: id, telemetry });
+  await missionAux.executeMorphology({ db, morphology, snapshotRef: morphologySnapshot,
+    outcome, finalVerdict, orchestratorId: id, missionId: missionId || id, telemetry });
 
   const contResult = await applyHomeostasisContinuation({ db, id, task, request, mission, completionGate, homeostasis, organism, finalVerdict, continuity });
   ({ continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission } = destructureContResult(contResult, { continuity, completionGate, homeostasis, organism, finalVerdict, outcome, mission }));

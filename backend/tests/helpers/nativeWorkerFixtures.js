@@ -57,6 +57,7 @@ function missionFor(kind, methodContract, root) {
   const kinds = require('../../src/services/agents/workerKindService');
   const mission = { agentId: `native-${kind}`, workerKind: kind, methodContract,
     prompt: 'Execute the assigned structured method.', scope: root, workspaceRoot: root,
+    workerTokenLimit: kind === 'sub_orchestrator' ? 8000 : undefined,
     orchestratorAgentId: 'native-parent', specialtyNiche: 'scheduling', hostContractId: 'host-native',
     hostCapabilities: ['deterministic_procedure'], recoveryLease: { action: 'restore_checkpoint', path: 'state.txt' } };
   mission.workerContract = kinds.buildWorkerContract(kind, mission);

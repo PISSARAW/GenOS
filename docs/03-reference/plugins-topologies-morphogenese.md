@@ -75,6 +75,14 @@ backend SQLite configuré pour le control plane et non d'une base de test
 - Cette exécution des graphes morphologiques est distincte du préparateur de
   mission historique `morphogenesisRuntime`. Après mission, ce dernier ne fait
   qu'émettre une proposition; il n'applique pas le graphe ni ne crée de commit.
+  L'appel public impose le mode `shadow` et émet
+  `POST_MISSION_COMMIT_UNAVAILABLE`. Il refuse un résultat qui prétend être
+  appliqué sans pont de production vers le noyau Rust, la gouvernance et la
+  transition versionnée ([ADR 0407](../adr/0407-frontiere-post-mission-morphogenese.md)).
+  Le préparateur valide et conserve désormais le couple topologie–variant
+  demandé (`topologyId`/`variantId`) ou le choix local quand la topologie est
+  connue. Cette identité est incluse dans la télémétrie de proposition ; elle
+  ne constitue pas une preuve d'exécution du variant.
 - Les contrôleurs sont des modèles in-process simplifiés, pas les runtimes
   lourds (sessions distribuées, CRDT réseau, jury humain).
 - Le cycle Métapopulation sur région vide rend `NO_ACTION` avec
@@ -87,6 +95,10 @@ backend SQLite configuré pour le control plane et non d'une base de test
   le changement est refusé. Le patch transmet les métadonnées de gain/coût,
   l'autorité et le lease; la vérification structurelle du graphe reste un gate
   distinct.
+- Le `PatchExecutor` exige un committer versionné injecté avant de traiter un
+  patch. Un graphe modifié seulement en mémoire ne peut plus être déclaré
+  `committed`. Le profil multidimensionnel résolu est conservé dans
+  `localProfile` de la feuille compilée.
 
 Chaque feuille du graphe porte maintenant un résultat distinct :
 `executionStatus=completed` signifie que l'opérateur a fini; `contractStatus`
@@ -110,3 +122,30 @@ outcome vérifié et de sa preuve.
 ## Portée du contrôleur A-Team et du backend
 
 Le tableau des contrôleurs décrit le chemin plugin Morphogenèse ; il ne constitue pas une preuve de parité avec le parcours Node. Le backend explicite et autonome dispose d'un exécuteur canonique avec identités persistées, progression indépendante, preuves, critères globaux et accusés versionnés. Les tests SQLite/processus Node de ce parcours ne qualifient pas automatiquement le contrôleur Rust ni les topologies imbriquées. Voir [Référence du runtime A-Team](runtime-a-team.md).
+
+## Décision Rust après mission
+
+Le parcours public appelle désormais `genos morphogenesis-adjudicate` en
+lecture seule après la proposition. Le noyau Rust planifie et vérifie la
+gouvernance. Le graphe préparé est désormais persisté avant mission ; le
+verdict `unverified` déclenche une proposition `spawn_verifier` du resolver
+Rust, persistée avec le hash du graphe puis relue avant adjudication. Cette
+proposition est refusée par la gouvernance en lecture seule. Les données
+absentes ou périmées produisent `UNAVAILABLE`. Un autre verdict sans cause
+épistémique qualifiée peut produire `NO_CHANGE`. Ce contrôle ne crée aucune
+transition appliquée ni preuve de promotion ; voir [ADR 0412](../adr/0412-pont-rust-morphogenese-lecture-seule.md)
+et [ADR 0416](../adr/0416-propositions-rust-liees-snapshot-morphologie.md).
+
+Le refus Rust consultatif possède un reçu SQLite relisible, lié à la
+proposition et au graphe. Le magasin de graphes refuse désormais tout
+`commit` déclaré par des booléens, même si la version courante correspond.
+Seuls les graphes `proposed` peuvent être enregistrés sans preuve de
+transition ; voir [ADR 0418](../adr/0418-fermeture-commit-morphologie-et-recu-rust.md).
+
+Le mode `commit` de `runMorphogenesisRuntime` (V2), même lorsqu'il est
+implicite, refuse désormais avant tout appel d'adaptateur avec
+`MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE`. Une fonction injectée qui
+déclare `kernel.valid`, `governance.allowed` ou `transition.committed` ne
+constitue pas une autorité de production. Le mode `shadow` conserve
+l'évaluation de la proposition sans application ; voir
+[ADR 0423](../adr/0423-fermeture-mode-commit-v2-morphogenese.md).

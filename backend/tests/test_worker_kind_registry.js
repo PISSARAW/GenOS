@@ -93,6 +93,13 @@ assert.equal(workerKinds.resolveWorkerKind(undefined, 'security_engineer'), 'spe
 assert.throws(() => workerKinds.resolveWorkerKind('unknown_kind'), { code: 'UNKNOWN_WORKER_KIND' });
 assert.equal(workerKinds.buildWorkerContract('sub_orchestrator').spawnBudget, 0);
 assert.equal(workerKinds.buildWorkerContract('sub_orchestrator').delegationDepth, 0);
+const nativeSubMethod = { version: 1, methodId: 'coordinate_children', parameters: { children: [] } };
+const unallocatedNativeSub = workerKinds.buildWorkerContract('sub_orchestrator', { methodContract: nativeSubMethod });
+assert.equal(unallocatedNativeSub.resources.maxTokens, 0);
+assert.throws(() => workerKinds.grantBoundedDelegation(unallocatedNativeSub), { code: 'SUBORCHESTRATOR_TOKEN_LIMIT' });
+const allocatedNativeSub = workerKinds.buildWorkerContract('sub_orchestrator',
+  { methodContract: nativeSubMethod, workerTokenLimit: 2400 });
+assert.equal(workerKinds.grantBoundedDelegation(allocatedNativeSub).limits.maxTokens, 2400);
 const rustSubOrchestratorPreset = rustFunctionBody(presetSource, 'suborchestrator_preset');
 assert.match(rustSubOrchestratorPreset, /authority\.delegate\s*=\s*true/);
 assert.match(rustSubOrchestratorPreset, /authority\.spawn\s*=\s*true/);

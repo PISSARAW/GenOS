@@ -24,6 +24,7 @@ async function executeComparison(context) {
     const result = trinityService.mergeTrinityEvidence(reports, { expectedWorlds: expected });
     return { ...result, canMerge: false, selectedWorld: null, mergedEvidence: null, outcome: 'ESCALATE_EXPERIMENT', reason: 'initial_world_execution_incomplete' };
   }
+  const oracleSeal = await oracleSealFor(context);
   const design = { ...input.hypothesisDesign, centralProblem: input.mission, variantSelection: input.variantSelection || {} };
   const adaptiveReview = await phase('adaptive', () => runAdaptiveReview({ db, input, reports }));
   const sequentialReview = await phase('sequential', () => require('./trinitySequentialRunner').run({ db, input, reports }));
@@ -45,7 +46,7 @@ async function executeComparison(context) {
   result = adversarial.enforceVariantGate(result, review);
   result = enforceAdaptiveGate(result, adaptiveReview);
   result = enforceRecursiveGate(result, recursiveReview);
-  const variantExecution = variantRuntime.run({ selection: input.variantSelection, reports: worlds });
+  const variantExecution = variantRuntime.run({ selection: input.variantSelection, reports: worlds, oracleSeal });
   if (Object.keys(variantExecution.executions).length) result.comparativeAnalysis.variantExecution = variantExecution;
   result.jury = await phase('jury', () => jury.evaluate({
     db, agentId: input.orchestratorId, outcome: result.outcome,
@@ -61,6 +62,12 @@ async function executeComparison(context) {
   }
   return enforceRequiredVariantGates({ result, input, temporalReview, recursiveReview,
     adaptiveReview, qdReview, sequentialReview, variantExecution, review, worlds });
+}
+
+async function oracleSealFor(context) {
+  const design = context.input.variantSelection?.experimentalDesign || {};
+  if (design.worldTopology !== 'oracular_prediction' && design.hypothesisPolicy !== 'oracle_prediction') return null;
+  return require('./trinityOracleSeal').capture(context.db, context.input.missionId, context.reports);
 }
 
 function completeInitialWorlds(reports, expected) {
@@ -146,9 +153,7 @@ function missingRecursive(context) {
 }
 
 function recursiveComplete(review) {
-  if (['verified', 'no_subproblem'].includes(review?.status)) return true;
-  return review?.status === 'recursion_blocked'
-    && ['max_depth_reached', 'budget_exhausted', 'marginal_cost_below_threshold', 'cycle_detected'].includes(review.reason);
+  return ['verified', 'no_subproblem'].includes(review?.status);
 }
 
 function missingAdaptive(context) {

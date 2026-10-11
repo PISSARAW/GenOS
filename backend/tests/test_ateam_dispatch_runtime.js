@@ -10,6 +10,10 @@ const store = require('../src/services/aTeam/teamRunStore');
 const { dispatchTeam } = require('../src/services/aTeamDispatchService');
 
 async function run() {
+  const teamMembers = [
+    { workerId: 'worker-a', memberId: 'member-a', subSystem: 'api', pipelineStage: 0 },
+    { workerId: 'worker-b', memberId: 'member-b', subSystem: 'web', pipelineStage: 0 }
+  ];
   const originals = { garage: garage.state, compose: coordination.composeTeam, stage: scheduler.stagePlanFor, planStages: teamService.planStages, create: runtime.createRun, transition: runtime.transitionRun, claim: runtime.claimExecution, release: runtime.releaseExecution };
   const originalLoad = store.load;
   store.load = async () => createCount ? runtimeSnapshotRun() : null;
@@ -19,7 +23,7 @@ async function run() {
   let launches = 0;
   garage.state = async () => ({ available: createCount ? 0 : 2 });
   coordination.composeTeam = (input) => (capacity = input.available, {
-    members: [{ workerId: 'worker-a', memberId: 'member-a', subSystem: 'api', pipelineStage: 0 }],
+    members: teamMembers,
     organization: 'specialist_expert_committee',
     teamContract: { version: 1, contractHash: 'hash' }, readiness: { ready: true, blockers: [] },
     capabilityContract: { required: [{ capability: 'api' }] }, capabilityAudit: { missing: [] }, handoffs: []
@@ -28,7 +32,7 @@ async function run() {
   teamService.planStages = () => ({ stages: [] });
   runtime.createRun = async () => {
     createCount += 1;
-    return { created: createCount === 1, run: { teamRunId: 'run-stable', workGraphId: 'graph-stable', revision: createCount - 1, status: createCount === 1 ? 'READY' : 'RUNNING', members: [{ workerId: 'worker-a', memberId: 'member-a', subSystem: 'api', pipelineStage: 0 }] } };
+    return { created: createCount === 1, run: { teamRunId: 'run-stable', workGraphId: 'graph-stable', revision: createCount - 1, status: createCount === 1 ? 'READY' : 'RUNNING', members: teamMembers } };
   };
   runtime.transitionRun = async (input) => ({ ...runtimeSnapshotRun(), status: input.patch.status, phase: input.patch.phase, revision: input.revision + 1 });
   runtime.claimExecution = async () => {
@@ -49,19 +53,19 @@ async function run() {
         return { changes: 1 };
       }
     };
-    const launch = () => { launches += 1; agents.get('worker-a').status = 'running'; return { workerId: 'worker-a' }; };
+    const launch = ({ member }) => { launches += 1; agents.get(member.workerId).status = 'running'; return { workerId: member.workerId }; };
     const first = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(first.aTeam.teamRunId, 'run-stable');
     assert.equal(first.aTeam.workGraphId, 'graph-stable');
-    assert.equal(launches, 1);
+    assert.equal(launches, 2);
     assert.equal(agents.get('worker-a').parent_agent_id, context.orchestratorId);
     const second = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(second.aTeam.reused, true);
-    assert.equal(capacity, 1, 'Retry reuses the occupied slot of its own worker.');
-    assert.equal(launches, 1);
+    assert.equal(capacity, 2, 'Retry reuses the occupied slots of its own workers.');
+    assert.equal(launches, 2);
     const resumed = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(resumed.aTeam.teamRunId, 'run-stable');
-    assert.equal(launches, 1);
+    assert.equal(launches, 2);
   } finally {
     store.load = originalLoad;
     garage.state = originals.garage;
@@ -84,7 +88,10 @@ async function run() {
 }
 
 function runtimeSnapshotRun() {
-  return { teamRunId: 'run-stable', workGraphId: 'graph-stable', status: 'READY', phase: 'PREBRIEF', members: [{ workerId: 'worker-a', memberId: 'member-a', subSystem: 'api', pipelineStage: 0 }] };
+  return { teamRunId: 'run-stable', workGraphId: 'graph-stable', status: 'READY', phase: 'PREBRIEF', members: [
+    { workerId: 'worker-a', memberId: 'member-a', subSystem: 'api', pipelineStage: 0 },
+    { workerId: 'worker-b', memberId: 'member-b', subSystem: 'web', pipelineStage: 0 }
+  ] };
 }
 
 run().catch((error) => { console.error(error); process.exit(1); });
