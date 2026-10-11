@@ -318,7 +318,7 @@ Les missions de worker, leurs relations, échanges et classifications nosologiqu
 sont pas créés automatiquement par ce runner; ils doivent être fournis et reliés par
 les adaptateurs de campagne avant que ces mesures soient disponibles. Ces suites
 testent des contrats/runners, pas la campagne live. Le runner longitudinal
-reçoit un `runMission` injectable; aucun adaptateur ne lance automatiquement les
+charge un adaptateur épinglé par SHA-256; aucun adaptateur ne lance automatiquement les
 12 prompts rouges sur 8 topologies × 19 kinds ni les douze bras longitudinaux. Le
 corpus et les adaptateurs de la campagne réelle restent à fournir. Les tests intégrés requièrent `sqlite3` et modules
 natifs (`npm ci`, `npm ci --prefix backend`). Ce document n'affirme pas que la

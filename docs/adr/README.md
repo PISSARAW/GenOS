@@ -329,6 +329,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0294e](0294-executeurs-deterministes-workers.md) | Exécuteurs déterministes des workers | Accepté | 2026-10-04 | Workers, orchestration, preuve |
 | [0294f](0294-fermeture-runtime-nce.md) | Contrats de preuve des chemins runtime NCE | Accepté | 2026-10-04 | Natural Creative Ecology, Play, phénotype, culture, POET |
 | [0294g](0294-persistance-des-registres-biomimetiques.md) | Persistance des registres biomimétiques | Voir le fichier | -- | -- |
+| [0294h](0294-reprise-campagne-longitudinale-holobionte.md) | Reprise de campagne longitudinale Holobionte | Accepté | 2026-10-04 | Holobionte, benchmark |
 | [0295a](0295-memoire-immunitaire-portee-et-oracle.md) | Mémoire immunitaire AEIS portée et résolue par preuve | Accepté | 2026-10-04 | AEIS, mémoire, SQLite, multitenance |
 | [0295b](0295-registre-des-recepteurs-du-signal-plane.md) | Registre durable des récepteurs du Signal Plane | Voir le fichier | -- | -- |
 | [0295c](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | projets persistants, perception, Ontogenèse, GVX |

@@ -1,65 +1,8 @@
 'use strict';
 
-const ARMS = Object.freeze([
-  'singleLlm', 'singleLlmTools', 'supervisorWorkers', 'aTeam',
-  'currentFourRoleHolobiont', 'staticResidentTools',
-  'persistentHostWithoutPartnerLearning', 'withoutImmuneAdmission',
-  'withoutResourceAdaptation', 'withoutTransmission',
-  'withoutDependencyControl', 'fullHolobiont'
-]);
-const METRICS = Object.freeze([
-  'capabilityNeeds', 'residentCapabilitiesReused', 'admissions', 'harmfulAdmissions',
-  'immuneFalsePositives', 'verifiedSafeBlocks', 'immuneFalseNegatives',
-  'verifiedUnsafeAllows', 'replacementTimeSeconds', 'dependencyConcentration',
-  'functionalRedundancy', 'inheritableSymbionts', 'retainedSymbionts',
-  'dysbiosisEvents', 'recoveryTimeSeconds'
-]);
-
-function invalid(message, code = 'HOLOBIONT_BENCHMARK_INVALID') {
-  return Object.assign(new Error(message), { code });
-}
-
-function text(value, field) {
-  const normalized = String(value || '').trim();
-  if (!normalized) throw invalid(`${field} is required.`);
-  return normalized;
-}
-
-function nonNegative(value, field, allowNull = false) {
-  if (allowNull && value === undefined) return null;
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < 0) throw invalid(`${field} must be non-negative.`);
-  return number;
-}
-
-function fraction(value, field) {
-  const number = nonNegative(value, field);
-  if (number > 1) throw invalid(`${field} must be between 0 and 1.`);
-  return number;
-}
-
-function validateMetrics(metrics = {}) {
-  const result = {};
-  for (const key of METRICS) {
-    const value = nonNegative(metrics[key], key, true);
-    if (value !== null) result[key] = ['dependencyConcentration', 'functionalRedundancy'].includes(key)
-      ? fraction(value, key) : value;
-  }
-  return result;
-}
-
-function validateRun(run, arm) {
-  if (!run || typeof run !== 'object' || typeof run.success !== 'boolean') {
-    throw invalid(`${arm} contains a malformed run.`);
-  }
-  const evidenceRefs = Array.isArray(run.evidenceRefs) ? run.evidenceRefs.map((ref) => String(ref).trim()).filter(Boolean) : [];
-  if (!evidenceRefs.length) throw invalid(`${arm} requires run evidence.`, 'HOLOBIONT_EVIDENCE_REQUIRED');
-  return {
-    missionId: text(run.missionId, 'missionId'), success: run.success,
-    cost: nonNegative(run.cost, 'cost'), tokens: nonNegative(run.tokens, 'tokens'),
-    evidenceRefs, verifierId: text(run.verifierId, 'verifierId'), metrics: validateMetrics(run.metrics)
-  };
-}
+const { ARMS } = require('./longitudinalBenchmarkServiceConstants');
+const { invalid, text, validateRun } = require('./longitudinalRunValidation');
+const campaignRunner = require('./longitudinalCampaignExecutionService');
 
 function sumMetric(runs, name) {
   return runs.reduce((total, run) => total + (run.metrics[name] || 0), 0);
@@ -144,18 +87,7 @@ function validateCampaign(input) {
 
 async function runLongitudinalBenchmark(input = {}) {
   const missionIds = validateCampaign(input);
-  const arms = {};
-  for (const arm of ARMS) {
-    arms[arm] = [];
-    for (let index = 0; index < input.missions.length; index += 1) {
-      const mission = input.missions[index];
-      const result = await input.runMission({ arm, mission, sequence: index });
-      if (result?.missionId && result.missionId !== missionIds[index]) {
-        throw invalid(`Runner returned an out-of-sequence mission for ${arm}.`);
-      }
-      arms[arm].push({ ...result, missionId: missionIds[index] });
-    }
-  }
+  const arms = await campaignRunner.executeRuns({ input, missionIds });
   return evaluateLongitudinalBenchmark({ benchmarkId: input.benchmarkId, arms });
 }
 

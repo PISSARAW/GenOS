@@ -1,6 +1,6 @@
 # Benchmark longitudinal Holobionte
 
-- **Statut** : Protocole implémenté, campagne non exécutée
+- **Statut** : Runner journalisé implémenté, campagne non exécutée
 - **Portée** : comparaison appariée de douze stratégies sur 50 à 100 missions séquentielles
 - **Dernière revue** : 2026-09-25
 
@@ -35,9 +35,11 @@ Les taux sans dénominateur sont rendus comme `null`. Les preuves sont conservé
 
 ## Exécution et état des résultats
 
-Le service est un protocole de collecte et d’agrégation, pas une campagne exécutée. Les tests `backend/tests/test_holobiont_longitudinal_benchmark.js` utilisent un runner simulé pour vérifier l’ordre des missions, les douze bras, les métriques et le rejet d’entrées incomplètes. Aucun résultat expérimental réel ni comparaison de performance ne peut être déduit de ces tests.
+La commande `node backend/bin/genos-holobiont-benchmark.cjs --manifest <manifest.json> --output <rapport.json> --journal <runs.jsonl>` fournit la reprise d'une campagne. Elle exige `GENOS_HOLOBIONT_BENCHMARK_ADAPTER_MODULE` et `GENOS_HOLOBIONT_BENCHMARK_ADAPTER_SHA256`. Le module exporte `createCampaign({ manifest, signal, campaignId })` et renvoie un adaptateur pour chaque bras. Chaque exécution doit produire un reçu runtime et des références de preuve. Le journal et le rapport sont conservés séparément; `--resume` n'accepte que le même manifeste, adaptateur et budget.
 
-Pour préparer une campagne, fournir 50 à 100 missions fixes et une implémentation `runMission` qui exécute effectivement chaque stratégie et attache des preuves vérifiables. Archiver l’entrée, les sorties par mission, la configuration des bras et l’identité des vérificateurs avec le rapport final.
+Le service et la commande ne constituent pas une campagne exécutée. Les tests `backend/tests/test_holobiont_longitudinal_benchmark.js` utilisent un runner simulé pour vérifier l’ordre, les bras, les métriques et le rejet d’entrées incomplètes. Aucun résultat expérimental réel ne peut être déduit de ces tests.
+
+Pour préparer une campagne, fournir 50 à 100 missions fixes et les douze adaptateurs qui exécutent effectivement chaque stratégie et attachent des preuves vérifiables. Archiver l’entrée, les sorties par mission, la configuration des bras, les artefacts et l’identité des vérificateurs avec le rapport final.
 
 ## Limites
 
@@ -45,5 +47,6 @@ Pour préparer une campagne, fournir 50 à 100 missions fixes et une implémenta
 - Les noms des bras ne configurent pas eux-mêmes les topologies : `runMission` doit les réaliser correctement.
 - Les agrégats sont descriptifs. Le runner ne calcule ni intervalles de confiance, ni test de significativité, ni décision de promotion.
 - Une métrique absente reste absente ; il faut distinguer donnée manquante et valeur nulle lors de l’interprétation.
+- Le runner vérifie la forme des reçus, sans résoudre les références ni établir l'indépendance effective du vérificateur. Les coûts et tokens viennent de l'adaptateur.
 
 Voir également l’[ADR 0105](../adr/0105-benchmark-longitudinal-holobionte.md) et la [fiche Holobionte](../02-orchestration/topologies/holobionte.md).
