@@ -86,7 +86,7 @@ async function main() {
     assert.equal(native.evidenceReport.outcome, 'success');
     const first = { receipt: native.output.creditReceipt,
       observation: native.output.creditObservation };
-    assert.equal(first.observation.balance, 7);
+    assert.equal(adapter.checkObservation(first.observation, input).balance, 7);
     assert.equal(first.receipt.statement.before, 2);
     const duplicate = await adapter.transfer(input);
     assert.deepEqual(duplicate.receipt, first.receipt);

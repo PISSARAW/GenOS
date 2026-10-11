@@ -1,7 +1,7 @@
 # Plan d'implémentation — régulation avec ressource externe et orchestration complète
 
 - **Type** : plan de réalisation
-- **Statut** : en cours ; lots 0 à 2 implémentés, lots 3 et 4 partiels, lots 5 et 6 ouverts
+- **Statut** : en cours ; lots 0 à 2 implémentés, lots 3 à 5 partiels, lot 6 ouvert
 - **Portée** : les 19 types natifs, superviseur et `genos_orchestrate`
 - **Dernière revue** : 2026-10-11
 
@@ -9,7 +9,7 @@ Ce plan réalise les [critères de qualification](qualification-regulation-resso
 
 ## Avancement vérifié au 11 octobre 2026
 
-Le fournisseur distinct, son ledger conservatif, les preuves signées et la méthode native `replenish_external_quota` sont implémentés. Une sonde ciblée vérifie le refus d'un worker hors plage, la recharge par un vrai `recovery_worker`, la relecture du solde et la reprise supervisée. Elle prépare encore le parent, le helper, les contrats et les runs dans SQLite ; cette réussite **ne valide pas** la planification par `genos_orchestrate` ni la matrice externe 19 × 2. Le coordinateur de récupération automatique, la réconciliation après crash et la qualification de bout en bout restent ouverts. Un second incrément ajoute `native_objectives` à `genos_orchestrate` : le catalogue sélectionne le type natif par `methodId`, réserve les tokens et refuse une divergence de type, méthode ou budget au dispatch. Une sonde de plan passe pour les 19 types. Un essai du vrai CLI a créé un `scout_cell` et exécuté `scan_literal` jusqu'à `AGENT_COMPLETED`, mais le run a ensuite été bloqué par `require_independent_verification` et le parent a expiré faute de modèle local exploitable (`llama-server` absent). Ce trajet reste **non qualifié** au statut terminal.
+Le fournisseur distinct, son ledger conservatif, les preuves signées et la méthode native `replenish_external_quota` sont implémentés. Une sonde ciblée vérifie le refus d'un worker hors plage, la recharge par un vrai `recovery_worker`, la relecture du solde et la reprise supervisée. Elle prépare encore le parent, le helper, les contrats et les runs dans SQLite ; cette réussite **ne valide pas** la planification par `genos_orchestrate` ni la matrice externe 19 × 2. Le coordinateur de récupération automatique, la réconciliation après crash et la qualification de bout en bout par `genos_orchestrate` restent ouverts. Un second incrément ajoute `native_objectives` à `genos_orchestrate` : le catalogue sélectionne le type natif par `methodId`, réserve les tokens et refuse une divergence de type, méthode ou budget au dispatch. Une sonde de plan passe pour les 19 types. La campagne externe ciblée 19 × 2 et son auditeur indépendant passent également (38/38), sous contrats préparés par la sonde. Un essai du vrai CLI a créé un `scout_cell` et exécuté `scan_literal` jusqu'à `AGENT_COMPLETED`, mais le run a ensuite été bloqué par `require_independent_verification` et le parent a expiré faute de modèle local exploitable (`llama-server` absent). Ce trajet reste **non qualifié** au statut terminal.
 ### Travaux bloquants observés
 
 1. Faire planifier et créer par `genos_orchestrate` le `recovery_worker`, son bail et la référence au run de réparation avant le worker cible. La sonde positive ne doit plus insérer ces objets dans SQLite.

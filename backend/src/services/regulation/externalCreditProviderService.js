@@ -101,11 +101,12 @@ function checkReceipt(signed, input) {
 async function transfer(input) {
   const receipt = await request('/transfer', input, 'POST');
   const value = checkReceipt(receipt, input);
-  const observed = await balance(input);
+  const signedObservation = await request('/balance', input);
+  const observed = checkObservation(signedObservation, input);
   if (observed.accountVersion !== value.afterVersion || observed.balance !== value.after) {
     throw failure('EXTERNAL_CREDIT_MEASUREMENT_MISMATCH', 'Independent balance read does not match the receipt.');
   }
-  return { receipt, observation: observed };
+  return { receipt, observation: observed, signedObservation };
 }
 
 async function operation(input) {
@@ -117,4 +118,4 @@ async function ledger() {
   return request('/ledger');
 }
 
-module.exports = { balance, transfer, operation, ledger, verify, checkReceipt };
+module.exports = { balance, transfer, operation, ledger, verify, checkReceipt, checkObservation };

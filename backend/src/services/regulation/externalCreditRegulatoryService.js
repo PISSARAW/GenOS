@@ -79,6 +79,10 @@ async function recoveryWorker(db, mission, target) {
   }
   return input;
 }
+function measurementMatches(observed, signed, input) {
+  return observed.agentId === input.agentId && observed.missionId === input.missionId
+    && observed.accountVersion === signed.afterVersion && observed.balance === signed.after;
+}
 async function evidence(db, reference, input) {
   const rows = await db.all(`SELECT payload_json FROM telemetry_events
     WHERE agent_id=? AND event_type='EVIDENCE_REPORT' ORDER BY id DESC LIMIT 20`,
@@ -100,8 +104,9 @@ async function evidence(db, reference, input) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Native credit evidence is missing.');
   }
   const signed = provider.checkReceipt(receipt, input);
+  const observed = provider.checkObservation(observation, input);
   if (!isDeepStrictEqual(signed, await provider.operation(input))
-    || observation.agentId !== input.agentId || observation.missionId !== input.missionId) {
+    || !measurementMatches(observed, signed, input)) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Native evidence differs from provider operation.');
   }
   return { signed, observation };
@@ -134,7 +139,7 @@ async function ensureExternalFunctional(db, mission) {
   const input = await recoveryWorker(db, mission, target);
   const proof = await evidence(db, target.recovery, input);
   const after = await provider.balance(target.account);
-  if (after.accountVersion < proof.signed.afterVersion
+  if (after.accountVersion !== proof.signed.afterVersion
     || after.balance < Math.ceil(after.capacity * 0.4)) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Measured balance remains below the functional threshold.');
   }

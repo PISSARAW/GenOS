@@ -46,7 +46,7 @@ async function runCredit(method, context) {
     .update(JSON.stringify(completed.receipt)).digest('hex');
   const source = `provider://controlled-credit-provider/${input.operationId}/sha256:${digest}`;
   return resultReport(method, { creditReceipt: completed.receipt,
-    creditObservation: completed.observation, targetAgentId: input.agentId,
+    creditObservation: completed.signedObservation, targetAgentId: input.agentId,
     recoveryReceipt: { action: 'replenish_external_quota',
       restoredState: 'credit:' + completed.observation.balance + '/' + completed.observation.capacity,
       receiptId: source, evidence: [source] } }, {
