@@ -87,4 +87,19 @@ Le verdict « réussite complète » exige tous les points suivants :
 À ce jour, le verdict demeure : **régulation simulée vérifiée ; reconstitution extérieure et planification complète non démontrées**.
 ## État de qualification au 11 octobre 2026
 
-Le fournisseur externe et la reprise supervisée ciblée sont prouvés par `backend/tests/probes/test_external_credit_provider.cjs` et `test_external_credit_supervision.cjs`. La sélection de méthode et type natifs passe pour 19 types avec `test_native_mission_plan.cjs`. L'essai direct de `genos_orchestrate` sur un `scout_cell` a produit la preuve native, mais le run a été bloqué par l'exigence de vérification indépendante et le parent a expiré car le modèle local ne charge pas `llama-server`. La matrice externe ciblée 19 × 2 passe avec audit indépendant (38/38), sous contrats créés par la sonde. La matrice depuis le vrai outil MCP, la création automatique du helper et la clôture terminale ne sont pas encore démontrées.
+Le fournisseur externe et la reprise supervisée ciblée sont prouvés par `backend/tests/probes/test_external_credit_provider.cjs` et `test_external_credit_supervision.cjs`. La sélection de méthode et type natifs passe pour 19 types avec `test_native_mission_plan.cjs`. La matrice externe ciblée 19 × 2 passe avec audit indépendant (38/38), sous contrats créés par la sonde.
+
+## Mise à jour du 11 octobre 2026 — preuves d’oracle natif
+
+Trois méthodes ont maintenant une sonde d’oracle en processus séparés et un run complet de worker créé par la flotte GenOS : `scan_literal` (`scout_cell`), `monitor_samples` (`resident_daemon`) et `subset_sum` (`procedural_executor`). Chaque run scelle le worker, le contrat, le budget et l’identité de mission ; deux processus distincts recalculent les postconditions et leur attestation est requise pour terminer le run. Les probes sont `test_native_scout_completion.cjs`, `test_native_monitor_completion.cjs` et `test_native_procedure_completion.cjs`, complétées par les probes de falsification `test_native_scout_oracle.cjs` et `test_native_monitor_oracle.cjs`.
+
+Le reçu du scout et celui du monitor emploient une sérialisation canonique des objets : l’ordre des clés du contrat ne change plus le reçu vérifiable. Le rapport monitor conserve seuil et nombre d’échantillons afin que l’oracle puisse recalculer ces valeurs à partir du contrat. L’oracle `subset_sum` accepte aussi les enveloppes natives `scoped_procedure`, `host_procedure` et `niche_procedure`; seule la variante `scoped_procedure` disposait déjà d’une preuve de run intégrée.
+
+| Portée | État vérifié |
+| --- | --- |
+| `scan_literal`, `monitor_samples`, `subset_sum` | Run GenOS réel terminé, attestation acceptée, deux processus séparés. |
+| `scoped_procedure` | Couverture antérieure par l’oracle subset-sum ; revalider avec les gates finaux. |
+| Autres méthodes des 19 kinds | Pas encore de preuve sémantique indépendante intégrée. |
+| 19 kinds × 2 cycles avec crédit externe et recovery helper planifié | Pas encore exécuté par le parcours complet `genos_orchestrate`. |
+
+Une tentative de `genos_orchestrate` MCP connecté a échoué avant dispatch : son backend pointe sur `C:\Users\Shadow\Documents\GitHub\GenOS`, et le contrôle d’identité a rejeté la différence avec le workspace demandé sur D:. Aucun état du dépôt C: n’a été changé. Cette tentative ne compte pas comme exécution qualifiante. Le CLI sous D: et le parcours MCP avec workspace D: restent à valider.

@@ -17,10 +17,10 @@ Depuis la racine du dépôt sur D: :
 
 ```powershell
 node backend/tests/probes/test_external_credit_matrix.cjs
-node backend/tests/probes/audit_external_credit_matrix.cjs 'D:\GenOS-regulation-tests\regulation-probe-results\external-matrix-jRY1Wy'
+node backend/tests/probes/audit_external_credit_matrix.cjs 'D:\GenOS-regulation-tests\regulation-probe-results\external-matrix-cHqGip'
 ```
 
-Le premier programme imprime le nouveau dossier de résultat ; utilisez ce dossier comme argument du second. Les preuves de cette exécution sont dans `D:\GenOS-regulation-tests\regulation-probe-results\external-matrix-jRY1Wy\report.json` et `audit.json`, hors Git. Les warnings de capture de snapshots du workspace apparaissent pendant la sonde ; l'auditeur confirme que les événements natifs et les reçus requis sont présents.
+Le premier programme imprime le nouveau dossier de résultat ; utilisez ce dossier comme argument du second. La reproduction la plus récente a produit 38/38 cas et conservation vraie ; l'auditeur confirme 38 chaînes de preuve. Les preuves de cette exécution sont dans `D:\GenOS-regulation-tests\regulation-probe-results\external-matrix-cHqGip\report.json` et `audit.json`, hors Git. Les warnings de capture de snapshots du workspace apparaissent pendant la sonde ; l'auditeur confirme que les événements natifs et les reçus requis sont présents.
 
 ## Frontière de qualification
 

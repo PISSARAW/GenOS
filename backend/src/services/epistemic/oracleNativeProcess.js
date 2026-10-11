@@ -78,6 +78,8 @@ function entryFor(kind) {
   if (!kind || kind === 'subset') return require.resolve('./oracleNativeEntry.cjs');
   if (kind === 'memory') return require.resolve('./oracleMemoryNativeEntry.cjs');
   if (kind === 'code') return require.resolve('./oracleCodeNativeEntry.cjs');
+  if (kind === 'scout') return require.resolve('./oracleScoutNativeEntry.cjs');
+  if (kind === 'monitor') return require.resolve('./oracleMonitorNativeEntry.cjs');
   throw new Error('ORACLE_KIND_UNAVAILABLE');
 }
 

@@ -19,6 +19,7 @@ L'ADR 0395 restaure un snapshot régulatoire simulé à partir d'un checkpoint v
 5. L'énergie liée au crédit est dérivée du solde externe divisé par la capacité du compte. Les autres variables conservent leurs capteurs. Un état interne prétendument sain ne peut contourner une mesure externe insuffisante.
 6. La voie `checkpoint_restore` existante demeure typée et séparée. Les missions sans contrat de crédit externe utilisent encore la politique de l'ADR 0395. Une mission à crédit externe échoue fermée si le fournisseur, la preuve ou la mesure manque.
 7. Pour une mission à objectifs natifs, le plan réserve l'identifiant opaque de chaque worker avant sa création. Le dispatch compare la liste exécutée au digest du plan, puis vérifie identifiant, type, méthode et budget. Cette identité scellée pourra lier le compte externe et le bail de récupération au worker cible ; le helper automatique reste à implémenter.
+8. Une méthode native ne peut terminer sous une exigence de vérification indépendante qu'avec un oracle sémantique lié au run, au worker, au contrat et à son rapport frais. Les stratégies de vérification s'exécutent dans deux processus distincts avec un budget persistant. `scan_literal`, `monitor_samples` et `subset_sum` ont maintenant chacun un domaine d'oracle concret ; un domaine ou une méthode inconnus restent bloqués. Les reçus scout et monitor sont hachés avec une sérialisation canonique afin que l'ordre JSON des clés ne change pas leur identité.
 
 ## Conséquences
 
@@ -32,6 +33,7 @@ L'ADR 0395 restaure un snapshot régulatoire simulé à partir d'un checkpoint v
 - Le premier fournisseur est contrôlé localement ; sa qualification ne prouve pas encore le comportement d'un service tiers.
 - L'orchestration doit réserver du budget pour le helper de récupération, éviter la récursion et réconcilier les effets du fournisseur après crash.
 - Les clés privées et bases du fournisseur sont des artefacts d'essai hors Git, sur D:.
+- Chaque nouvelle famille de méthodes exige son propre contrat d'évidence, des postconditions indépendantes, une liaison à la provenance scellée et des cas positifs/négatifs avant d'être ajoutée au registre de confiance. L'oracle commun ne signifie pas que toutes les méthodes natives sont déjà couvertes.
 
 ## Alternatives écartées
 

@@ -333,11 +333,18 @@ function selectAdapter(verifier) {
   if (verifier.type === 'code_semantic') return require('./oracleCodeAdapter').runCodeOracle;
   if (verifier.type === 'procedure_semantic') return require('./oracleProcedureAdapter').runProcedureOracle;
   if (verifier.type === 'memory_semantic') return require('./oracleMemoryAdapter').runMemoryOracle;
+  if (verifier.type === 'native_method_semantic') return nativeMethodAdapter(verifier);
   if (verifier.artifact) return runArtifactAdapter;
   if (verifier.test) return runTestAdapter;
   if (ADAPTER_MAP[verifier.type]) return ADAPTER_MAP[verifier.type];
   const aliased = ADAPTER_ALIASES[verifier.type];
   return (aliased && ADAPTER_MAP[aliased]) || null;
+}
+
+function nativeMethodAdapter(verifier) {
+  const strategy = verifier.strategy?.[0] || '';
+  return strategy.startsWith('monitor_')
+    ? require('./oracleMonitorAdapter').runMonitorOracle : require('./oracleScoutAdapter').runScoutOracle;
 }
 
 async function executeVerifierWithAdapter(antigen, verifier, context) {

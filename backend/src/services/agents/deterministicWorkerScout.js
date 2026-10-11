@@ -45,13 +45,21 @@ function scanSource(source, terms) {
   });
 }
 
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function runScout(methodContract) {
   assertScoutInput(methodContract);
   const { sources, terms } = methodContract.parameters;
   const observations = sources.flatMap((source) => scanSource(source, terms));
   const sourceRefs = sources.map((source) => source.sourceRef);
   const content = { observations, scannedSources: sourceRefs, termCount: terms.length };
-  const digest = createHash('sha256').update(JSON.stringify({ methodContract, content })).digest('hex');
+  const digest = createHash('sha256').update(canonical({ methodContract, content })).digest('hex');
   return { ...content, scoutReceipt: { id: `solver://sha256:${digest}` } };
 }
 

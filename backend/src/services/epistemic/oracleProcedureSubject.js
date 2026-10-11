@@ -44,12 +44,14 @@ function freshObservation(records) {
 function observedContent(input) {
   const { binding, observed, request } = input;
   const method = binding.genome.workerContract?.mission?.methodContract;
-  if (method?.version !== 1 || method.methodId !== 'scoped_procedure'
-      || method.parameters?.procedure?.methodId !== 'subset_sum') denied('ORACLE_DOMAIN_UNAVAILABLE');
+  const procedure = ['scoped_procedure', 'host_procedure', 'niche_procedure'].includes(method?.methodId)
+    ? method.parameters?.procedure : method;
+  if (method?.version !== 1 || !['scoped_procedure', 'host_procedure', 'niche_procedure', 'subset_sum'].includes(method.methodId)
+      || procedure?.methodId !== 'subset_sum') denied('ORACLE_DOMAIN_UNAVAILABLE');
   const report = observed.event.payload?.evidenceReport;
   const result = report?.workerArtifact?.content?.result;
   if (!result || report.workerArtifact.content.procedureReceipt?.methodId !== 'subset_sum') denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
-  return { runId: request.runId, workerId: request.agentId, method: method.parameters.procedure, result };
+  return { runId: request.runId, workerId: request.agentId, method: procedure, result };
 }
 
 function assertAntigen(antigen, subject) {
