@@ -37,6 +37,9 @@ sont retirés. Un identifiant introuvable reste un refus explicite.
 
 ## Parcours disponibles
 
+- Construction : workflows visuels/JSON, versions conditionnelles, essai sur le
+  worker et passage vers la publication. Voir le [guide du constructeur](../../docs/04-exploitation/studio-construire-workflow.md).
+  Cette tranche ne termine pas les catalogues agents, prompts, providers et outils.
 - Inspection : runs, étapes, métriques observées, promotion signée, provenance
   et snapshots réels. La signature et ses preuves restent fournies par l'opérateur.
 - Supervision : SSE authentifié et tenant, reconnexion avec resynchronisation,

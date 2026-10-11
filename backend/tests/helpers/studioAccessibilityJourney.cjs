@@ -1,11 +1,12 @@
 'use strict';
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const tasks = require('./studioTaskNavigation.cjs');
 
 const views = ['inspection', 'dashboard-view', 'management-view', 'files-view', 'research-view'];
 
 async function check(page, view) {
-  await page.locator('[data-target="' + view + '"]').click();
+  await tasks.view(page, view);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, view);
   assert.equal(await page.locator('#' + view + ' h2').evaluate(element => document.activeElement === element), true);
   const unnamed = await page.locator('input:visible,select:visible,textarea:visible').evaluateAll(elements =>

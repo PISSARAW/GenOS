@@ -1,5 +1,6 @@
 import { byId, node } from './ui.mjs';
-import { collectionGroups, recordFields, recordTitle } from './records.mjs';
+import { collectionGroups, recordFields } from './records.mjs';
+import { recordBrowser } from './recordBrowser.mjs';
 
 const groupNames = {
   experiments: 'Expériences', datasets: 'Datasets', campaigns: 'Campagnes',
@@ -56,7 +57,7 @@ function group(title, items) {
   section.append(node('h3', groupNames[title] || title));
   if (!items.length) section.append(node('p', 'Aucun élément dans ce projet.'));
   const records = items.slice(0, 100).filter(item => item && typeof item === 'object');
-  if (records.length > 1) section.append(recordTable(records));
+  if (records.length > 1) section.append(recordBrowser(records, card));
   else section.append(...records.map(card));
   const values = items.slice(0, 100).filter(item => ['string', 'number'].includes(typeof item));
   if (values.length) {
@@ -66,36 +67,6 @@ function group(title, items) {
   }
   if (items.length > 100) section.append(node('p', 'Affichage limité aux 100 premiers éléments retournés.'));
   return section;
-}
-
-function recordTable(records) {
-  const container = node('div');
-  container.className = 'record-table';
-  const table = node('table');
-  table.setAttribute('aria-label', 'Dossiers observés');
-  const head = node('thead');
-  const header = node('tr');
-  for (const label of ['Dossier', 'État observé', 'Champs']) {
-    const heading = node('th', label);
-    heading.scope = 'col';
-    header.append(heading);
-  }
-  head.append(header);
-  const body = node('tbody');
-  for (const record of records) {
-    const row = node('tr');
-    const fields = recordFields(record);
-    const status = fields.find(([label]) => label === 'État observé');
-    const detail = node('details');
-    detail.append(node('summary', 'Inspecter'), card(record));
-    const cell = node('td');
-    cell.append(detail);
-    row.append(node('td', recordTitle(record)), node('td', status?.[1] || 'Inconnu'), cell);
-    body.append(row);
-  }
-  table.append(head, body);
-  container.append(table);
-  return container;
 }
 
 export function renderData(target, data) {
