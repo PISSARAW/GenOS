@@ -63,7 +63,7 @@
     "preferred": "default"
   },
   "tool_policy": {
-    "allowed_tools": ["genos_snapshot", "genos_signal_publish", "genos_signal_read", "genos_read", "genos_index", "genos_test_safe"],
+    "allowed_tools": ["genos_snapshot", "genos_signal_publish", "genos_signal_read"],
     "internal_runtime": {
       "access": "internal_runtime via ResidentDaemonRuntime (pas de lease MCP d'orchestrator)",
       "ops": ["observe", "index", "snapshot", "test_safe", "publish_signal", "read_handoff"],
