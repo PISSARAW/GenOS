@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHash } = require('node:crypto');
+const { digest } = require('../trinityProvenanceValues');
 
 function error(code, message) {
   return Object.assign(new Error(message), { code });
@@ -26,9 +26,9 @@ function methodInput(method, methodId) {
 }
 
 function receipt(method, output) {
-  const inputDigest = createHash('sha256').update(JSON.stringify(method)).digest('hex');
-  const digest = createHash('sha256').update(JSON.stringify({ inputDigest, output })).digest('hex');
-  return { id: `solver://sha256:${digest}`, methodId: method.methodId,
+  const inputDigest = digest(method);
+  const receiptDigest = digest({ inputDigest, output });
+  return { id: `solver://sha256:${receiptDigest}`, methodId: method.methodId,
     inputDigest: `sha256:${inputDigest}`, result: output };
 }
 

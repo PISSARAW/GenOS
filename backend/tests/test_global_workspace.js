@@ -11,4 +11,11 @@ for (const module of ['memory', 'planning', 'reporting']) {
 }
 assert.strictEqual(consume(state, 'unauthorized', (contentId) => contentId).available, false);
 assert.strictEqual(causalEffect({ ...state, winner: null }, 'memory', (value) => value).measured, false);
+const goal = compete([{ id: 'noise', salience: 0.95, goalRelevance: 0 },
+  { id: 'target', salience: 0.8, goalRelevance: 1 }],
+{ capacity: 1, ignitionThreshold: 0.5, modules: ['planning'] });
+assert.strictEqual(goal.winner.id, 'target');
+const pair = compete([{ id: 'a', salience: 0.9 }, { id: 'b', salience: 0.8 }],
+  { capacity: 2, ignitionThreshold: 0.5, modules: ['planning'] });
+assert.strictEqual(consume(pair, 'planning', (_id, ids) => ids.join('')).output, 'ab');
 console.log('✅ global workspace tests passed');

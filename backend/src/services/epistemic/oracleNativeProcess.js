@@ -76,6 +76,7 @@ async function observe(options, execution) {
 
 function entryFor(kind) {
   if (!kind || kind === 'subset') return require.resolve('./oracleNativeEntry.cjs');
+  if (kind === 'worker') return require.resolve('./oracleWorkerNativeEntry.cjs');
   if (kind === 'memory') return require.resolve('./oracleMemoryNativeEntry.cjs');
   if (kind === 'code') return require.resolve('./oracleCodeNativeEntry.cjs');
   if (kind === 'scout') return require.resolve('./oracleScoutNativeEntry.cjs');

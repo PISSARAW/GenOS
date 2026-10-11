@@ -134,6 +134,7 @@ const KNOWN_VERIFIER_TYPES = [
   'memory_semantic',
   'code_semantic',
   'native_method_semantic',
+  'worker_semantic',
 ];
 
 for (const type of KNOWN_VERIFIER_TYPES) {

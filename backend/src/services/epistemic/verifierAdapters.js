@@ -330,6 +330,7 @@ const ADAPTER_ALIASES = {
 };
 
 function selectAdapter(verifier) {
+  if (verifier.type === 'worker_semantic') return require('./oracleWorkerAdapter').runWorkerOracle;
   if (verifier.type === 'code_semantic') return require('./oracleCodeAdapter').runCodeOracle;
   if (verifier.type === 'procedure_semantic') return require('./oracleProcedureAdapter').runProcedureOracle;
   if (verifier.type === 'memory_semantic') return require('./oracleMemoryAdapter').runMemoryOracle;

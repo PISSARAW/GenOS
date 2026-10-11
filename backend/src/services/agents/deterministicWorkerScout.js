@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHash } = require('node:crypto');
+const { digest } = require('../trinityProvenanceValues');
 
 function scoutError(message) {
   return Object.assign(new Error(message), { code: 'WORKER_SCOUT_INPUT_INVALID' });
@@ -59,8 +59,8 @@ function runScout(methodContract) {
   const observations = sources.flatMap((source) => scanSource(source, terms));
   const sourceRefs = sources.map((source) => source.sourceRef);
   const content = { observations, scannedSources: sourceRefs, termCount: terms.length };
-  const digest = createHash('sha256').update(canonical({ methodContract, content })).digest('hex');
-  return { ...content, scoutReceipt: { id: `solver://sha256:${digest}` } };
+  const receiptHash = digest({ methodContract, content });
+  return { ...content, scoutReceipt: { id: `solver://sha256:${receiptHash}` } };
 }
 
 module.exports = { assertScoutInput, runScout };

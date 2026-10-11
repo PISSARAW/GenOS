@@ -51,6 +51,9 @@ const SOURCES = Object.freeze([
   'agents/workerDeterministicReports.js',
   'epistemic/nativeOracleDomains.js',
   'agents/deterministicWorkerScout.js',
+  'epistemic/oracleWorkerSubject.js', 'epistemic/oracleWorkerClaim.js',
+  'epistemic/oracleWorkerChecks.js', 'epistemic/oracleWorkerNativeEntry.cjs',
+  'epistemic/oracleWorkerAdapter.js',
 ]);
 function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');

@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHash } = require('node:crypto');
+const { digest } = require('../trinityProvenanceValues');
 
 function forensicError(message) {
   return Object.assign(new Error(message), { code: 'WORKER_FORENSIC_INPUT_INVALID' });
@@ -57,8 +57,8 @@ function runForensic(methodContract) {
   const unlinkedEvents = events.filter((event) => !event.causedBy).map((event) => event.id);
   const content = { causalChain, evidence, unlinkedEvents,
     interpretation: 'Links reproduce supplied causation receipts; independent causal truth is unverified.' };
-  const digest = createHash('sha256').update(JSON.stringify({ methodContract, content })).digest('hex');
-  return { ...content, forensicReceipt: { id: `solver://sha256:${digest}` } };
+  const receiptHash = digest({ methodContract, content });
+  return { ...content, forensicReceipt: { id: `solver://sha256:${receiptHash}` } };
 }
 
 module.exports = { assertForensicInput, runForensic };
