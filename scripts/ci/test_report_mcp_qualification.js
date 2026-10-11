@@ -9,6 +9,9 @@ const report = audit();
 assert.equal(report.summary.catalogued, catalog.length);
 assert.deepEqual(report.tools.map((tool) => tool.name), catalog.map((tool) => tool.name).sort());
 assert.equal(report.summary.routed, catalog.length);
+assert.equal(report.summary.rustAdvertised, catalog.length - report.rustUnavailable.length);
+assert.deepEqual(report.rustUnavailable,
+  ['genos_browser_act', 'genos_computer_use', 'genos_foveal_crop', 'genos_optimal_foraging']);
 assert.equal(report.summary.codexLeased, profile.tools.length);
 assert.deepEqual(report.tools.filter((tool) => tool.nativeStatus === 'explicit_refusal').map((tool) => tool.name),
   ['genos_merge', 'genos_v2_fork']);
