@@ -38,7 +38,8 @@ const INTERNAL_REALIZATION = Object.freeze({
 
 // Routes mirrored from the Node/Rust MCP dispatchers and checked by coherence tests.
 const ROUTABLE_TOOLS = Object.freeze([
-  'genos_a_team_preview', 'genos_analyze_trajectory', 'genos_audit', 'genos_biological_mode',
+  'genos_a_team_preview', 'genos_agent_fork_snapshot', 'genos_agent_inherited_memory_read',
+  'genos_agent_state_restore_inspect', 'genos_analyze_trajectory', 'genos_audit', 'genos_biological_mode',
   'genos_browser_act', 'genos_computer_use',
   'genos_biomimicry', 'genos_blame',
   'genos_capsule_create', 'genos_change_organization', 'genos_change_strategy',
