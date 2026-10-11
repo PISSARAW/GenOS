@@ -17,15 +17,13 @@ async function run() {
       contracts: [{ contractId: 'api-ui', fromTeamId: 'api', toTeamId: 'web', provides: ['schema'], acceptanceCriteria: ['schema accepted'] }]
     });
     const calls = [];
-    const result = await runtime.advanceProgramRun({ db: {}, programId: 'program-1', executeTeam: async (task) => {
+    await assert.rejects(runtime.advanceProgramRun({ db: {}, programId: 'program-1', executeTeam: async (task) => {
       calls.push(task.teamId);
-      if (task.teamId === 'api') return { status: 'SUCCEEDED', childRunId: 'child-api' };
+      if (task.teamId === 'api') return { status: 'SUCCEEDED', childRunId: 'child-api', evidenceRefs: ['evidence://api'] };
       return { status: 'SUCCEEDED', childRunId: 'child-web', verifiedContractIds: ['api-ui'], evidenceRefs: ['evidence://schema'] };
-    } });
-    assert.deepEqual(calls, ['api', 'web']);
-    assert.equal(result.status, 'SUCCEEDED');
-    assert.equal(result.teams[1].receipt.verified, true);
-    assert.equal(records.get('program-1').revision, 2);
+    } }), { code: 'ATEAM_MTS_SUBRUN_PROOF_REQUIRED' });
+    assert.deepEqual(calls, ['api']);
+    assert.equal(records.get('program-1').revision, 0);
 
     await runtime.createProgramRun({
       db: {}, programId: 'program-2',
@@ -44,7 +42,7 @@ async function run() {
     sessions.save = originalSave;
     sessions.load = originalLoad;
   }
-  console.log('A-Team multiteam runtime persists verified subteam execution and blocks consumers.');
+  console.log('A-Team multiteam runtime refuses unverified success and blocks consumers.');
 }
 
 async function saveRecord(records, record) {

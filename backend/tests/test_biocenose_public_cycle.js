@@ -52,6 +52,8 @@ async function testExplicitPublicCycle(db) {
     assert.equal(executed.success, false);
     assert.equal(executed.status, 'tool_error');
     assert.ok(executed.communityId);
+    assert.ok(executed.resumeToken);
+    assert.ok(Number.isInteger(executed.sessionRevision));
     assert.equal(executed.variant, 'epistemic_jury');
     const events = await store.listEvents(db, executed.communityId);
     assert.ok(events.some((event) => event.type === 'DELIBERATION_STEP_BLOCKED'));
@@ -60,10 +62,29 @@ async function testExplicitPublicCycle(db) {
       executed.communityId)).value, 0);
     modelRouter.generate = async (options) => ({ text: modelAnswer(options.responseFormat?.name),
       provider: 'fixture', model: 'fixture' });
-    const unverified = await tools.composeBiologicalMode({ ...request, execute_round: true });
-    assert.equal(unverified.success, true);
+    const beforeResume = await db.get('SELECT COUNT(*) AS value FROM biocenose_communities');
+    const resume = { mode: 'biocenose', orchestrator_id: 'operator', execute_round: true,
+      community_id: executed.communityId, resume_token: executed.resumeToken,
+      expected_revision: executed.sessionRevision };
+    const wrongActor = await tools.composeBiologicalMode({ ...resume, orchestrator_id: 'impostor' });
+    assert.equal(wrongActor.code, 'BIOCENOSE_PUBLIC_IDENTITY_MISMATCH');
+    const wrongToken = await tools.composeBiologicalMode({ ...resume, resume_token: 'wrong' });
+    assert.equal(wrongToken.code, 'BIOCENOSE_PUBLIC_IDENTITY_MISMATCH');
+    const wrongMission = await tools.composeBiologicalMode({ ...resume, mission: 'Changed question' });
+    assert.equal(wrongMission.code, 'BIOCENOSE_PUBLIC_STATE_MISMATCH');
+    const wrongVariant = await tools.composeBiologicalMode({ ...resume, variant_id: 'adversarial_assembly' });
+    assert.equal(wrongVariant.code, 'BIOCENOSE_PUBLIC_STATE_MISMATCH');
+    const unverified = await dispatchBiocenose(db, resume);
+    assert.equal(unverified.success, true, JSON.stringify(unverified));
+    assert.equal(unverified.communityId, executed.communityId);
     assert.equal(unverified.status, 'topology_cycle_recorded');
     assert.equal(unverified.receipts.length, 9);
+    assert.equal((await db.get('SELECT COUNT(*) AS value FROM biocenose_communities')).value,
+      beforeResume.value);
+    const stale = await tools.composeBiologicalMode(resume);
+    assert.equal(stale.code, 'BIOCENOSE_PUBLIC_REVISION_CONFLICT');
+    await testMcpContinuationRoute(db, { ...resume,
+      expected_revision: unverified.sessionRevision });
     assert.ok(unverified.receipts.every((receipt) => /^[a-f0-9]{64}$/.test(receipt.resultHash)));
     assert.notEqual(unverified.judgment?.status, 'DECIDED');
     assert.notEqual(unverified.judgment?.promotionGate?.status, 'ALLOWED');
@@ -72,6 +93,48 @@ async function testExplicitPublicCycle(db) {
   } finally {
     dbModule.getDatabase = originalGet;
     modelRouter.generate = originalGenerate;
+  }
+}
+
+async function dispatchBiocenose(db, request) {
+  const dispatch = require('../src/services/topology/biologicalDispatchHandler.cjs');
+  const write = process.stdout.write;
+  let output = '';
+  process.stdout.write = (value) => { output += value; return true; };
+  try {
+    await dispatch.handleBiological(db, { request, orchestratorId: request.orchestrator_id });
+  } finally { process.stdout.write = write; }
+  return JSON.parse(output);
+}
+
+async function testMcpContinuationRoute(db, resume) {
+  const validation = require('../src/services/mcpArgumentValidation');
+  assert.equal(validation.validateToolArguments('genos_biological_mode', resume), null);
+  assert.ok(validation.validateToolArguments('genos_biological_mode', { mode: 'biocenose' }));
+  const priorLease = process.env.GENOS_MCP_LEASE;
+  process.env.GENOS_MCP_LEASE = 'genos_biological_mode';
+  try {
+    const { createToolCallHandler } = await import('../../mcp/toolCallHandler.js');
+    const handler = createToolCallHandler({
+      runOrchestrator: async (request) => {
+        assert.equal(request.action, 'dispatch_biological');
+        assert.equal(request.background, false);
+        assert.equal(request.community_id, resume.community_id);
+        assert.equal(request.resume_token, resume.resume_token);
+        return JSON.stringify(await dispatchBiocenose(db, request));
+      }
+    });
+    const before = await db.get('SELECT COUNT(*) AS value FROM biocenose_communities');
+    const response = await handler({ params: { name: 'genos_biological_mode', arguments: resume } });
+    assert.equal(response.isError, undefined);
+    const result = JSON.parse(response.content[0].text);
+    assert.equal(result.status, 'topology_cycle_recorded');
+    assert.equal(result.communityId, resume.community_id);
+    assert.equal(result.receipts.length, 9);
+    assert.equal((await db.get('SELECT COUNT(*) AS value FROM biocenose_communities')).value, before.value);
+  } finally {
+    if (priorLease === undefined) delete process.env.GENOS_MCP_LEASE;
+    else process.env.GENOS_MCP_LEASE = priorLease;
   }
 }
 

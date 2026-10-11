@@ -680,3 +680,7 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0405 — Matérialisation Syncytium et preuve de clôture](adr/0405-materialisation-syncytium-preuve-de-cloture.md).
 - [ADR 0406 — Frontières de preuve des variants Trinity](adr/0406-frontieres-preuves-variants-trinity.md).
 - [ADR 0407 — Frontière post-mission de Morphogenèse](adr/0407-frontiere-post-mission-morphogenese.md).
+- [ADR 0408 — Frontière de preuve multiteam A-Team](adr/0408-frontiere-preuve-multiteam-a-team.md).
+- [ADR 0410 — Reprise publique liée à la communauté Biocénose](adr/0410-reprise-publique-liee-a-la-communaute-biocenose.md).
+- [ADR 0411 — Appelant lié à la session Syncytium](adr/0411-appelant-lie-session-syncytium.md).
+- [ADR 0412 — Pont Rust de Morphogenèse en lecture seule](adr/0412-pont-rust-morphogenese-lecture-seule.md).

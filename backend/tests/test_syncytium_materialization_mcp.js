@@ -27,10 +27,32 @@ function workerOutput() {
   return { members: [{ status: 'completed' }], dispatchFailures: [] };
 }
 
+async function verifyOrchestratorScope(db, sessionId) {
+  const other = await syncytium.createSession('Unrelated session.', missionOptions(db));
+  await db.run('INSERT INTO agents (id, workspace_id, execution_mode) VALUES (?, ?, ?)',
+    'parent', 'ws-1', 'orchestrator');
+  await db.run(`INSERT INTO agents (id, workspace_id, parent_agent_id, execution_mode, metadata_json)
+    VALUES (?, ?, ?, ?, ?)`, 'other-worker', 'ws-1', 'parent', 'worker',
+  JSON.stringify({ topologySessionId: other.sessionId }));
+  const call = () => topology.applyTopologyOperation(db, {
+    session_id: sessionId, operation: 'materialize'
+  }, { agentId: 'parent' });
+  await assert.rejects(call(), (error) => error.code === 'TOPOLOGY_CALLER_DENIED');
+  await db.run(`INSERT INTO agents (id, workspace_id, parent_agent_id, execution_mode, metadata_json)
+    VALUES (?, ?, ?, ?, ?)`, 'foreign-workspace', 'ws-2', 'parent', 'worker',
+  JSON.stringify({ topologySessionId: sessionId }));
+  await assert.rejects(call(), (error) => error.code === 'TOPOLOGY_CALLER_DENIED');
+  await db.run(`INSERT INTO agents (id, workspace_id, parent_agent_id, execution_mode, metadata_json)
+    VALUES (?, ?, ?, ?, ?)`, 'linked-worker', 'ws-1', 'parent', 'worker',
+  JSON.stringify({ topologySessionId: sessionId }));
+  assert.equal((await call()).materialization.status, 'verified');
+}
+
 async function main() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   try {
-    await db.exec('CREATE TABLE agents (id TEXT PRIMARY KEY, execution_mode TEXT, metadata_json TEXT)');
+    await db.exec(`CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT,
+      parent_agent_id TEXT, execution_mode TEXT, metadata_json TEXT)`);
     const session = await syncytium.createSession('Commit one verified shared result.', missionOptions(db));
     await bindWorker(db, session.sessionId);
     await assert.rejects(topology.applyTopologyOperation(db, {
@@ -58,6 +80,7 @@ async function main() {
       session_id: session.sessionId, operation: 'materialize'
     }, { agentId: 'worker' });
     assert.equal(finalReceipt.materialization.stateVersion, 2);
+    await verifyOrchestratorScope(db, session.sessionId);
 
     const closure = await syncytium.createSession('Close a coherent worker mission.', missionOptions(db));
     await syncytium.applyOperation(closure.sessionId, { opId: 'closure', actorId: 'worker',

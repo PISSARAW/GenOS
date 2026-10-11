@@ -49,6 +49,10 @@ async function runReadyTeam(input) {
     parentTeamRunId: record.state.parentTeamRunId,
     budget: team.budget
   });
+  if (result?.status === 'SUCCEEDED') {
+    throw coded('Subteam completion requires a persisted, verified child TeamRun and authoritative budget evidence.',
+      'ATEAM_MTS_SUBRUN_PROOF_REQUIRED');
+  }
   await persistOutcome({ db: input.db, record, teamId, result, contracts });
 }
 

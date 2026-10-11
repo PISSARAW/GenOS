@@ -28,6 +28,10 @@ sont disponibles ; en leur absence, le comportement reste une proposition.
 Ni l'un ni l'autre ne crée de version de graphe, de snapshot de transition ou
 de preuve de promotion.
 
+L'[ADR 0412](0412-pont-rust-morphogenese-lecture-seule.md) ajoute une décision
+Rust en lecture seule après mission. Elle ne franchit pas cette frontière de
+commit.
+
 ## Conséquences
 
 - Le parcours public ne peut pas déclencher un commit par une future

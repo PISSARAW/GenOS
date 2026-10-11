@@ -498,6 +498,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0405](0405-materialisation-syncytium-preuve-de-cloture.md) | Matérialisation Syncytium avant preuve de clôture | Accepté | 2026-10-11 | Syncytium, MCP, clôture de mission |
 | [0406](0406-frontieres-preuves-variants-trinity.md) | Frontières de preuve des variants Trinity | Accepté, avec qualification de mission réelle encore ouverte. | -- | -- |
 | [0407](0407-frontiere-post-mission-morphogenese.md) | Frontière de la morphogenèse après mission | accepté | 2026-10-11 | orchestrateur public, morphogenèse, autorité |
+| [0408](0408-frontiere-preuve-multiteam-a-team.md) | Frontière de preuve des sous-runs A-Team multiteam | accepté | 2026-10-11 | A-Team, multiteam, autorité et preuves |
+| [0410](0410-reprise-publique-liee-a-la-communaute-biocenose.md) | Reprise publique liée à la communauté Biocénose | accepté | 2026-10-11 | Biocénose, MCP, identité de session |
+| [0411](0411-appelant-lie-session-syncytium.md) | Appelant lié à la session Syncytium | Accepté | 2026-10-11 | Syncytium, identité MCP, frontières de session |
+| [0412](0412-pont-rust-morphogenese-lecture-seule.md) | Pont Rust de décision morphogénétique en lecture seule | accepté | 2026-10-11 | orchestrateur public, noyau Rust, gouvernance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

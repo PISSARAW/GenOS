@@ -97,6 +97,30 @@ Une relance A-Team refuse désormais une politique d'autorité différente sous 
 clé idempotente. Le programme `multiteam` conserve son graphe et ses membres, mais le
 dispatch générique ne lance toujours pas automatiquement les sous-runs.
 
+### Deuxième vague — 2026-10-11
+
+- Le parcours post-mission appelle le planner et la gouvernance Rust par une
+  commande de lecture seule. Faute de proposition persistée, il soumet un
+  ensemble vide : `NO_CHANGE`, `REJECTED` ou `UNAVAILABLE` restent des
+  diagnostics sans autorité de commit ([ADR 0412](../../adr/0412-pont-rust-morphogenese-lecture-seule.md)).
+- A-Team refuse l'exécution générique de `multiteam` et les faux reçus de
+  sous-runs. Une sélection automatique peut se rabattre sur `project_dag`
+  sous ses propres préconditions, avec la raison du repli ; une sélection
+  explicite `multiteam` reste refusée ([ADR 0408](../../adr/0408-frontiere-preuve-multiteam-a-team.md)).
+- Biocénose reprend une communauté existante par le dispatch biologique,
+  avec identité de continuation et précondition de révision. Le jeton de
+  reprise passe par `stdin` du CLI. Le transport ne
+  recrée pas la communauté pour satisfaire une demande de reprise
+  ([ADR 0410](../../adr/0410-reprise-publique-liee-a-la-communaute-biocenose.md)).
+- Syncytium lie l'appelant identifié à la session : worker membre ou
+  orchestrateur parent ayant un worker dans le même workspace. Un parent
+  étranger ne peut pas matérialiser la session ([ADR 0411](../../adr/0411-appelant-lie-session-syncytium.md)).
+
+Restent à construire avant une activation complète : l'autorité Rust
+authentifiée, la liaison proposition–snapshot–décision au CAS, un exécuteur
+`multiteam` qui charge et vérifie les sous-runs, ainsi que la qualification
+de missions représentatives pour les 95 variants canoniques.
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

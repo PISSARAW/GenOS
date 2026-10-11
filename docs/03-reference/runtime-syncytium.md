@@ -27,6 +27,11 @@ même gate avant sa validation d'état. Le refus conserve le statut `partial`.
 Le snapshot topologique d'agent reste `verify-only` : aucun retour arrière du
 CRDT partagé n'est implémenté ([ADR 0405](../adr/0405-materialisation-syncytium-preuve-de-cloture.md)).
 
+Pour un appelant identifié, le garde de session accepte un worker lié à la
+session persistée ou son orchestrateur parent avec un worker du même workspace
+lié à cette session. Un autre rôle ou un orchestrateur sans ce lien est refusé
+avant `materialize` et les autres opérations ([ADR 0411](../adr/0411-appelant-lie-session-syncytium.md)).
+
 ## Services et activation
 
 | Point d'entrée | Responsabilité |

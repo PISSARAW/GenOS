@@ -31,7 +31,7 @@ const REQUIRED_STRINGS = {
   genos_parasitic_pressure: ['manifest'],
   genos_bisect_agent: ['agent_id', 'predicate'],
   genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source'],
-  genos_biological_mode: ['mode', 'mission'],
+  genos_biological_mode: ['mode'],
   genos_fossil_record: ['lineage_id', 'reason'],
   genos_fossil_list: [],
   genos_fossil_strata: [],

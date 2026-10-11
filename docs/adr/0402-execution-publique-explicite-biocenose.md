@@ -42,9 +42,9 @@ interfaces autorisées.
 - Le variant automatique commande réellement la formation spécialisée.
 - Un cycle factuel peut rester `REVIEW_REQUIRED` sans oracle de confiance ;
   une décision normative peut attendre un humain.
-- Cette interface ne fournit pas encore une reprise publique par `communityId`
-  ni le raccordement du contrôleur générique de Morphogenèse au journal
-  Biocénose. Ces raccordements exigent une autorité de session explicite.
+- La reprise publique par `communityId` est ajoutée dans l'[ADR 0410](0410-reprise-publique-liee-a-la-communaute-biocenose.md).
+  Le contrôleur générique de Morphogenèse n'est pas encore raccordé au journal
+  Biocénose et exige une autorité de session explicite.
 
 ## Alternatives
 

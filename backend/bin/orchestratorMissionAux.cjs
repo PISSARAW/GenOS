@@ -13,13 +13,18 @@ async function executeMorphology(input) {
     || result?.decision === 'APPLIED') {
     throw new Error('Post-mission morphogenesis cannot commit without a governed production bridge.');
   }
+  const adjudicate = input.adjudicate || require('../src/services/morphogenesis/runtime/morphogenesisRustReadOnlyBridge').adjudicatePostMission;
+  const kernelReadOnly = await adjudicate(morphology, { missionId: orchestratorId });
   const diagnostic = { ...result, applied: false, proposed: true,
+    kernelReadOnly,
     productionGate: 'POST_MISSION_COMMIT_UNAVAILABLE',
     authorityPending: 'rust_kernel_governance_and_versioned_transition' };
   const { buildMorphogenesisEvent } = require('../src/services/morphogenesis/morphogenesisTelemetryService');
   const event = buildMorphogenesisEvent(diagnostic, orchestratorId);
   event.payload.productionGate = diagnostic.productionGate;
   event.payload.authorityPending = diagnostic.authorityPending;
+  event.payload.kernelDecision = kernelReadOnly.decision;
+  event.payload.kernelAvailable = kernelReadOnly.available;
   telemetry.emitEvent(event);
   return diagnostic;
 }

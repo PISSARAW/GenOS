@@ -52,6 +52,18 @@ function run() {
   });
   assert.equal(fallback.policy.variant, 'project_dag');
   assert.equal(fallback.policy.evidence.fallbackFrom, 'expert_committee');
+  const autoMultiteam = prepareDispatchPolicy({
+    mission: { goal: 'Deliver service', teamCount: 2 },
+    members: [members[0], { ...members[1], dependsOn: ['api'] }]
+  });
+  assert.equal(autoMultiteam.policy.variant, 'project_dag');
+  assert.equal(autoMultiteam.policy.evidence.fallbackFrom, 'multiteam');
+  assert.equal(autoMultiteam.policy.evidence.fallbackReason, 'verified_subrun_executor_unavailable');
+  assert.deepEqual(autoMultiteam.members[1].dependsOn, ['api']);
+  assert.throws(() => prepareDispatchPolicy({
+    mission: { goal: 'Deliver service', teamCount: 2, minMembers: 4 },
+    members: [members[0], members[1]]
+  }), { code: 'ATEAM_VARIANT_TEAM_TOO_SMALL' });
   assert.throws(() => prepareDispatchPolicy({
     mission: { goal: 'Build a service', variant: 'expert_committee' }, members: members.slice(0, 2)
   }), { code: 'ATEAM_VARIANT_TEAM_TOO_SMALL' });

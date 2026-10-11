@@ -121,6 +121,7 @@ async function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   const action = ORCHESTRATOR_ACTIONS[name];
   if (!action) throw new Error(`Tool '${name}' has no verified MCP route.`);
   const request = orchestratorRequest(action, args);
+  configureBiocenoseExecution(name, args, request);
   if (request.background === undefined
     && (name === 'genos_orchestrate' || name === 'genos_delegate_worker' || name === 'genos_biological_mode')) {
     request.background = true;
@@ -130,8 +131,20 @@ async function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
   if (!isStructuredResult(result)) {
     throw new Error(`Orchestrator action '${name}' returned no structured result.`);
   }
-  if (result?.success === false) throw new Error(result.error || `Orchestrator action '${name}' failed.`);
+  assertOrchestratorResult(name, result);
   return text;
+}
+
+function configureBiocenoseExecution(name, args, request) {
+  if (name === 'genos_biological_mode' && (args.execute_round === true || args.community_id)) {
+    request.background = false;
+  }
+}
+
+function assertOrchestratorResult(name, result) {
+  if (result?.success !== false) return;
+  throw new Error(name === 'genos_biological_mode' ? JSON.stringify(result)
+    : result.error || `Orchestrator action '${name}' failed.`);
 }
 
 async function philosophyCall(args) {

@@ -107,11 +107,19 @@ async function prepareDispatch({ db, context }) {
     mission: { ...request, goal: projectGoal }, members: team.members,
     totalBudget: requestedTokenBudget(request)
   });
+  requireExecutableVariant(policy.policy);
   team.members = policy.members;
   team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members, workerAssignments);
   team.executionPolicy = policy.policy;
   requireReadyTeam(team.readiness);
   return { db, request, garage, projectGoal, team, context };
+}
+
+function requireExecutableVariant(policy) {
+  if (policy.variant !== 'multiteam') return;
+  throw Object.assign(new Error('Multiteam dispatch requires a verified sub-run executor.'), {
+    code: 'ATEAM_MTS_EXECUTOR_REQUIRED'
+  });
 }
 
 async function reusableCapacity(db, context, available) {

@@ -18,6 +18,7 @@ async function main() {
   } };
   const result = await executeMorphology(input(runtime, emitted));
   assert.equal(result.applied, false);
+  assert.equal(result.kernelReadOnly.committed, false);
   assert.equal(result.productionGate, 'POST_MISSION_COMMIT_UNAVAILABLE');
   assert.equal(emitted[0].eventType, 'MORPHOGENESIS_PROPOSED');
   assert.equal(emitted[0].payload.productionGate, result.productionGate);

@@ -33,6 +33,8 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Read-only Rust morphogenesis planning and governance gate
+    MorphogenesisAdjudicate { payload: String },
     /// Initialize the GenOS workspace directories
     Init,
     /// Check which local GenOS capabilities are available

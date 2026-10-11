@@ -14,19 +14,37 @@ async function guardTopologyCall(db, record, { args, context = {} } = {}) {
     if (MUTATIONS.has(operation)) throw denied('Syncytium mutations require an authenticated caller.');
     return args;
   }
-  const agent = await db.get('SELECT execution_mode, metadata_json FROM agents WHERE id = ?', callerId);
+  const agent = await db.get('SELECT id, workspace_id, execution_mode, metadata_json FROM agents WHERE id = ?', callerId);
   if (!agent) throw denied('Unknown topology caller.');
-  if (agent.execution_mode === 'worker') assertWorkerSession(agent, record, callerId);
+  await assertSessionMember(db, record, agent);
   if (!MUTATIONS.has(operation)) return args;
   return bindCaller(args, callerId);
 }
 
-function assertWorkerSession(agent, record, callerId) {
+async function assertSessionMember(db, record, agent) {
+  if (agent.execution_mode === 'worker') return assertWorkerSession(agent, record);
+  if (agent.execution_mode === 'orchestrator') return assertOrchestratorSession(db, record, agent);
+  throw denied('Topology caller is neither a session worker nor its orchestrator.');
+}
+
+function assertWorkerSession(agent, record) {
   let metadata;
   try { metadata = JSON.parse(agent.metadata_json || '{}'); } catch { throw denied('Invalid worker identity.'); }
   if (metadata.topologySessionId !== record.id) {
-    throw denied(`Worker '${callerId}' is outside this topology session.`);
+    throw denied(`Worker '${agent.id}' is outside this topology session.`);
   }
+}
+
+async function assertOrchestratorSession(db, record, agent) {
+  if (!agent.workspace_id) throw denied('Orchestrator has no workspace.');
+  const children = await db.all(`SELECT metadata_json FROM agents
+    WHERE parent_agent_id = ? AND workspace_id = ? AND execution_mode = 'worker'`,
+  agent.id, agent.workspace_id);
+  const linked = children.some((child) => {
+    try { return JSON.parse(child.metadata_json || '{}').topologySessionId === record.id; }
+    catch { return false; }
+  });
+  if (!linked) throw denied('Orchestrator has no worker attached to this session and workspace.');
 }
 
 function bindCaller(args, callerId) {

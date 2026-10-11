@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod morphogenesis_gate;
 pub mod agent_validate;
 pub mod agent_mutate;
 pub mod accounting;

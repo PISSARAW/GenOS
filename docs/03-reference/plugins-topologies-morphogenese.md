@@ -122,3 +122,13 @@ outcome vérifié et de sa preuve.
 ## Portée du contrôleur A-Team et du backend
 
 Le tableau des contrôleurs décrit le chemin plugin Morphogenèse ; il ne constitue pas une preuve de parité avec le parcours Node. Le backend explicite et autonome dispose d'un exécuteur canonique avec identités persistées, progression indépendante, preuves, critères globaux et accusés versionnés. Les tests SQLite/processus Node de ce parcours ne qualifient pas automatiquement le contrôleur Rust ni les topologies imbriquées. Voir [Référence du runtime A-Team](runtime-a-team.md).
+
+## Décision Rust après mission
+
+Le parcours public appelle désormais `genos morphogenesis-adjudicate` en
+lecture seule après la proposition. Le noyau Rust planifie et vérifie la
+gouvernance, mais l'appel post-mission ne possède pas de proposition de
+resolver persistée ni de gain marginal mesuré : la décision normale est
+`NO_CHANGE`. Un binaire absent apparaît comme `UNAVAILABLE`. Ce contrôle ne
+crée aucune transition, version de graphe ou preuve de promotion ; voir
+[ADR 0412](../adr/0412-pont-rust-morphogenese-lecture-seule.md).

@@ -31,9 +31,16 @@ function prepareDispatchPolicy(input = {}) {
 
 function compatibleVariantPlan(mission, members) {
   const selected = buildVariantPlan(mission);
-  if (selected.variant !== 'expert_committee' || mission.variant || members.length >= selected.minMembers) return selected;
+  if (mission.variant) return selected;
+  if (selected.variant === 'multiteam') return fallbackPlan(mission, selected, 'verified_subrun_executor_unavailable');
+  if (selected.variant !== 'expert_committee' || members.length >= selected.minMembers) return selected;
+  return fallbackPlan(mission, selected, 'team_below_min_members');
+}
+
+function fallbackPlan(mission, selected, reason) {
   const fallback = buildVariantPlan({ ...mission, variant: 'project_dag' });
-  return { ...fallback, evidence: { ...fallback.evidence, explicit: false, fallbackFrom: 'expert_committee' } };
+  return { ...fallback, evidence: { ...fallback.evidence, explicit: false,
+    fallbackFrom: selected.variant, fallbackReason: reason } };
 }
 
 function declaredMemberCount(mission, plan, members) {

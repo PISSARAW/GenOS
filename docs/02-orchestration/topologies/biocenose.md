@@ -13,9 +13,13 @@ la suite écologique et le statut du jugement ; `topology_cycle_recorded` ne
 signifie pas une promotion. Elle fournit `communityId`, le variant, des
 empreintes des reçus par étape et le jugement éventuellement enregistré.
 L'absence d'un modèle, d'un oracle de confiance ou d'une autorité humaine
-reste un refus ou une escalade. La reprise par identifiant de communauté et
-le plugin générique de Morphogenèse ne sont pas raccordés à cette opération.
-Voir l'[ADR 0402](../../adr/0402-execution-publique-explicite-biocenose.md).
+reste un refus ou une escalade. Une reprise utilise `community_id`,
+`resume_token`, `expected_revision`, le même `orchestrator_id` et
+`execute_round: true`, sans reconstituer la communauté. Le jeton n'est remis
+qu'à la première exécution explicite et doit être conservé comme un secret.
+Le plugin générique de Morphogenèse n'est pas raccordé à cette opération.
+Voir les [ADR 0402](../../adr/0402-execution-publique-explicite-biocenose.md)
+et [0410](../../adr/0410-reprise-publique-liee-a-la-communaute-biocenose.md).
 
 ## Snapshot d'agent lié à une communauté
 
