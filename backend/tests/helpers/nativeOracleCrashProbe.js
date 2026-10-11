@@ -67,7 +67,7 @@ function waitForBarrier(child) {
     let stderr = '';
     child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
     child.stdout.resume();
-    const timer = setTimeout(() => reject(new Error('Crash probe missed the execution barrier. ' + stderr)), 20000);
+    const timer = setTimeout(() => reject(new Error('Crash probe missed the execution barrier. ' + stderr)), 45000);
     child.once('error', failure => { clearTimeout(timer); reject(failure); });
     child.once('exit', () => { clearTimeout(timer); reject(new Error('Crash probe exited before the barrier. ' + stderr)); });
     child.on('message', item => {

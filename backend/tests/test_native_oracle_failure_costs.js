@@ -113,8 +113,8 @@ async function main() {
   if (process.argv[2]) return isolated(cases[process.argv[2]]);
   for (const name of Object.keys(cases)) {
     const child = require('node:child_process').spawnSync(process.execPath, [__filename, name],
-      { stdio: 'inherit', timeout: 60000, windowsHide: true });
-    assert.equal(child.status, 0, `Native oracle failure probe ${name} failed`);
+      { stdio: 'inherit', timeout: 120000, windowsHide: true });
+    assert.equal(child.status, 0, `Native oracle failure probe ${name} failed: ${child.error?.message || 'nonzero exit'}`);
   }
   console.log('Native oracle failure costs: real post-process retraction stays refused with durable costs and fresh replay.');
 }

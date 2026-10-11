@@ -13,7 +13,7 @@ function tokenCeiling(policy, mission, native) {
 function delegationCeiling(policy, mission) {
   const maximum = policy.maxTokens ?? 8000;
   const allocation = mission.delegatedTokenLimit ?? mission.workerTokenLimit;
-  if (allocation === undefined) return maximum;
+  if (allocation === undefined) return 0;
   const requested = Number(allocation);
   return Number.isFinite(requested) && requested >= 0 ? Math.min(Math.floor(requested), maximum) : 0;
 }
