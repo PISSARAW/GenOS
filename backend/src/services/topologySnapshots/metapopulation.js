@@ -93,16 +93,24 @@ function selectedVariant(session, requested) {
 
 async function boundDeme(context, session) {
   const rows = await context.db.all('SELECT deme_id, workspace_owner_id, workspace_path, members_json, status FROM metapopulation_demes WHERE metapopulation_id = ? ORDER BY deme_id', session.id);
-  const owned = rows.filter((row) => row.workspace_owner_id === context.agentId);
-  if (owned.length !== 1 || !within(session.workspace_path, owned[0].workspace_path)) {
-    fail('METAPOPULATION_SNAPSHOT_DEME_MISMATCH', 'Agent has no unique attached deme in its workspace.');
+  const owned = rows.filter((row) => parseArray(row.members_json, 'Deme members')
+    .some((item) => (typeof item === 'string' ? item : item?.agentId || item?.agent_id || item?.id) === context.agentId));
+  if (owned.length !== 1 || !await validDemeWorkspace(context, session, owned[0])) {
+    fail('METAPOPULATION_SNAPSHOT_DEME_MISMATCH', 'Agent has no unique, verified attached deme workspace.');
   }
-  const members = parseArray(owned[0].members_json, 'Deme members');
-  const memberIds = members.map((item) => typeof item === 'string' ? item : item?.agentId || item?.agent_id || item?.id);
-  if (members.length && !memberIds.includes(context.agentId)) {
-    fail('METAPOPULATION_SNAPSHOT_DEME_MISMATCH', 'Attached deme does not contain this agent.');
-  }
-  return { id: owned[0].deme_id, status: owned[0].status, workspacePath: owned[0].workspace_path };
+  return { id: owned[0].deme_id, status: owned[0].status, workspacePath: owned[0].workspace_path,
+    workspaceOwnerId: owned[0].workspace_owner_id };
+}
+
+async function validDemeWorkspace(context, session, deme) {
+  const owner = deme.workspace_owner_id;
+  const location = deme.workspace_path;
+  if (!owner || !location || !path.isAbsolute(location)) return false;
+  if (owner === context.agentId) return within(session.workspace_path, location);
+  if (owner.startsWith('metapop-deme-')) return path.basename(location) === owner;
+  const lease = await context.db.get('SELECT lease_id FROM daemon_leases WHERE metapopulation_id = ? AND deme_id = ? AND daemon_id = ? LIMIT 1',
+    session.id, deme.deme_id, owner);
+  return Boolean(lease);
 }
 
 async function eventFrontier(db, sessionId) {
@@ -168,6 +176,7 @@ async function capture(context) {
     revision: Number(session.revision), generation: Number(session.generation),
     updatedAt: session.updated_at, eventFrontier: frontier, demeId: deme.id,
     demeStatus: deme.status, workspacePath: deme.workspacePath,
+    demeWorkspaceOwnerId: deme.workspaceOwnerId,
     regionalMemoryHash: digest(parseObject(session.regional_memory_json, 'Regional memory')),
     migrationGraphHash: digest(parseObject(session.migration_graph_json, 'Migration graph')),
     variantSelectionHash: digest(parseObject(session.variant_selection_json, 'Variant selection'))

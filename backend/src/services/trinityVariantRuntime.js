@@ -7,6 +7,7 @@ const trinityService = require('./trinityService');
 const counterfactual = require('./trinityCounterfactualFork');
 const factorial = require('./trinityFactorialGrid');
 const pareto = require('./trinityParetoService');
+const { digest } = require('./topologySnapshotContract');
 
 const FACTOR_LEVELS = Object.freeze({
   approach: ['direct', 'planned'], modelTier: ['standard', 'frontier'], validation: ['basic', 'deep']
@@ -16,7 +17,7 @@ function run(input) {
   const design = input.selection?.experimentalDesign || {};
   const executions = {};
   if (design.worldTopology === 'oracular_prediction' || design.hypothesisPolicy === 'oracle_prediction') {
-    executions.oracle = runOracle(input.reports);
+    executions.oracle = runOracle(input.reports, input.oracleSeal);
   }
   if (qualityDiversityRequired(design)) {
     executions.qualityDiversity = runQualityDiversity(input.reports);
@@ -130,21 +131,31 @@ function validCounterfactualEvidence(report) {
       && refs[key].every((id) => ids.has(String(id))));
 }
 
-function runOracle(reports) {
+function runOracle(reports, seal) {
   const candidates = (reports || []).map((world) => ({ id: `world_${world.worldNumber}` }));
-  const predictionReport = (reports || []).find((world) => validDistribution(world.report?.oraclePrediction, candidates));
-  if (!predictionReport) return { status: 'incomplete', reason: 'verified_distribution_missing' };
+  const predictionReport = (reports || []).find((world) => world.worldNumber === 1);
+  if (!predictionReport || !validDistribution(predictionReport.report?.oraclePrediction, candidates)) {
+    return { status: 'incomplete', reason: 'oracle_world_distribution_missing' };
+  }
   const prediction = predictionReport.report.oraclePrediction;
+  if (!validOracleSeal(seal, predictionReport)) {
+    return { status: 'incomplete', reason: 'oracle_prediction_not_sealed_before_peer_results' };
+  }
   const outcomes = Object.fromEntries((reports || []).map((world) => [
     `world_${world.worldNumber}`, trinityService.scoreWorldEvidence(world.report || {}).totalScore
   ]));
   try {
     return { status: 'executed', predictedByWorld: predictionReport.worldNumber,
-      ...oracle.scorePrediction({ prediction, outcomes }), prediction, outcomes,
+      ...oracle.scorePrediction({ prediction, outcomes }), prediction, outcomes, seal,
       advisoryOnly: true, decisionAuthority: 'none' };
   } catch (_) {
     return { status: 'incomplete', reason: 'prediction_outcomes_not_aligned' };
   }
+}
+
+function validOracleSeal(seal, world) {
+  return seal?.status === 'sealed' && seal.worldNumber === 1 && seal.agentId === world.agentId
+    && seal.predictionHash === digest(world.report.oraclePrediction);
 }
 
 function validDistribution(distribution, candidates) {

@@ -1,8 +1,11 @@
 'use strict';
 
-const MUTATIONS = new Set(['apply', 'branch', 'promote', 'variant']);
+const MUTATIONS = new Set(['apply', 'branch', 'promote', 'variant', 'materialize']);
 
 async function guardTopologyCall(db, record, { args, context = {} } = {}) {
+  if (record.topology === 'biome') {
+    return require('./biome/biomeSessionCallerGuard').guardBiomeCall(db, record, { args, context });
+  }
   if (record.topology !== 'syncytium') return args;
   const operation = String(args.operation || '').toLowerCase();
   assertTypedVariantOperation(record, operation);

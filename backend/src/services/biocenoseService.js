@@ -170,9 +170,25 @@ function composeBiocenose(mission, options = {}) {
       code: 'BIOCENOSE_MISSION_REQUIRED'
     });
   }
+  return composeSelectedCommunity(goal, options, selectProtocol(goal, options));
+}
+
+function selectProtocol(mission, options) {
+  const classification = questionClassifier.classifyQuestion(mission, { questionType: options.questionType });
+  const requested = options.variant || options.variantId || options.constitution?.variant;
+  const explicit = requested ? variantPolicies.select(requested) : null;
+  const variant = explicit ? { ...explicit,
+    selection: { variant: explicit.name,
+      method: 'explicit', confidence: 1, reasons: ['EXPLICIT_VARIANT'] } }
+    : variantPolicies.recommend(mission, classification.questionType);
+  variantPolicies.assertCompatible(variant, classification.questionType);
+  return { classification, variant };
+}
+
+function composeSelectedCommunity(goal, options, selected) {
   const formation = communityFormationService.formCommunity({
     mission: goal, population: options.population, candidates: options.memberCandidates,
-    variant: variantPolicies.select(options.variant || options.variantId).name
+    variant: selected.variant.name
   });
   const organization = options.organization || 'blind_adversarial_review';
   return {
@@ -183,14 +199,19 @@ function composeBiocenose(mission, options = {}) {
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biocenose', organization }),
     communicationPlan: hierarchicalQuorum.planForAgentCount(options.agentCount || 4, options),
     members: formation.members,
-    formation: formation.metrics
+    formation: formation.metrics,
+    variant: selected.variant.name,
+    variantSelection: selected.variant.selection
   };
 }
 
 async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
-  const preparedOptions = await preparePersistentCandidates(db, options);
-  const composition = composeBiocenose(mission, preparedOptions);
-  const classification = questionClassifier.classifyQuestion(mission, { questionType: options.questionType });
+  const goal = String(mission || '').trim();
+  if (!goal) return composeBiocenose(mission, options);
+  const selected = selectProtocol(goal, options);
+  const preparedOptions = await preparePersistentCandidates(db, options, selected.variant.name);
+  const composition = composeSelectedCommunity(goal, preparedOptions, selected);
+  const classification = selected.classification;
   const session = await communityStore.createSession(db, {
     missionId: options.missionId,
     question: mission,
@@ -201,7 +222,7 @@ async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
   const constitution = await constitutionService.commitInitial({
     db, communityId: session.communityId, classification,
     roles: composition.members.map((member) => member.role),
-    variant: options.variant || options.variantId,
+    variant: selected.variant.name,
     overrides: { ...options.constitution, ...(composition.formation?.representative
       ? { representativeSampling: composition.formation.representative } : {}) }, actorId: orchestratorId
   });
@@ -217,12 +238,12 @@ async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
     questionClassification: classification, constitutionId: constitution.committed.constitutionId,
     constitutionVersion: constitution.committed.version,
     variant: constitution.constitution.variant,
-    variantSelection: constitution.variantSelection
+    variantSelection: selected.variant.selection
   };
 }
 
-async function preparePersistentCandidates(db, options) {
-  if (variantPolicies.select(options.variant || options.variantId).name !== 'persistent_community'
+async function preparePersistentCandidates(db, options, variantName) {
+  if (variantName !== 'persistent_community'
     || !Array.isArray(options.memberCandidates)) return options;
   const memberCandidates = await Promise.all(options.memberCandidates.map(async (candidate) => {
     const memberId = candidate.memberId || candidate.id;

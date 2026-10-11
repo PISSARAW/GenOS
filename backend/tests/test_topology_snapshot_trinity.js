@@ -8,10 +8,20 @@ const { test } = require('node:test');
 const adapter = require('../src/services/topologySnapshots/trinity');
 const topologySnapshots = require('../src/services/topologySnapshotService');
 const { hashWorkspace } = require('../src/services/trinitySnapshotService');
+const variantService = require('../src/services/trinityVariantService');
 
 topologySnapshots.registerAdapter('trinity', adapter);
 
-async function fixture(variant = 'controlled', status = 'promoted') {
+function selectionFor(variant, automatic) {
+  const selection = { variant: automatic ? 'composed' : variant,
+    experimentalDesignId: 'design-1',
+    experimentalDesign: variantService.compileExperimentalDesign(variantService.DEFINITIONS[variant].design).design,
+    requiredAdapters: [] };
+  if (automatic) selection.selectedPreset = variant;
+  return selection;
+}
+
+async function fixture(variant = 'controlled', status = 'promoted', automatic = false) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-trinity-snapshot-'));
   const baseline = path.join(root, '.genos-agent-worlds', 'trinity-snapshots', 'mission-1');
   const workspace = path.join(root, 'world-1');
@@ -21,8 +31,7 @@ async function fixture(variant = 'controlled', status = 'promoted') {
   const hash = await hashWorkspace(baseline);
   const experiment = { id: 'mission-1', mission_id: 'mission-1', mission_snapshot_hash: hash,
     status, updated_at: '2026-10-10T00:00:00Z', decision_json: null, budget_policy_json: '{}',
-    design_json: JSON.stringify({ snapshotRoot: baseline, variantSelection: { variant,
-      experimentalDesignId: 'design-1', experimentalDesign: { worldTopology: 'fixed_three' }, requiredAdapters: [] } }) };
+    design_json: JSON.stringify({ snapshotRoot: baseline, variantSelection: selectionFor(variant, automatic) }) };
   const world = { id: 'world-1', agent_id: 'agent-1', experiment_id: experiment.id,
     workspace_root: workspace, snapshot_hash: hash, world_number: 1, status: 'complete' };
   const db = {
@@ -87,5 +96,26 @@ test('Trinity refuses workspace restore while the experiment is active', async (
     const captured = await adapter.capture(data.context);
     const preflight = await adapter.preflightRestore(data.context, captured);
     assert.equal(preflight.ok, false);
+  } finally { await fs.rm(data.root, { recursive: true, force: true }); }
+});
+
+test('Trinity binds every automatically selected preset to its verified design', async () => {
+  for (const variant of Object.keys(adapter.VARIANT_STAGES)) {
+    const data = await fixture(variant, 'promoted', variant !== 'controlled');
+    try {
+      const sealed = await topologySnapshots.capture(data.context);
+      assert.equal(sealed.components.find((item) => item.id === 'variant-policy').payload.variant, variant);
+      assert.equal((await topologySnapshots.preflightRestore({ ...data.context, manifest: sealed })).allowed, true);
+    } finally { await fs.rm(data.root, { recursive: true, force: true }); }
+  }
+});
+
+test('Trinity rejects a selected preset whose persisted design changed', async () => {
+  const data = await fixture('heterogeneous', 'promoted', true);
+  try {
+    const design = JSON.parse(data.experiment.design_json);
+    design.variantSelection.experimentalDesign.diversityPolicy = 'strategy_controlled';
+    data.experiment.design_json = JSON.stringify(design);
+    await assert.rejects(adapter.capture(data.context), { code: 'TRINITY_SNAPSHOT_DESIGN_MISMATCH' });
   } finally { await fs.rm(data.root, { recursive: true, force: true }); }
 });

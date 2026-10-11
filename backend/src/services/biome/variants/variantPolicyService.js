@@ -40,7 +40,10 @@ function resolve(name) {
 
 function select(mission, options = {}) {
   const requested = options.variant || options.variantId;
-  if (requested) return { ...resolve(requested), selection: receipt({ variant: requested, method: 'explicit', reasons: ['EXPLICIT_VARIANT'], confidence: 1 }) };
+  if (requested) {
+    const resolved = resolve(requested);
+    return { ...resolved, selection: receipt({ variant: resolved.variant, method: 'explicit', reasons: ['EXPLICIT_VARIANT'], confidence: 1 }) };
+  }
   const text = String(mission || '');
   const matched = RULES.filter(([, pattern]) => pattern.test(text)).map(([variant]) => variant);
   const selected = matched[0] || 'resource';

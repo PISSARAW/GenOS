@@ -5,6 +5,7 @@ const store = require('../holobiontStore');
 const constitutionService = require('../host/hostConstitutionService');
 const persistentHost = require('../persistentHostService');
 const controller = require('./variantRuntimeController');
+const finalization = require('./variantMissionFinalization');
 
 function invalid(message, code = 'HOLOBIONT_MISSION_INVALID') {
   return Object.assign(new Error(message), { code });
@@ -36,6 +37,7 @@ async function openMissionHost(db, input) {
   const constitution = hostConstitution(input, hostId, missionId);
   if (input.persistentHost === true) {
     return persistentHost.openPersistentHost(db, { hostId, missionId, constitution,
+      workspaceId: input.workspaceId ?? null, projectId: input.projectId ?? null,
       capabilities: input.hostCapabilities ?? [], requiredCapabilities: input.requiredCapabilities ?? [] });
   }
   const session = await store.createSession(db, { hostId, missionId, constitution,
@@ -276,7 +278,9 @@ async function executeMission(db, context) {
     const { selected, workflow } = await runWorkflow(db, { session: opened.session, input, deadline });
     emitRunEvent(telemetry, input, { eventType: 'HOLO_VARIANT_SELECTED', runId,
       action: 'VARIANT_SELECTED', hostId: opened.session.hostId, variantId: selected.variantId });
-    const result = await verifiedMissionResult({ input, runId, budget, deadline, opened, selected, workflow });
+    const verified = await verifiedMissionResult({ input, runId, budget, deadline, opened, selected, workflow });
+    const result = await finalization.finalizeLifecycle(db, { input,
+      result: finalization.guardVerdict(verified), deadline, wait: awaitBeforeDeadline });
     emitRunEvent(telemetry, input, { eventType: 'HOLO_VERIFICATION_COMPLETED', runId,
       action: 'MISSION_VERIFIED', verdict: result.verdict, verifierIds: result.verifierIds });
     emitRunEvent(telemetry, input, { eventType: 'HOLO_RUN_TERMINAL', runId,

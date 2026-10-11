@@ -489,6 +489,15 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0395](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
 | [0396](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
 | [0397](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
+| [0399](0399-commit-versionne-et-profil-morphologique.md) | Commit versionné et profil morphologique dans le graphe | Accepté | 2026-10-11 | Morphogenèse, transitions et profils de topologie |
+| [0400](0400-autorite-et-quiescence-des-sessions-biome.md) | Autorité et quiescence des sessions Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0401](0401-preuve-arret-mission-holobionte.md) | Preuve de clôture des missions Holobionte | accepté, portée limitée | 2026-10-11 | verdict métier, cycle de vie Holobionte, snapshot topologique |
+| [0402](0402-execution-publique-explicite-biocenose.md) | Exécution publique explicite de Biocénose | accepté | 2026-10-11 | Biocénose, MCP, délibération persistante |
+| [0403](0403-frontiere-quiescente-metapopulation.md) | Frontière quiescente des snapshots Métapopulation | Voir le fichier | -- | -- |
+| [0404](0404-liaison-mission-et-snapshot-rhizome.md) | Liaison de mission et frontière de snapshot Rhizome | Accepté | 2026-10-11 | Rhizome, identité de mission, reprise |
+| [0405](0405-materialisation-syncytium-preuve-de-cloture.md) | Matérialisation Syncytium avant preuve de clôture | Accepté | 2026-10-11 | Syncytium, MCP, clôture de mission |
+| [0406](0406-frontieres-preuves-variants-trinity.md) | Frontières de preuve des variants Trinity | Accepté, avec qualification de mission réelle encore ouverte. | -- | -- |
+| [0407](0407-frontiere-post-mission-morphogenese.md) | Frontière de la morphogenèse après mission | accepté | 2026-10-11 | orchestrateur public, morphogenèse, autorité |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

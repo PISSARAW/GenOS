@@ -13,6 +13,13 @@ registres propres aux seize variants ; restore et checkout refusent une région
 active ou des effets en vol. Ils ne restaurent pas les dèmes ni les migrations.
 Voir [snapshots topologiques](snapshots-topologiques.md).
 
+Le backend peut appeler `quiesceForSnapshot({ db, sessionId, agentId,
+workspaceId })` après avoir attaché un dème membre à son workspace. Cette
+transition transactionnelle vérifie les agents de la mission et les effets en
+vol, puis inscrit `SESSION_QUIESCED`. `boundaryVerified` ne certifie pas la
+mission. Le plugin de morphogenèse renvoie `BLOCKED/REGION_UNPOPULATED` si la
+session créée ne possède pas encore de dème.
+
 ## 1. Points d'entrée et prérequis
 
 La façade [metapopulationCoordinationService.js](../../backend/src/services/metapopulationCoordinationService.js)

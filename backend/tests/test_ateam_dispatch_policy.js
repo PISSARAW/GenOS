@@ -46,6 +46,15 @@ function run() {
   const committee = prepareDispatchPolicy({ mission: { variant: 'expert_committee' }, members });
   assert.equal(committee.policy.consensusProtocol.dissentRequired, true);
   assert.equal(committee.policy.expertiseMatrix.length, members.length);
+  const fallback = prepareDispatchPolicy({
+    mission: { goal: 'Build a service' },
+    members: [members[0], { ...members[1], dependsOn: ['api'] }]
+  });
+  assert.equal(fallback.policy.variant, 'project_dag');
+  assert.equal(fallback.policy.evidence.fallbackFrom, 'expert_committee');
+  assert.throws(() => prepareDispatchPolicy({
+    mission: { goal: 'Build a service', variant: 'expert_committee' }, members: members.slice(0, 2)
+  }), { code: 'ATEAM_VARIANT_TEAM_TOO_SMALL' });
   const tiger = prepareDispatchPolicy({ mission: { variant: 'tiger_team', urgentMandate: { scope: 'restore API', timeboxMinutes: 60, stopCriteria: ['service restored'] } }, members: members.slice(0, 2) });
   assert.equal(tiger.policy.urgentMandate.postMortemRequired, true);
   assert.deepEqual(tiger.policy.urgentMandate.stopCriteria[0], { criterionId: 'stop_1', description: 'service restored', evaluated: false, evidenceRequired: true });

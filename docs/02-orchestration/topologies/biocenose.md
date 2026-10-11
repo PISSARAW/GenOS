@@ -4,6 +4,19 @@
 - **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole, recommandations de transition à la Morphogenèse et contrôleur de tours piloté par handlers explicites, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-10-06
 
+## Déclenchement public du cycle
+
+`genos_biological_mode` avec `mode: "biocenose"` prépare et retourne la
+communauté. Le booléen `execute_round: true` demande aussi l'exécution du
+cycle persistant. La réponse distingue l'état du cycle, celui de la communauté,
+la suite écologique et le statut du jugement ; `topology_cycle_recorded` ne
+signifie pas une promotion. Elle fournit `communityId`, le variant, des
+empreintes des reçus par étape et le jugement éventuellement enregistré.
+L'absence d'un modèle, d'un oracle de confiance ou d'une autorité humaine
+reste un refus ou une escalade. La reprise par identifiant de communauté et
+le plugin générique de Morphogenèse ne sont pas raccordés à cette opération.
+Voir l'[ADR 0402](../../adr/0402-execution-publique-explicite-biocenose.md).
+
 ## Snapshot d'agent lié à une communauté
 
 La capture optionnelle `topologySnapshot` vérifie l'appartenance à la

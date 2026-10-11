@@ -169,7 +169,10 @@ async function founderReserveWiring() {
     demes: [{ demeId: 'deme-fr', status: 'AT_RISK' }], patches: [], corridors: [] };
   const actions = await variantRuntime.executeVariantActions({ variant: 'rescue_network', observed,
     input: { stagedFounders: [{ lineageId: 'only-one' }] }, options: {} });
-  const staging = actions.find((action) => action.type === 'STAGE_FOUNDER_RESERVE');
+  assert.equal(actions.some((action) => action.type === 'STAGE_FOUNDER_RESERVE'), false);
+  const available = await variantRuntime.executeVariantActions({ variant: 'rescue_network', observed,
+    input: { stagedFounders: [{ lineageId: 'only-one' }], founderCandidates: [{ lineageId: 'second' }] }, options: {} });
+  const staging = available.find((action) => action.type === 'STAGE_FOUNDER_RESERVE');
   assert.ok(staging);
   assert.equal(staging.deficit, 1);
 }

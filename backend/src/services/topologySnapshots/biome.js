@@ -133,27 +133,30 @@ function variantEvidence(variant, state) {
   const stateHashes = Object.fromEntries(VARIANT_FIELDS[variant]
     .map((field) => [field, digest(ecology[field] ?? null)]));
   const specialized = {
-    resource: ['allocations', 'minimumAllocationRatio'],
-    exploration: ['explorationHistory', 'environmentThreshold'],
-    quality_diversity: ['qualityDiversity', 'diversityTarget'],
-    successional: ['successionPhase', 'phases'],
-    resilience: ['recoveryReserve', 'recoveryReserveRatio'],
+    resource: ['recoveryBudgetReserve', 'minimumAllocationRatio'],
+    exploration: ['noveltyArchive', 'explorationPressure', 'environmentThreshold'],
+    quality_diversity: ['qualityDiversity', 'offspringQueue', 'diversityTarget'],
+    successional: ['phase', 'transitions', 'phases'],
+    resilience: ['resilienceEvents', 'recoveryBudgetReserve', 'recoveryReserveRatio'],
     persistent: ['seasons', 'persistence'],
-    open_ended: ['discoveredNiches', 'growthThreshold'],
+    open_ended: ['environmentArchive', 'generationHistory', 'growthThreshold'],
     adversarial: ['armsRace', 'strategyLineages', 'exploitArchive'],
-    knowledge: ['sourceNiches', 'sourceEvidence'],
-    compute: ['computeAllocation', 'computeAware'],
-    multi_scale: ['scaleMetrics', 'levels']
+    knowledge: ['sources', 'sourceNiches'],
+    compute: ['computeAllocations', 'computeAware'],
+    multi_scale: ['scaleState', 'scaleHistory', 'levels']
   }[variant];
   return { variant, scope: state.scope, policyHash: digest(state.variantPolicy),
     selectionHash: digest(state.variantSelection), stateHashes,
     specializedHashes: Object.fromEntries(specialized.map((field) =>
-      [field, digest(state.variantState?.[field] ?? state.variantPolicy?.[field] ?? null)])) };
+      [field, digest(state.variantState?.[field] ?? state.ecology.ecologicalState?.[field]
+        ?? state.variantPolicy?.[field] ?? null)])) };
 }
 
 function quiescent(state) {
   const runtime = state.ecology.ecologicalState?.runtime;
-  return QUIESCENT.has(state.ecology.status) && runtime?.running !== true;
+  const executions = Object.values(runtime?.executions || {});
+  return QUIESCENT.has(state.ecology.status) && runtime?.running !== true
+    && executions.every((execution) => !['running', 'indeterminate'].includes(execution.status));
 }
 
 async function capture(context) {

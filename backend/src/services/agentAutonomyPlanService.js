@@ -8,6 +8,7 @@ const trinityHypothesisGeneration = require('./trinityHypothesisGenerationServic
 const hypothesisDesign = require('./trinityHypothesisDesignService');
 const aTeamService = require('./aTeamService');
 const aTeamRuntime = require('./aTeam/aTeamRuntime');
+const { prepareDispatchPolicy } = require('./aTeam/dispatchPolicyService');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
@@ -244,10 +245,12 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
   }
   reportATeamDecision({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount, affordableAteamMembers });
 }
-
 async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan }) {
   const aTeam = autonomyPlan.aTeam;
   if (!aTeam || aTeam.activated !== true) return;
+  const selected = prepareDispatchPolicy({ mission: { ...normalizedMission, goal: missionText(normalizedMission) }, members: aTeam.members });
+  aTeam.members = selected.members;
+  aTeam.executionPolicy = selected.policy;
   const runDraft = buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan });
   const persisted = await aTeamRuntime.createRun({ db, ...runDraft, members: aTeam.members, status: 'READY', phase: 'PREBRIEF' });
   aTeam.members = persisted.run.members.map((member, index) => ({ ...aTeam.members[index], ...member }));
@@ -271,6 +274,7 @@ function buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan }) {
     organization: aTeam.organization || autonomyPlan.organization || null,
     requiredCapabilities: aTeam.requiredCapabilities || [],
     capabilityGaps: aTeam.capabilityCoverage?.uncovered || [],
+    execution: { runnerLease: null, organizationPolicy: aTeam.executionPolicy },
     members: aTeam.members || []
   };
 }
@@ -393,4 +397,4 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   emitControlRegulation(agentId, autonomyPlan);
   return autonomyPlan;
 }
-module.exports = { buildAutonomyPlanForMission, attachAteamCoordination, missionText };
+module.exports = { buildAutonomyPlanForMission, attachAteamCoordination, persistATeamRun, missionText };

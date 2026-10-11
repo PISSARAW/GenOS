@@ -63,7 +63,7 @@ function variantEvidence(input) {
   const members = run.members;
   const fields = {
     expert_committee: { expertise: members.map((m) => ({ id: m.memberId, expertise: m.expertise })) },
-    pipeline: { stages: graph.memberStages, completedNodes: graph.nodes.filter((n) => n.status === 'COMPLETED').map((n) => n.nodeId), handoffs },
+    pipeline: { stages: graph.memberStages, completedNodes: graph.nodes.filter((n) => n.status === 'SUCCEEDED').map((n) => n.nodeId), handoffs },
     project_dag: { layers: graph.layers, nodeStages: graph.nodeStages, dependencies: graph.edges.map((e) => [e.fromNode, e.toNode]) },
     cross_functional_pod: { responsibilities: members.map((m) => ({ id: m.memberId, owns: m.ownedResponsibilities, consults: m.consults })) },
     boundary_spanner: { interfaces: known(policy.interfaceContracts, []), owners: known(policy.boundarySpanners, []) },

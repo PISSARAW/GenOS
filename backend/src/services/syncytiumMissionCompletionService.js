@@ -14,8 +14,34 @@ function applySemanticValidation(output, validation, expectedCount) {
 
 async function validateAndComplete(context) {
   if (!context.validation) return context.output;
+  context.output.materialization = await materializeCompletedMission(context);
   context.output.stateValidation = await validateSession(context.sessionId, { db: context.db });
   return applySemanticValidation(context.output, context.validation, context.expectedCount);
+}
+
+async function materializeCompletedMission(context) {
+  if (!workersReadyForMaterialization(context)) {
+    return { status: 'skipped', reason: 'WORKER_EVIDENCE_INCOMPLETE' };
+  }
+  const existing = await validateSession(context.sessionId, { db: context.db });
+  if (existing.status === 'verified') {
+    return { status: 'verified', snapshotId: existing.snapshotId, reused: true };
+  }
+  try {
+    const receipt = await require('./syncytium/materializationGateService')
+      .materialize(context.db, context.sessionId);
+    return receipt.materialization;
+  } catch (error) {
+    return { status: 'refused', reason: error.reason || error.code || 'MATERIALIZATION_FAILED' };
+  }
+}
+
+function workersReadyForMaterialization(context) {
+  const { validation, expectedCount, output } = context;
+  if (!context.db || validation.status !== 'complete') return false;
+  if (validation.workerCount !== expectedCount || validation.coveredWorkers !== expectedCount) return false;
+  if (output.members.length !== expectedCount || (output.dispatchFailures || []).length) return false;
+  return output.members.every((member) => member.status === 'completed');
 }
 
 async function validateSession(sessionId, options = {}) {

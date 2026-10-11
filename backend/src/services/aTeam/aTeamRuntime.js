@@ -36,7 +36,15 @@ function graphIdFor(teamRunId) {
 function sameMission(existing, draft) {
   const identityMatches = existing.missionId === draft.missionId && existing.goal === String(draft.goal || '').trim();
   const fingerprint = existing.execution?.formationFingerprint;
-  return identityMatches && (!fingerprint || fingerprint === draft.execution.formationFingerprint);
+  return identityMatches && (!fingerprint || fingerprint === draft.execution.formationFingerprint)
+    && authorityPolicy(existing.execution?.organizationPolicy) === authorityPolicy(draft.execution?.organizationPolicy);
+}
+
+function authorityPolicy(policy) {
+  const { canonicalJson } = require('./variants/variantExecutionHelpers');
+  const fields = ['variant', 'authorityMatrix', 'decisionAuthorities', 'raciMatrix', 'incidentRoles',
+    'commanderMemberId', 'interfaceContracts', 'boundarySpanners', 'interTeamContracts'];
+  return canonicalJson(Object.fromEntries(fields.map((field) => [field, policy?.[field] ?? null])));
 }
 
 async function loadExisting(db, draft) {

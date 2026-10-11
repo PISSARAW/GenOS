@@ -150,7 +150,8 @@ function rareMigrationTrigger(observed, input) {
   if (observed.variantPolicy?.migrationFrequency !== 'rare') return [];
   const { calculateAdaptiveInterval } = require('../migration/adaptiveMigrationTriggerService');
   const interval = calculateAdaptiveInterval({ variant: 'stepping_stone', baseInterval: 10 });
-  return input.generation % interval === 0
+  const generation = Number.isSafeInteger(input.generation) ? input.generation : input.cycle;
+  return Number.isSafeInteger(generation) && generation > 0 && generation % interval === 0
     ? [{ type: 'TRIGGER_STEPPING_STONE_MIGRATION', interval }]
     : [];
 }

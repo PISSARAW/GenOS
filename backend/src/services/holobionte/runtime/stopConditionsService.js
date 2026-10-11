@@ -49,7 +49,8 @@ async function stopMissionScoped(db, input, session) {
   if (reasons.length) return stopBlocked(reasons);
   const lifecycle = await store.updateLifecycleStatus(db, {
     holobiontId: session.holobiontId, expectedRevision: session.revision,
-    status: 'CLOSED', eventType: 'CLOSED', payload: { missionId: session.missionId }
+    status: 'CLOSED', eventType: 'CLOSED',
+    payload: { missionId: session.missionId, stopEvidence: input.stopEvidence || null }
   });
   return { stopped: true, disposition: lifecycle.status, sessionRevision: lifecycle.revision };
 }
@@ -65,7 +66,8 @@ async function stopPersistent(db, input, session) {
   const lifecycle = await store.updateLifecycleStatus(db, {
     holobiontId: current.holobiontId, expectedRevision: current.revision,
     status: 'QUIESCENT', eventType: 'QUIESCENT',
-    payload: { completedMissionId: input.missionId || null, dormantSymbiontIds: input.dormantSymbiontIds || [] }
+    payload: { completedMissionId: input.missionId || null, dormantSymbiontIds: input.dormantSymbiontIds || [],
+      stopEvidence: input.stopEvidence || null }
   });
   return { stopped: true, disposition: lifecycle.status, sessionRevision: lifecycle.revision, dormancy: dormancy.receipts };
 }

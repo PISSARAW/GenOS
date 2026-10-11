@@ -18,7 +18,7 @@ const run = { teamRunId: 'team-1', missionId: 'agent-1', workGraphId: 'graph-1',
   execution: { runnerLease: null, deadlineAt: '2026-10-10T12:00:00Z',
     organizationPolicy: { variant: 'pipeline' } } };
 const graph = { workGraphId: 'graph-1', teamRunId: 'team-1', revision: 3,
-  nodes: [{ nodeId: 'node-1', status: 'COMPLETED' }],
+  nodes: [{ nodeId: 'node-1', status: 'SUCCEEDED' }],
   edges: [{ fromNode: 'node-1', toNode: 'node-2', handoff: { evidenceRefs: ['proof-1'] } }],
   layers: [['node-1']], memberStages: { a: 0 }, nodeStages: { 'node-1': 0 } };
 const agent = { id: 'agent-1', workspace_id: 'workspace-1', status: 'completed' };
@@ -41,6 +41,9 @@ async function runTests() {
       const manifest = await service.capture(request);
       assert.equal(manifest.components.find((item) => item.id === 'variant-policy').payload.variant, variant);
       assert.equal(manifest.components.find((item) => item.id === 'work-graph').reference.handoffs.length, 1);
+      if (variant === 'pipeline') {
+        assert.deepEqual(manifest.components.find((item) => item.id === 'variant-policy').payload.completedNodes, ['node-1']);
+      }
       const ready = await service.preflightRestore({ ...request, manifest });
       assert.equal(ready.allowed, true);
       assert.equal(ready.restorable, false);

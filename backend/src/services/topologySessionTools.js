@@ -96,6 +96,10 @@ async function healthSyncytium(db, sessionId) {
   return { consistency: snapshot.consistency, replicas };
 }
 
+async function materializeSyncytium(db, sessionId) {
+  return require('./syncytium/materializationGateService').materialize(db, sessionId);
+}
+
 async function morphogenesisSyncytium(db, sessionId, args) {
   return syncytium.analyzeSessionMorphogenesis(sessionId, {
     ...(args.signals || {}), options: { db }
@@ -243,6 +247,7 @@ const OPERATIONS = {
     explain: explainSyncytium, branch: branchSyncytium, promote: promoteSyncytium,
     invariants: invariantsSyncytium, conflicts: conflictsSyncytium,
     replicas: replicasSyncytium, health: healthSyncytium,
+    materialize: materializeSyncytium,
     morphogenesis: morphogenesisSyncytium, events: syncytiumEvents
   },
   rhizome: { ...rhizomeOperations.OPERATIONS, snapshot: rhizomeSnapshot, evaluate_merge: evaluateRhizomeMerge, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, propagate: propagateRhizomeProcedure, signal: publishRhizomeSignal, locus: manageRhizomeLocus, branch_lease: manageRhizomeLease, fossil: readRhizomeFossil, plan_shortcuts: planRhizomeShortcuts, admit_shortcut: admitRhizomeShortcut, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },

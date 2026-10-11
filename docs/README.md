@@ -671,3 +671,12 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0395 — Workspaces privés pour les capsules de workers](adr/0395-workspaces-prives-pour-capsules-de-workers.md).
 - [ADR 0396 — Observer les workers supervisés pendant leur mission](adr/0396-observation-continue-des-workers-supervises.md).
 - [ADR 0397 — Perception native et révision du prompt local](adr/0397-perception-des-workers-natifs-et-revision-locale.md).
+- [ADR 0399 — Commit versionné et profil morphologique](adr/0399-commit-versionne-et-profil-morphologique.md).
+- [ADR 0400 — Autorité et quiescence des sessions Biome](adr/0400-autorite-et-quiescence-des-sessions-biome.md).
+- [ADR 0401 — Preuve d’arrêt de mission Holobionte](adr/0401-preuve-arret-mission-holobionte.md).
+- [ADR 0402 — Exécution publique explicite Biocénose](adr/0402-execution-publique-explicite-biocenose.md).
+- [ADR 0403 — Frontière quiescente Métapopulation](adr/0403-frontiere-quiescente-metapopulation.md).
+- [ADR 0404 — Liaison mission et snapshot Rhizome](adr/0404-liaison-mission-et-snapshot-rhizome.md).
+- [ADR 0405 — Matérialisation Syncytium et preuve de clôture](adr/0405-materialisation-syncytium-preuve-de-cloture.md).
+- [ADR 0406 — Frontières de preuve des variants Trinity](adr/0406-frontieres-preuves-variants-trinity.md).
+- [ADR 0407 — Frontière post-mission de Morphogenèse](adr/0407-frontiere-post-mission-morphogenese.md).

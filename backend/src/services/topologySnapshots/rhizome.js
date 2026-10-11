@@ -62,6 +62,7 @@ async function boundSession(context) {
 
 function selectedVariant(context, state) {
   const selected = state.variant;
+  if (selected === 'ephemeral') ephemeralUnsupported();
   if (!Object.hasOwn(VARIANT_FIELDS, selected) || !variants.list().includes(selected)) {
     fail('RHIZOME_SNAPSHOT_VARIANT_UNKNOWN', 'Persisted Rhizome variant is unknown.');
   }
@@ -69,6 +70,11 @@ function selectedVariant(context, state) {
     fail('RHIZOME_SNAPSHOT_VARIANT_MISMATCH', 'Persisted Rhizome variant differs from request.');
   }
   return selected;
+}
+
+function ephemeralUnsupported() {
+  fail('RHIZOME_SNAPSHOT_EPHEMERAL_UNSUPPORTED',
+    'Ephemeral Rhizome sessions are not persisted; a topology snapshot cannot be captured or restored.');
 }
 
 function graphRows(rows, state) {
@@ -131,18 +137,19 @@ function variantEvidence(input) {
   const stateHashes = Object.fromEntries(fields.map((field) => [field, digest(state[field] ?? null)]));
   const eventTypes = [...new Set(events.map((event) => event.event_type))].sort();
   const kinds = {
-    exploratory: ['NEED_REGISTERED', 'NODE_ADDED'], routing: ['ROUTE_OUTCOME_RECORDED'],
-    growth: ['NODE_ADDED', 'EDGE_ADDED'], resilient: ['ROUTE_REPAIRED'],
+    exploratory: ['NEED_REGISTERED', 'NODE_DISCOVERED', 'GAP_DETECTED'], routing: ['ROUTE_OUTCOME_RECORDED'],
+    growth: ['NODE_DISCOVERED', 'EDGE_CREATED', 'GROWTH_ADMITTED'], resilient: ['ROUTE_REPAIRED'],
     sparse: ['STRUCTURE_PRUNED'], persistent: ['BRANCH_LEASE_ACQUIRE', 'BRANCH_LEASE_RENEW'],
-    ephemeral: ['SESSION_CLOSED'], small_world: ['SMALL_WORLD_SHORTCUT_ADMITTED'],
-    private: ['ROUTE_QUARANTINED'], cross_representation: ['BRIDGE_INTEGRATED'],
-    procedural: ['PROCEDURE_PROPAGATED'], self_healing: ['ROUTE_REPAIRED']
+    ephemeral: [], small_world: ['SMALL_WORLD_SHORTCUT_ADMITTED'],
+    private: ['EDGE_QUARANTINED'], cross_representation: ['BRIDGE_INTEGRATED'],
+    procedural: [], self_healing: ['ROUTE_REPAIRED']
   };
   return { variant, selectionHash: digest(state.variantSelection ?? null), stateHashes,
     graphHash: digest(graph), relevantEvents: eventTypes.filter((type) => kinds[variant].includes(type)) };
 }
 
 async function capture(context) {
+  if (context.variantId === 'ephemeral') ephemeralUnsupported();
   const { row, state } = await boundSession(context);
   const variant = selectedVariant(context, state);
   const { nodes, edges, graph } = await persistedGraph(context.db, context.sessionId, state);
@@ -164,6 +171,7 @@ async function capture(context) {
 }
 
 async function preflightRestore(context, manifest) {
+  if (context.variantId === 'ephemeral') ephemeralUnsupported();
   const { state } = await boundSession(context);
   const activeLease = (state.leases || []).some((lease) => Date.parse(lease.expiresAt) > Date.now());
   if (!QUIESCENT.has(state.status) || activeLease) {

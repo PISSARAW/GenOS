@@ -59,10 +59,16 @@ async function loadBoundState(context) {
 }
 
 function selectedVariant(design, requested) {
-  const selected = design.variantSelection?.variant || 'controlled';
+  const selection = design.variantSelection || {};
+  const selected = selection.variant === 'composed' ? selection.selectedPreset : selection.variant || 'controlled';
   const normalized = requested === 'default' ? 'controlled' : requested;
   if (selected !== normalized || !Object.hasOwn(VARIANT_STAGES, selected)) {
     fail('TRINITY_SNAPSHOT_VARIANT_MISMATCH', 'Persisted Trinity variant does not match the snapshot request.');
+  }
+  const variants = require('../trinityVariantService');
+  const expected = variants.compileExperimentalDesign(variants.DEFINITIONS[selected].design).design;
+  if (digest(selection.experimentalDesign) !== digest(expected)) {
+    fail('TRINITY_SNAPSHOT_DESIGN_MISMATCH', 'Persisted Trinity experimental design differs from its selected preset.');
   }
   return selected;
 }

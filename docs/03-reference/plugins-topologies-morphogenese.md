@@ -75,6 +75,14 @@ backend SQLite configuré pour le control plane et non d'une base de test
 - Cette exécution des graphes morphologiques est distincte du préparateur de
   mission historique `morphogenesisRuntime`. Après mission, ce dernier ne fait
   qu'émettre une proposition; il n'applique pas le graphe ni ne crée de commit.
+  L'appel public impose le mode `shadow` et émet
+  `POST_MISSION_COMMIT_UNAVAILABLE`. Il refuse un résultat qui prétend être
+  appliqué sans pont de production vers le noyau Rust, la gouvernance et la
+  transition versionnée ([ADR 0407](../adr/0407-frontiere-post-mission-morphogenese.md)).
+  Le préparateur valide et conserve désormais le couple topologie–variant
+  demandé (`topologyId`/`variantId`) ou le choix local quand la topologie est
+  connue. Cette identité est incluse dans la télémétrie de proposition ; elle
+  ne constitue pas une preuve d'exécution du variant.
 - Les contrôleurs sont des modèles in-process simplifiés, pas les runtimes
   lourds (sessions distribuées, CRDT réseau, jury humain).
 - Le cycle Métapopulation sur région vide rend `NO_ACTION` avec
@@ -87,6 +95,10 @@ backend SQLite configuré pour le control plane et non d'une base de test
   le changement est refusé. Le patch transmet les métadonnées de gain/coût,
   l'autorité et le lease; la vérification structurelle du graphe reste un gate
   distinct.
+- Le `PatchExecutor` exige un committer versionné injecté avant de traiter un
+  patch. Un graphe modifié seulement en mémoire ne peut plus être déclaré
+  `committed`. Le profil multidimensionnel résolu est conservé dans
+  `localProfile` de la feuille compilée.
 
 Chaque feuille du graphe porte maintenant un résultat distinct :
 `executionStatus=completed` signifie que l'opérateur a fini; `contractStatus`

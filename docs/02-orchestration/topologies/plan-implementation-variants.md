@@ -1,7 +1,7 @@
 # Plan d'implémentation des variants des huit topologies
 
 - **Statut** : Implémentation en cours; couverture initiale branchée sur les huit topologies
-- **Dernière revue** : 2026-10-06 (Métapopulation)
+- **Dernière revue** : 2026-10-11 (parcours public et frontières de snapshot)
 - **Décision d'architecture** : [ADR 0124](../../adr/0124-selection-automatique-des-variants.md)
 
 ## Objectif
@@ -75,6 +75,27 @@ topologies avant de promouvoir leur maturité.
   délai long explicitement demandé ne fait donc plus expirer la comparaison à 180 secondes.
   Le test `test_trinity_supervisor_timeout.js` couvre la valeur par défaut, le délai demandé,
   sa borne maximale et les tailles de chambre standard/factorielle.
+
+### Vérification des frontières — 2026-10-11
+
+Le dispatch public transmet maintenant une topologie et un variant explicites validés,
+projette le profil local dans le graphe morphologique et conserve ce choix dans le
+reçu. Une proposition ou une réponse de transport ne constitue pas un commit : le
+commit versionné exige un `committer` et une preuve de transition. Le chemin
+post-mission reste une proposition tant que le pont de production avec le noyau Rust,
+la gouvernance et la transition CAS n'est pas disponible.
+
+Les corrections de cette vague portent sur des frontières observables : composition
+et taille du garage A-Team ; cycle public explicite Biocénose ; quiescence Biome et
+Métapopulation ; arrêt prouvé Holobionte ; identité de mission Rhizome ; matérialisation
+et clôture Syncytium ; preset, Oracle et récursion Trinity. Les ADR 0399 à 0407
+décrivent les contrats et leurs limites. Les tests ciblés vérifient ces frontières ;
+ils ne démontrent pas encore la réussite de missions représentatives pour chacun des
+95 variants canoniques.
+
+Une relance A-Team refuse désormais une politique d'autorité différente sous la même
+clé idempotente. Le programme `multiteam` conserve son graphe et ses membres, mais le
+dispatch générique ne lance toujours pas automatiquement les sous-runs.
 
 ## Plan par vagues
 

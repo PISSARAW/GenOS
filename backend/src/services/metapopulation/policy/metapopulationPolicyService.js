@@ -9,7 +9,7 @@ const VARIANTS = Object.freeze({
   island_search: { migration: 'elite', corridorTopology: 'ring', migrationFrequency: 'periodic', preserveDiversity: true, eliteMigration: true, quorumRatio: 0.5 },
   heterogeneous_islands: { migration: 'complementary', corridorTopology: 'fully-connected', transferCulture: true, preserveDiversity: true, diversityMode: 'provider-algorithm-lineage', quorumRatio: 0.5 },
   source_sink: { migration: 'rescue', corridorTopology: 'source-sink', directedMigration: true, sourceReserveRatio: 0.2, temporalRoles: true, quorumRatio: 0.5 },
-  rescue_network: { migration: 'rescue', corridorTopology: 'small-world', rescuePriority: 'at-risk', recoverySlaMs: 300000, quorumRatio: 0.6 },
+  rescue_network: { migration: 'rescue', corridorTopology: 'small-world', rescuePriority: 'at-risk', recoverySlaMs: 300000, founderReserveSize: 2, quorumRatio: 0.6 },
   stepping_stone: { migration: 'cultural', corridorTopology: 'stepping-stone', migrationFrequency: 'rare', preserveDiversity: true, localityConstrained: true, quorumRatio: 0.45 },
   anti_synchrony: { migration: 'novelty', corridorTopology: 'adaptive', firebreaks: true, firebreakDurationMs: 120000, firebreakRecoveryThreshold: 0.35, diversityFloor: 0.3, topologyRewire: true, controlledExtinctionWithCoverage: true, quorumRatio: 0.6 },
   federated: { migration: 'cultural', corridorTopology: 'hierarchical', verifiedPropagulesOnly: true, sovereign: true, requireDataMinimizationProof: true, requireReceiverAttestation: true, quorumRatio: 0.5 },

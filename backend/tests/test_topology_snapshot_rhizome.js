@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const service = require('../src/services/topologySnapshotService');
+const snapshotContract = require('../src/services/topologySnapshotContract');
 const variants = require('../src/services/rhizome/variants/variantPolicyService');
 
 service.registerAdapter('rhizome', require('../src/services/topologySnapshots/rhizome'));
@@ -13,7 +14,7 @@ const state = { rhizomeId: 'rhizome-1', missionId: 'mission-1', variant: 'routin
 const node = { nodeId: 'node-1', capabilities: ['secret-capability'], providers: [] };
 const edge = { edgeId: 'edge-1', from: 'node-1', to: 'node-1' };
 const persisted = { revision: 1, participant: true, graphVersion: 1, workspace: true,
-  eventRevision: 1 };
+  eventRevision: 1, eventType: 'SESSION_CREATED' };
 const db = {
   get: async (sql) => {
     if (sql.includes('FROM agents')) return { workspace_id: 'workspace-1' };
@@ -30,7 +31,7 @@ const db = {
     if (sql.includes('FROM rhizome_edges')) return [{ edge_id: edge.edgeId,
       graph_version: persisted.graphVersion, edge_json: JSON.stringify(edge) }];
     if (sql.includes('FROM topology_session_events')) return [{ revision: persisted.eventRevision,
-      event_type: 'SESSION_CREATED', payload_json: '{}' }];
+      event_type: persisted.eventType, payload_json: '{}' }];
     throw new Error(`Unexpected query: ${sql}`);
   }
 };
@@ -44,6 +45,7 @@ async function refused(work, code) {
 
 async function run() {
   for (const variant of variants.list()) {
+    if (variant === 'ephemeral') continue;
     state.variant = variant;
     state.variantSelection.variant = variant;
     const request = { ...context, variantId: variant };
@@ -56,6 +58,26 @@ async function run() {
     assert.equal(ready.restorable, false);
     assert.equal(ready.adapterPlan.type, 'verify-only');
   }
+  await refused(() => service.capture({ ...context, variantId: 'ephemeral' }),
+    'RHIZOME_SNAPSHOT_EPHEMERAL_UNSUPPORTED');
+  const ephemeralRequest = { ...context, variantId: 'ephemeral' };
+  const ephemeralManifest = snapshotContract.seal(ephemeralRequest, { policyVersion: 1, boundary: {},
+    components: [{ id: 'session-state', status: 'reference-only', reference: { version: 1 } }] });
+  await refused(() => service.preflightRestore({ ...ephemeralRequest, manifest: ephemeralManifest }),
+    'RHIZOME_SNAPSHOT_EPHEMERAL_UNSUPPORTED');
+  const relevant = [
+    ['exploratory', 'NODE_DISCOVERED'], ['growth', 'GROWTH_ADMITTED'],
+    ['private', 'EDGE_QUARANTINED'], ['cross_representation', 'BRIDGE_INTEGRATED']
+  ];
+  for (const [variant, eventType] of relevant) {
+    state.variant = variant;
+    state.variantSelection.variant = variant;
+    persisted.eventType = eventType;
+    const manifest = await service.capture({ ...context, variantId: variant });
+    assert.deepEqual(manifest.components.find((item) => item.id === 'variant-policy').payload.relevantEvents,
+      [eventType]);
+  }
+  persisted.eventType = 'SESSION_CREATED';
   state.variant = 'routing';
   state.variantSelection.variant = 'routing';
   const manifest = await service.capture(context);

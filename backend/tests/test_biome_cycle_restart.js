@@ -32,9 +32,14 @@ async function run() {
     assert.equal(third.revision, 3);
     const events = await db.all('SELECT revision FROM topology_session_events WHERE session_id = ? ORDER BY revision', runtime.sessionId);
     assert.deepEqual(events.map(e => e.revision), [1, 2, 3]);
+    await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
+      CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT, execution_mode TEXT, metadata_json TEXT);`);
+    await db.run('INSERT INTO workspaces (id) VALUES (?)', 'biome-test-workspace');
+    await db.run('INSERT INTO agents VALUES (?, ?, ?, ?)', 'biome-test-worker', 'biome-test-workspace',
+      'worker', JSON.stringify({ topologySessionId: runtime.sessionId }));
     const viaMcp = await sessionTools.applyTopologyOperation(db, {
       session_id: runtime.sessionId, operation: 'run', max_ticks: 2, variant_input: { tokenCost: 2, season: 4 }
-    });
+    }, { agentId: 'biome-test-worker' });
     assert.equal(viaMcp.cycles.length, 2);
     assert.equal(viaMcp.tick, 5);
     assert.equal((await biome.sessionSnapshot(runtime.sessionId, { db })).ecologicalState.runtime.budgetUsed, 18);

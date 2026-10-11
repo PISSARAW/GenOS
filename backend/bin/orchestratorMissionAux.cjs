@@ -3,13 +3,25 @@
 async function executeMorphology(input) {
   const { morphology, outcome, finalVerdict, orchestratorId, telemetry } = input;
   if (!morphology?.agents?.length) return;
-  const morphoRuntime = require('../src/services/morphogenesis/morphogenesisRuntime').getMorphogenesisRuntime();
+  const morphoRuntime = input.runtime || require('../src/services/morphogenesis/morphogenesisRuntime').getMorphogenesisRuntime();
   const result = await morphoRuntime.executeMorphology(morphology, {
-    orchestratorId, evidence: outcome.evidence,
+    orchestratorId, mode: 'shadow', evidence: outcome?.evidence,
     reason: `post-mission morphogenesis (verdict=${finalVerdict})`
   });
+  if (result?.applied === true || result?.committed === true
+    || result?.receipt?.committed === true || result?.transition?.committed === true
+    || result?.decision === 'APPLIED') {
+    throw new Error('Post-mission morphogenesis cannot commit without a governed production bridge.');
+  }
+  const diagnostic = { ...result, applied: false, proposed: true,
+    productionGate: 'POST_MISSION_COMMIT_UNAVAILABLE',
+    authorityPending: 'rust_kernel_governance_and_versioned_transition' };
   const { buildMorphogenesisEvent } = require('../src/services/morphogenesis/morphogenesisTelemetryService');
-  telemetry.emitEvent(buildMorphogenesisEvent(result, orchestratorId));
+  const event = buildMorphogenesisEvent(diagnostic, orchestratorId);
+  event.payload.productionGate = diagnostic.productionGate;
+  event.payload.authorityPending = diagnostic.authorityPending;
+  telemetry.emitEvent(event);
+  return diagnostic;
 }
 
 async function checkMinimalShortcut(input) {

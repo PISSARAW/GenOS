@@ -98,7 +98,7 @@ class BiomeRuntime {
   }
 
   refresh(snapshot) {
-    this.ecology = { ...this.ecology, environment: snapshot.environment,
+    this.ecology = { ...this.ecology, status: snapshot.status, environment: snapshot.environment,
       niches: snapshot.niches, populations: snapshot.populations,
       resourcePool: snapshot.resourcePool, ecologicalState: snapshot.ecologicalState,
       opportunityMap: snapshot.opportunities, environmentConstraints: snapshot.environmentConstraints,

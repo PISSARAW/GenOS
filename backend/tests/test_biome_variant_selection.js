@@ -32,6 +32,7 @@ for (const [mission, expected] of MISSIONS) {
 for (const variant of biome.list()) {
   assert.equal(biome.select('generic task', { variant }).variant, variant);
 }
+assert.equal(biome.select('task', { variant: 'succession' }).selection.variant, 'successional');
 assert.equal(biome.select('generic task').variant, 'resource');
 assert.equal(biome.select('generic task', { scope: 'persistent' }).scope, 'persistent');
 assert.throws(() => biome.select('task', { variant: 'unknown' }), { code: 'BIOME_VARIANT_UNKNOWN' });
