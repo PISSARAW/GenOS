@@ -24,6 +24,11 @@ jetons délégués ne dépasse jamais l'allocation modèle du worker ; le contr�
 du contrat persistant rejette toute augmentation ultérieure de ce plafond.
 La flotte renvoie le contrat exact qui a été persisté.
 
+Si `coordinate_children` s'exécute en méthode native, sa propre exécution
+consomme zéro jeton modèle. Le plafond de délégation reste distinct : il exige
+une allocation positive explicite (`workerTokenLimit`) et reste borné par elle.
+Sans cette allocation, l'octroi de délégation est refusé.
+
 L'API de délégation bornée conserve sa profondeur un et son ensemble actuel de
 types enfants. Cette tranche ne rend pas la délégation récursive admissible.
 
@@ -54,4 +59,6 @@ types enfants. Cette tranche ne rend pas la délégation récursive admissible.
 
 Les tests de contrats vérifient la borne des jetons et le refus d'un plafond
 altéré. Le test de la flotte vérifie qu'un parent worker ne donne aucune
-délégation et qu'un orchestrateur conserve un octroi borné.
+délégation et qu'un orchestrateur conserve un octroi borné. La matrice native
+vérifie l'exécution de `coordinate_children` avec une allocation explicite ;
+le registre vérifie le refus sans allocation.

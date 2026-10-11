@@ -1,6 +1,6 @@
 # GQWF v2 — Racines de fichiers et vues durables
 
-- **Statut** : Partiel — noyau backend et raccordement explicite des workers autonomes implémentés.
+- **Statut** : Partiel — noyau backend, workers autonomes et capture/restauration opt-in des fichiers d'organisme implémentés.
 - **Portée** : projection de fichiers, overlays, merge, matérialisation, tête versionnée.
 - **Dernière revue** : 2026-10-10.
 
@@ -46,14 +46,29 @@ les hardlinks, les fichiers spéciaux et les noms non portables. Les modes
 d'exécution sont assainis. Une racine n'est donc pas une image de build complète :
 les dépendances et l'environnement d'exécution demandent une provenance distincte.
 
-La capture et la restauration d'organisme continuent d'utiliser leur contrat
-actuel. Le pointeur de checkpoint Rust et les missions partagées ne sont pas
+La capture et la restauration d'organisme gardent leur protocole de sécurité
+historique. Le pointeur de checkpoint Rust et les missions partagées ne sont pas
 pilotés par GQWF v2. Aucun gain de performance n'est revendiqué sans benchmark
 sur import, fork, lecture, matérialisation, test et promotion.
 
 Le pont v1 relit le manifeste historique avec son vérificateur existant et
-conserve un lien `snapshot_id → root_hash`. Il n'active pas automatiquement
-GQWF pour les captures ou restaurations d'organisme.
+conserve un lien `snapshot_id → root_hash`. GQWF reste une demande explicite
+pour la capture et la restauration d'organisme.
 
-Validation ciblée : `node backend/tests/test_gqwf_fabric.js`. Les gates généraux
+Une capture ou un commit d'organisme peut demander `gqwfV2: true`. Après le
+snapshot historique, GenOS importe son payload vérifié et couvre la racine
+GQWF dans le hash du manifeste d'organisme. La réponse fournit
+`gqwfRootHash`. Avant restauration, le lien entre snapshot historique et
+racine est vérifié ; un lien manquant ou incohérent refuse la restauration.
+Sans option, le payload historique reste la source et la réponse indique
+`gqwfRootRestored: false`. Avec `gqwfV2: true` sur `restore` ou `checkout`,
+GenOS vérifie la projection historique et les blobs, puis restaure les fichiers
+depuis la racine avec snapshot de sécurité et rollback. La réponse indique
+`gqwfRootRestored: true` seulement après une copie vérifiée. Le manifeste
+historique reste nécessaire, mais ses octets de payload peuvent manquer. Ces
+frontières sont décrites dans les [ADR 0378](../adr/0378-reference-gqwf-dans-snapshot-organisme.md)
+et [0383](../adr/0383-restauration-opt-in-racine-gqwf-organisme.md).
+
+Validation ciblée : `node backend/tests/test_gqwf_fabric.js` et
+`node backend/tests/test_gqwf_organism_snapshot.js`. Les gates généraux
 du dépôt restent requis pour toute livraison.

@@ -126,7 +126,7 @@ async function main() {
   if (process.argv[2]) return isolated(cases[process.argv[2]]);
   for (const name of Object.keys(cases)) {
     const child = await runChild([__filename, name], { stdio: 'inherit', timeoutMs: 180000 });
-    assert.equal(child.status, 0, `Native oracle failure probe ${name} failed`);
+    assert.equal(child.status, 0, `Native oracle failure probe ${name} failed: ${child.stderr || 'nonzero exit'}`);
   }
   console.log('Native oracle failure costs: real post-process retraction stays refused with durable costs and fresh replay.');
 }
