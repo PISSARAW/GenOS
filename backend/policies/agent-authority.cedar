@@ -7,6 +7,14 @@ when {
    resource.parentId == principal.agentId)
 };
 
+permit (principal, action == GenOS::Action::"Control", resource)
+when {
+  resource.workspaceId == context.workspaceId &&
+  resource.parentId == principal.agentId &&
+  (resource.capsuleDispatchParentId == principal.agentId ||
+   resource.sealedDispatchParentId == principal.agentId)
+};
+
 permit (principal, action == GenOS::Action::"StartMission", resource)
 when {
   principal.workspaceId == context.workspaceId &&
@@ -20,10 +28,29 @@ when {
 permit (principal, action == GenOS::Action::"StartMission", resource)
 when {
   resource.workspaceId == context.workspaceId &&
+  principal.executionMode == "worker" &&
+  resource.executionMode == "worker" &&
+  resource.parentId == principal.agentId &&
+  principal.boundedDelegationChildId == resource.agentId &&
+  resource.capsuleDispatchParentId == principal.agentId
+};
+
+permit (principal, action == GenOS::Action::"StartMission", resource)
+when {
+  resource.workspaceId == context.workspaceId &&
   principal.executionMode == "orchestrator" &&
   resource.executionMode == "worker" &&
   resource.parentId == principal.agentId &&
   resource.sealedDispatchParentId == principal.agentId
+};
+
+permit (principal, action == GenOS::Action::"StartMission", resource)
+when {
+  resource.workspaceId == context.workspaceId &&
+  principal.executionMode == "orchestrator" &&
+  resource.executionMode == "worker" &&
+  resource.parentId == principal.agentId &&
+  resource.capsuleDispatchParentId == principal.agentId
 };
 
 permit (principal, action == GenOS::Action::"StartMission", resource)

@@ -27,6 +27,10 @@ try {
   await client.connect(transport);
   const list = await client.listTools();
   assert.deepEqual(new Set(list.tools.map((tool) => tool.name)), new Set(profile.tools));
+  const failureSchema = list.tools.find((tool) => tool.name === 'genos_search_failures').inputSchema;
+  assert.deepEqual(Object.keys(failureSchema.properties).sort(),
+    Object.keys(require('./toolDefinitions.json').tools.find((tool) => tool.name === 'genos_search_failures').inputSchema.properties).sort());
+  assert.equal(failureSchema.properties.limit.minimum, 1);
   const denied = await client.callTool({ name: 'genos_merge', arguments: { branch_id: 'HEAD' } });
   assert.equal(denied.isError, true);
   const diagnosis = output(await client.callTool({ name: 'genos_diagnose', arguments: {

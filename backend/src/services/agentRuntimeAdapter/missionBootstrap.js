@@ -6,7 +6,7 @@ const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } =
 const { validateBudgetCoherence, normalizeMissionBudget, validateShareSum } = require('../budgetCoherenceService');
 const { emit, cancelledStarts } = require('../agentOrchestrationState');
 const { assertCallerMcpConfiguration } = require('../cognitiveExecutor');
-const { withWriteRetry } = require('../../db');
+const { withWriteRetry, withTransaction } = require('../../db');
 
 function assertMissionNotCancelled(agentId) {
   if (cancelledStarts.has(agentId)) {
@@ -146,7 +146,30 @@ async function provisionWorkspaceAndModel(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent } = ctx;
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
   assertMissionNotCancelled(agentId);
+  await bindMissionWorkerWorkspace(ctx);
   await resolveLocalModel(ctx);
+}
+
+async function bindMissionWorkerWorkspace(ctx) {
+  const { db, agentId, normalizedMission, dispatchedAgent } = ctx;
+  if (dispatchedAgent.execution_mode !== 'worker' || !normalizedMission.workspaceRoot) return;
+  const assigned = await db.get('SELECT path FROM workspaces WHERE id = ?', dispatchedAgent.workspace_id);
+  const path = require('node:path');
+  const current = assigned?.path && path.resolve(assigned.path);
+  const requested = path.resolve(normalizedMission.workspaceRoot);
+  if (current && (process.platform === 'win32' ? current.toLowerCase() === requested.toLowerCase() : current === requested)) return;
+  if (normalizedMission.missionScope?.trinityExperimentId) {
+    throw Object.assign(new Error('Trinity mission workspace differs from its sealed worker binding.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+  }
+  const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', dispatchedAgent.parent_agent_id);
+  const workspaceId = await withTransaction(db, tx =>
+    require('../workerWorkspaceBindingService').bindWorkerWorkspace(tx, {
+      workerId: agentId, parentId: dispatchedAgent.parent_agent_id,
+      parentWorkspaceId: parent?.workspace_id, workspaceRoot: normalizedMission.workspaceRoot
+    }));
+  normalizedMission.workspaceId = workspaceId;
+  dispatchedAgent.workspace_id = workspaceId;
+  await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, workspaceId);
 }
 
 function resolvePlanForCheck(normalizedMission) {

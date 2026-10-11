@@ -666,6 +666,9 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0392 — Archive héritée vérifiable pour un agent forké](adr/0392-archive-heritee-fork-agent.md).
 - [ADR 0393 — Budget délégué du sous-orchestrateur natif](adr/0393-budget-delegue-sous-orchestrateur-natif.md)
 - [ADR 0394 — Préflight vérifiable de restauration d'organisme](adr/0394-preflight-restauration-organisme.md)
-- [ADR 0396 — Frontière corporelle et provenance du soi agentique](adr/0396-frontiere-corporelle-agent-et-provenance.md)
-- [ADR 0397 — Reçus corporels et limites de provenance](adr/0397-recus-corporels-et-limites-de-provenance.md)
-- [ADR 0398 — Capacité MCP et écritures directes](adr/0398-capacite-mcp-et-ecritures-directes.md)
+- [ADR 0395 — Workspaces privés pour les capsules de workers](adr/0395-workspaces-prives-pour-capsules-de-workers.md).
+- [ADR 0396 — Frontière corporelle et provenance du soi agentique](adr/0396-frontiere-corporelle-agent-et-provenance.md).
+- [ADR 0396 — Observer les workers supervisés pendant leur mission](adr/0396-observation-continue-des-workers-supervises.md).
+- [ADR 0397 — Perception native et révision du prompt local](adr/0397-perception-des-workers-natifs-et-revision-locale.md).
+- [ADR 0397 — Reçus corporels et limites de provenance](adr/0397-recus-corporels-et-limites-de-provenance.md).
+- [ADR 0398 — Capacité MCP et écritures directes](adr/0398-capacite-mcp-et-ecritures-directes.md).

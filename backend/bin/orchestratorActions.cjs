@@ -220,7 +220,12 @@ async function prepareWorker({ db, context, parent, reusable }) {
   validateWorkspace(request.workspace_root, sourceWorkspace);
   const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, workerCapsuleId(context), process.env.GENOS_CAPSULE_ROOT);
   await insertWorker({ db, context, parent, request, name, role, workerKind });
-  const workspaceId = await trinityPreparation.bindWorker(db, { workerId: context.id, workspaceRoot, scope: request.missionScope });
+  const workspaceId = request.missionScope?.trinityExperimentId
+    ? await trinityPreparation.bindWorker(db, { workerId: context.id, workspaceRoot, scope: request.missionScope })
+    : await require('../src/db').withTransaction(db, tx =>
+      require('../src/services/workerWorkspaceBindingService').bindWorkerWorkspace(tx, {
+        workerId: context.id, parentId: parent.id, parentWorkspaceId: parent.workspace_id, workspaceRoot
+      }));
   return { name, role, workerKind, methodContract: request.methodContract, workerAssignment: request.workerAssignment, workspaceRoot, workspaceId };
 }
 function workerRole(request) { return String(request.role || 'implementation'); }
