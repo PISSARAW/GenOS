@@ -22,7 +22,8 @@ async function case1(context) {
       { memberId: 's1', domain: 's1' }, { memberId: 's2', domain: 's2' }
     ]);
     const result = await runVariantTest('multiteam', mission, allMembers, boundaries);
-    assert.equal(result.status, 'SUCCEEDED');
+    assert.equal(result.status, 'PLANNED');
+    assert.equal(result.reason, 'verified_subruns_unavailable');
     assert.equal(result.result.teams.length, 2);
     console.log('✓ Multiteam: Plans sub-teams with contracts');
     context.passed++;
@@ -61,9 +62,9 @@ async function case3(context) {
     };
     const allMembers = createMockMembers([{ memberId: 'a1' }, { memberId: 'b1' }]);
     const result = await runVariantTest('multiteam', mission, allMembers, boundaries);
-    assert.equal(result.status, 'SUCCEEDED');
+    assert.equal(result.status, 'PLANNED');
     assert.ok(result.decisions.some(d => d.type === 'conflict_resolution_plan'));
-    console.log('✓ Multiteam: Integration council resolves conflicts');
+    console.log('✓ Multiteam: Integration council plans conflict resolution');
     context.passed++;
   } catch (e) { console.log('✗ Multiteam: Conflict resolution plan', e.message); context.failed++; }
 
@@ -84,7 +85,7 @@ async function case4(context) {
     };
     const allMembers = createMockMembers([{ memberId: 'a1' }, { memberId: 'b1' }]);
     const result = await runVariantTest('multiteam', mission, allMembers, boundaries);
-    assert.equal(result.status, 'SUCCEEDED');
+    assert.equal(result.status, 'PLANNED');
     assert.equal(result.result.budget.local.a.tokens, 200);
     assert.equal(result.result.budget.local.b.tokens, 100);
     console.log('✓ Multiteam: Enforces proportional budget allocation');

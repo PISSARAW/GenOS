@@ -53,7 +53,13 @@ async function ensureProposalTable(db) {
     graph_version INTEGER NOT NULL, snapshot_sha256 TEXT NOT NULL,
     outcome_verdict TEXT NOT NULL, proposals_json TEXT NOT NULL,
     proposal_sha256 TEXT NOT NULL, created_at TEXT NOT NULL
-  )`);
+  );
+  CREATE TRIGGER IF NOT EXISTS morphogenesis_read_only_proposals_no_update
+    BEFORE UPDATE ON morphogenesis_read_only_proposals
+    BEGIN SELECT RAISE(ABORT, 'read-only morphogenesis proposal is immutable'); END;
+  CREATE TRIGGER IF NOT EXISTS morphogenesis_read_only_proposals_no_delete
+    BEFORE DELETE ON morphogenesis_read_only_proposals
+    BEGIN SELECT RAISE(ABORT, 'read-only morphogenesis proposal is immutable'); END;`);
 }
 
 function proposalDigest(row) {

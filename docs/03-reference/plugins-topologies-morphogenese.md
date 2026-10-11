@@ -157,3 +157,10 @@ budgets. `executeVersionedTransition` ne peut plus transformer un AgentGit
 commit en preuve d'autorité. La réévaluation automatique distingue ce refus
 d'un rollback qui aurait réellement compensé des effets ; voir
 [ADR 0430](../adr/0430-fermeture-transition-collective-sans-snapshot-restaurable.md).
+
+Les versions de graphe préparé et les propositions consultatives Rust sont
+désormais append-only dans SQLite : `UPDATE` et `DELETE` sont refusés par des
+triggers. Le reçu de décision peut donc relire ses deux sources sans mutation
+ordinaire entre appels. Cette protection locale ne signe pas la décision et
+le graphe préparé ne constitue toujours pas un snapshot restaurable ; voir
+[ADR 0437](../adr/0437-immutabilite-sources-recu-morphogenese.md).

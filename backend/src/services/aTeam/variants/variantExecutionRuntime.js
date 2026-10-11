@@ -56,7 +56,7 @@ class VariantExecutionRuntime {
     try {
       await this.validatePreconditions();
       await this.executeVariant();
-      this.state.status = 'SUCCEEDED';
+      if (this.state.status === 'STARTED') this.state.status = 'SUCCEEDED';
     } catch (error) {
       this.state.status = 'FAILED';
       this.state.error = { message: error.message, code: error.code };

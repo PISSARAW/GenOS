@@ -235,6 +235,26 @@ de missions représentatives pour les 95 variants canoniques.
   reste incertain
   ([ADR 0436](../../adr/0436-reconciliation-actions-ecologiques-biocenose.md)).
 
+### Huitième vague — 2026-10-11
+
+- Morphogenèse rend append-only les versions de graphe préparées et les
+  propositions consultatives persistées. Les triggers SQLite protègent leur
+  relecture ordinaire, mais ne donnent ni signature, ni snapshot restaurable,
+  ni autorité APPLY ; ce mode reste fermé
+  ([ADR 0437](../../adr/0437-immutabilite-sources-recu-morphogenese.md)).
+- A-Team `multiteam` retourne `PLANNED` après composition dans le runtime
+  isolé. Il faut encore les TeamRuns enfants, leur budget et les contrats
+  inter-équipes vérifiés pour annoncer une réussite
+  ([ADR 0438](../../adr/0438-statut-planifie-runtime-isole-multiteam-a-team.md)).
+- Trinity exige un rapport initial durable et cohérent pour chaque monde de
+  la comparaison nominale, trois ou seize pour `factorial`. Les douze missions
+  réelles restent à qualifier
+  ([ADR 0439](../../adr/0439-rapports-initiaux-durables-pour-qualification-trinity.md)).
+- Holobionte `tool` fige le bail et recontrôle son échéance après la lecture
+  asynchrone du contrat, avant l'exécuteur. L'isolation système et l'effet
+  externe restent à attester par l'intégrateur
+  ([ADR 0440](../../adr/0440-bail-outil-immuable-holobionte.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

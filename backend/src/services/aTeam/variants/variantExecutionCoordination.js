@@ -111,6 +111,8 @@ module.exports = {
     }
 
     this.state.result = { teams: teamConfigs, contracts, council, budget: multiPolicy.budget };
+    this.state.status = 'PLANNED';
+    this.state.reason = 'verified_subruns_unavailable';
     return this.state;
   },
 

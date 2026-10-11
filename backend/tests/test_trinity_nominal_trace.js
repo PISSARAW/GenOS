@@ -45,6 +45,10 @@ const promoted = { mission_id: missionId, mission_snapshot_hash: baseline,
 const worlds = [1, 2, 3].map((number) => ({ world_number: number, agent_id: `world-${number}`,
   status: number === 1 ? 'promoted' : 'compared', snapshot_hash: baseline,
   workspace_root: require('node:path').resolve(`world-${number}`) }));
+const initialProof = { status: 'verified', inputHash: 'configuration-hash',
+  reports: worlds.map((entry) => ({ worldNumber: entry.world_number, agentId: entry.agent_id,
+    report: { outcome: 'success' } })) };
+comparisonProof.inputHash = initialProof.inputHash;
 const states = ['designed', 'sealed_running', 'sealed_complete', 'cross_examining',
   'decided', 'promotion_preparing', 'promoted'];
 const transitions = states.slice(1).map((status, index) => ({ from_status: states[index],
@@ -52,8 +56,18 @@ const transitions = states.slice(1).map((status, index) => ({ from_status: state
 const nominal = { variant: 'adaptive', missionId, experiment: promoted,
   dispatch: { variant_selection_json: JSON.stringify({ variant: 'adaptive',
     experimentalDesign: { ...variants.DEFAULT_DESIGN, ...variants.DEFINITIONS.adaptive.design } }) },
-  worlds, transitions, comparisonProof, signedObjectValid: true };
+  worlds, transitions, comparisonProof, initialProof, signedObjectValid: true };
 assert.equal(qualification.assess(nominal).qualified, true);
+assert.ok(qualification.assess({ ...nominal, initialProof: { status: 'missing' } }
+).reasons.includes('initial_reports_journal_not_verified'));
+assert.ok(qualification.assess({ ...nominal, initialProof: { ...initialProof, inputHash: 'other' } }
+).reasons.includes('initial_reports_comparison_mismatch'));
+assert.ok(qualification.assess({ ...nominal, initialProof: { ...initialProof,
+  reports: initialProof.reports.map((entry, index) => index === 0 ? { ...entry, agentId: 'other-agent' } : entry) } }
+).reasons.includes('initial_reports_worlds_mismatch'));
+assert.ok(qualification.assess({ ...nominal, initialProof: { ...initialProof,
+  reports: initialProof.reports.map((entry, index) => index === 0 ? { ...entry, report: { outcome: 'failed' } } : entry) } }
+).reasons.includes('initial_reports_worlds_mismatch'));
 assert.ok(qualification.assess({ ...nominal, comparisonProof: { status: 'missing' } }
 ).reasons.includes('comparison_journal_not_verified'));
 assert.ok(qualification.assess({ ...nominal, comparisonProof: { status: 'verified' } }

@@ -172,7 +172,7 @@ node backend/tests/test_ateam_variant_acceptance.js
 ```
 
 Le test d'exécution utilise SQLite en mémoire et des sous-processus Node : promotion/refus,
-progression indépendante, reçu périmé, reprise du délai et bail obsolète. Les 44 cas
+progression indépendante, reçu périmé, reprise du délai et bail obsolète. Les 49 cas
 d'acceptation des variantes portent sur leurs contrats isolés. Ils ne qualifient ni mission
 LLM arbitraire, ni campagne de performance, ni sous-runs multiteam génériques.
 
@@ -187,6 +187,12 @@ ne sont pas une autorité serveur indépendante : leurs champs peuvent être
 forgés par l'appelant. Le runtime ne dispose pas encore d'un reçu authentifié
 de consommation et d'acceptation des contrats inter-équipes ; `SUCCEEDED`
 reste donc fermé. Le dispatch générique ne lance toujours pas ce programme.
+
+L'API isolée `executeVariantMission` avec le variant `multiteam` ne compose qu'une politique,
+des sous-équipes et un conseil. Son statut est `PLANNED`, avec la raison
+`verified_subruns_unavailable`. Ses événements `sub_team_planned` et
+`conflict_resolution_plan` décrivent des intentions ; ils ne sont pas des
+preuves d'exécution ou de résolution. Voir ADR 0438.
 
 ## Sources
 

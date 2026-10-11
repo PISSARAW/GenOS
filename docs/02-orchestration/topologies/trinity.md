@@ -2346,6 +2346,12 @@ la même mission. L'absence ou la divergence refuse la qualification, y
 compris pour `controlled`. Voir
 [ADR 0429](../../adr/0429-gates-trinity-lies-au-journal-de-comparaison.md).
 
+La campagne lie également chaque monde initial à son rapport `success` dans
+le journal `initial_reports`, avec le même agent et la même empreinte d'entrée
+que la comparaison. Trois rapports sont exigés, seize pour `factorial` ;
+l'absence de journal ou d'un rapport cohérent refuse la qualification.
+Voir [ADR 0439](../../adr/0439-rapports-initiaux-durables-pour-qualification-trinity.md).
+
 ## 10. Références scientifiques
 
 1. **Self-Consistency** — Wang et al., *Self-Consistency Improves Chain of Thought Reasoning in Language Models*, arXiv:2203.11171. Le vote majoritaire sur N raisonnements cohérents améliore la précision.
