@@ -2,6 +2,8 @@
 
 const path = require('node:path');
 const variantService = require('./trinityVariantService');
+const qualificationTrace = require('./trinityQualificationTrace');
+const { digest } = require('./trinityExecutionJournal');
 
 const VARIANTS = Object.freeze(['controlled', 'heterogeneous', 'adversarial', 'counterfactual',
   'factorial', 'pareto', 'jury', 'recursive', 'adaptive', 'temporal', 'oracular', 'exploratory']);
@@ -33,7 +35,8 @@ function assess(input) {
   const initial = initialWorlds(variant, worlds);
   const reasons = [...identityFailures(input), ...worldFailures(variant, initial, experiment),
     ...transitionFailures(experiment, input.transitions),
-    ...gateFailures(variant, decision), ...promotionFailures(experiment, decision),
+    ...gateFailures(variant, decision), ...comparisonFailures(input.comparisonProof, decision),
+    ...promotionFailures(experiment, decision),
     ...candidateFailures(decision, signedObjectValid)];
   if (!initial.some((world) => world.agent_id === decision.verification?.sourceAgentId)) reasons.push('verified_source_world_missing');
   return { variant, missionId, qualified: reasons.length === 0, reasons,
@@ -91,6 +94,15 @@ function transitionFailures(experiment, transitions = []) {
 
 function promotionFailures(experiment, decision) {
   return experiment?.status === 'promoted' && decision.outcome === 'PROMOTED' ? [] : ['promotion_not_observed'];
+}
+
+function comparisonFailures(proof, decision) {
+  if (proof?.status !== 'verified' || !proof.comparison || typeof proof.comparison !== 'object') {
+    return ['comparison_journal_not_verified'];
+  }
+  if (proof.comparison.selectedWorld !== decision.worldNumber) return ['promoted_world_not_in_comparison'];
+  const expected = qualificationTrace.fromComparison(proof.comparison?.comparativeAnalysis);
+  return digest(expected) === digest(decision.variantGates || {}) ? [] : ['variant_gates_not_durable'];
 }
 
 function candidateFailures(decision, signedObjectValid) {

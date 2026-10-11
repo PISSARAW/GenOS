@@ -126,9 +126,10 @@ async function updatePresence(sessionId, request = {}, syncytium) {
 async function acquireLease(sessionId, request = {}, syncytium) {
   requireIdentity(request);
   if (!request.resourceId) throw humanError('Lease acquisition requires a resourceId.');
+  if (Object.hasOwn(request, 'now')) throw humanError('Human-AI lease time is controlled by the runtime.');
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
   const current = snapshot.shared.sharedFields['human.leases']?.[request.resourceId];
-  const now = Number.isSafeInteger(request.now) ? request.now : Date.now();
+  const now = Date.now();
   ensureLeaseAvailable(current, request.actorId, now);
   const lease = buildLease({ request, current, now });
   const committed = await applyMap({

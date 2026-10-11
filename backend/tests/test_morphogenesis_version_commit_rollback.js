@@ -12,20 +12,22 @@ async function main() {
     agents: new Map([['worker', { id: 'worker', role: 'old', capabilities: [], parent: null }]]),
     topologyState: { ...shared.topologyState }, relationGraph: new Map(),
   };
+  let persisted = false;
   const receipt = await executeTransition({
     plan: { id: 'git-failure', actions: [{ type: 'rebind', agentId: 'worker', targetRole: 'new' }] },
     collectiveState: custom,
-    persistCommit: async () => { throw new Error('AgentGit unavailable'); },
+    persistCommit: async () => { persisted = true; throw new Error('AgentGit unavailable'); },
   });
   assert.equal(receipt.committed, false);
-  assert.equal(receipt.rollbackReceipt.memoryRestored, true);
+  assert.equal(receipt.code, 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE');
+  assert.equal(receipt.rollbackReceipt, null);
   assert.equal(custom.agents.get('worker').role, 'old');
-  assert.match(receipt.rollbackReceipt.triggeredBy, /AgentGit unavailable/);
+  assert.equal(persisted, false, 'persistence cannot be invoked before authority preflight');
 
   const missingIdentity = await executeVersionedTransition({ plan: { id: 'no-agent', actions: [] } });
   assert.equal(missingIdentity.receipt.committed, false);
   assert.match(missingIdentity.receipt.errors.join(' '), /agentId/);
-  console.log('failed AgentGit persistence rolls back the transition: PASS');
+  console.log('ungoverned morphogenesis transition refuses before persistence: PASS');
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

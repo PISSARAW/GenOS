@@ -3,9 +3,9 @@
 /**
  * @file dynamicReevaluationExecutorService.js
  * @description Connects adaptiveReevaluationService → MorphogenesisPlanner →
- * MorphogenesisValidator → VersionedTransition (ADR 0040 §10 : toute
- * transition appliquée produit un commit AgentGit parenté).
- * Produces a MorphogenesisReceipt with full provenance for every transition.
+ * MorphogenesisValidator → VersionedTransition. Production transitions
+ * currently refuse until authority and restoration can be proven; rejected
+ * attempts retain provenance without claiming a commit or rollback.
  */
 
 const adaptiveReevaluationService = require('../adaptiveReevaluationService');
@@ -138,25 +138,34 @@ async function executeReevaluation(ctx) {
     counterfactual: counterfactualReceipt,
   });
   const receipt = versioned.receipt;
+  const transition = transitionOutcome(receipt);
 
   // 6. Log receipt to provenance
   const provenanceRecord = logProvenance({
     agentId,
     stage: 'transition',
-    status: receipt.committed ? 'committed' : 'rolled_back',
+    status: transition.status,
     receipt,
     plan,
   });
 
   return {
     executed: receipt.committed,
-    reason: receipt.committed ? 'transition_committed' : 'transition_rolled_back',
+    reason: transition.reason,
     proposal,
     plan,
     receipt,
     provenanceRecord,
     counterfactualReceipt,
   };
+}
+
+function transitionOutcome(receipt) {
+  if (receipt.committed) return { status: 'committed', reason: 'transition_committed' };
+  if (receipt.code === 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE') {
+    return { status: 'rejected', reason: 'production_authority_unavailable' };
+  }
+  return { status: 'rolled_back', reason: 'transition_rolled_back' };
 }
 
 function getReevaluationHistory(agentId) {

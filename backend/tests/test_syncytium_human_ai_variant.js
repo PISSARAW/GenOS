@@ -21,13 +21,16 @@ async function main() {
   });
 
   const lease = await syncytium.acquireHumanLease(session.sessionId, {
-    txId: 'lease-human', actorId: 'maya', nucleusId: 'human-editor', resourceId: 'schema:migration', now: 1000, ttlMs: 5000
+    txId: 'lease-human', actorId: 'maya', nucleusId: 'human-editor', resourceId: 'schema:migration', ttlMs: 5000
   });
   assert.equal(lease.lease.holderId, 'maya');
   assert.equal(lease.lease.fence, 1);
   await assert.rejects(() => syncytium.acquireHumanLease(session.sessionId, {
-    txId: 'lease-worker', actorId: 'worker-1', nucleusId: 'llm-worker', resourceId: 'schema:migration', now: 2000
+    txId: 'lease-worker', actorId: 'worker-1', nucleusId: 'llm-worker', resourceId: 'schema:migration'
   }), (error) => error.code === 'SYNCYTIUM_LEASE_HELD');
+  await assert.rejects(() => syncytium.acquireHumanLease(session.sessionId, {
+    actorId: 'worker-1', nucleusId: 'llm-worker', resourceId: 'schema:migration', now: Date.now() + 3600000
+  }), (error) => error.code === 'SYNCYTIUM_HUMAN_AI_INVALID');
 
   await assert.rejects(() => syncytium.submitHumanApproval(session.sessionId, {
     opId: 'approval-by-ai', actorId: 'worker-1', nucleusId: 'llm-worker',
