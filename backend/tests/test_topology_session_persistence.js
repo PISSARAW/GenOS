@@ -113,7 +113,8 @@ function fakeDb() {
   const state = { rows: new Map(), agents: new Map(), events: [], rhizomeNodes: [], rhizomeEdges: [], syncytiumRevisions: new Map(), syncytiumOps: new Set() };
   return {
     registerWorker: (agentId, sessionId) => state.agents.set(agentId, {
-      execution_mode: 'worker', metadata_json: JSON.stringify({ topologySessionId: sessionId })
+      id: agentId, workspace_id: 'test-workspace', execution_mode: 'worker',
+      metadata_json: JSON.stringify({ topologySessionId: sessionId })
     }),
     run: async (sql, ...params) => runStatement(state, sql, params),
     get: async (sql, ...params) => readRecord(state, sql, params),
@@ -132,6 +133,9 @@ function readRows(state, sql, params) {
 function readRecord(state, sql, params) {
   const statement = String(sql).toUpperCase();
   if (statement.includes('FROM AGENTS')) return state.agents.get(params[0]);
+  if (statement.includes('FROM WORKSPACES')) {
+    return { id: 'test-workspace', organization_id: 'test-org', project_id: 'test-project' };
+  }
   if (statement.includes('SYNCYTIUM_SESSION_REVISIONS')) return { revision: state.syncytiumRevisions.get(params[0]) };
   if (statement.includes('SYNCYTIUM_APPLIED_OPS')) return state.syncytiumOps.has(`${params[0]}:${params[1]}`) ? { op_id: params[1] } : null;
   if (statement.includes('PERSISTENT_BIOME_ENVIRONMENTS')) {
@@ -254,12 +258,16 @@ function readRecord(state, sql, params) {
   assert.equal(deposit.trail.intensity, 2);
 
   const eco = await biome.composeBiome('Persistent environment session.', { db });
+  await assert.rejects(() => tools.applyTopologyOperation(db, {
+    session_id: eco.sessionId, operation: 'allocate', total_budget: 80
+  }), (error) => error.code === 'BIOME_CALLER_DENIED');
+  db.registerWorker('biome-worker', eco.sessionId);
   const allocation = await tools.applyTopologyOperation(db, {
     session_id: eco.sessionId,
     operation: 'allocate',
     populations: [{ id: 'pollinators', demand: 2, priority: 1 }],
     total_budget: 80
-  });
+  }, { agentId: 'biome-worker' });
   assert.equal(allocation.allocations[0].budget, 80);
   assert.equal(allocation.receipt.previousRevision, 0);
   assert.equal(allocation.receipt.resultingRevision, 1);
@@ -274,7 +282,9 @@ function readRecord(state, sql, params) {
     (error) => error.code === 'TOPOLOGY_SESSION_CONFLICT'
   );
   assert.equal((await store.load(db, eco.sessionId)).state.matrix.version, 1);
-  const ecoSnapshot = await tools.applyTopologyOperation(db, { session_id: eco.sessionId, operation: 'snapshot' });
+  const ecoSnapshot = await tools.applyTopologyOperation(db, {
+    session_id: eco.sessionId, operation: 'snapshot'
+  }, { agentId: 'biome-worker' });
   assert.equal(ecoSnapshot.entries[0].kind, 'resource_allocation');
 
   await assert.rejects(() => tools.applyTopologyOperation(db, { session_id: 'nope', operation: 'snapshot' }), /Unknown topology session/);
