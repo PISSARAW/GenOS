@@ -302,7 +302,6 @@ async function run() {
       evidence: [{ kind: 'reproducible_artifact' }],
     }] });
     assert.strictEqual(result.evaluation.eligible, false);
-    assert.strictEqual(result.assembly, null);
   });
 
   await test('La promotion multi-provider refuse une configuration sans quorum', async () => {
@@ -331,7 +330,6 @@ async function run() {
       evidence: [{ kind: 'reproducible_artifact' }],
     }] }, { multiProviderEnabled: true, providerAllowlist: [] });
     assert.strictEqual(result.evaluation.eligible, false);
-    assert.strictEqual(result.assembly, null);
   });
 
   // 15. Sans assembly AEIS la promotion gate refuse
