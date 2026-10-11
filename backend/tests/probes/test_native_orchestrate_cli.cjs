@@ -13,6 +13,17 @@ const { spawn } = require('node:child_process');
 const output = process.env.GENOS_REGULATION_OUTPUT_DIR
   || path.resolve(__dirname, '../../../../regulation-probe-results');
 
+async function readApoptosisTelemetry(file) {
+  const content = await fs.readFile(file, 'utf8').catch(() => '');
+  return content.split(/\r?\n/).filter(Boolean).flatMap(line => {
+    try {
+      const event = JSON.parse(line);
+      return /HALLUCINATION|APOPTOSIS/.test(event.eventType || '')
+        ? [{ eventType: event.eventType, detail: event.detail, payload: event.payload }] : [];
+    } catch (_) { return []; }
+  });
+}
+
 async function seedScopedWorkspace(workspace, environment) {
   process.env.GENOS_DB_PATH = environment.GENOS_DB_PATH;
   process.env.GENOS_ADMIN_PASSWORD = environment.GENOS_ADMIN_PASSWORD;
@@ -43,6 +54,7 @@ async function main() {
     GENOS_CAPSULE_ROOT: path.join(root, 'capsules'),
     GENOS_WORKSPACES_ROOT: root,
     GENOS_WORKSPACE_ROOT: workspace,
+    GENOS_MCP_TELEMETRY_FILE: path.join(root, 'telemetry.jsonl'),
     GENOS_DISABLE_WORKSPACE_GC: '1',
     GENOS_DISABLE_DOTENV: '1',
     GENOS_SKIP_BOOT_DB_BACKUP: '1',
@@ -57,7 +69,7 @@ async function main() {
       successCriteria: ['Return a sourced observation of timeout=30'], methodContract }],
     workspaceId: 'ws-local', workspaceRoot: workspace, workspaceProvisioned: true,
     background: false, autonomous_orchestration: true, executor: 'codex', timeoutMs: 180000,
-    executionBudget: { tokens: 100000, costUsd: 5, latencyMs: 180000,
+    executionBudget: { tokens: 200000, costUsd: 5, latencyMs: 180000,
       verification: { executions: 2, latencyMs: 10000 } } };
   const child = spawn(process.execPath, [cli, JSON.stringify(request)], {
     cwd: path.resolve(__dirname, '../../..'), env: environment, windowsHide: true });
@@ -96,13 +108,14 @@ async function main() {
     assert.equal(new Set(verifications.map(item => item.executionEvidence[0].processId)).size, 2);
     assert.equal((await require('../../src/services/biologicalWorkerStore').receipt(db, workerRun.id)).result.verified, true);
     const mission = await db.get('SELECT status FROM missions WHERE mission_id=?', authority.envelope.missionId);
+    const apoptosisTelemetry = await readApoptosisTelemetry(environment.GENOS_MCP_TELEMETRY_FILE);
     const complete = exitCode === 0 && parent.status === 'completed' && parentRun.status === 'completed' && mission?.status === 'completed';
     const audit = { schema: 'genos.native-orchestrate-attempt/v1', result: complete ? 'complete' : 'incomplete',
       cliExitCode: exitCode, parentId: parent.id, parentStatus: parent.status, parentRunId: parentRun.id,
       parentRunStatus: parentRun.status, parentGuardrail: parentRun.guardrail_reason || null, missionStatus: mission?.status || null,
       planDigest: plan.digest, selected: plan.selected, workerId, workerRunId: workerRun.id,
       workerRunStatus: workerRun.status, independentVerifiers: attestation.value.costs.processes,
-      verifierStatuses: verifications.map(item => item.status), outputRoot: root };
+      verifierStatuses: verifications.map(item => item.status), apoptosisTelemetry, outputRoot: root };
     await fs.writeFile(path.join(root, 'audit.json'), JSON.stringify(audit, null, 2) + '\n');
     process.stdout.write(JSON.stringify(audit) + '\n');
   } finally { await closeDatabase(); }

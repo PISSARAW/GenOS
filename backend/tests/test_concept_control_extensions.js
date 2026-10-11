@@ -4,6 +4,7 @@ const options = require('../src/services/hierarchicalOptionService');
 const valence = require('../src/services/postActionValenceService');
 const canonical = require('../src/services/deterministicFinalReportService');
 const synthesis = require('../src/services/localRuntimeSynthesis');
+const { synthesisDossier } = require('../src/services/workerEvidenceBarrierHelpers');
 async function optionChecks() {
   const option = { id: 'repair', maxSteps: 3, initiation: (state) => state.tests < 2,
     termination: (state) => state.tests >= 2, policy: (state) => state.tests ? 'verify' : 'repair' };
@@ -44,6 +45,9 @@ function valenceChecks() {
 async function reportChecks() {
   const dossier = { workerId: 'w', events: [{ evidenceReport: { outcome: 'success',
     claims: [{ statement: 'Exact claim 42', evidence: ['source:42'] }] } }] };
+  assert.equal(synthesisDossier(dossier).events[0].evidenceReport.outcome, 'success');
+  assert.equal(synthesisDossier({ ...dossier, events: [{ evidenceReport: { outcome: 'failed' } }] })
+    .events[0].evidenceReport.outcome, 'failed');
   const plan = { synthesisOnly: true, completedWorkerIds: ['w'], completedWorkerDossiers: [dossier] };
   const report = canonical.compile(plan);
   assert.equal(report.claims[0].statement, 'Exact claim 42');

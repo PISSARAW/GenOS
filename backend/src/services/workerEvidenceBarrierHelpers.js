@@ -97,7 +97,8 @@ function applySynthesisPlan(ctx) {
 function synthesisDossier(dossier) {
   return { workerId: dossier.workerId, events: (dossier.events || [])
     .filter((event) => event.evidenceReport)
-    .map((event) => ({ evidenceReport: { claims: event.evidenceReport.claims || [] } })) };
+    .map((event) => ({ evidenceReport: { outcome: event.evidenceReport.outcome || 'unknown',
+      claims: event.evidenceReport.claims || [] } })) };
 }
 
 function topologyWorkerResult(dossier) {
@@ -135,5 +136,5 @@ module.exports = {
   applySynthesisPlan, clearBarrier, emitDossiersAttached, emitHaltedOrFailed,
   emitPartialTerminal, emitSatisfiedTerminal, findFaultyWorkers, isUsablePartialDossier,
   loadDossiers, readContract, selectUsablePartialDossiers, setupBarrier,
-  stopWorkersQuietly, usableWorkerIdSet, workerIdList
+  stopWorkersQuietly, synthesisDossier, usableWorkerIdSet, workerIdList
 };
