@@ -1,12 +1,10 @@
 'use strict';
 
 /**
- * Transition Engine — applies a MorphogenesisPlan with host-provided compensation.
+ * Transition Engine — legacy in-memory helpers and a closed production gate.
  *
- * Lifecycle: VALIDATE → SNAPSHOT → PREPARE → SPAWN/REBIND → MIGRATE → VERIFY → COMMIT
- * On any failure: ROLLBACK to the pre-transition snapshot.
- *
- * Produces a MorphogenesisReceipt with full provenance.
+ * In-memory snapshots cannot restore workspaces, processes, leases or budgets.
+ * Production execution refuses before any action until that boundary is proven.
  */
 
 const crypto = require('crypto');
@@ -265,40 +263,14 @@ function buildReceipt(params) {
 }
 
 async function executeTransition(ctx) {
-  const { plan, collectiveState, db } = ctx;
+  const { plan } = ctx || {};
   const transitionId = `tx-${uuid().slice(0, 8)}`;
-  const actionsTaken = [];
-
-  const validation = validateAndCheckConflict({ plan, collectiveState, transitionId });
-  const errors = [...(validation.errors || []), ...adapterErrors(plan, ctx)];
-  if (!validation.valid || errors.length) {
-    return { ...buildReceipt({ transitionId, plan, preSnapshot: null, postSnapshot: null, actionsTaken: [], rollbackReceipt: null, committed: false }), errors };
-  }
-
-  const state = collectiveState || getState();
-  const preSnapshot = createStateSnapshot(state);
-  const morphCtx = {
-    ...ctx, db, parent: ctx.parent, transitionId, collectiveState: state
-  };
-  const compensations = [];
-  emitTransitionStart({ transitionId, plan });
-
-  try {
-    await executeActions({ plan, morphCtx, actionsTaken, compensations });
-    const migrationLog = migrateState({ fromState: state, toState: state, plan });
-    if (migrationLog.length) emitMigration({ transitionId, migrationLog });
-    verifyTransitionState({ plan, collectiveState: state, preSnapshot, actionsTaken });
-    const receipt = buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: createStateSnapshot(state), actionsTaken, rollbackReceipt: null, committed: true });
-    if (ctx.persistCommit) {
-      const commit = await ctx.persistCommit(receipt);
-      if (!commit?.id) throw new Error('durable morphogenesis commit was not created');
-      receipt.commitId = commit.id;
-    }
-    emit('system', 'MORPHOGENESIS_TRANSITION_COMMIT', 'COMMIT', `Transition ${transitionId} committed`, { transitionId, planId: plan.id }, 'info');
-    return receipt;
-  } catch (err) {
-    return handleRollback({ err, preSnapshot, transitionId, plan, actionsTaken, compensations, morphCtx });
-  }
+  const errors = validatePlan(plan);
+  const code = errors.length ? 'MORPHOGENESIS_PLAN_INVALID'
+    : 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE';
+  if (!errors.length) errors.push('Authenticated Rust authority and a restorable transition snapshot are required');
+  return { ...buildReceipt({ transitionId, plan, preSnapshot: null, postSnapshot: null,
+    actionsTaken: [], rollbackReceipt: null, committed: false }), code, errors };
 }
 
 function validateAndCheckConflict(input) {

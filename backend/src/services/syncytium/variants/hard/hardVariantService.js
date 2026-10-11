@@ -42,7 +42,7 @@ async function acquireFence(sessionId, request = {}, syncytium) {
   validateIdentity(request);
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
   const current = snapshot.shared.sharedFields[HARD_LEASES]?.[request.resourceId];
-  const now = time(request.now);
+  const now = Date.now();
   if (current?.expiresAt > now && current.holderId !== request.actorId) throw hardError('Hard resource is currently fenced by another actor.', 'SYNCYTIUM_HARD_FENCE_HELD');
   const ttlMs = leaseDuration(request.ttlMs);
   const lease = { resourceId: request.resourceId, holderId: request.actorId,
@@ -59,7 +59,7 @@ async function releaseFence(sessionId, request = {}, syncytium) {
   validateIdentity(request);
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
   const lease = snapshot.shared.sharedFields[HARD_LEASES]?.[request.resourceId];
-  const now = time(request.now);
+  const now = Date.now();
   assertLeaseOwner(lease, request, now);
   const released = { ...lease, released: true, expiresAt: now };
   return syncytium.applyTransaction(sessionId, {
@@ -76,7 +76,7 @@ async function runFenced(sessionId, request = {}, syncytium) {
   while (true) {
     const snapshot = await syncytium.snapshot(sessionId, request.options || {});
     const lease = snapshot.shared.sharedFields[HARD_LEASES]?.[request.resourceId];
-    assertLeaseOwner(lease, request, time(request.now));
+    assertLeaseOwner(lease, request, Date.now());
     try {
       const result = await runFencedValues({ syncytium, sessionId, request, ordered, snapshot });
       return { ...result, deterministicOrder: ordered.digest, fencingAttempts: attempts + 1 };
@@ -107,7 +107,7 @@ async function recoverFence(sessionId, request = {}, syncytium) {
   validateIdentity(request);
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
   const lease = snapshot.shared.sharedFields[HARD_LEASES]?.[request.resourceId];
-  const now = time(request.now);
+  const now = Date.now();
   assertRecoverable({ lease, request, snapshot, now });
   const recovered = { ...lease, recovered: true, recoveredBy: request.actorId, expiresAt: now };
   return syncytium.applyTransaction(sessionId, {
@@ -138,18 +138,13 @@ function assertLeaseOwner(lease, request, now) {
 
 function validateIdentity(request) {
   if (!request.actorId || !request.resourceId) throw hardError('Hard fence requires actorId and resourceId.');
+  if (Object.hasOwn(request, 'now')) throw hardError('Hard fence time is controlled by the runtime.');
 }
 
 function leaseDuration(value) {
   const ttlMs = value === undefined ? 30000 : value;
   if (!Number.isSafeInteger(ttlMs) || ttlMs < 1 || ttlMs > 3600000) throw hardError('Hard fence ttlMs must be between 1 ms and one hour.');
   return ttlMs;
-}
-
-function time(value) {
-  const now = value === undefined ? Date.now() : value;
-  if (!Number.isSafeInteger(now) || now < 0) throw hardError('Hard fence time must be a non-negative safe integer.');
-  return now;
 }
 
 function hardError(message, code = 'SYNCYTIUM_HARD_FENCE_INVALID') {

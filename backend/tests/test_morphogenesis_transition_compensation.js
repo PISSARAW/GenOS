@@ -26,13 +26,14 @@ async function main() {
     rollbackSpawnAgent: async (_action, context) => externalWorkers.delete(context.actionResult.detail.agentId),
   });
 
-  assert.equal(receipt.committed, false, 'a failed later action must reject the transition');
-  assert.equal(receipt.rollbackReceipt.rolledBack, true, 'memory and external compensation must both succeed');
-  assert.equal(receipt.rollbackReceipt.externalCompensated, true);
-  assert.equal(externalWorkers.has('temporary-worker'), false, 'the started worker must be compensated');
-  assert.equal(getState(), state, 'rollback preserves the shared state object identity');
-  assert.equal(state.agents.has('temporary-worker'), false, 'rollback restores collective membership in place');
-  console.log('morphogenesis rollback compensates external and in-memory effects: PASS');
+  assert.equal(receipt.committed, false);
+  assert.equal(receipt.code, 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE');
+  assert.deepEqual(receipt.actionsTaken, [], 'no worker action starts before authority preflight');
+  assert.equal(receipt.rollbackReceipt, null, 'no rollback is claimed when nothing ran');
+  assert.equal(externalWorkers.has('temporary-worker'), false);
+  assert.equal(getState(), state);
+  assert.equal(state.agents.has('temporary-worker'), false);
+  console.log('morphogenesis refuses before external worker effects: PASS');
 }
 
 function healthyClinicalDatabase() {

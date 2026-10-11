@@ -522,6 +522,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0425](0425-liaison-campagne-nominale-trinity-aux-scellages.md) | Lier la campagne nominale Trinity aux scellages durables | Accepté. | -- | -- |
 | [0426](0426-consentement-explicite-human-ai-syncytium.md) | Consentement explicite avant l'action Human–AI Syncytium | Accepté | 2026-10-11 | Syncytium, Human–AI, autorité humaine |
 | [0427](0427-recus-signes-hybrid-oracle-biocenose.md) | Reçu signé lié au claim pour Hybrid Oracle | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, promotion factuelle |
+| [0428](0428-chaine-de-transferts-relay-team-a-team.md) | Chaîne de transferts Relay Team A-Team | Accepté le 11 octobre 2026. | -- | -- |
+| [0429](0429-gates-trinity-lies-au-journal-de-comparaison.md) | Lier les gates Trinity au journal de comparaison | Accepté. | -- | -- |
+| [0430](0430-fermeture-transition-collective-sans-snapshot-restaurable.md) | Refuser la transition collective sans snapshot restaurable | accepté | 2026-10-11 | morphogenèse, transition collective, autorité |
+| [0431](0431-horloge-runtime-baux-syncytium.md) | Horloge du runtime pour les baux Syncytium | Accepté | 2026-10-11 | Syncytium, Hard, Human–AI, baux |
+| [0432](0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md) | Preuve par candidat et promotion unique dans Open-Ended Biome | Accepté le 11 octobre 2026. | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -31,6 +31,58 @@ function coded(message, code) {
   return Object.assign(new Error(message), { code });
 }
 
+function relayMemberId(member) {
+  return member?.memberId || member?.agentId || member?.workerId;
+}
+
+function relayHops(mission, members) {
+  if (members.length === 2 && mission.relayHandoffs === undefined) {
+    return [{ mission, members }];
+  }
+  const entries = mission.relayHandoffs;
+  if (!Array.isArray(entries) || entries.length !== members.length - 1) {
+    throw coded('Relay chain requires one explicit handoff per adjacent member pair.',
+      'ATEAM_RELAY_CHAIN_INCOMPLETE');
+  }
+  return entries.map((entry, index) => {
+    const pair = members.slice(index, index + 2);
+    if (entry?.previousOwner !== relayMemberId(pair[0])
+      || entry?.nextOwner !== relayMemberId(pair[1])
+      || entry?.handoffSequence !== index + 1) {
+      throw coded('Relay handoffs must follow the member order and sequence.',
+        'ATEAM_RELAY_CHAIN_INVALID');
+    }
+    return { mission: entry, members: pair };
+  });
+}
+
+function executeRelayHop(runtime, hop, previousDigest) {
+  if (previousDigest && hop.mission.handoffState?.previousHandoffDigest !== previousDigest) {
+    throw coded('Relay handoff must reference the previous accepted digest.',
+      'ATEAM_RELAY_CHAIN_LINK_INVALID');
+  }
+  const policy = relayTeamFullPotential(hop.mission, hop.members);
+  runtime.recordEvidence('relay_policy', policy);
+  const handoff = policy.cryptographic_versioned_handoff;
+  runtime.recordEvidence('handoff_created', {
+    version: handoff.version, sequence: handoff.sequence, digest: handoff.digest,
+    previousOwner: handoff.payload.previousOwner, nextOwner: handoff.payload.nextOwner
+  });
+  const ack = hop.mission.handoffAcknowledgment;
+  if (!ack) throw coded('Relay handoff requires acknowledgment', 'ATEAM_RELAY_ACK_MISSING');
+  const acknowledged = acknowledgeRelay({ ...handoff.payload, digest: ack.digest,
+    receiverId: ack.receiverId, accepted: ack.accepted, reason: ack.reason });
+  runtime.recordDecision('relay_handoff', acknowledged);
+  if (acknowledged.status !== 'ACCEPTED') {
+    runtime.recordEvidence('handoff_rolled_back', {
+      ownerId: acknowledged.ownerId, reason: acknowledged.reason
+    });
+    throw coded(`Relay handoff rolled back: ${acknowledged.reason}`, 'ATEAM_RELAY_ROLLED_BACK');
+  }
+  runtime.recordEvidence('ownership_lease', policy.state_ownership_lease);
+  return { handoff: acknowledged, lease: policy.state_ownership_lease };
+}
+
 module.exports = {
   async executeMultiteam() {
     this.recordStep('multiteam_start', {});
@@ -101,41 +153,14 @@ module.exports = {
 
   async executeRelayTeam() {
     this.recordStep('relay_team_start', {});
-
-    const relayPolicy = relayTeamFullPotential(this.mission, this.members);
-    this.recordEvidence('relay_policy', relayPolicy);
-
-    const handoff = relayPolicy.cryptographic_versioned_handoff;
-    this.recordEvidence('handoff_created', {
-      version: handoff.version,
-      sequence: handoff.sequence,
-      digest: handoff.digest,
-      previousOwner: handoff.payload.previousOwner,
-      nextOwner: handoff.payload.nextOwner
-    });
-
-    const ack = this.mission.handoffAcknowledgment;
-    if (!ack) {
-      throw coded('Relay handoff requires acknowledgment', 'ATEAM_RELAY_ACK_MISSING');
+    const completed = [];
+    for (const hop of relayHops(this.mission, this.members)) {
+      const previousDigest = completed.at(-1)?.handoff.digest;
+      completed.push(executeRelayHop(this, hop, previousDigest));
     }
-
-    const acknowledged = acknowledgeRelay({
-      ...handoff.payload,
-      digest: ack.digest,
-      receiverId: ack.receiverId,
-      accepted: ack.accepted,
-      reason: ack.reason
-    });
-
-    this.recordDecision('relay_handoff', acknowledged);
-
-    if (acknowledged.status !== 'ACCEPTED') {
-      this.recordEvidence('handoff_rolled_back', { ownerId: acknowledged.ownerId, reason: acknowledged.reason });
-      throw coded(`Relay handoff rolled back: ${acknowledged.reason}`, 'ATEAM_RELAY_ROLLED_BACK');
-    }
-
-    this.recordEvidence('ownership_lease', relayPolicy.state_ownership_lease);
-    this.state.result = { handoff: acknowledged, lease: relayPolicy.state_ownership_lease };
+    const last = completed.at(-1);
+    this.state.result = { handoff: last.handoff, handoffs: completed.map((entry) => entry.handoff),
+      lease: last.lease, finalOwnerId: last.handoff.ownerId };
     return this.state;
   }
 };

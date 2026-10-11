@@ -191,6 +191,30 @@ de missions représentatives pour les 95 variants canoniques.
   prouve pas la vérité de l'oracle externe
   ([ADR 0427](../../adr/0427-recus-signes-hybrid-oracle-biocenose.md)).
 
+### Sixième vague — 2026-10-11
+
+- A-Team Relay Team vérifie chaque transfert adjacent d'une équipe de plus de
+  deux membres, sa séquence et le chaînage des digests. Les accusés restent
+  fournis par l'appelant et ne prouvent pas l'exécution des workers
+  ([ADR 0428](../../adr/0428-chaine-de-transferts-relay-team-a-team.md)).
+- Trinity recalcule les gates du variant depuis le journal durable de
+  comparaison et vérifie son événement terminal ainsi que le monde promu. Les
+  douze missions réelles restent à qualifier
+  ([ADR 0429](../../adr/0429-gates-trinity-lies-au-journal-de-comparaison.md)).
+- Morphogenèse ferme l'ancienne voie de transition collective avant tout effet
+  : l'autorité authentifiée et le snapshot restaurable n'y existent pas. Une
+  réévaluation porte un refus, pas un faux rollback
+  ([ADR 0430](../../adr/0430-fermeture-transition-collective-sans-snapshot-restaurable.md)).
+- Syncytium Hard et Human–AI calculent les échéances de bail à partir de
+  l'horloge du runtime et refusent une heure fournie par l'appelant. Cela ne
+  prouve ni la synchronisation inter-hôtes ni un effet externe
+  ([ADR 0431](../../adr/0431-horloge-runtime-baux-syncytium.md)).
+- Biome Open-Ended exige des références de preuve propres au candidat et à
+  chaque réévaluation ; une niche déjà connue n'est pas recomptée comme
+  promotion, y compris après reprise SQLite. Les mesures de l'hôte restent à
+  vérifier indépendamment
+  ([ADR 0432](../../adr/0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

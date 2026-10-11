@@ -13,6 +13,7 @@ async function main() {
   });
 
   assert.equal(receipt.committed, false, 'a descriptor-only spawn cannot be committed');
+  assert.equal(receipt.code, 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE');
   assert.equal(state.agents.has('unstarted-worker'), false, 'failed spawn cannot enter the active collective');
   assert.deepEqual(new Set(state.agents.keys()), before, 'failed spawn leaves collective membership unchanged');
   console.log('morphogenesis spawn requires a gated runtime adapter: PASS');

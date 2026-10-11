@@ -959,7 +959,9 @@ Cette section distingue les responsabilités de l'architecture cible des capacit
 Les variants disposent désormais de services métier dédiés, raccordés à la façade Syncytium :
 
 - **Hard** : leases avec fencing tokens monotones et transactions sérialisables vérifiant
-  le détenteur, l'expiration et la version d'état.
+  le détenteur, l'expiration et la version d'état. L'heure de bail vient du
+  runtime ; une heure fournie par l'appelant est refusée
+  ([ADR 0431](../../adr/0431-horloge-runtime-baux-syncytium.md)).
 - **Soft** : réconciliation des réplicas, routage sélectif, mesure de fraîcheur et bundles
   d'anti-entropie compressés avec taille et empreinte bornées.
 - **Document** : sections séquencées, blocs typés, marques de texte, attribution,
@@ -980,7 +982,8 @@ Les variants disposent désormais de services métier dédiés, raccordés à la
   approbation liée au contenu et à l'agent, puis édition compensatoire. Le
   consentement doit être explicite, courant et de portée `session` pour l'agent
   qui enregistre l'action ([ADR 0426](../../adr/0426-consentement-explicite-human-ai-syncytium.md)). Le reçu
-  d'approbation consommée ne prouve pas un effet externe.
+  d'approbation consommée ne prouve pas un effet externe. Ses baux utilisent
+  aussi l'horloge du runtime ([ADR 0431](../../adr/0431-horloge-runtime-baux-syncytium.md)).
 
 Le blackboard retourne l'événement après son ajout append-only. Les verrous de la variante
 Code appliquent leurs mises à jour en une transaction sérialisable via la façade Syncytium.

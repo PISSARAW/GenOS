@@ -19,7 +19,8 @@ async function main() {
     rollbackSpawnAgent: async () => {},
   });
   assert.equal(failed.committed, false);
-  assert.equal(failed.actionsTaken[0].status, 'failed');
+  assert.equal(failed.code, 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE');
+  assert.deepEqual(failed.actionsTaken, []);
 
   const state = getState();
   const verification = verifyTransition({

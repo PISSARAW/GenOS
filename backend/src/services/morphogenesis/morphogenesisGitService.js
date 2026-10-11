@@ -1,12 +1,11 @@
 'use strict';
 
 /**
- * Morphogenesis Git Integration — auto-commit on topology change.
+ * Morphogenesis Git Integration — legacy versioning bridge.
  *
- * Every topology transition (spawn, retire, rebind) produces a commit in
- * agent_git_commits with parent, changes, reason, evidence. Bridges
- * transitionEngineService → agentGitService so every morphogenesis is
- * versioned as a Git commit.
+ * Morphology commits remain closed until a governed transition proves
+ * authority and restoration. Fossil and branch operations retain their
+ * separate AgentGit contracts.
  */
 
 const crypto = require('crypto');
@@ -112,81 +111,17 @@ function buildCommitContext(plan, receipt, collectiveState) {
 }
 
 /**
- * Create an AgentGit commit mirroring the morphogenesis result.
+ * Refuse direct morphology commits until a governed transition proves its authority.
  */
 async function commitTransition(db, ctx) {
-  const { agentId, workspaceId, plan, receipt, req, refName } = ctx;
-  const { message, reason, evidence, changes } = buildCommitContext(plan, receipt, ctx.collectiveState);
-
-  const state = await collectState(db, req, agentId);
-  if (!state) return null;
-
-  const parentRef = await db.get(
-    'SELECT object_id FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?',
-    agentId, refName
-  );
-  const parentCommitId = parentRef?.object_id || null;
-
-  const commitReq = {
-    user: { username: 'morphogenesis-runtime' },
-    tenant: req?.tenant,
-    body: {},
-  };
-
-  const result = await createCommit(commitReq, {
-    agentId,
-    refName,
-    state,
-    metadata: {
-      source: 'morphogenesis-runtime',
-      transitionId: receipt.transitionId,
-      planId: plan.id,
-      committed: receipt.committed,
-      counterfactual: receipt.counterfactualRef || null,
-    },
-    parentCommitId,
-  });
-
-  // Mirror into agent_git_commits for fast lineage queries.
-  const treeHash = firstHash(result, ['treeHash', 'tree_hash', 'stateHash', 'state_hash']);
-  const commitHash = firstHash(result, ['commitHash', 'commit_hash', 'stateHash', 'state_hash']);
-  const stateHash = firstHash(result, ['stateHash', 'state_hash']);
-  await db.run(
-    `INSERT OR REPLACE INTO agent_git_commits
-     (commit_id, agent_id, workspace_id, parent_commit_id, tree_hash, commit_hash,
-      state_hash, message, reason, evidence_json, changes_json, committed_by, committed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    result.id,
-    agentId,
-    workspaceId || state.agent?.workspace_id || null,
-    parentCommitId,
-    treeHash,
-    commitHash,
-    stateHash,
-    message,
-    reason,
-    JSON.stringify(evidence),
-    JSON.stringify(changes),
-    'morphogenesis-runtime',
-    new Date().toISOString()
-  );
-
-  // Update ref to point at new commit
-  await updateRef({
-    db,
-    req: commitReq,
-    agentId,
-    refName,
-    objectId: result.id,
-    options: { action: 'morphogenesis-commit' },
-  });
-
-  return result;
+  const error = new Error('Authenticated authority and a restorable transition snapshot are required');
+  error.code = 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE';
+  throw error;
 }
 
 /**
- * Execute a morphogenesis transition AND version it as a Git commit.
- * Wraps transitionEngineService.executeTransition.
+ * Request a morphology transition through the closed production gate.
+ * Versioning can run only after that gate has a verified authority chain.
  */
 async function executeVersionedTransition(ctx) {
   const { plan, collectiveState, db, req } = ctx;

@@ -141,10 +141,11 @@ class VariantExecutionRuntime {
       return this.mission.requiredCapabilities && this.mission.requiredCapabilities.length > 0;
     }
     if (precondition === 'sequential_execution') {
-      return this.mission.handoffSequence && this.mission.handoffSummary;
+      return Boolean(this.mission.handoffSequence && this.mission.handoffSummary)
+        || Array.isArray(this.mission.relayHandoffs);
     }
     if (precondition === 'single_context_holder') {
-      return this.members.length === 2;
+      return this.members.length >= 2;
     }
     return true;
   }
