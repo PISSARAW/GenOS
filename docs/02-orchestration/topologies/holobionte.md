@@ -1090,10 +1090,14 @@ Les douze variants persistants, les workflows bornés et leurs reçus restent di
 
 Pour `tool`, un refus est journalisé avant l'appel de l'exécuteur; une exception
 pendant l'appel porte `UNKNOWN_EFFECT`, sans prétendre annuler l'action externe.
+Le bail de 30 secondes est immuable et son échéance est vérifiée de nouveau
+après la relecture asynchrone du contrat, juste avant l'appel. Une expiration
+refuse l'invocation sans appeler l'exécuteur.
 Une sortie exécutée mais rejetée par le vérificateur indépendant est journalisée
 `UNVERIFIED`.
 Le reçu d'une exécution acceptée contient l'empreinte du contrat et sa révision.
-Voir [ADR 0420](../../adr/0420-frontiere-contrat-outil-holobionte.md).
+Voir [ADR 0420](../../adr/0420-frontiere-contrat-outil-holobionte.md) et
+[ADR 0440](../../adr/0440-bail-outil-immuable-holobionte.md).
 
 Les services couvrent transmission verticale, horizontale, mixte et procédurale, succession, résilience et impact keystone. Les adaptateurs A-Team, daemon résident, Rhizome, Syncytium et Trinity ont des tests dédiés. Le dispatch biologique historique conserve le parent host_orchestrator et les trois workers symbiotiques ; un plan de rôles n’est pas une preuve de contribution exécutée.
 

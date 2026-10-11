@@ -34,6 +34,7 @@ function assess(input) {
   const decision = parse(experiment?.decision_json);
   const initial = initialWorlds(variant, worlds);
   const reasons = [...identityFailures(input), ...worldFailures(variant, initial, experiment),
+    ...initialReportFailures(initial, input.initialProof, input.comparisonProof),
     ...transitionFailures(experiment, input.transitions),
     ...gateFailures(variant, decision), ...comparisonFailures(input.comparisonProof, decision),
     ...promotionFailures(experiment, decision),
@@ -74,6 +75,25 @@ function worldFailures(variant, initial, experiment) {
   const roots = initial.map((world) => workspaceRoot(world.workspace_root));
   if (roots.some((root) => !root) || new Set(roots).size !== expected) failures.push('isolated_worlds_not_observed');
   return failures;
+}
+
+function initialReportFailures(worlds, initialProof, comparisonProof) {
+  if (initialProof?.status !== 'verified') return ['initial_reports_journal_not_verified'];
+  if (!initialProof.inputHash || initialProof.inputHash !== comparisonProof?.inputHash) {
+    return ['initial_reports_comparison_mismatch'];
+  }
+  const reports = initialProof.reports;
+  if (!Array.isArray(reports) || reports.length !== worlds.length) return ['initial_reports_worlds_mismatch'];
+  const byNumber = new Map(reports.map((item) => [item.worldNumber, item]));
+  if (byNumber.size !== worlds.length || worlds.some((world) => !matchesInitialReport(world, byNumber.get(world.world_number)))) {
+    return ['initial_reports_worlds_mismatch'];
+  }
+  return [];
+}
+
+function matchesInitialReport(world, report) {
+  return report?.agentId === world.agent_id && report?.report?.outcome === 'success'
+    && !report.report.failure;
 }
 
 function workspaceRoot(value) {

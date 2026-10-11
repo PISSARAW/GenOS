@@ -8,6 +8,7 @@ const { migrateHolobiontVariantEvents } = require('../src/db/migrations/migrateH
 const { migrateHolobiontContracts } = require('../src/db/migrations/migrateHolobiontContracts');
 const store = require('../src/services/holobionte/holobiontStore');
 const controller = require('../src/services/holobionte/variants/variantRuntimeController');
+const boundary = require('../src/services/holobionte/variants/toolOperationBoundary');
 
 const manifest = { name: 'calculator', version: '1', permissions: ['compute'],
   inputSchema: { type: 'object', properties: { a: { type: 'number' } }, required: ['a'], additionalProperties: false },
@@ -63,6 +64,21 @@ async function run() {
     assert.equal(accepted.receipt.authorityProof.contractRevision, 1);
 
     session = await store.getSession(db, opened.holobiontId);
+    const authorized = await boundary.authorize(db, { session, state: session.variantState,
+      runtimeInput: invocation(session, calls).runtimeInput });
+    assert.equal(authorized.allowed, true);
+    assert.equal(Object.isFrozen(authorized.runtimeInput.toolLease), true);
+    assert.throws(() => { authorized.runtimeInput.toolLease.expiresAt = '2099-01-01T00:00:00.000Z'; }, TypeError);
+    const beforeExpiredCall = calls.count;
+    const realNow = Date.now;
+    try {
+      Date.now = () => Date.parse(authorized.runtimeInput.toolLease.expiresAt) + 1;
+      assert.equal(authorized.runtimeInput.verifyLease(authorized.runtimeInput.toolLease), false);
+      await assert.rejects(() => authorized.runtimeInput.execute({ a: 2 }),
+        (error) => error.code === 'HOLOBIONT_TOOL_LEASE_EXPIRED');
+    } finally { Date.now = realNow; }
+    assert.equal(calls.count, beforeExpiredCall);
+
     const failing = invocation(session, calls);
     failing.runtimeInput.execute = async () => { calls.count += 1; throw new Error('remote outcome unknown'); };
     await assert.rejects(() => controller.evaluatePersistentVariant(db, failing), /remote outcome unknown/);

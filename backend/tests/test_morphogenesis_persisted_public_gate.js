@@ -79,17 +79,20 @@ async function main() {
       assert.equal(real.proposalCount, 1);
       assert.equal(real.committed, false);
     }
-    await db.run('UPDATE morphogenesis_read_only_proposals SET proposals_json = ? WHERE id = ?',
-      '[{"action":"forged"}]', result.kernelReadOnly.proposalRecordId);
-    assert.equal(await gate.readPersistedProposals(db, snapshotRef,
-      result.kernelReadOnly.proposalRecordId), null);
-    assert.equal(await readReceipt(), null);
+    await assert.rejects(db.run('UPDATE morphogenesis_read_only_proposals SET proposals_json = ? WHERE id = ?',
+      '[{"action":"forged"}]', result.kernelReadOnly.proposalRecordId), /immutable/);
+    await assert.rejects(db.run('DELETE FROM morphogenesis_read_only_proposals WHERE id = ?',
+      result.kernelReadOnly.proposalRecordId), /immutable/);
+    assert.equal((await readReceipt()).decision, 'REJECTED');
     const mismatched = await gate.adjudicatePersistedOutcome({ db, missionId: 'other',
       morphology, snapshotRef, outcome: input.outcome });
     assert.equal(mismatched.reason, 'SNAPSHOT_MISSING_OR_MISSION_MISMATCH');
-    await db.run('UPDATE morphology_graph_versions SET graph_json = ? WHERE graph_id = ?', '{}', snapshotRef.graphId);
+    await assert.rejects(db.run('UPDATE morphology_graph_versions SET graph_json = ? WHERE graph_id = ?',
+      '{}', snapshotRef.graphId), /immutable/);
+    await assert.rejects(db.run('DELETE FROM morphology_graph_versions WHERE graph_id = ?',
+      snapshotRef.graphId), /immutable/);
     const stale = await gate.adjudicatePersistedOutcome({ db, missionId: 'mission-1',
-      morphology, snapshotRef, outcome: input.outcome });
+      morphology, snapshotRef: { ...snapshotRef, snapshotSha256: '0'.repeat(64) }, outcome: input.outcome });
     assert.equal(stale.reason, 'SNAPSHOT_STALE_OR_MISMATCHED');
     console.log('Morphogenesis persisted public read-only gate: PASS');
   } finally {

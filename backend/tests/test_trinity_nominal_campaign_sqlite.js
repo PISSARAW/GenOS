@@ -36,6 +36,7 @@ async function run() {
     assert.ok(!result.reasons.includes('isolated_worlds_not_observed'));
     assert.ok(result.reasons.includes('promotion_trace_incomplete'));
     assert.ok(result.reasons.includes('comparison_journal_not_verified'));
+    assert.ok(result.reasons.includes('initial_reports_journal_not_verified'));
     await db.exec('CREATE TABLE trinity_runtime_journal (mission_id TEXT, stage TEXT, input_hash TEXT, value_json TEXT)');
     await db.exec('CREATE TABLE trinity_trace_events (mission_id TEXT, event_id TEXT, stage_id TEXT, stage TEXT, status TEXT, event_hash TEXT, event_json TEXT)');
     const value = { outcome: 'PROMOTE_WORLD', selectedWorld: 1,
@@ -78,11 +79,18 @@ async function run() {
 async function realComparisonRoundTrip() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   try {
-    await journal.phase({ db, missionId: 'real-comparison', configuration: { variant: 'adaptive' } },
-      'comparison', async () => ({ outcome: 'PROMOTE_WORLD', selectedWorld: 1, comparativeAnalysis: {
-        adaptiveBudgetExecution: { status: 'executed' } } }));
+    const input = { missionId: 'real-comparison', variant: 'adaptive' };
+    const reports = [1, 2, 3].map((number) => ({ worldNumber: number, agentId: `world-${number}`,
+      report: { outcome: 'success' } }));
+    await journal.resumeComparison({ db, input }, reports, async (initial) => ({
+      outcome: 'PROMOTE_WORLD', selectedWorld: 1, initial,
+      comparativeAnalysis: { adaptiveBudgetExecution: { status: 'executed' } } }));
     const observed = await comparisonJournal.read(db, 'real-comparison');
+    const initial = await comparisonJournal.readInitial(db, 'real-comparison');
     assert.equal(observed.status, 'verified');
+    assert.equal(initial.status, 'verified');
+    assert.equal(initial.inputHash, observed.inputHash);
+    assert.deepEqual(initial.reports, reports);
     assert.equal(observed.comparison.comparativeAnalysis.adaptiveBudgetExecution.status, 'executed');
   } finally {
     await db.close();
