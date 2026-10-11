@@ -32,6 +32,7 @@ async function migrateAutobiographicalMemory(db) {
 
   await db.exec(`CREATE TABLE IF NOT EXISTS autobiographical_lessons (
     id TEXT PRIMARY KEY,
+    agent_id TEXT,
     scope TEXT NOT NULL,
     organization_id TEXT,
     project_id TEXT,
@@ -50,10 +51,12 @@ async function migrateAutobiographicalMemory(db) {
   )`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_autobio_lessons_scope ON autobiographical_lessons(scope, confidence)`);
   const lessonColumns = new Set((await db.all('PRAGMA table_info(autobiographical_lessons)')).map((column) => column.name));
+  if (!lessonColumns.has('agent_id')) await db.exec('ALTER TABLE autobiographical_lessons ADD COLUMN agent_id TEXT');
   if (!lessonColumns.has('organization_id')) await db.exec('ALTER TABLE autobiographical_lessons ADD COLUMN organization_id TEXT');
   if (!lessonColumns.has('project_id')) await db.exec('ALTER TABLE autobiographical_lessons ADD COLUMN project_id TEXT');
   if (!lessonColumns.has('active')) await db.exec('ALTER TABLE autobiographical_lessons ADD COLUMN active INTEGER NOT NULL DEFAULT 1');
   await db.exec('CREATE INDEX IF NOT EXISTS idx_autobio_lessons_tenant ON autobiographical_lessons(organization_id, project_id, active, confidence)');
+  await db.exec('CREATE INDEX IF NOT EXISTS idx_autobio_lessons_agent ON autobiographical_lessons(agent_id, organization_id, project_id, active, confidence)');
 
   await db.exec(`CREATE TABLE IF NOT EXISTS agent_self_models (
     agent_id TEXT PRIMARY KEY,

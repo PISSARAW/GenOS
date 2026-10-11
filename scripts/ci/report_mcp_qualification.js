@@ -19,15 +19,14 @@ function refusalIsDeclared(name) {
   return fs.readFileSync(path.join(ROOT, refusal.source), 'utf8').includes(refusal.marker);
 }
 
-function offCatalogRestore() {
+function offCatalogTransfer() {
   const source = fs.readFileSync(path.join(ROOT,
     'backend/src/services/mcpBioTools/handlers/consciousnessTransfer.js'), 'utf8');
-  const probe = 'backend/tests/test_mcp_agent_state_restore.js';
+  const probe = 'backend/tests/test_consciousness_transfer.js';
   return { name: 'genos_temporal_consciousness_transfer', publicMcpTool: false,
-    declaredAction: source.includes("'restore_snapshot'") ? 'restore_snapshot' : null,
-    classification: source.includes('CLASSIFICATION: agent_state_restore_only')
-      ? 'agent_state_restore_only' : 'unclassified',
-    domainOutcome: 'not_assessed_by_static_inventory',
+    declaredAction: source.includes("action: 'execute_transfer'") ? 'execute_transfer' : null,
+    classification: source.includes('CLASSIFICATION: reference_only') ? 'reference_only' : 'unclassified',
+    domainOutcome: source.includes("status: 'not_implemented'") ? 'not_implemented' : 'not_assessed',
     backendProbe: fs.existsSync(path.join(ROOT, probe)) ? probe : null };
 }
 
@@ -53,7 +52,7 @@ function audit() {
       explicitNativeRefusals: tools.filter((tool) => tool.nativeStatus === 'explicit_refusal').length },
     rustUnavailable: rust.unavailableInRust,
     tools,
-    offCatalog: [offCatalogRestore()]
+    offCatalog: [offCatalogTransfer()]
   };
 }
 

@@ -6,17 +6,18 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const fleet = require('../src/services/agentFleetWorkers');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const kinds = require('../src/services/agents/workerKindService');
-const { hasNativeMethod } = require('../src/services/agents/workerExecutorRegistry');
 const contracts = require('../src/services/strategyContractService');
 const { validateWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
 const { assertRuntimeContract, assertWorkerToolAllowed } = require('../src/services/agents/workerContractEnforcement');
 const { extractEvidenceReport } = require('../src/services/agentEvidenceService');
 const { workerComplianceScenario } = require('./fixtures/workerComplianceScenarios');
-const { readExecutionRun, inspectOracle, oracleAccepted, missionError,
+const { hasNativeMethod } = require('../src/services/agents/workerExecutorRegistry');
+const { readExecutionRun, inspectOracle, oracleAccepted, missionError, wasRuntimeStarted,
   successfulOutcome, saveResult } = require('./workerComplianceEvidence.cjs');
 const perceptionProbe = process.env.GENOS_COMPLIANCE_PERCEPTION === '1'
   ? require('./workerPerceptionProbe.cjs')
-  : { INPUT: null, prepare() {}, async run() { return null; }, async settle() { return true; } };
+  : { INPUT: null, prepare() {}, async executeAndProbe(context, startMission) {
+    return { execution: await startMission(context), perception: null }; } };
 
 function inside(root, target) {
   const relative = path.relative(path.resolve(root), path.resolve(target));
@@ -57,20 +58,27 @@ async function missionFor(context) {
   const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`,
     hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local',
     specialtyNiche: 'scheduling', nicheDomain: 'scheduling',
-    hostContractId: 'compliance-host', hostCapabilities: ['host_bound'],
-    methodContract: complianceMethod(kind) };
+    methodContract: complianceMethod(kind, context.rootWorkspace),
+    ...(process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1' && kind === 'symbiotic_worker'
+      ? { hostContractId: 'host-native', hostCapabilities: ['deterministic_procedure'] }
+      : { hostContractId: 'compliance-host', hostCapabilities: ['host_bound'] }) };
   const created = await fleet.createAutonomousWorkers(db, { id: parentId, agent_type: 'GenOS' }, {
     plan: { strategyContract: { primary: strategy.contract.selected_strategy.primary }, tokenPolicy: { total: 5000, workerShare: 0.6, orchestratorReserve: 0.4, allocation: 'fixed' }, dispatchWorkers: [assignment] },
-    mission: { prompt: `${scenario.prompt} Fixture data: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
+    mission: { prompt: `${scenario.prompt} Fixture data: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT,
+      recoveryLease: kind === 'recovery_worker' ? { action: 'restore_checkpoint', path: 'state.txt' } : null,
+      executionPolicy: { allowFileEdits: kind === 'recovery_worker' }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
   });
   return created[0];
 }
 
-function complianceMethod(kind) {
+function complianceMethod(kind, rootWorkspace) {
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1') {
+    return require('./helpers/nativeWorkerFixtures').fixtures(rootWorkspace)[kind];
+  }
   const local = localComplianceMethod(kind);
   if (local) return local;
-  if (kind === 'procedural_executor') return { version: 1, methodId: 'subset_sum', parameters: {
-    values: [3, 5, 7], target: 10
+  if (kind === 'procedural_executor') return { version: 1, methodId: 'lpt', parameters: {
+    jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2
   } };
   if (kind === 'formal_worker' && process.env.GENOS_COMPLIANCE_LEAN_VERSION) {
     return { version: 1, methodId: 'formal_proof', parameters: {
@@ -85,7 +93,6 @@ function complianceMethod(kind) {
   }
   return additionalComplianceMethod(kind);
 }
-
 function localComplianceMethod(kind) {
   if (kind === 'bounded_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_BOUNDED === '1') {
     return { version: 1, methodId: 'scoped_procedure', parameters: {
@@ -154,21 +161,36 @@ async function validateMission(context) {
   const artifactValidationError = validateArtifactForMission(report, worker.agentId, metadata.workerContract);
   const artifactValidated = Boolean(report) && artifactValidationError === null;
   const expected = kinds.kindDefinition(kind).artifact;
-  const artifact = report?.workerArtifact?.type || null;
-  const correctReference = correctMissionReference(kind, report, scenario);
+  const artifact = report?.workerArtifact?.type ?? null;
+  const correctReference = hasCorrectReference(kind, report, scenario);
   const refusalsValidated = validateExpectedRefusals(kind, metadata.workerContract);
-  const persistedContract = metadata.workerKind === kind && metadata.workerContract.identity.workerKind === kind;
+  const persistedContract = metadata.workerKind === kind
+    && metadata.workerContract.identity.workerKind === kind;
   const parentBound = metadata.workerContract.identity.parentId === parentId;
   const runtimeStarted = await wasRuntimeStarted(db, worker.agentId, execution);
   const executionRunBound = Boolean(execution?.executionRun?.id)
     && eventPayload.executionRunId === execution.executionRun.id;
   const nativeExecution = execution?.deterministic === true;
   const passed = successfulOutcome({ run, eventType, report, artifact, expected, artifactValidated, nativeExecution,
-    oracleAccepted: acceptedOracle,
-    correctReference, refusalsValidated, persistedContract, parentBound, runtimeStarted,
-    executionRunBound });
-  const errorCode = executionErrorCode(execution);
-  return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, executionRunBound, status: run?.status || agent.status, agentStatus: agent.status, terminalEvent: eventType, outcome: report?.outcome || null, expectedArtifact: expected, artifact, artifactValidated, nativeExecution, oracleAccepted: acceptedOracle, oracle, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, errorCode, error: missionError({ passed, artifactValidationError, execution, report, eventPayload }) };
+    oracleAccepted: acceptedOracle, correctReference, refusalsValidated, persistedContract, parentBound,
+    runtimeStarted, executionRunBound });
+  const errorCode = execution?.errorCode || execution?.code;
+  return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId,
+    persistedContract, parentBound, runtimeStarted, executionRunBound,
+    status: run?.status || agent.status, agentStatus: agent.status, terminalEvent: eventType,
+    outcome: report?.outcome || null, expectedArtifact: expected, artifact, artifactValidated,
+    nativeExecution, oracleAccepted: acceptedOracle, oracle, sourceEvidenceValidated: correctReference,
+    refusalsValidated, stageTimings: eventPayload.stageTimings || {},
+    artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, errorCode,
+    error: missionError({ passed, artifactValidationError, execution, report, eventPayload }) };
+}
+
+function hasCorrectReference(kind, report, scenario) {
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL !== '1') {
+    return correctMissionReference(kind, report, scenario);
+  }
+  const refs = report?.workerArtifact?.provenance?.sourceRefs;
+  return Array.isArray(refs) && refs.length > 0;
 }
 
 function correctMissionReference(kind, report, scenario) {
@@ -259,40 +281,15 @@ function validateArtifactForMission(report, workerId, workerContract) {
 
 async function readWorkerOutcome(db, workerId) {
   const agent = await db.get('SELECT status FROM agents WHERE id = ?', workerId);
-  const row = await db.get("SELECT event_type,payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','AGENT_COMPLETED','AGENT_FAILED','AGENT_HALTED') ORDER BY id DESC LIMIT 1", workerId);
-  const event = row ? JSON.parse(row.payload_json) : null;
-  return { agent, report: event ? extractEvidenceReport(event) : null,
-    eventPayload: event?.payload || event || {}, eventType: row?.event_type || null };
+  const evidence = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1", workerId);
+  const terminal = await db.get("SELECT event_type,payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('AGENT_COMPLETED','AGENT_FAILED','AGENT_HALTED') ORDER BY id DESC LIMIT 1", workerId);
+  const event = terminal ? JSON.parse(terminal.payload_json) : null;
+  return { agent, report: evidence ? extractEvidenceReport(JSON.parse(evidence.payload_json)) : null,
+    eventPayload: event?.payload || event || {}, eventType: terminal?.event_type || null };
 }
 
 function hasFixtureReference(report, sourceRef) {
   return includesReference(report?.claims, sourceRef) || includesReference(report?.workerArtifact, sourceRef);
-}
-
-async function wasRuntimeStarted(db, workerId, execution) {
-  if (execution?.started === true) return true;
-  const nativeStart = await db.get("SELECT 1 AS started FROM telemetry_events WHERE agent_id = ? AND event_type = 'DETERMINISTIC_WORKER_STARTED' LIMIT 1", workerId);
-  return nativeStart?.started === 1;
-}
-
-async function executeAndProbe(context) {
-  const native = Boolean(perceptionProbe.INPUT)
-    && ['procedural_executor', 'formal_worker'].includes(context.kind);
-  const pendingExecution = executeWorkerMission(context);
-  if (native) {
-    const perception = await perceptionProbe.run(context, null);
-    const execution = await pendingExecution;
-    return { execution, perception: bindPerception(perception, execution) };
-  }
-  const execution = await pendingExecution;
-  const perception = await perceptionProbe.run(context, execution);
-  return { execution, perception: bindPerception(perception, execution) };
-}
-
-function bindPerception(perception, execution) {
-  if (!perception) return null;
-  return { ...perception, executionRunBound: Boolean(execution?.executionRun?.id)
-    && perception.observedRunId === execution.executionRun.id };
 }
 
 async function runOne({ runId, kind }) {
@@ -305,17 +302,18 @@ async function runOne({ runId, kind }) {
   const workspaceId = `compliance-workspace-${runId}-${kind}`;
   const parentId = `compliance-parent-${runId}-${kind}`;
   const db = await getDatabase(process.env.GENOS_DB_PATH);
+  const telemetry = require('../src/services/telemetryObserver');
+  const autobiography = require('../src/services/autobiographicalMemory/captureService');
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1') autobiography.attachAutobiographicalCapture(telemetry);
   let context = null;
   let execution = null;
   try {
     context = await createWorkerContext({ db, parentId, workspaceId, rootWorkspace, kind, model, runId });
-    perceptionProbe.prepare(context);
-    const observed = await executeAndProbe(context);
+    const observed = await require('./helpers/workerComplianceRepetitions.cjs').runOrObserve({
+      context, telemetry, autobiography, executeWorkerMission, perceptionProbe });
     execution = observed.execution;
-    const perception = observed.perception;
-    if (perception) perception.runtimeSettled = await perceptionProbe.settle(context.worker.agentId);
     const result = await validateMission({ ...context, db, execution });
-    result.perception = perception;
+    result.perception = observed.perception;
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!perceptionProbe.INPUT && !result.passed) process.exitCode = 1;
@@ -326,7 +324,9 @@ async function runOne({ runId, kind }) {
     if (!perceptionProbe.INPUT) process.exitCode = 1;
   } finally {
     await require('../src/services/garageRuntimeService').stop(db);
-    await require('../src/services/telemetryObserver').flush(5000).catch(() => undefined);
+    await telemetry.flush(5000).catch(() => undefined);
+    await autobiography.flushAutobiographicalCapture();
+    if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1') autobiography.detachAutobiographicalCapture(telemetry);
     await closeDatabase();
   }
 }
@@ -361,21 +361,21 @@ function failedMissionResult(options) {
 
 async function createWorkerContext(options) {
   const { db, parentId, workspaceId, rootWorkspace, kind, model, runId } = options;
-  await seedParent({ db, parentId, workspaceId, workspaceRoot: rootWorkspace });
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1' && kind === 'recovery_worker') {
+    fs.writeFileSync(path.join(rootWorkspace, 'state.txt'), 'damaged');
+  }
+  await seedParent({ db, parentId, workspaceId, workspaceRoot: rootWorkspace, kind, runId });
   const scenario = workerComplianceScenario(kind);
   const worker = await missionFor({ db, parentId, workspaceId, rootWorkspace, kind, model, scenario });
+  const identity = require('../src/services/missionIdentityService');
+  const missionId = `compliance-mission-${runId}-${kind}`;
+  await identity.create(db, { missionId, objective: scenario.prompt, orchestratorAgentId: parentId });
+  await identity.attachAgent(db, { missionId, agentId: worker.agentId, role: kind });
   const row = await db.get('SELECT metadata_json FROM agents WHERE id = ?', worker.agentId);
   const metadata = JSON.parse(row.metadata_json);
   if (metadata.workerKind !== kind || metadata.workerContract?.identity?.workerKind !== kind) throw new Error(`Persistent worker contract mismatch for ${kind}.`);
   if (!inside(process.env.GENOS_CAPSULE_ROOT, worker.workspaceRoot || rootWorkspace)) throw new Error(`Worker workspace escaped isolated capsule root: ${worker.workspaceRoot}`);
-  const missionId = `compliance-mission-${runId}-${kind}`;
-  await db.run("INSERT INTO missions (mission_id, objective, status, orchestrator_agent_id) VALUES (?, ?, 'active', ?)", missionId, `Compliance mission for ${kind}`, parentId);
-  await db.run('INSERT INTO mission_agents (mission_id, agent_id, role) VALUES (?, ?, ?)', missionId, worker.agentId, kind);
   return { db, runId, worker, metadata, parentId, workspaceId, rootWorkspace, kind, model, scenario, missionId };
-}
-
-function executionErrorCode(execution) {
-  return execution?.errorCode || execution?.code;
 }
 
 async function executeWorkerMission(context) {
@@ -383,7 +383,17 @@ async function executeWorkerMission(context) {
   const timeoutMs = Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000;
   try {
     const nativeObservation = ['procedural_executor', 'formal_worker'].includes(kind);
-    return await runtime.startMission({ agentId: worker.agentId, missionId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId: worker.workspaceId || workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true, ...(perceptionProbe.INPUT ? { continuousExecution: { mode: nativeObservation ? 'observe' : 'control', files: [perceptionProbe.INPUT], intervalMs: 100, ...(nativeObservation ? { observationWindowMs: 2500 } : {}) } } : {}) });
+    return await runtime.startMission({ agentId: worker.agentId, missionId, orchestratorAgentId: parentId,
+      role: worker.role, workerKind: kind, workerContract: metadata.workerContract,
+      methodContract: worker.methodContract, prompt: worker.prompt, workspaceId: worker.workspaceId || workspaceId,
+      workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local',
+      localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs,
+      executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs },
+      executionPolicy: { allowFileEdits: kind === 'recovery_worker', silentUpdates: true },
+      toolLease: worker.toolLease || [], silentUpdates: true,
+      ...(perceptionProbe.INPUT ? { continuousExecution: { mode: nativeObservation ? 'observe' : 'control',
+        files: [perceptionProbe.INPUT], intervalMs: 100,
+        ...(nativeObservation ? { observationWindowMs: 2500 } : {}) } } : {}) });
   } catch (error) { return { error: error.message, errorCode: error.code || null }; }
 }
 

@@ -342,7 +342,6 @@ async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) 
     abstention
   }, 'info');
 }
-
 function applyAbstentionToMission(mission, model, bench) {
   try {
     const abstention = require('./abstentionService');
@@ -366,6 +365,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
     ? buildAutonomyPlan(contractRecord.contract, regulationBudget)
     : null;
   if (!autonomyPlan) {
+    await require('./autobiographicalMemory/workerRecall').applyWorkerRecall({ db, agentId, normalizedMission });
     return autonomyPlan;
   }
   const effectiveWorkerShare = resolveEffectiveWorkerShare(autonomyPlan, configuredWorkerShare);

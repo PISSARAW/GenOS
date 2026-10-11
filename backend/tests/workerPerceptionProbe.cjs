@@ -57,6 +57,25 @@ async function run(context, execution) {
   return observationSummary({ state, rows, runId: observedRunId, rebased });
 }
 
+async function executeAndProbe(context, startMission) {
+  const native = ['procedural_executor', 'formal_worker'].includes(context.kind);
+  const pendingExecution = startMission(context);
+  if (native) {
+    const perception = await run(context, null);
+    const execution = await pendingExecution;
+    return { execution, perception: bindPerception(perception, execution) };
+  }
+  const execution = await pendingExecution;
+  const perception = await run(context, execution);
+  return { execution, perception: bindPerception(perception, execution) };
+}
+
+function bindPerception(perception, execution) {
+  if (!perception) return null;
+  return { ...perception, executionRunBound: Boolean(execution?.executionRun?.id)
+    && perception.observedRunId === execution.executionRun.id };
+}
+
 function observationSummary({ state, rows, runId, rebased }) {
   return { observerAvailable: true, observedRunId: runId,
     observedCount: state?.observations.length || 0,
@@ -77,4 +96,4 @@ async function settle(workerId) {
   return !activeProcesses.has(workerId);
 }
 
-module.exports = { INPUT, prepare, run, settle };
+module.exports = { INPUT, prepare, run, settle, executeAndProbe };

@@ -76,11 +76,14 @@ async function recordEpisode(episode = {}, dbOverride = null) {
     `INSERT INTO autobiographical_episodes (
       id, agent_id, mission_id, kind, organization_id, project_id, salience,
       situation_json, decision_json, action_json, outcome_json, lesson_json, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO NOTHING`,
     row.id, row.agent_id, row.mission_id, row.kind, row.organization_id, row.project_id, row.salience,
     row.situation_json, row.decision_json, row.action_json, row.outcome_json, row.lesson_json, row.created_at
   );
-  return rowToEpisode(row);
+  const saved = await db.get('SELECT * FROM autobiographical_episodes WHERE id = ?', id);
+  if (saved.agent_id !== row.agent_id) throw new Error('Autobiographical episode id belongs to another agent.');
+  return rowToEpisode(saved);
 }
 
 function buildRecentQuery(options) {
