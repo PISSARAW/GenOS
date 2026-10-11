@@ -49,21 +49,21 @@
     },
     {
       "id": "local_runtime_filesystem",
-      "sourceRefs": ["backend/src/services/runtimeFilesystemReceipt.js"],
+      "sourceRefs": ["backend/src/services/runtimeFilesystemReceipt.js", "backend/bin/solar-direct-runtime-v2.cjs"],
       "predictionHook": "runtimeFilesystemReceipt.begin",
       "outcomeEvents": ["AGENT_COMPLETED", "AGENT_FAILED"],
       "correlation": "body_action_receipts.action_id",
       "status": "partial",
-      "limitation": "Eligible files are compared before and after a local runtime. Changes are only temporally correlated; ignored paths and concurrent writers are not attributable."
+      "limitation": "The Solar direct writer emits a path and content hash through its runtime IPC; matching final bytes are listed as directWrites. Other eligible changes remain temporally correlated, including changes made by the local Codex runtime or concurrent writers. Ignored paths are unobserved."
     },
     {
       "id": "rust_mcp_stdio",
-      "sourceRefs": ["mcp/index.js", "crates/genos-mcp/src/main.rs"],
-      "predictionHook": null,
+      "sourceRefs": ["mcp/index.js", "crates/genos-mcp/src/main.rs", "backend/src/services/mcpActorCapability.js"],
+      "predictionHook": "mcpActorCapability.begin for a bearer capability issued by the sealed Node supervisor",
       "outcomeEvents": [],
-      "correlation": null,
-      "status": "outside_node_boundary",
-      "limitation": "Rust stdio results identify external/unattributed origin, but direct execution is not observed by the Node efference ledger."
+      "correlation": "body_action_receipts.action_id on authenticated tools/call",
+      "status": "conditional",
+      "limitation": "Authenticated Rust tools/call requires a sealed mission capability and the shared SQLite database path from the Node control plane. Standalone stdio calls remain external/unattributed; authenticated omega/execute is refused."
     }
   ],
   "limitation": "Inventory is explicit for known agent-mediated action channels; uncovered and out-of-band effectors are not treated as validated."

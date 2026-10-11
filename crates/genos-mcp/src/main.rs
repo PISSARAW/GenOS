@@ -1,4 +1,5 @@
 mod executor;
+mod actor_receipt;
 pub mod omega;
 mod omega_dispatch;
 pub mod omega_runtime;
@@ -94,19 +95,41 @@ fn handle_tools_call(req: &Value, id: Option<Value>, workspace: &Path) -> Option
         }));
     }
 
+    let actor = match actor_receipt::begin(name) {
+        Ok(actor) => actor,
+        Err(error) => return Some(json!({ "jsonrpc": "2.0", "id": id,
+            "result": { "content": [{ "type": "text", "text": error }], "isError": true } })),
+    };
     let (code, text) = executor::handle_tool_call(name, args, workspace);
+    if let Some(ref receipt) = actor {
+        if let Err(error) = actor_receipt::finish(receipt, code == 0, &text) {
+            return Some(json!({ "jsonrpc": "2.0", "id": id,
+                "result": { "content": [{ "type": "text", "text": error }], "isError": true } }));
+        }
+    }
+    let body = actor.map_or_else(
+        || json!({ "attribution": "external_unattributed", "agentId": null }),
+        |receipt| json!({ "attribution": "agent_bound", "agentId": receipt["agentId"],
+            "runId": receipt["runId"], "actionId": receipt["actionId"],
+            "authorityHash": receipt["authorityHash"] }),
+    );
     Some(json!({
         "jsonrpc": "2.0",
         "id": id,
         "result": {
             "content": [{ "type": "text", "text": text }],
             "isError": code != 0,
-            "_meta": { "genos.body": { "attribution": "external_unattributed", "agentId": null } }
+            "_meta": { "genos.body": body }
         }
     }))
 }
 
 fn handle_omega_execute(req: &Value, id: Option<Value>, workspace: &Path) -> Option<Value> {
+    if actor_receipt::configured() {
+        return Some(json!({ "jsonrpc": "2.0", "id": id,
+            "result": { "content": [{ "type": "text", "text": "Authenticated omega execution is not covered by the Rust MCP actor lease." }],
+                "isError": true } }));
+    }
     let mut result = omega_dispatch::execute(req.get("params").unwrap_or(&Value::Null), workspace);
     if let Value::Object(ref mut fields) = result {
         fields.insert("_meta".into(), json!({ "genos.body": {

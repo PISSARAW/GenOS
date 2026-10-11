@@ -245,6 +245,7 @@ async function processEventQueueImpl(ctx) {
     try {
       const decision = await strategyExecution.recordExecutionEvent(db, agentId, currentEvent);
       require('./missionEnvelopeAuthorityMonitor').assertEvent(ctx, decision);
+      await require('./epistemic/runtimeClaimProducer').record(db, { agentId, event: currentEvent, decision });
       await require('./trinityRuntimeTrace').observe(ctx, currentEvent);
       const eventType = currentEvent.eventType;
       const finalEvent = isFinalEvent(eventType, currentEvent);
@@ -355,6 +356,8 @@ async function handleChildClose(ctx, code, signal) {
   } catch (err) {
     console.error(`[AgentSupervisor] Error draining event queue for ${agentId}:`, err);
   } finally {
+    if (ctx.mcpActorToken) await require('./mcpActorCapability').revoke(ctx.db, ctx.mcpActorToken)
+      .catch(error => console.error('[AgentSupervisor] MCP actor revocation failed:', error));
     activeProcesses.delete(agentId);
     swarmSentinel.clearAgent(agentId);
     await clearSearchState(agentId);

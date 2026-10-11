@@ -130,11 +130,28 @@ async function filesystemObservation(ctx, workspace) {
   const pending = await sensor.begin({ db: ctx.db, agentId: ctx.agentId,
     runId: ctx.executionRun.id, workspaceRoot: workspace });
   await fs.writeFile(path.join(workspace, 'runtime-created.txt'), 'observed bytes');
+  const script = `const {writeArtifact}=require(process.argv[1]);const p=require('node:path');
+    const f=require('node:fs');const error=writeArtifact({allowFileEdits:true,pathLib:p,
+    fsLib:f,workspaceRoot:process.argv[2]},'direct.txt','direct bytes');if(error)process.exitCode=1;`;
+  const writer = spawn(process.execPath, ['-e', script,
+    path.resolve(__dirname, '../bin/solarDirectFileActuator.cjs'), workspace],
+  { cwd: workspace, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
+  const [message] = await once(writer, 'message');
+  const [exitCode] = await once(writer, 'close');
+  assert.equal(exitCode, 0);
+  const hash = require('node:crypto').createHash('sha256').update('direct bytes').digest('hex');
+  assert.equal(message.hash, hash);
+  assert.equal(sensor.recordDirectWrite(pending, { kind: 'genos.runtime.file-write/v1',
+    path: '../outside.txt', hash }), false);
+  assert.equal(sensor.recordDirectWrite(pending, message), true);
   const outcome = await sensor.finish(pending);
   assert.equal(outcome.status, 'observed');
   assert.equal(outcome.causality, 'temporal_only');
   assert.equal(outcome.observationAttested, false);
-  assert.deepEqual(outcome.changes, [{ path: 'runtime-created.txt', kind: 'created' }]);
+  assert.deepEqual(outcome.changes, [{ path: 'direct.txt', kind: 'created' },
+    { path: 'runtime-created.txt', kind: 'created' }]);
+  assert.deepEqual(outcome.directWrites.map(write => write.path), ['direct.txt']);
+  assert.deepEqual(outcome.unattributedChanges, [{ path: 'runtime-created.txt', kind: 'created' }]);
   const row = await require('../src/services/bodyActionReceiptService').read(ctx.db, pending.actionId);
   assert.equal(row.phase, 'observed');
   assert.equal(row.agentId, ctx.agentId);
@@ -181,6 +198,26 @@ async function attestedClaim(ctx) {
       { agentId: 'parent', runId: ctx.executionRun.id }),
     { code: 'EXECUTION_AUTHORITY_ACTOR_MISMATCH' });
   } finally { revision.configureRevisionStore(null); }
+}
+
+async function productionClaims(ctx) {
+  const producer = require('../src/services/epistemic/runtimeClaimProducer');
+  const event = { id: 'runtime-event-1', eventType: 'EVIDENCE_REPORT',
+    payload: { executionRunId: ctx.executionRun.id,
+      evidenceReport: { claims: [{ statement: 'A provisional runtime assertion', evidence: ['self report'] }] } } };
+  const decision = { run: { id: ctx.executionRun.id } };
+  assert.equal(await producer.record(ctx.db, { agentId: ctx.agentId, event, decision }), 1);
+  assert.equal(await producer.record(ctx.db, { agentId: ctx.agentId, event, decision }), 1);
+  const row = await ctx.db.get('SELECT * FROM epistemic_claims WHERE id = ?',
+    producer.claimId(ctx.executionRun.id, event.id, 0));
+  assert.equal(row.producer_agent_id, ctx.agentId);
+  assert.equal(row.producer_run_id, ctx.executionRun.id);
+  assert.equal(JSON.parse(row.claim_json).verification, 'self_reported');
+  assert.equal(row.quality, 0);
+  assert.equal(await producer.record(ctx.db, { agentId: ctx.agentId, event,
+    decision: { ...decision, authorityRefusal: { code: 'denied' } } }), 0);
+  await assert.rejects(producer.record(ctx.db, { agentId: 'parent', event, decision }),
+    { code: 'EXECUTION_AUTHORITY_ACTOR_MISMATCH' });
 }
 
 async function directMcpProvenance(ctx) {
@@ -312,6 +349,8 @@ async function main() {
     await processAttribution(first);
     await filesystemObservation(first, workspace);
     await attestedClaim(first);
+    await productionClaims(first);
+    await require('./helpers/rustMcpActorProbe').probe(first, filename, workspace);
     await directMcpProvenance(first);
     const secondContract = await fixture.addWorker(db, { agentId: 'worker-B' });
     const second = await context(db, workspace, { contractRecord: secondContract, agentId: 'worker-B' });

@@ -1,6 +1,7 @@
 'use strict';
 
 const snapshots = require('./workspaceSnapshotCollect');
+const { isSafeRelative } = require('./workspaceSnapshotPaths');
 const receipts = require('./bodyActionReceiptService');
 const LIMITS = Object.freeze({ maxFiles: 5000, maxBytes: 128 * 1024 * 1024,
   maxFileBytes: 16 * 1024 * 1024 });
@@ -22,7 +23,7 @@ async function begin(input) {
     scope: 'snapshot_eligible_files', expected: 'before_after_manifest' } });
   try {
     return { ...identity, workspaceRoot: input.workspaceRoot,
-      before: await snapshots.collectFiles(input.workspaceRoot, LIMITS) };
+      before: await snapshots.collectFiles(input.workspaceRoot, LIMITS), writes: [] };
   } catch (error) {
     await receipts.observe({ ...identity, outcome: { status: 'unobserved', stage: 'before',
       code: error.code || 'WORKSPACE_CAPTURE_FAILED' } });
@@ -36,10 +37,15 @@ async function finish(input) {
   try {
     const after = await snapshots.collectFiles(input.workspaceRoot, LIMITS);
     const changes = fileChanges(input.before, after);
+    const finalFiles = new Map(after.map((entry) => [entry.path, entry.hash]));
+    const directWrites = input.writes.filter((write) => finalFiles.get(write.path) === write.hash);
+    const directPaths = new Set(directWrites.map((write) => write.path));
     outcome = { status: 'observed', causality: 'temporal_only',
       observationAttested: false, scope: 'snapshot_eligible_files',
       beforeHash: snapshots.manifestHash(input.before), afterHash: snapshots.manifestHash(after),
-      changedCount: changes.length, changes: changes.slice(0, 100), truncated: changes.length > 100 };
+      changedCount: changes.length, changes: changes.slice(0, 100), truncated: changes.length > 100,
+      directWrites: directWrites.slice(0, 100),
+      unattributedChanges: changes.filter((change) => !directPaths.has(change.path)).slice(0, 100) };
   } catch (error) {
     outcome = { status: 'unobserved', stage: 'after', code: error.code || 'WORKSPACE_CAPTURE_FAILED' };
   }
@@ -47,9 +53,20 @@ async function finish(input) {
   return outcome;
 }
 
+function recordDirectWrite(input, message) {
+  if (!input || message?.kind !== 'genos.runtime.file-write/v1'
+    || !isSafeRelative(message.path) || !/^[a-f0-9]{64}$/.test(message.hash || '')
+    || input.writes.length >= 1000) return false;
+  const path = require('node:path');
+  const normalized = path.normalize(message.path);
+  input.writes.push({ path: normalized.replaceAll('\\', '/'), hash: message.hash,
+    source: 'solar_direct_write_actuator' });
+  return true;
+}
+
 async function fail(input, code) {
   if (!input) return;
   await receipts.observe({ ...input, outcome: { status: 'unobserved', stage: 'spawn', code } });
 }
 
-module.exports = { begin, finish, fail, fileChanges };
+module.exports = { begin, finish, fail, fileChanges, recordDirectWrite };
