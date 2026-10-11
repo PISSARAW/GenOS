@@ -148,6 +148,12 @@ L'analyseur calcule les composantes connexes, nœuds isolés, ponts du graphe (a
 
 Après un échec assorti d'un reçu de route vérifié, le runtime peut chercher une route alternative. L'admission de croissance refusée ne doit pas activer le candidat. Avant toute suppression, le plan de pruning combiné est vérifié depuis les mêmes sources qu'avant suppression : aucune capacité requise auparavant accessible ne peut devenir inaccessible. Ce contrôle de reachability ne prétend pas fournir un seuil spectral universel de connexité.
 
+Pour `resilient` et `self_healing`, la tentative sur route réparée conserve
+la deadline de la mission. Si elle est déjà dépassée, aucun second appel au
+provider n'est lancé et le retry reste non vérifié. La première tentative
+peut avoir produit un effet que la deadline n'annule pas. Voir
+[ADR 0434](../../adr/0434-deadline-des-reprises-de-route-rhizome.md).
+
 ### 3.9 Convergence de mission — opérationnel
 
 [missionMetricsService.js](../../../backend/src/services/rhizome/analytics/missionMetricsService.js) dérive les métriques des derniers résultats vérifiés de chaque besoin :

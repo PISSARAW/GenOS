@@ -540,6 +540,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0430](0430-fermeture-transition-collective-sans-snapshot-restaurable.md) | Refuser la transition collective sans snapshot restaurable | accepté | 2026-10-11 | morphogenèse, transition collective, autorité |
 | [0431](0431-horloge-runtime-baux-syncytium.md) | Horloge du runtime pour les baux Syncytium | Accepté | 2026-10-11 | Syncytium, Hard, Human–AI, baux |
 | [0432](0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md) | Preuve par candidat et promotion unique dans Open-Ended Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0434](0434-deadline-des-reprises-de-route-rhizome.md) | Conserver la deadline lors d'une réparation Rhizome | Accepté. | -- | -- |
+| [0435](0435-identite-du-daemon-planifie-metapopulation.md) | Lier le daemon résident au plan Métapopulation | accepté | 2026-10-11 | Métapopulation, variant `persistent`, vérification |
+| [0436](0436-reconciliation-actions-ecologiques-biocenose.md) | Réconcilier les actions écologiques incertaines de Biocénose | Accepté | 2026-10-11 | Biocénose, actions externes, reprise |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

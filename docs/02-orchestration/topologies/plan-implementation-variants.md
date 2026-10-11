@@ -215,6 +215,26 @@ de missions représentatives pour les 95 variants canoniques.
   vérifier indépendamment
   ([ADR 0432](../../adr/0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md)).
 
+### Septième vague — 2026-10-11
+
+- Holobionte Edge Sync compare les horloges vectorielles par composante : un
+  ordre de clés différent ou une composante zéro absente ne crée plus de faux
+  conflit. La livraison réseau et la provenance des événements restent des
+  dépendances externes.
+- Rhizome `resilient` et `self_healing` transmettent la deadline au retry de
+  route et refusent le second appel si elle est expirée. L'effet éventuel de la
+  première tentative n'est pas annulé
+  ([ADR 0434](../../adr/0434-deadline-des-reprises-de-route-rhizome.md)).
+- Métapopulation `persistent` lie le daemon du reçu au daemon du plan et au
+  bail actif du même dème. Cette vérification des enregistrements ne prouve
+  pas qu'un processus tourne après la restauration
+  ([ADR 0435](../../adr/0435-identite-du-daemon-planifie-metapopulation.md)).
+- Biocénose bloque la réexécution d'une action écologique dont l'appel a
+  commencé sans reçu terminal. Un résolveur peut retrouver un reçu vérifié
+  pour achever le journal sans répéter l'effet ; faute de preuve, le résultat
+  reste incertain
+  ([ADR 0436](../../adr/0436-reconciliation-actions-ecologiques-biocenose.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

@@ -221,10 +221,18 @@ async function residentLeaseRecovery(db) {
   const other = await leases.loadDaemonLease(db, id, id + 'b');
   const deme = await store.getDeme(db, id, id + 'a');
   const action = { type: 'REGISTER_RESIDENT_DAEMON', demeId: id + 'a', daemonId: 'custom-resident' };
+  const receipt = { type: action.type, demeId: action.demeId, daemonId: restored.daemonId,
+    leaseId: restored.leaseId, workspacePath: deme.workspacePath };
+  const verifyRegistration = (planned, result) => verification.verifyVariantActions({
+    input: { metapopulationId: id }, options: { db },
+    plan: { actions: [planned] }, execution: { results: [result] }
+  });
+  assert.equal(await verifyRegistration(action, receipt), true);
+  assert.equal(await verifyRegistration({ ...action, daemonId: 'other-resident' }, receipt), false,
+    'a valid lease cannot prove registration of a different planned daemon');
   const fake = { type: action.type, demeId: action.demeId, daemonId: other.daemonId,
     leaseId: other.leaseId, workspacePath: deme.workspacePath };
-  assert.equal(await verification.verifyVariantActions({ input: { metapopulationId: id }, options: { db },
-    plan: { actions: [action] }, execution: { results: [fake] } }), false, 'a receipt from another deme cannot pass VERIFY');
+  assert.equal(await verifyRegistration(action, fake), false, 'a receipt from another deme cannot pass VERIFY');
 }
 
 async function variantMatrix(db) {
