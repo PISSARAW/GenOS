@@ -1086,7 +1086,7 @@ Les douze variants persistants, les workflows bornés et leurs reçus restent di
 | `competitive-partner` | classement et autorisation conditionnelle | remplacement réel soumis au cycle de vie distinct |
 | `procedural` | recrutement, contrat et essai d'admission | transmission procédurale non déclenchée par le plan |
 | `tool` | invocation contrôlée avant l'exécuteur par le résident, le contrat actif et le manifeste | sandbox système et effet externe restent à attester par l'intégrateur |
-| `cloud-core/edge-sync` | placement, réconciliation et simulation de synchronisation | aucune livraison réseau prouvée par la simulation |
+| `cloud-core/edge-sync` | placement, réconciliation et simulation de synchronisation ; les horloges vectorielles égales restent équivalentes malgré l'ordre des zones ou une composante zéro absente | aucune livraison réseau prouvée par la simulation ; seules les horloges causalement incomparables signalent un conflit |
 
 Pour `tool`, un refus est journalisé avant l'appel de l'exécuteur; une exception
 pendant l'appel porte `UNKNOWN_EFFECT`, sans prétendre annuler l'action externe.

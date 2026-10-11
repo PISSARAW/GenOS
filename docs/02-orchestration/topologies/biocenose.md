@@ -53,7 +53,11 @@ exécute ses tours. Avec `communityId`, il reprend une communauté persistée.
   scellés. `actionExecutors[action]` exécute un handoff ou une collecte externe ; son
   reçu doit être accepté par `isTrustedActionReceipt` et lié à `communityId`, `action`
   et `idempotencyKey`. Sans adaptateur, `ecologicalAction.status` vaut
-  `DEPENDENCY_REQUIRED` ; sans preuve, il vaut `BLOCKED`.
+  `DEPENDENCY_REQUIRED` ; sans preuve, il vaut `BLOCKED`. Après un appel commencé
+  dont le résultat est inconnu, la reprise ne rappelle pas l'adaptateur. Elle
+  exige un reçu retrouvé par `actionReceiptResolver` et soumis à la même
+  vérification, sinon elle retourne `BIOCENOSE_ACTION_OUTCOME_UNCERTAIN`
+  ([ADR 0436](../../adr/0436-reconciliation-actions-ecologiques-biocenose.md)).
 
 Vérification : `npm --prefix backend run test:biocenose`. Cette suite couvre les
 douze variants, la reprise, les révisions, la stabilité et les frontières de preuve.

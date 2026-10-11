@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Septième vague des variants](02-orchestration/topologies/plan-implementation-variants.md#septième-vague--2026-10-11) — horloges Edge Sync, deadline des routes Rhizome, identité du daemon Métapopulation et réconciliation des actions Biocénose ; [ADR 0434](adr/0434-deadline-des-reprises-de-route-rhizome.md), [0435](adr/0435-identite-du-daemon-planifie-metapopulation.md) et [0436](adr/0436-reconciliation-actions-ecologiques-biocenose.md).
+
 - [Sixième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#sixième-vague--2026-10-11) — chaîne Relay Team, journal Trinity, refus de transition collective, horloge des baux Syncytium et preuves locales Biome ; [ADR 0428](adr/0428-chaine-de-transferts-relay-team-a-team.md) à [0432](adr/0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md).
 
 - [Cinquième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#cinquième-vague--2026-10-11) — fermeture du commit V2, sous-runs A-Team, qualification Trinity, consentement Syncytium et reçus Biocénose ; [ADR 0423](adr/0423-fermeture-mode-commit-v2-morphogenese.md) à [0427](adr/0427-recus-signes-hybrid-oracle-biocenose.md).

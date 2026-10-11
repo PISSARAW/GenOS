@@ -10,6 +10,9 @@ async function execute(input, decision) {
     && event.payload.idempotencyKey === idempotencyKey);
   if (completed) return completed.payload;
   if (decision.nextAction === 'NO_FURTHER_ACTION') return { status: 'NOT_REQUIRED', idempotencyKey };
+  const started = events.some((event) => event.type === 'ECOLOGICAL_ACTION_STARTED'
+    && event.payload.idempotencyKey === idempotencyKey);
+  if (started) return reconcileStarted(input, decision, idempotencyKey);
   const executor = input.actionExecutors?.[decision.nextAction];
   if (typeof executor !== 'function') return { status: 'DEPENDENCY_REQUIRED', action: decision.nextAction, idempotencyKey };
   await record(input, 'ECOLOGICAL_ACTION_STARTED', { action: decision.nextAction, idempotencyKey, round: decision.round });
@@ -30,6 +33,22 @@ async function execute(input, decision) {
     await record(input, 'ECOLOGICAL_ACTION_BLOCKED', blocked);
     return blocked;
   }
+}
+
+async function reconcileStarted(input, decision, idempotencyKey) {
+  const blocked = { status: 'BLOCKED', action: decision.nextAction, round: decision.round,
+    idempotencyKey, reason: 'BIOCENOSE_ACTION_OUTCOME_UNCERTAIN' };
+  const resolver = input.actionReceiptResolver;
+  if (typeof resolver !== 'function') return blocked;
+  try {
+    const result = await resolver({ communityId: input.communityId, round: decision.round,
+      action: decision.nextAction, decision, idempotencyKey });
+    if (!validReceipt(result, { input, decision, idempotencyKey })) return blocked;
+    const outcome = { status: 'COMPLETED', action: decision.nextAction, round: decision.round,
+      idempotencyKey, receipt: result.receipt, reconciled: true };
+    await record(input, 'ECOLOGICAL_ACTION_COMPLETED', outcome);
+    return outcome;
+  } catch (_) { return blocked; }
 }
 
 function validReceipt(result, context) {

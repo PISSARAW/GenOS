@@ -48,7 +48,8 @@ async function recoverFailedRoute(context) {
     return { ...fallback, status: growthFallback(fallback) ? fallback.status : 'ROUTE_FAILED_NO_ALTERNATIVE', execution, outcome, repair };
   }
   const retry = await actionExecutor.execute({
-    route: repair, need: input.need, execute: input.execute, verify: input.verify, timeoutMs: input.operationTimeoutMs
+    route: repair, need: input.need, execute: input.execute, verify: input.verify,
+    timeoutMs: input.operationTimeoutMs, deadline: input.deadline
   });
   if (retry.status !== 'VERIFIED') return { status: 'ROUTE_RETRY_UNVERIFIED', snapshot, route, action, execution, outcome, repair, retry };
   const retryOutcome = await rhizome.recordRouteOutcome(input.sessionId, retry.receipt, {

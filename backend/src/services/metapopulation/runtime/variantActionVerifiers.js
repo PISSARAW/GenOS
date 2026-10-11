@@ -261,7 +261,8 @@ async function verifyPatchLeaseReceipt({ item, expected, db, metapopulationId })
 }
 
 async function verifyDaemonLeaseReceipt({ item, expected, db, metapopulationId }) {
-  if (!item.daemonId || !item.leaseId) return false;
+  if (!expected.daemonId || item.daemonId !== expected.daemonId
+    || item.demeId !== expected.demeId || !item.leaseId) return false;
   const lease = await db.get('SELECT expires_at, active FROM daemon_leases WHERE metapopulation_id = ? AND lease_id = ? AND deme_id = ? AND daemon_id = ?',
     metapopulationId, item.leaseId, expected.demeId, item.daemonId);
   const deme = await store.getDeme(db, metapopulationId, expected.demeId);

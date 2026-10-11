@@ -109,6 +109,13 @@ par l'appelant ne réactive pas une session fermée.
 Les effets externes doivent honorer leurs clés d'idempotence : le journal
 SQLite seul ne rend pas une API externe transactionnelle.
 
+Pour le variant `persistent`, `REGISTER_RESIDENT_DAEMON` n'est vérifié que si
+le daemon demandé par le plan est celui du reçu et du bail actif relu dans
+la même session et pour le même dème. Le chemin du workspace doit aussi
+correspondre au dème persistant. Son `workspaceOwnerId` désigne parfois la
+capsule isolée et peut être distinct du `daemonId` ; voir
+[ADR 0435](../adr/0435-identite-du-daemon-planifie-metapopulation.md).
+
 ## 4. Extinction et recolonisation
 
 `input.extinctionReports` contient `demeId`, `evidence.workers`,

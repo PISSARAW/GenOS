@@ -54,6 +54,21 @@ async function run() {
   assert.equal(attempts, 2);
   assert.deepEqual(result.repair.excludedEdgeIds, ['fast-a', 'fast-b']);
   assert.deepEqual(result.retry.receipt.edgeIds, ['safe-a', 'safe-b']);
+
+  const timedSession = await rhizome.composeRhizome('Stop repaired retries after the mission deadline.',
+    { ...graph(), variant: 'resilient' });
+  let executions = 0;
+  const timed = { sessionId: timedSession.sessionId, need,
+    deadline: Date.now() + 30000, trustedVerifierDigests: ['trusted-recovery-verifier'],
+    execute: async ({ route }) => { executions += 1; return { routeId: route.routeId }; } };
+  timed.verify = async ({ route, executionDigest }) => {
+    timed.deadline = Date.now() - 1;
+    return receipt({ route }, need, { executionDigest, outcome: 'FAILURE' });
+  };
+  const expired = await runtime.tick(timed);
+  assert.equal(expired.status, 'ROUTE_RETRY_UNVERIFIED');
+  assert.equal(expired.retry.reason, 'RHIZOME_OPERATION_TIMEOUT');
+  assert.equal(executions, 1);
 }
 
 run().then(() => console.log('Rhizome runtime recovery: PASS')).catch((error) => {

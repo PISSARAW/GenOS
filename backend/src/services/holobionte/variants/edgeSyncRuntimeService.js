@@ -33,7 +33,9 @@ function advances(next, prior) {
 }
 
 function concurrent(left, right) {
-  return JSON.stringify(left) !== JSON.stringify(right) && !advances(left, right) && !advances(right, left);
+  const zones = new Set([...Object.keys(left), ...Object.keys(right)]);
+  const different = [...zones].some((zone) => (left[zone] || 0) !== (right[zone] || 0));
+  return different && !advances(left, right) && !advances(right, left);
 }
 
 function authorizedEvent(context, event, clock) {
