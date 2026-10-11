@@ -316,6 +316,24 @@ async function run() {
     assert.ok(result.assembly?.results.length, 'retain the signed refusal assembly for audit and confirmed counterproofs');
   });
 
+  await test('Une affirmation sans lien avec un test réussi est refusée', async () => {
+    const result = await evaluateReportWithAeis({ claims: [{
+      statement: '2 + 2 = 5', test: { command: 'echo ok', expectOutput: 'ok' },
+      evidence: [{ kind: 'reproducible_artifact' }],
+    }] });
+    assert.strictEqual(result.evaluation.eligible, false);
+    assert.strictEqual(result.assembly, null);
+  });
+
+  await test('La promotion multi-provider refuse une configuration sans quorum', async () => {
+    const result = await evaluateReportWithAeis({ claims: [{
+      statement: 'echo ok outputs "ok"', test: { command: 'echo ok', expectOutput: 'ok' },
+      evidence: [{ kind: 'reproducible_artifact' }],
+    }] }, { multiProviderEnabled: true, providerAllowlist: [] });
+    assert.strictEqual(result.evaluation.eligible, false);
+    assert.strictEqual(result.assembly, null);
+  });
+
   // 15. Sans assembly AEIS la promotion gate refuse
   await test('Sans assembly la gate refuse', () => {
     const { buildGateContext } = require('../src/services/promotionGateContext');
