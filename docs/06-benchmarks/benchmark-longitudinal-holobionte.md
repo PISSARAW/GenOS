@@ -1,6 +1,6 @@
 # Benchmark longitudinal Holobionte
 
-- **Statut** : Runner journalisé implémenté, campagne non exécutée
+- **Statut** : Runner réel et journal reprenable implémentés; campagne non exécutée
 - **Portée** : comparaison appariée de douze stratégies sur 50 à 100 missions séquentielles
 - **Dernière revue** : 2026-09-25
 
@@ -35,11 +35,43 @@ Les taux sans dénominateur sont rendus comme `null`. Les preuves sont conservé
 
 ## Exécution et état des résultats
 
-La commande `node backend/bin/genos-holobiont-benchmark.cjs --manifest <manifest.json> --output <rapport.json> --journal <runs.jsonl>` fournit la reprise d'une campagne. Elle exige `GENOS_HOLOBIONT_BENCHMARK_ADAPTER_MODULE` et `GENOS_HOLOBIONT_BENCHMARK_ADAPTER_SHA256`. Le module exporte `createCampaign({ manifest, signal, campaignId })` et renvoie un adaptateur pour chaque bras. Chaque exécution doit produire un reçu runtime et des références de preuve. Le journal et le rapport sont conservés séparément; `--resume` n'accepte que le même manifeste, adaptateur et budget.
+Le service d’agrégation est accompagné d’une commande opérateur réelle :
+`node backend/bin/genos-holobiont-benchmark.cjs --manifest <fichier.json> --output <rapport.json> --journal <runs.jsonl>`.
+Elle exige un adaptateur applicatif explicitement configuré et épinglé par SHA-256 dans
+`GENOS_HOLOBIONT_BENCHMARK_ADAPTER_MODULE` et
+`GENOS_HOLOBIONT_BENCHMARK_ADAPTER_SHA256`. L’adaptateur doit implémenter les douze
+bras séparément et renvoyer, pour chaque couple bras/mission, les coûts, tokens,
+références de preuve, vérificateur et reçu d’exécution réel (`runId`, exécuteur,
+statut, références et vérificateur concordants). Le runner refuse une campagne
+incomplète, une preuve absente, un reçu incohérent ou une mission hors ordre.
 
-Le service et la commande ne constituent pas une campagne exécutée. Les tests `backend/tests/test_holobiont_longitudinal_benchmark.js` utilisent un runner simulé pour vérifier l’ordre, les bras, les métriques et le rejet d’entrées incomplètes. Aucun résultat expérimental réel ne peut être déduit de ces tests.
+Le module adaptateur exporte `createCampaign({ manifest, signal, campaignId })` et
+renvoie `{ benchmarkId, armAdapters }`, avec une fonction `armAdapters[arm]({ arm,
+mission, sequence, remainingBudget, signal, benchmarkId })` pour chaque bras. Chaque résultat contient
+`missionId`, `success`, `cost`, `tokens`, `evidenceRefs`, `verifierId` et
+`runtimeReceipt: { runId, executor, status, evidenceRefs, verifierId }`. Un échec de
+tâche (`success: false`) peut avoir un reçu d’exécution `status: "completed"`; ces deux
+états sont distincts. Une exception d’exécution interrompt le run sans effacer le
+journal partiel.
 
-Pour préparer une campagne, fournir 50 à 100 missions fixes et les douze adaptateurs qui exécutent effectivement chaque stratégie et attachent des preuves vérifiables. Archiver l’entrée, les sorties par mission, la configuration des bras, les artefacts et l’identité des vérificateurs avec le rapport final.
+Le manifeste fournit `benchmarkId`, 50 à 100 missions distinctes et un budget positif
+`budget.maxCost`, `budget.maxTokens`, `budget.maxTimeMs`. Chaque exécution est ajoutée
+au journal JSONL synchronisé; `--resume` reprend uniquement si l’empreinte du manifeste,
+de l’adaptateur, l’identifiant et le budget correspondent. `SIGINT`/`SIGTERM` transmettent
+un signal d’arrêt à l’adaptateur, et le journal partiel reste disponible. Le rapport
+final est écrit atomiquement et ne contient aucune décision de promotion.
+
+Cette infrastructure n’est pas une campagne terminée : aucun adaptateur spécifique
+aux douze bras n’est configuré dans le dépôt. L’adaptateur reste responsable du vrai
+routage vers les exécuteurs, de la mise en œuvre des ablations et de la collecte des
+preuves. Le reçu requis est un contrat de traçabilité fourni par l’adaptateur; le runner
+ne vérifie pas cryptographiquement l’indépendance du vérificateur ni la validité
+sémantique de chaque référence. Le rapport d’une campagne ne doit donc être interprété
+qu’avec les artefacts, le code d’adaptateur et les preuves archivés.
+
+Pour exécuter une campagne, préparer le manifeste, les douze adaptateurs et les moyens
+d’exécution/vérification requis, puis lancer la commande ci-dessus. Archiver le manifeste,
+le journal, le rapport, le code d’adaptateur épinglé et les artefacts de preuve.
 
 ## Limites
 
@@ -47,6 +79,5 @@ Pour préparer une campagne, fournir 50 à 100 missions fixes et les douze adapt
 - Les noms des bras ne configurent pas eux-mêmes les topologies : `runMission` doit les réaliser correctement.
 - Les agrégats sont descriptifs. Le runner ne calcule ni intervalles de confiance, ni test de significativité, ni décision de promotion.
 - Une métrique absente reste absente ; il faut distinguer donnée manquante et valeur nulle lors de l’interprétation.
-- Le runner vérifie la forme des reçus, sans résoudre les références ni établir l'indépendance effective du vérificateur. Les coûts et tokens viennent de l'adaptateur.
 
 Voir également l’[ADR 0105](../adr/0105-benchmark-longitudinal-holobionte.md) et la [fiche Holobionte](../02-orchestration/topologies/holobionte.md).

@@ -322,6 +322,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
 | [0293a](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
 | [0293b](0293-persistance-des-variants-metapopulation.md) | Persistance des états de variants Metapopulation | Accepté | 2026-10-04 | Metapopulation, cycles régionaux, dèmes persistants et culture |
+| [0293c](0293-runner-reel-campagne-holobionte.md) | Runner réel et reprise de campagne Holobionte | Voir le fichier | -- | -- |
 | [0294a](0294-candidats-morphogenetiques-du-catalogue.md) | Candidats morphogénétiques issus du catalogue canonique | Accepté | 2026-10-04 | Morphogenèse, recherche de topologies et de variants |
 | [0294b](0294-cloture-de-continuite-de-mission.md) | Fermeture des transitions de continuité de mission | Accepté | 2026-10-04 | Orchestration et survie des missions |
 | [0294c](0294-contrat-de-preuve-aeis.md) | Contrat de preuve exécutable AEIS | Accepté | 2026-10-04 | AEIS, preuve, promotion, confinement |
