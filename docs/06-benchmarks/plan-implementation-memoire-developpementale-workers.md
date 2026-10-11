@@ -131,3 +131,40 @@ Cette matrice désigne des **propriétés à spécifier**, pas des oracles déj�
 | `sub_orchestrator` | `coordinate_children` | Ensemble attendu des enfants et statut accepté de chacun, lié à la mission parente. |
 
 Les domaines proches peuvent partager du calcul indépendant, mais chaque enveloppe de méthode et chaque reçu doivent être contrôlés séparément. Les tests négatifs doivent modifier un résultat, une source, un agent, un tenant, un nonce et un reçu expiré sans changer le verdict de refus attendu.
+
+## Plan de fermeture sur V3 — objectif 19/19
+
+### Base intégrée et verdict actuel
+
+La branche de travail `codex/developmental-memory-level2-d` contient V3 jusqu'à `c36b2c2d` via les fusions `d8d3b122` et `dc0c404e`. Le profil `test:workers` fusionné passe **25/25 suites**. L'inventaire V3 compte **19 types, 24 méthodes natives et 20 cas de benchmark**, dont **9 sans oracle de benchmark** et **13 méthodes sans cas de benchmark associé**. Ces nombres ne signifient pas que les autres cas ont tous un reçu d'oracle natif indépendant : `nativeOracleDomains` ne traite toujours que `subset_sum` encapsulé, `code_postconditions` et `memory_fidelity`. Le test V3 de missions réelles accepte `bounded_worker` et refuse `formal_worker` avec `ORACLE_DOMAIN_UNAVAILABLE`, conformément à sa porte de preuve.
+
+La campagne mémoire précédente (`developmental-v11-all19` et reprise recovery) fournit un point de départ : 19/19 artefacts valides, 1/19 fin acceptée, 1/19 rappel durable, 0/19 décision causale démontrée. Elle précède la fusion V3 et doit être rejouée. Son troisième essai se déroule dans le même processus que les deux premiers ; seule la sonde ultérieure redémarre. La prochaine campagne doit redémarrer **avant** la mission de transfert pour démontrer l'usage de la représentation durable dans une exécution réelle.
+
+Les blocages sont actuellement observables dans le code : `nativeOracleDomains` refuse les autres méthodes ; `run_worker_compliance_mission.cjs` lit le dernier artefact et le dernier événement du worker sans les filtrer par run ; `workerComplianceRepetitions.cjs` ne redémarre pas entre les essais ; `measure_worker_developmental_memory.cjs` n'émet aucun champ `decisionChanged`, alors que le résumeur l'exige. Les neuf cas de benchmark sans oracle et les treize méthodes sans cas lié sont des trous de qualification supplémentaires. Les refus d'oracle doivent rester des refus pendant que ces lots sont développés.
+
+### Critère de réussite non négociable
+
+Un type passe seulement si, pour une méthode canonique préenregistrée, le même agent : (1) termine deux missions comparables avec artefacts typés et reçus d'oracle indépendants liés au run, au tenant et aux nonces ; (2) conserve au moins deux épisodes vérifiés et une leçon individuelle traçable ; (3) subit une fermeture complète de la base et du processus ; (4) exécute une troisième mission dans un nouveau processus en rappelant cette leçon ; (5) choisit une action observable différente d'un témoin sans cette expérience, avec un résultat et une cause contrôlés. Le worker `sub_orchestrator` doit en plus obtenir la complétion acceptée de ses enfants réels. Un refus, un artefact seul, un delta de politique ou un épisode non vérifié ne comptent pas comme réussite. Le verdict doit être 19/19 ; les 24 méthodes enregistrées font l'objet d'une couverture distincte 24/24 avant de revendiquer la qualification complète du catalogue.
+
+### Lots de correction, dans l'ordre de dépendance
+
+| Lot | Travail concret | Sortie vérifiable |
+| --- | --- | --- |
+| V3-0 — référence | Rejouer les 19 méthodes canoniques sur une racine D: neuve, commit propre, Node 22, digest de l'inventaire et codes de sortie enregistrés. Réconcilier les 9 cas sans oracle de benchmark avec les 18 refus de la campagne mémoire. | Rapport par type et par étape : artefact, run, oracle, capture, leçon, rappel, décision. |
+| V3-1 — corrélation | Dans `run_worker_compliance_mission.cjs`, lier `EVIDENCE_REPORT`, événement terminal et statut à l'`executionRun.id` et à la mission courante ; interdire qu'un événement de la mission précédente qualifie la troisième. Conserver séparément les preuves enfant et parent. | Tests avec artefact ancien valide, échec courant et événements réordonnés : verdict refusé. |
+| V3-2 — oracles | Étendre `nativeOracleDomains`, ses sujets, claims, vérificateurs et reçus par familles sémantiques. Réutiliser l'enveloppe de preuve existante sans relancer le module exécuteur comme unique oracle. | Une fin acceptée par méthode canonique, plus mutation de résultat, source, agent, tenant, budget, nonce, échéance et reçu : toutes refusées. |
+| V3-3 — sous-orchestration | Vérifier les enfants `bounded_worker` réels, le budget délégué restauré par V3 et l'agrégation parent : identités, profondeurs, délais, preuves et statut de chaque enfant. | Parent accepté seulement si tous les enfants requis sont acceptés ; enfant échoué ou reçu rejoué bloque le parent. |
+| V3-4 — apprentissage | N'apprendre que des fins réellement acceptées ; associer leçon, épisodes, méthode et agent. Ajouter le redémarrage entre consolidation et troisième mission, ainsi qu'un témoin jamais entraîné. | Leçon retrouvée après réouverture, sans fuite interagent ni intertenant, et sans double application. |
+| V3-5 — décision causale | Brancher une décision bornée du runtime sur la politique rappelée : deux actions admissibles, règle de choix enregistrée avant essai, coût et résultat observés. Exécuter témoin, expérience et contre-expérience sur les mêmes fixtures. | `decisionChanged=true` seulement si la leçon explique le choix observé ; retrait de leçon ou inversion de preuve annule le changement. |
+| V3-6 — qualification | Exécuter C0–C3 pour 19/19, C4 séparément avec répétitions et fautes sur Windows et Linux ; couvrir ensuite les 24/24 méthodes, notamment Lean réel pour `formal_proof`/`theorem_proving`. Lancer `test:workers`, Garage, `npm test`, qualité et Rust. | JSON final 19/19 strict, rapports par méthode, aucun `unavailable`/`unmeasured`/`skipped`, checkout propre et preuves sur D:. |
+
+### Ordre d'implémentation des vérificateurs V3-2
+
+1. **Famille procédure déterministe** : étendre le calcul indépendant `subset_sum` aux enveloppes `procedural_executor`, `symbiotic_worker`, `verifier_worker`, `red_worker` et `teaching_worker`, sans confondre leurs prédicats ; `bounded_worker` sert de contrôle positif. Ajouter LPT pour `adaptive_worker`, `specialist` et `experimental_worker`.
+2. **Famille observation et état** : `scout_cell`, `resident_daemon`, `synthesis_worker`, `forensic_worker`, `liaison_worker` et `recovery_worker`. Pour recovery, vérifier les digests avant et après sur la capsule du worker, puis réinitialiser la fixture entre essais. Une chaîne causale déclarée ne prouve pas une causalité réelle.
+3. **Famille à portée limitée** : `formal_worker` avec arithmétique bornée, `creative_worker` avec couverture combinatoire et grille d'évaluation explicite, `medical_worker` avec cas synthétique éducatif, provenance et incertitude. Aucun reçu ne doit prétendre établir originalité universelle ou validité clinique.
+4. **Agrégation** : `sub_orchestrator` valide les reçus de ses enfants et la complétude du graphe de délégation. Les neuf cas de benchmark sans oracle reçoivent chacun leur évaluation indépendante avant d'être marqués mesurés.
+
+### Garde de campagne et livraison
+
+`run_worker_compliance_missions.cjs` reste rouge tant qu'un type échoue ; `summarize_worker_developmental_memory.cjs --assert-developmental` reste rouge tant que `decisionChanged` n'est pas fondé sur une décision réelle. Chaque lot ajoute des tests négatifs avant une nouvelle campagne 19 types. Les journaux, bases, capsules, manifestes et synthèses restent sur D:, hors Git. Les reçus et portes de promotion ne sont jamais neutralisés pour obtenir un score vert.
