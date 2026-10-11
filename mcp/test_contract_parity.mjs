@@ -20,10 +20,20 @@ if (!backendContract || !fs.existsSync(backendContract)) {
 const backend = require(backendContract).getToolInputSchema;
 const tools = loadToolCatalog(repoRoot);
 for (const tool of tools) {
+  const resolved = bundled(tool.name, tool.inputSchema);
   assert.deepEqual(
-    bundled(tool.name, tool.inputSchema),
+    resolved,
     backend(tool.name, tool.inputSchema),
     `bundled schema diverges from backend for ${tool.name}`
   );
+  assert.deepEqual(
+    Object.keys(resolved.properties).sort(),
+    Object.keys(tool.inputSchema.properties || {}).sort(),
+    `${tool.name} must not advertise unrelated primitive fields`
+  );
 }
+const failures = tools.find((tool) => tool.name === 'genos_search_failures');
+const compiled = tools.find((tool) => tool.name === 'genos_compile_memory');
+assert.equal(bundled(failures.name, failures.inputSchema).properties.limit.minimum, 1);
+assert.equal(bundled(compiled.name, compiled.inputSchema).properties.facts.items.minLength, 1);
 console.log(`MCP contract parity passed for ${tools.length} tools.`);

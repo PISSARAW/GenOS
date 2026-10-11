@@ -1,4 +1,5 @@
 const RELATIONAL_SIGNAL_SCHEMA = require('./relationalPhysiology/signalToolSchema');
+const PUBLIC_TOOL_NAMES = new Set(require('../../../shared/toolDefinitions.json').tools.map((tool) => tool.name));
 const REQUIRED_STRINGS = {
   genos_agent_world_capsule: ['snapshot_id'],
   genos_world_sandbox_execute: ['world_id', 'command', 'backend'],
@@ -81,7 +82,7 @@ function getToolInputSchema(toolName, baseSchema = {}) {
   };
   applyToolSpecificOverrides(toolName, schema);
   applyRequiredStrings(toolName, schema);
-  applyPrimitiveFields(schema);
+  if (!PUBLIC_TOOL_NAMES.has(toolName)) applyPrimitiveFields(schema);
   return { ...schema, required: [...new Set(schema.required)] };
 }
 
@@ -373,7 +374,6 @@ function getGatedToolSchemas(query, candidateTools = [], options = {}) {
   const { evaluateToolGating } = require('./biomimeticToolGatingService');
   const candidates = candidateTools.length > 0 ? candidateTools : Object.keys(TOOL_BASE_SCHEMAS);
   const gating = evaluateToolGating(query, candidates, options);
-
   const disinhibited = gating.disinhibitedTools || [];
   const schemas = {};
   for (const tool of disinhibited) {
