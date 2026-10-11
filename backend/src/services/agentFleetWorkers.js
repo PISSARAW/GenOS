@@ -308,6 +308,9 @@ function fleetWorkerContract(details) {
     prompt: mission.prompt,
     scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
     orchestratorAgentId: parent.id, recoveryLease: mission.recoveryLease,
+    externalCreditLease: assignment.externalCreditLease || mission.externalCreditLease,
+    externalCredit: assignment.externalCredit || mission.externalCredit,
+    regulatoryExternalRecovery: assignment.regulatoryExternalRecovery || mission.regulatoryExternalRecovery,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
     workerTokenLimit: assignedTokens || mission.executionBudget?.tokens
   });
@@ -389,9 +392,6 @@ function splitBudget(value, index, assignments) {
   const remainder = total - base * count;
   const bonusSlots = Math.floor(remainder);
   const fractional = remainder - bonusSlots;
-  // Whole remainder units go to the first workers; the inevitable fractional
-  // residue is kept by the first worker. index === 0 also carries any remainder
-  // so the split never sums above the available total.
   const bonus = index < bonusSlots ? 1 : 0;
   const extra = index === 0 ? fractional : 0;
   return Number((base + bonus + extra).toFixed(6));

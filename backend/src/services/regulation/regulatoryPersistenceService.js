@@ -21,6 +21,13 @@ async function ensureStorage(db) {
     recovery_agent_id TEXT NOT NULL, recovery_run_id TEXT NOT NULL,
     before_revision INTEGER NOT NULL, after_revision INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS regulatory_external_recoveries (
+    operation_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL,
+    recovery_agent_id TEXT NOT NULL, recovery_run_id TEXT NOT NULL,
+    before_revision INTEGER NOT NULL, after_revision INTEGER NOT NULL,
+    measurement_json TEXT NOT NULL CHECK(json_valid(measurement_json)),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );`);
 }
 
@@ -87,4 +94,14 @@ async function consume(db, input) {
     input.recoveryAgentId, input.recoveryRunId, input.before.revision, input.after.revision);
 }
 
-module.exports = { digest, sync, save, checkpoint, getCheckpoint, consume };
+async function consumeExternal(db, input) {
+  await ensureStorage(db);
+  const result = await db.run(`INSERT INTO regulatory_external_recoveries
+    (operation_id,agent_id,recovery_agent_id,recovery_run_id,before_revision,after_revision,measurement_json)
+    VALUES (?,?,?,?,?,?,?)`, input.operationId, input.agentId, input.recoveryAgentId,
+  input.recoveryRunId, input.before.revision, input.after.revision, JSON.stringify(input.measurement));
+  if (result.changes !== 1) throw conflict();
+  await save(db, input.agentId, input.after);
+}
+
+module.exports = { digest, sync, save, checkpoint, getCheckpoint, consume, consumeExternal };

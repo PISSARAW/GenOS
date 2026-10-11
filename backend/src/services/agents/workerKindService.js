@@ -187,14 +187,26 @@ function workerMissionContract(mission, kind) {
   };
 }
 
+function assignedField(mission, key) {
+  return mission[key] || mission.workerAssignment?.[key] || null;
+}
+
+function assignmentContractFields(mission) {
+  return {
+    externalCreditLease: assignedField(mission, 'externalCreditLease'),
+    externalCredit: assignedField(mission, 'externalCredit'),
+    regulatoryExternalRecovery: assignedField(mission, 'regulatoryExternalRecovery'),
+    nicheDomain: assignedField(mission, 'nicheDomain'),
+    hostId: assignedField(mission, 'hostId')
+  };
+}
+
 function missionContractFields(mission) {
   return {
-    ...missionScopeFields(mission),
+    ...missionScopeFields(mission), ...assignmentContractFields(mission),
     methodContract: mission.methodContract,
     regulatoryRecovery: mission.regulatoryRecovery || null,
     topologySessionId: mission.topologySessionId || null,
-    nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
-    hostId: mission.hostId || mission.workerAssignment?.hostId || null,
     writeLease: mission.writeLease === true
       || (mission.executionPolicy?.allowFileEdits === true && mission.workspaceProvisioned === true)
   };

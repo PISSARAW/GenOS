@@ -129,6 +129,9 @@ function patchFrom(snapshot, before) {
 }
 
 async function ensureFunctional(db, mission) {
+  if (mission.workerContract?.mission?.externalCredit) {
+    return require('./externalCreditRegulatoryService').ensureExternalFunctional(db, mission);
+  }
   const before = await persistence.sync(db, mission.agentId);
   if (bridge.functional(bridge.toSnapshot(mission.agentId))) return { recovered: false, state: before };
   const reference = await recoveryReference(db, mission);

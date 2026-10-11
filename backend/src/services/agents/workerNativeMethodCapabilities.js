@@ -10,6 +10,7 @@ module.exports = Object.freeze({
   combine_candidates: ['create_candidate'],
   review_synthetic_case: ['clinical_context'],
   restore_checkpoint: ['recover'],
+  replenish_external_quota: ['recover'],
   prepare_handoff: ['handoff'],
   coordinate_children: ['delegate'],
   check_arithmetic: ['formal_proof']

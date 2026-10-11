@@ -1,12 +1,15 @@
 # Plan d'implémentation — régulation avec ressource externe et orchestration complète
 
 - **Type** : plan de réalisation
-- **Statut** : à exécuter ; les livrables décrits ne sont pas encore implémentés
+- **Statut** : en cours ; lots 0 à 2 implémentés, lot 3 partiel, lots 4 à 6 ouverts
 - **Portée** : les 19 types natifs, superviseur et `genos_orchestrate`
-- **Dernière revue** : 2026-10-10
+- **Dernière revue** : 2026-10-11
 
 Ce plan réalise les [critères de qualification](qualification-regulation-ressources-orchestrate.md). Le [protocole actuel](regulation-workers-protocole.md) sert de référence de non-régression pour la restauration de snapshot simulé.
 
+## Avancement vérifié au 11 octobre 2026
+
+Le fournisseur distinct, son ledger conservatif, les preuves signées et la méthode native `replenish_external_quota` sont implémentés. Une sonde ciblée vérifie le refus d'un worker hors plage, la recharge par un vrai `recovery_worker`, la relecture du solde et la reprise supervisée. Elle prépare encore le parent, le helper, les contrats et les runs dans SQLite ; cette réussite **ne valide pas** la planification par `genos_orchestrate` ni la matrice externe 19 × 2. Le coordinateur de récupération automatique, la réconciliation après crash et la qualification de bout en bout restent ouverts.
 ## Choix technique de départ
 
 Utiliser des **crédits d'exécution** comme ressource extérieure mesurable. Un processus fournisseur contrôlé possède sa propre base et son registre `réserve / solde par compte / dépensé`. Le backend GenOS ne peut modifier ces valeurs qu'au moyen de l'API du fournisseur. Celui-ci signe les reçus avec une clé privée ; GenOS connaît seulement la clé publique. Pour une réserve initiale `C0`, l'invariant est `réserve + Σ soldes + dépensé = C0`. Un transfert accroît le solde d'un worker et diminue la réserve du même montant ; une consommation déplace des crédits du solde vers `dépensé`.

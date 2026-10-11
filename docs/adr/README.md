@@ -485,6 +485,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
 | [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
 | [0395](0395-regulation-supervisee-workers-natifs.md) | Régulation supervisée des workers natifs par checkpoint vérifié | Accepté pour les workers natifs en environnement simulé | 2026-10-10 | Exécution native, régulation, persistance, récupération |
+| [0396](0396-credit-externe-regulation-workers.md) | Crédit externe mesuré pour la régulation des workers | En cours | 2026-10-11 | Régulation, ressources, orchestration, preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
