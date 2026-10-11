@@ -31,17 +31,36 @@ async function main() {
 
   await assert.rejects(() => syncytium.submitHumanApproval(session.sessionId, {
     opId: 'approval-by-ai', actorId: 'worker-1', nucleusId: 'llm-worker',
+    approvalId: 'approval-1', actionId: 'migration-1', executorId: 'worker-1',
+    action: { migration: 'apply-v4' }, decision: 'approved'
+  }), (error) => error.code === 'SYNCYTIUM_HUMAN_AI_INVALID');
+  await assert.rejects(() => syncytium.submitHumanApproval(session.sessionId, {
+    opId: 'approval-without-action', actorId: 'maya', nucleusId: 'human-editor',
     approvalId: 'approval-1', actionId: 'migration-1', decision: 'approved'
   }), (error) => error.code === 'SYNCYTIUM_HUMAN_AI_INVALID');
+  const reviewedAction = { migration: 'apply-v4' };
   await syncytium.submitHumanApproval(session.sessionId, {
     opId: 'approval-by-human', actorId: 'maya', nucleusId: 'human-editor',
-    approvalId: 'approval-1', actionId: 'migration-1', decision: 'approved', reason: 'Reviewed the guard.'
+    approvalId: 'approval-1', actionId: 'migration-1', executorId: 'worker-1',
+    action: reviewedAction, decision: 'approved', reason: 'Reviewed the guard.'
   });
+  reviewedAction.migration = 'apply-v5';
+  await assert.rejects(() => syncytium.executeApprovedAction(session.sessionId, {
+    txId: 'execute-other-payload', actorId: 'worker-1', nucleusId: 'llm-worker',
+    approvalId: 'approval-1', actionId: 'migration-1', action: { migration: 'apply-v5' }
+  }), (error) => error.code === 'SYNCYTIUM_APPROVAL_REQUIRED');
+  await assert.rejects(() => syncytium.executeApprovedAction(session.sessionId, {
+    txId: 'execute-other-worker', actorId: 'test-1', nucleusId: 'test-daemon',
+    approvalId: 'approval-1', actionId: 'migration-1', action: { migration: 'apply-v4' }
+  }), (error) => error.code === 'SYNCYTIUM_APPROVAL_REQUIRED');
+  const executionAction = { migration: 'apply-v4' };
   const executed = await syncytium.executeApprovedAction(session.sessionId, {
     txId: 'execute-migration', actorId: 'worker-1', nucleusId: 'llm-worker',
-    approvalId: 'approval-1', actionId: 'migration-1', action: { migration: 'apply-v4' }
+    approvalId: 'approval-1', actionId: 'migration-1', action: executionAction
   });
+  executionAction.migration = 'apply-v5';
   assert.equal(executed.action.actorId, 'worker-1');
+  assert.equal(executed.action.status, 'authorized_recorded');
   await assert.rejects(() => syncytium.executeApprovedAction(session.sessionId, {
     txId: 'execute-migration-again', actorId: 'worker-1', nucleusId: 'llm-worker',
     approvalId: 'approval-1', actionId: 'migration-1', action: { migration: 'apply-v4' }
@@ -51,6 +70,7 @@ async function main() {
   assert.equal(snapshot.shared.sharedFields['human.presence'].maya.status, 'reviewing');
   assert.equal(snapshot.shared.sharedFields['human.comments'].length, 1);
   assert.equal(snapshot.shared.sharedFields['critical.actions']['migration-1'].approvalId, 'approval-1');
+  assert.deepEqual(snapshot.shared.sharedFields['critical.actions']['migration-1'].action, { migration: 'apply-v4' });
   await syncytium.releaseHumanLease(session.sessionId, {
     txId: 'release-lease', opId: 'release-lease-op', actorId: 'maya', nucleusId: 'human-editor',
     resourceId: 'schema:migration', leaseToken: lease.lease.leaseToken

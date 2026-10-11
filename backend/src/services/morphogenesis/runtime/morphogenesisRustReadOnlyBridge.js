@@ -2,7 +2,7 @@
 
 const crypto = require('node:crypto');
 
-function requestFor(morphology, missionId) {
+function requestFor(morphology, missionId, record) {
   if (!morphology || typeof morphology.topology !== 'string' || !morphology.topology.trim()) {
     throw new Error('Post-mission Rust adjudication requires a prepared topology');
   }
@@ -11,8 +11,11 @@ function requestFor(morphology, missionId) {
     currentTopology: morphology.topology,
     missionId: missionId || null,
     variantId: morphology.variantId || null,
-    reason: 'post-mission: no persisted resolver proposal or measured marginal gain',
-    proposals: []
+    snapshotSha256: record.snapshotRef.snapshotSha256,
+    graphId: record.snapshotRef.graphId,
+    graphVersion: record.snapshotRef.graphVersion,
+    reason: `post-mission persisted resolver proposals (verdict=${record.outcomeVerdict})`,
+    proposals: record.proposals
   };
 }
 
@@ -39,7 +42,11 @@ function hasReadOnlyContract(response, digest) {
 }
 
 async function adjudicatePostMission(morphology, options = {}) {
-  const request = requestFor(morphology, options.missionId);
+  if (!options.record?.snapshotRef || !Array.isArray(options.record.proposals)) {
+    return { available: false, decision: 'UNAVAILABLE', committed: false,
+      reason: 'PERSISTED_PROPOSALS_REQUIRED' };
+  }
+  const request = requestFor(morphology, options.missionId, options.record);
   const payload = JSON.stringify(request);
   const runner = options.runner || require('../../genosCli').runGenos;
   let result;

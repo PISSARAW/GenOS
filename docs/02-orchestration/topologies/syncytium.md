@@ -976,8 +976,9 @@ Les variants disposent désormais de services métier dédiés, raccordés à la
 - **Hierarchical** : coupe-circuits régionaux qui isolent opérations et transactions.
 - **Real-Time Control** : ordonnanceur logiciel EDF, contrôle de watchdog, reçus WCET
   déclaratifs et sortie fail-safe `STOP_AND_REPAIR`.
-- **Human–AI** : zones d'autorité humaine, consentement, pause, attribution, approbation
-  et édition compensatoire.
+- **Human–AI** : zones d'autorité humaine, consentement, pause, attribution,
+  approbation liée au contenu et à l'agent, puis édition compensatoire. Le reçu
+  d'approbation consommée ne prouve pas un effet externe.
 
 Le blackboard retourne l'événement après son ajout append-only. Les verrous de la variante
 Code appliquent leurs mises à jour en une transaction sérialisable via la façade Syncytium.

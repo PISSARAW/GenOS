@@ -8,13 +8,10 @@ async function executeMorphology(input) {
     orchestratorId, mode: 'shadow', evidence: outcome?.evidence,
     reason: `post-mission morphogenesis (verdict=${finalVerdict})`
   });
-  if (result?.applied === true || result?.committed === true
-    || result?.receipt?.committed === true || result?.transition?.committed === true
-    || result?.decision === 'APPLIED') {
-    throw new Error('Post-mission morphogenesis cannot commit without a governed production bridge.');
-  }
-  const adjudicate = input.adjudicate || require('../src/services/morphogenesis/runtime/morphogenesisRustReadOnlyBridge').adjudicatePostMission;
-  const kernelReadOnly = await adjudicate(morphology, { missionId: orchestratorId });
+  assertNoCommit(result);
+  const adjudicate = input.adjudicate || require('../src/services/morphogenesis/runtime/morphogenesisPersistedReadOnlyService').adjudicatePersistedOutcome;
+  const kernelReadOnly = await adjudicate({ db: input.db, morphology,
+    missionId: input.missionId || orchestratorId, snapshotRef: input.snapshotRef, outcome });
   const diagnostic = { ...result, applied: false, proposed: true,
     kernelReadOnly,
     productionGate: 'POST_MISSION_COMMIT_UNAVAILABLE',
@@ -25,8 +22,29 @@ async function executeMorphology(input) {
   event.payload.authorityPending = diagnostic.authorityPending;
   event.payload.kernelDecision = kernelReadOnly.decision;
   event.payload.kernelAvailable = kernelReadOnly.available;
+  event.payload.kernelReason = kernelReadOnly.reason || null;
+  event.payload.proposalRecordId = kernelReadOnly.proposalRecordId || null;
   telemetry.emitEvent(event);
   return diagnostic;
+}
+
+function assertNoCommit(result) {
+  if (result?.applied === true || result?.committed === true
+    || result?.receipt?.committed === true || result?.transition?.committed === true
+    || result?.decision === 'APPLIED') {
+    throw new Error('Post-mission morphogenesis cannot commit without a governed production bridge.');
+  }
+}
+
+async function persistMorphologySnapshot(input) {
+  try {
+    return await require('../src/services/morphogenesis/runtime/morphogenesisPersistedReadOnlyService')
+      .persistPreparedMorphology(input);
+  } catch (error) {
+    input.telemetry.emitEvent({ eventType: 'MORPHOLOGY_SNAPSHOT_FAILED', agentId: input.agentId,
+      action: 'SNAPSHOT_PREPARED_MORPHOLOGY', detail: error.message, severity: 'warning' });
+    return null;
+  }
 }
 
 async function checkMinimalShortcut(input) {
@@ -42,4 +60,4 @@ async function checkMinimalShortcut(input) {
   return true;
 }
 
-module.exports = { executeMorphology, checkMinimalShortcut };
+module.exports = { executeMorphology, checkMinimalShortcut, persistMorphologySnapshot };

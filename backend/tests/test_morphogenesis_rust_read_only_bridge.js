@@ -16,33 +16,37 @@ function response(payload, decision = 'NO_CHANGE') {
 
 async function main() {
   const morphology = { topology: 'trinity', variantId: 'controlled' };
+  const record = { outcomeVerdict: 'completed', proposals: [], snapshotRef: {
+    missionId: 'mission-1', graphId: 'graph-1', graphVersion: 1, snapshotSha256: 'a'.repeat(64)
+  } };
   const runner = async (args) => {
     assert.equal(args[0], 'morphogenesis-adjudicate');
     const request = JSON.parse(args[1]);
     assert.equal(request.currentTopology, 'trinity');
     assert.equal(request.variantId, 'controlled');
     assert.equal(request.missionId, 'mission-1');
+    assert.equal(request.snapshotSha256, record.snapshotRef.snapshotSha256);
     assert.deepEqual(request.proposals, []);
     return { ok: true, json: response(args[1]) };
   };
-  const result = await adjudicatePostMission(morphology, { missionId: 'mission-1', runner });
+  const result = await adjudicatePostMission(morphology, { missionId: 'mission-1', record, runner });
   assert.equal(result.available, true);
   assert.equal(result.decision, 'NO_CHANGE');
   assert.equal(result.committed, false);
 
   const unavailable = await adjudicatePostMission(morphology, {
-    runner: async () => ({ ok: false, code: 'BIN_NOT_FOUND' })
+    record, runner: async () => ({ ok: false, code: 'BIN_NOT_FOUND' })
   });
   assert.equal(unavailable.decision, 'UNAVAILABLE');
   assert.equal(unavailable.available, false);
   await assert.rejects(adjudicatePostMission(morphology, {
-    runner: async () => ({ ok: true, json: { ...response('wrong'), decision: 'APPLIED' } })
+    record, runner: async () => ({ ok: true, json: { ...response('wrong'), decision: 'APPLIED' } })
   }), /Invalid or unbound/);
   await assert.rejects(adjudicatePostMission(morphology, {
-    runner: async (args) => ({ ok: true, json: { ...response(args[1]), committed: true } })
+    record, runner: async (args) => ({ ok: true, json: { ...response(args[1]), committed: true } })
   }), /Invalid or unbound/);
   if (process.env.GENOS_MORPHO_E2E === '1') {
-    const real = await adjudicatePostMission(morphology, { missionId: 'mission-1' });
+    const real = await adjudicatePostMission(morphology, { missionId: 'mission-1', record });
     assert.equal(real.available, true, JSON.stringify(real));
     assert.equal(real.decision, 'NO_CHANGE');
     assert.equal(real.plan.decision_no_change, true);

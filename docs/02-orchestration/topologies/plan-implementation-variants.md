@@ -121,6 +121,29 @@ authentifiée, la liaison proposition–snapshot–décision au CAS, un exécute
 `multiteam` qui charge et vérifie les sous-runs, ainsi que la qualification
 de missions représentatives pour les 95 variants canoniques.
 
+### Troisième vague — 2026-10-11
+
+- Morphogenèse persiste le graphe préparé. Un verdict `unverified` déclenche
+  une proposition du resolver Rust, persistée avec son empreinte et relue avec
+  le snapshot avant adjudication. La décision demeure consultative : le graphe
+  n'est pas un snapshot restaurable, et l'autorité authentifiée ainsi que le
+  CAS de transition manquent toujours ([ADR 0416](../../adr/0416-propositions-rust-liees-snapshot-morphologie.md)).
+- A-Team prépare des TeamRuns enfants durables et idempotents, liés au programme,
+  au parent, à l'orchestrateur, aux membres et au budget. Le lancement et la
+  clôture vérifiée des sous-runs restent à brancher ; `SUCCEEDED` demeure refusé
+  ([ADR 0413](../../adr/0413-preparation-durable-sous-runs-a-team.md)).
+- Biocénose refuse les reçus Hybrid Oracle dont les identifiants de claim,
+  vérificateur ou communauté ne correspondent pas. L'authenticité de l'oracle
+  reste à établir par l'intégration de confiance
+  ([ADR 0417](../../adr/0417-liaison-recus-hybrid-oracle-biocenose.md)).
+- Syncytium Human–AI lie une approbation au contenu revu et à l'agent autorisé.
+  Son reçu atteste l'enregistrement, pas un effet externe ; une preuve d'exécution
+  distincte reste nécessaire ([ADR 0414](../../adr/0414-approbation-liee-a-laction-human-ai-syncytium.md)).
+- Trinity refuse une continuation adaptive ou QD sans rapport final et preuves
+  requises. Une campagne en lecture seule qualifie les traces des douze variants,
+  mais aucune nouvelle mission nominale n'a été exécutée dans cette vague : les
+  douze restent non qualifiés ([ADR 0415](../../adr/0415-qualification-nominale-trinity-sur-traces-durables.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

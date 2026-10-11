@@ -3,6 +3,9 @@
 use genos_orchestrator::kernel_governance::{GovernanceDecision, GovernanceInput, GovernancePlane};
 use genos_orchestrator::kernel_morphogenesis::{MorphogenesisPlan, MorphogenesisPlanner, PlanInput};
 use genos_orchestrator::kernel_resolvers::{Proposal, ProposalSet};
+use genos_orchestrator::kernel_resolvers::{resolve_all, ResolverInput};
+use genos_orchestrator::kernel_diagnosis::{Diagnosis, FailureType};
+use genos_orchestrator::kernel_state::OrchestratorState;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -13,8 +16,29 @@ struct Request {
     current_topology: String,
     mission_id: Option<String>,
     variant_id: Option<String>,
+    snapshot_sha256: Option<String>,
+    graph_id: Option<String>,
+    graph_version: Option<u64>,
     reason: String,
     proposals: Vec<Proposal>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProposeRequest {
+    schema_version: u8,
+    mission_id: String,
+    snapshot_sha256: String,
+    signal: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProposeResponse {
+    schema_version: u8,
+    request_sha256: String,
+    proposals: Vec<Proposal>,
+    committed: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -40,6 +64,26 @@ fn validate(request: &Request) -> Result<(), String> {
         || request.variant_id.as_ref().is_some_and(|value| value.trim().is_empty()) {
         return Err("mission and variant identifiers cannot be empty".into());
     }
+    validate_snapshot_binding(request)?;
+    validate_proposals(request)?;
+    Ok(())
+}
+
+fn validate_snapshot_binding(request: &Request) -> Result<(), String> {
+    let fields = [request.snapshot_sha256.is_some(), request.graph_id.is_some(),
+        request.graph_version.is_some()];
+    if fields.iter().any(|present| *present) && fields.iter().any(|present| !present) {
+        return Err("incomplete graph snapshot binding".into());
+    }
+    if request.snapshot_sha256.as_ref().is_some_and(|value| !is_sha256(value))
+        || request.graph_id.as_ref().is_some_and(|value| value.trim().is_empty())
+        || request.graph_version.is_some_and(|value| value == 0) {
+        return Err("invalid graph snapshot binding".into());
+    }
+    Ok(())
+}
+
+fn validate_proposals(request: &Request) -> Result<(), String> {
     if request.proposals.len() > 64 {
         return Err("too many morphogenesis proposals".into());
     }
@@ -47,6 +91,10 @@ fn validate(request: &Request) -> Result<(), String> {
         return Err("invalid morphogenesis proposal".into());
     }
     Ok(())
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn valid_proposal(proposal: &Proposal) -> bool {
@@ -98,6 +146,43 @@ pub fn execute(payload: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn resolve_proposals(payload: &str) -> Result<ProposeResponse, String> {
+    if payload.len() > 65536 {
+        return Err("morphogenesis proposal payload exceeds 64 KiB".into());
+    }
+    let request: ProposeRequest = serde_json::from_str(payload)
+        .map_err(|error| format!("invalid morphogenesis proposal JSON: {error}"))?;
+    if request.schema_version != 1 || request.mission_id.trim().is_empty()
+        || !is_sha256(&request.snapshot_sha256) {
+        return Err("invalid morphogenesis proposal binding".into());
+    }
+    let failure = match request.signal.as_str() {
+        "evidence_gap" => FailureType::Epistemic,
+        "none" => FailureType::None,
+        _ => return Err("unsupported post-mission diagnostic signal".into()),
+    };
+    let state = OrchestratorState::new(&request.mission_id);
+    let diagnosis = Diagnosis {
+        failure,
+        confidence: if failure == FailureType::None { 1.0 } else { 0.7 },
+        detail: request.signal,
+    };
+    let proposals = resolve_all(&ResolverInput { state: &state, diagnosis: &diagnosis }).items;
+    Ok(ProposeResponse {
+        schema_version: 1,
+        request_sha256: format!("{:x}", Sha256::digest(payload.as_bytes())),
+        proposals,
+        committed: false,
+    })
+}
+
+pub fn propose(payload: &str) -> Result<(), String> {
+    let result = resolve_proposals(payload)?;
+    let json = serde_json::to_string(&result).map_err(|error| error.to_string())?;
+    println!("{json}");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,5 +211,13 @@ mod tests {
         assert!(adjudicate("{}").is_err());
         let input = r#"{"schemaVersion":1,"currentTopology":"trinity","reason":"test","proposals":[{"resolver":"test","action":"unknown","target":"rhizome","gain":0.5,"cost":0.1}]}"#;
         assert!(adjudicate(input).is_err());
+    }
+
+    #[test]
+    fn evidence_gap_resolver_emits_a_real_proposal() {
+        let input = format!(r#"{{"schemaVersion":1,"missionId":"mission-1","snapshotSha256":"{}","signal":"evidence_gap"}}"#, "a".repeat(64));
+        let output = resolve_proposals(&input).unwrap();
+        assert!(output.proposals.iter().any(|item| item.action == "spawn_verifier"));
+        assert!(!output.committed);
     }
 }

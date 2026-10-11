@@ -684,3 +684,8 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0410 — Reprise publique liée à la communauté Biocénose](adr/0410-reprise-publique-liee-a-la-communaute-biocenose.md).
 - [ADR 0411 — Appelant lié à la session Syncytium](adr/0411-appelant-lie-session-syncytium.md).
 - [ADR 0412 — Pont Rust de Morphogenèse en lecture seule](adr/0412-pont-rust-morphogenese-lecture-seule.md).
+- [ADR 0413 — Préparation durable des sous-runs A-Team](adr/0413-preparation-durable-sous-runs-a-team.md).
+- [ADR 0414 — Approbation liée à l'action Human–AI Syncytium](adr/0414-approbation-liee-a-laction-human-ai-syncytium.md).
+- [ADR 0415 — Qualification nominale Trinity sur traces durables](adr/0415-qualification-nominale-trinity-sur-traces-durables.md).
+- [ADR 0416 — Propositions Rust liées au snapshot de morphologie](adr/0416-propositions-rust-liees-snapshot-morphologie.md).
+- [ADR 0417 — Liaison des reçus Hybrid Oracle Biocénose](adr/0417-liaison-recus-hybrid-oracle-biocenose.md).

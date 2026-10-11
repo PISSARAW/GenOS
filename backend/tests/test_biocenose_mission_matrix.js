@@ -49,8 +49,9 @@ async function runMission(input) {
   const judgments = [];
   const result = await service.runBiocenoseRound({ db: input.db, communityId: community.communityId,
     memberInvoker: async (request) => invokeFixture(input, request, judgments),
-    verificationExecutor: async ({ claim }) => ({ status: 'VERIFIED', receiptId: `oracle-${claim.claimId}`,
-      evidenceRef: 'fixture-proof', outcome: 'PASS', oracle: 'trusted' }),
+    verificationExecutor: async ({ claim, verifier, communityId }) => ({ status: 'VERIFIED',
+      receiptId: `oracle-${claim.claimId}`, claimId: claim.claimId, verifierId: verifier.memberId,
+      communityId, evidenceRef: 'fixture-proof', outcome: 'PASS', oracle: 'trusted' }),
     isTrustedReceipt: (receipt) => receipt.oracle === 'trusted', missionIndex: input.participants,
     aggregationContext: { options: designOptions(input.participants),
       criteria: [{ key: 'quality', direction: 'max' }], outcomes: [] }

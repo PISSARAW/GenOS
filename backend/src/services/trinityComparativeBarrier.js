@@ -229,6 +229,7 @@ function decisionRecord(result, outcome) {
     crossExamination: result?.comparativeAnalysis?.crossExamination || null,
     research: result?.comparativeAnalysis?.research || null,
     variantExecution: result?.comparativeAnalysis?.variantExecution || null,
+    variantGates: require('./trinityQualificationTrace').fromComparison(result?.comparativeAnalysis),
     synthesizedClaims: outcome === 'SYNTHESIZE_CLAIMS' ? result?.mergedEvidence?.claims || [] : [],
     claimGraph: trinityClaimGraph.summary(result?.comparativeAnalysis?.claimGraph || { status: 'unavailable', nodes: [], edges: [] })
   };
@@ -362,7 +363,9 @@ async function verifyCandidatePromotion(db, input, { winner, artifact }) {
 function promotionDecision(result, artifact, verification) {
     const decision = {
       outcome: 'PROMOTED', worldNumber: result.selectedWorld, artifact, verification,
-      jury: result.jury || null, crossExamination: result.comparativeAnalysis?.crossExamination || null
+      jury: result.jury || null, crossExamination: result.comparativeAnalysis?.crossExamination || null,
+      evidenceVectorDecision: vectorDecisionSummary(result.comparativeAnalysis?.pareto),
+      variantGates: require('./trinityQualificationTrace').fromComparison(result.comparativeAnalysis)
     };
   return decision;
 }

@@ -41,6 +41,18 @@ preuve. L'adaptateur doit déléguer à la barrière de preuves du sous-run et f
 d'idempotence stable ; le runner la dérive de l'identifiant du programme et de l'équipe.
 Un résultat `WAITING` reste réessayable et ne débloque aucun consumer.
 
+`createProgramSubrun` prépare désormais un vrai TeamRun enfant et son WorkGraph
+persistés. Il exige un parent `multiteam` actif, l'identité de son orchestrateur,
+un variant enfant explicite et exécutable, un objectif, des membres et un budget
+local en tokens. Le run enfant conserve le lien programme/parent/mission, le
+variant et l'autorité choisie, ainsi que l'allocation budgétaire. Une reprise
+idempotente refuse tout changement de ce lien. Cette préparation ne lance pas
+les workers et ne prouve pas la consommation effective du budget.
+Quand `advanceProgramRun` reçoit l'identité de l'orchestrateur parent, il
+prépare le sous-run avant d'appeler `executeTeam` et transmet son `childRunId`
+canonique. Le résultat doit reprendre ce même identifiant. Un résultat
+`WAITING` peut être réexaminé au prochain avancement sans changer d'enfant.
+
 Le dispatch A-Team générique ne fournit pas encore cet adaptateur : il refuse la
 variante `multiteam` avec `ATEAM_MTS_EXECUTOR_REQUIRED` avant la création du TeamRun.
 Si la sélection automatique suggère `multiteam`, le plan revient à `project_dag`

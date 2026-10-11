@@ -133,6 +133,7 @@ fn real_main() {
 
     let result: Result<(), String> = (|| match cli.command {
         Some(Commands::MorphogenesisAdjudicate { payload }) => commands::morphogenesis_gate::execute(&payload),
+        Some(Commands::MorphogenesisPropose { payload }) => commands::morphogenesis_gate::propose(&payload),
         Some(Commands::Init) => initialize_workspace(),
         Some(Commands::Doctor) => commands::doctor::execute(),
         Some(Commands::Explain { mission_id }) => execute_explain(&mission_id),

@@ -53,6 +53,12 @@ un noyau de `kind: "human"` pour Human–AI. L'identité des principaux et noyau
 reste vérifiée par les opérations concernées. Une politique sélectionnée ne
 prouve pas que ses opérations métier ont été exécutées.
 
+Pour Human–AI, une approbation d'action critique porte le contenu JSON revu
+(64 Kio au plus) et l'identifiant de l'agent autorisé. La consommation refuse
+un autre contenu ou agent. Le reçu `authorized_recorded` prouve uniquement
+l'enregistrement dans l'état partagé ; l'effet externe exige une preuve distincte
+([ADR 0414](../adr/0414-approbation-liee-a-laction-human-ai-syncytium.md)).
+
 ## Admission, causalité et identité
 
 Le rejeu suit les dépendances causales, sans dépendre de l'ordre des horloges

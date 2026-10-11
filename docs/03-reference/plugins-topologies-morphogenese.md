@@ -127,8 +127,11 @@ Le tableau des contrôleurs décrit le chemin plugin Morphogenèse ; il ne const
 
 Le parcours public appelle désormais `genos morphogenesis-adjudicate` en
 lecture seule après la proposition. Le noyau Rust planifie et vérifie la
-gouvernance, mais l'appel post-mission ne possède pas de proposition de
-resolver persistée ni de gain marginal mesuré : la décision normale est
-`NO_CHANGE`. Un binaire absent apparaît comme `UNAVAILABLE`. Ce contrôle ne
-crée aucune transition, version de graphe ou preuve de promotion ; voir
-[ADR 0412](../adr/0412-pont-rust-morphogenese-lecture-seule.md).
+gouvernance. Le graphe préparé est désormais persisté avant mission ; le
+verdict `unverified` déclenche une proposition `spawn_verifier` du resolver
+Rust, persistée avec le hash du graphe puis relue avant adjudication. Cette
+proposition est refusée par la gouvernance en lecture seule. Les données
+absentes ou périmées produisent `UNAVAILABLE`. Un autre verdict sans cause
+épistémique qualifiée peut produire `NO_CHANGE`. Ce contrôle ne crée aucune
+transition appliquée ni preuve de promotion ; voir [ADR 0412](../adr/0412-pont-rust-morphogenese-lecture-seule.md)
+et [ADR 0416](../adr/0416-propositions-rust-liees-snapshot-morphologie.md).

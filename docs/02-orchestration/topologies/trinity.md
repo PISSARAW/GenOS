@@ -2316,6 +2316,25 @@ Pour chaque mission, Trinity enregistre :
 
 Trinity n'est pas un système qui trouve la bonne réponse. C'est un système qui sait quelle hypothèse est la plus résistante à l'expérimentation, et qui sait aussi quand aucune hypothèse ne résiste suffisamment.
 
+### 9.1 Qualification des douze variants après R3
+
+La campagne R3 du 3 octobre 2026 reste un constat pré-correctifs : douze
+escalades, aucune promotion. Pour une nouvelle campagne, fournir un JSON qui
+associe chacun des douze noms de variant à son identifiant de mission distinct,
+puis exécuter en lecture seule :
+
+```bash
+node backend/bin/trinity-nominal-campaign.cjs <database.sqlite> <manifest.json>
+```
+
+La sortie JSON donne un verdict et les raisons par variant. La qualification
+exige la sélection observée, les mondes terminés, la trace durable du runner,
+les contrôles d'intégration du candidat et la signature AgentGit vérifiée.
+L'outil ne lance pas les missions et ne promeut aucun monde. Une campagne
+ancienne dépourvue de traces de gates reste non qualifiée. Les douze missions
+post-correctifs doivent être exécutées avec leurs propres vérificateurs et
+contrôles d'intégration; les reçus auto-déclarés ne suffisent pas. Voir ADR 0415.
+
 ## 10. Références scientifiques
 
 1. **Self-Consistency** — Wang et al., *Self-Consistency Improves Chain of Thought Reasoning in Language Models*, arXiv:2203.11171. Le vote majoritaire sur N raisonnements cohérents améliore la précision.

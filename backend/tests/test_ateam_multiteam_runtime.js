@@ -37,6 +37,16 @@ async function run() {
     } });
     assert.deepEqual(blockedCalls, ['producer']);
     assert.equal(waiting.teams[1].status, 'PENDING');
+    const retried = await runtime.advanceProgramRun({ db: {}, programId: 'program-2', executeTeam: async (task) => {
+      assert.equal(task.existingChildRunId, null);
+      return { status: 'WAITING', childRunId: 'child-producer' };
+    } });
+    assert.equal(retried.teams[0].receipt.childRunId, 'child-producer');
+    await assert.rejects(runtime.advanceProgramRun({ db: {}, programId: 'program-2',
+      executeTeam: async (task) => {
+        assert.equal(task.existingChildRunId, 'child-producer');
+        return { status: 'WAITING', childRunId: 'different-child' };
+      } }), { code: 'ATEAM_MTS_CHILD_IDENTITY_CONFLICT' });
     await assert.rejects(runtime.advanceProgramRun({ db: {}, programId: 'missing', executeTeam: async () => ({ status: 'SUCCEEDED' }) }), { code: 'ATEAM_MTS_PROGRAM_UNKNOWN' });
   } finally {
     sessions.save = originalSave;

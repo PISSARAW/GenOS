@@ -23,7 +23,7 @@ SHA-256 des octets de requête et un plan. Il ne peut retourner que
 `NO_CHANGE` ou `REJECTED`, avec `commitAuthorized: false` et
 `committed: false`. Les entrées invalides sont rejetées avant le plan.
 
-Après la mission, Node appelle cette commande avec la topologie et le variant
+Dans la première étape du pont, Node appelle cette commande avec la topologie et le variant
 préparés, mais un ensemble de propositions vide : aucun gain marginal ni
 resolver persistant ne justifie une proposition Rust. Le backend vérifie le
 digest et les invariants de réponse. Si le binaire manque ou échoue, le
@@ -39,6 +39,10 @@ exact et du snapshot à la décision, puis un CAS de graphe qui vérifie cette
 liaison avant de produire un reçu durable. Aucun booléen d'adaptateur ne
 remplace ces preuves. Le SHA-256 du pont détecte une réponse discordante ;
 il ne signe pas l'autorité et ne prouve pas l'identité du binaire.
+
+L'[ADR 0416](0416-propositions-rust-liees-snapshot-morphologie.md) remplace
+ensuite la liste de propositions vide par des propositions de resolver Rust
+persistées et liées au graphe préparé, sans ouvrir le commit.
 
 ## Vérification
 

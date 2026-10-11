@@ -23,7 +23,8 @@ async function collectReceipts(input) {
   const { context, session, claim, verification, receipts } = input;
   for (const verifier of verification.verifiers) {
     const receipt = await context.verificationExecutor({ claim, verifier, communityId: session.communityId });
-    if (isBoundReceipt(receipt, claim, verifier) && isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) {
+    if (isBoundReceipt({ receipt, claim, verifier, session, strict: context.variantPolicy?.requireDeterministicVerifier })
+      && isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) {
       receipts.push({ ...receipt, claimId: claim.claimId, verifierId: verifier.memberId });
     }
   }
@@ -39,10 +40,22 @@ function assertMixedClaimType(context, session, claim) {
   }
 }
 
-function isBoundReceipt(receipt, claim, verifier) {
-  return receipt && (!receipt.claimId || receipt.claimId === claim.claimId)
+function isBoundReceipt(input) {
+  const { receipt, claim, verifier, session, strict } = input;
+  if (!receipt) return false;
+  if (strict) return isStrictBinding({ receipt, claim, verifier, session });
+  return (!receipt.claimId || receipt.claimId === claim.claimId)
     && (!receipt.verifierId || receipt.verifierId === verifier.memberId);
 }
+
+function isStrictBinding({ receipt, claim, verifier, session }) {
+  return [claim.claimId, verifier.memberId, session.communityId].every(nonEmptyString)
+    && receipt.claimId === claim.claimId && receipt.verifierId === verifier.memberId
+    && receipt.communityId === session.communityId && nonEmptyString(receipt.receiptId)
+    && nonEmptyString(receipt.evidenceRef);
+}
+
+function nonEmptyString(value) { return typeof value === 'string' && Boolean(value.trim()); }
 
 function assertRequiredVerifier({ context, session, verification, claim }) {
   if (requiresVerification(context, session, claim) && !verification.deterministicAvailable) {

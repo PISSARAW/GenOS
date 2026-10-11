@@ -902,8 +902,14 @@ Adversarial Assembly exige et route vers un reviewer adversarial ; Forecasting C
 les prévisions dépourvues de poids de calibration et d'indépendance ; Minority-Preserving
 Jury référence tous les dissents persistés dans le jugement ; Human–AI Deliberation impose
 une revue humaine ; Hybrid Oracle Community bloque le traitement factuel sans vérificateur
-déterministe. Epistemic Jury reste le protocole par défaut, et le graphe d'arguments est
-construit par le runtime commun.
+déterministe. Pour ce dernier variant, un reçu `VERIFIED` doit déjà porter les
+identifiants exacts du claim, du vérificateur et de la communauté, ainsi qu'un
+identifiant de reçu et une référence de preuve non vides avant l'appel au
+validateur de confiance. Le runtime ne complète plus ces champs à la place de
+l'oracle. Cette liaison ne prouve pas seule l'authenticité d'un oracle externe :
+elle dépend encore du validateur fourni par l'intégration. Epistemic Jury reste
+le protocole par défaut, et le graphe d'arguments est construit par le runtime
+commun.
 
 Les douze variants sont déclarés `executionLevel: EXECUTABLE`. Le runtime exécute leurs
 politiques et le cycle persistant décrit en tête de ce document. Ce niveau atteste un

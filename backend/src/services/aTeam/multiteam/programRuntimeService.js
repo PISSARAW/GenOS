@@ -2,6 +2,7 @@
 
 const sessions = require('../../topologySessionStore');
 const { composeMultiteam } = require('./multiteamComposer');
+const { createProgramSubrun } = require('./programSubrunService');
 
 async function createProgramRun(input = {}) {
   const composition = composeMultiteam(input);
@@ -40,15 +41,22 @@ async function runReadyTeam(input) {
   const { record, nodeId } = input;
   const teamId = nodeId.slice('team:'.length);
   const team = record.state.teams.find((entry) => entry.teamId === teamId);
-  if (!team || team.status !== 'PENDING' || !dependenciesSucceeded(record.state, teamId)) return;
+  if (!team || !['PENDING', 'WAITING'].includes(team.status) || !dependenciesSucceeded(record.state, teamId)) return;
   const definition = team.definition;
   const contracts = record.state.contracts.filter((contract) => contract.toTeamId === teamId);
+  const child = input.orchestratorId && await createProgramSubrun({ db: input.db,
+    programId: record.state.programId, teamId, orchestratorId: input.orchestratorId });
   const result = await input.executeTeam({
     teamId, definition, contracts,
     idempotencyKey: `${record.state.programId}:${teamId}`,
     parentTeamRunId: record.state.parentTeamRunId,
+    childRunId: child?.run.teamRunId || null,
+    existingChildRunId: team.receipt?.childRunId || null,
     budget: team.budget
   });
+  if (child && result?.childRunId !== child.run.teamRunId) {
+    throw coded('Subteam executor returned a different child TeamRun.', 'ATEAM_MTS_CHILD_IDENTITY_CONFLICT');
+  }
   if (result?.status === 'SUCCEEDED') {
     throw coded('Subteam completion requires a persisted, verified child TeamRun and authoritative budget evidence.',
       'ATEAM_MTS_SUBRUN_PROOF_REQUIRED');
@@ -62,6 +70,10 @@ function dependenciesSucceeded(state, teamId) {
 }
 
 async function persistOutcome(input) {
+  const previousChildRunId = input.record.state.teams.find((team) => team.teamId === input.teamId)?.receipt?.childRunId;
+  if (previousChildRunId && input.result?.childRunId !== previousChildRunId) {
+    throw coded('Subteam retry changed its child TeamRun identity.', 'ATEAM_MTS_CHILD_IDENTITY_CONFLICT');
+  }
   const budget = budgetAllows(input.record.state, input.teamId, input.result);
   const verified = input.result?.status === 'SUCCEEDED' && verifiedContracts(input.contracts, input.result) && budget.allowed;
   const status = !budget.allowed || input.result?.status === 'FAILED' ? 'FAILED' : verified ? 'SUCCEEDED' : 'WAITING';
@@ -95,7 +107,8 @@ function budgetAllows(state, teamId, result) {
   const usage = normalizeUsage(result?.usage);
   for (const dimension of ['tokens', 'compute', 'time']) {
     if (Number.isFinite(local[dimension]) && usage[dimension] > local[dimension]) return { allowed: false, reason: `local_${dimension}_limit` };
-    const previous = state.teams.reduce((sum, team) => sum + (Number(team.receipt?.usage?.[dimension]) || 0), 0);
+    const previous = state.teams.filter((team) => team.teamId !== teamId)
+      .reduce((sum, team) => sum + (Number(team.receipt?.usage?.[dimension]) || 0), 0);
     if (Number.isFinite(state.budget.global?.[dimension]) && previous + usage[dimension] > state.budget.global[dimension]) return { allowed: false, reason: `global_${dimension}_limit` };
   }
   return { allowed: true, reason: null };
@@ -119,4 +132,4 @@ function coded(message, code) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { createProgramRun, advanceProgramRun };
+module.exports = { createProgramRun, advanceProgramRun, createProgramSubrun };

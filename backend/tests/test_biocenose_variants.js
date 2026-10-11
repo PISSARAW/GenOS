@@ -300,6 +300,21 @@ async function testHybridOracleMixedClaimsRequireTrustedReceipt() {
   await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
     (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
   context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted',
+    claimId: 'claim-1', verifierId: 'v1', communityId: 'other-community', evidenceRef: 'proof:r2' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted',
+    claimId: 'claim-1', verifierId: 'other-verifier', communityId: 'c1', evidenceRef: 'proof:r2' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted',
+    claimId: 'claim-1', verifierId: 'v1', communityId: 'c1', evidenceRef: 'proof:r2' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session,
+    claim: { claim: { type: 'FACTUAL', verification: { kinds: ['formal_proof'] } } }, receipts }),
+  (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
   await oracle.routeAndVerify({ context, session, claim, receipts });
   assert.deepEqual(receipts.map((receipt) => receipt.claimId), ['claim-1']);
 }
