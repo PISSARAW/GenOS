@@ -10,6 +10,14 @@ présente aussi une architecture cible ; le [protocole de missions](../02-orches
 définit les oracles et les campagnes à exécuter. Une réponse transport réussie
 ne constitue pas une preuve de complétion.
 
+## Snapshot topologique
+
+Le snapshot matérialisé de l'état CRDT et le snapshot d'agent sont deux objets
+distincts. L'option `topologySnapshot` exige une matérialisation actuelle, une
+frontière causale cohérente, des répliques réconciliées et les champs requis
+par le variant avant le restore ou checkout du workspace. Elle ne rembobine
+pas la session partagée. Voir [snapshots topologiques](snapshots-topologiques.md).
+
 ## Services et activation
 
 | Point d'entrée | Responsabilité |

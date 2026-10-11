@@ -2,6 +2,7 @@
 
 const isolatedBaselineTopologyService = require('../isolatedBaselineTopologyService.js');
 const biologicalTopology = require('../biologicalTopologyService.js');
+const workerGarage = require('../workerGarageService.js');
 
 async function composeBiologicalMode({ db, context, mode, mission }) {
   const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;

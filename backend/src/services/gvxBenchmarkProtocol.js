@@ -34,8 +34,15 @@ function controlErrors(design) {
 
 function datasetErrors(design) {
   const datasets = design.datasets || {};
-  return HASH.test(datasets.trainHash || '') && HASH.test(datasets.heldOutHash || '')
+  const errors = HASH.test(datasets.trainHash || '') && HASH.test(datasets.heldOutHash || '')
     ? [] : ['benchmark-dataset-hashes-required'];
+  if (design.datasetPolicies && !validDatasetPolicies(design.datasetPolicies)) errors.push('benchmark-dataset-policy-invalid');
+  return errors;
+}
+
+function validDatasetPolicies(policies) {
+  return Object.keys(policies).length === 2 && ['train', 'held_out'].every(split =>
+    policies[split]?.schema === 'genos.gvx.split-dataset/v1' && HASH.test(policies[split].candidateHash || ''));
 }
 
 function cohortErrors(design) {
@@ -97,6 +104,7 @@ function createManifest(input) {
     cohorts: [...input.cohorts],
     metrics: [...new Set(input.metrics)],
     datasets: { ...input.datasets },
+    ...(input.datasetPolicies ? { datasetPolicies: JSON.parse(JSON.stringify(input.datasetPolicies)) } : {}),
     experiments: { ...input.experiments },
     preregisteredAt: new Date().toISOString()
   };

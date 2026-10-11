@@ -5,6 +5,14 @@
 - **Dernière revue** : 2026-10-06
 - **Version de référence** : commit `5b18c834`
 
+## Snapshot topologique
+
+L'option `topologySnapshot` lie le snapshot d'agent à un dème et à sa
+frontière régionale persistée. La capture vérifie la politique et les
+registres propres aux seize variants ; restore et checkout refusent une région
+active ou des effets en vol. Ils ne restaurent pas les dèmes ni les migrations.
+Voir [snapshots topologiques](snapshots-topologiques.md).
+
 ## 1. Points d'entrée et prérequis
 
 La façade [metapopulationCoordinationService.js](../../backend/src/services/metapopulationCoordinationService.js)

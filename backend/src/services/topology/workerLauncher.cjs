@@ -49,7 +49,7 @@ async function persistWorkerIdentity({ db, context, member, parent, workerId }) 
     workerKind: member.workerKind,
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
-    topologySessionId: context.request.mode === 'syncytium' ? context.topologySession?.sessionId : null,
+    topologySessionId: context.topologySession?.sessionId || null,
     mission: member.mission || context.task
   });
 }

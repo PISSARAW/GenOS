@@ -180,7 +180,9 @@ async function loadConscienceState(state) {
 
 async function loadMemoryBlock(state) {
   try {
-    state.memoryBlock = await agentMemory.formatCognitiveMemoryPrompt(state.agentName, state.mission.prompt || state.mission.currentTask);
+    state.memoryBlock = await agentMemory.formatCognitiveMemoryPrompt(state.agentName,
+      state.mission.prompt || state.mission.currentTask,
+      { historicalMemoryTokenBudget: state.mission.historicalMemoryTokenBudget });
   } catch (_) {}
 }
 

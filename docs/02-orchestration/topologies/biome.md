@@ -8,6 +8,15 @@
 
 ---
 
+## Snapshot d'agent lié à un Biome
+
+La capture optionnelle `topologySnapshot` vérifie l'identité de session du
+worker, l'écologie, le biofilm, l'environnement et le journal. Elle scelle les
+champs propres aux onze variants. L'agent et l'écologie doivent être inactifs
+pour reprendre son workspace ; les ressources collectives ne sont pas
+restaurées. Voir la
+[référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
 ## 1. Définition
 
 ### 1.1 Définition formelle

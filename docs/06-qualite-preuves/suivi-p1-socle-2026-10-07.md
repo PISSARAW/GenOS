@@ -600,6 +600,12 @@ réussie. Les validations concernent le checkout partagé ; les modifications
 
 ## Traçabilité initiale du lancement
 
+L’actualisation du [2026-10-10 avec la V3](qualification-p1-v3-2026-10-10.md)
+ajoute le pont nursery/replay, la projection évaluateur, une qualification Lean
+réelle et la reproduction indépendante autorisée. Elle remplace les mentions
+de nursery et de reproduction entièrement absentes par une qualification
+bornée, sans fermer les 115 obligations ni les six lots.
+
 GenOS a fourni le checkpoint `snap-a7d8f742186b41f18d02828f1ba16d1b`, dont le
 fichier local a été observé, et la décision
 `decision-fd091459-c12e-467c-ab5f-2de1259005fa`. Les échecs connus ont été

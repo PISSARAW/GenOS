@@ -70,7 +70,7 @@ ne constituent pas une mesure de modèles externes.
 
 Fonctionnalités implémentées :
 
-- **Snapshots de workspace et d'état d'agent**, forks, diffs et replay ; le manifeste vérifié couvre aussi les mémoires persistées, les relations, l'état runtime durable, les échanges visibles du routeur LLM et les références immuables des checkpoints Rust associés. La RAM des processus et l'état caché des fournisseurs LLM restent hors portée ([portée](docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)).
+- **Snapshots de workspace et d'état d'agent**, forks, diffs et replay ; le manifeste vérifié couvre aussi les mémoires persistées, les relations, l'état runtime durable, les échanges visibles du routeur LLM et les références immuables des checkpoints Rust associés. Une option lie le snapshot d'agent à l'une des huit topologies et à son variant ; la reprise vérifie le collectif sans le rembobiner ([contrat](docs/03-reference/snapshots-topologiques.md)). La RAM des processus et l'état caché des fournisseurs LLM restent hors portée ([portée](docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)).
 
 Le backend expose `GET /api/agents/snapshot-capabilities` pour indiquer sur Windows, macOS et Linux le mode logique disponible et les restaurations indisponibles. Une demande de snapshot de RAM échoue explicitement avant capture ; voir [ADR 0375](docs/adr/0375-portabilite-snapshots-memoire.md).
 - **Démo de débogage parallèle sûr** : `examples/safe-debugging-demo`, exécutable sans clé API.

@@ -14,6 +14,10 @@ const { isDeterministicWorkerMission, applyWorkerRuntimeLimits } = require('../s
 
 async function verifyMission(mission) {
   assertRuntimeContract(mission.workerContract, mission.workerKind);
+  if (mission.workerKind === 'sub_orchestrator') {
+    assert.equal(mission.workerContract.resources.maxTokens, 0);
+    assert.ok(mission.workerContract.resources.maxDelegatedTokens > 0);
+  }
   assert.equal(isDeterministicWorkerMission(mission), true);
   assert.equal(applyWorkerRuntimeLimits(mission, { tokens: 8000, latencyMs: 300000 }).tokens, 0);
   const context = { db: {}, mission, deadline: Date.now() + 300000 };

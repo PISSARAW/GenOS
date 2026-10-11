@@ -148,7 +148,7 @@ async function ingestMemory(req, res, next) {
 
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      decisionId, title, content, buffer, 'python_script', category, initialWeight, orgId, projId
+      decisionId, title, content, buffer, req.tenant.principalId, category, initialWeight, orgId, projId
     );
 
     await applyHebbianLearning(db, content, { decisionId, orgId, projId, isCorrection });

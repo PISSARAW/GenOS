@@ -85,6 +85,9 @@ fn get_required_fields(name: &str) -> &[&str] {
         "genos_orchestrate" | "genos_delegate_worker" => &["mission"],
         "genos_snapshot" => &["agent", "out"],
         "genos_capsule_create" => &["snapshot_id"],
+        "genos_agent_fork_snapshot" => &["agent_id", "snapshot_id", "idempotency_key"],
+        "genos_agent_inherited_memory_read" => &["agent_id", "kind"],
+        "genos_agent_state_restore_inspect" => &["agent_id", "snapshot_id"],
         "genos_change_strategy" => &["strategy", "reason"],
         "genos_report_progress" => &["phase", "message"],
         "genos_change_organization" => &["organization", "reason"],
@@ -106,6 +109,9 @@ fn apply_special_validations(name: &str, object: &serde_json::Map<String, serde_
     if name == "genos_philosophy" {
         validate_philosophy_arguments(object)?;
     }
+    if name == "genos_agent_state_restore_inspect" {
+        validate_restore_inspect(object)?;
+    }
     Ok(())
 }
 
@@ -113,10 +119,55 @@ fn validate_execution_tool_arguments(name: &str, object: &serde_json::Map<String
     if name == "genos_replay" {
         validate_genos_replay(object)?;
     }
+    if name == "genos_agent_fork_snapshot" {
+        validate_agent_fork_snapshot(object)?;
+    }
+    if name == "genos_agent_inherited_memory_read" {
+        validate_inherited_memory_read(object)?;
+    }
     if name == "genos_a_team_preview" && !object.get("sub_systems").is_some_and(serde_json::Value::is_array) {
         return Err("sub_systems must be an array.".into());
     }
     Ok(())
+}
+
+fn validate_restore_inspect(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    if object.len() != 2 || object.keys().any(|key| !["agent_id", "snapshot_id"].contains(&key.as_str())) {
+        return Err("Unsupported restore inspection argument.".into());
+    }
+    for field in ["agent_id", "snapshot_id"] {
+        if object.get(field).and_then(serde_json::Value::as_str)
+            .is_some_and(|value| value.chars().count() > 256) {
+            return Err(format!("{field} must be at most 256 characters."));
+        }
+    }
+    Ok(())
+}
+
+fn validate_inherited_memory_read(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    if object.len() > 3 || object.keys().any(|key| !["agent_id", "kind", "limit"].contains(&key.as_str())) {
+        return Err("Unsupported inherited memory argument.".into());
+    }
+    let agent_id = object.get("agent_id").and_then(serde_json::Value::as_str).unwrap_or("");
+    if agent_id.len() > 256 {
+        return Err("agent_id must be at most 256 characters.".into());
+    }
+    match object.get("kind").and_then(serde_json::Value::as_str) {
+        Some("memories" | "autobiographicalEpisodes" | "decisions") => {},
+        _ => return Err("kind must be memories, autobiographicalEpisodes, or decisions.".into()),
+    }
+    match object.get("limit") {
+        None => Ok(()),
+        Some(value) if value.as_u64().is_some_and(|limit| (1..=50).contains(&limit)) => Ok(()),
+        _ => Err("limit must be an integer from 1 to 50.".into()),
+    }
+}
+
+fn validate_agent_fork_snapshot(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    match object.get("budget").and_then(serde_json::Value::as_u64) {
+        Some(budget) if (1..=9_007_199_254_740_991).contains(&budget) => Ok(()),
+        _ => Err("budget must be a positive integer.".into()),
+    }
 }
 
 fn validate_genos_replay(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {

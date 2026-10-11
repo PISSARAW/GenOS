@@ -27,6 +27,18 @@ function validateIsolation() {
   if (inside(process.cwd(), root) || !process.env.GENOS_ADMIN_PASSWORD) throw new Error('Use a temporary isolation root outside the repository and provide GENOS_ADMIN_PASSWORD.');
 }
 
+function perceptionAccepted(entry) {
+  return entry.runtimeStarted && entry.perception?.observedCount >= 2
+    && entry.perception?.telemetryCount >= 2 && entry.perception?.distinctDigests >= 2
+    && entry.perception?.runBound && entry.perception?.runtimeSettled;
+}
+
+function reportPerception(results, reportPath) {
+  const observed = results.filter(perceptionAccepted);
+  process.stdout.write(`Perception run ${RUN_ID}: ${observed.length}/${Object.keys(kinds.KINDS).length} worker kinds observed two external changes. Report: ${reportPath}\n`);
+  process.exitCode = observed.length === Object.keys(kinds.KINDS).length ? 0 : 1;
+}
+
 function launchEachKind() {
   const failed = [];
   for (const kind of Object.keys(kinds.KINDS)) {
@@ -39,6 +51,10 @@ function launchEachKind() {
   const reportPath = path.join(process.env.GENOS_COMPLIANCE_ROOT, 'worker-compliance-report.json');
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   const results = report.results.filter((entry) => entry.runId === RUN_ID);
+  if (process.env.GENOS_COMPLIANCE_PERCEPTION === '1') {
+    reportPerception(results, reportPath);
+    return;
+  }
   const summary = summarizeCompliance(results, Object.keys(kinds.KINDS));
   process.stdout.write(`Compliance run ${RUN_ID}: ${summary.executed}/${results.length} executed, ${summary.unavailable} expected unavailable, ${summary.failed} failed. Failed process kinds: ${failed.join(', ') || 'none'}.\n`);
   process.exitCode = summary.accepted && failed.length === 0 ? 0 : 1;

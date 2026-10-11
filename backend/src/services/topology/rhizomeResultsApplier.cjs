@@ -1,6 +1,8 @@
 'use strict';
 
 const rhizomeMissionRunner = require('../rhizome/rhizomeMissionRunnerService.js');
+const workerGarage = require('../workerGarageService.js');
+const { launchWorker } = require('./workerLauncher.cjs');
 
 async function applyRhizomeResults({ db, context, mode, topology, accepted, parent, output }) {
   if (mode !== 'rhizome' || !topology.sessionId) return;
@@ -21,4 +23,4 @@ function dispatchRhizomeMissionMembers({ db, context, members, parent }) {
   });
 }
 
-module.exports = { applyRhizomeResults };
+module.exports = { applyRhizomeResults, dispatchRhizomeMissionMembers };

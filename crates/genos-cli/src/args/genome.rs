@@ -93,6 +93,23 @@ pub enum GenomeSubcommands {
         #[arg(long, default_value_t = false)]
         parents: bool,
     },
+    /// Substitute one nucleotide at an explicit gene locus and position
+    PointMutate {
+        #[arg(long, alias = "in")]
+        input: String,
+        #[arg(long, alias = "out")]
+        output: String,
+        #[arg(long)]
+        locus: String,
+        #[arg(long)]
+        position: usize,
+        #[arg(long)]
+        base: String,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+        #[arg(long, default_value_t = false)]
+        parents: bool,
+    },
     /// Clone an AgentDNA genome (mitosis, binary fission or budding)
     Clone {
         #[arg(long, alias = "in")]

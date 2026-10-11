@@ -74,7 +74,7 @@ async function runArm(options, arm) {
   const scope = { ...input.scope, entityId: input.entityId };
   const id = `gvx-experiment:${options.plan.experimentId}:arm:${arm.armId}`;
   const prior = await ledger.getEvent(options.db, id, scope);
-  if (prior) return prior.payload.outcome;
+  if (prior) return revalidateArm({ options, arm, prior });
   const world = await buildWorld(options, arm);
   try {
     const raw = await options.runWorld({ world, arm, budget: arm.budget, controls: options.plan.controls });
@@ -84,6 +84,25 @@ async function runArm(options, arm) {
       payload: { kind: 'gvx_experiment_arm', experimentId: options.plan.experimentId, outcome } });
     return outcome;
   } finally { if (options.disposeIsolatedWorld) await options.disposeIsolatedWorld(world); }
+}
+
+async function revalidateArm({ options, arm, prior }) {
+  const outcome = prior.payload.outcome;
+  if (!Array.isArray(outcome?.evidence)) {
+    throw Object.assign(new Error('GVX_NURSERY_CACHED_EVIDENCE_INVALID'), { code: 'GVX_NURSERY_CACHED_EVIDENCE_INVALID' });
+  }
+  if (options.validateCachedOutcome) await options.validateCachedOutcome({ arm, outcome });
+  const current = await verifyOutcome({ options, arm, world: { worldId: arm.worldId }, outcome });
+  if (JSON.stringify(current.evidence.map(receiptBinding)) !== JSON.stringify(outcome.evidence.map(receiptBinding))
+      || current.metricsVerified !== outcome.metricsVerified) {
+    throw Object.assign(new Error('GVX_NURSERY_CACHED_EVIDENCE_INVALID'), { code: 'GVX_NURSERY_CACHED_EVIDENCE_INVALID' });
+  }
+  return outcome;
+}
+
+function receiptBinding(receipt) {
+  return [receipt.requirement, receipt.verifierId, receipt.verifierVersion, receipt.artifactRef,
+    receipt.artifactHash, receipt.evidenceClass, receipt.signedReceipt?.businessDecision || receipt.businessDecision || null];
 }
 
 module.exports = { run, validAdapters, buildWorld, verifyOutcome, verifiedMetrics, metricsVerified };

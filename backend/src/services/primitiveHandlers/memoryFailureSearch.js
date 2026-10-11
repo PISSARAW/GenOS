@@ -47,28 +47,27 @@ async function resolveQueryVector(query) {
   return queryVec;
 }
 
-async function fetchDecisionFailures(db, organizationId, limit) {
-  if (!organizationId) {
-    return db.all('SELECT id, title, content, created_at, embedding_blob FROM genome_decisions WHERE category = \'Failure\' ORDER BY created_at DESC LIMIT ?', limit);
-  }
-  return db.all('SELECT id, title, content, created_at, embedding_blob FROM genome_decisions WHERE category = \'Failure\' AND (organization_id = ? OR organization_id IS NULL) ORDER BY created_at DESC LIMIT ?', organizationId, limit);
+async function fetchDecisionFailures(db, context, limit) {
+  const scope = require('../failureMemoryScope').selection(context);
+  return db.all(`SELECT id, title, content, created_at, embedding_blob FROM genome_decisions
+    WHERE category = 'Failure'${scope.sql} ORDER BY created_at DESC LIMIT ?`, [...scope.parameters, limit]);
 }
 
-async function fetchRejectedTrajectories(db, organizationId) {
+async function fetchRejectedTrajectories(db, context) {
+  const scope = require('../failureMemoryScope').selection(context, 'w.');
+  const join = scope.sql ? 'JOIN' : 'LEFT JOIN';
   try {
-    if (!organizationId) {
-      return db.all('SELECT id, title, semantic_summary AS content, created_at, embedding_blob FROM trajectories WHERE status = \'rejected\' ORDER BY created_at DESC LIMIT 50');
-    }
-    return db.all('SELECT id, title, semantic_summary AS content, created_at, embedding_blob FROM trajectories WHERE status = \'rejected\' AND (workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?)) ORDER BY created_at DESC LIMIT 50', organizationId);
+    return await db.all(`SELECT t.id, t.title, t.semantic_summary AS content, t.created_at, t.embedding_blob
+      FROM trajectories t ${join} workspaces w ON w.id = t.workspace_id
+      WHERE t.status = 'rejected'${scope.sql} ORDER BY t.created_at DESC LIMIT 50`, scope.parameters);
   } catch (_) {
     return [];
   }
 }
 
 async function fetchFailureCandidates(db, context) {
-  const organizationId = context.organizationId || null;
-  const decisions = await fetchDecisionFailures(db, organizationId, 50);
-  const rejected = await fetchRejectedTrajectories(db, organizationId);
+  const decisions = await fetchDecisionFailures(db, context, 50);
+  const rejected = await fetchRejectedTrajectories(db, context);
   return decisions.concat(rejected);
 }
 

@@ -31,6 +31,15 @@ pub struct MutateRequest<'a> {
     pub write: WriteOptions,
 }
 
+pub struct PointMutationRequest<'a> {
+    pub input: &'a str,
+    pub output: &'a str,
+    pub locus: String,
+    pub position: usize,
+    pub base: String,
+    pub write: WriteOptions,
+}
+
 pub struct CloneRequest<'a> {
     pub input: &'a str,
     pub output: &'a str,
@@ -147,6 +156,22 @@ pub fn handle_mutate(req: MutateRequest) -> Result<(), String> {
     let options = MutateOptions { rate: req.rate, hyper: req.hyper, locus: req.locus, seed: req.seed };
     let mutated = operations::mutate(&dna, &options)?;
     persist(&PersistSpec { op: "genome_mutate", output: req.output, write: req.write }, &mutated)
+}
+
+pub fn handle_point_mutate(req: PointMutationRequest) -> Result<(), String> {
+    use genos_dna::point_mutation::{mutate_point, PointMutationOptions};
+    use genos_genome::DnaNucleotide;
+    let replacement = match req.base.as_str() {
+        "A" => DnaNucleotide::A,
+        "C" => DnaNucleotide::C,
+        "G" => DnaNucleotide::G,
+        "T" => DnaNucleotide::T,
+        _ => return Err("base must be A, C, G or T".to_string()),
+    };
+    let dna = read_dna(req.input)?;
+    let options = PointMutationOptions { locus: req.locus, position: req.position, replacement };
+    let candidate = mutate_point(&dna, &options)?;
+    persist(&PersistSpec { op: "genome_point_mutate", output: req.output, write: req.write }, &candidate)
 }
 
 pub fn handle_clone(req: CloneRequest) -> Result<(), String> {

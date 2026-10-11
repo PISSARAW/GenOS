@@ -41,7 +41,8 @@ async function readDataset(options, job) {
   const datasetHash = job.split === 'train' ? options.manifest.datasets.trainHash : options.manifest.datasets.heldOutHash;
   const bytes = await options.datasetReader({ datasetHash, split: job.split, cohort: job.cohort });
   if (!Buffer.isBuffer(bytes) || verifier.digest(bytes) !== datasetHash) throw campaignError('GVX_CAMPAIGN_DATASET_HASH_MISMATCH');
-  return { datasetHash, bytes };
+  const projection = require('./gvxBenchmarkDataset').candidateView(bytes, options.manifest.datasetPolicies?.[job.split]);
+  return { datasetHash, ...projection };
 }
 
 function validRunOutput(output, options, job) {
@@ -58,13 +59,22 @@ function metricEvidence(output, metric) {
 
 function matchesMetricDecision(receipt, options) {
   const decision = receipt?.signedReceipt?.businessDecision;
+  return receipt?.verified === true && metricDecisionMatches(decision, options)
+    && JSON.stringify(decision.modelLock) === JSON.stringify(options.manifest.modelLock)
+    && decision.toolsetHash === options.manifest.toolsetHash
+    && candidateBindingMatches(decision, options);
+}
+
+function metricDecisionMatches(decision, options) {
   const { job, datasetHash, output } = options;
-  return receipt?.verified === true && decision?.metric === options.metric
+  return decision?.metric === options.metric
     && decision.variant === job.variant && decision.cohort === job.cohort
     && decision.split === job.split && decision.seed === job.seed
-    && decision.datasetHash === datasetHash && decision.value === output.metrics[options.metric]
-    && JSON.stringify(decision.modelLock) === JSON.stringify(options.manifest.modelLock)
-    && decision.toolsetHash === options.manifest.toolsetHash;
+    && decision.datasetHash === datasetHash && decision.value === output.metrics[options.metric];
+}
+
+function candidateBindingMatches(decision, options) {
+  return !options.manifest.datasetPolicies || decision.candidateDatasetHash === options.candidateDatasetHash;
 }
 
 async function verifyRunMetrics(options) {
@@ -87,12 +97,15 @@ async function executeJob(options, job) {
   const runner = options.runners[job.variant];
   if (typeof runner !== 'function') throw campaignError(`GVX_CAMPAIGN_RUNNER_MISSING:${job.variant}`);
   const output = await runner({ ...job, dataset: dataset.bytes, datasetHash: dataset.datasetHash,
+    candidateDatasetHash: dataset.candidateHash, datasetSeparation: dataset.separation,
     modelLock: options.manifest.modelLock, toolsetHash: options.manifest.toolsetHash,
     budget: options.manifest.budgetPerRun, signal: options.signal });
   if (!validRunOutput(output, options, job)) throw campaignError('GVX_CAMPAIGN_RUN_OUTPUT_INVALID');
-  const evidenceReceipts = await verifyRunMetrics({ ...options, job, output, datasetHash: dataset.datasetHash });
+  const evidenceReceipts = await verifyRunMetrics({ ...options, job, output, datasetHash: dataset.datasetHash,
+    candidateDatasetHash: dataset.candidateHash });
   const record = { schema: 'genos.gvx.benchmark-run/v1', manifestId: options.manifest.benchmarkId,
     ...job, datasetHash: dataset.datasetHash, modelLock: options.manifest.modelLock,
+    candidateDatasetHash: dataset.candidateHash, datasetSeparation: dataset.separation,
     toolsetHash: options.manifest.toolsetHash, cost: output.cost, metrics: output.metrics, evidenceReceipts };
   const bytes = Buffer.from(JSON.stringify(record));
   const stored = await options.artifactWriter({ bytes, schema: record.schema, manifestId: record.manifestId, job });
@@ -103,6 +116,7 @@ async function executeJob(options, job) {
     throw campaignError('GVX_CAMPAIGN_RESULT_PERSISTENCE_INVALID');
   }
   return { ...job, datasetHash: dataset.datasetHash, cost: output.cost,
+    candidateDatasetHash: dataset.candidateHash, datasetSeparation: dataset.separation,
     metrics: output.metrics, artifactHash, artifactRef: stored.artifactRef };
 }
 

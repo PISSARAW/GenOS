@@ -2,6 +2,9 @@
 
 Les 8 modes de composition supportés par GenOS. Le contrat de capacités et le câblage
 runtime sont décrits dans [../topologies-et-capacites.md](../topologies-et-capacites.md).
+Le [contrat des snapshots topologiques](../../03-reference/snapshots-topologiques.md)
+décrit la capture optionnelle et les préconditions de reprise propres à chacun
+de leurs variants.
 
 La [Morphogenèse](morphogenese.md) est le cadre transversal qui construit et compose
 ces organisations ; elle n'est pas un neuvième mode.

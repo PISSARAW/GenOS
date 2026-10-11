@@ -26,7 +26,7 @@ async function seed(db) {
 }
 
 async function context(db, root, options) {
-  const { contractRecord, duration = 60000 } = options;
+  const { contractRecord, duration = 300000 } = options;
   const run = await execution.createExecutionRun(db, { agentId: 'worker', contractRecord,
     missionId: 'worker-mission', budget: { tokens: 0, deterministic: true, latencyMs: duration } });
   const ctx = { db, agentId: 'worker', executionRun: run, autonomyPlan: {}, normalizedMission: {
@@ -159,6 +159,16 @@ async function publicationRace(ctx, filename) {
   } finally { release(); ctx.db.run = original; await other.close(); }
 }
 
+async function expiredAtBoundary(ctx) {
+  const saved = await authority.read(ctx.db, ctx.executionRun.id);
+  const realNow = Date.now;
+  try {
+    Date.now = () => Date.parse(saved.envelope.expiresAt);
+    await assert.rejects(authority.assertRun(ctx.db, input(ctx)), { code: 'EXECUTION_AUTHORITY_EXPIRED' });
+  } finally { Date.now = realNow; }
+  assert.equal((await authority.assertRun(ctx.db, input(ctx))).status, 'authorized');
+}
+
 async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-p1-authority-'));
   const filename = path.join(root, 'authority.sqlite');
@@ -175,9 +185,8 @@ async function main() {
     await quietChild(quiet);
     const race = await context(db, workspace, { contractRecord: contract });
     await publicationRace(race, filename);
-    const expired = await context(db, workspace, { contractRecord: contract, duration: 30 });
-    await new Promise(resolve => setTimeout(resolve, 50));
-    await assert.rejects(authority.assertRun(db, input(expired)), { code: 'EXECUTION_AUTHORITY_EXPIRED' });
+    const expired = await context(db, workspace, { contractRecord: contract });
+    await expiredAtBoundary(expired);
     assert.deepEqual(await authority.assertRun(db, { agentId: 'worker', runId: 'unknown' }), { status: 'legacy_unbound' });
     console.log('P1 authority: immutable scope, restart, tool/root ceilings, live revocation, refused publication and quiet child stop passed.');
   } finally { await db.close(); await fs.rm(root, { recursive: true, force: true }); }

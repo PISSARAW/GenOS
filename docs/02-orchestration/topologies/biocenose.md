@@ -4,6 +4,15 @@
 - **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole, recommandations de transition à la Morphogenèse et contrôleur de tours piloté par handlers explicites, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-10-06
 
+## Snapshot d'agent lié à une communauté
+
+La capture optionnelle `topologySnapshot` vérifie l'appartenance à la
+communauté, la constitution engagée et les registres propres aux douze
+variants. Une reprise exige une communauté terminale, sans bail actif, avec
+les preuves de jugement et de tours requises par son état et son variant ;
+votes et dissensus ne sont pas rejoués.
+Voir la [référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
 ### Cycle persistant et garanties de finalisation
 
 L'[ADR 0333](../../adr/0333-biocenose-cycle-persistant-et-finalisation.md) décrit les

@@ -6,6 +6,15 @@
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
+## Snapshot d'agent lié à une expérience
+
+La capture optionnelle `topologySnapshot` lie l'agent à son monde, vérifie la
+baseline scellée sur disque et référence les transitions et le journal de
+phases. Chacun des douze variants apporte ses paramètres expérimentaux au
+manifeste. Une reprise de workspace exige une expérience terminale et une
+frontière inchangée ; elle ne restaure pas l'expérience collective. Voir la
+[référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
 ## Extension exécutable du 2026-10-06
 
 Les deux chemins de comparaison utilisent désormais le même runtime. Le dispatch

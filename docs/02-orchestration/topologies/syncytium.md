@@ -8,6 +8,14 @@
 
 Le parcours de campagne peut instancier un service spécialisé pour chacun des 13 variants, puis exposer ses actions typées par `genos_topology_session`. Les workers reçoivent une identité de session et des droits bornés ; les mutations génériques sont interdites dans les sessions spécialisées. Le runner compare `isolated_baseline` et `syncytium`, avec un oracle indépendant et des budgets observés. Le catalogue contient 52 missions de variant et un cas transversal, mais leurs 53 manifestes exécutables et les preuves de leur réussite manquent encore.
 
+## Snapshot d'agent lié à l'état partagé
+
+La capture optionnelle `topologySnapshot` exige un snapshot CRDT matérialisé et
+actuel, une frontière causale cohérente, des répliques réconciliées et les
+champs de schéma propres au variant. Elle sert à vérifier une reprise de
+workspace ; elle ne restaure pas le cytoplasme partagé. Voir la
+[référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
 ## 1. Définition
 
 Syncytium est un **modèle de conception d'orchestration autour d'un état partagé**. Il propose que plusieurs unités travaillent sur des opérations liées à un état commun, avec des règles explicites de fusion, de causalité et de validation. La fiche décrit une architecture cible ; elle ne garantit pas à elle seule la réplication, la convergence ni la préservation des invariants en production.

@@ -121,7 +121,24 @@ const delegated = workerKinds.grantBoundedDelegation(workerKinds.buildWorkerCont
 assert.equal(enforcement.assertRuntimeContract(delegated, 'sub_orchestrator'), true);
 const smallerGrant = workerKinds.grantBoundedDelegation(workerKinds.buildWorkerContract('sub_orchestrator', { workerTokenLimit: 2400 }));
 assert.equal(smallerGrant.limits.maxTokens, 2400);
+assert.equal(Object.hasOwn(smallerGrant.resources, 'maxDelegatedTokens'), false);
 assert.equal(enforcement.assertRuntimeContract(smallerGrant, 'sub_orchestrator'), true);
+const persistedModelContract = structuredClone(smallerGrant);
+assert.equal(enforcement.assertRuntimeContract(persistedModelContract, 'sub_orchestrator'), true);
+const nativeCoordination = workerKinds.buildWorkerContract('sub_orchestrator', {
+  methodContract: { version: 1, methodId: 'coordinate_children', parameters: { children: [] } }, workerTokenLimit: 2400
+});
+assert.equal(nativeCoordination.resources.maxTokens, 0);
+assert.equal(nativeCoordination.resources.maxDelegatedTokens, 2400);
+const nativeGrant = workerKinds.grantBoundedDelegation(nativeCoordination);
+assert.equal(nativeGrant.limits.maxTokens, 2400);
+assert.equal(enforcement.assertRuntimeContract(nativeGrant, 'sub_orchestrator'), true);
+assert.throws(() => workerKinds.grantBoundedDelegation(workerKinds.buildWorkerContract('sub_orchestrator', {
+  methodContract: nativeCoordination.mission.methodContract, delegatedTokenLimit: 0
+})), { code: 'SUBORCHESTRATOR_TOKEN_LIMIT' });
+assert.throws(() => enforcement.assertRuntimeContract({ ...nativeGrant, resources: {
+  ...nativeGrant.resources, maxDelegatedTokens: 10001
+} }, 'sub_orchestrator'), { code: 'INVALID_WORKER_CONTRACT' });
 assert.throws(() => enforcement.assertRuntimeContract({ ...smallerGrant, limits: { ...smallerGrant.limits, maxTokens: 2401 } }, 'sub_orchestrator'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
 assert.equal(delegated.authority.communicate, true);
 assert.throws(() => enforcement.assertRuntimeContract({ ...delegated, delegationExpiresAt: Date.now() - 1 }, 'sub_orchestrator'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });

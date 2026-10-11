@@ -218,30 +218,16 @@ function buildDecisionItem(item, ctx) {
 
 async function hydrateTrajectories(db, rowIds, ctx) {
   if (rowIds.length === 0) return [];
-  try {
-    const query = trajectoryHydrateQuery(rowIds, ctx.scope);
-    const rows = await db.all(query.sql, query.params);
-    return rows.map(item => {
-      return buildTrajectoryItem(item, ctx);
-    });
-  } catch (err) {
-    console.warn('[VectorMemory] Failed to hydrate trajectory rows:', err.message);
-    return [];
-  }
+  const query = trajectoryHydrateQuery(rowIds, ctx.scope);
+  const rows = await db.all(query.sql, query.params);
+  return rows.map(item => buildTrajectoryItem(item, ctx));
 }
 
 async function hydrateDecisions(db, rowIds, ctx) {
   if (rowIds.length === 0) return [];
-  try {
-    const query = decisionHydrateQuery(rowIds, ctx.scope);
-    const rows = await db.all(query.sql, query.params);
-    return rows.map(item => {
-      return buildDecisionItem(item, ctx);
-    });
-  } catch (err) {
-    console.warn('[VectorMemory] Failed to hydrate decision rows:', err.message);
-    return [];
-  }
+  const query = decisionHydrateQuery(rowIds, ctx.scope);
+  const rows = await db.all(query.sql, query.params);
+  return rows.map(item => buildDecisionItem(item, ctx));
 }
 
 function trajectoryFallbackOrg(scope) {
@@ -327,27 +313,19 @@ function buildFallbackDecisionItem(item) {
 }
 
 async function fetchFallbackCorpus(db, scope) {
-  try {
-    const trajectoryQuery = trajectoryFallbackQuery(scope);
-    const decisionQuery = decisionFallbackQuery(scope);
-    const trajectories = await db.all(trajectoryQuery.sql, trajectoryQuery.params);
-    const decisions = await db.all(decisionQuery.sql, decisionQuery.params);
-    return [
-      ...trajectories.map(item => {
-        return buildFallbackTrajectoryItem(item);
-      }),
-      ...decisions.map(item => {
-        return buildFallbackDecisionItem(item);
-      })
-    ];
-  } catch {
-    return [];
-  }
+  const trajectoryQuery = trajectoryFallbackQuery(scope);
+  const decisionQuery = decisionFallbackQuery(scope);
+  const trajectories = await db.all(trajectoryQuery.sql, trajectoryQuery.params);
+  const decisions = await db.all(decisionQuery.sql, decisionQuery.params);
+  return [
+    ...trajectories.map(item => buildFallbackTrajectoryItem(item)),
+    ...decisions.map(item => buildFallbackDecisionItem(item))
+  ];
 }
 
 async function fetchCorpus(db, query, queryVec) {
   const options = defaultOptions(arguments[3]);
-  if (!db) return [];
+  if (!db) throw new Error('Memory database is unavailable.');
   const scope = buildScope(options);
   const validVec = Array.isArray(queryVec) && queryVec.length === 768 ? queryVec : null;
   const queryVecJson = validVec ? JSON.stringify(Array.from(validVec)) : null;

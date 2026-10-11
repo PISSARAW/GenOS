@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::thread;
 
-mod backend_dispatch;
+pub(crate) mod backend_dispatch;
 mod executor_paths;
 mod executor_results;
 use executor_paths::{find_binary, resolve_bridge_path};

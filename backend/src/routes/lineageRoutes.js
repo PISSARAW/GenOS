@@ -62,6 +62,7 @@ router.post('/agents/git/migration', requirePermission('workspace:write'), agent
 router.post('/agents/git/fossil', requirePermission('workspace:write'), agentGitController.fossil);
 router.post('/agents/git/apoptosis', requirePermission('workspace:write'), agentGitController.apoptosis);
 router.post('/agents/restore', requirePermission('workspace:write'), lineageController.restoreAgentState);
+router.post('/agents/restore/inspect', requirePermission('read'), lineageController.inspectAgentRestore);
 router.post('/agents/replay', requirePermission('read'), lineageController.replayAgentState);
 router.post('/agents/bisect', requirePermission('read'), lineageController.bisectAgentState);
 router.post('/nodes/clone', requirePermission('workspace:write'), lineageController.cloneNode);

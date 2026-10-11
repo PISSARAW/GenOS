@@ -9,14 +9,13 @@
  * à 6 dimensions, récompense = succès pondéré coût/latence.
  * Bornes : 16 bras max (éviction du moins tiré), contexte et récompense
  * normalisés, état inspectable dans adaptive_state scope 'routing_bandit'.
- * Étape actuelle : APPRENDRE (observe câblé sur chaque tentative).
- * AGIR (ordonner les fallbacks) = étape suivante, après audit de
- * désaccord routeur-vs-bandit. observe() ne lève jamais (money path).
+ * Only independently verified mission outcomes may train this state.
+ * Provider transport receipts remain accounting data, not success labels.
  */
 
 const { AdaptiveStateService } = require('./adaptiveStateService');
 
-const SCOPE = 'routing_bandit';
+const SCOPE = 'routing_bandit_verified_v2';
 const DIM = 7;
 const MAX_ARMS = 16;
 const ALPHA = 1.0;
@@ -47,8 +46,8 @@ function featurize(input) {
     1,
     Math.min(1, promptTokens / 8000),
     data.isWorker === true ? 1 : 0,
-    Math.min(1, Number(data.costUsd) || 0),
-    Math.min(1, (Number(data.latencyMs) || 0) / 60000),
+    Math.min(1, Number(data.quotedCostUsd) || 0),
+    Math.min(1, (Number(data.predictedLatencyMs) || 0) / 60000),
     data.local === true ? 1 : 0,
     Number.isFinite(reliability) ? Math.max(0, Math.min(1, reliability)) : 0.5
   ];
@@ -95,28 +94,29 @@ async function loadArms(store) {
   return arms;
 }
 
-async function routeReliability(db, uri) {
-  try {
-    const worldModel = require('./worldModelService');
-    const predicted = await worldModel.predictState(db, 'routing', { action: uri });
-    if (!predicted || !predicted.distribution.length || predicted.successRate === null) return 0.5;
-    return Math.max(0, Math.min(1, predicted.successRate));
-  } catch (_) {
-    return 0.5;
-  }
+function verifiedOutcome(verification) {
+  return verification?.status === 'verified'
+    && typeof verification.evidenceRef === 'string'
+    && verification.evidenceRef.trim().length > 0;
+}
+
+function validObservation(db, data) {
+  if (!db || typeof data.routeUri !== 'string' || !data.routeUri) return false;
+  if (!verifiedOutcome(data.verification)) return false;
+  return typeof data.success === 'boolean' && data.verification.success === data.success;
 }
 
 async function observe(db, input) {
   try {
     const data = input || {};
-    if (!db || typeof data.routeUri !== 'string' || !data.routeUri) return null;
+    if (!validObservation(db, data)) return null;
     const store = new AdaptiveStateService(db);
     const arms = await loadArms(store);
     if (!arms[data.routeUri]) arms[data.routeUri] = newArm();
     evictIfNeeded(arms);
     const arm = arms[data.routeUri];
     if (!arm) return null;
-    const x = featurize({ ...data, predictedReliability: await routeReliability(db, data.routeUri) });
+    const x = featurize(data);
     const reward = rewardOf(data);
     arm.Ainv = shermanMorrison(arm.Ainv, x);
     arm.b = arm.b.map((value, i) => value + reward * x[i]);
@@ -140,8 +140,7 @@ async function recommend(db, input) {
     const scored = [];
     for (const uri of routes) {
       const arm = arms[uri] || newArm();
-      const features = [...x.slice(0, 6), await routeReliability(db, uri)];
-      scored.push({ uri, score: armScore(arm, features), pulls: arm.pulls || 0 });
+      scored.push({ uri, score: armScore(arm, x), pulls: arm.pulls || 0 });
     }
     scored.sort((a, b) => b.score - a.score);
     return { ordering: scored, explored: scored.some((entry) => entry.pulls === 0) };
@@ -160,7 +159,7 @@ async function report(db) {
         pulls: arm.pulls || 0,
         avgReward: arm.pulls ? (arm.sumR || 0) / arm.pulls : 0
       })),
-      limitation: 'Apprentissage seul : l\'ordonnancement reste au routeur jusqu\'à audit de désaccord.'
+      limitation: 'Canary explicit only; training requires an independent mission verdict and evidence reference.'
     };
   } catch (_) {
     return { arms: [] };
@@ -179,29 +178,43 @@ function clampRate(value, fallback) {
   return Math.max(0, Math.min(1, number));
 }
 
+function numericOrZero(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function modelFromMeta(meta) {
+  return [meta.model, meta.requestedModel, meta.servedModel]
+    .find((value) => typeof value === 'string' && value.length > 0);
+}
+
+function usageRowFromMeta(row, meta) {
+  if (!verifiedOutcome(meta.verification)) return null;
+  if (typeof meta.verification.success !== 'boolean') return null;
+  const model = modelFromMeta(meta);
+  if (!model) return null;
+  return {
+    id: `ledger:${row.id}`,
+    route: model,
+    success: meta.verification.success,
+    costUsd: numericOrZero(row.cost_usd ?? meta.costUsd),
+    latencyMs: numericOrZero(meta.latencyMs),
+    promptTokens: numericOrZero(meta.promptTokens),
+    quotedCostUsd: numericOrZero(meta.quotedCostUsd),
+    predictedLatencyMs: numericOrZero(meta.predictedLatencyMs)
+  };
+}
+
 function parseUsageRow(row) {
-  try {
-    const meta = JSON.parse(row.metadata_json || '{}');
-    const model = meta.model || meta.requestedModel || meta.servedModel;
-    if (typeof model !== 'string' || !model) return null;
-    return {
-      id: `ledger:${row.id}`,
-      route: model,
-      success: true,
-      costUsd: Number(meta.costUsd) || 0,
-      latencyMs: Number(meta.latencyMs) || 0,
-      promptTokens: Number(meta.promptTokens) || 0
-    };
-  } catch (_) {
-    return null;
-  }
+  try { return usageRowFromMeta(row, JSON.parse(row.metadata_json || '{}')); }
+  catch (_) { return null; }
 }
 
 function scoreCalibration(train, holdout) {
   const arms = {};
   for (const item of train) {
     const x = featurize(item);
-    const reward = rewardOf({ success: true, costUsd: item.costUsd, latencyMs: item.latencyMs });
+    const reward = rewardOf(item);
     if (!arms[item.route]) arms[item.route] = newArm();
     arms[item.route].Ainv = shermanMorrison(arms[item.route].Ainv, x);
     arms[item.route].b = arms[item.route].b.map((value, i) => value + reward * x[i]);
@@ -214,7 +227,7 @@ function scoreCalibration(train, holdout) {
     const arm = arms[item.route];
     if (!arm) continue;
     const predicted = Math.max(0, Math.min(1.5, dot(matVec(arm.Ainv, arm.b), featurize(item))));
-    const actual = rewardOf({ success: true, costUsd: item.costUsd, latencyMs: item.latencyMs });
+    const actual = rewardOf(item);
     absolute += Math.abs(predicted - actual);
     rewards += actual;
     evaluated += 1;

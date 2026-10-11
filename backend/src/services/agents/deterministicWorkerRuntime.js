@@ -72,7 +72,9 @@ async function runDeterministicWorker(db, mission, executionRun) {
     }, 'info', 'running');
     await publish(db, mission, started);
     assertActive(context);
-    const result = await executeNativeWorker(mission.workerKind, method, context);
+    const result = await require('./deterministicWorkerObservation').run({ db, mission, executionRun },
+      () => executeNativeWorker(mission.workerKind, method, context));
+    assertActive(context);
     return await complete(context, executionRun, result);
   } catch (failure) {
     return await fail(context, executionRun, failure);

@@ -56,6 +56,13 @@ exécutées pour cette revue.
 | Rhizome | expérimental | `composeMode(mode: rhizome)` et croissance par provider adapter | la voie de croissance résout un provider, instancie une capacité, la fait vérifier et admettre avant de l'ajouter au routage ; le graphe ne croît que si un provider admissible et les preuves requises sont fournis | registre de providers, vérificateur, admission, bus, signaux | `growthExecutor`, `providerAdapterRegistry`, tests unitaires de cycle ; E2E de croissance et routage à publier |
 | Métapopulation | expérimental ; runtime régional implémenté | `composeMode(mode: metapopulation)`, `runAutonomousRegionalRuntime` | PLAN sans effet, preuves locales, migrations revues, recolonisation et reprise persistée | SQLite, adaptateurs receveurs, évaluateurs locaux, Rust/solveur selon le variant | 10/10 suites dédiées au commit `5b18c834` ; [contrat et limites](runtime-metapopulation.md), [ADR 0330](../adr/0330-effets-durables-metapopulation.md) ; qualification externe et globale distincte |
 
+Les routes Lineage de snapshot d'agent offrent désormais un manifeste
+topologique optionnel pour ces huit modes et leurs variants. Ce contrat
+vérifie une frontière collective avant la reprise du workspace ; il ne prouve
+ni la réussite de la mission ni une restauration du collectif. Les
+[préconditions par variant](snapshots-topologiques.md) complètent ce tableau
+sans changer les statuts de maturité des runtimes.
+
 Les **19 organisations dynamiques** sont proposées par `dynamicOrganizationService`
 (`changeOrganization`, `runStep`). Le statut partiel est commun à ce registre :
 l'existence d'une entrée et de capacités requises ne démontre pas son usage effectif

@@ -163,6 +163,7 @@ mod tests {
         let (status, _, body) = handle_http_request(&req, &auth, &limiter);
         assert_eq!(status, 200);
         assert!(body.contains("chat.completion"));
+        assert!(body.contains("SIMULATION EXPLICITE"));
         unsafe {
             std::env::remove_var("GENOS_MOCK_LLM");
         }

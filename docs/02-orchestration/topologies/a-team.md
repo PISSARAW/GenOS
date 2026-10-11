@@ -11,6 +11,14 @@
 > des spécialistes A-Team. Les décisions normatives d'implémentation ci-dessous priment
 > sur les exemples et formules exploratoires des parties suivantes.
 
+## Snapshot d'agent lié à un TeamRun
+
+La capture optionnelle `topologySnapshot` lie un membre au TeamRun et à son
+WorkGraph, puis scelle les révisions, handoffs, preuves et champs propres aux
+onze variants d'organisation. La reprise exige un run terminal, sans bail du
+runner ni agent actif ; elle préserve le collectif en place. Voir la
+[référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
 ## Contrat normatif d'implémentation
 
 Cette section tranche les ambiguïtés qui empêchent de transformer les parties suivantes

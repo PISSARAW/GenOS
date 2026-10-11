@@ -26,6 +26,7 @@ process.env.GENOS_GRPC_SHARED_SECRET = testGrpcSecret;
 async function runGrpcSuite() {
   console.log('=== STARTING GENOS gRPC MICROSERVICES VERIFICATION SUITE ===\n');
   const { server, descriptors, actualGrpcPort } = await bootGrpcServer();
+  const memoryScope = await require('./helpers/memoryConsumerFixture.cjs').seed(await getDatabase());
   const clients = [];
   function createClient(serviceDef) {
     const client = new serviceDef(`127.0.0.1:${actualGrpcPort}`, grpc.credentials.createInsecure());
@@ -36,6 +37,7 @@ async function runGrpcSuite() {
     return new Promise((resolve, reject) => {
       const metadata = new grpc.Metadata();
       metadata.set('x-genos-grpc-key', testGrpcSecret);
+      metadata.set('x-access-key', memoryScope.operator);
       client[method](req, metadata, (err, res) => {
         if (err) return reject(err);
         resolve(res);
@@ -82,6 +84,7 @@ async function runGrpcSuite() {
     assert.strictEqual(memPing.status, 'Service Memory is alive via gRPC!');
     console.log(`  ✅ PASS: MemoryService Ping -> "${memPing.status}"`);
     const storeRes = await callRpc(memClient, 'StoreMemory', {
+      ...memoryScope,
       id: 'grpc-exp-01',
       content: 'Autonomous verification test experience via gRPC',
       embedding: new Array(768).fill(0.1)
@@ -89,6 +92,7 @@ async function runGrpcSuite() {
     assert.strictEqual(storeRes.success, true, 'StoreMemory must succeed');
     console.log('  ✅ PASS: MemoryService StoreMemory -> success: true');
     const searchRes = await callRpc(memClient, 'SearchMemory', {
+      ...memoryScope,
       text: 'verification test',
       vector: new Array(768).fill(0.1),
       limit: 3

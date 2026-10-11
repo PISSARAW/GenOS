@@ -4,6 +4,14 @@
 - **Dernière revue** : 2026-10-06
 - **Portée** : exécution, admission, résultats, métriques, ressources et télémétrie
 
+## Snapshot topologique
+
+L'option `topologySnapshot` lie un snapshot d'agent à la session et au graphe
+Rhizome. Elle vérifie journal, révision, preuves et champs des douze variants ;
+la reprise exige une session dormante ou en quarantaine, sans bail actif.
+Le graphe collectif reste en place. Voir
+[snapshots topologiques](snapshots-topologiques.md).
+
 ## Architecture
 
 [rhizomeCoordinationService](../../backend/src/services/rhizomeCoordinationService.js) possède les sessions et leurs mutations. [rhizomeRuntime](../../backend/src/services/rhizome/runtime/rhizomeRuntime.js) compose les registres de providers et de vérificateurs avec le contrôleur. Le store SQLite existant conserve le graphe, les budgets, les besoins actifs et les résultats signés. Les callbacks externes ne remplacent ni l'autorité ni la sandbox de leur hôte.

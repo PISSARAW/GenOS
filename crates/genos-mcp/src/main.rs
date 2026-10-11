@@ -59,7 +59,7 @@ fn handle_tools_call(req: &Value, id: Option<Value>, workspace: &Path) -> Option
         .unwrap_or("");
     let empty_args = json!({});
     let args = match params.and_then(|p| p.get("arguments")) {
-        Some(Value::Null) | None => &empty_args,
+        None => &empty_args,
         Some(val) => val,
     };
     if let Err(error) = validate_path_arguments(args, workspace) {
@@ -253,6 +253,41 @@ mod tests {
         assert!(validate_tool_arguments("genos_snapshot", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_replay", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_snapshot", &json!({ "agent": "a", "out": "b" })).is_ok());
+        for invalid in [
+            json!({}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k"}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":0}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":-1}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":1.5}),
+            json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":9_007_199_254_740_992_u64}),
+            json!({"agent_id":" ","snapshot_id":"s","idempotency_key":"k","budget":1}),
+        ] {
+            assert!(validate_tool_arguments("genos_agent_fork_snapshot", &invalid).is_err());
+        }
+        assert!(validate_tool_arguments("genos_agent_fork_snapshot",
+            &json!({"agent_id":"a","snapshot_id":"s","idempotency_key":"k","budget":1})).is_ok());
+        for invalid in [
+            json!({}),
+            json!({"agent_id":"child","kind":"unknown"}),
+            json!({"agent_id":"child","kind":"memories","limit":0}),
+            json!({"agent_id":"child","kind":"memories","limit":51}),
+            json!({"agent_id":"child","kind":"memories","limit":1.5}),
+            json!({"agent_id":"child","kind":"memories","extra":true}),
+        ] {
+            assert!(validate_tool_arguments("genos_agent_inherited_memory_read", &invalid).is_err());
+        }
+        assert!(validate_tool_arguments("genos_agent_inherited_memory_read",
+            &json!({"agent_id":"child","kind":"decisions","limit":20})).is_ok());
+        for invalid in [
+            json!({}),
+            json!({"agent_id":"a"}),
+            json!({"agent_id":"a","snapshot_id":"s","extra":true}),
+            json!({"agent_id":"a","snapshot_id":"x".repeat(257)}),
+        ] {
+            assert!(validate_tool_arguments("genos_agent_state_restore_inspect", &invalid).is_err());
+        }
+        assert!(validate_tool_arguments("genos_agent_state_restore_inspect",
+            &json!({"agent_id":"a","snapshot_id":"s"})).is_ok());
         assert!(validate_tool_arguments("genos_philosophy", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "listConcepts" })).is_ok());
         assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "saveAnalysis" })).is_err());
@@ -260,6 +295,15 @@ mod tests {
             "operation": "applyRuntimeEffect",
             "arguments": { "apply": true }
         })).is_err());
+    }
+
+    #[test]
+    fn process_request_rejects_explicit_null_tool_arguments() {
+        let request = json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": { "name": "genos_search_failures", "arguments": null } });
+        let response = process_request(&request.to_string(), Path::new(".")).expect("response");
+        assert_eq!(response["result"]["isError"], true);
+        assert!(response["result"]["content"][0]["text"].as_str().unwrap().contains("JSON object"));
     }
 
     #[test]

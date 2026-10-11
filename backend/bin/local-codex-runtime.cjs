@@ -7,6 +7,7 @@ const { localArtifactInstruction } = require('../src/services/localArtifactInstr
 const modelRouter = require('../src/services/modelRouter');
 const localSynthesis = require('../src/services/localRuntimeSynthesis');
 const captureBarrier = require('../src/services/localRuntimeCaptureBarrier');
+const observationInbox = require('../src/services/localRuntimeObservationInbox');
 const path = require('path');
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
@@ -33,6 +34,7 @@ async function main(rawInput) {
   mission.workerKind = mission.workerKind || mission.worker_kind;
   mission.workerContractJson = mission.workerContractJson || mission.worker_contract_json;
   mission.workerContract = parseJson(mission.workerContractJson);
+  observationInbox.bind(mission.agentId);
 
   const prompt = mission.prompt || mission.currentTask || 'No prompt provided';
   const contextStr = buildWorkspaceContext();
@@ -74,6 +76,7 @@ async function main(rawInput) {
 
   const services = { strategyExecutionAdapter, agentMemory };
   await buildPromptContext(state, services);
+  state.baseFramedPrompt = state.framedPrompt;
   state.resumeCheckpoint = await require('../src/services/localRuntimeCheckpoint').load(state);
   await runMission(state, services);
 }
@@ -90,15 +93,20 @@ async function runMission(state, services) {
   guardBudget(state);
   try {
     let reply = state.resumeCheckpoint?.reply || null;
+    const generate = () => require('../src/services/localRuntimeObservedGeneration').generate(state, {
+      checkpoint, synthesis: localSynthesis, createGeneration, awaitGeneration,
+      validateGeneration, emitEvent
+    });
     if (!state.resumeCheckpoint) await checkpoint.save(state, 'prepared');
     if (!reply) await captureBarrier.safePoint(state.resumeCheckpoint?.phase || 'prepared');
     if (!reply) {
-      await checkpoint.save(state, 'inference');
-      const generation = localSynthesis.canonicalGeneration(state.autonomyPlan) || createGeneration(state);
-      reply = await awaitGeneration(state, generation.generation, generation.abort);
-      validateGeneration(reply, generation.fallback, state);
+      reply = await generate();
       await checkpoint.save(state, 'generated', reply);
       await captureBarrier.safePoint('generated');
+    }
+    if (observationInbox.currentRevision() > (state.observationRevision || 0)) {
+      reply = await generate();
+      await checkpoint.save(state, 'generated', reply);
     }
     require('../src/services/localArtifactWriter').writeArtifacts(reply, state);
     if (state.resumeCheckpoint?.phase !== 'evaluated') {

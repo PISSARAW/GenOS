@@ -190,9 +190,9 @@ async function assertWorkerScope(db, domain, workerId) {
   if (worker?.workspace_id && worker.workspace_id !== domain.workspace_id) {
     const tables = await db.get(`SELECT COUNT(*) AS count FROM sqlite_master
       WHERE name IN ('trinity_worlds','trinity_experiments')`);
-    const delegated = tables.count === 2 && await require('./trinityWorkerAuthority').delegation(db, {
-      agent: worker, parent: { id: domain.manager_id, workspace_id: domain.workspace_id }
-    });
+    const binding = { agent: worker, parent: { id: domain.manager_id, workspace_id: domain.workspace_id } };
+    const delegated = (tables.count === 2 && await require('./trinityWorkerAuthority').delegation(db, binding))
+      || await require('./workerWorkspaceBindingService').delegation(db, binding);
     if (delegated) return;
     const error = new Error('Worker workspace does not match its garage domain.');
     error.code = 'GARAGE_SCOPE_INVALID';

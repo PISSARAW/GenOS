@@ -30,6 +30,13 @@ toutes ses garanties ou tous ses mécanismes disposent d'un adaptateur complet. 
 de couverture n'en fait pas un variant de valeur inférieure et ne doit pas, seule, empêcher
 son choix lorsque les signaux de mission lui correspondent.
 
+Le [contrat des snapshots topologiques](../../03-reference/snapshots-topologiques.md)
+référence les preuves de capture propres à chaque variant. Cette couverture
+concerne les routes Lineage de snapshot d'agent et leur prévalidation de
+reprise ; elle ne certifie pas l'exécution métier des variants. Les règles
+de l'alias `default` diffèrent entre adaptateurs, notamment pour Trinity,
+Métapopulation et Syncytium.
+
 Le [contrat runtime Syncytium](../../03-reference/runtime-syncytium.md), revu au
 2026-10-06, distingue le dispatch biologique, qui active les services spécialisés
 par défaut, et l'appel Node direct au registre, qui exige `useVariantRuntime: true`.
