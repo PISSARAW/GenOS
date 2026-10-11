@@ -49,12 +49,12 @@
     },
     {
       "id": "local_runtime_filesystem",
-      "sourceRefs": ["backend/src/services/runtimeFilesystemReceipt.js", "backend/bin/solar-direct-runtime-v2.cjs"],
+      "sourceRefs": ["backend/src/services/runtimeFilesystemReceipt.js", "backend/src/services/localArtifactWriter.js", "backend/bin/solarDirectFileActuator.cjs"],
       "predictionHook": "runtimeFilesystemReceipt.begin",
       "outcomeEvents": ["AGENT_COMPLETED", "AGENT_FAILED"],
       "correlation": "body_action_receipts.action_id",
       "status": "partial",
-      "limitation": "The Solar direct writer emits a path and content hash through its runtime IPC; matching final bytes are listed as directWrites. Other eligible changes remain temporally correlated, including changes made by the local Codex runtime or concurrent writers. Ignored paths are unobserved."
+      "limitation": "The Solar and local model artifact writers emit a path and content hash through runtime IPC; matching final bytes are listed as directWrites. Other eligible changes, including concurrent or uninstrumented writes, remain temporally correlated. Ignored paths are unobserved."
     },
     {
       "id": "rust_mcp_stdio",

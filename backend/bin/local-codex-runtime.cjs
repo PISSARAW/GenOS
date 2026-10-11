@@ -101,6 +101,7 @@ async function runMission(state, services) {
       await captureBarrier.safePoint('generated');
     }
     require('../src/services/localArtifactWriter').writeArtifacts(reply, state);
+    await require('../src/services/runtimeFileWriteIpc').flush();
     if (state.resumeCheckpoint?.phase !== 'evaluated') {
       await checkpoint.save(state, 'evaluating', reply);
       await runPostPipeline(services, state, reply);
@@ -111,6 +112,7 @@ async function runMission(state, services) {
     await checkpoint.save(state, 'completed', reply);
     process.exit(0);
   } catch (e) {
+    await require('../src/services/runtimeFileWriteIpc').flush().catch(() => {});
     emitFailure(state, e);
     process.exit(1);
   }

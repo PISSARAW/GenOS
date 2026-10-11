@@ -1,6 +1,6 @@
 'use strict';
 
-const crypto = require('node:crypto');
+const writeIpc = require('../src/services/runtimeFileWriteIpc');
 
 function writeArtifact(deps, filepathRaw, codeRaw) {
   const filepath = filepathRaw.trim();
@@ -19,10 +19,7 @@ function writeArtifact(deps, filepathRaw, codeRaw) {
       throw new Error(`Artifact path traverses outside the mission workspace: ${filepath}`);
     }
     deps.fsLib.writeFileSync(absPath, code);
-    if (typeof process.send === 'function') {
-      const hash = crypto.createHash('sha256').update(code).digest('hex');
-      process.send({ kind: 'genos.runtime.file-write/v1', path: relativePath, hash });
-    }
+    writeIpc.record(relativePath, code);
     return null;
   } catch (e) {
     console.error("Erreur lors de l'ecriture du fichier:", e);

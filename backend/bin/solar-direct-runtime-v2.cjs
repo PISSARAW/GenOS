@@ -103,11 +103,13 @@ async function runMission(state, services) {
     });
     validateGeneration(reply, state);
     writeArtifacts(reply, state);
+    await require('../src/services/runtimeFileWriteIpc').flush();
     await runPostPipeline(services, state, reply);
     guardCompletionBudget(state);
     emitCompletion(state, reply);
     process.exit(0);
   } catch (e) {
+    await require('../src/services/runtimeFileWriteIpc').flush().catch(() => {});
     emitFailure(state, e);
     process.exit(1);
   }

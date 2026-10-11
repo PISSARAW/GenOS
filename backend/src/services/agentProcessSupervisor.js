@@ -128,6 +128,12 @@ function isDirectFileRuntime(executable) {
   return path.basename(executable) === 'solar-direct-runtime-v2.cjs';
 }
 
+function directFileWriter(executable) {
+  if (isDirectFileRuntime(executable)) return 'solar_direct_write_actuator';
+  if (path.basename(executable) === 'local-codex-runtime.cjs') return 'local_artifact_writer';
+  return null;
+}
+
 async function applyLocalRouting(ctx) {
   const { db, agentId, normalizedMission, resolvedExecutable } = ctx;
   if (!isLocalRuntime(resolvedExecutable)) return;
@@ -342,9 +348,10 @@ async function superviseMission(options) {
   require('./missionEnvelopeAuthorityMonitor').start(ctx);
   ctx.processEventQueue = processEventQueueImpl;
   child.stdout.on('data', (chunk) => { handleStdoutData(ctx, chunk); });
-  if (filesystemReceipt && isDirectFileRuntime(resolvedExecutable)) {
+  if (filesystemReceipt && directFileWriter(resolvedExecutable)) {
     child.on('message', (message) => {
-      require('./runtimeFilesystemReceipt').recordDirectWrite(filesystemReceipt, message);
+      require('./runtimeFilesystemReceipt').recordDirectWrite(filesystemReceipt, message,
+        directFileWriter(resolvedExecutable));
     });
   }
   child.stderr.on('data', (chunk) => { handleStderrData(ctx, chunk); });

@@ -26,8 +26,9 @@ non attribué. La capacité est révoquée à la fermeture du runtime. Une erreu
 du pont refuse l'appel avant l'effet ; `omega/execute` est refusé sous une
 capacité tant que ses sous-effets ne disposent pas du même contrôle.
 
-Le runtime Solar direct émet par IPC le chemin et le hash des octets après
-chaque écriture réalisée par son effecteur. Le superviseur ne classe comme
+Les effecteurs de fichiers de Solar direct et du modèle local émettent par
+IPC le chemin et le hash des octets après chaque écriture. Ils attendent
+l'envoi avant de clore le processus. Le superviseur ne classe comme
 `directWrites` que les entrées dont le hash correspond au manifeste final.
 Les autres changements demeurent `unattributedChanges` et le manifeste
 global conserve `causality: temporal_only`.
@@ -46,7 +47,7 @@ provenance du producteur est attestée ; la vérité du contenu reste
 
 - Une requête Rust usurpant un identifiant dans ses arguments ne peut pas
   produire un reçu d'agent sans la capacité de mission.
-- Les écritures Solar directes sont séparées des changements concurrents
+- Les écritures directes Solar et modèle local sont séparées des changements concurrents
   observés uniquement à la clôture.
 - Les claims émis en mission ont un producteur et un run vérifiables.
 
@@ -56,8 +57,8 @@ provenance du producteur est attestée ; la vérité du contenu reste
   SQLite partagée transmis par le superviseur. La capacité de type bearer doit rester dans
   l'environnement du runtime ; son vol permettrait une usurpation pendant
   la durée de la mission.
-- Les écritures de Codex local ou d'un outil externe ne sont pas prouvées
-  causalement par le manifeste. Les fichiers exclus du snapshot ne sont
+- Les écritures d'un outil externe ou d'un autre effecteur non instrumenté ne
+  sont pas prouvées causalement par le manifeste. Les fichiers exclus ne sont
   pas couverts. Un hash final divergent retire l'écriture de `directWrites`.
 - Le contenu d'un claim auto rapporté peut être faux malgré une provenance
   de producteur authentifiée.

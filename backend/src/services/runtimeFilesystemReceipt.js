@@ -53,14 +53,14 @@ async function finish(input) {
   return outcome;
 }
 
-function recordDirectWrite(input, message) {
+function recordDirectWrite(input, message, source) {
   if (!input || message?.kind !== 'genos.runtime.file-write/v1'
     || !isSafeRelative(message.path) || !/^[a-f0-9]{64}$/.test(message.hash || '')
-    || input.writes.length >= 1000) return false;
+    || input.writes.length >= 1000 || !['solar_direct_write_actuator', 'local_artifact_writer'].includes(source)) return false;
   const path = require('node:path');
   const normalized = path.normalize(message.path);
   input.writes.push({ path: normalized.replaceAll('\\', '/'), hash: message.hash,
-    source: 'solar_direct_write_actuator' });
+    source });
   return true;
 }
 

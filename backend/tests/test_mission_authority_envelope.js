@@ -130,27 +130,26 @@ async function filesystemObservation(ctx, workspace) {
   const pending = await sensor.begin({ db: ctx.db, agentId: ctx.agentId,
     runId: ctx.executionRun.id, workspaceRoot: workspace });
   await fs.writeFile(path.join(workspace, 'runtime-created.txt'), 'observed bytes');
-  const script = `const {writeArtifact}=require(process.argv[1]);const p=require('node:path');
-    const f=require('node:fs');const error=writeArtifact({allowFileEdits:true,pathLib:p,
-    fsLib:f,workspaceRoot:process.argv[2]},'direct.txt','direct bytes');if(error)process.exitCode=1;`;
-  const writer = spawn(process.execPath, ['-e', script,
-    path.resolve(__dirname, '../bin/solarDirectFileActuator.cjs'), workspace],
-  { cwd: workspace, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
-  const [message] = await once(writer, 'message');
-  const [exitCode] = await once(writer, 'close');
-  assert.equal(exitCode, 0);
+  const writeProbe = require('./helpers/runtimeFileWriterProbe');
+  const message = await writeProbe.writeAndReceive(workspace, 'solar');
+  const localMessage = await writeProbe.writeAndReceive(workspace, 'local');
   const hash = require('node:crypto').createHash('sha256').update('direct bytes').digest('hex');
   assert.equal(message.hash, hash);
   assert.equal(sensor.recordDirectWrite(pending, { kind: 'genos.runtime.file-write/v1',
-    path: '../outside.txt', hash }), false);
-  assert.equal(sensor.recordDirectWrite(pending, message), true);
+    path: '../outside.txt', hash }, 'solar_direct_write_actuator'), false);
+  assert.equal(sensor.recordDirectWrite(pending, message, 'untrusted'), false);
+  assert.equal(sensor.recordDirectWrite(pending, { ...message, hash: 'a'.repeat(64) },
+    'solar_direct_write_actuator'), true);
+  assert.equal(sensor.recordDirectWrite(pending, message, 'solar_direct_write_actuator'), true);
+  assert.equal(sensor.recordDirectWrite(pending, localMessage, 'local_artifact_writer'), true);
   const outcome = await sensor.finish(pending);
   assert.equal(outcome.status, 'observed');
   assert.equal(outcome.causality, 'temporal_only');
   assert.equal(outcome.observationAttested, false);
-  assert.deepEqual(outcome.changes, [{ path: 'direct.txt', kind: 'created' },
+  assert.deepEqual(outcome.changes, [{ path: 'direct-local.txt', kind: 'created' },
+    { path: 'direct.txt', kind: 'created' },
     { path: 'runtime-created.txt', kind: 'created' }]);
-  assert.deepEqual(outcome.directWrites.map(write => write.path), ['direct.txt']);
+  assert.deepEqual(outcome.directWrites.map(write => write.path), ['direct.txt', 'direct-local.txt']);
   assert.deepEqual(outcome.unattributedChanges, [{ path: 'runtime-created.txt', kind: 'created' }]);
   const row = await require('../src/services/bodyActionReceiptService').read(ctx.db, pending.actionId);
   assert.equal(row.phase, 'observed');
