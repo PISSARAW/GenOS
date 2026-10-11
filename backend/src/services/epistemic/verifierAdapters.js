@@ -1,5 +1,4 @@
 'use strict';
-
 /**
  * verifierAdapters.js
  *
@@ -13,11 +12,9 @@
  *   behavior   — recherche de comportement non couvert
  *   artifact   — construction/validation d'un artefact reproductible
  */
-
 const crypto = require('node:crypto');
 const { runIsolated } = require('../sandboxExecutor');
 const { resolveSandboxTarget } = require('./sandboxTarget');
-
 /* ============================================================
    Utilitaires communs
    ============================================================ */
@@ -330,10 +327,13 @@ const ADAPTER_ALIASES = {
 };
 
 function selectAdapter(verifier) {
-  if (verifier.type === 'worker_semantic') return require('./oracleWorkerAdapter').runWorkerOracle;
-  if (verifier.type === 'code_semantic') return require('./oracleCodeAdapter').runCodeOracle;
-  if (verifier.type === 'procedure_semantic') return require('./oracleProcedureAdapter').runProcedureOracle;
-  if (verifier.type === 'memory_semantic') return require('./oracleMemoryAdapter').runMemoryOracle;
+  const semantic = {
+    worker_semantic: ['./oracleWorkerAdapter', 'runWorkerOracle'],
+    code_semantic: ['./oracleCodeAdapter', 'runCodeOracle'],
+    procedure_semantic: ['./oracleProcedureAdapter', 'runProcedureOracle'],
+    memory_semantic: ['./oracleMemoryAdapter', 'runMemoryOracle']
+  }[verifier.type];
+  if (semantic) return require(semantic[0])[semantic[1]];
   if (verifier.type === 'native_method_semantic') return nativeMethodAdapter(verifier);
   if (verifier.artifact) return runArtifactAdapter;
   if (verifier.test) return runTestAdapter;

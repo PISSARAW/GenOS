@@ -306,6 +306,8 @@ Index : [adr/README.md](adr/README.md)
 - [ADR 0374 — Registre durable des domaines Garage](adr/0374-registre-durable-des-domaines-garage.md).
 - [ADR 0376 — Plafond projet sur l'ascendance Garage](adr/0376-plafond-projet-sur-ascendance-garage.md).
 - [ADR 0379 — Octroi borné de délégation au sous-orchestrateur](adr/0379-octroi-borne-delegation-sous-orchestrateur.md).
+- [ADR 0375 — Portabilité des snapshots mémoire](adr/0375-portabilite-snapshots-memoire.md).
+- [ADR 0377 — Consolidation scientifique par références versionnées](adr/0377-consolidation-scientifique-par-references-versionnees.md) — contrat proposé, sans flux complet implémenté.
 - [ADR 0383 — Économie de tokens conditionnée aux preuves](adr/0383-economie-tokens-conditionnee-aux-preuves.md) — contexte réversible, mémoire historique bornée et routage sans étiquette de transport.
 - [ADR 0385 — Contrat de vérification des snapshots topologiques](adr/0385-contrat-snapshot-topologique.md) — frontière et prévalidation propres à chaque topologie et variant.
 

@@ -49,7 +49,9 @@ async function candidates(db, input) {
     WHERE event_type = 'running' AND created_at >= datetime('now', '-1 hour') GROUP BY orchestrator_id`);
   const context = { now: Date.parse(input.now), served: Object.fromEntries(history.map((row) => [row.orchestrator_id, row.count])),
     observations: await require('./garageRoutingService').observations(db) };
-  return rows.sort((a, b) => policies.score(b, context) - policies.score(a, context) || a.request_id.localeCompare(b.request_id));
+  return rows.map((row) => ({ row, score: policies.score(row, context) }))
+    .sort((a, b) => b.score - a.score || a.row.request_id.localeCompare(b.row.request_id))
+    .map((entry) => entry.row);
 }
 
 async function claimNextPersistent(db, input = {}) {

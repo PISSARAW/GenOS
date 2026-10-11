@@ -17,9 +17,14 @@ pub(super) fn normalize_cli_result(result: (i32, String)) -> (i32, String) {
     if code != 0 {
         return (code, text);
     }
+    if text.trim().is_empty() {
+        return (1, text);
+    }
     match serde_json::from_str::<Value>(&text) {
         Ok(value) if value.get("success").and_then(Value::as_bool) == Some(false) => (1, text),
-        _ => (0, text),
+        Ok(value) if value.get("success").and_then(Value::as_bool) == Some(true) => (0, text),
+        Ok(_) => (0, text),
+        _ => (1, text),
     }
 }
 

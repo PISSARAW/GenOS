@@ -42,7 +42,15 @@ function validatePayloadSize(signalData, signalBlob) {
   return { valid: true };
 }
 
+function validateDirectDelivery(params) {
+  if (params.deliveryOnly === true && (!params.senderAgentId || !Array.isArray(params.recipientAgentIds)
+    || params.recipientAgentIds.length === 0)) {
+    throw new Error('Direct signal delivery requires a sender and explicit recipients.');
+  }
+}
+
 function validateArgs(params) {
+  validateDirectDelivery(params);
   if (Array.isArray(params.signalData)) {
     throw new Error('signalData must be a JSON object, not an array');
   }

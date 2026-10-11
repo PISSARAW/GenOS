@@ -77,7 +77,34 @@ function simulateDryRun(toolName, args = {}, vfsState = {}) {
   const subprocesses = [];
   const networkRequests = [];
 
-  const { requiredRole, isDestructive } = simulateToolEffects({ tool, args, vfs, filesModified, filesCreated, subprocesses });
+  let requiredRole = 'viewer';
+  let isDestructive = false;
+
+  // Intercept file and execution operations
+  if (tool === 'genos_create' || tool === 'replace_file_content' || tool === 'write_to_file') {
+    requiredRole = 'operator';
+    const fileArgs = normalizeFileArguments(args);
+    const targetPath = fileArgs.path;
+    if (vfs[targetPath]) {
+      filesModified.push(targetPath);
+      vfs[targetPath] = fileArgs.content;
+    } else {
+      filesCreated.push(targetPath);
+      vfs[targetPath] = fileArgs.content;
+    }
+  } else if (tool === 'genos_restore' || tool === 'genos_rollback') {
+    requiredRole = 'operator';
+    isDestructive = true;
+    filesModified.push(args.path ? normalizeWorkspacePath(args.path) : 'workspace_root');
+  } else if (tool === 'genos_run' || tool === 'run_command') {
+    requiredRole = 'admin';
+    isDestructive = true;
+    subprocesses.push(args.command || args.CommandLine || 'sh -c echo');
+  } else if (tool.includes('apoptosis') || tool.includes('kill')) {
+    requiredRole = 'admin';
+    isDestructive = true;
+  }
+
   const totalFilesAffected = filesCreated.length + filesModified.length + filesDeleted.length;
   const blastRadiusScore = calculateBlastRadius(totalFilesAffected, isDestructive, requiredRole);
 
@@ -165,7 +192,20 @@ function dryRunPatch(workspaceId, patch, vfsState = {}) {
   if (!entries.length || entries.some((entry) => !entry || typeof entry.path !== 'string' || !entry.path.trim())) {
     throw new Error('patch must contain at least one file path.');
   }
-  const normalizedEntries = normalizePatchEntries(entries);
+  const normalizedPaths = new Set();
+  const normalizedEntries = entries.map((entry) => {
+    let canonicalPath;
+    try {
+      canonicalPath = normalizeRelativePath(entry.path.replace(/^\.\//, ''), 'patch path');
+    } catch (_) {
+      throw new Error(`Patch path escapes the workspace: ${entry.path}`);
+    }
+    if (!canonicalPath || normalizedPaths.has(canonicalPath)) {
+      throw new Error(`Patch contains a duplicate target path: ${entry.path}`);
+    }
+    normalizedPaths.add(canonicalPath);
+    return { ...entry, path: canonicalPath };
+  });
   const state = { ...vfsState };
   const simulations = normalizedEntries.map((entry) => simulateDryRun('genos_create', { path: entry.path, content: entry.content || '' }, state));
   const sideEffects = simulations.reduce((result, simulation) => {
@@ -202,7 +242,17 @@ async function executeVfsOperation(operation, filePath, { content = '', workspac
   if (!target) throw new Error('A file path is required.');
   const op = String(operation || '').toLowerCase();
   if (['create', 'write', 'replace', 'write_file', 'replace_file_content'].includes(op)) {
-  return writeVirtualFile({ op, virtualFiles, target, content, state });
+    if (op === 'create' && virtualFiles.has(target)) return { success: false, message: `File already exists: ${target}` };
+    const value = String(content);
+    const bytes = Buffer.byteLength(value, 'utf8');
+    const limits = vfsLimits();
+    if (bytes > limits.maxFileBytes) throw new Error(`VFS file exceeds the ${limits.maxFileBytes}-byte limit.`);
+    if (!virtualFiles.has(target) && virtualFiles.size >= limits.maxFiles) throw new Error(`VFS exceeds the ${limits.maxFiles}-file limit.`);
+    const previousBytes = virtualFiles.has(target) ? Buffer.byteLength(virtualFiles.get(target), 'utf8') : 0;
+    if (state.bytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
+    virtualFiles.set(target, value);
+    state.bytes = state.bytes - previousBytes + bytes;
+    return { success: true, message: `Wrote ${target}` };
   }
   if (['delete', 'remove', 'delete_file'].includes(op)) {
     if (!virtualFiles.has(target)) return { success: false, message: `File not found: ${target}` };
@@ -237,68 +287,87 @@ function resolveRealWorkspace(workspaceRoot) {
   return root;
 }
 
+function buildDryRunResponse(simulation, workspaceId, command) {
+  return {
+    success: true,
+    dryRun: true,
+    executionMode: 'simulation',
+    executed: false,
+    requiresExplicitExecution: true,
+    workspaceId,
+    command,
+    blastRadiusScore: simulation.blastRadiusScore,
+    sideEffects: simulation.sideEffects
+  };
+}
+
+function buildBlockedResponse(workspaceId, command) {
+  return {
+    success: false,
+    dryRun: false,
+    executionMode: 'blocked',
+    executed: false,
+    workspaceId,
+    command,
+    error: 'Real sandbox execution requires allowRealExecution=true.'
+  };
+}
+
+function buildRealExecutionResponse(ctx) {
+  const { simulation, workspaceId, command, cwd, startedAt, result } = ctx;
+  return {
+    success: true,
+    dryRun: false,
+    executionMode: 'real',
+    executed: true,
+    workspaceId,
+    command,
+    cwd,
+    durationMs: Date.now() - startedAt,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: 0,
+    blastRadiusScore: simulation.blastRadiusScore,
+    sideEffects: simulation.sideEffects
+  };
+}
+
+function buildErrorResponse(ctx) {
+  const { simulation, workspaceId, command, cwd, startedAt, error } = ctx;
+  return {
+    success: false,
+    dryRun: false,
+    executionMode: 'real',
+    executed: true,
+    workspaceId,
+    command,
+    cwd,
+    durationMs: Date.now() - startedAt,
+    stdout: error.stdout || '',
+    stderr: error.stderr || error.message,
+    exitCode: Number.isInteger(error.code) ? error.code : 1,
+    timedOut: error.killed === true,
+    blastRadiusScore: simulation.blastRadiusScore,
+    sideEffects: simulation.sideEffects,
+  };
+}
+
 async function executeSandboxed(workspaceId, command, options = {}) {
   if (!workspaceId) throw new Error('workspaceId is required for sandbox execution.');
   if (typeof command !== 'string' || !command.trim()) throw new Error('command is required for sandbox execution.');
   const simulation = simulateDryRun('genos_run', { command }, {});
-  if (options.mode !== 'real') {
-    return {
-      success: true,
-      dryRun: true,
-      executionMode: 'simulation',
-      executed: false,
-      requiresExplicitExecution: true,
-      workspaceId,
-      command,
-      blastRadiusScore: simulation.blastRadiusScore,
-      sideEffects: simulation.sideEffects
-    };
-  }
-  if (options.allowRealExecution !== true) {
-    return {
-      success: false,
-      dryRun: false,
-      executionMode: 'blocked',
-      executed: false,
-      workspaceId,
-      command,
-      error: 'Real sandbox execution requires allowRealExecution=true.'
-    };
-  }
+  if (options.mode !== 'real') return buildDryRunResponse(simulation, workspaceId, command);
+  if (options.allowRealExecution !== true) return buildBlockedResponse(workspaceId, command);
   const cwd = resolveRealWorkspace(options.workspaceRoot);
   const timeout = Math.max(1, Math.min(Number(options.timeoutMs) || 5000, 120000));
   const startedAt = Date.now();
   try {
-    const result = await executeShellCommand({ command, cwd, timeout, options });
-    return {
-      success: true,
-      dryRun: false,
-      executionMode: 'real',
-      executed: true,
-      workspaceId,
-      command,
-      cwd,
-      durationMs: Date.now() - startedAt,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: 0,
-      blastRadiusScore: simulation.blastRadiusScore,
-      sideEffects: simulation.sideEffects
-    };
+    const result = await execFileAsync(process.platform === 'win32' ? 'cmd.exe' : 'sh',
+      process.platform === 'win32' ? ['/d', '/s', '/c', command] : ['-lc', command],
+      { cwd, timeout, windowsHide: true, maxBuffer: 1024 * 1024, env: options.env });
+    return buildRealExecutionResponse({ simulation, workspaceId, command, cwd, startedAt, result });
   } catch (error) {
-    return {
-      success: false,
-      dryRun: false,
-      executionMode: 'real',
-      executed: true,
-      workspaceId,
-      command,
-      cwd,
-      durationMs: Date.now() - startedAt,
-      ...sandboxFailureOutput(error),
-      blastRadiusScore: simulation.blastRadiusScore,
-      sideEffects: simulation.sideEffects
-    };
+    return buildErrorResponse({ simulation, workspaceId, command, cwd, startedAt, error });
   }
 }
 
@@ -313,78 +382,3 @@ module.exports = {
   ,executeSandboxed,
   normalizeFileArguments
 };
-
-function simulateToolEffects({ tool, args, vfs, filesModified, filesCreated, subprocesses }) {
-  let requiredRole = 'viewer';
-  let isDestructive = false;
-
-  // Intercept file and execution operations
-  if (['genos_create', 'replace_file_content', 'write_to_file'].includes(tool)) {
-    requiredRole = 'operator';
-    const fileArgs = normalizeFileArguments(args);
-    const targetPath = fileArgs.path;
-    if (vfs[targetPath]) {
-      filesModified.push(targetPath);
-      vfs[targetPath] = fileArgs.content;
-    } else {
-      filesCreated.push(targetPath);
-      vfs[targetPath] = fileArgs.content;
-    }
-  } else if (['genos_restore', 'genos_rollback'].includes(tool)) {
-    requiredRole = 'operator';
-    isDestructive = true;
-    filesModified.push(args.path ? normalizeWorkspacePath(args.path) : 'workspace_root');
-  } else if (['genos_run', 'run_command'].includes(tool)) {
-    requiredRole = 'admin';
-    isDestructive = true;
-    subprocesses.push(args.command || args.CommandLine || 'sh -c echo');
-  } else if (tool.includes('apoptosis') || tool.includes('kill')) {
-    requiredRole = 'admin';
-    isDestructive = true;
-  }
-  return { requiredRole, isDestructive };
-}
-
-function normalizePatchEntries(entries) {
-  const normalizedPaths = new Set();
-  const normalizedEntries = entries.map((entry) => {
-    let canonicalPath;
-    try {
-      canonicalPath = normalizeRelativePath(entry.path.replace(/^\.\//, ''), 'patch path');
-    } catch (_) {
-      throw new Error(`Patch path escapes the workspace: ${entry.path}`);
-    }
-    if (!canonicalPath || normalizedPaths.has(canonicalPath)) {
-      throw new Error(`Patch contains a duplicate target path: ${entry.path}`);
-    }
-    normalizedPaths.add(canonicalPath);
-    return { ...entry, path: canonicalPath };
-  });
-  return normalizedEntries;
-}
-
-function writeVirtualFile({ op, virtualFiles, target, content, state }) {
-    if (op === 'create' && virtualFiles.has(target)) return { success: false, message: `File already exists: ${target}` };
-    const value = String(content);
-    const bytes = Buffer.byteLength(value, 'utf8');
-    const limits = vfsLimits();
-    if (bytes > limits.maxFileBytes) throw new Error(`VFS file exceeds the ${limits.maxFileBytes}-byte limit.`);
-    if (!virtualFiles.has(target) && virtualFiles.size >= limits.maxFiles) throw new Error(`VFS exceeds the ${limits.maxFiles}-file limit.`);
-    const previousBytes = virtualFiles.has(target) ? Buffer.byteLength(virtualFiles.get(target), 'utf8') : 0;
-    if (state.bytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
-    virtualFiles.set(target, value);
-    state.bytes = state.bytes - previousBytes + bytes;
-    return { success: true, message: `Wrote ${target}` };
-}
-
-async function executeShellCommand({ command, cwd, timeout, options }) {
-    const result = await execFileAsync(process.platform === 'win32' ? 'cmd.exe' : 'sh',
-      process.platform === 'win32' ? ['/d', '/s', '/c', command] : ['-lc', command],
-      { cwd, timeout, windowsHide: true, maxBuffer: 1024 * 1024, env: options.env });
-  return result;
-}
-
-function sandboxFailureOutput(error) {
-  return { stdout: error.stdout || '', stderr: error.stderr || error.message,
-    exitCode: Number.isInteger(error.code) ? error.code : 1, timedOut: error.killed === true };
-}

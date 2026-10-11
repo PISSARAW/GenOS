@@ -22,6 +22,7 @@ async function putBlob(workspacePath, bytes) {
   if (!Buffer.isBuffer(bytes)) throw new TypeError('GQWF blob must be a Buffer.');
   const hash = sha256(bytes);
   const target = blobPath(workspacePath, hash);
+  if (await reuseBlob(workspacePath, hash, bytes)) return hash;
   await fs.mkdir(path.dirname(target), { recursive: true });
   const staging = path.join(path.dirname(target), `.blob-${randomUUID()}.tmp`);
   const handle = await fs.open(staging, 'wx');
@@ -41,6 +42,22 @@ async function putBlob(workspacePath, bytes) {
   const stored = await readBlob(workspacePath, hash);
   if (!stored.equals(bytes)) throw new Error('GQWF blob collision or corruption.');
   return hash;
+}
+
+async function reuseBlob(workspacePath, hash, bytes) {
+  const target = blobPath(workspacePath, hash);
+  try {
+    const stat = await fs.lstat(target);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) {
+      throw new Error('GQWF blob path is not a private regular file.');
+    }
+    const stored = await readBlob(workspacePath, hash);
+    if (!stored.equals(bytes)) throw new Error('GQWF blob collision or corruption.');
+    return true;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    return false;
+  }
 }
 
 module.exports = { putBlob, readBlob, blobPath, sha256 };

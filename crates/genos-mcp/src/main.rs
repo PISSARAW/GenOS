@@ -255,7 +255,7 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn read_bounded_keeps_only_the_configured_tail() {
+    fn read_bounded_keeps_only_the_configured_head() {
         let input = vec![b'x'; MAX_OUTPUT_BYTES + 4096];
         let output = read_bounded(Cursor::new(input));
         assert_eq!(output.len(), MAX_OUTPUT_BYTES);

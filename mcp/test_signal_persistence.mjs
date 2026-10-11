@@ -14,7 +14,7 @@ const database = path.join(temporary, 'signal.db');
 const client = new Client({ name: 'signal-persistence-test', version: '1' });
 const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(root, 'mcp/index.js')],
   cwd: root, stderr: 'pipe', env: { ...process.env,
-    GENOS_MCP_LEASE: 'genos_signal_publish,genos_signal_read,genos_signal_ground,genos_signal_purge,genos_signal_electrocyte_vote,genos_signal_chemotactic_follow,genos_signal_collective_decision',
+    GENOS_MCP_LEASE: 'genos_signal_publish,genos_signal_read,genos_signal_ground,genos_signal_purge,genos_signal_electrocyte_vote,genos_signal_chemotactic_follow,genos_signal_plasmid_transfer,genos_signal_collective_decision',
     GENOS_DB_PATH: database, GENOS_DB_BACKUP_SKIP: '1', NODE_ENV: 'test' } });
 transport.stderr.on('data', () => {});
 
@@ -46,7 +46,7 @@ try {
     await run(db, "INSERT INTO organizations (id, name) VALUES ('mcp-org', 'MCP Test Org')");
     await run(db, "INSERT INTO projects (id, organization_id, name) VALUES ('mcp-project', 'mcp-org', 'MCP Project')");
     await run(db, "INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('mcp-workspace', 'MCP Workspace', 'fixture', 'mcp-org', 'mcp-project')");
-    for (const agentId of ['mcp-sender', 'mcp-reader']) {
+    for (const agentId of ['mcp-sender', 'mcp-reader', 'mcp-bystander']) {
       await run(db, 'INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES (?, ?, ?, ?, ?, ?)',
         [agentId, agentId, 'tester', 'idle', 'orchestrator', 'mcp-workspace']);
     }
@@ -106,13 +106,60 @@ try {
       "SELECT COUNT(*) AS count FROM signal_blobs WHERE signal_type = 'voltage' AND topic = 'dec_mcp-choice'");
     assert.equal(collectiveSignal.count, secondCollective.isError ? 1 : 2);
 
+    const transfer = output(await client.callTool({ name: 'genos_signal_plasmid_transfer', arguments: {
+      problem: 'mcp-transfer', orchestrator_id: 'mcp-sender', decision: true,
+      voters: [{ agentId: 'mcp-reader' }] } }));
+    assert.equal(transfer.status, 'signal_enqueued');
+    assert.equal(transfer.deliveryStatus, 'pending');
+    const transferRow = await get(db, `SELECT s.signal_type, d.status FROM signal_blobs s
+      JOIN signal_deliveries d ON d.signal_id = s.signal_id
+      WHERE s.signal_id = ? AND d.subscriber_agent_id = ?`, [transfer.signalId, 'mcp-reader']);
+    assert.deepEqual(transferRow, { signal_type: 'plasmid', status: 'pending' });
+    const bystander = output(await client.callTool({ name: 'genos_signal_read', arguments: { agent_id: 'mcp-bystander' } }));
+    assert.equal(bystander.signals.some((signal) => signal.signalId === transfer.signalId), false);
+    const transferred = output(await client.callTool({ name: 'genos_signal_read', arguments: { agent_id: 'mcp-reader' } }));
+    assert.equal(transferred.signals.find((signal) => signal.signalId === transfer.signalId)?.decoded?.decision, true);
+    const replayed = output(await client.callTool({ name: 'genos_signal_read', arguments: { agent_id: 'mcp-reader' } }));
+    assert.equal(replayed.signals.some((signal) => signal.signalId === transfer.signalId), false);
+
+    const collectiveTransfer = output(await client.callTool({ name: 'genos_signal_collective_decision', arguments: {
+      problem: 'mcp-collective-transfer', mode: 'plasmid', orchestrator_id: 'mcp-sender', decision: false,
+      voters: [{ agentId: 'mcp-reader' }] } }));
+    assert.equal(collectiveTransfer.status, 'signal_enqueued');
+    const collectiveRead = output(await client.callTool({ name: 'genos_signal_read', arguments: { agent_id: 'mcp-reader' } }));
+    assert.equal(collectiveRead.signals.find((signal) => signal.signalId === collectiveTransfer.signalId)?.decoded?.decision, false);
+
+    const trailResult = output(await client.callTool({ name: 'genos_signal_collective_decision', arguments: {
+      problem: 'mcp-trail', mode: 'stigmergic', orchestrator_id: 'mcp-sender',
+      voters: [{ agentId: 'mcp-reader', position: 0.8 }] } }));
+    assert.equal(trailResult.status, 'signal_enqueued');
+    assert.equal(trailResult.netGradient, 0.8);
+    const trailRow = await get(db, 'SELECT signal_type FROM signal_blobs WHERE signal_id = ?', [trailResult.signalId]);
+    assert.equal(trailRow.signal_type, 'pheromone');
+    const trailRead = output(await client.callTool({ name: 'genos_signal_read', arguments: { agent_id: 'mcp-reader' } }));
+    assert.equal(trailRead.signals.find((signal) => signal.signalId === trailResult.signalId)?.decoded?.netGradient, 0.8);
+
+    await run(db, "INSERT INTO projects (id, organization_id, name) VALUES ('other-project', 'mcp-org', 'Other Project')");
+    await run(db, "INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('other-workspace', 'Other Workspace', 'other-fixture', 'mcp-org', 'other-project')");
+    await run(db, "INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('outside-agent', 'Outside', 'tester', 'idle', 'orchestrator', 'other-workspace')");
+    const crossScope = await client.callTool({ name: 'genos_signal_plasmid_transfer', arguments: {
+      problem: 'mcp-denied', orchestrator_id: 'mcp-sender', decision: false,
+      voters: [{ agentId: 'outside-agent' }] } });
+    assert.equal(crossScope.isError, true, 'cross-project transfer must be rejected');
+    assert.equal(await get(db, "SELECT signal_id FROM signal_blobs WHERE topic = 'decision/mcp-denied'"), undefined);
+    const invalidDecision = await client.callTool({ name: 'genos_signal_plasmid_transfer', arguments: {
+      problem: 'mcp-invalid', orchestrator_id: 'mcp-sender', decision: 'yes',
+      voters: [{ agentId: 'mcp-reader' }] } });
+    assert.equal(invalidDecision.isError, true);
+    assert.equal(await get(db, "SELECT signal_id FROM signal_blobs WHERE topic = 'decision/mcp-invalid'"), undefined);
+
     await run(db, "UPDATE signal_blobs SET expires_at = datetime('now', '-1 day') WHERE signal_id = ?", [published.signalId]);
     output(await client.callTool({ name: 'genos_signal_purge', arguments: {} }));
     assert.equal(await get(db, 'SELECT signal_id FROM signal_blobs WHERE signal_id = ?', [published.signalId]), undefined);
   } finally {
     await new Promise((resolve) => db.close(resolve));
   }
-  console.log('Signal transport, grounding, votes, gradient, and expiry purge verified through MCP stdio.');
+  console.log('Signal transport, scoped transfer, votes, gradient, and expiry purge verified through MCP stdio.');
 } finally {
   await client.close();
   assert.ok(path.resolve(temporary).startsWith(`${path.resolve(os.tmpdir())}${path.sep}`));

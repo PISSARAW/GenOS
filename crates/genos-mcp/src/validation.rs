@@ -91,14 +91,14 @@ fn get_required_fields(name: &str) -> &[&str] {
         "genos_change_strategy" => &["strategy", "reason"],
         "genos_report_progress" => &["phase", "message"],
         "genos_change_organization" => &["organization", "reason"],
-        "genos_worker_publish" => &["kind", "signal_type", "signal_data"],
+        "genos_worker_publish" => &["kind"],
         "genos_trinity_launch" => &["mission"],
         "genos_a_team_preview" => &["project_goal", "sub_systems"],
         "genos_merge" => &["branch_id"],
         "genos_audit" => &["snapshot_id"],
         "genos_biomimicry" => &["feature", "action"],
         "genos_biological_mode" => &["mode", "mission"],
-        "genos_execute_primitive" => &["primitive_name"],
+        "genos_execute_primitive" => &[],
         "genos_philosophy" => &["operation"],
         _ => &[],
     }
@@ -125,6 +125,8 @@ fn validate_execution_tool_arguments(name: &str, object: &serde_json::Map<String
     if name == "genos_agent_inherited_memory_read" {
         validate_inherited_memory_read(object)?;
     }
+    if name == "genos_execute_primitive" { validate_primitive_reference(object)?; }
+    if name == "genos_worker_publish" { validate_signal_data(object)?; }
     if name == "genos_a_team_preview" && !object.get("sub_systems").is_some_and(serde_json::Value::is_array) {
         return Err("sub_systems must be an array.".into());
     }
@@ -167,6 +169,53 @@ fn validate_agent_fork_snapshot(object: &serde_json::Map<String, serde_json::Val
     match object.get("budget").and_then(serde_json::Value::as_u64) {
         Some(budget) if (1..=9_007_199_254_740_991).contains(&budget) => Ok(()),
         _ => Err("budget must be a positive integer.".into()),
+    }
+}
+
+fn non_empty_value(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::String(text) => !text.trim().is_empty(),
+        serde_json::Value::Array(items) => !items.is_empty(),
+        serde_json::Value::Null => false,
+        _ => true,
+    }
+}
+
+fn validate_primitive_reference(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    let has_single = ["primitive", "primitive_name", "name"]
+        .iter()
+        .any(|field| object.get(*field).and_then(serde_json::Value::as_str).is_some_and(|value| !value.trim().is_empty()));
+    if has_single {
+        return Ok(());
+    }
+    if object.get("primitives").is_some_and(|value| value.is_array()) {
+        return Ok(());
+    }
+    Err("primitive, primitive_name, or name is required.".into())
+}
+
+fn validate_sub_systems(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    match object.get("sub_systems") {
+        Some(serde_json::Value::Array(items)) => {
+            let valid = !items.is_empty()
+                && items.iter().all(|item| item.as_str().is_some_and(|text| !text.trim().is_empty()));
+            if valid { Ok(()) } else { Err("sub_systems must contain only non-empty strings.".into()) }
+        }
+        Some(serde_json::Value::String(csv)) => {
+            let valid = !csv.split(',').map(str::trim).filter(|part| !part.is_empty()).collect::<Vec<_>>().is_empty();
+            if valid { Ok(()) } else { Err("sub_systems must be an array of strings or a comma-separated string.".into()) }
+        }
+        _ => Err("sub_systems must be an array of strings or a comma-separated string.".into()),
+    }
+}
+
+fn validate_signal_data(object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    match object.get("signal_data") {
+        None => Ok(()),
+        Some(value) if value.is_array() => Err("signal_data must be a JSON object, not an array.".into()),
+        Some(serde_json::Value::String(text)) if text.trim().is_empty() => Err("signal_data must be a non-empty string.".into()),
+        Some(value) if non_empty_value(value) => Ok(()),
+        _ => Err("signal_data must be a JSON object or a non-empty string.".into()),
     }
 }
 

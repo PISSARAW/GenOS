@@ -24,6 +24,7 @@ function createFabric(db, options = {}) {
     materializeRoot: (input) => leases.materializeRoot(db, input),
     ingestLease: (input) => leases.ingestLease(db, input),
     releaseLease: (input) => leases.releaseLease(db, input),
+    reconcileReleasingLeases: (input) => leases.reconcileReleasingLeases(db, input),
     inspectWorker: (input) => workers.inspectWorker(db, input)
   };
 }

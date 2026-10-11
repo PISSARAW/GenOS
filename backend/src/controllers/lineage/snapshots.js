@@ -15,6 +15,7 @@ const captureBarrier = require('../../services/agentRuntimeCaptureBarrier');
 const snapshotComponents = require('../../services/organismSnapshotComponents');
 const snapshotCapabilities = require('../../services/organismSnapshotCapabilities');
 const gqwfOrganism = require('../../services/gqwf/organism');
+const restoreRecovery = require('../../services/organismRestoreRecovery');
 const topologySnapshots = require('./topologySnapshots');
 
 const RESTORABLE_AGENT_FIELDS = [
@@ -190,25 +191,32 @@ async function restoreAgentStateSnapshot(options) {
 async function restoreLockedSnapshot(options) {
   const { db, scope, agent, state, references, gqwfV2 } = options;
   let topologyPreflight = await topologySnapshots.preflight({ db, scope, agent, state });
+  if (state._genosSnapshot?.persistedState) {
+    await persistedState.assertRelationsUnchanged(db, agent.id, state._genosSnapshot.persistedState);
+  }
   const resumable = snapshotComponents.resumeCheckpoint(state);
   const current = references.length ? await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope }) : [];
   const flags = await orchestratorCheckpoint.active(references);
   const previous = current.map((reference, index) => ({ ...reference, rewound: flags[index].rewound }));
-  const workspaceRestore = await restoreSnapshotWorkspace({ db, scope, agent, state, gqwfV2 });
+  const workspace = agent.workspace_id ? await loadScopedWorkspace(db, scope, agent.workspace_id) : null;
+  if (agent.workspace_id && !workspace?.path) throw new Error('Agent workspace is unavailable for restore recovery.');
+  const attempt = await restoreRecovery.prepare(db, { agent, workspace, previous, target: references });
+  let workspaceRestore = null;
   let safetySnapshotId = null;
   try {
+    workspaceRestore = await restoreSnapshotWorkspace({ db, scope, agent, state, gqwfV2 });
     await orchestratorCheckpoint.select(references);
     safetySnapshotId = await withTransaction(db, async () => {
       topologyPreflight = await topologySnapshots.preflight({ db, scope, agent, state });
       await orchestratorCheckpoint.assertCoherent(db, { agentId: agent.id, references, scope });
-      return applyPersistedRestore({ db, scope, agent, state,
-        workspaceSnapshot: workspaceRestore?.safetySnapshot || null, previous });
+      const safetyId = await applyPersistedRestore({ db, scope, agent, state,
+        workspaceSnapshot: workspaceRestore?.safetySnapshot || null, previous,
+        originalStatus: attempt.originalStatus });
+      await restoreRecovery.complete(db, attempt.id);
+      return safetyId;
     });
   } catch (error) {
-    await orchestratorCheckpoint.select(previous).catch((rollbackError) => {
-      error.message += ` Rust cursor rollback also failed: ${rollbackError.message}`;
-    });
-    await rollbackWorkspaceAfterFailure({ db, scope, agent, workspaceRestore, error });
+    await restoreRecovery.rollback(db, attempt, error);
     throw error;
   }
   return { ...snapshotComponents.restoreSummary({ state, resumable, workspaceRestore, references, safetySnapshotId }),
@@ -238,9 +246,9 @@ async function verifyRestoreTarget(options) {
 }
 
 async function applyPersistedRestore(options) {
-  const { db, scope, agent, state, workspaceSnapshot, previous } = options;
+  const { db, scope, agent, state, workspaceSnapshot, previous, originalStatus } = options;
   const safetySnapshotId = await persistPreRestoreSafety({ db, scope, agent, workspaceSnapshot, previous,
-    topologySnapshot: state._genosSnapshot?.topologySnapshot });
+    originalStatus, topologySnapshot: state._genosSnapshot?.topologySnapshot });
   const requiresRestart = Boolean(runtimeCheckpoint.resumable(state._genosSnapshot?.persistedState?.sections?.runtime))
     || Boolean(codexCheckpoint.parse(state._genosSnapshot?.persistedState?.sections?.runtime))
     || state._genosSnapshot?.schemaVersion >= 3 && state.status === 'running';
@@ -251,26 +259,15 @@ async function applyPersistedRestore(options) {
   return safetySnapshotId;
 }
 
-async function rollbackWorkspaceAfterFailure(options) {
-  const { db, scope, agent, workspaceRestore, error } = options;
-  const safetySnapshotId = workspaceRestore?.safetySnapshot?.id;
-  if (!safetySnapshotId) return;
-  const workspace = await loadScopedWorkspace(db, scope, agent.workspace_id);
-  await workspaceSnapshots.restore({ db, workspace, reference: safetySnapshotId,
-    author: 'agent-state-rollback' }).catch((rollbackError) => {
-    error.message += ` Workspace rollback also failed: ${rollbackError.message}`;
-  });
-}
-
 async function persistPreRestoreSafety(options) {
-  const { db, scope, agent, workspaceSnapshot, previous, topologySnapshot } = options;
+  const { db, scope, agent, workspaceSnapshot, previous, originalStatus, topologySnapshot } = options;
   const current = await loadAgentForScope(db, scope, agent.id);
   if (!current) throw new Error('Agent disappeared before restore.');
   const persisted = await persistedState.capture(db, agent.id, scope);
   const orchestrator = previous.length ? previous : await orchestratorCheckpoint.capture(db, agent.id, { locked: true, scope });
   const reference = workspaceSnapshot ? { id: workspaceSnapshot.id,
     hash: workspaceSnapshot.snapshotHash, workspaceId: agent.workspace_id } : null;
-  const state = encodeAgentSnapshot(current, reference,
+  const state = encodeAgentSnapshot({ ...current, status: originalStatus }, reference,
     { capturedAt: new Date().toISOString(), persisted, orchestrator, topologySnapshot });
   const id = newAgentSnapshotId('agent-safety');
   await db.run('INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, created_by) VALUES (?, ?, ?, ?, ?, ?)',

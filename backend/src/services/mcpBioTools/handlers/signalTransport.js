@@ -11,6 +11,7 @@ const {
   chemotacticFollow,
   orchestrateCollectiveDecision,
 } = require('../../agentCollaborativeDecisionMakingService');
+const { executeCollectiveSignalMode } = require('../../collectiveSignalModeService');
 
 // ── genos_signal_publish ─────────────────────────────────────────────────────
 
@@ -66,11 +67,11 @@ async function handleSignalRead(args, run) {
   const signals = await readSignalsForAgent(
     agent_id || 'unknown',
     since || null,
-    limit != null ? Number(limit) : 100
+    { limit: limit != null ? Number(limit) : 100, includePending: true }
   );
   // Mark signals as seen to prevent re-read loops
   if (signals.length > 0 && agent_id) {
-    await markSignalsSeen(agent_id, signals.map(s => s.signalId));
+    await markSignalsSeen(agent_id, signals.map(s => s.signalId), { includePending: true });
   }
   return {
     configured: true,
@@ -217,22 +218,7 @@ function handleSignalChemotacticFollowError(e) {
 // ── genos_signal_plasmid_transfer ────────────────────────────────────────────
 
 async function handleSignalPlasmidTransfer(args, run) {
-  const { problem, voters } = args || {};
-  const result = await orchestrateCollectiveDecision(
-    problem || 'default',
-    voters || [],
-    'plasmid',
-  );
-  return {
-    configured: true,
-    success: false,
-    status: 'not_implemented',
-    mode: 'plasmid',
-    problem: result.problem,
-    proposedRecipients: result.recipients,
-    error: 'No plasmid decision transfer was executed.',
-    transport: 'zero_text',
-  };
+  return executeCollectiveSignalMode({ ...args, mode: 'plasmid' });
 }
 
 function handleSignalPlasmidTransferError(e) {
@@ -250,20 +236,19 @@ function handleSignalPlasmidTransferError(e) {
 async function handleSignalCollectiveDecision(args, run) {
   const { problem, voters, mode } = args || {};
   const selectedMode = mode || 'electrocyte';
+  if (selectedMode !== 'electrocyte') {
+    return executeCollectiveSignalMode({ ...args, mode: selectedMode });
+  }
   const result = await orchestrateCollectiveDecision(
     problem || 'default',
     voters || [],
     selectedMode,
   );
-  return collectiveDecisionResult(result, selectedMode, problem);
+  return collectiveDecisionResult(result, problem);
 }
 
-function collectiveDecisionResult(result, mode, problem) {
-  if (mode === 'electrocyte') return electrocyteDecisionResult(result, problem);
-  return {
-    configured: true, success: false, status: 'not_implemented', mode, problem: problem || 'default',
-    error: 'This collective decision mode has no execution adapter.', transport: 'zero_text'
-  };
+function collectiveDecisionResult(result, problem) {
+  return electrocyteDecisionResult(result, problem);
 }
 
 function electrocyteDecisionResult(result, problem) {
