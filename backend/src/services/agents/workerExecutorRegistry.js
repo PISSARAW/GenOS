@@ -27,12 +27,17 @@ const EXECUTORS = Object.freeze({
 const ARITHMETIC = ['check_arithmetic', 'workerArithmeticExecutor', 'assertArithmeticInput', 'runArithmetic'];
 const MEMORY = ['verify_memory_fidelity', 'workerMemoryVerification', 'assertMemoryInput', 'runMemory'];
 const CODE = ['verify_code_postconditions', 'workerCodeVerification', 'assertCodeInput', 'runCode'];
+const EXTERNAL_CREDIT = ['replenish_external_quota', 'workerExternalCreditExecutor', 'assertCreditInput', 'runCredit'];
 const VERIFIERS = Object.freeze({ verify_memory_fidelity: MEMORY, verify_code_postconditions: CODE });
 const ALWAYS_NATIVE = new Set(['procedural_executor', 'formal_worker']);
 
+const SPECIAL = Object.freeze({ verifier_worker: VERIFIERS,
+  recovery_worker: { replenish_external_quota: EXTERNAL_CREDIT },
+  formal_worker: { check_arithmetic: ARITHMETIC } });
+
 function descriptor(kind, methodId) {
-  if (kind === 'verifier_worker' && Object.hasOwn(VERIFIERS, methodId)) return VERIFIERS[methodId];
-  if (kind === 'formal_worker' && methodId === 'check_arithmetic') return ARITHMETIC;
+  const special = SPECIAL[kind]?.[methodId];
+  if (special) return special;
   const selected = Object.hasOwn(EXECUTORS, kind) ? EXECUTORS[kind] : null;
   if (!selected) return null;
   const methods = Array.isArray(selected[0]) ? selected[0] : [selected[0]];
@@ -70,7 +75,8 @@ function executorCatalog() {
   return Object.entries(EXECUTORS).map(([kind, selected]) => ({ kind,
     methods: [...(Array.isArray(selected[0]) ? selected[0] : [selected[0]]),
       ...(kind === 'formal_worker' ? ['check_arithmetic'] : []),
-      ...(kind === 'verifier_worker' ? Object.keys(VERIFIERS) : [])] }));
+      ...(kind === 'verifier_worker' ? Object.keys(VERIFIERS) : []),
+      ...(kind === 'recovery_worker' ? ['replenish_external_quota'] : [])] }));
 }
 
 module.exports = { ALWAYS_NATIVE, hasNativeMethod, assertNativeInput, executeNativeWorker, executorCatalog };

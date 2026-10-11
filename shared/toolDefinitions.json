@@ -148,6 +148,29 @@
             "type": "string",
             "description": "Optional variant selection for the mission proposal; does not apply a morphogenesis transition."
           },
+          "native_objectives": {
+            "type": "array",
+            "description": "Typed native goals with a method and success criteria. GenOS selects each worker kind; do not supply worker_assignments.",
+            "minItems": 1,
+            "maxItems": 19,
+            "items": {
+              "type": "object",
+              "properties": {
+                "goal": { "type": "string" },
+                "successCriteria": { "type": "array", "items": { "type": "string" } },
+                "methodContract": {
+                  "type": "object",
+                  "properties": {
+                    "version": { "type": "integer", "const": 1 },
+                    "methodId": { "type": "string" },
+                    "parameters": { "type": "object" }
+                  },
+                  "required": ["version", "methodId", "parameters"]
+                }
+              },
+              "required": ["goal", "successCriteria", "methodContract"]
+            }
+          },
           "worker_assignments": {
             "type": "object",
             "description": "Optional per-role runtime and method contracts. Use a registered methodId such as dynamic_programming or evolutionary_search, or declare requiredCapabilities for a custom method.",

@@ -9,6 +9,7 @@ const { executeNativeWorker } = require('./workerExecutorRegistry');
 const { reportFor } = require('./workerDeterministicReports');
 const { assertActive, executionContext } = require('./workerNativeLifecycle');
 const { error } = require('./workerNativeEvidence');
+const regulatorySupervisor = require('../regulation/regulatorySupervisorService');
 
 async function publish(db, mission, event) {
   const progress = await recordExecutionEvent(db, mission.agentId, event);
@@ -66,6 +67,7 @@ async function runDeterministicWorker(db, mission, executionRun) {
     assertActive(context);
     assertRuntimeContract(mission.workerContract, mission.workerKind);
     assertAssignmentMatches(mission.workerContract, { ...mission, methodContract: method });
+    await regulatorySupervisor.ensureFunctional(db, mission);
     await updateAgent(mission.agentId, 'running', mission.prompt);
     const started = emit(mission.agentId, 'DETERMINISTIC_WORKER_STARTED', mission.workerKind, 'Native worker started.', {
       executionRunId: executionRun.id, methodId: method?.methodId
@@ -75,6 +77,7 @@ async function runDeterministicWorker(db, mission, executionRun) {
     const result = await require('./deterministicWorkerObservation').run({ db, mission, executionRun },
       () => executeNativeWorker(mission.workerKind, method, context));
     assertActive(context);
+    await regulatorySupervisor.ensureFunctional(db, mission);
     return await complete(context, executionRun, result);
   } catch (failure) {
     return await fail(context, executionRun, failure);

@@ -161,6 +161,8 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [exploitation-shev.md](03-reference/exploitation-shev.md) — commandes opérateur, signatures, fournisseurs et diagnostic de SHEV.
 - [g-cir.md](02-orchestration/g-cir.md) — interface cognitive résiduelle, registre d'obligations, visibilité, validation et limites.
 - [architecture-survie.md](02-orchestration/architecture-survie.md) — état de survie mesurable et politiques de continuité bornées.
+- [Qualification régulation et ressources](02-orchestration/qualification-regulation-ressources-orchestrate.md) — preuves restantes pour recharge externe et planification complète.
+- [Plan de mise en oeuvre de la régulation complète](02-orchestration/plan-implementation-regulation-ressources-orchestrate.md) — réalisation par lots et critères de sortie.
 - [regulation-multi-boucles.md](02-orchestration/regulation-multi-boucles.md) — régulation multi-boucles, signaux et arbitrage.
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.
 - [ontogenese-boucle.md](02-orchestration/ontogenese-boucle.md) — boucle Observer → réévaluer : sélection, autorisation, réveils, notifications.
@@ -698,3 +700,4 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0415 — Qualification nominale Trinity sur traces durables](adr/0415-qualification-nominale-trinity-sur-traces-durables.md).
 - [ADR 0416 — Propositions Rust liées au snapshot de morphologie](adr/0416-propositions-rust-liees-snapshot-morphologie.md).
 - [ADR 0417 — Liaison des reçus Hybrid Oracle Biocénose](adr/0417-liaison-recus-hybrid-oracle-biocenose.md).
+- [ADR 0395 — Régulation supervisée des workers natifs](adr/0395-regulation-supervisee-workers-natifs.md)

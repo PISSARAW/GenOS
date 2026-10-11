@@ -187,13 +187,26 @@ function workerMissionContract(mission, kind) {
   };
 }
 
+function assignedField(mission, key) {
+  return mission[key] || mission.workerAssignment?.[key] || null;
+}
+
+function assignmentContractFields(mission) {
+  return {
+    externalCreditLease: assignedField(mission, 'externalCreditLease'),
+    externalCredit: assignedField(mission, 'externalCredit'),
+    regulatoryExternalRecovery: assignedField(mission, 'regulatoryExternalRecovery'),
+    nicheDomain: assignedField(mission, 'nicheDomain'),
+    hostId: assignedField(mission, 'hostId')
+  };
+}
+
 function missionContractFields(mission) {
   return {
-    ...missionScopeFields(mission),
+    ...missionScopeFields(mission), ...assignmentContractFields(mission),
     methodContract: mission.methodContract,
+    regulatoryRecovery: mission.regulatoryRecovery || null,
     topologySessionId: mission.topologySessionId || null,
-    nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
-    hostId: mission.hostId || mission.workerAssignment?.hostId || null,
     writeLease: mission.writeLease === true
       || (mission.executionPolicy?.allowFileEdits === true && mission.workspaceProvisioned === true)
   };
@@ -310,4 +323,4 @@ function evidenceRule(contract) {
   return artifactInstruction(contract);
 }
 
-module.exports = { KINDS, KIND_CAPABILITIES, METHOD_CAPABILITIES, ROLE_ALIASES, PROMPT_RULES, AUTHORITY_OVERRIDES, normalize, resolveWorkerKind, kindDefinition, applyAuthorityOverrides, assertMethodCompatibility, buildWorkerContract, grantBoundedDelegation, promptRule, evidenceRule };
+module.exports = { KINDS, KIND_CAPABILITIES, METHOD_CAPABILITIES, ROLE_ALIASES, PROMPT_RULES, AUTHORITY_OVERRIDES, normalize, resolveWorkerKind, kindDefinition, applyAuthorityOverrides, assertMethodCompatibility, requiredMethodCapabilities, buildWorkerContract, grantBoundedDelegation, promptRule, evidenceRule };

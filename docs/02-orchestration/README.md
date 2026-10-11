@@ -39,6 +39,10 @@ reproduction, et les 8 modes de composition (topologies).
 - [communication.md](communication.md) — écologie communicationnelle : 7 types, schémas par type, grounding, coûts, shadow et apprentissage.
 - [relations-inter-agents.md](relations-inter-agents.md) — relations typées entre agents (29 types, 6 classes, persistance, fiches et schémas par type).
 - [physiologie-relationnelle.md](physiologie-relationnelle.md) — contraintes relationnelles exécutables, noyau déterministe et filtrage de parenté du routage.
+- [regulation-workers-protocole.md](regulation-workers-protocole.md) — protocole et preuves de récupération des 19 types natifs.
+- [qualification-regulation-ressources-orchestrate.md](qualification-regulation-ressources-orchestrate.md) — travaux et preuves requis pour la recharge externe et la planification complète.
+- [plan-implementation-regulation-ressources-orchestrate.md](plan-implementation-regulation-ressources-orchestrate.md) — lots et critères de sortie pour réaliser cette qualification.
+- [resultats-credit-externe-19-workers.md](resultats-credit-externe-19-workers.md) — 38 reprises externes vérifiées et frontière de la qualification MCP.
 - [protocole-execution-agents.md](protocole-execution-agents.md) — cycle de mission, budgets, topologies, workers, communication, nosologie, télémétrie et protocole de preuve.
 
 ## Développement vérifié GVX

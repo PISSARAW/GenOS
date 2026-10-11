@@ -354,7 +354,6 @@ function applyAbstentionToMission(mission, model, bench) {
     return { abstain: false, reason: 'unassessed' };
   }
 }
-
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {
   const missionBudget = normalizedMission.executionBudget || {};
   const regulationBudget = {
@@ -393,6 +392,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });
   await applyOrganizationState({ db, agentId, autonomyPlan, normalizedMission });
   applyMissionCapabilityContract(autonomyPlan, normalizedMission);
+  require('./nativeMissionPlanService').applyNativeMissionPlan(autonomyPlan, normalizedMission);
   autonomyPlan.controlRegulation = regulateAutonomyPlan(contractRecord.contract, regulationBudget, autonomyPlan);
   emitControlRegulation(agentId, autonomyPlan);
   return autonomyPlan;

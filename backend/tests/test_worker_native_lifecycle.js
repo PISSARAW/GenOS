@@ -21,6 +21,8 @@ strategy.recordExecutionEvent = async (_db, _agentId, event) => {
   writes.push(`database:${event.eventType}`);
   return { halt: haltEvidence && event.eventType === 'EVIDENCE_REPORT', reason: 'test guard' };
 };
+// The regulatory supervisor is exercised with SQLite and real workers by the regulation probe.
+require('../src/services/regulation/regulatorySupervisorService').ensureFunctional = async () => ({ recovered: false });
 const { runDeterministicWorker } = require('../src/services/agents/deterministicWorkerRuntime');
 const legacyDatabase = { get: async () => undefined };
 

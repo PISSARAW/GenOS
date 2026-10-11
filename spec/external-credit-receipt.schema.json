@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/external-credit-receipt.schema.json",
+  "title": "SignedExternalCreditReceipt",
+  "type": "object",
+  "required": [
+    "statement",
+    "signature"
+  ],
+  "properties": {
+    "statement": {
+      "type": "object",
+      "required": [
+        "schema",
+        "kind",
+        "providerId",
+        "operationId",
+        "tenantId",
+        "missionId",
+        "agentId",
+        "unit",
+        "amount",
+        "before",
+        "after",
+        "beforeVersion",
+        "afterVersion",
+        "issuedAt"
+      ],
+      "properties": {
+        "schema": {
+          "const": "genos.external-credit-receipt/v1"
+        },
+        "kind": {
+          "enum": [
+            "external_refill",
+            "external_spend"
+          ]
+        },
+        "providerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenantId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "missionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "const": "execution_credit"
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "before": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reserveBefore": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reserveAfter": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "beforeVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "afterVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

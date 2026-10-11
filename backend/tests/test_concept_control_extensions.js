@@ -4,6 +4,8 @@ const options = require('../src/services/hierarchicalOptionService');
 const valence = require('../src/services/postActionValenceService');
 const canonical = require('../src/services/deterministicFinalReportService');
 const synthesis = require('../src/services/localRuntimeSynthesis');
+const { synthesisDossier } = require('../src/services/workerEvidenceBarrierHelpers');
+const delegatedGate = require('../src/services/epistemic/delegatedNativeOracleGate');
 async function optionChecks() {
   const option = { id: 'repair', maxSteps: 3, initiation: (state) => state.tests < 2,
     termination: (state) => state.tests >= 2, policy: (state) => state.tests ? 'verify' : 'repair' };
@@ -44,6 +46,17 @@ function valenceChecks() {
 async function reportChecks() {
   const dossier = { workerId: 'w', events: [{ evidenceReport: { outcome: 'success',
     claims: [{ statement: 'Exact claim 42', evidence: ['source:42'] }] } }] };
+  assert.equal(synthesisDossier(dossier).events[0].evidenceReport.outcome, 'success');
+  assert.equal(synthesisDossier({ ...dossier, events: [{ evidenceReport: { outcome: 'failed' } }] })
+    .events[0].evidenceReport.outcome, 'failed');
+  const oracleRef = { eventId: 'oracle-event', hash: 'a'.repeat(64) };
+  const acceptedDossier = synthesisDossier({ workerId: 'w', events: [
+    { eventType: 'EVIDENCE_REPORT', executionRunId: 'run-w', evidenceReport: dossier.events[0].evidenceReport },
+    { eventType: 'AGENT_COMPLETED', executionRunId: 'run-w', nativeOracleRef: oracleRef,
+      evidenceReport: dossier.events[0].evidenceReport }
+  ] });
+  assert.equal(acceptedDossier.events.length, 1);
+  assert.deepEqual(acceptedDossier.events[0].nativeOracleRef, oracleRef);
   const plan = { synthesisOnly: true, completedWorkerIds: ['w'], completedWorkerDossiers: [dossier] };
   const report = canonical.compile(plan);
   assert.equal(report.claims[0].statement, 'Exact claim 42');
@@ -51,6 +64,18 @@ async function reportChecks() {
   assert.deepEqual(report.dossierInfluence[0].usedClaims, ['Exact claim 42']);
   assert.deepEqual(canonical.compile(plan), report);
   assert.deepEqual(JSON.parse(await synthesis.canonicalGeneration(plan).generation), report);
+  assert.deepEqual(report.delegatedOracleRefs, []);
+  const referencedPlan = structuredClone(plan);
+  referencedPlan.completedWorkerDossiers[0].events[0] = { ...referencedPlan.completedWorkerDossiers[0].events[0],
+    executionRunId: 'run-w', nativeOracleRef: oracleRef };
+  assert.deepEqual(canonical.compile(referencedPlan).delegatedOracleRefs, [
+    { workerId: 'w', agentId: 'w', runId: 'run-w', reference: oracleRef }
+  ]);
+  const claim = { workerId: 'w', statement: 'Exact claim 42', evidence: ['source:42'] };
+  const verified = [{ workerId: 'w', report: { claims: [{ statement: 'Exact claim 42', evidence: ['source:42'] }] } }];
+  assert.doesNotThrow(() => delegatedGate.assertClaims({ claims: [claim] }, verified));
+  assert.throws(() => delegatedGate.assertClaims({ claims: [{ ...claim, evidence: ['forged'] }] }, verified),
+    (error) => error.code === 'DELEGATED_ORACLE_CLAIM_SET_MISMATCH');
   assert.throws(() => canonical.compile({ ...plan, completedWorkerIds: ['missing'] }), /every expected/);
   const negative = structuredClone(plan);
   negative.completedWorkerDossiers[0].events[0].evidenceReport.outcome = 'failed';

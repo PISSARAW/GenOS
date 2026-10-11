@@ -72,7 +72,6 @@ function applyPrimitiveFields(schema) {
   for (const field of INTEGER_FIELDS) schema.properties[field] = { ...(schema.properties[field] || {}), type: 'integer', minimum: 0 };
   for (const field of NUMBER_FIELDS) schema.properties[field] = { ...(schema.properties[field] || {}), type: 'number', minimum: 0 };
 }
-
 function getToolInputSchema(toolName, baseSchema = {}) {
   const schema = {
     type: 'object',
@@ -91,6 +90,7 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       mission: { type: 'string', description: 'Goal or user request to achieve.' },
+      native_objectives: { type: 'array', minItems: 1, maxItems: 19, items: { type: 'object' } },
       worker_assignments: workerAssignmentsSchema(),
       strategy: { type: 'string', description: 'Optional strategy hint from the available strategies.' },
       background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. Set false to wait for the mission within the MCP timeout.' },
