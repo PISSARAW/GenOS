@@ -21,9 +21,8 @@ function delegationCeiling(policy, mission) {
 function workerResources(kind, mission = {}) {
   const policy = workerPolicy(kind);
   const native = policy.executionMode === 'deterministic' || hasNativeMethod(kind, mission.methodContract?.methodId);
-  const requiresDelegationBudget = kind === 'sub_orchestrator';
-  return { maxTokens: tokenCeiling(policy, mission, native && !requiresDelegationBudget),
-    ...(requiresDelegationBudget && native ? { maxDelegatedTokens: delegationCeiling(policy, mission) } : {}),
+  return { maxTokens: tokenCeiling(policy, mission, native),
+    ...(kind === 'sub_orchestrator' && native ? { maxDelegatedTokens: delegationCeiling(policy, mission) } : {}),
     maxTimeMs: policy.maxTimeMs ?? 300000, maxCpuMs: policy.maxCpuMs ?? 60000,
     executionMode: native ? 'deterministic' : 'model' };
 }
