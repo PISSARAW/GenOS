@@ -570,14 +570,3 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 - [0324-biologie-execution-et-autorite-durable.md](0324-biologie-execution-et-autorite-durable.md) — reçus des workers et autorité durable d’homéostasie.
 
 - [0344 — Refactorings de qualité et frontières de contrôle](0344-refactorings-qualite-et-frontieres-de-controle.md).
-| [0183b](0183-regeneration-axolotl-bornee.md) | Régénération Axolotl ciblée et fondée sur des preuves | Voir le fichier | -- | -- |
-| [0293](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
-| [0294](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
-| [0296](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
-| [0297](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
-| [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
-| [0299](0299-capacites-transversales-morphogenese.md) | Cinq capacités transversales de morphogenèse | Proposé, avec première implémentation opt-in | 2026-10-04 | Morphogenèse, preuves, mémoire, risque statistique |
-> **Identifiants numériques partagés** : 26 numéros sont portés par deux
-> fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
-> 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,
-> 0108, 0122, 0126, 0154), plus `003x` (format historique gelé). Les
