@@ -9,7 +9,26 @@ const observer = require('../src/services/continuousExecution/observer');
 const bridge = require('../src/services/continuousExecution/runtimeBridge');
 const policy = require('../src/services/continuousExecution/policy');
 const dependencies = require('../src/services/continuousExecution/dependencies');
+const sensorium = require('../src/services/perception/sensoriumService');
 const { workerEvidenceRounds } = require('../src/services/agentOrchestrationState');
+
+function awaitPercept(ctx, changeWorld) {
+  const previousEmit = ctx.emitTracked;
+  return new Promise((resolve, reject) => {
+    const deadline = setTimeout(() => {
+      ctx.emitTracked = previousEmit;
+      reject(new Error('No autonomous observation within 3 seconds.'));
+    }, 3000);
+    ctx.emitTracked = (...args) => {
+      previousEmit(...args);
+      if (args[0] !== 'PERCEPTION_OBSERVED') return;
+      clearTimeout(deadline);
+      ctx.emitTracked = previousEmit;
+      resolve(args[3].observation);
+    };
+    changeWorld();
+  });
+}
 
 test('continuous execution is opt-in and its configuration is bounded', async () => {
   assert.equal(await observer.create({}), null);
@@ -17,6 +36,29 @@ test('continuous execution is opt-in and its configuration is bounded', async ()
   assert.throws(() => policy.normalize({ mode: 'control', maxScans: -1 }));
   assert.throws(() => policy.normalize({ mode: 'control', intervalMs: 1 }));
   assert.throws(() => policy.normalize({ mode: 'control', maxPendingWrites: 1000 }));
+  assert.throws(() => policy.normalize({ mode: 'observe', intervalMs: 100, observationWindowMs: 100 }));
+});
+
+test('timer perceives an external change during a mission without a manual scan', async () => {
+  const f = await fixture({ intervalMs: 100 });
+  sensorium.clearSensorium(f.ctx.agentId);
+  try {
+    bridge.start(f.ctx);
+    const first = await awaitPercept(f.ctx, () => f.change('first external change'));
+    const second = await awaitPercept(f.ctx, () => f.change('second external change'));
+
+    assert.equal(first.data.executionRunId, 'run-1');
+    assert.equal(first.data.planRevision, 1);
+    assert.equal(second.data.planRevision, 2);
+    assert.notEqual(first.data.digest, second.data.digest);
+    assert.equal(sensorium.getSensorium('worker').observations.length, 2);
+    assert.equal(f.ctx.continuousObserver.state.invalidated, true);
+    assert.equal(bridge.capabilities(f.ctx).livePlanUpdate, false);
+    assert.equal(bridge.guard(f.ctx, evidence()).eventType, 'AGENT_HALTED');
+  } finally {
+    await f.close();
+    sensorium.clearSensorium(f.ctx.agentId);
+  }
 });
 
 test('unchanged dependencies permit evidence; completion waits for the final scan', async () => {

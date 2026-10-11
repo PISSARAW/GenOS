@@ -485,6 +485,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0392](0392-archive-heritee-fork-agent.md) | Archive héritée vérifiable pour un agent forké | expérimental, lecture seule | 2026-10-10 | mémoire durable, snapshots d'organisme, filiation |
 | [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
 | [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
+| [0395](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
+| [0396](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
+| [0397](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
 
 | [0389](0389-autorite-des-consommateurs-memoire-rest-et-grpc.md) | Autorité des consommateurs mémoire REST et gRPC | Accepté pour la qualification bornée | 2026-10-10 | Principals, scopes, révocation et mémoire |
 

@@ -75,7 +75,8 @@ async function thawWorker(input = {}) {
       await input.db.run(`UPDATE garage_queue SET phase = 'ready', request_json = ?, result_json = NULL,
         error_text = NULL, updated_at = CURRENT_TIMESTAMP WHERE request_id = ? AND phase = 'thawing'`, JSON.stringify(restored), capsule.request_id);
       await input.db.run("UPDATE garage_capsules SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ?", capsule.snapshot_id);
-      await input.db.run("UPDATE agents SET status = 'idle', current_task = NULL WHERE id = ?", input.workerId);
+      const idled = await require('./workerGarageService').enterIdleState(input.db, input.workerId, input.orchestratorId);
+      if (!idled) throw requests.error('GARAGE_THAW_UNAVAILABLE', 'Worker cannot return to idle after thaw.');
       await store.event(input.db, { request_id: capsule.request_id, orchestrator_id: input.orchestratorId }, { type: 'thawed' });
     });
     return { workerId: input.workerId, requestId: capsule.request_id, snapshotId: capsule.snapshot_id, status: 'queued' };

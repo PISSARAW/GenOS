@@ -158,6 +158,11 @@ const suites = {
     ['seed concurrency', 'test_seed_concurrency.js']
   ],
   workers: [
+    ['worker compliance result gate', 'test_worker_compliance_summary.js'],
+    ['worker compliance evidence gate', 'test_worker_compliance_evidence.js'],
+    ['worker compliance manifest', 'test_worker_compliance_manifest.js'],
+    ['worker qualification inventory', 'test_worker_qualification_inventory.js'],
+    ['persisted worker mission promotion and refusal', 'test_worker_compliance_native_missions.js'],
     ['Rust and Node worker kind parity', 'test_worker_kind_registry.js'],
     ['worker kind matrix across eight topologies', 'test_topology_worker_kind_matrix.js'],
     ['worker contract adequacy across roles and methods', 'test_topology_worker_adequacy.js'],

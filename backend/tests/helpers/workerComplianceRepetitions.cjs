@@ -31,4 +31,17 @@ async function run({ context, telemetry, autobiography, executeWorkerMission }) 
   return execution;
 }
 
-module.exports = { run };
+async function runOrObserve(input) {
+  const { context, telemetry, autobiography, executeWorkerMission, perceptionProbe } = input;
+  if (process.env.GENOS_COMPLIANCE_NATIVE_ALL === '1' && !perceptionProbe.INPUT) {
+    return { execution: await run({ context, telemetry, autobiography, executeWorkerMission }),
+      perception: null };
+  }
+  perceptionProbe.prepare(context);
+  const observed = await perceptionProbe.executeAndProbe(context, executeWorkerMission);
+  if (observed.perception) observed.perception.runtimeSettled
+    = await perceptionProbe.settle(context.worker.agentId);
+  return observed;
+}
+
+module.exports = { run, runOrObserve };
