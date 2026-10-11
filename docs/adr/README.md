@@ -522,6 +522,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0425](0425-liaison-campagne-nominale-trinity-aux-scellages.md) | Lier la campagne nominale Trinity aux scellages durables | Accepté. | -- | -- |
 | [0426](0426-consentement-explicite-human-ai-syncytium.md) | Consentement explicite avant l'action Human–AI Syncytium | Accepté | 2026-10-11 | Syncytium, Human–AI, autorité humaine |
 | [0427](0427-recus-signes-hybrid-oracle-biocenose.md) | Reçu signé lié au claim pour Hybrid Oracle | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, promotion factuelle |
+| [0428](0428-oracle-subset-pour-executeur-procedural.md) | Oracle subset_sum pour l'exécuteur procédural | accepté | 2026-10-11 | workers, preuve indépendante, promotion native |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

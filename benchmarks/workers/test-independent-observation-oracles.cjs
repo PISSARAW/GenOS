@@ -14,6 +14,8 @@ async function checkCase(id, corrupt) {
 }
 
 async function main() {
+  await checkCase('subset-sum', (result) => { result.output.indices = [0, 0]; });
+  await checkCase('lpt-schedule', (result) => { result.output.makespan = 5; });
   await checkCase('scout-source', (result) => { result.observations[0].offset = 0; });
   await checkCase('forensic-chain', (result) => { result.causalChain[0].relation = 'temporal_guess'; });
   await checkCase('teaching-transfer', (result) => { result.transferCheck.learnerSum = 8; });

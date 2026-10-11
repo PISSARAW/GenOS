@@ -35,6 +35,9 @@ la sûreté de production ni la robustesse statistique.
 1. **Preuve workers** : neuf cas n'ont pas d'oracle et treize méthodes n'ont
    pas de cas de benchmark lié. Étendre les fixtures et les oracles distincts,
    puis exécuter des missions persistées C2 et C3 pour chaque méthode.
+   Deux missions `subset_sum` (contrat enveloppé et direct) ont désormais
+   atteint C2 et C3 dans leur domaine borné ; `formal_worker` reste refusé
+   faute d'oracle natif adapté.
    Les 375 contrats de concepts passent 13 500 sondes bornées dans la
    validation backend ; le compteur de validation en mission réelle reste à
    zéro et doit être traité séparément.

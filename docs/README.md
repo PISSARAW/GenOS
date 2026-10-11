@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [ADR 0428 — Oracle subset_sum pour l'exécuteur procédural](adr/0428-oracle-subset-pour-executeur-procedural.md) — mission procédurale vérifiée et limites du reçu canonisé.
+
 - [Qualification de release](06-qualite-preuves/qualification-release.md) — portes automatiques, rapport reproductible et écarts bloquant l'exploitabilité complète.
 
 - [Cinquième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#cinquième-vague--2026-10-11) — fermeture du commit V2, sous-runs A-Team, qualification Trinity, consentement Syncytium et reçus Biocénose ; [ADR 0423](adr/0423-fermeture-mode-commit-v2-morphogenese.md) à [0427](adr/0427-recus-signes-hybrid-oracle-biocenose.md).

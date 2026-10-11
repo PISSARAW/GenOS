@@ -66,22 +66,20 @@ dépôt et un modèle local explicite pour les méthodes qui l'utilisent ; une
 méthode native enregistrée peut s'exécuter sans modèle.
 Elle n'est pas incluse dans la simple matrice native.
 
-Le test d'intégration `test_worker_compliance_native_missions.js` lance deux
-missions dans deux bases SQLite et racines temporaires distinctes. Le cas
-`bounded_worker` avec `scoped_procedure → subset_sum`, confirmé le 2026-10-11,
-a atteint C2 : deux vérificateurs natifs indépendants ont accepté
-le résultat, le run persistant est `completed`, et l'événement terminal,
-l'artefact et la provenance sont liés à cette tentative. L'agent redevient
-`idle` après la fermeture normale ; le statut du run et l'événement terminal
-font foi.
+Le test d'intégration `test_worker_compliance_native_missions.js` lance trois
+missions dans trois bases SQLite et racines temporaires distinctes. Les cas
+`bounded_worker` avec `scoped_procedure → subset_sum` et
+`procedural_executor → subset_sum`, confirmés le 2026-10-11, ont atteint C2 et
+C3 dans ce domaine borné : deux vérificateurs natifs distincts ont accepté
+chaque résultat, les runs persistants sont `completed`, et leurs événements
+terminaux, artefacts et provenances sont liés à leurs tentatives. Les agents
+redeviennent `idle` après la fermeture normale ; le statut du run et
+l'événement terminal font foi.
 
 Le cas `formal_worker` de ce test atteint l'événement terminal `AGENT_FAILED`
 avec `ORACLE_DOMAIN_UNAVAILABLE` et sans promotion. Une exécution exploratoire
 antérieure avait produit un `formal_certificate` avant ce refus. Le harnais
-compte donc ce cas comme échec C2. Un essai `procedural_executor → subset_sum`
-a également révélé `ORACLE_DOMAIN_UNAVAILABLE` : l'oracle existant ne couvre
-que la méthode
-encapsulée `scoped_procedure`. La suite du plan doit étendre les domaines
+compte donc ce cas comme échec C2. La suite du plan doit étendre les domaines
 d'oracle et fournir des reçus indépendants liés à chaque tentative ; supprimer
 la porte de promotion fausserait la preuve. Une erreur intermittente de
 persistance des snapshots de télémétrie (`ENOENT`) apparaît dans ces essais ;

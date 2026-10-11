@@ -94,9 +94,10 @@ function validReceipt(receipt) {
 }
 
 function verifiedProcedure(testCase, execution) {
-  const expected = require('../../backend/src/services/agents/deterministicWorkerProcedures').runProcedure(testCase.methodContract);
-  return JSON.stringify(execution.result?.output) === JSON.stringify(expected.output)
-    && execution.receipt?.id === expected.receipt.id;
+  const independent = require('./independent-observation-oracles.cjs');
+  if (testCase.methodContract?.methodId === 'subset_sum') return independent.verifySubset(testCase, execution);
+  if (testCase.methodContract?.methodId === 'lpt') return independent.verifyLpt(testCase, execution);
+  return false;
 }
 
 async function verifiedFormalReceipt(testCase, execution) {

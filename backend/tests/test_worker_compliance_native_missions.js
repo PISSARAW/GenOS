@@ -84,12 +84,14 @@ function runIsolated(kind) {
 }
 
 function main() {
-  const promoted = runIsolated('bounded_worker');
-  assertPromoted(promoted);
+  const bounded = runIsolated('bounded_worker');
+  assertPromoted(bounded);
+  const procedural = runIsolated('procedural_executor');
+  assertPromoted(procedural);
   const refused = runIsolated('formal_worker');
   assertRefused(refused);
-  console.log(JSON.stringify({ milestone: 'P2', benchmarkDigest: promoted.benchmarkDigest,
-    missions: [promoted, refused].map(({ exitCode, result }) => ({ runId: result.runId,
+  console.log(JSON.stringify({ milestone: 'P2', benchmarkDigest: bounded.benchmarkDigest,
+    missions: [bounded, procedural, refused].map(({ exitCode, result }) => ({ runId: result.runId,
       kind: result.kind, exitCode, status: result.status, terminalEvent: result.terminalEvent,
       executionRunBound: result.executionRunBound, artifactValidated: result.artifactValidated,
       oracleAccepted: result.oracleAccepted, oracle: result.oracle, errorCode: result.errorCode })) }));

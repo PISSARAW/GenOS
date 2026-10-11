@@ -43,13 +43,38 @@ function freshObservation(records) {
 
 function observedContent(input) {
   const { binding, observed, request } = input;
-  const method = binding.genome.workerContract?.mission?.methodContract;
-  if (method?.version !== 1 || method.methodId !== 'scoped_procedure'
-      || method.parameters?.procedure?.methodId !== 'subset_sum') denied('ORACLE_DOMAIN_UNAVAILABLE');
+  const assigned = binding.genome.workerContract?.mission?.methodContract;
+  const method = subsetMethod(assigned);
   const report = observed.event.payload?.evidenceReport;
-  const result = report?.workerArtifact?.content?.result;
-  if (!result || report.workerArtifact.content.procedureReceipt?.methodId !== 'subset_sum') denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
-  return { runId: request.runId, workerId: request.agentId, method: method.parameters.procedure, result };
+  const content = report?.workerArtifact?.content;
+  return { runId: request.runId, workerId: request.agentId, method,
+    result: receiptResult(content) };
+}
+
+function subsetMethod(assigned) {
+  if (assigned?.version !== 1) denied('ORACLE_DOMAIN_UNAVAILABLE');
+  const method = assigned.methodId === 'scoped_procedure'
+    ? assigned.parameters?.procedure : assigned;
+  if (method?.version !== 1 || method.methodId !== 'subset_sum'
+      || !['scoped_procedure', 'subset_sum'].includes(assigned.methodId)) {
+    denied('ORACLE_DOMAIN_UNAVAILABLE');
+  }
+  return method;
+}
+
+function receiptResult(content) {
+  const receipt = content?.procedureReceipt;
+  const result = content?.result || receipt?.result;
+  if (!result || receipt?.methodId !== 'subset_sum'
+      || values.digest(content.result || result) !== values.digest(receipt.result)) {
+    denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
+  }
+  const inputDigest = String(receipt.inputDigest || '');
+  if (!/^sha256:[a-f0-9]{64}$/.test(inputDigest)
+      || !/^solver:\/\/sha256:[a-f0-9]{64}$/.test(receipt.id || '')) {
+    denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
+  }
+  return result;
 }
 
 function assertAntigen(antigen, subject) {
