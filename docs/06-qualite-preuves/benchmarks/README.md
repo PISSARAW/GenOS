@@ -4,6 +4,8 @@ Résultats mesurés, avec leur protocole et leurs limites.
 
 - [locomo.md](locomo.md) — rapport officiel LoCoMo sur le Connectome natif.
 - [swe-bench-lite.md](swe-bench-lite.md) — rapport officiel SWE-bench Lite (host Linux via WSL).
+- [ontogenesis-continuity.md](ontogenesis-continuity.md) — protocole comparatif
+  continuité de mission ; aucun résultat comparatif publié.
 
 > Ces rapports sont **datés** : vérifier la date et les conditions avant toute
 > conclusion. Un score n'est pas une preuve de vérité métier (voir

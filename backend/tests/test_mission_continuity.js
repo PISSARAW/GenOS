@@ -78,12 +78,7 @@ test('completion gate allows satisfied contract', async () => {
   assert.strictEqual(gate.allowed, true, 'gate must allow a fully satisfied contract');
 });
 
-test('generic mission completes when runtime reports success', () => {
-  const mission = { id: 'generic_success', objective: 'Propose five ideas' };
-  const built = homeostasis.buildMissionHomeostasis(mission);
-  const state = contract.evaluateContract(built, { missionOutcome: true });
-  assert.strictEqual(state.homeostasisSatisfied, true, 'generic missions need a verifiable success invariant');
-});
+require('./missionContinuity/contract_cases')(test);
 
 // 3. Required evidence: invariants true + evidence missing ⇒ blocked.
 test('required evidence blocks completion', async () => {
