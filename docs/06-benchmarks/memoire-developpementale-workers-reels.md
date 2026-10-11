@@ -57,3 +57,31 @@ Autres limites de validation constatées : `test_autobiographical_orchestrator_r
 3. Fusionner les passages avec `node backend/tests/summarize_worker_developmental_memory.cjs <measurement.json>...`. L'option `--assert-developmental` retourne un code non nul tant que les 19 types ne satisfont pas le critère complet.
 
 La vérification porte sur les représentations de politique lues par `recallBeforePlanning` : elle ne prétend pas mesurer tous les changements internes possibles. Le test synthétique antérieur par injection manuelle d'épisodes était positif, mais ne démontre pas la capture ni l'apprentissage à partir de missions réelles.
+
+## Mise à jour d'implémentation — campagne du 10 octobre 2026
+
+Les résultats de référence ci-dessus décrivent le **point de départ**. Le banc actuel branche le même écouteur de capture que le serveur, attend sa vidange avant la fermeture SQLite, fait vivre trois missions distinctes au même agent, appelle la consolidation du job worker après la deuxième mission, puis mesure dans un autre processus. Les leçons portent désormais l'identité de l'agent et le tenant. Une complétion n'est comptée comme succès d'apprentissage que si l'exécution persistée est `completed` pour cet agent, avec un artefact validé. Les refus `ORACLE_DOMAIN_UNAVAILABLE` et `ORACLE_BUDGET_EXPIRED` restent des épisodes `blocked`, exclus des leçons de stratégie. Les anciennes leçons sans propriétaire restent consultables pour audit, sans rappel individuel implicite.
+
+La campagne homogène `developmental-v11-all19` a exécuté les 19 types canoniques avec trois missions demandées par parent. Les données sont dans `D:\GenOS-developmental-memory-campaign-v11` (`campaign.log`, `genos.db`, `measurement.json`, `summary.json`). Le retest ciblé `developmental-v13-recovery` est dans `D:\GenOS-developmental-memory-campaign-v13-recovery` ; sa mesure remplace seulement celle de `recovery_worker` dans la synthèse finale. Toutes les fixtures et bases sont sur `D:`.
+
+| Mesure | Résultat observé |
+| --- | ---: |
+| Types avec artefact natif typé valide | 19/19 |
+| Types avec exécution acceptée après vérification indépendante | 1/19 (`bounded_worker`) |
+| Types avec épisodes et leçon rappelée en troisième mission, puis après redémarrage | 1/19 (`bounded_worker`) |
+| Types avec changement de représentation de politique observé dans la mission | 1/19 (`bounded_worker`) |
+| Types avec changement causal de choix d'action démontré | 0/19 |
+
+Pour `bounded_worker`, les trois exécutions sont acceptées et six épisodes sont retrouvés après redémarrage. La consolidation produit une leçon attribuée à cet agent avec trois épisodes supports. Dans sa troisième mission réelle, l'événement `AUTOBIOGRAPHICAL_RECALL_COMPLETED` rapporte une leçon et `riskTolerance` passe de `0,275` à `0,325` environ (`riskDelta=+0,05`). Dans un nouveau processus, la même leçon est rappelée et modifie de nouveau un plan neuf. Le contrôle sans expérience dans les tests unitaires ne reçoit aucune leçon. Ce résultat établit une représentation modifiée et durable pour **un** type, mais la politique ajustée n'est pas encore reliée à un choix d'action différent dans le runtime déterministe.
+
+Les 18 autres types ont un artefact valide, puis une fin de mission refusée par la vérification indépendante avec `ORACLE_DOMAIN_UNAVAILABLE`. L'oracle natif ne possède actuellement que les domaines `subset_sum`, `code_postconditions` et `memory_fidelity`, tandis que leurs méthodes natives relèvent d'autres domaines. Le sous-orchestrateur lance trois enfants réels ; leurs identités sont comptées séparément du parent. Le `recovery_worker` nécessitait aussi la remise de sa fixture `state.txt` à l'état `damaged` dans sa capsule avant chaque répétition : le retest confirme trois exécutions et six épisodes, sans leçon issue du refus d'oracle.
+
+Le verdict strict du banc reste donc **0/19 mémoires développementales entièrement vérifiées** si l'on exige un changement causal de décision et une mission acceptée. La synthèse distingue ce verdict de la mesure intermédiaire `durableRecall=1/19`. Les deux tests de mémoire sont désormais dans le profil rapide `workers` exécuté par la CI ; la campagne complète reste le contrôle périodique de bout en bout. La porte de promotion, les nonces et les reçus indépendants n'ont pas été neutralisés.
+
+Validation du code : `cargo test --workspace --offline`, la porte `check_code_quality.py` (0 violation nouvelle), les 20 suites `workers` sous Node 22 et le test isolé `test_native_oracle_completion.js` passent. La suite `npm test` complète n'a pas encore rendu un code de sortie vert : un lancement sous Node 24 a expiré dans un sous-processus, un lancement sous Node 22 a rencontré `SQLITE_BUSY` dans un helper utilisant `spawnSync`, et le lancement suivant a été interrompu par le renouvellement de l'environnement pendant le profil worker. Le helper utilise désormais un vrai processus enfant asynchrone et son test isolé passe ; la chaîne globale doit encore être relancée jusqu'à son terme.
+
+## Vérifications complémentaires du 11 octobre 2026
+
+Les tests isolés `test_autobiographical_memory.js`, `test_autobiographical_orchestrator_recall.js`, `test_native_oracle_completion.js`, `test_native_memory_budget.js` et `test_native_oracle_failure_costs.js` passent sous Node 22. Ce dernier exécute ses six cas en vrais sous-processus asynchrones : il ne bloque plus la boucle d'événements du parent pendant les écritures SQLite. Le test de retrait de source constate d'abord le retrait persisté, puis accepte les deux refus sûrs possibles si l'autorité d'exécution expire pendant un passage lent. Ces ajustements concernent les tests ; ils ne transforment aucun refus d'oracle en succès.
+
+La campagne 19 types reste rouge au critère strict : `summary-final.json` rapporte `workerTypes=19`, `artifactsValidated=19`, `nativeArtifacts=1`, `durableRecall=1` et `developmental=0`. Les trois enfants du sous-orchestrateur sont listés à part. La prochaine étape fonctionnelle est de fournir des oracles sémantiques indépendants pour les 18 méthodes non couvertes, puis de vérifier une décision effectivement changée par la politique rappelée avec un worker témoin. Un passage complet de `npm test` doit encore aboutir avant de revendiquer la validation globale.

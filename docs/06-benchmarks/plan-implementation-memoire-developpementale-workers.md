@@ -83,3 +83,51 @@ Pour **chaque type canonique**, le même worker vit au moins deux missions compa
 - **Contamination entre agents :** ajouter une identité d'agent aux leçons et tester les transferts uniquement explicites.
 - **Double apprentissage :** capturer et consolider de façon idempotente avec des identifiants d'événement/reçu durables.
 - **Tests artificiellement verts :** conserver un témoin, des contre-exemples, des redémarrages et les portes de preuve actives.
+
+## Avancement constaté le 10 octobre 2026
+
+| Lot | État | Preuve ou travail restant |
+| --- | --- | --- |
+| 0 — environnement | Partiel | Node 22 compatible et dépendances des lockfiles installées sur D:. Un passage global sous Node 24 a expiré dans un sous-processus d'oracle ; un passage sous Node 22 a révélé `SQLITE_BUSY` dans le helper synchrone de contention. Ce helper a été corrigé et le test isolé passe. Le dernier passage global a été interrompu par le renouvellement de l'environnement pendant le profil worker, sans verdict final. |
+| 1 — capture | Réalisé | Écouteur de production branché au banc, vidange attendue, épisodes retrouvés après fermeture et réouverture. |
+| 2 — événements et preuve | Réalisé pour les méthodes couvertes | Artefact validé, fin non vérifiée, succès accepté et blocage d'oracle distingués ; déduplication et tenant persisté. Ajouter les cas de reçu falsifié et de tenant contradictoire de bout en bout. |
+| 3 — leçon individuelle | Réalisé | Migration `agent_id`, supports du même agent, contrôle d'un résultat contradictoire, rappel après redémarrage. |
+| 4 — complétion vérifiée | Bloqué pour 18 types | Implémenter une vérification indépendante propre à chaque méthode native restante. Le sous-orchestrateur dépend aussi de la complétion acceptée de ses enfants. |
+| 5 — causalité | Partiel | 19 types et trois missions mesurés ; un type montre une politique modifiée en mission et après redémarrage. Mesurer un choix d'action qui change causalement et un témoin pour chaque type. |
+| 6 — validation | Partiel | `cargo test --workspace --offline`, profil worker (20 suites) et qualité passent. Le test d'oracle natif corrigé passe isolément sous Node 22. La campagne complète reste rouge 18/19 au contrôle indépendant ; un `npm test` global complet sous Node 22 reste à obtenir. |
+
+Les mesures brutes et le détail du verdict figurent dans `memoire-developpementale-workers-reels.md` et dans les racines de campagne `D:\GenOS-developmental-memory-campaign-v11` et `D:\GenOS-developmental-memory-campaign-v13-recovery`. Les prochaines étapes prioritaires sont les oracles sémantiques indépendants pour les 18 méthodes, leur batterie de refus (rejeu, autre agent/tenant, mutation), puis le branchement d'une décision du runtime sur la politique rappelée avec groupe témoin.
+
+### Point de contrôle du 11 octobre 2026
+
+Les lots 1 à 3 sont commités. La campagne réelle couvre les 19 types, mais le lot 4 reste le verrou fonctionnel : 18 fins de mission sont refusées avec `ORACLE_DOMAIN_UNAVAILABLE`. Les sous-tests isolés de mémoire, de complétion et des six cas de coût d'échec de l'oracle passent sous Node 22 après la correction de deux attentes fragiles et du sous-processus bloquant. La suite globale `npm test` n'a pas encore de passage complet vert ; elle demeure une condition du lot 6.
+
+Pour avancer sur le lot 4, dresser d'abord la matrice `type → méthode native → domaine de preuve → propriété vérifiable indépendamment → reçu attendu`. Implémenter les vérificateurs par domaine avec fixtures positives et mutations négatives, en gardant les mêmes contrôles de nonce, tenant, budget et liaison à l'artefact. Rejouer ensuite les trois missions pour chaque type ; le parent `sub_orchestrator` doit être jugé à partir de la complétion vérifiée de son enfant réel. Pour le lot 5, enregistrer un choix d'action avant/après rappel et le comparer à un worker témoin sans expérience ; le seul delta de `riskTolerance` ne suffit pas au verdict strict.
+
+### Matrice de travail du lot 4
+
+Cette matrice désigne des **propriétés à spécifier**, pas des oracles déjà disponibles. Chaque vérificateur devra reconstruire son sujet depuis le binding de mission et l'observation persistée, puis produire un reçu indépendant lié au run, à l'agent, au tenant, à l'artefact et à la validité temporelle.
+
+| Type | Méthode native | Propriété minimale à vérifier indépendamment |
+| --- | --- | --- |
+| `scout_cell` | `scan_literal` | Correspondance exacte des termes et des positions dans les sources fournies. |
+| `resident_daemon` | `monitor_samples` | Seuil, horodatage et échantillons qui justifient chaque alerte. |
+| `bounded_worker` | `scoped_procedure` | Postconditions du `subset_sum` ; domaine déjà couvert. |
+| `adaptive_worker` | `adapt_procedure` | Résultat de chaque essai LPT et règle documentée de sélection de stratégie. |
+| `specialist` | `niche_procedure` | Résultat LPT et correspondance du périmètre de spécialité. |
+| `procedural_executor` | `subset_sum` | Témoin, somme et nombre de sommes atteignables pour la méthode directe. |
+| `symbiotic_worker` | `host_procedure` | Résultat `subset_sum` et autorisation de capacité du contrat hôte. |
+| `verifier_worker` | `verify_procedure` | Recalcul du résultat et concordance avec le reçu candidat. |
+| `red_worker` | `falsify_procedure` | Contre-exemple reproductible contre le reçu candidat. |
+| `experimental_worker` | `measure_lpt` | Makespan LPT recalculé et comparaison au seuil déclaré. |
+| `formal_worker` | `check_arithmetic` | Interprétation bornée de l'expression et valeur arithmétique recalculée. |
+| `synthesis_worker` | `synthesize_claims` | Traçabilité des positions et contradictions des sources fournies. |
+| `creative_worker` | `combine_candidates` | Couverture combinatoire et provenance ; aucun jugement esthétique induit. |
+| `medical_worker` | `review_synthetic_case` | Périmètre éducatif, provenance et incertitude ; aucune validité clinique induite. |
+| `recovery_worker` | `restore_checkpoint` | Digests de l'état initial, du checkpoint et de l'état restauré. |
+| `forensic_worker` | `trace_declared_causes` | Cohérence des références et de l'ordre déclaré ; aucune causalité réelle induite. |
+| `liaison_worker` | `prepare_handoff` | Correspondance des éléments, groupes et sources du transfert. |
+| `teaching_worker` | `teach_subset_sum` | Résultat du problème et vérification des indices de l'apprenant. |
+| `sub_orchestrator` | `coordinate_children` | Ensemble attendu des enfants et statut accepté de chacun, lié à la mission parente. |
+
+Les domaines proches peuvent partager du calcul indépendant, mais chaque enveloppe de méthode et chaque reçu doivent être contrôlés séparément. Les tests négatifs doivent modifier un résultat, une source, un agent, un tenant, un nonce et un reçu expiré sans changer le verdict de refus attendu.
