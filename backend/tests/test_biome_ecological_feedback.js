@@ -125,6 +125,39 @@ async function computeDispatch() {
   assert.equal(calls, 1);
 }
 
+async function computeWorkCapacity() {
+  let calls = 0;
+  const runtime = await biome.BiomeRuntime.create('Compute work capacity', {
+    variant: 'compute', maxTicks: 4, environment: { opportunities: [opportunity('a')] },
+    authorizeExecution: async () => true,
+    executors: { capable: async () => { calls += 1; return { output: 4, consumed: { tokens: 2 } }; } },
+    verifyExecution: async proof => ({ ...proof, verified: true, evidenceRefs: ['test:compute-capacity'] })
+  });
+  await runtime.step({ totalBudget: 100, resources: { tokens: 100 },
+    individuals: [{ individualId: 'worker', capabilities: ['a'] }] });
+  const work = { executionId: 'capacity-work', populationId: 'population:niche-a',
+    individualId: 'worker', capability: 'a', resources: { tokens: 3 }, input: {} };
+  const executed = await runtime.step({ demand: { tokens: 1 }, computeWork: work,
+    providers: [{ id: 'cheap', resources: { tokens: 1 }, costUsd: 1 },
+      { id: 'capable', resources: { tokens: 10 }, costUsd: 5 }] });
+  assert.equal(executed.decision.selected.id, 'capable');
+  assert.equal(executed.executions[0].execution.status, 'verified');
+  assert.equal(calls, 1);
+  const refused = await runtime.step({ demand: { tokens: 1 },
+    computeWork: { ...work, executionId: 'capacity-refused', resources: { tokens: 9 } },
+    providers: [{ id: 'capable', resources: { tokens: 3 }, costUsd: 5 }] });
+  assert.equal(refused.action.status, 'abstained');
+  assert.deepEqual(refused.executions, [{ executionId: 'capacity-refused',
+    status: 'abstained', reason: 'no_feasible_provider' }]);
+  assert.equal(calls, 1);
+  const snapshot = await biome.sessionSnapshot(runtime.sessionId);
+  assert.equal(snapshot.ecologicalState.runtime.executions['capacity-refused'], undefined);
+  assert.equal(snapshot.ecologicalState.runtime.history.at(-1).actions[1].status, 'abstained');
+  await assert.rejects(() => runtime.step({ computeWork: { ...work, executionId: 'invalid-work',
+    resources: { tokens: -1 } } }), { code: 'BIOME_CONTRACT_INVALID' });
+  assert.deepEqual(await biome.sessionSnapshot(runtime.sessionId), snapshot);
+}
+
 async function changingOpportunity() {
   const runtime = await biome.BiomeRuntime.create('Changing capabilities', {
     variant: 'resource', maxTicks: 3, environment: { opportunities: [opportunity('a')] }
@@ -146,6 +179,7 @@ async function main() {
   await changingOpportunity();
   await executableForaging();
   await computeDispatch();
+  await computeWorkCapacity();
   console.log('Biome measured curiosity, construction, stigmergy, phenotype, rewiring and recovery: PASS');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

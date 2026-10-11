@@ -167,7 +167,7 @@ La fitness finale et l'issue rescue sont enregistrées ensemble.
 | Mécanisme | Contrat et limite |
 | --- | --- |
 | Évolution | `evolutionRequests` et `options.rustEvolution` ; rapport d'îlot valide, génération non régressive, fitness bornées, population et résultats persistés |
-| Recherche | `islandSearchRequests` et `options.solverSearch` ; `demeId`, `solverId`, `problemRef` ; état repris pour ce solveur et ce problème seulement |
+| Recherche | `islandSearchRequests` et `options.solverSearch` ; le résultat doit rappeler `demeId`, `solverId`, `problemRef` et `seed`, et fournir `evidenceRef` et `provenance` ; état repris pour ce solveur et ce problème seulement |
 | Fitness locale | `fitnessEvaluator` synchrone dans le contexte d'évaluation ; résultat `{ fitness, evidenceRef, provenance }` |
 | Certification de génome | Preuve d'évaluation liée à `genomeHash` et à sa référence d'évidence |
 | QD / spéciation | Helpers de diversité et analyse d'historiques ; un historique vide ne prouve pas une spéciation, un hash ne mesure pas la fitness |
@@ -175,6 +175,12 @@ La fitness finale et l'issue rescue sont enregistrées ensemble.
 | Résidents | Capsules réelles sous `.genos-agent-worlds/resident-demes` du répertoire de travail, identité liée au bail session/dème, reprise du bail inactif ou expiré |
 | Mémoire | Références versionnées et facteur de décroissance persisté ; continuité lors d'une reprise de résident |
 | Culture | Cultures versionnées, parents persistés, transferts soumis au receveur et à la compatibilité |
+
+Un résultat de solveur lié à un autre dème, problème ou seed, ou sans référence
+de preuve, est rejeté avant la mise à jour du profil de l'îlot. Le runtime
+conserve cette référence avec l'état du solveur et la relit à la vérification.
+La référence est une preuve déclarée par l'adaptateur configuré ; elle ne
+constitue pas une validation indépendante de l'objectif mathématique.
 
 Le contrôleur gère ces résidents pendant ses appels bornés. Leur bail et leur
 capsule ne lancent pas à eux seuls un processus de fond ou un ordonnanceur permanent.

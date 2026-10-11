@@ -78,7 +78,9 @@ class BiomeRuntime {
     if (['goal_achieved', 'budget_exhausted'].includes(output.stopCondition)) return [];
     const requests = require('./runtime/executionRequests').requests(input, output, this.ecology);
     if (!Array.isArray(requests) || requests.length > 101) throw Object.assign(new Error('At most 100 supplied execution requests plus one ecological action are allowed.'), { code: 'BIOME_INPUT_INVALID' });
-    const results = [];
+    const results = this.variant === 'compute' && input.computeWork && !output.decision?.selected
+      ? [{ executionId: input.computeWork.executionId || null, status: 'abstained', reason: 'no_feasible_provider' }]
+      : [];
     for (const request of requests) results.push(await coordination().executeSessionWork(this.sessionId, request, this.options));
     return results;
   }

@@ -1,7 +1,7 @@
 # Runtime Rhizome : contrat opérationnel v1
 
 - **Statut** : Implémenté
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-11
 - **Portée** : exécution, admission, résultats, métriques, ressources et télémétrie
 
 ## Snapshot topologique
@@ -11,6 +11,13 @@ Rhizome. Elle vérifie journal, révision, preuves et champs des douze variants 
 la reprise exige une session dormante ou en quarantaine, sans bail actif.
 Le graphe collectif reste en place. Voir
 [snapshots topologiques](snapshots-topologiques.md).
+
+Les variants `persistent`, `ephemeral`, `private`, `cross_representation` et
+`procedural` sont fixés à la création de la session : `setVariant` refuse les
+transitions vers ou depuis eux. Une nouvelle session est nécessaire pour changer
+leur portée ou leurs obligations de preuve. Les autres transitions retournent
+le variant précédent, le nouveau, la version du graphe et la révision
+([ADR 0421](../adr/0421-transitions-de-variant-liees-a-la-session-rhizome.md)).
 
 ## Architecture
 

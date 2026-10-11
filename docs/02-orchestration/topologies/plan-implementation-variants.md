@@ -144,6 +144,30 @@ de missions représentatives pour les 95 variants canoniques.
   mais aucune nouvelle mission nominale n'a été exécutée dans cette vague : les
   douze restent non qualifiés ([ADR 0415](../../adr/0415-qualification-nominale-trinity-sur-traces-durables.md)).
 
+### Quatrième vague — 2026-10-11
+
+- Morphogenèse ferme le commit de graphe fondé sur des booléens d'autorisation
+  fournis par l'appelant. Un reçu SQLite relisible lie la décision Rust
+  consultative à la proposition et au snapshot ; l'autorité authentifiée et le
+  snapshot de transition restaurable manquent encore pour `APPLY`
+  ([ADR 0418](../../adr/0418-fermeture-commit-morphologie-et-recu-rust.md)).
+- Biome `compute` tient compte des ressources du travail demandé et retourne
+  une abstention si aucun provider annoncé n'est faisable. La capacité annoncée
+  ne certifie pas les ressources physiques
+  ([ADR 0419](../../adr/0419-capacite-reelle-du-travail-compute-biome.md)).
+- Holobionte `tool` vérifie le résident et le contrat persistant avant l'appel
+  externe, puis journalise refus, effet incertain ou résultat non vérifié. Cette
+  frontière n'est pas une sandbox du système hôte
+  ([ADR 0420](../../adr/0420-frontiere-contrat-outil-holobionte.md)).
+- Rhizome fixe cinq variants à la session ; une transition impliquant l'un
+  d'eux requiert une nouvelle session. Les autres transitions gardent une trace
+  de la politique précédente et de la révision
+  ([ADR 0421](../../adr/0421-transitions-de-variant-liees-a-la-session-rhizome.md)).
+- Métapopulation lie le résultat du solveur à son dème, problème, seed et
+  référence de preuve avant persistance. La qualité de l'objectif externe
+  reste à vérifier indépendamment
+  ([ADR 0422](../../adr/0422-liaison-des-resultats-solveur-metapopulation.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

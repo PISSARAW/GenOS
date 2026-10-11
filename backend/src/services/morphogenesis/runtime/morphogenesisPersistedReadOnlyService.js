@@ -121,6 +121,19 @@ function sameRecord(left, right) {
     && JSON.stringify(left.proposals) === JSON.stringify(right.proposals));
 }
 
+async function persistDecisionReceipt(input) {
+  const { decision, db, missionId, morphology, snapshotRef, record } = input;
+  if (decision.available !== true) return decision;
+  try {
+    const receipt = await require('./morphogenesisReadOnlyDecisionStore').recordReadOnlyDecision({
+      db, missionId, morphology, snapshotRef, record, decision });
+    return { ...decision, proposalRecordId: record.id, snapshotRef,
+      proposalCount: record.proposals.length, receiptId: receipt.id };
+  } catch (_) {
+    return unavailable('RUST_DECISION_RECEIPT_NOT_PERSISTED');
+  }
+}
+
 async function adjudicatePersistedOutcome(input) {
   const { db, missionId, morphology, snapshotRef, outcome } = input;
   if (!db || !snapshotRef || snapshotRef.missionId !== missionId) return unavailable('SNAPSHOT_MISSING_OR_MISSION_MISMATCH');
@@ -141,8 +154,7 @@ async function adjudicatePersistedOutcome(input) {
   if (!sameRecord(current, record)) {
     return unavailable('PROPOSAL_OR_SNAPSHOT_CHANGED_DURING_ADJUDICATION');
   }
-  return { ...decision, proposalRecordId: record.id, snapshotRef,
-    proposalCount: record.proposals.length };
+  return persistDecisionReceipt({ db, missionId, morphology, snapshotRef, record, decision });
 }
 
 module.exports = { persistPreparedMorphology, adjudicatePersistedOutcome,

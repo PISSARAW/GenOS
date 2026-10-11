@@ -507,6 +507,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0415](0415-qualification-nominale-trinity-sur-traces-durables.md) | Qualification nominale Trinity sur traces durables | Accepté, qualification des douze variants en attente de missions post-correctifs | -- | -- |
 | [0416](0416-propositions-rust-liees-snapshot-morphologie.md) | Propositions Rust liées au snapshot de morphologie | accepté | 2026-10-11 | morphogenèse après mission, persistance, noyau Rust |
 | [0417](0417-liaison-recus-hybrid-oracle-biocenose.md) | Liaison des reçus Hybrid Oracle à leur périmètre | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, preuves factuelles |
+| [0418](0418-fermeture-commit-morphologie-et-recu-rust.md) | Fermer le commit morphologique déclaratif et conserver le refus Rust | accepté | 2026-10-11 | morphogenèse, graphe versionné, décision Rust |
+| [0419](0419-capacite-reelle-du-travail-compute-biome.md) | Capacité du fournisseur liée au travail Compute de Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0420](0420-frontiere-contrat-outil-holobionte.md) | Contrat persistant avant invocation d'un outil Holobionte | Accepté. | -- | -- |
+| [0421](0421-transitions-de-variant-liees-a-la-session-rhizome.md) | Transitions de variant liées à la session Rhizome | Accepté | 2026-10-11 | Rhizome, variants, persistance et confidentialité |
+| [0422](0422-liaison-des-resultats-solveur-metapopulation.md) | Lier le résultat du solveur à son îlot et à sa preuve | Accepté le 11 octobre 2026. | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

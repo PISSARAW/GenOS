@@ -10,6 +10,7 @@ const sqlite3 = require('sqlite3');
 const { migrateMorphologyGraph } = require('../src/db/migrations/migrateMorphologyGraph');
 const { createTopologyRegistry } = require('../src/services/morphogenesis/registry/topologyRegistry');
 const gate = require('../src/services/morphogenesis/runtime/morphogenesisPersistedReadOnlyService');
+const decisionStore = require('../src/services/morphogenesis/runtime/morphogenesisReadOnlyDecisionStore');
 const { executeMorphology } = require('../bin/orchestratorMissionAux.cjs');
 
 const morphology = { topology: 'trinity', variantId: 'controlled', agents: [{ role: 'architect' }] };
@@ -55,11 +56,21 @@ async function main() {
     const result = await executeMorphology(input);
     assert.equal(result.kernelReadOnly.decision, 'REJECTED');
     assert.equal(result.kernelReadOnly.proposalCount, 1);
+    assert.ok(result.kernelReadOnly.receiptId);
     assert.equal(result.applied, false);
     assert.equal(telemetry[0].eventType, 'MORPHOGENESIS_PROPOSED');
     const row = await db.get('SELECT proposals_json FROM morphogenesis_read_only_proposals WHERE id = ?',
       result.kernelReadOnly.proposalRecordId);
     assert.equal(JSON.parse(row.proposals_json)[0].action, 'spawn_verifier');
+    await db.close();
+    db = await open({ filename, driver: sqlite3.Database });
+    const readReceipt = () => decisionStore.readReadOnlyDecision({ db,
+      id: result.kernelReadOnly.receiptId, missionId: 'mission-1', morphology, snapshotRef });
+    assert.equal((await readReceipt()).decision, 'REJECTED');
+    await assert.rejects(db.run('UPDATE morphogenesis_read_only_decisions SET response_json = ? WHERE id = ?',
+      '{}', result.kernelReadOnly.receiptId), /immutable/);
+    await assert.rejects(db.run('DELETE FROM morphogenesis_read_only_decisions WHERE id = ?',
+      result.kernelReadOnly.receiptId), /immutable/);
 
     if (process.env.GENOS_MORPHO_E2E === '1') {
       const real = await gate.adjudicatePersistedOutcome({ db, missionId: 'mission-1',
@@ -72,6 +83,7 @@ async function main() {
       '[{"action":"forged"}]', result.kernelReadOnly.proposalRecordId);
     assert.equal(await gate.readPersistedProposals(db, snapshotRef,
       result.kernelReadOnly.proposalRecordId), null);
+    assert.equal(await readReceipt(), null);
     const mismatched = await gate.adjudicatePersistedOutcome({ db, missionId: 'other',
       morphology, snapshotRef, outcome: input.outcome });
     assert.equal(mismatched.reason, 'SNAPSHOT_MISSING_OR_MISSION_MISMATCH');

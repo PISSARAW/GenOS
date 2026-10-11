@@ -1539,7 +1539,7 @@ Voir [ADR 0330](../../adr/0330-effets-durables-metapopulation.md). La suite `npm
 
 Le cerveau reçoit `extinctionReports` avec `demeId`, `evidence.workers`, `evidence.localFunctions` et `provenance`. BUSY, silence et absence de mesure restent insuffisants. PLAN ne démarre pas d'essai. `options.evaluateColonization` reçoit patch, fondateurs et clé d'idempotence, puis retourne `{ viable, fitness, provenance }` avec une fitness numérique dans [0, 1]. Une preuve invalide conserve l'essai en attente ; une acceptation crée un dème actif atomiquement.
 
-Les îlots conservent profils et états de recherche. L'évolution exige `options.rustEvolution`, la recherche `options.solverSearch`, la fitness locale `fitnessEvaluator` retournant `{ fitness, evidenceRef, provenance }`. La certification exige aussi le hash du génome évalué.
+Les îlots conservent profils et états de recherche. L'évolution exige `options.rustEvolution`, la recherche `options.solverSearch` avec un résultat lié au dème, au problème et à la seed, plus `evidenceRef` et `provenance`. La fitness locale utilise `fitnessEvaluator` retournant `{ fitness, evidenceRef, provenance }`. La certification exige aussi le hash du génome évalué. Le reçu du solveur reste déclaratif : le runtime ne recalcule pas son objectif.
 
 `REQUEST_MORE_EVIDENCE` reste en quarantaine. `ADAPT_AND_ACCEPT` exige `adapter.adapt`, un reçu et une revalidation. Le rescue reprend ses mesures sans réassimiler un payload accepté. Le variant persistent crée des capsules et entretient ses résidents sous lease. Les obligations fédérales ne sont pas satisfaites par leur seule émission.
 

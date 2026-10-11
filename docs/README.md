@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Quatrième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#quatrième-vague--2026-10-11) — reçus Rust consultatifs, frontières Biome et Holobionte, transitions Rhizome et preuve du solveur Métapopulation ; [ADR 0418](adr/0418-fermeture-commit-morphologie-et-recu-rust.md) à [0422](adr/0422-liaison-des-resultats-solveur-metapopulation.md).
+
 - [Qualification P1 des consommateurs mémoire au 2026-10-10](06-qualite-preuves/qualification-p1-consommateurs-memoire-2026-10-10.md) — recherche REST/gRPC, ingestion attribuée, retraits d’accès et fallback de prompt ; [ADR 0389](adr/0389-autorite-des-consommateurs-memoire-rest-et-grpc.md).
 
 - [Qualification P1 mémoire négative et stdio au 2026-10-10](06-qualite-preuves/qualification-p1-l22-2026-10-10.md) — scopes, résultats métier Node/Rust, leases et contre-épreuves ; [ADR 0388](adr/0388-portee-memoire-negative-et-parite-stdio-reelle.md).

@@ -24,6 +24,7 @@ async function executeMorphology(input) {
   event.payload.kernelAvailable = kernelReadOnly.available;
   event.payload.kernelReason = kernelReadOnly.reason || null;
   event.payload.proposalRecordId = kernelReadOnly.proposalRecordId || null;
+  event.payload.kernelReceiptId = kernelReadOnly.receiptId || null;
   telemetry.emitEvent(event);
   return diagnostic;
 }

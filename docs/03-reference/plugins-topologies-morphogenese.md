@@ -135,3 +135,9 @@ absentes ou périmées produisent `UNAVAILABLE`. Un autre verdict sans cause
 épistémique qualifiée peut produire `NO_CHANGE`. Ce contrôle ne crée aucune
 transition appliquée ni preuve de promotion ; voir [ADR 0412](../adr/0412-pont-rust-morphogenese-lecture-seule.md)
 et [ADR 0416](../adr/0416-propositions-rust-liees-snapshot-morphologie.md).
+
+Le refus Rust consultatif possède un reçu SQLite relisible, lié à la
+proposition et au graphe. Le magasin de graphes refuse désormais tout
+`commit` déclaré par des booléens, même si la version courante correspond.
+Seuls les graphes `proposed` peuvent être enregistrés sans preuve de
+transition ; voir [ADR 0418](../adr/0418-fermeture-commit-morphologie-et-recu-rust.md).

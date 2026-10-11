@@ -46,20 +46,32 @@ async function islandPersistence(db) {
   assert.equal(islands.verifyIslandResult(action, result, session), true);
   assert.equal(islands.verifyIslandResult(action, { ...result, demeId: id + 'b' }, session), false);
   const searchAction = { type: 'SEARCH_ISLAND', request: { demeId: id + 'a', solverId: 'sat', problemRef: 'problem-a' } };
-  context.options.solverSearch = async (request) => ({ solverId: request.solverId, objective: 4,
-    incumbentRef: 'incumbent', counterexampleRefs: [], iterations: 3 });
+  for (const changes of [{ demeId: id + 'b' }, { problemRef: 'other-problem' },
+    { seed: 'stale-seed' }, { evidenceRef: '' }, { provenance: null }]) {
+    context.options.solverSearch = async (request) => solverReceipt(request, changes);
+    await assert.rejects(() => islands.searchIsland(searchAction, context),
+      { code: 'METAPOPULATION_SEARCH_RESULT_INVALID' });
+  }
+  assert.equal((await store.getDeme(db, id, id + 'a')).fitnessContext?.islandSearchStates, undefined);
+  context.options.solverSearch = async (request) => solverReceipt(request);
   await islands.searchIsland(searchAction, context);
   delete require.cache[require.resolve('../src/services/metapopulation/runtime/islandExecutionService')];
   const restarted = require('../src/services/metapopulation/runtime/islandExecutionService');
   context.options.solverSearch = async (request) => {
     assert.equal(request.state.iterations, 3);
-    return { solverId: 'sat', objective: 3, incumbentRef: 'incumbent-b', counterexampleRefs: [], iterations: 2 };
+    return solverReceipt(request, { objective: 3, incumbentRef: 'incumbent-b', iterations: 2 });
   };
   const searched = await restarted.searchIsland(searchAction, context);
   session = await store.loadSession(db, id);
   assert.equal(searched.totalIterations, 5);
   assert.equal(islands.verifyIslandResult(searchAction, searched, session), true);
   assert.equal(session.demes[1].fitnessContext, undefined);
+}
+
+function solverReceipt(request, changes = {}) {
+  return { demeId: request.demeId, solverId: request.solverId, problemRef: request.problemRef,
+    seed: request.seed, objective: 4, incumbentRef: 'incumbent', counterexampleRefs: [],
+    iterations: 3, evidenceRef: 'test:solver-result', provenance: { source: 'test-solver' }, ...changes };
 }
 
 function propagule(id) {

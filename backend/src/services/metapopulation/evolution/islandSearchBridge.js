@@ -19,16 +19,30 @@ function deterministicSeed(input) {
 }
 
 function validateSearchResult(result, request) {
-  if (!result || result.solverId !== request.solverId || !Number.isFinite(result.objective)
-    || typeof result.incumbentRef !== 'string' || !Array.isArray(result.counterexampleRefs)
-    || !Number.isSafeInteger(result.iterations) || result.iterations < 0) {
+  if (!matchesRequest(result, request) || !validPayload(result)) {
     throw searchError('METAPOPULATION_SEARCH_RESULT_INVALID');
   }
   return { engine: 'island-search-adapter', demeId: request.demeId, solverId: request.solverId,
-    seed: request.seed, objective: result.objective, incumbentRef: result.incumbentRef,
-    counterexampleRefs: result.counterexampleRefs, iterations: result.iterations };
+    problemRef: request.problemRef, seed: request.seed, objective: result.objective,
+    incumbentRef: result.incumbentRef, evidenceRef: result.evidenceRef,
+    provenance: result.provenance, counterexampleRefs: result.counterexampleRefs,
+    iterations: result.iterations };
 }
 
+function matchesRequest(result, request) {
+  return result?.solverId === request.solverId && result.demeId === request.demeId
+    && result.problemRef === request.problemRef && result.seed === request.seed;
+}
+
+function validPayload(result) {
+  return Number.isFinite(result.objective) && nonEmptyString(result.incumbentRef)
+    && nonEmptyString(result.evidenceRef) && isRecord(result.provenance)
+    && Array.isArray(result.counterexampleRefs)
+    && Number.isSafeInteger(result.iterations) && result.iterations >= 0;
+}
+
+function isRecord(value) { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
+function nonEmptyString(value) { return typeof value === 'string' && Boolean(value.trim()); }
 function searchError(code) { return Object.assign(new Error(code), { code }); }
 
 module.exports = { searchIsland, normalizedRequest, deterministicSeed, validateSearchResult };
