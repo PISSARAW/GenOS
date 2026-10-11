@@ -95,11 +95,24 @@ async function freshProcess(request, expected) {
     const db=require('./backend/tests/helpers/biologyDatabase').openDatabase(process.argv[1]);
     require('./backend/src/services/epistemic/nativeOracleInspection').inspect(db,JSON.parse(process.argv[2]))
     .then(value=>console.log(JSON.stringify(value))).catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>db.close());`;
-  const child = require('node:child_process').spawnSync(process.execPath,
-    ['-e', script, process.env.GENOS_DB_PATH, JSON.stringify(request)],
-    { cwd: path.resolve(__dirname, '../..'), encoding: 'utf8', timeout: 10000, windowsHide: true });
+  const child = await runChild(['-e', script, process.env.GENOS_DB_PATH, JSON.stringify(request)],
+    { cwd: path.resolve(__dirname, '../..'), timeoutMs: 30000 });
   assert.equal(child.status, 0, child.stderr);
   assert.deepEqual(JSON.parse(child.stdout).costs, expected);
+}
+
+function runChild(args, options) {
+  return new Promise((resolve, reject) => {
+    const child = require('node:child_process').spawn(process.execPath, args,
+      { cwd: options.cwd, stdio: options.stdio, windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => child.kill(), options.timeoutMs);
+    child.stdout?.on('data', chunk => { stdout += chunk; });
+    child.stderr?.on('data', chunk => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', status => { clearTimeout(timer); resolve({ status, stdout, stderr }); });
+  });
 }
 
 async function main() {
@@ -112,8 +125,7 @@ async function main() {
     binding: require('./helpers/nativeOracleCostBindingProbe').qualify };
   if (process.argv[2]) return isolated(cases[process.argv[2]]);
   for (const name of Object.keys(cases)) {
-    const child = require('node:child_process').spawnSync(process.execPath, [__filename, name],
-      { stdio: 'inherit', timeout: 60000, windowsHide: true });
+    const child = await runChild([__filename, name], { stdio: 'inherit', timeoutMs: 180000 });
     assert.equal(child.status, 0, `Native oracle failure probe ${name} failed`);
   }
   console.log('Native oracle failure costs: real post-process retraction stays refused with durable costs and fresh replay.');

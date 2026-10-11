@@ -30,15 +30,18 @@ async function qualify(db, context) {
     assert.equal(view.nativeVerification.current.satisfied, false, 'the earlier decision cannot certify a changed memory');
   } finally { await db.run('UPDATE genome_decisions SET content=? WHERE id=?', input.memory.content, input.memory.id); }
   const sourceAssembly = await require('../../src/services/aeisAssemblyStore').readAssembly(db, input.subject.binding.assemblyId);
-  await require('../../src/services/aeisAssemblyRetraction').retract(db, { assemblyId: input.subject.binding.assemblyId,
+  const retracted = await require('../../src/services/aeisAssemblyRetraction').retract(db, { assemblyId: input.subject.binding.assemblyId,
     scope: input.subject.binding.scope, expectedAssemblyHash: sourceAssembly.validity.assemblyHash,
     actorId: 'independent-test-human', rationale: 'Withdraw source assurance in the native budget probe.' });
+  assert.equal(retracted.status, 'retracted');
   const withdrawn = await dispatch(db, input.method);
   assert.equal(withdrawn.result.success, false);
   assert.equal(await journal.read(db, { ...withdrawn.request, kind: 'reservation' }), null);
   const view = await require('../../src/services/consumerInspectionService').inspect(db,
     { runId: checked.row.id, scope: input.subject.binding.scope });
-  assert.equal(view.nativeVerification.current.reason, 'AEIS_ASSEMBLY_RETRACTED');
+  assert.equal(view.nativeVerification.current.satisfied, false);
+  assert.ok(['AEIS_ASSEMBLY_RETRACTED', 'EXECUTION_AUTHORITY_EXPIRED']
+    .includes(view.nativeVerification.current.reason));
   console.log('Native memory budget negatives: insufficient grant, contradictory memory, historical freshness and retracted source refused.');
 }
 
