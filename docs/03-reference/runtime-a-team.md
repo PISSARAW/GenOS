@@ -176,6 +176,18 @@ progression indépendante, reçu périmé, reprise du délai et bail obsolète. 
 d'acceptation des variantes portent sur leurs contrats isolés. Ils ne qualifient ni mission
 LLM arbitraire, ni campagne de performance, ni sous-runs multiteam génériques.
 
+Le runner de programme `multiteam` relit le TeamRun enfant et son WorkGraph
+persistés si `executeTeam` annonce `SUCCEEDED`. Il vérifie le lien
+mission/parent/membres, `COMPLETED/DEBRIEF`, les nœuds et références de preuve,
+ainsi que le gate d'intégration. Un enfant ouvert ou incohérent déclenche
+`ATEAM_MTS_SUBRUN_PROOF_REQUIRED`. Une clôture observée donne `WAITING` avec
+`childExecutionObserved: true`, sans promouvoir l'équipe ni débloquer ses
+dépendants. Les callbacks `executeTeam`, `verifyBudget` et `verifyContracts`
+ne sont pas une autorité serveur indépendante : leurs champs peuvent être
+forgés par l'appelant. Le runtime ne dispose pas encore d'un reçu authentifié
+de consommation et d'acceptation des contrats inter-équipes ; `SUCCEEDED`
+reste donc fermé. Le dispatch générique ne lance toujours pas ce programme.
+
 ## Sources
 
 - [Exécuteur canonique](../../backend/src/services/aTeam/execution/teamExecutionService.js).

@@ -2335,6 +2335,11 @@ ancienne dépourvue de traces de gates reste non qualifiée. Les douze missions
 post-correctifs doivent être exécutées avec leurs propres vérificateurs et
 contrôles d'intégration; les reçus auto-déclarés ne suffisent pas. Voir ADR 0415.
 
+Elle requiert aussi l'empreinte SHA-256 commune aux mondes initiaux, leurs
+racines de workspace distinctes et la chaîne durable des six transitions de
+`designed` à `promoted`, liée au snapshot scellé. Voir
+[ADR 0425](../../adr/0425-liaison-campagne-nominale-trinity-aux-scellages.md).
+
 ## 10. Références scientifiques
 
 1. **Self-Consistency** — Wang et al., *Self-Consistency Improves Chain of Thought Reasoning in Language Models*, arXiv:2203.11171. Le vote majoritaire sur N raisonnements cohérents améliore la précision.

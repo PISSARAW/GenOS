@@ -977,7 +977,9 @@ Les variants disposent désormais de services métier dédiés, raccordés à la
 - **Real-Time Control** : ordonnanceur logiciel EDF, contrôle de watchdog, reçus WCET
   déclaratifs et sortie fail-safe `STOP_AND_REPAIR`.
 - **Human–AI** : zones d'autorité humaine, consentement, pause, attribution,
-  approbation liée au contenu et à l'agent, puis édition compensatoire. Le reçu
+  approbation liée au contenu et à l'agent, puis édition compensatoire. Le
+  consentement doit être explicite, courant et de portée `session` pour l'agent
+  qui enregistre l'action ([ADR 0426](../../adr/0426-consentement-explicite-human-ai-syncytium.md)). Le reçu
   d'approbation consommée ne prouve pas un effet externe.
 
 Le blackboard retourne l'événement après son ajout append-only. Les verrous de la variante

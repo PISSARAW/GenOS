@@ -10,21 +10,27 @@ const agentGit = require('../src/services/agentGitService');
 async function run() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   try {
-    await db.exec('CREATE TABLE trinity_experiments (id TEXT, mission_id TEXT, status TEXT, decision_json TEXT)');
+    await db.exec('CREATE TABLE trinity_experiments (id TEXT, mission_id TEXT, mission_snapshot_hash TEXT, status TEXT, decision_json TEXT)');
     await db.exec('CREATE TABLE trinity_dispatch_configs (mission_id TEXT, variant_selection_json TEXT)');
-    await db.exec('CREATE TABLE trinity_worlds (experiment_id TEXT, world_number INTEGER, agent_id TEXT, status TEXT)');
-    await db.run('INSERT INTO trinity_experiments VALUES (?, ?, ?, ?)',
-      'experiment-x', 'mission-x', 'escalated', JSON.stringify({ outcome: 'ESCALATE_EXPERIMENT' }));
+    await db.exec('CREATE TABLE trinity_worlds (experiment_id TEXT, world_number INTEGER, agent_id TEXT, status TEXT, snapshot_hash TEXT, workspace_root TEXT)');
+    await db.exec('CREATE TABLE trinity_experiment_transitions (id INTEGER PRIMARY KEY, experiment_id TEXT, from_status TEXT, to_status TEXT, actor TEXT, evidence_ref TEXT)');
+    const baseline = 'a'.repeat(64);
+    await db.run('INSERT INTO trinity_experiments VALUES (?, ?, ?, ?, ?)',
+      'experiment-x', 'mission-x', baseline, 'escalated', JSON.stringify({ outcome: 'ESCALATE_EXPERIMENT' }));
     await db.run('INSERT INTO trinity_dispatch_configs VALUES (?, ?)',
       'mission-x', JSON.stringify({ variant: 'controlled', experimentalDesign: variants.DEFAULT_DESIGN }));
     for (let number = 1; number <= 3; number += 1) {
-      await db.run('INSERT INTO trinity_worlds VALUES (?, ?, ?, ?)',
-        'experiment-x', number, `world-${number}`, 'compared');
+      await db.run('INSERT INTO trinity_worlds VALUES (?, ?, ?, ?, ?, ?)',
+        'experiment-x', number, `world-${number}`, 'compared', baseline,
+        require('node:path').resolve(`world-${number}`));
     }
     const result = await inspect(db, 'controlled', 'mission-x');
     assert.equal(result.qualified, false);
     assert.ok(result.reasons.includes('promotion_not_observed'));
     assert.ok(!result.reasons.includes('initial_worlds_incomplete'));
+    assert.ok(!result.reasons.includes('sealed_baseline_mismatch'));
+    assert.ok(!result.reasons.includes('isolated_worlds_not_observed'));
+    assert.ok(result.reasons.includes('promotion_trace_incomplete'));
     const metadata = { experimentId: 'experiment-x', worldNumber: 1,
       contentHash: 'sha256:content', candidateWorkspaceId: 'candidate-x' };
     const object = { commit_hash: 'commit-x', metadata_json: JSON.stringify(metadata),

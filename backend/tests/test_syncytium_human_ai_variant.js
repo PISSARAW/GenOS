@@ -53,6 +53,31 @@ async function main() {
     txId: 'execute-other-worker', actorId: 'test-1', nucleusId: 'test-daemon',
     approvalId: 'approval-1', actionId: 'migration-1', action: { migration: 'apply-v4' }
   }), (error) => error.code === 'SYNCYTIUM_APPROVAL_REQUIRED');
+  const approvedRequest = {
+    actorId: 'worker-1', nucleusId: 'llm-worker', approvalId: 'approval-1',
+    actionId: 'migration-1', action: { migration: 'apply-v4' }
+  };
+  await assert.rejects(() => syncytium.executeApprovedAction(session.sessionId, {
+    ...approvedRequest, txId: 'execute-without-consent'
+  }), (error) => error.code === 'SYNCYTIUM_HUMAN_CONSENT_REQUIRED');
+  await assert.rejects(() => syncytium.setHumanConsent(session.sessionId, {
+    actorId: 'maya', nucleusId: 'human-editor', agentId: 'worker-1', granted: true, scope: 'other-session'
+  }), (error) => error.code === 'SYNCYTIUM_HUMAN_AI_INVALID');
+  await assert.rejects(() => syncytium.setHumanConsent(session.sessionId, {
+    actorId: 'worker-1', nucleusId: 'llm-worker', agentId: 'worker-1', granted: true
+  }), (error) => error.code === 'SYNCYTIUM_HUMAN_AI_INVALID');
+  await syncytium.setHumanConsent(session.sessionId, {
+    actorId: 'maya', nucleusId: 'human-editor', agentId: 'worker-1', granted: true
+  });
+  await syncytium.setHumanConsent(session.sessionId, {
+    actorId: 'maya', nucleusId: 'human-editor', agentId: 'worker-1', granted: false
+  });
+  await assert.rejects(() => syncytium.executeApprovedAction(session.sessionId, {
+    ...approvedRequest, txId: 'execute-after-withdrawal'
+  }), (error) => error.code === 'SYNCYTIUM_HUMAN_CONSENT_REQUIRED');
+  await syncytium.setHumanConsent(session.sessionId, {
+    actorId: 'maya', nucleusId: 'human-editor', agentId: 'worker-1', granted: true
+  });
   const executionAction = { migration: 'apply-v4' };
   const executed = await syncytium.executeApprovedAction(session.sessionId, {
     txId: 'execute-migration', actorId: 'worker-1', nucleusId: 'llm-worker',

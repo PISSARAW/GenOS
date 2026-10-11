@@ -5,6 +5,7 @@ const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const service = require('../src/services/biocenoseService');
 const store = require('../src/services/biocenose/communityStore');
+const { signedOracleReceipt } = require('./helpers/biocenoseHybridReceipt');
 
 const MISSIONS = [
   ['epistemic_jury', 'FACTUAL'], ['delphi_community', 'PROBABILISTIC'],
@@ -18,6 +19,8 @@ const TIERS = [6, 8, 10, 12];
 
 async function run() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  const previousKey = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET;
+  process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'biocenose-matrix-test-only';
   const completed = [];
   try {
     for (const [variant, questionType] of MISSIONS) {
@@ -36,6 +39,8 @@ async function run() {
     process.stdout.write(`Biocenose mission matrix (${completed.length} scenarios): PASS\n`);
   } finally {
     await db.close();
+    if (previousKey === undefined) delete process.env.GENOS_EPISTEMIC_RECEIPT_SECRET;
+    else process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = previousKey;
   }
 }
 
@@ -49,15 +54,23 @@ async function runMission(input) {
   const judgments = [];
   const result = await service.runBiocenoseRound({ db: input.db, communityId: community.communityId,
     memberInvoker: async (request) => invokeFixture(input, request, judgments),
-    verificationExecutor: async ({ claim, verifier, communityId }) => ({ status: 'VERIFIED',
-      receiptId: `oracle-${claim.claimId}`, claimId: claim.claimId, verifierId: verifier.memberId,
-      communityId, evidenceRef: 'fixture-proof', outcome: 'PASS', oracle: 'trusted' }),
+    verificationExecutor: async (request) => oracleReceipt(input.variant, request),
     isTrustedReceipt: (receipt) => receipt.oracle === 'trusted', missionIndex: input.participants,
     aggregationContext: { options: designOptions(input.participants),
       criteria: [{ key: 'quality', direction: 'max' }], outcomes: [] }
   });
   const events = await store.listEvents(input.db, community.communityId);
   return { community, result, judgments, events };
+}
+
+function oracleReceipt(variant, request) {
+  const { claim, verifier, communityId, round } = request;
+  const receipt = { status: 'VERIFIED', receiptId: `oracle-${claim.claimId}`,
+    claimId: claim.claimId, verifierId: verifier.memberId, communityId, round,
+    evidenceRef: 'fixture-proof', outcome: 'PASS', oracle: 'trusted' };
+  if (variant !== 'hybrid_oracle_community') return receipt;
+  return signedOracleReceipt({ claim, verifier, session: { communityId, round },
+    receiptId: receipt.receiptId, evidenceRef: receipt.evidenceRef });
 }
 
 async function testPersistentContinuity(db, input) {

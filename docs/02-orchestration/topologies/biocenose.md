@@ -906,8 +906,14 @@ déterministe. Pour ce dernier variant, un reçu `VERIFIED` doit déjà porter l
 identifiants exacts du claim, du vérificateur et de la communauté, ainsi qu'un
 identifiant de reçu et une référence de preuve non vides avant l'appel au
 validateur de confiance. Le runtime ne complète plus ces champs à la place de
-l'oracle. Cette liaison ne prouve pas seule l'authenticité d'un oracle externe :
-elle dépend encore du validateur fourni par l'intégration. Epistemic Jury reste
+l'oracle. Hybrid Oracle exige aussi un `epistemicReceipt` HMAC valide, signé
+avec la clé serveur et lié au contenu exact du claim, au tour, à la communauté,
+au vérificateur, à l'identifiant du reçu et à sa référence de preuve. Le
+routage, l'agrégation et le gate final le revérifient contre la session. Les
+handlers de délibération ne sont pas remplaçables pour ce variant ;
+sans clé configurée ou sans signature, le claim factuel reste en revue. Cette
+signature locale ne prouve pas la vérité d'un oracle externe ; le validateur
+fourni par l'intégration reste nécessaire ([ADR 0427](../../adr/0427-recus-signes-hybrid-oracle-biocenose.md)). Epistemic Jury reste
 le protocole par défaut, et le graphe d'arguments est construit par le runtime
 commun.
 

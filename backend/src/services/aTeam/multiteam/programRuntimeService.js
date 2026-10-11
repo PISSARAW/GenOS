@@ -3,6 +3,7 @@
 const sessions = require('../../topologySessionStore');
 const { composeMultiteam } = require('./multiteamComposer');
 const { createProgramSubrun } = require('./programSubrunService');
+const { inspectCompletion } = require('./programCompletionEvidenceService');
 
 async function createProgramRun(input = {}) {
   const composition = composeMultiteam(input);
@@ -57,11 +58,16 @@ async function runReadyTeam(input) {
   if (child && result?.childRunId !== child.run.teamRunId) {
     throw coded('Subteam executor returned a different child TeamRun.', 'ATEAM_MTS_CHILD_IDENTITY_CONFLICT');
   }
-  if (result?.status === 'SUCCEEDED') {
-    throw coded('Subteam completion requires a persisted, verified child TeamRun and authoritative budget evidence.',
-      'ATEAM_MTS_SUBRUN_PROOF_REQUIRED');
-  }
-  await persistOutcome({ db: input.db, record, teamId, result, contracts });
+  const checked = await verifiedResult({ input, record, team, child, result });
+  await persistOutcome({ db: input.db, record, teamId, result: checked, contracts });
+}
+
+async function verifiedResult(context) {
+  const { input, record, team, child, result } = context;
+  if (result?.status !== 'SUCCEEDED') return result;
+  return inspectCompletion({ db: input.db, program: record.state, team,
+    childRunId: child?.run.teamRunId, parentMissionId: input.orchestratorId,
+    orchestratorId: input.orchestratorId });
 }
 
 function dependenciesSucceeded(state, teamId) {
@@ -97,7 +103,9 @@ function safeReceipt(result, verified) {
     status: result?.status || 'UNKNOWN', verified,
     childRunId: result?.childRunId || null,
     evidenceRefs: Array.isArray(result?.evidenceRefs) ? result.evidenceRefs.filter((item) => typeof item === 'string') : [],
-    usage: normalizeUsage(result?.usage)
+    usage: result?.usage ? normalizeUsage(result.usage) : null,
+    reason: result?.reason || null,
+    childExecutionObserved: result?.childExecutionObserved === true
   };
 }
 

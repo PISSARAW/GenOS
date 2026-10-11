@@ -178,7 +178,8 @@ async function aggregateByQuestionType(context) {
     ...options, questionType: session.questionType, claims, judgments,
     arguments: prior(context, 3).arguments,
     forecasts,
-    verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy,
+    verificationReceipts: aggregationReceipts({ context, session, claims, reviewResult }),
+    variantPolicy: context.variantPolicy,
     isTrustedReceipt: options.isTrustedReceipt || context.isTrustedReceipt, history,
     members: session.members,
     quarantinedMemberIds: session.members.filter((member) => member.status === 'QUARANTINED')
@@ -188,6 +189,13 @@ async function aggregateByQuestionType(context) {
   const calibrated = forecastContext ? await withForecastCalibration({ context, session, options, forecasts,
     forecastContext, result }) : result;
   return withCommunityMetrics(calibrated, { context, session, judgments, claims });
+}
+
+function aggregationReceipts(input) {
+  const { context, session, claims, reviewResult } = input;
+  if (!context.variantPolicy?.requireDeterministicVerifier) return reviewResult.verificationReceipts;
+  return require('../verification/hybridOracleReceiptProof').trustedForSession({ session, claims,
+    receipts: reviewResult.verificationReceipts, isTrustedReceipt: context.isTrustedReceipt });
 }
 
 function withCommunityMetrics(aggregation, input) {

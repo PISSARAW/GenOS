@@ -512,6 +512,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0420](0420-frontiere-contrat-outil-holobionte.md) | Contrat persistant avant invocation d'un outil Holobionte | Accepté. | -- | -- |
 | [0421](0421-transitions-de-variant-liees-a-la-session-rhizome.md) | Transitions de variant liées à la session Rhizome | Accepté | 2026-10-11 | Rhizome, variants, persistance et confidentialité |
 | [0422](0422-liaison-des-resultats-solveur-metapopulation.md) | Lier le résultat du solveur à son îlot et à sa preuve | Accepté le 11 octobre 2026. | -- | -- |
+| [0423](0423-fermeture-mode-commit-v2-morphogenese.md) | Fermer le mode commit injectable de Morphogenèse V2 | accepté | 2026-10-11 | morphogenèse, autorité, transition de production |
+| [0424](0424-promotion-conditionnelle-des-sous-runs-a-team.md) | Observation des sous-runs A-Team sans promotion | Accepté le 11 octobre 2026. | -- | -- |
+| [0425](0425-liaison-campagne-nominale-trinity-aux-scellages.md) | Lier la campagne nominale Trinity aux scellages durables | Accepté. | -- | -- |
+| [0426](0426-consentement-explicite-human-ai-syncytium.md) | Consentement explicite avant l'action Human–AI Syncytium | Accepté | 2026-10-11 | Syncytium, Human–AI, autorité humaine |
+| [0427](0427-recus-signes-hybrid-oracle-biocenose.md) | Reçu signé lié au claim pour Hybrid Oracle | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, promotion factuelle |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

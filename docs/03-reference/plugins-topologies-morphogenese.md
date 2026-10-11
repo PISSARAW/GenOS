@@ -141,3 +141,11 @@ proposition et au graphe. Le magasin de graphes refuse désormais tout
 `commit` déclaré par des booléens, même si la version courante correspond.
 Seuls les graphes `proposed` peuvent être enregistrés sans preuve de
 transition ; voir [ADR 0418](../adr/0418-fermeture-commit-morphologie-et-recu-rust.md).
+
+Le mode `commit` de `runMorphogenesisRuntime` (V2), même lorsqu'il est
+implicite, refuse désormais avant tout appel d'adaptateur avec
+`MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE`. Une fonction injectée qui
+déclare `kernel.valid`, `governance.allowed` ou `transition.committed` ne
+constitue pas une autorité de production. Le mode `shadow` conserve
+l'évaluation de la proposition sans application ; voir
+[ADR 0423](../adr/0423-fermeture-mode-commit-v2-morphogenese.md).

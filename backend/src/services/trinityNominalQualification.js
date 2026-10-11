@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('node:path');
 const variantService = require('./trinityVariantService');
 
 const VARIANTS = Object.freeze(['controlled', 'heterogeneous', 'adversarial', 'counterfactual',
@@ -30,7 +31,8 @@ function assess(input) {
   const { variant, missionId, experiment, worlds = [], signedObjectValid } = input;
   const decision = parse(experiment?.decision_json);
   const initial = initialWorlds(variant, worlds);
-  const reasons = [...identityFailures(input), ...worldFailures(variant, initial),
+  const reasons = [...identityFailures(input), ...worldFailures(variant, initial, experiment),
+    ...transitionFailures(experiment, input.transitions),
     ...gateFailures(variant, decision), ...promotionFailures(experiment, decision),
     ...candidateFailures(decision, signedObjectValid)];
   if (!initial.some((world) => world.agent_id === decision.verification?.sourceAgentId)) reasons.push('verified_source_world_missing');
@@ -56,12 +58,34 @@ function initialWorlds(variant, worlds) {
   return worlds.filter((world) => world.world_number >= 1 && world.world_number <= expected);
 }
 
-function worldFailures(variant, initial) {
+function worldFailures(variant, initial, experiment) {
   const expected = variant === 'factorial' ? 16 : 3;
   if (initial.length !== expected || new Set(initial.map((world) => world.world_number)).size !== expected
     || initial.some((world) => !['promoted', 'compared', 'candidate'].includes(world.status))) {
     return ['initial_worlds_incomplete'];
   }
+  const failures = [];
+  const baseline = experiment?.mission_snapshot_hash;
+  if (!/^[a-f0-9]{64}$/i.test(String(baseline || ''))
+    || initial.some((world) => world.snapshot_hash !== baseline)) failures.push('sealed_baseline_mismatch');
+  const roots = initial.map((world) => workspaceRoot(world.workspace_root));
+  if (roots.some((root) => !root) || new Set(roots).size !== expected) failures.push('isolated_worlds_not_observed');
+  return failures;
+}
+
+function workspaceRoot(value) {
+  if (typeof value !== 'string' || !path.isAbsolute(value)) return null;
+  const root = path.resolve(value);
+  return process.platform === 'win32' ? root.toLowerCase() : root;
+}
+
+function transitionFailures(experiment, transitions = []) {
+  const chain = ['designed', 'sealed_running', 'sealed_complete', 'cross_examining',
+    'decided', 'promotion_preparing', 'promoted'];
+  if (!Array.isArray(transitions) || transitions.length !== chain.length - 1) return ['promotion_trace_incomplete'];
+  const valid = transitions.every((step, index) => step.from_status === chain[index]
+    && step.to_status === chain[index + 1] && typeof step.actor === 'string' && step.actor.trim());
+  if (!valid || transitions[0].evidence_ref !== experiment?.mission_snapshot_hash) return ['promotion_trace_incomplete'];
   return [];
 }
 

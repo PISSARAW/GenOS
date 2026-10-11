@@ -55,7 +55,10 @@ prouve pas que ses opérations métier ont été exécutées.
 
 Pour Human–AI, une approbation d'action critique porte le contenu JSON revu
 (64 Kio au plus) et l'identifiant de l'agent autorisé. La consommation refuse
-un autre contenu ou agent. Le reçu `authorized_recorded` prouve uniquement
+un autre contenu ou agent. Elle exige également un consentement humain courant
+de portée `session` pour cet agent ; une absence ou un retrait refuse
+l'enregistrement ([ADR 0426](../adr/0426-consentement-explicite-human-ai-syncytium.md)).
+Le reçu `authorized_recorded` prouve uniquement
 l'enregistrement dans l'état partagé ; l'effet externe exige une preuve distincte
 ([ADR 0414](../adr/0414-approbation-liee-a-laction-human-ai-syncytium.md)).
 

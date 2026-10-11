@@ -168,6 +168,29 @@ de missions représentatives pour les 95 variants canoniques.
   reste à vérifier indépendamment
   ([ADR 0422](../../adr/0422-liaison-des-resultats-solveur-metapopulation.md)).
 
+### Cinquième vague — 2026-10-11
+
+- Morphogenèse V2 refuse le mode `commit` avant les callbacks injectables :
+  ceux-ci ne peuvent plus publier `APPLIED`. Le mode `shadow` reste disponible ;
+  l'autorité Rust et le snapshot de transition restent à intégrer
+  ([ADR 0423](../../adr/0423-fermeture-mode-commit-v2-morphogenese.md)).
+- A-Team relit le TeamRun et le WorkGraph enfants, mais conserve le programme
+  `WAITING` même après leur clôture : aucun reçu indépendant de budget ou de
+  contrat ne permet encore `SUCCEEDED`
+  ([ADR 0424](../../adr/0424-promotion-conditionnelle-des-sous-runs-a-team.md)).
+- Trinity exige une empreinte de snapshot initial commune, des chemins de
+  workspace distincts et la chaîne de transitions persistée avant une
+  qualification nominale. Les douze missions restent à rejouer après correctif
+  ([ADR 0425](../../adr/0425-liaison-campagne-nominale-trinity-aux-scellages.md)).
+- Syncytium Human–AI exige désormais un consentement explicite, courant et de
+  portée `session` pour l'agent qui enregistre l'action approuvée. Le reçu ne
+  prouve toujours pas un effet externe
+  ([ADR 0426](../../adr/0426-consentement-explicite-human-ai-syncytium.md)).
+- Biocénose Hybrid Oracle revérifie un reçu HMAC lié au claim exact et au tour
+  lors du routage, de l'agrégation et de la promotion. La signature locale ne
+  prouve pas la vérité de l'oracle externe
+  ([ADR 0427](../../adr/0427-recus-signes-hybrid-oracle-biocenose.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

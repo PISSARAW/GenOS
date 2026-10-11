@@ -32,17 +32,30 @@ assert.deepEqual(gates.oracular, { status: 'incomplete', reason: 'prediction_mis
 assert.deepEqual(gates.factorial, { status: 'missing' });
 
 const missionId = 'nominal-mission';
-const promoted = { mission_id: missionId, status: 'promoted', decision_json: JSON.stringify({
+const baseline = 'a'.repeat(64);
+const promoted = { mission_id: missionId, mission_snapshot_hash: baseline,
+  status: 'promoted', decision_json: JSON.stringify({
   outcome: 'PROMOTED', verification: { contentHash: 'sha256:content', claimsCoveredByChecks: true,
     sourceAgentId: 'world-1', integrationChecks: [{ commandId: 'test', passed: true }] },
   agentGit: { objectId: 'signed-object' }, variantGates: { adaptive: { status: 'executed' } }
 }) };
-const worlds = [1, 2, 3].map((number) => ({ world_number: number, agent_id: `world-${number}`, status: number === 1 ? 'promoted' : 'compared' }));
+const worlds = [1, 2, 3].map((number) => ({ world_number: number, agent_id: `world-${number}`,
+  status: number === 1 ? 'promoted' : 'compared', snapshot_hash: baseline,
+  workspace_root: require('node:path').resolve(`world-${number}`) }));
+const states = ['designed', 'sealed_running', 'sealed_complete', 'cross_examining',
+  'decided', 'promotion_preparing', 'promoted'];
+const transitions = states.slice(1).map((status, index) => ({ from_status: states[index],
+  to_status: status, actor: 'trinity_runtime', evidence_ref: index === 0 ? baseline : null }));
 const nominal = { variant: 'adaptive', missionId, experiment: promoted,
   dispatch: { variant_selection_json: JSON.stringify({ variant: 'adaptive',
     experimentalDesign: { ...variants.DEFAULT_DESIGN, ...variants.DEFINITIONS.adaptive.design } }) },
-  worlds, signedObjectValid: true };
+  worlds, transitions, signedObjectValid: true };
 assert.equal(qualification.assess(nominal).qualified, true);
+assert.ok(qualification.assess({ ...nominal, transitions: [] }).reasons.includes('promotion_trace_incomplete'));
+assert.ok(qualification.assess({ ...nominal, worlds: worlds.map((world) => ({ ...world, snapshot_hash: null }))
+}).reasons.includes('sealed_baseline_mismatch'));
+assert.ok(qualification.assess({ ...nominal, worlds: worlds.map((world) => ({ ...world, workspace_root: worlds[0].workspace_root }))
+}).reasons.includes('isolated_worlds_not_observed'));
 assert.ok(qualification.assess({ ...nominal, signedObjectValid: false }).reasons.includes('signed_candidate_missing'));
 assert.ok(qualification.assess({ ...nominal, experiment: { ...promoted, status: 'escalated' } }).reasons.includes('promotion_not_observed'));
 assert.ok(qualification.assess({ ...nominal, experiment: { ...promoted,

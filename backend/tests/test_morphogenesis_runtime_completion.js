@@ -23,23 +23,21 @@ function services(calls, decision = 'APPLY') {
   };
 }
 async function authorityGates() {
-  for (const decision of ['REJECT', 'ROLLBACK', 'SHADOWED', undefined]) {
-    const calls = []; const adapters = services(calls, decision || 'UNKNOWN');
-    const result = await runMorphogenesisRuntime({}, adapters);
-    assert.equal(result.committed, false); assert.deepEqual(calls, []);
-  }
   const calls = []; const adapters = services(calls);
-  assert.equal((await runMorphogenesisRuntime({}, adapters)).committed, true);
-  assert.deepEqual(calls, ['governance', 'transition', 'credit', 'memory']);
-  calls.length = 0;
-  assert.equal((await runMorphogenesisRuntime({ mode: 'shadow' }, adapters)).decision, 'SHADOWED');
+  const refused = await runMorphogenesisRuntime({}, adapters);
+  assert.equal(refused.code, 'MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE');
+  assert.equal(refused.committed, false);
+  assert.deepEqual(calls, []);
+  const noCallbacks = await runMorphogenesisRuntime({}, {
+    observe: () => { throw new Error('commit touched an adapter'); }
+  });
+  assert.equal(noCallbacks.code, 'MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE');
+  const shadow = await runMorphogenesisRuntime({ mode: 'shadow' }, adapters);
+  assert.equal(shadow.decision, 'SHADOWED');
+  assert.equal(shadow.committed, false);
   assert.deepEqual(calls, []);
   assert.equal((await runMorphogenesisRuntime({ mode: 'typo' }, adapters)).decision, 'REJECTED');
-  const noChange = await runMorphogenesisRuntime({}, services([], 'NO_CHANGE'));
-  assert.equal(noChange.decision, 'NO_CHANGE'); assert.equal(noChange.committed, false);
-  adapters.credit = async () => { throw new Error('learning store offline'); };
-  const committed = await runMorphogenesisRuntime({}, adapters);
-  assert.equal(committed.committed, true); assert.deepEqual(committed.learningErrors, ['learning store offline']);
+  assert.deepEqual(calls, []);
 }
 async function governedDispatch() {
   const { MorphogenesisRuntime: MissionRuntime } = require('../src/services/morphogenesis/morphogenesisRuntime');
@@ -51,14 +49,16 @@ async function governedDispatch() {
   const calls = [];
   runtime.configureRuntimeServices(services(calls));
   const result = await runtime.executeMorphology(morphology);
-  assert.equal(result.applied, true); assert.equal(result.proposed, false);
+  assert.equal(result.applied, false); assert.equal(result.proposed, true);
+  assert.equal(result.code, 'MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE');
   const rejected = await runtime.executeMorphology(morphology, { runtimeServices: services([], 'REJECT') });
   assert.equal(rejected.applied, false); assert.equal(rejected.committed, false);
-  assert.deepEqual(events.map(event => event[1]), ['MORPHOGENESIS_COMPLETED', 'MORPHOGENESIS_PROPOSED']);
+  assert.deepEqual(events.map(event => event[1]), ['MORPHOGENESIS_PROPOSED', 'MORPHOGENESIS_PROPOSED']);
+  assert.deepEqual(calls, []);
   const offline = new MissionRuntime({ emit: () => { throw new Error('telemetry unavailable'); } });
   offline.configureRuntimeServices(services([]));
   const confirmed = await offline.executeMorphology(morphology);
-  assert.equal(confirmed.applied, true); assert.equal(confirmed.telemetryError, 'telemetry unavailable');
+  assert.equal(confirmed.applied, false); assert.equal(confirmed.telemetryError, 'telemetry unavailable');
 }
 
 async function counterfactualGates() {
@@ -67,7 +67,7 @@ async function counterfactualGates() {
     const repair = adapters.repairOrSynthesize;
     adapters.repairOrSynthesize = async () => ({ ...await repair(), counterfactualRequired: true });
     adapters.counterfactual = async () => trial;
-    const result = await runMorphogenesisRuntime({}, adapters);
+    const result = await runMorphogenesisRuntime({ mode: 'shadow' }, adapters);
     assert.equal(result.committed, false); assert.deepEqual(calls, []);
   }
 }
