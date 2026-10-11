@@ -115,6 +115,27 @@ function normalizeTransportOutput(result) {
   return result;
 }
 
+function isDomainFailure(value) {
+  return value && !Array.isArray(value) && typeof value === 'object' && value.success === false;
+}
+
+function parseFailureBlock(block) {
+  if (block?.type !== 'text') return null;
+  try {
+    const value = JSON.parse(block.text);
+    return isDomainFailure(value) ? value : null;
+  } catch (_) { return null; }
+}
+
+function explicitDomainFailure(output) {
+  if (!Array.isArray(output)) return isDomainFailure(output) ? output : null;
+  for (const block of output) {
+    const failure = parseFailureBlock(block);
+    if (failure) return failure;
+  }
+  return null;
+}
+
 function bufferText(value) {
   if (!value) return '';
   return Buffer.isBuffer(value) ? value.toString() : String(value);
@@ -143,12 +164,14 @@ async function executeRemoteTransport(toolName, args, timeoutMs) {
     ? await callHttpFn(transport.url, toolName, { args, timeoutMs })
     : await callStdioFn(transport, toolName, { args, timeoutMs });
   const isError = result.isError === true;
+  const output = normalizeTransportOutput(result);
+  const domainFailure = explicitDomainFailure(output) || explicitDomainFailure(result.content);
   return {
     configured: true,
-    success: !isError,
-    status: isError ? 'tool_error' : 'completed',
+    success: !isError && !domainFailure,
+    status: isError || domainFailure ? 'tool_error' : 'completed',
     transport: transport.type,
-    output: normalizeTransportOutput(result)
+    output
   };
 }
 
