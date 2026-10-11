@@ -1,10 +1,12 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { spawnSync } = require('node:child_process');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
 const path = require('node:path');
 const { openDatabase } = require('./biologyDatabase');
 const journal = require('../../src/services/epistemic/nativeOracleJournal');
+const execFileAsync = promisify(execFile);
 
 async function contention(db, dispatch) {
   const other = openDatabase(process.env.GENOS_DB_PATH);
@@ -22,11 +24,12 @@ async function contention(db, dispatch) {
     return original(sql, ...params);
   };
   let first;
+  let request;
   try {
     first = dispatch();
     await Promise.race([pending, first.then(() => { throw new Error('Native reservation missed the write barrier.'); })]);
     const row = await db.get('SELECT id,agent_id FROM strategy_execution_runs ORDER BY rowid DESC LIMIT 1');
-    const request = { runId: row.id, agentId: row.agent_id };
+    request = { runId: row.id, agentId: row.agent_id };
     let settled = false;
     const second = journal.reserve(other, request).then(value => { settled = true; return value; });
     await new Promise(resolve => setTimeout(resolve, 150));
@@ -34,8 +37,8 @@ async function contention(db, dispatch) {
     release();
     assert.equal((await second).owned, false);
     await first;
-    await freshProcess(request);
   } finally { release(); db.run = original; await first?.catch(() => {}); await other.close(); }
+  await freshProcess(request);
   console.log('Native reservation: concurrent connection receives no second allocation; fresh process reuses sealed attestation.');
 }
 
@@ -43,9 +46,8 @@ async function freshProcess(request) {
   const script = `process.env.GENOS_DISABLE_DOTENV='1';const db=require('./backend/tests/helpers/biologyDatabase').openDatabase(process.argv[1]);
     require('./backend/src/services/epistemic/nativeOracleCoordinator').prepare(db,JSON.parse(process.argv[2]))
     .then(value=>console.log(JSON.stringify(value))).catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>db.close());`;
-  const child = spawnSync(process.execPath, ['-e', script, process.env.GENOS_DB_PATH, JSON.stringify(request)],
+  const child = await execFileAsync(process.execPath, ['-e', script, process.env.GENOS_DB_PATH, JSON.stringify(request)],
     { cwd: path.resolve(__dirname, '../../..'), encoding: 'utf8', timeout: 10000, windowsHide: true });
-  assert.equal(child.status, 0, child.stderr);
   const db = openDatabase(process.env.GENOS_DB_PATH);
   try {
     const authority = await require('../../src/services/missionEnvelopeAuthority').read(db, request.runId);
