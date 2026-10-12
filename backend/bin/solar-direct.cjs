@@ -15,6 +15,7 @@ const agentConscience = require('../src/services/agentConscienceService');
 const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');
 const agentMemory = require('../src/services/agentMemoryContext');
 const solarTools = require('./solar-tool-runtime.cjs');
+const sharedBudget = require('../src/services/externalSubprocessModelBudget');
 const path = require('path');
 const fs = require('fs');
 
@@ -85,12 +86,14 @@ async function runMission(state, services) {
     currentTask: state.prompt
   });
   try {
+    state.modelBudgetRoute = await sharedBudget.openForState(state);
     guardBudget(state);
     const tools = solarTools.loadLeasedTools(state.toolLease);
     const reply = await solarTools.runToolSession({
       state,
       tools,
-      sample: ({ request, state: sessionState }) => solarTools.callSolar({ request, state: sessionState }),
+      sample: ({ request, state: sessionState }) => sharedBudget.sample(sessionState,
+        request, (bounded) => solarTools.callSolar({ request: bounded, state: sessionState })),
       callTool: ({ invocation, state: sessionState }) => solarTools.callLeasedTool({ invocation, state: sessionState }),
       emit: (event) => emitEvent(state, event)
     });
@@ -99,10 +102,12 @@ async function runMission(state, services) {
     try { await runPostPipeline(services, state, reply); } catch (postErr) { console.error('Post-pipeline error:', postErr.message); }
     guardCompletionBudget(state);
     emitCompletion(state, reply);
-    process.exit(0);
+    process.exitCode = 0;
   } catch (e) {
     emitFailure(state, e);
-    process.exit(1);
+    process.exitCode = 1;
+  } finally {
+    await sharedBudget.close(state.modelBudgetRoute);
   }
 }
 

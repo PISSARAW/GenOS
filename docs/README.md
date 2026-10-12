@@ -731,3 +731,4 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0450 — Liaison entre sortie modèle et oracle indépendant](adr/0450-liaison-sortie-modele-oracle-independant.md).
 - [ADR 0451 — Budget modèle du runtime local en sous-processus](adr/0451-portee-budget-modele-runtime-local-sous-processus.md).
 - [ADR 0452 — Exécution de procédure en mission](adr/0452-execution-procedure-mission.md).
+- [ADR 0453 — Budget partagé des runtimes modèles externes](adr/0453-budget-partage-des-runtimes-modeles-externes.md).
