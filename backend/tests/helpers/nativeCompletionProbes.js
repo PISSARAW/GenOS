@@ -37,11 +37,26 @@ async function expiredView(db, input) {
   Date.now = () => Date.parse(input.proof.attestation.value.validUntil) + 1;
   try {
     await assert.rejects(proofs.assertCurrent(db, input), { code: 'EXECUTION_AUTHORITY_EXPIRED' });
+    const authority = require('../../src/services/missionEnvelopeAuthority');
+    assert.equal((await authority.assertCompletedRunEvidence(db, input.request)).status, 'authorized');
+    await assert.doesNotReject(proofs.assertCompletedEvidence(db, input));
+    await rejectUnsealedCompletion(db, input, authority);
     const view = await require('../../src/services/epistemic/nativeOracleInspection').inspect(db, input.request);
     assert.equal(view.status, 'accepted_at_decision');
     assert.equal(view.current.satisfied, false);
     assert.equal((await gate.historical(db, { ...input.request, event: input.terminal.event })).acceptance.value.status, 'completed');
   } finally { Date.now = clock; }
+}
+
+async function rejectUnsealedCompletion(db, input, authority) {
+  const envelope = (await authority.read(db, input.request.runId)).envelope;
+  const previous = await db.get('SELECT completed_at FROM strategy_execution_runs WHERE id=?', input.request.runId);
+  await db.run('UPDATE strategy_execution_runs SET completed_at=? WHERE id=?',
+    new Date(Date.parse(envelope.expiresAt) + 1).toISOString(), input.request.runId);
+  try {
+    await assert.rejects(authority.assertCompletedRunEvidence(db, input.request),
+      { code: 'EXECUTION_AUTHORITY_COMPLETION_NOT_SEALED' });
+  } finally { await db.run('UPDATE strategy_execution_runs SET completed_at=? WHERE id=?', previous.completed_at, input.request.runId); }
 }
 
 async function promotionRefusals(db, input) {

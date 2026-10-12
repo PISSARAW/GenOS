@@ -52,21 +52,6 @@ function assertPromoted({ exitCode, result, stderr }) {
   assert.match(result.oracle.decisionHash, /^[a-f0-9]{64}$/);
 }
 
-function assertRefused({ exitCode, result, stderr }) {
-  const diagnostic = `${JSON.stringify(result)}\n${stderr}`;
-  assert.equal(exitCode, 1, diagnostic);
-  assert.equal(result.persistedContract, true, diagnostic);
-  assert.equal(result.parentBound, true, diagnostic);
-  assert.equal(result.runtimeStarted, true, diagnostic);
-  assert.equal(result.executionRunBound, true, diagnostic);
-  assert.equal(result.nativeExecution, true, diagnostic);
-  assert.equal(result.passed, false, diagnostic);
-  assert.equal(result.oracleAccepted, false, diagnostic);
-  assert.equal(result.terminalEvent, 'AGENT_FAILED', diagnostic);
-  assert.equal(result.errorCode, 'ORACLE_DOMAIN_UNAVAILABLE', diagnostic);
-  assert.notEqual(result.status, 'completed', diagnostic);
-}
-
 function removeIsolatedRoot(root) {
   const resolved = path.resolve(root);
   if (path.dirname(resolved) !== path.resolve(os.tmpdir())
@@ -86,10 +71,10 @@ function runIsolated(kind) {
 function main() {
   const promoted = runIsolated('bounded_worker');
   assertPromoted(promoted);
-  const refused = runIsolated('formal_worker');
-  assertRefused(refused);
+  const formal = runIsolated('formal_worker');
+  assertPromoted(formal);
   console.log(JSON.stringify({ milestone: 'P2', benchmarkDigest: promoted.benchmarkDigest,
-    missions: [promoted, refused].map(({ exitCode, result }) => ({ runId: result.runId,
+    missions: [promoted, formal].map(({ exitCode, result }) => ({ runId: result.runId,
       kind: result.kind, exitCode, status: result.status, terminalEvent: result.terminalEvent,
       executionRunBound: result.executionRunBound, artifactValidated: result.artifactValidated,
       oracleAccepted: result.oracleAccepted, oracle: result.oracle, errorCode: result.errorCode })) }));

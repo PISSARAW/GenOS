@@ -10,113 +10,9 @@ const workerGarage = require('./workerGarageService');
 const { advanceAutonomousRound } = require('./agentRoundService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
 const { waitForAutonomousWorkerQuiescence } = require('./workerEvidenceBarrierQuiescence');
-
-function indexWorkersByKey(workers) {
-  const byKey = new Map();
-  for (const worker of workers) {
-    byKey.set(worker.agentId, worker);
-    byKey.set(worker.label, worker);
-    byKey.set(worker.subSystem, worker);
-  }
-  return byKey;
-}
-
-function checkSingleDependency(worker, dependency, byKey) {
-  const prerequisite = byKey.get(dependency);
-  if (!prerequisite) {
-    throw Object.assign(new Error('Worker \'' + String(worker.label) + '\' has an unknown dependency \'' + String(dependency) + '\'.'), { code: 'INVALID_WORKER_DEPENDENCY' });
-  }
-  if (prerequisite.agentId === worker.agentId) {
-    throw Object.assign(new Error('Worker \'' + String(worker.label) + '\' has an unknown dependency \'' + String(dependency) + '\'.'), { code: 'INVALID_WORKER_DEPENDENCY' });
-  }
-  const priorStage = prerequisite.pipelineStage;
-  const ownStage = worker.pipelineStage;
-  const priorValue = priorStage === undefined ? 0 : priorStage;
-  const ownValue = ownStage === undefined ? 0 : ownStage;
-  if (priorValue >= ownValue) {
-    throw Object.assign(new Error('Worker \'' + String(worker.label) + '\' depends on \'' + String(dependency) + '\' from the same or a later pipeline stage.'), { code: 'INVALID_WORKER_DEPENDENCY' });
-  }
-}
-
-function validateWorkerDependencies(workers, byKey) {
-  for (const worker of workers) {
-    const deps = worker.dependsOn;
-    if (!deps) continue;
-    for (const dependency of deps) {
-      checkSingleDependency(worker, dependency, byKey);
-    }
-  }
-}
-
-function collectStages(workers) {
-  const values = [];
-  for (const worker of workers) {
-    const stage = worker.pipelineStage;
-    if (stage === undefined) {
-      values.push(0);
-      continue;
-    }
-    if (stage === null) {
-      values.push(0);
-      continue;
-    }
-    values.push(stage);
-  }
-  const unique = [...new Set(values)];
-  unique.sort((left, right) => left - right);
-  return unique;
-}
-
-function workersForStage(workers, stage) {
-  const selected = [];
-  for (const worker of workers) {
-    const value = worker.pipelineStage;
-    if (value === undefined) {
-      if (stage === 0) selected.push(worker);
-      continue;
-    }
-    if (value === null) {
-      if (stage === 0) selected.push(worker);
-      continue;
-    }
-    if (value === stage) selected.push(worker);
-  }
-  return selected;
-}
-
-function prerequisiteHasEvidence(orchestratorId, prerequisite) {
-  const dossiers = workerEvidenceDossiers(orchestratorId, [prerequisite]);
-  const report = latestReport(dossiers.find((dossier) => dossier.workerId === prerequisite.agentId));
-  return handoffEvidence.reportIsUsable(report, prerequisite.requiredArtifacts || prerequisite.outputs || []);
-}
-
-function missingPrerequisiteEvidence(orchestratorId, prerequisites, byKey) {
-  const missing = [];
-  for (const dependency of prerequisites) {
-    const prerequisite = byKey.get(dependency);
-    if (!prerequisite) {
-      missing.push(dependency);
-      continue;
-    }
-    if (prerequisiteHasEvidence(orchestratorId, prerequisite)) continue;
-    missing.push(dependency);
-  }
-  return missing;
-}
-
-async function throwIfStageBlocked(ctx) {
-  const missing = missingPrerequisiteEvidence(ctx.orchestratorId, ctx.prerequisites, ctx.byKey);
-  if (missing.length > 0) {
-    throw Object.assign(new Error('Pipeline stage ' + String(ctx.stage) + ' is blocked by missing dependency evidence: ' + missing.join(', ') + '.'), { code: 'WORKER_DEPENDENCY_NOT_READY' });
-  }
-  for (const dependency of ctx.prerequisites) {
-    const prerequisite = ctx.byKey.get(dependency);
-    const row = await ctx.db.get('SELECT status FROM agents WHERE id = ?', prerequisite.agentId);
-    if (String(row?.status || '').toLowerCase() !== 'completed') {
-      throw Object.assign(new Error(`Pipeline stage ${ctx.stage} is blocked because dependency '${dependency}' is not successfully completed.`), { code: 'WORKER_DEPENDENCY_NOT_READY' });
-    }
-  }
-}
+const externalRecovery = require('./workerExternalRecoveryPipeline');
+const dependencies = require('./workerEvidenceBarrierDependencies');
+const { indexWorkersByKey, validateWorkerDependencies, collectStages, workersForStage, throwIfStageBlocked } = dependencies;
 
 function collectPrerequisites(stageWorkers) {
   const prerequisites = new Set();
@@ -143,6 +39,7 @@ function buildStageHandoff(orchestratorId, workers, consumer) {
 async function prepareStageHandoff(ctx) {
   let handoffCount = 0;
   for (const worker of ctx.stageWorkers) {
+    if (externalRecovery.hasDependency(worker, ctx.byKey)) continue;
     const handoff = buildStageHandoff(ctx.orchestratorId, ctx.workers, worker);
     if (!handoff.ok) {
       throw Object.assign(new Error(`No validated evidence handoff exists for dependency '${handoff.missingDependency}'.`), { code: 'WORKER_DEPENDENCY_NOT_READY' });
@@ -340,10 +237,31 @@ async function runSingleStage(ctx) {
       db: ctx.db,
       orchestratorId: ctx.orchestratorId,
       workers: ctx.workers,
+      byKey: ctx.byKey,
       stageWorkers: ctx.stageWorkers,
       stage: ctx.stage
     });
+    await externalRecovery.bindReferences(ctx);
   }
+  const garage = await workerGarage.state(ctx.db, ctx.orchestratorId);
+  const effectiveCapacity = Math.max(1, Math.floor(Number(garage.capacity) || workerGarage.MAX_ACTIVE_WORKERS));
+  const batches = [];
+  for (let offset = 0; offset < ctx.stageWorkers.length; offset += effectiveCapacity) {
+    batches.push(ctx.stageWorkers.slice(offset, offset + effectiveCapacity));
+  }
+  if (batches.length > 1) {
+    emit(ctx.orchestratorId, 'WORKER_STAGE_CAPACITY_REBATCHED', 'GARAGE',
+      'Split a planned pipeline stage into batches that fit the measured garage capacity.', {
+        stage: ctx.stage, plannedWorkers: ctx.stageWorkers.length,
+        effectiveCapacity, batches: batches.length
+      }, 'warning');
+  }
+  for (const [batchIndex, stageWorkers] of batches.entries()) {
+    await runStageBatch({ ...ctx, stageWorkers, batchIndex, batchCount: batches.length });
+  }
+}
+
+async function runStageBatch(ctx) {
   await reserveStageSlots({ db: ctx.db, orchestratorId: ctx.orchestratorId, stageWorkers: ctx.stageWorkers });
   const watermark = await telemetryWatermark(ctx.db);
   const results = await dispatchStageWorkers({ stageWorkers: ctx.stageWorkers, contract: ctx.contract });
@@ -353,7 +271,7 @@ async function runSingleStage(ctx) {
     await waitStageQuiescence({
       db: ctx.db,
       orchestratorId: ctx.orchestratorId,
-      workers: ctx.workers,
+      workers: ctx.stageWorkers,
       timeoutMs: ctx.timeoutMs,
       isCancelled: cancelFlagReader(ctx.barrier),
       ignoreRound: ctx.ignoreRound
@@ -396,4 +314,7 @@ async function executeWorkerPipeline(pipelineContext) {
   }
 }
 
-module.exports = { executeWorkerPipeline, dispatchStageWorkers };
+module.exports = { executeWorkerPipeline, dispatchStageWorkers,
+  bindExternalRecoveryReferences: externalRecovery.bindReferences,
+  validExternalCreditReport: externalRecovery.validReport,
+  hasExternalCreditRecoveryDependency: externalRecovery.hasDependency };

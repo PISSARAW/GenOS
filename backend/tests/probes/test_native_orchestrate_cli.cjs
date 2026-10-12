@@ -46,7 +46,7 @@ async function seedScopedWorkspace(workspace, environment) {
 async function main() {
   await fs.mkdir(output, { recursive: true });
   const root = await fs.mkdtemp(path.join(output, 'native-orchestrate-cli-'));
-  const workspace = path.resolve(__dirname, '../../..');
+  const workspace = path.join(root, 'workspace');
   const environment = { ...process.env, GENOS_DB_PATH: path.join(root, 'genos.db'),
     GENOS_ADMIN_PASSWORD: crypto.randomBytes(24).toString('hex'),
     GENOS_ADMIN_TOKEN: crypto.randomBytes(24).toString('hex'),
@@ -60,6 +60,11 @@ async function main() {
     GENOS_SKIP_BOOT_DB_BACKUP: '1',
     TEMP: path.join(root, 'temp'), TMP: path.join(root, 'temp'), TMPDIR: path.join(root, 'temp') };
   await fs.mkdir(environment.TEMP, { recursive: true });
+  await fs.mkdir(workspace, { recursive: true });
+  await fs.writeFile(path.join(workspace, 'corpus.txt'), 'timeout=30\n');
+  const snapshotAgent = 'agents/securite/snapshot_integrity_guardian.agent.json';
+  await fs.mkdir(path.dirname(path.join(workspace, snapshotAgent)), { recursive: true });
+  await fs.copyFile(path.resolve(__dirname, '../../..', snapshotAgent), path.join(workspace, snapshotAgent));
   await seedScopedWorkspace(workspace, environment);
   const cli = path.resolve(__dirname, '../../bin/genos-orchestrate.cjs');
   const methodContract = { version: 1, methodId: 'scan_literal', parameters: {
@@ -68,6 +73,9 @@ async function main() {
     native_objectives: [{ goal: 'Observe timeout in the corpus',
       successCriteria: ['Return a sourced observation of timeout=30'], methodContract }],
     workspaceId: 'ws-local', workspaceRoot: workspace, workspaceProvisioned: true,
+    capsuleRoot: environment.GENOS_CAPSULE_ROOT,
+    preflightSnapshotAgent: snapshotAgent,
+    evaluationMode: 'factual_read_only',
     background: false, autonomous_orchestration: true, executor: 'codex', timeoutMs: 180000,
     executionBudget: { tokens: 200000, costUsd: 5, latencyMs: 180000,
       verification: { executions: 2, latencyMs: 10000 } } };
@@ -110,16 +118,17 @@ async function main() {
     const mission = await db.get('SELECT status FROM missions WHERE mission_id=?', authority.envelope.missionId);
     const apoptosisTelemetry = await readApoptosisTelemetry(environment.GENOS_MCP_TELEMETRY_FILE);
     const cliResult = JSON.parse(stdout.trim().split(/\r?\n/).at(-1));
-    const complete = exitCode === 0 && parent.status === 'completed' && parentRun.status === 'completed' && mission?.status === 'completed';
+    const complete = missionCompleted({ exitCode, parent, parentRun, mission });
     const audit = { schema: 'genos.native-orchestrate-attempt/v1', result: complete ? 'complete' : 'incomplete',
       cliExitCode: exitCode, parentId: parent.id, parentStatus: parent.status, parentRunId: parentRun.id,
-      parentRunStatus: parentRun.status, parentGuardrail: parentRun.guardrail_reason || null, missionStatus: mission?.status || null,
+      parentRunStatus: parentRun.status, parentGuardrail: parentRun.guardrail_reason ?? null, missionStatus: mission?.status ?? null,
       planDigest: plan.digest, selected: plan.selected, workerId, workerRunId: workerRun.id,
       workerRunStatus: workerRun.status, independentVerifiers: attestation.value.costs.processes,
       verifierStatuses: verifications.map(item => item.status), missionHomeostasisSatisfied: cliResult.continuity?.homeostasisSatisfied === true,
       completionGateAllowed: cliResult.completionGate?.allowed === true, cliVerdict: cliResult.verdict,
-      coverageVerdict: cliResult.coverage?.verdict || null,
-      missingRequiredTools: cliResult.coverage?.orchestration?.missingRequiredTools || [], apoptosisTelemetry, outputRoot: root };
+      coverageVerdict: cliResult.coverage?.verdict ?? null,
+      requiredTools: cliResult.coverage?.orchestration?.requiredTools ?? [],
+      missingRequiredTools: cliResult.coverage?.orchestration?.missingRequiredTools ?? [], apoptosisTelemetry, outputRoot: root };
     await fs.writeFile(path.join(root, 'audit.json'), JSON.stringify(audit, null, 2) + '\n');
     process.stdout.write(JSON.stringify(audit) + '\n');
     assert.equal(parent.status, 'completed', 'the real orchestrator did not finish');
@@ -128,7 +137,14 @@ async function main() {
     assert.equal(cliResult.continuity?.homeostasisSatisfied, true, 'mission homeostasis did not pass');
     assert.equal(cliResult.completionGate?.allowed, true, 'the homeostasis completion gate did not pass');
     assert.ok(cliResult.coverage?.verdict, 'the CLI did not report its required orchestration coverage audit');
+    assert.equal(cliResult.coverage.verdict, 'required-coverage-complete', 'the factual read-only plan did not execute every declared required tool');
+    assert.deepEqual(cliResult.coverage.orchestration.missingRequiredTools, [], 'the factual read-only plan is missing durable tool receipts');
   } finally { await closeDatabase(); }
 }
 
 main().catch(failure => { process.stderr.write(failure.stack + '\n'); process.exitCode = 1; });
+
+function missionCompleted({ exitCode, parent, parentRun, mission }) {
+  return exitCode === 0 && parent.status === 'completed'
+    && parentRun.status === 'completed' && mission?.status === 'completed';
+}

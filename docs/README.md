@@ -744,3 +744,5 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0455 — Refus du budget partagé Codex CLI sans reçu USD](adr/0455-refus-budget-partage-codex-cli-sans-recu-usd.md).
 - [ADR 0456 — Transport natif et comparaison des cycles de communication](adr/0456-transport-natif-et-comparaison-cycles-communication.md).
 - [ADR 0457 — Ingestion du routeur après clôture vérifiée du worker](adr/0457-ingestion-routeur-cloture-worker-verifiee.md).
+- [ADR 0396 — Crédit externe mesuré pour la régulation des workers](adr/0396-credit-externe-regulation-workers.md)
+- [ADR 0397 — Relecture bornée des preuves de workers terminés](adr/0397-relecture-preuve-worker-termine.md)

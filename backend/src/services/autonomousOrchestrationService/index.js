@@ -92,6 +92,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     remediation,
     exploration: buildExploration(workers, dispatchWorkers),
     requiredTools,
+    mandatoryTools: [...requiredTools],
     workers,
     dispatchWorkers,
     dispatchDecision: buildDispatchDecision(workers, dispatchWorkers),

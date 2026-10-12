@@ -54,7 +54,7 @@ async function budgetExpiry(db, assertAborted) {
     const result = await original(subject, options);
     if (!injected) {
       injected = true;
-      Date.now = () => Date.parse(result.detail.startedAt) + result.detail.timeoutMs + 1000;
+      Date.now = () => Date.parse(result.detail.startedAt) + options.timeoutMs + 1000;
     }
     return result;
   };

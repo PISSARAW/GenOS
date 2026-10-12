@@ -504,6 +504,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0396c](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
 | [0397a](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
 | [0397b](0397-recus-corporels-et-limites-de-provenance.md) | Reçus corporels et limites de provenance | accepté, portée Node et missions scellées | 2026-10-10 | modèle corporel, autorité de mission, MCP, provenance des claims |
+| [0397c](0397-relecture-preuve-worker-termine.md) | Relecture bornée des preuves de workers terminés | accepté, implémenté | 2026-10-12 | Autorité, orchestration, preuves déléguées |
 | [0398](0398-capacite-mcp-et-ecritures-directes.md) | Capacité MCP et écritures directes | accepté, couverture conditionnelle | 2026-10-11 | identité d'agent, MCP Rust, fichiers, claims |
 | [0399a](0399-commit-versionne-et-profil-morphologique.md) | Commit versionné et profil morphologique dans le graphe | Accepté | 2026-10-11 | Morphogenèse, transitions et profils de topologie |
 | [0399b](0399-liaison-recu-promotion-gqwf.md) | Lier le reçu de promotion GQWF à la tête et aux octets | Accepté pour la frontière de publication du noyau backend. | 2026-10-11. | GQWF, preuves, promotion. |

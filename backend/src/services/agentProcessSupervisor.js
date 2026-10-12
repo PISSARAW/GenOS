@@ -384,7 +384,14 @@ async function superviseMission(options) {
     haltRuntimeImpl(ctx, 'runtime_provenance_failed', failure.message, 'Runtime launcher provenance failed.');
     throw failure;
   }
-  child.stdin.end(encodeMission(buildMissionEnvelope(ctx, buildMissionIdentity(agentId, normalizedMission, dispatchedAgent), runtimeStrategyContract)));
+  const runtimeEnvelope = buildMissionEnvelope(ctx,
+    buildMissionIdentity(agentId, normalizedMission, dispatchedAgent), runtimeStrategyContract);
+  const encodedMission = encodeMission(runtimeEnvelope);
+  emitTracked('AGENT_RUNTIME_INPUT_MEASURED', 'MEASURE_RUNTIME_INPUT',
+    'Measured the encoded runtime mission before dispatch.', { byteLength: Buffer.byteLength(encodedMission),
+      componentBytes: Object.fromEntries(Object.entries(runtimeEnvelope)
+        .map(([key, value]) => [key, Buffer.byteLength(String(value ?? ''))])) }, 'info', 'running');
+  child.stdin.end(encodedMission);
   return { started: true, executionRun };
 }
 
