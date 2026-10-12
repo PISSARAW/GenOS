@@ -717,3 +717,22 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0416 — Propositions Rust liées au snapshot de morphologie](adr/0416-propositions-rust-liees-snapshot-morphologie.md).
 - [ADR 0417 — Liaison des reçus Hybrid Oracle Biocénose](adr/0417-liaison-recus-hybrid-oracle-biocenose.md).
 - [ADR 0395 — Régulation supervisée des workers natifs](adr/0395-regulation-supervisee-workers-natifs.md)
+- [ADR 0420 — Contrat d'issue de mission](adr/0420-contrat-issue-mission.md).
+- [ADR 0428 — Journal des tentatives modèle](adr/0428-journal-des-tentatives-modele.md).
+- [ADR 0429 — Réutilisation procédurale validée](adr/0429-reutilisation-procedurale-validee.md).
+- [ADR 0430 — Devis prudent des coûts d'action](adr/0430-devis-prudent-des-couts-d-action.md).
+- [ADR 0431 — Réservation atomique des budgets modèle](adr/0431-reservation-atomique-des-budgets-modele.md).
+- [ADR 0432 — Exécution explicite des cycles de communication](adr/0432-execution-explicite-des-cycles-de-communication.md).
+- [ADR 0433 — Apprentissage du routeur sur verdicts AEIS](adr/0433-apprentissage-routeur-sur-verdicts-aeis.md).
+- [ADR 0434 — Qualification indépendante des missions workers](adr/0434-qualification-independante-des-missions-workers.md).
+- [ADR 0436 — Contrôleur commun de décision en observation](adr/0436-controleur-commun-decision-shadow.md).
+- [ADR 0444 — Exécution attestée du contrôleur de mission](adr/0444-execution-attestee-du-controleur-de-mission.md).
+- [ADR 0445 — Pont preuve de mission vers apprentissage du routeur](adr/0445-pont-preuve-mission-vers-apprentissage-routeur.md).
+- [ADR 0446 — Sélection du contexte par obligations ouvertes](adr/0446-selection-contexte-obligations-ouvertes.md).
+- [ADR 0447 — Portée de budget modèle parent et workers](adr/0447-portee-budget-modele-parent-et-workers.md).
+- [ADR 0448 — Observation des coûts modèle dans le reçu worker](adr/0448-observation-couts-modele-dans-recu-worker.md).
+- [ADR 0449 — Checkpoint de communication et coûts par agent](adr/0449-raccord-checkpoint-communication-et-couts-par-agent.md).
+- [ADR 0450 — Liaison entre sortie modèle et oracle indépendant](adr/0450-liaison-sortie-modele-oracle-independant.md).
+- [ADR 0451 — Budget modèle du runtime local en sous-processus](adr/0451-portee-budget-modele-runtime-local-sous-processus.md).
+- [ADR 0452 — Exécution de procédure en mission](adr/0452-execution-procedure-mission.md).
+- [ADR 0453 — Budget partagé des runtimes modèles externes](adr/0453-budget-partage-des-runtimes-modeles-externes.md).

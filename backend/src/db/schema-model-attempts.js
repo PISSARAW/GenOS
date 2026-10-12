@@ -34,6 +34,15 @@ CREATE TABLE IF NOT EXISTS model_budget_reservations (
   closed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_model_budget_reservation_scope
-  ON model_budget_reservations(scope_id, status);`;
+  ON model_budget_reservations(scope_id, status);
+CREATE TABLE IF NOT EXISTS mission_model_budget_scopes (
+  scope_id TEXT PRIMARY KEY,
+  parent_run_id TEXT NOT NULL,
+  parent_agent_id TEXT NOT NULL,
+  organization_id TEXT,
+  project_id TEXT,
+  cost_ceiling_usd REAL NOT NULL CHECK (cost_ceiling_usd >= 0),
+  token_ceiling INTEGER NOT NULL CHECK (token_ceiling >= 0)
+);`;
 
 module.exports = { TABLES_MODEL_ATTEMPTS };

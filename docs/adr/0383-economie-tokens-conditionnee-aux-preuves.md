@@ -51,6 +51,15 @@ API d'observation exige un verdict explicite et une référence de preuve ; la
 présence de cette référence n'en vérifie pas l'autorité. Le raccord à un gate
 indépendant reste à construire avant une remise en service automatique.
 
+Une route interrompue par délai ou annulation conserve sa réservation en état
+`uncertain` si le fournisseur a pu être appelé sans reçu mesuré. Si la promesse
+du fournisseur livre ensuite des compteurs explicitement mesurés, le runtime
+complète le journal de cette tentative sans convertir son statut d'échec en
+succès, inscrit son coût et solde la réservation. Une réponse tardive estimée
+ou sans compteurs laisse la réservation incertaine. Cette réconciliation reste
+liée au processus vivant : après redémarrage, une dépense sans reçu demeure
+bloquante jusqu'à une procédure de réconciliation externe.
+
 ## Suite proposée
 
 Compiler le contexte depuis les obligations ouvertes et leurs dépendances,
@@ -91,3 +100,5 @@ de fixture explicites ; il ne qualifie pas un gate de production.
 `test_mission_prompt_context_budget.js` contrôle le refus avant lecture ou
 consommation de vésicules, la transmission du budget par protobuf, le refus du
 prompt runtime complet trop grand et la conservation du contexte admis.
+`test_model_late_receipt.js` exerce les reçus tardifs mesurés, l'échec tardif
+mesuré et la conservation d'une réservation incertaine sans mesure.

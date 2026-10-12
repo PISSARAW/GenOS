@@ -18,6 +18,7 @@ const agentMemory = require('../src/services/agentMemoryContext');
 const path = require('path');
 const fs = require('fs');
 const solarTools = require('./solar-tool-runtime.cjs');
+const sharedBudget = require('../src/services/externalSubprocessModelBudget');
 const { writeArtifact } = require('./solarDirectFileActuator.cjs');
 
 let raw = Buffer.alloc(0);
@@ -92,12 +93,14 @@ async function runMission(state, services) {
     currentTask: state.prompt
   });
   try {
+    state.modelBudgetRoute = await sharedBudget.openForState(state);
     guardBudget(state);
     const tools = solarTools.loadLeasedTools(state.toolLease);
     const reply = await solarTools.runToolSession({
       state,
       tools,
-      sample: ({ request, state: sessionState }) => solarTools.callSolar({ request, state: sessionState }),
+      sample: ({ request, state: sessionState }) => sharedBudget.sample(sessionState,
+        request, (bounded) => solarTools.callSolar({ request: bounded, state: sessionState })),
       callTool: ({ invocation, state: sessionState }) => solarTools.callLeasedTool({ invocation, state: sessionState }),
       emit: (event) => emitEvent(state, event)
     });
@@ -107,11 +110,13 @@ async function runMission(state, services) {
     await runPostPipeline(services, state, reply);
     guardCompletionBudget(state);
     emitCompletion(state, reply);
-    process.exit(0);
+    process.exitCode = 0;
   } catch (e) {
     await require('../src/services/runtimeFileWriteIpc').flush().catch(() => {});
     emitFailure(state, e);
-    process.exit(1);
+    process.exitCode = 1;
+  } finally {
+    await sharedBudget.close(state.modelBudgetRoute);
   }
 }
 

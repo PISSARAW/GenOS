@@ -24,7 +24,7 @@ C4 est rapporté séparément avec le nombre d'essais et les échecs. Aucun stat
 registre, des artefacts et des cas du benchmark avec son digest SHA-256. Le test
 `test_worker_qualification_inventory.js` refuse un type sans exécuteur ou cas,
 un identifiant dupliqué et une méthode de benchmark non enregistrée. L'inventaire
-actuel contient **19 types, 24 méthodes et 20 cas de benchmark**.
+actuel contient **19 types, 25 méthodes et 20 cas de benchmark**.
 
 La matrice `test_worker_native_matrix.js` exécute une méthode par type avec
 artefact typé et provenance, soit C1 pour ces 19 couples type-méthode. Ses

@@ -2,8 +2,8 @@
 
 const crypto = require('node:crypto');
 const { createEnvelope } = require('./communicationEnvelopeService');
-const { recordTokens } = require('./communicationMetricsService');
 const { getMode } = require('./communicationPolicyEngine');
+const { measureCycleUsage } = require('./communicationCycleUsage');
 
 const LEVELS = Object.freeze(['none', 'transport_ack', 'semantic_ack', 'action_ack',
   'verified_ack', 'human_confirmation']);
@@ -107,39 +107,12 @@ function groundingOf(decision, receipts, published) {
     acknowledged: acked, required: decision.grounding };
 }
 
-function usageOf(receipt, cycleId) {
-  if (receipt === undefined || receipt === null) return null;
-  const identity = receipt.apiVersion === 'genos.communication-usage/v1'
-    && receipt.source === 'model-provider' && receipt.cycleId === cycleId
-    && typeof receipt.responseId === 'string' && receipt.responseId.length > 0;
-  if (!identity || !validTokenCount(receipt.inputTokens) || !validTokenCount(receipt.outputTokens)) {
-    throw Object.assign(new Error('Uncorrelated provider token-usage receipt.'),
-    { code: 'COMMUNICATION_USAGE_RECEIPT_INVALID' });
-  }
-  return receipt;
-}
-
-function validTokenCount(value) {
-  return Number.isSafeInteger(value) && value >= 0;
-}
-
-function tokenOutcome(decision, receipt) {
-  if (receipt) {
-    recordTokens({ tokensInput: receipt.inputTokens, tokensOutput: receipt.outputTokens });
-    return { tokensUsed: receipt.inputTokens + receipt.outputTokens,
-      tokensMeasured: true, usageReceiptId: receipt.responseId, tokenStatus: 'provider_reported' };
-  }
-  const projected = VERBAL.has(decision.action) ? Math.ceil((decision.meta?.cost || 0.4) * 500) : 0;
-  if (projected > 0) recordTokens({ measured: false, tokensProjected: projected });
-  return { tokensUsed: null, tokensProjected: projected,
-    tokensMeasured: false, usageReceiptId: null, tokenStatus: 'unknown' };
-}
-
 function idleOutcome(decision, reason) {
   return { executed: false, simulated: false, published: false, reason,
     deliveryAcknowledgements: [], grounding: { satisfied: false, acknowledged: 0,
       required: decision.grounding || 'none' }, tokensUsed: 0, tokensMeasured: true,
-    tokenStatus: 'no_model_call', usageReceiptId: null };
+    tokenStatus: 'no_model_call', tokenCoverage: 'complete',
+    participantUsage: [], usageReceiptId: null };
 }
 
 async function executeLiveCycle(input) {
@@ -154,10 +127,9 @@ async function executeLiveCycle(input) {
   const result = await transport.deliver({ db: input.db, decision, intent, cycleId, envelope, payload });
   validateTransportResult(result, messageId);
   const signalId = result.signalId || null;
-  const receipt = usageOf(result.usageReceipt || opts.usageReceipt, cycleId);
-  const usage = tokenOutcome(decision, receipt);
   const deliveryAcknowledgements = normalizeAcknowledgements(result.acknowledgements || [],
     { decision, signalId });
+  const usage = measureCycleUsage({ decision, intent, cycleId, result, opts });
   const groundingSource = opts.transport ? 'adapter_reported' : 'database_observed';
   return { executed: result.published, simulated: false, published: result.published,
     cycleId, signalId, reason: result.reason || null, deliveryAcknowledgements,

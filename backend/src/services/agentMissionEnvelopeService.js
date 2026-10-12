@@ -20,6 +20,7 @@ function execution(ctx) {
     orchestratorAgentId: mission.orchestratorAgentId || '', missionId: mission.missionId || '',
     autonomyPlanJson: JSON.stringify(ctx.autonomyPlan || {}), toolLeaseJson: JSON.stringify(mission.toolLease || []),
     genosCapsuleJson: JSON.stringify(ctx.genosCapsule), executionPolicyJson: JSON.stringify(mission.executionPolicy),
+    modelBudgetScopeJson: mission.modelBudgetScope ? JSON.stringify(mission.modelBudgetScope) : '',
     executionBudgetJson: JSON.stringify(ctx.runtimeBudget || {}) };
 }
 

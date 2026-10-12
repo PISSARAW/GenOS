@@ -19,6 +19,7 @@ async function evaluateMissionCompletion(input) {
   try {
     const receipt = await require('./communicationCheckpointService').evaluateCheckpoint({
       db: input.db, agentId, checkpoint: 'MISSION_COMPLETED',
+      communication: input.communication,
       evidence: { domain: 'mission', semanticRefs: missionId ? [`mission:${missionId}:completed`] : [] }
     });
     const telemetryRecorded = emitCheckpointEvent({ eventType: 'COMMUNICATION_CHECKPOINT_EVALUATED', agentId,
