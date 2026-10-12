@@ -116,20 +116,32 @@ fn apply_special_validations(name: &str, object: &serde_json::Map<String, serde_
 }
 
 fn validate_execution_tool_arguments(name: &str, object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    validate_agent_tool_arguments(name, object)?;
+    validate_worker_tool_arguments(name, object)
+}
+
+fn validate_agent_tool_arguments(name: &str, object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
     if name == "genos_replay" {
         validate_genos_replay(object)?;
     }
-    validate_agent_execution_arguments(name, object)?;
-    if name == "genos_execute_primitive" { validate_primitive_reference(object)?; }
-    if name == "genos_worker_publish" { validate_signal_data(object)?; }
+    if name == "genos_agent_fork_snapshot" {
+        validate_agent_fork_snapshot(object)?;
+    }
+    if name == "genos_agent_inherited_memory_read" {
+        validate_inherited_memory_read(object)?;
+    }
     Ok(())
 }
 
-fn validate_agent_execution_arguments(name: &str, object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
-    if name == "genos_agent_fork_snapshot" { validate_agent_fork_snapshot(object)?; }
-    if name == "genos_agent_inherited_memory_read" { validate_inherited_memory_read(object)?; }
-    if name == "genos_a_team_preview" && !object.get("sub_systems").is_some_and(serde_json::Value::is_array) {
-        return Err("sub_systems must be an array.".into());
+fn validate_worker_tool_arguments(name: &str, object: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    if name == "genos_execute_primitive" {
+        validate_primitive_reference(object)?;
+    }
+    if name == "genos_a_team_preview" {
+        validate_sub_systems(object)?;
+    }
+    if name == "genos_worker_publish" {
+        validate_signal_data(object)?;
     }
     Ok(())
 }
