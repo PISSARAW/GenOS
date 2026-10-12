@@ -183,33 +183,47 @@ function mean(values) {
 }
 
 function scoreResolvedForecasts(forecasts, outcomes) {
-  const resolved = new Map(outcomes.map((item) => [item.eventId, Number(item.outcome)]));
-  const scores = forecasts.filter((item) => resolved.has(item.eventId)
+  const resolved = new Map(outcomes.map((item) => [resolutionKey(item), Number(item.outcome)]));
+  const scores = forecasts.filter((item) => resolved.has(resolutionKey(item))
     && Number.isFinite(item.probability) && item.probability >= 0 && item.probability <= 1
-    && [0, 1].includes(resolved.get(item.eventId)))
+    && [0, 1].includes(resolved.get(resolutionKey(item))))
     .map((item) => ({ memberId: item.memberId, eventId: item.eventId,
-      brierScore: (item.probability - resolved.get(item.eventId)) ** 2 }));
+      brierScore: (item.probability - resolved.get(resolutionKey(item))) ** 2 }));
   return { scores, meanBrier: mean(scores.map((item) => item.brierScore)), resolvedCount: scores.length };
 }
+
+function resolutionKey(item) { return JSON.stringify([item.eventId, item.domain]); }
 
 async function persistResolvedOutcomes(input) {
   const calibration = require('../calibration/calibrationService');
   const recorded = [];
   for (const outcome of input.outcomes || []) {
-    if (!eligibleOutcome(outcome, input.isTrustedReceipt)) continue;
+    if (!eligibleOutcome(outcome, input)) continue;
     const oracleRef = outcome.oracleRef || outcome.receipt.receiptId || outcome.receipt.reference;
     const forecasts = matchingForecasts(input.forecasts, outcome);
     if (!oracleRef || !forecasts.length) continue;
-    recorded.push(await calibration.recordResolution({ db: input.db, communityId: input.communityId,
+    const result = await calibration.recordResolution({ db: input.db, communityId: input.communityId,
       actorId: input.actorId, eventId: outcome.eventId, domain: outcome.domain,
-      outcome: Number(outcome.outcome), oracleRef, forecasts }));
+      outcome: outcome.outcome, oracleRef, forecasts });
+    recorded.push({ ...result, outcome: outcome.outcome });
   }
   return recorded;
 }
 
-function eligibleOutcome(outcome, validator) {
-  return Boolean(outcome.eventId && outcome.domain && [0, 1].includes(Number(outcome.outcome))
-    && trustedReceipt(outcome.receipt, validator));
+function eligibleOutcome(outcome, input) {
+  return Boolean(outcome?.eventId && outcome.domain && [0, 1].includes(outcome.outcome)
+    && boundResolutionReceipt(outcome, input.communityId)
+    && trustedReceipt(outcome.receipt, input.isTrustedReceipt));
+}
+
+function boundResolutionReceipt(outcome, communityId) {
+  const receipt = outcome.receipt;
+  const references = [receipt?.receiptId, receipt?.reference]
+    .filter((value) => typeof value === 'string' && value.trim());
+  return Boolean(references.length && receipt.communityId === communityId
+    && receipt.eventId === outcome.eventId && receipt.domain === outcome.domain
+    && receipt.outcome === outcome.outcome
+    && (!outcome.oracleRef || references.includes(outcome.oracleRef)));
 }
 
 function matchingForecasts(forecasts, outcome) {

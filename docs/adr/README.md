@@ -560,6 +560,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0442](0442-preuve-route-actuelle-rhizome.md) | Lier la complétion Rhizome au chemin actuellement autorisé | Accepté | 2026-10-12 | Rhizome, variants, preuves de route |
 | [0443](0443-preuve-revision-branche-speculative-syncytium.md) | Lier la validation spéculative à la révision de branche | Accepté | 2026-10-12 | Syncytium, variant Speculative, promotion |
 | [0444](0444-enfants-depuis-elites-admises-biome.md) | Produire les enfants Quality-Diversity depuis les élites admises | Accepté | 2026-10-12 | Biome, Quality-Diversity, archive des élites |
+| [0445](0445-refus-des-champs-non-scelles-snapshot-topologique.md) | Refuser les champs non scellés du snapshot topologique | accepté | 2026-10-12 | snapshots topologiques, intégrité, frontière Morphogenèse |
+| [0446](0446-refus-des-affectations-orphelines-en-quiescence-metapopulation.md) | Refus des affectations orphelines en quiescence Métapopulation | Voir le fichier | -- | -- |
+| [0447](0447-lier-resolution-et-score-forecasting-biocenose.md) | Lier résolution et score du variant Forecasting Crowd | Accepté | 2026-10-12 | Biocénose, Forecasting Crowd, preuve de calibration |
+| [0448](0448-liaison-monde-promu-candidat-trinity.md) | Lier le monde promu au candidat Trinity | Accepté | 2026-10-12 | Trinity, qualification nominale, provenance du candidat |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

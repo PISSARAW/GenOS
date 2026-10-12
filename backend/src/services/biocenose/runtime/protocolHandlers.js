@@ -224,11 +224,11 @@ function selectForecasts({ context, session, judgments, options, persistent, for
 
 async function withForecastCalibration({ context, session, options, forecasts, forecastContext, result }) {
   const outcomes = Array.isArray(options.outcomes) ? options.outcomes : [];
-  const forecastComparison = variantOrchestrator.scoreResolvedForecasts(forecasts, outcomes);
   const recordedCalibration = await variantOrchestrator.persistResolvedOutcomes({
     db: context.db, communityId: session.communityId, actorId: context.actorId,
     forecasts, outcomes, isTrustedReceipt: context.isTrustedReceipt
   });
+  const forecastComparison = variantOrchestrator.scoreResolvedForecasts(forecasts, recordedCalibration);
   return { ...result, forecastCalibration: { members: forecastContext.weights,
     missingMemberIds: forecastContext.missingMemberIds, forecastComparison, recordedCalibration } };
 }

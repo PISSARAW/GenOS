@@ -58,6 +58,22 @@ const nominal = { variant: 'adaptive', missionId, experiment: promoted,
     experimentalDesign: { ...variants.DEFAULT_DESIGN, ...variants.DEFINITIONS.adaptive.design } }) },
   worlds, transitions, comparisonProof, initialProof, signedObjectValid: true };
 assert.equal(qualification.assess(nominal).qualified, true);
+assert.ok(qualification.assess({ ...nominal, worlds: worlds.map((entry) => ({ ...entry,
+  status: entry.world_number === 2 ? 'promoted' : 'compared' })) }
+).reasons.includes('promoted_world_mismatch'));
+assert.ok(qualification.assess({ ...nominal, worlds: worlds.map((entry) => ({ ...entry,
+  status: 'compared' })) }
+).reasons.includes('promoted_world_mismatch'));
+assert.ok(qualification.assess({ ...nominal, worlds: worlds.map((entry) => ({ ...entry,
+  status: 'promoted' })) }
+).reasons.includes('promoted_world_mismatch'));
+assert.ok(qualification.assess({ ...nominal, worlds: [...worlds, { ...worlds[0],
+  world_number: 4, agent_id: 'replica-4', status: 'promoted' }] }
+).reasons.includes('promoted_world_mismatch'));
+assert.ok(qualification.assess({ ...nominal, experiment: { ...promoted,
+  decision_json: JSON.stringify({ ...JSON.parse(promoted.decision_json),
+    verification: { ...JSON.parse(promoted.decision_json).verification, sourceAgentId: 'world-2' } }) } }
+).reasons.includes('promoted_world_mismatch'));
 assert.ok(qualification.assess({ ...nominal, initialProof: { status: 'missing' } }
 ).reasons.includes('initial_reports_journal_not_verified'));
 assert.ok(qualification.assess({ ...nominal, initialProof: { ...initialProof, inputHash: 'other' } }

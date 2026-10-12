@@ -275,6 +275,26 @@ de missions représentatives pour les 95 variants canoniques.
   l'appelant demandent toujours une vérification indépendante
   ([ADR 0444](../../adr/0444-enfants-depuis-elites-admises-biome.md)).
 
+### Dixième vague — 2026-10-12
+
+- Common refuse les champs d'autorité ajoutés à la racine d'un manifeste
+  snapshot topologique après scellement. Le préflight reste consultatif et
+  APPLY fermé sans snapshot collectif restaurable ni commit CAS attesté
+  ([ADR 0445](../../adr/0445-refus-des-champs-non-scelles-snapshot-topologique.md)).
+- Métapopulation refuse `SESSION_QUIESCED` si une affectation de mission
+  référence un worker absent. Le snapshot exige que chaque lien vers un agent
+  soit présent et inactif
+  ([ADR 0446](../../adr/0446-refus-des-affectations-orphelines-en-quiescence-metapopulation.md)).
+- Biocénose `forecasting_crowd` ne persiste et ne score une résolution que
+  si son reçu vérifié lie la communauté, l'événement, le domaine et le résultat.
+  Le validateur externe reste responsable de l'authenticité du reçu
+  ([ADR 0447](../../adr/0447-lier-resolution-et-score-forecasting-biocenose.md)).
+- Trinity exige que l'unique monde au statut `promoted` appartienne aux mondes
+  initiaux qualifiés et corresponde
+  au monde retenu dans la comparaison et à l'agent source du candidat. La
+  campagne nominale réelle des douze variants reste à exécuter
+  ([ADR 0448](../../adr/0448-liaison-monde-promu-candidat-trinity.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

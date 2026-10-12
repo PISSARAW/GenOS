@@ -950,6 +950,14 @@ Structure : Propositions + attaque/défense + vérification. Usage : Robustesse,
 
 Structure : Probabilités calibrées + scoring rules + marché prédictif interne. Usage : Prévision, estimation de risque. Marché prédictif : $p_{\text{market}}(A) = \frac{\sum_i \text{stake}_i(A)}{\sum_i \text{totalBudget}_i}$. Budget virtuel, se réinitialise à chaque mission.
 
+Dans le cycle persistant, une résolution externe ne calibre les membres que si
+son reçu `VERIFIED` est accepté par `isTrustedReceipt` et lie exactement la
+communauté, l'événement, le domaine et le résultat binaire. Le score Brier
+affiché par le cycle ne couvre que ces résolutions enregistrées ; un résultat
+simplement fourni dans les options ne suffit pas. La signature et la réalité
+de l'événement restent sous la responsabilité du validateur externe. Voir
+l'[ADR 0447](../../adr/0447-lier-resolution-et-score-forecasting-biocenose.md).
+
 ### 12.5 Argumentation Community
 
 Structure : Claim/argument graph + délibération structurée. Usage : Raisonnements contestables, décisions complexes. Variant le plus structuré. Chaque affirmation est un claim dans l'argument graph. Les relations (SUPPORT, ATTACK, REFUTE, UNDERCUT, DEPEND_ON, QUALIFY, COUNTEREXAMPLE) sont explicitement modélisées.

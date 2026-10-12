@@ -10,8 +10,8 @@ function refuse(code, message) {
 
 async function assertIdleMission(db, missionId) {
   const agents = await db.all(`SELECT a.id, a.status, a.runtime_pid FROM mission_agents ma
-    JOIN agents a ON a.id = ma.agent_id WHERE ma.mission_id = ?`, missionId);
-  if (!agents.length || agents.some((agent) => agent.status === 'running'
+    LEFT JOIN agents a ON a.id = ma.agent_id WHERE ma.mission_id = ?`, missionId);
+  if (!agents.length || agents.some((agent) => !agent.id || agent.status === 'running'
     || agent.status === 'Active' || agent.runtime_pid != null)) {
     refuse('METAPOPULATION_QUIESCENCE_WORKERS_ACTIVE', 'Mission agents must all be idle and present.');
   }

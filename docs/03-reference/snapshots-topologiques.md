@@ -51,6 +51,11 @@ avec topologie utilise la version 5 du manifeste d'organisme et la version 6 de
 `_genosSnapshot` ; sans cette option, les versions 4 et 5 restent employées.
 Les empreintes détectent une modification de données ; elles ne constituent
 pas une signature indépendante de SQLite.
+La vérification refuse également toute clé ajoutée à la racine du manifeste
+après scellement, notamment un `restorable` ou un `commitAuthorized` fourni
+par l'appelant. Ces champs ne sont pas dans le contrat et ne deviennent
+jamais une autorité de transition ; voir
+[ADR 0445](../adr/0445-refus-des-champs-non-scelles-snapshot-topologique.md).
 
 ## Nouveaux workspaces de workers
 
