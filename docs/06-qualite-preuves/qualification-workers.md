@@ -1,6 +1,6 @@
 # Qualification vérifiable des workers
 
-- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows le 2026-10-12 ; campagne exploratoire sur checkout modifié.
+- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows le 2026-10-12. C4 est mesuré par 57 missions nominales et une campagne faultée 19/19 ; qualification exploratoire sur checkout modifié.
 - **Date de l'inventaire** : 2026-10-12.
 - **Portée** : les 19 `WorkerKind`, les méthodes du registre Node, les missions persistées et leurs preuves.
 
@@ -34,8 +34,10 @@ supplémentaires `verify_memory_fidelity`, `verify_code_postconditions`,
 procédural, exigent leurs propres reçus d'exécution et oracles. Le test Lean
 unitaire injecte un exécuteur ; une qualification formelle exige Lean réel.
 
-Le seul cas de benchmark sans oracle est `bounded-code`. Son exécution éventuelle
-doit rester `unmeasured` jusqu'à l'ajout d'une vérification distincte. Le registre contient aussi deux
+Les 24 cas disposent maintenant d’un oracle ; `bounded-code` est mesuré par une
+mission Ollama réelle et son oracle relit le reçu biologique, l’attestation du
+quorum natif et les deux stratégies de postconditions. Les détails du run sont
+consignés dans le bilan du 2026-10-12 ci-dessous. Le registre contient aussi deux
 méthodes sans cas benchmark propre : `verify_memory_fidelity`,
 `replenish_external_quota`. La vérification mémoire
 est exercée par `test_native_memory_budget.js` ; le quota externe a ses probes
@@ -175,9 +177,13 @@ passé 3 campagnes nominales séquentielles (57/57). Les suites workers injecten
 annulation, délai dépassé, arrêt par garde et altérations d'oracles ; la suite
 SIGKILL couvre la restauration d'organisme séparément. Une répétition des trois
 missions sous la charge simultanée de `npm test` avait rendu
-`ORACLE_BUDGET_EXPIRED` pour `bounded_worker`. Les pannes ne sont pas encore
-combinées à la campagne multi-missions. Linux reste à qualifier : `wsl --status`
-renvoie `WSL/E_ACCESSDENIED` et Docker ne trouve pas son moteur Linux.
+`ORACLE_BUDGET_EXPIRED` pour `bounded_worker`. Ce résultat sous concurrence a
+motivé une campagne séquentielle avec fautes injectées, décrite plus bas. Linux
+reste à qualifier : les
+distributions WSL installées sont en version 1 et ne disposent ni de Node, ni
+de Cargo, ni de Lean. Docker Desktop est présent,
+mais son moteur Linux ne démarre pas et le client reçoit `permission denied` sur
+`dockerDesktopLinuxEngine`; l’accès WSL échoue avec `Wsl/E_ACCESSDENIED`.
 
 Le harnais `run_worker_qualification_campaign.cjs` conserve chaque sortie,
 code de retour, résultat et manifeste dans le JSON demandé, puis renvoie 1
@@ -295,7 +301,11 @@ Le checkout étant modifié, cette exécution reste exploratoire. La composante
 répétition de C4 a passé trois campagnes nominales (57/57). Les suites workers
 injectent annulation, délai dépassé, arrêt par garde et altérations d'oracles ;
 la suite SIGKILL couvre la restauration d'organisme séparément. Une campagne
-multi-missions sous pannes, sur checkout propre et sur Linux reste à faire.
+La campagne multi-missions sous pannes est maintenant passée sur Windows ; le
+checkout propre et Linux restent à qualifier. La vérification de cet
+environnement le 2026-10-12 confirme WSL 1 sans toolchain
+Linux et un moteur Docker Desktop Linux inaccessible (`Wsl/E_ACCESSDENIED` /
+`permission denied`); aucun résultat Linux n’est revendiqué.
 
 Le 2026-10-12, `run_worker_gate_campaign.cjs` a réévalué les 19 missions
 depuis SQLite, leur événement terminal, leur assemblée d'oracles persistée et
@@ -319,8 +329,8 @@ stratégies du vérificateur indépendant l'ont acceptée sur les 264 entrées.
 terminal échouait avec `BIOLOGICAL_WORKER_RECEIPT_SEALED`, et aucun reçu
 terminal avec les tests persistés n'était produit. La correction et la
 qualification ultérieures du chemin sont consignées dans le bilan du
-2026-10-12 ci-dessous. `bounded-code` reste `unmeasured` dans le benchmark
-comparatif.
+2026-10-12 ci-dessous. `bounded-code` était alors `unmeasured` dans le benchmark comparatif ; voir le
+résultat ultérieur du 2026-10-12 ci-dessous.
 
 Ces essais ont aussi révélé deux conditions du chemin local : le worker doit
 recevoir le `modelBudgetScope` parent et son bail d'écriture doit être transmis
@@ -352,7 +362,7 @@ puisse l'inspecter, puis omettre le verdict absent au lieu de sérialiser
 `undefined`. Le gate de campagne accepte maintenant aussi ce chemin local
 quand il trouve le run complété et la décision native correspondante. Les tests
 du gate refusent toujours une assemblée altérée et une mission sans preuve.
-Le contrôle de qualité indique 0 nouvelle violation sur 5 992 fichiers source.
+Le contrôle de qualité indique 0 nouvelle violation sur 5 995 fichiers source.
 
 La campagne comparative a aussi passé **24/24 cas**, sans échec, preuve
 invérifiable ou cas non mesuré. `bounded-code` a utilisé Ollama; son oracle a
@@ -361,7 +371,8 @@ quorum natif. Les 24 scores ont été recalculés depuis le rapport avec Lean
 4.34.0 configuré et concordent. Le rapport est
 `.worker-benchmark-qualification-current.json` (digest de jeu
 `sha256:11be284a67148d705b0e096549420121d2035139b3f8397f3e78714b89a70a6d`).
-Cette campagne ne démontre pas la parité avec un système rival. Les rapports
+La campagne complète valide 24/24 oracles, mais ne démontre pas la parité avec
+un système rival. Les rapports
 portent `qualificationClass: exploratory`, car le checkout était modifié. Le
 gate complet a vérifié les 19 types; la campagne de qualification séparée a
 aussi rendu **19/19**.
@@ -369,11 +380,29 @@ aussi rendu **19/19**.
 Lean 4.34.0 explicite; `cargo test --workspace` a également terminé avec le
 code 0 sur cet état.
 
+Le 2026-10-12, `run_worker_fault_campaign.cjs` a exécuté les 19 types en
+séquence, dans des racines et bases isolées, avec un registre de nonces partagé.
+**19/19 scénarios sont conformes** : 17 missions gardent leur quorum indépendant,
+la falsification de l'assemblée de `verifier_worker` est refusée
+(`oracle_proof_invalid`) et le timeout borné de `recovery_worker` reste sans
+preuve (`mission_evidence_missing`). Les missions suivantes se terminent après
+ces fautes. La campagne constate 34 nonces acceptés uniques. Le rapport est
+`.worker-fault-campaign-current.json`, SHA-256
+`f53d7a97b23e94eb26334b097ece16c930a947cf4a15f669a36b84e46d194834`.
+Le nouveau scénario est dans `test_worker_fault_campaign.js`; le profil workers
+complet passe **32/32 suites** avec Lean 4.34.0 et Ollama configurés. Le contrôle
+de qualité trouve 0 nouvelle violation sur 5 997 fichiers source.
+
+Cette campagne est exploratoire car le checkout reste modifié. La qualification
+sur checkout propre et Linux reste à faire ; la campagne faultée ne prétend pas
+à une garantie statistique hors de ses 19 missions mesurées.
+
 ## Commandes et limites du verdict
 
-```text
+```powershell
 node backend/tests/workerQualificationInventory.cjs
 node backend/tests/test_worker_compliance_native_missions.js
+node backend/tests/run_worker_fault_campaign.cjs "$env:TEMP/genos-worker-fault-campaign.json"
 npm --prefix backend run test:workers
 npm --prefix backend run test:worker-credit
 npm run test:garage

@@ -173,6 +173,7 @@ const suites = {
     ['native 19-kind execution and evidence', 'test_worker_native_matrix.js'],
     ['native worker contract boundaries', 'test_worker_native_boundaries.js'],
     ['native worker lifecycle and guard', 'test_worker_native_lifecycle.js'],
+    ['multi-mission worker faults and recovery isolation', 'test_worker_fault_campaign.js'],
     ['worker contract enforcement', 'test_worker_contract_enforcement.js'],
     ['worker runtime limits', 'test_worker_runtime_limits.js'],
     ['procedural and formal execution', 'test_deterministic_worker_runners.js'],

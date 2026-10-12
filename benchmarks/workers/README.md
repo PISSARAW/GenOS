@@ -19,11 +19,12 @@ structurés ajoutés emploient aussi des parcours indépendants dans
 `independent-structured-oracles.cjs`; `bounded-code` dispose de son oracle
 `bounded-code-oracle.cjs`. Le code borné est contrôlé sur 264 entrées,
 l'arithmétique exacte par un calcul indépendant et les deux méthodes formelles
-par recompilation Lean. La délégation vérifie indépendamment les contrats,
-runs, artefacts, références et reçu parent des deux enfants. Dix-sept cas ont un
-oracle indépendant ; sept cas mesurés
-réutilisent encore un recalcul du module GenOS et leur validation ne prouve pas
-l'indépendance de l'implémentation.
+par recompilation Lean. La délégation vérifie indépendamment les contrats, runs,
+artefacts, références et reçu parent des deux enfants.
+
+Le rapport de qualification du 2026-10-12 contient 24/24 cas passés et leurs
+scores ont été recalculés depuis le rapport, avec Lean 4.34.0 configuré. Cette
+mesure ne démontre pas la parité avec un rival.
 
 Exécution locale actuelle :
 
@@ -38,7 +39,7 @@ Pour inclure Lean, placer l'exécutable `lean` dans le `PATH` ou définir
 `GENOS_LEAN_EXECUTABLE`, puis fournir la sortie exacte de `lean --version`
 dans `GENOS_BENCHMARK_LEAN_VERSION`. Le
 vérificateur du benchmark relance Lean indépendamment de l'adaptateur.
-La campagne ne mesure `bounded-code` que si un modèle Ollama est défini; elle
+La campagne mesure `bounded-code` si un modèle Ollama est défini; elle
 exige une mission terminée avec son reçu biologique et son quorum persistant.
 L'adaptateur et ce contrôle disposent chacun de 120 secondes pour absorber
 un démarrage à froid ; la durée mesurée inclut ce démarrage.
