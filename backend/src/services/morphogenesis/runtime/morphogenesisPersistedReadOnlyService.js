@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
 const { compileFlatTopology } = require('../graph/compileFlatTopology');
 const { createMorphologyGraphStore } = require('../graph/morphologyGraphStore');
 const { adjudicatePostMission } = require('./morphogenesisRustReadOnlyBridge');
@@ -44,7 +45,14 @@ async function readBoundSnapshot(db, ref, morphology) {
 function snapshotMatchesMorphology(graph, morphology) {
   const root = graph.nodes?.find((node) => node.nodeId === graph.rootNodeId);
   return graph.status === 'proposed' && root?.topology === morphology.topology
-    && (root.variant || null) === (morphology.variantId || null);
+    && (root.variant || null) === (morphology.variantId || null)
+    && workersMatch(root?.workers, morphology.agents);
+}
+
+function workersMatch(saved, requested) {
+  if (!Array.isArray(saved) || requested != null && !Array.isArray(requested)) return false;
+  try { return isDeepStrictEqual(saved, JSON.parse(JSON.stringify(requested || []))); }
+  catch (_) { return false; }
 }
 
 async function ensureProposalTable(db) {

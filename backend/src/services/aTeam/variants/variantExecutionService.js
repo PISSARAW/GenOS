@@ -8,8 +8,30 @@ const { canonicalJson, coded, timestamp } = require('./variantExecutionHelpers')
 const INCIDENT_TRANSITIONS = { ACTIVE: ['SITREP', 'HANDOVER', 'CLOSE'], HANDOVER_PENDING: ['HANDOVER_ACCEPTED', 'CLOSE'], CLOSED: [] };
 
 function isValidBallot(ballot) {
-  if (!ballot || !ballot.memberId || !ballot.decision) return false;
-  return Array.isArray(ballot.evidenceRefs) && ballot.evidenceRefs.length > 0;
+  if (!ballot || typeof ballot.memberId !== 'string' || !ballot.memberId.trim()) return false;
+  if (typeof ballot.decision !== 'string' || !ballot.decision.trim()) return false;
+  return Array.isArray(ballot.evidenceRefs)
+    && ballot.evidenceRefs.some((ref) => typeof ref === 'string' && ref.trim());
+}
+
+function consensusRoster(memberIds) {
+  if (!Array.isArray(memberIds) || !memberIds.length
+    || memberIds.some((id) => typeof id !== 'string' || !id.trim())
+    || new Set(memberIds).size !== memberIds.length) {
+    throw coded('Consensus requires a distinct, named member roster.', 'ATEAM_CONSENSUS_ROSTER_INVALID');
+  }
+  return new Set(memberIds);
+}
+
+function eligibleBallots(ballots, roster) {
+  const seen = new Set();
+  return ballots.filter((ballot) => {
+    if (!isValidBallot(ballot)) return false;
+    if (!roster.has(ballot.memberId)) throw coded('Consensus ballot is not from a team member.', 'ATEAM_CONSENSUS_MEMBER_UNKNOWN');
+    if (seen.has(ballot.memberId)) throw coded('Consensus member submitted multiple ballots.', 'ATEAM_CONSENSUS_DUPLICATE_BALLOT');
+    seen.add(ballot.memberId);
+    return true;
+  });
 }
 
 function tallyBallots(valid) {
@@ -35,10 +57,11 @@ function collectEvidence(valid) {
 }
 
 function evaluateConsensus(input = {}) {
-  const { protocol = {}, ballots = [] } = input;
+  const { protocol = {}, ballots = [], memberIds } = input;
   const quorum = Number(protocol.quorum);
   if (!Number.isInteger(quorum) || quorum < 1) throw coded('Consensus quorum must be a positive integer.', 'ATEAM_CONSENSUS_QUORUM_INVALID');
-  const valid = ballots.filter(isValidBallot);
+  const roster = consensusRoster(memberIds);
+  const valid = eligibleBallots(ballots, roster);
   const counts = tallyBallots(valid);
   const winner = pickWinner(counts);
   const dissent = valid.filter((ballot) => ballot.decision !== winner?.[0]);

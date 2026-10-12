@@ -90,9 +90,35 @@ async function case4(context) {
 
 }
 
+async function case5(context) {
+  const mission = { variant: 'expert_committee', consensusProtocol: { quorum: 2 },
+    ballots: [
+      { memberId: 'api', decision: 'approve', evidenceRefs: ['proof:api'] },
+      { memberId: 'outsider', decision: 'approve', evidenceRefs: ['proof:outsider'] }
+    ] };
+  await assert.rejects(runVariantTest('expert_committee', mission,
+    context.members.slice(0, 3), context.boundaries),
+  { code: 'ATEAM_CONSENSUS_MEMBER_UNKNOWN' });
+  context.passed++;
+}
+
+async function case6(context) {
+  const mission = { variant: 'expert_committee', consensusProtocol: { quorum: 2 },
+    ballots: [
+      { memberId: 'api', decision: 'approve', evidenceRefs: ['proof:first'] },
+      { memberId: 'api', decision: 'approve', evidenceRefs: ['proof:second'] }
+    ] };
+  await assert.rejects(runVariantTest('expert_committee', mission,
+    context.members.slice(0, 3), context.boundaries),
+  { code: 'ATEAM_CONSENSUS_DUPLICATE_BALLOT' });
+  context.passed++;
+}
+
 module.exports = async function run(context) {
   await case1(context);
   await case2(context);
   await case3(context);
   await case4(context);
+  await case5(context);
+  await case6(context);
 };

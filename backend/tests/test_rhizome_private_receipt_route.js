@@ -17,7 +17,7 @@ async function run() {
   assert.equal(planned.selected, true);
   assert.equal(planned.route.nodeIds.at(-1), 'a');
   await rhizome.recordRouteOutcome(session.sessionId, fx.makeReceipt({
-    route: planned.route, need, result: { answer: 42 }
+    sessionId: session.sessionId, route: planned.route, need, result: { answer: 42 }
   }), { trustedVerifierDigests: [fx.DIGEST], latencyMs: 1 });
   const valid = await rhizome.missionMetrics(session.sessionId, { needs: [need],
     trustedVerifierDigests: [fx.DIGEST] });

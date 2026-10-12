@@ -14,6 +14,17 @@ champs propres aux douze variants. La reprise exige un hôte quiescent ou fermé
 sans essai d'admission en cours. Les effets distants et d'outils restent en
 place. Voir la [référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
 
+## Autorité des preuves des variants
+
+Pour les missions des douze variants, un verdict `PASS` requiert deux
+vérificateurs distincts qui ne sont ni l'hôte (`hostId`) ni l'acteur ayant
+lancé l'exécution (`actorId`). Le préflight compte seulement ces identités
+admissibles. Le runner vérifie ensuite les identités effectivement rendues par
+`verifyMission`, les assertions et leurs références de preuve ; une réponse
+qui inclut l'hôte ou l'acteur reste `INCONCLUSIVE`. Cette règle s'ajoute au
+contrôle du résultat métier des opérations et à la preuve distincte requise
+pour arrêter la session. Voir l'[ADR 0461](../../adr/0461-verificateurs-independants-holobionte.md).
+
 ## 1. Définition
 
 Holobionte dans GenOS conserve un compositeur historique qui compose une mission en quatre rôles. Un second chemin, persistant, ouvre une session d’hôte, admet des symbiotes, choisit un résident selon la capacité demandée, exécute cette capacité et évalue l’état de santé. Le service de mission et Morphogenesis partagent ce runtime ; la composition historique demeure une description des rôles. Les modèles conceptuels de cette fiche ne constituent des garanties que lorsqu’un service et son intégration sont cités explicitement.

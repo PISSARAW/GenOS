@@ -22,11 +22,13 @@ async function execute(input) {
 }
 
 function operationContext(input) {
-  return { route: structuredClone(input.route.route), need: structuredClone(input.need), deadline: input.deadline };
+  return { sessionId: input.sessionId, route: structuredClone(input.route.route),
+    need: structuredClone(input.need), deadline: input.deadline };
 }
 
 function matchesExecution(input, checked) {
-  return checked.receipt.routeId === input.route.route.routeId && checked.receipt.needId === input.need.needId
+  return checked.receipt.sessionId === input.sessionId
+    && checked.receipt.routeId === input.route.route.routeId && checked.receipt.needId === input.need.needId
     && checked.receipt.capability === input.need.capability && checked.receipt.executionDigest === checked.executionDigest;
 }
 

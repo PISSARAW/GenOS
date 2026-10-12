@@ -39,6 +39,11 @@ async function main() {
     await db.close();
     db = await open({ filename, driver: sqlite3.Database });
     assert.equal(snapshotRef.topology, 'trinity');
+    const changedWorkers = { ...morphology, agents: [{ role: 'unsealed-worker' }] };
+    assert.equal(await gate.readBoundSnapshot(db, snapshotRef, changedWorkers), null);
+    const changedDecision = await gate.adjudicatePersistedOutcome({ db, missionId: 'mission-1',
+      morphology: changedWorkers, snapshotRef, outcome: { verdict: 'unverified', evidence: [] }, runner: fakeRust });
+    assert.equal(changedDecision.reason, 'SNAPSHOT_STALE_OR_MISMATCHED');
     const topologies = createTopologyRegistry().list();
     assert.equal(topologies.length, 8);
     for (const topology of topologies) {

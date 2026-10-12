@@ -44,13 +44,16 @@ async function testStreamAndConsensus() {
   })) items.push(value);
   assert.equal(items.length, 2);
 
-  const consensus = execution.evaluateConsensus({ protocol: { quorum: 2 }, ballots: [
+  const consensus = execution.evaluateConsensus({ protocol: { quorum: 2 }, memberIds: ['a', 'b', 'c'], ballots: [
     { memberId: 'a', decision: 'approve', evidenceRefs: ['e1'] },
     { memberId: 'b', decision: 'approve', evidenceRefs: ['e2'] },
     { memberId: 'c', decision: 'reject', evidenceRefs: ['e3'] }
   ] });
   assert.equal(consensus.status, 'CONSENSUS');
   assert.equal(consensus.dissent.length, 1);
+  assert.throws(() => execution.evaluateConsensus({ protocol: { quorum: 1 }, ballots: [
+    { memberId: 'a', decision: 'approve', evidenceRefs: ['e1'] }
+  ] }), { code: 'ATEAM_CONSENSUS_ROSTER_INVALID' });
 }
 
 function testAuthoritiesAndHandoffs() {

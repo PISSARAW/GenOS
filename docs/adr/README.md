@@ -574,6 +574,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0451](0451-portee-budget-modele-runtime-local-sous-processus.md) | Portée de budget modèle dans le runtime local en sous-processus | accepté pour le runtime `local-codex-runtime.cjs` | 2026-10-12 | budget de mission et exécution déléguée |
 | [0452](0452-execution-procedure-mission.md) | Exécution de procédures promues dans une mission | Voir le fichier | -- | -- |
 | [0453](0453-budget-partage-des-runtimes-modeles-externes.md) | Budget partagé des runtimes modèles externes | Voir le fichier | -- | -- |
+| [0460](0460-quorum-lie-aux-membres-expert-committee.md) | Quorum lié aux membres d'Expert Committee | Accepté | 2026-10-12 | A-Team, variant `expert_committee`, consensus |
+| [0461](0461-verificateurs-independants-holobionte.md) | Exclure l'hôte et l'acteur des vérificateurs de mission Holobionte | Accepté | 2026-10-12 | Holobionte, douze variants, autorité des preuves |
+| [0462](0462-lier-recu-route-session-rhizome.md) | Lier les reçus de route Rhizome à leur session | Accepté | 2026-10-12 | Rhizome, preuves, isolation des missions |
+| [0463](0463-lier-workers-au-graphe-prepare-morphogenese.md) | Lier les workers au graphe préparé Morphogenèse | Accepté | 2026-10-12 | morphogenèse, preuve consultative, graphe préparé |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

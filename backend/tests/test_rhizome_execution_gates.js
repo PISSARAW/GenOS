@@ -14,7 +14,7 @@ process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'rhizome-execution-gates-test';
 async function executionBinding() {
   const need = { needId: 'answer', capability: 'answer' };
   const route = { route: { routeId: 'route:answer:tool', nodeIds: ['tool'], edgeIds: [] } };
-  const input = { need, route, execute: async () => ({ answer: 42 }) };
+  const input = { sessionId: 'execution-binding-test', need, route, execute: async () => ({ answer: 42 }) };
   const valid = await action.execute({ ...input, verify: fx.makeReceipt });
   assert.equal(valid.status, 'VERIFIED');
   const forged = await action.execute({ ...input, verify: context => fx.makeReceipt({ ...context, executionDigest: results.capture({ answer: 0 }).executionDigest }) });

@@ -57,11 +57,10 @@ module.exports = {
     this.recordEvidence('consensus_protocol', { protocol: policy });
 
     const ballots = this.mission.ballots || [];
-    const validBallots = ballots.filter(b => b.memberId && b.decision && Array.isArray(b.evidenceRefs) && b.evidenceRefs.length > 0);
+    const memberIds = expertiseMatrix.map((member) => member.memberId);
+    this.recordEvidence('ballots_received', { total: ballots.length });
 
-    this.recordEvidence('ballots_received', { total: ballots.length, valid: validBallots.length });
-
-    const consensus = evaluateConsensus({ protocol: policy, ballots: validBallots });
+    const consensus = evaluateConsensus({ protocol: policy, ballots, memberIds });
     this.recordDecision('consensus', consensus);
 
     if (consensus.status !== 'CONSENSUS') {

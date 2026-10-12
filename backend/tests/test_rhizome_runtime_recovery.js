@@ -29,7 +29,7 @@ function makeEdge(edgeId, route, conductivity) {
 function receipt(route, need, checked) {
   const { outcome, executionDigest } = checked;
   const value = {
-    routeId: route.route.routeId, needId: need.needId, capability: need.capability,
+    sessionId: checked.sessionId, routeId: route.route.routeId, needId: need.needId, capability: need.capability,
     nodeIds: route.route.nodeIds, edgeIds: route.route.edgeIds, outcome, executionDigest,
     verification: { verificationId: `verify-${outcome}`, verifierId: 'independent', result: outcome, status: 'VERIFIED', evidenceRefs: [`evidence:${outcome}`] }
   };
@@ -48,7 +48,8 @@ async function run() {
   const result = await runtime.tick({
     sessionId: session.sessionId, need, trustedVerifierDigests: ['trusted-recovery-verifier'],
     execute: async ({ route }) => ({ routeId: route.routeId }),
-    verify: async ({ route, executionDigest }) => receipt({ route }, need, { executionDigest, outcome: attempts++ === 0 ? 'FAILURE' : 'SUCCESS' })
+    verify: async ({ sessionId, route, executionDigest }) => receipt({ route }, need,
+      { sessionId, executionDigest, outcome: attempts++ === 0 ? 'FAILURE' : 'SUCCESS' })
   });
   assert.equal(result.status, 'ROUTE_RECOVERED');
   assert.equal(attempts, 2);
@@ -61,9 +62,9 @@ async function run() {
   const timed = { sessionId: timedSession.sessionId, need,
     deadline: Date.now() + 30000, trustedVerifierDigests: ['trusted-recovery-verifier'],
     execute: async ({ route }) => { executions += 1; return { routeId: route.routeId }; } };
-  timed.verify = async ({ route, executionDigest }) => {
+  timed.verify = async ({ sessionId, route, executionDigest }) => {
     timed.deadline = Date.now() - 1;
-    return receipt({ route }, need, { executionDigest, outcome: 'FAILURE' });
+    return receipt({ route }, need, { sessionId, executionDigest, outcome: 'FAILURE' });
   };
   const expired = await runtime.tick(timed);
   assert.equal(expired.status, 'ROUTE_RETRY_UNVERIFIED');

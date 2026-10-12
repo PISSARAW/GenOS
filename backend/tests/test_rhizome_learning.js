@@ -7,6 +7,7 @@ const verifierReceipts = require('../src/services/epistemicVerifierReceiptServic
 
 function session() {
   return {
+    sessionId: 'learning-test',
     graphVersion: 1,
     nodes: [{ nodeId: 'source', capabilities: [], state: 'ACTIVE' },
       { nodeId: 'middle', capabilities: [], state: 'ACTIVE' }, { nodeId: 'target', capabilities: ['verify'], state: 'ACTIVE' }],
@@ -19,7 +20,7 @@ function session() {
 
 function receipt(outcome = 'SUCCESS') {
   const value = {
-    routeId: 'route:n1:first/second', needId: 'n1', capability: 'verify',
+    sessionId: 'learning-test', routeId: 'route:n1:first/second', needId: 'n1', capability: 'verify',
     nodeIds: ['source', 'middle', 'target'], edgeIds: ['first', 'second'], outcome,
     verification: {
       verificationId: 'verification-1', verifierId: 'independent-verifier', status: 'VERIFIED', result: outcome,

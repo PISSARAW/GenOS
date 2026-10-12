@@ -295,6 +295,28 @@ de missions représentatives pour les 95 variants canoniques.
   campagne nominale réelle des douze variants reste à exécuter
   ([ADR 0448](../../adr/0448-liaison-monde-promu-candidat-trinity.md)).
 
+### Onzième vague — 2026-10-12
+
+- Common lie le graphe préparé à la liste complète des workers demandés. Une
+  modification des rôles ou de la composition rend le snapshot caduc et empêche
+  son usage dans l'adjudication persistée. APPLY reste fermé sans snapshot
+  collectif restaurable ni commit CAS attesté
+  ([ADR 0463](../../adr/0463-lier-workers-au-graphe-prepare-morphogenese.md)).
+- A-Team `expert_committee` calcule le quorum sur les membres distincts du
+  comité et refuse les bulletins extérieurs ou répétés. L'identité réelle des
+  auteurs et les références de preuve restent à authentifier
+  ([ADR 0460](../../adr/0460-quorum-lie-aux-membres-expert-committee.md)).
+- Holobionte exclut l'hôte et l'acteur du collège des vérificateurs
+  indépendants au préflight et au verdict. Une mission sans collège suffisant
+  demeure inconclusive et sa session active
+  ([ADR 0461](../../adr/0461-verificateurs-independants-holobionte.md)).
+- Rhizome lie les reçus de route signés à leur session. Un reçu valide dans une
+  session ne qualifie pas les métriques d'une autre, même si le graphe est
+  identique. L'identifiant de session est généré par le runtime pour empêcher
+  sa réutilisation volontaire après fermeture. Les anciens reçus sans cette
+  liaison restent historiques
+  ([ADR 0462](../../adr/0462-lier-recu-route-session-rhizome.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Onzième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#onzième-vague--2026-10-12) — graphe préparé lié aux workers, quorum Expert Committee, vérificateurs Holobionte indépendants et reçus Rhizome liés à la session ; [ADR 0460](adr/0460-quorum-lie-aux-membres-expert-committee.md) à [0463](adr/0463-lier-workers-au-graphe-prepare-morphogenese.md).
+
 - [Dixième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#dixième-vague--2026-10-12) — manifeste snapshot scellé, quiescence Métapopulation, résolution Forecasting Crowd et monde promu Trinity ; [ADR 0445](adr/0445-refus-des-champs-non-scelles-snapshot-topologique.md) à [0448](adr/0448-liaison-monde-promu-candidat-trinity.md).
 
 - [Neuvième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#neuvième-vague--2026-10-12) — atomicité du reçu consultatif, route Rhizome courante, révision speculative Syncytium et filiation Quality-Diversity Biome ; [ADR 0441](adr/0441-atomicite-recu-consultatif-morphogenese.md) à [0444](adr/0444-enfants-depuis-elites-admises-biome.md).
