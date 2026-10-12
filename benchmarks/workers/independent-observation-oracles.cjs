@@ -2,12 +2,10 @@
 
 const { createHash } = require('node:crypto');
 
-function digest(value) {
-  return `solver://sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
-}
-
-function receiptMatches({ testCase, execution, content, key }) {
-  const expectedId = digest({ methodContract: testCase.methodContract, content });
+function receiptMatches({ testCase, execution, content, key, canonicalize = false }) {
+  const payload = { methodContract: testCase.methodContract, content };
+  const serialized = canonicalize ? canonical(payload) : JSON.stringify(payload);
+  const expectedId = `solver://sha256:${createHash('sha256').update(serialized).digest('hex')}`;
   return execution.receipt?.id === expectedId && execution.result?.[key]?.id === expectedId;
 }
 
@@ -25,7 +23,8 @@ function verifyScout(testCase, execution) {
   const content = { observations: result.observations, scannedSources: result.scannedSources,
     termCount: result.termCount };
   return observationsMatch && JSON.stringify(result.scannedSources) === JSON.stringify(refs)
-    && result.termCount === terms.length && receiptMatches({ testCase, execution, content, key: 'scoutReceipt' });
+    && result.termCount === terms.length && receiptMatches({ testCase, execution, content,
+      key: 'scoutReceipt', canonicalize: true });
 }
 
 function scoutObservationMatches(item, expected) {
@@ -51,7 +50,7 @@ function verifyForensic(testCase, execution) {
   const content = { causalChain: result.causalChain, evidence: result.evidence,
     unlinkedEvents: result.unlinkedEvents, interpretation: result.interpretation };
   return result.interpretation?.includes('unverified')
-    && receiptMatches({ testCase, execution, content, key: 'forensicReceipt' });
+    && receiptMatches({ testCase, execution, content, key: 'forensicReceipt', canonicalize: true });
 }
 
 function validIndices(indices, values) {
@@ -91,6 +90,13 @@ function validTeachingPacket(result, prerequisites) {
     && Array.isArray(result.steps) && result.steps.length > 0
     && result.steps.every((step) => typeof step === 'string' && Boolean(step.trim()))
     && result.evidence?.[0] === result.procedureReceipt?.id;
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort()
+    .map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
 }
 
 module.exports = { verifyScout, verifyForensic, verifyTeaching };

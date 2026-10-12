@@ -9,19 +9,28 @@ async function readExecutionRun(db, execution) {
   return db.get('SELECT status,guardrail_reason FROM strategy_execution_runs WHERE id = ?', execution.executionRun.id);
 }
 
-async function wasRuntimeStarted(db, workerId, execution) {
-  if (execution?.started === true) return true;
-  const row = await db.get("SELECT 1 AS started FROM telemetry_events WHERE agent_id = ? AND event_type = 'DETERMINISTIC_WORKER_STARTED' LIMIT 1", workerId);
-  return row?.started === 1;
-}
-
 async function inspectOracle(db, execution, workerId) {
   if (!execution?.deterministic || !execution?.executionRun?.id) return { status: 'not_applicable' };
-  const checked = await require('../src/services/epistemic/nativeOracleInspection').inspect(db,
-    { runId: execution.executionRun.id, agentId: workerId });
+  const request = { runId: execution.executionRun.id, agentId: workerId };
+  const checked = await require('../src/services/epistemic/nativeOracleInspection').inspect(db, request);
+  const postconditions = await oraclePostconditions(db, request);
   return { status: checked.status, processes: checked.costs?.processes || 0,
     complete: checked.costs?.complete === true, decisionStatus: checked.decision?.status || null,
-    decisionHash: checked.decision?.hash || null };
+    decisionHash: checked.decision?.hash || null, postconditions };
+}
+
+async function oraclePostconditions(db, request) {
+  const provenance = require('../src/services/gvxMissionProvenance');
+  const scope = await provenance.agentScope(db, request.agentId);
+  const record = await require('../src/services/epistemic/nativeOracleJournal').read(db,
+    { ...request, scope, kind: 'attestation' });
+  if (!record?.value.assemblyId) return [];
+  const saved = await require('../src/services/aeisAssemblyStore').readAssembly(db, record.value.assemblyId);
+  return (saved.evaluation.assembly.verifications || []).map((receipt) => ({
+    strategy: receipt.executionEvidence?.[0]?.postconditions?.strategy || null,
+    status: receipt.executionEvidence?.[0]?.postconditions?.status || null,
+    reason: receipt.executionEvidence?.[0]?.postconditions?.reason || null
+  }));
 }
 
 function oracleAccepted(execution, oracle) {
@@ -32,8 +41,26 @@ function oracleAccepted(execution, oracle) {
 
 function missionError({ passed, artifactValidationError, execution, report, eventPayload }) {
   if (passed) return null;
-  return eventPayload.failure?.reason || artifactValidationError || execution?.error || report?.error
+  return eventPayload.failure?.reason || execution?.error || report?.error || artifactValidationError
     || 'Positive evidence or expected refusal scenarios did not satisfy the contract.';
+}
+
+function assertModelAvailable(input) {
+  if (input.model || input.hasNativeMethod(input.kind)) return;
+  throw new Error('Set GENOS_LOCAL_MODEL to an explicitly selected local model URI.');
+}
+
+function deterministicMissionReference(input) {
+  const { kind, report } = input;
+  if (kind === 'bounded_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_BOUNDED === '1') {
+    return input.solverReference(report?.workerArtifact?.content?.procedureReceipt?.id);
+  }
+  if (kind === 'procedural_executor') return input.solverReference(report?.workerArtifact?.content?.procedureReceipt?.id);
+  if (kind === 'formal_worker') return input.solverReference(report?.workerArtifact?.content?.solverReceipt?.id);
+  if (kind === 'verifier_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER === '1') {
+    return input.solverReference(report?.workerArtifact?.content?.expectedReceipt?.id);
+  }
+  return null;
 }
 
 function successfulOutcome(result) {
@@ -64,5 +91,6 @@ function saveResult(result) {
   fs.renameSync(temporary, reportPath);
 }
 
-module.exports = { readExecutionRun, inspectOracle, oracleAccepted, missionError, wasRuntimeStarted,
+module.exports = { readExecutionRun, inspectOracle, oracleAccepted, missionError,
+  assertModelAvailable, deterministicMissionReference,
   successfulOutcome, saveResult };

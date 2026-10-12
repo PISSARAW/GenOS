@@ -4,6 +4,7 @@ const { promisify } = require('node:util');
 
 function openDatabase(filename = ':memory:') {
   const raw = new sqlite3.Database(filename);
+  raw.configure('busyTimeout', Math.max(1000, Number(process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS) || 30000));
   return {
     exec: sql => promisify(raw.exec.bind(raw))(sql),
     get: (sql, ...params) => promisify(raw.get.bind(raw))(sql, ...flatten(params)),

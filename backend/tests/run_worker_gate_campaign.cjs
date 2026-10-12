@@ -25,15 +25,26 @@ const FLAGS = Object.freeze({
   GENOS_COMPLIANCE_DETERMINISTIC_MEDICAL: '1'
 });
 
+function leanVersion() {
+  const executable = process.env.GENOS_LEAN_EXECUTABLE || 'lean';
+  const checked = spawnSync(executable, ['--version'], { encoding: 'utf8', windowsHide: true });
+  return checked.status === 0 ? checked.stdout.trim() : '';
+}
+
 function environment(root, kind, runId) {
   const secret = () => crypto.randomBytes(32).toString('hex');
-  return { ...process.env, ...FLAGS, GENOS_DISABLE_DOTENV: '1', GENOS_SKIP_BOOT_DB_BACKUP: '1',
+  const codeWorker = process.env.GENOS_COMPLIANCE_BOUNDED_CODE === '1' && kind === 'bounded_worker';
+  return { ...process.env, ...FLAGS,
+    GENOS_COMPLIANCE_DETERMINISTIC_BOUNDED: codeWorker ? '0' : '1',
+    GENOS_COMPLIANCE_BOUNDED_CODE: codeWorker ? '1' : '0',
+    GENOS_ALLOW_LOCAL_CODE_WORKERS: codeWorker ? '1' : '0', GENOS_DISABLE_DOTENV: '1', GENOS_SKIP_BOOT_DB_BACKUP: '1',
     GENOS_COMPLIANCE_PERCEPTION: '0', GENOS_COMPLIANCE_ROOT: root,
     GENOS_DB_PATH: path.join(root, 'workers.db'),
     GENOS_WORKSPACE_ROOT: path.join(root, 'workspaces'),
     GENOS_CAPSULE_ROOT: path.join(root, 'capsules'),
     GENOS_STUDIO_ROOT: path.join(root, 'studio'), GENOS_ADMIN_PASSWORD: secret(),
     GENOS_EPISTEMIC_RECEIPT_SECRET: secret(), GENOS_GVX_LEDGER_HMAC_SECRET: secret(),
+    GENOS_COMPLIANCE_LEAN_VERSION: process.env.GENOS_COMPLIANCE_LEAN_VERSION || leanVersion(),
     GENOS_COMPLIANCE_KIND: kind, GENOS_COMPLIANCE_RUN_ID: runId };
 }
 

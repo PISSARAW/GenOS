@@ -4,15 +4,13 @@
 
 - [Onzième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#onzième-vague--2026-10-12) — graphe préparé lié aux workers, quorum Expert Committee, vérificateurs Holobionte indépendants et reçus Rhizome liés à la session ; [ADR 0460](adr/0460-quorum-lie-aux-membres-expert-committee.md) à [0463](adr/0463-lier-workers-au-graphe-prepare-morphogenese.md).
 
+- [Génération locale de propositions de code worker](adr/0464-generation-locale-de-propositions-de-code-worker.md) — bail d’écriture, budget parent et limite de qualification au reçu biologique.
+
 - [Dixième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#dixième-vague--2026-10-12) — manifeste snapshot scellé, quiescence Métapopulation, résolution Forecasting Crowd et monde promu Trinity ; [ADR 0445](adr/0445-refus-des-champs-non-scelles-snapshot-topologique.md) à [0448](adr/0448-liaison-monde-promu-candidat-trinity.md).
 
 - [Neuvième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#neuvième-vague--2026-10-12) — atomicité du reçu consultatif, route Rhizome courante, révision speculative Syncytium et filiation Quality-Diversity Biome ; [ADR 0441](adr/0441-atomicite-recu-consultatif-morphogenese.md) à [0444](adr/0444-enfants-depuis-elites-admises-biome.md).
 
-- [Huitième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#huitième-vague--2026-10-11) — sources de reçus Morphogenèse append-only, statut planifié A-Team, rapports Trinity et bail d'outil Holobionte ; [ADR 0437](adr/0437-immutabilite-sources-recu-morphogenese.md) à [0440](adr/0440-bail-outil-immuable-holobionte.md).
-
-- [Septième vague des variants](02-orchestration/topologies/plan-implementation-variants.md#septième-vague--2026-10-11) — horloges Edge Sync, deadline des routes Rhizome, identité du daemon Métapopulation et réconciliation des actions Biocénose ; [ADR 0434](adr/0434-deadline-des-reprises-de-route-rhizome.md), [0435](adr/0435-identite-du-daemon-planifie-metapopulation.md) et [0436](adr/0436-reconciliation-actions-ecologiques-biocenose.md).
-
-- [Sixième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#sixième-vague--2026-10-11) — chaîne Relay Team, journal Trinity, refus de transition collective, horloge des baux Syncytium et preuves locales Biome ; [ADR 0428](adr/0428-chaine-de-transferts-relay-team-a-team.md) à [0432](adr/0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md).
+- [Issue des missions : qualification du but](06-qualite-preuves/qualification-issue-mission.md) — obligations, oracle, falsification et limites ; [ADR 0420a](adr/0420-contrat-issue-mission.md).
 
 - [Cinquième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#cinquième-vague--2026-10-11) — fermeture du commit V2, sous-runs A-Team, qualification Trinity, consentement Syncytium et reçus Biocénose ; [ADR 0423](adr/0423-fermeture-mode-commit-v2-morphogenese.md) à [0427](adr/0427-recus-signes-hybrid-oracle-biocenose.md).
 
@@ -178,8 +176,6 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [exploitation-shev.md](03-reference/exploitation-shev.md) — commandes opérateur, signatures, fournisseurs et diagnostic de SHEV.
 - [g-cir.md](02-orchestration/g-cir.md) — interface cognitive résiduelle, registre d'obligations, visibilité, validation et limites.
 - [architecture-survie.md](02-orchestration/architecture-survie.md) — état de survie mesurable et politiques de continuité bornées.
-- [Qualification régulation et ressources](02-orchestration/qualification-regulation-ressources-orchestrate.md) — preuves restantes pour recharge externe et planification complète.
-- [Plan de mise en oeuvre de la régulation complète](02-orchestration/plan-implementation-regulation-ressources-orchestrate.md) — réalisation par lots et critères de sortie.
 - [regulation-multi-boucles.md](02-orchestration/regulation-multi-boucles.md) — régulation multi-boucles, signaux et arbitrage.
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.
 - [ontogenese-boucle.md](02-orchestration/ontogenese-boucle.md) — boucle Observer → réévaluer : sélection, autorisation, réveils, notifications.
@@ -279,6 +275,7 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-positionnement/README.md](07-positionnement/README.md)
 
 - [audit-affirmations-operationnelles.md](06-qualite-preuves/audit-affirmations-operationnelles.md) — audit code/documentation des contrats, routes, MCP, sécurité, persistance et reprise.
+- [qualification-workers.md](06-qualite-preuves/qualification-workers.md) — critères C0–C4 et campagnes de missions workers avec preuves et limites ; [ADR 0399](adr/0399-oracles-observation-workers-bornes.md), [ADR 0400](adr/0400-oracles-workers-deterministes-structures.md), [ADR 0401](adr/0401-oracle-formel-lean-borné.md) et [ADR 0402](adr/0402-oracles-workers-recuperation-et-passation.md).
 - [plan-implementation-gvx.md](06-qualite-preuves/plan-implementation-gvx.md) — avancement des lots GVX et état des preuves attendues.
 - [validation-cycle-standard-gvx.md](06-qualite-preuves/validation-cycle-standard-gvx.md) — tests exécutés au commit `ac3423cb` et limites de leur portée.
 
@@ -720,7 +717,6 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0415 — Qualification nominale Trinity sur traces durables](adr/0415-qualification-nominale-trinity-sur-traces-durables.md).
 - [ADR 0416 — Propositions Rust liées au snapshot de morphologie](adr/0416-propositions-rust-liees-snapshot-morphologie.md).
 - [ADR 0417 — Liaison des reçus Hybrid Oracle Biocénose](adr/0417-liaison-recus-hybrid-oracle-biocenose.md).
-- [ADR 0395 — Régulation supervisée des workers natifs](adr/0395-regulation-supervisee-workers-natifs.md)
 - [ADR 0420 — Contrat d'issue de mission](adr/0420-contrat-issue-mission.md).
 - [ADR 0428 — Journal des tentatives modèle](adr/0428-journal-des-tentatives-modele.md).
 - [ADR 0429 — Réutilisation procédurale validée](adr/0429-reutilisation-procedurale-validee.md).
@@ -739,8 +735,3 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0450 — Liaison entre sortie modèle et oracle indépendant](adr/0450-liaison-sortie-modele-oracle-independant.md).
 - [ADR 0451 — Budget modèle du runtime local en sous-processus](adr/0451-portee-budget-modele-runtime-local-sous-processus.md).
 - [ADR 0452 — Exécution de procédure en mission](adr/0452-execution-procedure-mission.md).
-- [ADR 0453 — Budget partagé des runtimes modèles externes](adr/0453-budget-partage-des-runtimes-modeles-externes.md).
-- [ADR 0454 — Oracle natif pour réponse modèle mesurée](adr/0454-oracle-natif-pour-reponse-modele-mesuree.md).
-- [ADR 0455 — Refus du budget partagé Codex CLI sans reçu USD](adr/0455-refus-budget-partage-codex-cli-sans-recu-usd.md).
-- [ADR 0456 — Transport natif et comparaison des cycles de communication](adr/0456-transport-natif-et-comparaison-cycles-communication.md).
-- [ADR 0457 — Ingestion du routeur après clôture vérifiée du worker](adr/0457-ingestion-routeur-cloture-worker-verifiee.md).

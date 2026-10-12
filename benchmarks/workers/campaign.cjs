@@ -17,7 +17,7 @@ async function score(testCase, execution) {
   if (verification) return verification;
   const value = testCase.oracle.path.split('.').reduce((item, key) => item?.[key], execution.result);
   if (value !== testCase.oracle.equals) return 'failed';
-  if (!validReceipt(execution.receipt)) return 'unverified';
+  if (!validExecutionReceipt(testCase, execution)) return 'unverified';
   return 'passed';
 }
 
@@ -29,14 +29,53 @@ async function verifyExecution(testCase, execution) {
 }
 
 async function verifyNativeExecution(testCase, execution) {
-  if (['red_worker', 'experimental_worker', 'synthesis_worker', 'resident_daemon',
-    'forensic_worker', 'scout_cell', 'teaching_worker'].includes(testCase.workerKind)) {
-    return verifiedSpecialized(testCase, execution) ? null : 'failed';
+  if (testCase.id === 'bounded-code') {
+    return require('./bounded-code-oracle.cjs').verify(testCase, execution) ? null : 'failed';
   }
-  if (testCase.workerKind === 'procedural_executor' && !verifiedProcedure(testCase, execution)) return 'failed';
-  if (testCase.workerKind === 'verifier_worker' && !verifiedVerification(testCase, execution)) return 'failed';
-  if (testCase.workerKind === 'formal_worker' && !(await verifiedFormalReceipt(testCase, execution))) return 'unverified';
+  const outcome = await resolveNativeOracle(testCase, execution);
+  if (outcome === true) return null;
+  if (outcome === false) return 'failed';
+  if (outcome === 'unverified') return 'unverified';
   return null;
+}
+
+async function resolveNativeOracle(testCase, execution) {
+  if (testCase.id === 'code-postconditions') return verifyStructured(testCase, execution);
+  if (isArithmeticCase(testCase)) return verifyArithmetic(testCase, execution);
+  if (hasStructuredOracle(testCase.workerKind)) return verifyStructured(testCase, execution);
+  if (hasSpecializedOracle(testCase.workerKind)) return verifiedSpecialized(testCase, execution);
+  return verifyMethodOracle(testCase, execution);
+}
+
+function verifyStructured(testCase, execution) {
+  return require('./independent-structured-oracles.cjs').verify(testCase, execution);
+}
+
+function verifyArithmetic(testCase, execution) {
+  return require('./independent-structured-oracles.cjs').verifyArithmetic(testCase, execution);
+}
+
+function isArithmeticCase(testCase) {
+  return testCase.workerKind === 'formal_worker' && testCase.methodContract?.methodId === 'check_arithmetic';
+}
+
+function hasSpecializedOracle(kind) {
+  return ['red_worker', 'experimental_worker', 'synthesis_worker', 'resident_daemon',
+    'forensic_worker', 'scout_cell', 'teaching_worker'].includes(kind);
+}
+
+async function verifyMethodOracle(testCase, execution) {
+  if (testCase.workerKind === 'procedural_executor') return verifiedProcedure(testCase, execution);
+  if (testCase.workerKind === 'verifier_worker') return verifiedVerification(testCase, execution);
+  if (testCase.workerKind === 'formal_worker') {
+    return await verifiedFormalReceipt(testCase, execution) ? true : 'unverified';
+  }
+  return null;
+}
+
+function hasStructuredOracle(kind) {
+  return ['adaptive_worker', 'specialist', 'symbiotic_worker', 'creative_worker', 'bounded_worker',
+    'medical_worker', 'recovery_worker', 'liaison_worker', 'sub_orchestrator'].includes(kind);
 }
 
 function verifiedSpecialized(testCase, execution) {
@@ -91,6 +130,12 @@ function verifiedMonitor(testCase, execution) {
 
 function validReceipt(receipt) {
   return typeof receipt?.id === 'string' && /^(solver|agent):\/\/sha256:[a-f0-9]{64}$/.test(receipt.id);
+}
+
+function validExecutionReceipt(testCase, execution) {
+  if (testCase.id === 'bounded-code') return require('./bounded-code-oracle.cjs')
+    .biologicalReceiptValid(execution.receipt, execution.result?.mission);
+  return validReceipt(execution.receipt);
 }
 
 function verifiedProcedure(testCase, execution) {

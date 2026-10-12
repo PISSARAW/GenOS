@@ -9,6 +9,13 @@ const { spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(__dirname, 'run_worker_compliance_missions.cjs');
+const LEAN = leanRuntime();
+
+function leanRuntime() {
+  const executable = process.env.GENOS_LEAN_EXECUTABLE || 'lean';
+  const checked = spawnSync(executable, ['--version'], { encoding: 'utf8', windowsHide: true });
+  return checked.status === 0 ? { executable, version: checked.stdout.trim() } : { executable: '', version: '' };
+}
 
 function isolatedEnvironment(root) {
   const secret = () => crypto.randomBytes(32).toString('hex');
@@ -19,7 +26,17 @@ function isolatedEnvironment(root) {
     GENOS_STUDIO_ROOT: path.join(root, 'studio'),
     GENOS_ADMIN_PASSWORD: secret(), GENOS_EPISTEMIC_RECEIPT_SECRET: secret(),
     GENOS_GVX_LEDGER_HMAC_SECRET: secret(), GENOS_COMPLIANCE_DETERMINISTIC_BOUNDED: '1',
-    GENOS_COMPLIANCE_LEAN_VERSION: '', GENOS_COMPLIANCE_PERCEPTION: '0',
+    GENOS_COMPLIANCE_DETERMINISTIC_SCOUT: '1', GENOS_COMPLIANCE_DETERMINISTIC_MONITOR: '1',
+    GENOS_COMPLIANCE_DETERMINISTIC_FORENSIC: '1', GENOS_COMPLIANCE_DETERMINISTIC_EXPERIMENT: '1',
+    GENOS_COMPLIANCE_DETERMINISTIC_SYNTHESIS: '1', GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER: '1',
+    GENOS_COMPLIANCE_DETERMINISTIC_RED: '1', GENOS_COMPLIANCE_DETERMINISTIC_TEACHING: '1',
+    GENOS_COMPLIANCE_DETERMINISTIC_RECOVERY: '1', GENOS_COMPLIANCE_DETERMINISTIC_HANDOFF: '1',
+    GENOS_COMPLIANCE_DETERMINISTIC_SUBORCH: '1',
+    GENOS_COMPLIANCE_DETERMINISTIC_ADAPTIVE: '1', GENOS_COMPLIANCE_DETERMINISTIC_SPECIALIST: '1',
+    GENOS_COMPLIANCE_DETERMINISTIC_SYMBIOTIC: '1', GENOS_COMPLIANCE_DETERMINISTIC_CREATIVE: '1',
+    GENOS_COMPLIANCE_DETERMINISTIC_MEDICAL: '1',
+    GENOS_COMPLIANCE_LEAN_VERSION: LEAN.version, GENOS_LEAN_EXECUTABLE: LEAN.executable,
+    GENOS_COMPLIANCE_PERCEPTION: '0',
     GENOS_LOCAL_MODEL: '' };
 }
 
@@ -84,12 +101,48 @@ function runIsolated(kind) {
 }
 
 function main() {
+  const formal = runIsolated('formal_worker');
+  if (LEAN.version) assertPromoted(formal);
+  else assertRefused(formal);
   const promoted = runIsolated('bounded_worker');
   assertPromoted(promoted);
-  const refused = runIsolated('formal_worker');
-  assertRefused(refused);
-  console.log(JSON.stringify({ milestone: 'P2', benchmarkDigest: promoted.benchmarkDigest,
-    missions: [promoted, refused].map(({ exitCode, result }) => ({ runId: result.runId,
+  const procedural = runIsolated('procedural_executor');
+  assertPromoted(procedural);
+  const scout = runIsolated('scout_cell');
+  assertPromoted(scout);
+  const daemon = runIsolated('resident_daemon');
+  assertPromoted(daemon);
+  const forensic = runIsolated('forensic_worker');
+  assertPromoted(forensic);
+  const experiment = runIsolated('experimental_worker');
+  assertPromoted(experiment);
+  const synthesis = runIsolated('synthesis_worker');
+  assertPromoted(synthesis);
+  const verifier = runIsolated('verifier_worker');
+  assertPromoted(verifier);
+  const red = runIsolated('red_worker');
+  assertPromoted(red);
+  const teaching = runIsolated('teaching_worker');
+  assertPromoted(teaching);
+  const recovery = runIsolated('recovery_worker');
+  assertPromoted(recovery);
+  const liaison = runIsolated('liaison_worker');
+  assertPromoted(liaison);
+  const subOrchestrator = runIsolated('sub_orchestrator');
+  assertPromoted(subOrchestrator);
+  const adaptive = runIsolated('adaptive_worker');
+  assertPromoted(adaptive);
+  const specialist = runIsolated('specialist');
+  assertPromoted(specialist);
+  const symbiotic = runIsolated('symbiotic_worker');
+  assertPromoted(symbiotic);
+  const creative = runIsolated('creative_worker');
+  assertPromoted(creative);
+  const medical = runIsolated('medical_worker');
+  assertPromoted(medical);
+  console.log(JSON.stringify({ milestone: 'native-worker-oracles', benchmarkDigest: promoted.benchmarkDigest,
+    missions: [formal, promoted, procedural, scout, daemon, forensic, experiment, synthesis, verifier, red,
+      teaching, recovery, liaison, subOrchestrator, adaptive, specialist, symbiotic, creative, medical].map(({ exitCode, result }) => ({ runId: result.runId,
       kind: result.kind, exitCode, status: result.status, terminalEvent: result.terminalEvent,
       executionRunBound: result.executionRunBound, artifactValidated: result.artifactValidated,
       oracleAccepted: result.oracleAccepted, oracle: result.oracle, errorCode: result.errorCode })) }));

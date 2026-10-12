@@ -1,33 +1,45 @@
 # Campagne comparative des workers
 
-Le jeu contient 20 cas couvrant les 19 types de workers. Onze cas disposent
-d'un oracle automatique : LPT, `subset_sum`, une vérification indépendante
-de reçu de procédure, une falsification adversariale du même type de reçu,
-une mesure expérimentale du makespan, une synthèse structurée de désaccord,
-une fenêtre de surveillance numérique, une reconstruction de liens déclarés,
-une recherche littérale dans un texte fourni, un contrôle de transfert
-de `subset_sum`
-et un théorème arithmétique Lean.
-Les autres cas définissent des tâches, mais n'ont pas encore d'oracle métier
-indépendant. Leur résultat est toujours `unmeasured`, même si un adaptateur
-retourne `executed`. Une référence de preuve fournie par un adaptateur ne
-suffit pas à certifier une capacité.
+Le jeu contient 24 cas couvrant les 19 types de workers. Les 24 cas disposent
+d'un oracle : LPT, procédure bornée, `subset_sum`, vérification et falsification
+de reçu, vérification de code, arithmétique exacte et Lean, mesure expérimentale,
+synthèse de désaccord, surveillance numérique, reconstruction de liens déclarés,
+recherche littérale, transfert enseigné, adaptation LPT, niche et capacité hôte,
+combinaison créative, revue éducative synthétique, restauration de checkpoint,
+préparation de passation, délégation multi-enfant et correction de code bornée.
+`bounded-code` lance une mission worker Ollama réelle; son oracle relit le reçu
+biologique, l'acceptation du quorum natif, les tests exécutés et les deux
+stratégies qui couvrent 264 cas chacune. Sans `GENOS_LOCAL_MODEL` pointant vers
+un modèle Ollama, cette case reste `unmeasured`. Une référence fournie par un
+adaptateur ne suffit pas à certifier une capacité.
 
 Les cas `scout-source`, `forensic-chain` et `teaching-transfer` contrôlent
-leurs invariants dans un module d'oracle séparé des exécuteurs. Les autres
-cas spécialisés utilisent encore un recalcul par le même module GenOS ; leur
-validation ne doit pas être présentée comme indépendante de l'implémentation.
+leurs invariants dans un module d'oracle séparé des exécuteurs. Les huit cas
+structurés ajoutés emploient aussi des parcours indépendants dans
+`independent-structured-oracles.cjs`; `bounded-code` dispose de son oracle
+`bounded-code-oracle.cjs`. Le code borné est contrôlé sur 264 entrées,
+l'arithmétique exacte par un calcul indépendant et les deux méthodes formelles
+par recompilation Lean. La délégation vérifie indépendamment les contrats,
+runs, artefacts, références et reçu parent des deux enfants. Dix-sept cas ont un
+oracle indépendant ; sept cas mesurés
+réutilisent encore un recalcul du module GenOS et leur validation ne prouve pas
+l'indépendance de l'implémentation.
 
 Exécution locale actuelle :
 
 ```powershell
-node benchmarks/workers/campaign.cjs benchmarks/workers/genos-adapter.cjs genos "$env:TEMP/genos-workers.json"
+$env:GENOS_LEAN_EXECUTABLE = 'C:\Users\Shadow\.elan\bin\lean.exe'
+$env:GENOS_BENCHMARK_LEAN_VERSION = (& $env:GENOS_LEAN_EXECUTABLE --version).Trim()
+$env:GENOS_LOCAL_MODEL = 'ollama://qwen2.5-coder:32b'
+node benchmarks/workers/campaign.cjs benchmarks/workers/genos-adapter.cjs genos-native "$env:TEMP/genos-workers.json"
 ```
 
 Pour inclure Lean, placer l'exécutable `lean` dans le `PATH` ou définir
 `GENOS_LEAN_EXECUTABLE`, puis fournir la sortie exacte de `lean --version`
 dans `GENOS_BENCHMARK_LEAN_VERSION`. Le
 vérificateur du benchmark relance Lean indépendamment de l'adaptateur.
+La campagne ne mesure `bounded-code` que si un modèle Ollama est défini; elle
+exige une mission terminée avec son reçu biologique et son quorum persistant.
 L'adaptateur et ce contrôle disposent chacun de 120 secondes pour absorber
 un démarrage à froid ; la durée mesurée inclut ce démarrage.
 
@@ -45,8 +57,8 @@ La comparaison refuse deux rapports du même système, des versions de jeu
 différentes et les cas manquants ou dupliqués. Elle ne compare que les cas
 munis d'un oracle et mesurés des deux côtés. Le temps mesuré comprend
 l'exécution de l'adaptateur, pas la validation de l'oracle. La campagne
-locale mesure dix cas sans Lean et un onzième cas formel
-quand Lean est configuré ; elle ne démontre aucune parité
+locale mesure les cas non formels disponibles, et les deux cas formels avec Lean configuré ;
+avec Ollama et Lean configurés, les 24 cas sont mesurables. Elle ne démontre aucune parité
 avec un rival. Les sorties JSON sont des artefacts temporaires à conserver
 hors du dépôt.
 
