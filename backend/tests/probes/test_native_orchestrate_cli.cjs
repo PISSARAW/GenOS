@@ -46,7 +46,7 @@ async function seedScopedWorkspace(workspace, environment) {
 async function main() {
   await fs.mkdir(output, { recursive: true });
   const root = await fs.mkdtemp(path.join(output, 'native-orchestrate-cli-'));
-  const workspace = path.resolve(__dirname, '../../..');
+  const workspace = path.join(root, 'workspace');
   const environment = { ...process.env, GENOS_DB_PATH: path.join(root, 'genos.db'),
     GENOS_ADMIN_PASSWORD: crypto.randomBytes(24).toString('hex'),
     GENOS_ADMIN_TOKEN: crypto.randomBytes(24).toString('hex'),
@@ -60,6 +60,11 @@ async function main() {
     GENOS_SKIP_BOOT_DB_BACKUP: '1',
     TEMP: path.join(root, 'temp'), TMP: path.join(root, 'temp'), TMPDIR: path.join(root, 'temp') };
   await fs.mkdir(environment.TEMP, { recursive: true });
+  await fs.mkdir(workspace, { recursive: true });
+  await fs.writeFile(path.join(workspace, 'corpus.txt'), 'timeout=30\n');
+  const snapshotAgent = 'agents/securite/snapshot_integrity_guardian.agent.json';
+  await fs.mkdir(path.dirname(path.join(workspace, snapshotAgent)), { recursive: true });
+  await fs.copyFile(path.resolve(__dirname, '../../..', snapshotAgent), path.join(workspace, snapshotAgent));
   await seedScopedWorkspace(workspace, environment);
   const cli = path.resolve(__dirname, '../../bin/genos-orchestrate.cjs');
   const methodContract = { version: 1, methodId: 'scan_literal', parameters: {
@@ -68,6 +73,8 @@ async function main() {
     native_objectives: [{ goal: 'Observe timeout in the corpus',
       successCriteria: ['Return a sourced observation of timeout=30'], methodContract }],
     workspaceId: 'ws-local', workspaceRoot: workspace, workspaceProvisioned: true,
+    capsuleRoot: environment.GENOS_CAPSULE_ROOT,
+    preflightSnapshotAgent: snapshotAgent,
     evaluationMode: 'factual_read_only',
     background: false, autonomous_orchestration: true, executor: 'codex', timeoutMs: 180000,
     executionBudget: { tokens: 200000, costUsd: 5, latencyMs: 180000,

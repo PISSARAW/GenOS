@@ -1,15 +1,19 @@
 # Qualification restante : ressources externes et planification complète
 
 - **Type** : protocole de qualification et liste de travaux
-- **Statut** : en cours ; la reprise externe réelle est vérifiée une fois par type, mais la mission complète `genos_orchestrate` est encore bloquée
+- **Statut** : deux cycles CLI intégrés positifs réussis pour les 19 types ; qualification fournisseur tiers, reprise après panne et couverture sémantique générale restent ouvertes
 - **Portée** : régulation supervisée des 19 types de workers natifs
-- **Dernière revue** : 2026-10-10
+- **Dernière revue** : 2026-10-12
 
 Le [plan de mise en oeuvre](plan-implementation-regulation-ressources-orchestrate.md) ordonne les changements et leurs critères de sortie.
 
 ## État constaté
 
-Le protocole antérieur couvre la restauration simulée sur 38 exécutions. Le nouveau fournisseur externe séparé, le registre SQLite, les reçus Ed25519, les vérificateurs indépendants et les helpers `recovery_worker` sont maintenant exécutés par le vrai CLI pour chacun des 19 types (une fois chacun). Le run de chaque cible et helper est terminé et vérifié, mais le parent `genos_orchestrate` échoue encore sur les appels MCP de prévol non observés. Le CLI ne prouve donc pas encore une mission terminale réussie ni deux cycles intégrés par type.
+Le probe réel `test_native_orchestrate_external_credit_matrix.cjs` a terminé une mission CLI complète. `genos_orchestrate` a accepté 19 objectifs et sélectionné 38 workers (19 cibles et 19 helpers `recovery_worker`). Pour chacun des 19 types, les runs cible et récupération sont terminés, l'autorité est scellée, le reçu externe Ed25519 est vérifié, deux processus oracle distincts retournent `verified`, le solde externe passe de 2 à 7, l'énergie réglementaire revient à 0,7 et l'état est fonctionnel.
+
+Avant tout bail de worker, le superviseur a appelé les vrais `genos_snapshot` et `genos_search_failures` via MCP stdio. Les deux reçus liés à la mission précèdent la première location de capacité worker. Le parseur runtime compte uniquement les événements MCP structurés réussis, et le runtime final vérifie les reçus de préflight liés à cette mission. L'identité de mission traverse maintenant l'enveloppe protobuf jusqu'à la clôture.
+
+Audit positif : `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-vvbNST\audit.json`. Mission et parent terminés, garde de complétion autorisé, registre fournisseur conservé, couverture d'orchestration complète et aucun outil requis manquant. Cette preuve utilise un fournisseur contrôlé distinct du runtime; elle ne prétend pas tester un service commercial tiers. Le plan limite chaque mission à 19 objectifs natifs : le second cycle complet doit utiliser une seconde mission.
 
 | Composant existant | Ce qu'il ne démontre pas |
 | --- | --- |
@@ -39,7 +43,7 @@ Types à couvrir selon [`workerKindService.KINDS`](../../backend/src/services/ag
 
 | Essai | Résultat et preuve requis |
 | --- | --- |
-| 19 types × 2 cycles | Chaque cycle démarre avec un solde externe réellement sous seuil ; la réserve est débitée, le solde est crédité, le worker reprend et finit dans la plage. Corréler les 38 plans, runs, reçus, mesures et snapshots. |
+| 19 types × 2 missions | Le plafond est de 19 objectifs natifs par mission. Lancer deux missions `genos_orchestrate` successives couvrant chacune les 19 types ; chaque mission commence avec les soldes externes sous seuil et restaure chaque solde avant dispatch. Auditer les 38 cibles et helpers dans deux plans distincts. |
 | Lecture indépendante et redémarrage | Le fournisseur confirme les soldes après redémarrage du backend et du processus fournisseur ; les reçus et décisions restent traçables. |
 | Sans recharge réelle | 19/19 types sont refusés si seuls `energy`, le checkpoint, `postActionTelemetry` ou le registre changent. Aucun solde fournisseur ne change. |
 | Falsification et concurrence | Reçu altéré, autre agent, ancienne mesure, double demande et dépassement de bail ne créent aucun crédit indu. |
@@ -126,4 +130,14 @@ Le probe `backend/tests/probes/test_native_orchestrate_external_credit_matrix.cj
 
 La projection d'entrée du runtime élimine maintenant les traces morphogénétiques volumineuses et conserve `nativeMissionPlan`, les outils requis et les dossiers de synthèse. L'entrée mesurée du parent est passée d'environ 1,31 Mio à environ 450 Kio. Le dossier complet est conservé uniquement dans l'état durable GenOS et la synthèse reçoit les dossiers source requis pour compiler son rapport canonique. Les preuves de récupération restent admissibles pendant dix minutes pour la synthèse; les vérificateurs exigent toujours qu'elles aient été observées dans les 30 secondes lors de leur évaluation indépendante.
 
-La dernière campagne CLI couvre **un cycle par type**. Il reste à brancher l'exécution réelle des outils MCP de prévol avant dispatch, réussir le statut terminal `completed` du parent et de la mission, puis exécuter les 19 types × 2 cycles intégrés ainsi que les contrôles négatifs et de reprise après crash/redémarrage. Les critères de [réussite complète](#c-dossier-de-preuve-et-verdict) ne sont donc pas encore tous atteints.
+La campagne du 11 octobre couvrait un cycle et restait incomplète. Voir le résultat courant du 12 octobre ci-dessous.
+
+## Résultat courant au 12 octobre 2026 — deux cycles complets
+
+Le fichier `D:\GenOS-regulation-tests\regulation-probe-results\matrix-run-20261012-historical-proof\native-orchestrate-cli-TTT30t\audit.json` contient deux résultats `complete`, un par mission CLI. Pour chacun, le code CLI est 0; le parent, son run et la mission sont `completed`; le completion gate est autorisé, l'homéostasie satisfaite, la couverture requise complète et la liste d'outils manquants vide. `genos_snapshot` et `genos_search_failures` ont des reçus MCP terminés et une télémétrie antérieure au premier dispatch.
+
+Chaque mission couvre exactement une fois les 19 types, avec 19 objectifs et 19 helpers de récupération planifiés (38 affectations). Au total, 38 runs objectifs et 38 runs de récupération sont terminés. Chaque helper a deux processus de vérification distincts avec statuts `verified`, un reçu fournisseur signé, un compte relu à 7/10, une énergie dérivée de 0,7 et un lien de récupération persisté; le ledger conserve les crédits.
+
+La relecture bornée de preuve permet au parent de revérifier un enfant terminé après expiration de son autorité d'action, si `completed_at` concorde avec l'événement terminal vérifié et précède l'échéance. Le parent doit garder son autorité courante; identité, scope, tenant, mission et lease restent contrôlés. Une sonde native couvre l'expiration simulée et le refus d'une fin déplacée après l'échéance.
+
+La portée est limitée au vrai CLI et à des objectifs structurés fournis par le test, ainsi qu'à un fournisseur de crédit local isolé. Restent ouverts: fournisseur tiers/production, tests intégrés de crash et de refus pour toute la chaîne, oracle sémantique de chaque méthode native, décomposition autonome du langage naturel et client MCP relié à un workspace D:. La liste détaillée est dans le [plan d'implémentation](plan-implementation-regulation-ressources-orchestrate.md#reste-à-démontrer-pour-la-réussite-de-portée-générale).

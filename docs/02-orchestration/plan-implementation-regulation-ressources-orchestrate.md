@@ -1,9 +1,9 @@
 # Plan d'implémentation — régulation avec ressource externe et orchestration complète
 
 - **Type** : plan de réalisation
-- **Statut** : en cours ; ressource, supervision et plan natif des 19 types implémentés ; qualification terminale ouverte
+- **Statut** : deux cycles intégrés réussis sur les 19 types avec fournisseur de test local ; qualification de portée élargie encore ouverte
 - **Portée** : les 19 types natifs, superviseur et `genos_orchestrate`
-- **Dernière revue** : 2026-10-11
+- **Dernière revue** : 2026-10-12
 
 Ce plan réalise les [critères de qualification](qualification-regulation-ressources-orchestrate.md). Le [protocole actuel](regulation-workers-protocole.md) sert de référence de non-régression pour la restauration de snapshot simulé.
 
@@ -97,7 +97,7 @@ L'énergie réglementaire liée à cette ressource doit être dérivée d'une le
 
 Commencer par les lots **0 puis 1**. Leur sortie doit être une preuve autonome qu'un fournisseur distinct transfère des crédits avec conservation, mesure indépendante, signature et idempotence. Ce socle rend ensuite testable la méthode native du lot 2 ; la planification complète n'est déclarée prête qu'après le lot 5.
 
-## Avancement observé au 11 octobre 2026 — CLI réel
+## Avancement initial observé au 11 octobre 2026 — CLI réel
 
 La sonde `backend/tests/probes/test_native_orchestrate_cli.cjs` confirme la planification native autonome, la création normale du worker, l'autorité scellée, l'exécution de `scan_literal` et la vérification par deux processus indépendants. Le premier audit, `native-orchestrate-cli-QYCIaz/audit.json`, a révélé la perte du verdict du worker dans le dossier de synthèse; le correctif préserve maintenant `outcome` et évite de convertir `success` en `unknown`. Le nouvel audit, `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-HxNf4O\audit.json`, se termine avec `parentStatus=completed`, mais `parentRunStatus=blocked` et `missionStatus=failed`, car le garde de promotion n'accepte pas encore la preuve indépendante liée au run enfant.
 
@@ -114,3 +114,28 @@ Les changements ajoutent aussi le passage de `missionId` au runtime des workers,
 Le probe capture désormais les événements `HALLUCINATION_DETECTED` et leurs sources dans `telemetry.jsonl`. Un rejeu antérieur (`native-orchestrate-cli-5sW3PX`) a montré que les événements répétés provenaient du même rapport worker : le dossier ajoutait à la fois `EVIDENCE_REPORT` et `AGENT_COMPLETED`, puis supprimait son verdict. Les références d'oracle enfant sont maintenant transmises et vérifiées au parent; le dernier essai atteint l'homéostasie et autorise le garde de clôture.
 
 L'audit post-commit `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-393OSF\audit.json` confirme un parent et un run terminés, deux vérificateurs indépendants, une preuve native acceptée, et `missionHomeostasisSatisfied=true`. Le CLI retourne cependant `required-coverage-incomplete`: `genos_diagnose`, `genos_hypothesis_evidence`, `genos_evaluate_trajectories`, `genos_replay` et `genos_record_decision` n'ont pas de reçu durable. L'audit de couverture réel est maintenant inclus dans le JSON final et bloque correctement la clôture. Ce résultat reste incomplet.
+
+## Avancement le 11 octobre 2026 — mission intégrée des 19 types
+
+Le blocage de préflight est corrigé. `genos-orchestrate.cjs` exécute maintenant, avant `startMission` et tout bail de worker, les outils requis `genos_snapshot` et `genos_search_failures` sur le vrai serveur MCP stdio. Il refuse de poursuivre si un appel échoue, persiste des reçus par mission et émet des événements de complétion. Le contrôle runtime ne déduit plus un appel de texte libre ; il ne reconnaît qu'un événement MCP `item.completed` réussi ou un reçu persistant de préflight exact, lié à l'identifiant de mission. `mission_id` est transmis par l'enveloppe protobuf.
+
+Le probe `test_native_orchestrate_external_credit_matrix.cjs` démontre maintenant une mission complète avec 19 objectifs, les 19 types natifs, 19 helpers `recovery_worker`, appels de préflight avant la première capacité worker, 38 runs réussis, reçus de fournisseur signés et relus, registre équilibré, énergie réglementaire `0.7`, deux attestations oracle `verified` par récupération, homéostasie satisfaite, couverture complète et statut terminal `completed`. Preuve : `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-vvbNST\audit.json`.
+
+Le plan de GenOS borne chaque mission à 19 objectifs. Deux cycles complets doivent donc être conduits dans deux missions successives, chacune avec un plan `genos_orchestrate` distinct. Restent à exécuter avant verdict final : second cycle complet; campagne intégrée négative où la recharge/le reçu/la mesure est invalide; reprise après crash et redémarrage; demande concurrente/doublon; tests de préflight refusé sans dispatch; puis `npm test`, `cargo test --workspace` et le contrôle qualité sur cet état final. Le fournisseur positif est un processus contrôlé distinct du runtime; une intégration à un fournisseur tiers réel reste une extension si elle est requise.
+
+## Mise à jour vérifiée au 12 octobre 2026 — deux cycles CLI
+
+Le résumé des deux campagnes est conservé sous `D:\GenOS-regulation-tests\regulation-probe-results\matrix-run-20261012-historical-proof\native-orchestrate-cli-TTT30t\audit.json`; les bases, journaux, clés éphémères, sorties CLI et audits de chaque mission sont dans le même répertoire. Le probe lance le vrai `genos-orchestrate.cjs` deux fois. Pour chaque cycle, le CLI termine avec code 0; le parent, son run et la mission sont `completed`; le completion gate est autorisé; l'homéostasie passe; la couverture requise ne manque aucun reçu. Le prévol a exécuté `genos_snapshot` et `genos_search_failures` via MCP, avec reçus persistés avant toute location de capacité worker.
+
+Chaque cycle planifie 19 objectifs explicites couvrant les 19 types natifs, puis 19 helpers `recovery_worker`; les 38 affectations concordent avec les runs persistés. Au total, 38 runs objectifs et 38 récupérations sont terminés, ainsi que les parents et enfants de sous-orchestrateur. Le fournisseur HTTP et son ledger SQLite sont des processus/base distincts; les reçus Ed25519, l'identité des comptes, la conservation, le solde 7/10, l'énergie à 0,7, deux processus de vérification indépendants par helper et les liens vers les runs sont vérifiés. Le test natif de fin vérifie la relecture d'une preuve acceptée après expiration simulée de l'autorité et refuse un horodatage de fin après l'échéance.
+
+La qualification prouve le plan produit par le vrai planificateur à partir de 19 objectifs structurés transmis à `genos_orchestrate`. Elle ne prouve pas la décomposition autonome d'une demande arbitraire en langage naturel, ni un fournisseur tiers de production.
+
+### Reste à démontrer pour la réussite de portée générale
+
+1. Qualifier un fournisseur tiers ou une ressource de production avec contrôles d'accès et révocation; répéter l'observation, le transfert, la mesure après transfert et la conservation sans partager la base ou la clé privée fournisseur avec GenOS. Le résultat présent porte sur le crédit d'exécution d'un fixture local isolé.
+2. Tuer et redémarrer le backend à chaque frontière de transfert; prouver via `operationId` l'absence de perte et de double débit. La perte de réponse HTTP est couverte, mais pas le redémarrage de processus au milieu du transfert.
+3. Compléter les refus intégrés pour signature/reçu falsifié, tenant/mission/worker étrangers, bail révoqué, mesure périmée, budget insuffisant, rejeu, concurrence et plan altéré; prouver qu'aucune mission négative n'est déclarée complète.
+4. Ajouter un oracle sémantique indépendant à chaque `methodId` d'objectif qualifié. La matrice prouve l'exécution des 19 types et l'oracle externe de chaque helper; elle ne prouve pas encore la correction sémantique indépendante de chaque méthode native d'objectif.
+5. Exécuter un test de planification à partir d'une demande en langage naturel sans fournir la liste des 19 objectifs; auditer types, méthodes, dépendances, budgets, helpers et concordance plan/exécution.
+6. Qualifier le client MCP externe sur un backend dont l'identité du workspace est D:. Les résultats obtenus ici viennent du vrai CLI sur D:; le connecteur MCP antérieur pointait sur C: et son refus de mismatch reste valide.

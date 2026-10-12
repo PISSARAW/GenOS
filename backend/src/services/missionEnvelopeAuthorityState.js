@@ -16,8 +16,8 @@ async function lease(db, missionId) {
   return row ? { agentId: row.agent_id, generation: row.generation, tokenHash: values.digest(row.token) } : null;
 }
 
-async function assertCurrent(db, envelope) {
-  if (Date.now() >= Date.parse(envelope.expiresAt)) throw values.failure('EXECUTION_AUTHORITY_EXPIRED');
+async function assertCurrent(db, envelope, at = Date.now()) {
+  if (at >= Date.parse(envelope.expiresAt)) throw values.failure('EXECUTION_AUTHORITY_EXPIRED');
   const actual = await identity(db, envelope.scope.entityId);
   if (values.digest(actual) !== values.digest(envelope.identity)) throw values.failure('EXECUTION_AUTHORITY_IDENTITY_CHANGED');
   const scope = await provenance.agentScope(db, actual.agentId);

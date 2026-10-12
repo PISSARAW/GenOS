@@ -70,11 +70,32 @@ async function assertCurrent(db, input) {
   assertReceipts(proof, subject);
 }
 
-function assertReceipts(proof, subject) {
+async function assertCompletedEvidence(db, input) {
+  const { proof, request, report } = input;
+  const attestation = proof.attestation.value;
+  const authority = await require('../missionEnvelopeAuthority').assertCompletedRunEvidence(db, request);
+  const completion = Date.parse(authority.completedAt);
+  if (!Number.isFinite(completion) || completion > Date.parse(attestation.validUntil)
+      || completion < Date.parse(attestation.completedAt)) throw values.failure('ORACLE_COMPLETION_TIME_INVALID');
+  await require('../aeisAssemblyStore').readAssembly(db, attestation.assemblyId, { historical: true });
+  if (authority.hash !== attestation.authorityHash) throw values.failure('ORACLE_AUTHORITY_CHANGED');
+  const subject = await subjects.load(db, { ...request, scope: attestation.scope });
+  if (values.digest(subject) !== attestation.subjectHash || values.digest(report) !== attestation.reportHash) {
+    throw values.failure('ORACLE_COMPLETION_RESULT_CHANGED');
+  }
+  const result = proof.saved.evaluation.assembly.results[0];
+  const domain = subjects.definition(subject.domain);
+  domain.subject.assertAntigen({ id: result.resultId, formalResult: result, claim: result.canonicalStatement,
+    epitopes: { evidence: { digest: result.evidence.digest } },
+    producer: domain.claim.build({ subject, workspaceRoot: authority.envelope.workspaceRoot }).producer }, subject);
+  assertReceipts(proof, subject, completion);
+}
+
+function assertReceipts(proof, subject, checkedAt = Date.now()) {
   const receipts = proof.saved.evaluation.assembly.verifications;
   const strategies = new Set();
   for (const receipt of receipts) {
-    assertReceipt(receipt, subject);
+    assertReceipt(receipt, subject, checkedAt);
     if (receipt.executionEvidence[0].subject.allocationHash !== proof.allocation.hash) throw values.failure('ORACLE_ALLOCATION_BINDING_MISMATCH');
     strategies.add(receipt.executionEvidence[0].postconditions.strategy);
   }
@@ -83,7 +104,7 @@ function assertReceipts(proof, subject) {
   if (!Number.isFinite(runtimeMs) || runtimeMs !== proof.attestation.value.costs.runtimeMs) throw values.failure('ORACLE_COST_BINDING_MISMATCH');
 }
 
-function assertReceipt(receipt, subject) {
+function assertReceipt(receipt, subject, checkedAt) {
   const execution = receipt.executionEvidence?.[0];
   if (receipt.status !== 'verified' || receipt.independent !== true) throw values.failure('ORACLE_RECEIPT_BINDING_MISMATCH');
   if (receipt.executionEvidence?.length !== 1
@@ -91,7 +112,7 @@ function assertReceipt(receipt, subject) {
       || execution?.subject?.bindingHash !== subject.bindingHash) throw values.failure('ORACLE_RECEIPT_BINDING_MISMATCH');
   assertReceiptOwner(execution, subject);
   assertReceiptDomain(receipt, subject);
-  assertReceiptTime(receipt, subject);
+  assertReceiptTime(receipt, subject, checkedAt);
   if (!subjects.definition(subject.domain).checks.STRATEGIES.has(execution.postconditions?.strategy)
       || execution.postconditions?.status !== 'verified') throw values.failure('ORACLE_STRATEGY_UNAVAILABLE');
 }
@@ -116,10 +137,10 @@ function assertReceiptDomain(receipt, subject) {
   if (receipt.verifierDigest !== expected) throw values.failure('ORACLE_VERIFIER_IMPLEMENTATION_CHANGED');
 }
 
-function assertReceiptTime(receipt, subject) {
+function assertReceiptTime(receipt, subject, checkedAt = Date.now()) {
   const checked = Date.parse(receipt.checkedAt);
   if (!Number.isFinite(checked) || checked < Date.parse(subject.observedAt) - 60000
-      || checked > Date.now() + 60000 || checked > Date.parse(subject.validUntil)) throw values.failure('ORACLE_RECEIPT_STALE');
+      || checked > checkedAt + 60000 || checked > Date.parse(subject.validUntil)) throw values.failure('ORACLE_RECEIPT_STALE');
 }
 
 function context(proof) {
@@ -129,4 +150,4 @@ function context(proof) {
     trustedVerifierDigests: proof.saved.manifest.trustedDigests };
 }
 
-module.exports = { read, assertCurrent, context };
+module.exports = { read, assertCurrent, assertCompletedEvidence, context };

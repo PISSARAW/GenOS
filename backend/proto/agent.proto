@@ -51,6 +51,9 @@ message AgentMission {
   string resume_checkpoint_id = 35;
   bool runtime_checkpoint_enabled = 36;
   string workspace_id = 37;
+  // Mission identity is required to bind pre-dispatch GenOS MCP receipts to
+  // the final orchestrator runtime's hard invariants.
+  string mission_id = 38;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }

@@ -129,6 +129,9 @@ function buildAuthorityInstruction(mission, isWorker, autonomyPlan) {
 
 function createState(mission, data) {
   const identity = resolveIdentity(mission);
+  const requiredTools = new Set(data.isWorker ? [] : (data.autonomyPlan.mandatoryTools || data.autonomyPlan.requiredTools || []));
+  const preflightObservedTools = data.isWorker ? [] : (mission.preflightObservedTools || [])
+    .filter(tool => requiredTools.has(tool));
   return {
     ...data,
     mission,
@@ -148,8 +151,8 @@ function createState(mission, data) {
     db: null,
     hasAgentInDb: false,
     pendingConscienceOp: Promise.resolve(),
-    requiredTools: new Set(data.isWorker ? [] : (data.autonomyPlan.mandatoryTools || data.autonomyPlan.requiredTools || [])),
-    observedTools: new Set(),
+    requiredTools,
+    observedTools: new Set(preflightObservedTools),
     buffer: '',
     stderr: '',
     finalReportText: '',
