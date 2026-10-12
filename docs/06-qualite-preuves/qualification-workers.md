@@ -1,6 +1,6 @@
 # Qualification vérifiable des workers
 
-- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows le 2026-10-12. C4 est mesuré par 57 missions nominales et une campagne faultée 19/19 ; qualification exploratoire sur checkout modifié.
+- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows. C4 est mesuré sur le commit propre `ca7f5ca5` par 57 missions nominales antérieures et une campagne faultée de 19 scénarios. Linux reste à qualifier.
 - **Date de l'inventaire** : 2026-10-12.
 - **Portée** : les 19 `WorkerKind`, les méthodes du registre Node, les missions persistées et leurs preuves.
 
@@ -300,12 +300,12 @@ final est conservé sous `%TEMP%\genos-worker-missions-subgraph-final.json`.
 Le checkout étant modifié, cette exécution reste exploratoire. La composante
 répétition de C4 a passé trois campagnes nominales (57/57). Les suites workers
 injectent annulation, délai dépassé, arrêt par garde et altérations d'oracles ;
-la suite SIGKILL couvre la restauration d'organisme séparément. Une campagne
-La campagne multi-missions sous pannes est maintenant passée sur Windows ; le
-checkout propre et Linux restent à qualifier. La vérification de cet
-environnement le 2026-10-12 confirme WSL 1 sans toolchain
-Linux et un moteur Docker Desktop Linux inaccessible (`Wsl/E_ACCESSDENIED` /
-`permission denied`); aucun résultat Linux n’est revendiqué.
+la suite SIGKILL couvre la restauration d'organisme séparément. La campagne
+multi-missions sous pannes a ensuite été passée sur Windows au commit propre
+`ca7f5ca5`, voir le bilan plus bas. Linux reste à qualifier : le 2026-10-12,
+WSL était en version 1 sans toolchain Linux et le moteur Linux de Docker Desktop
+était inaccessible (`Wsl/E_ACCESSDENIED` / `permission denied`); aucun résultat
+Linux n’est revendiqué.
 
 Le 2026-10-12, `run_worker_gate_campaign.cjs` a réévalué les 19 missions
 depuis SQLite, leur événement terminal, leur assemblée d'oracles persistée et
@@ -393,9 +393,35 @@ Le nouveau scénario est dans `test_worker_fault_campaign.js`; le profil workers
 complet passe **32/32 suites** avec Lean 4.34.0 et Ollama configurés. Le contrôle
 de qualité trouve 0 nouvelle violation sur 5 997 fichiers source.
 
-Cette campagne est exploratoire car le checkout reste modifié. La qualification
-sur checkout propre et Linux reste à faire ; la campagne faultée ne prétend pas
-à une garantie statistique hors de ses 19 missions mesurées.
+Ces rapports de campagne initiaux sont exploratoires car ils provenaient d'un
+checkout modifié. Une requalification complète sur le commit propre `ca7f5ca5`
+a été exécutée le 2026-10-12 : le worktree est resté propre, `npm test`,
+`cargo test --workspace` et le profil workers ont terminé avec le code 0 ; ce
+profil comprend 32 suites. Le gate normal a rendu **19/19 `verified`** par
+`independent_quorum`. Le benchmark a rendu **24/24 `passed`**, et le recalcul
+des scores a trouvé 24/24 correspondances. La campagne C4 faultée a rendu
+**19/19 scénarios conformes**, avec 17 quorums vérifiés, une assemblée altérée
+refusée et un timeout refusé sans preuve. Le contrôle qualité a trouvé 0
+nouvelle violation sur 5 997 fichiers source.
+
+Les rapports propres sont conservés dans le workspace local :
+`.worker-gate-clean-qualification-current.json` (SHA-256
+`53654958b5ec115d7273fe35c6f7e6462a1b97fb44f15e6ebd761144c3214826`),
+`.worker-fault-campaign-clean-current.json` (SHA-256
+`edb5fcc84af11ee5ef043d5cbbb00d3709311d3d15585625a7bd8552f513f03c`) et
+`.worker-benchmark-clean-qualification-current.json` (SHA-256
+`70b018352430c66d06229b1036110c0b7b9f9e914819552c65ced40bdb5c1d57`).
+Le benchmark garde le digest de jeu
+`sha256:11be284a67148d705b0e096549420121d2035139b3f8397f3e78714b89a70a6d`.
+La campagne comparative ne démontre pas la parité avec un rival et la campagne
+faultée ne garantit pas les comportements hors des 19 scénarios exécutés.
+
+La commande complète `npm test` a terminé avec le code 0. Elle a journalisé
+trois erreurs `ENAMETOOLONG` sur les snapshots du scénario GQWF à cause du
+chemin long du worktree ; ce scénario a été relancé isolément via un lecteur
+temporaire court et a passé sans cette erreur. Ces contrôles établissent la
+qualification mesurée sur Windows, pas une garantie statistique ni une
+qualification Linux.
 
 ## Commandes et limites du verdict
 
