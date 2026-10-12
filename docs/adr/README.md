@@ -556,7 +556,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0438](0438-statut-planifie-runtime-isole-multiteam-a-team.md) | Statut planifié du runtime isolé Multiteam A-Team | Accepté le 11 octobre 2026. | -- | -- |
 | [0439](0439-rapports-initiaux-durables-pour-qualification-trinity.md) | Rapports initiaux durables pour qualifier Trinity | Accepté. | -- | -- |
 | [0440](0440-bail-outil-immuable-holobionte.md) | Rendre le bail d'outil immuable jusqu'à l'invocation Holobionte | Accepté | 2026-10-11 | Holobionte, variant `tool`, autorité d'invocation |
-| [0441](0441-atomicite-recu-consultatif-morphogenese.md) | Atomicité du reçu consultatif Morphogenèse | Accepté | 2026-10-12 | morphogenèse, persistance des preuves, SQLite |
+| [0441a](0441-atomicite-recu-consultatif-morphogenese.md) | Atomicité du reçu consultatif Morphogenèse | Accepté | 2026-10-12 | morphogenèse, persistance des preuves, SQLite |
+| [0441b](0441-oracle-borne-issue-mission.md) | Oracle borné dans le contrat d'issue de mission | Voir le fichier | -- | -- |
 | [0442](0442-preuve-route-actuelle-rhizome.md) | Lier la complétion Rhizome au chemin actuellement autorisé | Accepté | 2026-10-12 | Rhizome, variants, preuves de route |
 | [0443](0443-preuve-revision-branche-speculative-syncytium.md) | Lier la validation spéculative à la révision de branche | Accepté | 2026-10-12 | Syncytium, variant Speculative, promotion |
 | [0444a](0444-enfants-depuis-elites-admises-biome.md) | Produire les enfants Quality-Diversity depuis les élites admises | Accepté | 2026-10-12 | Biome, Quality-Diversity, archive des élites |
@@ -574,6 +575,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0451](0451-portee-budget-modele-runtime-local-sous-processus.md) | Portée de budget modèle dans le runtime local en sous-processus | accepté pour le runtime `local-codex-runtime.cjs` | 2026-10-12 | budget de mission et exécution déléguée |
 | [0452](0452-execution-procedure-mission.md) | Exécution de procédures promues dans une mission | Voir le fichier | -- | -- |
 | [0453](0453-budget-partage-des-runtimes-modeles-externes.md) | Budget partagé des runtimes modèles externes | Voir le fichier | -- | -- |
+| [0454](0454-oracle-natif-pour-reponse-modele-mesuree.md) | Oracle natif pour une réponse modèle mesurée | Accepté pour le parcours borné `model_subset_sum`. | -- | -- |
 | [0460](0460-quorum-lie-aux-membres-expert-committee.md) | Quorum lié aux membres d'Expert Committee | Accepté | 2026-10-12 | A-Team, variant `expert_committee`, consensus |
 | [0461](0461-verificateurs-independants-holobionte.md) | Exclure l'hôte et l'acteur des vérificateurs de mission Holobionte | Accepté | 2026-10-12 | Holobionte, douze variants, autorité des preuves |
 | [0462](0462-lier-recu-route-session-rhizome.md) | Lier les reçus de route Rhizome à leur session | Accepté | 2026-10-12 | Rhizome, preuves, isolation des missions |

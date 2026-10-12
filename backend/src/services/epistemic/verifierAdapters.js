@@ -328,7 +328,7 @@ const ADAPTER_ALIASES = {
 
 function selectAdapter(verifier) {
   const semantic = {
-    worker_semantic: ['./oracleWorkerAdapter', 'runWorkerOracle'],
+    model_semantic: ['./oracleModelAdapter', 'runModelOracle'], worker_semantic: ['./oracleWorkerAdapter', 'runWorkerOracle'],
     code_semantic: ['./oracleCodeAdapter', 'runCodeOracle'],
     procedure_semantic: ['./oracleProcedureAdapter', 'runProcedureOracle'],
     memory_semantic: ['./oracleMemoryAdapter', 'runMemoryOracle']
