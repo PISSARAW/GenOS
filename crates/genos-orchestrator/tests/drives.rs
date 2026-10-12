@@ -1,5 +1,29 @@
 use genos_orchestrator::genos_cell::{AgentCell, Pathology};
-use genos_orchestrator::{Drives, GenosEcosystem, Goal, GoalSelector, Volition, WorldState};
+use genos_orchestrator::{Concept, Drives, GenosEcosystem, Goal, GoalSelector, Volition, WorldState};
+
+#[test]
+fn stress_and_survival_pressure_do_not_enable_destructive_actions() {
+    let cases = [
+        ("calm", 0.0, 0.0, 0.0, Goal::SecurePerimeter),
+        ("moderate", 0.4, 0.4, 0.2, Goal::SecurePerimeter),
+        ("critical", 0.95, 0.95, 0.95, Goal::Conserve),
+    ];
+
+    for (label, budget_pressure, stress, threat, expected_goal) in cases {
+        let state = WorldState {
+            budget_pressure,
+            stress,
+            threat,
+            observed: true,
+            workers: 2,
+            tissues: 1,
+            ..Default::default()
+        };
+        assert_eq!(GoalSelector::select(&state), expected_goal, "{label}");
+        assert!(!state.applicable(Concept::Kill), "{label}: kill became applicable");
+        assert!(!state.applicable(Concept::Actuate), "{label}: actuation became applicable");
+    }
+}
 
 #[test]
 fn drives_derivent_du_monde_et_choisissent_un_but() {
