@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { createManifest } = require('./workerComplianceManifest.cjs');
 
@@ -16,7 +18,12 @@ assert.equal(manifest.source.qualificationClass, manifest.source.clean ? 'candid
 const missing = createManifest({ root: path.join(root, 'backend/tests'),
   runId: 'missing-repository', model: 'local://fixture' });
 assert.equal(missing.source.commit, manifest.source.commit);
-const outside = createManifest({ root: path.parse(root).root, runId: 'outside', model: 'local://fixture' });
-assert.equal(outside.source.qualificationClass, 'exploratory');
+const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-worker-manifest-outside-'));
+try {
+  const outside = createManifest({ root: outsideRoot, runId: 'outside', model: 'local://fixture' });
+  assert.equal(outside.source.qualificationClass, 'exploratory');
+} finally {
+  fs.rmSync(outsideRoot, { recursive: true, force: true });
+}
 
 console.log('Worker compliance manifest records source, environment and benchmark identity: PASS');
