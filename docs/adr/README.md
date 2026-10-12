@@ -556,6 +556,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0438](0438-statut-planifie-runtime-isole-multiteam-a-team.md) | Statut planifié du runtime isolé Multiteam A-Team | Accepté le 11 octobre 2026. | -- | -- |
 | [0439](0439-rapports-initiaux-durables-pour-qualification-trinity.md) | Rapports initiaux durables pour qualifier Trinity | Accepté. | -- | -- |
 | [0440](0440-bail-outil-immuable-holobionte.md) | Rendre le bail d'outil immuable jusqu'à l'invocation Holobionte | Accepté | 2026-10-11 | Holobionte, variant `tool`, autorité d'invocation |
+| [0441](0441-oracle-borne-issue-mission.md) | Oracle borné dans le contrat d'issue de mission | Voir le fichier | -- | -- |
 | [0444](0444-execution-attestee-du-controleur-de-mission.md) | Exécution attestée du contrôleur de mission | Accepté pour une activation pilote explicite. | 2026-10-12. | Décision économique, provenance et exécution de mission. |
 | [0445](0445-pont-preuve-mission-vers-apprentissage-routeur.md) | Lier l'apprentissage du routeur à une mission vérifiée | Voir le fichier | -- | -- |
 | [0446](0446-selection-contexte-obligations-ouvertes.md) | Sélection du contexte selon les obligations ouvertes | Accepté pour le raccord de démarrage ; mesure en production ouverte. | 2026-10-12. | Mémoire cognitive, contrat d'issue et budget de contexte. |
