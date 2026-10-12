@@ -182,7 +182,7 @@ function buildAgentRuntimePrompt(ctx) {
   const isolation = params.isolationMode || 'Branch';
   const wsRoot = params.workspacePath || params.mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || '';
 
-  return [
+  const prompt = [
     `${params.selfIntro}`,
     `Agent role: ${params.mission.role || 'Autonomous implementation agent'}.`,
     `[ASSIGNED MISSION]\n${params.mission.prompt || params.mission.currentTask || ''}`,
@@ -208,6 +208,9 @@ function buildAgentRuntimePrompt(ctx) {
     buildCapsulePaths(params.genosCapsule),
     buildWorkspaceHint(wsRoot),
   ].filter(Boolean).join('\n\n');
+  require('../src/services/agentRuntimeAdapter/missionPromptBudget')
+    .assertMissionPromptBudget(params.mission, prompt);
+  return prompt;
 }
 
 function buildWorkerOutputInstruction(params) {

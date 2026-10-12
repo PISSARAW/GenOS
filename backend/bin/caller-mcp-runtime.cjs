@@ -12,6 +12,9 @@ async function run(raw) {
   const mission = decodeMissionInput(raw);
   const state = createContext(mission, (event) => process.stdout.write(encodeEvent({ ...event, agentId: mission.agentId })));
   const prompt = state.prompt;
+  if (mission.contextTokenBudget !== undefined && mission.contextTokenBudget !== null) {
+    await require('../src/services/agentMemoryVesicles').consumeVesicles(mission.agentId);
+  }
   state.emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Caller MCP cognitive runtime accepted the mission.', payload: {
     executor: 'caller_mcp',
     provider: mission.provider || process.env.GENOS_MCP_PROVIDER || 'unknown',

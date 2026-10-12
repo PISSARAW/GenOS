@@ -9,12 +9,14 @@
  *   displayHeight, requiredCapabilities, onToken, remainingMs }.
  */
 
-const crypto = require('crypto');
 const modelProvider = require('./modelProvider');
 const localModelDiscovery = require('./localModelDiscovery');
 const telemetry = require('./telemetryObserver');
 const { capabilitiesSatisfy, normalizeCapabilities } = require('./modelCapabilities');
 const routingPolicy = require('./modelRoutingPolicy');
+const attemptLedger = require('./modelAttemptLedger');
+const budgetReservations = require('./modelBudgetReservationService');
+const parallelBudget = require('./modelParallelBudgetService');
 
 function isLocalUri(uri) {
   return routingPolicy.isLocalUri(uri);
@@ -28,27 +30,7 @@ function responseScore(result) {
   return routingPolicy.responseScore(result);
 }
 
-async function recordModelUsage(db, scope, result) {
-  if (!db || typeof db.run !== 'function' || !scope.organizationId || !scope.projectId) return;
-  await db.run(
-    'INSERT INTO usage_ledger(id, organization_id, project_id, release_id, category, quantity, cost_usd, metadata_json) VALUES(?,?,?,?,?,?,?,?)',
-    `usage-model-${crypto.randomUUID()}`,
-    scope.organizationId,
-    scope.projectId,
-    null,
-    'model_inference',
-    result.inputTokens + result.outputTokens,
-    result.costUsd,
-    JSON.stringify({ model: result.model, requestedModel: result.requestedModel,
-      servedModel: result.servedModel, provider: result.provider,
-      routeAttemptId: result.routeAttemptId, executionRunId: scope.executionRunId,
-      agentId: scope.agentId,
-      inputTokens: result.inputTokens, outputTokens: result.outputTokens,
-      tokenUsageMeasured: result.tokenUsageMeasured === true,
-      tokenUsageSource: result.tokenUsageMeasured === true ? 'provider' : 'estimate',
-      latencyMs: result.latencyMs, transportSuccess: result.success !== false })
-  );
-}
+const { recordModelUsage } = attemptLedger;
 
 async function emitBufferedTokens(tokens, onToken, model) {
   for (const token of tokens) await onToken(token, model);
@@ -96,11 +78,11 @@ async function prepareAttempt(ctx, uri) {
   const normalizedUri = modelProvider.configuredModel(uri);
   const [, provider, modelName] = normalizedUri.match(/^([\w-]+):\/\/(.+)$/);
   const registered = await lookupRegistration(ctx.db, provider, modelName);
+  if (ctx.maxCostUsd != null && !registered && !isLocalUri(uri)) throw Object.assign(new Error('Remote model price is unknown under a cost budget.'), { code: 'MODEL_COST_QUOTE_UNAVAILABLE' });
   checkCapabilities(registered, ctx.requiredCapabilities, uri);
   if (isLocalUri(uri)) await verifyLocalModel(uri, registered);
   return { normalizedUri, provider, modelName, registered, endpoint: resolveEndpoint(registered, uri), bufferedTokens: [] };
 }
-
 function floorPositive(value, fallback) {
   if (Number.isFinite(Number(value)) && Number(value) > 0) return Math.floor(Number(value));
   return fallback;
@@ -115,23 +97,32 @@ function quoteOf(registered) {
 }
 
 function checkBudget(ctx, registered, prompt) {
+  if (ctx.maxTokens === 0) throw Object.assign(new Error('Model output token budget is zero.'), { code: 'MODEL_TOKEN_BUDGET_EXCEEDED' });
   const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
   const inputTokens = modelProvider.estimateTokenCount(promptText);
   const outputTokens = floorPositive(ctx.maxTokens, 2048);
   const estimated = estimateCostUsd(quoteOf(registered), inputTokens, outputTokens);
   if (ctx.maxCostUsd != null && estimated > remainingBudget(ctx)) throw Object.assign(new Error(`Estimated model cost ${estimated} exceeds remaining budget ${remainingBudget(ctx)}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
-  return estimated;
+  return { costUsd: estimated, tokens: inputTokens + outputTokens };
 }
 
 function armAttempt(ctx, attemptTimeout) {
   let deadlineExpired = false;
+  let rejectDeadline;
+  const deadline = new Promise((_, reject) => { rejectDeadline = reject; });
   const controller = new AbortController();
-  const abortAttempt = () => controller.abort();
+  const abortAttempt = () => {
+    controller.abort();
+    rejectDeadline(Object.assign(new Error('Model route aborted.'), { code: 'MODEL_ROUTE_ABORTED' }));
+  };
   if (ctx.signal && ctx.signal.aborted) abortAttempt();
   else if (ctx.signal) ctx.signal.addEventListener('abort', abortAttempt, { once: true });
-  const timer = setTimeout(() => { deadlineExpired = true; controller.abort(); }, Math.max(1, attemptTimeout));
+  const timer = setTimeout(() => { deadlineExpired = true; controller.abort();
+    rejectDeadline(Object.assign(new Error('Model route deadline exceeded.'), { code: 'MODEL_ROUTE_DEADLINE_EXCEEDED' }));
+  }, Math.max(1, attemptTimeout));
   return {
     controller,
+    deadline,
     expired: () => deadlineExpired,
     release: () => releaseAttempt(ctx, timer, abortAttempt)
   };
@@ -147,13 +138,16 @@ function mapAttemptError(attempt, uri, error) {
   return error;
 }
 
-async function invokeProvider(ctx, prepared, uri) {
+async function invokeProvider(ctx, outcome) {
+  const { prepared, uri } = outcome;
   const attemptTimeout = ctx.remainingMs();
-  if (attemptTimeout <= 0) throw new Error('Model routing deadline exhausted before attempting provider ' + uri + '.');
-  checkBudget(ctx, prepared.registered, ctx.prompt);
+  if (attemptTimeout <= 0) throw Object.assign(
+    new Error('Model routing deadline exhausted before attempting provider ' + uri + '.'),
+    { code: 'MODEL_ROUTE_DEADLINE_EXCEEDED' });
   const attempt = armAttempt(ctx, attemptTimeout);
   try {
-    return await modelProvider.generate({
+    outcome.providerCalled = true;
+    return await Promise.race([modelProvider.generate({
       model: uri,
       prompt: ctx.prompt,
       timeoutMs: attemptTimeout,
@@ -173,7 +167,7 @@ async function invokeProvider(ctx, prepared, uri) {
       displayWidth: ctx.displayWidth,
       displayHeight: ctx.displayHeight,
       onToken: (token) => { prepared.bufferedTokens.push(token); }
-    });
+    }), attempt.deadline]);
   } catch (error) {
     throw mapAttemptError(attempt, uri, error);
   } finally {
@@ -187,18 +181,35 @@ function costOrZero(registered, key) {
 }
 
 function actualCostUsd(registered, result) {
+  if (attemptLedger.usageFrom(result).tokenUsageSource === 'unknown') return null;
   return estimateCostUsd({ costInput: costOrZero(registered, 'cost_input'), costOutput: costOrZero(registered, 'cost_output') }, result.inputTokens, result.outputTokens);
+}
+
+function actualBudgetExceeded(ctx, costUsd, settlement) {
+  if (settlement.overBudget) return true;
+  return ctx.maxCostUsd != null && costUsd !== null
+    && ctx.spent > Number(ctx.maxCostUsd);
 }
 
 async function finalizeAttempt(ctx, outcome, result) {
   const costUsd = actualCostUsd(outcome.prepared.registered, result);
-  ctx.spent = (ctx.spent || 0) + costUsd;
-  if (ctx.maxCostUsd != null && ctx.spent > Number(ctx.maxCostUsd)) throw Object.assign(new Error(`Actual model cost ${ctx.spent} exceeds budget ${ctx.maxCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
+  ctx.spent = (ctx.spent || 0) + (costUsd || 0);
+  const usage = attemptLedger.usageFrom(result);
+  const settlement = await budgetReservations.settle(ctx.db, outcome.reservation, {
+    providerCalled: true, costUsd,
+    tokens: usage.inputTokens === null ? null : usage.inputTokens + usage.outputTokens
+  });
+  const overBudget = actualBudgetExceeded(ctx, costUsd, settlement);
   const enriched = Object.assign({}, result, { model: outcome.uri, requestedModel: outcome.uri,
     servedModel: result.servedModel || result.model || outcome.prepared.modelName,
-    routeAttemptId: crypto.randomUUID(), latencyMs: Date.now() - outcome.startedAt, costUsd });
+    routeAttemptId: outcome.id, latencyMs: Date.now() - outcome.startedAt, costUsd,
+    attemptStatus: overBudget ? 'rejected_budget' : 'completed' });
+  await attemptLedger.finishAttempt(ctx.db, { ...outcome, ...usage, costUsd,
+    status: enriched.attemptStatus });
+  outcome.finished = true;
   await recordModelUsage(ctx.db, { organizationId: ctx.organizationId, projectId: ctx.projectId,
     executionRunId: ctx.executionRunId, agentId: ctx.agentId }, enriched);
+  if (overBudget) throw Object.assign(new Error(`Actual model cost ${ctx.spent} exceeds budget ${ctx.maxCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
   const observation = { ctx, outcome, result, costUsd };
   await recordLlmAttempt(observation);
   return enriched;
@@ -217,10 +228,33 @@ async function recordLlmAttempt({ ctx, outcome, result, costUsd }) {
 }
 
 async function attemptRoute(ctx, uri) {
-  const prepared = await prepareAttempt(ctx, uri);
-  const outcome = { prepared, uri, startedAt: Date.now() };
-  const result = await invokeProvider(ctx, prepared, uri);
-  return finalizeAttempt(ctx, outcome, result);
+  const outcome = { ...attemptLedger.attemptIdentity(ctx, uri), uri, startedAt: Date.now() };
+  await attemptLedger.startAttempt(ctx.db, outcome);
+  try {
+    outcome.prepared = await prepareAttempt(ctx, uri);
+    const quote = checkBudget(ctx, outcome.prepared.registered, ctx.prompt);
+    outcome.estimatedCostUsd = quote.costUsd;
+    outcome.reservation = await budgetReservations.reserve({ db: ctx.db, attempt: outcome,
+      ctx, costUsd: quote.costUsd, tokens: quote.tokens });
+    if (outcome.reservation?.duplicate) {
+      outcome.reservation = null;
+      throw Object.assign(new Error('Model attempt already owns a budget reservation.'),
+        { code: 'MODEL_ATTEMPT_ALREADY_RESERVED' });
+    }
+    const result = await invokeProvider(ctx, outcome);
+    return await finalizeAttempt(ctx, outcome, result);
+  } catch (error) {
+    if (!outcome.finished) {
+      const costUsd = await attemptLedger.recordFailedAttempt({ ctx, outcome, error });
+      const usage = attemptLedger.usageFrom(error.usage || error);
+      await budgetReservations.settle(ctx.db, outcome.reservation, {
+        providerCalled: outcome.providerCalled, costUsd,
+        tokens: usage.inputTokens === null ? null : usage.inputTokens + usage.outputTokens
+      });
+      if (costUsd !== null && outcome.providerCalled) ctx.spent = (ctx.spent || 0) + costUsd;
+    }
+    throw error;
+  }
 }
 
 function withoutBufferedTokens(result) {
@@ -299,10 +333,6 @@ async function applyBanditCanary(candidates, ctx) {
   }
 }
 
-function requireParallelBudget(maxCostUsd) {
-  if (maxCostUsd == null || !Number.isFinite(Number(maxCostUsd)) || Number(maxCostUsd) < 0) throw Object.assign(new Error('Parallel model review requires an explicit non-negative maxCostUsd budget.'), { code: 'MODEL_PARALLEL_BUDGET_REQUIRED' });
-}
-
 function collectSuccesses(settled) {
   const successes = [];
   for (let index = 0; index < settled.length; index += 1) {
@@ -360,7 +390,7 @@ async function selectParallelResult(outcome, ctx) {
 }
 
 async function runParallel(candidates, ctx) {
-  requireParallelBudget(ctx.maxCostUsd);
+  await parallelBudget.requireCapacity(candidates, ctx);
   const settled = await Promise.allSettled(candidates.map((uri) => attemptRoute(ctx, uri)));
   const successes = collectSuccesses(settled);
   if (!successes.length) throw summarizeParallelFailures(settled, candidates);

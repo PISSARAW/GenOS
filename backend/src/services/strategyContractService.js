@@ -6,6 +6,7 @@ const philosophyPolicy = require('./philosophyPromotionPolicyService');
 const ethicalComparisonPolicy = require('./ethicalComparisonPolicyService');
 const epistemicDecision = require('./epistemicDecisionService');
 const { resolveTrustedVerifierDigests } = require('./verifierTrustRegistry');
+const missionOutcomeContract = require('./missionOutcomeContract');
 
 function getStrategyHandlers() {
   return require('./strategyExecutionAdapter').getHandlers();
@@ -32,7 +33,8 @@ function buildStrategyContract(input = {}) {
   const ethicalComparison = buildEthicalContext(norm);
   const epistemicContext = epistemicDecision.buildDecisionContext(norm);
   return assembleContract({ selection, problemProfile, selected, highRisk, philosophy, epistemicContext, ethicalComparison,
-    evaluationMode: norm.evaluationMode });
+    evaluationMode: norm.evaluationMode, missionOutcome: missionOutcomeContract.build(norm.missionOutcomeContract,
+      problemProfile.problem || 'Autonomous task execution') });
 }
 
 function normalizeInput(input) {
@@ -78,6 +80,7 @@ function assembleContract(ctx) {
     schema: CONTRACT_SCHEMA,
     evaluation_mode: ['factual_read_only', 'formal_read_only'].includes(ctx.evaluationMode) ? ctx.evaluationMode : null,
     mission: problemProfile.problem || 'Autonomous task execution',
+    ...(ctx.missionOutcome ? { mission_outcome: ctx.missionOutcome } : {}),
     problem_profile: problemProfile,
     selected_strategy: {
       primary: selected.id,
@@ -234,6 +237,7 @@ function validateContract(contract) {
   validateContractPortfolio(contract, registryIds);
   validateContractDecisions(contract, registryIds);
   validateContractBranches(contract);
+  if (contract.mission_outcome) missionOutcomeContract.validate(contract.mission_outcome);
   if (!Array.isArray(contract.stop_conditions)) throw new Error('stop_conditions must be an array');
   if (!contract.promotion) throw new Error('promotion policy is required');
   if (contract.philosophy) philosophicalGuard.buildContext(contract.philosophy);

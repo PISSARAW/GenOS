@@ -4,7 +4,7 @@
  * Expérience canari gelée (protocole → réplication → gate).
  *
  * freezeExperiment : fige un protocole (splits train/dev/reserved sur les
- * rowids de usage_ledger, seeds, critère MAE ≤ seuil) avec manifest SHA,
+ * missions à assemblies AEIS actives, seeds, critère MAE ≤ seuil) avec manifest SHA,
  * persisté en adaptive_state scope 'canary_experiment'.
  * runExperiment : vérifie le manifest, rejoue la calibration sur reserved
  * en deux moitiés (réplication), passe si MAE global ET deux moitiés sous
@@ -21,23 +21,30 @@ const KEY = 'current';
 const HYPOTHESIS = 'canary routing calibration holds on unseen logged decisions';
 const DEFAULT_THRESHOLD = 0.25;
 
-async function ledgerIds(db, limit) {
-  const rows = await db.all(`SELECT id FROM usage_ledger ORDER BY rowid DESC LIMIT ?`, limit);
-  return (Array.isArray(rows) ? rows : []).map((row) => ({ id: String(row.id) })).reverse();
+function splitByMission(rows) {
+  const missions = [...new Set(rows.map((row) => row.missionId))];
+  const train = new Set(missions.slice(0, Math.floor(missions.length * 0.6)));
+  const dev = new Set(missions.slice(Math.floor(missions.length * 0.6), Math.floor(missions.length * 0.7)));
+  return {
+    train: rows.filter((row) => train.has(row.missionId)).map((row) => ({ id: row.id })),
+    dev: rows.filter((row) => dev.has(row.missionId)).map((row) => ({ id: row.id })),
+    reserved: rows.filter((row) => !train.has(row.missionId) && !dev.has(row.missionId))
+      .map((row) => ({ id: row.id }))
+  };
 }
 
 async function freezeExperiment(db, options) {
   const settings = options || {};
   if (!db) throw new Error('freezeExperiment requires db');
   const limit = Math.max(30, Math.min(500, Math.floor(Number(settings.limit) || 200)));
-  const ids = await ledgerIds(db, limit);
-  if (ids.length < 30) throw new Error('freezeExperiment requires at least 30 logged decisions');
-  const train = ids.slice(0, Math.floor(ids.length * 0.6)).map((item) => ({ id: item.id }));
-  const dev = ids.slice(Math.floor(ids.length * 0.6), Math.floor(ids.length * 0.7)).map((item) => ({ id: item.id }));
-  const reserved = ids.slice(Math.floor(ids.length * 0.7)).map((item) => ({ id: item.id }));
+  const rows = await bandit.qualifiedObservations(db, limit);
+  if (new Set(rows.map((row) => row.missionId)).size < 30) {
+    throw new Error('freezeExperiment requires at least 30 independently verified missions');
+  }
+  const { train, dev, reserved } = splitByMission(rows);
   const threshold = Number(settings.threshold);
   const protocol = validation.createValidationProtocol({
-    protocolId: 'bandit-canary-v1',
+    protocolId: 'bandit-canary-v2',
     revision: '1',
     hypothesis: HYPOTHESIS,
     corpus: { train, dev, reserved },
@@ -51,9 +58,9 @@ async function freezeExperiment(db, options) {
 
 async function rowsByIds(db, ids) {
   if (!ids.length) return [];
-  const placeholders = ids.map(() => '?').join(',');
-  const rows = await db.all(`SELECT id, metadata_json FROM usage_ledger WHERE id IN (${placeholders})`, ...ids);
-  return (Array.isArray(rows) ? rows : []).map(bandit.parseUsageRow).filter(Boolean);
+  const rows = await bandit.qualifiedObservations(db, 500);
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return ids.map((id) => byId.get(id)).filter(Boolean);
 }
 
 async function loadCanaryRecord(db, settings) {
@@ -85,6 +92,12 @@ async function runExperiment(db, options) {
     if (!record.protocol) return { passed: false, reason: 'no frozen experiment' };
     validation.verifyManifest(record.protocol, record.manifestHash);
     const datasets = await fetchCanaryDatasets(db, record);
+    const expectedTrain = record.protocol.corpus.train.length;
+    const expectedReserved = record.protocol.corpus.reserved.length;
+    if (datasets.train.length !== expectedTrain || datasets.reserved.length !== expectedReserved) {
+      return await finalizeCanaryRun({ store: loaded.store, settings, record,
+        result: { passed: false, reason: 'unqualified_or_retracted_labels' } });
+    }
     if (datasets.train.length < 10 || datasets.reserved.length < 4) return { passed: false, reason: 'insufficient_data' };
     const result = scoreCanaryReplicas(datasets.train, datasets.reserved, record);
     return await finalizeCanaryRun({ store: loaded.store, settings, record, result });

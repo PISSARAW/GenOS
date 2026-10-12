@@ -31,6 +31,7 @@ const CREATE_INDEXES_LINES = [
 "CREATE INDEX IF NOT EXISTS idx_releases_environment ON releases(environment, status, created_at DESC);",
 "CREATE INDEX IF NOT EXISTS idx_release_rollouts_scope ON release_rollouts(organization_id, project_id, created_at DESC);",
 "CREATE INDEX IF NOT EXISTS idx_usage_ledger_scope ON usage_ledger(organization_id, project_id, occurred_at DESC);",
+"CREATE INDEX IF NOT EXISTS idx_model_attempt_ledger_mission ON model_attempt_ledger(mission_id, action_id, started_at);",
 "CREATE INDEX IF NOT EXISTS idx_registry_artifacts_scope ON registry_artifacts(organization_id, project_id, kind, updated_at DESC);",
 "CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status ON marketplace_listings(status, created_at DESC);",
 "CREATE INDEX IF NOT EXISTS idx_framework_executions_scope ON framework_executions(organization_id, project_id, created_at DESC);",

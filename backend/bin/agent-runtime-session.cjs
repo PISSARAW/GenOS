@@ -182,7 +182,9 @@ async function loadMemoryBlock(state) {
   try {
     state.memoryBlock = await agentMemory.formatCognitiveMemoryPrompt(state.agentName,
       state.mission.prompt || state.mission.currentTask,
-      { historicalMemoryTokenBudget: state.mission.historicalMemoryTokenBudget });
+      { historicalMemoryTokenBudget: state.mission.historicalMemoryTokenBudget,
+        peekVesicles: state.mission.contextTokenBudget !== undefined
+          && state.mission.contextTokenBudget !== null });
   } catch (_) {}
 }
 
@@ -232,6 +234,11 @@ async function buildState(mission, data) {
   await loadMemoryBlock(state);
   await loadSelfBlocks(state);
   state.prompt = buildPrompt(state);
+  if (mission.contextTokenBudget !== undefined && mission.contextTokenBudget !== null) {
+    const vesicles = require('../src/services/agentMemoryVesicles');
+    await vesicles.consumeVesicles(mission.agentId);
+    if (state.agentName !== mission.agentId) await vesicles.consumeVesicles(state.agentName);
+  }
   state.estimatedTokens = Math.ceil(Buffer.byteLength(state.prompt, 'utf8') / 4);
   return state;
 }
