@@ -6,7 +6,7 @@ const { createRuntime: createOmegaRuntime } = require('./cognitiveOmegaRuntimeSe
 const cognitiveMmu = require('./cognitiveMmuService');
 const workingSetService = require('./cognitiveWorkingSetService');
 const visibilityLedger = require('./cognitivePersistentVisibilityLedger');
-const proceduralCompilation = require('./proceduralCompilationService');
+const proceduralRoute = require('./modelProceduralRoute');
 const domainGraph = require('./cognitiveOmegaDomainGraphService');
 const projectionProfiler = require('./cognitiveProjectionProfilerService');
 const cognitiveEconomy = require('./cognitiveEconomyControllerService');
@@ -108,6 +108,11 @@ function buildRouteContext(opts, clock, remainingMs) {
     prompt: opts.prompt,
     maxTokens: opts.maxTokens,
     maxCostUsd: opts.maxCostUsd,
+    budgetMaxTokens: opts.budgetMaxTokens,
+    budgetReservationId: opts.budgetReservationId,
+    executionRunId: opts.executionRunId,
+    missionId: opts.missionId,
+    routeActionId: opts.routeActionId,
     responseFormat: opts.responseFormat,
     spent: 0,
     priority: opts.priority || 'bulk',
@@ -182,48 +187,15 @@ async function createRequestMmu(options) {
     authorize: options.cognitiveAuthorizeObject, prefetchThreshold: options.cognitivePrefetchThreshold });
 }
 
-async function recordProceduralExecution(options, contract, execution) {
-  if (!options.cognitiveProceduralize || !options.db || !options.agentId) return null;
-  const evidenceRefs = Array.isArray(options.cognitiveEvidenceRefs)
-    ? [...new Set(options.cognitiveEvidenceRefs)] : [];
-  if (!evidenceRefs.length) return { status: 'blocked', reason: 'procedural_evidence_required' };
-  const contextHash = contract.digest || `omega:${options.cognitiveDomain || 'runtime'}`; const context = proceduralCompilation.contextFor(options, contract);
-  await proceduralCompilation.recordTrace(options.db, { agentId: options.agentId, contextHash, context,
-    steps: execution.operations.map((operation) => `${operation.kind}:${operation.id}`), evidenceRefs, success: true });
-  const input = { agentId: options.agentId, contextHash, context, policy: options.cognitiveProceduralPolicy,
-    executorId: options.cognitiveProcedureExecutorId, validator: options.cognitiveProcedureValidator,
-    autoPromote: options.cognitiveProcedureAutoPromote !== false
-      && typeof options.cognitiveProcedureValidator === 'function'
-      && (typeof options.cognitiveProcedureExecutor === 'function' || options.cognitiveProcedureExecutorId) };
-  return proceduralCompilation.compileAndPromote(options.db, input);
-}
-
-async function reuseProceduralExecution(options, contract) {
-  if (!options.db || !options.agentId) return null;
-  const contextHash = contract.digest || `omega:${options.cognitiveDomain || 'runtime'}`; const context = proceduralCompilation.contextFor(options, contract);
-  const reused = await proceduralCompilation.reuse(options.db, {
-    agentId: options.agentId, contextHash, context, input: options.prompt,
-    executor: options.cognitiveProcedureExecutor
-  });
-  return reused.status === 'reused' ? reused : null;
-}
-
-function resultFromProcedure(reused) {
-  if (reused.value && typeof reused.value === 'object') {
-    return { ...reused.value, model: reused.model || 'procedural', provider: 'procedural',
-      inputTokens: 0, outputTokens: 0, costUsd: 0 };
-  }
-  return { text: String(reused.value ?? ''), model: 'procedural', provider: 'procedural',
-    inputTokens: 0, outputTokens: 0, costUsd: 0 };
-}
-
 async function executeInferenceThroughOmega({ candidates, context, mode, mmu, economy }) {
   const runtime = createOmegaRuntime();
-  runtime.registerInferer('model/infer', async () => (
-    mode === 'parallel'
+  let routeError = null;
+  runtime.registerInferer('model/infer', async () => {
+    try { return await (mode === 'parallel'
       ? routeRunner.runParallel(candidates, context)
-      : routeRunner.runFallback(candidates, context)
-  ));
+      : routeRunner.runFallback(candidates, context));
+    } catch (error) { routeError = error; throw error; }
+  });
   const execution = await runtime.execute({
     context: { model: candidates[0], operation: 'INFER', sessionId: context.sessionId,
       scope: context.cognitiveScope },
@@ -237,6 +209,7 @@ async function executeInferenceThroughOmega({ candidates, context, mode, mmu, ec
     ]
   });
   if (execution.status === 'blocked') {
+    if (routeError) throw routeError;
     throw Object.assign(new Error(`Omega runtime blocked model inference: ${execution.reason}`), {
       code: 'OMEGA_RUNTIME_BLOCKED', omegaExecution: omegaExecution(execution)
     });
@@ -283,44 +256,38 @@ async function generateCore(options) {
   const routedOptions = generateRoutedOptions(opts, cognitiveContract);
   const clock = routingPolicy.computeDeadline(routedOptions);
   const remainingMs = () => Math.min(clock.timeout, clock.deadline - Date.now());
-  if (remainingMs() <= 0) throw new Error('Model routing deadline exhausted before attempting a provider.');
-  const policy = await resolvePolicy(routedOptions);
-  const candidates = await resolveCandidates(routedOptions, policy);
-  routingPolicy.assertStrictPreferLocal(policy, candidates, routedOptions);
-  const context = buildRouteContext(routedOptions, clock, remainingMs);
-  const mmu = await createRequestMmu(opts);
-  let procedural = null;
+  if (remainingMs() <= 0) throw Object.assign(
+    new Error('Model routing deadline exhausted before attempting a provider.'),
+    { code: 'MODEL_ROUTE_DEADLINE_EXCEEDED' });
+  const proceduralAttempt = await proceduralRoute.attempt(opts, cognitiveContract);
+  let procedural = proceduralAttempt.error;
   let routed;
-  let reused = null;
-  if (!opts.providerContinuity) {
-    try {
-      reused = await reuseProceduralExecution(opts, cognitiveContract);
-    } catch (error) {
-      procedural = { status: 'telemetry_failed', reason: error.message };
-    }
-  }
-  if (reused) {
-    routed = { result: resultFromProcedure(reused), execution: {
+  const reused = proceduralAttempt.reused;
+  proceduralRoute.assertSafeAttempt(reused);
+  if (reused?.status === 'reused') {
+    routed = { result: proceduralRoute.result(reused), execution: {
       status: 'reused', digest: cognitiveContract.digest, economy: cognitiveContract.economy,
       mmu: null, operations: [{ id: 'procedural_reuse', kind: 'INFER', status: 'reused', reason: null }]
     } };
     procedural = { status: 'reused', procedure: reused.procedure,
       promotionReceipt: reused.promotionReceipt };
   } else {
+    const policy = await resolvePolicy(routedOptions);
+    const candidates = await resolveCandidates(routedOptions, policy);
+    routingPolicy.assertStrictPreferLocal(policy, candidates, routedOptions);
+    const context = buildRouteContext(routedOptions, clock, remainingMs);
+    const mmu = await createRequestMmu(opts);
     const economyMode = cognitiveContract.economy?.execution?.mode;
     const mode = generateMode(economyMode, candidates, policy);
     const executor = generateExecutor({ cognitiveContract, candidates, context, mode, mmu, opts });
     routed = await executor;
   }
   const result = routed.result;
-  if (!procedural) {
-    try {
-      procedural = await recordProceduralExecution(opts, cognitiveContract, routed.execution);
-    } catch (error) {
-      procedural = { status: 'telemetry_failed', reason: error.message };
-    }
-  }
-  const cognitiveResult = { ...cognitiveContract, execution: routed.execution, procedural };
+  procedural = await proceduralRoute.recordAfter({ options: opts, contract: cognitiveContract,
+    execution: routed.execution, previous: procedural });
+  const cognitiveResult = { ...cognitiveContract, execution: routed.execution,
+    procedural: procedural && reused?.status !== 'reused' ? { ...procedural, reuse: reused }
+      : procedural || reused };
   if (generateCondition(opts)) {
     await generateValues2({ opts, result, cognitiveContract, startedAt });
   }

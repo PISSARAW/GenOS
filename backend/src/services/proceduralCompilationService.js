@@ -97,7 +97,9 @@ function matchThreshold(input) {
 
 function contextMatch(candidate, input) {
   if (!samePartition(candidate.context, input.context)) return 0;
-  if (candidate.contextHash === String(input.contextHash)) return 1;
+  if (candidate.contextHash === String(input.contextHash)) {
+    return contextSignature(candidate.context || {}) === contextSignature(input.context || {}) ? 1 : 0;
+  }
   if (input.context == null || candidate.context == null) return 0;
   const similarity = contextSimilarity(candidate.context, input.context);
   return similarity >= matchThreshold(input) ? similarity : 0;
@@ -165,7 +167,8 @@ async function compile(db, input) {
     context: input.contextHash, contextSignature: contextSignature(input.context), steps: result.path })}`, agentId: String(input.agentId),
     contextHash: String(input.contextHash), context: normalizeContext(input.context || {}),
     contextSignature: contextSignature(input.context || {}), steps: result.path, executorId: input.executorId || null,
-    prerequisites: input.prerequisites || [], provenance: { traceIds: successful.map((trace) => trace.id),
+    prerequisites: input.prerequisites || [], inputDigests: [...new Set(successful.map((trace) => sha(trace.input)))],
+    provenance: { traceIds: successful.map((trace) => trace.id),
       evidenceRefs: [...new Set(successful.flatMap((trace) => trace.evidenceRefs))],
       successRate: result.provenance.successRate, contextSimilarity: Math.min(...traces.map((trace) => trace.contextMatch || 1)) } };
   return { status: 'candidate', procedure, traces, validationRequired: true };
@@ -195,9 +198,11 @@ async function promote(db, input) {
   const checked = await validate(candidate, input);
   if (!checked.valid) return { status: 'blocked', reason: checked.reason, validation: checked.result || null };
   const now = new Date().toISOString();
+  const validForMs = Math.min(30 * 86400000, Math.max(1, Number(input.validForMs) || 7 * 86400000));
   const receipt = { kind: 'procedural-promotion', procedureId: candidate.procedure.procedureId,
     evidenceRefs: candidate.procedure.provenance.evidenceRefs, traceIds: candidate.procedure.provenance.traceIds,
-    validation: checked.result, validatedAt: now, digest: sha({ procedure: candidate.procedure, validation: checked.result }) };
+    validation: checked.result, validatedAt: now, expiresAt: new Date(Date.now() + validForMs).toISOString() };
+  receipt.digest = sha({ procedure: candidate.procedure, receipt });
   await ensure(db);
   await db.run(`UPDATE procedural_compiled_procedures SET status = 'superseded', updated_at = ?
     WHERE agent_id = ? AND context_hash = ? AND status = 'active'`, now, candidate.procedure.agentId, candidate.procedure.contextHash);
@@ -215,20 +220,50 @@ function registerExecutor(id, executor) {
   return id;
 }
 
+function receiptGate(procedure, receipt) {
+  if (receipt?.digest !== sha({ procedure, receipt: { ...receipt, digest: undefined } })) {
+    return 'procedure_receipt_mismatch';
+  }
+  if (receipt.kind !== 'procedural-promotion' || receipt.procedureId !== procedure.procedureId
+      || !verified(receipt.validation) || !receipt.evidenceRefs?.length) {
+    return 'procedure_promotion_invalid';
+  }
+  if (!Number.isFinite(Date.parse(receipt.expiresAt)) || Date.parse(receipt.expiresAt) <= Date.now()) {
+    return 'procedure_promotion_expired';
+  }
+  return null;
+}
+
 async function reuseGate(match, input) {
   const { procedure } = match;
   const receipt = parseJson(match.row.receipt_json, null);
-  if (receipt?.digest !== sha({ procedure, validation: receipt?.validation })) {
-    return { status: 'blocked', reason: 'procedure_receipt_mismatch', llmCalls: 0 };
+  const receiptReason = receiptGate(procedure, receipt);
+  if (receiptReason) return { status: 'blocked', reason: receiptReason, llmCalls: 0 };
+  const compatibilityReason = await compatibilityGate(procedure, receipt, input);
+  if (compatibilityReason) return { status: 'blocked', reason: compatibilityReason, llmCalls: 0 };
+  return null;
+}
+
+async function compatibilityGate(procedure, receipt, input) {
+  if (typeof input.validateReceipt !== 'function'
+      || await input.validateReceipt(receipt, procedure) !== true) {
+    return 'procedure_receipt_unverified';
+  }
+  if (!procedure.inputDigests?.includes(sha(input.input)) && receipt.validation?.generalizedInput !== true) {
+    return 'procedure_input_not_validated';
   }
   if (procedure.contextHash !== String(input.contextHash) && receipt.validation?.generalized !== true) {
-    return { status: 'blocked', reason: 'procedure_generalization_not_validated', llmCalls: 0 };
+    return 'procedure_generalization_not_validated';
   }
+  return prerequisiteGate(procedure, input);
+}
+
+async function prerequisiteGate(procedure, input) {
   if (procedure.prerequisites?.length && typeof input.validatePrerequisites !== 'function') {
-    return { status: 'blocked', reason: 'procedure_prerequisites_unchecked', llmCalls: 0 };
+    return 'procedure_prerequisites_unchecked';
   }
   if (input.validatePrerequisites && await input.validatePrerequisites(procedure, input) !== true) {
-    return { status: 'blocked', reason: 'procedure_prerequisites_failed', llmCalls: 0 };
+    return 'procedure_prerequisites_failed';
   }
   return null;
 }
@@ -250,11 +285,26 @@ async function reuse(db, input) {
   const { procedure } = match;
   const executor = input.executor || executors.get(procedure.executorId);
   if (typeof executor !== 'function') return { status: 'blocked', reason: 'procedure_executor_missing', llmCalls: 0 };
+  if (typeof input.validateResult !== 'function') {
+    return { status: 'blocked', reason: 'procedure_result_validator_missing', llmCalls: 0 };
+  }
+  return executeProcedure({ match, input, executor });
+}
+
+async function executeProcedure({ match, input, executor }) {
+  const { procedure } = match;
   const steps = [];
   let value = input.input;
   for (let index = 0; index < procedure.steps.length; index++) {
-    value = await executor({ step: procedure.steps[index], index, input: value, procedure });
+    try { value = await executor({ step: procedure.steps[index], index, input: value, procedure }); }
+    catch (error) { return { status: 'execution_failed', reason: error.message, retrySafe: false, llmCalls: 0 }; }
     steps.push({ step: procedure.steps[index], result: value });
+  }
+  let accepted;
+  try { accepted = await input.validateResult(value, procedure) === true; }
+  catch (_) { accepted = false; }
+  if (!accepted) {
+    return { status: 'execution_failed', reason: 'procedure_result_invalid', retrySafe: false, llmCalls: 0 };
   }
   return { status: 'reused', value, steps, llmCalls: 0, costUsd: 0,
     procedure, contextMatch: match.contextMatch, promotionReceipt: parseJson(match.row.receipt_json, null) };

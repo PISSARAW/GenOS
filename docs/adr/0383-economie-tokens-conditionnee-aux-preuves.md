@@ -30,8 +30,17 @@ retire silencieusement une preuve.
 La mémoire historique du prompt possède un budget estimatif de 2 000 tokens,
 paramétrable à la baisse. Les échecs connus sont sélectionnés avant les
 expériences positives. Les vésicules et le génome de prompt restent hors de ce
-budget historique afin de préserver leur contrat de livraison ; la taille
-totale du prompt n'est donc pas garantie par ce plafond.
+budget historique afin de préserver leur contrat de livraison. Quand une
+mission fournit `contextTokenBudget`, le texte de mission (tâche, génome,
+vésicules et mémoire) puis le prompt assemblé par le runtime GenOS sont
+contrôlés par l'estimation `ceil(octets UTF-8 / 4)`. Le budget traverse le
+protocole `AgentMission`. Un dépassement ou un budget invalide arrête le
+démarrage avec un code d'erreur ; aucun élément de preuve n'est coupé. Sur les
+chemins Codex et `caller_mcp`, les vésicules consultées ne sont consommées
+qu'après le contrôle du prompt runtime. Le compteur estimé est conservé
+séparément d'un éventuel comptage fournisseur mesuré. Sans budget explicite,
+ce contrôle n'est pas activé. Les messages système et les résultats d'outils
+ajoutés ensuite par l'hôte restent hors de ce plafond.
 
 Le routeur journalise la provenance mesurée ou estimée des compteurs de tokens
 et utilise le même estimateur pour le garde de coût que le fournisseur utilise
@@ -56,7 +65,10 @@ garantit pas la répétition déterministe d'un modèle externe.
 - **Positives** : pas de perte silencieuse en continuation ; distinction entre
   transport, mesure et verdict ; plafond explicite pour la mémoire historique.
 - **Négatives** : un rapport trop grand peut encore produire un grand prompt ;
-  l'économie tabulaire dépend de la forme des affirmations ; le bandit ne
+  l'estimateur du prompt peut différer du tokenizer réel ; les prompts ajoutés
+  après le démarrage et les autres runtimes ne sont pas couverts par le contrôle
+  du prompt complet ; l'économie tabulaire dépend de la
+  forme des affirmations ; le bandit ne
   reçoit plus de nouvelles récompenses en production avant son raccord au gate.
 - **Mesure** : aucun gain net n'est revendiqué sans essais appariés et reçus de
   tokens couvrant génération, vérification, reprises et branches écartées.
@@ -76,3 +88,6 @@ d'une contradiction au-delà de 8 000 caractères, le décodage exact, la priori
 des échecs connus et le refus des étiquettes de transport. Le banc
 `test_organ_ablation_bench.js` exerce le bandit et le canary avec des verdicts
 de fixture explicites ; il ne qualifie pas un gate de production.
+`test_mission_prompt_context_budget.js` contrôle le refus avant lecture ou
+consommation de vésicules, la transmission du budget par protobuf, le refus du
+prompt runtime complet trop grand et la conservation du contexte admis.

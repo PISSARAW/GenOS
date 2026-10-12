@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [qualification-issue-mission.md](qualification-issue-mission.md) — protocole de vérification du but, falsification des oracles et limites des preuves de clôture.
+
 - [studio-essai-cinq-niveaux.md](studio-essai-cinq-niveaux.md) — essai navigateur réel, persistance, refus de revue et limites des missions autonomes.
 
 - [obstacle-4-communication-consolidation-scientifique-2026-10-10.md](obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée et flux cible pour la consolidation scientifique.

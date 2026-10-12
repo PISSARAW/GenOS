@@ -9,6 +9,7 @@
 
 const events = require('./strategyExecutionEvents');
 const promotionGate = require('./strategyPromotionGate');
+const missionOutcomeContract = require('./missionOutcomeContract');
 
 function runEventFlags(event) {
   return {
@@ -76,20 +77,44 @@ async function resolveRunOutcome(db, row, context) {
   const metrics = accumulateMetrics(events.safeJson(row.metrics_json, {}), delta, startedAt);
   const budget = events.safeJson(row.budget_json, events.DEFAULT_BUDGET);
   const flags = runEventFlags(event);
-  let guardrailReason = events.policyViolation(event) || blockedReason(event, flags.blocked) || events.exceededGuardrail(metrics, budget);
+  const initialReason = events.policyViolation(event) || blockedReason(event, flags.blocked) || events.exceededGuardrail(metrics, budget);
   const contract = await completionContract(db, row);
-  let nativeVerification = null;
-  if (flags.completed && !guardrailReason) {
-    const checked = await nativeCompletionGate(db, { row, event, contract });
-    nativeVerification = checked.verification;
-    guardrailReason = checked.reason || await selfModelCompletionBlock(db, row.agent_id,
-      { ...event.payload, ...(nativeVerification?.gateContext || {}) });
-  }
+  const checked = await completionDecision(db, { row, event, contract, flags, initialReason });
+  const nativeVerification = checked.verification;
+  const missionOutcome = missionOutcomeFor({ contract, flags, nativeVerification, event, runId: row.id });
+  if (missionOutcome) metrics.missionOutcome = missionOutcome;
+  const guardrailReason = checked.reason || goalClosureReason(contract, missionOutcome);
   const approvalRequired = flags.completed && !guardrailReason && requiresHumanApproval(contract);
   return {
     event, delta, metrics, flags, contract, approvalRequired, guardrailReason,
     agentId: context.agentId, contractId: row.contract_id, rowStatus: row.status, now: new Date().toISOString(), nativeVerification
   };
+}
+
+function missionOutcomeFor(input) {
+  if (!input.flags.completed) return null;
+  if (input.contract.mission_outcome) {
+    return missionOutcomeContract.evaluate(input.contract.mission_outcome, input.nativeVerification,
+      { ...input.event, runId: input.runId });
+  }
+  return { status: 'unmeasured', goal: null, verifiedObligations: [], missingObligations: [] };
+}
+
+function goalClosureReason(contract, outcome) {
+  return contract.mission_outcome ? missionClosureReason(outcome) : null;
+}
+
+async function completionDecision(db, input) {
+  if (!input.flags.completed || input.initialReason) return { verification: null, reason: input.initialReason };
+  const checked = await nativeCompletionGate(db, input);
+  const reason = checked.reason || await selfModelCompletionBlock(db, input.row.agent_id,
+    { ...input.event.payload, ...(checked.verification?.gateContext || {}) });
+  return { verification: checked.verification, reason };
+}
+
+function missionClosureReason(outcome) {
+  if (!outcome || outcome.status === 'verified') return null;
+  return `Mission outcome ${outcome.status}: ${outcome.missingObligations.join(', ') || 'not verified'}`;
 }
 
 async function nativeCompletionGate(db, input) {

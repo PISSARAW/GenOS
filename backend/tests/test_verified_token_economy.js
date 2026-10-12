@@ -8,10 +8,11 @@ const bandit = require('../src/services/routingBanditService');
 const { selectHistoricalMemories } = require('../src/services/agentMemoryPrompt');
 const { recordModelUsage } = require('../src/services/modelRouteRunner');
 const { buildStreamResponse } = require('../src/services/modelProviderRequest');
+const { attachAssemblyStore, verifiedObservation } = require('../../benchmarks/token-economy/verified-bandit-fixture.cjs');
 
 function memoryDb() {
   const values = new Map();
-  return {
+  const db = {
     get: async (sql, scope, key) => values.has(`${scope}|${key}`)
       ? { payload_json: values.get(`${scope}|${key}`) } : null,
     all: async () => [],
@@ -20,6 +21,8 @@ function memoryDb() {
       if (!String(sql).includes('adaptive_state_events')) values.set(`${scope}|${key}`, payload);
     }
   };
+  attachAssemblyStore(db);
+  return db;
 }
 
 function verifyEvidencePreservation() {
@@ -60,13 +63,11 @@ async function verifyNoTransportLabels() {
   assert.equal(bandit.parseUsageRow({ id: 'transport', metadata_json: JSON.stringify({ model: 'a://m', transportSuccess: true }) }), null);
   const cold = await bandit.chooseWithGuardrails(db, ['a://m', 'b://m'], { canaryRate: 1, minPulls: 1 });
   assert.equal(cold.mode, 'policy');
-  const verification = { status: 'verified', success: false, evidenceRef: 'gate:independent-1' };
-  assert.equal(await bandit.observe(db, { routeUri: 'a://m', success: true, verification }), null);
-  const learned = await bandit.observe(db, { routeUri: 'a://m', success: false, verification });
+  const verified = await verifiedObservation(db, { routeUri: 'a://m', success: false });
+  assert.equal(await bandit.observe(db, { ...verified, success: true }), null);
+  const learned = await bandit.observe(db, verified);
   assert.equal(learned.pulls, 1);
-  const holdout = await bandit.evaluateLoggedHoldout({ all: async () => Array.from({ length: 30 }, (_, index) => ({
-    id: `transport-${index}`, metadata_json: JSON.stringify({ model: 'a://m', transportSuccess: true })
-  })) });
+  const holdout = await bandit.evaluateLoggedHoldout(db);
   assert.equal(holdout.status, 'insufficient_data');
 }
 

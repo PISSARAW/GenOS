@@ -392,9 +392,9 @@ const TABLES_EXTENSIONS_BASE = [
 ];
 
 const { TABLES_TENANCY } = require('./schema-tables-tenancy');
+const { TABLES_MODEL_ATTEMPTS } = require('./schema-model-attempts');
 const { CREATE_INDEXES_SQL } = require('./schema-indexes');
-
-const TABLES_EXTENSIONS = [...TABLES_EXTENSIONS_BASE, ...TABLES_TENANCY].join("\n");
-
+const TABLES_EXTENSIONS = [...TABLES_EXTENSIONS_BASE, ...TABLES_TENANCY,
+  TABLES_MODEL_ATTEMPTS].join("\n");
 module.exports = { TABLES_EXTENSIONS, CREATE_INDEXES_SQL };
 
