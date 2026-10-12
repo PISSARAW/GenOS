@@ -14,6 +14,12 @@ async function migrateMorphologyGraph(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_morphology_graph_mission
       ON morphology_graph_versions(mission_id, created_at);
+    CREATE TRIGGER IF NOT EXISTS morphology_graph_versions_no_update
+      BEFORE UPDATE ON morphology_graph_versions
+      BEGIN SELECT RAISE(ABORT, 'morphology graph version is immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS morphology_graph_versions_no_delete
+      BEFORE DELETE ON morphology_graph_versions
+      BEGIN SELECT RAISE(ABORT, 'morphology graph version is immutable'); END;
   `);
 }
 

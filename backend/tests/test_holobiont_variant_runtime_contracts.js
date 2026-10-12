@@ -177,6 +177,24 @@ function testEdgeSyncReportsFilteredEvents() {
   assert.deepStrictEqual(result.causalClocks, { A: { A: 1 } });
 }
 
+function testEdgeSyncCausalEquality() {
+  const event = (eventId, authorityZone, vectorClock) => ({ eventId, authorityZone,
+    conflictKey: 'shared-state', vectorClock,
+    provenance: { evidenceRefs: [`proof:${eventId}`] } });
+  const equal = edgeSync.reconcileEdgeEvents({ authorityZones: ['A', 'B'],
+    verifyProvenance: () => true, events: [
+      event('a', 'A', { A: 1, B: 1 }), event('b', 'B', { B: 1, A: 1 })
+    ] });
+  assert.strictEqual(equal.accepted.length, 2);
+  assert.deepStrictEqual(equal.conflicts, []);
+  assert.strictEqual(edgeSync.concurrent({ A: 1 }, { A: 1, B: 0 }), false);
+  const divergent = edgeSync.reconcileEdgeEvents({ authorityZones: ['A', 'B'],
+    verifyProvenance: () => true, events: [
+      event('c', 'A', { A: 2, B: 1 }), event('d', 'B', { B: 2, A: 1 })
+    ] });
+  assert.deepStrictEqual(divergent.conflicts.map((item) => item.eventIds), [['c', 'd']]);
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
 testLocalExportProofGate();
@@ -188,5 +206,6 @@ testCompetitionSelectsProtectedGroupAlternative();
 testProceduralRecruitmentContractGates();
 testToolAdmissionAndInvocationGate();
 testEdgeSyncReportsFilteredEvents();
+testEdgeSyncCausalEquality();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');

@@ -7,6 +7,7 @@ const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
 const { withFixture } = require('./helpers/studioGenosFixture.cjs');
 const { action } = require('./helpers/studioGenosBrowserJourney.cjs');
+const tasks = require('./helpers/studioTaskNavigation.cjs');
 
 function fingerprints() {
   const files = fs.readdirSync(path.join(__dirname, '../../integrations/studio')).filter(file => /\.(mjs|js|css|html)$/.test(file))
@@ -25,7 +26,7 @@ function fingerprints() {
 
 async function collective(page, root) {
   await page.locator('[data-target="organism-view"]').click();
-  await page.getByRole('button', { name: 'Topologies et organisations', exact: true }).click();
+  await tasks.click(page, page.getByRole('button', { name: 'Topologies et organisations', exact: true, includeHidden: true }));
   const catalog = await action(page, { id: 'collective-inspect', route: root + '/collective', method: 'GET' });
   assert.equal(catalog.organizations.length, 19);
   const result = await action(page, { id: 'collective-step', route: root + '/collective/step' });
@@ -36,7 +37,7 @@ async function collective(page, root) {
 
 async function perception(page, root) {
   await page.locator('[data-target="organism-view"]').click();
-  await page.getByRole('button', { name: 'Perception et cognition', exact: true }).click();
+  await tasks.click(page, page.getByRole('button', { name: 'Perception et cognition', exact: true, includeHidden: true }));
   const initial = await action(page, { id: 'perception-inspect', route: root + '/perception', method: 'GET' });
   assert.equal(initial.receipts.length, 0);
   const plan = await action(page, { id: 'perception-plan', route: root + '/perception/plan' });
@@ -49,7 +50,7 @@ async function perception(page, root) {
 
 async function biomimetic(page, root) {
   await page.locator('[data-target="organism-view"]').click();
-  await page.getByRole('button', { name: 'Créativité et biophysique', exact: true }).click();
+  await tasks.click(page, page.getByRole('button', { name: 'Créativité et biophysique', exact: true, includeHidden: true }));
   const creative = await action(page, { id: 'biomimetic-creative', route: root + '/biomimetic/creative' });
   assert.ok(creative.learningProgress > 0);
   assert.equal(creative.creativeEffectMeasured, false);
@@ -62,7 +63,7 @@ async function biomimetic(page, root) {
 async function health(page, context) {
   const { spec, root } = context;
   await page.locator('[data-target="recovery-view"]').click();
-  await page.getByRole('button', { name: 'Immunité et nosologie', exact: true }).click();
+  await tasks.click(page, page.getByRole('button', { name: 'Immunité et nosologie', exact: true, includeHidden: true }));
   const initial = await action(page, { id: 'health-inspect', route: root + '/health', method: 'GET' });
   assert.equal(initial.clinicalState, null);
   const refusal = await action(page, { id: 'health-scan', route: root + '/health/scan', status: 409 });
@@ -94,7 +95,7 @@ async function reference(page, root) {
 
 async function accessibleViews(page) {
   for (const id of ['collective', 'perception', 'biomimetic', 'health', 'reference']) {
-    await page.locator(`[data-target="${id}-view"]`).evaluate(button => button.click());
+    await tasks.view(page, id + '-view');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, id);
     assert.equal(await page.locator(`#${id}-view h2`).evaluate(element => document.activeElement === element), true, id);
     const unnamed = await page.locator(`#${id}-view input, #${id}-view textarea`).evaluateAll(elements =>
@@ -134,9 +135,10 @@ async function probe(spec) {
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await accessibleViews(page);
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
+    await page.locator('#reference-view .task-choice select').focus();
     await page.keyboard.press('Tab');
     assert.notEqual(await page.evaluate(() => document.activeElement.tagName), 'BODY');
-    await page.getByRole('button', { name: 'Déconnecter', exact: true }).click();
+    await tasks.click(page, page.locator('#disconnect'));
     assert.equal(await page.locator('[data-view]:visible').count(), 0);
     assert.equal(await page.locator('#collective-result').textContent(), '');
     assert.equal(await page.locator('#perception-result').textContent(), '');

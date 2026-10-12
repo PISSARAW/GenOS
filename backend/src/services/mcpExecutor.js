@@ -325,12 +325,12 @@ async function execute(executionRequest) {
   const db = await getDatabase();
   await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
   const request = { agentId, organizationId, projectId, toolName, args, taints };
+  const immuneFault = await screenImmuneThreats(db, request);
+  if (immuneFault) return immuneFault;
   const { circuitScope, policy } = await resolveExecutionPolicy(db, request);
   if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
   const cnidocyteFault = await require('./mcpExecutor/cnidocyteRuntimeGate').screenCnidocyteThreat(db, request);
   if (cnidocyteFault) return cnidocyteFault;
-  const immuneFault = await screenImmuneThreats(db, request);
-  if (immuneFault) return immuneFault;
   const chromatinFault = await screenChromatinLock(db, request);
   if (chromatinFault) return chromatinFault;
   const unavailable = await checkToolAvailability(db, toolName);

@@ -153,6 +153,9 @@ flowchart TD
 ```
 
 Positions relatives illustratives, non mesurées. Aucun score, aucun benchmark joint.
+Le protocole comparatif de continuité est décrit dans
+[`benchmarks/ontogenesis-continuity.md`](../06-qualite-preuves/benchmarks/ontogenesis-continuity.md) ;
+aucun résultat de comparaison avec ces produits n'est encore revendiqué.
 
 ## 6. Sources à maintenir
 

@@ -15,7 +15,9 @@ function dossierPosition(dossier) {
     statement: String(claim.statement || ''), evidence: [...(claim.evidence || [])],
     workerId, declaredOutcome: report.outcome || 'unknown'
   })));
-  return { workerId, claims, outcomes: reports.map((report) => report.outcome || 'unknown') };
+  const oracleRefs = (dossier.events || []).filter((event) => event.nativeOracleRef && event.executionRunId)
+    .map((event) => ({ workerId, agentId: workerId, runId: event.executionRunId, reference: event.nativeOracleRef }));
+  return { workerId, claims, outcomes: reports.map((report) => report.outcome || 'unknown'), oracleRefs };
 }
 
 function contradictions(positions) {
@@ -37,12 +39,14 @@ function compile(plan) {
   validateDossierSet(expected, actual);
   const conflicts = contradictions(positions);
   const claims = positions.flatMap((position) => position.claims);
+  const delegatedOracleRefs = positions.flatMap((position) => position.oracleRefs);
   const uncertain = claims.filter((claim) => claim.declaredOutcome !== 'success' || !claim.evidence.length);
   const omissions = positions.filter((position) => !position.claims.length).map((position) => position.workerId);
   const report = { schema: 'genos.canonical-final-report/v1',
     outcome: uncertain.length || conflicts.length || omissions.length ? 'failed' : 'success',
     assemblyStatus: 'assembled', claims, contradictions: conflicts, omissions,
     unverifiedClaims: uncertain.map((claim) => claim.statement),
+    delegatedOracleRefs,
     dossierInfluence: positions.map((position) => ({ workerId: position.workerId,
       influence: 'Déclarations conservées et attribuées sans arbitrage narratif.',
       usedClaims: position.claims.map((claim) => claim.statement) })),

@@ -72,6 +72,15 @@ d'observation. Les opérations MCP `cycle` et `run` continuent la même session.
 La reprise SQLite conserve les limites, le budget consommé, les preuves et l'historique.
 Les populations initiales sont vides ; les quatre rôles constituent le plan de contrôle.
 
+Dans le variant Open-Ended, un candidat d'environnement doit porter ses
+propres `evidenceRefs` pour ouvrir une niche ; les références globales du cycle
+ne lui sont pas transférées. Une réévaluation doit aussi apporter ses propres
+références, sans hériter de celles de l'évaluation antérieure. Seule une niche
+absente avant le tour compte comme
+promotion. Répéter un candidat connu ne réinitialise donc pas la série de tours
+sans nouvelle niche. Ces références restent déclarées par l'hôte : leur présence
+ne prouve pas à elle seule une évaluation scientifique indépendante (ADR 0432).
+
 L'exécution passe par un adaptateur configuré, une autorisation stricte, une réservation
 persistée et un vérificateur indépendant lié à l'empreinte de sortie. Ni l'inactivité,
 ni l'entropie, ni un succès de transport ne certifient l'objectif global.

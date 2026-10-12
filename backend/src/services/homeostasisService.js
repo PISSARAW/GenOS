@@ -29,6 +29,12 @@ function buildDefaultFunctionalInvariants(mission) {
     label: 'mission_outcome_success',
     verifier: { type: 'mission.outcome_success' }
   });
+  invariants.push({
+    id: 'completion_contract_configured',
+    kind: 'epistemic',
+    label: 'completion_contract_configured',
+    verifier: { type: 'context.flag', flag: 'completionContractConfigured' }
+  });
   if (goal.includes('auth') || goal.includes('authentifi')) {
     invariants.push({
       id: 'authentication_works',
@@ -74,20 +80,24 @@ function defaultEvidenceRequirements(mission) {
   return required;
 }
 
+function normalizeCompletionInvariant(invariant, index) {
+  return {
+    id: invariant.id || invariant.label || `completion_invariant_${index + 1}`,
+    kind: invariant.kind,
+    label: invariant.label || invariant.id,
+    verifier: invariant.verifier,
+    check: typeof invariant.check === 'function' ? invariant.check : undefined
+  };
+}
+
 function contractInvariants(mission) {
   // The genome completion contract is the source of authority. The prompt
   // heuristics below are a development fallback only, never the contract.
   const contract = mission.completionContract;
-  if (contract) {
-    if (!Array.isArray(contract.invariants)) throw new Error('Completion contract requires an invariants array');
-    return contract.invariants.map((invariant, index) => ({
-      id: invariant.id || invariant.label || `completion_invariant_${index + 1}`,
-      kind: invariant.kind,
-      label: invariant.label || invariant.id,
-      verifier: invariant.verifier,
-      check: typeof invariant.check === 'function' ? invariant.check : undefined
-    }));
-  }
+  if (contract && !Array.isArray(contract.invariants)) throw new Error('Completion contract requires an invariants array');
+  const declared = contract ? contract.invariants : mission.invariants;
+  if (Array.isArray(declared) && declared.length > 0) return declared.map(normalizeCompletionInvariant);
+  if (contract) return [];
   return buildDefaultFunctionalInvariants(mission);
 }
 

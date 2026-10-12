@@ -36,21 +36,22 @@ async function recordDelivery(options) {
   const receipt = await receiptService.record({
     agentId: frame.agentId, db: options.db, frameId: frame.frameId, module: receiver.module, consumed: result.consumed !== false,
     beforeStateHash, afterStateHash, effectType: result.effectType || null,
-    changed, artifactRefs: Array.isArray(result.artifactRefs) ? result.artifactRefs : []
+    changed, artifactRefs: Array.isArray(result.artifactRefs) ? result.artifactRefs : [],
+    candidateIds: options.sources.map((item) => item.candidateId)
   });
   await recordMediation({ source, frame, receiver, result, beforeStateHash, afterStateHash, changed, db: options.db });
   return receipt;
 }
 
 async function deliverReceiver(options) {
-  const { receiver, frame, source, db } = options;
+  const { receiver, frame, source, sources, db } = options;
   try {
-    const context = { frame, candidate: source, db };
+    const context = { frame, candidate: source, candidates: sources, db };
     const before = await receiver.handler({ ...context, phase: 'inspect' });
     const result = await receiver.handler({ ...context, phase: 'apply' });
-    return await recordDelivery({ receiver, frame, source, before, result: result || {}, db });
+    return await recordDelivery({ receiver, frame, source, sources, before, result: result || {}, db });
   } catch (_) {
-    return receiptService.record({ agentId: frame.agentId, db, frameId: frame.frameId, module: receiver.module, consumed: false, beforeStateHash: null, afterStateHash: null, effectType: 'receiver_error', changed: false, artifactRefs: [] });
+    return receiptService.record({ agentId: frame.agentId, db, frameId: frame.frameId, module: receiver.module, consumed: false, beforeStateHash: null, afterStateHash: null, effectType: 'receiver_error', changed: false, artifactRefs: [], candidateIds: sources.map((item) => item.candidateId) });
   }
 }
 
@@ -74,9 +75,11 @@ async function publish(options) {
   const transportReceipt = await publishTransport(options);
   const deliveries = [];
   const candidates = await candidatePool.list({ agentId: frame.agentId, db: options.db });
-  const source = candidates.find((candidate) => candidate.candidateId === frame.primaryContent);
+  const ids = [frame.primaryContent, ...(frame.secondaryContents || [])].filter(Boolean);
+  const sources = ids.map((id) => candidates.find((candidate) => candidate.candidateId === id)).filter(Boolean);
+  const source = sources[0] || null;
   for (const receiver of receiverRegistry.list({ modules })) {
-    deliveries.push(await deliverReceiver({ receiver, frame, source, db: options.db }));
+    deliveries.push(await deliverReceiver({ receiver, frame, source, sources, db: options.db }));
   }
   return { published: transportReceipt?.published === true, transportReceipt, deliveries };
 }

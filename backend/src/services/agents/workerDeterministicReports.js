@@ -32,7 +32,8 @@ function monitor(result) {
   const refs = result.territoryReport.sourceRefs;
   const statement = `${result.anomalies.length} of ${result.sampleCount} samples exceeded ${result.threshold}.`;
   return sourcedReport({ type: 'dossier', refs, statement, content: {
-    claims: [{ statement, evidence: refs }], territoryReport: result.territoryReport,
+    claims: [{ statement, evidence: refs }], threshold: result.threshold,
+    sampleCount: result.sampleCount, territoryReport: result.territoryReport,
     anomalies: result.anomalies, monitorReceipt: result.monitorReceipt
   } });
 }
@@ -61,7 +62,7 @@ function procedure(result) {
   const refs = [result.receipt.id];
   const statement = `Procedure ${result.methodId} computed ${JSON.stringify(result.output)}.`;
   return sourcedReport({ type: 'dossier', refs, statement,
-    content: { claims: [{ statement, evidence: refs }], procedureReceipt: result.receipt } });
+    content: { claims: [{ statement, evidence: refs }], result: result.output, procedureReceipt: result.receipt } });
 }
 
 const REPORTS = {

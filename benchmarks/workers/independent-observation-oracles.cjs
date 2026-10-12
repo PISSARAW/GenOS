@@ -2,12 +2,21 @@
 
 const { createHash } = require('node:crypto');
 
-function digest(value) {
-  return `solver://sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
+function digest(value, canonicalized) {
+  const encoded = JSON.stringify(canonicalized ? canonical(value) : value);
+  return `solver://sha256:${createHash('sha256').update(encoded).digest('hex')}`;
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  }
+  return value;
 }
 
 function receiptMatches({ testCase, execution, content, key }) {
-  const expectedId = digest({ methodContract: testCase.methodContract, content });
+  const expectedId = digest({ methodContract: testCase.methodContract, content }, key !== 'teachingReceipt');
   return execution.receipt?.id === expectedId && execution.result?.[key]?.id === expectedId;
 }
 

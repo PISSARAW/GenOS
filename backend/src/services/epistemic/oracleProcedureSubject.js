@@ -53,10 +53,10 @@ function observedContent(input) {
 
 function subsetMethod(assigned) {
   if (assigned?.version !== 1) denied('ORACLE_DOMAIN_UNAVAILABLE');
-  const method = assigned.methodId === 'scoped_procedure'
-    ? assigned.parameters?.procedure : assigned;
+  const wrappers = ['scoped_procedure', 'host_procedure', 'niche_procedure'];
+  const method = wrappers.includes(assigned.methodId) ? assigned.parameters?.procedure : assigned;
   if (method?.version !== 1 || method.methodId !== 'subset_sum'
-      || !['scoped_procedure', 'subset_sum'].includes(assigned.methodId)) {
+      || ![...wrappers, 'subset_sum'].includes(assigned.methodId)) {
     denied('ORACLE_DOMAIN_UNAVAILABLE');
   }
   return method;

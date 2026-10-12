@@ -33,15 +33,22 @@ assert.deepEqual(gates.factorial, { status: 'missing' });
 
 const missionId = 'nominal-mission';
 const baseline = 'a'.repeat(64);
+const comparisonProof = { status: 'verified', comparison: { outcome: 'PROMOTE_WORLD', selectedWorld: 1, comparativeAnalysis: {
+  adaptiveBudgetExecution: { status: 'executed' } } } };
 const promoted = { mission_id: missionId, mission_snapshot_hash: baseline,
   status: 'promoted', decision_json: JSON.stringify({
-  outcome: 'PROMOTED', verification: { contentHash: 'sha256:content', claimsCoveredByChecks: true,
+  outcome: 'PROMOTED', worldNumber: 1, verification: { contentHash: 'sha256:content', claimsCoveredByChecks: true,
     sourceAgentId: 'world-1', integrationChecks: [{ commandId: 'test', passed: true }] },
-  agentGit: { objectId: 'signed-object' }, variantGates: { adaptive: { status: 'executed' } }
+  agentGit: { objectId: 'signed-object' },
+  variantGates: trace.fromComparison(comparisonProof.comparison.comparativeAnalysis)
 }) };
 const worlds = [1, 2, 3].map((number) => ({ world_number: number, agent_id: `world-${number}`,
   status: number === 1 ? 'promoted' : 'compared', snapshot_hash: baseline,
   workspace_root: require('node:path').resolve(`world-${number}`) }));
+const initialProof = { status: 'verified', inputHash: 'configuration-hash',
+  reports: worlds.map((entry) => ({ worldNumber: entry.world_number, agentId: entry.agent_id,
+    report: { outcome: 'success' } })) };
+comparisonProof.inputHash = initialProof.inputHash;
 const states = ['designed', 'sealed_running', 'sealed_complete', 'cross_examining',
   'decided', 'promotion_preparing', 'promoted'];
 const transitions = states.slice(1).map((status, index) => ({ from_status: states[index],
@@ -49,8 +56,29 @@ const transitions = states.slice(1).map((status, index) => ({ from_status: state
 const nominal = { variant: 'adaptive', missionId, experiment: promoted,
   dispatch: { variant_selection_json: JSON.stringify({ variant: 'adaptive',
     experimentalDesign: { ...variants.DEFAULT_DESIGN, ...variants.DEFINITIONS.adaptive.design } }) },
-  worlds, transitions, signedObjectValid: true };
+  worlds, transitions, comparisonProof, initialProof, signedObjectValid: true };
 assert.equal(qualification.assess(nominal).qualified, true);
+assert.ok(qualification.assess({ ...nominal, initialProof: { status: 'missing' } }
+).reasons.includes('initial_reports_journal_not_verified'));
+assert.ok(qualification.assess({ ...nominal, initialProof: { ...initialProof, inputHash: 'other' } }
+).reasons.includes('initial_reports_comparison_mismatch'));
+assert.ok(qualification.assess({ ...nominal, initialProof: { ...initialProof,
+  reports: initialProof.reports.map((entry, index) => index === 0 ? { ...entry, agentId: 'other-agent' } : entry) } }
+).reasons.includes('initial_reports_worlds_mismatch'));
+assert.ok(qualification.assess({ ...nominal, initialProof: { ...initialProof,
+  reports: initialProof.reports.map((entry, index) => index === 0 ? { ...entry, report: { outcome: 'failed' } } : entry) } }
+).reasons.includes('initial_reports_worlds_mismatch'));
+assert.ok(qualification.assess({ ...nominal, comparisonProof: { status: 'missing' } }
+).reasons.includes('comparison_journal_not_verified'));
+assert.ok(qualification.assess({ ...nominal, comparisonProof: { status: 'verified' } }
+).reasons.includes('comparison_journal_not_verified'));
+assert.ok(qualification.assess({ ...nominal, comparisonProof: { status: 'verified',
+  comparison: { ...comparisonProof.comparison, selectedWorld: 2 } } }
+).reasons.includes('promoted_world_not_in_comparison'));
+assert.ok(qualification.assess({ ...nominal, comparisonProof: { status: 'verified',
+  comparison: { ...comparisonProof.comparison,
+    comparativeAnalysis: { adaptiveBudgetExecution: { status: 'incomplete' } } } } }
+).reasons.includes('variant_gates_not_durable'));
 assert.ok(qualification.assess({ ...nominal, transitions: [] }).reasons.includes('promotion_trace_incomplete'));
 assert.ok(qualification.assess({ ...nominal, worlds: worlds.map((world) => ({ ...world, snapshot_hash: null }))
 }).reasons.includes('sealed_baseline_mismatch'));

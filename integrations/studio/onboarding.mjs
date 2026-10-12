@@ -13,7 +13,7 @@ function renderGuide() {
     return item;
   }));
   if (context.runRead) byId('onboarding').open = false;
-  if (!session) byId('onboarding').open = true;
+  if (!session && !byId('onboarding').closest('.shell-tools')) byId('onboarding').open = true;
 }
 
 export function startOnboarding() {

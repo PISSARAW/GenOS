@@ -11,6 +11,12 @@ async function main() {
   });
   const sessionId = session.sessionId;
   const lease = await syncytium.acquireHardFence(sessionId, { actorId: 'worker', resourceId: 'deployment', ttlMs: 60000 });
+  await assert.rejects(() => syncytium.acquireHardFence(sessionId, {
+    actorId: 'other', resourceId: 'deployment', now: Date.now() + 3600000
+  }), (error) => error.code === 'SYNCYTIUM_HARD_FENCE_INVALID');
+  await assert.rejects(() => syncytium.recoverExpiredFence(sessionId, {
+    actorId: 'worker', resourceId: 'deployment', now: Date.now() + 3600000
+  }), (error) => error.code === 'SYNCYTIUM_HARD_FENCE_INVALID');
   const calls = Array.from({ length: 20 }, (_, index) => syncytium.runFencedTransaction(sessionId, {
     actorId: 'worker', resourceId: 'deployment', domainId: 'workers',
     leaseToken: lease.lease.leaseToken, fence: lease.lease.fence,

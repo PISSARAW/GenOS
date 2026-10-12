@@ -17,7 +17,8 @@ assert.deepEqual(report.tools.filter((tool) => tool.nativeStatus === 'explicit_r
   ['genos_merge', 'genos_v2_fork']);
 assert.ok(report.tools.every((tool) => tool.domainOutcome === 'not_assessed_by_static_inventory'));
 assert.equal(report.offCatalog[0].publicMcpTool, false);
-assert.equal(report.offCatalog[0].declaredAction, 'restore_snapshot');
-assert.equal(report.offCatalog[0].classification, 'agent_state_restore_only');
+assert.equal(report.offCatalog[0].declaredAction, 'execute_transfer');
+assert.equal(report.offCatalog[0].classification, 'reference_only');
+assert.equal(report.offCatalog[0].domainOutcome, 'not_implemented');
 assert.ok(report.offCatalog[0].backendProbe);
 console.log(`MCP qualification inventory distinguishes ${report.summary.catalogued} routes from domain proof.`);

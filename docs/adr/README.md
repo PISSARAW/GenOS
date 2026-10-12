@@ -322,6 +322,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
 | [0293a](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
 | [0293b](0293-persistance-des-variants-metapopulation.md) | Persistance des états de variants Metapopulation | Accepté | 2026-10-04 | Metapopulation, cycles régionaux, dèmes persistants et culture |
+| [0293c](0293-runner-reel-campagne-holobionte.md) | Runner réel et reprise de campagne Holobionte | Voir le fichier | -- | -- |
 | [0294a](0294-candidats-morphogenetiques-du-catalogue.md) | Candidats morphogénétiques issus du catalogue canonique | Accepté | 2026-10-04 | Morphogenèse, recherche de topologies et de variants |
 | [0294b](0294-cloture-de-continuite-de-mission.md) | Fermeture des transitions de continuité de mission | Accepté | 2026-10-04 | Orchestration et survie des missions |
 | [0294c](0294-contrat-de-preuve-aeis.md) | Contrat de preuve exécutable AEIS | Accepté | 2026-10-04 | AEIS, preuve, promotion, confinement |
@@ -329,6 +330,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0294e](0294-executeurs-deterministes-workers.md) | Exécuteurs déterministes des workers | Accepté | 2026-10-04 | Workers, orchestration, preuve |
 | [0294f](0294-fermeture-runtime-nce.md) | Contrats de preuve des chemins runtime NCE | Accepté | 2026-10-04 | Natural Creative Ecology, Play, phénotype, culture, POET |
 | [0294g](0294-persistance-des-registres-biomimetiques.md) | Persistance des registres biomimétiques | Voir le fichier | -- | -- |
+| [0294h](0294-reprise-campagne-longitudinale-holobionte.md) | Reprise de campagne longitudinale Holobionte | Accepté | 2026-10-04 | Holobionte, benchmark |
 | [0295a](0295-memoire-immunitaire-portee-et-oracle.md) | Mémoire immunitaire AEIS portée et résolue par preuve | Accepté | 2026-10-04 | AEIS, mémoire, SQLite, multitenance |
 | [0295b](0295-registre-des-recepteurs-du-signal-plane.md) | Registre durable des récepteurs du Signal Plane | Voir le fichier | -- | -- |
 | [0295c](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | projets persistants, perception, Ontogenèse, GVX |
@@ -471,24 +473,35 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0375](0375-portabilite-snapshots-memoire.md) | Portabilité des snapshots mémoire | Négociation acceptée ; backend VM proposé | 2026-10-10 | Snapshots, runtime, portabilité |
 | [0376](0376-plafond-projet-sur-ascendance-garage.md) | Plafond projet sur l'ascendance Garage | Accepté pour la tranche locale | 2026-10-10 | Garage Fabric, capacité projet, sous-orchestration |
 | [0377](0377-consolidation-scientifique-par-references-versionnees.md) | Consolider les résultats scientifiques par références versionnées | Proposé ; raccordement de bout en bout non implémenté. | 2026-10-10. | Communication, preuves, GQWF, G-CIR. |
-| [0378](0378-reference-gqwf-dans-snapshot-organisme.md) | Référencer une racine GQWF dans un snapshot d'organisme | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, fichiers, GQWF |
+| [0378a](0378-reference-gqwf-dans-snapshot-organisme.md) | Référencer une racine GQWF dans un snapshot d'organisme | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, fichiers, GQWF |
+| [0378b](0378-reprise-des-baux-gqwf.md) | Reprise de la libération des baux GQWF | Accepté pour la tranche SQLite locale | 2026-10-10 | GQWF, matérialisation, reprise après panne |
 | [0379](0379-octroi-borne-delegation-sous-orchestrateur.md) | Octroi borné de délégation au sous-orchestrateur | Accepté pour la tranche locale | 2026-10-10 | Sous-orchestration, contrats workers, jetons modèle |
+| [0380](0380-journal-reprise-snapshot-organisme.md) | Journal de reprise des restaurations d'organisme | Voir le fichier | -- | -- |
 | [0381](0381-autorite-recus-scientifiques-rejouable.md) | Autorité des reçus scientifiques restaurable par rejeu Lean | Voir le fichier | -- | -- |
 | [0382](0382-publication-scientifique-ciblee-par-producteur.md) | Production et abonnement scientifique ciblés | Voir le fichier | -- | -- |
 | [0383a](0383-economie-tokens-conditionnee-aux-preuves.md) | Économie de tokens conditionnée aux preuves | Accepté pour la tranche locale ; contrôleur conjoint proposé. | 2026-10-10. | Continuations, mémoire cognitive, routage et mesure. |
 | [0383b](0383-restauration-opt-in-racine-gqwf-organisme.md) | Restaurer les fichiers d'organisme depuis une racine GQWF | Accepté, activation explicite | 2026-10-10 | Snapshots d'organisme, GQWF, restauration |
+| [0383c](0383-studio-construction-workflows-canoniques.md) | ADR 0383 Construction de workflows canoniques dans Studio | Accepté pour une tranche de construction de workflows. | 2026-10-10. | Studio, construction, versions, exécution et publication. |
+| [0384](0384-livraison-ciblee-des-decisions-mcp.md) | Livraison ciblée des décisions MCP | Accepté | 2026-10-10 | Signaux MCP, décisions collectives |
 | [0385](0385-contrat-snapshot-topologique.md) | Contrat de vérification des snapshots topologiques | Accepté | 2026-10-10 | Topologies, snapshots, reprise |
+| [0386](0386-restauration-etat-agent-mcp.md) | Restauration d'état d'agent par l'entrée MCP temporelle | Accepté (backend local) | 2026-10-10 | MCP, snapshots d'agent, restauration |
 | [0387](0387-pont-nursery-replay-et-projection-evaluateur.md) | Pont nursery/replay et projection de l’évaluateur | Accepté pour l’intégration bornée | 2026-10-10 | Expériences GVX, replay et évaluation |
-| [0388](0388-portee-memoire-negative-et-parite-stdio-reelle.md) | Portée de la mémoire négative et parité stdio réelle | Accepté pour la qualification bornée | 2026-10-10 | Mémoire négative, scopes et consommateurs MCP |
+| [0388a](0388-portee-memoire-negative-et-parite-stdio-reelle.md) | Portée de la mémoire négative et parité stdio réelle | Accepté pour la qualification bornée | 2026-10-10 | Mémoire négative, scopes et consommateurs MCP |
+| [0388b](0388-studio-vues-centrees-sur-les-taches.md) | Studio organisé par tâches visibles | Accepté | 2026-10-10 | Studio, navigation, densité et accessibilité |
 | [0389](0389-autorite-des-consommateurs-memoire-rest-et-grpc.md) | Autorité des consommateurs mémoire REST et gRPC | Accepté pour la qualification bornée | 2026-10-10 | Principals, scopes, révocation et mémoire |
-| [0390](0390-fork-agent-depuis-snapshot-scelle.md) | Fork d'agent depuis un snapshot scellé | expérimental, service backend direct | 2026-10-10 | snapshots, workspaces isolés, filiation et budget |
+| [0390a](0390-fork-agent-depuis-snapshot-scelle.md) | Fork d'agent depuis un snapshot scellé | expérimental, service backend direct | 2026-10-10 | snapshots, workspaces isolés, filiation et budget |
+| [0390b](0390-studio-surfaces-dominantes-et-inspecteurs.md) | ADR 0390 Studio : surfaces dominantes et inspecteurs contextuels | Accepté. | 2026-10-10. | Studio, présentation, navigation et accessibilité. |
 | [0391](0391-mutation-ponctuelle-agentdna-candidate.md) | Substitution ponctuelle dans un AgentDNA candidat | accepté pour la création d'un candidat isolé | 2026-10-10 | AgentDNA, mutation candidate et Studio |
 | [0392](0392-archive-heritee-fork-agent.md) | Archive héritée vérifiable pour un agent forké | expérimental, lecture seule | 2026-10-10 | mémoire durable, snapshots d'organisme, filiation |
 | [0393](0393-budget-delegue-sous-orchestrateur-natif.md) | Budget délégué du sous-orchestrateur natif | accepté | 2026-10-10 | workers, délégation bornée, budget de tokens |
 | [0394](0394-preflight-restauration-organisme.md) | Préflight vérifiable de restauration d'organisme | accepté, portée limitée | 2026-10-10 | snapshots d'organisme, restauration same-agent |
-| [0395](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
-| [0396a](0396-frontiere-corporelle-agent-et-provenance.md) | Frontière corporelle et provenance du soi agentique | accepté, portée Node | 2026-10-10 | corps de l'orchestrator, action motrice, CoreSelf |
-| [0396b](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
+| [0395a](0395-attention-workspace-et-preuves-par-worker.md) | Attention au workspace et preuves indépendantes par worker | Accepté pour la qualification bornée | 2026-10-10 | Workers natifs, attention et vérification |
+| [0395b](0395-memoire-autobiographique-individuelle-et-resultats-verifies.md) | Mémoire autobiographique individuelle et résultats vérifiés | Accepté pour la qualification bornée | 2026-10-10 | Workers natifs, rappel et provenance des résultats |
+| [0395c](0395-regulation-supervisee-workers-natifs.md) | Régulation supervisée des workers natifs par checkpoint vérifié | Accepté pour les workers natifs en environnement simulé | 2026-10-10 | Exécution native, régulation, persistance, récupération |
+| [0395d](0395-workspaces-prives-pour-capsules-de-workers.md) | Workspaces privés pour les capsules de workers | accepté | 2026-10-10 | workspaces, délégation, snapshots |
+| [0396a](0396-credit-externe-regulation-workers.md) | Crédit externe mesuré pour la régulation des workers | En cours | 2026-10-11 | Régulation, ressources, orchestration, preuves |
+| [0396b](0396-frontiere-corporelle-agent-et-provenance.md) | Frontière corporelle et provenance du soi agentique | accepté, portée Node | 2026-10-10 | corps de l'orchestrator, action motrice, CoreSelf |
+| [0396c](0396-observation-continue-des-workers-supervises.md) | Observer les workers supervisés pendant leur mission | Accepté pour le chemin des workers non natifs | 2026-10-10 | workers, supervision, perception continue |
 | [0397a](0397-perception-des-workers-natifs-et-revision-locale.md) | Perception native et révision du prompt local | Accepté, promotion des résultats révisés bloquée | 2026-10-10 | workers, perception, exécution locale |
 | [0397b](0397-recus-corporels-et-limites-de-provenance.md) | Reçus corporels et limites de provenance | accepté, portée Node et missions scellées | 2026-10-10 | modèle corporel, autorité de mission, MCP, provenance des claims |
 | [0398](0398-capacite-mcp-et-ecritures-directes.md) | Capacité MCP et écritures directes | accepté, couverture conditionnelle | 2026-10-11 | identité d'agent, MCP Rust, fichiers, claims |
@@ -522,7 +535,19 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0425](0425-liaison-campagne-nominale-trinity-aux-scellages.md) | Lier la campagne nominale Trinity aux scellages durables | Accepté. | -- | -- |
 | [0426](0426-consentement-explicite-human-ai-syncytium.md) | Consentement explicite avant l'action Human–AI Syncytium | Accepté | 2026-10-11 | Syncytium, Human–AI, autorité humaine |
 | [0427](0427-recus-signes-hybrid-oracle-biocenose.md) | Reçu signé lié au claim pour Hybrid Oracle | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, promotion factuelle |
-| [0428](0428-oracle-subset-pour-executeur-procedural.md) | Oracle subset_sum pour l'exécuteur procédural | accepté | 2026-10-11 | workers, preuve indépendante, promotion native |
+| [0428a](0428-chaine-de-transferts-relay-team-a-team.md) | Chaîne de transferts Relay Team A-Team | Accepté le 11 octobre 2026. | -- | -- |
+| [0428b](0428-oracle-subset-pour-executeur-procedural.md) | Oracle subset_sum pour l'exécuteur procédural | accepté | 2026-10-11 | workers, preuve indépendante, promotion native |
+| [0429](0429-gates-trinity-lies-au-journal-de-comparaison.md) | Lier les gates Trinity au journal de comparaison | Accepté. | -- | -- |
+| [0430](0430-fermeture-transition-collective-sans-snapshot-restaurable.md) | Refuser la transition collective sans snapshot restaurable | accepté | 2026-10-11 | morphogenèse, transition collective, autorité |
+| [0431](0431-horloge-runtime-baux-syncytium.md) | Horloge du runtime pour les baux Syncytium | Accepté | 2026-10-11 | Syncytium, Hard, Human–AI, baux |
+| [0432](0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md) | Preuve par candidat et promotion unique dans Open-Ended Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0434](0434-deadline-des-reprises-de-route-rhizome.md) | Conserver la deadline lors d'une réparation Rhizome | Accepté. | -- | -- |
+| [0435](0435-identite-du-daemon-planifie-metapopulation.md) | Lier le daemon résident au plan Métapopulation | accepté | 2026-10-11 | Métapopulation, variant `persistent`, vérification |
+| [0436](0436-reconciliation-actions-ecologiques-biocenose.md) | Réconcilier les actions écologiques incertaines de Biocénose | Accepté | 2026-10-11 | Biocénose, actions externes, reprise |
+| [0437](0437-immutabilite-sources-recu-morphogenese.md) | Rendre append-only les sources du reçu Morphogenèse | accepté | 2026-10-11 | morphogenèse, graphe préparé, décision consultative |
+| [0438](0438-statut-planifie-runtime-isole-multiteam-a-team.md) | Statut planifié du runtime isolé Multiteam A-Team | Accepté le 11 octobre 2026. | -- | -- |
+| [0439](0439-rapports-initiaux-durables-pour-qualification-trinity.md) | Rapports initiaux durables pour qualifier Trinity | Accepté. | -- | -- |
+| [0440](0440-bail-outil-immuable-holobionte.md) | Rendre le bail d'outil immuable jusqu'à l'invocation Holobionte | Accepté | 2026-10-11 | Holobionte, variant `tool`, autorité d'invocation |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

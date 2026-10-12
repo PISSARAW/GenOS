@@ -29,6 +29,16 @@ const ALL_19_TOOLS = [
   'genos_biomimicry_embryonic_diapause_pipeline'
 ];
 
+function statusArguments(toolName) {
+  const identifiers = {
+    genos_biomimicry_thalamic_bridge: { bridge_id: 'mcp-status-bridge' },
+    genos_biomimicry_conjoined_twin_bind: { pair_id: 'mcp-status-pair' },
+    genos_biomimicry_mirror_twin_fork: { pair_id: 'mcp-status-pair' },
+    genos_biomimicry_parasitic_graft: { host_id: 'mcp-status-host' },
+  };
+  return { action: 'status', ...(identifiers[toolName] || {}) };
+}
+
 async function runIntegrationVerification() {
   console.log('=== VERIFYING FULL MCP WIRING FOR ALL 19 BIOMIMETIC TOOLS ===\n');
 
@@ -44,7 +54,7 @@ async function runIntegrationVerification() {
     assert.strictEqual(kind, 'bio', `Tool ${toolName} must be classified as 'bio' kind`);
 
     // 3. Dispatch through central MCP registry
-    const dispatchResponse = await dispatchTool(toolName, { action: 'status' });
+    const dispatchResponse = await dispatchTool(toolName, statusArguments(toolName));
     assert.strictEqual(dispatchResponse.kind, 'bio', `Dispatch response kind must be 'bio' for ${toolName}`);
     assert.strictEqual(dispatchResponse.result.configured, true, `Tool ${toolName} must report configured: true`);
     assert.strictEqual(dispatchResponse.result.success, true, `Tool ${toolName} must execute status successfully`);

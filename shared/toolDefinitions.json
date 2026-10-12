@@ -148,6 +148,29 @@
             "type": "string",
             "description": "Optional variant selection for the mission proposal; does not apply a morphogenesis transition."
           },
+          "native_objectives": {
+            "type": "array",
+            "description": "Typed native goals with a method and success criteria. GenOS selects each worker kind; do not supply worker_assignments.",
+            "minItems": 1,
+            "maxItems": 19,
+            "items": {
+              "type": "object",
+              "properties": {
+                "goal": { "type": "string" },
+                "successCriteria": { "type": "array", "items": { "type": "string" } },
+                "methodContract": {
+                  "type": "object",
+                  "properties": {
+                    "version": { "type": "integer", "const": 1 },
+                    "methodId": { "type": "string" },
+                    "parameters": { "type": "object" }
+                  },
+                  "required": ["version", "methodId", "parameters"]
+                }
+              },
+              "required": ["goal", "successCriteria", "methodContract"]
+            }
+          },
           "worker_assignments": {
             "type": "object",
             "description": "Optional per-role runtime and method contracts. Use a registered methodId such as dynamic_programming or evolutionary_search, or declare requiredCapabilities for a custom method.",
@@ -3884,20 +3907,34 @@
       "name": "genos_signal_plasmid_transfer",
       "category": "Swarm Biomimicry",
       "risk": "Low",
-      "description": "Transfert horizontal de decision binaire via plasmide HGT",
+      "description": "Met en file un signal de decision binaire vers des agents du meme projet ; ne prouve pas l'assimilation.",
       "inputSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "problem": { "type": "string", "minLength": 1 },
+          "orchestrator_id": { "type": "string", "minLength": 1 },
+          "decision": { "type": "boolean" },
+          "voters": { "type": "array", "minItems": 1, "maxItems": 100,
+            "items": { "type": "object", "properties": { "agentId": { "type": "string", "minLength": 1 } }, "required": ["agentId"] } }
+        },
+        "required": ["problem", "orchestrator_id", "decision", "voters"]
       }
     },
     {
       "name": "genos_signal_collective_decision",
       "category": "Swarm Biomimicry",
       "risk": "Low",
-      "description": "Orchestrateur de decision collective multi-topologie",
+      "description": "Vote electrocyte ou mise en file d'un signal plasmide/stigmergique borne ; reception et consensus restent distincts.",
       "inputSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "problem": { "type": "string", "minLength": 1 },
+          "mode": { "type": "string", "enum": ["electrocyte", "stigmergic", "plasmid"] },
+          "orchestrator_id": { "type": "string" },
+          "decision": { "type": "boolean" },
+          "voters": { "type": "array", "items": { "type": "object",
+            "properties": { "agentId": { "type": "string" }, "position": { "type": "number" }, "weight": { "type": "number" } } } }
+        }
       }
     },
     {

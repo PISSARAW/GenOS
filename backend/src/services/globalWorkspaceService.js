@@ -3,14 +3,19 @@
 function admit(contents, capacity = 3) {
   const list = Array.isArray(contents) ? contents : [];
   const limit = Math.max(1, Math.floor(Number(capacity) || 3));
-  const ranked = [...list].sort((a, b) => (Number(b.salience) || 0) - (Number(a.salience) || 0));
+  const ranked = [...list].sort((a, b) => relevance(b) - relevance(a)
+    || (Number(b.salience) || 0) - (Number(a.salience) || 0));
   return { admitted: ranked.slice(0, limit), evicted: ranked.slice(limit), capacity: limit, overloaded: ranked.length > limit };
+}
+
+function relevance(item) {
+  return Number.isFinite(item?.goalRelevance) ? item.goalRelevance : Number(item?.salience) || 0;
 }
 
 function compete(contents, options = {}) {
   const workspace = admit(contents, options.capacity);
   const threshold = Number(options.ignitionThreshold) || 1;
-  const winner = workspace.admitted.find((item) => Number(item.salience) >= threshold) || null;
+  const winner = workspace.admitted.find((item) => relevance(item) >= threshold) || null;
   return { ...workspace, winner, ignited: Boolean(winner), globalAccess: winner ? (options.modules || ['memory', 'planning', 'reporting']) : [] };
 }
 
@@ -20,7 +25,8 @@ function diffuse(workspace, modules) {
   const allowed = new Set(Array.isArray(workspace?.globalAccess) ? workspace.globalAccess : []);
   return target.map((module) => {
     const available = Boolean(winner && allowed.has(module));
-    return { module, contentId: available ? winner.id : null, available };
+    const contentIds = available ? workspace.admitted.filter((item) => relevance(item) > 0).map((item) => item.id) : [];
+    return { module, contentId: available ? winner.id : null, contentIds, available };
   });
 }
 
@@ -29,7 +35,7 @@ function consume(workspace, module, handler) {
   if (!delivery.available || typeof handler !== 'function') {
     return { ...delivery, consumed: false, output: null };
   }
-  return { ...delivery, consumed: true, output: handler(delivery.contentId) };
+  return { ...delivery, consumed: true, output: handler(delivery.contentId, delivery.contentIds) };
 }
 
 function causalEffect(workspace, module, handler) {

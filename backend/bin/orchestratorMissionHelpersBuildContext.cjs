@@ -4,11 +4,14 @@ const { collectMissionEvidence } = require('../src/services/missionEvidenceColle
 
 function makeHomeostasisContext(opts) {
   const { outcome, policyRequest = {}, request = {}, flags, evidence, profiles, dossierCount } = opts;
+  const completionContract = policyRequest.completionContract || request.completionContract || null;
+  const invariants = policyRequest.invariants || request.invariants || null;
   const missionOutcome = outcome.success === true && opts.evidenceAvailable !== false;
   flags.missionOutcome = missionOutcome;
+  flags.completionContractConfigured = hasCompletionCriteria(completionContract, invariants);
   return {
-    completionContract: policyRequest.completionContract || request.completionContract || null,
-    invariants: policyRequest.invariants || request.invariants || null,
+    completionContract,
+    invariants,
     safetyConstraints: policyRequest.safetyConstraints || request.safetyConstraints || null,
     context: {
       missionOutcome,
@@ -20,6 +23,11 @@ function makeHomeostasisContext(opts) {
       dossierCount,
     }
   };
+}
+
+function hasCompletionCriteria(contract, invariants) {
+  const hasContractCriteria = Boolean(contract?.invariants?.length || contract?.requiredEvidence?.length);
+  return hasContractCriteria || Boolean(invariants?.length);
 }
 
 function makeFallbackContext(opts) {

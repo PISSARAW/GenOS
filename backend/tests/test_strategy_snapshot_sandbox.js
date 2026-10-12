@@ -33,7 +33,17 @@ async function run() {
     const row = await db.get('SELECT id, name FROM workspaces WHERE id = ?', 'ws-sandbox-sandbox-agent');
     assert.ok(row, 'the per-agent sandbox workspace must be persisted');
     assert.match(row.name, /sandbox-agent/);
-    console.log('Snapshot sandbox workspaces stay unique per agent despite a colliding legacy row.');
+
+    const repoRoot = path.resolve(__dirname, '../..');
+    await db.run('INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)', 'ws-repo-root', 'Repository root', repoRoot);
+    await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('repo-agent', 'Repo Agent', 'orchestrator', 'running', 'orchestrator', 'ws-repo-root')");
+    const repoSnapshot = await snapshot({ agentId: 'repo-agent' });
+    assert.equal(repoSnapshot.success, true, repoSnapshot.error);
+    const repoSandbox = await db.get('SELECT id,name FROM workspaces WHERE id=?', 'ws-sandbox-repo-agent');
+    assert.ok(repoSandbox, 'repository-root snapshots must persist their sandbox workspace before inserting the snapshot');
+    const savedSnapshot = await db.get('SELECT workspace_id FROM workspace_snapshots WHERE id=?', repoSnapshot.snapshotId);
+    assert.equal(savedSnapshot.workspace_id, repoSandbox.id);
+    console.log('Snapshot sandbox workspaces stay unique per agent and are persisted when a repository root is isolated.');
   } finally {
     await closeDatabase();
     for (const suffix of ['', '-shm', '-wal']) {

@@ -36,7 +36,7 @@ function reportClaims(parsedReply, reply, state) {
 function attachInfluence(report, parsedReply) {
   if (Array.isArray(parsedReply.dossierInfluence)) report.dossierInfluence = parsedReply.dossierInfluence;
   if (parsedReply.schema === 'genos.canonical-final-report/v1') {
-    for (const key of ['outcome', 'assemblyStatus', 'unverifiedClaims', 'contradictions', 'omissions', 'receiptHash']) report[key] = parsedReply[key];
+    for (const key of ['outcome', 'assemblyStatus', 'unverifiedClaims', 'contradictions', 'omissions', 'receiptHash', 'delegatedOracleRefs']) report[key] = parsedReply[key];
   }
 }
 

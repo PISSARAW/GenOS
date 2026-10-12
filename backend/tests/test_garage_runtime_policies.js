@@ -49,8 +49,26 @@ async function dependenciesAndLanes(test) {
   assert.equal(stacked.request_id, active.request_id);
 }
 
+async function candidateSelection() {
+  const test = await fixture();
+  try {
+    await store.enqueuePersistent(test.db, request({ requestId: 'low', mode: 'puzzle', priority: 0.1 }));
+    await store.enqueuePersistent(test.db, request({ requestId: 'high', mode: 'puzzle', priority: 0.9,
+      workerId: 'worker-2' }));
+    const high = await store.claimNextPersistent(test.db, { orchestratorId: 'orch' });
+    assert.equal(high.request_id, 'high', 'priority selects the highest eligible request');
+    await store.updatePersistent(test.db, { requestId: high.request_id, leaseId: high.lease_id, status: 'failed' });
+    await store.enqueuePersistent(test.db, request({ requestId: 'blocked', mode: 'ramp',
+      workerId: 'worker-3', dependsOn: ['missing-upstream'] }));
+    await test.db.run("UPDATE garage_queue SET created_at = '2000-01-01 00:00:00' WHERE request_id = 'blocked'");
+    const low = await store.claimNextPersistent(test.db, { orchestratorId: 'orch' });
+    assert.equal(low.request_id, 'low', 'an ineligible leading candidate must be skipped');
+  } finally { await test.close(); }
+}
+
 async function run() {
   orderChecks();
+  await candidateSelection();
   const test = await fixture();
   try { await modes(test); await dependenciesAndLanes(test); }
   finally { await test.close(); }

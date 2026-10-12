@@ -27,7 +27,9 @@ function runKind(environment, kind) {
   const runId = `c2-${crypto.randomBytes(6).toString('hex')}`;
   const executed = spawnSync(process.execPath, [SCRIPT], { cwd: ROOT, encoding: 'utf8',
     timeout: 120000, windowsHide: true, env: { ...environment,
-      GENOS_COMPLIANCE_KIND: kind, GENOS_COMPLIANCE_RUN_ID: runId } });
+      GENOS_COMPLIANCE_KIND: kind, GENOS_COMPLIANCE_RUN_ID: runId,
+      GENOS_COMPLIANCE_NATIVE_ALL: '0',
+      GENOS_COMPLIANCE_PROCEDURAL_SUBSET: kind === 'procedural_executor' ? '1' : '0' } });
   if (executed.error) throw executed.error;
   const reportPath = path.join(environment.GENOS_COMPLIANCE_ROOT, 'worker-compliance-report.json');
   assert.ok(fs.existsSync(reportPath), `Missing ${reportPath}; exit=${executed.status}\n${executed.stderr}`);

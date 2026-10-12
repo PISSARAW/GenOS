@@ -62,10 +62,11 @@ function lessonLine(lesson) {
 
 function adjustmentsFromLessons(lessons) {
   const avoidCount = lessons.filter((lesson) => lesson.recommendedAction === 'avoid_strategy_before_retry').length;
+  const reuseCount = lessons.filter((lesson) => lesson.recommendedAction === 'reuse_strategy_first').length;
   return {
-    riskDelta: avoidCount > 0 ? -0.1 * avoidCount : 0,
+    riskDelta: avoidCount > 0 ? -0.1 * avoidCount : 0.05 * reuseCount,
     evidenceStrictnessDelta: avoidCount > 0 ? 0.1 * avoidCount : 0,
-    confidenceBoost: 0
+    confidenceBoost: avoidCount > 0 ? 0 : 0.05 * reuseCount
   };
 }
 
@@ -86,7 +87,8 @@ async function recallForSituation(situation = {}, options = {}, dbOverride = nul
   );
   const episodes = rankEpisodesByRelevance(candidateEpisodes, goal).slice(0, topEpisodes);
 
-  const candidateLessons = await lessonService.getLessons({ organizationId, projectId, minConfidence: MIN_LESSON_CONFIDENCE, limit: 50 }, dbOverride);
+  const candidateLessons = await lessonService.getLessons({ agentId, organizationId, projectId,
+    minConfidence: MIN_LESSON_CONFIDENCE, limit: 50 }, dbOverride);
   const lessons = candidateLessons.filter((lesson) => lessonAppliesToConditions(lesson, kind, goal)).slice(0, topLessons);
 
   return {

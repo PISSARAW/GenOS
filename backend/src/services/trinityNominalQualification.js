@@ -2,6 +2,8 @@
 
 const path = require('node:path');
 const variantService = require('./trinityVariantService');
+const qualificationTrace = require('./trinityQualificationTrace');
+const { digest } = require('./trinityExecutionJournal');
 
 const VARIANTS = Object.freeze(['controlled', 'heterogeneous', 'adversarial', 'counterfactual',
   'factorial', 'pareto', 'jury', 'recursive', 'adaptive', 'temporal', 'oracular', 'exploratory']);
@@ -32,8 +34,10 @@ function assess(input) {
   const decision = parse(experiment?.decision_json);
   const initial = initialWorlds(variant, worlds);
   const reasons = [...identityFailures(input), ...worldFailures(variant, initial, experiment),
+    ...initialReportFailures(initial, input.initialProof, input.comparisonProof),
     ...transitionFailures(experiment, input.transitions),
-    ...gateFailures(variant, decision), ...promotionFailures(experiment, decision),
+    ...gateFailures(variant, decision), ...comparisonFailures(input.comparisonProof, decision),
+    ...promotionFailures(experiment, decision),
     ...candidateFailures(decision, signedObjectValid)];
   if (!initial.some((world) => world.agent_id === decision.verification?.sourceAgentId)) reasons.push('verified_source_world_missing');
   return { variant, missionId, qualified: reasons.length === 0, reasons,
@@ -73,6 +77,25 @@ function worldFailures(variant, initial, experiment) {
   return failures;
 }
 
+function initialReportFailures(worlds, initialProof, comparisonProof) {
+  if (initialProof?.status !== 'verified') return ['initial_reports_journal_not_verified'];
+  if (!initialProof.inputHash || initialProof.inputHash !== comparisonProof?.inputHash) {
+    return ['initial_reports_comparison_mismatch'];
+  }
+  const reports = initialProof.reports;
+  if (!Array.isArray(reports) || reports.length !== worlds.length) return ['initial_reports_worlds_mismatch'];
+  const byNumber = new Map(reports.map((item) => [item.worldNumber, item]));
+  if (byNumber.size !== worlds.length || worlds.some((world) => !matchesInitialReport(world, byNumber.get(world.world_number)))) {
+    return ['initial_reports_worlds_mismatch'];
+  }
+  return [];
+}
+
+function matchesInitialReport(world, report) {
+  return report?.agentId === world.agent_id && report?.report?.outcome === 'success'
+    && !report.report.failure;
+}
+
 function workspaceRoot(value) {
   if (typeof value !== 'string' || !path.isAbsolute(value)) return null;
   const root = path.resolve(value);
@@ -91,6 +114,15 @@ function transitionFailures(experiment, transitions = []) {
 
 function promotionFailures(experiment, decision) {
   return experiment?.status === 'promoted' && decision.outcome === 'PROMOTED' ? [] : ['promotion_not_observed'];
+}
+
+function comparisonFailures(proof, decision) {
+  if (proof?.status !== 'verified' || !proof.comparison || typeof proof.comparison !== 'object') {
+    return ['comparison_journal_not_verified'];
+  }
+  if (proof.comparison.selectedWorld !== decision.worldNumber) return ['promoted_world_not_in_comparison'];
+  const expected = qualificationTrace.fromComparison(proof.comparison?.comparativeAnalysis);
+  return digest(expected) === digest(decision.variantGates || {}) ? [] : ['variant_gates_not_durable'];
 }
 
 function candidateFailures(decision, signedObjectValid) {

@@ -4,6 +4,12 @@
 
 - [Qualification de release](06-qualite-preuves/qualification-release.md) — portes automatiques, rapport reproductible et écarts bloquant l'exploitabilité complète.
 
+- [Huitième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#huitième-vague--2026-10-11) — sources de reçus Morphogenèse append-only, statut planifié A-Team, rapports Trinity et bail d'outil Holobionte ; [ADR 0437](adr/0437-immutabilite-sources-recu-morphogenese.md) à [0440](adr/0440-bail-outil-immuable-holobionte.md).
+
+- [Septième vague des variants](02-orchestration/topologies/plan-implementation-variants.md#septième-vague--2026-10-11) — horloges Edge Sync, deadline des routes Rhizome, identité du daemon Métapopulation et réconciliation des actions Biocénose ; [ADR 0434](adr/0434-deadline-des-reprises-de-route-rhizome.md), [0435](adr/0435-identite-du-daemon-planifie-metapopulation.md) et [0436](adr/0436-reconciliation-actions-ecologiques-biocenose.md).
+
+- [Sixième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#sixième-vague--2026-10-11) — chaîne Relay Team, journal Trinity, refus de transition collective, horloge des baux Syncytium et preuves locales Biome ; [ADR 0428](adr/0428-chaine-de-transferts-relay-team-a-team.md) à [0432](adr/0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md).
+
 - [Cinquième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#cinquième-vague--2026-10-11) — fermeture du commit V2, sous-runs A-Team, qualification Trinity, consentement Syncytium et reçus Biocénose ; [ADR 0423](adr/0423-fermeture-mode-commit-v2-morphogenese.md) à [0427](adr/0427-recus-signes-hybrid-oracle-biocenose.md).
 
 - [Quatrième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#quatrième-vague--2026-10-11) — reçus Rust consultatifs, frontières Biome et Holobionte, transitions Rhizome et preuve du solveur Métapopulation ; [ADR 0418](adr/0418-fermeture-commit-morphologie-et-recu-rust.md) à [0422](adr/0422-liaison-des-resultats-solveur-metapopulation.md).
@@ -14,6 +20,8 @@
 
 - [Qualification P1 avec V3 au 2026-10-10](06-qualite-preuves/qualification-p1-v3-2026-10-10.md) — nursery/replay, projection évaluateur, Lean réel et reproduction ; [ADR 0387](adr/0387-pont-nursery-replay-et-projection-evaluateur.md).
 
+- [Studio : essai sur cinq niveaux de missions](06-qualite-preuves/studio-essai-cinq-niveaux.md) — parcours réels, vérifications persistées et limites d'autonomie et de production.
+
 - [Obstacle 4 : communication et consolidation scientifique](06-qualite-preuves/obstacle-4-communication-consolidation-scientifique-2026-10-10.md) — revue actualisée de GQWF v2, Garage Fabric, Signal Plane, preuves et G-CIR Ω ; [ADR 0377](adr/0377-consolidation-scientifique-par-references-versionnees.md).
 
 - [Studio : cible unifiée](03-reference/studio-contrat-directeur.md) — contrat STUDIO-TARGET-V1, trois sources de besoins, zones et parcours ; [ADR 0360](adr/0360-studio-cible-unifiee-et-zones-de-livraison.md).
@@ -23,6 +31,7 @@
 - [ADR 0363 — Parcours GenOS structurants](adr/0363-studio-parcours-genos-structurants.md) — étape D, destinations canoniques et frontières de preuve.
 - [ADR 0364 — Mécanismes spécialisés Studio](adr/0364-studio-mecanismes-specialises.md) — étape E, calculs bornés et analyses provisoires.
 - [ADR 0365 — Boucle de production locale](adr/0365-studio-boucle-production-locale.md) — étape F, version figée, adaptateur local et reprise sous CAS.
+- [ADR 0388 — Studio organisé par tâches](adr/0388-studio-vues-centrees-sur-les-taches.md) — une tâche visible, opérations séparées, inspecteur de nœud et accessibilité.
 - [Studio : boucle de production locale](04-exploitation/studio-boucle-production.md) — guide opérateur F01–F03, observations et limites.
 - [Studio : mécanismes spécialisés](04-exploitation/studio-mecanismes-specialises.md) — procédures E01–E05, autorités, pagination et qualification.
 - [Studio : utiliser les parcours GenOS](04-exploitation/studio-parcours-genos.md) — procédures et qualification D01–D04, avec limites explicites.
@@ -165,6 +174,8 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [exploitation-shev.md](03-reference/exploitation-shev.md) — commandes opérateur, signatures, fournisseurs et diagnostic de SHEV.
 - [g-cir.md](02-orchestration/g-cir.md) — interface cognitive résiduelle, registre d'obligations, visibilité, validation et limites.
 - [architecture-survie.md](02-orchestration/architecture-survie.md) — état de survie mesurable et politiques de continuité bornées.
+- [Qualification régulation et ressources](02-orchestration/qualification-regulation-ressources-orchestrate.md) — preuves restantes pour recharge externe et planification complète.
+- [Plan de mise en oeuvre de la régulation complète](02-orchestration/plan-implementation-regulation-ressources-orchestrate.md) — réalisation par lots et critères de sortie.
 - [regulation-multi-boucles.md](02-orchestration/regulation-multi-boucles.md) — régulation multi-boucles, signaux et arbitrage.
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.
 - [ontogenese-boucle.md](02-orchestration/ontogenese-boucle.md) — boucle Observer → réévaluer : sélection, autorisation, réveils, notifications.
@@ -305,6 +316,8 @@ Index : [adr/README.md](adr/README.md)
 - [ADR 0374 — Registre durable des domaines Garage](adr/0374-registre-durable-des-domaines-garage.md).
 - [ADR 0376 — Plafond projet sur l'ascendance Garage](adr/0376-plafond-projet-sur-ascendance-garage.md).
 - [ADR 0379 — Octroi borné de délégation au sous-orchestrateur](adr/0379-octroi-borne-delegation-sous-orchestrateur.md).
+- [ADR 0375 — Portabilité des snapshots mémoire](adr/0375-portabilite-snapshots-memoire.md).
+- [ADR 0377 — Consolidation scientifique par références versionnées](adr/0377-consolidation-scientifique-par-references-versionnees.md) — contrat proposé, sans flux complet implémenté.
 - [ADR 0383 — Économie de tokens conditionnée aux preuves](adr/0383-economie-tokens-conditionnee-aux-preuves.md) — contexte réversible, mémoire historique bornée et routage sans étiquette de transport.
 - [ADR 0385 — Contrat de vérification des snapshots topologiques](adr/0385-contrat-snapshot-topologique.md) — frontière et prévalidation propres à chaque topologie et variant.
 
@@ -658,6 +671,7 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0344 — Refactorings de qualité et frontières de contrôle](adr/0344-refactorings-qualite-et-frontieres-de-controle.md).
 - [ADR 0352 — Composition Studio et inspecteurs de preuves](adr/0352-studio-composition-et-inspecteurs-de-preuves.md).
 - [Studio — refonte visuelle et qualification](06-qualite-preuves/studio-refonte-visuelle.md).
+- [Studio — surfaces dominantes et qualification du 10 octobre](06-qualite-preuves/studio-surfaces-dominantes.md).
 - [ADR 0355 — Clôture native par oracles budgétés et nonces liés](adr/0355-cloture-native-par-oracles-budgetes-et-nonces-lies.md).
 - [ADR 0356 — Oracle mémoire de promotion et contrôle de lecture](adr/0356-oracle-memoire-de-promotion-et-controle-de-lecture.md).
 - [ADR 0357 — Rétraction des assemblées et mémoires dérivées](adr/0357-retraction-des-assemblees-et-memoires-derivees.md).
@@ -702,3 +716,4 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0415 — Qualification nominale Trinity sur traces durables](adr/0415-qualification-nominale-trinity-sur-traces-durables.md).
 - [ADR 0416 — Propositions Rust liées au snapshot de morphologie](adr/0416-propositions-rust-liees-snapshot-morphologie.md).
 - [ADR 0417 — Liaison des reçus Hybrid Oracle Biocénose](adr/0417-liaison-recus-hybrid-oracle-biocenose.md).
+- [ADR 0395 — Régulation supervisée des workers natifs](adr/0395-regulation-supervisee-workers-natifs.md)

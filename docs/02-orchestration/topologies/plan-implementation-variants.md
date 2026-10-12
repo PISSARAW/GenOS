@@ -191,6 +191,70 @@ de missions représentatives pour les 95 variants canoniques.
   prouve pas la vérité de l'oracle externe
   ([ADR 0427](../../adr/0427-recus-signes-hybrid-oracle-biocenose.md)).
 
+### Sixième vague — 2026-10-11
+
+- A-Team Relay Team vérifie chaque transfert adjacent d'une équipe de plus de
+  deux membres, sa séquence et le chaînage des digests. Les accusés restent
+  fournis par l'appelant et ne prouvent pas l'exécution des workers
+  ([ADR 0428](../../adr/0428-chaine-de-transferts-relay-team-a-team.md)).
+- Trinity recalcule les gates du variant depuis le journal durable de
+  comparaison et vérifie son événement terminal ainsi que le monde promu. Les
+  douze missions réelles restent à qualifier
+  ([ADR 0429](../../adr/0429-gates-trinity-lies-au-journal-de-comparaison.md)).
+- Morphogenèse ferme l'ancienne voie de transition collective avant tout effet
+  : l'autorité authentifiée et le snapshot restaurable n'y existent pas. Une
+  réévaluation porte un refus, pas un faux rollback
+  ([ADR 0430](../../adr/0430-fermeture-transition-collective-sans-snapshot-restaurable.md)).
+- Syncytium Hard et Human–AI calculent les échéances de bail à partir de
+  l'horloge du runtime et refusent une heure fournie par l'appelant. Cela ne
+  prouve ni la synchronisation inter-hôtes ni un effet externe
+  ([ADR 0431](../../adr/0431-horloge-runtime-baux-syncytium.md)).
+- Biome Open-Ended exige des références de preuve propres au candidat et à
+  chaque réévaluation ; une niche déjà connue n'est pas recomptée comme
+  promotion, y compris après reprise SQLite. Les mesures de l'hôte restent à
+  vérifier indépendamment
+  ([ADR 0432](../../adr/0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md)).
+
+### Septième vague — 2026-10-11
+
+- Holobionte Edge Sync compare les horloges vectorielles par composante : un
+  ordre de clés différent ou une composante zéro absente ne crée plus de faux
+  conflit. La livraison réseau et la provenance des événements restent des
+  dépendances externes.
+- Rhizome `resilient` et `self_healing` transmettent la deadline au retry de
+  route et refusent le second appel si elle est expirée. L'effet éventuel de la
+  première tentative n'est pas annulé
+  ([ADR 0434](../../adr/0434-deadline-des-reprises-de-route-rhizome.md)).
+- Métapopulation `persistent` lie le daemon du reçu au daemon du plan et au
+  bail actif du même dème. Cette vérification des enregistrements ne prouve
+  pas qu'un processus tourne après la restauration
+  ([ADR 0435](../../adr/0435-identite-du-daemon-planifie-metapopulation.md)).
+- Biocénose bloque la réexécution d'une action écologique dont l'appel a
+  commencé sans reçu terminal. Un résolveur peut retrouver un reçu vérifié
+  pour achever le journal sans répéter l'effet ; faute de preuve, le résultat
+  reste incertain
+  ([ADR 0436](../../adr/0436-reconciliation-actions-ecologiques-biocenose.md)).
+
+### Huitième vague — 2026-10-11
+
+- Morphogenèse rend append-only les versions de graphe préparées et les
+  propositions consultatives persistées. Les triggers SQLite protègent leur
+  relecture ordinaire, mais ne donnent ni signature, ni snapshot restaurable,
+  ni autorité APPLY ; ce mode reste fermé
+  ([ADR 0437](../../adr/0437-immutabilite-sources-recu-morphogenese.md)).
+- A-Team `multiteam` retourne `PLANNED` après composition dans le runtime
+  isolé. Il faut encore les TeamRuns enfants, leur budget et les contrats
+  inter-équipes vérifiés pour annoncer une réussite
+  ([ADR 0438](../../adr/0438-statut-planifie-runtime-isole-multiteam-a-team.md)).
+- Trinity exige un rapport initial durable et cohérent pour chaque monde de
+  la comparaison nominale, trois ou seize pour `factorial`. Les douze missions
+  réelles restent à qualifier
+  ([ADR 0439](../../adr/0439-rapports-initiaux-durables-pour-qualification-trinity.md)).
+- Holobionte `tool` fige le bail et recontrôle son échéance après la lecture
+  asynchrone du contrat, avant l'exécuteur. L'isolation système et l'effet
+  externe restent à attester par l'intégrateur
+  ([ADR 0440](../../adr/0440-bail-outil-immuable-holobionte.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

@@ -25,11 +25,15 @@ for (const name of ['genos_snapshot', 'genos_replay', 'genos_execute_primitive']
   assert.ok(names.includes(name), `shared catalog must declare ${name}`);
 }
 
-const rust = fs.readFileSync(path.join(root, 'crates', 'genos-mcp', 'src', 'tools.rs'), 'utf8');
+const rustCatalog = [
+  fs.readFileSync(path.join(root, 'crates', 'genos-mcp', 'src', 'tools.rs'), 'utf8'),
+  fs.readFileSync(path.join(root, 'crates', 'genos-mcp', 'src', 'tools', 'base_specs.rs'), 'utf8'),
+].join('\n');
 for (const name of ['genos_snapshot', 'genos_replay', 'genos_execute_primitive']) {
-  assert.ok(rust.includes(`"${name}"`), `Rust catalog must declare ${name}`);
+  assert.ok(rustCatalog.includes(`"${name}"`), `Rust catalog must declare ${name}`);
 }
-assert.ok(rust.includes('GENOS_MCP_LEASE'), 'Rust server must enforce lease');
-assert.ok(rust.includes('GENOS_MCP_DISABLED_TOOLS'), 'Rust server must enforce disabled list');
+const rustTools = fs.readFileSync(path.join(root, 'crates', 'genos-mcp', 'src', 'tools.rs'), 'utf8');
+assert.ok(rustTools.includes('GENOS_MCP_LEASE'), 'Rust server must enforce lease');
+assert.ok(rustTools.includes('GENOS_MCP_DISABLED_TOOLS'), 'Rust server must enforce disabled list');
 
 console.log('MCP conformance: fallback never completes without proof; catalogs share core tools; lease enforced.');

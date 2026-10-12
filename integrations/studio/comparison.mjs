@@ -30,10 +30,10 @@ export function renderComparison(target, data) {
   container.setAttribute('aria-label', 'Comparaison des jobs, défilement horizontal');
   const table = node('table');
   table.style.minWidth = Math.max(520, (data.jobs.length + 1) * 180) + 'px';
-  table.append(node('caption', 'Mêmes lignes pour chaque job. Inconnu ≠ zéro. Aucune promotion implicite.'));
+  table.append(node('caption', 'Mêmes lignes pour chaque job. Première colonne candidate = référence de comparaison. Inconnu ≠ zéro. Aucune promotion implicite.'));
   const head = node('thead');
   const titles = node('tr');
-  for (const label of ['Observation', ...data.jobs.map(job => job.id)]) {
+  for (const label of ['Observation', ...data.jobs.map((job, index) => (index === 0 ? 'Référence · ' : '') + job.id)]) {
     const heading = node('th', label);
     heading.scope = 'col';
     titles.append(heading);

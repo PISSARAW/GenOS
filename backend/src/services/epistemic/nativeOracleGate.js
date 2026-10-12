@@ -8,7 +8,7 @@ const { digest } = require('../biologicalIntegrity');
 
 async function context(db, input) {
   const reference = input.event.payload?.nativeOracleRef;
-  if (!reference) return null;
+  if (!reference) return require('./delegatedNativeOracleGate').context(db, input);
   const request = { runId: input.row.id, agentId: input.row.agent_id };
   const scope = await provenance.agentScope(db, request.agentId);
   const proof = await proofs.read(db, { ...request, scope, reference });
@@ -25,6 +25,7 @@ async function assertNoncesUnused(db, receipts) {
 }
 
 async function accept(db, input) {
+  if (input.verification?.delegated) return null;
   if (!input.verification || !['completed', 'awaiting_approval'].includes(input.status)) return null;
   const proof = input.verification.proof;
   await proofs.assertCurrent(db, { proof, request: { runId: proof.attestation.value.runId,

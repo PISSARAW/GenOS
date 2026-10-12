@@ -120,7 +120,8 @@ const suites = {
     ['MCP explicit transport', 'test_mcp_explicit_transport.js'],
     ['MCP server parity', 'test_mcp_server_parity.js'],
     ['MCP inherited archive', 'test_mcp_inherited_memory_read.js'],
-    ['MCP agent restore inspection', 'test_mcp_agent_state_restore_inspect.js']
+    ['MCP agent restore inspection', 'test_mcp_agent_state_restore_inspect.js'],
+    ['MCP sealed agent restore', 'test_mcp_agent_state_restore.js']
   ],
   security: [
     ['public route allowlist', 'test_auth_public_surface.js'],
@@ -167,6 +168,11 @@ const suites = {
     ['worker kind matrix across eight topologies', 'test_topology_worker_kind_matrix.js'],
     ['worker contract adequacy across roles and methods', 'test_topology_worker_adequacy.js'],
     ['native 19-kind execution and evidence', 'test_worker_native_matrix.js'],
+    ['native worker semantic oracle', 'test_native_worker_oracle_checks.js'],
+    ['creative attention goal and order', 'test_worker_creative_attention.js'],
+    ['attention workspace integration', 'test_global_workspace.js'],
+    ['AGOW complementary broadcast', 'test_agow_broadcast_multiple.js'],
+    ['Windows snapshot long paths', 'test_snapshot_long_paths.js'],
     ['native worker contract boundaries', 'test_worker_native_boundaries.js'],
     ['native worker lifecycle and guard', 'test_worker_native_lifecycle.js'],
     ['worker contract enforcement', 'test_worker_contract_enforcement.js'],
@@ -180,7 +186,9 @@ const suites = {
     ['native forensic', 'test_deterministic_worker_forensic.js'],
     ['native scout', 'test_deterministic_worker_scout.js'],
     ['native teaching', 'test_deterministic_worker_teaching.js'],
-    ['bounded sub-orchestration dispatch', 'test_sub_orchestrator_dispatch.js']
+    ['bounded sub-orchestration dispatch', 'test_sub_orchestrator_dispatch.js'],
+    ['autobiographical worker memory boundaries', 'test_autobiographical_memory.js'],
+    ['individual recall policy', 'test_autobiographical_orchestrator_recall.js']
   ],
   epistemicScheduler: [
     ['active task fingerprints', 'test_epistemic_scheduler_active_registry.js'],

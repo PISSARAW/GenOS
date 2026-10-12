@@ -15,11 +15,11 @@ const cognitiveEscalation = require('./cognitiveEscalationService');
 const { createEnvelope, verifyEnvelopePayload } = require('./communication/communicationEnvelopeService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 const { dispatchReceptorsIfNeeded } = require('./signalReceptorDispatchService');
+const { buildSignalReadQuery } = require('./signalReadQuery');
 
 const DEFAULT_SIGNAL_TTL_MS = 120_000;
 const LOCAL_BROADCAST_LOG = new Map();
 const MAX_LOCAL_LOG_SIZE = 1000;
-
 function pushLocalLog(signalId, payload) {
   LOCAL_BROADCAST_LOG.set(signalId, { payload, t: Date.now() });
   if (LOCAL_BROADCAST_LOG.size > MAX_LOCAL_LOG_SIZE) {
@@ -144,15 +144,17 @@ async function routeSignal(signal, params) {
 }
 
 function scopeMismatchResult(signal, routing) {
-  if (routing.routingMode !== 'scope_mismatch') return null;
+  if (routing.routingMode !== 'scope_mismatch'
+    && !(signal.deliveryOnly && routing.routingMode !== 'distributed')) return null;
   return { signalId: signal.id, published: false, signalType: signal.formatted.signalType,
-    suppressedBy: 'recipient_scope', suppressionReason: 'One or more requested recipients are outside the authorized routing scope.', routing };
+    suppressedBy: 'recipient_scope', suppressionReason: 'No authorized recipients or one or more recipients are outside the sender scope.', routing };
 }
 
 async function routeAndDispatch(signal, routing) {
   // Destinataires AVANT dispatch : les récepteurs ciblés matchent dessus, jamais sur l'émetteur.
   const recipientAgentIds = routedAgentIds(routing);
-  const dispatchResult = await dispatchReceptorsIfNeeded({
+  const dispatchResult = signal.deliveryOnly ? { dispatched: false, llmRequired: false }
+    : await dispatchReceptorsIfNeeded({
       signalId: signal.id,
       signalType: signal.formatted.signalType,
       signalData: signal.signalData,
@@ -194,7 +196,6 @@ async function publishSignal(params) {
   validateArgs(params);
   const signal = await buildSignalFromParams(params);
   if (!signal.accepted) return signal.result;
-
   if (signal.senderAgentId && !checkRateLimit(signal.senderAgentId)) {
     return { signalId: signal.id, published: false, signalType: signal.normalizedType, suppressedBy: 'rate_limit', suppressionReason: `Exceeded 120/min` };
   }
@@ -206,11 +207,9 @@ async function publishSignal(params) {
 
   const tensorError = validateTensor(signal);
   if (tensorError) return tensorError;
-
   const routing = await routeSignal(signal, params);
   const mismatch = scopeMismatchResult(signal, routing);
   if (mismatch) return mismatch;
-
   // Coalescence AVANT persistance : un signal supprimé ne laisse aucune trace (anti-rejeu).
   const coalesced = signalCoalescer.coalesce({
     signalId: signal.id,
@@ -239,7 +238,7 @@ async function buildSignalFromParams(params) {
   });
   const transportData = Object.assign({}, payloadData, { communicationEnvelope: envelope });
   const formatted = formatSignalForTransport({ signalType: normalizedType, signalData: transportData, contentFallback });
-  return { accepted: true, id, formatted, normalizedType, signalData: transportData, topic: String(topic || '').trim(), senderAgentId, ttlMs, depth: Math.max(0, Number(depth || 0)), expiresAt: ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null };
+  return { accepted: true, id, formatted, normalizedType, signalData: transportData, topic: String(topic || '').trim(), senderAgentId, ttlMs, deliveryOnly: params.deliveryOnly === true, depth: Math.max(0, Number(depth || 0)), expiresAt: ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null };
 }
 
 function buildSignalEnvelope(input) {
@@ -269,21 +268,7 @@ function buildRow({ id, formatted, topic, senderAgentId, expiresAt }) {
 
 async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100) {
   // Pas de rejeu : déjà vus/livrés/ackés (signal_deliveries) exclus.
-  let sql = `SELECT DISTINCT s.signal_id, s.signal_type, s.signal_blob, s.content, s.topic, s.sender_agent_id, s.created_at FROM signal_blobs s
-             JOIN agents receiver ON receiver.id = ?
-             JOIN workspaces receiver_ws ON receiver_ws.id = receiver.workspace_id
-             JOIN agents sender ON sender.id = s.sender_agent_id
-             JOIN workspaces sender_ws ON sender_ws.id = sender.workspace_id
-             LEFT JOIN signal_subscriptions sub ON sub.topic = s.topic AND sub.subscriber_agent_id = ?
-             WHERE s.signal_type != 'text' AND s.sender_agent_id != ? AND (sub.subscriber_agent_id IS NOT NULL OR s.topic = '')
-             AND receiver_ws.organization_id IS NOT NULL AND receiver_ws.project_id IS NOT NULL
-             AND sender_ws.organization_id = receiver_ws.organization_id
-             AND sender_ws.project_id = receiver_ws.project_id
-             AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)
-             AND NOT EXISTS (SELECT 1 FROM signal_deliveries d WHERE d.signal_id = s.signal_id AND d.subscriber_agent_id = ?)
-             ${since ? 'AND s.created_at > ?' : ''} ORDER BY s.created_at DESC LIMIT ?`;
-  const vals = since ? [subscriberAgentId, subscriberAgentId, subscriberAgentId, subscriberAgentId, since, limit]
-    : [subscriberAgentId, subscriberAgentId, subscriberAgentId, subscriberAgentId, limit];
+  const { sql, vals } = buildSignalReadQuery(subscriberAgentId, since, limit);
 
   try {
     const db = await getDatabase();
@@ -301,15 +286,16 @@ function readableBy(signal, agentId) {
   return envelope.recipientMode !== 'targeted' || envelope.recipientAgentIds.includes(agentId);
 }
 
-async function markSignalsSeen(subscriberAgentId, signalIds) {
+async function markSignalsSeen(subscriberAgentId, signalIds, options = {}) {
   if (!signalIds || !signalIds.length) return;
   const db = await getDatabase();
+  const eligible = options.includePending === true ? "'pending', 'delivered'" : "'delivered'";
   try {
     await db.exec('BEGIN IMMEDIATE');
     for (const sid of signalIds) {
       await db.run(`INSERT OR IGNORE INTO signal_deliveries (signal_id, subscriber_agent_id, status, seen_at) VALUES (?, ?, 'seen', CURRENT_TIMESTAMP)`, [sid, subscriberAgentId]);
       await db.run(`UPDATE signal_deliveries SET status = 'seen', seen_at = CURRENT_TIMESTAMP
-        WHERE signal_id = ? AND subscriber_agent_id = ? AND status = 'delivered'`, [sid, subscriberAgentId]);
+        WHERE signal_id = ? AND subscriber_agent_id = ? AND status IN (${eligible})`, [sid, subscriberAgentId]);
     }
     await db.exec('COMMIT');
   } catch (e) {

@@ -334,8 +334,8 @@ fn ecosystem_exposes_genome_ops_snapshots_and_sensorimotor_bridge() {
     // Snapshots : coffre ouvert à la demande (pas d'effet de bord dans new()).
     let mut vault = genos_orchestrator::snapshots::SnapshotVault::new();
     assert!(!vault.is_open());
-    let dir = std::env::temp_dir().join(format!("genos-snap-{}", std::process::id()));
-    vault.open(dir).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    vault.open(dir.path().to_path_buf()).unwrap();
     let id = vault
         .save(
             "agent-1",

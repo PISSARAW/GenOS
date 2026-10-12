@@ -28,6 +28,7 @@ const EVENT_KIND_MAP = {
 
 let attached = false;
 let salienceThreshold = DEFAULT_SALIENCE_THRESHOLD;
+const pendingCaptures = new Set();
 
 function resolveKind(eventType) {
   return EVENT_KIND_MAP[eventType] || null;
@@ -60,11 +61,23 @@ function actionFromEvent(event, payload) {
 
 function outcomeFromEvent(event, payload) {
   if (event.eventType === 'PERCEPTION_OBSERVED') return { status: 'observed', evidence: [], uncertainties: [] };
+  const blockedReason = ['ORACLE_DOMAIN_UNAVAILABLE', 'ORACLE_BUDGET_EXPIRED']
+    .includes(payload.failure?.code) ? payload.failure.code : null;
   return {
-    status: event.status || payload.status || 'unknown',
-    evidence: payload.evidence || [],
-    uncertainties: payload.uncertainties || []
+    status: outcomeStatus(event, payload, blockedReason),
+    artifactValidated: Boolean(payload.validatedWorkerArtifact),
+    evidence: firstValue(payload.evidence,
+      payload.validatedWorkerArtifact ? [payload.evidenceReport] : []),
+    uncertainties: blockedReason ? [blockedReason] : firstValue(payload.uncertainties, [])
   };
+}
+
+function outcomeStatus(event, payload, blockedReason) {
+  if (event.eventType === 'AGENT_FAILED') return blockedReason ? 'blocked' : 'failed';
+  if (event.eventType === 'AGENT_COMPLETED') return 'completed_unverified';
+  if (event.eventType === 'EVIDENCE_REPORT') return payload.validatedWorkerArtifact
+    ? 'artifact_validated' : 'unverified';
+  return firstValue(event.status, payload.status, 'unknown');
 }
 
 function firstValue(...values) {
@@ -75,20 +88,17 @@ function episodeFromEvent(event, kind, salienceResult) {
   const payload = event.payload || {};
   const perception = payload.observation || null;
   return {
-    id: perception?.id ? `episode_${perception.id}` : undefined,
+    id: episodeId(event, perception),
     agentId: firstValue(event.agentId, 'orchestrator'),
     missionId: firstValue(payload.missionId, payload.executionRunId, payload.runId),
     organizationId: firstValue(payload.organizationId, payload.organization_id, event.organizationId),
     projectId: firstValue(payload.projectId, payload.project_id, event.projectId),
-    kind,
+    kind: firstValue(payload.workerKind, kind),
     salience: salienceResult.salience,
-    situation: {
-      ...situationFromEvent(event, payload),
-      goal: payload.goal || situationFromEvent(event, payload).goal,
-      perception: perception ? { summary: perception.data?.summary || '', sensorId: perception.sensorId, target: perception.target } : null
-    },
-    decision: decisionFromEvent({ ...payload, strategy: payload.toolName || payload.strategy }),
-    action: actionFromEvent(event, { ...payload, tool: payload.toolName || event.action, sourceAgentId: event.agentId }),
+    situation: episodeSituation(event, payload, perception),
+    decision: decisionFromEvent({ ...payload, strategy: firstValue(payload.toolName, payload.strategy) }),
+    action: actionFromEvent(event, { ...payload,
+      tool: firstValue(payload.toolName, event.action), sourceAgentId: event.agentId }),
     outcome: outcomeFromEvent(event, payload),
     lesson: {},
     timestamp: event.timestamp
@@ -137,7 +147,12 @@ async function ignitionFactor(event, weight) {
 async function captureTelemetryEvent(event = {}, dbOverride = null) {
   const kind = resolveKind(event.eventType);
   if (!kind) return null;
-  const salienceResult = computeSalience(event);
+  const payload = event.payload || {};
+  const evidencePresent = await verifiedWorkerEvidence(event, dbOverride);
+  const scoredPayload = payload.evidenceReport
+    ? { ...payload, evidence: [], evidencePresent }
+    : payload;
+  const salienceResult = computeSalience({ ...event, payload: scoredPayload });
   const gated = salienceResult.salience
     * await reafferenceWeight(event)
     * await ignitionFactor(event, salienceResult.salience);
@@ -145,7 +160,9 @@ async function captureTelemetryEvent(event = {}, dbOverride = null) {
     ? Number(event.payload?.observation?.informationGain) || 0 : 0;
   const attenuated = { ...salienceResult, salience: Math.min(1, Math.max(gated, perceptionGain)) };
   if (attenuated.salience < salienceThreshold) return null;
-  const episode = episodeFromEvent(event, kind, attenuated);
+  const scopedEvent = await withPersistedScope({ ...event,
+    payload: { ...payload, validatedWorkerArtifact: evidencePresent } }, dbOverride);
+  const episode = episodeFromEvent(scopedEvent, kind, attenuated);
   if (episode.id) {
     const existing = await episodeStore.getEpisodeById(episode.id, dbOverride);
     if (existing) return existing;
@@ -153,10 +170,70 @@ async function captureTelemetryEvent(event = {}, dbOverride = null) {
   return episodeStore.recordEpisode(episode, dbOverride);
 }
 
+function episodeId(event, perception) {
+  const sourceId = firstValue(perception?.id, event.id);
+  return sourceId ? `episode_${sourceId}` : undefined;
+}
+
+function episodeSituation(event, payload, perception) {
+  return { ...situationFromEvent(event, payload), perception: perception
+    ? { summary: firstValue(perception.data?.summary, ''),
+      sensorId: perception.sensorId, target: perception.target } : null };
+}
+
+async function withPersistedScope(event, dbOverride) {
+  if (!event.agentId) return event;
+  const db = dbOverride || await require('../../db').getDatabase();
+  const row = await db.get(`SELECT a.metadata_json AS metadataJson,
+    w.organization_id AS organizationId, w.project_id AS projectId
+    FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, event.agentId);
+  if (!row) return event;
+  const payload = event.payload || {};
+  assertPersistedScope(row, payload);
+  const metadata = JSON.parse(row.metadataJson || '{}');
+  return { ...event, payload: { ...payload,
+    organizationId: firstValue(row.organizationId, payload.organizationId),
+    projectId: firstValue(row.projectId, payload.projectId),
+    workerKind: firstValue(metadata.workerKind, payload.workerKind),
+    goal: firstValue(metadata.workerContract?.mission?.objective, payload.goal) } };
+}
+
+function assertPersistedScope(row, payload) {
+  if (Boolean(row.organizationId) !== Boolean(row.projectId)) {
+    throw new Error('Incomplete persisted autobiographical tenant scope.');
+  }
+  if (payload.organizationId && payload.organizationId !== row.organizationId) {
+    throw new Error('Autobiographical event tenant conflicts with persisted agent scope.');
+  }
+  if (payload.projectId && payload.projectId !== row.projectId) {
+    throw new Error('Autobiographical event tenant conflicts with persisted agent scope.');
+  }
+}
+
+async function verifiedWorkerEvidence(event, dbOverride) {
+  const report = event.payload?.evidenceReport;
+  if (!report || !event.agentId) return false;
+  try {
+    const db = dbOverride || await require('../../db').getDatabase();
+    const row = await db.get('SELECT metadata_json FROM agents WHERE id = ?', event.agentId);
+    const contract = JSON.parse(row?.metadata_json || '{}').workerContract;
+    if (!contract) return false;
+    require('../agents/workerArtifactContract').validateWorkerArtifact(
+      { events: [{ evidenceReport: report }] }, { agentId: event.agentId, workerContract: contract });
+    return true;
+  } catch (_) { return false; }
+}
+
 function handleEvent(event) {
-  captureTelemetryEvent(event).catch((error) => {
+  const pending = captureTelemetryEvent(event).catch((error) => {
     console.warn('[AutobiographicalMemory] capture failed:', error.message);
   });
+  pendingCaptures.add(pending);
+  pending.finally(() => pendingCaptures.delete(pending));
+}
+
+async function flushAutobiographicalCapture() {
+  while (pendingCaptures.size) await Promise.allSettled([...pendingCaptures]);
 }
 
 function attachAutobiographicalCapture(telemetryObserver, options = {}) {
@@ -175,6 +252,7 @@ module.exports = {
   attachAutobiographicalCapture,
   detachAutobiographicalCapture,
   captureTelemetryEvent,
+  flushAutobiographicalCapture,
   resolveKind,
   EVENT_KIND_MAP
 };

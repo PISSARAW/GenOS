@@ -5,12 +5,12 @@
 // salience = sum(weight_i * signal_i), signals in [0,1], weights sum to 1.
 
 const WEIGHTS = {
-  failure: 0.25,
-  successWithEvidence: 0.2,
-  strategyChange: 0.15,
-  highCost: 0.1,
-  highRisk: 0.1,
-  surprise: 0.1,
+  failure: 0.36,
+  successWithEvidence: 0.36,
+  strategyChange: 0.07,
+  highCost: 0.03,
+  highRisk: 0.03,
+  surprise: 0.05,
   humanDecision: 0.1
 };
 

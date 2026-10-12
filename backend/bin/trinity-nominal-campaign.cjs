@@ -6,6 +6,7 @@ const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const { VARIANTS, assess } = require('../src/services/trinityNominalQualification');
 const agentGit = require('../src/services/agentGitService');
+const comparisonJournal = require('../src/services/trinityNominalComparisonJournal');
 
 function manifestAt(filename) {
   const entries = JSON.parse(fs.readFileSync(filename, 'utf8'));
@@ -20,10 +21,12 @@ function manifestAt(filename) {
 
 async function inspect(db, variant, missionId) {
   const experiment = await db.get('SELECT id, mission_id, mission_snapshot_hash, status, decision_json FROM trinity_experiments WHERE mission_id = ?', missionId);
-  const [dispatch, worlds, transitions] = await Promise.all([
+  const [dispatch, worlds, transitions, comparisonProof, initialProof] = await Promise.all([
     db.get('SELECT variant_selection_json FROM trinity_dispatch_configs WHERE mission_id = ?', missionId),
     db.all('SELECT world_number, agent_id, status, snapshot_hash, workspace_root FROM trinity_worlds WHERE experiment_id = ? ORDER BY world_number', experiment?.id || null),
-    db.all('SELECT from_status, to_status, actor, evidence_ref FROM trinity_experiment_transitions WHERE experiment_id = ? ORDER BY id', experiment?.id || null)
+    db.all('SELECT from_status, to_status, actor, evidence_ref FROM trinity_experiment_transitions WHERE experiment_id = ? ORDER BY id', experiment?.id || null),
+    comparisonJournal.read(db, missionId),
+    comparisonJournal.readInitial(db, missionId)
   ]);
   let signedObjectValid = false;
   if (experiment?.decision_json) {
@@ -34,7 +37,8 @@ async function inspect(db, variant, missionId) {
       try { signedObjectValid = signedCandidateObject({ object, experiment, decision }); } catch (_) {}
     }
   }
-  return assess({ variant, missionId, experiment, dispatch, worlds, transitions, signedObjectValid });
+  return assess({ variant, missionId, experiment, dispatch, worlds, transitions,
+    comparisonProof, initialProof, signedObjectValid });
 }
 
 function signedCandidateObject(input) {

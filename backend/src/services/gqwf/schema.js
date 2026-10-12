@@ -1,5 +1,7 @@
 'use strict';
 
+const { withTransaction } = require('../../db');
+
 async function migrateGqwf(db) {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS gqwf_roots (
@@ -41,7 +43,7 @@ async function migrateGqwf(db) {
       workspace_id TEXT NOT NULL,
       root_hash TEXT NOT NULL,
       path TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('open', 'ingested', 'released')),
+      status TEXT NOT NULL CHECK (status IN ('preparing', 'open', 'ingested', 'releasing', 'released', 'quarantined')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (workspace_id, root_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
     );
@@ -79,6 +81,28 @@ async function migrateGqwf(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_gqwf_views_workspace ON gqwf_views(workspace_id);
   `);
+  const row = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_leases'");
+  if (!row.sql.includes("'preparing'")) await migrateLeaseStatus(db);
+}
+
+async function migrateLeaseStatus(db) {
+  await withTransaction(db, async () => {
+    await db.exec('ALTER TABLE gqwf_leases RENAME TO gqwf_leases_previous;');
+    await db.exec(`CREATE TABLE gqwf_leases (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      root_hash TEXT NOT NULL,
+      path TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('preparing', 'open', 'ingested', 'releasing', 'released', 'quarantined')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workspace_id, root_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
+    );`);
+    await db.exec(`INSERT INTO gqwf_leases (id, workspace_id, root_hash, path, status, created_at)
+      SELECT id, workspace_id, root_hash, path,
+        CASE status WHEN 'released' THEN 'releasing' ELSE status END,
+        created_at FROM gqwf_leases_previous;`);
+    await db.exec('DROP TABLE gqwf_leases_previous;');
+  });
 }
 
 module.exports = { migrateGqwf };

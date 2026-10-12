@@ -149,3 +149,18 @@ déclare `kernel.valid`, `governance.allowed` ou `transition.committed` ne
 constitue pas une autorité de production. Le mode `shadow` conserve
 l'évaluation de la proposition sans application ; voir
 [ADR 0423](../adr/0423-fermeture-mode-commit-v2-morphogenese.md).
+
+Le moteur collectif historique `transitionEngineService` refuse aussi une
+transition de production avant toute action : son snapshot en mémoire ne
+restaure pas les effets sur les workspaces, les processus, les baux et les
+budgets. `executeVersionedTransition` ne peut plus transformer un AgentGit
+commit en preuve d'autorité. La réévaluation automatique distingue ce refus
+d'un rollback qui aurait réellement compensé des effets ; voir
+[ADR 0430](../adr/0430-fermeture-transition-collective-sans-snapshot-restaurable.md).
+
+Les versions de graphe préparé et les propositions consultatives Rust sont
+désormais append-only dans SQLite : `UPDATE` et `DELETE` sont refusés par des
+triggers. Le reçu de décision peut donc relire ses deux sources sans mutation
+ordinaire entre appels. Cette protection locale ne signe pas la décision et
+le graphe préparé ne constitue toujours pas un snapshot restaurable ; voir
+[ADR 0437](../adr/0437-immutabilite-sources-recu-morphogenese.md).

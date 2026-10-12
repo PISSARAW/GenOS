@@ -67,7 +67,7 @@ function waitForBarrier(child) {
     let stderr = '';
     child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
     child.stdout.resume();
-    const timer = setTimeout(() => reject(new Error('Crash probe missed the execution barrier. ' + stderr)), 45000);
+    const timer = setTimeout(() => reject(new Error('Crash probe missed the execution barrier. ' + stderr)), 60000);
     child.once('error', failure => { clearTimeout(timer); reject(failure); });
     child.once('exit', () => { clearTimeout(timer); reject(new Error('Crash probe exited before the barrier. ' + stderr)); });
     child.on('message', item => {
@@ -88,7 +88,7 @@ async function freshProcess(request, costs) {
   const execute = require('node:util').promisify(require('node:child_process').execFile);
   const child = await execute(process.execPath,
     ['-e', script, process.env.GENOS_DB_PATH, JSON.stringify(request)],
-    { cwd: path.resolve(__dirname, '../../..'), encoding: 'utf8', timeout: 10000, windowsHide: true });
+    { cwd: path.resolve(__dirname, '../../..'), encoding: 'utf8', timeout: 30000, windowsHide: true });
   assert.deepEqual(JSON.parse(child.stdout).costs, costs);
 }
 

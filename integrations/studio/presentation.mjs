@@ -43,6 +43,11 @@ function moveTab(event) {
 
 function filterActions(input) {
   const query = input.value.trim().toLocaleLowerCase('fr');
+  const container = byId(input.dataset.actionFilter);
+  if (container.hasAttribute('data-operation-picker')) {
+    container.dispatchEvent(new CustomEvent('studio:operation-filter', { detail: query }));
+    return;
+  }
   const items = [...byId(input.dataset.actionFilter).children];
   let count = 0;
   for (const item of items) {
@@ -63,7 +68,7 @@ export function startPresentation() {
   for (const tab of document.querySelectorAll('[data-pane-target]')) {
     tab.addEventListener('click', () => selectPane(tab));
   }
-  for (const tabs of document.querySelectorAll('[role=tablist]')) tabs.addEventListener('keydown', moveTab);
+  for (const tabs of document.querySelectorAll('[role=tablist]:not(.task-tabs)')) tabs.addEventListener('keydown', moveTab);
   for (const input of document.querySelectorAll('[data-action-filter]')) {
     input.addEventListener('input', () => filterActions(input));
   }

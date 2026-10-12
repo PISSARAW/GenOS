@@ -29,20 +29,22 @@ function prepareGeneration(state, input) {
 function selectCandidates(context, input) {
   const evaluated = context.outcomes.map((outcome) => mergeOutcome(context.archive, outcome)).filter(Boolean);
   const supplied = Array.isArray(input.generatedEnvironments) ? input.generatedEnvironments : [];
-  return boundedCandidates([...evaluated, ...supplied], context.threshold, input.evidenceRefs);
+  return boundedCandidates([...evaluated, ...supplied], context.threshold);
 }
 
 function mergeOutcome(archive, outcome) {
   const original = archive.find((item) => item.id === outcome.id);
-  return original ? { ...original, ...outcome } : null;
+  return original ? { ...original, ...outcome, evidenceRefs: outcome.evidenceRefs } : null;
 }
 
 function integrateCandidates(options) {
   const { ecology, candidates, context } = options;
   const opportunities = context.pressure ? candidates.map(toOpportunity) : [];
+  const knownIds = new Set(ecology.niches.map((niche) => niche.nicheId));
   const niches = nicheDiscovery.discoverNiches({ opportunityMap: opportunities, existingNiches: ecology.niches });
   ecology.niches = niches.reduce((current, niche) => nicheStore.upsertNiche(current, niche), ecology.niches);
-  const promoted = niches.filter((item) => item.evidenceRefs.length && item.novelty >= context.threshold).map((item) => item.nicheId);
+  const promoted = [...new Set(niches.filter((item) => !knownIds.has(item.nicheId)
+    && item.evidenceRefs.length && item.novelty >= context.threshold).map((item) => item.nicheId))];
   const environment = selectEnvironment(candidates, promoted);
   if (environment) applyEnvironment(ecology, environment);
   return promoted;
@@ -84,19 +86,19 @@ function generationResult(options) {
     action: { type: context.pressure ? 'BOUNDED_ENVIRONMENTS_EVALUATED' : 'OPEN_ENDED_PRESSURE_HALTED', status: 'applied', promoted: promoted.length } };
 }
 
-function boundedCandidates(value, threshold, evidenceRefs) {
-  return (Array.isArray(value) ? value : []).slice(0, 20).filter((item) => validCandidate(item, threshold, evidenceRefs))
+function boundedCandidates(value, threshold) {
+  return (Array.isArray(value) ? value : []).slice(0, 20).filter((item) => validCandidate(item, threshold))
     .map((item, index) => ({ ...item, id: item.id || `poet-candidate-${index + 1}`, cost: Number(item.cost ?? 0) }));
 }
 
-function validCandidate(item, threshold, evidenceRefs) {
+function validCandidate(item, threshold) {
   if (!item || typeof item.descriptor !== 'string') return false;
-  return hasProofOfValue(item, threshold, evidenceRefs);
+  return hasProofOfValue(item, threshold);
 }
 
-function hasProofOfValue(item, threshold, evidenceRefs) {
+function hasProofOfValue(item, threshold) {
   const cost = Number(item.cost ?? 0);
-  return Number(item.novelty) >= threshold && strings(item.evidenceRefs || evidenceRefs).length > 0
+  return Number(item.novelty) >= threshold && strings(item.evidenceRefs).length > 0
     && Number(item.utility) > 0 && Number.isFinite(cost) && cost >= 0 && cost <= Number(item.utility);
 }
 

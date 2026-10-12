@@ -61,6 +61,9 @@ l'enregistrement ([ADR 0426](../adr/0426-consentement-explicite-human-ai-syncyti
 Le reçu `authorized_recorded` prouve uniquement
 l'enregistrement dans l'état partagé ; l'effet externe exige une preuve distincte
 ([ADR 0414](../adr/0414-approbation-liee-a-laction-human-ai-syncytium.md)).
+Les baux Hard et Human–AI prennent leur heure dans le runtime. Le champ `now`
+fourni à leurs opérations est refusé pour empêcher une expiration pilotée par
+l'appelant ([ADR 0431](../adr/0431-horloge-runtime-baux-syncytium.md)).
 
 ## Admission, causalité et identité
 

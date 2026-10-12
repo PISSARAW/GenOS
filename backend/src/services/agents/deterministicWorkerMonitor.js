@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHash } = require('node:crypto');
+const { digest } = require('../trinityProvenanceValues');
 
 function monitorError(message) {
   return Object.assign(new Error(message), { code: 'WORKER_MONITOR_INPUT_INVALID' });
@@ -40,9 +40,17 @@ function runMonitor(methodContract) {
   const territoryReport = { territoryId,
     observedAt: new Date(Math.max(...samples.map((sample) => Date.parse(sample.observedAt)))).toISOString(),
     sourceRefs: samples.map((sample) => sample.sourceRef) };
-  const digest = createHash('sha256').update(JSON.stringify({ methodContract, anomalies, territoryReport })).digest('hex');
+  const receiptHash = digest({ methodContract, anomalies, territoryReport });
   return { threshold, sampleCount: samples.length, anomalies, territoryReport,
-    monitorReceipt: { id: `solver://sha256:${digest}` } };
+    monitorReceipt: { id: `solver://sha256:${receiptHash}` } };
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 module.exports = { assertMonitorInput, runMonitor };

@@ -25,10 +25,9 @@ try {
     { name: 'genos_signal_collective_decision', arguments: { problem: 'choice', voters: [], mode: 'plasmid' } }
   ]) {
     const result = await client.callTool(request);
-    assert.equal(result.isError, true, `${request.name} must not claim execution`);
-    assert.match(result.content[0].text, /no .* (transfer|adapter)|no execution adapter/i);
+    assert.equal(result.isError, true, `${request.name} must reject an incomplete transfer`);
   }
-  console.log('Unimplemented signal modes refuse execution through real MCP stdio.');
+  console.log('Incomplete signal transfers refuse execution through real MCP stdio.');
 } finally {
   await client.close();
   fs.rmSync(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

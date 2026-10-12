@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHash } = require('node:crypto');
+const { digest } = require('../trinityProvenanceValues');
 
 function synthesisError(message) {
   return Object.assign(new Error(message), { code: 'WORKER_SYNTHESIS_INPUT_INVALID' });
@@ -46,8 +46,8 @@ function runSynthesis(methodContract) {
     synthesis: `${sources.length} attributed positions retained; ${disagreements.length} exact-claim disagreements found.`,
     sources: sources.map((item) => item.sourceRef), disagreements
   };
-  const digest = createHash('sha256').update(JSON.stringify({ methodContract, content })).digest('hex');
-  return { ...content, synthesisReceipt: { id: `solver://sha256:${digest}`,
+  const receiptHash = digest({ methodContract, content });
+  return { ...content, synthesisReceipt: { id: `solver://sha256:${receiptHash}`,
     sourceRefs: content.sources } };
 }
 

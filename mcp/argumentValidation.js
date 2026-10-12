@@ -3,7 +3,8 @@ const REQUIRED_CLI_FIELDS = {
   genos_capsule_create: ['snapshot_id'],
   genos_merge: ['branch_id'],
   genos_audit: ['snapshot_id'],
-  genos_biomimicry: ['feature', 'action']
+  genos_biomimicry: ['feature', 'action'],
+  genos_v2_fork: ['parent_id']
 };
 
 function nonEmptyString(value) {

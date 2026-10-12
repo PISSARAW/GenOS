@@ -16,6 +16,11 @@ const ALL_4_LIVING_WORLD_TOOLS = [
   'genos_biomimicry_tardigrade_dsup_shield'
 ];
 
+function statusArguments(toolName) {
+  if (toolName === 'genos_biomimicry_agrobacterium_tdna_hijack') return { action: 'status', host_id: 'mcp-status-host' };
+  return { action: 'status' };
+}
+
 async function runAllLivingWorldMcpTests() {
   console.log('=== VERIFYING FULL MCP WIRING FOR ALL 4 LIVING WORLD GENETIC & DEFENSE TOOLS ===\n');
 
@@ -28,7 +33,7 @@ async function runAllLivingWorldMcpTests() {
     const kind = detectExecutionKind(toolName);
     assert.strictEqual(kind, 'bio', `Tool ${toolName} must be classified as 'bio' kind`);
 
-    const dispatchResponse = await dispatchTool(toolName, { action: 'status' });
+    const dispatchResponse = await dispatchTool(toolName, statusArguments(toolName));
     assert.strictEqual(dispatchResponse.kind, 'bio', `Dispatch response kind must be 'bio' for ${toolName}`);
     assert.strictEqual(dispatchResponse.result.configured, true, `Tool ${toolName} must report configured: true`);
     assert.strictEqual(dispatchResponse.result.success, true, `Tool ${toolName} must execute status successfully`);

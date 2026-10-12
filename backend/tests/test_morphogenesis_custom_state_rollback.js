@@ -23,11 +23,12 @@ async function main() {
     collectiveState: custom,
   });
   assert.equal(receipt.committed, false);
-  assert.equal(receipt.rollbackReceipt.memoryRestored, true);
+  assert.equal(receipt.code, 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE');
+  assert.equal(receipt.rollbackReceipt, null);
   assert.equal(custom.agents.get('worker').role, 'old');
   assert.equal(shared.agents.has('worker'), false);
-  assert.ok(events.some(event => event.eventType === 'MORPHOGENESIS_TRANSITION_ROLLBACK'));
-  console.log('custom collective state is restored after a failed transition: PASS');
+  assert.ok(!events.some(event => event.eventType === 'MORPHOGENESIS_TRANSITION_ROLLBACK'));
+  console.log('custom collective state remains unchanged after refused transition: PASS');
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

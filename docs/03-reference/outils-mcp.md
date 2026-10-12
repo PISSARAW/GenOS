@@ -105,9 +105,9 @@ transaction globale entre workspace, SQLite et runtime. L'inspection ne
 restaure aucun état, ne démarre aucun processus et n'offre aucune garantie
 de reprise après crash.
 
-Un retour `accepted` atteste le lancement d'une opération asynchrone, pas son achèvement ni sa promotion. Hors du catalogue public, le handler backend `genos_temporal_consciousness_transfer` est `reference_only` : l'action d'exécution renvoie `success: false` et `status: not_implemented` ; son inspection de statut est une simulation, sans restauration d'agent.
+Un retour `accepted` atteste le lancement d'une opération asynchrone, pas son achèvement ni sa promotion. Hors du catalogue public de 48 outils, le handler backend historique `genos_temporal_consciousness_transfer` expose une restauration conditionnelle de **l'état d'agent**, jamais de conscience : `restore_snapshot` exige un snapshot scellé, une lease, une activation explicite et une portée organisation/projet configurée côté serveur. Les mémoires futures sont refusées ; `status` reste une simulation. Ce chemin backend local est testé sur snapshot et workspace réels, mais il n'est pas exposé par les catalogues publics Node/Rust. Voir [ADR 0386](../adr/0386-restauration-etat-agent-mcp.md).
 
-Dans la famille des signaux publics, `genos_signal_plasmid_transfer` et les modes `plasmid`/`stigmergic` de `genos_signal_collective_decision` ne disposent pas d'adaptateur exécutant un transfert ou une décision : ils renvoient `success: false`, `status: not_implemented`. Un nombre de destinataires calculé est un aperçu, pas une preuve de transfert. Le mode `electrocyte` calcule un résultat ; le champ `consensusReached` indique séparément si un consensus est atteint.
+Dans la famille des signaux publics, `genos_signal_plasmid_transfer` et les modes `plasmid`/`stigmergic` de `genos_signal_collective_decision` exigent un `orchestrator_id`, un `problem` et une liste non vide de `voters` avec `agentId`. Le mode plasmide exige `decision` booléen ; la stigmergie exige pour chaque votant une `position` finie dans [-1, 1]. Le reçu `signal_enqueued` atteste le signal persistant et les livraisons `pending` dans le même projet, **pas** la lecture, l'assimilation ou un consensus. Les destinataires hors portée sont refusés sans publication. Le mode `electrocyte` calcule un résultat ; le champ `consensusReached` indique séparément si un consensus est atteint. Voir [ADR 0384](../adr/0384-livraison-ciblee-des-decisions-mcp.md).
 
 ---
 
@@ -582,16 +582,16 @@ stateDiagram-v2
     [*] --> DemandeBail : Requête d'autorisation pour un outil
     DemandeBail --> BailActif : Droits accordés (TTL assigné)
     DemandeBail --> RefusSecurite : Outil interdit par la politique
-    
+
     state BailActif {
         [*] --> PretAExecuter
         PretAExecuter --> ExecutionAppel : Transmission requête JSON-RPC
         ExecutionAppel --> PretAExecuter : Réponse reçue
     }
-    
+
     BailActif --> BailExpire : Expiration du TTL
     BailActif --> BailRevoque : Détection de comportement anormal
-    
+
     BailExpire --> [*]
     BailRevoque --> [*]
     RefusSecurite --> [*]

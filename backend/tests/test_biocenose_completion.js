@@ -70,6 +70,38 @@ async function testActionReceiptsAndIdempotency(db) {
   assert.equal(unverified.followUpStatus, 'ACTION_BLOCKED');
 }
 
+async function testUncertainActionReconciliation(db) {
+  const community = await fixture.prepare(db);
+  const input = fixture.runtimeInput(db, community.communityId);
+  let calls = 0;
+  input.actionExecutors = { HANDOFF_DIRECT: async () => {
+    calls += 1;
+    throw new Error('Receipt lost after the external call.');
+  } };
+  const first = await service.runBiocenoseRound(input);
+  assert.equal(first.ecologicalAction.status, 'BLOCKED');
+  assert.equal(calls, 1);
+  const pending = await service.runBiocenoseRound(input);
+  assert.equal(pending.ecologicalAction.reason, 'BIOCENOSE_ACTION_OUTCOME_UNCERTAIN');
+  assert.equal(calls, 1, 'an uncertain external action is not repeated');
+  input.actionReceiptResolver = async (request) => ({ status: 'COMPLETED', receipt: {
+    ...request, decision: undefined, idempotencyKey: 'wrong', status: 'VERIFIED', oracle: 'trusted'
+  } });
+  const invalid = await service.runBiocenoseRound(input);
+  assert.equal(invalid.ecologicalAction.status, 'BLOCKED');
+  assert.equal(calls, 1);
+  input.actionReceiptResolver = async (request) => ({ status: 'COMPLETED', receipt: {
+    ...request, decision: undefined, status: 'VERIFIED', oracle: 'trusted'
+  } });
+  const recovered = await service.runBiocenoseRound(input);
+  assert.equal(recovered.ecologicalAction.status, 'COMPLETED');
+  assert.equal(recovered.ecologicalAction.reconciled, true);
+  await service.runBiocenoseRound(input);
+  assert.equal(calls, 1);
+  assert.equal((await store.listEvents(db, community.communityId))
+    .filter((event) => event.type === 'ECOLOGICAL_ACTION_COMPLETED').length, 1);
+}
+
 async function testLeaseAndTamperedJournal(db) {
   const community = await fixture.prepare(db);
   const input = fixture.runtimeInput(db, community.communityId);
@@ -87,6 +119,7 @@ async function run() {
     await testVerifiedExecutionAndRecovery(db);
     await testRevisedForecastsAndStability(db);
     await testActionReceiptsAndIdempotency(db);
+    await testUncertainActionReconciliation(db);
     await testLeaseAndTamperedJournal(db);
   } finally { await db.close(); }
 }

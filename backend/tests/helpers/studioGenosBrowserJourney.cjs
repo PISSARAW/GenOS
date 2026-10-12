@@ -1,8 +1,10 @@
 'use strict';
 const assert = require('node:assert/strict');
+const tasks = require('./studioTaskNavigation.cjs');
 
 async function action(page, spec) {
   const form = page.locator(`[data-action="${spec.id}"], [data-journey-read="${spec.id}"]`);
+  await tasks.reveal(page, form);
   const detail = form.locator('..');
   if (await detail.evaluate(element => element.tagName === 'DETAILS' && !element.open)) await detail.locator('summary').click();
   for (const [name, value] of Object.entries(spec.fields || {})) await form.locator(`[name="${name}"]`).fill(value);
@@ -27,7 +29,7 @@ async function worlds(page) {
   assert.equal(diff.rightAgentId, clone.clonedAgentId);
   await action(page, { id: 'worlds-inspect', route: root + '/worlds', method: 'GET' });
   assert.match(await page.locator('#worlds-result-summary').textContent(), /shared_workspace/);
-  await page.getByRole('button', { name: 'Examiner hypothèses et preuves au laboratoire' }).click();
+  await tasks.click(page, page.getByRole('button', { name: 'Examiner hypothèses et preuves au laboratoire', includeHidden: true }));
   assert.equal(await page.locator('#research-view').isVisible(), true);
   return { checkpoint: snapshot.snapshotId, workspaceSnapshot: snapshot.workspaceSnapshotId, branch: branch.branchId, clone: clone.clonedAgentId };
 }
@@ -91,7 +93,7 @@ async function restoreWorkspace(page, context) {
   await action(page, { id: 'recovery-preview', method: 'GET',
     route: '/api/workspaces/consumer-ws/rollback-preview?snapshotId=' + context.snapshotId, fields: { snapshotId: context.snapshotId } });
   assert.match(await page.locator('#recovery-result-summary').textContent(), /a\/verify.cjs/);
-  await page.getByRole('button', { name: 'Ouvrir la restauration du workspace inspecté' }).click();
+  await tasks.click(page, page.getByRole('button', { name: 'Ouvrir la restauration du workspace inspecté', includeHidden: true }));
   assert.equal(await page.locator('#files-view').isVisible(), true);
   assert.equal(await page.locator('#restore-id').inputValue(), context.snapshotId);
   const response = page.waitForResponse(item => item.url().endsWith('/restore') && item.request().method() === 'POST');

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/external-credit-observation.schema.json",
+  "title": "SignedExternalCreditObservation",
+  "type": "object",
+  "required": [
+    "statement",
+    "signature"
+  ],
+  "properties": {
+    "statement": {
+      "type": "object",
+      "required": [
+        "schema",
+        "providerId",
+        "tenantId",
+        "missionId",
+        "agentId",
+        "unit",
+        "balance",
+        "capacity",
+        "accountVersion",
+        "reserve",
+        "spent",
+        "ledgerVersion",
+        "observedAt"
+      ],
+      "properties": {
+        "schema": {
+          "const": "genos.external-credit-observation/v1"
+        },
+        "providerId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenantId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "missionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agentId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "const": "execution_credit"
+        },
+        "balance": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capacity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "accountVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reserve": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "spent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ledgerVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

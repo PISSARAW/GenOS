@@ -34,10 +34,14 @@ pub fn read_bounded(mut stream: impl Read) -> Vec<u8> {
         match stream.read(&mut chunk) {
             Ok(0) => break,
             Ok(count) => {
-                bytes.extend_from_slice(&chunk[..count]);
-                if bytes.len() > MAX_OUTPUT_BYTES {
-                    let excess = bytes.len() - MAX_OUTPUT_BYTES;
-                    bytes.drain(..excess);
+                let remaining = MAX_OUTPUT_BYTES.saturating_sub(bytes.len());
+                if remaining == 0 {
+                    break;
+                }
+                let take = count.min(remaining);
+                bytes.extend_from_slice(&chunk[..take]);
+                if take < count {
+                    break;
                 }
             }
             Err(_) => break,
@@ -47,8 +51,8 @@ pub fn read_bounded(mut stream: impl Read) -> Vec<u8> {
 }
 
 fn bounded_output(bytes: Vec<u8>) -> String {
-    let start = bytes.len().saturating_sub(MAX_OUTPUT_BYTES);
-    String::from_utf8_lossy(&bytes[start..]).to_string()
+    let end = bytes.len().min(MAX_OUTPUT_BYTES);
+    String::from_utf8_lossy(&bytes[..end]).to_string()
 }
 
 fn terminate_process_group(child: &mut Child) {
@@ -159,14 +163,8 @@ fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i3
 fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
     match name {
         "genos_snapshot" => {
-            let agent = args
-                .get("agent")
-                .and_then(Value::as_str)
-                .unwrap_or("default-agent");
-            let out = args
-                .get("out")
-                .and_then(Value::as_str)
-                .unwrap_or("snapshots/mcp-snapshot.json");
+            let agent = args.get("agent").and_then(Value::as_str).unwrap_or("");
+            let out = args.get("out").and_then(Value::as_str).unwrap_or("");
             vec![
                 "snapshot".into(),
                 "create".into(),
@@ -190,10 +188,7 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             ]
         }
         "genos_capsule_create" => {
-            let snap = args
-                .get("snapshot_id")
-                .and_then(Value::as_str)
-                .unwrap_or("ROOT");
+            let snap = args.get("snapshot_id").and_then(Value::as_str).unwrap_or("");
             let mut v = vec![
                 "capsule".into(),
                 "create".into(),
@@ -207,10 +202,7 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             v
         }
         "genos_merge" => {
-            let branch = args
-                .get("branch_id")
-                .and_then(Value::as_str)
-                .unwrap_or("HEAD");
+            let branch = args.get("branch_id").and_then(Value::as_str).unwrap_or("");
             let mut v = vec!["merge".into(), branch.into()];
             if let Some(cond) = args.get("conditions").and_then(Value::as_str) {
                 v.push("--conditions".into());
@@ -219,22 +211,13 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             v
         }
         "genos_audit" => {
-            let snap = args
-                .get("snapshot_id")
-                .and_then(Value::as_str)
-                .unwrap_or("ROOT");
-            let out = args
-                .get("output")
-                .and_then(Value::as_str)
-                .unwrap_or("audit.log");
+            let snap = args.get("snapshot_id").and_then(Value::as_str).unwrap_or("");
+            let out = args.get("output").and_then(Value::as_str).unwrap_or("audit.log");
             vec!["audit".into(), snap.into(), "--output".into(), out.into()]
         }
         "genos_biomimicry" => {
-            let feat = args.get("feature").and_then(Value::as_str).unwrap_or("sar");
-            let act = args
-                .get("action")
-                .and_then(Value::as_str)
-                .unwrap_or("prime");
+            let feat = args.get("feature").and_then(Value::as_str).unwrap_or("");
+            let act = args.get("action").and_then(Value::as_str).unwrap_or("");
             let mut v = vec![
                 "biomimicry".into(),
                 "bio-feature".into(),
@@ -256,14 +239,8 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             v
         }
         "genos_biological_mode" => {
-            let mode = args
-                .get("mode")
-                .and_then(Value::as_str)
-                .unwrap_or("biocenose");
-            let mission = args
-                .get("mission")
-                .and_then(Value::as_str)
-                .unwrap_or("Shared mission");
+            let mode = args.get("mode").and_then(Value::as_str).unwrap_or("");
+            let mission = args.get("mission").and_then(Value::as_str).unwrap_or("");
             vec![
                 "biological".into(),
                 "deploy".into(),
@@ -275,10 +252,7 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
         }
         "genos_v2_init" => vec!["init".into()],
         "genos_v2_fork" => {
-            let p = args
-                .get("parent_id")
-                .and_then(Value::as_str)
-                .unwrap_or("ROOT");
+            let p = args.get("parent_id").and_then(Value::as_str).unwrap_or("");
             vec![
                 "agent".into(),
                 "fork".into(),

@@ -51,7 +51,11 @@ async function testCampaignRunnerKeepsPairedOrder() {
   const missions = Array.from({ length: 50 }, (_, index) => ({ id: `mission-${index}` }));
   const report = await runLongitudinalBenchmark({
     benchmarkId: 'executed-campaign', missions,
-    runMission: async ({ arm, mission, sequence }) => {
+    budget: { maxCost: 20000, maxTokens: 200000, maxTimeMs: 60000 },
+    runMission: async ({ arm, mission, sequence, remainingBudget }) => {
+      assert.ok(remainingBudget.maxCost > 0);
+      assert.ok(remainingBudget.maxTokens > 0);
+      assert.ok(remainingBudget.maxTimeMs > 0);
       calls.push({ arm, missionId: mission.id, sequence });
       return run(mission.id, ARMS.indexOf(arm), sequence);
     }
@@ -61,10 +65,21 @@ async function testCampaignRunnerKeepsPairedOrder() {
   assert.strictEqual(report.arms.fullHolobiont.missionCount, 50);
 }
 
+async function testMalformedRunIsRejectedBeforeJournal() {
+  const missions = Array.from({ length: 50 }, (_, index) => ({ id: `mission-${index}` }));
+  let journaled = false;
+  await assert.rejects(runLongitudinalBenchmark({ benchmarkId: 'invalid-campaign', missions,
+    runMission: async () => ({ success: true, cost: 0, tokens: 0, evidenceRefs: [] }),
+    onRun: () => { journaled = true; }
+  }), { code: 'HOLOBIONT_EVIDENCE_REQUIRED' });
+  assert.strictEqual(journaled, false);
+}
+
 async function main() {
   testLongitudinalComparison();
   testEvidenceAndMatchedHorizonAreRequired();
   await testCampaignRunnerKeepsPairedOrder();
+  await testMalformedRunIsRejectedBeforeJournal();
   console.log('✅ Holobiont longitudinal benchmark tests passed.');
 }
 

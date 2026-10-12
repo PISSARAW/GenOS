@@ -123,7 +123,7 @@ Le résultat `goalVerified` reste séparé des actions et des mesures écologiqu
 | Construction | Résultats mesurés modifiant l'environnement versionné. |
 | Résilience | Réserve, refuges, extinction confirmée et nouvelles mesures de récupération. |
 | Rewiring | Liens documentés dont la valeur influence l'allocation. |
-| POET/NCE | Environnements candidats bornés et niches ouvertes depuis résultats documentés. |
+| POET/NCE | Environnements candidats bornés et niches nouvelles ouvertes depuis des candidats portant leurs propres références de preuve. Une niche déjà connue n'est pas recomptée comme promotion. |
 | Curiosité | Progrès d'apprentissage observé, avec pénalité des domaines sans progrès. |
 | Phénotype | Adaptation limitée à stratégie, focus, température et taux d'apprentissage. |
 | Stepping stones | Archives de pistes, artefacts et individus préservés. |

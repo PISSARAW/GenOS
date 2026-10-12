@@ -54,12 +54,12 @@ async function authorize(db, input) {
   context.contract = contract;
   if (!contractValid({ contract, session, symbiontId, manifest })) return refusal('TOOL_CONTRACT_NOT_ACTIVE_OR_LEASED', context);
   if (!permissionValid(contract, manifest)) return refusal('TOOL_PERMISSION_OUT_OF_SCOPE', context);
-  const lease = { toolName: manifest.name, contractId: contract.contractId,
-    contractRevision: contract.revision, expiresAt: new Date(Date.now() + 30000).toISOString() };
+  const lease = Object.freeze({ toolName: manifest.name, contractId: contract.contractId,
+    contractRevision: contract.revision, expiresAt: new Date(Date.now() + 30000).toISOString() });
   const execution = runtimeInput.execute;
   const bounded = { ...runtimeInput, leasedPermissions: [...contract.authorityScope.actions],
-    toolLease: lease, verifyLease: (candidate) => candidate === lease,
-    execute: (...args) => executeAfterRecheck({ db, session, symbiontId, contract, execution, args }) };
+    toolLease: lease, verifyLease: (candidate) => candidate === lease && Date.parse(lease.expiresAt) > Date.now(),
+    execute: (...args) => executeAfterRecheck({ db, session, symbiontId, contract, execution, args, lease }) };
   return { allowed: true, proof: contractProof({ contract, session, state }), runtimeInput: bounded };
 }
 
@@ -76,6 +76,9 @@ async function executeAfterRecheck(input) {
   if (!current || current.status !== 'ACTIVE' || current.contractId !== input.contract.contractId
     || current.revision !== input.contract.revision) {
     throw Object.assign(new Error('Tool contract changed before invocation.'), { code: 'HOLOBIONT_TOOL_CONTRACT_CHANGED' });
+  }
+  if (Date.parse(input.lease.expiresAt) <= Date.now()) {
+    throw Object.assign(new Error('Tool lease expired before invocation.'), { code: 'HOLOBIONT_TOOL_LEASE_EXPIRED' });
   }
   if (typeof input.execution !== 'function') {
     throw Object.assign(new Error('Tool executor is required.'), { code: 'HOLOBIONT_TOOL_EXECUTOR_REQUIRED' });

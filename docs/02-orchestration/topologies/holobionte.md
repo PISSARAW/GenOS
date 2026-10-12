@@ -1086,14 +1086,18 @@ Les douze variants persistants, les workflows bornés et leurs reçus restent di
 | `competitive-partner` | classement et autorisation conditionnelle | remplacement réel soumis au cycle de vie distinct |
 | `procedural` | recrutement, contrat et essai d'admission | transmission procédurale non déclenchée par le plan |
 | `tool` | invocation contrôlée avant l'exécuteur par le résident, le contrat actif et le manifeste | sandbox système et effet externe restent à attester par l'intégrateur |
-| `cloud-core/edge-sync` | placement, réconciliation et simulation de synchronisation | aucune livraison réseau prouvée par la simulation |
+| `cloud-core/edge-sync` | placement, réconciliation et simulation de synchronisation ; les horloges vectorielles égales restent équivalentes malgré l'ordre des zones ou une composante zéro absente | aucune livraison réseau prouvée par la simulation ; seules les horloges causalement incomparables signalent un conflit |
 
 Pour `tool`, un refus est journalisé avant l'appel de l'exécuteur; une exception
 pendant l'appel porte `UNKNOWN_EFFECT`, sans prétendre annuler l'action externe.
+Le bail de 30 secondes est immuable et son échéance est vérifiée de nouveau
+après la relecture asynchrone du contrat, juste avant l'appel. Une expiration
+refuse l'invocation sans appeler l'exécuteur.
 Une sortie exécutée mais rejetée par le vérificateur indépendant est journalisée
 `UNVERIFIED`.
 Le reçu d'une exécution acceptée contient l'empreinte du contrat et sa révision.
-Voir [ADR 0420](../../adr/0420-frontiere-contrat-outil-holobionte.md).
+Voir [ADR 0420](../../adr/0420-frontiere-contrat-outil-holobionte.md) et
+[ADR 0440](../../adr/0440-bail-outil-immuable-holobionte.md).
 
 Les services couvrent transmission verticale, horizontale, mixte et procédurale, succession, résilience et impact keystone. Les adaptateurs A-Team, daemon résident, Rhizome, Syncytium et Trinity ont des tests dédiés. Le dispatch biologique historique conserve le parent host_orchestrator et les trois workers symbiotiques ; un plan de rôles n’est pas une preuve de contribution exécutée.
 

@@ -2,7 +2,7 @@
 const { createMockMembers } = require('./fixtures/ateamVariantTestHelpers');
 
 async function run() {
-  console.log('Running 44 A-Team variant acceptance tests...\n');
+  console.log('Running A-Team variant acceptance tests...\n');
 
   const members = createMockMembers([
     { memberId: 'api', domain: 'api', role: 'backend', capabilities: ['api', 'rest'], expertise: ['api-design'] },

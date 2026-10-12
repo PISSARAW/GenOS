@@ -60,9 +60,17 @@ async function effectiveAgents(db, missionId, agents) {
     WHERE mission_id = ? AND status = 'verified'`, missionId);
   const lost = new Set(verified.map(row => row.lost_agent_id));
   const replacements = new Set(verified.map(row => row.replacement_id));
-  return agents.filter(agent => !lost.has(agent.id)
-    && (agent.execution_mode !== 'orchestrator' || agent.id === mission?.orchestratorAgentId)).map(agent =>
-    replacements.has(agent.id) && agent.status === 'idle' ? { ...agent, status: 'completed' } : agent);
+  const members = agents.filter(agent => !lost.has(agent.id)
+    && (agent.execution_mode !== 'orchestrator' || agent.id === mission?.orchestratorAgentId));
+  return Promise.all(members.map(async (agent) => {
+    if (agent.execution_mode === 'worker' && agent.status === 'idle') {
+      const latestRun = await db.get(`SELECT status FROM strategy_execution_runs
+        WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1`, agent.id);
+      if (latestRun?.status === 'completed') return { ...agent, status: 'completed' };
+    }
+    if (replacements.has(agent.id) && agent.status === 'idle') return { ...agent, status: 'completed' };
+    return agent;
+  }));
 }
 
 module.exports = { reserve, mark, effectiveAgents };
