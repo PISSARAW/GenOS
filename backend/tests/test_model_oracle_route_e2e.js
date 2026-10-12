@@ -99,7 +99,7 @@ async function execute(db, prepared) {
   return observations.at(-1).event.payload.evidenceReport;
 }
 
-async function complete(db, run, report) {
+async function complete(db, run, options) {
   const request = { runId: run.id, agentId: 'model-worker' };
   const attested = await require('../src/services/epistemic/nativeOracleCoordinator').prepare(db, request);
   const scope = await require('../src/services/gvxMissionProvenance').agentScope(db, 'model-worker');
@@ -111,12 +111,17 @@ async function complete(db, run, report) {
     JSON.stringify({ evaluation: assembly.evaluation.evaluation,
       results: assembly.evaluation.assembly.verifications.map((item) => ({
         status: item.status, independent: item.independent, evidence: item.executionEvidence })) }));
-  const result = await execution.recordExecutionEvent(db, 'model-worker', {
+  const event = {
     id: `complete-${run.id}`, eventType: 'AGENT_COMPLETED', timestamp: new Date().toISOString(),
-    payload: { executionRunId: run.id, evidenceReport: report,
-      nativeOracleRef: attested, usage: { total_tokens: 0, cost_usd: 0 } } });
+    payload: { executionRunId: run.id, evidenceReport: options.report,
+      nativeOracleRef: attested, usage: { total_tokens: 0, cost_usd: 0 } } };
+  const result = await execution.recordExecutionEvent(db, 'model-worker', event);
   assert.equal(result.run.status, 'completed', result.run.guardrailReason);
   assert.equal(result.biologicalReceipt.result.verified, true);
+  assert.equal(result.routeLearning.status, options.expectedLearning || 'observed',
+    JSON.stringify(result.routeLearning));
+  const replay = await execution.recordExecutionEvent(db, 'model-worker', event);
+  assert.equal(replay.duplicate, true);
   return result.biologicalReceipt;
 }
 
@@ -143,6 +148,41 @@ async function falsify(db, run) {
     'The immutable observation remains the trusted source');
 }
 
+async function testLearningFailureDoesNotAlterMission() {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-route-learning-failure-'));
+  const workspace = path.join(root, 'workspace');
+  await fs.mkdir(workspace);
+  process.env.GENOS_DB_PATH = path.join(root, 'mission.db');
+  process.env.GENOS_STUDIO_ROOT = path.join(root, 'studio');
+  process.env.GENOS_CAPSULE_ROOT = path.join(root, 'capsules');
+  process.env.GENOS_WORKSPACES_ROOT = root;
+  const db = await getDatabase(process.env.GENOS_DB_PATH);
+  const originalGenerate = provider.generate;
+  const originalIngest = bridge.ingestWithTrace;
+  provider.generate = async () => ({ text: JSON.stringify({ found: true,
+    indices: [0, 2], sum: 10, reachableCount: 6 }), inputTokens: 8,
+  outputTokens: 12, tokenUsageMeasured: true });
+  try {
+    const prepared = await prepare(db, workspace);
+    const report = await execute(db, prepared);
+    bridge.ingestWithTrace = async () => { throw Object.assign(new Error('offline'),
+      { code: 'LEARNING_OFFLINE' }); };
+    const receipt = await complete(db, prepared.run, { report, expectedLearning: 'error' });
+    assert.equal(receipt.result.verified, true);
+    assert.equal((await bandit.qualifiedObservations(db)).length, 0);
+    const run = await db.get('SELECT status FROM strategy_execution_runs WHERE id=?', prepared.run.id);
+    assert.equal(run.status, 'completed');
+    bridge.ingestWithTrace = originalIngest;
+    assert.equal((await bridge.ingestWithTrace(db, prepared.run.id)).status, 'observed');
+  } finally {
+    bridge.ingestWithTrace = originalIngest;
+    provider.generate = originalGenerate;
+    await require('../src/services/garageRuntimeService').stop(db);
+    await closeDatabase();
+    await fs.rm(root, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-model-oracle-route-'));
   const workspace = path.join(root, 'workspace');
@@ -152,7 +192,7 @@ async function main() {
   process.env.GENOS_CAPSULE_ROOT = path.join(root, 'capsules');
   process.env.GENOS_WORKSPACES_ROOT = root;
   process.env.GENOS_DISABLE_WORKSPACE_GC = '1';
-  const db = await getDatabase(process.env.GENOS_DB_PATH);
+  let db = await getDatabase(process.env.GENOS_DB_PATH);
   const original = provider.generate;
   let calls = 0;
   provider.generate = async () => { calls += 1;
@@ -162,24 +202,36 @@ async function main() {
   try {
     const prepared = await prepare(db, workspace);
     const report = await execute(db, prepared);
-    const receipt = await complete(db, prepared.run, report);
+    assert.deepEqual(await bridge.ingestWithTrace(db, prepared.run.id),
+      { status: 'refused', reason: 'mission_evidence_ineligible' },
+      'Provider transport alone cannot train the route');
+    const receipt = await complete(db, prepared.run, { report });
     assert.equal(calls, 1);
     assert.equal(receipt.costs.find((item) => item.register === 'worker_llm_tokens').quantity, 20);
     const derived = await bridge.derive(db, prepared.run.id);
     assert.equal(derived.success, true);
     assert.equal(derived.promptTokens, 8);
-    assert(await bridge.ingest(db, prepared.run.id));
+    assert.deepEqual(await bridge.ingestWithTrace(db, prepared.run.id), { status: 'duplicate' });
+    assert.equal(await bridge.ingest(db, prepared.run.id), null);
     assert.equal((await bandit.qualifiedObservations(db)).length, 1);
     await db.run(`UPDATE mission_action_decisions SET status='shadow' WHERE run_id=?`, prepared.run.id);
     assert.equal(await bridge.derive(db, prepared.run.id), null);
+    assert.equal((await bandit.qualifiedObservations(db)).length, 0,
+      'Tampered action state cannot remain a qualified training observation');
+    assert.equal((await bridge.ingestWithTrace(db, prepared.run.id)).status, 'refused');
     await db.run(`UPDATE mission_action_decisions SET status='executed_unverified' WHERE run_id=?`, prepared.run.id);
     await falsify(db, prepared.run);
+    await closeDatabase();
+    db = await getDatabase(process.env.GENOS_DB_PATH);
+    assert.deepEqual(await bridge.ingestWithTrace(db, prepared.run.id), { status: 'duplicate' },
+      'A persisted model route attempt must remain deduplicated after restart');
   } finally {
     provider.generate = original;
     await require('../src/services/garageRuntimeService').stop(db);
     await closeDatabase();
     await fs.rm(root, { recursive: true, force: true });
   }
+  await testLearningFailureDoesNotAlterMission();
   console.log('Measured model worker, independent oracle, AEIS receipt and route learning: passed');
 }
 

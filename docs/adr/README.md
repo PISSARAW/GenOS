@@ -576,6 +576,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0452](0452-execution-procedure-mission.md) | Exécution de procédures promues dans une mission | Voir le fichier | -- | -- |
 | [0453](0453-budget-partage-des-runtimes-modeles-externes.md) | Budget partagé des runtimes modèles externes | Voir le fichier | -- | -- |
 | [0454](0454-oracle-natif-pour-reponse-modele-mesuree.md) | Oracle natif pour une réponse modèle mesurée | Accepté pour le parcours borné `model_subset_sum`. | -- | -- |
+| [0455](0455-refus-budget-partage-codex-cli-sans-recu-usd.md) | Refuser le budget partagé de Codex CLI sans reçu USD | Voir le fichier | -- | -- |
+| [0456](0456-transport-natif-et-comparaison-cycles-communication.md) | Transport natif et comparaison des cycles de communication | Accepté pour le canal `SIGNAL` ; gain net non démontré. | 2026-10-12. | Communication d'équipe et mesure des tokens. |
+| [0457](0457-ingestion-routeur-cloture-worker-verifiee.md) | Ingestion du routeur à la clôture worker vérifiée | Accepté pour les missions worker dont la tentative modèle et la preuve native so | -- | -- |
 | [0460](0460-quorum-lie-aux-membres-expert-committee.md) | Quorum lié aux membres d'Expert Committee | Accepté | 2026-10-12 | A-Team, variant `expert_committee`, consensus |
 | [0461](0461-verificateurs-independants-holobionte.md) | Exclure l'hôte et l'acteur des vérificateurs de mission Holobionte | Accepté | 2026-10-12 | Holobionte, douze variants, autorité des preuves |
 | [0462](0462-lier-recu-route-session-rhizome.md) | Lier les reçus de route Rhizome à leur session | Accepté | 2026-10-12 | Rhizome, preuves, isolation des missions |
