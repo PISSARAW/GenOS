@@ -1,6 +1,6 @@
 # Qualification vérifiable des workers
 
-- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows. C4 est mesuré sur le commit propre `ca7f5ca5` par 57 missions nominales antérieures et une campagne faultée de 19 scénarios. Linux reste à qualifier.
+- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows. C4 est mesuré sur le code du commit propre `ca7f5ca5` par 57 missions nominales et 57 scénarios faultés conformes. Linux reste à qualifier.
 - **Date de l'inventaire** : 2026-10-12.
 - **Portée** : les 19 `WorkerKind`, les méthodes du registre Node, les missions persistées et leurs preuves.
 
@@ -399,20 +399,27 @@ a été exécutée le 2026-10-12 : le worktree est resté propre, `npm test`,
 `cargo test --workspace` et le profil workers ont terminé avec le code 0 ; ce
 profil comprend 32 suites. Le gate normal a rendu **19/19 `verified`** par
 `independent_quorum`. Le benchmark a rendu **24/24 `passed`**, et le recalcul
-des scores a trouvé 24/24 correspondances. La campagne C4 faultée a rendu
-**19/19 scénarios conformes**, avec 17 quorums vérifiés, une assemblée altérée
-refusée et un timeout refusé sans preuve. Le contrôle qualité a trouvé 0
+des scores a trouvé 24/24 correspondances. Trois campagnes C4 faultées ont rendu
+**57/57 scénarios conformes** : 51 missions ont gardé leur quorum, trois
+assemblées altérées ont été refusées et trois timeouts sont restés sans preuve.
+Chaque campagne a compté 34 nonces acceptés uniques. Le contrôle qualité a trouvé 0
 nouvelle violation sur 5 997 fichiers source.
 
 Les rapports propres sont conservés dans le workspace local :
 `.worker-gate-clean-qualification-current.json` (SHA-256
 `53654958b5ec115d7273fe35c6f7e6462a1b97fb44f15e6ebd761144c3214826`),
 `.worker-fault-campaign-clean-current.json` (SHA-256
-`edb5fcc84af11ee5ef043d5cbbb00d3709311d3d15585625a7bd8552f513f03c`) et
+`edb5fcc84af11ee5ef043d5cbbb00d3709311d3d15585625a7bd8552f513f03c`),
+`.worker-fault-campaign-clean-run-2.json` (SHA-256
+`ea169fe7e0b133bdada76037fe8b90a64c5e404314c3248ae3440af6bfd60a40`) et
+`.worker-fault-campaign-clean-run-3.json` (SHA-256
+`0a5c3c409ca0f38cd462a6016cd69c6e90b6f3eb26f76810d4f5b93c388cb1fc`), ainsi que
 `.worker-benchmark-clean-qualification-current.json` (SHA-256
 `70b018352430c66d06229b1036110c0b7b9f9e914819552c65ced40bdb5c1d57`).
 Le benchmark garde le digest de jeu
 `sha256:11be284a67148d705b0e096549420121d2035139b3f8397f3e78714b89a70a6d`.
+Les réexécutions faultées ont été faites sur le commit documentaire `e8b4e12e`,
+qui ne modifie que ce bilan par rapport au code qualifié de `ca7f5ca5`.
 La campagne comparative ne démontre pas la parité avec un rival et la campagne
 faultée ne garantit pas les comportements hors des 19 scénarios exécutés.
 
