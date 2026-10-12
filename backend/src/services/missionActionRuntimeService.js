@@ -54,11 +54,11 @@ function modelOptions(context) {
     executionRunId: request.executionRunId, routeActionId: action.id,
     organizationId: binding.scope.organizationId, projectId: binding.scope.projectId,
     prompt: execution.prompt, model: execution.model,
-    maxTokens: Math.floor(quote.components.execution.tokens.max),
+    maxTokens: Math.max(1, Math.floor(quote.components.execution.tokens.max / 2)),
     budgetMaxTokens: Math.floor(quote.reservationRequired.tokens),
     maxCostUsd: quote.reservationRequired.usd,
     timeoutMs: Math.floor(quote.reservationRequired.latencyMs),
-    providerContinuity: true, stream: false };
+    providerContinuity: { mode: 'openai-responses' }, stream: false };
 }
 
 async function executeTool(context) {
@@ -90,9 +90,12 @@ async function executeReserved(input) {
   const { db, request, decision, action, quote, binding, context, contract } = input;
   const reservation = await budget.reserve(db, { ...context, quote });
   try {
+    await startWorkerRun(db, request, reservation);
     const result = await executeAction({ action, db, request, quote, binding, contract });
-    await require('./missionActionModelObservation').observe(db,
+    const modelObservation = require('./missionActionModelObservation');
+    const observation = await modelObservation.observe(db,
       { action, request, binding, result });
+    await modelObservation.reportEvidence(db, { action, request, result, observation });
     const status = result?.success === false ? 'failed' : 'executed_unverified';
     const journal = await budget.finish(db, reservation, { status, result });
     return { status, decision, journalId: journal.id, result,
@@ -101,6 +104,16 @@ async function executeReserved(input) {
     await budget.finish(db, reservation, { status: 'uncertain', error: error.message });
     throw error;
   }
+}
+
+async function startWorkerRun(db, request, reservation) {
+  const agent = await db.get('SELECT * FROM agents WHERE id=?', request.agentId);
+  if (agent?.execution_mode !== 'worker') return;
+  const started = await require('./strategyExecutionService').recordExecutionEvent(db,
+    request.agentId, { id: `mission-action-start:${reservation.id}`,
+      eventType: 'AGENT_RUNTIME_STARTED', timestamp: new Date().toISOString(),
+      payload: { executionRunId: request.executionRunId } });
+  if (!started || started.halt) throw new Error('Mission run refused action start.');
 }
 
 async function activate(input) {

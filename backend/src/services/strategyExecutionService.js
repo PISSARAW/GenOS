@@ -97,6 +97,18 @@ async function sustainReverberation(db, agentId, event) {
   } catch (_) {}
 }
 
+async function observeCompletedWorkerRoute(db, saved) {
+  if (saved.run.status !== 'completed' || saved.biologicalReceipt?.result?.verified !== true
+      || saved.biologicalReceipt?.budgetAssessment?.satisfied !== true) {
+    return { status: 'refused', reason: 'verified_worker_receipt_required' };
+  }
+  try {
+    return await require('./routeMissionOutcomeBridge').ingestWithTrace(db, saved.run.id);
+  } catch (error) {
+    return { status: 'error', code: error.code || 'ROUTE_OBSERVATION_FAILED' };
+  }
+}
+
 async function recordExecutionEvent(db, agentId, event) {
   const saved = await biologicalWorkers.record(db, { agentId, event,
     apply: () => progress.recordExecutionEvent(db, agentId, event) });
@@ -107,10 +119,12 @@ async function recordExecutionEvent(db, agentId, event) {
     await calibrateSelfModel(db, saved.run.id);
     await sustainReverberation(db, agentId, event);
   }
+  const routeLearning = await observeCompletedWorkerRoute(db, saved);
   const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival,
     authorityRefusal: saved.authorityRefusal || null,
-    duplicate: saved.duplicate === true, biologicalReceipt: saved.biologicalReceipt || null };
+    duplicate: saved.duplicate === true, biologicalReceipt: saved.biologicalReceipt || null,
+    routeLearning };
 }
 
 async function observeSurvivalEvent({ db, agentId, event, run }) {

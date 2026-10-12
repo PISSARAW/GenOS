@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { createEnvelope } = require('./communicationEnvelopeService');
 const { getMode } = require('./communicationPolicyEngine');
 const { measureCycleUsage } = require('./communicationCycleUsage');
+const { comparisonKey, compareCycles } = require('./communicationCycleComparison');
 
 const LEVELS = Object.freeze(['none', 'transport_ack', 'semantic_ack', 'action_ack',
   'verified_ack', 'human_confirmation']);
@@ -129,13 +130,17 @@ async function executeLiveCycle(input) {
   const signalId = result.signalId || null;
   const deliveryAcknowledgements = normalizeAcknowledgements(result.acknowledgements || [],
     { decision, signalId });
-  const usage = measureCycleUsage({ decision, intent, cycleId, result, opts });
+  const usage = measureCycleUsage({ decision, intent, cycleId, result, opts,
+    nativeTransport: !opts.transport });
   const groundingSource = opts.transport ? 'adapter_reported' : 'database_observed';
-  return { executed: result.published, simulated: false, published: result.published,
+  const outcome = { executed: result.published, simulated: false, published: result.published,
     cycleId, signalId, reason: result.reason || null, deliveryAcknowledgements,
     grounding: { ...groundingOf(decision, deliveryAcknowledgements, result.published),
       source: groundingSource },
-    recipientKnew: null, actionTaken: null, ...usage };
+    recipientKnew: null, actionTaken: null,
+    comparisonKey: comparisonKey({ decision, intent }), ...usage };
+  if (opts.baselineCycle) outcome.comparison = compareCycles(opts.baselineCycle, outcome);
+  return outcome;
 }
 
 function validateTransportResult(result, messageId) {

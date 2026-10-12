@@ -50,4 +50,30 @@ async function observe(db, input) {
   return { recorded: true, routeAttemptId: row.id };
 }
 
-module.exports = { observe };
+async function reportEvidence(db, input) {
+  if (input.action.execution?.oracleDomain !== 'model_subset_sum') return { recorded: false };
+  if (!input.observation?.recorded || typeof input.result?.text !== 'string'
+      || Buffer.byteLength(input.result.text, 'utf8') > 16384) {
+    throw Object.assign(new Error('Model oracle requires measured bounded raw output.'),
+      { code: 'MISSION_MODEL_ORACLE_OUTPUT_REQUIRED' });
+  }
+  const modelOutput = { schema: 'genos.model-oracle-output/v1',
+    encoding: 'utf8-raw-text', runId: input.request.executionRunId,
+    actionId: input.action.id, routeAttemptId: input.observation.routeAttemptId,
+    digest: outputDigest(input.result), text: input.result.text };
+  const event = { id: `model-subset-evidence:${input.observation.routeAttemptId}`,
+    eventType: 'EVIDENCE_REPORT', timestamp: new Date().toISOString(),
+    payload: { executionRunId: input.request.executionRunId,
+      evidenceReport: { outcome: 'success', workerArtifact: {
+        type: 'model_subset_sum', content: { modelOutput } },
+      claims: [{ statement: 'Model subset sum candidate recorded for independent verification.',
+        evidence: [input.observation.routeAttemptId] }] } } };
+  const saved = await execution.recordExecutionEvent(db, input.request.agentId, event);
+  if (!saved || saved.halt || saved.authorityRefusal) {
+    throw Object.assign(new Error('Model oracle evidence report was refused.'),
+      { code: 'MISSION_MODEL_ORACLE_EVIDENCE_REFUSED' });
+  }
+  return { recorded: true, modelOutput };
+}
+
+module.exports = { observe, reportEvidence };

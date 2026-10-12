@@ -184,15 +184,24 @@ async function persistObservation(db, data) {
   return { uri: data.routeUri, pulls: arm.pulls, reward };
 }
 
-async function observe(db, input) {
+async function observeWithStatus(db, input) {
   try {
     const data = input || {};
     const transaction = require('../db').withTransaction;
-    const apply = async () => await verifiedOutcome(db, data) ? persistObservation(db, data) : null;
+    const apply = async () => {
+      if (!await verifiedOutcome(db, data)) return { status: 'refused', reason: 'verification_rejected' };
+      const saved = await persistObservation(db, data);
+      return saved ? { status: 'observed', observation: saved } : { status: 'duplicate' };
+    };
     return typeof transaction === 'function' ? await transaction(db, apply) : await apply();
-  } catch (_) {
-    return null;
+  } catch (error) {
+    return { status: 'error', code: error.code || 'ROUTE_OBSERVATION_FAILED' };
   }
+}
+
+async function observe(db, input) {
+  const result = await observeWithStatus(db, input);
+  return result.status === 'observed' ? result.observation : null;
 }
 
 async function recommend(db, input) {
@@ -224,7 +233,7 @@ async function report(db) {
         pulls: arm.pulls || 0,
         avgReward: arm.pulls ? (arm.sumR || 0) / arm.pulls : 0
       })),
-      limitation: 'Canary explicit only; training requires an active persisted AEIS assembly bound to the exact mission and route attempt.'
+      limitation: 'Canary selection explicit only; training requires an active persisted AEIS assembly bound to the exact mission and route attempt.'
     };
   } catch (_) {
     return { arms: [] };
@@ -361,7 +370,7 @@ async function chooseWithGuardrails(db, candidates, policy) {
   }
 }
 
-module.exports = { observe, recommend, report, chooseWithGuardrails, evaluateLoggedHoldout,
+module.exports = { observe, observeWithStatus, recommend, report, chooseWithGuardrails, evaluateLoggedHoldout,
   qualifiedObservations, scoreCalibration, parseUsageRow, outcomeStatement, canaryAllowed, DIM, MAX_ARMS };
 
 function chooseWithGuardrailsContext(settings) {

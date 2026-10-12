@@ -111,6 +111,8 @@ function receiptOutcome(ctx) {
       tokensUsed: result.tokensUsed, tokensProjected: result.tokensProjected || 0,
       tokensMeasured: result.tokensMeasured, usageReceiptId: result.usageReceiptId || null,
       tokenStatus: result.tokenStatus, tokenCoverage: result.tokenCoverage,
+      usageProvenance: result.usageProvenance,
+      comparisonKey: result.comparisonKey, comparison: result.comparison || null,
       participantUsage: result.participantUsage, recipientCount: recipients.length };
   }
   return {
