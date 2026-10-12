@@ -16,7 +16,7 @@ function validScope(scope) {
 }
 
 async function bindParent(ctx) {
-  if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return;
+  if (ctx.dispatchedAgent?.execution_mode !== 'orchestrator') return;
   const requested = ctx.normalizedMission.executionBudget || {};
   if (requested.costUsd == null || requested.tokens == null) return;
   const runId = ctx.executionRun?.id;
