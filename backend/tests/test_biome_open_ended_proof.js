@@ -41,6 +41,14 @@ async function verifyCycles(db) {
   }, { allowGeneration: true, environmentOutcomes: [{ id: 'old-evaluation', utility: 0.9 }] });
   assert.equal(reevaluated.decision.candidates, 0,
     'a new outcome cannot inherit proof from a prior evaluation');
+  assert.equal(reevaluated.state.environmentArchive[0].utility, candidate.utility,
+    'an unproved outcome cannot rewrite the environment lineage archive');
+  const proved = openEnded.advance({ tick: 1, niches: [] }, {
+    environmentArchive: [{ ...candidate, id: 'old-evaluation' }]
+  }, { allowGeneration: true, environmentOutcomes: [{ id: 'old-evaluation', utility: 0.9,
+    evidenceRefs: ['candidate:new-measurement'] }] });
+  assert.equal(proved.state.environmentArchive[0].utility, 0.9,
+    'a newly evidenced evaluation can update the environment lineage archive');
   console.log('Biome Open-Ended requires candidate-bound evidence and counts new niches once: PASS');
 }
 

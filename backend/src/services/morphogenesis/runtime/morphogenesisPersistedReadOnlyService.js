@@ -32,21 +32,47 @@ async function persistPreparedMorphology(input) {
 }
 
 async function readBoundSnapshot(db, ref, morphology) {
-  if (!ref?.missionId || !ref.graphId || !ref.graphVersion || !ref.snapshotSha256) return null;
-  const row = await db.get(`SELECT graph_json AS graphJson FROM morphology_graph_versions
+  if (!hasSnapshotReference(ref)) return null;
+  const row = await db.get(`SELECT graph_json AS graphJson, status, parent_version AS parentVersion,
+    created_at AS createdAt FROM morphology_graph_versions
     WHERE graph_id = ? AND version = ? AND mission_id = ?`, ref.graphId, ref.graphVersion, ref.missionId);
   if (!row || digest(row.graphJson) !== ref.snapshotSha256) return null;
   const latest = await db.get('SELECT MAX(version) AS version FROM morphology_graph_versions WHERE graph_id = ?', ref.graphId);
   if (latest?.version !== ref.graphVersion) return null;
-  const graph = JSON.parse(row.graphJson);
-  return snapshotMatchesMorphology(graph, morphology) ? graph : null;
+  const graph = parseSnapshotGraph(row.graphJson);
+  if (!graph || !snapshotIdentityMatches(graph, ref, row)) return null;
+  return snapshotMatchesMorphology(graph, morphology, ref) ? graph : null;
 }
 
-function snapshotMatchesMorphology(graph, morphology) {
-  const root = graph.nodes?.find((node) => node.nodeId === graph.rootNodeId);
-  return graph.status === 'proposed' && root?.topology === morphology.topology
-    && (root.variant || null) === (morphology.variantId || null)
+function hasSnapshotReference(ref) {
+  return Boolean(ref?.missionId && ref.graphId && ref.graphVersion && ref.snapshotSha256);
+}
+
+function parseSnapshotGraph(json) {
+  try {
+    const graph = JSON.parse(json);
+    return graph && typeof graph === 'object' && !Array.isArray(graph) ? graph : null;
+  } catch (_) { return null; }
+}
+
+function snapshotIdentityMatches(graph, ref, row) {
+  return graph.graphId === ref.graphId && graph.version === ref.graphVersion
+    && graph.missionId === ref.missionId && graph.status === row.status
+    && graph.parentVersion === row.parentVersion && graph.createdAt === row.createdAt;
+}
+
+function snapshotMatchesMorphology(graph, morphology, ref) {
+  if (graph.status !== 'proposed' || !Array.isArray(graph.nodes)) return false;
+  const root = graph.nodes.find((node) => node.nodeId === graph.rootNodeId);
+  return rootMatchesMorphology(root, morphology, ref)
     && workersMatch(root?.workers, morphology.agents);
+}
+
+function rootMatchesMorphology(root, morphology, ref) {
+  return root?.topology === morphology.topology
+    && (root.variant || null) === (morphology.variantId || null)
+    && ref.topology === morphology.topology
+    && (ref.variantId || null) === (morphology.variantId || null);
 }
 
 function workersMatch(saved, requested) {

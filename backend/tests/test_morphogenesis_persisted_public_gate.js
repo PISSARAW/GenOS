@@ -39,6 +39,27 @@ async function main() {
     await db.close();
     db = await open({ filename, driver: sqlite3.Database });
     assert.equal(snapshotRef.topology, 'trinity');
+    const original = await db.get(`SELECT graph_json AS graphJson FROM morphology_graph_versions
+      WHERE graph_id = ? AND version = ?`, snapshotRef.graphId, snapshotRef.graphVersion);
+    const forgedGraphId = crypto.randomUUID();
+    await db.run(`INSERT INTO morphology_graph_versions
+      (graph_id, version, mission_id, status, parent_version, graph_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`, forgedGraphId, snapshotRef.graphVersion,
+    snapshotRef.missionId, 'proposed', null, original.graphJson, new Date().toISOString());
+    assert.equal(await gate.readBoundSnapshot(db,
+      { ...snapshotRef, graphId: forgedGraphId }, morphology), null);
+    const malformedGraphId = crypto.randomUUID();
+    await db.run(`INSERT INTO morphology_graph_versions
+      (graph_id, version, mission_id, status, parent_version, graph_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`, malformedGraphId, snapshotRef.graphVersion,
+    snapshotRef.missionId, 'proposed', null, '{', new Date().toISOString());
+    const malformedRef = { ...snapshotRef, graphId: malformedGraphId,
+      snapshotSha256: crypto.createHash('sha256').update('{').digest('hex') };
+    assert.equal(await gate.readBoundSnapshot(db, malformedRef, morphology), null);
+    assert.equal(await gate.readBoundSnapshot(db,
+      { ...snapshotRef, topology: 'biome' }, morphology), null);
+    assert.equal(await gate.readBoundSnapshot(db,
+      { ...snapshotRef, variantId: 'unsealed' }, morphology), null);
     const changedWorkers = { ...morphology, agents: [{ role: 'unsealed-worker' }] };
     assert.equal(await gate.readBoundSnapshot(db, snapshotRef, changedWorkers), null);
     const changedDecision = await gate.adjudicatePersistedOutcome({ db, missionId: 'mission-1',

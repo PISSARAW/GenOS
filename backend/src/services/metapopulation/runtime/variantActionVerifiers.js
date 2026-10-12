@@ -174,12 +174,25 @@ async function verifyFounderReserve(context) {
   const { actions, results, db, metapopulationId } = context;
   const staged = actions.filter((action) => action.type === 'STAGE_FOUNDER_RESERVE');
   if (!staged.length) return true;
+  const session = await store.loadSession(db, metapopulationId);
+  if (!foundersPresent(staged, session?.regionalMemory?.founderReserve)) return false;
   const events = await store.listEvents(db, metapopulationId);
   return staged.every((action) => results.some((result) => result.type === action.type
     && result.staged === true && result.eventRevision
     && events.some((event) => event.type === 'FOUNDER_RESERVE_STAGED'
       && event.revision === result.eventRevision
       && JSON.stringify(event.payload.founders) === JSON.stringify(action.founders))));
+}
+
+function foundersPresent(actions, reserve) {
+  if (!Array.isArray(reserve)) return false;
+  const remaining = reserve.map((founder) => JSON.stringify(founder));
+  for (const founder of actions.flatMap((action) => action.founders || [])) {
+    const index = remaining.indexOf(JSON.stringify(founder));
+    if (index < 0) return false;
+    remaining.splice(index, 1);
+  }
+  return true;
 }
 
 function verifySourceSinkRoles(actions, session) {

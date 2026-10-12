@@ -317,6 +317,27 @@ de missions représentatives pour les 95 variants canoniques.
   liaison restent historiques
   ([ADR 0462](../../adr/0462-lier-recu-route-session-rhizome.md)).
 
+### Douzième vague — 2026-10-12
+
+- Common refuse un graphe préparé dont le JSON est illisible ou dont
+  l'identité interne contredit la ligne SQLite et la référence. Le statut
+  consultatif demeure inchangé : APPLY exige encore un snapshot collectif
+  restaurable et un commit CAS attesté
+  ([ADR 0467](../../adr/0467-lier-identite-interne-graphe-prepare-morphogenese.md)).
+- Biocénose `representative_community` reconstruit les sièges et les poids
+  depuis l'échantillon scellé de la constitution. Un panel fourni par l'appelant
+  ou un sceau incohérent ne peut plus qualifier le vote ; la représentativité
+  statistique reste à démontrer
+  ([ADR 0468](../../adr/0468-scellement-panel-representatif-biocenose.md)).
+- Biome `open_ended` ne met à jour l'archive des environnements qu'à partir
+  des candidats admis avec leurs preuves propres. Une réévaluation rejetée ne
+  peut plus contaminer le parent d'une génération future
+  ([ADR 0465](../../adr/0465-preuve-des-reevaluations-open-ended-biome.md)).
+- Métapopulation `rescue_network` exige que chaque fondateur annoncé par
+  `STAGE_FOUNDER_RESERVE` soit encore présent dans la réserve persistée, avec
+  sa multiplicité. Cette présence ne prouve pas sa viabilité future
+  ([ADR 0466](../../adr/0466-preuve-de-reserve-fondatrice-metapopulation.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

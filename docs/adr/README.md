@@ -583,6 +583,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0461](0461-verificateurs-independants-holobionte.md) | Exclure l'hôte et l'acteur des vérificateurs de mission Holobionte | Accepté | 2026-10-12 | Holobionte, douze variants, autorité des preuves |
 | [0462](0462-lier-recu-route-session-rhizome.md) | Lier les reçus de route Rhizome à leur session | Accepté | 2026-10-12 | Rhizome, preuves, isolation des missions |
 | [0463](0463-lier-workers-au-graphe-prepare-morphogenese.md) | Lier les workers au graphe préparé Morphogenèse | Accepté | 2026-10-12 | morphogenèse, preuve consultative, graphe préparé |
+| [0465](0465-preuve-des-reevaluations-open-ended-biome.md) | Preuve des réévaluations Open-Ended du Biome | Accepté le 12 octobre 2026. | -- | -- |
+| [0466](0466-preuve-de-reserve-fondatrice-metapopulation.md) | Preuve de réserve fondatrice Métapopulation | Voir le fichier | -- | -- |
+| [0467](0467-lier-identite-interne-graphe-prepare-morphogenese.md) | Lier l'identité interne du graphe préparé Morphogenèse | Accepté | 2026-10-12 | morphogenèse, snapshot préparé, intégrité des références |
+| [0468](0468-scellement-panel-representatif-biocenose.md) | Lier la distribution Biocénose au panel représentatif scellé | Accepté | 2026-10-12 | Biocénose, Representative Community, preuve de promotion |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
