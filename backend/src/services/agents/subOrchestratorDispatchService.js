@@ -39,8 +39,8 @@ function childAssignment(args) {
 function workerPlan(parent, assignment, remaining) {
   const cognitiveBudget = Math.max(1, Number(parent.cognitive_budget) || 1);
   const contractBudget = Math.max(1, Number(parent.metadata.workerContract.limits?.maxTokens) || MAX_CHILD_TOKENS);
-  const tokens = Math.min(MAX_CHILD_TOKENS, contractBudget, cognitiveBudget,
-    Math.floor(remaining.remainingTokens / remaining.remainingChildren));
+  const tokens = Math.floor(Math.min(MAX_CHILD_TOKENS, contractBudget, cognitiveBudget,
+    Math.floor(remaining.remainingTokens / remaining.remainingChildren)));
   if (tokens <= 0 && !require('./workerExecutorRegistry').hasNativeMethod(assignment.workerKind, assignment.methodContract?.methodId)) {
     throw Object.assign(new Error('Delegated model-token budget is exhausted.'), { code: 'SUBORCHESTRATOR_TOKEN_LIMIT' });
   }

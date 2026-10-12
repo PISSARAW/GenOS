@@ -13,6 +13,10 @@ function definition(domain = 'subset_sum') {
     claim: require('./oracleMemoryClaim'), checks: require('./oracleMemoryChecks'), verifierType: 'memory_semantic' };
   if (domain === 'subset_sum') return { subject: require('./oracleProcedureSubject'),
     claim: require('./oracleProcedureClaim'), checks: require('./oracleSubsetChecks'), verifierType: 'procedure_semantic' };
+  if (domain === 'external_credit') return { subject: require('./oracleExternalCreditSubject'),
+    claim: require('./oracleExternalCreditClaim'), checks: require('./oracleExternalCreditChecks.cjs'), verifierType: 'external_credit_semantic' };
+  if (domain === 'worker_artifact') return { subject: require('./oracleWorkerArtifactSubject'),
+    claim: require('./oracleWorkerArtifactClaim'), checks: require('./oracleWorkerArtifactChecks.cjs'), verifierType: 'worker_artifact_semantic' };
   throw require('../trinityProvenanceValues').failure('ORACLE_DOMAIN_UNAVAILABLE');
 }
 
@@ -20,6 +24,15 @@ async function load(db, request) {
   const binding = await require('../biologicalWorkerStore').binding(db, request.runId);
   const method = binding?.genome.workerContract?.mission?.methodContract;
   if (method?.methodId === 'model_subset_sum') return require('./oracleModelSubject').load(db, request);
+  if (method?.methodId === 'replenish_external_quota') {
+    const subject = await require('./oracleExternalCreditSubject').load(db, request);
+    return { ...subject, domain: 'external_credit', runId: request.runId, workerId: request.agentId };
+  }
+  if (method?.methodId === 'verify_worker_artifact'
+      || binding?.genome.workerContract?.mission?.workerArtifactContract) {
+    const subject = await require('./oracleWorkerArtifactSubject').load(db, request);
+    return { ...subject, domain: 'worker_artifact', runId: request.runId, workerId: request.agentId };
+  }
   if (['scan_literal', 'monitor_samples', 'synthesize_claims', 'trace_declared_causes', 'measure_lpt',
     'verify_procedure', 'falsify_procedure', 'teach_subset_sum', 'formal_proof',
     'restore_checkpoint', 'prepare_handoff', 'coordinate_children', 'adapt_procedure', 'niche_procedure',

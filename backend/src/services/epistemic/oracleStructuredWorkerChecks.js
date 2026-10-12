@@ -1,6 +1,7 @@
 'use strict';
 
 const { isDeepStrictEqual } = require('node:util');
+const { createHash } = require('node:crypto');
 
 const ADAPTIVE = new Set(['adaptive_trial_map', 'adaptive_trial_replay']);
 const NICHE = new Set(['niche_receipt_recompute', 'niche_contract_scan']);
@@ -147,6 +148,9 @@ function procedureMatches(subject, strategy, result) {
 
 function procedureDiagnosis(subject, strategy, result) {
   const procedure = subject.method.parameters.procedure;
+  if (procedure?.version === 1 && procedure.methodId === 'lpt') {
+    return nicheLptDiagnosis(procedure, strategy, result);
+  }
   const oracle = require('./oracleSubsetChecks').checkSubset({ method: procedure, result: result.result },
     strategy.endsWith('recompute') ? 'subset_bitset' : 'subset_enumeration');
   const receiptValid = receiptMatches(result.procedureReceipt, 'subset_sum', result.result);
@@ -154,6 +158,41 @@ function procedureDiagnosis(subject, strategy, result) {
     receiptValid, procedureMethod: procedure?.methodId };
 }
 
+function nicheLptDiagnosis(procedure, strategy, result) {
+  const parameters = procedure.parameters;
+  if (!validLptInput(parameters)) return { valid: false, oracleStatus: 'inconclusive',
+    receiptValid: false, procedureMethod: 'lpt' };
+  const expected = strategy.endsWith('recompute') ? lptMap(parameters) : lptReplay(parameters);
+  const receipt = result.procedureReceipt;
+  const inputDigest = receipt?.inputDigest?.replace(/^sha256:/, '');
+  const receiptDigest = /^[a-f0-9]{64}$/.test(inputDigest || '')
+    ? createHash('sha256').update(JSON.stringify({ methodId: 'lpt', inputDigest, output: expected })).digest('hex') : null;
+  const receiptValid = receipt?.methodId === 'lpt' && receiptDigest !== null
+    && receipt.id === `solver://sha256:${receiptDigest}` && isDeepStrictEqual(receipt.result, expected);  return { valid: isDeepStrictEqual(result.result, expected) && receiptValid,
+    oracleStatus: isDeepStrictEqual(result.result, expected) ? 'verified' : 'refuted',
+    receiptValid, procedureMethod: 'lpt' };
+}
+
+function validLptInput(parameters) {
+  if (!validLptParameters(parameters)) return false;
+  const ids = new Set();
+  let total = 0;
+  for (const job of parameters.jobs) {
+    if (!validLptJob(job, ids)) return false;
+    ids.add(job.id);
+    total += job.duration;
+    if (!Number.isSafeInteger(total)) return false;
+  }
+  return true;
+}
+function validLptParameters(parameters) {
+  return Array.isArray(parameters?.jobs) && parameters.jobs.length >= 1 && parameters.jobs.length <= 10000
+    && Number.isSafeInteger(parameters.machines) && parameters.machines >= 1 && parameters.machines <= 64;
+}
+function validLptJob(job, ids) {
+  return typeof job?.id === 'string' && Boolean(job.id.trim()) && !ids.has(job.id)
+    && Number.isSafeInteger(job.duration) && job.duration > 0;
+}
 function receiptMatches(receipt, methodId, output) {
   const inputDigest = receipt?.inputDigest?.replace(/^sha256:/, '');
   if (receipt?.methodId !== methodId || !/^[a-f0-9]{64}$/.test(inputDigest || '')

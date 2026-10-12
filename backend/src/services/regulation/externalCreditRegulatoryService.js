@@ -16,7 +16,8 @@ function parse(value) {
 }
 
 async function targetContract(db, mission) {
-  const row = await db.get('SELECT parent_agent_id,execution_mode,metadata_json,workspace_id FROM agents WHERE id=?', mission.agentId);
+  const row = await db.get(`SELECT a.parent_agent_id,a.execution_mode,a.metadata_json,a.workspace_id,
+    w.organization_id,w.project_id FROM agents a LEFT JOIN workspaces w ON w.id=a.workspace_id WHERE a.id=?`, mission.agentId);
   const persisted = parse(row?.metadata_json);
   const contract = mission.workerContract?.mission;
   if (!row || row.execution_mode !== 'worker'
@@ -39,10 +40,26 @@ function validateAccount(mission, account) {
 }
 
 function validHelperRecord({ row, metadata, mission, target }) {
-  return row?.status === 'completed' && row.run_status === 'completed'
+  return ['completed', 'idle'].includes(String(row?.status || '').toLowerCase())
+    && row.run_status === 'completed'
     && row.parent_agent_id === mission.orchestratorAgentId
-    && row.workspace_id === target.row.workspace_id
+    && Boolean(row.workspace_id)
+    && row.organization_id === target.row.organization_id
+    && row.project_id === target.row.project_id
     && metadata.workerKind === 'recovery_worker';
+}
+
+async function hasDurableWorkerCompletion(db, workerId, runId) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const events = await db.all(`SELECT payload_json FROM telemetry_events
+      WHERE agent_id=? AND event_type='AGENT_COMPLETED' ORDER BY rowid DESC LIMIT 20`, workerId);
+    if (events.some((event) => {
+      try { return parse(event.payload_json).executionRunId === runId; }
+      catch (_) { return false; }
+    })) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
 }
 
 function validHelperScope(method, lease, reference) {
@@ -66,15 +83,20 @@ async function recoveryWorker(db, mission, target) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_REQUIRED', 'A completed recovery worker is required.');
   }
   const row = await db.get(`SELECT a.id,a.status,a.parent_agent_id,a.workspace_id,a.metadata_json,
-    r.status AS run_status FROM agents a JOIN strategy_execution_runs r ON r.agent_id=a.id
+    w.organization_id,w.project_id,r.id AS run_id,r.status AS run_status
+    FROM agents a JOIN workspaces w ON w.id=a.workspace_id JOIN strategy_execution_runs r ON r.agent_id=a.id
     WHERE a.id=? AND r.id=?`, ref.recoveryAgentId, ref.recoveryRunId);
   const metadata = parse(row?.metadata_json);
   const method = metadata.workerContract?.mission?.methodContract;
   const lease = metadata.workerContract?.mission?.externalCreditLease;
   const input = method?.parameters;
-  if (!validHelperRecord({ row, metadata, mission, target })
-    || !validHelperScope(method, lease, ref)
-    || !validHelperAccount({ input, lease, mission, target })) {
+  const checks = {
+    record: validHelperRecord({ row, metadata, mission, target }),
+    scope: validHelperScope(method, lease, ref),
+    account: validHelperAccount({ input, lease, mission, target }),
+    completion: await hasDurableWorkerCompletion(db, ref.recoveryAgentId, ref.recoveryRunId)
+  };
+  if (Object.values(checks).some((valid) => !valid)) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Recovery worker run or persisted lease does not match the target.');
   }
   return input;
@@ -104,7 +126,7 @@ async function evidence(db, reference, input) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Native credit evidence is missing.');
   }
   const signed = provider.checkReceipt(receipt, input);
-  const observed = provider.checkObservation(observation, input);
+  const observed = provider.checkHistoricalObservation(observation, input);
   if (!isDeepStrictEqual(signed, await provider.operation(input))
     || !measurementMatches(observed, signed, input)) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Native evidence differs from provider operation.');
@@ -140,6 +162,7 @@ async function ensureExternalFunctional(db, mission) {
   const proof = await evidence(db, target.recovery, input);
   const after = await provider.balance(target.account);
   if (after.accountVersion !== proof.signed.afterVersion
+    || after.balance !== proof.signed.after
     || after.balance < Math.ceil(after.capacity * 0.4)) {
     throw refuse('EXTERNAL_CREDIT_RECOVERY_UNVERIFIED', 'Measured balance remains below the functional threshold.');
   }

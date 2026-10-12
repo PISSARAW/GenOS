@@ -32,12 +32,12 @@ async function verifyReference(db, { input, parentEnvelope, reference }) {
   assertReferenceShape(reference);
   const scope = await childScope(db, { reference, parentId: input.row.agent_id, parentScope: parentEnvelope.scope });
   const request = { runId: reference.runId, agentId: reference.agentId, scope };
-  const childAuthority = await authority.assertRun(db, request);
+  const childAuthority = await authority.assertCompletedRunEvidence(db, request);
   assertChildMission(childAuthority, parentEnvelope);
   const proof = await proofs.read(db, { ...request, reference: reference.reference });
   const childReport = await journal.observationReport(db, reference.runId);
-  await proofs.assertCurrent(db, { proof, request, report: childReport });
-  await assertAccepted(db, { reference, proof, scope });
+  await proofs.assertCompletedEvidence(db, { proof, request, report: childReport, completedAt: childAuthority.completedAt });
+  await assertAccepted(db, { reference, proof, scope, envelope: childAuthority.envelope });
   return { workerId: reference.agentId, report: childReport, proof };
 }
 
@@ -64,12 +64,15 @@ function assertChildMission(childAuthority, parentEnvelope) {
   }
 }
 
-async function assertAccepted(db, { reference, proof, scope }) {
+async function assertAccepted(db, { reference, proof, scope, envelope }) {
   const accepted = await journal.read(db, { runId: reference.runId, kind: 'acceptance', scope });
   const record = accepted?.value;
   const nonces = proof.saved.evaluation.assembly.verifications.map((item) => item.nonce);
+  const decidedAt = Date.parse(record?.decidedAt);
   if (!record || record.status !== 'completed' || record.attestationHash !== proof.attestation.hash
-      || values.digest(record.nonces) !== values.digest(nonces)) {
+      || values.digest(record.nonces) !== values.digest(nonces) || !Number.isFinite(decidedAt)
+      || decidedAt < Date.parse(proof.attestation.value.completedAt)
+      || decidedAt > Date.parse(envelope.expiresAt)) {
     throw values.failure('DELEGATED_ORACLE_NOT_ACCEPTED');
   }
 }

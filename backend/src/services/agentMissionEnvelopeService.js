@@ -18,10 +18,23 @@ function execution(ctx) {
     ...checkpoint(ctx),
     agentType: mission.agentType || '', executionMode: ctx.dispatchedAgent.execution_mode,
     orchestratorAgentId: mission.orchestratorAgentId || '', missionId: mission.missionId || '',
-    autonomyPlanJson: JSON.stringify(ctx.autonomyPlan || {}), toolLeaseJson: JSON.stringify(mission.toolLease || []),
+    autonomyPlanJson: JSON.stringify(runtimeAutonomyPlan(ctx.autonomyPlan || {})), toolLeaseJson: JSON.stringify(mission.toolLease || []),
     genosCapsuleJson: JSON.stringify(ctx.genosCapsule), executionPolicyJson: JSON.stringify(mission.executionPolicy),
     modelBudgetScopeJson: mission.modelBudgetScope ? JSON.stringify(mission.modelBudgetScope) : '',
     executionBudgetJson: JSON.stringify(ctx.runtimeBudget || {}) };
+}
+
+function runtimeAutonomyPlan(plan) {
+  // Synthesis plans can contain every worker dossier and the complete
+  // morphogenesis trace. The runtime needs the execution contract and stable
+  // mission plan, while the source plan remains available in durable state.
+  // Passing the whole plan through stdin can exceed the runtime's 1 MiB guard.
+  const fields = ['schema', 'synthesisOnly', 'completedWorkerIds', 'profile', 'organization',
+    'organizationPolicy', 'phases', 'executionStatus', 'executionBlockers', 'omittedPhases',
+    'requiredTools', 'mandatoryTools', 'dispatchWorkers', 'competition', 'evolution', 'parasitism',
+    'aTeam', 'trinity', 'localModelReview', 'tokenPolicy', 'nativeMissionPlan'];
+  if (plan.synthesisOnly === true) fields.push('completedWorkerDossiers');
+  return Object.fromEntries(fields.filter(key => plan[key] !== undefined).map(key => [key, plan[key]]));
 }
 
 function checkpoint(ctx) {
@@ -35,4 +48,4 @@ function build(ctx, identity, runtimeStrategyContract) {
     strategyContractJson: JSON.stringify(runtimeStrategyContract) };
 }
 
-module.exports = { build };
+module.exports = { build, runtimeAutonomyPlan };

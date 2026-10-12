@@ -1,15 +1,19 @@
 # Qualification restante : ressources externes et planification complète
 
 - **Type** : protocole de qualification et liste de travaux
-- **Statut** : à réaliser ; aucune des deux preuves finales n'est acquise
+- **Statut** : deux cycles CLI intégrés positifs réussis pour les 19 types ; qualification fournisseur tiers, reprise après panne et couverture sémantique générale restent ouvertes
 - **Portée** : régulation supervisée des 19 types de workers natifs
-- **Dernière revue** : 2026-10-10
+- **Dernière revue** : 2026-10-12
 
 Le [plan de mise en oeuvre](plan-implementation-regulation-ressources-orchestrate.md) ordonne les changements et leurs critères de sortie.
 
 ## État constaté
 
-Le [protocole actuel](regulation-workers-protocole.md) démontre 38 récupérations sur 38 exécutions natives, à raison de deux cycles par type. Le superviseur vérifie le contrat, le run et le reçu d'un `recovery_worker`, le fichier restauré et le checkpoint SQLite avant de restaurer l'état réglementaire simulé. La sonde crée directement parent, mission et contrats. Elle ne passe pas par la planification complète de `genos_orchestrate`.
+Le probe réel `test_native_orchestrate_external_credit_matrix.cjs` a terminé une mission CLI complète. `genos_orchestrate` a accepté 19 objectifs et sélectionné 38 workers (19 cibles et 19 helpers `recovery_worker`). Pour chacun des 19 types, les runs cible et récupération sont terminés, l'autorité est scellée, le reçu externe Ed25519 est vérifié, deux processus oracle distincts retournent `verified`, le solde externe passe de 2 à 7, l'énergie réglementaire revient à 0,7 et l'état est fonctionnel.
+
+Avant tout bail de worker, le superviseur a appelé les vrais `genos_snapshot` et `genos_search_failures` via MCP stdio. Les deux reçus liés à la mission précèdent la première location de capacité worker. Le parseur runtime compte uniquement les événements MCP structurés réussis, et le runtime final vérifie les reçus de préflight liés à cette mission. L'identité de mission traverse maintenant l'enveloppe protobuf jusqu'à la clôture.
+
+Audit positif : `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-vvbNST\audit.json`. Mission et parent terminés, garde de complétion autorisé, registre fournisseur conservé, couverture d'orchestration complète et aucun outil requis manquant. Cette preuve utilise un fournisseur contrôlé distinct du runtime; elle ne prétend pas tester un service commercial tiers. Le plan limite chaque mission à 19 objectifs natifs : le second cycle complet doit utiliser une seconde mission.
 
 | Composant existant | Ce qu'il ne démontre pas |
 | --- | --- |
@@ -39,7 +43,7 @@ Types à couvrir selon [`workerKindService.KINDS`](../../backend/src/services/ag
 
 | Essai | Résultat et preuve requis |
 | --- | --- |
-| 19 types × 2 cycles | Chaque cycle démarre avec un solde externe réellement sous seuil ; la réserve est débitée, le solde est crédité, le worker reprend et finit dans la plage. Corréler les 38 plans, runs, reçus, mesures et snapshots. |
+| 19 types × 2 missions | Le plafond est de 19 objectifs natifs par mission. Lancer deux missions `genos_orchestrate` successives couvrant chacune les 19 types ; chaque mission commence avec les soldes externes sous seuil et restaure chaque solde avant dispatch. Auditer les 38 cibles et helpers dans deux plans distincts. |
 | Lecture indépendante et redémarrage | Le fournisseur confirme les soldes après redémarrage du backend et du processus fournisseur ; les reçus et décisions restent traçables. |
 | Sans recharge réelle | 19/19 types sont refusés si seuls `energy`, le checkpoint, `postActionTelemetry` ou le registre changent. Aucun solde fournisseur ne change. |
 | Falsification et concurrence | Reçu altéré, autre agent, ancienne mesure, double demande et dépassement de bail ne créent aucun crédit indu. |
@@ -117,3 +121,60 @@ Le reçu du scout et celui du monitor emploient une sérialisation canonique des
 | 19 kinds × 2 cycles avec crédit externe et recovery helper planifié | Pas encore exécuté par le parcours complet `genos_orchestrate`. |
 
 Une tentative de `genos_orchestrate` MCP connecté a échoué avant dispatch : son backend pointe sur `C:\Users\Shadow\Documents\GitHub\GenOS`, et le contrôle d’identité a rejeté la différence avec le workspace demandé sur D:. Aucun état du dépôt C: n’a été changé. Cette tentative ne compte pas comme exécution qualifiante. Le CLI sous D: et le parcours MCP avec workspace D: restent à valider.
+
+## Mise à jour du 11 octobre 2026 — matrice native CLI
+
+Le probe `backend/tests/probes/test_native_orchestrate_external_credit_matrix.cjs` utilise le vrai CLI, le vrai planificateur GenOS, les workers de la flotte et un fournisseur HTTP séparé avec ledger SQLite et reçus Ed25519. Dans `D:\GenOS-regulation-tests\regulation-probe-results\native-orchestrate-cli-pl7rIg\audit.json`, les 19 types ont chacun un worker natif réel et un helper de récupération planifié; les 19 helpers et 19 workers sont terminés, les 19 comptes sont à 7/10, l'énergie est à 0,7, les deux vérificateurs indépendants ont `verified`, le registre conserve les crédits, et le sous-orchestrateur a un enfant persistant.
+
+**Verdict : succès des 19 chaînes worker/récupération, mais mission complète refusée.** Le parent n'a pas observé `genos_snapshot` ni `genos_search_failures`; `HARD_INVARIANT_FAILURE` bloque son run et la mission échoue. L'appel d'orchestration et le coverage audit sont visibles, mais ne remplacent pas les reçus MCP de prévol. Le runtime actuel ne dispose pas d'une session MCP configurée pour le workspace D:, tandis que le connecteur de la session pointe sur C:.
+
+La projection d'entrée du runtime élimine maintenant les traces morphogénétiques volumineuses et conserve `nativeMissionPlan`, les outils requis et les dossiers de synthèse. L'entrée mesurée du parent est passée d'environ 1,31 Mio à environ 450 Kio. Le dossier complet est conservé uniquement dans l'état durable GenOS et la synthèse reçoit les dossiers source requis pour compiler son rapport canonique. Les preuves de récupération restent admissibles pendant dix minutes pour la synthèse; les vérificateurs exigent toujours qu'elles aient été observées dans les 30 secondes lors de leur évaluation indépendante.
+
+La campagne du 11 octobre couvrait un cycle et restait incomplète. Voir le résultat courant du 12 octobre ci-dessous.
+
+## Résultat courant au 12 octobre 2026 — deux cycles complets
+
+Le fichier `D:\GenOS-regulation-tests\regulation-probe-results\matrix-run-20261012-historical-proof\native-orchestrate-cli-TTT30t\audit.json` contient deux résultats `complete`, un par mission CLI. Pour chacun, le code CLI est 0; le parent, son run et la mission sont `completed`; le completion gate est autorisé, l'homéostasie satisfaite, la couverture requise complète et la liste d'outils manquants vide. `genos_snapshot` et `genos_search_failures` ont des reçus MCP terminés et une télémétrie antérieure au premier dispatch.
+
+Chaque mission couvre exactement une fois les 19 types, avec 19 objectifs et 19 helpers de récupération planifiés (38 affectations). Au total, 38 runs objectifs et 38 runs de récupération sont terminés. Chaque helper a deux processus de vérification distincts avec statuts `verified`, un reçu fournisseur signé, un compte relu à 7/10, une énergie dérivée de 0,7 et un lien de récupération persisté; le ledger conserve les crédits.
+
+La relecture bornée de preuve permet au parent de revérifier un enfant terminé après expiration de son autorité d'action, si `completed_at` concorde avec l'événement terminal vérifié et précède l'échéance. Le parent doit garder son autorité courante; identité, scope, tenant, mission et lease restent contrôlés. Une sonde native couvre l'expiration simulée et le refus d'une fin déplacée après l'échéance.
+
+La portée est limitée au vrai CLI et à des objectifs structurés fournis par le test, ainsi qu'à un fournisseur de crédit local isolé. Restent ouverts: fournisseur tiers/production, tests intégrés de crash et de refus pour toute la chaîne, oracle sémantique de chaque méthode native, décomposition autonome du langage naturel et client MCP relié à un workspace D:. La liste détaillée est dans le [plan d'implémentation](plan-implementation-regulation-ressources-orchestrate.md#reste-à-démontrer-pour-la-réussite-de-portée-générale).
+
+## Rejeu ciblé du 12 octobre 2026 — ressource restaurée, indépendance parent manquante
+
+Le probe `test_native_orchestrate_external_credit.cjs` exécute le vrai CLI avec un objectif `scout_cell` et un `recovery_worker` planifié par le superviseur. Le run confirme que le helper terminé peut vivre dans un workspace isolé distinct du worker cible tant qu'ils restent dans la même organisation et le même projet. La complétion durable du helper est maintenant attendue avant de poursuivre, ce qui enlève une course intermittente entre le run et la persistance de son événement terminal.
+
+La preuve de ressource externe passe dans ce parcours: le helper possède une attestation native acceptée par deux processus oracle distincts, le fournisseur externe fait passer le solde de 2 à 7, le ledger conserve les crédits, et le worker cible termine son run. La couverture CLI des outils requis est complète. Le parent et sa mission ne terminent toutefois pas: `strategyPromotionPolicyService` bloque la promotion par `require_independent_verification`. Le rapport canonique assemble les dossiers attribués, mais déclare explicitement qu'il ne constitue pas une vérification indépendante.
+
+Un essai de ce même parcours avec `executor: codex` est aussi bloqué, car Codex CLI ne fournit pas la réservation préalable ni le reçu USD mesuré requis par la portée modèle partagée. Le probe d'acceptation conserve cette portée et utilise le runtime local pour sa synthèse déterministe; il ne désactive donc pas le budget.
+
+Pour démontrer une réussite complète, le plan doit ajouter un vérificateur indépendant de la conclusion parent, ou lier au run parent une preuve indépendante admise sous son autorité. Rejouer ensuite l'audit en exigeant parent, run parent et mission `completed`, `completionGate.allowed=true`, couverture complète, deux vérificateurs distincts, mesure externe relue et conservation du ledger. Utiliser Codex CLI dans ce cas nécessitera en plus un mécanisme de réservation et de reçu USD mesuré accepté par le contrat de budget.
+
+
+## Mise à jour vérifiée au 12 octobre 2026 — merge V3 courant
+
+Le merge sur ac12b686 conserve le routage V3 des oracles d’observation et la qualification des 19 kinds ; il ajoute le raccordement explicite des domaines external_credit et worker_artifact. La commande npm run test:worker-credit passe : les tests fournisseur et superviseur passent, puis la matrice directe de régulation des workers termine 38 cas couvrant les 19 kinds. Le fournisseur rapporte idempotence, reprise après redémarrage du processus fournisseur, concurrence, réconciliation d’une réponse perdue et conservation du ledger.
+
+Le probe du vrai CLI backend/tests/probes/test_native_orchestrate_external_credit.cjs produit D:\GenOS-regulation-tests\regulation-probe-results
+ative-orchestrate-cli-GvUGdn\audit.json. Il sélectionne un plan natif à deux assignments, exécute un recovery_worker et un scout_cell, relit le run du helper, lie le reçu au worker, observe le solde externe 7/10, vérifie la conservation du ledger et accepte deux vérificateurs distincts du worker. Le contrat de mission explicite passe l’homéostasie, la completion gate et la couverture du préflight. Le CLI sort avec le code 0.
+
+**La promotion du run parent demeure bloquée**, correctement, par require_independent_verification. L’attestation scout porte sur l’observation du corpus ; elle ne vérifie pas le rapport final complet du parent. Le probe distingue worker_regulation_verified_parent_promotion_pending de complete et réussit uniquement comme qualification partielle ; il ne présente pas ce run comme réussite complète.
+
+### Conditions restant à remplir pour une réussite complète
+
+1. Produire, dans le parcours genos_orchestrate, un rapport final parent canonique attaché aux plans, runs, reçus du fournisseur, mesures et statut de mission.
+2. Faire vérifier ce rapport parent par un oracle indépendant exécuté dans un contexte distinct du producteur ; joindre le reçu signé, le digest du rapport, les identités distinctes et le résultat au run parent. L’oracle worker existant ne suffit pas et le garde require_independent_verification ne doit pas être assoupli.
+3. Si l’exécuteur Codex est utilisé, réserver et mesurer son budget USD avant l’appel et persister le reçu de dépense ; sinon utiliser un exécuteur local borné suivi du vérificateur indépendant ci-dessus.
+4. Mettre à jour la sonde d’audit final pour exiger parentRunStatus=completed, promotion admise, mission completed, rapport vérifié et chaîne de provenance complète ; actuellement le résultat attendu est encore un blocage de promotion.
+5. Rejouer la campagne genos_orchestrate de 19 types × 2 cycles sur cette tête V3, puis les refus intégrés, le crash du backend aux frontières durables, le redémarrage/réconciliation, les requêtes concurrentes et les tests de préflight refusé. La matrice ciblée 38 cas ne remplace pas cette campagne intégrée.
+6. Relancer les gates qualité, la suite backend complète et cargo test --workspace après le dernier correctif, et archiver l’audit final sur D:.
+## Mise à jour vérifiée au 12 octobre 2026 — matrice CLI intégrée sur V3
+
+La sonde du véritable genos_orchestrate a créé un plan de 19 objectifs et 38 assignments (19 cibles et 19 helpers). Au premier cycle, les 19 helpers recovery_worker ont terminé ; 18 runs cibles ont terminé et le run specialist a terminé après le correctif du rejeu LPT dans son oracle indépendant. Les résultats sont conservés dans D:\GenOS-regulation-tests\regulation-probe-results
+ative-orchestrate-cli-h8iYWz\merge-audit.json.
+
+Le seul run cible qui a échoué est formal_worker / check_arithmetic, code ORACLE_DOMAIN_UNAVAILABLE, car Lean n’est pas disponible sur l’hôte. Le run parent est bloqué par la garde de budget Codex : aucun reçu USD mesuré ni réservation pré-appel n’est disponible. Le test s’est donc arrêté au premier cycle; le second cycle et une mission parent entièrement terminée ne sont pas démontrés. La matrice directe 38 cas et cette tentative CLI intégrée sont deux niveaux de preuve différents.
+
+Pour terminer cette campagne, installer/configurer Lean ou fournir le runtime formel prévu, puis utiliser un exécuteur parent qui produit un reçu USD vérifiable, ou un exécuteur local suivi d’un oracle indépendant du rapport final parent. Rejouer ensuite deux cycles sur cette tête V3, et n’accepter la campagne qu’avec 19/19 cibles et helpers achevés, deux rapports parent vérifiés, deux missions homéostatiques terminées, budgets et ledger conservés, couverture requise présente et aucun invariant manquant.

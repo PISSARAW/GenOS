@@ -50,11 +50,18 @@ function verify(signed, expectedSchema) {
   const config = settings();
   let valid = false;
   try {
-    valid = crypto.verify(null, Buffer.from(JSON.stringify(statement)),
+    valid = crypto.verify(null, Buffer.from(JSON.stringify(canonical(statement))),
       config.publicKey, Buffer.from(signature, 'base64'));
   } catch (_) {}
   if (!valid) throw failure('EXTERNAL_CREDIT_PROOF_INVALID', 'Provider signature is invalid.');
   return statement;
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort()
+    .map((key) => [key, canonical(value[key])]));
+  return value;
 }
 
 function bound(statement, account) {
@@ -81,8 +88,22 @@ function checkObservation(signed, account) {
   return value;
 }
 
+function checkHistoricalObservation(signed, account) {
+  const value = verify(signed, 'genos.external-credit-observation/v1');
+  const age = Date.now() - Date.parse(value.observedAt);
+  if (!bound(value, account) || !Number.isFinite(age) || age < -5000
+    || !validObservationNumbers(value)) {
+    throw failure('EXTERNAL_CREDIT_MEASUREMENT_INVALID', 'Signed provider observation is inconsistent.');
+  }
+  return value;
+}
+
 async function balance(account) {
-  return checkObservation(await request('/balance', account), account);
+  return checkObservation(await signedBalance(account), account);
+}
+
+async function signedBalance(account) {
+  return request('/balance', account);
 }
 
 function checkReceipt(signed, input) {
@@ -124,4 +145,5 @@ async function ledger() {
   return request('/ledger');
 }
 
-module.exports = { balance, transfer, operation, ledger, verify, checkReceipt, checkObservation };
+module.exports = { balance, signedBalance, transfer, operation, ledger, verify, checkReceipt,
+  checkObservation, checkHistoricalObservation };

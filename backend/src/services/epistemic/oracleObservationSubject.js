@@ -161,7 +161,7 @@ const SPECS = Object.freeze({
     domain: { statement: 'Comparaison bornée d’essais LPT sur un problème scellé.',
       constraints: ['Les entrées des essais sont identiques et chaque reçu est recalculé.',
         'Le meilleur résultat observé ne prouve pas une optimalité globale.'] } },
-  niche_procedure: { statement: 'La procédure du spécialiste respecte la niche assignée et son reçu subset_sum est valide.',
+  niche_procedure: { statement: 'La procédure du spécialiste respecte la niche assignée et son reçu recalculé est valide.',
     domain: { statement: 'Exécution bornée d’une procédure dans une niche déclarée.',
       constraints: ['La niche doit correspondre au contrat persistant.',
         'La vérité externe de la niche n’est pas évaluée.'] } },

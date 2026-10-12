@@ -125,7 +125,7 @@ le worker cible sans preuve de récupération a été refusé comme attendu.
 | `resident_daemon` | `passed`, seuil numérique | **Passé** : anomalies et rapport recalculés par deux stratégies natives indépendantes |
 | `bounded_worker` | **Passé** pour `bounded-procedure` et `bounded-code` avec Ollama | **Passé** pour `scoped_procedure → subset_sum` et pour la mission Ollama `bounded-code` décrite ci-dessous |
 | `adaptive_worker` | **Passé**, oracle LPT indépendant | **Passé** : essais LPT et reçu recalculés par deux stratégies |
-| `specialist` | **Passé**, niche et subset_sum indépendants | **Passé** : niche contrôlée, sortie subset_sum vérifiée et liée au reçu |
+| `specialist` | **Passé**, niche et procédure LPT ou subset_sum indépendants | **Passé** : niche contrôlée, sortie LPT ou subset_sum vérifiée et liée au reçu |
 | `procedural_executor` | `passed`, LPT et `subset_sum` | **Passé** pour `subset_sum` direct |
 | `symbiotic_worker` | **Passé**, hôte et subset_sum indépendants | **Passé** : capacité hôte, sortie subset_sum vérifiée et liée au reçu |
 | `verifier_worker` | **Passé** : reçu de procédure et code borné sur 264 entrées | **Passé** : comparaison indépendante de `subset_sum` |
