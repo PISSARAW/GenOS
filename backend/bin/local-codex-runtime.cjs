@@ -115,10 +115,12 @@ async function runMission(state, services) {
     } else await captureBarrier.safePoint('evaluated');
     emitCompletion(state, reply);
     await checkpoint.save(state, 'completed', reply);
+    await require('../src/services/subprocessModelBudgetRoute').close(state.modelBudgetRoute);
     process.exit(0);
   } catch (e) {
     await require('../src/services/runtimeFileWriteIpc').flush().catch(() => {});
     emitFailure(state, e);
+    await require('../src/services/subprocessModelBudgetRoute').close(state.modelBudgetRoute);
     process.exit(1);
   }
 }
@@ -142,7 +144,8 @@ function guardBudget(state) {
   process.exit(1);
 }
 
-function createGeneration(state) {
+async function createGeneration(state) {
+  state.modelBudgetRoute ||= await require('../src/services/subprocessModelBudgetRoute').openForMission(state.mission, state.executionBudget);
   const { withTextImmunity } = require('../src/services/immuneSystem.js');
   const griotValidator = (text) => {
     if (text.length < 10) throw new Error('Réponse trop courte ou absente.');
@@ -163,7 +166,7 @@ function createGeneration(state) {
     validatorFn: griotValidator,
     maxRetries: 3,
     agentId: state.agentName,
-    modelRouting: { model: state.mission.localModel || undefined, variantIndex: state.mission.variantIndex, policy: state.localRoutingPolicy, signal: abort.signal, timeoutMs: perAttemptTimeoutMs, responseFormat: state.mission.executionMode === 'worker' ? 'json_object' : undefined, enforceSchema: false,
+    modelRouting: { ...state.modelBudgetRoute, agentId: state.mission.agentId, missionId: state.mission.missionId, maxTokens: Math.max(0, budgetLimit(state.executionBudget, 'tokens') - state.promptTokenEstimate), model: state.mission.localModel || undefined, variantIndex: state.mission.variantIndex, policy: state.localRoutingPolicy, signal: abort.signal, timeoutMs: perAttemptTimeoutMs, responseFormat: state.mission.executionMode === 'worker' ? 'json_object' : undefined, enforceSchema: false,
       onResult: result => { state.observedRoute = require('../src/services/localCompletionEvidence').observedRoute(result); } },
     stemCellFallback: fallback.message,
     onFallback: () => { fallback.used = true; }

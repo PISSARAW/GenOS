@@ -120,6 +120,14 @@ async function handlePrimitive({ request, orchestratorId }) {
   const adapter = require('../src/services/strategyExecutionAdapter');
   process.stdout.write(JSON.stringify(await adapter.executePrimitive(primitive, primitiveContext(request, orchestratorId))));
 }
+async function handleMissionAction({ db, request, orchestratorId }) {
+  const result = await require('../src/services/missionActionRuntimeService').run({
+    db, request: { ...request, agentId: orchestratorId },
+    config: { active: process.env.GENOS_MISSION_ACTION_ACTIVE === '1',
+      key: process.env.GENOS_MISSION_ACTION_ATTESTATION_KEY }
+  });
+  process.stdout.write(JSON.stringify(result));
+}
 async function handleStrategy({ db, request, orchestratorId }) {
   const transition = await strategyAdaptation.changeStrategy(db, {
     orchestratorId, need: request.need, requestedPrimary: request.strategy, reason: request.reason,
@@ -355,6 +363,7 @@ async function handleTrinityMerge({ db, context }) {
 const HANDLERS = {
   report_progress: handleReportProgress,
   execute_primitive: handlePrimitive,
+  execute_mission_action: handleMissionAction,
   change_strategy: handleStrategy,
   change_organization: handleOrganizationChange,
   organization_publish: handleOrganizationPublish,

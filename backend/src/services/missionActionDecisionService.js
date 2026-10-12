@@ -96,6 +96,8 @@ function ineligibilityReason(action, quote, context) {
   if (!open.length) return 'mission_already_verified';
   if (!action.covers?.some((id) => open.includes(id))) return 'no_open_obligation';
   if (adapters.verifyAuthority?.(action, input.contract) !== true) return 'authority_unverified';
+  const executionReason = adapters.verifyExecutable?.(action);
+  if (executionReason) return executionReason;
   if (!evidenceReady(action, input, adapters)) return 'evidence_unverified';
   if (quote.status !== 'complete') return 'cost_incomplete';
   if (!hasBudget(quote, input.budget)) return 'budget_exceeded';

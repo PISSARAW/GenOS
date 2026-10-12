@@ -22,6 +22,7 @@ const leasePolicy = require('../toolLeasePolicy');
 const agentAuthority = require('../agentAuthorityService');
 const config = require('../../config/orchestratorConfig');
 const { assertMissionPromptBudget } = require('./missionPromptBudget');
+const obligations = require('./missionObligationContext');
 
 function applyPromptBudget(mission, prompt) {
   const estimate = assertMissionPromptBudget(mission, prompt);
@@ -29,13 +30,14 @@ function applyPromptBudget(mission, prompt) {
   return prompt;
 }
 
-function memoryOptions(mission, bounded) {
+function memoryOptions(mission, bounded, context) {
   return {
     organizationId: mission.organizationId,
     projectId: mission.projectId,
     sessionId: mission.sessionId,
     taskId: mission.taskId,
     missionScope: mission.missionScope,
+    obligationContext: context,
     historicalMemoryTokenBudget: mission.historicalMemoryTokenBudget,
     promptGenome: mission.promptGenome,
     promptRegulators: mission.promptRegulators,
@@ -44,13 +46,24 @@ function memoryOptions(mission, bounded) {
   };
 }
 
-async function appendMemoryContext(mission, agentId, task) {
+async function appendMemoryContext(input) {
+  const { mission, agentId, task, mandatory, context } = input;
   const bounded = mission.contextTokenBudget !== undefined && mission.contextTokenBudget !== null;
   const memory = require('../agentMemoryContext');
-  const memoryPrompt = await memory.formatCognitiveMemoryPrompt(agentId, task, memoryOptions(mission, bounded));
+  const query = obligations.queryFor(task, context);
+  const memoryPrompt = await memory.formatCognitiveMemoryPrompt(agentId, query,
+    { ...memoryOptions(mission, bounded, context), scopeTask: task });
   const hasMemory = Boolean(memoryPrompt && memoryPrompt.trim());
-  const prompt = hasMemory ? `${task}\n\nGENOS MEMORY CONTEXT\n${memoryPrompt}` : task;
-  applyPromptBudget(mission, prompt);
+  const prompt = hasMemory ? `${mandatory}\n\nGENOS MEMORY CONTEXT\n${memoryPrompt}` : mandatory;
+  try {
+    applyPromptBudget(mission, prompt);
+  } catch (error) {
+    if (!context || error.code !== 'GENOS_CONTEXT_BUDGET_EXCEEDED') throw error;
+    mission.memoryContextAttached = false;
+    mission.memoryContextDegradation = 'optional_memory_exceeds_context_budget';
+    mission.prompt = mandatory;
+    return;
+  }
   if (hasMemory) {
     mission.prompt = prompt;
     mission.memoryContextAttached = true;
@@ -62,12 +75,18 @@ function isBudgetError(error) {
     || error.code === 'GENOS_CONTEXT_BUDGET_EXCEEDED';
 }
 
-async function attachMissionMemoryContext(normalizedMission, agentId) {
+async function attachMissionMemoryContext(normalizedMission, agentId, contractRecord) {
   const task = normalizedMission.prompt || normalizedMission.currentTask || '';
-  applyPromptBudget(normalizedMission, task);
-  if (!task.trim() || normalizedMission.useMemoryContext === false) return normalizedMission;
+  const context = obligations.fromContract(contractRecord, normalizedMission);
+  const brief = obligations.briefFor(context);
+  const mandatory = brief ? `${task}\n\n${brief}` : task;
+  applyPromptBudget(normalizedMission, mandatory);
+  if (brief) normalizedMission.prompt = mandatory;
+  if (!task.trim() || normalizedMission.useMemoryContext === false || context?.open.length === 0) {
+    return normalizedMission;
+  }
   try {
-    await appendMemoryContext(normalizedMission, agentId, task);
+    await appendMemoryContext({ mission: normalizedMission, agentId, task, mandatory, context });
   } catch (error) {
     if (isBudgetError(error)) throw error;
     normalizedMission.memoryContextAttached = false;

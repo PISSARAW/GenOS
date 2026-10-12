@@ -59,7 +59,8 @@ async function reserve(input) {
   const { db, attempt, ctx } = input;
   if (!supportsReservation(db)) return null;
   const quote = {
-    costCeilingUsd: validAmount(ctx.maxCostUsd, 'maxCostUsd'),
+    costCeilingUsd: validAmount(ctx.reservationCostCeilingUsd ?? ctx.maxCostUsd,
+      'reservationCostCeilingUsd'),
     tokenCeiling: validTokens(ctx.budgetMaxTokens, 'budgetMaxTokens'),
     reservedCostUsd: validAmount(input.costUsd, 'reserved cost'),
     reservedTokens: validTokens(input.tokens, 'reserved tokens')

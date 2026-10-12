@@ -527,7 +527,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0417](0417-liaison-recus-hybrid-oracle-biocenose.md) | Liaison des reçus Hybrid Oracle à leur périmètre | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, preuves factuelles |
 | [0418](0418-fermeture-commit-morphologie-et-recu-rust.md) | Fermer le commit morphologique déclaratif et conserver le refus Rust | accepté | 2026-10-11 | morphogenèse, graphe versionné, décision Rust |
 | [0419](0419-capacite-reelle-du-travail-compute-biome.md) | Capacité du fournisseur liée au travail Compute de Biome | Accepté le 11 octobre 2026. | -- | -- |
-| [0420](0420-frontiere-contrat-outil-holobionte.md) | Contrat persistant avant invocation d'un outil Holobionte | Accepté. | -- | -- |
+| [0420a](0420-contrat-issue-mission.md) | Contrat explicite d'issue de mission | Voir le fichier | -- | -- |
+| [0420b](0420-frontiere-contrat-outil-holobionte.md) | Contrat persistant avant invocation d'un outil Holobionte | Accepté. | -- | -- |
 | [0421](0421-transitions-de-variant-liees-a-la-session-rhizome.md) | Transitions de variant liées à la session Rhizome | Accepté | 2026-10-11 | Rhizome, variants, persistance et confidentialité |
 | [0422](0422-liaison-des-resultats-solveur-metapopulation.md) | Lier le résultat du solveur à son îlot et à sa preuve | Accepté le 11 octobre 2026. | -- | -- |
 | [0423](0423-fermeture-mode-commit-v2-morphogenese.md) | Fermer le mode commit injectable de Morphogenèse V2 | accepté | 2026-10-11 | morphogenèse, autorité, transition de production |
@@ -535,18 +536,35 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0425](0425-liaison-campagne-nominale-trinity-aux-scellages.md) | Lier la campagne nominale Trinity aux scellages durables | Accepté. | -- | -- |
 | [0426](0426-consentement-explicite-human-ai-syncytium.md) | Consentement explicite avant l'action Human–AI Syncytium | Accepté | 2026-10-11 | Syncytium, Human–AI, autorité humaine |
 | [0427](0427-recus-signes-hybrid-oracle-biocenose.md) | Reçu signé lié au claim pour Hybrid Oracle | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, promotion factuelle |
-| [0428](0428-chaine-de-transferts-relay-team-a-team.md) | Chaîne de transferts Relay Team A-Team | Accepté le 11 octobre 2026. | -- | -- |
-| [0429](0429-gates-trinity-lies-au-journal-de-comparaison.md) | Lier les gates Trinity au journal de comparaison | Accepté. | -- | -- |
-| [0430](0430-fermeture-transition-collective-sans-snapshot-restaurable.md) | Refuser la transition collective sans snapshot restaurable | accepté | 2026-10-11 | morphogenèse, transition collective, autorité |
-| [0431](0431-horloge-runtime-baux-syncytium.md) | Horloge du runtime pour les baux Syncytium | Accepté | 2026-10-11 | Syncytium, Hard, Human–AI, baux |
-| [0432](0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md) | Preuve par candidat et promotion unique dans Open-Ended Biome | Accepté le 11 octobre 2026. | -- | -- |
-| [0434](0434-deadline-des-reprises-de-route-rhizome.md) | Conserver la deadline lors d'une réparation Rhizome | Accepté. | -- | -- |
+| [0428a](0428-chaine-de-transferts-relay-team-a-team.md) | Chaîne de transferts Relay Team A-Team | Accepté le 11 octobre 2026. | -- | -- |
+| [0428b](0428-journal-des-tentatives-modele.md) | Journal des tentatives modèle | Voir le fichier | -- | -- |
+| [0429a](0429-gates-trinity-lies-au-journal-de-comparaison.md) | Lier les gates Trinity au journal de comparaison | Accepté. | -- | -- |
+| [0429b](0429-reutilisation-procedurale-validee.md) | Réutilisation procédurale validée avant le routage modèle | Voir le fichier | -- | -- |
+| [0430a](0430-devis-prudent-des-couts-d-action.md) | Devis prudent des coûts d'action | Accepté pour le module de devis ; intégration au contrôleur à qualifier. | 2026-10-11. | Décision, budget et économie de tokens. |
+| [0430b](0430-fermeture-transition-collective-sans-snapshot-restaurable.md) | Refuser la transition collective sans snapshot restaurable | accepté | 2026-10-11 | morphogenèse, transition collective, autorité |
+| [0431a](0431-horloge-runtime-baux-syncytium.md) | Horloge du runtime pour les baux Syncytium | Accepté | 2026-10-11 | Syncytium, Hard, Human–AI, baux |
+| [0431b](0431-reservation-atomique-des-budgets-modele.md) | Réservation atomique des budgets de modèle | accepté pour la route de modèle Node | 2026-10-11 | budget de mission, appels concurrents et reprise |
+| [0432a](0432-execution-explicite-des-cycles-de-communication.md) | Exécution explicite des cycles de communication | Accepté pour le pilote de communication ; transport et économies globales à qualifier. | 2026-10-11. | Communication, grounding et comptabilité des tokens. |
+| [0432b](0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md) | Preuve par candidat et promotion unique dans Open-Ended Biome | Accepté le 11 octobre 2026. | -- | -- |
+| [0433](0433-apprentissage-routeur-sur-verdicts-aeis.md) | Apprentissage du routeur sur verdicts AEIS persistés | Accepté pour le raccord local ; qualification de production ouverte. | 2026-10-11. | Routage de modèles, apprentissage, canary et mesure. |
+| [0434a](0434-deadline-des-reprises-de-route-rhizome.md) | Conserver la deadline lors d'une réparation Rhizome | Accepté. | -- | -- |
+| [0434b](0434-qualification-independante-des-missions-workers.md) | Qualification indépendante des résultats de mission workers | Accepté ; campagne qualifiée disponible par un nouveau point d'entrée. | 2026-10-11. | preuves, qualification des workers. |
 | [0435](0435-identite-du-daemon-planifie-metapopulation.md) | Lier le daemon résident au plan Métapopulation | accepté | 2026-10-11 | Métapopulation, variant `persistent`, vérification |
-| [0436](0436-reconciliation-actions-ecologiques-biocenose.md) | Réconcilier les actions écologiques incertaines de Biocénose | Accepté | 2026-10-11 | Biocénose, actions externes, reprise |
+| [0436a](0436-controleur-commun-decision-shadow.md) | Contrôleur commun de décision en mode shadow | Accepté pour le module de décision déterministe ; activation de production non qualifiée. | 2026-10-11. | Décision, preuve et économie de tokens. |
+| [0436b](0436-reconciliation-actions-ecologiques-biocenose.md) | Réconcilier les actions écologiques incertaines de Biocénose | Accepté | 2026-10-11 | Biocénose, actions externes, reprise |
 | [0437](0437-immutabilite-sources-recu-morphogenese.md) | Rendre append-only les sources du reçu Morphogenèse | accepté | 2026-10-11 | morphogenèse, graphe préparé, décision consultative |
 | [0438](0438-statut-planifie-runtime-isole-multiteam-a-team.md) | Statut planifié du runtime isolé Multiteam A-Team | Accepté le 11 octobre 2026. | -- | -- |
 | [0439](0439-rapports-initiaux-durables-pour-qualification-trinity.md) | Rapports initiaux durables pour qualifier Trinity | Accepté. | -- | -- |
 | [0440](0440-bail-outil-immuable-holobionte.md) | Rendre le bail d'outil immuable jusqu'à l'invocation Holobionte | Accepté | 2026-10-11 | Holobionte, variant `tool`, autorité d'invocation |
+| [0444](0444-execution-attestee-du-controleur-de-mission.md) | Exécution attestée du contrôleur de mission | Accepté pour une activation pilote explicite. | 2026-10-12. | Décision économique, provenance et exécution de mission. |
+| [0445](0445-pont-preuve-mission-vers-apprentissage-routeur.md) | Lier l'apprentissage du routeur à une mission vérifiée | Voir le fichier | -- | -- |
+| [0446](0446-selection-contexte-obligations-ouvertes.md) | Sélection du contexte selon les obligations ouvertes | Accepté pour le raccord de démarrage ; mesure en production ouverte. | 2026-10-12. | Mémoire cognitive, contrat d'issue et budget de contexte. |
+| [0447](0447-portee-budget-modele-parent-et-workers.md) | Portée de budget modèle commune au parent et aux workers | accepté pour le worker local en processus | 2026-10-12 | budget de mission et délégation |
+| [0448](0448-observation-couts-modele-dans-recu-worker.md) | Observer le coût modèle dans le reçu worker | Accepté pour la liaison comptable ; apprentissage bout en bout différé. | 2026-10-12. | -- |
+| [0449](0449-raccord-checkpoint-communication-et-couts-par-agent.md) | Raccord du checkpoint de communication et coûts par agent | Accepté pour le canal `SIGNAL` des checkpoints ; économies globales à mesurer. | 2026-10-12. | Communication d'équipe, grounding et comptabilité des tokens. |
+| [0450](0450-liaison-sortie-modele-oracle-independant.md) | Lier la sortie du modèle au résultat de l'oracle | Accepté pour le refus fermé ; domaine modèle encore absent. | 2026-10-12. | -- |
+| [0451](0451-portee-budget-modele-runtime-local-sous-processus.md) | Portée de budget modèle dans le runtime local en sous-processus | accepté pour le runtime `local-codex-runtime.cjs` | 2026-10-12 | budget de mission et exécution déléguée |
+| [0452](0452-execution-procedure-mission.md) | Exécution de procédures promues dans une mission | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

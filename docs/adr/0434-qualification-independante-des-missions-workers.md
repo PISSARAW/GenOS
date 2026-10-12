@@ -1,6 +1,6 @@
 # ADR 0434 — Qualification indépendante des résultats de mission workers
 
-- **Statut** : Accepté pour un contrôle autonome ; intégration au parcours de campagne ouverte.
+- **Statut** : Accepté ; campagne qualifiée disponible par un nouveau point d'entrée.
 - **Date** : 2026-10-11.
 - **Domaine** : preuves, qualification des workers.
 - **Décideurs** : équipe GenOS.
@@ -29,9 +29,28 @@ L'abstention et l'inconclusif restent des issues explicites.
 Ce contrôle ne remplace pas `nativeOracleProof` : l'oracle natif valide aussi
 l'autorité, le journal, la persistance, le temps et la consommation durable des
 nonces. Une campagne ne doit pas revendiquer C3 sur la base du seul booléen
-`verified` dans un JSON exporté. L'intégration de ce gate à la campagne et à un
-registre durable de nonces reste à faire ; aucun 19/19 nouveau n'est revendiqué
-par cet ADR.
+`verified` dans un JSON exporté.
+
+Le point d'entrée `backend/tests/run_worker_gate_campaign.cjs` exécute chaque
+mission dans un répertoire temporaire isolé, puis relit sa base avant de la
+supprimer. `workerMissionQualificationIntegration` retrouve le run terminé par
+le digest de décision de l'oracle, vérifie le terminal et la preuve AEIS
+courante, compare le contenu formel au résultat observé dans le journal et
+soumet les deux reçus signés au gate. Le verdict de campagne est `verified`
+uniquement si le gate retourne `verified`. Une preuve absente, expirée,
+altérée, ou une mission arrêtée par timeout donne `inconclusive`.
+
+Le registre de nonces du gate est partagé entre les missions de cette campagne ;
+la consommation durable des nonces et leur rattachement à la décision restent
+contrôlés par l'oracle natif. La clé éphémère de la mission est transmise au
+processus local de qualification pendant la lecture des preuves et n'est pas
+écrite dans le rapport.
+
+L'ancien point d'entrée `run_worker_qualification_campaign.cjs` reste une
+campagne exploratoire : son booléen `verified` ne passe pas par ce gate. Les
+consommateurs doivent utiliser le nouveau schéma
+`genos.worker-gate-campaign/v1` pour revendiquer cette qualification. Aucun
+19/19 qualifié n'est revendiqué par cet ADR.
 
 ## Conséquences
 

@@ -110,7 +110,8 @@ function receiptOutcome(ctx) {
       grounding: result.grounding, deliveryAcknowledgements: result.deliveryAcknowledgements,
       tokensUsed: result.tokensUsed, tokensProjected: result.tokensProjected || 0,
       tokensMeasured: result.tokensMeasured, usageReceiptId: result.usageReceiptId || null,
-      tokenStatus: result.tokenStatus, recipientCount: recipients.length };
+      tokenStatus: result.tokenStatus, tokenCoverage: result.tokenCoverage,
+      participantUsage: result.participantUsage, recipientCount: recipients.length };
   }
   return {
     executed: false,

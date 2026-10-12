@@ -17,7 +17,7 @@ const routingPolicy = require('./modelRoutingPolicy');
 const attemptLedger = require('./modelAttemptLedger');
 const budgetReservations = require('./modelBudgetReservationService');
 const parallelBudget = require('./modelParallelBudgetService');
-
+const lateReceipts = require('./modelLateReceiptService');
 function isLocalUri(uri) {
   return routingPolicy.isLocalUri(uri);
 }
@@ -31,7 +31,6 @@ function responseScore(result) {
 }
 
 const { recordModelUsage } = attemptLedger;
-
 async function emitBufferedTokens(tokens, onToken, model) {
   for (const token of tokens) await onToken(token, model);
 }
@@ -147,7 +146,7 @@ async function invokeProvider(ctx, outcome) {
   const attempt = armAttempt(ctx, attemptTimeout);
   try {
     outcome.providerCalled = true;
-    return await Promise.race([modelProvider.generate({
+    outcome.providerPromise = modelProvider.generate({
       model: uri,
       prompt: ctx.prompt,
       timeoutMs: attemptTimeout,
@@ -162,12 +161,12 @@ async function invokeProvider(ctx, outcome) {
       responseFormat: ctx.responseFormat,
       providerContinuity: ctx.providerContinuity,
       enforceSchema: ctx.enforceSchema,
-      responseFormat: ctx.responseFormat,
       signal: attempt.controller.signal,
       displayWidth: ctx.displayWidth,
       displayHeight: ctx.displayHeight,
       onToken: (token) => { prepared.bufferedTokens.push(token); }
-    }), attempt.deadline]);
+    });
+    return await Promise.race([outcome.providerPromise, attempt.deadline]);
   } catch (error) {
     throw mapAttemptError(attempt, uri, error);
   } finally {
@@ -247,10 +246,11 @@ async function attemptRoute(ctx, uri) {
     if (!outcome.finished) {
       const costUsd = await attemptLedger.recordFailedAttempt({ ctx, outcome, error });
       const usage = attemptLedger.usageFrom(error.usage || error);
-      await budgetReservations.settle(ctx.db, outcome.reservation, {
+      const settlement = await budgetReservations.settle(ctx.db, outcome.reservation, {
         providerCalled: outcome.providerCalled, costUsd,
         tokens: usage.inputTokens === null ? null : usage.inputTokens + usage.outputTokens
       });
+      lateReceipts.observe({ ctx, outcome, error, settlement });
       if (costUsd !== null && outcome.providerCalled) ctx.spent = (ctx.spent || 0) + costUsd;
     }
     throw error;
