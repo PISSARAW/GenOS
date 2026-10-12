@@ -1,6 +1,6 @@
 'use strict';
 
-const { digest } = require('../trinityProvenanceValues');
+const { createHash } = require('node:crypto');
 
 function error(code, message) {
   return Object.assign(new Error(message), { code });
@@ -26,9 +26,9 @@ function methodInput(method, methodId) {
 }
 
 function receipt(method, output) {
-  const inputDigest = digest(method);
-  const receiptDigest = digest({ inputDigest, output });
-  return { id: `solver://sha256:${receiptDigest}`, methodId: method.methodId,
+  const inputDigest = createHash('sha256').update(JSON.stringify(method)).digest('hex');
+  const digest = createHash('sha256').update(JSON.stringify({ inputDigest, output })).digest('hex');
+  return { id: `solver://sha256:${digest}`, methodId: method.methodId,
     inputDigest: `sha256:${inputDigest}`, result: output };
 }
 
@@ -37,9 +37,11 @@ function resultReport(method, output, artifact) {
   const refs = [...new Set([executionReceipt.id, ...(artifact.sourceRefs || [])])];
   const claims = [{ statement: artifact.statement, evidence: refs }];
   const content = artifact.type === 'dossier' ? { claims, ...output } : output;
+  const proceduralMethod = ['scoped_procedure', 'niche_procedure', 'host_procedure', 'adapt_procedure']
+    .includes(method.methodId) ? { methodContract: method } : {};
   return { methodId: method.methodId, output, receipt: executionReceipt, evidenceReport: {
     outcome: 'success', claims, workerArtifact: { type: artifact.type, content,
-      provenance: { sourceRefs: refs } }
+      provenance: { sourceRefs: refs }, ...proceduralMethod }
   } };
 }
 

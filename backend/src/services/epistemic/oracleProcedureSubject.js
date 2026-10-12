@@ -41,17 +41,30 @@ function freshObservation(records) {
   return observed;
 }
 
+function procedureMethod(contract) {
+  const method = contract?.mission?.methodContract;
+  if (method?.version !== 1) denied('ORACLE_DOMAIN_UNAVAILABLE');
+  if (method.methodId === 'scoped_procedure'
+    && method.parameters?.procedure?.methodId === 'subset_sum') {
+    return { procedure: method.parameters.procedure, direct: false };
+  }
+  if (method.methodId === 'subset_sum'
+    && contract.identity?.workerKind === 'procedural_executor') {
+    return { procedure: method, direct: true };
+  }
+  denied('ORACLE_DOMAIN_UNAVAILABLE');
+}
+
 function observedContent(input) {
   const { binding, observed, request } = input;
-  const method = binding.genome.workerContract?.mission?.methodContract;
-  const procedure = ['scoped_procedure', 'host_procedure', 'niche_procedure'].includes(method?.methodId)
-    ? method.parameters?.procedure : method;
-  if (method?.version !== 1 || procedure?.version !== 1 || procedure.methodId !== 'subset_sum'
-      || !['scoped_procedure', 'host_procedure', 'niche_procedure', 'subset_sum'].includes(method.methodId)) denied('ORACLE_DOMAIN_UNAVAILABLE');
-  const content = observed.event.payload?.evidenceReport?.workerArtifact?.content;
-  const result = method.methodId === 'subset_sum' ? content?.procedureReceipt?.result : content?.result;
-  if (!result || content?.procedureReceipt?.methodId !== 'subset_sum') denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
-  return { runId: request.runId, workerId: request.agentId, method: procedure, result };
+  const method = procedureMethod(binding.genome.workerContract);
+  const report = observed.event.payload?.evidenceReport;
+  const receipt = report?.workerArtifact?.content?.procedureReceipt;
+  const result = method.direct ? receipt?.result : report?.workerArtifact?.content?.result;
+  if (report?.workerArtifact?.type !== 'dossier' || !result
+    || receipt?.methodId !== 'subset_sum') denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
+  return { runId: request.runId, workerId: request.agentId,
+    method: method.procedure, result };
 }
 
 function assertAntigen(antigen, subject) {

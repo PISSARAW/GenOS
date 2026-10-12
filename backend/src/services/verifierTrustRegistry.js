@@ -131,10 +131,9 @@ const KNOWN_VERIFIER_TYPES = [
   'counterexample',
   'repro',
   'procedure_semantic',
+  'observation_semantic',
   'memory_semantic',
   'code_semantic',
-  'native_method_semantic',
-  'worker_semantic',
   'model_semantic',
 ];
 

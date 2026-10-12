@@ -66,9 +66,14 @@ async function runCoordination(method, context) {
     const refs = result.supervision.evidenceReport.workerArtifact.provenance.sourceRefs;
     summaries.push({ childId: result.childAgentId, outcome: 'success', evidence: refs });
   }
-  return resultReport(method, { childSummaries: summaries }, { type: 'dossier',
+  const boundMethod = context.mission.workerContract?.mission?.methodContract || method;
+  const report = resultReport(boundMethod, { childSummaries: summaries }, { type: 'dossier',
     statement: `${summaries.length} persisted children completed with validated evidence.`,
     sourceRefs: summaries.flatMap((item) => item.evidence) });
+  report.evidenceReport.workerArtifact.content.coordinationReceipt = { ...report.receipt,
+    methodContract: boundMethod, methodContractJson: JSON.stringify(boundMethod),
+    payloadJson: JSON.stringify({ inputDigest: report.receipt.inputDigest.slice(7), output: report.output }) };
+  return report;
 }
 
 module.exports = { assertHandoffInput, runHandoff, assertCoordinationInput, runCoordination };

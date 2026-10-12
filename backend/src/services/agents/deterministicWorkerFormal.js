@@ -19,6 +19,10 @@ function sourceFor(parameters = {}) {
   return `theorem genos_worker_claim : ${parameters.claim.trim()} := by decide\n`;
 }
 
+function executionDetail(execution) {
+  return execution.stderr || execution.stdout || execution.error?.message || 'execution failed';
+}
+
 async function runFormal(methodContract, options = {}) {
   const parameters = methodContract?.parameters || {};
   const source = sourceFor(parameters);
@@ -30,7 +34,7 @@ async function runFormal(methodContract, options = {}) {
   });
   if (execution.exitCode !== 0 || execution.axioms.length
     || execution.toolchainVersion !== parameters.toolchainVersion) {
-    throw Object.assign(new Error(`Lean did not certify the claim: ${String(execution.stderr || execution.stdout || 'execution failed').slice(0, 500)}`), {
+    throw Object.assign(new Error(`Lean did not certify the claim: ${String(executionDetail(execution)).slice(0, 500)}`), {
       code: 'WORKER_FORMAL_CHECK_FAILED'
     });
   }

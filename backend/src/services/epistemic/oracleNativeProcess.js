@@ -76,12 +76,10 @@ async function observe(options, execution) {
 
 function entryFor(kind) {
   if (!kind || kind === 'subset') return require.resolve('./oracleNativeEntry.cjs');
-  if (kind === 'worker') return require.resolve('./oracleWorkerNativeEntry.cjs');
   if (kind === 'model') return require.resolve('./oracleModelNativeEntry.cjs');
   if (kind === 'memory') return require.resolve('./oracleMemoryNativeEntry.cjs');
   if (kind === 'code') return require.resolve('./oracleCodeNativeEntry.cjs');
-  if (kind === 'scout') return require.resolve('./oracleScoutNativeEntry.cjs');
-  if (kind === 'monitor') return require.resolve('./oracleMonitorNativeEntry.cjs');
+  if (kind === 'observation') return require.resolve('./oracleObservationNativeEntry.cjs');
   throw new Error('ORACLE_KIND_UNAVAILABLE');
 }
 

@@ -205,6 +205,7 @@ function missionContractFields(mission) {
   return {
     ...missionScopeFields(mission), ...assignmentContractFields(mission),
     methodContract: mission.methodContract,
+    codeVerificationContract: mission.codeVerificationContract || null,
     regulatoryRecovery: mission.regulatoryRecovery || null,
     topologySessionId: mission.topologySessionId || null,
     writeLease: mission.writeLease === true

@@ -75,7 +75,7 @@ function runProcedure(methodContract) {
   const output = methodId === 'lpt' ? lpt(parameters) : subsetSum(parameters);
   const inputDigest = createHash('sha256').update(JSON.stringify({ methodId, parameters })).digest('hex');
   const receiptDigest = createHash('sha256').update(JSON.stringify({ methodId, inputDigest, output })).digest('hex');
-  return { methodId, output, receipt: { id: `solver://sha256:${receiptDigest}`, methodId,
+  return { methodId, parameters, output, receipt: { id: `solver://sha256:${receiptDigest}`, methodId,
     inputDigest: `sha256:${inputDigest}`, result: output } };
 }
 
