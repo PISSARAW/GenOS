@@ -70,10 +70,15 @@ function accountEvent(state, event) {
 }
 
 function observeGenosTools(state, value) {
-  const text = JSON.stringify(value || {});
-  for (const tool of state.requiredTools) {
-    const suffix = tool.replace(/^genos_/, '');
-    if (text.includes(tool) || text.includes(`__${suffix}`) || text.includes(`"${suffix}"`)) state.observedTools.add(tool);
+  // Codex emits MCP calls as item.completed events with a structured
+  // mcp_tool_call item. Text that merely mentions a tool is not evidence that
+  // it ran.
+  if (value?.type !== 'item.completed') return;
+  const item = value.item || {};
+  if (item.type !== 'mcp_tool_call' || item.error || item.status === 'failed') return;
+  const tool = typeof item.name === 'string' ? item.name : '';
+  if (/^genos_[a-z0-9_]+$/.test(tool) && state.requiredTools.has(tool)) {
+    state.observedTools.add(tool);
   }
 }
 
@@ -226,4 +231,4 @@ function handleStdout(state, chunk) {
   }
 }
 
-module.exports = { budgetLimit, stopForBudget, handleStdout };
+module.exports = { budgetLimit, stopForBudget, observeGenosTools, handleStdout };

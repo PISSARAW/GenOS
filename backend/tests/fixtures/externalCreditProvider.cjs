@@ -24,8 +24,14 @@ const get = (sql, values = []) => new Promise((resolve, reject) => db.get(sql, v
   (error, row) => error ? reject(error) : resolve(row)));
 const all = (sql, values = []) => new Promise((resolve, reject) => db.all(sql, values,
   (error, rows) => error ? reject(error) : resolve(rows)));
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort()
+    .map(key => [key, canonical(value[key])]));
+  return value;
+}
 const sign = (statement) => ({ statement, signature: crypto.sign(null,
-  Buffer.from(JSON.stringify(statement)), privateKey).toString('base64') });
+  Buffer.from(JSON.stringify(canonical(statement))), privateKey).toString('base64') });
 const account = (v) => [v.tenantId, v.missionId, v.agentId];
 const validId = (v) => typeof v === 'string' && /^[a-zA-Z0-9._:-]{1,128}$/.test(v);
 const validAccount = (v) => v && account(v).every(validId);
@@ -61,6 +67,7 @@ function serialized(work) {
 async function accountRow(input) {
   return get('SELECT * FROM accounts WHERE tenant_id=? AND mission_id=? AND agent_id=?', account(input));
 }
+
 
 async function observation(input) {
   if (!validAccount(input)) throw fail('ACCOUNT_INVALID', 'Valid tenant, mission and agent are required.');

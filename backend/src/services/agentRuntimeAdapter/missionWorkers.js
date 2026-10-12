@@ -207,6 +207,7 @@ async function orchestrateAutonomousWorkers(ctx) {
 function capAssignments(requested, ctx) {
   const limit = Number(ctx.normalizedMission?.executionPolicy?.workerFanoutLimit);
   if (!Number.isFinite(limit) || limit < 0) return requested;
+  if (ctx.autonomyPlan?.nativeMissionPlan) return capNativeAssignments(requested, limit);
   const capped = requested.slice(0, Math.floor(limit));
   if (capped.length < requested.length) {
     emit(ctx.agentId, capped.length ? 'WORKER_FANOUT_CAPPED' : 'WORKER_FANOUT_BLOCKED', 'FANOUT_CAP',
@@ -214,6 +215,24 @@ function capAssignments(requested, ctx) {
       { requested: requested.length, dispatched: capped.length }, 'warning');
   }
   return capped;
+}
+
+function capNativeAssignments(requested, limit) {
+  const peak = peakNativeStageSize(requested);
+  if (peak > limit) throw Object.assign(new Error(
+    `Native plan needs ${peak} concurrent worker(s), above the regulated fanout limit ${limit}.`), {
+    code: 'NATIVE_OBJECTIVE_FANOUT_BLOCKED'
+  });
+  return limit === 0 ? [] : requested;
+}
+
+function peakNativeStageSize(assignments) {
+  const counts = new Map();
+  for (const assignment of assignments) {
+    const stage = assignment.pipelineStage ?? 0;
+    counts.set(stage, (counts.get(stage) || 0) + 1);
+  }
+  return Math.max(0, ...counts.values());
 }
 
 function emitDispatchSelected(ctx, assignments) {
@@ -378,5 +397,4 @@ function emitDispatchDeferred(ctx, assignments) {
     policy: ctx.normalizedMission.executionPolicy || {}
   }, 'warning');
 }
-
 module.exports = { orchestrateAutonomousWorkers, assertWorkerDispatchMatches, activateATeamRun, linkWorker };

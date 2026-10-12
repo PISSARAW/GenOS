@@ -74,15 +74,22 @@ async function observe(options, execution) {
   if (options.onExecution) await options.onExecution(execution);
 }
 
+const ENTRY_FILES = {
+  subset: './oracleNativeEntry.cjs',
+  worker: './oracleWorkerNativeEntry.cjs',
+  model: './oracleModelNativeEntry.cjs',
+  memory: './oracleMemoryNativeEntry.cjs',
+  code: './oracleCodeNativeEntry.cjs',
+  scout: './oracleScoutNativeEntry.cjs',
+  monitor: './oracleMonitorNativeEntry.cjs',
+  credit: './oracleExternalCreditNativeEntry.cjs',
+  'worker-artifact': './oracleWorkerArtifactNativeEntry.cjs'
+};
+
 function entryFor(kind) {
-  if (!kind || kind === 'subset') return require.resolve('./oracleNativeEntry.cjs');
-  if (kind === 'worker') return require.resolve('./oracleWorkerNativeEntry.cjs');
-  if (kind === 'model') return require.resolve('./oracleModelNativeEntry.cjs');
-  if (kind === 'memory') return require.resolve('./oracleMemoryNativeEntry.cjs');
-  if (kind === 'code') return require.resolve('./oracleCodeNativeEntry.cjs');
-  if (kind === 'scout') return require.resolve('./oracleScoutNativeEntry.cjs');
-  if (kind === 'monitor') return require.resolve('./oracleMonitorNativeEntry.cjs');
-  throw new Error('ORACLE_KIND_UNAVAILABLE');
+  const entry = kind ? ENTRY_FILES[kind] : ENTRY_FILES.subset;
+  if (!entry) throw new Error('ORACLE_KIND_UNAVAILABLE');
+  return require.resolve(entry);
 }
 
 module.exports = { run };
