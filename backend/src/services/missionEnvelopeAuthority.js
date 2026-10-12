@@ -84,6 +84,27 @@ async function assertRun(db, input) {
   return { status: 'authorized', hash: saved.hash, envelope: saved.envelope };
 }
 
+async function assertCompletedRunEvidence(db, input) {
+  const saved = await read(db, input.runId);
+  if (!saved) throw values.failure('EXECUTION_AUTHORITY_BINDING_MISSING');
+  if (saved.envelope.scope.entityId !== input.agentId) throw values.failure('EXECUTION_AUTHORITY_ACTOR_MISMATCH');
+  const binding = await provenance.readRun(db, { runId: input.runId, scope: saved.envelope.scope });
+  if (binding?.hash !== saved.envelope.bindingHash) throw values.failure('EXECUTION_AUTHORITY_BINDING_CHANGED');
+  const run = await db.get('SELECT status, completed_at AS completedAt FROM strategy_execution_runs WHERE id = ? AND agent_id = ?',
+    input.runId, input.agentId);
+  const terminal = (await require('./biologicalWorkerStore').observations(db, input.runId))
+    .filter(item => item.applied && item.event.eventType === 'AGENT_COMPLETED').at(-1);
+  const recordedAt = Date.parse(run?.completedAt);
+  const eventAt = Date.parse(terminal?.event.timestamp);
+  const completedAt = Math.max(recordedAt, eventAt);
+  if (run?.status !== 'completed' || !Number.isFinite(recordedAt) || !Number.isFinite(eventAt)
+      || Math.abs(recordedAt - eventAt) > 60000 || completedAt > Date.parse(saved.envelope.expiresAt)) {
+    throw values.failure('EXECUTION_AUTHORITY_COMPLETION_NOT_SEALED');
+  }
+  await state.assertCurrent(db, saved.envelope, completedAt);
+  return { status: 'authorized', hash: saved.hash, envelope: saved.envelope, completedAt: new Date(completedAt).toISOString() };
+}
+
 async function assertMission(saved, mission) {
   if (mission.missionId !== saved.envelope.missionId) throw contextChanged('mission identity changed');
   const root = await fs.realpath(mission.workspaceRoot);
@@ -132,4 +153,4 @@ async function inspect(db, input) {
     envelope: saved.envelope, current, postconditions: 'not_evaluated' };
 }
 
-module.exports = { SCHEMA, seal, read, assertRun, guardEvent, assertTool, inspect };
+module.exports = { SCHEMA, seal, read, assertRun, assertCompletedRunEvidence, guardEvent, assertTool, inspect };

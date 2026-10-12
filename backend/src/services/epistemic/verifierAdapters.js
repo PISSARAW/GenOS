@@ -330,11 +330,17 @@ const ADAPTER_ALIASES = {
   benchmark: 'artifact',
 };
 
+const SEMANTIC_ADAPTERS = {
+  code_semantic: () => require('./oracleCodeAdapter').runCodeOracle,
+  procedure_semantic: () => require('./oracleProcedureAdapter').runProcedureOracle,
+  observation_semantic: () => require('./oracleObservationAdapter').runObservationOracle,
+  memory_semantic: () => require('./oracleMemoryAdapter').runMemoryOracle,
+  external_credit_semantic: () => require('./oracleExternalCreditAdapter').runExternalCreditOracle,
+  worker_artifact_semantic: () => require('./oracleWorkerArtifactAdapter').runWorkerArtifactOracle,
+};
+
 function selectAdapter(verifier) {
-  if (verifier.type === 'code_semantic') return require('./oracleCodeAdapter').runCodeOracle;
-  if (verifier.type === 'procedure_semantic') return require('./oracleProcedureAdapter').runProcedureOracle;
-  if (verifier.type === 'observation_semantic') return require('./oracleObservationAdapter').runObservationOracle;
-  if (verifier.type === 'memory_semantic') return require('./oracleMemoryAdapter').runMemoryOracle;
+  if (SEMANTIC_ADAPTERS[verifier.type]) return SEMANTIC_ADAPTERS[verifier.type]();
   if (verifier.artifact) return runArtifactAdapter;
   if (verifier.test) return runTestAdapter;
   if (ADAPTER_MAP[verifier.type]) return ADAPTER_MAP[verifier.type];

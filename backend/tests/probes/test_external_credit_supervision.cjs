@@ -76,21 +76,23 @@ async function initialize(db) {
     'credit-project', 'credit-org', 'Real external credit');
   await db.run('INSERT INTO workspaces (id,name,path,organization_id,project_id) VALUES (?,?,?,?,?)',
     'credit-ws', 'Credit workspace', root, 'credit-org', 'credit-project');
+  await db.run('INSERT INTO workspaces (id,name,path,organization_id,project_id) VALUES (?,?,?,?,?)',
+    'credit-helper-ws', 'Isolated recovery workspace', root, 'credit-org', 'credit-project');
   await db.run("INSERT INTO agents (id,name,role,status,execution_mode,workspace_id) VALUES ('native-parent','native-parent','orchestrator','idle','orchestrator','credit-ws')");
   await db.run("INSERT INTO missions (mission_id,objective,status,orchestrator_agent_id) VALUES ('credit-mission','External credit regulation','active','native-parent')");
   await db.run("INSERT INTO mission_agents (mission_id,agent_id,role) VALUES ('credit-mission','native-parent','orchestrator')");
 }
 
 async function setup(db, mission, options) {
-  const { runId, insertAgent = true } = options;
+  const { runId, insertAgent = true, workspaceId = 'credit-ws' } = options;
   const id = mission.agentId;
   const contract = { execution_pipeline: [], strategy_portfolio: [], promotion: {} };
   const contractId = `contract-${id}`;
   if (insertAgent) {
-    await db.run("INSERT INTO agents (id,name,role,status,execution_mode,workspace_id,parent_agent_id,metadata_json) VALUES (?,?,?,'idle','worker','credit-ws','native-parent',?)",
-      id, id, mission.workerKind, JSON.stringify({ workerKind: mission.workerKind, workerContract: mission.workerContract }));
+    await db.run("INSERT INTO agents (id,name,role,status,execution_mode,workspace_id,parent_agent_id,metadata_json) VALUES (?,?,?,'idle','worker',?,'native-parent',?)",
+      id, id, mission.workerKind, workspaceId, JSON.stringify({ workerKind: mission.workerKind, workerContract: mission.workerContract }));
     await db.run('INSERT INTO strategy_contracts (id,agent_id,workspace_id,version,primary_strategy,contract_hash,contract_json) VALUES (?,?,?,?,?,?,?)',
-      contractId, id, 'credit-ws', 1, 'credit-probe', hashContract(contract), JSON.stringify(contract));
+      contractId, id, workspaceId, 1, 'credit-probe', hashContract(contract), JSON.stringify(contract));
   } else {
     await db.run('UPDATE agents SET metadata_json=? WHERE id=?',
       JSON.stringify({ workerKind: mission.workerKind, workerContract: mission.workerContract }), id);
@@ -135,7 +137,7 @@ async function main() {
     assert.equal(refused.code, 'EXTERNAL_CREDIT_RECOVERY_REQUIRED');
     assert.equal(state.getState(target.agentId).energy, 0.2);
     const helper = helperMission();
-    await setup(db, helper, { runId: 'helper-run' });
+    await setup(db, helper, { runId: 'helper-run', workspaceId: 'credit-helper-ws' });
     const repaired = await runDeterministicWorker(db, helper, { id: 'helper-run' });
     assert.equal(repaired.started, true, repaired.error);
     target.regulatoryExternalRecovery = { recoveryAgentId: helper.agentId,

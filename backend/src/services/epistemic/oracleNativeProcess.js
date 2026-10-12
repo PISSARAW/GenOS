@@ -80,6 +80,8 @@ function entryFor(kind) {
   if (kind === 'memory') return require.resolve('./oracleMemoryNativeEntry.cjs');
   if (kind === 'code') return require.resolve('./oracleCodeNativeEntry.cjs');
   if (kind === 'observation') return require.resolve('./oracleObservationNativeEntry.cjs');
+  if (kind === 'credit') return require.resolve('./oracleExternalCreditNativeEntry.cjs');
+  if (kind === 'worker-artifact') return require.resolve('./oracleWorkerArtifactNativeEntry.cjs');
   throw new Error('ORACLE_KIND_UNAVAILABLE');
 }
 

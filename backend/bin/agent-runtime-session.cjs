@@ -131,6 +131,9 @@ function buildAuthorityInstruction(mission, isWorker, autonomyPlan) {
 
 function createState(mission, data) {
   const identity = resolveIdentity(mission);
+  const requiredTools = new Set(data.isWorker ? [] : (data.autonomyPlan.mandatoryTools || data.autonomyPlan.requiredTools || []));
+  const preflightObservedTools = data.isWorker ? [] : (mission.preflightObservedTools || [])
+    .filter(tool => requiredTools.has(tool));
   return {
     ...data,
     mission,
@@ -150,8 +153,8 @@ function createState(mission, data) {
     db: null,
     hasAgentInDb: false,
     pendingConscienceOp: Promise.resolve(),
-    requiredTools: new Set(data.isWorker ? [] : (data.autonomyPlan.mandatoryTools || [])),
-    observedTools: new Set(),
+    requiredTools,
+    observedTools: new Set(preflightObservedTools),
     buffer: '',
     stderr: '',
     finalReportText: '',
@@ -374,7 +377,6 @@ async function handleChildClose(state, code, signal) {
     recordedTurns: state.recordedTurns, stderr: state.stderr
   });
 }
-
 async function startRuntime(state) {
   const binaries = resolveBinaries();
   await spawnChild(state, binaries);
@@ -395,5 +397,4 @@ async function startRuntime(state) {
   state.child.stdin.end(state.prompt);
   wireProcessEvents(state);
 }
-
 module.exports = { runSession, parseToolLease };

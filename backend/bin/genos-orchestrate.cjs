@@ -11,7 +11,8 @@ const { getDatabase, closeDatabase, withWriteRetry } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
 const missionIdentity = require('../src/services/missionIdentityService');
-const { resolveFinalMissionStatus, missionExecutionTerminal } = require('../src/services/orchestratorMissionStatus');
+const { missionExecutionTerminal } = require('../src/services/orchestratorMissionStatus');
+const { finalizeMissionStatus, destructureContResult, computeFinalVerdict } = require('./orchestratorMissionFinalization.cjs');
 const telemetry = require('../src/services/telemetryObserver');
 const missionContinuity = require('../src/services/missionContinuityService');
 const { maybeDispatchContinuation } = require('./homeostasisContinuationHelper.cjs');
@@ -269,10 +270,17 @@ async function runOrchestratedMission(db) {
   const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
   const morphologySnapshot = await missionAux.persistMorphologySnapshot({
     db, missionId: missionId || id, morphology, telemetry, agentId: id });
+  const autonomyPlan = require('../src/services/autonomousOrchestrationService').buildAutonomyPlan(strategyContract.contract, missionBudget);
+  const preflight = await require('./orchestratorMcpPreflight.cjs').runOrchestratorMcpPreflight({
+    db, orchestratorId: id, missionId, task, repoRoot: path.resolve(__dirname, '../..'),
+    workspaceRoot: request.workspaceRoot || request.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
+    snapshotAgent: request.preflightSnapshotAgent || request.preflight_snapshot_agent,
+    tools: autonomyPlan.phases[0]?.requiredTools || []
+  });
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
-  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology });
+  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology, preflightObservedTools: preflight.observedTools });
   const agents = await waitForCompletion(db);
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
@@ -292,10 +300,6 @@ async function applyHomeostasisContinuation(input) {
     outcome: contResult.outcome,
     mission: contResult.mission
   };
-}
-async function finalizeMissionStatus({ db, outcome, completionGate, finalVerdict, coverage }) {
-  const finalStatus = resolveFinalMissionStatus(outcome, completionGate, { verdict: finalVerdict, coverage });
-  return { finalStatus, finalVerdict: finalStatus.verdict };
 }
 async function finalizeOrchestratedMission(input) {
   const { db, evaluation, morphology, morphologySnapshot, nceEnhancements, outcome: inputOutcome, audit } = input;
@@ -320,22 +324,6 @@ async function finalizeOrchestratedMission(input) {
   if (finalStatus.success) await persistChampion(db, outcome);
   emitFinalTelemetry({ ...audit, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
   if (!finalStatus.success && !dormant) process.exitCode = 2;
-}
-
-function destructureContResult(contResult, fallback) {
-  return {
-    continuity: contResult.continuity ?? fallback.continuity,
-    completionGate: contResult.completionGate ?? fallback.completionGate,
-    homeostasis: contResult.homeostasis ?? fallback.homeostasis,
-    organism: contResult.organism ?? fallback.organism,
-    finalVerdict: contResult.finalVerdict ?? fallback.finalVerdict,
-    outcome: contResult.outcome ?? fallback.outcome,
-    mission: contResult.mission ?? fallback.mission
-  };
-}
-
-function computeFinalVerdict(missionSuccess, outcome, completionGate) {
-  return missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
 }
 
 async function suspendIfNeeded({ db, mission, homeostasis, organism, finalStatus, continuity }) {

@@ -196,7 +196,8 @@ async function runSingleVerifier(antigen, verifier, ctx) {
       onOracleExecution: ctx.opts.onOracleExecution }
   );
   const executionWorkspace = outcome.observations?.find((item) => item.detail?.executionId)?.detail.cwd;
-  const executed = ['procedure_semantic', 'memory_semantic', 'code_semantic', 'observation_semantic', 'model_semantic'].includes(verifier.type)
+  const executed = ['procedure_semantic', 'external_credit_semantic', 'worker_artifact_semantic',
+    'memory_semantic', 'code_semantic', 'observation_semantic', 'model_semantic'].includes(verifier.type)
     ? require('./oracleProcedureAdapter').executedVerifier(verifier, outcome) : { ...verifier, executionWorkspace };
   const independence = executionWorkspace
     ? evaluateVerifierIndependence(executed, antigen, ctx.executedVerifiers)

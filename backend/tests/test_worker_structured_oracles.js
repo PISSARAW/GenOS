@@ -13,8 +13,8 @@ process.env.GENOS_COMPLIANCE_DETERMINISTIC_CREATIVE = '1';
 process.env.GENOS_COMPLIANCE_DETERMINISTIC_MEDICAL = '1';
 
 function subject(input) {
-  const { kind, domain, workerContract, report } = input;
-  return { method: fixtures.method(kind), domain, workerContract,
+  const { kind, domain, workerContract, report, method } = input;
+  return { method: method || fixtures.method(kind), domain, workerContract,
     result: report.evidenceReport.workerArtifact.content,
     artifactRefs: report.evidenceReport.workerArtifact.provenance.sourceRefs };
 }
@@ -43,6 +43,15 @@ const niche = subject({ kind: 'specialist', domain: 'niche_procedure', workerCon
   report: scoped.runNiche(nicheMethod, { mission: { workerContract: { mission: scope.mission } } }) });
 checkEveryStrategy(niche, ['niche_receipt_recompute', 'niche_contract_scan']);
 assertRefuted(niche, 'niche_contract_scan', (input) => { input.result.specialtyAssessment.inScope = false; });
+const nicheLptMethod = { version: 1, methodId: 'niche_procedure', parameters: { niche: 'scheduling',
+  procedure: { version: 1, methodId: 'lpt', parameters: { jobs: [{ id: 'A', duration: 5 },
+    { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2 } } } };
+const nicheLpt = subject({ kind: 'specialist', domain: 'niche_procedure', method: nicheLptMethod,
+  workerContract: { specialtyNiche: 'scheduling' },
+  report: scoped.runNiche(nicheLptMethod, { mission: { workerContract: { mission: scope.mission } } }) });
+checkEveryStrategy(nicheLpt, ['niche_receipt_recompute', 'niche_contract_scan']);
+assertRefuted(nicheLpt, 'niche_receipt_recompute', (input) => { input.result.procedureReceipt.inputDigest = `sha256:${'0'.repeat(64)}`; });
+assertRefuted(nicheLpt, 'niche_contract_scan', (input) => { input.result.result.makespan += 1; });
 
 const hostMethod = fixtures.method('symbiotic_worker');
 const host = subject({ kind: 'symbiotic_worker', domain: 'host_procedure', workerContract: {

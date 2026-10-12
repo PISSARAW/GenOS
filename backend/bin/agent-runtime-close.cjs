@@ -8,6 +8,7 @@ const trajectoryService = require('../src/services/trajectoryService');
 const strategyAdapter = require('../src/services/strategyExecutionAdapter');
 const { getDatabase } = require('../src/db');
 const { evidencePresent } = require('../src/services/hallucinationMonitoringService');
+const { verifiedMissionPreflightTools } = require('./agent-runtime-preflight-receipts.cjs');
 
 function formatFallbackTurns(recordedTurns, observedTools, options = {}) {
   if (recordedTurns && recordedTurns.length) return recordedTurns;
@@ -34,6 +35,7 @@ async function handleRuntimeClose(ctx) {
   if (budgetStopped) {
     return handleBudgetStop(ctx, budgetStopped);
   }
+  for (const tool of await verifiedMissionPreflightTools(ctx)) observedTools.add(tool);
   const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
   if (db && hasAgentInDb) {
     await persistConscience(ctx, code);
