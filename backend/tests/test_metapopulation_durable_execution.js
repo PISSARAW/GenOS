@@ -194,11 +194,18 @@ async function reservePersistence(db) {
   const activated = (await corridorStore.listGraph(db, id)).find((item) => item.corridorId === corridor.corridorId);
   assert.equal(activated.enabled, true);
   assert.equal(activated.isReserve, false);
-  await executors.executeVariantAction({ type: 'STAGE_FOUNDER_RESERVE', deficit: 2,
-    founders: [{ lineageId: 'reserve-a' }, { lineageId: 'reserve-b' }] },
-  { input: { metapopulationId: id }, options: { db } });
+  const reserve = { type: 'STAGE_FOUNDER_RESERVE', deficit: 2,
+    founders: [{ lineageId: 'reserve-a' }, { lineageId: 'reserve-b' }] };
+  const staged = await executors.executeVariantAction(reserve,
+    { input: { metapopulationId: id }, options: { db } });
   const observed = await brain.observeRegion({ metapopulationId: id }, { db });
   assert.equal(observed.regionalMemory.founderReserve.length, 2);
+  const verifyReserve = () => require('../src/services/metapopulation/runtime/variantActionVerifiers')
+    .verifyVariantActions({ input: { metapopulationId: id }, options: { db },
+      plan: { actions: [reserve] }, execution: { results: [staged] } });
+  assert.equal(await verifyReserve(), true);
+  await db.run("UPDATE metapopulation_sessions SET regional_memory_json = '{}' WHERE id = ?", id);
+  assert.equal(await verifyReserve(), false, 'an event alone cannot prove the founder reserve remains staged');
 }
 
 async function residentLeaseRecovery(db) {

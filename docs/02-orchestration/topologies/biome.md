@@ -80,6 +80,11 @@ absente avant le tour compte comme
 promotion. Répéter un candidat connu ne réinitialise donc pas la série de tours
 sans nouvelle niche. Ces références restent déclarées par l'hôte : leur présence
 ne prouve pas à elle seule une évaluation scientifique indépendante (ADR 0432).
+Une réévaluation refusée faute de références nouvelles ne modifie pas non plus
+`environmentArchive` : son utilité ou son coût non étayés ne peuvent servir de
+base à la génération suivante. Une réévaluation munie de ses propres références
+et passant les seuils peut actualiser cette archive sans recréer une niche déjà
+présente.
 
 L'exécution passe par un adaptateur configuré, une autorisation stricte, une réservation
 persistée et un vérificateur indépendant lié à l'empreinte de sortie. Ni l'inactivité,

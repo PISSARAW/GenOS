@@ -692,6 +692,13 @@ DORMANT → [*] : fossilisation
 **Topologie :** Small-world (forte connectivité, courts chemins de rescue).
 **Politique :** Rescue + Founder. Haute sensibilité aux signaux AT_RISK.
 
+Dans le runtime actuel, `STAGE_FOUNDER_RESERVE` n'est vérifié que si son
+événement et les fondateurs correspondants sont encore présents dans
+`regionalMemory.founderReserve`. La vérification tient compte des occurrences
+répétées ; un événement seul ne prouve pas une réserve utilisable. Cette preuve
+porte sur l'état SQLite au moment du cycle, pas sur la viabilité future des
+lignées. Voir [ADR 0466](../../adr/0466-preuve-de-reserve-fondatrice-metapopulation.md).
+
 ### 13.6 Stepping-Stone
 
 **Mécanisme :** Migration sparse, corridor par corridor (pas de saut direct A→C).

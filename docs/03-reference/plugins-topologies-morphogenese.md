@@ -178,3 +178,10 @@ scellement donne `SNAPSHOT_STALE_OR_MISMATCHED` avant l'adjudication Rust.
 Cette vérification lie une proposition de structure, sans prouver l'exécution
 des workers ni rendre le graphe restaurable ; voir
 [ADR 0463](../adr/0463-lier-workers-au-graphe-prepare-morphogenese.md).
+
+La relecture exige aussi que l'identité interne du `graph_json` corresponde à
+la ligne SQLite et à la référence : graphe, version, mission, statut,
+parenté et date de création. La référence doit annoncer la même topologie et
+le même variant que la morphologie soumise. Une divergence rend la décision
+consultative indisponible avant le resolver Rust ; voir
+[ADR 0467](../adr/0467-lier-identite-interne-graphe-prepare-morphogenese.md).

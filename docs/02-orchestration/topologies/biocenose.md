@@ -978,6 +978,8 @@ Structure : Consensus + DissentLedger + veto épistémique. Usage : Décisions �
 
 Structure : Échantillonnage de perspectives + pondération. Usage : Populations massives (1000+ agents). Sous-panels représentatifs selon expertise, indépendance, niche évidentielle, historique d'erreurs. Recrutement adaptatif : davantage seulement si l'incertitude reste élevée.
 
+À l'agrégation, les sièges et leurs poids proviennent exclusivement de l'échantillon scellé dans la constitution. Le runtime exige des identifiants uniques, des poids positifs finis et des membres encore actifs ; un panel transmis par l'appelant ne peut pas remplacer ce sceau. Si l'échantillon manque ou ne concorde plus avec la session, l'issue est `REVIEW_REQUIRED`. Cette vérification lie la distribution au panel constitué, sans prouver la représentativité statistique de la population candidate ni la vérité des jugements ([ADR 0464](../../adr/0464-scellement-panel-representatif-biocenose.md)).
+
 ### 12.10 Persistent Community
 
 Structure : Réputation long terme + culture communautaire. Usage : Projets durables, organisations apprenantes. La communauté persiste au-delà d'une seule mission. Les profils de calibration, DissentLedgers et cultures délibératives sont accumulés.
