@@ -54,6 +54,9 @@ const SOURCES = Object.freeze([
   'epistemic/oracleWorkerSubject.js', 'epistemic/oracleWorkerClaim.js',
   'epistemic/oracleWorkerChecks.js', 'epistemic/oracleWorkerNativeEntry.cjs',
   'epistemic/oracleWorkerAdapter.js',
+  'epistemic/oracleModelSubject.js', 'epistemic/oracleModelClaim.js',
+  'epistemic/oracleModelChecks.js', 'epistemic/oracleModelNativeEntry.cjs',
+  'epistemic/oracleModelAdapter.js',
 ]);
 function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');

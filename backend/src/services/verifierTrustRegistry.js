@@ -135,6 +135,7 @@ const KNOWN_VERIFIER_TYPES = [
   'code_semantic',
   'native_method_semantic',
   'worker_semantic',
+  'model_semantic',
 ];
 
 for (const type of KNOWN_VERIFIER_TYPES) {

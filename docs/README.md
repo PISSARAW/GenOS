@@ -732,3 +732,4 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0451 — Budget modèle du runtime local en sous-processus](adr/0451-portee-budget-modele-runtime-local-sous-processus.md).
 - [ADR 0452 — Exécution de procédure en mission](adr/0452-execution-procedure-mission.md).
 - [ADR 0453 — Budget partagé des runtimes modèles externes](adr/0453-budget-partage-des-runtimes-modeles-externes.md).
+- [ADR 0454 — Oracle natif pour réponse modèle mesurée](adr/0454-oracle-natif-pour-reponse-modele-mesuree.md).

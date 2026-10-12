@@ -159,6 +159,7 @@ const suites = {
     ['seed concurrency', 'test_seed_concurrency.js']
   ],
   workers: [
+    ['measured model worker and independent oracle route', 'test_model_oracle_route_e2e.js'],
     ['worker compliance result gate', 'test_worker_compliance_summary.js'],
     ['worker compliance evidence gate', 'test_worker_compliance_evidence.js'],
     ['worker compliance manifest', 'test_worker_compliance_manifest.js'],
