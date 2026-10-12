@@ -110,6 +110,13 @@ La maintenance fait décroître les traces de matrice et d'arêtes, met à jour 
 
 missionMetrics dérive la couverture des besoins, la fitness des ponts utilisés, la provenance, les latences d'exécution, la fiabilité et la stabilité. La politique par défaut exige fitness ≥ 0,7, couverture ≥ 0,95, provenance = 1 et variance de latence ≤ 100 000 ms². Le contrôleur exige en outre zéro besoin non résolu pour VERIFIED. La stabilité est la fraction de besoins vérifiés, et non une estimation longitudinale.
 
+Une preuve de route reste admissible aux métriques seulement si le chemin exact du
+reçu signé figure parmi les alternatives actuellement autorisées par le variant.
+Une autre route disponible ne valide pas rétroactivement un reçu dont le chemin
+est devenu interdit, notamment après un changement de classification privée.
+La limite d'alternatives du profil peut écarter une ancienne route : cette
+vérification refuse alors prudemment la complétion jusqu'à une nouvelle exécution.
+
 Le bail calculé varie entre 1 000 et 60 000 ms selon cette stabilité. Un transfert de locus exige une cible avec fiabilité ≥ 0,7 par défaut. Sans exécution vérifiée le transfert utilise le bail minimal. canMerge exprime une gate Rhizome et ne dispense jamais des gates de promotion de niveau supérieur.
 
 ## MCP

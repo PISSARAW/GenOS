@@ -547,6 +547,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0438](0438-statut-planifie-runtime-isole-multiteam-a-team.md) | Statut planifié du runtime isolé Multiteam A-Team | Accepté le 11 octobre 2026. | -- | -- |
 | [0439](0439-rapports-initiaux-durables-pour-qualification-trinity.md) | Rapports initiaux durables pour qualifier Trinity | Accepté. | -- | -- |
 | [0440](0440-bail-outil-immuable-holobionte.md) | Rendre le bail d'outil immuable jusqu'à l'invocation Holobionte | Accepté | 2026-10-11 | Holobionte, variant `tool`, autorité d'invocation |
+| [0441](0441-atomicite-recu-consultatif-morphogenese.md) | Atomicité du reçu consultatif Morphogenèse | Accepté | 2026-10-12 | morphogenèse, persistance des preuves, SQLite |
+| [0442](0442-preuve-route-actuelle-rhizome.md) | Lier la complétion Rhizome au chemin actuellement autorisé | Accepté | 2026-10-12 | Rhizome, variants, preuves de route |
+| [0443](0443-preuve-revision-branche-speculative-syncytium.md) | Lier la validation spéculative à la révision de branche | Accepté | 2026-10-12 | Syncytium, variant Speculative, promotion |
+| [0444](0444-enfants-depuis-elites-admises-biome.md) | Produire les enfants Quality-Diversity depuis les élites admises | Accepté | 2026-10-12 | Biome, Quality-Diversity, archive des élites |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

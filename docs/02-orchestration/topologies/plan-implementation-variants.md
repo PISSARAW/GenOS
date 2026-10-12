@@ -255,6 +255,26 @@ de missions représentatives pour les 95 variants canoniques.
   externe restent à attester par l'intégrateur
   ([ADR 0440](../../adr/0440-bail-outil-immuable-holobionte.md)).
 
+### Neuvième vague — 2026-10-12
+
+- Morphogenèse insère et relit son reçu consultatif dans une même transaction.
+  Une proposition absente annule l'insertion au lieu de laisser un reçu
+  append-only orphelin. APPLY reste fermé faute d'autorité, de snapshot
+  restaurable et de commit CAS vérifié
+  ([ADR 0441](../../adr/0441-atomicite-recu-consultatif-morphogenese.md)).
+- Rhizome ne compte pour la convergence qu'un reçu signé dont la route reste
+  actuellement permise, y compris sous `private`. La signature ne suffit pas
+  si la politique de route a changé
+  ([ADR 0442](../../adr/0442-preuve-route-actuelle-rhizome.md)).
+- Syncytium `speculative` lie la validation déclarée à l'empreinte courante
+  de la branche et revérifie ses opérations sous verrou lors de la promotion.
+  Le gate déclaré reste à authentifier indépendamment
+  ([ADR 0443](../../adr/0443-preuve-revision-branche-speculative-syncytium.md)).
+- Biome Quality-Diversity n'ajoute un enfant recombiné à la file que si son
+  candidat devient élite dans l'archive. Les mesures et preuves fournies par
+  l'appelant demandent toujours une vérification indépendante
+  ([ADR 0444](../../adr/0444-enfants-depuis-elites-admises-biome.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

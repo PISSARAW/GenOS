@@ -189,6 +189,7 @@ async function promoteBranch(ctx) {
   const n = now();
   const A = actor(o, 'promotion-manager');
   const fingerprint = branchFingerprint(branch);
+  if (validEvidenceGate(evidenceGate)) assertEvidenceBinding(evidenceGate, branchId, fingerprint);
   if (!validEvidenceGate(evidenceGate)) {
     const failed = { ...branch, status: 'VALIDATION_FAILED', validationFailedAt: n,
       validationFingerprint: fingerprint, failedEvidenceGate: evidenceGate || null };
@@ -198,7 +199,9 @@ async function promoteBranch(ctx) {
       value: { branchId, fingerprint, passed: false, evidenceGate: evidenceGate || null, checkedAt: n, by: A }, A, o }), o);
     throw err('Promotion requires passing validation evidence; this branch is now ineligible.', 'SPEC_PROMOTION_GATED');
   }
-  const promoted = await syn.promoteSpeculativeBranch(sid, { branchId, options: o });
+  const promoted = await syn.promoteSpeculativeBranch(sid, {
+    branchId, expectedOperationIds: branch.appliedOperationIds || [], options: o
+  });
   const status = promoted.status;
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
     value: { ...branch, status, promotedAt: n, promotionEvidenceGate: evidenceGate,
@@ -216,6 +219,12 @@ async function promoteBranch(ctx) {
 function validEvidenceGate(gate) {
   return gate && gate.passed === true && Array.isArray(gate.checks) && gate.checks.length > 0
     && gate.checks.every((check) => check && check.passed === true);
+}
+
+function assertEvidenceBinding(gate, branchId, fingerprint) {
+  if (gate.branchId !== branchId || gate.branchFingerprint !== fingerprint) {
+    throw err('Validation evidence does not match the current branch revision.', 'SPEC_EVIDENCE_STALE');
+  }
 }
 
 function branchFingerprint(branch) {
@@ -247,6 +256,7 @@ async function listBranches(ctx) {
   const { reg, snaps } = await fetchRegSnaps(sid, o, syn);
   const branches = Object.values(reg).map(b => ({
     branchId: b.branchId, status: b.status, label: b.label || null,
+    validationFingerprint: branchFingerprint(b),
     baseSnapshotId: b.baseSnapshotId, parentBranchId: b.parentBranchId,
     createdAt: b.createdAt, lastExecutionAt: b.lastExecutionAt,
     executionBudgetMs: b.executionBudgetMs, operationsCount: b.operationsCount,

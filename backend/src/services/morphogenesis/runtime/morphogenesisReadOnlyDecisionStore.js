@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { withTransaction } = require('../../../db');
 const { requestFor, verifyResponse } = require('./morphogenesisRustReadOnlyBridge');
 
 function digest(value) {
@@ -38,15 +39,17 @@ async function recordReadOnlyDecision(input) {
   await ensureTable(db);
   const id = crypto.randomUUID();
   const responseJson = JSON.stringify(decision);
-  await db.run(`INSERT INTO morphogenesis_read_only_decisions
-    (id, mission_id, graph_id, graph_version, snapshot_sha256, proposal_id,
-      request_sha256, response_json, response_sha256, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, missionId, snapshotRef.graphId,
-  snapshotRef.graphVersion, snapshotRef.snapshotSha256, record.id,
-  decision.requestSha256, responseJson, digest(responseJson), new Date().toISOString());
-  const stored = await readReadOnlyDecision({ ...input, id });
-  if (!stored) throw new Error('Rust decision receipt could not be verified after persistence');
-  return stored;
+  return withTransaction(db, async (transactionDb) => {
+    await transactionDb.run(`INSERT INTO morphogenesis_read_only_decisions
+      (id, mission_id, graph_id, graph_version, snapshot_sha256, proposal_id,
+        request_sha256, response_json, response_sha256, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, missionId, snapshotRef.graphId,
+    snapshotRef.graphVersion, snapshotRef.snapshotSha256, record.id,
+    decision.requestSha256, responseJson, digest(responseJson), new Date().toISOString());
+    const stored = await readReadOnlyDecision({ ...input, db: transactionDb, id });
+    if (!stored) throw new Error('Rust decision receipt could not be verified after persistence');
+    return stored;
+  });
 }
 
 async function readReadOnlyDecision(input) {

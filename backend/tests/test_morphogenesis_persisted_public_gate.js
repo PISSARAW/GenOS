@@ -67,6 +67,16 @@ async function main() {
     const readReceipt = () => decisionStore.readReadOnlyDecision({ db,
       id: result.kernelReadOnly.receiptId, missionId: 'mission-1', morphology, snapshotRef });
     assert.equal((await readReceipt()).decision, 'REJECTED');
+    const source = await gate.readPersistedProposals(db, snapshotRef,
+      result.kernelReadOnly.proposalRecordId);
+    const storedDecision = await db.get('SELECT response_json FROM morphogenesis_read_only_decisions WHERE id = ?',
+      result.kernelReadOnly.receiptId);
+    const receiptCount = await db.get('SELECT COUNT(*) AS count FROM morphogenesis_read_only_decisions');
+    await assert.rejects(decisionStore.recordReadOnlyDecision({ db, missionId: 'mission-1',
+      morphology, snapshotRef, record: { ...source, id: crypto.randomUUID() },
+      decision: JSON.parse(storedDecision.response_json) }), /could not be verified/);
+    const countAfterRefusal = await db.get('SELECT COUNT(*) AS count FROM morphogenesis_read_only_decisions');
+    assert.equal(countAfterRefusal.count, receiptCount.count, 'failed receipt verification must not leave an orphan row');
     await assert.rejects(db.run('UPDATE morphogenesis_read_only_decisions SET response_json = ? WHERE id = ?',
       '{}', result.kernelReadOnly.receiptId), /immutable/);
     await assert.rejects(db.run('DELETE FROM morphogenesis_read_only_decisions WHERE id = ?',

@@ -16,13 +16,22 @@ function latestResults(session) {
 }
 
 function validatedResult(input) {
-  const { session, need, entry, policy } = input;
+  const { session, need, entry, policy, route } = input;
   if (!entry || entry.receipt.capability !== need.capability || entry.receipt.outcome !== 'SUCCESS' || !/^sha256:[a-f0-9]{64}$/.test(entry.receipt.executionDigest || '')) return null;
   try {
     const receipt = receiptService.validateReceipt(session, entry.receipt, policy.trustedVerifierDigests || []);
     if (!need.evidenceRequirements.every(ref => receipt.verification.evidenceRefs.includes(ref))) return null;
+    if (!route.alternatives.some((candidate) => sameRoute(candidate, receipt))) return null;
     return entry;
   } catch (_) { return null; }
+}
+
+function sameRoute(candidate, receipt) {
+  return candidate.routeId === receipt.routeId
+    && candidate.nodeIds.length === receipt.nodeIds.length
+    && candidate.edgeIds.length === receipt.edgeIds.length
+    && candidate.nodeIds.every((id, index) => id === receipt.nodeIds[index])
+    && candidate.edgeIds.every((id, index) => id === receipt.edgeIds[index]);
 }
 
 function observedFitness(session, entries) {
@@ -36,7 +45,7 @@ function metrics(session, needs, policy) {
   const latest = latestResults(session);
   const details = needs.map(need => {
     const route = routing.plan(session, need, session.variantPolicy?.routing || {});
-    const entry = validatedResult({ session, need, entry: latest.get(need.needId), policy });
+    const entry = validatedResult({ session, need, entry: latest.get(need.needId), policy, route });
     return { needId: need.needId, reachable: route.selected, verified: Boolean(entry && route.selected), entry };
   });
   const completed = details.filter(item => item.verified);

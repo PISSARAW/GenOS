@@ -121,6 +121,7 @@ async function promoteBranch(sessionId, request, dependencies) {
     const session = await dependencies.getSession(sessionId, options.db);
     const branch = requireOpenBranch(session, branchId);
     validateBranchBase(session, branch);
+    assertExpectedOperations(branch, request.expectedOperationIds);
     const previousCrdt = session.crdt;
     const previousBranch = structuredClone(branch);
     const candidate = session.crdt.fork();
@@ -138,6 +139,16 @@ async function promoteBranch(sessionId, request, dependencies) {
     }
     return { branchId, status: branch.status, operationIds: accepted.map((item) => item.opId), snapshot: candidate.getSnapshot() };
   });
+}
+
+function assertExpectedOperations(branch, expected) {
+  if (expected === undefined) return;
+  const actual = branch.operations.map((operation) => operation.opId).sort();
+  const supplied = Array.isArray(expected) ? [...expected].sort() : [];
+  if (!Array.isArray(expected) || expected.length !== actual.length
+    || supplied.some((id, index) => id !== actual[index])) {
+    throw speculationError('SYNCYTIUM_BRANCH_STALE', 'Speculative branch changed after validation evidence was prepared.');
+  }
 }
 
 async function discardBranch(sessionId, request, dependencies) {

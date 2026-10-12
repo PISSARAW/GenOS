@@ -1,13 +1,12 @@
 'use strict';
 
 function advance(ecology, state, input) {
-  const descriptor = numericDescriptor(input.descriptor);
   const archive = { ...(state.qualityDiversity || {}) };
   const candidate = makeCandidate(ecology, archive, input);
   const incumbent = archive[candidate.cell];
   const accepted = !incumbent || candidate.quality > incumbent.quality;
   if (accepted) archive[candidate.cell] = candidate;
-  const offspring = makeOffspring(archive, candidate, input);
+  const offspring = accepted ? makeOffspring(archive, candidate, input) : null;
   const offspringQueue = queueOffspring(state, candidate, offspring);
   const result = candidateResult({ candidate, incumbent, accepted, archive, offspring });
   return { state: { ...state, qualityDiversity: archive, offspringQueue }, decision: result,

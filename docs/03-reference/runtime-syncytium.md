@@ -98,6 +98,14 @@ La promotion spéculative réévalue l'état principal et publie de nouveaux év
 causaux sur celui-ci. Elle conserve la provenance de branche au lieu de réutiliser
 ses dots locaux. Les contrôles d'autorité et d'invariants du service de coordination
 restent distincts des gates de preuve supplémentaires de la façade spécialisée.
+Pour la façade du variant Speculative, `listBranches` expose `validationFingerprint`.
+Une validation réussie doit fournir `evidenceGate.branchId` et
+`evidenceGate.branchFingerprint` égaux à la branche et à cette empreinte courante.
+La promotion refuse une preuve préparée avant une nouvelle opération de branche ;
+le service CRDT revérifie sous coordination la liste des opérations attendues.
+L'empreinte lie une déclaration de validation à une révision, sans authentifier
+ses contrôles ni prouver qu'ils ont été exécutés par un vérificateur indépendant
+([ADR 0443](../adr/0443-preuve-revision-branche-speculative-syncytium.md)).
 L'opération MCP `promote` appelle le service de coordination ; elle ne fournit
 pas à elle seule les preuves exigées par cette façade.
 
