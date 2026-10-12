@@ -573,6 +573,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0450](0450-liaison-sortie-modele-oracle-independant.md) | Lier la sortie du modèle au résultat de l'oracle | Accepté pour le refus fermé ; domaine modèle encore absent. | 2026-10-12. | -- |
 | [0451](0451-portee-budget-modele-runtime-local-sous-processus.md) | Portée de budget modèle dans le runtime local en sous-processus | accepté pour le runtime `local-codex-runtime.cjs` | 2026-10-12 | budget de mission et exécution déléguée |
 | [0452](0452-execution-procedure-mission.md) | Exécution de procédures promues dans une mission | Voir le fichier | -- | -- |
+| [0453](0453-budget-partage-des-runtimes-modeles-externes.md) | Budget partagé des runtimes modèles externes | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

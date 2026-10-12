@@ -3,6 +3,7 @@
 const http = require('http');
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 const { createContext, finishContext } = require('./caller-mcp-context.cjs');
+const sharedBudget = require('../src/services/externalSubprocessModelBudget');
 
 let input = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { input = Buffer.concat([input, chunk]); });
@@ -11,33 +12,39 @@ process.stdin.on('end', () => run(input).catch((error) => fail(error)));
 async function run(raw) {
   const mission = decodeMissionInput(raw);
   const state = createContext(mission, (event) => process.stdout.write(encodeEvent({ ...event, agentId: mission.agentId })));
-  const prompt = state.prompt;
-  if (mission.contextTokenBudget !== undefined && mission.contextTokenBudget !== null) {
-    await require('../src/services/agentMemoryVesicles').consumeVesicles(mission.agentId);
+  state.modelBudgetRoute = await sharedBudget.openForState(state);
+  try {
+    const prompt = state.prompt;
+    if (mission.contextTokenBudget !== undefined && mission.contextTokenBudget !== null) {
+      await require('../src/services/agentMemoryVesicles').consumeVesicles(mission.agentId);
+    }
+    state.emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Caller MCP cognitive runtime accepted the mission.', payload: {
+      executor: 'caller_mcp',
+      provider: mission.provider || process.env.GENOS_MCP_PROVIDER || 'unknown',
+      modelId: mission.modelId || process.env.GENOS_MCP_MODEL_ID || 'unknown',
+      hostExecutionContext: state.hostExecutionContext
+    }, status: 'running' });
+    const response = await sampleWithTools({
+      messages: [{ role: 'user', content: { type: 'text', text: prompt } }],
+      maxTokens: Math.max(1, Number(state.executionBudget.tokens || 2048) - Math.ceil(Buffer.byteLength(prompt) / 4)),
+      agentContext: { agentId: mission.agentId, executionMode: mission.executionMode, orchestratorAgentId: mission.orchestratorAgentId, toolLease: state.toolLease },
+      systemPrompt: 'You are an agent executing under GenOS governance. Return only the requested result.'
+    }, state);
+    const text = extractText(response);
+    if (!text.trim()) throw new Error('MCP sampling returned an empty response.');
+    state.estimatedTokens = Math.ceil((Buffer.byteLength(prompt) + Buffer.byteLength(text)) / 4);
+    await finishContext(state, text);
+  } finally {
+    await sharedBudget.close(state.modelBudgetRoute);
   }
-  state.emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Caller MCP cognitive runtime accepted the mission.', payload: {
-    executor: 'caller_mcp',
-    provider: mission.provider || process.env.GENOS_MCP_PROVIDER || 'unknown',
-    modelId: mission.modelId || process.env.GENOS_MCP_MODEL_ID || 'unknown',
-    hostExecutionContext: state.hostExecutionContext
-  }, status: 'running' });
-  const response = await sampleWithTools({
-    messages: [{ role: 'user', content: { type: 'text', text: prompt } }],
-    maxTokens: Math.max(1, Number(state.executionBudget.tokens || 2048) - Math.ceil(Buffer.byteLength(prompt) / 4)),
-    agentContext: { agentId: mission.agentId, executionMode: mission.executionMode, orchestratorAgentId: mission.orchestratorAgentId, toolLease: state.toolLease },
-    systemPrompt: 'You are an agent executing under GenOS governance. Return only the requested result.'
-  }, state);
-  const text = extractText(response);
-  if (!text.trim()) throw new Error('MCP sampling returned an empty response.');
-  state.estimatedTokens = Math.ceil((Buffer.byteLength(prompt) + Buffer.byteLength(text)) / 4);
-  await finishContext(state, text);
   process.stdout.write('', () => process.exit(process.exitCode || 0));
 }
 
 async function sampleWithTools(params, state) {
   let messages = params.messages;
   for (let round = 0; round < 12; round += 1) {
-    const result = await sample({ ...params, messages });
+    const request = { ...params, messages };
+    const result = await sharedBudget.sample(state, request, sample);
     const blocks = Array.isArray(result?.content) ? result.content : [];
     const calls = blocks.filter((block) => block.type === 'tool_use' || block.type === 'tool_call' || block.type === 'function_call');
     if (!calls.length) return result;
