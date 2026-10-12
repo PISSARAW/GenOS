@@ -5,13 +5,18 @@ const { createHash } = require('node:crypto');
 const verifierReceipts = require('../../epistemicVerifierReceiptService');
 
 function outcomeDigest(receipt) {
-  const payload = [receipt.routeId, receipt.needId, receipt.capability, receipt.nodeIds.join('/'), receipt.edgeIds.join('/'), receipt.outcome, (receipt.verification?.evidenceRefs || []).join('/')].join('\u0000');
+  const payload = ['RhizomeRouteOutcome/v2', receipt.sessionId, receipt.routeId, receipt.needId, receipt.capability,
+    receipt.nodeIds.join('/'), receipt.edgeIds.join('/'), receipt.outcome,
+    (receipt.verification?.evidenceRefs || []).join('/')].join('\u0000');
   const bound = receipt.executionDigest ? payload + '\u0000' + receipt.executionDigest : payload;
   return `sha256:${createHash('sha256').update(bound).digest('hex')}`;
 }
 
 function validateReceipt(session, input, trustedVerifierDigests) {
   const receipt = normalizeRouteOutcome(input);
+  if (receipt.sessionId !== session.sessionId) {
+    throw Object.assign(new Error('Route receipt belongs to another Rhizome session.'), { code: 'RHIZOME_ROUTE_RECEIPT_INVALID' });
+  }
   if (receipt.outcome !== receipt.verification.result) {
     throw Object.assign(new Error('Route outcome does not match its verification receipt.'), { code: 'RHIZOME_ROUTE_RECEIPT_INVALID' });
   }

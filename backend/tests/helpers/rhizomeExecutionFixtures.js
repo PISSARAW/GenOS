@@ -11,7 +11,7 @@ const DIGEST = 'rhizome-completion-verifier-v1';
 
 function makeReceipt(context) {
   const { route, need, outcome = 'SUCCESS' } = context;
-  const receipt = { routeId: route.routeId, needId: need.needId, capability: need.capability,
+  const receipt = { sessionId: context.sessionId, routeId: route.routeId, needId: need.needId, capability: need.capability,
     nodeIds: route.nodeIds, edgeIds: route.edgeIds, outcome, executionDigest: context.executionDigest || executionResults.capture(context.result ?? null).executionDigest,
     verification: { verificationId: 'verify:' + need.needId, verifierId: 'independent-review',
       status: 'VERIFIED', result: outcome, evidenceRefs: ['execution:' + need.needId, ...(need.evidenceRequirements || [])] } };

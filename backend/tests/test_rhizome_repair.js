@@ -16,7 +16,7 @@ function edge(edgeId, from, to) {
 
 function routeFailureReceipt() {
   const receipt = {
-    routeId: 'route:n1:ab/bd', needId: 'n1', capability: 'answer',
+    sessionId: 'repair-test', routeId: 'route:n1:ab/bd', needId: 'n1', capability: 'answer',
     nodeIds: ['a', 'b', 'd'], edgeIds: ['ab', 'bd'], outcome: 'FAILURE',
     verification: { verificationId: 'verify-failure', verifierId: 'independent', result: 'FAILURE', status: 'VERIFIED', evidenceRefs: ['failure:report'] }
   };
@@ -30,6 +30,7 @@ function routeFailureReceipt() {
 function run() {
   process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'rhizome-repair-test-secret';
   const graph = {
+    sessionId: 'repair-test',
     graphVersion: 1,
     nodes: [node('a', ['search']), node('b', ['translate']), node('c', ['translate']), node('d', ['answer'])],
     edges: [edge('ab', 'a', 'b'), edge('bd', 'b', 'd'), edge('ac', 'a', 'c'), edge('cd', 'c', 'd')],

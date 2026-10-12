@@ -21,7 +21,8 @@ async function tick(input) {
 async function runRoute(context) {
   const { input, options, snapshot, route, action } = context;
   const execution = await actionExecutor.execute({
-    route, need: input.need, execute: input.execute, verify: input.verify, timeoutMs: input.operationTimeoutMs, deadline: input.deadline
+    sessionId: input.sessionId, route, need: input.need, execute: input.execute,
+    verify: input.verify, timeoutMs: input.operationTimeoutMs, deadline: input.deadline
   });
   if (execution.status !== 'VERIFIED') return { status: execution.status, snapshot, route, action, execution };
   const outcome = await rhizome.recordRouteOutcome(input.sessionId, execution.receipt, {
@@ -48,7 +49,7 @@ async function recoverFailedRoute(context) {
     return { ...fallback, status: growthFallback(fallback) ? fallback.status : 'ROUTE_FAILED_NO_ALTERNATIVE', execution, outcome, repair };
   }
   const retry = await actionExecutor.execute({
-    route: repair, need: input.need, execute: input.execute, verify: input.verify,
+    sessionId: input.sessionId, route: repair, need: input.need, execute: input.execute, verify: input.verify,
     timeoutMs: input.operationTimeoutMs, deadline: input.deadline
   });
   if (retry.status !== 'VERIFIED') return { status: 'ROUTE_RETRY_UNVERIFIED', snapshot, route, action, execution, outcome, repair, retry };

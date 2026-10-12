@@ -138,7 +138,7 @@ async function runWorkflow(db, context) {
 
 async function independentVerdict(context) {
   const { input, workflow, refs, signal } = context;
-  const verifierIds = distinctVerifierIds(input.verifierIds);
+  const verifierIds = eligibleVerifierIds(input.verifierIds, input);
   if (verifierIds.length < 2 || typeof input.verifyMission !== 'function') {
     return { verdict: 'INCONCLUSIVE', verifierIds,
       reason: 'Two independent verifier IDs and an executable mission verifier are required.' };
@@ -155,6 +155,11 @@ async function independentVerdict(context) {
 
 function distinctVerifierIds(values) {
   return [...new Set((values || []).map((item) => String(item).trim()).filter(Boolean))];
+}
+
+function eligibleVerifierIds(values, input) {
+  const producers = new Set([input.hostId, input.actorId].map((value) => String(value || '').trim()));
+  return distinctVerifierIds(values).filter((id) => !producers.has(id));
 }
 
 function assertionsPass(assertions, refs) {
@@ -194,7 +199,7 @@ function preflightVariantMission(input = {}) {
     missionId: input.missionId || null, hostId: input.hostId || null,
     variantId: input.variantId || null,
     operations: (Array.isArray(input.variantOperations) ? input.variantOperations : []).map((step) => step?.operation || null),
-    verifierCount: distinctVerifierIds(input.verifierIds).length };
+    verifierCount: eligibleVerifierIds(input.verifierIds, input).length };
 }
 
 function preflightBudget(input, blockers) {
@@ -210,7 +215,9 @@ function validateMissionIdentity(input, blockers) {
 function validateProofAdapters(input, blockers) {
   if (typeof input.verifyEvaluationEvidence !== 'function') blockers.push('verifyEvaluationEvidence adapter is required.');
   if (typeof input.verifyMission !== 'function') blockers.push('verifyMission adapter is required for a PASS verdict.');
-  if (distinctVerifierIds(input.verifierIds).length < 2) blockers.push('Two distinct verifier IDs are required for a PASS verdict.');
+  if (eligibleVerifierIds(input.verifierIds, input).length < 2) {
+    blockers.push('Two verifier IDs distinct from the Host and actor are required for a PASS verdict.');
+  }
 }
 
 function validateVariantFit(input, blockers) {

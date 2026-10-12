@@ -255,6 +255,68 @@ de missions représentatives pour les 95 variants canoniques.
   externe restent à attester par l'intégrateur
   ([ADR 0440](../../adr/0440-bail-outil-immuable-holobionte.md)).
 
+### Neuvième vague — 2026-10-12
+
+- Morphogenèse insère et relit son reçu consultatif dans une même transaction.
+  Une proposition absente annule l'insertion au lieu de laisser un reçu
+  append-only orphelin. APPLY reste fermé faute d'autorité, de snapshot
+  restaurable et de commit CAS vérifié
+  ([ADR 0441](../../adr/0441-atomicite-recu-consultatif-morphogenese.md)).
+- Rhizome ne compte pour la convergence qu'un reçu signé dont la route reste
+  actuellement permise, y compris sous `private`. La signature ne suffit pas
+  si la politique de route a changé
+  ([ADR 0442](../../adr/0442-preuve-route-actuelle-rhizome.md)).
+- Syncytium `speculative` lie la validation déclarée à l'empreinte courante
+  de la branche et revérifie ses opérations sous verrou lors de la promotion.
+  Le gate déclaré reste à authentifier indépendamment
+  ([ADR 0443](../../adr/0443-preuve-revision-branche-speculative-syncytium.md)).
+- Biome Quality-Diversity n'ajoute un enfant recombiné à la file que si son
+  candidat devient élite dans l'archive. Les mesures et preuves fournies par
+  l'appelant demandent toujours une vérification indépendante
+  ([ADR 0444](../../adr/0444-enfants-depuis-elites-admises-biome.md)).
+
+### Dixième vague — 2026-10-12
+
+- Common refuse les champs d'autorité ajoutés à la racine d'un manifeste
+  snapshot topologique après scellement. Le préflight reste consultatif et
+  APPLY fermé sans snapshot collectif restaurable ni commit CAS attesté
+  ([ADR 0445](../../adr/0445-refus-des-champs-non-scelles-snapshot-topologique.md)).
+- Métapopulation refuse `SESSION_QUIESCED` si une affectation de mission
+  référence un worker absent. Le snapshot exige que chaque lien vers un agent
+  soit présent et inactif
+  ([ADR 0446](../../adr/0446-refus-des-affectations-orphelines-en-quiescence-metapopulation.md)).
+- Biocénose `forecasting_crowd` ne persiste et ne score une résolution que
+  si son reçu vérifié lie la communauté, l'événement, le domaine et le résultat.
+  Le validateur externe reste responsable de l'authenticité du reçu
+  ([ADR 0447](../../adr/0447-lier-resolution-et-score-forecasting-biocenose.md)).
+- Trinity exige que l'unique monde au statut `promoted` appartienne aux mondes
+  initiaux qualifiés et corresponde
+  au monde retenu dans la comparaison et à l'agent source du candidat. La
+  campagne nominale réelle des douze variants reste à exécuter
+  ([ADR 0448](../../adr/0448-liaison-monde-promu-candidat-trinity.md)).
+
+### Onzième vague — 2026-10-12
+
+- Common lie le graphe préparé à la liste complète des workers demandés. Une
+  modification des rôles ou de la composition rend le snapshot caduc et empêche
+  son usage dans l'adjudication persistée. APPLY reste fermé sans snapshot
+  collectif restaurable ni commit CAS attesté
+  ([ADR 0463](../../adr/0463-lier-workers-au-graphe-prepare-morphogenese.md)).
+- A-Team `expert_committee` calcule le quorum sur les membres distincts du
+  comité et refuse les bulletins extérieurs ou répétés. L'identité réelle des
+  auteurs et les références de preuve restent à authentifier
+  ([ADR 0460](../../adr/0460-quorum-lie-aux-membres-expert-committee.md)).
+- Holobionte exclut l'hôte et l'acteur du collège des vérificateurs
+  indépendants au préflight et au verdict. Une mission sans collège suffisant
+  demeure inconclusive et sa session active
+  ([ADR 0461](../../adr/0461-verificateurs-independants-holobionte.md)).
+- Rhizome lie les reçus de route signés à leur session. Un reçu valide dans une
+  session ne qualifie pas les métriques d'une autre, même si le graphe est
+  identique. L'identifiant de session est généré par le runtime pour empêcher
+  sa réutilisation volontaire après fermeture. Les anciens reçus sans cette
+  liaison restent historiques
+  ([ADR 0462](../../adr/0462-lier-recu-route-session-rhizome.md)).
+
 ## Plan par vagues
 
 ### Vague 1 — Contrat commun et traçabilité

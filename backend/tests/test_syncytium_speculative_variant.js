@@ -28,11 +28,27 @@ async function main() {
   assert.equal(comparison.branches.find((branch) => branch.branchId === 'B1').snapshot.sharedFields
     .branchSnapshots['candidate-branch-b1-op'].result, 'B1');
 
+  const listed = await syncytium.listBranches({ ...common });
+  const staleFingerprint = listed.branches.find((branch) => branch.branchId === 'B1').validationFingerprint;
+  await syncytium.executeOnBranch({ ...common, branchId: 'B1', operations: [
+    operation({ result: 'B1 revised' }, 'branch-b1-revised-op')
+  ] });
+  await assert.rejects(() => syncytium.promoteBranch({ ...common, branchId: 'B1', evidenceGate: {
+    branchId: 'B1', branchFingerprint: staleFingerprint, passed: true,
+    checks: [{ name: 'validation', passed: true }]
+  } }), (error) => error.code === 'SPEC_EVIDENCE_STALE');
+  const current = await syncytium.listBranches({ ...common });
+  const fingerprint = current.branches.find((branch) => branch.branchId === 'B1').validationFingerprint;
+  await assert.rejects(() => syncytium.promoteSpeculativeBranch(session.sessionId, {
+    branchId: 'B1', expectedOperationIds: ['branch-b1-op']
+  }), (error) => error.code === 'SYNCYTIUM_BRANCH_STALE');
+
   await assert.rejects(() => syncytium.promoteBranch({ ...common, branchId: 'B2',
     evidenceGate: { passed: false, checks: [{ passed: false }] } }),
   (error) => error.code === 'SPEC_PROMOTION_GATED');
   const promoted = await syncytium.promoteBranch({ ...common, branchId: 'B1', evidenceGate: {
-    passed: true, checks: [{ name: 'validation', passed: true }]
+    branchId: 'B1', branchFingerprint: fingerprint, passed: true,
+    checks: [{ name: 'validation', passed: true }]
   } });
   assert.equal(promoted.newStatus, 'PROMOTED');
   const { operations: promotedHistory } = await syncytium.inspectHistory(session.sessionId);

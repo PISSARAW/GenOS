@@ -2352,6 +2352,13 @@ que la comparaison. Trois rapports sont exigés, seize pour `factorial` ;
 l'absence de journal ou d'un rapport cohérent refuse la qualification.
 Voir [ADR 0439](../../adr/0439-rapports-initiaux-durables-pour-qualification-trinity.md).
 
+La promotion doit désigner un seul monde au statut `promoted` dans
+l'expérience ; il doit appartenir aux mondes initiaux qualifiés. Son numéro
+est celui de la comparaison et de la décision, et son agent est la
+source vérifiée du candidat. Une divergence refuse la qualification avec
+`promoted_world_mismatch`. Voir
+[ADR 0448](../../adr/0448-liaison-monde-promu-candidat-trinity.md).
+
 ## 10. Références scientifiques
 
 1. **Self-Consistency** — Wang et al., *Self-Consistency Improves Chain of Thought Reasoning in Language Models*, arXiv:2203.11171. Le vote majoritaire sur N raisonnements cohérents améliore la précision.

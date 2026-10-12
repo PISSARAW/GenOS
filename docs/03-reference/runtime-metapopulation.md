@@ -15,10 +15,13 @@ Voir [snapshots topologiques](snapshots-topologiques.md).
 
 Le backend peut appeler `quiesceForSnapshot({ db, sessionId, agentId,
 workspaceId })` après avoir attaché un dème membre à son workspace. Cette
-transition transactionnelle vérifie les agents de la mission et les effets en
-vol, puis inscrit `SESSION_QUIESCED`. `boundaryVerified` ne certifie pas la
+transition transactionnelle vérifie chaque lien `mission_agents`, y compris
+la présence de l'agent correspondant, ainsi que les effets en vol. Un lien
+orphelin refuse la quiescence avant `SESSION_QUIESCED` ; `boundaryVerified` ne certifie pas la
 mission. Le plugin de morphogenèse renvoie `BLOCKED/REGION_UNPOPULATED` si la
 session créée ne possède pas encore de dème.
+Voir [ADR 0446](../adr/0446-refus-des-affectations-orphelines-en-quiescence-metapopulation.md)
+pour cette frontière de preuve et ses limites.
 
 ## 1. Points d'entrée et prérequis
 

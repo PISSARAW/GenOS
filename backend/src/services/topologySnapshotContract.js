@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const SCHEMA_VERSION = 1;
 const STATUSES = new Set(['captured', 'reference-only', 'unsupported', 'conflict']);
 const BINDING_FIELDS = ['topologyId', 'variantId', 'sessionId', 'agentId', 'workspaceId'];
+const MANIFEST_FIELDS = new Set(['schemaVersion', 'policyVersion', 'bindings', 'boundary', 'components', 'hash']);
 
 function refusal(code, message) {
   return Object.assign(new Error(message), { code, status: 409 });
@@ -114,6 +115,9 @@ function seal(context, capture) {
 function verify(manifest, context) {
   if (!plain(manifest) || manifest.schemaVersion !== SCHEMA_VERSION || !plain(manifest.bindings)) {
     throw refusal('TOPOLOGY_SNAPSHOT_SCHEMA_INVALID', 'Unknown topology snapshot schema.');
+  }
+  if (Reflect.ownKeys(manifest).some((field) => !MANIFEST_FIELDS.has(field))) {
+    throw refusal('TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED', 'Topology snapshot has unsealed manifest fields.');
   }
   const expected = bindings(context);
   if (BINDING_FIELDS.some((field) => manifest.bindings[field] !== expected[field])) {

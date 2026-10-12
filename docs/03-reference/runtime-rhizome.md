@@ -94,9 +94,14 @@ GENOS_EPISTEMIC_RECEIPT_SECRET doit être configuré sur l’hôte de confiance 
 
 Le vérificateur de capacité reçoit node, candidate, need et edges. CAPABILITY_VERIFIED doit contenir candidateId, nodeId, capability, independent, evidenceId, verifierDigest, evidenceRefs et edgeContracts normalisés. Le reçu épistémique HMAC lie evidenceId à capabilityAdmissionService.evidenceDigest(node, proof). Cette empreinte inclut l'identité et la référence du provider, l'instance et les arêtes admises. Un ancien reçu doit être réémis selon ce contrat ; remplacer un provider après signature est refusé.
 
-Le vérificateur de route reçoit route, need, une copie de result et executionDigest. Il doit vérifier la sortie indépendamment avant de retourner un RouteOutcome : chemin, besoin, capacité, SUCCESS ou FAILURE, executionDigest et verification contenant références non vides, identité indépendante et reçu signé. routeReceiptService.outcomeDigest(outcome) lie la signature au chemin, au verdict, aux références et à la sortie concrète. executionResultService.capture produit la représentation JSON triée et l'empreinte SHA-256 utilisées par le runtime.
+Le vérificateur de route reçoit sessionId, route, need, une copie de result et executionDigest. Il doit vérifier la sortie indépendamment avant de retourner un RouteOutcome : sessionId, chemin, besoin, capacité, SUCCESS ou FAILURE, executionDigest et verification contenant références non vides, identité indépendante et reçu signé. routeReceiptService.outcomeDigest(outcome) lie la signature à la session, au chemin, au verdict, aux références et à la sortie concrète. executionResultService.capture produit la représentation JSON triée et l'empreinte SHA-256 utilisées par le runtime.
 
-Les reçus historiques sans empreinte restent lisibles pour la compatibilité du registre de routes ; ils ne permettent pas de certifier une nouvelle mission. Un nonce déjà consommé est idempotent et ne renforce ni conductivité, ni traces, ni couverture. Un nœud ou pont devenu indisponible invalide la route dans les métriques courantes. La quarantaine exige également une preuve indépendante signée, liée aux arêtes et à son motif.
+Les reçus historiques restent lisibles dans le registre, mais ceux émis avant le contrat de signature lié à sessionId ne sont plus admis aux métriques ni au renforcement des routes. Une nouvelle exécution et une nouvelle vérification sont nécessaires. Un nonce déjà consommé dans la même session est idempotent et ne renforce ni conductivité, ni traces, ni couverture. Un nœud ou pont devenu indisponible invalide la route dans les métriques courantes. La quarantaine exige également une preuve indépendante signée, liée aux arêtes et à son motif.
+
+L'identifiant d'une nouvelle session Rhizome est attribué par le runtime avec
+un UUID aléatoire. L'option de création `rhizomeId` est refusée : réutiliser
+après fermeture un identifiant fourni par l'appelant permettrait de rejouer
+un ancien reçu dans une nouvelle session au graphe identique.
 
 ## Budgets, routage et pruning
 
@@ -109,6 +114,13 @@ La maintenance fait décroître les traces de matrice et d'arêtes, met à jour 
 ## Complétion et coordination
 
 missionMetrics dérive la couverture des besoins, la fitness des ponts utilisés, la provenance, les latences d'exécution, la fiabilité et la stabilité. La politique par défaut exige fitness ≥ 0,7, couverture ≥ 0,95, provenance = 1 et variance de latence ≤ 100 000 ms². Le contrôleur exige en outre zéro besoin non résolu pour VERIFIED. La stabilité est la fraction de besoins vérifiés, et non une estimation longitudinale.
+
+Une preuve de route reste admissible aux métriques seulement si le chemin exact du
+reçu signé figure parmi les alternatives actuellement autorisées par le variant.
+Une autre route disponible ne valide pas rétroactivement un reçu dont le chemin
+est devenu interdit, notamment après un changement de classification privée.
+La limite d'alternatives du profil peut écarter une ancienne route : cette
+vérification refuse alors prudemment la complétion jusqu'à une nouvelle exécution.
 
 Le bail calculé varie entre 1 000 et 60 000 ms selon cette stabilité. Un transfert de locus exige une cible avec fiabilité ≥ 0,7 par défaut. Sans exécution vérifiée le transfert utilise le bail minimal. canMerge exprime une gate Rhizome et ne dispense jamais des gates de promotion de niveau supérieur.
 

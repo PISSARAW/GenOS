@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
-const { runVariantMission } = require('../src/services/holobionte/variants/variantMissionExecutor');
+const { runVariantMission, preflightVariantMission } = require('../src/services/holobionte/variants/variantMissionExecutor');
 const snapshots = require('../src/services/topologySnapshotService');
 const adapter = require('../src/services/topologySnapshots/holobionte');
 
@@ -89,10 +89,36 @@ async function testInvalidProofAndIdentity() {
   } finally { await db.close(); }
 }
 
+async function testHostCannotVerifyItsOwnMission() {
+  const db = await fixture();
+  try {
+    const verifierIds = ['host-1', 'verifier-b'];
+    const options = input({ verifierIds,
+      verifyMission: async () => ({ verdict: 'PASS', verifierIds,
+        assertions: [{ id: 'local-placement', status: 'PASS', evidenceRefs: ['proof:mission-1'] }] }) });
+    const preflight = preflightVariantMission(options);
+    assert.equal(preflight.ready, false);
+    assert.equal(preflight.verifierCount, 1);
+    const result = await runVariantMission(db, options);
+    assert.equal(result.verdict, 'INCONCLUSIVE');
+    assert.equal(result.stopped, false);
+    assert.equal(await status(db, result), 'ACTIVE');
+    const actorIds = ['operator-1', 'verifier-b'];
+    const actorOptions = input({ actorId: 'operator-1', verifierIds: actorIds,
+      verifyMission: async () => ({ verdict: 'PASS', verifierIds: actorIds,
+        assertions: [{ id: 'local-placement', status: 'PASS', evidenceRefs: ['proof:mission-1'] }] }) });
+    assert.equal(preflightVariantMission(actorOptions).ready, false);
+    const actorResult = await runVariantMission(db, actorOptions);
+    assert.equal(actorResult.verdict, 'INCONCLUSIVE');
+    assert.equal(await status(db, actorResult), 'ACTIVE');
+  } finally { await db.close(); }
+}
+
 async function main() {
   await testRejectedOperation();
   await testVerifiedQuiescence();
   await testInvalidProofAndIdentity();
+  await testHostCannotVerifyItsOwnMission();
   console.log('Holobiont variant mission finalization: PASS');
 }
 

@@ -46,6 +46,11 @@ async function run() {
     await db.run("UPDATE agents SET status = 'running' WHERE id = 'agent-1'");
     await expectCode(() => api.quiesceForSnapshot(input), 'METAPOPULATION_QUIESCENCE_WORKERS_ACTIVE');
     await db.run("UPDATE agents SET status = 'idle' WHERE id = 'agent-1'");
+    await db.run("INSERT INTO mission_agents VALUES ('agent-1', 'missing-worker', 'worker')");
+    await expectCode(() => api.quiesceForSnapshot(input), 'METAPOPULATION_QUIESCENCE_WORKERS_ACTIVE');
+    assert.equal((await db.get('SELECT status FROM metapopulation_sessions WHERE id = ?', session.sessionId)).status, 'FORMING');
+    assert.equal((await db.get("SELECT COUNT(*) AS count FROM metapopulation_events WHERE metapopulation_id = ? AND event_type = 'SESSION_QUIESCED'", session.sessionId)).count, 0);
+    await db.run("DELETE FROM mission_agents WHERE agent_id = 'missing-worker'");
     const ready = await api.quiesceForSnapshot(input);
     assert.equal(ready.boundaryVerified, true);
     assert.equal(ready.missionVerified, false);

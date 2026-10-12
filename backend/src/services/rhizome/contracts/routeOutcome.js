@@ -11,6 +11,7 @@ function normalizeRouteOutcome(value) {
     throw Object.assign(new Error('Verified route outcome requires evidence references.'), { code: 'RHIZOME_ROUTE_EVIDENCE_REQUIRED' });
   }
   return {
+    sessionId: textValue(outcome.sessionId, 'sessionId'),
     routeId: textValue(outcome.routeId, 'routeId'),
     needId: textValue(outcome.needId, 'needId'),
     capability: textValue(outcome.capability, 'capability'),

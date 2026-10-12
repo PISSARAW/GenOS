@@ -557,12 +557,20 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0438](0438-statut-planifie-runtime-isole-multiteam-a-team.md) | Statut planifié du runtime isolé Multiteam A-Team | Accepté le 11 octobre 2026. | -- | -- |
 | [0439](0439-rapports-initiaux-durables-pour-qualification-trinity.md) | Rapports initiaux durables pour qualifier Trinity | Accepté. | -- | -- |
 | [0440](0440-bail-outil-immuable-holobionte.md) | Rendre le bail d'outil immuable jusqu'à l'invocation Holobionte | Accepté | 2026-10-11 | Holobionte, variant `tool`, autorité d'invocation |
-| [0441](0441-oracle-borne-issue-mission.md) | Oracle borné dans le contrat d'issue de mission | Voir le fichier | -- | -- |
-| [0444](0444-execution-attestee-du-controleur-de-mission.md) | Exécution attestée du contrôleur de mission | Accepté pour une activation pilote explicite. | 2026-10-12. | Décision économique, provenance et exécution de mission. |
-| [0445](0445-pont-preuve-mission-vers-apprentissage-routeur.md) | Lier l'apprentissage du routeur à une mission vérifiée | Voir le fichier | -- | -- |
-| [0446](0446-selection-contexte-obligations-ouvertes.md) | Sélection du contexte selon les obligations ouvertes | Accepté pour le raccord de démarrage ; mesure en production ouverte. | 2026-10-12. | Mémoire cognitive, contrat d'issue et budget de contexte. |
-| [0447](0447-portee-budget-modele-parent-et-workers.md) | Portée de budget modèle commune au parent et aux workers | accepté pour le worker local en processus | 2026-10-12 | budget de mission et délégation |
-| [0448](0448-observation-couts-modele-dans-recu-worker.md) | Observer le coût modèle dans le reçu worker | Accepté pour la liaison comptable ; apprentissage bout en bout différé. | 2026-10-12. | -- |
+| [0441a](0441-atomicite-recu-consultatif-morphogenese.md) | Atomicité du reçu consultatif Morphogenèse | Accepté | 2026-10-12 | morphogenèse, persistance des preuves, SQLite |
+| [0441b](0441-oracle-borne-issue-mission.md) | Oracle borné dans le contrat d'issue de mission | Voir le fichier | -- | -- |
+| [0442](0442-preuve-route-actuelle-rhizome.md) | Lier la complétion Rhizome au chemin actuellement autorisé | Accepté | 2026-10-12 | Rhizome, variants, preuves de route |
+| [0443](0443-preuve-revision-branche-speculative-syncytium.md) | Lier la validation spéculative à la révision de branche | Accepté | 2026-10-12 | Syncytium, variant Speculative, promotion |
+| [0444a](0444-enfants-depuis-elites-admises-biome.md) | Produire les enfants Quality-Diversity depuis les élites admises | Accepté | 2026-10-12 | Biome, Quality-Diversity, archive des élites |
+| [0444b](0444-execution-attestee-du-controleur-de-mission.md) | Exécution attestée du contrôleur de mission | Accepté pour une activation pilote explicite. | 2026-10-12. | Décision économique, provenance et exécution de mission. |
+| [0445a](0445-pont-preuve-mission-vers-apprentissage-routeur.md) | Lier l'apprentissage du routeur à une mission vérifiée | Voir le fichier | -- | -- |
+| [0445b](0445-refus-des-champs-non-scelles-snapshot-topologique.md) | Refuser les champs non scellés du snapshot topologique | accepté | 2026-10-12 | snapshots topologiques, intégrité, frontière Morphogenèse |
+| [0446a](0446-refus-des-affectations-orphelines-en-quiescence-metapopulation.md) | Refus des affectations orphelines en quiescence Métapopulation | Accepté | 2026-10-12 | Métapopulation, snapshots, quiescence |
+| [0446b](0446-selection-contexte-obligations-ouvertes.md) | Sélection du contexte selon les obligations ouvertes | Accepté pour le raccord de démarrage ; mesure en production ouverte. | 2026-10-12. | Mémoire cognitive, contrat d'issue et budget de contexte. |
+| [0447a](0447-lier-resolution-et-score-forecasting-biocenose.md) | Lier résolution et score du variant Forecasting Crowd | Accepté | 2026-10-12 | Biocénose, Forecasting Crowd, preuve de calibration |
+| [0447b](0447-portee-budget-modele-parent-et-workers.md) | Portée de budget modèle commune au parent et aux workers | accepté pour le worker local en processus | 2026-10-12 | budget de mission et délégation |
+| [0448a](0448-liaison-monde-promu-candidat-trinity.md) | Lier le monde promu au candidat Trinity | Accepté | 2026-10-12 | Trinity, qualification nominale, provenance du candidat |
+| [0448b](0448-observation-couts-modele-dans-recu-worker.md) | Observer le coût modèle dans le reçu worker | Accepté pour la liaison comptable ; apprentissage bout en bout différé. | 2026-10-12. | -- |
 | [0449](0449-raccord-checkpoint-communication-et-couts-par-agent.md) | Raccord du checkpoint de communication et coûts par agent | Accepté pour le canal `SIGNAL` des checkpoints ; économies globales à mesurer. | 2026-10-12. | Communication d'équipe, grounding et comptabilité des tokens. |
 | [0450](0450-liaison-sortie-modele-oracle-independant.md) | Lier la sortie du modèle au résultat de l'oracle | Accepté pour le refus fermé ; domaine modèle encore absent. | 2026-10-12. | -- |
 | [0451](0451-portee-budget-modele-runtime-local-sous-processus.md) | Portée de budget modèle dans le runtime local en sous-processus | accepté pour le runtime `local-codex-runtime.cjs` | 2026-10-12 | budget de mission et exécution déléguée |
@@ -572,6 +580,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0455](0455-refus-budget-partage-codex-cli-sans-recu-usd.md) | Refuser le budget partagé de Codex CLI sans reçu USD | Voir le fichier | -- | -- |
 | [0456](0456-transport-natif-et-comparaison-cycles-communication.md) | Transport natif et comparaison des cycles de communication | Accepté pour le canal `SIGNAL` ; gain net non démontré. | 2026-10-12. | Communication d'équipe et mesure des tokens. |
 | [0457](0457-ingestion-routeur-cloture-worker-verifiee.md) | Ingestion du routeur à la clôture worker vérifiée | Accepté pour les missions worker dont la tentative modèle et la preuve native so | -- | -- |
+| [0460](0460-quorum-lie-aux-membres-expert-committee.md) | Quorum lié aux membres d'Expert Committee | Accepté | 2026-10-12 | A-Team, variant `expert_committee`, consensus |
+| [0461](0461-verificateurs-independants-holobionte.md) | Exclure l'hôte et l'acteur des vérificateurs de mission Holobionte | Accepté | 2026-10-12 | Holobionte, douze variants, autorité des preuves |
+| [0462](0462-lier-recu-route-session-rhizome.md) | Lier les reçus de route Rhizome à leur session | Accepté | 2026-10-12 | Rhizome, preuves, isolation des missions |
+| [0463](0463-lier-workers-au-graphe-prepare-morphogenese.md) | Lier les workers au graphe préparé Morphogenèse | Accepté | 2026-10-12 | morphogenèse, preuve consultative, graphe préparé |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

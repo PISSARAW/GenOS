@@ -4,6 +4,12 @@
 
 - [Qualification de release](06-qualite-preuves/qualification-release.md) — portes automatiques, rapport reproductible et écarts bloquant l'exploitabilité complète.
 
+- [Onzième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#onzième-vague--2026-10-12) — graphe préparé lié aux workers, quorum Expert Committee, vérificateurs Holobionte indépendants et reçus Rhizome liés à la session ; [ADR 0460](adr/0460-quorum-lie-aux-membres-expert-committee.md) à [0463](adr/0463-lier-workers-au-graphe-prepare-morphogenese.md).
+
+- [Dixième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#dixième-vague--2026-10-12) — manifeste snapshot scellé, quiescence Métapopulation, résolution Forecasting Crowd et monde promu Trinity ; [ADR 0445](adr/0445-refus-des-champs-non-scelles-snapshot-topologique.md) à [0448](adr/0448-liaison-monde-promu-candidat-trinity.md).
+
+- [Neuvième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#neuvième-vague--2026-10-12) — atomicité du reçu consultatif, route Rhizome courante, révision speculative Syncytium et filiation Quality-Diversity Biome ; [ADR 0441](adr/0441-atomicite-recu-consultatif-morphogenese.md) à [0444](adr/0444-enfants-depuis-elites-admises-biome.md).
+
 - [Huitième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#huitième-vague--2026-10-11) — sources de reçus Morphogenèse append-only, statut planifié A-Team, rapports Trinity et bail d'outil Holobionte ; [ADR 0437](adr/0437-immutabilite-sources-recu-morphogenese.md) à [0440](adr/0440-bail-outil-immuable-holobionte.md).
 
 - [Septième vague des variants](02-orchestration/topologies/plan-implementation-variants.md#septième-vague--2026-10-11) — horloges Edge Sync, deadline des routes Rhizome, identité du daemon Métapopulation et réconciliation des actions Biocénose ; [ADR 0434](adr/0434-deadline-des-reprises-de-route-rhizome.md), [0435](adr/0435-identite-du-daemon-planifie-metapopulation.md) et [0436](adr/0436-reconciliation-actions-ecologiques-biocenose.md).

@@ -164,3 +164,17 @@ triggers. Le reçu de décision peut donc relire ses deux sources sans mutation
 ordinaire entre appels. Cette protection locale ne signe pas la décision et
 le graphe préparé ne constitue toujours pas un snapshot restaurable ; voir
 [ADR 0437](../adr/0437-immutabilite-sources-recu-morphogenese.md).
+
+L'insertion d'un reçu de décision consultative et sa relecture de validation
+s'exécutent dans une seule transaction SQLite. Si sa proposition ou son
+graphe lié ne peut plus être relu, la transaction annule l'insertion : aucune
+ligne orpheline append-only ne reste. Cette atomicité locale ne prouve pas
+l'autorité de la décision et n'autorise pas APPLY ; voir
+[ADR 0441](../adr/0441-atomicite-recu-consultatif-morphogenese.md).
+
+La relecture du graphe préparé compare aussi la liste des workers du nœud
+racine à celle de la morphologie soumise. Un rôle ou un membre modifié après
+scellement donne `SNAPSHOT_STALE_OR_MISMATCHED` avant l'adjudication Rust.
+Cette vérification lie une proposition de structure, sans prouver l'exécution
+des workers ni rendre le graphe restaurable ; voir
+[ADR 0463](../adr/0463-lier-workers-au-graphe-prepare-morphogenese.md).

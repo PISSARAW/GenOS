@@ -37,9 +37,8 @@ function assess(input) {
     ...initialReportFailures(initial, input.initialProof, input.comparisonProof),
     ...transitionFailures(experiment, input.transitions),
     ...gateFailures(variant, decision), ...comparisonFailures(input.comparisonProof, decision),
-    ...promotionFailures(experiment, decision),
+    ...promotionFailures(experiment, decision), ...promotedWorldFailures(worlds, initial, decision),
     ...candidateFailures(decision, signedObjectValid)];
-  if (!initial.some((world) => world.agent_id === decision.verification?.sourceAgentId)) reasons.push('verified_source_world_missing');
   return { variant, missionId, qualified: reasons.length === 0, reasons,
     experimentStatus: experiment?.status || 'missing', observedGates: decision.variantGates || {} };
 }
@@ -114,6 +113,14 @@ function transitionFailures(experiment, transitions = []) {
 
 function promotionFailures(experiment, decision) {
   return experiment?.status === 'promoted' && decision.outcome === 'PROMOTED' ? [] : ['promotion_not_observed'];
+}
+
+function promotedWorldFailures(worlds, initial, decision) {
+  const promoted = worlds.filter((world) => world.status === 'promoted');
+  return promoted.length === 1 && initial.includes(promoted[0])
+    && promoted[0].world_number === decision.worldNumber
+    && promoted[0].agent_id === decision.verification?.sourceAgentId
+    ? [] : ['promoted_world_mismatch'];
 }
 
 function comparisonFailures(proof, decision) {

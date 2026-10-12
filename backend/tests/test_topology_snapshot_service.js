@@ -37,6 +37,16 @@ async function run() {
   tampered.components[0].payload.value = 'forged';
   await expectRefusal(() => service.preflightRestore({ ...context, manifest: tampered }),
     'TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED');
+  const forgedAuthority = { ...manifest, restorable: true, commitAuthorized: true };
+  await expectRefusal(() => service.preflightRestore({ ...context, manifest: forgedAuthority }),
+    'TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED');
+  const hiddenAuthority = { ...manifest };
+  Object.defineProperty(hiddenAuthority, 'restorable', { value: true });
+  await expectRefusal(() => service.preflightRestore({ ...context, manifest: hiddenAuthority }),
+    'TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED');
+  const symbolAuthority = { ...manifest, [Symbol('commitAuthorized')]: true };
+  await expectRefusal(() => service.preflightRestore({ ...context, manifest: symbolAuthority }),
+    'TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED');
 
   state.revision++;
   await expectRefusal(() => service.preflightRestore({ ...context, manifest }), 'TOPOLOGY_SNAPSHOT_DRIFT');
