@@ -733,3 +733,6 @@ limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scell
 - [ADR 0452 — Exécution de procédure en mission](adr/0452-execution-procedure-mission.md).
 - [ADR 0453 — Budget partagé des runtimes modèles externes](adr/0453-budget-partage-des-runtimes-modeles-externes.md).
 - [ADR 0454 — Oracle natif pour réponse modèle mesurée](adr/0454-oracle-natif-pour-reponse-modele-mesuree.md).
+- [ADR 0455 — Refus du budget partagé Codex CLI sans reçu USD](adr/0455-refus-budget-partage-codex-cli-sans-recu-usd.md).
+- [ADR 0456 — Transport natif et comparaison des cycles de communication](adr/0456-transport-natif-et-comparaison-cycles-communication.md).
+- [ADR 0457 — Ingestion du routeur après clôture vérifiée du worker](adr/0457-ingestion-routeur-cloture-worker-verifiee.md).

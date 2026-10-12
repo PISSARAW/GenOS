@@ -209,9 +209,15 @@ function matches(data, derived) {
     && data.verification?.assemblyId === derived.verification.assemblyId;
 }
 
-async function ingest(db, missionId) {
+async function ingestWithTrace(db, missionId) {
   const derived = await derive(db, missionId);
-  return derived ? require('./routingBanditService').observe(db, derived) : null;
+  if (!derived) return { status: 'refused', reason: 'mission_evidence_ineligible' };
+  return require('./routingBanditService').observeWithStatus(db, derived);
 }
 
-module.exports = { derive, matches, ingest, modelClaimMatches };
+async function ingest(db, missionId) {
+  const result = await ingestWithTrace(db, missionId);
+  return result.status === 'observed' ? result.observation : null;
+}
+
+module.exports = { derive, matches, ingest, ingestWithTrace, modelClaimMatches };
