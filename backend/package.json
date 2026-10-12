@@ -104,7 +104,8 @@
     "test:orchestrator": "node tests/run_orchestrator_suite.cjs",
     "test:capsules": "node tests/test_capsule_transport.js",
     "test:otel": "node tests/test_telemetry_otlp_bridge.js",
-    "test:workers": "node tests/run_validation_suite.js workers"
+    "test:workers": "node tests/run_validation_suite.js workers",
+    "test:worker-credit": "node tests/probes/test_external_credit_provider.cjs && node tests/probes/test_external_credit_supervision.cjs && node tests/probes/test_external_credit_matrix.cjs"
   },
   "dependencies": {
     "@cedar-policy/cedar-wasm": "^4.13.0",
