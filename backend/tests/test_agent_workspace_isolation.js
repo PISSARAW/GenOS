@@ -49,6 +49,15 @@ async function run() {
     assert.strictEqual(directWorker, path.join(directRoot, '.genos-agent-worlds', 'worker-direct'));
     assert.strictEqual(fs.readFileSync(path.join(directWorker, 'mission.txt'), 'utf8'), 'direct workspace');
 
+    const nestedSource = path.join(capsuleRoot, 'parent-capsule');
+    fs.mkdirSync(nestedSource, { recursive: true });
+    fs.writeFileSync(path.join(nestedSource, 'mission.txt'), 'delegated workspace');
+    const nestedWorker = await createIsolatedWorkspace(nestedSource, 'worker-nested');
+    assert.strictEqual(nestedWorker, path.join(capsuleRoot, 'worker-nested'));
+    assert.strictEqual(fs.readFileSync(path.join(nestedWorker, 'mission.txt'), 'utf8'), 'delegated workspace');
+    assert.strictEqual(fs.existsSync(path.join(nestedSource, 'worker-nested')), false,
+      'nested capsule creation must not recurse into the source workspace');
+
     const repository = path.join(root, 'repository');
     const nestedMission = path.join(repository, 'task');
     fs.mkdirSync(nestedMission, { recursive: true });

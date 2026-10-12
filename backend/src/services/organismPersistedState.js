@@ -116,8 +116,7 @@ async function assertRelationsUnchanged(db, agentId, payload) {
   }
   if (!Array.isArray(payload.sections.relations)) throw new Error('Snapshot relations section is invalid.');
   const current = await readRows(db, TABLES.relations, agentId);
-  const stable = (rows) => rows.map(({ updated_at: _timestamp, ...relation }) => relation);
-  if (digest(stable(current)) !== digest(stable(payload.sections.relations))) {
+  if (digest(current) !== digest(payload.sections.relations)) {
     throw Object.assign(new Error('Shared relations changed since the snapshot.'), { code: 'ORGANISM_RESTORE_RELATION_CONFLICT', status: 409 });
   }
 }
@@ -148,6 +147,10 @@ async function insertRow(db, table, row) {
 }
 
 async function restore(db, agentId, options) {
+  return withTransaction(db, () => restoreInTransaction(db, agentId, options));
+}
+
+async function restoreInTransaction(db, agentId, options) {
   await inspectRestore(db, agentId, options);
   await replacePersistedRows(db, agentId, options.payload.sections);
   return { modelTurns: options.payload.sections.modelTurns.length, runtimeRestartRequired: true };

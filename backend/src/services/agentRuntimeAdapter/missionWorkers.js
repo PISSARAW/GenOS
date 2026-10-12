@@ -9,7 +9,6 @@ const aTeamRuntime = require('../aTeam/aTeamRuntime');
 const teamRunStore = require('../aTeam/teamRunStore');
 const trinityHistoricalMemory = require('../trinityHistoricalMemoryService');
 const { bindDispatchAssignments } = require('../morphogenesis/morphogenesisMissionBinding');
-const { isDeepStrictEqual } = require('node:util');
 
 function emitTeamComposition(ctx, autonomousWorkers) {
   const { agentId, autonomyPlan } = ctx;
@@ -112,6 +111,11 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
     throw Object.assign(new Error('Trinity requires a persisted execution run id.'), { code: 'TRINITY_EXECUTION_RUN_REQUIRED' });
   }
   const trinityMissionId = `trinity_${agentId}_${executionRunId}`;
+  await require('../missionIdentityService').create(db, {
+    missionId: trinityMissionId,
+    objective: normalizedMission.prompt || normalizedMission.currentTask || 'Trinity comparison mission',
+    orchestratorAgentId: agentId
+  });
   autonomyPlan.trinity.missionId = trinityMissionId;
   autonomyPlan.trinity.experimentId = trinityMissionId;
   await tagCounterfactualBranches({ db, orchestratorId: agentId, missionId: trinityMissionId, workers: autonomousWorkers, members: autonomyPlan.trinity.members });
@@ -131,9 +135,12 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
 
 async function bindTrinityWorkers(db, input) {
   const preparation = require('../trinityDispatchPreparation');
+  const identities = require('../missionIdentityService');
   for (const worker of input.workers) {
     const scope = { missionId: input.missionId, trinityExperimentId: input.missionId };
     worker.workspaceId = await preparation.bindWorker(db, { scope, workerId: worker.agentId, workspaceRoot: worker.workspaceRoot });
+    await identities.attachAgent(db, { missionId: input.missionId, agentId: worker.agentId, role: 'trinity_worker' });
+    worker.missionId = input.missionId;
     worker.missionScope = scope;
     worker.toolLease = preparation.restrictLease(scope, worker.toolLease);
   }
@@ -174,19 +181,13 @@ function registerAutonomousRound(ctx, autonomousWorkers) {
 
 async function orchestrateAutonomousWorkers(ctx) {
   if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return [];
-  require('../nativeMissionPlanService').assertNativePlanDigest(ctx.autonomyPlan);
   const requested = Array.isArray(ctx.autonomyPlan?.dispatchWorkers) ? ctx.autonomyPlan.dispatchWorkers : [];
   let assignments = capAssignments(requested, ctx);
-  if (ctx.autonomyPlan?.nativeMissionPlan && assignments.length !== requested.length) {
-    throw Object.assign(new Error('Native objectives cannot be silently removed by fanout policy.'),
-      { code: 'NATIVE_OBJECTIVE_FANOUT_BLOCKED' });
-  }
   if (ctx.normalizedMission.autonomousOrchestration === false) {
     emitDispatchDeferred(ctx, assignments);
     return [];
   }
   const bound = bindDispatchAssignments(ctx.autonomyPlan, assignments);
-  require('../nativeMissionPlanService').assertNativePlanDigest(ctx.autonomyPlan);
   assignments = bound.assignments;
   if (bound.binding) {
     emit(ctx.agentId, 'MORPHOGENESIS_MISSION_DISPATCH_BOUND', 'DISPATCH_WORKERS',
@@ -232,7 +233,7 @@ async function dispatchSelectedWorkers(ctx, assignments) {
   let autonomousWorkers = [];
   try {
     autonomousWorkers = await createAutonomousWorkers(ctx.db, ctx.dispatchedAgent, ctx.autonomyPlan, ctx.normalizedMission);
-    assertWorkerDispatchMatches(assignments, autonomousWorkers, ctx.autonomyPlan);
+    assertWorkerDispatchMatches(assignments, autonomousWorkers);
     await observeWorkerDispatch(ctx, { status: 'created', workerIds: autonomousWorkers.map((worker) => worker.agentId) });
   } catch (error) {
     autonomousWorkers = Array.isArray(error.createdWorkers) ? error.createdWorkers : autonomousWorkers;
@@ -332,19 +333,7 @@ function linkWorker(member, workers) {
   return { ...member, agentId: worker.agentId, workerId: worker.agentId, status: 'ACTIVE' };
 }
 
-function assertNativeDispatch(assignments, workers, plan) {
-  const expectedTokens = plan.tokenPolicy?.rounds?.initial?.workerTokens || [];
-  const mismatch = assignments.some((assignment, index) =>
-    workers[index]?.agentId !== assignment.workerId
-    || workers[index]?.workerKind !== assignment.workerKind
-    || !isDeepStrictEqual(workers[index]?.methodContract, assignment.methodContract)
-    || workers[index]?.executionBudget?.tokens !== expectedTokens[index]);
-  if (mismatch) {
-    throw Object.assign(new Error('Native worker kind, method or budget differs from the sealed plan.'),
-      { code: 'NATIVE_OBJECTIVE_DISPATCH_MISMATCH' });
-  }
-}
-function assertWorkerDispatchMatches(assignments, workers, plan) {
+function assertWorkerDispatchMatches(assignments, workers) {
   if (workers.length !== assignments.length) {
     throw Object.assign(new Error(`Worker dispatch count mismatch: selected ${assignments.length}, created ${workers.length}.`), {
       code: 'WORKER_DISPATCH_COUNT_MISMATCH',
@@ -358,7 +347,6 @@ function assertWorkerDispatchMatches(assignments, workers, plan) {
       || (assignment.label && assignment.label !== worker.label)
       || (assignment.role && assignment.role !== worker.role);
   });
-  if (plan?.nativeMissionPlan) assertNativeDispatch(assignments, workers, plan);
   const duplicateIds = new Set(workers.map((worker) => worker.agentId)).size !== workers.length;
   if (!assignmentMismatch && !duplicateIds) return;
   throw Object.assign(new Error('Created workers do not match the selected assignment identities.'), {

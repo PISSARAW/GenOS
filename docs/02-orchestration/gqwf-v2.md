@@ -50,6 +50,7 @@ son CLI Node pour l'exécution directe ; le vérificateur garde la commande
 autorisée `npm test` et sa propre racine de confinement.
 
 Validation : `node backend/tests/test_gqwf_trinity_mission_qualification.js`.
+
 La création inscrit `preparing` avant le dossier, puis `open` après sa
 matérialisation. La libération traverse `releasing` avant `released`. Un nouvel
 appel à `releaseLease` reprend une suppression interrompue ; `materializeRoot`

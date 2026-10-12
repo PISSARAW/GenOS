@@ -1,6 +1,5 @@
 'use strict';
-const fs = require('node:fs/promises');
-const { createReadStream } = require('node:fs');
+const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const manifests = require('./trinityRunManifest');
@@ -9,19 +8,19 @@ const values = require('./trinityProvenanceValues');
 
 async function artifact(filename) {
   if (!path.isAbsolute(filename)) throw values.failure('TRINITY_LAUNCH_EXECUTABLE_UNRESOLVED');
-  const resolved = await fs.realpath(filename);
-  const before = await fs.stat(resolved);
+  const resolved = fs.realpathSync(filename);
+  const before = fs.statSync(resolved);
   if (!before.isFile() || before.size > 256 * 1024 * 1024) throw values.failure('TRINITY_LAUNCH_ARTIFACT_INVALID');
   const hash = crypto.createHash('sha256');
-  for await (const bytes of createReadStream(resolved)) hash.update(bytes);
-  const after = await fs.stat(resolved);
+  for await (const bytes of fs.createReadStream(resolved)) hash.update(bytes);
+  const after = fs.statSync(resolved);
   if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) throw values.failure('TRINITY_LAUNCH_ARTIFACT_CHANGED');
   return { path: resolved, sha256: hash.digest('hex'), bytes: before.size };
 }
 
 async function captureLaunch(input) {
   if (!input.normalizedMission?.missionScope?.trinityExperimentId) return null;
-  const workspaceRoot = await fs.realpath(input.workspaceRoot);
+  const workspaceRoot = fs.realpathSync(input.workspaceRoot);
   const filenames = [...new Set([input.spawnSpec.cmd, input.resolvedExecutable])];
   const artifacts = await Promise.all(filenames.map(artifact));
   return { schema: 'genos.trinity-launch-observation/v1', observedAt: values.utc(),

@@ -32,7 +32,8 @@ async function executeComparison(context) {
   const activeReports = sequentialReview?.status === 'executed' ? sequentialReview.reports : qdReview?.status === 'executed' ? qdReview.reports
     : adaptiveReview?.status === 'executed' ? adaptiveReview.reports : reports;
   const examined = await phase('cross_examination', () => crossExamination.examine(db, activeReports, design));
-  const worlds = verifier.verifyMissionReports(examined.reports, input.mission);
+  const missionVerified = verifier.verifyMissionReports(examined.reports, input.mission);
+  const worlds = await require('./trinityNativeProcedureVerifier').verifyReports(db, missionVerified);
   const temporalReview = runTemporalReview(input.variantSelection, worlds);
   const recursiveReview = await phase('recursive', () => runRecursiveReview({ db, input, worlds }));
   const review = await phase('adversarial', () => adversarial.runVariantReview({ db, agentId: input.orchestratorId, design, worlds }));

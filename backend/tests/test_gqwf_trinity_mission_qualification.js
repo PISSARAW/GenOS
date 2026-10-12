@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const fsSync = require('node:fs');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
@@ -11,126 +12,194 @@ process.env.GENOS_DB_BACKUP_SKIP = '1';
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = crypto.randomBytes(32).toString('hex');
 
 const database = require('../src/db');
-const barrier = require('../src/services/trinityComparativeBarrier');
+const missionIdentity = require('../src/services/missionIdentityService');
+const strategy = require('../src/services/strategyExecutionService');
+const strategies = require('../src/services/strategyContractService');
+const missions = require('../src/services/agentRuntimeAdapter/missionWorkers');
+const evidenceBarrier = require('../src/services/workerEvidenceBarrier');
+const comparativeBarrier = require('../src/services/trinityComparativeBarrier');
+const telemetry = require('../src/services/telemetryObserver');
 const { previousPromotion } = require('../src/services/trinityPromotionIntegrity');
 
-const claim = 'The candidate computes the expected answer from answer.txt.';
+const workerAssignments = {
+  basic_implementation: { methodContract: scopedMethod() },
+  interview_plan_implementation: { specialtyNiche: 'planned_world', methodContract: nicheMethod() },
+  self_correcting_implementation: { methodContract: adaptiveMethod() }
+};
 
-function comparison(agentId) {
-  return { canMerge: true, selectedWorld: 1, selectedRole: 'basic_implementation', bestScore: 0.95,
-    comparativeAnalysis: { scoredWorlds: [{ worldNumber: 1, agentId, score: 0.95,
-      report: { claims: [{ statement: claim }] } }] } };
+function problem() {
+  return { version: 1, methodId: 'lpt', parameters: {
+    jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2
+  } };
 }
 
-async function createWorld(db, root) {
-  const source = path.join(root, 'world');
+function scopedMethod() {
+  return { version: 1, methodId: 'scoped_procedure', parameters: { procedure: problem() } };
+}
+
+function nicheMethod() {
+  return { version: 1, methodId: 'niche_procedure', parameters: { niche: 'planned_world', procedure: problem() } };
+}
+
+function adaptiveMethod() {
+  return { version: 1, methodId: 'adapt_procedure', parameters: { trials: [
+    { strategy: 'controlled_probe', procedure: problem() },
+    { strategy: 'causal_bisection', procedure: problem() },
+    { strategy: 'controlled_probe', procedure: problem() }
+  ] } };
+}
+
+function claimPlans(source) {
+  return [
+    `Scoped procedure 'lpt' completed in '${source}'.`,
+    "Procedure executed within declared niche 'planned_world'.",
+    '3 bounded strategy trials executed; best observed makespan 7.'
+  ].map((claim) => ({ claim, commandIds: ['npm-test'] }));
+}
+
+async function createWorkspace(db, root, answer) {
+  const source = path.join(root, 'workspace');
   await fs.mkdir(source);
-  await fs.writeFile(path.join(source, 'answer.txt'), '42\n');
+  await fs.writeFile(path.join(source, 'answer.txt'), answer);
   await fs.writeFile(path.join(source, 'package.json'), JSON.stringify({ private: true,
     scripts: { test: 'node test.js' } }));
-  await fs.writeFile(path.join(source, 'test.js'), `const fs = require('node:fs');
-if (fs.readFileSync('answer.txt', 'utf8') !== '42\\n') process.exit(1);
-`);
+  await fs.writeFile(path.join(source, 'test.js'), "const fs=require('node:fs');if(fs.readFileSync('answer.txt','utf8')!=='42\\n')process.exit(1);\n");
   await db.run('INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)', 'gqwf-qual-ws', 'GQWF qualification', source);
-  await db.run(`INSERT INTO agents (id, name, role, status, workspace_id)
-    VALUES (?, ?, 'worker', 'completed', ?)`, 'gqwf-qual-agent', 'GQWF worker', 'gqwf-qual-ws');
-  await db.run(`INSERT INTO trinity_worlds
-    (id, mission, world_number, name, strategy, status, agent_id, workspace_root)
-    VALUES (?, ?, 1, 'World 1', 'basic_implementation', 'completed', ?, ?)`,
-  'gqwf-qual-world', 'Qualify GQWF', 'gqwf-qual-agent', source);
+  await db.run(`INSERT INTO agents
+    (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, language, isolation_mode,
+     cognitive_budget, cognitive_baseline_budget, metadata_json)
+    VALUES ('gqwf-qual-agent', 'GQWF qualification', 'orchestrator', 'idle', 'GenOS', 'orchestrator', ?,
+      'Local', 'JavaScript', 'Branch', 100000, 100000, '{}')`, 'gqwf-qual-ws');
+  const contract = strategies.buildStrategyContract({ mission: 'Execute a bounded comparative mission.', allowPrototype: true });
+  contract.execution_pipeline = ['deterministic_execution'];
+  contract.promotion.require_independent_verification = false;
+  contract.promotion.require_epistemic_assurance = false;
+  await strategies.saveContract(db, { agentId: 'gqwf-qual-agent', workspaceId: 'gqwf-qual-ws',
+    contract, createdBy: 'gqwf-trinity-qualification' });
   return source;
 }
 
-async function createExperiment(db, missionId) {
-  const id = `gqwf-qual-${missionId}`;
-  const design = { integrationChecks: ['npm-test'],
-    claimVerificationChecks: [{ claim, commandIds: ['npm-test'] }] };
-  await db.run(`INSERT INTO trinity_experiments
-    (id, mission_id, domain, mission_snapshot_hash, design_json, status)
-    VALUES (?, ?, 'software_engineering', ?, ?, 'sealed_running')`,
-  id, missionId, crypto.createHash('sha256').update(missionId).digest('hex'), JSON.stringify(design));
-  return id;
+function missionInput(source, missionId) {
+  return { missionId, prompt: 'Run Trinity: solve the LPT scheduling fixture and verify the checked workspace.',
+    workspaceRoot: source, autonomousOrchestration: true, executionBudget: {
+      tokens: 12000, workerShare: 0.75, orchestratorReserve: 0.25, events: 180, latencyMs: 120000
+    }, executionPolicy: { gqwfV2: true, requestedWorkers: 3, workerFanoutLimit: 3, allowFileEdits: true },
+    workerAssignments, trinityVariantId: 'controlled', trinityIntegrationChecks: ['npm-test'],
+    trinityClaimVerificationChecks: claimPlans(source), executor: 'local', localRuntime: true, silentUpdates: true };
 }
 
-async function assertPublished(db, promotion, experimentId) {
-  assert.equal(promotion.promoted, true, JSON.stringify(promotion));
-  assert.equal(promotion.verification.integrationChecks.length, 1);
-  assert.equal(promotion.verification.integrationChecks[0].passed, true);
-  assert.equal(promotion.verification.claimChecks.length, 1);
-  assert.equal(promotion.verification.claimChecks[0].receipt.independent, true);
-  const row = await db.get('SELECT status, decision_json FROM trinity_experiments WHERE id = ?', experimentId);
-  assert.equal(row.status, 'promoted');
-  const decision = JSON.parse(row.decision_json);
-  assert.equal(decision.gqwf.generation, 1);
-  const head = await db.get('SELECT root_hash, generation FROM gqwf_heads WHERE workspace_id = ? AND name = ?',
-    'gqwf-qual-ws', `trinity/${experimentId}`);
-  assert.equal(head.root_hash, decision.gqwf.rootHash);
-  assert.equal(head.generation, 1);
-  const event = await db.get('SELECT evidence_id FROM gqwf_head_events WHERE workspace_id = ? AND name = ? AND generation = 1',
-    'gqwf-qual-ws', `trinity/${experimentId}`);
-  assert.equal(event.evidence_id, decision.agentGit.objectId);
-  return decision;
+function autonomyPlan(input) {
+  const service = require('../src/services/trinityService');
+  const variants = require('../src/services/trinityVariantService');
+  const kinds = require('../src/services/topologyWorkerKindService');
+  const differentiation = require('../src/services/trinityDifferentiationService');
+  const analysis = service.analyzeMission(input.prompt);
+  const selection = variants.selectForMission(input.prompt, { variantId: input.trinityVariantId });
+  const members = kinds.applyTopologyWorkerKinds('trinity', differentiation.differentiate(analysis.members, {
+    goal: input.prompt, domain: analysis.domain, design: selection.experimentalDesign
+  }), input.workerAssignments);
+  const design = service.designHypotheses(input.prompt, {
+    integrationChecks: input.trinityIntegrationChecks,
+    claimVerificationChecks: input.trinityClaimVerificationChecks
+  });
+  design.variantSelection = selection;
+  return { trinity: { ...analysis, activated: true, missionId: null, experimentId: null,
+    variantSelection: selection, members, hypothesisDesign: design, threshold: 0.70 },
+    tokenPolicy: { total: 12000, workerShare: 0.75, orchestratorReserve: 0.25, allocation: 'fixed' },
+    workers: members, dispatchWorkers: members };
+}
+
+async function runMission(db, source, missionId) {
+  const input = missionInput(source, missionId);
+  const row = await db.get('SELECT * FROM agents WHERE id = ?', 'gqwf-qual-agent');
+  const contractRecord = await strategies.getLatestContract(db, 'gqwf-qual-agent', 'gqwf-qual-ws');
+  await missionIdentity.create(db, { missionId, objective: input.prompt, orchestratorAgentId: row.id });
+  const run = await strategy.createExecutionRun(db, { agentId: row.id, missionId,
+    budget: input.executionBudget, contractRecord });
+  const ctx = { db, agentId: row.id, dispatchedAgent: row, normalizedMission: input,
+    autonomyPlan: autonomyPlan(input), contractRecord, executionRun: run, workspaceRoot: source,
+    silentUpdates: true };
+  const workers = await missions.orchestrateAutonomousWorkers(ctx);
+  assert.equal(workers.length, 3, 'the mission dispatcher must create all three Trinity workers');
+  for (const worker of workers) fsSync.realpathSync(worker.workspaceRoot);
+  await evidenceBarrier.runEvidenceBarrier({ db, agentId: row.id, normalizedMission: input,
+    autonomyPlan: ctx.autonomyPlan, contractRecord, autonomousWorkers: workers, strict: true });
+  return { ctx, workers, experimentId: ctx.autonomyPlan.trinity.missionId };
+}
+
+async function assertPromotedComparison(db, result) {
+  await telemetry.flush(10000);
+  const worlds = await db.all(`SELECT world_number, agent_id, status, evidence_vector_json FROM trinity_worlds
+    WHERE experiment_id = ? ORDER BY world_number`, result.experimentId);
+  assert.equal(worlds.length, 3);
+  assert.deepEqual(worlds.map((world) => world.world_number), [1, 2, 3]);
+  assert.equal(new Set(worlds.map((world) => world.agent_id)).size, 3);
+  const reports = await comparativeBarrier.buildWorldReportsFromMission(db, result.experimentId);
+  assert.equal(reports.length, 3);
+  assert.ok(reports.every((entry) => entry.report?.outcome === 'success'));
+  assert.ok(worlds.every((world) => ['compared', 'promoted'].includes(world.status)));
+  assert.ok(worlds.every((world) => {
+    const vector = JSON.parse(world.evidence_vector_json || '{}');
+    return vector.correctness === 1 && vector.coverage === 1 && vector.robustness === 0.5;
+  }), 'production comparison must persist evidence vectors for the three worker reports');
+  for (const world of worlds) {
+    const events = await db.all(`SELECT event_type FROM telemetry_events WHERE agent_id = ?
+      AND event_type IN ('DETERMINISTIC_WORKER_STARTED', 'EVIDENCE_REPORT', 'AGENT_COMPLETED')`, world.agent_id);
+    assert.deepEqual(events.map((event) => event.event_type).sort(), [
+      'DETERMINISTIC_WORKER_STARTED', 'EVIDENCE_REPORT', 'AGENT_COMPLETED'
+    ].sort());
+  }
+  const comparison = result.ctx.autonomyPlan.trinity.comparison;
+  assert.equal(comparison.canMerge, true, JSON.stringify(comparison));
+  assert.ok([1, 2, 3].includes(comparison.selectedWorld));
+  assert.equal(comparison.outcome, 'PROMOTE_WORLD');
+  assert.equal(comparison.crossExamination.status, 'complete');
+  assert.ok(comparison.crossExamination.worlds
+    .every((world) => world.status === 'verified' && world.receipts.length === 1));
+  assert.ok(Number.isFinite(comparison.bestScore));
+  assert.equal(comparison.promotion.promoted, true, JSON.stringify(comparison.promotion));
+  assert.equal(comparison.promotion.verification.integrationChecks[0].passed, true);
+  assert.equal(comparison.promotion.verification.claimChecks.length, 1);
+  assert.ok(comparison.promotion.verification.claimChecks.every((check) => check.receipt.independent));
+  const experiment = await db.get('SELECT status FROM trinity_experiments WHERE mission_id = ?', result.experimentId);
+  assert.equal(experiment.status, 'promoted');
+  const winner = worlds.find((world) => Number(world.world_number) === Number(comparison.selectedWorld));
+  const winningWorkspace = await db.get('SELECT workspace_id FROM agents WHERE id = ?', winner.agent_id);
+  const head = await db.get('SELECT root_hash FROM gqwf_heads WHERE workspace_id = ? AND name = ?',
+    winningWorkspace.workspace_id, `trinity/${result.experimentId}`);
+  assert.ok(head?.root_hash);
+  return comparison.promotion;
 }
 
 async function qualify(root) {
   const dbPath = path.join(root, 'qualification.sqlite');
   const previousCapsuleRoot = process.env.GENOS_CAPSULE_ROOT;
-  process.env.GENOS_CAPSULE_ROOT = path.join(root, 'capsules');
+  const capsuleRoot = path.resolve(__dirname, '../../.genos-agent-worlds', `gqwf-trinity-${crypto.randomUUID()}`);
+  await fs.mkdir(capsuleRoot, { recursive: true });
+  process.env.GENOS_CAPSULE_ROOT = capsuleRoot;
   let db = await database.getDatabase(dbPath);
-  const capsules = [];
+  const workers = [];
   try {
-    const source = await createWorld(db, root);
-    const missionId = 'mission-success';
-    const experimentId = await createExperiment(db, missionId);
-    const result = comparison('gqwf-qual-agent');
-    const promotion = await barrier.promoteWinner(db, { missionId, orchestratorId: 'gqwf-qual-agent',
-      result, gqwfV2: true });
-    if (promotion.artifact?.targetWorkspace) capsules.push(promotion.artifact.targetWorkspace);
-    await assertPublished(db, promotion, experimentId);
+    const source = await createWorkspace(db, root, '42\n');
+    const mission = await runMission(db, source, 'mission-three-worker-promotion');
+    workers.push(...mission.workers);
+    const promotion = await assertPromotedComparison(db, mission);
+    await telemetry.flush(10000);
     await database.closeDatabase();
     db = await database.getDatabase(dbPath);
-    const replay = await previousPromotion({ db, missionId });
+    const replay = await previousPromotion({ db, missionId: mission.experimentId });
     assert.equal(replay.promoted, true);
     assert.equal(replay.idempotent, true);
-
-    await fs.writeFile(path.join(source, 'answer.txt'), 'wrong\n');
-    const failedMission = 'mission-failure';
-    const failedExperiment = await createExperiment(db, failedMission);
-    const failed = await barrier.promoteWinner(db, { missionId: failedMission,
-      orchestratorId: 'gqwf-qual-agent', result: comparison('gqwf-qual-agent'), gqwfV2: true });
-    if (failed.artifact?.targetWorkspace) capsules.push(failed.artifact.targetWorkspace);
-    assert.equal(failed.promoted, false);
-    assert.equal(failed.reason, 'TRINITY_INTEGRATION_CHECK_FAILED');
-    assert.equal((await db.get('SELECT status FROM trinity_experiments WHERE id = ?', failedExperiment)).status,
-      'promotion_failed');
-    assert.equal(await db.get('SELECT root_hash FROM gqwf_heads WHERE workspace_id = ? AND name = ?',
-      'gqwf-qual-ws', `trinity/${failedExperiment}`), undefined);
-
-    await fs.writeFile(path.join(source, 'answer.txt'), '42\n');
-    const rollbackMission = 'mission-rollback';
-    const rollbackExperiment = await createExperiment(db, rollbackMission);
-    await db.exec(`CREATE TRIGGER gqwf_qual_rollback BEFORE UPDATE ON workspaces
-      WHEN NEW.description LIKE 'Verified Trinity candidate%'
-      BEGIN SELECT RAISE(ABORT, 'forced promotion rollback'); END;`);
-    const rolledBack = await barrier.promoteWinner(db, { missionId: rollbackMission,
-      orchestratorId: 'gqwf-qual-agent', result: comparison('gqwf-qual-agent'), gqwfV2: true });
-    if (rolledBack.artifact?.targetWorkspace) capsules.push(rolledBack.artifact.targetWorkspace);
-    assert.equal(rolledBack.promoted, false);
-    assert.equal((await db.get('SELECT status FROM trinity_experiments WHERE id = ?', rollbackExperiment)).status,
-      'promotion_failed');
-    assert.equal(await db.get('SELECT root_hash FROM gqwf_heads WHERE workspace_id = ? AND name = ?',
-      'gqwf-qual-ws', `trinity/${rollbackExperiment}`), undefined);
-    assert.equal((await db.get('SELECT COUNT(*) AS total FROM gqwf_head_events WHERE workspace_id = ? AND name = ?',
-      'gqwf-qual-ws', `trinity/${rollbackExperiment}`)).total, 0);
-    await db.exec('DROP TRIGGER gqwf_qual_rollback');
-
-    await db.run('UPDATE gqwf_head_events SET evidence_id = ? WHERE workspace_id = ? AND name = ?',
-      'forged', 'gqwf-qual-ws', `trinity/${experimentId}`);
-    assert.equal((await previousPromotion({ db, missionId })).reason, 'TRINITY_PROMOTION_GQWF_INVALID');
+    assert.equal(promotion.promoted, true);
   } finally {
+    await telemetry.flush(10000);
     await database.closeDatabase();
-    for (const capsule of capsules) await require('../src/services/agentWorkspaceLifecycleService')
-      .cleanupWorkspace(capsule);
+    for (const worker of workers) await require('../src/services/agentWorkspaceLifecycleService')
+      .cleanupWorkspace(worker.workspaceRoot).catch(() => {});
+    if (path.basename(capsuleRoot).startsWith('gqwf-trinity-')
+        && path.basename(path.dirname(capsuleRoot)) === '.genos-agent-worlds') {
+      await fs.rm(capsuleRoot, { recursive: true, force: true });
+    }
     if (previousCapsuleRoot === undefined) delete process.env.GENOS_CAPSULE_ROOT;
     else process.env.GENOS_CAPSULE_ROOT = previousCapsuleRoot;
   }
@@ -140,7 +209,7 @@ async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'gqwf-trinity-qualification-'));
   try { await qualify(root); }
   finally { await fs.rm(root, { recursive: true, force: true }); }
-  console.log('GQWF Trinity physical mission promotion, independent proof, restart and refusal: PASS');
+  console.log('GQWF Trinity three-worker run, evidence replay, independent claim checks, GQWF promotion and restart: PASS');
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

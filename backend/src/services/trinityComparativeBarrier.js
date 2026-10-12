@@ -18,7 +18,6 @@ const { emit } = require('./agentOrchestrationState');
 const candidateVerification = require('./trinityCandidateVerificationService');
 const trinityClaimGraph = require('./trinityClaimGraphService');
 
-
 function escapeLike(value) {
   return String(value).replace(/[\\%_]/g, (char) => `\\${char}`);
 }
@@ -32,6 +31,7 @@ async function buildWorldReportsFromMission(db, missionId) {
   );
   const reports = [];
   for (const world of worlds) {
+    const run = await db.get('SELECT id FROM strategy_execution_runs WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1', world.agent_id);
     const rows = await db.all(
       `SELECT rowid as event_id, event_type, payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','AGENT_COMPLETED') ORDER BY created_at`,
       world.agent_id
@@ -40,7 +40,7 @@ async function buildWorldReportsFromMission(db, missionId) {
       let payload = {};
       try { payload = JSON.parse(row.payload_json || '{}'); } catch (_) {}
       return { payload, eventType: row.event_type, eventId: row.event_id };
-    });
+    }).filter((event) => run && event.payload.executionRunId === run.id);
     const report = latestReport({ events });
     const normalized = report || {};
     reports.push({

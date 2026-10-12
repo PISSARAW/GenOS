@@ -4,6 +4,11 @@ const { hashWorkspace } = require('./trinitySnapshotService');
 const diagnostics = require('./workspaceDiagnosticsService');
 const claimVerification = require('./trinityClaimVerificationService');
 const TERMINAL_AGENT_STATES = new Set(['completed', 'error', 'failed', 'terminated', 'cancelled']);
+const TERMINAL_RUN_STATES = new Set(['completed', 'failed', 'blocked', 'cancelled']);
+const TERMINAL_EVENTS = new Set([
+  'AGENT_COMPLETED', 'WORKER_NO_ANSWER_PROVEN', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR',
+  'WORKER_TASK_FAILED', 'BUDGET_EXHAUSTED', 'AGENT_HALTED'
+]);
 
 function claimKey(claim) {
   return String(claim?.id || claim?.statement || '').trim();
@@ -11,10 +16,33 @@ function claimKey(claim) {
 
 async function loadWorldWorkspace(db, agentId) {
   return db.get(
-    `SELECT a.workspace_id, a.status, w.workspace_root FROM agents a
-     JOIN trinity_worlds w ON w.agent_id = a.id WHERE a.id = ?`,
+    `SELECT a.workspace_id, a.status, w.workspace_root, r.id AS execution_run_id,
+       r.status AS execution_run_status FROM agents a
+     JOIN trinity_worlds w ON w.agent_id = a.id
+     LEFT JOIN strategy_execution_runs r ON r.id = (
+       SELECT id FROM strategy_execution_runs WHERE agent_id = a.id ORDER BY rowid DESC LIMIT 1
+     ) WHERE a.id = ?`,
     agentId
   );
+}
+
+function eventBoundToRun(event, runId) {
+  try { return JSON.parse(event.payload_json || '{}').executionRunId === runId; }
+  catch (_) { return false; }
+}
+
+async function hasTerminalExecution(db, agentId, workspace) {
+  if (!TERMINAL_RUN_STATES.has(workspace.execution_run_status) || !workspace.execution_run_id) return false;
+  const events = await db.all(`SELECT event_type, payload_json FROM telemetry_events
+    WHERE agent_id = ? AND event_type IN (${[...TERMINAL_EVENTS].map(() => '?').join(',')})
+    ORDER BY rowid DESC LIMIT 20`, agentId, ...TERMINAL_EVENTS);
+  return events.some((event) => eventBoundToRun(event, workspace.execution_run_id));
+}
+
+async function isTerminalWorld(db, agentId, workspace) {
+  if (workspace.execution_run_id) return hasTerminalExecution(db, agentId, workspace);
+  if (TERMINAL_AGENT_STATES.has(workspace.status)) return true;
+  return hasTerminalExecution(db, agentId, workspace);
 }
 
 async function examineWorld(db, world, plans) {
@@ -22,7 +50,7 @@ async function examineWorld(db, world, plans) {
   try {
     const workspace = await loadWorldWorkspace(db, world.agentId);
     if (!workspace?.workspace_id || !workspace.workspace_root) throw new Error('world_workspace_unavailable');
-    if (!TERMINAL_AGENT_STATES.has(workspace.status)) {
+    if (!await isTerminalWorld(db, world.agentId, workspace)) {
       return { worldNumber: world.worldNumber, status: 'unresolved', reason: 'world_not_terminal', receipts: [] };
     }
     if (!claims.length) return { worldNumber: world.worldNumber, status: 'no_claims', receipts: [] };

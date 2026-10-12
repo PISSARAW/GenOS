@@ -27,7 +27,20 @@ async function install(input) {
   try { await fs.rename(input.staging, input.root); }
   catch (error) {
     if (!['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)) throw error;
-    if (await hashWorkspace(input.root) !== input.hash) throw Object.assign(new Error('Trinity sealed snapshot identity conflicts.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
+    if (await snapshotExists(input.root)) {
+      if (await hashWorkspace(input.root) !== input.hash) throw snapshotConflict();
+      return;
+    }
+    if (error.code !== 'EPERM') throw error;
+    await fs.cp(input.staging, input.root, { recursive: true, errorOnExist: true, force: false });
+    if (await hashWorkspace(input.root) !== input.hash) throw snapshotConflict();
   }
+}
+async function snapshotExists(root) {
+  try { await fs.access(root); return true; }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
+function snapshotConflict() {
+  return Object.assign(new Error('Trinity sealed snapshot identity conflicts.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
 }
 module.exports = { seal };
