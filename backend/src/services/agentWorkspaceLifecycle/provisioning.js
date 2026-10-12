@@ -48,6 +48,7 @@ function resolveDestination(source, workerId, { capsuleRoot, capsuleRootOverride
   if (capsuleRootOverride && samePath(path.resolve(capsuleRootOverride), source)) {
     return resolveContainedPath(capsuleRoot, path.join('.genos-agent-worlds', workerId), 'capsule path');
   }
+  if (isInside(source, capsuleRoot)) return resolveContainedPath(capsuleRoot, workerId, 'capsule path');
   if (capsuleRootOverride) return resolveContainedPath(capsuleRoot, workerId, 'capsule path');
   return resolveContainedPath(path.join(capsuleRoot, path.basename(source)), workerId, 'capsule path');
 }

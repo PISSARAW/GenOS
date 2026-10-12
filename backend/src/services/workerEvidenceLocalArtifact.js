@@ -24,7 +24,8 @@ function attachWorkerArtifact(evidenceReport, context) {
   if (!evidenceReport || typeof evidenceReport !== 'object') return;
   const mission = context.mission || {};
   const kind = workerKinds.resolveWorkerKind(mission.workerKind, mission.role);
-  const inspected = inspectWorkerArtifact(kind, rawReply(evidenceReport), artifactProvenance(mission, context));
+  const source = context.codeWorker ? evidenceReport : rawReply(evidenceReport);
+  const inspected = inspectWorkerArtifact(kind, source, artifactProvenance(mission, context));
   evidenceReport.workerArtifact = inspected.artifact;
   if (!inspected.artifact) throw invalidArtifactError(kind, inspected.issues, evidenceReport);
   evidenceReport.claims = inspected.artifact.content.claims || evidenceReport.claims;

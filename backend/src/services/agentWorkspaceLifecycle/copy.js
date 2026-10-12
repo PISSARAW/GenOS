@@ -78,7 +78,7 @@ async function readCopyStat(source) {
 
 async function measureCopyDirectory({ source, relative, state, isExcluded }) {
   const depth = relative ? relative.split(path.sep).length : 0;
-  if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit.`);
+  if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit at '${relative}'.`);
   for (const entry of await fs.readdir(source)) {
     if (isExcluded(entry)) continue;
     state.entries += 1;
@@ -110,7 +110,7 @@ async function copyTree(ctx, node) {
 
 async function copyDirectory(ctx, node) {
   const depth = node.relative ? node.relative.split(path.sep).length : 0;
-  if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit.`);
+  if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit at '${node.relative}'.`);
   await fs.mkdir(node.destination, { recursive: true });
   for (const entry of await fs.readdir(node.source)) {
     if (ctx.isExcluded(entry)) continue;

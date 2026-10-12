@@ -62,7 +62,7 @@ async function generateWorkerResult(ctx) {
     ? await require('./missionModelBudgetScope').routeBudget(ctx.mission, ctx.db) : {};
   try { return await modelRouter.generate({
     db: ctx.db,
-    cognitiveDomain: 'worker', cognitiveObjects: { mission: ctx.mission, evidence: ctx },
+    cognitiveIntegration: 'worker',
     agentId: ctx.mission.agentId,
     model: ctx.workerModel,
     timeoutMs: ctx.latencyMs,
@@ -199,7 +199,8 @@ function maybeExecuteDecision(mission, event) {
 async function publishLocalSuccess(ctx) {
   const { recordWorkerEvidence } = require('./agentEvidenceService');
   const progress = await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, ctx.event);
-  if (progress?.halt) throw Object.assign(new Error(progress.reason), { code: 'WORKER_EXECUTION_HALTED' });
+  if (progress?.halt) throw Object.assign(new Error(progress.reason), { code: 'WORKER_EXECUTION_HALTED',
+    terminalReceiptPublished: Boolean(progress.biologicalReceipt) });
   recordWorkerEvidence(ctx.mission, ctx.event);
   reportMilestone(ctx.mission, ctx.event);
   await advanceAutonomousRound(ctx.mission, ctx.event);
@@ -208,30 +209,6 @@ async function publishLocalSuccess(ctx) {
   await scheduleWorkspaceCleanup(ctx.mission.agentId);
   require('./agentDnaInnovation').captureFromSuccess({ db: ctx.db, mission: ctx.mission, event: ctx.event }).catch(() => undefined);
 }
-async function emitLocalCompleted(ctx) {
-  await updateAgent(ctx.mission.agentId, 'completed', ctx.statusText);
-  const completed = emit(
-    ctx.mission.agentId,
-    ctx.eventType,
-    ctx.kind,
-    ctx.detail,
-    {
-      executionRunId: ctx.executionRun.id,
-      model: ctx.model,
-      provider: ctx.provider,
-      evidenceReport: ctx.evidenceReport,
-      noAnswerProof: ctx.noAnswerProof,
-      proposal: ctx.proposal,
-      usage: ctx.usage,
-      stageTimings: ctx.stageTimings
-    },
-    'info',
-    'completed'
-  );
-  await publishLocalSuccess({ db: ctx.db, mission: ctx.mission, event: completed });
-  return completed;
-}
-
 async function runGenerationStage(ctx) {
   const promptStartedAt = Date.now();
   const codeWorker = localEvidencePrompt.isCodeWorkerMission(ctx.mission);
@@ -287,14 +264,11 @@ async function runEvidenceStage(ctx) {
     agentId: ctx.mission.agentId, runId: ctx.executionRun.id, mission: ctx.mission });
   const proposal = await resolveProposal({ codeWorker: ctx.codeWorker, workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text });
   throwIfProposalFailed(proposal);
-  const parseStartedAt = Date.now();
-  let immuneReport;
-  try { immuneReport = resolveImmuneReport({ text: ctx.result.text, agentName: ctx.agentName, nameMeaning: ctx.nameMeaning, role: ctx.mission.role }); }
-  finally { ctx.stageTimings.responseParsingMs = Date.now() - parseStartedAt; }
-  throwIfImmuneRejected(immuneReport, ctx.result.text);
-  const evidenceReport = immuneReport.report;
+  const evidenceReport = ctx.codeWorker
+    ? require('./workerCodeEvidenceReport').build({ mission: ctx.mission, proposal })
+    : await evidenceReportFromModel(ctx);
   attachProposalTests(evidenceReport, proposal);
-  localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
+  if (!ctx.codeWorker) localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
   const validationStartedAt = Date.now();
   try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, ctx); }
   finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
@@ -303,7 +277,15 @@ async function runEvidenceStage(ctx) {
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);
   return { consumed: consumed, proposal: proposal, evidenceReport: evidenceReport, proof: proof, noAnswer: noAnswer };
 }
-
+async function evidenceReportFromModel(ctx) {
+  const startedAt = Date.now();
+  try {
+    const immuneReport = resolveImmuneReport({ text: ctx.result.text, agentName: ctx.agentName,
+      nameMeaning: ctx.nameMeaning, role: ctx.mission.role });
+    throwIfImmuneRejected(immuneReport, ctx.result.text);
+    return immuneReport.report;
+  } finally { ctx.stageTimings.responseParsingMs = Date.now() - startedAt; }
+}
 function isBudgetBlocked(error) {
   if (error.code === 'BUDGET_EXHAUSTED') return true;
   if (/budget|timeout/i.test(error.message)) return true;
@@ -327,13 +309,15 @@ async function publishLocalFailure(ctx) {
     eventType,
     action,
     ctx.error.message,
-    { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel, workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics || undefined, stageTimings: ctx.stageTimings || undefined },
+    { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel, workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics || undefined, proposalTests: ctx.error.proposal?.tests || undefined, stageTimings: ctx.stageTimings || undefined },
     'warning',
     eventStatus
   );
   recordWorkerEvidence(ctx.mission, failed);
   reportMilestone(ctx.mission, failed);
-  await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, failed);
+  if (!ctx.error.terminalReceiptPublished) {
+    await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, failed);
+  }
   await advanceAutonomousRound(ctx.mission, failed);
   if (blocked === false) agentRecoveryService.queueWorkerRecovery(ctx.mission, failed);
   await scheduleWorkspaceCleanup(ctx.mission.agentId);
@@ -357,6 +341,9 @@ async function runLocalWorker(db, mission, executionRun) {
       nameMeaning: generation.nameMeaning,
       stageTimings: stageTimings
     });
+    const nativeOracleRef = await require('./workerCodeOracleLocal').prepare({
+      db, mission, executionRun, evidenceReport: evidence.evidenceReport
+    });
     let eventType = 'AGENT_COMPLETED';
     if (evidence.noAnswer) eventType = 'WORKER_NO_ANSWER_PROVEN';
     let kind = 'LOCAL_REVIEW';
@@ -369,7 +356,7 @@ async function runLocalWorker(db, mission, executionRun) {
     if (evidence.noAnswer) statusText = 'No answer proven';
     let noAnswerProof = undefined;
     if (evidence.noAnswer) noAnswerProof = evidence.proof;
-    await emitLocalCompleted({
+    await require('./workerEvidenceBarrierLocalCompletion').emit({
       db: db,
       mission: mission,
       statusText: statusText,
@@ -380,11 +367,12 @@ async function runLocalWorker(db, mission, executionRun) {
       model: generation.result.model,
       provider: generation.result.provider,
       evidenceReport: evidence.evidenceReport,
+      nativeOracleRef: nativeOracleRef,
       noAnswerProof: noAnswerProof,
       proposal: evidence.proposal,
       usage: { input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens, cost_usd: generation.result.costUsd, tokens: evidence.consumed },
       stageTimings: stageTimings
-    });
+    }, publishLocalSuccess);
     return { started: true, executionRun: executionRun, local: true, result: generation.result };
   } catch (error) {
     return publishLocalFailure({ db: db, mission: mission, executionRun: executionRun, error: error, stageTimings: stageTimings });

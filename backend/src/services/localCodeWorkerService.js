@@ -132,8 +132,10 @@ async function executeProposal({ workspaceRoot, text }) {
     return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles: [], tests, merged: false, rolledBack: true, testStatus: 'failed' };
   }
   const after = await snapshotStore.collectFiles(workspaceRoot);
-  const changedFiles = after.filter((file) => before.get(file.path) !== file.hash).map((file) => file.path);
-  return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles, tests, merged: false, testStatus: 'passed' };
+  const changedFileHashes = after.filter((file) => before.get(file.path) !== file.hash)
+    .map(({ path, hash }) => ({ path, hash }));
+  return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence },
+    changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests, merged: false, testStatus: 'passed' };
 }
 module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState, restorePatchState };
 

@@ -312,11 +312,18 @@ function fleetWorkerContract(details) {
     externalCreditLease: assignment.externalCreditLease || mission.externalCreditLease,
     externalCredit: assignment.externalCredit || mission.externalCredit,
     regulatoryExternalRecovery: assignment.regulatoryExternalRecovery || mission.regulatoryExternalRecovery,
+    writeLease: workerWriteLease(mission),
+    codeVerificationContract: mission.codeVerificationContract,
     methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment,
     workerTokenLimit: assignedTokens || mission.executionBudget?.tokens
   });
   if (parent.execution_mode === 'orchestrator') workerKinds.grantBoundedDelegation(contract);
   return contract;
+}
+
+function workerWriteLease(mission) {
+  return mission.writeLease === true || (mission.executionPolicy?.allowFileEdits === true
+    && mission.workspaceProvisioned === true);
 }
 
 function resolveGenotypeRef(evolution) {

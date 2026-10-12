@@ -5,7 +5,6 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
-const { createHash } = require('crypto');
 const { normalizeRelativePath } = require('./pathSafety');
 
 const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'build', 'out', 'Output', 'deploy', 'snapshots', 'artifacts', 'coverage', '.next', '.aws', '.ssh', '.docker', '.kube', '.gnupg']);
@@ -15,19 +14,10 @@ const SENSITIVE_FILES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\.
 
 function snapshotRoot(workspacePath, workspaceId) {
   const configured = process.env.GENOS_SNAPSHOT_ROOT;
-  if (configured) {
-    const relative = String(workspaceId || 'workspace');
-    if (!isSafeRelative(relative)) throw new Error('Invalid snapshot workspace identity.');
-    return containedJoin(configured, relative);
-  }
-  const local = path.resolve(workspacePath, '.genos', 'workspace-snapshots');
-  if (process.platform !== 'win32' || local.length <= 170) return local;
-  const workspacesRoot = process.env.GENOS_WORKSPACES_ROOT;
-  if (!workspacesRoot) throw Object.assign(new Error('Configure GENOS_SNAPSHOT_ROOT for long workspace paths.'), { code: 'SNAPSHOT_PATH_TOO_LONG' });
-  const digest = createHash('sha256').update(`${path.resolve(workspacePath)}:${workspaceId}`).digest('hex').slice(0, 24);
-  const fallback = path.resolve(workspacesRoot, '.genos-snapshots', digest);
-  if (fallback.length > 170) throw Object.assign(new Error('Snapshot storage path remains too long.'), { code: 'SNAPSHOT_PATH_TOO_LONG' });
-  return fallback;
+  if (!configured) return path.resolve(workspacePath, '.genos', 'workspace-snapshots');
+  const relative = String(workspaceId || 'workspace');
+  if (!isSafeRelative(relative)) throw new Error('Invalid snapshot workspace identity.');
+  return containedJoin(configured, relative);
 }
 
 function isSafeRelative(relativePath) {
@@ -50,7 +40,7 @@ function containedJoin(base, relativePath) {
 
 async function assertNoSymlinkPath(root, relativePath) {
   const normalized = normalizeRelativePath(relativePath, 'snapshot path');
-  const realRoot = await fsp.realpath(root);
+  const realRoot = fs.realpathSync(root);
   let current = realRoot;
   for (const segment of normalized.split('/')) {
     current = path.join(current, segment);

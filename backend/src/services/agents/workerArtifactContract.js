@@ -325,10 +325,16 @@ function inspectDossierContent(parsed, kind) {
     ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
     ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
     ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
-    ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {}),
+    ...(kind === 'bounded_worker' ? boundedWorkerContent(parsed) : {}),
     ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {}),
     ...(kind === 'specialist' ? { specialtyAssessment: parsed.specialtyAssessment } : {}),
     ...(kind === 'symbiotic_worker' ? { hostContribution: parsed.hostContribution } : {}),
     ...(kind === 'sub_orchestrator' ? { childSummaries: parsed.childSummaries } : {})
   };
+}
+
+function boundedWorkerContent(parsed) {
+  const content = { scopeCompletion: parsed.scopeCompletion };
+  if (parsed.codeVerification) Object.assign(content, { codeVerification: parsed.codeVerification, tests: parsed.tests });
+  return content;
 }

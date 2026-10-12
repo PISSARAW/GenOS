@@ -13,15 +13,19 @@ function outcome(status, reason) { return { status, reason }; }
 
 function summaryValid(item) {
   const result = item?.result;
+  const nativeQuorumCode = result?.codeCompletion?.verified === true
+    && typeof result.executionRunId === 'string' && Boolean(result.executionRunId);
   return [item?.exitCode === 0, result?.passed === true,
     result?.runId === item?.runId, item?.manifest?.runId === item?.runId,
-    result?.nativeExecution === true, result?.oracleAccepted === true,
+    result?.nativeExecution === true || nativeQuorumCode,
+    result?.oracleAccepted === true || nativeQuorumCode,
     result?.status === 'completed', result?.terminalEvent === 'AGENT_COMPLETED',
     typeof result?.workerId === 'string', Boolean(result?.workerId),
-    typeof result?.oracle?.decisionHash === 'string'].every(Boolean);
+    typeof result?.oracle?.decisionHash === 'string' || nativeQuorumCode].every(Boolean);
 }
 
 async function acceptedRun(db, item) {
+  if (item.result.codeCompletion?.verified === true) return acceptedCodeRun(db, item.result);
   const rows = await db.all(`SELECT id FROM strategy_execution_runs
     WHERE agent_id = ? AND status = 'completed'`, item.result.workerId);
   const matching = [];
@@ -31,6 +35,14 @@ async function acceptedRun(db, item) {
       && checked.decision?.hash === item.result.oracle.decisionHash) matching.push(row.id);
   }
   return matching.length === 1 ? matching[0] : null;
+}
+
+async function acceptedCodeRun(db, result) {
+  const row = await db.get(`SELECT id FROM strategy_execution_runs
+    WHERE id = ? AND agent_id = ? AND status = 'completed'`, result.executionRunId, result.workerId);
+  if (!row) return null;
+  const checked = await inspection.inspect(db, { runId: row.id, agentId: result.workerId });
+  return checked.status === 'accepted_at_decision' ? row.id : null;
 }
 
 async function proofFor(db, runId, workerId) {

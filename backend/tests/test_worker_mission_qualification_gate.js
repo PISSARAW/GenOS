@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { issueReceipt } = require('../src/services/epistemicVerifierReceiptService');
 const { ensureVerifier } = require('../src/services/verifierTrustRegistry');
 const gate = require('../src/services/workerMissionQualificationGate');
+const integration = require('../src/services/workerMissionQualificationIntegration');
 
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'worker-mission-qualification-test-secret';
 
@@ -29,6 +30,10 @@ function mission(runId, workerId) {
 }
 
 function test() {
+  assert.deepEqual(integration.expectedEvidenceContent({ content: { answer: 42 } }), { answer: 42 });
+  assert.deepEqual(integration.expectedEvidenceContent({ method: 'observe', result: { answer: 42 } }),
+    { method: 'observe', result: { answer: 42 } });
+  assert.equal(integration.expectedEvidenceContent({ method: 'observe' }), undefined);
   const seen = new Set();
   const child = mission('child-run', 'child-worker');
   assert.equal(gate.evaluate(child, seen).status, 'verified');
