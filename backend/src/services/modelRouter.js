@@ -110,6 +110,7 @@ function buildRouteContext(opts, clock, remainingMs) {
     maxCostUsd: opts.maxCostUsd,
     budgetMaxTokens: opts.budgetMaxTokens,
     budgetReservationId: opts.budgetReservationId,
+    reservationCostCeilingUsd: opts.reservationCostCeilingUsd,
     executionRunId: opts.executionRunId,
     missionId: opts.missionId,
     routeActionId: opts.routeActionId,

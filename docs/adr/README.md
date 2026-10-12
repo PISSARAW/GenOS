@@ -548,7 +548,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0432b](0432-preuve-par-candidat-et-promotion-unique-open-ended-biome.md) | Preuve par candidat et promotion unique dans Open-Ended Biome | Accepté le 11 octobre 2026. | -- | -- |
 | [0433](0433-apprentissage-routeur-sur-verdicts-aeis.md) | Apprentissage du routeur sur verdicts AEIS persistés | Accepté pour le raccord local ; qualification de production ouverte. | 2026-10-11. | Routage de modèles, apprentissage, canary et mesure. |
 | [0434a](0434-deadline-des-reprises-de-route-rhizome.md) | Conserver la deadline lors d'une réparation Rhizome | Accepté. | -- | -- |
-| [0434b](0434-qualification-independante-des-missions-workers.md) | Qualification indépendante des résultats de mission workers | Accepté pour un contrôle autonome ; intégration au parcours de campagne ouverte. | 2026-10-11. | preuves, qualification des workers. |
+| [0434b](0434-qualification-independante-des-missions-workers.md) | Qualification indépendante des résultats de mission workers | Accepté ; campagne qualifiée disponible par un nouveau point d'entrée. | 2026-10-11. | preuves, qualification des workers. |
 | [0435](0435-identite-du-daemon-planifie-metapopulation.md) | Lier le daemon résident au plan Métapopulation | accepté | 2026-10-11 | Métapopulation, variant `persistent`, vérification |
 | [0436a](0436-controleur-commun-decision-shadow.md) | Contrôleur commun de décision en mode shadow | Accepté pour le module de décision déterministe ; activation de production non qualifiée. | 2026-10-11. | Décision, preuve et économie de tokens. |
 | [0436b](0436-reconciliation-actions-ecologiques-biocenose.md) | Réconcilier les actions écologiques incertaines de Biocénose | Accepté | 2026-10-11 | Biocénose, actions externes, reprise |
@@ -559,11 +559,20 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0441](0441-atomicite-recu-consultatif-morphogenese.md) | Atomicité du reçu consultatif Morphogenèse | Accepté | 2026-10-12 | morphogenèse, persistance des preuves, SQLite |
 | [0442](0442-preuve-route-actuelle-rhizome.md) | Lier la complétion Rhizome au chemin actuellement autorisé | Accepté | 2026-10-12 | Rhizome, variants, preuves de route |
 | [0443](0443-preuve-revision-branche-speculative-syncytium.md) | Lier la validation spéculative à la révision de branche | Accepté | 2026-10-12 | Syncytium, variant Speculative, promotion |
-| [0444](0444-enfants-depuis-elites-admises-biome.md) | Produire les enfants Quality-Diversity depuis les élites admises | Accepté | 2026-10-12 | Biome, Quality-Diversity, archive des élites |
-| [0445](0445-refus-des-champs-non-scelles-snapshot-topologique.md) | Refuser les champs non scellés du snapshot topologique | accepté | 2026-10-12 | snapshots topologiques, intégrité, frontière Morphogenèse |
-| [0446](0446-refus-des-affectations-orphelines-en-quiescence-metapopulation.md) | Refus des affectations orphelines en quiescence Métapopulation | Voir le fichier | -- | -- |
-| [0447](0447-lier-resolution-et-score-forecasting-biocenose.md) | Lier résolution et score du variant Forecasting Crowd | Accepté | 2026-10-12 | Biocénose, Forecasting Crowd, preuve de calibration |
-| [0448](0448-liaison-monde-promu-candidat-trinity.md) | Lier le monde promu au candidat Trinity | Accepté | 2026-10-12 | Trinity, qualification nominale, provenance du candidat |
+| [0444a](0444-enfants-depuis-elites-admises-biome.md) | Produire les enfants Quality-Diversity depuis les élites admises | Accepté | 2026-10-12 | Biome, Quality-Diversity, archive des élites |
+| [0444b](0444-execution-attestee-du-controleur-de-mission.md) | Exécution attestée du contrôleur de mission | Accepté pour une activation pilote explicite. | 2026-10-12. | Décision économique, provenance et exécution de mission. |
+| [0445a](0445-pont-preuve-mission-vers-apprentissage-routeur.md) | Lier l'apprentissage du routeur à une mission vérifiée | Voir le fichier | -- | -- |
+| [0445b](0445-refus-des-champs-non-scelles-snapshot-topologique.md) | Refuser les champs non scellés du snapshot topologique | accepté | 2026-10-12 | snapshots topologiques, intégrité, frontière Morphogenèse |
+| [0446a](0446-refus-des-affectations-orphelines-en-quiescence-metapopulation.md) | Refus des affectations orphelines en quiescence Métapopulation | Accepté | 2026-10-12 | Métapopulation, snapshots, quiescence |
+| [0446b](0446-selection-contexte-obligations-ouvertes.md) | Sélection du contexte selon les obligations ouvertes | Accepté pour le raccord de démarrage ; mesure en production ouverte. | 2026-10-12. | Mémoire cognitive, contrat d'issue et budget de contexte. |
+| [0447a](0447-lier-resolution-et-score-forecasting-biocenose.md) | Lier résolution et score du variant Forecasting Crowd | Accepté | 2026-10-12 | Biocénose, Forecasting Crowd, preuve de calibration |
+| [0447b](0447-portee-budget-modele-parent-et-workers.md) | Portée de budget modèle commune au parent et aux workers | accepté pour le worker local en processus | 2026-10-12 | budget de mission et délégation |
+| [0448a](0448-liaison-monde-promu-candidat-trinity.md) | Lier le monde promu au candidat Trinity | Accepté | 2026-10-12 | Trinity, qualification nominale, provenance du candidat |
+| [0448b](0448-observation-couts-modele-dans-recu-worker.md) | Observer le coût modèle dans le reçu worker | Accepté pour la liaison comptable ; apprentissage bout en bout différé. | 2026-10-12. | -- |
+| [0449](0449-raccord-checkpoint-communication-et-couts-par-agent.md) | Raccord du checkpoint de communication et coûts par agent | Accepté pour le canal `SIGNAL` des checkpoints ; économies globales à mesurer. | 2026-10-12. | Communication d'équipe, grounding et comptabilité des tokens. |
+| [0450](0450-liaison-sortie-modele-oracle-independant.md) | Lier la sortie du modèle au résultat de l'oracle | Accepté pour le refus fermé ; domaine modèle encore absent. | 2026-10-12. | -- |
+| [0451](0451-portee-budget-modele-runtime-local-sous-processus.md) | Portée de budget modèle dans le runtime local en sous-processus | accepté pour le runtime `local-codex-runtime.cjs` | 2026-10-12 | budget de mission et exécution déléguée |
+| [0452](0452-execution-procedure-mission.md) | Exécution de procédures promues dans une mission | Voir le fichier | -- | -- |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

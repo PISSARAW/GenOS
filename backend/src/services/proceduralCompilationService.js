@@ -157,6 +157,10 @@ async function loadTraces(db, input) {
     .filter((trace) => trace.contextMatch > 0);
 }
 
+function obligationIds(input) {
+  return Array.isArray(input.obligationIds) ? [...new Set(input.obligationIds)] : [];
+}
+
 async function compile(db, input) {
   const traces = await loadTraces(db, input);
   const successful = traces.filter((trace) => trace.success);
@@ -167,6 +171,8 @@ async function compile(db, input) {
     context: input.contextHash, contextSignature: contextSignature(input.context), steps: result.path })}`, agentId: String(input.agentId),
     contextHash: String(input.contextHash), context: normalizeContext(input.context || {}),
     contextSignature: contextSignature(input.context || {}), steps: result.path, executorId: input.executorId || null,
+    obligationIds: obligationIds(input),
+    outcomeContractDigest: input.outcomeContractDigest || null,
     prerequisites: input.prerequisites || [], inputDigests: [...new Set(successful.map((trace) => sha(trace.input)))],
     provenance: { traceIds: successful.map((trace) => trace.id),
       evidenceRefs: [...new Set(successful.flatMap((trace) => trace.evidenceRefs))],
@@ -268,12 +274,13 @@ async function prerequisiteGate(procedure, input) {
   return null;
 }
 
-async function reuse(db, input) {
+async function inspect(db, input) {
   await ensure(db);
   const rows = await db.all(`SELECT procedure_json, receipt_json FROM procedural_compiled_procedures
     WHERE agent_id = ? AND status = 'active'`, String(input.agentId));
   const matches = rows.map((row) => ({ row, procedure: parseJson(row.procedure_json, null) }))
-    .filter((entry) => entry.procedure)
+    .filter((entry) => entry.procedure
+      && (!input.procedureId || entry.procedure.procedureId === input.procedureId))
     .map((entry) => ({ ...entry, contextMatch: contextMatch({ contextHash: entry.procedure.contextHash,
       context: entry.procedure.context || {} }, input) }))
     .filter((entry) => entry.contextMatch > 0)
@@ -282,6 +289,15 @@ async function reuse(db, input) {
   if (!match) return { status: 'miss', reason: 'procedure_not_promoted', llmCalls: 0 };
   const rejection = await reuseGate(match, input);
   if (rejection) return rejection;
+  return { status: 'ready', procedure: match.procedure,
+    promotionReceipt: parseJson(match.row.receipt_json, null), contextMatch: match.contextMatch };
+}
+
+async function reuse(db, input) {
+  const readiness = await inspect(db, input);
+  if (readiness.status !== 'ready') return readiness;
+  const match = { procedure: readiness.procedure, contextMatch: readiness.contextMatch,
+    row: { receipt_json: JSON.stringify(readiness.promotionReceipt) } };
   const { procedure } = match;
   const executor = input.executor || executors.get(procedure.executorId);
   if (typeof executor !== 'function') return { status: 'blocked', reason: 'procedure_executor_missing', llmCalls: 0 };
@@ -311,7 +327,8 @@ async function executeProcedure({ match, input, executor }) {
 }
 
 module.exports = { ensure, traceFrom, recordTrace, loadTraces, compile, validate, promote,
-  compileAndPromote, registerExecutor, reuse, normalizeContext, contextSignature, contextSimilarity, contextFor };
+  compileAndPromote, registerExecutor, inspect, reuse, normalizeContext,
+  contextSignature, contextSimilarity, contextFor };
 
 function traceFromResult(input, evidence) {
   return { id: input.id || `trace:${sha({ agent: input.agentId, context: input.contextHash,

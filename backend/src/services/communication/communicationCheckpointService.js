@@ -11,7 +11,7 @@
 
 const { decideCommunication, getMode } = require('./communicationPolicyEngine');
 const { buildManifest } = require('./communicationManifestService');
-const { publishSignal } = require('../signalingTransportService');
+const { executeLiveCycle } = require('./liveCycleExecution');
 const stigmergyBridge = require('../epistemic/stigmergyInterProcessBridge');
 
 const CHECKPOINTS = Object.freeze([
@@ -167,7 +167,7 @@ async function executeSignal(decision, ctx) {
   if (recipients.length === 0 && decision.scope !== 'GLOBAL_BROADCAST') {
     return { executed: false, reason: 'NO_RECIPIENTS' };
   }
-  return await publishAndWrap(decision, ctx, recipients);
+  return executeCheckpointSignal(decision, ctx);
 }
 
 async function executeStigmergy(decision, ctx) {
@@ -219,28 +219,15 @@ function buildSignalData(ctx, decision) {
   };
 }
 
-function buildExecutionResult(decision, result) {
-  return {
-    executed: Boolean(result && result.published),
-    channel: decision.action,
-    signalId: result && result.signalId || null,
-    published: result && result.published || false
-  };
-}
-
-async function publishAndWrap(decision, ctx, recipients) {
-  const signalData = buildSignalData(ctx, decision);
+async function executeCheckpointSignal(decision, ctx) {
+  const intent = { ...buildIntent(ctx), payload: buildSignalData(ctx, decision),
+    artifactRefs: ctx.evidence?.artifactId ? [ctx.evidence.artifactId] : [] };
   const topic = decision.scope === 'GLOBAL_BROADCAST' ? 'global' : 'checkpoint';
-  const params = {
-    signalType: 'ligand',
-    signalData,
-    topic,
-    senderAgentId: ctx.agentId,
-    recipientAgentIds: recipients.length > 0 ? recipients : undefined,
-    ttlMs: decision.ttlMs || 60000
-  };
-  const result = await publishSignal(params);
-  return buildExecutionResult(decision, result);
+  const routed = { ...decision, meta: { ...decision.meta,
+    receptorTopic: decision.meta?.receptorTopic || topic } };
+  const result = await executeLiveCycle({ db: ctx.db, decision: routed, intent,
+    opts: ctx.communication || {} });
+  return { channel: decision.action, ...result };
 }
 
 async function evaluateCheckpoint(ctx) {

@@ -76,11 +76,37 @@ function filterScoped(items, scope, task) {
   return (Array.isArray(items) ? items : []).filter((item) => keepForScope(itemText(item), scope, task));
 }
 
+function isCaution(item) {
+  return /failure|contradiction|rejected/i.test(`${item?.status || ''} ${item?.category || ''}`);
+}
+
+function bindingMatches(binding, context) {
+  if (binding.contractHash && binding.contractHash !== context.contractHash) return false;
+  return binding.contractVersion === undefined || binding.contractVersion === context.contractVersion;
+}
+
+function matchesObligations(item, context) {
+  if (!context || !item || typeof item !== 'object') return true;
+  const binding = item.obligationContext || item;
+  if (!bindingMatches(binding, context)) return false;
+  const ids = binding.obligationIds;
+  if (!Array.isArray(ids)) return true;
+  if (!ids.every((id) => typeof id === 'string')) return false;
+  const open = new Set(context.open.map((obligation) => obligation.id));
+  return isCaution(item) || ids.some((id) => open.has(id));
+}
+
+function filterForObligations(items, context) {
+  return (Array.isArray(items) ? items : []).filter((item) => matchesObligations(item, context));
+}
+
 module.exports = {
   scopeOf,
   tagFor,
   scopeTagOf,
   embeddedTask,
   keepForScope,
-  filterScoped
+  filterScoped,
+  filterForObligations,
+  isCaution
 };

@@ -290,6 +290,7 @@ async function superviseMission(options) {
     ? await require('./runtimeFilesystemReceipt').begin({ db, agentId,
       runId: executionRun.id, workspaceRoot }) : null;
   const mcpDbPath = require('../db').databasePath();
+  if (normalizedMission.modelBudgetScope && isLocalRuntime(resolvedExecutable) && !mcpDbPath) throw Object.assign(new Error('Local model budget scope requires the shared server database.'), { code: 'MISSION_MODEL_BUDGET_SCOPE_INVALID' });
   const mcpActorToken = bodyActionId && mcpDbPath
     ? await require('./mcpActorCapability').issue(db, { agentId,
       runId: executionRun.id, workspaceRoot }) : null;
@@ -297,6 +298,7 @@ async function superviseMission(options) {
   try { child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
     cwd: workspaceRoot,
     env: { ...buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
+      ...(normalizedMission.modelBudgetScope && mcpDbPath && isLocalRuntime(resolvedExecutable) ? { GENOS_DB_PATH: mcpDbPath } : {}),
       ...(mcpActorToken ? { GENOS_MCP_ACTOR_TOKEN: mcpActorToken, GENOS_DB_PATH: mcpDbPath } : {}) },
     stdio: isLocalRuntime(resolvedExecutable) || isDirectFileRuntime(resolvedExecutable)
       ? ['pipe', 'pipe', 'pipe', 'ipc'] : ['pipe', 'pipe', 'pipe'],

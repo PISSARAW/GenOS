@@ -142,13 +142,19 @@ function qualifiedResult(saved, data) {
 
 async function verifiedOutcome(db, data) {
   if (!validIdentity(db, data)) return false;
+  if (data.verification.source === 'native_mission') {
+    const derived = await require('./routeMissionOutcomeBridge').derive(db, data.missionId);
+    return require('./routeMissionOutcomeBridge').matches(data, derived);
+  }
   const saved = await readAssembly(db, data.verification.assemblyId);
   return acceptedAssembly(saved, data) && qualifiedResult(saved, data);
 }
 
 function observation(data) {
   return { missionId: data.missionId, scopeId: data.scopeId, routeAttemptId: data.routeAttemptId,
-    routeUri: data.routeUri, success: data.success, verification: { assemblyId: data.verification.assemblyId },
+    routeUri: data.routeUri, success: data.success,
+    verification: { assemblyId: data.verification.assemblyId,
+      ...(data.verification.source ? { source: data.verification.source } : {}) },
     costUsd: data.costUsd, latencyMs: data.latencyMs, promptTokens: data.promptTokens,
     quotedCostUsd: data.quotedCostUsd, predictedLatencyMs: data.predictedLatencyMs,
     predictedReliability: data.predictedReliability, isWorker: data.isWorker, local: data.local };
@@ -181,11 +187,9 @@ async function persistObservation(db, data) {
 async function observe(db, input) {
   try {
     const data = input || {};
-    if (!await verifiedOutcome(db, data)) return null;
     const transaction = require('../db').withTransaction;
-    return typeof transaction === 'function'
-      ? await transaction(db, () => persistObservation(db, data))
-      : await persistObservation(db, data);
+    const apply = async () => await verifiedOutcome(db, data) ? persistObservation(db, data) : null;
+    return typeof transaction === 'function' ? await transaction(db, apply) : await apply();
   } catch (_) {
     return null;
   }

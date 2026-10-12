@@ -10,7 +10,7 @@ async function generate(state, tools) {
     inbox.apply(state, tools.emitEvent);
     await tools.checkpoint.save(state, 'inference');
     const canonical = tools.synthesis.canonicalGeneration(state.autonomyPlan);
-    const generation = canonical || tools.createGeneration(state);
+    const generation = canonical || await tools.createGeneration(state);
     const reply = await tools.awaitGeneration(state, generation.generation, generation.abort);
     tools.validateGeneration(reply, generation.fallback, state);
     if (inbox.currentRevision() === (state.observationRevision || 0)) {

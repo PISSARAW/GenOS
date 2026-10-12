@@ -58,6 +58,8 @@ function resolveMaxCost(mission) {
 }
 async function generateWorkerResult(ctx) {
   const startedAt = Date.now();
+  const sharedBudget = (ctx.mission.modelBudgetScope || ctx.mission.orchestratorAgentId)
+    ? await require('./missionModelBudgetScope').routeBudget(ctx.mission, ctx.db) : {};
   try { return await modelRouter.generate({
     db: ctx.db,
     cognitiveDomain: 'worker', cognitiveObjects: { mission: ctx.mission, evidence: ctx },
@@ -67,6 +69,7 @@ async function generateWorkerResult(ctx) {
     priority: 'bulk',
     maxTokens: ctx.maxTokens,
     maxCostUsd: ctx.maxCost,
+    ...sharedBudget,
     responseFormat: 'json_object',
     policy: ctx.policy,
     prompt: ctx.promptText
@@ -388,4 +391,4 @@ async function runLocalWorker(db, mission, executionRun) {
   }
 }
 
-module.exports = { runLocalWorker };
+module.exports = { runLocalWorker, generateWorkerResult };

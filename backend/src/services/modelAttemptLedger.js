@@ -45,6 +45,15 @@ async function finishAttempt(db, attempt) {
   attempt.errorCode || null, new Date().toISOString(), attempt.id);
 }
 
+async function reconcileLateAttempt(db, attempt) {
+  if (!db || typeof db.run !== 'function') return;
+  await db.run(`UPDATE model_attempt_ledger SET input_tokens = ?, output_tokens = ?,
+    token_usage_source = 'provider', cost_usd = ?
+    WHERE id = ? AND status IN ('timeout', 'failed')
+      AND token_usage_source = 'unknown'`,
+  attempt.inputTokens, attempt.outputTokens, attempt.costUsd, attempt.id);
+}
+
 async function recordModelUsage(db, scope, result) {
   if (!db || typeof db.run !== 'function' || !scope.organizationId || !scope.projectId) return;
   const usage = usageFrom(result);
@@ -100,5 +109,5 @@ async function recordFailedAttempt({ ctx, outcome, error }) {
   return costUsd;
 }
 
-module.exports = { attemptIdentity, startAttempt, finishAttempt,
+module.exports = { attemptIdentity, startAttempt, finishAttempt, reconcileLateAttempt,
   recordModelUsage, recordFailedAttempt, usageFrom };

@@ -13,6 +13,7 @@ const agentDnaStore = require('./agentDnaStore');
 const { withTransaction } = require('../db');
 const config = require('../config/orchestratorConfig');
 const { calculateInheritedCognitiveBudget } = require('./workerCognitiveBudget');
+const { buildExecutionBudget, splitBudget } = require('./workerBudgetAllocationService');
 
 async function applyAgentDna(ctx) {
   const { db, parent, assignment, mission } = ctx;
@@ -327,6 +328,7 @@ function buildWorkerMeta(details) {
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
   const genotypeRef = resolveGenotypeRef(evolution);
   return {
+    modelBudgetScope: mission.modelBudgetScope,
     executionPolicy: mission.executionPolicy,
     executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens: details.assignedTokens, index, assignmentCount: assignmentList.length || 1 }),
     orchestratorAgentId: parent.id,
@@ -373,28 +375,4 @@ function workerRuntime(details) {
   return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, capabilities, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
 }
 
-function buildExecutionBudget(details) {
-  const { executionBudget, assignedTokens, index, assignmentCount } = details;
-  const costUsd = executionBudget?.costUsd === undefined ? undefined : Math.floor(Number(executionBudget.costUsd) * 1000000 / assignmentCount) / 1000000;
-  const events = splitBudget(executionBudget?.events, index, assignmentCount);
-  return { ...executionBudget, tokens: assignedTokens, ...allocatedBudgetFields(costUsd, events) };
-}
-
-function allocatedBudgetFields(costUsd, events) {
-  return { ...(costUsd === undefined ? {} : { costUsd }), ...(events === undefined ? {} : { events }) };
-}
-
-function splitBudget(value, index, assignments) {
-  const total = Number(value);
-  if (!Number.isFinite(total) || total <= 0) return undefined;
-  const count = Math.max(1, Math.floor(assignments) || 1);
-  const base = Math.floor(total / count);
-  const remainder = total - base * count;
-  const bonusSlots = Math.floor(remainder);
-  const fractional = remainder - bonusSlots;
-  const bonus = index < bonusSlots ? 1 : 0;
-  const extra = index === 0 ? fractional : 0;
-  return Number((base + bonus + extra).toFixed(6));
-}
-
-module.exports = { assignedWorkerId, createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };
+module.exports = { assignedWorkerId, createAutonomousWorkers, splitBudget, buildExecutionBudget, buildWorkerMeta, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };

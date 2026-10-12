@@ -19,7 +19,8 @@ const scope = require('./agentMemoryScope');
 const { sanitizeMemorySourceText } = require('./memoryScoring');
 
 function applyScope(list, task, opts) {
-  return scope.filterScoped(filterUnverified(list), opts.missionScope, task);
+  const scoped = scope.filterScoped(filterUnverified(list), opts.missionScope, task);
+  return scope.filterForObligations(scoped, opts.obligationContext);
 }
 
 function truncateWords(text, maxLen) {
@@ -123,11 +124,13 @@ async function retrieveAgentMemories(agentId, task, options) {
   const search = await searchExperiences(agentId, task, opts);
   const episodes = await loadEpisodes(agentId, opts);
   const pitfalls = await loadPitfalls(task, opts, search.pitfalls);
+  const scopeTask = opts.scopeTask || task;
+  const experiences = applyScope(search.experiences, scopeTask, opts);
   return {
-    experiences: applyScope(search.experiences, task, opts).slice(0, 4),
-    pitfalls: applyScope(pitfalls, task, opts).slice(0, 3),
-    goldenPaths: applyScope(search.goldenPaths, task, opts).slice(0, 2),
-    episodes: applyScope(episodes, task, opts).filter(highReward).slice(0, 4)
+    experiences: experiences.sort((left, right) => Number(scope.isCaution(right)) - Number(scope.isCaution(left))).slice(0, 4),
+    pitfalls: applyScope(pitfalls, scopeTask, opts).slice(0, 3),
+    goldenPaths: applyScope(search.goldenPaths, scopeTask, opts).slice(0, 2),
+    episodes: applyScope(episodes, scopeTask, opts).filter(highReward).slice(0, 4)
   };
 }
 
@@ -223,8 +226,12 @@ function emptyMemorySelection() {
 function selectHistoricalMemories(memories, options) {
   const selected = emptyMemorySelection();
   const budget = historicalBudget(options);
-  for (const kind of ['pitfalls', 'goldenPaths', 'experiences', 'episodes']) {
-    for (const entry of memories[kind] || []) {
+  const cautions = (memories.experiences || []).filter(scope.isCaution);
+  const ordinary = (memories.experiences || []).filter((item) => !scope.isCaution(item));
+  const queues = [['pitfalls', memories.pitfalls], ['experiences', cautions],
+    ['goldenPaths', memories.goldenPaths], ['experiences', ordinary], ['episodes', memories.episodes]];
+  for (const [kind, entries] of queues) {
+    for (const entry of entries || []) {
       selected[kind].push(entry);
       if (estimateMemoryTokens(buildMemorySections(selected, []).join('\n\n')) > budget) selected[kind].pop();
     }

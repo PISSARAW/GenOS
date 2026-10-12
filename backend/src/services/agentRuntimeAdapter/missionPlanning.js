@@ -323,6 +323,7 @@ async function createMissionExecutionRun(ctx) {
     budget: { ...runtimeBudget, verification: ctx.normalizedMission.executionBudget?.verification },
     contractRecord
   });
+  await require('../missionModelBudgetScope').bindParent(ctx);
   } catch (error) {
     try { await require('../trinityWorkerIdentity').recordRejected(db, { agentId, error }); }
     catch (diagnosticError) { console.error('[WorkerIdentity] Diagnostic persistence failed:', diagnosticError.code || 'unknown'); }
