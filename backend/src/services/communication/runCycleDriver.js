@@ -2,7 +2,7 @@
 
 /**
  * Run Cycle Driver — executes a full communication cycle:
- * decide → execute (simulate) → learn → assess agency.
+ * decide → execute (explicit live transport or simulation) → assess agency.
  *
  * Bridges communication decisions to actual agent runtime behavior.
  */
@@ -11,6 +11,7 @@ const { getDatabase } = require('../../db');
 const { decideCommunication, logShadowDecision } = require('./communicationPolicyEngine');
 const { assessAgency } = require('./agencyDriver');
 const { recordDecision } = require('./communicationMetricsService');
+const { executeLiveCycle } = require('./liveCycleExecution');
 
 async function resolveDb(inputDb) {
   if (inputDb) return inputDb;
@@ -102,6 +103,15 @@ function buildReceipt(ctx) {
 
 function receiptOutcome(ctx) {
   const recipients = ctx.decision.recipients || [];
+  const result = ctx.outcome;
+  if (!result.simulated) {
+    return { executed: result.executed, simulated: false, published: result.published,
+      cycleId: result.cycleId || null, signalId: result.signalId || null,
+      grounding: result.grounding, deliveryAcknowledgements: result.deliveryAcknowledgements,
+      tokensUsed: result.tokensUsed, tokensProjected: result.tokensProjected || 0,
+      tokensMeasured: result.tokensMeasured, usageReceiptId: result.usageReceiptId || null,
+      tokenStatus: result.tokenStatus, recipientCount: recipients.length };
+  }
   return {
     executed: false,
     simulated: true,
@@ -130,6 +140,9 @@ async function runCycle(params) {
   const { db, intent, opts = {} } = params;
   if (!intent) throw new Error('runCycle: intent is required.');
   if (!intent.senderAgentId) throw new Error('runCycle: intent.senderAgentId is required.');
+  if (!['live', 'simulate'].includes(opts.executionMode)) {
+    throw new Error('runCycle: executionMode must be live or simulate.');
+  }
 
   const resolvedDb = await resolveDb(db);
   const input = buildInput(intent, resolvedDb, opts);
@@ -139,15 +152,16 @@ async function runCycle(params) {
 
   const shadowReceipt = await tryLogShadow(input);
 
-  const simulation = await simulateExecution(decision, opts.usageReceipt);
-  const simulatedOutcome = simulation.simulatedOutcome;
-
   const agency = await assessAgency({
     db: resolvedDb, agentId: intent.senderAgentId, domain: intent.domain
   });
 
+  const execution = opts.executionMode === 'live'
+    ? await executeLiveCycle({ db: resolvedDb, decision, intent, opts })
+    : await simulateExecution(decision, opts.usageReceipt);
+
   const outcome = {
-    executed: false, simulated: true, simulatedOutcome, learnResult: null,
+    ...execution, learnResult: null,
     decisionAction: decision.action,
     recipientCount: (decision.recipients || []).length,
     reasonCodes: decision.reasonCodes || []
@@ -159,7 +173,8 @@ async function runCycle(params) {
 async function runCycleBatch(cycles, globalOpts = {}) {
   const results = [];
   for (const c of cycles) {
-    const result = await runCycle({ db: globalOpts.db, intent: c.intent, opts: c.opts || {} });
+    const result = await runCycle({ db: globalOpts.db, intent: c.intent,
+      opts: { executionMode: globalOpts.executionMode, ...(c.opts || {}) } });
     results.push(result);
   }
   return results;

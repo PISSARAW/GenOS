@@ -21,28 +21,55 @@ const {
 const leasePolicy = require('../toolLeasePolicy');
 const agentAuthority = require('../agentAuthorityService');
 const config = require('../../config/orchestratorConfig');
+const { assertMissionPromptBudget } = require('./missionPromptBudget');
+
+function applyPromptBudget(mission, prompt) {
+  const estimate = assertMissionPromptBudget(mission, prompt);
+  if (estimate) mission.contextTokenEstimate = estimate;
+  return prompt;
+}
+
+function memoryOptions(mission, bounded) {
+  return {
+    organizationId: mission.organizationId,
+    projectId: mission.projectId,
+    sessionId: mission.sessionId,
+    taskId: mission.taskId,
+    missionScope: mission.missionScope,
+    historicalMemoryTokenBudget: mission.historicalMemoryTokenBudget,
+    promptGenome: mission.promptGenome,
+    promptRegulators: mission.promptRegulators,
+    promptRegulatorState: mission.promptRegulatorState,
+    peekVesicles: bounded
+  };
+}
+
+async function appendMemoryContext(mission, agentId, task) {
+  const bounded = mission.contextTokenBudget !== undefined && mission.contextTokenBudget !== null;
+  const memory = require('../agentMemoryContext');
+  const memoryPrompt = await memory.formatCognitiveMemoryPrompt(agentId, task, memoryOptions(mission, bounded));
+  const hasMemory = Boolean(memoryPrompt && memoryPrompt.trim());
+  const prompt = hasMemory ? `${task}\n\nGENOS MEMORY CONTEXT\n${memoryPrompt}` : task;
+  applyPromptBudget(mission, prompt);
+  if (hasMemory) {
+    mission.prompt = prompt;
+    mission.memoryContextAttached = true;
+  }
+}
+
+function isBudgetError(error) {
+  return error.code === 'GENOS_CONTEXT_BUDGET_INVALID'
+    || error.code === 'GENOS_CONTEXT_BUDGET_EXCEEDED';
+}
 
 async function attachMissionMemoryContext(normalizedMission, agentId) {
-  const agentMemoryContext = require('../agentMemoryContext');
   const task = normalizedMission.prompt || normalizedMission.currentTask || '';
+  applyPromptBudget(normalizedMission, task);
   if (!task.trim() || normalizedMission.useMemoryContext === false) return normalizedMission;
   try {
-    const memoryPrompt = await agentMemoryContext.formatCognitiveMemoryPrompt(agentId, task, {
-      organizationId: normalizedMission.organizationId,
-      projectId: normalizedMission.projectId,
-      sessionId: normalizedMission.sessionId,
-      taskId: normalizedMission.taskId,
-      missionScope: normalizedMission.missionScope,
-      historicalMemoryTokenBudget: normalizedMission.historicalMemoryTokenBudget,
-      promptGenome: normalizedMission.promptGenome,
-      promptRegulators: normalizedMission.promptRegulators,
-      promptRegulatorState: normalizedMission.promptRegulatorState
-    });
-    if (memoryPrompt && memoryPrompt.trim()) {
-      normalizedMission.prompt = `${task}\n\nGENOS MEMORY CONTEXT\n${memoryPrompt}`;
-      normalizedMission.memoryContextAttached = true;
-    }
+    await appendMemoryContext(normalizedMission, agentId, task);
   } catch (error) {
+    if (isBudgetError(error)) throw error;
     normalizedMission.memoryContextAttached = false;
     normalizedMission.memoryContextError = error.message;
   }

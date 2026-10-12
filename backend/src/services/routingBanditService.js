@@ -14,8 +14,13 @@
  */
 
 const { AdaptiveStateService } = require('./adaptiveStateService');
+const { readAssembly } = require('./aeisAssemblyStore');
+const { validateReceipt } = require('./epistemicVerifierReceiptService');
+const { listVerifierDigests } = require('./verifierTrustRegistry');
+const { evaluateEpistemicAssurance } = require('./epistemicAssuranceService');
+const { createFormalResult } = require('./formalResultService');
 
-const SCOPE = 'routing_bandit_verified_v2';
+const SCOPE = 'routing_bandit_verified_v3';
 const DIM = 7;
 const MAX_ARMS = 16;
 const ALPHA = 1.0;
@@ -86,44 +91,101 @@ function armScore(arm, x) {
   return dot(theta, x) + ALPHA * Math.sqrt(Math.max(0, dot(x, Aix)));
 }
 
-async function loadArms(store) {
+async function loadState(store) {
   const stored = (await store.restoreObject(SCOPE, 'linucb')) || {};
   const arms = stored.arms && typeof stored.arms === 'object' ? stored.arms : {};
   const probe = arms[Object.keys(arms)[0]];
-  if (probe && (!Array.isArray(probe.b) || probe.b.length !== DIM)) return {};
-  return arms;
+  if (probe && (!Array.isArray(probe.b) || probe.b.length !== DIM)) return { arms: {}, seen: {}, observations: [] };
+  return { arms, seen: stored.seen || {}, observations: stored.observations || [] };
 }
 
-function verifiedOutcome(verification) {
-  return verification?.status === 'verified'
-    && typeof verification.evidenceRef === 'string'
-    && verification.evidenceRef.trim().length > 0;
+function nonEmpty(value) {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
-function validObservation(db, data) {
-  if (!db || typeof data.routeUri !== 'string' || !data.routeUri) return false;
-  if (!verifiedOutcome(data.verification)) return false;
-  return typeof data.success === 'boolean' && data.verification.success === data.success;
+function outcomeStatement(data) {
+  return JSON.stringify({ schema: 'genos.model-route-outcome/v1',
+    missionId: data.missionId, routeAttemptId: data.routeAttemptId,
+    routeUri: data.routeUri, success: data.success });
+}
+
+function boundReceipts(assembly, result) {
+  const trusted = listVerifierDigests();
+  return (assembly.verifications || []).filter((receipt) => receipt.resultId === result.resultId
+    && receipt.evidenceDigest === result.evidence.digest && receipt.status === 'verified'
+    && receipt.independent === true && validateReceipt(receipt, trusted));
+}
+
+function validIdentity(db, data) {
+  return Boolean(db) && nonEmpty(data.verification?.assemblyId)
+    && [data.missionId, data.scopeId, data.routeAttemptId, data.routeUri].every(nonEmpty)
+    && typeof data.success === 'boolean';
+}
+
+function acceptedAssembly(saved, data) {
+  const original = saved.evaluation.evaluation;
+  const current = evaluateEpistemicAssurance({ ...saved.evaluation.assembly,
+    trustedVerifierDigests: listVerifierDigests() });
+  return saved.runId === data.missionId && saved.scopeId === data.scopeId
+    && saved.evaluation.allAccepted === true && original?.eligible === true
+    && current.eligible === true && current.assemblyDigest === original.assemblyDigest;
+}
+
+function qualifiedResult(saved, data) {
+  const assembly = saved.evaluation.assembly;
+  const result = assembly?.results?.map((item) => createFormalResult(item))
+    .find((item) => item.canonicalStatement === outcomeStatement(data));
+  if (!result) return false;
+  const receipts = boundReceipts(assembly, result);
+  return new Set(receipts.map((receipt) => receipt.nonce)).size >= 2;
+}
+
+async function verifiedOutcome(db, data) {
+  if (!validIdentity(db, data)) return false;
+  const saved = await readAssembly(db, data.verification.assemblyId);
+  return acceptedAssembly(saved, data) && qualifiedResult(saved, data);
+}
+
+function observation(data) {
+  return { missionId: data.missionId, scopeId: data.scopeId, routeAttemptId: data.routeAttemptId,
+    routeUri: data.routeUri, success: data.success, verification: { assemblyId: data.verification.assemblyId },
+    costUsd: data.costUsd, latencyMs: data.latencyMs, promptTokens: data.promptTokens,
+    quotedCostUsd: data.quotedCostUsd, predictedLatencyMs: data.predictedLatencyMs,
+    predictedReliability: data.predictedReliability, isWorker: data.isWorker, local: data.local };
+}
+
+async function persistObservation(db, data) {
+  const store = new AdaptiveStateService(db);
+  const state = await loadState(store);
+  const ref = data.verification.assemblyId;
+  if (state.seen[ref] || state.seen[`attempt:${data.routeAttemptId}`]) return null;
+  const arms = state.arms;
+  if (!arms[data.routeUri]) arms[data.routeUri] = newArm();
+  evictIfNeeded(arms);
+  const arm = arms[data.routeUri];
+  if (!arm) return null;
+  const x = featurize(data);
+  const reward = rewardOf(data);
+  arm.Ainv = shermanMorrison(arm.Ainv, x);
+  arm.b = arm.b.map((value, i) => value + reward * x[i]);
+  arm.pulls += 1;
+  arm.sumR += reward;
+  state.seen[ref] = true;
+  state.seen[`attempt:${data.routeAttemptId}`] = true;
+  state.observations.push(observation(data));
+  state.observations = state.observations.slice(-500);
+  await store.persistObject(SCOPE, 'linucb', state, arm.pulls);
+  return { uri: data.routeUri, pulls: arm.pulls, reward };
 }
 
 async function observe(db, input) {
   try {
     const data = input || {};
-    if (!validObservation(db, data)) return null;
-    const store = new AdaptiveStateService(db);
-    const arms = await loadArms(store);
-    if (!arms[data.routeUri]) arms[data.routeUri] = newArm();
-    evictIfNeeded(arms);
-    const arm = arms[data.routeUri];
-    if (!arm) return null;
-    const x = featurize(data);
-    const reward = rewardOf(data);
-    arm.Ainv = shermanMorrison(arm.Ainv, x);
-    arm.b = arm.b.map((value, i) => value + reward * x[i]);
-    arm.pulls += 1;
-    arm.sumR += reward;
-    await store.persistObject(SCOPE, 'linucb', { arms }, arm.pulls);
-    return { uri: data.routeUri, pulls: arm.pulls, reward };
+    if (!await verifiedOutcome(db, data)) return null;
+    const transaction = require('../db').withTransaction;
+    return typeof transaction === 'function'
+      ? await transaction(db, () => persistObservation(db, data))
+      : await persistObservation(db, data);
   } catch (_) {
     return null;
   }
@@ -135,7 +197,7 @@ async function recommend(db, input) {
   if (!db || !routes.length) return { ordering: [], explored: false };
   try {
     const store = new AdaptiveStateService(db);
-    const arms = await loadArms(store);
+    const { arms } = await loadState(store);
     const x = featurize(data);
     const scored = [];
     for (const uri of routes) {
@@ -151,15 +213,14 @@ async function recommend(db, input) {
 
 async function report(db) {
   try {
-    const stored = (await new AdaptiveStateService(db).restoreObject(SCOPE, 'linucb')) || {};
-    const arms = stored.arms && typeof stored.arms === 'object' ? stored.arms : {};
+    const { arms } = await loadState(new AdaptiveStateService(db));
     return {
       arms: Object.entries(arms).map(([uri, arm]) => ({
         uri,
         pulls: arm.pulls || 0,
         avgReward: arm.pulls ? (arm.sumR || 0) / arm.pulls : 0
       })),
-      limitation: 'Canary explicit only; training requires an independent mission verdict and evidence reference.'
+      limitation: 'Canary explicit only; training requires an active persisted AEIS assembly bound to the exact mission and route attempt.'
     };
   } catch (_) {
     return { arms: [] };
@@ -178,36 +239,9 @@ function clampRate(value, fallback) {
   return Math.max(0, Math.min(1, number));
 }
 
-function numericOrZero(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
-}
-
-function modelFromMeta(meta) {
-  return [meta.model, meta.requestedModel, meta.servedModel]
-    .find((value) => typeof value === 'string' && value.length > 0);
-}
-
-function usageRowFromMeta(row, meta) {
-  if (!verifiedOutcome(meta.verification)) return null;
-  if (typeof meta.verification.success !== 'boolean') return null;
-  const model = modelFromMeta(meta);
-  if (!model) return null;
-  return {
-    id: `ledger:${row.id}`,
-    route: model,
-    success: meta.verification.success,
-    costUsd: numericOrZero(row.cost_usd ?? meta.costUsd),
-    latencyMs: numericOrZero(meta.latencyMs),
-    promptTokens: numericOrZero(meta.promptTokens),
-    quotedCostUsd: numericOrZero(meta.quotedCostUsd),
-    predictedLatencyMs: numericOrZero(meta.predictedLatencyMs)
-  };
-}
-
 function parseUsageRow(row) {
-  try { return usageRowFromMeta(row, JSON.parse(row.metadata_json || '{}')); }
-  catch (_) { return null; }
+  // A provider ledger row is never an independently qualified mission label.
+  return null;
 }
 
 function scoreCalibration(train, holdout) {
@@ -215,16 +249,16 @@ function scoreCalibration(train, holdout) {
   for (const item of train) {
     const x = featurize(item);
     const reward = rewardOf(item);
-    if (!arms[item.route]) arms[item.route] = newArm();
-    arms[item.route].Ainv = shermanMorrison(arms[item.route].Ainv, x);
-    arms[item.route].b = arms[item.route].b.map((value, i) => value + reward * x[i]);
-    arms[item.route].pulls += 1;
+    if (!arms[item.routeUri]) arms[item.routeUri] = newArm();
+    arms[item.routeUri].Ainv = shermanMorrison(arms[item.routeUri].Ainv, x);
+    arms[item.routeUri].b = arms[item.routeUri].b.map((value, i) => value + reward * x[i]);
+    arms[item.routeUri].pulls += 1;
   }
   let absolute = 0;
   let rewards = 0;
   let evaluated = 0;
   for (const item of holdout) {
-    const arm = arms[item.route];
+    const arm = arms[item.routeUri];
     if (!arm) continue;
     const predicted = Math.max(0, Math.min(1.5, dot(matVec(arm.Ainv, arm.b), featurize(item))));
     const actual = rewardOf(item);
@@ -241,29 +275,40 @@ async function evaluateLoggedHoldout(db, options) {
   if (!db) return { status: 'insufficient_data', reason: 'missing db' };
   try {
     const limit = Math.max(20, Math.min(500, Math.floor(Number(settings.limit) || 200)));
-    const rows = await db.all(
-      `SELECT id, metadata_json, cost_usd FROM usage_ledger ORDER BY rowid DESC LIMIT ?`,
-      limit
-    );
-    const log = (Array.isArray(rows) ? rows : []).map(parseUsageRow).filter(Boolean).reverse();
+    const log = await qualifiedObservations(db, limit);
     if (log.length < 20) return { status: 'insufficient_data', reason: 'too few logged decisions', n: log.length };
-    const cut = Math.floor(log.length * 0.7);
-    const scored = scoreCalibration(log.slice(0, cut), log.slice(cut));
+    const missions = [...new Set(log.map((item) => item.missionId))];
+    if (missions.length < 2) return { status: 'insufficient_data', reason: 'too few distinct missions', n: log.length };
+    const cut = Math.floor(missions.length * 0.7);
+    const trainMissions = new Set(missions.slice(0, cut));
+    const train = log.filter((item) => trainMissions.has(item.missionId));
+    const holdout = log.filter((item) => !trainMissions.has(item.missionId));
+    const scored = scoreCalibration(train, holdout);
     if (!scored) return { status: 'insufficient_data', reason: 'no overlapping arms' };
-    return { status: 'measured', n: log.length, train: cut, holdout: log.length - cut, mae: scored.mae, meanReward: scored.meanReward };
+    return { status: 'measured', n: log.length, train: train.length, holdout: holdout.length,
+      trainMissions: cut, holdoutMissions: missions.length - cut,
+      mae: scored.mae, meanReward: scored.meanReward };
   } catch (_) {
     return { status: 'unavailable' };
   }
 }
 
+async function qualifiedObservations(db, limit = 500) {
+  const state = await loadState(new AdaptiveStateService(db));
+  const candidates = state.observations.slice(-limit);
+  const checks = await Promise.all(candidates.map(async (item) =>
+    await verifiedOutcome(db, item).catch(() => false)));
+  return candidates.filter((_, index) => checks[index])
+    .map((item) => ({ ...item, id: item.verification.assemblyId }));
+}
+
 async function canaryAllowed(db) {
   try {
-    if (!db) return true;
+    if (!db) return false;
     const stored = await new AdaptiveStateService(db).restoreObject('canary_experiment', 'current');
-    if (stored?.lastResult?.passed === false) return false;
-    return true;
+    return stored?.lastResult?.passed === true;
   } catch (_) {
-    return true;
+    return false;
   }
 }
 
@@ -301,7 +346,7 @@ async function chooseWithGuardrails(db, candidates, policy) {
   if (!list.length) return { choice: null, mode: 'empty', ordering: [] };
   const explicit = explicitRouteChoice(list, settings);
   if (explicit) return explicit;
-  const rate = clampRate(settings.canaryRate, 0.05);
+  const rate = clampRate(settings.canaryRate, 0);
   if (hashBucket(settings.canaryKey || 'default') >= rate * 100) {
     return { choice: list[0], mode: 'policy', ordering: list };
   }
@@ -312,7 +357,8 @@ async function chooseWithGuardrails(db, candidates, policy) {
   }
 }
 
-module.exports = { observe, recommend, report, chooseWithGuardrails, evaluateLoggedHoldout, scoreCalibration, parseUsageRow, canaryAllowed, DIM, MAX_ARMS };
+module.exports = { observe, recommend, report, chooseWithGuardrails, evaluateLoggedHoldout,
+  qualifiedObservations, scoreCalibration, parseUsageRow, outcomeStatement, canaryAllowed, DIM, MAX_ARMS };
 
 function chooseWithGuardrailsContext(settings) {
   return settings.context && typeof settings.context === 'object' ? settings.context : {};

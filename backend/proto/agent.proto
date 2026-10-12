@@ -51,6 +51,8 @@ message AgentMission {
   string resume_checkpoint_id = 35;
   bool runtime_checkpoint_enabled = 36;
   string workspace_id = 37;
+  // Optional upper bound for the estimated GenOS-generated input prompt.
+  optional uint32 context_token_budget = 38;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }

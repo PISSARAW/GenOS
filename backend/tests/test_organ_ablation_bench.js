@@ -27,14 +27,11 @@ Module._load = function hook(request) {
 
 const SERVICES = path.join(__dirname, '..', 'src', 'services');
 const HERE = (name) => require(path.join(SERVICES, name));
-
-function verified(success, evidenceRef = 'fixture:independent-gate') {
-  return { status: 'verified', success, evidenceRef };
-}
+const { attachAssemblyStore, verifiedObservation } = require('../../benchmarks/token-economy/verified-bandit-fixture.cjs');
 
 function stubDb() {
   const tables = new Map();
-  return {
+  const db = {
     get: async (sql, s, k) => (tables.has(`${s}|${k}`) ? { payload_json: tables.get(`${s}|${k}`) } : null),
     all: async () => [],
     run: async (...args) => {
@@ -43,6 +40,12 @@ function stubDb() {
     },
     seed: (scope, key, value) => tables.set(`${scope}|${key}`, JSON.stringify(value))
   };
+  attachAssemblyStore(db);
+  return db;
+}
+
+async function learn(db, input) {
+  return HERE('routingBanditService').observe(db, await verifiedObservation(db, input));
 }
 
 function brokenDb() {
@@ -135,14 +138,13 @@ async function testLearningChangesBehavior() {
   const bandit = HERE('routingBanditService');
   const db = stubDb();
   for (let i = 0; i < 8; i++) {
-    await bandit.observe(db, { routeUri: 'good://m', success: true, verification: verified(true), costUsd: 0.01, latencyMs: 500 });
-    await bandit.observe(db, { routeUri: 'bad://m', success: false, verification: verified(false) });
+    await learn(db, { routeUri: 'good://m', success: true, costUsd: 0.01, latencyMs: 500 });
+    await learn(db, { routeUri: 'bad://m', success: false });
   }
-  const trained = await bandit.chooseWithGuardrails(db, ['bad://m', 'good://m'], { canaryRate: 1, canaryKey: 'k', minPulls: 5 });
-  const cold = await bandit.chooseWithGuardrails(stubDb(), ['bad://m', 'good://m'], { canaryRate: 1, canaryKey: 'k', minPulls: 5 });
-  assert.strictEqual(trained.choice, 'good://m');
-  assert.strictEqual(cold.mode, 'policy');
-  assert.notStrictEqual(trained.choice, cold.choice);
+  const trained = await bandit.recommend(db, { routes: ['bad://m', 'good://m'] });
+  const cold = await bandit.recommend(stubDb(), { routes: ['bad://m', 'good://m'] });
+  assert.strictEqual(trained.ordering[0].uri, 'good://m');
+  assert.strictEqual(cold.ordering[0].uri, 'bad://m');
   console.log('ok - apprentissage change le choix (bandit vs politique froide)');
 }
 
@@ -217,8 +219,9 @@ async function testHoldoutProtocol() {
   const manifest = protocol.manifestHash;
   const db = stubDb();
   for (const item of [...train, ...dev]) {
-    await bandit.observe(db, { routeUri: item.arm, success: true, verification: verified(true), costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
-    await bandit.observe(db, { routeUri: item.arm === 'a://m' ? 'b://m' : 'a://m', success: false, verification: verified(false), costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
+    await learn(db, { routeUri: item.arm, success: true, costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
+    await learn(db, { routeUri: item.arm === 'a://m' ? 'b://m' : 'a://m',
+      success: false, costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
   }
   validation.verifyManifest(protocol, manifest);
   let hits = 0;
@@ -246,18 +249,13 @@ async function testWorldToRouting() {
 
 async function testLoggedHoldout() {
   const bandit = HERE('routingBanditService');
-  const rows = [];
+  const db = stubDb();
   for (let i = 0; i < 30; i++) {
     const good = i % 2 === 0;
-    rows.push({
-      id: `u${i}`,
-      metadata_json: JSON.stringify(good
-        ? { model: 'good://m', verification: verified(true), costUsd: 0.01, latencyMs: 500 }
-        : { model: 'bad://m', verification: verified(false), costUsd: 0.8, latencyMs: 20000 })
-    });
+    await learn(db, { missionId: `holdout-${i}`,
+      routeUri: good ? 'good://m' : 'bad://m', success: good,
+      costUsd: good ? 0.01 : 0.8, latencyMs: good ? 500 : 20000 });
   }
-  const db = stubDb();
-  db.all = async (sql) => (sql.includes('FROM usage_ledger') ? rows : []);
   const rep = await bandit.evaluateLoggedHoldout(db, {});
   assert.strictEqual(rep.status, 'measured', JSON.stringify(rep));
   assert.ok(Number.isFinite(rep.mae) && rep.mae >= 0 && rep.mae <= 1.5, 'mae=' + rep.mae);
@@ -333,13 +331,15 @@ async function testPolicyMasking() {
 async function testCanaryExperiment() {
   const bandit = HERE('routingBanditService');
   const experiment = HERE('canaryExperimentService');
-  const rows = [];
+  const db = stubDb();
+  const db2 = stubDb();
   for (let i = 0; i < 40; i++) {
     const good = i % 2 === 0;
-    rows.push({ id: `u${i}`, metadata_json: JSON.stringify(good ? { model: 'good://m', verification: verified(true), costUsd: 0.01, latencyMs: 500 } : { model: 'bad://m', verification: verified(false), costUsd: 0.8, latencyMs: 20000 }) });
+    const sample = { missionId: `canary-${i}`, routeUri: good ? 'good://m' : 'bad://m',
+      success: good, costUsd: good ? 0.01 : 0.8, latencyMs: good ? 500 : 20000 };
+    await learn(db, sample);
+    await learn(db2, sample);
   }
-  const db = stubDb();
-  db.all = async (sql) => (sql.includes('FROM usage_ledger') ? rows : []);
   const frozen = await experiment.freezeExperiment(db, {});
   assert.ok(frozen.manifestHash && frozen.manifestHash.length >= 16, 'manifest manquant');
   const run = await experiment.runExperiment(db, {});
@@ -347,8 +347,6 @@ async function testCanaryExperiment() {
   assert.strictEqual(run.replicated, true);
   assert.ok(await bandit.canaryAllowed(db), 'gate ouverte attendue');
   // Seuil impossible -> echec -> gate fermee -> politique forcee.
-  const db2 = stubDb();
-  db2.all = async (sql) => (sql.includes('FROM usage_ledger') ? rows : []);
   await experiment.freezeExperiment(db2, { threshold: 0 });
   const failed = await experiment.runExperiment(db2, {});
   assert.strictEqual(failed.passed, false);
@@ -356,8 +354,8 @@ async function testCanaryExperiment() {
   const forced = await bandit.chooseWithGuardrails(db2, ['bad://m', 'good://m'], { canaryRate: 1, canaryKey: 'k', minPulls: 1 });
   assert.strictEqual(forced.mode, 'policy');
   assert.strictEqual(forced.reason, 'gate-closed');
-  // Sans experience -> gate ouverte par defaut.
-  assert.strictEqual(await bandit.canaryAllowed(stubDb()), true);
+  // Sans experience qualifiee -> gate fermee par defaut.
+  assert.strictEqual(await bandit.canaryAllowed(stubDb()), false);
   console.log('ok - experience gelee, replicats, gate ouvre/ferme');
 }
 
