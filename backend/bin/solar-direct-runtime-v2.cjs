@@ -11,6 +11,7 @@ console.log = (...args) => process.stderr.write(args.map(String).join(' ') + '\n
 console.info = (...args) => process.stderr.write(args.map(String).join(' ') + '\n');
 
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
+const runtimeBudget = require('./runtime-budget-limit.cjs');
 const agentIdentity = require('../src/services/agentIdentityService');
 const agentConscience = require('../src/services/agentConscienceService');
 const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');
@@ -315,8 +316,7 @@ function parseJson(value) {
 }
 
 function budgetLimit(executionBudget, key) {
-  const value = Number(executionBudget[key]);
-  return Number.isFinite(value) && value > 0 ? value : Infinity;
+  return runtimeBudget.budgetLimit(executionBudget, key);
 }
 
 function emitEvent(state, event) {
