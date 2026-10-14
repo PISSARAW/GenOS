@@ -40,9 +40,21 @@ pub fn begin(tool_name: &str) -> Result<Option<Value>, String> {
 }
 
 pub fn finish(receipt: &Value, success: bool, output: &str) -> Result<(), String> {
-    let action_id = receipt.get("actionId").and_then(Value::as_str)
+    let action_id = receipt
+        .get("actionId")
+        .and_then(Value::as_str)
         .ok_or("MCP actor receipt has no action ID")?;
+    let tool_name = receipt
+        .get("toolName")
+        .and_then(Value::as_str)
+        .ok_or("MCP actor receipt has no tool name")?;
     let output_hash = hex::encode(Sha256::digest(output.as_bytes()));
-    invoke(&["finish", "", action_id, if success { "true" } else { "false" }, &output_hash])?;
+    invoke(&[
+        "finish",
+        tool_name,
+        action_id,
+        if success { "true" } else { "false" },
+        &output_hash,
+    ])?;
     Ok(())
 }

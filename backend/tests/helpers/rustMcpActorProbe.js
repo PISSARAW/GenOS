@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
@@ -26,13 +27,39 @@ async function probe(ctx, filename, workspace) {
   const receipt = JSON.parse(started.stdout);
   assert.equal(receipt.agentId, ctx.agentId);
   const finished = spawnSync(process.execPath,
-    [bridge, 'finish', '', receipt.actionId, 'true', 'a'.repeat(64)],
+    [bridge, 'finish', request.toolName, receipt.actionId, 'true', 'a'.repeat(64)],
     { env, encoding: 'utf8', timeout: 30000 });
   assert.equal(finished.status, 0, finished.stderr);
   assert.equal((await receipts.read(ctx.db, receipt.actionId)).phase, 'observed');
   await probeRustBinary(ctx, env, workspace);
+  await rejectFinishAfterRevocation(ctx, workspace);
+  await rejectFinishAfterExpiration(ctx, workspace);
   await actor.revoke(ctx.db, token);
   await assert.rejects(actor.begin(ctx.db, request), { code: 'MCP_ACTOR_TOKEN_REVOKED' });
+}
+
+async function rejectFinishAfterRevocation(ctx, workspace) {
+  const token = await actor.issue(ctx.db, { agentId: ctx.agentId,
+    runId: ctx.executionRun.id, workspaceRoot: workspace });
+  const request = { token, workspaceRoot: workspace, toolName: 'genos_search_failures' };
+  const predicted = await actor.begin(ctx.db, request);
+  await actor.revoke(ctx.db, token);
+  await assert.rejects(actor.finish(ctx.db, { ...request, actionId: predicted.actionId,
+    success: true, outputHash: 'b'.repeat(64) }), { code: 'MCP_ACTOR_TOKEN_REVOKED' });
+  assert.equal((await receipts.read(ctx.db, predicted.actionId)).phase, 'predicted');
+}
+
+async function rejectFinishAfterExpiration(ctx, workspace) {
+  const token = await actor.issue(ctx.db, { agentId: ctx.agentId,
+    runId: ctx.executionRun.id, workspaceRoot: workspace });
+  const request = { token, workspaceRoot: workspace, toolName: 'genos_search_failures' };
+  const predicted = await actor.begin(ctx.db, request);
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  await ctx.db.run('UPDATE mcp_actor_capabilities SET expires_at = ? WHERE token_hash = ?',
+    new Date(Date.now() - 1000).toISOString(), tokenHash);
+  await assert.rejects(actor.finish(ctx.db, { ...request, actionId: predicted.actionId,
+    success: true, outputHash: 'c'.repeat(64) }), { code: 'MCP_ACTOR_TOKEN_REVOKED' });
+  assert.equal((await receipts.read(ctx.db, predicted.actionId)).phase, 'predicted');
 }
 
 async function probeRustBinary(ctx, env, workspace) {

@@ -18,7 +18,7 @@ async function main() {
     if (phase === 'begin') {
       process.stdout.write(JSON.stringify(await actor.begin(db, { token, workspaceRoot, toolName })));
     } else if (phase === 'finish') {
-      const settled = await actor.finish(db, { token, actionId,
+      const settled = await actor.finish(db, { token, workspaceRoot, toolName, actionId,
         success: success === 'true', outputHash });
       if (!settled.matched) throw new Error('MCP_ACTOR_RECEIPT_MISMATCH');
       process.stdout.write(JSON.stringify(settled));

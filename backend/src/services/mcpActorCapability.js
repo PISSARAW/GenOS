@@ -59,15 +59,36 @@ async function begin(db, input) {
     effectorId: 'rust_mcp_stdio', actionId,
     prediction: { toolName: input.toolName, expected: 'stdio_tool_result' } });
   return { actionId, agentId: row.agent_id, runId: row.run_id,
-    authorityHash: row.authority_hash };
+    authorityHash: row.authority_hash, toolName: input.toolName,
+    workspaceRoot: row.workspace_root };
 }
 
 async function finish(db, input) {
-  const row = await db.get('SELECT * FROM mcp_actor_capabilities WHERE token_hash = ?', digest(input.token || ''));
-  if (!row) throw refusal('MCP_ACTOR_TOKEN_INVALID');
-  return receipts.observe({ db, agentId: row.agent_id, runId: row.run_id,
+  return require('../db').withTransaction(db, async () => finishAuthorized(db, input));
+}
+
+async function finishAuthorized(db, input) {
+  if (typeof input.success !== 'boolean' || !/^[a-f0-9]{64}$/.test(input.outputHash || '')) {
+    throw refusal('MCP_ACTOR_OUTCOME_INVALID');
+  }
+  const row = await verify(db, { token: input.token,
+    workspaceRoot: input.workspaceRoot, toolName: input.toolName });
+  const receipt = await receipts.read(db, input.actionId);
+  if (!matchesPredictedReceipt(receipt, row, input)) throw refusal('MCP_ACTOR_RECEIPT_MISMATCH');
+  const observed = await receipts.observe({ db, agentId: row.agent_id, runId: row.run_id,
     effectorId: 'rust_mcp_stdio', actionId: input.actionId,
     outcome: { status: input.success ? 'completed' : 'failed', outputHash: input.outputHash } });
+  if (!observed.matched) throw refusal('MCP_ACTOR_RECEIPT_MISMATCH');
+  return observed;
+}
+
+function matchesPredictedReceipt(receipt, capability, input) {
+  return receipt?.phase === 'predicted'
+    && receipt.agentId === capability.agent_id
+    && receipt.runId === capability.run_id
+    && receipt.effectorId === 'rust_mcp_stdio'
+    && receipt.authorityHash === capability.authority_hash
+    && receipt.prediction?.toolName === input.toolName;
 }
 
 async function revoke(db, token) {
