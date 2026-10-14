@@ -10,7 +10,7 @@
 const { resolveCapabilities } = require('./capabilityResolverService');
 const { emit } = require('./agentOrchestrationState');
 const {
-  contractFor, missingCapabilities, capabilitiesForMode,
+  contractFor, missingCapabilities,
 } = require('./topologyCapabilityService');
 
 const PROVENANCE_SOURCE = 'adaptiveReevaluationService';
@@ -132,27 +132,36 @@ function getOrg(currentTopology, ctx) {
   return ctx.currentTopology && ctx.currentTopology.organization;
 }
 
-function findBetterTopology(currentTopology, expressedCapabilities, ctx) {
+function scoreTopologyCandidate(mode, context) {
+  const candidate = contractFor({ mode, organization: context.organization });
+  if (!candidate.required.length || missingCapabilities(candidate, context.available).length) return null;
+  const resolved = context.missing.filter((capability) => !candidate.required.includes(capability));
+  if (!resolved.length) return null;
+  return { mode, coverage: resolved.length, requirementsResolved: resolved };
+}
+
+function betterTopologyCandidate(current, candidate) {
+  if (!candidate) return current;
+  if (!current || candidate.coverage > current.coverage) return candidate;
+  return current;
+}
+
+function findBetterTopology(currentTopology, expressedCapabilities, ctx = {}) {
   const org = getOrg(currentTopology, ctx);
   const contract = contractFor({ mode: ctx.mode, organization: org });
   const required = contract.required || [];
   if (!required.length) return null;
-  const missing = missingCapabilities(contract, expressedCapabilities);
+  const available = expressedCapabilities || [];
+  const missing = missingCapabilities(contract, available);
   if (!missing.length) return null;
+  const currentMode = ctx.mode || (ctx.currentTopology && ctx.currentTopology.mode);
   const modes = [
     'trinity', 'a_team', 'biome', 'biocenose',
     'holobionte', 'syncytium', 'rhizome', 'metapopulation',
   ];
-  let best = null;
-  for (const mode of modes) {
-    const caps = capabilitiesForMode(mode);
-    if (!caps) continue;
-    const covered = missing.filter((m) => caps.required.includes(m));
-    const score = covered.length;
-    const better = !best || score > best.coverage;
-    if (score > 0 && better) best = { mode, coverage: score, missingCovered: covered };
-  }
-  return best;
+  return modes.filter((mode) => mode !== currentMode)
+    .map((mode) => scoreTopologyCandidate(mode, { available, missing, organization: org }))
+    .reduce(betterTopologyCandidate, null);
 }
 
 function detectMissingCapabilities(expressedCapabilities, ctx) {
@@ -226,11 +235,11 @@ function triggerTopologyChange(opts) {
   events.push({
     type: 'TOPOLOGY_CHANGE_REQUESTED',
     detail: emitEvent(agentId, 'TOPOLOGY_CHANGE_REQUESTED', {
-      message: `Better topology: ${better.mode} covers ${better.coverage} missing capabilities`,
+      message: `Better topology: ${better.mode} resolves ${better.coverage} unavailable requirements`,
       currentTopology: ctx.currentTopology && ctx.currentTopology.organization,
       proposedMode: better.mode,
       coverage: better.coverage,
-      missingCovered: better.missingCovered,
+      requirementsResolved: better.requirementsResolved,
       topologyRegret: regret.components.topology,
     }),
   });

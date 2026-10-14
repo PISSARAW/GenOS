@@ -13,6 +13,7 @@ const suites = {
     ['Garage scoped controls and runtime adoption', 'test_garage_runtime_control.js']
   ],
   smoke: [
+    ['adaptive topology capability reevaluation', 'test_adaptive_reevaluation_topology.js'],
     ['philosophy registry health', 'test_philosophy_registry_health.js'],
     ['philosophy executable contracts', 'test_philosophy_executable_contracts.js'],
     ['philosophy compilation boundaries', 'test_philosophy_compilation_boundaries.js'],
