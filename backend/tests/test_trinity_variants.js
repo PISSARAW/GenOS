@@ -1,10 +1,12 @@
 'use strict';
 
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'trinity-variants-test-secret';
 const assert = require('node:assert/strict');
 const variants = require('../src/services/trinityVariantService');
 const adapters = require('../src/services/trinityAdapters');
 const factorial = require('../src/services/trinityFactorialGrid');
 const diversity = require('../src/services/trinityDiversityPlanner');
+const observedDiversity = require('../src/services/trinityObservedDiversity');
 const counterfactual = require('../src/services/trinityCounterfactualFork');
 const recursive = require('../src/services/trinityRecursiveExecutor');
 const temporal = require('../src/services/trinityTemporalHorizons');
@@ -12,6 +14,8 @@ const sequential = require('../src/services/trinityAdaptiveSequential');
 const adversarial = require('../src/services/trinityAdversarialCrossExamination');
 const oracle = require('../src/services/trinityOracle');
 const novelty = require('../src/services/trinityNoveltyArchive');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
+const verifierReceipts = require('../src/services/epistemicVerifierReceiptService');
 
 const VARIANT_IDS = ['controlled', 'heterogeneous', 'adversarial', 'counterfactual', 'factorial',
   'pareto', 'jury', 'recursive', 'adaptive', 'temporal', 'oracular', 'exploratory'];
@@ -163,9 +167,16 @@ function testDiversityPlanner() {
   assert.equal(diversity.validateDiversity(homogeneous).valid, false);
   assert.equal(diversity.enforceProviderDiversity(worlds).valid, true);
   assert.equal(diversity.enforceProviderDiversity(homogeneous).valid, false);
+  assert.equal(diversity.planDiverseWorlds({ candidates: worlds, requiredDiversity: 0.95 }).success, false);
+  assert.equal(diversity.validateDiversity(worlds, {}, 0.5).threshold, 0.5);
+  assert.equal(diversity.enforceProviderDiversity([...worlds, { ...worlds[0], provider: 'openai' }]).valid, false);
+  const observed = worlds.map((world, index) => ({ worldNumber: index + 1, agentId: world.agentId,
+    runtimeProvenance: { source: 'runtime_completion_event', model: world.modelFamily, provider: world.provider } }));
+  observed.push({ ...observed[0], worldNumber: 4, agentId: 'w4' });
+  assert.equal(observedDiversity.evaluate(observed, { experimentalDesign: { diversityPolicy: 'heterogeneous' } }).valid, false);
 }
 
-function testCounterfactual() {
+async function testCounterfactual() {
   const baseline = { id: 'snap0', evidenceVector: { correctness: 0.8 } };
   const forked = counterfactual.applyIntervention(baseline, { type: 'favorable', dimension: 'timeline' });
   assert.match(forked.id, /^cf-/);
@@ -177,6 +188,18 @@ function testCounterfactual() {
   assert.equal(delta.cost, 0);
   const responsible = counterfactual.identifyResponsibleVariables(delta, []);
   assert.equal(responsible[0].dimension, 'correctness');
+  const analysis = await counterfactual.analyzeCounterfactualResults({
+    baselineReport: { evidenceVector: { correctness: 0.5 } },
+    favorableReport: { evidenceVector: { correctness: 0.9 } },
+    adverseReport: { evidenceVector: { correctness: 0.2 } },
+    interventions: {
+      favorable: { type: 'favorable', dimension: 'timeline', description: 'More time' },
+      adverse: { type: 'adverse', dimension: 'timeline', description: 'Less time' }
+    }
+  });
+  assert.equal(analysis.responsibleVariables[0].favorableChange, 0.4);
+  assert.equal(analysis.responsibleVariables[0].adverseChange, -0.3);
+  assert.equal(analysis.causalAttribution, 'conditional_prompt_sensitivity_only');
 }
 
 async function testCounterfactualRun() {
@@ -221,6 +244,23 @@ function testTemporalHorizons() {
   const compared = temporal.compareTemporalWorlds([report, report], {});
   assert.deepEqual(compared.horizons, ['short', 'medium', 'long']);
   assert.ok('consistentWinner' in compared.synthesis);
+
+  const evidence = [{ id: 'verified-source', verificationReceipt: verifierReceipts.issueReceipt({
+    resultId: 'temporal-fixture', status: 'verified', independent: true,
+    evidenceDigest: 'sha256:' + 'a'.repeat(64), verifierDigest: verifierTrust.getVerifier('testResult').digest,
+    independenceDescriptor: { actorId: 'reviewer', workspaceId: 'workspace' }
+  }) }];
+  const effect = (horizon, time, probability = 1) => ({
+    horizon, time, magnitude: 1, probability, evidenceRefs: ['verified-source']
+  });
+  const reportWith = (temporalEffects) => ({ evidence, temporalEffects });
+  assert.equal(temporal.decomposeEffects(reportWith([effect('strategic', 1)]), temporal.HORIZONS.long).length, 0);
+  assert.equal(temporal.decomposeEffects(reportWith([effect('immediate', 30)]), temporal.HORIZONS.short).length, 0);
+  assert.equal(temporal.decomposeEffects(reportWith([effect('integration', 30)]), temporal.HORIZONS.medium).length, 1);
+  assert.equal(temporal.decomposeEffects(reportWith([effect('strategic', 1095)]), temporal.HORIZONS.long).length, 1);
+  assert.equal(temporal.temporalValueFunction([effect('strategic', 365, 0)], null, 0.05), 0);
+  assert.ok(Math.abs(temporal.temporalValueFunction([effect('strategic', 365)], null, 0.05)
+    - Math.exp(-0.05)) < 1e-12);
 }
 
 function testSequentialAllocation() {
@@ -260,6 +300,10 @@ function testAdversarialAdjudication() {
   const blocked = adversarial.enforceVariantGate({ canMerge: true, outcome: 'PROMOTE_WORLD' }, { phase: 'attack', attacks: [], adjudication: [] });
   assert.equal(blocked.canMerge, false);
   assert.equal(blocked.outcome, 'ESCALATE_EXPERIMENT');
+  const concededGate = adversarial.enforceVariantGate({ canMerge: true, outcome: 'PROMOTE_WORLD' }, {
+    phase: 'complete', attacks: [{ id: 'a1' }], adjudication: [{ attackId: 'a1', verdict: 'conceded' }]
+  });
+  assert.equal(concededGate.canMerge, false, 'a concession cannot preserve the pre-review synthesis');
 }
 
 async function testAdversarialShape() {
@@ -281,6 +325,10 @@ function testOracle() {
   assert.equal(history.length, 1);
   const weights = oracle.routingWeights({ history });
   assert.ok(weights.w1 > 0);
+  const candidateWeights = oracle.routingWeights({ history: [{
+    prediction: { w1: 1, w2: 1 }, outcomes: { w1: 1, w2: 0 }
+  }] });
+  assert.ok(candidateWeights.w1 > candidateWeights.w2);
   assert.throws(() => oracle.predictPerformance({ candidates: [] }), (error) => error.code === 'TRINITY_ORACLE_NO_CANDIDATES');
 }
 
@@ -294,6 +342,9 @@ function testNoveltyArchive() {
   const far = novelty.noveltyScore({ archive, vector: [50, 50] });
   assert.ok(near < 1);
   assert.ok(far > near);
+  assert.throws(() => novelty.noveltyScore({ archive, vector: [0.1] }), {
+    code: 'TRINITY_NOVELTY_DIMENSION_MISMATCH'
+  });
   const selected = novelty.qualityDiversitySelect({
     candidates: [
       { id: 'c1', vector: [0.05, 0.05], quality: 0.9 },
@@ -327,7 +378,7 @@ async function main() {
   testAdapterRegistry();
   testFactorialGrid();
   testDiversityPlanner();
-  testCounterfactual();
+  await testCounterfactual();
   await testCounterfactualRun();
   testRecursiveGuards();
   testTemporalHorizons();
