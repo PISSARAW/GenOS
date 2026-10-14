@@ -4,6 +4,8 @@ const { createHash, randomUUID } = require('crypto');
 const { isDeepStrictEqual } = require('node:util');
 const { migrateRequestMemory } = require('../db/migrations/migrateRequestMemory');
 const { withTransaction } = require('../db');
+const { validateReceipt } = require('./epistemicVerifierReceiptService');
+const verifierTrust = require('./verifierTrustRegistry');
 
 async function ensureTables(db) {
   await migrateRequestMemory(db);
@@ -19,6 +21,52 @@ function scopedSemanticId(semanticId, scopeId) {
   if (!scope) throw Object.assign(new Error('A workspace or tenant scope is required for request memory.'), { code: 'RESULT_SCOPE_REQUIRED' });
   const key = `${scope}\0${String(semanticId || '')}`;
   return `scope_${createHash('sha256').update(key).digest('hex')}`;
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+}
+
+function candidateEvidenceDigest(input) {
+  const evidence = JSON.parse(input.evidenceJson || '[]');
+  const content = JSON.parse(input.contentJson || 'null');
+  const dependencies = JSON.parse(input.dependenciesJson || '{}');
+  if (!Array.isArray(evidence)) {
+    throw Object.assign(new Error('Verified result evidence must be structured JSON.'), { code: 'RESULT_EVIDENCE_INVALID' });
+  }
+  const payload = JSON.stringify(canonicalize([input.scopeId, content, evidence, dependencies]));
+  return createHash('sha256').update(payload).digest('hex');
+}
+
+function hasValidIndependentReceipt(input) {
+  const receipt = input.verificationReceipt;
+  if (!receipt || receipt.resultId !== input.semanticId || receipt.status !== 'verified' || receipt.independent !== true) return false;
+  try {
+    return receipt.evidenceDigest === candidateEvidenceDigest(input)
+      && validateReceipt(receipt, verifierTrust.listVerifierDigests());
+  } catch (_) {
+    return false;
+  }
+}
+
+function storedReceipt(row, semanticId, scopeId) {
+  let evidence;
+  try { evidence = JSON.parse(row.evidence_json || '[]'); } catch (_) { return null; }
+  if (!Array.isArray(evidence)) return null;
+  const receipts = evidence.filter((item) => item && item.resultId === semanticId && item.signature);
+  for (const receipt of receipts) {
+    const originalEvidence = evidence.filter((item) => item !== receipt);
+    const digestInput = {
+      contentJson: row.content_json,
+      evidenceJson: JSON.stringify(originalEvidence),
+      dependenciesJson: row.dependencies_json,
+      scopeId,
+    };
+    if (hasValidIndependentReceipt({ ...digestInput, semanticId, verificationReceipt: receipt })) return receipt;
+  }
+  return null;
 }
 
 async function getChampion(db, semanticId, scopeId) {
@@ -95,6 +143,12 @@ async function markStale(db, id) {
 async function storeCandidate(db, input) {
   await ensureTables(db);
   const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
+  if (input.status === 'VERIFIED' && !hasValidIndependentReceipt(input)) {
+    throw Object.assign(new Error('A trusted independent verification receipt is required.'), { code: 'RESULT_VERIFICATION_REQUIRED' });
+  }
+  const evidenceJson = input.status === 'VERIFIED'
+    ? JSON.stringify([...JSON.parse(input.evidenceJson || '[]'), input.verificationReceipt])
+    : input.evidenceJson;
   return withTransaction(db, async (txDb) => {
     const existing = await getProblem(txDb, scopedId);
     const version = await nextVersion(txDb, scopedId);
@@ -110,7 +164,7 @@ async function storeCandidate(db, input) {
       `INSERT INTO request_results (id, semantic_id, result_version, status, content_json, evidence_json,
         uncertainty_json, dependencies_json, execution_json, validity_horizon_ms, expires_at, utility, cost_json, supersedes)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, scopedId, version, input.status, input.contentJson, input.evidenceJson,
+      id, scopedId, version, input.status, input.contentJson, evidenceJson,
       input.uncertaintyJson, input.dependenciesJson, input.executionJson, input.validityHorizonMs,
       input.expiresAt, input.utility, input.costJson, input.supersedes
     );
@@ -130,8 +184,9 @@ async function promoteChampion(db, input) {
   await ensureTables(db);
   const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
   return withTransaction(db, async (txDb) => {
-    const candidate = await txDb.get('SELECT semantic_id, status FROM request_results WHERE id = ?', input.id);
-    if (!candidate || candidate.semantic_id !== scopedId || candidate.status !== 'VERIFIED') {
+    const candidate = await txDb.get('SELECT semantic_id, status, content_json, evidence_json, dependencies_json FROM request_results WHERE id = ?', input.id);
+    if (!candidate || candidate.semantic_id !== scopedId || candidate.status !== 'VERIFIED'
+      || !storedReceipt(candidate, input.semanticId, input.scopeId)) {
       throw Object.assign(new Error('Only a verified result for this problem can become champion.'), { code: 'RESULT_PROMOTION_BLOCKED' });
     }
     const current = await getChampion(txDb, input.semanticId, input.scopeId);
@@ -163,4 +218,5 @@ module.exports = {
   promoteChampion,
   refuteResult,
   expiryFor,
+  candidateEvidenceDigest,
 };

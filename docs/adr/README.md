@@ -625,6 +625,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0493](0493-exiger-le-snapshot-complet-des-dependances.md) | Exiger le snapshot complet des dépendances | Accepté et implémenté pour la réutilisation mémoire. | 2026-10-15 | Réutilisation des résultats et invalidation. |
 | [0494](0494-scoper-la-memoire-de-requete-au-workspace.md) | Scoper la mémoire de requête au workspace | Accepté et implémenté pour `bestKnownResultService`. | 2026-10-15 | Cache de résultats et isolation des workspaces. |
 | [0495](0495-rendre-atomiques-les-promotions-de-resultats.md) | Rendre atomiques les promotions de résultats | Accepté et implémenté pour `bestKnownResultService`. | 2026-10-15 | Cohérence des champions et écritures SQLite. |
+| [0496](0496-exiger-un-recu-de-verification-lie-au-resultat.md) | Exiger un reçu de vérification lié au résultat | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Preuve avant promotion du cache de résultats. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

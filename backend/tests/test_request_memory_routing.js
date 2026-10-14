@@ -1,13 +1,29 @@
 'use strict';
 
 const assert = require('assert');
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'request-memory-test-secret';
 const profiler = require('../src/services/requestProfilerService');
 const router = require('../src/services/executionRouterService');
 const registry = require('../src/services/bestKnownResultService');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
+const { issueReceipt } = require('../src/services/epistemicVerifierReceiptService');
 
 function check(name, cond) {
   assert.ok(cond, name);
   console.log(`ok - ${name}`);
+}
+
+function signedCandidate(input, independent = true) {
+  return {
+    ...input,
+    verificationReceipt: issueReceipt({
+      resultId: input.semanticId,
+      evidenceDigest: registry.candidateEvidenceDigest(input),
+      verifierDigest: verifierTrust.resolveVerifierDigest({ type: 'test' }),
+      status: 'verified',
+      independent,
+    }),
+  };
 }
 
 async function memoryDb() {
@@ -37,7 +53,7 @@ async function main() {
   const db = await memoryDb();
   const scopeId = 'workspace:request-test-a';
   const expiry = registry.expiryFor(trivial.profile);
-  const candidateInput = {
+  const candidateInput = signedCandidate({
     scopeId,
     semanticId: trivial.semanticId,
     normalizedIntent: trivial.normalized.text,
@@ -54,7 +70,7 @@ async function main() {
     utility: 1.0,
     costJson: '{}',
     supersedes: null,
-  };
+  });
   await registry.storeCandidate(db, candidateInput);
   const hit = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId, dependencies: {} });
   check('reuse hit', hit.hit === true);
@@ -75,15 +91,32 @@ async function main() {
     () => registry.promoteChampion(db, { semanticId: trivial.semanticId, id: provisionalId, scopeId }),
     (error) => error.code === 'RESULT_PROMOTION_BLOCKED'
   );
-  await db.exec("CREATE TRIGGER fail_request_result_insert BEFORE INSERT ON request_results BEGIN SELECT RAISE(ABORT, 'injected result failure'); END;");
   await assert.rejects(() => registry.storeCandidate(db, {
+    ...candidateInput, semanticId: 'unverified-cache-result', verificationReceipt: undefined
+  }), (error) => error.code === 'RESULT_VERIFICATION_REQUIRED');
+  const noReceipt = await db.get("SELECT COUNT(*) AS count FROM request_problems WHERE normalized_intent = '2+2'");
+  check('verified status without receipt is rejected', noReceipt.count === 1);
+  const nonIndependent = signedCandidate({ ...candidateInput, semanticId: 'dependent-cache-result' }, false);
+  await assert.rejects(() => registry.storeCandidate(db, nonIndependent), (error) => error.code === 'RESULT_VERIFICATION_REQUIRED');
+  const noDependent = await db.get("SELECT COUNT(*) AS count FROM request_problems WHERE normalized_intent = '2+2'");
+  check('dependent verifier receipt is rejected', noDependent.count === 1);
+  const tampered = signedCandidate({ ...candidateInput, semanticId: 'tampered-cache-result' });
+  tampered.verificationReceipt.signature = '0'.repeat(64);
+  await assert.rejects(() => registry.storeCandidate(db, tampered), (error) => error.code === 'RESULT_VERIFICATION_REQUIRED');
+  const noTampered = await db.get("SELECT COUNT(*) AS count FROM request_problems WHERE normalized_intent = '2+2'");
+  check('tampered verifier receipt is rejected', noTampered.count === 1);
+
+  await db.exec("CREATE TRIGGER fail_request_result_insert BEFORE INSERT ON request_results BEGIN SELECT RAISE(ABORT, 'injected result failure'); END;");
+  const failedInput = signedCandidate({
     ...candidateInput, semanticId: 'atomic-insert-failure', normalizedIntent: 'atomic insert failure'
-  }));
+  });
+  await assert.rejects(() => registry.storeCandidate(db, failedInput));
   await db.exec('DROP TRIGGER fail_request_result_insert;');
   const orphanCount = await db.get("SELECT COUNT(*) AS count FROM request_problems WHERE normalized_intent = 'atomic insert failure'");
   check('failed candidate insert leaves no orphan problem', orphanCount.count === 0);
 
-  const replacement = await registry.storeCandidate(db, { ...candidateInput, promote: false, contentJson: JSON.stringify({ value: 6 }) });
+  const replacementInput = signedCandidate({ ...candidateInput, promote: false, contentJson: JSON.stringify({ value: 6 }) });
+  const replacement = await registry.storeCandidate(db, replacementInput);
   await db.exec("CREATE TRIGGER fail_champion_update BEFORE UPDATE ON request_problems BEGIN SELECT RAISE(ABORT, 'injected champion failure'); END;");
   await assert.rejects(() => registry.promoteChampion(db, { semanticId: trivial.semanticId, id: replacement.id, scopeId }));
   await db.exec('DROP TRIGGER fail_champion_update;');
@@ -109,9 +142,8 @@ async function main() {
   const foreignScope = 'workspace:request-test-b';
   const crossScope = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId: foreignScope, dependencies: {} });
   check('same semantic request cannot reuse another workspace result', crossScope.hit === false && !crossScope.champion);
-  const foreignCandidate = await registry.storeCandidate(db, {
-    ...candidateInput, scopeId: foreignScope, contentJson: JSON.stringify({ value: 99 })
-  });
+  const foreignInput = signedCandidate({ ...candidateInput, scopeId: foreignScope, contentJson: JSON.stringify({ value: 99 }) });
+  const foreignCandidate = await registry.storeCandidate(db, foreignInput);
   const foreignChampion = await registry.getChampion(db, trivial.semanticId, foreignScope);
   check('each workspace gets its own champion', foreignChampion.champion.id === foreignCandidate.id);
   check('original workspace champion remains isolated', (await registry.getChampion(db, trivial.semanticId, scopeId)).champion.status === 'STALE');
