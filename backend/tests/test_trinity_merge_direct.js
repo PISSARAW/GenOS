@@ -8,11 +8,15 @@ const worlds = [
   { world_number: 3, strategy: 'self_correcting_implementation', agent_id: 'w3', status: 'running' }
 ];
 const telemetry = {
-  w1: [{ payload_json: JSON.stringify({ evidenceReport: { outcome: 'success', coverage: 0.9, claims: [{ statement: 'World 1 verified the exact result sqrt(pi) with a reproducible derivation.', evidence: ['derivation'] }] } }) }],
-  w2: [{ payload_json: JSON.stringify({ evidenceReport: { outcome: 'success', claims: [{ statement: '[ ] [ ]' }] } }) }],
+  w1: [{ payload_json: JSON.stringify({ executionRunId: 'run-w1', evidenceReport: { outcome: 'success', coverage: 0.9, claims: [{ statement: 'World 1 verified the exact result sqrt(pi) with a reproducible derivation.', evidence: ['derivation'] }] } }) }],
+  w2: [{ payload_json: JSON.stringify({ executionRunId: 'run-w2', evidenceReport: { outcome: 'success', claims: [{ statement: '[ ] [ ]' }] } }) }],
   w3: []
 };
-const fakeDb = { all: async (sql, ...params) => (/FROM trinity_worlds/.test(sql) ? worlds : (telemetry[params[0]] || [])) };
+const fakeDb = {
+  all: async (sql, ...params) => (/FROM trinity_worlds/.test(sql) ? worlds : (telemetry[params[0]] || [])),
+  get: async (sql, agentId) => /FROM strategy_execution_runs/.test(sql)
+    ? { id: `run-${agentId}` } : null
+};
 
 (async () => {
   const reports = await barrier.buildWorldReportsFromMission(fakeDb, 'mission-1');

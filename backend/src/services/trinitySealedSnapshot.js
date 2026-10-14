@@ -3,13 +3,11 @@ const fs = require('node:fs/promises');
 const crypto = require('node:crypto');
 const { copyTree, createExclusionFilter } = require('./agentWorkspaceLifecycle/copy');
 const { maxCopyBytes } = require('./agentWorkspaceLifecycle/constants');
-const { normalizeRelativePath, resolveContainedPath } = require('./pathSafety');
+const { directory: missionSnapshotDirectory } = require('./trinityMissionSnapshotPath');
 const { hashWorkspace } = require('./trinitySnapshotService');
 async function seal(input) {
-  const segment = normalizeRelativePath(input.missionId, 'Trinity mission');
-  if (segment.includes('/') || segment.includes('\\')) throw new Error('Trinity mission ID must be a path segment.');
-  const root = resolveContainedPath(input.repoRoot, '.genos-agent-worlds/trinity-snapshots/' + segment, 'Trinity snapshot');
-  const staging = resolveContainedPath(input.repoRoot, '.genos-agent-worlds/trinity-snapshots/' + segment + '.partial.' + crypto.randomUUID(), 'Trinity staging');
+  const root = missionSnapshotDirectory(input.repoRoot, input.missionId);
+  const staging = `${root}.partial.${crypto.randomUUID()}`;
   const sourceHash = await hashWorkspace(input.source);
   try {
     await fs.mkdir(staging, { recursive: true });

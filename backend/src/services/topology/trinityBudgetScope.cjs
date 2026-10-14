@@ -21,11 +21,14 @@ async function bindTrinityBudgetScope({ db, context, parent }) {
   if (!contractRecord) throw new Error(`No strategy contract is available for orchestrator '${context.orchestratorId}'.`);
   const executionRun = await strategyExecution.createExecutionRun(db, {
     agentId: context.orchestratorId,
-    missionId: context.missionId,
+    missionId: context.request.trinityMissionId || context.missionId,
     budget,
     contractRecord
   });
-  const normalizedMission = { executionBudget: budget };
+  const normalizedMission = {
+    missionId: context.request.trinityMissionId || context.missionId,
+    executionBudget: budget
+  };
   await missionBudgetScopes.bindParent({
     db,
     agentId: context.orchestratorId,

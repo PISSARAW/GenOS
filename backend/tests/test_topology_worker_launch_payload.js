@@ -24,6 +24,14 @@ assert.equal(worker.executor, 'local');
 assert.equal(worker.localRuntime, true);
 assert.equal(worker.topologySessionId, 'syncytium:assignment:1');
 
+const scopedWorker = workerLaunchPayload({
+  context: { ...context, trinityModelBudgetScope: { id: 'execution-run:parent-run', costUsd: 1, tokens: 6000 } },
+  member: { role: 'analyst', mission: 'Analyze evidence' },
+  workerId: 'scoped-worker', parent: { workspace_root: '/workspace' }
+});
+assert.deepEqual(scopedWorker.modelBudgetScope,
+  { id: 'execution-run:parent-run', costUsd: 1, tokens: 6000 });
+
 const populationContext = {
   ...context,
   request: { ...context.request, mode: 'metapopulation' },

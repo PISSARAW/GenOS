@@ -48,8 +48,8 @@ function composeMembers(mission, options, assignments) {
 }
 
 async function handle(input) {
-  const { db, context, ensureParent, workerGarage, buildNCEEnrichments, createOrchestratorId, launchWorker } = input;
-  const parent = await ensureParent({ db, context });
+  const { db, context, parent: suppliedParent, ensureParent, workerGarage, buildNCEEnrichments, createOrchestratorId, launchWorker } = input;
+  const parent = suppliedParent || await ensureParent({ db, context });
   const garage = await workerGarage.state(db, context.orchestratorId);
   const mission = missionFrom(context);
   context.nceEnrichments = await buildNCEEnrichments(context, 'trinity');
