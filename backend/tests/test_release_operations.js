@@ -67,6 +67,21 @@ async function e2e() {
   const persistedRelease = await db.get('SELECT status, environment FROM releases WHERE id = ?', create.body.id);
   assert.equal(persistedRelease.status, 'active');
   assert.equal(persistedRelease.environment, 'production');
+
+  await db.run('INSERT INTO workflow_versions(id,workflow_id,version,graph_json) VALUES(?,?,?,?)',
+    `wfv-${workflowId}-2`, workflowId, 2, '{"nodes":[],"edges":[]}');
+  const stagingRelease = await invoke(releases.create, { body: { workflowId, version: 2 }, tenant });
+  const staged = await invoke(releases.promote, { params: { id: stagingRelease.body.id }, body: { environment: 'staging' }, tenant });
+  assert.equal(staged.code, 200);
+  const forced = await invoke(releases.promote, { params: { id: stagingRelease.body.id },
+    body: { environment: 'production', force: true, overrideReason: 'Emergency release review bypass' },
+    tenant, user: { keyId: 'release-admin', role: 'admin' } });
+  assert.equal(forced.code, 200, JSON.stringify(forced.body));
+  assert.ok(forced.body.overrideReceiptId);
+  const overrideReceipt = await db.get('SELECT actor_id, reason FROM release_force_promotion_receipts WHERE id = ?', forced.body.overrideReceiptId);
+  assert.equal(overrideReceipt.actor_id, 'release-admin');
+  assert.equal(overrideReceipt.reason, 'Emergency release review bypass');
+
   const report = await invoke(releases.chargeback, { tenant });
   assert.equal(report.body.totalCostUsd, 0.02);
   await closeDatabase();

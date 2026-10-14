@@ -610,6 +610,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0478](0478-lier-idempotence-http-au-corps-de-requete.md) | Lier l’idempotence HTTP au corps de requête | Accepté et implémenté | 2026-10-14 | Rejeu de réponse borné au corps reçu, avec réservation incertaine conservée. |
 | [0479](0479-refuser-la-preemption-garage-des-sessions-topologiques.md) | Refuser la préemption Garage des sessions topologiques | Accepté et implémenté | 2026-10-14 | Garage Fabric, capsules et cohérence des topologies. |
 | [0480](0480-refuser-la-promotion-sans-rejeu-execution-lie.md) | Refuser la promotion sans rejeu d’exécution lié au run | Accepté et implémenté pour le refus ; producteur de reçu à réaliser. | 2026-10-14 | Exécution de stratégie, rejeu déterministe et promotion. |
+| [0481](0481-autorite-et-recu-des-overrides-production.md) | Autorité et reçu pour les overrides de promotion en production | Accepté et implémenté. | 2026-10-14 | Releases, autorité de production et audit des décisions. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { getDatabase, withTransaction } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
+const releasePromotionAuthority = require('../services/releasePromotionAuthority');
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function number(value, fallback = 0) {
@@ -71,24 +72,28 @@ function checkPromotedRollout(db, releaseId) {
   return db.get("SELECT id FROM release_rollouts WHERE release_id = ? AND status = 'promoted'", releaseId);
 }
 
-function isProductionOverride(req) {
-  return req.body?.force === true && typeof req.body?.overrideReason === 'string' && req.body.overrideReason.length > 0;
-}
-
-function validateProductionPromotion(release, promotedRollout, isOverride) {
+function validateProductionPromotion(release, promotedRollout, override) {
   if (['draft', 'pending', 'failed', 'rolled_back'].includes(release.status)) {
     return { code: 'INVALID_RELEASE_STATUS', message: `Cannot promote release in status ${release.status} to production.` };
   }
-  if (!promotedRollout && !isOverride) {
+  if (!promotedRollout && !override) {
     return { code: 'ROLLOUT_REQUIRED', message: 'Promotion to production requires a successful rollout or an explicit force override with overrideReason.' };
   }
   return null;
 }
 
-async function updateReleaseEnvironment(db, { releaseId, environment, scope }) {
-  const updated = await db.run(`UPDATE releases SET environment = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, environment, 'active', releaseId, ...scope.params);
-  if (updated.changes !== 1) return { error: { code: 'RELEASE_STATE_CHANGED', message: 'Release changed before promotion could be applied.' } };
-  return { id: releaseId, status: 'active', environment };
+async function validatePromotionRequest(db, req, release) {
+  const activeRollout = await checkActiveRollout(db, release.id);
+  if (activeRollout) return { status: 409, error: { code: 'ROLLOUT_IN_PROGRESS', message: 'Decide the active rollout before promotion.' } };
+  const environment = req.body?.environment || 'production';
+  const environmentError = validateEnvironment(environment);
+  if (environmentError) return { status: 400, error: environmentError };
+  const overrideError = releasePromotionAuthority.validateForceOverride(req, environment);
+  if (overrideError) return { status: 400, error: overrideError };
+  if (environment !== 'production') return { environment };
+  const promotedRollout = await checkPromotedRollout(db, release.id);
+  const promotionError = validateProductionPromotion(release, promotedRollout, releasePromotionAuthority.isProductionOverride(req));
+  return promotionError ? { status: 400, error: promotionError } : { environment };
 }
 
 async function promote(req, res, next) {
@@ -96,23 +101,12 @@ async function promote(req, res, next) {
     const db = await getDatabase();
     const release = await scopedRelease(db, req, req.params.id);
     if (!release) return res.status(404).json({ error: { code: 'RELEASE_NOT_FOUND', message: 'Release is outside the tenant scope.' } });
-    
-    const activeRollout = await checkActiveRollout(db, release.id);
-    if (activeRollout) return res.status(409).json({ error: { code: 'ROLLOUT_IN_PROGRESS', message: 'Decide the active rollout before promotion.' } });
-    
-    const environment = req.body?.environment || 'production';
-    const envError = validateEnvironment(environment);
-    if (envError) return res.status(400).json({ error: envError });
-    
-    if (environment === 'production') {
-      const promotedRollout = await checkPromotedRollout(db, release.id);
-      const isOverride = isProductionOverride(req);
-      const prodError = validateProductionPromotion(release, promotedRollout, isOverride);
-      if (prodError) return res.status(400).json({ error: prodError });
-    }
-    
+    const validation = await validatePromotionRequest(db, req, release);
+    if (validation.error) return res.status(validation.status).json({ error: validation.error });
     const scope = scopeSql(req);
-    const result = await updateReleaseEnvironment(db, { releaseId: release.id, environment, scope });
+    const override = releasePromotionAuthority.isProductionOverride(req)
+      ? releasePromotionAuthority.buildForceOverrideReceipt(req, release.id, scope) : null;
+    const result = await releasePromotionAuthority.updateReleaseEnvironment(db, { releaseId: release.id, environment: validation.environment, scope, override });
     if (result.error) return res.status(409).json({ error: result.error });
     res.json(result);
   } catch (error) { next(error); }

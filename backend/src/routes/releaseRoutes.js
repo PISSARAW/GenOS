@@ -3,11 +3,12 @@ const router = express.Router();
 const controller = require('../controllers/releaseController');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
+const { requireForcePromotionPermission } = require('../middleware/releaseForcePromotionPermission');
 
 router.use(requireTenantScope());
 router.get('/', controller.list);
 router.post('/', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.create);
-router.post('/:id/promote', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.promote);
+router.post('/:id/promote', requirePermission('workspace:write'), requireTenantScope({ write: true }), requireForcePromotionPermission, controller.promote);
 router.post('/:id/rollback', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.rollback);
 router.get('/rollouts', controller.listRollouts);
 router.get('/chargeback', controller.chargeback);

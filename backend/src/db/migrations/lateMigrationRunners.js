@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('120-release-force-promotion-receipts', 'Persist append-only authority receipts for forced production promotion', async (db) => {
+    await require('./migrateReleaseForcePromotionReceipts').migrateReleaseForcePromotionReceipts(db);
+  }),
   createMigrationRunner('118-agent-identity', 'Persist causal individual identity and peer models', async (db) => {
     await require('./migrateAgentIdentity').migrateAgentIdentity(db);
   }),

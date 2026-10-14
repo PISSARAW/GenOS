@@ -130,9 +130,9 @@ fn run_and_report(
                 error.message
             )
         })?;
-    receipts.extend(persist_mission_operations(ecosystem, MissionRuntime {
+    receipts.extend(persist_mission_operations(&mut ecosystem, MissionRuntime {
         command: cmd,
-        store,
+        store: &store,
         tick: report.tick,
     })?);
     save_checkpoint(&mut checkpoints, &ecosystem)?;
