@@ -92,6 +92,68 @@ function validTeachingPacket(result, prerequisites) {
     && result.evidence?.[0] === result.procedureReceipt?.id;
 }
 
+function procedureReceipt(testCase, execution) {
+  const method = testCase.methodContract;
+  const output = execution.result?.output;
+  if (!output || !method) return false;
+  const inputDigest = createHash('sha256').update(JSON.stringify({
+    methodId: method.methodId, parameters: method.parameters
+  })).digest('hex');
+  const resultDigest = createHash('sha256').update(JSON.stringify({
+    methodId: method.methodId, inputDigest, output
+  })).digest('hex');
+  const receipt = execution.receipt;
+  return receipt?.methodId === method.methodId
+    && receipt.inputDigest === `sha256:${inputDigest}`
+    && receipt.id === `solver://sha256:${resultDigest}`
+    && execution.result.receipt?.id === receipt.id
+    && JSON.stringify(receipt.result) === JSON.stringify(output);
+}
+
+function subsetPossibilities(values, target) {
+  if (values.length > 20) return null;
+  const reachable = new Set();
+  for (let mask = 0; mask < 2 ** values.length; mask += 1) {
+    let total = 0;
+    values.forEach((value, index) => { if (mask & (2 ** index)) total += value; });
+    if (total <= target) reachable.add(total);
+  }
+  return reachable;
+}
+
+function verifySubset(testCase, execution) {
+  const { values, target } = testCase.methodContract.parameters;
+  const reachable = subsetPossibilities(values, target);
+  const output = execution.result?.output;
+  if (!reachable || !output || !procedureReceipt(testCase, execution)) return false;
+  const found = reachable.has(target);
+  if (output.found !== found || output.reachableCount !== reachable.size) return false;
+  if (!found) return output.indices === null && output.sum === null;
+  return validIndices(output.indices, values)
+    && output.indices.reduce((sum, index) => sum + values[index], 0) === target
+    && output.sum === target;
+}
+
+function expectedLpt(jobs, machines) {
+  const queues = Array.from({ length: machines }, (_, machine) => ({ machine, jobs: [], load: 0 }));
+  const ordered = [...jobs].sort((a, b) => b.duration - a.duration || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const job of ordered) {
+    const least = Math.min(...queues.map((queue) => queue.load));
+    const selected = queues.find((queue) => queue.load === least);
+    selected.jobs.push(job.id);
+    selected.load += job.duration;
+  }
+  return { assignments: queues, makespan: Math.max(...queues.map((queue) => queue.load)) };
+}
+
+function verifyLpt(testCase, execution) {
+  const { jobs, machines } = testCase.methodContract.parameters;
+  const output = execution.result?.output;
+  if (!output || !procedureReceipt(testCase, execution)) return false;
+  const expected = expectedLpt(jobs, machines);
+  return JSON.stringify(output) === JSON.stringify(expected);
+}
+
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.keys(value).sort()
@@ -99,4 +161,4 @@ function canonical(value) {
   return JSON.stringify(value);
 }
 
-module.exports = { verifyScout, verifyForensic, verifyTeaching };
+module.exports = { verifyScout, verifyForensic, verifyTeaching, verifySubset, verifyLpt };

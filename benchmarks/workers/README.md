@@ -13,7 +13,8 @@ stratégies qui couvrent 264 cas chacune. Sans `GENOS_LOCAL_MODEL` pointant vers
 un modèle Ollama, cette case reste `unmeasured`. Une référence fournie par un
 adaptateur ne suffit pas à certifier une capacité.
 
-Les cas `scout-source`, `forensic-chain` et `teaching-transfer` contrôlent
+Les cas `scout-source`, `forensic-chain`, `teaching-transfer`, `subset-sum` et
+`lpt-schedule` contrôlent
 leurs invariants dans un module d'oracle séparé des exécuteurs. Les huit cas
 structurés ajoutés emploient aussi des parcours indépendants dans
 `independent-structured-oracles.cjs`; `bounded-code` dispose de son oracle

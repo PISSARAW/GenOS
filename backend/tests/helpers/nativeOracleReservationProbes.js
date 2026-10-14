@@ -22,11 +22,12 @@ async function contention(db, dispatch) {
     return original(sql, ...params);
   };
   let first;
+  let request;
   try {
     first = dispatch();
     await Promise.race([pending, first.then(() => { throw new Error('Native reservation missed the write barrier.'); })]);
     const row = await db.get('SELECT id,agent_id FROM strategy_execution_runs ORDER BY rowid DESC LIMIT 1');
-    const request = { runId: row.id, agentId: row.agent_id };
+    request = { runId: row.id, agentId: row.agent_id };
     let settled = false;
     const second = journal.reserve(other, request).then(value => { settled = true; return value; });
     await new Promise(resolve => setTimeout(resolve, 150));
@@ -34,8 +35,8 @@ async function contention(db, dispatch) {
     release();
     assert.equal((await second).owned, false);
     await first;
-    await freshProcess(request);
   } finally { release(); db.run = original; await first?.catch(() => {}); await other.close(); }
+  await freshProcess(request);
   console.log('Native reservation: concurrent connection receives no second allocation; fresh process reuses sealed attestation.');
 }
 

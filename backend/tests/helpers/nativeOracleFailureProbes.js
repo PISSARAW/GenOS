@@ -40,6 +40,7 @@ async function mutateObservation(db, subject) {
   event.id = require('node:crypto').randomUUID();
   event.timestamp = new Date().toISOString();
   event.payload.evidenceReport.workerArtifact.content.result.sum += 1;
+  event.payload.evidenceReport.workerArtifact.content.procedureReceipt.result.sum += 1;
   await require('../../src/services/strategyExecutionService').recordExecutionEvent(db, subject.workerId, event);
   const saved = await require('../../src/services/biologicalWorkerStore').observation(db,
     { runId: subject.runId, eventKey: event.id });

@@ -69,9 +69,7 @@ async function missionFor(context) {
 function complianceMethod(kind) {
   const local = localComplianceMethod(kind);
   if (local) return local;
-  if (kind === 'procedural_executor') return { version: 1, methodId: 'subset_sum', parameters: {
-    values: [3, 5, 7], target: 10
-  } };
+  if (kind === 'procedural_executor') return require('./helpers/workerComplianceProceduralMethod.cjs').select();
   if (kind === 'formal_worker' && process.env.GENOS_COMPLIANCE_LEAN_VERSION) {
     return { version: 1, methodId: 'formal_proof', parameters: {
       claim: '2 + 2 = 4', toolchainVersion: process.env.GENOS_COMPLIANCE_LEAN_VERSION

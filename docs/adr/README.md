@@ -545,6 +545,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0427](0427-recus-signes-hybrid-oracle-biocenose.md) | Reçu signé lié au claim pour Hybrid Oracle | accepté | 2026-10-11 | Biocénose, Hybrid Oracle Community, promotion factuelle |
 | [0428a](0428-chaine-de-transferts-relay-team-a-team.md) | Chaîne de transferts Relay Team A-Team | Accepté le 11 octobre 2026. | -- | -- |
 | [0428b](0428-journal-des-tentatives-modele.md) | Journal des tentatives modèle | Voir le fichier | -- | -- |
+| [0428c](0428-oracle-subset-pour-executeur-procedural.md) | Oracle subset_sum pour l'exécuteur procédural | accepté | 2026-10-11 | workers, preuve indépendante, promotion native |
 | [0429a](0429-gates-trinity-lies-au-journal-de-comparaison.md) | Lier les gates Trinity au journal de comparaison | Accepté. | -- | -- |
 | [0429b](0429-reutilisation-procedurale-validee.md) | Réutilisation procédurale validée avant le routage modèle | Voir le fichier | -- | -- |
 | [0430a](0430-devis-prudent-des-couts-d-action.md) | Devis prudent des coûts d'action | Accepté pour le module de devis ; intégration au contrôleur à qualifier. | 2026-10-11. | Décision, budget et économie de tokens. |

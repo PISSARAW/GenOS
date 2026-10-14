@@ -1,5 +1,9 @@
 # Documentation GenOS
 
+- [Qualification de release](06-qualite-preuves/qualification-release.md) — portes automatiques, rapport reproductible et écarts bloquant l'exploitabilité complète.
+
+- [ADR 0428 — Oracle subset_sum pour l'exécuteur procédural](adr/0428-oracle-subset-pour-executeur-procedural.md) — mission procédurale vérifiée et limites du reçu canonisé.
+
 - [Douzième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#douzième-vague--2026-10-12) — identité interne du graphe préparé, panel représentatif scellé, archive Open-Ended et réserve fondatrice persistée ; [ADR 0465](adr/0465-preuve-des-reevaluations-open-ended-biome.md) à [0468](adr/0468-scellement-panel-representatif-biocenose.md).
 
 - [Onzième vague des variants et de la morphogenèse](02-orchestration/topologies/plan-implementation-variants.md#onzième-vague--2026-10-12) — graphe préparé lié aux workers, quorum Expert Committee, vérificateurs Holobionte indépendants et reçus Rhizome liés à la session ; [ADR 0460](adr/0460-quorum-lie-aux-membres-expert-committee.md) à [0463](adr/0463-lier-workers-au-graphe-prepare-morphogenese.md).

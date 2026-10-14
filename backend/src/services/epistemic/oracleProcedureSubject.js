@@ -44,7 +44,7 @@ function freshObservation(records) {
 function procedureMethod(contract) {
   const method = contract?.mission?.methodContract;
   if (method?.version !== 1) denied('ORACLE_DOMAIN_UNAVAILABLE');
-  if (method.methodId === 'scoped_procedure'
+  if (['scoped_procedure', 'host_procedure', 'niche_procedure'].includes(method.methodId)
     && method.parameters?.procedure?.methodId === 'subset_sum') {
     return { procedure: method.parameters.procedure, direct: false };
   }
@@ -59,12 +59,24 @@ function observedContent(input) {
   const { binding, observed, request } = input;
   const method = procedureMethod(binding.genome.workerContract);
   const report = observed.event.payload?.evidenceReport;
-  const receipt = report?.workerArtifact?.content?.procedureReceipt;
-  const result = method.direct ? receipt?.result : report?.workerArtifact?.content?.result;
-  if (report?.workerArtifact?.type !== 'dossier' || !result
-    || receipt?.methodId !== 'subset_sum') denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
+  if (report?.workerArtifact?.type !== 'dossier') denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
+  const result = receiptResult(report.workerArtifact.content, method.direct);
   return { runId: request.runId, workerId: request.agentId,
     method: method.procedure, result };
+}
+
+function receiptResult(content, direct) {
+  const receipt = content?.procedureReceipt;
+  const result = direct ? receipt?.result : content?.result;
+  if (!result || receipt?.methodId !== 'subset_sum'
+      || values.digest(content.result || result) !== values.digest(receipt.result)) {
+    denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
+  }
+  if (!/^sha256:[a-f0-9]{64}$/.test(String(receipt.inputDigest || ''))
+      || !/^solver:\/\/sha256:[a-f0-9]{64}$/.test(receipt.id || '')) {
+    denied('ORACLE_RESULT_OBSERVATION_REQUIRED');
+  }
+  return result;
 }
 
 function assertAntigen(antigen, subject) {
