@@ -25,6 +25,7 @@ function runRuntime({ directory, fakeCodex, mission, extraEnv = {} }) {
     env: {
       ...process.env, ...extraEnv, CODEX_EXECUTABLE: fakeCodex,
       GENOS_DB_PATH: path.join(directory, 'runtime-test.db'),
+      GENOS_ADMIN_PASSWORD: 'runtime-budget-test-password',
       GENOS_DB_BACKUP_SKIP: '1',
       GENOS_BIN: path.join(directory, 'missing-genos'),
       GENOS_MCP_BIN: path.join(directory, 'missing-mcp'),
@@ -58,7 +59,7 @@ let input=''; process.stdin.on('data', c => input += c); process.stdin.on('end',
   }, extraEnv: { RUNTIME_CASE: 'budget' } });
   assert.notEqual(budget.status, 0);
   const budgetEvents = eventsFrom(budget.stdout);
-  assert(budgetEvents.some((event) => event.eventType === 'BUDGET_EXHAUSTED'));
+  assert(budgetEvents.some((event) => event.eventType === 'BUDGET_EXHAUSTED'), budget.stderr.toString());
   assert(budgetEvents.some((event) => event.eventType === 'AGENT_HALTED' && event.status === 'blocked'));
 
   const synthesisMission = {
