@@ -48,8 +48,8 @@ async function restoreHealthySnapshot(job) {
     executedAt: new Date().toISOString(),
     remediationPatch: {
       file: culpritFile,
-      patchType: 'DURABLE_SNAPSHOT_RESTORE',
-      preservedAgentFiles: preview.affectedFiles.filter((file) => file !== culpritFile),
+      patchType: 'WHOLE_WORKSPACE_SNAPSHOT_RESTORE',
+      restoredFiles: preview.affectedFiles,
       restoredInvariants: ['Snapshot manifest checksum verified']
     },
     affectedFilesCount: preview.affectedFilesCount,

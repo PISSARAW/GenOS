@@ -352,15 +352,15 @@ car on réduit l’espace de recherche par 2 à chaque étape.
 
 Le service vérifie que la séquence de santé est monotone : healthy → fail → fail, puis trouve le premier snapshot ne satisfaisant plus l’invariant.
 
-### 4.3 Rollback sélectif
+### 4.3 Rollback par snapshot
 
-Le rollback est un restaurer localisé, fondé sur une référence snapshot :
+Le rollback de bisection réapplique le snapshot sain au workspace entier ; ce n'est pas un patch limité au fichier fautif :
 
 $$
 S_{restored} = restore(S_{target}, ref)
 $$
 
-Le service [backend/src/services/workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) exécute un saveguard pre-restore, puis réécrit le workspace à partir du snapshot vérifié. S’il y a un échec, il tente un restore de sécurité depuis le snapshot de protection.
+Le service [backend/src/services/workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture un snapshot de sécurité, matérialise et vérifie le snapshot cible, puis remplace les fichiers du workspace. En cas d'erreur détectée, il tente de rétablir le snapshot de sécurité. Ce mécanisme n'est pas atomique face à un arrêt brutal du processus ou de la machine : le filesystem peut rester partiellement remplacé. Le verrou protège les écritures qui passent par ce service, pas les acteurs externes. Le rapport liste les fichiers dont le contenu diffère et qui sont rétablis depuis le snapshot cible; il ne les qualifie pas de préservés.
 
 ### 4.4 Coût de la fusion
 
@@ -522,7 +522,7 @@ Le service `runInSnapshot()` remonte l’état cible dans un dossier temporaire,
 
 ### 9.4 Bisection et rollback
 
-Le `bisectAnomalyAsync()` fonctionne sur un historique de snapshots ordonné. Il vérifie la monopartie de l’état de santé, réduit l’intervalle, trouve le point de bascule, puis donne un rapport de cause probable. Le `remediateRollback()` restaure l’état critique de façon atomique.
+Le `bisectAnomalyAsync()` fonctionne sur un historique de snapshots ordonné. Il vérifie la monotonie de l’état de santé, réduit l’intervalle, trouve le point de bascule, puis donne un rapport de cause probable. Le `remediateRollback()` réapplique le snapshot sain au workspace entier et tente un rollback de sécurité si une erreur est détectée; il ne fournit pas de garantie d'atomicité en cas d'interruption du processus ou de la machine.
 
 ### 9.5 Nettoyage
 
