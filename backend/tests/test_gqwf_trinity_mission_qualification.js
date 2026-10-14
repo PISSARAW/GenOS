@@ -19,7 +19,6 @@ const missions = require('../src/services/agentRuntimeAdapter/missionWorkers');
 const evidenceBarrier = require('../src/services/workerEvidenceBarrier');
 const comparativeBarrier = require('../src/services/trinityComparativeBarrier');
 const telemetry = require('../src/services/telemetryObserver');
-const { previousPromotion } = require('../src/services/trinityPromotionIntegrity');
 
 const workerAssignments = {
   basic_implementation: { methodContract: scopedMethod() },
@@ -127,7 +126,7 @@ async function runMission(db, source, missionId) {
   return { ctx, workers, experimentId: ctx.autonomyPlan.trinity.missionId };
 }
 
-async function assertPromotedComparison(db, result) {
+async function assertEscalatedComparison(db, result) {
   await telemetry.flush(10000);
   const worlds = await db.all(`SELECT world_number, agent_id, status, evidence_vector_json FROM trinity_worlds
     WHERE experiment_id = ? ORDER BY world_number`, result.experimentId);
@@ -137,11 +136,13 @@ async function assertPromotedComparison(db, result) {
   const reports = await comparativeBarrier.buildWorldReportsFromMission(db, result.experimentId);
   assert.equal(reports.length, 3);
   assert.ok(reports.every((entry) => entry.report?.outcome === 'success'));
-  assert.ok(worlds.every((world) => ['compared', 'promoted'].includes(world.status)));
+  assert.ok(worlds.every((world) => world.status === 'compared'));
   assert.ok(worlds.every((world) => {
     const vector = JSON.parse(world.evidence_vector_json || '{}');
-    return vector.correctness === 1 && vector.coverage === 1 && vector.robustness === 0.5;
-  }), 'production comparison must persist evidence vectors for the three worker reports');
+    return vector.correctness === 1 && vector.coverage === null && vector.robustness === 0.5;
+  }), 'production comparison must preserve unmeasured finite-trial coverage as null');
+  assert.ok(reports.every((entry) => !Object.hasOwn(entry.report.evidenceVectorEvidence || {}, 'coverage')),
+    'finite procedure checks must not claim universal coverage without a dedicated proof');
   for (const world of worlds) {
     const events = await db.all(`SELECT event_type FROM telemetry_events WHERE agent_id = ?
       AND event_type IN ('DETERMINISTIC_WORKER_STARTED', 'EVIDENCE_REPORT', 'AGENT_COMPLETED')`, world.agent_id);
@@ -150,25 +151,17 @@ async function assertPromotedComparison(db, result) {
     ].sort());
   }
   const comparison = result.ctx.autonomyPlan.trinity.comparison;
-  assert.equal(comparison.canMerge, true, JSON.stringify(comparison));
-  assert.ok([1, 2, 3].includes(comparison.selectedWorld));
-  assert.equal(comparison.outcome, 'PROMOTE_WORLD');
+  assert.equal(comparison.canMerge, false, JSON.stringify(comparison));
+  assert.equal(comparison.outcome, 'ESCALATE_EXPERIMENT');
+  assert.equal(comparison.reason, 'required_evidence_vector_or_provenance_missing');
   assert.equal(comparison.crossExamination.status, 'complete');
   assert.ok(comparison.crossExamination.worlds
     .every((world) => world.status === 'verified' && world.receipts.length === 1));
   assert.ok(Number.isFinite(comparison.bestScore));
-  assert.equal(comparison.promotion.promoted, true, JSON.stringify(comparison.promotion));
-  assert.equal(comparison.promotion.verification.integrationChecks[0].passed, true);
-  assert.equal(comparison.promotion.verification.claimChecks.length, 1);
-  assert.ok(comparison.promotion.verification.claimChecks.every((check) => check.receipt.independent));
-  const experiment = await db.get('SELECT status FROM trinity_experiments WHERE mission_id = ?', result.experimentId);
-  assert.equal(experiment.status, 'promoted');
-  const winner = worlds.find((world) => Number(world.world_number) === Number(comparison.selectedWorld));
-  const winningWorkspace = await db.get('SELECT workspace_id FROM agents WHERE id = ?', winner.agent_id);
-  const head = await db.get('SELECT root_hash FROM gqwf_heads WHERE workspace_id = ? AND name = ?',
-    winningWorkspace.workspace_id, `trinity/${result.experimentId}`);
-  assert.ok(head?.root_hash);
-  return comparison.promotion;
+  assert.equal(comparison.promotion.promoted, false);
+  const experiment = await db.get('SELECT status, decision_json FROM trinity_experiments WHERE mission_id = ?', result.experimentId);
+  assert.equal(experiment.status, 'escalated');
+  assert.equal(JSON.parse(experiment.decision_json).outcome, 'ESCALATE_EXPERIMENT');
 }
 
 async function qualify(root) {
@@ -183,14 +176,13 @@ async function qualify(root) {
     const source = await createWorkspace(db, root, '42\n');
     const mission = await runMission(db, source, 'mission-three-worker-promotion');
     workers.push(...mission.workers);
-    const promotion = await assertPromotedComparison(db, mission);
+    await assertEscalatedComparison(db, mission);
     await telemetry.flush(10000);
     await database.closeDatabase();
     db = await database.getDatabase(dbPath);
-    const replay = await previousPromotion({ db, missionId: mission.experimentId });
-    assert.equal(replay.promoted, true);
-    assert.equal(replay.idempotent, true);
-    assert.equal(promotion.promoted, true);
+    const replay = await db.get('SELECT status, decision_json FROM trinity_experiments WHERE mission_id = ?', mission.experimentId);
+    assert.equal(replay.status, 'escalated');
+    assert.equal(JSON.parse(replay.decision_json).outcome, 'ESCALATE_EXPERIMENT');
   } finally {
     await telemetry.flush(10000);
     await database.closeDatabase();
@@ -209,7 +201,7 @@ async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'gqwf-trinity-qualification-'));
   try { await qualify(root); }
   finally { await fs.rm(root, { recursive: true, force: true }); }
-  console.log('GQWF Trinity three-worker run, evidence replay, independent claim checks, GQWF promotion and restart: PASS');
+  console.log('GQWF Trinity three-worker run, independent claim checks, fail-closed comparison and restart: PASS');
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
