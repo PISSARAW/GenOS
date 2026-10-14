@@ -673,6 +673,11 @@ et les cinq guides : [Méristème](02-orchestration/meristeme-epistemique.md),
 — missions du document fourni, contrôles indépendants, réussites de livrables et
 limites de promotion. [ADR de délégation](adr/0332-delegation-workspaces-scelles-trinity.md).
 
+[Tentatives du 14 octobre 2026](06-qualite-preuves/qualification-trinity-2026-10-14.md)
+— 0 mission aboutie sur 5 lancements `dispatch_trinity` : disque plein, chemins
+Windows > 260 caractères, sceau sur repo vivant, scope budgétaire parent jamais
+lié (blocage systémique), correctifs proposés.
+
 - [ADR 0344 — Refactorings de qualité et frontières de contrôle](adr/0344-refactorings-qualite-et-frontieres-de-controle.md).
 - [ADR 0352 — Composition Studio et inspecteurs de preuves](adr/0352-studio-composition-et-inspecteurs-de-preuves.md).
 - [Studio — refonte visuelle et qualification](06-qualite-preuves/studio-refonte-visuelle.md).
