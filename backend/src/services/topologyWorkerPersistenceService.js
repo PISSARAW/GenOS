@@ -22,10 +22,13 @@ async function ensureTopologyWorker(db, input) {
 
 async function validateExistingWorker({ db, existing, input, workerKind, workerContract }) {
   if (!matchesWorkerIdentity(existing, input)) throw Object.assign(new Error(`Worker identity '${input.workerId}' conflicts with an existing agent.`), { code: 'TOPOLOGY_WORKER_IDENTITY_CONFLICT' });
-  await assertWorkerNotBusy(db, existing, input.workerId);
   const metadata = parseMetadata(existing.metadata_json);
   if (metadata.workerKind && metadata.workerKind !== workerKind) {
     throw Object.assign(new Error(`Worker '${input.workerId}' is persisted as '${metadata.workerKind}', not '${workerKind}'.`), { code: 'TOPOLOGY_WORKER_KIND_MISMATCH' });
+  }
+  if (await workerIsBusy(db, existing, input.workerId)) {
+    if (input.allowBusyExisting === true) return { workerId: input.workerId, created: false, busy: true };
+    throw workerBusyError(input.workerId);
   }
   const updated = await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?
     AND status != 'running' AND NOT EXISTS (
@@ -48,12 +51,12 @@ function matchesWorkerIdentity(existing, input) {
     && (existing.workspace_id || null) === (input.workspaceId || null);
 }
 
-async function assertWorkerNotBusy(db, existing, workerId) {
-  if (existing.status === 'running') throw workerBusyError(workerId);
+async function workerIsBusy(db, existing, workerId) {
+  if (existing.status === 'running') return true;
   const lease = await db.get(`SELECT request_id FROM garage_queue WHERE worker_id = ?
     AND (status IN ('queued', 'claimed', 'running')
       OR phase IN ('frozen', 'thawing', 'freezing', 'freeze_failed', 'cancelling')) LIMIT 1`, workerId);
-  if (lease) throw workerBusyError(workerId);
+  return Boolean(lease);
 }
 
 function workerBusyError(workerId) {

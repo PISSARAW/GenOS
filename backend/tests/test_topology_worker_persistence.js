@@ -83,6 +83,10 @@ async function main() {
   db.agents.get(identity.workerId).status = 'running';
   await assert.rejects(() => ensureTopologyWorker(db, changedSession), (error) => error.code === 'TOPOLOGY_WORKER_BUSY');
   assert.equal(db.agents.get(identity.workerId).metadata_json, originalMetadata, 'A running worker contract must remain unchanged.');
+  assert.deepEqual(await ensureTopologyWorker(db, { ...identity, allowBusyExisting: true }),
+    { workerId: identity.workerId, created: false, busy: true });
+  assert.equal(db.agents.get(identity.workerId).metadata_json, originalMetadata,
+    'An idempotent retry may recognize a busy worker but must not mutate its contract.');
   db.agents.get(identity.workerId).status = 'idle';
   db.garageClaims.add(identity.workerId);
   await assert.rejects(() => ensureTopologyWorker(db, changedSession), (error) => error.code === 'TOPOLOGY_WORKER_BUSY');
