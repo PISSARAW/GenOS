@@ -56,7 +56,23 @@ async function rejectsVersionRead(db, candidateInput) {
   }
 }
 
+async function verifySchemaMigrationCaching() {
+  let attempts = 0;
+  const transient = { exec: async () => {
+    attempts += 1;
+    if (attempts === 1) throw new Error('injected migration failure');
+  } };
+  await assert.rejects(() => registry.ensureTables(transient), /injected migration failure/);
+  await Promise.all([registry.ensureTables(transient), registry.ensureTables(transient)]);
+  check('schema migration failure can retry and concurrent calls share one migration', attempts === 2);
+  let sharedAttempts = 0;
+  const shared = { exec: async () => { sharedAttempts += 1; } };
+  await Promise.all(Array.from({ length: 5 }, () => registry.ensureTables(shared)));
+  check('schema migration is cached per database handle', sharedAttempts === 1);
+}
+
 async function main() {
+  await verifySchemaMigrationCaching();
   const trivial = profiler.profileRequest({ mission: '2+2' });
   check('2+2 class', trivial.profile.request_class === 'deterministic_trivial');
   const routeTrivial = router.chooseExecutionPath(trivial.profile);

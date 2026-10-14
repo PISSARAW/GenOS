@@ -6,9 +6,16 @@ const { migrateRequestMemory } = require('../db/migrations/migrateRequestMemory'
 const { withTransaction } = require('../db');
 const { validateReceipt } = require('./epistemicVerifierReceiptService');
 const verifierTrust = require('./verifierTrustRegistry');
+const tableMigrations = new WeakMap();
 
-async function ensureTables(db) {
-  await migrateRequestMemory(db);
+function ensureTables(db) {
+  if (tableMigrations.has(db)) return tableMigrations.get(db);
+  const migration = migrateRequestMemory(db).catch((error) => {
+    tableMigrations.delete(db);
+    throw error;
+  });
+  tableMigrations.set(db, migration);
+  return migration;
 }
 
 async function getProblem(db, semanticId) {
