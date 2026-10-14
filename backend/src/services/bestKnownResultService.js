@@ -1,6 +1,6 @@
 'use strict';
 
-const { randomUUID } = require('crypto');
+const { createHash, randomUUID } = require('crypto');
 const { isDeepStrictEqual } = require('node:util');
 const { migrateRequestMemory } = require('../db/migrations/migrateRequestMemory');
 
@@ -13,8 +13,16 @@ async function getProblem(db, semanticId) {
   return db.get('SELECT * FROM request_problems WHERE semantic_id = ?', semanticId).catch(() => null);
 }
 
-async function getChampion(db, semanticId) {
-  const problem = await getProblem(db, semanticId);
+function scopedSemanticId(semanticId, scopeId) {
+  const scope = String(scopeId || '').trim();
+  if (!scope) throw Object.assign(new Error('A workspace or tenant scope is required for request memory.'), { code: 'RESULT_SCOPE_REQUIRED' });
+  const key = `${scope}\0${String(semanticId || '')}`;
+  return `scope_${createHash('sha256').update(key).digest('hex')}`;
+}
+
+async function getChampion(db, semanticId, scopeId) {
+  const scopedId = scopedSemanticId(semanticId, scopeId);
+  const problem = await getProblem(db, scopedId);
   if (!problem || !problem.champion_result_id) return { problem, champion: null };
   const champion = await db.get('SELECT * FROM request_results WHERE id = ?', problem.champion_result_id).catch(() => null);
   return { problem, champion };
@@ -48,8 +56,23 @@ function isDependencyMap(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+function dependencyFailureReason(champion, input) {
+  const stored = parseDependencyMap(champion.dependencies_json);
+  if (!stored || (input.dependencies !== undefined && !isDependencyMap(input.dependencies))) return 'dependencies-invalid';
+  if (Object.keys(stored).length > 0 && !isDependencyMap(input.dependencies)) return 'dependencies-unavailable';
+  const current = isDependencyMap(input.dependencies) ? input.dependencies : {};
+  return depsChanged(champion.dependencies_json, current) ? 'deps-changed' : null;
+}
+
+async function dependencyFailure(db, found, input) {
+  const reason = dependencyFailureReason(found.champion, input);
+  if (!reason) return null;
+  if (reason === 'deps-changed') await markStale(db, found.champion.id);
+  return { hit: false, problem: found.problem, champion: found.champion, reason };
+}
+
 async function lookupReusable(db, input) {
-  const found = await getChampion(db, input.semanticId);
+  const found = await getChampion(db, input.semanticId, input.scopeId);
   if (!found.champion) return { hit: false, problem: found.problem };
   if (found.champion.status !== 'VERIFIED') {
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'status-not-reusable' };
@@ -58,21 +81,8 @@ async function lookupReusable(db, input) {
     await markStale(db, found.champion.id);
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'expired' };
   }
-  const storedDependencies = parseDependencyMap(found.champion.dependencies_json);
-  if (!storedDependencies) {
-    return { hit: false, problem: found.problem, champion: found.champion, reason: 'dependencies-invalid' };
-  }
-  if (input.dependencies !== undefined && !isDependencyMap(input.dependencies)) {
-    return { hit: false, problem: found.problem, champion: found.champion, reason: 'dependencies-invalid' };
-  }
-  const currentDependencies = isDependencyMap(input.dependencies) ? input.dependencies : {};
-  if (Object.keys(storedDependencies).length > 0 && !isDependencyMap(input.dependencies)) {
-    return { hit: false, problem: found.problem, champion: found.champion, reason: 'dependencies-unavailable' };
-  }
-  if (depsChanged(found.champion.dependencies_json, currentDependencies)) {
-    await markStale(db, found.champion.id);
-    return { hit: false, problem: found.problem, champion: found.champion, reason: 'deps-changed' };
-  }
+  const dependencyMiss = await dependencyFailure(db, found, input);
+  if (dependencyMiss) return dependencyMiss;
   return { hit: true, problem: found.problem, champion: found.champion };
 }
 
@@ -83,26 +93,27 @@ async function markStale(db, id) {
 
 async function storeCandidate(db, input) {
   await ensureTables(db);
-  const existing = await getProblem(db, input.semanticId);
-  const version = await nextVersion(db, input.semanticId);
+  const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
+  const existing = await getProblem(db, scopedId);
+  const version = await nextVersion(db, scopedId);
   const id = `res_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
   const shouldPromote = input.promote !== false && input.status === 'VERIFIED';
   if (!existing) {
     await db.run(
       'INSERT INTO request_problems (semantic_id, normalized_intent, request_class, profile_json, champion_result_id) VALUES (?, ?, ?, ?, ?)',
-      input.semanticId, input.normalizedIntent, input.requestClass, input.profileJson, shouldPromote ? id : null
+      scopedId, input.normalizedIntent, input.requestClass, input.profileJson, shouldPromote ? id : null
     );
   }
   await db.run(
     `INSERT INTO request_results (id, semantic_id, result_version, status, content_json, evidence_json,
       uncertainty_json, dependencies_json, execution_json, validity_horizon_ms, expires_at, utility, cost_json, supersedes)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, input.semanticId, version, input.status, input.contentJson, input.evidenceJson,
+    id, scopedId, version, input.status, input.contentJson, input.evidenceJson,
     input.uncertaintyJson, input.dependenciesJson, input.executionJson, input.validityHorizonMs,
     input.expiresAt, input.utility, input.costJson, input.supersedes
   );
   if (shouldPromote) {
-    await promoteChampion(db, input.semanticId, id);
+    await promoteChampion(db, { semanticId: input.semanticId, id, scopeId: input.scopeId });
   }
   return { id, version };
 }
@@ -112,17 +123,18 @@ async function nextVersion(db, semanticId) {
   return Number(row && row.m ? row.m : 0) + 1;
 }
 
-async function promoteChampion(db, semanticId, id) {
+async function promoteChampion(db, input) {
   await ensureTables(db);
-  const candidate = await db.get('SELECT semantic_id, status FROM request_results WHERE id = ?', id);
-  if (!candidate || candidate.semantic_id !== semanticId || candidate.status !== 'VERIFIED') {
+  const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
+  const candidate = await db.get('SELECT semantic_id, status FROM request_results WHERE id = ?', input.id);
+  if (!candidate || candidate.semantic_id !== scopedId || candidate.status !== 'VERIFIED') {
     throw Object.assign(new Error('Only a verified result for this problem can become champion.'), { code: 'RESULT_PROMOTION_BLOCKED' });
   }
-  const current = await getChampion(db, semanticId);
-  if (current.champion && current.champion.id !== id) {
+  const current = await getChampion(db, input.semanticId, input.scopeId);
+  if (current.champion && current.champion.id !== input.id) {
     await db.run("UPDATE request_results SET status = 'SUPERSEDED' WHERE id = ? AND status = 'VERIFIED'", current.champion.id);
   }
-  await db.run('UPDATE request_problems SET champion_result_id = ?, updated_at = CURRENT_TIMESTAMP WHERE semantic_id = ?', id, semanticId);
+  await db.run('UPDATE request_problems SET champion_result_id = ?, updated_at = CURRENT_TIMESTAMP WHERE semantic_id = ?', input.id, scopedId);
 }
 
 async function refuteResult(db, id) {

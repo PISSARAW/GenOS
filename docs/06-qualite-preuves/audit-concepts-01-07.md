@@ -51,7 +51,7 @@ promotion.
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
 |---|:---:|:---:|:---:|:---:|:---:|---|
 | Runtime d’agents reproductible et supervisé | p | p | p | o | o | F ; superviseur et deadlines Node présents, mais le budget CPU n'est pas appliqué par le runtime worker et la reproductibilité globale n'est pas démontrée. |
-| État versionné | o | p | p | o | o | F ; snapshots et révisions; `bestKnownResultService` compare maintenant le jeu complet de dépendances et refuse la réutilisation quand le snapshot est absent ou mal formé (`test_request_memory_routing.js`, ADR 0493). La qualification complète des snapshots reste ouverte. |
+| État versionné | o | p | p | o | o | F ; snapshots et révisions; `bestKnownResultService` scope les résultats au workspace, compare toutes les dépendances et refuse la réutilisation sans snapshot valide (`test_request_memory_routing.js`, ADR 0493, 0494). La qualification complète des snapshots reste ouverte. |
 | Exécution contrefactuelle | o | p | p | p | o | F ; fork/snapshot accessibles, contre-épreuve complète non prouvée ici. |
 | Branches, forks, snapshots, diffs et replay | p | p | p | p | o | F ; `diff_and_replay` appelle les deux opérations et échoue si l'une manque, mais aucun producteur ne rejoue le run complet ni n'émet le reçu exigé par `require_replay` (ADR 0480). |
 | Preuve avant promotion | o | p | p | o | o | E ; `bestKnownResultService` empêche un statut provisoire de remplacer un champion vérifié (`test_request_memory_routing.js`, ADR 0492). Le service fait encore confiance au statut `VERIFIED`; les reçus indépendants/rejoués ne sont pas vérifiés dans ce parcours. Couverture des autres promotions incomplète. |
