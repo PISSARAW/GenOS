@@ -74,11 +74,11 @@ function runtimeFields(mission) {
   return Object.fromEntries(keys.filter((key) => mission[key] !== undefined).map((key) => [key, mission[key]]));
 }
 
-async function settle(input, row, receipt) {
+async function settle(input, row, receipt, terminalError) {
   const expired = !(Date.parse(row.lease_expires_at) > Date.now()) || Date.parse(row.deadline_at) <= Date.now();
   const changed = await store.updatePersistent(input.db, { requestId: row.request_id, leaseId: row.lease_id,
     status: expired ? 'expired' : receipt ? 'completed' : 'failed', evidence: receipt, result: receipt,
-    error: expired ? 'runtime_lease_expired' : receipt ? null : 'runtime_terminal_without_verified_evidence' });
+    error: expired ? 'runtime_lease_expired' : receipt ? null : terminalError || 'runtime_terminal_without_verified_evidence' });
   if (changed) await require('./workerGarageService').enterIdleState(input.db, row.worker_id, row.orchestrator_id);
 }
 
@@ -94,7 +94,14 @@ async function reconcileOne(input, requestId) {
 
 async function reconcileTerminal(input, row) {
   const worker = await input.db.get('SELECT status FROM agents WHERE id = ?', row.worker_id);
-  const verified = await require('./garageRuntimeEvidence').receipt(input.db, row);
+  let verified;
+  try {
+    verified = await require('./garageRuntimeEvidence').receipt(input.db, row);
+  } catch (failure) {
+    if (failure.code !== 'GARAGE_SCOPE_INVALID') throw failure;
+    await clearApprovalPhase(input.db, row);
+    return settle(input, row, null, 'garage_scope_invalid_at_terminal_reconciliation');
+  }
   if (!verified && await pendingApproval(input.db, row)) return;
   await clearApprovalPhase(input.db, row);
   if (verified) return settle(input, row, verified);
