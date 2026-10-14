@@ -19,19 +19,32 @@ function localWorkspaceConfig() {
   const workspaceRoot = String(process.env.GENOS_WORKSPACE_ROOT || '').trim();
   if (!workspaceRoot) return;
   const name = String(process.env.GENOS_WORKSPACE_NAME || path.basename(workspaceRoot) || 'workspace').trim();
-  return { workspaceRoot, name };
+  return {
+    workspaceRoot, name,
+    organizationId: String(process.env.GENOS_LOCAL_ORGANIZATION_ID || 'org-local').trim(),
+    projectId: String(process.env.GENOS_LOCAL_PROJECT_ID || 'project-local').trim()
+  };
+}
+
+async function ensureLocalTenant(db, config) {
+  await db.run('INSERT INTO organizations (id, name) VALUES (?, ?) ON CONFLICT(id) DO NOTHING',
+    config.organizationId, config.organizationId);
+  await db.run(`INSERT INTO projects (id, organization_id, name, status) VALUES (?, ?, ?, 'active')
+    ON CONFLICT(id) DO NOTHING`, config.projectId, config.organizationId, config.projectId);
 }
 
 async function ensureConfiguredWorkspace(db) {
   const config = localWorkspaceConfig();
   if (!config) return;
-  const { workspaceRoot, name } = config;
+  const { workspaceRoot, name, organizationId, projectId } = config;
+  await ensureLocalTenant(db, config);
   try {
     await db.run(
-      `INSERT INTO workspaces (id, name, path, visibility, language, description, tags)
-       VALUES ('ws-local', ?, ?, 'Private', 'Mixed', ?, '[]')
-       ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path`,
-      name, workspaceRoot, 'Workspace mounted through GENOS_WORKSPACE_ROOT.'
+      `INSERT INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id)
+       VALUES ('ws-local', ?, ?, 'Private', 'Mixed', ?, '[]', ?, ?)
+       ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path,
+       organization_id = excluded.organization_id, project_id = excluded.project_id`,
+      name, workspaceRoot, 'Workspace mounted through GENOS_WORKSPACE_ROOT.', organizationId, projectId
     );
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE constraint failed')) {
