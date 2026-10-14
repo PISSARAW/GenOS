@@ -81,7 +81,7 @@ const EDGES_SQL = {
 };
 
 const EVENTS_SQL = {
-  tenant: 'SELECT e.id, e.agent_id, e.event_type, e.action, e.detail, e.severity, e.payload_json, e.created_at FROM telemetry_events e JOIN agents a ON a.id = e.agent_id JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY e.created_at DESC LIMIT 100',
+  tenant: 'SELECT e.id, e.agent_id, e.event_type, e.action, e.detail, e.severity, e.payload_json, e.created_at FROM telemetry_events e JOIN agents a ON a.id = e.agent_id JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ? AND ((e.organization_id = ? AND e.project_id = ?) OR (e.organization_id IS NULL AND e.project_id IS NULL)) ORDER BY e.created_at DESC LIMIT 100',
   global: 'SELECT id, agent_id, event_type, action, detail, severity, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 100'
 };
 
