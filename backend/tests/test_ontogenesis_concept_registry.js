@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const registry = require('../src/services/ontogenesis/canonicalConceptRegistry');
+const { graphExecutable } = require('../src/services/ontogenesis/canonicalReferenceResolver');
 const runtimeRegistry = require('../src/services/conceptRegistryService');
 
 const groups = ['registry', 'foundations', 'adapters'];
@@ -41,6 +42,17 @@ if (selected.includes('registry')) {
   assert.ok(web.runtimeConcepts.every((concept) => concept.unavailablePrimitives.length === 0));
   assert.ok(web.runtimeConcepts.filter((concept) => concept.primitives.length > 0)
     .every((concept) => concept.executable));
+  const legacyReview = web.runtimeConcepts.find((concept) => concept.id === 'genos_adversarial_review');
+  assert.equal(legacyReview.executable, false, 'uncatalogued, unroutable tools are not executable');
+  assert.deepStrictEqual(legacyReview.toolReadiness.missingFromCatalog, ['genos_adversarial_review']);
+  assert.equal(registry.resolveConceptReferences(['genos_adversarial_review'])[0].reason, 'execution-indisponible');
+  const graphArena = web.canonicalConcepts.find((concept) =>
+    concept.source === 'capability_graph' && concept.id === 'ARENA_COMPETITION');
+  assert.equal(graphArena.executable, false);
+  assert.equal(graphArena.executionReason, 'execution-indisponible');
+  assert.ok(graphArena.toolReadiness.missingFromCatalog.length > 0);
+  assert.equal(graphExecutable({ tools: ['genos_snapshot'], primitives: [] }), true);
+  assert.equal(graphExecutable({ tools: ['genos_unregistered'], primitives: [] }), false);
   assert.deepStrictEqual(web.resolvedConcepts.map((concept) => concept.source), ['existing_adapter', 'runtime', 'philosophy', 'unknown']);
   assert.strictEqual(web.resolvedConcepts[0].source, 'existing_adapter');
   assert.strictEqual(web.resolvedConcepts[0].service, 'morphogenesisPlannerService');

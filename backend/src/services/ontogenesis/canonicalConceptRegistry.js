@@ -196,12 +196,15 @@ function capabilityCatalog() {
 
 function executionFields(concept) {
   const primitives = concept.primitives || [];
+  const tools = concept.tools || [];
   const handlers = require('../strategyExecutionAdapter').getHandlers();
   const implementedPrimitives = primitives.filter((primitive) => typeof handlers[primitive] === 'function');
   const unavailablePrimitives = primitives.filter((primitive) => typeof handlers[primitive] !== 'function');
+  const toolReadiness = accessMatrix.toolReadiness(tools);
+  const primitiveExecutable = primitives.length > 0 && unavailablePrimitives.length === 0;
   return {
-    implementedPrimitives, unavailablePrimitives,
-    executable: Boolean((concept.tools || []).length || (primitives.length && !unavailablePrimitives.length))
+    implementedPrimitives, unavailablePrimitives, toolReadiness,
+    executable: toolReadiness.ready || (!tools.length && primitiveExecutable)
   };
 }
 
@@ -216,6 +219,18 @@ function philosophicalCatalogEntry(concept) {
   };
 }
 
+function graphCatalogEntry([graphKey, concept]) {
+  const executable = graphExecutable(concept);
+  return {
+    id: concept.id, graphKey, domain: `capability_graph:${concept.category}`, state: concept.maturity || 'ready',
+    executable, toolReadiness: accessMatrix.toolReadiness(concept.tools),
+    executionReason: executable ? null : 'execution-indisponible',
+    source: 'capability_graph', tools: concept.tools, primitives: concept.primitives,
+    handlers: concept.handlers, capabilities: concept.capabilities,
+    compatibleTopologies: concept.compatible_topologies
+  };
+}
+
 function conceptCatalog(capabilities = capabilityCatalog()) {
   const operational = new Set(capabilities.filter((entry) => entry.state === 'operationnel')
     .map((entry) => entry.capability.toLowerCase()));
@@ -224,13 +239,7 @@ function conceptCatalog(capabilities = capabilityCatalog()) {
     executable: operational.has(id), source: 'documentation'
   })));
   const philosophical = CONCEPT_DEFINITIONS.map(philosophicalCatalogEntry);
-  const graph = Object.entries(capabilityGraph.getAllConcepts()).map(([graphKey, concept]) => ({
-    id: concept.id, graphKey, domain: `capability_graph:${concept.category}`, state: concept.maturity || 'ready',
-    executable: graphExecutable(concept),
-    source: 'capability_graph', tools: concept.tools, primitives: concept.primitives,
-    handlers: concept.handlers, capabilities: concept.capabilities,
-    compatibleTopologies: concept.compatible_topologies
-  }));
+  const graph = Object.entries(capabilityGraph.getAllConcepts()).map(graphCatalogEntry);
   const registered = Object.values(runtimeConceptRegistry.getAllConcepts()).map((concept) => ({
     ...executionFields(concept),
     id: concept.id, domain: concept.kind, state: concept.maturity || 'ready', source: 'concept_registry',

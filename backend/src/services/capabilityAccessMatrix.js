@@ -88,6 +88,16 @@ function missingRoutes(tools) {
   return (tools || []).filter((tool) => !ROUTABLE_TOOL_SET.has(tool));
 }
 
+function toolReadiness(tools) {
+  const declared = [...new Set(tools || [])];
+  const catalogued = cataloguedTools(declared);
+  const routable = declared.filter((tool) => ROUTABLE_TOOL_SET.has(tool));
+  const missingFromCatalog = missingTools(declared);
+  const missingFromRoutes = missingRoutes(declared);
+  return { declared, catalogued, routable, missingFromCatalog, missingFromRoutes,
+    ready: declared.length > 0 && missingFromCatalog.length === 0 && missingFromRoutes.length === 0 };
+}
+
 function levelFor(capability, tools) {
   const internal = internalEntry(capability);
   if (internal) return internal.level;
@@ -176,5 +186,6 @@ module.exports = {
   fullMatrix,
   auditModes,
   auditMode,
+  toolReadiness,
   daemonInterface
 };

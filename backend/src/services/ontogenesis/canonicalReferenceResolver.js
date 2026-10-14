@@ -1,6 +1,7 @@
 'use strict';
 const runtimeRegistry = require('../conceptRegistryService');
 const capabilityGraph = require('../capabilityGraphService');
+const accessMatrix = require('../capabilityAccessMatrix');
 const inventory = require('./canonicalConceptInventory');
 const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
 const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES } = require('./canonicalConceptAliases');
@@ -50,8 +51,10 @@ function runtimeResolution(input, helpers) {
   const execution = helpers.executionFields(runtime);
   const compatible = helpers.topologyAllows(input.topology, runtime);
   return { requested: input.requested, id: runtime.id, source: 'runtime', available: compatible,
-    executable: execution.executable && compatible, reason: compatible ? null : 'topologie-incompatible',
+    executable: execution.executable && compatible,
+    reason: !compatible ? 'topologie-incompatible' : (execution.executable ? null : 'execution-indisponible'),
     compatibleTopologies: runtime.compatibleTopologies, tools: runtime.tools || [],
+    toolReadiness: execution.toolReadiness,
     primitives: runtime.primitives || [], unavailablePrimitives: execution.unavailablePrimitives };
 }
 
@@ -78,7 +81,13 @@ function philosophyResolution(input, helpers) {
 }
 
 function graphExecutable(concept) {
-  return Boolean(concept.tools.length || (concept.primitives.length && concept.handlers.length === concept.primitives.length));
+  const tools = concept.tools || [];
+  const primitives = concept.primitives || [];
+  const handlers = require('../strategyExecutionAdapter').getHandlers();
+  const toolReadiness = accessMatrix.toolReadiness(tools);
+  const toolsReady = toolReadiness.ready;
+  const primitivesReady = primitives.length > 0 && primitives.every((primitive) => typeof handlers[primitive] === 'function');
+  return toolsReady || (!tools.length && primitivesReady);
 }
 
 function graphResolution(input, helpers) {
@@ -86,10 +95,13 @@ function graphResolution(input, helpers) {
   if (!entry) return null;
   const { concept, graphKey } = entry;
   const available = helpers.topologyAllows(input.topology, { tools: concept.tools, compatibleTopologies: concept.compatible_topologies });
+  const executable = graphExecutable(concept);
+  const toolReadiness = accessMatrix.toolReadiness(concept.tools);
   return { requested: input.requested, id: concept.id, source: 'capability_graph', available,
-    executable: available && graphExecutable(concept), reason: available ? null : 'topologie-incompatible',
+    executable: available && executable,
+    reason: !available ? 'topologie-incompatible' : (executable ? null : 'execution-indisponible'),
     graphKey,
-    tools: concept.tools, primitives: concept.primitives, handlers: concept.handlers };
+    tools: concept.tools, toolReadiness, primitives: concept.primitives, handlers: concept.handlers };
 }
 
 function documentationResolution(input, helpers) {
