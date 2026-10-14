@@ -53,9 +53,10 @@ async function handleRuntimeClose(ctx) {
   process.exit(process.exitCode);
 }
 
-function handleBudgetStop(ctx, budgetStopped) {
+async function handleBudgetStop(ctx, budgetStopped) {
   const { code, signal, emit, cleanup } = ctx;
   emit({ eventType: 'AGENT_HALTED', action: 'BUDGET_GUARD', detail: 'Runtime stopped at the active execution budget boundary.', severity: 'warning', status: 'blocked', currentTask: 'Budget exhausted', payload: { code, signal, budget: budgetStopped } });
+  await new Promise((resolve) => process.stdout.write('', resolve));
   process.exitCode = 1;
   cleanup();
   process.exit(1);
