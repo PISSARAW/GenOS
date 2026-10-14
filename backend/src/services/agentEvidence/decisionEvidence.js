@@ -25,11 +25,16 @@ function hasNoAnswerProof(report) {
   return Boolean(normalizeNoAnswerProof(report.noAnswerProof || report.no_answer_proof));
 }
 
-function hasFailureDiagnostic(event, payload) {
+function hasFailurePayloadDiagnostic(payload) {
   const fields = ['error', 'reason', 'message', 'stderr', 'stack', 'terminationReason', 'workerArtifactDiagnostics', 'proposalTests'];
   for (const field of fields) {
     if (hasEvidenceItem(payload[field])) return true;
   }
+  return false;
+}
+
+function hasFailureDiagnostic(event, payload) {
+  if (hasFailurePayloadDiagnostic(payload)) return true;
   return hasEvidenceItem(event.detail);
 }
 
@@ -44,7 +49,7 @@ function hasFailureEvidence(event, payload) {
 function hasContradictorySuccess(event, payload, report) {
   if (report.outcome !== 'success') return false;
   if (FAILURE_EVENT_TYPES.includes(event.eventType)) return true;
-  return hasEvidenceItem(payload.failure) || hasFailureDiagnostic(event, payload);
+  return hasEvidenceItem(payload.failure) || hasFailurePayloadDiagnostic(payload);
 }
 
 function hasDecisionEvidence(event = {}) {

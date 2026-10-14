@@ -33,7 +33,7 @@ async function qualify(db) {
   assert.deepEqual(ids(await search.fetchFailureCandidates(db, { organizationId: 'org' })),
     ['organization-only', 'own', 'sibling', 'trajectory-organization-only', 'trajectory-own', 'trajectory-sibling']);
   assert.deepEqual(await search.fetchFailureCandidates(db, { ...context, projectId: 'missing' }), []);
-  assert.equal((await search.fetchFailureCandidates(db, {})).length, 13);
+  assert.deepEqual(ids(await search.fetchFailureCandidates(db, {})), ['global', 'trajectory-global']);
   for (const bad of [null, [], 7, 'org', true, { projectId: 'project' }, { organizationId: [] }, { organizationId: ' ' },
     { ...context, includeGlobal: 'true' }]) {
     await assert.rejects(search.fetchFailureCandidates(db, bad), error => error.code?.startsWith('FAILURE_MEMORY_SCOPE_'));

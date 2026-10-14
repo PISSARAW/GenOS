@@ -30,7 +30,7 @@ async function main() {
   assert.equal(ctx.normalizedMission.recentFailures, 1);
   await feedback.process(ctx, { id: 'failed-second', eventType: 'AGENT_FAILED', payload: {} });
   assert.equal(ctx.normalizedMission.recentFailures, 2);
-  const latest = await feedback.process(ctx, { id: 'evidence', eventType: 'EVIDENCE_REPORT', payload: { outcome: 'success', claims: [{ claim: 'test passed', evidence: ['test.log'] }] } });
+  const latest = await feedback.process(ctx, { id: 'evidence', eventType: 'EVIDENCE_REPORT', detail: 'Tests completed successfully.', payload: { outcome: 'success', claims: [{ claim: 'test passed', evidence: ['test.log'] }] } });
   assert(latest.worldState.evidenceDebt.includes('independent_replay'));
   assert.equal(latest.percepts.at(-1).value.evidencePresent, true);
   assert.equal(latest.percepts.at(-1).confidence, 1);

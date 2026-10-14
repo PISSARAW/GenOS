@@ -22,7 +22,9 @@ function selection(context = {}, prefix = '') {
   const organizationId = token(context, 'organizationId');
   const projectId = token(context, 'projectId');
   if (projectId && !organizationId) throw invalid('INCOMPLETE');
-  if (!organizationId) return { sql: '', parameters: [] };
+  if (!organizationId) {
+    return { sql: ` AND (${prefix}organization_id IS NULL AND ${prefix}project_id IS NULL)`, parameters: [] };
+  }
   const terms = [`${prefix}organization_id = ?`];
   const parameters = [organizationId];
   if (projectId) { terms.push(`${prefix}project_id = ?`); parameters.push(projectId); }

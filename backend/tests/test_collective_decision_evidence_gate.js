@@ -4,6 +4,7 @@ const { proofOfNoAnswer } = require('../src/services/workerFailureRecoveryServic
 
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_COMPLETED', payload: { advice: 'done' } }), false);
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_COMPLETED', payload: { evidenceReport: { claims: [{ statement: 'verified', evidence: ['test passed'] }] } } }), true);
+assert.equal(hasDecisionEvidence({ eventType: 'AGENT_COMPLETED', detail: 'Worker completed its evidence review.', payload: { evidenceReport: { claims: [{ statement: 'verified', evidence: ['test passed'] }] } } }), true);
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_COMPLETED', payload: { claims: [{ evidence: [{ status: 'ok' }] }] } }), false);
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: {} }), false);
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: { status: 'failed' } }), false);
