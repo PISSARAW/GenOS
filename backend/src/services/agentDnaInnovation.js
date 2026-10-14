@@ -64,8 +64,11 @@ async function scopeForWorkspace(db, workspaceId) {
 async function latestToolLease(db, agentId) {
   const row = await safeGet(
     db,
-    "SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'WORKER_CAPABILITY_LEASED' ORDER BY created_at DESC, rowid DESC LIMIT 1",
-    agentId
+    `SELECT payload_json FROM telemetry_events
+     WHERE event_type = 'WORKER_CAPABILITY_LEASED'
+       AND (agent_id = ? OR json_extract(payload_json, '$.workerId') = ?)
+     ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+    agentId, agentId
   );
   if (!row || !row.payload_json) return [];
   try {
@@ -163,10 +166,12 @@ async function findDemonstrated(db, agentCtx) {
   const missionText = (mission.prompt || mission.currentTask || '');
   const base = await store.selectGenome(db, { role: agent.role, mission: missionText }, agentCtx.scope);
   if (!base) return null;
-  const tools = await latestToolLease(db, agentId);
+  const tools = Array.isArray(mission.toolLease) ? mission.toolLease : await latestToolLease(db, agentId);
   const concepts = detectNovelConcepts(base.model, tools);
   if (!concepts.length) return null;
-  const contributionEvidence = await findToolUsageEvidence(db, { agentId, concepts });
+  const contributionEvidence = await findToolUsageEvidence(db, {
+    agentId, runId: mission.executionRunId || mission.runId, concepts
+  });
   const demonstrated = demonstratedConcepts(concepts, contributionEvidence);
   if (!demonstrated.length) return null;
   return { base, demonstrated, contributionEvidence };
@@ -177,6 +182,7 @@ async function captureFromSuccess(ctx) {
   const { db, event } = ctx;
   const agentCtx = await loadCaptureContext(db, ctx);
   if (!agentCtx) return null;
+  agentCtx.mission.executionRunId = event?.payload?.executionRunId || agentCtx.mission.executionRunId;
   const found = await findDemonstrated(db, agentCtx);
   if (!found) return null;
   const { base, demonstrated, contributionEvidence } = found;
@@ -199,23 +205,18 @@ async function captureAndEvaluate(db, request) {
 }
 
 async function findToolUsageEvidence(db, opts) {
-  const { agentId, concepts } = opts;
+  const { agentId, runId, concepts } = opts;
   const evidence = {};
-  const sinceRow = await safeGet(
-    db,
-    `SELECT created_at FROM telemetry_events WHERE agent_id = ? AND event_type = 'WORKER_CAPABILITY_LEASED' ORDER BY created_at DESC LIMIT 1`,
-    agentId
-  );
-  const since = sinceRow?.created_at;
-  if (!since) return evidence;
+  if (!runId) return evidence;
   for (const concept of concepts) {
     const toolName = concept.instruction;
     const row = await safeGet(
       db,
-      `SELECT COUNT(*) as cnt FROM telemetry_events
-       WHERE agent_id = ? AND event_type = 'WORKER_TOOL_USED'
-       AND created_at >= ? AND json_extract(payload_json, '$.toolName') = ?`,
-      agentId, since, toolName
+      `SELECT COUNT(*) as cnt FROM body_action_receipts
+       WHERE agent_id = ? AND run_id = ? AND phase = 'observed'
+       AND json_extract(prediction_json, '$.toolName') = ?
+       AND json_extract(outcome_json, '$.status') = 'completed'`,
+      agentId, runId, toolName
     );
     const cnt = Number(row?.cnt || 0);
     evidence[concept.locus] = { observed: cnt > 0, method: cnt > 0 ? 'observed' : 'heuristic' };

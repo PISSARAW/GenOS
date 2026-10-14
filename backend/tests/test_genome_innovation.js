@@ -10,6 +10,7 @@ process.env.GENOS_AGENT_DNA = '1';
 const { getDatabase, closeDatabase } = require('../src/db');
 const store = require('../src/services/agentDnaStore');
 const innovation = require('../src/services/agentDnaInnovation');
+const { migrateBodyActionReceipts } = require('../src/db/migrations/migrateBodyActionReceipts');
 
 async function run() {
   const db = await getDatabase();
@@ -79,6 +80,38 @@ async function run() {
   assert.equal(await store.selectGenome(db, { genomeRef: rejectedCandidate.candidateGenomeRef }, null), null);
   const listed = await innovation.listInnovations(db, {});
   assert.ok(listed.length >= 1);
+
+  await db.run("INSERT INTO agents (id, name, role, status) VALUES ('agent-capture', 'Capture worker', 'historian', 'completed')");
+  await db.run("INSERT INTO agents (id, name, role, status) VALUES ('agent-no-use', 'Unused worker', 'historian', 'completed')");
+  await db.run(`INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json)
+    VALUES ('orchestrator-capture', 'WORKER_CAPABILITY_LEASED', 'LEASE', 'worker lease', ?)` ,
+  JSON.stringify({ workerId: 'agent-capture', toolLease: ['genos_sandbox_exec'] }));
+  assert.deepEqual(await innovation.latestToolLease(db, 'agent-capture'), ['genos_sandbox_exec']);
+  await migrateBodyActionReceipts(db);
+  await db.run(`INSERT INTO body_action_receipts
+    (action_id, agent_id, mission_id, run_id, effector_id, authority_hash, prediction_json, outcome_json, phase)
+    VALUES ('capture-action', 'agent-capture', 'mission-capture', 'run-capture', 'direct_mcp_call', 'authority', ?, ?, 'observed')`,
+  JSON.stringify({ toolName: 'genos_sandbox_exec' }), JSON.stringify({ status: 'completed' }));
+  await db.run(`INSERT INTO body_action_receipts
+    (action_id, agent_id, mission_id, run_id, effector_id, authority_hash, prediction_json, outcome_json, phase)
+    VALUES ('unrelated-action', 'agent-no-use', 'mission-other', 'run-other', 'direct_mcp_call', 'authority', ?, ?, 'observed')`,
+  JSON.stringify({ toolName: 'genos_sandbox_exec' }), JSON.stringify({ status: 'completed' }));
+  const successEvent = {
+    eventType: 'AGENT_COMPLETED', severity: 'info',
+    payload: { executionRunId: 'run-capture', evidenceReport: { claims: [{ evidence: ['verified result'] }] } }
+  };
+  const innovationCapture = await innovation.captureFromSuccess({
+    db,
+    mission: { agentId: 'agent-capture', prompt: 'historian research', toolLease: ['genos_sandbox_exec'] },
+    event: successEvent
+  });
+  assert.ok(innovationCapture && innovationCapture.candidateGenomeRef);
+  const noUsageCapture = await innovation.captureFromSuccess({
+    db,
+    mission: { agentId: 'agent-no-use', prompt: 'historian research', toolLease: ['genos_sandbox_exec'] },
+    event: { ...successEvent, payload: { ...successEvent.payload, executionRunId: 'run-no-use' } }
+  });
+  assert.equal(noUsageCapture, null, 'A lease without a successful observed receipt must not demonstrate tool use.');
 
   await closeDatabase();
   console.log('Genome innovation checks passed.');
