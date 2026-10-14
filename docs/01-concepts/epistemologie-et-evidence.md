@@ -189,7 +189,7 @@ certifient la vérité métier de la décision.
 | `require_replay` | reçu de rejeu vérifié côté serveur et lié au run, à l'agent, au snapshot et à son digest |
 | `require_independent_verification` | verification explicite, claims verifies, dossiers worker ou claims de rapport tous etayes |
 | `require_human_approval` | receipt durable avec approbateur, date, identifiant et hash SHA-256 du payload |
-| `preserve_rejected_branches` | persistance des branches perdantes apres promotion |
+| `preserve_rejected_branches` | archive le snapshot vérifié d'une branche rejetée ; un simple identifiant sans snapshot ne prouve pas sa conservation et bloque la finalisation |
 | `merge_workspace_automatically` | merge sans conflit et sans erreur apres promotion |
 
 Une seule violation rend `eligible: false`. Apres une promotion eligible, `applyPostPromotionPolicies()` peut conserver les branches rejetee et appliquer un merge three-way de workspace. Un conflit ou echec de merge rend le resultat post-promotion non reussi.

@@ -25,6 +25,7 @@ function promotionApprovalDigest(promotion) {
     task: promotion.task,
     report: promotion.report,
     budget: promotion.budget,
+    rejectedBranches: promotion.rejectedBranches || [],
     steps,
   };
   return crypto.createHash('sha256').update(JSON.stringify(stable(payload))).digest('hex');

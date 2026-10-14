@@ -109,7 +109,8 @@ async function loadPromotionContext(db, row, options) {
     task: acc.task,
     workspaceId: acc.workspaceId,
     budget: safeJson(row.budget_json, {}),
-    turns: acc.turns
+    turns: acc.turns,
+    rejectedBranches: Array.isArray(options.rejectedBranches) ? options.rejectedBranches : []
   };
   promotion.steps = steps;
   promotion.approvalDigest = promotionApprovalDigest(promotion);
@@ -323,6 +324,8 @@ async function applyPostPromotion(db, promotion, options) {
   const promotionPolicy = require('./strategyPromotionPolicyService');
   const result = await promotionPolicy.applyPostPromotionPolicies(db, promotion.contract, {
     agentId: promotion.agentId,
+    runId: promotion.runId,
+    rejectedBranches: options.rejectedBranches || [],
     rejectedBranchIds: options.rejectedBranchIds || [],
     winnerWorkspaceRoot: options.winnerWorkspaceRoot,
     targetWorkspaceRoot: options.targetWorkspaceRoot,

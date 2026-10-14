@@ -47,14 +47,17 @@ function approvalSettings(req, signerId) {
     philosophyEvidence: body.philosophyEvidence,
     philosophyProvenanceVerified: body.philosophyProvenanceVerified,
     ethicalReview: body.ethicalReview,
-    humanApprovalReceipt: body.humanApprovalReceipt
+    humanApprovalReceipt: body.humanApprovalReceipt,
+    rejectedBranches: body.rejectedBranches || []
   };
 }
 
 async function validateApprovalSignature(db, req) {
   const { signature, timestamp, signerId, humanApprovalReceipt } = req.body || {};
   if (!signature) throw new Error('Missing cryptographic signature for human promotion approval');
-  const expectedDigest = await strategyExecution.getPromotionApprovalDigest(db, req.params.runId);
+  const expectedDigest = await strategyExecution.getPromotionApprovalDigest(db, req.params.runId, {
+    rejectedBranches: req.body?.rejectedBranches || []
+  });
   if (humanApprovalReceipt?.approverId !== signerId || humanApprovalReceipt?.payloadHash !== expectedDigest
       || !Number.isFinite(Date.parse(humanApprovalReceipt?.approvedAt))) {
     throw new Error('Human approval receipt must identify the signer, valid approval time, and current promotion digest.');

@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
+process.env.NODE_ENV = 'test';
+process.env.GENOS_ADMIN_PASSWORD ||= 'promotion-policy-test-only';
 const { getDatabase, closeDatabase } = require('../src/db');
 const strategyContracts = require('../src/services/strategyContractService');
 const strategyService = require('../src/services/strategyExecutionService');
@@ -131,20 +133,39 @@ async function run() {
   const dbPath = path.resolve(__dirname, 'test-promotion-policies.db');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   const db = await getDatabase(dbPath);
+  const archiveRoot = path.resolve(__dirname, '.tmp-rejected-branches');
+  fs.rmSync(archiveRoot, { recursive: true, force: true });
+  fs.mkdirSync(archiveRoot, { recursive: true });
+  process.env.GENOS_SNAPSHOT_ROOT = path.join(archiveRoot, 'snapshot-store');
 
   try {
+    const archiveWorkspace = { id: 'rejected-branch-ws', path: archiveRoot };
+    await db.run('INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)', archiveWorkspace.id, 'Rejected branches', archiveRoot);
+    await db.run(`INSERT OR REPLACE INTO agents (id, name, role, status, execution_mode, workspace_id)
+      VALUES ('agent-policy-test', 'Policy Agent', 'orchestrator', 'running', 'orchestrator', ?)`, archiveWorkspace.id);
+    const snapshots = require('../src/services/workspaceSnapshotStore');
+    const rejectedBranches = [];
+    for (const branchId of ['branch_reject_1', 'branch_reject_2']) {
+      const sourcePath = path.join(archiveRoot, branchId);
+      fs.mkdirSync(sourcePath);
+      fs.writeFileSync(path.join(sourcePath, 'candidate.txt'), branchId);
+      const snapshot = await snapshots.capture({ db, workspace: archiveWorkspace, sourcePath,
+        label: branchId, author: 'test', agentId: 'agent-policy-test', branchId });
+      rejectedBranches.push({ branchId, workspaceId: archiveWorkspace.id, snapshotId: snapshot.id });
+    }
     const postRes = await promotionPolicy.applyPostPromotionPolicies(db, contractWithPolicies, {
       agentId: 'agent-policy-test',
-      rejectedBranchIds: ['branch_reject_1', 'branch_reject_2'],
+      runId: 'policy-promotion-run', rejectedBranches,
       winnerWorkspaceRoot: '/tmp/winner',
       targetWorkspaceRoot: '/tmp/target'
     });
-    assert.equal(postRes.success, true);
+    assert.equal(postRes.success, true, JSON.stringify(postRes));
     assert.equal(postRes.actionsTaken.filter((a) => a.action === 'preserve_branch').length, 2);
+    assert.equal((await db.all('SELECT * FROM strategy_rejected_branch_archives')).length, 2);
 
     const preservedEvents = await db.all("SELECT * FROM telemetry_events WHERE event_type = 'BRANCH_PRESERVED'");
     assert.equal(preservedEvents.length, 2);
-    console.log('✓ Point 3.2: applyPostPromotionPolicies preserves rejected branches');
+    console.log('✓ Point 3.2: applyPostPromotionPolicies archives rejected snapshots durably');
     const failedPreservation = await promotionPolicy.applyPostPromotionPolicies({ run: async () => { throw new Error('telemetry unavailable'); } }, contractWithPolicies, { rejectedBranchIds: ['branch-failed'] });
     assert.equal(failedPreservation.success, false);
     assert.equal(failedPreservation.actionsTaken[0].preserved, false);
@@ -182,6 +203,7 @@ async function run() {
 
   } finally {
     await closeDatabase();
+    fs.rmSync(archiveRoot, { recursive: true, force: true });
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
     for (const suffix of ['-shm', '-wal']) {
       if (fs.existsSync(`${dbPath}${suffix}`)) fs.unlinkSync(`${dbPath}${suffix}`);

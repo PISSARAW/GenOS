@@ -294,32 +294,6 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
   };
 }
 
-function isNonEmptyArray(value) { return Array.isArray(value) && value.length > 0; }
-
-async function preserveRejectedBranch(db, executionContext, branchId) {
-  try {
-    await db.run(
-      "INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES (?, 'BRANCH_PRESERVED', 'PRESERVE', ?, ?)",
-      executionContext.agentId || 'system',
-      `Preserved rejected branch ${branchId} per contract promotion policy.`,
-      JSON.stringify({ branchId, reason: 'contract_promotion_policy', preserved: true })
-    );
-    return { action: 'preserve_branch', branchId };
-  } catch (error) {
-    return { action: 'preserve_branch', branchId, preserved: false, error: error.message };
-  }
-}
-
-async function preserveRejectedBranches(db, policy, executionContext) {
-  const actions = [];
-  if (!policy.preserve_rejected_branches) return actions;
-  if (!isNonEmptyArray(executionContext.rejectedBranchIds)) return actions;
-  for (const branchId of executionContext.rejectedBranchIds) {
-    actions.push(await preserveRejectedBranch(db, executionContext, branchId));
-  }
-  return actions;
-}
-
 function shouldAutoMerge(policy, executionContext) {
   return Boolean(policy.merge_workspace_automatically && executionContext.winnerWorkspaceRoot && executionContext.targetWorkspaceRoot);
 }
@@ -369,7 +343,9 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
   const policy = contract.promotion || {};
   const nonceViolation = await claimVerifierNonce(db, executionContext);
   if (nonceViolation) return { success: false, actionsTaken: [], error: `${nonceViolation.policy}: ${nonceViolation.message}` };
-  const preserved = await preserveRejectedBranches(db, policy, executionContext);
+  const preserved = policy.preserve_rejected_branches
+    ? await require('./rejectedBranchArchiveService').preserveRejectedBranches(db, executionContext)
+    : [];
   const merged = await applyAutomaticWorkspaceMerge(policy, executionContext);
   return buildPostPromotionResult([...preserved, ...merged]);
 }

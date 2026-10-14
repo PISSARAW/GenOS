@@ -216,7 +216,7 @@ async function approveRun(db, id, options) {
   return recovery.resume(db, saved, settings);
 }
 
-async function getPromotionApprovalDigest(db, id) {
+async function getPromotionApprovalDigest(db, id, options = {}) {
   const journal = await require('./promotionExecutionJournal').read(db, id);
   if (journal?.payload?.promotion?.approvalDigest) return journal.payload.promotion.approvalDigest;
   const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
@@ -224,7 +224,7 @@ async function getPromotionApprovalDigest(db, id) {
   if (!['awaiting_approval', 'completed'].includes(row.status)) {
     throw new Error(`Execution run ${id} is not awaiting approval`);
   }
-  const promotion = await promotionGate.loadPromotionContext(db, row, {});
+  const promotion = await promotionGate.loadPromotionContext(db, row, options);
   return promotion.approvalDigest;
 }
 

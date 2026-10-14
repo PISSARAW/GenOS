@@ -60,7 +60,7 @@ Code : `agentEvidenceService.js`, `strategyPromotionGate.js`, `strategyPromotion
 | --- | --- | --- | --- |
 | Claims/evidence, dossiers, influence citée, `no_answer` borné, provenance Merkle | Opérationnel | LangSmith/Phoenix/Langfuse (traces, scores, datasets) ; Braintrust (scorers, CI) | Eux observent ce qui s'est passé ; GenOS bloque la promotion sans claims étayés (`success + 0 claim = failed`), exige `usedClaims` réels et approbation liée au hash SHA-256. |
 | Hypothèses falsifiables, contre-exemples, `beliefGate` seuil 0.6 | Opérationnel/Partiel | DSPy (`compile` sur métrique + trainset) ; Evals ; garde-fous Azure AI Foundry ; Lakera (détection probabiliste) | GenOS privilégie liens explicites + heuristiques lexicales, pas une preuve logique générale ; score `evidenceScore` = priorisation, pas vérité ; DSPy optimise qualité moyenne, GenOS refuse promotion sans preuve même si métrique haute. |
-| Gates `require_replay/independent_verification/human_approval`, `preserve_rejected_branches` | Opérationnel | OPA/Cedar (policy), GitHub protections de branche, LaunchDarkly (flags) | Gates GenOS liées au payload et au replay ; une violation rend `eligible:false` ; `reconstructed` accepté par défaut — exiger `replayVerified===true` + artefacts + approbation pour risque élevé. |
+| Gates `require_replay/independent_verification/human_approval`, `preserve_rejected_branches` | Opérationnel sous conditions de preuves | OPA/Cedar (policy), GitHub protections de branche, LaunchDarkly (flags) | Les gates rejettent les reçus de replay non liés ; la conservation d'une branche exige un snapshot durable vérifié, et un simple identifiant est refusé. |
 
 ### 3.3 Workspaces, snapshots, forks, replay, lineage
 
