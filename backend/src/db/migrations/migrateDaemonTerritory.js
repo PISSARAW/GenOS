@@ -65,6 +65,7 @@ async function migrateDaemonTerritory(db) {
           'HEALTHY', 'STRESSED', 'DEGRADED', 'SENESCENT', 'APOPTOTIC'
         )),
       cognitive_revisions INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_heartbeat_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (territory_id)
@@ -80,6 +81,10 @@ async function migrateDaemonTerritory(db) {
   const runtimeColumns = new Set((await db.all('PRAGMA table_info(daemon_runtime_state)')).map((column) => column.name));
   if (!runtimeColumns.has('last_event_id')) {
     await db.exec('ALTER TABLE daemon_runtime_state ADD COLUMN last_event_id INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!runtimeColumns.has('created_at')) {
+    await db.exec('ALTER TABLE daemon_runtime_state ADD COLUMN created_at TEXT');
+    await db.exec("UPDATE daemon_runtime_state SET created_at = last_heartbeat_at WHERE created_at IS NULL");
   }
 }
 

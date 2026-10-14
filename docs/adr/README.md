@@ -565,7 +565,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0439](0439-rapports-initiaux-durables-pour-qualification-trinity.md) | Rapports initiaux durables pour qualifier Trinity | Accepté | 2026-10-11 | Trinity, campagne nominale, journaux durables |
 | [0440](0440-bail-outil-immuable-holobionte.md) | Rendre le bail d'outil immuable jusqu'à l'invocation Holobionte | Accepté | 2026-10-11 | Holobionte, variant `tool`, autorité d'invocation |
 | [0441a](0441-atomicite-recu-consultatif-morphogenese.md) | Atomicité du reçu consultatif Morphogenèse | Accepté | 2026-10-12 | morphogenèse, persistance des preuves, SQLite |
-| [0441b](0441-oracle-borne-issue-mission.md) | Oracle borné dans le contrat d'issue de mission | Voir le fichier | -- | -- |
+| [0441b](0441-dossier-identite-universel-agent.md) | Dossier d'identité commun aux agents | Accepté | 2026-10-14 | Identité, agents, runtime |
+| [0441c](0441-oracle-borne-issue-mission.md) | Oracle borné dans le contrat d'issue de mission | Voir le fichier | -- | -- |
 | [0442](0442-preuve-route-actuelle-rhizome.md) | Lier la complétion Rhizome au chemin actuellement autorisé | Accepté | 2026-10-12 | Rhizome, variants, preuves de route |
 | [0443](0443-preuve-revision-branche-speculative-syncytium.md) | Lier la validation spéculative à la révision de branche | Accepté | 2026-10-12 | Syncytium, variant Speculative, promotion |
 | [0444a](0444-enfants-depuis-elites-admises-biome.md) | Produire les enfants Quality-Diversity depuis les élites admises | Accepté | 2026-10-12 | Biome, Quality-Diversity, archive des élites |

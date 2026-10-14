@@ -27,9 +27,47 @@
     },
     "core": {
       "$ref": "#/$defs/CoreSelfLayer"
+    },
+    "identityDossier": {
+      "$ref": "#/$defs/IdentityDossier"
     }
   },
   "$defs": {
+    "IdentityDossier": {
+      "type": "object",
+      "required": ["apiVersion", "agentId", "kind", "version", "dimensions", "decisionConstraints"],
+      "properties": {
+        "apiVersion": { "const": "genos.identity-dossier/v1" },
+        "agentId": { "type": "string" },
+        "kind": { "enum": ["worker", "daemon", "orchestrator"] },
+        "version": { "type": "string" },
+        "dimensions": {
+          "type": "object",
+          "required": ["existence", "continuity", "composition", "characteristics", "biology", "experience", "personalIdentity", "relations", "functions", "origin", "currentState", "substrate", "uncertainty", "governance"],
+          "additionalProperties": { "$ref": "#/$defs/IdentityDimension" }
+        },
+        "decisionConstraints": {
+          "type": "object",
+          "required": ["mayAct", "identityRegistered", "unknownDimensions"],
+          "properties": {
+            "mayAct": { "type": "boolean" },
+            "identityRegistered": { "type": "boolean" },
+            "unknownDimensions": { "type": "array", "items": { "type": "string" } },
+            "reason": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "IdentityDimension": {
+      "type": "object",
+      "required": ["status", "value", "provenance"],
+      "properties": {
+        "status": { "enum": ["known", "unknown", "contested"] },
+        "value": {},
+        "provenance": { "type": ["object", "null"] },
+        "reason": { "type": "string" }
+      }
+    },
     "IdentitySelf": {
       "type": "object",
       "description": "Qui suis-je — identité administrative et lignée.",
