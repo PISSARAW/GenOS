@@ -98,6 +98,33 @@ async function reconcileDeadOrchestratorChildren(db) {
   return orphans.length;
 }
 
+async function reconcileUntrackedWorkers(db) {
+  const rows = await db.all(`SELECT a.id FROM agents a
+    WHERE a.execution_mode = 'worker' AND a.status = 'running' AND a.runtime_pid IS NULL
+      AND NOT EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = a.id
+        AND (q.status IN ('claimed','running')
+          OR q.phase IN ('freezing','freeze_failed','frozen','thawing','cancelling')))
+      AND NOT EXISTS (SELECT 1 FROM agents parent WHERE parent.id = a.parent_agent_id
+        AND parent.status IN ('running','blocked'))`);
+  let reconciled = 0;
+  for (const row of rows) {
+    const updated = await db.run(`UPDATE agents
+      SET status = 'terminated', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND execution_mode = 'worker' AND status = 'running' AND runtime_pid IS NULL
+        AND NOT EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = agents.id
+          AND (q.status IN ('claimed','running')
+            OR q.phase IN ('freezing','freeze_failed','frozen','thawing','cancelling')))
+        AND NOT EXISTS (SELECT 1 FROM agents parent WHERE parent.id = agents.parent_agent_id
+          AND parent.status IN ('running','blocked'))`, row.id);
+    if (!updated.changes) continue;
+    emit(row.id, 'UNTRACKED_WORKER_RECONCILED', 'RECONCILE',
+      `Untracked worker ${row.id} has no active parent, runtime PID, or garage lease; marked terminated.`,
+      {}, 'warning');
+    reconciled += 1;
+  }
+  return reconciled;
+}
+
 async function reconcilePersistedRuntimes(db) {
   const rows = await db.all("SELECT id, status, runtime_pid, runtime_executable FROM agents WHERE status = 'running' AND runtime_pid IS NOT NULL");
   let reconciled = 0;
@@ -107,8 +134,10 @@ async function reconcilePersistedRuntimes(db) {
 
   reconciled += await reconcileDeadOrchestratorChildren(db);
   reconciled += await reconcileOrphanedRunning(db);
+  reconciled += await reconcileUntrackedWorkers(db);
 
   return reconciled;
 }
 
-module.exports = { reconcileDeadOrchestratorChildren, reconcilePersistedRuntimes, reconcilePersistedRuntimeRow, reconcileOrphanedRunning };
+module.exports = { reconcileDeadOrchestratorChildren, reconcilePersistedRuntimes,
+  reconcilePersistedRuntimeRow, reconcileOrphanedRunning, reconcileUntrackedWorkers };
