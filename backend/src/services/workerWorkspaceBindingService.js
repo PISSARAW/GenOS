@@ -16,12 +16,28 @@ function samePath(left, right) {
 
 async function verifyCapsule(workspaceRoot, parentPath) {
   if (typeof workspaceRoot !== 'string' || !path.isAbsolute(workspaceRoot)) refuse('Worker capsule path must be absolute.');
-  const stat = await fs.lstat(workspaceRoot);
-  const [capsuleReal, parentReal] = await Promise.all([fs.realpath(workspaceRoot), fs.realpath(parentPath)]);
-  if (!stat.isDirectory() || stat.isSymbolicLink() || samePath(capsuleReal, parentReal)) {
+  const [capsulePath, resolvedParent] = await Promise.all([
+    regularDirectoryPath(workspaceRoot), regularDirectoryPath(parentPath)
+  ]);
+  if (samePath(capsulePath, resolvedParent)) {
     refuse('Worker capsule must be a separate regular directory.');
   }
-  return path.resolve(workspaceRoot);
+  return capsulePath;
+}
+
+async function regularDirectoryPath(target) {
+  const resolved = path.resolve(target);
+  let current = path.parse(resolved).root;
+  const segments = resolved.slice(current.length).split(path.sep).filter(Boolean);
+  for (const segment of segments) {
+    current = path.join(current, segment);
+    const entry = await fs.lstat(current);
+    if (entry.isSymbolicLink()) refuse('Worker capsule path must not traverse a symbolic link or junction.');
+    if (samePath(current, resolved) && !entry.isDirectory()) {
+      refuse('Worker capsule must be a separate regular directory.');
+    }
+  }
+  return resolved;
 }
 
 function epochTag(epoch) {

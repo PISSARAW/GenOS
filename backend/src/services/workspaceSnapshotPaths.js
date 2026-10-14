@@ -40,8 +40,8 @@ function containedJoin(base, relativePath) {
 
 async function assertNoSymlinkPath(root, relativePath) {
   const normalized = normalizeRelativePath(relativePath, 'snapshot path');
-  const realRoot = fs.realpathSync(root);
-  let current = realRoot;
+  const resolvedRoot = await assertNoSymlinkAbsolutePath(root);
+  let current = resolvedRoot;
   for (const segment of normalized.split('/')) {
     current = path.join(current, segment);
     try {
@@ -53,7 +53,18 @@ async function assertNoSymlinkPath(root, relativePath) {
       throw error;
     }
   }
-  return path.join(realRoot, normalized);
+  return path.join(resolvedRoot, normalized);
+}
+
+async function assertNoSymlinkAbsolutePath(target) {
+  const resolved = path.resolve(target);
+  let current = path.parse(resolved).root;
+  for (const segment of resolved.slice(current.length).split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    const entry = await fsp.lstat(current);
+    if (entry.isSymbolicLink()) throw new Error(`Snapshot path traverses a symbolic link: ${target}`);
+  }
+  return resolved;
 }
 
 function shouldIgnore(relativePath, entry) {
@@ -101,6 +112,7 @@ module.exports = {
   snapshotRoot,
   isSafeRelative,
   containedJoin,
+  assertNoSymlinkAbsolutePath,
   assertNoSymlinkPath,
   shouldIgnore,
   exists,

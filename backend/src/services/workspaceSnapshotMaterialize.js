@@ -8,7 +8,7 @@
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
-const { isSafeRelative, assertNoSymlinkPath, shouldIgnore, snapshotRoot, sanitizeFileMode, readShebangPrefix } = require('./workspaceSnapshotPaths');
+const { isSafeRelative, assertNoSymlinkAbsolutePath, assertNoSymlinkPath, shouldIgnore, snapshotRoot, sanitizeFileMode, readShebangPrefix } = require('./workspaceSnapshotPaths');
 const { collectFiles, manifestHash, sha256, snapshotLimits } = require('./workspaceSnapshotCollect');
 
 function parseMetadata(value) {
@@ -23,9 +23,9 @@ async function loadManifestDocument(snapshot) {
   if (!manifestPath) throw new Error(`Snapshot ${snapshot.id} has no durable manifest reference.`);
   if (snapshot.workspace_path) {
     const expectedRoot = snapshotRoot(snapshot.workspace_path, snapshot.workspace_id);
-    const realRoot = await fsp.realpath(expectedRoot);
-    const realManifest = await fsp.realpath(manifestPath);
-    const relativeManifest = path.relative(realRoot, realManifest);
+    const safeRoot = await assertNoSymlinkAbsolutePath(expectedRoot);
+    const safeManifest = await assertNoSymlinkAbsolutePath(manifestPath);
+    const relativeManifest = path.relative(safeRoot, safeManifest);
     if (relativeManifest.startsWith(`..${path.sep}`) || relativeManifest === '..' || path.isAbsolute(relativeManifest)) {
       throw new Error(`Snapshot ${snapshot.id} manifest is outside its snapshot root.`);
     }
