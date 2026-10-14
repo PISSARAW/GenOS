@@ -58,18 +58,22 @@ async function sourceFor(db, input) {
 async function bindWorker(db, input) {
   const scope = input.scope;
   if (!scope?.trinityExperimentId) return null;
-  const row = await db.get('SELECT mission_snapshot_hash FROM trinity_experiments WHERE id = ?', scope.trinityExperimentId);
+  const row = await db.get('SELECT mission_snapshot_hash, design_json FROM trinity_experiments WHERE id = ?', scope.trinityExperimentId);
+  const design = JSON.parse(row?.design_json || '{}');
+  if (!design.orchestratorId) throw Object.assign(new Error('Trinity experiment has no sealed orchestrator identity.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
   if (await hashWorkspace(input.workspaceRoot) !== row?.mission_snapshot_hash) {
     throw Object.assign(new Error('Trinity worker snapshot mismatch.'), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
   }
-  return require('../db').withTransaction(db, tx => registerPrivateWorkspace(tx, { ...input, snapshotHash: row.mission_snapshot_hash }));
+  return require('../db').withTransaction(db, tx => registerPrivateWorkspace(tx, {
+    ...input, snapshotHash: row.mission_snapshot_hash, orchestratorId: design.orchestratorId
+  }));
 }
 
 async function registerPrivateWorkspace(db, input) {
   const id = 'trinity_workspace_' + input.workerId;
-  const existing = await db.get('SELECT path FROM workspaces WHERE id = ?', id);
-  if (existing && existing.path !== input.workspaceRoot) throw Object.assign(new Error('Trinity worker workspace identity changed.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
-  const tenant = await db.get('SELECT w.organization_id, w.project_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', input.workerId);
+  const existing = await db.get('SELECT path, visibility, organization_id, project_id FROM workspaces WHERE id = ?', id);
+  if (existing && (existing.path !== input.workspaceRoot || existing.visibility !== 'Private')) throw Object.assign(new Error('Trinity worker workspace identity changed.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+  const tenant = await assertTrinityWorkerTenant(db, input, existing);
   await db.run("INSERT OR IGNORE INTO workspaces (id, name, path, visibility, language, tags, organization_id, project_id) VALUES (?, ?, ?, 'Private', 'Mixed', ?, ?, ?)",
     id, 'Trinity ' + input.workerId, input.workspaceRoot, JSON.stringify(['trinity_world', 'sealed']), tenant?.organization_id || null, tenant?.project_id || null);
   const agent = await db.run('UPDATE agents SET workspace_id = ? WHERE id = ?', id, input.workerId);
@@ -77,6 +81,37 @@ async function registerPrivateWorkspace(db, input) {
     input.workspaceRoot, input.snapshotHash, 'running', input.workerId, input.scope.trinityExperimentId);
   if (agent.changes !== 1 || world.changes !== 1) throw Object.assign(new Error('Trinity worker binding disappeared.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
   return id;
+}
+
+async function assertTrinityWorkerTenant(db, input, existing) {
+  const worker = await db.get(`SELECT a.parent_agent_id, w.organization_id, w.project_id FROM agents a
+    LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, input.workerId);
+  const parent = await db.get(`SELECT w.organization_id, w.project_id FROM agents a
+    LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, input.orchestratorId);
+  if (!worker || !parent) throwInvalidTrinityTenant();
+  assertTrinityParent(worker, input.orchestratorId);
+  const workerTenant = { organization_id: worker?.organization_id || null, project_id: worker?.project_id || null };
+  const parentTenant = { organization_id: parent?.organization_id || null, project_id: parent?.project_id || null };
+  assertSameTrinityTenant(workerTenant, parentTenant);
+  if (existing) assertSameTrinityTenant(existing, parentTenant);
+  return parentTenant;
+}
+
+function assertTrinityParent(worker, orchestratorId) {
+  if (worker.parent_agent_id !== orchestratorId) throwInvalidTrinityTenant();
+}
+
+function assertSameTrinityTenant(left, right) {
+  if (!sameWorkspaceTenant(left, right)) throwInvalidTrinityTenant();
+}
+
+function throwInvalidTrinityTenant() {
+  throw Object.assign(new Error('Trinity worker, parent and private workspace must share one tenant.'), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+}
+
+function sameWorkspaceTenant(left, right) {
+  return (left.organization_id || null) === (right.organization_id || null)
+    && (left.project_id || null) === (right.project_id || null);
 }
 
 async function replayPreparation(row, input) {

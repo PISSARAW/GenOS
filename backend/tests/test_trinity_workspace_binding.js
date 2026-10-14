@@ -16,10 +16,11 @@ async function main() {
     await fs.writeFile(path.join(source, 'answer.js'), 'module.exports = 1;');
     await fs.cp(source, clone, { recursive: true });
     const hash = await hashWorkspace(clone);
-    await db.exec('CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT, path TEXT, visibility TEXT, language TEXT, tags TEXT, organization_id TEXT, project_id TEXT); CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT); CREATE TABLE trinity_experiments (id TEXT PRIMARY KEY, mission_snapshot_hash TEXT); CREATE TABLE trinity_worlds (agent_id TEXT, experiment_id TEXT, workspace_root TEXT, snapshot_hash TEXT, status TEXT)');
+    await db.exec('CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT, path TEXT, visibility TEXT, language TEXT, tags TEXT, organization_id TEXT, project_id TEXT); CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT, parent_agent_id TEXT); CREATE TABLE trinity_experiments (id TEXT PRIMARY KEY, mission_snapshot_hash TEXT, design_json TEXT); CREATE TABLE trinity_worlds (agent_id TEXT, experiment_id TEXT, workspace_root TEXT, snapshot_hash TEXT, status TEXT)');
     await db.run('INSERT INTO workspaces (id, path, organization_id, project_id) VALUES (?, ?, ?, ?)', 'parent-ws', source, 'org', 'project');
-    await db.run('INSERT INTO agents VALUES (?, ?)', 'worker', 'parent-ws');
-    await db.run('INSERT INTO trinity_experiments VALUES (?, ?)', 'experiment', hash);
+    await db.run('INSERT INTO agents VALUES (?, ?, ?)', 'parent', 'parent-ws', null);
+    await db.run('INSERT INTO agents VALUES (?, ?, ?)', 'worker', 'parent-ws', 'parent');
+    await db.run('INSERT INTO trinity_experiments VALUES (?, ?, ?)', 'experiment', hash, JSON.stringify({ orchestratorId: 'parent' }));
     await db.run('INSERT INTO trinity_worlds (agent_id, experiment_id) VALUES (?, ?)', 'worker', 'experiment');
     const input = { scope: { trinityExperimentId: 'experiment' }, workerId: 'worker', workspaceRoot: clone };
     const id = await preparation.bindWorker(db, input);
@@ -30,10 +31,16 @@ async function main() {
     assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', 'worker')).workspace_id, id);
     assert.equal(await preparation.bindWorker(db, input), id);
     assert.equal((await db.get('SELECT COUNT(*) AS n FROM workspaces WHERE id = ?', id)).n, 1);
-    await db.run('INSERT INTO agents VALUES (?, ?)', 'unbound', 'parent-ws');
+    await db.run('INSERT INTO agents VALUES (?, ?, ?)', 'unbound', 'parent-ws', 'parent');
     await assert.rejects(preparation.bindWorker(db, { ...input, workerId: 'unbound' }), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
     assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', 'unbound')).workspace_id, 'parent-ws');
     assert.equal(await db.get('SELECT id FROM workspaces WHERE id = ?', 'trinity_workspace_unbound'), undefined);
+    await db.run('INSERT INTO workspaces (id, path, visibility, organization_id, project_id) VALUES (?, ?, ?, ?, ?)',
+      'trinity_workspace_foreign-worker', clone, 'Private', 'other-org', 'other-project');
+    await db.run('INSERT INTO agents VALUES (?, ?, ?)', 'foreign-worker', 'parent-ws', 'parent');
+    await db.run('INSERT INTO trinity_worlds (agent_id, experiment_id) VALUES (?, ?)', 'foreign-worker', 'experiment');
+    await assert.rejects(preparation.bindWorker(db, { ...input, workerId: 'foreign-worker' }), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
+    assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', 'foreign-worker')).workspace_id, 'parent-ws');
     await fs.writeFile(path.join(clone, 'answer.js'), 'tampered');
     await assert.rejects(preparation.bindWorker(db, input), { code: 'TRINITY_SNAPSHOT_MISMATCH' });
     console.log('Trinity private tenant inheritance, idempotent binding and transactional rollback: PASS');

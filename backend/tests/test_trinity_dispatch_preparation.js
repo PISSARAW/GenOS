@@ -4,11 +4,15 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const service = require('../src/services/trinityDispatchPreparation');
 function database() {
-  const state = { experiment: null, worlds: new Map(), writes: [] };
+  const state = { experiment: null, worlds: new Map(), writes: [], agents: new Map() };
   return { state,
     get: async (sql, ...args) => {
       if (sql.includes('FROM trinity_experiments')) return state.experiment;
       if (sql.includes('FROM trinity_worlds')) return state.worlds.get(args[1]);
+      if (sql.includes('FROM agents a')) {
+        const agent = state.agents.get(args[0]);
+        return agent ? { parent_agent_id: agent.parent_agent_id, organization_id: null, project_id: null } : null;
+      }
       return null;
     },
     run: async (sql, ...args) => {
@@ -50,6 +54,8 @@ async function main() {
     await assert.rejects(service.sourceFor(db, { context: { ...context, orchestratorId: 'other' }, parent: {} }), { code: 'TRINITY_WORKER_SCOPE_INVALID' });
     const clone = path.join(root, 'private-worker');
     await fs.cp(sealed.snapshotRoot, clone, { recursive: true });
+    db.state.agents.set('worker', { parent_agent_id: 'orch' });
+    db.state.agents.set('orch', { parent_agent_id: null });
     assert.equal(await service.bindWorker(db, { scope, workerId: 'worker', workspaceRoot: clone }), 'trinity_workspace_worker');
     assert.ok(db.state.writes.some(write => write.sql.includes('INTO workspaces') && write.sql.includes("'Private'")));
     await fs.writeFile(path.join(clone, 'artifact.js'), 'changed');
