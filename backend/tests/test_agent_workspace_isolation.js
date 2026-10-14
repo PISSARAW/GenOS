@@ -20,6 +20,8 @@ async function run() {
     fs.writeFileSync(path.join(root, '.git', 'config'), 'not copied');
     fs.mkdirSync(path.join(root, 'target'));
     fs.writeFileSync(path.join(root, 'target', 'artifact'), 'not copied');
+    fs.mkdirSync(path.join(root, 'target-audit'));
+    fs.writeFileSync(path.join(root, 'target-audit', 'artifact'), 'not copied');
     outside = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-outside-'));
     fs.writeFileSync(path.join(outside, 'secret.txt'), 'must not copy');
     try { fs.symlinkSync(outside, path.join(root, 'linked-outside'), process.platform === 'win32' ? 'junction' : 'dir'); } catch (_) {}
@@ -28,6 +30,7 @@ async function run() {
     assert.strictEqual(fs.readFileSync(path.join(capsule, 'mission.txt'), 'utf8'), 'parent evidence');
     assert.strictEqual(fs.existsSync(path.join(capsule, '.git')), false);
     assert.strictEqual(fs.existsSync(path.join(capsule, 'target')), false);
+    assert.strictEqual(fs.existsSync(path.join(capsule, 'target-audit')), false);
     assert.strictEqual(fs.existsSync(path.join(capsule, '.env')), false);
     assert.strictEqual(fs.existsSync(path.join(capsule, 'credentials.pem')), false);
     assert.strictEqual(fs.existsSync(path.join(capsule, 'linked-outside')), false);
@@ -67,6 +70,20 @@ async function run() {
     const nestedCapsule = await createIsolatedWorkspace(nestedMission, 'worker-c', capsuleRoot);
     assert.strictEqual(fs.readFileSync(path.join(nestedCapsule, 'task-only.txt'), 'utf8'), 'bounded mission');
     assert.strictEqual(fs.existsSync(path.join(nestedCapsule, 'repo-only.txt')), false);
+
+    const gitRoot = path.join(root, 'git-workspace');
+    fs.mkdirSync(gitRoot);
+    fs.writeFileSync(path.join(gitRoot, 'tracked.txt'), 'tracked');
+    assert.strictEqual(spawnSync('git', ['init', '--quiet'], { cwd: gitRoot }).status, 0);
+    assert.strictEqual(spawnSync('git', ['add', 'tracked.txt'], { cwd: gitRoot }).status, 0);
+    assert.strictEqual(spawnSync('git', ['-c', 'user.name=GenOS Test', '-c', 'user.email=test@genos.local',
+      'commit', '--quiet', '-m', 'test'], { cwd: gitRoot }).status, 0);
+    fs.writeFileSync(path.join(gitRoot, 'untracked.txt'), 'copy me');
+    fs.mkdirSync(path.join(gitRoot, 'target-audit'));
+    fs.writeFileSync(path.join(gitRoot, 'target-audit', 'artifact'), 'do not copy');
+    const gitCapsule = await createIsolatedWorkspace(gitRoot, 'worker-git', capsuleRoot);
+    assert.strictEqual(fs.readFileSync(path.join(gitCapsule, 'untracked.txt'), 'utf8'), 'copy me');
+    assert.strictEqual(fs.existsSync(path.join(gitCapsule, 'target-audit')), false);
     console.log('Agent workspace isolation checks passed.');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

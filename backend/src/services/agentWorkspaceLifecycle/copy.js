@@ -35,8 +35,13 @@ function createExclusionFilter() {
   ]);
   return (name) => {
     return excluded.has(name) || SENSITIVE_COPY_FILES.test(name)
-      || isDatabaseArtifact(name) || isAgentRunWorkspace(name);
+      || isDatabaseArtifact(name) || isAgentRunWorkspace(name)
+      || isCargoTargetVariant(name);
   };
+}
+
+function isCargoTargetVariant(name) {
+  return /^target[-_][a-z0-9._-]+$/i.test(name);
 }
 
 function isDatabaseArtifact(name) {

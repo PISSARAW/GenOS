@@ -132,8 +132,9 @@ async function copyUntrackedFiles(source, destination) {
   const { stdout } = await runCommand('git', ['ls-files', '--others', '--exclude-standard'], { cwd: source });
   const files = stdout.split(/\r?\n/).filter(Boolean).map((file) => normalizeRelativePath(file, 'untracked file'));
   const state = { bytes: 0, limit: maxCopyBytes() };
+  const isExcluded = createExclusionFilter();
   for (const file of files) {
-    if (isSensitivePath(file)) continue;
+    if (isSensitivePath(file) || file.split(/[\\/]/).some(isExcluded)) continue;
     const sourcePath = path.join(source, file);
     const destinationPath = path.join(destination, file);
     try {
