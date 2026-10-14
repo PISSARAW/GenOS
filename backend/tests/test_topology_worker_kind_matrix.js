@@ -198,6 +198,13 @@ function verifyMethodContractsSelectSpecialists() {
     }]), { code: 'WORKER_EXECUTOR_UNAVAILABLE' });
   }
   assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
+    role: 'implementation', methodContract: {
+      version: 1, methodId: 'prompt_defined', requiredCapabilities: ['clinical_context']
+    }
+  }]), (error) => error.code === 'WORKER_KIND_CAPABILITY_UNSATISFIED'
+    && error.requiredCapabilities.includes('clinical_context'),
+  'A declared prompt-defined capability must constrain worker selection instead of disappearing.');
+  assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
     role: 'implementation', methodContract: { version: 1, methodId: 'formal_proof' }
   }]), { code: 'WORKER_FORMAL_INPUT_INVALID' });
   assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{

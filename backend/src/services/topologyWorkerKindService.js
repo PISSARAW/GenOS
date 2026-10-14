@@ -68,7 +68,9 @@ function methodContractFor(member) {
     throw assignmentError('methodContract requires version 1 and a non-empty methodId.', 'WORKER_METHOD_CONTRACT_INVALID');
   }
   const methodId = workerKinds.normalize(supplied.methodId);
-  if (methodId === 'prompt_defined') return { ...supplied, methodId, requiredCapabilities: [] };
+  if (methodId === 'prompt_defined') {
+    return { ...supplied, methodId, requiredCapabilities: [...new Set(values(supplied.requiredCapabilities))] };
+  }
   const requiredCapabilities = [...new Set([
     ...(workerKinds.METHOD_CAPABILITIES[methodId] || []), ...values(supplied.requiredCapabilities)
   ])];
