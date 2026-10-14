@@ -11,6 +11,7 @@ const os = require('os');
 const path = require('path');
 const snapshotPaths = require('../src/services/workspaceSnapshotPaths');
 const snapshotStore = require('../src/services/workspaceSnapshotStore');
+const snapshotMaterialize = require('../src/services/workspaceSnapshotMaterialize');
 
 const { sanitizeFileMode, hasShebangPrefix, readShebangPrefix, isExecutablePath } = snapshotPaths;
 
@@ -40,10 +41,10 @@ async function testShebangPrefixRead() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-mode-test-'));
   const script = path.join(dir, 'run.sh');
   fs.writeFileSync(script, '#!/bin/sh\necho hi');
-  assert.strictEqual(await readShebangPrefix(script), true);
+  assert.strictEqual(hasShebangPrefix(await readShebangPrefix(script)), true);
   fs.writeFileSync(script, 'echo hi');
-  assert.strictEqual(await readShebangPrefix(script), false);
-  assert.strictEqual(await readShebangPrefix(path.join(dir, 'missing.sh')), false);
+  assert.strictEqual(hasShebangPrefix(await readShebangPrefix(script)), false);
+  assert.strictEqual(hasShebangPrefix(await readShebangPrefix(path.join(dir, 'missing.sh'))), false);
   fs.rmSync(dir, { recursive: true, force: true });
   console.log('  PASS: two-byte shebang probe on real files.');
 }
@@ -76,12 +77,33 @@ async function testMaterializeRoundTrip() {
   console.log('  PASS: materialize round-trip preserves content and shebang +x.');
 }
 
+async function testRestorePreservesShebangMode() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-mode-restore-'));
+  const sourceRoot = path.join(dir, 'source');
+  const destination = path.join(dir, 'workspace');
+  fs.mkdirSync(sourceRoot, { recursive: true });
+  fs.mkdirSync(destination, { recursive: true });
+  const content = Buffer.from('#!/bin/sh\necho restored');
+  fs.writeFileSync(path.join(sourceRoot, 'restore.sh'), content);
+  await snapshotMaterialize.copyMaterializedFiles(sourceRoot, [
+    { path: 'restore.sh', hash: sha256hex(content), size: content.length, mode: 0o755 }
+  ], destination);
+  assert.strictEqual(fs.readFileSync(path.join(destination, 'restore.sh'), 'utf8'), '#!/bin/sh\necho restored');
+  if (process.platform !== 'win32') {
+    assert.strictEqual(fs.statSync(path.join(destination, 'restore.sh')).mode & 0o777, 0o755,
+      'restore keeps execute permission for shebang scripts outside bin/');
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+  console.log('  PASS: restore preserves shebang executable mode.');
+}
+
 async function run() {
   console.log('=== Snapshot mode-bits hardening ===');
   testExecutableEligibility();
   testSanitizeModes();
   await testShebangPrefixRead();
   await testMaterializeRoundTrip();
+  await testRestorePreservesShebangMode();
   console.log('SNAPSHOT MODE-BITS TESTS PASSED.');
 }
 

@@ -81,9 +81,9 @@ async function readShebangPrefix(filePath) {
     handle = await fsp.open(filePath, 'r');
     const buffer = Buffer.alloc(2);
     const { bytesRead } = await handle.read(buffer, 0, 2, 0);
-    return bytesRead === 2 && buffer[0] === 0x23 && buffer[1] === 0x21;
+    return buffer.subarray(0, bytesRead);
   } catch (_) {
-    return false;
+    return Buffer.alloc(0);
   } finally {
     if (handle) await handle.close().catch(() => {});
   }
