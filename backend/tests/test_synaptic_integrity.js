@@ -20,6 +20,7 @@ const synapticTransmission = require('../src/services/synapticTransmissionServic
 const mcpBioTools = require('../src/services/mcpBioTools');
 const mcpStrategyTools = require('../src/services/mcpStrategyTools');
 const mcpRegistry = require('../src/services/mcpToolRegistry');
+const mcpToolLogic = require('../src/services/mcpExecutor/transports/toolLogic');
 const memoryPrimitives = require('../src/services/primitiveHandlers/memory');
 const temporalPrimitives = require('../src/services/primitiveHandlers/temporal');
 const { testSynapticPing } = require('./test_synaptic_ping');
@@ -157,15 +158,20 @@ async function runSynapticIntegritySuite() {
   const priorLease = process.env.GENOS_MCP_LEASE;
   process.env.GENOS_MCP_LEASE = 'genos_synaptic_prune_scale';
   let bioPruneRes;
+  let transportPruneRes;
   try {
     bioPruneRes = await mcpBioTools.executeBioTool('genos_synaptic_prune_scale', {
       agent_id: 'other-agent', threshold: 0.1, scale: 1.0
     }, { caller: { agentId: testAgent } });
+    transportPruneRes = await mcpToolLogic.executeToolLogic('genos_synaptic_prune_scale', {
+      agent_id: 'other-agent', organization_id: 'other-org', project_id: 'other-project', threshold: 0.1
+    }, { agentId: testAgent });
   } finally {
     if (priorLease === undefined) delete process.env.GENOS_MCP_LEASE;
     else process.env.GENOS_MCP_LEASE = priorLease;
   }
   check(bioPruneRes.success && bioPruneRes.transport === 'strategy_primitive', 'Direct bio dispatch shares the authenticated in-process pruning implementation');
+  check(transportPruneRes.success && transportPruneRes.transport === 'strategy_primitive', 'Local executor delegates pruning to the authenticated implementation');
   const foreignStillExists = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', foreignSource, foreignTarget);
   check(Boolean(foreignStillExists), 'Neither MCP dispatch path can prune foreign synapses');
 

@@ -13,8 +13,9 @@
 DELETE ne portait aucun filtre de scope; avec des champs forgés, il pouvait
 cibler un autre agent ou tenant. La lease identifie l'outil autorisé, mais ne
 confirme pas le propriétaire des synapses mutées. Une voie interne de dispatch
-bio conservait une seconde implémentation locale qui ne recevait pas l'identité
-de l'appelant.
+bio et le transport local conservaient chacun une seconde implémentation qui ne
+recevait pas l'identité de l'appelant. Le transport local supprimait en plus
+des décisions orphelines avec un filtre dérivé uniquement des arguments.
 
 ## Décision
 
@@ -26,7 +27,8 @@ ou son état d'opsonisation remplit le seuil, et si ses colonnes tenant sont
 compatibles avec celles du workspace. Sans identité ou workspace résolu,
 l'opération échoue avant le DELETE. La voie bio interne délègue au même
 exécuteur stratégie après validation de la lease, afin de ne pas maintenir un
-second DELETE qui contournerait ces règles.
+second DELETE qui contournerait ces règles. Le transport local délègue aussi au
+même exécuteur; il ne supprime plus de décisions orphelines comme effet de bord.
 
 ## Conséquences
 
@@ -44,6 +46,8 @@ second DELETE qui contournerait ces règles.
   restent hors du périmètre, même si leurs métadonnées tenant sont nulles.
 - Les opérations globales de maintenance demandent un parcours administratif
   séparé, qui n'est pas fourni par cet outil MCP.
+- Le pruning synaptique ne supprime pas les décisions orphelines; cette
+  maintenance doit avoir sa propre autorité et son propre périmètre.
 
 ## Alternatives
 

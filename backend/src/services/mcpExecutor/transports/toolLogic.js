@@ -38,10 +38,6 @@ function nullish(value, fallback) {
   return value === undefined || value === null ? fallback : value;
 }
 
-function changesOf(res) {
-  return res && res.changes ? res.changes : 0;
-}
-
 function revalidateToolCall(toolName, args) {
   const { directToolLeaseAllows } = require('../../mcpExecutor/config');
   const { validateToolArguments } = require('../../mcpArgumentValidation');
@@ -214,80 +210,6 @@ async function synapticStdpUpdate(args) {
   return strategyResult(res);
 }
 
-function synapseTenantClauses(agentId, orgId, projId) {
-  let where = '';
-  const params = [];
-  if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
-    where += ' AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?) OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))';
-    params.push(agentId, agentId);
-  }
-  if (orgId) {
-    where += ' AND (organization_id = ? OR organization_id IS NULL)';
-    params.push(orgId);
-  }
-  if (projId) {
-    where += ' AND (project_id = ? OR project_id IS NULL)';
-    params.push(projId);
-  }
-  return { where, params };
-}
-
-async function pruneSynapseRows(db, args) {
-  const threshold = Number(nullish(args.threshold, 0.1)) * Number(nullish(args.scale, 1.0));
-  const agentId = firstTruthy(args.agent_id, args.agentId);
-  const orgId = firstTruthy(args.organization_id, args.organizationId);
-  const projId = firstTruthy(args.project_id, args.projectId);
-  const { where, params } = synapseTenantClauses(agentId, orgId, projId);
-  const sql = 'DELETE FROM memory_synapses WHERE (ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5))' + where;
-  const res = await db.run(sql, threshold, ...params);
-  return { prunedCount: changesOf(res), threshold, agentId };
-}
-
-async function pruneOrphanedDecisions(db, args) {
-  const orgId = args.organization_id || args.organizationId;
-  const projId = args.project_id || args.projectId;
-  let doomedSql = `
-        SELECT g.id FROM genome_decisions g
-        LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
-        WHERE g.synaptic_weight < 0.1
-      `;
-  const doomedParams = [];
-  if (orgId) {
-    doomedSql += ' AND (g.organization_id = ? OR g.organization_id IS NULL)';
-    doomedParams.push(orgId);
-  }
-  if (projId) {
-    doomedSql += ' AND (g.project_id = ? OR g.project_id IS NULL)';
-    doomedParams.push(projId);
-  }
-  doomedSql += `
-        GROUP BY g.id
-        HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
-      `;
-  const doomed = await db.all(doomedSql, ...doomedParams);
-  if (!doomed || doomed.length === 0) return 0;
-  const doomedIds = doomed.map((d) => d.id);
-  const placeholders = doomedIds.map(() => '?').join(',');
-  const delRes = await db.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, ...doomedIds);
-  return delRes?.changes || doomedIds.length;
-}
-
-async function synapticPruneScale(args) {
-  const db = await require('../../../db').getDatabase();
-  let prunedCount = 0;
-  let orphanedPruned = 0;
-  let threshold = Number(args.threshold ?? 0.1) * Number(args.scale ?? 1.0);
-  let agentId = args.agent_id || args.agentId;
-  if (db) {
-    const pruned = await pruneSynapseRows(db, args);
-    prunedCount = pruned.prunedCount;
-    threshold = pruned.threshold;
-    agentId = pruned.agentId;
-    orphanedPruned = await pruneOrphanedDecisions(db, args);
-  }
-  return { configured: true, success: true, status: 'completed', transport: 'strategy_primitive', output: { success: true, prunedSynapses: prunedCount, orphanedDecisionsPruned: orphanedPruned, threshold, agent_id: agentId || 'global' } };
-}
-
 async function computerUse(args) {
   try {
     const computerUseService = require('../../computerUseService');
@@ -346,7 +268,6 @@ const CUSTOM_TOOL_HANDLERS = {
   genos_causal_replay_experiment: causalReplayExperiment,
   genos_compliance_report: complianceReport,
   genos_synaptic_stdp_update: synapticStdpUpdate,
-  genos_synaptic_prune_scale: synapticPruneScale,
   genos_computer_use: computerUse,
   genos_biomimicry_hippocampal_consolidate: hippocampalConsolidate,
   genos_biomimicry_gate_evaluate: gateEvaluate,
@@ -381,6 +302,9 @@ async function executeToolLogic(toolName, args, context = {}) {
   if (toolName === 'genos_delegate_worker') {
     if (!context.agentId) return { configured: true, success: false, status: 'denied', code: 'WORKER_CALLER_REQUIRED', error: 'An authenticated worker caller is required.' };
     return require('../../agents/subOrchestratorDispatchService').dispatchSubOrchestratorWorker(context.db, context.agentId, args);
+  }
+  if (toolName === 'genos_synaptic_prune_scale') {
+    return require('../../mcpStrategyTools').executeStrategyTool(toolName, args || {}, { agentId: context.agentId });
   }
   const genomeResult = await require('../../mcpGenomeTools').executeGenomeTool(toolName, args, runLocal);
   if (genomeResult) return genomeResult;
