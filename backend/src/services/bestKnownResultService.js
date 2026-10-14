@@ -116,7 +116,9 @@ function dependencyFailureReason(champion, input) {
 async function dependencyFailure(db, found, input) {
   const reason = dependencyFailureReason(found.champion, input);
   if (!reason) return null;
-  if (reason === 'deps-changed') await markStale(db, found.champion.id);
+  if (reason === 'deps-changed') await markStale(db, {
+    id: found.champion.id, semanticId: input.semanticId, scopeId: input.scopeId
+  });
   return { hit: false, problem: found.problem, champion: found.champion, reason };
 }
 
@@ -127,7 +129,7 @@ async function lookupReusable(db, input) {
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'status-not-reusable' };
   }
   if (isExpired(found.champion)) {
-    await markStale(db, found.champion.id);
+    await markStale(db, { id: found.champion.id, semanticId: input.semanticId, scopeId: input.scopeId });
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'expired' };
   }
   const dependencyMiss = await dependencyFailure(db, found, input);
@@ -135,9 +137,14 @@ async function lookupReusable(db, input) {
   return { hit: true, problem: found.problem, champion: found.champion };
 }
 
-async function markStale(db, id) {
+async function markStale(db, input) {
   await ensureTables(db);
-  await db.run("UPDATE request_results SET status = 'STALE', updated_at = CURRENT_TIMESTAMP WHERE id = ?", id);
+  const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
+  const result = await db.run(
+    "UPDATE request_results SET status = 'STALE', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND semantic_id = ? AND status = 'VERIFIED'",
+    input.id, scopedId
+  );
+  return result.changes === 1;
 }
 
 async function storeCandidate(db, input) {

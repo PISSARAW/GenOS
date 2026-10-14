@@ -616,7 +616,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0484](0484-identifier-explicitement-le-candidat-du-rollout.md) | Identifier explicitement le candidat du rollout | Accepté et implémenté. | 2026-10-14 | Rollouts canary/A/B et promotion de release. |
 | [0485](0485-atomicite-creation-rollout-et-variantes.md) | Atomicité de création du rollout et de ses variantes | Accepté et implémenté. | 2026-10-14 | Persistance des rollouts et agrégats de métriques. |
 | [0486](0486-frontiere-de-confiance-du-transfert-hgt.md) | Frontière de confiance du transfert HGT | Proposé | 2026-10-14 | Transfert horizontal de plasmides, autorité et reçus. |
-| [0487](0487-recus-communication-inter-agents.md) | Reçus de communication inter-agents | Accepté | 2026-10-14 | Messagerie multi-agent, destinataires effectifs, lecture et acquittement. |
+| [0487a](0487-recus-communication-inter-agents.md) | Reçus de communication inter-agents | Accepté | 2026-10-14 | Messagerie multi-agent, destinataires effectifs, lecture et acquittement. |
+| [0487b](0487-votes-electrocytaires-signes-et-rejouables.md) | Votes électrocytaires signés et rejouables | Décidé pour le contrat Rust v1; le provisionnement de confiance et les transports restent ouverts. | 2026-10-15 | Quorum électrocytaire, identité des votants et reçus durables. |
 | [0488](0488-borner-les-recherches-de-provenance.md) | Borner les recherches de provenance MCP | Accepté et implémenté. | 2026-10-14 | `genos_blame`, `genos_lineage` et extraction d'évidence. |
 | [0489](0489-scoper-les-recherches-de-provenance-au-workspace.md) | Scoper les recherches de provenance au workspace | Accepté et implémenté. | 2026-10-14 | Autorisation MCP, provenance et isolation des workspaces. |
 | [0490](0490-borner-le-pruning-synaptique-au-workspace.md) | Borner le pruning synaptique au workspace authentifié | Accepté et implémenté. | 2026-10-14 | Autorité MCP et mutations du graphe mémoire. |
@@ -627,6 +628,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0495](0495-rendre-atomiques-les-promotions-de-resultats.md) | Rendre atomiques les promotions de résultats | Accepté et implémenté pour `bestKnownResultService`. | 2026-10-15 | Cohérence des champions et écritures SQLite. |
 | [0496](0496-exiger-un-recu-de-verification-lie-au-resultat.md) | Exiger un reçu de vérification lié au résultat | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Preuve avant promotion du cache de résultats. |
 | [0497](0497-scoper-la-refutation-et-effacer-le-champion.md) | Scoper la réfutation et effacer le champion | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Scope, reçu de contre-exemple et cohérence après réfutation. |
+| [0499](0499-scoper-linvalidation-des-resultats.md) | Scoper l’invalidation des résultats | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Isolation workspace du passage à l’état STALE. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

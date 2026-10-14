@@ -146,6 +146,13 @@ async function main() {
   const foreignCandidate = await registry.storeCandidate(db, foreignInput);
   const foreignChampion = await registry.getChampion(db, trivial.semanticId, foreignScope);
   check('each workspace gets its own champion', foreignChampion.champion.id === foreignCandidate.id);
+  const foreignStale = await registry.markStale(db, {
+    id: foreignCandidate.id, semanticId: trivial.semanticId, scopeId
+  });
+  check('workspace cannot stale another workspace result', foreignStale === false);
+  check('foreign champion survives out-of-scope invalidation', (await registry.getChampion(db, trivial.semanticId, foreignScope)).champion.status === 'VERIFIED');
+  await assert.rejects(() => registry.markStale(db, { id: foreignCandidate.id, semanticId: trivial.semanticId }),
+    (error) => error.code === 'RESULT_SCOPE_REQUIRED');
   check('original workspace champion remains isolated', (await registry.getChampion(db, trivial.semanticId, scopeId)).champion.status === 'STALE');
   const rejectedForeignRefute = await registry.refuteResult(db, {
     id: foreignCandidate.id, semanticId: trivial.semanticId, scopeId
