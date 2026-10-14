@@ -624,6 +624,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0492](0492-refuser-la-promotion-des-resultats-provisoires.md) | Refuser la promotion des résultats provisoires | Accepté, transition de champion implémentée. | 2026-10-15 | Mémoire de requête, statut et champion courant. |
 | [0493](0493-exiger-le-snapshot-complet-des-dependances.md) | Exiger le snapshot complet des dépendances | Accepté et implémenté pour la réutilisation mémoire. | 2026-10-15 | Réutilisation des résultats et invalidation. |
 | [0494](0494-scoper-la-memoire-de-requete-au-workspace.md) | Scoper la mémoire de requête au workspace | Accepté et implémenté pour `bestKnownResultService`. | 2026-10-15 | Cache de résultats et isolation des workspaces. |
+| [0495](0495-rendre-atomiques-les-promotions-de-resultats.md) | Rendre atomiques les promotions de résultats | Accepté et implémenté pour `bestKnownResultService`. | 2026-10-15 | Cohérence des champions et écritures SQLite. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -75,6 +75,22 @@ async function main() {
     () => registry.promoteChampion(db, { semanticId: trivial.semanticId, id: provisionalId, scopeId }),
     (error) => error.code === 'RESULT_PROMOTION_BLOCKED'
   );
+  await db.exec("CREATE TRIGGER fail_request_result_insert BEFORE INSERT ON request_results BEGIN SELECT RAISE(ABORT, 'injected result failure'); END;");
+  await assert.rejects(() => registry.storeCandidate(db, {
+    ...candidateInput, semanticId: 'atomic-insert-failure', normalizedIntent: 'atomic insert failure'
+  }));
+  await db.exec('DROP TRIGGER fail_request_result_insert;');
+  const orphanCount = await db.get("SELECT COUNT(*) AS count FROM request_problems WHERE normalized_intent = 'atomic insert failure'");
+  check('failed candidate insert leaves no orphan problem', orphanCount.count === 0);
+
+  const replacement = await registry.storeCandidate(db, { ...candidateInput, promote: false, contentJson: JSON.stringify({ value: 6 }) });
+  await db.exec("CREATE TRIGGER fail_champion_update BEFORE UPDATE ON request_problems BEGIN SELECT RAISE(ABORT, 'injected champion failure'); END;");
+  await assert.rejects(() => registry.promoteChampion(db, { semanticId: trivial.semanticId, id: replacement.id, scopeId }));
+  await db.exec('DROP TRIGGER fail_champion_update;');
+  const preservedAfterFailure = await registry.getChampion(db, trivial.semanticId, scopeId);
+  check('failed pointer update preserves current champion pointer', preservedAfterFailure.champion.id === hit.champion.id);
+  check('failed pointer update preserves current champion status', preservedAfterFailure.champion.status === 'VERIFIED');
+
   await db.run('UPDATE request_results SET dependencies_json = ? WHERE id = ?', JSON.stringify({ repo_head: 'abc', runtime: 'v1' }), hit.champion.id);
   const omittedDependencies = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId });
   check('missing dependency snapshot cannot reuse champion', omittedDependencies.hit === false && omittedDependencies.reason === 'dependencies-unavailable');

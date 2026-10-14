@@ -3,6 +3,7 @@
 const { createHash, randomUUID } = require('crypto');
 const { isDeepStrictEqual } = require('node:util');
 const { migrateRequestMemory } = require('../db/migrations/migrateRequestMemory');
+const { withTransaction } = require('../db');
 
 async function ensureTables(db) {
   await migrateRequestMemory(db);
@@ -94,28 +95,30 @@ async function markStale(db, id) {
 async function storeCandidate(db, input) {
   await ensureTables(db);
   const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
-  const existing = await getProblem(db, scopedId);
-  const version = await nextVersion(db, scopedId);
-  const id = `res_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
-  const shouldPromote = input.promote !== false && input.status === 'VERIFIED';
-  if (!existing) {
-    await db.run(
-      'INSERT INTO request_problems (semantic_id, normalized_intent, request_class, profile_json, champion_result_id) VALUES (?, ?, ?, ?, ?)',
-      scopedId, input.normalizedIntent, input.requestClass, input.profileJson, shouldPromote ? id : null
+  return withTransaction(db, async (txDb) => {
+    const existing = await getProblem(txDb, scopedId);
+    const version = await nextVersion(txDb, scopedId);
+    const id = `res_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const shouldPromote = input.promote !== false && input.status === 'VERIFIED';
+    if (!existing) {
+      await txDb.run(
+        'INSERT INTO request_problems (semantic_id, normalized_intent, request_class, profile_json, champion_result_id) VALUES (?, ?, ?, ?, ?)',
+        scopedId, input.normalizedIntent, input.requestClass, input.profileJson, null
+      );
+    }
+    await txDb.run(
+      `INSERT INTO request_results (id, semantic_id, result_version, status, content_json, evidence_json,
+        uncertainty_json, dependencies_json, execution_json, validity_horizon_ms, expires_at, utility, cost_json, supersedes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, scopedId, version, input.status, input.contentJson, input.evidenceJson,
+      input.uncertaintyJson, input.dependenciesJson, input.executionJson, input.validityHorizonMs,
+      input.expiresAt, input.utility, input.costJson, input.supersedes
     );
-  }
-  await db.run(
-    `INSERT INTO request_results (id, semantic_id, result_version, status, content_json, evidence_json,
-      uncertainty_json, dependencies_json, execution_json, validity_horizon_ms, expires_at, utility, cost_json, supersedes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, scopedId, version, input.status, input.contentJson, input.evidenceJson,
-    input.uncertaintyJson, input.dependenciesJson, input.executionJson, input.validityHorizonMs,
-    input.expiresAt, input.utility, input.costJson, input.supersedes
-  );
-  if (shouldPromote) {
-    await promoteChampion(db, { semanticId: input.semanticId, id, scopeId: input.scopeId });
-  }
-  return { id, version };
+    if (shouldPromote) {
+      await promoteChampion(txDb, { semanticId: input.semanticId, id, scopeId: input.scopeId });
+    }
+    return { id, version };
+  });
 }
 
 async function nextVersion(db, semanticId) {
@@ -126,15 +129,17 @@ async function nextVersion(db, semanticId) {
 async function promoteChampion(db, input) {
   await ensureTables(db);
   const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
-  const candidate = await db.get('SELECT semantic_id, status FROM request_results WHERE id = ?', input.id);
-  if (!candidate || candidate.semantic_id !== scopedId || candidate.status !== 'VERIFIED') {
-    throw Object.assign(new Error('Only a verified result for this problem can become champion.'), { code: 'RESULT_PROMOTION_BLOCKED' });
-  }
-  const current = await getChampion(db, input.semanticId, input.scopeId);
-  if (current.champion && current.champion.id !== input.id) {
-    await db.run("UPDATE request_results SET status = 'SUPERSEDED' WHERE id = ? AND status = 'VERIFIED'", current.champion.id);
-  }
-  await db.run('UPDATE request_problems SET champion_result_id = ?, updated_at = CURRENT_TIMESTAMP WHERE semantic_id = ?', input.id, scopedId);
+  return withTransaction(db, async (txDb) => {
+    const candidate = await txDb.get('SELECT semantic_id, status FROM request_results WHERE id = ?', input.id);
+    if (!candidate || candidate.semantic_id !== scopedId || candidate.status !== 'VERIFIED') {
+      throw Object.assign(new Error('Only a verified result for this problem can become champion.'), { code: 'RESULT_PROMOTION_BLOCKED' });
+    }
+    const current = await getChampion(txDb, input.semanticId, input.scopeId);
+    if (current.champion && current.champion.id !== input.id) {
+      await txDb.run("UPDATE request_results SET status = 'SUPERSEDED' WHERE id = ? AND status = 'VERIFIED'", current.champion.id);
+    }
+    await txDb.run('UPDATE request_problems SET champion_result_id = ?, updated_at = CURRENT_TIMESTAMP WHERE semantic_id = ?', input.id, scopedId);
+  });
 }
 
 async function refuteResult(db, id) {
