@@ -20,6 +20,7 @@ const { resolveCodexLaunch } = require('./codexLaunchResolver.cjs');
 const sharedBudget = require('./codex-cli-shared-budget.cjs');
 const { buildMcpServerEnvironment, serializeMcpServerEnvironment } = require('../src/services/agentRuntimeMcpConfiguration');
 const { parseToolLease } = require('./agent-runtime-lease.cjs');
+const workerMcpPreflight = require('./worker-mcp-inventory-preflight.cjs');
 
 const ORCHESTRATOR_INSTRUCTION = 'You are the GenOS orchestrator. You own strategy selection, task decomposition, worker dispatch, evaluation, replay, promotion, and the current worker organization. The control plane evaluated the complete strategy registry before producing this contract; use the selected portfolio rather than treating every strategy as mandatory. At every material scope change, new risk, repeated failure, or evidence that invalidates the current problem profile, reassess whether the active strategy still fits. Call genos_change_strategy with the current need and evidence-backed reason when it may not fit; the control plane will evaluate all strategies, version the contract only when a different portfolio is better, and preserve the remaining budget. Do not switch merely for novelty or oscillate between equivalent portfolios. You may call genos_change_organization at any decision gate when evidence or mission needs justify a different topology or communication mode; record the reason and use genos_organization_state to verify the transition. When a worker must use a named algorithm or specialized method, include worker_assignments keyed by topology role, with methodContract version 1 and methodId; include parameters, requiredEvidence, evaluator, and requiredCapabilities when the method needs a specific capability. Do not choose workerKind yourself: the control plane resolves it from role requirements and the method contract, and rejects incompatible combinations. Inspect the Trinity intent in the autonomous plan before dispatching workers. If Trinity was explicitly requested, use the three control-plane worlds already composed. If the user asked to be interviewed to create a plan, conduct the interview first and consider genos_trinity_launch only after the answers produce a sufficiently concrete shared mission; do not launch it merely because planning was mentioned. When a mission genuinely requires at least two distinct competency domains and Trinity is not the better shape, use the control-plane A-Team already composed in the plan; if none was composed, the token policy still permits it, and two or more specialists are necessary, call genos_a_team_preview once with two or three bounded subsystems and matching roles. Do not create an A-Team for a single-domain task, exceed the token policy, duplicate members already running, or combine A-Team and Trinity in the same three-slot garage. Before a risky mutation, retrieve negative knowledge or diagnose, snapshot/fork when comparing alternatives, evaluate evidence, and record the decision. Change strategy or organization only on evidence, keep parasite/adversarial branches isolated, and stop or reallocate branches using the token policy.';
 
@@ -111,7 +112,7 @@ function resolveIdentity(mission) {
 
 function buildAuthorityInstruction(mission, isWorker, autonomyPlan) {
   if (isWorker) {
-    return `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result. If leased and available, use genos_organization_state, genos_worker_inbox and genos_worker_publish through the organization's enforced routing. An unavailable tool is not a prerequisite for completing the assigned local task. Return final evidence to the orchestrator.`;
+    return `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result. Use leased organization tools through the enforced routing. For continuous coordination, genos_organization_state, genos_worker_inbox and genos_worker_publish are mandatory runtime evidence. Return final evidence to the orchestrator.`;
   }
   if (autonomyPlan.synthesisOnly) {
     return 'You are the GenOS orchestrator in the enforced final-synthesis phase. The control plane has already completed every delegated worker, continuation round, and recovery listed in the attached dossiers. Compare all dossiers and produce the one official result. Do not dispatch, preview, or launch any new worker or Trinity world during this phase.';
@@ -121,7 +122,7 @@ function buildAuthorityInstruction(mission, isWorker, autonomyPlan) {
 
 function createState(mission, data) {
   const identity = resolveIdentity(mission);
-  const requiredTools = new Set(data.isWorker ? [] : (data.autonomyPlan.mandatoryTools || data.autonomyPlan.requiredTools || []));
+  const requiredTools = new Set(data.isWorker ? workerMcpPreflight.requiredWorkerTools(mission) : (data.autonomyPlan.mandatoryTools || data.autonomyPlan.requiredTools || []));
   const preflightObservedTools = data.isWorker ? [] : (mission.preflightObservedTools || [])
     .filter(tool => requiredTools.has(tool));
   return {
@@ -369,6 +370,10 @@ async function handleChildClose(state, code, signal) {
 }
 async function startRuntime(state) {
   const binaries = resolveBinaries();
+  if (state.isWorker) {
+    const inventory = await workerMcpPreflight.runWorkerMcpInventoryPreflight({ state, binaries, mcp: buildMcpConfig(binaries) });
+    state.emit({ eventType: 'AGENT_STEP', action: 'MCP_PREFLIGHT', detail: 'Worker MCP inventory verified.', payload: inventory });
+  }
   await spawnChild(state, binaries);
   state.emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Codex implementation runtime accepted the mission.', status: 'running', currentTask: state.mission.prompt });
   runMemoryPipeline(state);

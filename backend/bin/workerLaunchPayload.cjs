@@ -89,6 +89,8 @@ function workerLaunchPayload(args) {
     localModel,
     localRoutingPolicy: selectedRoutingPolicy(member, localModel),
     missionScope: member.missionScope,
+    organization: context.request?.organization,
+    coordinationPolicy: context.request?.coordinationPolicy,
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
     topologySessionId: context.topologySession?.sessionId || null,

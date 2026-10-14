@@ -21,7 +21,8 @@ async function main() {
         missionId: 'mission-executor-test',
         orchestratorId: 'orchestrator-executor-test',
         task: 'Verify executor propagation',
-        request: { executor: 'codex', execution_budget: { tokens: 8000 } }
+        request: { executor: 'codex', execution_budget: { tokens: 8000 },
+          organization: 'cross_functional_pod', coordinationPolicy: { communicationCadence: 'continuous_sync' } }
       },
       parent: { agent_type: 'GenOS', model_tier: 'frontier', isolation_mode: 'Branch' },
       reusable: null,
@@ -29,6 +30,8 @@ async function main() {
     });
     assert.equal(dispatched.executor, 'codex');
     assert.equal(dispatched.agentId, 'worker-executor-test');
+    assert.equal(dispatched.organization, 'cross_functional_pod');
+    assert.equal(dispatched.coordinationPolicy.communicationCadence, 'continuous_sync');
   } finally {
     dispatchService.dispatchWorkerMission = originalDispatch;
     contracts.getLatestContract = originalContract;
