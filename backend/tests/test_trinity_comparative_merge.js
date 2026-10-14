@@ -1,6 +1,9 @@
 const assert = require('assert');
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'trinity-comparative-merge-test-secret';
 const trinity = require('../src/services/trinityService');
 const telemetry = require('../src/services/telemetryObserver');
+const receiptService = require('../src/services/epistemicVerifierReceiptService');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
 
 // 1. Check domain weights
 assert.equal(trinity.DOMAIN_WEIGHTS.creative_writing.gamma, 0.45);
@@ -9,7 +12,10 @@ assert.equal(trinity.DOMAIN_WEIGHTS.data.beta, 0.45);
 assert.equal(trinity.DOMAIN_WEIGHTS.product_design.gamma, 0.40);
 assert.equal(trinity.DOMAIN_WEIGHTS.software_engineering.alpha, 0.35);
 
-const trustedReceipt = () => ({ status: 'verified', independent: true, evidenceDigest: 'sha256:proof', verifierDigest: 'sha256:verifier', independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } });
+const trustedReceipt = () => receiptService.issueReceipt({ resultId: 'comparative-merge-test', status: 'verified',
+  independent: true, evidenceDigest: `sha256:${'a'.repeat(64)}`,
+  verifierDigest: verifierTrust.getVerifier('testResult').digest,
+  independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } });
 const verifiedClaim = (statement, evidence) => ({ statement, evidence: [evidence], verificationLevel: 'independent_deterministic', verificationReceipts: [{ receipt: trustedReceipt() }] });
 
 // 2. Score individual world evidence only after independent verification.
@@ -27,7 +33,9 @@ const score1 = trinity.scoreWorldEvidence(world1Report, 'software_engineering');
 assert(score1.totalScore > 0, 'Score 1 must be positive');
 assert.equal(score1.claimsScore, 0); // no resolvable refs
 assert.equal(score1.testsCoverage, 0); // self-declared strings are not receipts
-assert(score1.robustnessScore < 1.0, 'Robustness must have penalty for uncertainty');
+assert(score1.robustnessScore < 1.0, 'Unverified claims and missing deliverables still reduce robustness');
+assert.equal(score1.robustnessScore, trinity.scoreWorldEvidence({ ...world1Report, uncertainties: [] }, 'software_engineering').robustnessScore,
+  'Disclosing uncertainty must not reduce robustness');
 assert.deepEqual(score1.evidenceAudit, { proven: 0, resolvableRefs: 0, placeholderRefs: 1, claimCount: 2 });
 
 const world2Report = {

@@ -206,13 +206,11 @@ function scoreWorldEvidence(report, domain = 'software_engineering') {
   if (audit.isVerifiedReceipt(report.coverageReceipt) && typeof report.coverage === 'number') testsCoverage = clamp01(report.coverage);
   else if (audit.isVerifiedReceipt(report.coverageReceipt) && typeof report.creativeEvaluation?.constraintCoverage === 'number') testsCoverage = clamp01(report.creativeEvaluation.constraintCoverage);
   else if (Array.isArray(report.tests) && report.tests.length > 0) testsCoverage = passedTests(report) / report.tests.length;
-  const uncertainties = Array.isArray(report.uncertainties) ? report.uncertainties.length : 0;
   const unverified = Array.isArray(report.unverifiedClaims) ? report.unverifiedClaims.length : 0;
   const hasFailure = Boolean(report.failure) || report.outcome === 'failed';
   const hasDeliverable = hasArtifact || hasExplicitCoverage(report);
   let robustnessScore = 1.0;
   if (hasFailure) robustnessScore -= 0.6;
-  robustnessScore -= uncertainties * 0.1;
   robustnessScore -= unverified * 0.15;
   if (claims.length > 0 && provenClaims === 0) robustnessScore -= 0.3;
   robustnessScore -= Math.min(0.3, (claims.length - substantiveClaims) * 0.1);
