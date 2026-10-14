@@ -635,6 +635,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0503](0503-memoriser-la-migration-de-la-memoire-par-connexion.md) | Mémoriser la migration mémoire par connexion | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Latence d'accès et concurrence à l'initialisation. |
 | [0504](0504-exiger-le-snapshot-courant-meme-vide.md) | Exiger le snapshot courant, même vide | Accepté et implémenté pour la réutilisation mémoire. | 2026-10-15 | Distinction entre snapshot vide et absent. |
 | [0505](0505-scoper-les-lectures-de-probleme.md) | Scoper les lectures de problème | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Éviter l'accès aux entrées historiques non scoppées. |
+| [0506](0506-rapporter-le-statut-apres-invalidation.md) | Rapporter le statut après invalidation | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Cohérence du verdict de cache et du statut persistant. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

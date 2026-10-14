@@ -125,10 +125,9 @@ function dependencyFailureReason(champion, input) {
 async function dependencyFailure(db, found, input) {
   const reason = dependencyFailureReason(found.champion, input);
   if (!reason) return null;
-  if (reason === 'deps-changed') await markStale(db, {
-    id: found.champion.id, semanticId: input.semanticId, scopeId: input.scopeId
-  });
-  return { hit: false, problem: found.problem, champion: found.champion, reason };
+  const champion = reason === 'deps-changed'
+    ? await staleChampion(db, found.champion, input) : found.champion;
+  return { hit: false, problem: found.problem, champion, reason };
 }
 
 async function lookupReusable(db, input) {
@@ -138,12 +137,12 @@ async function lookupReusable(db, input) {
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'status-not-reusable' };
   }
   if (!storedReceipt(found.champion, input.semanticId, input.scopeId)) {
-    await markStale(db, { id: found.champion.id, semanticId: input.semanticId, scopeId: input.scopeId });
-    return { hit: false, problem: found.problem, champion: found.champion, reason: 'verification-receipt-invalid' };
+    const champion = await staleChampion(db, found.champion, input);
+    return { hit: false, problem: found.problem, champion, reason: 'verification-receipt-invalid' };
   }
   if (isExpired(found.champion)) {
-    await markStale(db, { id: found.champion.id, semanticId: input.semanticId, scopeId: input.scopeId });
-    return { hit: false, problem: found.problem, champion: found.champion, reason: 'expired' };
+    const champion = await staleChampion(db, found.champion, input);
+    return { hit: false, problem: found.problem, champion, reason: 'expired' };
   }
   const dependencyMiss = await dependencyFailure(db, found, input);
   if (dependencyMiss) return dependencyMiss;
@@ -158,6 +157,14 @@ async function markStale(db, input) {
     input.id, scopedId
   );
   return result.changes === 1;
+}
+
+async function staleChampion(db, champion, input) {
+  const updated = await markStale(db, {
+    id: champion.id, semanticId: input.semanticId, scopeId: input.scopeId
+  });
+  if (updated) return { ...champion, status: 'STALE' };
+  return (await getChampion(db, input.semanticId, input.scopeId)).champion;
 }
 
 async function storeCandidate(db, input) {

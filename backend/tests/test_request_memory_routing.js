@@ -163,6 +163,7 @@ async function main() {
   });
   check('changed stored content cannot be reused', tamperedLookup.hit === false
     && tamperedLookup.reason === 'verification-receipt-invalid');
+  check('receipt failure reports the persisted stale status', tamperedLookup.champion.status === 'STALE');
   check('changed stored content marks champion stale',
     (await registry.getChampion(db, tamperInput.semanticId, tamperScope)).champion.status === 'STALE');
 
@@ -204,6 +205,7 @@ async function main() {
     semanticId: trivial.semanticId, scopeId, dependencies: { repo_head: 'abc' }
   });
   check('removed dependency invalidates champion', droppedDependency.hit === false && droppedDependency.reason === 'deps-changed');
+  check('dependency miss reports the persisted stale status', droppedDependency.champion.status === 'STALE');
 
   const emptyDepsScope = 'workspace:request-empty-dependencies';
   const emptyDepsInput = signedCandidate({
