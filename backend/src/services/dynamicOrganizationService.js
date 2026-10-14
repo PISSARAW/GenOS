@@ -13,6 +13,7 @@ const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const swarmTopologyPreferences = require('./swarmTopologyPreferenceStore');
 const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
 const { createOrganizationEnvelope, signalDataWithEnvelope, payloadWithEnvelope, verifyOrganizationMessage } = require('./communication/organizationEnvelopeAdapter');
+const messageReceipts = require('./communication/organizationMessageReceipts');
 // Même cycle que `../db` (voir withTransactionDb) : `collectiveSignalOrganizationRouter`
 // capturé au chargement arrive vide selon le point d'entrée. Résolution à l'appel.
 function signalRouter() {
@@ -192,13 +193,16 @@ async function flushBufferedMessages(tx, ctx) {
   const { orchestratorId, organization, version, profile } = ctx;
   if (organization === 'network_silence') return;
   const flushRoute = routeMessage({ state: { policy: profile, orchestratorId }, sender: {}, recipientAgentId: null, kind: 'evidence' });
-  const pending = await tx.all("SELECT id, content, payload_json, signal_type, signal_blob FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'buffered'", orchestratorId);
+  const pending = await tx.all("SELECT id, sender_agent_id as senderAgentId, content, payload_json, signal_type, signal_blob FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'buffered'", orchestratorId);
   await tx.run(
     "UPDATE agent_organization_messages SET delivery = ?, organization = ?, organization_version = ?, channel = ?, recipient_agent_id = ? WHERE orchestrator_id = ? AND delivery = 'buffered'",
     flushRoute.delivery, organization, version, flushRoute.channel, flushRoute.recipientAgentId, orchestratorId
   );
   for (const row of pending) {
     await refreshFlushedRow(tx, { row, channel: flushRoute.channel, version });
+    await messageReceipts.recordAvailable(tx, {
+      messageId: row.id, orchestratorId, senderAgentId: row.senderAgentId, route: flushRoute
+    });
   }
 }
 
@@ -257,14 +261,6 @@ function resolveSignalPayload(content, signalType, signalData) {
   return formatSignalForTransport({ signalType: normalizedType, signalData: resolvedData });
 }
 
-function assertAdversarialRecipient(state, sender, recipientAgentId) {
-  const isAdversarial = state.policy.routing === 'adversarial_pair';
-  const isWorker = sender.id !== state.orchestratorId;
-  if (isAdversarial && isWorker && !recipientAgentId) {
-    throw organizationError('ADVERSARIAL_RECIPIENT_REQUIRED', 'Adversarial worker messages require an explicit counterpart recipient.');
-  }
-}
-
 async function ensureActiveState(db, orchestratorId) {
   let state = await getState(db, orchestratorId);
   if (!state) {
@@ -284,7 +280,6 @@ async function publish(db, options = {}) {
   const normalizedKind = String(kind).trim().toLowerCase();
   if (!MESSAGE_KINDS.has(normalizedKind)) throw organizationError('INVALID_MESSAGE_KIND', `Unsupported organization message kind '${kind}'.`);
   let signalInfo = resolveSignalPayload(content, signalType, signalData);
-  assertAdversarialRecipient(state, sender, recipientAgentId);
   assertRoutingAuthority({ organization: state.organization, policy: state.policy, sender, recipientAgentId, orchestratorId });
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
   const scope = await fetchAgentScope(db, orchestratorId);
@@ -303,10 +298,13 @@ async function publish(db, options = {}) {
     signalInfo.signalType, signalInfo.signalBlob, route.delivery,
     scope.organizationId, scope.projectId
   );
+  const recipientAgentIds = await messageReceipts.recordAvailable(db, {
+    messageId: result.lastID, orchestratorId, senderAgentId, route
+  });
   const routing = await signalRouter().routeCollectiveSignal({
     db, signalId: `organization-message-${result.lastID}`, signalType: signalInfo.signalType,
     signalData: signalInfo.signalType === 'text' ? null : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType),
-    orchestratorId, changedBy: orchestratorId
+    orchestratorId, recipientAgentIds, changedBy: orchestratorId
   });
   const proposal = signalRouter().proposedRoute(signalInfo.signalType, signalInfo.signalType === 'text' ? {} : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType));
   const changed = await require('./organizationMorphogenesisGate').applySignalOrganizationChange(db, {
@@ -314,7 +312,8 @@ async function publish(db, options = {}) {
   });
   return {
     id: result.lastID, organization: state.organization, version: state.version,
-    ...route, kind: normalizedKind, signalType: signalInfo.signalType, routing: { ...routing, changed, organization: changed ? proposal.organization : state.organization }
+    ...route, recipientAgentIds, kind: normalizedKind, signalType: signalInfo.signalType,
+    routing: { ...routing, changed, organization: changed ? proposal.organization : state.organization }
   };
 }
 
@@ -339,19 +338,21 @@ async function fetchInboxMessages(db, query) {
   const { orchestratorId, version, scope, afterId, requesterAgentId, limit } = query;
   return db.all(
     `SELECT m.id, m.organization, m.organization_version as organizationVersion, m.sender_agent_id as senderAgentId,
-            recipient_agent_id as recipientAgentId, channel, kind, content, payload_json as payloadJson,
+            m.recipient_agent_id as recipientAgentId, channel, kind, content, payload_json as payloadJson,
             m.signal_type as signalType, m.signal_blob as signalBlob,
             m.delivery, m.created_at as createdAt, sender.name as senderName,
             sender.name_meaning as senderNameMeaning, sender.role as senderRole,
             recipient.name as recipientName, recipient.name_meaning as recipientNameMeaning
      FROM agent_organization_messages m
+     JOIN agent_organization_message_receipts receipt
+       ON receipt.message_id = m.id AND receipt.recipient_agent_id = ?
      LEFT JOIN agents sender ON sender.id = m.sender_agent_id
      LEFT JOIN agents recipient ON recipient.id = m.recipient_agent_id
     WHERE m.orchestrator_id = ? AND m.organization_version = ? AND m.organization_id IS ? AND m.project_id IS ? AND m.id > ? AND m.sender_agent_id <> ?
-       AND m.delivery = 'delivered' AND (m.recipient_agent_id IS NULL OR m.recipient_agent_id = ? OR m.recipient_agent_id = 'broadcast')
+       AND m.delivery = 'delivered'
      ORDER BY m.id LIMIT ?`,
-    orchestratorId, version, scope.organizationId, scope.projectId,
-    Math.max(0, Number(afterId || 0)), requesterAgentId, requesterAgentId,
+    requesterAgentId, orchestratorId, version, scope.organizationId, scope.projectId,
+    Math.max(0, Number(afterId || 0)), requesterAgentId,
     Math.min(50, Math.max(1, Number(limit || 20)))
   );
 }
@@ -367,29 +368,28 @@ async function fetchOrganizationMembers(db, orchestratorId) {
 async function inbox(db, options = {}) {
   const { orchestratorId, requesterAgentId, afterId = 0, limit = 20 } = options;
   await ensureTables(db);
+  await messageReceipts.ensureTable(db);
   await assertOrchestrator(db, orchestratorId);
   await assertMember(db, orchestratorId, requesterAgentId);
   const state = await ensureActiveState(db, orchestratorId);
   const scope = await fetchAgentScope(db, orchestratorId);
   const query = { orchestratorId, version: state.version, scope, afterId, requesterAgentId, limit };
   const rows = await fetchInboxMessages(db, query);
+  const messages = await messageReceipts.markRead(db, { messages: rows, recipientAgentId: requesterAgentId });
   const members = await fetchOrganizationMembers(db, orchestratorId);
   return {
     state,
     members,
-    messages: rows.map(mapInboxRow)
+    messages: messages.map(mapInboxRow)
   };
 }
 
-module.exports = {
-  ORGANIZATIONS,
-  MESSAGE_KINDS,
-  organizationProfile,
-  ensureTables,
-  getState,
-  getStateForMember,
-  changeOrganization,
-  routeMessage,
-  publish,
-  inbox
-};
+async function acknowledge(db, options = {}) {
+  const { orchestratorId, requesterAgentId, messageIds = [] } = options;
+  await assertOrchestrator(db, orchestratorId);
+  await assertMember(db, orchestratorId, requesterAgentId);
+  return messageReceipts.acknowledge(db, { recipientAgentId: requesterAgentId, messageIds });
+}
+
+module.exports = { ORGANIZATIONS, MESSAGE_KINDS, organizationProfile, ensureTables, getState,
+  getStateForMember, changeOrganization, routeMessage, publish, inbox, acknowledge };
