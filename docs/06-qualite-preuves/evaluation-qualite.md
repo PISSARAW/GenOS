@@ -16,7 +16,7 @@ Les composants principaux sont :
 - [backend/src/services/evaluationGraders.js](../../backend/src/services/evaluationGraders.js) : exact match, groundedness, safety et contrat du LLM judge ;
 - [backend/src/services/evaluationObservabilityService.js](../../backend/src/services/evaluationObservabilityService.js) : ImpossibleBench, scores et provenance ;
 - [backend/src/services/arenaTaskEvaluation.js](../../backend/src/services/arenaTaskEvaluation.js) : fitness, Pareto et ELO de dossiers agents ;
-- [backend/src/services/bisectionService.js](../../backend/src/services/bisectionService.js) : recherche causale logarithmique et rollback ;
+- [backend/src/services/bisectionService.js](../../backend/src/services/bisectionService.js) : nombre de sondes logarithmique après chargement linéaire de l'historique (plafonné à 10 000 snapshots), puis rollback par snapshot ;
 - [backend/tests/run_quality_suite.js](../../backend/tests/run_quality_suite.js) : suite ciblee de verification qualite.
 
 Le point de conception le plus important est volontairement prudent : les graders retournent `kind: 'metric'` et `qualityGuarantee: false`. Un score ne se transforme pas par magie en garantie.
@@ -220,7 +220,7 @@ evidenceLevel: regression_indicator
 causalGuarantee: false
 ```
 
-La bisection isole le premier point connu ou le predicate echoue. Elle ne prouve pas une causalite scientifique : un predicate incomplet, une fluctuation externe ou des changements simultanes restent possibles. [backend/tests/test_automatic_bisection_recovery.js](../../backend/tests/test_automatic_bisection_recovery.js) controle une anomalie introduite a l'etape 5 sur huit snapshots et la borne logarithmique.
+La bisection isole le premier point connu où le prédicat échoue. Elle ne prouve pas une causalité scientifique : un prédicat incomplet, une fluctuation externe ou des changements simultanés restent possibles. [backend/tests/test_automatic_bisection_recovery.js](../../backend/tests/test_automatic_bisection_recovery.js) contrôle une anomalie introduite à l'étape 5 sur huit snapshots et la borne logarithmique du nombre de sondes, pas le coût de chargement de l'historique.
 
 ---
 

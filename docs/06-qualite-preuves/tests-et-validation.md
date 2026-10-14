@@ -1134,7 +1134,7 @@ Le profil de test `npm run test:chaos` ([backend/tests/stress/test_chaos_enginee
 flowchart TD
     Shock["Panne / Choc Brutal / Crash Ouvrier"] --> Classify{1. Classification Multi-Taxonomie}
     
-    Classify -- test_failure --> Bisect["bisect_and_rollback: Bisection Causal O(log N)"]
+    Classify -- test_failure --> Bisect["bisect_and_rollback: sondes O(log N), chargement historique O(N)"]
     Classify -- capability_mismatch --> Replace["replace_worker: Spécialiste de Recouvrement"]
     Classify -- mutated_output --> Mutate["mutate_worker: Mue Cognitive avec Chaperon"]
     Classify -- falsified_hypothesis --> Fork["fork_worker: Branche Isolée Contradictoire"]
