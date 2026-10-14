@@ -10,6 +10,7 @@ const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticS
 const { refreshFlushedRow } = require('./communication/flushEnvelopeRefresh');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
+const swarmTopologyPreferences = require('./swarmTopologyPreferenceStore');
 const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
 const { createOrganizationEnvelope, signalDataWithEnvelope, payloadWithEnvelope, verifyOrganizationMessage } = require('./communication/organizationEnvelopeAdapter');
 // Même cycle que `../db` (voir withTransactionDb) : `collectiveSignalOrganizationRouter`
@@ -236,6 +237,7 @@ async function changeOrganization(db, options = {}) {
     await recordOrganizationTransition(tx, ctx);
     await flushBufferedMessages(tx, ctx);
   });
+  swarmTopologyPreferences.clear(orchestratorId);
   return { orchestratorId, previous: prevOrg, organization, version, policy: profile, capabilities: topologyCapabilityService.contractFor({ organization }).required, runStep: (state, options) => swarmTopologyAlgorithms.runTopologyStep(organization, state, options), reason: finalReason, changed: true };
 }
 

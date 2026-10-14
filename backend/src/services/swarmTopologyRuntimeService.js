@@ -8,12 +8,11 @@
  */
 const dynamicOrganization = require('./dynamicOrganizationService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
+const preferenceStore = require('./swarmTopologyPreferenceStore');
 const telemetry = require('./telemetryObserver');
 
-const lastPreferred = new Map();
-
 function clearPreferred(orchestratorId) {
-  lastPreferred.delete(orchestratorId);
+  preferenceStore.clear(orchestratorId);
 }
 
 function hashScore(id, role) {
@@ -132,7 +131,7 @@ async function applyStepForOrchestrator(orchestratorId, options = {}) {
     return null;
   }
   const preferred = swarmTopologyAlgorithms.preferredAgents(current.organization, step, options.limit);
-  lastPreferred.set(orchestratorId, preferred);
+  preferenceStore.set(orchestratorId, preferred);
   telemetry.emitEvent({
     eventType: 'SWARM_TOPOLOGY_STEP',
     agentId: orchestratorId,
@@ -145,7 +144,7 @@ async function applyStepForOrchestrator(orchestratorId, options = {}) {
 }
 
 function preferredSurvivorsFor(orchestratorId) {
-  return lastPreferred.get(orchestratorId) || [];
+  return preferenceStore.get(orchestratorId);
 }
 
 function samePreferred(first, second) {

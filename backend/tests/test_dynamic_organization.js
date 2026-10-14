@@ -80,6 +80,20 @@ async function run() {
     const releasedInbox = await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b', afterId: indirect.id });
     assert(releasedInbox.messages.some((message) => message.signal?.event === 'non_critical_chatter'), 'buffered messages must be released when network silence ends');
 
+    const swarmRuntime = require('../src/services/swarmTopologyRuntimeService');
+    await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'grey_wolf_optimizer', reason: 'rank current survivors', changedBy: 'org-root' });
+    const worker = { id: 'org-a', role: 'worker', fitness: 0.8 };
+    await swarmRuntime.applyStepForOrchestrator('org-root', { db, state: { agents: [worker], pack: [worker] } });
+    assert.deepEqual(swarmRuntime.preferredSurvivorsFor('org-root'), ['org-a']);
+    await assert.rejects(() => organization.changeOrganization(db, {
+      orchestratorId: 'org-root', organization: 'unknown_organization', changedBy: 'org-root'
+    }), { code: 'UNKNOWN_ORGANIZATION' });
+    assert.deepEqual(swarmRuntime.preferredSurvivorsFor('org-root'), ['org-a'],
+      'a rejected organization change must not clear the current preference');
+    await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'network_silence', reason: 'change organization before next swarm step', changedBy: 'org-root' });
+    assert.deepEqual(swarmRuntime.preferredSurvivorsFor('org-root'), [],
+      'organization transition must invalidate preferences from its previous topology immediately');
+
     await assert.rejects(
       () => organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'stigmergy', changedBy: 'org-a' }),
       (error) => error.code === 'ORCHESTRATOR_AUTHORITY_REQUIRED'
