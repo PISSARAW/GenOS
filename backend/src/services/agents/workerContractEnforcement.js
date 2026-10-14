@@ -102,6 +102,7 @@ function assertCanonicalContract(contract, kind) {
     hostCapabilities: contract.mission?.hostCapabilities,
     methodContract: contract.mission?.methodContract,
     topologySessionId: contract.mission?.topologySessionId,
+    communicationRequired: contract.mission?.communicationRequired === true,
     writeLease: contract.mission?.writeLease === true,
     workerTokenLimit: contract.resources?.maxTokens,
     delegatedTokenLimit: contract.resources?.maxDelegatedTokens,

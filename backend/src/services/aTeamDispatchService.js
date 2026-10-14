@@ -278,6 +278,7 @@ async function persistPlannedWorkers(input) {
     workerKind: member.workerKind,
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
+    communicationRequired: String(member.communicationCadence || '').toUpperCase() === 'CONTINUOUS_SYNC',
     allowBusyExisting: true,
     nicheDomain: member.nicheDomain || member.domain || member.subSystem || member.label,
     mission: member.mission || input.context.task

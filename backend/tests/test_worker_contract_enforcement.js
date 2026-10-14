@@ -39,6 +39,12 @@ assert.equal(workerComplianceScenario('formal_worker').receipt.fixtureOnly, true
 assert.equal(workerComplianceScenario('formal_worker').receipt.result, undefined);
 assert.equal(workerComplianceScenario('forensic_worker').receipt.events[1].ready, false);
 assert.equal(workerComplianceScenario('medical_worker').receipt.realPatient, false);
+const coordinatedForensic = workerKinds.buildWorkerContract('forensic_worker', {
+  communicationRequired: true
+});
+assert.equal(coordinatedForensic.authority.communicate, true);
+assert.equal(coordinatedForensic.mission.communicationRequired, true);
+assert.equal(enforcement.assertRuntimeContract(coordinatedForensic, 'forensic_worker'), true);
 
 function dossier(kind, contract, artifactType = contract.evidence.requiredArtifacts[0]) {
   return {

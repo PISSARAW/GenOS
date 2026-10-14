@@ -208,9 +208,16 @@ function missionContractFields(mission) {
     codeVerificationContract: mission.codeVerificationContract || null,
     regulatoryRecovery: mission.regulatoryRecovery || null,
     topologySessionId: mission.topologySessionId || null,
+    communicationRequired: missionRequiresCommunication(mission),
     writeLease: mission.writeLease === true
       || (mission.executionPolicy?.allowFileEdits === true && mission.workspaceProvisioned === true)
   };
+}
+
+function missionRequiresCommunication(mission) {
+  if (mission.communicationRequired === true) return true;
+  const cadence = mission.coordinationPolicy?.communicationCadence || mission.communicationCadence;
+  return String(cadence || '').toLowerCase() === 'continuous_sync';
 }
 
 function missionScopeFields(mission) {
@@ -244,7 +251,8 @@ function workerAuthorityContract(kind, authorities, mission) {
     spawn: false, delegate: false, promote: Boolean(authorities.promote), topology: false,
     topologySession: Boolean(mission.topologySessionId),
     strategy: ['adaptive_worker', 'specialist', 'sub_orchestrator'].includes(kind),
-    communicate: ['resident_daemon', 'bounded_worker', 'adaptive_worker', 'specialist', 'verifier_worker', 'red_worker', 'liaison_worker', 'sub_orchestrator'].includes(kind)
+    communicate: missionRequiresCommunication(mission)
+      || ['resident_daemon', 'bounded_worker', 'adaptive_worker', 'specialist', 'verifier_worker', 'red_worker', 'liaison_worker', 'sub_orchestrator'].includes(kind)
   };
 }
 
