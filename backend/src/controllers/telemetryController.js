@@ -42,7 +42,7 @@ async function getEvents(req, res) {
   let query = 'SELECT e.* FROM telemetry_events e LEFT JOIN agents a ON a.id = e.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id';
   const params = [];
   if (req.tenant) {
-    query += ' WHERE ((e.organization_id = ? AND e.project_id = ?) OR (w.organization_id = ? AND w.project_id = ?))';
+    query += ' WHERE ((e.organization_id = ? AND e.project_id = ?) OR (e.organization_id IS NULL AND e.project_id IS NULL AND w.organization_id = ? AND w.project_id = ?))';
     params.push(req.tenant.organizationId, req.tenant.projectId, req.tenant.organizationId, req.tenant.projectId);
   }
 
