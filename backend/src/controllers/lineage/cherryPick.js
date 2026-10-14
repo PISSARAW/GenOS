@@ -51,7 +51,8 @@ function cherryPickPatch(sections, state) {
 
 async function cherryPickSourceState(db, context) {
   if (!context.snapshotId) return context.source;
-  const snapshot = await db.get('SELECT state_json FROM agent_state_snapshots WHERE id = ? AND agent_id = ?', context.snapshotId, context.sourceAgentId);
+  const snapshot = await db.get('SELECT state_json FROM agent_state_snapshots WHERE id = ? AND agent_id = ? AND workspace_id IS ?',
+    context.snapshotId, context.sourceAgentId, context.sourceWorkspaceId);
   if (!snapshot) return undefined;
   return JSON.parse(snapshot.state_json);
 }
@@ -85,7 +86,8 @@ async function cherryPickAgentState(req, res) {
   const [source, target] = await Promise.all([loadAgentForScope(db, scope, ids.sourceAgentId), loadAgentForScope(db, scope, ids.targetAgentId)]);
   if (!source || !target) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Both agents must exist in the current tenant.' } });
   if (source.workspace_id !== target.workspace_id) return res.status(409).json({ error: { code: 'AGENT_WORKSPACE_MISMATCH', message: 'Agents must belong to the same workspace.' } });
-  const state = await cherryPickSourceState(db, { source, sourceAgentId: ids.sourceAgentId, snapshotId: ids.snapshotId });
+  const state = await cherryPickSourceState(db, { source, sourceAgentId: ids.sourceAgentId,
+    sourceWorkspaceId: source.workspace_id, snapshotId: ids.snapshotId });
   if (state === undefined) return res.status(404).json({ error: { code: 'AGENT_SNAPSHOT_NOT_FOUND', message: 'Source snapshot is not available.' } });
   const patch = cherryPickPatch(sections, state);
   const assignments = Object.keys(patch);

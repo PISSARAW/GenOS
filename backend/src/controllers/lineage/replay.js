@@ -68,7 +68,10 @@ async function replayAgentState(req, res) {
   const db = await getDatabase();
   const scope = workspaceScope(req);
   const agent = await loadAgentForScope(db, scope, agentId);
-  const snapshot = await db.get(`SELECT s.* FROM agent_state_snapshots s JOIN agents a ON a.id = s.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE s.id = ? AND s.agent_id = ? AND ${scope.clause}`, snapshotId, agentId, ...scope.params);
+  const snapshot = await db.get(`SELECT s.* FROM agent_state_snapshots s JOIN agents a
+    ON a.id = s.agent_id AND s.workspace_id IS a.workspace_id
+    LEFT JOIN workspaces w ON w.id = a.workspace_id
+    WHERE s.id = ? AND s.agent_id = ? AND ${scope.clause}`, snapshotId, agentId, ...scope.params);
   if (!agent || !snapshot) return res.status(404).json({ error: { code: 'AGENT_SNAPSHOT_NOT_FOUND', message: 'Agent or state snapshot is not available.' } });
   const state = JSON.parse(snapshot.state_json);
   const digest = stateDigest(projectAgentState(state));
@@ -102,7 +105,10 @@ async function bisectAgentState(req, res) {
   const scope = workspaceScope(req);
   const agent = await db.get(`SELECT a.id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, agentId, ...scope.params);
   if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent is not available in the current tenant.' } });
-  const rows = await db.all(`SELECT s.id, s.state_json, s.created_at FROM agent_state_snapshots s JOIN agents a ON a.id = s.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE s.agent_id = ? AND ${scope.clause} ORDER BY s.created_at ASC, s.id ASC`, agentId, ...scope.params);
+  const rows = await db.all(`SELECT s.id, s.state_json, s.created_at FROM agent_state_snapshots s JOIN agents a
+    ON a.id = s.agent_id AND s.workspace_id IS a.workspace_id
+    LEFT JOIN workspaces w ON w.id = a.workspace_id
+    WHERE s.agent_id = ? AND ${scope.clause} ORDER BY s.created_at ASC, s.id ASC`, agentId, ...scope.params);
   if (rows.length < 2) return res.status(409).json({ error: { code: 'AGENT_BISECT_HISTORY_TOO_SMALL', message: 'At least two agent state snapshots are required.' } });
   const expected = req.body?.expectedValue;
   const matches = (row) => JSON.stringify(nestedStateValue(JSON.parse(row.state_json), field)) === JSON.stringify(expected);

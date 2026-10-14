@@ -315,7 +315,7 @@ async function commitAgentState(req, res) {
   const scope = workspaceScope(req);
   const agent = await loadAgentForScope(db, scope, agentId);
   if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent is not available in the current tenant.' } });
-  const parent = await db.get('SELECT id FROM agent_state_snapshots WHERE agent_id = ? AND ref_name = ? ORDER BY created_at DESC, id DESC LIMIT 1', agentId, refName);
+  const parent = await db.get('SELECT id FROM agent_state_snapshots WHERE agent_id = ? AND workspace_id IS ? AND ref_name = ? ORDER BY created_at DESC, id DESC LIMIT 1', agentId, agent.workspace_id, refName);
   const commitId = newAgentSnapshotId('agent-commit');
   const state = await captureOrganismState({ db, scope, agent, req, snapshotId: commitId, reason: 'Agent commit',
     persist: (captured) => db.run(
@@ -335,8 +335,8 @@ async function branchAgentState(req, res) {
   const scope = workspaceScope(req);
   const agent = await loadAgentForScope(db, scope, agentId);
   const source = fromCommitId
-    ? await db.get('SELECT * FROM agent_state_snapshots WHERE id = ? AND agent_id = ?', fromCommitId, agentId)
-    : await db.get("SELECT * FROM agent_state_snapshots WHERE agent_id = ? AND ref_name = 'main' ORDER BY created_at DESC, id DESC LIMIT 1", agentId);
+    ? await db.get('SELECT * FROM agent_state_snapshots WHERE id = ? AND agent_id = ? AND workspace_id IS ?', fromCommitId, agentId, agent?.workspace_id ?? null)
+    : await db.get("SELECT * FROM agent_state_snapshots WHERE agent_id = ? AND workspace_id IS ? AND ref_name = 'main' ORDER BY created_at DESC, id DESC LIMIT 1", agentId, agent?.workspace_id ?? null);
   if (!agent || !source) return res.status(404).json({ error: { code: 'AGENT_COMMIT_NOT_FOUND', message: 'Agent or source commit is not available.' } });
   const branchId = `agent-branch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   await db.run(
@@ -348,8 +348,8 @@ async function branchAgentState(req, res) {
 
 async function loadCheckoutSnapshot(db, context) {
   return context.snapshotId
-    ? db.get('SELECT * FROM agent_state_snapshots WHERE id = ? AND agent_id = ?', context.snapshotId, context.agentId)
-    : db.get('SELECT * FROM agent_state_snapshots WHERE agent_id = ? AND ref_name = ? ORDER BY created_at DESC, id DESC LIMIT 1', context.agentId, context.refName);
+    ? db.get('SELECT * FROM agent_state_snapshots WHERE id = ? AND agent_id = ? AND workspace_id IS ?', context.snapshotId, context.agentId, context.workspaceId)
+    : db.get('SELECT * FROM agent_state_snapshots WHERE agent_id = ? AND workspace_id IS ? AND ref_name = ? ORDER BY created_at DESC, id DESC LIMIT 1', context.agentId, context.workspaceId, context.refName);
 }
 
 async function checkoutAgentState(req, res) {
@@ -361,7 +361,8 @@ async function checkoutAgentState(req, res) {
   const db = await getDatabase();
   const scope = workspaceScope(req);
   const agent = await loadAgentForScope(db, scope, agentId);
-  const snapshot = await loadCheckoutSnapshot(db, { agentId, snapshotId, refName });
+  const snapshot = await loadCheckoutSnapshot(db, { agentId, snapshotId, refName,
+    workspaceId: agent?.workspace_id ?? null });
   if (!agent || !snapshot) return res.status(404).json({ error: { code: 'AGENT_CHECKOUT_NOT_FOUND', message: 'Agent or target commit/ref is not available.' } });
   const state = JSON.parse(snapshot.state_json);
   const restored = await restoreAgentStateSnapshot({ db, scope, agent, state, gqwfV2: req.body?.gqwfV2 === true });
@@ -376,7 +377,8 @@ async function restoreAgentState(req, res) {
   const db = await getDatabase();
   const scope = workspaceScope(req);
   const agent = await loadAgentForScope(db, scope, agentId);
-  const snapshot = await db.get('SELECT * FROM agent_state_snapshots WHERE id = ? AND agent_id = ?', snapshotId, agentId);
+  const snapshot = await db.get('SELECT * FROM agent_state_snapshots WHERE id = ? AND agent_id = ? AND workspace_id IS ?',
+    snapshotId, agentId, agent?.workspace_id ?? null);
   if (!agent || !snapshot) return res.status(404).json({ error: { code: 'AGENT_SNAPSHOT_NOT_FOUND', message: 'Agent or state snapshot is not available.' } });
   const state = JSON.parse(snapshot.state_json);
   const restored = await restoreAgentStateSnapshot({ db, scope, agent, state, gqwfV2: req.body?.gqwfV2 === true });
