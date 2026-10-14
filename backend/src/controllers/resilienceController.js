@@ -69,8 +69,8 @@ async function freezeCryptobiosis(req, res, next) {
 
 async function findSnapshot(db, req, snapshotId) {
   return req.tenant
-    ? await db.get('SELECT cs.* FROM cryptobiosis_snapshots cs JOIN workspaces w ON w.id = cs.workspace_id WHERE cs.id = ? AND w.organization_id = ? AND w.project_id = ?', snapshotId, req.tenant.organizationId, req.tenant.projectId)
-    : await db.get('SELECT cs.* FROM cryptobiosis_snapshots cs JOIN workspaces w ON w.id = cs.workspace_id WHERE cs.id = ? AND w.organization_id IS NULL AND w.project_id IS NULL', snapshotId);
+    ? await db.get("SELECT cs.* FROM cryptobiosis_snapshots cs JOIN workspaces w ON w.id = cs.workspace_id WHERE cs.snapshot_id = ? AND cs.status = 'frozen' AND cs.thawed_at IS NULL AND w.organization_id = ? AND w.project_id = ?", snapshotId, req.tenant.organizationId, req.tenant.projectId)
+    : await db.get("SELECT cs.* FROM cryptobiosis_snapshots cs JOIN workspaces w ON w.id = cs.workspace_id WHERE cs.snapshot_id = ? AND cs.status = 'frozen' AND cs.thawed_at IS NULL AND w.organization_id IS NULL AND w.project_id IS NULL", snapshotId);
 }
 
 async function thawAgents(db, { agents, targetWorkspaceId, workspaceId }) {
@@ -93,12 +93,45 @@ async function validateThawBindings(db, input) {
     if (target === input.workspaceId || !agent.parent_agent_id || cohort.has(agent.parent_agent_id)) continue;
     const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agent.parent_agent_id);
     if (!parent || parent.workspace_id !== target) throw thawConflict(`Thawing '${item.id}' would separate it from parent '${agent.parent_agent_id}'.`);
+    await validateChildrenRemainBound(db, { parentId: item.id, cohort, targetWorkspaceId: target });
   }
+  if (target !== input.workspaceId) await validateMovedParentChildren(db, { agents: input.agents, cohort, targetWorkspaceId: target });
+}
+
+async function validateMovedParentChildren(db, input) {
+  for (const item of input.agents) await validateChildrenRemainBound(db, {
+    parentId: item.id, cohort: input.cohort, targetWorkspaceId: input.targetWorkspaceId
+  });
+}
+
+async function validateChildrenRemainBound(db, input) {
+  const children = await db.all('SELECT id, workspace_id FROM agents WHERE parent_agent_id = ?', input.parentId);
+  const separated = children.find(child => !input.cohort.has(child.id) && child.workspace_id !== input.targetWorkspaceId);
+  if (separated) throw thawConflict(`Thawing '${input.parentId}' would separate it from child '${separated.id}'.`);
 }
 
 async function markSnapshotThawed(db, snapshotId, username) {
-  const updated = await db.run('UPDATE cryptobiosis_snapshots SET thawed_at = CURRENT_TIMESTAMP, thawed_by = ? WHERE (snapshot_id = ? OR id = ?) AND thawed_at IS NULL', username || 'operator', snapshotId, snapshotId);
+  const updated = await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP, thawed_by = ? WHERE snapshot_id = ? AND status = 'frozen' AND thawed_at IS NULL", username || 'operator', snapshotId);
   if (updated.changes !== 1) throw thawConflict(`Cryptobiosis snapshot '${snapshotId}' was already thawed or changed.`);
+}
+
+async function thawSnapshotTransaction(tx, input) {
+  const persisted = await findSnapshot(tx, input.req, input.snapshotId);
+  if (!persisted) return missingSnapshotOutcome(input.snapshotId);
+  if (input.targetWorkspaceId && !await scopedWorkspace(tx, input.req, input.targetWorkspaceId)) {
+    return { statusCode: 404, error: { code: 'WORKSPACE_NOT_FOUND', message: `Target workspace '${input.targetWorkspaceId}' was not found.` } };
+  }
+  const result = await resilienceService.thawCryptobiosis(tx, persisted.snapshot_id, input.targetWorkspaceId);
+  if (!result.success) return { statusCode: 409, error: { code: result.code || 'THAW_FAILED', message: result.error || 'Snapshot could not be thawed.' } };
+  const agents = result.state.agents || [];
+  await validateThawBindings(tx, { agents, targetWorkspaceId: input.targetWorkspaceId, workspaceId: persisted.workspace_id });
+  await thawAgents(tx, { agents, targetWorkspaceId: input.targetWorkspaceId, workspaceId: persisted.workspace_id });
+  await markSnapshotThawed(tx, persisted.snapshot_id, input.username);
+  return { result };
+}
+
+function missingSnapshotOutcome(snapshotId) {
+  return { statusCode: 404, error: { code: 'SNAPSHOT_NOT_FOUND', message: `Cryptobiosis snapshot '${snapshotId}' was not found.` } };
 }
 
 async function thawCryptobiosis(req, res, next) {
@@ -106,18 +139,11 @@ async function thawCryptobiosis(req, res, next) {
     const { snapshotId, targetWorkspaceId } = req.body || {};
     if (!snapshotId) return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'snapshotId is required.' } });
     const db = await getDatabase();
-    const persisted = await findSnapshot(db, req, snapshotId);
-    if (!persisted) return res.status(404).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: `Cryptobiosis snapshot '${snapshotId}' was not found.` } });
-    if (targetWorkspaceId && !await scopedWorkspace(db, req, targetWorkspaceId)) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Target workspace '${targetWorkspaceId}' was not found.` } });
-    resilienceService.hydrateCryptobiosis({ snapshotId: persisted.id, workspaceId: persisted.workspace_id, reason: persisted.reason, frozenAt: persisted.frozen_at, state: JSON.parse(persisted.state_json || '{}') });
-    const result = await resilienceService.thawCryptobiosis(db, snapshotId, targetWorkspaceId);
-    if (!result.success) return res.status(409).json({ error: { code: result.code || 'THAW_FAILED', message: result.error || 'Snapshot could not be thawed.' } });
-    const agents = result.state.agents || [];
-    await database.withTransaction(db, async (tx) => {
-      await validateThawBindings(tx, { agents, targetWorkspaceId, workspaceId: persisted.workspace_id });
-      await thawAgents(tx, { agents, targetWorkspaceId, workspaceId: persisted.workspace_id });
-      await markSnapshotThawed(tx, snapshotId, req.user?.username || 'operator');
-    });
+    const outcome = await database.withTransaction(db, tx => thawSnapshotTransaction(tx, {
+      req, snapshotId, targetWorkspaceId, username: req.user?.username || 'operator'
+    }));
+    if (outcome.statusCode) return res.status(outcome.statusCode).json({ error: outcome.error });
+    const result = outcome.result;
 
     telemetry.emitEvent({
       eventType: 'CRYPTOBIOSIS_THAWED',
