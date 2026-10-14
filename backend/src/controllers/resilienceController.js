@@ -3,7 +3,8 @@
  * Adaptive Apoptosis autopsy, Cryptobiosis freeze/thaw, and hypermutation drift inspection.
  */
 
-const { getDatabase } = require('../db');
+const database = require('../db');
+const { getDatabase } = database;
 const resilienceService = require('../services/resilienceService');
 const telemetry = require('../services/telemetryObserver');
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
@@ -74,12 +75,30 @@ async function findSnapshot(db, req, snapshotId) {
 
 async function thawAgents(db, { agents, targetWorkspaceId, workspaceId }) {
   for (const agent of agents) {
-    await db.run('UPDATE agents SET status = ?, current_task = ?, workspace_id = COALESCE(?, workspace_id), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND workspace_id = ?', agent.status, agent.currentTask || null, targetWorkspaceId || null, agent.id, workspaceId);
+    const updated = await db.run('UPDATE agents SET status = ?, current_task = ?, workspace_id = COALESCE(?, workspace_id), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND workspace_id = ?', agent.status, agent.currentTask || null, targetWorkspaceId || null, agent.id, workspaceId);
+    if (updated.changes !== 1) throw thawConflict(`Agent '${agent.id}' changed workspace during thaw.`);
+  }
+}
+
+function thawConflict(message) {
+  return Object.assign(new Error(message), { code: 'CRYPTOBIOSIS_TOPOLOGY_SCOPE_CONFLICT' });
+}
+
+async function validateThawBindings(db, input) {
+  const cohort = new Set(input.agents.map((agent) => agent.id));
+  const target = input.targetWorkspaceId || input.workspaceId;
+  for (const item of input.agents) {
+    const agent = await db.get('SELECT id, parent_agent_id, workspace_id FROM agents WHERE id = ?', item.id);
+    if (!agent || agent.workspace_id !== input.workspaceId) throw thawConflict(`Agent '${item.id}' is no longer in the frozen workspace.`);
+    if (target === input.workspaceId || !agent.parent_agent_id || cohort.has(agent.parent_agent_id)) continue;
+    const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agent.parent_agent_id);
+    if (!parent || parent.workspace_id !== target) throw thawConflict(`Thawing '${item.id}' would separate it from parent '${agent.parent_agent_id}'.`);
   }
 }
 
 async function markSnapshotThawed(db, snapshotId, username) {
-  await db.run('UPDATE cryptobiosis_snapshots SET thawed_at = CURRENT_TIMESTAMP, thawed_by = ? WHERE id = ?', username || 'operator', snapshotId);
+  const updated = await db.run('UPDATE cryptobiosis_snapshots SET thawed_at = CURRENT_TIMESTAMP, thawed_by = ? WHERE (snapshot_id = ? OR id = ?) AND thawed_at IS NULL', username || 'operator', snapshotId, snapshotId);
+  if (updated.changes !== 1) throw thawConflict(`Cryptobiosis snapshot '${snapshotId}' was already thawed or changed.`);
 }
 
 async function thawCryptobiosis(req, res, next) {
@@ -92,8 +111,13 @@ async function thawCryptobiosis(req, res, next) {
     if (targetWorkspaceId && !await scopedWorkspace(db, req, targetWorkspaceId)) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Target workspace '${targetWorkspaceId}' was not found.` } });
     resilienceService.hydrateCryptobiosis({ snapshotId: persisted.id, workspaceId: persisted.workspace_id, reason: persisted.reason, frozenAt: persisted.frozen_at, state: JSON.parse(persisted.state_json || '{}') });
     const result = await resilienceService.thawCryptobiosis(db, snapshotId, targetWorkspaceId);
-    await thawAgents(db, { agents: result.state.agents || [], targetWorkspaceId, workspaceId: persisted.workspace_id });
-    await markSnapshotThawed(db, snapshotId, req.user?.username || 'operator');
+    if (!result.success) return res.status(409).json({ error: { code: result.code || 'THAW_FAILED', message: result.error || 'Snapshot could not be thawed.' } });
+    const agents = result.state.agents || [];
+    await database.withTransaction(db, async (tx) => {
+      await validateThawBindings(tx, { agents, targetWorkspaceId, workspaceId: persisted.workspace_id });
+      await thawAgents(tx, { agents, targetWorkspaceId, workspaceId: persisted.workspace_id });
+      await markSnapshotThawed(tx, snapshotId, req.user?.username || 'operator');
+    });
 
     telemetry.emitEvent({
       eventType: 'CRYPTOBIOSIS_THAWED',
