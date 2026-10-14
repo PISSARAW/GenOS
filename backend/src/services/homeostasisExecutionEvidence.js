@@ -2,6 +2,7 @@
 const crypto = require('node:crypto');
 const { digest } = require('./biologicalIntegrity');
 const biology = require('./biologicalWorkerReceiptService');
+const { DIVISION_RECEIPT_SCHEMA, validateDivisionReceipt } = require('./biologicalExecutionReceiptService');
 const { migrateBiologicalExecutionReceipts } = require('../db/migrations/migrateBiologicalExecutionReceipts');
 
 async function missionScope(db, mission) {
@@ -21,9 +22,10 @@ async function collect(db, missionId) {
     : { satisfied: true, missing: [], rejected: [], receipts: [] };
   const rust = await rustReferences(db, missionId);
   if (registered) await require('../db/migrations/migrateHomeostasisAuthority').ensureCompletionGuard(db);
-  const references = [...rust, ...workers.receipts.map(workerReference)].sort((a, b) => a.receiptId.localeCompare(b.receiptId));
+  const references = [...rust.references, ...workers.receipts.map(workerReference)].sort((a, b) => a.receiptId.localeCompare(b.receiptId));
   return { satisfied: workers.satisfied, missing: workers.missing, rejected: workers.rejected,
-    workerCount: workers.receipts.length, references, epoch: digest(references) };
+    workerCount: workers.receipts.length, references,
+    verifiedRustDivisionReceipts: rust.verifiedDivisions, epoch: digest(references) };
 }
 
 function workerReference(receipt) {
@@ -34,19 +36,55 @@ function workerReference(receipt) {
 
 async function rustReferences(db, missionId) {
   const rows = await db.all('SELECT * FROM biological_execution_receipts WHERE mission_id = ? ORDER BY receipt_id', missionId);
-  return rows.map(row => {
+  const mapping = await db.get('SELECT rust_mission_id FROM biological_execution_missions WHERE mission_id = ?', missionId);
+  const references = [];
+  const verifiedDivisions = [];
+  for (const row of rows) {
     const payload = JSON.parse(row.receipt_json);
     const hash = crypto.createHash('sha256').update(row.receipt_json).digest('hex');
     if (hash !== row.payload_hash || payload.mission_id !== missionId) throw new Error('Biological receipt integrity mismatch');
-    return { runtime: 'rust-organism', schema: payload.schema, receiptId: row.receipt_id, payloadHash: hash,
-      cellId: row.cell_id, genomeId: row.genome_id, genomeHash: payload.genome_fingerprint || null };
-  });
+    assertReceiptColumnsMatchRow(row, payload);
+    references.push({ runtime: receiptRuntime(row), origin: row.receipt_origin || null,
+      schema: payload.schema, receiptId: row.receipt_id, payloadHash: hash,
+      cellId: row.cell_id, genomeId: row.genome_id, genomeHash: payload.genome_fingerprint || null });
+    const division = verifiedDivisionReference({ row, payload, hash, missionId, rustMissionId: mapping?.rust_mission_id });
+    if (division) verifiedDivisions.push(division);
+  }
+  return { references, verifiedDivisions };
+}
+
+function assertReceiptColumnsMatchRow(row, payload) {
+  if (row.receipt_schema !== payload.schema || row.operation !== payload.operation
+    || row.cost !== payload.cost || row.cost_unit !== payload.cost_unit
+    || row.cell_id !== (payload.cell_id || null) || row.genome_id !== (payload.genome_id || null)) {
+    throw new Error('Biological receipt column binding mismatch');
+  }
+}
+
+function receiptRuntime(row) {
+  if (row.receipt_origin === 'genos-rust-cli') return 'rust-organism';
+  if (row.receipt_origin && row.origin_signature && row.origin_nonce) return 'authenticated-ingest';
+  return 'unattributed-biological-receipt';
+}
+
+function verifiedDivisionReference(input) {
+  const { row, payload, hash, missionId, rustMissionId } = input;
+  if (payload.schema !== DIVISION_RECEIPT_SCHEMA || row.receipt_origin !== 'genos-rust-cli'
+    || !rustMissionId || payload.rust_mission_id !== rustMissionId) return null;
+  validateDivisionReceipt(payload);
+  if (payload.operation !== 'cell_division' || payload.completed !== true) return null;
+  return { receiptId: row.receipt_id, payloadHash: hash, schema: payload.schema,
+    operation: payload.operation, completed: payload.completed, missionId,
+    rustMissionId, parentCellId: payload.parent_cell_id, daughterCellId: payload.daughter_cell_id,
+    parentGenomeId: payload.parent_genome_id, daughterGenomeId: payload.daughter_genome_id,
+    lineageId: payload.lineage_id, generation: payload.generation };
 }
 
 function contextWithEvidence(context, execution) {
   const kinds = evidenceKinds(context.evidence).filter(kind => kind !== 'biological_worker_receipt');
   if (execution.satisfied && execution.workerCount > 0) kinds.push('biological_worker_receipt');
-  return { ...context, evidence: [...new Set(kinds)] };
+  return { ...context, evidence: [...new Set(kinds)],
+    verifiedRustDivisionReceipts: execution.verifiedRustDivisionReceipts || [] };
 }
 
 function evidenceKinds(value) {

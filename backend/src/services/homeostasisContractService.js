@@ -46,8 +46,23 @@ const VERIFIER_CATALOG = Object.freeze({
   'mission.functional_check': {
     description: 'Named mission functional check is true',
     build: (spec) => (ctx) => Boolean(ctx?.functionalChecks?.[spec.name] === true)
+  },
+  'rust.cell_division_completed': {
+    description: 'Exact locally executed Rust cell-division receipt is verified for this mission',
+    build: rustDivisionVerifier
   }
 });
+
+function rustDivisionVerifier(spec) {
+  if (!isUuid(spec.receiptId)) throw new Error('rust.cell_division_completed requires a receiptId UUID');
+  return (ctx) => (ctx?.verifiedRustDivisionReceipts || []).some(receipt =>
+    receipt.receiptId === spec.receiptId && receipt.schema === 'genos.cell-division-receipt/v1'
+      && receipt.operation === 'cell_division' && receipt.completed === true);
+}
+
+function isUuid(value) {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
 function resolvePath(source, pathSpec) {
   if (!pathSpec) return undefined;
@@ -88,9 +103,13 @@ function resolveVerifier(input = {}) {
 }
 
 function buildInvariant(input = {}) {
+  const kind = invariantClass(input.kind || input.class || FUNCTIONAL);
+  if (input.verifier?.type === 'rust.cell_division_completed' && kind !== STRUCTURAL) {
+    throw new Error('rust.cell_division_completed must be a structural invariant');
+  }
   return {
     id: input.id || invariantId(),
-    kind: invariantClass(input.kind || input.class || FUNCTIONAL),
+    kind,
     label: input.label || null,
     verifier: input.verifier || null,
     check: resolveVerifier(input),

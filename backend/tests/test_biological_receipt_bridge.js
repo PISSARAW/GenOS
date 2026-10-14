@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
 
 const dbPath = path.join(os.tmpdir(), `genos_biological_bridge_${randomUUID()}.db`);
 process.env.GENOS_DB_PATH = dbPath;
@@ -14,6 +14,8 @@ const { ingestBiologicalReceipt, runMissionTick } = require('../src/services/bio
 const missionContinuity = require('../src/services/missionContinuityService');
 const biologicalReceiptController = require('../src/controllers/biologicalReceiptController');
 const receiptOrigin = require('../src/middleware/biologicalReceiptOrigin');
+const homeostasisEvidence = require('../src/services/homeostasisExecutionEvidence');
+const { buildHomeostasisContract, evaluateContract } = require('../src/services/homeostasisContractService');
 
 function sampleReceipt(missionId, receiptId) {
   return {
@@ -53,6 +55,9 @@ async function run() {
     db = await getDatabase(dbPath);
     const reopened = await db.get('SELECT receipt_json FROM biological_execution_receipts WHERE receipt_id = ?', receiptId);
     assert.equal(JSON.parse(reopened.receipt_json).mission_id, missionId);
+    const unattributed = await homeostasisEvidence.collect(db, missionId);
+    assert.equal(unattributed.references.find((item) => item.receiptId === receiptId).runtime,
+      'unattributed-biological-receipt', 'unsigned direct ingestion is not mislabeled as Rust runtime provenance');
 
     const divisionMissionId = randomUUID();
     await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)', divisionMissionId, 'division receipt bridge');
@@ -83,6 +88,23 @@ async function run() {
       assert.equal(persistedDivision.operation, 'cell_division');
       assert.ok(persistedDivision.cell_id && persistedDivision.genome_id);
       assert.ok(JSON.parse(persistedDivision.receipt_json).daughter_cell_id);
+      const rustMissionId = (await db.get('SELECT rust_mission_id FROM biological_execution_missions WHERE mission_id = ?', divisionMissionId)).rust_mission_id;
+      await insertUntrustedDivisionReceipt(db, { missionId: divisionMissionId, rustMissionId, origin: 'untrusted-source' });
+      await insertUntrustedDivisionReceipt(db, { missionId: divisionMissionId, rustMissionId: randomUUID(), origin: 'genos-rust-cli' });
+      await insertUntrustedDivisionReceipt(db, { missionId: divisionMissionId, rustMissionId, origin: 'genos-rust-cli', completed: false });
+      const execution = await homeostasisEvidence.collect(db, divisionMissionId);
+      assert.equal(execution.verifiedRustDivisionReceipts.length, 1,
+        'only the locally executed and origin-bound division is contract evidence');
+      assert.equal(execution.verifiedRustDivisionReceipts[0].receiptId, divisionReceiptId);
+      const contract = buildHomeostasisContract({ missionId: divisionMissionId, invariants: [{ id: 'division-completed',
+        kind: 'structural', verifier: { type: 'rust.cell_division_completed', receiptId: divisionReceiptId } }] });
+      const validContext = homeostasisEvidence.contextWithEvidence({ verifiedRustDivisionReceipts: [] }, execution);
+      assert.equal(evaluateContract(contract, validContext).homeostasisSatisfied, true,
+        'a precise structural invariant can compose with a verified Rust division receipt');
+      const forgedContext = homeostasisEvidence.contextWithEvidence({ verifiedRustDivisionReceipts: execution.verifiedRustDivisionReceipts },
+        { ...execution, verifiedRustDivisionReceipts: [] });
+      assert.equal(evaluateContract(contract, forgedContext).homeostasisSatisfied, false,
+        'caller-supplied Rust receipt markers cannot satisfy the invariant');
       const duplicateDivision = await runMissionTick(db, { missionId: divisionMissionId, divide: true });
       assert.ok(duplicateDivision.receipts.find((row) => row.receiptId === divisionReceiptId)?.duplicate,
         'division receipt ingestion is idempotent across repeated backend delivery');
@@ -142,6 +164,25 @@ async function run() {
     await closeDatabase();
     for (const suffix of ['', '-shm', '-wal']) if (fs.existsSync(dbPath + suffix)) fs.unlinkSync(dbPath + suffix);
   }
+}
+
+async function insertUntrustedDivisionReceipt(db, input) {
+  const receipt = { schema: 'genos.cell-division-receipt/v1', receipt_id: randomUUID(),
+    mission_id: input.missionId, rust_mission_id: input.rustMissionId, operation: 'cell_division',
+    parent_cell_id: randomUUID(), daughter_cell_id: randomUUID(), parent_genome_id: randomUUID(),
+    daughter_genome_id: randomUUID(), lineage_id: randomUUID(), generation: 2,
+    requested_cost: 12, consumed_cost: 12, cost: 12, cost_unit: 'atp_token', completed: input.completed !== false,
+    reason: null, observed_at_unix_ms: 4323 };
+  receipt.cell_id = receipt.parent_cell_id;
+  receipt.genome_id = receipt.parent_genome_id;
+  const encoded = JSON.stringify(Object.fromEntries(Object.entries(receipt).sort(([a], [b]) => a.localeCompare(b))));
+  const payloadHash = createHash('sha256').update(encoded).digest('hex');
+  await db.run(`INSERT INTO biological_execution_receipts
+    (receipt_id, mission_id, receipt_schema, operation, cost, cost_unit, cell_id, genome_id,
+     identity_status, payload_hash, receipt_json, receipt_origin)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'resolved', ?, ?, ?)`,
+  receipt.receipt_id, input.missionId, receipt.schema, receipt.operation, receipt.cost, receipt.cost_unit,
+  receipt.parent_cell_id, receipt.parent_genome_id, payloadHash, encoded, input.origin);
 }
 
 async function authenticateOrigin(receipt, metadata, secret) {

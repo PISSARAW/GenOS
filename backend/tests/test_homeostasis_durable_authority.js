@@ -1,5 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
 const { openDatabase, authoritySchema } = require('./helpers/biologyDatabase');
 const { buildHomeostasisContract, serializeContract, deserializeContract, evaluateContract,
   homeostasisStatus } = require('../src/services/homeostasisContractService');
@@ -54,6 +55,18 @@ async function declarations(db) {
   const restored = deserializeContract(serializeContract(declared('works')));
   assert.equal(evaluateContract(restored, { flags: { works: true } }).homeostasisSatisfied, false);
   assert.equal(evaluateContract(restored, { flags: { works: true }, evidence: ['proof'] }).homeostasisSatisfied, true);
+  const division = buildHomeostasisContract({ missionId: 'mission', invariants: [{ id: 'division', kind: 'structural',
+    verifier: { type: 'rust.cell_division_completed', receiptId: randomUUID() } }] });
+  const restoredDivision = deserializeContract(serializeContract(division));
+  assert.equal(evaluateContract(restoredDivision, { verifiedRustDivisionReceipts: [
+    { receiptId: division.invariants[0].verifier.receiptId, schema: 'genos.cell-division-receipt/v1',
+      operation: 'cell_division', completed: true }
+  ] }).homeostasisSatisfied, true, 'Rust division verifier survives durable contract reload');
+  assert.equal(evaluateContract(restoredDivision, {}).homeostasisSatisfied, false);
+  assert.throws(() => buildHomeostasisContract({ invariants: [{ kind: 'functional',
+    verifier: { type: 'rust.cell_division_completed', receiptId: randomUUID() } }] }), /structural invariant/);
+  assert.throws(() => buildHomeostasisContract({ invariants: [{ kind: 'structural',
+    verifier: { type: 'rust.cell_division_completed', receiptId: 'not-a-uuid' } }] }), /receiptId UUID/);
 }
 
 function thresholds() {
