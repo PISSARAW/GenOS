@@ -13,6 +13,11 @@ assert.ok(report.properties.counterexamples.items.required.includes('evidence'))
 const trinityRed = workerArtifactResponseFormat('red_worker', ['mission']).schema;
 assert.deepEqual(trinityRed.properties.claims.items.properties.evidence.items.enum, ['mission']);
 assert.deepEqual(trinityRed.properties.workerArtifact.properties.content.properties.evidence.items.enum, ['mission']);
+const diagnosis = workerArtifactResponseFormat('red_worker', ['mission'], true).schema;
+const matrix = diagnosis.properties.workerArtifact.properties.content.properties.diagnosticMatrix;
+assert.deepEqual(matrix.required, ['coldStartOrJit', 'sleepingConnectionPool', 'coldApplicationCacheOrDns', 'swapOrPageCache', 'autoscalingOrSleep', 'tlsSessionResumption']);
+assert.deepEqual(matrix.properties.coldStartOrJit.properties.evidence.items.enum, ['mission']);
+assert.ok(diagnosis.properties.workerArtifact.properties.content.required.includes('conditionalVerdict'));
 
 const dossier = workerArtifactResponseFormat('specialist').schema;
 assert.ok(dossier.required.includes('specialtyAssessment'));

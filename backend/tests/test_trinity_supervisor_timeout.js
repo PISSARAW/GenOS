@@ -42,10 +42,11 @@ async function verifyUnpromotedWorkersAreTerminal() {
       : [{ event_type: 'AGENT_COMPLETED', payload_json: JSON.stringify({
         executionRunId: 'run-1', evidenceReport: { outcome: 'success', claims: [] }
       }) }],
-    get: async () => ({ id: 'run-1', status: 'blocked', guardrail_reason: 'require_independent_verification' })
+    get: async () => ({ id: 'run-1', status: 'blocked', guardrail_reason: 'Promotion gate blocked (require_replay): deterministic replay required.' })
   };
   const workers = await supervisor.waitForWorkers(db, { missionId: 'mission-1', expectedWorlds: 1, timeoutMs: 5 });
   assert.equal(workers[0].status, 'completed_unpromoted');
+  assert.equal(workers[0].promotionBlockReason, 'require_replay');
 }
 assert.throws(() => supervisor.requireCompleteReports([
   { outcome: 'success', claims: [{}], tests: [], report: { outcome: 'success' } },

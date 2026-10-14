@@ -50,7 +50,7 @@ function resolveMaxTokens(budget, estimate) {
   if (budget <= 0) return undefined;
   return budget - estimate;
 }
-function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, mission.missionScope?.trinityExperimentId ? ['mission'] : []); }
+function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, mission.missionScope?.trinityExperimentId ? ['mission'] : [], /artifact=diagnostic_matrix/i.test(mission.prompt || '')); }
 function sourceReferenceInstruction(mission) {
   return mission.missionScope?.trinityExperimentId
     ? 'Ground evidence in the supplied mission only. Use the exact evidence ID "mission"; do not invent source IDs, receipts, measurements, or completed reproduction steps.' : '';

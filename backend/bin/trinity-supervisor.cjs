@@ -32,16 +32,17 @@ async function assessWorkerExecution(db, worker) {
   if (worker.status === 'completed') return worker;
   const run = await db.get(`SELECT id, status, guardrail_reason FROM strategy_execution_runs
     WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1`, worker.agentId);
-  if (!promotionVerificationBlocked(run)) return worker;
+  const promotionBlockReason = promotionGateBlockReason(run);
+  if (!promotionBlockReason) return worker;
   const events = await db.all(`SELECT event_type, payload_json FROM telemetry_events
     WHERE agent_id = ? AND event_type IN ('AGENT_COMPLETED', 'AGENT_FAILED') ORDER BY rowid DESC LIMIT 1`, worker.agentId);
   if (!completedReportForRun(events, run.id)) return worker;
-  return { ...worker, status: 'completed_unpromoted', promotionBlocked: true,
-    promotionBlockReason: 'require_independent_verification' };
+  return { ...worker, status: 'completed_unpromoted', promotionBlocked: true, promotionBlockReason };
 }
 
-function promotionVerificationBlocked(run) {
-  return run?.status === 'blocked' && /require_independent_verification/.test(run.guardrail_reason || '');
+function promotionGateBlockReason(run) {
+  if (run?.status !== 'blocked') return null;
+  return String(run.guardrail_reason || '').match(/Promotion gate blocked \((require_[a-z_]+)\)/i)?.[1] || null;
 }
 
 function completedReportForRun(events, runId) {

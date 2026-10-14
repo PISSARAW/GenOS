@@ -16,16 +16,21 @@ comparaison, même si le rapport `AGENT_COMPLETED` était conservé.
 
 ## Décision
 
-La supervision peut inclure un tel worker dans la comparaison uniquement si le
-dernier run est bloqué par `require_independent_verification` et si son dernier
-événement terminal est `AGENT_COMPLETED` pour ce même run avec un rapport de
-succès substantiel. La classification interne `completed_unpromoted` distingue
-la fin de l’exécution du refus de promotion. Les erreurs de modèle, de budget,
+La supervision peut inclure un worker dans la comparaison uniquement si son
+dernier run est bloqué par un gate de promotion et si son dernier événement
+terminal est `AGENT_COMPLETED` pour ce même run avec un rapport de succès
+substantiel. La classification interne `completed_unpromoted` distingue la fin
+de l’exécution du refus de promotion. Les erreurs de modèle, de budget,
 d’artefact et les autres refus restent des échecs d’exécution.
 
 Le runtime local transmet aussi au fournisseur un schéma JSON dérivé du contrat
 worker. Le schéma contraint les formes d’artefact et les valeurs énumérées,
 tandis que la validation GenOS existante demeure l’autorité finale.
+
+Quand le contrat de mission demande un `diagnostic_matrix`, le schéma exige les
+six hypothèses annoncées, leur signal attendu, les observations contradictoires,
+une mesure discriminante et une conclusion conditionnelle. Les références de
+chaque ligne restent limitées aux preuves fournies par la mission.
 
 Pour les workers spécialistes Trinity, la niche implicite vient du domaine
 déclaré, jamais du libellé du monde ou de sa chambre.
