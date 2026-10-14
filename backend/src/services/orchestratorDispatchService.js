@@ -6,6 +6,8 @@ function buildWorkerMission(input = {}) {
   const workerKind = workerKinds.resolveWorkerKind(input.workerKind, input.role || 'worker');
   const mission = {
     agentId: input.agentId,
+    name: input.name,
+    nameMeaning: input.nameMeaning,
     missionId: input.missionId,
     missionScope: input.missionScope,
     orchestratorAgentId: input.orchestratorAgentId,

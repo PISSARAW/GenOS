@@ -136,6 +136,12 @@ function buildWorkspaceHint(wsRoot) {
   return `[WORKSPACE] Root: ${wsRoot}`;
 }
 
+function buildIdentityBlock(params) {
+  const mission = params.mission;
+  if (!params.isWorker) return `[IDENTITY] Agent ID: ${mission.agentId || 'unknown'}`;
+  return `[IDENTITY]\nAgent ID: ${mission.agentId || 'unknown'}\nName: ${params.agentName || mission.name || mission.agentId || 'unknown'}\nRole: ${mission.role || 'Autonomous implementation agent'}\nMission ID: ${mission.missionId || 'unbound'}\nOrchestrator ID: ${mission.orchestratorAgentId || mission.agentId || 'unknown'}`;
+}
+
 function buildReviewHint(isWorker, runtimeAutonomyPlan) {
   if (isWorker || !runtimeAutonomyPlan.localModelReview?.consulted) return '';
   return 'The local-model review above is advisory evidence. Explicitly compare it with the strategy contract before dispatching, replaying, merging, or rejecting its recommendations; mention the accepted or rejected recommendations in your final evidence report.';
@@ -170,6 +176,7 @@ function runtimePromptParameters(ctx) {
     enableToolGating: ctx.enableToolGating,
     capabilityManifest: ctx.capabilityManifest,
     capabilities: ctx.capabilities,
+    agentName: ctx.agentName,
   };
   return params;
 }
@@ -184,7 +191,7 @@ function buildAgentRuntimePrompt(ctx) {
 
   const prompt = [
     `${params.selfIntro}`,
-    `Agent role: ${params.mission.role || 'Autonomous implementation agent'}.`,
+    buildIdentityBlock(params),
     `[ASSIGNED MISSION]\n${params.mission.prompt || params.mission.currentTask || ''}`,
     buildWorkerOutputInstruction(params),
     params.agentSelfBlock,
