@@ -7,9 +7,12 @@ const organization = require('../src/services/dynamicOrganizationService');
 const { getDatabase, closeDatabase } = require('../src/db');
 
 async function createAgents(db) {
-  await db.run("INSERT INTO agents(id,name,role,status,execution_mode) VALUES ('receipt-root','Root','orchestrator','running','orchestrator')");
-  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('receipt-a','A','identity_witness','running','worker','receipt-root')");
-  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id) VALUES ('receipt-b','B','peer_mapper','running','worker','receipt-root')");
+  await db.run("INSERT INTO organizations(id,name) VALUES ('receipt-org','Receipt Org')");
+  await db.run("INSERT INTO projects(id,organization_id,name) VALUES ('receipt-project','receipt-org','Receipt Project')");
+  await db.run("INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES ('receipt-ws','Receipts','/receipt-test','receipt-org','receipt-project')");
+  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,workspace_id) VALUES ('receipt-root','Root','orchestrator','running','orchestrator','receipt-ws')");
+  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id,workspace_id) VALUES ('receipt-a','A','identity_witness','running','worker','receipt-root','receipt-ws')");
+  await db.run("INSERT INTO agents(id,name,role,status,execution_mode,parent_agent_id,workspace_id) VALUES ('receipt-b','B','peer_mapper','running','worker','receipt-root','receipt-ws')");
 }
 
 async function main() {
@@ -28,6 +31,8 @@ async function main() {
       kind: 'question', signalType: 'ligand', signalData: { topic: 'identity', request: 'declare_self' }
     });
     assert.deepEqual(direct.recipientAgentIds, ['receipt-b']);
+    assert.deepEqual(direct.routing.recipients.map((recipient) => recipient.agentId), ['receipt-b']);
+    assert.equal(direct.routing.routed, true);
     assert.equal((await organization.inbox(db, {
       orchestratorId: 'receipt-root', requesterAgentId: 'receipt-root'
     })).messages.length, 0, 'a direct peer message must not appear in the orchestrator inbox');
@@ -47,6 +52,8 @@ async function main() {
       signalType: 'ligand', signalData: { topic: 'identity', observation: 'peer_map_complete' }
     });
     assert.deepEqual(new Set(broadcast.recipientAgentIds), new Set(['receipt-root', 'receipt-b']));
+    assert.deepEqual(new Set(broadcast.routing.recipients.map((recipient) => recipient.agentId)),
+      new Set(['receipt-root', 'receipt-b']));
     const receipts = await db.all(
       'SELECT recipient_agent_id as recipientAgentId, state FROM agent_organization_message_receipts WHERE message_id = ? ORDER BY recipient_agent_id',
       broadcast.id

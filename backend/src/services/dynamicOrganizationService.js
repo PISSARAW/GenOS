@@ -304,7 +304,7 @@ async function publish(db, options = {}) {
   const routing = await signalRouter().routeCollectiveSignal({
     db, signalId: `organization-message-${result.lastID}`, signalType: signalInfo.signalType,
     signalData: signalInfo.signalType === 'text' ? null : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType),
-    orchestratorId, recipientAgentIds, changedBy: orchestratorId
+    orchestratorId, senderAgentId, recipientAgentIds, changedBy: orchestratorId
   });
   const proposal = signalRouter().proposedRoute(signalInfo.signalType, signalInfo.signalType === 'text' ? {} : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType));
   const changed = await require('./organizationMorphogenesisGate').applySignalOrganizationChange(db, {

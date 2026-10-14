@@ -94,7 +94,7 @@ function constrainRecipients(recipients, requestedRecipientIds) {
  * Détermine les destinataires d'un signal.
  * Scope strict : même organisation ET même projet que l'orchestrateur.
  */
-async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}, orchestratorId = null, recipientAgentIds }) {
+async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}, orchestratorId = null, senderAgentId = null, recipientAgentIds }) {
   const topic = extractTopic(signalType, signalData);
   const recipients = [];
   let scope = { orgId: null, projId: null };
@@ -104,7 +104,7 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
       routingMode: Array.isArray(recipientAgentIds) ? 'scope_mismatch' : 'local_only' };
   }
 
-  ({ scope } = await routedRecipients({ db, orchestratorId, recipientAgentIds, recipients }));
+  ({ scope } = await routedRecipients({ db, orchestratorId, senderAgentId, recipientAgentIds, recipients }));
 
   const constrained = constrainRecipients(recipients.filter((recipient) => recipient.kind === 'agent'), recipientAgentIds);
   const finalRecipients = Array.isArray(recipientAgentIds) ? constrained.recipients : recipients;
@@ -134,7 +134,7 @@ module.exports = {
   SIGNAL_TOPIC_PREFIXES,
 };
 
-async function routedRecipients({ db, orchestratorId, recipientAgentIds, recipients }) {
+async function routedRecipients({ db, orchestratorId, senderAgentId, recipientAgentIds, recipients }) {
   let scope = { orgId: null, projId: null };
   try {
     const ws = await db.get(
@@ -144,7 +144,7 @@ async function routedRecipients({ db, orchestratorId, recipientAgentIds, recipie
     );
     scope = { orgId: ws?.organizationId, projId: ws?.projectId };
     if (scope.orgId && scope.projId) await plasticity.loadWeights(db);
-  const rows = await signalRecipientRows({ db, recipientAgentIds, orchestratorId, scope, ws });
+  const rows = await signalRecipientRows({ db, recipientAgentIds, orchestratorId, senderAgentId, scope, ws });
     for (const row of rows) {
       const channelWeight = plasticity.getChannelWeight(orchestratorId, row.id);
       recipients.push({ kind: 'agent', agentId: row.id, agentName: row.name, weight: channelWeight.weight });
@@ -163,9 +163,9 @@ async function routedRecipients({ db, orchestratorId, recipientAgentIds, recipie
   return { scope };
 }
 
-async function signalRecipientRows({ db, recipientAgentIds, orchestratorId, scope, ws }) {
+async function signalRecipientRows({ db, recipientAgentIds, orchestratorId, senderAgentId, scope, ws }) {
     const rows = Array.isArray(recipientAgentIds)
-      ? await fetchRequestedRecipients({ db, senderId: orchestratorId, scope, requestedIds: [...new Set(recipientAgentIds)] })
+      ? await fetchRequestedRecipients({ db, senderId: senderAgentId || orchestratorId, scope, requestedIds: [...new Set(recipientAgentIds)] })
       : ws?.executionMode === 'orchestrator' ? await fetchAgentRecipients(db, orchestratorId, scope) : [];
   return rows;
 }
