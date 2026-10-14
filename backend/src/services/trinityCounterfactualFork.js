@@ -147,10 +147,7 @@ async function analyzeCounterfactualResults(input) {
   const { baselineReport, favorableReport, adverseReport, interventions } = input;
   const favorableDelta = computeDelta(baselineReport, favorableReport);
   const adverseDelta = computeDelta(baselineReport, adverseReport);
-  const responsible = identifyResponsibleVariables(
-    { ...favorableDelta, ...adverseDelta },
-    [interventions.favorable, interventions.adverse]
-  );
+  const responsible = combineInterventionDeltas(favorableDelta, adverseDelta, interventions);
 
   return {
     baselineEvidenceVector: baselineReport.evidenceVector || {},
@@ -164,8 +161,25 @@ async function analyzeCounterfactualResults(input) {
     },
     conclusion: responsible.length > 0
       ? `Key drivers: ${responsible.slice(0, 3).map(r => r.dimension).join(', ')}`
-      : 'No significant counterfactual effects detected'
+      : 'No significant conditional effects detected',
+    causalAttribution: 'conditional_prompt_sensitivity_only'
   };
+}
+
+function combineInterventionDeltas(favorableDelta, adverseDelta, interventions) {
+  const dimensions = new Set([...Object.keys(favorableDelta), ...Object.keys(adverseDelta)]);
+  return [...dimensions].map((dimension) => {
+    const favorableChange = favorableDelta[dimension] || 0;
+    const adverseChange = adverseDelta[dimension] || 0;
+    const change = Math.abs(favorableChange) >= Math.abs(adverseChange)
+      ? favorableChange : adverseChange;
+    const linkedInterventions = [interventions.favorable, interventions.adverse]
+      .filter((intervention) => intervention && (intervention.dimension === dimension
+        || String(intervention.description || '').includes(dimension)));
+    return { dimension, change, favorableChange, adverseChange, linkedInterventions };
+  }).filter((entry) => Math.abs(entry.favorableChange) > 0.05 || Math.abs(entry.adverseChange) > 0.05)
+    .sort((a, b) => Math.max(Math.abs(b.favorableChange), Math.abs(b.adverseChange))
+      - Math.max(Math.abs(a.favorableChange), Math.abs(a.adverseChange)));
 }
 
 module.exports = {
