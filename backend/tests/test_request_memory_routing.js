@@ -73,8 +73,20 @@ async function main() {
     () => registry.promoteChampion(db, trivial.semanticId, provisionalId),
     (error) => error.code === 'RESULT_PROMOTION_BLOCKED'
   );
-  const stale = await registry.lookupReusable(db, { semanticId: trivial.semanticId, dependencies: { repo_head: 'xyz' } });
-  check('deps change invalidates', stale.hit === false);
+  await db.run('UPDATE request_results SET dependencies_json = ? WHERE id = ?', JSON.stringify({ repo_head: 'abc', runtime: 'v1' }), hit.champion.id);
+  const omittedDependencies = await registry.lookupReusable(db, { semanticId: trivial.semanticId });
+  check('missing dependency snapshot cannot reuse champion', omittedDependencies.hit === false && omittedDependencies.reason === 'dependencies-unavailable');
+  check('missing dependency snapshot does not destroy champion', (await registry.getChampion(db, trivial.semanticId)).champion.status === 'VERIFIED');
+  const sameDependencies = await registry.lookupReusable(db, {
+    semanticId: trivial.semanticId, dependencies: { runtime: 'v1', repo_head: 'abc' }
+  });
+  check('same dependency snapshot remains reusable', sameDependencies.hit === true);
+  const malformedDependencies = await registry.lookupReusable(db, { semanticId: trivial.semanticId, dependencies: 'repo_head=abc' });
+  check('malformed dependency snapshot cannot reuse champion', malformedDependencies.hit === false && malformedDependencies.reason === 'dependencies-invalid');
+  const droppedDependency = await registry.lookupReusable(db, {
+    semanticId: trivial.semanticId, dependencies: { repo_head: 'abc' }
+  });
+  check('removed dependency invalidates champion', droppedDependency.hit === false && droppedDependency.reason === 'deps-changed');
   await db.close();
   console.log('request-memory routing: all assertions passed');
 }

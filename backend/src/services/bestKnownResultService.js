@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('crypto');
+const { isDeepStrictEqual } = require('node:util');
 const { migrateRequestMemory } = require('../db/migrations/migrateRequestMemory');
 
 async function ensureTables(db) {
@@ -25,17 +26,26 @@ function isExpired(row) {
 }
 
 function depsChanged(storedJson, currentDeps) {
-  const stored = parseJson(storedJson);
-  if (!currentDeps || Object.keys(currentDeps).length === 0) return false;
-  return Object.keys(currentDeps).some((k) => String(stored[k] || '') !== String(currentDeps[k]));
+  const stored = parseDependencyMap(storedJson);
+  if (!stored || !isDependencyMap(currentDeps)) return true;
+  const storedKeys = Object.keys(stored).sort();
+  const currentKeys = Object.keys(currentDeps).sort();
+  return storedKeys.length !== currentKeys.length
+    || storedKeys.some((key, index) => key !== currentKeys[index]
+      || !isDeepStrictEqual(stored[key], currentDeps[key]));
 }
 
-function parseJson(text) {
+function parseDependencyMap(text) {
   try {
-    return JSON.parse(text || '{}');
+    const value = JSON.parse(text || '{}');
+    return isDependencyMap(value) ? value : null;
   } catch (_) {
-    return {};
+    return null;
   }
+}
+
+function isDependencyMap(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 async function lookupReusable(db, input) {
@@ -48,7 +58,18 @@ async function lookupReusable(db, input) {
     await markStale(db, found.champion.id);
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'expired' };
   }
-  if (depsChanged(found.champion.dependencies_json, input.dependencies)) {
+  const storedDependencies = parseDependencyMap(found.champion.dependencies_json);
+  if (!storedDependencies) {
+    return { hit: false, problem: found.problem, champion: found.champion, reason: 'dependencies-invalid' };
+  }
+  if (input.dependencies !== undefined && !isDependencyMap(input.dependencies)) {
+    return { hit: false, problem: found.problem, champion: found.champion, reason: 'dependencies-invalid' };
+  }
+  const currentDependencies = isDependencyMap(input.dependencies) ? input.dependencies : {};
+  if (Object.keys(storedDependencies).length > 0 && !isDependencyMap(input.dependencies)) {
+    return { hit: false, problem: found.problem, champion: found.champion, reason: 'dependencies-unavailable' };
+  }
+  if (depsChanged(found.champion.dependencies_json, currentDependencies)) {
     await markStale(db, found.champion.id);
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'deps-changed' };
   }
