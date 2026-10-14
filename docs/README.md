@@ -329,6 +329,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0487b — Votes électrocytaires signés et rejouables](adr/0487-votes-electrocytaires-signes-et-rejouables.md) — lie la mission, la proposition, l'échéance, la cellule et le vote à une signature Ed25519 vérifiée contre la configuration de confiance.
 - [ADR 0488 — Borner les recherches de provenance MCP](adr/0488-borner-les-recherches-de-provenance.md) — limite les résultats et signale les réponses lineage tronquées.
 - [ADR 0500 — Revalider la preuve avant réutilisation](adr/0500-revalider-la-preuve-avant-reutilisation.md) — revalide la preuve persistée d'un résultat avant de le réutiliser comme champion.
+- [ADR 0504 — Exiger le snapshot courant, même vide](adr/0504-exiger-le-snapshot-courant-meme-vide.md) — distingue un snapshot de dépendances absent d'un snapshot explicitement sans dépendances.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)
