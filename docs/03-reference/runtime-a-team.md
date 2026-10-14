@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel pour la conformité globale ; parcours canonique de clôture implémenté.
 - **Portée** : backend Node, dispatch explicite et adaptateur autonome ; évaluateurs de variantes distincts.
-- **Dernière revue** : 2026-10-06.
+- **Dernière revue** : 2026-10-14.
 - **Décision** : [ADR 0329](../adr/0329-cloture-verifiable-runs-a-team.md).
 
 ## Snapshot topologique
@@ -172,8 +172,9 @@ node backend/tests/test_ateam_variant_acceptance.js
 ```
 
 Le test d'exécution utilise SQLite en mémoire et des sous-processus Node : promotion/refus,
-progression indépendante, reçu périmé, reprise du délai et bail obsolète. Les 49 cas
-d'acceptation des variantes portent sur leurs contrats isolés. Ils ne qualifient ni mission
+progression indépendante, reçu périmé, reprise du délai et bail obsolète. Les 51 cas
+d'acceptation des variantes portent sur leurs contrats isolés (campagne du 2026-10-14 :
+51 passés, 0 échoué). Ils ne qualifient ni mission
 LLM arbitraire, ni campagne de performance, ni sous-runs multiteam génériques.
 
 Le runner de programme `multiteam` relit le TeamRun enfant et son WorkGraph
@@ -193,6 +194,31 @@ des sous-équipes et un conseil. Son statut est `PLANNED`, avec la raison
 `verified_subruns_unavailable`. Ses événements `sub_team_planned` et
 `conflict_resolution_plan` décrivent des intentions ; ils ne sont pas des
 preuves d'exécution ou de résolution. Voir ADR 0438.
+
+## Vérification du 2026-10-14
+
+Routage `a_team` vérifié par `topologyWorkerKindService` (14/14 rôles) :
+
+| Rôle A-Team | `WorkerKind` | Capacité requise |
+|---|---|---|
+| `mathematician`, `frontend_engineer`, `backend_engineer`, `data_engineer`, `operations_engineer`, `ai_engineer`, `research_scientist`, `product_specialist` | `specialist` | `domain_specialization` |
+| `security_reviewer`, `quality_engineer`, `literary_critic` | `verifier_worker` | `verify` |
+| `integration_observer` | `synthesis_worker` | `synthesize`, `preserve_provenance` |
+| `literary_author`, `dramaturg` | `creative_worker` | `create_candidate` |
+
+Campagne exécutée depuis la racine :
+
+- `test_ateam_detection.js` : PASS.
+- `test_topology_worker_kind_matrix.js` : PASS (persistance, contrats, permissions).
+- `test_worker_kind_registry.js` : PASS (parité Rust/Node).
+- `test_ateam_execution_e2e.js`, `test_ateam_runtime.js`, `test_ateam_dispatch_runtime.js` : PASS.
+- `test_ateam_variant_acceptance.js` : 51 passés, 0 échoué.
+- `test_topology_worker_adequacy.js` : 19/19 kinds PASS.
+- `test_worker_qualification_inventory.js` : 19 kinds, 25 méthodes, 0 cas sans oracle.
+- `cargo test -p genos-worker` : 17/17 PASS.
+
+Limite : `test_worker_compliance_native_missions.js` a dépassé 120 s sans conclure ;
+la conformité native complète reste non certifiée sur ce tirage.
 
 ## Sources
 

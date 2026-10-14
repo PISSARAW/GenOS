@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel ; les douze variants ont un chemin d'exécution branché au superviseur. Les contrôles de preuves restent bloquants ; la campagne R3 pré-correctifs a produit 12/12 escalades et aucune promotion, et le runtime corrigé reste à requalifier.
 - **Portée** : trois mondes pour le parcours de base ; le plan factoriel lance seize cellules, la diversité peut ajouter des réplicas et la récursion lance une mission Trinity enfant. Les reçus et gates décrits ci-dessous déterminent si chaque parcours est complet.
-- **Dernière revue** : 2026-10-11
+- **Dernière revue** : 2026-10-14
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
@@ -90,6 +90,50 @@ sections historiques ci-dessous restent des objectifs empiriques lorsqu'elles
 promettent une qualité réelle ou un gain causal. La campagne R3 n'est pas
 requalifiée. La suite locale est `node backend/tests/run_trinity_suite.js`.
 Voir [ADR 0327](../../adr/0327-trinity-comparaison-recherche-et-assemblage.md).
+
+## Vérification des workers du 2026-10-14
+
+Contrôle ciblé, sans requalification de la campagne R3 : la campagne R3
+(12/12 escalades, 0 promotion) reste la référence et le runtime corrigé
+reste à qualifier de bout en bout.
+
+Protocole exécuté : trinityService.compose puis
+topologyWorkerKindService.applyTopologyWorkerKinds('trinity', ...),
+workerKindService.buildWorkerContract, trinityWorkerProfiles.assertPrelaunch,
+trinityWorldDesign.expectedWorlds / expand et
+workerRuntimeLimitsService.assertWorkerExecutorAvailable.
+
+Résultats constatés :
+
+- Base à trois mondes : basic_implementation/direct vers bounded_worker,
+  interview_plan_implementation/structured vers specialist,
+  self_correcting_implementation/falsification vers adaptive_worker.
+  Contrats dossier construits et assertPrelaunch valide avec les recettes
+  direct, planned, self_correcting.
+- Fan-out : expectedWorlds vaut 3 pour la baseline et 16 pour
+  worldTopology factorial_grid ; expand produit 16 cellules
+  (approach x modelTier x validation, 2 répétitions).
+- Exécuteurs disponibles pour prompt_defined : bounded_worker,
+  specialist, adaptive_worker, verifier_worker, red_worker,
+  experimental_worker, synthesis_worker, creative_worker.
+  formal_worker refuse prompt_defined (WORKER_EXECUTOR_UNAVAILABLE) :
+  comportement attendu pour un kind ALWAYS_NATIVE, non utilisé
+  par Trinity sous ce contrat.
+- Tests ciblés PASS (exit 0) : test_trinity_worker_authority,
+  test_trinity_dispatch_preparation, test_trinity_comparative_barrier,
+  test_trinity_variants, test_trinity_effective_variants,
+  test_trinity_local_completion, test_trinity_adversarial_runtime,
+  test_trinity_adaptive_budget, test_trinity_recursive_gate,
+  test_trinity_nested_runtime, test_trinity_l2_runtime.
+
+Suite complète du 2026-10-14 (`npm run test:trinity`, 41 fichiers) : 40/41 PASS.
+Échec isolé `test_trinity_merge_direct.js` (`db.get is not a function`) :
+le faux `db` du test ne fournit que `all`, alors que
+`trinityComparativeBarrier.js:34` exige désormais `db.get` (recherche du run
+d'exécution) et filtre les événements sur `executionRunId`. Test à réaligner ;
+les 11 tests ciblés ci-dessus restent PASS. Ce contrôle prouve la résolution
+des kinds, la construction des contrats et les chemins ciblés, pas un avantage
+causal ni une promotion.
 
 ## Contrat opérationnel v1 — référence d'implémentation
 

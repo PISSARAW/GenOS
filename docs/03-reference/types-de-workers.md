@@ -1448,3 +1448,19 @@ démonstration et le résultat du contrôle de transfert. Un paquet peut être
 produit avec un contrôle échoué ; il ne présente alors pas l'apprentissage
 comme réussi. Cette route ne mesure pas la rétention à long terme. Voir
 [ADR 0308](../adr/0308-transfert-subset-sum-teaching-worker.md).
+
+## 59. Routage A-Team vérifié (2026-10-14)
+
+Les 14 rôles A-Team composés par `aTeamService` sont routés sans nouveau type
+par `topologyWorkerKindService` : 8 vers `specialist` (`domain_specialization`),
+3 vers `verifier_worker` (`verify`), 1 vers `synthesis_worker`
+(`synthesize`, `preserve_provenance`), 2 vers `creative_worker`
+(`create_candidate`). La niche `specialist` reste le domaine du membre ;
+elle n'élargit aucun droit runtime.
+
+Preuves : `test_ateam_detection.js`, `test_topology_worker_kind_matrix.js`,
+`test_worker_kind_registry.js`, `test_ateam_execution_e2e.js`,
+`test_ateam_variant_acceptance.js` (51/51), `test_topology_worker_adequacy.js`
+(19/19), `test_worker_qualification_inventory.js` (19 kinds, 25 méthodes),
+`cargo test -p genos-worker` (17/17). Limite : `test_worker_compliance_native_missions.js`
+a dépassé 120 s sans conclure sur ce tirage.
