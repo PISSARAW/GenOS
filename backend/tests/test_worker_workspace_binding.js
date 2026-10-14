@@ -62,6 +62,8 @@ async function main() {
     await db.run("UPDATE workspaces SET project_id = 'foreign' WHERE id = ?", firstId);
     assert.equal(await delegation(db, { agent: authorized,
       parent: { id: 'parent', workspace_id: 'parent-ws' } }), null);
+    await assert.rejects(bind(db, first), { code: 'WORKER_WORKSPACE_BINDING_INVALID' });
+    assert.equal((await db.get('SELECT workspace_id FROM agents WHERE id = ?', 'worker')).workspace_id, firstId);
     await db.run("UPDATE workspaces SET project_id = 'project' WHERE id = ?", firstId);
     const captured = await snapshots.capture({ db, workspace: firstWorkspace, agentId: 'worker' });
     assert.equal((await db.get('SELECT workspace_id FROM workspace_snapshots WHERE id = ?', captured.id)).workspace_id, firstId);

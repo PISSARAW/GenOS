@@ -55,8 +55,10 @@ async function bindWorkerWorkspace(db, input) {
   const capsulePath = await verifyCapsule(input.workspaceRoot, parent.path);
   const epoch = await trackedCapsule(db, worker.id, capsulePath);
   if (!epoch) refuse('Worker capsule is not tracked by its current ownership marker.');
-  const existing = await db.get('SELECT id, tags FROM workspaces WHERE path = ?', capsulePath);
+  const existing = await db.get(`SELECT id, tags, visibility, organization_id, project_id
+    FROM workspaces WHERE path = ?`, capsulePath);
   if (existing) {
+    assertCapsuleTenant(existing, parent);
     if (worker.workspace_id === existing.id && parsedTags(existing.tags).includes(epochTag(epoch))) return existing.id;
     refuse('Worker capsule path is already registered to another workspace.');
   }
@@ -68,6 +70,14 @@ async function bindWorkerWorkspace(db, input) {
   const updated = await db.run('UPDATE agents SET workspace_id = ? WHERE id = ? AND parent_agent_id = ?', id, worker.id, parent.id);
   if (updated.changes !== 1) refuse('Worker disappeared before capsule binding.');
   return id;
+}
+
+function assertCapsuleTenant(capsule, parent) {
+  const sameOrganization = (capsule.organization_id || null) === (parent.organization_id || null);
+  const sameProject = (capsule.project_id || null) === (parent.project_id || null);
+  if (capsule.visibility !== 'Private' || !sameOrganization || !sameProject) {
+    refuse('Worker capsule tenant must match its parent workspace.');
+  }
 }
 
 async function bindFleetWorkerWorkspace(db, details) {
