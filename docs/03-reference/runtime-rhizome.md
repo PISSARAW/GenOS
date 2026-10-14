@@ -1,7 +1,7 @@
 # Runtime Rhizome : contrat opérationnel v1
 
 - **Statut** : Implémenté
-- **Dernière revue** : 2026-10-11
+- **Dernière revue** : 2026-10-14
 - **Portée** : exécution, admission, résultats, métriques, ressources et télémétrie
 
 ## Snapshot topologique
@@ -85,6 +85,8 @@ create conserve la compatibilité des anciens providers/adapters. Leur instancia
 | runtime | PROCEDURE | ADAPT_PROCEDURE, REUSE |
 
 start reçoit le candidat, le besoin, la session et un AbortSignal ; il retourne instanceId, éventuellement nodeId et edges. probe reçoit cette identité et retourne status: AVAILABLE, evidenceRefs non vides et une fiabilité. execute reçoit route, need, sessionId, instanceId et signal. stop reçoit instanceId. Les références de sonde servent au vérificateur indépendant : elles ne suffisent pas à l'admission.
+
+Vérifié le 2026-10-14 : les six kinds produisent `AGENT`, `DAEMON`, `TOOL`, `EXTERNAL_SERVICE`, `HUMAN_GATEWAY`, `PROCEDURE` et un `run` complet aboutit à `VERIFIED` lorsque chaque besoin utilise l'action de croissance de son kind (`SPAWN_WORKER` pour agent, `WAKE_DORMANT` pour daemon, `ATTACH_SERVICE` pour tool/service/human, `ADAPT_PROCEDURE` pour runtime). Une action non assortie (`ATTACH_SERVICE` pour agent/daemon/runtime) retourne correctement `GROWTH_WAITING_FOR_PROVIDER` sans admission.
 
 Les échecs de sonde et d'admission déclenchent stop. close tente la libération des instances enregistrées ; en cas d'échec il retourne closed: false et conserve la session pour une reprise. Une fermeture logique directe du store ne remplace pas cette libération. Les callbacks doivent être idempotents et respecter signal ; l'échéance du runtime ne tue pas un processus externe à elle seule.
 

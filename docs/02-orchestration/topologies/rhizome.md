@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté pour le contrat runtime v1 ; modèles illustratifs des sections 4 à 21
 - **Portée** : orchestration décentralisée par ramification de capacités, coordination locale, routage, croissance et résilience du réseau
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-14
 - **Lecture** : cette page décrit le modèle prévu de Rhizome, en particulier les rôles et comportements des sections 4 à 21. Les formules et réglages de ces sections sont des spécifications ou des exemples, pas nécessairement des mécanismes actifs. La section 3 marque chaque formule selon son statut ; les sections 22 et 24 situent l'implémentation actuelle.
 
 
@@ -1215,6 +1215,12 @@ L'hôte enregistre des opérations concrètes pour les providers et configure le
 Le CLI live lit le vrai graphe persisté en lecture seule. La démonstration exige --simulate et annonce sa source. Les sections 4 à 21 contiennent aussi des modèles illustratifs : cache LRU, similarité cosinus, fitness statistique biologique et promesses de production ne constituent pas des fonctionnalités supplémentaires prouvées par le runtime.
 
 La [référence du runtime](../../03-reference/runtime-rhizome.md) décrit les API et la migration des reçus. L'[ADR de complétion](../../adr/0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) précise les décisions. La suite dédiée s'exécute avec npm --prefix backend run test:rhizome. Les tests couvrent les scénarios codés, sans valider une analogie biologique ni une performance générale.
+
+### Vérification des quatre workers (2026-10-14)
+
+Composition vérifiée par `biologicalModeService.compose('rhizome', mission)` : exactement 4 membres `rootless_coordinator:frontier:1`, `capability_offshoot:standard:2`, `local_bridge:frontier:3`, `boundary_scout:standard:4`. Chemins de service vérifiés : `inspectCapabilityNeed` (scout, gap détecté), `planGrowth` (offshoot, `permitted:true` avec budget de croissance explicite, refus correct sans budget), `routeToCapability` (bridge, `selected:true`), `manageCoordinationLocus assign → transfer → drop` (coordinator). Suite `backend/tests/run_rhizome_suite.js` : 34/34 PASS, 0 échec.
+
+Écart : seuls trois génomes existent sous `agents/biomimetique/` (`rootless_coordinator`, `capability_offshoot`, `boundary_scout`). `local_bridge` n'a pas de fichier `.agent.json`/`.dna` dédié ; son rôle reste fonctionnel via la composition et `ROLE_CAPABILITIES` (`integration`).
 
 ## 23. Commandes CLI
 
