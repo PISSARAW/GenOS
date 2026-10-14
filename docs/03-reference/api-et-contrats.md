@@ -216,6 +216,8 @@ message ToolCallRequest {
 
 Le service MCP gRPC renvoie `contract_version: "genos.mcp/v1"` dans les succes. `CallTool` analyse `arguments_json`, execute l'outil et retourne le resultat serialize dans `content_json`. Pour une erreur gRPC correcte, le client doit lire le statut du callback, pas seulement le message de reponse.
 
+Le secret gRPC partagé authentifie le client RPC mais ne lie pas une identité d'agent à chaque appel. En conséquence, `CallTool` refuse `genos_topology_session` avec `PERMISSION_DENIED`, même si le processus possède un `GENOS_AGENT_ID` ambiant. Utiliser une voie qui transmet l'identité d'agent authentifiée par appel ; ne jamais placer `agent_id` dans `arguments_json` pour contourner ce garde.
+
 [backend/src/services/grpcErrorMapper.js](../../backend/src/services/grpcErrorMapper.js) mappe les erreurs de domaine :
 
 | Code de domaine | Statut gRPC |

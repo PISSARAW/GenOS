@@ -7,7 +7,7 @@ function toGrpcStatusCode(error) {
   const code = error?.code || error?.status || '';
   if (['INVALID_ARGUMENT', 'BAD_REQUEST', 'INVALID_TOOL'].includes(code)) return grpc.status.INVALID_ARGUMENT;
   if (['NOT_FOUND', 'TOOL_NOT_FOUND', 'MCP_TOOL_NOT_FOUND', 'not_found'].includes(code)) return grpc.status.NOT_FOUND;
-  if (['FORBIDDEN', 'PERMISSION_DENIED', 'ZERO_TRUST_DENIED', 'AGENT_ID_FORBIDDEN'].includes(code)) return grpc.status.PERMISSION_DENIED;
+  if (['FORBIDDEN', 'PERMISSION_DENIED', 'ZERO_TRUST_DENIED', 'AGENT_ID_FORBIDDEN', 'TOPOLOGY_CALLER_DENIED'].includes(code)) return grpc.status.PERMISSION_DENIED;
   if (['UNAVAILABLE', 'SERVICE_UNAVAILABLE', 'TOOL_LOCKED', 'blocked', 'circuit_open'].includes(code)) return grpc.status.UNAVAILABLE;
   if (['failed', 'MCP_TOOL_ERROR'].includes(code)) return grpc.status.INTERNAL;
   return grpc.status.INTERNAL;
@@ -42,6 +42,10 @@ module.exports = {
       const { tool_name, arguments_json, timeout_ms } = call.request || {};
       if (!tool_name || !String(tool_name).trim()) {
         throw Object.assign(new Error('tool_name is required.'), { code: 'INVALID_ARGUMENT' });
+      }
+      if (String(tool_name).trim().toLowerCase().replace(/^genos_/, '') === 'topology_session') {
+        throw Object.assign(new Error('gRPC topology sessions require an authenticated per-call agent identity.'),
+          { code: 'TOPOLOGY_CALLER_DENIED' });
       }
       const args = arguments_json ? JSON.parse(arguments_json) : {};
       const res = await mcpExecutor.callTool(tool_name, args, timeout_ms);
