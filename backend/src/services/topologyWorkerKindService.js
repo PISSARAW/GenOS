@@ -46,6 +46,10 @@ const ROLE_PREFERENCES = Object.freeze({
   deterministic_procedure: ['procedural_executor'], formal_proof: ['formal_worker'],
   experiment: ['experimental_worker'], causal_analysis: ['forensic_worker'], teach: ['teaching_worker']
 });
+const ASSIGNMENT_FIELDS = Object.freeze(['workerKind', 'workerRequirements', 'methodContract',
+  'specialtyNiche', 'nicheDomain', 'niche', 'domain', 'hostContractId', 'hostCapabilities', 'hostId']);
+const REQUIREMENT_FIELDS = Object.freeze(['requiredCapabilities', 'allowedKinds', 'nicheDomain',
+  'hostContractId', 'hostCapabilities', 'hostId']);
 
 function assignmentError(message, code, details = {}) {
   return Object.assign(new Error(message), { code, ...details });
@@ -208,9 +212,19 @@ function appendMethodContract(mission, methodContract) {
 
 function withRequestedAssignment(member, requested) {
   if (!requested || typeof requested !== 'object') return member;
+  assertAssignmentFields(requested, ASSIGNMENT_FIELDS);
+  if (requested.workerRequirements) assertAssignmentFields(requested.workerRequirements, REQUIREMENT_FIELDS);
   const base = member.workerAssignment?.selectionSource === 'capability_match'
     ? { ...member, workerKind: undefined, workerAssignment: undefined } : member;
   return { ...base, ...requested };
+}
+
+function assertAssignmentFields(source, allowed) {
+  if (Array.isArray(source)) throw assignmentError('Worker assignment must be an object.',
+    'TOPOLOGY_WORKER_ASSIGNMENT_INVALID');
+  const field = Object.keys(source).find((key) => !allowed.includes(key));
+  if (field) throw assignmentError(`Worker assignment field '${field}' is not allowed.`,
+    'TOPOLOGY_WORKER_ASSIGNMENT_FIELD_INVALID', { field });
 }
 
 function assignmentForRole(assignments, role) {
@@ -222,7 +236,12 @@ function applyTopologyWorkerKinds(mode, composition, assignments = {}) {
     withRequestedAssignment(member, assignmentForRole(assignments, member.role)));
   if (Array.isArray(composition)) return composition.map(mapMember);
   if (!Array.isArray(composition?.members)) return composition;
-  return { ...composition, members: composition.members.map(mapMember) };
+  const members = composition.members.map(mapMember);
+  const result = { ...composition, members };
+  if (mode === 'holobionte') {
+    return { ...result, ...require('./holobionteCoordinationService').compositionSummary(members) };
+  }
+  return result;
 }
 
 function workerPlanFor(members) {
