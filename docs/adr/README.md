@@ -629,6 +629,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0496](0496-exiger-un-recu-de-verification-lie-au-resultat.md) | Exiger un reçu de vérification lié au résultat | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Preuve avant promotion du cache de résultats. |
 | [0497](0497-scoper-la-refutation-et-effacer-le-champion.md) | Scoper la réfutation et effacer le champion | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Scope, reçu de contre-exemple et cohérence après réfutation. |
 | [0499](0499-scoper-linvalidation-des-resultats.md) | Scoper l’invalidation des résultats | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Isolation workspace du passage à l’état STALE. |
+| [0500](0500-revalider-la-preuve-avant-reutilisation.md) | Revalider la preuve avant réutilisation | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Intégrité des champions en cache. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

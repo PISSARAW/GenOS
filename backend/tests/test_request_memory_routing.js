@@ -52,6 +52,7 @@ async function main() {
 
   const db = await memoryDb();
   const scopeId = 'workspace:request-test-a';
+  const dependencies = { repo_head: 'abc', runtime: 'v1' };
   const expiry = registry.expiryFor(trivial.profile);
   const candidateInput = signedCandidate({
     scopeId,
@@ -63,7 +64,7 @@ async function main() {
     contentJson: JSON.stringify({ value: 4 }),
     evidenceJson: '[]',
     uncertaintyJson: '{}',
-    dependenciesJson: '{}',
+    dependenciesJson: JSON.stringify(dependencies),
     executionJson: '{}',
     validityHorizonMs: expiry.horizonMs,
     expiresAt: expiry.expiresAt,
@@ -72,12 +73,12 @@ async function main() {
     supersedes: null,
   });
   await registry.storeCandidate(db, candidateInput);
-  const hit = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId, dependencies: {} });
+  const hit = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId, dependencies });
   check('reuse hit', hit.hit === true);
   check('reuse value 4', JSON.parse(hit.champion.content_json).value === 4);
 
   await db.run("UPDATE request_results SET status = 'PROVISIONAL' WHERE id = ?", hit.champion.id);
-  const provisional = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId, dependencies: {} });
+  const provisional = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId, dependencies });
   check('provisional result is not reusable', provisional.hit === false && provisional.reason === 'status-not-reusable');
   await db.run("UPDATE request_results SET status = 'VERIFIED' WHERE id = ?", hit.champion.id);
 
@@ -106,6 +107,18 @@ async function main() {
   const noTampered = await db.get("SELECT COUNT(*) AS count FROM request_problems WHERE normalized_intent = '2+2'");
   check('tampered verifier receipt is rejected', noTampered.count === 1);
 
+  const tamperScope = 'workspace:request-tamper';
+  const tamperInput = signedCandidate({ ...candidateInput, scopeId: tamperScope, semanticId: 'stored-result-tamper' });
+  const tamperCandidate = await registry.storeCandidate(db, tamperInput);
+  await db.run('UPDATE request_results SET content_json = ? WHERE id = ?', JSON.stringify({ value: 'changed' }), tamperCandidate.id);
+  const tamperedLookup = await registry.lookupReusable(db, {
+    semanticId: tamperInput.semanticId, scopeId: tamperScope, dependencies
+  });
+  check('changed stored content cannot be reused', tamperedLookup.hit === false
+    && tamperedLookup.reason === 'verification-receipt-invalid');
+  check('changed stored content marks champion stale',
+    (await registry.getChampion(db, tamperInput.semanticId, tamperScope)).champion.status === 'STALE');
+
   await db.exec("CREATE TRIGGER fail_request_result_insert BEFORE INSERT ON request_results BEGIN SELECT RAISE(ABORT, 'injected result failure'); END;");
   const failedInput = signedCandidate({
     ...candidateInput, semanticId: 'atomic-insert-failure', normalizedIntent: 'atomic insert failure'
@@ -124,7 +137,6 @@ async function main() {
   check('failed pointer update preserves current champion pointer', preservedAfterFailure.champion.id === hit.champion.id);
   check('failed pointer update preserves current champion status', preservedAfterFailure.champion.status === 'VERIFIED');
 
-  await db.run('UPDATE request_results SET dependencies_json = ? WHERE id = ?', JSON.stringify({ repo_head: 'abc', runtime: 'v1' }), hit.champion.id);
   const omittedDependencies = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId });
   check('missing dependency snapshot cannot reuse champion', omittedDependencies.hit === false && omittedDependencies.reason === 'dependencies-unavailable');
   check('missing dependency snapshot does not destroy champion', (await registry.getChampion(db, trivial.semanticId, scopeId)).champion.status === 'VERIFIED');

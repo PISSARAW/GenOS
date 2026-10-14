@@ -128,6 +128,10 @@ async function lookupReusable(db, input) {
   if (found.champion.status !== 'VERIFIED') {
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'status-not-reusable' };
   }
+  if (!storedReceipt(found.champion, input.semanticId, input.scopeId)) {
+    await markStale(db, { id: found.champion.id, semanticId: input.semanticId, scopeId: input.scopeId });
+    return { hit: false, problem: found.problem, champion: found.champion, reason: 'verification-receipt-invalid' };
+  }
   if (isExpired(found.champion)) {
     await markStale(db, { id: found.champion.id, semanticId: input.semanticId, scopeId: input.scopeId });
     return { hit: false, problem: found.problem, champion: found.champion, reason: 'expired' };
