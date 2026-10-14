@@ -18,6 +18,12 @@ Les sources ci-dessous donnent des ancres vérifiables, référencées dans chaq
 
 **Exécutions de cette revue.** `node backend/tests/test_agent_dna.js`, `test_epistemics.js`, `test_consciousness_evidence_suite.js`, `test_signal_plane_e2e.js` et `test_agow_completion.js` ont terminé avec code 0 et sorties positives. Ce sont des contrôles de sous-ensembles, pas une démonstration de toutes les propriétés citées ci-dessous. `test_shev_runtime_demo.js` s'est arrêté sur une erreur de permission de `git init` dans le répertoire temporaire du sandbox avant les assertions ; son résultat ne permet ni `V=o` ni un jugement fonctionnel. Les suites globales obligatoires n'ont pas été exécutées par cet agent. Les résultats de `validation-biologie-computationnelle.md` et d'autres bilans cités sont historiques.
 
+### Complément de vérification — 14 octobre 2026
+
+Les correctifs postérieurs à l'inventaire ont ajouté des preuves ciblées pour plusieurs invariants fondateurs : provenance liée au parent (`test_conclusion_provenance_integrity.js` et inspection des consommateurs), approbation liée au digest de promotion (`test_human_approval_promotion_gate.js`), leases mal formés refusés (`test_agent_tool_lease_validation.js`, `test_lease_catalog_coherence.js`, `test_mcp_transport_lease.js`), budgets numériques fail-closed (`test_budget_coherence_edge_cases.js`), synthèse depuis les dossiers et reçus de budget vidangés à l'arrêt (`test_runtime_budget_and_influence.js`), sortie d'apoptose observable et PID non vérifié conservé (`test_apoptosis_and_daemon.js`), modes de snapshots à la restauration (`test_snapshot_mode_bits.js`), base saine de bisection (`test_bisection_blast_radius.js`) et rapport de rollback (`test_bisection_rollback_report.js`). Ces cas ne couvrent toujours pas toutes les surfaces ni une mission métier complète; les codes `p` de la matrice ne deviennent donc pas `o` par défaut.
+
+Le contrôle qualité du 14 octobre a inspecté 6 108 fichiers et signalé neuf violations du baseline, zéro nouvelle. Les suites racine `npm test` et `cargo test --workspace` n'ont pas été relancées : `backend/genos.db` occupe 1 926 664 192 octets et le disque C: disposait de 836 784 128 octets libres au dernier contrôle. Ce complément ne remplace pas les gates globaux.
+
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
