@@ -9,6 +9,7 @@ assert.deepEqual(red.schema.required, ['outcome', 'claims', 'workerArtifact']);
 const report = red.schema.properties.workerArtifact.properties.content;
 assert.deepEqual(report.properties.verdict.enum, ['accept', 'reject', 'unresolved']);
 assert.ok(report.required.includes('reproductionSteps'));
+assert.ok(report.required.includes('counterexamples'));
 assert.ok(report.properties.counterexamples.items.required.includes('evidence'));
 const trinityRed = workerArtifactResponseFormat('red_worker', ['mission']).schema;
 assert.deepEqual(trinityRed.properties.claims.items.properties.evidence.items.enum, ['mission']);

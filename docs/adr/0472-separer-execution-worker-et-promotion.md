@@ -31,6 +31,12 @@ Quand le contrat de mission demande un `diagnostic_matrix`, le schéma exige les
 six hypothèses annoncées, leur signal attendu, les observations contradictoires,
 une mesure discriminante et une conclusion conditionnelle. Les références de
 chaque ligne restent limitées aux preuves fournies par la mission.
+Le validateur local vérifie aussi les six lignes, les champs de falsification et
+les références dans l’artefact typé persisté; le seul schéma fournisseur ne
+prouve pas la conformité de sa réponse.
+Pour le rôle `red_worker`, le schéma requiert aussi le champ `counterexamples`;
+un verdict `unresolved` peut le remplir par une liste vide, conformément au
+validateur métier.
 
 Pour les workers spécialistes Trinity, la niche implicite vient du domaine
 déclaré, jamais du libellé du monde ou de sa chambre.

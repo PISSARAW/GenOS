@@ -322,6 +322,7 @@ function validateWorkerArtifactCondition(artifact, expected, fields) {
 function inspectDossierContent(parsed, kind) {
   return {
     claims: parsed.claims,
+    ...diagnosticMatrixContent(parsed),
     ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
     ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
     ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
@@ -331,6 +332,14 @@ function inspectDossierContent(parsed, kind) {
     ...(kind === 'symbiotic_worker' ? { hostContribution: parsed.hostContribution } : {}),
     ...(kind === 'sub_orchestrator' ? { childSummaries: parsed.childSummaries } : {})
   };
+}
+
+function diagnosticMatrixContent(parsed) {
+  const content = {};
+  for (const field of ['diagnosticMatrix', 'conditionalVerdict', 'uncertainties']) {
+    if (parsed[field] !== undefined) content[field] = parsed[field];
+  }
+  return content;
 }
 
 function boundedWorkerContent(parsed) {

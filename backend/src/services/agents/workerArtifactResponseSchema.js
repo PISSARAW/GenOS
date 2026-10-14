@@ -42,7 +42,9 @@ function verificationArtifact(kind, refs) {
       reproductionSteps: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } }, evidence: refs
     }, ['claim', 'attack', 'reproductionSteps', 'evidence']) } } : {})
   };
-  return object(content, ['testedClaim', 'verificationMethod', 'verdict', 'reproductionSteps', 'evidence']);
+  const required = ['testedClaim', 'verificationMethod', 'verdict', 'reproductionSteps', 'evidence'];
+  if (kind === 'red_worker') required.push('counterexamples');
+  return object(content, required);
 }
 
 function diagnosticProperties(refs) {
