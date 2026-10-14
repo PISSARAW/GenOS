@@ -172,11 +172,18 @@ function coverageReport(capabilities = capabilityCatalog()) {
 
 function leaseCandidatesForReferences(references, topology) {
   const allowedTools = topologyTools(topology);
-  return references.filter((concept) => concept.available && (concept.tools || []).length)
+  return references.filter((concept) => !conceptUnavailable(concept) && (concept.tools || []).length)
     .map((concept) => ({ conceptId: concept.id, tools: concept.tools.filter((tool) => tool !== 'genos_orchestrate'),
       authority: concept.access === 'read' ? ['read'] : ['execute'], maturity: concept.status || 'ready' }))
     .map((entry) => ({ ...entry, tools: allowedTools ? entry.tools.filter((tool) => allowedTools.has(tool)) : entry.tools }))
     .filter((entry) => entry.tools.length);
+}
+
+function conceptUnavailable(concept) {
+  if (!concept.available) return true;
+  const readiness = concept.toolReadiness;
+  if (readiness?.declared?.length && !readiness.ready) return true;
+  return Boolean(concept.unavailablePrimitives?.length);
 }
 
 function domainMatches(text) {
@@ -281,7 +288,7 @@ function resolveMission(input = {}) {
     domains, capabilities,
     canonicalConcepts, selectedConcepts,
     requestedConcepts: input.requestedConcepts || [], resolvedConcepts,
-    blockedConcepts: resolvedConcepts.filter((concept) => !concept.available),
+    blockedConcepts: resolvedConcepts.filter(conceptUnavailable),
     runtimeConcepts: registeredConcepts(),
     compatibleRuntimeConcepts: compatibleRuntimeConcepts(input.topology),
     runtimeLeaseCandidates: hasRequestedConcepts
@@ -325,7 +332,8 @@ function runtimeLeaseCandidates(topology) {
     tools: runtimeConceptRegistry.generateLeaseForConcept(concept.id),
     authority: concept.authority,
     maturity: concept.maturity
-  })).filter((entry) => entry.tools.some((tool) => allowedTools.has(tool)));
+  })).filter((entry) => entry.tools.length && accessMatrix.toolReadiness(entry.tools).ready
+    && entry.tools.some((tool) => allowedTools.has(tool)));
 }
 
 function strategyForMission(kind) {

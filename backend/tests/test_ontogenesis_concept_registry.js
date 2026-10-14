@@ -51,6 +51,14 @@ if (selected.includes('registry')) {
   assert.equal(graphArena.executable, false);
   assert.equal(graphArena.executionReason, 'execution-indisponible');
   assert.ok(graphArena.toolReadiness.missingFromCatalog.length > 0);
+  const unavailableToolMission = registry.resolveMission({ topology: 'a_team',
+    requestedConcepts: ['genos_adversarial_review'] });
+  assert.deepStrictEqual(unavailableToolMission.blockedConcepts.map((concept) => concept.id),
+    ['genos_adversarial_review']);
+  assert.deepStrictEqual(unavailableToolMission.runtimeLeaseCandidates, []);
+  const automaticPlan = registry.resolveMission({ topology: 'a_team' });
+  assert.ok(automaticPlan.runtimeLeaseCandidates.every((candidate) =>
+    require('../src/services/capabilityAccessMatrix').toolReadiness(candidate.tools).ready));
   assert.equal(graphExecutable({ tools: ['genos_snapshot'], primitives: [] }), true);
   assert.equal(graphExecutable({ tools: ['genos_unregistered'], primitives: [] }), false);
   assert.deepStrictEqual(web.resolvedConcepts.map((concept) => concept.source), ['existing_adapter', 'runtime', 'philosophy', 'unknown']);
