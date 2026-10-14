@@ -24,6 +24,7 @@ const { buildAgentSelf, extractActiveConstraints, formatAgentSelfPrompt } = requ
 const { buildFamilyStory, formatFamilyStoryPrompt } = require('./familyHistoryService');
 const { formatHomeostasisPrompt, evaluateAgentHomeostasis } = require('./organismHomeostasisService');
 const { senseAgentRuntime } = require('./machineInteroceptionService');
+const { validateIdentityDossier } = require('./agentIdentityDossierService');
 
 /**
  * Constroit le WorkerSelf — projection du AgentSelf pour un worker.
@@ -87,6 +88,8 @@ async function buildWorkerSelf(db, params) {
     agentId,
     workerRole,
     version: agentSelf.version,
+    identityDossier: agentSelf.identityDossier,
+    identityDecision: agentSelf.identityDossier.decisionConstraints,
 
     // Identité minimale (référence à l'agent parent)
     identity: {
@@ -266,6 +269,15 @@ function formatWorkerSelfPrompt(workerSelf) {
     `- Intégrité : ${(workerSelf.regulatory.integrity * 100).toFixed(0)}%`,
   ];
 
+  if (workerSelf.identityDossier) {
+    lines.push('', `[DOSSIER D'IDENTITÉ ${workerSelf.identityDossier.version.slice(0, 12)}]`);
+    for (const [dimension, entry] of Object.entries(workerSelf.identityDossier.dimensions)) {
+      const evidence = entry.status === 'known'
+        ? `source=${entry.provenance.source}` : entry.reason || 'preuve indisponible';
+      lines.push(`- ${dimension}: ${entry.status} (${evidence})`);
+    }
+  }
+
   if (workerSelf.lessons && workerSelf.lessons.length > 0) {
     lines.push(``, `[LEÇONS MOBILISABLES]`);
     for (const l of workerSelf.lessons.slice(0, 3)) {
@@ -296,6 +308,7 @@ function validateWorkerSelf(workerSelf) {
   if (!workerSelf.regulatory) errors.push('missing regulatory');
   if (!workerSelf.operational) errors.push('missing operational');
   if (!workerSelf.nineAnswers) errors.push('missing nineAnswers');
+  if (!validateIdentityDossier(workerSelf.identityDossier)) errors.push('missing identity dossier dimensions');
   if (Object.keys(workerSelf.nineAnswers || {}).length !== 9) {
     errors.push(`nineAnswers must have exactly 9 entries, got ${Object.keys(workerSelf.nineAnswers || {}).length}`);
   }

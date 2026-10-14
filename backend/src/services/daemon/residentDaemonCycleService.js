@@ -61,7 +61,9 @@ async function executeCycle(context) {
   const stored = await territories.getTerritory(context.db, { id: context.territoryId });
   if (!state.found || !stored.found) return { cycled: false, reason: 'unregistered-daemon-or-territory' };
   if (state.territoryId !== stored.territory.id) return { cycled: false, reason: 'territory-mismatch' };
-  if (['APOPTOTIC', 'SENESCENT'].includes(state.health)) return { cycled: false, reason: 'daemon-retired' };
+  if (!state.identityDecision.mayAct || state.health === 'SENESCENT') {
+    return { cycled: false, reason: 'daemon-retired' };
+  }
   await search.ensure(context);
   const index = await refreshIndex(context, { state, territory: stored.territory });
   const sensed = await interoception.senseTerritory(context.db, context.territoryId);

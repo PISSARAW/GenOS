@@ -30,6 +30,7 @@ const {
 } = require('./agentExpressionContextSteps');
 
 const contracts = require('./agentExpressionContextContracts');
+const { buildIdentityDossier } = require('../agentIdentityDossierService');
 
 // ---------------------------------------------------------------------------
 // Internal cache
@@ -134,6 +135,8 @@ async function loadIdentityState(all) {
 function assembleContext(parts) {
   return {
     identity: parts.identity,
+    identityDossier: parts.identityDossier,
+    identityDecision: parts.identityDossier.decisionConstraints,
     self: parts.cognitiveSelf,
     cognitiveRegulation: parts.cognitiveRegulation,
     regulatoryState: parts.regulatorySnapshot,
@@ -193,7 +196,12 @@ async function buildExpressionContext(opts) {
   const cognitivePhenotype = contracts.phenotypeStubOf(agentId, identity.creativeState);
   const strategyTrajectory = contracts.trajectoryStubOf(agentId);
   const vital = loadVitalStates(agentId);
-  const context = assembleContext({ ...all, ...identity, clinicalState, epistemicState, memoryContext, regulatorySnapshot, cognitivePhenotype, strategyTrajectory, vital });
+  const identityDossier = buildIdentityDossier({ agentId, agentRow: core.agentRow,
+    self: core.cognitiveSelf && { ...core.cognitiveSelf,
+      sourceAvailability: core.cognitiveSelf.sourceAvailability },
+    expression: { ...all, ...identity, clinicalState, epistemicState },
+    kind: core.agentRow?.execution_mode || 'worker' });
+  const context = assembleContext({ ...all, ...identity, identityDossier, clinicalState, epistemicState, memoryContext, regulatorySnapshot, cognitivePhenotype, strategyTrajectory, vital });
 
   contextCache.set(agentId, context);
 
@@ -238,8 +246,32 @@ async function updateExpressionContext(opts) {
     merged.currentPressure = { ...existing.currentPressure, ...updates.currentPressure };
   }
 
+  await refreshIdentityProjection({ agentId, db, existing, merged, updates });
+
   contextCache.set(agentId, merged);
   return merged;
+}
+
+async function refreshIdentityProjection(input) {
+  if (!identityChanged(input.updates)) return;
+  if (!input.db) {
+    const identityDecision = { ...input.existing.identityDecision,
+      mayAct: false, stale: true, reason: 'STALE_IDENTITY' };
+    input.merged.identityDossier = { ...input.existing.identityDossier,
+      decisionConstraints: identityDecision };
+    input.merged.identityDecision = identityDecision;
+    return;
+  }
+  const agentRow = await loadAgentRow(input.db, input.agentId);
+  input.merged.identityDossier = buildIdentityDossier({ agentId: input.agentId, agentRow,
+    self: input.merged.self, expression: input.merged });
+  input.merged.identityDecision = input.merged.identityDossier.decisionConstraints;
+}
+
+function identityChanged(updates) {
+  return ['self', 'identity', 'genotype', 'phenotype', 'relations', 'authority',
+    'clinicalState', 'epistemicState', 'currentPressure', 'homeostasis']
+    .some(key => Object.prototype.hasOwnProperty.call(updates, key));
 }
 
 // ---------------------------------------------------------------------------

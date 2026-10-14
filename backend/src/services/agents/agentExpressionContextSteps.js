@@ -58,7 +58,8 @@ async function buildCognitiveSelf({ db, agentId, role, mission, assignment }) {
       autobiographical: agentSelf.autobiographical,
       operational: agentSelf.operational,
       regulatory: agentSelf.regulatory,
-      version: agentSelf.version
+      version: agentSelf.version,
+      sourceAvailability: agentSelf.sourceAvailability
     };
   } catch (_) {
     try {

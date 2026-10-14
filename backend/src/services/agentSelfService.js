@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { load: loadSelfModel } = require('./selfModelService');
 const { loadCognitiveRegulationState } = require('./agentConscienceService');
+const { buildIdentityDossier, validateIdentityDossier } = require('./agentIdentityDossierService');
 
 // Contrat canonique cross-language (P2) : une seule définition du soi,
 // partagée Node/Rust via spec/agent-self.schema.json.
@@ -46,7 +47,7 @@ async function buildAgentSelf(db, agentId, options = {}) {
     throw new Error(`Cannot build AgentSelf: agent ${agentId} not found`);
   }
 
-  return {
+  const self = {
     apiVersion: AGENT_SELF_API_VERSION,
     kind: 'AgentSelf',
     agentId,
@@ -58,8 +59,15 @@ async function buildAgentSelf(db, agentId, options = {}) {
     regulatory: buildRegulatorySelf(selfModel, cognitiveRegulation),
     narrative: null,
     core,
-    builtAt: new Date().toISOString()
+    builtAt: new Date().toISOString(),
+    sourceAvailability: {
+      selfModel: Boolean(selfModel), cognitiveRegulation: Boolean(cognitiveRegulation),
+      agentRow: Boolean(agentRow)
+    }
   };
+  self.identityDossier = buildIdentityDossier({ agentId, agentRow, self });
+  self.version = self.identityDossier.version.slice(0, 16);
+  return self;
 }
 
 function buildIdentityCore(agentRow, options) {
@@ -136,19 +144,23 @@ async function buildAutobiographicalSelf(db, agentId) {
   }
 
   let episodes = [];
+  let episodesQueried = false;
   try {
     episodes = await db.all(
       'SELECT id, kind, salience, lesson_json, created_at FROM autobiographical_episodes WHERE agent_id = ? ORDER BY created_at DESC LIMIT 20',
       agentId
     );
+    episodesQueried = true;
   } catch (_) {}
 
   let lessons = [];
+  let lessonsQueried = false;
   try {
     lessons = await db.all(
       'SELECT id, claim, confidence, recommended_action FROM autobiographical_lessons WHERE scope = ? ORDER BY confidence DESC LIMIT 10',
       agentId
     );
+    lessonsQueried = true;
   } catch (_) {}
 
   const turningPoints = episodes
@@ -166,7 +178,8 @@ async function buildAutobiographicalSelf(db, agentId) {
     lessons: lessons.map(l => ({ id: l.id, claim: l.claim, confidence: l.confidence, recommendation: l.recommended_action })),
     turningPoints,
     episodeCount: episodes.length,
-    lessonCount: lessons.length
+    lessonCount: lessons.length,
+    sourcesQueried: { episodes: episodesQueried, lessons: lessonsQueried }
   };
 }
 
@@ -223,6 +236,12 @@ function extractActiveConstraints(agentSelf) {
 }
 
 function validateAgentSelf(agentSelf) {
+  const errors = validateBaseSelf(agentSelf);
+  if (!validateIdentityDossier(agentSelf.identityDossier)) errors.push('missing identity dossier dimensions');
+  return { valid: errors.length === 0, errors, specPath: AGENT_SELF_SPEC_PATH };
+}
+
+function validateBaseSelf(agentSelf) {
   const errors = [];
   if (agentSelf.apiVersion !== AGENT_SELF_API_VERSION) errors.push(`apiVersion must be ${AGENT_SELF_API_VERSION}`);
   if (!agentSelf.identity?.id) errors.push('missing identity.id');
@@ -233,7 +252,7 @@ function validateAgentSelf(agentSelf) {
   if (agentSelf.regulatory && (agentSelf.regulatory.energy === undefined || agentSelf.regulatory.integrity === undefined)) {
     errors.push('regulatory requires energy and integrity');
   }
-  return { valid: errors.length === 0, errors, specPath: AGENT_SELF_SPEC_PATH };
+  return errors;
 }
 
 /**

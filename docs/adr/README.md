@@ -547,6 +547,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0438](0438-statut-planifie-runtime-isole-multiteam-a-team.md) | Statut planifié du runtime isolé Multiteam A-Team | Accepté le 11 octobre 2026. | -- | -- |
 | [0439](0439-rapports-initiaux-durables-pour-qualification-trinity.md) | Rapports initiaux durables pour qualifier Trinity | Accepté. | -- | -- |
 | [0440](0440-bail-outil-immuable-holobionte.md) | Rendre le bail d'outil immuable jusqu'à l'invocation Holobionte | Accepté | 2026-10-11 | Holobionte, variant `tool`, autorité d'invocation |
+| [0441](0441-dossier-identite-universel-agent.md) | Dossier d'identité commun aux agents | Accepté | 2026-10-14 | Identité, agents, runtime |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
