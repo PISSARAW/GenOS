@@ -28,9 +28,9 @@ function buildScope(options) {
   const ownerId = String(options.ownerId || '').trim();
   const orgId = String(options.organizationId || '').trim();
   const projectId = String(options.projectId || '').trim();
-  // Les lignes globales (organisation/projet NULL) ne sont visibles que si
-  // l'appelant demande explicitement un scope global partagé. Sans cela,
-  // `OR ... IS NULL` fuirait les mémoires d'autres tenants.
+  if (projectId && !orgId) throw new Error('Organization scope is required when project scope is provided.');
+  // Sans tenant, les requêtes restent limitées aux lignes globales. Avec un
+  // tenant, includeGlobal ajoute uniquement les lignes null/null partagées.
   const includeGlobal = options.includeGlobal === true;
   return { ownerId, orgId, projectId, includeGlobal };
 }
@@ -118,9 +118,8 @@ async function fetchFtsMap(db, table, ftsMatch) {
 }
 
 function trajectoryScopeClause(scope, alias) {
-  // Sans includeGlobal explicite, les trajectoires sans workspace sont
-  // exclues : elles peuvent appartenir à un autre tenant.
-  if (!scope.orgId) return { sql: '', params: [] };
+  // Sans tenant, seules les trajectoires globales (sans workspace) sont visibles.
+  if (!scope.orgId) return { sql: ` AND ${alias}.workspace_id IS NULL`, params: [] };
   if (scope.includeGlobal) {
     const inner = scope.projectId ? ' AND project_id = ?' : '';
     const params = scope.projectId ? [scope.orgId, scope.projectId] : [scope.orgId];
@@ -148,12 +147,6 @@ function trajectoryHydrateQuery(rowIds, scope) {
   return { sql, params };
 }
 
-function tenantScopeClause(scope, alias, column) {
-  // Sans includeGlobal explicite : égalité stricte, pas de `OR ... IS NULL`.
-  if (scope.includeGlobal) return { sql: ` AND (${alias}.${column} = ? OR ${alias}.${column} IS NULL)`, params: null };
-  return { sql: ` AND ${alias}.${column} = ?`, params: null };
-}
-
 function decisionHydrateQuery(rowIds, scope) {
   const placeholders = rowIds.map(() => {
     return '?';
@@ -161,19 +154,9 @@ function decisionHydrateQuery(rowIds, scope) {
   const params = [...rowIds];
   let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob
                  FROM genome_decisions t WHERE rowid IN (${placeholders})`;
-  // genome_decisions is shared memory within the tenant; ownerId scopes
-  // trajectories, while organization/project enforce decision privacy.
-  if (scope.orgId) {
-    const clause = tenantScopeClause(scope, 't', 'organization_id');
-    sql += clause.sql;
-    params.push(scope.orgId);
-  }
-  if (scope.projectId) {
-    const clause = tenantScopeClause(scope, 't', 'project_id');
-    sql += clause.sql;
-    params.push(scope.projectId);
-  }
-  return { sql, params };
+  // Decisions are shared within a tenant; an unscoped call sees only global rows.
+  const clause = decisionScopeClause(scope, 't');
+  return { sql: sql + clause.sql, params: [...params, ...clause.params] };
 }
 
 function buildTrajectoryItem(item, ctx) {
@@ -251,7 +234,7 @@ function trajectoryFallbackQuery(scope) {
     conditions.push(trajectoryFallbackOrg(scope));
     params.push(scope.orgId);
     if (scope.projectId) params.push(scope.projectId);
-  }
+  } else conditions.push('workspace_id IS NULL');
   const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
   // RRF après fetch complet : on ramène un large candidat (200) et c'est le
   // scoring RRF/similarité en aval qui trie avant de slicer, pas ce LIMIT.
@@ -259,28 +242,29 @@ function trajectoryFallbackQuery(scope) {
   return { sql, params };
 }
 
-function scopedEquality(scope, column) {
-  if (scope.includeGlobal) return `(${column} = ? OR ${column} IS NULL)`;
-  return `${column} = ?`;
+function decisionScopeClause(scope, alias) {
+  const prefix = alias ? `${alias}.` : '';
+  const organization = `${prefix}organization_id`;
+  const project = `${prefix}project_id`;
+  if (!scope.orgId) return { sql: ` AND ${organization} IS NULL AND ${project} IS NULL`, params: [] };
+  if (!scope.projectId) {
+    const sql = scope.includeGlobal
+      ? ` AND (${organization} = ? OR (${organization} IS NULL AND ${project} IS NULL))`
+      : ` AND ${organization} = ?`;
+    return { sql, params: [scope.orgId] };
+  }
+  const tenant = `(${organization} = ? AND ${project} = ?)`;
+  const sql = scope.includeGlobal
+    ? ` AND (${tenant} OR (${organization} IS NULL AND ${project} IS NULL))`
+    : ` AND ${tenant}`;
+  return { sql, params: [scope.orgId, scope.projectId] };
 }
 
 function decisionFallbackQuery(scope) {
-  const conditions = [];
-  const params = [];
-  // Decision memory is shared across agents in the same tenant. Do not
-  // restrict retrieval to the writing agent; tenant predicates below are
-  // the privacy boundary.
-  if (scope.orgId) {
-    conditions.push(scopedEquality(scope, 'organization_id'));
-    params.push(scope.orgId);
-  }
-  if (scope.projectId) {
-    conditions.push(scopedEquality(scope, 'project_id'));
-    params.push(scope.projectId);
-  }
-  const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+  const scopeClause = decisionScopeClause(scope, '');
+  const where = ` WHERE ${scopeClause.sql.trim().replace(/^AND\s+/, '')}`;
   const sql = `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${where} ORDER BY created_at DESC LIMIT 200`;
-  return { sql, params };
+  return { sql, params: scopeClause.params };
 }
 
 function buildFallbackTrajectoryItem(item) {
