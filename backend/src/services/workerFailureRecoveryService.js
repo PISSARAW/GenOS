@@ -1,4 +1,5 @@
 const config = require('../config/orchestratorConfig');
+const { normalizeNoAnswerProof } = require('./agentEvidence/evidenceHelpers');
 
 const MAX_RECOVERY_ATTEMPTS = 3;
 
@@ -33,13 +34,7 @@ function classifyFailure(event = {}) {
 
 function proofOfNoAnswer(payload = {}) {
   const proof = payload.noAnswerProof || payload.no_answer_proof;
-  if (!proof || typeof proof !== 'object') return null;
-  const method = typeof proof.method === 'string' ? proof.method.trim() : '';
-  if (!method) return null;
-  const evidence = Array.isArray(proof.evidence)
-    ? proof.evidence.map((e) => String(e || '').trim()).filter(Boolean)
-    : [];
-  return evidence.length ? { ...proof, method, evidence } : null;
+  return normalizeNoAnswerProof(proof);
 }
 
 function hasClaimWithoutEvidence(claims) {

@@ -2,7 +2,7 @@
  * Decision-evidence detection: whether an agent event carries substantiated
  * evidence sufficient to unlock a collective decision.
  */
-const { FAILURE_EVENT_TYPES, extractEvidenceReport, isTextItem, hasEvidenceItem } = require('./evidenceHelpers');
+const { FAILURE_EVENT_TYPES, extractEvidenceReport, hasEvidenceItem, normalizeNoAnswerProof } = require('./evidenceHelpers');
 
 function isSubstantiatedClaim(claim) {
   if (!Array.isArray(claim?.evidence)) return false;
@@ -22,12 +22,7 @@ function hasSubstantiatedClaim(report) {
 
 function hasNoAnswerProof(report) {
   if (report?.outcome !== 'no_answer') return false;
-  const evidence = report.noAnswerProof?.evidence;
-  if (!Array.isArray(evidence)) return false;
-  for (const item of evidence) {
-    if (isTextItem(item)) return true;
-  }
-  return false;
+  return Boolean(normalizeNoAnswerProof(report.noAnswerProof || report.no_answer_proof));
 }
 
 function hasUsablePayload(payload) {
@@ -37,8 +32,20 @@ function hasUsablePayload(payload) {
 function hasFailureEvidence(event, payload) {
   const body = payload || {};
   if (hasEvidenceItem(body.failure)) return true;
-  if (hasEvidenceItem(body.noAnswerProof)) return true;
-  return FAILURE_EVENT_TYPES.includes(event.eventType) && hasUsablePayload(body);
+  const report = extractEvidenceReport(body);
+  if (hasNoAnswerProof(report)) return true;
+  return FAILURE_EVENT_TYPES.includes(event.eventType) && hasUsablePayload(withoutNoAnswerProof(body));
+}
+
+function withoutNoAnswerProof(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const { noAnswerProof, no_answer_proof, ...remaining } = value;
+  for (const key of ['evidenceReport', 'report']) {
+    if (remaining[key] && typeof remaining[key] === 'object') {
+      remaining[key] = withoutNoAnswerProof(remaining[key]);
+    }
+  }
+  return remaining;
 }
 
 function hasDecisionEvidence(event = {}) {

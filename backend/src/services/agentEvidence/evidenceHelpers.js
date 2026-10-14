@@ -35,6 +35,14 @@ function hasEvidenceItem(item) {
   return false;
 }
 
+function normalizeNoAnswerProof(proof) {
+  if (!proof || typeof proof !== 'object' || Array.isArray(proof)) return null;
+  const method = typeof proof.method === 'string' ? proof.method.trim() : '';
+  const evidence = Array.isArray(proof.evidence)
+    ? proof.evidence.filter(isTextItem).map((item) => item.trim()) : [];
+  return method && evidence.length ? { ...proof, method, evidence } : null;
+}
+
 function boundedScore(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
@@ -50,6 +58,7 @@ module.exports = {
   extractEvidenceReport,
   isTextItem,
   hasEvidenceItem,
+  normalizeNoAnswerProof,
   boundedScore,
   boundedEvidenceScore
 };
