@@ -18,9 +18,10 @@ function ensureTables(db) {
   return migration;
 }
 
-async function getProblem(db, semanticId) {
+async function getProblem(db, semanticId, scopeId) {
   await ensureTables(db);
-  return (await db.get('SELECT * FROM request_problems WHERE semantic_id = ?', semanticId)) || null;
+  const scopedId = scopedSemanticId(semanticId, scopeId);
+  return (await db.get('SELECT * FROM request_problems WHERE semantic_id = ?', scopedId)) || null;
 }
 
 function scopedSemanticId(semanticId, scopeId) {
@@ -78,7 +79,7 @@ function storedReceipt(row, semanticId, scopeId) {
 
 async function getChampion(db, semanticId, scopeId) {
   const scopedId = scopedSemanticId(semanticId, scopeId);
-  const problem = await getProblem(db, scopedId);
+  const problem = await getProblem(db, semanticId, scopeId);
   if (!problem || !problem.champion_result_id) return { problem, champion: null };
   const champion = await db.get(
     'SELECT * FROM request_results WHERE id = ? AND semantic_id = ?', problem.champion_result_id, scopedId
@@ -169,7 +170,7 @@ async function storeCandidate(db, input) {
     ? JSON.stringify([...JSON.parse(input.evidenceJson || '[]'), input.verificationReceipt])
     : input.evidenceJson;
   return withTransaction(db, async (txDb) => {
-    const existing = await getProblem(txDb, scopedId);
+    const existing = await getProblem(txDb, input.semanticId, input.scopeId);
     const version = await nextVersion(txDb, scopedId);
     const id = `res_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
     const shouldPromote = input.promote !== false && input.status === 'VERIFIED';

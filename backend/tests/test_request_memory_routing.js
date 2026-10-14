@@ -111,6 +111,13 @@ async function main() {
     supersedes: null,
   });
   await registry.storeCandidate(db, candidateInput);
+  const scopedProblem = await registry.getProblem(db, trivial.semanticId, scopeId);
+  check('problem reads require and respect workspace scope', scopedProblem.normalized_intent === trivial.normalized.text);
+  await db.run("INSERT INTO request_problems (semantic_id, normalized_intent) VALUES (?, 'legacy raw row')", trivial.semanticId);
+  const legacyRead = await registry.getProblem(db, trivial.semanticId, 'workspace:legacy-reader');
+  check('legacy unscoped problem is not exposed by scoped reads', legacyRead === null);
+  await assert.rejects(() => registry.getProblem(db, trivial.semanticId),
+    (error) => error.code === 'RESULT_SCOPE_REQUIRED');
   const hit = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId, dependencies });
   check('reuse hit', hit.hit === true);
   check('reuse value 4', JSON.parse(hit.champion.content_json).value === 4);
