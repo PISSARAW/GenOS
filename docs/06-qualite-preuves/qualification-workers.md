@@ -512,8 +512,10 @@ et 0 nouvelle violation**. Le test `test_daemon_host_process.js` seul passe
 Le `npm test` complet a été lancé deux fois sous Linux ; à chaque fois, le
 runner Daemon a passé 42/43 programmes et `test_daemon_host_process.js` a
 renvoyé `SQLITE_IOERR: disk I/O error` après les tests précédents. Ce test passe
-lorsqu'il est isolé, mais le gate complet s'arrête à cet échec avant les suites
-suivantes. Le profil workers ciblé passe indépendamment. La qualification C2/C3
+lorsqu'il est isolé. La séquence isolée `host_cli` puis `host_process` reproduit
+l'échec (1/2), ce qui confirme que la panne dépend de l'ordre d'exécution. Le
+gate complet s'arrête à cet échec avant les suites suivantes. Le profil workers
+ciblé passe indépendamment. La qualification C2/C3
 des workers Linux est donc démontrée ; le gate global `npm test` Linux reste à
 résoudre pour déclarer le dépôt entièrement qualifié sur cette plateforme.
 
