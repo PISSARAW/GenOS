@@ -330,7 +330,8 @@ async function saveContract(db, context = {}) {
 async function getLatestContract(db, agentId, workspaceId = null) {
   let row = null;
   if (workspaceId) row = await db.get('SELECT * FROM strategy_contracts WHERE agent_id = ? AND workspace_id = ? ORDER BY version DESC LIMIT 1', agentId, workspaceId);
-  if (!row) row = await db.get('SELECT * FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1', agentId);
+  if (!row && workspaceId) row = await db.get('SELECT * FROM strategy_contracts WHERE agent_id = ? AND workspace_id IS NULL ORDER BY version DESC LIMIT 1', agentId);
+  if (!row && !workspaceId) row = await db.get('SELECT * FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1', agentId);
   return parseRow(row);
 }
 
