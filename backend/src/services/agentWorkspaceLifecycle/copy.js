@@ -30,7 +30,8 @@ async function removeSensitiveFiles(root) {
 
 function createExclusionFilter() {
   const excluded = new Set([
-    '.git', '.genos', '.genos-agent-worlds', '.codex-worktrees', 'artifacts', 'node_modules', 'target'
+    '.git', '.genos', '.genos-agent-worlds', '.genos-runner-logs', '.codex-worktrees',
+    'runner-logs', 'artifacts', 'node_modules', 'target'
   ]);
   return (name) => {
     return excluded.has(name) || SENSITIVE_COPY_FILES.test(name)
