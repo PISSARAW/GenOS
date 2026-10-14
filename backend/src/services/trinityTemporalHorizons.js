@@ -12,10 +12,10 @@ const HORIZONS = {
 function temporalValueFunction(effects, horizon, discountRate) {
   let value = 0;
   for (const effect of effects) {
-    const time = effect.time || 0;
-    const magnitude = effect.magnitude || 0;
-    const probability = effect.probability || 1;
-    const discounted = magnitude * probability * Math.exp(-discountRate * time);
+    const time = Number.isFinite(effect.time) ? effect.time : 0;
+    const magnitude = Number.isFinite(effect.magnitude) ? effect.magnitude : 0;
+    const probability = Number.isFinite(effect.probability) ? effect.probability : 1;
+    const discounted = magnitude * probability * Math.exp(-discountRate * time / 365);
     value += discounted;
   }
   return value;
@@ -39,7 +39,13 @@ function verifiedTemporalEffect(effect, horizon, evidenceIds) {
   const validRefs = refs.length > 0 && refs.every((ref) => evidenceIds.has(String(ref)));
   const numeric = ['time', 'magnitude', 'probability'].every((key) => Number.isFinite(effect?.[key]));
   return validRefs && numeric && effect.horizon === horizon.label
-    && effect.time >= 0 && effect.probability >= 0 && effect.probability <= 1;
+    && effect.time >= horizon.range[0] && isWithinHorizon(effect.time, horizon)
+    && effect.probability >= 0 && effect.probability <= 1;
+}
+
+function isWithinHorizon(time, horizon) {
+  const isLastHorizon = horizon.range[1] === HORIZONS.long.range[1];
+  return isLastHorizon ? time <= horizon.range[1] : time < horizon.range[1];
 }
 
 function claimEffects(report, horizon) {
