@@ -18,6 +18,7 @@
 
 const { withTransaction } = require('../../db');
 const { migrateDaemonTerritory } = require('../../db/migrations/migrateDaemonTerritory');
+const { buildIdentityDossier } = require('../agentIdentityDossierService');
 
 const ACTIVITIES = [
   'BOOTSTRAPPING',
@@ -94,7 +95,14 @@ async function registerDaemonUnlocked(runtime, input) {
   const state = restoreRuntimeState(input, prior);
   await persistRegistration(runtime, { daemonId: input.daemonId, state, resumed: Boolean(prior) });
   runtime.daemons.set(input.daemonId, state);
-  return { registered: true, daemonId: input.daemonId, ...state, resumed: Boolean(prior) };
+  return withDaemonIdentity(input.daemonId, { ...state, resumed: Boolean(prior) }, runtime.genomeRef);
+}
+
+function withDaemonIdentity(daemonId, state, genomeRef) {
+  const identityDossier = buildIdentityDossier({ agentId: daemonId, kind: 'daemon',
+    daemon: { daemonId, ...state, genomeRef } });
+  return { registered: true, daemonId, ...state, identityDossier,
+    identityDecision: identityDossier.decisionConstraints };
 }
 
 async function findPriorState(runtime, daemonId) {
@@ -145,13 +153,14 @@ async function touchRegistration(db, daemonId, state) {
 async function insertRegistration(db, registration) {
   await db.run(
     `INSERT INTO daemon_runtime_state
-      (daemon_id, territory_id, activity, health, cognitive_revisions, last_heartbeat_at)
-     VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+      (daemon_id, territory_id, activity, health, cognitive_revisions, created_at, last_heartbeat_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
     registration.daemonId,
     registration.state.territoryId,
     registration.state.activity,
     registration.state.health,
-    registration.state.revisions
+    registration.state.revisions,
+    registration.state.createdAt
   );
 }
 
@@ -162,6 +171,7 @@ function restoreRuntimeState(input, prior) {
     territoryId: input.territoryId,
     activity: isValidActivity(activity) ? activity : 'BOOTSTRAPPING',
     health: isValidHealth(health) ? health : 'HEALTHY',
+    createdAt: prior?.created_at || new Date().toISOString(),
     revisions: Number((prior && prior.cognitive_revisions) || 0),
     lastEventId: Number((prior && prior.last_event_id) || 0)
   };
@@ -184,7 +194,7 @@ async function heartbeatUnlocked(runtime, tick) {
   const receipt = await persistHeartbeat(runtime, tick, entry);
   if (runtime.db && !receipt.persisted) return { updated: false, errors: ['persistence-missed'] };
   runtime.daemons.set(tick.daemonId, entry);
-  return { updated: true, activity: entry.activity, health: entry.health, revisions: entry.revisions, lastEventId: entry.lastEventId };
+  return { updated: true, ...withDaemonIdentity(tick.daemonId, entry, runtime.genomeRef) };
 }
 
 function applyTickToEntry(entry, tick) {
@@ -219,19 +229,18 @@ async function persistHeartbeat(runtime, tick, entry) {
 async function getDaemonState(runtime, query) {
   if (!runtime || !query || !query.daemonId) return { found: false };
   const entry = runtime.daemons.get(query.daemonId);
-  if (entry) return { found: true, source: 'memory', daemonId: query.daemonId, ...entry };
+  if (entry) return { found: true, source: 'memory',
+    ...withDaemonIdentity(query.daemonId, entry, runtime.genomeRef) };
   if (!runtime.db) return { found: false };
   const row = await runtime.db.get('SELECT * FROM daemon_runtime_state WHERE daemon_id = ?', query.daemonId);
   if (!row) return { found: false };
-  return {
+  return { ...withDaemonIdentity(row.daemon_id, {
+    territoryId: row.territory_id, activity: row.activity, health: row.health,
+    revisions: row.cognitive_revisions, createdAt: row.created_at,
+    updatedAt: row.updated_at, lastEventId: Number(row.last_event_id || 0)
+  }, runtime.genomeRef),
     found: true,
     source: 'sqlite',
-    daemonId: row.daemon_id,
-    territoryId: row.territory_id,
-    activity: row.activity,
-    health: row.health,
-    revisions: row.cognitive_revisions,
-    lastEventId: Number(row.last_event_id || 0)
   };
 }
 

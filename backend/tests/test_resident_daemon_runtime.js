@@ -59,6 +59,9 @@ async function main() {
   const reg = await runtime.registerDaemon(rt, { daemonId: 'daemon.resident-1', territoryId: 'territory.genos-backend' });
   assert.equal(reg.registered, true);
   assert.equal(reg.activity, 'BOOTSTRAPPING');
+  assert.equal(reg.identityDossier.kind, 'daemon');
+  assert.equal(reg.identityDossier.dimensions.existence.value.agentId, 'daemon.resident-1');
+  assert.equal(reg.identityDossier.dimensions.governance.status, 'unknown');
 
   await runtime.heartbeat(rt, { daemonId: 'daemon.resident-1', activity: 'SURVEYING' });
   const beat = await runtime.heartbeat(rt, { daemonId: 'daemon.resident-1', activity: 'DORMANT', health: 'HEALTHY' });
@@ -87,6 +90,8 @@ async function main() {
   assert.equal(resumed.resumed, true);
   assert.equal(resumed.activity, 'BOOTSTRAPPING');
   assert.equal(resumed.revisions, 1);
+  assert.equal(resumed.identityDossier.dimensions.existence.value.bornAt,
+    reg.identityDossier.dimensions.existence.value.bornAt);
   const afterRestart = await runtime.heartbeat(rt2, { daemonId: 'daemon.resident-1', revision: true });
   assert.equal(afterRestart.revisions, 2);
 
@@ -103,6 +108,8 @@ async function main() {
   assert.equal(persisted.found, true);
   assert.equal(persisted.source, 'sqlite');
   assert.equal(persisted.revisions, 2);
+  assert.equal(persisted.identityDossier.dimensions.existence.value.bornAt,
+    reg.identityDossier.dimensions.existence.value.bornAt);
 
   // 9. Sentinel view reports heartbeat staleness and invalid territory ownership.
   const healthy = await supervisor.listDaemonHealth(db, { now: Date.now() + 1000 });

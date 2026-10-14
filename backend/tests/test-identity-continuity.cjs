@@ -9,6 +9,7 @@ var Receipt = require(path.join(SERVICES, 'selfCoInstantiationReceipt'));
 var Family = require(path.join(SERVICES, 'familyHistoryService'));
 var Homeo = require(path.join(SERVICES, 'organismHomeostasisService'));
 var WorkerSelf = require(path.join(SERVICES, 'workerSelfService'));
+var IdentityDossier = require(path.join(SERVICES, 'agentIdentityDossierService'));
 var Conscience = require(path.join(SERVICES, 'agentConscienceService'));
 
 var passed = 0, failed = 0;
@@ -75,7 +76,8 @@ Promise.resolve().then(function() {
       autobiographical: { episodeCount: 0, lessonCount: 0 },
       operational: { competence: {} },
       regulatory: { energy: 0.5, integrity: 1.0 },
-      narrative: { authority: 'none' }
+      narrative: { authority: 'none' },
+      identityDossier: IdentityDossier.buildIdentityDossier({ agentId: 't1', agentRow: { id: 't1', role: 'worker' } })
     };
     var r = AgentSelf.validateAgentSelf(self);
     assert(r.valid, 'valid AgentSelf: ' + (r.errors || []).join(', '));
@@ -200,6 +202,7 @@ Promise.resolve().then(function() {
         identity: { id: 'w1', name: 'W', role: 'worker' },
         regulatory: {},
         operational: {},
+        identityDossier: IdentityDossier.buildIdentityDossier({ agentId: 'w1', agentRow: { id: 'w1', role: 'worker', execution_mode: 'worker' } }),
         nineAnswers: { whoAmI: {}, whereFrom: {}, whatExperienced: {}, whatLearned: {}, whatLimits: {}, whoCreated: {}, whatInherited: {}, whatMutated: {}, whatState: {} }
       };
       var r = WorkerSelf.validateWorkerSelf(ws);
