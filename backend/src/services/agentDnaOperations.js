@@ -78,9 +78,14 @@ function buildArgs(operation, params, paths) {
   return decoyArgs(params, paths);
 }
 
-async function materialize(db, id, targetPath) {
+async function materialize(db, id, options) {
   if (!id) throw Object.assign(new Error('genomeId is required'), { code: 'GENOME_ID_REQUIRED' });
-  const row = await db.get('SELECT genome_blob FROM agent_genomes WHERE id = ?', id);
+  const { targetPath, scope } = options;
+  const ids = scope || {};
+  const tenant = ids.organizationId && ids.projectId
+    ? { clause: '((organization_id = ? AND project_id = ?) OR (organization_id IS NULL AND project_id IS NULL))', params: [ids.organizationId, ids.projectId] }
+    : { clause: '(organization_id IS NULL AND project_id IS NULL)', params: [] };
+  const row = await db.get(`SELECT genome_blob FROM agent_genomes WHERE id = ? AND ${tenant.clause}`, id, ...tenant.params);
   if (!row) throw Object.assign(new Error(`genome '${id}' not found`), { code: 'GENOME_NOT_FOUND' });
   fs.writeFileSync(targetPath, Buffer.from(row.genome_blob));
   return targetPath;
@@ -133,11 +138,11 @@ async function runOperation(db, request) {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-dna-op-'));
   try {
     const paths = {
-      input: await materialize(db, params.genomeId, path.join(workDir, 'input.dna')),
+      input: await materialize(db, params.genomeId, { targetPath: path.join(workDir, 'input.dna'), scope }),
       output: path.join(workDir, 'output.dna')
     };
     if (operation === 'cross') {
-      paths.parent = await materialize(db, params.parentId, path.join(workDir, 'parent.dna'));
+      paths.parent = await materialize(db, params.parentId, { targetPath: path.join(workDir, 'parent.dna'), scope });
     }
     const result = await genosCli.runGenos(buildArgs(operation, params, paths));
     if (!result.ok) {
@@ -165,4 +170,4 @@ async function runOperation(db, request) {
   }
 }
 
-module.exports = { runOperation, buildArgs, SUPPORTED };
+module.exports = { runOperation, buildArgs, materialize, SUPPORTED };

@@ -33,6 +33,17 @@ function orNull(value) {
   return value;
 }
 
+function genomeScope(scope) {
+  const ids = scope || {};
+  if (ids.organizationId && ids.projectId) {
+    return {
+      clause: '((organization_id = ? AND project_id = ?) OR (organization_id IS NULL AND project_id IS NULL))',
+      params: [ids.organizationId, ids.projectId]
+    };
+  }
+  return { clause: '(organization_id IS NULL AND project_id IS NULL)', params: [] };
+}
+
 async function saveGenome(db, model, options) {
   const opts = options || {};
   const id = opts.id ? opts.id : model.meta.name;
@@ -45,7 +56,9 @@ async function saveGenome(db, model, options) {
      ON CONFLICT(id) DO UPDATE SET agent_id = excluded.agent_id, name = excluded.name, content_hash = excluded.content_hash,
        genome_blob = excluded.genome_blob, phenotype_blob = excluded.phenotype_blob, source_manifest = excluded.source_manifest,
        source_doc = excluded.source_doc, organization_id = excluded.organization_id, project_id = excluded.project_id,
-       status = excluded.status, concept = excluded.concept, updated_at = CURRENT_TIMESTAMP`,
+       status = excluded.status, concept = excluded.concept, updated_at = CURRENT_TIMESTAMP
+     WHERE agent_genomes.organization_id IS excluded.organization_id
+       AND agent_genomes.project_id IS excluded.project_id`,
     id,
     orNull(opts.agentId),
     model.meta.name,
@@ -59,13 +72,18 @@ async function saveGenome(db, model, options) {
     status,
     orNull(opts.concept)
   );
+  const persisted = await db.get('SELECT organization_id, project_id FROM agent_genomes WHERE id = ?', id);
+  if (!persisted || persisted.organization_id !== orNull(opts.organizationId) || persisted.project_id !== orNull(opts.projectId)) {
+    throw Object.assign(new Error('Genome identifier already belongs to another tenant scope.'), { code: 'GENOME_SCOPE_CONFLICT' });
+  }
   return { id, name: model.meta.name, contentHash: model.contentHash, status };
 }
 
-async function loadGenome(db, key) {
+async function loadGenome(db, key, scope) {
   let row = null;
   try {
-    row = await db.get('SELECT * FROM agent_genomes WHERE id = ? OR name = ? LIMIT 1', key, key);
+    const tenant = scope === undefined ? { clause: '1 = 1', params: [] } : genomeScope(scope);
+    row = await db.get(`SELECT * FROM agent_genomes WHERE (id = ? OR name = ?) AND ${tenant.clause} LIMIT 1`, key, key, ...tenant.params);
   } catch (_) {
     return null;
   }
@@ -159,23 +177,22 @@ async function bestMatch(db, assignment, scope) {
 async function selectExplicit(db, assignment, scope) {
   if (assignment.genomeRef) {
     if (!(await genomeAllowed(db, assignment.genomeRef, scope))) return null;
-    const model = await loadGenome(db, assignment.genomeRef);
+    const model = await loadGenome(db, assignment.genomeRef, scope);
     return model && (await acceptGenome(db, model, scope)) ? { id: assignment.genomeRef, model } : null;
   }
   if (assignment.preferredName) {
     if (!(await genomeAllowed(db, assignment.preferredName, scope))) return null;
-    const model = await loadGenome(db, assignment.preferredName);
+    const model = await loadGenome(db, assignment.preferredName, scope);
     return model && (await acceptGenome(db, model, scope)) ? { id: assignment.preferredName, model } : null;
   }
   return null;
 }
 
 async function genomeAllowed(db, id, scope) {
-  const row = await db.get('SELECT status, organization_id, project_id FROM agent_genomes WHERE id = ? OR name = ? LIMIT 1', id, id);
+  const tenant = genomeScope(scope);
+  const row = await db.get(`SELECT status FROM agent_genomes WHERE (id = ? OR name = ?) AND ${tenant.clause} LIMIT 1`, id, id, ...tenant.params);
   if (!row || row.status !== 'active') return false;
-  const ids = scope || {};
-  if (!ids.organizationId || !ids.projectId) return !row.organization_id && !row.project_id;
-  return (!row.organization_id && !row.project_id) || (row.organization_id === ids.organizationId && row.project_id === ids.projectId);
+  return true;
 }
 
 async function selectGenome(db, assignment, scope) {
@@ -187,7 +204,7 @@ async function selectGenome(db, assignment, scope) {
   await ensureImported(db);
   const id = await bestMatch(db, assignment, scope);
   if (!id) return null;
-  const model = await loadGenome(db, id);
+  const model = await loadGenome(db, id, scope);
   return model && (await acceptGenome(db, model, scope)) ? { id, model } : null;
 }
 

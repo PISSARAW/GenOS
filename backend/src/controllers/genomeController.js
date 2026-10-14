@@ -10,9 +10,12 @@ const DEFAULT_DIRECTORY = path.resolve(__dirname, '../../../agents/dna');
 
 function scopeClause(tenant) {
   if (tenant && tenant.organizationId && tenant.projectId) {
-    return { clause: 'organization_id = ? AND project_id = ?', params: [tenant.organizationId, tenant.projectId] };
+    return {
+      clause: '((organization_id = ? AND project_id = ?) OR (organization_id IS NULL AND project_id IS NULL))',
+      params: [tenant.organizationId, tenant.projectId]
+    };
   }
-  return { clause: 'organization_id IS NULL', params: [] };
+  return { clause: 'organization_id IS NULL AND project_id IS NULL', params: [] };
 }
 
 function summarize(model) {
@@ -48,7 +51,7 @@ async function listGenomes(req, res, next) {
 async function getGenome(req, res, next) {
   try {
     const db = await getDatabase();
-    const model = await store.loadGenome(db, req.params.id);
+    const model = await store.loadGenome(db, req.params.id, tenantScope(req));
     if (!model) {
       return res.status(404).json({ error: { code: 'GENOME_NOT_FOUND', message: 'AgentDNA genome not found.' } });
     }
