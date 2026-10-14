@@ -161,7 +161,7 @@ async function createGeneration(state) {
   const latencyBudgetMs = budgetLimit(state.executionBudget, 'latencyMs');
   const perAttemptTimeoutMs = overrideTimeoutMs > 0
     ? overrideTimeoutMs
-    : (Number.isFinite(latencyBudgetMs) ? Math.max(120000, Math.floor(latencyBudgetMs * 0.6 / 3)) : 300000);
+    : (Number.isFinite(latencyBudgetMs) ? Math.max(120000, Math.floor(latencyBudgetMs * 0.75)) : 300000);
   const generation = withTextImmunity(state.framedPrompt, 'high', {
     validatorFn: griotValidator,
     maxRetries: 3,

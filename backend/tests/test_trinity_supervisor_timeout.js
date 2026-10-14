@@ -7,7 +7,7 @@ const base = [{ variantSelection: { variant: 'adversarial' }, worldNumber: 1, mo
 assert.equal(topologyHandler.withDispatchRuntime(base, {}).supervisionTimeoutMs, 180000);
 assert.equal(topologyHandler.withDispatchRuntime(base, { timeoutMs: 420000 }).supervisionTimeoutMs, 420000);
 assert.equal(topologyHandler.withDispatchRuntime(base, { trinitySupervisorTimeoutMs: 540000, timeoutMs: 420000 }).supervisionTimeoutMs, 540000);
-assert.equal(topologyHandler.withDispatchRuntime(base, { timeoutMs: 900000 }).supervisionTimeoutMs, 600000);
+assert.equal(topologyHandler.withDispatchRuntime(base, { timeoutMs: 1200000 }).supervisionTimeoutMs, 900000);
 
 const supervisor = require('../bin/trinity-supervisor.cjs');
 assert.equal(supervisor.expectedWorlds({ experimentalDesign: { worldTopology: 'factorial_grid' } }), 16);

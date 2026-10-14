@@ -17,16 +17,17 @@ function requestedBudget(context) {
 
 async function bindTrinityBudgetScope({ db, context, parent }) {
   const budget = requestedBudget(context);
+  const missionId = context.missionId || undefined;
   const contractRecord = await contracts.getLatestContract(db, context.orchestratorId);
   if (!contractRecord) throw new Error(`No strategy contract is available for orchestrator '${context.orchestratorId}'.`);
   const executionRun = await strategyExecution.createExecutionRun(db, {
     agentId: context.orchestratorId,
-    missionId: context.request.trinityMissionId || context.missionId,
+    missionId,
     budget,
     contractRecord
   });
   const normalizedMission = {
-    missionId: context.request.trinityMissionId || context.missionId,
+    missionId,
     executionBudget: budget
   };
   await missionBudgetScopes.bindParent({

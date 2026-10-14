@@ -16,7 +16,7 @@ async function testParentScopeIsPersistedAndRoutable() {
   contracts.getLatestContract = async () => ({ id: 'contract-1', version: 1, contract: {} });
   strategyExecution.createExecutionRun = async (_db, input) => {
     assert.equal(input.agentId, 'parent');
-    assert.equal(input.missionId, 'trinity-mission-1');
+    assert.equal(input.missionId, 'generic-mission');
     assert.equal(input.budget.costUsd, 0.5);
     return { id: 'parent-run' };
   };

@@ -25,7 +25,8 @@ const missionCheckpoint = require('../src/services/communication/missionCheckpoi
 
 const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
   prepareMission, startOrchestratorMission, buildContinuity, emitCompletionEvent,
-  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage } = helpers;
+  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage,
+  shouldAttachMissionOrchestrator } = helpers;
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
 process.on('unhandledRejection', (reason) => {
   console.error('[genos-orchestrate] Unhandled rejection:', reason && reason.stack ? reason.stack : reason);
@@ -252,7 +253,7 @@ async function executeMission(db, state) {
 
 async function executeRequestedAction(input) {
   const { db, state } = input;
-  if (missionId) {
+  if (shouldAttachMissionOrchestrator(action, missionId)) {
     await missionIdentity.attachOrchestrator(db, {
       missionId, agentId: orchestratorId, expectedOrchestratorId: request.expectedOrchestratorId
     });

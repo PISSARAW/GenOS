@@ -6,6 +6,7 @@ const { summarizeAgents } = require('../src/services/orchestratorOutcome');
 const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
 const missionContinuity = require('../src/services/missionContinuityService');
 const { decideGarageCapacity } = require('../src/services/garageCapacityService');
+const workspaceBinding = require('../src/services/orchestratorWorkspaceBindingService');
 const handoffCompiler = require('../src/services/daemon/handoff/handoffCompilerService');
 const handoffFeedback = require('../src/services/daemon/handoff/handoffFeedbackService');
 
@@ -71,6 +72,10 @@ function resolveWorkspacePath(request) {
 
 function resolveWorkspaceId(request) {
   return pickOr(request, ['workspaceId', 'workspace_id']);
+}
+
+function shouldAttachMissionOrchestrator(action, missionId) {
+  return Boolean(missionId) && action !== 'dispatch_worker';
 }
 
 function buildNceInput(request) {
@@ -161,7 +166,7 @@ async function prepareMission(opts) {
   const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
   const contracts = require('../src/services/strategyContractService');
   const workspaceId = request.workspaceId || request.workspace_id || null;
-  if (workspaceId) await bindOrchestratorWorkspace({ db, agentId: id, workspaceId, request });
+  if (workspaceId) await workspaceBinding.bind({ db, agentId: id, workspaceId, request });
   const existing = await db.get(`SELECT metadata_json FROM agents WHERE id = ?`, id).catch(() => null);
   const metadataJson = mergeMetadataJson(existing?.metadata_json, { nceMetadata });
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json, workspace_id) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?, ?)`, id, enhancedPrompt, metadataJson, workspaceId);
@@ -188,25 +193,6 @@ async function prepareMission(opts) {
   applyLatencyBudget(missionBudget, requestTimeoutMs);
   const useLocalRuntime = checkLocalRuntime(policyRequest, request);
   return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology };
-}
-
-async function bindOrchestratorWorkspace({ db, agentId, workspaceId, request }) {
-  const workspace = await db.get('SELECT id,path,organization_id,project_id FROM workspaces WHERE id = ?', workspaceId);
-  if (!workspace) throw Object.assign(new Error(`Workspace '${workspaceId}' does not exist.`), { code: 'MISSION_WORKSPACE_NOT_FOUND' });
-  if (!workspace.organization_id || !workspace.project_id) {
-    throw Object.assign(new Error(`Workspace '${workspaceId}' has no complete tenant scope.`), { code: 'MISSION_WORKSPACE_SCOPE_REQUIRED' });
-  }
-  const requestedRoot = request.workspaceRoot || request.workspace_root;
-  if (requestedRoot && path.resolve(workspace.path) !== path.resolve(requestedRoot)) {
-    throw Object.assign(new Error(`Workspace '${workspaceId}' path does not match the requested mission root.`), { code: 'MISSION_WORKSPACE_PATH_MISMATCH' });
-  }
-  const current = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agentId);
-  if (current?.workspace_id && current.workspace_id !== workspaceId) {
-    throw Object.assign(new Error(`Orchestrator '${agentId}' already belongs to another workspace.`), { code: 'ORCHESTRATOR_WORKSPACE_MISMATCH' });
-  }
-  await db.run('UPDATE agents SET workspace_id = ? WHERE id = ? AND (workspace_id IS NULL OR workspace_id = ?)', workspaceId, agentId, workspaceId);
-  const saved = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agentId);
-  if (saved?.workspace_id !== workspaceId) throw Object.assign(new Error('Orchestrator workspace binding changed concurrently.'), { code: 'ORCHESTRATOR_WORKSPACE_MISMATCH' });
 }
 
 function buildGarageInput(request, morphology, strategyContract) {
@@ -377,6 +363,7 @@ module.exports = {
   emitTopologyEvent,
   applyNceEnhancements,
   buildNceInput,
+  shouldAttachMissionOrchestrator,
   buildEnhancedPrompt,
   mergeMetadataJson,
   prepareMission,

@@ -10,10 +10,23 @@ async function ensureParent({ db, context }) {
   );
   if (isUnavailableParent(parent)) parent = await replaceParent(db, context);
   if (!parent) throw new Error(`Orchestrator '${context.orchestratorId}' was not found.`);
+  parent = await bindRequestedWorkspace(db, context, parent);
   if (!await contracts.getLatestContract(db, context.orchestratorId)) {
     await contracts.saveContract(db, { agentId: context.orchestratorId, problem: context.task, createdBy: 'mcp_' + context.action });
   }
   return parent;
+}
+
+async function bindRequestedWorkspace(db, context, parent) {
+  const workspaceId = context.request?.workspaceId || context.request?.workspace_id;
+  if (!workspaceId) return parent;
+  await require('../orchestratorWorkspaceBindingService').bind({
+    db, agentId: parent.id, workspaceId, request: context.request
+  });
+  return db.get(
+    "SELECT a.id, a.status, a.is_apoptotic, a.workspace_id, a.model_tier, a.isolation_mode, w.organization_id, w.project_id, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
+    parent.id
+  );
 }
 
 function isUnavailableParent(parent) {

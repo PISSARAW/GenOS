@@ -140,7 +140,7 @@ function replicationConfigs(request) {
 function supervisionTimeoutMs(request = {}) {
   const requested = Number(request.trinitySupervisorTimeoutMs ?? request.timeoutMs);
   if (!Number.isFinite(requested) || requested <= 0) return 180000;
-  return Math.min(600000, Math.max(180000, requested));
+  return Math.min(900000, Math.max(180000, requested));
 }
 
 async function persistDispatchConfig(db, config) {

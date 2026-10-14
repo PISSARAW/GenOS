@@ -599,6 +599,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0467](0467-lier-identite-interne-graphe-prepare-morphogenese.md) | Lier l'identité interne du graphe préparé Morphogenèse | Accepté | 2026-10-12 | morphogenèse, snapshot préparé, intégrité des références |
 | [0468](0468-scellement-panel-representatif-biocenose.md) | Lier la distribution Biocénose au panel représentatif scellé | Accepté | 2026-10-12 | Biocénose, Representative Community, preuve de promotion |
 | [0469](0469-identite-causale-et-reconnaissance-des-agents.md) | Identité causale et reconnaissance des agents | Accepté | 2026-10-14 | Identité, continuité, mémoire, relations |
+| [0470](0470-budgets-de-generation-locale-trinity.md) | Budgets d’inférence locale pour Trinity | Accepté et implémenté. | 2026-10-14. | Temps d’exécution des workers Trinity avec modèles locaux. |
+| [0471](0471-lier-les-dispatches-autonomes-au-workspace.md) | Lier les dispatches autonomes au workspace déclaré | Accepté et implémenté. | 2026-10-14. | Identité tenant des dispatches d’orchestration directs. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
