@@ -98,6 +98,13 @@ function reportedCost(event, usage) {
   return undefined;
 }
 
+function nonnegativeCost(raw) {
+  if (typeof raw !== 'number' && typeof raw !== 'string') return null;
+  if (typeof raw === 'string' && !raw.trim()) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
 function accountEvent(state, event) {
   state.eventCount += 1;
   const usage = readUsage(event);
@@ -111,8 +118,8 @@ function accountEvent(state, event) {
   }
   const cost = reportedCost(event, usage);
   if (cost !== undefined) {
-    const value = Number(cost);
-    if (!Number.isFinite(value) || value < 0) state.costUsageUnknown = true;
+    const value = nonnegativeCost(cost);
+    if (value === null) state.costUsageUnknown = true;
     else state.observedCostUsd += value;
   }
 }

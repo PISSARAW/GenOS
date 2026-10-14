@@ -88,6 +88,10 @@ events.handleParsedEvent(malformedCost, { type: 'turn.completed', cost_usd: 'unk
 assert.equal(malformedCost.budgetStopped.dimension, 'costUsd');
 assert.equal(malformedCost.budgetStopped.observed, 'unknown', 'malformed costs fail closed');
 
+const nullCost = runtimeState(8_000);
+events.handleParsedEvent(nullCost, { type: 'turn.completed', usage: { cost_usd: null } });
+assert.equal(nullCost.budgetStopped.dimension, 'costUsd', 'null is not a measured zero cost');
+
 const zeroCost = runtimeState(8_000);
 events.handleParsedEvent(zeroCost, { type: 'turn.completed', usage: { cost_usd: 0 } });
 assert.equal(zeroCost.budgetStopped, null, 'a valid zero cost remains valid');
