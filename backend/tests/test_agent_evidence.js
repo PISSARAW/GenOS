@@ -8,5 +8,6 @@ assert.equal(evidenceScore({ eventType: 'AGENT_FAILED' }), 0, 'Explicit failure 
 assert.equal(evidenceScore({ evidenceReport: { outcome: 'failed' } }), 0, 'Failed outcome must still score 0');
 assert.equal(evidenceScore({ failure: { reason: 'crash' } }), 0, 'Payload failure must still score 0');
 assert(evidenceScore({ evidenceReport: { claims: [{ evidence: ['log line'] }] } }) > 0, 'Claims with evidence keep a numeric score');
+assert.equal(evidenceScore({ evidenceReport: { claims: [{ evidence: [{ status: 'ok' }] }] } }), 0, 'Status metadata must not score as claim evidence');
 assert(evidenceScore({ evidenceReport: { outcome: 'no_answer', noAnswerProof: { evidence: ['state A checked', 'state B checked'] } } }) >= 37, 'No-answer proof keeps a numeric score');
 console.log('Agent evidence scoring contract checks passed.');

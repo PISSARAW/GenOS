@@ -2,6 +2,18 @@
  * Shared primitives for worker evidence scoring, validation, and dossiers.
  */
 const FAILURE_EVENT_TYPES = ['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'];
+const NON_EVIDENCE_FIELDS = new Set([
+  'status', 'state', 'outcome', 'success', 'ok', 'passed', 'completed',
+  'eligible', 'verified', 'confidence', 'verificationstatus', 'isverified'
+]);
+
+function isEvidenceField(key) {
+  return !NON_EVIDENCE_FIELDS.has(String(key).toLowerCase().replace(/[^a-z]/g, ''));
+}
+
+function hasSubstantiveObjectValue(value, predicate) {
+  return Object.entries(value).some(([key, item]) => isEvidenceField(key) && predicate(item));
+}
 
 function extractEvidenceReport(value) {
   if (!value || typeof value !== 'object') return {};
@@ -24,14 +36,14 @@ function hasUsableValue(value) {
   if (typeof value === 'number') return Number.isFinite(value);
   if (typeof value === 'boolean') return true;
   if (Array.isArray(value)) return value.some(hasEvidenceItem);
-  if (value && typeof value === 'object') return Object.values(value).some(hasUsableValue);
+  if (value && typeof value === 'object') return hasSubstantiveObjectValue(value, hasUsableValue);
   return false;
 }
 
 function hasEvidenceItem(item) {
   if (typeof item === 'string') return isTextItem(item);
   if (Array.isArray(item)) return item.some(hasEvidenceItem);
-  if (item && typeof item === 'object') return Object.values(item).some(hasUsableValue);
+  if (item && typeof item === 'object') return hasSubstantiveObjectValue(item, hasUsableValue);
   return false;
 }
 

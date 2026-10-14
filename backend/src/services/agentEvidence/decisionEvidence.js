@@ -26,7 +26,7 @@ function hasNoAnswerProof(report) {
 }
 
 function hasUsablePayload(payload) {
-  return Boolean(payload && typeof payload === 'object' && Object.keys(payload).length > 0);
+  return hasEvidenceItem(payload);
 }
 
 function hasFailureEvidence(event, payload) {

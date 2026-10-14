@@ -33,7 +33,12 @@ async function main() {
   const latest = await feedback.process(ctx, { id: 'evidence', eventType: 'EVIDENCE_REPORT', payload: { outcome: 'success', claims: [{ claim: 'test passed', evidence: ['test.log'] }] } });
   assert(latest.worldState.evidenceDebt.includes('independent_replay'));
   assert.equal(latest.percepts.at(-1).value.evidencePresent, true);
-  assert.equal(feedback.feedbackPercept({ id: 'exit', eventType: 'AGENT_COMPLETED', payload: {} }).value.evidencePresent, false);
+  assert.equal(latest.percepts.at(-1).confidence, 1);
+  const unverified = feedback.feedbackPercept({ id: 'exit', eventType: 'AGENT_COMPLETED', payload: {
+    outcome: 'success', claims: [{ evidence: [{ status: 'passed' }] }]
+  } });
+  assert.equal(unverified.value.evidencePresent, false);
+  assert.equal(unverified.confidence, 0);
   ctx.dispatchedAgent.execution_mode = 'worker';
   assert.equal(await feedback.process(ctx, event), null);
   console.log('Orchestrator feedback: measured budget, goals, failures, retained evidence debt and worker isolation passed.');

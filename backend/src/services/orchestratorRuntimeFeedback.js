@@ -11,7 +11,7 @@ function feedbackPercept(event) {
   return {
     kind: 'action_consequence', source: 'runtime_observation',
     value: { eventId: event.id, eventType: event.eventType, outcome: report.outcome || null, evidencePresent: verified },
-    confidence: 1, cost: 0, timestamp: new Date().toISOString()
+    confidence: verified ? 1 : 0, cost: 0, timestamp: new Date().toISOString()
   };
 }
 
