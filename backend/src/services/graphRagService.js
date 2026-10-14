@@ -292,12 +292,13 @@ module.exports = {
 
 async function temporalNeighbor(db, anchor, options) {
   const past = options.direction === 'past';
+  const scope = scopeFilter('', { ...options, includeGlobal: globalAllowed(options) });
   let query = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE '
     + (past ? 'created_at < ? AND created_at >= ?' : 'created_at > ? AND created_at <= ?') + ' AND id != ?';
   const params = [anchor.createdAt, past ? options.minTime : options.maxTime, anchor.id];
-  for (const [key, column] of [['ownerId', 'created_by'], ['organizationId', 'organization_id'], ['projectId', 'project_id']]) {
-    if (options[key]) { query += ' AND ' + column + ' = ?'; params.push(options[key]); }
-  }
+  if (options.ownerId) { query += ' AND created_by = ?'; params.push(options.ownerId); }
+  query += scope.sql;
+  params.push(...scope.parameters);
   query += past ? ' ORDER BY created_at DESC LIMIT 1' : ' ORDER BY created_at ASC LIMIT 1';
   return db.get(query, ...params);
 }
