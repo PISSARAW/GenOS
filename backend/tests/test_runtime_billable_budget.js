@@ -3,6 +3,16 @@
 const assert = require('node:assert/strict');
 const events = require('../bin/agent-runtime-events.cjs');
 
+assert.equal(events.budgetLimit({ executionBudget: {} }, 'tokens'), 100000,
+  'missing dimensions use the bounded mission defaults');
+assert.equal(events.budgetLimit({ executionBudget: {} }, 'latencyMs'), 60000);
+assert.equal(events.budgetLimit({ executionBudget: { tokens: 0 } }, 'tokens'), 0,
+  'a zero token budget remains a zero ceiling for deterministic workers');
+assert.equal(events.budgetLimit({ executionBudget: { tokens: 'invalid' } }, 'tokens'), 0,
+  'an invalid explicit budget fails closed');
+assert.equal(events.budgetLimit({ executionBudget: { events: Infinity } }, 'events'), 0,
+  'an unbounded numeric value fails closed');
+
 function runtimeState(tokenLimit) {
   const emitted = [];
   return {

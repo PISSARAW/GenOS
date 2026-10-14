@@ -2,10 +2,13 @@ const { terminateChild } = require('../src/services/processTermination');
 const immune = require('../src/services/immuneSystem');
 const agentConscience = require('../src/services/agentConscienceService');
 const MAX_RUNTIME_LINE_BYTES = 4 * 1024 * 1024;
+const DEFAULT_BUDGETS = { tokens: 100000, costUsd: 1, latencyMs: 60000, events: 100 };
 
 function budgetLimit(state, key) {
-  const value = Number(state.executionBudget[key]);
-  return Number.isFinite(value) && value > 0 ? value : Infinity;
+  const raw = state.executionBudget?.[key];
+  if (raw === undefined) return DEFAULT_BUDGETS[key] ?? 0;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
 function stopForBudget(state, info) {

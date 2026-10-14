@@ -639,6 +639,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0507](0507-echouer-si-la-phase-diff-replay-nest-pas-applicable.md) | Échouer si la phase diff/replay n'est pas applicable | Accepté et implémenté pour la phase stratégie. | 2026-10-15 | Un contexte absent ne valide plus silencieusement le replay. |
 | [0508](0508-refuser-une-intersection-vide-de-lease.md) | Refuser une intersection vide de lease | Accepté et implémenté pour les contraintes de focus. | 2026-10-15 | Une contrainte incompatible ne restaure pas les outils du lease initial. |
 | [0509](0509-borner-la-lease-mcp-par-le-budget-de-mission.md) | Borner la lease MCP par le budget de mission | Accepté et implémenté pour le runtime Codex. | 2026-10-15 | Propagation de l'échéance jusqu'au serveur MCP. |
+| [0510](0510-borner-les-budgets-du-runtime-codex.md) | Borner les budgets du runtime Codex | Accepté et implémenté pour la garde d'événements Codex. | 2026-10-15 | Plafonds finis par défaut et arrêt sur valeur explicite invalide. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
