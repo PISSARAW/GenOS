@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 const { getDatabase } = require('../db');
-const { canonicalize } = require('./evaluationGraders');
 const telemetry = require('./telemetryObserver');
+const { isValidRecordHash } = require('./provenanceHash');
 
 function parseJson(value, fallback = null) {
   if (!value) return fallback;
@@ -31,14 +31,6 @@ function buildMerkleEntry(record) {
   };
 }
 
-function hasValidPayloadHash(record) {
-  if (!record?.payload_hash || !record?.payload_json) return false;
-  let payload;
-  try { payload = JSON.parse(record.payload_json); } catch (_) { return false; }
-  const canonicalJson = JSON.stringify(canonicalize(payload));
-  const actualHash = crypto.createHash('sha256').update(canonicalJson).digest('hex');
-  return actualHash === String(record.payload_hash).toLowerCase();
-}
 function fetchMerkleParent(db, parentHash, scope) {
   if (scope.organizationId && scope.projectId) {
     return db.get('SELECT * FROM provenance_records WHERE payload_hash = ? AND organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1', parentHash, scope.organizationId, scope.projectId);
@@ -77,7 +69,7 @@ async function traceMerkleProvenance(options) {
     }
     visited.add(key);
 
-    if (!hasValidPayloadHash(current)) {
+    if (!isValidRecordHash(current)) {
       return {
         success: false,
         error: `Provenance payload hash mismatch at '${key}'.`,

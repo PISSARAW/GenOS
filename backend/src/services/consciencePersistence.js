@@ -2,6 +2,7 @@ const { getDatabase, withTransaction } = require('../db');
 const { resolveConflictIntoState } = require('./conscienceMerge.js');
 const { canonicalize } = require('./evaluationGraders.js');
 const crypto = require('crypto');
+const { BOUND_ALGORITHM, payloadHash: boundPayloadHash } = require('./provenanceHash');
 
 const persistTails = new Map();
 
@@ -57,10 +58,10 @@ async function recordProvenance({ subjectType, subjectId, payload, parentHash = 
     if (!parent) throw Object.assign(new Error(`Provenance parent '${parentHash}' was not found.`), { code: 'PROVENANCE_PARENT_NOT_FOUND' });
   }
   const payloadJson = JSON.stringify(canonicalize(payload));
-  const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
+  const payloadHash = boundPayloadHash(payloadJson, parentHash);
   const id = `prov-${crypto.randomUUID()}`;
-  await db.run('INSERT INTO provenance_records (id, subject_type, subject_id, payload_hash, parent_hash, payload_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, subjectType, subjectId, payloadHash, parentHash, payloadJson, scope.organizationId || null, scope.projectId || null);
-  return { id, subjectType, subjectId, payloadHash, parentHash, algorithm: 'sha256' };
+  await db.run('INSERT INTO provenance_records (id, subject_type, subject_id, payload_hash, parent_hash, algorithm, payload_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, subjectType, subjectId, payloadHash, parentHash, BOUND_ALGORITHM, payloadJson, scope.organizationId || null, scope.projectId || null);
+  return { id, subjectType, subjectId, payloadHash, parentHash, algorithm: BOUND_ALGORITHM };
 }
 
 module.exports = { persistConscienceState, persistConscienceStateNow, persistConscienceTransaction, resolveConscienceConflict, insertConscienceTransition, loadConscienceState, recordProvenance };

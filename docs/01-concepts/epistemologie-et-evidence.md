@@ -163,10 +163,10 @@ Le code ne prouve pas cette relation logique generale : il privilegie les liens 
 
 ## Provenance des conclusions
 
-La provenance est enregistree dans une chaine Merkle par `recordProvenance()` et resolue par `provenanceResolver`. Chaque record lie un `payloadHash` au hash parent. Une conclusion peut donc pointer vers l'evidence worker, elle-meme reliee a une specification ou un artefact precedent.
+La provenance est enregistree dans une chaine Merkle par `recordProvenance()` et resolue par `provenanceResolver`. Les nouveaux reçus utilisent `sha256-parent-v1`, qui lie le payload canonique et le hash parent. Les anciens reçus `sha256` restent vérifiés selon leur format historique ; leur lien parent n'est pas cryptographiquement engagé. Une conclusion peut donc pointer vers l'evidence worker, elle-meme reliee a une specification ou un artefact precedent.
 
 $$
-h_i = SHA256(type_i \parallel subject_i \parallel payload_i \parallel h_{i-1})
+h_i = SHA256(\text{"genos-provenance-v1"} \parallel h_{i-1} \parallel canonical(payload_i))
 $$
 
 `resolveProvenance()` retourne la chaine jusqu'a une profondeur maximale et indique `truncated` lorsqu'elle est coupee. La memoire d'execution peut conserver le `provenanceHash` de la conclusion dans `genome_decisions` et `provenance_records`.

@@ -44,6 +44,7 @@ async function runSuite() {
   // Test 1: Merkle Provenance Chain Traversal & Truncation
   console.log('\n--- 1. Cryptographic Merkle DAG Provenance Traversal ---');
   const rootProv = await recordProvenance('test_root', 'spec-01', { premise: 'Base requirement specification' });
+  const alternateRoot = await recordProvenance('test_root', 'spec-02', { premise: 'Alternate specification' });
   const workerProv = await recordProvenance('worker_evidence', 'worker-01', {
     findings: 'Code inspected and unit tests generated'
   }, rootProv.payloadHash);
@@ -67,6 +68,11 @@ async function runSuite() {
   await db.run('UPDATE provenance_records SET parent_hash = ? WHERE id = ?', 'missing-parent-hash', workerProv.id);
   const missingParentTrace = await resolveProvenance({ targetId: synthProv.payloadHash, maxDepth: 10 });
   check(missingParentTrace.success === false, 'Missing provenance parent is rejected');
+  await db.run('UPDATE provenance_records SET parent_hash = ? WHERE id = ?', rootProv.payloadHash, workerProv.id);
+
+  await db.run('UPDATE provenance_records SET parent_hash = ? WHERE id = ?', alternateRoot.payloadHash, workerProv.id);
+  const reboundParentTrace = await resolveProvenance({ targetId: synthProv.payloadHash, maxDepth: 10 });
+  check(reboundParentTrace.success === false, 'Rebinding a valid parent without changing the child hash is rejected');
   await db.run('UPDATE provenance_records SET parent_hash = ? WHERE id = ?', rootProv.payloadHash, workerProv.id);
 
   const truncatedTrace = await resolveProvenance({ targetId: synthProv.payloadHash, maxDepth: 2 });
