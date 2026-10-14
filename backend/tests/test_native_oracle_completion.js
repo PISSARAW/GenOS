@@ -54,7 +54,7 @@ async function humanApproval(db) {
   await assert.rejects(service.approveRun(db, row.id, {}), /human approval/);
   const before = (await db.all('SELECT nonce FROM verifier_receipt_nonces')).length;
   const options = { humanApprovalReceipt: { approved: true, approvalId: `native-${row.id}`, approverId: 'test-human',
-    approvedAt: new Date().toISOString(), payloadHash: require('../src/services/trinityProvenanceValues').digest({ runId: row.id }) } };
+    approvedAt: new Date().toISOString(), payloadHash: await service.getPromotionApprovalDigest(db, row.id) } };
   await require('./helpers/nativeCompletionProbes').promotionRefusals(db, { row, options });
   const approved = await service.approveRun(db, row.id, options);
   assert.equal(approved.status, 'completed');

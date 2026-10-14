@@ -6,10 +6,19 @@ function secretKey() {
   return value;
 }
 
+function signaturePayload(payload) {
+  const base = `${payload.runId}:${payload.timestamp}:${payload.signerId || ''}`;
+  if (payload.payloadHash === undefined) return base;
+  if (!/^[a-f0-9]{64}$/i.test(String(payload.payloadHash || ''))) {
+    throw new Error('Promotion signature requires the approved payload hash');
+  }
+  return `${base}:${payload.payloadHash.toLowerCase()}`;
+}
+
 /**
  * Validates a cryptographic signature for a promotion approval payload.
  * Supports HMAC-SHA256.
- * Payload format: { runId, timestamp, signerId }
+ * Payload format: { runId, timestamp, signerId, payloadHash }
  */
 function validateSignature(payload, signature) {
   if (!signature) {
@@ -18,15 +27,13 @@ function validateSignature(payload, signature) {
 
   // Validate timestamp to prevent replay attacks (e.g., max 5 minutes old)
   const now = Date.now();
-  if (!payload.timestamp) {
+  if (!Number.isSafeInteger(payload.timestamp)) {
     throw new Error('Missing timestamp in signature payload');
   }
-  if (now - payload.timestamp > 5 * 60 * 1000) {
+  if (Math.abs(now - payload.timestamp) > 5 * 60 * 1000) {
     throw new Error('Promotion signature expired');
   }
-
-  // Serialize payload deterministically
-  const dataToSign = `${payload.runId}:${payload.timestamp}:${payload.signerId || ''}`;
+  const dataToSign = signaturePayload(payload);
 
   const expectedSignature = crypto.createHmac('sha256', secretKey())
                                   .update(dataToSign)
@@ -53,7 +60,7 @@ function validateSignature(payload, signature) {
  * Generates a valid signature (useful for tests or internal clients).
  */
 function generateSignature(payload) {
-  const dataToSign = `${payload.runId}:${payload.timestamp}:${payload.signerId || ''}`;
+  const dataToSign = signaturePayload(payload);
   return crypto.createHmac('sha256', secretKey())
                .update(dataToSign)
                .digest('hex');

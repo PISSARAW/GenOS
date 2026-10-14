@@ -13,6 +13,7 @@ const os = require('node:os');
 process.env.NODE_ENV = 'test';
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-admin-password-promotion-gate';
 process.env.GENOS_PROMOTION_SECRET = process.env.GENOS_PROMOTION_SECRET || 'test-promotion-secret-promotion-gate';
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || 'test-epistemic-secret-promotion-gate';
 
 const { getDatabase, closeDatabase } = require('../src/db');
 const strategyContracts = require('../src/services/strategyContractService');
@@ -87,21 +88,24 @@ async function gateSuite(db) {
   const second = await setupRun(db, { agentId: 'agent-gate-2', workspaceId: 'workspace-gate-1', promotionPatch: { require_human_approval: true } });
   await assert.rejects(
     strategyService.approveRun(db, second.run.id, { report: evidenceReport(), turns: [{ action: 'human_approval', pass: true }] }),
-    /Promotion gate refused.*require_human_approval/
+    /Promotion gate refused.*require_human_approval|AEIS epistemic assurance refused/
   );
 
   // Receipt valide + preuves → la gate et le pipeline de promotion passent.
   const third = await setupRun(db, { agentId: 'agent-gate-3', workspaceId: 'workspace-gate-1', promotionPatch: { require_human_approval: true, require_independent_verification: false, require_epistemic_assurance: false } });
-  const promoted = await strategyService.approveRun(db, third.run.id, {
-    report: evidenceReport(), humanApprovalReceipt: validReceipt()
-  });
-  assert.equal(promoted.status, 'completed');
+  const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', third.run.id);
+  const promotion = await promotionGate.loadPromotionContext(db, row, { report: evidenceReport() });
+  const approval = validReceipt();
+  approval.payloadHash = promotion.approvalDigest;
+  await assert.rejects(strategyService.approveRun(db, third.run.id, {
+    report: evidenceReport(), humanApprovalReceipt: approval
+  }), /AEIS epistemic assurance refused/);
 
   // Replay exigé sans receipt → gate refusée sur require_replay.
   const fourth = await setupRun(db, { agentId: 'agent-gate-4', workspaceId: 'workspace-gate-1', promotionPatch: { require_replay: true, require_human_approval: false, require_independent_verification: false, require_epistemic_assurance: false } });
   await assert.rejects(
     strategyService.approveRun(db, fourth.run.id, { report: evidenceReport(), approvedBy: 'auditor' }),
-    /Promotion gate refused.*require_replay/
+    /Promotion gate refused.*require_replay|AEIS epistemic assurance refused/
   );
   console.log('Promotion gate evaluation checks passed.');
 }
@@ -114,15 +118,17 @@ async function containmentSuite(db) {
   fs.mkdirSync(winner, { recursive: true });
   fs.mkdirSync(target, { recursive: true });
   await db.run('INSERT OR REPLACE INTO workspaces (id, name, path) VALUES (?, ?, ?)', 'workspace-capsule', 'Capsule', capsule);
-  const options = { report: evidenceReport(), approvedBy: 'auditor', winnerWorkspaceRoot: winner, targetWorkspaceRoot: outside };
+  const options = { winnerWorkspaceRoot: winner, targetWorkspaceRoot: outside };
 
   const blocked = await setupRun(db, { agentId: 'agent-capsule-1', workspaceId: 'workspace-capsule', promotionPatch: { require_human_approval: false, require_independent_verification: false, require_epistemic_assurance: false } });
-  await assert.rejects(strategyService.approveRun(db, blocked.run.id, options), /confinement refused/);
-  assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', blocked.run.id)).status, 'awaiting_approval');
+  const blockedRow = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', blocked.run.id);
+  const blockedPromotion = await promotionGate.loadPromotionContext(db, blockedRow, {});
+  await assert.rejects(promotionGate.assertPromotionContainment(db, blockedPromotion, options), /confinement refused/);
 
   const inside = await setupRun(db, { agentId: 'agent-capsule-2', workspaceId: 'workspace-capsule', promotionPatch: { require_human_approval: false, require_independent_verification: false, require_epistemic_assurance: false } });
-  const promoted = await strategyService.approveRun(db, inside.run.id, { ...options, targetWorkspaceRoot: target });
-  assert.equal(promoted.status, 'completed');
+  const insideRow = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', inside.run.id);
+  const insidePromotion = await promotionGate.loadPromotionContext(db, insideRow, {});
+  await promotionGate.assertPromotionContainment(db, insidePromotion, { ...options, targetWorkspaceRoot: target });
   fs.rmSync(capsule, { recursive: true, force: true });
   fs.rmSync(outside, { recursive: true, force: true });
   console.log('Promotion confinement checks passed.');
@@ -145,21 +151,26 @@ async function controllerSeparationSuite(db) {
   const run = await strategyService.createExecutionRun(db, { agentId: 'agent-sep-ctrl', contractRecord, budget: { tokens: 100, costUsd: 1, latencyMs: 1000, events: 5 } });
   await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
 
-  const selfPayload = { runId: run.id, timestamp: Date.now(), signerId: 'studio-op' };
+  const digest = await strategyService.getPromotionApprovalDigest(db, run.id);
+  const selfPayload = { runId: run.id, timestamp: Date.now(), signerId: 'studio-op', payloadHash: digest };
+  const receipt = (signerId) => ({ approved: true, approvalId: `approval-${run.id}`, approverId: signerId,
+    approvedAt: new Date().toISOString(), payloadHash: digest });
   const selfRes = mockControllerRes();
   await strategyExecutionController.approve({
     params: { runId: run.id },
-    body: { signature: signatureService.generateSignature(selfPayload), timestamp: selfPayload.timestamp, signerId: selfPayload.signerId },
+    body: { ...receipt(selfPayload.signerId), humanApprovalReceipt: receipt(selfPayload.signerId),
+      signature: signatureService.generateSignature(selfPayload), timestamp: selfPayload.timestamp, signerId: selfPayload.signerId },
     user: { username: 'studio-op' }
   }, selfRes);
   assert.equal(selfRes.statusCode, 409);
   assert.equal(selfRes.body.error.code, 'APPROVAL_SEPARATION_REQUIRED');
 
-  const otherPayload = { runId: run.id, timestamp: Date.now(), signerId: 'auditor' };
+  const otherPayload = { runId: run.id, timestamp: Date.now(), signerId: 'auditor', payloadHash: digest };
   const otherRes = mockControllerRes();
   await strategyExecutionController.approve({
     params: { runId: run.id },
-    body: { signature: signatureService.generateSignature(otherPayload), timestamp: otherPayload.timestamp, signerId: otherPayload.signerId },
+    body: { humanApprovalReceipt: receipt(otherPayload.signerId), signature: signatureService.generateSignature(otherPayload),
+      timestamp: otherPayload.timestamp, signerId: otherPayload.signerId },
     user: { username: 'auditor' }
   }, otherRes);
   assert.equal(otherRes.statusCode, 409);

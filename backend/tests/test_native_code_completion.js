@@ -53,9 +53,9 @@ async function positive(db, { method }) {
     assert.equal(observed.subject.artifactContentHash, method.parameters.expectedContentHash);
     assert.ok(observed.processId > 0);
   }
-  const options = { humanApprovalReceipt: { approved: true, approvalId: `code-${checked.row.id}`, approverId: 'independent-test-human',
-    approvedAt: new Date().toISOString(), payloadHash: values.digest({ runId: checked.row.id }) } };
   const execution = require('../src/services/strategyExecutionService');
+  const options = { humanApprovalReceipt: { approved: true, approvalId: `code-${checked.row.id}`, approverId: 'independent-test-human',
+    approvedAt: new Date().toISOString(), payloadHash: await execution.getPromotionApprovalDigest(db, checked.row.id) } };
   assert.equal((await execution.approveRun(db, checked.row.id, options)).status, 'completed');
   assert.equal((await execution.approveRun(db, checked.row.id, options)).status, 'completed');
   const view = await require('../src/services/consumerInspectionService').inspect(db,

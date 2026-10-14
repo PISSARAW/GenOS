@@ -14,6 +14,7 @@ const philosophyPolicy = require('./philosophyPromotionPolicyService');
 const ethicalComparisonPolicy = require('./ethicalComparisonPolicyService');
 const epistemicDecision = require('./epistemicDecisionService');
 const epistemicAssurancePolicy = require('./epistemicAssurancePolicy');
+const humanApproval = require('./promotionHumanApproval');
 
 const WORKSPACE_MERGE_EXCLUSIONS = new Set(['.git', 'node_modules']);
 
@@ -270,22 +271,6 @@ function buildVerificationViolation(policy, executionContext) {
 
 function isNonBlankString(value) { return typeof value === 'string' && value.trim().length > 0; }
 
-function isValidHumanApproval(approval) {
-  if (!approval || typeof approval !== 'object') return false;
-  if (approval.approved !== true) return false;
-  if (!isNonBlankString(approval.approvalId)) return false;
-  if (!isNonBlankString(approval.approverId)) return false;
-  if (!isNonBlankString(approval.approvedAt)) return false;
-  if (typeof approval.payloadHash !== 'string') return false;
-  return /^[a-f0-9]{64}$/i.test(approval.payloadHash);
-}
-
-function buildApprovalViolation(policy, executionContext) {
-  if (!policy.require_human_approval) return null;
-  if (isValidHumanApproval(executionContext.humanApprovalReceipt)) return null;
-  return { policy: 'require_human_approval', message: 'Contract requires a durable, hash-bound human approval receipt before promotion.' };
-}
-
 function evaluatePromotionGate(contract = {}, executionContext = {}) {
   const policy = contract.promotion || {};
   const violations = [];
@@ -293,7 +278,7 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
   if (replayViolation) violations.push(replayViolation);
   const verificationViolation = buildVerificationViolation(policy, executionContext);
   if (verificationViolation) violations.push(verificationViolation);
-  const approvalViolation = buildApprovalViolation(policy, executionContext);
+  const approvalViolation = humanApproval.buildApprovalViolation(policy, executionContext);
   if (approvalViolation) violations.push(approvalViolation);
   violations.push(...epistemicAssurancePolicy.evaluate(policy, executionContext));
   const philosophicalGuard = require('./philosophicalPromotionGuard');

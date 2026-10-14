@@ -22,7 +22,7 @@ async function dispatch(db, method) {
 
 async function approve(db, row) {
   const options = { humanApprovalReceipt: { approved: true, approvalId: `memory-${row.id}`, approverId: 'independent-test-human',
-    approvedAt: new Date().toISOString(), payloadHash: values.digest({ runId: row.id }) } };
+    approvedAt: new Date().toISOString(), payloadHash: await execution.getPromotionApprovalDigest(db, row.id) } };
   assert.equal((await execution.approveRun(db, row.id, options)).status, 'completed');
   assert.equal((await execution.approveRun(db, row.id, options)).status, 'completed');
 }

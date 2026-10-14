@@ -37,6 +37,7 @@ function buildGateContext({ promotion, options, receipt, aeisEvaluation }) {
     agentId: options.agentId || promotion.agentId,
     runId: promotion.runId,
     report: promotion.report,
+    approvalDigest: promotion.approvalDigest,
     replayReceipt: promotion.replayReceipt || null,
     independentVerification: options.independentVerification,
     evidenceVerified: options.evidenceVerified,

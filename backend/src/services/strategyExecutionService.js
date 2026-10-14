@@ -216,6 +216,18 @@ async function approveRun(db, id, options) {
   return recovery.resume(db, saved, settings);
 }
 
+async function getPromotionApprovalDigest(db, id) {
+  const journal = await require('./promotionExecutionJournal').read(db, id);
+  if (journal?.payload?.promotion?.approvalDigest) return journal.payload.promotion.approvalDigest;
+  const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
+  if (!row) throw new Error(`Execution run ${id} not found`);
+  if (!['awaiting_approval', 'completed'].includes(row.status)) {
+    throw new Error(`Execution run ${id} is not awaiting approval`);
+  }
+  const promotion = await promotionGate.loadPromotionContext(db, row, {});
+  return promotion.approvalDigest;
+}
+
 module.exports = {
   createExecutionRun,
   hydrateRun: (db, row) => events.hydrateRun(db, row),
@@ -224,6 +236,7 @@ module.exports = {
   executePipelineWithFeedback: (primitives, context) => require('./strategyExecutionAdapter').executePipelineWithFeedback(primitives, context),
   executePrimitive: (primitive, context) => require('./strategyExecutionAdapter').executePrimitive(primitive, context),
   approveRun,
+  getPromotionApprovalDigest,
   getRun: (db, id) => events.getRun(db, id),
   getLatestRun: (db, agentId) => events.getLatestRun(db, agentId),
   listRuns: (db, agentId, requestedLimit) => events.listRuns(db, agentId, requestedLimit),

@@ -33,8 +33,11 @@ async function prepare() {
 }
 
 function approval(spec) {
-  const payload = { runId: spec.run.id, timestamp: Date.now(), signerId: 'b06-independent-reviewer' };
-  return { ...payload, signature: require('../../src/services/promotionSignatureService').generateSignature(payload), ...spec.options };
+  const signerId = 'b06-independent-reviewer';
+  const humanApprovalReceipt = { ...spec.options.humanApprovalReceipt, approverId: signerId };
+  const payload = { runId: spec.run.id, timestamp: Date.now(), signerId, payloadHash: humanApprovalReceipt.payloadHash };
+  return { ...payload, signature: require('../../src/services/promotionSignatureService').generateSignature(payload),
+    ...spec.options, humanApprovalReceipt };
 }
 
 module.exports = { prepare, approval };

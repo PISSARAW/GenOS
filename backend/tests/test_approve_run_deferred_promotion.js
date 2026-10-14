@@ -145,7 +145,11 @@ async function assertRefutationFeedback(spec) {
     test: { command: 'npm test', expectOutput: 'not-emitted', replicas: {
       proof: { cwd: path.join(proofWorkspace, 'a') }, source: { cwd: path.join(proofWorkspace, 'b') } } } }] },
     humanApprovalReceipt: { approved: true, approvalId: 'negative-' + run.id, approverId: 'security_auditor',
-      approvedAt: new Date().toISOString(), payloadHash: strategyContracts.hashContract(contractRecord.contract).replace(/^sha256:/, '') } };
+      approvedAt: new Date().toISOString(), payloadHash: await require('./helpers/promotionApprovalDigest.cjs').digestFor(db, run.id,
+        { outcome: 'success', claims: [{ statement: 'npm test outputs "not-emitted"',
+          evidence: [{ kind: 'reproducible_artifact', content: { fixture: 'negative-promotion' } }],
+          test: { command: 'npm test', expectOutput: 'not-emitted', replicas: {
+            proof: { cwd: path.join(proofWorkspace, 'a') }, source: { cwd: path.join(proofWorkspace, 'b') } } } }] }) } };
   for (let attempt = 0; attempt < 2; attempt++) {
     await assert.rejects(strategyService.approveRun(db, run.id, options), /epistemic assurance|AEIS/i);
     assert.equal((await db.get('SELECT dissonance FROM aeis_agent_dissonance WHERE agent_id = ?', 'agent-promo-test')).dissonance, 1,
@@ -169,11 +173,12 @@ async function approveWithRealEvidence(spec) {
       } }
     }]
   };
+  const payloadHash = await require('./helpers/promotionApprovalDigest.cjs').digestFor(db, run.id, realReport);
   const approvedRun = await strategyService.approveRun(db, run.id, {
     report: realReport,
     humanApprovalReceipt: {
       approved: true, approvalId: `approval-${run.id}`, approverId: 'security_auditor',
-      approvedAt: new Date().toISOString(), payloadHash: contractRecord.contract_hash || '0'.repeat(64)
+      approvedAt: new Date().toISOString(), payloadHash
     }
   });
   return { approvedRun, realReport };

@@ -37,6 +37,9 @@ async function prepare(root, settings = {}) {
     test: { command: 'npm test', replicas: { proof: { cwd: path.join(workspace, 'a') }, source: { cwd: path.join(workspace, 'b') } } } }] },
     humanApprovalReceipt: { approved: true, approvalId: `approval-${run.id}`, approverId: 'fixture-human',
       approvedAt: new Date().toISOString(), payloadHash: hash.replace(/^sha256:/, '') } };
+  await db.run('UPDATE strategy_execution_steps SET evidence_json = ? WHERE run_id = ? AND sequence = 7',
+    JSON.stringify([{ payload: { evidenceReport: options.report } }]), run.id);
+  options.humanApprovalReceipt.payloadHash = await execution.getPromotionApprovalDigest(db, run.id);
   if (settings.merge) {
     for (const kind of ['winner', 'target', 'base']) {
       const directory = path.join(workspace, kind);

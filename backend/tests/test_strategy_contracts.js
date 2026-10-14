@@ -169,7 +169,7 @@ async function run() {
     assert.equal(executionLatest.body.metrics.billableTokens, 90);
     assert(executionLatest.body.adherence.deviations.some((item) => item.status === 'skipped'));
     const approved = await request('POST', `/api/execution-runs/${executionRun.id}/approve`, signedApproval(executionRun.id));
-    assert.equal(approved.status, 409, 'A signed approval cannot promote a blocked, unverified run');
+    assert.equal(approved.status, 403, 'A blocked run cannot receive a promotion approval signature');
     assert.equal((await strategyExecution.getRun(db, executionRun.id)).status, 'blocked');
 
     const blockedRun = await strategyExecution.createExecutionRun(db, {

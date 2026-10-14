@@ -13,6 +13,7 @@ const { isPathWithinRoot, resolveWorkspacesRoot } = require('./workspaceRegistry
 const { evaluateReportWithAeis } = require('./epistemic/aeisPromotionBridge');
 const { listVerifierDigests } = require('./verifierTrustRegistry');
 const { buildGateContext } = require('./promotionGateContext');
+const { promotionApprovalDigest } = require('./promotionApprovalDigest');
 
 const PROMOTION_FALLBACK_PRIMITIVES = ['stdp_update', 'cherry_pick_golden_path'];
 function safeJson(value, fallback) {
@@ -98,7 +99,7 @@ async function loadPromotionContext(db, row, options) {
   };
   collectPromotionEvidence(steps, acc, row.id);
   if (!acc.report) acc.report = await require('./epistemic/nativeOracleGate').recordedReport(db, { runId: row.id, agentId: row.agent_id });
-  return {
+  const promotion = {
     runId: row.id,
     agentId: row.agent_id,
     contractId: row.contract_id,
@@ -110,6 +111,9 @@ async function loadPromotionContext(db, row, options) {
     budget: safeJson(row.budget_json, {}),
     turns: acc.turns
   };
+  promotion.steps = steps;
+  promotion.approvalDigest = promotionApprovalDigest(promotion);
+  return promotion;
 }
 
 function isValidApprovalReceipt(receipt) {
@@ -117,7 +121,7 @@ function isValidApprovalReceipt(receipt) {
   if (receipt.approved !== true) return false;
   if (!isNonEmptyString(receipt.approvalId)) return false;
   if (!isNonEmptyString(receipt.approverId)) return false;
-  if (!isNonEmptyString(receipt.approvedAt)) return false;
+  if (!isNonEmptyString(receipt.approvedAt) || !Number.isFinite(Date.parse(receipt.approvedAt))) return false;
   return isHashString(receipt.payloadHash);
 }
 

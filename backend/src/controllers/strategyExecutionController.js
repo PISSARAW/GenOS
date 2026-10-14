@@ -51,9 +51,15 @@ function approvalSettings(req, signerId) {
   };
 }
 
-function validateApprovalSignature(req) {
-  const { signature, timestamp, signerId } = req.body || {};
-  signatureService.validateSignature({ runId: req.params.runId, timestamp, signerId }, signature);
+async function validateApprovalSignature(db, req) {
+  const { signature, timestamp, signerId, humanApprovalReceipt } = req.body || {};
+  if (!signature) throw new Error('Missing cryptographic signature for human promotion approval');
+  const expectedDigest = await strategyExecution.getPromotionApprovalDigest(db, req.params.runId);
+  if (humanApprovalReceipt?.approverId !== signerId || humanApprovalReceipt?.payloadHash !== expectedDigest
+      || !Number.isFinite(Date.parse(humanApprovalReceipt?.approvedAt))) {
+    throw new Error('Human approval receipt must identify the signer, valid approval time, and current promotion digest.');
+  }
+  signatureService.validateSignature({ runId: req.params.runId, timestamp, signerId, payloadHash: humanApprovalReceipt.payloadHash }, signature);
   return signerId;
 }
 
@@ -71,7 +77,7 @@ async function approve(req, res) {
 
     let signerId;
     try {
-      signerId = validateApprovalSignature(req);
+      signerId = await validateApprovalSignature(db, req);
     } catch (sigErr) {
       return res.status(403).json({ error: { code: 'UNAUTHORIZED_PROMOTION', message: sigErr.message } });
     }

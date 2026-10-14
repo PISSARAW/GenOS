@@ -38,12 +38,14 @@ async function awaiting(db, contractRecord) {
   return run;
 }
 
-function approval(run, record, root) {
-  return { report: { outcome: 'success', claims: [{ statement: 'npm test exits with code 0',
+async function approval(db, run, root) {
+  const report = { outcome: 'success', claims: [{ statement: 'npm test exits with code 0',
     evidence: [{ kind: 'reproducible_artifact', content: { fixture: 'provider-approval' } }],
-    test: { command: 'npm test', replicas: { proof: { cwd: path.join(root, 'a') }, source: { cwd: path.join(root, 'b') } } } }] },
+    test: { command: 'npm test', replicas: { proof: { cwd: path.join(root, 'a') }, source: { cwd: path.join(root, 'b') } } } }] };
+  const payloadHash = await require('./helpers/promotionApprovalDigest.cjs').digestFor(db, run.id, report);
+  return { report,
   humanApprovalReceipt: { approved: true, approvalId: `approval-${run.id}`, approverId: 'test-auditor',
-    approvedAt: new Date().toISOString(), payloadHash: record.contract_hash.replace(/^sha256:/, '') } };
+    approvedAt: new Date().toISOString(), payloadHash } };
 }
 
 async function main() {
@@ -60,7 +62,7 @@ async function main() {
     const db = await getDatabase(path.join(root, 'approval.db'));
     const record = await prepare(db, root, fixtures);
     const positive = await awaiting(db, record);
-    assert.equal((await runs.approveRun(db, positive.id, approval(positive, record, root))).status, 'completed');
+    assert.equal((await runs.approveRun(db, positive.id, await approval(db, positive, root))).status, 'completed');
     const reviews = await db.all('SELECT provider, verdict, process_id FROM aeis_provider_reviews WHERE run_id = ?', positive.id);
     assert.equal(reviews.length, 2);
     assert.equal(new Set(reviews.map((row) => row.process_id)).size, 2);
@@ -69,12 +71,12 @@ async function main() {
     assert.equal(learned.successes, 1);
     fixtures[1].verdict = 'refutes';
     const negative = await awaiting(db, record);
-    await assert.rejects(runs.approveRun(db, negative.id, approval(negative, record, root)), /epistemic assurance|multi_provider|AEIS|proof_verification/i);
+    await assert.rejects(runs.approveRun(db, negative.id, await approval(db, negative, root)), /epistemic assurance|multi_provider|AEIS|proof_verification/i);
     assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', negative.id)).status, 'awaiting_approval');
     assert.equal((await db.get('SELECT COUNT(*) AS n FROM aeis_provider_reviews WHERE run_id = ? AND verdict = ?', negative.id, 'refutes')).n, 1);
     await db.run("UPDATE provider_configs SET enabled = 0 WHERE provider = 'ollama'");
     const missing = await awaiting(db, record);
-    await assert.rejects(runs.approveRun(db, missing.id, approval(missing, record, root)), /epistemic assurance|multi_provider|AEIS|proof_verification/i);
+    await assert.rejects(runs.approveRun(db, missing.id, await approval(db, missing, root)), /epistemic assurance|multi_provider|AEIS|proof_verification/i);
     assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', missing.id)).status, 'awaiting_approval');
     console.log('AEIS approveRun SQLite + real provider workers: supports promoted; dissent and missing quorum blocked: PASS');
   } finally {
