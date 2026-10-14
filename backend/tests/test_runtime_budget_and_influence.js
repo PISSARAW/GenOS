@@ -24,6 +24,8 @@ function runRuntime({ directory, fakeCodex, mission, extraEnv = {} }) {
     }),
     env: {
       ...process.env, ...extraEnv, CODEX_EXECUTABLE: fakeCodex,
+      GENOS_DB_PATH: path.join(directory, 'runtime-test.db'),
+      GENOS_DB_BACKUP_SKIP: '1',
       GENOS_BIN: path.join(directory, 'missing-genos'),
       GENOS_MCP_BIN: path.join(directory, 'missing-mcp'),
       GENOS_WORKSPACE_ROOT: directory
@@ -60,15 +62,29 @@ let input=''; process.stdin.on('data', c => input += c); process.stdin.on('end',
   assert(budgetEvents.some((event) => event.eventType === 'AGENT_HALTED' && event.status === 'blocked'));
 
   const synthesisMission = {
-    autonomyPlanJson: JSON.stringify({ schema: 'test', synthesisOnly: true, completedWorkerIds: ['worker-a'] })
+    autonomyPlanJson: JSON.stringify({ schema: 'test', synthesisOnly: true,
+      completedWorkerIds: ['worker-a'], completedWorkerDossiers: [{ workerId: 'worker-a',
+        events: [{ evidenceReport: { outcome: 'success', claims: [
+          { statement: 'worker result', evidence: ['test receipt'] }
+        ] } }] }] })
   };
   const valid = runRuntime({ directory, fakeCodex, mission: synthesisMission, extraEnv: { RUNTIME_CASE: 'valid' } });
   assert.equal(valid.status, 0, valid.stderr.toString());
   assert(eventsFrom(valid.stdout).some((event) => event.eventType === 'DOSSIER_INFLUENCE_VERIFIED'));
 
-  const invalid = runRuntime({ directory, fakeCodex, mission: synthesisMission, extraEnv: { RUNTIME_CASE: 'missing' } });
-  assert.notEqual(invalid.status, 0);
-  assert(eventsFrom(invalid.stdout).some((event) => event.eventType === 'HARD_INVARIANT_FAILURE' && event.action === 'DOSSIER_INFLUENCE'));
+  const untrusted = runRuntime({ directory, fakeCodex, mission: synthesisMission, extraEnv: { RUNTIME_CASE: 'missing' } });
+  assert.equal(untrusted.status, 0, untrusted.stderr.toString());
+  const untrustedEvents = eventsFrom(untrusted.stdout);
+  assert(untrustedEvents.some((event) => event.eventType === 'DOSSIER_INFLUENCE_VERIFIED'));
+  const evidence = JSON.parse(untrustedEvents.find((event) => event.eventType === 'EVIDENCE_REPORT').payloadJson);
+  assert.equal(evidence.claims[0].statement, 'worker result', 'synthesis is built from the bound worker dossier');
+
+  const incomplete = runRuntime({ directory, fakeCodex, mission: { ...synthesisMission,
+    autonomyPlanJson: JSON.stringify({ schema: 'test', synthesisOnly: true,
+      completedWorkerIds: ['worker-a'], completedWorkerDossiers: [] }) }, extraEnv: { RUNTIME_CASE: 'missing' } });
+  assert.notEqual(incomplete.status, 0);
+  assert(eventsFrom(incomplete.stdout).some((event) => event.eventType === 'HARD_INVARIANT_FAILURE'
+    && event.action === 'CANONICAL_FINAL_REPORT'));
 
   console.log('Runtime budget and dossier-influence checks passed.');
 } finally {

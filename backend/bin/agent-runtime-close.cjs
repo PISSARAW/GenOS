@@ -43,7 +43,12 @@ async function handleRuntimeClose(ctx) {
   if (code === 0 && missingTools.length) {
     handleMissingTools(ctx, missingTools);
   } else if (code === 0) {
-    if (!(await handleSuccessfulReport(ctx))) { cleanup(); return; }
+    if (!(await handleSuccessfulReport(ctx))) {
+      process.exitCode = 1;
+      await new Promise((resolve) => process.stdout.write('', resolve));
+      cleanup();
+      process.exit(1);
+    }
   } else {
     await handleRuntimeFailure(ctx);
   }
@@ -78,7 +83,8 @@ function handleMissingTools(ctx, missingTools) {
 
 async function handleSuccessfulReport(ctx) {
   const { finalReportText, agentName, nameMeaning, mission, emit, isWorker } = ctx;
-  const canonical = require('../src/services/deterministicFinalReportService').compile(ctx.autonomyPlan);
+  const canonical = require('./agent-runtime-final-report.cjs').compileCanonicalFinalReport(ctx);
+  if (canonical === false) return false;
   const phagocytosis = canonical ? { ok: true, report: canonical }
     : immune.phagocytoseCodexReport(finalReportText, { agentName, nameMeaning, role: mission.role });
   let report;
