@@ -39,6 +39,11 @@ async function main() {
   } });
   assert.equal(unverified.value.evidencePresent, false);
   assert.equal(unverified.confidence, 0);
+  const contradictory = feedback.feedbackPercept({ id: 'contradiction', eventType: 'EVIDENCE_REPORT', payload: {
+    outcome: 'success', claims: [{ evidence: ['test.log'] }], failure: { reason: 'test failed elsewhere' }
+  } });
+  assert.equal(contradictory.value.evidencePresent, false);
+  assert.equal(contradictory.confidence, 0);
   ctx.dispatchedAgent.execution_mode = 'worker';
   assert.equal(await feedback.process(ctx, event), null);
   console.log('Orchestrator feedback: measured budget, goals, failures, retained evidence debt and worker isolation passed.');

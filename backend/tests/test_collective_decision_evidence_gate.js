@@ -8,8 +8,17 @@ assert.equal(hasDecisionEvidence({ eventType: 'AGENT_COMPLETED', payload: { clai
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: {} }), false);
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: { status: 'failed' } }), false);
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: { failure: { status: 'failed' } } }), false);
+assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: { executionRunId: 'run-1' } }), false);
+assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: { workerId: 'worker-1' } }), false);
+assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: { stderr: 'TypeError: invalid state' } }), true);
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: { failure: { reason: 'boom' } } }), true);
 assert.equal(hasDecisionEvidence({ eventType: 'AGENT_COMPLETED', payload: { claims: [{ evidence: [{ status: 'ok', artifactRef: 'receipt-42' }] }] } }), true);
+assert.equal(hasDecisionEvidence({ eventType: 'EVIDENCE_REPORT', payload: {
+  outcome: 'success', claims: [{ evidence: ['test.log'] }], failure: { reason: 'test failed elsewhere' }
+} }), false);
+assert.equal(hasDecisionEvidence({ eventType: 'AGENT_FAILED', payload: {
+  outcome: 'success', claims: [{ evidence: ['test.log'] }]
+} }), false);
 assert.match(decisionEvidenceFailure({ eventType: 'AGENT_COMPLETED' }), /no substantiated evidence/);
 const validNoAnswer = { outcome: 'no_answer', noAnswerProof: {
   method: 'bounded enumeration', evidence: ['all 16 states checked']

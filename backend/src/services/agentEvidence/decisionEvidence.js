@@ -25,8 +25,12 @@ function hasNoAnswerProof(report) {
   return Boolean(normalizeNoAnswerProof(report.noAnswerProof || report.no_answer_proof));
 }
 
-function hasUsablePayload(payload) {
-  return hasEvidenceItem(payload);
+function hasFailureDiagnostic(event, payload) {
+  const fields = ['error', 'reason', 'message', 'stderr', 'stack', 'terminationReason', 'workerArtifactDiagnostics', 'proposalTests'];
+  for (const field of fields) {
+    if (hasEvidenceItem(payload[field])) return true;
+  }
+  return hasEvidenceItem(event.detail);
 }
 
 function hasFailureEvidence(event, payload) {
@@ -34,23 +38,19 @@ function hasFailureEvidence(event, payload) {
   if (hasEvidenceItem(body.failure)) return true;
   const report = extractEvidenceReport(body);
   if (hasNoAnswerProof(report)) return true;
-  return FAILURE_EVENT_TYPES.includes(event.eventType) && hasUsablePayload(withoutNoAnswerProof(body));
+  return FAILURE_EVENT_TYPES.includes(event.eventType) && hasFailureDiagnostic(event, body);
 }
 
-function withoutNoAnswerProof(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
-  const { noAnswerProof, no_answer_proof, ...remaining } = value;
-  for (const key of ['evidenceReport', 'report']) {
-    if (remaining[key] && typeof remaining[key] === 'object') {
-      remaining[key] = withoutNoAnswerProof(remaining[key]);
-    }
-  }
-  return remaining;
+function hasContradictorySuccess(event, payload, report) {
+  if (report.outcome !== 'success') return false;
+  if (FAILURE_EVENT_TYPES.includes(event.eventType)) return true;
+  return hasEvidenceItem(payload.failure) || hasFailureDiagnostic(event, payload);
 }
 
 function hasDecisionEvidence(event = {}) {
   const payload = event.payload || {};
   const report = extractEvidenceReport(payload);
+  if (hasContradictorySuccess(event, payload, report)) return false;
   return hasSubstantiatedClaim(report) || hasNoAnswerProof(report) || hasFailureEvidence(event, payload);
 }
 
