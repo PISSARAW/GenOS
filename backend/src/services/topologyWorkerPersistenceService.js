@@ -15,7 +15,7 @@ async function ensureTopologyWorker(db, input) {
     hostContractId: input.hostContractId,
     hostCapabilities: input.hostCapabilities
   });
-  const existing = await db.get('SELECT id, parent_agent_id, execution_mode, role, metadata_json FROM agents WHERE id = ?', input.workerId);
+  const existing = await db.get('SELECT id, parent_agent_id, execution_mode, role, status, metadata_json FROM agents WHERE id = ?', input.workerId);
   if (existing) return validateExistingWorker({ db, existing, input, workerKind, workerContract });
   return insertTopologyWorker({ db, input, workerKind, workerContract });
 }
@@ -25,16 +25,37 @@ async function validateExistingWorker({ db, existing, input, workerKind, workerC
     && existing.execution_mode === 'worker'
     && existing.role === input.role;
   if (!valid) throw Object.assign(new Error(`Worker identity '${input.workerId}' conflicts with an existing agent.`), { code: 'TOPOLOGY_WORKER_IDENTITY_CONFLICT' });
+  await assertWorkerNotBusy(db, existing, input.workerId);
   const metadata = parseMetadata(existing.metadata_json);
   if (metadata.workerKind && metadata.workerKind !== workerKind) {
     throw Object.assign(new Error(`Worker '${input.workerId}' is persisted as '${metadata.workerKind}', not '${workerKind}'.`), { code: 'TOPOLOGY_WORKER_KIND_MISMATCH' });
   }
-  await db.run('UPDATE agents SET metadata_json = ? WHERE id = ?', JSON.stringify({
+  const updated = await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?
+    AND status != 'running' AND NOT EXISTS (
+      SELECT 1 FROM garage_queue q WHERE q.worker_id = agents.id
+        AND (q.status IN ('queued', 'claimed', 'running')
+          OR q.phase IN ('frozen', 'thawing', 'freezing', 'freeze_failed', 'cancelling'))
+    )`, JSON.stringify({
     ...metadata, workerKind, workerContract,
     workerAssignment: input.workerAssignment || null, methodContract: input.methodContract || null,
     ...(input.topologySessionId ? { topologySessionId: input.topologySessionId } : {})
   }), input.workerId);
+  if (updated.changes !== 1) throw workerBusyError(input.workerId);
   return { workerId: input.workerId, created: false };
+}
+
+async function assertWorkerNotBusy(db, existing, workerId) {
+  if (existing.status === 'running') throw workerBusyError(workerId);
+  const lease = await db.get(`SELECT request_id FROM garage_queue WHERE worker_id = ?
+    AND (status IN ('queued', 'claimed', 'running')
+      OR phase IN ('frozen', 'thawing', 'freezing', 'freeze_failed', 'cancelling')) LIMIT 1`, workerId);
+  if (lease) throw workerBusyError(workerId);
+}
+
+function workerBusyError(workerId) {
+  return Object.assign(new Error(`Worker '${workerId}' cannot be rebound while a runtime or Garage claim is active.`), {
+    code: 'TOPOLOGY_WORKER_BUSY'
+  });
 }
 
 function parseMetadata(serialized) {
