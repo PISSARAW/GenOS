@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const modelRouter = require('./modelRouter');
 const trinityClaimVerification = require('./trinityClaimVerificationService');
+const evidenceAudit = require('./trinityEvidenceAudit');
 
 const CLAIM_TYPES = ['correctness', 'coverage', 'robustness', 'reproducibility', 'security', 'performance', 'cost', 'risk'];
 
@@ -156,7 +157,8 @@ function adjudicateAttack(input) {
     } else if (defense.response === 'refute') {
       const hasEvidence = Array.isArray(defense.evidence) && defense.evidence.length > 0;
       const gatePass = hasEvidence && Boolean(evidenceGates?.length)
-        && evidenceGates.every(g => typeof g.passes === 'function' && g.passes(defense.evidence));
+        && evidenceGates.every(g => typeof g.passes === 'function'
+          && g.passes(defense.evidence, defense.targetWorld));
       verdict = gatePass ? 'refuted' : 'attack_stands_insufficient_evidence';
       reasoning = gatePass ? 'Defense provided verified evidence' : 'Defense evidence did not pass gates';
     } else {
@@ -203,6 +205,17 @@ function isAdversarialDesign(design) {
   return design?.variantSelection?.experimentalDesign?.interactionPolicy === 'adversarial_cross_examination';
 }
 
+function evidenceGateForWorlds(worlds) {
+  const knownByWorld = new Map(worlds.map((world) => [world.worldNumber, new Set(
+    (world.report?.evidence || []).filter((entry) => evidenceAudit.isVerifiedReceipt(entry?.verificationReceipt || entry?.receipt))
+      .map((entry) => String(entry.id || '')).filter(Boolean)
+  )]));
+  return { passes: (evidence, worldNumber) => {
+    const known = knownByWorld.get(worldNumber);
+    return Boolean(known) && evidence.every((reference) => known.has(String(reference)));
+  } };
+}
+
 async function runVariantReview(input) {
   if (!isAdversarialDesign(input.design)) return null;
   return crossExamine({
@@ -211,14 +224,15 @@ async function runVariantReview(input) {
     tenant: input.tenant,
     mission: input.design.centralProblem,
     worlds: input.worlds,
-    config: { attackerWorldIndex: 2, maxCostUsd: input.maxCostUsd || 0.5 }
+    config: { attackerWorldIndex: 2, maxCostUsd: input.maxCostUsd || 0.5,
+      evidenceGates: [evidenceGateForWorlds(input.worlds)] }
   });
 }
 
 function enforceVariantGate(result, review) {
   if (!review) return result;
   const complete = review.phase === 'complete' && review.attacks.length > 0;
-  const unresolved = review.adjudication.some((entry) => !['refuted', 'conceded'].includes(entry.verdict));
+  const unresolved = review.adjudication.some((entry) => entry.verdict !== 'refuted');
   if (complete && !unresolved) return result;
   return {
     ...result,
@@ -230,4 +244,5 @@ function enforceVariantGate(result, review) {
   };
 }
 
-module.exports = { crossExamine, attackPhase, defendPhase, adjudicate, normalizeAttacks, runVariantReview, enforceVariantGate };
+module.exports = { crossExamine, attackPhase, defendPhase, adjudicate, normalizeAttacks,
+  evidenceGateForWorlds, runVariantReview, enforceVariantGate };
