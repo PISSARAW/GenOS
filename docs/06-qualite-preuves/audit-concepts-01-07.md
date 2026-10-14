@@ -61,7 +61,7 @@ promotion.
 | Reçus vérifiables | p | p | p | p | o | B/E ; plusieurs schémas, vérification et clés selon parcours. |
 | Décisions bornées | p | p | p | p | o | F/S ; contrats bornés, enforcement non universel. |
 | Autorité explicite | p | p | p | p | o | F/B ; autorités par circuit, raccordement global non prouvé. |
-| Leases d’outils | o | p | p | o | o | [référence MCP](../03-reference/outils-mcp.md) ; enforcement Node/Rust, pas de vérification lancée ici. |
+| Leases d’outils | o | p | p | o | o | [référence MCP](../03-reference/outils-mcp.md) ; tests courants du parseur fail-closed, de la cohérence catalogue/routes et du prédicat de transport passent (`test_agent_tool_lease_validation.js`, `test_lease_catalog_coherence.js`, `test_mcp_transport_lease.js`). Ils ne démontrent pas une exécution réelle de chaque outil sous lease ni le cycle complet d'expiration/révocation. |
 | Budgets de tokens, temps, CPU, spawn et délégation | p | p | p | p | o | F/B ; `maxTokens` et `maxTimeMs` bornent le budget normalisé et le délai Node. `maxCpuMs` n'est pas appliqué ; `limits.maxIterations` borne les essais de `workerScopedProcedures`, mais pas les tours généraux du worker (`test_worker_native_boundaries.js`). L'agrégation spawn/délégation parent-enfant n'est pas qualifiée comme un budget global. |
 | Isolation des workspaces | p | p | p | o | o | F ; provisionnement réel, isolement inter-processus courant à qualifier. |
 | Garde-fou fail-closed | p | p | p | p | o | E/S ; gardes locaux, universalisme non prouvé. |
