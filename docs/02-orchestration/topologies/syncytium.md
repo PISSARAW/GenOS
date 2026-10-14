@@ -1,12 +1,12 @@
 # Syncytium : Protocole de Fusion Cytoplasmique Multinucléée
 
-- **Statut** : Partiel — runtime Node pour les treize variants ; garanties formelles, propriétés distribuées et campagne des 53 missions non attestées.
+- **Statut** : Partiel — runtime Node pour les treize variants (48 suites `test:syncytium` PASS vérifiées le 2026-10-14) ; garanties formelles, propriétés distribuées et campagne des 53 missions non attestées.
 - **Portée** : modèle complet du protocole Syncytium, de la composition et du commit causal à la convergence, la reprise et l'exploitation.
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-14
 
 > **Statut scientifique et mathématique.** Les équations de cette fiche restent un modèle de conception, sauf indication explicite contraire. Le runtime Node possède maintenant des services Syncytium, 13 politiques de variants, sessions CRDT, opérations, transactions, réplication/réconciliation et diagnostics ; des tests ciblés attestent certains comportements, sans prouver toutes les propriétés formelles décrites ici ni un protocole distribué complet. Les propriétés CRDT ne valent que sous les hypothèses propres au type et au protocole de réplication considérés. Voir le [protocole opératoire et le relevé des tests](protocole-missions-syncytium.md) pour la séparation entre code, mesures et architecture cible.
 
-Le parcours de campagne peut instancier un service spécialisé pour chacun des 13 variants, puis exposer ses actions typées par `genos_topology_session`. Les workers reçoivent une identité de session et des droits bornés ; les mutations génériques sont interdites dans les sessions spécialisées. Le runner compare `isolated_baseline` et `syncytium`, avec un oracle indépendant et des budgets observés. Le catalogue contient 52 missions de variant et un cas transversal, mais leurs 53 manifestes exécutables et les preuves de leur réussite manquent encore.
+Le parcours de campagne instancie un service spécialisé par politique de variant (13 politiques), puis expose ses actions typées par `genos_topology_session`. Seuls cinq variants ajoutent un worker spécialiste (`code → code_semantic_reviewer`, `graph → graph_analyzer`, `document → causal_reconstructor`, `epistemic → epistemic_specialist`, `transactional → transactional_validator`, voir `backend/src/services/syncytiumVariantWorkerService.js` et [ADR 0170](../../adr/0170-specialisation-workers-variants-syncytium.md)) ; les huit autres s'appuient sur les quatre rôles de base. Les workers reçoivent une identité de session et des droits bornés ; les mutations génériques sont interdites dans les sessions spécialisées. Le runner compare `isolated_baseline` et `syncytium`, avec un oracle indépendant et des budgets observés. Le catalogue contient 52 missions de variant et un cas transversal, mais leurs 53 manifestes exécutables et les preuves de leur réussite manquent encore. Voir §5 du [protocole](protocole-missions-syncytium.md).
 
 ## Snapshot d'agent lié à l'état partagé
 
@@ -200,9 +200,9 @@ Deux opérations concurrentes peuvent être fusionnables pour un type donné ; d
 
 ---
 
-## 3. Quatre rôles envisagés dans le modèle
+## 3. Quatre rôles de base et spécialistes de variant
 
-La conception décrit quatre responsabilités possibles. Ce nombre n'est pas une exigence mathématique ni une propriété biologique transposable ; la composition effective dépend du runtime et ne prouve pas l'existence d'un état répliqué partagé.
+La conception décrit quatre responsabilités possibles. Ce nombre n'est pas une exigence mathématique ni une propriété biologique transposable ; la composition effective dépend du runtime et ne prouve pas l'existence d'un état répliqué partagé. À ces quatre rôles, la composition ajoute un worker spécialiste pour cinq variants (`code`, `graph`, `document`, `epistemic`, `transactional`) selon [ADR 0170](../../adr/0170-specialisation-workers-variants-syncytium.md) ; les huit autres variants conservent les quatre rôles seuls.
 
 ### 3.1 Shared State Coordinator (Frontier)
 
