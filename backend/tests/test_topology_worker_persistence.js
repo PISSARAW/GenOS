@@ -36,9 +36,10 @@ async function main() {
   assert.equal(JSON.parse(row.metadata_json).topologySessionId, identity.topologySessionId);
   await persistWorkerIdentity({ db, context: { orchestratorId: 'orchestrator_1', task: 'Inspect biome',
     request: { mode: 'biome' }, topologySession: { sessionId: 'biome-1' } },
-  member: { role: 'implementation' }, parent: { workspace_id: 'workspace-1', isolation_mode: 'Branch',
+  member: { role: 'implementation', executionBudgetTokens: 20000 }, parent: { workspace_id: 'workspace-1', isolation_mode: 'Branch',
     model_tier: 'standard' }, workerId: 'biome-worker' });
   assert.equal(JSON.parse(db.agents.get('biome-worker').metadata_json).topologySessionId, 'biome-1');
+  assert.equal(JSON.parse(db.agents.get('biome-worker').metadata_json).workerContract.resources.maxTokens, 20000);
   assert.deepEqual(await ensureTopologyWorker(db, identity), { workerId: identity.workerId, created: false });
   await assert.rejects(
     () => ensureTopologyWorker(db, { ...identity, parentId: 'other_parent' }),

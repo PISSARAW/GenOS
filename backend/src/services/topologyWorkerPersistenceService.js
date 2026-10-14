@@ -9,6 +9,7 @@ async function ensureTopologyWorker(db, input) {
     orchestratorAgentId: input.parentId,
     methodContract: input.methodContract,
     workerAssignment: input.workerAssignment,
+    workerTokenLimit: input.workerTokenLimit,
     topologySessionId: input.topologySessionId,
     nicheDomain: input.nicheDomain,
     hostContractId: input.hostContractId,

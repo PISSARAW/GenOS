@@ -50,6 +50,7 @@ async function persistWorkerIdentity({ db, context, member, parent, workerId }) 
     workerKind: member.workerKind,
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
+    workerTokenLimit: member.executionBudgetTokens,
     topologySessionId: context.topologySession?.sessionId || null,
     mission: member.mission || context.task
   });

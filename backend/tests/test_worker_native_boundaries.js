@@ -50,7 +50,8 @@ async function verifyContractBounds(root, inputs) {
   adaptive.workerContract.limits.maxIterations = 1;
   await rejects(adaptive, 'WORKER_ITERATION_LIMIT');
   assert.equal(buildWorkerContract('procedural_executor', { workerTokenLimit: 99999 }).resources.maxTokens, 0);
-  assert.equal(buildWorkerContract('bounded_worker', { workerTokenLimit: 99999 }).resources.maxTokens, 8000);
+  assert.equal(buildWorkerContract('bounded_worker', { workerTokenLimit: 99999 }).resources.maxTokens, 20000);
+  assert.equal(buildWorkerContract('bounded_worker').resources.maxTokens, 8000);
 }
 
 async function verifyRecoveryBounds(root, inputs) {

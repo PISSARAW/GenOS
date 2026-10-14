@@ -29,6 +29,12 @@ jusqu’à neuf minutes aux workers concurrents et du temps à la comparaison et
 la promotion. Les budgets de tokens et de coût restent explicites, persistés et
 appliqués par le scope modèle existant.
 
+Le budget de tokens alloué par monde est propagé dans le contrat canonique du
+worker. Les workers bornés, spécialistes, vérificateurs et rouges acceptent
+jusqu’à 20 000 tokens, sous réserve du plafond par monde et du scope parent
+persisté; le plafond par défaut de 8 000 tronquait certaines sorties avant leur
+validation.
+
 ## Conséquences
 
 ### Positives
