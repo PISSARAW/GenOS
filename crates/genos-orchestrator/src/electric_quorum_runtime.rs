@@ -1,18 +1,22 @@
 use crate::GenosEcosystem;
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use genos_biology::specialized_cells::electrocyte::ElectricOrganStack;
 use genos_store::BiologicalReceiptStore;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 const DURABLE_QUORUM_SCHEMA: &str = "genos.electric-quorum-receipt/v1";
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+const ELECTRIC_VOTE_SCHEMA: &str = "genos.electric-vote/v1";
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ElectricMissionVote {
     pub participant_cell_id: Uuid,
     pub approve: bool,
+    pub signature_hex: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,6 +26,88 @@ pub struct ElectricQuorumRequest {
     pub votes: Vec<ElectricMissionVote>,
 }
 
+impl ElectricQuorumRequest {
+    /// Produit les octets canoniques que chaque votant doit signer.
+    pub fn vote_signing_bytes(
+        &self,
+        mission_id: Uuid,
+        vote: &ElectricMissionVote,
+    ) -> Result<Vec<u8>, String> {
+        vote_signing_bytes(mission_id, self, vote)
+    }
+}
+
+/// Clés publiques de participants approuvées par la configuration de confiance.
+/// Ne construisez ce registre qu'à partir d'une configuration détenue par l'application.
+pub struct ElectricVoterAuthority {
+    trusted_voters: HashMap<Uuid, VerifyingKey>,
+}
+
+impl ElectricVoterAuthority {
+    pub fn from_trusted_public_keys(keys: HashMap<Uuid, String>) -> Result<Self, String> {
+        if keys.is_empty() {
+            return Err("aucune clé de votant électrocytaire approuvée".into());
+        }
+        let trusted_voters = keys.into_iter().map(|(cell_id, encoded)| {
+            let decoded = decode_hex(&encoded)?;
+            let bytes: [u8; 32] = decoded.try_into()
+                .map_err(|_| "clé publique de votant Ed25519 de longueur invalide".to_string())?;
+            let key = VerifyingKey::from_bytes(&bytes).map_err(|error| error.to_string())?;
+            Ok((cell_id, key))
+        }).collect::<Result<HashMap<_, _>, String>>()?;
+        Ok(Self { trusted_voters })
+    }
+
+    fn verify_vote(
+        &self,
+        mission_id: Uuid,
+        request: &ElectricQuorumRequest,
+        vote: &ElectricMissionVote,
+    ) -> Result<(), String> {
+        let key = self.trusted_voters.get(&vote.participant_cell_id)
+            .ok_or_else(|| "quorum vote references an untrusted cell identity".to_string())?;
+        let signature_bytes = decode_hex(&vote.signature_hex)?;
+        let signature = Signature::from_slice(&signature_bytes).map_err(|error| error.to_string())?;
+        key.verify(&request.vote_signing_bytes(mission_id, vote)?, &signature)
+            .map_err(|_| "quorum vote signature is invalid".to_string())
+    }
+}
+
+fn decode_hex(value: &str) -> Result<Vec<u8>, String> {
+    if value.len() % 2 != 0 {
+        return Err("signature hex length is invalid".into());
+    }
+    value.as_bytes().chunks_exact(2).map(|pair| {
+        let high = (pair[0] as char).to_digit(16).ok_or("signature hex is invalid")?;
+        let low = (pair[1] as char).to_digit(16).ok_or("signature hex is invalid")?;
+        Ok(((high << 4) | low) as u8)
+    }).collect()
+}
+
+fn vote_signing_bytes(
+    mission_id: Uuid,
+    request: &ElectricQuorumRequest,
+    vote: &ElectricMissionVote,
+) -> Result<Vec<u8>, String> {
+    #[derive(Serialize)]
+    struct Claims<'a> {
+        schema: &'static str,
+        mission_id: Uuid,
+        proposal_id: &'a str,
+        expires_at_unix_ms: u64,
+        participant_cell_id: Uuid,
+        approve: bool,
+    }
+    serde_json::to_vec(&Claims {
+        schema: ELECTRIC_VOTE_SCHEMA,
+        mission_id,
+        proposal_id: &request.proposal_id,
+        expires_at_unix_ms: request.expires_at_unix_ms,
+        participant_cell_id: vote.participant_cell_id,
+        approve: vote.approve,
+    }).map_err(|error| error.to_string())
+}
+
 fn now_unix_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -29,64 +115,119 @@ fn now_unix_ms() -> u64 {
         .as_millis() as u64
 }
 
-fn validate_votes(eco: &GenosEcosystem, votes: &[ElectricMissionVote]) -> Result<(Vec<Uuid>, usize), String> {
-    if votes.len() > 256 {
+fn validate_signed_votes(
+    mission_id: Uuid,
+    request: &ElectricQuorumRequest,
+    authority: &ElectricVoterAuthority,
+) -> Result<(Vec<Uuid>, usize), String> {
+    if request.votes.len() > 256 {
         return Err("quorum is bounded to 256 participant votes".into());
     }
     let mut participants = HashSet::new();
     let mut approvals = 0;
-    for vote in votes {
-        if !eco.orchestrator.active_cells.contains_key(&vote.participant_cell_id) {
-            return Err("quorum vote references a cell outside the active population".into());
-        }
+    for vote in &request.votes {
+        authority.verify_vote(mission_id, request, vote)?;
         if !participants.insert(vote.participant_cell_id) {
             return Err("duplicate cell vote rejected".into());
         }
         approvals += usize::from(vote.approve);
     }
-    if participants.len() < 2 || approvals < 2 || approvals <= votes.len() / 2 {
+    if participants.len() < 2 || approvals < 2 || approvals <= request.votes.len() / 2 {
         return Err("multi-cell approval quorum not reached".into());
     }
     Ok((participants.into_iter().collect(), approvals))
 }
 
+fn validate_votes(
+    eco: &GenosEcosystem,
+    request: &ElectricQuorumRequest,
+    authority: &ElectricVoterAuthority,
+) -> Result<(Vec<Uuid>, usize), String> {
+    let mission_id = eco.mission_id.ok_or("mission identity is required")?;
+    let (participants, approvals) = validate_signed_votes(mission_id, request, authority)?;
+    if participants.iter().any(|id| !eco.orchestrator.active_cells.contains_key(id)) {
+        return Err("quorum vote references a cell outside the active population".into());
+    }
+    Ok((participants, approvals))
+}
+
+fn validate_durable_request(
+    eco: &GenosEcosystem,
+    request: &ElectricQuorumRequest,
+) -> Result<Uuid, String> {
+    let mission_id = eco.mission_id.ok_or("mission identity is required")?;
+    if request.proposal_id.trim().is_empty() {
+        return Err("proposal identity is required".into());
+    }
+    Ok(mission_id)
+}
+
+struct DurableQuorumInput<'request> {
+    mission_id: Uuid,
+    idempotency_key: String,
+    request: &'request ElectricQuorumRequest,
+    authority: &'request ElectricVoterAuthority,
+}
+
+fn prepare_durable_quorum(
+    eco: &GenosEcosystem,
+    input: DurableQuorumInput<'_>,
+) -> Result<(Value, ElectricOrganStack), String> {
+    if now_unix_ms() > input.request.expires_at_unix_ms {
+        return Err("quorum vote deadline expired".into());
+    }
+    let (participants, approvals) = validate_votes(eco, input.request, input.authority)?;
+    let started = Instant::now();
+    let mut organ_after = eco.electric_organ.clone();
+    let burst = organ_after.discharge_burst()?;
+    let receipt = json!({
+        "schema": DURABLE_QUORUM_SCHEMA,
+        "idempotency_key": input.idempotency_key,
+        "mission_id": input.mission_id,
+        "proposal_id": input.request.proposal_id,
+        "expires_at_unix_ms": input.request.expires_at_unix_ms,
+        "accepted": true,
+        "votes": input.request.votes,
+        "participant_cell_ids": participants,
+        "approvals": approvals,
+        "measured_latency_us": started.elapsed().as_micros(),
+        "burst": burst,
+        "organ_after": &organ_after
+    });
+    Ok((receipt, organ_after))
+}
+
+fn durable_receipt_matches_request(
+    receipt: &Value,
+    request: &ElectricQuorumRequest,
+    mission_id: Uuid,
+) -> Result<bool, String> {
+    let expected_key = format!("{mission_id}:{}", request.proposal_id);
+    let votes = serde_json::to_value(&request.votes).map_err(|error| error.to_string())?;
+    Ok(receipt["schema"] == DURABLE_QUORUM_SCHEMA
+        && receipt["mission_id"] == mission_id.to_string()
+        && receipt["proposal_id"] == request.proposal_id
+        && receipt["idempotency_key"] == expected_key
+        && receipt["accepted"] == true
+        && receipt["votes"] == votes)
+}
+
 impl GenosEcosystem {
     /// Persist an accepted quorum decision before installing its simulated discharge.
-    /// The vote list is caller-supplied; this does not authenticate distributed voters.
+    /// Signatures prove registered keys, not distributed collection or network consensus.
     pub fn discharge_electric_under_quorum_durable(
         &mut self,
         request: ElectricQuorumRequest,
         store: &BiologicalReceiptStore,
+        authority: &ElectricVoterAuthority,
     ) -> Result<Value, String> {
-        let mission_id = self.mission_id.ok_or("mission identity is required")?;
-        if request.proposal_id.trim().is_empty() {
-            return Err("proposal identity is required".into());
-        }
+        let mission_id = validate_durable_request(self, &request)?;
         let idempotency_key = format!("{mission_id}:{}", request.proposal_id);
         if let Some(existing) = store.find_idempotent_receipt(DURABLE_QUORUM_SCHEMA, &idempotency_key)? {
-            return self.replay_electric_quorum(&request, existing);
+            return self.replay_electric_quorum(&request, existing, authority);
         }
-        if now_unix_ms() > request.expires_at_unix_ms {
-            return Err("quorum vote deadline expired".into());
-        }
-        let (participants, approvals) = validate_votes(self, &request.votes)?;
-        let started = Instant::now();
-        let mut organ_after = self.electric_organ.clone();
-        let burst = organ_after.discharge_burst()?;
-        let receipt = json!({
-            "schema": DURABLE_QUORUM_SCHEMA,
-            "idempotency_key": idempotency_key,
-            "mission_id": mission_id,
-            "proposal_id": request.proposal_id,
-            "expires_at_unix_ms": request.expires_at_unix_ms,
-            "accepted": true,
-            "votes": request.votes,
-            "participant_cell_ids": participants,
-            "approvals": approvals,
-            "measured_latency_ms": started.elapsed().as_secs_f64() * 1000.0,
-            "burst": burst,
-            "organ_after": organ_after
-        });
+        let input = DurableQuorumInput { mission_id, idempotency_key, request: &request, authority };
+        let (receipt, organ_after) = prepare_durable_quorum(self, input)?;
         store.append_idempotent_receipt(&receipt)?;
         self.electric_organ = organ_after;
         self.record_event("ELECTROCYTE_QUORUM_COMPLETED", receipt.clone());
@@ -98,16 +239,11 @@ impl GenosEcosystem {
         &mut self,
         request: &ElectricQuorumRequest,
         receipt: Value,
+        authority: &ElectricVoterAuthority,
     ) -> Result<Value, String> {
-        let mission_id = self.mission_id.ok_or("mission identity is required")?;
-        let expected_key = format!("{mission_id}:{}", request.proposal_id);
-        if receipt["schema"] != DURABLE_QUORUM_SCHEMA
-            || receipt["mission_id"] != mission_id.to_string()
-            || receipt["proposal_id"] != request.proposal_id
-            || receipt["idempotency_key"] != expected_key
-            || receipt["accepted"] != true
-            || receipt["votes"] != serde_json::to_value(&request.votes).map_err(|error| error.to_string())?
-        {
+        let mission_id = validate_durable_request(self, request)?;
+        validate_signed_votes(mission_id, request, authority)?;
+        if !durable_receipt_matches_request(&receipt, request, mission_id)? {
             return Err("electric quorum receipt does not match the mission request".into());
         }
         let organ: ElectricOrganStack = serde_json::from_value(receipt["organ_after"].clone())
@@ -136,7 +272,11 @@ impl GenosEcosystem {
     }
 
     /// N'autorise la décharge électrique qu'après un vote majoritaire multi-cellules non expiré.
-    pub fn discharge_electric_under_quorum(&mut self, request: ElectricQuorumRequest) -> Value {
+    pub fn discharge_electric_under_quorum(
+        &mut self,
+        request: ElectricQuorumRequest,
+        authority: &ElectricVoterAuthority,
+    ) -> Value {
         let started = Instant::now();
         if self.mission_id.is_none() || request.proposal_id.trim().is_empty() {
             return self.refused_quorum_receipt(&request, "mission or proposal identity missing", started);
@@ -144,7 +284,7 @@ impl GenosEcosystem {
         if now_unix_ms() > request.expires_at_unix_ms {
             return self.refused_quorum_receipt(&request, "quorum vote deadline expired", started);
         }
-        let (participants, approvals) = match validate_votes(self, &request.votes) {
+        let (participants, approvals) = match validate_votes(self, &request, authority) {
             Ok(validated) => validated,
             Err(reason) => return self.refused_quorum_receipt(&request, &reason, started),
         };
@@ -167,109 +307,7 @@ impl GenosEcosystem {
     }
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::genos_cell::AgentCell;
-    use crate::genos_biology::specialized_cells::electrocyte::ElectricOrganStack;
-
-    fn quorum_fixture() -> (GenosEcosystem, Vec<Uuid>) {
-        let mut eco = GenosEcosystem::new("electro-quorum");
-        eco.set_mission_id(Uuid::new_v4());
-        eco.orchestrator.create_tissue("Participants", "Mission").unwrap();
-        for index in 0..3 {
-            eco.orchestrator
-                .add_worker("Participants", AgentCell::new(format!("participant-{index}"), "test", "worker"))
-                .unwrap();
-        }
-        eco.electric_organ = ElectricOrganStack::new("measured-organ", 6000, 2);
-        let ids = eco.orchestrator.active_cells.keys().copied().take(3).collect();
-        (eco, ids)
-    }
-
-    fn electrocyte_snapshot(organ: &ElectricOrganStack) -> Value {
-        serde_json::to_value(&organ.electrocytes).unwrap()
-    }
-
-    #[test]
-    fn electric_discharge_requires_live_multi_cell_quorum_and_records_measurement() {
-        let (mut eco, ids) = quorum_fixture();
-        let request = ElectricQuorumRequest {
-            proposal_id: "mission-action-1".into(),
-            expires_at_unix_ms: now_unix_ms() + 1000,
-            votes: ids.iter().map(|participant_cell_id| ElectricMissionVote { participant_cell_id: *participant_cell_id, approve: true }).collect(),
-        };
-        let receipt = eco.discharge_electric_under_quorum(request);
-        assert_eq!(receipt["accepted"], true);
-        assert_eq!(receipt["participant_cell_ids"].as_array().unwrap().len(), 3);
-        assert!(receipt["measured_latency_ms"].as_f64().unwrap() >= 0.0);
-        assert_eq!(eco.read_events(0).last().unwrap().event_type, "ELECTROCYTE_QUORUM_COMPLETED");
-    }
-
-    #[test]
-    fn expired_electric_quorum_is_refused_without_depolarizing_cells() {
-        let (mut eco, ids) = quorum_fixture();
-        let request = ElectricQuorumRequest {
-            proposal_id: "expired-action".into(),
-            expires_at_unix_ms: 0,
-            votes: ids.iter().map(|participant_cell_id| ElectricMissionVote { participant_cell_id: *participant_cell_id, approve: true }).collect(),
-        };
-        let receipt = eco.discharge_electric_under_quorum(request);
-        assert_eq!(receipt["accepted"], false);
-        assert!(eco.electric_organ.electrocytes.iter().all(|cell| !cell.is_depolarized));
-    }
-
-    #[test]
-    fn durable_electric_quorum_appends_before_mutation_and_replays_after_store_reopen() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("electric-quorum.jsonl");
-        let store = BiologicalReceiptStore::open(&path);
-        let (mut ecosystem, ids) = quorum_fixture();
-        let mission_id = ecosystem.mission_id.unwrap();
-        let request = ElectricQuorumRequest {
-            proposal_id: "durable-discharge-1".into(),
-            expires_at_unix_ms: now_unix_ms() + 10_000,
-            votes: ids.iter().map(|participant_cell_id| ElectricMissionVote {
-                participant_cell_id: *participant_cell_id,
-                approve: true,
-            }).collect(),
-        };
-        let original = ecosystem.electric_organ.clone();
-        let receipt = ecosystem.discharge_electric_under_quorum_durable(request.clone(), &store).unwrap();
-        assert_eq!(store.read_all().unwrap().len(), 1);
-        assert!(ecosystem.electric_organ.electrocytes.iter().any(|cell| cell.is_depolarized));
-        assert_ne!(electrocyte_snapshot(&ecosystem.electric_organ), electrocyte_snapshot(&original));
-
-        let reopened = BiologicalReceiptStore::open(&path);
-        let durable = reopened.find_idempotent_receipt(
-            DURABLE_QUORUM_SCHEMA,
-            &format!("{mission_id}:{}", request.proposal_id),
-        ).unwrap().unwrap();
-        let mut restored = GenosEcosystem::new("electro-quorum-restart");
-        restored.set_mission_id(mission_id);
-        restored.electric_organ = original;
-        let replayed = restored.replay_electric_quorum(&request, durable).unwrap();
-        assert_eq!(replayed, receipt);
-        assert_eq!(electrocyte_snapshot(&restored.electric_organ), electrocyte_snapshot(&ecosystem.electric_organ));
-        assert_eq!(reopened.read_all().unwrap().len(), 1);
-    }
-
-    #[test]
-    fn durable_electric_quorum_rejects_without_persisting_or_mutating() {
-        let directory = tempfile::tempdir().unwrap();
-        let store = BiologicalReceiptStore::open(directory.path().join("electric-quorum.jsonl"));
-        let (mut ecosystem, ids) = quorum_fixture();
-        let request = ElectricQuorumRequest {
-            proposal_id: "insufficient-votes".into(),
-            expires_at_unix_ms: now_unix_ms() + 10_000,
-            votes: ids.iter().take(1).map(|participant_cell_id| ElectricMissionVote {
-                participant_cell_id: *participant_cell_id,
-                approve: true,
-            }).collect(),
-        };
-        let original = ecosystem.electric_organ.electrocytes.clone();
-        assert!(ecosystem.discharge_electric_under_quorum_durable(request, &store).is_err());
-        assert!(store.read_all().unwrap().is_empty());
-        assert_eq!(electrocyte_snapshot(&ecosystem.electric_organ), serde_json::to_value(&original).unwrap());
-    }
-}
+#[path = "electric_quorum_runtime_tests.rs"]
+mod tests;

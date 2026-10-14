@@ -18,8 +18,14 @@ pub struct BiologicalCmd {
     #[arg(long, default_value_t = false)]
     pub tick: bool,
     /// Also attempt one mission-scoped cell division and persist its lineage receipt.
-    #[arg(long, default_value_t = false)]
+    #[arg(long, requires = "tick", default_value_t = false)]
     pub divide: bool,
+    /// Reproduce once after the persisted mission tick and archive the genome lineage.
+    #[arg(long, requires = "tick", default_value_t = false)]
+    pub reproduce: bool,
+    /// JSON typed signal stream to filter and persist with its declared producer identity.
+    #[arg(long, requires = "tick")]
+    pub choanocyte_stream: Option<std::path::PathBuf>,
     /// Stable Rust UUID assigned to the backend mission.
     #[arg(long)]
     pub mission_id: Option<uuid::Uuid>,

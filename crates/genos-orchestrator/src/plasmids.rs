@@ -91,10 +91,37 @@ impl PlasmidBank {
         self.plasmids.len()
     }
 
-    /// Transfert horizontal (conjugaison) d'un plasmide donneur -> receveur.
+    /// Refuse l'ancien transfert direct, qui ne porte aucune autorisation HGT.
     pub fn transfer(&self, request: PlasmidTransfer<'_>) -> Result<HgtTransferReport, String> {
-        request
-            .donor
-            .conjugate_transfer_plasmid(request.recipient, request.plasmid_id)
+        let _ = request;
+        Err("Lease HGT mission requis; utiliser GenosEcosystem::hgt_transfer_under_lease".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PlasmidBank, PlasmidTransfer};
+    use genos_biology::specialized_cells::prokaryote::{Plasmid, ProkaryoticAgent};
+
+    #[test]
+    fn transfert_direct_refuse_sans_muter_le_receveur() {
+        let donor = ProkaryoticAgent::new("donor").with_plasmid(Plasmid {
+            plasmid_id: "p-unauthorized".into(),
+            skill_name: "SKILL_REPAIR".into(),
+            executable_payload: "repair".into(),
+            resistance_marker: "none".into(),
+            copy_number: 1,
+        });
+        let mut recipient = ProkaryoticAgent::new("recipient");
+        let bank = PlasmidBank::new();
+
+        let result = bank.transfer(PlasmidTransfer {
+            donor: &donor,
+            recipient: &mut recipient,
+            plasmid_id: "p-unauthorized",
+        });
+
+        assert!(result.unwrap_err().contains("Lease HGT mission requis"));
+        assert!(recipient.plasmids.is_empty());
     }
 }

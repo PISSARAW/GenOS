@@ -43,14 +43,22 @@ async function run() {
     error => error.code === 'INNOVATION_GATE_BLOCKED'
   );
 
+  await db.run(`INSERT INTO telemetry_events
+    (event_id, agent_id, event_type, action, detail, payload_json)
+    VALUES ('event_innovation_fossil', 'innovation-source-lineage', 'AGENT_TERMINATED', 'TERMINATE', 'terminal', '{}')`);
+  await db.run(`INSERT INTO telemetry_events
+    (event_id, agent_id, event_type, action, detail, payload_json, organization_id, project_id)
+    VALUES ('event_scoped_fossil', 'scoped-innovation-lineage', 'AGENT_TERMINATED', 'TERMINATE', 'terminal', '{}', 'org-innovation', 'project-innovation')`);
   const fossil = await fossilization.recordFossil({
     lineageId: 'innovation-source-lineage',
+    sourceEventId: 'event_innovation_fossil',
     fossilId: 'fossil-test-innovation-verified',
     hardParts: ['genos_sandbox_exec']
   }, db, { writeArtifact: false });
   assert.equal(fossil.success, true);
   const scopedFossil = await fossilization.recordFossil({
     lineageId: 'scoped-innovation-lineage',
+    sourceEventId: 'event_scoped_fossil',
     fossilId: 'fossil-test-innovation-scoped',
     hardParts: ['genos_sandbox_exec'],
     organizationId: 'org-innovation',

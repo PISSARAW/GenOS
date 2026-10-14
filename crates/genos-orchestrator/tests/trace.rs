@@ -100,10 +100,15 @@ fn l_orchestrateur_agit_selon_le_verdict() {
         .current_budget;
     assert!(after < before, "famine => budget reduit");
 
-    // Plasmide : la banque s'enrichit (compétence transférée).
+    // Diagnostic plasmide : le verdict est conservé, mais l'action refuse
+    // explicitement le transfert tant qu'aucun lease HGT n'est fourni.
     let bank_before = eco.plasmids.count();
-    eco.act_on_verdict(needy);
-    assert!(eco.plasmids.count() > bank_before);
+    let prokaryote_before = eco.prokaryote.plasmids.len();
+    let (verdict, note) = eco.act_on_verdict(needy);
+    assert_eq!(verdict, Verdict::NeedsPlasmid);
+    assert!(note.contains("lease HGT mission requis"), "note = {note}");
+    assert_eq!(eco.plasmids.count(), bank_before);
+    assert_eq!(eco.prokaryote.plasmids.len(), prokaryote_before);
 
     // Suppression : l'agent quitte les cellules actives et son tissu.
     eco.act_on_verdict(bad);
@@ -184,4 +189,21 @@ fn plasmide_porte_une_competence_executable() {
     let plasmid = genos_orchestrator::PlasmidBank::for_skill(Skill::Throttle);
     assert_eq!(plasmid.skill_name, "SKILL_THROTTLE");
     assert_eq!(Skill::parse(&plasmid.executable_payload), Some(Skill::Throttle));
+}
+
+#[test]
+fn diagnostic_ne_transfere_pas_de_plasmide_sans_lease_hgt() {
+    let mut eco = GenosEcosystem::new("Overmind");
+    let agent = uuid::Uuid::new_v4();
+    eco.record_action(agent, ("missing_skill", Outcome::Failure));
+    assert_eq!(eco.diagnose_agent(agent), Verdict::NeedsPlasmid);
+
+    let bank_before = eco.plasmids.count();
+    let prokaryote_before = eco.prokaryote.plasmids.len();
+    let (verdict, note) = eco.act_on_verdict(agent);
+
+    assert_eq!(verdict, Verdict::NeedsPlasmid);
+    assert!(note.contains("lease HGT mission requis"));
+    assert_eq!(eco.prokaryote.plasmids.len(), prokaryote_before);
+    assert_eq!(eco.plasmids.count(), bank_before);
 }

@@ -27,20 +27,50 @@ pub(super) fn persist_mission_operations(
     runtime: MissionRuntime<'_>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let mut receipts = Vec::new();
-    if runtime.command.divide {
-        let division = ecosystem.divide_for_mission(runtime.store)
-            .map_err(|error| format!("mission division receipt was not persisted: {error:?}"))?;
-        receipts.push(serde_json::to_value(division).map_err(|error| error.to_string())?);
-    }
-    let recruitment = run_recruitment(ecosystem, RecruitmentRuntime {
+    receipts.extend(persist_division(ecosystem, &runtime)?);
+    receipts.extend(persist_reproduction(ecosystem, runtime.command, runtime.store)?);
+    receipts.extend(persist_choanocyte_stream(ecosystem, &runtime)?);
+    receipts.extend(run_recruitment(ecosystem, RecruitmentRuntime {
         command: runtime.command,
         store: runtime.store,
         tick: runtime.tick,
-    })?;
-    if let Some(receipt) = recruitment {
-        receipts.push(receipt);
-    }
+    })?);
     Ok(receipts)
+}
+
+fn persist_division(
+    ecosystem: &mut genos_orchestrator::GenosEcosystem,
+    runtime: &MissionRuntime<'_>,
+) -> Result<Option<serde_json::Value>, String> {
+    if !runtime.command.divide { return Ok(None); }
+    let receipt = ecosystem.divide_for_mission_with_snapshot(runtime.store, runtime.tick)
+        .map_err(|error| format!("mission division receipt was not persisted: {error:?}"))?;
+    serde_json::to_value(receipt).map(Some).map_err(|error| error.to_string())
+}
+
+fn persist_reproduction(
+    ecosystem: &mut genos_orchestrator::GenosEcosystem,
+    command: &BiologicalCmd,
+    store: &genos_store::BiologicalReceiptStore,
+) -> Result<Option<serde_json::Value>, String> {
+    if !command.reproduce { return Ok(None); }
+    let receipt = ecosystem.reproduce_and_archive_lineage(store)
+        .map_err(|error| format!("mission reproduction lineage was not persisted: {error}"))?;
+    serde_json::to_value(receipt).map(Some).map_err(|error| error.to_string())
+}
+
+fn persist_choanocyte_stream(
+    ecosystem: &mut genos_orchestrator::GenosEcosystem,
+    runtime: &MissionRuntime<'_>,
+) -> Result<Option<serde_json::Value>, String> {
+    let Some(path) = &runtime.command.choanocyte_stream else { return Ok(None); };
+    let bytes = std::fs::read(path)
+        .map_err(|error| format!("Choanocyte stream could not be read: {error}"))?;
+    let stream: genos_orchestrator::choanocyte_receipt::MissionChoanocyteStream =
+        serde_json::from_slice(&bytes)
+            .map_err(|error| format!("Choanocyte stream is invalid: {error}"))?;
+    ecosystem.filter_stream_and_persist(&stream, runtime.store).map(Some)
+        .map_err(|error| format!("Choanocyte stream receipt was not persisted: {error}"))
 }
 
 fn run_recruitment(

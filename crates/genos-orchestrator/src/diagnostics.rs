@@ -6,9 +6,8 @@
 
 use crate::GenosEcosystem;
 use crate::dna_ops;
-use crate::plasmids::{PlasmidBank, PlasmidTransfer, Skill};
+use crate::plasmids::{PlasmidBank, Skill};
 use crate::trace::{Outcome, ReplayReport, Verdict};
-use genos_biology::specialized_cells::prokaryote::ProkaryoticAgent;
 use genos_biology::therapy::{SystemicTherapy, apply_systemic_therapy_to_cell};
 use genos_dna::model::AgentDna;
 use genos_dna::operations::{CrossOptions, MutateOptions};
@@ -187,23 +186,8 @@ impl GenosEcosystem {
     }
 
     fn grant_plasmid(&mut self, agent: Uuid) -> String {
-        let plasmid = PlasmidBank::for_skill(Skill::Repair);
-        let id = plasmid.plasmid_id.clone();
-        self.plasmids.add(plasmid.clone());
-        // Le donneur devient conjugatif et porte le plasmide.
-        self.prokaryote.has_sex_pilus = true;
-        if !self.prokaryote.plasmids.iter().any(|p| p.plasmid_id == id) {
-            self.prokaryote.plasmids.push(plasmid);
-        }
-        let mut recipient = ProkaryoticAgent::new(&agent.to_string());
-        match self.plasmids.transfer(PlasmidTransfer {
-            donor: &self.prokaryote,
-            recipient: &mut recipient,
-            plasmid_id: &id,
-        }) {
-            Ok(_) => "plasmide (SKILL_REPAIR) transfere".to_string(),
-            Err(error) => format!("transfert echoue : {error}"),
-        }
+        let _ = agent;
+        "plasmide refuse : lease HGT mission requis".to_string()
     }
 
     /// Exécute une compétence portée par un plasmide sur un agent.

@@ -43,6 +43,7 @@ mod creativity_config;
 
 /// Point d'entrée unique donnant accès à toutes les capacités GenOS.
 pub struct GenosEcosystem {
+    pub(crate) hgt_authority: Option<crate::hgt_runtime::HgtLeaseAuthority>,
     /// Identifiant de corrélation fourni par l'appelant du runtime.
     pub mission_id: Option<Uuid>,
     pub receipt_journal: Option<std::path::PathBuf>,
@@ -130,6 +131,7 @@ impl GenosEcosystem {
     /// Construit un écosystème complet autour d'un nouvel orchestrateur.
     pub fn new(name: &str) -> Self {
         Self {
+            hgt_authority: None,
             mission_id: None,
             receipt_tick: 0,
             receipt_journal: std::env::var_os("GENOS_BIOLOGICAL_JOURNAL").map(Into::into),

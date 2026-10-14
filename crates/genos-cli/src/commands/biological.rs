@@ -6,8 +6,8 @@ use serde_json::json;
 pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
     let mode = cmd.mode.trim().to_ascii_lowercase();
 
-    if (cmd.recruit_dna.is_some() || cmd.recruitment_spec.is_some()) && !cmd.tick {
-        return Err("DNA recruitment requires --tick and a persisted mission identity".into());
+    if !cmd.tick && operation_requires_persisted_tick(cmd) {
+        return Err("biological division, reproduction, DNA recruitment, and Choanocyte streams require --tick and a persisted mission identity".into());
     }
 
     if cmd.tick {
@@ -84,6 +84,11 @@ pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
     Ok(())
 }
 
+fn operation_requires_persisted_tick(cmd: &BiologicalCmd) -> bool {
+    cmd.divide || cmd.reproduce || cmd.choanocyte_stream.is_some()
+        || cmd.recruit_dna.is_some() || cmd.recruitment_spec.is_some()
+}
+
 fn run_mission_tick(cmd: &BiologicalCmd) -> Result<(), String> {
     let mission_id = cmd
         .mission_id
@@ -130,11 +135,20 @@ fn run_and_report(
                 error.message
             )
         })?;
-    receipts.extend(persist_mission_operations(&mut ecosystem, MissionRuntime {
+    let mission_operations = persist_mission_operations(&mut ecosystem, MissionRuntime {
         command: cmd,
         store: &store,
         tick: report.tick,
-    })?);
+    });
+    match mission_operations {
+        Ok(operation_receipts) => receipts.extend(operation_receipts),
+        Err(operation_error) => {
+            save_checkpoint(&mut checkpoints, &ecosystem).map_err(|checkpoint_error| {
+                format!("{operation_error}; partial mission state could not be checkpointed: {checkpoint_error}")
+            })?;
+            return Err(operation_error);
+        }
+    }
     save_checkpoint(&mut checkpoints, &ecosystem)?;
     println!(
         "{}",

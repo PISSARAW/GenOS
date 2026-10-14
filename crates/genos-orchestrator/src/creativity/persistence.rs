@@ -50,9 +50,14 @@ mod tests {
         let path = std::env::temp_dir().join(format!("creative-runtime-{}.json", Uuid::new_v4()));
         let mut first = GenosEcosystem::new("creative-runtime-test");
         first.enable_creativity_checkpoint(&path).unwrap();
-        first.tick(&Goal::Explore);
+        let report = first.tick(&Goal::Explore);
         let generated = first.creativity.as_ref().unwrap().metrics().dreams_generated;
         assert!(generated > 0);
+        assert!(
+            path.exists(),
+            "creative checkpoint was not written; tick halt: {:?}",
+            report.halt
+        );
         drop(first);
 
         let mut restored = GenosEcosystem::new("creative-runtime-test");

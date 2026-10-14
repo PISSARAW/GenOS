@@ -287,6 +287,10 @@ pub fn handle_tracheid(action: &str, params: &[String]) {
 }
 
 pub fn handle_prokaryote(action: &str, params: &[String]) {
+    if matches!(action, "conjugate" | "hgt") {
+        println!("{}", hgt_lease_required());
+        return;
+    }
     let donor_id = extract_param(params, "donor_id")
         .or_else(|| extract_param(params, "agent_id"))
         .unwrap_or_else(|| "prokaryote_donor_0".to_string());
@@ -310,24 +314,6 @@ pub fn handle_prokaryote(action: &str, params: &[String]) {
     let mut recipient = genos_biology::specialized_cells::prokaryote::ProkaryoticAgent::new(&recipient_id);
 
     match action {
-        "conjugate" | "hgt" => {
-            let res = donor.conjugate_transfer_plasmid(&mut recipient, &plasmid_id);
-            match res {
-                Ok(report) => {
-                    println!("{}", json!({
-                        "success": true, "feature": "prokaryote", "action": "conjugate",
-                        "hgt_report": report,
-                        "recipient_plasmids_count": recipient.plasmids.len()
-                    }));
-                }
-                Err(err) => {
-                    println!("{}", json!({
-                        "success": false, "feature": "prokaryote", "action": "conjugate",
-                        "error": err
-                    }));
-                }
-            }
-        }
         "fission" | "divide" => {
             let mut cell = donor;
             let (d1, d2) = cell.binary_fission();
@@ -346,6 +332,27 @@ pub fn handle_prokaryote(action: &str, params: &[String]) {
                 "yield": exec
             }));
         }
+    }
+}
+
+fn hgt_lease_required() -> serde_json::Value {
+    json!({
+        "success": false,
+        "feature": "prokaryote",
+        "action": "conjugate",
+        "error": "Lease HGT mission requis; transfert direct desactive"
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hgt_lease_required;
+
+    #[test]
+    fn cli_refuse_le_transfert_hgt_sans_lease() {
+        let result = hgt_lease_required();
+        assert_eq!(result["success"], false);
+        assert!(result["error"].as_str().unwrap().contains("Lease HGT"));
     }
 }
 
