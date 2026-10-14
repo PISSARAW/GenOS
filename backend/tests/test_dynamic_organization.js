@@ -45,6 +45,12 @@ async function run() {
 
     const initial = await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'specialist_expert_committee', reason: 'independent reports', changedBy: 'org-root' });
     assert.equal(initial.version, 1);
+    const memberState = await organization.getStateForMember(db, 'org-root', 'org-a');
+    assert.equal(memberState.requester.id, 'org-a');
+    assert.deepEqual(new Set(memberState.members.map((member) => member.id)), new Set(['org-root', 'org-a', 'org-b']));
+    const peerLink = memberState.communicationLinks.find((link) => link.agentId === 'org-b');
+    assert.equal(peerLink.relationship, 'peer');
+    assert.deepEqual(peerLink.communication, { mode: 'mediated', channel: 'orchestrator_handoff', viaAgentId: 'org-root' });
     const unchanged = await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'specialist_expert_committee', reason: 'still appropriate', changedBy: 'org-root' });
     assert.equal(unchanged.changed, false);
     assert.equal(unchanged.version, 1, 'reaffirming a topology must not create a fake transition');

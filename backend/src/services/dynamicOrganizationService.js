@@ -14,6 +14,7 @@ const swarmTopologyPreferences = require('./swarmTopologyPreferenceStore');
 const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
 const { createOrganizationEnvelope, signalDataWithEnvelope, payloadWithEnvelope, verifyOrganizationMessage } = require('./communication/organizationEnvelopeAdapter');
 const messageReceipts = require('./communication/organizationMessageReceipts');
+const memberView = require('./communication/organizationMemberView');
 // Même cycle que `../db` (voir withTransactionDb) : `collectiveSignalOrganizationRouter`
 // capturé au chargement arrive vide selon le point d'entrée. Résolution à l'appel.
 function signalRouter() {
@@ -159,7 +160,9 @@ async function getState(db, orchestratorId) {
 async function getStateForMember(db, orchestratorId, requesterAgentId) {
   await assertOrchestrator(db, orchestratorId);
   await assertMember(db, orchestratorId, requesterAgentId);
-  return getState(db, orchestratorId);
+  const state = await getState(db, orchestratorId);
+  const members = await memberView.fetchMembers(db, orchestratorId);
+  return memberView.buildMemberState(state, requesterAgentId, members);
 }
 
 async function fetchAgentScope(db, agentId) {
@@ -357,14 +360,6 @@ async function fetchInboxMessages(db, query) {
   );
 }
 
-async function fetchOrganizationMembers(db, orchestratorId) {
-  return db.all(
-    `SELECT id, name, name_meaning as nameMeaning, role, execution_mode as executionMode
-       FROM agents WHERE id = ? OR parent_agent_id = ? ORDER BY execution_mode DESC, name ASC`,
-    orchestratorId, orchestratorId
-  );
-}
-
 async function inbox(db, options = {}) {
   const { orchestratorId, requesterAgentId, afterId = 0, limit = 20 } = options;
   await ensureTables(db);
@@ -376,7 +371,7 @@ async function inbox(db, options = {}) {
   const query = { orchestratorId, version: state.version, scope, afterId, requesterAgentId, limit };
   const rows = await fetchInboxMessages(db, query);
   const messages = await messageReceipts.markRead(db, { messages: rows, recipientAgentId: requesterAgentId });
-  const members = await fetchOrganizationMembers(db, orchestratorId);
+  const members = await memberView.fetchMembers(db, orchestratorId);
   return {
     state,
     members,
