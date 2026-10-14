@@ -1,6 +1,6 @@
 # Qualification vérifiable des workers
 
-- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows. La requalification du 2026-10-14 sur `2e0df82f` a passé le profil workers, le benchmark 24 cas et trois campagnes faultées (57/57 scénarios conformes). Les rapports identifient le checkout comme exploratoire car des rapports locaux non suivis sont présents. Linux reste à qualifier.
+- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows et Linux. Sur Linux, le profil workers (32 suites), la workspace Rust et le gate qualité passent sur le code de `d00175c2`. Le `npm test` complet Linux reste en échec dans `test_daemon_host_process` (`SQLITE_IOERR`) après les suites précédentes ; ce test passe quand il est lancé seul. La requalification Windows du 2026-10-14 sur `2e0df82f` a passé le profil workers, le benchmark 24 cas et trois campagnes faultées (57/57 scénarios conformes). Les rapports locaux non suivis sont classés exploratoires.
 - **Date de l'inventaire** : 2026-10-12.
 - **Portée** : les 19 `WorkerKind`, les méthodes du registre Node, les missions persistées et leurs preuves.
 
@@ -178,8 +178,9 @@ annulation, délai dépassé, arrêt par garde et altérations d'oracles ; la su
 SIGKILL couvre la restauration d'organisme séparément. Une répétition des trois
 missions sous la charge simultanée de `npm test` avait rendu
 `ORACLE_BUDGET_EXPIRED` pour `bounded_worker`. Ce résultat sous concurrence a
-motivé une campagne séquentielle avec fautes injectées, décrite plus bas. Linux
-reste à qualifier : les
+motivé une campagne séquentielle avec fautes injectées, décrite plus bas. Le
+constat Linux qui suit reflète l'état du 2026-10-12, avant la requalification
+du 2026-10-14 : les
 distributions WSL installées sont en version 1 et ne disposent ni de Node, ni
 de Cargo, ni de Lean. Docker Desktop est présent,
 mais son moteur Linux ne démarre pas et le client reçoit `permission denied` sur
@@ -302,10 +303,9 @@ répétition de C4 a passé trois campagnes nominales (57/57). Les suites worker
 injectent annulation, délai dépassé, arrêt par garde et altérations d'oracles ;
 la suite SIGKILL couvre la restauration d'organisme séparément. La campagne
 multi-missions sous pannes a ensuite été passée sur Windows au commit propre
-`ca7f5ca5`, voir le bilan plus bas. Linux reste à qualifier : le 2026-10-12,
-WSL était en version 1 sans toolchain Linux et le moteur Linux de Docker Desktop
-était inaccessible (`Wsl/E_ACCESSDENIED` / `permission denied`); aucun résultat
-Linux n’est revendiqué.
+`ca7f5ca5`, voir le bilan plus bas. Le constat d'absence de toolchain Linux et
+d'accès Docker était valable au 2026-10-12 ; la requalification Linux du
+2026-10-14 est consignée plus bas.
 
 Le 2026-10-12, `run_worker_gate_campaign.cjs` a réévalué les 19 missions
 depuis SQLite, leur événement terminal, leur assemblée d'oracles persistée et
@@ -483,6 +483,41 @@ fichiers locaux non suivis sont présents dans le checkout. Les résultats
 établissent le comportement observé sous Windows et les scénarios mesurés ; ils
 ne démontrent ni la parité avec un système rival, ni le comportement Linux, ni
 une garantie hors de ces cas.
+
+## Requalification Linux du 2026-10-14
+
+La requalification a été exécutée dans Ubuntu 24.04 sous WSL 1, avec Node
+22.23.3, Rust 1.99.0, Lean 4.34.0 (`x86_64-unknown-linux-gnu`) et Ollama
+`qwen2.5-coder:32b`. Le code testé correspond au commit `d00175c2`.
+Ce correctif rend `uiautomation` spécifique à Windows ; les appels UI Automation
+retournent faux sur les autres systèmes, où l'exécuteur sensorimoteur poursuit
+par la voie Enigo.
+
+`npm --prefix backend run test:workers` passe **32/32 suites** en 463,148 s.
+La suite confirme les 19 types natifs, leurs contrats et artefacts, les missions
+persistées avec quorum indépendant, les limites et refus, la campagne de fautes
+et les oracles de benchmark avec mutations rejetées. Les missions formelles
+`formal_worker → formal_proof` et le benchmark `theorem_proving` exécutent Lean
+réel ; la preuve de mission est recompilée par deux processus d'oracle
+indépendants. Le chemin Ollama passe aussi par le worker mesuré `bounded-code`
+et son oracle indépendant. Le scénario de missions persistées, lancé seul,
+confirme en plus **19/19 missions promues**, chacune liée à son run et à un
+oracle accepté.
+
+`cargo test -p genos-sensorimotor` et `cargo test --workspace` passent sur Linux.
+Le gate qualité Linux compte **6 018 fichiers source, 8 violations du baseline
+et 0 nouvelle violation**. Le test `test_daemon_host_process.js` seul passe
+(1/1).
+
+Le `npm test` complet a été lancé deux fois sous Linux ; à chaque fois, le
+runner Daemon a passé 42/43 programmes et `test_daemon_host_process.js` a
+renvoyé `SQLITE_IOERR: disk I/O error` après les tests précédents. Ce test passe
+lorsqu'il est isolé. La séquence isolée `host_cli` puis `host_process` reproduit
+l'échec (1/2), ce qui confirme que la panne dépend de l'ordre d'exécution. Le
+gate complet s'arrête à cet échec avant les suites suivantes. Le profil workers
+ciblé passe indépendamment. La qualification C2/C3
+des workers Linux est donc démontrée ; le gate global `npm test` Linux reste à
+résoudre pour déclarer le dépôt entièrement qualifié sur cette plateforme.
 
 ## Commandes et limites du verdict
 

@@ -52,7 +52,7 @@ async function main() {
     const journal = require('../../src/services/epistemic/nativeOracleJournal');
     const request = { runId: row.id, agentId: result.childAgentId, scope: authority.envelope.scope };
     const attestation = await journal.read(db, { ...request, kind: 'attestation' });
-    assert.equal(attestation.value.domain, 'scan_literal');
+    assert.equal(attestation.value.domain, 'literal_observation');
     assert.equal(attestation.value.accepted, true);
     assert.equal(attestation.value.costs.processes, 2);
     const assembly = await require('../../src/services/aeisAssemblyStore').readAssembly(db, attestation.value.assemblyId);
