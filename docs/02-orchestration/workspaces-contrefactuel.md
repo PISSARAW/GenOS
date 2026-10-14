@@ -348,7 +348,7 @@ $$
 T(n) = O(\log n)
 $$
 
-car on réduit l’espace de recherche par 2 à chaque étape.
+car on réduit l’espace de recherche par 2 à chaque étape. Cette borne décrit les évaluations du prédicat après chargement de l'historique. Le backend lit jusqu'à 10 001 lignes avant la recherche : la préparation et la mémoire sont linéaires en nombre de snapshots, avec une limite à 10 000 snapshots acceptés. La base saine est évaluée séparément; chaque sonde peut être répétée (deux fois par défaut) et une sonde durable exécute réellement la commande de test dans le snapshot. Le nombre d'itérations logarithmique ne borne donc ni la durée totale ni le coût du chargement.
 
 Le service vérifie que la séquence de santé est monotone : healthy → fail → fail, puis trouve le premier snapshot ne satisfaisant plus l’invariant.
 
