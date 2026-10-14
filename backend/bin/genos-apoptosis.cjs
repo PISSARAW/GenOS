@@ -10,9 +10,15 @@ async function killVerifiedAgent(db, agent) {
   // moment of the kill, so a recycled PID is never signalled. The executable
   // is compared exactly (strict mode: no basename fallback).
   const fresh = await db.get('SELECT id, runtime_pid, runtime_executable FROM agents WHERE id = ?', agent.id);
-  if (!fresh || !fresh.runtime_pid) return { id: agent.id, terminated: false, reason: 'NO_PID' };
-  if (!processMatches(fresh.runtime_pid, fresh.runtime_executable, true)) return { id: fresh.id, terminated: false, reason: 'PID_EXECUTABLE_MISMATCH' };
-  return { id: fresh.id, terminated: terminatePid(fresh.runtime_pid, fresh.runtime_executable), reason: 'TERMINATION_REQUESTED' };
+  if (!fresh || !fresh.runtime_pid) return { id: agent.id, terminationRequested: false, processExitObserved: true, reason: 'NO_PID' };
+  if (!processMatches(fresh.runtime_pid, fresh.runtime_executable, true)) {
+    return { id: fresh.id, terminationRequested: false, processExitObserved: false, reason: 'PID_EXECUTABLE_MISMATCH' };
+  }
+  const terminationRequested = terminatePid(fresh.runtime_pid, fresh.runtime_executable, 'SIGKILL');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const processExitObserved = !processMatches(fresh.runtime_pid, fresh.runtime_executable, true);
+  return { id: fresh.id, terminationRequested, processExitObserved,
+    reason: processExitObserved ? 'PROCESS_EXIT_OBSERVED' : 'PROCESS_EXIT_UNCONFIRMED' };
 }
 
 async function openDatabase(dbPath) {
@@ -32,15 +38,29 @@ async function terminateActiveAgents(db, agents) {
   return results;
 }
 
-async function updateAgentsToApoptosis(db) {
+async function markAgentToApoptosis(db, agent, processExitObserved) {
   const res = await db.run(
-    "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')"
+    "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, runtime_pid = CASE WHEN ? THEN NULL ELSE runtime_pid END, runtime_started_at = CASE WHEN ? THEN NULL ELSE runtime_started_at END, runtime_executable = CASE WHEN ? THEN NULL ELSE runtime_executable END, current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status IN ('idle', 'running', 'active', 'paused', 'queued')",
+    processExitObserved ? 1 : 0, processExitObserved ? 1 : 0, processExitObserved ? 1 : 0, agent.id
   );
   return res.changes || 0;
 }
 
-async function runCleanups(db) {
-  const cleanups = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup LIMIT 25').catch(() => []);
+async function updateAgentsToApoptosis(db, agents, terminationResults) {
+  const outcomes = new Map(terminationResults.map((result) => [result.id, result]));
+  let marked = 0;
+  for (const agent of agents) {
+    const result = outcomes.get(agent.id) || {};
+    marked += await markAgentToApoptosis(db, agent, result.processExitObserved === true);
+  }
+  return marked;
+}
+
+async function runCleanups(db, terminationResults) {
+  const safeAgentIds = terminationResults.filter((result) => result.processExitObserved).map((result) => result.id).slice(0, 25);
+  if (!safeAgentIds.length) return;
+  const placeholders = safeAgentIds.map(() => '?').join(', ');
+  const cleanups = await db.all(`SELECT agent_id, workspace_root FROM agent_capsule_cleanup WHERE agent_id IN (${placeholders}) LIMIT 25`, ...safeAgentIds).catch(() => []);
   if (cleanups.length > 0) {
     await Promise.race([
       Promise.allSettled(cleanups.map(async (cleanup) => {
@@ -54,11 +74,11 @@ async function runCleanups(db) {
   }
 }
 
-async function logApoptosisTelemetry(db, stopped) {
+async function logApoptosisTelemetry(db, marked, exitObserved) {
   await db.run(
     `INSERT INTO telemetry_events (agent_id, event_type, action, detail, severity)
      VALUES ('system', 'EMERGENCY_APOPTOSIS', 'APOPTOSIS_KILL_SWITCH', ?, 'critical')`,
-    `Arrêt d'urgence exécuté : ${stopped} agent(s) passé(s) en apoptose.`
+    `Coupure d'urgence : ${marked} agent(s) marqué(s) en apoptose, sortie observée pour ${exitObserved} processus.`
   ).catch(() => {});
 }
 
@@ -73,21 +93,22 @@ async function apoptosis(customDbPath = null) {
 
     db = await openDatabase(dbPath);
     let terminationResults = [];
-    let stopped = 0;
+    let marked = 0;
     try {
       const activeAgents = await getActiveAgents(db);
       terminationResults = await terminateActiveAgents(db, activeAgents);
-      stopped = await updateAgentsToApoptosis(db);
+      marked = await updateAgentsToApoptosis(db, activeAgents, terminationResults);
       await db.exec('COMMIT');
     } catch (txErr) {
       await db.exec('ROLLBACK').catch(() => {});
       throw txErr;
     }
-    await runCleanups(db);
-    await logApoptosisTelemetry(db, stopped);
+    await runCleanups(db, terminationResults);
+    const exitObserved = terminationResults.filter((result) => result.processExitObserved).length;
+    await logApoptosisTelemetry(db, marked, exitObserved);
 
-    console.log(`[Apoptose d'Urgence] Exécutée avec succès. ${stopped} agent(s) stoppé(s).`);
-    return { success: true, stoppedAgents: stopped, terminationResults, dbPath };
+    console.log(`[Apoptose d'Urgence] État appliqué. ${marked} agent(s) marqué(s), sortie observée pour ${exitObserved} processus.`);
+    return { success: true, stoppedAgents: exitObserved, markedAgents: marked, terminationResults, dbPath };
   } catch (err) {
     console.error(`[Apoptose d'Urgence] Erreur : ${err.message}`);
     if (require.main === module) process.exit(1);

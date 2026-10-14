@@ -40,16 +40,29 @@ async function runTests() {
      VALUES (?, 'Test Runaway Agent', 'Worker', 'running', 'worker')`,
     testAgentId
   );
+  const unverifiableAgentId = `${testAgentId}_unverifiable`;
+  await db.run(
+    `INSERT INTO agents (id, name, role, status, execution_mode, runtime_pid, runtime_executable)
+     VALUES (?, 'Unverifiable Agent', 'Worker', 'running', 'worker', ?, 'not-the-test-runner.exe')`,
+    unverifiableAgentId, process.pid
+  );
 
   // Exécution de l'apoptose
   const res = await apoptosis();
   assert.equal(res.success, true, 'Apoptosis doit réussir');
   assert(res.stoppedAgents >= 1, 'Au moins un agent doit être stoppé');
+  assert(res.markedAgents >= 2, 'Tous les agents actifs doivent être marqués en apoptose');
 
   const updatedAgent = await db.get('SELECT status, current_task FROM agents WHERE id = ?', testAgentId);
   assert.equal(updatedAgent.status, 'apoptosis', 'L agent doit être passé en statut apoptosis');
   assert.equal(updatedAgent.current_task, 'Emergency apoptosis triggered');
-  console.log(`  ✅ Apoptose validée : agent stoppé et marqué 'apoptosis' (Total stoppés: ${res.stoppedAgents}).`);
+  const unverifiableAgent = await db.get('SELECT status, runtime_pid, runtime_executable FROM agents WHERE id = ?', unverifiableAgentId);
+  assert.equal(unverifiableAgent.status, 'apoptosis');
+  assert.equal(unverifiableAgent.runtime_pid, process.pid, 'A non-verified PID must stay visible for operator follow-up');
+  assert.equal(unverifiableAgent.runtime_executable, 'not-the-test-runner.exe');
+  assert(res.terminationResults.some((item) => item.id === unverifiableAgentId
+    && item.reason === 'PID_EXECUTABLE_MISMATCH' && item.processExitObserved === false));
+  console.log(`  ✅ Apoptose validée : ${res.markedAgents} agent(s) marqué(s), ${res.stoppedAgents} sortie(s) observée(s).`);
 
   // Cas où la DB n'existe pas
   const invalidRes = await apoptosis('C:\\path\\that\\does\\not\\exist\\fake.db');

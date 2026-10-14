@@ -111,7 +111,7 @@ function terminateChild(child, detached = false) {
   return true;
 }
 
-function terminatePid(pid, expected) {
+function terminatePid(pid, expected, signal = 'SIGTERM') {
   const numericPid = normalizePid(pid);
   if (!numericPid || numericPid === process.pid) return false;
   if (expected !== undefined && !processMatches(numericPid, expected, true)) return false;
@@ -119,7 +119,7 @@ function terminatePid(pid, expected) {
     if (process.platform === 'win32') {
       execFileSync('taskkill', ['/PID', String(numericPid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
     } else {
-      signalProcess(numericPid, 'SIGTERM');
+      signalProcess(numericPid, signal);
     }
     return true;
   } catch (_) {

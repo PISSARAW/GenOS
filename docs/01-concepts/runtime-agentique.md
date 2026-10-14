@@ -96,7 +96,7 @@ L'annulation avant le spawn est prise en compte par `cancelledStarts` et retourn
 
 L'arret est intentionnellement trace : `AGENT_RUNTIME_HALT_REQUESTED`, puis un resultat `AGENT_HALTED`/`blocked`, evitant qu'un `SIGTERM` opere par le control plane ne soit presente comme un echec spontané.
 
-L'outil [backend/bin/genos-apoptosis.cjs](../../backend/bin/genos-apoptosis.cjs) est le coupe-circuit d'urgence. Il contrôle qu'un PID correspond encore à l'exécutable attendu, termine les processus correspondants, marque les agents actifs `apoptosis`, efface les identifiants de runtime et réclame les capsules de façon concurrente et bornée dans le temps (timeout strict de 2s) afin de garantir une exécution immédiate sans blocage I/O.
+L'outil [backend/bin/genos-apoptosis.cjs](../../backend/bin/genos-apoptosis.cjs) est le coupe-circuit d'urgence. Il revalide le PID et l'exécutable avant d'envoyer un signal forcé (`SIGKILL` sous Unix, `taskkill /T /F` sous Windows), puis vérifie après 100 ms si la sortie du processus est observable. Les agents actifs sont marqués `apoptosis`, mais leurs identifiants de runtime restent enregistrés si le PID ne correspond pas ou si la sortie n'est pas observée; leur capsule n'est pas nettoyée dans ces cas. `stoppedAgents` compte les sorties observées et `markedAgents` les lignes d'agents marquées. Le nettoyage attend au plus 2 s dans cet appel, mais ce délai ne borne pas l'ouverture SQLite et ne peut annuler une tâche de nettoyage déjà lancée. `success` confirme l'application de l'état transactionnel, pas la terminaison de chaque processus.
 
 ## Runtimes, modèles et fallback
 
