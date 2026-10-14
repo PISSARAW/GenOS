@@ -92,8 +92,14 @@ pub fn version_mismatch(version: &str) -> String {
 }
 
 pub fn validate_budget(claim: &BudgetClaim) -> Result<(), String> {
-    if claim.reserved < 0.0 {
-        return Err("reserved negatif".to_string());
+    if claim.resource.trim().is_empty() {
+        return Err("ressource manquante".to_string());
+    }
+    if !claim.reserved.is_finite() || !claim.consumed.is_finite() || !claim.ceiling.is_finite() {
+        return Err("montant de budget non fini".to_string());
+    }
+    if claim.reserved < 0.0 || claim.consumed < 0.0 || claim.ceiling < 0.0 {
+        return Err("montant de budget négatif".to_string());
     }
     if claim.consumed > claim.reserved {
         return Err("depassement budget".to_string());
