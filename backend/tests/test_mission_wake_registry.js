@@ -12,6 +12,8 @@ const registry = require('../src/services/missionResourceRegistryService');
 const authority = require('../src/services/missionExecutionAuthority');
 const recovery = require('../src/services/survivalWakeRecoveryService');
 const checks = require('../src/services/missionRegenerationChecksService');
+const homeostasis = require('../src/services/homeostasisService');
+const { newOrganism } = require('../src/services/missionOrganismService');
 
 async function addAgent(db, id) {
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, ?, 'orchestrator', 'running', 'orchestrator')", id, id);
@@ -104,6 +106,16 @@ async function checkTerminalReconciliation(input) {
   await survival.observe(db, agentId, { forcedState: 'waking',
     snapshotId: suspended.snapshot.snapshotId, wakeConditionId: suspended.wakeCondition.id });
   await missions.setStatus(db, missionId, 'active');
+  if (terminalStatus === 'completed') {
+    const transition = await homeostasis.transitionMissionToComplete(db, {
+      mission: { id: missionId, objective: 'resume and finish', completionContract: { invariants: [
+        { id: 'wake_completion', kind: 'functional', verifier: { type: 'context.flag', flag: 'passed' } }
+      ] } },
+      organism: newOrganism({ genome: { objective: 'resume and finish' } }),
+      context: { flags: { passed: true }, evidence: ['mission_wake_completion_test'] }
+    });
+    assert.equal(transition.allowed, true);
+  }
   await missions.setStatus(db, missionId, terminalStatus);
   await recovery.reconcileAbandoned(db);
   assert.equal((await survival.get(db, agentId)).state, expectedState);
