@@ -40,9 +40,9 @@ function candidateEvidenceDigest(input) {
   return createHash('sha256').update(payload).digest('hex');
 }
 
-function hasValidIndependentReceipt(input) {
+function hasValidIndependentReceipt(input, expectedStatus = 'verified') {
   const receipt = input.verificationReceipt;
-  if (!receipt || receipt.resultId !== input.semanticId || receipt.status !== 'verified' || receipt.independent !== true) return false;
+  if (!receipt || receipt.resultId !== input.semanticId || receipt.status !== expectedStatus || receipt.independent !== true) return false;
   try {
     return receipt.evidenceDigest === candidateEvidenceDigest(input)
       && validateReceipt(receipt, verifierTrust.listVerifierDigests());
@@ -197,12 +197,42 @@ async function promoteChampion(db, input) {
   });
 }
 
+function buildRefutationEvidence(candidate, input) {
+  if (!input.counterexample || typeof input.counterexample !== 'object' || Array.isArray(input.counterexample)
+    || !Object.keys(input.counterexample).length) {
+    throw Object.assign(new Error('A structured counterexample is required to refute a result.'), { code: 'RESULT_COUNTEREXAMPLE_REQUIRED' });
+  }
+  let evidence;
+  try { evidence = JSON.parse(candidate.evidence_json || '[]'); } catch (_) { evidence = null; }
+  if (!Array.isArray(evidence)) {
+    throw Object.assign(new Error('Stored result evidence is invalid.'), { code: 'RESULT_EVIDENCE_INVALID' });
+  }
+  const supportedEvidence = [...evidence, input.counterexample];
+  const receiptInput = {
+    semanticId: input.semanticId,
+    scopeId: input.scopeId,
+    contentJson: candidate.content_json,
+    evidenceJson: JSON.stringify(supportedEvidence),
+    dependenciesJson: candidate.dependencies_json,
+    verificationReceipt: input.refutationReceipt,
+  };
+  if (!hasValidIndependentReceipt(receiptInput, 'refuted')) {
+    throw Object.assign(new Error('A trusted independent refutation receipt bound to the counterexample is required.'), { code: 'RESULT_REFUTATION_RECEIPT_INVALID' });
+  }
+  return JSON.stringify([...supportedEvidence, input.refutationReceipt]);
+}
+
 async function refuteResult(db, input) {
   const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
   return withTransaction(db, async (txDb) => {
+    const candidate = await txDb.get(
+      'SELECT semantic_id, status, content_json, evidence_json, dependencies_json FROM request_results WHERE id = ?', input.id
+    );
+    if (!candidate || candidate.semantic_id !== scopedId || candidate.status === 'REFUTED') return false;
+    const persistedEvidence = buildRefutationEvidence(candidate, input);
     const result = await txDb.run(
-      "UPDATE request_results SET status = 'REFUTED', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND semantic_id = ?",
-      input.id, scopedId
+      "UPDATE request_results SET status = 'REFUTED', evidence_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND semantic_id = ? AND status <> 'REFUTED'",
+      persistedEvidence, input.id, scopedId
     );
     if (result.changes !== 1) return false;
     await txDb.run(

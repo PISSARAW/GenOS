@@ -152,12 +152,50 @@ async function main() {
   });
   check('workspace cannot refute another workspace result', rejectedForeignRefute === false);
   check('foreign champion survives out-of-scope refutation', (await registry.getChampion(db, trivial.semanticId, foreignScope)).champion.status === 'VERIFIED');
-  const refuted = await registry.refuteResult(db, {
+  await assert.rejects(() => registry.refuteResult(db, {
+    id: foreignCandidate.id, semanticId: trivial.semanticId, scopeId: foreignScope,
+    counterexample: { kind: 'counterexample', observation: 'result contradicted' }
+  }), (error) => error.code === 'RESULT_REFUTATION_RECEIPT_INVALID');
+  const stillVerified = await registry.getChampion(db, trivial.semanticId, foreignScope);
+  check('refutation without receipt leaves champion intact', stillVerified.champion.status === 'VERIFIED');
+  await assert.rejects(() => registry.refuteResult(db, {
     id: foreignCandidate.id, semanticId: trivial.semanticId, scopeId: foreignScope
+  }), (error) => error.code === 'RESULT_COUNTEREXAMPLE_REQUIRED');
+  const refutationEvidence = { kind: 'counterexample', observation: 'result contradicted' };
+  const resultRow = await db.get('SELECT content_json, evidence_json, dependencies_json FROM request_results WHERE id = ?', foreignCandidate.id);
+  const evidenceJson = JSON.stringify([...JSON.parse(resultRow.evidence_json), refutationEvidence]);
+  const refutationInput = {
+    semanticId: trivial.semanticId, scopeId: foreignScope,
+    contentJson: resultRow.content_json, evidenceJson, dependenciesJson: resultRow.dependencies_json
+  };
+  const wrongRefutationReceipt = issueReceipt({
+    resultId: trivial.semanticId,
+    evidenceDigest: registry.candidateEvidenceDigest({ ...refutationInput, evidenceJson: resultRow.evidence_json }),
+    verifierDigest: verifierTrust.resolveVerifierDigest({ type: 'counterexample' }),
+    status: 'refuted', independent: true
   });
-  check('same-workspace refutation is applied', refuted === true);
+  await assert.rejects(() => registry.refuteResult(db, {
+    id: foreignCandidate.id, ...refutationInput, counterexample: refutationEvidence,
+    refutationReceipt: wrongRefutationReceipt
+  }), (error) => error.code === 'RESULT_REFUTATION_RECEIPT_INVALID');
+  check('refutation receipt must bind the counterexample',
+    (await registry.getChampion(db, trivial.semanticId, foreignScope)).champion.status === 'VERIFIED');
+  const refutationReceipt = issueReceipt({
+    resultId: trivial.semanticId,
+    evidenceDigest: registry.candidateEvidenceDigest(refutationInput),
+    verifierDigest: verifierTrust.resolveVerifierDigest({ type: 'counterexample' }),
+    status: 'refuted', independent: true
+  });
+  const refuted = await registry.refuteResult(db, {
+    id: foreignCandidate.id, ...refutationInput, counterexample: refutationEvidence, refutationReceipt
+  });
+  check('same-workspace refutation with bound receipt is applied', refuted === true);
   const refutedProblem = await registry.getChampion(db, trivial.semanticId, foreignScope);
   check('refutation clears champion pointer', refutedProblem.champion === null);
+  const refutedRow = await db.get('SELECT status, evidence_json FROM request_results WHERE id = ?', foreignCandidate.id);
+  const savedRefutationEvidence = JSON.parse(refutedRow.evidence_json);
+  check('refutation stores its counterexample receipt', refutedRow.status === 'REFUTED'
+    && savedRefutationEvidence.some((item) => item.signature === refutationReceipt.signature));
   await assert.rejects(() => registry.refuteResult(db, { id: foreignCandidate.id, semanticId: trivial.semanticId }),
     (error) => error.code === 'RESULT_SCOPE_REQUIRED');
   await db.close();
