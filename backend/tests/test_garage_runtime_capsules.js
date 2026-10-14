@@ -12,6 +12,22 @@ const processes = require('../src/services/garageProcessControl');
 const capsules = require('../src/services/garageCapsuleService');
 const lifecycle = require('../src/services/agentWorkspaceLifecycleService');
 
+async function restoredWorkspaceAuthority(test) {
+  const root = path.join(test.directory, '.genos-agent-worlds', 'worker-1_garage_probe');
+  const requestId = 'garage-resume-probe';
+  const requestBody = { workspaceId: 'ws', workspaceRoot: root, resumedFrom: 'garage-snapshot-probe' };
+  await test.db.run(`INSERT INTO garage_queue(request_id, orchestrator_id, worker_id, status, phase, request_json)
+    VALUES (?, 'orch', 'worker-1', 'running', 'ready', ?)`, requestId, JSON.stringify(requestBody));
+  await test.db.run(`INSERT INTO garage_capsules(snapshot_id, request_id, worker_id, orchestrator_id, workspace_id,
+    capsule_hash, state_json, status) VALUES ('garage-snapshot-probe', ?, 'worker-1', 'orch', 'ws', 'hash', '{}', 'thawed')`, requestId);
+  const mission = { ...requestBody, agentId: 'worker-1', garageRequestId: requestId };
+  const isRestored = require('../src/services/garageRuntimeService').isRestoredWorkspace;
+  assert.equal(await isRestored(test.db, mission, test.directory), true);
+  assert.equal(await isRestored(test.db, { ...mission, workspaceRoot: test.directory }, test.directory), false);
+  await test.db.run('DELETE FROM garage_capsules WHERE request_id = ?', requestId);
+  await test.db.run('DELETE FROM garage_queue WHERE request_id = ?', requestId);
+}
+
 async function processProbe(test) {
   const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore', windowsHide: true });
   await once(child, 'spawn');
@@ -35,7 +51,7 @@ async function roundtrip(test) {
   await fs.mkdir(root, { recursive: true });
   await fs.writeFile(path.join(root, 'work.txt'), 'verified partial work');
   await lifecycle.trackWorkspace('worker-1', root);
-  const row = await store.enqueuePersistent(test.db, request({ preemptible: true, executionBudget: { tokens: 100 } }));
+  const row = await store.enqueuePersistent(test.db, request({ workspaceId: 'ws', preemptible: true, executionBudget: { tokens: 100 } }));
   const claim = await store.claimNextPersistent(test.db, { orchestratorId: 'orch' });
   await store.updatePersistent(test.db, { requestId: row.request_id, leaseId: claim.lease_id, status: 'running', result: { runId: 'partial' } });
   await test.db.run("INSERT INTO strategy_execution_runs(id,agent_id,status,metrics_json,budget_json) VALUES ('partial','worker-1','running', ?, ?)",
@@ -61,6 +77,12 @@ async function roundtrip(test) {
   const restored = JSON.parse((await test.db.get('SELECT request_json FROM garage_queue WHERE request_id = ?', row.request_id)).request_json);
   assert.equal(await fs.readFile(path.join(restored.workspaceRoot, 'work.txt'), 'utf8'), 'verified partial work');
   assert.equal(restored.executionBudget.tokens, 60, 'thaw uses persisted allocation minus consumption');
+  await test.db.run("UPDATE garage_queue SET status = 'running' WHERE request_id = ?", row.request_id);
+  const resumeMission = { ...restored, agentId: 'worker-1', garageRequestId: row.request_id };
+  assert.equal(await require('../src/services/garageRuntimeService')
+    .isRestoredWorkspace(test.db, resumeMission, test.directory), true);
+  assert.equal(await require('../src/services/garageRuntimeService')
+    .isRestoredWorkspace(test.db, { ...resumeMission, workspaceRoot: root }, test.directory), false);
   await assert.rejects(preemption.thawWorker({ ...input, snapshotId: frozen.snapshotId }), { code: 'GARAGE_CAPSULE_NOT_FOUND' });
   assert.deepEqual(capsules.remainingBudget({ request: { executionBudget: { tokens: 100, costUsd: 2 } }, consumed: { tokens: 40, costUsd: 0.5 } }), { tokens: 60, costUsd: 1.5 });
   assert.throws(() => capsules.remainingBudget({ request: { executionBudget: { tokens: 1 } }, consumed: { tokens: 2 } }), { code: 'GARAGE_BUDGET_EXHAUSTED' });
@@ -70,7 +92,7 @@ async function roundtrip(test) {
 
 async function run() {
   const test = await fixture();
-  try { await processProbe(test); await roundtrip(test); }
+  try { await restoredWorkspaceAuthority(test); await processProbe(test); await roundtrip(test); }
   finally { await test.close(); }
   console.log('Garage capsules: real process stop, durable payload, corruption rejection, thaw and remaining budget passed.');
 }

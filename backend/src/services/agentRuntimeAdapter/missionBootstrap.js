@@ -159,6 +159,9 @@ async function bindMissionWorkerWorkspace(ctx) {
   const requested = path.resolve(normalizedMission.workspaceRoot);
   if (current && (process.platform === 'win32' ? current.toLowerCase() === requested.toLowerCase() : current === requested)) return;
   if (current) {
+    const garageResume = await require('../garageRuntimeService')
+      .isRestoredWorkspace(db, normalizedMission, assigned.path);
+    if (garageResume) return;
     // Worker already owns a capsule bound during preparation: keep the original
     // binding and realign the mission onto it. Binding a second capsule would
     // violate the unique workspace name owned by this worker.

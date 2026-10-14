@@ -5,6 +5,49 @@ const processControl = require('./garageProcessControl');
 const { error } = require('./garageRequests');
 const schedulers = new WeakMap();
 
+async function isRestoredWorkspace(db, mission, assignedPath) {
+  if (!hasResumeIdentity(mission)) return false;
+  const row = await loadResumeBinding(db, mission);
+  if (!matchesResumeBinding(row, mission)) return false;
+  return matchesRestoredPath(row, mission, assignedPath);
+}
+
+function hasResumeIdentity(mission) {
+  return Boolean(mission.garageRequestId && mission.resumedFrom && mission.workspaceRoot && mission.workspaceId);
+}
+
+async function loadResumeBinding(db, mission) {
+  return db.get(`SELECT q.request_json, c.snapshot_id, c.workspace_id, c.status
+    FROM garage_queue q JOIN garage_capsules c ON c.request_id = q.request_id
+    WHERE q.request_id = ? AND q.worker_id = ? AND q.status = 'running' AND q.phase = 'ready'`,
+  mission.garageRequestId, mission.agentId);
+}
+
+function matchesResumeBinding(row, mission) {
+  return Boolean(row && row.status === 'thawed' && row.snapshot_id === mission.resumedFrom
+    && row.workspace_id === mission.workspaceId);
+}
+
+function matchesRestoredPath(row, mission, assignedPath) {
+  const request = JSON.parse(row.request_json);
+  const path = require('node:path');
+  const base = path.resolve(assignedPath, '.genos-agent-worlds');
+  const restored = path.resolve(mission.workspaceRoot);
+  const relative = path.relative(base, restored);
+  return requestMatchesRestore(request, row, mission)
+    && isGarageCapsulePath(path, { restored, relative, agentId: mission.agentId });
+}
+
+function requestMatchesRestore(request, row, mission) {
+  return request.resumedFrom === row.snapshot_id && request.workspaceId === row.workspace_id
+    && require('node:path').resolve(request.workspaceRoot || '') === require('node:path').resolve(mission.workspaceRoot);
+}
+
+function isGarageCapsulePath(path, roots) {
+  return path.basename(roots.restored).startsWith(`${roots.agentId}_garage_`)
+    && roots.relative !== '' && !roots.relative.startsWith('..') && !path.isAbsolute(roots.relative);
+}
+
 async function assertLease(db, mission) {
   if (!mission.garageRequestId) return;
   const row = await db.get(`SELECT * FROM garage_queue WHERE request_id = ? AND worker_id = ?
@@ -126,7 +169,7 @@ async function finalizeAgent(agentId) {
   for (const row of rows) await reconcileOne({ db }, row.request_id);
 }
 
-module.exports = { assertLease, bindExecution, reconcileOne, tick, start, stop, finalizeAgent };
+module.exports = { assertLease, bindExecution, isRestoredWorkspace, reconcileOne, tick, start, stop, finalizeAgent };
 async function clearApprovalPhase(db, row) {
   if (row.phase !== 'awaiting_approval') return;
   await db.run("UPDATE garage_queue SET phase = 'ready' WHERE request_id = ? AND lease_id = ?", row.request_id, row.lease_id);
