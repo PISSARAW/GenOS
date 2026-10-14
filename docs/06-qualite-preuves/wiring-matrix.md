@@ -1,6 +1,6 @@
 # GenOS Wiring Matrix — Sense → Reuse
 
-- **Statut** : référence de câblage causal, revue 2026-09-26, HEAD `e2b8e49` (implémentations suivantes : relations, docking, philosophie, foraging, plasmide et promotion génomique) ; corrections 2026-09-27 : §5 Invoke/Affect et §6 Select rétrogradés après traçage (lots morphogenesis-71 et racine-113 : aucun appelant prod).
+- **Statut** : référence de câblage causal, revue initiale 2026-09-26, HEAD `e2b8e49` ; corrections 2026-09-27 : §5 Invoke/Affect et §6 Select rétrogradés après traçage (lots morphogenesis-71 et racine-113 : aucun appelant prod). Révision ciblée du foraging le 2026-10-14 après vérification du chemin capture → crop et de son test navigateur.
 - **Règle** : `YES` = liaison prouvée par appel de production + test ; `PARTIAL` = présent mais non causal ou consultatif ; `NO` = absent.
 - **Lecture** : chaque cellule donne le fichier/fonction précis qui constitue la liaison, ou `—` si absente.
 
@@ -56,12 +56,12 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 
 | Étape | Statut | Liaison |
 |---|---|---|
-| Sense | PARTIAL | `browserScoutService.js` lit HTTP/HTML ; `fovealVisionService.js` = ROI/hash/manifeste sans pixels |
-| Select | PARTIAL | `genos_optimal_foraging` calcule rendement/saut/budget et `foragingLoopService.js` traduit les actions de foraging en navigation |
-| Invoke | PARTIAL | `foragingLoopService.js` relie `PATCH_DEPARTURE` à la navigation browser et `EXPLOIT` à une observation via `forage_step` ; boucle bornée aux actions prises en charge |
-| Affect decision | PARTIAL | décision de foraging modifie la prochaine navigation ; aucune perception pixel fovéale n'est intégrée |
-| Act | PARTIAL | `browser_act:fill/select_option/submit` = état local simulé ; `Computer Use` séparé sans état partagé |
-| Observe | PARTIAL | `forage_step` rend une observation à l'itération de foraging ; sessions browser persistées |
+| Sense | PARTIAL | `browserScoutService.js` fournit observation sémantique et capture ; `foragingLoopService.js:createFovealArtifact` transmet la capture à `foragingImageWorker.js`, qui produit un crop réel via `fovealVisionService.js:fovealCrop` ; `test_foraging_browser_runtime.js` vérifie l'artefact. L'interprétation reste fondée sur HTML/AX, sans analyse sémantique du crop. |
+| Select | PARTIAL | `genos_optimal_foraging` calcule rendement/saut/budget et `foragingLoopService.js` traduit `PATCH_DEPARTURE` en navigation ; le saut de Lévy reste une guidance et ne choisit pas lui-même la cible. |
+| Invoke | PARTIAL | `foragingLoopService.js` relie `PATCH_DEPARTURE` à une navigation navigateur réelle et `EXPLOIT` à l'observation/crop via `forage_step` ; boucle bornée aux actions prises en charge. |
+| Affect decision | PARTIAL | le rendement marginal décide de la poursuite ou du départ ; le crop pixel retourné en mode exploitation n'alimente pas encore cette décision ni la cible de navigation. |
+| Act | PARTIAL | le départ de patch navigue réellement et le test local vérifie l'URL suivante ; les actions `browser_act:fill/select_option/submit` restent distinctes, avec état simulé, et `Computer Use` n'est pas partagé avec cette boucle. |
+| Observe | PARTIAL | `forage_step` retourne l'observation après navigation ; en exploitation, le reçu lie le hash du crop à `evidenceRef`. Le test navigateur valide l'observation de la page liée, le crop et le reçu. |
 | Learn | NO | — |
 | Persist | PARTIAL | sessions + manifestes |
 | Reuse | PARTIAL | observation retournée au caller de la boucle ; apprentissage durable des politiques de foraging non établi |
