@@ -48,17 +48,23 @@ promotion.
 
 ### Complément de vérification — 15 octobre 2026
 
-Les gates globaux ont été exécutés sur le checkout courant : `npm test` a terminé
+Les gates globaux ont été exécutés avant le correctif ADR 0508 : `npm test` a terminé
 avec code 0 (biologie, workspace workers, backend, garage et P1 V3) et
 `cargo test --workspace` avec code 0, après compilation dans un répertoire cible
 isolé. Le test formel Rust a signalé que Lean est indisponible et l'a donc ignoré;
 la suite ne prouve pas l'exécution de cette dépendance externe. Le contrôle
-`python scripts/ci/check_code_quality.py` inspecte 6 154 fichiers et signale dix
+`python scripts/ci/check_code_quality.py` inspecte 6 155 fichiers et signale dix
 violations du baseline, zéro nouvelle. `python scripts/ci/check_adr_index.py`
-trouve 628 fichiers, 628 lignes et zéro problème. Ces gates valident le checkout,
-pas toutes les 214 propriétés de la matrice : notamment l'application du budget
-CPU, le producteur de reçu de replay complet, la couverture universelle de
-l'autorité et de l'évidence indépendante restent non démontrés.
+trouve 629 fichiers, 629 lignes et zéro problème. Leur portée est l'état du
+checkout alors testé; elles n'établissent pas les 214 propriétés de la matrice.
+L'application du budget CPU, le producteur de reçu de replay complet, la
+couverture universelle de l'autorité et l'évidence indépendante restent non
+démontrés.
+
+Après ADR 0508, `test_focus_probe_lease_intersection.js` et
+`test_mcp_transport_lease.js` passent; le contrôle qualité compte toujours dix
+violations du baseline et zéro nouvelle. La contrainte de focus laisse désormais
+la mission sans outil si son intersection avec le lease est vide.
 
 ## 1. Principes fondateurs — 19 entrées
 
