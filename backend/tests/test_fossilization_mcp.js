@@ -6,6 +6,7 @@ const path = require('path');
 process.env.GENOS_FOSSIL_ARTIFACT = '0';
 process.env.GENOS_AGENT_DNA = '1';
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'fossilization-mcp-suite-only';
+process.env.GENOS_MCP_LEASE = 'genos_fossil_record,genos_fossil_list,genos_fossil_strata,genos_fossil_excavate,genos_fossil_decode,genos_fossil_candidate';
 
 const dbService = require('../src/db');
 const dnaStore = require('../src/services/agentDnaStore');
@@ -15,9 +16,14 @@ async function run() {
   const dbPath = path.join(os.tmpdir(), `genos_fossil_mcp_${Date.now()}.db`);
   process.env.GENOS_DB_PATH = dbPath;
   try {
+    const db = await dbService.getDatabase();
+    await db.run(`INSERT INTO telemetry_events
+      (event_id, agent_id, event_type, action, detail, payload_json, organization_id, project_id)
+      VALUES (?, ?, 'AGENT_FAILED', 'TERMINATE', 'lineage exhausted', ?, ?, ?)`,
+    'mcp_fossil_terminal_event', 'mcp_lineage', JSON.stringify({ reason: 'failed' }), 'org-1', 'project-1');
     const created = await executeConfiguredTransport({
       toolName: 'genos_fossil_record',
-      args: { lineage_id: 'mcp_lineage', reason: 'MCP test', mode: 'trace', hard_parts: ['genos_sandbox_exec'], organization_id: 'org-1', project_id: 'project-1' }
+      args: { lineage_id: 'mcp_lineage', reason: 'MCP test', source_event_id: 'mcp_fossil_terminal_event', mode: 'trace', hard_parts: ['genos_sandbox_exec'], organization_id: 'org-1', project_id: 'project-1' }
     });
     assert(created.success, JSON.stringify(created));
     const fossilId = created.output.fossil.fossil_id;
@@ -51,7 +57,6 @@ async function run() {
     assert.equal(unavailable.success, false);
     assert.equal(unavailable.status, 'capability_unavailable', JSON.stringify(unavailable));
 
-    const db = await dbService.getDatabase();
     await dnaStore.importDirectory(db, path.resolve(__dirname, '../../agents/dna/fondations'), {});
     const candidate = await executeConfiguredTransport({
       toolName: 'genos_fossil_candidate',

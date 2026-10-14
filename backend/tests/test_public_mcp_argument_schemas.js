@@ -33,7 +33,8 @@ const accepted = [
   ['genos_analyze_trajectory', { actionHistory: [{ action: 'test' }] }],
   ['genos_record_decision', { agentId: 'agent', title: 'Keep explicit leases',
     decision: 'Retain denial outside the profile', evidence: ['test'] }],
-  ['genos_worker_publish', { kind: 'status', signal_type: 'ligand', signal_data: { intensity: 1 } }],
+  ['genos_worker_publish', { kind: 'evidence', signal_type: 'ligand', signal_data: { intensity: 1 }, in_reply_to: 1 }],
+  ['genos_worker_inbox', { acknowledge_message_ids: [1, 2] }],
   ['genos_a_team_preview', { project_goal: 'build', sub_systems: ['backend'] }],
   ['genos_biological_mode', { mode: 'biome', mission: 'inspect' }],
   ['genos_signal_collective_decision', { mode: 'stigmergic', problem: 'choice', voters: [] }],
@@ -51,6 +52,8 @@ const rejected = [
   ['genos_analyze_trajectory', { actionHistory: [] }],
   ['genos_record_decision', { agentId: 'agent', title: 'choice', decision: 'keep', evidence: [] }],
   ['genos_worker_publish', { kind: 'status', signal_type: 'ligand', signal_data: [] }],
+  ['genos_worker_publish', { kind: 'status', signal_type: 'ligand', signal_data: { intensity: 1 } }],
+  ['genos_worker_inbox', { acknowledge_message_ids: [0] }],
   ['genos_a_team_preview', { project_goal: 'build', sub_systems: 4 }]
 ];
 for (const [name, args] of rejected) {

@@ -96,10 +96,17 @@ async function runTests() {
   // 4. Primitive Handlers Safety (apoptosis with stratigraphic fossil record)
   console.log('\n4. Testing primitiveHandlers safety (apoptosis -> stratigraphic fossil)...');
   const apoptoticAgentId = 'apoptotic_' + Date.now();
+  const apoptoticOrganizationId = `org-${apoptoticAgentId}`;
+  const apoptoticProjectId = `project-${apoptoticAgentId}`;
+  await db.run('INSERT INTO organizations (id, name) VALUES (?, ?)', apoptoticOrganizationId, apoptoticOrganizationId);
+  await db.run('INSERT INTO projects (id, organization_id, name) VALUES (?, ?, ?)',
+    apoptoticProjectId, apoptoticOrganizationId, apoptoticProjectId);
   await db.run(
     "INSERT INTO agents (id, name, role, status) VALUES (?, 'Doomed Worker', 'worker', 'idle')",
     apoptoticAgentId
   );
+  await db.run(`INSERT INTO agent_identity_heads (agent_id, organization_id, project_id, kind, source_table)
+    VALUES (?, ?, ?, 'worker', 'agents')`, apoptoticAgentId, apoptoticOrganizationId, apoptoticProjectId);
   const apopRes = await safety.apoptosis({
     targetId: apoptoticAgentId,
     actorId: apoptoticAgentId,
@@ -108,6 +115,13 @@ async function runTests() {
   assert(apopRes.success, 'Apoptosis failed');
   assert(apopRes.fossilRecord, 'Apoptosis did not produce a fossil record');
   assert.equal(apopRes.fossilRecord.extinct_lineage_id, apoptoticAgentId);
+  assert.equal(apopRes.fossilRecord.organization_id, apoptoticOrganizationId);
+  assert.equal(apopRes.fossilRecord.project_id, apoptoticProjectId);
+  assert(apopRes.fossilRecord.source_event_id, 'Apoptosis fossil must retain terminal event provenance');
+  assert.equal(apopRes.fossilRecord.source_event_hash.length, 64);
+  const terminalEvent = await db.get('SELECT payload_json FROM telemetry_events WHERE event_id = ?', apopRes.fossilRecord.source_event_id);
+  assert.equal(JSON.parse(terminalEvent.payload_json).previousStatus, 'idle',
+    'Apoptosis terminal event should retain the agent status before termination');
   console.log('   ✓ Apoptosis automatically archived extinct agent as stratigraphic fossil');
 
   // 5. Strategy Execution Adapter Dispatch
@@ -123,8 +137,13 @@ async function runTests() {
   });
   assert(stratFreeze.success, 'Strategy adapter failed to execute cryptobiosis_freeze');
 
+  const adapterLineageId = 'adapter_lineage_' + Date.now();
+  await db.run(`INSERT INTO telemetry_events
+    (event_id, agent_id, event_type, action, detail, payload_json)
+    VALUES ('adapter_lineage_terminal_event', ?, 'AGENT_TERMINATED', 'TERMINATE', 'Pareto pruned', '{}')`, adapterLineageId);
   const stratFossil = await strategyAdapter.executePrimitive('fossilize', {
-    lineageId: 'adapter_lineage_' + Date.now(),
+    lineageId: adapterLineageId,
+    sourceEventId: 'adapter_lineage_terminal_event',
     reason: 'Pruned by Pareto frontier optimization'
   });
   assert(stratFossil.success, 'Strategy adapter failed to execute fossilize');

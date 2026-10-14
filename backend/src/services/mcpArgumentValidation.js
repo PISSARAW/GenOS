@@ -32,7 +32,7 @@ const REQUIRED_STRINGS = {
   genos_bisect_agent: ['agent_id', 'predicate'],
   genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source'],
   genos_biological_mode: ['mode'],
-  genos_fossil_record: ['lineage_id', 'reason'],
+  genos_fossil_record: ['lineage_id', 'reason', 'source_event_id'],
   genos_fossil_list: [],
   genos_fossil_strata: [],
   genos_fossil_excavate: ['fossil_id'],
@@ -173,6 +173,10 @@ const REQUIRED_STRINGS = {
   genos_strat_cherry_pick_experience: [],
   genos_strat_search_memory: [],
 };
+const ORGANIZATION_MESSAGE_KINDS = new Set([
+  'evidence', 'question', 'answer', 'challenge', 'proposal', 'vote', 'trace',
+  'budget', 'critical', 'success', 'handoff'
+]);
 
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions', 'bbox', 'history']);
 const NON_NEGATIVE_FIELDS = new Set(['budget_steps', 'exact_match', 'stagnation', 'injection_step', 'iteration', 'tokens', 'elapsed']);
@@ -302,6 +306,15 @@ function validateToolArguments(toolName, args = {}) {
     }
     if (typeof args.signal_data === 'object' && args.signal_data !== null && Array.isArray(args.signal_data)) {
       return invalid('signal_data', 'must be a JSON object, not an array.');
+    }
+  }
+  if (toolName === 'genos_worker_publish' && !ORGANIZATION_MESSAGE_KINDS.has(args.kind)) {
+    return invalid('kind', 'must be a supported immutable organization message kind.');
+  }
+  if (toolName === 'genos_worker_inbox' && args.acknowledge_message_ids !== undefined) {
+    const ids = args.acknowledge_message_ids;
+    if (!Array.isArray(ids) || ids.some((id) => !Number.isInteger(id) || id < 1)) {
+      return invalid('acknowledge_message_ids', 'must contain only positive integer message IDs.');
     }
   }
 

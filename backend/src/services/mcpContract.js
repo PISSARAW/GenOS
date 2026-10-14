@@ -103,12 +103,12 @@ const TOOL_BASE_SCHEMAS = {
   genos_fossil_record: {
     type: 'object',
     properties: {
-      lineage_id: { type: 'string' }, reason: { type: 'string' }, mode: { type: 'string' },
+      lineage_id: { type: 'string' }, reason: { type: 'string' }, source_event_id: { type: 'string' }, mode: { type: 'string' },
       hard_parts: { type: 'array', items: { type: 'string' } },
       soft_parts_lost: { type: 'array', items: { type: 'string' } },
       phenotype_markers: { type: 'array' }, mineral_payload: { type: 'object' }
     },
-    required: ['lineage_id', 'reason']
+    required: ['lineage_id', 'reason', 'source_event_id']
   },
   genos_fossil_list: { type: 'object', properties: { limit: { type: 'integer', minimum: 1, maximum: 1000 } } },
   genos_fossil_strata: { type: 'object', properties: {} },
@@ -213,17 +213,16 @@ const TOOL_BASE_SCHEMAS = {
     },
     required: ['organization', 'reason'],
   },
-  genos_organization_state: {
-    type: 'object',
-    properties: {},
-  },
+  genos_organization_state: { type: 'object', properties: { orchestrator_id: { type: 'string', description: 'Owning orchestrator whose organization is read.' } } },
   genos_worker_publish: {
     type: 'object',
     properties: {
-      kind: { type: 'string', description: 'Type of publication.' },
+      kind: { type: 'string', enum: ['evidence', 'question', 'answer', 'challenge', 'proposal', 'vote', 'trace', 'budget', 'critical', 'success', 'handoff'], description: 'Immutable organization message kind.' },
       signal_type: { type: 'string', enum: ['ligand', 'voltage', 'pheromone', 'plasmid', 'tensor'], description: 'Required non-text biomimetic signal type.' },
       signal_data: { type: ['object', 'string'], description: 'Physico-chemical signal payload (0-token) — object or string.' },
       orchestrator_id: { type: 'string', description: 'Owning orchestrator that may react to the collective signal.' },
+      recipient_agent_id: { type: 'string', description: 'Explicit direct recipient; omit for topology-defined shared delivery.' },
+      in_reply_to: { type: 'integer', minimum: 1, description: 'Message ID this publication answers.' },
       relational: RELATIONAL_SIGNAL_SCHEMA.properties.relational
     },
     required: ['kind', 'signal_type', 'signal_data'],
@@ -233,7 +232,7 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       after_id: { type: 'integer', description: 'Cursor offset.' },
-      limit: { type: 'integer', description: 'Max messages to return.' },
+      limit: { type: 'integer', description: 'Max messages to return.' }, acknowledge_message_ids: { type: 'array', items: { type: 'integer', minimum: 1 }, description: 'Messages explicitly understood by this worker.' },
       orchestrator_id: { type: 'string', description: 'Owning orchestrator to monitor.' },
     },
   },

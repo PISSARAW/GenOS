@@ -180,6 +180,12 @@ async function persistFossil(db, record) {
   return record;
 }
 
+function validateBoundSourceEvent(record) {
+  if (!record.source_event_id || !record.source_event_hash) {
+    throw new Error('Source event provenance is required for fossilization');
+  }
+}
+
 function fossilArtifactDir() {
   const { studioBridgeRoot } = require('./genosCliEnv');
   return path.join(studioBridgeRoot(), 'fossils');
@@ -198,8 +204,8 @@ function writeFossilArtifact(record) {
 }
 
 /**
- * Enfouit puis indexe un fossile. L'écriture est terminale : aucune API de
- * résurrection n'est exposée.
+ * Enfouit puis indexe un fossile after binding a terminal source event.
+ * No resurrection API exists.
  */
 async function recordFossil(input = {}, db, options = {}) {
   const lineageId = input.lineageId || input.lineage_id;
@@ -213,6 +219,7 @@ async function recordFossil(input = {}, db, options = {}) {
   }
   const record = buildFossilRecord(input);
   await provenance.bindSourceEvent(db, record, computePayloadHash);
+  validateBoundSourceEvent(record);
   await persistFossil(db, record);
   if (options.writeArtifact !== false && process.env.GENOS_FOSSIL_ARTIFACT !== '0') {
     try {

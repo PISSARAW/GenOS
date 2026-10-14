@@ -110,7 +110,10 @@ function canDirectlyControl(actor, target) {
 
 async function authorizeAgentControl(db, targetOrOptions, ...legacyArgs) {
   const { targetId, actorId, workspaceId } = normalizeControlArgs(targetOrOptions, legacyArgs);
-  const target = await db.get('SELECT id, parent_agent_id, execution_mode, workspace_id FROM agents WHERE id = ?', targetId);
+  const target = await db.get(`SELECT a.id, a.parent_agent_id, a.execution_mode, a.workspace_id, a.status,
+    identity.organization_id, identity.project_id
+    FROM agents AS a LEFT JOIN agent_identity_heads AS identity ON identity.agent_id = a.id
+    WHERE a.id = ?`, targetId);
   if (!target) throw authorityError('AGENT_NOT_FOUND', `Agent '${targetId}' was not found.`);
   if (workspaceId && target.workspace_id !== workspaceId) throw authorityError('AGENT_WORKSPACE_MISMATCH', `Agent '${targetId}' is outside the requested workspace.`);
   const actor = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ?', actorId || '');

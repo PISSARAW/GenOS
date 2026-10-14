@@ -72,13 +72,22 @@ async function verifyProvenanceScope(db) {
   const nodeA = `scope-node-a-${suffix}`;
   const nodeB = `scope-node-b-${suffix}`;
   const edgeB = `scope-edge-b-${suffix}`;
-  await db.run('INSERT INTO workspaces(id,name,path) VALUES(?,?,?)', workspaceA, workspaceA, `/${workspaceA}`);
-  await db.run('INSERT INTO workspaces(id,name,path) VALUES(?,?,?)', workspaceB, workspaceB, `/${workspaceB}`);
+  const organizationA = `scope-org-a-${suffix}`;
+  const organizationB = `scope-org-b-${suffix}`;
+  const projectA = `scope-project-a-${suffix}`;
+  const projectB = `scope-project-b-${suffix}`;
+  await db.run('INSERT INTO organizations(id,name) VALUES(?,?)', organizationA, organizationA);
+  await db.run('INSERT INTO organizations(id,name) VALUES(?,?)', organizationB, organizationB);
+  await db.run('INSERT INTO projects(id,organization_id,name) VALUES(?,?,?)', projectA, organizationA, projectA);
+  await db.run('INSERT INTO projects(id,organization_id,name) VALUES(?,?,?)', projectB, organizationB, projectB);
+  await db.run('INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES(?,?,?,?,?)', workspaceA, workspaceA, `/${workspaceA}`, organizationA, projectA);
+  await db.run('INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES(?,?,?,?,?)', workspaceB, workspaceB, `/${workspaceB}`, organizationB, projectB);
   for (const [id, workspace] of [[caller, workspaceA], [targetA, workspaceA], [targetB, workspaceB]]) {
     await db.run("INSERT INTO agents(id,name,role,status,workspace_id) VALUES(?,?,?,'idle',?)", id, id, 'test', workspace);
   }
-  await db.run("INSERT INTO telemetry_events(agent_id,event_type,action) VALUES(?,'test','private-a')", targetA);
-  await db.run("INSERT INTO telemetry_events(agent_id,event_type,action) VALUES(?,'test','private-b')", targetB);
+  await db.run("INSERT INTO telemetry_events(agent_id,event_type,action,organization_id,project_id) VALUES(?,'test','private-a',?,?)", targetA, organizationA, projectA);
+  await db.run("INSERT INTO telemetry_events(agent_id,event_type,action,organization_id,project_id) VALUES(?,'test','historic-private-b',?,?)", targetA, organizationB, projectB);
+  await db.run("INSERT INTO telemetry_events(agent_id,event_type,action,organization_id,project_id) VALUES(?,'test','private-b',?,?)", targetB, organizationB, projectB);
   await db.run("INSERT INTO lineage_nodes(id,workspace_id,label,node_type) VALUES(?,?,?, 'checkpoint')", nodeA, workspaceA, nodeA);
   await db.run("INSERT INTO lineage_nodes(id,workspace_id,label,node_type) VALUES(?,?,?, 'checkpoint')", nodeB, workspaceB, nodeB);
   await db.run("INSERT INTO lineage_edges(id,workspace_id,source_node_id,target_node_id) VALUES(?,?,?,?)", edgeB, workspaceB, nodeB, nodeB);
@@ -86,6 +95,8 @@ async function verifyProvenanceScope(db) {
   const allowed = await mcpStrategy.executeStrategyTool('genos_blame', { target_id: targetA }, { agentId: caller });
   assert.equal(allowed.success, true, 'same-workspace blame is available');
   assert.equal(allowed.output.evidence[0].action, 'private-a');
+  assert.equal(allowed.output.evidence.some((event) => event.action === 'historic-private-b'), false,
+    'blame hides historical events recorded under another tenant');
   const registryAllowed = await mcpRegistry.dispatchTool('genos_blame', { target_id: targetA }, { agentId: caller });
   assert.equal(registryAllowed.result.success, true, 'MCP registry forwards caller identity to strategy tools');
   assert.equal(registryAllowed.result.output.evidence[0].action, 'private-a');
@@ -107,6 +118,8 @@ async function verifyProvenanceScope(db) {
   await db.run('DELETE FROM lineage_nodes WHERE id IN (?, ?)', nodeA, nodeB);
   await db.run('DELETE FROM agents WHERE id IN (?, ?, ?)', caller, targetA, targetB);
   await db.run('DELETE FROM workspaces WHERE id IN (?, ?)', workspaceA, workspaceB);
+  await db.run('DELETE FROM projects WHERE id IN (?, ?)', projectA, projectB);
+  await db.run('DELETE FROM organizations WHERE id IN (?, ?)', organizationA, organizationB);
 }
 
 async function runSuite() {

@@ -2,7 +2,7 @@
 
 - **Statut** : Opérationnel — registre Rust, service SQLite, primitives orchestrateur, API REST et outils MCP ; excavation strictement en lecture seule.
 - **Portée** : registry fossil, modèle de lignée, ADR 0003.
-- **Dernière revue** : 2026-09-17.
+- **Dernière revue** : 2026-10-14.
 
 ## 1. Définition du domaine
 
@@ -65,6 +65,17 @@ $$
 
 **Non-résurrection.** « Défossiliser » signifie seulement dégager le fossile de sa gangue et l'étudier. Aucune API ne rend un fossile à la vie ni ne le promeut en branche active.
 
+**Provenance backend.** Le service SQLite, l'API REST, les outils MCP et la
+primitive d'orchestration exigent l'identifiant d'un événement terminal déjà
+persisté. Cet événement doit appartenir à la même lignée et au même scope
+organisation/projet; le service conserve son hash avec le fossile et le
+revérifie à l'excavation. Les événements admis sont `AGENT_FAILED`,
+`AGENT_COMPLETED`, `AGENT_TERMINATED` et `AGENT_APOPTOSIS`. L'apoptose produit
+l'événement, attend sa persistance vérifiée, puis l'attache au fossile. Un
+événement manquant, non terminal, d'une autre lignée ou d'un autre scope fait
+échouer la fossilisation. Le registre CLI Rust reste une surface distincte et
+ne constitue pas une preuve de cette liaison SQLite.
+
 ## 4. Cas d'usage et objectifs métier
 
 1. **Post-mortem et archéologie de panne** : reconstituer pourquoi une lignée s'est éteinte (apoptose, dissonance, purge mémoire, budget épuisé).
@@ -87,10 +98,11 @@ Primitives backend (dispatchables par l'orchestrateur via `strategyExecutionAdap
 ```jsonc
 // primitiveHandlers/handlersRegistry — appelables à la discrétion de l'orchestrateur
 { "primitive": "fossilize", "lineageId": "lineage_42", "reason": "apoptosis",
+  "sourceEventId": "evt-terminal-lineage-42",
   "mode": "external_mold", "hardParts": ["genome", "evidence"],
   "softPartsLost": ["volatile_context"],
   "phenotypeMarkers": [{ "marker": "outcome", "value": "validated", "shape": "elongated" }] }
-{ "primitive": "bury_fossil", "lineageId": "lineage_42", "mode": "petrification" } // alias
+{ "primitive": "bury_fossil", "lineageId": "lineage_42", "sourceEventId": "evt-terminal-lineage-42", "mode": "petrification" } // alias
 { "primitive": "fossil_list" }
 { "primitive": "fossil_strata" }
 { "primitive": "fossil_excavate", "fossilId": "<uuid>" }   // lecture seule

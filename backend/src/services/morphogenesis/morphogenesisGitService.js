@@ -147,14 +147,14 @@ async function executeVersionedTransition(ctx) {
  * marker: no resurrection, stratigraphic archive only.
  */
 async function fossiliseLineage(db, input) {
-  const { lineageId, agentId, reason, mode, req } = input;
+  const { lineageId, agentId, reason, mode, req, sourceEventId } = input;
   if (!lineageId || !agentId) {
     return { success: false, error: 'lineageId and agentId required' };
   }
 
   // 1. Record the stratigraphic fossil (existing service)
   const fossilResult = await recordFossil(
-    { lineageId, agentId, reason: reason || 'Stratigraphic extinction event', mode: mode || 'petrification', writeArtifact: false },
+    { lineageId, agentId, sourceEventId, reason: reason || 'Stratigraphic extinction event', mode: mode || 'petrification', writeArtifact: false },
     db,
     { writeArtifact: false }
   );

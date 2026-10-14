@@ -26,6 +26,7 @@ async function buryFossil(context = {}, db = null) {
     softPartsLost: pick(context, 'softPartsLost', 'soft_parts_lost'),
     phenotypeMarkers: pick(context, 'phenotypeMarkers', 'phenotype_markers'),
     mineralPayload: pick(context, 'mineralPayload', 'mineral_payload'),
+    sourceEventId: pick(context, 'sourceEventId', 'source_event_id'),
     organizationId: pick(context, 'organizationId', 'organization_id'),
     projectId: pick(context, 'projectId', 'project_id')
   };
@@ -55,10 +56,10 @@ async function stopTargetRuntime(targetId) {
   return Boolean(await runtimeAdapter.stopMission(targetId));
 }
 
-async function fossilizeTerminatedTarget(targetId, reason) {
+async function fossilizeTerminatedTarget({ targetId, reason, sourceEventId, organizationId, projectId }) {
   try {
     const db = await getDatabase();
-    const res = await buryFossil({ lineageId: targetId, reason }, db);
+    const res = await buryFossil({ lineageId: targetId, reason, sourceEventId, organizationId, projectId }, db);
     if (res.success) return { fossilRecord: res.fossil };
     return { fossilRecord: null, error: res.error };
   } catch (err) {
@@ -110,21 +111,32 @@ async function apoptosis(context) {
     return { success: false, code: auth.code, error: auth.error };
   }
   const reason = context.reason || 'Strategy-triggered apoptosis (unrecoverable failure).';
+  const organizationId = auth.agent.organization_id || null;
+  const projectId = auth.agent.project_id || null;
   await db.run(
     "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = ? WHERE id = ?",
     '[APOPTOSIS] ' + reason, targetId
   );
   const runtimeStopped = await stopTargetRuntime(targetId);
-  telemetry.emitEvent({
+  const terminalEvent = telemetry.emitEvent({
     eventType: 'AGENT_APOPTOSIS',
     agentId: targetId,
     action: 'TERMINATE',
     detail: 'Agent ' + targetId + ' terminated by apoptosis: ' + reason,
     severity: 'critical',
-    payload: { targetId, reason, previousStatus: auth.agent.status, runtimeStopped }
+    payload: { targetId, reason, previousStatus: auth.agent.status, runtimeStopped, organizationId, projectId }
   });
 
-  const fossil = await fossilizeTerminatedTarget(targetId, reason);
+  const persistedEvent = await telemetry.flush();
+  const storedEvent = persistedEvent.flushed
+    ? await db.get(`SELECT event_id FROM telemetry_events WHERE event_id = ? AND agent_id = ?
+      AND event_type = 'AGENT_APOPTOSIS' AND organization_id IS ? AND project_id IS ?`,
+    terminalEvent.id, targetId, organizationId, projectId)
+    : null;
+  if (!storedEvent) {
+    return { success: false, terminated: targetId, reason, error: 'Terminal event was not persisted; fossilization refused.' };
+  }
+  const fossil = await fossilizeTerminatedTarget({ targetId, reason, sourceEventId: terminalEvent.id, organizationId, projectId });
   if (fossil.error) {
     return { success: false, terminated: targetId, reason, error: fossil.error };
   }

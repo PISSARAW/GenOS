@@ -38,9 +38,33 @@ function testPureCanonicalRecord() {
 }
 
 async function testPersistenceAndExcavation(db) {
+  await assert.rejects(
+    () => fossilization.recordFossil({ lineageId: 'lineage_new_strict' }, db),
+    /sourceEventId required|source event provenance is required/i,
+    'New provenance-bound fossilization must reject missing source events'
+  );
+  await db.run(`INSERT INTO telemetry_events
+    (event_id, agent_id, event_type, action, detail, payload_json)
+    VALUES ('event_wrong_lineage', 'other_lineage', 'AGENT_FAILED', 'TERMINATE', 'terminal', '{}')`);
+  await assert.rejects(
+    () => fossilization.recordFossil({ lineageId: 'lineage_new_strict', sourceEventId: 'event_wrong_lineage' }, db),
+    /lineage or scope/i,
+    'New fossilization must reject a terminal event from another lineage'
+  );
+  await db.run(`INSERT INTO telemetry_events
+    (event_id, agent_id, event_type, action, detail, payload_json)
+    VALUES ('event_nonterminal', 'lineage_new_strict', 'AGENT_STARTED', 'START', 'running', '{}')`);
+  await assert.rejects(
+    () => fossilization.recordFossil({ lineageId: 'lineage_new_strict', sourceEventId: 'event_nonterminal' }, db),
+    /terminal lineage event/i,
+    'New fossilization must reject a nonterminal source event'
+  );
+
+  await db.run(`INSERT INTO telemetry_events
+    (event_id, agent_id, event_type, action, detail, payload_json)
+    VALUES ('event_legacy_fixture', 'lineage_db', 'AGENT_TERMINATED', 'TERMINATE', 'historical fixture', '{}')`);
   const first = await fossilization.recordFossil(
-    { lineageId: 'lineage_db', reason: 'apoptosis', mode: 'petrification' },
-    db
+    { lineageId: 'lineage_db', sourceEventId: 'event_legacy_fixture', reason: 'apoptosis', mode: 'petrification' }, db
   );
   assert(first.success && first.indexed, 'Fossil must be indexed');
   assert(first.fossil.payload_hash, 'Fossil must carry a mineral hash');
@@ -57,8 +81,11 @@ async function testPersistenceAndExcavation(db) {
   assert(excavated.read_only && excavated.resurrection === 'forbidden', 'Excavation is read-only');
   assert(excavated.integrity_verified, 'Excavated fossil must verify');
 
+  await db.run(`INSERT INTO telemetry_events
+    (event_id, agent_id, event_type, action, detail, payload_json)
+    VALUES ('event_rewritten_lineage', 'rewritten', 'AGENT_TERMINATED', 'TERMINATE', 'terminal', '{}')`);
   await assert.rejects(
-    () => fossilization.recordFossil({ fossilId: first.fossil.fossil_id, lineageId: 'rewritten', reason: 'tampered' }, db),
+    () => fossilization.recordFossil({ fossilId: first.fossil.fossil_id, lineageId: 'rewritten', sourceEventId: 'event_rewritten_lineage', reason: 'tampered' }, db),
     /constraint|unique/i,
     'Existing fossils must be immutable'
   );

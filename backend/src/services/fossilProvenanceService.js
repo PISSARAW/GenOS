@@ -42,7 +42,7 @@ async function bindSourceEvent(db, record, computePayloadHash) {
   const event = await loadSourceEvent(db, record.source_event_id);
   if (!event) throw new Error('Source event not found for fossil provenance');
   if (!isMatchingLineage(event, record)) throw new Error('Source event lineage or scope does not match fossil');
-  if (!['AGENT_FAILED', 'AGENT_COMPLETED', 'AGENT_TERMINATED'].includes(event.event_type)) {
+  if (!['AGENT_FAILED', 'AGENT_COMPLETED', 'AGENT_TERMINATED', 'AGENT_APOPTOSIS'].includes(event.event_type)) {
     throw new Error('Source event must be a terminal lineage event');
   }
   record.source_event_hash = sourceEventHash(event);
@@ -53,7 +53,7 @@ async function verifySourceEvent(db, record) {
   if (!record.source_event_id) return true;
   const event = await loadSourceEvent(db, record.source_event_id);
   return Boolean(event && isMatchingLineage(event, record)
-    && ['AGENT_FAILED', 'AGENT_COMPLETED', 'AGENT_TERMINATED'].includes(event.event_type)
+    && ['AGENT_FAILED', 'AGENT_COMPLETED', 'AGENT_TERMINATED', 'AGENT_APOPTOSIS'].includes(event.event_type)
     && sourceEventHash(event) === record.source_event_hash);
 }
 
