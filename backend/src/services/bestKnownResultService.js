@@ -65,10 +65,11 @@ async function storeCandidate(db, input) {
   const existing = await getProblem(db, input.semanticId);
   const version = await nextVersion(db, input.semanticId);
   const id = `res_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  const shouldPromote = input.promote !== false && input.status === 'VERIFIED';
   if (!existing) {
     await db.run(
       'INSERT INTO request_problems (semantic_id, normalized_intent, request_class, profile_json, champion_result_id) VALUES (?, ?, ?, ?, ?)',
-      input.semanticId, input.normalizedIntent, input.requestClass, input.profileJson, id
+      input.semanticId, input.normalizedIntent, input.requestClass, input.profileJson, shouldPromote ? id : null
     );
   }
   await db.run(
@@ -79,7 +80,7 @@ async function storeCandidate(db, input) {
     input.uncertaintyJson, input.dependenciesJson, input.executionJson, input.validityHorizonMs,
     input.expiresAt, input.utility, input.costJson, input.supersedes
   );
-  if (input.promote !== false) {
+  if (shouldPromote) {
     await promoteChampion(db, input.semanticId, id);
   }
   return { id, version };
@@ -91,9 +92,14 @@ async function nextVersion(db, semanticId) {
 }
 
 async function promoteChampion(db, semanticId, id) {
+  await ensureTables(db);
+  const candidate = await db.get('SELECT semantic_id, status FROM request_results WHERE id = ?', id);
+  if (!candidate || candidate.semantic_id !== semanticId || candidate.status !== 'VERIFIED') {
+    throw Object.assign(new Error('Only a verified result for this problem can become champion.'), { code: 'RESULT_PROMOTION_BLOCKED' });
+  }
   const current = await getChampion(db, semanticId);
   if (current.champion && current.champion.id !== id) {
-    await db.run("UPDATE request_results SET status = 'SUPERSEDED' WHERE id = ?", current.champion.id);
+    await db.run("UPDATE request_results SET status = 'SUPERSEDED' WHERE id = ? AND status = 'VERIFIED'", current.champion.id);
   }
   await db.run('UPDATE request_problems SET champion_result_id = ?, updated_at = CURRENT_TIMESTAMP WHERE semantic_id = ?', id, semanticId);
 }

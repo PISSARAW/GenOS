@@ -36,7 +36,7 @@ async function main() {
 
   const db = await memoryDb();
   const expiry = registry.expiryFor(trivial.profile);
-  await registry.storeCandidate(db, {
+  const candidateInput = {
     semanticId: trivial.semanticId,
     normalizedIntent: trivial.normalized.text,
     requestClass: trivial.profile.request_class,
@@ -52,7 +52,8 @@ async function main() {
     utility: 1.0,
     costJson: '{}',
     supersedes: null,
-  });
+  };
+  await registry.storeCandidate(db, candidateInput);
   const hit = await registry.lookupReusable(db, { semanticId: trivial.semanticId, dependencies: {} });
   check('reuse hit', hit.hit === true);
   check('reuse value 4', JSON.parse(hit.champion.content_json).value === 4);
@@ -62,6 +63,16 @@ async function main() {
   check('provisional result is not reusable', provisional.hit === false && provisional.reason === 'status-not-reusable');
   await db.run("UPDATE request_results SET status = 'VERIFIED' WHERE id = ?", hit.champion.id);
 
+  const provisionalId = (await registry.storeCandidate(db, {
+    ...candidateInput, status: 'PROVISIONAL', contentJson: JSON.stringify({ value: 5 })
+  })).id;
+  const preserved = await registry.getChampion(db, trivial.semanticId);
+  check('provisional candidate does not replace verified champion', preserved.champion.id === hit.champion.id);
+  check('provisional candidate does not supersede verified champion', preserved.champion.status === 'VERIFIED');
+  await assert.rejects(
+    () => registry.promoteChampion(db, trivial.semanticId, provisionalId),
+    (error) => error.code === 'RESULT_PROMOTION_BLOCKED'
+  );
   const stale = await registry.lookupReusable(db, { semanticId: trivial.semanticId, dependencies: { repo_head: 'xyz' } });
   check('deps change invalidates', stale.hit === false);
   await db.close();

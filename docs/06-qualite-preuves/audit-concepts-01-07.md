@@ -54,7 +54,7 @@ promotion.
 | État versionné | o | p | p | o | o | F ; snapshots et révisions, qualification courante manquante. |
 | Exécution contrefactuelle | o | p | p | p | o | F ; fork/snapshot accessibles, contre-épreuve complète non prouvée ici. |
 | Branches, forks, snapshots, diffs et replay | p | p | p | p | o | F ; `diff_and_replay` appelle les deux opérations et échoue si l'une manque, mais aucun producteur ne rejoue le run complet ni n'émet le reçu exigé par `require_replay` (ADR 0480). |
-| Preuve avant promotion | o | p | p | o | o | E ; gates présents, couverture de toutes promotions inconnue. |
+| Preuve avant promotion | o | p | p | o | o | E ; `bestKnownResultService` empêche un statut provisoire de remplacer un champion vérifié (`test_request_memory_routing.js`, ADR 0492). Le service fait encore confiance au statut `VERIFIED`; les reçus indépendants/rejoués ne sont pas vérifiés dans ce parcours. Couverture des autres promotions incomplète. |
 | Distinction entre succès technique et vérité | o | p | p | o | o | E/S ; `test_conclusion_provenance_integrity.js` (30 vérifications) rejette les conclusions sans évidence et garde `genos_blame`/`genos_lineage` en échec quand la réponse ne contient aucune preuve. Contrôles ciblés, pas une garantie de vérité des contenus. |
 | Falsifiabilité et contre-exemples | p | p | p | p | o | E ; mécanismes spécialisés, pas toute affirmation. |
 | Provenance | o | p | p | o | o | E/A ; `test_conclusion_provenance_integrity.js` vérifie mutations Merkle, parents manquants ou réattribués, liaison décision/mémoire, troncature de trace, cycle lineage borné à 1 000 éléments et scope workspace de `genos_blame`/`genos_lineage` (ADR 0488, 0489). La chaîne complète reste dépendante du circuit et de ses sources. |
