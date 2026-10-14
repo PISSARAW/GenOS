@@ -1,6 +1,6 @@
 # Qualification vérifiable des workers
 
-- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows. C4 est mesuré sur le code du commit propre `ca7f5ca5` par 57 missions nominales et 57 scénarios faultés conformes. Linux reste à qualifier.
+- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows. La requalification du 2026-10-14 sur `2e0df82f` a passé le profil workers, le benchmark 24 cas et trois campagnes faultées (57/57 scénarios conformes). Les rapports identifient le checkout comme exploratoire car des rapports locaux non suivis sont présents. Linux reste à qualifier.
 - **Date de l'inventaire** : 2026-10-12.
 - **Portée** : les 19 `WorkerKind`, les méthodes du registre Node, les missions persistées et leurs preuves.
 
@@ -429,6 +429,60 @@ chemin long du worktree ; ce scénario a été relancé isolément via un lecteu
 temporaire court et a passé sans cette erreur. Ces contrôles établissent la
 qualification mesurée sur Windows, pas une garantie statistique ni une
 qualification Linux.
+
+## Requalification Windows du 2026-10-14
+
+Le commit `2e0df82f6c63631a0904b5fe3cc9769571f0d25d` ajoute un correctif de
+fixture : la vérification de la racine hors dépôt utilise maintenant un
+répertoire temporaire dédié, indépendant de la racine du lecteur. Cela permet
+au manifeste de rester testable depuis un lecteur monté. Le contrôle de qualité
+trouve **0 nouvelle violation sur 6 018 fichiers source** (8 violations du
+baseline).
+
+Avec Ollama `qwen2.5-coder:32b` et Lean 4.34.0, `npm --prefix backend run
+test:workers` passe **32/32 suites** (142,6 s). La matrice exécute les 19 types,
+valide leurs artefacts typés, contrats, autorisations, budgets et cycles de vie ;
+le gate de mission accepte les preuves `independent_quorum` et vérifie le run,
+l'événement terminal et les reçus. Les deux chemins formels Lean recompilent
+leurs propositions dans deux processus d'oracle indépendants. Les tests
+multi-pannes refusent les assemblées altérées et les timeouts sans preuve, puis
+continuent la campagne. La variante de benchmark compare aussi chaque cas avec
+son entrée altérée et attend le refus.
+
+`npm test` passe (code 0), y compris le profil workers, les suites P1, Garage,
+biologie et backend. `cargo test --workspace` passe aussi (code 0) quand il est
+exécuté avec les droits nécessaires à la résolution du répertoire temporaire
+Windows. L'exécution dans le bac à sable échouait seulement sur
+`accepts_simple_id`, car le répertoire `TEMP` isolé ne pouvait pas être
+canonisé ; la relance hors de cette isolation a passé l'ensemble des tests Rust.
+
+La campagne comparative complète du 2026-10-14 rend **24/24 `passed`**, dont
+`bounded-code` avec Ollama et les deux cas Lean. Le recalcul indépendant des
+scores, avec le même binaire Lean, retrouve **24/24** scores sans divergence.
+Digest du jeu :
+`sha256:11be284a67148d705b0e096549420121d2035139b3f8397f3e78714b89a70a6d`.
+Rapport `.worker-benchmark-p2-current.json`, SHA-256
+`ed4cc5ebd754a35cd50b00dcdae562bb0b833d58d30508e2bfc72112de84665`.
+
+Trois campagnes faultées complètes ont chacune rendu **19/19 conformes** et
+34 nonces acceptés uniques : 17 missions ont conservé leur quorum indépendant,
+la preuve altérée de `verifier_worker` a été refusée
+(`oracle_proof_invalid`) et `recovery_worker` a expiré sans preuve
+(`mission_evidence_missing`). Soit **51/51 missions nominales conformes** et
+les six refus attendus sur les trois répétitions. Les rapports sont
+`.worker-fault-p2-current.json` (SHA-256
+`8d2da24df7922d4ba96aae2bde9713997951814c6b052e67e91e60b4d017733c`),
+`.worker-fault-p2-run-2-current.json` (SHA-256
+`527f0d63f8adb80e93a00466b6944d086fb1c69538ea9ec308d5cb2631a1a8db`) et
+`.worker-fault-p2-run-3-current.json` (SHA-256
+`4f1b5c03e7c225c721ed6191308f9d0e32d56a22b19c3728bdd9924815b39dc6`).
+
+Le manifeste des trois rapports faultés identifie le commit `2e0df82f`, mais
+classe la qualification `exploratory` car des rapports générés et d'autres
+fichiers locaux non suivis sont présents dans le checkout. Les résultats
+établissent le comportement observé sous Windows et les scénarios mesurés ; ils
+ne démontrent ni la parité avec un système rival, ni le comportement Linux, ni
+une garantie hors de ces cas.
 
 ## Commandes et limites du verdict
 
