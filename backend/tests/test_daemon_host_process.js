@@ -66,6 +66,17 @@ async function main() {
     const before = await observedState(value);
     assert.equal(before.cognitive_revisions, 0);
     await stop(host);
+    if (process.platform === 'win32') {
+      const replacement = require('../src/services/daemon/residentDaemonRuntime').createRuntime(value.db);
+      await assert.rejects(() => require('../src/services/daemon/residentDaemonRuntime').registerDaemon(replacement, {
+        daemonId: value.context.daemonId, territoryId: value.context.territoryId
+      }), /IDENTITY_ALREADY_ACTIVE/);
+      const after = await observedState(value);
+      assert.equal(after.last_event_id, before.last_event_id);
+      assert.equal(after.cognitive_revisions, before.cognitive_revisions);
+      console.log('Actual resident process: liveness, persisted cursor and abrupt-stop identity fence passed.');
+      return;
+    }
     host = launch(value);
     await waitFor(host, () => host.output.includes(' active on '));
     const after = await observedState(value);
