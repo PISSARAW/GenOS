@@ -25,5 +25,10 @@ process.stdin.on('data', (chunk) => {
 });
 process.stdin.on('end', async () => {
   if (stdinTooLarge) return;
-  await runSession(raw);
+  try {
+    await runSession(raw);
+  } catch (error) {
+    console.error(`[genos-agent-runtime] ${error.message}`);
+    process.exitCode = 1;
+  }
 });
