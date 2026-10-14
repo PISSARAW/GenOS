@@ -55,9 +55,9 @@ promotion.
 | Exécution contrefactuelle | o | p | p | p | o | F ; fork/snapshot accessibles, contre-épreuve complète non prouvée ici. |
 | Branches, forks, snapshots, diffs et replay | p | p | p | p | o | F ; `diff_and_replay` appelle les deux opérations et échoue si l'une manque, mais aucun producteur ne rejoue le run complet ni n'émet le reçu exigé par `require_replay` (ADR 0480). |
 | Preuve avant promotion | o | p | p | o | o | E ; gates présents, couverture de toutes promotions inconnue. |
-| Distinction entre succès technique et vérité | o | p | p | o | o | E/S ; refus de promotion distinct du transport ; portée non exhaustive. |
+| Distinction entre succès technique et vérité | o | p | p | o | o | E/S ; `test_conclusion_provenance_integrity.js` (30 vérifications) rejette les conclusions sans évidence et garde `genos_blame`/`genos_lineage` en échec quand la réponse ne contient aucune preuve. Contrôles ciblés, pas une garantie de vérité des contenus. |
 | Falsifiabilité et contre-exemples | p | p | p | p | o | E ; mécanismes spécialisés, pas toute affirmation. |
-| Provenance | o | p | p | o | o | E/A ; reçus et empreintes ; chaîne de bout en bout selon circuit. |
+| Provenance | o | p | p | o | o | E/A ; `test_conclusion_provenance_integrity.js` vérifie les mutations Merkle, parents manquants ou réattribués, liaison décision/mémoire et troncature de trace. La chaîne complète reste dépendante du circuit et de ses sources. |
 | Reçus vérifiables | p | p | p | p | o | B/E ; plusieurs schémas, vérification et clés selon parcours. |
 | Décisions bornées | p | p | p | p | o | F/S ; contrats bornés, enforcement non universel. |
 | Autorité explicite | p | p | p | p | o | F/B ; autorités par circuit, raccordement global non prouvé. |
