@@ -23,25 +23,9 @@ function hashScore(id, role) {
   return hash;
 }
 
-function fitnessFor(status, sentCount) {
-  const base = status === 'completed' ? 1 : (status === 'running' ? 0.5 : 0);
-  const bonus = Math.min(0.5, Number(sentCount || 0) * 0.1);
-  return Math.min(1.5, base + bonus);
-}
-
 function positionFor(id, role) {
   const score = hashScore(id, role);
   return { x: score % 100, y: score % 71, heading: score % 360 };
-}
-
-async function messageCounts(db, orchestratorId) {
-  const rows = await db.all(
-    "SELECT sender_agent_id as id, COUNT(*) as n FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'delivered' GROUP BY sender_agent_id",
-    orchestratorId
-  ).catch(() => []);
-  const counts = new Map();
-  for (const row of (rows || [])) counts.set(row.id, Number(row.n || 0));
-  return counts;
 }
 
 function parsePayloadJson(raw) {
@@ -88,9 +72,9 @@ async function trailsFor(db, orchestratorId) {
 }
 
 async function agentsOf(db, orchestratorId) {
-  const full = await db.all('SELECT id, role, status, cognitive_budget FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => null);
+  const full = await db.all('SELECT id, role, cognitive_budget FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => null);
   if (full) return full;
-  return db.all('SELECT id, role, status FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => []);
+  return db.all('SELECT id, role FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => []);
 }
 
 function budgetTotal(agents) {
@@ -104,7 +88,6 @@ function budgetTotal(agents) {
 
 async function stateFromOrchestrator(db, orchestratorId) {
   const agents = await agentsOf(db, orchestratorId);
-  const counts = await messageCounts(db, orchestratorId);
   const pack = (Array.isArray(agents) ? agents : []).map((agent) => {
     const pos = positionFor(agent.id, agent.role);
     return {
@@ -113,7 +96,7 @@ async function stateFromOrchestrator(db, orchestratorId) {
       x: pos.x,
       y: pos.y,
       heading: pos.heading,
-      fitness: fitnessFor(agent.status, counts.get(agent.id))
+      fitness: null
     };
   }).sort((a, b) => a.id.localeCompare(b.id));
   const edges = [];

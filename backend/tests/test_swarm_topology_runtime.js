@@ -11,9 +11,8 @@ const fakeDb = { all: async () => [
 (async () => {
   const state = await runtime.stateFromOrchestrator(fakeDb, 'orch');
   assert.equal(state.agents.length, 3);
-  assert.equal(state.pack[0].fitness, 1);
-  assert.equal(state.pack[1].fitness, 0.5);
-  assert.equal(state.pack[2].fitness, 0);
+  assert.deepEqual(state.pack.map((agent) => agent.fitness), [null, null, null],
+    'worker status and communication volume are not measured project fitness');
   assert.equal(state.edges.length, 2);
 
   const budgetedDb = { all: async () => [
