@@ -10,6 +10,7 @@
 
 use crate::GenosEcosystem;
 use genos_cell::AgentCell;
+use genos_dna::model::AgentDna;
 use uuid::Uuid;
 
 /// Offre d'un agent candidat, dérivée de son ADN et de ses preuves.
@@ -258,6 +259,20 @@ impl RecruitmentPlanner {
 }
 
 impl GenosEcosystem {
+    /// Exprime les ADN avant de planifier et d'exécuter le recrutement.
+    pub fn recruit_dna(
+        &mut self,
+        tissue: &str,
+        demand: &Demand,
+        dna_candidates: &[(&AgentDna, f64)],
+    ) -> RecruitmentDecision {
+        let candidates = dna_candidates
+            .iter()
+            .map(|(dna, cost)| candidate_from_dna(dna, *cost))
+            .collect::<Vec<_>>();
+        self.recruit(tissue, demand, &candidates)
+    }
+
     pub fn recruit(
         &mut self,
         tissue: &str,
@@ -296,5 +311,16 @@ impl GenosEcosystem {
             ids.push(id);
         }
         Ok(ids)
+    }
+}
+
+fn candidate_from_dna(dna: &AgentDna, cost: f64) -> Candidate {
+    let phenotype = genos_dna::express::express(dna);
+    Candidate {
+        id: dna.meta.name.clone(),
+        role: phenotype.role,
+        capabilities: phenotype.capabilities,
+        proven: Vec::new(),
+        cost,
     }
 }

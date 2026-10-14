@@ -7,6 +7,7 @@ const path = require('node:path');
 const { closeDatabase } = require('../src/db');
 const controller = require('../src/controllers/strategyExecutionController');
 const signatureService = require('../src/services/promotionSignatureService');
+const { promotionApprovalDigest } = require('../src/services/promotionApprovalDigest');
 
 async function approve(runId, body) {
   const response = { status: 200, body: null };
@@ -20,7 +21,20 @@ function signed(runId, payloadHash) {
   return { ...payload, signature: signatureService.generateSignature(payload) };
 }
 
+function assertReplayReceiptBoundToApproval() {
+  const promotion = { runId: 'run-replay-digest', agentId: 'agent-replay-digest',
+    replayReceipt: { snapshotId: 'snap-1', snapshotDigest: 'a'.repeat(64) } };
+  const initial = promotionApprovalDigest(promotion);
+  const changed = promotionApprovalDigest({ ...promotion,
+    replayReceipt: { snapshotId: 'snap-2', snapshotDigest: 'b'.repeat(64) } });
+  assert.notEqual(initial, changed, 'Changing the replay receipt must invalidate human approval');
+  assert.equal(initial, promotionApprovalDigest({ ...promotion,
+    replayReceipt: { snapshotDigest: 'a'.repeat(64), snapshotId: 'snap-1' } }),
+  'Receipt object key order must not change the approval digest');
+}
+
 async function main() {
+  assertReplayReceiptBoundToApproval();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-consumer-human-'));
   process.env.NODE_ENV = 'test';
   process.env.GENOS_ADMIN_PASSWORD ||= 'consumer-human-test-only';

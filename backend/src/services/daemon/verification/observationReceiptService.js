@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const files = require('../cartography/territoryFiles');
+const { canonicalize } = require('../../evaluationGraders');
 
 const digest = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
@@ -25,8 +26,8 @@ function sourceHash(territory, scope) {
 
 async function record(db, observation) {
   await ensureStore(db);
-  const payload = JSON.stringify({ apiVersion: 'genos.daemon-observation/v1',
-    observedAt: new Date().toISOString(), ...observation });
+  const payload = JSON.stringify(canonicalize({ apiVersion: 'genos.daemon-observation/v1',
+    observedAt: new Date().toISOString(), ...observation }));
   const payloadHash = digest(payload);
   const id = `daemon-observation-${payloadHash}`;
   await db.run(`INSERT INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json)

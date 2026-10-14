@@ -23,4 +23,10 @@ pub struct BiologicalCmd {
     /// Stable Rust UUID assigned to the backend mission.
     #[arg(long)]
     pub mission_id: Option<uuid::Uuid>,
+    /// Recruit one validated AgentDNA genome after the persisted mission tick.
+    #[arg(long, requires = "recruitment_spec")]
+    pub recruit_dna: Option<std::path::PathBuf>,
+    /// JSON file with an explicit tissue, demand, and candidate cost.
+    #[arg(long, requires = "recruit_dna")]
+    pub recruitment_spec: Option<std::path::PathBuf>,
 }

@@ -1,8 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { createHash } = require('node:crypto');
 const { createFormalResult } = require('../../src/services/formalResultService');
+const { canonicalize } = require('../../src/services/evaluationGraders');
+const { hashForRecord } = require('../../src/services/provenanceHash');
 const subjects = require('../../src/services/epistemic/oracleMemorySubject');
 const bridge = require('../../src/services/epistemic/verifierRuntimeBridge');
 const readGate = require('../../src/services/promotionMemoryReadGate');
@@ -93,8 +94,8 @@ async function forgedClaims(db, input) {
   const child = await db.get('SELECT * FROM provenance_records WHERE id=?', input.row.provenance_record_id);
   const payload = JSON.parse(child.payload_json);
   payload.claims[0].statement = 'This unrelated conclusion is true.';
-  const encoded = JSON.stringify(payload);
-  const hash = createHash('sha256').update(encoded).digest('hex');
+  const encoded = JSON.stringify(canonicalize(payload));
+  const hash = hashForRecord(child, encoded);
   await db.run('UPDATE provenance_records SET payload_json=?,payload_hash=? WHERE id=?', encoded, hash, child.id);
   await db.run('UPDATE genome_decisions SET provenance_hash=? WHERE id=?', hash, input.row.id);
   try {

@@ -203,8 +203,7 @@ mod world_path_tests {
     }
 
     #[test]
-    fn accepts_simple_id() {
-        let root = std::env::temp_dir().to_string_lossy().into_owned();
-        assert!(validate_world_path(&root, "my-world").is_ok());
+    fn accepts_simple_id_syntax() {
+        assert!(super::check_world_id_syntax("my-world").is_ok());
     }
 }

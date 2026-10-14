@@ -25,7 +25,7 @@ const contract = buildWorkerContract('verifier_worker', { methodContract });
 const mission = { workerKind: 'verifier_worker', methodContract, workerContract: contract, timeoutMs: 500000 };
 assert.doesNotThrow(() => assertWorkerExecutorAvailable(mission));
 assert.equal(applyWorkerRuntimeLimits(mission, { tokens: 5000, latencyMs: 500000 }).tokens, 0);
-assert.equal(mission.timeoutMs, 300000);
+assert.equal(mission.timeoutMs, 500000);
 assert.throws(() => assertAssignmentMatches(contract, { methodContract: { ...methodContract, parameters: {
   ...methodContract.parameters, candidateReceipt: { ...candidateReceipt, id: 'forged' }
 } } }), { code: 'WORKER_METHOD_MISMATCH' });

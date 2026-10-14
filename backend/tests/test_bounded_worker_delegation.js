@@ -21,7 +21,9 @@ async function seed(db, workspace, options = {}) {
     VALUES ('delegation-ws','Delegation workspace',?,'delegation-org','delegation-project')`, workspace);
   await db.run(`INSERT INTO agents (id,name,role,status,execution_mode,workspace_id,cognitive_budget)
     VALUES ('delegation-root','Root','orchestrator','running','orchestrator','delegation-ws',1000000)`);
-  const contract = kinds.grantBoundedDelegation(kinds.buildWorkerContract('sub_orchestrator', { parentAgentId: 'delegation-root' }));
+  const contract = kinds.grantBoundedDelegation(kinds.buildWorkerContract('sub_orchestrator', {
+    parentAgentId: 'delegation-root', workerTokenLimit: 10000
+  }));
   await db.run(`INSERT INTO agents (id,name,role,status,execution_mode,parent_agent_id,workspace_id,cognitive_budget,metadata_json)
     VALUES ('delegation-sub','Sub','sub_orchestrator','running','worker','delegation-root','delegation-ws',100000,?)`,
   JSON.stringify({ workerKind: 'sub_orchestrator', workerContract: contract }));

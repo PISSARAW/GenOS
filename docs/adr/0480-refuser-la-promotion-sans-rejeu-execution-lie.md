@@ -33,9 +33,10 @@ Un futur producteur devra rejouer le comportement du run à partir d’entrées
 persistées et scellées, dans un environnement isolé, avec versions de runner,
 primitives, outils et dépendances, budget et graines identifiés. Il devra
 persister un reçu durable lié au `runId`, à l’agent, au snapshot et à son digest.
-Le digest du reçu devra être inclus dans le payload d’approbation humaine. Une
-preuve de commande de test pourra compléter cette preuve, mais ne la remplacera
-pas.
+Le digest d’approbation humaine lie désormais aussi le champ `replayReceipt`
+quand le producteur le renseigne. Le chargement de ce champ depuis un reçu
+persisté reste à implémenter. Une preuve de commande de test pourra compléter
+cette preuve, mais ne la remplacera pas.
 
 ## Conséquences
 

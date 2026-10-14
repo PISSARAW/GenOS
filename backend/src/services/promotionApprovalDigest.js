@@ -25,6 +25,7 @@ function promotionApprovalDigest(promotion) {
     task: promotion.task,
     report: promotion.report,
     budget: promotion.budget,
+    replayReceipt: promotion.replayReceipt || null,
     rejectedBranches: promotion.rejectedBranches || [],
     steps,
   };

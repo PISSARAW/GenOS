@@ -1,8 +1,12 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
+const os = require('node:os');
+const path = require('node:path');
+const { FovealVisionService } = require('../src/services/fovealVisionService');
 const { defaultBrowserScout } = require('../src/services/browserScoutService');
 const { defaultForaging } = require('../src/services/foragingScoutHarvesterService');
 const { forageStep } = require('../src/services/foragingLoopService');
@@ -31,6 +35,20 @@ async function run() {
     const exploit = await forageStep({ sessionId, elapsedTimeSec: 1, iteration: 1 });
     assert.equal(exploit.decision, 'EXPLOIT_PATCH');
     assert.ok(exploit.fovealArtifact && fs.existsSync(exploit.fovealArtifact.outputPath));
+    const cropBytes = fs.readFileSync(exploit.fovealArtifact.outputPath);
+    assert.equal(crypto.createHash('sha256').update(cropBytes).digest('hex'), exploit.fovealArtifact.sha256,
+      'the crop receipt hash must bind the actual PNG bytes');
+    const replayDir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-foraging-crop-replay-'));
+    try {
+      const replay = await new FovealVisionService({ artifactsDir: replayDir }).fovealCrop(
+        exploit.fovealArtifact.fovealManifest.sourceImage, exploit.fovealArtifact.bbox,
+        { zoomFactor: exploit.fovealArtifact.zoomFactor, focusNotes: 'deterministic crop replay' });
+      assert.equal(replay.sha256, exploit.fovealArtifact.sha256,
+        'the same screenshot and ROI must reproduce identical crop pixels');
+      assert.deepEqual(replay.pixelDimensions, exploit.fovealArtifact.pixelDimensions);
+    } finally {
+      fs.rmSync(replayDir, { recursive: true, force: true });
+    }
     for (const answer of taskAnswers) {
       if (exploit.observation.observationText.includes(answer.toLowerCase())) foundAnswers.add(answer);
     }

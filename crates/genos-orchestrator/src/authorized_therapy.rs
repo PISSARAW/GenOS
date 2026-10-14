@@ -149,14 +149,41 @@ impl GenosEcosystem {
         if format!("{:x}", Sha256::digest(encoded.as_bytes())) != auth.cell_state_digest {
             return Err("therapy cell state changed".into());
         }
-        if !entries.iter().any(|entry| {
+        let source = entries.iter().find(|entry| {
             entry["receipt_id"] == auth.source_receipt_id.to_string()
                 && entry["mission_id"] == auth.mission_id.to_string()
-        }) {
-            return Err("therapy source receipt missing".into());
+        });
+        if !source.is_some_and(|entry| source_receipt_matches_target(entry, auth)) {
+            return Err("therapy source receipt missing or target state mismatch".into());
         }
         Ok(())
     }
+}
+
+fn source_receipt_matches_target(receipt: &Value, auth: &TherapyAuthorization) -> bool {
+    let population = match receipt["schema"].as_str() {
+        Some("genos.population-state/v1") => Some(receipt.clone()),
+        Some("genos.biological-execution-receipt/v1") => receipt["population_json"]
+            .as_str()
+            .and_then(|snapshot| serde_json::from_str(snapshot).ok()),
+        _ => None,
+    };
+    population
+        .as_ref()
+        .and_then(|snapshot| snapshot["active_cells"].as_array())
+        .into_iter()
+        .flatten()
+        .any(|item| {
+            if item["cell_id"] != auth.cell_id.to_string()
+                || item["genome_id"] != auth.genome_id.to_string()
+                || item["genome_fingerprint"] != auth.genome_fingerprint
+            {
+                return false;
+            }
+            serde_json::to_string(&item["cell_state"])
+                .ok()
+                .is_some_and(|state| format!("{:x}", Sha256::digest(state.as_bytes())) == auth.cell_state_digest)
+        })
 }
 
 fn previous_application(
@@ -174,4 +201,45 @@ fn previous_application(
         return Err("therapy authorization id conflict".into());
     }
     Ok(Some(previous.clone()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn authorization(cell_state: &Value) -> TherapyAuthorization {
+        TherapyAuthorization {
+            authorization_id: Uuid::nil(),
+            mission_id: Uuid::nil(),
+            cell_id: Uuid::from_u128(1),
+            genome_id: Uuid::from_u128(2),
+            genome_fingerprint: "genome-fingerprint".into(),
+            cell_state_digest: format!("{:x}", Sha256::digest(cell_state.to_string().as_bytes())),
+            source_receipt_id: Uuid::from_u128(3),
+            therapy_json: "null".into(),
+            approver_id: "test".into(),
+            expires_at_unix_ms: 1,
+            signature: String::new(),
+        }
+    }
+
+    #[test]
+    fn clinical_source_receipt_must_prove_the_authorized_target_state() {
+        let cell_state = serde_json::json!({ "clinical": { "markers": { "load": 0.75 } } });
+        let auth = authorization(&cell_state);
+        let snapshot = serde_json::json!({
+            "schema": "genos.population-state/v1",
+            "active_cells": [{
+                "cell_id": auth.cell_id,
+                "genome_id": auth.genome_id,
+                "genome_fingerprint": auth.genome_fingerprint,
+                "cell_state": cell_state
+            }]
+        });
+        assert!(source_receipt_matches_target(&snapshot, &auth));
+
+        let mut unrelated = snapshot;
+        unrelated["active_cells"] = serde_json::json!([]);
+        assert!(!source_receipt_matches_target(&unrelated, &auth));
+    }
 }

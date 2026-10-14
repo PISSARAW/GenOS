@@ -55,11 +55,18 @@ impl GenosEcosystem {
         self.neuro.apply_plasticity();
         let potential_after = self.neuro.current_potential();
 
-        let active_cells = self.orchestrator.active_cells.len();
+        let registered_cells = self.orchestrator.active_cells.len();
+        let active_cells = self
+            .orchestrator
+            .active_cells
+            .values()
+            .filter(|cell| cell.is_alive())
+            .count();
         self.quorum.set_cell_count(active_cells);
         self.quorum.step(0.01);
         let quorum = json!({
             "activeCellCount": active_cells,
+            "registeredCellCount": registered_cells,
             "autoinducerConcentration": self.quorum.autoinducer_concentration,
             "activationLevel": self.quorum.activation_level(),
             "activePhenotypes": self.quorum.active_phenotypes(),

@@ -3,7 +3,7 @@
 - **Statut** : Le cnidocyte, l'électrocyte, le choanocyte, l'iridophore, la cellule de garde, la trachéide et le transfert procaryote HGT ont des branchements runtime partiels sous lease avec reçus; seules les autres opérations procaryotes restent des primitives locales sous `crates/genos-biology/src/specialized_cells/`.
 - **Statut** : Le cnidocyte est filtré avant transport MCP; les estimations de tension électrocytaire, le choanocyte, l'iridophore, la cellule de garde et la trachéide ont un chemin MCP/CLI sous scope d'action. La décharge électrocytaire quorum-gated reste une primitive Rust non reliée à ce dispatcher.
 - **Portée** : `crates/genos-biology/src/specialized_cells/`, `backend/src/services/mcpLigandReceptorService.js`, outils MCP `genos_biomimicry_*`.
-- **Dernière revue** : 2026-10-01.
+- **Dernière revue** : 2026-10-14.
 - **Référence** : [inventaire-biologique.md](inventaire-biologique.md), [maturite-biologique.md](maturite-biologique.md).
 
 Ce document décrit des primitives bio-inspirées comme vocabulaire d'architecture. Une simulation logicielle n'est pas une fonction biologique réelle : les chiffres physiques (15 MPa, 3 µs, 600 V, 30 Hz) sont des constantes de démonstration, pas des mesures.
@@ -12,15 +12,14 @@ Ce document décrit des primitives bio-inspirées comme vocabulaire d'architectu
 
 - **Cnidocyte** : le filtre MCP `checkCnidocyteReflex` est appelé dans `mcpExecutor.execute` avant le transport. Il bloque, mesure sa latence avec l'horloge monotone et conserve un audit; `test_mcp_cnidocyte_runtime_gate.js` vérifie cette voie avec base simulée et transport interdit. La latence constante du primitive Rust n'est pas une mesure, le filtre par sous-chaînes n'est pas une protection générale et aucune garantie « zéro-latence » n'est revendiquée.
 - **Électrocyte** : `discharge_electric_under_quorum` exige au moins deux cellules actives distinctes, une majorité de votes favorables et une échéance valide avant la décharge; les refus et mesures sont journalisés. Les identités de vote ne sont pas signées, la collecte n'est pas distribuée et l'event store reste mémoire : ce n'est pas un consensus distribué.
-- **Choanocyte** : le tamisage est un filtre local sur un payload fourni. Aucun adaptateur de flux, aucune mesure de débit, pertes ou erreurs.
 - **Électrocyte** : l'estimation de tension CLI est un calcul théorique sous scope MCP. La primitive Rust `discharge_electric_under_quorum` exige au moins deux cellules actives distinctes, une majorité de votes favorables et une échéance valide avant la décharge; les refus et mesures sont journalisés. Cette primitive n'est pas appelée depuis le dispatcher MCP/CLI; les identités de vote ne sont pas signées, la collecte n'est pas distribuée et l'event store reste mémoire : ce n'est pas un consensus distribué.
-- **Choanocyte** : le tamisage est un filtre local sur un payload fourni. Aucun adaptateur de flux, aucune mesure de débit, pertes ou erreurs.
+- **Choanocyte** : `filter_stream_and_persist` traite un flux fourni, lie le reçu à la mission et au SHA-256 des paquets, puis vérifie sa lecture après réouverture du journal. Le débit est calculé par le logiciel; il n'y a pas d'adaptateur hydrodynamique ni de mesure de pertes physiques.
 - **Iridophore** : le rendu polymorphique est un formatage (ANSI, JSON, Markdown). Le mode `CrypticCamouflage` est un décalage César, pas un chiffrement ; il ne donne aucune propriété cryptographique et le camouflage n'est pas une mesure de sécurité.
-- **Cellule de garde** : le calcul d'ouverture est isolé. Il n'est pas branché sur un registre de ressources et ne fait pas de backpressure réelle.
+- **Cellule de garde** : `throttle_flux` régule le flux selon les réserves ATP et amino-acides, débite le flux admis des deux registres et ferme si la mission ne peut pas financer l'opération. Les acides aminés viennent du `MetabolicPool` de la cellule racine; les reçus restent en mémoire et les pools des autres cellules ne sont pas agrégés.
 - **Trachéide** : `trigger_lignified_apoptosis` ne compile rien. Un identifiant `pipeline_id` ne signifie pas qu'un pipeline est compilé ; les ratios `1.0` et `50.0` sont des constantes, pas des gains mesurés.
-- **Procaryote / HGT** : le transfert est une copie d'objet locale. Aucune validation, lease ou révocation runtime.
+- **Procaryote / HGT** : la primitive de biologie copie un plasmide localement. Le wrapper orchestrateur `hgt_runtime.rs` lie le lease à l'identifiant déclaré de l'émetteur, au périmètre mission et à un secret HMAC, puis persiste un reçu signé avant l'effet. Le rejeu après réouverture du journal est testé; le store ne sérialise pas les écrivains concurrents et le transfert n'est pas branché à MCP/worker.
 
-Tant qu'un module n'a pas de preuve bout en bout (attaque rejouée dans le chemin réel, artefact compilé exécuté, transfert refusé pour permissions), il reste une simulation explicitement étiquetée.
+Les preuves sont propres à chaque chemin : le test HGT couvre le refus avec un secret erroné et le rejeu local après réouverture, mais ne prouve aucun transfert réseau ni intégration MCP/worker.
 
 ### Frontière d'autorisation MCP
 
@@ -135,7 +134,7 @@ exécution durable dans une mission.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/prokaryote.rs`](../../../crates/genos-biology/src/specialized_cells/prokaryote.rs)
 * **Fonctionnement :**
   - **Démarrage simulé :** Agents sans mémoire lourde en structures locales. Le « < 1 ms » est un objectif, pas une mesure.
-  - **Transfert Horizontal de Gènes (HGT) simulé :** Copie locale de plasmides sans validation, lease ni révocation runtime.
+  - **Primitive de transfert :** `prokaryote.rs` copie un plasmide localement. Le wrapper `genos-orchestrator/src/hgt_runtime.rs` lie le transfert à un lease HMAC et au store de reçus; il ne réalise pas de transport réseau.
   - **Division simulée :** Clonage d'objet en mémoire, pas d'essaimage réel.
 * **Commandes CLI / MCP :**
   ```bash
@@ -152,13 +151,12 @@ exécution durable dans une mission.
 | :--- | :--- | :--- | :--- | :--- |
 | **Cnidocyte** | Animal (Cnidaire) | Aucun | Filtre MCP par sous-chaînes; latence observée au dispatch | Attaques traversant un transport configuré + artefacts de benchmark conservés |
 | **Électrocyte** | Animal (Poisson) | Aucun | Vote local multi-cellules, échéance, puis décharge mesurée | Votants authentifiés, collecte distribuée et reprise après redémarrage |
-| **Choanocyte** | Animal (Spongiaire) | Aucun | Filtre local sur flux fourni | Adaptateur explicite + débit/pertes mesurés |
 | **Iridophore** | Animal (Reptile/Céph.) | Aucun | Formatage ANSI/JSON/Markdown | Contrats de rendu ; aucun statut crypto |
-| **Choanocyte** | Animal (Spongiaire) | Aucun | MCP sous scope d'action; succès persisté avec mission membre, agent autorisé et génome lié | Flux de mission authentifié + débit/pertes mesurés; le reçu d'opération durable n'attribue pas encore de coût ATP |
+| **Choanocyte** | Animal (Spongiaire) | Aucun | Filtre local sur paquets fournis; reçu lié à mission et empreinte, relu après réouverture du journal | Source de flux de mission authentifiée, pertes physiques et benchmark conservé |
 | **Iridophore** | Animal (Reptile/Céph.) | Aucun | MCP/CLI sous scope d'action; formatage ANSI/JSON/Markdown | Consommateur mission + contrat de rendu; aucun statut crypto |
 | **Cellule de Garde** | Végétal | Aucun | Calcul local de conductance | Backpressure branchée au registre de ressources |
 | **Trachéide** | Végétal | Aucun | MCP sous scope d'action; succès persisté avec mission membre, agent autorisé et génome lié | Artefact compilé exécuté + coût comparé; le reçu d'opération durable n'attribue pas encore de coût ATP |
-| **Procaryote** | Micro-organisme | Aucun | Copie locale de plasmide | Validation + lease + révocation, refus tracés |
+| **Procaryote / HGT** | Micro-organisme | Aucun | Copie locale; wrapper orchestrateur sous lease HMAC avec reçu persistant et rejeu | Autorité alimentée par une identité externe, append concurrent sûr et intégration MCP/worker |
 
 ---
 

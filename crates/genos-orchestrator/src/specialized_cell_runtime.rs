@@ -6,6 +6,114 @@ use genos_biology::{
 };
 use serde_json::json;
 use std::time::Instant;
+use uuid::Uuid;
+
+struct GuardResourceAssessment {
+    cell_id: Uuid,
+    atp_available: f64,
+    availability: f64,
+}
+
+struct GuardFluxFundingRequest {
+    cell_id: Uuid,
+    cost: f64,
+    atp_available: f64,
+}
+
+struct GuardFluxReceiptData {
+    mission_id: Option<Uuid>,
+    pore_id: String,
+    requested_flux: f64,
+    result: ThrottleResult,
+    cost: f64,
+    atp_available: f64,
+    resource_availability: f64,
+    accepted: bool,
+    pool_failure_reason: Option<String>,
+    pool_receipt: Option<crate::metabolism::MissionMetabolicPoolReceipt>,
+}
+
+fn guard_resource_availability(eco: &mut GenosEcosystem) -> GuardResourceAssessment {
+    eco.orchestrator.metabolism.refill();
+    let atp_capacity = eco.orchestrator.metabolism.capacity;
+    let atp_available = eco.orchestrator.metabolism.available();
+    let atp_ratio = if atp_capacity > 0.0 {
+        (atp_available / atp_capacity).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let cell_id = eco.orchestrator.orchestrator_id;
+    let pool_amount = eco
+        .orchestrator
+        .active_cells
+        .get(&cell_id)
+        .map(|cell| cell.metabolism.amino_acids)
+        .unwrap_or_default();
+    let pool_ratio = if pool_amount.is_finite() {
+        (pool_amount / 100.0).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    GuardResourceAssessment {
+        cell_id,
+        atp_available,
+        availability: pool_ratio.min(atp_ratio),
+    }
+}
+
+fn close_guard_flux(result: &mut ThrottleResult, requested_flux: f64) {
+    result.admitted_flux = 0.0;
+    result.throttled_flux = requested_flux;
+    result.backpressure_active = true;
+    result.status = "STOMATA_CLOSED_METABOLIC_POOL_REFUSED".to_string();
+}
+
+fn fund_guard_flux(
+    eco: &mut GenosEcosystem,
+    request: GuardFluxFundingRequest,
+) -> Result<crate::metabolism::MissionMetabolicPoolReceipt, String> {
+    if !request.cost.is_finite() || request.cost < 0.0 {
+        return Err("invalid guard flux cost".to_string());
+    }
+    if request.atp_available + 1e-9 < request.cost {
+        return Err("insufficient ATP energy reserve".to_string());
+    }
+    let receipt = eco.consume_mission_metabolic_pool(
+        crate::metabolism::MissionMetabolicPoolDemand {
+            cell_id: request.cell_id,
+            operation: "guard_cell.admitted_flux".to_string(),
+            amino_acids: request.cost,
+        },
+    )?;
+    if receipt.accepted {
+        eco.orchestrator
+            .metabolism
+            .consume_for("guard_cell.admitted_flux", request.cost);
+    }
+    Ok(receipt)
+}
+
+fn record_guard_flux(eco: &mut GenosEcosystem, data: GuardFluxReceiptData) {
+    eco.record_event(
+        "GUARD_CELL_FLUX_ENFORCED",
+        json!({
+            "schema": "genos.guard-cell-flux-receipt/v1",
+            "missionId": data.mission_id,
+            "poreId": data.pore_id,
+            "requestedFlux": data.requested_flux,
+            "admittedFlux": data.result.admitted_flux,
+            "throttledFlux": data.result.throttled_flux,
+            "metabolicCostAminoAcids": if data.accepted { data.cost } else { 0.0 },
+            "atpCost": if data.accepted { data.cost } else { 0.0 },
+            "atpAvailableBefore": data.atp_available,
+            "resourceAvailability": data.resource_availability,
+            "accepted": data.accepted,
+            "poolFailureReason": data.pool_failure_reason,
+            "poolReceipt": data.pool_receipt,
+            "status": data.result.status,
+        }),
+    );
+}
 
 impl GenosEcosystem {
     /// Ossifie le pipeline, mesure son coût et enregistre son plan exécutable versionné.
@@ -40,49 +148,46 @@ impl GenosEcosystem {
         Ok(report)
     }
 
-    /// Applique le backpressure puis débite le flux admis du registre ATP commun.
+    /// Applique le backpressure puis débite le pool de matière première de la mission.
     pub fn throttle_flux(&mut self, requested_flux: f64) -> ThrottleResult {
-        self.orchestrator.metabolism.refill();
-        let capacity = self.orchestrator.metabolism.capacity;
-        let resource_availability = if capacity > 0.0 {
-            (self.orchestrator.metabolism.available() / capacity).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        self.guard_cell.regulate(resource_availability, 1.0 - resource_availability);
+        let resources = guard_resource_availability(self);
+        self.guard_cell
+            .regulate(resources.availability, 1.0 - resources.availability);
         let valid_request = requested_flux.is_finite() && requested_flux >= 0.0;
         let mut result = self
             .guard_cell
             .throttle_flux(if valid_request { requested_flux } else { 0.0 });
-        let cost = if valid_request {
-            result.admitted_flux.max(0.0) * 0.01
+        let cost = result.admitted_flux.max(0.0) * 0.01;
+        let pool_receipt = if valid_request {
+            fund_guard_flux(
+                self,
+                GuardFluxFundingRequest {
+                    cell_id: resources.cell_id,
+                    cost,
+                    atp_available: resources.atp_available,
+                },
+            )
         } else {
-            f64::NAN
+            Err("invalid requested flux".to_string())
         };
-        let accepted = self
-            .orchestrator
-            .metabolism
-            .consume_for("guard_cell.admitted_flux", cost);
+        let accepted = pool_receipt.as_ref().is_ok_and(|receipt| receipt.accepted);
         if !accepted {
-            result.admitted_flux = 0.0;
-            result.throttled_flux = requested_flux;
-            result.backpressure_active = true;
-            result.status = "STOMATA_CLOSED_METABOLIC_BUDGET_EXHAUSTED".to_string();
+            close_guard_flux(&mut result, requested_flux);
         }
-        self.record_event(
-            "GUARD_CELL_FLUX_ENFORCED",
-            json!({
-                "schema": "genos.guard-cell-flux-receipt/v1",
-                "missionId": self.mission_id,
-                "poreId": self.guard_cell.pore_id,
-                "requestedFlux": requested_flux,
-                "admittedFlux": result.admitted_flux,
-                "throttledFlux": result.throttled_flux,
-                "metabolicCost": if accepted { cost } else { 0.0 },
-                "resourceAvailability": resource_availability,
-                "accepted": accepted,
-                "status": result.status,
-            }),
+        record_guard_flux(
+            self,
+            GuardFluxReceiptData {
+                mission_id: self.mission_id,
+                pore_id: self.guard_cell.pore_id.clone(),
+                requested_flux,
+                result: result.clone(),
+                cost,
+                atp_available: resources.atp_available,
+                resource_availability: resources.availability,
+                accepted,
+                pool_failure_reason: pool_receipt.as_ref().err().cloned(),
+                pool_receipt: pool_receipt.ok(),
+            },
         );
         result
     }

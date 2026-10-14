@@ -12,6 +12,7 @@ pub mod biomimicry_neural;
 pub mod biomimicry_ops;
 pub mod biomimicry_sensory;
 pub mod biological;
+mod biological_recruitment;
 mod biological_lock;
 pub mod capsule;
 pub mod capsule_loop;

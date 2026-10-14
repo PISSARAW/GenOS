@@ -231,7 +231,7 @@ function resolveHostCapabilities(mission) {
 function resolveSpecialtyNiche(mission) {
   const assignment = mission.workerAssignment || {};
   const parameters = mission.methodContract?.parameters || {};
-  const niche = [mission.specialtyNiche, mission.nicheDomain, mission.niche, mission.domain,
+  const niche = [mission.specialtyNiche, assignment.specialtyNiche, mission.nicheDomain, mission.niche, mission.domain,
     assignment.nicheDomain, assignment.niche, assignment.domain, parameters.niche, parameters.domain]
     .find((item) => typeof item === 'string' && item.trim());
   return typeof niche === 'string' && niche.trim() ? niche.trim() : null;
@@ -274,7 +274,7 @@ function buildWorkerContract(kind, mission = {}) {
     spawnBudget: 0,
     delegationDepth: 0,
     evidence: { requiredArtifacts: [definition.artifact], provenanceRequired: true },
-    niche: { domain: definition.kind === 'specialist' ? (mission.nicheDomain || mission.workerAssignment?.nicheDomain || 'declared_niche') : null },
+    niche: { domain: definition.kind === 'specialist' ? (resolveSpecialtyNiche(mission) || 'declared_niche') : null },
     expressedCapabilities: expressedCapabilitiesFor(definition.kind),
     limits: workerLimits(definition.kind, subOrchestrator),
     resources: workerResources(definition.kind, mission)

@@ -154,6 +154,14 @@ impl GenosEcosystem {
     pub fn autonomous_reproduction_cycle(
         &mut self,
     ) -> Result<ReproductionOutcome, ReproductionBlocked> {
+        let (outcome, event) = self.autonomous_reproduction_cycle_unrecorded()?;
+        self.record_event("AUTONOMOUS_REPRODUCTION", event);
+        Ok(outcome)
+    }
+
+    pub(crate) fn autonomous_reproduction_cycle_unrecorded(
+        &mut self,
+    ) -> Result<(ReproductionOutcome, serde_json::Value), ReproductionBlocked> {
         let (mother_id, mother_genome) = self
             .find_eligible_mother()
             .ok_or(ReproductionBlocked::NoEligibleMother)?;
@@ -203,9 +211,7 @@ impl GenosEcosystem {
             genome: daughter_genome,
         });
 
-        self.record_event(
-            "AUTONOMOUS_REPRODUCTION",
-            json!({
+        let event = json!({
                 "schema": "genos.reproduction-event/v1",
                 "parent": { "cell_id": mother_id, "genome_id": parent_fingerprint.genome_id },
                 "daughter": { "cell_id": daughter_id, "genome_id": daughter_fingerprint.genome_id },
@@ -215,15 +221,9 @@ impl GenosEcosystem {
                 "mutation_rate": AUTONOMOUS_MUTATION_RATE,
                 "mutations": mutations,
                 "fingerprints": { "parent": parent_fingerprint, "daughter": daughter_fingerprint }
-            }),
-        );
+            });
 
-        Ok(ReproductionOutcome {
-            mother_id,
-            daughter_id,
-            generation,
-            lineage_id,
-        })
+        Ok((ReproductionOutcome { mother_id, daughter_id, generation, lineage_id }, event))
     }
 
     /// Fait entrer une cellule déjà active dans la lignée reproductive

@@ -7,6 +7,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const provenance = require('./fossilProvenanceService');
 
 const MODES = ['petrification', 'external_mold', 'internal_mold', 'trace'];
 const DEFAULT_MODE = 'petrification';
@@ -37,15 +38,6 @@ function conservationQuality(hardParts, softParts) {
 }
 
 // JSON canonique stable : clés triées récursivement, aligné sur serde_json (BTreeMap).
-function stableStringify(value) {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
-  const body = Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`);
-  return `{${body.join(',')}}`;
-}
-
 function mineralMaterial(record) {
   return {
     lineage_id: record.extinct_lineage_id,
@@ -55,12 +47,14 @@ function mineralMaterial(record) {
     hard_parts: record.hard_parts || [],
     soft_parts_lost: record.soft_parts_lost || [],
     phenotype_markers: record.phenotype_markers || [],
-    mineral_payload: record.mineral_payload === undefined ? null : record.mineral_payload
+    mineral_payload: record.mineral_payload === undefined ? null : record.mineral_payload,
+    source_event_id: record.source_event_id || null,
+    source_event_hash: record.source_event_hash || null
   };
 }
 
 function computePayloadHash(record) {
-  return crypto.createHash('sha256').update(stableStringify(mineralMaterial(record))).digest('hex');
+  return crypto.createHash('sha256').update(provenance.stableStringify(mineralMaterial(record))).digest('hex');
 }
 
 function verifyFossilIntegrity(record) {
@@ -137,6 +131,8 @@ function buildFossilRecord(input = {}) {
     soft_parts_lost: asArray(coalesce(input.softPartsLost, input.soft_parts_lost)),
     phenotype_markers: asArray(coalesce(input.phenotypeMarkers, input.phenotype_markers)),
     mineral_payload: coalesce(input.mineralPayload, input.mineral_payload),
+    source_event_id: coalesce(input.sourceEventId, input.source_event_id, null),
+    source_event_hash: null,
     organization_id: organizationId,
     project_id: projectId
   };
@@ -150,8 +146,9 @@ async function persistFossil(db, record) {
     `INSERT INTO fossils
      (fossil_id, extinct_lineage_id, reason, mode, stratum_id, payload_hash,
       conservation_quality, hard_parts_json, soft_parts_lost_json,
-      phenotype_markers_json, mineral_payload_json, organization_id, project_id, recorded_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      phenotype_markers_json, mineral_payload_json, organization_id, project_id, recorded_at,
+      source_event_id, source_event_hash)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     record.fossil_id,
     record.extinct_lineage_id,
     record.reason,
@@ -167,7 +164,9 @@ async function persistFossil(db, record) {
       : JSON.stringify(record.mineral_payload),
     record.organization_id || null,
     record.project_id || null,
-    record.recorded_at
+    record.recorded_at,
+    record.source_event_id,
+    record.source_event_hash
   );
   await db.run(
     `INSERT INTO fossil_strata (stratum_id, deposited_at, fossil_count, organization_id, project_id)
@@ -213,6 +212,7 @@ async function recordFossil(input = {}, db, options = {}) {
     return { success: false, error: 'Database required: fossil not indexed.', indexed: false };
   }
   const record = buildFossilRecord(input);
+  await provenance.bindSourceEvent(db, record, computePayloadHash);
   await persistFossil(db, record);
   if (options.writeArtifact !== false && process.env.GENOS_FOSSIL_ARTIFACT !== '0') {
     try {
@@ -260,7 +260,11 @@ function fossilFromRow(row) {
     soft_parts_lost: parseJson(row.soft_parts_lost_json, []),
     phenotype_markers: parseJson(row.phenotype_markers_json, []),
     mineral_payload: row.mineral_payload_json ? parseJson(row.mineral_payload_json, null) : null,
-    recorded_at: row.recorded_at
+    recorded_at: row.recorded_at,
+    source_event_id: row.source_event_id || null,
+    source_event_hash: row.source_event_hash || null,
+    organization_id: row.organization_id || null,
+    project_id: row.project_id || null
   };
 }
 
@@ -307,7 +311,7 @@ async function excavateFossil(db, fossilId, options = {}) {
   const row = await db.get(`SELECT * FROM fossils WHERE fossil_id = ?${scope.sql ? scope.sql.replace(' WHERE ', ' AND ') : ''}`, fossilId, ...scope.params);
   if (!row) return { success: false, error: 'Fossil not found in stratigraphic registry.' };
   const record = fossilFromRow(row);
-  const integrity_verified = verifyFossilIntegrity(record);
+  const integrity_verified = verifyFossilIntegrity(record) && await provenance.verifySourceEvent(db, record);
   // Corrompu = inexploitable : success:false explicite, pas de lecture
   // présentée comme valide.
   if (!integrity_verified) {
@@ -316,6 +320,7 @@ async function excavateFossil(db, fossilId, options = {}) {
       read_only: true,
       resurrection: 'forbidden',
       integrity_verified: false,
+      provenance_verified: false,
       error: 'Fossil integrity check failed: specimen is corrupted.',
       specimen: record
     };
@@ -325,6 +330,7 @@ async function excavateFossil(db, fossilId, options = {}) {
     read_only: true,
     resurrection: 'forbidden',
     integrity_verified,
+    provenance_verified: Boolean(record.source_event_id),
     reading: decodePhenotype(record.phenotype_markers),
     specimen: record
   };
@@ -349,7 +355,7 @@ module.exports = {
   DEFAULT_MODE,
   normalizeMode,
   conservationQuality,
-  stableStringify,
+  stableStringify: provenance.stableStringify,
   mineralMaterial,
   computePayloadHash,
   verifyFossilIntegrity,
@@ -357,6 +363,8 @@ module.exports = {
   decodePhenotype,
   buildFossilRecord,
   persistFossil,
+  sourceEventHash: provenance.sourceEventHash,
+  verifySourceEvent: provenance.verifySourceEvent,
   writeFossilArtifact,
   recordFossil,
   scopeClauses,

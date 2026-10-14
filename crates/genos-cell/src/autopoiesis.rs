@@ -21,6 +21,20 @@ impl Default for MetabolicPool {
 }
 
 impl MetabolicPool {
+    /// Débite une quantité de matière première sans autoriser un solde négatif.
+    /// Retourne `false` pour une demande invalide ou une réserve insuffisante.
+    pub fn consume_amino_acids(&mut self, amount: f64) -> bool {
+        if !amount.is_finite()
+            || amount < 0.0
+            || !self.amino_acids.is_finite()
+            || self.amino_acids < amount
+        {
+            return false;
+        }
+        self.amino_acids -= amount;
+        true
+    }
+
     /// Simule le passage du temps (dégradation de la structure)
     pub fn apply_entropy(&mut self, time_delta: f64) {
         // L'entropie augmente naturellement avec le temps

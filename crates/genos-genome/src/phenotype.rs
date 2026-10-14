@@ -1,5 +1,6 @@
 use crate::dna::{DnaStrand, RnaPolymerase};
-use crate::translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};
+use crate::epigenome::EpigeneticMark;
+use crate::translation::{Ribosome, UnfoldedProtein};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -34,6 +35,16 @@ impl PhenotypeEngine {
 
     pub fn express(genome: &crate::genome::Genome, gene_locus: &str) -> Option<Phenotype> {
         let gene = genome.genes.get(gene_locus)?;
+        let methylated = gene.is_methylated
+            || genome
+                .epigenome
+                .get_mark(gene_locus)
+                .is_some_and(|mark| {
+                    mark.kind == EpigeneticMark::Methylation && mark.level > 0.7
+                });
+        if methylated || gene.expression_volume <= 0.0 {
+            return None;
+        }
         let dna = &gene.dna;
         let rna = RnaPolymerase::transcribe(dna);
         let protein = Ribosome::translate(&rna);
@@ -128,6 +139,20 @@ mod tests {
         let p = phenotype.unwrap();
         assert!(!p.protein_sequence.is_empty());
         assert!(p.functional_domains.len() > 0 || p.protein_sequence.len() > 0);
+    }
+
+    #[test]
+    fn methylation_silences_phenotype_expression() {
+        let mut genome = test_genome();
+        assert!(PhenotypeEngine::express(&genome, "PHENOTYPE_TEST").is_some());
+
+        genome.epigenome.add_mark(crate::epigenome::MarkParams {
+            locus: "PHENOTYPE_TEST".to_string(),
+            kind: EpigeneticMark::Methylation,
+            level: 0.8,
+        });
+
+        assert!(PhenotypeEngine::express(&genome, "PHENOTYPE_TEST").is_none());
     }
 
     #[test]

@@ -30,6 +30,10 @@ async function migrateFossilization(db) {
   CREATE INDEX IF NOT EXISTS idx_fossils_stratum ON fossils(stratum_id);
   CREATE INDEX IF NOT EXISTS idx_fossils_scope ON fossils(organization_id, project_id);
   CREATE INDEX IF NOT EXISTS idx_fossils_recorded ON fossils(recorded_at);`);
+
+  const columns = new Set((await db.all('PRAGMA table_info(fossils)')).map((column) => column.name));
+  if (!columns.has('source_event_id')) await db.exec('ALTER TABLE fossils ADD COLUMN source_event_id TEXT');
+  if (!columns.has('source_event_hash')) await db.exec('ALTER TABLE fossils ADD COLUMN source_event_hash TEXT');
 }
 
 module.exports = { migrateFossilization };

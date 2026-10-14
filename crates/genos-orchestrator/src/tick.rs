@@ -72,6 +72,7 @@ pub struct MissionReport {
 /// Vérifications pré-délibération (extraites pour réduire la complexité).
 fn pre_deliberation(eco: &mut GenosEcosystem, state: &WorldState) -> Option<TickReport> {
     eco.maintain_autopoiesis();
+    tick_cell_metabolism(eco);
     diagnose_active_virions(eco);
     crate::clinical_therapy::diagnose_active_cells(eco);
     if let Some(report) = early_survival_gate(eco, state) {
@@ -81,6 +82,42 @@ fn pre_deliberation(eco: &mut GenosEcosystem, state: &WorldState) -> Option<Tick
     eco.express_free_desire(state);
     eco.run_instincts(state);
     None
+}
+
+fn tick_cell_metabolism(eco: &mut GenosEcosystem) {
+    let observations = eco
+        .orchestrator
+        .active_cells
+        .iter_mut()
+        .filter_map(|(cell_id, cell)| {
+            if !cell.is_alive() {
+                return None;
+            }
+            let entropy_before = cell.metabolism.entropy_level;
+            let amino_acids_before = cell.metabolism.amino_acids;
+            let waste_before = cell.metabolism.cellular_waste;
+            let budget_before = cell.conscience.current_budget;
+            cell.tick_interoception();
+            Some(serde_json::json!({
+                "cellId": cell_id,
+                "entropyBefore": entropy_before,
+                "entropyAfter": cell.metabolism.entropy_level,
+                "aminoAcidsBefore": amino_acids_before,
+                "aminoAcidsAfter": cell.metabolism.amino_acids,
+                "cellularWasteBefore": waste_before,
+                "cellularWasteAfter": cell.metabolism.cellular_waste,
+                "budgetBefore": budget_before,
+                "budgetAfter": cell.conscience.current_budget,
+                "apoptotic": cell.conscience.is_apoptotic,
+            }))
+        })
+        .collect::<Vec<_>>();
+    for observation in observations {
+        eco.record_event(
+            "CELL_METABOLISM_TICK",
+            serde_json::json!({ "schema": "genos.cell-metabolism-tick/v1", "observation": observation }),
+        );
+    }
 }
 
 fn integrate_neural_signals(eco: &mut GenosEcosystem, state: &WorldState) {
@@ -347,3 +384,7 @@ fn record_creative_hypotheses(eco: &mut GenosEcosystem, tasks: &[crate::creativi
 #[cfg(test)]
 #[path = "tick_receipt_tests.rs"]
 mod receipt_tests;
+
+#[cfg(test)]
+#[path = "tick_cell_metabolism_tests.rs"]
+mod cell_metabolism_tests;

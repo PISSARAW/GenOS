@@ -40,23 +40,66 @@ struct DivisionReceiptInput {
     consumed_cost: f64,
 }
 
+pub(super) struct DivisionStateBackup {
+    orchestrator: crate::BiomimeticOrchestrator,
+    neuro: genos_biology::neurobiology::NervousSystem,
+    quorum: genos_biology::quorum::QuorumSensingSystem,
+    events: Vec<genos_store::Event>,
+}
+
+impl DivisionStateBackup {
+    pub(super) fn capture(ecosystem: &GenosEcosystem) -> Self {
+        Self {
+            orchestrator: ecosystem.orchestrator.clone(),
+            neuro: ecosystem.neuro.system.clone(),
+            quorum: ecosystem.quorum.clone(),
+            events: ecosystem.events.snapshot(),
+        }
+    }
+
+    pub(super) fn restore(self, ecosystem: &mut GenosEcosystem) {
+        ecosystem.orchestrator = self.orchestrator;
+        ecosystem.neuro.system = self.neuro;
+        ecosystem.quorum = self.quorum;
+        if let Ok(events) = genos_store::InMemoryEventStore::restore(self.events) {
+            ecosystem.events = events;
+        }
+    }
+}
+
 impl GenosEcosystem {
     /// Divide the eligible cell during a mission and persist its measured receipt.
     pub fn divide_for_mission(
         &mut self,
         store: &BiologicalReceiptStore,
     ) -> Result<CellDivisionReceipt, MissionDivisionError> {
+        let backup = DivisionStateBackup::capture(self);
+        let receipt = self.perform_mission_division()?;
+        let encoded = match serde_json::to_value(&receipt) {
+            Ok(encoded) => encoded,
+            Err(error) => {
+                backup.restore(self);
+                return Err(MissionDivisionError::Persistence {
+                    receipt,
+                    message: error.to_string(),
+                });
+            }
+        };
+        if let Err(message) = store.append_receipts(&[encoded]) {
+            backup.restore(self);
+            return Err(MissionDivisionError::Persistence { receipt, message });
+        }
+        Ok(receipt)
+    }
+
+    pub(super) fn perform_mission_division(
+        &mut self,
+    ) -> Result<CellDivisionReceipt, MissionDivisionError> {
         let mission_id = self.mission_id.ok_or(MissionDivisionError::MissionIdentityMissing)?;
         let consumed_before = self.orchestrator.metabolism.consumed_total;
         let outcome = self.autonomous_reproduction_cycle();
         let consumed_cost = self.orchestrator.metabolism.consumed_total - consumed_before;
         let receipt = self.division_receipt(DivisionReceiptInput { mission_id, outcome, consumed_cost });
-        let encoded = serde_json::to_value(&receipt).map_err(|error| {
-            MissionDivisionError::Persistence { receipt: receipt.clone(), message: error.to_string() }
-        })?;
-        store.append_receipts(&[encoded]).map_err(|message| {
-            MissionDivisionError::Persistence { receipt: receipt.clone(), message }
-        })?;
         Ok(receipt)
     }
 

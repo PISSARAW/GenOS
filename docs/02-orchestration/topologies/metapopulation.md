@@ -2,7 +2,7 @@
 
 - **Statut** : runtime régional implémenté ; qualification produit expérimentale
 - **Portée** : persistance régionale par populations semi-indépendantes, migration et recolonisation
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-14
 
 > **Lecture du statut** — Les descriptions de rôles, variantes, scénarios et machines à états expriment le modèle visé lorsqu’elles sont présentées comme cible ou hypothèse. Les calculs, seuils et actions précédés de « réellement calculé », « implémenté » ou « défaut actuel » décrivent le code observé. Les analogies écologiques motivent le vocabulaire ; elles ne valident pas les performances du runtime.
 
@@ -258,7 +258,12 @@ Sans cette séparation, un dème éteint ne pourrait pas être remplacé par un 
 
 ---
 
-## 5. Les cinq services de contrôle
+## 5. Les cinq services de contrôle (modèle cible)
+
+> Les cinq fonctions ci-dessous décrivent le modèle visé, pas la composition
+> exécutée. La composition réellement résolue est documentée en section 5bis :
+> quatre rôles biologiques résolus en `workerKind` typés par
+> `topologyWorkerKindService`.
 
 ### 5.1 DemeManager — Local Population Lifecycle
 
@@ -382,6 +387,40 @@ Your task (topology_governor):
 
 Return: topology adjustments, corridor state, synchrony deltas, firebreak activations
 ```
+
+## 5bis. Workers réellement résolus (vérifié 2026-10-14)
+
+Sélecteur (`backend/src/services/ontogenesis/topologySelector.js`) :
+`metapopulation` exige `execute, verify`, rôles déclarés
+`bounded_worker, verifier_worker`, coût `2`.
+
+Composition (`backend/src/services/biologicalModeService.js`, fonction `compose`) :
+quatre rôles, résolus par `backend/src/services/topologyWorkerKindService.js`
+(fail-closed : un kind incompatible lève `WORKER_KIND_CAPABILITY_MISMATCH`).
+
+| Rôle | Capacité exigée | `workerKind` effectif | Capacités du kind |
+| --- | --- | --- | --- |
+| `population_isolator` | `scoped_execution` | `bounded_worker` (alt. `procedural_executor`) | `execute, scoped_execution` |
+| `quorum_sensor` | `observe` | `scout_cell` (alt. `resident_daemon`) | `observe` (`resident_daemon` : `observe, execute`) |
+| `synaptic_adaptor` | `adaptive_strategy` | `adaptive_worker` | `execute, scoped_execution, adaptive_strategy, domain_specialization` |
+| `regeneration_steward` | `recover` | `recovery_worker` | `execute, recover` |
+
+Notes :
+- Mission réduite à trois rôles (`population_isolator, quorum_sensor,
+  regeneration_steward`) quand l'objectif mentionne trois populations et une
+  reprise (`rolesForMission`).
+- Les `workers: [{status}]` de `demeRecoveryService.assessExtinction` ne sont
+  pas des `workerKind` typés : `NOT_EXTINCT` si fonction locale viable ou worker
+  `ACTIVE/ALIVE`, `UNKNOWN` si aucun worker mesuré ou viabilité non mesurée,
+  `EXTINCT` sinon ; seul `EXTINCT` est enregistrable.
+- Variant `persistent` : le seul worker runtime persistant est `resident_daemon`
+  sous bail (`persistentDaemonLeaseService` : `create/load/extend/deactivate/prune`).
+- Variants `island_search / evolutionary` : moteurs `rust-multi-island`,
+  `island-search-adapter` et `procedural-metapopulation`, pas des `workerKind`.
+
+Preuve : `buildWorkerContract` + `promptRule` OK pour les 7 kinds le 2026-10-14 ;
+`npm --prefix backend run test:metapopulation` 10/10 PASS ;
+`test_topology_snapshot_metapopulation.js` 16/16 PASS.
 
 ---
 
@@ -1437,7 +1476,7 @@ L'ontologie sépare explicitement :
 
 `Metapopulation ≠ Patch ≠ Deme ≠ Individual`
 
-Le patch décrit le contexte local disponible ; le dème est la population qui l'occupe ; les individus sont les membres du dème. Les quatre rôles historiques (`population_isolator`, `quorum_sensor`, `synaptic_adaptor`, `regeneration_steward`) deviennent progressivement des fonctions de contrôle, pas des membres obligatoires de chaque population.
+Le patch décrit le contexte local disponible ; le dème est la population qui l'occupe ; les individus sont les membres du dème. Les quatre rôles (`population_isolator`, `quorum_sensor`, `synaptic_adaptor`, `regeneration_steward`) sont les membres composés par `biologicalModeService` et résolus en `workerKind` (voir section 5bis) ; ils sont distincts des cinq fonctions de contrôle du modèle cible (§5).
 
 ### 32.2 Invariants d'architecture
 

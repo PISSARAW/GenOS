@@ -16,6 +16,11 @@ use genos_biology::instinct::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use uuid::Uuid;
+
+#[path = "instinct_receipt_helpers.rs"]
+mod receipt_helpers;
+use receipt_helpers::{ActionTraceInput, MissionReceiptContext, action_trace, mission_receipts};
 
 pub trait InstinctActionExecutor: Send {
     fn execute(&mut self, step: &MotorStep) -> Result<InstinctActionReceipt, String>;
@@ -40,6 +45,29 @@ pub struct InstinctActivation {
     pub locus: String,
     pub evaluation: genos_biology::instinct::TriggerEvaluation,
     pub outcome: InstinctOutcome,
+    pub actions: Vec<InstinctActionTrace>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InstinctActionTrace {
+    pub step: usize,
+    pub tool: String,
+    pub action: String,
+    pub succeeded: bool,
+    pub result: Value,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct InstinctMissionReceipt {
+    pub schema: String,
+    pub receipt_id: Uuid,
+    pub mission_id: Uuid,
+    pub tick: u64,
+    pub locus: String,
+    pub stimuli: Vec<SignStimulus>,
+    pub evaluation: genos_biology::instinct::TriggerEvaluation,
+    pub outcome: InstinctOutcome,
+    pub actions: Vec<InstinctActionTrace>,
 }
 
 /// État instinctif de l'écosystème : bibliothèque innée, dernières activations,
@@ -54,6 +82,7 @@ pub struct InstinctState {
     pub action_executor: Option<Box<dyn InstinctActionExecutor>>,
     pub sensor_adapter: Option<Box<dyn InstinctSensorAdapter>>,
     pub authorized_tools: Vec<String>,
+    pub(crate) mission_receipts: Vec<InstinctMissionReceipt>,
 }
 
 impl Default for InstinctState {
@@ -67,6 +96,7 @@ impl Default for InstinctState {
             action_executor: None,
             sensor_adapter: None,
             authorized_tools: Vec::new(),
+            mission_receipts: Vec::new(),
         }
     }
 }
@@ -199,15 +229,26 @@ impl GenosEcosystem {
                     locus: program.id.clone(),
                     evaluation,
                     outcome: program.run(&ctx),
+                    actions: Vec::new(),
                 }
             })
             .collect();
         for (program, activation) in programs.iter().zip(&mut activations) {
             // Seul l'executor (avec receipts) convertit Pending en Complete.
             if let InstinctOutcome::Pending { gain, .. } = &activation.outcome {
-                activation.outcome = self.dispatch_instinct_steps(program, *gain);
+                let (outcome, actions) = self.dispatch_instinct_steps(program, *gain);
+                activation.outcome = outcome;
+                activation.actions = actions;
             }
         }
+        self.instincts.mission_receipts = mission_receipts(
+            MissionReceiptContext {
+                mission_id: self.mission_id,
+                tick: self.receipt_tick,
+                field: &field,
+            },
+            &activations,
+        );
         for (program, activation) in programs.iter().zip(&activations) {
             if activation.evaluation.released {
                 self.record_event(
@@ -233,14 +274,22 @@ impl GenosEcosystem {
         self.instincts.last = activations;
     }
 
-    fn dispatch_instinct_steps(&mut self, program: &InstinctProgram, gain: f64) -> InstinctOutcome {
+    fn dispatch_instinct_steps(
+        &mut self,
+        program: &InstinctProgram,
+        gain: f64,
+    ) -> (InstinctOutcome, Vec<InstinctActionTrace>) {
         let mut results = Vec::new();
+        let mut action_traces = Vec::new();
         let mut failure = None;
         {
             let Some(executor) = self.instincts.action_executor.as_deref_mut() else {
-                return InstinctOutcome::Blocked {
-                    reason: "No external instinct action executor is registered".to_string(),
-                };
+                return (
+                    InstinctOutcome::Blocked {
+                        reason: "No external instinct action executor is registered".to_string(),
+                    },
+                    action_traces,
+                );
             };
             for (index, step) in program.paf.steps.iter().enumerate() {
                 match executor.execute(step) {
@@ -248,26 +297,43 @@ impl GenosEcosystem {
                         if !receipt.execution_id.trim().is_empty()
                             && !receipt.evidence_ref.trim().is_empty() =>
                     {
-                        results.push((
-                            index,
-                            true,
-                            json!({
+                        let result = json!({
                                 "execution_id": receipt.execution_id,
                                 "evidence_ref": receipt.evidence_ref,
                                 "result": receipt.result
-                            }),
-                        ));
+                            });
+                        action_traces.push(action_trace(ActionTraceInput {
+                            step_index: index,
+                            step,
+                            succeeded: true,
+                            result: result.clone(),
+                        }));
+                        results.push((index, true, result));
                     }
                     Ok(_) => {
                         let reason =
                             "Executor returned a receipt without execution_id/evidence_ref"
                                 .to_string();
-                        results.push((index, false, json!({ "reason": reason })));
+                        let result = json!({ "reason": reason });
+                        action_traces.push(action_trace(ActionTraceInput {
+                            step_index: index,
+                            step,
+                            succeeded: false,
+                            result: result.clone(),
+                        }));
+                        results.push((index, false, result));
                         failure = Some((index, reason));
                         break;
                     }
                     Err(reason) => {
-                        results.push((index, false, json!({ "reason": reason })));
+                        let result = json!({ "reason": reason });
+                        action_traces.push(action_trace(ActionTraceInput {
+                            step_index: index,
+                            step,
+                            succeeded: false,
+                            result: result.clone(),
+                        }));
+                        results.push((index, false, result));
                         failure = Some((index, reason));
                         break;
                     }
@@ -290,103 +356,24 @@ impl GenosEcosystem {
             );
         }
         if let Some((index, reason)) = failure {
-            return InstinctOutcome::Interrupt {
-                at_step: index,
-                reason,
-            };
+            return (
+                InstinctOutcome::Interrupt {
+                    at_step: index,
+                    reason,
+                },
+                action_traces,
+            );
         }
-        InstinctOutcome::Complete {
-            steps_executed: program.paf.steps.len(),
-            gain,
-        }
+        (
+            InstinctOutcome::Complete {
+                steps_executed: program.paf.steps.len(),
+                gain,
+            },
+            action_traces,
+        )
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct RecordingExecutor {
-        calls: usize,
-    }
-
-    impl InstinctActionExecutor for RecordingExecutor {
-        fn execute(&mut self, step: &MotorStep) -> Result<InstinctActionReceipt, String> {
-            self.calls += 1;
-            Ok(InstinctActionReceipt {
-                execution_id: format!("exec-{}", self.calls),
-                evidence_ref: format!("evidence:{}", step.action),
-                result: json!({ "action": step.action, "accepted": true }),
-            })
-        }
-    }
-
-    #[test]
-    fn threat_state_emits_sign_stimulus() {
-        let state = WorldState {
-            threat: 0.8,
-            ..WorldState::default()
-        };
-        let field = stimulus_field_from(&state);
-        assert!(
-            field
-                .readings
-                .iter()
-                .any(|s| s.signature == "threat_detected")
-        );
-    }
-
-    #[test]
-    fn budget_pressure_emits_resource_stimulus() {
-        let state = WorldState {
-            budget_pressure: 0.9,
-            ..WorldState::default()
-        };
-        let field = stimulus_field_from(&state);
-        assert!(
-            field
-                .readings
-                .iter()
-                .any(|s| s.signature == "resource_exhausted")
-        );
-    }
-
-    #[test]
-    fn runtime_without_action_permissions_vetoes_dispatch() {
-        let mut eco = GenosEcosystem::new("Instinct_Unit");
-        let state = WorldState {
-            threat: 0.9,
-            ..WorldState::default()
-        };
-        eco.run_instincts(&state);
-        assert_eq!(eco.last_instincts().len(), 1);
-        assert!(matches!(
-            eco.last_instincts()[0].outcome,
-            InstinctOutcome::Interrupt { .. }
-        ));
-    }
-
-    #[test]
-    fn mission_threat_runs_authorized_paf_and_records_action_evidence() {
-        let mut eco = GenosEcosystem::new("PAF_Runtime");
-        eco.set_instinct_authorized_tools(vec!["genos_biomimicry".to_string()]);
-        eco.set_instinct_action_executor(Box::new(RecordingExecutor { calls: 0 }));
-        eco.run_instincts(&WorldState { threat: 0.9, ..WorldState::default() });
-
-        assert!(matches!(eco.last_instincts()[0].outcome, InstinctOutcome::Complete { steps_executed: 2, .. }));
-        let events = eco.events.read_stream(1);
-        assert!(events.iter().any(|event| event.event_type == "INSTINCT_TRIGGER"));
-        assert_eq!(events.iter().filter(|event| event.event_type == "INSTINCT_ACTION_EXECUTED").count(), 2);
-        assert!(events.iter().any(|event| event.payload["result"]["evidence_ref"].as_str().unwrap_or("").starts_with("evidence:")));
-    }
-
-    #[test]
-    fn calm_state_does_not_trigger() {
-        let mut eco = GenosEcosystem::new("Calm_Unit");
-        eco.run_instincts(&WorldState::default());
-        assert!(matches!(
-            eco.last_instincts()[0].outcome,
-            InstinctOutcome::NotTriggered { .. }
-        ));
-    }
-}
+#[path = "instincts_tests.rs"]
+mod tests;

@@ -2,7 +2,7 @@
 
 - **Statut** : runtime régional implémenté ; qualification produit expérimentale
 - **Portée** : API Node, persistance SQLite, adaptateurs et reprise bornée
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-14
 - **Version de référence** : commit `5b18c834`
 
 ## Snapshot topologique
@@ -176,8 +176,8 @@ La fitness finale et l'issue rescue sont enregistrées ensemble.
 
 | Mécanisme | Contrat et limite |
 | --- | --- |
-| Évolution | `evolutionRequests` et `options.rustEvolution` ; rapport d'îlot valide, génération non régressive, fitness bornées, population et résultats persistés |
-| Recherche | `islandSearchRequests` et `options.solverSearch` ; le résultat doit rappeler `demeId`, `solverId`, `problemRef` et `seed`, et fournir `evidenceRef` et `provenance` ; état repris pour ce solveur et ce problème seulement |
+| Évolution | `evolutionRequests` et `options.rustEvolution` ; moteur `rust-multi-island`, rapport d'îlot valide, génération non régressive, fitness dans [0, 1], population et résultats persistés ; sync procédurale via `procedural-metapopulation` |
+| Recherche | `islandSearchRequests` et `options.solverSearch` ; moteur `island-search-adapter`, le résultat doit rappeler `demeId`, `solverId`, `problemRef` et `seed`, et fournir `objective`, `incumbentRef`, `evidenceRef` et `provenance` ; état repris pour ce solveur et ce problème seulement |
 | Fitness locale | `fitnessEvaluator` synchrone dans le contexte d'évaluation ; résultat `{ fitness, evidenceRef, provenance }` |
 | Certification de génome | Preuve d'évaluation liée à `genomeHash` et à sa référence d'évidence |
 | QD / spéciation | Helpers de diversité et analyse d'historiques ; un historique vide ne prouve pas une spéciation, un hash ne mesure pas la fitness |
@@ -222,6 +222,14 @@ Cela ne constitue pas une validation globale du dépôt : les checks globaux
 ont rencontré des échecs hors Metapopulation et la compilation Rust a manqué
 d'espace disque. Les fixtures d'adaptateurs ne qualifient pas un moteur Rust,
 un solveur, un provider ou une mission distribuée réelle.
+
+Revalidation du 2026-10-14 : profil `metapopulation` **10/10 suites PASS**,
+snapshots topologiques `metapopulation` **16/16 PASS**, résolution des 4 rôles
+en `workerKind` (`bounded_worker`, `scout_cell`, `adaptive_worker`,
+`recovery_worker`) avec `buildWorkerContract` + `promptRule` OK et rejet
+fail-closed d'un kind incompatible (`WORKER_KIND_CAPABILITY_MISMATCH`).
+Le profil `workers` a passé 7 gates avant un timeout >120 s sur
+`test_worker_compliance_native_missions` (à relancer avec un timeout augmenté).
 
 Le benchmark mesure uniquement capacité et anti-synchronie sur des fixtures
 synthétiques de 12, 24 et 48 dèmes. La supériorité entre topologies, la tolérance

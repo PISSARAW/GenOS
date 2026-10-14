@@ -67,6 +67,55 @@ async function testPersistenceAndExcavation(db) {
   assert(!missing.success, 'Missing fossil must not be excavatable');
 }
 
+async function testProvenanceAcrossRestart(dbPath, db) {
+  const lineageId = 'lineage_provenance_restart';
+  const sourceEventId = 'event_fossil_source_restart';
+  await db.run(`INSERT INTO telemetry_events
+    (event_id, agent_id, event_type, action, detail, payload_json)
+    VALUES (?, ?, 'AGENT_FAILED', 'TERMINATE', 'lineage exhausted', ?)`,
+  sourceEventId, lineageId, JSON.stringify({ reason: 'budget_exhausted', lineageId }));
+
+  const artifactRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-fossil-artifact-'));
+  const previousRoot = process.env.GENOS_STUDIO_ROOT;
+  const previousArtifacts = process.env.GENOS_FOSSIL_ARTIFACT;
+  process.env.GENOS_STUDIO_ROOT = artifactRoot;
+  process.env.GENOS_FOSSIL_ARTIFACT = '1';
+  let fossil;
+  try {
+    const result = await fossilization.recordFossil({
+      lineageId, sourceEventId, reason: 'source event fossilization', hardParts: ['lineage', 'source_event']
+    }, db);
+    assert(result.success, 'Fossil with terminal source event must be indexed');
+    fossil = result.fossil;
+    const artifactPath = path.join(artifactRoot, 'fossils', `${lineageId}_${fossil.fossil_id}.json`);
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+    assert.equal(artifact.extinct_lineage_id, lineageId);
+    assert.equal(artifact.source_event_id, sourceEventId);
+    assert.equal(artifact.source_event_hash, fossil.source_event_hash);
+    assert.equal(artifact.payload_hash, fossil.payload_hash);
+  } finally {
+    if (previousRoot === undefined) delete process.env.GENOS_STUDIO_ROOT;
+    else process.env.GENOS_STUDIO_ROOT = previousRoot;
+    process.env.GENOS_FOSSIL_ARTIFACT = previousArtifacts;
+  }
+
+  await closeDatabase();
+  const reopened = await getDatabase(dbPath);
+  try {
+    const excavated = await fossilization.excavateFossil(reopened, fossil.fossil_id);
+    assert(excavated.success && excavated.integrity_verified, 'Fossil and source event must verify after restart');
+    assert(excavated.provenance_verified, 'Source event provenance must be explicitly verified');
+    assert.equal(excavated.specimen.source_event_id, sourceEventId);
+    await reopened.run('UPDATE telemetry_events SET detail = ? WHERE event_id = ?', 'rewritten event', sourceEventId);
+    const alteredSource = await fossilization.excavateFossil(reopened, fossil.fossil_id);
+    assert(!alteredSource.success && !alteredSource.integrity_verified,
+      'Changing the source event after restart must invalidate fossil provenance');
+  } finally {
+    await closeDatabase();
+    fs.rmSync(artifactRoot, { recursive: true, force: true });
+  }
+}
+
 async function run() {
   console.log('=== Test Suite: Fossilisation stratigraphique ===\n');
   testPureCanonicalRecord();
@@ -77,6 +126,8 @@ async function run() {
   try {
     await testPersistenceAndExcavation(db);
     console.log('   ✓ Persistence, strata indexing and read-only excavation');
+    await testProvenanceAcrossRestart(dbPath, db);
+    console.log('   ✓ Artifact, terminal event and lineage provenance survive restart and detect source edits');
   } finally {
     await closeDatabase();
     for (const suffix of ['', '-wal', '-shm']) {

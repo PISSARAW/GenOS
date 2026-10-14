@@ -52,10 +52,11 @@ assert.strictEqual(anyHint.length, V.VERIFIER_KINDS.length);
 const top = V.selectTopClones(CATALOG, {
   epitopes: { evidence: { kind: 'test_result' } },
 }, { count: 2 });
-assert.ok(top.length === 1);
+assert.strictEqual(top.length, 2);
 assert.strictEqual(top[0].type, 'testResult');
+assert.ok(top[1] && top[1].type !== top[0].type);
 
-// count hint n'expose qu'un seul match ; slice(0, 2) ne crée pas d'entrées fantômes.
+// hint + top-up : garantit count clones distincts pour l'exigence de 2 vérificateurs indépendants.
 assert.ok(V.selectTopClones(CATALOG, { epitopes: {} }, { count: 3 }).length >= 3);
 
 const ranked = V.clonalRank(CATALOG, {

@@ -39,7 +39,9 @@ impl GenosEcosystem {
                     "genome_id": fingerprint.genome_id,
                     "lineage_id": fingerprint.lineage_id,
                     "generation": spore.genome.generation,
-                    "genome_fingerprint": fingerprint.content_hash
+                    "genome_fingerprint": fingerprint.content_hash,
+                    "spore_state": spore,
+                    "tissue": self.orchestrator.spore_tissue_map.get(&spore.parent_cell_id)
                 }))
             })
             .collect::<Result<Vec<Value>, String>>()?;

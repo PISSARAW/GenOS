@@ -50,6 +50,9 @@ async function runTests() {
   const outputMetadata = await sharp(cropRes.outputPath).metadata();
   assert.equal(outputMetadata.width, cropRes.pixelDimensions.width);
   assert.equal(outputMetadata.height, cropRes.pixelDimensions.height);
+  const replayRes = await fovea.fovealCrop(sourceImage, axesRoi.bbox, { zoomFactor: 3.5 });
+  assert.equal(replayRes.sha256, cropRes.sha256, 'identical source pixels and ROI must reproduce the same crop hash');
+  assert.deepEqual(replayRes.pixelDimensions, cropRes.pixelDimensions);
   await assert.rejects(fovea.fovealCrop(sourceImage, [-1, 0, 1000, 1000]), /inside the source image/);
   console.log('  -> Foveal crop written to:', cropRes.outputPath);
   console.log('  -> Crop dimensions:', cropRes.pixelDimensions);

@@ -1,9 +1,14 @@
 use crate::args::{BiologicalCmd, RhizomeCmd, RhizomeSubcommands};
 use crate::commands::{rhizome_telemetry, syncytium_crdt};
+use super::biological_recruitment::{MissionRuntime, persist_mission_operations};
 use serde_json::json;
 
 pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
     let mode = cmd.mode.trim().to_ascii_lowercase();
+
+    if (cmd.recruit_dna.is_some() || cmd.recruitment_spec.is_some()) && !cmd.tick {
+        return Err("DNA recruitment requires --tick and a persisted mission identity".into());
+    }
 
     if cmd.tick {
         return run_mission_tick(cmd);
@@ -125,12 +130,11 @@ fn run_and_report(
                 error.message
             )
         })?;
-    if cmd.divide {
-        let division = ecosystem
-            .divide_for_mission(&store)
-            .map_err(|error| format!("mission division receipt was not persisted: {error:?}"))?;
-        receipts.push(serde_json::to_value(division).map_err(|error| error.to_string())?);
-    }
+    receipts.extend(persist_mission_operations(ecosystem, MissionRuntime {
+        command: cmd,
+        store,
+        tick: report.tick,
+    })?);
     save_checkpoint(&mut checkpoints, &ecosystem)?;
     println!(
         "{}",

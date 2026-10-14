@@ -315,6 +315,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 - [ADR 0474 — Invariants d'homéostasie liés aux reçus Rust de division](adr/0474-contrats-homeostasie-recus-rust-division.md) — constate une division Rust exacte sans la confondre avec une preuve de worker.
 - [ADR 0475 — Invalider les préférences après transition d'organisation](adr/0475-invalider-preferences-apres-transition-organisation.md) — purge le classement des survivants après le commit du changement d'organisation.
+- [ADR 0476 — Préflight des variantes et gates d’évidence Trinity](adr/0476-preflight-et-gates-des-axes-trinity.md) — rejette les variantes incompatibles avant dispatch et lie les gates aux reçus vérifiés.
 - [ADR 0477 — Refuser le dispatch si le préflight d’exécution est non vérifié](adr/0477-refuser-dispatch-preflight-non-verifie.md) — bloque les lancements sans capacités d’exécution admises.
 - [ADR 0478 — Lier l’idempotence HTTP au corps de requête](adr/0478-lier-idempotence-http-au-corps-de-requete.md) — bloque le rejeu sur corps divergent et attend le reçu SQLite avant un 2xx.
 - [ADR 0479 — Refuser la préemption Garage des sessions topologiques](adr/0479-refuser-la-preemption-garage-des-sessions-topologiques.md) — conserve les sessions collectives hors du thaw tant que Garage ne sait pas les continuer.

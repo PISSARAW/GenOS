@@ -48,6 +48,42 @@ impl BiologicalReceiptStore {
         self.append_batch(&batch)
     }
 
+    /// Single-writer append by schema/key; exact retries return the stored value.
+    /// Concurrent writers require external serialization around this read/append pair.
+    pub fn append_idempotent_receipt(&self, receipt: &Value) -> Result<Value, String> {
+        let schema = receipt["schema"]
+            .as_str()
+            .ok_or_else(|| "Idempotent receipt requires a schema".to_string())?;
+        let key = receipt["idempotency_key"]
+            .as_str()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| "Idempotent receipt requires an idempotency_key".to_string())?;
+        if let Some(previous) = self.find_idempotent_receipt(schema, key)? {
+            if previous == *receipt {
+                return Ok(previous);
+            }
+            return Err("Idempotency key already exists with different receipt content".to_string());
+        }
+        self.append_receipts(std::slice::from_ref(receipt))?;
+        Ok(receipt.clone())
+    }
+
+    /// Find a receipt by its domain schema and idempotency key.
+    pub fn find_idempotent_receipt(
+        &self,
+        schema: &str,
+        idempotency_key: &str,
+    ) -> Result<Option<Value>, String> {
+        self.read_all().map(|receipts| {
+            receipts
+                .into_iter()
+                .find(|receipt| {
+                    receipt["schema"] == schema
+                        && receipt["idempotency_key"] == idempotency_key
+                })
+        })
+    }
+
     /// Read and validate the complete journal; corruption fails closed.
     pub fn read_all(&self) -> Result<Vec<Value>, String> {
         let batches = self.read_batches()?;

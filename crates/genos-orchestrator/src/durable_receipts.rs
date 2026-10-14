@@ -6,7 +6,7 @@ use crate::tick::TickReport;
 use genos_store::BiologicalReceiptStore;
 
 #[cfg(feature = "api")]
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, Response};
 #[cfg(feature = "api")]
 use serde_json::{Value, json};
 #[cfg(feature = "api")]
@@ -99,6 +99,15 @@ impl GenosEcosystem {
         for receipt in &mut report.biological_receipts { receipt.population_json = Some(population_json.clone()); }
         let mut receipts = report.biological_receipts.iter().map(serde_json::to_value)
             .collect::<Result<Vec<_>, _>>().map_err(|error| error.to_string())?;
+        receipts.extend(
+            self.instincts
+                .mission_receipts
+                .iter()
+                .filter(|receipt| receipt.tick == report.tick)
+                .map(serde_json::to_value)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| error.to_string())?,
+        );
         receipts.push(population);
         Ok(receipts)
     }
@@ -127,7 +136,7 @@ fn flush_receipts_to_backend(store: &BiologicalReceiptStore, config: &BackendRec
         let nonce = uuid::Uuid::new_v4().to_string();
         let auth = ReceiptAuthContext { timestamp: &timestamp, nonce: &nonce };
         let signature = sign_receipt(&receipt, &config.signing_secret, &auth)?;
-        client.post(&config.endpoint)
+        let response = client.post(&config.endpoint)
             .bearer_auth(&config.token)
             .header("x-organization-id", &config.organization_id)
             .header("x-project-id", &config.project_id)
@@ -136,11 +145,19 @@ fn flush_receipts_to_backend(store: &BiologicalReceiptStore, config: &BackendRec
             .header("x-genos-receipt-nonce", &nonce)
             .header("x-genos-receipt-signature", signature)
             .json(&json!({ "receipt": receipt }))
-            .send().map_err(|error| error.to_string())?
-            .error_for_status().map_err(|error| error.to_string())?;
+            .send().map_err(|error| error.to_string())?;
+        validate_upload_response(response)?;
         store.acknowledge(&receipt["receipt_id"])?;
     }
     Ok(())
+}
+
+#[cfg(feature = "api")]
+fn validate_upload_response(response: Response) -> Result<(), String> {
+    if response.status().is_success() { return Ok(()); }
+    let status = response.status();
+    let body = response.text().unwrap_or_default();
+    Err(format!("Backend rejected biological receipt with HTTP {status}: {body}"))
 }
 
 #[cfg(feature = "api")]

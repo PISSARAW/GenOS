@@ -191,3 +191,30 @@ fn stale_or_forged_authorization_cannot_change_the_cell() {
         0.6
     );
 }
+
+#[test]
+fn authorization_rejects_a_same_mission_receipt_without_target_state() {
+    let mut ctx = context(&[("metal_toxin_load", 0.75)], json!("ChelationTherapy"));
+    let unrelated_receipt_id = Uuid::new_v4();
+    let mut unrelated_snapshot = ctx.ecosystem.population_state_receipt(0).unwrap();
+    unrelated_snapshot["receipt_id"] = json!(unrelated_receipt_id);
+    unrelated_snapshot["active_cells"] = json!([]);
+    ctx.store.append_receipts(&[unrelated_snapshot]).unwrap();
+    ctx.auth.source_receipt_id = unrelated_receipt_id;
+    ctx.auth.signature = ctx.auth.expected_signature(SECRET);
+
+    let result = ctx
+        .ecosystem
+        .apply_authorized_therapy(&ctx.auth, &ctx.store);
+
+    assert!(result.is_err());
+    assert_eq!(
+        ctx.ecosystem.orchestrator.active_cells[&ctx.auth.cell_id]
+            .clinical
+            .markers["metal_toxin_load"],
+        0.75
+    );
+    assert!(ctx.store.read_all().unwrap().iter().all(|receipt| {
+        receipt["schema"] != "genos.clinical-application/v1"
+    }));
+}

@@ -27,14 +27,14 @@ crossbeam = "0.8"
 rmp-serde = "1.3"
 toml = "1.1"
 syn = { version = "2", features = ["full", "visit"] }
-sha2 = { version = "0.10.9", optional = true }
+sha2 = "0.10.9"
 
 [dev-dependencies]
 tempfile = "3"
 
 [features]
 # Accès à la couche serveur/sécurité de GenOS (tokio + reqwest).
-api = ["dep:genos-api", "dep:reqwest", "dep:sha2"]
+api = ["dep:genos-api", "dep:reqwest"]
 
 [[example]]
 name = "receipt_bridge"

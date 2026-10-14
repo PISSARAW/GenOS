@@ -11,20 +11,15 @@ impl GenosEcosystem {
         consumed: bool,
         completed: bool,
     ) -> BiologicalExecutionReceipt {
-        let cell_id = Some(self.orchestrator.orchestrator_id)
-            .filter(|cell_id| self.orchestrator.active_cells.contains_key(cell_id));
-        let genome_id = cell_id
-            .and_then(|cell_id| self.orchestrator.active_cells.get(&cell_id)?.genome_id)
-            .filter(|genome_id| self.orchestrator.genomes.contains_key(genome_id));
-        let genome_fingerprint = genome_id
-            .and_then(|genome_id| self.orchestrator.genomes.get(&genome_id))
-            .and_then(|genome| genome.fingerprint().ok())
-            .map(|fingerprint| fingerprint.content_hash);
+        let cell_id = self.orchestrator.orchestrator_id;
+        let (genome_id, genome_fingerprint) = root_genome_identity(self)
+            .map(|(genome, fingerprint)| (Some(genome), Some(fingerprint)))
+            .unwrap_or((None, None));
         BiologicalExecutionReceipt {
             schema: "genos.biological-execution-receipt/v1".to_string(),
             receipt_id: Uuid::new_v4(),
             mission_id: self.mission_id,
-            cell_id,
+            cell_id: Some(cell_id),
             genome_id,
             genome_fingerprint,
             population_json: None,
@@ -65,4 +60,13 @@ impl GenosEcosystem {
             }),
         );
     }
+}
+
+fn root_genome_identity(eco: &GenosEcosystem) -> Option<(Uuid, String)> {
+    let cell_id = eco.orchestrator.orchestrator_id;
+    let cell = eco.orchestrator.active_cells.get(&cell_id)?;
+    let genome_id = cell.genome_id?;
+    let genome = eco.orchestrator.genomes.get(&genome_id)?;
+    let fingerprint = genome.fingerprint().ok()?.content_hash;
+    Some((genome_id, fingerprint))
 }

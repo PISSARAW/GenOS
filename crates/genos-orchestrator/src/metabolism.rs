@@ -8,6 +8,7 @@ use crate::GenosEcosystem;
 use genos_biology::glycolysis::{MetabolicCycleReport, run_metabolic_cycle};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
+use uuid::Uuid;
 
 /// Combien de tokens de budget ATP correspondent à une mole d'ATP chimique
 /// réellement synthétisée par la glycolyse (facteur de conversion documenté,
@@ -45,6 +46,28 @@ pub struct MetabolismCheckpoint {
     pub consumed_total: f64,
     pub produced_total: f64,
     pub consumption_receipts: Vec<MetabolicConsumptionReceipt>,
+}
+
+/// Demande de matière première pour une opération d'une mission.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MissionMetabolicPoolDemand {
+    pub cell_id: Uuid,
+    pub operation: String,
+    pub amino_acids: f64,
+}
+
+/// Reçu mesuré du registre `MetabolicPool` porté par une cellule active.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MissionMetabolicPoolReceipt {
+    pub schema: String,
+    pub mission_id: Uuid,
+    pub cell_id: Uuid,
+    pub operation: String,
+    pub requested_amino_acids: f64,
+    pub amino_acids_before: f64,
+    pub amino_acids_after: f64,
+    pub accepted: bool,
+    pub refusal_reason: Option<String>,
 }
 
 impl Default for Metabolism {
@@ -160,6 +183,40 @@ impl Metabolism {
 }
 
 impl GenosEcosystem {
+    /// Débite le `MetabolicPool` réel d'une cellule active et journalise le résultat.
+    /// Une mission et une cellule enregistrée sont exigées; un manque de matière
+    /// produit un reçu de refus sans modifier le solde.
+    pub fn consume_mission_metabolic_pool(
+        &mut self,
+        demand: MissionMetabolicPoolDemand,
+    ) -> Result<MissionMetabolicPoolReceipt, String> {
+        let mission_id = self
+            .mission_id
+            .ok_or_else(|| "mission required for metabolic pool consumption".to_string())?;
+        let cell = self
+            .orchestrator
+            .active_cells
+            .get_mut(&demand.cell_id)
+            .ok_or_else(|| "metabolic pool cell is not active".to_string())?;
+        let (amino_acids_before, accepted, refusal_reason) = consume_cell_pool(cell, &demand);
+        let receipt = MissionMetabolicPoolReceipt {
+            schema: "genos.mission-metabolic-pool-receipt/v1".to_string(),
+            mission_id,
+            cell_id: demand.cell_id,
+            operation: demand.operation,
+            requested_amino_acids: finite_demand(demand.amino_acids),
+            amino_acids_before,
+            amino_acids_after: cell.metabolism.amino_acids,
+            accepted,
+            refusal_reason,
+        };
+        self.record_event(
+            "MISSION_METABOLIC_POOL_RECEIPT",
+            serde_json::to_value(&receipt).map_err(|error| error.to_string())?,
+        );
+        Ok(receipt)
+    }
+
     /// Nourrit l'organisme : reconstitue l'ATP.
     pub fn feed(&mut self, amount: f64) {
         self.orchestrator.metabolism.feed(amount);
@@ -182,6 +239,35 @@ impl GenosEcosystem {
         self.feed(report.atp_produced_mol * ATP_TOKENS_PER_MOL);
         report
     }
+}
+
+pub(crate) fn consume_cell_pool(
+    cell: &mut genos_cell::AgentCell,
+    demand: &MissionMetabolicPoolDemand,
+) -> (f64, bool, Option<String>) {
+    let available_before = cell.metabolism.amino_acids;
+    let refusal = demand_refusal(&demand.operation, demand.amino_acids);
+    let accepted = refusal.is_none() && cell.metabolism.consume_amino_acids(demand.amino_acids);
+    let refusal_reason = if accepted {
+        None
+    } else {
+        Some(refusal.unwrap_or_else(|| "insufficient or invalid amino acid reserve".to_string()))
+    };
+    (available_before, accepted, refusal_reason)
+}
+
+fn demand_refusal(operation: &str, amount: f64) -> Option<String> {
+    if operation.trim().is_empty() {
+        return Some("operation is required".to_string());
+    }
+    if !amount.is_finite() || amount < 0.0 {
+        return Some("amino acid demand must be finite and non-negative".to_string());
+    }
+    None
+}
+
+fn finite_demand(amount: f64) -> f64 {
+    if amount.is_finite() && amount >= 0.0 { amount } else { 0.0 }
 }
 
 #[cfg(test)]
