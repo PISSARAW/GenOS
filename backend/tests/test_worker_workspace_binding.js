@@ -45,6 +45,8 @@ async function main() {
     await db.run('INSERT INTO agent_capsule_cleanup VALUES (?, ?, ?)', 'worker', first, 'epoch-first');
     const firstId = await bind(db, first);
     assert.equal(await bind(db, first), firstId);
+    await db.run('INSERT INTO agent_capsule_cleanup VALUES (?, ?, ?)',
+      'worker_run_1', first, 'epoch-first');
     const firstWorkspace = await db.get('SELECT * FROM workspaces WHERE id = ?', firstId);
     assert.equal(firstWorkspace.path, first);
     assert.equal(firstWorkspace.visibility, 'Private');

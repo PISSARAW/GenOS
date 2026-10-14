@@ -47,10 +47,11 @@ function epochTag(epoch) {
 async function trackedCapsule(db, workerId, capsulePath) {
   const rows = await db.all('SELECT agent_id, epoch FROM agent_capsule_cleanup WHERE workspace_root = ?', capsulePath)
     .catch(() => []);
-  if (rows.length !== 1 || (rows[0].agent_id !== workerId
-    && !rows[0].agent_id.startsWith(`${workerId}_`))) return null;
   const epoch = await require('./agentWorkspaceLifecycle/epoch').readEpochMarker(capsulePath);
-  return epoch && epoch === rows[0].epoch ? epoch : null;
+  if (!epoch || rows.length === 0) return null;
+  const authorized = rows.every(row => (row.agent_id === workerId
+    || row.agent_id.startsWith(`${workerId}_`)) && row.epoch === epoch);
+  return authorized ? epoch : null;
 }
 
 async function bindingIdentity(db, input) {
