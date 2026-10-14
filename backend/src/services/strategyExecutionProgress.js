@@ -55,9 +55,6 @@ async function selfModelCompletionBlock(db, agentId, payload) {
     const selfModel = require('./selfModelService');
     const model = await selfModel.load(db, agentId, {});
     selfModel.assertPromotionConstraints(model, {
-      replayVerified: data.replayVerified,
-      diffAndReplayPassed: data.diffAndReplayPassed,
-      replayReceipt: data.replayReceipt,
       evidenceVerified: data.evidenceVerified,
       independentVerification: data.independentVerification,
       report: data.evidenceReport || data.report

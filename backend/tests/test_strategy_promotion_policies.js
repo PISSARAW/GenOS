@@ -6,6 +6,8 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const strategyContracts = require('../src/services/strategyContractService');
 const strategyService = require('../src/services/strategyExecutionService');
 const promotionPolicy = require('../src/services/strategyPromotionPolicyService');
+const strategyPromotionGate = require('../src/services/strategyPromotionGate');
+const promotionGateContext = require('../src/services/promotionGateContext');
 
 async function run() {
   console.log('--- Testing Strategy Promotion Policies ---');
@@ -112,6 +114,17 @@ async function run() {
 
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, false);
+  assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, {
+    runId: 'run-1', agentId: 'agent-1', replayReceipt: { success: true, status: 'verified' }
+  }).eligible, false, 'A success/status-only replay receipt is not run-bound proof');
+  const untrustedReplay = { success: true, status: 'completed', runId: 'run-1' };
+  const trustedGate = promotionGateContext.buildGateContext({
+    promotion: { runId: 'run-1', agentId: 'agent-1' }, options: { replayReceipt: untrustedReplay }
+  });
+  assert.equal(trustedGate.replayReceipt, null, 'Approval options cannot inject a replay receipt');
+  assert.match(strategyPromotionGate.completionGuardrail({ promotion: { require_replay: true } }, {
+    replayVerified: true, diffAndReplayPassed: true, replayReceipt: untrustedReplay
+  }, 'agent-1'), /require_replay/, 'Terminal event claims cannot satisfy the replay gate');
   console.log('✓ Point 3.1: evaluatePromotionGate correctly enforces replay and verification');
 
   // Test 2: applyPostPromotionPolicies

@@ -40,7 +40,6 @@ function approvalSettings(req, signerId) {
   return {
     approvedBy: signerId || req.user?.username || 'studio',
     report: body.evidenceReport || body.report,
-    replayReceipt: body.replayReceipt,
     independentVerification: body.independentVerification,
     evidenceVerified: body.evidenceVerified,
     verifiedClaims: body.verifiedClaims,

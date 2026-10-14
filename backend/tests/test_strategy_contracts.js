@@ -51,7 +51,6 @@ function signedApproval(runId) {
       approvedAt: new Date(timestamp).toISOString(),
       payloadHash: 'a'.repeat(64)
     },
-    replayReceipt: { success: true, status: 'verified' },
     evidenceVerified: true,
     evidenceReport: {
       outcome: 'success',

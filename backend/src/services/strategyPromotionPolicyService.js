@@ -154,17 +154,21 @@ async function mergeWorkspaces(winnerWorkspaceRoot, targetWorkspaceRoot, causalB
   return buildMergeSummary(changes, filePaths);
 }
 
-function isReplayReceipt(receipt) {
+function replayStatus(receipt) { return String(receipt.replayStatus || receipt.replay_status || receipt.status || '').toLowerCase(); }
+function replayReceiptMatchesRun(receipt, context) { return Boolean(context?.runId && receipt.runId === context.runId && context?.agentId && receipt.agentId === context.agentId); }
+function replayReceiptHasMatchingDigest(receipt) { const digest = String(receipt.stateDigest || receipt.snapshotDigest || '').toLowerCase(); return Boolean(receipt.snapshotId && /^[a-f0-9]{64}$/.test(digest) && receipt.liveDigest === digest); }
+function isReplayReceipt(receipt, executionContext) {
   if (!receipt || typeof receipt !== 'object') return false;
-  if (receipt.success !== true) return false;
-  const status = String(receipt.replayStatus || receipt.replay_status || receipt.status || '').toLowerCase();
-  return ['completed', 'reproduced', 'verified'].includes(status);
+  if (receipt.success !== true || receipt.applied !== true || receipt.replayVerified !== true) return false;
+  return ['completed', 'reproduced', 'verified'].includes(replayStatus(receipt))
+    && replayReceiptMatchesRun(receipt, executionContext)
+    && replayReceiptHasMatchingDigest(receipt);
 }
 
 function isReplayPassed(executionContext) {
   if (executionContext.replayVerified === true) return true;
   if (executionContext.diffAndReplayPassed === true) return true;
-  return isReplayReceipt(executionContext.replayReceipt);
+  return isReplayReceipt(executionContext.replayReceipt, executionContext);
 }
 
 function buildReplayViolation(policy, executionContext) {

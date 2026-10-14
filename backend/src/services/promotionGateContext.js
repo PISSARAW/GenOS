@@ -35,8 +35,9 @@ function buildGateContext({ promotion, options, receipt, aeisEvaluation }) {
   const epistemicAssembly = assemblyFromAeis(aeisEvaluation);
   return {
     agentId: options.agentId || promotion.agentId,
+    runId: promotion.runId,
     report: promotion.report,
-    replayReceipt: options.replayReceipt,
+    replayReceipt: promotion.replayReceipt || null,
     independentVerification: options.independentVerification,
     evidenceVerified: options.evidenceVerified,
     verifiedClaims: options.verifiedClaims,

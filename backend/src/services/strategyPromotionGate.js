@@ -217,9 +217,6 @@ function completionGuardrail(contract, payload, subject) {
   const report = data.evidenceReport || data.report;
   const promotionPolicy = require('./strategyPromotionPolicyService');
   const evaluation = promotionPolicy.evaluatePromotionGate(contract, {
-    replayVerified: data.replayVerified,
-    diffAndReplayPassed: data.diffAndReplayPassed,
-    replayReceipt: data.replayReceipt,
     independentVerification: data.independentVerification,
     epistemicEvidence: data.epistemicEvidence,
     epistemicEvidenceVerified: data.epistemicEvidenceVerified,

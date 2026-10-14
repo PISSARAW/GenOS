@@ -186,7 +186,7 @@ certifient la vérité métier de la décision.
 
 | Politique | Condition d'eligibilite |
 | --- | --- |
-| `require_replay` | `replayVerified`, `diffAndReplayPassed` ou receipt de replay acceptee |
+| `require_replay` | reçu de rejeu vérifié côté serveur et lié au run, à l'agent, au snapshot et à son digest |
 | `require_independent_verification` | verification explicite, claims verifies, dossiers worker ou claims de rapport tous etayes |
 | `require_human_approval` | receipt durable avec approbateur, date, identifiant et hash SHA-256 du payload |
 | `preserve_rejected_branches` | persistance des branches perdantes apres promotion |
@@ -194,9 +194,13 @@ certifient la vérité métier de la décision.
 
 Une seule violation rend `eligible: false`. Apres une promotion eligible, `applyPostPromotionPolicies()` peut conserver les branches rejetee et appliquer un merge three-way de workspace. Un conflit ou echec de merge rend le resultat post-promotion non reussi.
 
-Important : les statuts de replay acceptés par la gate sont `replayVerified === true`,
-`diffAndReplayPassed === true` ou un reçu `verified` / `completed` / `reproduced` /
-`success`. Une reconstruction ou une chaine de hash valide n'est pas une re-execution deterministe de dependances externes. Pour une promotion a risque, exiger `replayVerified === true`, les artefacts de test et une approbation humaine liee au hash.
+Les déclarations `replayVerified`, `diffAndReplayPassed` et les statuts seuls ne sont
+pas des preuves. Aucun producteur actuel n'émet encore le reçu durable lié au
+strategy run attendu par cette gate ; `require_replay` reste donc fermé jusqu'à
+l'intégration d'un tel producteur. Une reconstruction ou une chaine de hash valide
+n'est pas une re-exécution déterministe de dépendances externes. Pour une promotion
+à risque, lier le rejeu vérifié, les artefacts de test et l'approbation humaine au
+même hash.
 
 ### Gate du modèle de soi (automatique et différée)
 
