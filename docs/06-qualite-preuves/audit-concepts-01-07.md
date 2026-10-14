@@ -33,6 +33,16 @@ valident les refus et le raccord de phase ; ils ne démontrent toujours pas le
 rejeu intégral du run. L'ADR 0480 formalise cette limite et les conditions
 nécessaires à un futur reçu lié au run.
 
+Les corrections de rollout du 14 octobre couvrent également le raccord du SLO
+configuré, l'autorité et le reçu des overrides de production, la sérialisation
+des mesures avec la décision et la sélection effective du candidat en A/B
+(`test_release_operations.js`, `test_release_force_promotion_permission.js`,
+`test_release_promotion_truthfulness.js`; ADR 0481 à 0484). L'identité candidate
+personnalisée est désormais explicite et indépendante de l'ordre des variantes.
+Ces contrôles qualifient ce
+parcours de release et ne démontrent pas la couverture de tous les gates de
+promotion.
+
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
@@ -49,7 +59,7 @@ nécessaires à un futur reçu lié au run.
 | Décisions bornées | p | p | p | p | o | F/S ; contrats bornés, enforcement non universel. |
 | Autorité explicite | p | p | p | p | o | F/B ; autorités par circuit, raccordement global non prouvé. |
 | Leases d’outils | o | p | p | o | o | [référence MCP](../03-reference/outils-mcp.md) ; enforcement Node/Rust, pas de vérification lancée ici. |
-| Budgets de tokens, temps, CPU, spawn et délégation | p | p | p | p | o | F/B ; `maxTokens` et `maxTimeMs` bornent le budget normalisé et le délai Node, mais `maxCpuMs` et `limits.maxIterations` restent déclaratifs sans compteur dédié ; l'agrégation spawn/délégation parent-enfant n'est pas qualifiée comme un budget global. |
+| Budgets de tokens, temps, CPU, spawn et délégation | p | p | p | p | o | F/B ; `maxTokens` et `maxTimeMs` bornent le budget normalisé et le délai Node. `maxCpuMs` n'est pas appliqué ; `limits.maxIterations` borne les essais de `workerScopedProcedures`, mais pas les tours généraux du worker (`test_worker_native_boundaries.js`). L'agrégation spawn/délégation parent-enfant n'est pas qualifiée comme un budget global. |
 | Isolation des workspaces | p | p | p | o | o | F ; provisionnement réel, isolement inter-processus courant à qualifier. |
 | Garde-fou fail-closed | p | p | p | p | o | E/S ; gardes locaux, universalisme non prouvé. |
 | Évidence indépendante | p | p | p | p | o | E ; vérificateurs dédiés, indépendance effective dépend du scénario. |
