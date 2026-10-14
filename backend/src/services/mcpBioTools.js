@@ -42,8 +42,16 @@ async function executeBioTool(toolName, args, options = {}) {
   const run = (command) => runGenosSync(command, timeoutMs);
   // Fail-closed re-validation: never trust preValidated callers. Lease, args
   // and circuit are re-checked here even when dispatch already validated.
-  const rejection = revalidateBioCall(toolName, args);
+  return revalidateAndDispatchBio({ toolName, args, options, timeoutMs, run });
+}
+
+async function revalidateAndDispatchBio(call) {
+  const rejection = revalidateBioCall(call.toolName, call.args);
   if (rejection) return rejection;
+  return dispatchValidatedBio(call);
+}
+
+async function dispatchValidatedBio({ toolName, args, options, timeoutMs, run }) {
   if (toolName === 'genos_biological_mode') {
     return require('./topologyMcpTools').composeBiologicalMode(args || {}, options.caller || {});
   }

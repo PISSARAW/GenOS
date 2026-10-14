@@ -60,6 +60,9 @@ async function runSynapticIntegritySuite() {
   const idSource = `dec-syn-src-${Date.now()}`;
   const idTargetA = `dec-syn-tgta-${Date.now()}`;
   const idTargetGaba = `dec-syn-tgtgaba-${Date.now()}`;
+  const idTargetOtherProject = `dec-syn-tgt-project-${Date.now()}`;
+  const idSourceOtherProject = `dec-syn-src-project-${Date.now()}`;
+  const otherProject = 'proj-synapse-other';
 
   const dummyVec = Buffer.from(new Float32Array(new Array(768).fill(0.04)).buffer);
 
@@ -102,6 +105,19 @@ async function runSynapticIntegritySuite() {
   }, db);
   const isTargetInhibited = searchInhib.allScoredExperiences.some(e => e.id === idTargetGaba && e.inhibitorySignal === 'active');
   check(isTargetInhibited, 'GABA synapse with positive conductance triggers active inhibitorySignal');
+
+  await db.run('INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    idTargetOtherProject, 'Project scoped target memory', 'Project scoped target memory', dummyVec, testAgent, 'Experience', testOrg, testProj);
+  await db.run('INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    idSourceOtherProject, 'Other project source memory', 'Other project source memory', dummyVec, testAgent, 'Experience', testOrg, otherProject);
+  await db.run("INSERT INTO memory_synapses (source_id,target_id,weight,transmitter_type,organization_id,project_id) VALUES (?,?,5.0,'gaba',?,?)",
+    idSourceOtherProject, idTargetOtherProject, testOrg, otherProject);
+  const projectScopedSearch = await vectorMemory.searchMemory('Project scoped target memory', {
+    limit: 5, ownerId: testAgent, organizationId: testOrg, projectId: testProj, includeInhibited: true
+  }, db);
+  const projectTarget = projectScopedSearch.allScoredExperiences.find((item) => item.id === idTargetOtherProject);
+  check(Boolean(projectTarget), 'Project-scoped query returns the target memory');
+  check(projectTarget?.inhibitorySignal !== 'active', 'GABA synapses from another project do not inhibit this project');
 
   // -------------------------------------------------------------
   // Point 2: B-Tree Indexes on memory_synapses

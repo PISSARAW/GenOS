@@ -29,6 +29,20 @@ const {
   fetchCorpus
 } = require('./vectorMemoryCorpus');
 
+function inhibitionScope(options) {
+  if (!options.organizationId) {
+    return { sql: ' AND (s.organization_id IS NULL AND s.project_id IS NULL)', params: [] };
+  }
+  const projectClause = options.projectId ? ' AND s.project_id = ?' : '';
+  const globalClause = options.includeGlobal === true
+    ? ' OR (s.organization_id IS NULL AND s.project_id IS NULL)' : '';
+  const tenantClause = `s.organization_id = ?${projectClause}`;
+  return {
+    sql: ` AND (${tenantClause}${globalClause})`,
+    params: [options.organizationId, ...(options.projectId ? [options.projectId] : [])]
+  };
+}
+
 class VectorMemoryService {
   async initDb() {
     return getDatabase();
@@ -138,17 +152,15 @@ class VectorMemoryService {
     if (candidateIds.length > 0 && db) {
       try {
         const placeholders = candidateIds.map(() => '?').join(',');
-        // Scope strict : sans includeGlobal explicite, les synapses globales
-        // (organization_id NULL) d'autres tenants sont exclues.
-        const globalClause = options.includeGlobal === true ? 'OR s.organization_id IS NULL' : '';
+        const scope = inhibitionScope(options);
         const inhibitions = await db.all(
           `SELECT s.target_id FROM memory_synapses s
              JOIN genome_decisions source_node ON source_node.id = s.source_id
             WHERE s.target_id IN (${placeholders}) AND (s.weight < 0 OR s.transmitter_type = 'gaba')
-              ${options.organizationId ? `AND (s.organization_id = ? ${globalClause})` : ''}
+              ${scope.sql}
             GROUP BY s.target_id
             HAVING SUM(CASE WHEN s.transmitter_type = 'gaba' THEN -ABS(s.weight) ELSE s.weight END) < 0`,
-          options.organizationId ? [...candidateIds, options.organizationId] : candidateIds
+          [...candidateIds, ...scope.params]
         );
         inhibitedIds = new Set(inhibitions.map(i => i.target_id));
         for (const item of scoredItems) {

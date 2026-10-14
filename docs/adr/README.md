@@ -620,6 +620,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0488](0488-borner-les-recherches-de-provenance.md) | Borner les recherches de provenance MCP | Accepté et implémenté. | 2026-10-14 | `genos_blame`, `genos_lineage` et extraction d'évidence. |
 | [0489](0489-scoper-les-recherches-de-provenance-au-workspace.md) | Scoper les recherches de provenance au workspace | Accepté et implémenté. | 2026-10-14 | Autorisation MCP, provenance et isolation des workspaces. |
 | [0490](0490-borner-le-pruning-synaptique-au-workspace.md) | Borner le pruning synaptique au workspace authentifié | Accepté et implémenté. | 2026-10-14 | Autorité MCP et mutations du graphe mémoire. |
+| [0491](0491-scoper-les-inhibitions-synaptiques-au-projet.md) | Scoper les inhibitions synaptiques au projet | Accepté et implémenté. | 2026-10-15 | Recherche mémoire et isolation des projets. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
