@@ -1,17 +1,17 @@
 'use strict';
 
-// Trinity evidence audit (ADR 0281). A reference only weighs if it resolves:
-// an evidence[] id of the same dossier, a verifiable URL, or a repo path.
-// Placeholders (evidence1, <source-ref>, example.com, bare README), bare
-// declarations and self-citations of the mission text weigh zero. Pure.
+// Trinity evidence audit (ADR 0281). Only verified evidence[] ids in this
+// dossier weigh. URLs and repository paths are not resolved by this pure audit
+// and therefore weigh zero until another verifier binds them to evidence.
+// Placeholders and self-citations also weigh zero.
 
 const PLACEHOLDER = /^\s*(evidence\d*|n\/a|none|null|todo|tbd|test|verified|v\u00e9rifi\u00e9|ok)\s*$/i;
 const ANGLE = /<[^>]*>/;
 const EXAMPLE = /example\.(com|org|net)/i;
 const BARE_DOC = /^(readme|docs?|wiki|changelog)(\.\w+)?$/i;
 const SELF_CITE = /trinity mission:|^(task|mission)\s*:|^mission[_ ]?prompt\s*:/i;
-const URL = /^https?:\/\/([^\s/]+)/i;
-const REPO_PATH = /[\w.-]+\/[\w./-]+/;
+const verifierReceipts = require('./epistemicVerifierReceiptService');
+const verifierTrust = require('./verifierTrustRegistry');
 
 function evidenceIdsOf(report) {
   const items = report && Array.isArray(report.evidence) ? report.evidence : [];
@@ -24,10 +24,14 @@ function evidenceIdsOf(report) {
 }
 
 function isVerifiedReceipt(receipt) {
-  return receipt?.status === 'verified' && receipt.independent === true
-    && typeof receipt.evidenceDigest === 'string' && receipt.evidenceDigest.startsWith('sha256:')
-    && typeof receipt.verifierDigest === 'string' && receipt.verifierDigest.length > 0
-    && Boolean(receipt.independenceDescriptor?.actorId && receipt.independenceDescriptor?.workspaceId);
+  if (receipt?.status !== 'verified' || receipt.independent !== true
+    || typeof receipt.evidenceDigest !== 'string' || !/^sha256:[a-f0-9]{64}$/i.test(receipt.evidenceDigest)
+    || !receipt.independenceDescriptor?.actorId || !receipt.independenceDescriptor?.workspaceId) return false;
+  try {
+    return verifierReceipts.validateReceipt(receipt, verifierTrust.resolveTrustedVerifierDigests({}));
+  } catch (_) {
+    return false;
+  }
 }
 
 function isIndependentlyVerifiedClaim(claim) {
@@ -41,8 +45,7 @@ function isPlaceholder(text) {
   return BARE_DOC.test(text) || SELF_CITE.test(text);
 }
 
-function locatorWeight(text) {
-  if (URL.test(text) || REPO_PATH.test(text)) return 0;
+function locatorWeight() {
   return 0;
 }
 
@@ -51,7 +54,7 @@ function refWeight(ref, ids) {
   if (!text) return 0;
   if (ids && ids.has(text)) return 2;
   if (isPlaceholder(text)) return 0;
-  return locatorWeight(text);
+  return locatorWeight();
 }
 
 function claimRefs(claim) {

@@ -1,5 +1,6 @@
 'use strict';
 
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'trinity-mission-verifiers-test-secret';
 const assert = require('node:assert/strict');
 const trinity = require('../src/services/trinityService');
 const balance = require('../src/services/trinityBalancePuzzleVerifier');
@@ -49,6 +50,8 @@ function testMissionProofAttachment() {
   assert.equal(report.missionContractVerification.status, 'verified');
   assert.equal(report.evidenceVector.coverage, 1);
   assert.equal(report.claims[0].verificationLevel, 'independent_deterministic');
+  assert.equal(require('../src/services/trinityEvidenceAudit').isVerifiedReceipt(report.coverageReceipt), true,
+    'native mission proof must be issued as a signed trusted receipt');
 }
 
 testBalanceVerifier();

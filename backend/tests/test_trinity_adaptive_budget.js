@@ -1,7 +1,11 @@
 'use strict';
 
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'trinity-adaptive-budget-test-secret';
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const { allocate } = require('../src/services/trinityAdaptiveBudgetService');
+const receipts = require('../src/services/epistemicVerifierReceiptService');
+const verifiers = require('../src/services/verifierTrustRegistry');
 
 function result(agentId, uncertainty) {
   const evidenceId = `uncertainty-${agentId}`;
@@ -12,11 +16,12 @@ function result(agentId, uncertainty) {
       evidenceReport: {
         evidenceVector: { uncertainty },
         evidenceVectorEvidence: { uncertainty: [evidenceId] },
-        evidence: [{ id: evidenceId, verificationReceipt: {
-          status: 'verified', independent: true,
-          evidenceDigest: `sha256:${agentId}`, verifierDigest: `sha256:verifier-${agentId}`,
+        evidence: [{ id: evidenceId, verificationReceipt: receipts.issueReceipt({
+          resultId: `uncertainty-${agentId}`, status: 'verified', independent: true,
+          evidenceDigest: `sha256:${crypto.createHash('sha256').update(agentId).digest('hex')}`,
+          verifierDigest: verifiers.getVerifier('testResult').digest,
           independenceDescriptor: { actorId: `verifier-${agentId}`, workspaceId: `workspace-${agentId}` }
-        }}]
+        }) }]
       }
     }
   };

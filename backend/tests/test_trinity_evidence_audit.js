@@ -1,7 +1,10 @@
 'use strict';
 
 // ADR 0281: fabricated evidence must weigh zero; executed tests need receipts.
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'trinity-evidence-audit-test-secret';
 const assert = require('node:assert/strict');
+const trusted = require('../src/services/verifierTrustRegistry');
+const receipts = require('../src/services/epistemicVerifierReceiptService');
 const fs = require('node:fs');
 const path = require('node:path');
 const audit = require('../src/services/trinityEvidenceAudit');
@@ -21,7 +24,22 @@ function testSelfCitationsWeighZero() {
 }
 
 function verifiedReceipt() {
-  return { status: 'verified', independent: true, evidenceDigest: 'sha256:test', verifierDigest: 'sha256:verifier', independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } };
+  return receipts.issueReceipt({ resultId: 'audit-fixture', status: 'verified', independent: true,
+    evidenceDigest: 'sha256:' + 'a'.repeat(64), verifierDigest: trusted.getVerifier('testResult').digest,
+    independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } });
+}
+
+function testReceiptTrustAndIntegrity() {
+  const signed = verifiedReceipt();
+  assert.equal(audit.isVerifiedReceipt(signed), true);
+  assert.equal(audit.isVerifiedReceipt({ ...signed, evidenceDigest: 'sha256:' + 'b'.repeat(64) }), false,
+    'changing receipt evidence must invalidate its signature');
+  assert.equal(audit.isVerifiedReceipt({ ...signed, verifierDigest: 'sha256:' + 'c'.repeat(64) }), false,
+    'untrusted verifier digests must not count');
+  const fabricated = { status: 'verified', independent: true, evidenceDigest: 'sha256:' + 'a'.repeat(64),
+    verifierDigest: trusted.getVerifier('testResult').digest,
+    independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } };
+  assert.equal(audit.isVerifiedReceipt(fabricated), false, 'receipt shape alone must not prove verification');
 }
 
 function testResolvableWeighs() {
@@ -99,6 +117,7 @@ async function main() {
   testPlaceholdersWeighZero();
   testSelfCitationsWeighZero();
   testResolvableWeighs();
+  testReceiptTrustAndIntegrity();
   testReceiptedTests();
   testMatrixExplains();
   testRealDossiersReplay();

@@ -1,12 +1,18 @@
 'use strict';
 const assert = require('node:assert/strict');
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'trinity-runtime-boundaries-test-secret';
 const pareto = require('../src/services/trinityParetoService');
 const service = require('../src/services/trinityService');
 const adapters = require('../src/services/trinityAdapters');
 const runtime = require('../src/services/trinityComparisonRuntime');
 const design = require('../src/services/trinityWorldDesign');
+const receiptService = require('../src/services/epistemicVerifierReceiptService');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
 function world(worldNumber) {
-  const receipt = { status: 'verified', independent: true, evidenceDigest: 'sha256:fixture', verifierDigest: 'fixture', independenceDescriptor: { actorId: 'fixture-checker', workspaceId: 'fixture-verifier' } };
+  const receipt = receiptService.issueReceipt({ resultId: `runtime-boundary-${worldNumber}`, status: 'verified',
+    independent: true, evidenceDigest: `sha256:${String(worldNumber).padStart(64, '0')}`,
+    verifierDigest: verifierTrust.getVerifier('testResult').digest,
+    independenceDescriptor: { actorId: 'fixture-checker', workspaceId: `fixture-verifier-${worldNumber}` } });
   const vector = { correctness: 0.9, coverage: 0.9, robustness: 0.9, reproducibility: 0.9, risk: 0.1, uncertainty: 0.1, constraintCoverage: 1 };
   return { worldNumber, agentId: 'fixture-world-' + worldNumber, report: { outcome: 'success', claims: [], tests: [],
     evidence: [{ id: 'fixture-evidence', verificationReceipt: receipt }], evidenceVector: vector,

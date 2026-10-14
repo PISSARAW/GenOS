@@ -3,15 +3,18 @@
 const crypto = require('crypto');
 const balancePuzzle = require('./trinityBalancePuzzleVerifier');
 const contracts = require('./trinityMissionContractService');
+const verifierTrust = require('./verifierTrustRegistry');
+const verifierReceipts = require('./epistemicVerifierReceiptService');
 
-const VERIFIER_DIGEST = `sha256:${crypto.createHash('sha256').update('trinity-balance-puzzle-verifier-v1').digest('hex')}`;
+const VERIFIER_DIGEST = verifierTrust.ensureVerifier('proof', '1.0').digest;
 
 function proofReceipt(tree, worldNumber) {
   const digest = `sha256:${crypto.createHash('sha256').update(JSON.stringify(tree)).digest('hex')}`;
-  return {
+  return verifierReceipts.issueReceipt({
+    resultId: `balance-tree-world-${worldNumber}`,
     status: 'verified', independent: true, evidenceDigest: digest, verifierDigest: VERIFIER_DIGEST,
     independenceDescriptor: { actorId: 'trinity-balance-puzzle-verifier', workspaceId: `world-${worldNumber}-proof-check` }
-  };
+  });
 }
 
 function treeOf(report) {

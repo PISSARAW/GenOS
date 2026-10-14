@@ -1,5 +1,6 @@
 'use strict';
 
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'trinity-harness-receipt-test-secret';
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const trinity = require('../../src/services/trinityService');
@@ -20,6 +21,8 @@ const pareto = require('../../src/services/trinityParetoService');
 const blindJury = require('../../src/services/trinityBlindJuryService');
 const trinityClaimVerification = require('../../src/services/trinityEvidenceAudit');
 const modelRouter = require('../../src/services/modelRouter');
+const receiptService = require('../../src/services/epistemicVerifierReceiptService');
+const verifierTrust = require('../../src/services/verifierTrustRegistry');
 
 const GENOS_EPISTEMIC_RECEIPT_SECRET = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || 'test-secret-for-verifier-execution';
 
@@ -46,16 +49,11 @@ const FACTUAL_MISSIONS = [
 
 function makeReceipt({ verifierName, status, evidence, assumptions = [] }) {
   const digest = `sha256:${crypto.createHash('sha256').update(JSON.stringify({ verifier: verifierName, evidence, timestamp: Date.now() })).digest('hex')}`;
-  return {
-    status,
-    independent: true,
-    evidenceDigest: digest,
-    verifierDigest: `sha256:${crypto.createHash('sha256').update(verifierName).digest('hex')}`,
+  return receiptService.issueReceipt({ resultId: `receipt_${verifierName}_${Date.now()}`,
+    status, independent: true, evidenceDigest: digest,
+    verifierDigest: verifierTrust.getVerifier('testResult').digest,
     independenceDescriptor: { actorId: verifierName, workspaceId: `test-${verifierName}-${Date.now()}` },
-    assumptions,
-    executedAt: new Date().toISOString(),
-    id: `receipt_${verifierName}_${Date.now()}`
-  };
+    executionEvidence: [{ evidence, assumptions }] });
 }
 
 function createWorldReport({ worldNumber, role, evidenceVector, claims = [], tests = [], artifactText = '', uncertainties = [], unverifiedClaims = [] }) {

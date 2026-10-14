@@ -1,8 +1,10 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const verifierTrust = require('./verifierTrustRegistry');
+const verifierReceipts = require('./epistemicVerifierReceiptService');
 const cryptoDigest = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const VERIFIER_DIGEST = `sha256:${crypto.createHash('sha256').update('genos-native-lpt-independent-auditor-v1').digest('hex')}`;
+const VERIFIER_DIGEST = verifierTrust.ensureVerifier('procedure_semantic', '1.0').digest;
 
 function invalid(world, reason) {
   return { ...world, report: { ...(world.report || {}), nativeProcedureVerification: { status: 'failed', reason } } };
@@ -124,19 +126,23 @@ function verified(context) {
   const evidenceId = `native-lpt-audit-${world.worldNumber}-${cryptoDigest([receipts.map((item) => item.id), output, latencyMs, robustness]).slice(0, 20)}`;
   const evidenceDigest = `sha256:${cryptoDigest({ agentId: world.agentId, runId: run.id,
     receipts: receipts.map((item) => item.id), output, latencyMs, robustness })}`;
-  const verificationReceipt = {
-    status: 'verified', independent: true, evidenceDigest, verifierDigest: VERIFIER_DIGEST,
-    independenceDescriptor: { actorId: 'genos-native-lpt-independent-auditor', workspaceId: `trinity-world-${world.worldNumber}-audit` }
-  };
-  const receiptEvidence = receipts.map((item) => ({ id: item.id, verificationReceipt: {
-    ...verificationReceipt, evidenceDigest: `sha256:${cryptoDigest({ runId: run.id, receiptId: item.id, output })}`
-  } }));
-  const dimensions = ['correctness', 'coverage', 'robustness', 'reproducibility', 'risk', 'uncertainty', 'constraintCoverage', 'latency'];
+  const verificationReceipt = verifierReceipts.issueReceipt({
+    resultId: evidenceId, status: 'verified', independent: true, evidenceDigest, verifierDigest: VERIFIER_DIGEST,
+    independenceDescriptor: { actorId: 'genos-native-lpt-independent-auditor', workspaceId: `trinity-world-${world.worldNumber}-audit` },
+    executionEvidence: [{ runId: run.id, output, latencyMs, robustness }]
+  });
+  const receiptEvidence = receipts.map((item) => ({ id: item.id, verificationReceipt: verifierReceipts.issueReceipt({
+    resultId: `${evidenceId}:${item.id}`, status: 'verified', independent: true,
+    evidenceDigest: `sha256:${cryptoDigest({ runId: run.id, receiptId: item.id, output })}`,
+    verifierDigest: VERIFIER_DIGEST,
+    independenceDescriptor: verificationReceipt.independenceDescriptor,
+    executionEvidence: [{ runId: run.id, receiptId: item.id, output }]
+  }) }));
+  const dimensions = ['correctness', 'robustness', 'reproducibility'];
+  const evidenceVector = { correctness: 1, robustness, reproducibility: 1 };
+  const evidenceVectorEvidence = Object.fromEntries(dimensions.map((key) => [key, [evidenceId]]));
   return { ...world, report: { ...report, evidence: [...(report.evidence || []), ...receiptEvidence, { id: evidenceId, verificationReceipt }],
-    evidenceVector: { ...report.evidenceVector, correctness: 1, coverage: 1, robustness,
-      reproducibility: 1, risk: 0, uncertainty: 0, constraintCoverage: 1, latency: latencyMs },
-    evidenceVectorEvidence: { ...report.evidenceVectorEvidence, ...Object.fromEntries(dimensions.map((key) => [key, [evidenceId]])) },
-    hardConstraintsPassed: true, budgetStatus: 'within', latencyMs,
+    evidenceVector, evidenceVectorEvidence, budgetStatus: 'within', latencyMs,
     nativeProcedureVerification: { status: 'verified', methodId: 'lpt', executionRunId: run.id, evidenceId, latencyMs } } };
 }
 

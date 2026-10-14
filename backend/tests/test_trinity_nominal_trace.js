@@ -1,13 +1,17 @@
 'use strict';
 
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'trinity-nominal-trace-test-secret';
 const assert = require('node:assert/strict');
 const continuation = require('../src/services/trinityAdaptiveContinuationRunner');
 const trace = require('../src/services/trinityQualificationTrace');
 const qualification = require('../src/services/trinityNominalQualification');
 const variants = require('../src/services/trinityVariantService');
 
-const receipt = { status: 'verified', independent: true, evidenceDigest: 'sha256:sample',
-  verifierDigest: 'sha256:verifier', independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } };
+const receiptService = require('../src/services/epistemicVerifierReceiptService');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
+const receipt = receiptService.issueReceipt({ resultId: 'nominal-trace-test', status: 'verified', independent: true,
+  evidenceDigest: `sha256:${'a'.repeat(64)}`, verifierDigest: verifierTrust.getVerifier('testResult').digest,
+  independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } });
 const report = { outcome: 'success', qdTargetNiche: 'niche_1:2', behaviorVector: [0.2, 0.3],
   behaviorVectorEvidence: ['measurement'], evidence: [{ id: 'measurement', verificationReceipt: receipt }] };
 const world = { outcome: 'success', report };
