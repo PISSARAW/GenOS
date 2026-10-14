@@ -39,6 +39,7 @@ function buildWorkerMission(input = {}) {
     capabilityManifestJson: manifestJson,
     strategyContract: input.strategyContract,
     timeoutMs: input.timeoutMs,
+    executor: input.executor,
     localRuntime: input.localRuntime,
     localModel: input.localModel,
     localRoutingPolicy: input.localRoutingPolicy,
