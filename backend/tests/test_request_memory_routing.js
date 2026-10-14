@@ -158,6 +158,11 @@ async function main() {
   const foreignCandidate = await registry.storeCandidate(db, foreignInput);
   const foreignChampion = await registry.getChampion(db, trivial.semanticId, foreignScope);
   check('each workspace gets its own champion', foreignChampion.champion.id === foreignCandidate.id);
+  const firstProblem = await db.get('SELECT semantic_id FROM request_problems WHERE champion_result_id = ?', hit.champion.id);
+  await db.run('UPDATE request_problems SET champion_result_id = ? WHERE semantic_id = ?', foreignCandidate.id, firstProblem.semantic_id);
+  check('cross-workspace champion pointer returns no result',
+    (await registry.getChampion(db, trivial.semanticId, scopeId)).champion === null);
+  await db.run('UPDATE request_problems SET champion_result_id = ? WHERE semantic_id = ?', hit.champion.id, firstProblem.semantic_id);
   const foreignStale = await registry.markStale(db, {
     id: foreignCandidate.id, semanticId: trivial.semanticId, scopeId
   });

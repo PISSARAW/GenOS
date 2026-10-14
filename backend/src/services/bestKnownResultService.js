@@ -73,8 +73,10 @@ async function getChampion(db, semanticId, scopeId) {
   const scopedId = scopedSemanticId(semanticId, scopeId);
   const problem = await getProblem(db, scopedId);
   if (!problem || !problem.champion_result_id) return { problem, champion: null };
-  const champion = await db.get('SELECT * FROM request_results WHERE id = ?', problem.champion_result_id).catch(() => null);
-  return { problem, champion };
+  const champion = await db.get(
+    'SELECT * FROM request_results WHERE id = ? AND semantic_id = ?', problem.champion_result_id, scopedId
+  ).catch(() => null);
+  return { problem, champion: champion || null };
 }
 
 function isExpired(row) {
