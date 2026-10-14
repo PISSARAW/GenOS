@@ -13,10 +13,7 @@
 const WORKER_BASE_LEASE = [
   'genos_search_failures',
   'genos_diagnose',
-  'genos_hypothesis_evidence',
   'genos_snapshot',
-  'genos_diff',
-  'genos_evaluate_trajectories',
   'genos_record_experience',
   'genos_replay',
   'genos_organization_state',

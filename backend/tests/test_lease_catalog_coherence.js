@@ -36,6 +36,9 @@ function capabilityTools() {
 
 // 1. Leases : fail-closed, sans elargissement, sans genos_orchestrate.
 assert.ok(!leasedTools().includes('genos_orchestrate'), 'leases must never carry genos_orchestrate');
+for (const tool of leasePolicy.WORKER_BASE_LEASE) {
+  assert.ok(catalogNames.has(tool), `worker base lease tool ${tool} must exist in the public catalog`);
+}
 for (const tool of [...leasedTools(), ...capabilityTools()]) {
   assert.ok(leasePolicy.KNOWN_TOOL_ALLOW_LIST.includes(tool), `${tool} must stay within the known allow-list`);
   assert.ok(registry.isRegisteredTool(tool), `${tool} must have an effective backend route`);
