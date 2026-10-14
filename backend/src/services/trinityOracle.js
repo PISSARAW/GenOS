@@ -69,12 +69,14 @@ function routingWeights(input = {}) {
   const history = Array.isArray(input.history) ? input.history : [];
   const skill = {};
   for (const entry of history) {
-    for (const id of Object.keys(entry.outcomes || {})) {
-      if (entry.scores && Number.isFinite(entry.scores.brier)) {
-        skill[id] = skill[id] || { total: 0, count: 0 };
-        skill[id].total += 1 - entry.scores.brier;
-        skill[id].count += 1;
-      }
+    const prediction = entry.prediction || {};
+    for (const [id, actualValue] of Object.entries(entry.outcomes || {})) {
+      const predictedValue = Number(prediction[id]);
+      const actual = Number(actualValue);
+      if (!Number.isFinite(predictedValue) || !Number.isFinite(actual)) continue;
+      skill[id] = skill[id] || { total: 0, count: 0 };
+      skill[id].total += 1 - ((clamp01(predictedValue) - clamp01(actual)) ** 2);
+      skill[id].count += 1;
     }
   }
   const weights = {};
