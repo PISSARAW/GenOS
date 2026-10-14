@@ -282,9 +282,9 @@ function calculateCandidateMetrics(candidateMetric) {
   return { candidateRequests, errorRate, averageLatencyMs };
 }
 
-function checkSampleSize(totalRequests, policy) {
+function checkSampleSize(candidateRequests, policy) {
   const minRequests = Math.max(1, number(policy.minRequests, 100));
-  return totalRequests < minRequests ? { status: 'paused', reason: 'insufficient_sample', totalRequests } : null;
+  return candidateRequests < minRequests ? { status: 'paused', reason: 'insufficient_sample', candidateRequests } : null;
 }
 
 function checkSloBreach({ errorRate, averageLatencyMs, policy, totalRequests }) {
@@ -301,10 +301,8 @@ function findWinner(metrics) {
   )[0]?.variant;
 }
 
-function checkCanaryUnderperformance(strategy, winner) {
-  if (strategy === 'canary' && winner === 'stable') {
-    return { status: 'rolled_back', reason: 'candidate_underperformed' };
-  }
+function checkCandidateUnderperformance(winner, candidateVariantName) {
+  if (winner !== candidateVariantName) return { status: 'rolled_back', reason: 'candidate_underperformed', selectedVariant: winner };
   return null;
 }
 
@@ -316,15 +314,15 @@ function decide(metrics, config, strategy = 'canary') {
   const candidateMetric = getCandidateMetric(metrics, candidateVariantName);
   const { candidateRequests, errorRate, averageLatencyMs } = calculateCandidateMetrics(candidateMetric);
   
-  const sampleCheck = checkSampleSize(totalRequests, policy);
-  if (sampleCheck) return { ...sampleCheck, errorRate, averageLatencyMs };
+  const sampleCheck = checkSampleSize(candidateRequests, policy);
+  if (sampleCheck) return { ...sampleCheck, totalRequests, errorRate, averageLatencyMs };
   
   const sloBreach = checkSloBreach({ errorRate, averageLatencyMs, policy, totalRequests });
   if (sloBreach) return sloBreach;
   
   const winner = findWinner(metrics);
-  const canaryCheck = checkCanaryUnderperformance(strategy, winner);
-  if (canaryCheck) return { ...canaryCheck, selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
+  const candidateCheck = checkCandidateUnderperformance(winner, candidateVariantName);
+  if (candidateCheck) return { ...candidateCheck, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
   
   return { status: 'promoted', reason: 'slo_satisfied', selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
 }

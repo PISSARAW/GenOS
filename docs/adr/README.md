@@ -612,6 +612,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0480](0480-refuser-la-promotion-sans-rejeu-execution-lie.md) | Refuser la promotion sans rejeu d’exécution lié au run | Accepté et implémenté pour le refus ; producteur de reçu à réaliser. | 2026-10-14 | Exécution de stratégie, rejeu déterministe et promotion. |
 | [0481](0481-autorite-et-recu-des-overrides-production.md) | Autorité et reçu pour les overrides de promotion en production | Accepté et implémenté. | 2026-10-14 | Releases, autorité de production et audit des décisions. |
 | [0482](0482-atomicite-mesures-et-decision-rollout.md) | Atomicité entre mesures et décision de rollout | Accepté et implémenté. | 2026-10-14 | Rollouts, métriques et gate de promotion de release. |
+| [0483](0483-promotion-rollout-fondee-sur-le-candidat.md) | Fonder la promotion du rollout sur le candidat | Accepté et implémenté. | 2026-10-14 | Rollouts A/B et promotion de release. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

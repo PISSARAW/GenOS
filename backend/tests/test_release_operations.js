@@ -19,6 +19,15 @@ assert.deepEqual(decide([], config).status, 'paused');
 assert.equal(decide(metrics, config).status, 'promoted');
 assert.equal(decide(metrics, config).selectedVariant, 'canary');
 assert.equal(decide([{ variant: 'canary', requests: 10, errors: 1, latency_ms_total: 1000 }], config).status, 'rolled_back');
+const abConfig = { slo: config.slo, variants: [{ name: 'control' }, { name: 'candidate' }] };
+assert.equal(decide([
+  { variant: 'control', requests: 20, errors: 0, latency_ms_total: 1000 },
+  { variant: 'candidate', requests: 0, errors: 0, latency_ms_total: 0 }
+], abConfig, 'ab').status, 'paused', 'Control traffic cannot satisfy the candidate minimum sample');
+assert.equal(decide([
+  { variant: 'control', requests: 20, errors: 0, latency_ms_total: 1000 },
+  { variant: 'candidate', requests: 20, errors: 0, latency_ms_total: 2000 }
+], abConfig, 'ab').status, 'rolled_back', 'A/B rollout cannot promote when control beats candidate');
 
 function response() {
   return {
