@@ -10,6 +10,7 @@
 const operations = require('./agentDnaOperations');
 const store = require('./agentDnaStore');
 const decisions = require('./agentDnaInnovationDecisions');
+const { fossilConcepts, hasPersistedTrustedEvidence, normalizeTool } = require('./agentDnaInnovationEvidence');
 
 async function safeGet(db, sql, ...params) {
   try {
@@ -17,16 +18,6 @@ async function safeGet(db, sql, ...params) {
   } catch (_) {
     return null;
   }
-}
-
-function normalizeTool(tool) {
-  let out = '';
-  for (const character of String(tool || '')) {
-    if (/[a-z0-9]/i.test(character)) out += character.toUpperCase();
-    else if ('_- .:/'.includes(character)) out += '_';
-  }
-  while (out.endsWith('_')) out = out.slice(0, -1);
-  return out.slice(0, 50);
 }
 
 function detectNovelConcepts(baseModel, tools) {
@@ -37,21 +28,6 @@ function detectNovelConcepts(baseModel, tools) {
     if (!genes[locus]) concepts.push({ locus, instruction: String(tool) });
   }
   return concepts;
-}
-
-function fossilConcepts(record) {
-  const payload = record && record.mineral_payload;
-  const source = [
-    ...(Array.isArray(record && record.hard_parts) ? record.hard_parts : []),
-    ...(payload && typeof payload === 'object' ? ['tools', 'contracts', 'golden_paths', 'provenance'].flatMap((key) => Array.isArray(payload[key]) ? payload[key] : []) : [])
-  ];
-  const seen = new Set();
-  return source.filter((value) => {
-    const instruction = String(value || '').trim();
-    if (!instruction || seen.has(instruction)) return false;
-    seen.add(instruction);
-    return true;
-  }).map((instruction) => ({ locus: `FOSSIL_${normalizeTool(instruction)}`, instruction }));
 }
 
 async function scopeForWorkspace(db, workspaceId) {
@@ -93,12 +69,6 @@ function evidenceSummary(event) {
   };
 }
 
-function requireTrustedEvidence(evidence) {
-  if (!hasTrustedEvidence(evidence || {})) {
-    throw Object.assign(new Error('Caller-provided evidence is not verified by a trust hook.'), { code: 'INNOVATION_EVIDENCE_UNVERIFIED' });
-  }
-}
-
 function resolvedInnovationStatus(row) {
   if (!row) return 'candidate';
   if (!row.status) return 'candidate';
@@ -107,8 +77,6 @@ function resolvedInnovationStatus(row) {
 
 async function captureCandidate(db, request) {
   const scope = request.scope || {};
-  // Evidence caller-fournie refusée sauf vérification par hook de confiance.
-  requireTrustedEvidence(request.evidence);
   const result = await operations.runOperation(db, {
     operation: 'speciate',
     params: {
@@ -192,7 +160,11 @@ async function captureFromSuccess(ctx) {
     concept: demonstrated.map((concept) => concept.instruction).join(','),
     concepts: demonstrated,
     sourceAgentId: agentCtx.agentId,
-    evidence: { ...evidenceSummary(event), contributionEvidence },
+    evidence: {
+      ...evidenceSummary(event),
+      executionRunId: agentCtx.mission.executionRunId || agentCtx.mission.runId,
+      contributionEvidence
+    },
     scope: agentCtx.scope
   });
 }
@@ -265,7 +237,7 @@ async function evaluateCandidate(db, id) {
   const parent = row.base_genome_ref ? await store.loadGenome(db, row.base_genome_ref) : null;
 
   const evidence = parseEvidence(row.evidence_json);
-  const sourceEvidence = hasTrustedEvidence(evidence);
+  const sourceEvidence = await hasPersistedTrustedEvidence(db, { row, evidence, model });
   const scope = { organizationId: row.organization_id, projectId: row.project_id };
   const trust = await require('./agentDnaTrust').evaluateGenomeTrust(db, model, scope);
   const checks = evaluationChecks({
@@ -293,26 +265,19 @@ function parseEvidence(value) {
   try { return JSON.parse(value || '{}'); } catch (_) { return {}; }
 }
 
-function contributionPasses(evidence) {
-  const contribution = evidence.contributionEvidence;
-  if (!contribution || typeof contribution !== 'object') return false;
-  const entries = Object.values(contribution);
-  if (entries.length === 0) return false;
-  return entries.every((entry) => entry && entry.observed === true);
-}
-
 function demonstratedConcepts(concepts, contributionEvidence) {
   return (concepts || []).filter((concept) => contributionEvidence
     && contributionEvidence[concept.locus]
     && contributionEvidence[concept.locus].observed === true);
 }
 
-function hasTrustedEvidence(evidence) {
-  if (!evidence || typeof evidence !== 'object') return false;
-  if (evidence.source === 'stratigraphic_fossil') return Boolean(evidence.integrityVerified && evidence.payloadHash);
-  if (evidence.source !== 'validated_worker_success') return false;
-  if (!require('./agentEvidenceService').hasDecisionEvidence(evidence)) return false;
-  return contributionPasses(evidence);
+async function promoteCandidate(db, id, operatorId) {
+  if (!String(operatorId || '').trim()) return decisions.promoteCandidate(db, id, operatorId);
+  const evaluated = await evaluateCandidate(db, id);
+  if (!evaluated.evaluation.eligible) {
+    throw Object.assign(new Error('Innovation has not passed evidence verification and promotion gates'), { code: 'INNOVATION_GATE_BLOCKED' });
+  }
+  return decisions.promoteCandidate(db, id, operatorId);
 }
 
 function evaluationChecks({ model, parent, evidence, signature }) {
@@ -368,6 +333,7 @@ module.exports = {
   captureFromFossil,
   fossilConcepts,
   ...decisions,
+  promoteCandidate,
   evaluateCandidate,
   listInnovations,
   latestToolLease,

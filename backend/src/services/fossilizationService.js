@@ -330,6 +330,20 @@ async function excavateFossil(db, fossilId, options = {}) {
   };
 }
 
+async function loadVerifiedFossil(db, fossilId, scope = {}) {
+  if (!fossilId) return null;
+  const organizationId = scope.organizationId || scope.organization_id || null;
+  const projectId = scope.projectId || scope.project_id || null;
+  const row = await db.get(
+    `SELECT * FROM fossils
+      WHERE fossil_id = ? AND organization_id IS ? AND project_id IS ?`,
+    fossilId, organizationId, projectId
+  );
+  if (!row) return null;
+  const record = fossilFromRow(row);
+  return verifyFossilIntegrity(record) ? record : null;
+}
+
 module.exports = {
   MODES,
   DEFAULT_MODE,
@@ -349,5 +363,6 @@ module.exports = {
   listFossils,
   listStrata,
   excavateFossil,
+  loadVerifiedFossil,
   decodeFossil
 };

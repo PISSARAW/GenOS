@@ -162,17 +162,17 @@ Voir aussi :
 
 ## 5. Flux observable dans le backend
 
-Le registre d'innovations expose maintenant la chaîne opérable suivante (sous les routes AgentDNA, avec `workspace:write` pour les mutations) :
+Le registre d'innovations expose maintenant la chaîne opérable suivante (sous les routes AgentDNA, avec le rôle `admin` pour les mutations) :
 
-- `POST /genomes/innovations` reçoit le besoin identifié (`baseGenomeRef`, `concept`, `concepts`, `evidence`) et crée un génome dérivé en statut `candidate` ; la capture automatique après succès vérifié et la capture depuis fossile utilisent le même stockage.
+- `POST /genomes/innovations` reçoit le besoin identifié (`baseGenomeRef`, `concept`, `concepts`, `evidence`) et crée un génome dérivé en statut `candidate` ; la preuve envoyée par l'appelant reste une déclaration tant que le stockage ne l'a pas corroborée.
 - `GET /genomes/innovations` montre les candidats, preuves, évaluations et décisions dans le périmètre tenant/projet.
-- `POST /genomes/innovations/:id/evaluate` conserve un résultat de gate vérifiable : validité du génome décodé, preuve de décision substantivée et conformité à la politique de signature du tenant.
+- `POST /genomes/innovations/:id/evaluate` conserve un résultat de gate vérifiable : validité du génome décodé, preuve source relue dans le stockage (fossile intègre et de même portée, ou événement de succès et reçus d'outil observés), et conformité à la politique de signature du tenant.
 - Les captures de succès/fossile exécutent la même évaluation automatiquement ; une évaluation admissible donne le statut `evaluated`, un échec reste `candidate` avec ses contrôles et ses motifs.
-- `POST /genomes/innovations/:id/promote` est refusé tant que la dernière évaluation n'est pas admissible. L'identité de l'opérateur est requise et auditée avec la promotion ; le candidat devient `active` dans la même transaction.
+- `POST /genomes/innovations/:id/promote` refait l'évaluation avant de promouvoir. L'identité d'un administrateur est requise et auditée avec la promotion ; le candidat devient `active` dans la même transaction.
 - `POST /genomes/innovations/:id/reject` conserve la décision et sa raison, puis marque le génome `rejected`.
 - Après promotion, la sélection normale de génome peut le choisir au spawn. Chaque application de gènes AgentDNA écrit aussi une ligne consultable dans `GET /genomes/selections`, liée à l'innovation promue si applicable. Cela ne met pas à jour les agents déjà en cours d'exécution.
 
-L'entrée explicite peut décrire un besoin, mais ne transforme pas une preuve soumise par l'appelant en preuve vérifiée : la gate n'accepte que la preuve du hook de succès vérifié ou l'intégrité d'un fossile. Le flux n'invente pas de score de coût ou de risque ; ces évaluations spécialisées et l'approbation humaine restent apportées par l'orchestrateur ou la politique opérateur. Une évaluation refusée reste consultable et ne rend jamais le candidat sélectionnable.
+L'entrée explicite peut décrire un besoin, mais ne transforme pas une preuve soumise par l'appelant en preuve vérifiée : la gate consulte l'événement et les reçus persistés, ou recalcule l'intégrité d'un fossile enregistré dans le même tenant. Les mutations HTTP d'innovation sont réservées aux administrateurs, comme les opérations directes `speciate` et `graft`. Le flux n'invente pas de score de coût ou de risque ; ces évaluations spécialisées et l'approbation humaine restent apportées par l'orchestrateur ou la politique opérateur. Une évaluation refusée reste consultable et ne rend jamais le candidat sélectionnable.
 
 Donc : la capacité existe, les primitives existent, le hook existe, mais le flux **bout-en-bout autonome** n'est pas le scénario par défaut documenté comme produit fini.
 
