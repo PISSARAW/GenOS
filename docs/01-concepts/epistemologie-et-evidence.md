@@ -205,10 +205,16 @@ même hash.
 Cette absence a un effet opérationnel : `strategyContractService` active
 `require_replay` pour les profils reproductibles et les contrats à haut risque.
 Ces runs peuvent terminer leur exécution, mais ne peuvent pas être promus tant
-qu'aucun producteur ne fournit le reçu attendu. Le rejeu d'état de l'agent compare
-les champs restaurés d'un snapshot ; le rejeu Git vérifie l'intégrité d'un objet
-et de ses événements sans réexécuter le runtime. Aucun des deux ne satisfait ce
-contrat de promotion.
+qu'aucun producteur ne fournit le reçu attendu. Le pipeline `diff_and_replay`
+sélectionne désormais les primitives de rejeu et de comparaison du portefeuille ;
+sans trajectoire, fichier d'entrée ou paire de forks, elles sont non applicables.
+Si le portefeuille ne peut exécuter qu'un rejeu ou qu'une comparaison, l'étape
+échoue avec `STRATEGY_REPLAY_STAGE_INCOMPLETE` au lieu de déclarer la phase terminée.
+Ce rejeu d'une trajectoire déclarée ou d'un fork causal ne relance pas le run de
+stratégie lui-même et n'émet pas encore le reçu lié au run. Le rejeu d'état de
+l'agent compare les champs restaurés d'un snapshot ; le rejeu Git vérifie
+l'intégrité d'un objet et de ses événements sans réexécuter le runtime. Aucun de
+ces contrôles ne satisfait le contrat de promotion.
 
 La fermeture de cette lacune demande une capacité de rejeu d'exécution. Elle doit
 conserver les entrées et leur hash, la version du runner et des primitives,

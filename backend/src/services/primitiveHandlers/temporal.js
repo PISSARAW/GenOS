@@ -24,11 +24,13 @@ async function causalReplay(context) {
   // Rejoue une séquence d'événements passés avec une intervention pour observer la divergence causale.
   const strategyId = context.agentId || context.orchestratorId || 'strategy_adapter';
   if (context.trajectory || context.turns || context.trajectoryId) {
-    const { replayResult, trajId } = await temporalHelpers.handleTrajectoryReplay(context);
-
-    temporalHelpers.emitTrajectoryReplayTelemetry(strategyId, { replayResult, trajId });
-
-    return { success: true, ...replayResult };
+    try {
+      const { replayResult, trajId } = await temporalHelpers.handleTrajectoryReplay(context);
+      temporalHelpers.emitTrajectoryReplayTelemetry(strategyId, { replayResult, trajId });
+      return { success: true, ...replayResult };
+    } catch (error) {
+      return { success: false, code: 'STRATEGY_CONTEXT_INCOMPLETE', error: error.message };
+    }
   }
 
   return runMcpReplay(context, strategyId);

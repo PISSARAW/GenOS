@@ -258,23 +258,36 @@ function buildFallbackTrajectory(context) {
   };
 }
 
-function ensureTrajectoryTurns(traj) {
-  if (!traj.turns || !Array.isArray(traj.turns) || traj.turns.length === 0) {
-    traj.turns = [{ step: 1, action: 'baseline_action', status: 'SUCCESS' }];
-  }
-  return traj;
-}
-
 async function handleTrajectoryReplay(context) {
   const trajectoryService = require('../trajectoryService');
-  let traj = await loadTrajectory(context);
-  if (!traj) {
-    traj = buildFallbackTrajectory(context);
+  const trajectory = await resolveReplayTrajectory(context);
+  requireRecordedTurns(trajectory);
+  return { replayResult: trajectoryService.counterfactualReplay(trajectory,
+    replayStepIndex(context), replayAlterations(context)), trajId: trajectory.id };
+}
+
+async function resolveReplayTrajectory(context) {
+  const persisted = await loadTrajectory(context);
+  if (persisted) return persisted;
+  if (!Array.isArray(context.turns) || context.turns.length === 0) {
+    throw new Error('A persisted trajectory or recorded turns are required for counterfactual replay.');
   }
-  ensureTrajectoryTurns(traj);
-  const stepIndex = context.stepIndex ?? context.branchingPoint ?? 1;
-  const alterations = context.alterations || context.intervention || {};
-  return { replayResult: trajectoryService.counterfactualReplay(traj, stepIndex, alterations), trajId: traj.id };
+  return buildFallbackTrajectory(context);
+}
+
+function requireRecordedTurns(trajectory) {
+  const turns = trajectory.turns || trajectory.diffLines || trajectory.diff_lines || [];
+  if (!Array.isArray(turns) || turns.length === 0) {
+    throw new Error('A persisted trajectory with recorded steps is required for counterfactual replay.');
+  }
+}
+
+function replayStepIndex(context) {
+  return context.stepIndex ?? context.branchingPoint ?? 1;
+}
+
+function replayAlterations(context) {
+  return context.alterations || context.intervention || {};
 }
 
 function emitTrajectoryReplayTelemetry(agentId, entry) {

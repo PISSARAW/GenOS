@@ -10,7 +10,7 @@ const STAGE_PRIMITIVE_MAP = {
   isolated_forks: ['fork', 'mcts_select'],
   instrumented_run: ['vfs_dry_run', 'run'],
   adaptive_evaluation: ['evaluate', 'verify'],
-  diff_and_replay: ['safe_revert'],
+  diff_and_replay: ['causal_replay_intervention', 'causal_replay', 'replay', 'procedural_causal_replay', 'causal_diff'],
   audit: ['provenance', 'dependency_matrix'],
   conditional_promotion: ['select_winner', 'stdp_update', 'cherry_pick_golden_path']
 };
@@ -217,9 +217,70 @@ const PRIMITIVE_CONTEXT_REQUIREMENTS = {
 };
 
 function missingContext(primitive, context = {}) {
+  if (isReplayPrimitive(primitive)) return replayInputMissing(context);
+  if (primitive === 'procedural_causal_replay') return proceduralReplayInputMissing(context);
+  if (primitive === 'causal_diff') return causalDiffInputMissing(context);
   const required = PRIMITIVE_CONTEXT_REQUIREMENTS[primitive];
   if (!required) return [];
   return required.filter((key) => context[key] === undefined || context[key] === null || context[key] === '');
+}
+
+function isReplayPrimitive(primitive) {
+  return ['causal_replay_intervention', 'causal_replay', 'replay'].includes(primitive);
+}
+
+function replayInputMissing(context) {
+  const hasTrajectory = hasTrajectorySteps(context.trajectory)
+    || (Array.isArray(context.turns) && context.turns.length > 0)
+    || (typeof context.trajectoryId === 'string' && context.trajectoryId.trim());
+  if (hasTrajectory || context.inputFile) return [];
+  return ['trajectory, turns, trajectoryId, or inputFile'];
+}
+
+function proceduralReplayInputMissing(context) {
+  const required = ['forkId', 'runnerId', 'environmentId', 'snapshotId'];
+  return required.filter((key) => typeof context[key] !== 'string' || !context[key].trim());
+}
+
+function causalDiffInputMissing(context) {
+  if (hasPersistedForkPair(context) || hasSnapshotExperiment(context) || hasTrajectoryPair(context)) return [];
+  return ['baseline and candidate trajectories or a persisted fork pair'];
+}
+
+function hasPersistedForkPair(context) {
+  return Boolean(context.baselineForkId && context.interventionForkId);
+}
+
+function hasSnapshotExperiment(context) {
+  return Boolean(context.experimentId && Array.isArray(context.groups));
+}
+
+function hasTrajectoryPair(context) {
+  const baseline = context.baseline || context.actual || context.original;
+  const candidate = context.candidate || context.counterfactual || context.alternative;
+  return hasTrajectorySteps(baseline) && hasTrajectorySteps(candidate);
+}
+
+function hasTrajectorySteps(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  return Boolean(value && (Array.isArray(value.turns) && value.turns.length > 0
+    || Array.isArray(value.steps) && value.steps.length > 0));
+}
+
+function diffReplayMissing(primitives) {
+  const list = primitives || [];
+  const hasReplay = list.some(isReplayPrimitive)
+    || list.includes('procedural_causal_replay');
+  const hasDiff = list.includes('causal_diff');
+  return { replay: !hasReplay, diff: !hasDiff };
+}
+
+function incompleteDiffReplayResult(stageKey, executable, notApplicable) {
+  if (stageKey !== 'diff_and_replay') return null;
+  const missing = diffReplayMissing(executable);
+  if (!missing.replay && !missing.diff) return null;
+  return { success: false, applicable: true, results: [], notApplicable,
+    code: 'STRATEGY_REPLAY_STAGE_INCOMPLETE', missing };
 }
 
 async function executeStepPrimitives(db, agentId, options) {
@@ -243,6 +304,8 @@ async function executeStepPrimitives(db, agentId, options) {
     if (!executable.length) {
       return { success: true, applicable: false, results: [], notApplicable };
     }
+    const incomplete = incompleteDiffReplayResult(stageKey, executable, notApplicable);
+    if (incomplete) return incomplete;
     const adapter = require('./strategyExecutionAdapter');
     const pipeline = await adapter.executePipelineWithFeedback(executable, context);
     return { ...pipeline, applicable: true, notApplicable };
@@ -265,6 +328,7 @@ module.exports = {
   resolveStagePrimitives,
   PRIMITIVE_CONTEXT_REQUIREMENTS,
   missingContext,
+  diffReplayMissing,
   metricDelta,
   stepIndex,
   unfinishedPhaseReason,
