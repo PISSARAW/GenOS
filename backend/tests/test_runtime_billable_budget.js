@@ -78,4 +78,18 @@ events.handleParsedEvent(unknownUsage, { type: 'turn.completed', usage: {
 assert.equal(unknownUsage.budgetStopped.dimension, 'tokens');
 assert.equal(unknownUsage.budgetStopped.observed, 'unknown');
 
+const invalidCost = runtimeState(8_000);
+events.handleParsedEvent(invalidCost, { type: 'turn.completed', usage: { cost_usd: -1 } });
+assert.equal(invalidCost.budgetStopped.dimension, 'costUsd');
+assert.equal(invalidCost.budgetStopped.observed, 'unknown', 'negative costs fail closed');
+
+const malformedCost = runtimeState(8_000);
+events.handleParsedEvent(malformedCost, { type: 'turn.completed', cost_usd: 'unknown' });
+assert.equal(malformedCost.budgetStopped.dimension, 'costUsd');
+assert.equal(malformedCost.budgetStopped.observed, 'unknown', 'malformed costs fail closed');
+
+const zeroCost = runtimeState(8_000);
+events.handleParsedEvent(zeroCost, { type: 'turn.completed', usage: { cost_usd: 0 } });
+assert.equal(zeroCost.budgetStopped, null, 'a valid zero cost remains valid');
+
 console.log('Runtime billable budget accounting: PASS');

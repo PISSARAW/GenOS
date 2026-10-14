@@ -85,9 +85,17 @@ function enforceBudget(state) {
     stopForBudget(state, { dimension: 'tokens', observed: observedTokens, limit: budgetLimit(state, 'tokens') });
   } else if (state.eventCount > budgetLimit(state, 'events')) {
     stopForBudget(state, { dimension: 'events', observed: state.eventCount, limit: budgetLimit(state, 'events') });
+  } else if (state.costUsageUnknown) {
+    stopForBudget(state, { dimension: 'costUsd', observed: 'unknown', limit: budgetLimit(state, 'costUsd') });
   } else if (state.observedCostUsd > budgetLimit(state, 'costUsd')) {
     stopForBudget(state, { dimension: 'costUsd', observed: state.observedCostUsd, limit: budgetLimit(state, 'costUsd') });
   }
+}
+
+function reportedCost(event, usage) {
+  if (Object.prototype.hasOwnProperty.call(event, 'cost_usd')) return event.cost_usd;
+  if (Object.prototype.hasOwnProperty.call(usage, 'cost_usd')) return usage.cost_usd;
+  return undefined;
 }
 
 function accountEvent(state, event) {
@@ -101,7 +109,12 @@ function accountEvent(state, event) {
   } else if (isAgentMessage(event)) {
     state.estimatedTokens += Math.ceil(Buffer.byteLength(messageText(event), 'utf8') / 4);
   }
-  state.observedCostUsd += Number(event.cost_usd || usage.cost_usd || 0);
+  const cost = reportedCost(event, usage);
+  if (cost !== undefined) {
+    const value = Number(cost);
+    if (!Number.isFinite(value) || value < 0) state.costUsageUnknown = true;
+    else state.observedCostUsd += value;
+  }
 }
 
 function observeGenosTools(state, value) {
