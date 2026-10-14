@@ -18,7 +18,10 @@ function asNumbers(value) {
 }
 
 function distance(left, right) {
-  const length = Math.max(left.length, right.length);
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+    throw archiveError('TRINITY_NOVELTY_DIMENSION_MISMATCH', 'Behavior vectors must have the same number of dimensions.');
+  }
+  const length = left.length;
   if (!length) return 0;
   let sum = 0;
   for (let i = 0; i < length; i++) {
@@ -42,6 +45,7 @@ function addBehavior(input = {}) {
 function noveltyScore(input = {}) {
   const archive = Array.isArray(input.archive) ? input.archive : [];
   const vector = behaviorVector(input.vector);
+  if (!vector.length) throw archiveError('TRINITY_NOVELTY_EMPTY_VECTOR', 'Behavior vector must contain at least one finite number.');
   const k = Math.max(1, Number(input.neighbors) || DEFAULT_NEIGHBORS);
   if (!archive.length) return 1;
   const distances = archive.map((entry) => distance(entry.vector, vector)).sort((a, b) => a - b);
@@ -66,23 +70,40 @@ function scoreCandidate(candidate, archive, qualityWeight) {
   return { id: candidate.id, quality, novelty, combined: Number(combined.toFixed(6)) };
 }
 
+function validateDimensions(candidates, archive) {
+  const vectors = [...archive.map((entry) => entry.vector), ...candidates.map((candidate) => behaviorVector(candidate.vector))];
+  const expectedDimensions = vectors[0]?.length;
+  if (!expectedDimensions || vectors.some((vector) => !Array.isArray(vector) || vector.length !== expectedDimensions)) {
+    throw archiveError('TRINITY_NOVELTY_DIMENSION_MISMATCH', 'All archived behaviors and candidates must use the same non-empty vector dimensions.');
+  }
+}
+
+function scoredCandidates(candidates, archive, input) {
+  const qualityWeight = clamp01(Number(input.qualityWeight ?? 0.5));
+  const nicheCount = Math.max(1, Number(input.nicheCount) || 8);
+  return candidates.map((candidate, index) => ({
+    ...scoreCandidate({ ...candidate, id: candidate.id || `candidate_${index}` }, archive, qualityWeight),
+    niche: assignNiche({ vector: behaviorVector(candidate.vector), nicheCount })
+  }));
+}
+
+function bestPerNiche(scored) {
+  const best = new Map();
+  for (const entry of scored) {
+    const current = best.get(entry.niche);
+    if (!current || entry.combined > current.combined) best.set(entry.niche, entry);
+  }
+  return best;
+}
+
 function qualityDiversitySelect(input = {}) {
   const candidates = Array.isArray(input.candidates) ? input.candidates : [];
   if (!candidates.length) throw archiveError('TRINITY_NOVELTY_NO_CANDIDATES', 'Quality-diversity selection requires at least one candidate.');
   const archive = Array.isArray(input.archive) ? input.archive : [];
-  const qualityWeight = clamp01(Number(input.qualityWeight ?? 0.5));
-  const nicheCount = Math.max(1, Number(input.nicheCount) || 8);
-  const scored = candidates.map((candidate, index) => ({
-    ...scoreCandidate({ ...candidate, id: candidate.id || `candidate_${index}` }, archive, qualityWeight),
-    niche: assignNiche({ vector: behaviorVector(candidate.vector), nicheCount })
-  }));
-  const bestPerNiche = new Map();
-  for (const entry of scored) {
-    const current = bestPerNiche.get(entry.niche);
-    if (!current || entry.combined > current.combined) bestPerNiche.set(entry.niche, entry);
-  }
-  const selection = [...bestPerNiche.values()].sort((a, b) => b.combined - a.combined);
-  return { selection, nichesCovered: bestPerNiche.size, antiConvergence: true,
+  validateDimensions(candidates, archive);
+  const best = bestPerNiche(scoredCandidates(candidates, archive, input));
+  const selection = [...best.values()].sort((a, b) => b.combined - a.combined);
+  return { selection, nichesCovered: best.size, antiConvergence: true,
     method: 'quality_times_novelty_per_niche' };
 }
 
