@@ -21,6 +21,7 @@ const workerRecovery = require('./workerFailureRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const agentConscience = require('./agentConscienceService');
 const { terminateChild } = require('./processTermination');
+const childTermination = require('./agentChildTerminationObserver');
 const {
   buildRuntimeEnvironment,
   buildReplayManifest,
@@ -359,7 +360,7 @@ async function superviseMission(options) {
   child.stderr.on('data', (chunk) => { handleStderrData(ctx, chunk); });
   child.stdin.on('error', (error) => { handleStdinError(ctx, error); });
   child.on('error', (error) => { handleChildError(ctx, error); });
-  child.on('close', (code, signal) => { handleChildClose(ctx, code, signal); });
+  childTermination.attach(child, (code, signal) => { handleChildClose(ctx, code, signal); });
   continuousExecution.start(ctx);
   // Replay a spawn error that fired before ctx existed, and fail the mission
   // through the normal error path instead of crashing the bridge.
