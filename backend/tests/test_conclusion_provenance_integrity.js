@@ -34,12 +34,34 @@ function check(condition, message) {
   }
 }
 
+function reportsIncompleteEvidence(result, toolName) {
+  return result.configured === true && result.output.tool === toolName
+    && result.success === false && result.output.provenance.complete === false;
+}
+
+async function verifyLineageQueryBound(db) {
+  const suffix = Date.now();
+  const first = `lineage-cycle-a-${suffix}`;
+  const second = `lineage-cycle-b-${suffix}`;
+  await db.run("INSERT INTO lineage_nodes(id,label,node_type) VALUES(?,?, 'checkpoint')", first, first);
+  await db.run("INSERT INTO lineage_nodes(id,label,node_type) VALUES(?,?, 'checkpoint')", second, second);
+  await db.run("INSERT INTO lineage_edges(id,source_node_id,target_node_id) VALUES(?,?,?)", `edge-a-${suffix}`, first, second);
+  await db.run("INSERT INTO lineage_edges(id,source_node_id,target_node_id) VALUES(?,?,?)", `edge-b-${suffix}`, second, first);
+  const result = await mcpStrategy.executeStrategyTool('genos_lineage', { target_id: second });
+  assert.equal(result.output.truncated, true);
+  assert.equal(result.output.evidence.length, 1000);
+  assert.equal(result.success, false);
+  await db.run('DELETE FROM lineage_edges WHERE id IN (?, ?)', `edge-a-${suffix}`, `edge-b-${suffix}`);
+  await db.run('DELETE FROM lineage_nodes WHERE id IN (?, ?)', first, second);
+}
+
 async function runSuite() {
   console.log('===============================================================');
   console.log('       CONCLUSION PROVENANCE & EPISTEMIC INTEGRITY SUITE       ');
   console.log('===============================================================');
 
   const db = await getDatabase();
+  await verifyLineageQueryBound(db);
 
   // Test 1: Merkle Provenance Chain Traversal & Truncation
   console.log('\n--- 1. Cryptographic Merkle DAG Provenance Traversal ---');
@@ -194,10 +216,10 @@ async function runSuite() {
   check(gateReject.success === true && gateReject.allowed === false, 'belief_gate rejects belief contradicted by evidence');
 
   const mcpBlame = await mcpStrategy.executeStrategyTool('genos_blame', { target_id: 'unknown-target' });
-  check(mcpBlame.success === true, 'MCP genos_blame tool executes via strategy primitive');
+  check(reportsIncompleteEvidence(mcpBlame, 'genos_blame'), 'MCP genos_blame preserves incomplete evidence as failure');
 
   const mcpLineage = await mcpStrategy.executeStrategyTool('genos_lineage', { target_id: 'unknown-target' });
-  check(mcpLineage.success === true, 'MCP genos_lineage tool executes via strategy primitive');
+  check(reportsIncompleteEvidence(mcpLineage, 'genos_lineage'), 'MCP genos_lineage preserves incomplete evidence as failure');
 
   console.log('\n===============================================================');
   console.log(`RESULTS: ${passedTests} passed, ${failedTests} failed`);

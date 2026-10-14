@@ -311,9 +311,12 @@ Les opérations de replay exposent séparément `status` et `replayVerified`.
 Lorsque le hash, la signature ou l'état live divergent, la réponse porte
 `verification_failed` et `success` vaut `false`.
 
-Les outils `genos_blame` et `genos_lineage` interrogent désormais SQLite
-(`telemetry_events` et `lineage_edges`). Une cible sans provenance retourne un
-résultat non vérifié et ne peut pas être promue comme une preuve complète.
+Les outils `genos_blame` et `genos_lineage` interrogent SQLite
+(`telemetry_events` et `lineage_edges`). Ils exposent au plus 1 000 éléments et
+signalent `truncated: true` si une ligne sentinelle supplémentaire existe; la
+CTE récursive de lineage est elle-même bornée pour terminer même sur un cycle.
+Une réponse vide ou tronquée porte `provenance.complete: false` et ne peut pas
+être promue comme une preuve complète.
 
 Les sorties sont rigoureusement bornees et unifiees : le module `boundedOutput.js`, le serveur JS et le backend limitent tous la sortie a exactement $1\,048\,576$ octets (1 MiB par defaut). Pour HTTP, une reponse plus grande est refusee; les messages d'erreur ont une limite plus courte (4 KiB). Ces limites unifiees evitent qu'un outil bloque ou sature le processus de controle.
 

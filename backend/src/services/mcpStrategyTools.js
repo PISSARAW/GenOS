@@ -62,17 +62,20 @@ async function handleBlameOrLineage(toolName, args) {
   try {
     const { getDatabase } = require('../db');
     const db = await getDatabase();
-    const evidence = toolName === 'genos_blame'
-      ? await db.all('SELECT event_id, event_type, action, detail, payload_json, created_at FROM telemetry_events WHERE agent_id = ? ORDER BY created_at, id LIMIT 1000', targetId)
+    const rows = toolName === 'genos_blame'
+      ? await db.all('SELECT event_id, event_type, action, detail, payload_json, created_at FROM telemetry_events WHERE agent_id = ? ORDER BY created_at, id LIMIT 1001', targetId)
       : await db.all(`WITH RECURSIVE ancestors(id, depth) AS (
           SELECT source_node_id, 1 FROM lineage_edges WHERE target_node_id = ?
           UNION ALL
           SELECT e.source_node_id, ancestors.depth + 1 FROM lineage_edges e JOIN ancestors ON e.target_node_id = ancestors.id
+          LIMIT 1001
         ) SELECT id, depth FROM ancestors ORDER BY depth, id`, targetId);
-    const complete = evidence.length > 0;
+    const truncated = rows.length > 1000;
+    const evidence = rows.slice(0, 1000);
+    const complete = evidence.length > 0 && !truncated;
     return strategyOutput(complete, {
-      tool: toolName, targetId, evidence,
-      provenance: { source: 'sqlite', complete, verifiedAt: new Date().toISOString() }
+      tool: toolName, targetId, evidence, truncated,
+      provenance: { source: 'sqlite', complete, truncated, verifiedAt: new Date().toISOString() }
     });
   } catch (error) {
     return strategyOutput(false, { tool: toolName, targetId, error: error.message, evidence: [] });
