@@ -21,13 +21,15 @@ try {
   assert(fs.existsSync(defaultExecutable), 'bundled GenOS runtime must exist');
   assert.equal(adapter.configuredExecutable({ executor: 'hermes' }), path.resolve(__dirname, '../bin/solar-direct-runtime-v2.cjs'));
   assert.equal(adapter.configuredExecutable({ executor: 'antigravity' }), path.resolve(__dirname, '../bin/caller-mcp-runtime.cjs'));
-  const runtimeSource = [defaultExecutable, path.resolve(__dirname, '../bin/agent-runtime-session.cjs'), path.resolve(__dirname, '../bin/agent-runtime-events.cjs')].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
-  assert(runtimeSource.includes("'genos-codex-'"), 'runtime agents must receive an isolated CODEX_HOME');
+  const runtimeSource = [defaultExecutable, path.resolve(__dirname, '../bin/agent-runtime-session.cjs'),
+    path.resolve(__dirname, '../bin/agent-runtime-events.cjs'), path.resolve(__dirname, '../bin/agent-runtime-home.cjs')]
+    .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+  assert(runtimeSource.includes("'genos-runtime-'"), 'runtime agents must receive an isolated CODEX_HOME');
   assert(runtimeSource.includes("'--dangerously-bypass-hook-trust'"), 'the control-plane policy hook must be enabled non-interactively');
   assert(!runtimeSource.includes('--dangerously-bypass-approvals-and-sandbox'), 'runtime must never disable the Codex sandbox');
   assert(runtimeSource.includes('mcp_servers.genos.disabled_tools=["genos_orchestrate"]'), 'runtime agents must not receive the root orchestration tool');
   assert(!runtimeSource.includes('GENOS_MCP_EXPOSE_ALL="true"'), 'runtime agents must use their explicit MCP lease');
-  assert(runtimeSource.includes('at least one tool is required'), 'runtime agents must reject an empty MCP lease');
+  assert(runtimeSource.includes('parseToolLease(mission.toolLeaseJson)'), 'runtime agents must validate their explicit MCP lease');
   const missionLeaseSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentRuntimeAdapter/missionLease.js'), 'utf8');
   const supervisorSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentProcessSupervisor.js'), 'utf8');
   const pipelineSource = fs.readFileSync(path.resolve(__dirname, '../src/services/agentProcessEventPipeline.js'), 'utf8');

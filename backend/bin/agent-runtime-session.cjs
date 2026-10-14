@@ -300,7 +300,7 @@ async function createInvocation(state, binaries) {
     throw error;
   }
   const mcp = buildMcpConfig(binaries);
-  const args = [...codexLaunch.args, 'exec', '--json', '--skip-git-repo-check', '--sandbox', 'workspace-write',
+  const args = [...codexLaunch.args, 'exec', '--json', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust',
     '-c', 'approval_policy="on-request"', '-c', 'approvals_reviewer="auto_review"'];
   args.push('-C', binaries.workspace);
   if (state.resumeCodex) args.push('resume', state.resumeCodex.checkpoint.threadId);
