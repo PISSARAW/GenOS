@@ -3,14 +3,15 @@
 const crypto = require('crypto');
 const trinityAdapters = require('./trinityAdapters');
 const adaptiveBudget = require('./trinityAdaptiveBudgetService');
+const compatibility = require('./trinityVariantCompatibility');
 
 const AXES = Object.freeze({
   worldTopology: {
     fixed_three: policy('implemented'),
     factorial_grid: policy('implemented', [
-      'Generate all combinations of strategies × models × tools as specified.',
+      'Generate all combinations of approach × model tier × validation depth.',
       'Each combination runs as an independent sealed world with equal budget.',
-      'Report results in a structured grid for ANOVA/hierarchical analysis.'
+      'Randomize cell execution order and report cell means, omnibus ANOVA, main effects and pairwise interactions.'
     ], { requiredAdapter: 'factorial_grid_executor' }),
     recursive_nesting: policy('implemented', [
       'Allow a chamber to spawn a nested Trinity for a scoped sub-problem.',
@@ -18,9 +19,9 @@ const AXES = Object.freeze({
       'Return verified sub-result, not raw text; parent evidence graph tracks lineage.'
     ], { requiredAdapter: 'recursive_trinity_executor' }),
     temporal_horizons: policy('implemented', [
-      'Assign each world a distinct temporal horizon and value function.',
-      'Short: immediate effects; Medium: integration & maintenance; Long: reversibility & options.',
-      'Compare outcomes across horizons with temporal-value discounting.'
+      'Analyze receipt-backed effects reported for immediate, integration, and strategic horizons.',
+      'Compare reported horizon values with temporal discounting; these are not independently validated forecasts.',
+      'Report reversibility, technical debt, option value, and missing horizon evidence.'
     ], { requiredAdapter: 'temporal_horizon_executor' }),
     oracular_prediction: policy('implemented', [
       'One world predicts which process will perform best (ex-ante).',
@@ -107,15 +108,13 @@ const AXES = Object.freeze({
   temporalPolicy: {
     single_horizon: policy('implemented'),
     short_medium_long: policy('implemented', [
-      'World 1: immediate effects (t=0..H1); value function V1.',
-      'World 2: near-term integration (t=H1..H2); value function V2.',
-      'World 3: long-term maintenance/reversibility (t=H2..∞); value function V3.',
-      'Report deferred effects, reversibility, technical debt, option value.'
+      'Report receipt-backed effects in the immediate, integration, and strategic horizons.',
+      'Use day values within each declared horizon and state deferred effects.',
+      'Compare reversibility, technical debt, and option value; do not claim forecast validation.'
     ], { requiredAdapter: 'temporal_value_model' }),
-    multi_horizon_grid: policy('implemented', [
-      'Cross strategies × horizons for full factorial temporal analysis.',
-      'Each cell: strategy × horizon with dedicated budget.',
-      'Analyze interaction effects: strategy × horizon.'
+    multi_horizon_grid: policy('conceptual', [
+      'Not executable yet: the runtime does not dispatch a strategy × horizon grid.',
+      'Compilation rejects this policy until per-cell assignments and verification are implemented.'
     ], { requiredAdapter: 'temporal_grid_executor' })
   },
   replicationPolicy: {
@@ -326,6 +325,7 @@ function compileExperimentalDesign(input = {}) {
     }
     partial = mergePolicy({ selected, effects, adapters: requiredAdapters }) || partial;
   }
+  compatibility.validate(design);
   return { design, maturity: partial ? 'partial' : 'implemented', executionLimits, effects, requiredAdapters };
 }
 

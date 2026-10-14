@@ -29,7 +29,9 @@ function run(input) {
   if (design.objectivePolicy === 'multi_objective_scalarized') {
     executions.scalarizedObjectives = runScalarizedObjectives(input.reports);
   }
-  return { status: Object.values(executions).every((entry) => entry.status === 'executed') ? 'executed' : 'incomplete', executions };
+  const entries = Object.values(executions);
+  return { status: !entries.length ? 'not_required'
+    : entries.every((entry) => entry.status === 'executed') ? 'executed' : 'incomplete', executions };
 }
 
 function qualityDiversityRequired(design) {
@@ -71,7 +73,7 @@ function weightSensitivity(vector, weights) {
 }
 
 function runFactorial(reports) {
-  const grid = factorial.generateFactorialGrid({ factors: FACTOR_LEVELS, replications: 2, randomize: false });
+  const grid = factorial.generateFactorialGrid({ factors: FACTOR_LEVELS, replications: 2, randomize: true });
   const byCell = new Map((reports || []).map((world) => [world.report?.factorialCell?.cellId, world.report]));
   const results = [];
   for (const cell of grid.cells) {
@@ -111,7 +113,7 @@ function runCounterfactual(reports) {
   }
   return { status: 'executed', ...counterfactual.analyzeCounterfactualResults({
     baselineReport: baseline, favorableReport: favorable, adverseReport: adverse, interventions
-  }), causalAttribution: 'observed_intervention_deltas_only', decisionAuthority: 'none' };
+  }), causalAttribution: 'conditional_prompt_sensitivity_only', decisionAuthority: 'none' };
 }
 
 function matchingInterventions(interventions) {

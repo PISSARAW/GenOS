@@ -605,6 +605,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0473](0473-preflight-partage-des-missions.md) | Préflight partagé des missions Ontogenesis | Accepté et implémenté | 2026-10-14 | Admission et audit des capacités génériques et canoniques. |
 | [0474](0474-contrats-homeostasie-recus-rust-division.md) | Invariants d’homéostasie liés aux reçus Rust de division | Accepté et implémenté | 2026-10-14 | Vérification structurale d’une division Rust précise, indépendante des reçus worker. |
 | [0475](0475-invalider-preferences-apres-transition-organisation.md) | Invalidation des préférences après transition d'organisation | Accepté et implémenté | 2026-10-14 | Purge post-commit du classement de survivants de l'ancienne topologie. |
+| [0476](0476-preflight-et-gates-des-axes-trinity.md) | Préflight des variantes et gates d’évidence Trinity | Accepté et implémenté | 2026-10-14 | Compatibilité des axes, confiance des reçus, gates fail-closed et limites contrefactuelles. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

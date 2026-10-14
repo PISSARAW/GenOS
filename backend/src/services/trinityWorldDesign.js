@@ -6,7 +6,7 @@ function expectedWorlds(selection) {
 function expand(members) {
   if (expectedWorlds(members[0]?.variantSelection) !== 16) return members;
   const factors = { approach: ['direct', 'planned'], modelTier: ['standard', 'frontier'], validation: ['basic', 'deep'] };
-  const grid = factorial.generateFactorialGrid({ factors, replications: 2, randomize: false });
+  const grid = factorial.generateFactorialGrid({ factors, replications: 2, randomize: true });
   return grid.cells.map((cell, index) => cellMember({ base: members[0], cell, index }));
 }
 function cellMember(input) {
