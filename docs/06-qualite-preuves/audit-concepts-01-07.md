@@ -37,7 +37,7 @@ nécessaires à un futur reçu lié au run.
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
 |---|:---:|:---:|:---:|:---:|:---:|---|
-| Runtime d’agents reproductible et supervisé | p | p | p | o | o | F ; superviseur réel, reproductibilité globale non démontrée. |
+| Runtime d’agents reproductible et supervisé | p | p | p | o | o | F ; superviseur et deadlines Node présents, mais le budget CPU n'est pas appliqué par le runtime worker et la reproductibilité globale n'est pas démontrée. |
 | État versionné | o | p | p | o | o | F ; snapshots et révisions, qualification courante manquante. |
 | Exécution contrefactuelle | o | p | p | p | o | F ; fork/snapshot accessibles, contre-épreuve complète non prouvée ici. |
 | Branches, forks, snapshots, diffs et replay | p | p | p | p | o | F ; `diff_and_replay` appelle les deux opérations et échoue si l'une manque, mais aucun producteur ne rejoue le run complet ni n'émet le reçu exigé par `require_replay` (ADR 0480). |
