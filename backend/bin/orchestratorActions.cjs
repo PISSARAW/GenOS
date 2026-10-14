@@ -251,9 +251,11 @@ function validateWorkspace(requested, source) {
   if (requested && norm(requested) !== norm(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
 }
 function buildWorkerContract({ workerKinds, workerKind, context, request }) {
+  const budget = request.execution_budget || request.executionBudget || {};
   const contract = workerKinds.buildWorkerContract(workerKind, {
     prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId,
-    methodContract: request.methodContract, workerAssignment: request.workerAssignment
+    methodContract: request.methodContract, workerAssignment: request.workerAssignment,
+    workerTokenLimit: budget.tokens
   });
   if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
   return contract;
@@ -385,4 +387,4 @@ async function handleAction(context) {
   return true;
 }
 if (require.main === module) require('./orchestratorActionsCli.cjs').run({ handleAction }).catch((e) => { console.error(e.message); process.exit(1); });
-module.exports = { handleAction, handleBackground, initializeMission, workerLaunchPayload };
+module.exports = { handleAction, handleBackground, initializeMission, workerLaunchPayload, buildWorkerContract };

@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const { buildWorkerMission } = require('../src/services/orchestratorDispatchService');
+const { buildWorkerContract } = require('../bin/orchestratorActions.cjs');
 
 const mission = buildWorkerMission({ agentId: 'worker', orchestratorAgentId: 'root', prompt: 'same contract' });
 assert.equal(mission.agentId, 'worker');
@@ -14,4 +15,11 @@ const scoped = buildWorkerMission({ agentId: 'worker', orchestratorAgentId: 'roo
   prompt: 'scoped contract', modelBudgetScope: { id: 'execution-run:root', costUsd: 1, tokens: 100 } });
 assert.deepEqual(scoped.modelBudgetScope,
   { id: 'execution-run:root', costUsd: 1, tokens: 100 });
+const persistedContract = buildWorkerContract({
+  workerKinds: require('../src/services/agents/workerKindService'),
+  workerKind: 'bounded_worker',
+  context: { task: 'diagnose latency', orchestratorId: 'root' },
+  request: { execution_budget: { tokens: 20000 } }
+});
+assert.equal(persistedContract.resources.maxTokens, 20000);
 console.log('CLI and gRPC worker dispatch share one normalized mission contract.');
