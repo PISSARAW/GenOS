@@ -198,7 +198,7 @@ async function createRollout(req, res, next) {
     if (!release) return res.status(404).json({ error: { code: 'RELEASE_NOT_FOUND', message: 'Release is outside the tenant scope.' } });
     
     const strategy = String(req.body?.strategy || 'canary').toLowerCase();
-    const configValidation = validateRolloutConfig({ strategy, config: req.body, requiredNumber });
+    const configValidation = validateRolloutConfig({ strategy, body: req.body, requiredNumber });
     if (configValidation.error) return res.status(400).json(configValidation.error);
     
     const rolloutId = id('rollout');
