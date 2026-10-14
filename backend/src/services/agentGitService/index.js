@@ -79,17 +79,42 @@ function loadAgent(db, req, agentId) {
   return db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, agentId, ...scope.params);
 }
 
+function agentRecordScope(req, alias, agentId) {
+  if (!req?.tenant) return { clause: '1 = 1', params: [] };
+  const prefix = `${alias}.`;
+  const { organizationId, projectId } = req.tenant;
+  return {
+    clause: `(${prefix}organization_id = ? AND ${prefix}project_id = ? OR (${prefix}organization_id IS NULL AND ${prefix}project_id IS NULL AND EXISTS (SELECT 1 FROM agents scope_agent JOIN workspaces scope_workspace ON scope_workspace.id = scope_agent.workspace_id WHERE scope_agent.id = ? AND scope_workspace.organization_id = ? AND scope_workspace.project_id = ?)))`,
+    params: [organizationId, projectId, agentId, organizationId, projectId]
+  };
+}
+
+function workspaceRecordScope(req, workspaceAlias, agentId) {
+  if (!req?.tenant) return { clause: '1 = 1', params: [] };
+  const { organizationId, projectId } = req.tenant;
+  return {
+    clause: `(${workspaceAlias}.organization_id = ? AND ${workspaceAlias}.project_id = ? OR (${workspaceAlias}.id IS NULL AND EXISTS (SELECT 1 FROM agents scope_agent JOIN workspaces scope_workspace ON scope_workspace.id = scope_agent.workspace_id WHERE scope_agent.id = ? AND scope_workspace.organization_id = ? AND scope_workspace.project_id = ?)))`,
+    params: [organizationId, projectId, agentId, organizationId, projectId]
+  };
+}
+
 async function collectState(db, req, agentId) {
   const agent = await loadAgent(db, req, agentId);
   if (!agent) return null;
+  const decisionScope = agentRecordScope(req, 'd', agentId);
+  const memoryScope = agentRecordScope(req, 'm', agentId);
+  const plasmidScope = agentRecordScope(req, 'p', agentId);
+  const permissionScope = agentRecordScope(req, 'p', agentId);
+  const eventScope = agentRecordScope(req, 'e', agentId);
+  const childScope = workspaceRecordScope(req, 'w', agentId);
   const [decisions, memories, runs, plasmids, permissions, events, children] = await Promise.all([
-    db.all('SELECT id, title, content, cart_nodes_json, category, synaptic_weight, organization_id, project_id, created_at FROM genome_decisions WHERE created_by = ? ORDER BY created_at, id', agentId),
-    db.all('SELECT * FROM episodic_memories WHERE agent_id = ? ORDER BY created_at, id', agentId).catch(() => []),
-    db.all('SELECT id, contract_id, contract_version, status, budget_json, metrics_json, created_at FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at, id', agentId).catch(() => []),
-    db.all('SELECT * FROM plasmid_bindings WHERE owner_agent_id = ? ORDER BY created_at, plasmid_id', agentId).catch(() => []),
-    db.all('SELECT agent_id, permissions_json, denied_tools_json, organization_id, project_id FROM agent_permissions WHERE agent_id = ?', agentId).catch(() => []),
-    db.all('SELECT event_id, event_type, action, detail, payload_json, severity, organization_id, project_id, created_at FROM telemetry_events WHERE agent_id = ? ORDER BY created_at, id LIMIT 1000', agentId).catch(() => []),
-    db.all('SELECT id, name, role, status, lineage_relation FROM agents WHERE parent_agent_id = ? ORDER BY created_at, id', agentId).catch(() => [])
+    db.all(`SELECT d.id, d.title, d.content, d.cart_nodes_json, d.category, d.synaptic_weight, d.organization_id, d.project_id, d.created_at FROM genome_decisions d WHERE d.created_by = ? AND ${decisionScope.clause} ORDER BY d.created_at, d.id`, agentId, ...decisionScope.params),
+    db.all(`SELECT m.* FROM episodic_memories m WHERE m.agent_id = ? AND ${memoryScope.clause} ORDER BY m.created_at, m.id`, agentId, ...memoryScope.params).catch(() => []),
+    db.all(`SELECT r.id, r.contract_id, r.contract_version, r.status, r.budget_json, r.metrics_json, r.created_at FROM strategy_execution_runs r JOIN strategy_contracts c ON c.id = r.contract_id LEFT JOIN workspaces w ON w.id = c.workspace_id WHERE r.agent_id = ? AND ${workspaceRecordScope(req, 'w', agentId).clause} ORDER BY r.created_at, r.id`, agentId, ...workspaceRecordScope(req, 'w', agentId).params).catch(() => []),
+    db.all(`SELECT p.* FROM plasmid_bindings p WHERE p.owner_agent_id = ? AND ${plasmidScope.clause} ORDER BY p.created_at, p.plasmid_id`, agentId, ...plasmidScope.params).catch(() => []),
+    db.all(`SELECT p.agent_id, p.permissions_json, p.denied_tools_json, p.organization_id, p.project_id FROM agent_permissions p WHERE p.agent_id = ? AND ${permissionScope.clause}`, agentId, ...permissionScope.params).catch(() => []),
+    db.all(`SELECT e.event_id, e.event_type, e.action, e.detail, e.payload_json, e.severity, e.organization_id, e.project_id, e.created_at FROM telemetry_events e WHERE e.agent_id = ? AND ${eventScope.clause} ORDER BY e.created_at, e.id LIMIT 1000`, agentId, ...eventScope.params).catch(() => []),
+    db.all(`SELECT a.id, a.name, a.role, a.status, a.lineage_relation FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.parent_agent_id = ? AND ${childScope.clause} ORDER BY a.created_at, a.id`, agentId, ...childScope.params).catch(() => [])
   ]);
   return {
     schema: 'genos.agent-git-state/v1',
