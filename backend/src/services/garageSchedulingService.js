@@ -16,8 +16,13 @@ async function preemptFor(db, incoming) {
       AND json_extract(q.request_json, '$.preemptible') = 1 ORDER BY q.priority, q.created_at LIMIT 1`,
   incoming.orchestrator_id, incoming.priority, incoming.worker_id);
   if (!candidate) return null;
-  return require('./garagePreemptionService').freezeWorker({ db, workerId: candidate.worker_id,
-    orchestratorId: candidate.orchestrator_id, reason: `Urgent request ${incoming.request_id}` });
+  try {
+    return await require('./garagePreemptionService').freezeWorker({ db, workerId: candidate.worker_id,
+      orchestratorId: candidate.orchestrator_id, reason: `Urgent request ${incoming.request_id}` });
+  } catch (failure) {
+    if (failure.code === 'GARAGE_TOPOLOGY_CONTINUATION_UNSUPPORTED') return null;
+    throw failure;
+  }
 }
 
 async function resumeWaiting(input) {

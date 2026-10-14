@@ -317,6 +317,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0475 — Invalider les préférences après transition d'organisation](adr/0475-invalider-preferences-apres-transition-organisation.md) — purge le classement des survivants après le commit du changement d'organisation.
 - [ADR 0477 — Refuser le dispatch si le préflight d’exécution est non vérifié](adr/0477-refuser-dispatch-preflight-non-verifie.md) — bloque les lancements sans capacités d’exécution admises.
 - [ADR 0478 — Lier l’idempotence HTTP au corps de requête](adr/0478-lier-idempotence-http-au-corps-de-requete.md) — bloque le rejeu sur corps divergent et attend le reçu SQLite avant un 2xx.
+- [ADR 0479 — Refuser la préemption Garage des sessions topologiques](adr/0479-refuser-la-preemption-garage-des-sessions-topologiques.md) — conserve les sessions collectives hors du thaw tant que Garage ne sait pas les continuer.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)

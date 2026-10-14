@@ -21,6 +21,7 @@ async function lockFreeze(input) {
     if (!row) throw requests.error('GARAGE_PREEMPTION_UNAVAILABLE', 'No active Garage Fabric execution.');
     const request = JSON.parse(row.request_json);
     if (request.preemptible !== true || row.mode === 'collector') throw requests.error('GARAGE_PREEMPTION_PROTECTED', 'Worker did not consent to suspension.');
+    await assertTopologyIndependent(input.db, row.worker_id, request);
     await input.db.run("UPDATE garage_queue SET phase = 'freezing', owner_id = ?, updated_at = CURRENT_TIMESTAMP WHERE request_id = ? AND lease_id = ?", String(process.pid), row.request_id, row.lease_id);
     await store.event(input.db, row, { type: 'freezing' });
     return row;
@@ -55,11 +56,14 @@ async function freezeWorker(input = {}) {
 
 async function lockThaw(input) {
   return withTransaction(input.db, async () => {
-    const capsule = await input.db.get(`SELECT c.* FROM garage_capsules c JOIN garage_queue q ON q.snapshot_id = c.snapshot_id
+    const capsule = await input.db.get(`SELECT c.*, q.request_json AS queue_request_json FROM garage_capsules c JOIN garage_queue q ON q.snapshot_id = c.snapshot_id
       WHERE c.snapshot_id = ? AND c.worker_id = ? AND c.orchestrator_id = ?
         AND c.status = 'frozen' AND q.phase = 'frozen' AND q.status = 'queued'`,
     input.snapshotId, input.workerId, input.orchestratorId);
     if (!capsule) throw requests.error('GARAGE_CAPSULE_NOT_FOUND', 'Frozen capsule not found in the selected garage.');
+    const state = parseCapsuleState(capsule.state_json);
+    await assertTopologyIndependent(input.db, capsule.worker_id, state.request || {});
+    await assertTopologyIndependent(input.db, capsule.worker_id, JSON.parse(capsule.queue_request_json || '{}'));
     await input.db.run("UPDATE garage_queue SET phase = 'thawing', owner_id = ?, updated_at = CURRENT_TIMESTAMP WHERE request_id = ?", String(process.pid), capsule.request_id);
     return capsule;
   });
@@ -86,4 +90,30 @@ async function thawWorker(input = {}) {
   }
 }
 
-module.exports = { freezeWorker, thawWorker };
+async function assertTopologyIndependent(db, workerId, request) {
+  const agent = await db.get('SELECT metadata_json FROM agents WHERE id = ?', workerId);
+  const metadata = parseMetadata(agent?.metadata_json);
+  if (hasTopologyBinding(request) || hasTopologyBinding(metadata)) {
+    throw requests.error('GARAGE_TOPOLOGY_CONTINUATION_UNSUPPORTED',
+      'Filesystem-only Garage capsules cannot suspend a topology-bound mission.');
+  }
+}
+
+function parseMetadata(serialized) {
+  try { return JSON.parse(serialized || '{}'); }
+  catch (_) { throw requests.error('GARAGE_TOPOLOGY_BINDING_UNKNOWN', 'Worker topology binding is unreadable.'); }
+}
+
+function parseCapsuleState(serialized) {
+  try { return JSON.parse(serialized); }
+  catch (_) { throw requests.error('GARAGE_CAPSULE_CORRUPT', 'Capsule state is invalid JSON.'); }
+}
+
+function hasTopologyBinding(value = {}) {
+  const scope = value.missionScope || {};
+  const mission = value.workerContract?.mission || {};
+  return Boolean(value.topologySnapshot || value.topologySessionId || (value.sessionId && value.topologyId)
+    || scope.trinityExperimentId || scope.topologySessionId || mission.topologySessionId);
+}
+
+module.exports = { freezeWorker, thawWorker, hasTopologyBinding };

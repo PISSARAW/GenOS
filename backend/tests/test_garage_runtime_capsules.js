@@ -44,6 +44,41 @@ async function processProbe(test) {
   } finally { if (child.exitCode === null) child.kill(); }
 }
 
+async function topologyFreezeRefusal(test) {
+  const row = await store.enqueuePersistent(test.db, request({
+    requestId: 'garage-topology-freeze', preemptible: true
+  }));
+  const claim = await store.claimNextPersistent(test.db, { orchestratorId: 'orch' });
+  await store.updatePersistent(test.db, { requestId: row.request_id, leaseId: claim.lease_id, status: 'running' });
+  await test.db.run("UPDATE agents SET status = 'running' WHERE id = 'worker-1'");
+  await test.db.run("UPDATE agents SET metadata_json = '{\"topologySessionId\":\"syncytium-active\"}' WHERE id = 'worker-1'");
+  let stopped = false;
+  await assert.rejects(preemption.freezeWorker({ db: test.db, workerId: 'worker-1', orchestratorId: 'orch',
+    authorize: async () => true, stopMission: async () => { stopped = true; return true; } }),
+  { code: 'GARAGE_TOPOLOGY_CONTINUATION_UNSUPPORTED' });
+  assert.equal(stopped, false, 'topology guard runs before stopping the runtime');
+  const persisted = await test.db.get('SELECT status, phase FROM garage_queue WHERE request_id = ?', row.request_id);
+  assert.deepEqual(persisted, { status: 'running', phase: 'ready' });
+  await test.db.run("UPDATE agents SET status = 'idle', metadata_json = '{}' WHERE id = 'worker-1'");
+  const state = { workerId: 'worker-1', orchestratorId: 'orch', workspaceId: 'ws',
+    request: { missionScope: { trinityExperimentId: 'trinity-active' } } };
+  const hash = require('../src/services/garageRequests').hash;
+  await test.db.run("UPDATE garage_queue SET status = 'queued', phase = 'frozen', snapshot_id = 'legacy-topology-capsule' WHERE request_id = ?", row.request_id);
+  await test.db.run(`INSERT INTO garage_capsules(snapshot_id, request_id, worker_id, orchestrator_id,
+    workspace_id, capsule_hash, state_json) VALUES ('legacy-topology-capsule', ?, 'worker-1', 'orch', 'ws', ?, '[]')`,
+  row.request_id, hash(state));
+  await test.db.run('UPDATE garage_capsules SET state_json = ? WHERE snapshot_id = ?', JSON.stringify(state), 'legacy-topology-capsule');
+  let restored = false;
+  await assert.rejects(preemption.thawWorker({ db: test.db, workerId: 'worker-1', orchestratorId: 'orch',
+    snapshotId: 'legacy-topology-capsule', authorize: async () => true,
+    restore: async () => { restored = true; return {}; } }),
+  { code: 'GARAGE_TOPOLOGY_CONTINUATION_UNSUPPORTED' });
+  assert.equal(restored, false, 'legacy topology capsule is blocked before restore');
+  assert.equal((await test.db.get('SELECT phase FROM garage_queue WHERE request_id = ?', row.request_id)).phase, 'frozen');
+  await test.db.run('DELETE FROM garage_capsules WHERE snapshot_id = ?', 'legacy-topology-capsule');
+  await test.db.run('DELETE FROM garage_queue WHERE request_id = ?', row.request_id);
+}
+
 async function roundtrip(test) {
   const root = path.join(test.directory, '.genos-agent-worlds', 'worker-1');
   assert.throws(() => capsules.assertWorkerSource(root, 'foreign'), { code: 'GARAGE_SCOPE_INVALID' });
@@ -72,6 +107,17 @@ async function roundtrip(test) {
   await assert.rejects(preemption.thawWorker({ ...input, snapshotId: frozen.snapshotId }), { code: 'GARAGE_CAPSULE_CORRUPT' });
   assert.equal((await test.db.get("SELECT status FROM agents WHERE id = 'worker-1'")).status, 'blocked');
   await test.db.run('UPDATE garage_capsules SET capsule_hash = ? WHERE snapshot_id = ?', saved.capsule_hash, frozen.snapshotId);
+  const savedState = JSON.parse(saved.state_json);
+  const linkedState = { ...savedState, request: { ...savedState.request, topologySessionId: 'rhizome-active' } };
+  const requestHash = require('../src/services/garageRequests').hash;
+  await test.db.run('UPDATE garage_capsules SET state_json = ?, capsule_hash = ? WHERE snapshot_id = ?',
+    JSON.stringify(linkedState), requestHash(linkedState), frozen.snapshotId);
+  await assert.rejects(preemption.thawWorker({ ...input, snapshotId: frozen.snapshotId }),
+    { code: 'GARAGE_TOPOLOGY_CONTINUATION_UNSUPPORTED' });
+  assert.equal((await test.db.get('SELECT phase FROM garage_queue WHERE request_id = ?', row.request_id)).phase,
+    'frozen', 'topology-linked legacy capsule remains frozen');
+  await test.db.run('UPDATE garage_capsules SET state_json = ?, capsule_hash = ? WHERE snapshot_id = ?',
+    saved.state_json, saved.capsule_hash, frozen.snapshotId);
   const thawed = await preemption.thawWorker({ ...input, snapshotId: frozen.snapshotId });
   assert.equal(thawed.status, 'queued');
   const restored = JSON.parse((await test.db.get('SELECT request_json FROM garage_queue WHERE request_id = ?', row.request_id)).request_json);
@@ -92,9 +138,17 @@ async function roundtrip(test) {
 
 async function run() {
   const test = await fixture();
-  try { await restoredWorkspaceAuthority(test); await processProbe(test); await roundtrip(test); }
+  const guardOnly = process.env.GENOS_GARAGE_TOPOLOGY_GUARD_ONLY === '1';
+  try {
+    await restoredWorkspaceAuthority(test);
+    await processProbe(test);
+    await topologyFreezeRefusal(test);
+    if (!guardOnly) await roundtrip(test);
+  }
   finally { await test.close(); }
-  console.log('Garage capsules: real process stop, durable payload, corruption rejection, thaw and remaining budget passed.');
+  const label = guardOnly ? 'Garage topology freeze/thaw guards passed.'
+    : 'Garage capsules: real process stop, topology guard, durable payload, corruption rejection, thaw and remaining budget passed.';
+  console.log(label);
 }
 
 run().catch((failure) => { console.error(failure); process.exitCode = 1; });
