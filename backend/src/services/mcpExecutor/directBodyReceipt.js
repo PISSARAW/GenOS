@@ -7,7 +7,9 @@ async function begin(input) {
   const authority = require('../missionEnvelopeAuthority');
   const binding = await authority.assertRun(db, { agentId: actor.agentId, runId: actor.runId });
   if (binding.status !== 'authorized') throw new Error('Direct MCP actor has no bound authority.');
-  const toolBinding = await authority.assertTool(db, { agentId: actor.agentId, toolName });
+  const toolBinding = await authority.assertTool(db, {
+    agentId: actor.agentId, runId: actor.runId, toolName
+  });
   if (toolBinding.status !== 'authorized' || toolBinding.envelope.runId !== actor.runId) {
     throw Object.assign(new Error('Direct MCP actor run is not the current tool authority.'), {
       code: 'BODY_ACTION_AUTHORITY_REQUIRED'

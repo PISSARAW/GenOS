@@ -6,7 +6,7 @@ async function execute(options) {
   validate(options);
   if (options.environment.ownerAgentId !== options.agentId) return blockedOutcome(options, 'motor-actuator-owner-mismatch');
   if (requiresApproval(options)) return blockedOutcome(options, 'motor-intent-approval-required');
-  const request = { agentId: options.agentId, actuatorId: options.environment.actuatorId,
+  const request = { agentId: options.agentId, runId: options.runId, actuatorId: options.environment.actuatorId,
     toolName: options.environment.toolName, environmentRef: options.environmentRef, intent: options.intent };
   const authorized = options.authority
     ? await options.authority.assert(request)

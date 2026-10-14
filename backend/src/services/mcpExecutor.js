@@ -321,10 +321,10 @@ function checkCircuitBreaker(toolName, circuitScope, args) {
 
 async function execute(executionRequest) {
   const { applyDomainVerdict } = require('./mcpExecutor/domainVerdict');
-  const { agentId, organizationId, projectId, toolName, args = {}, taints = [] } = executionRequest;
+  const { agentId, runId, organizationId, projectId, toolName, args = {}, taints = [] } = executionRequest;
   const db = await getDatabase();
   await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
-  const request = { agentId, organizationId, projectId, toolName, args, taints };
+  const request = { agentId, runId, organizationId, projectId, toolName, args, taints };
   const immuneFault = await screenImmuneThreats(db, request);
   if (immuneFault) return immuneFault;
   const { circuitScope, policy } = await resolveExecutionPolicy(db, request);
@@ -338,7 +338,7 @@ async function execute(executionRequest) {
   const circuitFault = checkCircuitBreaker(toolName, circuitScope, args);
   if (circuitFault) return circuitFault;
   const binding = agentId
-    ? await require('./missionEnvelopeAuthority').assertTool(db, { agentId, toolName })
+    ? await require('./missionEnvelopeAuthority').assertTool(db, { agentId, runId, toolName })
     : { status: 'legacy_unbound' };
   if (binding.status === 'authorized') return require('./mcpExecutor/bodyMotorBridge').runBoundMotorTool({ db, agentId, toolName, args, circuitScope, binding });
   return runCorrelatedToolExecution({

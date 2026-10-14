@@ -26,11 +26,11 @@ async function seed(db) {
 }
 
 async function context(db, root, options) {
-  const { contractRecord, duration = 300000, agentId = 'worker' } = options;
+  const { contractRecord, duration = 300000, agentId = 'worker', toolLease = ['genos_search_failures'] } = options;
   const run = await execution.createExecutionRun(db, { agentId, contractRecord,
     missionId: 'worker-mission', budget: { tokens: 0, deterministic: true, latencyMs: duration } });
   const ctx = { db, agentId, executionRun: run, autonomyPlan: {}, normalizedMission: {
-    agentId, missionId: 'worker-mission', workspaceRoot: root, toolLease: ['genos_search_failures'], timeoutMs: duration } };
+    agentId, missionId: 'worker-mission', workspaceRoot: root, toolLease, timeoutMs: duration } };
   await authority.seal(ctx);
   return ctx;
 }
@@ -125,6 +125,20 @@ async function boundMotorTool(ctx) {
     dispatch.executeConfiguredTransport = original;
     delete require.cache[modulePath];
   }
+}
+
+async function toolRunBinding(ctx, contractRecord, workspace) {
+  const newer = await context(ctx.db, workspace, { contractRecord, toolLease: ['genos_snapshot'] });
+  const exactOlder = await authority.assertTool(ctx.db, { agentId: ctx.agentId,
+    runId: ctx.executionRun.id, toolName: 'genos_search_failures' });
+  const exactNewer = await authority.assertTool(ctx.db, { agentId: ctx.agentId,
+    runId: newer.executionRun.id, toolName: 'genos_snapshot' });
+  assert.equal(exactOlder.envelope.runId, ctx.executionRun.id);
+  assert.equal(exactNewer.envelope.runId, newer.executionRun.id);
+  await assert.rejects(authority.assertTool(ctx.db, { agentId: ctx.agentId,
+    toolName: 'genos_search_failures' }), { code: 'EXECUTION_AUTHORITY_RUN_REQUIRED' });
+  await assert.rejects(authority.assertTool(ctx.db, { agentId: ctx.agentId,
+    runId: newer.executionRun.id, toolName: 'genos_search_failures' }), { code: 'EXECUTION_AUTHORITY_TOOL_DENIED' });
 }
 
 async function filesystemObservation(ctx, workspace) {
@@ -347,6 +361,7 @@ async function main() {
     const first = await context(db, workspace, { contractRecord: contract });
     await immutableAndFresh(first, filename);
     await boundMotorTool(first);
+    await toolRunBinding(first, contract, workspace);
     await processAttribution(first);
     await filesystemObservation(first, workspace);
     await attestedClaim(first);

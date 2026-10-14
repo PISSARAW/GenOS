@@ -5,7 +5,7 @@ async function assert(db, request) {
   try {
     await require('../../missionExecutionAuthority').assertAgentCurrent(db, request.agentId);
     const result = await require('../../missionEnvelopeAuthority').assertTool(db, {
-      agentId: request.agentId, toolName: request.toolName
+      agentId: request.agentId, runId: request.runId, toolName: request.toolName
     });
     return result.status === 'authorized';
   } catch (_) {

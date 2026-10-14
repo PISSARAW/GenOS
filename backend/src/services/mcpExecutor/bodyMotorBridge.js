@@ -16,6 +16,7 @@ async function runBoundMotorTool(input) {
     actuatorId: 'backend_mcp_tool', toolName: input.toolName,
     execute: async () => executeBoundTool(context) };
   const outcome = await motor.execute({ db: input.db, agentId: input.agentId,
+    runId: input.binding.envelope.runId,
     environmentRef: `mcp:${input.toolName}`, environment,
     intent: { intentId: actionId, action: input.toolName } });
   if (outcome.status === 'blocked') return { success: false, status: 'blocked', error: outcome.reason };

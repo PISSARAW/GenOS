@@ -132,13 +132,26 @@ async function guardEvent(db, input) {
 }
 
 async function assertTool(db, input) {
-  const run = await db.get('SELECT id FROM strategy_execution_runs WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1', input.agentId);
+  const run = await selectToolRun(db, input);
   if (!run) return { status: 'legacy_unbound' };
   const result = await assertRun(db, { agentId: input.agentId, runId: run.id });
   if (result.status === 'legacy_unbound') return result;
   const tool = require('./toolLeasePolicy').normalizeToolName(input.toolName);
   if (!result.envelope.toolLease.includes(tool)) throw values.failure('EXECUTION_AUTHORITY_TOOL_DENIED');
   return result;
+}
+
+async function selectToolRun(db, input) {
+  if (input.runId) {
+    const run = await db.get('SELECT id FROM strategy_execution_runs WHERE agent_id = ? AND id = ?',
+      input.agentId, input.runId);
+    if (!run) throw values.failure('EXECUTION_AUTHORITY_RUN_MISMATCH');
+    return run;
+  }
+  const runs = await db.all('SELECT id FROM strategy_execution_runs WHERE agent_id = ? ORDER BY rowid DESC LIMIT 2',
+    input.agentId);
+  if (runs.length > 1) throw values.failure('EXECUTION_AUTHORITY_RUN_REQUIRED');
+  return runs[0] || null;
 }
 
 async function inspect(db, input) {
