@@ -19,6 +19,7 @@ const aTeamRuntime = require('./aTeam/aTeamRuntime');
 const { prepareDispatchPolicy } = require('./aTeam/dispatchPolicyService');
 const { emit } = require('./agentOrchestrationState');
 const topologyWorkerKinds = require('./topologyWorkerKindService');
+const { alignTeamOrganization } = require('./aTeam/variantOrganizationAlignment');
 
 function stageRunnerPath() {
   return path.resolve(__dirname, '../../bin/genos-ateam-stage-runner.cjs');
@@ -111,6 +112,13 @@ async function prepareDispatch({ db, context }) {
   team.members = policy.members;
   team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members, workerAssignments);
   team.executionPolicy = policy.policy;
+  alignTeamOrganization(team, policy.policy, {
+    goal: projectGoal, successCriteria: requestedSuccessCriteria(request), availableSlots: garage.available
+  });
+  request.organization = team.organization;
+  request.coordinationPolicy = {
+    variant: policy.policy.variant, communicationCadence: policy.policy.communication
+  };
   requireReadyTeam(team.readiness);
   return { db, request, garage, projectGoal, team, context };
 }
