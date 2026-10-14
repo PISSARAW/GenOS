@@ -18,4 +18,10 @@ function applyDomainVerdict(toolName, result) {
   result.domainVerdict = classifyDomainVerdict(String(result.output || '').toLowerCase());
 }
 
-module.exports = { applyDomainVerdict };
+function actionSucceeded(toolName, result) {
+  if (result?.success !== true) return false;
+  if (!isVerdictTool(toolName)) return true;
+  return result.domainVerdict === 'success';
+}
+
+module.exports = { applyDomainVerdict, actionSucceeded };

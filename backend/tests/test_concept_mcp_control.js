@@ -9,13 +9,13 @@ const gateway = require('../src/services/mcpExecutor');
 const observer = require('../src/services/conceptActionObserverService');
 const memory = require('../src/services/perception/perceptionMemoryBridgeService');
 
-function execution(db, counters) {
+function execution(db, counters, transportResult = null) {
   return async (context) => bridge.runToolExecution({ context: { ...context, db },
     executeConfiguredTransport: async ({ agentId }) => {
       assert.equal(agentId, 'a', 'Fixed actor must reach transport');
       counters.calls += 1;
       await db.run('UPDATE episodic_memories SET is_consolidated = 1 WHERE rowid <= 25');
-      return { success: true, configured: true, status: 'completed', domainVerdict: 'unverified' };
+      return transportResult || { success: true, configured: true, status: 'completed', domainVerdict: 'unverified' };
     },
     applyDomainVerdict: () => {},
     circuitBreaker: { recordSuccess: () => { counters.successes += 1; },
@@ -49,6 +49,14 @@ async function optionChecks(db, counters) {
     assert.equal(denied.status, 'blocked');
     assert.equal(denied.steps, 0);
   } finally { gateway.execute = original; }
+  gateway.execute = execution(db, counters, { success: false, configured: true, status: 'tool_error' });
+  try {
+    const failedWithObservation = await options.runMcpOption(option(), { db, agentId: 'a' });
+    assert.equal(failedWithObservation.status, 'blocked', 'A measured observation cannot turn a failed action into a completed option step.');
+    assert.equal(failedWithObservation.steps, 0);
+    assert.equal(failedWithObservation.trajectory[0].attempted, true);
+    assert.equal(failedWithObservation.trajectory[0].reason, 'action_failed');
+  } finally { gateway.execute = original; }
 }
 
 async function interruptionCheck() {
@@ -63,13 +71,15 @@ async function interruptionCheck() {
 
 async function failureIsolation(execute, counters) {
   const original = lifecycle.begin;
+  const callsBefore = counters.calls;
+  const failuresBefore = counters.failures;
   lifecycle.begin = async () => { throw Error('Observer offline'); };
   try {
     const result = await execute({ agentId: 'a', toolName: 'genos_fossil_list', args: {} });
     assert.equal(result.success, true);
     assert.equal(result.conceptObservation.status, 'not_run');
-    assert.equal(counters.calls, 2);
-    assert.equal(counters.failures, 0);
+    assert.equal(counters.calls, callsBefore + 1);
+    assert.equal(counters.failures, failuresBefore);
   } finally { lifecycle.begin = original; }
   process.env.GENOS_CONCEPT_ACTION_OBSERVATION = '0';
   assert.equal((await observer.begin({})).reason, 'disabled');

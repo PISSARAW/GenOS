@@ -5,6 +5,7 @@ const machine = require('./machineInteroceptionService');
 const world = require('./worldModelGenerativeService');
 const valence = require('./postActionValenceService');
 const { actionValue, DEFAULT_WEIGHTS } = require('./valenceService');
+const { actionSucceeded } = require('./mcpExecutor/domainVerdict');
 const { AdaptiveStateService } = require('./adaptiveStateService');
 const deadline = require('./conceptObservationDeadlineService');
 const pending = new WeakMap();
@@ -63,7 +64,8 @@ async function finish(action, outcome, signal) {
   deadline.requireActive(signal);
   const efference = await require('./efferenceCopyService').discharge(action.db, action.agentId, {
     agentId: action.agentId,
-    eventType: outcome.result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED',
+    eventType: actionSucceeded(action.toolName, outcome.result)
+      ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED',
     payload: { sourceActionId: action.actionId }
   });
   deadline.requireActive(signal);

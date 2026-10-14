@@ -5,6 +5,7 @@ const kernel = require('./hierarchicalOptionService');
 const gateway = require('./mcpExecutor');
 const dispatch = require('./mcpExecutor/dispatch');
 const { getToolRegistry } = require('./mcpExecutor/config');
+const { actionSucceeded } = require('./mcpExecutor/domainVerdict');
 
 function validAction(action) {
   return typeof action?.toolName === 'string' && Boolean(action.toolName.trim())
@@ -28,6 +29,9 @@ async function executeStep(context, step) {
   const receipt = result.conceptObservation;
   if (!lifecycle.isObserved(receipt, context.actor.agentId)) return { executed: false,
     reason: result.code || result.status || 'feedback_unavailable', attempted: result.configured === true };
+  if (!actionSucceeded(step.action.toolName, result)) return { executed: false,
+    reason: result.domainVerdict === 'unverified' ? 'domain_verdict_unverified' : 'action_failed',
+    attempted: result.configured === true };
   return { state: { ...step.state, interoception: receipt.after.state,
     steps: step.state.steps + 1, lastAction: { toolName: step.action.toolName,
       status: result.status, transportSuccess: result.success, domainVerdict: result.domainVerdict || 'unverified' } },

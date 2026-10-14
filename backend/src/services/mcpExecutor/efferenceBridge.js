@@ -1,6 +1,7 @@
 'use strict';
 const { randomUUID } = require('crypto');
 const observer = require('../conceptActionObserverService');
+const { actionSucceeded } = require('./domainVerdict');
 
 function toolOutcomePayload(context, result) {
   return {
@@ -33,6 +34,7 @@ async function runToolExecution({ context, executeConfiguredTransport, applyDoma
   try {
     const result = await executeConfiguredTransport({ toolName, args, agentId });
     applyDomainVerdict(toolName, result);
+    const succeeded = actionSucceeded(toolName, result);
     if (result.success) circuitBreaker.recordSuccess(toolName, circuitScope);
     else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`, circuitScope);
     if (result.success) {
@@ -40,7 +42,7 @@ async function runToolExecution({ context, executeConfiguredTransport, applyDoma
         telemetry, agentId, toolName, args, result, actionId
       });
     }
-    const event = telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: toolOutcomePayload(context, result) });
+    const event = telemetry.emitEvent({ eventType: succeeded ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${succeeded ? 'completed' : 'failed'}.`, severity: succeeded ? 'info' : 'warning', payload: toolOutcomePayload(context, result) });
     outcome = { result, event };
   } catch (error) {
     circuitBreaker.recordFailure(toolName, error.message, circuitScope);

@@ -4,7 +4,7 @@ const receipts = require('../bodyActionReceiptService');
 const motor = require('../perception/embodied/motorOutcomeAdapter');
 const { runToolExecution } = require('./efferenceBridge');
 const { executeConfiguredTransport } = require('./dispatch');
-const { applyDomainVerdict } = require('./domainVerdict');
+const { applyDomainVerdict, actionSucceeded } = require('./domainVerdict');
 const circuitBreaker = require('../circuitBreaker');
 const telemetry = require('../telemetryObserver');
 
@@ -37,10 +37,14 @@ async function executeBoundTool(context) {
       outcome: { status: 'failed', code: error.code || 'MCP_EXECUTION_FAILED' } });
     throw error;
   }
+  const succeeded = actionSucceeded(context.toolName, result);
   await receipts.observe({ db: context.db, agentId: context.agentId, runId: context.runId,
     actionId: context.actionId, effectorId: 'backend_mcp_tool',
-    outcome: { status: result.success ? 'completed' : 'failed', toolStatus: result.status } });
-  return { status: result.success ? 'completed' : 'failed', evidenceRefs: [context.actionId], result };
+    outcome: { status: succeeded ? 'completed' : 'failed', toolStatus: result.status,
+      domainVerdict: result.domainVerdict || null } });
+  const actionResult = { ...result, success: succeeded, transportSuccess: result.success,
+    status: succeeded ? result.status : 'tool_error' };
+  return { status: succeeded ? 'completed' : 'failed', evidenceRefs: [context.actionId], result: actionResult };
 }
 
 module.exports = { runBoundMotorTool };
