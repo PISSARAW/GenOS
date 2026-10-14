@@ -22,4 +22,12 @@ const persistedContract = buildWorkerContract({
   request: { execution_budget: { tokens: 20000 } }
 });
 assert.equal(persistedContract.resources.maxTokens, 20000);
+const coordinatedForensic = buildWorkerContract({
+  workerKinds: require('../src/services/agents/workerKindService'),
+  workerKind: 'forensic_worker',
+  context: { task: 'map peers', orchestratorId: 'root' },
+  request: { coordinationPolicy: { communicationCadence: 'continuous_sync' } }
+});
+assert.equal(coordinatedForensic.authority.communicate, true);
+assert.equal(coordinatedForensic.mission.communicationRequired, true);
 console.log('CLI and gRPC worker dispatch share one normalized mission contract.');

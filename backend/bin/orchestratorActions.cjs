@@ -255,6 +255,7 @@ function buildWorkerContract({ workerKinds, workerKind, context, request }) {
   const contract = workerKinds.buildWorkerContract(workerKind, {
     prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId,
     methodContract: request.methodContract, workerAssignment: request.workerAssignment,
+    coordinationPolicy: request.coordinationPolicy || request.coordination_policy,
     workerTokenLimit: budget.tokens
   });
   if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
