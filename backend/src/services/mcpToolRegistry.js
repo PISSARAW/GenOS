@@ -75,15 +75,17 @@ async function runStrategyTool(normalized, args) {
   return result;
 }
 
-async function runBioTool(normalized, args) {
-  const result = await mcpBioTools.executeBioTool(normalized, args || {});
+async function runBioTool(normalized, args, caller) {
+  const result = await mcpBioTools.executeBioTool(normalized, args || {}, { caller: caller || {} });
   recordCircuitOutcome(normalized, result, 'MCP bio tool failed.');
   return result;
 }
 
-async function runCliTool(normalized, args) {
+async function runCliTool(normalized, args, caller) {
   const { executeConfiguredTransport } = require('./mcpExecutor');
-  const result = await executeConfiguredTransport({ toolName: normalized, args: args || {} });
+  const identity = caller || {};
+  const result = await executeConfiguredTransport({ toolName: normalized, args: args || {},
+    agentId: identity.agentId || null, tenant: identity.tenant || null });
   recordCircuitOutcome(normalized, result, 'MCP tool failed.');
   return result;
 }
@@ -97,8 +99,8 @@ async function runTopologyTool(normalized, args, caller) {
 async function executeRegisteredTool(input) {
   const { kind, normalized, args, caller } = input;
   if (kind === 'strategy') return { handled: true, result: await runStrategyTool(normalized, args) };
-  if (kind === 'bio') return { handled: true, result: await runBioTool(normalized, args) };
-  if (kind === 'cli') return { handled: true, result: await runCliTool(normalized, args) };
+  if (kind === 'bio') return { handled: true, result: await runBioTool(normalized, args, caller) };
+  if (kind === 'cli') return { handled: true, result: await runCliTool(normalized, args, caller) };
   if (kind === 'topology') return { handled: true, result: await runTopologyTool(normalized, args, caller) };
   return { handled: false };
 }

@@ -175,7 +175,7 @@ async function executeRemoteTransport(toolName, args, timeoutMs) {
   };
 }
 
-async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000, agentId = null }) {
+async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000, agentId = null, tenant = null }) {
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
@@ -186,12 +186,17 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (rejection) return rejection;
   stericDocking = validationContext.docking || null;
   if (normalizedToolName === 'genos_delegate_worker') {
-    const result = await executeToolLogic(normalizedToolName, args, { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, db: await require('../../db').getDatabase() });
+    const result = await executeToolLogic(normalizedToolName, args, { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, tenant, db: await require('../../db').getDatabase() });
     return withDocking(result, stericDocking);
   }
   if (normalizedToolName === 'genos_topology_session') {
     const result = await executeToolLogic(normalizedToolName, args,
-      { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId });
+      { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, tenant });
+    return withDocking(result, stericDocking);
+  }
+  if (normalizedToolName === 'genos_biological_mode') {
+    const result = await executeToolLogic(normalizedToolName, args,
+      { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, tenant });
     return withDocking(result, stericDocking);
   }
   if (hasConfiguredEndpoint()) {
@@ -199,7 +204,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     return withDocking(result, stericDocking);
   }
   const runLocal = createLocalRunner(timeoutMs);
-  return withDocking(await executeToolLogic(toolName, args, { runLocal, timeoutMs, agentId }), stericDocking);
+  return withDocking(await executeToolLogic(toolName, args, { runLocal, timeoutMs, agentId, tenant }), stericDocking);
 }
 
 async function listTools() {

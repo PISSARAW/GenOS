@@ -63,7 +63,9 @@ function strategyCall({ name, args, executeStrategyTool }) {
 }
 
 async function registeredToolCall({ name, args }) {
-  const { kind, result } = await REPO_REQUIRE('./backend/src/services/mcpToolRegistry.js').dispatchTool(name, args);
+  const agentId = process.env.GENOS_AGENT_ID || null;
+  const { kind, result } = await REPO_REQUIRE('./backend/src/services/mcpToolRegistry.js')
+    .dispatchTool(name, args, agentId ? { agentId } : {});
   if (kind === 'unsupported' || !result?.success) {
     throw new Error(result?.error || `MCP tool '${name}' failed.`);
   }

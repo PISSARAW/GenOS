@@ -57,7 +57,7 @@ async function handleBiological(db, context) {
     const result = await require('../topologyMcpTools.js').composeBiologicalMode({
       ...context.request, mode: context.request.mode,
       orchestrator_id: context.orchestratorId
-    });
+    }, { agentId: context.orchestratorId });
     process.stdout.write(JSON.stringify(result));
     return;
   }

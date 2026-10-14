@@ -44,6 +44,9 @@ async function executeBioTool(toolName, args, options = {}) {
   // and circuit are re-checked here even when dispatch already validated.
   const rejection = revalidateBioCall(toolName, args);
   if (rejection) return rejection;
+  if (toolName === 'genos_biological_mode') {
+    return require('./topologyMcpTools').composeBiologicalMode(args || {}, options.caller || {});
+  }
   const handler = TOOL_HANDLERS[toolName];
   if (handler) {
     return invokeBioHandler(handler, { toolName, args, run });

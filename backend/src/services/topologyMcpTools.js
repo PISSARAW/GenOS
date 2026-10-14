@@ -23,11 +23,40 @@ function firstValue(args, names, fallback) {
   return fallback;
 }
 
-async function composeBiologicalMode(args = {}) {
+function biologicalCallerId(identity) {
+  return String(identity.agentId || process.env.GENOS_AGENT_ID || '').trim();
+}
+
+function assertBiologicalActor(args, callerId) {
+  const orchestratorId = String(args.orchestrator_id || '').trim();
+  if (!callerId) throw Object.assign(new Error('An authenticated MCP caller is required.'), { code: 'MCP_CALLER_REQUIRED' });
+  if (callerId !== orchestratorId) throw Object.assign(new Error('The requested orchestrator must match the authenticated MCP caller.'), {
+    code: args.community_id ? 'BIOCENOSE_PUBLIC_IDENTITY_MISMATCH' : 'BIOLOGICAL_MODE_CALLER_MISMATCH'
+  });
+}
+
+async function assertBiologicalTenant(db, callerId, tenant) {
+  if (!tenant) return;
+  const row = await db.get(`SELECT w.organization_id, w.project_id FROM agents a
+    JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, callerId);
+  if (!row || row.organization_id !== tenant.organizationId || row.project_id !== tenant.projectId) {
+    throw Object.assign(new Error('The authenticated orchestrator is not available in the current tenant.'), { code: 'BIOLOGICAL_MODE_TENANT_MISMATCH' });
+  }
+}
+
+async function assertBiologicalCaller(db, args, caller) {
+  const identity = caller || {};
+  const callerId = biologicalCallerId(identity);
+  assertBiologicalActor(args, callerId);
+  await assertBiologicalTenant(db, callerId, identity.tenant);
+}
+
+async function composeBiologicalMode(args = {}, caller = {}) {
   const context = {};
   try {
     assertBiologicalModeRequest(args);
     context.db = await getDatabase();
+    await assertBiologicalCaller(context.db, args, caller);
     if (args.community_id) return await resumeBiocenose(context, args);
     context.composition = await require('./biologicalTopologyService').composeMode({
       db: context.db,

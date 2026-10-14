@@ -206,9 +206,9 @@ function scopedToolArgs(req, toolName, args) {
 }
 
 async function executeToolTransport(input) {
-  const { res, toolName, args, timeoutMs, agentId } = input;
+  const { res, toolName, args, timeoutMs, agentId, tenant } = input;
   try {
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, agentId, timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs) });
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, agentId, tenant, timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs) });
     recordToolOutcome(toolName, result);
     telemetry.emitEvent(toolOutcomeEvent({ toolName, args, agentId, result }));
     return res.status(result.success ? 200 : result.configured ? 502 : 503).json(result);
@@ -219,9 +219,9 @@ async function executeToolTransport(input) {
 }
 
 async function executeTestTransport(input) {
-  const { res, toolName, args, timeoutMs, agentId } = input;
+  const { res, toolName, args, timeoutMs, agentId, tenant } = input;
   try {
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, agentId,
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, agentId, tenant,
       timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs, 15000) });
     if (result.success) circuitBreaker.recordSuccess(toolName);
     else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || 'MCP test failed.');
@@ -282,7 +282,7 @@ async function testTool(req, res) {
   if (contractError) return mcpError(res, contractError);
   const check = circuitBreaker.canExecute(toolName, requestRole(req), 'global', args);
   if (!check.allowed) return mcpError(res, { status: 503, code: check.reason || 'CIRCUIT_OPEN', message: check.message });
-  return executeTestTransport({ res, toolName, args, timeoutMs, agentId: auth.agentId });
+  return executeTestTransport({ res, toolName, args, timeoutMs, agentId: auth.agentId, tenant: tenantScope(req) });
 }
 
 async function toggleCircuitBreaker(req, res) {
@@ -324,7 +324,7 @@ function dispatchAuthorizedTool(input) {
     && Object.hasOwn(args || {}, 'relational')) {
     return executeRelationalTransport({ res, db, args, agentId, scope: tenantScope(req) });
   }
-  return executeToolTransport({ res, toolName, args: scopedToolArgs(req, toolName, args), timeoutMs, agentId });
+  return executeToolTransport({ res, toolName, args: scopedToolArgs(req, toolName, args), timeoutMs, agentId, tenant: tenantScope(req) });
 }
 
 async function executeTool(req, res) {
