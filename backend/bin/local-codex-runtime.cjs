@@ -162,11 +162,12 @@ async function createGeneration(state) {
   const perAttemptTimeoutMs = overrideTimeoutMs > 0
     ? overrideTimeoutMs
     : (Number.isFinite(latencyBudgetMs) ? Math.max(120000, Math.floor(latencyBudgetMs * 0.75)) : 300000);
+  const responseFormat = state.mission.executionMode === 'worker' ? require('../src/services/agents/workerArtifactResponseSchema').workerArtifactResponseFormat(state.mission.workerKind || state.mission.role) : undefined;
   const generation = withTextImmunity(state.framedPrompt, 'high', {
     validatorFn: griotValidator,
     maxRetries: 3,
     agentId: state.agentName,
-    modelRouting: { ...state.modelBudgetRoute, agentId: state.mission.agentId, missionId: state.mission.missionId, maxTokens: Math.max(0, budgetLimit(state.executionBudget, 'tokens') - state.promptTokenEstimate), model: state.mission.localModel || undefined, variantIndex: state.mission.variantIndex, policy: state.localRoutingPolicy, signal: abort.signal, timeoutMs: perAttemptTimeoutMs, responseFormat: state.mission.executionMode === 'worker' ? 'json_object' : undefined, enforceSchema: false,
+    modelRouting: { ...state.modelBudgetRoute, agentId: state.mission.agentId, missionId: state.mission.missionId, maxTokens: Math.max(0, budgetLimit(state.executionBudget, 'tokens') - state.promptTokenEstimate), model: state.mission.localModel || undefined, variantIndex: state.mission.variantIndex, policy: state.localRoutingPolicy, signal: abort.signal, timeoutMs: perAttemptTimeoutMs, responseFormat, enforceSchema: false,
       onResult: result => { state.observedRoute = require('../src/services/localCompletionEvidence').observedRoute(result); } },
     stemCellFallback: fallback.message,
     onFallback: () => { fallback.used = true; }

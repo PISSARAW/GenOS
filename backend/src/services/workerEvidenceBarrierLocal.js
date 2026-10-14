@@ -50,6 +50,11 @@ function resolveMaxTokens(budget, estimate) {
   if (budget <= 0) return undefined;
   return budget - estimate;
 }
+function workerResponseFormat(mission) { return require('./agents/workerArtifactResponseSchema').workerArtifactResponseFormat(mission.workerKind || mission.role, mission.missionScope?.trinityExperimentId ? ['mission'] : []); }
+function sourceReferenceInstruction(mission) {
+  return mission.missionScope?.trinityExperimentId
+    ? 'Ground evidence in the supplied mission only. Use the exact evidence ID "mission"; do not invent source IDs, receipts, measurements, or completed reproduction steps.' : '';
+}
 function resolveMaxCost(mission) {
   if (!mission.executionBudget) return undefined;
   const value = Number(mission.executionBudget.costUsd);
@@ -71,7 +76,7 @@ async function generateWorkerResult(ctx) {
     maxTokens: ctx.maxTokens,
     maxCostUsd: ctx.maxCost,
     ...sharedBudget,
-    responseFormat: ctx.codeWorker ? localCodeWorker.proposalResponseFormat() : 'json_object',
+    responseFormat: ctx.codeWorker ? localCodeWorker.proposalResponseFormat() : workerResponseFormat(ctx.mission),
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
@@ -239,7 +244,8 @@ async function runGenerationStage(ctx) {
     agentName: agentName,
     prompt: ctx.mission.prompt,
     workerSelfBlock: wsBlock,
-    workerInstruction: `Worker kind: ${kind}. ${workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
+    workerInstruction: [`Worker kind: ${kind}. ${workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
+      sourceReferenceInstruction(ctx.mission)].filter(Boolean).join(' '),
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;

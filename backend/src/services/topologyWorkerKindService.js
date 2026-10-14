@@ -188,7 +188,7 @@ function buildWorkerAssignment({ mode, member, selection, requirements, methodCo
 function specialistFields(mode, member, kind) {
   if (kind !== 'specialist') return {};
   return { nicheDomain: member.nicheDomain || member.workerRequirements?.nicheDomain
-    || member.label || `${mode}:${member.role}` };
+    || member.domain || `${mode}:${member.role}` };
 }
 
 function symbioticFields(member, kind) {

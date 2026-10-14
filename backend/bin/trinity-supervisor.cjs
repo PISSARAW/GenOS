@@ -6,7 +6,7 @@ const trinityService = require('../src/services/trinityService');
 const organization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
 const { compareMission } = require('../src/services/trinityComparisonRuntime');
-const TERMINAL = new Set(['blocked', 'completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
+const TERMINAL = new Set(['blocked', 'completed', 'completed_unpromoted', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
 
 function pause(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -21,10 +21,36 @@ async function waitForWorkers(db, config) {
        LEFT JOIN agents a ON a.id = w.agent_id WHERE w.experiment_id = ? AND w.world_number <= ? ORDER BY w.world_number`,
       missionId, expectedWorlds
     );
-    if (rows.length >= expectedWorlds && rows.every((row) => TERMINAL.has(row.status))) return rows;
+    const assessed = await Promise.all(rows.map((row) => assessWorkerExecution(db, row)));
+    if (assessed.length >= expectedWorlds && assessed.every((row) => TERMINAL.has(row.status))) return assessed;
     await pause(500);
   }
   throw new Error(`Trinity mission timed out: ${missionId}`);
+}
+
+async function assessWorkerExecution(db, worker) {
+  if (worker.status === 'completed') return worker;
+  const run = await db.get(`SELECT id, status, guardrail_reason FROM strategy_execution_runs
+    WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1`, worker.agentId);
+  if (!promotionVerificationBlocked(run)) return worker;
+  const events = await db.all(`SELECT event_type, payload_json FROM telemetry_events
+    WHERE agent_id = ? AND event_type IN ('AGENT_COMPLETED', 'AGENT_FAILED') ORDER BY rowid DESC LIMIT 1`, worker.agentId);
+  if (!completedReportForRun(events, run.id)) return worker;
+  return { ...worker, status: 'completed_unpromoted', promotionBlocked: true,
+    promotionBlockReason: 'require_independent_verification' };
+}
+
+function promotionVerificationBlocked(run) {
+  return run?.status === 'blocked' && /require_independent_verification/.test(run.guardrail_reason || '');
+}
+
+function completedReportForRun(events, runId) {
+  if (events[0]?.event_type !== 'AGENT_COMPLETED') return false;
+  let payload;
+  try { payload = JSON.parse(events[0].payload_json || '{}'); } catch (_) { return false; }
+  const report = payload.evidenceReport;
+  return payload.executionRunId === runId && report?.outcome === 'success'
+    && (Array.isArray(report.claims) || Boolean(report.workerArtifact));
 }
 
 async function publish(db, input) {
@@ -97,7 +123,7 @@ async function persistFailure(db, input, error) {
 }
 
 function requireSuccessfulWorkers(workers, expected) {
-  if (workers.length !== expected || workers.some((worker) => worker.status !== 'completed')) {
+  if (workers.length !== expected || workers.some((worker) => !['completed', 'completed_unpromoted'].includes(worker.status))) {
     throw Object.assign(new Error('Trinity comparison requires every expected world worker to complete successfully.'), {
       code: 'TRINITY_WORLD_EXECUTION_INCOMPLETE'
     });
@@ -143,4 +169,4 @@ if (require.main === module && input.missionId && input.orchestratorId) supervis
   process.exitCode = 1;
 });
 
-module.exports = { waitForWorkers, expectedWorlds, requireSuccessfulWorkers, requireCompleteReports, loadDispatchConfig, supervise };
+module.exports = { waitForWorkers, assessWorkerExecution, expectedWorlds, requireSuccessfulWorkers, requireCompleteReports, loadDispatchConfig, supervise };

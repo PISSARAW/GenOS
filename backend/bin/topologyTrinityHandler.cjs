@@ -155,8 +155,8 @@ async function launchWorlds(input) {
   const accepted = [];
   for (const member of members) {
     const previous = await db.get('SELECT agent_id, status FROM trinity_worlds WHERE experiment_id = ? AND world_number = ?', missionId, member.worldNumber);
-    const existingAgent = previous && await db.get('SELECT status FROM agents WHERE id = ?', previous.agent_id);
-    if (previous && (previous.status !== 'queued' || existingAgent)) {
+    const existingAgent = previous && await db.get('SELECT status, runtime_pid FROM agents WHERE id = ?', previous.agent_id);
+    if (shouldSkipExistingWorld(previous, existingAgent)) {
       accepted.push({ workerId: previous.agent_id, worldNumber: member.worldNumber, strategy: member.role, status: previous.status, idempotent: true });
       continue;
     }
@@ -173,4 +173,9 @@ async function launchWorlds(input) {
   return accepted;
 }
 
-module.exports = { handle, withDispatchRuntime, supervisionTimeoutMs };
+function shouldSkipExistingWorld(previous, agent) {
+  return Boolean(previous && (previous.status !== 'queued'
+    || (agent && (agent.status !== 'idle' || agent.runtime_pid))));
+}
+
+module.exports = { handle, withDispatchRuntime, supervisionTimeoutMs, shouldSkipExistingWorld };

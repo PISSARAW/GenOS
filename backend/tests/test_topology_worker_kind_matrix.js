@@ -209,11 +209,19 @@ function verifyMethodContractsSelectSpecialists() {
   }]), { code: 'WORKER_KIND_CAPABILITY_MISMATCH' });
 }
 
+function verifySpecialistNicheUsesDomain() {
+  const [member] = topologyKinds.applyTopologyWorkerKinds('trinity', [{
+    role: 'planned_data_engineer', label: 'structured', domain: 'data'
+  }]);
+  assert.equal(member.workerAssignment.nicheDomain, 'data');
+}
+
 async function run() {
   await verifyBiologicalBranches();
   await verifyProductTopologies();
   await verifyFailClosedCases();
   verifyMethodContractsSelectSpecialists();
+  verifySpecialistNicheUsesDomain();
   console.log('Topology worker kind matrix, persistence, contracts, and permissions: PASS');
 }
 
