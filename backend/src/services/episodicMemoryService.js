@@ -261,6 +261,7 @@ function consolidationFilter(options) {
   }
   if (organizationId) { query += ' AND organization_id = ?'; params.push(organizationId); }
   if (projectId) { query += ' AND project_id = ?'; params.push(projectId); }
+  if (!organizationId) query += ' AND organization_id IS NULL AND project_id IS NULL';
   return { query, params };
 }
 

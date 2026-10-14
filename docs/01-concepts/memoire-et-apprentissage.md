@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté — mémoire épisodique, vectorielle, scoring, consolidation/pruning, mémoire de négative knowledge, Golden Path et provenance sont disponibles dans le runtime.
 - **Portée** : `backend/src/services/episodicMemoryService.js`, `vectorMemoryService.js`, `memoryScoring.js`, `sleepCycle.js`, `primitiveHandlers/memoryDeadEnds.js`, `trajectoryService.js`, `provenanceResolver.js`.
-- **Dernière revue** : 2026-09-26.
+- **Dernière revue** : 2026-10-14.
 
 ## 1. Objet et périmètre
 
@@ -554,6 +554,7 @@ Le dépôt prévoit différents garde-fous pour éviter de contaminer la mémoir
 - exclusion des memories “inhibitorySignal” ;
 - dead-end detection ;
 - tenant scoping via `organization_id` et `project_id` ;
+- la consolidation et la purge sans portée tenant ne touchent que les épisodes globaux (`organization_id IS NULL` et `project_id IS NULL`) ;
 - check de validité épistémique ;
 - filtering par provenance ;
 - cycle detection / graph provenance.
