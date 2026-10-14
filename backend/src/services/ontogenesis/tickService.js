@@ -177,12 +177,13 @@ async function dispatchWithHarness(db, ctx) {
 }
 
 async function blockInvalidMission(db, ctx) {
-  const error = ctx.mission?.morphology?.error;
-  if (!error || ctx.control?.mode !== 'running' || ['STOPPED', 'PAUSED'].includes(ctx.project.state)) return null;
+  const reasons = ctx.mission?.plan?.preflight?.blockingReasons || [];
+  if (!reasons.length || ctx.control?.mode !== 'running' || ['STOPPED', 'PAUSED'].includes(ctx.project.state)) return null;
+  const reason = reasons.join(',');
   await setProjectState(db, { projectId: ctx.project.id, state: 'WAITING_INPUT' });
   await notify(db, { projectId: ctx.project.id, kind: 'decision_needed',
-    payload: { reason: `morphologie-invalide:${error}` } });
-  return { ticked: true, blocked: true, reason: `morphologie-invalide:${error}` };
+    payload: { reason } });
+  return { ticked: true, blocked: true, reason };
 }
 
 async function applyDecision(db, ctx, decision) {

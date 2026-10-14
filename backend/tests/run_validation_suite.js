@@ -14,6 +14,7 @@ const suites = {
   ],
   smoke: [
     ['adaptive topology capability reevaluation', 'test_adaptive_reevaluation_topology.js'],
+    ['mission capability preflight contract', 'test_mission_preflight_contract.js'],
     ['philosophy registry health', 'test_philosophy_registry_health.js'],
     ['philosophy executable contracts', 'test_philosophy_executable_contracts.js'],
     ['philosophy compilation boundaries', 'test_philosophy_compilation_boundaries.js'],

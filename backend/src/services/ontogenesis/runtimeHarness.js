@@ -45,13 +45,14 @@ function conceptRequestFields(mission, plan) {
   };
 }
 
-function capabilityRequestFields(mission, plan) {
+function capabilityRequestFields(mission, plan, selection) {
   const capabilities = mission.capabilities || [];
   return {
     capabilities, capabilityRequirements: capabilities,
     capabilityContract: plan.topologyContract || { required: capabilities },
     topologyContract: plan.topologyContract || null, existingCapabilities: capabilities,
-    requiredCapabilities: plan.capabilityRequirements || capabilities
+    requiredCapabilities: plan.capabilityRequirements || capabilities,
+    missionPreflight: selection?.preflight || plan.preflight || null
   };
 }
 
@@ -83,7 +84,7 @@ function requestFor(input) {
     operatorContext: input.mission?.operatorContext || [],
     proposedTopology: input.selection.topology, morphologyTopology: input.selection.topology,
     ...conceptRequestFields(mission, plan),
-    ...capabilityRequestFields(mission, plan),
+    ...capabilityRequestFields(mission, plan, input.selection),
     ...contextRequestFields(mission),
     worker_assignments: workerAssignmentsFor(roles),
     requiresEvidenceBeforePromotion: true,

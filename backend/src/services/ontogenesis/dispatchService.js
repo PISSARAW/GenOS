@@ -3,6 +3,7 @@
 const { randomUUID } = require('crypto');
 const { withTransaction } = require('../../db');
 const { selectTopology } = require('./topologySelector');
+const { buildMissionPreflight } = require('./missionPreflightService');
 const { listFailures, listSimilarFailures, SIMILARITY_LIMIT } = require('./memoryService');
 const { createExecution } = require('./executionStore');
 const { reservationFor } = require('./resourceGuard');
@@ -33,6 +34,15 @@ function capabilitiesOf(config) {
     return { list: [], defaulted: false, blocked: 'capacites-non-declarees' };
   }
   return { list: config.availableCapabilities.slice(), defaulted: false };
+}
+
+function preflightSelection(ctx, selection) {
+  return buildMissionPreflight({
+    mission: ctx.mission,
+    config: ctx.config,
+    topology: selection.topology,
+    organization: ctx.mission?.morphology?.selectedOrganization
+  });
 }
 
 async function topologyFor(db, ctx) {
@@ -113,6 +123,10 @@ async function dispatchTask(db, ctx, harness) {
   if (envelope?.blocked) return blockDispatch(db, ctx, envelope.blocked);
   const selection = await topologyFor(db, ctx);
   if (selection.blocked) return blockDispatch(db, ctx, selection.blocked);
+  selection.preflight = preflightSelection(ctx, selection);
+  if (selection.preflight.blockingReasons.length) {
+    return blockDispatch(db, ctx, selection.preflight.blockingReasons.join(','));
+  }
   if (await hasSimilarFailures(db, ctx)) return blockDispatch(db, ctx, 'echec-similaire-repete');
   const reservationMb = reservationFor(ctx);
   if (!canAdmit(ctx, reservationMb)) return { state: ctx.project.state, note: 'enveloppe-insuffisante' };

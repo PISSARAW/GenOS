@@ -1,6 +1,6 @@
 'use strict';
 
-const topologyCapabilityService = require('../topologyCapabilityService');
+const { buildMissionPreflight } = require('./missionPreflightService');
 
 /**
  * Contrat universel entre une mission Ontogenèse et le runtime GenOS.
@@ -117,7 +117,8 @@ function buildMissionCapabilityPlan(input) {
   const required = capabilityRequirements(mission, concepts);
   const topology = input.selection?.topology || mission.morphology?.selectedTopology || null;
   const organization = mission.morphology?.selectedOrganization || null;
-  const topologyContract = topologyCapabilityService.contractFor({ mode: topology, organization });
+  const preflight = buildMissionPreflight({ mission, config, topology, organization });
+  const topologyContract = preflight.topology.contract;
   const runtimeBridges = runtimeBridgePlan({ mission, concepts, topology, organization });
   return {
     version: 1,
@@ -132,6 +133,7 @@ function buildMissionCapabilityPlan(input) {
     topology,
     organization,
     topologyContract,
+    preflight,
     variant: input.selection && input.selection.variant,
     ...configurationPlanFields(config),
     evidence: buildEvidenceContract(input.task, mission),
