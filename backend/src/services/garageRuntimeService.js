@@ -74,7 +74,8 @@ function runtimeFields(mission) {
   return Object.fromEntries(keys.filter((key) => mission[key] !== undefined).map((key) => [key, mission[key]]));
 }
 
-async function settle(input, row, receipt, terminalError) {
+async function settle(input, row, outcome = {}) {
+  const { receipt = null, terminalError = null } = outcome;
   const expired = !(Date.parse(row.lease_expires_at) > Date.now()) || Date.parse(row.deadline_at) <= Date.now();
   const changed = await store.updatePersistent(input.db, { requestId: row.request_id, leaseId: row.lease_id,
     status: expired ? 'expired' : receipt ? 'completed' : 'failed', evidence: receipt, result: receipt,
@@ -100,14 +101,14 @@ async function reconcileTerminal(input, row) {
   } catch (failure) {
     if (failure.code !== 'GARAGE_SCOPE_INVALID') throw failure;
     await clearApprovalPhase(input.db, row);
-    return settle(input, row, null, 'garage_scope_invalid_at_terminal_reconciliation');
+    return settle(input, row, { terminalError: 'garage_scope_invalid_at_terminal_reconciliation' });
   }
   if (!verified && await pendingApproval(input.db, row)) return;
   await clearApprovalPhase(input.db, row);
-  if (verified) return settle(input, row, verified);
+  if (verified) return settle(input, row, { receipt: verified });
   if (worker?.status === 'completed' && Date.now() - Date.parse(row.updated_at.replace(' ', 'T') + 'Z') < 10000) return;
   if (worker?.status === 'running' && Date.parse(row.lease_expires_at) > Date.now()) return;
-  await settle(input, row, null);
+  await settle(input, row);
 }
 
 async function pendingApproval(db, row) {
