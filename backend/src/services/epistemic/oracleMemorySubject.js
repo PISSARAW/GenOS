@@ -1,14 +1,14 @@
 'use strict';
 
 const values = require('../trinityProvenanceValues');
-const { createHash } = require('node:crypto');
 const { withTransaction } = require('../../db');
+const { isValidRecordHash } = require('../provenanceHash');
 const STATEMENT = 'La mémoire reproduit fidèlement le rapport de promotion enregistré.';
 const DOMAIN = { statement: 'Copie textuelle des mémoires Experience issues de promotions.',
   constraints: ['Le texte et les claims correspondent au rapport source.', 'La provenance appartient au run et au tenant enregistrés.'] };
 
 function verifiedPayload(record) {
-  if (!record || createHash('sha256').update(record.payload_json).digest('hex') !== record.payload_hash) {
+  if (!isValidRecordHash(record)) {
     throw values.failure('MEMORY_ORACLE_PROVENANCE_INVALID');
   }
   return JSON.parse(record.payload_json);

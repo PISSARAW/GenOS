@@ -1,8 +1,8 @@
 'use strict';
-const crypto = require('node:crypto');
 const { withTransaction } = require('../db');
 const { persistDecision } = require('./decisionEvidenceService');
 const { agent, failure } = require('./studioWorldsService');
+const { isValidRecordHash } = require('./provenanceHash');
 
 function text(value, limit) {
   if (typeof value !== 'string' || !value.trim() || value.length > limit) throw failure('MEMORY_INPUT_INVALID', 400);
@@ -30,11 +30,11 @@ async function verify(db, context) {
   const record = await db.get(`SELECT * FROM provenance_records WHERE id = ? AND organization_id = ? AND project_id = ?`,
     row.provenance_record_id, context.scope.organizationId, context.scope.projectId);
   if (!record) throw failure('MEMORY_PROVENANCE_REQUIRED', 409);
-  const actual = crypto.createHash('sha256').update(record.payload_json).digest('hex');
+  const actual = record.payload_hash;
   const payload = JSON.parse(record.payload_json);
   const bound = payload.decisionId === row.id && payload.title === row.title && payload.rationale === row.content && payload.createdBy === row.created_by;
   if (JSON.stringify(payload.evidenceRefs) !== row.evidence_refs_json) throw failure('MEMORY_INTEGRITY_INVALID', 409);
-  if (!bound || actual !== record.payload_hash || actual !== row.provenance_hash) throw failure('MEMORY_INTEGRITY_INVALID', 409);
+  if (!bound || !isValidRecordHash(record) || actual !== row.provenance_hash) throw failure('MEMORY_INTEGRITY_INVALID', 409);
   return { row, hash: actual };
 }
 

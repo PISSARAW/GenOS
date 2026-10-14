@@ -1,12 +1,11 @@
 'use strict';
 
-const crypto = require('node:crypto');
 const events = require('./strategyExecutionEvents');
+const { isValidRecordHash } = require('./provenanceHash');
 const VALID_RUN_STATUSES = new Set(['planned', 'running', 'awaiting_approval', 'completed', 'failed', 'blocked', 'cancelled']);
 
 function verifyHash(record) {
-  const actual = crypto.createHash('sha256').update(record.payload_json).digest('hex');
-  if (actual !== record.payload_hash) throw new Error('CONSUMER_PROVENANCE_INTEGRITY');
+  if (!isValidRecordHash(record)) throw new Error('CONSUMER_PROVENANCE_INTEGRITY');
   return JSON.parse(record.payload_json);
 }
 
