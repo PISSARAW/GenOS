@@ -17,6 +17,21 @@ assert.throws(() => diffWorkspaces('base', 'target', { diffEntries: [{ file: 'ba
 console.log('Bisection diff blast-radius checks passed.');
 
 const bisection = require('../src/services/bisectionService');
+const invalidSyncBaseline = bisection.bisectAnomaly([
+  { step: 1, healthy: false },
+  { step: 2, healthy: false }
+]);
+assert.strictEqual(invalidSyncBaseline.bisectionComplete, false);
+assert.match(invalidSyncBaseline.reason, /healthy baseline/);
+const syncRegression = bisection.bisectAnomaly([
+  { step: 1, healthy: true },
+  { step: 2, healthy: true },
+  { step: 3, healthy: false }
+]);
+assert.strictEqual(syncRegression.culpritReport.stepNumber, 3);
+assert.strictEqual(syncRegression.culpritReport.lastHealthy.stepNumber, 2);
+console.log('Synchronous bisection baseline checks passed.');
+
 Promise.resolve(bisection.bisectAnomalyAsync([
   { step: 1, healthy: true },
   { step: 2, healthy: false },

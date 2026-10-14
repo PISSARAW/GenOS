@@ -211,7 +211,7 @@ function syncStepStatus(healthy) {
 }
 
 function syncSearch(history, probe, steps) {
-  let low = 0;
+  let low = 1;
   let high = history.length - 1;
   let culpritIdx = -1;
   while (low <= high) {
@@ -233,6 +233,14 @@ function syncSearch(history, probe, steps) {
   return { failed: false, culpritIdx, reason: null };
 }
 
+function syncBaselineError(history, probe) {
+  const baseline = probe(history[0]);
+  if (baseline && baseline.then) throw new Error('Use bisectAnomalyAsync for asynchronous predicates.');
+  if (typeof baseline !== 'boolean') return 'Snapshot predicate did not produce a boolean health result for the baseline.';
+  if (!baseline) return 'Causal bisection requires a healthy baseline snapshot before the first failing snapshot.';
+  return null;
+}
+
 // Synchronous compatibility surface for in-process benchmark callers. HTTP
 // bisection uses bisectAnomalyAsync because its predicate runs a real command.
 function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
@@ -240,6 +248,8 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
   if (monotonicityViolation(snapshotHistory)) return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: snapshotHistory.length, bisectionIterationsRequired: 0, bisectionSteps: 0, bisectionAuditTrace: [], reason: 'Snapshot health history is non-monotonic; causal bisection requires a healthy-to-failing sequence.' };
   if (failurePredicate && failurePredicate.constructor && failurePredicate.constructor.name === 'AsyncFunction') throw new Error('Use bisectAnomalyAsync for asynchronous predicates.');
   const probe = (snapshot) => (failurePredicate ? failurePredicate(snapshot) : knownHealth(snapshot));
+  const baselineError = syncBaselineError(snapshotHistory, probe);
+  if (baselineError) return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: snapshotHistory.length, bisectionIterationsRequired: 0, bisectionSteps: 0, bisectionAuditTrace: [], reason: baselineError };
   const steps = [];
   const search = syncSearch(snapshotHistory, probe, steps);
   if (search.failed) return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: snapshotHistory.length, bisectionIterationsRequired: steps.length, bisectionSteps: steps.length, bisectionAuditTrace: steps, reason: search.reason };
