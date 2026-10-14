@@ -6,7 +6,9 @@ let cache = { expiresAt: 0, key: '', models: [], errors: [] };
 function endpointBase(endpoint) {
   try {
     const url = new URL(endpoint);
-    const strippedPath = url.pathname.replace(/\/v1\/chat\/completions\/?$/, '').replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, '');
+    const strippedPath = url.pathname
+      .replace(/\/(?:api\/chat|v1\/chat\/completions|chat\/completions)\/?$/, '')
+      .replace(/\/+$/, '');
     return `${url.origin}${strippedPath}`;
   } catch (_) { return null; }
 }

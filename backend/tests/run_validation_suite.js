@@ -153,6 +153,7 @@ const suites = {
   providers: [
     ['provider registry', 'test_supported_model_providers.js'],
     ['Ollama protocol', 'test_ollama_native_protocol.js'],
+    ['local model discovery refresh and native Ollama endpoint', 'test_local_model_discovery_refresh.js'],
     ['OpenAI-compatible configuration', 'test_openai_compatible_configuration.js']
   ],
   concurrency: [
@@ -166,6 +167,7 @@ const suites = {
     ['worker compliance manifest', 'test_worker_compliance_manifest.js'],
     ['worker qualification inventory', 'test_worker_qualification_inventory.js'],
     ['bounded code worker evidence', 'test_worker_code_evidence.js'],
+    ['local code worker proposal schema and safety', 'test_local_code_worker.js'],
     ['persisted worker mission promotion and refusal', 'test_worker_compliance_native_missions.js'],
     ['Rust and Node worker kind parity', 'test_worker_kind_registry.js'],
     ['worker kind matrix across eight topologies', 'test_topology_worker_kind_matrix.js'],

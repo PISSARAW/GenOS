@@ -40,7 +40,7 @@ async function executeLeanCheck(request = {}) {
     const result = await executeSource(request, executable, directory);
     return { ...result, toolchainVersion: request.toolchainVersion, axioms: declaredAxioms(request.source) };
   } finally {
-    await fs.promises.rm(directory, { recursive: true, force: true });
+    await fs.promises.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 }
 

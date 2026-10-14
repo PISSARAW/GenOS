@@ -70,7 +70,7 @@ async function generateWorkerResult(ctx) {
     maxTokens: ctx.maxTokens,
     maxCostUsd: ctx.maxCost,
     ...sharedBudget,
-    responseFormat: 'json_object',
+    responseFormat: ctx.codeWorker ? localCodeWorker.proposalResponseFormat() : 'json_object',
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
@@ -251,6 +251,7 @@ async function runGenerationStage(ctx) {
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,
+    codeWorker: codeWorker,
     promptText: promptText
   });
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };

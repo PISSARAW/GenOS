@@ -5,7 +5,6 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const SOURCE = 'a % b';
-const EXPECTED = '((a % b) + b) % b';
 
 function enabled(kind) {
   return kind === 'bounded_worker' && process.env.GENOS_COMPLIANCE_BOUNDED_CODE === '1';
@@ -17,12 +16,24 @@ function prepare(root) {
   fs.writeFileSync(path.join(root, 'src', 'answer.gexpr'), SOURCE);
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ private: true,
     scripts: { test: 'node tests/bounded-code.cjs' } }));
-  fs.writeFileSync(path.join(root, 'tests', 'bounded-code.cjs'),
-    "'use strict';\nconst assert = require('node:assert/strict');\nconst fs = require('node:fs');\nassert.equal(fs.readFileSync('src/answer.gexpr', 'utf8').trim(), '((a % b) + b) % b');\n");
+  fs.writeFileSync(path.join(root, 'tests', 'bounded-code.cjs'), [
+    "'use strict';",
+    "const assert = require('node:assert/strict');",
+    "const fs = require('node:fs');",
+    "const expression = fs.readFileSync('src/answer.gexpr', 'utf8').trim();",
+    "assert.match(expression, /^[ab0-9\\s()%+*\\/-]{1,120}$/);",
+    "const evaluate = new Function('a', 'b', 'return (' + expression + ');');",
+    'for (let a = -16; a <= 16; a += 1) {',
+    '  for (let b = 1; b <= 8; b += 1) {',
+    '    assert.ok(evaluate(a, b) === ((a % b) + b) % b, JSON.stringify({ a, b }));',
+    '  }',
+    '}',
+    ''
+  ].join('\n'));
 }
 
 function prompt(sourceRef) {
-  return `Repair src/answer.gexpr in this isolated workspace. Current expression: ${SOURCE}. It must return the Euclidean remainder for every integer a from -16 through 16 and b from 1 through 8. JavaScript remainder can be negative when a is negative. Use exactly ((a % b) + b) % b. The immutable npm test checks this expression. Change only src/answer.gexpr, run npm test, and cite ${sourceRef}.`;
+  return `Repair src/answer.gexpr in this isolated workspace. Current expression: ${SOURCE}. The file must contain one arithmetic expression using only variables a and b; do not return a function, wrapper, or prose. It must return the Euclidean remainder for every integer a from -16 through 16 and b from 1 through 8. JavaScript remainder can be negative when a is negative. Use any equivalent expression that passes the immutable npm test across all 264 inputs. Change only src/answer.gexpr, run npm test, and cite ${sourceRef}.`;
 }
 
 function workerRole(kind) { return enabled(kind) ? 'implementation' : kind; }
@@ -158,5 +169,5 @@ function checksAccepted(checks) {
     && check.coverage.checkedCases === 264);
 }
 
-module.exports = { EXPECTED, enabled, prepare, prompt, workerRole, executionPolicy,
+module.exports = { enabled, prepare, prompt, workerRole, executionPolicy,
   verificationContract, bindModelBudget, validEvidence, attachCompletion, verify };

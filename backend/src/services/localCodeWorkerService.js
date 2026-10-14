@@ -9,6 +9,17 @@ const { normalizeRelativePath } = require('./pathSafety');
 
 const FORBIDDEN_PARTS = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', 'tests', 'test']);
 const FORBIDDEN_NAMES = /(^|\/)(Cargo\.toml|Cargo\.lock|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|\.env[^/]*|.*\.config\.[^/]+|.*(?:^|[._-])(test|spec)(?:[._-]|$).*|.*secret.*|.*credential.*)$/i;
+const PROPOSAL_RESPONSE_FORMAT = Object.freeze({ name: 'genos_file_replacement_v1', schema: Object.freeze({
+  type: 'object', additionalProperties: false,
+  properties: {
+    format: { type: 'string', enum: ['genos.file-replacement/v1'] },
+    patches: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object',
+      additionalProperties: false, properties: { path: { type: 'string' }, content: { type: 'string' } },
+      required: ['path', 'content'] } },
+    tests: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'string' } },
+    evidence: { type: 'string' }
+  }, required: ['format', 'patches', 'tests', 'evidence']
+}) });
 function safePath(relative) {
   if (typeof relative !== 'string' || relative.length >= 240 || FORBIDDEN_NAMES.test(relative)) return false;
   try {
@@ -137,7 +148,8 @@ async function executeProposal({ workspaceRoot, text }) {
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence },
     changedFiles: changedFileHashes.map((file) => file.path), changedFileHashes, tests, merged: false, testStatus: 'passed' };
 }
-module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState, restorePatchState };
+module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState,
+  restorePatchState, proposalResponseFormat: () => PROPOSAL_RESPONSE_FORMAT };
 
 function assertProposalSchema(proposal) {
   if (!proposal || Object.keys(proposal).some((key) => !['format', 'patches', 'tests', 'evidence'].includes(key)) || proposal.format !== 'genos.file-replacement/v1' || !Array.isArray(proposal.patches) || !Array.isArray(proposal.tests) || typeof proposal.evidence !== 'string') throw new Error('Patch proposal violates the strict schema.');
