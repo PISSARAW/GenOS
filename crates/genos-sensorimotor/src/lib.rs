@@ -78,6 +78,7 @@ fn move_pointer(enigo: &mut Enigo, x: Option<i32>, y: Option<i32>) -> Result<(),
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 fn ui_click(x: Option<i32>, y: Option<i32>) -> bool {
     let (Some(x), Some(y)) = (x, y) else { return false; };
     let Ok(uia) = uiautomation::UIAutomation::new() else { return false; };
@@ -96,6 +97,11 @@ fn ui_click(x: Option<i32>, y: Option<i32>) -> bool {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+fn ui_click(_x: Option<i32>, _y: Option<i32>) -> bool {
+    false
+}
+
 fn click_pointer(enigo: &mut Enigo, position: (Option<i32>, Option<i32>), button: Option<&str>) -> Result<(), String> {
     let (x, y) = position;
     if ui_click(x, y) { return Ok(()); }
@@ -111,12 +117,18 @@ fn click_pointer(enigo: &mut Enigo, position: (Option<i32>, Option<i32>), button
     enigo.button(btn, Direction::Click).map_err(|e| format!("Click error: {:?}", e))
 }
 
+#[cfg(target_os = "windows")]
 fn ui_type(text: &str) -> bool {
     let Ok(uia) = uiautomation::UIAutomation::new() else { return false; };
     let Ok(element) = uia.get_focused_element() else { return false; };
     use uiautomation::patterns::UIValuePattern;
     let Ok(value) = element.get_pattern::<UIValuePattern>() else { return false; };
     value.set_value(text).is_ok()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn ui_type(_text: &str) -> bool {
+    false
 }
 
 fn type_text(enigo: &mut Enigo, text: Option<&str>) -> Result<(), String> {
