@@ -49,15 +49,20 @@ try {
   assert.equal(inbox.messages[0].id, published.id);
   assert.equal(inbox.messages[0].signal.event, 'mcp_inbox_verified');
   assert.equal(inbox.messages[0].integrity.status, 'verified');
+  assert.equal(inbox.messages[0].receiptState, 'read');
+  assert.equal(inbox.members.find((member) => member.id === 'inbox-worker').name, 'Worker');
   const after = output(await client.callTool({ name: 'genos_worker_inbox',
-    arguments: { ...arguments_, after_id: published.id } }));
+    arguments: { ...arguments_, after_id: published.id, acknowledge_message_ids: [published.id] } }));
   assert.equal(after.messages.length, 0);
+  assert.equal(after.acknowledgement.acknowledged, 1);
   const wrongParent = await client.callTool({ name: 'genos_worker_inbox',
     arguments: { orchestrator_id: 'nonexistent-root' } });
   assert.equal(wrongParent.isError, true, 'a wrong public parent ID must not fall back to a different active orchestrator');
   const state = output(await client.callTool({ name: 'genos_organization_state', arguments: arguments_ }));
   assert.equal(state.organization, 'red_blue_coevolution');
   assert.equal(state.messages, undefined);
+  assert.equal(state.requester.id, 'inbox-worker');
+  assert.equal(state.communicationLinks.find((link) => link.agentId === 'inbox-root').relationship, 'reports_to');
   const workerPublication = output(await client.callTool({ name: 'genos_worker_publish', arguments: {
     orchestrator_id: 'inbox-root', recipient_agent_id: 'inbox-root', kind: 'evidence', signal_type: 'ligand',
     signal_data: { event: 'mcp_worker_published' } } }));
@@ -69,6 +74,8 @@ try {
   assert.equal(row.sender_agent_id, 'inbox-worker');
   assert.equal(row.signal_type, 'ligand');
   assert.equal(row.delivery, 'delivered');
+  assert.equal((await observed.get(`SELECT state FROM agent_organization_message_receipts
+    WHERE message_id = ? AND recipient_agent_id = 'inbox-worker'`, published.id)).state, 'acknowledged');
   const parentInbox = await organization.inbox(observed, { orchestratorId: 'inbox-root',
     requesterAgentId: 'inbox-root', afterId: published.id });
   assert.equal(parentInbox.messages[0].signal.event, 'mcp_worker_published');

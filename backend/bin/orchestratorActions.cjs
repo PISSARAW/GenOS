@@ -166,7 +166,8 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
   const senderAgentId = requiredOrganizationActor();
   const published = await dynamicOrganization.publish(db, {
     orchestratorId, senderAgentId, recipientAgentId: request.recipientAgentId || request.recipient_agent_id,
-    kind: request.kind, content: request.content, payload: request.payload,
+    kind: request.kind, content: request.content,
+    payload: { ...(request.payload || {}), ...(request.in_reply_to ? { inReplyTo: request.in_reply_to } : {}) },
     signalType: request.signalType || request.signal_type,
     signalData: request.signalData || request.signal_data || request.signal
   });
@@ -183,6 +184,11 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
   const result = action === 'organization_state'
     ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
     : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
+  if (action === 'organization_inbox' && Array.isArray(request.acknowledge_message_ids)) {
+    result.acknowledgement = await dynamicOrganization.acknowledge(db, {
+      orchestratorId, requesterAgentId, messageIds: request.acknowledge_message_ids
+    });
+  }
   process.stdout.write(JSON.stringify(result || { orchestratorId, status: 'not_initialized' }));
 }
 function requiredOrganizationActor() {
