@@ -33,7 +33,7 @@ Le sujet central est la capacité du système à :
 
 ## 2. Définition fonctionnelle
 
-GenOS traite les workspaces comme des états de calcul isolés, potentiellement concurrents, potentiellement mutés, et toujours évaluable par comparaison et reprise.
+GenOS traite les workspaces comme des états de fichiers séparés, potentiellement concurrents et mutables, évaluables par comparaison et reprise. Cette séparation protège l’état source des écritures effectuées dans une copie ; elle ne constitue pas une isolation de processus ou de système d’exploitation.
 
 Un workspace n’est pas seulement un dossier de projet. C’est un environnement d’exécution avec :
 
@@ -272,7 +272,7 @@ le restaurateur revalide, et le reçu garde `globalAtomic: false`. Voir
 
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 
-Le service [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée pour les agents des environnements d’exécution isolés.
+Le service [backend/src/services/agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée pour les agents des espaces de fichiers séparés, sous le même compte et le même noyau que le backend.
 
 Il prend trois formes adaptatives :
 
@@ -518,7 +518,7 @@ La materialization construit un dossier de travail à partir du manifest. Elle v
 
 ### 9.3 Exécution dans une version du snapshot
 
-Le service `runInSnapshot()` remonte l’état cible dans un dossier temporaire, exécute la commande autorisée, puis renvoie la sortie et le hash du snapshot. Cette exécution est pleinement isolée et ne touche pas directement le workspace source.
+Le service `runInSnapshot()` remonte l’état cible dans un dossier temporaire, exécute une commande de test issue d’une allowlist, puis renvoie la sortie et le hash du snapshot. Le dossier temporaire protège le workspace source contre les écritures directes du test. Le processus s’exécute toutefois avec les droits du compte GenOS : aucune isolation noyau, coupure réseau, limite CPU/mémoire/PID ou confinement des accès au disque n’est appliqué par ce runner. Un script de test peut donc lire ou modifier d’autres ressources accessibles à ce compte. Le runner convient à du code de confiance ; le code non fiable doit passer par un conteneur ou une VM administré hors de ce chemin.
 
 ### 9.4 Bisection et rollback
 
@@ -543,7 +543,7 @@ Dans le dépôt, les forks sont traités comme états parallèles qui peuvent ê
 
 ### 10.2 Replay
 
-Le replay est un concept clé : reconstituer un état ayant déjà été validé, ou ré-exécuter un test exactement sur une version passée du workspace. Le runtime respecte cette logique sans faire de “fake replay” : il re-matérialise le snapshot vérifié, puis lance la commande dans un runner isolé.
+Le replay est un concept clé : reconstituer un état ayant déjà été validé, ou ré-exécuter un test exactement sur une version passée du workspace. Le runtime re-matérialise le snapshot vérifié puis lance la commande dans un dossier temporaire contrôlé par le backend. Ce replay protège l’état source, mais ne fournit pas de frontière de sécurité pour le processus testé.
 
 ### 10.3 Merge
 
@@ -619,7 +619,7 @@ Le vrai différenciateur de GenOS est qu’il ne confond ni “copie du dépôt�
 - crée des snapshots durables, vérifiés par hash ;
 - permet des branches, forks et contre-factuels sans écraser le parent ;
 - instancie des jumeaux miroirs antagonistes pour la validation formelle ;
-- exécute le replay dans un environnement isolé ;
+- re-matérialise le snapshot dans un dossier temporaire avant le replay ;
 - trouve le point de bascule avec bisection causale ;
 - restaure les états avec protection et checksum ;
 - contrôle la blast radius avant exécution ;
@@ -632,6 +632,7 @@ Le vrai différenciateur de GenOS est qu’il ne confond ni “copie du dépôt�
 - le système est très orienté runtime et état de filesystem ; il ne remplace pas un système de versionnement déployé sur plusieurs services ;
 - la bisection est robuste sur des historiques monotones, mais des séquences non monotones doivent être rejetées ou relancées avec un contexte plus riche ;
 - le restore garantit la cohérence du manifest, mais il repose toujours sur un environnement de travail contrôlé ;
+- le runner de snapshot ne doit pas recevoir de code hostile : ses commandes autorisées peuvent lancer les scripts du projet avec les droits de l’hôte ;
 - le nettoyage est utile mais doit être supervisé pour éviter l’effacement d’un workspace encore vivant.
 
 ---

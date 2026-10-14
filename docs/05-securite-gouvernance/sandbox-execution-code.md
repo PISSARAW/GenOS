@@ -15,6 +15,8 @@ La garantie depend donc du chemin emprunte :
 
 Un worktree, une copie de repository et une allowlist sont des controles importants, mais ne sont pas a eux seuls une frontiere de securite au sens d'une VM ou d'un conteneur. Le worker local execute des binaires de l'hote avec les droits du processus GenOS. Pour traiter du code non fiable, il faut privilegier le chemin Docker, ou une VM/runner dedie administre hors de GenOS.
 
+Le replay `runInSnapshot()` ([workspaceSnapshotRun.js](../../backend/src/services/workspaceSnapshotRun.js)) partage cette limite : il copie le snapshot dans un dossier temporaire puis lance `npm test`, `pytest` ou `cargo test` via un shell système. L'allowlist borne la commande d'entrée, mais les scripts et outils du dépôt restent du code exécutable. Le runner ne fournit ni namespace/conteneur, ni filtrage réseau, ni quotas CPU, mémoire ou processus, ni confinement des lectures/écritures au dossier temporaire. Utiliser ce chemin seulement avec des dépôts de confiance ; l'évaluation d'un dépôt non fiable exige une frontière OS gérée séparément.
+
 Les termes biologiques employes ailleurs dans GenOS decrivent des politiques de supervision. Ils ne remplacent ni l'isolation de l'OS, ni la gestion des identites, ni une revue humaine.
 
 ## Objectifs et modele de menace
