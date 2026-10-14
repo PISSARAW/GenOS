@@ -162,36 +162,36 @@ async function handleSynapticStdpUpdate(args) {
   return runPrimitive('stdp_update', primitiveArgs);
 }
 
-function synapseTenantClauses(agentId, orgId, projId) {
-  let where = '';
-  const params = [];
-  if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
-    where += ' AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?) OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))';
-    params.push(agentId, agentId);
-  }
-  if (orgId) {
-    where += ' AND (organization_id = ? OR organization_id IS NULL)';
-    params.push(orgId);
-  }
-  if (projId) {
-    where += ' AND (project_id = ? OR project_id IS NULL)';
-    params.push(projId);
-  }
-  return { where, params };
+async function callerWorkspace(db, agentId) {
+  if (!agentId) return null;
+  const agent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agentId);
+  if (!agent?.workspace_id) return null;
+  const workspace = await db.get('SELECT id, organization_id, project_id FROM workspaces WHERE id = ?', agent.workspace_id);
+  return workspace || null;
 }
 
-async function handleSynapticPruneScale(args) {
+function synapsePruneQuery(scope, threshold) {
+  const sql = `DELETE FROM memory_synapses
+    WHERE (ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5))
+      AND source_id IN (SELECT d.id FROM genome_decisions d JOIN agents a ON a.id = d.created_by WHERE a.workspace_id = ?)
+      AND target_id IN (SELECT d.id FROM genome_decisions d JOIN agents a ON a.id = d.created_by WHERE a.workspace_id = ?)
+      AND (organization_id = ? OR organization_id IS NULL)
+      AND (project_id = ? OR project_id IS NULL)`;
+  const params = [threshold, scope.id, scope.id, scope.organization_id, scope.project_id];
+  return { sql, params };
+}
+
+async function handleSynapticPruneScale(args, context) {
   const { getDatabase } = require('../db');
   const db = await getDatabase();
   const threshold = Number(nullish(args.threshold, 0.1)) * Number(nullish(args.scale, 1.0));
-  const agentId = firstTruthy(args.agent_id, args.agentId);
-  const orgId = firstTruthy(args.organization_id, args.organizationId);
-  const projId = firstTruthy(args.project_id, args.projectId);
+  const agentId = context.agentId;
+  const scope = await callerWorkspace(db, agentId);
+  if (!scope) return { configured: false, success: false, status: 'scope_denied', code: 'MCP_WORKSPACE_SCOPE_REQUIRED' };
   let prunedCount = 0;
   if (db) {
-    const { where, params } = synapseTenantClauses(agentId, orgId, projId);
-    const sql = 'DELETE FROM memory_synapses WHERE (ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5))' + where;
-    const res = await db.run(sql, threshold, ...params);
+    const { sql, params } = synapsePruneQuery(scope, threshold);
+    const res = await db.run(sql, ...params);
     prunedCount = res && res.changes ? res.changes : 0;
   }
   return {
@@ -199,7 +199,7 @@ async function handleSynapticPruneScale(args) {
     success: true,
     status: 'completed',
     transport: 'strategy_primitive',
-    output: { success: true, prunedSynapses: prunedCount, threshold, agent_id: agentId || 'global' }
+    output: { success: true, prunedSynapses: prunedCount, threshold, agent_id: agentId }
   };
 }
 
@@ -234,7 +234,7 @@ const STRATEGY_HANDLERS = {
   genos_compile_memory: (args) => runPrimitive('compile_memory', args),
   genos_resilience_hypermutation: handleResilienceHypermutation,
   genos_synaptic_stdp_update: handleSynapticStdpUpdate,
-  genos_synaptic_prune_scale: handleSynapticPruneScale,
+  genos_synaptic_prune_scale: (args, context) => handleSynapticPruneScale(args, context),
   genos_execute_primitive: handleExecutePrimitive,
   genos_execute_strategy_pipeline: handleExecuteStrategyPipeline,
   genos_procedural_registry_list: handleProceduralRegistryList,

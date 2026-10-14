@@ -19,6 +19,7 @@ const agentMemory = require('../src/services/agentMemoryContext');
 const synapticTransmission = require('../src/services/synapticTransmissionService');
 const mcpBioTools = require('../src/services/mcpBioTools');
 const mcpStrategyTools = require('../src/services/mcpStrategyTools');
+const mcpRegistry = require('../src/services/mcpToolRegistry');
 const memoryPrimitives = require('../src/services/primitiveHandlers/memory');
 const temporalPrimitives = require('../src/services/primitiveHandlers/temporal');
 const { testSynapticPing } = require('./test_synaptic_ping');
@@ -49,6 +50,12 @@ async function runSynapticIntegritySuite() {
   // Seed tenant if needed
   await db.run('INSERT OR IGNORE INTO organizations (id, name) VALUES (?, ?)', testOrg, 'Synapse Org');
   await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', testProj, testOrg, 'Synapse Proj');
+  const testWorkspace = 'ws-synaptic-prune-test';
+  await db.run('INSERT OR IGNORE INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, ?, ?)',
+    testWorkspace, 'Synaptic prune test', '/', testOrg, testProj);
+  await db.run("INSERT OR IGNORE INTO agents (id, name, role, status, workspace_id) VALUES (?, ?, 'test', 'idle', ?)",
+    testAgent, testAgent, testWorkspace);
+  await db.run('UPDATE agents SET workspace_id = ? WHERE id = ?', testWorkspace, testAgent);
 
   const idSource = `dec-syn-src-${Date.now()}`;
   const idTargetA = `dec-syn-tgta-${Date.now()}`;
@@ -114,16 +121,22 @@ async function runSynapticIntegritySuite() {
   await db.run('INSERT INTO genome_decisions (id, title, content, created_by) VALUES (?, ?, ?, ?)', foreignSource, 'Foreign', 'Foreign node', 'other-agent');
   await db.run('INSERT INTO genome_decisions (id, title, content, created_by) VALUES (?, ?, ?, ?)', foreignTarget, 'Foreign 2', 'Foreign target', 'other-agent');
   await db.run('INSERT INTO memory_synapses (source_id, target_id, weight, c3_opsonization, cd47_expression) VALUES (?, ?, 0.02, 0.9, 0.1)', foreignSource, foreignTarget);
+  await db.run('INSERT OR REPLACE INTO memory_synapses (source_id, target_id, weight, organization_id, project_id) VALUES (?, ?, 0.02, ?, ?)',
+    idSource, idTargetA, testOrg, testProj);
 
-  const pruneResult = await mcpStrategyTools.executeStrategyTool('genos_synaptic_prune_scale', {
-    agent_id: testAgent,
+  const pruneResult = await mcpRegistry.dispatchTool('genos_synaptic_prune_scale', {
+    agent_id: 'other-agent',
     threshold: 2.0,
-    organization_id: testOrg,
-    project_id: testProj
-  });
-  check(pruneResult.success && pruneResult.configured, 'MCP genos_synaptic_prune_scale executed successfully via strategy primitive');
+    organization_id: 'other-org',
+    project_id: 'other-project'
+  }, { agentId: testAgent });
+  check(pruneResult.result.success && pruneResult.result.configured, 'MCP pruning uses the authenticated workspace scope');
+  const ownedPruned = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', idSource, idTargetA);
+  check(!ownedPruned, 'Scoped pruning removes eligible synapses inside the caller workspace');
   const foreignStillExists = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', foreignSource, foreignTarget);
-  check(Boolean(foreignStillExists), 'Scoped prune_scale preserved synapses belonging to other agents/tenants');
+  check(Boolean(foreignStillExists), 'Caller supplied tenant and agent arguments cannot prune foreign synapses');
+  const missingCaller = await mcpStrategyTools.executeStrategyTool('genos_synaptic_prune_scale', { threshold: 1000 });
+  check(missingCaller.success === false && missingCaller.status === 'scope_denied', 'Pruning fails closed without an authenticated workspace');
 
   const bioPruneRes = await mcpBioTools.executeBioTool('genos_synaptic_prune_scale', {
     agent_id: 'other-agent',
