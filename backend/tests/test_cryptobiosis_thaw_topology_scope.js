@@ -65,6 +65,8 @@ async function run() {
     assert.equal(alias.statusCode, 404);
 
     await db.run("UPDATE agents SET parent_agent_id = NULL WHERE id = 'worker'");
+    await db.run(`INSERT INTO cryptobiosis_snapshots VALUES ('snap-3', 'other-snapshot', 'wa', 'freeze', '2026-10-14',
+      '{"agents":[]}', 'frozen', NULL, NULL)`);
     await db.run(`INSERT INTO cryptobiosis_snapshots VALUES ('legacy-snap-3', 'snap-3', 'wa', 'freeze', '2026-10-14',
       '{"agents":[{"id":"parent","status":"running","currentTask":"parent resumed"},{"id":"late-child","status":"running","currentTask":"child resumed"}]}', 'frozen', NULL, NULL)`);
     const success = await invoke(controller, 'snap-3');
@@ -75,6 +77,8 @@ async function run() {
     const thawed = await db.get('SELECT status, thawed_at FROM cryptobiosis_snapshots WHERE snapshot_id = ?', 'snap-3');
     assert.equal(thawed.status, 'thawed');
     assert.ok(thawed.thawed_at);
+    assert.deepEqual(await db.get('SELECT status, thawed_at FROM cryptobiosis_snapshots WHERE snapshot_id = ?', 'other-snapshot'),
+      { status: 'frozen', thawed_at: null });
   } finally {
     databaseModule.getDatabase = originalGetDatabase;
     telemetry.emitEvent = originalEmit;

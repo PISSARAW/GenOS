@@ -141,7 +141,7 @@ async function thawCryptobiosisFromDatabase(db, snapshotId, targetWorkspaceId) {
   if (!db) {
     return { success: false, code: 'DB_REQUIRED', error: 'Database required', snapshotId };
   }
-  const snapshot = await db.get('SELECT * FROM cryptobiosis_snapshots WHERE snapshot_id = ? OR id = ?', snapshotId, snapshotId);
+  const snapshot = await db.get('SELECT * FROM cryptobiosis_snapshots WHERE snapshot_id = ?', snapshotId);
   if (!snapshot) {
     return {
       success: false,
