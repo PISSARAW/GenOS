@@ -40,7 +40,7 @@ async function main() {
     await require('../../src/services/agentRuntimeAdapter').startMission({ agentId: worker.agentId,
       missionId: 'delegation-mission', orchestratorAgentId: 'delegation-root', role: worker.role,
       workerKind: 'procedural_executor', workerContract: metadata.workerContract, methodContract,
-      prompt: worker.prompt, workspaceId: 'delegation-ws', workspaceRoot: worker.workspaceRoot,
+      prompt: worker.prompt, workspaceId: worker.workspaceId, workspaceRoot: worker.workspaceRoot,
       workspaceProvisioned: true, executor: 'local', localRuntime: true, timeoutMs: 60000,
       executionBudget: budget, executionPolicy: { allowFileEdits: false } });
     const row = await waitForRun(db, worker.agentId);
