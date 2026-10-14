@@ -12,7 +12,7 @@ const context = buildActionContext({
 assert.equal(context.bridgePath, path.resolve(__dirname, '../bin/genos-orchestrate.cjs'));
 
 const worker = workerLaunchPayload({
-  context: { ...context, topologySession: { sessionId: 'syncytium:assignment:1', revision: 2 } },
+  context: { ...context, request: { ...context.request, mode: 'syncytium' }, topologySession: { sessionId: 'syncytium:assignment:1', revision: 2 } },
   member: { role: 'verifier', mission: 'Validate JSON', engine: 'local' },
   workerId: 'worker-1', parent: { workspace_root: '/workspace' }
 });
@@ -23,6 +23,18 @@ assert.equal(worker.reuseChecked, true);
 assert.equal(worker.executor, 'local');
 assert.equal(worker.localRuntime, true);
 assert.equal(worker.topologySessionId, 'syncytium:assignment:1');
+assert.ok(worker.mission.includes('SYNCYTIUM RE-GROUNDING'));
+assert.ok(worker.mission.includes('operation "events"'));
+
+for (const mode of ['biome', 'rhizome', 'metapopulation']) {
+  const otherTopology = workerLaunchPayload({
+    context: { ...context, request: { ...context.request, mode }, topologySession: { sessionId: `${mode}:assignment:1`, revision: 2 } },
+    member: { role: 'analyst', mission: 'Inspect the active topology.' },
+    workerId: `${mode}-worker`, parent: { workspace_root: '/workspace' }
+  });
+  assert.ok(!otherTopology.mission.includes('SYNCYTIUM RE-GROUNDING'), `${mode} must not receive Syncytium event instructions`);
+  assert.ok(!otherTopology.mission.includes('operation "events"'), `${mode} does not support Syncytium event operation`);
+}
 
 const scopedWorker = workerLaunchPayload({
   context: { ...context, trinityModelBudgetScope: { id: 'execution-run:parent-run', costUsd: 1, tokens: 6000 } },

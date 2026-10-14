@@ -26,8 +26,8 @@ function migrationInstructions(mission) {
   return `${mission}\n\nMETAPOPULATION MIGRATION CONTRACT: ${contract}`;
 }
 
-function topologyInstructions(mission, session) {
-  if (!session?.sessionId) return mission;
+function topologyInstructions(mission, session, mode) {
+  if (mode !== 'syncytium' || !session?.sessionId) return mission;
   return `${mission}\n\nSYNCYTIUM RE-GROUNDING: session_id=${session.sessionId}, initial_revision=${session.revision}. Before committing shared work and before each major decision, call genos_topology_session with operation "events", session_id, and after_revision equal to your last acknowledged revision. Incorporate every newer event into your reasoning, then continue from the highest revision received. Record the revision used in your result.\n\nSEMANTIC CROSS-VALIDATION: include top-level semanticClaims in your evidence report. Each claim must be {"subject":"stable concept", "predicate":"property", "value":string|number|boolean, "evidence":["source or observation"]}. State only claims you can support; use an empty array when you have none.`;
 }
 
@@ -71,7 +71,9 @@ function workerLaunchPayload(args) {
   const { context, member, workerId, parent, capabilities, capabilityManifest, toolLease } = args;
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
   const baseMission = enrichMission(context, member.mission || '', member.role);
-  const mission = topologyInstructions(isolatedBaselineInstructions(baseMission, context), context.topologySession);
+  const mission = topologyInstructions(
+    isolatedBaselineInstructions(baseMission, context), context.topologySession, context.request?.mode
+  );
   const localModel = selectedModel(member, context.request);
   return {
     action: 'dispatch_worker',
