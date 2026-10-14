@@ -219,9 +219,10 @@ async function executeToolTransport(input) {
 }
 
 async function executeTestTransport(input) {
-  const { res, toolName, args, timeoutMs } = input;
+  const { res, toolName, args, timeoutMs, agentId } = input;
   try {
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs, 15000) });
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, agentId,
+      timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs, 15000) });
     if (result.success) circuitBreaker.recordSuccess(toolName);
     else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || 'MCP test failed.');
     return res.status(result.success ? 200 : result.configured ? 502 : 503).json(result);
@@ -276,9 +277,12 @@ async function testTool(req, res) {
   if (tool.is_locked === 1) return mcpError(res, { status: 503, code: 'TOOL_LOCKED', message: `Tool '${toolName}' is persisted in quarantine.` });
   const auth = await authorizeRequest({ req, db, toolName, args });
   if (auth.error) return mcpError(res, auth.error);
+  const contractError = await enforcePersistedWorkerTool(db, auth.agentId, { toolName, args })
+    .then(() => null, (error) => ({ status: 403, code: error.code || 'WORKER_CONTRACT_DENIED', message: error.message }));
+  if (contractError) return mcpError(res, contractError);
   const check = circuitBreaker.canExecute(toolName, requestRole(req), 'global', args);
   if (!check.allowed) return mcpError(res, { status: 503, code: check.reason || 'CIRCUIT_OPEN', message: check.message });
-  return executeTestTransport({ res, toolName, args, timeoutMs });
+  return executeTestTransport({ res, toolName, args, timeoutMs, agentId: auth.agentId });
 }
 
 async function toggleCircuitBreaker(req, res) {
@@ -305,14 +309,10 @@ async function toggleCircuitBreaker(req, res) {
 
 async function equipTool(req, res) {
   const { toolName, targetAgents = ['Global Fleet'] } = req.body || {};
-  if (!toolName) {
-    return res.status(400).json({ error: { code: 'INVALID_TOOL', message: 'toolName is required' } });
-  }
+  if (!toolName) return res.status(400).json({ error: { code: 'INVALID_TOOL', message: 'toolName is required' } });
   const db = await getDatabase();
   const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
-  if (!tool) {
-    return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool '${toolName}'.` } });
-  }
+  if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool '${toolName}'.` } });
   await db.run('UPDATE mcp_tools SET equipped_agents = ? WHERE name = ?', JSON.stringify(targetAgents), toolName);
 
   res.json({ success: true, toolName, equippedAgents: targetAgents });

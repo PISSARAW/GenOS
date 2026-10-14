@@ -95,6 +95,7 @@ async function runToolTransport(job) {
   return mcpExecutor.executeConfiguredTransport({
     toolName: job.toolName,
     args: toolArgs(job.payload),
+    agentId: job.approval.agent_id,
     timeoutMs: toolTimeoutMs(mcpExecutor, job.payload)
   });
 }

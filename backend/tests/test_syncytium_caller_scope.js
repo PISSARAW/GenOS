@@ -20,6 +20,12 @@ function envelope(agentId) {
 
 async function main() {
   const record = { id: 'sync-1', topology: 'syncytium', state: {} };
+  await assert.rejects(guardTopologyCall({}, record, {
+    args: { operation: 'snapshot', session_id: 'sync-1' }, context: {}
+  }), (error) => error.code === 'TOPOLOGY_CALLER_DENIED');
+  await assert.rejects(guardTopologyCall({}, record, {
+    args: { operation: 'events', session_id: 'sync-1' }, context: {}
+  }), (error) => error.code === 'TOPOLOGY_CALLER_DENIED');
   const parent = { id: 'parent', workspace_id: 'ws-1', execution_mode: 'orchestrator' };
   await assert.rejects(guardTopologyCall(database(parent), record, envelope('parent')),
     (error) => error.code === 'TOPOLOGY_CALLER_DENIED');

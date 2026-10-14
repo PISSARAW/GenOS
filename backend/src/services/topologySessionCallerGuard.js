@@ -14,10 +14,7 @@ async function guardTopologyCall(db, record, { args, context = {} } = {}) {
   const operation = String(args.operation || '').toLowerCase();
   assertTypedVariantOperation(record, operation);
   const callerId = context.agentId || process.env.GENOS_AGENT_ID;
-  if (!callerId) {
-    if (MUTATIONS.has(operation)) throw denied('Syncytium mutations require an authenticated caller.');
-    return args;
-  }
+  if (!callerId) throw denied('Syncytium session operations require an authenticated caller.');
   const agent = await db.get('SELECT id, workspace_id, execution_mode, metadata_json FROM agents WHERE id = ?', callerId);
   if (!agent) throw denied('Unknown topology caller.');
   await assertSessionMember(db, record, agent);

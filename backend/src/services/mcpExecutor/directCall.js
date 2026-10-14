@@ -23,6 +23,7 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
   let result;
   try {
     result = await executeConfiguredTransport({ toolName: normalizedToolName, args,
+      agentId: options.agentId || null,
       timeoutMs: normalizeMcpTimeout(options.timeoutMs || DEFAULT_MCP_TIMEOUT_MS) });
     recordCallResult(normalizedToolName, result);
   } catch (error) {

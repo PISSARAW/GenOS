@@ -88,17 +88,18 @@ async function runCliTool(normalized, args) {
   return result;
 }
 
-async function runTopologyTool(normalized, args) {
-  const result = await require('./topologyMcpTools').operateTopologySession(args || {});
+async function runTopologyTool(normalized, args, caller) {
+  const result = await require('./topologyMcpTools').operateTopologySession(args || {}, caller || {});
   recordCircuitOutcome(normalized, result, 'MCP topology session operation failed.');
   return result;
 }
 
-async function executeRegisteredTool(kind, normalized, args) {
+async function executeRegisteredTool(input) {
+  const { kind, normalized, args, caller } = input;
   if (kind === 'strategy') return { handled: true, result: await runStrategyTool(normalized, args) };
   if (kind === 'bio') return { handled: true, result: await runBioTool(normalized, args) };
   if (kind === 'cli') return { handled: true, result: await runCliTool(normalized, args) };
-  if (kind === 'topology') return { handled: true, result: await runTopologyTool(normalized, args) };
+  if (kind === 'topology') return { handled: true, result: await runTopologyTool(normalized, args, caller) };
   return { handled: false };
 }
 
@@ -114,7 +115,7 @@ function circuitOpenResult(circuit) {
   return { configured: true, success: false, status: 'circuit_open', error: circuit.message, code: circuit.reason };
 }
 
-async function dispatchTool(toolName, args = {}) {
+async function dispatchTool(toolName, args = {}, caller = {}) {
   const normalized = normalizeToolName(toolName);
   const kind = detectExecutionKind(normalized);
   if (!isSupportedTool(normalized)) return { kind: 'unsupported', result: unsupportedResult(normalized) };
@@ -135,7 +136,7 @@ async function dispatchTool(toolName, args = {}) {
   const circuit = circuitBreaker.canExecute(normalized, 'operator');
   if (!circuit.allowed) return { kind, result: circuitOpenResult(circuit) };
 
-  const outcome = await executeRegisteredTool(kind, normalized, args);
+  const outcome = await executeRegisteredTool({ kind, normalized, args, caller });
   if (!outcome.handled) return { kind: 'unsupported', result: null };
   return { kind, result: outcome.result };
 }

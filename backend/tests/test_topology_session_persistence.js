@@ -126,6 +126,10 @@ function applyRhizome(db, args) {
   return tools.applyTopologyOperation(db, args, { agentId: 'rhiz-worker' });
 }
 
+function applySyncytium(db, args) {
+  return tools.applyTopologyOperation(db, args, { agentId: 'w1' });
+}
+
 function readRows(state, sql, params) {
   const statement = String(sql);
   if (statement.includes('topology_session_events')) return state.events.filter((event) => event.session_id === params[0]).sort((a, b) => a.revision - b.revision);
@@ -156,6 +160,7 @@ function readRecord(state, sql, params) {
     db,
     schema: { schemaId: 'test-session', schemaVersion: 1, fields: [{ path: 'mcp.status', dataType: 'LWW_REGISTER' }] }
   });
+  db.registerWorker('w1', syn.sessionId);
   await syncytium.applyOperation(syn.sessionId, { agentId: 'w1', role: 'r', kind: { type: 'insert_text', index: 0, text: 'shared' } }, { db });
   const synRecord = await store.load(db, syn.sessionId);
   assert.equal(synRecord.topology, 'syncytium');
@@ -227,7 +232,7 @@ function readRecord(state, sql, params) {
     merge_evaluation: { ...mergeInput, expected_graph_revision: 'stale' }
   }), (error) => error.code === 'RHIZOME_GRAPH_STALE');
 
-  const snap = await tools.applyTopologyOperation(db, { session_id: syn.sessionId, operation: 'snapshot' });
+  const snap = await applySyncytium(db, { session_id: syn.sessionId, operation: 'snapshot' });
   assert.equal(snap.shared.textContent, 'shared');
   const mcpOperation = {
     opId: 'mcp-field-op', actorId: 'w1',
@@ -237,35 +242,35 @@ function readRecord(state, sql, params) {
   await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'apply', op: mcpOperation
   }, { agentId: 'w1' });
-  const deltas = await tools.applyTopologyOperation(db, {
+  const deltas = await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'events', after_revision: 1
   });
   assert.equal(deltas.events.length, 1);
   assert.equal(deltas.events[0].revision, 2);
-  assert.ok((await tools.applyTopologyOperation(db, {
+  assert.ok((await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'schema'
   })).schema);
-  assert.ok((await tools.applyTopologyOperation(db, {
+  assert.ok((await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'domains'
   })).domains);
-  const history = await tools.applyTopologyOperation(db, {
+  const history = await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'history'
   });
   assert.ok(history.operations.some((operation) => operation.opId === 'mcp-field-op'));
-  const explanation = await tools.applyTopologyOperation(db, {
+  const explanation = await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'explain', path: 'mcp.status', version: 'mcp-field-op'
   });
   assert.equal(explanation.operation.opId, 'mcp-field-op');
-  assert.deepEqual(await tools.applyTopologyOperation(db, {
+  assert.deepEqual(await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'conflicts', op: mcpOperation
   }), []);
-  assert.ok((await tools.applyTopologyOperation(db, {
+  assert.ok((await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'invariants'
   })).definitions);
-  assert.ok(Array.isArray(await tools.applyTopologyOperation(db, {
+  assert.ok(Array.isArray(await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'replicas'
   })));
-  assert.ok((await tools.applyTopologyOperation(db, {
+  assert.ok((await applySyncytium(db, {
     session_id: syn.sessionId, operation: 'health'
   })).consistency);
   const deposit = await applyRhizome(db, { session_id: rhiz.sessionId, operation: 'deposit', marker: 'edge:e2', amount: 2 });

@@ -189,6 +189,11 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const result = await executeToolLogic(normalizedToolName, args, { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, db: await require('../../db').getDatabase() });
     return withDocking(result, stericDocking);
   }
+  if (normalizedToolName === 'genos_topology_session') {
+    const result = await executeToolLogic(normalizedToolName, args,
+      { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId });
+    return withDocking(result, stericDocking);
+  }
   if (hasConfiguredEndpoint()) {
     const result = await executeRemoteTransport(normalizedToolName, args, timeoutMs);
     return withDocking(result, stericDocking);
