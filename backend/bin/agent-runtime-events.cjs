@@ -32,9 +32,12 @@ function readUsage(event) {
   return event.usage || (event.payload || {}).usage || {};
 }
 
-function reportedTokenCount(usage) {
-  const fallback = Number(usage.input_tokens || 0) + Number(usage.output_tokens || 0);
-  return Number(usage.total_tokens || fallback || 0);
+function billableTokenCount(usage) {
+  const input = Math.max(0, Number(usage.input_tokens || 0));
+  const output = Math.max(0, Number(usage.output_tokens || 0));
+  const cached = Math.min(input, Math.max(0, Number(usage.cached_input_tokens || usage.cache_read_input_tokens || 0)));
+  if (input > 0 || output > 0 || cached > 0) return input - cached + output;
+  return Math.max(0, Number(usage.total_tokens || usage.tokens || 0));
 }
 
 function isAgentMessage(event) {
@@ -59,14 +62,13 @@ function enforceBudget(state) {
 function accountEvent(state, event) {
   state.eventCount += 1;
   const usage = readUsage(event);
-  const reported = reportedTokenCount(usage);
+  const reported = billableTokenCount(usage);
   if (reported > 0) {
     state.exactTokens = Math.max(state.exactTokens, reported);
   } else if (isAgentMessage(event)) {
     state.estimatedTokens += Math.ceil(Buffer.byteLength(messageText(event), 'utf8') / 4);
   }
   state.observedCostUsd += Number(event.cost_usd || usage.cost_usd || 0);
-  enforceBudget(state);
 }
 
 function observeGenosTools(state, value) {
@@ -205,10 +207,11 @@ function dispatchEvent(state, event) {
 }
 
 function handleParsedEvent(state, event) {
-  accountEvent(state, event);
   if (state.budgetStopped) return;
+  accountEvent(state, event);
   observeGenosTools(state, event);
   dispatchEvent(state, event);
+  enforceBudget(state);
 }
 
 function processLine(state, line) {
@@ -231,4 +234,4 @@ function handleStdout(state, chunk) {
   }
 }
 
-module.exports = { budgetLimit, stopForBudget, observeGenosTools, handleStdout };
+module.exports = { budgetLimit, stopForBudget, billableTokenCount, observeGenosTools, handleParsedEvent, handleStdout };
