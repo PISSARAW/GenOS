@@ -81,6 +81,8 @@ async function e2e() {
   const overrideReceipt = await db.get('SELECT actor_id, reason FROM release_force_promotion_receipts WHERE id = ?', forced.body.overrideReceiptId);
   assert.equal(overrideReceipt.actor_id, 'release-admin');
   assert.equal(overrideReceipt.reason, 'Emergency release review bypass');
+  await assert.rejects(db.run('UPDATE release_force_promotion_receipts SET reason = ? WHERE id = ?',
+    'rewritten override reason', forced.body.overrideReceiptId), /append-only/);
 
   const report = await invoke(releases.chargeback, { tenant });
   assert.equal(report.body.totalCostUsd, 0.02);

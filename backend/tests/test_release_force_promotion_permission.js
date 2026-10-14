@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const iamPolicyEngine = require('../src/services/iamPolicyEngine');
 const { requireForcePromotionPermission } = require('../src/middleware/releaseForcePromotionPermission');
+const releaseRoutes = require('../src/routes/releaseRoutes');
 
 async function invoke(user, body) {
   const response = { statusCode: 200, payload: null, nextCalled: false };
@@ -16,6 +17,10 @@ async function invoke(user, body) {
 }
 
 async function main() {
+  const promoteRoute = releaseRoutes.stack.find((layer) => layer.route?.path === '/:id/promote')?.route;
+  assert.ok(promoteRoute, 'Release promotion route must be registered');
+  assert.ok(promoteRoute.stack.some((layer) => layer.handle === requireForcePromotionPermission),
+    'Production force override authority must be enforced on the route');
   const originalAuthorize = iamPolicyEngine.authorize;
   iamPolicyEngine.authorize = async ({ context, fallbackAllowed }) =>
     iamPolicyEngine.evaluatePolicies([], context, fallbackAllowed);
