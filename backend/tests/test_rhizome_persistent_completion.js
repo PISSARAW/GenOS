@@ -22,9 +22,14 @@ async function run() {
   const filename = path.join(directory, crypto.randomUUID() + '.db');
   let db = await open({ filename, driver: sqlite3.Database });
   try {
+    await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
+      CREATE TABLE agents (id TEXT PRIMARY KEY, workspace_id TEXT, execution_mode TEXT, metadata_json TEXT);
+      INSERT INTO workspaces VALUES ('rhizome-workspace', 'org', 'project');`);
     const need = { needId: 'persisted-need', capability: 'answer' };
     const session = await rhizome.composeRhizome('Persist verified work.', { db, variant: 'persistent',
       nodes: [fx.node('tool', ['answer'])], budgets: { growth: 1 } });
+    await db.run('INSERT INTO agents VALUES (?, ?, ?, ?)', 'rhizome-worker', 'rhizome-workspace', 'worker',
+      JSON.stringify({ topologySessionId: session.sessionId }));
     const result = await runtime.run({ sessionId: session.sessionId, options: { db }, needs: [need],
       trustedVerifierDigests: [fx.DIGEST], execute: async () => ({ answer: 42 }), verify: fx.makeReceipt });
     assert.equal(result.status, 'VERIFIED');
@@ -41,7 +46,8 @@ async function run() {
     const replay = await rhizome.recordRouteOutcome(session.sessionId, record.state.routeResults[0].receipt, { db, trustedVerifierDigests: [fx.DIGEST] });
     assert.equal(replay.duplicate, true);
     assert.equal((await store.load(db, session.sessionId)).state.routeResults.length, 1);
-    const viaMcp = await operations.applyTopologyOperation(db, { session_id: session.sessionId, operation: 'mission_metrics', needs: [need] });
+    const viaMcp = await operations.applyTopologyOperation(db,
+      { session_id: session.sessionId, operation: 'mission_metrics', needs: [need] }, { agentId: 'rhizome-worker' });
     assert.equal(viaMcp.canMerge, true);
     await rhizome.closeSession(session.sessionId, { db });
     await assert.rejects(() => source.read({ sessionId: session.sessionId, database: filename }), { code: 'RHIZOME_SESSION_UNKNOWN' });

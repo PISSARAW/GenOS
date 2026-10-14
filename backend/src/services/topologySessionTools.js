@@ -263,7 +263,11 @@ async function applyTopologyOperation(db, args = {}, context = {}) {
   const sessionId = String(args.session_id || args.sessionId || '').trim();
   const operation = String(args.operation || '').trim().toLowerCase();
   if (!sessionId) throw new Error('session_id is required.');
-  if (operation === 'fossil') return readRhizomeFossil(db, sessionId);
+  if (operation === 'fossil') {
+    const fossilRecord = { id: sessionId, topology: 'rhizome', state: { rhizomeId: sessionId } };
+    await require('./rhizome/rhizomeSessionCallerGuard').guardRhizomeCall(db, fossilRecord, context);
+    return readRhizomeFossil(db, sessionId);
+  }
   const record = await store.load(db, sessionId);
   if (!record) throw new Error(`Unknown topology session '${sessionId}'.`);
   const guarded = await require('./topologySessionCallerGuard').guardTopologyCall(db, record, { args, context });

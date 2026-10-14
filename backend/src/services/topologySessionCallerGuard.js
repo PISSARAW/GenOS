@@ -6,6 +6,10 @@ async function guardTopologyCall(db, record, { args, context = {} } = {}) {
   if (record.topology === 'biome') {
     return require('./biome/biomeSessionCallerGuard').guardBiomeCall(db, record, { args, context });
   }
+  if (record.topology === 'rhizome') {
+    await require('./rhizome/rhizomeSessionCallerGuard').guardRhizomeCall(db, record, context);
+    return args;
+  }
   if (record.topology !== 'syncytium') return args;
   const operation = String(args.operation || '').toLowerCase();
   assertTypedVariantOperation(record, operation);

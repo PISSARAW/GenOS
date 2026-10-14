@@ -122,6 +122,10 @@ function fakeDb() {
   };
 }
 
+function applyRhizome(db, args) {
+  return tools.applyTopologyOperation(db, args, { agentId: 'rhiz-worker' });
+}
+
 function readRows(state, sql, params) {
   const statement = String(sql);
   if (statement.includes('topology_session_events')) return state.events.filter((event) => event.session_id === params[0]).sort((a, b) => a.revision - b.revision);
@@ -160,11 +164,21 @@ function readRecord(state, sql, params) {
   assert.equal(revivedSyn.crdt.getSnapshot().textContent, 'shared');
 
   const rhiz = await rhizome.composeRhizome('Stigmergy session.', { db });
+  db.registerWorker('rhiz-worker', rhiz.sessionId);
   await rhizome.depositTrail(rhiz.sessionId, 'edge:e1', { amount: 4, db });
   const rhizRecord = await store.load(db, rhiz.sessionId);
   assert.equal(rhizRecord.topology, 'rhizome');
   assert.equal(rhizRecord.revision, 2);
   assert.equal(rhizRecord.state.trails.length, 1);
+  db.registerWorker('foreign-rhiz-worker', 'rhizome-other');
+  await assert.rejects(() => tools.applyTopologyOperation(db,
+    { session_id: rhiz.sessionId, operation: 'snapshot' }, { agentId: 'foreign-rhiz-worker' }),
+  (error) => error.code === 'TOPOLOGY_CALLER_DENIED');
+  await assert.rejects(() => tools.applyTopologyOperation(db,
+    { session_id: rhiz.sessionId, operation: 'set_variant', variant_name: 'small_world' }, { agentId: 'foreign-rhiz-worker' }),
+  (error) => error.code === 'TOPOLOGY_CALLER_DENIED');
+  assert.equal((await store.load(db, rhiz.sessionId)).revision, rhizRecord.revision,
+    'A foreign caller cannot read or mutate the Rhizome session.');
   assert.deepEqual((await store.events(db, rhiz.sessionId)).map((event) => event.type), ['SESSION_CREATED', 'TRAIL_DEPOSITED']);
   const revivedRhiz = rhizome.rehydrate(rhizRecord);
   assert.ok(revivedRhiz.matrix.getDecayedIntensity('edge:e1') > 0);
@@ -175,16 +189,16 @@ function readRecord(state, sql, params) {
     { nodeId: 'explainer', kind: 'AGENT', capabilities: ['json_error_explain'], state: 'ACTIVE' }
   ];
   for (const node of graphNodes) {
-    await tools.applyTopologyOperation(db, { session_id: rhiz.sessionId, operation: 'add_node', node });
+    await applyRhizome(db, { session_id: rhiz.sessionId, operation: 'add_node', node });
   }
   const graphEdges = [
     { edgeId: 'parser-validator', from: 'parser', to: 'validator', relation: 'ROUTES_TO', status: 'ACTIVE' },
     { edgeId: 'validator-explainer', from: 'validator', to: 'explainer', relation: 'ROUTES_TO', status: 'ACTIVE' }
   ];
   for (const edge of graphEdges) {
-    await tools.applyTopologyOperation(db, { session_id: rhiz.sessionId, operation: 'add_edge', edge });
+    await applyRhizome(db, { session_id: rhiz.sessionId, operation: 'add_edge', edge });
   }
-  const route = await tools.applyTopologyOperation(db, {
+  const route = await applyRhizome(db, {
     session_id: rhiz.sessionId, operation: 'route',
     need: { needId: 'schema-check', capability: 'json_schema_validate' }
   });
@@ -201,14 +215,14 @@ function readRecord(state, sql, params) {
     metrics: { bridgeFitness: 0.9, coverage: 1, provenanceScore: 0.9, transferReliability: 0.9, stability: 0.8 },
     latency_samples_ms: [10, 12], evidence_refs: ['benchmark:rhizome:1']
   };
-  const mergeEvaluation = await tools.applyTopologyOperation(db, {
+  const mergeEvaluation = await applyRhizome(db, {
     session_id: rhiz.sessionId, operation: 'evaluate_merge',
     merge_evaluation: mergeInput
   });
   assert.equal(mergeEvaluation.schema, 'genos.rhizome-merge-evaluation/v1');
   assert.equal(mergeEvaluation.graphRevision, String(graph.graphVersion));
   assert.equal(mergeEvaluation.decision.canMerge, true);
-  await assert.rejects(() => tools.applyTopologyOperation(db, {
+  await assert.rejects(() => applyRhizome(db, {
     session_id: rhiz.sessionId, operation: 'evaluate_merge',
     merge_evaluation: { ...mergeInput, expected_graph_revision: 'stale' }
   }), (error) => error.code === 'RHIZOME_GRAPH_STALE');
@@ -254,7 +268,7 @@ function readRecord(state, sql, params) {
   assert.ok((await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'health'
   })).consistency);
-  const deposit = await tools.applyTopologyOperation(db, { session_id: rhiz.sessionId, operation: 'deposit', marker: 'edge:e2', amount: 2 });
+  const deposit = await applyRhizome(db, { session_id: rhiz.sessionId, operation: 'deposit', marker: 'edge:e2', amount: 2 });
   assert.equal(deposit.trail.intensity, 2);
 
   const eco = await biome.composeBiome('Persistent environment session.', { db });
