@@ -147,6 +147,7 @@ async function captureOrganismState(options) {
             topologySnapshot });
         barrier?.assertAlive();
         await persist(state);
+        await require('../../services/identity/snapshots').capture(db, { agentId: agent.id, snapshotId, state });
         barrier?.assertAlive();
         return state;
       });
@@ -213,6 +214,7 @@ async function restoreLockedSnapshot(options) {
         workspaceSnapshot: workspaceRestore?.safetySnapshot || null, previous,
         originalStatus: attempt.originalStatus });
       await restoreRecovery.complete(db, attempt.id);
+      await require('../../services/identity/snapshots').restored(db, { agentId: agent.id, state, operationId: attempt.id });
       return safetyId;
     });
   } catch (error) {

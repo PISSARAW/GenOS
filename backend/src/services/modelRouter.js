@@ -296,7 +296,8 @@ async function generateCore(options) {
   return withCognitiveResult(result, cognitiveResult);
 }
 async function generate(options) {
-  return require('./organismModelTurns').runWithTurn(options, generateCore);
+  return require('./identity/modelBoundary').run(options,
+    prepared => require('./organismModelTurns').runWithTurn(prepared, generateCore));
 }
 
 module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
