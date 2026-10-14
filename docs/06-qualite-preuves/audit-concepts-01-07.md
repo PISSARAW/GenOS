@@ -24,6 +24,15 @@ Les correctifs postérieurs à l'inventaire ont ajouté des preuves ciblées pou
 
 Le contrôle qualité du 14 octobre a inspecté 6 108 fichiers et signalé neuf violations du baseline, zéro nouvelle. Les suites racine `npm test` et `cargo test --workspace` n'ont pas été relancées : `backend/genos.db` occupe 1 926 664 192 octets et le disque C: disposait de 836 784 128 octets libres au dernier contrôle. Ce complément ne remplace pas les gates globaux.
 
+Les contrôles ciblés du rejeu de stratégie ont ensuite confirmé le refus sans
+reçu (`test_promotion_gate.js`), le refus des déclarations d'appelant et l'échec
+fermé d'une phase partielle (`test_strategy_replay_stage_wiring.js`). La suite
+`test_strategy_promotion_policies.js` passe aussi hors du bac à sable Windows,
+où son workspace temporaire n'est pas accessible à `realpath`. Ces résultats
+valident les refus et le raccord de phase ; ils ne démontrent toujours pas le
+rejeu intégral du run. L'ADR 0480 formalise cette limite et les conditions
+nécessaires à un futur reçu lié au run.
+
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
@@ -31,7 +40,7 @@ Le contrôle qualité du 14 octobre a inspecté 6 108 fichiers et signalé neuf 
 | Runtime d’agents reproductible et supervisé | p | p | p | o | o | F ; superviseur réel, reproductibilité globale non démontrée. |
 | État versionné | o | p | p | o | o | F ; snapshots et révisions, qualification courante manquante. |
 | Exécution contrefactuelle | o | p | p | p | o | F ; fork/snapshot accessibles, contre-épreuve complète non prouvée ici. |
-| Branches, forks, snapshots, diffs et replay | p | p | p | p | o | F ; famille composite, preuve de replay et diff bout à bout inégale. |
+| Branches, forks, snapshots, diffs et replay | p | p | p | p | o | F ; `diff_and_replay` appelle les deux opérations et échoue si l'une manque, mais aucun producteur ne rejoue le run complet ni n'émet le reçu exigé par `require_replay` (ADR 0480). |
 | Preuve avant promotion | o | p | p | o | o | E ; gates présents, couverture de toutes promotions inconnue. |
 | Distinction entre succès technique et vérité | o | p | p | o | o | E/S ; refus de promotion distinct du transport ; portée non exhaustive. |
 | Falsifiabilité et contre-exemples | p | p | p | p | o | E ; mécanismes spécialisés, pas toute affirmation. |
