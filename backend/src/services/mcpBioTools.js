@@ -49,7 +49,7 @@ async function executeBioTool(toolName, args, options = {}) {
   }
   const handler = TOOL_HANDLERS[toolName];
   if (handler) {
-    return invokeBioHandler(handler, { toolName, args, run });
+    return invokeBioHandler(handler, { toolName, args, run, caller: options.caller || {} });
   }
   if (toolName === 'genos_biomimicry_echolocation') {
     try {
@@ -69,6 +69,9 @@ async function executeBioTool(toolName, args, options = {}) {
 }
 
 async function invokeBioHandler(handler, call) {
+  if (call.toolName === 'genos_synaptic_prune_scale') {
+    return require('./mcpStrategyTools').executeStrategyTool(call.toolName, call.args || {}, call.caller);
+  }
   const binding = registryBindingForTool(call.toolName);
   const persister = binding
     ? await require('./adaptiveStateBootstrap').ensureAdaptivePersister(await getDatabase())

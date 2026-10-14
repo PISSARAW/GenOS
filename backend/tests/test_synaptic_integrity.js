@@ -97,7 +97,9 @@ async function runSynapticIntegritySuite() {
 
   // includeInhibited:true : les mémoires inhibées restent observables avec
   // leur flag (sinon le filtre GABA les exclut — c'est son rôle).
-  const searchInhib = await vectorMemory.searchMemory('Deprecate old vector algorithm', { limit: 5, ownerId: testAgent, includeInhibited: true }, db);
+  const searchInhib = await vectorMemory.searchMemory('Deprecate old vector algorithm', {
+    limit: 5, ownerId: testAgent, organizationId: testOrg, projectId: testProj, includeInhibited: true
+  }, db);
   const isTargetInhibited = searchInhib.allScoredExperiences.some(e => e.id === idTargetGaba && e.inhibitorySignal === 'active');
   check(isTargetInhibited, 'GABA synapse with positive conductance triggers active inhibitorySignal');
 
@@ -133,17 +135,23 @@ async function runSynapticIntegritySuite() {
   check(pruneResult.result.success && pruneResult.result.configured, 'MCP pruning uses the authenticated workspace scope');
   const ownedPruned = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', idSource, idTargetA);
   check(!ownedPruned, 'Scoped pruning removes eligible synapses inside the caller workspace');
-  const foreignStillExists = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', foreignSource, foreignTarget);
-  check(Boolean(foreignStillExists), 'Caller supplied tenant and agent arguments cannot prune foreign synapses');
   const missingCaller = await mcpStrategyTools.executeStrategyTool('genos_synaptic_prune_scale', { threshold: 1000 });
   check(missingCaller.success === false && missingCaller.status === 'scope_denied', 'Pruning fails closed without an authenticated workspace');
 
-  const bioPruneRes = await mcpBioTools.executeBioTool('genos_synaptic_prune_scale', {
-    agent_id: 'other-agent',
-    threshold: 0.1,
-    scale: 1.0
-  });
-  check(bioPruneRes.success && bioPruneRes.transport === 'local_db', 'mcpBioTools executes prune_scale directly in-process via local_db without circular HTTP loop');
+  const priorLease = process.env.GENOS_MCP_LEASE;
+  process.env.GENOS_MCP_LEASE = 'genos_synaptic_prune_scale';
+  let bioPruneRes;
+  try {
+    bioPruneRes = await mcpBioTools.executeBioTool('genos_synaptic_prune_scale', {
+      agent_id: 'other-agent', threshold: 0.1, scale: 1.0
+    }, { caller: { agentId: testAgent } });
+  } finally {
+    if (priorLease === undefined) delete process.env.GENOS_MCP_LEASE;
+    else process.env.GENOS_MCP_LEASE = priorLease;
+  }
+  check(bioPruneRes.success && bioPruneRes.transport === 'strategy_primitive', 'Direct bio dispatch shares the authenticated in-process pruning implementation');
+  const foreignStillExists = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', foreignSource, foreignTarget);
+  check(Boolean(foreignStillExists), 'Neither MCP dispatch path can prune foreign synapses');
 
   const { ltpSrc, ltpTgt, ltdSrc, ltdTgt } = await testDifferentialSleep({ db, testAgent, testOrg, testProj });
   // -------------------------------------------------------------

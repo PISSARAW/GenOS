@@ -12,7 +12,9 @@
 `organization_id` et `project_id` fournis par l'appelant. Sans ces champs, le
 DELETE ne portait aucun filtre de scope; avec des champs forgés, il pouvait
 cibler un autre agent ou tenant. La lease identifie l'outil autorisé, mais ne
-confirme pas le propriétaire des synapses mutées.
+confirme pas le propriétaire des synapses mutées. Une voie interne de dispatch
+bio conservait une seconde implémentation locale qui ne recevait pas l'identité
+de l'appelant.
 
 ## Décision
 
@@ -22,7 +24,9 @@ sont ignorés. Une synapse est supprimée seulement si ses deux décisions
 extrémités ont été créées par des agents du workspace authentifié, si son poids
 ou son état d'opsonisation remplit le seuil, et si ses colonnes tenant sont
 compatibles avec celles du workspace. Sans identité ou workspace résolu,
-l'opération échoue avant le DELETE.
+l'opération échoue avant le DELETE. La voie bio interne délègue au même
+exécuteur stratégie après validation de la lease, afin de ne pas maintenir un
+second DELETE qui contournerait ces règles.
 
 ## Conséquences
 
