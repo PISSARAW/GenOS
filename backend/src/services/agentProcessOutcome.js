@@ -184,9 +184,8 @@ function isApoptosisTerminal(persistedAgent) {
 
 function shouldEmitCloseOutcome({ terminalEventSeen, termination, operatorStop, apoptosisTerminal }) {
   if (apoptosisTerminal) return false;
-  if (!terminalEventSeen) return true;
-  if (termination) return true;
-  return Boolean(operatorStop);
+  if (terminalEventSeen) return false;
+  return true;
 }
 
 function buildGaragePayload(garage, workerGarage, agentId) {
@@ -238,5 +237,6 @@ module.exports = {
   buildRuntimeEnvironment,
   buildReplayManifest,
   runtimeExitOutcome,
+  shouldEmitCloseOutcome,
   finalizeChildClose
 };
