@@ -13,5 +13,6 @@ for (const name of names) {
 assert.ok(topology.capabilitiesForOrganization('brier_weighted_consensus').required.includes('EPISTEMICS_BRIER'));
 assert.ok(topology.capabilitiesForOrganization('stigmergy').required.includes('STIGMERGY'));
 assert.ok(topology.capabilitiesForOrganization('memory_compilation').required.includes('GRAPH_MEMORY'));
+assert.ok(topology.capabilitiesForOrganization('cross_functional_pod').required.includes('SIGNALING_BUS'));
 
 console.log('Organization capability parity checks: PASS');

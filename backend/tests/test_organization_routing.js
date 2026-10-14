@@ -22,4 +22,13 @@ assert.doesNotThrow(() => routing.assertRoutingAuthority({ organization: 'grey_w
 assert.doesNotThrow(() => routing.assertRoutingAuthority({ organization: 'grey_wolf_optimizer', policy: wolf, sender: { id: 'w1', role: 'alpha' }, recipientAgentId: 'w2', orchestratorId: 'orch' }));
 assert.doesNotThrow(() => routing.assertRoutingAuthority({ organization: 'specialist_expert_committee', policy: committee, sender: { id: 'w1', role: 'worker' }, recipientAgentId: 'w2', orchestratorId: 'orch' }));
 
+const pod = organizationProfile('cross_functional_pod');
+const podState = { orchestratorId: 'orch', policy: pod, organization: 'cross_functional_pod' };
+const peer = routing.routeMessage({ state: podState, sender: { id: 'w1', role: 'worker' }, recipientAgentId: 'w2', kind: 'question' });
+assert.equal(peer.recipientAgentId, 'w2');
+assert.equal(peer.channel, 'peer_mesh');
+const podBroadcast = routing.routeMessage({ state: podState, sender: { id: 'w1', role: 'worker' }, recipientAgentId: null, kind: 'evidence' });
+assert.equal(podBroadcast.recipientAgentId, null);
+assert.equal(podBroadcast.channel, 'peer_mesh');
+
 console.log('Organization routing authority checks: PASS');

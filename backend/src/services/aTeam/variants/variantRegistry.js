@@ -56,7 +56,7 @@ const VARIANTS = Object.freeze({
     preconditions: ['acyclic_graph', 'defined_dependencies']
   },
   cross_functional_pod: {
-    organization: 'specialist_expert_committee',
+    organization: 'cross_functional_pod',
     minMembers: 3,
     communication: 'continuous_sync',
     authority: 'pod_lead',

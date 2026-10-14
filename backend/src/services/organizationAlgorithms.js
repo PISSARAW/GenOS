@@ -29,6 +29,10 @@ function specialistExpertCommittee(state) {
   return { hub: state.orchestratorId || null, spokes: ids(state.agents) };
 }
 
+function crossFunctionalPod(state) {
+  return { peers: ids(state.agents), continuousSync: true };
+}
+
 function blindAdversarialReview(state) {
   const members = ids(state.agents);
   const pairs = [];
@@ -161,6 +165,7 @@ function mycelialRouting(state, options) {
 
 const ALGORITHMS = Object.freeze({
   specialist_expert_committee: specialistExpertCommittee,
+  cross_functional_pod: crossFunctionalPod,
   blind_adversarial_review: blindAdversarialReview,
   red_blue_coevolution: redBlueCoevolution,
   brier_weighted_consensus: brierWeightedConsensus,
@@ -180,6 +185,7 @@ const ALGORITHMS = Object.freeze({
 const AUTHORITY = Object.freeze({
   grey_wolf_optimizer: (role) => (/alpha|beta|delta/i.test(role) ? 'leader' : 'follower'),
   specialist_expert_committee: (role) => (/orchestrator/i.test(role) ? 'hub' : 'spoke'),
+  cross_functional_pod: () => 'peer',
   red_blue_coevolution: (role) => (/red|blue/i.test(role) ? 'adversary' : 'observer'),
   hierarchical_merge: (role) => (/orchestrator|host/i.test(role) ? 'root' : 'member'),
   blind_adversarial_review: (role) => (/critic|review/i.test(role) ? 'critic' : 'member'),

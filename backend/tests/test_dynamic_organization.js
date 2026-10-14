@@ -8,7 +8,7 @@ const runtime = require('../src/services/agentRuntimeAdapter');
 const { getDatabase, closeDatabase } = require('../src/db');
 
 async function run() {
-  assert.equal(Object.keys(organization.ORGANIZATIONS).length, 19);
+  assert.equal(Object.keys(organization.ORGANIZATIONS).length, 20);
   assert.equal(organization.organizationProfile('stigmergy').exchange, 'implicit');
   assert.equal(organization.organizationProfile('red_blue_coevolution').exchange, 'active');
   for (const event of [

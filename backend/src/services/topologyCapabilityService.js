@@ -51,6 +51,7 @@ const MODE_PROFILES = Object.freeze({
 
 const ORGANIZATION_CAPABILITIES = Object.freeze({
   specialist_expert_committee: ['SIGNALING_BUS', 'EVIDENCE_BARRIER', 'PROVENANCE', 'OBSERVABILITY'],
+  cross_functional_pod: ['SIGNALING_BUS', 'EVIDENCE_BARRIER', 'PROVENANCE', 'OBSERVABILITY'],
   blind_adversarial_review: ['ARENA_COMPETITION', 'HALLUCINATION_MONITORING', 'EVIDENCE_BARRIER', 'IMMUNE_SYSTEM'],
   red_blue_coevolution: ['ARENA_COMPETITION', 'IMMUNE_SYSTEM', 'EVIDENCE_BARRIER', 'PROMOTION_GATE'],
   brier_weighted_consensus: ['EPISTEMICS_BRIER', 'EVIDENCE_BARRIER', 'QUORUM'],

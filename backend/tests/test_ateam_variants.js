@@ -10,6 +10,7 @@ function run() {
 
   // Test basic variant registry
   assert.equal(buildVariantPlan({ variant: 'pipeline' }).communication, 'sequential_handoff');
+  assert.equal(buildVariantPlan({ variant: 'cross_functional_pod' }).organization, 'cross_functional_pod');
   assert.equal(buildVariantPlan({ goal: 'urgent zero-day incident' }).variant, 'tiger_team');
   assert.equal(buildVariantPlan({ teamCount: 3 }).variant, 'multiteam');
   assert.equal(planOrganizations({ phases: [{ id: 'build', variant: 'project_dag' }, { id: 'incident', variant: 'incident_command' }] }).length, 2);

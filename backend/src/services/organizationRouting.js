@@ -12,6 +12,7 @@ const ROUTING_CHANNELS = Object.freeze({
   orchestrator: 'orchestrator_handoff',
   shared_trail: 'stigmergic_trail',
   capability: 'capability_mesh',
+  peer_mesh: 'peer_mesh',
   ranked: 'ranked_handoff',
   adversarial_pair: 'adversarial_pair'
 });
