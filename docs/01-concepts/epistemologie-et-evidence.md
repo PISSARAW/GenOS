@@ -202,6 +202,24 @@ n'est pas une re-exécution déterministe de dépendances externes. Pour une pro
 à risque, lier le rejeu vérifié, les artefacts de test et l'approbation humaine au
 même hash.
 
+Cette absence a un effet opérationnel : `strategyContractService` active
+`require_replay` pour les profils reproductibles et les contrats à haut risque.
+Ces runs peuvent terminer leur exécution, mais ne peuvent pas être promus tant
+qu'aucun producteur ne fournit le reçu attendu. Le rejeu d'état de l'agent compare
+les champs restaurés d'un snapshot ; le rejeu Git vérifie l'intégrité d'un objet
+et de ses événements sans réexécuter le runtime. Aucun des deux ne satisfait ce
+contrat de promotion.
+
+La fermeture de cette lacune demande une capacité de rejeu d'exécution. Elle doit
+conserver les entrées et leur hash, la version du runner et des primitives,
+l'environnement, les versions ou reçus des outils, le budget et les graines
+utilisées ; relancer le runner dans un environnement isolé ; puis persister un
+résultat vérifié lié au même `runId`, `agentId`, `snapshotId` et digest. Le digest
+de cette preuve doit aussi faire partie du payload approuvé par l'humain. Tant
+que ces liaisons et cette réexécution n'existent pas, la gate fermée est le
+comportement sûr, mais le concept de promotion par rejeu reste non disponible
+pour ces contrats.
+
 ### Gate du modèle de soi (automatique et différée)
 
 Au-delà du contrat, la politique du modèle de soi s'applique deux fois.
