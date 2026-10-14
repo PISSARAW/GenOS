@@ -46,6 +46,20 @@ Ces contrôles qualifient ce
 parcours de release et ne démontrent pas la couverture de tous les gates de
 promotion.
 
+### Complément de vérification — 15 octobre 2026
+
+Les gates globaux ont été exécutés sur le checkout courant : `npm test` a terminé
+avec code 0 (biologie, workspace workers, backend, garage et P1 V3) et
+`cargo test --workspace` avec code 0, après compilation dans un répertoire cible
+isolé. Le test formel Rust a signalé que Lean est indisponible et l'a donc ignoré;
+la suite ne prouve pas l'exécution de cette dépendance externe. Le contrôle
+`python scripts/ci/check_code_quality.py` inspecte 6 154 fichiers et signale dix
+violations du baseline, zéro nouvelle. `python scripts/ci/check_adr_index.py`
+trouve 628 fichiers, 628 lignes et zéro problème. Ces gates valident le checkout,
+pas toutes les 214 propriétés de la matrice : notamment l'application du budget
+CPU, le producteur de reçu de replay complet, la couverture universelle de
+l'autorité et de l'évidence indépendante restent non démontrés.
+
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
