@@ -147,6 +147,19 @@ async function main() {
   const foreignChampion = await registry.getChampion(db, trivial.semanticId, foreignScope);
   check('each workspace gets its own champion', foreignChampion.champion.id === foreignCandidate.id);
   check('original workspace champion remains isolated', (await registry.getChampion(db, trivial.semanticId, scopeId)).champion.status === 'STALE');
+  const rejectedForeignRefute = await registry.refuteResult(db, {
+    id: foreignCandidate.id, semanticId: trivial.semanticId, scopeId
+  });
+  check('workspace cannot refute another workspace result', rejectedForeignRefute === false);
+  check('foreign champion survives out-of-scope refutation', (await registry.getChampion(db, trivial.semanticId, foreignScope)).champion.status === 'VERIFIED');
+  const refuted = await registry.refuteResult(db, {
+    id: foreignCandidate.id, semanticId: trivial.semanticId, scopeId: foreignScope
+  });
+  check('same-workspace refutation is applied', refuted === true);
+  const refutedProblem = await registry.getChampion(db, trivial.semanticId, foreignScope);
+  check('refutation clears champion pointer', refutedProblem.champion === null);
+  await assert.rejects(() => registry.refuteResult(db, { id: foreignCandidate.id, semanticId: trivial.semanticId }),
+    (error) => error.code === 'RESULT_SCOPE_REQUIRED');
   await db.close();
   console.log('request-memory routing: all assertions passed');
 }

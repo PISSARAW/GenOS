@@ -197,8 +197,20 @@ async function promoteChampion(db, input) {
   });
 }
 
-async function refuteResult(db, id) {
-  await db.run("UPDATE request_results SET status = 'REFUTED' WHERE id = ?", id);
+async function refuteResult(db, input) {
+  const scopedId = scopedSemanticId(input.semanticId, input.scopeId);
+  return withTransaction(db, async (txDb) => {
+    const result = await txDb.run(
+      "UPDATE request_results SET status = 'REFUTED', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND semantic_id = ?",
+      input.id, scopedId
+    );
+    if (result.changes !== 1) return false;
+    await txDb.run(
+      'UPDATE request_problems SET champion_result_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE semantic_id = ? AND champion_result_id = ?',
+      scopedId, input.id
+    );
+    return true;
+  });
 }
 
 function expiryFor(profile) {
