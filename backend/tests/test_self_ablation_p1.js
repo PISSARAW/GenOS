@@ -54,7 +54,11 @@ function checkBrasBPromotionGate() {
     () => selfModel.assertPromotionConstraints(model, blocked),
     { code: 'SELF_MODEL_REPLAY_REQUIRED' }
   );
-  const allowed = { replayVerified: true, report: { claims: [{ evidence: ['test'] }] } };
+  const replayDigest = 'a'.repeat(64);
+  const allowed = { runId: 'self-ablation-run', agentId: 'self-ablation-agent',
+    replayReceipt: { success: true, applied: true, replayVerified: true, status: 'verified',
+      runId: 'self-ablation-run', agentId: 'self-ablation-agent', snapshotId: 'snapshot-1',
+      stateDigest: replayDigest, liveDigest: replayDigest }, report: { claims: [{ evidence: ['test'] }] } };
   selfModel.assertPromotionConstraints(model, allowed);
   const self = fullAgentSelf([]);
   const coupling = Receipt.computeCoupling(self, { promote: true }, { promote: false });

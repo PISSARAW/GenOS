@@ -211,9 +211,7 @@ function applyToMission(mission, model, plan) {
 }
 
 function replayPassed(context) {
-  if (context.replayVerified === true || context.diffAndReplayPassed === true) return true;
-  const receipt = context.replayReceipt || {};
-  return receipt.success === true && ['verified', 'completed', 'reproduced', 'success'].includes(String(receipt.status || '').toLowerCase());
+  return require('./strategyPromotionPolicyService').isReplayPassed(context);
 }
 
 function hasIndependentEvidence(context) {

@@ -115,6 +115,9 @@ async function run() {
   }).eligible, false, 'Unstructured verified claims must not satisfy independent verification');
 
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
+  assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, {
+    replayVerified: true, diffAndReplayPassed: true
+  }).eligible, false, 'Boolean replay claims cannot satisfy promotion');
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, false);
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, {
     runId: 'run-1', agentId: 'agent-1', replayReceipt: { success: true, status: 'verified' }

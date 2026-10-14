@@ -167,8 +167,6 @@ function isReplayReceipt(receipt, executionContext) {
 }
 
 function isReplayPassed(executionContext) {
-  if (executionContext.replayVerified === true) return true;
-  if (executionContext.diffAndReplayPassed === true) return true;
   return isReplayReceipt(executionContext.replayReceipt, executionContext);
 }
 
@@ -353,6 +351,7 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
 module.exports = {
   readWorkspaceFiles, computeWorkspaceChanges, safeDestination, resolveRealRoot, assertMergePreconditions,
   evaluatePromotionGate,
+  isReplayPassed,
   applyPostPromotionPolicies,
   mergeWorkspaces,
   isReplayedNonce,
