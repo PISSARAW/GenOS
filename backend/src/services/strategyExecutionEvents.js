@@ -301,11 +301,11 @@ async function executeStepPrimitives(db, agentId, options) {
     const primitives = resolveStagePrimitives(stageKey, contract.strategy_portfolio);
     const executable = primitives.filter((primitive) => missingContext(primitive, context).length === 0);
     const notApplicable = primitives.filter((primitive) => missingContext(primitive, context).length > 0);
+    const incomplete = incompleteDiffReplayResult(stageKey, executable, notApplicable);
+    if (incomplete) return incomplete;
     if (!executable.length) {
       return { success: true, applicable: false, results: [], notApplicable };
     }
-    const incomplete = incompleteDiffReplayResult(stageKey, executable, notApplicable);
-    if (incomplete) return incomplete;
     const adapter = require('./strategyExecutionAdapter');
     const pipeline = await adapter.executePipelineWithFeedback(executable, context);
     return { ...pipeline, applicable: true, notApplicable };

@@ -636,6 +636,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0504](0504-exiger-le-snapshot-courant-meme-vide.md) | Exiger le snapshot courant, même vide | Accepté et implémenté pour la réutilisation mémoire. | 2026-10-15 | Distinction entre snapshot vide et absent. |
 | [0505](0505-scoper-les-lectures-de-probleme.md) | Scoper les lectures de problème | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Éviter l'accès aux entrées historiques non scoppées. |
 | [0506](0506-rapporter-le-statut-apres-invalidation.md) | Rapporter le statut après invalidation | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Cohérence du verdict de cache et du statut persistant. |
+| [0507](0507-echouer-si-la-phase-diff-replay-nest-pas-applicable.md) | Échouer si la phase diff/replay n'est pas applicable | Accepté et implémenté pour la phase stratégie. | 2026-10-15 | Un contexte absent ne valide plus silencieusement le replay. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

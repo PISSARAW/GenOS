@@ -50,7 +50,21 @@ async function verifyIncompleteStageFailsClosed() {
   assert.equal(result.missing.diff, true);
 }
 
+async function verifyInapplicableStageFailsClosed() {
+  const db = { get: async () => ({ contract_json: JSON.stringify({ strategy_portfolio: [
+    { primitives: ['causal_replay', 'causal_diff'] }
+  ] }) }) };
+  const result = await executionEvents.executeStepPrimitives(db, 'agent-1', {
+    contractId: 'contract-1', step: { stage_key: 'diff_and_replay' }, context: {}
+  });
+  assert.equal(result.success, false);
+  assert.equal(result.code, 'STRATEGY_REPLAY_STAGE_INCOMPLETE');
+  assert.equal(result.missing.replay, true);
+  assert.equal(result.missing.diff, true);
+  assert.equal(result.notApplicable.length, 2);
+}
+
 Promise.all([verifyReplayNeedsRecordedInput(), verifyTrajectoryReplayDoesNotClaimExecution(),
-  verifyIncompleteStageFailsClosed()])
+  verifyIncompleteStageFailsClosed(), verifyInapplicableStageFailsClosed()])
   .then(() => console.log('Strategy diff-and-replay wiring requires recorded input and preserves inconclusive status.'))
   .catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
