@@ -2,7 +2,8 @@
 
 - **Statut** : Runtime écologique assemblé ; validation comparative à produire
 - **Portée** : onze variantes dans une boucle bornée, transactionnelle et persistante, avec adaptateurs autorisés, comptabilité réelle et gates de preuve.
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-14
+- **Vérification** : 2026-10-14 — composition 4 rôles OK, suite biome 23/23 PASS, câblage PASS. Réserve : suite `test:workers` incomplète (timeout sur `test_worker_compliance_native_missions.js`).
 
 > *Biome est le protocole de GenOS pour maintenir et faire évoluer un ensemble de populations spécialisées dans un environnement dynamique, sous ressources limitées, lorsque la structure optimale du travail n'est pas connue à l'avance et doit émerger de l'interaction entre niches, populations, ressources et résultats.*
 
@@ -16,6 +17,20 @@ champs propres aux onze variants. L'agent et l'écologie doivent être inactifs
 pour reprendre son workspace ; les ressources collectives ne sont pas
 restaurées. Voir la
 [référence des snapshots topologiques](../../03-reference/snapshots-topologiques.md).
+
+## Vérification des 4 workers — 2026-10-14
+
+Protocole : `biologicalModeService.compose('biome', mission)` puis
+`biomeCoordinationService.composeBiome(mission)` ; `node backend/tests/test_biome_wiring.js` ;
+`node backend/tests/run_biome_suite.js` (23 programmes).
+
+Résultat :
+- 4 membres présents : `environment_mapper`, `resource_steward`, `population_specialist`, `ecosystem_observer`, chacun avec `runtimeContext.sessionId/biomeId`, `plane = role`, `variant` et mission `BIOME VARIANT …`.
+- Manifestes présents : `agents/biomimetique/biome_*.agent.json` pour les 4 rôles.
+- Câblage : allocation (74/26, réserve recovery 15/85, compute 80/20), `PATCH_DEPARTURE` + `MIGRATE_AND_EXECUTE_PATCH`, versionnement environnement `v2`, santé écosystème.
+- Suite biome : 23/23 PASS (allocation, niches, populations, foraging, ressources, mission-loop, multi-tick, onze variants, restart SQLite/MCP).
+
+Limites : la validation comparative face à un orchestrateur statique reste à produire ; `npm --prefix backend run test:workers` n'a pas abouti (7 sous-tests PASS puis timeout sur `test_worker_compliance_native_missions.js`).
 
 ## 1. Définition
 
