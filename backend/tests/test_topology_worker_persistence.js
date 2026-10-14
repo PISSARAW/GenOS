@@ -67,7 +67,18 @@ async function main() {
   assert.equal(JSON.parse(db.agents.get('biome-worker').metadata_json).topologySessionId, 'biome-1');
   assert.equal(JSON.parse(db.agents.get('biome-worker').metadata_json).workerContract.resources.maxTokens, 20000);
   assert.deepEqual(await ensureTopologyWorker(db, identity), { workerId: identity.workerId, created: false });
+  const unscopedSession = { ...identity, topologySessionId: undefined };
+  assert.deepEqual(await ensureTopologyWorker(db, unscopedSession), { workerId: identity.workerId, created: false });
+  const unscopedMetadata = JSON.parse(db.agents.get(identity.workerId).metadata_json);
+  assert.equal(unscopedMetadata.topologySessionId, null, 'A rebind without a session must clear the old metadata link.');
+  assert.equal(unscopedMetadata.workerContract.mission.topologySessionId, null, 'The worker contract and metadata must agree on session scope.');
+  await ensureTopologyWorker(db, identity);
   const originalMetadata = db.agents.get(identity.workerId).metadata_json;
+  await assert.rejects(
+    () => ensureTopologyWorker(db, { ...identity, workspaceId: 'workspace-B' }),
+    (error) => error.code === 'TOPOLOGY_WORKER_IDENTITY_CONFLICT'
+  );
+  assert.equal(db.agents.get(identity.workerId).metadata_json, originalMetadata, 'A worker from another workspace must not be rebound.');
   const changedSession = { ...identity, topologySessionId: 'replacement-session', methodContract: { version: 1, methodId: 'prompt_defined' } };
   db.agents.get(identity.workerId).status = 'running';
   await assert.rejects(() => ensureTopologyWorker(db, changedSession), (error) => error.code === 'TOPOLOGY_WORKER_BUSY');

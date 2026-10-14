@@ -15,16 +15,13 @@ async function ensureTopologyWorker(db, input) {
     hostContractId: input.hostContractId,
     hostCapabilities: input.hostCapabilities
   });
-  const existing = await db.get('SELECT id, parent_agent_id, execution_mode, role, status, metadata_json FROM agents WHERE id = ?', input.workerId);
+  const existing = await db.get('SELECT id, parent_agent_id, execution_mode, role, status, workspace_id, metadata_json FROM agents WHERE id = ?', input.workerId);
   if (existing) return validateExistingWorker({ db, existing, input, workerKind, workerContract });
   return insertTopologyWorker({ db, input, workerKind, workerContract });
 }
 
 async function validateExistingWorker({ db, existing, input, workerKind, workerContract }) {
-  const valid = existing.parent_agent_id === input.parentId
-    && existing.execution_mode === 'worker'
-    && existing.role === input.role;
-  if (!valid) throw Object.assign(new Error(`Worker identity '${input.workerId}' conflicts with an existing agent.`), { code: 'TOPOLOGY_WORKER_IDENTITY_CONFLICT' });
+  if (!matchesWorkerIdentity(existing, input)) throw Object.assign(new Error(`Worker identity '${input.workerId}' conflicts with an existing agent.`), { code: 'TOPOLOGY_WORKER_IDENTITY_CONFLICT' });
   await assertWorkerNotBusy(db, existing, input.workerId);
   const metadata = parseMetadata(existing.metadata_json);
   if (metadata.workerKind && metadata.workerKind !== workerKind) {
@@ -38,10 +35,17 @@ async function validateExistingWorker({ db, existing, input, workerKind, workerC
     )`, JSON.stringify({
     ...metadata, workerKind, workerContract,
     workerAssignment: input.workerAssignment || null, methodContract: input.methodContract || null,
-    ...(input.topologySessionId ? { topologySessionId: input.topologySessionId } : {})
+    topologySessionId: input.topologySessionId || null
   }), input.workerId);
   if (updated.changes !== 1) throw workerBusyError(input.workerId);
   return { workerId: input.workerId, created: false };
+}
+
+function matchesWorkerIdentity(existing, input) {
+  return existing.parent_agent_id === input.parentId
+    && existing.execution_mode === 'worker'
+    && existing.role === input.role
+    && (existing.workspace_id || null) === (input.workspaceId || null);
 }
 
 async function assertWorkerNotBusy(db, existing, workerId) {
