@@ -12,6 +12,10 @@ const telemetry = require('./telemetryObserver');
 
 const lastPreferred = new Map();
 
+function clearPreferred(orchestratorId) {
+  lastPreferred.delete(orchestratorId);
+}
+
 function hashScore(id, role) {
   const input = `${String(id || '')}:${String(role || '')}`;
   let hash = 0;
@@ -126,7 +130,10 @@ async function stateFromOrchestrator(db, orchestratorId) {
 async function applyStepForOrchestrator(orchestratorId, options = {}) {
   const db = options.db || await require('../db').getDatabase();
   const current = await dynamicOrganization.getState(db, orchestratorId).catch(() => null);
-  if (!current || !current.organization) return null;
+  if (!current || !current.organization) {
+    clearPreferred(orchestratorId);
+    return null;
+  }
   const stateFromDb = await stateFromOrchestrator(db, orchestratorId);
   const state = {
     ...stateFromDb,
@@ -137,7 +144,10 @@ async function applyStepForOrchestrator(orchestratorId, options = {}) {
     orchestratorId
   };
   const step = swarmTopologyAlgorithms.runTopologyStep(current.organization, state, options);
-  if (!step) return null;
+  if (!step) {
+    clearPreferred(orchestratorId);
+    return null;
+  }
   const preferred = swarmTopologyAlgorithms.preferredAgents(current.organization, step, options.limit);
   lastPreferred.set(orchestratorId, preferred);
   telemetry.emitEvent({

@@ -40,6 +40,7 @@ const fakeDb = { all: async () => [
 
   dynamicOrganization.getState = async () => ({ organization: 'unknown_org' });
   assert.equal(await runtime.applyStepForOrchestrator('orch', { db: fakeDb, state }), null);
+  assert.deepEqual(runtime.preferredSurvivorsFor('orch'), []);
   dynamicOrganization.getState = original;
   console.log('Swarm topology runtime checks: PASS');
 })().catch((error) => {
