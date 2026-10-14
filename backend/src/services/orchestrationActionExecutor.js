@@ -51,9 +51,9 @@ async function runAction(context, args) {
   try {
     await require('./missionEnvelopeAuthority').assertTool(context.db, {
       agentId: context.orchestratorId, toolName: context.decision.tool });
-    if (context.decision.organization) await require('./agentRecoveryService').applyOrganizationDecision(context.orchestratorId, context.decision.organization, context.decision.reason);
     result = await mcp.execute({ agentId: context.orchestratorId, toolName: context.decision.tool, args });
     result = verifiedResult(context, args, result);
+    result = await applyOrganizationAfterVerification(context, result);
   } catch (error) {
     result = { success: false, status: 'failed', error: error.message || String(error) };
     await stopHeartbeat();
@@ -73,6 +73,17 @@ async function runAction(context, args) {
     console.error(`[OrchestrationActionExecutor] Error applying step for orchestrator ${context.orchestratorId}:`, err.message);
   }
   return { executed: result.success, result };
+}
+
+async function applyOrganizationAfterVerification(context, result) {
+  if (!result.success || !context.decision.organization) return result;
+  try {
+    const transition = await require('./agentRecoveryService').applyOrganizationDecision(
+      context.orchestratorId, context.decision.organization, context.decision.reason);
+    return { ...result, organizationTransition: { status: transition?.changed ? 'applied' : 'unchanged', transition } };
+  } catch (error) {
+    return { ...result, organizationTransition: { status: 'deferred', error: error.message || String(error) } };
+  }
 }
 
 async function observeOutcome(context, result, detail) {
@@ -119,4 +130,4 @@ async function compileMemorySafely(context, args) {
   }
 }
 
-module.exports = { actionArguments, execute, normalizeActionResult };
+module.exports = { actionArguments, execute, normalizeActionResult, runAction };
