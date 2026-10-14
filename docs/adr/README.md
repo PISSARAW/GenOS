@@ -618,6 +618,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0486](0486-frontiere-de-confiance-du-transfert-hgt.md) | Frontière de confiance du transfert HGT | Proposé | 2026-10-14 | Transfert horizontal de plasmides, autorité et reçus. |
 | [0487](0487-recus-communication-inter-agents.md) | Reçus de communication inter-agents | Accepté | 2026-10-14 | Messagerie multi-agent, destinataires effectifs, lecture et acquittement. |
 | [0488](0488-borner-les-recherches-de-provenance.md) | Borner les recherches de provenance MCP | Accepté et implémenté. | 2026-10-14 | `genos_blame`, `genos_lineage` et extraction d'évidence. |
+| [0489](0489-scoper-les-recherches-de-provenance-au-workspace.md) | Scoper les recherches de provenance au workspace | Accepté et implémenté. | 2026-10-14 | Autorisation MCP, provenance et isolation des workspaces. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

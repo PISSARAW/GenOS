@@ -69,8 +69,8 @@ function recordCircuitOutcome(normalized, result, failureMessage) {
   circuitBreaker.recordSuccess(normalized);
 }
 
-async function runStrategyTool(normalized, args) {
-  const result = await mcpStrategyTools.executeStrategyTool(normalized, args || {});
+async function runStrategyTool(normalized, args, caller) {
+  const result = await mcpStrategyTools.executeStrategyTool(normalized, args || {}, caller || {});
   recordCircuitOutcome(normalized, result, 'MCP strategy tool failed.');
   return result;
 }
@@ -98,7 +98,7 @@ async function runTopologyTool(normalized, args, caller) {
 
 async function executeRegisteredTool(input) {
   const { kind, normalized, args, caller } = input;
-  if (kind === 'strategy') return { handled: true, result: await runStrategyTool(normalized, args) };
+  if (kind === 'strategy') return { handled: true, result: await runStrategyTool(normalized, args, caller) };
   if (kind === 'bio') return { handled: true, result: await runBioTool(normalized, args, caller) };
   if (kind === 'cli') return { handled: true, result: await runCliTool(normalized, args, caller) };
   if (kind === 'topology') return { handled: true, result: await runTopologyTool(normalized, args, caller) };

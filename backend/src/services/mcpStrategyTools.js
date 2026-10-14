@@ -56,20 +56,66 @@ async function runPipeline(primitives, context) {
   return strategyOutput(primitiveSuccess(res), res);
 }
 
-async function handleBlameOrLineage(toolName, args) {
+function incompleteProvenance(toolName, targetId, error) {
+  return strategyOutput(false, {
+    tool: toolName, targetId, error, evidence: [],
+    provenance: { source: 'sqlite', complete: false, truncated: false }
+  });
+}
+
+async function resolveWorkspaceScope({ db, agentId, toolName, targetId }) {
+  if (!agentId) return null;
+  const caller = await db.get(`SELECT a.workspace_id, w.organization_id, w.project_id
+    FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, agentId);
+  if (!caller || !caller.workspace_id) return null;
+  const table = toolName === 'genos_blame' ? 'agents' : 'lineage_nodes';
+  const target = await db.get(`SELECT workspace_id FROM ${table} WHERE id = ?`, targetId);
+  return target && target.workspace_id === caller.workspace_id ? caller : null;
+}
+
+async function queryBlame(db, targetId, scope) {
+  const tenantClause = scope.organization_id || scope.project_id
+    ? '((organization_id IS ? AND project_id IS ?) OR (organization_id IS NULL AND project_id IS NULL))'
+    : '(organization_id IS NULL AND project_id IS NULL)';
+  const params = scope.organization_id || scope.project_id
+    ? [targetId, scope.organization_id || null, scope.project_id || null]
+    : [targetId];
+  return db.all(`SELECT event_id, event_type, action, detail, payload_json, created_at
+    FROM telemetry_events WHERE agent_id = ? AND ${tenantClause} ORDER BY created_at, id LIMIT 1001`, ...params);
+}
+
+async function queryLineage(db, targetId, workspaceId) {
+  return db.all(`WITH RECURSIVE ancestors(id, depth) AS (
+      SELECT e.source_node_id, 1 FROM lineage_edges e
+      JOIN lineage_nodes target ON target.id = e.target_node_id
+      JOIN lineage_nodes source ON source.id = e.source_node_id
+      WHERE e.target_node_id = ? AND target.workspace_id = ? AND source.workspace_id = ?
+        AND (e.workspace_id = ? OR e.workspace_id IS NULL)
+      UNION ALL
+      SELECT e.source_node_id, ancestors.depth + 1 FROM lineage_edges e
+      JOIN ancestors ON e.target_node_id = ancestors.id
+      JOIN lineage_nodes source ON source.id = e.source_node_id
+      JOIN lineage_nodes target ON target.id = e.target_node_id
+      WHERE source.workspace_id = ? AND target.workspace_id = ?
+        AND (e.workspace_id = ? OR e.workspace_id IS NULL)
+      LIMIT 1001
+    ) SELECT id, depth FROM ancestors ORDER BY depth, id`,
+  targetId, workspaceId, workspaceId, workspaceId, workspaceId, workspaceId, workspaceId);
+}
+
+async function handleBlameOrLineage(toolName, args, context) {
   const targetId = firstTruthy(args.target_id, args.targetId);
   if (!targetId) return strategyOutput(false, { error: 'target_id is required.' });
   try {
     const { getDatabase } = require('../db');
     const db = await getDatabase();
+    const workspaceId = await resolveWorkspaceScope({
+      db, agentId: context.agentId, toolName, targetId
+    });
+    if (!workspaceId) return incompleteProvenance(toolName, targetId, 'Caller or target is outside the available workspace scope.');
     const rows = toolName === 'genos_blame'
-      ? await db.all('SELECT event_id, event_type, action, detail, payload_json, created_at FROM telemetry_events WHERE agent_id = ? ORDER BY created_at, id LIMIT 1001', targetId)
-      : await db.all(`WITH RECURSIVE ancestors(id, depth) AS (
-          SELECT source_node_id, 1 FROM lineage_edges WHERE target_node_id = ?
-          UNION ALL
-          SELECT e.source_node_id, ancestors.depth + 1 FROM lineage_edges e JOIN ancestors ON e.target_node_id = ancestors.id
-          LIMIT 1001
-        ) SELECT id, depth FROM ancestors ORDER BY depth, id`, targetId);
+      ? await queryBlame(db, targetId, workspaceId)
+      : await queryLineage(db, targetId, workspaceId.workspace_id);
     const truncated = rows.length > 1000;
     const evidence = rows.slice(0, 1000);
     const complete = evidence.length > 0 && !truncated;
@@ -182,8 +228,8 @@ async function handleProceduralRunnerResolve(args) {
 }
 
 const STRATEGY_HANDLERS = {
-  genos_blame: (args) => handleBlameOrLineage('genos_blame', args),
-  genos_lineage: (args) => handleBlameOrLineage('genos_lineage', args),
+  genos_blame: (args, context) => handleBlameOrLineage('genos_blame', args, context),
+  genos_lineage: (args, context) => handleBlameOrLineage('genos_lineage', args, context),
   genos_record_experience: (args) => runPrimitive('record_experience', args),
   genos_compile_memory: (args) => runPrimitive('compile_memory', args),
   genos_resilience_hypermutation: handleResilienceHypermutation,
@@ -195,20 +241,20 @@ const STRATEGY_HANDLERS = {
   genos_procedural_runner_resolve: handleProceduralRunnerResolve
 };
 
-async function dispatchStrategyTool(toolName, args) {
+async function dispatchStrategyTool(toolName, args, context) {
   if (toolName.startsWith('genos_strat_')) {
     return runPrimitive(toolName.slice('genos_strat_'.length), args);
   }
   const handler = STRATEGY_HANDLERS[toolName];
-  return handler ? handler(args) : null;
+  return handler ? handler(args, context) : null;
 }
 
-async function executeStrategyTool(toolName, args = {}) {
+async function executeStrategyTool(toolName, args = {}, context = {}) {
   if (!isStrategyTool(toolName)) return null;
   const argumentError = validateToolArguments(toolName, args);
   if (argumentError) return { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
   try {
-    return await dispatchStrategyTool(toolName, args);
+    return await dispatchStrategyTool(toolName, args, context);
   } catch (err) {
     return {
       configured: true,

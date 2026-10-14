@@ -20,6 +20,7 @@ const hallucination = require('../src/services/hallucinationMonitoringService');
 const safetyHypothesis = require('../src/services/primitiveHandlers/safetyHypothesis');
 const strategyAdapter = require('../src/services/strategyExecutionAdapter');
 const mcpStrategy = require('../src/services/mcpStrategyTools');
+const mcpRegistry = require('../src/services/mcpToolRegistry');
 
 let passedTests = 0;
 let failedTests = 0;
@@ -41,18 +42,71 @@ function reportsIncompleteEvidence(result, toolName) {
 
 async function verifyLineageQueryBound(db) {
   const suffix = Date.now();
+  const workspace = `lineage-ws-${suffix}`;
+  const caller = `lineage-agent-${suffix}`;
   const first = `lineage-cycle-a-${suffix}`;
   const second = `lineage-cycle-b-${suffix}`;
-  await db.run("INSERT INTO lineage_nodes(id,label,node_type) VALUES(?,?, 'checkpoint')", first, first);
-  await db.run("INSERT INTO lineage_nodes(id,label,node_type) VALUES(?,?, 'checkpoint')", second, second);
-  await db.run("INSERT INTO lineage_edges(id,source_node_id,target_node_id) VALUES(?,?,?)", `edge-a-${suffix}`, first, second);
-  await db.run("INSERT INTO lineage_edges(id,source_node_id,target_node_id) VALUES(?,?,?)", `edge-b-${suffix}`, second, first);
-  const result = await mcpStrategy.executeStrategyTool('genos_lineage', { target_id: second });
+  await db.run('INSERT INTO workspaces(id,name,path) VALUES(?,?,?)', workspace, workspace, `/${workspace}`);
+  await db.run("INSERT INTO agents(id,name,role,status,workspace_id) VALUES(?,?,?,'idle',?)", caller, caller, 'test', workspace);
+  await db.run("INSERT INTO lineage_nodes(id,workspace_id,label,node_type) VALUES(?,?,?, 'checkpoint')", first, workspace, first);
+  await db.run("INSERT INTO lineage_nodes(id,workspace_id,label,node_type) VALUES(?,?,?, 'checkpoint')", second, workspace, second);
+  await db.run("INSERT INTO lineage_edges(id,workspace_id,source_node_id,target_node_id) VALUES(?,?,?,?)", `edge-a-${suffix}`, workspace, first, second);
+  await db.run("INSERT INTO lineage_edges(id,workspace_id,source_node_id,target_node_id) VALUES(?,?,?,?)", `edge-b-${suffix}`, workspace, second, first);
+  const result = await mcpStrategy.executeStrategyTool('genos_lineage', { target_id: second }, { agentId: caller });
   assert.equal(result.output.truncated, true);
   assert.equal(result.output.evidence.length, 1000);
   assert.equal(result.success, false);
   await db.run('DELETE FROM lineage_edges WHERE id IN (?, ?)', `edge-a-${suffix}`, `edge-b-${suffix}`);
   await db.run('DELETE FROM lineage_nodes WHERE id IN (?, ?)', first, second);
+  await db.run('DELETE FROM agents WHERE id = ?', caller);
+  await db.run('DELETE FROM workspaces WHERE id = ?', workspace);
+}
+
+async function verifyProvenanceScope(db) {
+  const suffix = Date.now();
+  const workspaceA = `scope-ws-a-${suffix}`;
+  const workspaceB = `scope-ws-b-${suffix}`;
+  const caller = `scope-agent-a-${suffix}`;
+  const targetA = `scope-target-a-${suffix}`;
+  const targetB = `scope-target-b-${suffix}`;
+  const nodeA = `scope-node-a-${suffix}`;
+  const nodeB = `scope-node-b-${suffix}`;
+  const edgeB = `scope-edge-b-${suffix}`;
+  await db.run('INSERT INTO workspaces(id,name,path) VALUES(?,?,?)', workspaceA, workspaceA, `/${workspaceA}`);
+  await db.run('INSERT INTO workspaces(id,name,path) VALUES(?,?,?)', workspaceB, workspaceB, `/${workspaceB}`);
+  for (const [id, workspace] of [[caller, workspaceA], [targetA, workspaceA], [targetB, workspaceB]]) {
+    await db.run("INSERT INTO agents(id,name,role,status,workspace_id) VALUES(?,?,?,'idle',?)", id, id, 'test', workspace);
+  }
+  await db.run("INSERT INTO telemetry_events(agent_id,event_type,action) VALUES(?,'test','private-a')", targetA);
+  await db.run("INSERT INTO telemetry_events(agent_id,event_type,action) VALUES(?,'test','private-b')", targetB);
+  await db.run("INSERT INTO lineage_nodes(id,workspace_id,label,node_type) VALUES(?,?,?, 'checkpoint')", nodeA, workspaceA, nodeA);
+  await db.run("INSERT INTO lineage_nodes(id,workspace_id,label,node_type) VALUES(?,?,?, 'checkpoint')", nodeB, workspaceB, nodeB);
+  await db.run("INSERT INTO lineage_edges(id,workspace_id,source_node_id,target_node_id) VALUES(?,?,?,?)", edgeB, workspaceB, nodeB, nodeB);
+
+  const allowed = await mcpStrategy.executeStrategyTool('genos_blame', { target_id: targetA }, { agentId: caller });
+  assert.equal(allowed.success, true, 'same-workspace blame is available');
+  assert.equal(allowed.output.evidence[0].action, 'private-a');
+  const registryAllowed = await mcpRegistry.dispatchTool('genos_blame', { target_id: targetA }, { agentId: caller });
+  assert.equal(registryAllowed.result.success, true, 'MCP registry forwards caller identity to strategy tools');
+  assert.equal(registryAllowed.result.output.evidence[0].action, 'private-a');
+  const foreignBlame = await mcpStrategy.executeStrategyTool('genos_blame', { target_id: targetB }, { agentId: caller });
+  const noCaller = await mcpStrategy.executeStrategyTool('genos_blame', { target_id: targetA });
+  assert.equal(foreignBlame.success, false, 'foreign-workspace blame is denied');
+  assert.deepEqual(foreignBlame.output.evidence, []);
+  assert.deepEqual(
+    { success: foreignBlame.success, error: foreignBlame.output.error, evidence: foreignBlame.output.evidence, provenance: foreignBlame.output.provenance },
+    { success: noCaller.success, error: noCaller.output.error, evidence: noCaller.output.evidence, provenance: noCaller.output.provenance },
+    'scope denial does not reveal whether target exists'
+  );
+  const foreignLineage = await mcpStrategy.executeStrategyTool('genos_lineage', { target_id: nodeB }, { agentId: caller });
+  assert.equal(foreignLineage.success, false, 'foreign-workspace lineage is denied');
+  assert.deepEqual(foreignLineage.output.evidence, []);
+
+  await db.run('DELETE FROM telemetry_events WHERE agent_id IN (?, ?)', targetA, targetB);
+  await db.run('DELETE FROM lineage_edges WHERE id = ?', edgeB);
+  await db.run('DELETE FROM lineage_nodes WHERE id IN (?, ?)', nodeA, nodeB);
+  await db.run('DELETE FROM agents WHERE id IN (?, ?, ?)', caller, targetA, targetB);
+  await db.run('DELETE FROM workspaces WHERE id IN (?, ?)', workspaceA, workspaceB);
 }
 
 async function runSuite() {
@@ -62,6 +116,7 @@ async function runSuite() {
 
   const db = await getDatabase();
   await verifyLineageQueryBound(db);
+  await verifyProvenanceScope(db);
 
   // Test 1: Merkle Provenance Chain Traversal & Truncation
   console.log('\n--- 1. Cryptographic Merkle DAG Provenance Traversal ---');
