@@ -181,6 +181,14 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
   // launching the consumer stages.
   const stageZero = plan.members.filter((member) => member.pipelineStage === 0 && !existingWorkerIds.has(member.workerId));
   const accepted = await Promise.all(stageZero.map((member, index) => launchWorker({ db: setup.db, context, member, index: index + 1, parent, suppliedWorkerId: member.workerId })));
+  if (context.request.background === false) {
+    const terminal = await executeForegroundTeam({ setup, activeRun, runnerToken, context, parent, launchWorker, plan, existingWorkerIds });
+    await aTeamRuntime.releaseExecution({ db: setup.db, teamRunId: activeRun.teamRunId, token: runnerToken });
+    emit(context.orchestratorId, terminal.accepted ? 'A_TEAM_STAGES_COMPLETED' : 'A_TEAM_STAGES_FAILED',
+      'VALIDATE_INTEGRATION', 'A-Team run finished: ' + terminal.status, terminal, terminal.accepted ? 'info' : 'warning');
+    if (!terminal.accepted) throw terminalFailure(terminal);
+    return terminalResponse({ context, activeRun, setup, team, plan, accepted, terminal });
+  }
   const runner = await (context.startAteamRunner || spawnStageRunner)({ context, plan, parentWorkspaceRoot: parent.workspace_root, skipWorkerIds: [...existingWorkerIds], runnerToken });
   if (!runner) await aTeamRuntime.releaseExecution({ db: setup.db, teamRunId: activeRun.teamRunId, token: runnerToken });
   emitImmediateCompletion({ runner, orchestratorId: context.orchestratorId, planId: plan.planId });
@@ -208,6 +216,37 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
       members: accepted
     }
   };
+}
+
+async function executeForegroundTeam(input) {
+  const execute = input.context.executeAteamRun
+    || require('./aTeam/execution/teamExecutionService').executeTeamRun;
+  const skipWorkerIds = [...new Set([...input.plan.members.filter((member) => member.pipelineStage === 0)
+    .map((member) => member.workerId), ...input.existingWorkerIds])];
+  return execute({
+    db: input.setup.db, teamRunId: input.activeRun.teamRunId, runnerToken: input.runnerToken,
+    plan: input.plan, options: { skipWorkerIds, pollMs: 500,
+      timeoutMs: Number(input.context.request.timeoutMs) || 15 * 60 * 1000 },
+    launch: (member) => input.launchWorker({ db: input.setup.db, context: input.context, member,
+      index: member.index + 1, parent: input.parent, suppliedWorkerId: member.workerId }),
+    onBlocked: (member, reason) => input.setup.db.run("UPDATE agents SET status = 'blocked', current_task = ? WHERE id = ?", JSON.stringify(reason), member.workerId)
+  });
+}
+
+function terminalFailure(terminal) {
+  return Object.assign(new Error(`A-Team terminal failure: ${terminal.status}.`), {
+    code: 'A_TEAM_TERMINAL_FAILURE', teamRunId: terminal.teamRunId, terminal
+  });
+}
+
+function terminalResponse(input) {
+  return { orchestratorId: input.context.orchestratorId, aTeam: {
+    status: input.terminal.status.toLowerCase(), terminal: true, accepted: true,
+    teamRunId: input.activeRun.teamRunId, workGraphId: input.activeRun.workGraphId,
+    runRevision: input.activeRun.revision, projectGoal: input.setup.projectGoal,
+    organization: input.team.organization, planId: input.plan.planId, members: input.accepted,
+    result: input.terminal
+  } };
 }
 
 async function workersAlreadyPresent(db, members) {
@@ -265,4 +304,5 @@ function existingRunResponse(context, canonical, team) {
   };
 }
 
-module.exports = { dispatchTeam, spawnStageRunner, readSubSystems, advanceRunToExecution };
+module.exports = { dispatchTeam, spawnStageRunner, readSubSystems, advanceRunToExecution,
+  executeForegroundTeam, terminalFailure };
