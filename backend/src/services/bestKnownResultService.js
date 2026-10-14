@@ -117,9 +117,8 @@ function isDependencyMap(value) {
 function dependencyFailureReason(champion, input) {
   const stored = parseDependencyMap(champion.dependencies_json);
   if (!stored || (input.dependencies !== undefined && !isDependencyMap(input.dependencies))) return 'dependencies-invalid';
-  if (Object.keys(stored).length > 0 && !isDependencyMap(input.dependencies)) return 'dependencies-unavailable';
-  const current = isDependencyMap(input.dependencies) ? input.dependencies : {};
-  return depsChanged(champion.dependencies_json, current) ? 'deps-changed' : null;
+  if (!isDependencyMap(input.dependencies)) return 'dependencies-unavailable';
+  return depsChanged(champion.dependencies_json, input.dependencies) ? 'deps-changed' : null;
 }
 
 async function dependencyFailure(db, found, input) {

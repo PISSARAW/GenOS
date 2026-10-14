@@ -633,6 +633,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0501](0501-lier-le-pointeur-champion-a-son-probleme.md) | Lier le pointeur champion à son problème | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Prévention d'une lecture croisée entre workspaces. |
 | [0502](0502-propager-les-erreurs-de-lecture-du-cache.md) | Propager les erreurs de lecture du cache | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Cohérence des lectures et du versionnement. |
 | [0503](0503-memoriser-la-migration-de-la-memoire-par-connexion.md) | Mémoriser la migration mémoire par connexion | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Latence d'accès et concurrence à l'initialisation. |
+| [0504](0504-exiger-le-snapshot-courant-meme-vide.md) | Exiger le snapshot courant, même vide | Accepté et implémenté pour la réutilisation mémoire. | 2026-10-15 | Distinction entre snapshot vide et absent. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

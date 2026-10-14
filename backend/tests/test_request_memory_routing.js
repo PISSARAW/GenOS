@@ -198,6 +198,22 @@ async function main() {
   });
   check('removed dependency invalidates champion', droppedDependency.hit === false && droppedDependency.reason === 'deps-changed');
 
+  const emptyDepsScope = 'workspace:request-empty-dependencies';
+  const emptyDepsInput = signedCandidate({
+    ...candidateInput, scopeId: emptyDepsScope, semanticId: 'explicit-empty-dependencies',
+    dependenciesJson: '{}'
+  });
+  await registry.storeCandidate(db, emptyDepsInput);
+  const absentSnapshot = await registry.lookupReusable(db, {
+    semanticId: emptyDepsInput.semanticId, scopeId: emptyDepsScope
+  });
+  check('empty stored dependencies still require a current snapshot',
+    absentSnapshot.hit === false && absentSnapshot.reason === 'dependencies-unavailable');
+  const explicitEmptySnapshot = await registry.lookupReusable(db, {
+    semanticId: emptyDepsInput.semanticId, scopeId: emptyDepsScope, dependencies: {}
+  });
+  check('explicit empty snapshot proves no dependencies', explicitEmptySnapshot.hit === true);
+
   const foreignScope = 'workspace:request-test-b';
   const crossScope = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId: foreignScope, dependencies: {} });
   check('same semantic request cannot reuse another workspace result', crossScope.hit === false && !crossScope.champion);
