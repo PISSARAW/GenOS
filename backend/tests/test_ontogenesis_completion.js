@@ -10,6 +10,7 @@ const operator = require('../src/services/ontogenesis/operatorService');
 const { processInbox } = require('../src/services/ontogenesis/inboxProcessor');
 const { tickOnce } = require('../src/services/ontogenesis/tickService');
 const { activeExecution } = require('../src/services/ontogenesis/executionStore');
+const { dispatchTask } = require('../src/services/ontogenesis/dispatchService');
 const { runResidentLoop, loopOptions } = require('../src/services/ontogenesis/residentLoopService');
 
 function invalidConfiguration() {
@@ -160,6 +161,45 @@ async function failureAccounting(db, project) {
   assert.strictEqual((await db.get('SELECT attempt FROM ontogenesis_backlog WHERE id = ?', [project.task])).attempt, 3);
 }
 
+async function unverifiedDispatch(db, project) {
+  const config = fixture.testConfig();
+  config.topologies = ['trinity'];
+  delete config.availableCapabilities;
+  const calls = { prepare: 0, start: 0, fence: 0 };
+  const harness = {
+    prepare: async () => { calls.prepare++; throw new Error('dispatch-atteint-prepare'); },
+    start: async () => { calls.start++; return { pid: null, executable: 'test' }; }
+  };
+  const result = await dispatchTask(db, {
+    project: await store.getProject(db, project.id),
+    config,
+    mission: { capabilities: ['execute', 'verify'], capabilityCatalog: [],
+      morphology: { selectedTopology: 'trinity' } },
+    selection: { task: await db.get('SELECT * FROM ontogenesis_backlog WHERE id = ?', [project.task]) },
+    remaining: { tokens: 1000, usd: 1, seconds: 60 },
+    fence: async () => { calls.fence++; }
+  }, harness);
+  assert.deepStrictEqual(result, { state: 'WAITING_INPUT', note: 'capacites-execution-non-attestees' });
+  assert.deepStrictEqual(calls, { prepare: 0, start: 0, fence: 0 });
+  assert.strictEqual((await db.get('SELECT COUNT(*) AS count FROM ontogenesis_runs')).count, 0);
+  assert.strictEqual((await db.get('SELECT COUNT(*) AS count FROM ontogenesis_execution')).count, 0);
+
+  const projectRow = await store.getProject(db, project.id);
+  const persistedConfig = JSON.parse(projectRow.config_json);
+  delete persistedConfig.availableCapabilities;
+  await db.run('UPDATE ontogenesis_projects SET config_json = ? WHERE id = ?',
+    [JSON.stringify(persistedConfig), project.id]);
+  const tickHarness = fixture.fakeHarness(db);
+  const prepare = tickHarness.prepare;
+  let prepared = 0;
+  tickHarness.prepare = async (input) => { prepared++; return prepare(input); };
+  const tick = await tickOnce(db, { projectId: project.id, owner: 'unverified-dispatch-test', harness: tickHarness });
+  assert.strictEqual(tick.blocked, true);
+  assert.match(tick.reason, /capacite-execution-manquante/);
+  assert.strictEqual(prepared, 0);
+  assert.strictEqual(tickHarness.launches, 0);
+}
+
 async function isolated(test) {
   console.log('completion scenario:', test.name);
   const db = await fixture.memoryDb();
@@ -169,7 +209,7 @@ async function isolated(test) {
 }
 
 const scenarios = { invalidConfiguration, operatorCommands, cancellation, pausedCandidate,
-  recovery, failureAccounting, silentResident };
+  recovery, failureAccounting, unverifiedDispatch, silentResident };
 
 async function runScenario(name) {
   const test = scenarios[name];

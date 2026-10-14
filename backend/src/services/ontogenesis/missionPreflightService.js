@@ -42,7 +42,9 @@ function conceptAudit(concepts = {}) {
   const unavailable = blocked.map((concept) => ({
     id: concept.id, source: concept.source || 'unknown', reason: concept.reason || 'indisponible'
   }));
-  const blocking = blocked.filter((concept) => ['unknown', 'runtime', 'existing_adapter'].includes(concept.source));
+  const blocking = blocked.filter((concept) => [
+    'unknown', 'runtime', 'existing_adapter', 'capability', 'capability_graph'
+  ].includes(concept.source));
   const integrationEvidence = (concepts.resolvedConcepts || [])
     .filter((concept) => concept.implementationContractReference)
     .map((concept) => concept.implementationContractReference);
@@ -68,6 +70,15 @@ function preflightStatus(input) {
   return 'admitted';
 }
 
+function dispatchRefusal(preflight) {
+  const reasons = preflight?.blockingReasons;
+  if (!preflight?.execution || !Array.isArray(reasons)) return 'preflight-mission-indisponible';
+  if (reasons.length) return reasons.join(',');
+  if (preflight.execution.status === 'unverified') return 'capacites-execution-non-attestees';
+  if (preflight.execution.status !== 'admitted') return 'capacites-execution-non-admises';
+  return null;
+}
+
 function buildMissionPreflight(input = {}) {
   const mission = input.mission || {};
   const config = input.config || {};
@@ -91,4 +102,4 @@ function buildMissionPreflight(input = {}) {
   };
 }
 
-module.exports = { buildMissionPreflight };
+module.exports = { buildMissionPreflight, dispatchRefusal };

@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const { buildMissionCapabilityPlan } = require('../src/services/ontogenesis/missionCapabilityPlanService');
+const { dispatchRefusal } = require('../src/services/ontogenesis/missionPreflightService');
 const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
 const { resolveConceptReferences } = require('../src/services/ontogenesis/canonicalConceptRegistry');
 
@@ -29,14 +30,20 @@ assert.ok(ready.preflight.topology.notFullyOperational.includes('EVIDENCE_BARRIE
 assert.ok(!ready.preflight.topology.operational.includes('EVIDENCE_BARRIER'));
 assert.strictEqual(ready.preflight.status, 'admitted_with_gaps');
 assert.deepStrictEqual(ready.preflight.blockingReasons, []);
+assert.strictEqual(dispatchRefusal(ready.preflight), null);
 
 const blocked = buildMissionCapabilityPlan(baseInput({ availableCapabilities: ['execute'] }));
 assert.strictEqual(blocked.preflight.status, 'blocked');
 assert.deepStrictEqual(blocked.preflight.blockingReasons, ['capacite-execution-manquante:verify']);
+assert.strictEqual(dispatchRefusal(blocked.preflight), 'capacite-execution-manquante:verify');
 
 const unverified = buildMissionCapabilityPlan(baseInput({}));
 assert.strictEqual(unverified.preflight.execution.status, 'unverified');
 assert.deepStrictEqual(unverified.preflight.blockingReasons, []);
+assert.strictEqual(dispatchRefusal(unverified.preflight), 'capacites-execution-non-attestees');
+assert.strictEqual(dispatchRefusal({ ...ready.preflight, execution: { status: 'unexpected' } }),
+  'capacites-execution-non-admises');
+assert.strictEqual(dispatchRefusal(null), 'preflight-mission-indisponible');
 
 const invalid = baseInput({ availableCapabilities: ['execute', 'verify'] });
 invalid.mission.morphology.error = 'topologie-configuree-inconnue';
@@ -56,6 +63,29 @@ assert.deepStrictEqual(philosophicalPreflight.blockingReasons, []);
 assert.ok(philosophicalPreflight.concepts.requiredEvidenceAtIntegration.some((reference) =>
   reference.id === 'epistemology.knowledge'
 ));
+
+const unavailableCapability = baseInput({ availableCapabilities: ['execute', 'verify'] });
+unavailableCapability.mission.concepts.resolvedConcepts = resolveConceptReferences(['EVIDENCE_BARRIER'], 'trinity');
+unavailableCapability.mission.concepts.blockedConcepts = unavailableCapability.mission.concepts.resolvedConcepts;
+const unavailableCapabilityPreflight = buildMissionCapabilityPlan(unavailableCapability).preflight;
+assert.strictEqual(unavailableCapabilityPreflight.status, 'blocked');
+assert.deepStrictEqual(unavailableCapabilityPreflight.blockingReasons,
+  ['concept-indisponible:EVIDENCE_BARRIER']);
+assert.strictEqual(dispatchRefusal(unavailableCapabilityPreflight), 'concept-indisponible:EVIDENCE_BARRIER');
+
+const incompatibleGraphConcept = baseInput({ availableCapabilities: ['execute', 'verify'] });
+incompatibleGraphConcept.mission.concepts.resolvedConcepts = resolveConceptReferences(['foveal_scan'], 'trinity');
+incompatibleGraphConcept.mission.concepts.blockedConcepts = incompatibleGraphConcept.mission.concepts.resolvedConcepts;
+const incompatibleGraphPreflight = buildMissionCapabilityPlan(incompatibleGraphConcept).preflight;
+assert.deepStrictEqual(incompatibleGraphPreflight.concepts.blocking, ['foveal_scan']);
+assert.strictEqual(dispatchRefusal(incompatibleGraphPreflight), 'concept-indisponible:foveal_scan');
+
+const operationalCapability = baseInput({ availableCapabilities: ['execute', 'verify'] });
+operationalCapability.mission.concepts.resolvedConcepts = resolveConceptReferences(['PROMOTION_GATE'], 'trinity');
+operationalCapability.mission.concepts.blockedConcepts = [];
+const operationalCapabilityPreflight = buildMissionCapabilityPlan(operationalCapability).preflight;
+assert.deepStrictEqual(operationalCapabilityPreflight.blockingReasons, []);
+assert.strictEqual(dispatchRefusal(operationalCapabilityPreflight), null);
 
 const request = requestFor({ id: 'run-preflight', project: { id: 'p' }, task: { id: 't', title: 'run', acceptance_json: '[]' },
   selection: { topology: 'trinity', variant: 'default', workerRoles: [] }, worktree: 'C:/workspace',

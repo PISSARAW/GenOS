@@ -146,6 +146,16 @@ par le catalogue de morphogenèse, avec repli déclaré.
 
 ## 4. Autorisation vs vérification
 
+Un préflight dont les capacités d'exécution sont `unverified` reste visible
+pour le diagnostic, mais ne peut pas lancer de worker. La voie `tick` et le
+dispatch direct appliquent le même refus `capacites-execution-non-attestees`
+avant la préparation du workspace et la persistance d'un run. Un préflight
+`admitted_with_gaps` conserve l'admission quand seuls des concepts canoniques
+sont partiels. Une capacité ou un concept du graphe d'exécution explicitement
+demandé et indisponible bloque le dispatch ; une référence philosophique reste
+consultative. Le préflight ne constitue ni une preuve d'exécution ni une
+autorisation de promotion. Voir [ADR 0477](../adr/0477-refuser-dispatch-preflight-non-verifie.md).
+
 Autoriser n'est pas prouver (**Implémenté** pour l'autorisation préalable —
 `backend/src/services/ontogenesis/authorizationService.js` ; **Implémenté**
 pour les vérifications indépendantes via `proofService.js` et `integrationController.js`) :

@@ -35,6 +35,7 @@ const { processInbox, operatorContext } = require('./inboxProcessor');
 const { reconcileExecution, cancelBlockedTask } = require('./recoveryController');
 
 const { prepareMission, preparationMatches } = require('./missionPreparationService');
+const { dispatchRefusal } = require('./missionPreflightService');
 const { observeEvents, acknowledgeObservedEvents } = require('./eventObservationService');
 
 const NO_WAKE = ['STOPPING', 'STOPPED', 'EXECUTING', 'VERIFYING', 'INTEGRATING', 'INITIALIZING', 'PLANNING'];
@@ -177,9 +178,8 @@ async function dispatchWithHarness(db, ctx) {
 }
 
 async function blockInvalidMission(db, ctx) {
-  const reasons = ctx.mission?.plan?.preflight?.blockingReasons || [];
-  if (!reasons.length || ctx.control?.mode !== 'running' || ['STOPPED', 'PAUSED'].includes(ctx.project.state)) return null;
-  const reason = reasons.join(',');
+  const reason = dispatchRefusal(ctx.mission?.plan?.preflight);
+  if (!reason || ctx.control?.mode !== 'running' || ['STOPPED', 'PAUSED'].includes(ctx.project.state)) return null;
   await setProjectState(db, { projectId: ctx.project.id, state: 'WAITING_INPUT' });
   await notify(db, { projectId: ctx.project.id, kind: 'decision_needed',
     payload: { reason } });

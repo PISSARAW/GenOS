@@ -3,7 +3,7 @@
 const { randomUUID } = require('crypto');
 const { withTransaction } = require('../../db');
 const { selectTopology } = require('./topologySelector');
-const { buildMissionPreflight } = require('./missionPreflightService');
+const { buildMissionPreflight, dispatchRefusal } = require('./missionPreflightService');
 const { listFailures, listSimilarFailures, SIMILARITY_LIMIT } = require('./memoryService');
 const { createExecution } = require('./executionStore');
 const { reservationFor } = require('./resourceGuard');
@@ -124,9 +124,8 @@ async function dispatchTask(db, ctx, harness) {
   const selection = await topologyFor(db, ctx);
   if (selection.blocked) return blockDispatch(db, ctx, selection.blocked);
   selection.preflight = preflightSelection(ctx, selection);
-  if (selection.preflight.blockingReasons.length) {
-    return blockDispatch(db, ctx, selection.preflight.blockingReasons.join(','));
-  }
+  const refusal = dispatchRefusal(selection.preflight);
+  if (refusal) return blockDispatch(db, ctx, refusal);
   if (await hasSimilarFailures(db, ctx)) return blockDispatch(db, ctx, 'echec-similaire-repete');
   const reservationMb = reservationFor(ctx);
   if (!canAdmit(ctx, reservationMb)) return { state: ctx.project.state, note: 'enveloppe-insuffisante' };
