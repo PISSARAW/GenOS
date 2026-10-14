@@ -26,6 +26,18 @@ let pollTimer = null;
 let pollInProgress = false;
 let scientificPollInProgress = false;
 let scientificReadyDb = null;
+const pollIdleWaiters = new Set();
+
+function notifyPollIdle() {
+  if (pollInProgress || scientificPollInProgress) return;
+  for (const resolve of pollIdleWaiters) resolve();
+  pollIdleWaiters.clear();
+}
+
+function waitForPollIdle() {
+  if (!pollInProgress && !scientificPollInProgress) return Promise.resolve();
+  return new Promise((resolve) => pollIdleWaiters.add(resolve));
+}
 
 /**
  * Register a wake handler for a specific agent.
@@ -169,6 +181,7 @@ async function pollPendingDeliveries() {
     logPollFailure(error);
   } finally {
     pollInProgress = false;
+    notifyPollIdle();
   }
 }
 
@@ -192,6 +205,7 @@ async function pollScientificOutbox(dbOverride = null) {
     logPollFailure(error);
   } finally {
     scientificPollInProgress = false;
+    notifyPollIdle();
   }
 }
 
@@ -237,6 +251,8 @@ function stopSignalPlaneSubscriber() {
   pollTimer = null;
   signalEventBus.removeListener('signal', handleWorkerSignal);
   signalEventBus.removeListener('signal', handleLlmEscalation);
+  registeredWakeHandlers.clear();
+  return waitForPollIdle().then(() => { scientificReadyDb = null; });
 }
 
 module.exports = {

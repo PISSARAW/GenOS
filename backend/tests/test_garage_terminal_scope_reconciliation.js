@@ -7,6 +7,9 @@ const runtime = require('../src/services/garageRuntimeService');
 
 async function main() {
   const test = await fixture();
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(' '));
   try {
     const queued = await store.enqueuePersistent(test.db, request());
     const claim = await store.claimNextPersistent(test.db, { orchestratorId: 'orch' });
@@ -23,7 +26,10 @@ async function main() {
     assert.equal((await test.db.get('SELECT status FROM garage_queue WHERE request_id = ?', queued.request_id)).status, 'failed');
   } finally {
     await test.close();
+    await new Promise((resolve) => setImmediate(resolve));
+    console.warn = originalWarn;
   }
+  assert.equal(warnings.some((warning) => /Database handle is closed/.test(warning)), false);
 }
 
 main().then(() => console.log('Garage terminal scope reconciliation: PASS'))

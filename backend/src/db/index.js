@@ -115,6 +115,7 @@ function installBusyRetry(db) {
 }
 
 async function closeDatabase() {
+  await require('../services/signalPlaneSubscriber').stopSignalPlaneSubscriber();
   if (dbInitialization) {
     try { await dbInitialization; } catch (_) {}
   }
