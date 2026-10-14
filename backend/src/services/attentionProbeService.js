@@ -5,8 +5,8 @@
  *
  * Trois interventions, toutes persistées et vérifiables :
  * 1. Focus contraint : la prochaine mission de l'agent voit son lease
- *    réduit à allowedTools (intersection non vide), même contraire au
- *    focus déclaré. Consommé en une fois par missionLease.
+ *    réduit à l'intersection avec allowedTools; une intersection vide ne
+ *    donne accès à aucun outil. Consommé en une fois par missionLease.
  * 2. Fausse copie : {actualTarget, claimedTarget} enregistrés ; les claims
  *    ultérieurs sont jugés (suit le réel / confabule / mixte / inconclusif).
  *    Injection live par vésicule = étape suivante (dépôt exosome trop

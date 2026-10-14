@@ -637,6 +637,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0505](0505-scoper-les-lectures-de-probleme.md) | Scoper les lectures de problème | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Éviter l'accès aux entrées historiques non scoppées. |
 | [0506](0506-rapporter-le-statut-apres-invalidation.md) | Rapporter le statut après invalidation | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Cohérence du verdict de cache et du statut persistant. |
 | [0507](0507-echouer-si-la-phase-diff-replay-nest-pas-applicable.md) | Échouer si la phase diff/replay n'est pas applicable | Accepté et implémenté pour la phase stratégie. | 2026-10-15 | Un contexte absent ne valide plus silencieusement le replay. |
+| [0508](0508-refuser-une-intersection-vide-de-lease.md) | Refuser une intersection vide de lease | Accepté et implémenté pour les contraintes de focus. | 2026-10-15 | Une contrainte incompatible ne restaure pas les outils du lease initial. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

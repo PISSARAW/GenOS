@@ -331,6 +331,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0500 — Revalider la preuve avant réutilisation](adr/0500-revalider-la-preuve-avant-reutilisation.md) — revalide la preuve persistée d'un résultat avant de le réutiliser comme champion.
 - [ADR 0504 — Exiger le snapshot courant, même vide](adr/0504-exiger-le-snapshot-courant-meme-vide.md) — distingue un snapshot de dépendances absent d'un snapshot explicitement sans dépendances.
 - [ADR 0507 — Échouer si la phase diff/replay n'est pas applicable](adr/0507-echouer-si-la-phase-diff-replay-nest-pas-applicable.md) — interdit de traiter une phase de comparaison sans contexte comme une réussite.
+- [ADR 0508 — Refuser une intersection vide de lease](adr/0508-refuser-une-intersection-vide-de-lease.md) — une contrainte de focus sans outil commun laisse la mission sans outil.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)

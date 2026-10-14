@@ -153,7 +153,7 @@ async function applyFocusProbe(ctx, mission) {
     const probe = await probes.consumeFocusConstraint(ctx.db, ctx.agentId);
     if (!probe) return;
     const narrowed = mission.toolLease.filter((tool) => probe.allowedTools.includes(tool));
-    if (narrowed.length) mission.toolLease = narrowed;
+    mission.toolLease = narrowed;
   } catch (_) {}
 }
 
@@ -166,4 +166,4 @@ async function applyPolicyMasking(ctx, mission) {
   } catch (_) {}
 }
 
-module.exports = { attachMissionMemoryContext, isInProcessWorker, enforceMissionToolLease };
+module.exports = { attachMissionMemoryContext, isInProcessWorker, enforceMissionToolLease, applyFocusProbe };
