@@ -5,6 +5,7 @@ const { prepareTeamLifecycle } = require('./lifecycle/teamLifecycleService');
 
 function alignTeamOrganization(team, policy, input = {}) {
   if (!policy || !policy.organization) return team;
+  if (team.organization === policy.organization) return team;
   const coordinated = coordination.coordinateMembers(team.members, {
     organization: policy.organization,
     availableCapabilities: input.availableCapabilities
