@@ -1,6 +1,6 @@
 # Qualification vérifiable des workers
 
-- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows et Linux. Sur Linux, le profil workers (32 suites), la workspace Rust et le gate qualité passent sur le code de `d00175c2`. Le `npm test` complet Linux reste en échec dans `test_daemon_host_process` (`SQLITE_IOERR`) après les suites précédentes ; ce test passe quand il est lancé seul. La requalification Windows du 2026-10-14 sur `2e0df82f` a passé le profil workers, le benchmark 24 cas et trois campagnes faultées (57/57 scénarios conformes). Les rapports locaux non suivis sont classés exploratoires.
+- **Statut** : C2/C3 vérifiés pour les 19 `WorkerKind` sur Windows et Linux. Sur Linux, le profil workers (32 suites), le benchmark (24/24), la campagne de fautes (19/19), la workspace Rust et le gate qualité passent sur le code de `d00175c2`. Le gate global `npm test` Linux reste en échec intermittent dans `test_daemon_host_process` (`SQLITE_IOERR`) sous WSL 1. La requalification Windows du 2026-10-14 sur `2e0df82f` a passé le profil workers, le benchmark 24 cas et trois campagnes faultées (57/57 scénarios conformes). Les rapports Linux de campagne sont exploratoires car le checkout était modifié.
 - **Date de l'inventaire** : 2026-10-12.
 - **Portée** : les 19 `WorkerKind`, les méthodes du registre Node, les missions persistées et leurs preuves.
 
@@ -526,10 +526,18 @@ et 0 nouvelle violation**. Le test `test_daemon_host_process.js` seul passe
 
 Le `npm test` complet a été lancé deux fois sous Linux ; à chaque fois, le
 runner Daemon a passé 42/43 programmes et `test_daemon_host_process.js` a
-renvoyé `SQLITE_IOERR: disk I/O error` après les tests précédents. Ce test passe
-lorsqu'il est isolé. La séquence isolée `host_cli` puis `host_process` reproduit
-l'échec (1/2), ce qui confirme que la panne dépend de l'ordre d'exécution. Le
-gate complet s'arrête à cet échec avant les suites suivantes. Le profil workers
+renvoyé `SQLITE_IOERR: disk I/O error`. Le test est lui-même intermittent :
+sur quatre lancements isolés avec SQLite dans `/tmp`, deux ont passé et deux
+ont échoué. Cinq autres lancements avec `GENOS_SQLITE_MMAP_SIZE=0` ont tous
+échoué. Avec la base sur D: (DrvFS), un lancement a passé et deux ont renvoyé
+`SQLITE_CANTOPEN`. Une sonde WAL minimale a réussi sur `/tmp` et D:. Le traceur
+situe `SQLITE_IOERR` sur la lecture parent de `daemon_runtime_state` après le
+démarrage du daemon ; `PRAGMA integrity_check` renvoie `ok` sur la base fermée
+après un échec, et aucun processus daemon ne reste actif. Ces mesures pointent
+vers l'interaction du scénario SQLite multi-processus avec WSL 1, sans isoler
+la cause exacte. La séquence `host_cli` puis `host_process` échoue aussi, mais
+les échecs isolés montrent que l'ordre seul n'explique pas la panne. Le gate
+complet s'arrête à cet échec avant les suites suivantes. Le profil workers
 ciblé passe indépendamment. La qualification C2/C3
 des workers Linux est donc démontrée ; le gate global `npm test` Linux reste à
 résoudre pour déclarer le dépôt entièrement qualifié sur cette plateforme.
