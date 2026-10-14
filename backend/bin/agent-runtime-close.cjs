@@ -60,6 +60,7 @@ async function handleRuntimeClose(ctx) {
 
 async function handleBudgetStop(ctx, budgetStopped) {
   const { code, signal, emit, cleanup } = ctx;
+  const partialReport = require('./agent-runtime-partial-report.cjs').fromBudgetStop(ctx, budgetStopped); if (partialReport) emit({ eventType: 'EVIDENCE_REPORT', action: 'PRESERVE_PARTIAL', detail: 'Preserved partial worker evidence before the runtime budget stop.', severity: 'warning', payload: partialReport });
   emit({ eventType: 'AGENT_HALTED', action: 'BUDGET_GUARD', detail: 'Runtime stopped at the active execution budget boundary.', severity: 'warning', status: 'blocked', currentTask: 'Budget exhausted', payload: { code, signal, budget: budgetStopped } });
   await new Promise((resolve) => process.stdout.write('', resolve));
   process.exitCode = 1;
