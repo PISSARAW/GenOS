@@ -323,6 +323,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0482 — Atomicité entre mesures et décision de rollout](adr/0482-atomicite-mesures-et-decision-rollout.md) — sérialise les métriques avec la décision pour refuser les écritures tardives.
 - [ADR 0483 — Fonder la promotion du rollout sur le candidat](adr/0483-promotion-rollout-fondee-sur-le-candidat.md) — exige un échantillon candidat suffisant et interdit de promouvoir lorsque le contrôle gagne.
 - [ADR 0484 — Identifier explicitement le candidat du rollout](adr/0484-identifier-explicitement-le-candidat-du-rollout.md) — lie le candidat A/B à son nom déclaré, sans dépendre de l'ordre des variantes.
+- [ADR 0485 — Cohérence des métriques et de l'état du rollout](adr/0485-atomicite-creation-rollout-et-variantes.md) — valide les métriques et exige un échantillon suffisant pour chaque variante comparée.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)

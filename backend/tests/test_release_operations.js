@@ -18,6 +18,7 @@ const metrics = [
 assert.deepEqual(decide([], config).status, 'paused');
 assert.equal(decide(metrics, config).status, 'promoted');
 assert.equal(decide(metrics, config).selectedVariant, 'canary');
+assert.equal(decide(metrics, config).candidateVariant, 'canary');
 assert.equal(decide([{ variant: 'canary', requests: 10, errors: 1, latency_ms_total: 1000 }], config).status, 'rolled_back');
 const abConfig = { slo: config.slo, variants: [{ name: 'control' }, { name: 'candidate' }] };
 assert.equal(decide([
@@ -33,6 +34,20 @@ assert.equal(decide([
   { variant: 'candidate', requests: 20, errors: 0, latency_ms_total: 2000 },
   { variant: 'control', requests: 20, errors: 0, latency_ms_total: 1000 }
 ], reversedAbConfig, 'ab').status, 'rolled_back', 'Candidate identity is independent of variant order');
+assert.equal(decide([
+  { variant: 'candidate', requests: 20, errors: 0, latency_ms_total: 500 },
+  { variant: 'control', requests: 0, errors: 0, latency_ms_total: 0 }
+], abConfig, 'ab').status, 'paused', 'An empty control sample cannot trigger rollback');
+assert.equal(decide([
+  { variant: 'variant-b', requests: 20, errors: 0, latency_ms_total: 500 },
+  { variant: 'control', requests: 20, errors: 0, latency_ms_total: 600 }
+], { ...abConfig, variants: [{ name: 'variant-b' }, { name: 'control' }] }, 'ab').reason,
+'candidate_identity_missing', 'Legacy custom A/B without candidate identity must fail closed');
+assert.equal(decide([
+  { variant: 'custom-canary', requests: 20, errors: 0, latency_ms_total: 500 },
+  { variant: 'stable', requests: 20, errors: 0, latency_ms_total: 600 }
+], { ...abConfig, variants: [{ name: 'custom-canary' }, { name: 'stable' }] }, 'canary').reason,
+'candidate_identity_missing', 'Custom canary identity must not depend on array order');
 
 function response() {
   return {
@@ -69,16 +84,39 @@ async function e2e() {
   const duplicate = await invoke(releases.create, { body: { workflowId }, tenant });
   assert.equal(duplicate.code, 409);
   assert.equal(duplicate.body.error.code, 'RELEASE_ALREADY_EXISTS');
+  const rolloutCountBeforeFailure = await db.get('SELECT COUNT(*) AS count FROM release_rollouts WHERE release_id = ?', create.body.id);
+  await db.exec(`CREATE TRIGGER fail_rollout_metric BEFORE INSERT ON release_rollout_metrics
+    WHEN NEW.variant = 'candidate' BEGIN SELECT RAISE(ABORT, 'injected rollout metric failure'); END;`);
+  await assert.rejects(invoke(releases.createRollout, { params: { id: create.body.id }, body: { strategy: 'ab', slo: config.slo }, tenant }), /injected rollout metric failure/);
+  await db.exec('DROP TRIGGER fail_rollout_metric;');
+  assert.deepEqual(await db.get('SELECT COUNT(*) AS count FROM release_rollouts WHERE release_id = ?', create.body.id), rolloutCountBeforeFailure);
   const rollout = await invoke(releases.createRollout, { params: { id: create.body.id }, body: { strategy: 'ab', slo: config.slo }, tenant });
   assert.equal(rollout.code, 201);
   const ambiguousCandidate = await invoke(releases.createRollout, { params: { id: create.body.id },
     body: { strategy: 'ab', variants: [{ name: 'control', traffic: 50 }, { name: 'variant-b', traffic: 50 }], slo: config.slo }, tenant });
   assert.equal(ambiguousCandidate.code, 400);
   assert.equal(ambiguousCandidate.body.code, 'INVALID_CANDIDATE_VARIANT');
+  const ambiguousCanary = await invoke(releases.createRollout, { params: { id: create.body.id },
+    body: { strategy: 'canary', variants: [{ name: 'custom-canary', traffic: 5 }, { name: 'stable', traffic: 95 }], slo: config.slo }, tenant });
+  assert.equal(ambiguousCanary.code, 400);
+  assert.equal(ambiguousCanary.body.code, 'INVALID_CANDIDATE_VARIANT');
   const explicitCandidate = await invoke(releases.createRollout, { params: { id: create.body.id },
     body: { strategy: 'ab', candidateVariant: 'variant-b', variants: [{ name: 'variant-b', traffic: 50 }, { name: 'control', traffic: 50 }], slo: config.slo }, tenant });
   assert.equal(explicitCandidate.code, 201);
   assert.equal(explicitCandidate.body.candidateVariant, 'variant-b');
+  const explicitCandidateMetric = await invoke(releases.recordRolloutMetric, { params: { rolloutId: explicitCandidate.body.id },
+    body: { variant: 'variant-b', requests: 10, latencyMs: 80 }, tenant });
+  assert.equal(explicitCandidateMetric.code, 202);
+  const explicitControlMetric = await invoke(releases.recordRolloutMetric, { params: { rolloutId: explicitCandidate.body.id },
+    body: { variant: 'control', requests: 10, latencyMs: 100 }, tenant });
+  assert.equal(explicitControlMetric.code, 202);
+  const explicitOutcome = await invoke(releases.decideRollout, { params: { rolloutId: explicitCandidate.body.id }, tenant });
+  assert.equal(explicitOutcome.body.status, 'promoted');
+  assert.equal(explicitOutcome.body.selectedVariant, 'variant-b');
+  assert.equal(explicitOutcome.body.candidateVariant, 'variant-b');
+  const invalidMetrics = await invoke(releases.recordRolloutMetric, { params: { rolloutId: rollout.body.id },
+    body: { variant: 'candidate', requests: 10, errors: 11, latencyMs: 10 }, tenant });
+  assert.equal(invalidMetrics.code, 400, 'Errors cannot exceed requests');
   for (const variant of ['control', 'candidate']) {
     const metric = await invoke(releases.recordRolloutMetric, { params: { rolloutId: rollout.body.id }, body: { variant, requests: 10, latencyMs: variant === 'candidate' ? 80 : 100, costUsd: 0.01 }, tenant });
     assert.equal(metric.code, 202);

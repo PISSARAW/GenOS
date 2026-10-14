@@ -32,6 +32,13 @@ assert.equal(events.billableTokenCount({
   output_tokens: 1_000,
   total_tokens: 301_000
 }), 6_000);
+assert.equal(events.billableTokenCount({ input_tokens: 300_000, cached_input_tokens: 'malformed',
+  output_tokens: 1_000, total_tokens: 301_000 }), 301_000,
+'invalid cache split must use a valid conservative total');
+assert.equal(events.billableTokenCount({ input_tokens: 10_000, total_tokens: 10_100 }), 10_100,
+  'partial input/output splits must use the valid total');
+assert.equal(events.billableTokenCount({ input_tokens: 10_000, cached_input_tokens: 'malformed' }), null,
+  'unusable usage without a valid total must fail closed');
 
 const withinBudget = runtimeState(8_000);
 events.handleParsedEvent(withinBudget, { type: 'turn.completed', usage: {
@@ -50,5 +57,12 @@ assert.equal(exhausted.budgetStopped.dimension, 'tokens');
 assert.deepEqual(exhausted.emitted.map((event) => event.eventType), ['AGENT_STEP', 'BUDGET_EXHAUSTED']);
 assert.equal(exhausted.emitted[0].payload.usage.total_tokens, 11_000,
   'the terminal usage event is emitted before the budget guard stops the runtime');
+
+const unknownUsage = runtimeState(8_000);
+events.handleParsedEvent(unknownUsage, { type: 'turn.completed', usage: {
+  input_tokens: 10_000, cached_input_tokens: 'malformed'
+} });
+assert.equal(unknownUsage.budgetStopped.dimension, 'tokens');
+assert.equal(unknownUsage.budgetStopped.observed, 'unknown');
 
 console.log('Runtime billable budget accounting: PASS');

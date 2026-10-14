@@ -39,6 +39,9 @@ des mesures avec la décision et la sélection effective du candidat en A/B
 (`test_release_operations.js`, `test_release_force_promotion_permission.js`,
 `test_release_promotion_truthfulness.js`; ADR 0481 à 0484). L'identité candidate
 personnalisée est désormais explicite et indépendante de l'ordre des variantes.
+La création du rollout et de ses compteurs est couverte par une preuve
+d'annulation transactionnelle; les métriques invalides et échantillons de
+comparaison incomplets sont aussi refusés (ADR 0485).
 Ces contrôles qualifient ce
 parcours de release et ne démontrent pas la couverture de tous les gates de
 promotion.

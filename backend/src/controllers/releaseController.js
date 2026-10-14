@@ -162,10 +162,10 @@ function validateSlo(slo, requiredNumber) {
 function resolveCandidateVariant(variants, strategy, requestedCandidate) {
   const conventionalName = strategy === 'ab' ? 'candidate' : 'canary';
   const inferredName = variants.find((variant) => variant.name === conventionalName)?.name;
-  const candidateVariant = requestedCandidate || inferredName || (strategy === 'canary' ? variants.at(-1).name : null);
+  const candidateVariant = requestedCandidate || inferredName;
   return candidateVariant && variants.some((variant) => variant.name === candidateVariant)
     ? { candidateVariant }
-    : { error: { code: 'INVALID_CANDIDATE_VARIANT', message: 'candidateVariant must match a configured variant; custom A/B variants must declare it.' } };
+    : { error: { code: 'INVALID_CANDIDATE_VARIANT', message: 'candidateVariant must match a configured variant when no conventional candidate name is present.' } };
 }
 
 function validateRolloutConfig({ strategy, body, requiredNumber }) {
@@ -201,27 +201,31 @@ async function insertRollout(db, { rolloutId, releaseId, scope, strategy, config
 async function createRollout(req, res, next) {
   try {
     const db = await getDatabase();
-    const release = await scopedRelease(db, req, req.params.id);
-    if (!release) return res.status(404).json({ error: { code: 'RELEASE_NOT_FOUND', message: 'Release is outside the tenant scope.' } });
-    
     const strategy = String(req.body?.strategy || 'canary').toLowerCase();
     const configValidation = validateRolloutConfig({ strategy, body: req.body, requiredNumber });
     if (configValidation.error) return res.status(400).json(configValidation.error);
     
     const rolloutId = id('rollout');
     const scope = scopeSql(req);
-    await insertRollout(db, { rolloutId, releaseId: release.id, scope, strategy, config: configValidation.config });
+    const release = await withTransaction(db, async (tx) => {
+      const scoped = await scopedRelease(tx, req, req.params.id);
+      if (!scoped) return null;
+      await insertRollout(tx, { rolloutId, releaseId: scoped.id, scope, strategy, config: configValidation.config });
+      return scoped;
+    });
+    if (!release) return res.status(404).json({ error: { code: 'RELEASE_NOT_FOUND', message: 'Release is outside the tenant scope.' } });
     
     res.status(201).json({ id: rolloutId, releaseId: release.id, strategy, status: 'running', ...configValidation.config });
   } catch (error) { next(error); }
 }
 
-function validateMetricInput({ variant, requests, errors, latencyMs, tokens, costUsd, validatedRequests }) {
+function validateMetricInput({ variant, requests, errors, latencyMs, tokens, costUsd }) {
   if (typeof variant !== 'string' || !variant.trim()) return { error: { code: 'INVALID_VARIANT', message: 'variant must be a non-empty string.' } };
   try {
+    const requestCount = requiredNumber(requests, 'requests', { integer: true, min: 0, max: 1_000_000_000 });
     return {
-      validatedRequests: requiredNumber(requests, 'requests', { integer: true, min: 0, max: 1_000_000_000 }),
-      validatedErrors: requiredNumber(errors, 'errors', { integer: true, min: 0, max: validatedRequests }),
+      validatedRequests: requestCount,
+      validatedErrors: requiredNumber(errors, 'errors', { integer: true, min: 0, max: requestCount }),
       validatedLatency: requiredNumber(latencyMs, 'latencyMs', { min: 0, max: 86_400_000 }),
       validatedTokens: requiredNumber(tokens, 'tokens', { integer: true, min: 0, max: Number.MAX_SAFE_INTEGER }),
       validatedCost: requiredNumber(costUsd, 'costUsd', { min: 0, max: Number.MAX_SAFE_INTEGER })
@@ -280,8 +284,9 @@ async function recordRolloutMetric(req, res, next) {
 
 function getCandidateVariantName(config, strategy) {
   const conventionalName = strategy === 'canary' ? 'canary' : 'candidate';
-  return config.candidateVariant || config.variants?.find((variant) => variant.name === conventionalName)?.name ||
-    config.variants?.at(-1)?.name || conventionalName;
+  if (config.candidateVariant) return config.candidateVariant;
+  if (!config.variants) return conventionalName;
+  return config.variants.find((variant) => variant.name === conventionalName)?.name || null;
 }
 
 function getCandidateMetric(metrics, candidateVariantName) {
@@ -307,9 +312,12 @@ function checkSloBreach({ errorRate, averageLatencyMs, policy, totalRequests }) 
   return null;
 }
 
-function findWinner(metrics) {
-  return [...metrics].sort((left, right) => 
-    (left.errors / Math.max(1, left.requests)) - (right.errors / Math.max(1, right.requests)) || 
+function findWinner(metrics, minimumRequests) {
+  const comparableMetrics = metrics.filter((metric) => metric.requests >= minimumRequests);
+  if (comparableMetrics.length !== metrics.length) return null;
+  if (!comparableMetrics.length) return null;
+  return [...comparableMetrics].sort((left, right) =>
+    (left.errors / Math.max(1, left.requests)) - (right.errors / Math.max(1, right.requests)) ||
     (left.latency_ms_total / Math.max(1, left.requests)) - (right.latency_ms_total / Math.max(1, right.requests))
   )[0]?.variant;
 }
@@ -324,20 +332,26 @@ function decide(metrics, config, strategy = 'canary') {
   const totalRequests = metrics.reduce((sum, metric) => sum + metric.requests, 0);
   
   const candidateVariantName = getCandidateVariantName(config, strategy);
+  if (!candidateVariantName) return { status: 'paused', reason: 'candidate_identity_missing', totalRequests, candidateVariant: null };
   const candidateMetric = getCandidateMetric(metrics, candidateVariantName);
   const { candidateRequests, errorRate, averageLatencyMs } = calculateCandidateMetrics(candidateMetric);
   
   const sampleCheck = checkSampleSize(candidateRequests, policy);
-  if (sampleCheck) return { ...sampleCheck, totalRequests, errorRate, averageLatencyMs };
+  if (sampleCheck) return { ...sampleCheck, totalRequests, errorRate, averageLatencyMs, candidateVariant: candidateVariantName };
   
   const sloBreach = checkSloBreach({ errorRate, averageLatencyMs, policy, totalRequests });
-  if (sloBreach) return sloBreach;
+  if (sloBreach) return { ...sloBreach, candidateVariant: candidateVariantName };
   
-  const winner = findWinner(metrics);
+  const minimumRequests = Math.max(1, number(policy.minRequests, 100));
+  const winner = findWinner(metrics, minimumRequests);
+  if (!winner) return { status: 'paused', reason: 'insufficient_comparison_sample', totalRequests,
+    errorRate, averageLatencyMs, candidateVariant: candidateVariantName };
   const candidateCheck = checkCandidateUnderperformance(winner, candidateVariantName);
-  if (candidateCheck) return { ...candidateCheck, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
+  if (candidateCheck) return { ...candidateCheck, totalRequests, errorRate, averageLatencyMs,
+    latencyMetric: 'average', candidateVariant: candidateVariantName };
   
-  return { status: 'promoted', reason: 'slo_satisfied', selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
+  return { status: 'promoted', reason: 'slo_satisfied', selectedVariant: winner, totalRequests, errorRate,
+    averageLatencyMs, latencyMetric: 'average', candidateVariant: candidateVariantName };
 }
 
 async function decideRollout(req, res, next) {

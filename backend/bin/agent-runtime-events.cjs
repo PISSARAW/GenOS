@@ -32,12 +32,41 @@ function readUsage(event) {
   return event.usage || (event.payload || {}).usage || {};
 }
 
+function tokenCount(usage, key) {
+  if (!Object.prototype.hasOwnProperty.call(usage, key)) return { present: false, value: 0 };
+  const value = Number(usage[key]);
+  return Number.isFinite(value) && value >= 0
+    ? { present: true, value }
+    : { present: true, value: null };
+}
+
+function cacheTokenCount(usage) {
+  const key = Object.prototype.hasOwnProperty.call(usage, 'cached_input_tokens')
+    ? 'cached_input_tokens' : 'cache_read_input_tokens';
+  return tokenCount(usage, key);
+}
+
+function totalTokenCount(usage) {
+  const key = Object.prototype.hasOwnProperty.call(usage, 'total_tokens') ? 'total_tokens' : 'tokens';
+  return tokenCount(usage, key);
+}
+
+function hasUsableSplit(input, output, cached) {
+  return input.present && input.value !== null && output.present && output.value !== null && cached.value !== null;
+}
+
+function fallbackTokenCount(total, fields) {
+  if (total.present && total.value !== null) return total.value;
+  return fields.some((field) => field.present) ? null : 0;
+}
+
 function billableTokenCount(usage) {
-  const input = Math.max(0, Number(usage.input_tokens || 0));
-  const output = Math.max(0, Number(usage.output_tokens || 0));
-  const cached = Math.min(input, Math.max(0, Number(usage.cached_input_tokens || usage.cache_read_input_tokens || 0)));
-  if (input > 0 || output > 0 || cached > 0) return input - cached + output;
-  return Math.max(0, Number(usage.total_tokens || usage.tokens || 0));
+  const input = tokenCount(usage, 'input_tokens');
+  const output = tokenCount(usage, 'output_tokens');
+  const cached = cacheTokenCount(usage);
+  const total = totalTokenCount(usage);
+  if (!hasUsableSplit(input, output, cached)) return fallbackTokenCount(total, [input, output, cached, total]);
+  return Math.max(0, input.value - Math.min(input.value, cached.value) + output.value);
 }
 
 function isAgentMessage(event) {
@@ -50,7 +79,9 @@ function messageText(event) {
 
 function enforceBudget(state) {
   const observedTokens = state.exactTokens || state.estimatedTokens;
-  if (observedTokens > budgetLimit(state, 'tokens')) {
+  if (state.tokenUsageUnknown) {
+    stopForBudget(state, { dimension: 'tokens', observed: 'unknown', limit: budgetLimit(state, 'tokens') });
+  } else if (observedTokens > budgetLimit(state, 'tokens')) {
     stopForBudget(state, { dimension: 'tokens', observed: observedTokens, limit: budgetLimit(state, 'tokens') });
   } else if (state.eventCount > budgetLimit(state, 'events')) {
     stopForBudget(state, { dimension: 'events', observed: state.eventCount, limit: budgetLimit(state, 'events') });
@@ -63,7 +94,9 @@ function accountEvent(state, event) {
   state.eventCount += 1;
   const usage = readUsage(event);
   const reported = billableTokenCount(usage);
-  if (reported > 0) {
+  if (reported === null) {
+    state.tokenUsageUnknown = true;
+  } else if (reported > 0) {
     state.exactTokens = Math.max(state.exactTokens, reported);
   } else if (isAgentMessage(event)) {
     state.estimatedTokens += Math.ceil(Buffer.byteLength(messageText(event), 'utf8') / 4);

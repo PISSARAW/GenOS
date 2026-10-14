@@ -614,6 +614,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0482](0482-atomicite-mesures-et-decision-rollout.md) | Atomicité entre mesures et décision de rollout | Accepté et implémenté. | 2026-10-14 | Rollouts, métriques et gate de promotion de release. |
 | [0483](0483-promotion-rollout-fondee-sur-le-candidat.md) | Fonder la promotion du rollout sur le candidat | Accepté et implémenté. | 2026-10-14 | Rollouts A/B et promotion de release. |
 | [0484](0484-identifier-explicitement-le-candidat-du-rollout.md) | Identifier explicitement le candidat du rollout | Accepté et implémenté. | 2026-10-14 | Rollouts canary/A/B et promotion de release. |
+| [0485](0485-atomicite-creation-rollout-et-variantes.md) | Atomicité de création du rollout et de ses variantes | Accepté et implémenté. | 2026-10-14 | Persistance des rollouts et agrégats de métriques. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
