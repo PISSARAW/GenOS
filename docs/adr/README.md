@@ -617,6 +617,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0485](0485-atomicite-creation-rollout-et-variantes.md) | Atomicité de création du rollout et de ses variantes | Accepté et implémenté. | 2026-10-14 | Persistance des rollouts et agrégats de métriques. |
 | [0486](0486-frontiere-de-confiance-du-transfert-hgt.md) | Frontière de confiance du transfert HGT | Proposé | 2026-10-14 | Transfert horizontal de plasmides, autorité et reçus. |
 | [0487](0487-recus-communication-inter-agents.md) | Reçus de communication inter-agents | Accepté | 2026-10-14 | Messagerie multi-agent, destinataires effectifs, lecture et acquittement. |
+| [0488](0488-borner-les-recherches-de-provenance.md) | Borner les recherches de provenance MCP | Accepté et implémenté. | 2026-10-14 | `genos_blame`, `genos_lineage` et extraction d'évidence. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
