@@ -197,6 +197,7 @@ async function buildExpressionContext(opts) {
   const strategyTrajectory = contracts.trajectoryStubOf(agentId);
   const vital = loadVitalStates(agentId);
   const identityDossier = buildIdentityDossier({ agentId, agentRow: core.agentRow,
+    continuity: core.cognitiveSelf?.identityDossier?.causalIdentity,
     self: core.cognitiveSelf && { ...core.cognitiveSelf,
       sourceAvailability: core.cognitiveSelf.sourceAvailability },
     expression: { ...all, ...identity, clinicalState, epistemicState },
@@ -264,6 +265,7 @@ async function refreshIdentityProjection(input) {
   }
   const agentRow = await loadAgentRow(input.db, input.agentId);
   input.merged.identityDossier = buildIdentityDossier({ agentId: input.agentId, agentRow,
+    continuity: await require('../identity/projection').describe(input.db, { agentId: input.agentId }),
     self: input.merged.self, expression: input.merged });
   input.merged.identityDecision = input.merged.identityDossier.decisionConstraints;
 }

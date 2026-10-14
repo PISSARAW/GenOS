@@ -90,6 +90,7 @@ async function buildWorkerSelf(db, params) {
     version: agentSelf.version,
     identityDossier: agentSelf.identityDossier,
     identityDecision: agentSelf.identityDossier.decisionConstraints,
+    peerModels: agentSelf.peerModels,
 
     // Identité minimale (référence à l'agent parent)
     identity: {
@@ -270,6 +271,7 @@ function formatWorkerSelfPrompt(workerSelf) {
   ];
 
   if (workerSelf.identityDossier) {
+    lines.push(require('./identity/prompt').format(workerSelf.identityDossier, workerSelf.peerModels));
     lines.push('', `[DOSSIER D'IDENTITÉ ${workerSelf.identityDossier.version.slice(0, 12)}]`);
     for (const [dimension, entry] of Object.entries(workerSelf.identityDossier.dimensions)) {
       const evidence = entry.status === 'known'

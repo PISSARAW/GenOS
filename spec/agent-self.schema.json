@@ -41,6 +41,17 @@
         "agentId": { "type": "string" },
         "kind": { "enum": ["worker", "daemon", "orchestrator"] },
         "version": { "type": "string" },
+        "causalIdentity": {
+          "type": ["object", "null"],
+          "properties": {
+            "verified": { "type": "boolean" },
+            "revision": { "type": "integer", "minimum": 1 },
+            "headHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "origin": { "enum": ["GENESIS", "LEGACY_IMPORT"] },
+            "incarnationId": { "type": ["string", "null"] }
+          }
+        },
+        "declaredLineage": { "$ref": "#/$defs/IdentityDimension" },
         "dimensions": {
           "type": "object",
           "required": ["existence", "continuity", "composition", "characteristics", "biology", "experience", "personalIdentity", "relations", "functions", "origin", "currentState", "substrate", "uncertainty", "governance"],

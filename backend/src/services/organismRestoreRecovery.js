@@ -20,6 +20,7 @@ async function prepare(db, options) {
   const id = `organism-restore-${crypto.randomUUID()}`;
   let originalStatus = agent.status;
   await withTransaction(db, async () => {
+    await require('./identity/snapshots').assertRestorable(db, agent.id);
     const current = await db.get('SELECT status FROM agents WHERE id = ?', agent.id);
     if (current) originalStatus = current.status;
     await db.run(`INSERT INTO organism_restore_attempts

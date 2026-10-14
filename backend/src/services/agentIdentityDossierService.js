@@ -52,6 +52,15 @@ function anchorOf(input) {
 }
 
 function continuityOf(input) {
+  if (input.continuity?.verified) {
+    return known({ revision: input.continuity.revision, headHash: input.continuity.headHash,
+      origin: input.continuity.origin, incarnationId: input.continuity.incarnationId,
+      origins: input.continuity.origins }, 'identityCausalRegistry');
+  }
+  return unknown('Causal continuity has not been verified');
+}
+
+function declaredLineageOf(input) {
   const row = rowOf(input);
   const parentId = row?.parent_agent_id || row?.parent_id || null;
   if (row) {
@@ -77,6 +86,10 @@ function compositionOf(input) {
 }
 
 function characteristicsOf(input) {
+  const learned = input.continuity?.selfModel;
+  if (learned?.capabilities.some(item => item.observations > 0)) {
+    return known(learned, 'identity.runtime_attested_outcomes');
+  }
   const operational = input.self?.operational;
   if (!hasObservedCharacteristics(operational)) {
     return unknown('No observed competence or capabilities');
@@ -161,12 +174,13 @@ function originOf(input) {
 function currentStateOf(input) {
   const row = rowOf(input);
   if (row) return known({ status: row.status,
+    identityLifeState: input.continuity?.lifeState || null,
     task: row.current_task || null, isApoptotic: row.is_apoptotic === 1,
     regulation: input.self?.regulatory || null },
   'agents', row.updated_at || null);
   const daemon = daemonOf(input);
   if (daemon) {
-    return known({ activity: daemon.activity, health: daemon.health },
+    return known({ activity: daemon.activity, health: daemon.health, identityLifeState: input.continuity?.lifeState || null },
       'daemon_runtime_state', daemon.updatedAt || null);
   }
   return unknown('No current runtime observation');
@@ -209,15 +223,18 @@ function buildDimensions(input) {
 }
 
 function decisionConstraintsOf(dimensions) {
-  const lifecycle = dimensions.currentState.value?.status;
-  const health = dimensions.currentState.value?.health;
-  const apoptotic = dimensions.currentState.value?.isApoptotic === true;
-  const inactive = ['terminated', 'apoptosis', 'Apoptosis'].includes(lifecycle) || health === 'APOPTOTIC' || apoptotic;
-  return { mayAct: dimensions.existence.status === 'known' && !inactive,
+  const inactive = inactiveState(dimensions.currentState.value);
+  const continuous = dimensions.continuity.status === 'known';
+  return { mayAct: dimensions.existence.status === 'known' && continuous && !inactive,
     identityRegistered: dimensions.existence.status === 'known',
     unknownDimensions: dimensions.uncertainty.value.unknownDimensions,
     reason: dimensions.existence.status !== 'known' ? 'UNREGISTERED_IDENTITY'
-      : inactive ? 'TERMINAL_STATE' : null };
+      : inactive ? 'TERMINAL_STATE' : continuous ? null : 'CONTINUITY_UNVERIFIED' };
+}
+
+function inactiveState(state) {
+  return ['terminated', 'apoptosis', 'Apoptosis'].includes(state?.status)
+    || state?.health === 'APOPTOTIC' || state?.isApoptotic === true || state?.identityLifeState === 'terminal';
 }
 
 function buildIdentityDossier(input) {
@@ -226,6 +243,7 @@ function buildIdentityDossier(input) {
   const version = crypto.createHash('sha256').update(JSON.stringify(dimensions)).digest('hex');
   return { apiVersion: 'genos.identity-dossier/v1', agentId: input.agentId,
     kind: identityKind(input), version, dimensions,
+    declaredLineage: declaredLineageOf(input), causalIdentity: input.continuity || null,
     decisionConstraints: decisionConstraintsOf(dimensions) };
 }
 

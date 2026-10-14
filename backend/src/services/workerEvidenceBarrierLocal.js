@@ -11,7 +11,7 @@ const { emit, updateAgent } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
 const immuneSystem = require('./immuneSystem');
-const { checkedWorkerSelfBlock } = require('./workerIdentityGuardService');
+const workerIdentity = require('./identity/worker');
 const { advanceAutonomousRound } = require('./agentRoundService');
 const agentRecoveryService = require('./agentRecoveryService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
@@ -64,6 +64,7 @@ async function generateWorkerResult(ctx) {
     db: ctx.db,
     cognitiveIntegration: 'worker',
     agentId: ctx.mission.agentId,
+    identitySession: ctx.identitySession,
     model: ctx.workerModel,
     timeoutMs: ctx.latencyMs,
     priority: 'bulk',
@@ -221,7 +222,7 @@ async function runGenerationStage(ctx) {
   const conscienceState = await agentConscience.loadConscienceState(ctx.db, ctx.mission.agentId);
   const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
   const workerModel = resolveWorkerModel(ctx.mission);
-  const wsBlock = await checkedWorkerSelfBlock(ctx.db, ctx.mission);
+  const wsBlock = ctx.identity.prompt;
   const workerKinds = require('./agents/workerKindService');
   const kind = workerKinds.resolveWorkerKind(ctx.mission.workerKind, ctx.mission.role);
   const workerContract = ctx.mission.workerContract || workerKinds.buildWorkerContract(kind, {
@@ -251,7 +252,8 @@ async function runGenerationStage(ctx) {
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
     stageTimings: ctx.stageTimings,
-    promptText: promptText
+    promptText: promptText,
+    identitySession: ctx.identity.session
   });
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
 }
@@ -328,8 +330,10 @@ async function runLocalWorker(db, mission, executionRun) {
   await updateAgent(mission.agentId, 'running', mission.prompt);
   await emitLocalStarted({ db: db, mission: mission, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
   const stageTimings = {};
+  let identity;
   try {
-    const generation = await runGenerationStage({ db: db, mission: mission, stageTimings: stageTimings });
+    identity = await workerIdentity.begin(db, { mission, executionRun });
+    const generation = await runGenerationStage({ db, mission, stageTimings, identity });
     const evidence = await runEvidenceStage({
       db, executionRun,
       result: generation.result,
@@ -343,6 +347,9 @@ async function runLocalWorker(db, mission, executionRun) {
     const nativeOracleRef = await require('./workerCodeOracleLocal').prepare({
       db, mission, executionRun, evidenceReport: evidence.evidenceReport
     });
+    await workerIdentity.finish(db, { identity, success: true,
+      evidenceRef: { executionRunId: executionRun.id, nativeOracleRef: nativeOracleRef || null,
+        reportHash: require('./identity/storage').hash(evidence.evidenceReport), verification: 'runtime_evidence_barrier' } });
     let eventType = 'AGENT_COMPLETED';
     if (evidence.noAnswer) eventType = 'WORKER_NO_ANSWER_PROVEN';
     let kind = 'LOCAL_REVIEW';
@@ -367,6 +374,7 @@ async function runLocalWorker(db, mission, executionRun) {
       provider: generation.result.provider,
       evidenceReport: evidence.evidenceReport,
       nativeOracleRef: nativeOracleRef,
+      identityReceipt: identity.receipt,
       noAnswerProof: noAnswerProof,
       proposal: evidence.proposal,
       usage: { input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens, cost_usd: generation.result.costUsd, tokens: evidence.consumed },
@@ -374,7 +382,10 @@ async function runLocalWorker(db, mission, executionRun) {
     }, publishLocalSuccess);
     return { started: true, executionRun: executionRun, local: true, result: generation.result };
   } catch (error) {
+    await workerIdentity.fail(db, { identity, executionRun, error });
     return publishLocalFailure({ db: db, mission: mission, executionRun: executionRun, error: error, stageTimings: stageTimings });
+  } finally {
+    await workerIdentity.release(db, identity);
   }
 }
 

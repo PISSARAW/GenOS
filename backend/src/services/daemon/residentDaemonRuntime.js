@@ -19,6 +19,7 @@
 const { withTransaction } = require('../../db');
 const { migrateDaemonTerritory } = require('../../db/migrations/migrateDaemonTerritory');
 const { buildIdentityDossier } = require('../agentIdentityDossierService');
+const identity = require('../identity/daemon');
 
 const ACTIVITIES = [
   'BOOTSTRAPPING',
@@ -60,6 +61,7 @@ function isValidHealth(value) {
 function createRuntime(db, options) {
   return {
     db: db || null,
+    identityOwner: require('crypto').randomUUID(),
     genomeRef: (options && options.genomeRef) || GENOME_REF,
     daemons: new Map(),
     pending: new Map(),
@@ -70,6 +72,7 @@ function createRuntime(db, options) {
 async function ensureRuntimeTables(runtime) {
   if (!runtime.db) return;
   await migrateDaemonTerritory(runtime.db);
+  await require('../../db/migrations/migrateAgentIdentity').migrateAgentIdentity(runtime.db);
 }
 
 function registerDaemon(runtime, input) {
@@ -94,14 +97,21 @@ async function registerDaemonUnlocked(runtime, input) {
   }
   const state = restoreRuntimeState(input, prior);
   await persistRegistration(runtime, { daemonId: input.daemonId, state, resumed: Boolean(prior) });
+  state.identitySession = await identity.register(runtime, input.daemonId, runtime.daemons.get(input.daemonId)?.identitySession);
   runtime.daemons.set(input.daemonId, state);
-  return withDaemonIdentity(input.daemonId, { ...state, resumed: Boolean(prior) }, runtime.genomeRef);
+  return withDaemonIdentity(runtime, input.daemonId, { ...state, resumed: Boolean(prior) });
 }
 
-function withDaemonIdentity(daemonId, state, genomeRef) {
+async function withDaemonIdentity(runtime, daemonId, state) {
+  const continuity = await identity.describe(runtime, daemonId);
+  const { identitySession, ...publicState } = state;
   const identityDossier = buildIdentityDossier({ agentId: daemonId, kind: 'daemon',
-    daemon: { daemonId, ...state, genomeRef } });
-  return { registered: true, daemonId, ...state, identityDossier,
+    daemon: { daemonId, ...state, genomeRef: runtime.genomeRef }, continuity });
+  if (!identitySession || !continuity.active || continuity.incarnationId !== identitySession.incarnationId) {
+    identityDossier.decisionConstraints = { ...identityDossier.decisionConstraints,
+      mayAct: false, reason: 'INACTIVE_INCARNATION' };
+  }
+  return { registered: true, daemonId, ...publicState, identityDossier,
     identityDecision: identityDossier.decisionConstraints };
 }
 
@@ -190,11 +200,12 @@ async function heartbeatUnlocked(runtime, tick) {
   const prior = runtime.daemons.get(tick.daemonId);
   if (!prior) return { updated: false, errors: ['unknown-daemon'] };
   const entry = { ...prior };
+  await identity.check(runtime, entry);
   applyTickToEntry(entry, tick);
   const receipt = await persistHeartbeat(runtime, tick, entry);
   if (runtime.db && !receipt.persisted) return { updated: false, errors: ['persistence-missed'] };
   runtime.daemons.set(tick.daemonId, entry);
-  return { updated: true, ...withDaemonIdentity(tick.daemonId, entry, runtime.genomeRef) };
+  return { updated: true, ...await withDaemonIdentity(runtime, tick.daemonId, entry) };
 }
 
 function applyTickToEntry(entry, tick) {
@@ -230,15 +241,15 @@ async function getDaemonState(runtime, query) {
   if (!runtime || !query || !query.daemonId) return { found: false };
   const entry = runtime.daemons.get(query.daemonId);
   if (entry) return { found: true, source: 'memory',
-    ...withDaemonIdentity(query.daemonId, entry, runtime.genomeRef) };
+    ...await withDaemonIdentity(runtime, query.daemonId, entry) };
   if (!runtime.db) return { found: false };
   const row = await runtime.db.get('SELECT * FROM daemon_runtime_state WHERE daemon_id = ?', query.daemonId);
   if (!row) return { found: false };
-  return { ...withDaemonIdentity(row.daemon_id, {
+  return { ...await withDaemonIdentity(runtime, row.daemon_id, {
     territoryId: row.territory_id, activity: row.activity, health: row.health,
     revisions: row.cognitive_revisions, createdAt: row.created_at,
     updatedAt: row.updated_at, lastEventId: Number(row.last_event_id || 0)
-  }, runtime.genomeRef),
+  }),
     found: true,
     source: 'sqlite',
   };
@@ -264,5 +275,6 @@ module.exports = {
   registerDaemon,
   heartbeat,
   getDaemonState,
-  listDaemonStates
+  listDaemonStates,
+  releaseDaemon: identity.release
 };

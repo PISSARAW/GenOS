@@ -124,6 +124,7 @@ async function shutdown(ctx) {
   await saveWakeBudget(ctx).catch(() => {});
   await cycleService.drain(ctx.runtime).catch(() => {});
   await Promise.allSettled([...ctx.runtime.pending.values()]);
+  await require('../src/services/daemon/residentDaemonRuntime').releaseDaemon(ctx.runtime, ctx.daemonId);
   await closeDatabase().catch(() => {});
   console.log(`[genos-daemon] ${ctx.daemonId} shutdown complete.`);
 }

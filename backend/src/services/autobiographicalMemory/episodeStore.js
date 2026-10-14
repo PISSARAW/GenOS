@@ -33,6 +33,7 @@ function rowToEpisode(row) {
   return {
     id: row.id,
     agentId: row.agent_id,
+    provenance: require('../identity/experience').read(row),
     missionId: row.mission_id,
     kind: row.kind,
     organizationId: row.organization_id || null,
@@ -72,6 +73,8 @@ async function recordEpisode(episode = {}, dbOverride = null) {
   const id = episode.id || `episode_${crypto.randomUUID()}`;
   const createdAt = episode.timestamp || new Date().toISOString();
   const row = episodeToRow(episode, id, createdAt);
+  const provenance = await require('../identity/experience').provenance(db, episode);
+  row.situation_json = toJson({ ...parseJson(row.situation_json, {}), _genosExperience: provenance }, {});
   await db.run(
     `INSERT INTO autobiographical_episodes (
       id, agent_id, mission_id, kind, organization_id, project_id, salience,
@@ -83,6 +86,8 @@ async function recordEpisode(episode = {}, dbOverride = null) {
   );
   const saved = await db.get('SELECT * FROM autobiographical_episodes WHERE id = ?', id);
   if (saved.agent_id !== row.agent_id) throw new Error('Autobiographical episode id belongs to another agent.');
+  const recorded = require('../identity/experience').read(saved);
+  if (recorded.sourceEpisodeId !== provenance.sourceEpisodeId) throw new Error('Autobiographical provenance conflict.');
   return rowToEpisode(saved);
 }
 
