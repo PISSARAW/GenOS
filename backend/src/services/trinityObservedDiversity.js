@@ -18,7 +18,9 @@ function evaluate(worlds, selection) {
   if (observations.length < 3 || observations.some(item => !item)) return { valid: false, reason: 'effective_model_provenance_missing' };
   const policy = selection.experimentalDesign?.diversityPolicy;
   if (policy === 'provider_diverse') return { ...diversity.enforceProviderDiversity(observations), reason: 'effective_provider_diversity_below_threshold' };
-  const result = diversity.validateDiversity(observations.slice(0, 3));
+  const threshold = selection.diversity?.requiredDiversity
+    ?? selection.experimentalDesign?.diversityThreshold;
+  const result = diversity.validateDiversity(observations, {}, threshold);
   return { ...result, reason: 'effective_model_diversity_below_threshold', method: 'runtime_observed_routes' };
 }
 module.exports = { provenance, evaluate };

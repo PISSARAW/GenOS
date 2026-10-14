@@ -85,20 +85,36 @@ function computeDiversityScore(worldA, worldB, historicalMemory = {}) {
   return { score: Number(score.toFixed(4)), dimensions: dims };
 }
 
-function tripletDiversity(worlds, historicalMemory = {}) {
-  const pairs = [[0, 1], [0, 2], [1, 2]];
+function validatedThreshold(value = MIN_DIVERSITY_THRESHOLD) {
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new RangeError('requiredDiversity must be a number between 0 and 1.');
+  }
+  return value;
+}
+
+function tripletDiversity(worlds, historicalMemory = {}, requiredDiversity = MIN_DIVERSITY_THRESHOLD) {
+  const threshold = validatedThreshold(requiredDiversity);
+  const pairs = [];
+  for (let left = 0; left < worlds.length; left++) {
+    for (let right = left + 1; right < worlds.length; right++) pairs.push([left, right]);
+  }
   const pairScores = pairs.map(([i, j]) => computeDiversityScore(worlds[i], worlds[j], historicalMemory));
+  if (!pairScores.length) return { pairScores, minPairwiseDiversity: 0, avgPairwiseDiversity: 0, passesThreshold: false };
   const minScore = Math.min(...pairScores.map(p => p.score));
   const avgScore = pairScores.reduce((s, p) => s + p.score, 0) / pairScores.length;
   return {
     pairScores,
     minPairwiseDiversity: Number(minScore.toFixed(4)),
     avgPairwiseDiversity: Number(avgScore.toFixed(4)),
-    passesThreshold: minScore >= MIN_DIVERSITY_THRESHOLD
+    passesThreshold: minScore >= threshold,
+    threshold
   };
 }
 
-function optimizeTriplet(candidates, historicalMemory = {}, maxIterations = 1000) {
+function optimizeTriplet(input) {
+  const { candidates, historicalMemory = {}, maxIterations = 1000,
+    requiredDiversity = MIN_DIVERSITY_THRESHOLD } = input;
+  const threshold = validatedThreshold(requiredDiversity);
   if (candidates.length < 3) return { triplet: candidates, diversity: null, reason: 'insufficient_candidates' };
   let best = null;
   let bestScore = -1;
@@ -106,11 +122,11 @@ function optimizeTriplet(candidates, historicalMemory = {}, maxIterations = 1000
   for (let iter = 0; iter < maxIterations; iter++) {
     const shuffled = [...indices].sort(() => Math.random() - 0.5);
     const triplet = shuffled.slice(0, 3).map(i => candidates[i]);
-    const div = tripletDiversity(triplet, historicalMemory);
+    const div = tripletDiversity(triplet, historicalMemory, threshold);
     if (div.minPairwiseDiversity > bestScore) {
       bestScore = div.minPairwiseDiversity;
       best = { triplet, diversity: div };
-      if (bestScore >= MIN_DIVERSITY_THRESHOLD) break;
+      if (bestScore >= threshold) break;
     }
   }
   return best || { triplet: candidates.slice(0, 3), diversity: tripletDiversity(candidates.slice(0, 3), historicalMemory), reason: 'no_improvement' };
@@ -118,7 +134,8 @@ function optimizeTriplet(candidates, historicalMemory = {}, maxIterations = 1000
 
 function planDiverseWorlds(input) {
   const { candidates, historicalMemory, requiredDiversity = MIN_DIVERSITY_THRESHOLD, maxAttempts = 1000 } = input;
-  const result = optimizeTriplet(candidates, historicalMemory, maxAttempts);
+  const result = optimizeTriplet({ candidates, historicalMemory,
+    maxIterations: maxAttempts, requiredDiversity });
   if (!result.diversity?.passesThreshold) {
     return {
       success: false,
@@ -136,13 +153,14 @@ function planDiverseWorlds(input) {
   };
 }
 
-function validateDiversity(worlds, historicalMemory = {}) {
-  const div = tripletDiversity(worlds, historicalMemory);
+function validateDiversity(worlds, historicalMemory = {}, requiredDiversity = MIN_DIVERSITY_THRESHOLD) {
+  const threshold = validatedThreshold(requiredDiversity);
+  const div = tripletDiversity(worlds, historicalMemory, threshold);
   return {
     valid: div.passesThreshold,
     diversity: div,
-    threshold: MIN_DIVERSITY_THRESHOLD,
-    warnings: div.passesThreshold ? [] : [`Minimum pairwise diversity ${div.minPairwiseDiversity} below threshold ${MIN_DIVERSITY_THRESHOLD}`]
+    threshold,
+    warnings: div.passesThreshold ? [] : [`Minimum pairwise diversity ${div.minPairwiseDiversity} below threshold ${threshold}`]
   };
 }
 
@@ -150,7 +168,7 @@ function enforceProviderDiversity(worlds) {
   const list = Array.isArray(worlds) ? worlds : [];
   const providers = list.map((world) => String(world.provider || '').toLowerCase());
   const distinct = new Set(providers.filter(Boolean));
-  const valid = distinct.size >= Math.min(3, list.length) && !providers.includes('');
+  const valid = list.length > 0 && distinct.size === list.length && !providers.includes('');
   return {
     valid,
     providers,
