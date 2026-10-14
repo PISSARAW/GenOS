@@ -68,6 +68,8 @@ async function testBudgetEnvelopeCoherence() {
       autonomyPlan: {
         tokenPolicy: {
           total: 80000,
+          workerShare: 1,
+          orchestratorReserve: 0,
           rounds: {
             initial: { pool: 60000 },
             continuation: { pool: 30000 }
@@ -106,7 +108,7 @@ async function testBudgetEnvelopeCoherence() {
           orchestratorReserve: 0.4,
           rounds: {
             initial: { pool: 50000 },
-            continuation: { pool: 40000 }
+            continuation: { pool: 10000 }
           }
         }
       }

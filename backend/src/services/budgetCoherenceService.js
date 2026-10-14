@@ -36,18 +36,19 @@ function resolveShares({ workerShare, reserve, fallbackWorker, fallbackReserve }
 }
 
 function validateShareSum(shares) {
-  const sum = Number(shares[0]) + Number(shares[1]);
-  if (!Number.isFinite(sum)) return 'worker/orchestrator shares must be finite numbers';
+  if (!shares.every(Number.isFinite)) return 'worker/orchestrator shares must be finite numbers';
+  if (shares.some(share => share < 0 || share > 1)) return 'worker/orchestrator shares must be between 0 and 1';
+  const sum = shares[0] + shares[1];
   if (Math.abs(sum - 1) > 0.01) return `worker/orchestrator shares must sum to 1 (±0.01), got ${sum}`;
   return null;
 }
 
 function readRoundsPool(rounds, key) {
   const round = rounds[key];
-  if (round == null) {
-    return 0;
-  }
-  return Number(coalesce(round.pool, 0));
+  if (round != null && (typeof round !== 'object' || Array.isArray(round))) return { pool: Number.NaN, valid: false };
+  const raw = coalesce(round?.pool, 0);
+  const pool = Number(raw);
+  return { pool, valid: raw !== true && raw !== false && Number.isFinite(pool) && pool >= 0 };
 }
 
 function normalizeMissionBudget(raw = {}) {
@@ -62,6 +63,8 @@ function normalizeMissionBudget(raw = {}) {
     fallbackWorker: 0.6,
     fallbackReserve: 0.4
   });
+  const shareError = validateShareSum(shares);
+  if (shareError) throw Object.assign(new Error(`Budget ${shareError}.`), { code: 'INVALID_BUDGET_SHARE' });
   return {
     tokens,
     costUsd,
@@ -96,7 +99,8 @@ function validateMissionScope(normalized, total) {
   return null;
 }
 
-function validateScopeBudgets({ activeScope, normalized, total, expectedOrchestratorBudget }) {
+function validateScopeBudgets(options) {
+  const { activeScope, normalized, total, expectedOrchestratorBudget } = options;
   if (activeScope === 'orchestrator') {
     return validateOrchestratorScope(normalized, total, expectedOrchestratorBudget);
   }
@@ -106,10 +110,25 @@ function validateScopeBudgets({ activeScope, normalized, total, expectedOrchestr
   return validateMissionScope(normalized, total);
 }
 
+function validateBudgetEnvelope({ total, pools, shares, rawTotal }) {
+  if (rawTotal === true || rawTotal === false || !Number.isFinite(total) || total <= 0) return 'budget total must be finite and positive';
+  if (pools.some(item => !item.valid)) return 'round pools must be finite and non-negative';
+  const shareError = validateShareSum(shares);
+  if (shareError) return shareError;
+  const totalDispatched = pools.reduce((sum, item) => sum + item.pool, 0);
+  if (totalDispatched > total) return `budget envelope exceeded: dispatched ${totalDispatched} > total ${total}`;
+  const workerPoolLimit = total * shares[0];
+  if (totalDispatched > workerPoolLimit) {
+    return `worker allocation exceeded: dispatched ${totalDispatched} > worker pool ${workerPoolLimit}`;
+  }
+  return null;
+}
+
 function validateBudgetCoherence({ executionBudget = {}, autonomyPlan = {}, scope = 'mission' } = {}) {
   const normalized = normalizeMissionBudget(executionBudget);
   const tokenPolicy = autonomyPlan.tokenPolicy || {};
-  const total = Number(coalesce(tokenPolicy.total, coalesce(normalized.tokens, 0)));
+  const rawTotal = coalesce(tokenPolicy.total, coalesce(normalized.tokens, 0));
+  const total = Number(rawTotal);
   const shares = resolveShares({
     workerShare: tokenPolicy.workerShare,
     reserve: tokenPolicy.orchestratorReserve,
@@ -117,19 +136,12 @@ function validateBudgetCoherence({ executionBudget = {}, autonomyPlan = {}, scop
     fallbackReserve: normalized.orchestratorReserve
   });
   const rounds = tokenPolicy.rounds || {};
-  const totalDispatched = readRoundsPool(rounds, 'initial') + readRoundsPool(rounds, 'continuation');
+  const pools = [readRoundsPool(rounds, 'initial'), readRoundsPool(rounds, 'continuation')];
 
-  if (total <= 0) {
-    return { valid: false, reason: 'budget total must be positive' };
-  }
-
-  const shareError = validateShareSum(shares);
-  if (shareError) return { valid: false, reason: shareError };
+  const envelopeError = validateBudgetEnvelope({ total, pools, shares, rawTotal });
+  if (envelopeError) return { valid: false, reason: envelopeError };
 
   const expectedOrchestratorBudget = total * shares[1];
-  if (totalDispatched > total) {
-    return { valid: false, reason: `budget envelope exceeded: dispatched ${totalDispatched} > total ${total}` };
-  }
 
   const activeScope = executionBudget.scope || scope;
   const scopeError = validateScopeBudgets({ activeScope, normalized, total, expectedOrchestratorBudget });

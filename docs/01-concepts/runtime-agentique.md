@@ -154,7 +154,7 @@ $$
 B_w + B_o = B_t
 $$
 
-avec $B_w = s_w B_t$ et $B_o = s_o B_t$, et les pools dispatches ne peuvent pas depasser $B_t$. L'adaptateur alloue a l'orchestrateur au plus sa reserve ; les workers restent sous l'enveloppe de mission.
+avec $B_w = s_w B_t$ et $B_o = s_o B_t$. Le total doit être fini et strictement positif, chaque part doit être comprise entre 0 et 1, et les pools initiaux et de continuation doivent être finis, non négatifs et cumulés sous $B_w$. L'adaptateur alloue à l'orchestrateur au plus sa réserve. Une valeur mal formée ou un pool négatif est refusé ; il ne peut pas compenser un dépassement.
 
 Le cout estime d'une requete est :
 
