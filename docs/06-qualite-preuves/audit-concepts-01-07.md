@@ -67,14 +67,14 @@ violations du baseline et zéro nouvelle. La contrainte de focus laisse désorma
 la mission sans outil si son intersection avec le lease est vide.
 
 Après ADR 0509–0510, les tests `test_agent_runtime_adapter.js`,
-`test_runtime_billable_budget.js` et `test_external_subprocess_model_budget.js`
+`test_runtime_billable_budget.js`, `test_external_subprocess_model_budget.js`
+et `test_local_runtime_fallback.js`
 passent, ainsi que l'index ADR (631 entrées). Le gate qualité courant inspecte
 6 158 fichiers et voit une violation nouvelle, `mission_crossover.rs:52`
 (complexité 12), dans un travail parallèle non lié; le gate staged du correctif
-budget passe sans violation. `test_local_runtime_fallback.js` échoue avant de
-tester le fallback attendu : le runtime émet `AGENT_HALTED` car le worker direct
-n'a pas de scope parent de budget modèle. Ce cas révèle un défaut de fixture ou
-de contrat de test; il ne qualifie pas le fallback local.
+budget passe sans violation. La fixture nommée `test_local_runtime_fallback.js`
+vérifie en réalité que le runtime arrête un worker dépourvu de scope parent de
+budget modèle; elle ne qualifie pas le fallback local.
 
 ## 1. Principes fondateurs — 19 entrées
 

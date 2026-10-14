@@ -22,8 +22,10 @@ child.stdout.on('data', (chunk) => {
 child.stderr.resume();
 child.on('close', (code) => {
   assert.notEqual(code, 0);
-  assert(events.some((event) => event.eventType === 'AGENT_FAILED'));
+  const blocked = events.find((event) => event.eventType === 'AGENT_HALTED');
+  assert(blocked, 'a local worker without a parent model budget scope must be halted');
+  assert.match(blocked.detail, /parent model budget scope/i);
   assert(!events.some((event) => event.eventType === 'AGENT_COMPLETED'));
-  console.log('Local runtime fallback is reported as a failure.');
+  console.log('Local runtime requires a parent model budget scope.');
 });
 child.stdin.end(encodeMission({ agentId: 'local-fallback-test', prompt: 'Return a result' }));
