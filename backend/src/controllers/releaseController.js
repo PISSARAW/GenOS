@@ -159,6 +159,15 @@ function validateSlo(slo, requiredNumber) {
   }
 }
 
+function resolveCandidateVariant(variants, strategy, requestedCandidate) {
+  const conventionalName = strategy === 'ab' ? 'candidate' : 'canary';
+  const inferredName = variants.find((variant) => variant.name === conventionalName)?.name;
+  const candidateVariant = requestedCandidate || inferredName || (strategy === 'canary' ? variants.at(-1).name : null);
+  return candidateVariant && variants.some((variant) => variant.name === candidateVariant)
+    ? { candidateVariant }
+    : { error: { code: 'INVALID_CANDIDATE_VARIANT', message: 'candidateVariant must match a configured variant; custom A/B variants must declare it.' } };
+}
+
 function validateRolloutConfig({ strategy, body, requiredNumber }) {
   if (!['canary', 'ab'].includes(strategy)) return { error: { code: 'INVALID_ROLLOUT_STRATEGY', message: 'strategy must be canary or ab.' } };
   
@@ -172,6 +181,10 @@ function validateRolloutConfig({ strategy, body, requiredNumber }) {
   const variantsValidation = validateVariants(config.variants, requiredNumber);
   if (variantsValidation.error) return variantsValidation;
   config.variants = variantsValidation.variants;
+
+  const candidateValidation = resolveCandidateVariant(config.variants, strategy, body?.candidateVariant);
+  if (candidateValidation.error) return candidateValidation;
+  config.candidateVariant = candidateValidation.candidateVariant;
 
   const sloValidation = validateSlo(config.slo, requiredNumber);
   if (sloValidation.error) return sloValidation;
@@ -266,9 +279,9 @@ async function recordRolloutMetric(req, res, next) {
 }
 
 function getCandidateVariantName(config, strategy) {
-  return (config.variants && config.variants.length > 1) 
-    ? config.variants[config.variants.length - 1].name 
-    : (strategy === 'canary' ? 'canary' : 'candidate');
+  const conventionalName = strategy === 'canary' ? 'canary' : 'candidate';
+  return config.candidateVariant || config.variants?.find((variant) => variant.name === conventionalName)?.name ||
+    config.variants?.at(-1)?.name || conventionalName;
 }
 
 function getCandidateMetric(metrics, candidateVariantName) {

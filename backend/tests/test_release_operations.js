@@ -28,6 +28,11 @@ assert.equal(decide([
   { variant: 'control', requests: 20, errors: 0, latency_ms_total: 1000 },
   { variant: 'candidate', requests: 20, errors: 0, latency_ms_total: 2000 }
 ], abConfig, 'ab').status, 'rolled_back', 'A/B rollout cannot promote when control beats candidate');
+const reversedAbConfig = { slo: config.slo, variants: [{ name: 'candidate' }, { name: 'control' }] };
+assert.equal(decide([
+  { variant: 'candidate', requests: 20, errors: 0, latency_ms_total: 2000 },
+  { variant: 'control', requests: 20, errors: 0, latency_ms_total: 1000 }
+], reversedAbConfig, 'ab').status, 'rolled_back', 'Candidate identity is independent of variant order');
 
 function response() {
   return {
@@ -66,6 +71,14 @@ async function e2e() {
   assert.equal(duplicate.body.error.code, 'RELEASE_ALREADY_EXISTS');
   const rollout = await invoke(releases.createRollout, { params: { id: create.body.id }, body: { strategy: 'ab', slo: config.slo }, tenant });
   assert.equal(rollout.code, 201);
+  const ambiguousCandidate = await invoke(releases.createRollout, { params: { id: create.body.id },
+    body: { strategy: 'ab', variants: [{ name: 'control', traffic: 50 }, { name: 'variant-b', traffic: 50 }], slo: config.slo }, tenant });
+  assert.equal(ambiguousCandidate.code, 400);
+  assert.equal(ambiguousCandidate.body.code, 'INVALID_CANDIDATE_VARIANT');
+  const explicitCandidate = await invoke(releases.createRollout, { params: { id: create.body.id },
+    body: { strategy: 'ab', candidateVariant: 'variant-b', variants: [{ name: 'variant-b', traffic: 50 }, { name: 'control', traffic: 50 }], slo: config.slo }, tenant });
+  assert.equal(explicitCandidate.code, 201);
+  assert.equal(explicitCandidate.body.candidateVariant, 'variant-b');
   for (const variant of ['control', 'candidate']) {
     const metric = await invoke(releases.recordRolloutMetric, { params: { rolloutId: rollout.body.id }, body: { variant, requests: 10, latencyMs: variant === 'candidate' ? 80 : 100, costUsd: 0.01 }, tenant });
     assert.equal(metric.code, 202);
