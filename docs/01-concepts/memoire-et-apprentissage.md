@@ -555,6 +555,7 @@ Le dépôt prévoit différents garde-fous pour éviter de contaminer la mémoir
 - dead-end detection ;
 - tenant scoping via `organization_id` et `project_id` ;
 - la consolidation et la purge sans portée tenant ne touchent que les épisodes globaux (`organization_id IS NULL` et `project_id IS NULL`) ;
+- le rappel peut présenter des épisodes à forte récompense avant leur consolidation ; le prompt indique séparément le statut persisté `is_consolidated` ;
 - check de validité épistémique ;
 - filtering par provenance ;
 - cycle detection / graph provenance.

@@ -188,7 +188,13 @@ function goldenLine(entry) {
 
 function episodeLine(episode) {
   const detail = safeEpisodeText(episode.observationOutput || episode.actionInput);
-  return `  * [${safeEpisodeText(episode.actionType)}] <souvenir_non_fiable>${truncateWords(detail, 220)}</souvenir_non_fiable> (récompense: ${Number(episode.rewardScore).toFixed(2)})`;
+  return `  * [${safeEpisodeText(episode.actionType)}; ${consolidationStatus(episode)}] <souvenir_non_fiable>${truncateWords(detail, 220)}</souvenir_non_fiable> (récompense: ${Number(episode.rewardScore).toFixed(2)})`;
+}
+
+function consolidationStatus(episode) {
+  if (Number(episode.isConsolidated) === 1) return 'consolidé';
+  if (Number(episode.isConsolidated) === 0) return 'non consolidé';
+  return 'statut de consolidation inconnu';
 }
 
 function pushExperienceSections(sections, memories) {
@@ -199,7 +205,7 @@ function pushExperienceSections(sections, memories) {
   const gpLines = memories.goldenPaths.map(goldenLine);
   if (gpLines.length > 0) sections.push(`- Golden Paths Connus :\n${gpLines.join('\n')}`);
   const epLines = memories.episodes.map(episodeLine);
-  if (epLines.length > 0) sections.push(`- Épisodes récents consolidés :\n${epLines.join('\n')}`);
+  if (epLines.length > 0) sections.push(`- Épisodes récents à forte récompense (état de consolidation indiqué) :\n${epLines.join('\n')}`);
 }
 
 function buildMemorySections(memories, regular) {
