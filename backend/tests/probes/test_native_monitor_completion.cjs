@@ -49,7 +49,7 @@ async function main() {
       missionId: 'delegation-mission',
       orchestratorAgentId: 'delegation-root', role: worker.role, workerKind: 'resident_daemon',
       workerContract: metadata.workerContract, methodContract, prompt: worker.prompt,
-      workspaceId: 'delegation-ws', workspaceRoot: worker.workspaceRoot, workspaceProvisioned: true,
+      workspaceId: worker.workspaceId, workspaceRoot: worker.workspaceRoot, workspaceProvisioned: true,
       executor: 'local', localRuntime: true, timeoutMs: 60000, executionBudget: budget,
       executionPolicy: { allowFileEdits: false } });
     let row;
@@ -66,7 +66,7 @@ async function main() {
     const request = { runId: row.id, agentId: worker.agentId, scope: authority.envelope.scope };
     const attestation = await require('../../src/services/epistemic/nativeOracleJournal').read(db,
       { ...request, kind: 'attestation' });
-    assert.equal(attestation.value.domain, 'monitor_samples');
+    assert.equal(attestation.value.domain, 'monitor_window');
     assert.equal(attestation.value.accepted, true);
     assert.equal(attestation.value.costs.processes, 2);
     const assembly = await require('../../src/services/aeisAssemblyStore').readAssembly(db, attestation.value.assemblyId);
