@@ -615,6 +615,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0483](0483-promotion-rollout-fondee-sur-le-candidat.md) | Fonder la promotion du rollout sur le candidat | Accepté et implémenté. | 2026-10-14 | Rollouts A/B et promotion de release. |
 | [0484](0484-identifier-explicitement-le-candidat-du-rollout.md) | Identifier explicitement le candidat du rollout | Accepté et implémenté. | 2026-10-14 | Rollouts canary/A/B et promotion de release. |
 | [0485](0485-atomicite-creation-rollout-et-variantes.md) | Atomicité de création du rollout et de ses variantes | Accepté et implémenté. | 2026-10-14 | Persistance des rollouts et agrégats de métriques. |
+| [0486](0486-frontiere-de-confiance-du-transfert-hgt.md) | Frontière de confiance du transfert HGT | Proposé | 2026-10-14 | Transfert horizontal de plasmides, autorité et reçus. |
+| [0487](0487-recus-communication-inter-agents.md) | Reçus de communication inter-agents | Accepté | 2026-10-14 | Messagerie multi-agent, destinataires effectifs, lecture et acquittement. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
