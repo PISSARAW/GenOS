@@ -246,7 +246,7 @@ async function handleHomeostasisContinuation({ db, id, task, request, mission, c
 
 async function executeMission(db, state) {
   if (await missionAux.checkMinimalShortcut({ db, action, requestMemory, request, task, telemetry, id })) return;
-  await initializeMission({ db, action, orchestratorId, task });
+  await initializeMission({ db, action, orchestratorId, task, request });
   if (await executeRequestedAction({ db, state })) return;
   await runOrchestratedMission(db);
 }

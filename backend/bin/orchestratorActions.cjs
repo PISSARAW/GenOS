@@ -72,14 +72,8 @@ async function handleBackground(context) {
   await trackDetachedProcess(context, detachedProcessId, runner);
   process.stdout.write(JSON.stringify({ missionId: context.missionId, orchestratorId: context.orchestratorId, detachedProcessId, runnerPid: runner.pid, ...(context.action === 'dispatch_worker' ? { workerId: context.id, reusedWorker: Boolean(reusableWorker), ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {}) } : {}), status: 'accepted', acceptedAt: new Date().toISOString(), task: context.task }));
 }
-async function initializeMission({ db, action, orchestratorId, task }) {
-  const actions = ['dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological', 'orchestrate'];
-  if (!actions.includes(action)) return;
-  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-    VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
-  if (!await contracts.getLatestContract(db, orchestratorId)) {
-    await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
-  }
+async function initializeMission({ db, action, orchestratorId, task, request }) {
+  return require('./orchestratorMissionInitialization.cjs').initializeMission({ db, action, orchestratorId, task, request });
 }
 async function handleOntologyRequest({ request, orchestratorId }) {
   const ontologyRouter = require('../src/services/ontologyRouter');
