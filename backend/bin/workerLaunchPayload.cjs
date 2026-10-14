@@ -77,6 +77,7 @@ function workerLaunchPayload(args) {
     action: 'dispatch_worker',
     background: false,
     orchestratorId: context.orchestratorId,
+    modelBudgetScope: context.trinityModelBudgetScope || undefined,
     missionId: context.missionId || null,
     workerId,
     mission,

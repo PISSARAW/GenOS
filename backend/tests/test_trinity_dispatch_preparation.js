@@ -30,10 +30,13 @@ async function main() {
     await fs.writeFile(path.join(source, 'artifact.js'), 'original');
     await fs.writeFile(path.join(source, '.env'), 'FAKE_TEST_SECRET=never-copy');
     const db = database();
+    const missionId = `trinity_${'long-id-'.repeat(20)}`;
     const input = { context: { request: { executionBudget: { tokens: 900 } }, repoRoot: root, orchestratorId: 'orch' },
-      parent: { workspace_root: source }, missionId: 'sealed-mission', mission: 'Compare implementations', members: [1, 2, 3], selection: {} };
+      parent: { workspace_root: source }, missionId, mission: 'Compare implementations', members: [1, 2, 3], selection: {} };
     const sealed = await service.prepare(db, input);
     assert.equal(db.state.experiment.status, 'sealed_running');
+    assert.equal(path.basename(sealed.snapshotRoot).length, 32);
+    assert.ok(sealed.snapshotRoot.length < 260);
     assert.equal(await fs.readFile(path.join(sealed.snapshotRoot, 'artifact.js'), 'utf8'), 'original');
     await assert.rejects(fs.access(path.join(sealed.snapshotRoot, '.env')));
     await fs.writeFile(path.join(source, 'artifact.js'), 'parent changed');

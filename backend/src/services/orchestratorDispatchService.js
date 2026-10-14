@@ -9,6 +9,7 @@ function buildWorkerMission(input = {}) {
     missionId: input.missionId,
     missionScope: input.missionScope,
     orchestratorAgentId: input.orchestratorAgentId,
+    modelBudgetScope: input.modelBudgetScope || null,
     prompt: input.prompt,
     role: input.role || 'worker',
     workerKind,

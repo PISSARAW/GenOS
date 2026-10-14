@@ -21,7 +21,7 @@ function prepare(root) {
     "const assert = require('node:assert/strict');",
     "const fs = require('node:fs');",
     "const expression = fs.readFileSync('src/answer.gexpr', 'utf8').trim();",
-    "assert.match(expression, /^[ab0-9\\s()%+*\\/-]{1,120}$/);",
+    "assert.match(expression, /^(?:Math\\.(?:abs|min|max|floor|ceil)|[ab0-9\\s()+*\\/%,\\-]){1,240}$/);",
     "const evaluate = new Function('a', 'b', 'return (' + expression + ');');",
     'for (let a = -16; a <= 16; a += 1) {',
     '  for (let b = 1; b <= 8; b += 1) {',
