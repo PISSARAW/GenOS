@@ -4,6 +4,7 @@ const { randomUUID } = require('crypto');
 const { workerLaunchPayload } = require('../../../bin/workerLaunchPayload.cjs');
 const { buildLaunchCapabilities } = require('../agents/agentIncarnationPayloadService.js');
 const { ensureTopologyWorker } = require('../topologyWorkerPersistenceService.js');
+const { attachAgent } = require('../missionIdentityService.js');
 const detachedSpawn = require('../../../bin/detachedSpawn.cjs');
 
 function createOrchestratorId(prefix) {
@@ -123,6 +124,9 @@ async function launchWorker({ db, context, member, index, parent, suppliedWorker
   const workerId = suppliedWorkerId || member.workerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
   const launchCaps = launchCapabilities(context, member);
   await persistWorkerIdentity({ db, context, member, parent, workerId });
+  if (context.missionId) {
+    await attachAgent(db, { missionId: context.missionId, agentId: workerId, role: member.role || 'worker' });
+  }
   await spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps });
   return workerSummary(member, index, workerId);
 }

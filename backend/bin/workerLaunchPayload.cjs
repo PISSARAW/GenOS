@@ -77,6 +77,7 @@ function workerLaunchPayload(args) {
     action: 'dispatch_worker',
     background: false,
     orchestratorId: context.orchestratorId,
+    missionId: context.missionId || null,
     workerId,
     mission,
     role: member.role,

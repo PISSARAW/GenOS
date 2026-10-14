@@ -1,6 +1,7 @@
 'use strict';
 
 const { collectMechanisms, metapopulationComplete, isVerifiedResult, populationAnswer } = require('./biologicalHelpers.cjs');
+const workerGarage = require('../workerGarageService.js');
 
 function buildBiologicalOutput({ context, mode, mission, members, accepted, topology }) {
   return {

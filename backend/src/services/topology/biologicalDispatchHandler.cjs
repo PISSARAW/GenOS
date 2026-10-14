@@ -14,7 +14,7 @@ const syncytiumMissionCompletion = require('../syncytiumMissionCompletionService
 const { topologyDetails } = require('./topologyDetails.cjs');
 
 async function prepareBiologicalContext(db, context) {
-  const parent = await ensureParent(db, context);
+  const parent = await ensureParent({ db, context });
   const mode = String(context.request.mode || '').trim().toLowerCase();
   const mission = handleBiologicalMission(context);
   await persistBiologicalMissionTick({ db, context, parent, mission });

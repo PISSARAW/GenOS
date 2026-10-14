@@ -24,6 +24,7 @@ async function run({ handleAction }) {
     await handleAction({
       db, action: request.action, request, task: request.task || request.mission || '',
       orchestratorId: request.orchestratorId || 'standalone_orchestrator',
+      missionId: request.missionId || null,
       id: agentId, repoRoot: path.resolve(__dirname, '../..'),
       bridgePath: path.resolve(__dirname, 'genos-orchestrate.cjs'),
       waitForCompletion: (queryDb) => waitForCompletion(queryDb, agentId, request.timeoutMs)
