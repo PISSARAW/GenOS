@@ -34,6 +34,28 @@ async function memoryDb() {
   return db;
 }
 
+async function rejectsChampionRead(db, semanticId, scopeId) {
+  const originalGet = db.get.bind(db);
+  db.get = (sql, ...params) => sql.includes('FROM request_results WHERE id = ? AND semantic_id = ?')
+    ? Promise.reject(new Error('injected champion read failure')) : originalGet(sql, ...params);
+  try {
+    await assert.rejects(() => registry.getChampion(db, semanticId, scopeId), /injected champion read failure/);
+  } finally {
+    db.get = originalGet;
+  }
+}
+
+async function rejectsVersionRead(db, candidateInput) {
+  const originalGet = db.get.bind(db);
+  db.get = (sql, ...params) => sql.includes('MAX(result_version)')
+    ? Promise.reject(new Error('injected version read failure')) : originalGet(sql, ...params);
+  try {
+    await assert.rejects(() => registry.storeCandidate(db, candidateInput), /injected version read failure/);
+  } finally {
+    db.get = originalGet;
+  }
+}
+
 async function main() {
   const trivial = profiler.profileRequest({ mission: '2+2' });
   check('2+2 class', trivial.profile.request_class === 'deterministic_trivial');
@@ -76,6 +98,8 @@ async function main() {
   const hit = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId, dependencies });
   check('reuse hit', hit.hit === true);
   check('reuse value 4', JSON.parse(hit.champion.content_json).value === 4);
+  await rejectsChampionRead(db, trivial.semanticId, scopeId);
+  check('champion read errors are not treated as cache misses', true);
 
   await db.run("UPDATE request_results SET status = 'PROVISIONAL' WHERE id = ?", hit.champion.id);
   const provisional = await registry.lookupReusable(db, { semanticId: trivial.semanticId, scopeId, dependencies });
@@ -118,6 +142,13 @@ async function main() {
     && tamperedLookup.reason === 'verification-receipt-invalid');
   check('changed stored content marks champion stale',
     (await registry.getChampion(db, tamperInput.semanticId, tamperScope)).champion.status === 'STALE');
+
+  const versionFailureInput = signedCandidate({
+    ...candidateInput, semanticId: 'version-read-failure', normalizedIntent: 'version read failure'
+  });
+  await rejectsVersionRead(db, versionFailureInput);
+  const versionFailureProblem = await db.get("SELECT COUNT(*) AS count FROM request_problems WHERE normalized_intent = 'version read failure'");
+  check('version read failure aborts candidate insertion', versionFailureProblem.count === 0);
 
   await db.exec("CREATE TRIGGER fail_request_result_insert BEFORE INSERT ON request_results BEGIN SELECT RAISE(ABORT, 'injected result failure'); END;");
   const failedInput = signedCandidate({

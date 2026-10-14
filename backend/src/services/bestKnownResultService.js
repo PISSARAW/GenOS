@@ -13,7 +13,7 @@ async function ensureTables(db) {
 
 async function getProblem(db, semanticId) {
   await ensureTables(db);
-  return db.get('SELECT * FROM request_problems WHERE semantic_id = ?', semanticId).catch(() => null);
+  return (await db.get('SELECT * FROM request_problems WHERE semantic_id = ?', semanticId)) || null;
 }
 
 function scopedSemanticId(semanticId, scopeId) {
@@ -75,7 +75,7 @@ async function getChampion(db, semanticId, scopeId) {
   if (!problem || !problem.champion_result_id) return { problem, champion: null };
   const champion = await db.get(
     'SELECT * FROM request_results WHERE id = ? AND semantic_id = ?', problem.champion_result_id, scopedId
-  ).catch(() => null);
+  );
   return { problem, champion: champion || null };
 }
 
@@ -189,7 +189,7 @@ async function storeCandidate(db, input) {
 }
 
 async function nextVersion(db, semanticId) {
-  const row = await db.get('SELECT MAX(result_version) AS m FROM request_results WHERE semantic_id = ?', semanticId).catch(() => null);
+  const row = await db.get('SELECT MAX(result_version) AS m FROM request_results WHERE semantic_id = ?', semanticId);
   return Number(row && row.m ? row.m : 0) + 1;
 }
 
