@@ -113,16 +113,17 @@ async function loadAgentDossier(db, agentId, tenant) {
   const root = family[0];
   const familyIds = family.map((agent) => agent.id);
   const placeholders = familyIds.map(() => '?').join(',');
+  const recordScope = workspaceScope(tenant, '');
   const events = (await db.all(
-    `SELECT * FROM telemetry_events WHERE agent_id IN (${placeholders}) ORDER BY created_at DESC, id DESC LIMIT 10000`,
-    ...familyIds
+    `SELECT * FROM telemetry_events WHERE agent_id IN (${placeholders}) AND ${recordScope.clause} ORDER BY created_at DESC, id DESC LIMIT 10000`,
+    ...familyIds, ...recordScope.params
   )).reverse().map(mapEvent);
   const contracts = await strategyContracts.listContracts(db, agentId);
   const contractOwnerId = root.execution_mode === 'worker' ? root.parent_agent_id : agentId;
   const currentContract = contractOwnerId ? await strategyContracts.getLatestContract(db, contractOwnerId) : null;
   const decisions = await db.all(
-    `SELECT * FROM genome_decisions WHERE created_by IN (${placeholders}) ORDER BY created_at, id`,
-    ...familyIds
+    `SELECT * FROM genome_decisions WHERE created_by IN (${placeholders}) AND ${recordScope.clause} ORDER BY created_at, id`,
+    ...familyIds, ...recordScope.params
   );
   const runs = await db.all(
     `SELECT * FROM strategy_execution_runs WHERE agent_id IN (${placeholders}) ORDER BY created_at, id`,
