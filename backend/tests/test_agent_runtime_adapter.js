@@ -40,9 +40,32 @@ try {
   const mcpEnvConfig = require('../src/services/agentRuntimeMcpConfiguration');
   const leasedEnv = mcpEnvConfig.buildMcpServerEnvironment({
     state: { executionMode: 'worker', mission: { agentId: 'agent-under-test' }, orchestratorAgentId: 'orchestrator-under-test', allowedCommands: [], allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
-    binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' }
+    binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' }, sourceEnv: {}
   });
   assert.strictEqual(leasedEnv.GENOS_EXECUTION_MODE, 'worker', 'the leased MCP server must receive the same authority mode');
+  const expiringEnv = mcpEnvConfig.buildMcpServerEnvironment({
+    state: { executionMode: 'worker', mission: { agentId: 'agent-under-test', runtimeStartedAt: 1000, timeoutMs: 8000 },
+      executionBudget: { latencyMs: 3000 }, orchestratorAgentId: 'orchestrator-under-test', allowedCommands: [],
+      allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
+    binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' }, sourceEnv: {}
+  });
+  assert.equal(expiringEnv.GENOS_MCP_LEASE_EXPIRES_AT, '4000', 'the MCP tool lease must end at the earliest mission budget');
+  const hostCappedEnv = mcpEnvConfig.buildMcpServerEnvironment({
+    state: { executionMode: 'worker', mission: { agentId: 'agent-under-test', runtimeStartedAt: 1000, timeoutMs: 8000 },
+      executionBudget: { latencyMs: 3000 }, orchestratorAgentId: 'orchestrator-under-test', allowedCommands: [],
+      allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
+    binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' },
+    sourceEnv: { GENOS_MCP_LEASE_EXPIRES_AT: '2500' }
+  });
+  assert.equal(hostCappedEnv.GENOS_MCP_LEASE_EXPIRES_AT, '2500', 'the runtime must preserve an earlier host lease deadline');
+  const invalidHostCapEnv = mcpEnvConfig.buildMcpServerEnvironment({
+    state: { executionMode: 'worker', mission: { agentId: 'agent-under-test', runtimeStartedAt: 1000, timeoutMs: 8000 },
+      executionBudget: { latencyMs: 3000 }, orchestratorAgentId: 'orchestrator-under-test', allowedCommands: [],
+      allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
+    binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' },
+    sourceEnv: { GENOS_MCP_LEASE_EXPIRES_AT: 'invalid' }
+  });
+  assert.equal(invalidHostCapEnv.GENOS_MCP_LEASE_EXPIRES_AT, '0', 'an invalid host deadline must fail closed');
   assert(runtimeSource.includes('autonomyPlan.synthesisOnly'), 'the official root turn must use synthesis-only authority');
   const orchestratorBridgeSource = fs.readFileSync(path.resolve(__dirname, '../bin/genos-orchestrate.cjs'), 'utf8');
   assert(orchestratorBridgeSource.includes("GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker'"), 'the root orchestration bridge must reject worker recursion');

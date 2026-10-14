@@ -332,6 +332,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0504 — Exiger le snapshot courant, même vide](adr/0504-exiger-le-snapshot-courant-meme-vide.md) — distingue un snapshot de dépendances absent d'un snapshot explicitement sans dépendances.
 - [ADR 0507 — Échouer si la phase diff/replay n'est pas applicable](adr/0507-echouer-si-la-phase-diff-replay-nest-pas-applicable.md) — interdit de traiter une phase de comparaison sans contexte comme une réussite.
 - [ADR 0508 — Refuser une intersection vide de lease](adr/0508-refuser-une-intersection-vide-de-lease.md) — une contrainte de focus sans outil commun laisse la mission sans outil.
+- [ADR 0509 — Borner la lease MCP par le budget de mission](adr/0509-borner-la-lease-mcp-par-le-budget-de-mission.md) — transmet au serveur MCP l'échéance de mission la plus stricte.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)

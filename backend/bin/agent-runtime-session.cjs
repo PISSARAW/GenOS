@@ -27,6 +27,7 @@ const ORCHESTRATOR_INSTRUCTION = 'You are the GenOS orchestrator. You own strate
 async function runSession(raw) {
   const mission = decodeMission(raw);
   if (!mission) return;
+  mission.runtimeStartedAt = Date.now();
   try { await sharedBudget.assertSupported(mission); } catch (error) { sharedBudget.reject(error); return; }
   const data = parseMission(mission);
   if (!data) return;

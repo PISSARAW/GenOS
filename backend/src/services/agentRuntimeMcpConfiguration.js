@@ -6,6 +6,7 @@ const SHARED_STORAGE_KEYS = [
 ];
 
 function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env }) {
+  const leaseExpiresAt = resolveLeaseExpiresAt(state, sourceEnv);
   const environment = {
     GENOS_WORKSPACE_ROOT: binaries.workspace,
     GENOS_BIN: binaries.genosBinary || '',
@@ -19,6 +20,7 @@ function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env })
     GENOS_ALLOW_FILE_EDITS: state.allowFileEdits ? 'true' : 'false',
     GENOS_SILENT_UPDATES: state.executionPolicy.silentUpdates === true ? 'true' : 'false',
     GENOS_MCP_LEASE: state.toolLease.join(','),
+    ...(leaseExpiresAt !== null ? { GENOS_MCP_LEASE_EXPIRES_AT: String(leaseExpiresAt) } : {}),
     GENOS_MCP_DISABLED_TOOLS: 'genos_orchestrate'
   };
   for (const key of SHARED_STORAGE_KEYS) {
@@ -26,6 +28,19 @@ function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env })
   }
   applyWorkerDatabasePolicy(environment, state.executionMode, sourceEnv);
   return environment;
+}
+
+function resolveLeaseExpiresAt(state, sourceEnv = {}) {
+  const startedAt = Number(state.mission.runtimeStartedAt) || Date.now();
+  const deadlines = [state.mission.timeoutMs, state.executionBudget?.latencyMs]
+    .map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    .map((duration) => startedAt + duration);
+  if (sourceEnv.GENOS_MCP_LEASE_EXPIRES_AT !== undefined) {
+    const hostDeadline = Number(sourceEnv.GENOS_MCP_LEASE_EXPIRES_AT);
+    if (!Number.isFinite(hostDeadline)) return 0;
+    deadlines.push(hostDeadline);
+  }
+  return deadlines.length ? Math.min(...deadlines) : null;
 }
 
 function applyWorkerDatabasePolicy(environment, executionMode, sourceEnv) {
@@ -41,4 +56,4 @@ function serializeMcpServerEnvironment(environment) {
   return `{${entries.join(',')}}`;
 }
 
-module.exports = { buildMcpServerEnvironment, serializeMcpServerEnvironment };
+module.exports = { buildMcpServerEnvironment, serializeMcpServerEnvironment, resolveLeaseExpiresAt };
