@@ -78,12 +78,34 @@ function collectValueDiff(context, key) {
   }
 }
 
-async function agentActivityCounts(db, id) {
+function rowScope(req, alias, agentId) {
+  if (!req.tenant) return { clause: '1 = 1', params: [] };
+  const { organizationId, projectId } = req.tenant;
+  return {
+    clause: `(${alias}.organization_id = ? AND ${alias}.project_id = ? OR (${alias}.organization_id IS NULL AND ${alias}.project_id IS NULL AND EXISTS (SELECT 1 FROM agents scope_agent JOIN workspaces scope_workspace ON scope_workspace.id = scope_agent.workspace_id WHERE scope_agent.id = ? AND scope_workspace.organization_id = ? AND scope_workspace.project_id = ?)))`,
+    params: [organizationId, projectId, agentId, organizationId, projectId]
+  };
+}
+
+function workspaceRowScope(req, alias, agentId) {
+  if (!req.tenant) return { clause: '1 = 1', params: [] };
+  const { organizationId, projectId } = req.tenant;
+  return {
+    clause: `(${alias}.organization_id = ? AND ${alias}.project_id = ? OR (${alias}.id IS NULL AND EXISTS (SELECT 1 FROM agents scope_agent JOIN workspaces scope_workspace ON scope_workspace.id = scope_agent.workspace_id WHERE scope_agent.id = ? AND scope_workspace.organization_id = ? AND scope_workspace.project_id = ?)))`,
+    params: [organizationId, projectId, agentId, organizationId, projectId]
+  };
+}
+
+async function agentActivityCounts(db, id, req) {
+  const decisionScope = rowScope(req, 'd', id);
+  const eventScope = rowScope(req, 'e', id);
+  const runScope = workspaceRowScope(req, 'w', id);
+  const childScope = workspaceRowScope(req, 'w', id);
   const [decisions, runs, events, children] = await Promise.all([
-    db.get('SELECT COUNT(*) AS count FROM genome_decisions WHERE created_by = ?', id),
-    db.get('SELECT COUNT(*) AS count FROM strategy_execution_runs WHERE agent_id = ?', id),
-    db.get('SELECT COUNT(*) AS count FROM telemetry_events WHERE agent_id = ?', id),
-    db.get('SELECT COUNT(*) AS count FROM agents WHERE parent_agent_id = ?', id)
+    db.get(`SELECT COUNT(*) AS count FROM genome_decisions d WHERE d.created_by = ? AND ${decisionScope.clause}`, id, ...decisionScope.params),
+    db.get(`SELECT COUNT(*) AS count FROM strategy_execution_runs r JOIN strategy_contracts c ON c.id = r.contract_id LEFT JOIN workspaces w ON w.id = c.workspace_id WHERE r.agent_id = ? AND ${runScope.clause}`, id, ...runScope.params),
+    db.get(`SELECT COUNT(*) AS count FROM telemetry_events e WHERE e.agent_id = ? AND ${eventScope.clause}`, id, ...eventScope.params),
+    db.get(`SELECT COUNT(*) AS count FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.parent_agent_id = ? AND ${childScope.clause}`, id, ...childScope.params)
   ]);
   return {
     decisions: countOf(decisions),
@@ -101,7 +123,7 @@ async function diffAgents(req, res) {
   const scope = workspaceScope(req);
   const [left, right] = await Promise.all([loadAgentForScope(db, scope, leftId), loadAgentForScope(db, scope, rightId)]);
   if (!left || !right) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Both agents must exist in the current tenant.' } });
-  const [leftState, rightState] = await Promise.all([agentActivityCounts(db, left.id), agentActivityCounts(db, right.id)]);
+  const [leftState, rightState] = await Promise.all([agentActivityCounts(db, left.id, req), agentActivityCounts(db, right.id, req)]);
   const leftComparable = comparableAgentState(left, leftState);
   const rightComparable = comparableAgentState(right, rightState);
   return res.json({
