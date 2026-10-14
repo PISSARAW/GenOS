@@ -59,6 +59,7 @@ async function main() {
   const reg = await runtime.registerDaemon(rt, { daemonId: 'daemon.resident-1', territoryId: 'territory.genos-backend' });
   assert.equal(reg.registered, true);
   assert.equal(reg.activity, 'BOOTSTRAPPING');
+  assert.equal(reg.identitySession, undefined);
   assert.equal(reg.identityDossier.kind, 'daemon');
   assert.equal(reg.identityDossier.dimensions.existence.value.agentId, 'daemon.resident-1');
   assert.equal(reg.identityDossier.dimensions.governance.status, 'unknown');
@@ -84,6 +85,10 @@ async function main() {
   assert.equal(mem.found, true);
   assert.equal(mem.source, 'memory');
   const rt2 = runtime.createRuntime(db, {});
+  await assert.rejects(() => runtime.registerDaemon(rt2, {
+    daemonId: 'daemon.resident-1', territoryId: 'territory.genos-backend'
+  }), /IDENTITY_ALREADY_ACTIVE/);
+  await runtime.releaseDaemon(rt, 'daemon.resident-1');
   const resumed = await runtime.registerDaemon(rt2, {
     daemonId: 'daemon.resident-1', territoryId: 'territory.genos-backend'
   });

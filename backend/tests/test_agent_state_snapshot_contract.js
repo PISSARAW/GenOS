@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const dbModule = require('../src/db');
+const identity = require('../src/services/identity/snapshots');
 
 const agent = {
   id: 'agent-1', workspace_id: 'workspace-1', name: 'Agent', name_meaning: 'state test',
@@ -130,6 +131,8 @@ async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-agent-state-'));
   const filePath = path.join(root, 'source.txt');
   const originalGetDatabase = dbModule.getDatabase;
+  const identityMethods = { ...identity };
+  for (const name of Object.keys(identityMethods)) identity[name] = async () => {};
   try {
     await fs.writeFile(filePath, 'snapshot source');
     const fixture = createDatabase(root);
@@ -230,6 +233,7 @@ async function main() {
     console.log('Agent state and workspace restore contract passed.');
   } finally {
     dbModule.getDatabase = originalGetDatabase;
+    Object.assign(identity, identityMethods);
     delete require.cache[require.resolve('../src/controllers/lineageController')];
     await fs.rm(root, { recursive: true, force: true });
   }

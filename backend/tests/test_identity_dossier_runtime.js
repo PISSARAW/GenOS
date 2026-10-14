@@ -18,13 +18,17 @@ async function run() {
   const row = { id: 'worker-test-1', name: 'Ayo', role: 'reviewer',
     execution_mode: 'worker', status: 'running',
     created_at: '2026-10-14T08:00:00Z', parent_agent_id: 'orchestrator-1' };
-  const db = fakeDb(row);
+  const db = await require('sqlite').open({ filename: ':memory:', driver: require('sqlite3').Database });
+  await db.exec(`CREATE TABLE agents(id TEXT PRIMARY KEY, name TEXT, role TEXT, execution_mode TEXT,
+    status TEXT, created_at TEXT, parent_agent_id TEXT);`);
+  await db.run('INSERT INTO agents VALUES (?, ?, ?, ?, ?, ?, ?)', row.id, row.name, row.role,
+    row.execution_mode, row.status, row.created_at, row.parent_agent_id);
   const self = await buildAgentSelf(db, row.id);
   assert(validateAgentSelf(self).valid);
   assert.strictEqual(self.identityDossier.dimensions.existence.value.agentId, row.id);
   assert.strictEqual(self.identityDossier.dimensions.biology.status, 'unknown');
   assert.strictEqual(self.identityDossier.dimensions.characteristics.status, 'unknown');
-  assert.strictEqual(self.identityDossier.dimensions.experience.status, 'known');
+  assert.strictEqual(self.identityDossier.dimensions.experience.status, 'unknown');
   const worker = await buildWorkerSelf(db, { agentId: row.id, workerRole: 'reviewer' });
   assert(validateWorkerSelf(worker).valid);
   assert.strictEqual(worker.identityDossier.agentId, row.id);
@@ -41,6 +45,7 @@ async function run() {
   await assert.rejects(() => checkedWorkerSelfBlock(fakeDb(null),
     { agentId: row.id, role: 'reviewer', prompt: 'review' }),
   error => error.code === 'WORKER_IDENTITY_UNAVAILABLE');
+  await db.close();
   console.log('Identity dossier runtime: AgentSelf and WorkerSelf passed');
 }
 

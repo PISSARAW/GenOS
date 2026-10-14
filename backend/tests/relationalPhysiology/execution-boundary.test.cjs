@@ -12,11 +12,13 @@ async function fixture() {
   const sqlite = new DatabaseSync(':memory:');
   const db = {
     exec: async (sql) => sqlite.exec(sql),
-    get: async (sql, args = []) => sqlite.prepare(sql).get(...args),
-    all: async (sql, args = []) => sqlite.prepare(sql).all(...args),
-    run: async (sql, args = []) => sqlite.prepare(sql).run(...args)
+    get: async (sql, ...args) => sqlite.prepare(sql).get(...bindings(args)),
+    all: async (sql, ...args) => sqlite.prepare(sql).all(...bindings(args)),
+    run: async (sql, ...args) => sqlite.prepare(sql).run(...bindings(args))
   };
-  sqlite.exec(`CREATE TABLE agents (id TEXT PRIMARY KEY, role TEXT, status TEXT);
+  sqlite.exec(`CREATE TABLE workspaces(id TEXT PRIMARY KEY, organization_id TEXT, project_id TEXT);
+    INSERT INTO workspaces VALUES ('workspace', 'org', 'project');
+    CREATE TABLE agents (id TEXT PRIMARY KEY, role TEXT, status TEXT, workspace_id TEXT);
     CREATE TABLE agent_relations (id TEXT PRIMARY KEY, source_agent_id TEXT,
       target_agent_id TEXT, relation_type TEXT, metadata_json TEXT,
       organization_id TEXT, project_id TEXT);
@@ -28,7 +30,7 @@ async function fixture() {
     CREATE TABLE signal_deliveries (signal_id TEXT, subscriber_agent_id TEXT,
       status TEXT, PRIMARY KEY (signal_id, subscriber_agent_id));`);
   await migrateRelationalExecution(db);
-  await db.run("INSERT INTO agents VALUES ('A', 'worker', 'running'), ('B', 'verifier_worker', 'idle')");
+  await db.run("INSERT INTO agents VALUES ('A', 'worker', 'running', 'workspace'), ('B', 'verifier_worker', 'idle', 'workspace')");
   await db.run(`INSERT INTO agent_relations VALUES
     ('edge', 'A', 'B', 'verifier', '{}', 'org', 'project')`);
   await db.run(`INSERT INTO rpe_communication_grants VALUES
@@ -40,6 +42,8 @@ async function fixture() {
   ]), Date.now() + 60_000]);
   return { db, sqlite };
 }
+
+function bindings(args) { return Array.isArray(args[0]) ? args[0] : args; }
 
 function input(db, operationId = 'op-1') {
   return {
@@ -59,6 +63,8 @@ test('real SQLite admission stores only the blind allowlist and a targeted deliv
   try {
     const result = await publishGuardedReferences(input(db));
     assert.equal(result.status, 'executed');
+    assert.equal(result.result.identity.peerId, 'B');
+    assert.equal(result.result.identity.evidenceClass, 'authorized_registry_route');
     assert.deepEqual(result.decision.plan.refs.map((ref) => ref.id), ['evidence', 'problem']);
     const row = await db.get('SELECT * FROM signal_blobs');
     const decoded = decodeSignalRow(row);

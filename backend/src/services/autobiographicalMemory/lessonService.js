@@ -30,6 +30,7 @@ function isFailure(episode) {
 function groupByCluster(episodes) {
   const clusters = new Map();
   for (const episode of episodes) {
+    if (require('../identity/experience').isInherited(episode)) continue;
     const key = JSON.stringify([episode.agentId, episode.organizationId || null,
       episode.projectId || null, clusterKeyFor(episode)]);
     if (!clusters.has(key)) clusters.set(key, []);

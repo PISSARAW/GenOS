@@ -198,12 +198,18 @@ async function persistChild(context) {
     `Fork of ${source.agent.name}`, metadata);
     await input.db.run(`INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type, metadata)
       VALUES (?, ?, ?, ?, 'fork', ?)`, `edge_${ids.agentId}`, ids.workspaceId, anchor, ids.agentId, metadata);
+    const identity = require('./identity/checkpoints');
+    await identity.seal(input.db, { agentId: input.agentId, checkpointId: input.snapshotId,
+      contentHash: source.organismHash,
+      coverage: Object.keys(source.state._genosSnapshot.organismSnapshot.components || {}), anchorKind: 'legacy_admission' });
+    await identity.fork(input.db, { parentId: input.agentId, childId: ids.agentId, checkpointId: input.snapshotId });
     return receipt(context, false);
   });
 }
 
 async function forkFromSealedSnapshot(input) {
   validateInput(input);
+  await require('./identity/storage').ready(input.db);
   const source = await loadSource(input);
   source.archive = buildArchiveDescriptor(source, input);
   const ids = childIds(input);

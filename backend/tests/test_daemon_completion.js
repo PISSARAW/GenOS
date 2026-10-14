@@ -56,16 +56,19 @@ async function confinementContract(value) {
 async function durabilityContract(value) {
   const { db, context } = value;
   const beatDb = context.runtime.db;
-  context.runtime.db = { run: async () => { throw new Error('persistence down'); } };
+  context.runtime.db = { get: (...args) => db.get(...args), all: (...args) => db.all(...args),
+    exec: (...args) => db.exec(...args), run: async () => { throw new Error('persistence down'); } };
   await assert.rejects(runtime.heartbeat(context.runtime, { daemonId: context.daemonId, revision: true }), /persistence down/);
   assert.equal((await runtime.getDaemonState(context.runtime, { daemonId: context.daemonId })).revisions, 0);
   context.runtime.db = beatDb;
   await Promise.all(Array.from({ length: 4 }, () => runtime.heartbeat(context.runtime, { daemonId: context.daemonId, revision: true })));
   assert.equal((await db.get('SELECT cognitive_revisions FROM daemon_runtime_state')).cognitive_revisions, 4);
   const resumed = runtime.createRuntime(db);
+  await runtime.releaseDaemon(context.runtime, context.daemonId);
   const registration = await runtime.registerDaemon(resumed, { daemonId: context.daemonId, territoryId: context.territoryId });
   assert.equal(registration.activity, 'BOOTSTRAPPING');
   assert.equal(registration.revisions, 4);
+  context.runtime = resumed;
   const occupant = await runtime.registerDaemon(resumed, { daemonId: 'daemon.conflict', territoryId: context.territoryId });
   assert.equal(occupant.registered, false);
 }

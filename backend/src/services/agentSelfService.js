@@ -31,6 +31,10 @@ function firstDef(...vals) {
 }
 
 async function buildAgentSelf(db, agentId, options = {}) {
+  return require('../db').withTransaction(db, () => buildSelfWithinTransaction(db, agentId, options));
+}
+
+async function buildSelfWithinTransaction(db, agentId, options) {
   if (!db || !agentId) {
     throw new Error('buildAgentSelf requires db and agentId');
   }
@@ -65,14 +69,19 @@ async function buildAgentSelf(db, agentId, options = {}) {
       agentRow: Boolean(agentRow)
     }
   };
-  self.identityDossier = buildIdentityDossier({ agentId, agentRow, self });
+  const continuity = await require('./identity/projection').describe(db, { agentId }).catch(error => ({
+    verified: false, reason: error.code || 'IDENTITY_STORAGE_UNAVAILABLE' }));
+  self.identityDossier = buildIdentityDossier({ agentId, agentRow, self, continuity });
+  self.peerModels = await require('./identity/projection').peerModels(db, { agentId,
+    peerIds: options.context?.peerAgentIds || self.identity.parents });
   self.version = self.identityDossier.version.slice(0, 16);
   return self;
 }
 
 function buildIdentityCore(agentRow, options) {
   const row = agentRow || {};
-  const parents = options.parents || (row.parent_id ? [row.parent_id] : []);
+  const parentId = row.parent_agent_id || row.parent_id;
+  const parents = options.parents || (parentId ? [parentId] : []);
   return {
     id: firstDef(row.id, options.agentId),
     name: firstOr(row.name, options.name, 'Anonymous'),
@@ -147,7 +156,7 @@ async function buildAutobiographicalSelf(db, agentId) {
   let episodesQueried = false;
   try {
     episodes = await db.all(
-      'SELECT id, kind, salience, lesson_json, created_at FROM autobiographical_episodes WHERE agent_id = ? ORDER BY created_at DESC LIMIT 20',
+      'SELECT id, agent_id, kind, salience, lesson_json, situation_json, created_at FROM autobiographical_episodes WHERE agent_id = ? ORDER BY created_at DESC LIMIT 20',
       agentId
     );
     episodesQueried = true;
@@ -157,12 +166,14 @@ async function buildAutobiographicalSelf(db, agentId) {
   let lessonsQueried = false;
   try {
     lessons = await db.all(
-      'SELECT id, claim, confidence, recommended_action FROM autobiographical_lessons WHERE scope = ? ORDER BY confidence DESC LIMIT 10',
+      'SELECT id, claim, confidence, recommended_action FROM autobiographical_lessons WHERE agent_id = ? AND active = 1 ORDER BY confidence DESC LIMIT 10',
       agentId
     );
     lessonsQueried = true;
   } catch (_) {}
 
+  const inherited = episodes.filter(e => require('./identity/experience').read(e).kind === 'inherited');
+  episodes = episodes.filter(e => require('./identity/experience').read(e).kind !== 'inherited');
   const turningPoints = episodes
     .filter(e => e.salience >= 0.8)
     .slice(0, 5)
@@ -174,10 +185,12 @@ async function buildAutobiographicalSelf(db, agentId) {
     }));
 
   return {
-    episodes: episodes.map(e => ({ id: e.id, kind: e.kind, salience: e.salience, when: e.created_at })),
+    episodes: episodes.map(e => ({ id: e.id, kind: e.kind, salience: e.salience, when: e.created_at,
+      provenance: require('./identity/experience').read(e) })),
     lessons: lessons.map(l => ({ id: l.id, claim: l.claim, confidence: l.confidence, recommendation: l.recommended_action })),
     turningPoints,
     episodeCount: episodes.length,
+    inheritedEpisodes: inherited.map(e => ({ id: e.id, provenance: require('./identity/experience').read(e) })),
     lessonCount: lessons.length,
     sourcesQueried: { episodes: episodesQueried, lessons: lessonsQueried }
   };
@@ -265,6 +278,7 @@ function loadAgentSelfSpec() {
 
 function formatAgentSelfPrompt(agentSelf) {
   const lines = [
+    require('./identity/prompt').format(agentSelf.identityDossier, agentSelf.peerModels),
     `[IDENTITÉ]`,
     `- Nom : ${agentSelf.identity.name}`,
     `- Rôle : ${agentSelf.identity.role}`,

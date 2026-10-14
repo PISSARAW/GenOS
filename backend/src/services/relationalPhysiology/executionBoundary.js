@@ -67,7 +67,11 @@ async function runWithinTransaction(db, request, requestHash) {
       if (Date.now() >= projection.grant.valid_until_ms) {
         throw new Error('RPE_AUTHORIZATION_EXPIRED_BEFORE_ADMISSION');
       }
-      return admitSignal(db, { plan, planHash, at: Date.now() });
+      const identity = await require('../identity/peers').recognizeRegistered(db, {
+        observerId: request.actorId, peerId: request.receiverId, scope: request.scope,
+        operationId: request.operationId });
+      const admitted = await admitSignal(db, { plan, planHash, at: Date.now() });
+      return { ...admitted, identity };
     }
   };
   const result = await runGuarded(request, ports);

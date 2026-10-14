@@ -51,6 +51,7 @@ async function main() {
   value.databasePath = databasePath;
   let host;
   try {
+    await require('../src/services/daemon/residentDaemonRuntime').releaseDaemon(value.context.runtime, value.context.daemonId);
     host = launch(value);
     await waitFor(host, () => host.output.includes(' active on '));
     assert.equal((await observedState(value)).activity, 'DORMANT');

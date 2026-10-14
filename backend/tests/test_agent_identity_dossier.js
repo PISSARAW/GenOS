@@ -20,7 +20,8 @@ function checkUniversalContract() {
     assert.strictEqual(dossier.dimensions.composition.status, 'unknown');
     assert.strictEqual(dossier.dimensions.biology.status, 'unknown');
     assert.strictEqual(dossier.dimensions.governance.status, 'unknown');
-    assert.strictEqual(dossier.decisionConstraints.mayAct, true);
+    assert.strictEqual(dossier.decisionConstraints.mayAct, false);
+    assert.strictEqual(dossier.decisionConstraints.reason, 'CONTINUITY_UNVERIFIED');
   }
   const roleOnly = buildIdentityDossier({ agentId: 'orchestrator-role',
     agentRow: { ...row('orchestrator-role'), role: 'orchestrator', execution_mode: 'autonomous' } });
@@ -41,7 +42,8 @@ function checkForkAndModelChange() {
   const parent = buildIdentityDossier({ agentId: 'parent-1', agentRow: row('parent-1') });
   const child = buildIdentityDossier({ agentId: 'child-1', agentRow: row('child-1') });
   assert.notStrictEqual(parent.version, child.version);
-  assert.strictEqual(child.dimensions.continuity.value.parentId, 'parent-1');
+  assert.strictEqual(child.dimensions.continuity.status, 'unknown');
+  assert.strictEqual(child.declaredLineage.value.parentId, 'parent-1');
   const switched = buildIdentityDossier({ agentId: 'parent-1',
     agentRow: { ...row('parent-1'), model_tier: 'local' } });
   assert.strictEqual(parent.agentId, switched.agentId);
