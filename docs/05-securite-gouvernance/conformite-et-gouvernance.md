@@ -198,7 +198,7 @@ node backend/tests/test_approval_payload_integrity.js
 
 Ces tests etablissent les contrats implementes de rapport, scope, signature/approbation, separation et integrite. Ils ne certifient pas la conformite EU AI Act, SOC 2 ou HIPAA d'un deploiement reel.
 
-Au 8 septembre 2026, `test_compliance_tenant_scope.js`, `test_approval_separation.js` et `test_approval_payload_integrity.js` passent. `test_compliance_integrations.js` echoue avant son scenario, car il importe `./src/app` depuis `backend/tests` au lieu de remonter vers `../src/app`. `test_human_approval_promotion_gate.js` echoue pour son succes attendu, car il ne fournit pas l'evidence report desormais obligatoire au controleur. Ces deux regressions de test doivent etre corrigees avant de les employer comme validation complete du workflow.
+Le 14 octobre 2026, les cinq tests ci-dessus ont terminé avec code 0 : intégration des routes, portée tenant, gate d'approbation humaine liée au digest, séparation des approbateurs et intégrité du payload. Le test d'intégration utilise une base temporaire et un port loopback éphémère afin d'éviter une base persistante ou un conflit de port. Ces scénarios vérifient les contrats testés; ils ne certifient pas la conformité réglementaire d'un déploiement.
 
 
 ---
