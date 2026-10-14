@@ -2,6 +2,9 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('118-agent-identity', 'Persist causal individual identity and peer models', async (db) => {
     await require('./migrateAgentIdentity').migrateAgentIdentity(db);
   }),
+  createMigrationRunner('119-idempotency-request-binding', 'Bind idempotent HTTP replays to the canonical request body', async (db) => {
+    await require('./migrateIdempotencyKeys').migrateIdempotencyKeys(db);
+  }),
   createMigrationRunner('114-shev-runtime', 'Close the SHEV perception, monitoring and controlled recovery loop', async (db) => {
     await require('./migrateShevRuntime').migrateShevRuntime(db);
   }),

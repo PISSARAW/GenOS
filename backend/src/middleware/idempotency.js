@@ -1,10 +1,8 @@
 /**
  * Idempotency Middleware
  *
- * Ensures idempotent execution of external calls (LLM, tools, MCP) by using
- * idempotency keys. The key is derived from mission_id + step + attempt.
- * Deduplicates requests at the backend level to prevent double-billing and
- * side effects from retries.
+ * Replays successful keyed HTTP responses after a durable SQLite receipt.
+ * This middleware does not make downstream LLM/tool/MCP effects exactly-once.
  */
 
 const crypto = require('crypto');
@@ -23,30 +21,25 @@ function generateIdempotencyKey({ missionId, step, attempt, toolName } = {}) {
 async function checkIdempotency(key) {
   const db = await getDatabase();
   const row = await db.get(
-    'SELECT key, response_payload, status_code, created_at FROM idempotency_keys WHERE key = ?',
+    'SELECT key, request_hash, response_payload, status_code, created_at FROM idempotency_keys WHERE key = ?',
     key
   );
   return row || null;
 }
 
-async function storeIdempotency(key, responsePayload, statusCode) {
+async function storeIdempotency(input) {
   const db = await getDatabase();
-  await db.run(
-    `INSERT OR REPLACE INTO idempotency_keys (key, response_payload, status_code, created_at)
-     VALUES (?, ?, ?, datetime('now'))`,
-    key, JSON.stringify(responsePayload), statusCode
-  );
+  const result = await db.run(`UPDATE idempotency_keys SET response_payload = ?, status_code = ?,
+    created_at = datetime('now') WHERE key = ? AND request_hash = ? AND response_payload = ?`,
+  JSON.stringify(input.responsePayload), input.statusCode, input.key, input.requestHash, IN_FLIGHT_MARKER);
+  if (result?.changes !== 1) throw new Error('Idempotency receipt reservation was lost before commit.');
 }
 
 async function cleanupOldKeys() {
   const db = await getDatabase();
   await db.run(
-    `DELETE FROM idempotency_keys WHERE created_at < datetime('now', ?)`,
-    `-${IDEMPOTENCY_TTL_DAYS} days`
-  );
-  await db.run(
-    `DELETE FROM idempotency_keys WHERE response_payload = ? AND created_at < datetime('now', '-1 hour')`,
-    IN_FLIGHT_MARKER
+    `DELETE FROM idempotency_keys WHERE response_payload != ? AND created_at < datetime('now', ?)`,
+    IN_FLIGHT_MARKER, `-${IDEMPOTENCY_TTL_DAYS} days`
   );
 }
 
@@ -59,19 +52,19 @@ function isInFlight(row) {
   return !!row && row.response_payload === IN_FLIGHT_MARKER;
 }
 
-function isStaleInFlight(row) {
+function isUncertainInFlight(row) {
   if (!isInFlight(row)) return false;
   const created = new Date(row.created_at).getTime();
-  if (!Number.isFinite(created)) return false;
+  if (!Number.isFinite(created)) return true;
   return Date.now() - created > IN_FLIGHT_TTL_MS;
 }
 
-async function claimIdempotencyKey(key) {
+async function claimIdempotencyKey(key, requestHash) {
   const db = await getDatabase();
   const result = await db.run(
-    `INSERT OR IGNORE INTO idempotency_keys (key, response_payload, status_code, created_at)
-     VALUES (?, ?, ?, datetime('now'))`,
-    key, IN_FLIGHT_MARKER, 202
+    `INSERT OR IGNORE INTO idempotency_keys (key, request_hash, response_payload, status_code, created_at)
+     VALUES (?, ?, ?, ?, datetime('now'))`,
+    key, requestHash, IN_FLIGHT_MARKER, 202
   );
   return result && typeof result.changes === 'number' ? result.changes > 0 : true;
 }
@@ -85,19 +78,55 @@ function handleConflict(res, clientKey) {
   });
 }
 
-async function replayOrConflict(res, key, clientKey) {
-  const existing = await checkIdempotency(key);
-  if (!existing) return null;
-  if (!isInFlight(existing)) return handleReplay(res, { ...existing, key: clientKey });
-  if (!isStaleInFlight(existing)) return handleConflict(res, clientKey);
-  await removeIdempotencyKey(key);
-  return null;
+function handleUncertain(res, clientKey) {
+  res.setHeader('X-Idempotency-Key', clientKey);
+  return res.status(409).json({
+    error: 'The previous request outcome is uncertain; reconcile it before retrying',
+    code: 'IDEMPOTENCY_OUTCOME_UNCERTAIN'
+  });
 }
 
-async function claimOrConflict(res, key, clientKey) {
-  if (await claimIdempotencyKey(key)) return null;
-  const raced = await checkIdempotency(key);
-  if (raced && !isInFlight(raced)) return handleReplay(res, { ...raced, key: clientKey });
+function requestHash(req) {
+  const headers = ['if-match', 'if-none-match', 'x-mission-id', 'x-step', 'x-attempt', 'x-tool-name']
+    .reduce((selected, name) => ({ ...selected, [name]: req.headers[name] || '' }), {});
+  return crypto.createHash('sha256').update(JSON.stringify(canonical({ body: req.body ?? null, headers }))).digest('hex');
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+  }
+  return value;
+}
+
+function replayOrReject(input) {
+  const { res, existing, clientKey, bodyHash } = input;
+  if (!existing) return null;
+  if (!existing.request_hash) {
+    res.setHeader('X-Idempotency-Key', clientKey);
+    return res.status(409).json({ error: 'Stored idempotency response is not bound to a request body',
+      code: 'IDEMPOTENCY_REQUEST_UNBOUND' });
+  }
+  if (existing.request_hash !== bodyHash) {
+    res.setHeader('X-Idempotency-Key', clientKey);
+    return res.status(409).json({ error: 'Idempotency key is bound to a different request body',
+      code: 'IDEMPOTENCY_KEY_CONFLICT' });
+  }
+  if (!isInFlight(existing)) return handleReplay(res, { ...existing, key: clientKey });
+  return isUncertainInFlight(existing) ? handleUncertain(res, clientKey) : handleConflict(res, clientKey);
+}
+
+async function replayOrConflict(input) {
+  const existing = await checkIdempotency(input.key);
+  return replayOrReject({ ...input, existing });
+}
+
+async function claimOrConflict(input) {
+  if (await claimIdempotencyKey(input.key, input.bodyHash)) return null;
+  const raced = await checkIdempotency(input.key);
+  const response = replayOrReject({ ...input, existing: raced });
+  if (response) return response;
   return handleConflict(res, clientKey);
 }
 
@@ -165,32 +194,86 @@ function handleReplay(res, existing) {
   return res.status(existing.status_code).json(parseStoredPayload(existing));
 }
 
-function patchResponse(res, idempotencyKey) {
-  const originalJson = res.json.bind(res);
-  let jsonResponse = false;
-  res.once('finish', () => {
-    // Streaming, redirect, and plain-text responses do not have a replayable
-    // JSON body. Release their reservation so they do not block retries.
-    if (!jsonResponse || res.statusCode < 200 || res.statusCode >= 300) {
-      removeIdempotencyKey(idempotencyKey).catch(err => {
-        console.error('Failed to release idempotency key:', err);
-      });
-    }
-  });
-  res.json = (payload) => {
-    jsonResponse = true;
-    const statusCode = res.statusCode;
-    if (statusCode >= 200 && statusCode < 300) {
-      storeIdempotency(idempotencyKey, payload, statusCode).catch(err => {
-        console.error('Failed to store idempotency key:', err);
-      });
-    } else {
-      removeIdempotencyKey(idempotencyKey).catch(err => {
-        console.error('Failed to release idempotency key:', err);
-      });
-    }
-    return originalJson(payload);
+function isSuccess(statusCode) { return statusCode >= 200 && statusCode < 300; }
+
+function rejectUnreplayable(ctx) {
+  if (ctx.state.blockedOutput) return;
+  ctx.state.blockedOutput = true;
+  ctx.res.status(503);
+  ctx.res.removeHeader?.('Content-Length');
+  ctx.res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  ctx.originalEnd(JSON.stringify({ error: 'Keyed requests require a replayable JSON response',
+    code: 'IDEMPOTENCY_RESPONSE_UNSUPPORTED' }));
+}
+
+function guardEnd(ctx) {
+  ctx.res.end = (...args) => {
+    if (ctx.state.blockedOutput) return ctx.res;
+    if (ctx.state.receiptCommitted || !isSuccess(ctx.res.statusCode)) return ctx.originalEnd(...args);
+    rejectUnreplayable(ctx);
+    return ctx.res;
   };
+}
+
+function guardWrite(ctx) {
+  ctx.res.write = (...args) => {
+    if (ctx.state.blockedOutput) return false;
+    if (!ctx.state.receiptCommitted && isSuccess(ctx.res.statusCode)) {
+      rejectUnreplayable(ctx);
+      return false;
+    }
+    return ctx.originalWrite(...args);
+  };
+}
+
+function guardHeaders(ctx) {
+  ctx.res.writeHead = (statusCode, ...args) => {
+    if (!ctx.state.receiptCommitted && isSuccess(statusCode)) {
+      rejectUnreplayable(ctx);
+      return ctx.res;
+    }
+    return ctx.originalWriteHead(statusCode, ...args);
+  };
+  if (!ctx.originalFlushHeaders) return;
+  ctx.res.flushHeaders = () => {
+    if (!ctx.state.receiptCommitted && isSuccess(ctx.res.statusCode)) rejectUnreplayable(ctx);
+    else ctx.originalFlushHeaders();
+    return ctx.res;
+  };
+}
+
+function sendUncertain(ctx, error) {
+  console.error('Failed to commit idempotency receipt; request outcome is uncertain:', error);
+  ctx.res.status(503);
+  ctx.originalJson({ error: 'Request completed but its replay receipt could not be committed',
+    code: 'IDEMPOTENCY_OUTCOME_UNCERTAIN' });
+}
+
+function sendJson(ctx, payload) {
+  const statusCode = ctx.res.statusCode;
+  if ([204, 205].includes(statusCode)) {
+    ctx.res.status(503);
+    return ctx.originalJson({ error: 'Keyed requests require a replayable JSON response',
+      code: 'IDEMPOTENCY_RESPONSE_UNSUPPORTED' });
+  }
+  if (!isSuccess(statusCode)) return ctx.originalJson(payload);
+  const receipt = { key: ctx.key, requestHash: ctx.bodyHash, responsePayload: payload, statusCode };
+  storeIdempotency(receipt).then(() => {
+    ctx.state.receiptCommitted = true;
+    ctx.originalJson(payload);
+  }).catch((error) => sendUncertain(ctx, error));
+  return ctx.res;
+}
+
+function patchResponse(res, idempotencyKey, bodyHash) {
+  const ctx = { res, key: idempotencyKey, bodyHash,
+    originalJson: res.json.bind(res), originalEnd: res.end.bind(res),
+    originalWrite: res.write.bind(res), originalWriteHead: res.writeHead.bind(res),
+    originalFlushHeaders: res.flushHeaders?.bind(res), state: { receiptCommitted: false, blockedOutput: false } };
+  guardEnd(ctx);
+  guardWrite(ctx);
+  guardHeaders(ctx);
+  res.json = (payload) => sendJson(ctx, payload);
 }
 
 function idempotencyMiddleware(options = {}) {
@@ -204,10 +287,12 @@ function idempotencyMiddleware(options = {}) {
 
     if (!idempotencyKey) return handleMissingKey(res, required) || next();
     const clientKey = req.idempotencyClientKey;
-    if (await replayOrConflict(res, idempotencyKey, clientKey)) return;
-    if (await claimOrConflict(res, idempotencyKey, clientKey)) return;
+    const bodyHash = requestHash(req);
+    const context = { res, key: idempotencyKey, clientKey, bodyHash };
+    if (await replayOrConflict(context)) return;
+    if (await claimOrConflict(context)) return;
 
-    patchResponse(res, idempotencyKey);
+    patchResponse(res, idempotencyKey, bodyHash);
     res.setHeader('X-Idempotency-Key', clientKey);
     next();
   };
