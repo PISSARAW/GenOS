@@ -64,6 +64,11 @@ async function e2e() {
   const outcome = await invoke(releases.decideRollout, { params: { rolloutId: rollout.body.id }, tenant });
   assert.equal(outcome.body.status, 'promoted');
   assert.equal(outcome.body.selectedVariant, 'candidate');
+  const lateMetric = await invoke(releases.recordRolloutMetric, { params: { rolloutId: rollout.body.id },
+    body: { variant: 'candidate', requests: 100, latencyMs: 1 }, tenant });
+  assert.equal(lateMetric.code, 409, 'Closed rollout must reject late metric writes');
+  const repeatedDecision = await invoke(releases.decideRollout, { params: { rolloutId: rollout.body.id }, tenant });
+  assert.equal(repeatedDecision.code, 409, 'A terminal rollout decision cannot be recomputed');
   const persistedRelease = await db.get('SELECT status, environment FROM releases WHERE id = ?', create.body.id);
   assert.equal(persistedRelease.status, 'active');
   assert.equal(persistedRelease.environment, 'production');

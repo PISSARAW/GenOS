@@ -320,6 +320,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [ADR 0478 — Lier l’idempotence HTTP au corps de requête](adr/0478-lier-idempotence-http-au-corps-de-requete.md) — bloque le rejeu sur corps divergent et attend le reçu SQLite avant un 2xx.
 - [ADR 0479 — Refuser la préemption Garage des sessions topologiques](adr/0479-refuser-la-preemption-garage-des-sessions-topologiques.md) — conserve les sessions collectives hors du thaw tant que Garage ne sait pas les continuer.
 - [ADR 0481 — Autorité et reçu pour les overrides de promotion en production](adr/0481-autorite-et-recu-des-overrides-production.md) — exige une permission distincte et un reçu atomique pour forcer une promotion en production.
+- [ADR 0482 — Atomicité entre mesures et décision de rollout](adr/0482-atomicite-mesures-et-decision-rollout.md) — sérialise les métriques avec la décision pour refuser les écritures tardives.
 - [0331-syncytium-rejeu-causal-et-preuve-de-completion.md](adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md) — causalité, mutations atomiques, réplication isolée et preuve de complétion Syncytium.
 
 Index : [adr/README.md](adr/README.md)

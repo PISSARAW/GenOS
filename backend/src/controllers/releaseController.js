@@ -232,28 +232,36 @@ async function resumeRolloutIfNeeded(db, { rollout, requestCount }) {
   }
 }
 
+async function persistRolloutMetric(db, request) {
+  return withTransaction(db, async (tx) => {
+    const rollout = await tx.get(`SELECT * FROM release_rollouts WHERE id = ? AND ${request.scope.clause}`,
+      request.rolloutId, ...request.scope.params);
+    if (!rollout) return { status: 404, error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } };
+    if (!['running', 'paused'].includes(rollout.status)) {
+      return { status: 409, error: { code: 'ROLLOUT_CLOSED', message: 'Metrics can only be recorded on a running or paused rollout.' } };
+    }
+    const metric = await tx.get('SELECT variant FROM release_rollout_metrics WHERE rollout_id = ? AND variant = ?', rollout.id, request.variant);
+    if (!metric) return { status: 400, error: { code: 'UNKNOWN_VARIANT', message: 'variant is not configured for this rollout.' } };
+    await updateRolloutMetrics(tx, { rolloutId: rollout.id, variant: request.variant, requestCount: request.validatedRequests,
+      errorCount: request.validatedErrors, latencyMs: request.validatedLatency, tokens: request.validatedTokens, costUsd: request.validatedCost });
+    await insertUsageLedger(tx, { id: id('usage'), scope: request.scope, releaseId: rollout.release_id,
+      rolloutId: rollout.id, variant: request.variant, requestCount: request.validatedRequests,
+      costUsd: request.validatedCost, tokens: request.validatedTokens });
+    await resumeRolloutIfNeeded(tx, { rollout, requestCount: request.validatedRequests });
+    return { status: 202, body: { rolloutId: rollout.id, variant: request.variant, accepted: true } };
+  });
+}
+
 async function recordRolloutMetric(req, res, next) {
   try {
     const db = await getDatabase();
     const scope = scopeSql(req);
-    const rollout = await db.get(`SELECT * FROM release_rollouts WHERE id = ? AND ${scope.clause}`, req.params.rolloutId, ...scope.params);
-    if (!rollout) return res.status(404).json({ error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } });
-    if (rollout.status !== 'running' && rollout.status !== 'paused') return res.status(409).json({ error: { code: 'ROLLOUT_CLOSED', message: 'Metrics can only be recorded on a running or paused rollout.' } });
-    
     const { variant, requests = 0, errors = 0, latencyMs = 0, tokens = 0, costUsd = 0 } = req.body || {};
     const validation = validateMetricInput({ variant, requests, errors, latencyMs, tokens, costUsd });
     if (validation.error) return res.status(400).json(validation.error);
-    
-    const { validatedRequests, validatedErrors, validatedLatency, validatedTokens, validatedCost } = validation;
-    const metric = await db.get('SELECT variant FROM release_rollout_metrics WHERE rollout_id = ? AND variant = ?', rollout.id, variant);
-    if (!metric) return res.status(400).json({ error: { code: 'UNKNOWN_VARIANT', message: 'variant is not configured for this rollout.' } });
-    
-    const requestCount = validatedRequests;
-    await updateRolloutMetrics(db, { rolloutId: rollout.id, variant, requestCount, errorCount: validatedErrors, latencyMs: validatedLatency, tokens: validatedTokens, costUsd: validatedCost });
-    await insertUsageLedger(db, { id: id('usage'), scope, releaseId: rollout.release_id, rolloutId: rollout.id, variant, requestCount, costUsd: validatedCost, tokens: validatedTokens });
-    await resumeRolloutIfNeeded(db, { rollout, requestCount });
-    
-    res.status(202).json({ rolloutId: rollout.id, variant, accepted: true });
+    const result = await persistRolloutMetric(db, { rolloutId: req.params.rolloutId, scope, variant, ...validation });
+    if (result.error) return res.status(result.status).json(result.error);
+    res.status(result.status).json(result.body);
   } catch (error) { next(error); }
 }
 
@@ -325,11 +333,12 @@ async function decideRollout(req, res, next) {
   try {
     const db = await getDatabase();
     const scope = scopeSql(req);
-    const rollout = await db.get(`SELECT * FROM release_rollouts WHERE id = ? AND ${scope.clause}`, req.params.rolloutId, ...scope.params);
-    if (!rollout) return res.status(404).json({ error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } });
-    const metrics = await db.all('SELECT * FROM release_rollout_metrics WHERE rollout_id = ? ORDER BY variant', rollout.id);
-    const outcome = decide(metrics, JSON.parse(rollout.config_json), rollout.strategy);
-    await withTransaction(db, async (tx) => {
+    const result = await withTransaction(db, async (tx) => {
+      const rollout = await tx.get(`SELECT * FROM release_rollouts WHERE id = ? AND ${scope.clause}`, req.params.rolloutId, ...scope.params);
+      if (!rollout) return { status: 404, error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } };
+      if (!['running', 'paused'].includes(rollout.status)) return { status: 409, error: { code: 'ROLLOUT_CLOSED', message: 'Rollout already has a terminal decision.' } };
+      const metrics = await tx.all('SELECT * FROM release_rollout_metrics WHERE rollout_id = ? ORDER BY variant', rollout.id);
+      const outcome = decide(metrics, JSON.parse(rollout.config_json), rollout.strategy);
       const rolloutUpdate = await tx.run(`UPDATE release_rollouts SET status = ?, decision_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, outcome.status, JSON.stringify(outcome), rollout.id, ...scope.params);
       if (rolloutUpdate.changes !== 1) throw Object.assign(new Error('Rollout changed before its decision could be persisted.'), { code: 'ROLLOUT_STATE_CHANGED' });
       if (outcome.status === 'promoted' || outcome.status === 'rolled_back') {
@@ -337,8 +346,10 @@ async function decideRollout(req, res, next) {
         const releaseUpdate = await tx.run(`UPDATE releases SET status = ?${outcome.status === 'promoted' ? ", environment = 'production'" : ''}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, releaseStatus, rollout.release_id, ...scope.params);
         if (releaseUpdate.changes !== 1) throw Object.assign(new Error('Release changed before its rollout decision could be applied.'), { code: 'RELEASE_STATE_CHANGED' });
       }
+      return { status: 200, body: { id: rollout.id, strategy: rollout.strategy, metrics, ...outcome } };
     });
-    res.json({ id: rollout.id, strategy: rollout.strategy, metrics, ...outcome });
+    if (result.error) return res.status(result.status).json(result.error);
+    res.json(result.body);
   } catch (error) { next(error); }
 }
 
