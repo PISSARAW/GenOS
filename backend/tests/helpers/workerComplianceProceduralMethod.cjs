@@ -1,7 +1,7 @@
 'use strict';
 
 function select(rootWorkspace) {
-  if (process.env.GENOS_COMPLIANCE_PROCEDURAL_SUBSET === '1') {
+  if (process.env.GENOS_COMPLIANCE_PROCEDURAL_LPT !== '1') {
     return require('./nativeWorkerFixtures').fixtures(rootWorkspace).procedural_executor;
   }
   return { version: 1, methodId: 'lpt', parameters: {
