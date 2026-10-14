@@ -500,9 +500,24 @@ et les oracles de benchmark avec mutations rejetées. Les missions formelles
 `formal_worker → formal_proof` et le benchmark `theorem_proving` exécutent Lean
 réel ; la preuve de mission est recompilée par deux processus d'oracle
 indépendants. Le chemin Ollama passe aussi par le worker mesuré `bounded-code`
-et son oracle indépendant. Le scénario de missions persistées, lancé seul,
-confirme en plus **19/19 missions promues**, chacune liée à son run et à un
-oracle accepté.
+et son oracle indépendant. Le benchmark comparatif Linux passe **24/24 cas**
+avec **0** échec, cas non vérifié ou non mesuré, digest
+`sha256:11be284a67148d705b0e096549420121d2035139b3f8397f3e78714b89a70a6d`.
+Une campagne de fautes passe **19/19 types conformes**, utilise 34 nonces
+acceptés uniques et confirme les refus attendus pour l'assemblée altérée du
+`verifier_worker` et le timeout du `recovery_worker`. Le scénario de missions
+persistées, lancé seul, confirme aussi **19/19 missions promues**, chacune liée
+à son run et à un oracle accepté.
+
+Les rapports sont conservés hors dépôt dans
+`D:\GenOS-worker-p2-linux\reports\p2-benchmark-linux.json` (SHA-256
+`b8c419aa2ce64e1c9c81968361c0e4c8fe7a4bfeb7a2e5925bfe4c34ab9d133b`) et
+`D:\GenOS-worker-p2-linux\reports\p2-fault-linux.json` (SHA-256
+`4e268363ffebe710a80dd66f9b142dd4b42a20b9b90fc3bb80bc538335703c50`). Leurs
+manifestes portent `qualificationClass: exploratory` : le checkout Linux de
+campagne était resté sur `261a960b`, avec les deux fichiers source modifiés du
+correctif ensuite commité en `d00175c2`. Les résultats décrivent bien le code de
+ce correctif, mais leur provenance ne prétend pas à un checkout propre du commit.
 
 `cargo test -p genos-sensorimotor` et `cargo test --workspace` passent sur Linux.
 Le gate qualité Linux compte **6 018 fichiers source, 8 violations du baseline
