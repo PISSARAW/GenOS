@@ -49,7 +49,7 @@ nécessaires à un futur reçu lié au run.
 | Décisions bornées | p | p | p | p | o | F/S ; contrats bornés, enforcement non universel. |
 | Autorité explicite | p | p | p | p | o | F/B ; autorités par circuit, raccordement global non prouvé. |
 | Leases d’outils | o | p | p | o | o | [référence MCP](../03-reference/outils-mcp.md) ; enforcement Node/Rust, pas de vérification lancée ici. |
-| Budgets de tokens, temps, CPU, spawn et délégation | p | p | p | p | o | F/B ; cinq ressources composites, CPU et délégation non qualifiés ensemble. |
+| Budgets de tokens, temps, CPU, spawn et délégation | p | p | p | p | o | F/B ; `maxTokens` et `maxTimeMs` bornent le budget normalisé et le délai Node, mais `maxCpuMs` et `limits.maxIterations` restent déclaratifs sans compteur dédié ; l'agrégation spawn/délégation parent-enfant n'est pas qualifiée comme un budget global. |
 | Isolation des workspaces | p | p | p | o | o | F ; provisionnement réel, isolement inter-processus courant à qualifier. |
 | Garde-fou fail-closed | p | p | p | p | o | E/S ; gardes locaux, universalisme non prouvé. |
 | Évidence indépendante | p | p | p | p | o | E ; vérificateurs dédiés, indépendance effective dépend du scénario. |
