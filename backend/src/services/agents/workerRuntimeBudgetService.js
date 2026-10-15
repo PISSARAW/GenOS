@@ -2,6 +2,7 @@
 
 const MAX_WORKER_DEADLINE_MS = 24 * 60 * 60 * 1000;
 const DEADLINE_CHECK_INTERVAL_MS = 1000;
+const CPU_ACCOUNTING_FAILURE_LIMIT = 3;
 
 function clampMissionBudget(mission, budget) {
   if (!mission.workerContract?.resources) return budget;
@@ -41,6 +42,7 @@ function cpuFailure(context, reason, details) {
 
 function recordCpuSample(context, state, current) {
   if (!Number.isFinite(current) || current < 0) throw new Error('CPU meter returned an invalid value.');
+  state.accountingFailures = 0;
   state.consumed += Math.max(0, current - state.previous);
   state.previous = current;
   if (state.consumed < state.limit) return;
@@ -68,7 +70,10 @@ function rejectCpuAccounting(context, state, failure) {
 }
 
 function reportCpuAccountingFailure(context, state, failure) {
-  rejectCpuAccounting(context, state, failure);
+  state.accountingFailures += 1;
+  if (state.accountingFailures >= CPU_ACCOUNTING_FAILURE_LIMIT) {
+    rejectCpuAccounting(context, state, failure);
+  }
 }
 
 async function sampleCpuBudget(context, state) {
@@ -105,7 +110,8 @@ function startWorkerCpuBudget(context) {
     });
     return;
   }
-  const state = { limit, previous: 0, consumed: 0, sampling: false, timer: null };
+  const state = { limit, previous: 0, consumed: 0, accountingFailures: 0,
+    sampling: false, timer: null };
   const intervalMs = Math.min(500, Math.max(50, Math.floor(limit / 100)));
   const timer = setInterval(() => sampleCpuBudget(context, state), intervalMs);
   state.timer = timer;

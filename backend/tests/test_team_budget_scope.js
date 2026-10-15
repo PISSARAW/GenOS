@@ -168,14 +168,32 @@ async function testTeamMemberWithoutScopeHalts() {
   } finally { await db.close(); }
 }
 
-async function testCpuAccountingFailureHalts() {
+async function testTransientCpuAccountingFailureRecovers() {
+  const original = workerProcessCpu.processCpuMs;
+  let calls = 0;
+  workerProcessCpu.processCpuMs = async () => {
+    calls += 1;
+    if (calls === 1) throw new Error('probe restart');
+    return 0;
+  };
+  const child = fakeChild(process.pid);
+  const context = cpuContext(child, 5000);
+  try {
+    cpuBudgets.startWorkerCpuBudget(context);
+    await sleep(1200);
+    assert.equal(context.halts.length, 0);
+    assert.ok(calls >= 2);
+  } finally { child.close(); workerProcessCpu.processCpuMs = original; }
+}
+
+async function testPersistentCpuAccountingFailureHalts() {
   const original = workerProcessCpu.processCpuMs;
   workerProcessCpu.processCpuMs = async () => { throw new Error('probe boom'); };
   const child = fakeChild(process.pid);
   const context = cpuContext(child, 5000);
   try {
     cpuBudgets.startWorkerCpuBudget(context);
-    await sleep(400);
+    await sleep(1700);
     assert.equal(context.halts.length, 1);
     assert.equal(context.halts[0].reason, 'worker_cpu_accounting_unavailable');
   } finally { child.close(); workerProcessCpu.processCpuMs = original; }
@@ -215,7 +233,8 @@ async function testLocalGenerationRequiresExecutionRun() {
   await testBindTeamScopePersistsParentScope();
   await testTeamMemberRoutesWithoutHalt();
   await testTeamMemberWithoutScopeHalts();
-  await testCpuAccountingFailureHalts();
+  await testTransientCpuAccountingFailureRecovers();
+  await testPersistentCpuAccountingFailureHalts();
   await testMeasuredCpuExceedanceStillHalts();
   await testInvalidCpuLimitHalts();
   await testLocalGenerationRequiresExecutionRun();
