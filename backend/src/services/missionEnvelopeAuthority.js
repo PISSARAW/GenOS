@@ -12,7 +12,7 @@ function eventId(runId) { return `gvx-run:${runId}:authority`; }
 
 async function realWorkspaceRoot(root, options = {}) {
   const resolve = options.resolve || fs.realpath;
-  const attempts = options.attempts || 40;
+  const attempts = options.attempts ?? 1;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try { return await resolve(root); }
     catch (failure) {
