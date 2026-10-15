@@ -37,9 +37,11 @@ mission. Écarter ensuite les variants dont les préconditions ne sont pas
 satisfaites. Comparer les variants encore compatibles sur le besoin dominant et
 le coût de coordination ou de transition. Un signal textuel isolé ne prouve pas
 qu'un variant est le meilleur ; un choix incertain doit rester traçable et peut
-conserver la forme courante. Les routeurs locaux effectuent aujourd'hui leurs
-propres sélections par signaux et contrats. Cette matrice documentaire ne leur
-ajoute pas de calibration empirique.
+conserver la forme courante. Les routeurs locaux effectuent leurs sélections
+par signaux et contrats. Morphogenèse dispose aussi d'une
+[présélection par cas d'usage](../../adr/0563-selection-des-variants-par-cas-d-usage.md)
+qui compare les 95 profils et inscrit signaux et alternatives dans son reçu.
+Ce classement reste heuristique et ne lui ajoute pas de calibration empirique.
 
 ## Couverture actuelle
 

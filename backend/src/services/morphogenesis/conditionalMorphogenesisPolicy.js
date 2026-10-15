@@ -6,6 +6,7 @@ const { buildAdaptiveWorkerRoster } = require('./adaptiveWorkerRoster');
 const selectorCalibration = require('./morphogenesisSelectorCalibration');
 const communicationReduction = require('./communicationReductionIntervention');
 const resourceReallocation = require('./resourceReallocationCandidate');
+const variantUseCases = require('./registry/variantUseCaseSelector');
 
 const MAX_EPOCHS = 12;
 const SIGNALS = Object.freeze(['uncertainty', 'causalAmbiguity', 'contradiction',
@@ -137,7 +138,7 @@ function decorateCandidate(context) {
     ...candidate,
     id: candidate.candidateId,
     estimatedTokens: unchanged ? 0 : estimateCost(candidate, input),
-    estimatedProblemFit: problemFit(candidate, signals),
+    estimatedProblemFit: problemFit(candidate, signals, input),
     ...candidateCalibrationAttributes(unchanged, estimate)
   };
 }
@@ -203,7 +204,11 @@ function estimateCost(candidate, input) {
   return Math.ceil((Number(input.budget?.tokens) || 0) * Math.min(0.8, 0.12 * leaves));
 }
 
-function problemFit(candidate, signals) {
+function problemFit(candidate, signals, input) {
+  const documented = variantUseCases.candidateFit({ topology: candidate.topology,
+    variant: candidate.variant, mission: input.mission, problemProfile: input.problemProfile,
+    diagnosis: signals });
+  if (documented !== null) return documented;
   const affinity = candidate.affinity;
   if (!affinity) return 0.5;
   const values = Object.keys(signals).filter(key => Number.isFinite(Number(affinity[key])));

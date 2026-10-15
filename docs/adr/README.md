@@ -696,6 +696,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0557](0557-memoire-negativement-verifiee-des-issues-terminales.md) | Mémoire négative vérifiée des issues terminales | Accepté | 2026-10-15 | épistémologie, exécution worker, mémoire, apprentissage causal |
 | [0558](0558-isoler-les-modules-de-replay-natural-search.md) | Isoler le replay Natural Search de l’initialisation de la DB | Accepté | 2026-10-16 | Natural Search, dépendances runtime et validation isolée |
 | [0559](0559-enumeration-complete-variants-topologiques.md) | Énumérer toutes les variantes topologiques | accepté ; génération exhaustive et classement complet implémentés | 2026-10-16 | orchestration, morphogenèse, sélection topologique |
+| [0563](0563-selection-des-variants-par-cas-d-usage.md) | Sélectionner les variants par cas d'usage documenté | accepté pour la présélection ; calibration comparative requise | 2026-10-16 | orchestration, morphogenèse, variants |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

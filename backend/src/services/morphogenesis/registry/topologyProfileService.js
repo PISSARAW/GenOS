@@ -1,5 +1,7 @@
 'use strict';
 
+const useCases = require('./variantUseCaseSelector');
+
 const PROFILE_DIMENSIONS = Object.freeze([
   'structuralVariants', 'behavioralPolicies', 'resourcePolicies',
   'communicationPolicies', 'authorityPolicies', 'evidencePolicies',
@@ -116,7 +118,9 @@ function requestedProfile(ctx, topology) {
 
 function automaticProfile(ctx, topology, registry) {
   if (ctx.disableVariantAutoselection === true) return null;
-  const selection = selectLocalVariant(topology, ctx);
+  const localSelection = selectLocalVariant(topology, ctx);
+  const selection = useCases.selectVariant({ ...ctx, topology, mission: missionText(ctx),
+    localSelection, available: registry.list(topology) });
   const canonicalId = catalogId(topology, selection.variantId, registry);
   const catalogEntry = registry.resolve(topology, canonicalId);
   const usable = Boolean(catalogEntry);
@@ -179,7 +183,8 @@ function defaultSelection(reason) {
 
 function missionText(ctx) {
   const mission = ctx.mission || ctx.problem || {};
-  return [ctx.prompt, ctx.goal, ctx.currentTask, mission.prompt, mission.goal, mission.description]
+  return [ctx.prompt, ctx.goal, ctx.currentTask, typeof mission === 'string' ? mission : null,
+    mission.prompt, mission.goal, mission.description]
     .filter((value) => typeof value === 'string').join('\n');
 }
 

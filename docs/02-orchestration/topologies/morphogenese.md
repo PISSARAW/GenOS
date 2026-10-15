@@ -2237,6 +2237,15 @@ plusieurs topologies, dont Rhizome et Holobionte, au parcours morphogénétique.
 Le runtime v2 sépare l'évaluation de la proposition, l'adjudication du noyau,
 l'autorisation et l'application.
 
+La présélection des variants compare désormais les
+[95 cas d'usage canoniques](variants-morphologiques.md) au texte et aux besoins
+structurés de la mission. Elle garde le sélecteur local comme observation,
+écarte les préconditions incompatibles d'Holobionte et produit un classement
+traçable avec repli explicite lorsque les indices sont insuffisants. Ce score
+documentaire reste heuristique : il n'autorise aucune transition et n'établit
+pas la supériorité empirique d'un variant. Voir
+[ADR 0563](../../adr/0563-selection-des-variants-par-cas-d-usage.md).
+
 Cette architecture ne signifie pas que toutes les topologies ni tous les
 adaptateurs sont raccordés dans une exécution de bout en bout. L'adjudication
 Rust est fournie au runtime Node par l'application via `kernel.adjudicate`;
