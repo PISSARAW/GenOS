@@ -7,7 +7,9 @@ décrit la capture optionnelle et les préconditions de reprise propres à chacu
 de leurs variants.
 
 La [Morphogenèse](morphogenese.md) est le cadre transversal qui construit et compose
-ces organisations ; elle n'est pas un neuvième mode.
+ces organisations ; elle n'est pas un neuvième mode. Son graphe pilote les feuilles du
+dispatch principal et peut être recompilé à la frontière de continuation à partir des
+preuves de la première vague.
 
 [Garage Fabric](garage-fabric.md) est également transversal : il ordonne les
 exécutions des workers sous les plafonds de capacité, sans choisir leur topologie

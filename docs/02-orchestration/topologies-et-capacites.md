@@ -46,9 +46,40 @@ capacités requises + un profil (preuve, mémoire, budget, communication, moteur
 | **Rhizome** | Sessions persistées, routage multi-sauts borné, exécution et vérification indépendantes des sorties, croissance admise avec débit atomique, métriques de complétion et télémétrie du graphe réel. Les mutations ont une révision et un audit ; MCP expose les opérations explicites du service. | Le cycle de mission requiert des providers et vérificateurs réels enregistrés par l’hôte. La composition seule ne les lance pas. Les modèles biologiques illustratifs ne sont pas certifiés par le runtime. Voir le [contrat](../03-reference/runtime-rhizome.md). |
 | **Biome** | `genos_biological_mode` crée et persiste la session ; `genos_topology_session` expose snapshot, allocation, foraging et santé, dont les résultats sont déposés dans la matrice biofilm. `biomeMissionLoop.runBiomeMission` enchaîne observe → propose → constrain → act → verify avec reçus, budget et autorisation explicite avant effet réel (`backend/tests/test_biome_mission_loop.js`, démo `examples/biome-mission-demo/run-demo.mjs`). | La navigation et la réallocation restent déclenchées par la mission, pas par une boucle autonome ; le mode simulé (`simulated: true`) ne produit aucun effet réel. |
 
-Les parcours Trinity et A-Team ont leurs entrées d'orchestration dédiées. Pour les six modes biologiques, `genos_biological_mode` appelle `biologicalTopologyService.composeMode({ db, orchestratorId, mode, mission })`; les sessions Syncytium, Rhizome et Biome sont ensuite observables et opérables par `genos_topology_session`. La composition seule ne rend pas effectives les capacités simplement inscrites au contrat.
+Les parcours Trinity et A-Team ont leurs entrées d'orchestration dédiées lorsqu'ils
+forment seuls la mission. Le chemin principal Morphogenèse appelle désormais
+`biologicalTopologyService.composeMode` pour chaque feuille d'un graphe composite,
+puis lance la flotte mixte sous un budget et un fan-out communs. Pour les six modes
+biologiques, l'entrée MCP `genos_biological_mode` appelle le même composeur; utilisée
+seule, cette entrée prépare la composition sans lancer automatiquement les workers.
+Les sessions Syncytium, Rhizome et Biome restent observables et opérables par
+`genos_topology_session`. Une composition ne rend pas effectives les capacités qui ne
+sont qu'inscrites dans le contrat.
 
-### 3.1 Matrice des types de workers
+### 3.1 Composition morphogénétique dynamique
+
+Une mission peut fournir une `morphologyExpression` avec les opérateurs `NEST`,
+`PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`, `BRIDGE` ou `FEDERATE`. Les
+affectations de chaque topologie restent liées à leur feuille dans le graphe. Après la
+première vague, les preuves peuvent produire un nouveau graphe de continuation :
+
+| Signal observé | Forme de continuation |
+| --- | --- |
+| échec ou score moyen inférieur à 60 | `COMPETE` entre la topologie sélectionnée et une alternative classée |
+| dispersion supérieure à 25 | `FEDERATE` avec quorum entre les formes |
+| score sous le seuil configuré | `SEQUENCE` des formes |
+| preuves suffisantes ou `adaptive: false` | forme conservée |
+| moins de deux survivants | feuille topologique simple |
+
+La réaffectation conserve le `WorkerKind`, le contrat et l'identité des survivants. Elle
+ne remplace pas un `TopologyAdapter` lorsqu'un état interne doit être transféré. Après
+la barrière finale, `MorphologyRuntime` exécute l'opérateur composite sur les dossiers
+de preuve liés aux workers. Les événements
+`MORPHOGENESIS_CONTINUATION_ADAPTED`,
+`MORPHOGENESIS_CONTINUATION_UNCHANGED` et
+`MORPHOGENESIS_COMPOSITE_EXECUTED` rendent ce parcours observable.
+
+### 3.2 Matrice des types de workers
 
 Il n'existe plus de correspondance unique topologie-rôle → `WorkerKind`. Les
 huit topologies passent par `topologyWorkerKindService`, qui combine les
@@ -92,7 +123,7 @@ leur composition seule ne lance pas nécessairement les workers. Voir
 [Types de workers](../03-reference/types-de-workers.md#141-types-de-workers-vs-rôles-de-mission)
 et [ADR 0123](../adr/0123-separer-profil-worker-et-contrat-de-methode.md).
 
-### 3.2 Garage Fabric : circulation transversale
+### 3.3 Garage Fabric : circulation transversale
 
 La morphogenèse choisit les rôles, méthodes, topologies et contrats. Le
 [Garage Fabric](topologies/garage-fabric.md) ordonne ensuite les exécutions :

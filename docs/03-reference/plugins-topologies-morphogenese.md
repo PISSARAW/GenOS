@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-10-06 (Métapopulation)
+- **Dernière revue** : 2026-10-15 (dispatch composite et continuation adaptative)
 
 ---
 
@@ -13,6 +13,14 @@
 auto-montage caché. Le `TopologyExecutor` préfère un exécuteur dédié, sinon
 délègue au registre, sinon refuse (`Topology not registered`). Code :
 `backend/src/services/morphogenesis/runtime/topologyPlugins.js`.
+
+Dans le chemin principal d'une mission, `missionTopologyActivation` compose chaque
+feuille topologique avant le dispatch. Après la barrière de preuve,
+`missionMorphologyExecution` transmet au `MorphologyRuntime` le graphe courant et les
+dossiers des workers. Une réévaluation effectuée à la frontière de continuation peut
+avoir remplacé le graphe initial par une nouvelle version `COMPETE`, `FEDERATE` ou
+`SEQUENCE`. Les workers restent associés à leurs feuilles par identifiant, jamais par
+la seule position dans une liste.
 
 Le contrôleur Syncytium de cette surface plugin possède son propre contrat.
 Le [runtime Node Syncytium](runtime-syncytium.md) active les treize services de
@@ -66,15 +74,22 @@ backend SQLite configuré pour le control plane et non d'une base de test
   `backend/tests/test_morphology_graph_execution.js`
   (`NEST(A-Team,PARALLEL(Trinity,Rhizome))`,
   `SEQUENCE(PARALLEL,GATE,A-Team)`, fail-closed).
+- Chemin de mission composite :
+  `backend/tests/test_morphogenesis_main_path_activation.js` vérifie le dispatch mixte,
+  les affectations par feuille et le refus sur budget insuffisant.
+- Adaptation de continuation :
+  `backend/tests/test_morphogenesis_dynamic_continuation.js` vérifie le choix de
+  l'opérateur, la version du graphe, la réaffectation par identité, la politique de gel
+  et l'entrée publique de configuration.
 - Protocole à 8 avec SQLite :
   `docs/06-qualite-preuves/morphogenese-gates-2026-09-26.md`.
 - Décision : `docs/adr/0133-graphe-morphologique-executable-et-plugins-topologies.md`.
 
 ## 6. Limites
 
-- Cette exécution des graphes morphologiques est distincte du préparateur de
-  mission historique `morphogenesisRuntime`. Après mission, ce dernier ne fait
-  qu'émettre une proposition; il n'applique pas le graphe ni ne crée de commit.
+- Le chemin de mission planifie et exécute désormais son graphe courant. Le parcours
+  historique post-mission de `morphogenesisRuntime` reste distinct : il ne fait
+  qu'émettre une proposition et ne crée pas de commit.
   L'appel public impose le mode `shadow` et émet
   `POST_MISSION_COMMIT_UNAVAILABLE`. Il refuse un résultat qui prétend être
   appliqué sans pont de production vers le noyau Rust, la gouvernance et la

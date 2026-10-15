@@ -2,7 +2,7 @@
 
 - **Statut** : Cadre opérationnel du noyau GenOS
 - **Portée** : construction, composition, séparation, fusion, transformation et destruction dynamique des organisations cognitives
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-10-15
 
 ---
 
@@ -24,6 +24,61 @@ cadences et capacités ne sont pas garanties par le runtime courant :
 $$\text{Morphogenèse} : \text{Mission} \times \text{Contexte} \times \text{Preuves} \mapsto \text{MorphologyGraph}$$
 
 La Morphogenèse vise, pour toute mission et tout contexte, une morphologie **valide**, **bornée par le budget**, et **la meilleure connue au vu des preuves courantes**; elle peut être Pareto-efficiente lorsque les éléments disponibles le permettent. Elle ne prétend pas démontrer une optimalité globale.
+
+### 1.2 Contrat opérationnel du chemin de mission
+
+Le backend utilise désormais le `MorphologyGraph` comme plan exécutable du
+dispatch. Le planner peut produire une feuille unique ou une expression composée.
+Chaque feuille `TOPOLOGY` appelle son composeur canonique et marque ses affectations
+avec `morphologyNodeId`, `morphologyTopology` et `morphologyVariant`. Le budget et le
+fan-out sont ensuite contrôlés sur l'ensemble de la flotte avant toute création de
+worker.
+
+```mermaid
+flowchart TD
+    M[Mission et contraintes] --> P[Profil et planner Morphogenèse]
+    P --> G[MorphologyGraph simple ou composite]
+    G --> C[Composition de chaque feuille TOPOLOGY]
+    C --> D[Dispatch réconcilié]
+    D --> W[Première vague]
+    W --> E[Scores, échecs et dispersion des preuves]
+    E --> A{Adaptation requise ?}
+    A -->|non| K[Conserver la forme]
+    A -->|preuve faible ou échec| X[COMPETE]
+    A -->|forte dispersion| F[FEDERATE]
+    A -->|autre correction| S[SEQUENCE]
+    X & F & S --> R[Nouveau graphe versionné et réaffectation]
+    K & R --> Q[Continuation bornée]
+    Q --> B[Barrière de preuves]
+    B --> O[Exécution de l'opérateur composite]
+    O --> Z[Gate de clôture]
+```
+
+La réévaluation actuelle intervient une fois, à la frontière quiescente du pool de
+continuation de la successive halving. Elle ne crée aucun token. Les survivants gardent
+leur identité, leur `WorkerKind` et leur contrat; le changement porte sur leur rôle et
+leur feuille topologique. Cette opération est distincte d'une migration d'état interne,
+qui reste soumise aux adaptateurs, leases et gates de transition.
+
+Le contrat public accepte :
+
+- `morphologyExpression` ou `morphology_expression` pour fournir une expression
+  explicite ;
+- `morphogenesisPolicy` ou `morphogenesis_policy` pour régler l'adaptation ;
+- `morphogenesisPolicy.adaptive: false` pour figer la forme après le dispatch initial ;
+- `morphogenesisPolicy.evidenceThreshold` pour remplacer le seuil moyen par défaut de
+  75 sur 100.
+
+La politique automatique utilise `COMPETE` lorsqu'une branche échoue ou que la moyenne
+est inférieure à 60, `FEDERATE` lorsque l'écart des scores dépasse 25, puis `SEQUENCE`
+pour les autres corrections sous le seuil configuré. Avec moins de deux survivants, le
+graphe de continuation reste une feuille simple.
+
+Une Trinity ou une A-Team seule conserve son planificateur dédié. Lorsqu'elle apparaît
+comme feuille d'une expression composite, elle suit le contrat du plugin topologique et
+ne revendique pas les garanties additionnelles du run dédié complet. Dans une
+composition, les organisations locales ne remplacent pas successivement l'organisation
+globale de l'orchestrateur.
 
 ---
 
@@ -2197,7 +2252,7 @@ Aucune optimalité globale, supériorité empirique ni intégration de productio
 ne découle de la seule présence de ces composants. Pour l'état précis du
 noyau de contrôle et ses limites, voir [noyau de contrôle morphogénétique](../noyau-controle-morphogenetique.md).
 
-## 46. Inventaire du branchement (audit initial du 2026-09-25, mise à jour Trinity du 2026-10-04)
+## 46. Inventaire du branchement (mis à jour le 2026-10-15)
 
 Le registre, le résolveur, l'ontologie, le contrat de capacités et le dispatch
 commun déclarent les mêmes huit identifiants canoniques. Les composeurs sont
@@ -2205,19 +2260,21 @@ maintenant tous adressables par ce dispatch :
 
 | Topologie | Point de composition | État du dispatch commun |
 | --- | --- | --- |
-| Trinity | `trinityService.compose` | Dispatch dédié; trois chambres en baseline, seize workers pour le factoriel, réplicas/enfants supplémentaires selon le variant. Les douze runners sont branchés depuis les corrections post-R3 ; la campagne pré-correctifs a produit 12 escalades, 0 merge et plusieurs runners absents. Pas de requalification post-correctifs (voir `topologies/trinity.md`). |
-| A-Team | `aTeamService.analyzeMission` et `aTeamService.compose` | Dispatch dédié; au moins deux domaines requis |
-| Biome | `biomeCoordinationService.composeBiome` | Dispatch dédié |
-| Biocénose | `biocenoseService.prepareCommunity` | Dispatch dédié; dépend de la base |
-| Holobionte | `holobionteCoordinationService.composeHolobiont` | Dispatch dédié |
-| Syncytium | `syncytiumCoordinationService.createSession` | Dispatch dédié |
-| Rhizome | `rhizomeCoordinationService.composeRhizome` | Dispatch dédié |
-| Métapopulation | `metapopulationCoordinationService.createMetapopulationSession` | Dispatch dédié |
+| Trinity | `trinityService.compose` | Une feuille unique conserve le dispatch dédié. Dans un graphe composite, les chambres deviennent une composante du dispatch global et la synthèse passe par le plugin Trinity; cela ne qualifie pas le protocole dédié complet. |
+| A-Team | `aTeamService.analyzeMission` et `aTeamService.compose` | Une feuille unique conserve le plan dédié et exige au moins deux domaines. Dans une composition, ses membres sont une composante du dispatch global. |
+| Biome | `biomeCoordinationService.composeBiome` | Peut piloter seul le dispatch ou fournir une feuille d'une composition. |
+| Biocénose | `biocenoseService.prepareCommunity` | Peut piloter seul le dispatch ou fournir une feuille; sa préparation dépend de la base. |
+| Holobionte | `holobionteCoordinationService.composeHolobiont` | Peut piloter seul le dispatch ou fournir une feuille; les capacités spécialisées gardent leurs préconditions runtime. |
+| Syncytium | `syncytiumCoordinationService.createPolicySession` | Peut piloter seul le dispatch ou fournir une feuille avec session et variant. |
+| Rhizome | `rhizomeCoordinationService.composeRhizome` | Peut piloter seul le dispatch ou fournir une feuille avec session persistée. |
+| Métapopulation | `metapopulationCoordinationService.createMetapopulationSession` | Peut piloter seul le dispatch ou fournir une feuille; le runtime régional garde ses propres préconditions. |
 
 Les tests de planification vérifient que chaque topologie canonique peut être
-sélectionnée et inscrite comme racine du graphe. Les tests de câblage dédiés
-couvrent les composeurs Biome, Biocénose, Holobionte, Syncytium, Rhizome et
-Métapopulation; Trinity et A-Team ont aussi un test du dispatch commun.
+sélectionnée et inscrite comme racine du graphe. Le test du chemin principal vérifie
+aussi que plusieurs feuilles produisent une flotte mixte, que les affectations restent
+liées à leur nœud et que les limites de budget bloquent avant le dispatch. Le test de
+continuation vérifie la recompilation pilotée par les preuves, la conservation des
+identités et l'exécution finale de l'opérateur composite.
 
 Une seule conversion inter-topologies spécialisée était enregistrée et
 testée au 2026-09-25 : Trinity vers A-Team, à partir des affirmations vérifiées
@@ -2285,10 +2342,12 @@ Les receipts du runtime sont des traces (`execution_receipt`,
 éléments `evidence`; un receipt ne devient pas une preuve par propagation et ne
 porte pas de garantie cryptographique.
 
-Limites maintenues : le planificateur historique sélectionne encore une
-topologie unique (le graphe composite vient du compilateur, pas du
-`morphogenesisPlannerService`) ; les boucles rapide/structurelle/évolutive
-ne sont pas tickées par le runtime. Le résolveur mélange maintenant son score
+Limites maintenues : la mission exécute une réévaluation morphologique à la frontière
+de continuation, pas une boucle structurelle illimitée. Le planner peut construire un
+graphe composite pour une forte incertitude et accepte une expression explicite, mais
+les combinaisons restent soumises au typage, aux capacités disponibles et au budget.
+Les boucles rapide/structurelle/évolutive générales ne sont pas tickées en continu par
+le runtime. Le résolveur mélange maintenant son score
 heuristique de cold-start avec des issues morphologiques persistées seulement
 après validation d'un reçu signé, indépendant et lié au hash de
 `{ success, value, kind }`. Le poids du prior heuristique décroît avec le
