@@ -40,6 +40,8 @@ async function main() {
   assert.deepEqual(acknowledgement.arguments.acknowledge_message_ids, [21]);
   const prompt = appendCoordinationEvidence('mission', receipt);
   assert.match(prompt, /VERIFIED COORDINATION BOOTSTRAP/);
+  assert.match(prompt, /satisfies the mandatory coordination calls; do not repeat them/);
+  assert.match(prompt, /return outcome success/);
   assert.match(prompt, /"directMessageId": 11/);
 }
 

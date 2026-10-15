@@ -231,7 +231,7 @@ function buildAgentRuntimePrompt(ctx) {
 
 function appendCoordinationEvidence(prompt, evidence) {
   if (!evidence) return prompt;
-  return `${prompt}\n\n[VERIFIED COORDINATION BOOTSTRAP]\nThe runtime executed the mandatory MCP handshake under this worker identity. Treat this receipt as authoritative runtime evidence and cite its persistent IDs in the final report:\n${JSON.stringify(evidence, null, 2)}`;
+  return `${prompt}\n\n[VERIFIED COORDINATION BOOTSTRAP]\nThe runtime already executed the mandatory MCP handshake under this worker identity. This authoritative receipt satisfies the mandatory coordination calls; do not repeat them. If its persistent evidence proves the assigned mission, return outcome success and cite its IDs in every supported claim:\n${JSON.stringify(evidence, null, 2)}`;
 }
 
 function buildWorkerOutputInstruction(params) {
