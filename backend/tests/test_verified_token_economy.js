@@ -57,6 +57,26 @@ function verifyNegativeMemoryPriority() {
   assert.equal(selectHistoricalMemories(memories, { historicalMemoryTokenBudget: 0 }).pitfalls.length, 0);
 }
 
+function verifyRuntimeUsesMemoryContextRanking() {
+  const memories = {
+    pitfalls: [], goldenPaths: [], episodes: [],
+    experiences: [
+      { content: 'First in retrieval order.', similarityScore: 0.1 },
+      { content: 'Relevant ranked candidate.', tags: ['critical'], similarityScore: 0.9 }
+    ]
+  };
+  const selected = selectHistoricalMemories(memories,
+    { historicalMemoryTokenBudget: 16 }, 'critical task');
+  assert.equal(selected.experiences.length, 1);
+  assert.equal(selected.experiences[0].content, 'Relevant ranked candidate.');
+
+  const priority = selectHistoricalMemories({ ...memories,
+    pitfalls: [{ content: 'Avoid the known failure.', similarityScore: 0.01 }] },
+  { historicalMemoryTokenBudget: 24 }, 'critical task');
+  assert.equal(priority.pitfalls.length, 1, 'Known pitfalls remain ahead of compiler-ranked positive memories.');
+  assert.equal(priority.experiences.length, 0);
+}
+
 function verifyMemoryProvenanceBudget() {
   const basic = { title: 'Bounded note', content: 'Short useful memory.' };
   const base = { pitfalls: [], goldenPaths: [], episodes: [], experiences: [basic] };
@@ -108,6 +128,7 @@ async function verifyUsageProvenance() {
 async function run() {
   verifyEvidencePreservation();
   verifyNegativeMemoryPriority();
+  verifyRuntimeUsesMemoryContextRanking();
   verifyMemoryProvenanceBudget();
   await verifyNoTransportLabels();
   await verifyUsageProvenance();

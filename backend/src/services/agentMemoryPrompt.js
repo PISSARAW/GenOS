@@ -17,6 +17,7 @@ const promptGenome = require('./promptGenomeService');
 const microRnaPrompt = require('./microRnaPromptService');
 const scope = require('./agentMemoryScope');
 const { sanitizeMemorySourceText } = require('./memoryScoring');
+const { MAX_TOKEN_BUDGET, compileContext } = require('./memory/memoryContextCompiler');
 
 function applyScope(list, task, opts) {
   const scoped = scope.filterScoped(filterUnverified(list), opts.missionScope, task);
@@ -243,13 +244,38 @@ function emptyMemorySelection() {
   return { experiences: [], pitfalls: [], goldenPaths: [], episodes: [] };
 }
 
-function selectHistoricalMemories(memories, options) {
+function rankHistoricalMemories(memories, query) {
+  const kinds = ['experiences', 'pitfalls', 'goldenPaths', 'episodes'];
+  const keyed = Object.fromEntries(kinds.map((kind) => [kind,
+    (memories[kind] || []).map((item, index) => ({
+      ...item,
+      _promptMemoryKey: `${kind}:${index}`,
+      similarityScore: Number(item.similarityScore ?? item.similarity) || 0
+    }))]));
+  const compiled = compileContext({
+    relevantFacts: keyed.pitfalls,
+    relevantEpisodes: keyed.episodes,
+    procedures: [...keyed.experiences, ...keyed.goldenPaths],
+    budget: MAX_TOKEN_BUDGET,
+    query
+  });
+  const rankedKeys = compiled.items.map((item) => item._promptMemoryKey);
+  return Object.fromEntries(kinds.map((kind) => {
+    const source = keyed[kind];
+    const ranked = rankedKeys.map((key) => source.find((item) => item._promptMemoryKey === key)).filter(Boolean);
+    const selected = new Set(ranked.map((item) => item._promptMemoryKey));
+    return [kind, [...ranked, ...source.filter((item) => !selected.has(item._promptMemoryKey))]];
+  }));
+}
+
+function selectHistoricalMemories(memories, options, query) {
   const selected = emptyMemorySelection();
   const budget = historicalBudget(options);
-  const cautions = (memories.experiences || []).filter(scope.isCaution);
-  const ordinary = (memories.experiences || []).filter((item) => !scope.isCaution(item));
-  const queues = [['pitfalls', memories.pitfalls], ['experiences', cautions],
-    ['goldenPaths', memories.goldenPaths], ['experiences', ordinary], ['episodes', memories.episodes]];
+  const ranked = rankHistoricalMemories(memories, query);
+  const cautions = ranked.experiences.filter(scope.isCaution);
+  const ordinary = ranked.experiences.filter((item) => !scope.isCaution(item));
+  const queues = [['pitfalls', ranked.pitfalls], ['experiences', cautions],
+    ['goldenPaths', ranked.goldenPaths], ['experiences', ordinary], ['episodes', ranked.episodes]];
   for (const [kind, entries] of queues) {
     for (const entry of entries || []) {
       selected[kind].push(entry);
@@ -286,7 +312,7 @@ async function formatCognitiveMemoryPrompt(agentId, task, options) {
   try {
     const memories = await retrieveAgentMemories(agentId, task, opts);
     const injections = await collectVesicleSections(agentId, opts);
-    const selected = selectHistoricalMemories(memories, opts);
+    const selected = selectHistoricalMemories(memories, opts, task);
     const sections = buildMemorySections(selected, injections.regular);
     const promptBlock = assemblePromptBlock(sections, injections.shield);
     await injections.consume();
