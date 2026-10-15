@@ -86,15 +86,6 @@ Rust complet passent après correction. Le contrôle qualité inspecte 6 159 fic
 et signale dix violations baseline, zéro nouvelle; le gate staged du correctif
 signale zéro violation. L'index ADR compte 632 entrées sans problème.
 
-Après le durcissement du rejeu crossover (`ad067a44`), les tests ciblés de
-l'orchestrateur (dont les divergences de génome, cellule et parent) et du CLI
-interprocessus passent. Un nouveau `cargo test --workspace` ne compile pas le
-checkout partagé courant : `crates/genos-cli/src/commands/sensory.rs` échoue
-sur deux références à `SensoryInput` non importé dans ses tests. Ces fichiers
-sensoriels sont des modifications locales non incluses dans le correctif
-crossover; le résultat antérieur du workspace reste valide pour son état
-antérieur, pas pour cet état partagé.
-
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
@@ -110,7 +101,7 @@ antérieur, pas pour cet état partagé.
 | Reçus vérifiables | p | p | p | p | o | B/E ; plusieurs schémas, vérification et clés selon parcours. |
 | Décisions bornées | p | p | p | p | o | F/S ; contrats bornés, enforcement non universel. |
 | Autorité explicite | p | p | p | p | o | F/B ; `genos_synaptic_prune_scale` exige le demandeur authentifié sur les dispatches registre, bio et transport local, puis borne les deux extrémités au workspace (test `test_synaptic_integrity.js`, ADR 0490). Les autorités des autres circuits restent à qualifier. |
-| Leases d’outils | o | p | p | o | o | [référence MCP](../03-reference/outils-mcp.md) ; le runtime propage au serveur Node/Rust l'échéance la plus proche entre délai, budget de latence et plafond hôte, et refuse un plafond mal formé (`test_agent_runtime_adapter.js`, ADR 0509). Les tests du parseur, du transport et de l'intersection stricte de focus passent (`test_agent_tool_lease_validation.js`, `test_lease_catalog_coherence.js`, `test_mcp_transport_lease.js`, `test_mcp_direct_call_enforcement.js`, `test_focus_probe_lease_intersection.js`; ADR 0508). L'exécution réelle de chaque outil sous lease et la révocation active d'une mission déjà en cours restent à démontrer. |
+| Leases d’outils | o | p | p | o | o | [référence MCP](../03-reference/outils-mcp.md) ; le runtime propage au serveur Node/Rust l'échéance la plus proche entre délai, budget de latence et plafond hôte, et refuse un plafond mal formé (`test_agent_runtime_adapter.js`, ADR 0509). Les tests du parseur, du transport et de l'intersection stricte de focus passent (`test_agent_tool_lease_validation.js`, `test_lease_catalog_coherence.js`, `test_mcp_transport_lease.js`, `test_mcp_direct_call_enforcement.js`, `test_focus_probe_lease_intersection.js`; ADR 0508). `test_mission_authority_envelope.js` démontre qu'une rotation de l'autorité d'exécution arrête un worker déjà lancé. Cela ne démontre pas la révocation dynamique d'une politique de lease d'outil pendant l'exécution ni l'exécution réelle de chaque outil sous lease. |
 | Budgets de tokens, temps, CPU, spawn et délégation | p | p | p | p | o | F/B ; les runtimes Node Codex, local et Solar partagent des plafonds finis par défaut et ferment à zéro sur valeur explicite invalide; les mesures de coût négatives ou mal formées bloquent aussi (ADR 0510, `test_runtime_billable_budget.js`); `workerRuntimeLimitsService` et le timer `latencyMs` bornent l'exécution (`test_runtime_budget_and_influence.js`, `test_worker_native_lifecycle.js`). Les essais natifs bornent les essais de procédure (`test_worker_native_boundaries.js`). `test_bounded_worker_delegation.js` vérifie cumul tokens/enfants, concurrence, rollback et plafonds pour `sub_orchestrator`. Le champ Node `resources.maxCpuMs` n'est construit que dans `workerResourcePolicy.js` puis n'est appliqué par aucun garde; le champ Rust `ResourceBudget.cpu_ms` est défini et rempli par les presets, mais aucun runtime ne le lit (`workerRuntimeBudgetService.js`, `workerRuntimeLimitsService.js`, `genos-worker/src/contract.rs`, `genos-worker/src/presets.rs`). Aucun compteur n'applique ces plafonds CPU; les essais ne bornent pas les tours généraux et la délégation n'est pas qualifiée dans toutes les topologies. |
 | Isolation des workspaces | p | p | p | o | o | E/F ; tests ciblés refusent les lectures MCP inter-workspace (ADR 0489) et les arêtes d'inhibition inter-projet (`test_synaptic_integrity.js`, ADR 0491). Provisionnement et isolement inter-processus courant à qualifier. |
 | Garde-fou fail-closed | p | p | p | p | o | E/S ; gardes locaux, universalisme non prouvé. |
