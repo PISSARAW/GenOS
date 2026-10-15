@@ -5,10 +5,12 @@ const { buildMcpServerEnvironment, serializeMcpServerEnvironment } = require('..
 
 function testHermesRuntimeEnvironment() {
   const env = buildRuntimeEnvironment({
+    Path: 'C:/Windows/System32',
     LOCALAPPDATA: 'C:/Users/test/AppData/Local',
     GENOS_SOLAR_MODEL: 'solar-test',
     UNRELATED_SECRET: 'must-not-propagate'
   }, process.cwd(), false);
+  assert.equal(env.Path, 'C:/Windows/System32');
   assert.equal(env.LOCALAPPDATA, 'C:/Users/test/AppData/Local');
   assert.equal(env.GENOS_SOLAR_MODEL, 'solar-test');
   assert.equal(env.UNRELATED_SECRET, undefined);
