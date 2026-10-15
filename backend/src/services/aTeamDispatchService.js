@@ -20,6 +20,7 @@ const { prepareDispatchPolicy } = require('./aTeam/dispatchPolicyService');
 const { emit } = require('./agentOrchestrationState');
 const topologyWorkerKinds = require('./topologyWorkerKindService');
 const { alignTeamOrganization } = require('./aTeam/variantOrganizationAlignment');
+const dynamicOrganization = require('./dynamicOrganizationService');
 
 function stageRunnerPath() {
   return path.resolve(__dirname, '../../bin/genos-ateam-stage-runner.cjs');
@@ -192,6 +193,11 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
   const { team, garage, projectGoal } = setup;
   const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: activeRun.members, planId: activeRun.teamRunId });
   plan.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', inferTeamRoles(plan.members));
+  await dynamicOrganization.changeOrganization(setup.db, {
+    orchestratorId: context.orchestratorId, organization: team.organization,
+    reason: `A-Team '${activeRun.teamRunId}' activated its execution topology.`,
+    changedBy: context.orchestratorId
+  });
   await persistPlannedWorkers({ db: setup.db, context, parent, members: plan.members });
   const existingWorkerIds = await workersAlreadyPresent(setup.db, plan.members);
   // Independent producers start now; the detached runner waits for them before

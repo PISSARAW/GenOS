@@ -7,6 +7,7 @@ const scheduler = require('../src/services/aTeamStageScheduler');
 const teamService = require('../src/services/aTeamService');
 const runtime = require('../src/services/aTeam/aTeamRuntime');
 const store = require('../src/services/aTeam/teamRunStore');
+const dynamicOrganization = require('../src/services/dynamicOrganizationService');
 const { dispatchTeam } = require('../src/services/aTeamDispatchService');
 
 async function run() {
@@ -14,7 +15,7 @@ async function run() {
     { workerId: 'worker-a', memberId: 'member-a', subSystem: 'api', pipelineStage: 0 },
     { workerId: 'worker-b', memberId: 'member-b', subSystem: 'web', pipelineStage: 0 }
   ];
-  const originals = { garage: garage.state, compose: coordination.composeTeam, stage: scheduler.stagePlanFor, planStages: teamService.planStages, create: runtime.createRun, transition: runtime.transitionRun, claim: runtime.claimExecution, release: runtime.releaseExecution };
+  const originals = { garage: garage.state, compose: coordination.composeTeam, stage: scheduler.stagePlanFor, planStages: teamService.planStages, create: runtime.createRun, transition: runtime.transitionRun, claim: runtime.claimExecution, release: runtime.releaseExecution, changeOrganization: dynamicOrganization.changeOrganization };
   const originalLoad = store.load;
   store.load = async () => createCount ? runtimeSnapshotRun() : null;
   let capacity;
@@ -23,6 +24,7 @@ async function run() {
   let claimCount = 0;
   let launches = 0;
   let allocatedTokens = 0;
+  let activatedOrganization = null;
   garage.state = async () => ({ available: createCount ? 0 : 2 });
   coordination.composeTeam = (input) => (capacity = input.available, assignedRoles = input.assignedRoles, {
     members: teamMembers,
@@ -45,6 +47,10 @@ async function run() {
     return claimCount === 2 ? { claimed: false, run } : { claimed: true, token: `lease-${claimCount}`, run };
   };
   runtime.releaseExecution = async () => true;
+  dynamicOrganization.changeOrganization = async (_db, input) => {
+    activatedOrganization = input.organization;
+    return { changed: true, organization: input.organization };
+  };
   try {
     const context = { orchestratorId: 'mission-dispatch', task: 'Build API', startAteamRunner: async () => ({ pid: 123 }), repoRoot: process.cwd(), request: { roles: ['api_owner', 'web_owner'], maxTokens: 200 } };
     const agents = new Map();
@@ -61,6 +67,7 @@ async function run() {
     assert.equal(first.aTeam.teamRunId, 'run-stable');
     assert.equal(first.aTeam.workGraphId, 'graph-stable');
     assert.equal(launches, 2);
+    assert.equal(activatedOrganization, 'specialist_expert_committee');
     assert.deepEqual(assignedRoles, ['api_owner', 'web_owner']);
     assert.equal(allocatedTokens, 200);
     assert.equal(agents.get('worker-a').parent_agent_id, context.orchestratorId);
@@ -85,6 +92,7 @@ async function run() {
     runtime.transitionRun = originals.transition;
     runtime.claimExecution = originals.claim;
     runtime.releaseExecution = originals.release;
+    dynamicOrganization.changeOrganization = originals.changeOrganization;
   }
   const payload = scheduler.workerLaunchPayload({
     plan: { orchestratorId: 'mission-dispatch' },
