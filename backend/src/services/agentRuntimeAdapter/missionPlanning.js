@@ -6,6 +6,7 @@ const { validateBudgetCoherence } = require('../budgetCoherenceService');
 const orchestratorBody = require('../orchestratorBodyService');
 const missionMorphogenesis = require('./missionMorphogenesis');
 const topologyActivation = require('./missionTopologyActivation');
+const missionStrategyActivation = require('./missionStrategyActivation');
 
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
@@ -24,6 +25,9 @@ async function attachMorphogenesisPlan(ctx) {
     const plan = planMorphogenesis(input);
     ctx.morphogenesisPlan = plan;
     await topologyActivation.activateMorphogenesisPlan(ctx, plan);
+    const snapshot = require('./missionWorkerRuntimeSnapshot').readMissionWorkerRuntimeSnapshot;
+    ctx.workerRuntimeSnapshot = await snapshot(ctx.db, ctx.autonomyPlan.dispatchWorkers);
+    missionStrategyActivation.compileAndAttachMissionStrategy(ctx);
     await publishMorphogenesisCandidate(ctx, plan);
     if (shadowMorphogenesisEnabled()) await attachMorphogenesisShadow(ctx, plan);
   } catch (error) {
