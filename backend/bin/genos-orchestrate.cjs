@@ -375,7 +375,7 @@ async function executeForeground(db) {
   try { await executeMission(db, state); } catch (error) { await cleanupFailure(db, state, error); throw error; }
   finally {
     if (request.detachedProcessId) await db.run('DELETE FROM detached_processes WHERE id = ?', request.detachedProcessId).catch(() => {});
-    await closeDatabase();
+    await require('../src/services/telemetryShutdownService').closeAfterFlush({ telemetry, closeDatabase });
   }
 }
 
