@@ -32,6 +32,7 @@ async function bootstrapMission(mission) {
   await require('../garageAdmissionService').adopt(ctx);
   await require('../garageAdmissionService').provisionWorker(ctx);
   await provisionWorkspaceAndModel(ctx);
+  await require('../missionHabitatRuntime').bindMissionHabitat(ctx);
   normalizeMissionBudgets(ctx);
   await enableMissionMonitoring(ctx);
   await planMission(ctx);

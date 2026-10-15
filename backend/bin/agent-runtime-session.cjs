@@ -358,16 +358,8 @@ async function handleChildClose(state, code, signal) {
         detail: `Codex session checkpoint unavailable: ${error.message}`, severity: 'warning' });
     }
   }
-  return handleRuntimeClose({
-    code, signal, budgetStopped: state.budgetStopped, emit: state.emit,
-    cleanup: () => { cleanup(state); }, requiredTools: state.requiredTools, observedTools: state.observedTools,
-    db: state.db, hasAgentInDb: state.hasAgentInDb, agentConscience, conscienceState: state.conscienceState,
-    pendingConscienceOp: state.pendingConscienceOp, mission: state.mission, finalReportText: state.finalReportText,
-    agentName: state.agentName, nameMeaning: state.nameMeaning, autonomyPlan: state.autonomyPlan, isWorker: state.isWorker,
-    exactTokens: state.exactTokens, estimatedTokens: state.estimatedTokens, eventCount: state.eventCount,
-    observedCostUsd: state.observedCostUsd, strategyContract: state.strategyContract, orchestratorAgentId: state.orchestratorAgentId,
-    recordedTurns: state.recordedTurns, stderr: state.stderr
-  });
+  const ctx = require('./agent-runtime-close-context.cjs').buildCloseContext(state, code, signal);
+  return handleRuntimeClose(ctx);
 }
 async function startRuntime(state) {
   const binaries = resolveBinaries();

@@ -21,10 +21,12 @@ const partial = buildFinalResponse({ ...base, payload: {
 assert.equal(partial.usageReceipt, undefined);
 
 const gemini = buildFinalResponse({ ...base, payload: {
-  responseId: 'gemini-1', usageMetadata: { promptTokenCount: 7, candidatesTokenCount: 3 }
+  responseId: 'gemini-1', usageMetadata: { promptTokenCount: 7, candidatesTokenCount: 3,
+    cachedContentTokenCount: 2 }
 } });
 assert.equal(gemini.usageReceipt.responseId, 'gemini-1');
 assert.equal(gemini.usageReceipt.outputTokens, 3);
+assert.equal(gemini.usageReceipt.cacheReadTokens, 2);
 
 const encoded = new TextEncoder().encode('data: {"id":"stream-1","choices":[{"delta":{"content":"Salut"}}]}\n\ndata: {"id":"stream-1","usage":{"prompt_tokens":5,"completion_tokens":2},"choices":[]}\n\n');
 const response = { body: new ReadableStream({ start(controller) { controller.enqueue(encoded); controller.close(); } }) };

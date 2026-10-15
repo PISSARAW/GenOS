@@ -202,7 +202,7 @@ async function finalizeAttempt(ctx, outcome, result) {
   const enriched = Object.assign({}, result, { model: outcome.uri, requestedModel: outcome.uri,
     servedModel: result.servedModel || result.model || outcome.prepared.modelName,
     routeAttemptId: outcome.id, latencyMs: Date.now() - outcome.startedAt, costUsd,
-    attemptStatus: overBudget ? 'rejected_budget' : 'completed' });
+    attemptStatus: overBudget ? 'rejected_budget' : 'completed', providerCalled: true, catalogPricingKnown: attemptLedger.catalogPricingKnown(outcome) });
   await attemptLedger.finishAttempt(ctx.db, { ...outcome, ...usage, costUsd,
     status: enriched.attemptStatus });
   outcome.finished = true;

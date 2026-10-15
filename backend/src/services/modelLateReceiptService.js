@@ -43,7 +43,9 @@ async function reconcile(ctx, outcome, value) {
     executionRunId: ctx.executionRunId, agentId: ctx.agentId
   }, { ...usage, tokenUsageMeasured: true, model: outcome.uri,
     routeAttemptId: outcome.id, costUsd, attemptStatus: 'late_receipt',
-    success: false });
+    success: false, providerCalled: true,
+    catalogPricingKnown: attemptLedger.catalogPricingKnown(outcome),
+    usageReceipt: value?.usageReceipt });
   const settlement = await reservations.settle(ctx.db, outcome.reservation, {
     providerCalled: true, costUsd,
     tokens: usage.inputTokens + usage.outputTokens

@@ -325,28 +325,47 @@ async function execute(executionRequest) {
   const db = await getDatabase();
   await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
   const request = { agentId, runId, organizationId, projectId, toolName, args, taints };
+  const { circuitScope, policy } = await resolveExecutionPolicy(db, request);
+  const binding = await resolvePermissionBinding(db, { request, policy, executionRequest });
+  return require('./mcpExecutor/permissionMembraneBridge').executeAuthorized({
+    db, request: { ...request, ...executionRequest }, policy, binding,
+    operation: async () => executeAfterPermission({
+      db, request, binding, circuitScope, applyDomainVerdict
+    })
+  });
+}
+
+async function resolvePermissionBinding(db, context) {
+  const { request, policy, executionRequest } = context;
+  const mayExecute = policy.decision === 'allow' || executionRequest.approval || executionRequest.evaluation;
+  if (!mayExecute || !request.agentId) return { status: 'legacy_unbound' };
+  try {
+    return await require('./missionEnvelopeAuthority').assertTool(db, {
+      agentId: request.agentId, runId: request.runId, toolName: request.toolName
+    });
+  } catch (error) {
+    return { status: 'denied', reason: error.code || 'EXECUTION_AUTHORITY_TOOL_DENIED' };
+  }
+}
+
+async function executeAfterPermission(context) {
+  const { db, request, binding, circuitScope, applyDomainVerdict } = context;
   const immuneFault = await screenImmuneThreats(db, request);
   if (immuneFault) return immuneFault;
-  const { circuitScope, policy } = await resolveExecutionPolicy(db, request);
-  if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
   const cnidocyteFault = await require('./mcpExecutor/cnidocyteRuntimeGate').screenCnidocyteThreat(db, request);
   if (cnidocyteFault) return cnidocyteFault;
   const chromatinFault = await screenChromatinLock(db, request);
   if (chromatinFault) return chromatinFault;
-  const unavailable = await checkToolAvailability(db, toolName);
+  const unavailable = await checkToolAvailability(db, request.toolName);
   if (unavailable) return unavailable;
-  const circuitFault = checkCircuitBreaker(toolName, circuitScope, args);
+  const circuitFault = checkCircuitBreaker(request.toolName, circuitScope, request.args);
   if (circuitFault) return circuitFault;
-  const binding = agentId
-    ? await require('./missionEnvelopeAuthority').assertTool(db, { agentId, runId, toolName })
-    : { status: 'legacy_unbound' };
-  if (binding.status === 'authorized') return require('./mcpExecutor/bodyMotorBridge').runBoundMotorTool({ db, agentId, toolName, args, circuitScope, binding });
+  if (binding.status === 'authorized') return require('./mcpExecutor/bodyMotorBridge').runBoundMotorTool({
+    db, agentId: request.agentId, toolName: request.toolName, args: request.args, circuitScope, binding
+  });
   return runCorrelatedToolExecution({
-    context: { db, agentId, toolName, args, circuitScope },
-    executeConfiguredTransport,
-    applyDomainVerdict,
-    circuitBreaker,
-    telemetry
+    context: { db, agentId: request.agentId, toolName: request.toolName, args: request.args, circuitScope },
+    executeConfiguredTransport, applyDomainVerdict, circuitBreaker, telemetry
   });
 }
 

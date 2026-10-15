@@ -241,8 +241,18 @@ function providerUsageReceipt(responseId, usage) {
   if (typeof responseId !== 'string' || !responseId.trim()
     || !Number.isSafeInteger(inputTokens) || inputTokens < 0
     || !Number.isSafeInteger(outputTokens) || outputTokens < 0) return null;
+  const cacheReadTokens = firstNonNull(usage?.cache_read_input_tokens,
+    usage?.prompt_tokens_details?.cached_tokens, usage?.input_tokens_details?.cached_tokens,
+    usage?.cachedContentTokenCount);
+  const cacheCreationTokens = usage?.cache_creation_input_tokens;
   return { apiVersion: 'genos.communication-usage/v1', source: 'model-provider',
-    responseId, inputTokens, outputTokens };
+    responseId, inputTokens, outputTokens,
+    ...(validTokenCount(cacheReadTokens) ? { cacheReadTokens } : {}),
+    ...(validTokenCount(cacheCreationTokens) ? { cacheCreationTokens } : {}) };
+}
+
+function validTokenCount(value) {
+  return Number.isSafeInteger(value) && value >= 0;
 }
 
 /**

@@ -98,6 +98,12 @@ function reportedCost(event, usage) {
   return undefined;
 }
 
+function hasTokenUsage(usage) {
+  return ['input_tokens', 'output_tokens', 'cached_input_tokens',
+    'cache_read_input_tokens', 'total_tokens', 'tokens']
+    .some((key) => Object.prototype.hasOwnProperty.call(usage, key));
+}
+
 function nonnegativeCost(raw) {
   if (typeof raw !== 'number' && typeof raw !== 'string') return null;
   if (typeof raw === 'string' && !raw.trim()) return null;
@@ -109,6 +115,7 @@ function accountEvent(state, event) {
   state.eventCount += 1;
   const usage = readUsage(event);
   const reported = billableTokenCount(usage);
+  if (hasTokenUsage(usage)) state.tokenUsageObserved = true;
   if (reported === null) {
     state.tokenUsageUnknown = true;
   } else if (reported > 0) {
@@ -118,6 +125,7 @@ function accountEvent(state, event) {
   }
   const cost = reportedCost(event, usage);
   if (cost !== undefined) {
+    state.costUsageObserved = true;
     const value = nonnegativeCost(cost);
     if (value === null) state.costUsageUnknown = true;
     else state.observedCostUsd += value;

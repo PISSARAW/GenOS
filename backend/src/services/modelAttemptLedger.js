@@ -55,25 +55,42 @@ async function reconcileLateAttempt(db, attempt) {
 }
 
 async function recordModelUsage(db, scope, result) {
-  if (!db || typeof db.run !== 'function' || !scope.organizationId || !scope.projectId) return;
+  if (!db || typeof db.run !== 'function') return;
   const usage = usageFrom(result);
-  if (usage.tokenUsageSource === 'unknown') return;
-  await db.run(
-    'INSERT OR IGNORE INTO usage_ledger(id, organization_id, project_id, release_id, category, quantity, cost_usd, metadata_json) VALUES(?,?,?,?,?,?,?,?)',
-    `usage-model-${result.routeAttemptId || crypto.randomUUID()}`,
-    scope.organizationId, scope.projectId,
-    null, 'model_inference', usage.inputTokens + usage.outputTokens,
-    result.costUsd ?? 0,
-    JSON.stringify({ model: result.model, requestedModel: result.requestedModel,
-      servedModel: result.servedModel, provider: result.provider,
-      routeAttemptId: result.routeAttemptId, executionRunId: scope.executionRunId,
-      agentId: scope.agentId, inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
-      tokenUsageMeasured: usage.tokenUsageSource === 'provider',
-      tokenUsageSource: usage.tokenUsageSource, latencyMs: result.latencyMs,
-      transportSuccess: result.success !== false,
-      attemptStatus: result.attemptStatus || 'completed' })
-  );
+  if (scope.organizationId && scope.projectId
+    && !['unknown', 'not_called'].includes(result.tokenUsageSource || usage.tokenUsageSource)) {
+    await db.run(
+      'INSERT OR IGNORE INTO usage_ledger(id, organization_id, project_id, release_id, category, quantity, cost_usd, metadata_json) VALUES(?,?,?,?,?,?,?,?)',
+      `usage-model-${result.routeAttemptId || crypto.randomUUID()}`,
+      scope.organizationId, scope.projectId,
+      null, 'model_inference', usage.inputTokens + usage.outputTokens,
+      result.costUsd ?? 0,
+      JSON.stringify({ model: result.model, requestedModel: result.requestedModel,
+        servedModel: result.servedModel, provider: result.provider,
+        routeAttemptId: result.routeAttemptId, executionRunId: scope.executionRunId,
+        agentId: scope.agentId, inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        tokenUsageMeasured: usage.tokenUsageSource === 'provider',
+        tokenUsageSource: usage.tokenUsageSource, latencyMs: result.latencyMs,
+        transportSuccess: result.success !== false,
+        attemptStatus: result.attemptStatus || 'completed' })
+    );
+  }
+  const metabolicResult = { ...result, ...usage,
+    tokenUsageSource: result.tokenUsageSource || usage.tokenUsageSource };
+  await require('./metabolicLedgerRuntimeBridge').recordModelUsage(db, scope, metabolicResult);
+}
+
+function catalogPricingKnown(outcome) {
+  const registered = outcome.prepared?.registered;
+  if (!registered) return false;
+  return ['cost_input', 'cost_output'].every((key) => knownPrice(registered[key]));
+}
+
+function knownPrice(raw) {
+  if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return false;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0;
 }
 
 function failureCost(outcome, usage) {
@@ -99,15 +116,14 @@ async function recordFailedAttempt({ ctx, outcome, error }) {
     tokenUsageSource: 'not_called' };
   await finishAttempt(ctx.db, { ...outcome, ...known, costUsd, status,
     errorCode: error.code || 'MODEL_ROUTE_FAILED' });
-  if (outcome.providerCalled && usage.tokenUsageSource !== 'unknown') {
-    await recordModelUsage(ctx.db, { organizationId: ctx.organizationId,
-      projectId: ctx.projectId, executionRunId: ctx.executionRunId, agentId: ctx.agentId },
-    { ...usage, tokenUsageMeasured: usage.tokenUsageSource === 'provider',
-      model: outcome.uri, routeAttemptId: outcome.id, costUsd,
-      attemptStatus: status, success: false });
-  }
+  await recordModelUsage(ctx.db, { organizationId: ctx.organizationId,
+    projectId: ctx.projectId, executionRunId: ctx.executionRunId, agentId: ctx.agentId },
+  { ...known, tokenUsageMeasured: known.tokenUsageSource === 'provider',
+    model: outcome.uri, routeAttemptId: outcome.id, costUsd,
+    attemptStatus: status, success: false, providerCalled: Boolean(outcome.providerCalled),
+    catalogPricingKnown: catalogPricingKnown(outcome) });
   return costUsd;
 }
 
 module.exports = { attemptIdentity, startAttempt, finishAttempt, reconcileLateAttempt,
-  recordModelUsage, recordFailedAttempt, usageFrom };
+  recordModelUsage, recordFailedAttempt, usageFrom, catalogPricingKnown };

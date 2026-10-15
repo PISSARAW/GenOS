@@ -43,6 +43,30 @@ consommée progressivement par les chemins de mission ; leur seule présence ne
 prouve ni que chaque ancien run a été migré, ni qu'une frontière d'isolation est
 appliquée par le système d'exploitation.
 
+## Mise en œuvre de la vague 2
+
+Le chemin principal `genos-orchestrate` crée désormais un épisode et son thread
+racine après l'initialisation de la mission. La portée organisation/projet vient
+du workspace persistant et les identifiants sont propagés dans `missionScope` et
+`developmentalContext`. Une mission historique sans portée reste exécutable,
+mais son absence de corrélation est déclarée explicitement.
+
+Le bootstrap du runtime accepte une référence `habitatRef` composée de
+`habitatId` et `revision`. Il vérifie la révision, crée une liaison immuable et
+applique la limite de temps au budget d'exécution. Le backend de processus ne
+prétend pas fournir les frontières d'un conteneur : les runtimes incompatibles,
+les politiques réseau non appliquées, les limites système non prises en charge
+et les assurances `enforced` sans reçu sont refusés.
+
+`mcpExecutor` passe maintenant par la membrane avant le transport. Un refus ou
+une demande d'approbation n'atteint pas l'outil. Une autorisation exécutable est
+ensuite complétée par le statut et le hash du résultat dans le même reçu.
+
+Les tentatives modèle et la fermeture du runtime alimentent le ledger
+métabolique. Les reçus provider conservent aussi les tokens de cache disponibles.
+Un zéro observé reste une mesure exacte ; une valeur absente ou invalide devient
+`unavailable` avec sa raison. Aucun coût facturé n'est déduit d'un tarif catalogue.
+
 Les configurations et liaisons sont immuables. Les évolutions créent une
 nouvelle révision. Les lectures vérifient les hashes canoniques et le périmètre
 organisation/projet. Les migrations sont idempotentes et intégrées au registre

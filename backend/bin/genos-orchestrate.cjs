@@ -22,6 +22,7 @@ const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPoli
 const helpers = require('./orchestratorMissionHelpers.cjs');
 const requestMemory = require('./requestMemoryBridge.cjs');
 const missionCheckpoint = require('../src/services/communication/missionCheckpointBridge');
+const missionEpisodeRuntime = require('../src/services/missionEpisodeRuntime');
 
 const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
   prepareMission, startOrchestratorMission, buildContinuity, emitCompletionEvent,
@@ -253,6 +254,8 @@ async function handleHomeostasisContinuation({ db, id, task, request, mission, c
 async function executeMission(db, state) {
   if (await missionAux.checkMinimalShortcut({ db, action, requestMemory, request, task, telemetry, id })) return;
   await initializeMission({ db, action, orchestratorId, task, request });
+  const episodeRuntime = await missionEpisodeRuntime.ensure(db, { missionId, orchestratorId, action, request });
+  missionEpisodeRuntime.propagate(request, episodeRuntime);
   if (await executeRequestedAction({ db, state })) return;
   await runOrchestratedMission(db);
 }

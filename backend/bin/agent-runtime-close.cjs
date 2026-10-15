@@ -1,6 +1,3 @@
-/**
- * Handler for child process close in genos-agent-runtime.
- */
 const immune = require('../src/services/immuneSystem');
 const workerRecovery = require('../src/services/workerFailureRecoveryService');
 const agentMemory = require('../src/services/agentMemoryContext');
@@ -32,6 +29,7 @@ async function handleRuntimeClose(ctx) {
     db, hasAgentInDb, pendingConscienceOp
   } = ctx;
 
+  await require('./agent-runtime-metabolism.cjs').persist(ctx);
   if (budgetStopped) {
     return handleBudgetStop(ctx, budgetStopped);
   }
