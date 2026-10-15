@@ -84,7 +84,7 @@ function formatEchoes(samples) {
   return firstTruthy(samples, 'branch/auth:10.0:500.0:20.0,db/deadlock:40.0:-100.0:45.0');
 }
 
-const TOOL_HANDLERS = {
+const TOOL_HANDLERS = new Map(Object.entries({
   'genos_biomimicry_spore': (args, timeoutMs) => {
     const params = [`--action ${safeToken(firstTruthy(args.action, 'create'), 'create')}`, `--agent-id ${q(firstTruthy(args.agent_id, 'griot-01'))}`, `--spore-type ${safeToken(firstTruthy(args.spore_type, 'bacterial'), 'bacterial')}`];
     appendOptionalParam(params, args, ['--warm-and-wet', 'warm_and_wet']);
@@ -190,10 +190,10 @@ const TOOL_HANDLERS = {
     if (res && res.success) return res;
     return { configured: true, success: false, status: 'tool_error', transport: 'local', output: firstTruthy(res && res.output, `Lamarckian mutation failed for agent '${agentId}'.`), error: `Lamarckian mutation was not applied for agent '${agentId}'.` };
   },
-};
+}));
 
 function getToolHandler(toolName) {
-  return TOOL_HANDLERS[toolName];
+  return TOOL_HANDLERS.get(toolName);
 }
 
 function quantitativeGenetics(args) {
@@ -269,7 +269,7 @@ function routingAlgorithm(args) {
   return { configured: true, success: route !== null, status: route ? 'completed' : 'not_found', transport: 'local', output: JSON.stringify({ route }), evidence: { method: 'breadth_first_shortest_hop_search' }, route };
 }
 
-const IN_MEMORY_HANDLERS = {
+const IN_MEMORY_HANDLERS = new Map(Object.entries({
   genos_quantitative_genetics: quantitativeGenetics,
   genos_coevolution: coevolution,
   genos_molecular_chaperone: molecularChaperone,
@@ -278,15 +278,15 @@ const IN_MEMORY_HANDLERS = {
   genos_thalamic_filtering: thalamicFiltering,
   genos_social_trust: socialTrust,
   genos_routing_algorithm: routingAlgorithm
-};
+}));
 
 function executeBioExtra(toolName, args = {}, options = {}) {
   const timeoutMs = Math.max(1, Number(options.timeoutMs) || 30000);
   if (!toolName.startsWith('genos_')) return null;
-  if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS[toolName]) {
+  if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS.has(toolName)) {
     return handleBioExtraTool(toolName, args, timeoutMs);
   }
-  const handler = getToolHandler(toolName) || IN_MEMORY_HANDLERS[toolName];
+  const handler = getToolHandler(toolName) || IN_MEMORY_HANDLERS.get(toolName);
   if (handler) return handler(args, timeoutMs);
   return null;
 }
@@ -294,10 +294,10 @@ function executeBioExtra(toolName, args = {}, options = {}) {
 function isBioExtraTool(toolName) {
   const name = String(toolName || '').trim();
   if (!name) return false;
-  if (getToolHandler(name) || IN_MEMORY_HANDLERS[name]) return true;
+  if (getToolHandler(name) || IN_MEMORY_HANDLERS.has(name)) return true;
   try {
     const { BIO_EXTRA_HANDLERS } = require('./mcpBioExtra/handlers/extraHandlers');
-    if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS[name]) return true;
+    if (BIO_EXTRA_HANDLERS && BIO_EXTRA_HANDLERS.has(name)) return true;
   } catch (_) {}
   return false;
 }

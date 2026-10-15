@@ -1,5 +1,7 @@
 'use strict';
 
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
 function clampMissionBudget(mission, budget) {
   if (!mission.workerContract?.resources) return budget;
   const resources = mission.workerContract.resources;
@@ -17,8 +19,9 @@ function clampMissionBudget(mission, budget) {
 }
 
 function startWorkerDeadline(context) {
-  const duration = Number(context.normalizedMission.timeoutMs);
-  if (!Number.isFinite(duration) || duration <= 0) return;
+  const requestedDuration = Number(context.normalizedMission.timeoutMs);
+  if (!Number.isFinite(requestedDuration) || requestedDuration <= 0) return;
+  const duration = Math.min(requestedDuration, MAX_TIMER_DELAY_MS);
   const timer = setTimeout(() => context.haltRuntime(
     context,
     'worker_deadline',

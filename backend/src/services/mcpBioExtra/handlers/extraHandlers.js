@@ -47,17 +47,17 @@ async function handleSwarmEntropy(args) {
   }
 }
 
-const BIO_EXTRA_HANDLERS = {
+const BIO_EXTRA_HANDLERS = new Map(Object.entries({
   genos_get_conscience_state: handleConscienceState,
   genos_biomimicry_conscience_state: handleConscienceState,
   genos_get_conscience_history: handleConscienceHistory,
   genos_biomimicry_conscience_history: handleConscienceHistory,
   genos_get_swarm_entropy: handleSwarmEntropy,
   genos_biomimicry_entropy: handleSwarmEntropy,
-};
+}));
 
 async function handleBioExtraTool(toolName, args, timeoutMs) {
-  const handler = BIO_EXTRA_HANDLERS[toolName];
+  const handler = BIO_EXTRA_HANDLERS.get(toolName);
   if (handler) return await handler(args, timeoutMs);
   return null;
 }

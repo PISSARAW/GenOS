@@ -342,7 +342,7 @@ async function handleChildError(ctx, error) {
     await updateAgent(ctx.agentId, 'error', error.message);
     ctx.emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
   } catch (err) {
-    console.error(`[AgentSupervisor] Error handling child process error for ${ctx.agentId}:`, err);
+    console.error('[AgentSupervisor] Error handling child process error.', { agentId: ctx.agentId, error: err });
   }
 }
 
@@ -371,24 +371,24 @@ async function handleChildClose(ctx, code, signal) {
       executionRun: ctx.executionRun, filesystemReceipt: ctx.filesystemReceipt
     });
   } catch (err) {
-    console.error(`[AgentSupervisor] Error finalizing agent process close for ${agentId}:`, err);
+    console.error('[AgentSupervisor] Error finalizing agent process close.', { agentId, error: err });
     try {
       await updateAgent(agentId, 'error', `Runtime finalization failed: ${err.message}`);
       ctx.emitTracked('AGENT_FINALIZATION_ERROR', 'FINALIZATION', err.message, { code, signal, stack: err.stack }, 'error', 'error');
     } catch (persistErr) {
-      console.error(`[AgentSupervisor] Could not persist finalization failure for ${agentId}:`, persistErr);
+      console.error('[AgentSupervisor] Could not persist finalization failure.', { agentId, error: persistErr });
       process.stderr.write(`[AgentSupervisor] CRITICAL: Could not persist finalization failure for ${agentId}: ${persistErr.message}\n`);
     }
   } finally {
     try {
       await agentRecoveryService.dispatchWorkerRecovery(agentId);
     } catch (err) {
-      console.error(`[AgentSupervisor] Error dispatching worker recovery for ${agentId}:`, err);
+      console.error('[AgentSupervisor] Error dispatching worker recovery.', { agentId, error: err });
     }
     try {
       dispatchPendingContinuation(agentId);
     } catch (err) {
-      console.error(`[AgentSupervisor] Error dispatching pending continuation for ${agentId}:`, err);
+      console.error('[AgentSupervisor] Error dispatching pending continuation.', { agentId, error: err });
     }
   }
 }

@@ -9,6 +9,13 @@ const { appendBounded } = require('./boundedOutput');
 const { terminateChild } = require('./processTermination');
 const { normalizeSandboxCommand, isAllowedSandboxTestCommand } = require('./sandboxCommandPolicy');
 const { materialize } = require('./workspaceSnapshotMaterialize');
+const MAX_TEST_TIMEOUT_MS = 300_000;
+const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
+
+function boundedOption(value, fallback, maximum) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.min(Math.floor(number), maximum) : fallback;
+}
 
 function isGitWorkspace(workspacePath) {
   return Boolean(workspacePath) && fs.existsSync(path.join(workspacePath, '.git'));
@@ -127,6 +134,8 @@ function spawnTestCommand(options) {
 
 async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBytes = 1024 * 1024, workspacePath }) {
   if (!String(command || '').trim()) throw new Error('A test command is required.');
+  timeoutMs = boundedOption(timeoutMs, 30_000, MAX_TEST_TIMEOUT_MS);
+  maxOutputBytes = boundedOption(maxOutputBytes, 1024 * 1024, MAX_OUTPUT_BYTES);
   const shellCommand = assertAllowedTestCommand(command);
   const runnerRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-test-run-'));
   const workingDirectory = path.join(runnerRoot, 'workspace');

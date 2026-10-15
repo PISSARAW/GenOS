@@ -70,7 +70,7 @@ async function runAction(context, args) {
   try {
     await require('./swarmTopologyRuntimeService').applyStepsForOrchestrator(context.orchestratorId, { db: context.db || undefined, steps: 3 });
   } catch (err) {
-    console.error(`[OrchestrationActionExecutor] Error applying step for orchestrator ${context.orchestratorId}:`, err.message);
+    console.error('[OrchestrationActionExecutor] Error applying step for orchestrator.', { orchestratorId: context.orchestratorId, error: err.message });
   }
   return { executed: result.success, result };
 }

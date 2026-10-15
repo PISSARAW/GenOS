@@ -205,16 +205,55 @@ const AUTHORITY = Object.freeze({
   memory_compilation: (role) => (/librarian|compiler/i.test(role) ? 'compiler' : 'member')
 });
 
+const CORE_RUNNERS = new Map([
+  ['specialist_expert_committee', specialistExpertCommittee],
+  ['cross_functional_pod', crossFunctionalPod],
+  ['blind_adversarial_review', blindAdversarialReview],
+  ['red_blue_coevolution', redBlueCoevolution],
+  ['brier_weighted_consensus', brierWeightedConsensus],
+  ['quorum_with_abstention', quorumWithAbstentionOrg],
+  ['stigmergy', stigmergy], ['energy_huddle', energyHuddle]
+]);
+
+const ORGANIZATION_RUNNERS = new Map([
+  ['network_silence', networkSilence], ['hierarchical_merge', hierarchicalMerge],
+  ['isolated_recovery', isolatedRecovery], ['memory_compilation', memoryCompilation]
+]);
+
+const EXTENDED_RUNNERS = new Map([
+  ['strategy_arena', arenaTournament], ['competitive_arena', arenaTournament],
+  ['dynamic_polyethism', dynamicPolyethism], ['mycelial_routing', mycelialRouting]
+]);
+
+function runMappedAlgorithm({ runners, key, state, options }) {
+  const runner = runners.get(key);
+  return runner ? runner(state, options) : undefined;
+}
+
+function runCoreAlgorithm(key, state, options) {
+  return runMappedAlgorithm({ runners: CORE_RUNNERS, key, state, options });
+}
+
+function runOrganizationAlgorithm(key, state) {
+  return runMappedAlgorithm({ runners: ORGANIZATION_RUNNERS, key, state, options: {} });
+}
+
+function runExtendedAlgorithm(key, state, options) {
+  return runMappedAlgorithm({ runners: EXTENDED_RUNNERS, key, state, options });
+}
+
 function runOrganizationStep(organization, state = {}, options = {}) {
   const key = String(organization || '').trim().toLowerCase();
-  const algorithm = ALGORITHMS[key];
-  if (!algorithm) return null;
-  return { organization: key, ...algorithm(state, options) };
+  const result = runCoreAlgorithm(key, state, options) || runOrganizationAlgorithm(key, state)
+    || runExtendedAlgorithm(key, state, options);
+  return result ? { organization: key, ...result } : null;
 }
 
 function authorityFor(organization, role) {
   const key = String(organization || '').trim().toLowerCase();
-  return AUTHORITY[key] ? AUTHORITY[key](String(role || '')) : 'member';
+  const normalizedRole = String(role || '');
+  const authority = Object.hasOwn(AUTHORITY, key) ? AUTHORITY[key] : null;
+  return authority ? authority(normalizedRole) : 'member';
 }
 
 module.exports = { runOrganizationStep, authorityFor, ALGORITHMS, AUTHORITY };

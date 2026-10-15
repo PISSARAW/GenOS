@@ -127,12 +127,12 @@ function startMission(mission) {
       try {
         await require('../agentRecoveryService').dispatchWorkerRecovery(agentId);
       } catch (err) {
-        console.error(`[AgentRuntimeAdapter] Error in dispatchWorkerRecovery for ${agentId}:`, err);
+        console.error('[AgentRuntimeAdapter] Error in dispatchWorkerRecovery.', { agentId, error: err });
       }
       try {
         require('../agentRoundService').dispatchPendingContinuation(agentId);
       } catch (err) {
-        console.error(`[AgentRuntimeAdapter] Error in dispatchPendingContinuation for ${agentId}:`, err);
+        console.error('[AgentRuntimeAdapter] Error in dispatchPendingContinuation.', { agentId, error: err });
       }
     } else {
       pendingContinuations.delete(agentId);
