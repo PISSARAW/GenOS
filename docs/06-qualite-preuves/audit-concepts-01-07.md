@@ -96,9 +96,12 @@ une base fermée. Après une première relance interrompue temporairement lorsqu
 libre est descendu à 279 Mo, le nettoyage des fixtures a rendu plusieurs Gio disponibles
 et le `npm test` complet a terminé avec code 0 : biologie, workspace workers, backend,
 garage et P1 V3 passent. L'index de tests a aussi émis des erreurs asynchrones de
-`TelemetryObserver` (`no such table: telemetry_events` / handle fermé) et un serveur a
-signalé l'absence de `genome_decisions`; les suites ont néanmoins terminé avec succès.
-Ces logs restent des anomalies à isoler, pas des échecs masqués par la qualification.
+`TelemetryObserver` sur base fermée, et un serveur a signalé l'absence de
+`genome_decisions`; ces deux avertissements restent à isoler. Le message
+`no such table: telemetry_events` provenait de `test_axolotl_runtime.js`, qui sautait le
+bootstrap de sa base de contrôle tout en émettant des événements. Après initialisation du schéma,
+configuration du secret de test et vidange avant fermeture (commit `4fedd997`), les huit
+sous-suites Axolotl repassent sans erreur de persistance.
 
 Le contrôle qualité final du checkout a inspecté 6 183 fichiers et signalé 14 violations,
 dont 3 nouvelles dans `examples/holobionte/password-change-llm-mission.cjs` : 4 paramètres
