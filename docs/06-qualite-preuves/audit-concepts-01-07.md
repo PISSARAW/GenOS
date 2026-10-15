@@ -76,6 +76,15 @@ budget passe sans violation. La fixture nommée `test_local_runtime_fallback.js`
 vérifie en réalité que le runtime arrête un worker dépourvu de scope parent de
 budget modèle; elle ne qualifie pas le fallback local.
 
+Les gates globaux ont été rejoués après ADR 0510 : `npm test` passe avec code 0.
+`cargo test --workspace` reste rouge sur le test `biological_crossover`, qui
+attend un replay mais reçoit « restored crossover child genome conflicts with
+runtime »; le test et les modifications Rust concernées sont non indexés dans
+le checkout partagé et n'ont pas été modifiés ici. Le test Rust voisin
+`biological_choanocyte_stream` passe hors sandbox. Le contrôle qualité courant
+inspecte 6 158 fichiers : dix violations baseline, zéro nouvelle. L'index ADR
+compte 631 entrées sans problème.
+
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
