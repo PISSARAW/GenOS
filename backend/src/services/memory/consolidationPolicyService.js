@@ -14,6 +14,30 @@ function refs(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function stringRefs(value) {
+  return [...new Set(refs(value).filter(
+    (reference) => typeof reference === 'string' && reference.trim()
+  ))];
+}
+
+function sourceRefs(episode) {
+  return [...new Set([
+    episode.id,
+    ...stringRefs(episode.provenance?.sourceRefs),
+    ...stringRefs(episode.evidenceRefs),
+    ...stringRefs(episode.counterexampleRefs)
+  ].filter((reference) => typeof reference === 'string' && reference.trim()))];
+}
+
+function promotedProvenance(episode) {
+  return {
+    promotedFrom: 'episodic',
+    originalEpisodeId: episode.id || null,
+    sourceRefs: sourceRefs(episode),
+    promotedAt: new Date().toISOString()
+  };
+}
+
 function missingCambiumWitness(episode) {
   if (!episode.cambiumRequired) return false;
   return !episode.applicability || refs(episode.evidenceRefs).length === 0;
@@ -49,11 +73,10 @@ function promoteToSemantic(episode) {
     category: 'semantic',
     source: 'consolidation',
     sourceEpisodeId: episode.id || null,
-    provenance: {
-      promotedFrom: 'episodic',
-      originalEpisodeId: episode.id || null,
-      promotedAt: new Date().toISOString()
-    },
+    applicability: episode.applicability || null,
+    evidenceRefs: stringRefs(episode.evidenceRefs),
+    counterexampleRefs: stringRefs(episode.counterexampleRefs),
+    provenance: promotedProvenance(episode),
     synapticWeight: 1.0
   };
 }
@@ -69,13 +92,9 @@ function promoteToProcedural(episode) {
     source: 'consolidation',
     sourceEpisodeId: episode.id || null,
     applicability: episode.applicability || null,
-    evidenceRefs: refs(episode.evidenceRefs),
-    counterexampleRefs: refs(episode.counterexampleRefs),
-    provenance: {
-      promotedFrom: 'episodic',
-      originalEpisodeId: episode.id || null,
-      promotedAt: new Date().toISOString()
-    },
+    evidenceRefs: stringRefs(episode.evidenceRefs),
+    counterexampleRefs: stringRefs(episode.counterexampleRefs),
+    provenance: promotedProvenance(episode),
     synapticWeight: 1.0
   };
 }
@@ -89,11 +108,10 @@ function markAsNegativeKnowledge(episode) {
     category: 'negative',
     source: 'consolidation',
     sourceEpisodeId: episode.id || null,
-    provenance: {
-      promotedFrom: 'episodic',
-      originalEpisodeId: episode.id || null,
-      promotedAt: new Date().toISOString()
-    },
+    applicability: episode.applicability || null,
+    evidenceRefs: stringRefs(episode.evidenceRefs),
+    counterexampleRefs: stringRefs(episode.counterexampleRefs),
+    provenance: promotedProvenance(episode),
     synapticWeight: 0.5,
     isNegative: true
   };

@@ -333,7 +333,23 @@ avec :
 - $r(e)$ = reward score ;
 - $\theta$ = seuil de consolidation.
 
-### 6.4 Cas d’usage
+### 6.4 Provenance des mémoires consolidées
+
+La promotion d'un épisode vers une mémoire sémantique, procédurale ou négative
+conserve son `applicability`, ses `evidenceRefs` et ses `counterexampleRefs`.
+Les références sont dédupliquées et la provenance garde l'identifiant de
+l'épisode source, les références déjà héritées et l'heure de promotion.
+Le compilateur de contexte expose cette provenance avec les éléments rappelés,
+afin qu'une mémoire réutilisée reste reliée à ses épisodes et à ses preuves.
+Cette chaîne de références assure la traçabilité ; elle ne certifie pas à elle
+seule la validité des preuves référencées.
+
+Le contrat est implémenté dans
+[backend/src/services/memory/consolidationPolicyService.js](../../backend/src/services/memory/consolidationPolicyService.js)
+et vérifié avec
+[backend/tests/test_memory_consolidation_provenance.js](../../backend/tests/test_memory_consolidation_provenance.js).
+
+### 6.5 Cas d’usage
 
 - replay d’un échec pour éviter le même bug ;
 - apprentissage à partir d’une tentative de patch ;

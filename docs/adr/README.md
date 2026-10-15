@@ -646,9 +646,15 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0512](0512-appliquer-le-budget-cpu-au-runtime-worker-node.md) | Appliquer le budget CPU au runtime worker Node | Accepté et implémenté pour le PID du runtime Node sur Windows et Linux. | 2026-10-15 | Supervision de worker et budgets d'exécution. |
 | [0513](0513-refuser-un-rejeu-de-strategie-sans-recu-lie-au-run.md) | Refuser un rejeu de stratégie sans reçu lié au run | Accepté et implémenté pour le garde de phase; producteur de rejeu complet à réaliser. | 2026-10-15 | Exécution de stratégie et promotion. |
 | [0514](0514-route-backend-cellule-de-garde-experimentale.md) | Route backend pour la cellule de garde expérimentale | Accepté pour le parcours local expérimental | 2026-10-15 | Cellule de garde, backpressure et pont backend/Rust |
+| [0515](0515-choanocyte-producteur-externe-signe.md) | Authentifier la provenance externe des flux Choanocyte | Accepté | 2026-10-15 | Choanocyte, autorité d'entrée, reçus biologiques |
+| [0516](0516-provenance-sensorielle-synthetique-signee.md) | Provenance signée des stimuli sensoriels synthétiques | Accepté | 2026-10-15 | signaux VNO/PAF, reçus sensoriels |
 | [0517](0517-lier-les-recus-metaboliques-aux-identites-de-commande.md) | Lier les reçus métaboliques aux identités de commande | Accepté | 2026-10-15 | Cellules biologiques, reçus durables, pont backend/Rust |
+| [0518](0518-producteur-neuro-glial-signe.md) | Provenance signée des producteurs neuro-gliaux | Accepté pour le CLI Rust expérimental | 2026-10-15 | Neurobiologie logicielle, provenance, flux mission |
+| [0519](0519-portee-origine-du-foraging.md) | Portée d'origine et provenance du foraging | Accepté | 2026-10-15 | foraging web, reçus d'observation |
 | [0520](0520-recevoir-la-verification-avant-la-completion-ontogenesis.md) | Produire la preuve indépendante avant la completion Ontogenesis | Accepté | 2026-10-15 | Ontogenesis, preuves d'exécution, promotion |
+| [0521](0521-attester-la-provenance-des-fossiles.md) | Attester la provenance des fossiles | Accepté | 2026-10-15 | Fossilisation, provenance, confiance backend/CLI |
 | [0523](0523-lier-la-calibration-brier-a-un-recu-de-resolution.md) | Lier la calibration Brier à un reçu de résolution | Accepté | 2026-10-15 | Biocénose, calibration, autorité des outcomes |
+| [0524](0524-preserver-provenance-consolidation-memoire.md) | Préserver la provenance lors de la consolidation mémoire | Accepté | 2026-10-15 | Mémoire, consolidation, preuves, provenance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
