@@ -646,6 +646,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0512](0512-appliquer-le-budget-cpu-au-runtime-worker-node.md) | Appliquer le budget CPU au runtime worker Node | Accepté et implémenté pour le PID du runtime Node sur Windows et Linux. | 2026-10-15 | Supervision de worker et budgets d'exécution. |
 | [0513](0513-refuser-un-rejeu-de-strategie-sans-recu-lie-au-run.md) | Refuser un rejeu de stratégie sans reçu lié au run | Accepté et implémenté pour le garde de phase; producteur de rejeu complet à réaliser. | 2026-10-15 | Exécution de stratégie et promotion. |
 | [0514](0514-route-backend-cellule-de-garde-experimentale.md) | Route backend pour la cellule de garde expérimentale | Accepté pour le parcours local expérimental | 2026-10-15 | Cellule de garde, backpressure et pont backend/Rust |
+| [0517](0517-lier-les-recus-metaboliques-aux-identites-de-commande.md) | Lier les reçus métaboliques aux identités de commande | Accepté | 2026-10-15 | Cellules biologiques, reçus durables, pont backend/Rust |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
