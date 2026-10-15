@@ -5,6 +5,114 @@ const membrane = require('../toolPermissionMembraneService');
 const adapters = require('../toolPermissionMembraneAdapters');
 const { MCP_CONTRACT_VERSION } = require('../mcpContract');
 const { directToolLeaseAllows } = require('./config');
+const { migratePermissionReceiptLineage } = require('../../db/migrations/migratePermissionReceiptLineage');
+
+const LINEAGE_SCHEMA = 'genos.permission-receipt-lineage/v1';
+
+function lineageError(code, message) {
+  return Object.assign(new Error(message), { code });
+}
+
+function authorityIdentity(request, binding) {
+  if (binding?.status !== 'authorized') return null;
+  const envelope = binding.envelope || {};
+  const identity = {
+    missionId: envelope.missionId,
+    organizationId: envelope.scope?.organizationId,
+    projectId: envelope.scope?.projectId,
+    workerId: envelope.scope?.entityId
+  };
+  if (Object.values(identity).some((value) => typeof value !== 'string' || !value.trim())) {
+    throw lineageError('TOOL_MEMBRANE_LINEAGE_AUTHORITY_INVALID',
+      'The execution authority envelope cannot issue a receipt lineage.');
+  }
+  if (identity.workerId !== request.agentId) {
+    throw lineageError('TOOL_MEMBRANE_LINEAGE_WORKER_COLLISION',
+      'The execution authority belongs to another worker.');
+  }
+  for (const field of ['missionId', 'organizationId', 'projectId']) {
+    if (request[field] && request[field] !== identity[field]) {
+      throw lineageError('TOOL_MEMBRANE_LINEAGE_SCOPE_COLLISION',
+        `The requested ${field} conflicts with backend execution authority.`);
+    }
+  }
+  return identity;
+}
+
+async function authorityThread(db, request, identity) {
+  const selectors = [identity.missionId, identity.organizationId,
+    identity.projectId, identity.workerId];
+  let sql = `SELECT * FROM cell_threads WHERE mission_id = ?
+    AND organization_id = ? AND project_id = ? AND worker_id = ?`;
+  if (request.threadId) { sql += ' AND thread_id = ?'; selectors.push(request.threadId); }
+  if (request.episodeId) { sql += ' AND episode_id = ?'; selectors.push(request.episodeId); }
+  const rows = await db.all(`${sql} ORDER BY created_at DESC, thread_id LIMIT 2`, ...selectors);
+  if (!rows.length && (request.threadId || request.episodeId)) {
+    throw lineageError('TOOL_MEMBRANE_LINEAGE_THREAD_COLLISION',
+      'The selected cell thread does not belong to backend execution authority.');
+  }
+  if (rows.length > 1) {
+    throw lineageError('TOOL_MEMBRANE_LINEAGE_AMBIGUOUS',
+      'Several cell threads match this worker; an exact backend thread is required.');
+  }
+  return rows[0] || null;
+}
+
+function lineageMaterial(receipt, thread) {
+  return {
+    schema: LINEAGE_SCHEMA, receiptId: receipt.receipt_id,
+    authorizationHash: receipt.authorization_hash,
+    missionId: thread.mission_id, episodeId: thread.episode_id,
+    threadId: thread.thread_id, workerId: thread.worker_id,
+    organizationId: thread.organization_id, projectId: thread.project_id
+  };
+}
+
+function sameLineage(row, material) {
+  return row.mission_id === material.missionId && row.episode_id === material.episodeId
+    && row.thread_id === material.threadId && row.worker_id === material.workerId
+    && row.organization_id === material.organizationId
+    && row.project_id === material.projectId
+    && row.authorization_hash === material.authorizationHash
+    && row.lineage_hash === membrane.digest(material);
+}
+
+async function persistLineage(db, input) {
+  const { authorization, resolved } = input;
+  if (!resolved) return { exact: false, reason: 'execution_authority_unbound' };
+  if (!resolved.thread) return { exact: false, reason: 'cell_thread_unavailable' };
+  const { identity, thread } = resolved;
+  const receipt = await db.get('SELECT * FROM tool_permission_receipts WHERE receipt_id = ?',
+    authorization.receiptId);
+  if (!receipt || receipt.worker_id !== identity.workerId) {
+    throw lineageError('TOOL_MEMBRANE_LINEAGE_RECEIPT_COLLISION',
+      'The permission receipt belongs to another worker.');
+  }
+  const material = lineageMaterial(receipt, thread);
+  const existing = await db.get(`SELECT * FROM tool_permission_receipt_lineage
+    WHERE receipt_id = ?`, receipt.receipt_id);
+  if (existing && !sameLineage(existing, material)) {
+    throw lineageError('TOOL_MEMBRANE_LINEAGE_RECEIPT_COLLISION',
+      'The permission receipt already has another backend lineage.');
+  }
+  if (!existing) {
+    await db.run(`INSERT INTO tool_permission_receipt_lineage
+      (receipt_id, mission_id, episode_id, thread_id, organization_id, project_id,
+        worker_id, authorization_hash, lineage_hash)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, receipt.receipt_id, material.missionId,
+    material.episodeId, material.threadId, material.organizationId, material.projectId,
+    material.workerId, material.authorizationHash, membrane.digest(material));
+  }
+  return { exact: true, missionId: material.missionId,
+    episodeId: material.episodeId, threadId: material.threadId };
+}
+
+async function resolveLineage(db, request, binding) {
+  const identity = authorityIdentity(request, binding);
+  if (!identity) return null;
+  await migratePermissionReceiptLineage(db);
+  return { identity, thread: await authorityThread(db, request, identity) };
+}
 
 function executionLease(request, binding) {
   const normalized = require('../toolLeasePolicy').normalizeToolName(request.toolName);
@@ -46,6 +154,7 @@ function approval(request) {
 
 function permissionInput(context) {
   const { request, policy, binding } = context;
+  const authority = authorityIdentity(request, binding);
   return {
     callId: request.callId || `mcp-call-${randomUUID()}`,
     tool: { name: request.toolName, version: request.toolVersion || MCP_CONTRACT_VERSION },
@@ -56,8 +165,8 @@ function permissionInput(context) {
     authorityChecks: authorityChecks(request, binding),
     approval: approval(request),
     evaluation: request.evaluation || null,
-    organizationId: request.organizationId || '',
-    projectId: request.projectId || ''
+    organizationId: authority?.organizationId || request.organizationId || '',
+    projectId: authority?.projectId || request.projectId || ''
   };
 }
 
@@ -84,16 +193,23 @@ function withReceipt(result, receipt) {
 }
 
 async function settleFailure(context, authorization, error) {
-  return membrane.settleToolCall(context.db, {
+  const receipt = await membrane.settleToolCall(context.db, {
     receiptId: authorization.receiptId,
     status: 'failed',
     result: { code: error.code || 'MCP_EXECUTION_FAILED', message: error.message },
     reporterId: 'mcp-executor'
   });
+  receipt.lineage = authorization.lineage;
+  return receipt;
 }
 
 async function executeAuthorized(context) {
+  const resolved = await resolveLineage(context.db, context.request, context.binding);
   const authorization = await membrane.authorizeToolCall(context.db, permissionInput(context));
+  const lineage = await persistLineage(context.db, {
+    authorization, resolved
+  });
+  authorization.lineage = lineage;
   if (!authorization.executable) return refusal(authorization, context.policy);
   let result;
   try {
@@ -109,7 +225,8 @@ async function executeAuthorized(context) {
     result,
     reporterId: 'mcp-executor'
   });
+  receipt.lineage = lineage;
   return withReceipt(result, receipt);
 }
 
-module.exports = { executeAuthorized, permissionInput };
+module.exports = { executeAuthorized, permissionInput, persistLineage, LINEAGE_SCHEMA };

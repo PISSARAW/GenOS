@@ -4,7 +4,9 @@ async function migrateMetabolicLedger(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS metabolic_ledger_observations (
     observation_id TEXT PRIMARY KEY,
     mission_id TEXT NOT NULL,
+    episode_id TEXT,
     thread_id TEXT,
+    worker_id TEXT,
     organization_id TEXT,
     project_id TEXT,
     provider TEXT,
@@ -13,6 +15,7 @@ async function migrateMetabolicLedger(db) {
     started_at TEXT,
     finished_at TEXT,
     observed_at TEXT NOT NULL,
+    observation_hash TEXT,
     metadata_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(metadata_json))
   );
   CREATE TABLE IF NOT EXISTS metabolic_ledger_measurements (
@@ -44,6 +47,13 @@ async function migrateMetabolicLedger(db) {
   CREATE INDEX IF NOT EXISTS idx_metabolic_ledger_thread
     ON metabolic_ledger_observations(thread_id, observed_at, observation_id)
     WHERE thread_id IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS idx_metabolic_ledger_worker
+    ON metabolic_ledger_observations(worker_id, observed_at, observation_id)
+    WHERE worker_id IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS idx_metabolic_ledger_cell
+    ON metabolic_ledger_observations(
+      organization_id, project_id, mission_id, episode_id, thread_id, worker_id
+    );
   CREATE INDEX IF NOT EXISTS idx_metabolic_ledger_scope
     ON metabolic_ledger_observations(organization_id, project_id, observed_at);
   CREATE TRIGGER IF NOT EXISTS metabolic_observations_immutable

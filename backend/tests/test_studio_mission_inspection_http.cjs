@@ -7,11 +7,13 @@ const { request } = require('./helpers/studioRequest.cjs');
 const episodes = require('../src/services/missionEpisodeService');
 const threads = require('../src/services/cellThreadService');
 const ledger = require('../src/services/metabolicLedgerService');
-const membrane = require('../src/services/toolPermissionMembraneService');
+const bridge = require('../src/services/mcpExecutor/permissionMembraneBridge');
+const { migratePermissionReceiptLineage } = require('../src/db/migrations/migratePermissionReceiptLineage');
 
 const SCOPE = { organizationId: 'b06-org', projectId: 'b06-project' };
 
 async function seed(spec) {
+  await migratePermissionReceiptLineage(spec.db);
   await spec.db.run(`INSERT INTO missions (mission_id, objective, status)
     VALUES ('mission-http-inspection', 'Inspect over HTTP', 'active')`);
   await episodes.create(spec.db, { ...SCOPE, missionId: 'mission-http-inspection',
@@ -22,13 +24,17 @@ async function seed(spec) {
   await ledger.recordMetabolicObservation(spec.db, { ...SCOPE, id: 'observation-http',
     missionId: 'mission-http-inspection', threadId: 'thread-http-root',
     measurements: { billableTokens: { value: 7, source: 'exact' } } });
-  await membrane.authorizeToolCall(spec.db, {
-    ...SCOPE, callId: 'permission-http',
-    tool: { name: 'genos_replay', version: '1' }, arguments: { snapshot: 'safe' },
-    worker: { id: 'worker-http-root', revision: 'worker-http-r1' },
-    lease: { id: 'lease-http', tools: ['genos_replay'] },
-    policy: { id: 'policy-http', version: '1', decision: 'allow' },
-    authorityChecks: [{ source: 'worker-contract', decision: 'allow', deciderId: 'http-test' }]
+  await bridge.executeAuthorized({ db: spec.db,
+    request: { ...SCOPE, callId: 'permission-http', missionId: 'mission-http-inspection',
+      episodeId: 'episode-http-inspection', threadId: 'thread-http-root',
+      agentId: 'worker-http-root', runId: 'run-http',
+      toolName: 'genos_replay', args: { snapshot: 'safe' } },
+    policy: { decision: 'allow', reason: 'http-test' },
+    binding: { status: 'authorized', hash: 'authority-http', envelope: {
+      runId: 'run-http', missionId: 'mission-http-inspection', toolLease: ['genos_replay'],
+      scope: { ...SCOPE, entityId: 'worker-http-root' }
+    } },
+    operation: async () => ({ success: true, status: 'completed' })
   });
 }
 
@@ -41,6 +47,8 @@ async function main() {
     assert.equal(ok.value.episode.episodeId, 'episode-http-inspection');
     assert.equal(ok.value.metabolism.metrics.billableTokens.value, 7);
     assert.equal(ok.value.permissionReceipts.items[0].callId, 'permission-http');
+    assert.equal(ok.value.permissionReceipts.correlation.exact, true);
+    assert.equal(ok.value.permissionReceipts.items[0].lineage.threadId, 'thread-http-root');
 
     const foreign = await request(spec, route, { project: 'b06-other' });
     assert.equal(foreign.status, 403, JSON.stringify(foreign.value));

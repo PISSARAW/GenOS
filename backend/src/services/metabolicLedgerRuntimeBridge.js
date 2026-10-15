@@ -88,9 +88,10 @@ function catalogCostMetric(result) {
 }
 
 async function recordModelUsage(db, scope, result) {
-  if (!scope.executionRunId || !(await metabolicLedgerAvailable(db))) return false;
+  if (!(scope.executionRunId || scope.missionId) || !(await metabolicLedgerAvailable(db))) return false;
   try {
-    await ledger.recordMetabolicObservation(db, modelObservation(scope, result));
+    const lineage = await resolveLineage(db, modelLineage(scope));
+    await ledger.recordMetabolicObservation(db, modelObservation(scope, result, lineage));
     return true;
   } catch (error) {
     if (ignorableWriteError(error)) return false;
@@ -105,16 +106,19 @@ async function metabolicLedgerAvailable(db) {
   return table?.name === 'metabolic_ledger_observations';
 }
 
-function modelObservation(scope, result) {
+function modelObservation(scope, result, lineage) {
   return {
     id: `metabolic-model-${result.routeAttemptId}-${result.attemptStatus || 'completed'}`,
-    missionId: scope.executionRunId, threadId: scope.threadId || null,
-    organizationId: scope.organizationId || null, projectId: scope.projectId || null,
+    missionId: lineage.missionId || scope.missionId || scope.executionRunId,
+    episodeId: lineage.episodeId, threadId: lineage.threadId,
+    workerId: lineage.workerId,
+    organizationId: lineage.organizationId, projectId: lineage.projectId,
     provider: result.provider || providerFrom(result.model),
     model: result.servedModel || result.model, operationId: result.routeAttemptId,
     measurements: modelMeasurements(result), metadata: {
       producer: 'model-attempt-ledger', attemptStatus: result.attemptStatus,
-      agentId: scope.agentId || null, transportSuccess: result.success !== false
+      agentId: scope.agentId || null, executionRunId: scope.executionRunId || null,
+      lineageSource: lineage.source, transportSuccess: result.success !== false
     }
   };
 }
@@ -130,7 +134,7 @@ function providerFrom(model) {
   return match ? match[1] : null;
 }
 
-function runtimeMeasurements(ctx) {
+function runtimeMeasurements(ctx, finishedAtMs = Date.now()) {
   const measurements = {};
   if (ctx.tokenUsageUnknown) {
     measurements.billableTokens = metric(null, 'unavailable', {
@@ -146,7 +150,7 @@ function runtimeMeasurements(ctx) {
   measurements.runtimeCostUsd = runtimeCostMetric(ctx);
   const startedAt = Number(ctx.mission?.runtimeStartedAt);
   if (Number.isFinite(startedAt) && startedAt > 0) {
-    measurements.wallTimeMs = metric(Math.max(0, Date.now() - startedAt), 'exact');
+    measurements.wallTimeMs = metric(Math.max(0, finishedAtMs - startedAt), 'exact');
   }
   return measurements;
 }
@@ -164,20 +168,29 @@ function runtimeCostMetric(ctx) {
 async function recordRuntimeUsage(db, ctx) {
   const missionId = ctx.mission?.missionId;
   if (!missionId || !(await metabolicLedgerAvailable(db))) return false;
-  await ledger.recordMetabolicObservation(db, runtimeObservation(ctx, missionId));
+  const lineage = await resolveLineage(db, runtimeLineage(ctx, missionId));
+  await ledger.recordMetabolicObservation(db, runtimeObservation(ctx, lineage));
   return true;
 }
 
-function runtimeObservation(ctx, missionId) {
+function runtimeObservation(ctx, lineage) {
+  const finishedAt = runtimeFinishedAt(ctx);
+  const startedAt = runtimeStartedAt(ctx);
+  const operationId = runtimeOperation(ctx, lineage);
+  const digest = crypto.createHash('sha256').update([
+    lineage.missionId, lineage.episodeId, lineage.threadId,
+    lineage.workerId, operationId, startedAt
+  ].join('\0')).digest('hex').slice(0, 32);
   return {
-    id: `metabolic-runtime-${crypto.randomUUID()}`, missionId,
-    threadId: optional(ctx.codexThreadId),
-    organizationId: optional(ctx.mission.organizationId),
-    projectId: optional(ctx.mission.projectId),
+    id: `metabolic-runtime-${digest}`, missionId: lineage.missionId,
+    episodeId: lineage.episodeId, threadId: lineage.threadId,
+    workerId: lineage.workerId,
+    organizationId: lineage.organizationId, projectId: lineage.projectId,
     provider: 'codex-runtime', model: optional(ctx.mission.modelId),
-    operationId: runtimeOperation(ctx), startedAt: runtimeStartedAt(ctx),
-    finishedAt: new Date().toISOString(), measurements: runtimeMeasurements(ctx),
+    operationId, startedAt, finishedAt,
+    observedAt: finishedAt, measurements: runtimeMeasurements(ctx, Date.parse(finishedAt)),
     metadata: { producer: 'agent-runtime', agentId: optional(ctx.mission.agentId),
+      lineageSource: lineage.source,
       exitCode: optional(ctx.code), signal: optional(ctx.signal),
       budgetStopped: optional(ctx.budgetStopped) }
   };
@@ -187,13 +200,89 @@ function optional(value) {
   return value == null ? null : value;
 }
 
-function runtimeOperation(ctx) {
-  return optional(ctx.codexThreadId) || optional(ctx.mission.agentId);
+function runtimeOperation(ctx, lineage) {
+  return optional(ctx.mission.executionRunId) || lineage.threadId || lineage.workerId;
 }
 
 function runtimeStartedAt(ctx) {
   if (!Number.isFinite(ctx.mission.runtimeStartedAt)) return null;
   return new Date(ctx.mission.runtimeStartedAt).toISOString();
+}
+
+function runtimeFinishedAt(ctx) {
+  if (!ctx.metabolicLedgerFinishedAt) {
+    ctx.metabolicLedgerFinishedAt = new Date().toISOString();
+  }
+  return ctx.metabolicLedgerFinishedAt;
+}
+
+function explicitLineage(input) {
+  return { missionId: optional(input.missionId), episodeId: optional(input.episodeId),
+    threadId: optional(input.threadId), workerId: optional(input.workerId),
+    organizationId: optional(input.organizationId), projectId: optional(input.projectId),
+    source: 'backend_scope_unverified' };
+}
+
+function modelLineage(scope) {
+  return explicitLineage({ ...scope, workerId: scope.workerId || scope.agentId,
+    missionId: scope.missionId });
+}
+
+function runtimeLineage(ctx, missionId) {
+  const mission = ctx.mission;
+  return explicitLineage({ missionId, episodeId: mission.episodeId,
+    threadId: mission.threadId,
+    workerId: mission.workerId || mission.agentId,
+    organizationId: mission.organizationId, projectId: mission.projectId });
+}
+
+async function cellThreadsAvailable(db) {
+  if (typeof db.all !== 'function') return false;
+  const table = await db.get(`SELECT name FROM sqlite_master
+    WHERE type = 'table' AND name = 'cell_threads'`);
+  return table?.name === 'cell_threads';
+}
+
+function lineageMatches(row, input) {
+  const fields = [['missionId', 'mission_id'], ['episodeId', 'episode_id'],
+    ['threadId', 'thread_id'], ['organizationId', 'organization_id'],
+    ['projectId', 'project_id']];
+  return fields.every(([field, column]) => !input[field] || input[field] === row[column]);
+}
+
+function degradedLineage(input, source) {
+  return { missionId: input.missionId, episodeId: null, threadId: null, workerId: null,
+    organizationId: input.organizationId, projectId: input.projectId, source };
+}
+
+function verifiedLineage(row) {
+  return { missionId: row.mission_id, episodeId: row.episode_id,
+    threadId: row.thread_id, workerId: row.worker_id,
+    organizationId: row.organization_id, projectId: row.project_id,
+    source: 'backend_cell_thread' };
+}
+
+function scopeCollision() {
+  return Object.assign(new Error('Metabolic cell scope conflicts with backend lineage.'), {
+    code: 'METABOLIC_CELL_SCOPE_COLLISION'
+  });
+}
+
+async function resolveLineage(db, input) {
+  if (!input.workerId) return degradedLineage(input, 'backend_lineage_unavailable');
+  if (!(await cellThreadsAvailable(db))) {
+    return degradedLineage(input, 'backend_lineage_unavailable');
+  }
+  const rows = await db.all(`SELECT mission_id, episode_id, thread_id, worker_id,
+      organization_id, project_id FROM cell_threads
+    WHERE worker_id = ?
+      AND status IN ('ready', 'active', 'waiting_signal', 'waiting_permission')
+    ORDER BY updated_at DESC LIMIT 3`, input.workerId);
+  if (!rows.length) return degradedLineage(input, 'backend_lineage_unavailable');
+  const matches = rows.filter((row) => lineageMatches(row, input));
+  if (!matches.length) throw scopeCollision();
+  if (matches.length > 1) return degradedLineage(input, 'backend_lineage_ambiguous');
+  return verifiedLineage(matches[0]);
 }
 
 module.exports = { modelMeasurements, recordModelUsage, runtimeMeasurements, recordRuntimeUsage };

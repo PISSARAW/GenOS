@@ -23,7 +23,6 @@ const helpers = require('./orchestratorMissionHelpers.cjs');
 const requestMemory = require('./requestMemoryBridge.cjs');
 const missionCheckpoint = require('../src/services/communication/missionCheckpointBridge');
 const missionEpisodeRuntime = require('../src/services/missionEpisodeRuntime');
-
 const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
   prepareMission, startOrchestratorMission, buildContinuity, emitCompletionEvent,
   gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage,
@@ -145,6 +144,7 @@ async function regenerateDuringExecution(db) {
 
 async function prepareRuntime(initDb) {
   await runtime.reconcilePersistedRuntimes(initDb);
+  await missionEpisodeRuntime.reconcileAbandoned(initDb);
   if (!orchestratorId && !TOP_LEVEL_MISSION_ACTIONS.has(action)) orchestratorId = await findActiveOrchestrator(initDb);
   if (!orchestratorId) orchestratorId = createOrchestratorId('mcp_orchestrator');
   if (!id) id = action === 'dispatch_worker' ? createOrchestratorId(`worker_${orchestratorId}`) : orchestratorId;
@@ -254,10 +254,10 @@ async function handleHomeostasisContinuation({ db, id, task, request, mission, c
 async function executeMission(db, state) {
   if (await missionAux.checkMinimalShortcut({ db, action, requestMemory, request, task, telemetry, id })) return;
   await initializeMission({ db, action, orchestratorId, task, request });
-  const episodeRuntime = await missionEpisodeRuntime.ensure(db, { missionId, orchestratorId, action, request });
+  const episodeRuntime = await missionEpisodeRuntime.ensureApplicable(db, { missionId, orchestratorId, action, request });
   missionEpisodeRuntime.propagate(request, episodeRuntime);
   if (await executeRequestedAction({ db, state })) return;
-  await runOrchestratedMission(db);
+  await runOrchestratedMission(db, episodeRuntime);
 }
 
 async function executeRequestedAction(input) {
@@ -274,7 +274,7 @@ async function executeRequestedAction(input) {
   return true;
 }
 
-async function runOrchestratedMission(db) {
+async function runOrchestratedMission(db, episodeRuntime) {
   const nceEnhancements = await applyNceEnhancements(buildNceInput(request), db, orchestratorId);
   const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements, task);
   const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
@@ -290,7 +290,8 @@ async function runOrchestratedMission(db) {
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
-  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology, preflightObservedTools: preflight.observedTools });
+  const launch = await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology, preflightObservedTools: preflight.observedTools });
+  await missionEpisodeRuntime.bindOwner(db, { runtime: episodeRuntime, launch, orchestratorId: id });
   const agents = await waitForCompletion(db);
   const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });

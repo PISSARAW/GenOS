@@ -9,11 +9,13 @@ const { migrateMissionEpisodes } = require('../src/db/migrations/migrateMissionE
 const { migrateHabitatRevisions } = require('../src/db/migrations/migrateHabitatRevisions');
 const { migrateMetabolicLedger } = require('../src/db/migrations/migrateMetabolicLedger');
 const { migrateToolPermissionMembrane } = require('../src/db/migrations/migrateToolPermissionMembrane');
+const { migratePermissionReceiptLineage } = require('../src/db/migrations/migratePermissionReceiptLineage');
 const episodes = require('../src/services/missionEpisodeService');
 const threads = require('../src/services/cellThreadService');
 const habitats = require('../src/services/habitatRevisionService');
 const ledger = require('../src/services/metabolicLedgerService');
 const membrane = require('../src/services/toolPermissionMembraneService');
+const bridge = require('../src/services/mcpExecutor/permissionMembraneBridge');
 const inspection = require('../src/services/studioMissionInspectionService');
 
 const SCOPE = { organizationId: 'org-inspection', projectId: 'project-inspection' };
@@ -40,7 +42,24 @@ async function fixture() {
   await migrateHabitatRevisions(db);
   await migrateMetabolicLedger(db);
   await migrateToolPermissionMembrane(db);
+  await migratePermissionReceiptLineage(db);
   return db;
+}
+
+function authorityBinding(workerId) {
+  return { status: 'authorized', hash: `authority-${workerId}`, envelope: {
+    runId: `run-${workerId}`, missionId: 'mission-inspection',
+    toolLease: ['genos_snapshot'], scope: { ...SCOPE, entityId: workerId }
+  } };
+}
+
+async function exactPermission(db, input) {
+  return bridge.executeAuthorized({ db, binding: authorityBinding(input.workerId),
+    request: { ...SCOPE, missionId: 'mission-inspection', episodeId: 'episode-inspection',
+      callId: input.callId, agentId: input.workerId, runId: `run-${input.workerId}`,
+      threadId: input.threadId, toolName: 'genos_snapshot', args: { safe: true } },
+    policy: { decision: 'allow', reason: 'inspection_test' },
+    operation: async () => ({ success: true, status: 'completed' }) });
 }
 
 async function seed(db) {
@@ -65,7 +84,11 @@ async function seed(db) {
   await ledger.recordMetabolicObservation(db, { organizationId: 'org-foreign',
     projectId: 'project-foreign', id: 'observation-foreign', missionId: 'mission-inspection',
     measurements: { inputTokens: { value: 999, source: 'exact' } } });
-  await membrane.authorizeToolCall(db, permission('permission-local', SCOPE));
+  await exactPermission(db, { callId: 'permission-local-root',
+    workerId: 'worker-root', threadId: 'thread-root' });
+  await exactPermission(db, { callId: 'permission-local-a',
+    workerId: 'worker-a', threadId: 'thread-a' });
+  await membrane.authorizeToolCall(db, permission('permission-legacy-local', SCOPE));
   await membrane.authorizeToolCall(db, permission('permission-foreign', {
     organizationId: 'org-foreign', projectId: 'project-foreign'
   }));
@@ -104,8 +127,16 @@ test('inspection composes scoped episode, pages, habitat, metabolism and receipt
     assert.equal(result.metabolism.metrics.inputTokens.value, 12);
     assert.equal(result.metabolism.metrics.outputTokens.value, null);
     assert.equal(result.permissionReceipts.items.length, 1);
-    assert.equal(result.permissionReceipts.correlation.exact, false);
-    assert.equal(result.permissionReceipts.items[0].callId, 'permission-local');
+    assert.equal(result.permissionReceipts.hasMore, true);
+    assert.equal(result.permissionReceipts.correlation.exact, true);
+    assert.equal(result.permissionReceipts.correlation.method, 'persisted_backend_receipt_lineage');
+    assert.equal(result.permissionReceipts.correlation.appliesTo, 'items');
+    assert.equal(result.permissionReceipts.correlation.complete, false);
+    assert.equal(result.permissionReceipts.legacyUncorrelated.count, 1);
+    assert.equal(result.permissionReceipts.legacyUncorrelated.exact, false);
+    assert.match(result.permissionReceipts.items[0].callId, /^permission-local-(a|root)$/);
+    assert.equal(result.permissionReceipts.items[0].lineage.episodeId, 'episode-inspection');
+    assert.equal(result.permissionReceipts.items[0].lineage.exact, true);
   } finally { await db.close(); }
 });
 
@@ -122,5 +153,23 @@ test('inspection refuses foreign tenants, mission mismatches and unbounded pages
       error => error.code === 'MISSION_INSPECTION_PAGINATION_INVALID' && error.status === 400);
     await assert.rejects(inspection.inspect(db, context({ query: { receiptOffset: '-1' } })),
       error => error.code === 'MISSION_INSPECTION_PAGINATION_INVALID');
+  } finally { await db.close(); }
+});
+
+test('inspection rejects a persisted lineage whose integrity hash is invalid', async () => {
+  const db = await fixture();
+  try {
+    await seed(db);
+    const receipt = await db.get(`SELECT * FROM tool_permission_receipts
+      WHERE call_id = 'permission-legacy-local'`);
+    await db.run(`INSERT INTO tool_permission_receipt_lineage
+      (receipt_id, mission_id, episode_id, thread_id, organization_id, project_id,
+        worker_id, authorization_hash, lineage_hash)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, receipt.receipt_id, 'mission-inspection',
+    'episode-inspection', 'thread-root', SCOPE.organizationId, SCOPE.projectId,
+    'worker-root', receipt.authorization_hash, '0'.repeat(64));
+    await assert.rejects(inspection.inspect(db, context()),
+      error => error.code === 'MISSION_INSPECTION_PERMISSION_LINEAGE_INVALID'
+        && error.status === 409);
   } finally { await db.close(); }
 });

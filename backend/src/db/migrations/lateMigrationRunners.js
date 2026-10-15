@@ -1,4 +1,10 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('127-episode-recovery-receipts', 'Persist immutable orphan episode recovery receipts', async (db) => {
+    await require('./migrateMissionEpisodeRecovery').migrateMissionEpisodeRecovery(db);
+  }),
+  createMigrationRunner('125-permission-receipt-lineage', 'Bind permission receipts to exact mission episode cell lineage', async (db) => {
+    await require('./migratePermissionReceiptLineage').migratePermissionReceiptLineage(db);
+  }),
   createMigrationRunner('124-habitat-enforcement-receipts', 'Persist immutable backend-issued habitat enforcement receipts', async (db) => {
     await require('./migrateHabitatEnforcementReceipts').migrateHabitatEnforcementReceipts(db);
   }),
@@ -10,6 +16,9 @@ module.exports = (createMigrationRunner) => [
   }),
   createMigrationRunner('122-metabolic-ledger', 'Persist append-only provenance-aware metabolic measurements', async (db) => {
     await require('./migrateMetabolicLedger').migrateMetabolicLedger(db);
+  }),
+  createMigrationRunner('126-metabolic-cell-lineage', 'Bind metabolic observations to backend cell lineage', async (db) => {
+    await require('./migrateMetabolicLedgerCellLineage').migrateMetabolicLedgerCellLineage(db);
   }),
   createMigrationRunner('123-tool-permission-membrane', 'Persist scoped tool policies and append-only decision receipts', async (db) => {
     await require('./migrateToolPermissionMembrane').migrateToolPermissionMembrane(db);

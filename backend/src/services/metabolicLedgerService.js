@@ -1,18 +1,43 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const { withTransaction } = require('../db');
 const { METRICS, normalizeObservation } = require('./metabolicLedgerContract');
+const { stableStringify } = require('./fossilProvenanceService');
 
 const SOURCE_PRIORITY = Object.freeze({ exact: 0, provider_receipt: 1, estimated: 2 });
 
-async function insertObservation(db, observation) {
+function optionalIdentity(value, field) {
+  if (value == null) return null;
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new TypeError(`${field} must be a non-empty string.`);
+  }
+  return value.trim();
+}
+
+function normalizeLedgerObservation(input) {
+  return { ...normalizeObservation(input),
+    episodeId: optionalIdentity(input.episodeId, 'episodeId'),
+    workerId: optionalIdentity(input.workerId, 'workerId') };
+}
+
+function observationHash(observation) {
+  const { observedAt: _ingestedAt, ...stable } = observation;
+  const material = { ...stable,
+    measurements: [...stable.measurements].sort((a, b) => a.metric.localeCompare(b.metric)) };
+  return crypto.createHash('sha256').update(stableStringify(material)).digest('hex');
+}
+
+async function insertObservation(db, observation, hash) {
   await db.run(`INSERT INTO metabolic_ledger_observations (
-    observation_id, mission_id, thread_id, organization_id, project_id, provider, model,
-    operation_id, started_at, finished_at, observed_at, metadata_json
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, observation.id, observation.missionId,
-  observation.threadId, observation.organizationId, observation.projectId,
-  observation.provider, observation.model, observation.operationId, observation.startedAt,
-  observation.finishedAt, observation.observedAt, JSON.stringify(observation.metadata));
+    observation_id, mission_id, episode_id, thread_id, worker_id,
+    organization_id, project_id, provider, model, operation_id,
+    started_at, finished_at, observed_at, observation_hash, metadata_json
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, observation.id,
+  observation.missionId, observation.episodeId, observation.threadId, observation.workerId,
+  observation.organizationId, observation.projectId, observation.provider, observation.model,
+  observation.operationId, observation.startedAt, observation.finishedAt,
+  observation.observedAt, hash, JSON.stringify(observation.metadata));
 }
 
 async function insertMeasurements(db, observation) {
@@ -25,28 +50,46 @@ async function insertMeasurements(db, observation) {
   }
 }
 
-async function recordMetabolicObservation(db, input) {
-  const observation = normalizeObservation(input);
-  await withTransaction(db, async (tx) => {
-    await insertObservation(tx, observation);
-    await insertMeasurements(tx, observation);
+function collision(observationId) {
+  return Object.assign(new Error(`Metabolic observation '${observationId}' has another payload.`), {
+    code: 'METABOLIC_OBSERVATION_ID_COLLISION'
   });
-  return observation;
+}
+
+async function recordMetabolicObservation(db, input) {
+  const observation = normalizeLedgerObservation(input);
+  const hash = observationHash(observation);
+  return withTransaction(db, async (tx) => {
+    const existing = await tx.get(`SELECT observation_hash FROM metabolic_ledger_observations
+      WHERE observation_id = ?`, observation.id);
+    if (existing) {
+      if (existing.observation_hash === hash) return observation;
+      throw collision(observation.id);
+    }
+    await insertObservation(tx, observation, hash);
+    await insertMeasurements(tx, observation);
+    return observation;
+  });
+}
+
+function requiredFilterText(filter, field) {
+  if (typeof filter[field] !== 'string' || filter[field].trim() === '') {
+    throw new TypeError(`${field} is required for metabolic aggregation.`);
+  }
+  return filter[field].trim();
 }
 
 function filterClause(filter) {
   if (!filter || typeof filter !== 'object') throw new TypeError('A ledger filter is required.');
-  if (typeof filter.missionId !== 'string' || filter.missionId.trim() === '') {
-    throw new TypeError('missionId is required for metabolic aggregation.');
-  }
   const clauses = ['o.mission_id = ?'];
-  const params = [filter.missionId.trim()];
-  if (filter.threadId != null) {
-    if (typeof filter.threadId !== 'string' || filter.threadId.trim() === '') {
-      throw new TypeError('threadId must be a non-empty string.');
+  const params = [requiredFilterText(filter, 'missionId')];
+  const fields = [['organizationId', 'organization_id'], ['projectId', 'project_id'],
+    ['episodeId', 'episode_id'], ['threadId', 'thread_id'], ['workerId', 'worker_id']];
+  for (const [field, column] of fields) {
+    if (filter[field] != null) {
+      clauses.push(`o.${column} = ?`);
+      params.push(optionalIdentity(filter[field], field));
     }
-    clauses.push('o.thread_id = ?');
-    params.push(filter.threadId.trim());
   }
   return { sql: clauses.join(' AND '), params };
 }
@@ -92,15 +135,47 @@ function aggregateRows(rows) {
   ]));
 }
 
-async function aggregateMetabolicUsage(db, filter) {
-  const where = filterClause(filter);
-  const rows = await db.all(`SELECT m.metric, m.value, m.source
+async function measurementRows(db, where, cellColumns = '') {
+  return db.all(`SELECT ${cellColumns} m.metric, m.value, m.source
     FROM metabolic_ledger_measurements m
     JOIN metabolic_ledger_observations o ON o.observation_id = m.observation_id
     WHERE ${where.sql}
     ORDER BY o.observed_at, o.observation_id, m.metric`, ...where.params);
-  return { missionId: filter.missionId.trim(), threadId: filter.threadId?.trim() || null,
+}
+
+async function aggregateMetabolicUsage(db, filter) {
+  const rows = await measurementRows(db, filterClause(filter));
+  return { missionId: filter.missionId.trim(), episodeId: filter.episodeId?.trim() || null,
+    threadId: filter.threadId?.trim() || null, workerId: filter.workerId?.trim() || null,
     metrics: aggregateRows(rows) };
 }
 
-module.exports = { recordMetabolicObservation, aggregateMetabolicUsage, aggregateRows };
+function requireTenant(filter) {
+  return { organizationId: requiredFilterText(filter, 'organizationId'),
+    projectId: requiredFilterText(filter, 'projectId') };
+}
+
+function groupCellRows(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const identity = { episodeId: row.episode_id, threadId: row.thread_id,
+      workerId: row.worker_id };
+    const key = JSON.stringify(identity);
+    if (!groups.has(key)) groups.set(key, { ...identity, rows: [] });
+    groups.get(key).rows.push(row);
+  }
+  return [...groups.values()].map(({ rows: metrics, ...identity }) => ({
+    ...identity, metrics: aggregateRows(metrics)
+  }));
+}
+
+async function aggregateMetabolicUsageByCell(db, filter) {
+  const tenant = requireTenant(filter);
+  const where = filterClause({ ...filter, ...tenant });
+  const rows = await measurementRows(db, where,
+    'o.episode_id, o.thread_id, o.worker_id,');
+  return { missionId: filter.missionId.trim(), ...tenant, cells: groupCellRows(rows) };
+}
+
+module.exports = { recordMetabolicObservation, aggregateMetabolicUsage,
+  aggregateMetabolicUsageByCell, aggregateRows };

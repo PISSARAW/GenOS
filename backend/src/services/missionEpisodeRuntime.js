@@ -3,6 +3,9 @@
 const crypto = require('node:crypto');
 const episodes = require('./missionEpisodeService');
 const threads = require('./cellThreadService');
+const EPISODE_ACTIONS = new Set([
+  'orchestrate', 'dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological'
+]);
 
 function stableId(prefix, parts) {
   const digest = crypto.createHash('sha256').update(parts.join('\0')).digest('hex').slice(0, 32);
@@ -125,6 +128,30 @@ async function ensure(db, input) {
     rootThreadId: active.rootThread.threadId };
 }
 
+async function bindOwner(db, input) {
+  if (!input?.runtime?.available || !input.launch?.executionRun?.id) {
+    return { available: false, reason: 'MISSION_EPISODE_OWNER_RUN_UNAVAILABLE' };
+  }
+  const episode = input.runtime.episode;
+  return require('./missionEpisodeRecoveryService').bindOwner(db, {
+    episodeId: episode.episodeId, missionId: episode.missionId,
+    organizationId: episode.organizationId, projectId: episode.projectId,
+    orchestratorId: input.orchestratorId,
+    executionRunId: input.launch.executionRun.id
+  });
+}
+
+async function ensureApplicable(db, input) {
+  if (!EPISODE_ACTIONS.has(input?.action)) {
+    return { available: false, reason: 'MISSION_EPISODE_NOT_APPLICABLE' };
+  }
+  return ensure(db, input);
+}
+
+async function reconcileAbandoned(db) {
+  return require('./missionEpisodeRecoveryService').reconcileAbandoned(db);
+}
+
 function propagate(request, runtime) {
   const reference = runtime.available
     ? { available: true, episodeId: runtime.episodeId, rootThreadId: runtime.rootThreadId }
@@ -136,4 +163,4 @@ function propagate(request, runtime) {
   return request;
 }
 
-module.exports = { ensure, propagate };
+module.exports = { ensure, ensureApplicable, propagate, bindOwner, reconcileAbandoned };

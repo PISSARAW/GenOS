@@ -3,6 +3,8 @@
 const episodes = require('./missionEpisodeService');
 const { digest } = require('./biologicalIntegrity');
 const { aggregateRows } = require('./metabolicLedgerService');
+const { LINEAGE_SCHEMA } = require('./mcpExecutor/permissionMembraneBridge');
+const { digest: permissionDigest } = require('./toolPermissionMembraneService');
 
 const MAX_PAGE_SIZE = 100;
 const MAX_OFFSET = 100000;
@@ -81,8 +83,35 @@ function receiptView(row) {
     argumentsHash: row.arguments_hash, requestHash: row.request_hash,
     authorizationHash: row.authorization_hash, resultStatus: row.result_status,
     resultHash: row.result_hash, receiptHash: row.receipt_hash,
+    lineage: { schema: LINEAGE_SCHEMA, missionId: row.lineage_mission_id,
+      episodeId: row.lineage_episode_id, threadId: row.lineage_thread_id,
+      workerId: row.lineage_worker_id, hash: row.lineage_hash, exact: true },
     createdAt: row.created_at, settledAt: row.settled_at
   };
+}
+
+function lineageMaterial(row) {
+  return {
+    schema: LINEAGE_SCHEMA, receiptId: row.receipt_id,
+    authorizationHash: row.authorization_hash,
+    missionId: row.lineage_mission_id, episodeId: row.lineage_episode_id,
+    threadId: row.lineage_thread_id, workerId: row.lineage_worker_id,
+    organizationId: row.lineage_organization_id, projectId: row.lineage_project_id
+  };
+}
+
+function verifyLineage(row, input) {
+  const exact = row.lineage_mission_id === input.episode.mission_id
+    && row.lineage_episode_id === input.episode.episode_id
+    && row.lineage_organization_id === input.scope.organizationId
+    && row.lineage_project_id === input.scope.projectId
+    && row.lineage_worker_id === row.worker_id
+    && row.lineage_organization_id === row.organization_id
+    && row.lineage_project_id === row.project_id
+    && row.lineage_authorization_hash === row.authorization_hash
+    && permissionDigest(lineageMaterial(row)) === row.lineage_hash;
+  if (!exact) throw failure('MISSION_INSPECTION_PERMISSION_LINEAGE_INVALID', 409);
+  return row;
 }
 
 async function threadPage(db, input) {
@@ -95,15 +124,28 @@ async function threadPage(db, input) {
 }
 
 async function receiptPage(db, input) {
-  const rows = await db.all(`SELECT r.* FROM tool_permission_receipts r
-    WHERE r.organization_id = ? AND r.project_id = ? AND r.created_at >= ?
-      AND EXISTS (SELECT 1 FROM cell_threads t WHERE t.episode_id = ?
-        AND t.mission_id = ? AND t.organization_id = r.organization_id
-        AND t.project_id = r.project_id AND t.worker_id = r.worker_id)
+  const rows = await db.all(`SELECT r.*,
+      l.mission_id AS lineage_mission_id, l.episode_id AS lineage_episode_id,
+      l.thread_id AS lineage_thread_id, l.organization_id AS lineage_organization_id,
+      l.project_id AS lineage_project_id, l.worker_id AS lineage_worker_id,
+      l.authorization_hash AS lineage_authorization_hash, l.lineage_hash
+    FROM tool_permission_receipts r
+    JOIN tool_permission_receipt_lineage l ON l.receipt_id = r.receipt_id
+    JOIN cell_threads t ON t.thread_id = l.thread_id AND t.episode_id = l.episode_id
+      AND t.mission_id = l.mission_id AND t.organization_id = l.organization_id
+      AND t.project_id = l.project_id AND t.worker_id = l.worker_id
+    WHERE l.organization_id = ? AND l.project_id = ?
+      AND l.mission_id = ? AND l.episode_id = ?
     ORDER BY r.created_at, r.receipt_id LIMIT ? OFFSET ?`, input.scope.organizationId,
-  input.scope.projectId, input.episode.created_at, input.episode.episode_id,
-  input.episode.mission_id, input.page.limit + 1, input.page.offset);
-  return page(rows.map(receiptView), input.page);
+  input.scope.projectId, input.episode.mission_id, input.episode.episode_id,
+  input.page.limit + 1, input.page.offset);
+  const legacy = await db.get(`SELECT COUNT(*) AS count FROM tool_permission_receipts r
+    LEFT JOIN tool_permission_receipt_lineage l ON l.receipt_id = r.receipt_id
+    WHERE r.organization_id = ? AND r.project_id = ? AND l.receipt_id IS NULL`,
+  input.scope.organizationId, input.scope.projectId);
+  const verified = rows.map((row) => verifyLineage(row, input)).map(receiptView);
+  return { ...page(verified, input.page),
+    legacyUncorrelated: { count: legacy.count, exact: false, reason: 'lineage_absent' } };
 }
 
 function sameScope(row, tenant) {
@@ -168,7 +210,8 @@ async function inspect(db, context) {
     missionId: episode.mission_id, episode: episodeView(episode), threads,
     habitat: habitatState, metabolism: metabolic,
     permissionReceipts: { ...permissionReceipts, correlation: {
-      method: 'tenant_worker_identity_since_episode_start', exact: false
+      method: 'persisted_backend_receipt_lineage', exact: true,
+      appliesTo: 'items', complete: permissionReceipts.legacyUncorrelated.count === 0
     } },
     readOnly: true
   };
