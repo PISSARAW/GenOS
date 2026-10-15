@@ -74,6 +74,11 @@ async function migrateMissionEpisodes(db) {
     CREATE INDEX IF NOT EXISTS idx_cell_threads_scope
       ON cell_threads(organization_id, project_id, mission_id, episode_id, created_at);
   `);
+  const episodeColumns = new Set((await db.all('PRAGMA table_info(mission_episodes)'))
+    .map((column) => column.name));
+  if (!episodeColumns.has('root_thread_id')) {
+    await db.exec('ALTER TABLE mission_episodes ADD COLUMN root_thread_id TEXT');
+  }
 }
 
 module.exports = { migrateMissionEpisodes };

@@ -63,6 +63,24 @@ test('migration persists scoped episode and correlated parent-child threads', as
   } finally { await db.close(); }
 });
 
+test('migration adds root thread linkage to an existing episode table', async () => {
+  const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  try {
+    await db.exec(`CREATE TABLE missions (mission_id TEXT PRIMARY KEY);
+      CREATE TABLE mission_episodes (
+        episode_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL,
+        organization_id TEXT NOT NULL, project_id TEXT NOT NULL,
+        organism_revision TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'embryonic',
+        revision INTEGER NOT NULL DEFAULT 0, metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );`);
+    await migrateMissionEpisodes(db);
+    const columns = await db.all('PRAGMA table_info(mission_episodes)');
+    assert.ok(columns.some((column) => column.name === 'root_thread_id'));
+  } finally { await db.close(); }
+});
+
 test('episode and cell lifecycles accept declared transitions and reject regressions', async () => {
   const db = await fixture();
   try {
