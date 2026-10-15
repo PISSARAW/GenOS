@@ -76,4 +76,19 @@ assert.equal(localModelWorker.localRuntime, true);
 assert.equal(localModelWorker.localModel, 'ollama://qwen2.5-coder:7b');
 assert.equal(localModelWorker.localRoutingPolicy.primary, 'ollama://qwen2.5-coder:7b');
 
+const requestedWorkspace = path.resolve('requested-workspace');
+const camelWorkspaceWorker = workerLaunchPayload({
+  context: { ...context, request: { workspaceRoot: requestedWorkspace } },
+  member: { role: 'analyst', mission: 'Use the requested workspace' },
+  workerId: 'camel-workspace-worker', parent: { workspace_root: '.' }
+});
+assert.equal(camelWorkspaceWorker.workspace_root, requestedWorkspace);
+
+const inheritedWorkspaceWorker = workerLaunchPayload({
+  context: { ...context, request: {} },
+  member: { role: 'analyst', mission: 'Use the inherited workspace' },
+  workerId: 'inherited-workspace-worker', parent: { workspace_root: '.' }
+});
+assert.equal(inheritedWorkspaceWorker.workspace_root, process.cwd());
+
 console.log('Topology worker launch payload: PASS');

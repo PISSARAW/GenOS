@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('node:path');
+
 function enrichMission(context, mission, role) {
   if (context.request?.mode === 'metapopulation') return migrationInstructions(mission);
   if (!context.nceEnrichments) return mission;
@@ -67,6 +69,13 @@ function selectedRoutingPolicy(member, localModel) {
   } : undefined);
 }
 
+function selectedWorkspaceRoot(context, member, parent) {
+  const candidate = member.workspaceRoot || context.request?.workspaceRoot
+    || context.request?.workspace_root || parent?.workspace_root
+    || process.env.GENOS_WORKSPACE_ROOT;
+  return candidate ? path.resolve(candidate) : candidate;
+}
+
 function workerLaunchPayload(args) {
   const { context, member, workerId, parent, capabilities, capabilityManifest, toolLease } = args;
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
@@ -100,7 +109,7 @@ function workerLaunchPayload(args) {
     toolLease: isolatedBaselineLease(context, toolLease),
     execution_budget: selectedBudget(member, context.request),
     timeoutMs: context.request?.timeoutMs,
-    workspace_root: member.workspaceRoot || context.request?.workspace_root || parent?.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
+    workspace_root: selectedWorkspaceRoot(context, member, parent),
     reuseChecked: true,
     reuseWorkerId: workerId,
     executor: selectedExecutor(context),
