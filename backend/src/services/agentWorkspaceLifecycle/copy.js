@@ -30,7 +30,7 @@ async function removeSensitiveFiles(root) {
 
 function createExclusionFilter() {
   const excluded = new Set([
-    '.git', '.genos', '.genos-agent-worlds', '.genos-runner-logs', '.codex-worktrees',
+    '.git', '.genos', '.genos-agent-worlds', '.genos-runtime', '.genos-runner-logs', '.codex-worktrees',
     'runner-logs', 'artifacts', 'node_modules', 'target'
   ]);
   return (name) => {

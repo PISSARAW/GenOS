@@ -13,6 +13,7 @@ async function run() {
 	assert.equal(isExcluded('snapshot.sqlite3.bak-20261004-112200'), true);
 	assert.equal(isExcluded('worker_agent_run_1790349144340'), true);
 	assert.equal(isExcluded('.codex-worktrees'), true);
+	assert.equal(isExcluded('.genos-runtime'), true);
 	assert.equal(isExcluded('.genos-runner-logs'), true);
 	assert.equal(isExcluded('runner-logs'), true);
 	assert.equal(isExcluded('artifacts'), true);
