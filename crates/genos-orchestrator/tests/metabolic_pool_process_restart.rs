@@ -77,6 +77,36 @@ fn failed_journal_append_rolls_back_pool_without_receipt_event() {
     assert!(!ecosystem.read_events(0).iter().any(|event| event.event_type == "MISSION_METABOLIC_POOL_RECEIPT"));
 }
 
+#[test]
+fn legacy_durable_receipt_replay_recovers_identity_from_snapshot() {
+    let path = journal_path();
+    let mission_id = Uuid::new_v4();
+    let mut ecosystem = GenosEcosystem::new("metabolism-legacy-replay");
+    ecosystem.set_mission_id(mission_id);
+    let cell_id = ecosystem.orchestrator.orchestrator_id;
+    let command = command(cell_id);
+    let mut snapshot = ecosystem.population_state_receipt(command.tick).unwrap();
+    snapshot["idempotency_key"] = serde_json::json!(command.idempotency_key);
+    snapshot["metabolic_operation"] = serde_json::json!({
+        "schema": "genos.mission-metabolic-pool-receipt/v1",
+        "mission_id": mission_id,
+        "cell_id": cell_id,
+        "operation": command.demand.operation.clone(),
+        "requested_amino_acids": command.demand.amino_acids,
+        "amino_acids_before": 100.0,
+        "amino_acids_after": 98.0,
+        "accepted": true,
+        "refusal_reason": null
+    });
+    let store = BiologicalReceiptStore::open(&path);
+    store.append_receipts(&[snapshot]).unwrap();
+
+    let replay = ecosystem.consume_mission_metabolic_pool_durable(&store, command.clone()).unwrap();
+    assert_eq!(replay.idempotency_key.as_deref(), Some(command.idempotency_key.as_str()));
+    assert_eq!(replay.tick, Some(command.tick));
+    let _ = std::fs::remove_file(path);
+}
+
 fn command(cell_id: Uuid) -> MissionMetabolicPoolCommand {
     MissionMetabolicPoolCommand {
         idempotency_key: "metabolic-restart-operation-1".into(),

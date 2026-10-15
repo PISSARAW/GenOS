@@ -129,11 +129,13 @@ fn replay_receipt(
     {
         return Err("metabolic pool idempotency receipt identity mismatch".into());
     }
-    let receipt: MissionMetabolicPoolReceipt = serde_json::from_value(snapshot["metabolic_operation"].clone())
+    let mut receipt: MissionMetabolicPoolReceipt = serde_json::from_value(snapshot["metabolic_operation"].clone())
         .map_err(|error| format!("metabolic pool receipt is incomplete: {error}"))?;
     if !receipt_matches(&receipt, mission_id, command) {
         return Err("metabolic pool idempotency key conflicts with this operation".into());
     }
+    receipt.idempotency_key.get_or_insert_with(|| command.idempotency_key.clone());
+    receipt.tick.get_or_insert(command.tick);
     Ok(receipt)
 }
 
@@ -143,8 +145,8 @@ fn receipt_matches(
     command: &MissionMetabolicPoolCommand,
 ) -> bool {
     receipt.mission_id == mission_id
-        && receipt.idempotency_key.as_deref() == Some(command.idempotency_key.as_str())
-        && receipt.tick == Some(command.tick)
+        && receipt.idempotency_key.as_deref().map_or(true, |key| key == command.idempotency_key)
+        && receipt.tick.map_or(true, |tick| tick == command.tick)
         && receipt.cell_id == command.demand.cell_id
         && receipt.operation == command.demand.operation
         && receipt.requested_amino_acids == valid_amount(command.demand.amino_acids)
