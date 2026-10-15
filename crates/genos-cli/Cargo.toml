@@ -32,6 +32,7 @@ crossterm = "0.28"
 ratatui = "0.30"
 tokio = { version = "1.53.1", features = ["full"] }
 axum = { version = "0.7", features = ["ws"] }
+ed25519-dalek = { version = "2", default-features = false }
 
 [dev-dependencies]
 ed25519-dalek = { version = "2", default-features = false }

@@ -28,11 +28,20 @@ async function request(input) {
   return { status: response.status, body: await response.json() };
 }
 
+async function waitForFile(file) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    try { await fs.access(file); return; } catch (_) { await new Promise(resolve => setTimeout(resolve, 10)); }
+  }
+  throw new Error(`Timed out waiting for ${path.basename(file)}`);
+}
+
 async function worker(mode, config) {
   Object.assign(process.env, testEnv(config.database, config.workspace, config.missionId));
   const cli = require('../src/services/genosCli');
   cli.runGenos = async (args) => {
     await fs.writeFile(process.env.TEST_CLINICAL_EXECUTOR_MARKER, JSON.stringify(args));
+    await waitForFile(path.join(config.workspace, 'release-clinical-executor'));
     return { ok: true, exitCode: 0, json: { success: true, treatment_administered: true } };
   };
   const { createApp } = require('../src/app');
@@ -52,22 +61,32 @@ async function worker(mode, config) {
       const foreign = await request({ port, scope: config.foreignScope, method: 'POST',
         route: `/api/rust/clinical-authorizations/${authorizationId}/revoke`, body: {}, });
       assert.equal(foreign.status, 404, 'a different tenant cannot revoke or discover the authorization');
-      const revoked = await request({ port, scope: config.scope, method: 'POST',
-        route: `/api/rust/clinical-authorizations/${authorizationId}/revoke`, body: {}, });
-      assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
-      assert.equal(revoked.body.authorization.status, 'revoked_in_backend_ledger');
-      assert.equal(revoked.body.authorization.offlineRustAuthorizationRevoked, false);
-      const apply = await request({ port, scope: config.scope, method: 'POST',
+      const applying = request({ port, scope: config.scope, method: 'POST',
         route: `/api/rust/clinical-authorizations/${authorizationId}/apply`,
         body: { missionId: config.missionId },
       });
-      assert.equal(apply.status, 409, JSON.stringify(apply.body));
-      assert.equal(apply.body.error.code, 'CLINICAL_AUTHORIZATION_REVOKED');
-      await assert.rejects(fs.access(process.env.TEST_CLINICAL_EXECUTOR_MARKER), { code: 'ENOENT' },
+      await waitForFile(process.env.TEST_CLINICAL_EXECUTOR_MARKER);
+      let revocationFinished = false;
+      const revoking = request({ port, scope: config.scope, method: 'POST',
+        route: `/api/rust/clinical-authorizations/${authorizationId}/revoke`, body: {},
+      }).then(result => { revocationFinished = true; return result; });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      assert.equal(revocationFinished, false, 'revocation must wait for an admitted application to finish');
+      await fs.writeFile(path.join(config.workspace, 'release-clinical-executor'), 'continue');
+      const applied = await applying;
+      assert.equal(applied.status, 200, JSON.stringify(applied.body));
+      const revoked = await revoking;
+      assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
+      assert.equal(revoked.body.authorization.status, 'revoked_in_backend_ledger');
+      assert.equal(revoked.body.authorization.offlineRustAuthorizationRevoked, false);
+      const invocation = await fs.readFile(process.env.TEST_CLINICAL_EXECUTOR_MARKER, 'utf8');
+      const refused = await request({ port, scope: config.scope, method: 'POST',
+        route: `/api/rust/clinical-authorizations/${authorizationId}/apply`, body: { missionId: config.missionId },
+      });
+      assert.equal(refused.status, 409, JSON.stringify(refused.body));
+      assert.equal(refused.body.error.code, 'CLINICAL_AUTHORIZATION_REVOKED');
+      assert.equal(await fs.readFile(process.env.TEST_CLINICAL_EXECUTOR_MARKER, 'utf8'), invocation,
         'revoked authorization must be rejected before invoking Rust');
-      await assert.rejects(fs.access(path.join(process.env.GENOS_STUDIO_ROOT, 'tenants',
-        config.scope.organizationId, config.scope.projectId, 'biological-receipts', `${config.missionId}.jsonl`)),
-      { code: 'ENOENT' }, 'revoked authorization must not create a Rust receipt journal');
       process.stdout.write(JSON.stringify({ authorizationId }));
       return;
     }

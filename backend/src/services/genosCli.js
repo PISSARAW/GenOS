@@ -109,8 +109,12 @@ function runGenos(args, { timeoutMs = 60000, root: rootOverride = null, envOverr
 
 function childEnvironment(root, overrides) {
   const env = genosEnvironment(root);
-  const secret = overrides.GENOS_THERAPY_AUTH_SECRET;
-  if (typeof secret === 'string' && secret.trim()) env.GENOS_THERAPY_AUTH_SECRET = secret;
+  for (const name of ['GENOS_THERAPY_AUTH_SECRET', 'GENOS_CLINICAL_BACKEND_URL',
+    'GENOS_CLINICAL_AUTH_TOKEN', 'GENOS_CLINICAL_ORGANIZATION_ID', 'GENOS_CLINICAL_PROJECT_ID',
+    'GENOS_CLI_AUTHORITY_TRUST_JSON', 'GENOS_NEURO_GLIA_TRUST_JSON', 'GENOS_SENSORY_TRUST_JSON']) {
+    const value = overrides[name];
+    if (typeof value === 'string' && value.trim()) env[name] = value;
+  }
   return env;
 }
 

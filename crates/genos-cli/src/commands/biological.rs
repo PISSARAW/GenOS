@@ -5,6 +5,14 @@ use super::biological_recruitment::{MissionRuntime, persist_mission_operations};
 use super::biological_mission_replay::{MissionReplayContext, prepare_runtime_and_replay};
 use serde_json::json;
 
+struct MissionTickReportContext<'a> {
+    command: &'a BiologicalCmd,
+    mission_id: uuid::Uuid,
+    ecosystem: &'a mut genos_orchestrator::GenosEcosystem,
+    store: &'a genos_store::BiologicalReceiptStore,
+    checkpoints: &'a mut genos_orchestrator::checkpoint::CheckpointManager,
+}
+
 pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
     let mode = cmd.mode.trim().to_ascii_lowercase();
 
@@ -120,7 +128,7 @@ fn run_and_report(
     journal_dir: &std::path::Path,
 ) -> Result<(), String> {
     use genos_orchestrator::checkpoint::CheckpointManager;
-    use genos_orchestrator::{GenosEcosystem, planner::Goal};
+    use genos_orchestrator::GenosEcosystem;
     use genos_store::BiologicalReceiptStore;
 
     let journal_path = journal_dir.join(format!("{mission_id}.jsonl"));
@@ -130,6 +138,9 @@ fn run_and_report(
             .map_err(|error| format!("mission checkpoint unavailable: {error}"))?;
     let mut ecosystem = GenosEcosystem::new(&cmd.mission);
     ecosystem.set_mission_id(mission_id);
+    if let Some(seed) = cmd.reproduction_seed {
+        ecosystem.set_reproduction_seed(seed)?;
+    }
     ecosystem.configure_receipt_journal(journal_path);
     restore_or_seed(&mut ecosystem, &mut checkpoints, cmd)?;
     resume_population_if_available(&mut ecosystem, &checkpoints, &store)?;
@@ -142,6 +153,18 @@ fn run_and_report(
     })? {
         return Ok(());
     }
+    execute_mission_tick(MissionTickReportContext {
+        command: cmd,
+        mission_id,
+        ecosystem: &mut ecosystem,
+        store: &store,
+        checkpoints: &mut checkpoints,
+    })
+}
+
+fn execute_mission_tick(context: MissionTickReportContext<'_>) -> Result<(), String> {
+    use genos_orchestrator::planner::Goal;
+    let MissionTickReportContext { command, mission_id, mut ecosystem, store, mut checkpoints } = context;
     let (report, mut receipts) = ecosystem
         .tick_and_persist_with_receipts(&Goal::Explore, &store)
         .map_err(|error| {
@@ -150,21 +173,21 @@ fn run_and_report(
                 error.message
             )
         })?;
-    let mission_operations = persist_mission_operations(&mut ecosystem, MissionRuntime {
-        command: cmd,
-        store: &store,
+    let mission_operations = persist_mission_operations(ecosystem, MissionRuntime {
+        command,
+        store,
         tick: report.tick,
     });
     match mission_operations {
         Ok(operation_receipts) => receipts.extend(operation_receipts),
         Err(operation_error) => {
-            save_checkpoint(&mut checkpoints, &ecosystem).map_err(|checkpoint_error| {
+            save_checkpoint(checkpoints, ecosystem).map_err(|checkpoint_error| {
                 format!("{operation_error}; partial mission state could not be checkpointed: {checkpoint_error}")
             })?;
             return Err(operation_error);
         }
     }
-    save_checkpoint(&mut checkpoints, &ecosystem)?;
+    save_checkpoint(checkpoints, ecosystem)?;
     println!(
         "{}",
         json!({

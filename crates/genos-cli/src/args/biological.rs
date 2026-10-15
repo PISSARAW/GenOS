@@ -23,6 +23,9 @@ pub struct BiologicalCmd {
     /// Reproduce once after the persisted mission tick and archive the genome lineage.
     #[arg(long, requires = "tick", default_value_t = false)]
     pub reproduce: bool,
+    /// Mission-scoped seed for stable daughter identities and mutation replay.
+    #[arg(long, requires = "tick")]
+    pub reproduction_seed: Option<u64>,
     /// Cross two registered mission cells and persist their lineage receipt.
     #[arg(long, requires = "tick", requires_all = ["crossover_parent_b", "crossover_seed"], conflicts_with = "replay_crossover_key")]
     pub crossover_parent_a: Option<uuid::Uuid>,

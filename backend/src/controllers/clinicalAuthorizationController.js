@@ -2,7 +2,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
-const { getDatabase } = require('../db');
+const { getDatabase, withTransaction } = require('../db');
 const { missionBelongsToTenant } = require('./biologicalReceiptController');
 const ledger = require('../services/medical/therapyAuthorizationService');
 const cli = require('../services/genosCli');
@@ -28,12 +28,35 @@ async function inspect(req,res,next) {
   } catch (error) { return next(error); }
 }
 
+async function validateForCli(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const missionId = String(req.body?.missionId || '').trim();
+    const row = await ledger.authorizationForApplication(db, {
+      authorizationId: req.params.authorizationId, missionId, tenant: req.tenant,
+    });
+    if (!row) return res.status(404).json({ error: { code: 'CLINICAL_AUTHORIZATION_NOT_FOUND' } });
+    if (row.revoked_at_unix_ms !== null) {
+      return res.status(409).json({ error: { code: 'CLINICAL_AUTHORIZATION_REVOKED' } });
+    }
+    const claims = JSON.parse(row.authorization_json);
+    const matches = claimsMatchLedger(claims, row)
+      && claims.mission_id === missionId
+      && claims.cell_id === req.body?.cellId
+      && claims.signature === req.body?.signature;
+    if (!matches || !await missionBelongsToTenant(db, missionId, req.tenant)) {
+      return res.status(409).json({ error: { code: 'CLINICAL_AUTHORIZATION_SCOPE_MISMATCH' } });
+    }
+    return res.json({ authorized: true, authorizationId: row.authorization_id });
+  } catch (error) { return next(error); }
+}
+
 async function revoke(req,res,next) {
   try {
     const db = await getDatabase();
-    const authorization = await ledger.revokeAuthorization(db, {
+    const authorization = await withTransaction(db, () => ledger.revokeAuthorization(db, {
       authorizationId: req.params.authorizationId, tenant: req.tenant, actor: req.user,
-    });
+    }));
     if (!authorization) return res.status(404).json({ error: 'Clinical authorization not found' });
     return res.json({ authorization });
   } catch (error) { return next(error); }
@@ -42,16 +65,18 @@ async function revoke(req,res,next) {
 async function apply(req, res, next) {
   try {
     const db = await getDatabase();
-    const missionId = String(req.body?.missionId || '').trim();
-    const authorization = await ledger.authorizationForApplication(db, {
-      authorizationId: req.params.authorizationId, missionId, tenant: req.tenant,
+    return await withTransaction(db, async () => {
+      const missionId = String(req.body?.missionId || '').trim();
+      const authorization = await ledger.authorizationForApplication(db, {
+        authorizationId: req.params.authorizationId, missionId, tenant: req.tenant,
+      });
+      if (!authorization) return res.status(404).json({ error: 'Clinical authorization not found' });
+      if (authorization.revoked_at_unix_ms !== null) {
+        return res.status(409).json({ error: { code: 'CLINICAL_AUTHORIZATION_REVOKED', message: 'Revoked clinical authorization cannot be applied online.' } });
+      }
+      if (!await missionBelongsToTenant(db, missionId, req.tenant)) return res.status(404).json({ error: 'Mission not found' });
+      return await runOnlineClinicalApplication({ req, res, authorization });
     });
-    if (!authorization) return res.status(404).json({ error: 'Clinical authorization not found' });
-    if (authorization.revoked_at_unix_ms !== null) {
-      return res.status(409).json({ error: { code: 'CLINICAL_AUTHORIZATION_REVOKED', message: 'Revoked clinical authorization cannot be applied online.' } });
-    }
-    if (!await missionBelongsToTenant(db, missionId, req.tenant)) return res.status(404).json({ error: 'Mission not found' });
-    return await runOnlineClinicalApplication({ req, res, authorization });
   } catch (error) { return next(error); }
 }
 
@@ -68,7 +93,7 @@ async function runOnlineClinicalApplication(input) {
     const journal = path.join('biological-receipts', `${safePathPart(claims.mission_id)}.jsonl`);
     const run = await cli.runGenos(['biomimicry', 'therapy', '--agent-id', claims.cell_id,
       '--therapy-type', claims.therapy_json, '--journal', journal, '--authorization-file', files.reference], {
-      root, envOverrides: { GENOS_THERAPY_AUTH_SECRET: process.env.GENOS_THERAPY_AUTH_SECRET },
+      root, envOverrides: clinicalCliEnvironment(req),
     });
     if (!run.ok) return res.status(502).json({ error: { code: 'CLINICAL_RUST_EXECUTION_FAILED', message: run.stderr?.trim() || run.error || 'Rust clinical executor failed.' } });
     return res.json({ operation: 'clinical_apply', missionId: claims.mission_id,
@@ -76,6 +101,19 @@ async function runOnlineClinicalApplication(input) {
   } finally {
     await fs.rm(files.path, { force: true });
   }
+}
+
+function clinicalCliEnvironment(req) {
+  const authorization = String(req.headers.authorization || '');
+  const token = authorization.replace(/^Bearer\s+/i, '').trim();
+  return {
+    GENOS_THERAPY_AUTH_SECRET: process.env.GENOS_THERAPY_AUTH_SECRET,
+    GENOS_CLINICAL_BACKEND_URL: process.env.GENOS_BACKEND_URL
+      || process.env.GENOS_API_URL || 'http://127.0.0.1:4000',
+    GENOS_CLINICAL_AUTH_TOKEN: token,
+    GENOS_CLINICAL_ORGANIZATION_ID: req.tenant.organizationId,
+    GENOS_CLINICAL_PROJECT_ID: req.tenant.projectId,
+  };
 }
 
 function claimsMatchLedger(claims, row) {
@@ -106,4 +144,4 @@ async function writeAuthorizationFile(input) {
   return { path: file, reference: path.relative(resolvedRoot, file) };
 }
 
-module.exports = { issue, inspect, revoke, apply };
+module.exports = { issue, inspect, revoke, validateForCli, apply };

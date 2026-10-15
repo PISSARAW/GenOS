@@ -152,6 +152,7 @@ fn real_main() {
         Some(Commands::Replay(cmd)) => replay::execute(cmd.subcommand),
         Some(Commands::Biomimicry(cmd)) => biomimicry::execute(cmd.subcommand),
         Some(Commands::SensoryIngest(cmd)) => commands::sensory::execute(cmd),
+        Some(Commands::SensoryBackendImport(cmd)) => commands::sensory_backend_import::execute(cmd),
         Some(Commands::MetabolicPool(cmd)) => commands::metabolic_pool::execute(cmd),
         Some(Commands::GuardFlux(cmd)) => commands::guard_flux::execute(cmd),
         Some(Commands::ElectricQuorum(cmd)) => commands::electric_quorum::execute(cmd),

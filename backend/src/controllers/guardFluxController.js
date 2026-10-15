@@ -1,8 +1,10 @@
 'use strict';
 
+const fs = require('node:fs/promises');
 const { getDatabase } = require('../db');
 const { missionBelongsToTenant } = require('./biologicalReceiptController');
 const cli = require('../services/genosCli');
+const { createAuthorityFile } = require('../services/metabolicCliAuthority');
 
 async function apply(req, res, next) {
   try {
@@ -48,27 +50,53 @@ async function missionContext({ db, input }) {
 }
 
 async function executeGuardFlux({ req, res, input, rustMissionId }) {
+  const authority = await createAuthorityFile({ root: cli.studioBridgeRoot(), tenant: req.tenant,
+    claims: { mission_id: input.missionId, rust_mission_id: rustMissionId, cell_id: input.cellId,
+      operation: 'guard_flux', detail: 'guard_flux', value: String(input.requestedFlux),
+      tick: input.tick, idempotency_key: input.idempotencyKey } });
   const args = ['guard-flux', '--mission-id', rustMissionId, '--cell-id', input.cellId, '--tick', String(input.tick),
-    '--requested-flux', String(input.requestedFlux), '--idempotency-key', input.idempotencyKey, '--experimental'];
-  const run = await cli.runGenos(args);
-  if (!successfulRun(run, input, rustMissionId)) {
+    '--requested-flux', String(input.requestedFlux), '--idempotency-key', input.idempotencyKey,
+    '--authority-file', authority.reference];
+  const run = await runAuthorizedCli({ args, root: cli.studioBridgeRoot(), authority,
+    trustJson: process.env.GENOS_CLI_AUTHORITY_TRUST_JSON });
+  if (!successfulRun({ run, input, rustMissionId, tenant: req.tenant })) {
     return res.status(502).json({ error: { code: 'GUARD_FLUX_RUST_EXECUTION_FAILED', message: run?.stderr?.trim() || run?.error || 'Durable guard-flux executor failed.' } });
   }
   return res.json({ operation: 'guard_flux', missionId: input.missionId, cellId: input.cellId,
     idempotencyKey: input.idempotencyKey,
     backendAuthorization: { principalId: req.user?.keyId || req.user?.username || 'authenticated_api_principal',
-      permission: 'experiment:run', tenantScoped: true },
+      permission: 'experiment:run', organizationId: req.tenant.organizationId,
+      projectId: req.tenant.projectId, authenticatedByRust: true },
     rust: run.json });
 }
 
-function successfulRun(run, input, rustMissionId) {
-  return run?.ok === true && run.json?.execution_mode === 'experimental'
-    && run.json?.mission_authority === 'unverified_cli_claim' && run.json?.receipt
-    && run.json.receipt.mission_id === rustMissionId
-    && run.json.receipt.cell_id === input.cellId
-    && run.json.receipt.tick === input.tick
-    && run.json.receipt.requested_flux === input.requestedFlux
-    && run.json.receipt.idempotency_key === input.idempotencyKey;
+async function runAuthorizedCli(input) {
+  try {
+    return await cli.runGenos(input.args, { root: input.root, envOverrides: {
+      GENOS_CLI_AUTHORITY_TRUST_JSON: input.trustJson,
+    } });
+  } finally {
+    await fs.rm(input.authority.path, { force: true });
+  }
+}
+
+function successfulRun(args) {
+  const { run, input, rustMissionId, tenant } = args;
+  return run?.ok === true && run.json?.execution_mode === 'backend-authorized'
+    && run.json?.mission_authority === 'authenticated_backend_capability'
+    && scopeMatches(run.json.authority_scope, tenant, input.missionId)
+    && receiptMatches(run.json.receipt, input, rustMissionId);
+}
+
+function scopeMatches(scope, tenant, missionId) {
+  return scope?.organization_id === tenant.organizationId
+    && scope?.project_id === tenant.projectId && scope?.mission_id === missionId;
+}
+
+function receiptMatches(receipt, input, rustMissionId) {
+  return Boolean(receipt) && receipt.mission_id === rustMissionId
+    && receipt.cell_id === input.cellId && receipt.tick === input.tick
+    && receipt.requested_flux === input.requestedFlux && receipt.idempotency_key === input.idempotencyKey;
 }
 
 module.exports = { apply };

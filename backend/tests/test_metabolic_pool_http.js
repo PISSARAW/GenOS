@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, generateKeyPairSync, createHash } = require('node:crypto');
 
 const token = randomUUID();
 const scope = { organizationId: randomUUID(), projectId: randomUUID() };
@@ -20,6 +20,8 @@ async function run() {
   process.env.GENOS_ADMIN_PASSWORD = 'metabolic-http-test';
   process.env.GENOS_DB_BACKUP_SKIP = '1';
   process.env.GENOS_DB_SCHEMA_MAINTENANCE = '0';
+  process.env.GENOS_STUDIO_ROOT = directory;
+  configureCliAuthority();
   const { getDatabase, closeDatabase } = require('../src/db');
   const cli = require('../src/services/genosCli');
   const calls = [];
@@ -33,9 +35,12 @@ async function run() {
       tick: Number(value('--tick')) };
     if (!receipts.has(key)) receipts.set(key, { mission_id: identity.mission_id, cell_id: identity.cell_id,
       operation: identity.operation, requested_amino_acids: identity.amino_acids, receipt_id: randomUUID(),
+      idempotency_key: key, tick: identity.tick,
       amino_acids_consumed: identity.amino_acids });
-    return { ok: true, json: { success: true, execution_mode: 'experimental',
-      mission_authority: 'unverified_cli_claim', ...identity, receipt: receipts.get(key) } };
+    return { ok: true, json: { success: true, execution_mode: 'backend-authorized',
+      mission_authority: 'authenticated_backend_capability', authority_scope: {
+        organization_id: scope.organizationId, project_id: scope.projectId, mission_id: missionId,
+      }, ...identity, receipt: receipts.get(key) } };
   };
   const db = await getDatabase();
   await seed(db);
@@ -66,18 +71,25 @@ async function run() {
     assert.deepEqual(replay.body.rust.receipt, first.body.rust.receipt,
       'the CLI durable idempotency receipt must survive an HTTP retry');
     assert.equal(calls.length, 2);
-    assert.deepEqual(calls[0], calls[1]);
+    assert.deepEqual(withoutAuthorityPath(calls[0]), withoutAuthorityPath(calls[1]));
     assert.equal(calls[0][0], 'metabolic-pool');
-    assert.ok(calls[0].includes('--experimental'), 'the CLI remains explicitly experimental and unauthenticated');
+    assert.ok(calls[0].includes('--authority-file'), 'backend mutations must carry a signed CLI capability');
+    assert.ok(!calls[0].includes('--experimental'));
+    await assertAuthorityFileRemoved(calls[0]);
+    await assertAuthorityFileRemoved(calls[1]);
     assert.equal(calls[0][calls[0].indexOf('--cell-id') + 1], cellId);
     assert.equal(first.body.backendAuthorization.permission, 'experiment:run');
-    assert.equal(first.body.rust.mission_authority, 'unverified_cli_claim');
-    assert.equal('idempotency_key' in first.body.rust.receipt, false);
-    assert.equal('tick' in first.body.rust.receipt, false);
-    cli.runGenos = async args => ({ ok: true, json: { success: true, execution_mode: 'experimental',
-      mission_authority: 'unverified_cli_claim', mission_id: rustMissionId, cell_id: cellId,
+    assert.equal(first.body.rust.mission_authority, 'authenticated_backend_capability');
+    assert.equal(first.body.rust.authority_scope.mission_id, missionId);
+    assert.equal(first.body.rust.receipt.idempotency_key, 'http-replay-1');
+    assert.equal(first.body.rust.receipt.tick, 4);
+    cli.runGenos = async args => ({ ok: true, json: { success: true, execution_mode: 'backend-authorized',
+      mission_authority: 'authenticated_backend_capability', authority_scope: {
+        organization_id: scope.organizationId, project_id: scope.projectId, mission_id: missionId,
+      }, mission_id: rustMissionId, cell_id: cellId,
       idempotency_key: 'wrong-operation-key', operation: 'other_operation', amino_acids: 2, tick: 4,
-      receipt: { mission_id: rustMissionId, cell_id: cellId, operation: 'other_operation', requested_amino_acids: 2 } } });
+      receipt: { mission_id: rustMissionId, cell_id: cellId, operation: 'other_operation', requested_amino_acids: 2,
+        idempotency_key: args[args.indexOf('--idempotency-key') + 1], tick: 4 } } });
     const mismatch = await request({ port, route, body: { ...requestBody, idempotencyKey: 'bad-receipt-identity' } });
     assert.equal(mismatch.status, 502, JSON.stringify(mismatch.body));
     console.log('Metabolic HTTP authorization, refusal, and idempotent replay: PASS');
@@ -86,6 +98,26 @@ async function run() {
     await closeDatabase();
     await fs.rm(directory, { recursive: true, force: true });
   }
+}
+
+function withoutAuthorityPath(args) {
+  const copy = [...args];
+  copy[copy.indexOf('--authority-file') + 1] = '<unique-capability>';
+  return copy;
+}
+
+async function assertAuthorityFileRemoved(args) {
+  const authorityPath = path.join(process.env.GENOS_STUDIO_ROOT, args[args.indexOf('--authority-file') + 1]);
+  await assert.rejects(fs.access(authorityPath), `temporary CLI capability remained at ${authorityPath}`);
+}
+
+function configureCliAuthority() {
+  const pair = generateKeyPairSync('ed25519');
+  const der = pair.publicKey.export({ type: 'spki', format: 'der' });
+  const key = der.subarray(der.length - 32);
+  const keyId = createHash('sha256').update(key).digest('hex').slice(0, 32);
+  process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM = pair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  process.env.GENOS_CLI_AUTHORITY_TRUST_JSON = JSON.stringify({ [keyId]: key.toString('hex') });
 }
 
 async function seed(db) {

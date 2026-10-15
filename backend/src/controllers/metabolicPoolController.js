@@ -1,8 +1,10 @@
 'use strict';
 
+const fs = require('node:fs/promises');
 const { getDatabase } = require('../db');
 const { missionBelongsToTenant } = require('./biologicalReceiptController');
 const cli = require('../services/genosCli');
+const { createAuthorityFile } = require('../services/metabolicCliAuthority');
 
 async function consume(req, res, next) {
   try {
@@ -67,43 +69,71 @@ async function missionContext(db, input) {
 
 async function executeMetabolicPool(input) {
   const { req, res, input: command, rustMissionId } = input;
+  const authority = await createAuthorityFile({ root: cli.studioBridgeRoot(), tenant: req.tenant,
+    claims: { mission_id: command.missionId, rust_mission_id: rustMissionId, cell_id: command.cellId,
+      operation: 'metabolic_pool', detail: command.operation, value: String(command.aminoAcids),
+      tick: command.tick, idempotency_key: command.idempotencyKey } });
   const args = ['metabolic-pool', '--mission-id', rustMissionId, '--cell-id', command.cellId,
     '--idempotency-key', command.idempotencyKey, '--operation', command.operation,
-    '--amino-acids', String(command.aminoAcids), '--tick', String(command.tick), '--experimental'];
-  const run = await cli.runGenos(args);
-  if (!successfulRun(run, command, rustMissionId)) {
+    '--amino-acids', String(command.aminoAcids), '--tick', String(command.tick),
+    '--authority-file', authority.reference];
+  const run = await runAuthorizedCli({ args, root: cli.studioBridgeRoot(), authority,
+    trustJson: process.env.GENOS_CLI_AUTHORITY_TRUST_JSON });
+  if (!successfulRun({ run, command, rustMissionId, tenant: req.tenant })) {
     return res.status(502).json({ error: { code: 'METABOLIC_RUST_EXECUTION_FAILED', message: run.stderr?.trim() || run.error || 'Durable metabolic executor failed.' } });
   }
   return res.json({ operation: 'metabolic_pool', missionId: command.missionId,
     idempotencyKey: command.idempotencyKey,
     backendAuthorization: { principalId: req.user?.keyId || req.user?.username || 'authenticated_api_principal',
-      permission: 'experiment:run', tenantScoped: true },
+      permission: 'experiment:run', organizationId: req.tenant.organizationId,
+      projectId: req.tenant.projectId, authenticatedByRust: true },
     rust: run.json });
 }
 
-function successfulRun(run, command, rustMissionId) {
+async function runAuthorizedCli(input) {
+  try {
+    return await cli.runGenos(input.args, { root: input.root, envOverrides: {
+      GENOS_CLI_AUTHORITY_TRUST_JSON: input.trustJson,
+    } });
+  } finally {
+    await fs.rm(input.authority.path, { force: true });
+  }
+}
+
+function successfulRun(input) {
+  const { run, command, rustMissionId, tenant } = input;
   const identity = run?.json;
   const receipt = identity?.receipt;
   return run?.ok === true && identity?.success === true && Boolean(receipt)
-    && operationIdentityMatches({ identity, command, rustMissionId })
+    && operationIdentityMatches({ identity, command, rustMissionId, tenant })
     && operationReceiptMatches({ receipt, command, rustMissionId });
 }
 
 function operationIdentityMatches(input) {
-  const { identity, command, rustMissionId } = input;
-  return identity.execution_mode === 'experimental'
-    && identity.mission_authority === 'unverified_cli_claim'
-    && identity.mission_id === rustMissionId && identity.cell_id === command.cellId
-    && identity.idempotency_key === command.idempotencyKey
-    && identity.operation === command.operation && identity.amino_acids === command.aminoAcids
-    && identity.tick === command.tick;
+  const { identity, command, rustMissionId, tenant } = input;
+  return identity.execution_mode === 'backend-authorized'
+    && identity.mission_authority === 'authenticated_backend_capability'
+    && authorityScopeMatches(identity.authority_scope, tenant, command.missionId)
+    && operationIdentityMatchesCommand(identity, command, rustMissionId);
+}
+
+function authorityScopeMatches(scope, tenant, missionId) {
+  return scope?.organization_id === tenant.organizationId
+    && scope?.project_id === tenant.projectId && scope?.mission_id === missionId;
+}
+
+function operationIdentityMatchesCommand(identity, command, rustMissionId) {
+  return identity.mission_id === rustMissionId && identity.cell_id === command.cellId
+    && identity.idempotency_key === command.idempotencyKey && identity.operation === command.operation
+    && identity.amino_acids === command.aminoAcids && identity.tick === command.tick;
 }
 
 function operationReceiptMatches(input) {
   const { receipt, command, rustMissionId } = input;
   return receipt.mission_id === rustMissionId && receipt.cell_id === command.cellId
     && receipt.operation === command.operation
-    && receipt.requested_amino_acids === command.aminoAcids;
+    && receipt.requested_amino_acids === command.aminoAcids
+    && receipt.tick === command.tick && receipt.idempotency_key === command.idempotencyKey;
 }
 
 module.exports = { consume };

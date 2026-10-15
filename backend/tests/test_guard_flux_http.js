@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, generateKeyPairSync, createHash } = require('node:crypto');
 
 const token = randomUUID();
 const scope = { organizationId: randomUUID(), projectId: randomUUID() };
@@ -20,6 +20,8 @@ async function run() {
   process.env.GENOS_ADMIN_PASSWORD = 'guard-flux-http-test';
   process.env.GENOS_DB_BACKUP_SKIP = '1';
   process.env.GENOS_DB_SCHEMA_MAINTENANCE = '0';
+  process.env.GENOS_STUDIO_ROOT = directory;
+  configureCliAuthority();
   const { getDatabase, closeDatabase } = require('../src/db');
   const cli = require('../src/services/genosCli');
   const calls = [];
@@ -31,7 +33,10 @@ async function run() {
       cell_id: args[args.indexOf('--cell-id') + 1], idempotency_key: key,
       requested_flux: Number(args[args.indexOf('--requested-flux') + 1]), receipt_id: randomUUID(),
       tick: Number(args[args.indexOf('--tick') + 1]), accepted: true });
-    return { ok: true, json: { execution_mode: 'experimental', mission_authority: 'unverified_cli_claim', receipt: receipts.get(key) } };
+    return { ok: true, json: { execution_mode: 'backend-authorized',
+      mission_authority: 'authenticated_backend_capability', authority_scope: {
+        organization_id: scope.organizationId, project_id: scope.projectId, mission_id: missionId,
+      }, receipt: receipts.get(key) } };
   };
   const db = await getDatabase();
   await seed(db);
@@ -68,13 +73,17 @@ async function run() {
     assert.equal(replay.status, 200, JSON.stringify(replay.body));
     assert.deepEqual(replay.body.rust.receipt, first.body.rust.receipt);
     assert.equal(calls.length, 2);
-    assert.deepEqual(calls[0], calls[1]);
+    assert.deepEqual(withoutAuthorityPath(calls[0]), withoutAuthorityPath(calls[1]));
     assert.equal(calls[0][0], 'guard-flux');
     assert.equal(calls[0][calls[0].indexOf('--cell-id') + 1], cellId);
-    assert.ok(calls[0].includes('--experimental'));
+    assert.ok(calls[0].includes('--authority-file'));
+    assert.ok(!calls[0].includes('--experimental'));
+    await assertAuthorityFileRemoved(calls[0]);
+    await assertAuthorityFileRemoved(calls[1]);
     assert.equal(calls[0][calls[0].indexOf('--mission-id') + 1], rustMissionId);
     assert.equal(first.body.backendAuthorization.permission, 'experiment:run');
-    assert.equal(first.body.rust.mission_authority, 'unverified_cli_claim');
+    assert.equal(first.body.rust.mission_authority, 'authenticated_backend_capability');
+    assert.equal(first.body.rust.authority_scope.mission_id, missionId);
 
     cli.runGenos = async () => ({ ok: true, json: {
       execution_mode: 'experimental', mission_authority: 'unverified_cli_claim',
@@ -101,6 +110,26 @@ async function run() {
     await closeDatabase();
     await fs.rm(directory, { recursive: true, force: true });
   }
+}
+
+function withoutAuthorityPath(args) {
+  const copy = [...args];
+  copy[copy.indexOf('--authority-file') + 1] = '<unique-capability>';
+  return copy;
+}
+
+async function assertAuthorityFileRemoved(args) {
+  const authorityPath = path.join(process.env.GENOS_STUDIO_ROOT, args[args.indexOf('--authority-file') + 1]);
+  await assert.rejects(fs.access(authorityPath));
+}
+
+function configureCliAuthority() {
+  const pair = generateKeyPairSync('ed25519');
+  const der = pair.publicKey.export({ type: 'spki', format: 'der' });
+  const key = der.subarray(der.length - 32);
+  const keyId = createHash('sha256').update(key).digest('hex').slice(0, 32);
+  process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM = pair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  process.env.GENOS_CLI_AUTHORITY_TRUST_JSON = JSON.stringify({ [keyId]: key.toString('hex') });
 }
 
 async function seed(db) {

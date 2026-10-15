@@ -1,4 +1,5 @@
 use clap::Args;
+use std::path::PathBuf;
 
 #[derive(Args, Debug)]
 pub struct GuardFluxCmd {
@@ -18,6 +19,9 @@ pub struct GuardFluxCmd {
     #[arg(long)]
     pub idempotency_key: String,
     /// Acknowledge this local CLI path has no authenticated mission principal
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = false, conflicts_with = "authority_file")]
     pub experimental: bool,
+    /// Backend-signed, workspace-confined mutation authority
+    #[arg(long, conflicts_with = "experimental")]
+    pub authority_file: Option<PathBuf>,
 }

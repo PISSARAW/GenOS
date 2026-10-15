@@ -13,7 +13,6 @@ struct CliFixture {
     workspace: tempfile::TempDir,
     mission: Uuid,
     request: PathBuf,
-    trusted_keys: PathBuf,
 }
 
 #[test]
@@ -23,6 +22,8 @@ fn electric_quorum_replays_across_separate_cli_processes() {
     assert!(first.status.success(), "{}", String::from_utf8_lossy(&first.stderr));
     let response: serde_json::Value = serde_json::from_slice(&first.stdout).unwrap();
     assert_eq!(response["quorum_kind"], "local_software_quorum");
+    assert_eq!(response["trusted_keys_source"], "host_bootstrap_workspace_config");
+    assert_eq!(response["workspace_root_binding"], "not_authenticated_for_direct_cli");
     assert_eq!(response["distributed_consensus"], false);
     assert_eq!(response["receipt"]["accepted"], true);
 
@@ -57,12 +58,13 @@ fn fixture() -> CliFixture {
         "cell_id": id,
         "public_key_hex": encode_hex(signing_key(*id).verifying_key().as_bytes()),
     })).collect::<Vec<_>>();
-    let trusted_keys = workspace.path().join("trusted-keys.json");
-    std::fs::write(&trusted_keys, serde_json::to_vec(&serde_json::json!({
+    let config = workspace.path().join("config");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::write(config.join("electric-voter-trust.json"), serde_json::to_vec(&serde_json::json!({
         "schema": "genos.electric-voter-trust/v1",
         "voters": voters,
     })).unwrap()).unwrap();
-    CliFixture { workspace, mission, request: request_path, trusted_keys }
+    CliFixture { workspace, mission, request: request_path }
 }
 
 fn run_cli(fixture: &CliFixture) -> std::process::Output {
@@ -72,12 +74,29 @@ fn run_cli(fixture: &CliFixture) -> std::process::Output {
             "--tick", "0", "--request",
         ])
         .arg(&fixture.request)
-        .arg("--trusted-keys")
-        .arg(&fixture.trusted_keys)
         .arg("--experimental")
         .env("GENOS_STUDIO_ROOT", fixture.workspace.path())
         .output()
         .unwrap()
+}
+
+#[test]
+fn electric_quorum_rejects_caller_selected_trust_registry() {
+    let fixture = fixture();
+    let output = Command::new(env!("CARGO_BIN_EXE_genos"))
+        .args([
+            "electric-quorum", "--mission-id", &fixture.mission.to_string(),
+            "--tick", "0", "--request",
+        ])
+        .arg(&fixture.request)
+        .arg("--trusted-keys")
+        .arg(fixture.workspace.path().join("config/electric-voter-trust.json"))
+        .arg("--experimental")
+        .env("GENOS_STUDIO_ROOT", fixture.workspace.path())
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("unexpected argument"));
 }
 
 fn test_directory() -> tempfile::TempDir {

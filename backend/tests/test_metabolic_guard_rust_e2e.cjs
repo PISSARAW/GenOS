@@ -5,7 +5,8 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, generateKeyPairSync, createHash } = require('node:crypto');
+const { createAuthorityFile } = require('../src/services/metabolicCliAuthority');
 
 const token = randomUUID();
 const scope = { organizationId: randomUUID(), projectId: randomUUID() };
@@ -27,6 +28,7 @@ async function run() {
     process.env.GENOS_DB_BACKUP_SKIP = '1';
     process.env.GENOS_DB_SCHEMA_MAINTENANCE = '0';
     process.env.GENOS_STUDIO_ROOT = workspace;
+    configureCliAuthority();
 
     const cargoTarget = process.env.CARGO_TARGET_DIR
       ? path.resolve(process.env.CARGO_TARGET_DIR) : path.resolve(__dirname, '../../target');
@@ -54,7 +56,8 @@ async function run() {
     await assertMetabolicReplay(port, workspace, cellId);
     await assertGuardFluxReplay(port, workspace, cellId);
     await assertRealRefusals({ port, workspace, cellId });
-    console.log('Backend → real Rust CLI metabolic pool and Guard Flux replay/refusal: PASS');
+    await assertRustAuthorityRefusal({ binary: process.env.GENOS_BIN, workspace, cellId });
+    console.log('Backend → authenticated real Rust CLI metabolic pool and Guard Flux replay/refusal: PASS');
     completed = true;
   } finally {
     if (server && server.listening) {
@@ -64,6 +67,15 @@ async function run() {
     if (completed) await fs.rm(directory, { recursive: true, force: true });
     else console.error(`E2E fixture retained for diagnosis: ${directory}`);
   }
+}
+
+function configureCliAuthority() {
+  const pair = generateKeyPairSync('ed25519');
+  const publicDer = pair.publicKey.export({ type: 'spki', format: 'der' });
+  const publicHex = publicDer.subarray(publicDer.length - 32).toString('hex');
+  const keyId = createHash('sha256').update(Buffer.from(publicHex, 'hex')).digest('hex').slice(0, 32);
+  process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM = pair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  process.env.GENOS_CLI_AUTHORITY_TRUST_JSON = JSON.stringify({ [keyId]: publicHex });
 }
 
 function initializeRustMission(binary, workspace) {
@@ -90,7 +102,10 @@ async function assertMetabolicReplay(port, workspace, cellId) {
   assert.equal(replay.status, 200, JSON.stringify(replay.body));
   assert.deepEqual(replay.body.rust.receipt, first.body.rust.receipt,
     'a fresh Rust CLI process must replay the original metabolic receipt');
-  assert.equal(first.body.rust.mission_authority, 'unverified_cli_claim');
+  assert.equal(first.body.rust.mission_authority, 'authenticated_backend_capability');
+  assert.deepEqual(first.body.rust.authority_scope, {
+    organization_id: scope.organizationId, project_id: scope.projectId, mission_id: missionId,
+  });
   const receipts = readJournal(workspace, rustMissionId);
   const matching = receipts.filter(item => item.idempotency_key === body.idempotencyKey);
   assert.equal(matching.length, 1, 'metabolic retry must not append a second operation snapshot');
@@ -108,7 +123,10 @@ async function assertGuardFluxReplay(port, workspace, cellId) {
   assert.deepEqual(replay.body.rust.receipt, first.body.rust.receipt,
     'a fresh Rust CLI process must replay the original guard-flux receipt');
   assert.equal(first.body.rust.receipt.accepted, true);
-  assert.equal(first.body.rust.mission_authority, 'unverified_cli_claim');
+  assert.equal(first.body.rust.mission_authority, 'authenticated_backend_capability');
+  assert.deepEqual(first.body.rust.authority_scope, {
+    organization_id: scope.organizationId, project_id: scope.projectId, mission_id: missionId,
+  });
   const matching = readJournal(workspace, rustMissionId)
     .filter(item => item.idempotency_key === body.idempotencyKey);
   assert.equal(matching.length, 1, 'guard-flux retry must not append a second operation snapshot');
@@ -148,9 +166,38 @@ async function assertRealRefusals({ port, workspace, cellId }) {
   const refusedFlux = receipts.filter(item => item.idempotency_key === 'e2e-guard-no-pool');
   assert.equal(refusedFlux.length, 1);
   assert.match(refusedFlux[0].guard_flux_operation.refusal_reason, /backpressure/i);
+  const beforeUnauthorizedTenant = receipts.length;
+  const wrongTenant = await request({ port, route: '/api/rust/metabolic-pool/consume',
+    tenantScope: { organizationId: scope.organizationId, projectId: randomUUID() }, body: {
+      missionId, cellId, idempotencyKey: 'e2e-wrong-tenant', operation: 'protein_synthesis', aminoAcids: 1, tick: 1,
+    } });
+  assert.ok(wrongTenant.status >= 400, 'cross-project mission mutation must be refused');
+  assert.equal(readJournal(workspace, rustMissionId).length, beforeUnauthorizedTenant,
+    'cross-project authorization must be refused before the Rust journal changes');
 }
 
-async function request({ port, route, body }) {
+async function assertRustAuthorityRefusal(input) {
+  const { binary, workspace, cellId } = input;
+  const key = 'e2e-rust-authority-scope-mismatch';
+  const before = readJournal(workspace, rustMissionId).length;
+  const authority = await createAuthorityFile({ root: workspace, tenant: scope, claims: {
+    mission_id: missionId, rust_mission_id: rustMissionId, cell_id: cellId,
+    operation: 'metabolic_pool', detail: 'protein_synthesis', value: '1', tick: 1,
+    idempotency_key: key,
+  } });
+  const result = require('node:child_process').spawnSync(binary, [
+    'metabolic-pool', '--mission-id', rustMissionId, '--cell-id', cellId,
+    '--idempotency-key', key, '--operation', 'protein_synthesis', '--amino-acids', '2',
+    '--tick', '1', '--authority-file', authority.reference,
+  ], { cwd: workspace, env: { ...process.env, GENOS_STUDIO_ROOT: workspace }, encoding: 'utf8', windowsHide: true });
+  await fs.rm(authority.path, { force: true });
+  assert.notEqual(result.status, 0, 'Rust CLI must reject a signed capability for different operation parameters');
+  assert.match(result.stderr, /authority scope does not match/i);
+  assert.equal(readJournal(workspace, rustMissionId).length, before,
+    'Rust CLI authority refusal must happen before the durable journal changes');
+}
+
+async function request({ port, route, body, tenantScope = scope }) {
   let response;
   try {
     response = await fetch(`http://127.0.0.1:${port}${route}`, {
@@ -158,8 +205,8 @@ async function request({ port, route, body }) {
       headers: {
         'content-type': 'application/json',
         authorization: `Bearer ${token}`,
-        'x-organization-id': scope.organizationId,
-        'x-project-id': scope.projectId,
+        'x-organization-id': tenantScope.organizationId,
+        'x-project-id': tenantScope.projectId,
       },
       body: JSON.stringify(body),
     });

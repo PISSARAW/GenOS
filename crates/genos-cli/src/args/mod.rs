@@ -70,6 +70,9 @@ pub enum Commands {
     /// EXPERIMENTAL: ingest a synthetic sensory signal without authenticated mission authority
     #[command(name = "sensory-ingest")]
     SensoryIngest(SensoryIngestCmd),
+    /// Import a tenant- and principal-bound synthetic sensory receipt from the backend
+    #[command(name = "sensory-backend-import")]
+    SensoryBackendImport(SensoryBackendImportCmd),
     /// EXPERIMENTAL: consume a durable mission-scoped cell metabolic pool
     #[command(name = "metabolic-pool")]
     MetabolicPool(MetabolicPoolCmd),
@@ -79,7 +82,7 @@ pub enum Commands {
     /// EXPERIMENTAL: run a local signed electrocyte software quorum
     #[command(name = "electric-quorum")]
     ElectricQuorum(ElectricQuorumCmd),
-    /// EXPERIMENTAL: append an unauthenticated local mission neuro-glia event
+    /// EXPERIMENTAL: append a host-authenticated local mission neuro-glia event
     #[command(name = "neuro-glia-stream")]
     NeuroGliaStream(NeuroGliaStreamCmd),
     /// Evolutionary operations

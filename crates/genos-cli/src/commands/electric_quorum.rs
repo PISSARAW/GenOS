@@ -26,7 +26,7 @@ struct TrustedVoter {
     public_key_hex: String,
 }
 
-/// Run one signed local software quorum using caller-managed public-key trust.
+/// Run one signed local software quorum using the host workspace trust bootstrap.
 pub fn execute(cmd: ElectricQuorumCmd) -> Result<(), String> {
     if !cmd.experimental {
         return Err("electric-quorum has no authenticated operator authority; pass --experimental to opt in".into());
@@ -40,8 +40,7 @@ pub fn execute(cmd: ElectricQuorumCmd) -> Result<(), String> {
 }
 
 fn execute_in_workspace(cmd: ElectricQuorumCmd, workspace: &Path) -> Result<(), String> {
-    let request: ElectricQuorumRequest = read_json_file(&cmd.request)?;
-    let authority = load_authority(&cmd.trusted_keys)?;
+    let (request, authority) = load_execution_inputs(&cmd, workspace)?;
     let (journal, lock) = mission_paths(workspace, cmd.mission_id)?;
     let _lock = genos_orchestrator::process_file_lock::ProcessFileLock::acquire(lock)?;
     let store = BiologicalReceiptStore::open(journal);
@@ -52,20 +51,35 @@ fn execute_in_workspace(cmd: ElectricQuorumCmd, workspace: &Path) -> Result<(), 
         return Err(format!("requested tick {} does not match restored mission tick {}", cmd.tick, ecosystem.receipt_tick));
     }
     let receipt = ecosystem.discharge_electric_under_quorum_durable(request, &store, &authority)?;
+    println!("{}", render_output(receipt)?);
+    Ok(())
+}
+
+fn render_output(receipt: serde_json::Value) -> Result<String, String> {
     let output = serde_json::json!({
         "execution_mode": "experimental",
         "quorum_kind": "local_software_quorum",
-        "trusted_keys_source": "caller_provided_configuration",
+        "trusted_keys_source": "host_bootstrap_workspace_config",
+        "workspace_root_binding": "not_authenticated_for_direct_cli",
         "operator_authority": "unverified_cli_caller",
         "distributed_consensus": false,
         "receipt": receipt,
     });
-    println!("{}", serde_json::to_string(&output).map_err(|error| error.to_string())?);
-    Ok(())
+    serde_json::to_string(&output).map_err(|error| error.to_string())
 }
 
-fn load_authority(path: &Path) -> Result<ElectricVoterAuthority, String> {
-    let config: TrustedKeyFile = read_json_file(path)?;
+fn load_execution_inputs(
+    cmd: &ElectricQuorumCmd,
+    workspace: &Path,
+) -> Result<(ElectricQuorumRequest, ElectricVoterAuthority), String> {
+    let request = read_json_file(&cmd.request)?;
+    let authority = load_host_authority(workspace)?;
+    Ok((request, authority))
+}
+
+fn load_host_authority(workspace: &Path) -> Result<ElectricVoterAuthority, String> {
+    let path = host_trust_path(workspace)?;
+    let config: TrustedKeyFile = read_json_file(&path)?;
     if config.schema != "genos.electric-voter-trust/v1" {
         return Err("trusted-key configuration schema is unsupported".into());
     }
@@ -76,6 +90,23 @@ fn load_authority(path: &Path) -> Result<ElectricVoterAuthority, String> {
         }
     }
     ElectricVoterAuthority::from_trusted_public_keys(keys)
+}
+
+fn host_trust_path(workspace: &Path) -> Result<PathBuf, String> {
+    let root = workspace.canonicalize()
+        .map_err(|error| format!("cannot canonicalize workspace root: {error}"))?;
+    let config_dir = root.join("config");
+    let metadata = fs::symlink_metadata(&config_dir)
+        .map_err(|error| format!("host trust config directory is unavailable: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("host trust config directory must be a real directory".into());
+    }
+    let config_dir = config_dir.canonicalize()
+        .map_err(|error| format!("cannot canonicalize host trust config directory: {error}"))?;
+    if !config_dir.starts_with(&root) {
+        return Err("host trust config directory resolves outside the workspace".into());
+    }
+    Ok(config_dir.join("electric-voter-trust.json"))
 }
 
 fn read_json_file<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {

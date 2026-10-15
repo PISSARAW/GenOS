@@ -12,9 +12,6 @@ pub struct ElectricQuorumCmd {
     /// JSON vote request signed by its participants
     #[arg(long)]
     pub request: std::path::PathBuf,
-    /// Caller-managed JSON registry of trusted public keys
-    #[arg(long)]
-    pub trusted_keys: std::path::PathBuf,
     /// Acknowledge that this local path has no authenticated operator principal
     #[arg(long, default_value_t = false)]
     pub experimental: bool,

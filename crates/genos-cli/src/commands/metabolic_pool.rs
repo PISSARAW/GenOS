@@ -7,18 +7,24 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-/// Consume a durable cell pool after explicitly opting into the unauthenticated local path.
+/// Consume a durable cell pool with a signed backend capability or explicit local opt-in.
 pub fn execute(cmd: MetabolicPoolCmd) -> Result<(), String> {
-    if !cmd.experimental {
-        return Err("metabolic-pool has no authenticated mission authority; pass --experimental to opt in".into());
-    }
     validate_command(&cmd)?;
-    let workspace = std::env::var_os("GENOS_STUDIO_ROOT")
-        .map(PathBuf::from)
-        .map(Ok)
-        .unwrap_or_else(std::env::current_dir)
-        .map_err(|error| format!("cannot resolve workspace root: {error}"))?;
-    execute_in_workspace(cmd, &workspace)
+    let workspace = super::cli_authority::workspace_root()?;
+    let authority = authorize(&cmd, &workspace)?;
+    execute_in_workspace(cmd, &workspace, authority)
+}
+
+fn authorize(cmd: &MetabolicPoolCmd, workspace: &Path) -> Result<Option<super::cli_authority::VerifiedAuthority>, String> {
+    let Some(reference) = cmd.authority_file.as_deref() else {
+        return if cmd.experimental { Ok(None) }
+            else { Err("metabolic-pool requires a signed backend capability; pass --experimental to opt in locally".into()) };
+    };
+    super::cli_authority::verify(workspace, super::cli_authority::Expectation {
+        authority_file: reference, mission_id: cmd.mission_id, cell_id: cmd.cell_id,
+        operation: "metabolic_pool", detail: &cmd.operation, value: cmd.amino_acids, tick: cmd.tick,
+        idempotency_key: &cmd.idempotency_key,
+    }).map(Some)
 }
 
 fn validate_command(cmd: &MetabolicPoolCmd) -> Result<(), String> {
@@ -34,19 +40,19 @@ fn validate_command(cmd: &MetabolicPoolCmd) -> Result<(), String> {
     Ok(())
 }
 
-fn execute_in_workspace(cmd: MetabolicPoolCmd, workspace: &Path) -> Result<(), String> {
+fn execute_in_workspace(cmd: MetabolicPoolCmd, workspace: &Path, authority: Option<super::cli_authority::VerifiedAuthority>) -> Result<(), String> {
     let (journal_path, lock_path) = mission_paths(workspace, cmd.mission_id)?;
     let _lock = genos_orchestrator::process_file_lock::ProcessFileLock::acquire(lock_path)?;
     let store = BiologicalReceiptStore::open(&journal_path);
-    run_locked(cmd, &store)
+    run_locked(cmd, &store, authority)
 }
 
-fn run_locked(cmd: MetabolicPoolCmd, store: &BiologicalReceiptStore) -> Result<(), String> {
+fn run_locked(cmd: MetabolicPoolCmd, store: &BiologicalReceiptStore, authority: Option<super::cli_authority::VerifiedAuthority>) -> Result<(), String> {
     let mut ecosystem = restored_ecosystem(cmd.mission_id, store)?;
     validate_tick(ecosystem.receipt_tick, cmd.tick)?;
     let identity = MetabolicOperationIdentity::from(&cmd);
     let receipt = consume_request(&mut ecosystem, store, cmd)?;
-    print_receipt(identity, receipt);
+    print_receipt(identity, receipt, authority);
     Ok(())
 }
 
@@ -97,11 +103,13 @@ impl From<&MetabolicPoolCmd> for MetabolicOperationIdentity {
     }
 }
 
-fn print_receipt(identity: MetabolicOperationIdentity, receipt: genos_orchestrator::metabolism::MissionMetabolicPoolReceipt) {
+fn print_receipt(identity: MetabolicOperationIdentity, receipt: genos_orchestrator::metabolism::MissionMetabolicPoolReceipt, authority: Option<super::cli_authority::VerifiedAuthority>) {
+    let (mission_authority, scope) = authority_output(authority);
     let output = serde_json::json!({
         "success": true,
-        "execution_mode": "experimental",
-        "mission_authority": "unverified_cli_claim",
+        "execution_mode": if scope.is_null() { "experimental" } else { "backend-authorized" },
+        "mission_authority": mission_authority,
+        "authority_scope": scope,
         "mission_id": identity.mission_id,
         "cell_id": identity.cell_id,
         "idempotency_key": identity.idempotency_key,
@@ -111,6 +119,17 @@ fn print_receipt(identity: MetabolicOperationIdentity, receipt: genos_orchestrat
         "receipt": receipt,
     });
     println!("{output}");
+}
+
+fn authority_output(authority: Option<super::cli_authority::VerifiedAuthority>) -> (&'static str, serde_json::Value) {
+    match authority {
+        Some(value) => ("authenticated_backend_capability", serde_json::json!({
+            "organization_id": value.organization_id,
+            "project_id": value.project_id,
+            "mission_id": value.mission_id,
+        })),
+        None => ("unverified_cli_claim", serde_json::Value::Null),
+    }
 }
 
 fn mission_paths(workspace: &Path, mission_id: Uuid) -> Result<(PathBuf, PathBuf), String> {

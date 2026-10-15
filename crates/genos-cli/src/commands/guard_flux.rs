@@ -6,32 +6,70 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-/// Run one mission-scoped guard-cell backpressure operation and persist its receipt.
-pub fn execute(cmd: GuardFluxCmd) -> Result<(), String> {
-    require_experimental(cmd.experimental)?;
-    let workspace = std::env::var_os("GENOS_STUDIO_ROOT")
-        .map(PathBuf::from)
-        .map(Ok)
-        .unwrap_or_else(std::env::current_dir)
-        .map_err(|error| format!("cannot resolve workspace root: {error}"))?;
-    execute_in_workspace(cmd, &workspace)
+struct GuardFluxExecution<'a> {
+    command: GuardFluxCmd,
+    mission_id: Uuid,
+    store: &'a BiologicalReceiptStore,
+    authority: Option<super::cli_authority::VerifiedAuthority>,
 }
 
-fn execute_in_workspace(cmd: GuardFluxCmd, workspace: &Path) -> Result<(), String> {
+/// Run one mission-scoped guard-cell backpressure operation and persist its receipt.
+pub fn execute(cmd: GuardFluxCmd) -> Result<(), String> {
+    let workspace = super::cli_authority::workspace_root()?;
+    let authority = authorize(&cmd, &workspace)?;
+    execute_in_workspace(cmd, &workspace, authority)
+}
+
+fn authorize(cmd: &GuardFluxCmd, workspace: &Path) -> Result<Option<super::cli_authority::VerifiedAuthority>, String> {
+    let Some(reference) = cmd.authority_file.as_deref() else {
+        return if cmd.experimental { Ok(None) }
+            else { Err("guard-flux requires a signed backend capability; pass --experimental to opt in locally".into()) };
+    };
+    verify_authority(cmd, workspace, reference).map(Some)
+}
+
+fn verify_authority(cmd: &GuardFluxCmd, workspace: &Path, reference: &Path) -> Result<super::cli_authority::VerifiedAuthority, String> {
+    let (mission_id, cell_id) = parse_authority_ids(cmd)?;
+    super::cli_authority::verify(workspace, super::cli_authority::Expectation {
+        authority_file: reference, mission_id, cell_id, operation: "guard_flux",
+        detail: "guard_flux", value: cmd.requested_flux, tick: cmd.tick,
+        idempotency_key: &cmd.idempotency_key,
+    })
+}
+
+fn parse_authority_ids(cmd: &GuardFluxCmd) -> Result<(Uuid, Uuid), String> {
+    Ok((parse_mission_id(&cmd.mission_id)?, parse_cell_id(cmd.cell_id.as_deref())?))
+}
+
+fn parse_mission_id(value: &str) -> Result<Uuid, String> {
+    Uuid::parse_str(value).map_err(|error| format!("mission_id must be a UUID: {error}"))
+}
+
+fn parse_cell_id(value: Option<&str>) -> Result<Uuid, String> {
+    let value = value.ok_or("signed guard-flux authority requires --cell-id")?;
+    Uuid::parse_str(value).map_err(|error| format!("cell_id must be a UUID: {error}"))
+}
+
+fn execute_in_workspace(cmd: GuardFluxCmd, workspace: &Path, authority: Option<super::cli_authority::VerifiedAuthority>) -> Result<(), String> {
     let mission_id = Uuid::parse_str(&cmd.mission_id)
         .map_err(|error| format!("mission_id must be a UUID: {error}"))?;
     validate_idempotency_key(&cmd.idempotency_key)?;
     let (journal, lock) = mission_paths(workspace, mission_id)?;
     let _lock = super::biological_lock::MissionLock::acquire(lock)?;
     let store = BiologicalReceiptStore::open(journal);
+    run_locked(GuardFluxExecution { command: cmd, mission_id, store: &store, authority })
+}
+
+fn run_locked(execution: GuardFluxExecution<'_>) -> Result<(), String> {
+    let GuardFluxExecution { command: cmd, mission_id, store, authority } = execution;
     let mut ecosystem = GenosEcosystem::new("guard-flux-cli");
     ecosystem.set_mission_id(mission_id);
-    restore_if_available(&mut ecosystem, &store, mission_id)?;
+    restore_if_available(&mut ecosystem, store, mission_id)?;
     let cell_id = cmd.cell_id.as_deref().map(Uuid::parse_str).transpose()
         .map_err(|error| format!("cell_id must be a UUID: {error}"))?
         .unwrap_or(ecosystem.orchestrator.orchestrator_id);
     let receipt = ecosystem.throttle_flux_for_mission_durable(
-        &store,
+        store,
         MissionGuardFluxCommand {
             cell_id,
             idempotency_key: cmd.idempotency_key,
@@ -40,20 +78,17 @@ fn execute_in_workspace(cmd: GuardFluxCmd, workspace: &Path) -> Result<(), Strin
         },
     )?;
     let output = serde_json::json!({
-        "execution_mode": "experimental",
-        "mission_authority": "unverified_cli_claim",
+        "execution_mode": if authority.is_some() { "backend-authorized" } else { "experimental" },
+        "mission_authority": if authority.is_some() { "authenticated_backend_capability" } else { "unverified_cli_claim" },
+        "authority_scope": authority.map(|value| serde_json::json!({
+            "organization_id": value.organization_id,
+            "project_id": value.project_id,
+            "mission_id": value.mission_id,
+        })),
         "receipt": receipt,
     });
     println!("{}", serde_json::to_string(&output).map_err(|error| error.to_string())?);
     Ok(())
-}
-
-fn require_experimental(experimental: bool) -> Result<(), String> {
-    if experimental {
-        Ok(())
-    } else {
-        Err("guard-flux has no authenticated mission authority; pass --experimental to opt in".into())
-    }
 }
 
 fn restore_if_available(

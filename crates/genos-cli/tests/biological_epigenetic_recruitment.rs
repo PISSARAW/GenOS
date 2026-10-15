@@ -165,7 +165,7 @@ fn failed_later_operation_checkpoints_prior_durable_division_for_retry() {
         .args([
             "biological", "--tick", "--divide", "--choanocyte-stream",
             stream_path.to_str().unwrap(), "--mission-id", &mission_arg,
-            "--mission", "resume partial durable operation",
+            "--mission", "resume partial durable operation", "--choanocyte-trust",
         ])
         .env("GENOS_STUDIO_ROOT", &root)
         .output().unwrap();
@@ -173,7 +173,8 @@ fn failed_later_operation_checkpoints_prior_durable_division_for_retry() {
 
     let checkpoint = root.join("biological-receipts").join(format!("{mission_id}.continuity"));
     assert!(checkpoint.join("orchestration.head.json").exists(),
-        "durable division must checkpoint state before reporting the later failure");
+        "durable division must checkpoint state before reporting the later failure; stdout: {}; stderr: {}",
+        String::from_utf8_lossy(&first.stdout), String::from_utf8_lossy(&first.stderr));
     let retry = Command::new(env!("CARGO_BIN_EXE_genos"))
         .args([
             "biological", "--tick", "--mission-id", &mission_arg,

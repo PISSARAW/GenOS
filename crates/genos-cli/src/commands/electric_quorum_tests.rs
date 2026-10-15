@@ -13,10 +13,11 @@ fn signed_cli_quorum_is_idempotent_and_conflicts_fail_closed() {
     let mission = Uuid::new_v4();
     let participants = seed_population(root, mission);
     let request = signed_request(mission, "cli-replay", &participants);
-    let (request_path, keys_path) = write_inputs(root, &request, &participants);
+    let request_path = write_inputs(root, &request, &participants);
+    write_host_trust(root, &participants);
 
-    execute_in_workspace(command(mission, &request_path, &keys_path), root).unwrap();
-    execute_in_workspace(command(mission, &request_path, &keys_path), root).unwrap();
+    execute_in_workspace(command(mission, &request_path), root).unwrap();
+    execute_in_workspace(command(mission, &request_path), root).unwrap();
     let store = journal(root, mission);
     assert_eq!(electric_receipt_count(&store), 1);
 
@@ -25,8 +26,8 @@ fn signed_cli_quorum_is_idempotent_and_conflicts_fail_closed() {
     let mut changed_vote = conflict.votes[0].clone();
     sign_vote(mission, &mut changed_vote, &conflict);
     conflict.votes[0] = changed_vote;
-    let (conflict_path, _) = write_inputs(root, &conflict, &participants);
-    assert!(execute_in_workspace(command(mission, &conflict_path, &keys_path), root).is_err());
+    let conflict_path = write_inputs(root, &conflict, &participants);
+    assert!(execute_in_workspace(command(mission, &conflict_path), root).is_err());
     assert_eq!(electric_receipt_count(&store), 1);
 }
 
@@ -37,22 +38,71 @@ fn cli_requires_opt_in_and_explicit_trust_for_votes() {
     let mission = Uuid::new_v4();
     let participants = seed_population(root, mission);
     let request = signed_request(mission, "cli-refusal", &participants);
-    let (request_path, keys_path) = write_inputs(root, &request, &[]);
+    let request_path = write_inputs(root, &request, &[]);
+    write_host_trust(root, &[]);
 
     assert!(execute(ElectricQuorumCmd {
         experimental: false,
-        ..command(mission, &request_path, &keys_path)
+        ..command(mission, &request_path)
     }).is_err());
-    assert!(execute_in_workspace(command(mission, &request_path, &keys_path), root).is_err());
+    assert!(execute_in_workspace(command(mission, &request_path), root).is_err());
     assert_eq!(electric_receipt_count(&journal(root, mission)), 0);
 }
 
-fn command(mission: Uuid, request: &Path, trusted_keys: &Path) -> ElectricQuorumCmd {
+#[test]
+fn host_bootstrap_trust_cannot_be_replaced_by_a_caller_file() {
+    let directory = test_directory();
+    let root = directory.path();
+    let mission = Uuid::new_v4();
+    let participants = seed_population(root, mission);
+    let request = signed_request(mission, "caller-file-ignored", &participants);
+    let request_path = write_inputs(root, &request, &[]);
+    write_host_trust(root, &[]);
+    let caller_file = root.join("caller-trust.json");
+    std::fs::write(&caller_file, trust_json(&participants)).unwrap();
+
+    let error = execute_in_workspace(command(mission, &request_path), root).unwrap_err();
+    assert!(error.contains("aucune clé de votant électrocytaire approuvée"));
+    assert_eq!(electric_receipt_count(&journal(root, mission)), 0);
+}
+
+#[test]
+fn host_bootstrap_trust_registry_symlink_is_refused() {
+    let directory = test_directory();
+    let workspace = directory.path().join("workspace");
+    std::fs::create_dir_all(workspace.join("config")).unwrap();
+    let mission = Uuid::new_v4();
+    let participants = seed_population(&workspace, mission);
+    let request = signed_request(mission, "symlink-trust-rejected", &participants);
+    let request_path = write_inputs(&workspace, &request, &[]);
+    let config_path = workspace.join("config/electric-voter-trust.json");
+    let external_path = directory.path().join("external-trust.json");
+    std::fs::write(&external_path, trust_json(&participants)).unwrap();
+    std::fs::remove_file(&config_path).unwrap();
+    if !link_external_file(&external_path, &config_path) {
+        return;
+    }
+
+    let error = execute_in_workspace(command(mission, &request_path), &workspace).unwrap_err();
+    assert!(error.contains("regular file"));
+    assert_eq!(electric_receipt_count(&journal(&workspace, mission)), 0);
+}
+
+#[cfg(unix)]
+fn link_external_file(source: &Path, destination: &Path) -> bool {
+    std::os::unix::fs::symlink(source, destination).is_ok()
+}
+
+#[cfg(windows)]
+fn link_external_file(source: &Path, destination: &Path) -> bool {
+    std::os::windows::fs::symlink_file(source, destination).is_ok()
+}
+
+fn command(mission: Uuid, request: &Path) -> ElectricQuorumCmd {
     ElectricQuorumCmd {
         mission_id: mission,
         tick: 0,
         request: request.to_path_buf(),
-        trusted_keys: trusted_keys.to_path_buf(),
         experimental: true,
     }
 }
@@ -102,23 +152,28 @@ fn sign_vote(mission: Uuid, vote: &mut ElectricMissionVote, request: &ElectricQu
     vote.signature_hex = encode_hex(&signing_key(vote.participant_cell_id).sign(&claims).to_bytes());
 }
 
-fn write_inputs(
-    root: &Path,
-    request: &ElectricQuorumRequest,
-    trusted_ids: &[Uuid],
-) -> (PathBuf, PathBuf) {
+fn write_inputs(root: &Path, request: &ElectricQuorumRequest, trusted_ids: &[Uuid]) -> PathBuf {
     let request_path = root.join("request.json");
     std::fs::write(&request_path, serde_json::to_vec(request).unwrap()).unwrap();
+    write_host_trust(root, trusted_ids);
+    request_path
+}
+
+fn write_host_trust(root: &Path, trusted_ids: &[Uuid]) {
+    let directory = root.join("config");
+    std::fs::create_dir_all(&directory).unwrap();
+    std::fs::write(directory.join("electric-voter-trust.json"), trust_json(trusted_ids)).unwrap();
+}
+
+fn trust_json(trusted_ids: &[Uuid]) -> Vec<u8> {
     let voters = trusted_ids.iter().map(|id| serde_json::json!({
         "cell_id": id,
         "public_key_hex": encode_hex(signing_key(*id).verifying_key().as_bytes()),
     })).collect::<Vec<_>>();
-    let keys_path = root.join("trusted-keys.json");
-    std::fs::write(&keys_path, serde_json::to_vec(&serde_json::json!({
+    serde_json::to_vec(&serde_json::json!({
         "schema": "genos.electric-voter-trust/v1",
         "voters": voters,
-    })).unwrap()).unwrap();
-    (request_path, keys_path)
+    })).unwrap()
 }
 
 fn journal(root: &Path, mission: Uuid) -> BiologicalReceiptStore {
