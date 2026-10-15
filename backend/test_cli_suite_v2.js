@@ -96,22 +96,22 @@ function runCLI(options = {}) {
 async function runAll() {
   // ── 1. Simple — Créer un agent (via genos-orchestrate direct)
   await runCLI({
-    'MISSION 1 — Simple: Créer un agent',
-    'genos-orchestrate.cjs',
-    [JSON.stringify({
+    name: 'MISSION 1 — Simple: Créer un agent',
+    scriptRelPath: 'genos-orchestrate.cjs',
+    args: [JSON.stringify({
       action: 'orchestrate',
       task: 'Crée un agent GenOS nommé "TestBot" avec le rôle "test_agent"',
       executionBudget: { events: 5 },
       timeoutMs: 30000
     })],
-    45000
-  );
+    timeoutMs: 45000
+  });
 
   // ── 2. Simple — Rapport de progression
   await runCLI({
-    'MISSION 2 — Simple: Rapport progression',
-    'orchestratorActions.cjs',
-    [JSON.stringify({
+    name: 'MISSION 2 — Simple: Rapport progression',
+    scriptRelPath: 'orchestratorActions.cjs',
+    args: [JSON.stringify({
       action: 'report_progress',
       orchestratorId: 'test-orch-001',
       phase: 'in_progress',
@@ -119,40 +119,40 @@ async function runAll() {
       progress_percent: 25,
       completed: false
     })],
-    15000
-  );
+    timeoutMs: 15000
+  });
 
   // ── 3. Moyen — Changer stratégie
   await runCLI({
-    'MISSION 3 — Moyen: Changer stratégie',
-    'orchestratorActions.cjs',
-    [JSON.stringify({
+    name: 'MISSION 3 — Moyen: Changer stratégie',
+    scriptRelPath: 'orchestratorActions.cjs',
+    args: [JSON.stringify({
       action: 'change_strategy',
       orchestratorId: 'test-orch-001',
       need: 'software_engineering',
       reason: 'Besoin de développer une application web complète',
       max_cost_level: 'medium'
     })],
-    15000
-  );
+    timeoutMs: 15000
+  });
 
   // ── 4. Moyen — État organisation
   await runCLI({
-    'MISSION 4 — Moyen: État organisation',
-    'orchestratorActions.cjs',
-    [JSON.stringify({
+    name: 'MISSION 4 — Moyen: État organisation',
+    scriptRelPath: 'orchestratorActions.cjs',
+    args: [JSON.stringify({
       action: 'organization_state',
       orchestratorId: 'test-orch-001',
       requesterAgentId: 'test-worker-001'
     })],
-    15000
-  );
+    timeoutMs: 15000
+  });
 
   // ── 5. Moyen — Dispatcher worker (développement web)
   await runCLI({
-    'MISSION 5 — Moyen: Dispatch worker (HTML compteur)',
-    'genos-orchestrate.cjs',
-    [JSON.stringify({
+    name: 'MISSION 5 — Moyen: Dispatch worker (HTML compteur)',
+    scriptRelPath: 'genos-orchestrate.cjs',
+    args: [JSON.stringify({
       action: 'dispatch_worker',
       orchestratorId: 'test-orch-002',
       mission: 'Crée une page HTML simple avec un compteur incrémentiel en JavaScript vanilla',
@@ -160,14 +160,14 @@ async function runAll() {
       executionBudget: { events: 10 },
       timeoutMs: 60000
     })],
-    90000
-  );
+    timeoutMs: 90000
+  });
 
   // ── 6. Complexe — A-Team écriture
   await runCLI({
-    'MISSION 6 — Complexe: A-Team article IA',
-    'genos-orchestrate.cjs',
-    [JSON.stringify({
+    name: 'MISSION 6 — Complexe: A-Team article IA',
+    scriptRelPath: 'genos-orchestrate.cjs',
+    args: [JSON.stringify({
       action: 'dispatch_team',
       orchestratorId: 'test-orch-003',
       project_goal: 'Écrire un article de blog de 1500 mots sur les tendances de l\'IA en 2026',
@@ -176,28 +176,28 @@ async function runAll() {
       executionBudget: { events: 20 },
       timeoutMs: 90000
     })],
-    120000
-  );
+    timeoutMs: 120000
+  });
 
   // ── 7. Complexe — Trinity
   await runCLI({
-    'MISSION 7 — Complexe: Trinity IA générative',
-    'genos-orchestrate.cjs',
-    [JSON.stringify({
+    name: 'MISSION 7 — Complexe: Trinity IA générative',
+    scriptRelPath: 'genos-orchestrate.cjs',
+    args: [JSON.stringify({
       action: 'dispatch_trinity',
       orchestratorId: 'test-orch-004',
       mission: 'Analyser les avantages et inconvénients de l\'IA générative en ingénierie logicielle',
       executionBudget: { events: 30 },
       timeoutMs: 120000
     })],
-    180000
-  );
+    timeoutMs: 180000
+  });
 
   // ── 8. Complexe — Biocénose
   await runCLI({
-    'MISSION 8 — Complexe: Biocénose logicielle',
-    'genos-orchestrate.cjs',
-    [JSON.stringify({
+    name: 'MISSION 8 — Complexe: Biocénose logicielle',
+    scriptRelPath: 'genos-orchestrate.cjs',
+    args: [JSON.stringify({
       action: 'dispatch_biological',
       orchestratorId: 'test-orch-005',
       mission: 'Explorer les mécanismes de collaboration d\'une biocénose logicielle',
@@ -205,14 +205,14 @@ async function runAll() {
       executionBudget: { events: 25 },
       timeoutMs: 90000
     })],
-    120000
-  );
+    timeoutMs: 120000
+  });
 
   // ── 9. NP-difficile — Primitive MCTS
   await runCLI({
-    'MISSION 9 — NP-difficile: Primitive MCTS',
-    'orchestratorActions.cjs',
-    [JSON.stringify({
+    name: 'MISSION 9 — NP-difficile: Primitive MCTS',
+    scriptRelPath: 'orchestratorActions.cjs',
+    args: [JSON.stringify({
       action: 'execute_primitive',
       orchestratorId: 'test-orch-006',
       primitive: 'genos_strat_mcts_select',
@@ -222,14 +222,14 @@ async function runAll() {
       },
       timeoutMs: 60000
     })],
-    90000
-  );
+    timeoutMs: 90000
+  });
 
   // ── 10. Recherche scientifique — Merge Trinity
   await runCLI({
-    'MISSION 10 — Recherche: Fusion Trinity',
-    'orchestratorActions.cjs',
-    [JSON.stringify({
+    name: 'MISSION 10 — Recherche: Fusion Trinity',
+    scriptRelPath: 'orchestratorActions.cjs',
+    args: [JSON.stringify({
       action: 'merge_trinity',
       orchestratorId: 'test-orch-007',
       missionId: 'trinity-research-001',
@@ -247,24 +247,24 @@ async function runAll() {
           tests: ['pass'] }
       ]
     })],
-    30000
-  );
+    timeoutMs: 30000
+  });
 
   // ── Bonus CLI-1 — genos-ateam-audit
   await runCLI({
-    'BONUS — genos-ateam-audit',
-    'genos-ateam-audit.js',
-    ['--mission', 'Dévelopez une application web complète en React'],
-    15000
-  );
+    name: 'BONUS — genos-ateam-audit',
+    scriptRelPath: 'genos-ateam-audit.js',
+    args: ['--mission', 'Dévelopez une application web complète en React'],
+    timeoutMs: 15000
+  });
 
   // ── Bonus CLI-2 — genos-recent-tasks
   await runCLI({
-    'BONUS — genos-recent-tasks',
-    'genos-recent-tasks.cjs',
-    [],
-    15000
-  );
+    name: 'BONUS — genos-recent-tasks',
+    scriptRelPath: 'genos-recent-tasks.cjs',
+    args: [],
+    timeoutMs: 15000
+  });
 
   // ── Rapport final ──────────────────────────
   log('\n\n════════════════════════════════════════════════');

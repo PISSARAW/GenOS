@@ -182,7 +182,7 @@ export function validateReceiptSchema(receipt: AnyReceipt): { valid: boolean; er
   }
   if (!receipt.schemaVersion) errors.push('schemaVersion required');
   if (!receipt.kind) errors.push('kind required');
-  if (!RECEIPT_KINDS[keyof typeof RECEIPT_KINDS].includes(receipt.kind)) {
+  if (!Object.values(RECEIPT_KINDS).includes(receipt.kind)) {
     errors.push(`unknown kind: ${receipt.kind}`);
   }
   if (receipt.status && !['success', 'refused', 'failed', 'timeout'].includes(receipt.status)) {
