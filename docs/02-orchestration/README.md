@@ -44,6 +44,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [plan-implementation-regulation-ressources-orchestrate.md](plan-implementation-regulation-ressources-orchestrate.md) — lots et critères de sortie pour réaliser cette qualification.
 - [resultats-credit-externe-19-workers.md](resultats-credit-externe-19-workers.md) — 38 reprises externes vérifiées et frontière de la qualification MCP.
 - [protocole-execution-agents.md](protocole-execution-agents.md) — cycle de mission, budgets, topologies, workers, communication, nosologie, télémétrie et protocole de preuve.
+- [politique-morphogenetique-conditionnelle.md](politique-morphogenetique-conditionnelle.md) — compiler et réévaluer représentation, recette, workers, preuves et budgets depuis un diagnostic.
 
 ## Développement vérifié GVX
 

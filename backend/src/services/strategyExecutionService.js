@@ -120,10 +120,14 @@ async function observeCausalOutcome(db, saved, event) {
 }
 
 async function recordExecutionEvent(db, agentId, event) {
+  event = await require('./terminalQualityEvidence').attach(db, { agentId, event });
   const saved = await biologicalWorkers.record(db, { agentId, event,
     apply: () => progress.recordExecutionEvent(db, agentId, event) });
   if (!saved) return null;
-  if (saved.duplicate) return saved;
+  if (saved.duplicate) {
+    const causalLearning = await observeCausalOutcome(db, saved, event);
+    return { ...saved, causalLearning };
+  }
   const fallback = await fallbackAfterProgress(db, saved, agentId);
   if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) {
     await calibrateSelfModel(db, saved.run.id);

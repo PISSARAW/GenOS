@@ -15,7 +15,7 @@
 const crypto = require('node:crypto');
 const { currentKeyId, keyFor } = require('./epistemicReceiptKeyring');
 
-function payloadText(receipt) {
+function payloadText(receipt, canonicalEvidence = true) {
   const fields = [
     receipt.resultId,
     receipt.evidenceDigest,
@@ -33,13 +33,22 @@ function payloadText(receipt) {
   if (Array.isArray(receipt.evidenceTypes)) {
     fields.push([...receipt.evidenceTypes].sort().join(','));
   }
-  if (receipt.executionEvidence) fields.push(JSON.stringify(receipt.executionEvidence));
+  if (receipt.executionEvidence) fields.push(executionEvidenceText(receipt.executionEvidence, canonicalEvidence));
   if (receipt.keyId) fields.push(receipt.keyId);
   return fields.join('\u0000');
 }
 
+function executionEvidenceText(executionEvidence, canonicalEvidence) {
+  if (!canonicalEvidence) return JSON.stringify(executionEvidence);
+  return require('./biologicalIntegrity').encode(executionEvidence);
+}
+
 function signatureFor(receipt) {
   return crypto.createHmac('sha256', keyFor(receipt.keyId)).update(payloadText(receipt)).digest('hex');
+}
+
+function legacySignatureFor(receipt) {
+  return crypto.createHmac('sha256', keyFor(receipt.keyId)).update(payloadText(receipt, false)).digest('hex');
 }
 
 function issueReceipt(input = {}) {
@@ -71,18 +80,28 @@ function safeSignature(value) {
 }
 
 function validateReceipt(receipt, trustedVerifierDigests = []) {
-  if (!Array.isArray(trustedVerifierDigests)) return false;
-  if (!receipt || !trustedVerifierDigests.includes(receipt.verifierDigest)) return false;
-  if (Number.isNaN(Date.parse(receipt.checkedAt)) || !receipt.nonce) return false;
+  if (!trustedReceiptMetadata(receipt, trustedVerifierDigests)) return false;
+  return receiptSignatureMatches(receipt);
+}
+
+function trustedReceiptMetadata(receipt, trustedVerifierDigests) {
+  return Array.isArray(trustedVerifierDigests) && Boolean(receipt)
+    && trustedVerifierDigests.includes(receipt.verifierDigest)
+    && !Number.isNaN(Date.parse(receipt.checkedAt)) && Boolean(receipt.nonce);
+}
+
+function receiptSignatureMatches(receipt) {
   let expected;
+  let legacyExpected;
   try {
     expected = Buffer.from(signatureFor(receipt), 'hex');
+    legacyExpected = Buffer.from(legacySignatureFor(receipt), 'hex');
   } catch (_) {
     return false;
   }
   const received = safeSignature(receipt.signature);
-  if (!received || received.length !== expected.length) return false;
-  return crypto.timingSafeEqual(received, expected);
+  if (!received || received.length !== expected.length || received.length !== legacyExpected.length) return false;
+  return crypto.timingSafeEqual(received, expected) || crypto.timingSafeEqual(received, legacyExpected);
 }
 
 module.exports = { issueReceipt, validateReceipt, signatureFor };

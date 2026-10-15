@@ -27,13 +27,17 @@ function morphologyFor(survivor, adaptation) {
   if (!assignment) return null;
   return { morphologyTopology: assignment.morphologyTopology, morphologyNodeId: assignment.morphologyNodeId,
     morphologyVariant: assignment.morphologyVariant, topologyRole: assignment.role,
-    morphologyTransition: adaptation.receipt };
+    morphologyTransition: adaptation.receipt, strategyChallenge: assignment.strategyChallenge || null };
 }
 
 function morphologyPrompt(prompt, morphology, receipt) {
-  return `${prompt}\n\nMORPHOGENESIS ADAPTATION\nThe verified continuation policy rebound this worker to `
+  const adaptation = `${prompt}\n\nMORPHOGENESIS ADAPTATION\nThe verified continuation policy rebound this worker to `
     + `${morphology.morphologyTopology}:${morphology.topologyRole}. Follow that topology role while preserving `
     + `the prior evidence lineage. Transition receipt: ${JSON.stringify(receipt)}.`;
+  return morphology.strategyChallenge ? `${adaptation}\n\nSTRATEGY CHALLENGE\nTest this alternative hypothesis: `
+    + `${morphology.strategyChallenge.hypothesis} Try to falsify it using the stated falsifier: `
+    + `${morphology.strategyChallenge.falsifier}. Report source lineage and evidence references. `
+    + `Your report is diagnostic and cannot resolve the mission without the independent verifier receipt.` : adaptation;
 }
 
 function prepareContinuation(context) {
@@ -50,7 +54,10 @@ function prepareContinuation(context) {
     prompt: morphology ? morphologyPrompt(prompt, morphology, adaptation.receipt) : prompt,
     executionBudget: { ...previous.executionBudget, tokens,
       events: Math.max(1, budget.events - usage.events), costUsd: Math.max(0, budget.costUsd - usage.cost) },
-    budgetRound: { stage: Number.isInteger(epoch) ? 'morphogenesis_epoch' : 'continuation', epoch, orchestratorId },
+    budgetRound: { stage: Number.isInteger(epoch) ? 'morphogenesis_epoch' : 'continuation', epoch, orchestratorId,
+      missionId: state.checkpointScope?.missionId || state.normalizedMission?.missionId || orchestratorId,
+        organizationId: state.organizationId || null, projectId: state.projectId || null,
+        epochBudgetSnapshot: continuation.epochBudgetSnapshot || null },
     ...(morphology || {}) };
   return { id, agentId: survivor.agentId, orchestratorId, mission,
     organizationId: state.organizationId, projectId: state.projectId };

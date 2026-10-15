@@ -13,6 +13,7 @@ const autobiographicalEpisodeStore = require('./autobiographicalMemory/episodeSt
 const autobiographicalLessonService = require('./autobiographicalMemory/lessonService');
 
 const QUEUE_TABLES = ['workflow_runs', 'evaluation_jobs', 'model_jobs'];
+let lastCausalLearningDrain = 0;
 
 function trackExecution(promise) {
   const execution = promise.finally(() => state.inFlightJobs.delete(execution));
@@ -69,12 +70,19 @@ async function maybeRecover(db) {
   state.lastRecoveryAt = Date.now();
 }
 
+async function drainCausalLearning(db) {
+  if (Date.now() - lastCausalLearningDrain < 1000) return;
+  lastCausalLearningDrain = Date.now();
+  await require('./causalLearningOutbox').drain(db, { limit: 2 });
+}
+
 async function processOnce() {
   if (state.busy) return;
   state.busy = true;
   try {
     const db = await getDatabase();
     await maybeRecover(db);
+    await drainCausalLearning(db);
     const executions = QUEUE_TABLES.map((table) => trackExecution(processTable(db, table)));
     await Promise.all(executions);
   } finally { state.busy = false; }

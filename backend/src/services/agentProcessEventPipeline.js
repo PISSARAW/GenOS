@@ -376,6 +376,12 @@ async function handleChildClose(ctx, code, signal) {
     }
   } finally {
     try {
+      const orchestratorId = ctx.normalizedMission?.budgetRound?.orchestratorId;
+      if (orchestratorId) await require('./agentRoundService').resumeMorphogenesisBarrier(orchestratorId);
+    } catch (err) {
+      console.error('[AgentSupervisor] Error resuming a quiescent morphogenesis barrier.', { agentId, error: err });
+    }
+    try {
       await agentRecoveryService.dispatchWorkerRecovery(agentId);
     } catch (err) {
       console.error('[AgentSupervisor] Error dispatching worker recovery.', { agentId, error: err });
@@ -390,6 +396,5 @@ async function handleChildClose(ctx, code, signal) {
 
 module.exports = { applyDomainStateFromEvent, checkDossierInfluence, checkHallucination, checkStrategyGuardrail,
   checkSwarmSentinel, checkInteractionDeadlock, classifyConscienceEvent, buildCognitiveHealth, runConscienceCheck,
-  routeHierarchyEvent, isFinalEvent, rejectedWorkerCompletion, resolveWorkerTerminalStatus, processEventQueueImpl,
-  handleDecodedEvent, handleStdoutData, handleStderrData, handleStdinError, handleChildError, handleChildClose,
-  checkNaturalSearchControl, clearSearchState };
+  routeHierarchyEvent, isFinalEvent, rejectedWorkerCompletion, resolveWorkerTerminalStatus, processEventQueueImpl, handleDecodedEvent,
+  handleStdoutData, handleStderrData, handleStdinError, handleChildError, handleChildClose, checkNaturalSearchControl, clearSearchState };

@@ -70,11 +70,15 @@ async function record(db, request) {
     const current = await store.observation(db, input);
     if (current.applied === 1) {
       const run = await events.getRun(db, input.runId);
+      const biologicalReceipt = await finalize(db, input.runId);
+      await enqueueCausalLearning(db, { run, biologicalReceipt, event: request.event });
       return { run, halt: run.status === 'blocked', duplicate: true,
-        biologicalReceipt: await finalize(db, input.runId) };
+        biologicalReceipt };
     }
     const saved = await request.apply();
     const receipt = await finalize(db, input.runId);
+    await enqueueCausalLearning(db, { run: saved?.run || await events.getRun(db, input.runId),
+      biologicalReceipt: receipt, event: request.event });
     if (receipt && !receipt.evidence.observations.includes(current.event_hash)) {
       throw store.biologyError('BIOLOGICAL_WORKER_RECEIPT_SEALED');
     }
@@ -84,6 +88,10 @@ async function record(db, request) {
   });
 }
 
+async function enqueueCausalLearning(db, input) {
+  return require('./causalLoopExecutionBridge').enqueueVerified(db, input);
+}
+
 async function recover(db, missionId) {
   await store.ensure(db);
   await recoverPending(db, missionId);
@@ -91,6 +99,7 @@ async function recover(db, missionId) {
     JOIN strategy_execution_runs r ON r.id = b.run_id WHERE b.mission_id = ?
     AND r.status IN ('completed', 'failed', 'blocked', 'cancelled')`, missionId);
   for (const row of rows) await withTransaction(db, () => finalize(db, row.run_id));
+  await require('./causalLearningOutbox').drain(db, { limit: 25 });
   return rows.length;
 }
 

@@ -1,5 +1,5 @@
 const { createAutonomousWorkers } = require('../agentFleetService');
-const { emit, autonomousRounds } = require('../agentOrchestrationState');
+const { emit } = require('../agentOrchestrationState');
 const userProgress = require('../userProgressService');
 const { withTransaction } = require('../../db');
 const trinityExperimentStore = require('../trinityExperimentStore');
@@ -164,28 +164,6 @@ function reportWorkerDispatch(ctx, autonomousWorkers) {
   }
 }
 
-function registerAutonomousRound(ctx, autonomousWorkers) {
-  if (ctx.autonomyPlan.trinity?.activated) return;
-  const { agentId, autonomyPlan } = ctx;
-  const survivorCount = autonomyPlan.tokenPolicy.rounds?.continuation?.survivorCount;
-  if (autonomousWorkers.length && Number.isInteger(survivorCount) && survivorCount > 0) {
-    const epochBudget = require('../morphogenesis/morphogenesisEpochBudget');
-    const continuationPool = autonomyPlan.tokenPolicy.rounds?.continuation?.pool || 0;
-    autonomousRounds.set(agentId, {
-      plan: autonomyPlan,
-      db: ctx.db,
-      normalizedMission: ctx.normalizedMission,
-      workerIds: new Set(autonomousWorkers.map((worker) => worker.agentId)),
-      workers: new Map(autonomousWorkers.map((worker) => [worker.agentId, worker])),
-      results: new Map(),
-      epoch: 0,
-      epochBudget: epochBudget.createEpochBudget(continuationPool,
-        ctx.normalizedMission.morphogenesisPolicy || {}, autonomyPlan.tokenPolicy.minimumWorkerTokens || 1),
-      advanced: false
-    });
-  }
-}
-
 async function orchestrateAutonomousWorkers(ctx) {
   if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return [];
   const requested = Array.isArray(ctx.autonomyPlan?.dispatchWorkers) ? ctx.autonomyPlan.dispatchWorkers : [];
@@ -340,7 +318,7 @@ async function activateCreatedWorkers(ctx, workers) {
   await launchTrinityWorlds(ctx, workers);
   emitWorkerCreations(ctx.agentId, workers);
   reportWorkerDispatch(ctx, workers);
-  registerAutonomousRound(ctx, workers);
+  await require('./missionWorkersEpochRegistration').registerAutonomousRound(ctx, workers);
 }
 
 async function activateATeamRun(ctx, workers) {

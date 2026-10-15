@@ -18,5 +18,7 @@ router.delete('/projects/:id', requirePermission('workspace:delete'), controller
 router.post('/projects/:id/restore', requirePermission('workspace:write'), controller.restoreProject);
 router.get('/environments', requireTenantScope(), controller.listEnvironments);
 router.get('/workers', requireTenantScope(), controller.getWorkerMetrics);
+router.post('/morphogenesis/:missionId/resume', requirePermission('workspace:write'), requireTenantScope({ write: true }),
+  require('../controllers/morphogenesisRecoveryController').resume);
 
 module.exports = router;

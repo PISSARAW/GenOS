@@ -77,4 +77,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('117-organism-restore-journal', 'Fence and reconcile incomplete organism restores', async (db) => {
     await require('./migrateOrganismRestoreJournal').migrateOrganismRestoreJournal(db);
   }),
+  createMigrationRunner('130-morphogenesis-epoch-store', 'Persist scoped morphogenesis epoch checkpoints, results, budgets and barriers', async (db) => {
+    await require('./migrateMorphogenesisEpochStore').migrateMorphogenesisEpochStore(db);
+  }),
 ];

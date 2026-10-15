@@ -101,6 +101,7 @@ function registerRoundResult(mission, event) {
   const state = autonomousRounds.get(round.orchestratorId);
   if (!roundMatchesState(round, state)) return null;
   if (!state || state.advanced || !state.workerIds.has(mission.agentId)) return null;
+  if (state.results.has(mission.agentId)) return null;
   state.results.set(mission.agentId, buildRoundResult(mission, outcome, event));
   if (state.results.size < state.workerIds.size) return null;
   state.advanced = true;
@@ -174,8 +175,46 @@ const adaptNextEpoch = createMorphogenesisEpochCoordinator({
 });
 
 async function advanceAutonomousRound(mission, event) {
+  await recordRoundEvent(mission, event);
+}
+
+async function recordRoundEvent(mission, event) {
+  await restoreRoundIfMissing(mission);
+  const roundState = autonomousRounds.get(mission.budgetRound?.orchestratorId);
+  if (roundState?.roundPhase === 'advancing') return null;
+  const recovery = require('./morphogenesis/morphogenesisEpochRecovery');
+  const interrupted = roundState && await recovery.markRecoveryRequired(
+    roundState, mission.budgetRound.orchestratorId);
+  if (interrupted) return null;
+  if (roundState?.roundPhase === 'recovery_required') return null;
+  const hadResult = roundState?.results.has(mission.agentId) || false;
   const registered = registerRoundResult(mission, event);
-  if (!registered) return;
+  await persistNewTerminalResult(roundState, mission, hadResult);
+  if (registered) return registered;
+  if (isResumedBarrier(roundState)) return { state: roundState, orchestratorId: mission.budgetRound.orchestratorId };
+  return null;
+}
+
+async function restoreRoundIfMissing(mission) {
+  const orchestratorId = mission.budgetRound?.orchestratorId;
+  if (!autonomousRounds.has(orchestratorId)) {
+    await require('./morphogenesis/morphogenesisEpochRecovery').restoreRound(mission);
+  }
+}
+
+async function persistNewTerminalResult(state, mission, hadResult) {
+  if (!state || hadResult || !state.results.has(mission.agentId)) return;
+  const recovery = require('./morphogenesis/morphogenesisEpochRecovery');
+  const phase = state.advanced ? 'barrier_ready' : 'collecting';
+  const key = `result-${mission.budgetRound.stage}-${mission.budgetRound.epoch || 0}-${mission.agentId}`;
+  await recovery.persistRound(state, key, phase);
+}
+
+function isResumedBarrier(state) {
+  return state?.advanced === true && state.roundPhase === 'barrier_ready';
+}
+
+async function advanceRegisteredRound(registered) {
   const { state, orchestratorId } = registered;
 
   if (state.plan.trinity?.activated === true) {
@@ -195,7 +234,24 @@ async function advanceAutonomousRound(mission, event) {
   const continuation = state.plan.tokenPolicy.rounds?.continuation;
   const policyError = continuationPolicyError(continuation);
   if (policyError) return abortRound(orchestratorId, policyError, { continuation });
-  return adaptNextEpoch(state, orchestratorId);
+  const recovery = require('./morphogenesis/morphogenesisEpochRecovery');
+  await adaptNextEpoch(state, orchestratorId);
+  const status = state.plan.morphogenesisEpochStatus?.status;
+  const phase = status === 'resolved' ? 'resolved' : status === 'stopped' ? 'stopped' : 'collecting';
+  await recovery.persistRound(state, `transition-${state.epoch}-${phase}`, phase);
+}
+
+async function resumeMorphogenesisBarrier(state, orchestratorId) {
+  const resolvedId = typeof state === 'string' ? state : orchestratorId || state?.orchestratorId;
+  const resolvedState = typeof state === 'string' ? autonomousRounds.get(state) : state || autonomousRounds.get(resolvedId);
+  if (!resolvedState || !resolvedId || !isResumedBarrier(resolvedState)) return false;
+  if ([...resolvedState.workerIds].some((workerId) => activeProcesses.has(workerId)
+    || missionStarts.has(workerId))) return false;
+  resolvedState.roundPhase = 'advancing';
+  await require('./morphogenesis/morphogenesisEpochRecovery').persistRound(resolvedState,
+    `advancing-${resolvedState.epoch}`, 'advancing');
+  await advanceRegisteredRound({ state: resolvedState, orchestratorId: resolvedId });
+  return true;
 }
 
 function handleContinuationFailure(agentId, mission, error) {
@@ -243,4 +299,4 @@ async function dispatchPendingContinuation(agentId) {
 }
 
 module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome,
-  registerRoundResult, advanceAutonomousRound, dispatchPendingContinuation };
+  registerRoundResult, advanceAutonomousRound, resumeMorphogenesisBarrier, dispatchPendingContinuation };

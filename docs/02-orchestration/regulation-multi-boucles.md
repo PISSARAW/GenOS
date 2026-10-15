@@ -179,5 +179,13 @@ tous `qualityEvidence`. Il rend le contrat utilisable par le runtime lorsqu'une
 source indépendante le fournit, mais ne prétend pas fabriquer un score à partir
 de la seule attestation native.
 
+Quand cette preuve est présente, l’outbox causal est inscrit dans la transaction
+du reçu worker, avec un identifiant unique par run. Le dispatcher reprend les
+baux expirés, revalide le reçu natif historique et la preuve de qualité avant
+d’appliquer la boucle, puis conserve durablement son reçu et sa mémoire
+consolidée. Une reprise du même run retourne le reçu sauvegardé. Les souvenirs
+ne sont injectés dans le contexte agent qu’après nouvelle validation des preuves
+et correspondance exacte de l’agent et du tenant.
+
 Non-objectifs : pas de persistance Rust↔Node temps réel au-delà du snapshot
 versionné, pas d'ajustement automatique des paramètres de boucles entre missions.

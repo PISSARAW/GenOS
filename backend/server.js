@@ -146,6 +146,22 @@ async function bootstrapWorkerDatabase() {
   return db;
 }
 
+async function recoverMorphogenesisAtStartup(db) {
+  if (process.env.GENOS_RUNTIME_MAINTENANCE !== '1') return;
+  try {
+    const summary = await require('./src/services/morphogenesis/morphogenesisEpochRecovery')
+      .recoverStartupCheckpoints(db);
+    console.log(`[GenOS Morphogenesis Recovery] Startup sweep: ${summary.restored} epoch(s) restored, `
+      + `${summary.actionable} awaiting operator action, ${summary.trinityExcluded} Trinity checkpoint(s) excluded, `
+      + `${summary.failed} failed${summary.truncated ? ', more checkpoints remain for the next boot' : ''}.`);
+    for (const failure of summary.failures || []) {
+      console.warn(`[GenOS Morphogenesis Recovery] ${failure.missionId}: ${failure.code}`);
+    }
+  } catch (error) {
+    console.warn(`[GenOS Morphogenesis Recovery] Startup sweep skipped: ${error.message}`);
+  }
+}
+
 // Boots the gRPC microservices server on the designated worker only, or returns null.
 async function createGrpcServerIfDesignated() {
   if (process.env.GENOS_JOB_WORKER !== '1') return null;
@@ -266,6 +282,7 @@ async function runWorkerProcess() {
     await require('./src/services/workerGarageService').rearmIdleWorkers(db);
     require('./src/services/garageRuntimeService').start({ db });
     signalPlaneSubscriber.startSignalPlaneSubscriber();
+    await recoverMorphogenesisAtStartup(db);
 
     server.listen(PORT, () => {
       console.log(`[GenOS Full-Stack] Server running on port ${PORT}`);
@@ -300,4 +317,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { startServer, createHttpServer };
+module.exports = { startServer, createHttpServer, recoverMorphogenesisAtStartup };

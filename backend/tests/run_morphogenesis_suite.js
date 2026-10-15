@@ -5,6 +5,7 @@ const { spawnSync } = require('node:child_process');
 const tests = fs.readdirSync(__dirname).filter(name => /^test_.*(morphogenesis|morphogenetic|morphology).*\.js$/.test(name));
 tests.push('morphogenesis/test_learning_services.js');
 tests.push('morphogenesis/test_mission_strategy_compiler.js');
+tests.push('morphogenesis/test_conditional_morphogenesis_policy.js');
 tests.push('morphogenesis/test_adaptive_topology_candidates.js');
 tests.push('morphogenesis/test_adaptive_topology_ranking.js');
 tests.push('morphogenesis/test_adaptive_worker_roster.js');

@@ -21,16 +21,22 @@ crée pas leurs workspaces et ne certifie pas le livrable d'une mission Node.
 Le chemin central prépare d'abord la morphologie demandée. Le planner Morphogenèse peut
 retenir une topologie ou compiler une expression qui combine plusieurs des huit
 topologies canoniques. Chaque feuille topologique compose ses workers; le dispatch
-conserve leur nœud, leur topologie et leur variant. Après la première vague, les scores
-d'évidence, les échecs et la dispersion peuvent reconstruire le graphe de continuation
-avec `SEQUENCE`, `COMPETE` ou `FEDERATE`, puis réaffecter les survivants sans créer un
-nouveau budget. À la barrière finale, le runtime exécute l'opérateur composite sur les
-dossiers de preuve vérifiés.
+conserve leur nœud, leur topologie et leur variant. Après chaque vague de continuation,
+les scores d'évidence, les échecs et la dispersion alimentent une nouvelle décision
+Morphogenèse : sélectionner les survivants, réserver une tranche du pool restant,
+recalculer une composition et rebind les workers, puis exécuter l'époque suivante. La
+boucle s'arrête sur un reçu de vérification indépendant valide, quand aucune tranche
+minimale ne peut être financée, à la limite `morphogenesisPolicy.maxEpochs` si elle est
+déclarée, ou quand aucune reconfiguration admissible n'est produite. Un score worker
+élevé ne vaut pas résolution.
 
-Cette adaptation intervient à une frontière de continuation, lorsque les workers sont
-quiescents. Elle ne modifie pas un worker pendant une inférence et ne promet pas de
-résoudre tout problème : l'absence de capacité, de budget, de preuve ou d'affectation
-réutilisable bloque ou conserve la forme courante. Le runtime Morphogenèse V2 est
+Chaque adaptation intervient à une frontière où la vague est complète; elle ne modifie
+pas un worker pendant une inférence. Le contrôleur d'époques est actuellement en mémoire
+du processus : les missions de continuation sont persistées, mais leur état d'époque
+n'est pas encore reconstruit après un redémarrage. Le rebind réutilise les survivants et
+préserve leur `workerKind`; il ne recrute donc pas encore à chaque époque un type de
+worker différent et ne démarre pas de daemon. La résolution runtime atomique des
+ressources reste nécessaire avant cette évolution. Le runtime Morphogenèse V2 est
 disponible en **shadow** opt-in (`GENOS_MORPHOGENESIS_V2_SHADOW=1|true|on`) ; ce chemin
 évalue une proposition sans transition ni commit. Son chemin de commit exige des
 adaptateurs d'adjudication Rust et de gouvernance et n'est pas le chemin de production
@@ -58,16 +64,14 @@ flowchart TD
     SHADOW --> DISPATCH[Dispatch des affectations retenues]
     DISPATCH --> WORK[Workers et workspaces isolés]
     WORK --> EVIDENCE[Évaluation de la première vague]
-    EVIDENCE --> ADAPT{Forme encore adaptée ?}
-    ADAPT -->|preuves faibles, dispersées ou échec| REGRAPH[Recompiler COMPETE, FEDERATE ou SEQUENCE]
+    EVIDENCE --> GATE{Reçu indépendant valide ?}
+    GATE -->|oui| STORE[Résultat vérifié et mémoire]
+    GATE -->|non| ADAPT{Époque et budget admissibles ?}
+    ADAPT -->|oui| REGRAPH[Recalculer topologie, composition et affectations]
     REGRAPH --> REBIND[Réaffecter les survivants]
-    REBIND --> CONT[Continuation bornée]
-    ADAPT -->|oui| CONT
-    CONT --> BARRIER[Barrière de quiescence et dossiers de preuve]
-    BARRIER --> SYNTH[Exécution de l'opérateur composite]
-    SYNTH --> GATE[Gate de clôture : preuve et invariants]
-    GATE -->|satisfait| STORE[Résultat vérifié et mémoire]
-    GATE -->|manque ou échec| RECOVER[Reprise bornée, report ou blocage]
+    REBIND --> CONT[Exécuter l'époque suivante]
+    CONT --> EVIDENCE
+    ADAPT -->|non ou bloqué| RECOVER[Reprise bornée, report ou blocage]
 ```
 
 Le diagramme montre des responsabilités, pas une transaction ACID unique. Les écritures
@@ -81,7 +85,7 @@ frontières et compensations.
 | Préparation et sélection morphologiques | `morphogenesisRuntime.prepareMorphology`, `morphogenesisPlannerService` et `missionTopologyActivation` | topologie ou expression composite, profil et budget réels |
 | Plan d'autonomie | `autonomousOrchestrationService`, planificateurs dédiés et `biologicalTopologyService.composeMode` | feuilles topologiques, workers, budget, gates et organisation |
 | Dispatch | `agentRuntimeAdapter/missionWorkers.js`, `agentFleetService.js` | affectations sélectionnées comparées aux workers effectivement créés |
-| Réévaluation | `agentRoundService.js`, `missionMorphogenesisContinuation.js` | signaux mesurés, nouveau graphe versionné et reçu de réaffectation, ou motif de conservation |
+| Époques Morphogenèse | `agentRoundService.js`, `morphogenesisEpochBudget.js`, `missionMorphogenesisContinuation.js` | boucle par vagues complètes, pool réservé, graphe replanifié, ou motif d'arrêt; état du contrôleur encore volatile |
 | Exécution et preuve | `agentFleetService.js`, `agentEvidenceService.js`, `missionMorphologyExecution.js` | dossiers, barrière de preuve et résultat de l'opérateur composite |
 | Clôture | `homeostasisContractService.js` et collecte de preuve mission | invariants et preuves requis satisfaits, ou motif de blocage |
 | Reprise | `workerFailureRecoveryService.js`, `agentRecoveryService.js` | décision bornée : réparer, forker, bisecter, remplacer ou escalader |

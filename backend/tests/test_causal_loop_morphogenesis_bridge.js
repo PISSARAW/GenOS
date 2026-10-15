@@ -5,6 +5,7 @@ process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'causal-loop-execution-bridge-test-
 const assert = require('node:assert/strict');
 const bridge = require('../src/services/causalLoopExecutionBridge');
 const evidenceValidation = require('../src/services/morphogenesis/learning/outcomeEvidenceValidation');
+const { openDatabase } = require('./helpers/biologyDatabase');
 
 function signedEvidence(actionId, agentId, receiptId) {
   const fields = { success: true, value: 0.91, kind: 'deterministic_verifier', actionId, agentId,
@@ -21,16 +22,23 @@ const run = { id: 'causal-run-bridge-1', agent_id: 'causal-agent-bridge-1', stat
 const event = { eventType: 'AGENT_COMPLETED', payload: {
   qualityEvidence: signedEvidence(run.id, run.agent_id, 'causal-quality-bridge-1')
 } };
-const biologicalReceipt = { result: { verified: true }, budgetAssessment: { satisfied: true },
+const biologicalReceipt = { missionId: 'causal-mission', result: { verified: true }, budgetAssessment: { satisfied: true },
   semanticVerification: { schema: 'genos.native-oracle-receipt-reference/v1' } };
-const db = { get: async () => ({ organizationId: 'causal-org', projectId: 'causal-project' }) };
+const rawDb = openDatabase();
+const db = { ...rawDb, get: async (sql, ...params) => sql.includes('FROM agents a JOIN workspaces')
+  ? { organizationId: 'causal-org', projectId: 'causal-project' } : rawDb.get(sql, ...params) };
 
 async function main() {
-  const accepted = await bridge.observe(db, { run, biologicalReceipt, event });
-  assert.equal(accepted.status, 'observed');
-  assert.equal(accepted.receipt.actionId, run.id);
-  assert.equal(accepted.receipt.outcome.qualityVerified, true);
-  assert.equal(accepted.receipt.outcome.evidenceRef, 'causal-quality-bridge-1');
+  const accepted = await bridge.enqueueVerified(db, { run, biologicalReceipt, event });
+  assert.equal(accepted.status, 'queued');
+  const saved = await rawDb.get('SELECT run_id, status, evidence_hash FROM causal_learning_outbox WHERE run_id = ?', run.id);
+  assert.equal(saved.status, 'pending');
+  assert.ok(saved.evidence_hash);
+
+  const changed = { ...event, payload: { qualityEvidence: signedEvidence(run.id, run.agent_id,
+    'causal-quality-bridge-mutated') } };
+  await assert.rejects(bridge.enqueueVerified(db, { run, biologicalReceipt, event: changed }),
+    error => error.code === 'CAUSAL_LEARNING_EVENT_CONFLICT');
 
   const unverified = await bridge.observe(db, { run, biologicalReceipt: { ...biologicalReceipt,
     result: { verified: false } }, event });
@@ -45,6 +53,7 @@ async function main() {
   const partialScope = { get: async () => ({ organizationId: 'causal-org', projectId: null }) };
   const refusedScope = await bridge.observe(partialScope, { run, biologicalReceipt, event });
   assert.equal(refusedScope.reason, 'agent_scope_unavailable');
+  await rawDb.close();
 }
 
 main().then(() => console.log('Verified worker receipts enter causal learning only with action-bound signed quality evidence.'))

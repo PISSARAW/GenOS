@@ -1,0 +1,127 @@
+'use strict';
+
+const { compileConditionalMorphogenesisPolicy } = require('./conditionalMorphogenesisPolicy');
+const { critiqueStrategy } = require('./strategyCritiqueService');
+const { arbitrateGroupNeeds } = require('./groupResourceNegotiation');
+const { extractEvidenceReport } = require('../agentEvidenceService');
+
+function workerFor(state, workerId) { return state.workers.get(workerId) || {}; }
+
+function reportFor(result) {
+  return extractEvidenceReport(result.payload) || {};
+}
+
+function diagnosisFor(signals, results) {
+  const reports = results.map(reportFor);
+  const confidences = reports.map((report) => Number(report.confidence)).filter(Number.isFinite);
+  const contradiction = signals.spread / 100;
+  const provenanceRisk = reports.filter((report) => !report.workerArtifact?.provenance?.sourceRefs?.length).length
+    / Math.max(1, reports.length);
+  return { uncertainty: signals.uncertainty, contradiction, provenanceRisk,
+    causalAmbiguity: Math.max(0, 1 - (confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0)),
+    deterministicNeed: signals.failures ? 0.8 : 0.2,
+    adversarialRisk: signals.failures ? 0.8 : 0.2,
+    monitoringNeed: signals.uncertainty, stagnation: signals.average < 60 ? 0.7 : 0.1 };
+}
+
+function critiqueReports(results) {
+  return results.flatMap((result) => {
+    const assessment = reportFor(result).strategyAssessment;
+    if (!assessment || !['supports_current', 'supports_alternative', 'inconclusive'].includes(assessment.outcome)) return [];
+    const provenance = reportFor(result).workerArtifact?.provenance || {};
+    return [{ id: result.agentId, sourceId: provenance.sourceId || assessment.sourceId,
+      lineageId: provenance.lineageId || assessment.lineageId,
+      evidenceRefs: assessment.evidenceRefs || provenance.sourceRefs || [], outcome: assessment.outcome }];
+  });
+}
+
+function strategyChallenge(input, diagnosis) {
+  const results = [...input.state.results.values()];
+  const reports = critiqueReports(results);
+  if (reports.length < 2) return null;
+  const first = results.map(reportFor).map((report) => report.strategyAssessment).find(Boolean) || {};
+  if (!first.currentHypothesis || !first.currentFalsifier
+    || !first.alternativeHypothesis || !first.alternativeFalsifier) return null;
+  const budget = Math.max(0, Math.floor(Number(input.continuation.pool) || 0));
+  const result = critiqueStrategy({
+    currentStrategy: { id: first.currentStrategyId || 'current', hypothesis: first.currentHypothesis,
+      falsifier: first.currentFalsifier },
+    alternative: { id: first.alternativeId || 'alternative', hypothesis: first.alternativeHypothesis,
+      falsifier: first.alternativeFalsifier },
+    reports, challengeBudget: { tokens: budget, challengeCostTokens: Math.max(1, Math.floor(budget * 0.1)), maxChallenges: 1 }
+  });
+  return { ...result, diagnosis };
+}
+
+function resourceGroups(input) {
+  const groups = new Map();
+  for (const result of input.state.results.values()) {
+    const report = reportFor(result);
+    const worker = workerFor(input.state, result.agentId);
+    for (const need of Array.isArray(report.resourceNeeds) ? report.resourceNeeds : []) {
+      const groupId = String(worker.groupId || worker.morphologyTopology || worker.role || 'mission');
+      if (!groups.has(groupId)) groups.set(groupId, { id: groupId, state: 'active', needs: [],
+        governance: worker.governance || null });
+      groups.get(groupId).needs.push(need);
+    }
+  }
+  return [...groups.values()];
+}
+
+function resourceNegotiation(input, reservedChallengeTokens) {
+  const groups = resourceGroups(input);
+  if (!groups.some((group) => group.needs.length)) return null;
+  const workers = [...input.state.workers.values()].map((worker) => ({ id: worker.agentId,
+    groupId: worker.groupId || worker.morphologyTopology || worker.role || 'mission',
+    workerKind: worker.workerKind, transferable: worker.transferable === true }));
+  return arbitrateGroupNeeds({ groups, budget: Math.max(0,
+    (Number(input.continuation.pool) || 0) - reservedChallengeTokens),
+    availableWorkers: workers, spawnAuthority: false, governanceAuthority: [] });
+}
+
+function selectedMissionText(mission) { return mission.prompt || mission.currentTask || ''; }
+
+function selectedMissionId(mission, orchestratorId) { return mission.missionId || orchestratorId; }
+
+function currentPolicyTopology(plan) { return plan.morphogenesisPlan?.selectedTopology || plan.selectedTopology; }
+
+function currentPolicyVariant(plan) { return plan.morphogenesisPlan?.selectedVariant || 'default'; }
+
+function topologyCapabilities(mission) { return mission.topologyCapabilityInventory?.available || null; }
+
+function conditionalPolicyInput(input, diagnosis, workers) {
+  const mission = input.state.normalizedMission || {};
+  const plan = input.state.plan || {};
+  return {
+    mission: selectedMissionText(mission), missionId: selectedMissionId(mission, input.orchestratorId),
+    currentTopology: currentPolicyTopology(plan), currentVariant: currentPolicyVariant(plan),
+    currentRecipe: plan.morphogenesisPlan?.morphologyExpression || null,
+    diagnosis, budget: { tokens: Number(input.continuation.pool) || 0 },
+    maxEpochs: mission.morphogenesisPolicy?.maxEpochs,
+    workerAssignments: workers, availableWorkerKinds: workers.map((worker) => worker.workerKind),
+    availableTopologyCapabilities: topologyCapabilities(mission),
+    availableCapabilities: mission.missionCapabilityPlan?.availableCapabilities,
+    operationalConstraints: plan.operationalConstraints || {}
+  };
+}
+
+function supportDecisions(input, diagnosis) {
+  const challenge = strategyChallenge(input, diagnosis);
+  const challengeReserve = challenge?.challenge?.reservedTokens || 0;
+  const resources = resourceNegotiation(input, challengeReserve);
+  return { challenge, resources };
+}
+
+function compilePolicy(input, signals) {
+  const state = input.state;
+  const workers = input.survivors.map((survivor) => workerFor(state, survivor.agentId));
+  const diagnosis = diagnosisFor(signals, [...state.results.values()]);
+  const policy = compileConditionalMorphogenesisPolicy(conditionalPolicyInput(input, diagnosis, workers));
+  const supports = supportDecisions(input, diagnosis);
+  const { challenge, resources } = supports;
+  const decision = { policy, challenge, resources };
+  state.plan.morphogenesisEpochDecision = decision;
+  return decision;
+}
+
+module.exports = { compilePolicy, diagnosisFor, critiqueReports, resourceGroups };

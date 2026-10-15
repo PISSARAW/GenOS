@@ -4,10 +4,18 @@
 
 Ce document décrit une architecture cible, pas une capacité de production déjà qualifiée.
 Le dispatch principal sait préparer une topologie et lier un graphe aux affectations
-des workers (ADR 0522). Une continuation peut replanifier une fois à une frontière
-quiescente. Le runtime Morphogenèse V2 refuse encore le `commit` d'une transition
-collective : ni un graphe préparé ni un reçu consultatif ne prouvent que l'état des
-processus, des workspaces, des baux et des budgets peut être restauré (ADR 0430).
+des workers (ADR 0522). Le superviseur backend peut répéter des époques de continuation
+à chaque frontière quiescente, avec une tranche réservée dans le pool restant et une
+nouvelle décision morphologique à chaque vague. Il s'arrête sur preuve de résolution
+indépendante, budget incapable de financer la tranche minimale, limite
+`morphogenesisPolicy.maxEpochs` explicite ou absence de reconfiguration admissible.
+L'état du superviseur reste volatil au redémarrage : persister les missions de
+continuation ne restaure pas encore l'état d'époque. Le rebind conserve les types de
+workers survivants; la sélection adaptative et l'admission effective d'un nouveau
+type ou d'un daemon ne sont pas implémentées. Le runtime Morphogenèse V2 refuse encore
+le `commit` d'une transition collective : ni un graphe préparé ni un reçu consultatif
+ne prouvent que l'état des processus, des workspaces, des baux et des budgets peut être
+restauré (ADR 0430).
 
 La tranche de compilation de recette visée ici reste **consultative**. Elle peut
 décrire et évaluer une combinaison de topologies, variants, opérateurs, rôles,
@@ -31,6 +39,46 @@ disponibilité d’une instance au dispatch. La tranche ne découvre pas les wor
 libres ni l’état des daemons, ne crée pas de worker ou daemon, n’altère pas les leases
 et ne déclenche pas de transition topologique. Les capacités dérivées d’un kind
 affecté restent déclaratives : elles ne prouvent ni instance active ni lease valide.
+
+### Époques répétées actuellement implémentées
+
+`agentRoundService` traite les rapports terminaux d'une époque comme une barrière :
+chaque worker attendu doit répondre avant l'évaluation, et les événements tardifs
+d'une ancienne époque sont ignorés. Le contrôleur cherche d'abord un reçu de vérification
+indépendant valide pour le périmètre de mission. À défaut, il classe les résultats,
+réserve une allocation au-dessus du minimum par worker et appelle à nouveau le planificateur
+Morphogenèse. `maxEpochs` est facultatif; sans limite explicite, le budget d'époques
+admissibles est recalculé selon le pool restant et le nombre de survivants. Les reliquats
+inférieurs à la tranche minimale ne sont pas dépensés.
+
+Le backend enregistre désormais un checkpoint par mission contenant le plan, les
+workers et leurs résultats, le budget, la phase, la révision et la barrière. Chaque
+rapport terminal est persisté à son arrivée. Le worker de maintenance effectue aussi
+au démarrage un balayage borné des checkpoints interrompus : il restaure les continuations
+durables, demande le dispatch des entrées encore `pending` seulement si leur worker n'est
+pas déjà actif, et ne renvoie pas les entrées `dispatched`. Ce balayage confirme la
+tentative de reprise, pas la réussite de l'exécution. Si aucune continuation durable n'existe, le checkpoint passe à
+`recovery_required`, visible et reprenable par un opérateur; l'intention ambiguë n'est
+pas rejouée automatiquement. L'idempotence et les portées organisation/projet restent
+vérifiées. Trinity reste hors de cette boucle et de son store.
+
+Cette boucle augmente le nombre de réévaluations, mais pas encore toute la puissance
+visée. Les survivants peuvent être remplacés par une nouvelle cohorte aux identifiants
+déterministes; un daemon n'est ni résolu ni activé. Le balayage au démarrage est limité
+à 32 checkpoints par worker de maintenance et par boot; les plus anciens sont inspectés
+d'abord et les suivants attendent le prochain démarrage. Il s'exécute après la
+réconciliation des runtimes. Si le processus tombe après le checkpoint `advancing`, le
+runtime cherche les missions durables de l'époque suivante, restaure budget/roster et
+redispatche uniquement celles encore `pending`; les missions `dispatched` ne sont pas
+envoyées une deuxième fois. Si aucune mission n'a été persistée, l'état devient
+`recovery_required` au démarrage et doit être repris explicitement; le recrutement
+réutilise alors les identifiants déterministes validés. Une incohérence de budget place
+également le checkpoint en `recovery_required`; un opérateur doté
+du droit `workspace:write` peut le réarmer via `POST /api/control-plane/morphogenesis/:missionId/resume`
+dans la portée organisation/projet correspondante. Le contrôleur reprend alors depuis la
+barrière sans attendre un autre rapport worker. La barrière ne lance la transition
+qu'après fermeture des processus de tous les workers de l'époque; aucune topologie n'est
+modifiée pendant l'inférence d'un worker.
 
 ## Intention
 
@@ -256,3 +304,33 @@ portes d’admission restent proposés dans l’ADR 0538; ils ne sont pas une pr
 cette résolution complète existe déjà. L’apprentissage sur les
 résultats vérifiés et la mutation automatique des affectations ou des daemons restent
 des étapes distinctes.
+
+## Décision réévaluée à chaque époque
+
+À chaque barrière de quiescence, `morphogenesisEpochDecisionService` compile un
+diagnostic depuis les résultats, choisit une représentation de raisonnement parmi
+graphe de tâche, hypothèses, causalité, provenance et contraintes, puis expose les
+topologies/variants candidats, le roster worker/méthode, les obligations de preuve et
+les bornes de budget. Cette politique reste consultative; les recettes non calibrées
+ne sont pas activées par le classement seul.
+
+Si les workers ont fourni des évaluations de stratégie explicites, `strategyCritiqueService`
+regroupe les rapports qui partagent une source, une lignée ou une référence. Un
+consensus corrélé peut provoquer une branche de contestation `COMPETE`; un worker est
+affecté à la branche alternative et reçoit une hypothèse et un falsificateur précis.
+Son rapport reste diagnostique : seul le vérificateur de mission peut établir la
+résolution.
+
+Les besoins `resourceNeeds` déclarés avec références de preuve sont arbitrés entre
+groupes par gain marginal pondéré par confiance. Les allocations peuvent mettre un
+groupe non finançable en sommeil et redistribuer le budget admissible à la prochaine
+cohorte. Les transferts, recrutements et changements de gouvernance restent des
+propositions : aucune autorité de spawn ou de transition n’est déduite du score.
+
+Ces décisions sont appliquées à la relève après quiescence. Le recrutement d'une cohorte
+remplaçante est disponible pour les transitions morphogénétiques et utilise des IDs
+déterministes pour reprendre une intention interrompue sans créer de doublons. La
+restauration du contrôleur est persistée, avec la limite d'absence de balayage au démarrage
+décrite plus haut. Trinity conserve son allocation et ses mondes scellés hors de ce chemin.
+L’orchestrateur ne remodèle jamais un worker pendant son inférence. Voir ADR 0541,
+0544 et 0546 pour les décisions et limites vérifiables.

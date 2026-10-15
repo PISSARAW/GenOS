@@ -3,6 +3,7 @@
 const { compileExpression } = require('./graph/morphologyCompiler');
 const expression = require('./expression/morphologyExpression');
 const { bindGraphMission } = require('./morphogenesisMissionBinding');
+const MAX_REPLACEMENT_WORKERS = 12;
 
 function evidenceSignals(results) {
   const values = results.map((entry) => Number(entry.evidenceScore)).filter(Number.isFinite);
@@ -18,9 +19,10 @@ function adaptationRequired(signals, mission) {
     && (signals.failures > 0 || signals.average < threshold || signals.spread > 25);
 }
 
-function problemProfile(state, signals) {
+function problemProfile(state, signals, policy) {
   return {
     ...(state.plan.profile || {}),
+    ...(policy?.diagnosis?.signals || {}),
     uncertainty: signals.uncertainty,
     hypotheses_count: signals.average < 60 ? 3 : 2,
     exploration_need: signals.uncertainty,
@@ -34,14 +36,38 @@ function currentTopology(state) {
   return state.plan.morphogenesisPlan?.selectedTopology || state.plan.selectedTopology || null;
 }
 
-function plannerContext(input, signals) {
+function requestedRosterSize(input) {
+  const mission = input.state.normalizedMission || {};
+  const policy = mission.morphogenesisPolicy || {};
+  const configured = [policy.targetWorkers, policy.cohortSize, input.continuation.targetWorkerCount,
+    input.continuation.workerCount, input.continuation.survivorCount]
+    .find((value) => value !== undefined && value !== null);
+  const requested = Number(configured ?? input.survivors.length);
+  return Number.isSafeInteger(requested) ? Math.max(0, requested) : input.survivors.length;
+}
+
+function affordableRosterSize(input) {
+  const budget = Math.max(0, Number(input.continuation.pool || 0));
+  const minimum = Math.max(1, Number(input.state.plan.tokenPolicy?.minimumWorkerTokens
+    || input.state.epochBudget?.minimum || input.continuation.perWorkerTokens || 1));
+  return Math.floor(budget / minimum);
+}
+
+function targetRosterSize(input) {
+  return Math.min(requestedRosterSize(input), affordableRosterSize(input), MAX_REPLACEMENT_WORKERS);
+}
+
+function plannerContext(input, signals, policy) {
   const { state, continuation, orchestratorId } = input;
   const mission = state.normalizedMission || {};
+  const baseProblem = mission.prompt || mission.currentTask || '';
+  const representation = policy?.diagnosis?.representation;
   return {
     currentState: { topology: currentTopology(state), agents: new Map(), currentMorphologyVersion:
       state.plan.morphogenesisPlan?.morphologyPatch?.graph?.version || 1 },
-    problemProfile: problemProfile(state, signals),
-    problem: mission.prompt || mission.currentTask || '',
+    problemProfile: problemProfile(state, signals, policy),
+    problem: representation ? `${baseProblem}\nSelected reasoning representation: ${representation.kind}.` : baseProblem,
+    problemRepresentation: representation || null,
     missionId: mission.missionId || orchestratorId,
     budget: { tokens: Number(continuation.pool || 0) },
     forceMorphologySelection: true,
@@ -54,21 +80,26 @@ function rankedAlternative(plan, primary) {
   return rankings.find((entry) => entry.topology !== primary)?.topology || null;
 }
 
-function adaptiveExpression({ plan, state, signals, capacity }) {
+function adaptiveExpression({ plan, state, signals, capacity, challenge }) {
   const primary = plan.selectedTopology;
   if (capacity < 2) return expression.topologyExpression(primary, plan.selectedVariant || null);
   const alternative = rankedAlternative(plan, primary) || currentTopology(state);
   if (!alternative || alternative === primary) return expression.topologyExpression(primary, plan.selectedVariant || null);
   const leaves = [expression.topologyExpression(primary), expression.topologyExpression(alternative)];
-  if (signals.failures || signals.average < 60) return expression.competeExpression(leaves);
+  return composeAdaptiveOperator(leaves, signals, challenge);
+}
+
+function composeAdaptiveOperator(leaves, signals, challenge) {
+  const competing = challenge?.status === 'challenge_authorized' || signals.failures || signals.average < 60;
+  if (competing) return expression.competeExpression(leaves);
   if (signals.spread > 25) return expression.federateExpression(leaves, { quorum: 2 });
   return expression.sequenceExpression(leaves);
 }
 
 function compileAdaptiveGraph(input, outcome) {
-  const { plan, state, signals } = outcome;
-  const capacity = input.survivors.length;
-  const expr = adaptiveExpression({ plan, state, signals, capacity });
+  const { plan, state, signals, challenge, decision } = outcome;
+  const capacity = targetRosterSize(input);
+  const expr = adaptiveExpression({ plan, state, signals, capacity, challenge });
   const current = state.plan.morphogenesisPlan?.morphologyPatch?.graph;
   const graph = compileExpression(expr, {
     missionId: input.state.normalizedMission?.missionId || input.orchestratorId,
@@ -78,6 +109,9 @@ function compileAdaptiveGraph(input, outcome) {
     status: 'proposed'
   });
   plan.morphologyExpression = expr;
+  plan.conditionalMorphogenesisPolicy = decision?.policy || null;
+  plan.strategyCritique = challenge || null;
+  plan.groupResourceNegotiation = decision?.resources || null;
   plan.morphologyGraphRef = { graphId: graph.graphId, version: graph.version };
   plan.morphologyPatch = { operation: 'replace_root', graph };
   return graph;
@@ -97,7 +131,7 @@ async function composeComponents(input, plan, dependencies) {
       orchestratorId: input.orchestratorId,
       mode: node.topology,
       mission: mission.prompt || mission.currentTask || '',
-      options: { activateOrganization: false, agentCount: input.survivors.length,
+      options: { activateOrganization: false, agentCount: input.rosterSize,
         missionId: mission.missionId || input.orchestratorId, variantId: node.variant || undefined }
     });
     const members = (composition.members || []).filter((member) => member.executionMode !== 'orchestrator');
@@ -108,21 +142,24 @@ async function composeComponents(input, plan, dependencies) {
 }
 
 function rebindAssignment(worker, component, index) {
-  const exact = component.members.find((member) => member.workerKind === worker.workerKind);
-  const role = component.members.find((member) => member.role === worker.role);
-  const selected = exact || role || component.members[index % component.members.length];
+  const selected = component.members[index % component.members.length];
   if (!selected) return null;
   return { ...selected, agentId: worker.agentId, workerId: worker.agentId,
-    workerKind: worker.workerKind || selected.workerKind,
-    workerArtifact: worker.workerArtifact || selected.workerArtifact,
-    capabilities: worker.capabilities || selected.capabilities,
+    sourceAgentId: worker.agentId,
+    workerKind: selected.workerKind,
+    workerArtifact: selected.workerArtifact,
+    capabilities: selected.capabilities || [],
+    methodContract: selected.methodContract || null,
     morphologyNodeId: component.node.nodeId,
     morphologyTopology: component.node.topology, morphologyVariant: component.node.variant || null,
     morphologyComponentIndex: index };
 }
 
-function assignSurvivors(input, components) {
-  if (!components.length || input.survivors.length < components.length) return null;
+function assignSurvivors(context) {
+  const { input, components, challenge, primaryTopology } = context;
+  if (!components.length) return null;
+  if (!input.survivors.length) return {};
+  if (input.survivors.length < components.length) return null;
   const assignments = {};
   for (let index = 0; index < input.survivors.length; index += 1) {
     const survivor = input.survivors[index];
@@ -131,11 +168,30 @@ function assignSurvivors(input, components) {
     if (!assignment) return null;
     assignments[survivor.agentId] = assignment;
   }
+  if (!assignChallengeWorker({ components, assignments, challenge, primaryTopology })) return null;
   return assignments;
 }
 
+function assignChallengeWorker(context) {
+  const { components, assignments, challenge, primaryTopology } = context;
+  if (challenge?.status !== 'challenge_authorized') return true;
+  const alternative = components.find((component) => component.node.topology !== primaryTopology);
+  const assignment = alternative && Object.values(assignments).find((item) =>
+    item.morphologyNodeId === alternative.node.nodeId);
+  if (!assignment) {
+    challenge.status = 'challenge_alternative_unavailable';
+    challenge.challenge = { ...challenge.challenge, reservedTokens: 0 };
+    return false;
+  }
+  assignment.strategyChallenge = {
+    hypothesis: challenge.alternativeHypothesis, falsifier: challenge.alternativeFalsifier,
+    evidencePolicy: 'do_not_treat_worker_report_as_resolution'
+  };
+  return true;
+}
+
 function transitionReceipt(input, outcome) {
-  const { plan, signals, assignments } = outcome;
+  const { plan, signals, assignments, decision } = outcome;
   const previous = input.state.plan.morphogenesisPlan?.morphologyPatch?.graph;
   return {
     status: 'ADAPTED', reason: 'evidence_driven_continuation',
@@ -144,6 +200,9 @@ function transitionReceipt(input, outcome) {
     selectedTopology: plan.selectedTopology,
     operator: plan.morphologyExpression.kind,
     evidence: signals,
+    conditionalPolicy: decision.policy,
+    strategyCritique: decision.challenge,
+    resourceNegotiation: decision.resources,
     rebinds: Object.entries(assignments).map(([workerId, assignment]) => ({
       workerId, nodeId: assignment.morphologyNodeId, topology: assignment.morphologyTopology,
       role: assignment.role, workerKind: assignment.workerKind
@@ -151,28 +210,103 @@ function transitionReceipt(input, outcome) {
   };
 }
 
+function componentSlot({ components, index }) {
+  const component = components[index % components.length];
+  const memberIndex = Math.floor(index / components.length) % component.members.length;
+  const member = component.members[memberIndex];
+  return { ...member, role: member.role || member.workerKind || 'worker',
+    workerKind: member.workerKind || member.role || 'worker',
+    capabilities: member.capabilities || [], tools: member.tools || [],
+    methodContract: member.methodContract || null,
+    morphologyNodeId: component.node.nodeId, morphologyTopology: component.node.topology,
+    morphologyVariant: component.node.variant || null, morphologyComponentIndex: index };
+}
+
+function lineageSource(input, index) {
+  const survivors = input.survivors;
+  const results = [...input.state.results.values()];
+  const source = survivors.length ? survivors[index % survivors.length] : results[index % results.length];
+  if (!source) return { sourceAgentId: null, sourceEvidence: null };
+  return { sourceAgentId: source.agentId || null, sourceEvidence: {
+    sourceAgentId: source.agentId || null, status: source.status || null,
+    evidenceScore: source.evidenceScore ?? null, payload: source.payload || {}
+  } };
+}
+
+function replacementRosterBlueprint(input) {
+  const rosterSize = targetRosterSize(input);
+  if (!rosterSize) return { rosterSize, blueprint: null };
+  const assignments = Array.from({ length: rosterSize }, (_, index) => ({
+    ...componentSlot({ components: input.components, index }),
+    candidateId: `replacement-slot-${index + 1}`,
+    ...lineageSource(input, index),
+    tokenBudget: 0
+  }));
+  carryChallenge(input, assignments);
+  return { rosterSize, blueprint: { assignments } };
+}
+
+function carryChallenge(input, assignments) {
+  const challenge = input.challenge;
+  if (challenge?.status !== 'challenge_authorized') return;
+  const alternative = assignments.find((assignment) => assignment.morphologyTopology !== input.primaryTopology);
+  if (!alternative) return;
+  alternative.strategyChallenge = { hypothesis: challenge.alternativeHypothesis,
+    falsifier: challenge.alternativeFalsifier,
+    evidencePolicy: 'do_not_treat_worker_report_as_resolution' };
+}
+
+async function compileReplacementRoster(context) {
+  const { input, plan, decision, signals, dependencies } = context;
+  const rosterSize = targetRosterSize(input);
+  if (!rosterSize) return { adapted: false, reason: 'cohort_budget_below_minimum',
+    signals, plan, decision };
+  const components = await composeComponents({ ...input, rosterSize }, plan, dependencies);
+  const assignments = assignSurvivors({ input, components, challenge: decision.challenge,
+    primaryTopology: plan.selectedTopology });
+  if (!assignments) return { adapted: false,
+    reason: decision.challenge?.status === 'challenge_alternative_unavailable'
+      ? 'strategy_challenge_alternative_unavailable' : 'topology_rebind_unavailable', signals, plan, decision };
+  const cohort = replacementRosterBlueprint({ components, survivors: input.survivors,
+    continuation: input.continuation, state: input.state, challenge: decision.challenge,
+    primaryTopology: plan.selectedTopology });
+  if (!cohort.blueprint) return { adapted: false, reason: 'cohort_topology_unavailable',
+    signals, plan, decision };
+  const candidateAssignments = Object.fromEntries(cohort.blueprint.assignments.map((assignment) =>
+    [assignment.candidateId, { ...assignment, agentId: assignment.candidateId,
+      workerId: assignment.candidateId }]));
+  const publishedAssignments = input.survivors.length ? assignments : candidateAssignments;
+  bindGraphMission(plan.morphologyPatch.graph, { assignments: Object.values(publishedAssignments) });
+  const receipt = transitionReceipt(input, { plan, signals, assignments: publishedAssignments, decision });
+  return { adapted: true, assignments: publishedAssignments, cohortBlueprint: cohort.blueprint,
+    targetWorkerCount: cohort.rosterSize, plan, receipt, signals, decision };
+}
+
+function shouldSkipAdaptation(input, signals, decision) {
+  const challengeRequired = decision.challenge?.status === 'challenge_authorized';
+  return !adaptationRequired(signals, input.state.normalizedMission || {}) && !challengeRequired;
+}
+
 async function planContinuation(input, dependencies = {}) {
   const results = [...input.state.results.values()];
   const signals = evidenceSignals(results);
-  if (!adaptationRequired(signals, input.state.normalizedMission || {})) {
-    return { adapted: false, reason: 'adaptation_not_required', signals };
+  const decision = require('./morphogenesisEpochDecisionService').compilePolicy(input, signals);
+  if (shouldSkipAdaptation(input, signals, decision)) {
+    return { adapted: false, reason: 'adaptation_not_required', signals, decision };
   }
   const planner = dependencies.planMorphogenesis
     || require('./morphogenesisPlannerService').planMorphogenesis;
-  const plan = planner(plannerContext(input, signals));
-  compileAdaptiveGraph(input, { plan, state: input.state, signals });
-  const components = await composeComponents(input, plan, dependencies);
-  const assignments = assignSurvivors(input, components);
-  if (!assignments) return { adapted: false, reason: 'topology_rebind_unavailable', signals, plan };
-  bindGraphMission(plan.morphologyPatch.graph, { assignments: Object.values(assignments) });
-  const receipt = transitionReceipt(input, { plan, signals, assignments });
+  const plan = planner(plannerContext(input, signals, decision.policy));
+  compileAdaptiveGraph(input, { plan, state: input.state, signals, challenge: decision.challenge, decision });
+  const result = await compileReplacementRoster({ input, plan, decision, signals, dependencies });
+  if (!result.adapted) return result;
   input.state.plan.morphogenesisPlan = plan;
   input.state.plan.selectedTopology = plan.selectedTopology;
-  input.state.plan.morphogenesisDispatchAssignments = Object.values(assignments);
+  input.state.plan.morphogenesisDispatchAssignments = Object.values(result.assignments);
   input.state.plan.morphogenesisTransitions = [
-    ...(input.state.plan.morphogenesisTransitions || []), receipt
+    ...(input.state.plan.morphogenesisTransitions || []), result.receipt
   ];
-  return { adapted: true, assignments, plan, receipt, signals };
+  return result;
 }
 
 module.exports = { planContinuation, evidenceSignals, adaptationRequired, adaptiveExpression };

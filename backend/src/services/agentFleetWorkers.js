@@ -14,6 +14,8 @@ const { withTransaction } = require('../db');
 const config = require('../config/orchestratorConfig');
 const { calculateInheritedCognitiveBudget } = require('./workerCognitiveBudget');
 const { buildExecutionBudget, splitBudget } = require('./workerBudgetAllocationService');
+const cohortWorkerService = require('./agentCohortWorkerService');
+const { buildWorkerMeta } = require('./agentFleetWorkerMetadata');
 
 async function applyAgentDna(ctx) {
   const { db, parent, assignment, mission } = ctx;
@@ -74,12 +76,6 @@ function effectiveToolLease(assignment, capabilities, dnaSelection) {
   return lease;
 }
 
-function phenotypeHash(selection) {
-  if (!selection || !selection.genes) return null;
-  const crypto = require('crypto');
-  return crypto.createHash('sha256').update(JSON.stringify(selection.genes)).digest('hex').slice(0, 16);
-}
-
 async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const circuit = circuitBreaker.canExecute('worker_deployment', orchestrator.agent_type);
   if (!circuit.allowed) {
@@ -89,26 +85,12 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const mission = options.mission ?? (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
   validateAssignments(assignments, plan);
-  const parent = await db.get(
-        `SELECT a.id, a.name, a.agent_type, a.execution_mode, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
-          a.cognitive_budget, a.cognitive_baseline_budget,
-          w.path AS workspace_path, w.organization_id, w.project_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
-    orchestrator.id
-  );
-  if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
+  const parent = await loadWorkerParent(db, orchestrator);
   const context = buildWorkerContext({ parent, plan, mission, assignments });
-  const usedNames = [];
   const workers = [];
-  const workerIds = assignments.map((assignment, index) => assignedWorkerId(assignment, { orchestratorId: orchestrator.id, index,
-    teamRunId: plan.aTeam?.teamRun?.teamRunId, delegationOrdinal: plan.delegationOrdinal, nativeMissionPlan: Boolean(plan.nativeMissionPlan) }));
+  const workerIds = assignedWorkerIds(assignments, plan, orchestrator.id);
   try {
-    for (const [index, assignment] of assignments.entries()) {
-      const typedAssignment = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
-      const worker = await createWorker({ db, orchestrator, assignment: typedAssignment, index, id: workerIds[index], usedNames, ...context });
-      workers.push(worker);
-      if (mission.executionPolicy?.gqwfV2 === true) worker.gqwf = await require('./gqwf/workers').bindWorker(db,
-        { workerId: worker.agentId, workspaceId: parent.workspace_id, capsulePath: worker.workspaceRoot });
-    }
+    await createAssignedWorkers({ db, orchestrator, plan, mission, assignments, parent, context, workerIds, workers });
   } catch (error) {
     error.createdWorkers = await includePersistedWorkers(db, parent.id, { workers, workerIds });
     throw error;
@@ -116,11 +98,47 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   return workers;
 }
 
-function assignedWorkerId(assignment, context) {
-  if (Number.isSafeInteger(context.delegationOrdinal) && context.delegationOrdinal > 0) return `${context.orchestratorId}-d${context.delegationOrdinal}`;
-  if (context.nativeMissionPlan && assignment.workerId) return assignment.workerId;
-  if (context.teamRunId && assignment.workerId) return assignment.workerId;
-  return autonomousWorkerId(context.orchestratorId, context.index + 1);
+async function loadWorkerParent(db, orchestrator) {
+  const parent = await db.get(
+    `SELECT a.id, a.name, a.agent_type, a.execution_mode, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
+      a.cognitive_budget, a.cognitive_baseline_budget,
+      w.path AS workspace_path, w.organization_id, w.project_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
+    orchestrator.id
+  );
+  if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
+  return parent;
+}
+
+function assignedWorkerIds(assignments, plan, orchestratorId) {
+  return assignments.map((assignment, index) => cohortWorkerService.assignedWorkerId(assignment, {
+    orchestratorId, index, teamRunId: plan.aTeam?.teamRun?.teamRunId,
+    delegationOrdinal: plan.delegationOrdinal, nativeMissionPlan: Boolean(plan.nativeMissionPlan),
+    morphogenesisCohort: plan.morphogenesisCohort === true
+  }));
+}
+
+async function createAssignedWorkers(context) {
+  const { db, orchestrator, plan, mission, assignments, parent, workerIds, workers, context: workerContext } = context;
+  const usedNames = [];
+  for (const [index, assignment] of assignments.entries()) {
+    const typed = { ...assignment, workerKind: workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role) };
+    const existing = plan.morphogenesisCohort === true
+      ? await cohortWorkerService.existingCohortWorker(db, workerIds[index]) : null;
+    const worker = existing
+      ? cohortWorkerService.reuseCohortWorker(existing, { parentId: orchestrator.id, assignment: typed,
+        tokenBudget: workerContext.initialWorkerTokens?.[index] || workerContext.perWorkerTokens, mission })
+      : await createWorker({ ...workerContext, db, orchestrator, assignment: typed,
+        index, id: workerIds[index], usedNames });
+    workers.push(worker);
+    await bindWorkerGqwf({ db, mission, parent, worker });
+  }
+}
+
+async function bindWorkerGqwf(context) {
+  const { db, mission, parent, worker } = context;
+  if (mission.executionPolicy?.gqwfV2 !== true) return;
+  worker.gqwf = await require('./gqwf/workers').bindWorker(db,
+    { workerId: worker.agentId, workspaceId: parent.workspace_id, capsulePath: worker.workspaceRoot });
 }
 
 async function includePersistedWorkers(db, parentId, context) {
@@ -300,6 +318,7 @@ function workerInsertValues(details) {
 
 function fleetWorkerContract(details) {
   const { assignment, parent, mission, assignedTokens } = details;
+  if (details.plan?.morphogenesisCohort === true) return morphogenesisWorkerContract(assignment, parent, assignedTokens);
   const contract = workerKinds.buildWorkerContract(assignment.workerKind, {
     prompt: mission.prompt,
     scope: assignment.workerKind === 'recovery_worker' ? (details.workspaceRoot || mission.workspaceRoot) : mission.workspaceRoot,
@@ -317,33 +336,29 @@ function fleetWorkerContract(details) {
   return contract;
 }
 
+function morphogenesisWorkerContract(assignment, parent, assignedTokens) {
+  const contract = assignment.workerContract;
+  const kind = workerKinds.resolveWorkerKind(assignment.workerKind, assignment.role);
+  if (!contract || contract.identity?.workerKind !== kind
+    || contract.identity?.parentId !== parent.id
+    || contract.authority?.spawn === true || contract.authority?.delegate === true
+    || contract.authority?.topology === true) {
+    throw Object.assign(new Error('Morphogenesis worker contract is missing or exceeds its sealed authority.'), {
+      code: 'MORPHOGENESIS_WORKER_CONTRACT_INVALID'
+    });
+  }
+  if (!Number.isSafeInteger(assignedTokens) || assignedTokens < 0
+    || contract.resources?.maxTokens > assignedTokens) {
+    throw Object.assign(new Error('Morphogenesis worker contract exceeds its funded token tranche.'), {
+      code: 'MORPHOGENESIS_WORKER_BUDGET_INVALID'
+    });
+  }
+  return contract;
+}
+
 function workerWriteLease(mission) {
   return mission.writeLease === true || (mission.executionPolicy?.allowFileEdits === true
     && mission.workspaceProvisioned === true);
-}
-
-function resolveGenotypeRef(evolution) {
-  return evolution && (evolution.dnaGenomeRef || evolution.genomeRef) || null;
-}
-
-function buildWorkerMeta(details) {
-  const { parent, plan, mission, index, evolution, dnaSelection } = details;
-  const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const genotypeRef = resolveGenotypeRef(evolution);
-  return {
-    modelBudgetScope: mission.modelBudgetScope,
-    executionPolicy: mission.executionPolicy,
-    executionBudget: buildExecutionBudget({ executionBudget: mission.executionBudget, assignedTokens: details.assignedTokens, index, assignmentCount: assignmentList.length || 1 }),
-    orchestratorAgentId: parent.id,
-    budgetRound: { stage: 'initial', orchestratorId: parent.id },
-    genome: evolution.genes,
-    genomeRef: genotypeRef,
-    genotypeRef,
-    phenotypeHash: phenotypeHash(dnaSelection),
-    genomeContentHash: (evolution && evolution.genomeContentHash) || null,
-    dnaAuthority: Boolean(dnaSelection),
-    predictedFitness: evolution.predictedFitness
-  };
 }
 
 function formatWorker(details) {
@@ -378,4 +393,6 @@ function workerRuntime(details) {
   return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, capabilities, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
 }
 
-module.exports = { assignedWorkerId, createAutonomousWorkers, splitBudget, buildExecutionBudget, buildWorkerMeta, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity, validateAssignments };
+module.exports = { assignedWorkerId: cohortWorkerService.assignedWorkerId, createAutonomousWorkers, splitBudget,
+  buildExecutionBudget, buildWorkerMeta, inheritedWorkerEngine, calculateInheritedCognitiveBudget,
+  buildWorkerPrompt, includePersistedWorkers, workerIdentity, validateAssignments };

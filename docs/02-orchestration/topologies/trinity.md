@@ -1499,7 +1499,7 @@ Trinity est une architecture d'orchestration multi-agents dont le principe fonda
 | 6 | **Trinity-Pareto** | Les mondes optimisent des **objectifs orthogonaux** (qualité, coût, latence). Le front de Pareto détermine l'élite. | Optimisation multi-objectif explicite. | Monde 1 = max qualité, Monde 2 = min latence, Monde 3 = min coût. |
 | 7 | **Trinity-Jury** | Les sorties de chaque monde sont évaluées **anonymement** par des modèles juges consultatifs qui ne reçoivent pas l'identité du monde. | Évaluation aveugle, détection de biais de source à mesurer. | Jusqu'à 5 juges configurés évaluent les propositions ; l'avis reste consultatif et ne remplace aucun gate. |
 | 8 | **Trinity-Recursive** | Si un monde identifie la tâche comme « difficile », il peut **lancer localement une sous-Trinity** pour résoudre un sous-problème. | Décomposition hiérarchique, escalation contrôlée. | Un module de raisonnement complexe invoque une micro-Trinity pour explorer 3 sous-approches. |
-| 9 | **Trinity-Adaptive** | Le nombre de replicas et le **budget de calcul** de chaque monde évoluent **en cours d'exécution** selon les signaux intermédiaires. | Allocation dynamique des ressources. | Un monde qui progresse vite reçoit plus de tokens ; un autre stagne est réduit. |
+| 9 | **Trinity-Adaptive** | Le runtime livré conserve trois mondes scellés et, après leurs rapports initiaux, peut répartir un pool de continuation selon leurs incertitudes vérifiées. L'évolution du nombre de réplicas décrite en section 8 reste conceptuelle et n'est pas implémentée. | Réallocation bornée du budget entre les trois mondes. | Une incertitude vérifiée plus élevée reçoit une part plus importante du pool ; aucun monde n'est ajouté, supprimé ou remplacé par ce mécanisme. |
 | 10 | **Trinity-Temporal** | Les mondes opèrent à des **horizons temporels** différents : l'un réagit vite (court terme), un autre raisonne longuement (long terme). | Tâches urgentes vs tâches de fond. | Court terme = réponse immédiate, Moyen terme = synthèse, Long terme = réflexion stratégique. |
 | 11 | **Trinity-Oracular** | Un monde fait office d'**oracle** : il ne résout pas la tâche, il **prédit quel monde** produira la meilleure réponse, et pourquoi. | Méta-raisonnement, sélection a priori. | L'oracle prédit que le Monde 2 réussira car la tâche est dans sa zone de compétence. |
 | 12 | **Trinity-Exploratory** | Les mondes sont encourgés à **diverger maximalement** (température élevée, objectifs opposés). La sélection se fait par novelty search. | Créativité, découverte, innovation. | Génération de concepts radicalement différents pour un problème ouvert. |
@@ -1799,17 +1799,28 @@ $$\boxed{
 \end{aligned}
 }$$
 
-## 8. Trinity-Adaptive : évolution dynamique des replicas et budgets
+## 8. Trinity-Adaptive : modèle conceptuel d'évolution des réplicas
+
+> **État d'implémentation :** les règles d'ajout, de retrait et de remplacement de
+> mondes ci-dessous sont une proposition conceptuelle, pas le comportement du runtime.
+> Le runtime conserve trois mondes scellés. Après les trois rapports initiaux, le
+> variant adaptatif répartit une fois le pool de continuation selon les incertitudes
+> numériques appuyées par des preuves vérifiées, puis lance une continuation isolée
+> pour chacun des trois mondes. Ces continuations n'ouvrent pas une nouvelle époque
+> d'allocation Trinity répétée. Trinity reste hors de la boucle générale de cohortes
+> morphogénétiques et de son store de checkpoints.
 
 ### 8.1 Principe
 
-La variante **Adaptive** étend le mécanisme de budget adaptatif en faisant également évoluer le **nombre de replicas** pendant l'expérience. Contrairement aux variantes fixes où $|W|$ est constant, ici le système peut :
+Le modèle conceptuel ci-dessous explore une variante future où le **nombre de réplicas** pourrait évoluer entre des vagues scellées. Ces opérations ne sont pas implémentées : le runtime actuel ne fait pas évoluer $|W|$ et ne modifie jamais un worker pendant son inférence. Il peut :
 
 - **Ajouter** un nouveau monde si les existants ne convergent pas assez vite,
 - **Supprimer** un monde s'il est clairement dominé,
 - **Remplacer** un monde par un autre plus diversifié.
 
 ### 8.2 Équations d'évolution
+
+Les équations suivantes définissent une piste de conception ; elles ne sont pas exécutées par le runtime actuel.
 
 Le nombre de mondes actifs à l'étape $t$ est noté $k(t)$. Il évolue selon :
 
@@ -1834,6 +1845,8 @@ On remplace le monde $i$ par un candidat $j \notin W(t)$ si :
 $$\mathcal{D}(W(t) \setminus \{i\} \cup \{j\}) > \mathcal{D}(W(t)) + \delta_{\text{repl}}$$
 
 ### 8.3 Convergence garantie
+
+Cette garantie est une propriété du modèle mathématique sous ses hypothèses, pas une garantie du runtime GenOS : les opérations Add/Remove ne sont pas livrées.
 
 Le processus est garanti de converger en un nombre fini d'étapes car :
 - $k(t)$ est borné : $k_{\min} \leq k(t) \leq k_{\max}$,

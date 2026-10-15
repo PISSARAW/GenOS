@@ -16,10 +16,12 @@ const consolidationPolicyService = require('../memory/consolidationPolicyService
 const morphologyLearningService = require('./morphologyLearningService');
 const outcomeEvidenceValidation = require('./learning/outcomeEvidenceValidation');
 const regulatoryBridge = require('../regulation/regulatoryBridgeService');
+const crypto = require('node:crypto');
 
 const PROVENANCE_SOURCE = 'causalLoopService';
 const loopHistory = [];
 const MAX_HISTORY = 1000;
+const idempotentReceipts = new Map();
 
 // ---------------------------------------------------------------------------
 // Pipeline steps
@@ -214,14 +216,45 @@ function regulationViewOf(regulation) {
 }
 
 function processActionReceipt(ctx) {
-  const { actionReceipt, agentId, expressionContext, organizationId = null, projectId = null } = ctx || {};
-  if (!actionReceipt || !agentId) {
-    return { error: 'invalid_context', receipt: null };
-  }
-  if (Boolean(organizationId) !== Boolean(projectId)) {
-    return { error: 'invalid_scope', receipt: null };
-  }
+  const input = normalizeContext(ctx);
+  if (input.error) return input.error;
+  const replay = idempotentReplay(input);
+  if (replay) return replay;
+  const receipt = applyLearningPipeline(input);
+  rememberIdempotentReceipt(input, receipt);
+  return receipt;
+}
 
+function normalizeContext(ctx) {
+  const input = ctx || {};
+  if (!input.actionReceipt || !input.agentId) return { error: { error: 'invalid_context', receipt: null } };
+  if (Boolean(input.organizationId) !== Boolean(input.projectId)) {
+    return { error: { error: 'invalid_scope', receipt: null } };
+  }
+  const context = { ...input, organizationId: input.organizationId || null, projectId: input.projectId || null };
+  context.idempotencyKey = String(input.idempotencyKey || '').trim();
+  context.fingerprint = context.idempotencyKey && crypto.createHash('sha256')
+    .update(JSON.stringify({ agentId: context.agentId, organizationId: context.organizationId,
+      projectId: context.projectId, actionReceipt: context.actionReceipt })).digest('hex');
+  return context;
+}
+
+function idempotentReplay(input) {
+  if (!input.idempotencyKey) return null;
+  const previous = idempotentReceipts.get(input.idempotencyKey);
+  if (!previous) return null;
+  if (previous.fingerprint !== input.fingerprint) return { error: 'idempotency_conflict', receipt: null };
+  return previous.receipt;
+}
+
+function rememberIdempotentReceipt(input, receipt) {
+  if (!input.idempotencyKey) return;
+  idempotentReceipts.set(input.idempotencyKey, { fingerprint: input.fingerprint, receipt });
+  if (idempotentReceipts.size > MAX_HISTORY) idempotentReceipts.delete(idempotentReceipts.keys().next().value);
+}
+
+function applyLearningPipeline(input) {
+  const { actionReceipt, agentId, expressionContext, organizationId, projectId } = input;
   const evidence = actionReceipt.evidence || actionReceipt;
   const outcome = computeOutcome({ receipt: actionReceipt, agentId, organizationId, projectId });
   const rpe = computeRPE(outcome, actionReceipt);

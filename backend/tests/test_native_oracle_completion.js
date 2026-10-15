@@ -33,6 +33,14 @@ async function qualify(db) {
   const receipt = await require('../src/services/biologicalWorkerStore').receipt(db, row.id);
   assert.equal(receipt.result.verified, true);
   assert.equal(receipt.semanticVerification.budgetAssessment.satisfied, true);
+  const observations = await require('../src/services/biologicalWorkerStore').observations(db, row.id);
+  const terminal = observations.find(item => item.event.eventType === 'AGENT_COMPLETED')?.event;
+  const qualityEvidence = terminal?.payload?.qualityEvidence;
+  const outcomeEvidence = require('../src/services/morphogenesis/learning/outcomeEvidenceValidation');
+  assert.equal(outcomeEvidence.validate(qualityEvidence, {
+    actionId: row.id, agentId: result.childAgentId, organizationId: 'delegation-org', projectId: 'delegation-project'
+  }), true, 'accepted native oracle terminal carries run and tenant bound signed quality evidence');
+  assert.equal(terminal.payload.qualityEvidenceStatus.status, 'verified');
   await require('./helpers/nativeCompletionProbes').qualify(db, { request, authority, attestation });
   await humanApproval(db);
   await require('./helpers/nativeOracleReservationProbes').contention(db,

@@ -1,11 +1,19 @@
 'use strict';
 
-const causalLoop = require('./morphogenesis/causalLoopService');
 const outcomeEvidence = require('./morphogenesis/learning/outcomeEvidenceValidation');
 
 const VERIFIED_RECEIPT_SCHEMA = 'genos.native-oracle-receipt-reference/v1';
 
 async function observe(db, input) {
+  const queued = await enqueueVerified(db, input);
+  if (queued.status !== 'queued') return queued;
+  const completed = await require('./causalLearningOutbox').completed(db, input.run.id);
+  if (completed) return completed;
+  const results = await require('./causalLearningOutbox').drain(db, { limit: 1 });
+  return results[0] || { status: 'queued', runId: input.run.id };
+}
+
+async function enqueueVerified(db, input) {
   const { run, biologicalReceipt, event } = input;
   if (!eligibleRun(run, biologicalReceipt, event)) return { status: 'refused', reason: 'verified_quality_input_required' };
   const scope = await runScope(db, run.agent_id);
@@ -17,17 +25,13 @@ async function observe(db, input) {
   if (!outcomeEvidence.validate(qualityEvidence, binding)) {
     return { status: 'refused', reason: 'signed_quality_evidence_binding_required' };
   }
-  const receipt = causalLoop.processActionReceipt({
-    agentId: run.agent_id,
-    organizationId: scope.organizationId,
-    projectId: scope.projectId,
-    actionReceipt: actionReceipt(run, event, qualityEvidence)
-  });
-  return { status: receipt.outcome?.qualityVerified ? 'observed' : 'refused', receipt };
+  await require('./causalLearningOutbox').enqueue(db, { run, biologicalReceipt, event, scope });
+  return { status: 'queued', runId: run.id };
 }
 
 function eligibleRun(run, receipt, event) {
   return run?.status === 'completed' && receipt?.result?.verified === true
+    && Boolean(receipt.missionId)
     && receipt?.budgetAssessment?.satisfied === true
     && receipt?.semanticVerification?.schema === VERIFIED_RECEIPT_SCHEMA
     && event?.eventType === 'AGENT_COMPLETED'
@@ -61,4 +65,4 @@ function actionReceipt(run, event, qualityEvidence) {
   };
 }
 
-module.exports = { observe };
+module.exports = { observe, enqueueVerified, actionReceipt };
