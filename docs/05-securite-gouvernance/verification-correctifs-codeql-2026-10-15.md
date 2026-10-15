@@ -22,8 +22,8 @@ Le dernier contrôle qualité a depuis échoué avec trois nouvelles violations 
 
 Les suites plus larges `npm test`, `npm run test:security` et `cargo test --workspace` ont été tentées. Elles n’ont pas fourni de validation complète : les tests backend échouent à ouvrir des ports localhost (`EACCES`) et la compilation Rust échoue sur `aws-lc-sys` avec `PermissionDenied`.
 
-## Alertes de workflows non vérifiables localement
+## Alertes de workflows
 
-Les alertes portant sur `.github/workflows/backend-ci.yml`, `.github/workflows/backend-validation.yml` et `.github/workflows/validation.yml` sont au nombre de 12 dans l’objectif. Aucun fichier n’est présent ou suivi dans `.github/workflows` dans ce checkout. Les tentatives précédentes de récupération de ces chemins sur la branche `v3` ont retourné 404. Leur contenu ne peut donc pas être corrigé ou vérifié sans les sources réelles. Aucun workflow de remplacement n’a été créé, car leurs étapes et déclencheurs ne sont pas connus.
+Les 12 alertes portent sur `.github/workflows/backend-ci.yml`, `.github/workflows/backend-validation.yml` et `.github/workflows/validation.yml`. Ces fichiers avaient été supprimés dans le commit `2d4a8ba8`; leur contenu a été récupéré depuis son parent pour conserver les tâches CI existantes. Les trois workflows définissent maintenant `permissions: contents: read` au niveau global. Aucun de leurs jobs ne publie de contenu ni ne modifie le dépôt, donc aucun droit d’écriture du `GITHUB_TOKEN` n’est accordé.
 
-La CLI CodeQL et un accès aux alertes GitHub ne sont pas disponibles dans cet environnement. Il reste donc à confirmer la fermeture des alertes après analyse CodeQL et à traiter les 12 alertes de workflows quand leurs fichiers sources seront accessibles.
+Les chemins étaient absents de la branche GitHub `v3` au moment de la vérification (API de contenu : 404). Les corrections sont désormais présentes dans le commit local et doivent être intégrées à la branche pour que GitHub les analyse. La CLI CodeQL et un accès de lecture aux alertes GitHub ne sont pas disponibles ici; leur fermeture après analyse n’a pas pu être confirmée.
