@@ -37,6 +37,7 @@ function serverConfig(existing = {}) {
       GENOS_REPO_ROOT: root,
       GENOS_WORKSPACE_ROOT: root,
       GENOS_CAPSULE_ROOT: root,
+      GENOS_VFS_WORKSPACES: '1',
       GENOS_BIN: path.join(root, 'target/debug', process.platform === 'win32' ? 'genos.exe' : 'genos'),
       GENOS_MCP_LEASE: profile.tools.join(','),
       GENOS_MCP_TOOL_TIMEOUT_MS: '120000'

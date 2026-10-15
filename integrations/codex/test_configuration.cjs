@@ -20,6 +20,7 @@ try {
   assert.equal(result.mcpServers.genos.command, process.execPath);
   assert.equal(result.mcpServers.genos.env.GENOS_MCP_DISABLED_TOOLS, 'genos_audit');
   assert.equal(result.mcpServers.genos.env.GENOS_CAPSULE_ROOT, path.resolve(__dirname, '../..'));
+  assert.equal(result.mcpServers.genos.env.GENOS_VFS_WORKSPACES, '1');
   assert.ok(result.mcpServers.genos.env.GENOS_MCP_LEASE.includes('genos_record_decision'));
   assert.ok(fs.existsSync(result.mcpServers.genos.args[0]));
   assert.equal(JSON.parse(fs.readFileSync(path.join(target, '.codex-plugin/plugin.json'))).interface.displayName, 'GenOS');
