@@ -19,6 +19,8 @@ function execution(ctx) {
     agentType: mission.agentType || '', executionMode: ctx.dispatchedAgent.execution_mode,
     orchestratorAgentId: mission.orchestratorAgentId || '', missionId: mission.missionId || '',
     autonomyPlanJson: JSON.stringify(runtimeAutonomyPlan(ctx.autonomyPlan || {})), toolLeaseJson: JSON.stringify(mission.toolLease || []),
+    organization: mission.organization || '',
+    coordinationPolicyJson: JSON.stringify(mission.coordinationPolicy || mission.coordination_policy || {}),
     genosCapsuleJson: JSON.stringify(ctx.genosCapsule), executionPolicyJson: JSON.stringify(mission.executionPolicy),
     modelBudgetScopeJson: mission.modelBudgetScope ? JSON.stringify(mission.modelBudgetScope) : '',
     executionBudgetJson: JSON.stringify(ctx.runtimeBudget || {}) };
