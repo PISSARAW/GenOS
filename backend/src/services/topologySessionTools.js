@@ -284,7 +284,7 @@ async function dispatchTopologyOperation(context) {
     });
   }
   const handler = operationHandler(record.topology, operation);
-  if (handler) return handler(db, sessionId, args);
+  if (handler) return Reflect.apply(handler, undefined, [db, sessionId, args]);
   throw new Error(`Unsupported operation '${operation}' for ${record.topology} session.`);
 }
 

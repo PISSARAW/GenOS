@@ -287,7 +287,7 @@ function executeBioExtra(toolName, args = {}, options = {}) {
     return handleBioExtraTool(toolName, args, timeoutMs);
   }
   const handler = getToolHandler(toolName) || IN_MEMORY_HANDLERS.get(toolName);
-  if (handler) return handler(args, timeoutMs);
+  if (handler) return Reflect.apply(handler, undefined, [args, timeoutMs]);
   return null;
 }
 

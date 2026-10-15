@@ -58,7 +58,7 @@ const BIO_EXTRA_HANDLERS = new Map(Object.entries({
 
 async function handleBioExtraTool(toolName, args, timeoutMs) {
   const handler = BIO_EXTRA_HANDLERS.get(toolName);
-  if (handler) return await handler(args, timeoutMs);
+  if (handler) return await Reflect.apply(handler, undefined, [args, timeoutMs]);
   return null;
 }
 

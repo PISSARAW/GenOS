@@ -56,7 +56,7 @@ class StrategyExecutionAdapter {
 
     const handler = Object.hasOwn(HANDLERS, primitive) ? HANDLERS[primitive] : null;
     if (handler) {
-      return handler(context);
+      return Reflect.apply(handler, undefined, [context]);
     }
 
     const error = new Error(`Strategy primitive '${primitive}' has no registered handler.`);
