@@ -10,7 +10,8 @@ const { composeMultiteam } = require('./multiteam/multiteamComposer');
 const { buildOperationalPolicy } = require('./variants/operationalVariantPolicy');
 
 function prepareDispatchPolicy(input = {}) {
-  const mission = input.mission || {};
+  const source = input.mission || {};
+  const mission = { ...source, variant: source.variant || source.team_variant || source.teamVariant };
   const plan = compatibleVariantPlan({ ...mission, interfaceCount: countInterfaces(input.members),
     parallelWorkstreams: countIndependent(input.members) }, input.members || []);
   const memberCount = declaredMemberCount(mission, plan, input.members);

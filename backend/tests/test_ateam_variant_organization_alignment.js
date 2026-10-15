@@ -13,7 +13,7 @@ const members = [
 const team = coordination.coordinateMembers(members, { organization: 'specialist_expert_committee' });
 team.members = members;
 const dispatch = prepareDispatchPolicy({
-  mission: { goal: 'Audit worker identities and relationships', variant: 'cross_functional_pod' }, members
+  mission: { goal: 'Audit worker identities and relationships', teamVariant: 'cross_functional_pod' }, members
 });
 alignTeamOrganization(team, dispatch.policy, {
   goal: 'Audit worker identities and relationships', successCriteria: ['peer communication proven'], availableSlots: 3
@@ -24,5 +24,10 @@ assert.equal(team.organization, 'cross_functional_pod');
 assert.equal(team.capabilityContract.organization, 'cross_functional_pod');
 assert.equal(team.teamContract.organization, 'cross_functional_pod');
 assert.equal(team.readiness.ready, true);
+
+const snakeCaseDispatch = prepareDispatchPolicy({
+  mission: { goal: 'Audit worker identities and relationships', team_variant: 'cross_functional_pod' }, members
+});
+assert.equal(snakeCaseDispatch.policy.variant, 'cross_functional_pod');
 
 console.log('A-Team variant organization alignment: PASS');
