@@ -280,7 +280,7 @@ function waitReconnect() {
 
 function bind(state) {
   if (runtime.binding) return runtime.binding.state === state;
-  const exactLineage = lineage(state?.mission);
+  const exactLineage = lineage(state?.controlLineage || state?.mission);
   if (!state || typeof state.framedPrompt !== 'string' || !state.framedPrompt
     || !complete(exactLineage)) return false;
   runtime.binding = { state, lineage: Object.freeze(exactLineage) };

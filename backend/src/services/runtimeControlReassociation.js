@@ -4,6 +4,7 @@ const { activeProcesses } = require('./agentOrchestrationState');
 const capability = require('./runtimeControlCapability');
 const client = require('./runtimeControlReconnectClient');
 const protocol = require('./runtimeControlReconnectProtocol');
+const recoveredSupervisor = require('./recoveredRuntimeSupervisor');
 
 const READY_TIMEOUT_MS = 5000;
 const reservations = new Set();
@@ -58,6 +59,8 @@ async function perform(options, lineage) {
     channel.destroy();
     throw new Error('Runtime ownership changed during reassociation.');
   }
+  channel.genosRecoveredSupervisor = recoveredSupervisor.attach({ channel, lineage,
+    runtimeInstanceId: channel.genosRuntimeInstanceId });
   activeProcesses.set(lineage.workerId, channel);
   channel.once('close', () => {
     if (activeProcesses.get(lineage.workerId) === channel) activeProcesses.delete(lineage.workerId);

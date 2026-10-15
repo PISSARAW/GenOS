@@ -60,13 +60,46 @@ function runtimeStopped(child) {
   }
 }
 
-function rejectCpuAccounting(context, state, failure) {
+function warnCpuDegraded(context, state, failure) {
+  state.degraded = true;
+  const detail = 'Worker CPU accounting is unavailable; enforcing a conservative wall-clock cap instead of measured CPU.';
+  const payload = { maxCpuMs: state.limit,
+    reason: failure && failure.message ? failure.message : String(failure) };
+  try {
+    if (typeof context.emitTracked === 'function') {
+      context.emitTracked('WORKER_CPU_ACCOUNTING_DEGRADED', 'CPU_BUDGET', detail,
+        payload, 'warning', 'running');
+      return;
+    }
+    require('../telemetryObserver').emitEvent({ eventType: 'WORKER_CPU_ACCOUNTING_DEGRADED',
+      agentId: context.agentId || 'worker', action: 'CPU_BUDGET', detail, payload,
+      severity: 'warning' });
+  } catch (_) { /* Telemetry must never break worker supervision. */ }
+}
+
+function armDegradedCpuCap(context, state) {
+  if (!Number.isFinite(state.limit) || state.limit <= 0 || state.capTimer) return;
+  if (runtimeStopped(context.child)) return;
+  const timer = setTimeout(() => {
+    if (runtimeStopped(context.child)) return;
+    cpuFailure(context, 'worker_cpu_budget_exceeded', { maxCpuMs: state.limit,
+      observedCpuMs: null, cpuAccounting: 'degraded', degradedCapMs: state.limit });
+  }, Math.min(state.limit, MAX_WORKER_DEADLINE_MS));
+  if (typeof timer.unref === 'function') timer.unref();
+  state.capTimer = timer;
+  context.child.once('close', () => clearTimeout(timer));
+}
+
+function degradeCpuAccounting(context, state, failure) {
   if (runtimeStopped(context.child)) return;
   if (state.timer) { clearInterval(state.timer); state.timer = null; }
-  cpuFailure(context, 'worker_cpu_accounting_unavailable', {
-    maxCpuMs: state.limit,
-    reason: failure && failure.message ? failure.message : String(failure)
-  });
+  if (state.degraded) return;
+  warnCpuDegraded(context, state, failure);
+  armDegradedCpuCap(context, state);
+}
+
+function rejectCpuAccounting(context, state, failure) {
+  degradeCpuAccounting(context, state, failure);
 }
 
 function reportCpuAccountingFailure(context, state, failure) {
@@ -93,25 +126,24 @@ function startWorkerCpuBudget(context) {
   const resources = context.normalizedMission.workerContract?.resources;
   if (!resources || !Object.hasOwn(resources, 'maxCpuMs')) return;
   const limit = Number(resources.maxCpuMs);
-  if (!Number.isFinite(limit)) {
-    cpuFailure(context, 'worker_cpu_budget_invalid', {
-      maxCpuMs: resources.maxCpuMs, reason: 'Worker CPU limit is not finite.'
-    });
+  if (!Number.isFinite(limit) || limit < 0) {
+    degradeCpuAccounting(context, { limit: resources.maxCpuMs, degraded: false,
+      timer: null, capTimer: null },
+    new Error('Worker CPU limit is not a measurable nonnegative ceiling.'));
     return;
   }
   if (limit === 0) {
     cpuFailure(context, 'worker_cpu_budget_exceeded', { maxCpuMs: limit, observedCpuMs: 0 });
     return;
   }
-  if (limit < 0 || !context.child.pid) {
-    cpuFailure(context, limit < 0 ? 'worker_cpu_budget_invalid'
-      : 'worker_cpu_accounting_unavailable', {
-      maxCpuMs: limit, reason: 'Worker CPU budget requires a measurable process and a nonnegative limit.'
-    });
+  if (!context.child.pid) {
+    degradeCpuAccounting(context, { limit, degraded: false, timer: null,
+      capTimer: null },
+    new Error('Worker CPU accounting has no measurable process.'));
     return;
   }
   const state = { limit, previous: 0, consumed: 0, accountingFailures: 0,
-    sampling: false, timer: null };
+    sampling: false, timer: null, degraded: false, capTimer: null };
   const intervalMs = Math.min(500, Math.max(50, Math.floor(limit / 100)));
   const timer = setInterval(() => sampleCpuBudget(context, state), intervalMs);
   state.timer = timer;

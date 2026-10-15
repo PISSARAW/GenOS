@@ -349,13 +349,21 @@ async function handleWorker({ db, context }) {
   const worker = await prepareWorker({ db, context, parent, reusable });
   await startWorker({ db, context, parent, reusable, worker });
 }
+function requestedTrinityId(request) {
+  return request.missionId || request.mission_id || request.experimentId || request.experiment_id || null;
+}
+async function mergeScope(db, requestedId, hasReports) {
+  const scope = requestedId ? await trinityComparativeBarrier.resolveTrinityScope(db, requestedId) : null;
+  if (!hasReports && requestedId && !scope) throw Object.assign(new Error(`Trinity experiment '${requestedId}' was not found.`), { code: 'TRINITY_EXPERIMENT_NOT_FOUND' });
+  return scope;
+}
 async function handleTrinityMerge({ db, context }) {
   const { request, orchestratorId } = context;
-  const missionId = request.missionId || request.mission_id;
+  const requestedId = requestedTrinityId(request);
   let worldReports = request.worldReports || request.world_reports || [];
-  if (!worldReports.length && missionId) {
-    worldReports = await trinityComparativeBarrier.buildWorldReportsFromMission(db, missionId);
-  }
+  const scope = await mergeScope(db, requestedId, worldReports.length > 0);
+  if (!worldReports.length && scope) worldReports = await trinityComparativeBarrier.buildWorldReportsFromMission(db, scope.experimentId);
+  const missionId = scope ? scope.missionId : requestedId;
   const domain = request.domain || 'software_engineering';
   const threshold = typeof request.threshold === 'number' ? request.threshold : 0.70;
   const result = trinityService.mergeTrinityEvidence(worldReports, { domain, threshold });
@@ -373,22 +381,11 @@ async function handleTrinityMerge({ db, context }) {
   }));
 }
 const HANDLERS = {
-  report_progress: handleReportProgress,
-  execute_primitive: handlePrimitive,
-  execute_mission_action: handleMissionAction,
-  change_strategy: handleStrategy,
-  change_organization: handleOrganizationChange,
-  organization_publish: handleOrganizationPublish,
-  organization_inbox: handleOrganizationRead,
-  organization_state: handleOrganizationRead,
-  dispatch_trinity: handleTrinity,
-  merge_trinity: handleTrinityMerge,
-  compare_trinity: handleTrinityMerge,
-  dispatch_team: handleTeam,
-  dispatch_biological: handleBiological,
-  dispatch_worker: handleWorker,
-  ontology: handleOntologyRequest,
-  philosophy: handlePhilosophyRequest
+  report_progress: handleReportProgress, execute_primitive: handlePrimitive, execute_mission_action: handleMissionAction,
+  change_strategy: handleStrategy, change_organization: handleOrganizationChange, organization_publish: handleOrganizationPublish,
+  organization_inbox: handleOrganizationRead, organization_state: handleOrganizationRead, dispatch_trinity: handleTrinity,
+  merge_trinity: handleTrinityMerge, compare_trinity: handleTrinityMerge, dispatch_team: handleTeam,
+  dispatch_biological: handleBiological, dispatch_worker: handleWorker, ontology: handleOntologyRequest, philosophy: handlePhilosophyRequest
 };
 async function handleAction(context) {
   const handler = HANDLERS[context.action];

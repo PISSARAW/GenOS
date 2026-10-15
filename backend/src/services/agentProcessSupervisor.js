@@ -4,8 +4,6 @@
  * decisions, and translates the exit into a terminal agent outcome.
  */
 const path = require('path');
-const fsSync = require('fs');
-const { spawn } = require('child_process');
 const { encodeMission } = require('./runtimeProtocol');
 const { resolveExecutable, isLocalRuntime } = require('./agentRuntimeExecutable');
 const { trustedRuntimeExecutable, isDirectFileRuntime, directFileWriter } = require('./runtimeSpawnPolicy');
@@ -22,6 +20,7 @@ const workerRecovery = require('./workerFailureRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const agentConscience = require('./agentConscienceService');
 const { terminateChild } = require('./processTermination');
+const { spawnRuntimeWithRetry } = require('./agentProcessSpawner');
 const childTermination = require('./agentChildTerminationObserver');
 const {
   buildRuntimeEnvironment,
@@ -173,91 +172,6 @@ function resolveSpawnCommand(resolvedExecutable) {
   return { spawnCmd: trustedExecutable, spawnArgs: [] };
 }
 
-function ensureCwd(spawnOptions) {
-  if (!spawnOptions || !spawnOptions.cwd) return;
-  try { fsSync.mkdirSync(spawnOptions.cwd, { recursive: true }); } catch (_) {}
-}
-
-function sleepMs(ms) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    if (typeof timer.unref === 'function') timer.unref();
-  });
-}
-
-function probeArgs(spawnSpec) {
-  const isNodeScript = spawnSpec.cmd === process.execPath;
-  return isNodeScript ? ['-e', ''] : ['--version'];
-}
-
-function probeAttempt(spawnSpec) {
-  return new Promise((resolve) => {
-    let settled = false;
-    const done = (ok) => { if (!settled) { settled = true; resolve(ok); } };
-    let probe;
-    try {
-      probe = spawn(spawnSpec.cmd, probeArgs(spawnSpec), { stdio: 'ignore' });
-    } catch (_) { done(false); return; }
-    const timer = setTimeout(() => { try { probe.kill('SIGKILL'); } catch (_) {} done(false); }, 5000);
-    if (typeof timer.unref === 'function') timer.unref();
-    probe.on('error', () => { clearTimeout(timer); done(false); });
-    probe.on('close', (code) => { clearTimeout(timer); done(code === 0); });
-  });
-}
-
-async function probeCommand(spawnSpec) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const ok = await probeAttempt(spawnSpec);
-    if (ok) return true;
-    if (!fsSync.existsSync(spawnSpec.cmd) || attempt === 2) return false;
-    await sleepMs(200);
-  }
-  return false;
-}
-
-function attachNoopErrorSinks(child) {
-  if (child.stdin) child.stdin.on('error', () => {});
-  if (child.stdout) child.stdout.on('error', () => {});
-  if (child.stderr) child.stderr.on('error', () => {});
-}
-
-function isTransientSpawnError(err) {
-  return err.code === 'ENOTCONN' || err.code === 'ECONNREFUSED' || err.code === 'EPERM' || err.code === 'EACCES';
-}
-
-async function spawnWithRetry(spawnSpec, spawnOptions, maxAttempts) {
-  let lastError;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      const child = spawn(spawnSpec.cmd, spawnSpec.args, spawnOptions);
-      attachNoopErrorSinks(child);
-      await new Promise((resolve, reject) => {
-        child.once('spawn', resolve);
-        child.once('error', reject);
-      });
-      return child;
-    } catch (err) {
-      lastError = err;
-      const executableExists = fsSync.existsSync(spawnSpec.cmd);
-      const canRetry = attempt < maxAttempts - 1
-        && (isTransientSpawnError(err) || (err.code === 'ENOENT' && executableExists));
-      if (!canRetry) throw err;
-      await sleepMs(400);
-    }
-  }
-  throw lastError;
-}
-
-async function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
-  // A missing spawn cwd reports as a misleading `spawn <exe> ENOENT` on
-  // Windows. Recreate the cwd before spawning, and probe the command so a
-  // transient antivirus lock does not kill the mission either.
-  ensureCwd(spawnOptions);
-  await probeCommand(spawnSpec);
-  // Windows can emit an unhandled 'error' on a stdio Socket immediately after
-  // spawn returns. Attach no-op error sinks and retry on transient errors.
-  return spawnWithRetry(spawnSpec, spawnOptions, 3);
-}
 async function superviseMission(options) {
   const authority = await require('./missionEnvelopeAuthority').assertRun(options.db, {
     agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission });
@@ -288,6 +202,14 @@ async function superviseMission(options) {
   const mcpActorToken = bodyActionId && mcpDbPath
     ? await require('./mcpActorCapability').issue(db, { agentId,
       runId: executionRun.id, workspaceRoot }) : null;
+  const controlIdentity = Object.freeze({ workerId: agentId,
+    missionId: normalizedMission.missionId || '',
+    episodeId: normalizedMission.episodeId || normalizedMission.missionScope?.episodeId || '',
+    threadId: normalizedMission.threadId || normalizedMission.missionScope?.threadId || '',
+    organizationId: controlTenant?.organization_id || '',
+    projectId: controlTenant?.project_id || '' });
+  const reconnectProvisioning = require('./runtimeControlReconnectProvisioning');
+  const reconnect = reconnectProvisioning.prepare(isLocalRuntime(resolvedExecutable), controlIdentity);
   let child;
   try {
     const cpuResources = normalizedMission.workerContract?.resources;
@@ -298,7 +220,8 @@ async function superviseMission(options) {
     cwd: workspaceRoot,
     env: { ...buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
       ...(normalizedMission.modelBudgetScope && mcpDbPath && isLocalRuntime(resolvedExecutable) ? { GENOS_DB_PATH: mcpDbPath } : {}),
-      ...(mcpActorToken ? { GENOS_MCP_ACTOR_TOKEN: mcpActorToken, GENOS_DB_PATH: mcpDbPath } : {}) },
+      ...(mcpActorToken ? { GENOS_MCP_ACTOR_TOKEN: mcpActorToken, GENOS_DB_PATH: mcpDbPath } : {}),
+      ...reconnect.environment },
     stdio: isLocalRuntime(resolvedExecutable) || isDirectFileRuntime(resolvedExecutable)
       ? ['pipe', 'pipe', 'pipe', 'ipc'] : ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32'
@@ -312,8 +235,11 @@ async function superviseMission(options) {
   }
   child.genosDetached = process.platform !== 'win32';
   child.genosCaptureBarrier = isLocalRuntime(resolvedExecutable);
-  child.genosControlIdentity = Object.freeze({ workerId: agentId, missionId: normalizedMission.missionId || '', episodeId: normalizedMission.episodeId || normalizedMission.missionScope?.episodeId || '', threadId: normalizedMission.threadId || normalizedMission.missionScope?.threadId || '', organizationId: controlTenant?.organization_id || '', projectId: controlTenant?.project_id || '' });
+  child.genosControlIdentity = controlIdentity;
   require('./runtimeControlCapability').bind(child);
+  if (reconnect.authority) reconnectProvisioning.attach({
+    db, child, identity: child.genosControlIdentity, authority: reconnect.authority
+  });
   // Buffer spawn errors until the full supervision context exists.
   let earlyChildError = null;
   child.on('error', (error) => { earlyChildError = earlyChildError || error; });

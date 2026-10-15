@@ -1,5 +1,6 @@
 'use strict';
 
+const { performance } = require('node:perf_hooks');
 const { getDatabase } = require('../../db');
 const store = require('./morphogenesisEpochStore');
 
@@ -57,7 +58,16 @@ async function adoptQueuedContinuations(input) {
   state.plan.morphogenesisEpochStatus = { status: 'running', epoch, budget: state.epochBudget,
     recoveredFromContinuationQueue: true };
   await persistRound(state, `recovered-queued-epoch-${epoch}`, 'collecting');
+  if (hasAmbiguousDispatch(queued)) {
+    state.roundPhase = 'advancing';
+    await markRecoveryRequired(state, orchestratorId, 'interrupted_during_dispatch_requires_reconciliation', true);
+    return;
+  }
   state.pendingRecoveryDispatch = queued.filter((item) => item.status === 'pending').map((item) => item.agentId);
+}
+
+function hasAmbiguousDispatch(queued) {
+  return queued.some((item) => ['dispatching', 'dispatch_failed_ambiguous'].includes(item.status));
 }
 
 async function dispatchRestoredPending(state) {
@@ -67,12 +77,14 @@ async function dispatchRestoredPending(state) {
 }
 
 async function recoverStartupCheckpoints(db, input = {}) {
+  const startedAt = performance.now();
   const storeResult = await store.listCheckpoints(db, { phases: ['advancing', 'collecting'],
     includeContinuationEpochs: true, limit: input.limit || STARTUP_RECOVERY_LIMIT });
   const summary = { inspected: storeResult.checkpoints.length, restored: 0, actionable: 0,
     trinityExcluded: 0, failed: 0, truncated: storeResult.truncated };
   for (const checkpoint of storeResult.checkpoints) recordStartupOutcome(summary,
     await startupCheckpointOutcome(db, checkpoint));
+  summary.durationMs = Math.max(0, performance.now() - startedAt);
   return summary;
 }
 
@@ -106,6 +118,11 @@ async function dispatchPendingForCollectedEpoch(state) {
   const queued = await require('../durableContinuationService').loadCohortContinuations({
     db: state.db, orchestratorId: state.orchestratorId, missionId: state.checkpointScope.missionId, epoch: state.epoch
   });
+  if (hasAmbiguousDispatch(queued)) {
+    await markRecoveryRequired(state, state.orchestratorId,
+      'interrupted_during_dispatch_requires_reconciliation', true);
+    return;
+  }
   const roundService = require('../agentRoundService');
   for (const item of queued) {
     if (item.status === 'pending' && state.workerIds.has(item.agentId)) {
@@ -121,9 +138,9 @@ function recordStartupOutcome(summary, outcome) {
   summary.failures.push(outcome.failure);
 }
 
-async function markRecoveryRequired(state, orchestratorId) {
-  if (state.roundPhase !== 'advancing') return false;
-  const reason = 'interrupted_during_advancement_requires_operator_resume';
+async function markRecoveryRequired(state, orchestratorId,
+  reason = 'interrupted_during_advancement_requires_operator_resume', allowCollecting = false) {
+  if (state.roundPhase !== 'advancing' && !(allowCollecting && state.roundPhase === 'collecting')) return false;
   state.plan.morphogenesisEpochStatus = { status: 'recovery_required', reason, epoch: state.epoch,
     budget: state.epochBudget, checkpointRevision: state.checkpointRevision };
   state.roundPhase = 'recovery_required';

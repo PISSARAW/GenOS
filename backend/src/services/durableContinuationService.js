@@ -48,7 +48,7 @@ async function loadContinuation(input = {}) {
 async function loadCohortContinuations(input = {}) {
   const db = input.db || await getDatabase();
   const rows = await db.all(`SELECT * FROM continuation_queue WHERE orchestrator_id = ?
-    AND status IN ('pending', 'dispatched') ORDER BY created_at ASC`, input.orchestratorId);
+    AND status IN ('pending', 'dispatching', 'dispatched', 'dispatch_failed_ambiguous') ORDER BY created_at ASC`, input.orchestratorId);
   return (rows || []).map((row) => ({ row, mission: deserializeMission(row) }))
     .filter((item) => item.mission?.budgetRound?.stage === 'morphogenesis_epoch'
       && item.mission?.budgetRound?.missionId === input.missionId
@@ -64,4 +64,13 @@ async function markContinuation(input = {}) {
   );
 }
 
-module.exports = { persistContinuation, persistContinuations, loadContinuation, loadCohortContinuations, markContinuation };
+async function claimContinuation(input = {}) {
+  const db = input.db || await getDatabase();
+  const result = await db.run(`UPDATE continuation_queue SET status = 'dispatching',
+    updated_at = CURRENT_TIMESTAMP WHERE id = ? AND agent_id = ? AND status = 'pending'`,
+  input.id, input.agentId);
+  return Number(result?.changes || 0) === 1;
+}
+
+module.exports = { persistContinuation, persistContinuations, loadContinuation, loadCohortContinuations,
+  markContinuation, claimContinuation };

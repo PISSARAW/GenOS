@@ -57,7 +57,8 @@ function prepareContinuation(context) {
     budgetRound: { stage: Number.isInteger(epoch) ? 'morphogenesis_epoch' : 'continuation', epoch, orchestratorId,
       missionId: state.checkpointScope?.missionId || state.normalizedMission?.missionId || orchestratorId,
         organizationId: state.organizationId || null, projectId: state.projectId || null,
-        epochBudgetSnapshot: continuation.epochBudgetSnapshot || null },
+        epochBudgetSnapshot: continuation.epochBudgetSnapshot || null,
+        transitionId: adaptation?.receipt?.transitionId || null },
     ...(morphology || {}) };
   return { id, agentId: survivor.agentId, orchestratorId, mission,
     organizationId: state.organizationId, projectId: state.projectId };

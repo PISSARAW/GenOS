@@ -126,32 +126,75 @@ async function executeCompositeMorphology(ctx, agentId) {
 }
 
 async function finalizeMissionStart(agentId) {
-  const { cancelledStarts, activeWorkerBarriers, pendingWorkerRecoveries,
-    pendingContinuations, missionStarts, emit } = require('../agentOrchestrationState');
+  const { cancelledStarts, activeWorkerBarriers, missionStarts } = require('../agentOrchestrationState');
   const cancelled = cancelledStarts.has(agentId) || activeWorkerBarriers.get(agentId)?.cancelled === true;
   missionStarts.delete(agentId);
   try { await require('../garageRuntimeService').finalizeAgent(agentId); }
   catch (failure) { console.error('[GarageFabric] Runtime finalization failed:', failure.message); }
   cancelledStarts.delete(agentId);
-  if (!cancelled) {
-    emit(agentId, 'WORKER_RECOVERY_DECISION', 'RECOVERY_DISPATCH', `Checking for queued worker recovery after runtime shutdown for ${agentId}.`, {
-      agentId,
-      reason: 'runtime shutdown completed; review queued worker recovery if any'
-    }, 'info');
-    try {
-      await require('../agentRecoveryService').dispatchWorkerRecovery(agentId);
-    } catch (err) {
-      console.error('[AgentRuntimeAdapter] Error in dispatchWorkerRecovery.', { agentId, error: err });
-    }
-    try {
-      require('../agentRoundService').dispatchPendingContinuation(agentId);
-    } catch (err) {
-      console.error('[AgentRuntimeAdapter] Error in dispatchPendingContinuation.', { agentId, error: err });
-    }
+  await handlePostShutdown(agentId, cancelled);
+}
+
+const MAX_IDLE_POST_SHUTDOWN_CHECKS = 5;
+const POST_SHUTDOWN_CHECK_BASE_DELAY_MS = 1000;
+const postShutdownObservations = new Map();
+
+function postShutdownBackoffDelayMs(idleChecks) {
+  return Math.min(30000, POST_SHUTDOWN_CHECK_BASE_DELAY_MS * (2 ** Math.max(0, idleChecks - 1)));
+}
+
+function observationState(agentId) {
+  const state = postShutdownObservations.get(agentId) || { idleChecks: 0, lastCheckAt: 0, closed: false };
+  postShutdownObservations.set(agentId, state);
+  return state;
+}
+
+function resetPostShutdownObservation(agentId) {
+  postShutdownObservations.delete(agentId);
+}
+
+function observeIdlePostShutdown(agentId, emit) {
+  const state = observationState(agentId);
+  if (state.closed) return 'closed';
+  const now = Date.now();
+  if (now - state.lastCheckAt < postShutdownBackoffDelayMs(state.idleChecks + 1)) return 'throttled';
+  state.lastCheckAt = now;
+  state.idleChecks += 1;
+  if (state.idleChecks >= MAX_IDLE_POST_SHUTDOWN_CHECKS) {
+    state.closed = true;
+    emit(agentId, 'WORKER_RECOVERY_OBSERVATION_CLOSED', 'RECOVERY_OBSERVATION', `Post-shutdown recovery observation for ${agentId} closed after ${state.idleChecks} idle checks without queued work.`, { agentId, idleChecks: state.idleChecks }, 'info');
+    return 'closed';
+  }
+  return 'observed';
+}
+
+async function handlePostShutdown(agentId, cancelled) {
+  const { pendingWorkerRecoveries, pendingContinuations, emit } = require('../agentOrchestrationState');
+  if (cancelled) {
+    pendingContinuations.delete(agentId);
+    pendingWorkerRecoveries.delete(agentId);
+    resetPostShutdownObservation(agentId);
     return;
   }
-  pendingContinuations.delete(agentId);
-  pendingWorkerRecoveries.delete(agentId);
+  if (!pendingWorkerRecoveries.has(agentId) && !pendingContinuations.has(agentId)) {
+    observeIdlePostShutdown(agentId, emit);
+    return;
+  }
+  resetPostShutdownObservation(agentId);
+  emit(agentId, 'WORKER_RECOVERY_DECISION', 'RECOVERY_DISPATCH', `Checking for queued worker recovery after runtime shutdown for ${agentId}.`, {
+    agentId,
+    reason: 'runtime shutdown completed; review queued worker recovery if any'
+  }, 'info');
+  try {
+    await require('../agentRecoveryService').dispatchWorkerRecovery(agentId);
+  } catch (err) {
+    console.error('[AgentRuntimeAdapter] Error in dispatchWorkerRecovery.', { agentId, error: err });
+  }
+  try {
+    require('../agentRoundService').dispatchPendingContinuation(agentId);
+  } catch (err) {
+    console.error('[AgentRuntimeAdapter] Error in dispatchPendingContinuation.', { agentId, error: err });
+  }
 }
 
 function startMission(mission) {
@@ -191,4 +234,4 @@ async function recordMissionStartFailure(agentId, failure) {
   }, 'error');
 }
 
-module.exports = { startMissionInternal, startMission, missionStartFailureDetail };
+module.exports = { startMissionInternal, startMission, missionStartFailureDetail, finalizeMissionStart, handlePostShutdown, observeIdlePostShutdown, resetPostShutdownObservation, postShutdownBackoffDelayMs, MAX_IDLE_POST_SHUTDOWN_CHECKS, postShutdownObservations };

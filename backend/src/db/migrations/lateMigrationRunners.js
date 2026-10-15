@@ -1,4 +1,8 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('131-runtime-control-reconnect-authorities', 'Persist scoped runtime reconnect authorities and revocations', async (db) => {
+    await require('./migrateRuntimeControlReconnectAuthorities')
+      .migrateRuntimeControlReconnectAuthorities(db);
+  }),
   createMigrationRunner('128-causal-learning-outbox', 'Persist and resume verified causal learning idempotently', async (db) => {
     await require('./migrateCausalLearningOutbox').migrateCausalLearningOutbox(db);
   }),

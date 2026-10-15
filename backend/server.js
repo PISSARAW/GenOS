@@ -34,6 +34,8 @@ function forkClusterWorker(isJobWorker) {
     // and process recovery.
     GENOS_SCHEMA_MAINTENANCE: isJobWorker ? '1' : '0',
     GENOS_RUNTIME_MAINTENANCE: isJobWorker ? '1' : '0',
+    GENOS_RUNTIME_RECONNECT_RECOVERY_ENABLED: isJobWorker
+      && process.env.GENOS_RUNTIME_RECONNECT_RECOVERY_ENABLED === '1' ? '1' : '0',
     // All workers share breaker/lock state so a trip on one is not bypassed by
     // a round-robin retry landing on another.
     GENOS_CIRCUIT_BREAKER_SHARED: '1'
@@ -118,6 +120,9 @@ async function reconcileDetachedProcesses(db) {
 async function bootstrapWorkerDatabase() {
   console.log(`[GenOS Backend] Worker ${process.pid} connecting to SQLite...`);
   const db = await getDatabase();
+  const reconnect = await recoverRuntimeControlAtStartup(db);
+  if (reconnect.enabled) console.log(`[GenOS Runtime Recovery] Startup sweep: `
+    + `${reconnect.recovered}/${reconnect.attempted} runtime(s) reassociated.`);
   // Reconciliation touches every live runtime / detached PID, so exactly one
   // worker (the leader) may run it. Running it on all workers caused SQLITE_BUSY
   // storms and duplicated taskkill calls against the same PID.
@@ -144,6 +149,32 @@ async function bootstrapWorkerDatabase() {
   );
   console.log(`[GenOS Backend] SQLite database & ${count} tables ready.`);
   return db;
+}
+
+async function recoverRuntimeControlAtStartup(db, options = {}) {
+  const env = options.env || process.env;
+  if (env.GENOS_RUNTIME_RECONNECT_RECOVERY_ENABLED !== '1') {
+    return { enabled: false, attempted: 0, recovered: 0, results: [] };
+  }
+  const store = options.store
+    || require('./src/services/runtimeControlAuthorityStore').create(db);
+  const records = await store.listReconnectAuthorities();
+  if (!records.length) return { enabled: true, attempted: 0, recovered: 0, results: [] };
+  const recovery = options.recovery || require('./src/services/runtimeControlRecoveryBootstrap');
+  const signingAuthority = options.signingAuthority
+    || require('./src/services/runtimeControlSigningAuthority');
+  let authority;
+  try { authority = signingAuthority.load(env); }
+  catch (error) {
+    error.code = 'RUNTIME_RECONNECT_BACKEND_KEY_INVALID';
+    throw error;
+  }
+  const results = await recovery.recover({ store, records,
+    backendPrivateKey: authority?.privateKey,
+    timeoutMs: options.timeoutMs, readyTimeoutMs: options.readyTimeoutMs,
+    reassociate: options.reassociate });
+  return { enabled: true, attempted: records.length,
+    recovered: results.filter(result => result.proven).length, results };
 }
 
 async function recoverMorphogenesisAtStartup(db) {
@@ -317,4 +348,5 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { startServer, createHttpServer, recoverMorphogenesisAtStartup };
+module.exports = { startServer, createHttpServer, recoverMorphogenesisAtStartup,
+  recoverRuntimeControlAtStartup };

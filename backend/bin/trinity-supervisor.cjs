@@ -7,19 +7,33 @@ const organization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
 const { compareMission } = require('../src/services/trinityComparisonRuntime');
 const TERMINAL = new Set(['blocked', 'completed', 'completed_unpromoted', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
+const RECORDED = new Set(['compared', 'candidate', 'promoted', 'quarantined']);
 
 function pause(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function resolveScope(db, missionId) {
+  const scope = await trinityBarrier.resolveTrinityScope(db, missionId);
+  return { experimentId: scope ? scope.experimentId : missionId, missionId: scope ? scope.missionId : missionId };
+}
+
+async function comparisonAlreadyRecorded(db, experimentId) {
+  try {
+    const worlds = await db.all('SELECT status FROM trinity_worlds WHERE experiment_id = ?', experimentId);
+    return worlds.length > 0 && worlds.every((world) => RECORDED.has(world.status));
+  } catch (_) { return false; }
+}
+
 async function waitForWorkers(db, config) {
   const { missionId, expectedWorlds, timeoutMs = 180000 } = config;
+  const scope = await resolveScope(db, missionId);
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const rows = await db.all(
       `SELECT w.agent_id as agentId, a.status FROM trinity_worlds w
        LEFT JOIN agents a ON a.id = w.agent_id WHERE w.experiment_id = ? AND w.world_number <= ? ORDER BY w.world_number`,
-      missionId, expectedWorlds
+      scope.experimentId, expectedWorlds
     );
     const assessed = await Promise.all(rows.map((row) => assessWorkerExecution(db, row)));
     if (assessed.length >= expectedWorlds && assessed.every((row) => TERMINAL.has(row.status))) return assessed;
@@ -71,17 +85,20 @@ async function publish(db, input) {
 async function supervise(input) {
   const db = await getDatabase();
   try {
-    const configuration = await loadDispatchConfig(db, input.missionId);
+    const scope = await resolveScope(db, input.missionId);
+    const configuration = await loadDispatchConfig(db, scope.experimentId);
     const reports = await initialReports(db, { ...input, ...configuration });
     const result = await compareMission(db, { ...input, ...configuration }, reports);
-    await trinityService.recordWorldComparison(db, {
-      missionId: input.missionId,
-      orchestratorId: input.orchestratorId,
-      comparison: result.comparativeAnalysis,
-      decision: { canMerge: result.canMerge, threshold: 0.70 }
-    });
+    if (!await comparisonAlreadyRecorded(db, scope.experimentId)) {
+      await trinityService.recordWorldComparison(db, {
+        missionId: scope.missionId,
+        orchestratorId: input.orchestratorId,
+        comparison: result.comparativeAnalysis,
+        decision: { canMerge: result.canMerge, threshold: 0.70 }
+      });
+    }
     const promotion = await trinityBarrier.promoteWinner(db, {
-      missionId: input.missionId,
+      missionId: scope.missionId,
       orchestratorId: input.orchestratorId,
       result, statisticalContract: configuration.statisticalContract
     });
@@ -115,7 +132,8 @@ async function initialReports(db, input) {
 }
 
 async function persistFailure(db, input, error) {
-  const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ?', input.missionId);
+  const scope = await resolveScope(db, input.missionId);
+  const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ? OR id = ?', scope.missionId, scope.experimentId);
   if (!experiment || !['sealed_running', 'sealed_complete', 'cross_examining', 'decided', 'promotion_preparing'].includes(experiment.status)) return;
   const status = experiment.status === 'promotion_preparing' ? 'promotion_failed' : 'escalated';
   await require('../src/services/trinityExperimentStore').transition(db, { id: experiment.id, status,
@@ -149,9 +167,10 @@ function expectedWorlds(selection) {
 }
 
 async function loadDispatchConfig(db, missionId) {
-  const stored = await db.get('SELECT mission, variant_selection_json, jury_config_json FROM trinity_dispatch_configs WHERE mission_id = ?', missionId);
+  const scope = await resolveScope(db, missionId);
+  const stored = await dispatchConfigFor(db, scope.experimentId) || await dispatchConfigFor(db, scope.missionId);
   if (!stored) throw Object.assign(new Error('Trinity dispatch configuration is missing.'), { code: 'TRINITY_DISPATCH_CONFIG_MISSING' });
-  const experiment = await db.get('SELECT design_json, budget_policy_json FROM trinity_experiments WHERE mission_id = ?', missionId);
+  const experiment = await experimentConfigFor(db, scope.experimentId) || await experimentConfigFor(db, scope.missionId);
   const hypothesisDesign = JSON.parse(experiment?.design_json || '{}');
   const budget = JSON.parse(experiment?.budget_policy_json || '{}');
   return {
@@ -163,6 +182,18 @@ async function loadDispatchConfig(db, missionId) {
   };
 }
 
+async function dispatchConfigFor(db, id) {
+  if (!id) return null;
+  try { return await db.get('SELECT mission, variant_selection_json, jury_config_json FROM trinity_dispatch_configs WHERE mission_id = ?', id); }
+  catch (_) { return null; }
+}
+
+async function experimentConfigFor(db, id) {
+  if (!id) return null;
+  try { return await db.get('SELECT design_json, budget_policy_json FROM trinity_experiments WHERE id = ? OR mission_id = ?', id, id); }
+  catch (_) { return null; }
+}
+
 let input = {};
 try { input = JSON.parse(process.argv[2] || '{}'); } catch (error) { process.exitCode = 1; }
 if (require.main === module && input.missionId && input.orchestratorId) supervise(input).catch((error) => {
@@ -170,4 +201,4 @@ if (require.main === module && input.missionId && input.orchestratorId) supervis
   process.exitCode = 1;
 });
 
-module.exports = { waitForWorkers, assessWorkerExecution, expectedWorlds, requireSuccessfulWorkers, requireCompleteReports, loadDispatchConfig, supervise };
+module.exports = { waitForWorkers, assessWorkerExecution, expectedWorlds, requireSuccessfulWorkers, requireCompleteReports, loadDispatchConfig, supervise, comparisonAlreadyRecorded };

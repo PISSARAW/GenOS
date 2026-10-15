@@ -5,6 +5,47 @@ const { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction } = require('./w
 const { hasEvidenceReferences, provenanceReferences } = require('./workerEvidenceReferenceService');
 const { kindArtifactIsInvalid, validateInspectedKindArtifact } = require('./workerArtifactKindRules');
 
+const CODE_EXECUTION_KINDS = new Set(['bounded_worker', 'adaptive_worker', 'specialist', 'procedural_executor', 'symbiotic_worker']);
+const CODE_SUCCESS_HINT = /corrig|\bfix(ed|es)?\b|tests?\s+(r[ée]ussis?|pass(?:es|ed|ing)?|verts?|ok\b)|bug\s+(fix|corrig)/i;
+const CODE_SUCCESS_NEGATION = /\b(pas|aucun|sans)\b|n'a pas|pas de|échou|échec|fail/i;
+
+function statesCodeSuccess(statement) {
+  const text = String(statement || '').toLowerCase();
+  if (!CODE_SUCCESS_HINT.test(text)) return false;
+  return !CODE_SUCCESS_NEGATION.test(text);
+}
+
+function dossierSuccessClaimed(content) {
+  return Array.isArray(content?.claims) && content.claims.some((claim) => statesCodeSuccess(claim?.statement));
+}
+
+function authenticTestRefs(content) {
+  const values = require('../trinityProvenanceValues');
+  const tests = Array.isArray(content?.tests) ? content.tests : [];
+  return tests.filter((test) => test && test.exitCode === 0 && typeof test.command === 'string')
+    .map((test) => `genos://code-test/${values.digest({ command: test.command, exitCode: 0, stdout: test.stdout || '', stderr: test.stderr || '' })}`);
+}
+
+function fileHashOf(ref) {
+  const text = String(ref || '').trim();
+  return /^sha256:[a-f0-9]{64}$/.test(text) ? text.slice(7) : '';
+}
+
+function dossierCodeProofPresent(content, provenance) {
+  const refs = new Set((content?.claims || []).flatMap((claim) => Array.isArray(claim?.evidence) ? claim.evidence : []));
+  if (authenticTestRefs(content).some((ref) => refs.has(ref))) return true;
+  const binding = content?.codeVerification;
+  if (binding && typeof binding.artifactContentHash === 'string' && binding.artifactContentHash.trim()) return true;
+  const known = Object.values(provenance?.readFileHashes || {});
+  return known.length > 0 && [...refs].some((ref) => known.includes(fileHashOf(ref)));
+}
+
+function codeDossierUnsubstantiated(kind, content, provenance) {
+  if (!CODE_EXECUTION_KINDS.has(kind)) return false;
+  if (!dossierSuccessClaimed(content)) return false;
+  return !dossierCodeProofPresent(content, provenance);
+}
+
 function isSubstantiveReport(report) {
   if (!report || typeof report !== 'object') return false;
   if (Array.isArray(report.claims) && report.claims.length) return true;
@@ -227,6 +268,7 @@ function inspectDossier(input) {
   if (!parsed || issues.length) return { artifact: null, issues };
   const content = inspectDossierContent(parsed, kind);
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
+  if (codeDossierUnsubstantiated(kind, content, provenance)) issues.push('dossier.code_fix.unsubstantiated');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
   return { artifact: issues.length ? null : { type: expected, content, provenance: { ...(provenance || {}), sourceRefs } }, issues };
 }
@@ -293,7 +335,7 @@ function validateWorkerArtifact(dossier, worker) {
     const fields = REQUIRED_FIELDS[expected];
     if (validateWorkerArtifactCondition(artifact, expected, fields) || kindArtifactIsInvalid({
         kind, type: expected, content: artifact.content, contract: worker.workerContract
-      })) {
+      }) || codeDossierUnsubstantiated(kind, artifact?.content, artifact?.provenance)) {
       throw artifactError(worker.agentId, expected);
     }
   }
@@ -325,6 +367,7 @@ function validateWorkerArtifactCondition(artifact, expected, fields) {
 function inspectDossierContent(parsed, kind) {
   return {
     claims: parsed.claims,
+    ...(Array.isArray(parsed.tests) ? { tests: parsed.tests } : {}),
     ...diagnosticMatrixContent(parsed),
     ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
     ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),

@@ -31,7 +31,11 @@ function buildRoundResult(mission, outcome, event) {
     agentId: mission.agentId,
     status: outcome,
     evidenceScore: evidenceScore(event.payload, mission) ?? 0,
-    payload: event.payload || {}
+    payload: event.payload || {},
+    transitionId: mission.budgetRound?.transitionId || null,
+    workerKind: mission.workerKind || null,
+    topology: mission.morphologyTopology || null,
+    allocatedTokens: Number(mission.executionBudget?.tokens || 0)
   };
 }
 
@@ -292,10 +296,24 @@ async function dispatchPendingContinuation(agentId) {
     pendingContinuations.delete(agentId);
     return;
   }
+  const claimed = await durableContinuation.claimContinuation({ agentId, id: mission.continuationId });
+  if (!claimed) {
+    pendingContinuations.delete(agentId);
+    return;
+  }
   pendingContinuations.delete(agentId);
   startMission(mission).then(() => {
     durableContinuation.markContinuation({ agentId, id: mission.continuationId, status: 'dispatched' }).catch(() => {});
-  }).catch((error) => handleContinuationFailure(agentId, mission, error));
+  }).catch((error) => handleClaimedContinuationFailure(agentId, mission, error));
+}
+
+function handleClaimedContinuationFailure(agentId, mission, error) {
+  emit(mission.orchestratorAgentId || agentId, 'TOKEN_ROUND_DISPATCH_AMBIGUOUS', 'RECOVERY',
+    'A claimed continuation failed; automatic redispatch is suppressed until reconciliation.',
+    { workerId: agentId, continuationId: mission.continuationId, code: error.code || 'START_FAILED' }, 'error');
+  durableContinuation.markContinuation({ agentId, id: mission.continuationId,
+    status: 'dispatch_failed_ambiguous' }).catch(() => {});
+  updateAgent(agentId, 'error', error.message).catch(() => {});
 }
 
 module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome,

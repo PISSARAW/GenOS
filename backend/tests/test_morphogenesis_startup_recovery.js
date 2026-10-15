@@ -28,12 +28,23 @@ async function main() {
       orchestratorId: 'collecting-orchestrator', status: 'pending',
       mission: continuation({ missionId: 'collecting-startup', orchestratorId: 'collecting-orchestrator',
         agentId: 'collecting-pending', status: 'pending' }) });
+    await saveCheckpoint(db, collectingCheckpoint('ambiguous-startup', 'ambiguous-orchestrator', 'ambiguous-worker'));
+    await insertQueueRow(db, { id: 'ambiguous-queue', agentId: 'ambiguous-worker',
+      orchestratorId: 'ambiguous-orchestrator', status: 'dispatching',
+      mission: continuation({ missionId: 'ambiguous-startup', orchestratorId: 'ambiguous-orchestrator',
+        agentId: 'ambiguous-worker', status: 'dispatching' }) });
     await saveCheckpoint(db, checkpoint('orphan-startup', 'orphan-orchestrator'));
     await saveCheckpoint(db, checkpoint('trinity-startup', 'trinity-orchestrator', true));
 
     const result = await recovery.recoverStartupCheckpoints(db);
-    assert.deepEqual(result, { inspected: 4, restored: 2, actionable: 1, trinityExcluded: 1,
-      failed: 0, truncated: false });
+    assert.equal(result.inspected, 5);
+    assert.equal(result.restored, 2);
+    assert.equal(result.actionable, 2);
+    assert.equal(result.trinityExcluded, 1);
+    assert.equal(result.failed, 0);
+    assert.equal(result.truncated, false);
+    assert.ok(Number.isFinite(result.durationMs) && result.durationMs >= 0,
+      'startup recovery reports measured elapsed time');
     assert.deepEqual(dispatches, ['startup-pending', 'collecting-pending'],
       'startup dispatches durable pending work exactly once, including a collecting epoch interrupted after checkpointing');
 
@@ -45,6 +56,9 @@ async function main() {
       'collecting');
     assert.equal((await store.loadCheckpoint(db, { missionId: 'orphan-startup', organizationId: null, projectId: null })).phase,
       'recovery_required', 'a checkpoint without durable continuations becomes operator actionable');
+    assert.equal((await store.loadCheckpoint(db, { missionId: 'ambiguous-startup', organizationId: null, projectId: null })).phase,
+      'recovery_required', 'a crash after dispatch claim is never replayed automatically');
+    assert.ok(!dispatches.includes('ambiguous-worker'), 'ambiguous dispatch is not sent again');
     assert.equal((await store.loadCheckpoint(db, { missionId: 'trinity-startup', organizationId: null, projectId: null })).phase,
       'advancing', 'Trinity remains outside the general startup sweep');
     console.log('Morphogenesis startup recovery dispatches only durable pending continuations and fences ambiguous checkpoints.');

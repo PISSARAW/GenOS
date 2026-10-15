@@ -32,18 +32,11 @@ function projectCapacity() {
   return config.maxActiveWorkersPerProject();
 }
 
-const MISSION_STOP_WORDS = new Set([
-  'agent', 'worker', 'scope', 'mission', 'task', 'work', 'assigned', 'delegated',
-  'the', 'and', 'for', 'from', 'with', 'into', 'this', 'that', 'une', 'des',
-  'les', 'dans', 'pour', 'avec', 'sur', 'par', 'qui', 'que', 'est', 'faire',
-  'implementation', 'implement', 'review', 'verify', 'audit', 'investigate'
-]);
+const MISSION_STOP_WORDS = new Set(['agent', 'worker', 'scope', 'mission', 'task', 'work', 'assigned', 'delegated', 'the', 'and', 'for', 'from', 'with', 'into', 'this', 'that',
+  'une', 'des', 'les', 'dans', 'pour', 'avec', 'sur', 'par', 'qui', 'que', 'est', 'faire', 'implementation', 'implement', 'review', 'verify', 'audit', 'investigate']);
 
 function humanize(value) {
-  return String(value || '')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return String(value || '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function compactMission(value, maxLength = 72) {
@@ -154,14 +147,7 @@ async function state(db, orchestratorId) {
   const capacity = Math.min(getDynamicCapacity(orchestratorId), domain?.active_capacity || Infinity);
   const isParentDead = parent && (Boolean(parent.is_apoptotic) || ['apoptosis', 'terminated', 'completed', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status));
   if (isParentDead) {
-    return {
-      capacity,
-      occupied: 0,
-      available: 0,
-      activeWorkers: [],
-      orchestratorStatus: parent.status,
-      isApoptotic: Boolean(parent.is_apoptotic)
-    };
+    return { capacity, occupied: 0, available: 0, activeWorkers: [], orchestratorStatus: parent.status, isApoptotic: Boolean(parent.is_apoptotic) };
   }
 
   const dbWorkers = await db.all(
@@ -176,12 +162,8 @@ async function state(db, orchestratorId) {
   );
   const activeWorkers = dbWorkers;
 
-  return {
-    capacity,
-    occupied: activeWorkers.length,
-    available: Math.max(0, capacity - activeWorkers.length),
-    activeWorkers: activeWorkers.map((worker, index) => ({ ...worker, slot: index + 1 }))
-  };
+  const occupied = activeWorkers.length;
+  return { capacity, occupied, available: Math.max(0, capacity - occupied), activeWorkers: activeWorkers.map((worker, index) => ({ ...worker, slot: index + 1 })) };
 }
 
 async function assertWorkerScope(db, domain, workerId) {
@@ -226,6 +208,7 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
 
 async function reserveSlot(db, request) {
   return withTransaction(db, async () => {
+    await releaseStaleWorkerClaims(db, request.workerId);
     await require('./garageReservationGuard').assertReservation(db, request);
     return reserveSlotInternal(db, request);
   });
@@ -277,6 +260,30 @@ async function reserveSlotInternal(db, { orchestratorId, workerId, name, role, m
   };
 }
 
+const TERMINAL_WORKER_STATUSES = new Set(['error', 'terminated', 'failed', 'apoptosis']);
+
+function releasableClaimStatus(row, workerStatus, now) {
+  const expired = (row.lease_expires_at && Date.parse(row.lease_expires_at) <= now)
+    || (row.deadline_at && Date.parse(row.deadline_at) <= now);
+  if (!workerStatus || TERMINAL_WORKER_STATUSES.has(workerStatus)) return expired ? 'expired' : 'failed';
+  return workerStatus !== 'running' && workerStatus !== 'blocked' && expired ? 'expired' : null;
+}
+
+async function releaseStaleWorkerClaims(db, workerId) {
+  if (!db || !workerId) return 0;
+  const worker = await db.get('SELECT status FROM agents WHERE id = ?', workerId);
+  const rows = await db.all(`SELECT request_id, lease_expires_at, deadline_at FROM garage_queue WHERE worker_id = ? AND status IN ('queued','claimed','running') AND phase IN ('ready','awaiting_approval','freeze_failed')`, workerId);
+  const now = Date.now();
+  let released = 0;
+  for (const row of rows) {
+    const terminal = releasableClaimStatus(row, worker?.status, now);
+    if (!terminal) continue;
+    await db.run(`UPDATE garage_queue SET status = ?, error_text = 'worker_terminal_claim_released', updated_at = CURRENT_TIMESTAMP WHERE request_id = ?`, terminal, row.request_id);
+    released += 1;
+  }
+  return released;
+}
+
 async function releaseSlot(db, { orchestratorId, workerId }) {
   const result = await db.run(
     `UPDATE agents SET status = 'idle', current_task = NULL, updated_at = CURRENT_TIMESTAMP
@@ -310,6 +317,7 @@ async function drainQueued(db, orchestratorId) {
  */
 async function enterIdleState(db, agentId, orchestratorId) {
   if (!db || !agentId) return false;
+  await releaseStaleWorkerClaims(db, agentId);
   const result = await db.run(
     `UPDATE agents SET status = 'idle', current_task = NULL, updated_at = CURRENT_TIMESTAMP
      WHERE id = ? AND status IN ('running','blocked','completed','terminated','error','unverified') AND execution_mode = 'worker'
@@ -375,6 +383,7 @@ module.exports = {
   requireAvailableSlot,
   reserveSlot,
   releaseSlot,
+  releaseStaleWorkerClaims,
   enterIdleState,
   enterOrchestratorIdleState,
   armWakeHandler,

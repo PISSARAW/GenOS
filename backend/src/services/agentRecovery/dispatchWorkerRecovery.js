@@ -1,7 +1,6 @@
 /**
- * Recovery dispatch: provisions a recovery agent (identity, workspace, lineage)
- * and starts its mission. Lineage persistence is atomic with the agent row so a
- * worker can never be created without lineage.
+ * Recovery dispatch: provisions a recovery agent (identity, workspace, lineage) and starts
+ * its mission. Lineage persistence is atomic with the agent row.
  */
 const path = require('path');
 const workerRecovery = require('../workerFailureRecoveryService');
@@ -19,8 +18,7 @@ const { getDatabase, withTransaction } = require('../../db');
 const { MAX_RECOVERY_DISPATCH_ATTEMPTS } = require('./constants');
 
 function firstTruthy(...values) {
-  for (const value of values) if (value) return value;
-  return values[values.length - 1];
+  return values.find(Boolean) || values[values.length - 1];
 }
 
 function bestEffort(promise) {
@@ -28,7 +26,7 @@ function bestEffort(promise) {
 }
 
 function nullOnError(promise) {
-  return promise.catch(() => { return null; });
+  return promise.catch(() => null);
 }
 
 function hasRecoveryParent(source) {
@@ -39,19 +37,22 @@ function isCancelled(barrier) {
   return Boolean(barrier && barrier.cancelled);
 }
 
+function isAlreadyValidated(source) {
+  return source?.status === 'completed';
+}
+
 function addWorkerToBarrier(barrier, workerId) {
   if (barrier && barrier.workerIds) barrier.workerIds.add(workerId);
 }
 
 function garageCapacity(garage) {
-  if (garage && garage.capacity) return garage.capacity;
-  return workerGarage.MAX_ACTIVE_WORKERS;
+  return (garage && garage.capacity) || workerGarage.MAX_ACTIVE_WORKERS;
 }
 
 async function loadSourceWorker(db, sourceAgentId) {
   return db.get(
     `SELECT a.id, a.name, a.role, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language,
-      a.isolation_mode, a.parent_agent_id
+      a.isolation_mode, a.parent_agent_id, a.status
      , w.path AS workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
      WHERE a.id = ? AND a.execution_mode = 'worker'`,
     sourceAgentId
@@ -308,8 +309,7 @@ function buildRecoveryMission(input) {
 }
 
 function resolveFailureTarget(target, sourceAgentId, fallbackOrchestratorId) {
-  if (!target) return { targetId: sourceAgentId, orchId: fallbackOrchestratorId, workerName: sourceAgentId };
-  return { targetId: target.targetId, orchId: target.orchestratorId, workerName: target.name };
+  return target ? { targetId: target.targetId, orchId: target.orchestratorId, workerName: target.name } : { targetId: sourceAgentId, orchId: fallbackOrchestratorId, workerName: sourceAgentId };
 }
 
 async function handleRecoveryDispatchFailure(db, error, data) {
@@ -328,6 +328,8 @@ async function handleRecoveryDispatchFailure(db, error, data) {
   if (dispatchAttempts < MAX_RECOVERY_DISPATCH_ATTEMPTS && !isCancelled(recoveryBarrier)) {
     pendingWorkerRecoveries.set(sourceAgentId, { ...recovery, dispatchAttempts });
     setTimeout(() => { dispatchWorkerRecovery(sourceAgentId); }, 50 * (2 ** (dispatchAttempts - 1))).unref();
+  } else if (!isCancelled(recoveryBarrier)) {
+    emit(worker.orchId, 'WORKER_RECOVERY_EXHAUSTED', decision.action, `Recovery dispatch budget exhausted after ${dispatchAttempts} attempts for '${worker.workerName}'. Validated work is preserved; nothing was promoted.`, { sourceWorkerId: sourceAgentId, workerId: worker.targetId, attempt: report.attempt + 1, dispatchAttempts, maxAttempts: MAX_RECOVERY_DISPATCH_ATTEMPTS, terminal: true }, 'error');
   }
 }
 
@@ -355,6 +357,11 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     return false;
   }
   const orchestratorId = source.parent_agent_id;
+  if (isAlreadyValidated(source)) {
+    emit(orchestratorId, 'WORKER_RECOVERY_REDUNDANT', 'RECOVERY_SKIPPED', `Recovery skipped: source worker '${sourceAgentId}' already completed with validated work; no replacement will be promoted.`, { sourceWorkerId: sourceAgentId, workerId: sourceAgentId, terminal: true }, 'info');
+    activeWorkerRecoveryDispatches.delete(sourceAgentId);
+    return false;
+  }
   const recoveryBarrier = activeWorkerBarriers.get(orchestratorId);
   if (isCancelled(recoveryBarrier)) {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
@@ -366,6 +373,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     const bisectionResult = await runAutomaticBisection(db, source, { mission, report, decision, orchestratorId, sourceAgentId });
     target = resolveRecoveryTarget({ sourceAgentId, source, recovery, orchestratorId });
     addWorkerToBarrier(recoveryBarrier, target.targetId);
+    await workerGarage.releaseStaleWorkerClaims(db, sourceAgentId);
     await persistRecoveryAgent(db, source, target);
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: target.targetId, name: target.name, role: target.role, mission: target.prompt });
     workspace = await createRecoveryWorkspace(source, mission, target);

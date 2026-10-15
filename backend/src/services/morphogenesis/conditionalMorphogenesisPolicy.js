@@ -3,6 +3,7 @@
 const { generateAdaptiveTopologyCandidates } = require('./adaptiveTopologyCandidates');
 const { rankAdaptiveTopologies } = require('./adaptiveTopologyRanking');
 const { buildAdaptiveWorkerRoster } = require('./adaptiveWorkerRoster');
+const selectorCalibration = require('./morphogenesisSelectorCalibration');
 
 const MAX_EPOCHS = 12;
 const SIGNALS = Object.freeze(['uncertainty', 'causalAmbiguity', 'contradiction',
@@ -58,6 +59,8 @@ function proofObligations(signals, representation) {
 }
 
 function buildRecipePortfolio(input, signals) {
+  const calibration = selectorCalibration.compileCalibration(input.verifiedOutcomes);
+  const replacement = calibration.scales.COHORT_REPLACEMENT;
   const generated = generateAdaptiveTopologyCandidates({
     selectedTopology: input.currentTopology,
     selectedVariant: input.currentVariant,
@@ -74,9 +77,16 @@ function buildRecipePortfolio(input, signals) {
     ...candidate,
     id: candidate.candidateId,
     estimatedTokens: candidate.kind === 'NO_CHANGE' ? 0 : estimateCost(candidate, input),
-    estimatedProblemFit: problemFit(candidate, signals),
-    confidence: candidate.kind === 'NO_CHANGE' ? 1 : 0.35,
-    calibrationStatus: 'uncalibrated'
+    estimatedProblemFit: candidate.kind === 'NO_CHANGE' || replacement.status !== 'calibrated'
+      ? problemFit(candidate, signals) : 0.5 + replacement.expectedGain / 2,
+    confidence: candidate.kind === 'NO_CHANGE' ? 1 : replacement.status === 'calibrated'
+      ? 1 - replacement.gainUncertainty : 0.35,
+    calibrationStatus: candidate.kind === 'NO_CHANGE' ? 'baseline' : replacement.status,
+    interventionScale: candidate.kind === 'NO_CHANGE' ? 'NO_CHANGE' : 'COHORT_REPLACEMENT',
+    expectedGain: candidate.kind === 'NO_CHANGE' ? 0 : replacement.expectedGain,
+    gainUncertainty: candidate.kind === 'NO_CHANGE' ? 0 : replacement.gainUncertainty,
+    marginalCost: candidate.kind === 'NO_CHANGE' ? 0 : replacement.marginalCost,
+    costUncertainty: candidate.kind === 'NO_CHANGE' ? 0 : replacement.costUncertainty
   }));
   const ranking = rankAdaptiveTopologies({
     candidates,
@@ -90,11 +100,20 @@ function buildRecipePortfolio(input, signals) {
   });
   const selected = ranking.decision.decision === 'PROPOSE'
     ? ranking.candidates.find(item => item.id === ranking.decision.selectedId) : null;
-  return { generation: generated.stats, candidates: generated.candidates, ranking, selected: selected ? {
-    candidateId: selected.id, topology: selected.topology, variant: selected.variant,
-    kind: selected.kind, executionEligible: false
+  const availableScales = generated.candidates.some(candidate => candidate.kind !== 'NO_CHANGE'
+    && candidate.admissibility !== 'rejected') ? ['COHORT_REPLACEMENT'] : [];
+  const scaleDecision = selectorCalibration.selectScale(calibration, availableScales);
+  const admittedSelection = selected && scaleDecision.scale === selected.interventionScale ? selected : null;
+  return { generation: generated.stats, candidates: generated.candidates, ranking, calibration,
+    scaleDecision, selected: admittedSelection ? {
+    candidateId: admittedSelection.id, topology: admittedSelection.topology, variant: admittedSelection.variant,
+    kind: admittedSelection.kind, interventionScale: scaleDecision.scale,
+    expectedGain: admittedSelection.expectedGain, gainUncertainty: admittedSelection.gainUncertainty,
+    marginalCost: admittedSelection.marginalCost, costUncertainty: admittedSelection.costUncertainty,
+    executionEligible: false
   } : { candidateId: 'NO_CHANGE', topology: input.currentTopology || null,
-    variant: input.currentVariant || null, kind: 'NO_CHANGE', executionEligible: false } };
+    variant: input.currentVariant || null, kind: 'NO_CHANGE', interventionScale: 'NO_CHANGE',
+    executionEligible: false } };
 }
 
 function estimateCost(candidate, input) {
@@ -147,9 +166,21 @@ function compileConditionalMorphogenesisPolicy(input = {}) {
     mission,
     diagnosis: { signals, representation },
     decision: { representation: representation.kind, recipe: portfolio.selected,
+      interventionScale: portfolio.selected.interventionScale,
+      interventionEstimate: portfolio.selected.interventionScale === 'NO_CHANGE' ? null : {
+        expectedGain: portfolio.selected.expectedGain, gainUncertainty: portfolio.selected.gainUncertainty,
+        marginalCost: portfolio.selected.marginalCost, costUncertainty: portfolio.selected.costUncertainty
+      },
       workerRoster, proofObligations: proofObligations(signals, representation), budget },
     portfolio: { generation: portfolio.generation, candidates: portfolio.candidates,
-      ranking: portfolio.ranking },
+      ranking: portfolio.ranking, calibration: portfolio.calibration,
+      scaleDecision: portfolio.scaleDecision,
+      interventionScales: Object.fromEntries(['NO_CHANGE', ...selectorCalibration.SCALE].map(scale => [scale,
+        scale === 'NO_CHANGE' ? { status: 'available' }
+          : portfolio.calibration.scales[scale].status === 'calibrated' && scale === 'COHORT_REPLACEMENT'
+            ? { status: 'available', estimate: portfolio.calibration.scales[scale] }
+            : { status: 'unavailable', reason: scale === 'COHORT_REPLACEMENT'
+              ? portfolio.calibration.scales[scale].reason : 'runtime_action_not_implemented' }])) },
     conditions: [
       { when: { anySignalAtLeast: 0.6 }, action: 'reassess_representation_and_recipe' },
       { when: { signal: 'provenanceRisk', atLeast: 0.35 }, action: 'quarantine_correlated_claims' },

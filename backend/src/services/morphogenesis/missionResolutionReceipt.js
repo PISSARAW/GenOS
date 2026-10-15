@@ -16,16 +16,27 @@ function verifierReceipt(payload = {}) {
 async function validateWorkerReceipts(results, expected, validate) {
   for (const result of results) {
     const receipt = result.status === 'completed' ? verifierReceipt(result.payload) : null;
-    if (receipt && await validate(receipt, expected)) return { receipt, agentId: result.agentId };
+    if (receipt && await validate(receipt, expected)) return { receipt, agentId: result.agentId,
+      transitionId: result.transitionId || null };
   }
   return null;
+}
+
+function transitionBoundResults(state) {
+  const results = [...state.results.values()];
+  const transition = state.plan?.morphogenesisEpochStatus?.transition;
+  if (!transition) return results;
+  const binding = require('./morphogenesisTransitionReceipt');
+  if (!binding.verifyTransitionReceipt(transition) || transition.dispatchStatus !== 'queued') return [];
+  const matching = results.filter((result) => binding.resultMatchesTransition(result, transition));
+  return matching.length === transition.identity.bindings.length ? matching : [];
 }
 
 async function verifiedResolution(state, orchestratorId) {
   const expected = verificationExpectation(state.normalizedMission || {}, orchestratorId);
   if (!expected) return null;
   const validate = require('../ontogenesis/missionVerifierReceiptService').validateReceipt;
-  return validateWorkerReceipts([...state.results.values()], expected, validate);
+  return validateWorkerReceipts(transitionBoundResults(state), expected, validate);
 }
 
-module.exports = { verifiedResolution, verificationExpectation, verifierReceipt };
+module.exports = { verifiedResolution, verificationExpectation, verifierReceipt, transitionBoundResults };

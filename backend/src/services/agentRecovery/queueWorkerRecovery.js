@@ -61,11 +61,22 @@ function handleRecoveryDecision(report, decision, context) {
   return { report, decision, queued: false };
 }
 
+function refreshPendingRecovery(pending, mission, event) {
+  const workerId = mission.agentId || mission.id;
+  const report = workerRecovery.failureReport(event, mission);
+  const decision = workerRecovery.decideRecovery(report);
+  if (Number(report.attempt || 0) > Number(pending.report?.attempt || 0) && decision.retry) {
+    pendingWorkerRecoveries.set(workerId, { mission, report, decision, dispatchAttempts: pending.dispatchAttempts || 0 });
+    return { report, decision, queued: true, refreshed: true };
+  }
+  return { report: pending.report, decision: pending.decision, queued: false, duplicate: true };
+}
+
 function queueWorkerRecovery(mission, event) {
   const workerId = mission.agentId || mission.id;
   const pending = pendingWorkerRecoveries.get(workerId);
   if (pending) {
-    return { report: pending.report, decision: pending.decision, queued: false, duplicate: true };
+    return refreshPendingRecovery(pending, mission, event);
   }
   const report = workerRecovery.failureReport(event, mission);
   const decision = workerRecovery.decideRecovery(report);

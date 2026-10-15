@@ -93,6 +93,39 @@ observé : un canal vivant préexistant ou un changement concurrent fait échoue
 la réassociation. Une fermeture retire seulement le canal qui possède encore
 l'entrée.
 
+L'autorité de reconnexion est persistée dans une table SQLite immuable hors
+révocation. La ligne scelle le descripteur et son empreinte, la portée complète,
+l'instance runtime, l'identifiant de clé, le statut et une révision. Une
+révocation exige la lignée, la révision attendue et une raison bornée ; elle ne
+supprime pas l'historique.
+
+Le balayage de démarrage est activé explicitement par
+`GENOS_RUNTIME_RECONNECT_RECOVERY_ENABLED=1`. Sans ce drapeau, ou sans autorité
+récupérable, il est sans effet. En présence d'autorités, une clé fichier absente,
+invalide ou différente provoque un échec fermé du démarrage. Un déploiement en
+cluster doit désigner un leader de récupération unique ; plusieurs backends ne
+doivent pas courir pour posséder le même runtime.
+
+### Projection de supervision après redémarrage
+
+Le canal réattesté peut porter une projection de supervision distincte d'un
+`ChildProcess`. Chaque rattachement ouvre une époque fraîche. Les trames sont
+bornées, séquencées et liées à l'instance runtime ainsi qu'aux six identifiants
+de lignée. Un rejeu, un désordre ou une autre portée ferme le canal.
+
+Cette projection transporte seulement les événements et fragments de journal
+émis après le rattachement. Elle n'expose ni pipes Node, ni `kill`, ni
+`exitCode`. Une fermeture signifie `lost`, sans prouver la sortie du processus.
+Une trame terminale est une déclaration du runtime ; elle ne devient une preuve
+d'exit OS qu'avec une observation indépendante. Aucun silence réseau ne devient
+donc un succès.
+
+Les journaux antérieurs sont irrécupérables sans écriture durable avant la
+panne. Le contexte complet, les timers et les observateurs de l'ancien backend
+ne sont pas reconstruits. Un délai absolu et des compteurs ne peuvent être
+réarmés que s'ils ont été persistés séparément. Le budget CPU historique reste
+indisponible sans compteur fiable lié à l'instance.
+
 ## Critères d'acceptation
 
 La capture doit refuser :
@@ -112,6 +145,11 @@ La réassociation doit refuser :
 - un challenge ou une réponse rejoué ;
 - une activation sans nouvelle annonce de capacité ;
 - le remplacement concurrent d'un canal encore vivant.
+
+La supervision récupérée doit en outre accepter seulement les trames futures de
+l'époque et de la lignée attestées, refuser rejeu, désordre, autre tenant et
+taille excessive, distinguer terminaison déclarée et exit OS, puis révoquer
+l'autorité durable lors du nettoyage explicite.
 
 Les tests de processus réel doivent aussi démontrer qu'un backend neuf peut
 obtenir une nouvelle capacité depuis le même runtime, que l'ancien canal est
@@ -140,8 +178,10 @@ le processus meurt dans une fenêtre intermédiaire.
 - Un descripteur reconnectable doit provenir du registre persistant et de la
   portée attendue ; accepter un descripteur fourni librement par un client
   annulerait la preuve de lignée.
-- La réassociation à la demande ne constitue pas encore un balayage automatique
-  de tous les runtimes orphelins au démarrage.
+- Le balayage de démarrage reste opt-in et suppose un leader unique dans un
+  déploiement multiprocessus ou en cluster.
+- La projection récupérée ne remplace pas le pipeline historique et ne
+  reconstitue pas le `ctx` en mémoire du backend précédent.
 
 ## État de qualification
 
@@ -158,15 +198,21 @@ propriété et le proxy de contrôle sont qualifiés avec de vrais sockets et un
 processus enfant survivant. Cette preuve valide les primitives et leur
 composition explicite.
 
-Le runtime local livré ne démarre toutefois pas encore ce serveur dans son
-bootstrap normal. Le superviseur ne provisionne ni la clé publique backend ni
-un writer durable de descripteur, aucun store produit n'implémente encore
-`listReconnectAuthorities`, et le démarrage backend n'appelle pas le recovery
-bootstrap. La reconnexion automatique après redémarrage reste donc non prouvée
-sur le chemin produit, malgré la réussite de l'expérience multiprocessus. La
-réassociation qualifiée recrée seulement le canal de contrôle : elle ne
-récupère pas les flux stdout/stderr ni le contexte complet de supervision de
-l'ancien backend.
+Le runtime local provisionne le serveur reconnectable sans recevoir la clé
+privée backend, puis exige l'accusé de persistance du descripteur avant d'armer
+la grâce de reconnexion. Le backend recharge les autorités SQLite et la clé
+durable lorsque le balayage opt-in est actif. La réassociation recrée le canal
+de contrôle et la projection future ; elle ne récupère ni les octets historiques
+des pipes stdout/stderr, ni les pipes Node eux-mêmes, ni le contexte complet de
+supervision de l'ancien backend.
+
+Une expérience multiprocessus complémentaire utilise un runtime survivant, une
+autorité SQLite, un premier backend puis un second backend qui relit ce store et
+réatteste le canal. Elle qualifie les fragments stdout/stderr futurs, un
+événement futur, une déclaration terminale et la révocation durable. Elle
+vérifie aussi l'absence de streams `ChildProcess`, de `kill` et de conclusion
+d'exit OS. Les journaux antérieurs, le contexte complet et le budget CPU restent
+explicitement hors du résultat.
 
 ## Alternatives
 
