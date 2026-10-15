@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const controlDirectory = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'axolotl-control-'));
 process.env.GENOS_DB_PATH = path.join(controlDirectory, 'control.sqlite');
-process.env.GENOS_DB_BOOTSTRAP_SKIP = '1';
+process.env.GENOS_DB_BACKUP_SKIP = '1';
+process.env.GENOS_ADMIN_PASSWORD = 'axolotl-runtime-test-only';
 const adapter = require('../src/services/strategyExecutionAdapter');
 const service = require('../src/services/axolotlRegenerationService');
 const store = require('../src/services/axolotlStateStore');
@@ -44,6 +45,12 @@ async function main() {
     await db.run("UPDATE agents SET workspace_id = 'changed' WHERE id = 'parent'");
     assert.equal((await adapter.executePrimitive('axolotl_recall', { db, orchestratorId: 'parent', key: 'rule' })).code, 'AXOLOTL_WORKSPACE_CHANGED');
     console.log('Axolotl complete strategy dispatch, runtime routing, composition and repeated regeneration: passed');
-  } finally { await db.close(); await test.cleanup(); await require('../src/db').closeDatabase(); fs.rmSync(controlDirectory, { recursive: true, force: true }); }
+  } finally {
+    await require('../src/services/telemetryObserver').flush(10000);
+    await db.close();
+    await test.cleanup();
+    await require('../src/db').closeDatabase();
+    fs.rmSync(controlDirectory, { recursive: true, force: true });
+  }
 }
 main().catch((failure) => { console.error(failure); process.exitCode = 1; });
