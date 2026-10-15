@@ -1,6 +1,7 @@
 'use strict';
 
 const habitats = require('./habitatRevisionService');
+const enforcement = require('./habitatEnforcementService');
 
 function runtimeError(code, message = code) {
   return Object.assign(new Error(message), { code });
@@ -79,6 +80,10 @@ function assertExistingBinding(binding, reference) {
 
 async function bindMissionHabitat(ctx) {
   const mission = ctx.normalizedMission;
+  if (mission.habitatEnforcementReceipt || mission.habitatEnforcementPlan) {
+    throw runtimeError('HABITAT_CALLER_PROOF_FORBIDDEN',
+      'Habitat enforcement evidence can only be issued by the backend runtime.');
+  }
   const reference = habitatReference(mission);
   if (!reference) return null;
   const missionId = mission.missionId || mission.missionScope?.missionId;
@@ -95,6 +100,8 @@ async function bindMissionHabitat(ctx) {
   if (!binding) binding = await habitats.bindMission(ctx.db, { missionId, ...reference, ...tenant });
   ctx.habitatRevision = revision;
   ctx.habitatBinding = binding;
+  ctx.habitat = Object.freeze({ revision, binding,
+    enforcementPlan: enforcement.createPlan(revision, binding) });
   mission.habitatBinding = binding;
   return binding;
 }

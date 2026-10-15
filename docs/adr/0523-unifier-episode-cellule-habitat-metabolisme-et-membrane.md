@@ -21,6 +21,18 @@ l'isolation du nom d'une API ou d'une capsule.
 
 ## Décision
 
+### Preuve d'application de l'habitat
+
+Une limite déclarée dans une révision ne constitue pas une preuve d'application. Pour le
+runtime `process`, le backend arme la limite de temps murale après la création effective du
+processus enfant. Il persiste alors un reçu immuable qui lie le run, le PID, le binding, le
+hash de révision, la limite et l'implémentation de l'enforcer. Un reçu ou un plan fourni dans
+la mission par l'appelant est refusé.
+
+Les exécutions en processus interne ne peuvent pas revendiquer cette garantie. Les limites
+OS non prises en charge, les assurances d'isolation déclarées `enforced`, ainsi que les
+runtimes conteneur ou microVM sans lanceur dédié restent bloqués en fermeture sûre.
+
 GenOS introduit quatre contrats persistants complémentaires.
 
 1. Un **épisode de mission** identifie l'exécution supervisée et porte les

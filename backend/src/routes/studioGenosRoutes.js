@@ -16,6 +16,7 @@ function handle(operation) {
       const db = await getDatabase();
       const result = await operation(db, { scope: req.tenant, agentId: req.params.id,
         body: req.body || {}, query: req.query, memoryId: req.params.memoryId, genomeId: req.params.genomeId,
+        missionId: req.params.missionId, episodeId: req.params.episodeId,
         actor: req.user.keyId || req.user.username });
       res.json(result);
     } catch (error) { next(error); }
@@ -34,6 +35,9 @@ function delegate(operation) {
 
 const lineage = require('../controllers/lineage');
 const write = [requirePermission('workspace:write'), requireTenantScope({ write: true })];
+const missionInspection = require('../services/studioMissionInspectionService');
+router.get('/missions/:missionId/episodes/:episodeId/inspection',
+  requirePermission('read'), handle(missionInspection.inspect));
 router.get('/agents/:id/worlds', requirePermission('read'), handle(worlds.inspect));
 router.post('/agents/:id/checkpoints', ...write, delegate(lineage.snapshotAgentState));
 router.post('/agents/:id/branches', ...write, delegate(lineage.branchAgentState));

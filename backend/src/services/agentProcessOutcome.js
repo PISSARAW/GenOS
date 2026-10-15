@@ -217,6 +217,9 @@ async function finalizeChildClose({
 
   const operatorStop = resolveOperatorStop(child);
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
+  await require('./workerCellOutcomeBridge').observe({
+    db, agentId, dispatchedAgent, normalizedMission
+  }, outcome).catch((error) => console.error('[WorkerCell] Outcome persistence failed:', error.message));
   if (bodyActionId) await require('./runtimeProcessReceipt').observe({ db, agentId,
     runId: executionRun.id, actionId: bodyActionId,
     outcome: runtimeObservation(outcome, code, signal), emit });

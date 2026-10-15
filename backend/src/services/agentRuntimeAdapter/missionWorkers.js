@@ -171,6 +171,8 @@ function registerAutonomousRound(ctx, autonomousWorkers) {
   if (autonomousWorkers.length && Number.isInteger(survivorCount) && survivorCount > 0) {
     autonomousRounds.set(agentId, {
       plan: autonomyPlan,
+      db: ctx.db,
+      normalizedMission: ctx.normalizedMission,
       workerIds: new Set(autonomousWorkers.map((worker) => worker.agentId)),
       workers: new Map(autonomousWorkers.map((worker) => [worker.agentId, worker])),
       results: new Map(),
@@ -253,9 +255,13 @@ async function dispatchSelectedWorkers(ctx, assignments) {
   try {
     autonomousWorkers = await createAutonomousWorkers(ctx.db, ctx.dispatchedAgent, ctx.autonomyPlan, ctx.normalizedMission);
     assertWorkerDispatchMatches(assignments, autonomousWorkers);
-    await observeWorkerDispatch(ctx, { status: 'created', workerIds: autonomousWorkers.map((worker) => worker.agentId) });
+    const cells = require('../autonomousWorkerCellBridge');
+    await cells.bind(ctx, autonomousWorkers);
+    await observeWorkerDispatch(ctx, { status: 'created', workerIds: autonomousWorkers.map((worker) => worker.agentId),
+      cellThreads: cells.receipts(autonomousWorkers) });
   } catch (error) {
     autonomousWorkers = Array.isArray(error.createdWorkers) ? error.createdWorkers : autonomousWorkers;
+    await require('../autonomousWorkerCellBridge').fail(ctx, autonomousWorkers, error);
     await cleanupUnlaunchedWorkers(ctx, autonomousWorkers, error);
     await observeWorkerDispatch(ctx, { status: 'failed', code: error.code || 'worker_creation_error' });
     emitDispatchFailed(ctx, assignments, { workers: autonomousWorkers, error: error });
@@ -316,6 +322,7 @@ function emitDispatchReconciled(ctx, assignments, workers) {
       createdWorkers: workers.length,
       sourceActionId: ctx.workerDispatchActionId || null,
       workerIds: workers.map((worker) => worker.agentId),
+      cellThreads: require('../autonomousWorkerCellBridge').receipts(workers),
       status: 'created'
     }, 'info');
   }

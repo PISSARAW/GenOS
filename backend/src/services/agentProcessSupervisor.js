@@ -258,7 +258,6 @@ async function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
   // spawn returns. Attach no-op error sinks and retry on transient errors.
   return spawnWithRetry(spawnSpec, spawnOptions, 3);
 }
-
 async function superviseMission(options) {
   const authority = await require('./missionEnvelopeAuthority').assertRun(options.db, {
     agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission });
@@ -362,6 +361,7 @@ async function superviseMission(options) {
   child.on('error', (error) => { handleChildError(ctx, error); });
   childTermination.attach(child, (code, signal) => { handleChildClose(ctx, code, signal); });
   continuousExecution.start(ctx);
+  await require('./habitatEnforcementRuntimeBridge').arm(ctx, options.habitat);
   // Replay a spawn error that fired before ctx existed, and fail the mission
   // through the normal error path instead of crashing the bridge.
   if (earlyChildError) {
@@ -395,6 +395,5 @@ async function superviseMission(options) {
   child.stdin.end(encodedMission);
   return { started: true, executionRun };
 }
-
 module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest,
   reportOrchestrationActionFailure, spawnRuntimeWithRetry, handleOrchestrationDecision };

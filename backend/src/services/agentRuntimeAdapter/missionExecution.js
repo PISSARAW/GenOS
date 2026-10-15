@@ -29,6 +29,7 @@ const { trackWorkspace } = require('../agentWorkspaceLifecycleService');
 async function bootstrapMission(mission) {
   const ctx = await initializeMissionContext(mission);
   await resolveMissionContract(ctx);
+  await require('../workerCellBootstrapBridge').activate(ctx);
   await require('../garageAdmissionService').adopt(ctx);
   await require('../garageAdmissionService').provisionWorker(ctx);
   await provisionWorkspaceAndModel(ctx);
@@ -61,13 +62,17 @@ async function startMissionInternal(mission) {
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
   await require('../garageRuntimeService').assertLease(db, normalizedMission);
-  if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(normalizedMission)) {
+  const deterministicWorker = require('../agents/workerRuntimeLimitsService')
+    .isDeterministicWorkerMission(normalizedMission);
+  require('../habitatEnforcementService').assertSupervisedProcess(ctx, deterministicWorker);
+  if (deterministicWorker) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
     await require('../trinityRuntimeAttestation').recordInProcess(ctx,
       require.resolve('../agents/deterministicWorkerRuntime'), 'in-process-native');
     return require('../agents/deterministicWorkerRuntime').runDeterministicWorker(db, normalizedMission, executionRun);
   }
   const inProcessWorker = isInProcessWorker(dispatchedAgent, normalizedMission, ctx.executable);
+  require('../habitatEnforcementService').assertSupervisedProcess(ctx, inProcessWorker);
   if (inProcessWorker) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
     await require('../trinityRuntimeAttestation').recordInProcess(ctx,
@@ -106,7 +111,8 @@ async function startMissionInternal(mission) {
   assertMissionNotCancelled(agentId);
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
-  return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable });
+  return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable,
+    habitat: ctx.habitat });
 }
 
 async function finalizeMissionStart(agentId) {

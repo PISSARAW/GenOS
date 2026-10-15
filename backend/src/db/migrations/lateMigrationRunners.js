@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('124-habitat-enforcement-receipts', 'Persist immutable backend-issued habitat enforcement receipts', async (db) => {
+    await require('./migrateHabitatEnforcementReceipts').migrateHabitatEnforcementReceipts(db);
+  }),
   createMigrationRunner('120-habitat-revisions', 'Persist immutable executable habitat revisions and mission bindings', async (db) => {
     await require('./migrateHabitatRevisions').migrateHabitatRevisions(db);
   }),
