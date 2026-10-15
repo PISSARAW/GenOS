@@ -34,10 +34,7 @@ fn receipt_does_not_invent_a_genome_for_an_unseeded_root_cell() {
     let ecosystem = GenosEcosystem::new("unseeded-receipt-test");
     let receipt = ecosystem.execution_receipt(Concept::Observe, false, false);
 
-    assert_eq!(
-        receipt.cell_id,
-        Some(ecosystem.orchestrator.orchestrator_id)
-    );
+    assert_eq!(receipt.cell_id, None);
     assert_eq!(receipt.genome_id, None);
     assert_eq!(receipt.genome_fingerprint, None);
 }
