@@ -7,7 +7,7 @@ pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
     let mode = cmd.mode.trim().to_ascii_lowercase();
 
     if !cmd.tick && operation_requires_persisted_tick(cmd) {
-        return Err("biological division, reproduction, DNA recruitment, and Choanocyte streams require --tick and a persisted mission identity".into());
+        return Err("biological division, reproduction, crossover, DNA recruitment, and Choanocyte streams require --tick and a persisted mission identity".into());
     }
 
     if cmd.tick {
@@ -85,7 +85,9 @@ pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
 }
 
 fn operation_requires_persisted_tick(cmd: &BiologicalCmd) -> bool {
-    cmd.divide || cmd.reproduce || cmd.choanocyte_stream.is_some()
+    cmd.divide || cmd.reproduce || cmd.crossover_parent_a.is_some()
+        || cmd.crossover_parent_b.is_some() || cmd.crossover_seed.is_some()
+        || cmd.replay_crossover_key.is_some() || cmd.choanocyte_stream.is_some()
         || cmd.recruit_dna.is_some() || cmd.recruitment_spec.is_some()
 }
 
@@ -127,6 +129,15 @@ fn run_and_report(
     ecosystem.set_mission_id(mission_id);
     restore_or_seed(&mut ecosystem, &mut checkpoints, cmd)?;
     reconcile_receipt_tick(&checkpoints, &mut ecosystem, &store)?;
+    if replay_existing_crossover(CrossoverReplayContext {
+        command: cmd,
+        mission_id,
+        ecosystem: &mut ecosystem,
+        store: &store,
+        checkpoints: &mut checkpoints,
+    })? {
+        return Ok(());
+    }
     let (report, mut receipts) = ecosystem
         .tick_and_persist_with_receipts(&Goal::Explore, &store)
         .map_err(|error| {
@@ -161,6 +172,58 @@ fn run_and_report(
         })
     );
     Ok(())
+}
+
+struct CrossoverReplayContext<'a> {
+    command: &'a BiologicalCmd,
+    mission_id: uuid::Uuid,
+    ecosystem: &'a mut genos_orchestrator::GenosEcosystem,
+    store: &'a genos_store::BiologicalReceiptStore,
+    checkpoints: &'a mut genos_orchestrator::checkpoint::CheckpointManager,
+}
+
+fn replay_existing_crossover(context: CrossoverReplayContext<'_>) -> Result<bool, String> {
+    if !is_crossover_only(context.command) { return Ok(false); }
+    let Some(key) = crossover_lookup_key(context.command, context.mission_id) else {
+        return Ok(false);
+    };
+    let existing = context.store.find_idempotent_receipt(
+        genos_orchestrator::mission_crossover::CROSSOVER_SCHEMA, &key,
+    )?;
+    if context.command.replay_crossover_key.is_some() && existing.is_none() {
+        return Err("crossover receipt not found".into());
+    }
+    if existing.is_none() { return Ok(false); }
+    let tick = context.ecosystem.receipt_tick;
+    let receipts = persist_mission_operations(context.ecosystem, MissionRuntime {
+        command: context.command, store: context.store, tick,
+    })?;
+    save_checkpoint(context.checkpoints, context.ecosystem)?;
+    println!("{}", json!({
+        "success": true,
+        "operation": "biological_crossover_replay",
+        "mission_id": context.mission_id,
+        "tick": tick,
+        "receipts": receipts
+    }));
+    Ok(true)
+}
+
+fn is_crossover_only(cmd: &BiologicalCmd) -> bool {
+    let crossover = cmd.replay_crossover_key.is_some() || cmd.crossover_parent_a.is_some()
+        || cmd.crossover_parent_b.is_some() || cmd.crossover_seed.is_some();
+    crossover && !cmd.divide && !cmd.reproduce && cmd.choanocyte_stream.is_none()
+        && cmd.recruit_dna.is_none() && cmd.recruitment_spec.is_none()
+}
+
+fn crossover_lookup_key(cmd: &BiologicalCmd, mission_id: uuid::Uuid) -> Option<String> {
+    if let Some(key) = &cmd.replay_crossover_key { return Some(key.clone()); }
+    let request = genos_orchestrator::mission_crossover::CrossoverRequest {
+        parent_a_cell_id: cmd.crossover_parent_a?,
+        parent_b_cell_id: cmd.crossover_parent_b?,
+        seed: cmd.crossover_seed?,
+    };
+    Some(genos_orchestrator::mission_crossover::request_key(mission_id, &request))
 }
 
 fn reconcile_receipt_tick(

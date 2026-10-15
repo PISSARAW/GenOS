@@ -23,7 +23,19 @@ pub struct BiologicalCmd {
     /// Reproduce once after the persisted mission tick and archive the genome lineage.
     #[arg(long, requires = "tick", default_value_t = false)]
     pub reproduce: bool,
-    /// JSON typed signal stream to filter and persist with its declared producer identity.
+    /// Cross two registered mission cells and persist their lineage receipt.
+    #[arg(long, requires = "tick", requires_all = ["crossover_parent_b", "crossover_seed"], conflicts_with = "replay_crossover_key")]
+    pub crossover_parent_a: Option<uuid::Uuid>,
+    /// Second registered mission cell for an authorized crossover request.
+    #[arg(long, requires = "tick", requires_all = ["crossover_parent_a", "crossover_seed"], conflicts_with = "replay_crossover_key")]
+    pub crossover_parent_b: Option<uuid::Uuid>,
+    /// Deterministic seed for the requested mission crossover.
+    #[arg(long, requires = "tick", requires_all = ["crossover_parent_a", "crossover_parent_b"], conflicts_with = "replay_crossover_key")]
+    pub crossover_seed: Option<u64>,
+    /// Restore a previously authorized crossover by its durable idempotency key.
+    #[arg(long, requires = "tick", conflicts_with_all = ["crossover_parent_a", "crossover_parent_b", "crossover_seed"])]
+    pub replay_crossover_key: Option<String>,
+    /// JSON typed signal stream to filter and persist under the runtime producer identity.
     #[arg(long, requires = "tick")]
     pub choanocyte_stream: Option<std::path::PathBuf>,
     /// Stable Rust UUID assigned to the backend mission.

@@ -147,7 +147,7 @@ compte 631 entrées sans problème.
 | Réplication | p | p | ? | p | o | B ; copie/lignée logicielle, réplication indépendante de résultats à distinguer. |
 | Mitose | o | p | p | p | o | [mitose](../../crates/genos-reproduction/src/division.rs#L146) ; attestée localement, mission spécifique. |
 | Bourgeonnement | o | p | ? | p | o | [division](../../crates/genos-reproduction/src/division.rs) ; opérateur local, usage en mission non établi. |
-| Méiose | o | p | ? | p | o | [crossover](../../crates/genos-reproduction/src/crossover.rs#L7) ; opérateur local. |
+| Méiose | o | p | p | p | o | [crossover](../../crates/genos-reproduction/src/crossover.rs#L7) ; l'opérateur mission-scoped persiste parents, enfant et seed; `biological_crossover` rejoue son reçu interprocessus sans avancer de tick et refuse une clé inconnue sans reçu (ADR 0511). La validité biologique ou le fitness de la descendance reste non qualifié. |
 | Clonage | o | p | ? | o | o | A ; CLI/API de génome, scénario rejoué non observé ici. |
 | Fossilisation | p | p | ? | p | o | [fiche](../01-concepts/fossilisation.md) ; stockage de traces, exploitation future non prouvée. |
 | Hérédité | p | p | p | p | o | A/B ; lignées et copie, transfert effectif sur plusieurs générations à qualifier. |

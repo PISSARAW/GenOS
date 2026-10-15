@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-const CROSSOVER_SCHEMA: &str = "genos.mission-crossover-receipt/v1";
+pub const CROSSOVER_SCHEMA: &str = "genos.mission-crossover-receipt/v1";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CrossoverParent {
@@ -34,6 +34,7 @@ pub struct CrossoverReceipt {
     pub child_fingerprint: GenomeFingerprint,
 }
 
+#[derive(Clone, Copy)]
 pub struct CrossoverRequest {
     pub parent_a_cell_id: Uuid,
     pub parent_b_cell_id: Uuid,
@@ -61,6 +62,31 @@ impl GenosEcosystem {
         store: &BiologicalReceiptStore,
     ) -> Result<CrossoverReceipt, String> {
         let mission_id = self.mission_id.ok_or("mission identity is required")?;
+        let key = request_key(mission_id, &request);
+        if let Some(value) = store.find_idempotent_receipt(CROSSOVER_SCHEMA, &key)? {
+            return self.restore_crossover_receipt(value, mission_id);
+        }
+        self.create_and_persist_crossover(request, mission_id, store)
+    }
+
+    fn restore_crossover_receipt(
+        &mut self,
+        value: serde_json::Value,
+        mission_id: Uuid,
+    ) -> Result<CrossoverReceipt, String> {
+        let receipt: CrossoverReceipt = serde_json::from_value(value)
+            .map_err(|error| error.to_string())?;
+        validate_receipt(&receipt, mission_id)?;
+        self.install_crossover(&receipt)?;
+        Ok(receipt)
+    }
+
+    fn create_and_persist_crossover(
+        &mut self,
+        request: CrossoverRequest,
+        mission_id: Uuid,
+        store: &BiologicalReceiptStore,
+    ) -> Result<CrossoverReceipt, String> {
         let receipt = self.build_crossover_receipt(request, mission_id)?;
         validate_receipt(&receipt, mission_id)?;
         let encoded = serde_json::to_value(&receipt).map_err(|error| error.to_string())?;
@@ -114,11 +140,15 @@ impl GenosEcosystem {
         }
         check_existing_child(self, receipt)?;
         for parent in [&receipt.parent_a, &receipt.parent_b] {
-            self.orchestrator.genomes.insert(parent.genome.genome_id(), parent.genome.clone());
-            self.orchestrator.active_cells.insert(parent.cell.cell_id, parent.cell.clone());
+            self.orchestrator.genomes.entry(parent.genome.genome_id())
+                .or_insert_with(|| parent.genome.clone());
+            self.orchestrator.active_cells.entry(parent.cell.cell_id)
+                .or_insert_with(|| parent.cell.clone());
         }
-        self.orchestrator.genomes.insert(receipt.child_genome.genome_id(), receipt.child_genome.clone());
-        self.orchestrator.active_cells.insert(receipt.child_cell.cell_id, receipt.child_cell.clone());
+        self.orchestrator.genomes.entry(receipt.child_genome.genome_id())
+            .or_insert_with(|| receipt.child_genome.clone());
+        self.orchestrator.active_cells.entry(receipt.child_cell.cell_id)
+            .or_insert_with(|| receipt.child_cell.clone());
         Ok(())
     }
 }
@@ -218,6 +248,15 @@ fn receipt_key(identity: &CrossoverIdentity) -> String {
     format!("{}:{}:{}:{}", identity.mission_id, identity.parent_a_cell_id, identity.parent_b_cell_id, identity.seed)
 }
 
+pub fn request_key(mission_id: Uuid, request: &CrossoverRequest) -> String {
+    receipt_key(&CrossoverIdentity {
+        mission_id,
+        parent_a_cell_id: request.parent_a_cell_id,
+        parent_b_cell_id: request.parent_b_cell_id,
+        seed: request.seed,
+    })
+}
+
 struct ReceiptParts {
     mission_id: Uuid,
     seed: u64,
@@ -264,8 +303,7 @@ fn check_existing_parent(ecosystem: &GenosEcosystem, parent: &CrossoverParent) -
         if existing.fingerprint()? != parent.fingerprint { return Err("restored crossover parent genome conflicts with runtime".into()); }
     }
     if let Some(existing) = ecosystem.orchestrator.active_cells.get(&parent.cell.cell_id) {
-        if serde_json::to_value(existing).map_err(|error| error.to_string())?
-            != serde_json::to_value(&parent.cell).map_err(|error| error.to_string())? {
+        if existing.genome_id != parent.cell.genome_id {
             return Err("restored crossover parent cell conflicts with runtime".into());
         }
     }
@@ -274,11 +312,15 @@ fn check_existing_parent(ecosystem: &GenosEcosystem, parent: &CrossoverParent) -
 
 fn check_existing_child(ecosystem: &GenosEcosystem, receipt: &CrossoverReceipt) -> Result<(), String> {
     if let Some(existing) = ecosystem.orchestrator.genomes.get(&receipt.child_genome.genome_id()) {
-        if existing.fingerprint()? != receipt.child_fingerprint { return Err("restored crossover child genome conflicts with runtime".into()); }
+        let is_replayed_descendant = existing.genome_id() == receipt.child_genome.genome_id()
+            && existing.parent_ids == receipt.child_genome.parent_ids
+            && existing.generation >= receipt.child_genome.generation;
+        if existing.fingerprint()? != receipt.child_fingerprint && !is_replayed_descendant {
+            return Err("restored crossover child genome conflicts with runtime".into());
+        }
     }
     if let Some(existing) = ecosystem.orchestrator.active_cells.get(&receipt.child_cell.cell_id) {
-        if serde_json::to_value(existing).map_err(|error| error.to_string())?
-            != serde_json::to_value(&receipt.child_cell).map_err(|error| error.to_string())? {
+        if existing.genome_id != receipt.child_cell.genome_id {
             return Err("restored crossover child cell conflicts with runtime".into());
         }
     }

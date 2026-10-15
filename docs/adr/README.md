@@ -640,6 +640,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0508](0508-refuser-une-intersection-vide-de-lease.md) | Refuser une intersection vide de lease | Accepté et implémenté pour les contraintes de focus. | 2026-10-15 | Une contrainte incompatible ne restaure pas les outils du lease initial. |
 | [0509](0509-borner-la-lease-mcp-par-le-budget-de-mission.md) | Borner la lease MCP par le budget de mission | Accepté et implémenté pour le runtime Codex. | 2026-10-15 | Propagation de l'échéance jusqu'au serveur MCP. |
 | [0510](0510-borner-les-budgets-du-runtime-codex.md) | Borner les budgets des runtimes d'agents | Accepté et implémenté pour les gardes Node Codex, local et Solar. | 2026-10-15 | Plafonds finis par défaut et arrêt sur valeur explicite invalide. |
+| [0511](0511-rejouer-le-crossover-sans-avancer-le-tick.md) | Rejouer un crossover sans avancer le tick | Accepté et implémenté pour les commandes CLI crossover isolées. | 2026-10-15 | Les retries ne mutent pas une mission avant de restaurer son reçu. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

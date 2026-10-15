@@ -28,6 +28,7 @@ pub(super) fn persist_mission_operations(
 ) -> Result<Vec<serde_json::Value>, String> {
     let mut receipts = Vec::new();
     receipts.extend(persist_division(ecosystem, &runtime)?);
+    receipts.extend(persist_crossover(ecosystem, &runtime)?);
     receipts.extend(persist_reproduction(ecosystem, runtime.command, runtime.store)?);
     receipts.extend(persist_choanocyte_stream(ecosystem, &runtime)?);
     receipts.extend(run_recruitment(ecosystem, RecruitmentRuntime {
@@ -36,6 +37,33 @@ pub(super) fn persist_mission_operations(
         tick: runtime.tick,
     })?);
     Ok(receipts)
+}
+
+fn persist_crossover(
+    ecosystem: &mut genos_orchestrator::GenosEcosystem,
+    runtime: &MissionRuntime<'_>,
+) -> Result<Option<serde_json::Value>, String> {
+    use genos_orchestrator::mission_crossover::CrossoverRequest;
+    let command = runtime.command;
+    let receipt = if let Some(key) = &command.replay_crossover_key {
+        ecosystem.replay_crossover_for_mission(key, runtime.store)
+            .map_err(|error| format!("mission crossover replay failed: {error}"))?
+    } else {
+        let (Some(parent_a_cell_id), Some(parent_b_cell_id), Some(seed)) = (
+            command.crossover_parent_a,
+            command.crossover_parent_b,
+            command.crossover_seed,
+        ) else {
+            return Ok(None);
+        };
+        ecosystem.crossover_for_mission(
+            CrossoverRequest { parent_a_cell_id, parent_b_cell_id, seed }, runtime.store,
+        ).map_err(|error| format!("mission crossover receipt was not persisted: {error}"))?
+    };
+    Ok(Some(serde_json::json!({
+        "operation": "mission_meiotic_crossover",
+        "receipt": receipt,
+    })))
 }
 
 fn persist_division(
