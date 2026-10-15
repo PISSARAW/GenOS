@@ -284,9 +284,12 @@ function validateWorkerArtifact(dossier, worker) {
   const required = worker.workerContract?.evidence?.requiredArtifacts || [];
   if (!required.length) throw Object.assign(new Error('Worker contract declares no required artifacts.'), { code: 'WORKER_CONTRACT_INVALID_NO_ARTIFACTS' });
   const report = reportOf(dossier);
-  const artifact = report.workerArtifact;
   const kind = worker.workerContract?.identity?.workerKind;
   for (const expected of required) {
+    const artifact = report.workerArtifact || (expected === 'dossier'
+      ? inspectWorkerArtifact(kind, report, {
+        methodContract: worker.workerContract?.mission?.methodContract || null
+      }).artifact : null);
     const fields = REQUIRED_FIELDS[expected];
     if (validateWorkerArtifactCondition(artifact, expected, fields) || kindArtifactIsInvalid({
         kind, type: expected, content: artifact.content, contract: worker.workerContract

@@ -96,6 +96,25 @@ for (const kind of Object.keys(workerKinds.KINDS)) {
   );
 }
 
+const topLevelSpecialist = workerKinds.buildWorkerContract('specialist', {
+  specialtyNiche: 'a_team:identity_witness'
+});
+const topLevelReport = { outcome: 'success', claims: [{ statement: 'Identity verified.',
+  evidence: ['organization-message:112'] }], specialtyAssessment: {
+  niche: 'a_team:identity_witness', inScope: true, evidence: ['organization-message:112']
+} };
+assert.doesNotThrow(() => validateWorkerDossiers([{ workerId: 'identity-worker',
+  events: [{ evidenceReport: topLevelReport }] }], [{ agentId: 'identity-worker',
+  workerContract: topLevelSpecialist }]));
+const topLevelState = { missionDomainState: { hasDomainFailure: false, unverified: true } };
+applyDomainStateFromEvent({ state: topLevelState, event: { payload: topLevelReport },
+  eventType: 'EVIDENCE_REPORT', workerContract: topLevelSpecialist });
+assert.equal(topLevelState.missionDomainState.domainVerdict, 'completed');
+assert.throws(() => validateWorkerDossiers([{ workerId: 'identity-worker', events: [{
+  evidenceReport: { ...topLevelReport, claims: [{ statement: 'Unsupported.', evidence: [] }] }
+}] }], [{ agentId: 'identity-worker', workerContract: topLevelSpecialist }]),
+{ code: 'INVALID_WORKER_ARTIFACT' });
+
 assert(inspectWorkerArtifact('red_worker', { outcome: 'success', claims: CONTENT.dossier.claims, type: 'verification_report', content: CONTENT.verification_report }).issues.includes('workerArtifact.missing'));
 assert(inspectWorkerArtifact('formal_worker', { outcome: 'success', claims: CONTENT.dossier.claims, workerArtifact: { type: 'formal_certificate', content: { claim: 'c', solver: 's', result: 'valid' } } }).issues.some((issue) => issue.includes('solverReceipt')));
 assert(inspectWorkerArtifact('creative_worker', { outcome: 'success', claims: CONTENT.dossier.claims, workerArtifact: { type: 'creative_candidate', content: { candidate: 'draft' } } }).issues.includes('workerArtifact.content.assumptions.missing_or_invalid'));
