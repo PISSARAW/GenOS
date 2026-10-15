@@ -47,7 +47,7 @@ function mockPageHtml() {
 }
 
 function mockPageHtml2() {
-  return '<html><head><title>Extended Climate Dataset</title></head><body><h1>Extended Climate Data</h1><table id="extended-table"><thead><tr><th>Year</th><th>CO2 (ppm)</th><th>Temp Anomaly</th><th>Source</th></tr></thead><tbody><tr><td>2024</td><td>421.5</td><td>1.25</td><td>NOAA</td></tr><tr><td>2025</td><td>423.8</td><td>1.30</td><td>NOAA</td></tr></tbody></table></body></html>';
+  return '<html><head><title>Extended Climate Dataset</title></head><body><h1>Extended Climate Data</h1><table id="extended-table"><thead><tr><th>Year</th><th>CO2 (ppm)</th><th>Temp Anomaly</th><th>Source</th></tr></thead><tbody><tr><td>2024</td><td>421.5</td><td>1.25</td><td>NOAA</td></tr><tr><td>2025</td><td>423.8</td><td>1.30</td><td>NOAA</td></tr></tbody></table><a href="/downloads/extended.csv">Download extended CSV</a></body></html>';
 }
 
 function isTableNode(n) {
@@ -111,6 +111,21 @@ async function executeBrowserAction(sessionId, session, nextAction) {
   return handlersRegistry.HANDLERS.browser_act({ sessionId, type: 'click', selectorId: session.axTree.find(isAnyLink)?.selectorId });
 }
 
+function actionEffectReference(result) {
+  return result?.download?.sha256 || result?.resultUrl || result?.url
+    || (result?.verified === true ? result.observation?.currentUrl : null) || null;
+}
+
+function actionVerified(result, observation) {
+  const reference = actionEffectReference(result);
+  return result?.success === true && Boolean(reference) && observation?.actionEffectReference === reference;
+}
+
+function actionTrace(cycle, observation, verified) {
+  return { cycle, observationId: observation.id, action: observation.action,
+    effectReference: observation.actionEffectReference, verified };
+}
+
 async function runCycle1(session) {
   const sessionId = 'sensorium-test-session';
   emitCorrelated('WEB_CYCLE1_BROWSER_NAVIGATE', 'NAVIGATE', { detail: 'Opening browser session to test URL', payload: { url: 'https://example.com' } });
@@ -135,10 +150,14 @@ async function runCycle1(session) {
   const decisionRecord = makeDecisionRecord(1, chosen.action, { reason: chosen.reason, basedOn: ['browser_navigation', 'foveal_crop', 'foraging_evaluation'] });
   emitCorrelated('WEB_CYCLE1_DECISION_COMPLETE', 'DECIDE', { detail: 'Decision made', payload: { decision: decisionRecord } });
   const actionResult = await executeBrowserAction(sessionId, session, chosen.action);
-  const observation4 = makeObservation('browser_act', 'action_result', { action: chosen.action, success: actionResult.success !== false, infoGain: 0.5 });
+  const actionReference = actionEffectReference(actionResult);
+  const observation4 = makeObservation('browser_act', 'action_result', {
+    action: chosen.action, actionEffectReference: actionReference,
+    success: actionResult.success === true && Boolean(actionReference), infoGain: 0.5
+  });
   sensorium.recordObservation({ agentId: AGENT_ID, observation: observation4 });
   emitCorrelated('WEB_CYCLE1_ACTION_COMPLETE', 'ACT', { detail: 'Action executed', payload: { action: chosen.action, result: actionResult, observation: observation4 } });
-  const verification = { cyclesCompleted: 1, actionVerified: actionResult.success !== false, observationsRecorded: 4, sensoriumRevision: sensorium.getSensorium(AGENT_ID)?.revision || 0, infoGainTotal: [observation1, foveal.observation, observation3, observation4].reduce((sum, o) => sum + (o.infoGain || 0), 0) };
+  const verification = { cyclesCompleted: 1, actionVerified: actionVerified(actionResult, observation4), observationsRecorded: 4, sensoriumRevision: sensorium.getSensorium(AGENT_ID)?.revision || 0, infoGainTotal: [observation1, foveal.observation, observation3, observation4].reduce((sum, o) => sum + (o.infoGain || 0), 0) };
   emitCorrelated('WEB_CYCLE1_VERIFICATION_COMPLETE', 'VERIFY', { detail: 'Cycle 1 verification complete', payload: { verification } });
   return { patchHistory, observation1, fovealObservation: foveal.observation, observation3, observation4, decisionRecord, verification };
 }
@@ -160,11 +179,27 @@ async function runCycle2(session, cycle1) {
   const reason2 = foragingEval2.shouldDepart ? 'Environment depleted, departing' : 'Continuing trend analysis';
   const decisionRecord2 = makeDecisionRecord(2, nextAction2, { reason: reason2, basedOn: ['second_navigation', 'foraging_evaluation'] });
   emitCorrelated('WEB_CYCLE2_DECISION_COMPLETE', 'DECIDE', { detail: 'Second decision made', payload: { decision: decisionRecord2 } });
-  emitCorrelated('WEB_CYCLE2_ACTION', 'ACT', { detail: `Executing ${nextAction2}`, payload: { action: nextAction2 } });
+  const sessionId = 'sensorium-test-session';
+  const actionResult2 = nextAction2 === 'depart_environment'
+    ? await defaultBrowserScout.navigate(sessionId, 'https://example.net/final-source', { htmlContent: mockPageHtml2() })
+    : await executeBrowserAction(sessionId, session, 'download_csv');
+  const actionReference2 = actionEffectReference(actionResult2);
+  const actionObservation2 = makeObservation('browser_act', 'action_result', {
+    action: nextAction2, actionEffectReference: actionReference2,
+    success: actionResult2.success === true && Boolean(actionReference2), infoGain: 0.4
+  });
+  sensorium.recordObservation({ agentId: AGENT_ID, observation: actionObservation2 });
+  emitCorrelated('WEB_CYCLE2_ACTION', 'ACT', {
+    detail: `Executed ${nextAction2}`, payload: { action: nextAction2, result: actionResult2, observation: actionObservation2 }
+  });
   const finalSensorium = sensorium.getSensorium(AGENT_ID);
-  const verification2 = { cycle: 2, actionVerified: true, totalObservations: finalSensorium?.observations?.length || 0, sensoriumRevision: finalSensorium?.revision || 0, totalInfoGain: finalSensorium?.observations?.reduce((sum, o) => sum + (o.infoGain || 0), 0) || 0, cyclesCompleted: 2 };
+  const verification2 = { cycle: 2, actionVerified: actionVerified(actionResult2, actionObservation2),
+    totalObservations: finalSensorium?.observations?.length || 0,
+    sensoriumRevision: finalSensorium?.revision || 0,
+    totalInfoGain: finalSensorium?.observations?.reduce((sum, o) => sum + (o.infoGain || 0), 0) || 0, cyclesCompleted: 2 };
   emitCorrelated('WEB_CYCLE2_VERIFICATION_COMPLETE', 'VERIFY', { detail: 'Cycle 2 verification complete', payload: { verification: verification2 } });
-  return { observation5, observation6, decisionRecord2, verification2 };
+  return { observation5, observation6, decisionRecord2, actionResult2,
+    actionObservation2, verification2 };
 }
 
 function buildAuditTrail(input) {
@@ -176,6 +211,8 @@ function buildAuditTrail(input) {
     totalObservations: observations.length,
     totalInfoGain: observations.reduce((sum, o) => sum + (o.infoGain || 0), 0),
     decisions: [input.cycle1.decisionRecord, input.cycle2.decisionRecord2],
+    actionTraces: [actionTrace(1, input.cycle1.observation4, input.cycle1.verification.actionVerified),
+      actionTrace(2, input.cycle2.actionObservation2, input.cycle2.verification2.actionVerified)],
     observations: observations.map(o => ({ id: o.id, sensorId: o.sensorId, type: o.type, infoGain: o.infoGain })),
     durationMs: Date.now() - input.startedAt,
     success: runWebSensoriumLoopCondition(input.finalState, input.cycle1.verification, input.cycle2.verification2)
@@ -184,6 +221,8 @@ function buildAuditTrail(input) {
 
 function assertAuditTrail(input) {
   assert.ok(input.auditTrail.success, 'Audit trail must show 2 complete cycles with sufficient observations');
+  assert.ok(input.auditTrail.actionTraces.every((trace) => trace.verified && trace.effectReference),
+    'Each action trace must link a successful browser result to its recorded observation');
   assert.ok(input.finalState.observations.length >= 6, 'Must have at least 6 observations (3 per cycle minimum)');
   assert.ok(input.cycle1.verification.cyclesCompleted >= 1, 'Cycle 1 must complete');
   assert.ok(input.cycle2.verification2.cyclesCompleted >= 1, 'Cycle 2 must complete');
@@ -222,7 +261,9 @@ if (require.main === module) {
 
 module.exports = { runWebSensoriumLoop, CORRELATION_ID };
 function runWebSensoriumLoopCondition(finalState, verificationFinal, verification2Final) {
-  return finalState.observations.length >= 6 && verificationFinal.cyclesCompleted >= 1 && verification2Final.cyclesCompleted >= 1;
+  return finalState.observations.length >= 6 && verificationFinal.cyclesCompleted >= 1
+    && verificationFinal.actionVerified === true && verification2Final.cyclesCompleted >= 1
+    && verification2Final.actionVerified === true;
 }
 
 function runWebSensoriumLoopCondition2(n) {
