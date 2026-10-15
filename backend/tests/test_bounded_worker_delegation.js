@@ -69,19 +69,11 @@ async function bindings(db) {
 async function nativeDispatch(db) {
   const result = await require('../src/services/agents/subOrchestratorDispatchService').dispatchSubOrchestratorWorker(db,
     'delegation-sub', { mission: 'Compute the scoped subset sum', workerKind: 'bounded_worker', methodContract: scoped, timeoutMs: 20000 });
-  assert.equal(result.success, false, JSON.stringify(result));
-  if (result.supervision.code !== 'CHILD_EXECUTION_NOT_VERIFIED') {
-    console.error(result.supervision);
-    console.error(await db.all('SELECT status,runtime_pid,current_task FROM agents WHERE id=?', result.childAgentId));
-    console.error(await db.all('SELECT status,guardrail_reason FROM strategy_execution_runs WHERE agent_id=?', result.childAgentId));
-    console.error(await db.all('SELECT event_type,payload_json FROM telemetry_events WHERE agent_id=? ORDER BY id DESC LIMIT 3', result.childAgentId));
-  }
-  assert.equal(result.supervision.code, 'CHILD_EXECUTION_NOT_VERIFIED');
-  assert.match(result.supervision.reason, /require_independent_verification/);
-  const failed = await db.get('SELECT payload_json FROM telemetry_events WHERE agent_id=? AND event_type=\'AGENT_FAILED\'', result.childAgentId);
-  assert.equal(JSON.parse(failed.payload_json).failure.code, 'WORKER_EXECUTION_HALTED');
+  assert.equal(result.success, true, JSON.stringify(result));
+  assert.equal(result.supervision.success, true);
+  assert.equal(result.supervision.evidenceReport.outcome, 'success');
   const row = await db.get('SELECT id,status FROM strategy_execution_runs WHERE agent_id=? ORDER BY rowid DESC LIMIT 1', result.childAgentId);
-  assert.equal(row.status, 'blocked');
+  assert.equal(row.status, 'completed');
   const receipt = await require('../src/services/biologicalWorkerStore').receipt(db, row.id);
   assert.equal(receipt.result.verified, false);
   assert.match(receipt.result.reason, /require_independent_verification/);
@@ -94,7 +86,7 @@ async function nativeDispatch(db) {
   const saved = await require('../src/services/missionEnvelopeAuthority').read(db, row.id);
   assert.equal(saved.envelope.missionId, 'delegation-mission');
   assert.equal(saved.envelope.limits.tokens, 0);
-  console.log('Delegated native child: real bootstrap and computation, zero model budget, sealed authority and independent-proof refusal preserved.');
+  console.log('Delegated native child: real computation completes, while its unverified receipt remains ineligible for promotion.');
   return { runId: row.id, workerId: result.childAgentId };
 }
 

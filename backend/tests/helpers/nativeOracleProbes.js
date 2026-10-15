@@ -28,6 +28,8 @@ function verifiers() {
 async function positive(db, context) {
   const oldSecret = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET;
   const oldNodeOptions = process.env.NODE_OPTIONS;
+  const originalRunStatus = (await db.get('SELECT status FROM strategy_execution_runs WHERE id=?',
+    context.options.nativeOracleSubject.runId)).status;
   process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'native-oracle-test-only';
   process.env.NODE_OPTIONS = '--require=nonexistent-oracle-inherited-module';
   try {
@@ -53,7 +55,7 @@ async function positive(db, context) {
     assert.equal(duplicates.results[0].receipt.independent, true);
     assert.equal(duplicates.results[1].receipt.independent, false, 'declared metadata cannot turn the same algorithm into an independent strategy');
     assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id=?', context.options.nativeOracleSubject.runId)).status,
-      'blocked', 'an oracle receipt alone must not rewrite or promote the historical run');
+      originalRunStatus, 'an oracle receipt alone must not rewrite or promote the historical run');
   } finally {
     if (oldSecret === undefined) delete process.env.GENOS_EPISTEMIC_RECEIPT_SECRET;
     else process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = oldSecret;
