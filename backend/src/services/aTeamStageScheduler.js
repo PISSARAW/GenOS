@@ -216,6 +216,10 @@ function launchCapabilities(member, request) {
   }
 }
 
+function selectedModelBudgetScope(member, request) {
+  return member.modelBudgetScope || request.modelBudgetScope || request.model_budget_scope || null;
+}
+
 function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }) {
   const launchCaps = launchCapabilities(member, request);
   const budget = request.execution_budget || request.executionBudget;
@@ -244,6 +248,7 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     capabilityManifest: launchCaps.capabilityManifest,
     toolLease: launchCaps.toolLease,
     execution_budget: executionBudget,
+    modelBudgetScope: selectedModelBudgetScope(member, request),
     timeoutMs: request.timeoutMs,
     workspace_root: request.workspace_root || parentWorkspaceRoot,
     reuseChecked: true,

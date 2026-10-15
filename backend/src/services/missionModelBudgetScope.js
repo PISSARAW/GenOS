@@ -51,6 +51,62 @@ async function assertPersisted(db, scope, parentId) {
   }
 }
 
+async function teamWorkspaceScope(db, orchestratorAgentId) {
+  const agent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', orchestratorAgentId)
+    .catch(() => null);
+  if (!agent || !agent.workspace_id) return {};
+  const workspace = await db.get('SELECT organization_id, project_id FROM workspaces WHERE id = ?',
+    agent.workspace_id).catch(() => null);
+  if (!workspace) return {};
+  return { organizationId: workspace.organization_id || null,
+    projectId: workspace.project_id || null };
+}
+
+function validateTeamScopeInput(input) {
+  const { db, teamRunId, orchestratorAgentId } = input;
+  if (typeof db?.run !== 'function' || typeof db?.get !== 'function') {
+    throw budgetError('A persistent database is required for shared model reservations.');
+  }
+  if (!teamRunId || !orchestratorAgentId) {
+    throw budgetError('Team model budget scope requires a team run and its parent orchestrator.');
+  }
+}
+
+function completeTeamBudget(input) {
+  return input.budget?.costUsd != null && input.budget?.tokens != null;
+}
+
+async function resolveTeamScope(input) {
+  const { db, teamRunId, orchestratorAgentId, budget, organizationId, projectId } = input;
+  const fallback = organizationId == null || projectId == null
+    ? await teamWorkspaceScope(db, orchestratorAgentId) : {};
+  return validScope({
+    id: `team-run:${teamRunId}`,
+    costUsd: Number(budget.costUsd),
+    tokens: Number(budget.tokens),
+    organizationId: organizationId ?? fallback.organizationId ?? null,
+    projectId: projectId ?? fallback.projectId ?? null
+  });
+}
+
+async function persistTeamScope(input, scope) {
+  const { db, teamRunId, orchestratorAgentId } = input;
+  await db.run(`INSERT OR IGNORE INTO mission_model_budget_scopes
+    (scope_id, parent_run_id, parent_agent_id, organization_id, project_id,
+     cost_ceiling_usd, token_ceiling) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  scope.id, teamRunId, orchestratorAgentId, scope.organizationId, scope.projectId,
+  scope.costUsd, scope.tokens);
+  await assertPersisted(db, scope, orchestratorAgentId);
+  return scope;
+}
+
+async function bindTeamScope(input) {
+  validateTeamScopeInput(input);
+  if (!completeTeamBudget(input)) return null;
+  const scope = await resolveTeamScope(input);
+  return persistTeamScope(input, scope);
+}
+
 async function routeBudget(mission, db) {
   const scope = validScope(mission.modelBudgetScope);
   if (!db || typeof db.exec !== 'function' || typeof db.run !== 'function'
@@ -72,4 +128,4 @@ async function routeBudget(mission, db) {
   };
 }
 
-module.exports = { bindParent, routeBudget, validScope };
+module.exports = { bindParent, bindTeamScope, routeBudget, validScope };

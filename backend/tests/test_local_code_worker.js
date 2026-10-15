@@ -32,7 +32,8 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 	let observedFormat;
 	modelRouter.generate = async (options) => { observedFormat = options.responseFormat; return {}; };
 	try {
-		await workerEvidence.generateWorkerResult({ db: {}, workerModel: 'ollama://fixture', latencyMs: 100,
+		await workerEvidence.generateWorkerResult({ db: {}, executionRun: { id: 'code-worker-run' },
+			workerModel: 'ollama://fixture', latencyMs: 100,
 			maxTokens: 100, maxCost: 1, policy: {}, promptText: 'proposal', codeWorker: true,
 			mission: { agentId: 'code-worker' }, stageTimings: {} });
 		assert.deepEqual(observedFormat, responseFormat);

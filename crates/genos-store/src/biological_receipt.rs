@@ -186,4 +186,22 @@ mod tests {
         assert!(reopened.read_all().is_err());
         let _ = std::fs::remove_file(path);
     }
+
+    #[test]
+    fn receipt_batch_preserves_high_precision_biological_floats_after_reopen() {
+        let path = temp_path();
+        let store = BiologicalReceiptStore::open(&path);
+        let receipt = serde_json::json!({
+            "schema": "genos.population-state/v1",
+            "guard": {
+                "aba": 0.020000000000000018,
+                "potassium": 770.672,
+                "availability": 0.98
+            }
+        });
+        store.append_receipts(std::slice::from_ref(&receipt)).unwrap();
+
+        assert_eq!(BiologicalReceiptStore::open(&path).read_all().unwrap(), vec![receipt]);
+        let _ = std::fs::remove_file(path);
+    }
 }

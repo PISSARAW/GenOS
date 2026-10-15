@@ -27,7 +27,8 @@ async function database() {
 }
 
 function routeInput(db, mission) {
-  return { db, mission, workerModel: 'openai://model', latencyMs: 1000,
+  return { db, mission, executionRun: { id: `${mission.agentId}:run` }, identitySession: null,
+    workerModel: 'openai://model', latencyMs: 1000,
     maxTokens: 1, maxCost: mission.executionBudget.costUsd,
     policy: { primary: 'openai://model' }, stageTimings: {}, promptText: 'x' };
 }

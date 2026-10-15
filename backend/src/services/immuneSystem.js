@@ -129,12 +129,22 @@ function immunityRetry(input, state) {
 
 function painPromptFor(basePrompt, error) {
     const message = error && error.message ? error.message : String(error);
-    return `${basePrompt}\n\n[ERREUR CRITIQUE] Ta tentative précédente a muté avec cette erreur : "${message}". 
+    return `${basePrompt}\n\n[ERREUR CRITIQUE] Ta tentative précédente a muté avec cette erreur : "${message}".
             CORRIGE TON ERREUR. Formate EXACTEMENT comme demandé sans ajout.`;
 }
 
 const { evaluateCognitiveHealth } = require('./cognitiveMonitor.js');
 const { enforceOutputContract } = require('./outputGovernor.js');
+
+// Moniteur lexical réservé au texte libre : les sorties JSON à schéma
+// répètent leurs clés par construction ; le validatorFn reste leur arbitre.
+function checkLinguisticHealth(cleanText, terms, structuredOutput) {
+    if (structuredOutput) return null;
+    const health = evaluateCognitiveHealth(cleanText, terms.expected, terms.forbidden || []);
+    if (health.health_score < 0.3) throw new Error("ANOMALY: Repetition excessive détectée. Abort trajectory.");
+    if (health.health_score < 0.6) throw new Error("ANOMALY: Dérive sémantique détectée. Re-concentre ton attention sur le sujet initial et évite le hors-sujet.");
+    return health;
+}
 
 /**
  * Exécute un appel LLM avec validation immunitaire pour du TEXTE BRUT (Markdown).
@@ -144,16 +154,16 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
     let currentPrompt = basePrompt;
     const maxRetries = opts.maxRetries || 3;
     const agentId = opts.agentId || 'griot';
-    
+
     // Extraction de mots-clés du prompt pour le moniteur
     const expectedTerms = basePrompt.split(/\s+/).filter(w => w.length > 5).slice(0, 5);
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const currentVariant = (opts.variantIndex !== undefined ? opts.variantIndex : 0) + (attempt - 1);
         console.log(`[ImmuneSystem-Text:${agentId}] Phagocytose Structurelle... Essai ${attempt}/${maxRetries} (Pléiotropie: Modèle index ${currentVariant})`);
         const fn = module.exports.askLocalLLM || askLocalLLM;
         let rawRes = await fn(currentPrompt, complexity, agentId, currentVariant, opts.modelRouting || {});
-        
+
         if (!rawRes) {
             console.log(`[Apoptose-Text:${agentId}] Mort silencieuse.`);
             continue;
@@ -170,20 +180,15 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
             let cleanText = rawRes.trim();
             cleanText = cleanText.replace(/^```markdown/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
 
-            // Moniteur Cognitif
-            const health = evaluateCognitiveHealth(cleanText, expectedTerms, opts.forbiddenTerms || []);
-            
-            if (health.health_score < 0.3) {
-                throw new Error("ANOMALY: Repetition excessive détectée. Abort trajectory.");
-            }
-            if (health.health_score < 0.6) {
-                throw new Error("ANOMALY: Dérive sémantique détectée. Re-concentre ton attention sur le sujet initial et évite le hors-sujet.");
-            }
+            // Moniteur Cognitif lexical : sauté pour les sorties JSON à schéma,
+            // gouvernées par le validatorFn (voir checkLinguisticHealth).
+            checkLinguisticHealth(cleanText, { expected: expectedTerms, forbidden: opts.forbiddenTerms || [] },
+                Boolean(opts.modelRouting && opts.modelRouting.responseFormat));
 
             if (opts.validatorFn) {
                 opts.validatorFn(cleanText);
             }
-            
+
             console.log(`[Homéostasie-Text:${agentId}] Structure Markdown validée.`);
             return cleanText;
         } catch (e) {
@@ -199,7 +204,7 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
             if (e.message && e.message.includes('Repetition excessive')) {
                 currentPrompt = `${basePrompt}\n\n[CONSIGNE COGNITIVE] Diversifie ton vocabulaire, évite les répétitions et fournis une réponse directe et concise.`;
             } else {
-                currentPrompt = `${basePrompt}\n\n[ERREUR STRUCTURELLE] Ton texte n'a pas respecté l'architecture imposée : "${e.message}". 
+                currentPrompt = `${basePrompt}\n\n[ERREUR STRUCTURELLE] Ton texte n'a pas respecté l'architecture imposée : "${e.message}".
                 CORRIGE TON ERREUR et renvoie tout le texte avec la structure exacte demandée.`;
             }
         }
