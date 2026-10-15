@@ -309,7 +309,7 @@ Socle `8000 / 300_000 / 60_000`. Variantes : `procedural` et `formal` `tokens=0`
 
 ### 7.2 Baux d'outils fail-closed côté Node
 
-`missionBootstrap` applique les plafonds `resources.maxTokens` et `resources.maxTimeMs` au budget normalisé et au délai de mission des workers. Pour `resident_daemon`, le plafond Node est de 30 minutes par mission, sans borne d'itérations dans le preset. `maxCpuMs` et `limits.maxIterations` restent des données de contrat sans compteur d'exécution Node dédié ; ne pas les présenter comme des limites runtime garanties.
+`missionBootstrap` applique les plafonds `resources.maxTokens` et `resources.maxTimeMs` au budget normalisé et au délai de mission des workers. Pour `resident_daemon`, le plafond Node est de 30 minutes par mission, sans borne d'itérations dans le preset. `maxCpuMs` est mesuré sur l'arbre de processus du runtime et, sauf plafond explicite du type de worker, suit `maxTimeMs`. `limits.maxIterations` reste une donnée de contrat sans compteur d'exécution Node dédié.
 
 - `toolLeasePolicy.js` : `WORKER_BASE_LEASE` restreint, `ORCHESTRATOR_CORE_LEASE` large. `restrictProvidedLease` ne peut que restreindre ; `genos_orchestrate` toujours retiré.
 - `missionLease.js` (`enforceMissionToolLease`) : fraîcheur du bail (`AGENT_TOOL_LEASE_STALE`), dérivation, restriction, et si `contract.authority.execute===false ⇒ toolLease=[]` (concerne `ScoutCell`, `ResidentDaemon` brut, `creative/synthesis/liaison` après overrides).

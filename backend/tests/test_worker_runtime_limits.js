@@ -6,10 +6,14 @@ const { assertWorkerExecutorAvailable, applyWorkerRuntimeLimits } = require('../
 
 const bounded = { workerKind: 'bounded_worker', workerContract: buildWorkerContract('bounded_worker'), timeoutMs: 900000 };
 const budget = applyWorkerRuntimeLimits(bounded, { tokens: 20000, latencyMs: 900000 });
-assert.deepEqual(budget, { tokens: 8000, latencyMs: 540000, cpuMs: 60000 });
+assert.deepEqual(budget, { tokens: 8000, latencyMs: 540000, cpuMs: 540000 });
 assert.equal(bounded.timeoutMs, 540000);
 assert.equal(bounded.executionBudget.tokens, 8000);
-assert.equal(bounded.executionBudget.cpuMs, 60000);
+assert.equal(bounded.executionBudget.cpuMs, 540000);
+
+const forensic = buildWorkerContract('forensic_worker');
+assert.equal(forensic.resources.maxCpuMs, forensic.resources.maxTimeMs,
+  'model workers can use their full runtime window as aggregate process-tree CPU');
 
 const smallerCpuBudget = { workerKind: 'bounded_worker', workerContract: buildWorkerContract('bounded_worker'),
   executionBudget: { cpuMs: 1200 } };
