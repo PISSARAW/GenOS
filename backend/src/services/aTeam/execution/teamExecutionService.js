@@ -65,10 +65,11 @@ async function finalizeExecution(input) {
     .evaluateForNode(input.db, { nodeId: input.riskNodeId || input.teamRunId, contract: input.statisticalContract });
   const accepted = observed.promoted && observed.gate.passed && statistical.allowed;
   const status = accepted ? 'COMPLETED' : observed.graph.nodes.some((node) => node.status === 'FAILED') ? 'FAILED' : 'BLOCKED';
+  const audit = await require('./teamAuditService').buildTeamAudit(input.db, input.run, observed);
   let run = await requireLease(input);
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision,
     patch: { status, phase: 'INTEGRATION', execution: { ...run.execution,
-      coverage: observed.coverage, integration: { accepted, failures: observed.observation, gate: observed.gate },
+      coverage: observed.coverage, integration: { accepted, failures: observed.observation, gate: observed.gate, audit },
       schedulingResults: input.results } } });
   run = await runtime.transitionRun({ db: input.db, teamRunId: run.teamRunId, revision: run.revision, patch: { phase: 'DEBRIEF' } });
   const evidenceIds = [...new Set([...observed.verdicts.values()].flatMap((verdict) => verdict.evidenceRefs))];
@@ -78,7 +79,8 @@ async function finalizeExecution(input) {
     metrics: { completionRate: completed / observed.graph.nodes.length,
       handoffAcceptanceRate: observed.graph.edges.length ? acceptedHandoffs(observed.graph) : 1 },
     evidenceIsUsable: async ({ evidenceId }) => valid.has(evidenceId) });
-  return { teamRunId: run.teamRunId, status, accepted, coverage: observed.coverage, results: input.results };
+  return { teamRunId: run.teamRunId, status, accepted, coverage: observed.coverage,
+    results: input.results, audit };
 }
 
 function receiptsForMember(graph, nodes) {
