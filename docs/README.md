@@ -1,5 +1,7 @@
 # Documentation GenOS
 
+- [Comparaison locale entre un agent Codex et un worker GenOS](06-benchmarks/comparaison-agent-codex-worker-genos-2026-10-15.md) — même mission MCP, résultat de sécurité, métriques observées et distinction entre verdict et promotion.
+
 - [Qualification de release](06-qualite-preuves/qualification-release.md) — portes automatiques, rapport reproductible et écarts bloquant l'exploitabilité complète.
 
 - [ADR 0428 — Oracle subset_sum pour l'exécuteur procédural](adr/0428-oracle-subset-pour-executeur-procedural.md) — mission procédurale vérifiée et limites du reçu canonisé.
@@ -288,6 +290,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [validation-nosologie.md](06-qualite-preuves/validation-nosologie.md) — résultats ciblés du 2026-10-06 et limites des vérifications globales.
 - [tests-et-validation.md](06-qualite-preuves/tests-et-validation.md) — validation du dépôt et suites de test.
 - [tests-des-contrats-recents.md](06-qualite-preuves/tests-des-contrats-recents.md) — validation des contrats récemment documentés.
+- [comparaison-agent-codex-worker-genos-2026-10-15.md](06-benchmarks/comparaison-agent-codex-worker-genos-2026-10-15.md) — expérience locale sur la deny-list MCP, métriques asymétriques et gate de promotion GenOS.
 - [benchmark-ateam.md](06-benchmarks/benchmark-ateam.md) — protocole apparié A-Team, ablations et limites des résultats.
 - [qualite-diversite-organisations.md](06-benchmarks/qualite-diversite-organisations.md) — archive Pyribs et tâche Shinka bornée.
 - [Bancs AgentDojo et BrowserGym](../integrations/agent_benchmarks/README.md) — évaluation indépendante des attaques et de la navigation.

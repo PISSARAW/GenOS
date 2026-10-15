@@ -2,6 +2,7 @@
 
 Protocoles et résultats de comparaison des topologies GenOS.
 
+- [Comparaison locale entre un agent Codex et un worker GenOS](comparaison-agent-codex-worker-genos-2026-10-15.md) — même mission MCP, preuves, coûts observés, verdict `unresolved` et gate de promotion.
 - [Campagnes empiriques AGOW, MBH-RNN et Lipson-like](campagnes-agow-mbh-lipson.md) — campagnes locales exécutées et limites des résultats.
 - [Benchmark longitudinal Holobionte](benchmark-longitudinal-holobionte.md) — protocole apparié à douze bras ; campagne réelle non exécutée.
 - [Protocole d'exécution Holobionte](protocole-execution-holobionte.md) — budgets, topologies, workers, nosologie, échanges, graphe d'agents et télémétrie.
