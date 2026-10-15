@@ -123,6 +123,7 @@ fn sensory_producer_overlap_retires_a_and_keeps_b_consumable_after_restart() {
     assert!(accepted_a.status.success(), "A during overlap: {}", String::from_utf8_lossy(&accepted_a.stderr));
     let accepted_b = run_ingest(&overlap_b, &input_b);
     assert!(accepted_b.status.success(), "B during overlap: {}", String::from_utf8_lossy(&accepted_b.stderr));
+    let overlap_receipt = serde_json::from_slice::<Value>(&accepted_b.stdout).unwrap();
 
     let retired_a = context(&workspace, mission_a, &b_only_trust, "rotation-a-retired");
     let rejected_a = run_ingest(&retired_a, &input_a);
@@ -140,7 +141,7 @@ fn sensory_producer_overlap_retires_a_and_keeps_b_consumable_after_restart() {
     assert!(first_tick.status.success(), "first B tick: {}", String::from_utf8_lossy(&first_tick.stderr));
     let after_first = receipts(&workspace, mission_b);
     let paf_first = after_first.iter().find(|item| item["schema"] == "genos.instinct-paf-receipt/v1" && item["tick"] == 1).unwrap();
-    assert_eq!(paf_first["sensory_source_refs"][0]["event_id"], "rotation-b-overlap");
+    assert_eq!(paf_first["sensory_source_refs"][0]["event_id"], overlap_receipt["event_id"]);
 
     // Each CLI invocation is a fresh process: the durable B input and tick must replay.
     let second_tick = run_tick(&active_b);

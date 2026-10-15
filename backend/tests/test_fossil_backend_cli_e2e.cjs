@@ -161,7 +161,7 @@ function invokeCli(fossilId) {
 function invokeCliCommand(args) {
   return spawnSync(cli, args, { encoding: 'utf8',
     env: { ...process.env, GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS_FILE: activeTrustPath,
-      GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS: '' } });
+      GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS: fs.readFileSync(activeTrustPath, 'utf8') } });
 }
 
 function activateTrust(...signers) {

@@ -84,7 +84,7 @@ async function completeCliApplication(req, res, next) {
     const db = await getDatabase();
     const result = await withTransaction(db, () => ledger.completeApplication(db, {
       authorizationId: req.params.authorizationId, operationId: req.body?.operationId,
-      claimToken: req.body?.claimToken, tenant: req.tenant,
+      claimToken: req.body?.claimToken, result: req.body?.result, tenant: req.tenant,
     }));
     if (result.status === 'not_found') return res.status(404).json({ error: { code: 'CLINICAL_APPLICATION_CLAIM_NOT_FOUND' } });
     if (result.status === 'claim_lost') return res.status(409).json({ error: { code: 'CLINICAL_APPLICATION_CLAIM_LOST' } });
@@ -126,6 +126,10 @@ async function apply(req, res, next) {
       return res.status(409).json({ error: { code: 'CLINICAL_APPLICATION_IN_PROGRESS', retryAfterUnixMs: claim.retryAfterUnixMs } });
     }
     if (claim.status === 'not_found') return res.status(404).json({ error: { code: 'CLINICAL_AUTHORIZATION_NOT_FOUND' } });
+    if (claim.status === 'completed' && claim.resultJson) {
+      return res.json({ operation: 'clinical_apply', missionId: claims.mission_id,
+        authorizationId: authorization.authorization_id, rust: JSON.parse(claim.resultJson) });
+    }
     return await runOnlineClinicalApplication({ req, res, authorization, claimantId, claim });
   } catch (error) { return next(error); }
 }
@@ -151,6 +155,7 @@ async function runOnlineClinicalApplication(input) {
       authorizationId: authorization.authorization_id,
       operationId: claim.operationId,
       claimToken: claim.claimToken,
+      result: run.json,
       tenant: req.tenant,
     }));
     if (completed.status !== 'completed') return res.status(502).json({ error: { code: 'CLINICAL_APPLICATION_COMPLETION_FAILED' } });

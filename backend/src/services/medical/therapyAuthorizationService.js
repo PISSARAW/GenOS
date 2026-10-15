@@ -108,7 +108,7 @@ async function claimApplication(db, input) {
   if (!authorization) return { status: 'not_found' };
   const key = [tenant.organizationId, tenant.projectId, authorizationId, operationId];
   const existing = await db.get(`SELECT operation_id, claimant_id, claim_token, state, attempts,
-    lease_until_unix_ms FROM clinical_authorization_applications
+    lease_until_unix_ms, result_json FROM clinical_authorization_applications
     WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?`, ...key);
   if (existing) return claimExistingApplication(db, { existing, key, claimantId, input });
   if (authorization.revoked_at_unix_ms !== null) return { status: 'revoked' };
@@ -147,7 +147,7 @@ async function createApplicationClaim(db, input) {
 function claimResult(row, completed, recovered) {
   return { operationId: clinicalOperationIdFromClaim(row), claimToken: row.claim_token,
     status: completed ? 'completed' : 'claimed', recovered,
-    leaseUntilUnixMs: row.lease_until_unix_ms };
+    leaseUntilUnixMs: row.lease_until_unix_ms, resultJson: row.result_json };
 }
 
 function clinicalOperationIdFromClaim(row) {
@@ -167,9 +167,10 @@ async function completeApplication(db, input) {
   if (!claim) return { status: 'not_found' };
   if (claim.state === 'completed') return { status: 'completed', operationId };
   if (claim.claim_token !== input.claimToken) return { status: 'claim_lost' };
-  await db.run(`UPDATE clinical_authorization_applications SET state='completed', completed_at_unix_ms=?
+  const resultJson = input.result === undefined ? null : JSON.stringify(input.result);
+  await db.run(`UPDATE clinical_authorization_applications SET state='completed', completed_at_unix_ms=?, result_json=?
     WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?
-      AND state='claimed' AND claim_token=?`, Date.now(), ...key, input.claimToken);
+      AND state='claimed' AND claim_token=?`, Date.now(), resultJson, ...key, input.claimToken);
   return { status: 'completed', operationId };
 }
 

@@ -68,7 +68,8 @@ pub(super) fn execute(
     let mut ecosystem = genos_orchestrator::GenosEcosystem::new("authorized-clinical");
     ecosystem.restore_population(&store)?;
     let receipt = ecosystem.apply_authorized_therapy(&auth, &store)?;
-    complete_backend_application(&auth, &operation_id, claim["claimToken"].as_str().unwrap_or_default())?;
+    complete_backend_application(&auth, &operation_id,
+        claim["claimToken"].as_str().unwrap_or_default(), &receipt)?;
     let administered = receipt["treatment_administered"] == true;
     Ok(
         serde_json::json!({ "success": administered, "treatment_administered": administered,
@@ -117,9 +118,10 @@ fn complete_backend_application(
     auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
     operation_id: &str,
     claim_token: &str,
+    receipt: &serde_json::Value,
 ) -> Result<(), String> {
     let response = backend_authority_request(auth, "complete", json!({
-        "operationId": operation_id, "claimToken": claim_token,
+        "operationId": operation_id, "claimToken": claim_token, "result": receipt,
     }))?.send().map_err(|_| "clinical application completion unavailable")?;
     if !response.status().is_success() {
         return Err(backend_rejection(response));

@@ -41,6 +41,10 @@ async function migrateClinicalAuthorizationLedger(db) {
   CREATE INDEX IF NOT EXISTS idx_clinical_application_recovery
     ON clinical_authorization_applications(state, lease_until_unix_ms);
   `);
+  const columns = await db.all('PRAGMA table_info(clinical_authorization_applications)');
+  if (!columns.some(column => column.name === 'result_json')) {
+    await db.exec('ALTER TABLE clinical_authorization_applications ADD COLUMN result_json TEXT CHECK (result_json IS NULL OR json_valid(result_json))');
+  }
 }
 
 module.exports = { migrateClinicalAuthorizationLedger };
