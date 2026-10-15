@@ -10,9 +10,12 @@ async function assertRemoteGitUrl(rawUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
     throw new Error('Remote Git URL must be an HTTP(S) URL without embedded credentials.');
   }
-  if (process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES !== '1') {
-    await validateProviderEndpointAsync(parsed.href, { localOnly: false });
+  const allowedHosts = String(process.env.GENOS_AGENT_GIT_REMOTE_HOSTS || '')
+    .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean);
+  if (!allowedHosts.includes(parsed.host.toLowerCase())) {
+    throw new Error('Remote Git host is not in GENOS_AGENT_GIT_REMOTE_HOSTS.');
   }
+  await validateProviderEndpointAsync(parsed.href, { localOnly: false });
   return parsed;
 }
 

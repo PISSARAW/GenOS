@@ -11,9 +11,12 @@ function allowedPluginRegistries() {
 }
 
 function validateImage(image) {
-  if (!String(image).includes('@sha256:')) throw new Error('Plugin image must be pinned by a sha256 digest.');
-  if (!/^[a-z0-9][a-z0-9./:_-]+@sha256:[a-f0-9]{64}$/i.test(image)) throw new Error('Plugin image is invalid.');
-  const [reference, digest] = image.split('@');
+  if (typeof image !== 'string') throw new Error('Plugin image is invalid.');
+  const separator = image.indexOf('@');
+  if (separator < 1 || image.indexOf('@', separator + 1) !== -1) throw new Error('Plugin image must be pinned by a sha256 digest.');
+  const reference = image.slice(0, separator);
+  const digest = image.slice(separator + 1);
+  if (!/^[a-z0-9][a-z0-9./:_-]+$/i.test(reference)) throw new Error('Plugin image is invalid.');
   if (!digest || !/^sha256:[a-f0-9]{64}$/i.test(digest)) throw new Error('Plugin image must be pinned by a sha256 digest.');
   const registry = reference.includes('/') ? reference.split('/')[0].toLowerCase() : 'docker.io';
   const registries = allowedPluginRegistries();

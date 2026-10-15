@@ -17,10 +17,9 @@ const { TASKS_PATH, REPOS_DIR } = require('./swe_paths');
 const PREDICTIONS_PATH = path.resolve(__dirname, 'swe_bench_real_predictions.jsonl');
 
 function runCmd(options) {
-  const { command, args, cwd, env = {} } = options;
+  const { args, cwd } = options;
   try {
-    const fullEnv = { ...process.env, ...env };
-    const stdout = execFileSync(command, args, { cwd, env: fullEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 310000 });
+    const stdout = execFileSync('wsl', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 310000 });
     return { success: true, code: 0, output: stdout };
   } catch (err) {
     return { success: false, code: err.status || 1, timedOut: err.code === 'ETIMEDOUT', output: (err.stdout || '') + (err.stderr || '') };
@@ -109,7 +108,7 @@ function runPytest({ repoDir, testTargets, task, pythonPath = 'src:.' }) {
   const pythonBin = `~/.swe_venvs/${venvName}/bin/python`;
   const script = `cd '${wslDir}' && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=${pythonPath} timeout --signal=TERM --kill-after=5s 300s ${pythonBin} -m pytest ${targetArgs} -v -W ignore::DeprecationWarning`;
   const encodedScript = Buffer.from(script, 'utf8').toString('base64');
-  return runCmd({ command: 'wsl', args: ['-d', 'Ubuntu-24.04', 'bash', '-c', `echo ${encodedScript} | base64 -d | bash`], cwd: repoDir });
+  return runCmd({ args: ['-d', 'Ubuntu-24.04', 'bash', '-c', `echo ${encodedScript} | base64 -d | bash`], cwd: repoDir });
 }
 
 function parseTestList(val) {

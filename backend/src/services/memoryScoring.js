@@ -15,7 +15,8 @@ function hashTokenIntoVector(term, vec, options = {}) {
   term = String(term).slice(0, MAX_TOKEN_LENGTH);
   const { dim, weight = 1.0 } = options;
   let h1 = 0x811c9dc5;
-  for (let i = 0; i < term.length; i++) {
+  const termLength = Math.min(term.length, MAX_TOKEN_LENGTH);
+  for (let i = 0; i < termLength; i++) {
     h1 ^= term.charCodeAt(i);
     h1 = Math.imul(h1, 0x01000193);
   }
@@ -43,7 +44,8 @@ function tokenize(text) {
 }
 
 function addTokenFeatures(tokens, vec, dimension) {
-  for (let i = 0; i < tokens.length; i++) {
+  const tokenCount = Math.min(tokens.length, MAX_TOKEN_COUNT);
+  for (let i = 0; i < tokenCount; i++) {
     const token = tokens[i];
     hashTokenIntoVector(token, vec, { dim: dimension, weight: 1.0 });
     if (i < tokens.length - 1) {
@@ -53,6 +55,7 @@ function addTokenFeatures(tokens, vec, dimension) {
 }
 
 function normalizedVector(vec, dimension) {
+  dimension = Math.min(dimension, MAX_VECTOR_DIM);
   let sumSq = 0;
   for (let i = 0; i < dimension; i++) {
     sumSq += vec[i] * vec[i];
@@ -75,7 +78,7 @@ function cosineSimilarity(vecA = [], vecB = []) {
   let normA = 0;
   let normB = 0;
 
-  const len = vecA.length;
+  const len = Math.min(vecA.length, MAX_VECTOR_DIM);
   for (let i = 0; i < len; i++) {
     dotProduct += vecA[i] * vecB[i];
     normA += vecA[i] * vecA[i];
@@ -204,7 +207,7 @@ function termMatchWeight(term, item, tags) {
 }
 
 function computeTermBonus(item, queryLower, tags) {
-  const queryTerms = queryLower.split(/\s+/).filter(w => w.length > 2);
+  const queryTerms = queryLower.split(/\s+/).filter(w => w.length > 2).slice(0, MAX_TOKEN_COUNT);
   let termMatchCount = 0;
   for (const term of queryTerms) {
     termMatchCount += termMatchWeight(term, item, tags);

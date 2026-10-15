@@ -25,6 +25,9 @@ function runGit(cmd, cwd) {
 }
 
 function ensureRepoCloned(repoName) {
+  if (typeof repoName !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repoName)) {
+    throw new Error('SWE repository must be an owner/repository name.');
+  }
   if (!fs.existsSync(REPOS_DIR)) {
     fs.mkdirSync(REPOS_DIR, { recursive: true });
   }

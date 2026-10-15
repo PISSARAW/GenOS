@@ -24,27 +24,26 @@ async function applyOrganization({ db, orchestratorId, organization, reason }) {
   await dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId });
 }
 
-const MODE_COMPOSERS = {
-  trinity: composeTrinity,
-  a_team: composeATeam,
-  biocenose: composeBiocenose,
-  syncytium: composeSyncytium,
-  holobionte: composeHolobionte,
-  metapopulation: composeMetapopulation,
-  rhizome: composeRhizome,
-  biome: composeBiome
-};
+async function composeKnownMode(context) {
+  switch (context.key) {
+    case 'trinity': return composeTrinity(context);
+    case 'a_team': return composeATeam(context);
+    case 'biocenose': return composeBiocenose(context);
+    case 'syncytium': return composeSyncytium(context);
+    case 'holobionte': return composeHolobionte(context);
+    case 'metapopulation': return composeMetapopulation(context);
+    case 'rhizome': return composeRhizome(context);
+    case 'biome': return composeBiome(context);
+    default: return null;
+  }
+}
 
 async function composeMode(input = {}) {
   const context = { ...input, key: normalizeMode(input.mode) };
-  if (context.key === 'isolated_baseline') {
-    return require('./isolatedBaselineTopologyService').compose(context);
-  }
+  if (context.key === 'isolated_baseline') return require('./isolatedBaselineTopologyService').compose(context);
   if (context.key === 'axolotl' || context.key === 'plastique') return composeAxolotl(context);
-  const compose = MODE_COMPOSERS[context.key];
-  const composition = compose
-    ? await compose(context)
-    : { members: biologicalModeService.compose(context.key, context.mission) };
+  const composition = await composeKnownMode(context)
+    || { members: biologicalModeService.compose(context.key, context.mission) };
   return topologyWorkerKindService.applyTopologyWorkerKinds(
     context.key, composition, context.workerAssignments || context.options?.workerAssignments
   );

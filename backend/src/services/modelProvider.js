@@ -108,22 +108,38 @@ function isLocalEndpoint(explicitEndpoint) {
   return Boolean(explicitEndpoint && /^(http:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/0\.0\.0\.0)/.test(explicitEndpoint));
 }
 
-const PROVIDER_ENDPOINTS = {
-  anthropic: () => process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages',
-  gemini: model => process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-  mistral: () => process.env.MISTRAL_API_ENDPOINT || 'https://api.mistral.ai/v1/chat/completions',
-  groq: () => process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions',
-  deepseek: () => process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com/v1/chat/completions',
-  together: () => process.env.TOGETHER_API_ENDPOINT || 'https://api.together.xyz/v1/chat/completions',
-  openrouter: () => process.env.OPENROUTER_API_ENDPOINT || 'https://openrouter.ai/api/v1/chat/completions',
-  ollama: () => process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions',
-  lmstudio: () => process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions',
-  vllm: () => process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions'
-};
+function firstRemoteProviderEndpoint(provider, modelName) {
+  switch (provider) {
+    case 'anthropic': return process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages';
+    case 'gemini': return process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent`;
+    case 'mistral': return process.env.MISTRAL_API_ENDPOINT || 'https://api.mistral.ai/v1/chat/completions';
+    default: return undefined;
+  }
+}
+
+function secondRemoteProviderEndpoint(provider) {
+  switch (provider) {
+    case 'groq': return process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions';
+    case 'deepseek': return process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com/v1/chat/completions';
+    case 'together': return process.env.TOGETHER_API_ENDPOINT || 'https://api.together.xyz/v1/chat/completions';
+    case 'openrouter': return process.env.OPENROUTER_API_ENDPOINT || 'https://openrouter.ai/api/v1/chat/completions';
+    default: return undefined;
+  }
+}
+
+function localProviderEndpoint(provider) {
+  switch (provider) {
+    case 'ollama': return process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions';
+    case 'lmstudio': return process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions';
+    case 'vllm': return process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions';
+    default: return undefined;
+  }
+}
 
 function resolveEndpoint(provider, modelName, endpointOverride) {
-  const endpoint = PROVIDER_ENDPOINTS[provider];
-  if (endpoint) return endpoint(modelName);
+  const endpoint = firstRemoteProviderEndpoint(provider, modelName)
+    || secondRemoteProviderEndpoint(provider) || localProviderEndpoint(provider);
+  if (endpoint) return endpoint;
   return firstTruthy(endpointOverride, process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT,
     process.env.GENOS_MODEL_ENDPOINT, 'https://api.openai.com/v1/chat/completions');
 }
