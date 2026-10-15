@@ -31,6 +31,13 @@ Le système combine :
 - plasticité : synaptic updates inspirées de STDP ;
 - consolidation / oubli : decay, pruning et purge.
 
+Un événement terminal négatif n'alimente pas la récompense positive ni la promotion.
+Il peut uniquement devenir une précaution durable si un vérificateur indépendant
+signe une issue `success: false`, liée au hash de l'événement, au run, à l'agent et
+au tenant. Cette mémoire est lue comme un piège (`FAILURE`), séparément des issues
+positives de la boucle causale. Sans cette attestation, GenOS conserve un statut
+d'absence de preuve et ne déduit pas une cause d'échec.
+
 ---
 
 ## 2. Définition fonctionnelle

@@ -1,6 +1,7 @@
 'use strict';
 
 const validation = require('./morphogenesis/learning/outcomeEvidenceValidation');
+const terminalOutcome = require('./terminalOutcomeEvidence');
 
 const TERMINAL_EVENTS = new Set(['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR',
   'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN']);
@@ -10,7 +11,7 @@ async function attach(db, input) {
   const { agentId, event } = input;
   if (!isTargetEvent(event)) return event;
   const scope = await runScope(db, agentId);
-  if (!isWorkerScope(scope)) return event;
+  if (!isWorkerScope(scope)) return markUnavailable(event, 'worker_scope_required');
   const prior = await replayExisting(db, event);
   if (prior) return prior;
   return attachWorkerOutcome(db, { agentId, event, scope });
@@ -33,6 +34,7 @@ function stripDerivedFields(event) {
   const payload = { ...event.payload };
   delete payload.qualityEvidence;
   delete payload.qualityEvidenceStatus;
+  delete payload.negativeOutcomeEvidenceStatus;
   return { ...event, payload };
 }
 
@@ -47,7 +49,11 @@ function isWorkerScope(scope) {
 function terminalPayload(event) {
   const payload = { ...event.payload };
   delete payload.qualityEvidence;
+  delete payload.negativeOutcomeEvidence;
   payload.qualityEvidenceStatus = unavailableStatus(event.eventType);
+  if (terminalOutcome.FAILURE_EVENTS.has(event.eventType)) {
+    payload.negativeOutcomeEvidenceStatus = { status: 'unavailable', reason: 'signed_negative_outcome_evidence_required' };
+  }
   return payload;
 }
 
@@ -55,12 +61,41 @@ async function attachWorkerOutcome(db, input) {
   const { agentId, event, scope } = input;
   const payload = terminalPayload(event);
   if (!scope.valid) return withUnavailable(payload, 'agent_scope_unavailable', event);
-  if (event.eventType !== 'AGENT_COMPLETED') return { ...event, payload };
+  if (event.eventType !== 'AGENT_COMPLETED') return attachNegativeOutcome({ agentId, event, payload, scope });
   try {
     return await attachAcceptedOracle(db, { agentId, event, payload, scope });
   } catch (failure) {
     return withUnavailable(payload, failure.code || 'independent_oracle_unavailable', event);
   }
+}
+
+function attachNegativeOutcome(input) {
+  const { agentId, event, payload, scope } = input;
+  const evidence = event.payload?.negativeOutcomeEvidence;
+  const binding = bindingOf(event, agentId, scope);
+  if (!terminalOutcome.validateNegativeOutcome({ event, evidence, binding })) {
+    return { ...event, payload };
+  }
+  payload.negativeOutcomeEvidence = evidence;
+  payload.negativeOutcomeEvidenceStatus = { status: 'verified', schema: terminalOutcome.NEGATIVE_OUTCOME_SCHEMA,
+    receiptId: evidence.receiptId };
+  return { ...event, payload };
+}
+
+function bindingOf(event, agentId, scope) {
+  return { actionId: event.payload.executionRunId, agentId,
+    organizationId: scope.organizationId, projectId: scope.projectId };
+}
+
+function markUnavailable(event, reason) {
+  const payload = { ...event.payload };
+  delete payload.qualityEvidence;
+  delete payload.negativeOutcomeEvidence;
+  payload.qualityEvidenceStatus = { status: 'unavailable', reason };
+  if (terminalOutcome.FAILURE_EVENTS.has(event.eventType)) {
+    payload.negativeOutcomeEvidenceStatus = { status: 'unavailable', reason };
+  }
+  return { ...event, payload };
 }
 
 async function attachAcceptedOracle(db, input) {
@@ -86,7 +121,11 @@ function unavailableStatus(eventType) {
 }
 
 function withUnavailable(payload, reason, event) {
-  return { ...event, payload: { ...payload, qualityEvidenceStatus: { status: 'unavailable', reason } } };
+  const next = { ...payload, qualityEvidenceStatus: { status: 'unavailable', reason } };
+  if (terminalOutcome.FAILURE_EVENTS.has(event.eventType)) {
+    next.negativeOutcomeEvidenceStatus = { status: 'unavailable', reason };
+  }
+  return { ...event, payload: next };
 }
 
 function acceptedProof(proof) {

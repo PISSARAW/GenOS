@@ -5,6 +5,9 @@ const assert = require('node:assert/strict');
 const gate = require('../src/services/epistemic/nativeOracleGate');
 const quality = require('../src/services/terminalQualityEvidence');
 const validation = require('../src/services/morphogenesis/learning/outcomeEvidenceValidation');
+const terminalOutcome = require('../src/services/terminalOutcomeEvidence');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
+const receipts = require('../src/services/epistemicVerifierReceiptService');
 
 async function main() {
   const originalContext = gate.context;
@@ -46,10 +49,51 @@ async function main() {
       payload: { executionRunId: 'run-c' } } });
     assert.equal(abstention.payload.qualityEvidence, undefined);
     assert.equal(abstention.payload.qualityEvidenceStatus.reason, 'no_answer_has_no_quality_score');
+
+    const failedEvent = { eventType: 'AGENT_FAILED', payload: { executionRunId: 'run-fail',
+      failure: { category: 'assertion', reason: 'independent negative fixture' } } };
+    const negativeEvidence = signNegativeOutcome(failedEvent);
+    const verifiedFailure = await quality.attach(db, { agentId: 'agent-a', event: {
+      ...failedEvent, payload: { ...failedEvent.payload, negativeOutcomeEvidence: negativeEvidence }
+    } });
+    assert.equal(verifiedFailure.payload.qualityEvidence, undefined,
+      'a verified failure must not become positive quality evidence');
+    assert.equal(verifiedFailure.payload.qualityEvidenceStatus.status, 'unavailable');
+    assert.deepEqual(verifiedFailure.payload.negativeOutcomeEvidenceStatus, {
+      status: 'verified', schema: terminalOutcome.NEGATIVE_OUTCOME_SCHEMA, receiptId: negativeEvidence.receiptId
+    });
+    assert.equal(verifiedFailure.payload.negativeOutcomeEvidence.success, false);
+
+    const alteredFailure = { ...failedEvent, payload: { ...failedEvent.payload,
+      failure: { category: 'assertion', reason: 'changed after verifier signed' }, negativeOutcomeEvidence: negativeEvidence }
+    };
+    const rejectedFailure = await quality.attach(db, { agentId: 'agent-a', event: alteredFailure });
+    assert.equal(rejectedFailure.payload.negativeOutcomeEvidence, undefined,
+      'changing the failure event after signing must discard its negative evidence');
+    assert.equal(rejectedFailure.payload.negativeOutcomeEvidenceStatus.status, 'unavailable');
+
+    const unscoped = await quality.attach({ get: async () => null }, { agentId: 'missing-agent', event: {
+      eventType: 'AGENT_FAILED', payload: { executionRunId: 'run-unscoped' }
+    } });
+    assert.deepEqual(unscoped.payload.qualityEvidenceStatus, { status: 'unavailable', reason: 'worker_scope_required' });
+    assert.deepEqual(unscoped.payload.negativeOutcomeEvidenceStatus, { status: 'unavailable', reason: 'worker_scope_required' });
   } finally {
     gate.context = originalContext;
   }
   console.log('Terminal quality evidence is signed, run-bound and omitted with a reason when no accepted oracle exists.');
+}
+
+function signNegativeOutcome(event) {
+  const receiptId = `negative:${event.payload.executionRunId}`;
+  const evidence = { status: 'VERIFIED', kind: 'oracle', receiptId, success: false, value: 0,
+    actionId: event.payload.executionRunId, agentId: 'agent-a', organizationId: 'org-a', projectId: 'project-a',
+    learningContext: { schema: terminalOutcome.NEGATIVE_OUTCOME_SCHEMA, eventType: event.eventType,
+      terminalEventHash: terminalOutcome.terminalEventHash(event) } };
+  evidence.receipt = receipts.issueReceipt({ resultId: receiptId,
+    evidenceDigest: validation.evidenceDigest(evidence), verifierDigest: verifierTrust.ensureVerifier('testResult').digest,
+    independent: true, status: 'verified', nonce: receiptId,
+    independenceDescriptor: { actorId: 'failure-oracle', workspaceId: 'isolated-failure-verifier' } });
+  return evidence;
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

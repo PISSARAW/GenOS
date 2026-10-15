@@ -15,6 +15,7 @@ const { readFailed } = require('./agentMemoryTelemetry');
 const vesicles = require('./agentMemoryVesicles');
 const promptGenome = require('./promptGenomeService');
 const microRnaPrompt = require('./microRnaPromptService');
+const causalSources = require('./agentCausalMemorySource');
 const scope = require('./agentMemoryScope');
 const { sanitizeMemorySourceText } = require('./memoryScoring');
 const { MAX_TOKEN_BUDGET, compileContext } = require('./memory/memoryContextCompiler');
@@ -100,20 +101,6 @@ async function loadEpisodes(agentId, opts) {
   }
 }
 
-async function loadCausalMemories(agentId, opts) {
-  try {
-    const { getDatabase } = require('../db');
-    const db = opts.db || await getDatabase();
-    return await require('./causalLearningOutbox').recentMemories(db, {
-      agentId, organizationId: opts.organizationId, projectId: opts.projectId,
-      limit: opts.causalMemoryLimit || 4
-    });
-  } catch (error) {
-    readFailed(agentId, error, 'causal-learning-load');
-    return [];
-  }
-}
-
 async function searchFailureMemories(task, opts) {
   try {
     const primitives = require('./primitiveHandlers/memory');
@@ -137,11 +124,11 @@ async function loadPitfalls(task, opts, base) {
 async function retrieveAgentMemories(agentId, task, options) {
   const opts = options || {};
   const search = await searchExperiences(agentId, task, opts);
-  const causalMemories = await loadCausalMemories(agentId, opts);
+  const causalMemories = await causalSources.load(agentId, opts);
   const episodes = await loadEpisodes(agentId, opts);
-  const pitfalls = await loadPitfalls(task, opts, search.pitfalls);
+  const pitfalls = await loadPitfalls(task, opts, [...causalMemories.pitfalls, ...search.pitfalls]);
   const scopeTask = opts.scopeTask || task;
-  const experiences = applyScope([...causalMemories, ...search.experiences], scopeTask, opts);
+  const experiences = applyScope([...causalMemories.experiences, ...search.experiences], scopeTask, opts);
   return {
     experiences: experiences.sort((left, right) => Number(scope.isCaution(right)) - Number(scope.isCaution(left))).slice(0, 4),
     pitfalls: applyScope(pitfalls, scopeTask, opts).slice(0, 3),

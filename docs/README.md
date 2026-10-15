@@ -5,6 +5,7 @@
 - [ADR 0531 — Recevoir les entrées sensorielles et neuro-gliales dans le backend](adr/0531-entrees-sensorielles-et-neurogliales-backend.md) — routes HTTP tenant-scopées, signatures producteurs, persistance sensorielle immuable et limites d'autorité CLI.
 - [ADR 0533 — Raccorder la boucle causale aux reçus de stratégie](adr/0533-raccorder-la-boucle-causale-aux-recus-strategie.md) — apprentissage causal réservé aux runs vérifiés et aux preuves de qualité signées, liées au run et au tenant.
 - [ADR 0535a — Persistance et reprise idempotente de l’apprentissage causal](adr/0535-persistance-reprise-apprentissage-causal.md) — outbox transactionnel, retries à clé stable et rappel de souvenirs après revalidation de la preuve.
+- [ADR 0557 — Mémoire négative vérifiée des issues terminales](adr/0557-memoire-negativement-verifiee-des-issues-terminales.md) — preuve de défaite signée et liée au run, mémoire négative idempotente et séparée des scores de promotion.
 - [ADR 0538 — Inventaire opérationnel workers/daemons pour la morphogenèse](adr/0538-inventaire-operationnel-workers-daemons-morphogenese.md) — proposition de résolution consultative fondée sur l’état runtime, les leases et la provenance.
 
 - [Comparaison locale entre un agent Codex et un worker GenOS](06-benchmarks/comparaison-agent-codex-worker-genos-2026-10-15.md) — même mission MCP, résultat de sécurité, métriques observées et distinction entre verdict et promotion.

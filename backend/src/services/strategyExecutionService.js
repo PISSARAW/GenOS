@@ -126,7 +126,8 @@ async function recordExecutionEvent(db, agentId, event) {
   if (!saved) return null;
   if (saved.duplicate) {
     const causalLearning = await observeCausalOutcome(db, saved, event);
-    return { ...saved, causalLearning };
+    const negativeOutcome = await observeNegativeOutcome(db, saved, event);
+    return { ...saved, causalLearning, negativeOutcome };
   }
   const fallback = await fallbackAfterProgress(db, saved, agentId);
   if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) {
@@ -135,11 +136,26 @@ async function recordExecutionEvent(db, agentId, event) {
   }
   const routeLearning = await observeCompletedWorkerRoute(db, saved);
   const causalLearning = await observeCausalOutcome(db, saved, event);
+  const negativeOutcome = await observeNegativeOutcome(db, saved, event);
   const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival,
     authorityRefusal: saved.authorityRefusal || null,
     duplicate: saved.duplicate === true, biologicalReceipt: saved.biologicalReceipt || null,
-    routeLearning, causalLearning };
+    routeLearning, causalLearning, negativeOutcome };
+}
+
+async function observeNegativeOutcome(db, saved, event) {
+  if (!require('./terminalOutcomeEvidence').FAILURE_EVENTS.has(event?.eventType)) {
+    return { status: 'not_applicable' };
+  }
+  if (!saved?.biologicalReceipt) return { status: 'refused', reason: 'verified_worker_receipt_required' };
+  try {
+    return await require('./terminalNegativeOutcomeMemory').record(db, {
+      run: saved.run, biologicalReceipt: saved.biologicalReceipt, event
+    });
+  } catch (error) {
+    return { status: 'error', code: error.code || 'TERMINAL_NEGATIVE_MEMORY_FAILED' };
+  }
 }
 
 async function observeSurvivalEvent({ db, agentId, event, run }) {

@@ -693,6 +693,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0554](0554-calibrer-le-selecteur-morphogenetique.md) | Calibrer le sélecteur morphogénétique sur des issues vérifiées | Accepté pour la calibration consultative | 2026-10-15 | orchestration, morphogenèse, calibration, preuve |
 | [0555](0555-reduction-des-communications-a-la-releve.md) | Réduction des communications à la relève morphogénétique | Accepté pour une action consultative et conditionnelle | 2026-10-15 | orchestration, morphogenèse, communication, leases, preuve |
 | [0556](0556-autoriser-le-foraging-par-appartenance-de-mission.md) | Autoriser le foraging par appartenance à la mission | Accepté | 2026-10-15 | MCP, biomimétisme, navigateur, autorité, provenance |
+| [0557](0557-memoire-negativement-verifiee-des-issues-terminales.md) | Mémoire négative vérifiée des issues terminales | Accepté | 2026-10-15 | épistémologie, exécution worker, mémoire, apprentissage causal |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
