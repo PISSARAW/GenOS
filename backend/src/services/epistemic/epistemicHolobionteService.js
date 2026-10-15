@@ -95,7 +95,7 @@ async function depositVerifierPheromone(antigen, verifierResults, context) {
       locusHash: antigen.id ? `sha256:${crypto.createHash('sha256').update(antigen.id).digest('hex')}` : null,
       intensity: refuted > 0 ? 0.9 : 0.5,
       isRepellent: refuted > 0,
-    }, { db: context.db });
+    }, { db: context.db, localOnly: context.localOnlyPheromones === true });
   } catch (_) { /* stigmergie ne doit pas bloquer */ }
 }
 

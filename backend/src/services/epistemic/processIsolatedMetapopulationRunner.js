@@ -53,7 +53,11 @@ function runPopulation(population) {
     child.on('error', (error) => { clearTimeout(timer); reject(error); });
     child.on('close', (code) => {
       clearTimeout(timer);
-      if (failureCode || code !== 0) return reject(Object.assign(new Error('Population worker failed.'), { code: failureCode || 'AEIS_POPULATION_WORKER_FAILED' }));
+      if (failureCode || code !== 0) {
+        const detail = workerFailureDetail(stderr, stdout);
+        const message = detail ? `Population worker failed (exit ${code}): ${detail}` : `Population worker failed (exit ${code}).`;
+        return reject(Object.assign(new Error(message), { code: failureCode || 'AEIS_POPULATION_WORKER_FAILED' }));
+      }
       try { resolve({ ...JSON.parse(stdout), processId: child.pid, durationMs: Date.now() - startedAt }); }
       catch (error) { reject(Object.assign(error, { code: 'AEIS_POPULATION_RESULT_INVALID' })); }
     });
@@ -61,6 +65,14 @@ function runPopulation(population) {
       endpoint: population.endpoint, prompt: population.prompt, timeoutMs,
       maxTokens: boundedNumber(population.maxTokens, 400, 4096) }));
   });
+}
+
+function workerFailureDetail(stderr, stdout) {
+  try {
+    const result = JSON.parse(stdout);
+    if (typeof result.error === 'string' && result.error.trim()) return result.error.trim().slice(0, 1000);
+  } catch (_) { /* Worker may fail before producing structured output. */ }
+  return stderr.trim().slice(0, 1000);
 }
 
 async function runIsolatedPopulations(populations) {

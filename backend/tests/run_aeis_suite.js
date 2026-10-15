@@ -3,6 +3,7 @@
 const { spawnSync } = require('node:child_process');
 const crypto = require('node:crypto');
 const path = require('node:path');
+const EAB_TIMEOUT_MS = 240000;
 
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= crypto.randomBytes(32).toString('hex');
 
@@ -34,6 +35,7 @@ const cases = [
   'epistemic_biocenose_test.js',
   'epistemic_metapopulation_test.js',
   'epistemic_stigmergy_test.js',
+  'test_stigmergy_local_only.js',
   'epistemic_apoptosis_test.js',
   'epistemic_apoptosis_authority_bridge_test.js',
   'test_aeis_authority_persistence.js',
@@ -51,9 +53,14 @@ const cases = [
 ];
 
 for (const item of cases) {
+  const benchmark = item === '../../benchmarks/eab/run-aeis-eab.cjs';
   const result = spawnSync(process.execPath, [path.resolve(__dirname, item)], {
-    stdio: 'inherit', env: process.env,
+    stdio: 'inherit', env: process.env, timeout: benchmark ? EAB_TIMEOUT_MS : undefined,
   });
+  if (result.error?.code === 'ETIMEDOUT') {
+    process.stderr.write(`AEIS suite timed out after ${EAB_TIMEOUT_MS}ms: ${item}\n`);
+    process.exit(1);
+  }
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status || 1);
 }

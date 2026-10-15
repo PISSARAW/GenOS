@@ -41,10 +41,12 @@ function summarize(rows) {
 }
 
 async function measureCase(item, root) {
+  process.stdout.write(`[AEIS-EAB] start ${item.id}\n`);
   const started = process.hrtime.bigint();
   const result = await evaluateReportWithAeis({ claims: [{ ...item.claim,
     evidence: [{ kind: 'reproducible_artifact' }] }] }, {
     domain: 'general', immuneMemory: [], allowedWorkspaceRoot: root,
+    localOnlyPheromones: true,
   });
   const verifierResults = result.holobionteResults.reduce((total, row) =>
     total + (row.immune?.verifierResults?.results?.length || 0), 0);
@@ -59,7 +61,11 @@ async function run(options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-aeis-eab-'));
   try {
     const rows = [];
-    for (const item of benchmarkCases(root)) rows.push(await measureCase(item, root));
+    for (const item of benchmarkCases(root)) {
+      const row = await measureCase(item, root);
+      rows.push(row);
+      process.stdout.write(`[AEIS-EAB] done ${item.id} ${row.latencyMs.toFixed(1)}ms\n`);
+    }
     const report = summarize(rows);
     assert.equal(report.trueAccepts, 1, 'AEIS must accept the supported claim');
     assert.equal(report.falseAccepts, 0, 'AEIS must reject every adversarial claim');

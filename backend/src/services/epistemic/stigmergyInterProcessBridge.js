@@ -36,7 +36,8 @@ function isSupportedType(type) {
   return Object.values(SIGNAL_TYPES).includes(type);
 }
 
-async function optionalDb(provided) {
+async function optionalDb(provided, localOnly) {
+  if (localOnly) return null;
   if (provided) return provided;
   try {
     const { getDatabase } = require('../../db');
@@ -86,7 +87,7 @@ async function depositPheromone(signal, opts = {}) {
   const bus = opts.bus || require('../biomimeticSignalingBus');
   const preparedSignal = preparePheromone(signal);
   const blob = packPheromone(bus, preparedSignal);
-  const db = await optionalDb(opts.db);
+  const db = await optionalDb(opts.db, opts.localOnly === true);
   if (!db) {
     return {
       localOnly: true,

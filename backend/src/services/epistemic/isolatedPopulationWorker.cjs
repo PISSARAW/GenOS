@@ -10,7 +10,10 @@ async function run() {
     const result = await generate({ model: input.model, endpoint: input.endpoint, prompt: input.prompt, timeoutMs: input.timeoutMs, maxTokens: input.maxTokens, stream: false, enforceSchema: false });
     finish({ provider: input.provider, model: input.model, text: result.text || '', usage: result.usage || {} });
   } catch (error) {
-    finish({ provider: input.provider, model: input.model, error: error.message }, 1);
+    const causeCode = error.cause?.code;
+    const detail = causeCode ? `${error.message} (${causeCode})` : error.message;
+    process.stderr.write(`${detail}\n`);
+    finish({ provider: input.provider, model: input.model, error: detail }, 1);
   }
 }
 
