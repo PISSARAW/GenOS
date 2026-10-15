@@ -38,6 +38,7 @@ require.cache[agentEvidenceServicePath] = {
 
 const { getDatabase, closeDatabase } = require('../src/db');
 const { collectMissionEvidence, buildEvidenceFlags, buildEvidenceKinds, buildTypedProfiles } = require('../src/services/missionEvidenceCollector');
+const { buildHomeostasisContract, evaluateContract } = require('../src/services/homeostasisContractService');
 const { buildMissionContext } = require('../bin/orchestratorMissionHelpersBuildContext.cjs');
 
 const TESTS = [];
@@ -143,14 +144,26 @@ test('barrier alone does not establish a passing test suite', () => {
 
 test('empty evidence report telemetry does not satisfy required evidence', () => {
   const empty = [{ event_type: 'EVIDENCE_REPORT', detail: 'report', payload_json: '{}' }];
-  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry: empty }).includes('evidence_report'), false);
+  const emptyKinds = buildEvidenceKinds({ dossiers: [], runs: [], telemetry: empty });
+  assert.equal(emptyKinds.includes('evidence_report'), false);
   assert.equal(buildEvidenceFlags({ agents: [], dossiers: [], telemetry: empty }).verifierReceiptPresent, false);
+
+  const contract = buildHomeostasisContract({
+    id: 'evidence-report-contract', missionId: 'evidence-report-mission', requiredEvidence: ['evidence_report'],
+    invariants: [{ id: 'report-check', kind: 'structural', verifier: { type: 'context.flag', flag: 'ready' } }]
+  });
+  const emptyEvaluation = evaluateContract(contract, { flags: { ready: true }, evidence: emptyKinds });
+  assert.equal(emptyEvaluation.evidence.missing.includes('evidence_report'), true);
+  assert.equal(emptyEvaluation.homeostasisSatisfied, false, 'empty report telemetry must fail the real contract gate');
 
   const substantiated = [{ event_type: 'EVIDENCE_REPORT', detail: 'report', payload_json: JSON.stringify({
     evidenceReport: { claims: [{ claim: 'Observed result', evidence: [{ source: 'test log', value: 'exit 0' }] }] }
   }) }];
-  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry: substantiated }).includes('evidence_report'), true);
+  const substantiatedKinds = buildEvidenceKinds({ dossiers: [], runs: [], telemetry: substantiated });
+  assert.equal(substantiatedKinds.includes('evidence_report'), true);
   assert.equal(buildEvidenceFlags({ agents: [], dossiers: [], telemetry: substantiated }).verifierReceiptPresent, false);
+  const substantiatedEvaluation = evaluateContract(contract, { flags: { ready: true }, evidence: substantiatedKinds });
+  assert.equal(substantiatedEvaluation.homeostasisSatisfied, true);
 });
 
 test('typed profiles created from dossiers and runs', () => {
