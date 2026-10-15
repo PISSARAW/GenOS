@@ -54,12 +54,12 @@ function allowedGitHubRoots() {
   ].filter((root) => fs.existsSync(root)).map((root) => fs.realpathSync(root));
 }
 
-function resolveScanRoot(requestedRoot) {
-  const root = path.resolve(requestedRoot || defaultGitHubDirectory());
+function resolveScanRoot(requestedRoot = null) {
   const allowed = allowedGitHubRoots();
-  if (!allowed.some((base) => isWithinRoot(base, root))) {
-    throw new Error('GitHub Analyst root must be inside a configured GitHub or Projects directory.');
-  }
+  // Select the filesystem root from the trusted allowlist. Caller data is only
+  // compared with these canonical roots; it is never passed to filesystem APIs.
+  const root = requestedRoot ? allowed.find((base) => base === requestedRoot) : allowed[0];
+  if (!root) throw new Error('GitHub Analyst root must match a configured GitHub or Projects directory.');
   const realRoot = fs.realpathSync(root);
   if (!allowed.some((base) => isWithinRoot(base, realRoot))) {
     throw new Error('GitHub Analyst root resolves outside its configured directory.');
@@ -68,8 +68,8 @@ function resolveScanRoot(requestedRoot) {
   return realRoot;
 }
 
-function discoverRepositories(githubRoot = null, maxDepth = 2) {
-  const root = resolveScanRoot(githubRoot);
+function discoverRepositories(requestedRoot = null) {
+  const root = resolveScanRoot(requestedRoot);
   const repos = [];
   if (!fs.existsSync(root)) return repos;
 
@@ -83,8 +83,8 @@ function discoverRepositories(githubRoot = null, maxDepth = 2) {
       if (!repoPath) continue;
       if (fs.existsSync(path.join(repoPath, '.git'))) {
         repos.push({ name: entry.name, path: repoPath });
-      } else if (maxDepth > 1) {
-  discoverNestedRepositories(repoPath, entry, repos);
+      } else {
+        discoverNestedRepositories(repoPath, entry, repos);
       }
     }
   } catch (err) {
@@ -223,7 +223,7 @@ function saveReport(reportContent, reportsDir = null, maxReports = 30) {
 }
 
 function runFullAudit(agentConfig = {}, githubRoot = null) {
-  const root = githubRoot || defaultGitHubDirectory();
+  const root = resolveScanRoot(githubRoot);
   const repos = discoverRepositories(root);
   const analyses = repos.map((repo) => analyzeRepository(repo.path));
   const report = generateProactiveReport(analyses, agentConfig);

@@ -39,13 +39,17 @@ mod tests {
 
     #[test]
     fn test_resolve_matrix_root_env() {
+        let previous_root = std::env::var_os("GENOS_STUDIO_ROOT");
         unsafe {
             std::env::set_var("GENOS_STUDIO_ROOT", ".genos-custom-studio");
         }
         let resolved = resolve_matrix_root();
         assert_eq!(resolved, PathBuf::from(".genos-custom-studio"));
         unsafe {
-            std::env::remove_var("GENOS_STUDIO_ROOT");
+            match previous_root {
+                Some(root) => std::env::set_var("GENOS_STUDIO_ROOT", root),
+                None => std::env::remove_var("GENOS_STUDIO_ROOT"),
+            }
         }
     }
 }
