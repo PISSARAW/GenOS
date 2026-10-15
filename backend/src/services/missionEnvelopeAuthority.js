@@ -10,6 +10,16 @@ const SCHEMA = 'genos.execution-authority-envelope/v1';
 
 function eventId(runId) { return `gvx-run:${runId}:authority`; }
 
+async function realWorkspaceRoot(root, resolve = fs.realpath) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try { return await resolve(root); }
+    catch (failure) {
+      if (!['EPERM', 'EBUSY'].includes(failure.code) || attempt === 4) throw failure;
+      await new Promise((done) => setTimeout(done, 25 * (attempt + 1)));
+    }
+  }
+}
+
 async function seal(ctx) {
   if (!ctx.normalizedMission.missionId) return null;
   return withTransaction(ctx.db, async () => {
@@ -39,7 +49,7 @@ async function build(ctx, binding) {
   if (mission.missionId !== binding.mission.id) throw values.failure('EXECUTION_AUTHORITY_CONTEXT_CHANGED');
   const identity = await state.identity(ctx.db, ctx.agentId);
   const missionRecord = await ctx.db.get('SELECT orchestrator_agent_id FROM missions WHERE mission_id = ?', binding.mission.id);
-  const root = await fs.realpath(mission.workspaceRoot);
+  const root = await realWorkspaceRoot(mission.workspaceRoot);
   const duration = Math.min(binding.budget.latencyMs, Number(mission.timeoutMs) || binding.budget.latencyMs);
   if (!Number.isFinite(duration) || duration <= 0) throw values.failure('EXECUTION_AUTHORITY_DEADLINE_INVALID');
   const planSnapshot = JSON.parse(JSON.stringify(ctx.autonomyPlan || {}));
@@ -107,7 +117,7 @@ async function assertCompletedRunEvidence(db, input) {
 
 async function assertMission(saved, mission) {
   if (mission.missionId !== saved.envelope.missionId) throw contextChanged('mission identity changed');
-  const root = await fs.realpath(mission.workspaceRoot);
+  const root = await realWorkspaceRoot(mission.workspaceRoot);
   if (root !== saved.envelope.workspaceRoot) throw contextChanged('workspace root changed');
   const actualTools = [...new Set(mission.toolLease || [])];
   const sealedTools = new Set(saved.envelope.toolLease);
@@ -166,4 +176,5 @@ async function inspect(db, input) {
     envelope: saved.envelope, current, postconditions: 'not_evaluated' };
 }
 
-module.exports = { SCHEMA, seal, read, assertRun, assertCompletedRunEvidence, guardEvent, assertTool, inspect };
+module.exports = { SCHEMA, seal, read, assertRun, assertCompletedRunEvidence, guardEvent, assertTool, inspect,
+  realWorkspaceRoot };
