@@ -124,18 +124,19 @@ dont 3 nouvelles dans `examples/holobionte/password-change-llm-mission.cjs` : 4 
 des fixtures de test modifiées passe sans violation. L'index ADR compte 632 entrées et
 ne signale aucun problème.
 
-La première implémentation de budget CPU Node borne `executionBudget.cpuMs`, mesure
-l'utilisation processeur des threads du PID runtime et fait arrêter le worker par son
-superviseur dès le plafond atteint (`workerProcessCpu.js`,
-`workerRuntimeBudgetService.js`, `test_worker_cpu_budget.js`). Le contrôle échantillonné
-reste actif si le runtime enfant bloque sa boucle d'événements. Il ne compte pas encore
-les processus descendants et son dépassement maximal dépend de l'intervalle et de la
-latence de mesure; il ne constitue donc pas un quota OS strict sur l'arbre entier. Les
-appels de mesure PowerShell sont propres à Windows et `/proc` à Linux; les autres
-plateformes échouent fermé. Le plafond `--cpus` de `pluginSandbox.js` reste une
-configuration Docker globale, indépendante du worker. En Rust, `ResourceBudget.cpu_ms`
-est encore déclaré/rempli sans lecture d'exécution dans `genos-worker`. L'application
-sur l'arbre complet et le runtime Rust restent à fermer.
+Le budget CPU Node borne `executionBudget.cpuMs` et fait arrêter le worker par son
+superviseur même si la boucle d'événements enfant est bloquée (`workerProcessCpu.js`,
+`workerRuntimeBudgetService.js`, `test_worker_cpu_budget.js`). Sous Linux, le compteur
+additionne les threads du PID et de ses descendants observés dans `/proc`; sous Windows,
+la mesure actuelle porte seulement sur le PID runtime via PowerShell. Le prélèvement est
+échantillonné; un descendant lancé et terminé entre deux relevés peut ne pas être compté,
+et le dépassement dépend de l'intervalle et de la latence de mesure. Il ne s'agit donc pas
+d'un quota noyau strict. Le test de descendant est conditionnel à Linux; il n'a pas été
+exécuté sur le checkout Windows, où WSL n'est pas accessible. Les autres plateformes
+échouent fermé. Le plafond `--cpus` de `pluginSandbox.js` reste une configuration Docker
+globale, indépendante du worker. En Rust, `ResourceBudget.cpu_ms` est encore
+déclaré/rempli sans lecture d'exécution dans `genos-worker`. L'enforcement universel
+reste à fermer.
 
 ## 1. Principes fondateurs — 19 entrées
 

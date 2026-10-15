@@ -1,6 +1,6 @@
 # ADR 0512 — Appliquer le budget CPU au runtime worker Node
 
-- **Statut** : Accepté et implémenté pour le PID du runtime Node sur Windows et Linux.
+- **Statut** : Accepté; PID runtime Windows et arbre Linux implémentés, enforcement universel à réaliser.
 - **Date** : 2026-10-15
 - **Domaine** : Supervision de worker et budgets d'exécution.
 - **Décideurs** : Mainteneur GenOS.
@@ -22,9 +22,10 @@ plafond. Un plafond nul arrête immédiatement le worker. Un plafond mal formé,
 une mesure indisponible ou une plateforme non prise en charge provoque aussi un
 arrêt fermé.
 
-Windows mesure `Get-Process.TotalProcessorTime` via PowerShell; Linux additionne
-`schedstat` des threads de `/proc/<pid>/task`. L'intervalle d'échantillonnage est
-adapté au plafond et limité à 500 ms.
+Windows mesure `Get-Process.TotalProcessorTime` via PowerShell pour le PID runtime;
+Linux additionne `schedstat` des threads du PID et des descendants trouvés dans
+`/proc`. Les usages déjà observés des descendants sont conservés entre relevés.
+L'intervalle d'échantillonnage est adapté au plafond et limité à 500 ms.
 
 ## Conséquences
 
@@ -38,8 +39,8 @@ adapté au plafond et limité à 500 ms.
 
 - Le contrôle est échantillonné : le dépassement inclut l'intervalle et la latence
   du compteur; ce n'est pas un quota CPU imposé par le noyau.
-- Le compteur couvre les threads du PID runtime, pas les processus descendants
-  détachés ou les services externes appelés par le worker.
+- Le compteur Windows ne couvre pas les processus descendants. Le relevé Linux
+  peut manquer un processus lancé puis terminé entre deux échantillons.
 - Le compteur Rust de `genos-worker` n'est pas raccordé à un exécuteur runtime.
 - La mesure Windows lance une sonde PowerShell; sous forte concurrence, son coût
   doit être évalué et pourra justifier un compteur natif ou un Job Object.
@@ -60,6 +61,7 @@ adapté au plafond et limité à 500 ms.
 `node backend/tests/test_worker_runtime_limits.js` vérifie le plafonnement et la
 propagation de `executionBudget.cpuMs`. `node backend/tests/test_worker_cpu_budget.js`
 mesure le temps CPU puis vérifie qu'un processus en boucle sans rendement est
-arrêté au plafond. Le test est raccordé à la suite workers. Le gate qualité staged
-sur les six fichiers source passe sans violation. La mesure de l'arbre complet
-et du runtime Rust reste explicitement ouverte.
+arrêté au plafond. Le cas de descendant est conditionnel à Linux; le test exécuté
+sur Windows ne qualifie que le PID runtime. Le test est raccordé à la suite workers.
+Windows descendants, processus éphémères, runtime Rust et preuve d'exécution Linux
+restent à qualifier.
