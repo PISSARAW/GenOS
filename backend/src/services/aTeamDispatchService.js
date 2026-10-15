@@ -104,7 +104,7 @@ async function prepareDispatch({ db, context }) {
   const team = aTeamCoordination.composeTeam({
     projectGoal,
     subSystems: readSubSystems(request),
-    assignedRoles: request.assigned_roles || request.assignedRoles,
+    assignedRoles: request.assigned_roles || request.assignedRoles || request.roles,
     modelTiers: request.model_tiers || request.modelTiers,
     dependencies: request.dependencies || request.depends_on || request.dependsOn,
     successCriteria: requestedSuccessCriteria(request),

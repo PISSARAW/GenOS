@@ -18,11 +18,12 @@ async function run() {
   const originalLoad = store.load;
   store.load = async () => createCount ? runtimeSnapshotRun() : null;
   let capacity;
+  let assignedRoles;
   let createCount = 0;
   let claimCount = 0;
   let launches = 0;
   garage.state = async () => ({ available: createCount ? 0 : 2 });
-  coordination.composeTeam = (input) => (capacity = input.available, {
+  coordination.composeTeam = (input) => (capacity = input.available, assignedRoles = input.assignedRoles, {
     members: teamMembers,
     organization: 'specialist_expert_committee',
     teamContract: { version: 1, contractHash: 'hash' }, readiness: { ready: true, blockers: [] },
@@ -43,7 +44,7 @@ async function run() {
   };
   runtime.releaseExecution = async () => true;
   try {
-    const context = { orchestratorId: 'mission-dispatch', task: 'Build API', startAteamRunner: async () => ({ pid: 123 }), repoRoot: process.cwd(), request: {} };
+    const context = { orchestratorId: 'mission-dispatch', task: 'Build API', startAteamRunner: async () => ({ pid: 123 }), repoRoot: process.cwd(), request: { roles: ['api_owner', 'web_owner'] } };
     const agents = new Map();
     const db = {
       get: async (_sql, id) => agents.get(id) || (createCount >= 3 ? { id, status: 'idle' } : null),
@@ -58,6 +59,7 @@ async function run() {
     assert.equal(first.aTeam.teamRunId, 'run-stable');
     assert.equal(first.aTeam.workGraphId, 'graph-stable');
     assert.equal(launches, 2);
+    assert.deepEqual(assignedRoles, ['api_owner', 'web_owner']);
     assert.equal(agents.get('worker-a').parent_agent_id, context.orchestratorId);
     const second = await dispatchTeam({ db, context, parent: { workspace_id: 'ws-test', workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(second.aTeam.reused, true);
