@@ -69,6 +69,15 @@ fn population_snapshot(
     Err("population snapshot for mission missing".into())
 }
 
+fn snapshot_reproduction_seed(snapshot: &Value) -> Result<Option<u64>, String> {
+    match snapshot.get("reproduction_seed") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(value)) => value.as_u64().map(Some)
+            .ok_or_else(|| "population reproduction seed is invalid".into()),
+        _ => Err("population reproduction seed is invalid".into()),
+    }
+}
+
 fn restore_cells(entries: &[Value]) -> Result<(
     std::collections::HashMap<Uuid, AgentCell>,
     std::collections::HashMap<Uuid, Genome>,
@@ -202,6 +211,11 @@ impl GenosEcosystem {
             Err(error) => return Err(error.to_string()),
         };
         validate_mission_identity(expected_mission, self.mission_id, mission)?;
+        self.apply_population_snapshot(&snapshot, mission)
+    }
+
+    fn apply_population_snapshot(&mut self, snapshot: &Value, mission: Uuid) -> Result<(), String> {
+        self.restore_reproduction_seed(snapshot_reproduction_seed(&snapshot)?)?;
         let entries = snapshot["active_cells"].as_array().ok_or("population cells missing")?;
         let spore_entries = snapshot["dormant_spores"].as_array().ok_or("population spores missing")?;
         let tick = snapshot["tick"].as_u64().ok_or("population tick missing")?;

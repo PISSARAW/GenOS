@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 impl GenosEcosystem {
     /// Produit un snapshot versionné de la population active et dormante.
     pub fn population_state_receipt(&self, tick: u64) -> Result<Value, String> {
-        let cells = self
+        let mut cells = self
             .orchestrator
             .active_cells
             .iter()
@@ -26,7 +26,7 @@ impl GenosEcosystem {
                 }))
             })
             .collect::<Result<Vec<Value>, String>>()?;
-        let spores = self
+        let mut spores = self
             .orchestrator
             .dormant_spores
             .iter()
@@ -45,10 +45,15 @@ impl GenosEcosystem {
                 }))
             })
             .collect::<Result<Vec<Value>, String>>()?;
+        if self.reproduction_seed.is_some() {
+            cells.sort_by(|left, right| left["cell_id"].as_str().cmp(&right["cell_id"].as_str()));
+            spores.sort_by(|left, right| left["spore_id"].as_str().cmp(&right["spore_id"].as_str()));
+        }
         Ok(json!({
             "schema": "genos.population-state/v1",
             "mission_id": self.mission_id,
             "orchestrator_id": self.orchestrator.orchestrator_id,
+            "reproduction_seed": self.reproduction_seed,
             "tick": tick,
             "phase": "after_tick",
             "active_cells": cells,

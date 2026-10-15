@@ -144,11 +144,25 @@ impl CellDivision {
     }
 
     pub fn mitosis_attested(genome: &Genome) -> Result<MitosisResult, String> {
+        let clone = genome.derive_child();
+        Self::mitosis_attested_with_clone(genome, clone)
+    }
+
+    pub fn mitosis_attested_with_child_id(
+        genome: &Genome,
+        child_genome_id: Uuid,
+    ) -> Result<MitosisResult, String> {
+        if child_genome_id.is_nil() || child_genome_id == genome.genome_id() {
+            return Err("mitosis child genome identity is invalid".into());
+        }
+        Self::mitosis_attested_with_clone(genome, genome.clone_with_new_id(child_genome_id))
+    }
+
+    fn mitosis_attested_with_clone(genome: &Genome, clone: Genome) -> Result<MitosisResult, String> {
         if !genome.can_replicate() {
             return Err("Hayflick limit reached: genome is replicatively senescent".to_string());
         }
         let spindle_hash = Self::verify_spindle_alignment(genome)?;
-        let clone = genome.derive_child();
         let mut parent = genome.clone();
         parent.add_bud_scar(clone.genome_id())?;
 

@@ -168,12 +168,26 @@ pub fn test_store_commands() {
     let thaw_res = store_ops::handle_cryptobiosis("test_tardigrade", Some("thaw"), None);
     assert!(thaw_res.is_ok());
 
-    // 2. Stratigraphic Fossils record and list
-    let fossil_res = store_ops::handle_fossil_record("lineage_ammonite", "Permian-Triassic extinction event", None);
+    // 2. Stratigraphic Fossils record and list in an owned temporary root.
+    // Avoid the user's shared `.genos-matrix/fossils` archive and global env overrides.
+    let fossil_root = std::env::temp_dir().join(format!("genos-store-fossils-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&fossil_root).unwrap();
+    let fossil_res = store_ops::handle_fossil_record_at(
+        &fossil_root,
+        store_ops::FossilRecordRequest {
+            lineage_id: "lineage_ammonite",
+            reason: "Permian-Triassic extinction event",
+            mode: None,
+        },
+    );
     assert!(fossil_res.is_ok());
 
-    let list_res = store_ops::handle_fossil_list();
+    let listed = store_ops::load_fossil_documents_from(&fossil_root.join("fossils"), None).unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].0.extinct_lineage_id, "lineage_ammonite");
+    let list_res = store_ops::handle_fossil_list_at(&fossil_root);
     assert!(list_res.is_ok());
+    std::fs::remove_dir_all(&fossil_root).unwrap();
 
     // 3. Capsule creation with SHA-256 integrity and audit
     let cap_res = capsule::execute(CapsuleSubcommands::Create {

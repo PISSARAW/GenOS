@@ -46,7 +46,8 @@ async function main() {
     await db.run("DELETE FROM agent_relations WHERE id = 'snapshot-relation'");
     await assert.rejects(restore, conflict);
     assert.equal(await db.get("SELECT id FROM agent_relations WHERE id = 'snapshot-relation'"), undefined);
-    await db.run("INSERT INTO agent_relations (id, source_agent_id, target_agent_id) VALUES ('snapshot-relation', 'snapshot-agent', 'snapshot-peer')");
+    await db.run(`INSERT INTO agent_relations (id, source_agent_id, target_agent_id, updated_at)
+      VALUES ('snapshot-relation', 'snapshot-agent', 'snapshot-peer', ?)`, captured.sections.relations[0].updated_at);
     await withTransaction(db, () => state.restore(db, 'snapshot-agent', { payload: captured, scope }));
     assert.equal((await db.get("SELECT action_input FROM episodic_memories WHERE id = 'snapshot-memory'")).action_input, 'before');
     assert.equal((await db.get("SELECT familiarity FROM agent_relations WHERE id = 'snapshot-relation'")).familiarity, 0);

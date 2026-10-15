@@ -2,8 +2,10 @@
 
 use crate::GenosEcosystem;
 use crate::reproduction_cycle::ReproductionOutcome;
+use crate::reproduction_cycle::{SeededReproductionIdentity, deterministic_reproduction_id};
 use crate::reproduction_population_recovery::{
-    SnapshotLineageInput, linked_snapshot, restore_population_snapshot, snapshot_digest,
+    SnapshotLineageInput, linked_snapshot, reproduction_receipt_digest,
+    restore_population_snapshot, snapshot_digest,
     validate_snapshot_lineage, validate_snapshot_lineage_fields,
 };
 use genos_cell::AgentCell;
@@ -28,6 +30,8 @@ pub struct ReproductionLineageReceipt {
     pub daughter_genome: Genome,
     pub reproduction_event: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub campaign_seed: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub population_snapshot_sha256: Option<String>,
 }
 
@@ -43,6 +47,7 @@ struct ReproductionReceiptInput {
     outcome: ReproductionOutcome,
     event: Value,
     snapshot: Value,
+    campaign_seed: Option<u64>,
 }
 
 struct ReproductionReplayInput<'a> {
@@ -71,7 +76,13 @@ impl GenosEcosystem {
             let snapshot = self.population_state_receipt(self.receipt_tick)?;
             let persisted = self.persist_reproduction_receipt(
                 store,
-                ReproductionReceiptInput { mission_id, outcome, event: event.clone(), snapshot },
+                ReproductionReceiptInput {
+                    mission_id,
+                    outcome,
+                    event: event.clone(),
+                    snapshot,
+                    campaign_seed: self.reproduction_seed,
+                },
             )?;
             Ok::<_, String>((persisted, event))
         })();
@@ -168,6 +179,7 @@ impl GenosEcosystem {
             parent_cell,
             daughter_cell,
             reproduction_event: input.event,
+            campaign_seed: input.campaign_seed,
             population_snapshot_sha256: Some(snapshot_sha256),
         };
         validate_receipt(&receipt)?;
@@ -207,7 +219,25 @@ fn validate_receipt(receipt: &ReproductionLineageReceipt) -> Result<(), String> 
     validate_mission_attachment(receipt)?;
     validate_cell_genome_attachment(receipt)?;
     let (parent, daughter) = validate_genomes(receipt)?;
-    validate_event_lineage(receipt, &parent, &daughter)
+    validate_event_lineage(receipt, &parent, &daughter)?;
+    validate_seeded_identity(receipt)
+}
+
+fn validate_seeded_identity(receipt: &ReproductionLineageReceipt) -> Result<(), String> {
+    let Some(seed) = receipt.campaign_seed else { return Ok(()); };
+    let identity = SeededReproductionIdentity {
+        mission_id: receipt.mission_id,
+        seed,
+        parent_cell_id: receipt.parent_cell.cell_id,
+        parent_genome_id: receipt.parent_genome.genome_id(),
+        prior_bud_scars: receipt.parent_cell.bud_scars.saturating_sub(1),
+    };
+    if deterministic_reproduction_id(identity, "genome") != receipt.daughter_genome.genome_id()
+        || deterministic_reproduction_id(identity, "cell") != receipt.daughter_cell.cell_id
+    {
+        return Err("seeded reproduction daughter identity mismatch".into());
+    }
+    Ok(())
 }
 
 fn persist_receipt(
@@ -217,16 +247,41 @@ fn persist_receipt(
 ) -> Result<ReproductionLineageReceipt, String> {
     let snapshot_sha256 = receipt.population_snapshot_sha256.as_deref()
         .ok_or("reproduction population snapshot digest missing")?;
+    let receipt_sha256 = reproduction_receipt_digest(&receipt)?;
     let link = json!({
         "schema": LINK_SCHEMA,
         "idempotency_key": receipt.idempotency_key,
         "mission_id": receipt.mission_id,
         "tick": snapshot["tick"],
         "population_snapshot_sha256": snapshot_sha256,
+        "reproduction_receipt_sha256": receipt_sha256,
     });
     let encoded = serde_json::to_value(&receipt).map_err(|error| error.to_string())?;
+    if let Some(existing) = existing_idempotent_receipt(store, &receipt, &encoded)? {
+        return Ok(existing);
+    }
     store.append_receipts(&[encoded, snapshot, link])?;
     Ok(receipt)
+}
+
+fn existing_idempotent_receipt(
+    store: &BiologicalReceiptStore,
+    receipt: &ReproductionLineageReceipt,
+    encoded: &Value,
+) -> Result<Option<ReproductionLineageReceipt>, String> {
+    let entries = store.read_all()?;
+    let Some(existing) = store.find_idempotent_receipt(RECEIPT_SCHEMA, &receipt.idempotency_key)? else {
+        return Ok(None);
+    };
+    if existing != *encoded {
+        return Err("reproduction idempotency key collision".into());
+    }
+    let existing: ReproductionLineageReceipt = serde_json::from_value(existing)
+        .map_err(|error| error.to_string())?;
+    validate_receipt(&existing)?;
+    linked_snapshot(&entries, &existing)?
+        .ok_or("reproduction idempotency record has no linked snapshot")?;
+    Ok(Some(existing))
 }
 
 fn validate_schema(receipt: &ReproductionLineageReceipt) -> Result<(), String> {
@@ -262,13 +317,20 @@ fn validate_genomes(receipt: &ReproductionLineageReceipt) -> Result<(genos_genom
     receipt.daughter_genome.validate()?;
     let parent = receipt.parent_genome.fingerprint()?;
     let daughter = receipt.daughter_genome.fingerprint()?;
-    if receipt.daughter_genome.parent_ids != [receipt.parent_genome.genome_id()]
-        || receipt.daughter_genome.generation != receipt.parent_genome.generation.saturating_add(1)
-        || daughter.lineage_id != parent.lineage_id
-    {
+    if !genomes_form_direct_lineage(receipt, &parent, &daughter) {
         return Err("reproduction genomes do not form a direct lineage".into());
     }
     Ok((parent, daughter))
+}
+
+fn genomes_form_direct_lineage(
+    receipt: &ReproductionLineageReceipt,
+    parent: &genos_genome::genome::GenomeFingerprint,
+    daughter: &genos_genome::genome::GenomeFingerprint,
+) -> bool {
+    receipt.daughter_genome.parent_ids == [receipt.parent_genome.genome_id()]
+        && receipt.daughter_genome.generation == receipt.parent_genome.generation.saturating_add(1)
+        && daughter.lineage_id == parent.lineage_id
 }
 
 fn validate_event_lineage(
@@ -276,20 +338,36 @@ fn validate_event_lineage(
     parent: &genos_genome::genome::GenomeFingerprint,
     daughter: &genos_genome::genome::GenomeFingerprint,
 ) -> Result<(), String> {
-    if receipt.reproduction_event["parent"]["cell_id"] != json!(receipt.parent_cell.cell_id)
-        || receipt.reproduction_event["daughter"]["cell_id"] != json!(receipt.daughter_cell.cell_id)
-        || receipt.reproduction_event["fingerprints"]["parent"]["genome_id"] != json!(parent.genome_id)
-        || receipt.reproduction_event["fingerprints"]["parent"]["lineage_id"] != json!(parent.lineage_id)
-        || receipt.reproduction_event["fingerprints"]["parent"]["content_hash"] != json!(parent.content_hash)
-        || receipt.reproduction_event["fingerprints"]["daughter"] != json!(daughter)
-    {
+    if !event_cell_and_fingerprint_ids_match(receipt, parent, daughter) {
         return Err("reproduction event fingerprints or cell identities disagree".into());
     }
-    if receipt.reproduction_event["lineage_id"] != json!(daughter.lineage_id)
-        || receipt.reproduction_event["generation"] != json!(receipt.daughter_genome.generation)
-        || receipt.reproduction_event["seed"].as_str().is_none_or(|seed| seed.len() != 64)
-    {
+    if !event_lineage_metadata_matches(receipt, daughter) {
         return Err("reproduction event is missing its lineage, generation, or seed".into());
     }
     Ok(())
+}
+
+fn event_cell_and_fingerprint_ids_match(
+    receipt: &ReproductionLineageReceipt,
+    parent: &genos_genome::genome::GenomeFingerprint,
+    daughter: &genos_genome::genome::GenomeFingerprint,
+) -> bool {
+    let event = &receipt.reproduction_event;
+    event["parent"]["cell_id"] == json!(receipt.parent_cell.cell_id)
+        && event["daughter"]["cell_id"] == json!(receipt.daughter_cell.cell_id)
+        && event["fingerprints"]["parent"]["genome_id"] == json!(parent.genome_id)
+        && event["fingerprints"]["parent"]["lineage_id"] == json!(parent.lineage_id)
+        && event["fingerprints"]["parent"]["content_hash"] == json!(parent.content_hash)
+        && event["fingerprints"]["daughter"] == json!(daughter)
+}
+
+fn event_lineage_metadata_matches(
+    receipt: &ReproductionLineageReceipt,
+    daughter: &genos_genome::genome::GenomeFingerprint,
+) -> bool {
+    let event = &receipt.reproduction_event;
+    event["lineage_id"] == json!(daughter.lineage_id)
+        && event["generation"] == json!(receipt.daughter_genome.generation)
+        && event["campaign_seed"] == json!(receipt.campaign_seed)
+        && event["seed"].as_str().is_some_and(|seed| seed.len() == 64)
 }

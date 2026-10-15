@@ -16,6 +16,7 @@ use rand::SeedableRng;
 use rand::rngs::StdRng;
 use serde::Serialize;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 struct IntegrateDaughterInput {
@@ -23,6 +24,15 @@ struct IntegrateDaughterInput {
     mother: AgentCell,
     daughter: AgentCell,
     genome: Genome,
+}
+
+struct ReproductionPreparation {
+    mother_id: Uuid,
+    mother_genome: Genome,
+    parent_fingerprint: genos_genome::genome::GenomeFingerprint,
+    mother_cell: AgentCell,
+    seeded_identity: Option<SeededReproductionIdentity>,
+    division: genos_reproduction::MitosisResult,
 }
 
 /// Coût ATP réel d'une division cellulaire (cohérent avec le coût `REPLICATE`
@@ -33,6 +43,35 @@ pub const REPRODUCTION_ATP_COST: f64 = 20.0;
 pub const MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE: f64 = 0.5;
 /// Taux de mutation stochastique appliqué à chaque division autonome.
 pub const AUTONOMOUS_MUTATION_RATE: f64 = 0.01;
+
+#[derive(Clone, Copy)]
+pub(crate) struct SeededReproductionIdentity {
+    pub mission_id: Uuid,
+    pub seed: u64,
+    pub parent_cell_id: Uuid,
+    pub parent_genome_id: Uuid,
+    pub prior_bud_scars: u32,
+}
+
+pub(crate) fn deterministic_reproduction_id(
+    identity: SeededReproductionIdentity,
+    entity: &str,
+) -> Uuid {
+    let mut hash = Sha256::new();
+    hash.update(b"GENOS_REPRODUCTION_ID_V1\0");
+    hash.update(entity.as_bytes());
+    hash.update([0]);
+    hash.update(identity.mission_id.as_bytes());
+    hash.update(identity.seed.to_be_bytes());
+    hash.update(identity.parent_cell_id.as_bytes());
+    hash.update(identity.parent_genome_id.as_bytes());
+    hash.update(identity.prior_bud_scars.to_be_bytes());
+    let mut bytes = [0u8; 16];
+    bytes.copy_from_slice(&hash.finalize()[..16]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x80;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    Uuid::from_bytes(bytes)
+}
 
 /// Bilan d'une division cellulaire autonome réussie.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -112,6 +151,27 @@ impl GenosEcosystem {
         seed.iter().map(|byte| format!("{byte:02x}")).collect()
     }
 
+    fn create_division(
+        genome: &Genome,
+        identity: Option<SeededReproductionIdentity>,
+    ) -> Result<genos_reproduction::MitosisResult, ReproductionBlocked> {
+        let division = match identity {
+            Some(identity) => CellDivision::mitosis_attested_with_child_id(
+                genome,
+                deterministic_reproduction_id(identity, "genome"),
+            ),
+            None => CellDivision::mitosis_attested(genome),
+        };
+        division.map_err(ReproductionBlocked::HayflickLimitReached)
+    }
+
+    fn mutate_daughter_genome(genome: &mut Genome) -> (String, usize) {
+        let seed = Self::seed_bytes_for(genome.genome_id());
+        let seed_hex = Self::seed_hex(&seed);
+        let mutations = genome.mutate_stochastic(AUTONOMOUS_MUTATION_RATE, &mut Self::seeded_rng_for(genome.genome_id()));
+        (seed_hex, mutations)
+    }
+
     /// Intègre la fille née de `mother_id` dans le même tissu que sa mère
     /// (ou directement comme cellule active si la mère n'appartient à aucun
     /// tissu), et enregistre son génome pour que la lignée persiste.
@@ -147,6 +207,30 @@ impl GenosEcosystem {
         Ok(mother_cell)
     }
 
+    fn prepare_reproduction(&mut self) -> Result<ReproductionPreparation, ReproductionBlocked> {
+        let (mother_id, mother_genome) = self
+            .find_eligible_mother()
+            .ok_or(ReproductionBlocked::NoEligibleMother)?;
+        let parent_fingerprint = mother_genome
+            .fingerprint()
+            .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
+        let mother_cell = self.load_divisible_mother(mother_id)?;
+        let seeded_identity = self.seeded_reproduction_identity(&mother_cell, &mother_genome)
+            .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
+        let division = Self::create_division(&mother_genome, seeded_identity)?;
+        if !self.orchestrator.metabolism.consume_for("reproduction.cycle", REPRODUCTION_ATP_COST) {
+            return Err(ReproductionBlocked::InsufficientAtp);
+        }
+        Ok(ReproductionPreparation {
+            mother_id,
+            mother_genome,
+            parent_fingerprint,
+            mother_cell,
+            seeded_identity,
+            division,
+        })
+    }
+
     /// Tente une division cellulaire autonome ce tick, sans opérateur. Une
     /// mère éligible qui échoue réellement à l'immersion biophysique (ATP,
     /// membrane, génome fille invalide) n'engendre aucune fille : la
@@ -162,24 +246,11 @@ impl GenosEcosystem {
     pub(crate) fn autonomous_reproduction_cycle_unrecorded(
         &mut self,
     ) -> Result<(ReproductionOutcome, serde_json::Value), ReproductionBlocked> {
-        let (mother_id, mother_genome) = self
-            .find_eligible_mother()
-            .ok_or(ReproductionBlocked::NoEligibleMother)?;
-        let parent_fingerprint = mother_genome
-            .fingerprint()
-            .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
-
-        let mother_cell = self.load_divisible_mother(mother_id)?;
-        let division = CellDivision::mitosis_attested(&mother_genome)
-            .map_err(ReproductionBlocked::HayflickLimitReached)?;
-        if !self.orchestrator.metabolism.consume_for("reproduction.cycle", REPRODUCTION_ATP_COST) {
-            return Err(ReproductionBlocked::InsufficientAtp);
-        }
+        let ReproductionPreparation {
+            mother_id, mother_genome, parent_fingerprint, mother_cell, seeded_identity, division,
+        } = self.prepare_reproduction()?;
         let mut daughter_genome = division.clone;
-        let seed = Self::seed_bytes_for(daughter_genome.genome_id());
-        let seed_hex = Self::seed_hex(&seed);
-        let mut rng = Self::seeded_rng_for(daughter_genome.genome_id());
-        let mutations = daughter_genome.mutate_stochastic(AUTONOMOUS_MUTATION_RATE, &mut rng);
+        let (seed_hex, mutations) = Self::mutate_daughter_genome(&mut daughter_genome);
         // Immersion biophysique : la fille n'existe que si son génome est
         // structurellement valide dans le milieu courant.
         daughter_genome
@@ -192,6 +263,9 @@ impl GenosEcosystem {
         let (mut parent_cell, mut daughter_cell) = mother_cell
             .mitosis()
             .map_err(ReproductionBlocked::HayflickLimitReached)?;
+        if let Some(identity) = seeded_identity {
+            daughter_cell.cell_id = deterministic_reproduction_id(identity, "cell");
+        }
 
         self.orchestrator
             .genomes
@@ -213,6 +287,7 @@ impl GenosEcosystem {
 
         let event = json!({
                 "schema": "genos.reproduction-event/v1",
+                "campaign_seed": self.reproduction_seed,
                 "parent": { "cell_id": mother_id, "genome_id": parent_fingerprint.genome_id },
                 "daughter": { "cell_id": daughter_id, "genome_id": daughter_fingerprint.genome_id },
                 "generation": generation,
@@ -224,6 +299,22 @@ impl GenosEcosystem {
             });
 
         Ok((ReproductionOutcome { mother_id, daughter_id, generation, lineage_id }, event))
+    }
+
+    fn seeded_reproduction_identity(
+        &self,
+        mother: &AgentCell,
+        genome: &Genome,
+    ) -> Result<Option<SeededReproductionIdentity>, String> {
+        let Some(seed) = self.reproduction_seed else { return Ok(None); };
+        let mission_id = self.mission_id.ok_or("reproduction campaign seed requires mission identity")?;
+        Ok(Some(SeededReproductionIdentity {
+            mission_id,
+            seed,
+            parent_cell_id: mother.cell_id,
+            parent_genome_id: genome.genome_id(),
+            prior_bud_scars: mother.bud_scars,
+        }))
     }
 
     /// Fait entrer une cellule déjà active dans la lignée reproductive

@@ -46,6 +46,7 @@ pub struct GenosEcosystem {
     pub(crate) hgt_authority: Option<crate::hgt_runtime::HgtLeaseAuthority>,
     /// Identifiant de corrélation fourni par l'appelant du runtime.
     pub mission_id: Option<Uuid>,
+    pub(crate) reproduction_seed: Option<u64>,
     pub receipt_journal: Option<std::path::PathBuf>,
     pub receipt_tick: u64,
     /// L'orchestrateur biomimétique (tissus, cellules, conscience, immunité).
@@ -133,6 +134,7 @@ impl GenosEcosystem {
         Self {
             hgt_authority: None,
             mission_id: None,
+            reproduction_seed: None,
             receipt_tick: 0,
             receipt_journal: std::env::var_os("GENOS_BIOLOGICAL_JOURNAL").map(Into::into),
             orchestrator: BiomimeticOrchestrator::new(name, 50.0, 100.0),

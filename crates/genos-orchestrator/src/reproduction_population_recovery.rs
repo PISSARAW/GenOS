@@ -31,7 +31,15 @@ pub(super) fn linked_snapshot(
     if snapshot_digest(snapshot)? != expected_digest {
         return Err("reproduction population snapshot digest mismatch".into());
     }
+    validate_snapshot_seed(snapshot, receipt.campaign_seed)?;
     Ok(Some(snapshot.clone()))
+}
+
+pub(super) fn reproduction_receipt_digest(
+    receipt: &ReproductionLineageReceipt,
+) -> Result<String, String> {
+    let encoded = serde_json::to_vec(receipt).map_err(|error| error.to_string())?;
+    Ok(format!("{:x}", Sha256::digest(encoded)))
 }
 
 fn linked_event<'a>(
@@ -48,7 +56,23 @@ fn linked_event<'a>(
     {
         return Err("reproduction recovery link identity mismatch".into());
     }
+    validate_linked_receipt_digest(value, receipt)?;
     Ok((index, value))
+}
+
+fn validate_linked_receipt_digest(link: &Value, receipt: &ReproductionLineageReceipt) -> Result<(), String> {
+    let expected = reproduction_receipt_digest(receipt)?;
+    if link.get("reproduction_receipt_sha256").is_some() {
+        return if link["reproduction_receipt_sha256"] == expected {
+            Ok(())
+        } else {
+            Err("reproduction receipt digest mismatch".into())
+        };
+    }
+    if receipt.campaign_seed.is_some() {
+        return Err("seeded reproduction receipt digest missing".into());
+    }
+    Ok(())
 }
 
 fn snapshot_before_link<'a>(
@@ -101,6 +125,18 @@ fn validate_snapshot_identity(snapshot: &Value, mission_id: Uuid) -> Result<(), 
     Ok(())
 }
 
+fn validate_snapshot_seed(snapshot: &Value, expected: Option<u64>) -> Result<(), String> {
+    let stored = match snapshot.get("reproduction_seed") {
+        None | Some(Value::Null) => None,
+        Some(Value::Number(value)) => value.as_u64(),
+        _ => None,
+    };
+    if stored != expected {
+        return Err("reproduction campaign seed differs from linked population snapshot".into());
+    }
+    Ok(())
+}
+
 fn snapshot_has_cell(entry: &Value, cell: &AgentCell) -> bool {
     entry["cell_id"] == cell.cell_id.to_string()
         && entry["genome_id"] == cell.genome_id.map(|id| id.to_string()).unwrap_or_default()
@@ -118,6 +154,7 @@ pub(super) fn restore_population_snapshot(
     let mission_id: Uuid = serde_json::from_value(snapshot["mission_id"].clone())
         .map_err(|error| error.to_string())?;
     validate_ecosystem_mission(ecosystem, mission_id)?;
+    ecosystem.restore_reproduction_seed(snapshot_reproduction_seed(snapshot)?)?;
     let (cells, mut genomes) = restore_cells(snapshot)?;
     let (spores, spore_tissues, spore_genomes) = restore_spores(snapshot)?;
     genomes.extend(spore_genomes);
@@ -128,6 +165,15 @@ pub(super) fn restore_population_snapshot(
     ecosystem.orchestrator.dormant_spores = spores;
     ecosystem.orchestrator.spore_tissue_map = spore_tissues;
     Ok(())
+}
+
+fn snapshot_reproduction_seed(snapshot: &Value) -> Result<Option<u64>, String> {
+    match snapshot.get("reproduction_seed") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(value)) => value.as_u64().map(Some)
+            .ok_or_else(|| "reproduction population seed is invalid".into()),
+        _ => Err("reproduction population seed is invalid".into()),
+    }
 }
 
 fn validate_ecosystem_mission(ecosystem: &GenosEcosystem, mission_id: Uuid) -> Result<(), String> {

@@ -30,6 +30,8 @@ pub struct OrchestratorCheckpointState {
     pub metabolism: Option<MetabolismCheckpoint>,
     #[serde(default)]
     pub receipt_tick: u64,
+    #[serde(default)]
+    pub reproduction_seed: Option<u64>,
     /// Full-fidelity orchestrator snapshot (serde round-trip). Present for
     /// checkpoints taken after the fix; absent (`None`) for legacy ones.
     #[serde(default)]
@@ -53,6 +55,7 @@ impl OrchestratorCheckpointState {
             events: Vec::new(),
             metabolism: None,
             receipt_tick: 0,
+            reproduction_seed: None,
             orchestrator: None,
             prokaryote: None,
             timestamp: chrono::Utc::now().to_rfc3339(),
@@ -126,6 +129,7 @@ impl OrchestratorCheckpointState {
             events: ecosystem.events.snapshot(),
             metabolism: Some(orch.metabolism.checkpoint()),
             receipt_tick: ecosystem.receipt_tick,
+            reproduction_seed: ecosystem.reproduction_seed,
             orchestrator: Some(serde_json::to_value(orch).map_err(|error| error.to_string())?),
             prokaryote: ecosystem.mission_id
                 .map(|mission_id| ProkaryoteCheckpoint::capture(mission_id, &ecosystem.prokaryote))
@@ -142,6 +146,7 @@ impl OrchestratorCheckpointState {
         if ecosystem.mission_id.is_some() && ecosystem.mission_id != self.mission_id {
             return Err("mission checkpoint identity does not match the requested mission".to_string());
         }
+        ecosystem.restore_reproduction_seed(self.reproduction_seed)?;
         let restored_prokaryote = self.prokaryote.as_ref()
             .map(|snapshot| snapshot.restore(self.mission_id))
             .transpose()?;
