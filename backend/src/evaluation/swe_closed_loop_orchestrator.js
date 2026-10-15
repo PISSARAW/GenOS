@@ -18,7 +18,7 @@ const { generate } = require('../services/modelRouter');
 const { locateCandidateFiles, extractRelevantExcerpt } = require('./swe_fault_localizer');
 const { applySearchReplace } = require('./swe_surgical_patcher');
 const { verifyTaskDynamically, probeBugReproduction } = require('./swe_native_verifier');
-const { REPOS_DIR } = require('./swe_paths');
+const { REPOS_DIR, validateRepoName, validateBaseCommit } = require('./swe_paths');
 const {
   registerSweFleet,
   updateAgentProgress,
@@ -73,9 +73,9 @@ function tryPlasmidRecall(task, instanceId) {
   return null;
 }
 
-function runGit(cmd, cwd) {
-  const res = execFileSync('git', cmd.split(' '), { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-  return cmd.startsWith('diff') ? res : res.trim();
+function runGit(args, cwd) {
+  const res = execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  return args[0] === 'diff' ? res : res.trim();
 }
 
 function parseTestList(val) {
@@ -89,12 +89,13 @@ function parseTestList(val) {
 }
 
 function ensureRepoReady(task) {
-  const repoDirName = task.repo.replace('/', '__');
+  const repoName = validateRepoName(task.repo);
+  const repoDirName = repoName.replace('/', '__');
   const repoDir = path.join(REPOS_DIR, repoDirName);
-  runGit('config core.autocrlf false', repoDir);
-  runGit('reset --hard', repoDir);
-  runGit('clean -fdx', repoDir);
-  runGit(`checkout ${task.base_commit}`, repoDir);
+  runGit(['config', 'core.autocrlf', 'false'], repoDir);
+  runGit(['reset', '--hard'], repoDir);
+  runGit(['clean', '-fdx'], repoDir);
+  runGit(['checkout', '--detach', validateBaseCommit(task.base_commit)], repoDir);
 
   if (task.repo === 'pytest-dev/pytest') {
     const vPath = path.join(repoDir, 'src/_pytest/_version.py');
@@ -241,7 +242,7 @@ function validateCandidatePatch(params) {
 async function runDynamicVerificationCycle(params) {
   const { repoDir, targetAbsFile, modified, originalSource, task } = params;
   fs.writeFileSync(targetAbsFile, modified, 'utf8');
-  const patchDiff = runGit('diff', repoDir);
+  const patchDiff = runGit(['diff'], repoDir);
   fs.writeFileSync(targetAbsFile, originalSource, 'utf8');
 
   console.log(`  [CANDIDATE DIFF]:\n${patchDiff}`);

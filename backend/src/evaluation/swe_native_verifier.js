@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { TASKS_PATH, REPOS_DIR } = require('./swe_paths');
+const { TASKS_PATH, REPOS_DIR, validateRepoName, validateBaseCommit } = require('./swe_paths');
 
 const PREDICTIONS_PATH = path.resolve(__dirname, 'swe_bench_real_predictions.jsonl');
 
@@ -26,8 +26,8 @@ function runCmd(options) {
   }
 }
 
-function runGit(cmd, cwd) {
-  return execFileSync('git', cmd.split(' '), { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+function runGit(args, cwd) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
 function applyPatchToRepo(repoDir, patchContent) {
@@ -148,10 +148,11 @@ function injectFlaskShim(repoDir) {
 }
 
 function prepareRepoForTask(task, repoDir) {
-  runGit('config core.autocrlf false', repoDir);
-  runGit('reset --hard', repoDir);
-  runGit('clean -fdx', repoDir);
-  runGit(`checkout ${task.base_commit}`, repoDir);
+  validateRepoName(task.repo);
+  runGit(['config', 'core.autocrlf', 'false'], repoDir);
+  runGit(['reset', '--hard'], repoDir);
+  runGit(['clean', '-fdx'], repoDir);
+  runGit(['checkout', '--detach', validateBaseCommit(task.base_commit)], repoDir);
 
   if (task.repo === 'pytest-dev/pytest') {
     const vPath = path.join(repoDir, 'src/_pytest/_version.py');
@@ -220,8 +221,8 @@ function verifyTaskDynamically(task, patchToTest) {
   }
 
   // Reset repo clean
-  runGit('reset --hard', repoDir);
-  runGit('clean -fdx', repoDir);
+  runGit(['reset', '--hard'], repoDir);
+  runGit(['clean', '-fdx'], repoDir);
 
   const status = (reproduced && resolved && regressionFree) ? 'RESOLVED_PASS_AT_1' : 'UNRESOLVED';
   const errorOutput = resolved ? '' : extractPytestFailure(postResult.output);
@@ -298,8 +299,8 @@ function probeBugReproduction(task) {
   }
   const failList = parseTestList(task.FAIL_TO_PASS);
   const preResult = runPytest({ repoDir, testTargets: failList, task });
-  runGit('reset --hard', repoDir);
-  runGit('clean -fdx', repoDir);
+  runGit(['reset', '--hard'], repoDir);
+  runGit(['clean', '-fdx'], repoDir);
   const tb = extractPytestFailure(preResult.output) || preResult.output || '';
   return { ok: true, reproduced: matchesPytestOutcome({ result: preResult, expected: failList.length, expectFailure: true }), traceback: tb };
 }

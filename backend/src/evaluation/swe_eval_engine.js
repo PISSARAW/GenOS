@@ -18,16 +18,14 @@ const { generate } = require('../services/modelRouter');
 const { getDatabase } = require('../db');
 const { locateCandidateFiles, extractRelevantExcerpt } = require('./swe_fault_localizer');
 const { applySearchReplace } = require('./swe_surgical_patcher');
-const { TASKS_PATH: SWE_DATA_PATH, REPOS_DIR } = require('./swe_paths');
+const { TASKS_PATH: SWE_DATA_PATH, REPOS_DIR, validateRepoName, validateBaseCommit } = require('./swe_paths');
 
-function runGit(cmd, cwd) {
-  return execFileSync('git', cmd.split(' '), { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+function runGit(args, cwd) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
 function ensureRepoCloned(repoName) {
-  if (typeof repoName !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repoName)) {
-    throw new Error('SWE repository must be an owner/repository name.');
-  }
+  validateRepoName(repoName);
   if (!fs.existsSync(REPOS_DIR)) {
     fs.mkdirSync(REPOS_DIR, { recursive: true });
   }
@@ -45,9 +43,9 @@ function ensureRepoCloned(repoName) {
 }
 
 function prepareWorkspace(repoDir, baseCommit) {
-  runGit('reset --hard', repoDir);
-  runGit('clean -fdx', repoDir);
-  runGit(`checkout ${baseCommit}`, repoDir);
+  runGit(['reset', '--hard'], repoDir);
+  runGit(['clean', '-fdx'], repoDir);
+  runGit(['checkout', '--detach', validateBaseCommit(baseCommit)], repoDir);
   console.log(`[VFS WORKSPACE] Workspace isolated and checked out at base_commit: ${baseCommit.slice(0, 8)}`);
 }
 
@@ -186,7 +184,7 @@ async function solveSweTask(task, options = {}) {
 
   // --- PHASE 7: EXTRACT UNIFIED DIFF PATCH ---
   console.log(`\n[PHASE 7] Extracting Formal Unified Diff Patch...`);
-  const diff = runGit('diff', repoDir);
+  const diff = runGit(['diff'], repoDir);
   console.log(`  -> Patch Size: ${diff.length} bytes.`);
 
   return {
