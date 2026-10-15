@@ -1,7 +1,7 @@
 'use strict';
 
 const graphStore = require('../workGraph/workGraphStore');
-const { validateMemberEvidence, runtimeCoverage, missingCriteria } = require('./teamEvidenceService');
+const { validateMemberEvidence, runtimeCoverage, missingMissionCriteria } = require('./teamEvidenceService');
 const { workerStatuses, TERMINAL } = require('./dependencyExecutionService');
 const { telemetryDossier } = require('../../aTeamHandoffEvidenceService');
 const { observeAteamIntegration } = require('../../aTeamIntegrationObserver');
@@ -35,10 +35,7 @@ function rejectIntegrationViolations(verdicts, observation) {
 }
 
 function enforceMissionCriteria(run, verdicts, gate) {
-  const verified = [...verdicts.values()].filter((verdict) => verdict.promoted);
-  const evaluations = verified.flatMap((verdict) => verdict.report.acceptanceEvaluations || []);
-  const refs = verified.flatMap((verdict) => verdict.evidenceRefs);
-  const missing = missingCriteria(run.successCriteria, evaluations, refs);
+  const missing = missingMissionCriteria(run.successCriteria, verdicts);
   gate.missingMissionCriteria = missing;
   if (missing.length) {
     gate.passed = false;

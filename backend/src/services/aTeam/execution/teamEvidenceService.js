@@ -33,6 +33,29 @@ function missingCriteria(criteria, evaluations, refs) {
     && item.evidenceRefs.length > 0 && item.evidenceRefs.every((ref) => available.has(ref))));
 }
 
+function missingMissionCriteria(criteria, verdicts) {
+  const verified = [...verdicts.values()].filter((verdict) => verdict.promoted);
+  return criteria.filter((criterion) => !globallyVerified(criterion, verified)
+    && !locallyVerifiedByTeam(criterion, verified));
+}
+
+function globallyVerified(criterion, verdicts) {
+  return verdicts.some((verdict) => backedEvaluation(verdict, criterion, 'passed'));
+}
+
+function locallyVerifiedByTeam(criterion, verdicts) {
+  return verdicts.length > 0
+    && verdicts.every((verdict) => backedEvaluation(verdict, criterion, 'localPassed'));
+}
+
+function backedEvaluation(verdict, criterion, resultField) {
+  const available = new Set(verdict.evidenceRefs || []);
+  const evaluations = verdict.report?.acceptanceEvaluations || [];
+  return evaluations.some((item) => (item.criterion === criterion || item.criterionId === criterion)
+    && item[resultField] === true && Array.isArray(item.evidenceRefs)
+    && item.evidenceRefs.length > 0 && item.evidenceRefs.every((ref) => available.has(ref)));
+}
+
 function rejected(reason, details = []) {
   return { promoted: false, report: null, evidenceRefs: [], reason, details };
 }
@@ -67,7 +90,8 @@ function executionMission(member, successCriteria = []) {
     acceptanceCriteria: member.acceptanceCriteria || [], missionCriteria: successCriteria };
   return (member.mission || '') + '\n\nTEAM EXECUTION CONTRACT\n' + JSON.stringify(contract)
     + '\nReturn an evidence report with outcome, output, artifacts, tests, integrationConstraints, acceptanceEvaluations and handoffEvaluations. For each received handoff, evaluate its exact handoffId, digest and version, with passed and evidenceRefs. Each evaluated criterion must name its criterion, passed result and evidenceRefs from actual observations. Leave untested criteria unresolved; a dispatch or a policy is not proof of success.'
-    + '\nFor missionCriteria, copy each evaluated criterion string exactly as written in TEAM EXECUTION CONTRACT into acceptanceEvaluations. Do not translate, summarize or paraphrase it.';
+    + '\nFor missionCriteria, copy each evaluated criterion string exactly as written in TEAM EXECUTION CONTRACT into acceptanceEvaluations. Do not translate, summarize or paraphrase it.'
+    + '\nWhen you can prove only your own contribution to a collective mission criterion, keep passed unresolved and set localPassed=true with evidenceRefs that prove your contribution. Never set localPassed from another worker identity. The orchestrator validates the collective criterion only when every promoted worker provides a backed localPassed=true evaluation.';
 }
 
-module.exports = { validateMemberEvidence, runtimeCoverage, missingCriteria, executionMission };
+module.exports = { validateMemberEvidence, runtimeCoverage, missingCriteria, missingMissionCriteria, executionMission };
