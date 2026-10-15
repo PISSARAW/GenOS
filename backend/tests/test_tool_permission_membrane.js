@@ -3,6 +3,7 @@
 const assert = require('assert');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
+process.env.GENOS_SECRET_KEY ||= 'tool-permission-membrane-test-key-32-bytes';
 const membrane = require('../src/services/toolPermissionMembraneService');
 const adapters = require('../src/services/toolPermissionMembraneAdapters');
 

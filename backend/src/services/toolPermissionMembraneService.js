@@ -24,8 +24,21 @@ function canonicalJson(value) {
   return JSON.stringify(canonicalize(value));
 }
 
+function membraneSecret() {
+  const secret = process.env.GENOS_TOOL_MEMBRANE_HMAC_SECRET || process.env.GENOS_SECRET_KEY;
+  if (typeof secret !== 'string' || Buffer.byteLength(secret) < 32) {
+    throw membraneError('TOOL_MEMBRANE_SECRET_REQUIRED', 'Set GENOS_TOOL_MEMBRANE_HMAC_SECRET or a 32-byte GENOS_SECRET_KEY.');
+  }
+  return secret;
+}
+
 function digest(value) {
-  return crypto.createHash('sha256').update(canonicalJson(value)).digest('hex');
+  return crypto.createHmac('sha256', membraneSecret()).update(canonicalJson(value)).digest('hex');
+}
+
+function hashArguments(value) {
+  return crypto.scryptSync(canonicalJson(value), membraneSecret(), 32,
+    { N: 4096, r: 8, p: 1, maxmem: 16 * 1024 * 1024 }).toString('hex');
 }
 
 function normalizePolicy(policy) {
@@ -73,7 +86,7 @@ function requestMaterial(input) {
   const worker = normalizeWorker(input.worker);
   const lease = normalizeLease(input.lease);
   const policy = normalizePolicy(input.policy);
-  const argumentsHash = digest(input.arguments ?? {});
+  const argumentsHash = hashArguments(input.arguments ?? {});
   return {
     callId: text(input.callId, 'callId'), tool, worker, lease, policy, argumentsHash,
     organizationId: input.organizationId || '', projectId: input.projectId || ''

@@ -10,6 +10,7 @@ const { terminateChild } = require('./processTermination');
 const { normalizeSandboxCommand, isAllowedSandboxTestCommand } = require('./sandboxCommandPolicy');
 const { materialize } = require('./workspaceSnapshotMaterialize');
 const MAX_TEST_TIMEOUT_MS = 300_000;
+const TIMEOUT_CHECK_INTERVAL_MS = 1000;
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
 
 function boundedOption(value, fallback, maximum) {
@@ -72,6 +73,27 @@ function assertAllowedTestCommand(command) {
   return normalizeSandboxCommand(command);
 }
 
+function resolveTestCommand(shellCommand) {
+  const [commandName, ...commandArgs] = shellCommand.split(' ');
+  if (commandName === 'npm') return resolveNpmCommand(commandArgs);
+  if (commandName === 'cargo' || commandName === 'pytest') {
+    return { shellExecutable: commandName, shellArgs: commandArgs };
+  }
+  if (commandName === 'echo') return resolveEchoCommand(commandArgs);
+  throw Object.assign(new Error('Test command is not allowed.'), { code: 'TEST_COMMAND_NOT_ALLOWED' });
+}
+
+function resolveNpmCommand(commandArgs) {
+  if (process.platform !== 'win32') return { shellExecutable: 'npm', shellArgs: commandArgs };
+  const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  return { shellExecutable: process.execPath, shellArgs: [npmCli, ...commandArgs] };
+}
+
+function resolveEchoCommand(commandArgs) {
+  return { shellExecutable: process.execPath,
+    shellArgs: ['-e', 'process.stdout.write(process.argv.slice(1).join(" "))', ...commandArgs] };
+}
+
 function isolatedRunnerEnv(runnerRoot) {
   const base = {
     PATH: process.env.PATH || '/usr/bin:/bin',
@@ -94,22 +116,7 @@ function isolatedRunnerEnv(runnerRoot) {
 function spawnTestCommand(options) {
   const { shellCommand, workingDirectory, runnerRoot, timeoutMs, maxOutputBytes } = options;
   const { spawn } = require('child_process');
-  const commandParts = shellCommand.split(' ');
-  const [commandName, ...commandArgs] = commandParts;
-  let shellExecutable;
-  let shellArgs;
-  if (commandName === 'npm') {
-    if (process.platform === 'win32') {
-      const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
-      shellExecutable = process.execPath;
-      shellArgs = [npmCli, ...commandArgs];
-    } else { shellExecutable = 'npm'; shellArgs = commandArgs; }
-  } else if (commandName === 'cargo') { shellExecutable = 'cargo'; shellArgs = commandArgs; }
-  else if (commandName === 'pytest') { shellExecutable = 'pytest'; shellArgs = commandArgs; }
-  else if (commandName === 'echo') {
-    shellExecutable = process.execPath;
-    shellArgs = ['-e', 'process.stdout.write(process.argv.slice(1).join(" "))', ...commandArgs];
-  } else throw Object.assign(new Error('Test command is not allowed.'), { code: 'TEST_COMMAND_NOT_ALLOWED' });
+  const { shellExecutable, shellArgs } = resolveTestCommand(shellCommand);
   return new Promise((resolve, reject) => {
     const child = spawn(shellExecutable, shellArgs, {
       cwd: workingDirectory,
@@ -126,9 +133,27 @@ function spawnTestCommand(options) {
     };
     child.stdout.on('data', (chunk) => { stdout = append(stdout, chunk); });
     child.stderr.on('data', (chunk) => { stderr = append(stderr, chunk); });
-    const timer = setTimeout(() => { terminateChild(child); reject(Object.assign(new Error(`Test command timed out after ${timeoutMs}ms.`), { code: 'TEST_TIMEOUT' })); }, timeoutMs);
-    child.on('error', (error) => { clearTimeout(timer); reject(error); });
-    child.on('close', (code, signal) => { clearTimeout(timer); resolve({ exitCode: code == null ? -1 : code, signal, stdout, stderr, truncated }); });
+    const startedAt = Date.now();
+    let settled = false;
+    const timer = setInterval(() => {
+      if (Date.now() - startedAt < timeoutMs || settled) return;
+      settled = true;
+      clearInterval(timer);
+      terminateChild(child);
+      reject(Object.assign(new Error(`Test command timed out after ${timeoutMs}ms.`), { code: 'TEST_TIMEOUT' }));
+    }, TIMEOUT_CHECK_INTERVAL_MS);
+    child.on('error', (error) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(timer);
+      reject(error);
+    });
+    child.on('close', (code, signal) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(timer);
+      resolve({ exitCode: code == null ? -1 : code, signal, stdout, stderr, truncated });
+    });
   });
 }
 

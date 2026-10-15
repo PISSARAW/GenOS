@@ -2,6 +2,7 @@
  * Agent reproduction and lineage primitives: fork, recursiveFork, enforceReproductionLimits.
  */
 const path = require('path');
+const crypto = require('node:crypto');
 const { getDatabase } = require('../../../db');
 const agentAuthority = require('../../agentAuthorityService');
 const agentEvolution = require('../../agentEvolutionService');
@@ -175,7 +176,7 @@ function startWorkerMission(state, workerWorkspaceRoot) {
 }
 
 async function spawnFork(state) {
-  const id = 'worker_fork_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  const id = `worker_fork_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
   const scoped = { ...state, id };
   await insertWorker(scoped);
   await recordLineage(scoped);

@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
+process.env.GENOS_SECRET_KEY ||= 'mcp-permission-membrane-test-key-32-bytes';
 const bridge = require('../src/services/mcpExecutor/permissionMembraneBridge');
 
 function context(input) {

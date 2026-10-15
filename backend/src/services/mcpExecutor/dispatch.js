@@ -8,6 +8,7 @@ const { executeToolLogic } = require('./transports/toolLogic');
 const { getToolRegistry, directToolLeaseAllows, directBiologicalFeatureLeaseAllows, configuredTransport } = require('./config');
 
 const WORKSPACE_FALLBACK = path.resolve(__dirname, '../../../..');
+const SAFE_OUTPUT_SEGMENT = /^[\p{L}\p{N}_.() -]{1,128}$/u;
 
 function runSafeSync(commandLine, options = {}) {
   return runGenosSync(commandLine, options);
@@ -18,15 +19,37 @@ function runWithTimeout(commandLine, timeoutMs) {
 }
 
 function resolveMcpOutputPath(outputFile) {
-  if (typeof outputFile !== 'string' || !outputFile.trim() || outputFile.includes('\0') || path.isAbsolute(outputFile)) {
-    throw Object.assign(new Error('output_file must be a non-empty relative path.'), { code: 'INVALID_OUTPUT_PATH' });
-  }
+  const segments = parseOutputSegments(outputFile);
+  const safeRelativePath = segments.map((segment) => path.basename(segment)).join(path.sep);
   const root = path.resolve(process.env.GENOS_WORKSPACE_ROOT || WORKSPACE_FALLBACK);
   try {
-    return resolveContainedPathNoSymlinkSync(root, outputFile, 'output_file');
+    return resolveContainedPathNoSymlinkSync(root, safeRelativePath, 'output_file');
   } catch (_) {
     throw Object.assign(new Error('output_file must remain inside the GenOS workspace and avoid symlinks.'), { code: 'INVALID_OUTPUT_PATH' });
   }
+}
+
+function parseOutputSegments(outputFile) {
+  if (isInvalidOutputPath(outputFile)) throw invalidOutputPath('output_file must be a non-empty relative path.');
+  const segments = outputFile.replace(/\\/g, '/').split('/');
+  if (segments.length > 16 || segments.some((segment) => !isSafeOutputSegment(segment))) {
+    throw invalidOutputPath('output_file contains an unsafe path segment.');
+  }
+  return segments;
+}
+
+function isInvalidOutputPath(outputFile) {
+  return typeof outputFile !== 'string' || !outputFile.trim() || outputFile.includes('\0')
+    || path.isAbsolute(outputFile) || /^[A-Za-z]:/.test(outputFile);
+}
+
+function invalidOutputPath(message) {
+  return Object.assign(new Error(message), { code: 'INVALID_OUTPUT_PATH' });
+}
+
+function isSafeOutputSegment(segment) {
+  return segment !== '.' && segment !== '..' && !segment.endsWith('.') && !segment.endsWith(' ')
+    && SAFE_OUTPUT_SEGMENT.test(segment);
 }
 
 function validateMcpInputPaths(args = {}) {
