@@ -9,9 +9,10 @@ const {
 } = require('./agentOrchestrationState');
 const { evidenceScore, extractEvidenceReport } = require('./agentEvidenceService');
 const crypto = require('crypto');
-const { buildContinuationContext } = require('../../bin/agent-runtime-prompt.cjs');
 const durableContinuation = require('./durableContinuationService');
 const trinityAdaptiveBudget = require('./trinityAdaptiveBudgetService');
+const continuationQueue = require('./agentContinuationQueueService');
+const { createMorphogenesisEpochCoordinator } = require('./morphogenesis/morphogenesisEpochCoordinator');
 
 const MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3;
 
@@ -60,78 +61,6 @@ function selectRoundSurvivors(completed, continuation, orchestratorId) {
   return { survivors, paretoResult };
 }
 
-function continuationTokens(continuation, index) {
-  const scheduled = continuation.workerTokens;
-  if (Array.isArray(scheduled) && scheduled[index] !== undefined) return scheduled[index];
-  return continuation.perWorkerTokens;
-}
-
-function consumedFromPayload(payload = {}) {
-  const usage = payload.usage || {};
-  return {
-    events: Number(usage.events ?? payload.events ?? 1),
-    cost: Number(usage.cost_usd ?? payload.cost_usd ?? 0)
-  };
-}
-
-function budgetFromPrevious(previous = {}) {
-  const budget = previous.executionBudget || {};
-  return { events: Number(budget.events ?? 100), costUsd: Number(budget.costUsd ?? 1) };
-}
-
-function queueContinuationMission(context) {
-  const { state, survivor, continuation, index, orchestratorId, adaptation } = context;
-  const previous = state.workers.get(survivor.agentId);
-  const assignedTokens = continuationTokens(continuation, index);
-  const report = extractEvidenceReport(survivor.payload) || {};
-  const consumed = consumedFromPayload(survivor.payload);
-  const budget = budgetFromPrevious(previous);
-  const continuationId = `cont_${crypto.randomUUID()}`;
-  const diffPrompt = buildContinuationContext(previous, report, assignedTokens);
-  const morphology = continuationMorphology(survivor, adaptation);
-  const mission = {
-    ...previous,
-    continuationId,
-    prompt: morphology ? morphologyPrompt(diffPrompt, morphology, adaptation.receipt) : diffPrompt,
-    executionBudget: {
-      ...previous.executionBudget,
-      tokens: assignedTokens,
-      events: Math.max(1, budget.events - consumed.events),
-      costUsd: Math.max(0, budget.costUsd - consumed.cost)
-    },
-    budgetRound: { stage: 'continuation', orchestratorId },
-    ...(morphology || {})
-  };
-  pendingContinuations.set(survivor.agentId, mission);
-  durableContinuation.persistContinuation({
-    id: continuationId,
-    agentId: survivor.agentId,
-    orchestratorId,
-    mission,
-    organizationId: state.organizationId,
-    projectId: state.projectId,
-  }).catch((error) => emit(orchestratorId, 'CONTINUATION_PERSIST_FAILED', 'RECOVERY', error.message, {}, 'warning'));
-  return survivor.agentId;
-}
-
-function continuationMorphology(survivor, adaptation) {
-  const assignment = adaptation?.assignments?.[survivor.agentId];
-  if (!assignment) return null;
-  return {
-    morphologyTopology: assignment.morphologyTopology,
-    morphologyNodeId: assignment.morphologyNodeId,
-    morphologyVariant: assignment.morphologyVariant,
-    topologyRole: assignment.role,
-    morphologyTransition: adaptation.receipt
-  };
-}
-
-function morphologyPrompt(prompt, morphology, receipt) {
-  return `${prompt}\n\nMORPHOGENESIS ADAPTATION\nThe verified continuation policy rebound this worker to `
-    + `${morphology.morphologyTopology}:${morphology.topologyRole}. Follow that topology role while preserving `
-    + `the prior evidence lineage. Transition receipt: ${JSON.stringify(receipt)}.`;
-}
-
 async function planAdaptiveContinuation(input) {
   if (input.state.plan.aTeam?.activated) return { adapted: false, reason: 'dedicated_a_team_continuation' };
   try {
@@ -165,16 +94,23 @@ function emitRoundEvaluated(context) {
   }, 'info');
 }
 
-function registerInitialResult(mission, event) {
+function registerRoundResult(mission, event) {
   const round = mission.budgetRound;
   const outcome = autonomousRoundOutcome(event.eventType);
-  if (round?.stage !== 'initial' || !outcome) return null;
+  if (!outcome || !['initial', 'morphogenesis_epoch'].includes(round?.stage)) return null;
   const state = autonomousRounds.get(round.orchestratorId);
+  if (!roundMatchesState(round, state)) return null;
   if (!state || state.advanced || !state.workerIds.has(mission.agentId)) return null;
   state.results.set(mission.agentId, buildRoundResult(mission, outcome, event));
   if (state.results.size < state.workerIds.size) return null;
   state.advanced = true;
   return { state, orchestratorId: round.orchestratorId };
+}
+
+function roundMatchesState(round, state) {
+  if (!state) return false;
+  if (round.stage === 'initial') return state.epoch === 0;
+  return Number(round.epoch) === state.epoch && state.epoch > 0;
 }
 
 function abortRound(orchestratorId, descriptor, payload) {
@@ -196,7 +132,7 @@ function emitAdaptiveBudgetSkipped(orchestratorId, state, continuation) {
     { worldCount: state.workerIds.size, continuationPool: continuation?.pool || 0 }, 'warning');
 }
 
-function advanceTrinityAdaptiveRound(state, orchestratorId) {
+async function advanceTrinityAdaptiveRound(state, orchestratorId) {
   const continuation = state.plan.tokenPolicy.rounds?.continuation;
   const allocation = trinityAdaptiveBudget.allocate({
     workerIds: [...state.workerIds], results: [...state.results.values()],
@@ -216,15 +152,29 @@ function advanceTrinityAdaptiveRound(state, orchestratorId) {
     'The remaining token pool was weighted by each world’s evidence-backed uncertainty; all three worlds continue.',
     { basis: allocation.basis, worlds: allocation.worlds.map(({ worldNumber, uncertainty, evidenceRefs, tokens }) => ({ worldNumber, uncertainty, evidenceRefs, tokens })) }, 'info');
   const continuationPlan = { ...continuation, workerTokens: allocation.worlds.map((world) => world.tokens) };
-  const queued = allocation.worlds.map((world, index) => queueContinuationMission({
+  let queued;
+  try {
+    queued = await continuationQueue.queueContinuationMissions(allocation.worlds.map((world, index) => ({
     state, survivor: state.results.get(world.agentId), continuation: continuationPlan, index, orchestratorId
-  }));
+    })));
+  } catch (error) {
+    state.plan.trinity.adaptiveBudgetDecision = { status: 'blocked', reason: 'continuation_persistence_failed' };
+    autonomousRounds.delete(orchestratorId);
+    emit(orchestratorId, 'TRINITY_ADAPTIVE_CONTINUATION_PERSIST_FAILED', 'RECOVERY', error.message, {}, 'error');
+    return;
+  }
   autonomousRounds.delete(orchestratorId);
   for (const workerId of queued) dispatchPendingContinuation(workerId);
 }
 
+const adaptNextEpoch = createMorphogenesisEpochCoordinator({
+  emit, autonomousRounds, selectRoundSurvivors, emitRoundEvaluated, planAdaptiveContinuation,
+  emitMorphogenesisContinuation, queueContinuationMissions: continuationQueue.queueContinuationMissions,
+  dispatchPendingContinuation
+});
+
 async function advanceAutonomousRound(mission, event) {
-  const registered = registerInitialResult(mission, event);
+  const registered = registerRoundResult(mission, event);
   if (!registered) return;
   const { state, orchestratorId } = registered;
 
@@ -245,27 +195,7 @@ async function advanceAutonomousRound(mission, event) {
   const continuation = state.plan.tokenPolicy.rounds?.continuation;
   const policyError = continuationPolicyError(continuation);
   if (policyError) return abortRound(orchestratorId, policyError, { continuation });
-
-  const completed = [...state.results.values()].filter((result) => result.status === 'completed');
-  if (!completed.length) {
-    return abortRound(orchestratorId, noCompletedWorkerDescriptor(), {
-      workerCount: state.workerIds.size,
-      failedWorkerCount: state.results.size
-    });
-  }
-
-  const { survivors, paretoResult } = selectRoundSurvivors(completed, continuation, orchestratorId);
-  emitRoundEvaluated({ orchestratorId, state, survivors, paretoResult, continuation });
-  const adaptation = await planAdaptiveContinuation({ state, survivors, continuation, orchestratorId });
-  emitMorphogenesisContinuation(orchestratorId, adaptation);
-  const continuationWorkerIds = survivors.map((survivor, index) => queueContinuationMission({
-    state, survivor, continuation, index, orchestratorId, adaptation
-  }));
-  autonomousRounds.delete(orchestratorId);
-  // A survivor may have closed before the final initial worker selected the
-  // continuation set. Dispatch every now-idle survivor here; the worker that
-  // is still closing will be picked up by its close handler below.
-  for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId);
+  return adaptNextEpoch(state, orchestratorId);
 }
 
 function handleContinuationFailure(agentId, mission, error) {
@@ -312,4 +242,5 @@ async function dispatchPendingContinuation(agentId) {
   }).catch((error) => handleContinuationFailure(agentId, mission, error));
 }
 
-module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome, advanceAutonomousRound, dispatchPendingContinuation };
+module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome,
+  registerRoundResult, advanceAutonomousRound, dispatchPendingContinuation };

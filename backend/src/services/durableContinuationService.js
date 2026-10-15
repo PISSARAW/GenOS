@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const { getDatabase } = require('../db');
+const { getDatabase, withTransaction } = require('../db');
 
 function serializeMission(mission) {
   return JSON.stringify(mission || {});
@@ -12,15 +12,28 @@ function deserializeMission(row) {
 }
 
 async function persistContinuation(input = {}) {
-  const db = input.db || await getDatabase();
-  const id = input.id || `cont_${crypto.randomUUID()}`;
-  await db.run(
-    `INSERT OR REPLACE INTO continuation_queue
-      (id, agent_id, orchestrator_id, mission_json, status, organization_id, project_id, updated_at)
-     VALUES (?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
-    [id, input.agentId, input.orchestratorId || null, serializeMission(input.mission), input.organizationId || null, input.projectId || null]
-  );
+  const [id] = await persistContinuations({ db: input.db, continuations: [input] });
   return id;
+}
+
+async function persistContinuations(input = {}) {
+  const db = input.db || await getDatabase();
+  const continuations = Array.isArray(input.continuations) ? input.continuations : [];
+  return withTransaction(db, async (tx) => {
+    const ids = [];
+    for (const item of continuations) {
+      const id = item.id || `cont_${crypto.randomUUID()}`;
+      await tx.run(
+        `INSERT OR REPLACE INTO continuation_queue
+          (id, agent_id, orchestrator_id, mission_json, status, organization_id, project_id, updated_at)
+         VALUES (?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
+        [id, item.agentId, item.orchestratorId || null, serializeMission(item.mission),
+          item.organizationId || null, item.projectId || null]
+      );
+      ids.push(id);
+    }
+    return ids;
+  });
 }
 
 async function loadContinuation(input = {}) {
@@ -40,4 +53,4 @@ async function markContinuation(input = {}) {
   );
 }
 
-module.exports = { persistContinuation, loadContinuation, markContinuation };
+module.exports = { persistContinuation, persistContinuations, loadContinuation, markContinuation };

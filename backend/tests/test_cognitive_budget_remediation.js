@@ -4,6 +4,9 @@ const { validateBudgetCoherence } = require('../src/services/budgetCoherenceServ
 const { buildAutonomyPlan } = require('../src/services/autonomousOrchestrationService');
 const agentConscience = require('../src/services/agentConscienceService');
 const { advanceAutonomousRound } = require('../src/services/agentRoundService');
+const durableContinuation = require('../src/services/durableContinuationService');
+const morphogenesisContinuation = require('../src/services/morphogenesis/missionMorphogenesisContinuation');
+const morphogenesisEpochBudget = require('../src/services/morphogenesis/morphogenesisEpochBudget');
 const {
   autonomousRounds, pendingContinuations, activeProcesses, missionStarts
 } = require('../src/services/agentOrchestrationState');
@@ -55,6 +58,7 @@ async function testPoint2_configurableWorkerShare() {
   const contract = {
     schema: 'genos.strategy-contract/v1alpha1',
     problem_profile: { complexity: 0.8, risk: 'low', uncertainty: 0.7 },
+    strategy_portfolio: [{ id: 'bounded_search', primitives: ['fork', 'solve'] }],
     branches: [
       { label: 'b1', hypothesis: 'h1' },
       { label: 'b2', hypothesis: 'h2' }
@@ -87,6 +91,9 @@ async function testPoint3_continuationBudgetDeductions() {
 
   const roundState = {
     orchestratorId,
+    epoch: 0,
+    epochBudget: morphogenesisEpochBudget.createEpochBudget(60000, { maxEpochs: 1 }, 1),
+    db: {},
     advanced: false,
     workerIds: new Set([worker1Id, worker2Id]),
     results: new Map(),
@@ -110,7 +117,8 @@ async function testPoint3_continuationBudgetDeductions() {
         rounds: {
           continuation: {
             survivorCount: 1,
-            perWorkerTokens: 60000
+            perWorkerTokens: 60000,
+            pool: 60000
           }
         }
       }
@@ -154,8 +162,24 @@ async function testPoint3_continuationBudgetDeductions() {
   // Mark worker 1 as active so dispatchPendingContinuation leaves it in pendingContinuations
   activeProcesses.set(worker1Id, { pid: 12345 });
 
+  const originalPersist = durableContinuation.persistContinuations;
+  const originalPlanContinuation = morphogenesisContinuation.planContinuation;
+  let releasePersistence;
+  let persisted = false;
+  durableContinuation.persistContinuations = async ({ continuations }) => {
+    await new Promise((resolve) => { releasePersistence = resolve; });
+    persisted = true;
+    return continuations.map((entry) => entry.id);
+  };
+  morphogenesisContinuation.planContinuation = async () => ({ adapted: false, reason: 'adaptation_not_required' });
   await advanceAutonomousRound(mission1, event1);
-  await advanceAutonomousRound(mission2, event2);
+  const advancing = advanceAutonomousRound(mission2, event2);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(typeof releasePersistence, 'function', 'continuation persistence must start before queueing');
+  assert.equal(pendingContinuations.has(worker1Id), false, 'worker must not be queued before persistence completes');
+  releasePersistence();
+  await advancing;
+  assert.equal(persisted, true, 'continuation persistence must finish before round advancement');
 
   // Worker 1 should be selected as survivor because of higher evidence score
   const continuation = pendingContinuations.get(worker1Id);
@@ -164,11 +188,27 @@ async function testPoint3_continuationBudgetDeductions() {
   assert.equal(continuation.executionBudget.events, 75, 'Events budget must deduct 25 consumed events (100 - 25 = 75)');
   assert.equal(continuation.executionBudget.costUsd, 3.50, 'Cost budget must deduct $1.50 consumed cost ($5.00 - $1.50 = $3.50)');
 
+  const rejectionId = `${orchestratorId}_rejected`;
+  const rejectedState = { ...roundState, orchestratorId: rejectionId, epoch: 0,
+    epochBudget: morphogenesisEpochBudget.createEpochBudget(60000, { maxEpochs: 1 }, 1),
+    advanced: false, workerIds: new Set([worker1Id, worker2Id]), results: new Map(),
+    plan: { ...roundState.plan, morphogenesisEpochStatus: undefined } };
+  autonomousRounds.set(rejectionId, rejectedState);
+  morphogenesisContinuation.planContinuation = async () => ({ adapted: false, reason: 'no_admissible_reconfiguration' });
+  await advanceAutonomousRound({ ...mission1, budgetRound: { stage: 'initial', orchestratorId: rejectionId } }, event1);
+  await advanceAutonomousRound({ ...mission2, budgetRound: { stage: 'initial', orchestratorId: rejectionId } }, event2);
+  assert.equal(rejectedState.epochBudget.remaining, 60000, 'rejected adaptation must return the reserved tranche');
+  assert.equal(rejectedState.epochBudget.reservedEpochs, 0, 'rejected adaptation must not consume an epoch');
+  assert.equal(rejectedState.epochBudget.activeEpoch, null);
+
   // Clean up
   activeProcesses.delete(worker1Id);
   pendingContinuations.delete(worker1Id);
   pendingContinuations.delete(worker2Id);
   autonomousRounds.delete(orchestratorId);
+  autonomousRounds.delete(rejectionId);
+  durableContinuation.persistContinuations = originalPersist;
+  morphogenesisContinuation.planContinuation = originalPlanContinuation;
 
   console.log('✓ Point 3: Successive-halving continuation budget deductions verified.');
 }

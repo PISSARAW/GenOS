@@ -169,6 +169,8 @@ function registerAutonomousRound(ctx, autonomousWorkers) {
   const { agentId, autonomyPlan } = ctx;
   const survivorCount = autonomyPlan.tokenPolicy.rounds?.continuation?.survivorCount;
   if (autonomousWorkers.length && Number.isInteger(survivorCount) && survivorCount > 0) {
+    const epochBudget = require('../morphogenesis/morphogenesisEpochBudget');
+    const continuationPool = autonomyPlan.tokenPolicy.rounds?.continuation?.pool || 0;
     autonomousRounds.set(agentId, {
       plan: autonomyPlan,
       db: ctx.db,
@@ -176,6 +178,9 @@ function registerAutonomousRound(ctx, autonomousWorkers) {
       workerIds: new Set(autonomousWorkers.map((worker) => worker.agentId)),
       workers: new Map(autonomousWorkers.map((worker) => [worker.agentId, worker])),
       results: new Map(),
+      epoch: 0,
+      epochBudget: epochBudget.createEpochBudget(continuationPool,
+        ctx.normalizedMission.morphogenesisPolicy || {}, autonomyPlan.tokenPolicy.minimumWorkerTokens || 1),
       advanced: false
     });
   }
