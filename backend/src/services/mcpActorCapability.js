@@ -1,7 +1,6 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const fs = require('node:fs/promises');
 const authority = require('./missionEnvelopeAuthority');
 const receipts = require('./bodyActionReceiptService');
 
@@ -23,7 +22,7 @@ function refusal(code) {
 async function issue(db, input) {
   const bound = await authority.assertRun(db, input);
   if (bound.status !== 'authorized') throw refusal('MCP_ACTOR_AUTHORITY_REQUIRED');
-  const root = await fs.realpath(input.workspaceRoot);
+  const root = await authority.realWorkspaceRoot(input.workspaceRoot);
   if (root !== bound.envelope.workspaceRoot) throw refusal('MCP_ACTOR_WORKSPACE_MISMATCH');
   await ensure(db);
   const token = crypto.randomBytes(32).toString('hex');
@@ -45,7 +44,7 @@ async function verify(db, input) {
   if (bound.status !== 'authorized' || bound.hash !== row.authority_hash) {
     throw refusal('MCP_ACTOR_AUTHORITY_CHANGED');
   }
-  if (await fs.realpath(input.workspaceRoot) !== row.workspace_root) {
+  if (await authority.realWorkspaceRoot(input.workspaceRoot) !== row.workspace_root) {
     throw refusal('MCP_ACTOR_WORKSPACE_MISMATCH');
   }
   if (!bound.envelope.toolLease.includes(input.toolName)) throw refusal('MCP_ACTOR_TOOL_DENIED');
