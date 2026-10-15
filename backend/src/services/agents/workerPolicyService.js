@@ -8,7 +8,7 @@ const POLICIES = Object.freeze({
   specialist: { maxIterations: 20, maxStrategyChanges: 3, maxCognitiveChanges: 2, maxTokens: 20000, maxTimeMs: 540000 },
   procedural_executor: { maxIterations: 10, maxTokens: 0, executionMode: 'deterministic' },
   symbiotic_worker: { maxIterations: 10 },
-  verifier_worker: { maxIterations: 5, maxTokens: 20000, maxTimeMs: 540000 },
+  verifier_worker: { maxIterations: 5, maxTokens: 40000, maxTimeMs: 540000 },
   red_worker: { maxIterations: 5, maxTokens: 20000, maxTimeMs: 540000 },
   experimental_worker: { maxIterations: 10 },
   formal_worker: { maxIterations: 10, maxTokens: 0, executionMode: 'deterministic' },
@@ -16,8 +16,8 @@ const POLICIES = Object.freeze({
   creative_worker: { maxIterations: 10, maxCognitiveChanges: 2 },
   medical_worker: { maxIterations: 8 },
   recovery_worker: { maxIterations: 3 },
-  forensic_worker: { maxIterations: 5 },
-  liaison_worker: { maxIterations: 10, maxMessages: 32 },
+  forensic_worker: { maxIterations: 5, maxTokens: 40000 },
+  liaison_worker: { maxIterations: 10, maxMessages: 32, maxTokens: 40000 },
   teaching_worker: { maxIterations: 10 },
   sub_orchestrator: { maxIterations: 30, maxChildren: 5, maxTokens: 10000 }
 });
