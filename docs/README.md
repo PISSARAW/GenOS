@@ -215,6 +215,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 
 **Modes de composition (topologies)** — index : [02-orchestration/topologies/README.md](02-orchestration/topologies/README.md)
 
+- [variants-morphologiques.md](02-orchestration/topologies/variants-morphologiques.md) — guide vers les cas d'usage et limites de sélection des 95 variants canoniques.
 - [trinity.md](02-orchestration/topologies/trinity.md) — orchestration comparée, baseline à trois mondes et variants expérimentaux à fan-out contrôlé.
 - [a-team.md](02-orchestration/topologies/a-team.md) — équipe multidisciplinaire d'agents.
 - [runtime-a-team.md](03-reference/runtime-a-team.md) — clôture canonique, preuves, accusés et reprise A-Team ; conformité globale partielle.

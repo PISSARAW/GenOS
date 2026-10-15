@@ -2,7 +2,7 @@
 
 - **Statut** : runtime régional implémenté ; qualification produit expérimentale
 - **Portée** : persistance régionale par populations semi-indépendantes, migration et recolonisation
-- **Dernière revue** : 2026-10-14
+- **Dernière revue** : 2026-10-16
 
 > **Lecture du statut** — Les descriptions de rôles, variantes, scénarios et machines à états expriment le modèle visé lorsqu’elles sont présentées comme cible ou hypothèse. Les calculs, seuils et actions précédés de « réellement calculé », « implémenté » ou « défaut actuel » décrivent le code observé. Les analogies écologiques motivent le vocabulaire ; elles ne valident pas les performances du runtime.
 
@@ -696,19 +696,28 @@ DORMANT → [*] : fossilisation
 
 ## 13. Les 12 variants de Metapopulation
 
+Les douze entrées ci-dessous sont les variants canoniques du registre. Le profil
+automatique actuel examine des mots de la mission, départage les égalités selon
+un ordre fixe et retombe sur `balanced` sans signal distinctif. Il ne mesure pas
+encore l'adéquation réelle des douze variants à une mission. Les cas d'usage
+de la section 13.13 sont des **critères de décision à vérifier** : ils ne
+prouvent ni la supériorité ni l'activation automatique de la forme décrite.
+
 ### 13.1 Classic Patch
 
 **Mécanisme :** Extinction + recolonisation classique sur patches fixes.
 **Quand :** Résilience générale. Plusieurs populations sur patches stables, échanges modérés.
-**Topologie :** Anneau ou small-world.
-**Politique :** Founder (recolonisation), Elite (migration périodique).
+**Topologie du profil courant :** Small-world.
+**Politique du profil courant :** Founder (recolonisation).
 
 ### 13.2 Island Search
 
 **Mécanisme :** Îlots de recherche indépendants + migration périodique d'incumbents.
 **Quand :** Optimisation dure (SAT, ILP, local search, évolutionnaire).
-**Topologie :** Anneau avec migration rare (préserve la diversité).
-**Politique :** Elite + Counterexample. Les bornes migrent, les aussi les contre-exemples.
+**Topologie du profil courant :** Anneau, avec migrations périodiques bornées
+par les déclencheurs et le budget pour préserver la diversité.
+**Politique du profil courant :** Elite. Les bornes et contre-exemples peuvent
+servir à la vérification locale, mais leur migration n'est pas le défaut du profil.
 
 ### 13.3 Heterogeneous Islands
 
@@ -722,7 +731,8 @@ DORMANT → [*] : fossilisation
 **Mécanisme :** Sources soutiennent sinks par migration dirigée.
 **Quand :** Environnements inégaux (certains dèmes ont plus de ressources).
 **Topologie :** Dirigée (sources → sinks), corridors sortants forts depuis les sources.
-**Politique :** Elite (push depuis sources) + Rescue (pull depuis sinks).
+**Politique du profil courant :** Rescue, avec flux dirigés source → sink et
+réserve minimale des sources. Les rôles peuvent être réévalués entre cycles.
 
 ### 13.5 Rescue Network
 
@@ -742,22 +752,28 @@ lignées. Voir [ADR 0466](../../adr/0466-preuve-de-reserve-fondatrice-metapopula
 
 **Mécanisme :** Migration sparse, corridor par corridor (pas de saut direct A→C).
 **Quand :** Préserver la diversité, éviter l'homogénéisation.
-**Topologie :** Ligne ou grille. Migration rare.
-**Politique :** Novelty + Cultural. Pas d'élite (trop homogénéisant).
+**Topologie du profil courant :** Corridors Stepping-Stone entre voisins,
+migration rare.
+**Politique du profil courant :** Cultural, avec migration rare et locale ;
+Novelty et Counterexample sont admissibles par le contrôle propre aux corridors
+Stepping-Stone, contrairement à Elite.
 
 ### 13.7 Anti-Synchrony
 
 **Mécanisme :** Diversité volontaire, firebreaks, extinction contrôlée de dèmes redondants.
 **Quand :** Réduire le risque d'échec corrélé global.
 **Topologie :** Adaptive (le TopologyGovernor gèle des corridors).
-**Politique :** Novelty dominante. Extinction contrôlée si synchrony > seuil.
+**Politique du profil courant :** Novelty dominante. Une extinction contrôlée
+exige aussi une couverture régionale suffisante ; un score de synchronie élevé
+ne suffit pas.
 
 ### 13.8 Federated
 
 **Mécanisme :** Les transferts inter-régions exigent un contrat actif correspondant aux régions source et cible, une classification autorisée, une preuve de minimisation dans la limite `maxFields` et une attestation du receveur. Le reçu de minimisation contient un identifiant SHA-256 déterministe liant le propagule, le contrat et les champs annoncés; cet identifiant n'est ni une signature ni une preuve cryptographique que les données transférées ont réellement été expurgées. Seuls les propagules vérifiés et acceptés peuvent poursuivre la migration.
 **Quand :** Sites privés, edge computing, data sovereignty, partitions réseau.
 **Topologie :** Hierarchical avec corridors filtrés.
-**Politique :** Cultural + Counterexample. Pas d'agent brut (pas de données brutes).
+**Politique du profil courant :** Cultural. Les obligations de contrat,
+classification, minimisation et attestation restent applicables à chaque offre.
 
 ### 13.9 Ephemeral Patch
 
@@ -770,15 +786,19 @@ lignées. Voir [ADR 0466](../../adr/0466-preuve-de-reserve-fondatrice-metapopula
 
 **Mécanisme :** Dèmes résidents entre missions.
 **Quand :** Projets/services longs avec évolution continue.
-**Topologie :** Stable, apprise sur l'historique.
-**Politique :** Toutes selon le contexte. Les dèmes accumulent mémoire locale et lignées matures.
+**Topologie du profil courant :** Small-world ; l'historique régional est retenu,
+sans apprentissage démontré de la forme des corridors.
+**Politique du profil courant :** Cultural. Les dèmes accumulent mémoire locale
+et lignées matures ; les autres politiques demandent un contrat explicite.
 
 ### 13.11 Evolutionary
 
 **Mécanisme :** Génome + mutation + migration + sélection locale.
 **Quand :** NCE/optimisation évolutionnaire continue.
-**Topologie :** Anneau ou small-world, paramétrable par `evolution.rs`.
-**Politique :** Elite + Novelty + reproduction locale.
+**Topologie du profil courant :** Anneau. L'effet d'évolution locale dépend de
+l'adaptateur vers le moteur Rust configuré séparément.
+**Politique du profil courant :** Novelty et reproduction locale via adaptateur
+configuré. La sélection Elite n'est pas le défaut du profil.
 
 ### 13.12 Cultural
 
@@ -786,6 +806,41 @@ lignées. Voir [ADR 0466](../../adr/0466-preuve-de-reserve-fondatrice-metapopula
 **Quand :** Connaissances et procédures partagées, lignées culturelles distribuées.
 **Topologie :** Small-world.
 **Politique :** Cultural dominante. Les agents sont résidents ; les propagules culturels circulent.
+
+### 13.13 Grille de décision : cas d'usage, signaux et frontières
+
+Cette grille couvre les **douze familles de décision** du registre, pas toutes
+les phrases qu'une mission pourrait employer. Un signal est une observation ou
+une contrainte à établir, pas simplement un mot clé. Les deux exemples de chaque
+entrée illustrent des missions distinctes. Une migration n'est effective que si
+elle possède un corridor dirigé actif de capacité positive, un déclencheur
+admis, un budget disponible, un receveur compatible et un propagule validé en
+quarantaine. Une offre, une planification ou un score source ne constitue pas
+une assimilation réussie.
+
+| Variant | Missions concrètes indiquées | Signaux discriminants et préconditions | Frontière avec les variants voisins |
+|---|---|---|---|
+| `classic_patch` | Maintenir des groupes de résolution sur des patches stables après l'extinction locale d'un groupe ; recoloniser un patch de validation vacant sans arrêter les autres populations. | Patches relativement fixes, occupation et extinctions observables, au moins deux lignées fondatrices compatibles et évaluateur local de viabilité pour confirmer la recolonisation. | Préférer `rescue_network` si aucune capacité critique ne peut subir d'interruption ; `ephemeral_patch` si c'est le patch lui-même qui apparaît et disparaît. |
+| `island_search` | Chercher une solution SAT ou ILP avec plusieurs solveurs indépendants ; optimiser une configuration difficile avec recherches locales concurrentes et échange occasionnel d'incumbents. | Objectif et fitness comparables, îlots isolés, budget de recherche, adaptateur `solverSearch` configuré, déclencheurs et corridors pour les migrations périodiques. | `heterogeneous_islands` si la priorité est la couverture de méthodes et modèles très différents sans objectif de recherche directement comparable ; `evolutionary` si la mutation et la reproduction locales sont le mécanisme central. |
+| `heterogeneous_islands` | Résoudre un problème inconnu par îlots de fournisseurs ou d'algorithmes distincts ; confronter plusieurs recettes cognitives dans des environnements locaux différents avant transfert de méthodes. | Diversité réelle de fournisseur, algorithme ou lignée, profils locaux distincts, critères de complémentarité et validation receveur pour cultures ou propagules. | `island_search` vise surtout une recherche optimisée avec élites ; `cultural` vise le déplacement d'artefacts entre résidents quand la diversité des méthodes locales n'est pas l'objectif principal. |
+| `source_sink` | Soutenir un dème sous-doté depuis un dème ayant de la capacité libre ; redistribuer une capacité entre sites dont les rôles source et sink changent dans le temps. | Déséquilibre mesuré de contribution ou capacité, sources actives, sinks actifs ou stressés, sens du corridor source → sink et réserve de source respectée. | `rescue_network` si la cible risque de perdre une fonction critique avec délai de récupération ; `classic_patch` si la cible est un patch déjà vacant à recoloniser. |
+| `rescue_network` | Préserver un service critique distribué après la défaillance d'un dème ; tenir une fonction rare disponible en préparant des fondateurs et corridors de secours. | Capacité critique identifiée, état `AT_RISK` ou panne, redondance/fondateurs réellement disponibles, délai de récupération et adaptateurs de fitness et rollback pour vérifier un rescue. | `source_sink` équilibre une asymétrie ordinaire de ressources ; `classic_patch` accepte des extinctions locales avant recolonisation. Le reçu d'une réserve ne prouve pas à lui seul la viabilité future. |
+| `stepping_stone` | Transmettre une procédure entre sites voisins lorsque les sauts directs sont interdits ; diffuser lentement une découverte sur une chaîne d'îlots sans homogénéiser tout le réseau. | Voisinage explicite, ponts intermédiaires disponibles, migration rare, propagules culturels versionnés ou autres types admis par la politique locale. | `cultural` partage aussi les procédures mais ne requiert pas de chemin local pas à pas ; `federated` s'impose dès que les frontières sont juridiques ou souveraines. |
+| `anti_synchrony` | Empêcher plusieurs dèmes utilisant la même stratégie d'échouer simultanément ; isoler temporairement des groupes touchés par des erreurs corrélées tout en gardant la couverture régionale. | Corrélation d'erreurs ou recouvrement de stratégies mesurés, seuil de diversité, corridors susceptibles d'être réduits ou gelés, couverture des capacités avant toute extinction contrôlée. | `rescue_network` traite d'abord la restauration d'une fonction menacée ; `stepping_stone` limite structurellement les échanges sans nécessiter un signal d'échec corrélé. Le gel d'un corridor ne prouve pas une reconfiguration réussie des dèmes. |
+| `federated` | Coopérer entre régions dont les données doivent rester sur place ; partager une procédure vérifiée entre sites administrés séparément sous contrat de minimisation. | Régions source/cible identifiées, contrat actif, classification autorisée, preuve de minimisation selon `maxFields`, attestation du receveur et propagule vérifié. | `cultural` convient aux transferts d'artefacts sans frontière souveraine ; `stepping_stone` impose une localité de graphe, pas une autorisation juridique. Un identifiant SHA-256 de reçu ne prouve ni expurgation effective ni signature. |
+| `ephemeral_patch` | Exploiter des instances cloud temporaires pour une recherche distribuée ; utiliser des outils ou matériels intermittents sans considérer chaque disparition comme l'échec de toute la région. | Disponibilité et expiration des patches observables, bail ou réassociation valide, références de spore/dormance, réactivation conditionnée au retour du patch. | `persistent` concerne des résidents entre missions sur des patches durables ; `classic_patch` traite l'extinction d'un dème sur un patch qui reste disponible. La spore enregistrée ne démontre pas une restauration automatique du moteur externe. |
+| `persistent` | Maintenir des populations résidentes pour un dépôt logiciel suivi sur plusieurs missions ; conserver des spécialistes et leur mémoire locale dans un service de longue durée. | Portée `workspace`, `project` ou `persistent`, état SQLite réutilisable, baux de daemon actifs prouvés et politique de vieillissement de la mémoire. | `ephemeral_patch` répond à la volatilité de l'environnement ; `cultural` se concentre sur la transmission de procédures, même si ses agents sont aussi résidents. Un bail ne démarre pas de processus de fond. |
+| `evolutionary` | Améliorer continuellement des stratégies par mutation et sélection locale ; explorer des lignées d'agents avec détection de spéciation sur plusieurs dèmes. | Objectif ou fitness local, diversité de lignées, cycles de mutation/reproduction bornés, adaptateur `rustEvolution` configuré pour l'effet Rust. | `island_search` échange surtout des incumbents entre recherches indépendantes ; `heterogeneous_islands` maintient des méthodes diverses sans exiger de reproduction génétique. Une proposition de mutation ne prouve pas un gain vérifié. |
+| `cultural` | Diffuser une procédure validée entre équipes résidentes ; transmettre des artefacts et méthodes versionnés entre dèmes sans déplacer les agents. | Culture avec source, cible, version, hash et provenance, compatibilité receveur, résidents identifiés et reçu après assimilation. | `heterogeneous_islands` organise d'abord la diversité des algorithmes ; `federated` ajoute les obligations de souveraineté ; `stepping_stone` impose des chemins locaux rares. Une offre en quarantaine n'est pas une transmission. |
+
+Les profils historiques `balanced`, `resilient`, `exploratory` et `conservative`
+restent sélectionnables : ils déterminent respectivement une migration
+complémentaire, de secours, de nouveauté ou de contre-exemple. Ils ne sont pas
+quatre variants canoniques supplémentaires et ne remplacent aucune des douze
+familles ci-dessus. La sélection automatique peut actuellement choisir l'un de
+ces profils par mots clés ; un appelant peut aussi demander explicitement un
+variant. Les préconditions de cette grille doivent être contrôlées au moment
+de l'exécution, après ce choix initial.
 
 ---
 

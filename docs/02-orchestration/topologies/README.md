@@ -26,7 +26,7 @@ ni modifier leur contrat de mission.
 - [protocole-missions-syncytium.md](protocole-missions-syncytium.md) — budgets, missions, workers, échanges, nosologie, télémétrie et preuves d’exécution.
 - [rhizome.md](rhizome.md) — missions par capacités, croissance vérifiée et routage borné ; [contrat runtime](../../03-reference/runtime-rhizome.md).
 - [metapopulation.md](metapopulation.md) — populations semi-indépendantes, recolonisation et cycles régionaux persistants ; [contrat runtime](../../03-reference/runtime-metapopulation.md).
-- [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance et maturité des variants des topologies.
+- [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance, maturité et guide vers les cas d'usage des 95 variants canoniques.
 - [garage-fabric.md](garage-fabric.md) — douze politiques exécutables, file SQLite, baux clôturés et cycle snapshot/freeze/thaw vérifié.
 
 ## Voir aussi

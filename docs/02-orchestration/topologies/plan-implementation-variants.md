@@ -20,6 +20,11 @@ Les noms ci-dessous viennent des fiches de topologie. Leur présence dans cette 
 signifie pas qu'ils soient implémentés. Les états exacts doivent rester attachés à chaque
 variant dans le registre.
 
+Les cas d'usage, signaux discriminants et limites de sélection de chaque variant
+sont détaillés dans sa fiche de topologie ; le [guide de choix](variants-morphologiques.md#guide-de-choix-par-cas-dusage)
+relie les huit matrices. Ces descriptions couvrent le catalogue canonique et ne
+remplacent ni les préconditions du runtime, ni une comparaison mesurée.
+
 | Topologie | Variants décrits |
 | --- | --- |
 | Trinity | Controlled, Heterogeneous, Adversarial, Counterfactual, Factorial, Pareto, Jury, Recursive, Adaptive, Temporal, Oracular, Exploratory |

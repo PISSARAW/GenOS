@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : inventaire central des variants Morphogenèse provenant des registres locaux
-- **Dernière revue** : 2026-10-06 (Métapopulation)
+- **Dernière revue** : 2026-10-16 (cas d'usage des huit topologies)
 
 Le registre Morphogenèse expose un catalogue commun de variants, tout en conservant les
 registres locaux comme sources de vérité pour leurs modes d'utilisation. Chaque variant est
@@ -11,13 +11,43 @@ la couverture de son implémentation, pas son intérêt et ne sert pas à le dé
 routage. Le catalogue permet l'inspection et la résolution par couple topologie/variant,
 mais n'unifie pas les exécutions locales.
 
+## Guide de choix par cas d'usage
+
+Les fiches ci-dessous couvrent les **95 variants canoniques** des huit topologies.
+Chaque fiche distingue les missions auxquelles un variant répond, les signaux qui
+le départagent de ses voisins et les préconditions ou limites à vérifier. Les cas
+d'usage sont des critères de conception déduits des mécanismes documentés : ils ne
+constituent ni une mesure comparative de qualité, ni une nouvelle règle exécutée
+automatiquement par le routeur.
+
+| Topologie | Question discriminante | Matrice des cas d'usage |
+| --- | --- | --- |
+| Trinity | Quels mondes, hypothèses ou objectifs comparer indépendamment ? | [Trinity](trinity.md) |
+| A-Team | Quelle structure de dépendances et d'autorité organise le travail ? | [A-Team](a-team.md) |
+| Biome | Comment répartir populations, niches et ressources dans le temps ? | [Biome](biome.md) |
+| Biocénose | Comment former et vérifier un jugement collectif ? | [Biocénose](biocenose.md) |
+| Holobionte | Quelles capacités l'hôte doit-il intégrer sous contrat ? | [Holobionte](holobionte.md) |
+| Syncytium | Quel état doit être partagé et quels invariants gouvernent sa fusion ? | [Syncytium](syncytium.md) |
+| Rhizome | Comment les capacités communiquent-elles et le réseau évolue-t-il ? | [Rhizome](rhizome.md) |
+| Métapopulation | Comment maintenir plusieurs dèmes, leurs migrations et leur diversité ? | [Métapopulation](metapopulation.md) |
+
+Pour décider, relever d'abord l'objectif, les dépendances, la forme des preuves,
+les contraintes d'autorité et de confidentialité, la durée et le budget de la
+mission. Écarter ensuite les variants dont les préconditions ne sont pas
+satisfaites. Comparer les variants encore compatibles sur le besoin dominant et
+le coût de coordination ou de transition. Un signal textuel isolé ne prouve pas
+qu'un variant est le meilleur ; un choix incertain doit rester traçable et peut
+conserver la forme courante. Les routeurs locaux effectuent aujourd'hui leurs
+propres sélections par signaux et contrats. Cette matrice documentaire ne leur
+ajoute pas de calibration empirique.
+
 ## Couverture actuelle
 
 | Topologie | Variants spécifiques au registre central | Source projetée | Maturité déclarée |
 | --- | ---: | --- | --- |
 | A-Team | 11 | `aTeam/variants/variantRegistry` | Politiques et évaluateurs isolés implémentés ; conformité d’exécution globale partielle, sous-runs multiteam génériques non branchés ([contrat](../../03-reference/runtime-a-team.md)) |
 | Biocénose | 12 | `biocenose/variants/variantPolicyRouter` | Implémentés ou partiels selon la politique |
-| Holobionte | 12 | `holobionte/variants` | Partiels; douze politiques sélectionnables et projetées dans le contrat de composition |
+| Holobionte | 12 | `holobionte/variants` | Douze politiques sélectionnables ; couverture contractuelle, placement physique et bénéfice comparatif à distinguer |
 | Syncytium | 13 | `syncytium/variants/variantPolicyRegistry` | Implémentés |
 | Rhizome | 12 | `rhizome/variants/variantPolicyService` | Implémentés |
 | Métapopulation | 16 (12 documentés + 4 alias historiques) | `metapopulation/policy/metapopulationPolicyService` | Effets régionaux et reprise couverts ; maturité centrale conservée, moteurs externes à qualifier |
@@ -85,9 +115,10 @@ une copie défensive de l'entrée. Un variant inconnu renvoie `null`.
   comparatifs, provenance, santé d'outil, fallback local et tests de restauration; un booléen fourni par le candidat ne
   suffit pas. L'évaluation immunitaire utilise les menaces déclarées, la mémoire adaptative et
   peut inclure la calibration des faux positifs et la détection d'auto-immunité.
-- Les variants Biocénose marqués `PARTIAL` et les variants Holobionte sont exposés avec une
-  maturité partielle; cette maturité signale des limites de couverture, sans hiérarchie de
-  valeur entre variants.
+- Les variants Biocénose marqués `PARTIAL` gardent une maturité partielle. Pour
+  Holobionte, le niveau projeté décrit la couverture de la surface contractuelle,
+  des gates et des opérations ; il ne démontre ni placement distribué réel ni
+  gain mesuré. La maturité n'instaure aucune hiérarchie de valeur entre variants.
 - Trinity déclare les douze presets et politiques exécutables, dont Factorial, Recursive et
   Oracular. Le choix automatique est signalé par la mission; le reçu expose les adaptateurs
   requis et leurs contrats, et refuse un adaptateur non chargeable ou indisponible. Les

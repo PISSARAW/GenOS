@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté pour le runtime contractuel ; modèles biologiques conceptuels
 - **Portée** : missions par capacité avec admission, preuves indépendantes, décision de l’hôte, quotas, mémoire, santé et clôture ; composition historique à quatre rôles explicitement déclarative.
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-16
 
 Le runtime persistant couvre les sessions, contrats, admission, exécution par capacité, santé, contribution, transmission et succession. Les schémas ci-dessous restent conceptuels lorsqu’ils décrivent des garanties plus larges que ces services. Le service de mission commun et Morphogenesis utilisent les mêmes gates. La composition seule retourne COMPOSED, sans déclaration de succès d’exécution.
 
@@ -860,9 +860,9 @@ Le mode ne propose pas de paramètres d'environnement dédiés à la constitutio
 
 ---
 
-## 20. Variantes conceptuelles
+## 20. Variantes persistantes et cas d'usage
 
-Les variantes suivantes sont des pistes de conception et ne sont pas des options activables dans le code actuel.
+Les douze variantes sont sélectionnables dans le runtime persistant : chacune possède une politique, des préconditions vérifiées, des opérations autorisées et des reçus. Le sélecteur de mission reconnaît des signaux textuels dans un ordre fixe ; une sélection explicite est également possible, sous réserve de compatibilité. Le niveau de maturité projeté par le catalogue décrit la couverture de cette surface contractuelle ; il n'atteste ni le déploiement physique visé par le nom de la variante, ni un gain comparatif, ni l'exécution automatique de toutes ses politiques. Les colonnes « Engine » ci-dessous décrivent le placement recherché, pas un placement physique attesté. Les opérations concrètes et leurs limites figurent en [section 26](#frontières-dopération-des-variants-persistants).
 
 | # | Variante | Description | Host Engine | Symbiont Engine | Cas d'usage |
 |---|----------|-------------|-------------|-----------------|-------------|
@@ -878,6 +878,44 @@ Les variantes suivantes sont des pistes de conception et ne sont pas des options
 | 10 | **Procedural** | Symbiotes générés selon le gap capacitaire | Cloud | Local | Adaptation dynamique |
 | 11 | **Tool** | Symbiotes = outils externes (API, CLI) | Cloud | External | Intégration d'outils existants |
 | 12 | **Cloud-Core/Edge-Sync** | Host cloud, symbiotes edge, sync asynchrone | Cloud | Edge | Cloud central, edge distribué |
+
+### Matrice de décision par variante
+
+Les exemples couvrent des familles de missions distinctes ; ils ne forment pas une liste fermée de formulations. Le signal de mission suggère une variante, puis `analyzeFit` vérifie les préconditions fournies dans le profil du problème ou dans `fitContext` pour une sélection persistante. Une intention reconnue dont les préconditions manquent ne devient pas exécutable par simple correspondance de mots. `stable-core`, `diversity` et `tool-sandbox` sont des valeurs de `capabilities` ; les trois autres clés pertinentes sont `localEngineAvailable`, `immunePlaneAvailable` et `successionAvailable`.
+
+| Variante | Deux formes de mission concrètes | Signaux qui la distinguent | Préconditions contrôlées par le sélecteur |
+| --- | --- | --- | --- |
+| **Organelle** | Maintenir un vérificateur indispensable entre plusieurs missions ; protéger un moteur de chiffrement central pendant la relève des spécialistes. | Capacité cœur stable, identité durable, remplacement du cœur exceptionnel ; sert aussi de base quand aucune spécialisation compatible n'est trouvée. | `capabilities` contient `stable-core` et `immunePlaneAvailable: true`. |
+| **Adaptive Microbiome** | Réévaluer un portefeuille de spécialistes quand les demandes changent chaque semaine ; préparer le recrutement d'une compétence absente après dérive de la population résidente. | Adaptation ou évolution répétée, diversité à préserver, candidats à éprouver avant succession. | `capabilities` contient `diversity` et `successionAvailable: true`. |
+| **Immune-Critical** | Examiner un changement d'authentification ou de gestion des secrets ; contrôler un lot de correctifs touchant des invariants de sécurité ou un risque de perte de données. | Sécurité, menace, vulnérabilité, confidentialité, risque critique ou invariant non négociable. | `immunePlaneAvailable: true`. |
+| **Local-First** | Traiter des données médicales sur un poste isolé ; exécuter une assistance embarquée sans connexion réseau fiable. | Exécution exclusivement locale, hors ligne, sur appareil ou souveraineté des données ; aucun recours cloud recherché. | `localEngineAvailable: true`. |
+| **Cloud-Core/Edge-Symbionts** | Coordonner depuis un centre cloud des capteurs ou agents d'usine en périphérie ; planifier des tâches distribuées sur plusieurs sites edge avec remontée d'événements. | Hôte cloud et spécialistes edge, placement distribué et réconciliation d'événements ; la synchronisation d'état n'est pas l'objectif dominant. | `immunePlaneAvailable: true`. |
+| **Edge-Core/Cloud-Symbionts** | Garder la décision sur un équipement industriel et appeler ponctuellement un modèle cloud ; conserver les données brutes sur site tout en sollicitant une capacité distante après réduction des entrées. | Cœur local sensible à la latence ou à la confidentialité, cloud uniquement à la demande. | `localEngineAvailable: true`. |
+| **Memory-Rich** | Conserver les conclusions vérifiées d'enquêtes successives sur un même système ; préparer la consolidation et les conflits de souvenirs dans un assistant de projet durable. | Historique longitudinal, mémoire multi-mission, provenance et consolidation sémantique, épisodique ou procédurale. | `localEngineAvailable: true`. |
+| **Competitive Partner** | Comparer deux spécialistes sur les mêmes incidents et le même budget ; challenger le fournisseur résident avant d'autoriser son remplacement. | Compétition mesurée de partenaires, essais comparables et gagnant vérifié. | `immunePlaneAvailable: true` et `successionAvailable: true`. |
+| **Regenerative** | Préparer la récupération d'un service après perte d'un symbiote essentiel ; simuler une reprise après panne d'un résident dans un hôte de longue durée. | Résilience, restauration, réparation et preuve de récupération. | `successionAvailable: true`. |
+| **Procedural** | Combler une capacité manquante pour une procédure de migration en plusieurs étapes ; admettre un nouveau spécialiste contractuel avant une chaîne de validation puis publication. | Workflow ou séquence explicite, lacune capacitaire, recrutement sous contrat et essai d'admission. | `successionAvailable: true`. |
+| **Tool** | Appeler une API de tickets via un manifeste autorisé ; exécuter une CLI de calcul via un résident doté d'un bail d'outil et d'un contrat actif. | Effet d'outil ou d'API externe à contrôler au point d'invocation. | `immunePlaneAvailable: true` et `capabilities` contient `tool-sandbox`. |
+| **Cloud-Core/Edge-Sync** | Réconcilier après déconnexion les événements d'appareils edge avec un hôte cloud ; simuler les conflits causaux entre réplicas répartis sur plusieurs zones. | Synchronisation asynchrone, réplication, horloges causales et état périmé. | `immunePlaneAvailable: true`. |
+
+### Frontières entre variantes et portée des effets
+
+| Variante | Frontière avec les variantes proches | Effet réel et limite à garder dans la décision |
+| --- | --- | --- |
+| **Organelle** | Préférer à **Memory-Rich** si la question porte sur la dépendance au cœur, et à **Regenerative** si elle porte sur la conservation de son identité plutôt que sur une panne. | Évalue la fermeture des dépendances et l'essentialité ; le remplacement du cœur exige une procédure distincte. |
+| **Adaptive Microbiome** | Préférer à **Competitive Partner** si l'enjeu est la santé et la diversité de toute la population, pas seulement le duel entre partenaires ; à **Procedural** si l'adaptation est récurrente plutôt qu'une seule lacune dans un workflow. | Cycle écologique, fitness et proposition de recrutement ; aucune substitution automatique. |
+| **Immune-Critical** | Préférer à **Tool** lorsque le risque principal concerne les sorties et invariants de toute la mission ; à **Local-First** lorsque la contrainte centrale est la sécurité des décisions plutôt que le lieu d'exécution. | Revue de menaces et de lots ; les effets immunitaires concrets restent limités aux services spécialisés. |
+| **Local-First** | Préférer à **Edge-Core/Cloud-Symbionts** si aucun recours distant n'est admissible. | Plan de placement et déclaration de non-export ; le plan ne prouve pas une isolation réseau physique. |
+| **Cloud-Core/Edge-Symbionts** | Préférer à **Cloud-Core/Edge-Sync** si la question principale est le placement des spécialistes, pas la convergence d'un état répliqué. | Placement et réconciliation d'événements ; aucun transport fournisseur n'est attesté par le plan. |
+| **Edge-Core/Cloud-Symbionts** | Préférer à **Local-First** si une capacité cloud ponctuelle est admise ; à **Cloud-Core/Edge-Symbionts** si l'autorité doit rester à la périphérie. | Planifie le placement local et le proxy cloud ; l'exécution cloud n'est pas attestée par ce plan. |
+| **Memory-Rich** | Préférer à **Organelle** si la valeur vient de l'historique et de sa consolidation plutôt que d'une capacité cœur protégée. | Plan de consolidation et de conflits ; le plan seul n'écrit pas une mémoire nouvelle. |
+| **Competitive Partner** | Préférer à **Adaptive Microbiome** pour une comparaison bornée de candidats, avec critère de victoire vérifié. | Classe et autorise conditionnellement ; le remplacement effectif relève d'un autre cycle de vie. |
+| **Regenerative** | Préférer à **Adaptive Microbiome** quand le déclencheur est une panne ou perte à réparer, pas une adaptation ordinaire à la demande. | Planifie et simule la récupération ; la simulation ne déclenche pas un remplacement externe. |
+| **Procedural** | Préférer à **Adaptive Microbiome** pour une séquence bornée et une lacune identifiable ; à **Tool** lorsque la capacité recherchée est un nouveau symbiote contractuel plutôt qu'une invocation externe. | Prépare recrutement, contrat et essai d'admission ; le plan ne déclenche pas la transmission procédurale. |
+| **Tool** | Préférer à **Procedural** lorsque l'étape décisive est un appel d'outil avec effet externe et bail vérifiable. | L'invocation est contrôlée avant l'exécuteur ; l'isolation système et l'effet externe dépendent de l'intégrateur. Une exception pendant l'appel peut laisser un effet inconnu. |
+| **Cloud-Core/Edge-Sync** | Préférer à **Cloud-Core/Edge-Symbionts** quand les conflits entre réplicas et la causalité des événements commandent le choix. | Plan de placement, réconciliation et simulation de synchronisation ; aucune livraison réseau n'est prouvée par la simulation. |
+
+Le routeur textuel actuel applique un ordre de priorité fixe : sécurité, synchronisation, distribution cloud/edge, cœur edge, localité, récupération, mémoire, compétition, procédure, outil, adaptation. Une mission qui mentionne plusieurs de ces besoins retient la première intention détectée ; si ses préconditions manquent, le routeur passe à sa base sans essayer les autres intentions pourtant détectées. Une variante explicitement demandée est soumise aux mêmes préconditions de compatibilité. L'absence de spécialisation compatible mène à la base `organelle` si son cœur stable et son plan immunitaire sont disponibles, sinon à `procedural` si la succession est disponible ; si ce dernier prérequis manque aussi, la sélection est refusée. Les tableaux ci-dessus sont ainsi des critères de conception et de revue, pas la preuve que le routeur sait déjà arbitrer toutes les missions ambiguës.
 
 ---
 

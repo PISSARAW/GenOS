@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté pour le contrat runtime v1 ; modèles illustratifs des sections 4 à 21
 - **Portée** : orchestration décentralisée par ramification de capacités, coordination locale, routage, croissance et résilience du réseau
-- **Dernière revue** : 2026-10-14
+- **Dernière revue** : 2026-10-16
 - **Lecture** : cette page décrit le modèle prévu de Rhizome, en particulier les rôles et comportements des sections 4 à 21. Les formules et réglages de ces sections sont des spécifications ou des exemples, pas nécessairement des mécanismes actifs. La section 3 marque chaque formule selon son statut ; les sections 22 et 24 situent l'implémentation actuelle.
 
 
@@ -919,6 +919,48 @@ Les variantes `persistent`, `ephemeral`, `private`, `cross_representation` et
 `procedural` restent liées à leur session. Une transition manuelle vers ou depuis
 ces variantes est refusée ; il faut créer une nouvelle session pour changer leurs
 obligations de preuve ou leur portée. Voir [ADR 0421](../../adr/0421-transitions-de-variant-liees-a-la-session-rhizome.md).
+
+### 16.1 Cas d'usage et critères de choix de chaque variante
+
+La matrice couvre les familles de besoins déductibles des douze profils, avec deux
+missions concrètes par variante. Les exemples ne constituent pas une liste fermée de
+prompts : choisir selon la propriété à préserver, les préconditions observées et la
+frontière indiquée. Le nom d'une variante n'atteste ni la disponibilité d'un
+provider, ni la qualité du résultat, ni l'admission d'une nouvelle capacité.
+
+| Variante | Missions concrètes adaptées | Signal discriminant | Préconditions et frontière avec les variantes voisines |
+|---|---|---|---|
+| **Persistent** (`persistent`) | Entretenir pendant plusieurs mois la carte de dépendances d'un dépôt ; poursuivre une enquête de fiabilité à travers plusieurs missions en conservant routes et cicatrices. | La même session et ses traces doivent survivre entre missions ; portée `workspace`, `project` ou persistante. | Prévoir stockage et maintenance des baux et traces. Choisir **Ephemeral** si le graphe doit disparaître après une mission ; **Routing** si la durée n'impose pas d'état durable. |
+| **Ephemeral** (`ephemeral`) | Monter un diagnostic ponctuel d'un incident sans conserver le graphe ; explorer pendant une exécution une intégration temporaire qui sera ensuite fermée. | Durée courte, portée de mission, absence de besoin de réutiliser le graphe. | Le graphe est supprimé à la fermeture ; seul un fossile de synthèse peut subsister. Choisir **Persistent** si des routes ou preuves doivent être réutilisées dans la même session après la mission ; **Exploratory** si l'incertitude sur les capacités, plutôt que la durée, domine. |
+| **Exploratory** (`exploratory`) | Cartographier des capacités inconnues d'un nouveau système ; chercher des sources ou outils utiles dans une enquête ouverte. | Incertitude sur les capacités et intérêt de parcourir des routes nouvelles avant de stabiliser le réseau. | Des scouts et un budget borné doivent permettre l'exploration ; toute croissance reste admise séparément. Choisir **Growth** si une dépendance ou capacité manquante concrète réclame l'extension du graphe ; **Routing** si les routes et capacités sont déjà connues. |
+| **Routing** (`routing`) | Diriger des requêtes vers des fournisseurs de capacité déjà enregistrés ; optimiser coût, risque et latence d'un réseau de services établi. | Les capacités existent, les flux sont répétés et le besoin principal est le choix de chemin. | Exiger des nœuds et arêtes utilisables avec contrats de preuve et contraintes de route. C'est le repli du sélecteur sans signal discriminant ; choisir **Small-World** si un plafond de sauts ou une faible latence domine, **Resilient** si des pannes de route dominent. |
+| **Growth** (`growth`) | Découvrir puis admettre un analyseur pour une dépendance logicielle non cartographiée ; ajouter une branche pour couvrir une interface ou un consommateur caché. | Une capacité, dépendance ou interface manque au graphe courant ; l'objectif exige de l'étendre. | Un diagnostic de lacune courant, un candidat, un provider concret, un budget de croissance et une admission indépendante restent nécessaires. Choisir **Exploratory** pour chercher sans lacune encore établie ; **Resilient** pour contourner une route en panne vers une capacité existante. |
+| **Resilient** (`resilient`) | Maintenir un traitement malgré la panne d'un chemin ; prévoir des routes de secours dans un réseau de services sujet aux défaillances. | Continuité du service malgré une panne, avec alternatives de route et domaines de défaillance distincts. | Les alternatives indépendantes doivent exister ou être admissibles ; le profil ne crée pas une redondance absente. Choisir **Self-Healing** si la réparation et la reconfiguration automatiques sont explicitement requises ; **Routing** pour une optimisation ordinaire sans panne dominante. |
+| **Sparse** (`sparse`) | Accomplir une analyse avec un budget de coordination serré ; exploiter un petit réseau en périphérie où chaque pont a un coût important. | Ressources limitées, préférence pour peu de branches et de ponts. | Les besoins doivent rester couvrables sous les limites de densité, de sauts et de croissance. Choisir **Growth** si l'expansion est indispensable et financée ; **Resilient** si la redondance prime sur l'économie de liens. |
+| **Small-World** (`small_world`) | Joindre rapidement des capacités distantes dans un réseau étendu ; servir des requêtes interactives sous une contrainte de trois sauts. | Chemins courts et latence dominante, avec des hubs observés utilisables. | Le profil privilégie les chemins courts et pénalise les hubs qui sont des points d'articulation ; il ne crée aucun raccourci sans admission. Choisir **Routing** sans contrainte forte de sauts ; **Resilient** si l'indépendance des chemins prime sur leur brièveté. |
+| **Private** (`private`) | Traiter des documents confidentiels sans franchir de domaine de confiance interdit ; router une enquête sensible entre providers admis dans un périmètre privé. | Confidentialité, domaine de confiance restreint ou contrainte de route privée. | Fournir des domaines de confiance, preuves d'admission et providers conformes ; le profil seul ne certifie pas la sécurité. Choisir **Cross-Representation** pour une traduction entre formats uniquement si les frontières de confiance sont déjà satisfaites ; une exigence privée doit rester prioritaire. |
+| **Cross-Representation** (`cross_representation`) | Relier des données tabulaires à un graphe de dépendances ; faire circuler une preuve entre représentations de code et de documentation. | Plusieurs représentations ou domaines de capacités doivent être reliés par un pont sémantique. | Exiger un pont vérifié, et selon le contrat une validation aller-retour, d'équivalence et de perte d'information. Choisir **Procedural** si le problème porte sur l'ordre de transmission d'une procédure homogène ; **Private** si la frontière de confiance est décisive. |
+| **Procedural** (`procedural`) | Transmettre une procédure de diagnostic reproductible entre branches ; propager un pipeline de transformation après essais locaux de compatibilité. | Une séquence d'étapes ou une procédure doit être réutilisée avec une validation causale locale. | Les preuves locales, essais de compatibilité et validation causale requis précèdent la propagation. Choisir **Cross-Representation** si le transfert exige d'abord une traduction sémantique ; **Routing** si l'on choisit seulement un chemin pour une capacité existante. |
+| **Self-Healing** (`self_healing`) | Diagnostiquer puis réparer automatiquement une rupture de route ; reconfigurer un réseau de providers après plusieurs défaillances sans intervention immédiate. | Réparation et reconfiguration automatiques explicitement demandées, au-delà du simple choix de secours. | Prévoir alternatives, budget de récupération, diagnostics et bornes de tentatives ; le profil ne garantit pas une réparation réussie. Choisir **Resilient** si les chemins de secours suffisent et que la reconfiguration automatique n'est pas requise. |
+
+Le sélecteur local `selectForMission` repère des expressions de mission, puis
+applique une priorité fixe : `private`, `self_healing`, `growth`, `resilient`,
+`sparse`, `persistent`, `ephemeral`, `cross_representation`, `procedural`,
+`small_world`, `exploratory`, `routing`. Sans expression reconnue, il choisit
+`routing` comme base prudente. Cette heuristique ne compare pas les gains mesurés
+des variantes ; une mission mêlant par exemple confidentialité et croissance
+sélectionne `private` et doit encore satisfaire séparément les conditions de
+croissance. L'analyse structurée `analyzeFit` examine ses champs dans un autre
+ordre : les deux interfaces ne constituent pas un arbitre calibré unique. Une
+sélection explicite peut lever une ambiguïté, sous réserve des contrats runtime.
+
+Pendant une session, `persistent`, `ephemeral`, `private`,
+`cross_representation` et `procedural` ne peuvent être ni acquis ni quittés par
+`setVariant` ; répéter le même nom est permis. Une bascule entre les sept autres
+variantes produit un reçu avec les versions de session et de graphe, mais n'est
+pas une preuve de gain. Pour modifier un contrat lié à la session, créer une
+nouvelle session et refaire admission, preuve et snapshot. Le contrôleur
+dynamique respecte la même garde.
 
 ## 17. Machine à états d'un nœud Rhizome
 
