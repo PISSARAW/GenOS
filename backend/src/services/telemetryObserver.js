@@ -41,6 +41,7 @@ class TelemetryObserver extends EventEmitter {
     this.sseClients = new Set();
     this.persistQueue = [];
     this.persisting = false;
+    this.deferredSideEffects = new Set();
     this.maxPersistQueue = Math.max(1, Number(process.env.GENOS_TELEMETRY_QUEUE_CAPACITY) || 4096);
     this.persistedEvents = 0;
     this.droppedEvents = 0;
@@ -170,6 +171,13 @@ class TelemetryObserver extends EventEmitter {
     return { flushed: !this.persisting && this.persistQueue.length === 0, pending: this.persistQueue.length };
   }
 
+  deferSideEffect(effect) {
+    const pending = Promise.resolve().then(effect)
+      .catch((error) => console.error('[TelemetryObserver] Deferred side effect failed:', error.message))
+      .finally(() => this.deferredSideEffects.delete(pending));
+    this.deferredSideEffects.add(pending);
+  }
+
   async pruneHistory(db) {
     await db.run('DELETE FROM telemetry_events WHERE id NOT IN (SELECT id FROM telemetry_events ORDER BY id DESC LIMIT ?)', this.maxTelemetryRows);
     await db.run('DELETE FROM trace_spans WHERE id NOT IN (SELECT id FROM trace_spans ORDER BY created_at DESC LIMIT ?)', this.maxTraceRows);
@@ -264,7 +272,9 @@ class TelemetryObserver extends EventEmitter {
   }
 
   getPersistenceStatus() {
-    return { queued: this.persistQueue.length, persisting: this.persisting, persisted: this.persistedEvents, dropped: this.droppedEvents, persistenceErrors: this.persistenceErrors };
+    return { queued: this.persistQueue.length, persisting: this.persisting,
+      deferredSideEffects: this.deferredSideEffects.size, persisted: this.persistedEvents,
+      dropped: this.droppedEvents, persistenceErrors: this.persistenceErrors };
   }
 }
 

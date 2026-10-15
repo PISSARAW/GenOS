@@ -55,6 +55,10 @@ async function insertProvenanceRow(db, event) {
 async function persistOne(observer, db, event) {
   await insertEventRow(db, event);
   await insertProvenanceRow(db, event);
+  observer.deferSideEffect(() => persistSecondaryEffects(observer, db, event));
+}
+
+async function persistSecondaryEffects(observer, db, event) {
   await observer.persistWorkspaceMilestone(db, event);
   if (event.eventType === 'AGENT_COMPLETED') await observer.generateWorkspaceReadme(db, event.agentId);
 }
@@ -98,4 +102,4 @@ async function drain(observer) {
   return abort;
 }
 
-module.exports = { drain, persistOne, isDbClosedError, PROVENANCE_TYPES };
+module.exports = { drain, persistOne, persistSecondaryEffects, isDbClosedError, PROVENANCE_TYPES };
