@@ -16,6 +16,7 @@ const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const workerGarage = require('./workerGarageService');
 const { checkNaturalSearchControl, clearSearchState } = require('./search/naturalSearchRuntime');
 const conceptCycle = require('./agentConceptCycleBridgeService');
+const terminalStatus = require('./agentTerminalStatusService');
 
 function applyDomainStateFromEvent(context) {
   const { state, event, eventType, workerContract } = context;
@@ -264,6 +265,7 @@ async function processEventQueueImpl(ctx) {
     } catch (err) {
       require('./orchestratorEventFailure').record(ctx, currentEvent, err);
     }
+    await terminalStatus.settle({ ctx, event: currentEvent });
   }
   state.isProcessingEvents = false;
 }
@@ -273,11 +275,6 @@ function parseEventPayload(event) {
   } catch {
     return { raw: event.payloadJson };
   }
-}
-function enqueueStatusUpdate(ctx, event, nextStatus) {
-  if (!(nextStatus || event.currentTask)) return;
-  if (event.eventType === 'AGENT_COMPLETED' && !event.status) return;
-  ctx.state.executionQueue = ctx.state.executionQueue.then(() => { return updateAgent(ctx.agentId, nextStatus, event.currentTask); });
 }
 function rejectedWorkerCompletion(eventType, state) {
   return eventType === 'AGENT_COMPLETED' && state.missionDomainState.hasDomainFailure;
@@ -294,18 +291,16 @@ function handleDecodedEvent(ctx, event) {
   });
   if (rejectedWorkerCompletion(event.eventType, ctx.state)) {
     ctx.state.terminalEventSeen = true;
-    enqueueStatusUpdate(ctx, event, 'failed');
-    ctx.emitTracked('AGENT_FAILED', 'EVIDENCE_GATE', 'Worker completion rejected because its required typed artifact failed validation.', {
+    const tracked = ctx.emitTracked('AGENT_FAILED', 'EVIDENCE_GATE', 'Worker completion rejected because its required typed artifact failed validation.', {
       code: ctx.state.missionDomainState.artifactFailure || 'EVIDENCE_REPORT_NOT_SUCCESS'
     }, 'error', 'failed');
+    terminalStatus.queue(ctx, { ...event, eventType: 'AGENT_FAILED', status: 'failed', trackedEventId: tracked.id }, 'failed');
     return;
   }
   const nextStatus = resolveWorkerTerminalStatus(event.eventType, event.status, ctx.state);
-  if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN'].includes(event.eventType)) {
-    ctx.state.terminalEventSeen = true;
-  }
-  enqueueStatusUpdate(ctx, event, nextStatus);
-  ctx.emitTracked(event.eventType || 'AGENT_STEP', event.action || 'EXECUTE', event.detail || '', payload, event.severity || 'info', nextStatus);
+  if (terminalStatus.isTerminalEvent(event.eventType)) ctx.state.terminalEventSeen = true;
+  const tracked = ctx.emitTracked(event.eventType || 'AGENT_STEP', event.action || 'EXECUTE', event.detail || '', payload, event.severity || 'info', nextStatus);
+  terminalStatus.queue(ctx, { ...event, trackedEventId: tracked.id }, nextStatus);
 }
 
 function handleStdoutData(ctx, chunk) {

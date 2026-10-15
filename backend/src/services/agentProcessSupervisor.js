@@ -336,6 +336,7 @@ async function superviseMission(options) {
     maxEventQueue: Math.max(1, Number(process.env.GENOS_RUNTIME_EVENT_QUEUE_CAPACITY) || 2048),
     droppedEventCount: 0,
     isProcessingEvents: false,
+    pendingTerminalStatuses: new Map(),
     terminalEventSeen: false,
     stdoutBuffer: Buffer.alloc(0),
     stderrBuffer: ''
