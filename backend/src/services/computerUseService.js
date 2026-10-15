@@ -20,13 +20,24 @@ const KNOWN_VISION_HINTS = ['vl', 'vision', 'llava', 'moondream', 'minicpm', 'pi
 
 function resolveComputerUseModel(modelOverride) {
     const candidate = String(modelOverride || process.env.GENOS_COMPUTER_USE_MODEL || process.env.GENOS_DEFAULT_MODEL || "anthropic://claude-3-5-sonnet-20241022").slice(0, 512);
-    const match = candidate.match(/^([\w-]+):\/\/(.+)$/);
-    const provider = match ? match[1] : '';
-    const modelName = match ? match[2] : '';
+    const separator = candidate.indexOf('://');
+    const provider = separator > 0 ? candidate.slice(0, separator) : '';
+    const modelName = separator > 0 ? candidate.slice(separator + 3) : '';
+    if (!isProviderIdentifier(provider) || !modelName) return { model: candidate, provider: '', looksLikeVision: false };
     const normalizedModel = modelName.toLowerCase();
-    const looksLikeVision = provider === 'anthropic' || KNOWN_VISION_HINTS.some((hint) => normalizedModel.includes(hint))
-      || (normalizedModel.includes('gemma-3') || normalizedModel.includes('qwen')) && normalizedModel.includes('vl');
-    return { model: candidate, provider, looksLikeVision };
+    return { model: candidate, provider, looksLikeVision: isVisionModel(provider, normalizedModel) };
+}
+
+function isVisionModel(provider, normalizedModel) {
+    const knownVisionModel = KNOWN_VISION_HINTS.some((hint) => normalizedModel.includes(hint));
+    const familyVisionModel = (normalizedModel.includes('gemma-3') || normalizedModel.includes('qwen'))
+      && normalizedModel.includes('vl');
+    const looksLikeVision = provider === 'anthropic' || knownVisionModel || familyVisionModel;
+    return looksLikeVision;
+}
+
+function isProviderIdentifier(value) {
+    return typeof value === 'string' && /^[A-Za-z0-9_-]+$/.test(value);
 }
 
 const LOCAL_VISION_INSTRUCTIONS = `You control a computer via screenshots. Respond with ONLY a single JSON object (no prose, no markdown fences, no extra objects) describing the next action(s). A new screenshot is taken after your actions run, so never request one. Allowed action types only: mouse_move, click, type, key. You may chain several steps that should run back-to-back before the next screenshot (e.g. open a launcher, type a command, press Enter) using "actions": [...]. Examples:
