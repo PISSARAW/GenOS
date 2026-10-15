@@ -375,4 +375,4 @@ function emitDispatchDeferred(ctx, assignments) {
     policy: ctx.normalizedMission.executionPolicy || {}
   }, 'warning');
 }
-module.exports = { orchestrateAutonomousWorkers, assertWorkerDispatchMatches, activateATeamRun, linkWorker };
+module.exports = { orchestrateAutonomousWorkers, assertWorkerDispatchMatches, activateATeamRun, linkWorker, capAssignments };
