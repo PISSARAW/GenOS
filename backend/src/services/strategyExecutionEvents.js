@@ -291,6 +291,28 @@ function incompleteDiffReplayResult(stageKey, executable, notApplicable) {
     code: 'STRATEGY_REPLAY_STAGE_INCOMPLETE', missing };
 }
 
+function pipelineReplayReceipt(pipeline) {
+  if (pipeline.replayReceipt) return pipeline.replayReceipt;
+  const entry = (pipeline.results || []).find((item) => item?.result?.replayReceipt);
+  return entry?.result?.replayReceipt || null;
+}
+
+function hasRunBoundReplayReceipt(pipeline, context) {
+  return require('./strategyPromotionPolicyService').isReplayPassed({
+    agentId: context.agentId,
+    runId: context.executionRunId || context.runId,
+    replayReceipt: pipelineReplayReceipt(pipeline)
+  });
+}
+
+function requireFullRunReplayReceipt(stageKey, pipeline, context) {
+  if (stageKey !== 'diff_and_replay' || !pipeline.success || hasRunBoundReplayReceipt(pipeline, context)) {
+    return pipeline;
+  }
+  return { ...pipeline, success: false, code: 'STRATEGY_RUN_REPLAY_RECEIPT_MISSING',
+    error: 'The diff_and_replay phase did not produce a verified receipt bound to this run.' };
+}
+
 async function executeStepPrimitives(db, agentId, options) {
   const entry = options || {};
   if (!entry.step) return { success: true, results: [] };
@@ -316,7 +338,8 @@ async function executeStepPrimitives(db, agentId, options) {
     }
     const adapter = require('./strategyExecutionAdapter');
     const pipeline = await adapter.executePipelineWithFeedback(executable, context);
-    return { ...pipeline, applicable: true, notApplicable };
+    const result = requireFullRunReplayReceipt(stageKey, pipeline, context);
+    return { ...result, applicable: true, notApplicable };
   } catch (error) {
     return { success: false, error: error.message, results: [] };
   }

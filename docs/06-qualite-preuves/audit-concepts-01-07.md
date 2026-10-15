@@ -33,6 +33,16 @@ valident les refus et le raccord de phase ; ils ne démontrent toujours pas le
 rejeu intégral du run. L'ADR 0480 formalise cette limite et les conditions
 nécessaires à un futur reçu lié au run.
 
+Le garde de phase a été renforcé : `diff_and_replay` reste en échec si le pipeline
+des primitives retourne un succès sans reçu vérifié lié au `runId` et à l'agent.
+Un reçu seulement présent dans le contexte d'appelant ne satisfait pas le garde.
+Le test injecte un résultat de `causal_replay` explicitement
+`INCONCLUSIVE_PENDING_EXECUTION`, un diff réussi et un faux reçu côté contexte;
+la phase est refusée. Un reçu run-bound conforme retourné par le pipeline ouvre
+le chemin positif du contrat (`test_strategy_replay_stage_wiring.js`). Ce garde
+ferme le faux statut de phase terminée, mais aucun producteur de rejeu complet
+n'est encore raccordé; `require_replay` demeure donc bloqué en production.
+
 Les corrections de rollout du 14 octobre couvrent également le raccord du SLO
 configuré, l'autorité et le reçu des overrides de production, la sérialisation
 des mesures avec la décision et la sélection effective du candidat en A/B
