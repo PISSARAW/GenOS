@@ -12,6 +12,8 @@ const { migrateMetabolicLedgerCellLineage } = require('../src/db/migrations/migr
 const { migrateMissionEpisodeRecovery } = require('../src/db/migrations/migrateMissionEpisodeRecovery');
 const { migrateToolPermissionMembrane } = require('../src/db/migrations/migrateToolPermissionMembrane');
 const { migratePermissionReceiptLineage } = require('../src/db/migrations/migratePermissionReceiptLineage');
+const { migrateCellThreadCheckpoints } = require('../src/db/migrations/migrateCellThreadCheckpoints');
+const { migrateOperatorControlReceipts } = require('../src/db/migrations/migrateOperatorControlReceipts');
 const episodes = require('../src/services/missionEpisodeService');
 const threads = require('../src/services/cellThreadService');
 const habitats = require('../src/services/habitatRevisionService');
@@ -47,6 +49,8 @@ async function fixture() {
   await migrateMissionEpisodeRecovery(db);
   await migrateToolPermissionMembrane(db);
   await migratePermissionReceiptLineage(db);
+  await migrateCellThreadCheckpoints(db);
+  await migrateOperatorControlReceipts(db);
   return db;
 }
 
@@ -153,6 +157,68 @@ function context(overrides = {}) {
     query: {}, ...overrides };
 }
 
+async function seedCellOperations(db) {
+  await threads.create(db, { ...SCOPE, missionId: 'mission-inspection',
+    episodeId: 'episode-other', threadId: 'thread-other', workerId: 'worker-other',
+    cellKind: 'orchestrator' });
+  const foreign = { organizationId: 'org-foreign', projectId: 'project-foreign' };
+  await db.run(`INSERT INTO missions VALUES ('mission-foreign', 'Foreign', 'active')`);
+  await episodes.create(db, { ...foreign, missionId: 'mission-foreign',
+    episodeId: 'episode-foreign', organismRevision: 'organism-r1' });
+  await threads.create(db, { ...foreign, missionId: 'mission-foreign',
+    episodeId: 'episode-foreign', threadId: 'thread-foreign', workerId: 'worker-foreign',
+    cellKind: 'orchestrator' });
+  await db.exec(`UPDATE cell_threads SET status='ready', revision=1 WHERE thread_id='thread-root';
+    UPDATE cell_threads SET status='waiting_signal', revision=1 WHERE thread_id='thread-a';
+    UPDATE cell_threads SET status='ready', revision=1 WHERE thread_id='thread-b';
+    INSERT INTO cell_thread_checkpoints VALUES
+      ('cp-1','mission-inspection','episode-inspection','thread-root','worker-root',
+       'org-inspection','project-inspection',1,'ready','{"safe":1}',10,'ctx-1','[]','cp-hash-1','2026-01-01 00:00:01'),
+      ('cp-2','mission-inspection','episode-inspection','thread-a','worker-a',
+       'org-inspection','project-inspection',1,'waiting_signal','{"safe":2}',10,'ctx-2','[]','cp-hash-2','2026-01-01 00:00:02'),
+      ('cp-3','mission-inspection','episode-inspection','thread-b','worker-b',
+       'org-inspection','project-inspection',1,'ready','{"safe":3}',10,'ctx-3','[]','cp-hash-3','2026-01-01 00:00:03');
+    UPDATE cell_threads SET status='active', revision=2 WHERE thread_id='thread-a';
+    INSERT INTO cell_thread_checkpoint_resumptions VALUES
+      ('resume-2','cp-2','mission-inspection','episode-inspection','thread-a','worker-a',
+       'org-inspection','project-inspection',1,2,'waiting_signal','active','proof-secret',
+       'proof-hash-secret','2026-01-01 00:01:02');
+    INSERT INTO operator_control_commands
+      (command_id,idempotency_key,request_hash,action,mission_id,episode_id,thread_id,
+       organization_id,project_id,actor_id,authority,reason,expected_thread_revision,
+       owner_token,lease_expires_at,status,result_code,revision,created_at,finalized_at) VALUES
+      ('cmd-1','idem-1','request-secret-1','pause','mission-inspection','episode-inspection',
+       'thread-root','org-inspection','project-inspection','actor','admin','reason',1,
+       'owner-secret-1',9999999999999,'pending',NULL,0,'2026-01-01 00:02:01',NULL),
+      ('cmd-2','idem-2','request-secret-2','resume','mission-inspection','episode-inspection',
+       'thread-a','org-inspection','project-inspection','actor','admin','reason',1,
+       'owner-secret-2',0,'applied','CONTROL_PROVEN',1,'2026-01-01 00:02:02','2026-01-01 00:03:02'),
+      ('cmd-3','idem-3','request-secret-3','cancel','mission-inspection','episode-inspection',
+       'thread-b','org-inspection','project-inspection','actor','admin','reason',1,
+       'owner-secret-3',0,'applied','CONTROL_APPLIED_RECONCILIATION_REQUIRED',1,
+       '2026-01-01 00:02:03','2026-01-01 00:03:03');
+    INSERT INTO operator_control_receipts VALUES
+      ('receipt-2','cmd-2','applied','CONTROL_PROVEN','{"authorityToken":"hidden"}',
+       'receipt-hash-2','2026-01-01 00:03:02'),
+      ('receipt-3','cmd-3','applied','CONTROL_APPLIED_RECONCILIATION_REQUIRED',
+       '{"ownerToken":"hidden"}','receipt-hash-3','2026-01-01 00:03:03');`);
+  await db.exec(`UPDATE cell_threads SET status='ready', revision=1
+      WHERE thread_id IN ('thread-other','thread-foreign');
+    INSERT INTO cell_thread_checkpoints VALUES
+      ('cp-other','mission-inspection','episode-other','thread-other','worker-other',
+       'org-inspection','project-inspection',1,'ready','{}',2,'ctx-o','[]','cp-hash-o','2026-01-01'),
+      ('cp-foreign','mission-foreign','episode-foreign','thread-foreign','worker-foreign',
+       'org-foreign','project-foreign',1,'ready','{}',2,'ctx-f','[]','cp-hash-f','2026-01-01');
+    INSERT INTO operator_control_commands
+      (command_id,idempotency_key,request_hash,action,mission_id,episode_id,thread_id,
+       organization_id,project_id,actor_id,authority,expected_thread_revision,owner_token,
+       lease_expires_at,status) VALUES
+      ('cmd-other','idem-o','req-o','pause','mission-inspection','episode-other','thread-other',
+       'org-inspection','project-inspection','actor','admin',1,'owner-o',9,'pending'),
+      ('cmd-foreign','idem-f','req-f','pause','mission-foreign','episode-foreign','thread-foreign',
+       'org-foreign','project-foreign','actor','admin',1,'owner-f',9,'pending');`);
+}
+
 test('inspection composes scoped episode, pages, habitat, metabolism and receipts without writes', async () => {
   const db = await fixture();
   try {
@@ -182,6 +248,7 @@ test('inspection composes scoped episode, pages, habitat, metabolism and receipt
         && cell.workerId !== 'worker-other'));
     assert.equal(result.episodeRecovery.receipt.receiptId, 'recovery-inspection-latest');
     assert.equal(result.episodeRecovery.receipt.episodeId, 'episode-inspection');
+    assert.equal(result.episodeRecovery.receipt.authorityTokenHash, undefined);
     assert.deepEqual(result.episodeRecovery.correlation, {
       method: 'persisted_episode_scope_key', selection: 'latest_authority_generation',
       exact: true, complete: true, legacy: false
@@ -196,6 +263,7 @@ test('inspection composes scoped episode, pages, habitat, metabolism and receipt
     assert.equal(result.permissionReceipts.legacyUncorrelated.count, 1);
     assert.equal(result.permissionReceipts.legacyUncorrelated.exact, false);
     assert.match(result.permissionReceipts.items[0].callId, /^permission-local-(a|root)$/);
+    assert.equal(result.permissionReceipts.items[0].requestHash, undefined);
     assert.equal(result.permissionReceipts.items[0].lineage.episodeId, 'episode-inspection');
     assert.equal(result.permissionReceipts.items[0].lineage.exact, true);
   } finally { await db.close(); }
@@ -219,6 +287,65 @@ test('cell aggregates preserve unknown versus zero and recovery stays episode ex
   } finally { await db.close(); }
 });
 
+test('inspection exposes bounded exact cell operations without sensitive payloads or writes', async () => {
+  const db = await fixture();
+  try {
+    await seed(db);
+    await seedCellOperations(db);
+    const unsafe = JSON.stringify({ publicValue: 'visible', nested: {
+      accessToken: 'metadata-secret', value: 7 }, password: 'hidden' });
+    await db.run(`UPDATE mission_episodes SET metadata_json = ? WHERE episode_id = ?`,
+      unsafe, 'episode-inspection');
+    await db.run(`UPDATE cell_threads SET metadata_json = ? WHERE thread_id = ?`,
+      unsafe, 'thread-root');
+    const before = (await db.get('SELECT total_changes() AS count')).count;
+    const result = await inspection.inspect(db, context({ query: {
+      checkpointLimit: '2', controlLimit: '2'
+    } }));
+    assert.equal((await db.get('SELECT total_changes() AS count')).count, before);
+    assert.deepEqual(result.cellCheckpoints.items.map(item => item.checkpointId), ['cp-1', 'cp-2']);
+    assert.equal(result.cellCheckpoints.hasMore, true);
+    assert.equal(result.cellCheckpoints.items[1].resumeState, 'resumed');
+    assert.equal(result.cellCheckpoints.items[1].resumption.resumedRevision, 2);
+    assert.deepEqual(result.cellCheckpoints.correlation, {
+      method: 'persisted_cell_checkpoint_lineage', exact: true, complete: true,
+      legacy: false, integrityVerified: false, integrity: 'not_evaluated'
+    });
+    assert.equal(result.operatorControls.items[0].assessment, 'pending');
+    assert.equal(result.operatorControls.items[0].receipt, null);
+    assert.equal(result.operatorControls.items[0].indeterminate, true);
+    assert.equal(result.operatorControls.items[1].assessment, 'persisted_applied_unverified');
+    assert.equal(result.operatorControls.items[1].indeterminate, true);
+    assert.equal(result.operatorControls.items[1].receipt.integrity, 'unknown');
+    assert.equal(result.operatorControls.correlation.complete, false);
+    assert.equal(result.operatorControls.correlation.exact, true);
+    assert.deepEqual(result.episode.metadata, { publicValue: 'visible', nested: { value: 7 } });
+    assert.deepEqual(result.threads.items.find(item => item.threadId === 'thread-root').metadata,
+      { publicValue: 'visible', nested: { value: 7 } });
+    const continuation = await inspection.inspect(db, context({ query: {
+      checkpointOffset: '2', controlOffset: '2'
+    } }));
+    assert.equal(continuation.cellCheckpoints.items[0].checkpointId, 'cp-3');
+    assert.equal(continuation.operatorControls.items[0].assessment, 'reconciliation_required');
+    assert.equal(continuation.operatorControls.items[0].reconciliationRequired, true);
+    const full = await inspection.inspect(db, context({ query: {
+      checkpointLimit: '100', controlLimit: '100'
+    } }));
+    assert.deepEqual(full.cellCheckpoints.items.map(item => item.checkpointId),
+      ['cp-1', 'cp-2', 'cp-3']);
+    assert.deepEqual(full.operatorControls.items.map(item => item.commandId),
+      ['cmd-1', 'cmd-2', 'cmd-3']);
+    const other = await inspection.inspect(db, context({ episodeId: 'episode-other' }));
+    assert.equal(other.cellCheckpoints.items[0].checkpointId, 'cp-other');
+    assert.equal(other.operatorControls.items[0].commandId, 'cmd-other');
+    const serialized = JSON.stringify({ checkpoints: result.cellCheckpoints,
+      controls: result.operatorControls, nextCheckpoints: continuation.cellCheckpoints,
+      nextControls: continuation.operatorControls });
+    for (const secret of ['request-secret', 'owner-secret', 'proof-secret',
+      'authorityToken', 'context_json', 'safe']) assert.doesNotMatch(serialized, new RegExp(secret));
+  } finally { await db.close(); }
+});
+
 test('inspection refuses foreign tenants, mission mismatches and unbounded pages', async () => {
   const db = await fixture();
   try {
@@ -231,6 +358,10 @@ test('inspection refuses foreign tenants, mission mismatches and unbounded pages
     await assert.rejects(inspection.inspect(db, context({ query: { threadLimit: '101' } })),
       error => error.code === 'MISSION_INSPECTION_PAGINATION_INVALID' && error.status === 400);
     await assert.rejects(inspection.inspect(db, context({ query: { receiptOffset: '-1' } })),
+      error => error.code === 'MISSION_INSPECTION_PAGINATION_INVALID');
+    await assert.rejects(inspection.inspect(db, context({ query: { checkpointLimit: '101' } })),
+      error => error.code === 'MISSION_INSPECTION_PAGINATION_INVALID');
+    await assert.rejects(inspection.inspect(db, context({ query: { controlOffset: '-1' } })),
       error => error.code === 'MISSION_INSPECTION_PAGINATION_INVALID');
   } finally { await db.close(); }
 });

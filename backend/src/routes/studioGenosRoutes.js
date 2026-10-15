@@ -17,6 +17,9 @@ function handle(operation) {
       const result = await operation(db, { scope: req.tenant, agentId: req.params.id,
         body: req.body || {}, query: req.query, memoryId: req.params.memoryId, genomeId: req.params.genomeId,
         missionId: req.params.missionId, episodeId: req.params.episodeId,
+        threadId: req.params.threadId, checkpointId: req.params.checkpointId,
+        commandId: req.params.commandId, action: req.params.action,
+        actorId: req.user.keyId, authMethod: req.user.authMethod,
         actor: req.user.keyId || req.user.username });
       res.json(result);
     } catch (error) { next(error); }
@@ -38,6 +41,19 @@ const write = [requirePermission('workspace:write'), requireTenantScope({ write:
 const missionInspection = require('../services/studioMissionInspectionService');
 router.get('/missions/:missionId/episodes/:episodeId/inspection',
   requirePermission('read'), handle(missionInspection.inspect));
+const managedCells = require('../services/studioManagedCellService');
+const managedThread = '/missions/:missionId/episodes/:episodeId/threads/:threadId';
+router.post(`${managedThread}/checkpoints`, ...write, handle(managedCells.sealCheckpoint));
+router.get(`${managedThread}/checkpoints/:checkpointId`, requirePermission('read'),
+  handle(managedCells.readCheckpoint));
+router.post(`${managedThread}/checkpoints/:checkpointId/resume`, ...write,
+  handle(managedCells.resumeCheckpoint));
+router.post(`${managedThread}/controls/:action`, ...write,
+  (req, res, next) => req.params.action === 'cancel'
+    ? requirePermission('emergency_kill')(req, res, next) : next(),
+  handle(managedCells.control));
+router.get(`${managedThread}/commands/:commandId`, requirePermission('read'),
+  handle(managedCells.readCommand));
 router.get('/agents/:id/worlds', requirePermission('read'), handle(worlds.inspect));
 router.post('/agents/:id/checkpoints', ...write, delegate(lineage.snapshotAgentState));
 router.post('/agents/:id/branches', ...write, delegate(lineage.branchAgentState));

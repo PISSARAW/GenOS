@@ -1,19 +1,15 @@
 'use strict';
 
 const { activeProcesses } = require('./agentOrchestrationState');
+const cooperative = require('./cooperativeRuntimeControl');
 
 function result(proven, code, detail) {
   return { proven, code, detail };
 }
 
 function exactIdentity(child, target) {
-  const identity = child?.genosControlIdentity;
-  return identity && identity.workerId === target.worker_id
-    && identity.missionId === target.mission_id
-    && identity.episodeId === target.episode_id
-    && identity.threadId === target.thread_id
-    && identity.organizationId === target.organization_id
-    && identity.projectId === target.project_id;
+  return cooperative.exactLineage(child?.genosControlIdentity,
+    cooperative.lineage(target));
 }
 
 function waitForClose(child, timeoutMs) {
@@ -27,11 +23,13 @@ function waitForClose(child, timeoutMs) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      child.removeListener('close', onClose);
       resolve(closed);
     };
+    const onClose = () => done(true);
     const timer = setTimeout(() => done(false), timeoutMs);
     if (typeof timer.unref === 'function') timer.unref();
-    child.once('close', () => done(true));
+    child.once('close', onClose);
   });
 }
 
@@ -44,8 +42,10 @@ async function cancel(target) {
     return result(false, 'RUNTIME_IDENTITY_UNPROVEN',
       'Live process identity does not match the requested CellThread.');
   }
-  const closed = waitForClose(child,
-    Math.max(250, Number(process.env.GENOS_OPERATOR_CONTROL_TIMEOUT_MS) || 3000));
+  const acknowledged = await cooperative.request({ child, action: 'cancel',
+    lineage: target });
+  if (!acknowledged.proven) return acknowledged;
+  const closed = waitForClose(child, cooperative.timeoutMs());
   const requested = await require('./agentRuntimeAdapter/missionControl')
     .stopMission(target.worker_id, { single: true });
   if (!requested) return result(false, 'RUNTIME_STOP_NOT_REQUESTED',
@@ -55,10 +55,21 @@ async function cancel(target) {
   return result(true, 'RUNTIME_STOP_CONFIRMED', 'Runtime close was observed after cancellation.');
 }
 
+async function changeState(action, target) {
+  const child = activeProcesses.get(target.worker_id);
+  if (!child) return result(false, 'RUNTIME_UNAVAILABLE',
+    'No exact live runtime can prove control.');
+  if (!exactIdentity(child, target)) return result(false, 'RUNTIME_IDENTITY_UNPROVEN',
+    'Live process identity does not match the requested CellThread.');
+  return cooperative.request({ child, action, lineage: target });
+}
+
 async function apply(request) {
   if (request.action === 'cancel') return cancel(request.target);
-  return result(false, 'COOPERATIVE_CONTROL_UNAVAILABLE',
-    `Runtime cannot prove '${request.action}' without a cooperative acknowledgement.`);
+  if (request.action === 'pause' || request.action === 'resume') {
+    return changeState(request.action, request.target);
+  }
+  return result(false, 'RUNTIME_CONTROL_INVALID', 'Unsupported runtime control action.');
 }
 
 module.exports = { apply };

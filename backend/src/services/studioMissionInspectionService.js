@@ -6,8 +6,18 @@ const { aggregateRows, aggregateMetabolicUsageByCell } = require('./metabolicLed
 const { LINEAGE_SCHEMA } = require('./mcpExecutor/permissionMembraneBridge');
 const { digest: permissionDigest } = require('./toolPermissionMembraneService');
 
-const MAX_PAGE_SIZE = 100;
-const MAX_OFFSET = 100000;
+const MAX_PAGE_SIZE = 100; const MAX_OFFSET = 100000;
+const SENSITIVE_METADATA_KEYS = new Set(['token', 'secret', 'password',
+  'credential', 'authorization', 'apikey']);
+
+function safeMetadata(value) {
+  if (Array.isArray(value)) return value.map(safeMetadata);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).filter(([key]) => {
+    const name = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return ![...SENSITIVE_METADATA_KEYS].some(sensitive => name.endsWith(sensitive));
+  }).map(([key, nested]) => [key, safeMetadata(nested)]));
+}
 
 function failure(code, status, message) {
   return Object.assign(new Error(message || code), { code, status });
@@ -58,7 +68,7 @@ function episodeView(row) {
     epigenomeRevision: row.epigenome_revision, orchestratorId: row.orchestrator_id,
     rootThreadId: row.root_thread_id, status: row.status, revision: row.revision,
     habitatId: row.habitat_id, habitatRevision: row.habitat_revision,
-    metadata: JSON.parse(row.metadata_json), createdAt: row.created_at, updatedAt: row.updated_at
+    metadata: safeMetadata(JSON.parse(row.metadata_json)), createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
 
@@ -68,7 +78,7 @@ function threadView(row) {
     workerId: row.worker_id, cellKind: row.cell_kind, status: row.status,
     stopReason: row.stop_reason, checkpointId: row.checkpoint_id,
     contextSize: row.context_size, revision: row.revision,
-    metadata: JSON.parse(row.metadata_json), createdAt: row.created_at, updatedAt: row.updated_at
+    metadata: safeMetadata(JSON.parse(row.metadata_json)), createdAt: row.created_at, updatedAt: row.updated_at
   };
 }
 
@@ -80,7 +90,7 @@ function receiptView(row) {
     decision: row.effective_decision, reason: row.decision_reason,
     decider: { type: row.decider_type, id: row.decider_id },
     leaseId: row.lease_id, policy: { id: row.policy_id, version: row.policy_version },
-    argumentsHash: row.arguments_hash, requestHash: row.request_hash,
+    argumentsHash: row.arguments_hash,
     authorizationHash: row.authorization_hash, resultStatus: row.result_status,
     resultHash: row.result_hash, receiptHash: row.receipt_hash,
     lineage: { schema: LINEAGE_SCHEMA, missionId: row.lineage_mission_id,
@@ -98,7 +108,6 @@ function recoveryReceiptView(row) {
     ownerAgentId: row.owner_agent_id, ownerRunId: row.owner_run_id,
     ownerPid: row.owner_pid, runtimePid: row.runtime_pid,
     authorityGeneration: row.authority_generation,
-    authorityTokenHash: row.authority_token_hash,
     observedAuthorityState: row.observed_authority_state,
     observedRunStatus: row.observed_run_status, outcome: row.outcome,
     quarantinedThreads: row.quarantined_threads, createdAt: row.created_at
@@ -263,6 +272,99 @@ async function episodeRecovery(db, episode, tenant) {
   } };
 }
 
+function checkpointView(row) {
+  const resumed = Boolean(row.resumption_id);
+  return {
+    checkpointId: row.checkpoint_id, threadId: row.thread_id, workerId: row.worker_id,
+    threadRevision: row.thread_revision, threadState: row.thread_state,
+    contextSize: row.context_size, createdAt: row.checkpoint_created_at,
+    resumeState: resumed ? 'resumed' : 'not_observed',
+    resumption: resumed ? { resumptionId: row.resumption_id,
+      previousRevision: row.previous_revision, resumedRevision: row.resumed_revision,
+      previousState: row.previous_state, resumedState: row.resumed_state,
+      createdAt: row.resumption_created_at } : null
+  };
+}
+
+async function checkpointPage(db, input) {
+  const args = [input.episode.episode_id, input.episode.mission_id,
+    input.scope.organizationId, input.scope.projectId];
+  const rows = await db.all(`SELECT c.checkpoint_id, c.thread_id, c.worker_id,
+      c.thread_revision, c.thread_state, c.context_size,
+      c.created_at AS checkpoint_created_at, r.resumption_id, r.previous_revision,
+      r.resumed_revision, r.previous_state, r.resumed_state,
+      r.created_at AS resumption_created_at
+    FROM cell_thread_checkpoints c JOIN cell_threads t
+      ON t.thread_id = c.thread_id AND t.episode_id = c.episode_id
+      AND t.mission_id = c.mission_id AND t.organization_id = c.organization_id
+      AND t.project_id = c.project_id AND t.worker_id = c.worker_id
+    LEFT JOIN cell_thread_checkpoint_resumptions r ON r.checkpoint_id = c.checkpoint_id
+      AND r.thread_id = c.thread_id AND r.worker_id = c.worker_id
+      AND r.episode_id = c.episode_id AND r.mission_id = c.mission_id
+      AND r.organization_id = c.organization_id AND r.project_id = c.project_id
+    WHERE c.episode_id = ? AND c.mission_id = ? AND c.organization_id = ?
+      AND c.project_id = ? ORDER BY c.created_at, c.checkpoint_id LIMIT ? OFFSET ?`,
+  ...args, input.page.limit + 1, input.page.offset);
+  const legacy = await db.get(`SELECT COUNT(*) AS count FROM cell_thread_checkpoints c
+    LEFT JOIN cell_threads t ON t.thread_id = c.thread_id AND t.episode_id = c.episode_id
+      AND t.mission_id = c.mission_id AND t.organization_id = c.organization_id
+      AND t.project_id = c.project_id AND t.worker_id = c.worker_id
+    WHERE c.episode_id = ? AND c.mission_id = ? AND c.organization_id = ?
+      AND c.project_id = ? AND t.thread_id IS NULL`, ...args);
+  return { ...page(rows.map(checkpointView), input.page), correlation: {
+    method: 'persisted_cell_checkpoint_lineage', exact: true,
+    complete: legacy.count === 0, legacy: legacy.count > 0,
+    integrityVerified: false, integrity: 'not_evaluated'
+  }, legacyUncorrelated: { count: legacy.count, exact: false } };
+}
+
+function controlView(row) {
+  const pending = row.command_status === 'pending';
+  const linked = Boolean(row.receipt_id);
+  const matches = linked && row.receipt_outcome === row.command_status
+    && row.receipt_result_code === row.command_result_code;
+  const reconcile = !pending && (!matches
+    || String(row.command_result_code).includes('RECONCILIATION_REQUIRED'));
+  const assessment = pending ? 'pending' : reconcile ? 'reconciliation_required'
+    : `persisted_${row.command_status}_unverified`;
+  return {
+    commandId: row.command_id, threadId: row.thread_id, workerId: row.worker_id,
+    action: row.action, expectedThreadRevision: row.expected_thread_revision,
+    status: row.command_status, resultCode: row.command_result_code,
+    revision: row.command_revision, createdAt: row.command_created_at,
+    finalizedAt: row.finalized_at, assessment, pending,
+    reconciliationRequired: reconcile, indeterminate: true,
+    receipt: linked ? { receiptId: row.receipt_id, outcome: row.receipt_outcome,
+      resultCode: row.receipt_result_code, createdAt: row.receipt_created_at,
+      integrityVerified: false, integrity: 'unknown' } : null
+  };
+}
+
+async function controlPage(db, input) {
+  const args = [input.episode.episode_id, input.episode.mission_id,
+    input.scope.organizationId, input.scope.projectId];
+  const rows = await db.all(`SELECT c.command_id, c.thread_id, t.worker_id, c.action,
+      c.expected_thread_revision, c.status AS command_status,
+      c.result_code AS command_result_code, c.revision AS command_revision,
+      c.created_at AS command_created_at, c.finalized_at, r.receipt_id,
+      r.outcome AS receipt_outcome, r.result_code AS receipt_result_code,
+      r.created_at AS receipt_created_at
+    FROM operator_control_commands c JOIN cell_threads t
+      ON t.thread_id = c.thread_id AND t.episode_id = c.episode_id
+      AND t.mission_id = c.mission_id AND t.organization_id = c.organization_id
+      AND t.project_id = c.project_id
+    LEFT JOIN operator_control_receipts r ON r.command_id = c.command_id
+    WHERE c.episode_id = ? AND c.mission_id = ? AND c.organization_id = ?
+      AND c.project_id = ? ORDER BY c.created_at, c.command_id LIMIT ? OFFSET ?`,
+  ...args, input.page.limit + 1, input.page.offset);
+  return { ...page(rows.map(controlView), input.page), correlation: {
+    method: 'persisted_operator_command_target', exact: true, complete: false,
+    legacy: false, receiptLink: 'command_id_foreign_key',
+    integrityVerified: false, integrity: 'unknown',
+    integrityReason: 'receipt_hash_not_recomputed'
+  } };
+}
+
 async function inspect(db, context) {
   const tenant = scope(context);
   const episode = await episodes.requireScoped(db, {
@@ -270,16 +372,21 @@ async function inspect(db, context) {
   });
   const threadOptions = pagination(context.query || {}, 'thread');
   const receiptOptions = pagination(context.query || {}, 'receipt');
+  const checkpointOptions = pagination(context.query || {}, 'checkpoint');
+  const controlOptions = pagination(context.query || {}, 'control');
   const threads = await threadPage(db, { episode, scope: tenant, page: threadOptions });
-  const [habitatState, metabolic, permissionReceipts, recovery] = await Promise.all([
+  const [habitatState, metabolic, permissionReceipts, recovery, checkpoints, controls] = await Promise.all([
     habitat(db, episode.mission_id, tenant),
     metabolism(db, { episode, tenant, threads }),
     receiptPage(db, { episode, scope: tenant, page: receiptOptions }),
-    episodeRecovery(db, episode, tenant)
+    episodeRecovery(db, episode, tenant),
+    checkpointPage(db, { episode, scope: tenant, page: checkpointOptions }),
+    controlPage(db, { episode, scope: tenant, page: controlOptions })
   ]);
   return {
     missionId: episode.mission_id, episode: episodeView(episode), threads,
     habitat: habitatState, metabolism: metabolic, episodeRecovery: recovery,
+    cellCheckpoints: checkpoints, operatorControls: controls,
     permissionReceipts: { ...permissionReceipts, correlation: {
       method: 'persisted_backend_receipt_lineage', exact: true,
       appliesTo: 'items', complete: permissionReceipts.legacyUncorrelated.count === 0,
