@@ -226,8 +226,10 @@ const CUSTOM_TOOL_HANDLERS = {
   ,genos_fossil_candidate: fossilCandidateTool
 };
 
-async function dispatchToTransport(toolName, args, timeoutMs) {
-  const bioResult = await require('../../mcpBioTools').executeBioTool(toolName, args, { timeoutMs });
+async function dispatchToTransport(input) {
+  const { toolName, args, timeoutMs, context = {} } = input;
+  const caller = { agentId: context.agentId || null, tenant: context.tenant || null };
+  const bioResult = await require('../../mcpBioTools').executeBioTool(toolName, args, { timeoutMs, caller });
   if (bioResult) return bioResult;
   const stratResult = await require('../../mcpStrategyTools').executeStrategyTool(toolName, args, { timeoutMs });
   if (stratResult) return stratResult;
@@ -250,7 +252,7 @@ async function executeToolLogic(toolName, args, context = {}) {
   if (delegated !== UNHANDLED) return delegated;
   const local = await executeLocalTool({ toolName, args, context, runLocal, timeoutMs });
   if (local !== UNHANDLED) return local;
-  return dispatchToTransport(toolName, args, timeoutMs);
+  return dispatchToTransport({ toolName, args, timeoutMs, context });
 }
 
 const UNHANDLED = Symbol('unhandled-tool');

@@ -89,7 +89,7 @@ async function invokeBioHandler(handler, call) {
   }
   let result;
   try {
-    result = await handler.handle(call.args, call.run);
+    result = await handler.handle(call.args, call.run, call.caller);
   } catch (error) {
     return handler.error(error);
   }

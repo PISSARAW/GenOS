@@ -2,12 +2,13 @@ const { defaultForaging } = require('../../foragingScoutHarvesterService');
 const { forageStep } = require('../../foragingLoopService');
 const { defaultBrowserScout } = require('../../browserScoutService');
 const sourceAttestation = require('../../foragingSourceAttestation');
+const missionAuthority = require('../../foragingMissionAuthority');
 
-async function handleOptimalForaging(args) {
+async function handleOptimalForaging(args, _run, caller = {}) {
   const action = args.action || 'evaluate_patch';
 
   if (['forage_step', 'closed_loop', 'closed_loop_step'].includes(action)) {
-    return optimalForagingForageStep({ args });
+    return optimalForagingForageStep({ args, caller });
   }
 
   if (['evaluate_patch', 'evaluate'].includes(action)) {
@@ -50,15 +51,20 @@ module.exports = {
   handleOptimalForagingError
 };
 
-async function optimalForagingForageStep({ args }) {
+async function optimalForagingForageStep({ args, caller }) {
   const sessionId = args.session_id || args.sessionId || null;
   let claims;
   try {
-    claims = verifyForagingSource(args, sessionId);
+    claims = await verifyForagingSource(args, sessionId, caller);
   } catch (error) {
     return rejectedForagingSource(error);
   }
-  const step = await forageStep({
+  const step = await executeForageStep(args, sessionId);
+  return verifiedForagingResponse({ args, sessionId, claims, step });
+}
+
+async function executeForageStep(args, sessionId) {
+  return forageStep({
     sessionId,
     patchHistory: args.patch_history || args.history,
     elapsedTimeSec: args.elapsed_time_sec,
@@ -67,6 +73,9 @@ async function optimalForagingForageStep({ args }) {
     navigationScope: args.navigation_scope || args.navigationScope,
     htmlContent: args.html_content || args.html
   });
+}
+
+function verifiedForagingResponse({ args, sessionId, claims, step }) {
   if (!sourceAttestation.verifyObservation(claims, step.receipt)) {
     return rejectedForagingSource(new Error('Foraging observation does not match its signed source attestation.'));
   }
@@ -74,21 +83,26 @@ async function optimalForagingForageStep({ args }) {
   const actionStatus = step.action.status;
   const session = defaultBrowserScout.getSession(sessionId);
   const simulated = !session || !session.browserPage;
-  const successful = !['not_executed', 'failed', 'refused'].includes(actionStatus);
   return {
     configured: true,
-    success: successful,
-    status: actionStatus === 'executed' ? 'completed'
-      : actionStatus === 'failed' ? 'action_failed'
-        : actionStatus === 'refused' ? 'out_of_scope'
-        : actionStatus === 'not_executed' ? 'decision_only' : 'observed',
+    success: actionStatus !== 'not_executed' && actionStatus !== 'failed' && actionStatus !== 'refused',
+    status: foragingActionStatus(actionStatus),
     transport: 'local_service',
     simulated,
     output: JSON.stringify({ ...attested, simulated }, null, 2)
   };
 }
 
-function verifyForagingSource(args, sessionId) {
+function foragingActionStatus(status) {
+  const statuses = { executed: 'completed', failed: 'action_failed', refused: 'out_of_scope',
+    not_executed: 'decision_only' };
+  return statuses[status] || 'observed';
+}
+
+async function verifyForagingSource(args, sessionId, caller) {
+  const missionId = args.mission_id || args.missionId;
+  const db = await require('../../../db').getDatabase();
+  await missionAuthority.assertActiveMissionMember({ db, caller, missionId });
   const session = defaultBrowserScout.getSession(sessionId);
   const scope = sourceAttestation.normalizeScope(args.navigation_scope || args.navigationScope);
   const proposedUrl = args.next_url || args.nextUrl || (session && session.currentUrl);
@@ -96,7 +110,7 @@ function verifyForagingSource(args, sessionId) {
   const expectedUrl = expectedObservedUrl(proposedUrl, scope, session);
   return sourceAttestation.verifyBeforeNavigation({
     attestation: args.source_attestation,
-    missionId: args.mission_id || args.missionId,
+    missionId,
     targetUrl: expectedUrl,
     scope,
     htmlContent: args.html_content || args.html
