@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel pour la conformité globale ; parcours canonique de clôture implémenté.
 - **Portée** : backend Node, dispatch explicite et adaptateur autonome ; évaluateurs de variantes distincts.
-- **Dernière revue** : 2026-10-14.
+- **Dernière revue** : 2026-10-15.
 - **Décision** : [ADR 0329](../adr/0329-cloture-verifiable-runs-a-team.md).
 
 ## Snapshot topologique
@@ -29,6 +29,36 @@ propres à chaque membre, permettant aux branches indépendantes de continuer.
 Les champs d'autorité organisationnelle ne créent aucun droit d'accès. Les contrôles de
 lease MCP, d'outils, de garage et de sandbox restent ceux des chemins de lancement.
 Une politique ou une évaluation de variante ne remplace pas ces contrôles.
+
+## Identité opérationnelle et audit social
+
+Le résultat terminal expose un objet `audit` à la racine et dans
+`integration.audit`. Il relit les données persistées plutôt que de reconstruire une
+histoire à partir du texte final des workers :
+
+| Champ | Source | Garantie bornée |
+|---|---|---|
+| `identities` | membres canoniques du TeamRun | `workerId`, `memberId`, `role` et sous-système de chaque membre |
+| `relationships` | état d'organisation de chaque membre | liens de communication connus par le worker, hors lien hiérarchique `reports_to` |
+| `communications` | messages et reçus SQLite de la mission | émetteur, destinataire, canal, type, contenu, signal, livraison et acquittements ordonnés |
+| `reports` | verdicts de la barrière de preuves | rapport terminal, promotion, raison et références de preuve par worker |
+| `complete`, `errors` | lectures précédentes | audit complet seulement si relations et communications ont été relues sans erreur |
+
+Dans une mission qui initialise le maillage de pairs, un worker peut donc établir son
+identité opérationnelle, son rôle, les pairs que le runtime lui présente et les échanges
+effectivement persistés. Le bootstrap conserve les objets complets des messages envoyés,
+reçus, acquittés et répondus ; les seuls identifiants de messages ne suffisent plus à la
+preuve terminale.
+
+Cette garantie ne démontre ni conscience de soi, ni compréhension humaine, ni mémoire
+sociale illimitée entre missions. Elle atteste qu'une identité et un graphe social bornés
+par le TeamRun ont été fournis au worker et qu'ils peuvent être reliés à des reçus
+durables. `audit.complete: true` prouve la complétude des lectures prévues par ce contrat,
+pas la vérité sémantique de toutes les déclarations échangées.
+
+La [campagne du 2026-10-15](../06-benchmarks/benchmark-ateam.md#validation-de-lidentité-sociale-des-workers--2026-10-15)
+documente une exécution réelle à trois workers, leurs neuf communications et les limites
+de l'interprétation.
 
 ## Trois niveaux d'état
 
@@ -169,6 +199,8 @@ node backend/tests/test_ateam_runtime.js
 node backend/tests/test_ateam_dispatch_runtime.js
 node backend/tests/test_ateam_execution_e2e.js
 node backend/tests/test_ateam_variant_acceptance.js
+node backend/tests/test_ateam_team_audit.js
+node backend/tests/test_worker_coordination_bootstrap.js
 ```
 
 Le test d'exécution utilise SQLite en mémoire et des sous-processus Node : promotion/refus,
@@ -225,7 +257,9 @@ la conformité native complète reste non certifiée sur ce tirage.
 - [Exécuteur canonique](../../backend/src/services/aTeam/execution/teamExecutionService.js).
 - [Projection du graphe](../../backend/src/services/aTeam/execution/workGraphExecutionService.js).
 - [Validation et couvertures](../../backend/src/services/aTeam/execution/teamEvidenceService.js).
+- [Audit terminal](../../backend/src/services/aTeam/execution/teamAuditService.js).
 - [Accusés versionnés](../../backend/src/services/aTeam/execution/handoffReceiptService.js).
+- [Bootstrap de coordination](../../backend/bin/worker-coordination-bootstrap.cjs).
 - [Adaptateur autonome](../../backend/src/services/aTeam/aTeamAutonomousExecutionService.js).
 - [Runner détaché](../../backend/bin/genos-ateam-stage-runner.cjs).
 - [Politiques](../02-orchestration/topologies/a-team-politiques-runtime.md), [réparations](../02-orchestration/topologies/a-team-reparation.md) et [apprentissage](../02-orchestration/topologies/a-team-apprentissage.md).
