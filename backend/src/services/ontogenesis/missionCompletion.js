@@ -27,10 +27,17 @@ async function waitForMission(db, request, options) {
   throw new Error('mission-delai-depasse');
 }
 
-async function completionGate(db, request, agents) {
+async function completionGate(db, input) {
+  const { request, agents, verifierReceipt = null } = input;
   const outcome = summarizeAgents(agents);
   if (!agents.every((agent) => agent.status === 'completed')) return { allowed: false, reason: 'agents-non-verifies' };
   const context = await buildMissionContext({ db, missionId: request.id, agents, outcome, request, policyRequest: request });
+  const verifierReceipts = require('./missionVerifierReceiptService');
+  const verifierReceiptPresent = await verifierReceipts.validateReceipt(verifierReceipt, {
+    missionId: request.id, workspaceRoot: request.workspaceRoot, checks: request.verifierChecks
+  });
+  context.context.flags.verifierReceiptPresent = verifierReceiptPresent;
+  if (verifierReceiptPresent) context.context.evidence.push('independent_verifier_receipt');
   const evidenceGate = verifyEvidenceContract(request, context);
   if (evidenceGate) return evidenceGate;
   const mission = continuity.buildMissionInput(request.id, request.mission, {

@@ -81,8 +81,8 @@ function buildEvidenceFlags({ agents, dossiers, telemetry }) {
     workerEvidenceComplete: hasDossierReports,
     noFailedAgents: failed === 0,
     allAgentsCompleted: completed === agents.length && agents.length > 0,
-    // An evidence report is not a verifier receipt. No trusted verifier-receipt
-    // producer is connected to this collector yet.
+    // This collector never infers a verifier receipt from reports or telemetry.
+    // Ontogenesis may replace false after validating its independent check receipt.
     verifierReceiptPresent: false,
   };
 }

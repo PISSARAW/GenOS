@@ -32,9 +32,14 @@ async function runMission(db, request) {
     await helpers.startOrchestratorMission({ db, ...prepared, id: request.id, enhancedPrompt: request.mission,
       request, policyRequest: request, allowedCommands: request.allowed_commands, allowFileEdits: true, runtime });
     const agents = await waitForMission(db, request, { stopped: () => stopping });
-    const gate = await completionGate(db, request, agents);
     const telemetry = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'ORCHESTRATOR_WORKSPACE_CREATED' ORDER BY rowid DESC LIMIT 1", [request.id]);
     const candidateWorktree = telemetry ? JSON.parse(telemetry.payload_json).workspaceRoot : null;
+    const verifierReceipt = request.requiresEvidenceBeforePromotion === false ? null
+      : await require('../src/services/ontogenesis/missionVerifierReceiptService').createReceipt({
+        missionId: request.id, workspaceRoot: candidateWorktree, checks: request.verifierChecks,
+        allowExecution: request.allowVerifierExecution, timeoutMs: request.verifierTimeoutMs
+      });
+    const gate = await completionGate(db, { request, agents, verifierReceipt });
     const success = !stopping && gate.allowed === true;
     await updateExecution(db, { id: request.id, phase: 'finished', result: { success, candidateWorktree, completionGate: gate } });
   } catch (error) {
