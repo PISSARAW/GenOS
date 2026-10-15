@@ -110,7 +110,7 @@ async function testDirectSolarCall() {
 console.log('\n=== TEST 2: Spawn du runtime via wrapper ===');
 
 // Créer un payload protobuf minimal (similaire à ce que fait l'orchestrateur)
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const protoDir = path.resolve(__dirname, 'backend/proto');
 
 // Vérifier que les proto existent
@@ -152,8 +152,9 @@ process.stdout.write(framed);
 console.log('\nGénération du payload protobuf...');
 let payloadBuf;
 try {
-  payloadBuf = execSync(
-    `node -e "${payloadScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}" "${path.resolve(__dirname, 'backend')}"`,
+  payloadBuf = execFileSync(
+    nodeExe,
+    ['-e', payloadScript, path.resolve(__dirname, 'backend')],
     { encoding: 'buffer', timeout: 10000 }
   );
   console.log('Payload généré, taille:', payloadBuf.length, 'octets');

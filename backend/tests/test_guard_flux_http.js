@@ -1,0 +1,119 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const { randomUUID } = require('node:crypto');
+
+const token = randomUUID();
+const scope = { organizationId: randomUUID(), projectId: randomUUID() };
+const missionId = randomUUID();
+const rustMissionId = randomUUID();
+const cellId = randomUUID();
+
+async function run() {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-guard-flux-http-'));
+  process.env.NODE_ENV = 'test';
+  process.env.GENOS_DB_PATH = path.join(directory, 'guard-flux.db');
+  process.env.GENOS_ADMIN_TOKEN = token;
+  process.env.GENOS_ADMIN_PASSWORD = 'guard-flux-http-test';
+  process.env.GENOS_DB_BACKUP_SKIP = '1';
+  process.env.GENOS_DB_SCHEMA_MAINTENANCE = '0';
+  const { getDatabase, closeDatabase } = require('../src/db');
+  const cli = require('../src/services/genosCli');
+  const calls = [];
+  const receipts = new Map();
+  cli.runGenos = async args => {
+    calls.push(args);
+    const key = args[args.indexOf('--idempotency-key') + 1];
+    if (!receipts.has(key)) receipts.set(key, { idempotency_key: key, receipt_id: randomUUID(), tick: 4, accepted: true });
+    return { ok: true, json: { execution_mode: 'experimental', mission_authority: 'unverified_cli_claim', receipt: receipts.get(key) } };
+  };
+  const db = await getDatabase();
+  await seed(db);
+  const { createApp } = require('../src/app');
+  const server = createApp().listen(0, '127.0.0.1');
+  await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
+  try {
+    const port = server.address().port;
+    const route = '/api/rust/guard-flux/apply';
+    const body = { missionId, cellId, idempotencyKey: 'guard-replay-1', requestedFlux: 20, tick: 4 };
+    const unauthorized = await request({ port, route, body, authenticated: false });
+    assert.equal(unauthorized.status, 401, JSON.stringify(unauthorized.body));
+    assert.equal(calls.length, 0, 'unauthenticated requests must not invoke the CLI');
+
+    const unscoped = await request({ port, route, body, scoped: false });
+    assert.equal(unscoped.status, 403, JSON.stringify(unscoped.body));
+    assert.equal(calls.length, 0, 'requests without an explicit writable project scope must not invoke the CLI');
+
+    const foreign = await request({ port, route, body: { ...body, missionId: randomUUID() } });
+    assert.equal(foreign.status, 404, JSON.stringify(foreign.body));
+    assert.equal(calls.length, 0, 'a mission outside the scoped project must not invoke the CLI');
+
+    const unknownCell = await request({ port, route, body: { ...body, cellId: randomUUID() } });
+    assert.equal(unknownCell.status, 409, JSON.stringify(unknownCell.body));
+    assert.equal(calls.length, 0, 'an unregistered cell must not invoke the CLI');
+
+    const staleTick = await request({ port, route, body: { ...body, tick: 3 } });
+    assert.equal(staleTick.status, 409, JSON.stringify(staleTick.body));
+    assert.equal(calls.length, 0, 'a stale tick must not invoke the CLI');
+
+    const first = await request({ port, route, body });
+    const replay = await request({ port, route, body });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    assert.deepEqual(replay.body.rust.receipt, first.body.rust.receipt);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0], calls[1]);
+    assert.equal(calls[0][0], 'guard-flux');
+    assert.ok(calls[0].includes('--experimental'));
+    assert.equal(calls[0][calls[0].indexOf('--mission-id') + 1], rustMissionId);
+    assert.equal(first.body.backendAuthorization.permission, 'experiment:run');
+    assert.equal(first.body.rust.mission_authority, 'unverified_cli_claim');
+
+    cli.runGenos = async () => ({ ok: true, json: {
+      execution_mode: 'experimental', mission_authority: 'unverified_cli_claim',
+      receipt: { idempotency_key: 'different-key' }
+    } });
+    const mismatched = await request({ port, route, body: { ...body, idempotencyKey: 'expected-key' } });
+    assert.equal(mismatched.status, 502, JSON.stringify(mismatched.body));
+
+    cli.runGenos = async () => ({ ok: false, stderr: 'guard journal unavailable' });
+    const failed = await request({ port, route, body: { ...body, idempotencyKey: 'guard-failure' } });
+    assert.equal(failed.status, 502, JSON.stringify(failed.body));
+    assert.equal(failed.body.error.message, 'guard journal unavailable');
+    console.log('Guard-flux HTTP authorization, scope, current tick, and CLI result checks: PASS');
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    await closeDatabase();
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function seed(db) {
+  await db.run('INSERT INTO organizations (id, name) VALUES (?, ?)', scope.organizationId, 'Guard Flux Org');
+  await db.run('INSERT INTO projects (id, organization_id, name) VALUES (?, ?, ?)', scope.projectId, scope.organizationId, 'Guard Flux Project');
+  await db.run('INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, ?, ?)',
+    'guard-workspace', 'Guard Workspace', os.tmpdir(), scope.organizationId, scope.projectId);
+  await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, workspace_id)
+    VALUES (?, ?, 'coordinator', 'idle', 'orchestrator', ?)`, 'guard-agent', 'Guard Agent', 'guard-workspace');
+  await db.run('INSERT INTO missions (mission_id, objective, orchestrator_agent_id) VALUES (?, ?, ?)',
+    missionId, 'scoped guard flux', 'guard-agent');
+  await db.run('INSERT INTO mission_agents (mission_id, agent_id, role) VALUES (?, ?, ?)', missionId, 'guard-agent', 'orchestrator');
+  await db.run('INSERT INTO biological_execution_missions (mission_id, rust_mission_id) VALUES (?, ?)', missionId, rustMissionId);
+  await db.exec(`CREATE TABLE IF NOT EXISTS rust_cell_registry (
+    mission_id TEXT NOT NULL, cell_id TEXT NOT NULL, tick INTEGER NOT NULL, PRIMARY KEY (mission_id, cell_id)
+  )`);
+  await db.run('INSERT INTO rust_cell_registry (mission_id, cell_id, tick) VALUES (?, ?, ?)', missionId, cellId, 4);
+}
+
+async function request({ port, route, body, authenticated = true, scoped = true }) {
+  const headers = { 'content-type': 'application/json' };
+  if (scoped) Object.assign(headers, { 'x-organization-id': scope.organizationId, 'x-project-id': scope.projectId });
+  if (authenticated) headers.authorization = `Bearer ${token}`;
+  const response = await fetch(`http://127.0.0.1:${port}${route}`, { method: 'POST', headers, body: JSON.stringify(body) });
+  return { status: response.status, body: await response.json() };
+}
+
+run().catch(error => { console.error(error.stack || error.message); process.exit(1); });

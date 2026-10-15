@@ -26,7 +26,8 @@ provenance sans présenter une simulation comme preuve d'exécution.
 - Recadrer les pixels avec Sharp en coordonnées normalisées ou pixels validés.
   Le recadrage conserve la résolution source et ne revendique pas de DPI ni de
   détail inféré par agrandissement.
-- Relier décision, état observé, navigation et hash du recadrage par un reçu.
+- Relier décision, URL observée, digest du texte AX normalisé, navigation et
+  hash du recadrage par un reçu; calculer `evidenceRef` sur ce contenu.
   Les leases autorisent l'appel; elles ne valident pas la qualité sémantique.
 - Garder l'évaluation GAIA distincte. Aucun résultat GAIA n'est établi par la
   présence du lanceur ou des tests synthétiques.
@@ -37,6 +38,9 @@ L'adaptateur requiert un Chromium Puppeteer disponible. L'accès réel reste
 conditionné par les permissions réseau de l'environnement. Les ROIs web sont
 des heuristiques génériques et le gain lexical n'est pas une mesure de vérité
 ou de valeur de réponse; les reçus doivent conserver ces limites.
+Le digest AX vérifie seulement que le reçu référence le texte utilisé lors de la
+décision; il ne certifie ni la page source, ni l'exactitude ou la pertinence du
+contenu.
 
 ## Validation requise
 

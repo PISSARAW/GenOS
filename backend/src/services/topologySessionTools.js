@@ -256,7 +256,9 @@ const OPERATIONS = {
 };
 
 function operationHandler(topology, operation) {
-  return OPERATIONS[topology]?.[operation];
+  if (!Object.hasOwn(OPERATIONS, topology)) return undefined;
+  const topologyOperations = OPERATIONS[topology];
+  return Object.hasOwn(topologyOperations, operation) ? topologyOperations[operation] : undefined;
 }
 
 async function applyTopologyOperation(db, args = {}, context = {}) {

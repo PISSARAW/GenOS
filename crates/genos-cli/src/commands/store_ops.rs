@@ -153,27 +153,47 @@ pub fn handle_fossil_record(
     Ok(())
 }
 
-fn load_fossils() -> Vec<FossilRecord> {
-    let fossil_dir = get_storage_dir("fossils");
-    let mut fossils = Vec::new();
-    if let Ok(entries) = fs::read_dir(&fossil_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) != Some("json") {
-                continue;
-            }
-            if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(record) = serde_json::from_str::<FossilRecord>(&content) {
-                    fossils.push(record);
-                }
-            }
-        }
+fn load_fossils() -> Result<Vec<FossilRecord>, String> {
+    Ok(load_fossil_documents()?.into_iter().map(|(record, _)| record).collect())
+}
+
+fn provenance_status(record: &FossilRecord) -> Result<&'static str, String> {
+    match (record.source_event_id.is_some(), record.source_event_hash.is_some()) {
+        (false, false) => Ok("legacy_unprovenanced"),
+        (true, true) => Ok("source_event_present_not_verified_by_local_cli"),
+        _ => Err(format!("Incomplete source-event provenance in fossil {}", record.fossil_id)),
     }
-    fossils
+}
+
+fn load_fossil_documents() -> Result<Vec<(FossilRecord, serde_json::Value)>, String> {
+    let fossil_dir = get_storage_dir("fossils");
+    let mut documents = Vec::new();
+    let entries = match fs::read_dir(&fossil_dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(documents),
+        Err(error) => return Err(format!("Failed to read fossil archive {}: {}", fossil_dir.display(), error)),
+    };
+    for entry in entries {
+        let path = entry.map_err(|error| format!("Failed to enumerate fossil archive {}: {}", fossil_dir.display(), error))?.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let content = fs::read_to_string(&path)
+            .map_err(|error| format!("Failed to read fossil candidate {}: {}", path.display(), error))?;
+        let value = serde_json::from_str::<serde_json::Value>(&content)
+            .map_err(|error| format!("Invalid fossil candidate {}: {}", path.display(), error))?;
+        let record = serde_json::from_value::<FossilRecord>(value.clone())
+            .map_err(|error| format!("Invalid fossil candidate {}: {}", path.display(), error))?;
+        if !record.verify_integrity() {
+            return Err(format!("Fossil candidate integrity check failed: {}", path.display()));
+        }
+        documents.push((record, value));
+    }
+    Ok(documents)
 }
 
 pub fn handle_fossil_strata() -> Result<(), String> {
-    let registry = FossilRegistry::from_records(load_fossils());
+    let registry = FossilRegistry::from_records(load_fossils()?);
     let strata = registry.strata();
     let output = json!({
         "success": true,
@@ -186,7 +206,7 @@ pub fn handle_fossil_strata() -> Result<(), String> {
 }
 
 pub fn handle_fossil_excavate(fossil_id: &str) -> Result<(), String> {
-    let registry = FossilRegistry::from_records(load_fossils());
+    let registry = FossilRegistry::from_records(load_fossils()?);
     let id = uuid::Uuid::parse_str(fossil_id)
         .map_err(|e| format!("Invalid fossil id '{}': {}", fossil_id, e))?;
 
@@ -196,6 +216,7 @@ pub fn handle_fossil_excavate(fossil_id: &str) -> Result<(), String> {
             "operation": "fossil_excavate",
             "read_only": true,
             "resurrection": "forbidden",
+            "provenance_status": provenance_status(&specimen.record)?,
             "specimen": specimen,
         }),
         Err(e) => json!({
@@ -210,7 +231,7 @@ pub fn handle_fossil_excavate(fossil_id: &str) -> Result<(), String> {
 }
 
 pub fn handle_fossil_decode(fossil_id: &str) -> Result<(), String> {
-    let registry = FossilRegistry::from_records(load_fossils());
+    let registry = FossilRegistry::from_records(load_fossils()?);
     let id = uuid::Uuid::parse_str(fossil_id)
         .map_err(|e| format!("Invalid fossil id '{}': {}", fossil_id, e))?;
 
@@ -220,6 +241,7 @@ pub fn handle_fossil_decode(fossil_id: &str) -> Result<(), String> {
             "operation": "fossil_decode",
             "fossil_id": record.fossil_id.to_string(),
             "extinct_lineage_id": record.extinct_lineage_id,
+            "provenance_status": provenance_status(record)?,
             "reading": record.reading(),
             "phenotype_markers": record.phenotype_markers,
         }),
@@ -235,21 +257,13 @@ pub fn handle_fossil_decode(fossil_id: &str) -> Result<(), String> {
 }
 
 pub fn handle_fossil_list() -> Result<(), String> {
-    let fossil_dir = get_storage_dir("fossils");
-    let mut fossils: Vec<serde_json::Value> = Vec::new();
-
-    if let Ok(entries) = fs::read_dir(&fossil_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(record) = serde_json::from_str::<serde_json::Value>(&content) {
-                        fossils.push(record);
-                    }
-                }
-            }
-        }
-    }
+    let documents = load_fossil_documents()?;
+    let fossils = documents.into_iter().map(|(record, value)| {
+        Ok(json!({
+            "provenance_status": provenance_status(&record)?,
+            "record": value,
+        }))
+    }).collect::<Result<Vec<_>, String>>()?;
 
     let output = json!({
         "success": true,

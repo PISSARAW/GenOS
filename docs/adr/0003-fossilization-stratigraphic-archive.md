@@ -37,6 +37,7 @@ Introduire la **fossilisation stratigraphique** comme couche d'archive **termina
 5. **Surface opérateur** : CLI `genos fossil record|list|strata|excavate|decode`, endpoints REST `/api/fossils*`, outils MCP `genos_fossil_record|list|excavate|strata`.
 6. **Irrécversibilité garantie** : `excavate` et `decode` sont **lecture seule** ; **aucune API** de résurrection ni de promotion d'un fossile en branche active. Les concepts résiduels ne peuvent entrer dans la boucle d'innovation que comme **candidats** soumis au gate de preuve (ADR 0002).
 7. **Biais de conservation explicite** : le seuil de signification `θ` et la qualité `Q` sont journalisés ; le mode et le hash sont vérifiés à l'excavation.
+8. **Relecture CLI fail-closed** : `list`, `strata`, `excavate` et `decode` refusent tout l'archive si un candidat JSON est illisible, mal formé ou invalide au contrôle d'intégrité. Les références `source_event_id` / `source_event_hash` des artefacts backend participent au hash et restent visibles après relecture. Le CLI local indique si ces références sont absentes (fossile ancien sans provenance) ou présentes mais non vérifiées localement : le hash vérifie le contenu, jamais l'auteur ni la provenance backend.
 
 Règles structurantes :
 
@@ -61,6 +62,8 @@ Règles structurantes :
 **Négatives** : nouvelles tables/colonnes (`fossils`, `fossil_strata`), extension du crate `genos-store`, nouvelle surface CLI/REST/MCP à maintenir, risque de dérive « entrepôt de blobs » si le mode moule est mal utilisé. Preuve rejouée le 2026-09-27 : implémentation et tests constatés (`crates/genos-orchestrator/tests/fossilization.rs`, `backend/tests/test_fossilization_service.js`, `test_fossilization_mcp.js`, `test_orchestrator_fossilization.js`) ; exécution bloquée dans cet environnement (binding natif `sqlite3` invalide, `ERR_DLOPEN_FAILED`), à rejouer sur environnement sain — aucune défaillance de code constatée.
 
 **Risques et garde-fous** : réécriture post-hoc → `payload_hash` vérifié à l'excavation ; surinterprétation d'un échantillon biaisé → `conservation_quality` et `θ` journalisés ; confusion avec la reprise → documentation et tests qui interdisent toute promotion ; secrets/contenu sensible → mode `ExternalMold`/`InternalMold` privilégié ; canonicalisation → ordre ASCII des sections aligné Rust/Node comme `AgentDNA`.
+
+Pour les lectures CLI, une archive avec un fichier candidat invalide n'est jamais présentée comme complète : le chargement échoue avec le chemin fautif. La présence d'une référence à un événement terminal backend ne constitue pas une preuve vérifiée par le CLI, car celui-ci ne consulte pas le registre SQLite qui permet de contrôler cette référence.
 
 ## Suivi
 

@@ -16,11 +16,11 @@ function buildBenchmark(problemSpec = {}) {
     return {
       id: problemSpec.id || 'custom-search',
       title: problemSpec.title || 'Custom search benchmark',
-      cases: problemSpec.cases.map((item, index) => ({
-        id: item.id || `case-${index + 1}`,
-        values: Array.isArray(item.values) ? item.values : [],
-        target: item.target
-      }))
+      cases: problemSpec.cases.map((item, index) => {
+        const values = Array.isArray(item.values) ? item.values : [];
+        if (values.length > MAX_CASE_VALUES) throw new Error(`Benchmark cases support at most ${MAX_CASE_VALUES} values.`);
+        return { id: item.id || `case-${index + 1}`, values, target: item.target };
+      })
     };
   }
 

@@ -54,7 +54,7 @@ class StrategyExecutionAdapter {
       payload: context
     });
 
-    const handler = HANDLERS[primitive];
+    const handler = Object.hasOwn(HANDLERS, primitive) ? HANDLERS[primitive] : null;
     if (handler) {
       return handler(context);
     }

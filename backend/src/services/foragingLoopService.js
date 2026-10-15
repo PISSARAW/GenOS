@@ -67,6 +67,7 @@ function createForagingReceipt(input) {
     actionVerified: Boolean(input.action.verified),
     measuredMs: input.measuredMs,
     observedUrl: input.observation && input.observation.currentUrl,
+    observedTextDigest: observedTextDigest(input.observation),
     observationGain: input.observation && input.observation.infoGain,
     screenshotPath: input.observation && input.observation.screenshotPath,
     fovealImageHash: input.fovealArtifact && input.fovealArtifact.sha256,
@@ -74,6 +75,12 @@ function createForagingReceipt(input) {
   };
   const evidenceRef = `sha256:${crypto.createHash('sha256').update(JSON.stringify(receipt)).digest('hex')}`;
   return { ...receipt, evidenceRef };
+}
+
+function observedTextDigest(observation) {
+  const text = observation && observation.observationText;
+  if (typeof text !== 'string') return null;
+  return `sha256:${crypto.createHash('sha256').update(text, 'utf8').digest('hex')}`;
 }
 
 function observationHistory(session, source) {

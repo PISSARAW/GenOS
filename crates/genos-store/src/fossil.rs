@@ -161,16 +161,18 @@ pub struct FossilRecord {
     pub phenotype_markers: Vec<Melanosome>,
     #[serde(default)]
     pub mineral_payload: Value,
+    /// Backend event reference; local excavation does not authenticate it.
+    #[serde(default)] pub source_event_id: Option<String>,
+    #[serde(default)] pub source_event_hash: Option<String>,
 }
 
-fn default_quality() -> f64 {
-    1.0
-}
+fn default_quality() -> f64 { 1.0 }
 
 impl FossilRecord {
     /// Recalcule le hash minéral : détecte toute réécriture post-hoc.
     pub fn verify_integrity(&self) -> bool {
-        self.payload_hash == mineral_hash_of(self)
+        self.source_event_id.is_some() == self.source_event_hash.is_some()
+            && self.payload_hash == mineral_hash_of(self)
     }
 
     pub fn reading(&self) -> PhenotypeReading {
@@ -249,16 +251,10 @@ pub struct FossilRegistry {
 }
 
 impl FossilRegistry {
-    pub fn new() -> Self {
-        Self {
-            records: Vec::new(),
-        }
-    }
+    pub fn new() -> Self { Self::default() }
 
     /// Reconstruit un registre à partir de fossiles persistés (relecture).
-    pub fn from_records(records: Vec<FossilRecord>) -> Self {
-        Self { records }
-    }
+    pub fn from_records(records: Vec<FossilRecord>) -> Self { Self { records } }
 
     /// Fossilisation minimale (rétro-compatible).
     pub fn fossilize(&mut self, lineage_id: &str, reason: &str) -> FossilRecord {
@@ -281,6 +277,7 @@ impl FossilRegistry {
             soft_parts_lost: ctx.soft_parts_lost,
             phenotype_markers: ctx.phenotype_markers,
             mineral_payload: ctx.mineral_payload,
+            source_event_id: None, source_event_hash: None,
         };
         record.payload_hash = mineral_hash_of(&record);
         self.records.push(record.clone());
@@ -378,7 +375,7 @@ fn canonical_json(value: &Value) -> Value {
 
 /// Hash minéral canonique : SHA-256 de la matière préservée (hors hash).
 fn mineral_hash_of(record: &FossilRecord) -> String {
-    let material = serde_json::json!({
+    let mut material = serde_json::json!({
         "lineage_id": record.extinct_lineage_id,
         "reason": record.reason,
         "recorded_at": record.recorded_at,
@@ -388,6 +385,10 @@ fn mineral_hash_of(record: &FossilRecord) -> String {
         "phenotype_markers": record.phenotype_markers,
         "mineral_payload": record.mineral_payload,
     });
+    if let Some(source_event_id) = &record.source_event_id {
+        material["source_event_id"] = serde_json::json!(source_event_id);
+        material["source_event_hash"] = serde_json::json!(record.source_event_hash);
+    }
     let bytes = serde_json::to_vec(&canonical_json(&material)).unwrap_or_default();
     let mut hasher = Sha256::new();
     hasher.update(&bytes);

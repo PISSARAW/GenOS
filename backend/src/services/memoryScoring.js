@@ -6,6 +6,7 @@ const VOCABULARY = [
 ];
 
 const VECTOR_DIM = 768;
+const MAX_VECTOR_DIM = 4096;
 const MAX_TEXT_LENGTH = 100_000;
 const MAX_TOKEN_COUNT = 4_096;
 const MAX_TOKEN_LENGTH = 256;
@@ -24,28 +25,41 @@ function hashTokenIntoVector(term, vec, options = {}) {
 }
 
 function textToVector(text = '', dim = VECTOR_DIM) {
-  const vec = new Float64Array(dim);
+  const dimension = vectorDimension(dim);
+  const vec = new Float64Array(dimension);
+  const tokens = tokenize(text);
+  if (tokens.length) addTokenFeatures(tokens, vec, dimension);
+  return normalizedVector(vec, dimension);
+}
+
+function vectorDimension(dim) {
+  return Number.isSafeInteger(dim) && dim > 0 ? Math.min(dim, MAX_VECTOR_DIM) : VECTOR_DIM;
+}
+
+function tokenize(text) {
   const normalized = String(text || '').slice(0, MAX_TEXT_LENGTH).toLowerCase().trim();
-  if (!normalized) return Array.from(vec);
+  if (!normalized) return [];
+  return normalized.split(/[\s,._\-\(\)]+/).filter(Boolean).slice(0, MAX_TOKEN_COUNT);
+}
 
-  const tokens = normalized.split(/[\s,._\-\(\)]+/).filter(Boolean).slice(0, MAX_TOKEN_COUNT);
-  if (tokens.length === 0) return Array.from(vec);
-
+function addTokenFeatures(tokens, vec, dimension) {
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
-    hashTokenIntoVector(token, vec, { dim, weight: 1.0 });
+    hashTokenIntoVector(token, vec, { dim: dimension, weight: 1.0 });
     if (i < tokens.length - 1) {
-      hashTokenIntoVector(`${token}_${tokens[i + 1]}`, vec, { dim, weight: 1.5 });
+      hashTokenIntoVector(`${token}_${tokens[i + 1]}`, vec, { dim: dimension, weight: 1.5 });
     }
   }
+}
 
+function normalizedVector(vec, dimension) {
   let sumSq = 0;
-  for (let i = 0; i < dim; i++) {
+  for (let i = 0; i < dimension; i++) {
     sumSq += vec[i] * vec[i];
   }
   const norm = Math.sqrt(sumSq);
   if (norm > 0) {
-    for (let i = 0; i < dim; i++) {
+    for (let i = 0; i < dimension; i++) {
       vec[i] = Number((vec[i] / norm).toFixed(6));
     }
   }
@@ -56,7 +70,7 @@ function cosineSimilarity(vecA = [], vecB = []) {
   if (!vecA.length || !vecB.length) return 0;
   // Refuse les comparaisons inter-dimensions : tronquer masquerait une
   // incompatibilité d'embedding (faux positifs silencieux).
-  if (vecA.length !== vecB.length) return 0;
+  if (vecA.length !== vecB.length || vecA.length > MAX_VECTOR_DIM) return 0;
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;

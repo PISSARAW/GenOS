@@ -35,6 +35,9 @@ async function run() {
     const exploit = await forageStep({ sessionId, elapsedTimeSec: 1, iteration: 1 });
     assert.equal(exploit.decision, 'EXPLOIT_PATCH');
     assert.ok(exploit.fovealArtifact && fs.existsSync(exploit.fovealArtifact.outputPath));
+    assert.equal(exploit.receipt.observedTextDigest,
+      `sha256:${crypto.createHash('sha256').update(exploit.observation.observationText, 'utf8').digest('hex')}`,
+      'the receipt must bind the text used by the foraging decision');
     const cropBytes = fs.readFileSync(exploit.fovealArtifact.outputPath);
     assert.equal(crypto.createHash('sha256').update(cropBytes).digest('hex'), exploit.fovealArtifact.sha256,
       'the crop receipt hash must bind the actual PNG bytes');
@@ -59,6 +62,9 @@ async function run() {
     assert.equal(departure.decision, 'PATCH_DEPARTURE');
     assert.equal(departure.action.verified, true);
     assert.equal(departure.observationAfter.currentUrl, `http://127.0.0.1:${port}/next`);
+    assert.equal(departure.receipt.observedTextDigest,
+      `sha256:${crypto.createHash('sha256').update(departure.observationAfter.observationText, 'utf8').digest('hex')}`,
+      'the navigation receipt must bind the newly observed text');
     const expectedEvidence = ['new', 'patch', 'observed'];
     const observed = new Set(departure.observationAfter.observationText.split(/\s+/));
     const evidenceCoverage = expectedEvidence.filter((term) => observed.has(term)).length / expectedEvidence.length;
