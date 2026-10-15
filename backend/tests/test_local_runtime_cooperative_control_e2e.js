@@ -206,7 +206,7 @@ test('cancel ACK waits for a safe point and disconnect releases the child cleanl
     await assertPending(work, 'cancelled safe point waits for shutdown');
     const before = await observe(child, 'listeners');
     assert.deepEqual(
-      [before.messageListeners, before.disconnectListeners], [2, 1],
+      [before.messageListeners, before.disconnectListeners], [2, 2],
       'child control requests must not leak listeners'
     );
     assert.deepEqual(

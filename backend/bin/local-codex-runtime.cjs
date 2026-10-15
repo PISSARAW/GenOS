@@ -73,7 +73,6 @@ async function main(rawInput) {
   Object.assign(state, unified);
   state.allowFileEdits = state.executionPolicy.allowFileEdits === true;
   state.primaryStrategy = state.strategyContract.selected_strategy?.primary || 'deterministic_direct_path';
-
   const services = { strategyExecutionAdapter, agentMemory };
   await buildPromptContext(state, services);
   state.baseFramedPrompt = state.framedPrompt;
@@ -81,7 +80,6 @@ async function main(rawInput) {
   captureBarrier.bind(state);
   await runMission(state, services);
 }
-
 async function runMission(state, services) {
   const checkpoint = require('../src/services/localRuntimeCheckpoint');
   emitEvent(state, {
@@ -100,10 +98,12 @@ async function runMission(state, services) {
     });
     if (!state.resumeCheckpoint) await checkpoint.save(state, 'prepared');
     await captureBarrier.safePoint(state.resumeCheckpoint?.phase || 'prepared');
+    reply = state.resumeCheckpoint?.reply || reply;
     if (!reply) {
       reply = await generate();
       await checkpoint.save(state, 'generated', reply);
       await captureBarrier.safePoint('generated');
+      reply = state.resumeCheckpoint?.reply || reply;
     }
     reply = await refreshObservedReply(state, reply, { generate, checkpoint });
     require('../src/services/localArtifactWriter').writeArtifacts(reply, state);

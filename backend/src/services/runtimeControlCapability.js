@@ -1,5 +1,7 @@
 'use strict';
 
+const lease = require('./runtimeControlCapabilityLease');
+
 const PROTOCOL_VERSION = 1;
 const READY_TYPE = 'genos-runtime-control-ready';
 const ACTIONS = Object.freeze(['pause', 'resume', 'cancel', 'resume_checkpoint']);
@@ -30,7 +32,30 @@ function revoke(child) {
   attestations.delete(child);
 }
 
+function renew(child, message) {
+  const binding = bindings.get(child);
+  const attestation = attestations.get(child);
+  if (!binding) return false;
+  if (binding.poisoned) return false;
+  if (!attestation) {
+    binding.readySeen = true;
+    binding.poisoned = true;
+    return false;
+  }
+  const nextLease = lease.renew(attestation.lease, message, {
+    lineage: attestation.lineage
+  });
+  if (!nextLease) {
+    binding.poisoned = true;
+    revoke(child);
+    return false;
+  }
+  attestations.set(child, Object.freeze({ ...attestation, lease: nextLease }));
+  return true;
+}
+
 function observe(child, message) {
+  if (message?.type === lease.RENEW_TYPE) return renew(child, message);
   if (message?.type !== READY_TYPE) return false;
   const binding = bindings.get(child);
   if (!binding || binding.readySeen || !validReady(child, message)) {
@@ -45,7 +70,8 @@ function observe(child, message) {
   attestations.set(child, Object.freeze({
     protocolVersion: PROTOCOL_VERSION,
     lineage: Object.freeze({ ...message.lineage }),
-    actions: ACTIONS
+    actions: ACTIONS,
+    lease: lease.start()
   }));
   return true;
 }
@@ -80,6 +106,7 @@ function supports(child, action, protocolVersion = PROTOCOL_VERSION) {
   const valid = child?.connected === true && binding && !binding.poisoned && attestation
     && protocolVersion === attestation.protocolVersion
     && attestation.actions.includes(action)
+    && lease.fresh(attestation.lease)
     && exactLineage(attestation.lineage, child.genosControlIdentity);
   if (!valid) revoke(child);
   return Boolean(valid);

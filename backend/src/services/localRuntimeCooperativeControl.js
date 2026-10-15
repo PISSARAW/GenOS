@@ -2,6 +2,8 @@
 
 const crypto = require('node:crypto');
 const { canonicalJson } = require('./aTeam/variants/variantExecutionHelpers');
+const checkpoints = require('./localRuntimeCheckpoint');
+const controlLeases = require('./localRuntimeControlLease');
 
 const ACTIONS = ['pause', 'resume', 'cancel', 'resume_checkpoint'];
 const LINEAGE_FIELDS = [
@@ -15,6 +17,7 @@ const runtime = {
   pending: { pause: null, cancel: null, resume_checkpoint: null },
   paused: null,
   terminating: false,
+  controlLease: null,
   seen: new Set(),
   seenOrder: []
 };
@@ -70,7 +73,7 @@ function validRequest(message) {
     && exact(message.lineage, runtime.binding.lineage);
 }
 
-function validContext(context, state) {
+function validPreparedContext(context, state) {
   return exactKeys(context, CONTEXT_KEYS)
     && context.kind === 'genos-local-runtime-control'
     && context.version === 1 && context.phase === 'prepared'
@@ -92,16 +95,24 @@ function validCheckpointEvidence(checkpoint) {
       && ref.length > 0 && Buffer.byteLength(ref) <= 1024);
 }
 
-function validCheckpoint(checkpoint, state) {
+function checkpointIntegrity(checkpoint) {
   const keys = ['checkpointId', 'checkpointHash', 'contextHash', 'context',
     'contextSize', 'evidenceRefs'];
   if (!exactKeys(checkpoint, keys) || !validCheckpointProof(checkpoint)
-    || !validContext(checkpoint.context, state)
     || !validCheckpointEvidence(checkpoint)) return false;
   const json = canonicalJson(checkpoint.context);
   return checkpoint.contextHash === sha256(json)
     && checkpoint.contextSize === Buffer.byteLength(json)
     && checkpoint.contextSize <= 256 * 1024;
+}
+
+function resumeState(checkpoint, state, safePhase) {
+  if (!checkpointIntegrity(checkpoint)) return null;
+  if (validPreparedContext(checkpoint.context, state)) {
+    return safePhase === 'prepared' ? { phase: 'prepared', reply: null } : null;
+  }
+  const resumed = checkpoints.cooperativeResume(checkpoint.context, state);
+  return resumed && ['prepared', 'generated'].includes(safePhase) ? resumed : null;
 }
 
 function send(message) {
@@ -148,10 +159,11 @@ async function cancel(request) {
 }
 
 async function restore(request) {
-  if (!runtime.paused || runtime.terminating
-    || runtime.paused.phase !== 'prepared'
-    || !validCheckpoint(request.checkpoint, runtime.binding.state)) return;
-  runtime.binding.state.resumeCheckpoint = { phase: 'prepared', reply: null };
+  if (!runtime.paused || runtime.terminating) return;
+  const resumed = resumeState(request.checkpoint, runtime.binding.state,
+    runtime.paused.phase);
+  if (!resumed) return;
+  runtime.binding.state.resumeCheckpoint = resumed;
   if (await ack(request, 'RUNTIME_CHECKPOINT_APPLIED')) releasePaused();
 }
 
@@ -191,7 +203,11 @@ function bind(state) {
   if (!state || typeof state.framedPrompt !== 'string' || !state.framedPrompt
     || !complete(exactLineage)) return false;
   runtime.binding = { state, lineage: Object.freeze(exactLineage) };
-  void send(readyMessage(runtime.binding));
+  void send(readyMessage(runtime.binding)).then((sent) => {
+    if (sent && !runtime.controlLease) {
+      runtime.controlLease = controlLeases.start(runtime.binding.lineage);
+    }
+  });
   return true;
 }
 
@@ -216,9 +232,9 @@ async function cancelAtSafePoint(request, phase) {
 }
 
 async function restoreAtSafePoint(request, phase) {
-  if (phase !== 'prepared'
-    || !validCheckpoint(request.checkpoint, runtime.binding.state)) return;
-  runtime.binding.state.resumeCheckpoint = { phase: 'prepared', reply: null };
+  const resumed = resumeState(request.checkpoint, runtime.binding.state, phase);
+  if (!resumed) return;
+  runtime.binding.state.resumeCheckpoint = resumed;
   const sent = await ack(request, 'RUNTIME_CHECKPOINT_APPLIED');
   if (!sent) throw Object.assign(new Error('Checkpoint proof could not be sent.'),
     { code: 'RUNTIME_CONTROL_DISCONNECTED' });
@@ -238,6 +254,8 @@ async function safePoint(phase) {
 }
 
 function disconnect() {
+  runtime.controlLease?.stop();
+  runtime.controlLease = null;
   if (runtime.paused) releasePaused(Object.assign(
     new Error('Runtime control channel disconnected while quiescent.'),
     { code: 'RUNTIME_CONTROL_DISCONNECTED' }));

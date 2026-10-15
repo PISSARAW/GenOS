@@ -4,6 +4,8 @@ const KIND = 'genos-local-runtime';
 const VERSION = 1;
 const SAFE_PHASES = new Set(['prepared', 'generated', 'evaluated']);
 const MAX_REPLY_BYTES = 1024 * 1024;
+const MAX_CONTROL_REPLY_BYTES = 256 * 1024;
+const CHECKPOINT_KEYS = ['kind', 'phase', 'promptHash', 'reply', 'version'];
 
 function hash(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -16,6 +18,11 @@ function parse(row) {
   catch (_) { throw invalid('Local runtime checkpoint JSON is invalid.'); }
   assertShape(checkpoint);
   return checkpoint;
+}
+
+function exactKeys(value, keys) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join('\0') === [...keys].sort().join('\0');
 }
 
 function assertShape(checkpoint) {
@@ -36,6 +43,23 @@ function assertReply(checkpoint) {
   }
   if (['generated', 'evaluating', 'evaluated', 'completed'].includes(checkpoint.phase)
     && !checkpoint.reply) throw invalid('Local runtime checkpoint reply is missing.');
+}
+
+function build(state, phase, reply) {
+  const checkpoint = { kind: KIND, version: VERSION, phase,
+    promptHash: hash(state.framedPrompt), reply: reply == null ? null : String(reply) };
+  assertShape(checkpoint);
+  return checkpoint;
+}
+
+function cooperativeResume(context, state) {
+  if (!exactKeys(context, CHECKPOINT_KEYS) || context.phase !== 'generated'
+    || context.promptHash !== hash(state?.framedPrompt || '')
+    || typeof context.reply !== 'string' || !context.reply
+    || Buffer.byteLength(context.reply) > MAX_CONTROL_REPLY_BYTES) return null;
+  try { assertShape(context); }
+  catch (_) { return null; }
+  return { phase: context.phase, reply: context.reply };
 }
 
 function invalid(message) {
@@ -95,10 +119,10 @@ async function save(state, phase, reply) {
   }
   const db = await require('../db').getDatabase();
   const payload = { workspaceId: state.mission.workspaceId, status: phase,
-    currentTask: state.prompt, checkpoint: { kind: KIND, version: VERSION,
-      phase, promptHash: hash(state.framedPrompt), reply: reply == null ? null : String(reply) } };
+    currentTask: state.prompt, checkpoint: build(state, phase, reply) };
   return require('./resilienceService').persistIntermediateState(db,
     state.mission.agentId, payload, 'local-runtime-checkpoint');
 }
 
-module.exports = { captured, resumable, assertResumeRequest, load, save };
+module.exports = { captured, resumable, assertResumeRequest, load, save,
+  build, cooperativeResume, MAX_CONTROL_REPLY_BYTES };

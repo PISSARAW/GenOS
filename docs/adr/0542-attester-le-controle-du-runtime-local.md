@@ -1,6 +1,6 @@
 # ADR 0542 — Attester le contrôle du runtime local
 
-- **Statut** : Accepté
+- **Statut** : Accepté ; reprise `generated` étendue par l'ADR 0547
 - **Date** : 2026-10-15
 - **Domaine** : runtime local, orchestration, IPC, reprise
 - **Décideurs** : Mainteneurs GenOS
@@ -68,8 +68,9 @@ immobilisé entre deux phases observables.
 
 - Cette capacité existe seulement pour le runtime local livré avec GenOS. Un
   runtime externe ou distant doit annoncer et prouver le même contrat.
-- La restauration ne reconstitue pas encore les phases `generated` ou
-  `evaluated`, ni un état arbitraire du modèle ou des outils.
+- La reprise `generated` est ajoutée par l'ADR 0547. La reprise coopérative
+  `evaluated` et la restauration d'un état arbitraire du modèle ou des outils
+  restent exclues.
 - L'attestation est liée à la vie du processus et n'est pas réhydratée après un
   redémarrage du backend.
 - La capture et le contrôle partagent une barrière séquentielle ; une capture
