@@ -1,8 +1,8 @@
 # Orchestration GenOS
 
-- **Statut** : Partiel ; les contrôles mission et les workers sont actifs, mais toutes les structures morphologiques ne dirigent pas encore le chemin principal d'exécution.
+- **Statut** : Actif sur le chemin backend ; sélection, composition et une réévaluation morphologique pilotent le dispatch, sous les limites de budget et de preuve.
 - **Portée** : cycle d'une mission backend, du routage initial à la vérification, la clôture ou la reprise.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-15
 
 ## Contrat opérationnel courant — référence d'implémentation
 
@@ -18,12 +18,19 @@ missions et leurs workers ; le crate Rust `genos-orchestrator` exécute une simu
 locale de son écosystème. Le crate Rust ne lance pas à lui seul les workers backend, ne
 crée pas leurs workspaces et ne certifie pas le livrable d'une mission Node.
 
-Le chemin central prépare d'abord la morphologie demandée, puis le planner Morphogenèse
-sélectionne une des huit topologies canoniques avant la construction définitive du plan
-d'autonomie. Trinity et A-Team utilisent leurs planificateurs dédiés; les six autres
-topologies passent par leur composeur canonique. Le graphe final est lié aux mêmes
-affectations bornées que le dispatcher lance. Cette composition initiale ne constitue
-pas une transition entre deux topologies actives. Le runtime Morphogenèse V2 est
+Le chemin central prépare d'abord la morphologie demandée. Le planner Morphogenèse peut
+retenir une topologie ou compiler une expression qui combine plusieurs des huit
+topologies canoniques. Chaque feuille topologique compose ses workers; le dispatch
+conserve leur nœud, leur topologie et leur variant. Après la première vague, les scores
+d'évidence, les échecs et la dispersion peuvent reconstruire le graphe de continuation
+avec `SEQUENCE`, `COMPETE` ou `FEDERATE`, puis réaffecter les survivants sans créer un
+nouveau budget. À la barrière finale, le runtime exécute l'opérateur composite sur les
+dossiers de preuve vérifiés.
+
+Cette adaptation intervient à une frontière de continuation, lorsque les workers sont
+quiescents. Elle ne modifie pas un worker pendant une inférence et ne promet pas de
+résoudre tout problème : l'absence de capacité, de budget, de preuve ou d'affectation
+réutilisable bloque ou conserve la forme courante. Le runtime Morphogenèse V2 est
 disponible en **shadow** opt-in (`GENOS_MORPHOGENESIS_V2_SHADOW=1|true|on`) ; ce chemin
 évalue une proposition sans transition ni commit. Son chemin de commit exige des
 adaptateurs d'adjudication Rust et de gouvernance et n'est pas le chemin de production
@@ -44,14 +51,21 @@ flowchart TD
     ROUTE -->|primitive / procédure| DIRECT[Exécution minimale]
     ROUTE -->|worker ou collectif| CONTRACT[Contrat stratégie et budget]
     CONTRACT --> PREP[Préparation morphologique et contraintes explicites]
-    PREP --> SELECT[Sélection Morphogenèse parmi huit topologies]
-    SELECT --> PLAN[Composition canonique et AutonomyPlan]
-    PLAN --> BIND[Liaison du graphe aux affectations]
+    PREP --> SELECT[Sélection ou expression Morphogenèse]
+    SELECT --> PLAN[Composition des feuilles topologiques]
+    PLAN --> BIND[Liaison nœuds ↔ affectations]
     BIND --> SHADOW[Prévol Morphogenèse V2 optionnel]
     SHADOW --> DISPATCH[Dispatch des affectations retenues]
     DISPATCH --> WORK[Workers et workspaces isolés]
-    WORK --> EVIDENCE[Barrière de quiescence et dossiers de preuve]
-    EVIDENCE --> GATE[Gate de clôture : preuve et invariants]
+    WORK --> EVIDENCE[Évaluation de la première vague]
+    EVIDENCE --> ADAPT{Forme encore adaptée ?}
+    ADAPT -->|preuves faibles, dispersées ou échec| REGRAPH[Recompiler COMPETE, FEDERATE ou SEQUENCE]
+    REGRAPH --> REBIND[Réaffecter les survivants]
+    REBIND --> CONT[Continuation bornée]
+    ADAPT -->|oui| CONT
+    CONT --> BARRIER[Barrière de quiescence et dossiers de preuve]
+    BARRIER --> SYNTH[Exécution de l'opérateur composite]
+    SYNTH --> GATE[Gate de clôture : preuve et invariants]
     GATE -->|satisfait| STORE[Résultat vérifié et mémoire]
     GATE -->|manque ou échec| RECOVER[Reprise bornée, report ou blocage]
 ```
@@ -64,10 +78,11 @@ frontières et compensations.
 | --- | --- | --- |
 | Profil et route, si le pont de routage est utilisé | `requestProfilerService`, `executionRouterService`, `bestKnownResultService` | classe de requête, route choisie, résultat réutilisable éventuel |
 | Contrat de stratégie | `strategyContractService` | contrat et portfolio autorisés pour la mission |
-| Préparation et sélection morphologiques | `morphogenesisRuntime.prepareMorphology`, `morphogenesisPlannerService` et `missionTopologyActivation` | topologie canonique explicite ou sélectionnée avec profil et budget réels |
-| Plan d'autonomie | `autonomousOrchestrationService`, planificateurs Trinity/A-Team et `biologicalTopologyService.composeMode` | phases réalisables, workers topologiques, budget, gates, organisation |
+| Préparation et sélection morphologiques | `morphogenesisRuntime.prepareMorphology`, `morphogenesisPlannerService` et `missionTopologyActivation` | topologie ou expression composite, profil et budget réels |
+| Plan d'autonomie | `autonomousOrchestrationService`, planificateurs dédiés et `biologicalTopologyService.composeMode` | feuilles topologiques, workers, budget, gates et organisation |
 | Dispatch | `agentRuntimeAdapter/missionWorkers.js`, `agentFleetService.js` | affectations sélectionnées comparées aux workers effectivement créés |
-| Exécution et preuve | `agentFleetService.js`, `agentEvidenceService.js` | dossiers, événements d'état et barrière de preuve/quiescence |
+| Réévaluation | `agentRoundService.js`, `missionMorphogenesisContinuation.js` | signaux mesurés, nouveau graphe versionné et reçu de réaffectation, ou motif de conservation |
+| Exécution et preuve | `agentFleetService.js`, `agentEvidenceService.js`, `missionMorphologyExecution.js` | dossiers, barrière de preuve et résultat de l'opérateur composite |
 | Clôture | `homeostasisContractService.js` et collecte de preuve mission | invariants et preuves requis satisfaits, ou motif de blocage |
 | Reprise | `workerFailureRecoveryService.js`, `agentRecoveryService.js` | décision bornée : réparer, forker, bisecter, remplacer ou escalader |
 
@@ -91,9 +106,9 @@ frontières et compensations.
    variants sont maintenant branchés au superviseur. Les douze escalades R3 datent d'avant
    ces corrections ; aucune campagne post-correctifs n'a qualifié la voie complète. Voir
    [leur contrat et leurs gates](topologies/trinity.md).
-5. **Le dispatch doit correspondre à la morphologie sélectionnée.** Le planner construit
-   des candidats pour les huit topologies; la sélection retenue compose les workers du
-   plan principal et la racine du graphe reçoit exactement ces affectations. Un échec de
+5. **Le dispatch doit correspondre au graphe morphologique.** Le planner construit
+   des candidats pour les huit topologies; chaque feuille retenue compose les workers du
+   plan principal et reçoit exactement ses affectations. Un échec de
    composition, de capacité ou de budget bloque la mission avant la création des workers.
 6. **Les organisations ne sont pas des topologies.** `specialist_expert_committee`,
    `red_blue_coevolution` et les autres organisations sont des politiques d'organisation.
@@ -105,16 +120,20 @@ frontières et compensations.
 8. **La clôture exige les deux familles de conditions.** `homeostasisSatisfied` nécessite
    les invariants et les preuves requises ; l'absence d'une preuve obligatoire maintient
    la mission dans un état bloqué ou incomplet.
+9. **Une réévaluation ne crée pas de budget.** Elle répartit le pool de continuation déjà
+   accordé. Les survivants conservent leur identité et leur contrat de worker; la
+   morphogenèse change leur rôle topologique et trace la réaffectation.
 
 ### État des voies morphologiques
 
 | Voie | État vérifié | Ce que cet état ne garantit pas |
 | --- | --- | --- |
-| Préparateur de mission | conserve `single_agent` et `parallel_forks` comme formes historiques et accepte les huit topologies canoniques explicites | qu'une transition inter-topologies soit autorisée |
-| Huit composeurs de `biologicalTopologyService.composeMode` | la topologie sélectionnée pilote le plan principal; Trinity et A-Team gardent leurs planificateurs dédiés | qu'une composition réussie satisfasse les gates de preuve finaux |
-| Planner Morphogenèse | sélectionne avant le plan final, puis reçoit les affectations composées et les lie à la racine du graphe | qu'une transition ultérieure puisse contourner le registre d'adaptateurs |
+| Préparateur de mission | conserve `single_agent` et `parallel_forks` comme formes historiques et accepte une topologie explicite ou `morphologyExpression` | que l'expression soit réalisable dans le budget |
+| Huit composeurs de `biologicalTopologyService.composeMode` | chaque feuille du graphe composite peut déterminer une partie du dispatch | qu'une composition réussie satisfasse les gates de preuve finaux |
+| Planner Morphogenèse | sélectionne ou compose avant le plan final, puis lie les affectations à leurs feuilles | qu'une transition gouvernée puisse contourner le registre d'adaptateurs |
 | Catalogue central de variants | découvre les variants projetés de six registres locaux et expose leur maturité | qu'un variant soit automatiquement élu ou interprété uniformément |
-| Composition `NEST`, `PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`, `BRIDGE`, `FEDERATE` | contrats et éléments de runtime existent selon les opérateurs | qu'une expression composite arbitraire soit compilée puis exécutée de bout en bout |
+| Composition `NEST`, `PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`, `BRIDGE`, `FEDERATE` | les feuilles pilotent le dispatch et le runtime applique l'opérateur aux résultats vérifiés | que toute combinaison soit typée, financée ou munie des adaptateurs nécessaires |
+| Réévaluation de continuation | les preuves faibles produisent `COMPETE`, la dispersion `FEDERATE`, les autres adaptations `SEQUENCE`; un reçu versionne le changement | une mutation en cours d'inférence ou des vagues illimitées |
 | Transition Morphogenèse inter-topologies | adaptateur testé Trinity → A-Team pour les revendications vérifiées | qu'une transition sans adaptateur soit permise ; elle échoue fermé |
 | Runtime Morphogenèse V2 | prévol shadow activable par variable d'environnement | qu'il remplace le chemin de mission ou autorise une mutation |
 

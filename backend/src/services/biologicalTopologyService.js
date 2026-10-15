@@ -18,8 +18,8 @@ function normalizeMode(mode) {
   return key === 'holobiont' ? 'holobionte' : key;
 }
 
-async function applyOrganization({ db, orchestratorId, organization, reason }) {
-  if (!organization || !orchestratorId) return;
+async function applyOrganization({ db, orchestratorId, organization, reason, enabled = true }) {
+  if (!enabled || !organization || !orchestratorId) return;
   const dynamicOrganization = require('./dynamicOrganizationService');
   await dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId });
 }
@@ -118,7 +118,8 @@ async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
       mission: `${member.mission}\n\nVARIANT API: use genos_topology_session with operation "variant", session_id, variant_action from [${actions.join(', ')}], and variant_input containing the action arguments. Cite the returned operation receipt. Generic apply/branch/promote are disabled for this specialized session.`
     }));
   }
-  await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Syncytium mode activation' });
+  await applyOrganization({ db, orchestratorId, organization: session.organization,
+    reason: 'Syncytium mode activation', enabled: options.activateOrganization !== false });
   return session;
 }
 
@@ -136,7 +137,8 @@ async function composeHolobionte({ db, orchestratorId, mission, options = {} }) 
     composition.hostSession = opened.session;
     composition.runtimeStatus = 'AWAITING_ADMISSION';
   }
-  await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Holobionte mode activation' });
+  await applyOrganization({ db, orchestratorId, organization: composition.organization,
+    reason: 'Holobionte mode activation', enabled: options.activateOrganization !== false });
   return composition;
 }
 
@@ -144,19 +146,22 @@ async function composeMetapopulation({ db, orchestratorId, mission, options = {}
   const composition = await metapopulationCoordinationService.createMetapopulationSession(mission, {
     ...options, db, orchestratorId
   });
-  await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Metapopulation mode activation' });
+  await applyOrganization({ db, orchestratorId, organization: composition.organization,
+    reason: 'Metapopulation mode activation', enabled: options.activateOrganization !== false });
   return composition;
 }
 
 async function composeRhizome({ db, orchestratorId, mission, options = {} }) {
   const session = await rhizomeCoordinationService.composeRhizome(mission, { ...options, db });
-  await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Rhizome mode activation' });
+  await applyOrganization({ db, orchestratorId, organization: session.organization,
+    reason: 'Rhizome mode activation', enabled: options.activateOrganization !== false });
   return session;
 }
 
 async function composeBiome({ db, orchestratorId, mission, options = {} }) {
   const composition = await biomeCoordinationService.composeBiome(mission, { ...options, db });
-  await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Biome mode activation' });
+  await applyOrganization({ db, orchestratorId, organization: composition.organization,
+    reason: 'Biome mode activation', enabled: options.activateOrganization !== false });
   return composition;
 }
 

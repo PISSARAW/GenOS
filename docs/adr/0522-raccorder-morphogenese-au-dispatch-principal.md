@@ -36,17 +36,35 @@ instanciés comme workers. Tous les membres exécutables doivent tenir dans le f
 et recevoir leur allocation minimale; sinon la mission échoue avant toute création de
 worker.
 
-La sélection et la composition initiale ne constituent pas une transition entre deux
-topologies actives. Les transitions ultérieures continuent d'exiger un adaptateur, une
-adjudication et les reçus de gouvernance prévus par le runtime Morphogenèse V2.
+Une expression composite pilote toutes ses feuilles `TOPOLOGY`. Chaque worker porte
+l'identité du nœud, de la topologie et du variant qui l'a composé. Le fan-out et le
+budget s'appliquent à l'ensemble de la flotte. Après la barrière de preuve, le runtime
+exécute l'opérateur racine sur les résultats vérifiés de ses feuilles.
+
+À la frontière entre la première vague et la continuation, l'orchestrateur mesure le
+score moyen d'évidence, sa dispersion et les échecs. Lorsque la politique adaptative
+l'exige, il relance le planner et versionne une nouvelle expression : `COMPETE` pour
+une preuve faible ou un échec, `FEDERATE` pour une forte dispersion, `SEQUENCE` dans
+les autres adaptations. Les survivants gardent leur identité, leur contrat et le budget
+de continuation déjà accordé. Le reçu conserve les graphes source et cible, les signaux
+observés et la nouvelle feuille de chaque worker.
+
+Une mission peut fournir `morphologyExpression` et `morphogenesisPolicy`; le pont accepte
+aussi leurs alias en snake case. Cette réaffectation à une frontière quiescente ne
+transfère pas l'état interne d'une topologie active. Un tel transfert continue d'exiger
+un adaptateur, une adjudication et les reçus de gouvernance de Morphogenèse V2.
 
 ## Conséquences
 
 - Les huit topologies canoniques peuvent maintenant déterminer les workers du chemin
   principal.
-- Le graphe final et `dispatchWorkers` portent les mêmes affectations.
+- Les graphes simples ou composites et `dispatchWorkers` portent les mêmes affectations.
 - Les sessions et politiques propres aux six topologies biologiques sont créées lors
   de leur composition.
+- Les preuves de la première vague peuvent modifier la forme de la continuation sans
+  augmenter son budget ni changer le contrat des workers survivants.
+- L'adaptation intervient actuellement à une frontière de continuation; elle ne forme
+  pas encore une suite illimitée d'époques adaptatives.
 - Une capacité ou un budget insuffisant bloque la mission au lieu de réduire
   silencieusement la forme sélectionnée.
 - Le shadow V2 reste non committant et ne devient pas une autorisation de transition.

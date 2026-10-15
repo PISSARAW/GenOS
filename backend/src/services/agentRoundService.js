@@ -80,7 +80,7 @@ function budgetFromPrevious(previous = {}) {
 }
 
 function queueContinuationMission(context) {
-  const { state, survivor, continuation, index, orchestratorId } = context;
+  const { state, survivor, continuation, index, orchestratorId, adaptation } = context;
   const previous = state.workers.get(survivor.agentId);
   const assignedTokens = continuationTokens(continuation, index);
   const report = extractEvidenceReport(survivor.payload) || {};
@@ -88,17 +88,19 @@ function queueContinuationMission(context) {
   const budget = budgetFromPrevious(previous);
   const continuationId = `cont_${crypto.randomUUID()}`;
   const diffPrompt = buildContinuationContext(previous, report, assignedTokens);
+  const morphology = continuationMorphology(survivor, adaptation);
   const mission = {
     ...previous,
     continuationId,
-    prompt: diffPrompt,
+    prompt: morphology ? morphologyPrompt(diffPrompt, morphology, adaptation.receipt) : diffPrompt,
     executionBudget: {
       ...previous.executionBudget,
       tokens: assignedTokens,
       events: Math.max(1, budget.events - consumed.events),
       costUsd: Math.max(0, budget.costUsd - consumed.cost)
     },
-    budgetRound: { stage: 'continuation', orchestratorId }
+    budgetRound: { stage: 'continuation', orchestratorId },
+    ...(morphology || {})
   };
   pendingContinuations.set(survivor.agentId, mission);
   durableContinuation.persistContinuation({
@@ -110,6 +112,45 @@ function queueContinuationMission(context) {
     projectId: state.projectId,
   }).catch((error) => emit(orchestratorId, 'CONTINUATION_PERSIST_FAILED', 'RECOVERY', error.message, {}, 'warning'));
   return survivor.agentId;
+}
+
+function continuationMorphology(survivor, adaptation) {
+  const assignment = adaptation?.assignments?.[survivor.agentId];
+  if (!assignment) return null;
+  return {
+    morphologyTopology: assignment.morphologyTopology,
+    morphologyNodeId: assignment.morphologyNodeId,
+    morphologyVariant: assignment.morphologyVariant,
+    topologyRole: assignment.role,
+    morphologyTransition: adaptation.receipt
+  };
+}
+
+function morphologyPrompt(prompt, morphology, receipt) {
+  return `${prompt}\n\nMORPHOGENESIS ADAPTATION\nThe verified continuation policy rebound this worker to `
+    + `${morphology.morphologyTopology}:${morphology.topologyRole}. Follow that topology role while preserving `
+    + `the prior evidence lineage. Transition receipt: ${JSON.stringify(receipt)}.`;
+}
+
+async function planAdaptiveContinuation(input) {
+  if (input.state.plan.aTeam?.activated) return { adapted: false, reason: 'dedicated_a_team_continuation' };
+  try {
+    const service = require('./morphogenesis/missionMorphogenesisContinuation');
+    return await service.planContinuation(input);
+  } catch (error) {
+    return { adapted: false, reason: error.code || 'adaptation_failed', error: error.message };
+  }
+}
+
+function emitMorphogenesisContinuation(orchestratorId, adaptation) {
+  if (!adaptation.adapted) {
+    emit(orchestratorId, 'MORPHOGENESIS_CONTINUATION_UNCHANGED', 'MORPHOGENESIS',
+      `Continuation morphology unchanged: ${adaptation.reason}.`,
+      { reason: adaptation.reason, signals: adaptation.signals || null }, 'info');
+    return;
+  }
+  emit(orchestratorId, 'MORPHOGENESIS_CONTINUATION_ADAPTED', 'MORPHOGENESIS',
+    `Continuation morphology adapted with ${adaptation.receipt.operator}.`, adaptation.receipt, 'info');
 }
 
 function emitRoundEvaluated(context) {
@@ -215,8 +256,10 @@ async function advanceAutonomousRound(mission, event) {
 
   const { survivors, paretoResult } = selectRoundSurvivors(completed, continuation, orchestratorId);
   emitRoundEvaluated({ orchestratorId, state, survivors, paretoResult, continuation });
+  const adaptation = await planAdaptiveContinuation({ state, survivors, continuation, orchestratorId });
+  emitMorphogenesisContinuation(orchestratorId, adaptation);
   const continuationWorkerIds = survivors.map((survivor, index) => queueContinuationMission({
-    state, survivor, continuation, index, orchestratorId
+    state, survivor, continuation, index, orchestratorId, adaptation
   }));
   autonomousRounds.delete(orchestratorId);
   // A survivor may have closed before the final initial worker selected the

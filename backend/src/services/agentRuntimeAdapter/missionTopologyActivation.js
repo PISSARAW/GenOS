@@ -61,40 +61,80 @@ function allocationFor(plan, count, topology) {
     { topology, requiredWorkers: count, fundedWorkers: allocation.initial.workerCount });
 }
 
-function compositionOptions(ctx, morphologyPlan) {
-  const variant = morphologyPlan.selectedVariant;
+function topologyNodes(morphologyPlan) {
+  const graph = morphologyPlan.morphologyPatch?.graph;
+  return (graph?.nodes || []).filter((node) => node.topology
+    && (node.kind === 'TOPOLOGY' || !node.operator));
+}
+
+function compositionOptions(ctx, morphologyPlan, node) {
+  const variant = node.variant || morphologyPlan.selectedVariant;
   return {
     variantId: variant && variant !== 'default' ? variant : undefined,
     workerAssignments: ctx.normalizedMission.workerAssignments || ctx.normalizedMission.worker_assignments,
     agentCount: ctx.normalizedMission.morphology?.agents?.length,
     missionId: ctx.normalizedMission.missionId || ctx.agentId,
     configuration: ctx.normalizedMission.topologyConfiguration || ctx.normalizedMission.configuration,
-    sessionOptions: ctx.normalizedMission.topologySessionOptions || ctx.normalizedMission.sessionOptions
+    sessionOptions: ctx.normalizedMission.topologySessionOptions || ctx.normalizedMission.sessionOptions,
+    activateOrganization: topologyNodes(morphologyPlan).length === 1
   };
 }
 
-async function composeSelectedTopology(ctx, morphologyPlan, dependencies) {
+async function composeTopologyNode(ctx, descriptor, dependencies) {
+  const { morphologyPlan, node } = descriptor;
   const composeMode = dependencies.composeMode
     || require('../biologicalTopologyService').composeMode;
   return composeMode({
     db: ctx.db,
     orchestratorId: ctx.agentId,
-    mode: morphologyPlan.selectedTopology,
+    mode: node.topology,
     mission: ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask || '',
-    options: compositionOptions(ctx, morphologyPlan)
+    options: compositionOptions(ctx, morphologyPlan, node)
   });
 }
 
-function applyComposition(ctx, morphologyPlan, composition) {
+function componentWorkers(composition, node, componentIndex) {
+  return executableMembers(composition, node.topology).map((worker) => ({
+    ...worker,
+    morphologyNodeId: node.nodeId,
+    morphologyTopology: node.topology,
+    morphologyVariant: node.variant || null,
+    morphologyComponentIndex: componentIndex
+  }));
+}
+
+function applyCompositions(ctx, morphologyPlan, components) {
+  const workers = components.flatMap((entry, index) => componentWorkers(entry.composition, entry.node, index));
   const topology = morphologyPlan.selectedTopology;
-  const workers = executableMembers(composition, topology);
   assertFanout(ctx.autonomyPlan, workers.length, topology);
   const allocation = allocationFor(ctx.autonomyPlan, workers.length, topology);
   ctx.autonomyPlan.workers = workers;
   ctx.autonomyPlan.dispatchWorkers = workers;
   ctx.autonomyPlan.tokenPolicy.rounds = allocation;
-  ctx.autonomyPlan.organization = composition.organization || ctx.autonomyPlan.organization;
-  ctx.autonomyPlan.topologyComposition = composition;
+  if (components.length === 1) {
+    ctx.autonomyPlan.organization = components[0].composition.organization || ctx.autonomyPlan.organization;
+    ctx.autonomyPlan.topologyComposition = components[0].composition;
+  } else {
+    if (ctx.autonomyPlan.trinity) ctx.autonomyPlan.trinity.activated = false;
+    if (ctx.autonomyPlan.aTeam) ctx.autonomyPlan.aTeam.activated = false;
+    ctx.autonomyPlan.topologyComposition = {
+      kind: 'morphogenesis_composite',
+      operator: morphologyPlan.morphologyPatch.graph.nodes
+        .find((node) => node.nodeId === morphologyPlan.morphologyPatch.graph.rootNodeId)?.operator || null,
+      components
+    };
+  }
+}
+
+async function composeTopologyGraph(ctx, morphologyPlan, dependencies) {
+  const components = [];
+  for (const node of topologyNodes(morphologyPlan)) {
+    const descriptor = { morphologyPlan, node };
+    components.push({ node, composition: await composeTopologyNode(ctx, descriptor, dependencies) });
+  }
+  if (!components.length) throw activationError('MORPHOGENESIS_TOPOLOGY_EMPTY',
+    'Morphogenesis produced a graph without an executable topology component.');
+  applyCompositions(ctx, morphologyPlan, components);
 }
 
 function bindSelectedPlan(ctx, morphologyPlan) {
@@ -110,9 +150,11 @@ function bindSelectedPlan(ctx, morphologyPlan) {
 
 async function activateMorphogenesisPlan(ctx, morphologyPlan, dependencies = {}) {
   const topology = morphologyPlan.selectedTopology;
-  if (DEDICATED_TOPOLOGIES.has(topology)) assertDedicatedPlan(ctx, topology);
-  else applyComposition(ctx, morphologyPlan,
-    await composeSelectedTopology(ctx, morphologyPlan, dependencies));
+  const nodes = topologyNodes(morphologyPlan);
+  const dedicated = nodes.length === 1 && nodes[0].topology === topology
+    && DEDICATED_TOPOLOGIES.has(topology);
+  if (dedicated) assertDedicatedPlan(ctx, topology);
+  else await composeTopologyGraph(ctx, morphologyPlan, dependencies);
   return bindSelectedPlan(ctx, morphologyPlan);
 }
 

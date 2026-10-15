@@ -243,12 +243,16 @@ function missionWorkspaceOptions(request) {
 }
 
 function missionRuntimeContext(request) {
+  const normalized = { ...request,
+    morphologyExpression: request.morphologyExpression || request.morphology_expression,
+    morphogenesisPolicy: request.morphogenesisPolicy || request.morphogenesis_policy };
   const fields = ['organization', 'capabilities', 'capabilityRequirements', 'capabilityContract',
     'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
     'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments', 'native_objectives',
-    'morphologyPlan', 'missionCapabilityPlan', 'problemProfile', 'requiresEvidenceBeforePromotion'];
-  return Object.fromEntries(fields.filter((field) => request[field] !== undefined)
-    .map((field) => [field, request[field]]));
+    'morphologyPlan', 'morphologyExpression', 'morphogenesisPolicy', 'missionCapabilityPlan',
+    'problemProfile', 'requiresEvidenceBeforePromotion'];
+  return Object.fromEntries(fields.filter((field) => normalized[field] !== undefined)
+    .map((field) => [field, normalized[field]]));
 }
 
 function promptWithWorkerAssignments(prompt, request = {}) {

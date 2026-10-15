@@ -41,6 +41,20 @@ function plan(topology) {
   };
 }
 
+function compositePlan() {
+  const root = { nodeId: 'root-mix', kind: 'OPERATOR', operator: 'PARALLEL', children: ['node-rhizome', 'node-biocenose'], workers: [] };
+  return {
+    selectedTopology: 'rhizome',
+    selectedVariant: 'default',
+    morphologyPatch: { graph: {
+      graphId: 'graph-mix', rootNodeId: root.nodeId, version: 1,
+      nodes: [root,
+        { nodeId: 'node-rhizome', kind: 'TOPOLOGY', topology: 'rhizome', workers: [] },
+        { nodeId: 'node-biocenose', kind: 'TOPOLOGY', topology: 'biocenose', workers: [] }]
+    } }
+  };
+}
+
 async function verifySelectionSeedsMission() {
   const ctx = context();
   let input;
@@ -87,6 +101,25 @@ async function verifyDedicatedTopologyFailsClosed() {
   );
 }
 
+async function verifyCompositeGraphDrivesMixedDispatch() {
+  const ctx = context();
+  ctx.autonomyPlan.trinity = { activated: true };
+  ctx.autonomyPlan.aTeam = { activated: true };
+  const morphologyPlan = compositePlan();
+  const assignments = await activation.activateMorphogenesisPlan(ctx, morphologyPlan, {
+    composeMode: async ({ mode }) => ({ members: [
+      { label: `${mode}-worker`, role: 'scout', executionMode: 'worker', workerKind: 'scout_cell' }
+    ] })
+  });
+  assert.deepEqual(assignments.map((entry) => entry.morphologyTopology), ['rhizome', 'biocenose']);
+  assert.equal(morphologyPlan.morphologyPatch.graph.nodes[0].workers.length, 0);
+  assert.equal(morphologyPlan.morphologyPatch.graph.nodes[1].workers.length, 1);
+  assert.equal(morphologyPlan.morphologyPatch.graph.nodes[2].workers.length, 1);
+  assert.equal(ctx.autonomyPlan.topologyComposition.kind, 'morphogenesis_composite');
+  assert.equal(ctx.autonomyPlan.trinity.activated, false);
+  assert.equal(ctx.autonomyPlan.aTeam.activated, false);
+}
+
 async function verifyBudgetGate() {
   const ctx = context();
   ctx.autonomyPlan.tokenPolicy.total = 1000;
@@ -104,6 +137,7 @@ async function verifyBudgetGate() {
 async function main() {
   await verifySelectionSeedsMission();
   await verifyComposedTopologiesDriveDispatch();
+  await verifyCompositeGraphDrivesMixedDispatch();
   await verifyDedicatedTopologyFailsClosed();
   await verifyBudgetGate();
   console.log('Morphogenesis main-path activation: PASS');

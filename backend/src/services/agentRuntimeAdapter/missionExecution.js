@@ -106,6 +106,7 @@ async function startMissionInternal(mission) {
     require('../morphogenesis/morphogenesisMissionBinding').bindDispatchResults(
       ctx.autonomyPlan, autonomousWorkers, ctx.autonomyPlan.workerResults || []
     );
+    await executeCompositeMorphology(ctx, agentId);
   }
 
   assertMissionNotCancelled(agentId);
@@ -113,6 +114,15 @@ async function startMissionInternal(mission) {
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
   return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable,
     habitat: ctx.habitat });
+}
+
+async function executeCompositeMorphology(ctx, agentId) {
+  const morphology = await require('../morphogenesis/missionMorphologyExecution')
+    .executeCompositeMorphology(ctx);
+  if (!morphology.executed) return;
+  require('../agentOrchestrationState').emit(agentId, 'MORPHOGENESIS_COMPOSITE_EXECUTED',
+    'SYNTHESIZE_MORPHOLOGY', 'Executed the composed MorphologyGraph over verified worker results.',
+    { graphId: morphology.graphId, graphVersion: morphology.graphVersion }, 'info');
 }
 
 async function finalizeMissionStart(agentId) {
