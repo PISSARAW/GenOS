@@ -3,7 +3,6 @@
 const { TOPOLOGIES } = require('./topologyResolverService');
 const workerKindService = require('../agents/workerKindService');
 
-const MAX_INPUT = 100;
 const MAX_OUTPUT = 50;
 const WEIGHTS = Object.freeze({ problemFit: 0.32, capabilityFit: 0.2,
   budgetFit: 0.16, operationalFit: 0.14, coordinationEfficiency: 0.18 });
@@ -19,7 +18,7 @@ function list(value) {
 
 function recipeList(input) {
   return (Array.isArray(input.candidates) ? input.candidates : [])
-    .slice(0, MAX_INPUT).filter(item => item && typeof item === 'object');
+    .filter(item => item && typeof item === 'object');
 }
 
 function isNoChangeRecipe(recipe) {

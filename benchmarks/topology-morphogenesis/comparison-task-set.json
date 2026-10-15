@@ -40,14 +40,14 @@
       "oracle": "verifyDependencyOrder",
       "comparisonEligible": true,
       "routingHint": "dependencies",
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "trinity",
       "topologyHypothesis": {
-        "adaptedCondition": "adapted-topology:holobionte",
+        "adaptedCondition": "adapted-topology:metapopulation",
         "wrongCondition": "wrong-topology:trinity",
-        "rationale": "Les contraintes forment un DAG explicite; des contrats explicites et un veto d'acceptation peuvent limiter les violations d'ordre.",
+        "rationale": "Les contraintes forment un DAG explicite; des populations separees avec corridors diriges et migration peuvent limiter les violations d'ordre.",
         "primaryMetric": "constraint-satisfaction",
-        "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport au modele seul et au controle impose."
+        "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport au modele seul et au controle impose."
       }
     },
     {

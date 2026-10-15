@@ -7,48 +7,37 @@ const { compileExpression } = require('./graph/morphologyCompiler');
 const { checkMorphologyTypes } = require('./typing/morphologyTypeChecker');
 const { registry: defaultAdapterRegistry } = require('./adapters/topologyAdapterService');
 
-const DEFAULT_CEILING = 10;
-const HARD_CEILING = 32;
 const MAX_COMPOSITE_PAIRS = 128;
-const MAX_VETOED_CANDIDATES = 4;
 const MATURITY_ORDER = Object.freeze({ implemented: 0, stable: 1, partial: 2, experimental: 3 });
 
 function generateAdaptiveTopologyCandidates(input = {}) {
   const registry = input.registry || createTopologyRegistry();
-  const limit = candidateLimit(input.maxCandidates);
   const current = currentCandidate(input, registry);
   const contracts = topologyContracts(registry);
   const capabilitySet = normalizeCapabilities(input.availableTopologyCapabilities);
   const topologyIds = registry.list().slice().sort();
-  const pools = buildCandidatePools({ input, registry, topologyIds, contracts, capabilitySet, candidateCap: limit });
-  const available = pools.topology.length + pools.variant.length + pools.composite.candidates.length + pools.vetoed.length;
-  const vetoSlots = Math.min(pools.vetoed.length, MAX_VETOED_CANDIDATES, limit - 1);
-  const candidatePools = { ...pools, composite: pools.composite.candidates };
-  const alternatives = takeBalanced(candidatePools, limit - 1 - vetoSlots);
-  const candidates = [current, ...alternatives, ...pools.vetoed.slice(0, limit - 1 - alternatives.length)];
+  const pools = buildCandidatePools({ input, registry, topologyIds, contracts, capabilitySet });
+  const candidates = [current, ...pools.topology, ...pools.variant,
+    ...pools.composite.candidates, ...pools.vetoed];
   return {
     candidates,
     stats: {
       candidateCount: candidates.length,
-      candidateCeiling: limit,
-      candidatePoolTruncated: available > candidates.length - 1,
+      candidatePoolTruncated: pools.composite.stats.truncated,
+      registeredTopologyCount: topologyIds.length,
+      registeredVariantCount: topologyIds.reduce((count, topologyId) =>
+        count + registry.variants.listEntries(topologyId).length, 0),
+      topologyCandidateCount: candidates.filter((candidate) => candidate.kind === 'TOPOLOGY').length,
+      variantCandidateCount: candidates.filter((candidate) => candidate.kind === 'VARIANT').length,
       compositeCandidateCount: pools.composite.candidates.length,
-      compositeCandidatePoolTruncated: pools.composite.candidatePoolTruncated,
+      compositeCandidatePoolTruncated: pools.composite.stats.truncated,
       vetoedCandidateCount: candidates.filter((candidate) => candidate.admissibility === 'rejected').length,
-      vetoedCandidateCeiling: vetoLimit(limit),
-      vetoedCandidatePoolTruncated: pools.vetoedPoolTruncated,
       compositePairsExamined: pools.composite.stats.examined,
       compositePairCeiling: pools.composite.stats.ceiling,
       compositePairsPotential: pools.composite.stats.potential,
       compositePairsTruncated: pools.composite.stats.truncated
     }
   };
-}
-
-function candidateLimit(value) {
-  if (value === undefined) return DEFAULT_CEILING;
-  if (!Number.isInteger(value) || value < 1) throw new Error('maxCandidates must be a positive integer');
-  return Math.min(value, HARD_CEILING);
 }
 
 function currentCandidate(input, registry) {
@@ -76,24 +65,23 @@ function normalizeCapabilities(capabilities) {
 }
 
 function buildCandidatePools(context) {
-  const { input, registry, topologyIds, capabilitySet, contracts, candidateCap } = context;
+  const { input, registry, topologyIds, capabilitySet, contracts } = context;
   const topology = [];
   const variant = [];
   const components = [];
   const vetoed = [];
-  const vetoState = { truncated: false };
   for (const topologyId of topologyIds) {
     const contract = registry.get(topologyId);
     const entries = registry.variants.listEntries(topologyId).slice().sort(compareVariants);
     const defaultVariant = entries.find((entry) => entry.variantId === 'default');
-    addSingleTopology({ topology, components, vetoed, vetoState, topologyId, contract, variantEntry: defaultVariant, input, registry, contracts, capabilitySet, candidateCap });
+    addSingleTopology({ topology, components, vetoed, topologyId, contract, variantEntry: defaultVariant, input, registry, contracts, capabilitySet });
     for (const entry of entries) {
-      if (entry.variantId === 'default' || !isSupportedMaturity(entry.maturity)) continue;
-      addVariantCandidate({ variant, components, vetoed, vetoState, topologyId, contract, entry, input, registry, contracts, capabilitySet, candidateCap });
+      if (entry.variantId === 'default') continue;
+      addVariantCandidate({ variant, components, vetoed, topologyId, contract, entry, input, registry, contracts, capabilitySet });
     }
   }
-  const composite = buildCompositeCandidates({ components, input, registry, contracts, capabilitySet, candidateCap });
-  return { topology, variant, composite, vetoed, vetoedPoolTruncated: vetoState.truncated };
+  const composite = buildCompositeCandidates({ components, input, registry, contracts, capabilitySet });
+  return { topology, variant, composite, vetoed };
 }
 
 function compareVariants(left, right) {
@@ -110,28 +98,33 @@ function isSupportedMaturity(maturity) {
 }
 
 function addSingleTopology(ctx) {
-  const { topology, components, vetoed, vetoState, topologyId, contract, variantEntry, input, registry, contracts, capabilitySet, candidateCap } = ctx;
+  const { topology, components, vetoed, topologyId, contract, variantEntry, input, registry, contracts, capabilitySet } = ctx;
   if (!variantEntry) return;
   const capabilityDecision = candidateCapabilities(contract, variantEntry, capabilitySet);
-  if (!capabilityDecision.allowed) return addVetoedCandidate({ vetoed, vetoState, kind: 'TOPOLOGY', topologyId, contract, entry: variantEntry, capabilityDecision, input, registry, contracts, candidateCap });
-  if (topology.length >= candidateCap) return;
+  if (!capabilityDecision.allowed) return addVetoedCandidate({ vetoed, kind: 'TOPOLOGY', topologyId, contract, entry: variantEntry, capabilityDecision, input, registry, contracts });
   const expression = buildExpression(topologyExpression(topologyId, null), `topology:${topologyId}`);
   const validation = validateTypedExpression({ expression, input, registry, contracts });
-  if (!validation.valid) return;
-  topology.push(createCandidate({ kind: 'TOPOLOGY', topologyId, variantEntry, contract, expression, validation }));
+  const candidate = createCandidate({ kind: 'TOPOLOGY', topologyId, variantEntry, contract, expression, validation });
+  if (!validation.valid || !isSupportedMaturity(variantEntry.maturity)) {
+    return vetoed.push({ ...candidate, admissibility: 'rejected', executionEligible: false,
+      admissibilityReason: !validation.valid ? validation.errors.join('; ') : `Maturité inconnue : ${variantEntry.maturity}.` });
+  }
+  topology.push(candidate);
   components.push(componentFor(topologyId, variantEntry, contract));
 }
 
 function addVariantCandidate(ctx) {
-  const { variant, components, vetoed, vetoState, topologyId, contract, entry, input, registry, contracts, capabilitySet, candidateCap } = ctx;
-  if (!isSupportedMaturity(entry.maturity)) return;
+  const { variant, components, vetoed, topologyId, contract, entry, input, registry, contracts, capabilitySet } = ctx;
   const capabilityDecision = candidateCapabilities(contract, entry, capabilitySet);
-  if (!capabilityDecision.allowed) return addVetoedCandidate({ vetoed, vetoState, kind: 'VARIANT', topologyId, contract, entry, capabilityDecision, input, registry, contracts, candidateCap });
-  if (variant.length >= candidateCap) return;
+  if (!capabilityDecision.allowed) return addVetoedCandidate({ vetoed, kind: 'VARIANT', topologyId, contract, entry, capabilityDecision, input, registry, contracts });
   const expression = buildExpression(topologyExpression(topologyId, entry.variantId), `variant:${topologyId}:${entry.variantId}`);
   const validation = validateTypedExpression({ expression, input, registry, contracts });
-  if (!validation.valid) return;
-  variant.push(createCandidate({ kind: 'VARIANT', topologyId, variantEntry: entry, contract, expression, validation }));
+  const candidate = createCandidate({ kind: 'VARIANT', topologyId, variantEntry: entry, contract, expression, validation });
+  if (!validation.valid || !isSupportedMaturity(entry.maturity)) {
+    return vetoed.push({ ...candidate, admissibility: 'rejected', executionEligible: false,
+      admissibilityReason: !validation.valid ? validation.errors.join('; ') : `Maturité inconnue : ${entry.maturity}.` });
+  }
+  variant.push(candidate);
   components.push(componentFor(topologyId, entry, contract));
 }
 
@@ -161,14 +154,16 @@ function createCandidate(input) {
 }
 
 function addVetoedCandidate(ctx) {
-  const { vetoed, vetoState, kind, topologyId, contract, entry, capabilityDecision, input, registry, contracts, candidateCap } = ctx;
-  if (vetoed.length >= vetoLimit(candidateCap)) {
-    vetoState.truncated = true;
-    return;
-  }
+  const { vetoed, kind, topologyId, contract, entry, capabilityDecision, input, registry, contracts } = ctx;
   const expression = buildExpression(topologyExpression(topologyId, kind === 'VARIANT' ? entry.variantId : null), `vetoed:${kind}:${topologyId}:${entry.variantId}`);
   const validation = validateTypedExpression({ expression, input, registry, contracts });
-  if (!validation.valid) return;
+  if (!validation.valid) {
+    vetoed.push({ ...createCandidate({ kind, topologyId, variantEntry: entry, contract, expression, validation }),
+      admissibility: 'rejected', executionEligible: false,
+      admissibilityReason: [...capabilityDecision.missingCapabilities.map((item) => `capacité absente : ${item}`), ...validation.errors].join('; '),
+      missingCapabilities: capabilityDecision.missingCapabilities });
+    return;
+  }
   vetoed.push({
     ...createCandidate({ kind, topologyId, variantEntry: entry, contract, expression, validation }),
     admissibility: 'rejected', executionEligible: false,
@@ -177,23 +172,19 @@ function addVetoedCandidate(ctx) {
   });
 }
 
-function vetoLimit(candidateCap) {
-  return Math.min(MAX_VETOED_CANDIDATES, Math.max(0, candidateCap - 1));
-}
-
 function componentFor(topologyId, variant, contract) {
   return { topologyId, variant, contract };
 }
 
 function buildCompositeCandidates(ctx) {
-  const { components, input, registry, contracts, capabilitySet, candidateCap } = ctx;
+  const { components, input, registry, contracts, capabilitySet } = ctx;
   const output = [];
   const potential = countPotentialPairs(components);
   let examined = 0;
   for (const host of components) {
-    if (examined >= MAX_COMPOSITE_PAIRS || output.length >= candidateCap) break;
+    if (examined >= MAX_COMPOSITE_PAIRS) break;
     for (const inner of components) {
-      if (examined >= MAX_COMPOSITE_PAIRS || output.length >= candidateCap) break;
+      if (examined >= MAX_COMPOSITE_PAIRS) break;
       examined += 1;
       if (host.topologyId === inner.topologyId) continue;
       const candidate = nestedCandidate({ ...ctx, host, inner });
@@ -202,7 +193,6 @@ function buildCompositeCandidates(ctx) {
   }
   return {
     candidates: output.sort((left, right) => left.candidateId.localeCompare(right.candidateId)),
-    candidatePoolTruncated: output.length >= candidateCap && potential > examined,
     stats: { examined, ceiling: MAX_COMPOSITE_PAIRS, potential, truncated: potential > examined }
   };
 }
@@ -299,22 +289,4 @@ function validateTypedExpression(ctx) {
   }
 }
 
-function takeBalanced(pools, slots) {
-  const categories = ['topology', 'composite', 'variant'];
-  const selected = [];
-  while (selected.length < slots) {
-    let added = false;
-    for (const category of categories) {
-      const candidate = pools[category].shift();
-      if (candidate) {
-        selected.push(candidate);
-        added = true;
-        if (selected.length >= slots) break;
-      }
-    }
-    if (!added) break;
-  }
-  return selected;
-}
-
-module.exports = { DEFAULT_CEILING, HARD_CEILING, MAX_COMPOSITE_PAIRS, MAX_VETOED_CANDIDATES, generateAdaptiveTopologyCandidates };
+module.exports = { MAX_COMPOSITE_PAIRS, generateAdaptiveTopologyCandidates };

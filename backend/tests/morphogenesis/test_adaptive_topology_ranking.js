@@ -73,12 +73,12 @@ function main() {
   assert.match(emptyCapabilityInventory.vetoed.find(item => item.id === 'capability-missing').reasons.join(' '),
     /missing capabilities: coordinate/);
 
-  const bounded = rankAdaptiveTopologies({ ...input, limit: 1, candidates: Array.from({ length: 80 }, (_, index) => ({
+  const bounded = rankAdaptiveTopologies({ ...input, limit: 1, candidates: Array.from({ length: 130 }, (_, index) => ({
     id: `candidate-${index}`, estimatedTokens: 1, estimatedProblemFit: 0.5 + index / 200,
     confidence: 0.9
   })) });
   assert.equal(bounded.candidates.length, 1);
-  assert.ok(bounded.consideredCount <= 101);
+  assert.equal(bounded.consideredCount, 131, 'ranking considers the complete candidate set');
   assert.ok(bounded.truncatedCount > 0);
   assert.ok(bounded.scoreWeights.coordinationEfficiency > 0);
 

@@ -66,10 +66,10 @@
         "cap": 8
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "train-cap-02",
@@ -118,10 +118,10 @@
         "cap": 13
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-01",
@@ -174,10 +174,10 @@
         "cap": 8
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-02",
@@ -222,10 +222,10 @@
         "cap": 8
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-03",
@@ -274,10 +274,10 @@
         "cap": 13
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-04",
@@ -330,10 +330,10 @@
         "cap": 11
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-05",
@@ -378,10 +378,10 @@
         "cap": 6
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-06",
@@ -430,10 +430,10 @@
         "cap": 13
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-07",
@@ -486,10 +486,10 @@
         "cap": 11
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-08",
@@ -534,10 +534,10 @@
         "cap": 8
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-09",
@@ -586,10 +586,10 @@
         "cap": 7
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "rc-cap-10",
@@ -642,10 +642,10 @@
         "cap": 11
       },
       "adaptedTopology": "biome",
-      "wrongTopology": "syncytium",
-      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "wrongTopology": "trinity",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation."
     },
     {
       "id": "train-dag-01",
@@ -689,11 +689,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "train-dag-02",
@@ -737,11 +737,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-01",
@@ -785,11 +785,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-02",
@@ -833,11 +833,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-03",
@@ -881,11 +881,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-04",
@@ -929,11 +929,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-05",
@@ -977,11 +977,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-06",
@@ -1025,11 +1025,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-07",
@@ -1073,11 +1073,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-08",
@@ -1121,11 +1121,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-09",
@@ -1169,11 +1169,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "rc-dag-10",
@@ -1217,11 +1217,11 @@
           ]
         ]
       },
-      "adaptedTopology": "holobionte",
+      "adaptedTopology": "metapopulation",
       "wrongTopology": "rhizome",
-      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "rationale": "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
       "primaryMetric": "constraint-satisfaction",
-      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+      "falsifier": "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure."
     },
     {
       "id": "train-enum-01",
@@ -1238,10 +1238,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "train-enum-02",
@@ -1259,10 +1259,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-01",
@@ -1280,10 +1280,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-02",
@@ -1300,10 +1300,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-03",
@@ -1320,10 +1320,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-04",
@@ -1340,10 +1340,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-05",
@@ -1360,10 +1360,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-06",
@@ -1380,10 +1380,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-07",
@@ -1400,10 +1400,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-08",
@@ -1420,10 +1420,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-09",
@@ -1440,10 +1440,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     },
     {
       "id": "rc-enum-10",
@@ -1461,10 +1461,10 @@
         ]
       },
       "adaptedTopology": "trinity",
-      "wrongTopology": "biocenose",
-      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "wrongTopology": "syncytium",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
       "primaryMetric": "exact-oracle-match",
-      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation."
     }
   ],
   "revealSpec": "La contrainte de phase 2 est contenue dans le prompt ; le moment de revelation est la frontiere entre le diagnostic initial et la synthese finale.",

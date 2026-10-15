@@ -129,7 +129,6 @@ function topologyPortfolio(input, context) {
       mission: input.mission,
       missionId: input.missionId,
       budget: input.budget,
-      maxCandidates: input.maxTopologyCandidates,
       relationContext: input.relationContext,
       adapterRegistry: input.adapterRegistry
     });

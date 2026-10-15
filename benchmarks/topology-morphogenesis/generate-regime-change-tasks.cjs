@@ -126,15 +126,15 @@ function enumPrompt(params) {
 }
 
 const FAMILIES = {
-  cap: { oracle: 'verifyCapacity', adapted: 'biome', wrong: 'syncytium', make: makeCap, prompt: capPrompt,
-    rationale: "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
-    falsifier: "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation." },
-  dag: { oracle: 'verifyOrder', adapted: 'holobionte', wrong: 'rhizome', make: makeDag, prompt: dagPrompt,
-    rationale: "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
-    falsifier: "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats." },
-  enum: { oracle: 'verifyTuples', adapted: 'trinity', wrong: 'biocenose', make: makeEnum, prompt: enumPrompt,
-    rationale: "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
-    falsifier: "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation." }
+  cap: { oracle: 'verifyCapacity', adapted: 'biome', wrong: 'trinity', make: makeCap, prompt: capPrompt,
+    rationale: "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; des mondes isoles sans rebouclage ne peuvent pas reequilibrer.",
+    falsifier: "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Trinity l'egale sans reallocation." },
+  dag: { oracle: 'verifyOrder', adapted: 'metapopulation', wrong: 'rhizome', make: makeDag, prompt: dagPrompt,
+    rationale: "Des populations separees avec corridors diriges et migration encadree structurent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+    falsifier: "Metapopulation ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans structure." },
+  enum: { oracle: 'verifyTuples', adapted: 'trinity', wrong: 'syncytium', make: makeEnum, prompt: enumPrompt,
+    rationale: "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un etat partage convergeant risque de contaminer l'independance des branches.",
+    falsifier: "Trinity ne depasse pas les controles en exactitude appariee, ou Syncytium l'egale sans isolation." }
 };
 
 function taskId(kind, family, n) {

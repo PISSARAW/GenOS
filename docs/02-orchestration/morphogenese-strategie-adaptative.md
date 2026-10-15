@@ -240,30 +240,34 @@ et `docs/01-concepts/epistemologie-et-evidence.md`.
 ## Portefeuille consultatif de candidats topologiques
 
 Cette tranche consultative est implémentée derrière `compileMissionStrategy`. Elle
-joint au plan un portefeuille borné comprenant `NO_CHANGE`, les topologies canoniques,
-leurs variants connus et certaines expressions imbriquées `NEST`. Elle évalue leur
-admissibilité, leur maturité, les capacités disponibles, leur budget et leurs
-compromis de Pareto. Le résultat reste consultatif : aucun candidat n’est activé.
+joint au plan `NO_CHANGE`, toutes les topologies canoniques et toutes leurs variantes
+inscrites au registre. Elle évalue leur admissibilité, leur maturité, les capacités
+disponibles, leur budget et leurs compromis de Pareto. Les candidats non exécutables
+restent visibles avec leur motif d’exclusion. Le résultat reste consultatif : aucun
+candidat n’est activé par le seul compilateur.
 Le compilateur produit aussi cinq phases heuristiques pour la topologie déjà choisie.
 
 ### Ce que le runtime sait déjà faire
 
-Le catalogue canonique expose huit identifiants de topologie. Le planificateur peut
-compiler des candidats par topologie dans certains modes de sélection, mais son
-résumé ne contient que les capacités manquantes, le nombre de spawns et un coût
-estimé. Ce coût et les signaux de la fonction de sélection ne constituent pas des
-mesures empiriques de qualité ou de coût total. Le profil de variantes est résolu
-pour chaque topologie compilée, mais la sélection actuelle n’explore pas le produit
-cartésien des variants de tous les candidats et ne produit pas un front de Pareto.
+Le catalogue canonique expose huit identifiants de topologie. La génération parcourt
+maintenant chaque entrée du registre de variants sans plafond de candidats et le
+classement reçoit l’ensemble complet. Le classement peut n’afficher que ses meilleurs
+résultats dans le résumé, mais sa décision est calculée sur tous les candidats reçus.
+Le coût estimé et les signaux de sélection ne constituent pas des mesures empiriques
+de qualité ou de coût total.
 
-Le catalogue contient des variants de maturités différentes. Le portefeuille actuel
-ne produit que des expressions `NEST` à deux feuilles ; il n’explore ni le produit
-cartésien des variants ni les autres opérateurs (`PARALLEL`, `SEQUENCE`, `COMPETE`,
-`GATE`, `WRAP`, `BRIDGE`, `FEDERATE`). Les validations structurelles et les relations
-du registre ne prouvent pas qu’une composition est exécutable. Cette tranche ne
-démontre pas d’avantage comparatif empirique.
+Le catalogue contient des variants de maturités différentes. Les variants atomiques
+sont tous énumérés, mais seules les maturités `implemented`, `stable`, `partial` et
+`experimental` sont prises en compte par le générateur ; une maturité inconnue est
+conservée comme candidate rejetée. Le portefeuille produit aussi certaines
+expressions `NEST` à deux feuilles, avec un plafond explicite de 128 paires examinées.
+Il n’explore pas le produit cartésien complet des compositions ni les autres
+opérateurs (`PARALLEL`, `SEQUENCE`, `COMPETE`, `GATE`, `WRAP`, `BRIDGE`, `FEDERATE`).
+Les validations structurelles et les relations du registre ne prouvent pas qu’une
+composition est exécutable. Cette tranche ne démontre pas d’avantage comparatif
+empirique et ne lance pas chaque variante comme une expérience distincte.
 
-### Génération bornée proposée
+### Génération exhaustive des variantes atomiques
 
 Chaque candidat est une expression typée, versionnée et canonique, dont les feuilles
 sont des couples `{topologie, variant}` et dont les nœuds internes décrivent les
@@ -275,11 +279,14 @@ simple de référence. L’imbrication ne doit être ajoutée que si elle résou
 contrainte identifiée (par exemple, travail parallèle contenu dans une délibération
 à quorum), avec relation, adaptateur et frontières d’autorité explicitement validés.
 
-La génération applique un plafond par défaut de 10 candidats, configurable jusqu’à
-32, et borne à 128 le nombre de paires testées pour l’imbrication. Elle garde au plus
-quatre recettes exclues faute de capacités pour rendre le déficit visible. Ces bornes
-maîtrisent le coût de recherche ; elles ne garantissent pas la qualité et ne sont pas
-encore calibrées par benchmark.
+La génération conserve toujours `NO_CHANGE` et énumère chaque variante enregistrée,
+y compris celles qui échouent aux contrôles de capacité ou de typage : ces dernières
+portent un motif de rejet et ne sont pas exécutables. Le classement prend toutes les
+variantes atomiques en entrée ; son résumé peut en afficher un sous-ensemble. Les
+compositions `NEST` restent bornées à 128 paires afin de maîtriser leur croissance
+combinatoire. Cette borne ne s’applique pas aux variantes atomiques. L’exhaustivité
+du portefeuille n’autorise pas l’exécution : la maturité, les capacités, la
+calibration, les preuves, l’admission et le budget restent des conditions distinctes.
 
 Filtrage avant classement : contrats de capacité satisfaits ou déficits explicitement
 finançables, maturité admise dans le chemin concerné, compatibilité des variants,

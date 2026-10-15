@@ -5,14 +5,14 @@
   "model": "qwen2.5-coder:7b",
   "modelEndpoint": "http://127.0.0.1:11434/api/chat",
   "taskSetFile": "regime-change-task-set.json",
-  "taskSetSha256": "eaf591ab5dcce94a0e7690e3dcf100461a8e9a34dd5f6793e95635ac52ad8004",
+  "taskSetSha256": "5cc12f885fda6319be5226020bf77183df846964407bc49e91aabe3ef713ce47",
   "oracleModule": "holdout-oracles/regime-change-oracles.cjs",
   "oracleSha256": "569386db7ec9b8f39a6f0dccb5b784eba11e9784009bd998a1549ea5f55457a7",
   "taskGenerator": "generate-regime-change-tasks.cjs",
   "taskSeed": 20261015,
   "training": {
     "taskIds": ["train-cap-01", "train-cap-02", "train-dag-01", "train-dag-02", "train-enum-01", "train-enum-02"],
-    "candidateTopologies": ["biome", "holobionte", "trinity"],
+    "candidateTopologies": ["biome", "metapopulation", "trinity"],
     "selectionRule": "highest oracle pass rate per family; tie-break lowest total tokens, then alphabetical",
     "seeds": [104729]
   },

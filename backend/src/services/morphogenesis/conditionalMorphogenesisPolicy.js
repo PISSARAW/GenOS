@@ -120,7 +120,6 @@ function candidateGenerationInput(input) {
     mission: input.mission,
     missionId: input.missionId,
     budget: input.budget,
-    maxCandidates: input.maxCandidates,
     relationContext: input.relationContext,
     adapterRegistry: input.adapterRegistry
   };

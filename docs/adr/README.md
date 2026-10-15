@@ -670,7 +670,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0534](0534-morphogenese-recettes-adaptatives-consultatives.md) | Compiler des recettes morphogénétiques consultatives | Accepté pour la première tranche consultative | 2026-10-15 | Orchestration, morphogenèse, preuve |
 | [0535a](0535-persistance-reprise-apprentissage-causal.md) | Persistance et reprise idempotente de l’apprentissage causal | Accepté | 2026-10-15 | backend, apprentissage, mémoire |
 | [0535b](0535-reprendre-et-controler-les-cellules-par-preuves.md) | Reprendre et contrôler les cellules par preuves persistées | Accepté pour le runtime backend local | 2026-10-15 | orchestration, reprise, contrôle opérateur, inspection |
-| [0536](0536-portefeuille-topologique-borne-et-abstention.md) | Générer et classer un portefeuille morphogénétique borné | accepté ; portefeuille consultatif implémenté, activation différée | 2026-10-15 | orchestration, morphogenèse, décision |
+| [0536](0536-portefeuille-topologique-borne-et-abstention.md) | Générer et classer un portefeuille morphogénétique borné | remplacé pour le plafond des candidats atomiques par ADR 0559 | 2026-10-15 | orchestration, morphogenèse, décision |
 | [0537](0537-quality-evidence-evenements-terminaux.md) | Preuve de qualité signée sur les événements terminaux | Accepté | 2026-10-15 | exécution, épistémologie, apprentissage causal |
 | [0538](0538-inventaire-operationnel-workers-daemons-morphogenese.md) | Fonder les recettes morphogénétiques sur l’inventaire opérationnel des workers et daemons | Proposé — shortlist implémentée, résolution runtime non implémentée | 2026-10-15 | orchestration, morphogenèse, workers, daemons |
 | [0539](0539-exposer-le-controle-cooperatif-des-cellules.md) | Exposer le contrôle coopératif des cellules | Accepté pour le contrat backend ; runtime enfant à qualifier | 2026-10-15 | orchestration, IPC, Studio, inspection |
@@ -694,6 +694,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0555](0555-reduction-des-communications-a-la-releve.md) | Réduction des communications à la relève morphogénétique | Accepté pour une action consultative et conditionnelle | 2026-10-15 | orchestration, morphogenèse, communication, leases, preuve |
 | [0556](0556-autoriser-le-foraging-par-appartenance-de-mission.md) | Autoriser le foraging par appartenance à la mission | Accepté | 2026-10-15 | MCP, biomimétisme, navigateur, autorité, provenance |
 | [0557](0557-memoire-negativement-verifiee-des-issues-terminales.md) | Mémoire négative vérifiée des issues terminales | Accepté | 2026-10-15 | épistémologie, exécution worker, mémoire, apprentissage causal |
+| [0558](0558-isoler-les-modules-de-replay-natural-search.md) | Isoler le replay Natural Search de l’initialisation de la DB | Accepté | 2026-10-16 | Natural Search, dépendances runtime et validation isolée |
+| [0559](0559-enumeration-complete-variants-topologiques.md) | Énumérer toutes les variantes topologiques | accepté ; génération exhaustive et classement complet implémentés | 2026-10-16 | orchestration, morphogenèse, sélection topologique |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

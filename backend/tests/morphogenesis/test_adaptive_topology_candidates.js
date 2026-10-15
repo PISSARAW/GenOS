@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { generateAdaptiveTopologyCandidates, HARD_CEILING } = require('../../src/services/morphogenesis/adaptiveTopologyCandidates');
+const { generateAdaptiveTopologyCandidates } = require('../../src/services/morphogenesis/adaptiveTopologyCandidates');
 const { createTopologyRegistry } = require('../../src/services/morphogenesis/registry/topologyRegistry');
 const { parseExpression } = require('../../src/services/morphogenesis/expression/morphologyExpressionParser');
 const { collectTopologies } = require('../../src/services/morphogenesis/expression/morphologyExpression');
@@ -9,7 +9,7 @@ const { createTopologyAdapterRegistry } = require('../../src/services/morphogene
 
 function run() {
   const registry = createTopologyRegistry();
-  const input = { selectedTopology: 'a_team', selectedVariant: 'project_dag', maxCandidates: 10 };
+  const input = { selectedTopology: 'a_team', selectedVariant: 'project_dag' };
   const firstResult = generateAdaptiveTopologyCandidates(input);
   const secondResult = generateAdaptiveTopologyCandidates(input);
   const first = firstResult.candidates;
@@ -17,8 +17,16 @@ function run() {
   assert.equal(first[0].kind, 'NO_CHANGE');
   assert.equal(first[0].topology, 'a_team');
   assert.equal(first[0].variant, 'project_dag');
-  assert.equal(first.length, 10);
+  const expectedVariants = registry.list().flatMap((topology) => registry.variants.listEntries(topology)
+    .map((entry) => `${topology}:${entry.variantId}`));
+  const actualVariants = first.filter((item) => item.kind === 'TOPOLOGY' || item.kind === 'VARIANT')
+    .map((item) => `${item.topology}:${item.kind === 'TOPOLOGY' ? 'default' : item.variant}`);
+  assert.deepEqual(actualVariants.sort(), expectedVariants.sort(), 'every registered topology variant is enumerated');
+  assert.ok(first.length > 32, 'registered variants are not silently cut off by the former hard ceiling');
   assert.equal(firstResult.stats.candidateCount, first.length);
+  assert.equal(firstResult.stats.variantCandidateCount + firstResult.stats.topologyCandidateCount,
+    expectedVariants.length);
+  assert.equal(firstResult.stats.registeredVariantCount, expectedVariants.length);
   assert.ok(firstResult.stats.compositePairsExamined <= firstResult.stats.compositePairCeiling);
   assert.ok(firstResult.stats.compositePairsPotential >= firstResult.stats.compositePairsExamined);
   assert.equal(firstResult.stats.compositePairsTruncated, firstResult.stats.compositePairsPotential > firstResult.stats.compositePairsExamined);
@@ -32,7 +40,11 @@ function run() {
   assert.equal(collectTopologies(nested.expression).length, 2);
 
   for (const candidate of first) {
-    assert.equal(candidate.validation.valid, true, `${candidate.candidateId} must pass morphology typing`);
+    if (!candidate.validation.valid) {
+      assert.equal(candidate.admissibility, 'rejected', `${candidate.candidateId} remains visible as rejected`);
+      assert.equal(candidate.executionEligible, false);
+      assert.ok(candidate.admissibilityReason);
+    }
     assert.equal(parseExpression(candidate.expression).kind, candidate.expression.kind);
     for (const leaf of collectTopologies(candidate.expression)) {
       assert.ok(registry.get(leaf.topology), `registered topology ${leaf.topology}`);
@@ -43,14 +55,15 @@ function run() {
   const filteredResult = generateAdaptiveTopologyCandidates({ ...input, availableTopologyCapabilities: [] });
   const filtered = filteredResult.candidates;
   assert.equal(filtered[0].kind, 'NO_CHANGE');
-  assert.ok(filtered.slice(1).length > 0 && filtered.slice(1).length <= 4);
-  assert.ok(filtered.slice(1).every((item) => item.admissibility === 'rejected' && item.executionEligible === false));
-  assert.ok(filtered.slice(1).every((item) => item.missingCapabilities.length > 0 && item.admissibilityReason));
-  assert.equal(filteredResult.stats.vetoedCandidateCount, filtered.length - 1);
-  const capped = generateAdaptiveTopologyCandidates({ ...input, maxCandidates: HARD_CEILING + 20 });
-  assert.equal(capped.candidates.length, HARD_CEILING);
-  assert.equal(capped.stats.candidateCeiling, HARD_CEILING);
-  assert.throws(() => generateAdaptiveTopologyCandidates({ ...input, maxCandidates: 0 }), /maxCandidates/);
+  const filteredVariants = filtered.filter((item) => item.kind === 'TOPOLOGY' || item.kind === 'VARIANT')
+    .map((item) => `${item.topology}:${item.kind === 'TOPOLOGY' ? 'default' : item.variant}`);
+  assert.deepEqual(filteredVariants.sort(), expectedVariants.sort(), 'capability filtering keeps every variant visible');
+  const capabilityVetoes = filtered.filter((item) => item.missingCapabilities?.length);
+  assert.ok(capabilityVetoes.length > 0);
+  assert.ok(capabilityVetoes.every((item) => item.admissibility === 'rejected'
+    && item.executionEligible === false && item.admissibilityReason));
+  assert.equal(filteredResult.stats.vetoedCandidateCount,
+    filtered.filter((item) => item.admissibility === 'rejected').length);
   assertUnverifiedCompositionsStayExploratory(registry);
   assertVerifiedCompositionsRequireVerifiedAdapter(registry);
   console.log('Adaptive topology candidates: PASS');
@@ -96,7 +109,7 @@ function restrictedRegistry(registry, topologyIds) {
 
 function findNested(input) {
   const { registry, host, inner } = input;
-  const candidates = generateAdaptiveTopologyCandidates({ ...input, selectedTopology: host, maxCandidates: HARD_CEILING }).candidates;
+  const candidates = generateAdaptiveTopologyCandidates({ ...input, selectedTopology: host }).candidates;
   const result = candidates.find((item) => item.kind === 'NESTED'
     && item.members[0].topology === host && item.members[0].variant === 'default'
     && item.members[1].topology === inner && item.members[1].variant === 'default');
