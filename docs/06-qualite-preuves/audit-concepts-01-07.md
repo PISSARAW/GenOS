@@ -108,7 +108,7 @@ bootstrap de sa base de contrôle tout en émettant des événements. Après ini
 configuration du secret de test et vidange avant fermeture (commit `4fedd997`), les huit
 sous-suites Axolotl repassent sans erreur de persistance.
 
-Le contrôle qualité final du checkout a inspecté 6 183 fichiers et signalé 14 violations,
+Le contrôle qualité final du checkout a inspecté 6 186 fichiers et signalé 14 violations,
 dont 3 nouvelles dans `examples/holobionte/password-change-llm-mission.cjs` : 4 paramètres
 à la ligne 45, complexité 12 à la ligne 45 et complexité 11 à la ligne 135. Le gate staged
 des fixtures de test modifiées passe sans violation. L'index ADR compte 632 entrées et
