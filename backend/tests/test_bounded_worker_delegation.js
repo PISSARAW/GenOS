@@ -109,6 +109,7 @@ async function main() {
   }
   finally {
     await require('../src/services/garageRuntimeService').stop(db);
+    await require('./helpers/flushTelemetrySideEffects').flushTelemetrySideEffects();
     await closeDatabase();
     await fs.rm(root, { recursive: true, force: true });
   }

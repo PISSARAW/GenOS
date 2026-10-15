@@ -34,7 +34,12 @@ async function fixture(probe) {
   const method = { version: 1, methodId: 'verify_code_postconditions', parameters: {
     artifactPath: 'src/answer.gexpr', contractId: 'euclidean_modulo_v1', expectedContentHash: values.hashBytes(Buffer.from(expression)) } };
   try { await seed(db, workspace, { problemProfile: { reversibility: 'low' } }); await probe(db, { method, workspace, root }); }
-  finally { await require('../src/services/garageRuntimeService').stop(db); await closeDatabase(); await fs.rm(root, { recursive: true, force: true }); }
+  finally {
+    await require('../src/services/garageRuntimeService').stop(db);
+    await require('./helpers/flushTelemetrySideEffects').flushTelemetrySideEffects();
+    await closeDatabase();
+    await fs.rm(root, { recursive: true, force: true });
+  }
 }
 
 async function positive(db, { method }) {
