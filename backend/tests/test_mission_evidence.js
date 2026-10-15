@@ -132,11 +132,13 @@ test('evidence kinds include worker_evidence when dossiers have reports', () => 
 });
 
 test('barrier alone does not establish a passing test suite', () => {
-  const telemetry = [{ event_type: 'WORKER_EVIDENCE_BARRIER_SATISFIED' }];
+  const telemetry = [{ event_type: 'WORKER_EVIDENCE_BARRIER_SATISFIED',
+    payload_json: JSON.stringify({ suite: 'unit', exitCode: 0 }) }];
   const kinds = buildEvidenceKinds({ dossiers: [], runs: [], telemetry });
   assert.equal(kinds.includes('test_suite_passed'), false);
-  telemetry[0].payload_json = JSON.stringify({ suite: 'unit', exitCode: 0 });
-  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry }).includes('test_suite_passed'), true);
+  const flags = buildEvidenceFlags({ agents: [{ id: 'worker-1', status: 'completed' }],
+    dossiers: [], telemetry });
+  assert.equal(flags.testsPassed, false, 'worker-supplied exitCode and suite fields are not a test receipt');
 });
 
 test('typed profiles created from dossiers and runs', () => {
