@@ -68,6 +68,9 @@ async function main() {
     assert.equal(recalled.provenanceIntegrity.status, 'integrity_only');
     assert.doesNotMatch(reread.injected, /\[VERIFIED_SYSTEM_FACT\]/);
     assert.match(reread.injected, /consumer qualification provenance/);
+    assert.ok(reread.injected.includes(parent.payloadHash),
+      'The memory prompt should carry its provenance reference while keeping it explicitly non-authenticating.');
+    assert.match(reread.injected, /non preuve indépendante/);
     assert.equal(reread.links.find(item => item.id === compiled).evidence_status, 'linked');
     await rejectTamperedEvidence(filename, compiled, forged);
     assertTrustedScoring();

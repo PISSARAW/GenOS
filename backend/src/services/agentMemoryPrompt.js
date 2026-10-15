@@ -175,21 +175,21 @@ function experienceWeight(entry) {
 function experienceLine(entry) {
   const title = entry.title ? `[${entry.title}] ` : '';
   const text = sanitizeMemorySourceText(entry, `${title}${entry.summary || entry.content || ''}`);
-  return `  * ${truncateWords(text, 250)}${experienceWeight(entry)}`;
+  return `  * ${truncateWords(text, 250)}${experienceWeight(entry)}${memoryMetadataSuffix(entry)}`;
 }
 
 function pitfallLine(entry) {
   const text = sanitizeMemorySourceText(entry, entry.summary || entry.content || entry.title);
-  return `  * ⚠️ ${truncateWords(text, 200)}`;
+  return `  * ⚠️ ${truncateWords(text, 200)}${memoryMetadataSuffix(entry)}`;
 }
 
 function goldenLine(entry) {
-  return `  * 🎯 ${sanitizeMemorySourceText(entry, formatGoldenPath(entry))}`;
+  return `  * 🎯 ${sanitizeMemorySourceText(entry, formatGoldenPath(entry))}${memoryMetadataSuffix(entry)}`;
 }
 
 function episodeLine(episode) {
   const detail = safeEpisodeText(episode.observationOutput || episode.actionInput);
-  return `  * [${safeEpisodeText(episode.actionType)}; ${consolidationStatus(episode)}] <souvenir_non_fiable>${truncateWords(detail, 220)}</souvenir_non_fiable> (récompense: ${Number(episode.rewardScore).toFixed(2)})`;
+  return `  * [${safeEpisodeText(episode.actionType)}; ${consolidationStatus(episode)}] <souvenir_non_fiable>${truncateWords(detail, 220)}</souvenir_non_fiable> (récompense: ${Number(episode.rewardScore).toFixed(2)})${memoryMetadataSuffix(episode)}`;
 }
 
 function consolidationStatus(episode) {
@@ -226,18 +226,21 @@ function estimateMemoryTokens(text) {
   return Math.ceil(Buffer.byteLength(text, 'utf8') / 4);
 }
 
-function memoryMetadataText(memories) {
-  return Object.values(memories).flat().map((item) => {
-    const evidenceRefs = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
-    const provenance = item.provenance || null;
-    return evidenceRefs.length > 0 || provenance
-      ? JSON.stringify({ evidenceRefs, provenance }) : '';
-  }).filter(Boolean).join(' ');
+function memoryMetadataSuffix(item) {
+  const metadata = {
+    evidenceRefs: Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [],
+    counterexampleRefs: Array.isArray(item.counterexampleRefs) ? item.counterexampleRefs : [],
+    provenance: item.provenance || null,
+    provenanceIntegrity: item.provenanceIntegrity || null
+  };
+  const hasMetadata = metadata.evidenceRefs.length > 0 || metadata.counterexampleRefs.length > 0 ||
+    metadata.provenance || metadata.provenanceIntegrity;
+  return hasMetadata ? ` [références historiques, non preuve indépendante: ${JSON.stringify(metadata)}]` : '';
 }
 
 function selectionTokens(memories) {
   const rendered = buildMemorySections(memories, []).join('\n\n');
-  return estimateMemoryTokens(rendered) + estimateMemoryTokens(memoryMetadataText(memories));
+  return estimateMemoryTokens(rendered);
 }
 
 function emptyMemorySelection() {
