@@ -11,10 +11,10 @@ const SCHEMA = 'genos.execution-authority-envelope/v1';
 function eventId(runId) { return `gvx-run:${runId}:authority`; }
 
 async function realWorkspaceRoot(root, resolve = fs.realpath) {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
     try { return await resolve(root); }
     catch (failure) {
-      if (!['EPERM', 'EBUSY'].includes(failure.code) || attempt === 4) throw failure;
+      if (!['EPERM', 'EBUSY'].includes(failure.code) || attempt === 39) throw failure;
       await new Promise((done) => setTimeout(done, 25 * (attempt + 1)));
     }
   }
