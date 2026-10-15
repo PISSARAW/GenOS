@@ -80,6 +80,10 @@ try {
   assert(adapter.orchestratorToolLease({}).includes('genos_report_progress'));
   assert.strictEqual(typeof adapter.waitForAutonomousWorkerQuiescence, 'function');
   assert.strictEqual(typeof adapter.buildWorkerSynthesisPrompt, 'function');
+  const missionExecution = require('../src/services/agentRuntimeAdapter/missionExecution');
+  assert.equal(missionExecution.missionStartFailureDetail(
+    Object.assign(new Error('bootstrap refused'), { code: 'BOOTSTRAP_REFUSED' })
+  ), 'BOOTSTRAP_REFUSED: bootstrap refused');
   assert(roundSource.includes('for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId)'), 'all selected continuation workers must be dispatched even if they closed before the final initial result');
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';

@@ -138,9 +138,34 @@ function startMission(mission) {
       pendingContinuations.delete(agentId);
       pendingWorkerRecoveries.delete(agentId);
     }
+  }).catch(async (failure) => {
+    await recordMissionStartFailure(agentId, failure);
+    throw failure;
   });
   missionStarts.set(agentId, start);
   return start;
 }
 
-module.exports = { startMissionInternal, startMission };
+function missionStartFailureDetail(failure) {
+  const code = String(failure?.code || 'AGENT_MISSION_START_FAILED');
+  const message = String(failure?.message || failure || 'Unknown mission start failure.');
+  return `${code}: ${message}`.slice(0, 4000);
+}
+
+async function recordMissionStartFailure(agentId, failure) {
+  const detail = missionStartFailureDetail(failure);
+  try {
+    const db = await require('../../db').getDatabase();
+    await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      detail, agentId);
+  } catch (recordingFailure) {
+    console.error('[AgentRuntimeAdapter] Mission start failure could not be persisted.', {
+      agentId, error: recordingFailure.message
+    });
+  }
+  require('../agentOrchestrationState').emit(agentId, 'AGENT_MISSION_START_FAILED', 'START_RUNTIME', detail, {
+    code: failure?.code || 'AGENT_MISSION_START_FAILED'
+  }, 'error');
+}
+
+module.exports = { startMissionInternal, startMission, missionStartFailureDetail };
