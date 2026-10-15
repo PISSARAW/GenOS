@@ -275,11 +275,11 @@ terminaison du worker, rafraîchit les agents, collecte les preuves runtime via
 `missionEvidenceCollector.js` remplace les `['mission_outcome']` synthétiques
 par de vraies preuves :
 - `worker_evidence` : dossiers workers avec `evidenceReport`
-- `test_suite_passed` : reçu de test comportant suite et code de sortie zéro ; la barrière des dossiers seule ne suffit pas
-- `evidence_report` : événements `EVIDENCE_REPORT`
+- `test_suite_passed` : actuellement absent en l'absence de producteur raccordé d'un reçu de test fiable ; la barrière des dossiers seule ne suffit pas
+- `evidence_report` : événement `EVIDENCE_REPORT` avec claim étayée; ce n'est pas un reçu de vérification indépendant
 - `execution_run_complete` : `strategy_execution_runs` complétés
-- `agent_completed` : événements `AGENT_COMPLETED`
-- `homeostasis_achieved` : événements `MISSION_COMPLETED`
+- `agent_completed` : événements `AGENT_COMPLETED`, signal de terminaison qui ne prouve pas la validité métier
+- `homeostasis_achieved` : dernier état persistant `homeostasis_states.status = homeostasis_satisfied`; un événement `MISSION_COMPLETED` seul ne suffit pas
 
 Les flags incluent désormais `testsPassed`, `workerEvidenceComplete`,
 `noFailedAgents`, `allAgentsCompleted`, `verifierReceiptPresent`.

@@ -166,6 +166,19 @@ test('empty evidence report telemetry does not satisfy required evidence', () =>
   assert.equal(substantiatedEvaluation.homeostasisSatisfied, true);
 });
 
+test('homeostasis evidence comes from persisted evaluated state, not completion telemetry', async () => {
+  const missionId = 'persisted_homeostasis_evidence';
+  await db.run(`INSERT INTO homeostasis_states (id, contract_id, mission_id, status, state_json)
+    VALUES (?, ?, ?, 'homeostasis_satisfied', '{}')`, 'state-homeostasis-evidence', 'contract-homeostasis-evidence', missionId);
+  await db.run(`INSERT INTO telemetry_events (event_type, action, detail, payload_json, agent_id, severity)
+    VALUES ('MISSION_COMPLETED', 'complete', 'claimed completion', '{}', ?, 'info')`, missionId);
+
+  const result = await collectMissionEvidence(db, missionId, []);
+  assert.equal(result.evidence.includes('homeostasis_achieved'), true, 'persisted satisfied state is evidence');
+  assert.equal(result.telemetry.some(event => event.event_type === 'MISSION_COMPLETED'), false,
+    'completion telemetry is not treated as a homeostasis evaluation');
+});
+
 test('typed profiles created from dossiers and runs', () => {
   const dossiers = [{ workerId: 'w1', events: [{ evidenceReport: {} }] }];
   const runs = [{ status: 'completed' }];

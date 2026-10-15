@@ -12,7 +12,7 @@ const EVIDENCE_TELEMETRY_EVENTS = new Set([
   'EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
   'WORKER_EVIDENCE_BARRIER_PARTIAL', 'WORKER_EVIDENCE_BARRIER_SATISFIED',
   'MISSION_HOMEOSTASIS_ACHIEVED', 'HOMEOSTASIS_CONTINUATION_DISPATCHED',
-  'MISSION_COMPLETED', 'MISSION_COMPLETION_BLOCKED',
+  'MISSION_COMPLETION_BLOCKED',
 ]);
 
 async function collectMissionEvidence(db, missionId, agents) {
@@ -23,8 +23,9 @@ async function collectMissionEvidence(db, missionId, agents) {
   const dossiers = collectWorkerDossiers(identity?.orchestratorAgentId || missionId, members);
   const runs = await collectExecutionRuns(db, scope);
   const telemetry = await collectEvidenceTelemetry(db, scope);
+  const homeostasisState = await collectHomeostasisState(db, missionId);
   const flags = buildEvidenceFlags({ agents: effective, dossiers, telemetry });
-  const evidence = buildEvidenceKinds({ dossiers, runs, telemetry });
+  const evidence = buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState });
   const profiles = buildTypedProfiles(dossiers, runs);
   return { flags, evidence, profiles, dossiers, runs, telemetry };
 }
@@ -55,6 +56,15 @@ async function collectEvidenceTelemetry(db, scope) {
     ORDER BY t.created_at LIMIT 1000`, scope.missionId, scope.identity.createdAt, ...types);
 }
 
+async function collectHomeostasisState(db, missionId) {
+  try {
+    return await db.get(`SELECT status FROM homeostasis_states WHERE mission_id = ?
+      ORDER BY observed_at DESC, rowid DESC LIMIT 1`, missionId);
+  } catch (_) {
+    return null;
+  }
+}
+
 function buildEvidenceFlags({ agents, dossiers, telemetry }) {
   const failed = agents.filter(a => ['error', 'failed', 'terminated', 'apoptosis'].includes(a.status)).length;
   const completed = agents.filter(a => a.status === 'completed').length;
@@ -77,7 +87,7 @@ function buildEvidenceFlags({ agents, dossiers, telemetry }) {
   };
 }
 
-function buildEvidenceKinds({ dossiers, runs, telemetry }) {
+function buildEvidenceKinds({ dossiers, runs, telemetry, homeostasisState }) {
   const kinds = new Set();
   if (dossiers.some(d => d.events.some(e => e.evidenceReport))) kinds.add('worker_evidence');
   if (runs.some(r => r.status === 'completed')) kinds.add('execution_run_complete');
@@ -85,7 +95,7 @@ function buildEvidenceKinds({ dossiers, runs, telemetry }) {
   // A suite claim needs a separate trusted executor receipt, not worker telemetry.
   if (telemetry.some(t => t.event_type === 'WORKER_EVIDENCE_BARRIER_SATISFIED')) kinds.add('worker_evidence_barrier_satisfied');
   if (telemetry.some(t => t.event_type === 'AGENT_COMPLETED')) kinds.add('agent_completed');
-  if (telemetry.some(t => t.event_type === 'MISSION_COMPLETED')) kinds.add('homeostasis_achieved');
+  if (homeostasisState?.status === 'homeostasis_satisfied') kinds.add('homeostasis_achieved');
   return [...kinds];
 }
 

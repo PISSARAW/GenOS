@@ -116,11 +116,11 @@ Le contexte d'évaluation n'est plus synthétique. `missionEvidenceCollector.js`
 collecte :
 
 - `worker_evidence` : dossiers workers (`evidenceReport`)
-- `test_suite_passed` : `WORKER_EVIDENCE_BARRIER_SATISFIED` en télémétrie
-- `evidence_report` : événements `EVIDENCE_REPORT`
+- `test_suite_passed` : absent tant qu'un producteur de reçu de test fiable n'est pas raccordé
+- `evidence_report` : événement `EVIDENCE_REPORT` avec claim étayée, sans valeur de reçu indépendant
 - `execution_run_complete` : `strategy_execution_runs.status = completed`
-- `agent_completed` : événements `AGENT_COMPLETED`
-- `homeostasis_achieved` : événements `MISSION_COMPLETED`
+- `agent_completed` : événements `AGENT_COMPLETED`, signal de terminaison qui ne prouve pas la validité métier
+- `homeostasis_achieved` : état persistant `homeostasis_states.status = homeostasis_satisfied`, pas un événement de complétion déclaré
 
 Les flags contextuels : `testsPassed`, `workerEvidenceComplete`, `noFailedAgents`,
 `allAgentsCompleted`, `verifierReceiptPresent`.

@@ -81,6 +81,13 @@ tant qu'un producteur de reçus de vérificateur n'est pas raccordé. La régres
 est couverte dans `test_mission_evidence.js` pour les payloads vide, étayé et
 leur distinction d'avec un reçu de vérificateur.
 
+Le collecteur associait aussi `homeostasis_achieved` à tout événement
+`MISSION_COMPLETED`, alors que le gate persiste son résultat dans
+`homeostasis_states` et émet `MISSION_HOMEOSTASIS_ACHIEVED`. La catégorie provient
+maintenant du dernier état durable `homeostasis_satisfied`; l'événement de
+complétion seul ne la crée pas. `test_mission_evidence.js` couvre le parcours
+collecteur et distingue l'état persisté de la déclaration en télémétrie.
+
 Les gates globaux ont été exécutés avant le correctif ADR 0508 : `npm test` a terminé
 avec code 0 (biologie, workspace workers, backend, garage et P1 V3) et
 `cargo test --workspace` avec code 0, après compilation dans un répertoire cible
