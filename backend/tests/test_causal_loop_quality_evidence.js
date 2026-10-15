@@ -30,6 +30,13 @@ const result = causalLoop.processActionReceipt({
   }
 });
 
+const partialScope = causalLoop.processActionReceipt({
+  agentId: 'quality-evidence-test', organizationId: 'orphan-org',
+  actionReceipt: { actionId: 'partial-scope-action' }
+});
+assert.equal(partialScope.error, 'invalid_scope',
+  'Causal learning refuses organization-only or project-only contexts.');
+
 assert.equal(result.outcome.quality, null);
 assert.equal(result.outcome.qualityVerified, false);
 assert.equal(result.outcome.evidenceRef, null);

@@ -218,6 +218,9 @@ function processActionReceipt(ctx) {
   if (!actionReceipt || !agentId) {
     return { error: 'invalid_context', receipt: null };
   }
+  if (Boolean(organizationId) !== Boolean(projectId)) {
+    return { error: 'invalid_scope', receipt: null };
+  }
 
   const evidence = actionReceipt.evidence || actionReceipt;
   const outcome = computeOutcome({ receipt: actionReceipt, agentId, organizationId, projectId });
