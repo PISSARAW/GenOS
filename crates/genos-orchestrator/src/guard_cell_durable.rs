@@ -13,6 +13,7 @@ const RECEIPT_SCHEMA: &str = "genos.guard-cell-mission-flux/v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MissionGuardFluxCommand {
+    pub cell_id: Uuid,
     pub idempotency_key: String,
     pub tick: u64,
     pub requested_flux: f64,
@@ -38,7 +39,7 @@ pub struct MissionGuardFluxReceipt {
 }
 
 impl GenosEcosystem {
-    /// Runs the guard-cell control, debits the root-cell pool, and commits state plus receipt.
+    /// Runs the guard-cell control, debits the requested cell pool, and commits state plus receipt.
     pub fn throttle_flux_for_mission_durable(
         &mut self,
         store: &BiologicalReceiptStore,
@@ -126,7 +127,7 @@ fn execute_flux(eco: &mut GenosEcosystem, execution: GuardExecution<'_>) -> Resu
 
 fn plan_flux(eco: &mut GenosEcosystem, mission_id: Uuid, command: MissionGuardFluxCommand) -> Result<GuardFluxPlan, String> {
     let pore_before = eco.guard_cell.clone();
-    let cell_id = eco.orchestrator.orchestrator_id;
+    let cell_id = command.cell_id;
     let atp_before = eco.atp();
     let checkpoint = eco.orchestrator.metabolism.checkpoint();
     let pool_before = cell_pool(eco, cell_id)?;
@@ -207,7 +208,9 @@ fn replay(store: &BiologicalReceiptStore, mission_id: Uuid, command: &MissionGua
     }
     let receipt: MissionGuardFluxReceipt = serde_json::from_value(snapshot["guard_flux_operation"].clone())
         .map_err(|error| format!("guard-cell receipt incomplete: {error}"))?;
-    if receipt.requested_flux != command.requested_flux || receipt.idempotency_key != command.idempotency_key {
+    if receipt.cell_id != command.cell_id || receipt.requested_flux != command.requested_flux
+        || receipt.idempotency_key != command.idempotency_key
+    {
         return Err("guard-cell idempotency key conflicts with this operation".into());
     }
     Ok(Some(receipt))

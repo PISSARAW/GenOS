@@ -113,6 +113,7 @@ async function assertGuardFluxReplay(port, workspace, cellId) {
     .filter(item => item.idempotency_key === body.idempotencyKey);
   assert.equal(matching.length, 1, 'guard-flux retry must not append a second operation snapshot');
   assert.equal(matching[0].guard_flux_operation.idempotency_key, body.idempotencyKey);
+  assert.equal(matching[0].guard_flux_operation.cell_id, cellId);
   assert.ok(matching[0].guard_cell_state);
 }
 

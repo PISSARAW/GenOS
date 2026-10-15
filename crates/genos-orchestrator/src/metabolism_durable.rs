@@ -65,6 +65,8 @@ fn apply_demand(
     let receipt = MissionMetabolicPoolReceipt {
         schema: "genos.mission-metabolic-pool-receipt/v1".into(),
         mission_id,
+        idempotency_key: Some(command.idempotency_key.clone()),
+        tick: Some(command.tick),
         cell_id: command.demand.cell_id,
         operation: command.demand.operation.clone(),
         requested_amino_acids: valid_amount(command.demand.amino_acids),
@@ -129,14 +131,23 @@ fn replay_receipt(
     }
     let receipt: MissionMetabolicPoolReceipt = serde_json::from_value(snapshot["metabolic_operation"].clone())
         .map_err(|error| format!("metabolic pool receipt is incomplete: {error}"))?;
-    if receipt.mission_id != mission_id
-        || receipt.cell_id != command.demand.cell_id
-        || receipt.operation != command.demand.operation
-        || receipt.requested_amino_acids != valid_amount(command.demand.amino_acids)
-    {
+    if !receipt_matches(&receipt, mission_id, command) {
         return Err("metabolic pool idempotency key conflicts with this operation".into());
     }
     Ok(receipt)
+}
+
+fn receipt_matches(
+    receipt: &MissionMetabolicPoolReceipt,
+    mission_id: Uuid,
+    command: &MissionMetabolicPoolCommand,
+) -> bool {
+    receipt.mission_id == mission_id
+        && receipt.idempotency_key.as_deref() == Some(command.idempotency_key.as_str())
+        && receipt.tick == Some(command.tick)
+        && receipt.cell_id == command.demand.cell_id
+        && receipt.operation == command.demand.operation
+        && receipt.requested_amino_acids == valid_amount(command.demand.amino_acids)
 }
 
 fn restore_pool(

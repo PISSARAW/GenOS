@@ -27,7 +27,10 @@ async function run() {
   cli.runGenos = async args => {
     calls.push(args);
     const key = args[args.indexOf('--idempotency-key') + 1];
-    if (!receipts.has(key)) receipts.set(key, { idempotency_key: key, receipt_id: randomUUID(), tick: 4, accepted: true });
+    if (!receipts.has(key)) receipts.set(key, { mission_id: rustMissionId,
+      cell_id: args[args.indexOf('--cell-id') + 1], idempotency_key: key,
+      requested_flux: Number(args[args.indexOf('--requested-flux') + 1]), receipt_id: randomUUID(),
+      tick: Number(args[args.indexOf('--tick') + 1]), accepted: true });
     return { ok: true, json: { execution_mode: 'experimental', mission_authority: 'unverified_cli_claim', receipt: receipts.get(key) } };
   };
   const db = await getDatabase();
@@ -67,6 +70,7 @@ async function run() {
     assert.equal(calls.length, 2);
     assert.deepEqual(calls[0], calls[1]);
     assert.equal(calls[0][0], 'guard-flux');
+    assert.equal(calls[0][calls[0].indexOf('--cell-id') + 1], cellId);
     assert.ok(calls[0].includes('--experimental'));
     assert.equal(calls[0][calls[0].indexOf('--mission-id') + 1], rustMissionId);
     assert.equal(first.body.backendAuthorization.permission, 'experiment:run');
@@ -78,6 +82,14 @@ async function run() {
     } });
     const mismatched = await request({ port, route, body: { ...body, idempotencyKey: 'expected-key' } });
     assert.equal(mismatched.status, 502, JSON.stringify(mismatched.body));
+
+    cli.runGenos = async args => ({ ok: true, json: {
+      execution_mode: 'experimental', mission_authority: 'unverified_cli_claim',
+      receipt: { mission_id: rustMissionId, cell_id: randomUUID(), tick: 4,
+        requested_flux: 20, idempotency_key: args[args.indexOf('--idempotency-key') + 1] }
+    } });
+    const wrongCell = await request({ port, route, body: { ...body, idempotencyKey: 'wrong-cell-receipt' } });
+    assert.equal(wrongCell.status, 502, JSON.stringify(wrongCell.body));
 
     cli.runGenos = async () => ({ ok: false, stderr: 'guard journal unavailable' });
     const failed = await request({ port, route, body: { ...body, idempotencyKey: 'guard-failure' } });

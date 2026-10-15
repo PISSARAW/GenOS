@@ -44,8 +44,9 @@ fn execute_in_workspace(cmd: MetabolicPoolCmd, workspace: &Path) -> Result<(), S
 fn run_locked(cmd: MetabolicPoolCmd, store: &BiologicalReceiptStore) -> Result<(), String> {
     let mut ecosystem = restored_ecosystem(cmd.mission_id, store)?;
     validate_tick(ecosystem.receipt_tick, cmd.tick)?;
+    let identity = MetabolicOperationIdentity::from(&cmd);
     let receipt = consume_request(&mut ecosystem, store, cmd)?;
-    print_receipt(receipt);
+    print_receipt(identity, receipt);
     Ok(())
 }
 
@@ -80,11 +81,33 @@ fn consume_request(
     })
 }
 
-fn print_receipt(receipt: genos_orchestrator::metabolism::MissionMetabolicPoolReceipt) {
+struct MetabolicOperationIdentity {
+    mission_id: Uuid,
+    cell_id: Uuid,
+    idempotency_key: String,
+    operation: String,
+    amino_acids: f64,
+    tick: u64,
+}
+
+impl From<&MetabolicPoolCmd> for MetabolicOperationIdentity {
+    fn from(cmd: &MetabolicPoolCmd) -> Self {
+        Self { mission_id: cmd.mission_id, cell_id: cmd.cell_id, idempotency_key: cmd.idempotency_key.clone(),
+            operation: cmd.operation.clone(), amino_acids: cmd.amino_acids, tick: cmd.tick }
+    }
+}
+
+fn print_receipt(identity: MetabolicOperationIdentity, receipt: genos_orchestrator::metabolism::MissionMetabolicPoolReceipt) {
     let output = serde_json::json!({
         "success": true,
         "execution_mode": "experimental",
         "mission_authority": "unverified_cli_claim",
+        "mission_id": identity.mission_id,
+        "cell_id": identity.cell_id,
+        "idempotency_key": identity.idempotency_key,
+        "operation": identity.operation,
+        "amino_acids": identity.amino_acids,
+        "tick": identity.tick,
         "receipt": receipt,
     });
     println!("{output}");

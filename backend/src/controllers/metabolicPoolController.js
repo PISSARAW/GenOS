@@ -71,7 +71,7 @@ async function executeMetabolicPool(input) {
     '--idempotency-key', command.idempotencyKey, '--operation', command.operation,
     '--amino-acids', String(command.aminoAcids), '--tick', String(command.tick), '--experimental'];
   const run = await cli.runGenos(args);
-  if (!successfulRun(run)) {
+  if (!successfulRun(run, command, rustMissionId)) {
     return res.status(502).json({ error: { code: 'METABOLIC_RUST_EXECUTION_FAILED', message: run.stderr?.trim() || run.error || 'Durable metabolic executor failed.' } });
   }
   return res.json({ operation: 'metabolic_pool', missionId: command.missionId,
@@ -81,9 +81,29 @@ async function executeMetabolicPool(input) {
     rust: run.json });
 }
 
-function successfulRun(run) {
-  return run?.ok === true && run.json?.success === true && run.json?.receipt
-    && run.json.mission_authority === 'unverified_cli_claim';
+function successfulRun(run, command, rustMissionId) {
+  const identity = run?.json;
+  const receipt = identity?.receipt;
+  return run?.ok === true && identity?.success === true && Boolean(receipt)
+    && operationIdentityMatches({ identity, command, rustMissionId })
+    && operationReceiptMatches({ receipt, command, rustMissionId });
+}
+
+function operationIdentityMatches(input) {
+  const { identity, command, rustMissionId } = input;
+  return identity.execution_mode === 'experimental'
+    && identity.mission_authority === 'unverified_cli_claim'
+    && identity.mission_id === rustMissionId && identity.cell_id === command.cellId
+    && identity.idempotency_key === command.idempotencyKey
+    && identity.operation === command.operation && identity.amino_acids === command.aminoAcids
+    && identity.tick === command.tick;
+}
+
+function operationReceiptMatches(input) {
+  const { receipt, command, rustMissionId } = input;
+  return receipt.mission_id === rustMissionId && receipt.cell_id === command.cellId
+    && receipt.operation === command.operation
+    && receipt.requested_amino_acids === command.aminoAcids;
 }
 
 module.exports = { consume };

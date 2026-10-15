@@ -5,6 +5,9 @@ pub struct GuardFluxCmd {
     /// Mission UUID supplied by the caller; this CLI does not authenticate it
     #[arg(long)]
     pub mission_id: String,
+    /// Active Rust cell whose resources back this operation
+    #[arg(long)]
+    pub cell_id: Option<String>,
     /// Mission receipt tick associated with this flux operation
     #[arg(long)]
     pub tick: u64,

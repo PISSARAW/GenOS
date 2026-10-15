@@ -18,7 +18,7 @@ fn guard_flux_state_and_idempotent_replay_survive_process_restart() {
     let cell_id = source.orchestrator.orchestrator_id;
     source.orchestrator.active_cells.get_mut(&cell_id).unwrap().metabolism.amino_acids = 50.0;
     let store = BiologicalReceiptStore::open(&path);
-    let command = MissionGuardFluxCommand { idempotency_key: "guard-process-1".into(), tick: 8, requested_flux: 20.0 };
+    let command = MissionGuardFluxCommand { cell_id, idempotency_key: "guard-process-1".into(), tick: 8, requested_flux: 20.0 };
     let receipt = source.throttle_flux_for_mission_durable(&store, command.clone()).unwrap();
     assert!(receipt.accepted);
     assert!(receipt.result.admitted_flux > 0.0);
@@ -47,7 +47,7 @@ fn guard_flux_restart_child() {
     let saved_atp: genos_orchestrator::metabolism::MetabolismCheckpoint = serde_json::from_value(saved["guard_atp_state"].clone()).unwrap();
     assert_eq!(restored.orchestrator.metabolism.available(), saved_atp.atp);
     assert_eq!(restored.orchestrator.metabolism.consumed_total, saved_atp.consumed_total);
-    let command = MissionGuardFluxCommand { idempotency_key: expected.idempotency_key.clone(), tick: expected.tick, requested_flux: expected.requested_flux };
+    let command = MissionGuardFluxCommand { cell_id: expected.cell_id, idempotency_key: expected.idempotency_key.clone(), tick: expected.tick, requested_flux: expected.requested_flux };
     let replayed = restored.throttle_flux_for_mission_durable(&store, command).unwrap();
     assert_eq!(serde_json::to_value(replayed).unwrap(), serde_json::to_value(&expected).unwrap());
     assert_eq!(restored.orchestrator.active_cells[&expected.cell_id].metabolism.amino_acids, expected.amino_acids_after);
@@ -62,7 +62,7 @@ fn refused_guard_flux_persists_without_pool_or_pore_mutation() {
     ecosystem.orchestrator.active_cells.get_mut(&cell_id).unwrap().metabolism.amino_acids = 0.0;
     let original_pore = serde_json::to_value(&ecosystem.guard_cell).unwrap();
     let store = BiologicalReceiptStore::open(&path);
-    let command = MissionGuardFluxCommand { idempotency_key: "guard-refusal-1".into(), tick: 2, requested_flux: 12.0 };
+    let command = MissionGuardFluxCommand { cell_id, idempotency_key: "guard-refusal-1".into(), tick: 2, requested_flux: 12.0 };
     let receipt = ecosystem.throttle_flux_for_mission_durable(&store, command).unwrap();
     assert!(!receipt.accepted);
     assert_eq!(receipt.result.admitted_flux, 0.0);
@@ -87,7 +87,7 @@ fn guard_flux_append_failure_rolls_back_pool_energy_and_pore() {
 
     assert!(ecosystem.throttle_flux_for_mission_durable(
         &store,
-        MissionGuardFluxCommand { idempotency_key: "guard-append-failure".into(), tick: 1, requested_flux: 20.0 },
+        MissionGuardFluxCommand { cell_id, idempotency_key: "guard-append-failure".into(), tick: 1, requested_flux: 20.0 },
     ).is_err());
     assert_eq!(ecosystem.orchestrator.active_cells[&cell_id].metabolism.amino_acids, amino_before);
     assert_eq!(ecosystem.orchestrator.metabolism.available(), atp_before);

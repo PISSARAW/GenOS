@@ -48,10 +48,10 @@ async function missionContext({ db, input }) {
 }
 
 async function executeGuardFlux({ req, res, input, rustMissionId }) {
-  const args = ['guard-flux', '--mission-id', rustMissionId, '--tick', String(input.tick),
+  const args = ['guard-flux', '--mission-id', rustMissionId, '--cell-id', input.cellId, '--tick', String(input.tick),
     '--requested-flux', String(input.requestedFlux), '--idempotency-key', input.idempotencyKey, '--experimental'];
   const run = await cli.runGenos(args);
-  if (!successfulRun(run, input.idempotencyKey)) {
+  if (!successfulRun(run, input, rustMissionId)) {
     return res.status(502).json({ error: { code: 'GUARD_FLUX_RUST_EXECUTION_FAILED', message: run?.stderr?.trim() || run?.error || 'Durable guard-flux executor failed.' } });
   }
   return res.json({ operation: 'guard_flux', missionId: input.missionId, cellId: input.cellId,
@@ -61,10 +61,14 @@ async function executeGuardFlux({ req, res, input, rustMissionId }) {
     rust: run.json });
 }
 
-function successfulRun(run, idempotencyKey) {
+function successfulRun(run, input, rustMissionId) {
   return run?.ok === true && run.json?.execution_mode === 'experimental'
     && run.json?.mission_authority === 'unverified_cli_claim' && run.json?.receipt
-    && run.json.receipt.idempotency_key === idempotencyKey;
+    && run.json.receipt.mission_id === rustMissionId
+    && run.json.receipt.cell_id === input.cellId
+    && run.json.receipt.tick === input.tick
+    && run.json.receipt.requested_flux === input.requestedFlux
+    && run.json.receipt.idempotency_key === input.idempotencyKey;
 }
 
 module.exports = { apply };

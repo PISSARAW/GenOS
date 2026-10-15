@@ -27,9 +27,13 @@ fn execute_in_workspace(cmd: GuardFluxCmd, workspace: &Path) -> Result<(), Strin
     let mut ecosystem = GenosEcosystem::new("guard-flux-cli");
     ecosystem.set_mission_id(mission_id);
     restore_if_available(&mut ecosystem, &store, mission_id)?;
+    let cell_id = cmd.cell_id.as_deref().map(Uuid::parse_str).transpose()
+        .map_err(|error| format!("cell_id must be a UUID: {error}"))?
+        .unwrap_or(ecosystem.orchestrator.orchestrator_id);
     let receipt = ecosystem.throttle_flux_for_mission_durable(
         &store,
         MissionGuardFluxCommand {
+            cell_id,
             idempotency_key: cmd.idempotency_key,
             tick: cmd.tick,
             requested_flux: cmd.requested_flux,

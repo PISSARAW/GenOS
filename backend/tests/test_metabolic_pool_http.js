@@ -27,9 +27,15 @@ async function run() {
   cli.runGenos = async args => {
     calls.push(args);
     const key = args[args.indexOf('--idempotency-key') + 1];
-    if (!receipts.has(key)) receipts.set(key, { receipt_id: randomUUID(), tick: 4, amino_acids_consumed: 2 });
+    const value = flag => args[args.indexOf(flag) + 1];
+    const identity = { mission_id: value('--mission-id'), cell_id: value('--cell-id'),
+      idempotency_key: key, operation: value('--operation'), amino_acids: Number(value('--amino-acids')),
+      tick: Number(value('--tick')) };
+    if (!receipts.has(key)) receipts.set(key, { mission_id: identity.mission_id, cell_id: identity.cell_id,
+      operation: identity.operation, requested_amino_acids: identity.amino_acids, receipt_id: randomUUID(),
+      amino_acids_consumed: identity.amino_acids });
     return { ok: true, json: { success: true, execution_mode: 'experimental',
-      mission_authority: 'unverified_cli_claim', receipt: receipts.get(key) } };
+      mission_authority: 'unverified_cli_claim', ...identity, receipt: receipts.get(key) } };
   };
   const db = await getDatabase();
   await seed(db);
@@ -63,8 +69,17 @@ async function run() {
     assert.deepEqual(calls[0], calls[1]);
     assert.equal(calls[0][0], 'metabolic-pool');
     assert.ok(calls[0].includes('--experimental'), 'the CLI remains explicitly experimental and unauthenticated');
+    assert.equal(calls[0][calls[0].indexOf('--cell-id') + 1], cellId);
     assert.equal(first.body.backendAuthorization.permission, 'experiment:run');
     assert.equal(first.body.rust.mission_authority, 'unverified_cli_claim');
+    assert.equal('idempotency_key' in first.body.rust.receipt, false);
+    assert.equal('tick' in first.body.rust.receipt, false);
+    cli.runGenos = async args => ({ ok: true, json: { success: true, execution_mode: 'experimental',
+      mission_authority: 'unverified_cli_claim', mission_id: rustMissionId, cell_id: cellId,
+      idempotency_key: 'wrong-operation-key', operation: 'other_operation', amino_acids: 2, tick: 4,
+      receipt: { mission_id: rustMissionId, cell_id: cellId, operation: 'other_operation', requested_amino_acids: 2 } } });
+    const mismatch = await request({ port, route, body: { ...requestBody, idempotencyKey: 'bad-receipt-identity' } });
+    assert.equal(mismatch.status, 502, JSON.stringify(mismatch.body));
     console.log('Metabolic HTTP authorization, refusal, and idempotent replay: PASS');
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
