@@ -21,7 +21,11 @@ function waitMessage(child, predicate, timeoutMs = 7000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => done(new Error('Process message timed out.')), timeoutMs);
     const onMessage = message => { if (predicate(message)) done(null, message); };
-    const onExit = code => done(new Error(`${child.genosLabel} exited early (${code}): ${child.genosStderr}`));
+    const onExit = code => {
+      const peers = (child.genosPeers || []).map(peer =>
+        `${peer.genosLabel}[exit=${peer.exitCode}]: ${peer.genosStderr}`).join(' | ');
+      done(new Error(`${child.genosLabel} exited early (${code}): ${child.genosStderr} ${peers}`));
+    };
     function done(error, value) {
       clearTimeout(timer);
       child.removeListener('message', onMessage);
@@ -71,11 +75,13 @@ test('backend restart recovers bounded future supervision without faking ChildPr
     const { descriptor } = await waitMessage(runtime, message => message?.type === 'descriptor');
     firstBackend = spawnFixture({ helper: backendHelper, environment: 'GENOS_RECOVERED_BACKEND',
       value: { database, privateKey, lineage, descriptor }, label: 'backend-1' });
+    firstBackend.genosPeers = [runtime];
     await waitMessage(firstBackend, message => message?.type === 'recovered');
     await stop(firstBackend);
 
     secondBackend = spawnFixture({ helper: backendHelper, environment: 'GENOS_RECOVERED_BACKEND',
       value: { database, privateKey, lineage }, label: 'backend-2' });
+    secondBackend.genosPeers = [runtime];
     const recovered = await waitMessage(secondBackend, message => message?.type === 'recovered');
     assert.equal(recovered.capabilities.historicalLogs, false);
     assert.equal(recovered.capabilities.processExit, false);
