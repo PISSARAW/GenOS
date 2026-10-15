@@ -2,8 +2,10 @@ const express = require('express');
 const controller = require('../controllers/productProofController');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
 const router = express.Router();
+router.use(routeRateLimit);
 router.post('/assemblies/:assemblyId/retract', requirePermission('security:manage'), requireTenantScope({ write: true }),
   require('../controllers/aeisRetractionController').retract);
 router.get('/consumer-runs/:runId', requirePermission('read'), requireTenantScope(),

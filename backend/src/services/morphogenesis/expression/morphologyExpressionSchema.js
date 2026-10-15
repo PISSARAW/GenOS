@@ -10,8 +10,9 @@ function validateExpression(expr) {
   if (!expr || typeof expr !== 'object') return { valid: false, errors: ['Expression must be an object'] };
   if (!expr.kind || !EXPRESSION_KINDS.includes(expr.kind)) errors.push(`Invalid or missing kind. Must be one of: ${EXPRESSION_KINDS.join(', ')}`);
 
-  const validators = { TOPOLOGY: validateTopology, NEST: validateNest, GATE: validateGate, WRAP: validateWrap, BRIDGE: validateBridge, FEDERATE: validateFederate };
-  if (validators[expr.kind]) validators[expr.kind](expr, errors);
+  const validators = new Map([['TOPOLOGY', validateTopology], ['NEST', validateNest], ['GATE', validateGate], ['WRAP', validateWrap], ['BRIDGE', validateBridge], ['FEDERATE', validateFederate]]);
+  const validator = validators.get(expr.kind);
+  if (validator) validator(expr, errors);
   else if (COMPOSITE_KINDS.includes(expr.kind)) validateChildren(expr, errors);
 
   if (expr.nodeKind !== undefined && !NODE_KINDS.includes(expr.nodeKind)) errors.push(`Invalid nodeKind. Must be one of: ${NODE_KINDS.join(', ')}`);

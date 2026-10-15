@@ -16,21 +16,16 @@ const PREFIXES = {
 function parseShorthand(str) {
   const trimmed = str.trim();
   for (const [kind, prefix] of Object.entries(PREFIXES)) {
-    if (trimmed.startsWith(prefix)) return SHORTHAND_PARSERS[kind](trimmed);
+    if (trimmed.startsWith(prefix)) return SHORTHAND_PARSERS.get(kind)(trimmed);
   }
   return parseTopologyShorthand(trimmed);
 }
 
-const SHORTHAND_PARSERS = {
-  NEST: parseNestShorthand,
-  PARALLEL: parseParallelShorthand,
-  SEQUENCE: parseSequenceShorthand,
-  GATE: parseGateShorthand,
-  COMPETE: parseCompeteShorthand,
-  WRAP: parseWrapShorthand,
-  BRIDGE: parseBridgeShorthand,
-  FEDERATE: parseFederateShorthand
-};
+const SHORTHAND_PARSERS = new Map([
+  ['NEST', parseNestShorthand], ['PARALLEL', parseParallelShorthand], ['SEQUENCE', parseSequenceShorthand],
+  ['GATE', parseGateShorthand], ['COMPETE', parseCompeteShorthand], ['WRAP', parseWrapShorthand],
+  ['BRIDGE', parseBridgeShorthand], ['FEDERATE', parseFederateShorthand]
+]);
 
 function parseTopologyShorthand(str) {
   const parts = str.split(':');

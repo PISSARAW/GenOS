@@ -4,6 +4,7 @@ const { requireTenantScope } = require('../middleware/tenant');
 const { getDatabase } = require('../db');
 const receptorStore = require('../services/signalReceptorPersistenceService');
 const router = express.Router();
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
 function requireExplicitScope(req, res, next) {
   if (!req.tenant) {
@@ -12,7 +13,7 @@ function requireExplicitScope(req, res, next) {
   next();
 }
 
-router.use(requirePermission('security:manage'), requireTenantScope({ write: true }), requireExplicitScope);
+router.use(routeRateLimit, requirePermission('security:manage'), requireTenantScope({ write: true }), requireExplicitScope);
 
 router.get('/receptors', async (req, res, next) => {
   try {

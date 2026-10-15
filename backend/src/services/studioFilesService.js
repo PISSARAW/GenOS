@@ -17,15 +17,22 @@ function error(code, message, status = 400) {
 function allowedPath(relative) {
   const normalized = normalizeRelativePath(relative);
   if (isSensitivePath(normalized)) throw error('FILE_FORBIDDEN', 'Fichier sensible exclu.', 403);
-  const blocked = normalized.split('/').some(part => excluded(part) || part.startsWith('.') || invalidName.test(part));
+  const segments = normalized.split('/');
+  const blocked = segments.length > 32 || segments.some(part => path.basename(part) !== part
+    || excluded(part) || part.startsWith('.') || invalidName.test(part));
   if (blocked) throw error('FILE_FORBIDDEN', 'Chemin protégé ou invalide.', 403);
-  return normalized;
+  return segments.map((part) => path.basename(part)).join('/');
 }
 
 function resolveFile(workspace, relative) {
   const normalized = allowedPath(relative);
-  if (fs.lstatSync(workspace.path).isSymbolicLink()) throw error('FILE_FORBIDDEN', 'Workspace lié interdit.', 403);
-  return { target: resolveContainedPathNoSymlinkSync(workspace.path, normalized), relative: normalized };
+  const root = path.resolve(workspace.path);
+  if (fs.lstatSync(root).isSymbolicLink()) throw error('FILE_FORBIDDEN', 'Workspace lié interdit.', 403);
+  const candidate = path.resolve(root, ...normalized.split('/'));
+  if (!candidate.startsWith(`${root}${path.sep}`)) throw error('FILE_FORBIDDEN', 'Chemin hors du workspace.', 403);
+  const safeTarget = resolveContainedPathNoSymlinkSync(root, normalized);
+  if (safeTarget !== candidate) throw error('FILE_FORBIDDEN', 'Chemin hors du workspace.', 403);
+  return { target: candidate, relative: normalized };
 }
 
 const digest = buffer => crypto.createHash('sha256').update(buffer).digest('hex');

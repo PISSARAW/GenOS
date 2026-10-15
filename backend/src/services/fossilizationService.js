@@ -12,6 +12,7 @@ const provenance = require('./fossilProvenanceService');
 const MODES = ['petrification', 'external_mold', 'internal_mold', 'trace'];
 const DEFAULT_MODE = 'petrification';
 const DEFAULT_QUALITY = 1.0;
+const SAFE_ARTIFACT_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
 const MODE_ALIASES = {
   'external-mold': 'external_mold',
@@ -115,12 +116,17 @@ function asArray(value) {
 function buildFossilRecord(input = {}) {
   const lineageId = coalesce(input.lineageId, input.lineage_id);
   if (!lineageId) throw new Error('lineageId required for fossilization');
+  const safeLineageId = String(lineageId);
+  const fossilId = String(coalesce(input.fossilId, crypto.randomUUID()));
+  if (!SAFE_ARTIFACT_ID.test(safeLineageId) || !SAFE_ARTIFACT_ID.test(fossilId)) {
+    throw new Error('Fossil artifact identifiers must use letters, digits, underscores, or hyphens.');
+  }
   const recordedAt = coalesce(input.recordedAt, new Date().toISOString());
   const organizationId = coalesce(input.organizationId, input.organization_id, null);
   const projectId = coalesce(input.projectId, input.project_id, null);
   const record = {
-    fossil_id: coalesce(input.fossilId, crypto.randomUUID()),
-    extinct_lineage_id: String(lineageId),
+    fossil_id: fossilId,
+    extinct_lineage_id: safeLineageId,
     reason: coalesce(input.reason, 'Stratigraphic extinction event'),
     recorded_at: recordedAt,
     mode: normalizeMode(input.mode),
@@ -198,7 +204,12 @@ function fossilArtifactDir() {
 function writeFossilArtifact(record) {
   const dir = fossilArtifactDir();
   fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `${record.extinct_lineage_id}_${record.fossil_id}.json`);
+  const lineageId = String(record.extinct_lineage_id);
+  const fossilId = String(record.fossil_id);
+  if (!SAFE_ARTIFACT_ID.test(lineageId) || !SAFE_ARTIFACT_ID.test(fossilId)) {
+    throw new Error('Unsafe fossil artifact identifier.');
+  }
+  const file = path.join(dir, `${lineageId}_${fossilId}.json`);
   fs.writeFileSync(file, JSON.stringify({ ...record, stratum: 'STRATIGRAPHIC_FOSSIL' }, null, 2));
   return file;
 }

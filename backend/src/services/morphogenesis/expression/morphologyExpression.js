@@ -115,15 +115,16 @@ function cloneExpression(expr) { return JSON.parse(JSON.stringify(expr)); }
 function expressionToSummary(expr) {
   if (!expr) return null;
   const summary = { kind: expr.kind };
-  const handlers = {
-    TOPOLOGY: () => { summary.topology = expr.topology; summary.variant = expr.variant; },
-    NEST: () => { summary.host = expressionToSummary(expr.host); summary.inner = expressionToSummary(expr.inner); },
-    GATE: () => { summary.condition = expressionToSummary(expr.condition); summary.thenBranch = expressionToSummary(expr.thenBranch); summary.elseBranch = expressionToSummary(expr.elseBranch); },
-    WRAP: () => { summary.inner = expressionToSummary(expr.inner); summary.environment = expr.environment; },
-    BRIDGE: () => { summary.source = expressionToSummary(expr.source); summary.target = expressionToSummary(expr.target); summary.adapter = expr.adapter; },
-    FEDERATE: () => { summary.members = expr.members.map(expressionToSummary); summary.quorum = expr.quorum; }
-  };
-  if (handlers[expr.kind]) handlers[expr.kind]();
+  const handlers = new Map([
+    ['TOPOLOGY', () => { summary.topology = expr.topology; summary.variant = expr.variant; }],
+    ['NEST', () => { summary.host = expressionToSummary(expr.host); summary.inner = expressionToSummary(expr.inner); }],
+    ['GATE', () => { summary.condition = expressionToSummary(expr.condition); summary.thenBranch = expressionToSummary(expr.thenBranch); summary.elseBranch = expressionToSummary(expr.elseBranch); }],
+    ['WRAP', () => { summary.inner = expressionToSummary(expr.inner); summary.environment = expr.environment; }],
+    ['BRIDGE', () => { summary.source = expressionToSummary(expr.source); summary.target = expressionToSummary(expr.target); summary.adapter = expr.adapter; }],
+    ['FEDERATE', () => { summary.members = expr.members.map(expressionToSummary); summary.quorum = expr.quorum; }]
+  ]);
+  const handler = handlers.get(expr.kind);
+  if (handler) handler();
   else if (Array.isArray(expr.children)) summary.children = expr.children.map(expressionToSummary);
   return summary;
 }
@@ -143,14 +144,15 @@ function collectTopologies(expr, result = []) {
 function countNodes(expr) {
   if (!expr) return 0;
   let count = 1;
-  const handlers = {
-    NEST: () => { count += countNodes(expr.host) + countNodes(expr.inner); },
-    GATE: () => { count += countNodes(expr.condition) + countNodes(expr.thenBranch) + countNodes(expr.elseBranch); },
-    WRAP: () => { count += countNodes(expr.inner); },
-    BRIDGE: () => { count += countNodes(expr.source) + countNodes(expr.target); },
-    FEDERATE: () => { expr.members.forEach(m => { count += countNodes(m); }); }
-  };
-  if (handlers[expr.kind]) handlers[expr.kind]();
+  const handlers = new Map([
+    ['NEST', () => { count += countNodes(expr.host) + countNodes(expr.inner); }],
+    ['GATE', () => { count += countNodes(expr.condition) + countNodes(expr.thenBranch) + countNodes(expr.elseBranch); }],
+    ['WRAP', () => { count += countNodes(expr.inner); }],
+    ['BRIDGE', () => { count += countNodes(expr.source) + countNodes(expr.target); }],
+    ['FEDERATE', () => { expr.members.forEach(m => { count += countNodes(m); }); }]
+  ]);
+  const handler = handlers.get(expr.kind);
+  if (handler) handler();
   else if (Array.isArray(expr.children)) expr.children.forEach(c => { count += countNodes(c); });
   return count;
 }

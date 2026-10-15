@@ -2,8 +2,10 @@ const express = require('express');
 const controller = require('../controllers/daemonController');
 const residentController = require('../controllers/residentDaemonController');
 const { requirePermission } = require('../middleware/auth');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
 const router = express.Router();
+router.use(routeRateLimit);
 
 // Legacy Sentinel daemon endpoints
 router.get('/status', requirePermission('read'), controller.getStatus);

@@ -8,7 +8,9 @@ const experimentController = require('../controllers/experimentController');
 const scientificEvidenceController = require('../controllers/scientificEvidenceController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
+router.use(routeRateLimit);
 router.use(requireTenantScope());
 router.post('/register-protocol', requirePermission('experiment:write'), requireTenantScope({ write: true }), require('../controllers/studioProtocolController').run);
 router.post('/:experimentId/replay-inputs', requirePermission('experiment:write'), requireTenantScope({ write: true }), require('../controllers/studioProtocolController').run);

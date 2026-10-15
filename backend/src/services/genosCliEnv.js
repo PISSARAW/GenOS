@@ -46,9 +46,13 @@ function ensureRoot(rootOverride = null) {
 }
 
 function parseCommandLine(commandLine) {
+  if (typeof commandLine !== 'string' || commandLine.length > 32768) {
+    throw new Error('GenOS CLI command exceeds the supported length.');
+  }
   const state = { args: [], current: '', quote: null };
-  const str = String(commandLine);
-  for (let i = 0; i < str.length; i++) {
+  const str = commandLine;
+  const commandLength = Math.min(str.length, 32768);
+  for (let i = 0; i < commandLength; i++) {
     i += consumeCommandCharacter(state, str[i], str[i + 1]);
   }
   if (state.quote) throw new Error('Unterminated quote in GenOS CLI command.');

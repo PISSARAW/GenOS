@@ -136,11 +136,11 @@ module.exports = {
 
 function cryptophasiaEncodeDialect({ args, sessionId, session }) {
   const rawIntent = args.intent || args.message || 'DEFAULT_INTENT';
+  const rawStr = typeof rawIntent === 'string' ? rawIntent : JSON.stringify(rawIntent);
   const opcodeKey = String(args.opcode || '').toUpperCase();
-  const opcode = DIALECT_OPCODES[opcodeKey] || `OP_CUST_${crypto.createHash('sha256').update(rawIntent).digest('hex').slice(0, 6)}`;
+  const opcode = DIALECT_OPCODES[opcodeKey] || `OP_CUST_${crypto.createHash('sha256').update(rawStr).digest('hex').slice(0, 6)}`;
   const payload = args.payload || {};
 
-  const rawStr = typeof rawIntent === 'string' ? rawIntent : JSON.stringify(rawIntent);
   // Include the natural language prompt template and verbose explanation that would normally be exchanged
   const fullVerboseContext = `[AGENT_MESSAGE] Directive: ${rawStr}. Structured Payload: ${JSON.stringify(payload)}. Please confirm understanding and proceed with execution.`;
   const rawTokenEst = Math.max(20, Math.floor(fullVerboseContext.length / 3.5));
@@ -148,7 +148,7 @@ function cryptophasiaEncodeDialect({ args, sessionId, session }) {
   // Encoded compact dialect packet
   const dialectPacket = {
     d_op: opcode,
-    d_ctx: crypto.createHash('md5').update(sessionId).digest('hex').slice(0, 4),
+    d_ctx: crypto.createHash('sha256').update(sessionId).digest('hex').slice(0, 4),
     d_pld: payload,
     d_ts: Date.now()
   };

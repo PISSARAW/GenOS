@@ -8,7 +8,7 @@ const fsSync = require('fs');
 const { spawn } = require('child_process');
 const { encodeMission } = require('./runtimeProtocol');
 const { resolveExecutable, isLocalRuntime } = require('./agentRuntimeExecutable');
-const { assertTrustedRuntimeScript, assertTrustedRuntimeBinary, isDirectFileRuntime, directFileWriter } = require('./runtimeSpawnPolicy');
+const { trustedRuntimeExecutable, isDirectFileRuntime, directFileWriter } = require('./runtimeSpawnPolicy');
 const modelRouter = require('./modelRouter');
 const localModelDiscovery = require('./localModelDiscovery');
 const continuousExecution = require('./continuousExecution/runtimeBridge');
@@ -166,12 +166,11 @@ function buildCapabilityPayload(normalizedMission, resolvedExecutable) {
 }
 
 function resolveSpawnCommand(resolvedExecutable) {
-  if (resolvedExecutable.endsWith('.cjs') || resolvedExecutable.endsWith('.js')) {
-    assertTrustedRuntimeScript(resolvedExecutable);
-    return { spawnCmd: process.execPath, spawnArgs: [resolvedExecutable] };
+  const trustedExecutable = trustedRuntimeExecutable(resolvedExecutable);
+  if (trustedExecutable.endsWith('.cjs') || trustedExecutable.endsWith('.js')) {
+    return { spawnCmd: process.execPath, spawnArgs: [trustedExecutable] };
   }
-  assertTrustedRuntimeBinary(resolvedExecutable);
-  return { spawnCmd: resolvedExecutable, spawnArgs: [] };
+  return { spawnCmd: trustedExecutable, spawnArgs: [] };
 }
 
 function ensureCwd(spawnOptions) {
@@ -341,6 +340,7 @@ async function superviseMission(options) {
   ctx.handleOrchestrationDecision = handleOrchestrationDecision;
   ctx.haltRuntime = haltRuntimeImpl;
   require('./agents/workerRuntimeBudgetService').startWorkerDeadline(ctx);
+  require('./agents/workerRuntimeBudgetService').startWorkerCpuBudget(ctx);
   require('./missionEnvelopeAuthorityMonitor').start(ctx);
   ctx.processEventQueue = processEventQueueImpl;
   child.stdout.on('data', (chunk) => { handleStdoutData(ctx, chunk); });

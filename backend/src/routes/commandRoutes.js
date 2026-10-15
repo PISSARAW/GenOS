@@ -7,8 +7,9 @@ const router = express.Router();
 const commandController = require('../controllers/commandController');
 const { requireRole } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
-router.use(requireTenantScope());
+router.use(routeRateLimit, requireTenantScope());
 router.get('/studio/status', require('../middleware/auth').requirePermission('read'), require('../controllers/studioLifecycleController').status);
 router.post('/studio/restart', requireRole(['admin']), require('../controllers/studioLifecycleController').restart);
 

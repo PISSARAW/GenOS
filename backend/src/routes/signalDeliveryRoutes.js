@@ -6,6 +6,8 @@ const delivery = require('../services/signalDeliveryService');
 const transport = require('../services/signalingTransportService');
 const inbox = require('../services/signalInboxService');
 const router = express.Router();
+const { routeRateLimit } = require('../middleware/routeRateLimit');
+router.use(routeRateLimit);
 
 function requireExplicitScope(req, res, next) {
   if (!req.tenant) {

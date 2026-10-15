@@ -40,7 +40,7 @@ function independenceClaim(claim) {
 }
 
 function pressureFromIndependence(state) {
-  const claims = state.claims || [];
+  const claims = Array.isArray(state.claims) ? state.claims.slice(0, 100) : [];
   if (claims.length < 2) return { value: 0.5, severity: 'medium' };
   let dependentCount = 0;
   let pairCount = 0;

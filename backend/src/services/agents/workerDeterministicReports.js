@@ -65,16 +65,17 @@ function procedure(result) {
       methodContract: { version: 1, methodId: result.methodId, parameters: result.parameters }, result: result.output } });
 }
 
-const REPORTS = {
-  teaching_worker: teaching, scout_cell: scout, forensic_worker: forensic, resident_daemon: monitor,
-  synthesis_worker: synthesis, experimental_worker: experiment, formal_worker: formal,
-  verifier_worker: verification, red_worker: verification, procedural_executor: procedure
-};
+const REPORTS = new Map([
+  ['teaching_worker', teaching], ['scout_cell', scout], ['forensic_worker', forensic], ['resident_daemon', monitor],
+  ['synthesis_worker', synthesis], ['experimental_worker', experiment], ['formal_worker', formal],
+  ['verifier_worker', verification], ['red_worker', verification], ['procedural_executor', procedure]
+]);
 
 function reportFor(kind, result) {
   if (result.evidenceReport) return result.evidenceReport;
-  if (!REPORTS[kind]) throw error('WORKER_EXECUTOR_UNAVAILABLE', `No native evidence adapter for '${kind}'.`);
-  return REPORTS[kind](result);
+  const report = REPORTS.get(kind);
+  if (!report) throw error('WORKER_EXECUTOR_UNAVAILABLE', `No native evidence adapter for '${kind}'.`);
+  return report(result);
 }
 
 module.exports = { reportFor };

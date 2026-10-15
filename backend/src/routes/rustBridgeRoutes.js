@@ -13,6 +13,7 @@ const biologicalReceiptController = require('../controllers/biologicalReceiptCon
 const { requireBiologicalReceiptOrigin } = require('../middleware/biologicalReceiptOrigin');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
 async function requireBridgeTenant(req, res, next) {
 	await requireTenantScope()(req, res, (error) => {
@@ -21,13 +22,14 @@ async function requireBridgeTenant(req, res, next) {
 		next();
 	});
 }
-router.use(requireBridgeTenant);
+router.use(routeRateLimit, requireBridgeTenant);
 
 router.get('/status', requirePermission('read'), controller.getStatus);
 const clinicalAuthorizationController = require('../controllers/clinicalAuthorizationController');
 router.post('/clinical-authorizations', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.issue);
 router.get('/clinical-authorizations/:authorizationId', requirePermission('read'), clinicalAuthorizationController.inspect);
 router.post('/clinical-authorizations/:authorizationId/revoke', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.revoke);
+router.post('/clinical-authorizations/:authorizationId/apply', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.apply);
 router.post('/biological-receipts', requirePermission('experiment:run'), requireReceiptTenant, requireBiologicalReceiptOrigin, biologicalReceiptController.ingest);
 router.get('/biological-receipts/:missionId', requirePermission('read'), biologicalReceiptController.audit);
 router.get('/snapshots', requirePermission('read'), controller.listSnapshots);

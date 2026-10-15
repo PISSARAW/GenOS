@@ -5,6 +5,9 @@ const { getDatabase } = require('../db');
 const vault = require('../services/secretVault');
 const { requireRole, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
 const { SAML, ValidateInResponseTo } = require('@node-saml/node-saml');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
+
+router.use(routeRateLimit);
 
 // Public callers may discover that a provider exists (needed by the login
 // page) but must not learn its issuer, client id, redirect URI or certificates.

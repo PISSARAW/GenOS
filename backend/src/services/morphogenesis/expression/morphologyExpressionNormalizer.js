@@ -33,19 +33,24 @@ function normalizeTopology(node) {
 function normalizeOperator(node) {
   const normalized = { ...node };
   normalized.kind = String(normalized.kind).toUpperCase();
-  const handlers = {
-    NEST: () => { normalized.host = normalizeNode(normalized.host); normalized.inner = normalizeNode(normalized.inner); normalized.nodeKind = 'OPERATOR'; },
-    PARALLEL: () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; },
-    SEQUENCE: () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; },
-    COMPETE: () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; },
-    GATE: () => { normalized.condition = normalizeNode(normalized.condition); normalized.thenBranch = normalizeNode(normalized.thenBranch); normalized.elseBranch = normalizeNode(normalized.elseBranch); normalized.nodeKind = 'GATE'; },
-    WRAP: () => { normalized.inner = normalizeNode(normalized.inner); normalized.environment = normalizeEnvironment(normalized.environment); normalized.nodeKind = 'ENVIRONMENT'; },
-    BRIDGE: () => { normalized.source = normalizeNode(normalized.source); normalized.target = normalizeNode(normalized.target); normalized.adapter = normalizeAdapter(normalized.adapter); normalized.nodeKind = 'ADAPTER'; },
-    FEDERATE: () => { normalized.members = (normalized.members || []).map(normalizeNode); normalized.quorum = normalized.quorum ?? Math.ceil((normalized.members?.length || 2) / 2); normalized.nodeKind = 'OPERATOR'; }
-  };
-  if (handlers[normalized.kind]) handlers[normalized.kind]();
+  const handler = operatorNormalizer(normalized.kind, normalized);
+  if (handler) handler();
   if (normalized.budget) normalized.budget = normalizeBudget(normalized.budget);
   return createExpression(normalized);
+}
+
+function operatorNormalizer(kind, normalized) {
+  const handlers = new Map([
+    ['NEST', () => { normalized.host = normalizeNode(normalized.host); normalized.inner = normalizeNode(normalized.inner); normalized.nodeKind = 'OPERATOR'; }],
+    ['PARALLEL', () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; }],
+    ['SEQUENCE', () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; }],
+    ['COMPETE', () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; }],
+    ['GATE', () => { normalized.condition = normalizeNode(normalized.condition); normalized.thenBranch = normalizeNode(normalized.thenBranch); normalized.elseBranch = normalizeNode(normalized.elseBranch); normalized.nodeKind = 'GATE'; }],
+    ['WRAP', () => { normalized.inner = normalizeNode(normalized.inner); normalized.environment = normalizeEnvironment(normalized.environment); normalized.nodeKind = 'ENVIRONMENT'; }],
+    ['BRIDGE', () => { normalized.source = normalizeNode(normalized.source); normalized.target = normalizeNode(normalized.target); normalized.adapter = normalizeAdapter(normalized.adapter); normalized.nodeKind = 'ADAPTER'; }],
+    ['FEDERATE', () => { normalized.members = (normalized.members || []).map(normalizeNode); normalized.quorum = normalized.quorum ?? Math.ceil((normalized.members?.length || 2) / 2); normalized.nodeKind = 'OPERATOR'; }]
+  ]);
+  return handlers.get(kind);
 }
 
 function normalizePort(port) {

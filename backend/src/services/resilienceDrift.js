@@ -48,13 +48,15 @@ function calculateLevenshtein(strA = '', strB = '') {
  * Tracks prompt hypermutation drift against ancestral baseline
  */
 function trackHypermutationDrift(ancestorPrompt, currentPrompt) {
-  const driftScore = calculateLevenshtein(ancestorPrompt || '', currentPrompt || '');
+  const safeAncestor = typeof ancestorPrompt === 'string' ? ancestorPrompt : '';
+  const safeCurrent = typeof currentPrompt === 'string' ? currentPrompt : '';
+  const driftScore = calculateLevenshtein(safeAncestor, safeCurrent);
   const safetyHorizonLimit = 0.35;
   const isSafe = driftScore <= safetyHorizonLimit;
 
   return {
-    ancestorLength: ancestorPrompt ? ancestorPrompt.length : 0,
-    currentLength: currentPrompt ? currentPrompt.length : 0,
+    ancestorLength: safeAncestor.length,
+    currentLength: safeCurrent.length,
     driftScore,
     safetyHorizonLimit,
     isSafe,

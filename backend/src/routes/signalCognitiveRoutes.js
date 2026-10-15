@@ -4,6 +4,7 @@ const { requireTenantScope } = require('../middleware/tenant');
 const { getDatabase } = require('../db');
 const jobs = require('../services/signalCognitiveJobsService');
 const router = express.Router();
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
 function requireExplicitScope(req, res, next) {
   if (!req.tenant) {
@@ -12,6 +13,7 @@ function requireExplicitScope(req, res, next) {
   next();
 }
 
+router.use(routeRateLimit);
 router.get('/cognitive-jobs',
   requirePermission('security:manage'), requireTenantScope(), requireExplicitScope,
   async (req, res, next) => {

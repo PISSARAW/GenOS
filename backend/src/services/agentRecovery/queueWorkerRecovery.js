@@ -33,7 +33,9 @@ function handleRecoveryDecision(report, decision, context) {
   const recoveryOrganization = getRecoveryOrganization(decision.action);
   if (recoveryOrganization) {
     applyOrganizationDecision(orchestratorId, recoveryOrganization, decision.reason).catch((err) => {
-      console.error(`[WorkerRecovery] Error applying organization decision for ${orchestratorId}:`, err.message);
+      console.error('[WorkerRecovery] Failed to apply organization decision.', {
+        orchestratorId, errorCode: typeof err?.code === 'string' ? err.code : 'UNKNOWN'
+      });
     });
   }
   if (decision.retry && !pendingWorkerRecoveries.has(report.workerId)) {
