@@ -25,8 +25,12 @@ jobs:
       - name: Install backend deps
         run: npm ci --prefix backend
 
+      - name: Prepare quality report directory
+        run: mkdir -p reports
+        working-directory: backend
+
       - name: Quality gate (all source files)
-        run: python3 scripts/ci/check_code_quality.py --strict --report-json reports/quality.json
+        run: python3 ../scripts/ci/check_code_quality.py --strict --report-json reports/quality.json
         working-directory: backend
 
       - name: Upload quality report
@@ -73,6 +77,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Install root deps
+        run: npm ci
 
       - name: Install backend deps
         run: npm ci --prefix backend
