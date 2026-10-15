@@ -10,6 +10,10 @@ const required = preflight.requiredWorkerTools({
 });
 assert.deepEqual(required, [...preflight.COORDINATION_TOOLS]);
 assert.deepEqual(preflight.requiredWorkerTools({ organization: 'specialist_expert_committee' }), []);
+assert.equal(preflight.coordinationWaitMs({}), 120000);
+assert.equal(preflight.coordinationWaitMs({ executionBudget: { latencyMs: 540000 } }), 243000);
+assert.equal(preflight.coordinationWaitMs({ executionBudget: { latencyMs: 1000 } }), 30000);
+assert.equal(preflight.coordinationWaitMs({ executionBudget: { latencyMs: 900000 } }), 300000);
 const isolatedSdk = preflight.resolveSdkRoot({
   binaries: { workspace: path.join(__dirname, 'isolated-workspace-without-dependencies') }
 });

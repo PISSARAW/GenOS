@@ -20,6 +20,12 @@ function requiredWorkerTools(mission = {}) {
   return continuousCoordination(mission) ? [...COORDINATION_TOOLS] : [];
 }
 
+function coordinationWaitMs(state = {}) {
+  const latencyMs = Number(state.executionBudget?.latencyMs);
+  if (!Number.isFinite(latencyMs) || latencyMs <= 0) return 120000;
+  return Math.min(300000, Math.max(30000, Math.floor(latencyMs * 0.45)));
+}
+
 function toolNames(listResult) {
   const tools = Array.isArray(listResult) ? listResult : listResult?.tools;
   return [...new Set((tools || []).map((tool) => tool && tool.name).filter(Boolean))];
@@ -84,7 +90,8 @@ async function runWorkerMcpInventoryPreflight(input) {
     const callTool = input.callTool || (client && ((request) => client.callTool(request)));
     const coordination = coordinated && callTool
       ? await require('./worker-coordination-bootstrap.cjs').bootstrapCoordination({
-        callTool, orchestratorId: input.state.orchestratorAgentId
+        callTool, orchestratorId: input.state.orchestratorAgentId,
+        maxWaitMs: coordinationWaitMs(input.state)
       }) : null;
     return { availableTools, requiredTools: [...input.state.requiredTools], coordination };
   } catch (failure) {
@@ -97,4 +104,5 @@ async function runWorkerMcpInventoryPreflight(input) {
 }
 
 module.exports = { COORDINATION_TOOLS, continuousCoordination, requiredWorkerTools,
-  toolNames, validateInventory, resolveSdkRoot, runWorkerMcpInventoryPreflight };
+  coordinationWaitMs, toolNames, validateInventory, resolveSdkRoot,
+  runWorkerMcpInventoryPreflight };
