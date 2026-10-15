@@ -128,6 +128,8 @@ const suites = {
   ],
   security: [
     ['public route allowlist', 'test_auth_public_surface.js'],
+    ['router request rate limit', 'test_route_rate_limit.js'],
+    ['safe artifact schema patterns', 'test_ateam_artifact_schema.js'],
     ['adversarial master', 'test_security_adversarial_master_runner.js']
   ],
   tenancy: [

@@ -6,12 +6,14 @@ const { validateProviderEndpointAsync } = require('../providerEndpointPolicy');
 const { wireObject } = require('./wireFormat.cjs');
 
 async function assertRemoteGitUrl(rawUrl) {
-  if (process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES === '1') return;
   const parsed = new URL(String(rawUrl || ''));
   if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
     throw new Error('Remote Git URL must be an HTTP(S) URL without embedded credentials.');
   }
-  await validateProviderEndpointAsync(parsed.href, { localOnly: false });
+  if (process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES !== '1') {
+    await validateProviderEndpointAsync(parsed.href, { localOnly: false });
+  }
+  return parsed;
 }
 
 async function performRemotePush(opts) {
@@ -27,11 +29,11 @@ async function performRemotePush(opts) {
 }
 
 async function executeRemotePush(req, agentId, commit) {
-  await assertRemoteGitUrl(req.body.remoteUrl);
+  const remoteUrl = await assertRemoteGitUrl(req.body.remoteUrl);
   const db = await getDatabase();
   const stored = await db.get('SELECT state_json FROM agent_git_objects WHERE id = ?', commit.id);
   if (!stored) throw Object.assign(new Error('Pushed commit not found in local store.'), { code: 'COMMIT_NOT_FOUND' });
-  await performRemotePush({ req, remoteUrl: req.body.remoteUrl, commit, state: JSON.parse(stored.state_json) });
+  await performRemotePush({ req, remoteUrl: remoteUrl.href, commit, state: JSON.parse(stored.state_json) });
 }
 
 async function resolvePushTip(ctx) {

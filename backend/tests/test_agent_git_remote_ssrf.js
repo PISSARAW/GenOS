@@ -33,6 +33,8 @@ const git = require('../src/services/agentGitService');
   assert.equal(ran, true);
   assert.equal(fetchOptions.redirect, 'error');
   assert.equal(result.success, true);
+  await assert.rejects(() => git.fetch({ body: { remoteUrl: 'file:///etc/passwd' }, tenant: null, user: {} }), /HTTP\(S\)|credentials/);
+  await assert.rejects(() => git.fetch({ body: { remoteUrl: 'http://user:pass@example.com' }, tenant: null, user: {} }), /credentials/);
   delete process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES;
 
   console.log('Agent Git remote SSRF guard checks passed.');

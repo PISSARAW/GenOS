@@ -1,5 +1,7 @@
 'use strict';
 
+const { isSafePattern, matchesPattern } = require('./safeSchemaPattern');
+
 function validateSchema(schema, path = '$') {
   if (!isRecord(schema)) return [`${path}: schema must be an object.`];
   return [...validateSchemaType(schema, path), ...validateSchemaShape(schema, path), ...validateSchemaChildren(schema, path)];
@@ -67,7 +69,7 @@ function validateString(value, schema, path) {
   const errors = [];
   if (Number.isInteger(schema.minLength) && value.length < schema.minLength) errors.push(`${path} is shorter than minLength.`);
   if (Number.isInteger(schema.maxLength) && value.length > schema.maxLength) errors.push(`${path} exceeds maxLength.`);
-  if (schema.pattern && (!validPattern(schema.pattern) || !new RegExp(schema.pattern).test(value))) errors.push(`${path} does not match pattern.`);
+  if (schema.pattern && (!isSafePattern(schema.pattern) || !matchesPattern(value, schema.pattern))) errors.push(`${path} does not match pattern.`);
   return errors;
 }
 
@@ -84,9 +86,6 @@ function matchesType(value, type) {
 
 function isRecord(value) { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
 function invalidRequired(value) { return !Array.isArray(value) || value.some((item) => typeof item !== 'string'); }
-function validPattern(value) {
-  if (typeof value !== 'string' || value.length > 256 || /\\[1-9]|\(\?[=!<]|\([^)]*[+*][^)]*\)[+*{]|\([^)]*\|[^)]*\)[+*{]/.test(value)) return false;
-  try { new RegExp(value); return true; } catch (_) { return false; }
-}
+function validPattern(value) { return isSafePattern(value); }
 
 module.exports = { validateSchema, validateArtifact };
