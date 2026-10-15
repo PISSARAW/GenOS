@@ -160,6 +160,11 @@ Invariants tenus :
 - après chaque action, [backend/src/services/morphogenesis/causalLoopService.js](../../backend/src/services/morphogenesis/causalLoopService.js)
   applique le RPE au régulateur (`regulation.revision`) : dopamine/cortisol/stress
   bornés dans `[0,1]`, sans apprentissage inter-missions des poids.
+- quand une preuve de qualité indépendante est vérifiée, la consolidation mémoire
+  conserve son `receiptId` comme référence d’évidence ainsi que l’identité et
+  l’applicabilité de l’action source ; une qualité déclarée seule n’est pas promue.
+  Ce lien est vérifié dans
+  [backend/tests/test_causal_loop_quality_evidence.js](../../backend/tests/test_causal_loop_quality_evidence.js).
 
 Non-objectifs : pas de persistance Rust↔Node temps réel au-delà du snapshot
 versionné, pas d'ajustement automatique des paramètres de boucles entre missions.

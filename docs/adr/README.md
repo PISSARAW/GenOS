@@ -653,8 +653,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0519](0519-portee-origine-du-foraging.md) | Portée d'origine et provenance du foraging | Accepté | 2026-10-15 | foraging web, reçus d'observation |
 | [0520](0520-recevoir-la-verification-avant-la-completion-ontogenesis.md) | Produire la preuve indépendante avant la completion Ontogenesis | Accepté | 2026-10-15 | Ontogenesis, preuves d'exécution, promotion |
 | [0521](0521-attester-la-provenance-des-fossiles.md) | Attester la provenance des fossiles | Accepté | 2026-10-15 | Fossilisation, provenance, confiance backend/CLI |
-| [0523](0523-lier-la-calibration-brier-a-un-recu-de-resolution.md) | Lier la calibration Brier à un reçu de résolution | Accepté | 2026-10-15 | Biocénose, calibration, autorité des outcomes |
+| [0523a](0523-lier-la-calibration-brier-a-un-recu-de-resolution.md) | Lier la calibration Brier à un reçu de résolution | Accepté | 2026-10-15 | Biocénose, calibration, autorité des outcomes |
 | [0524](0524-preserver-provenance-consolidation-memoire.md) | Préserver la provenance lors de la consolidation mémoire | Accepté | 2026-10-15 | Mémoire, consolidation, preuves, provenance |
+| [0525b](0525-relier-preuve-causale-a-memoire.md) | Relier la preuve causale à la mémoire consolidée | Accepté | 2026-10-15 | Apprentissage causal, mémoire, preuve, provenance |
+| [0525](0525-authentifier-la-provenance-du-foraging.md) | Authentifier la provenance du foraging | Accepté pour les reçus Foraging MCP | 2026-10-15 | foraging web, provenance des observations |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

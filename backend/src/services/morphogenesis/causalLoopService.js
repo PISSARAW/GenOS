@@ -38,6 +38,7 @@ function verifiedOutcome(qualityEvidence, expectedSuccess, expectedQuality) {
     success,
     qualityVerified: verified,
     quality: quality === null ? null : Number(quality.toFixed(4)),
+    evidenceRef: verified ? qualityEvidence.receiptId : null,
     delta: success === null ? null : (success === expectedSuccess ? 0 : (success ? 1 : -1)),
     qualityDelta: quality === null ? null : Number((quality - expectedQuality).toFixed(4)),
   };
@@ -76,16 +77,32 @@ function computeRPE(outcome, receipt) {
   };
 }
 
-function consolidateMemory(outcome) {
-  if (!outcome.qualityVerified) return { consolidated: false, action: 'skip', reason: 'verified_outcome_required', entry: null };
-  const episode = {
-    actionType: outcome.actionType || 'unknown',
-    actionInput: outcome.actionInput || '',
-    observationOutput: outcome.observationOutput || '',
+function actionIdOf(actionReceipt) {
+  return actionReceipt.actionId || actionReceipt.id || null;
+}
+
+function counterexamplesOf(actionReceipt) {
+  return Array.isArray(actionReceipt.counterexampleRefs) ? actionReceipt.counterexampleRefs : [];
+}
+
+function consolidationEpisode(outcome, actionReceipt) {
+  return {
+    id: actionIdOf(actionReceipt),
+    actionType: actionReceipt.actionType || 'unknown',
+    actionInput: actionReceipt.actionInput || '',
+    observationOutput: actionReceipt.observationOutput || actionReceipt.outcome?.summary || '',
     rewardScore: outcome.quality,
-    title: outcome.title || '',
-    trajectory: outcome.trajectory || [],
+    title: actionReceipt.title || '',
+    trajectory: actionReceipt.trajectory || [],
+    applicability: actionReceipt.applicability || null,
+    evidenceRefs: outcome.evidenceRef ? [outcome.evidenceRef] : [],
+    counterexampleRefs: counterexamplesOf(actionReceipt),
   };
+}
+
+function consolidateMemory(outcome, actionReceipt) {
+  if (!outcome.qualityVerified) return { consolidated: false, action: 'skip', reason: 'verified_outcome_required', entry: null };
+  const episode = consolidationEpisode(outcome, actionReceipt);
   const classification = consolidationPolicyService.classifyForConsolidation(episode, [episode]);
   return {
     consolidated: classification.action !== 'skip',
@@ -203,7 +220,7 @@ function processActionReceipt(ctx) {
   const outcome = computeOutcome(actionReceipt);
   const rpe = computeRPE(outcome, actionReceipt);
   const evidenceResult = recordEvidence(agentId, evidence);
-  const memoryResult = consolidateMemory(outcome);
+  const memoryResult = consolidateMemory(outcome, actionReceipt);
   const strategyPerf = updateStrategyPerformance(outcome, rpe);
   const recipePerf = updateRecipePerformance(outcome, rpe);
   const morphologyResult = recordMorphologyExperience(morphologyInputOf(actionReceipt, expressionContext));
