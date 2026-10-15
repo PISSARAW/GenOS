@@ -7,13 +7,16 @@ const compiler = require('../src/services/memory/memoryContextCompiler');
 const episode = { id: 'episode-17', title: 'Verified recovery', actionType: 'recover',
   actionInput: 'restore checkpoint', observationOutput: 'tests passed', applicability: { repo: 'genos' },
   evidenceRefs: ['test://run-4', 'test://run-4', null], counterexampleRefs: ['issue://failure-2'],
-  provenance: { sourceRefs: ['decision://adr-12'] } };
+  provenance: { sourceRefs: ['decision://adr-12'], inheritedTraceId: 'trace://origin-7' } };
 
 const semantic = policy.promoteToSemantic(episode);
 assert.deepEqual(semantic.evidenceRefs, ['test://run-4']);
 assert.deepEqual(semantic.counterexampleRefs, ['issue://failure-2']);
 assert.deepEqual(semantic.provenance.sourceRefs,
   ['episode-17', 'decision://adr-12', 'test://run-4', 'issue://failure-2']);
+assert.deepEqual(semantic.provenance.evidenceRefs, ['test://run-4']);
+assert.deepEqual(semantic.provenance.counterexampleRefs, ['issue://failure-2']);
+assert.equal(semantic.provenance.inheritedTraceId, 'trace://origin-7');
 assert.deepEqual(semantic.applicability, episode.applicability);
 
 const compiled = compiler.compileContext({ relevantFacts: [semantic], budget: 500, query: 'recovery' });

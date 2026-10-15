@@ -30,10 +30,14 @@ function sourceRefs(episode) {
 }
 
 function promotedProvenance(episode) {
+  const inherited = episode.provenance || {};
   return {
+    ...inherited,
     promotedFrom: 'episodic',
     originalEpisodeId: episode.id || null,
     sourceRefs: sourceRefs(episode),
+    evidenceRefs: stringRefs(episode.evidenceRefs),
+    counterexampleRefs: stringRefs(episode.counterexampleRefs),
     promotedAt: new Date().toISOString()
   };
 }
