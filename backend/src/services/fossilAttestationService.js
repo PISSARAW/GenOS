@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const provenance = require('./fossilProvenanceService');
+const trustBundle = require('./fossilTrustBundle');
 
 function material(record, signerId) {
   return {
@@ -40,9 +41,7 @@ function create(record) {
 }
 
 function trustedPublicKey(keyIdValue) {
-  const encoded = process.env.GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS;
-  if (!encoded) throw new Error('Backend fossil trust keys are not configured');
-  const keys = JSON.parse(encoded);
+  const keys = trustBundle.loadTrustedPublicKeys();
   const rawHex = keys[keyIdValue];
   if (typeof rawHex !== 'string' || !/^[0-9a-f]{64}$/i.test(rawHex)) {
     throw new Error(`Unknown backend fossil signer: ${keyIdValue}`);

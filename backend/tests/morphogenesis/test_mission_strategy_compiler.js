@@ -37,7 +37,12 @@ function main() {
   assert.equal(program.evidencePolicy.promotionRequiresVerifiedReceipt, true);
   assert.ok(program.phases.every(phase => phase.execution === 'advisory_only'));
   assert.equal(program.topologyPortfolio.status, 'advisory');
-  assert.ok(program.topologyPortfolio.generation.candidateCount <= 10);
+  assert.ok(program.topologyPortfolio.generation.registeredVariantCount > 32);
+  assert.ok(program.topologyPortfolio.generation.variantCandidateCount
+    + program.topologyPortfolio.generation.topologyCandidateCount
+    >= program.topologyPortfolio.generation.registeredVariantCount);
+  assert.ok(program.topologyPortfolio.ranking.consideredCount
+    >= program.topologyPortfolio.generation.registeredVariantCount);
   assert.equal(program.topologyPortfolio.ranking.executionAuthorized, false);
   assert.ok(program.topologyPortfolio.ranking.candidates.some(item => item.id === 'NO_CHANGE'));
   assert.equal(program.topologyPortfolio.ranking.decision.decision, 'ABSTAIN');

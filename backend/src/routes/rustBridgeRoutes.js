@@ -33,6 +33,8 @@ const neuroGliaStreamController = require('../controllers/neuroGliaStreamControl
 router.post('/clinical-authorizations', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.issue);
 router.get('/clinical-authorizations/:authorizationId', requirePermission('read'), clinicalAuthorizationController.inspect);
 router.post('/clinical-authorizations/:authorizationId/validate', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.validateForCli);
+router.post('/clinical-authorizations/:authorizationId/claim', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.claimForCli);
+router.post('/clinical-authorizations/:authorizationId/complete', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.completeCliApplication);
 router.post('/clinical-authorizations/:authorizationId/revoke', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.revoke);
 router.post('/clinical-authorizations/:authorizationId/apply', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.apply);
 router.post('/biological-receipts', requirePermission('experiment:run'), requireReceiptTenant, requireBiologicalReceiptOrigin, biologicalReceiptController.ingest);

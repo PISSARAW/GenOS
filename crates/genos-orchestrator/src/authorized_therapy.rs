@@ -79,8 +79,10 @@ impl GenosEcosystem {
         let administered = outcome.status == genos_biology::therapy::TherapyStatus::Applied;
         let next_tick = self.receipt_tick + 1;
         let population = self.therapy_population(auth.cell_id, &cell, next_tick)?;
+        let operation_id = format!("clinical-apply:{}", auth.authorization_id);
         let receipt = json!({
             "schema": "genos.clinical-application/v1", "receipt_id": Uuid::new_v4(),
+            "operation_id": operation_id.clone(), "idempotency_key": operation_id,
             "authorization": auth, "mission_id": auth.mission_id, "cell_id": auth.cell_id,
             "genome_id": auth.genome_id, "genome_fingerprint": auth.genome_fingerprint,
             "status": outcome.status, "treatment_administered": administered,
@@ -192,6 +194,7 @@ fn previous_application(
 ) -> Result<Option<Value>, String> {
     let previous = entries.iter().find(|entry| {
         entry["schema"] == "genos.clinical-application/v1"
+            && entry["operation_id"] == format!("clinical-apply:{}", auth.authorization_id)
             && entry["authorization"]["authorization_id"] == auth.authorization_id.to_string()
     });
     let Some(previous) = previous else {

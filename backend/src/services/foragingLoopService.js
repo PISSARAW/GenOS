@@ -71,11 +71,12 @@ async function departPatch(input) {
     observation: input.observation };
   }
   const navigation = await defaultBrowserScout.navigate(input.sessionId, nextUrl, {
-    htmlContent: input.source.htmlContent, signal: input.source.signal
+    htmlContent: input.source.htmlContent, signal: input.source.signal, navigationScope: scope
   });
   const executed = Boolean(navigation && navigation.success);
   return {
-    action: { status: executed ? 'executed' : 'failed', executed, verified: executed, navigation },
+    action: { status: navigation && navigation.refused ? 'refused' : executed ? 'executed' : 'failed',
+      executed: executed && !navigation.refused, verified: executed && !navigation.refused, navigation },
     observation: defaultBrowserScout.snapshotSession(input.sessionId)
   };
 }

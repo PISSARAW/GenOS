@@ -1,5 +1,6 @@
 'use strict';
 const crypto = require('node:crypto');
+const CLINICAL_CLAIM_LEASE_MS = 60_000;
 const FIELDS = ['authorization_id','mission_id','cell_id','genome_id','genome_fingerprint',
   'cell_state_digest','source_receipt_id','therapy_json','approver_id','expires_at_unix_ms'];
 function signAuthorization(auth) {
@@ -88,6 +89,90 @@ async function revokeAuthorization(db, input) {
   return inspectAuthorization(db, input);
 }
 
+function clinicalOperationId(authorizationId) {
+  return `clinical-apply:${authorizationId}`;
+}
+
+async function claimApplication(db, input) {
+  const tenant = input?.tenant;
+  const authorizationId = String(input?.authorizationId || '');
+  const operationId = String(input?.operationId || '');
+  const claimantId = String(input?.claimantId || '');
+  if (!tenant?.organizationId || !tenant?.projectId || !authorizationId
+      || operationId !== clinicalOperationId(authorizationId) || !claimantId) {
+    throw Object.assign(new Error('Scoped clinical application claim required'), { code: 'CLINICAL_APPLICATION_CLAIM_INVALID' });
+  }
+  const authorization = await authorizationForApplication(db, {
+    authorizationId, missionId: input.missionId, tenant,
+  });
+  if (!authorization) return { status: 'not_found' };
+  const key = [tenant.organizationId, tenant.projectId, authorizationId, operationId];
+  const existing = await db.get(`SELECT operation_id, claimant_id, claim_token, state, attempts,
+    lease_until_unix_ms FROM clinical_authorization_applications
+    WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?`, ...key);
+  if (existing) return claimExistingApplication(db, { existing, key, claimantId, input });
+  if (authorization.revoked_at_unix_ms !== null) return { status: 'revoked' };
+  return createApplicationClaim(db, { key, claimantId, operationId });
+}
+
+async function claimExistingApplication(db, input) {
+  const { existing, key, claimantId } = input;
+  if (existing.state === 'completed') return claimResult(existing, true, false);
+  if (existing.claimant_id === claimantId) return claimResult(existing, false, false);
+  const now = Date.now();
+  if (existing.lease_until_unix_ms > now) {
+    return { status: 'in_progress', retryAfterUnixMs: existing.lease_until_unix_ms };
+  }
+  const claimToken = crypto.randomUUID();
+  await db.run(`UPDATE clinical_authorization_applications SET claimant_id=?, claim_token=?,
+    attempts=attempts+1, claimed_at_unix_ms=?, lease_until_unix_ms=?
+    WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=? AND state='claimed'` ,
+  claimantId, claimToken, now, now + CLINICAL_CLAIM_LEASE_MS, ...key);
+  return { operationId: key[3], claimToken, status: 'claimed', recovered: true,
+    leaseUntilUnixMs: now + CLINICAL_CLAIM_LEASE_MS };
+}
+
+async function createApplicationClaim(db, input) {
+  const now = Date.now();
+  const claimToken = crypto.randomUUID();
+  await db.run(`INSERT INTO clinical_authorization_applications
+    (organization_id, project_id, authorization_id, operation_id, claimant_id, claim_token,
+     state, attempts, claimed_at_unix_ms, lease_until_unix_ms)
+    VALUES (?, ?, ?, ?, ?, ?, 'claimed', 1, ?, ?)`,
+  ...input.key, input.claimantId, claimToken, now, now + CLINICAL_CLAIM_LEASE_MS);
+  return { operationId: input.operationId, claimToken, status: 'claimed', recovered: false,
+    leaseUntilUnixMs: now + CLINICAL_CLAIM_LEASE_MS };
+}
+
+function claimResult(row, completed, recovered) {
+  return { operationId: clinicalOperationIdFromClaim(row), claimToken: row.claim_token,
+    status: completed ? 'completed' : 'claimed', recovered,
+    leaseUntilUnixMs: row.lease_until_unix_ms };
+}
+
+function clinicalOperationIdFromClaim(row) {
+  return row.operation_id;
+}
+
+async function completeApplication(db, input) {
+  const tenant = input?.tenant;
+  const operationId = String(input?.operationId || '');
+  if (!tenant?.organizationId || !tenant?.projectId || !input.authorizationId
+      || operationId !== clinicalOperationId(input.authorizationId) || !input.claimToken) {
+    throw Object.assign(new Error('Scoped clinical application completion required'), { code: 'CLINICAL_APPLICATION_CLAIM_INVALID' });
+  }
+  const key = [tenant.organizationId, tenant.projectId, input.authorizationId, operationId];
+  const claim = await db.get(`SELECT state, claim_token FROM clinical_authorization_applications
+    WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?`, ...key);
+  if (!claim) return { status: 'not_found' };
+  if (claim.state === 'completed') return { status: 'completed', operationId };
+  if (claim.claim_token !== input.claimToken) return { status: 'claim_lost' };
+  await db.run(`UPDATE clinical_authorization_applications SET state='completed', completed_at_unix_ms=?
+    WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?
+      AND state='claimed' AND claim_token=?`, Date.now(), ...key, input.claimToken);
+  return { status: 'completed', operationId };
+}
+
 function ledgerView(row) {
   if (!row) return null;
   return {
@@ -116,4 +201,5 @@ function clinicalSignature(auth) {
   return crypto.createHmac('sha256',secret).update(payload).digest('hex');
 }
 module.exports = { issueAuthorization, inspectAuthorization, revokeAuthorization, authorizationForApplication,
+  claimApplication, completeApplication, clinicalOperationId,
   signAuthorization,authorizeClinicalMutation,clinicalSignature };

@@ -54,8 +54,7 @@ fn verify_signed_record(value: &Value, attestation: &Value) -> Result<BackendAtt
 }
 
 fn trusted_public_key(key_id: &str) -> Result<Option<VerifyingKey>, String> {
-    let configured = std::env::var("GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS")
-        .map_err(|_| "Operator fossil trust keys are not configured".to_string())?;
+    let configured = trusted_bundle_contents()?;
     let keys: Value = serde_json::from_str(&configured)
         .map_err(|_| "Operator fossil trust key configuration is invalid".to_string())?;
     let Some(encoded) = keys.get(key_id).and_then(Value::as_str) else {
@@ -70,6 +69,15 @@ fn trusted_public_key(key_id: &str) -> Result<Option<VerifyingKey>, String> {
         return Err("Configured fossil key id does not match its public key fingerprint".into());
     }
     Ok(Some(public_key))
+}
+
+fn trusted_bundle_contents() -> Result<String, String> {
+    if let Ok(path) = std::env::var("GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS_FILE") {
+        return std::fs::read_to_string(path)
+            .map_err(|_| "Operator fossil trust bundle file cannot be read".to_string());
+    }
+    std::env::var("GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS")
+        .map_err(|_| "Operator fossil trust keys are not configured".to_string())
 }
 
 fn public_key_id(public_key: &VerifyingKey) -> String {

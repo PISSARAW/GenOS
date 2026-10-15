@@ -1,4 +1,5 @@
 use serde_json::json;
+use uuid::Uuid;
 
 pub(super) fn unavailable(agent_id: &str, therapy_type: &str) -> serde_json::Value {
     json!({
@@ -55,12 +56,19 @@ pub(super) fn execute(
     let auth: genos_orchestrator::authorized_therapy::TherapyAuthorization =
         serde_json::from_slice(&data).map_err(|e| e.to_string())?;
     validate_target(&auth, target)?;
-    validate_backend_authority(&auth)?;
+    let operation_id = format!("clinical-apply:{}", auth.authorization_id);
+    let claimant_id = clinical_claimant_id()?;
     let journal_path = confined_file(&journal)?;
     let store = genos_store::BiologicalReceiptStore::open(journal_path);
+    let previous = store.find_idempotent_receipt("genos.clinical-application/v1", &operation_id)?;
+    let claim = claim_backend_authority(&auth, &operation_id, &claimant_id)?;
+    if claim["status"] == "completed" && previous.is_none() {
+        return Err("completed clinical operation is missing from the Rust journal; refusing to reapply".into());
+    }
     let mut ecosystem = genos_orchestrator::GenosEcosystem::new("authorized-clinical");
     ecosystem.restore_population(&store)?;
     let receipt = ecosystem.apply_authorized_therapy(&auth, &store)?;
+    complete_backend_application(&auth, &operation_id, claim["claimToken"].as_str().unwrap_or_default())?;
     let administered = receipt["treatment_administered"] == true;
     Ok(
         serde_json::json!({ "success": administered, "treatment_administered": administered,
@@ -80,26 +88,65 @@ fn validate_target(
     Ok(())
 }
 
-fn validate_backend_authority(
+fn claim_backend_authority(
     auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
-) -> Result<(), String> {
-    let response = backend_authority_request(auth)?.send()
+    operation_id: &str,
+    claimant_id: &str,
+) -> Result<serde_json::Value, String> {
+    let response = backend_authority_request(auth, "claim", json!({
+        "missionId": auth.mission_id.to_string(), "cellId": auth.cell_id.to_string(),
+        "signature": auth.signature.clone(), "operationId": operation_id, "claimantId": claimant_id,
+    }))?.send()
         .map_err(|_| "clinical revocation state unavailable")?;
     if !response.status().is_success() {
-        return Err("clinical authorization rejected by backend revocation state".into());
+        return Err(backend_rejection(response));
     }
     let result: serde_json::Value = response.json()
         .map_err(|_| "clinical backend returned invalid authorization state")?;
     if result["authorized"] != true
         || result["authorizationId"] != auth.authorization_id.to_string()
+        || result["operationId"] != operation_id
+        || result["claimToken"].as_str().is_none()
     {
-        return Err("clinical backend did not confirm current authorization".into());
+        return Err("clinical backend did not confirm the durable application claim".into());
+    }
+    Ok(result)
+}
+
+fn complete_backend_application(
+    auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
+    operation_id: &str,
+    claim_token: &str,
+) -> Result<(), String> {
+    let response = backend_authority_request(auth, "complete", json!({
+        "operationId": operation_id, "claimToken": claim_token,
+    }))?.send().map_err(|_| "clinical application completion unavailable")?;
+    if !response.status().is_success() {
+        return Err(backend_rejection(response));
+    }
+    let result: serde_json::Value = response.json()
+        .map_err(|_| "clinical backend returned invalid application completion")?;
+    if result["status"] != "completed" || result["operationId"] != operation_id {
+        return Err("clinical backend did not persist application completion".into());
     }
     Ok(())
 }
 
+fn backend_rejection(response: reqwest::blocking::Response) -> String {
+    let status = response.status();
+    let body = response.json::<serde_json::Value>().unwrap_or_default();
+    match body["error"]["code"].as_str() {
+        Some("CLINICAL_AUTHORIZATION_REVOKED") => "clinical authorization rejected by backend revocation state".into(),
+        Some("CLINICAL_APPLICATION_IN_PROGRESS") => "clinical application already has an active claimant".into(),
+        Some("CLINICAL_APPLICATION_CLAIM_LOST") => "clinical application claim was superseded".into(),
+        _ => format!("clinical backend rejected application claim ({status})"),
+    }
+}
+
 fn backend_authority_request(
     auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
+    action: &str,
+    body: serde_json::Value,
 ) -> Result<reqwest::blocking::RequestBuilder, String> {
     use std::time::Duration;
     let backend = required_environment("GENOS_CLINICAL_BACKEND_URL")?;
@@ -113,13 +160,19 @@ fn backend_authority_request(
         .timeout(Duration::from_secs(3))
         .build()
         .map_err(|_| "clinical revocation state unavailable")?;
-    let url = format!("{}/api/rust/clinical-authorizations/{}/validate",
-        backend.as_str().trim_end_matches('/'), auth.authorization_id);
+    let url = format!("{}/api/rust/clinical-authorizations/{}/{}",
+        backend.as_str().trim_end_matches('/'), auth.authorization_id, action);
     Ok(client.post(url).bearer_auth(token)
         .header("x-organization-id", organization)
-        .header("x-project-id", project)
-        .json(&json!({ "missionId": auth.mission_id.to_string(),
-            "cellId": auth.cell_id.to_string(), "signature": auth.signature })))
+        .header("x-project-id", project).json(&body))
+}
+
+fn clinical_claimant_id() -> Result<String, String> {
+    match std::env::var("GENOS_CLINICAL_CLAIMANT_ID") {
+        Ok(value) => Uuid::parse_str(&value).map(|id| id.to_string())
+            .map_err(|_| "GENOS_CLINICAL_CLAIMANT_ID must be a UUID".into()),
+        Err(_) => Ok(Uuid::new_v4().to_string()),
+    }
 }
 
 fn validate_backend_url(value: &str) -> Result<reqwest::Url, String> {

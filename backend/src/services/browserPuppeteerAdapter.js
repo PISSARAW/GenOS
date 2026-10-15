@@ -11,6 +11,8 @@ class BrowserPuppeteerAdapter {
     this.puppeteer = options.puppeteer || require('puppeteer');
     this.artifactsDir = options.artifactsDir || path.resolve(process.cwd(), '.genos', 'workspace', 'screenshots');
     this.allowedHosts = new Set(options.allowedHosts || []);
+    this.navigationScopes = new WeakMap();
+    this.blockedNavigationOrigins = new WeakMap();
   }
 
   async open(options = {}) {
@@ -26,20 +28,38 @@ class BrowserPuppeteerAdapter {
     const page = await browser.newPage();
     await page.setViewport({ width: options.width || 1280, height: options.height || 900 });
     await page.setRequestInterception(true);
-    page.on('request', request => this._continuePublicRequest(request));
+    page.on('request', request => this._continuePublicRequest(request, page));
     return { browser, page };
   }
 
   async navigate(page, url, options = {}) {
     options.signal?.throwIfAborted();
-    return abortable(this._navigate(page, url, options), options.signal, () => page.close());
+    const previousScope = this.navigationScopes.get(page);
+    if (Array.isArray(options.navigationScope)) this.navigationScopes.set(page, options.navigationScope);
+    this.blockedNavigationOrigins.delete(page);
+    try {
+      return await abortable(this._navigate(page, url, options), options.signal, () => page.close());
+    } finally {
+      if (previousScope) this.navigationScopes.set(page, previousScope);
+      else this.navigationScopes.delete(page);
+      this.blockedNavigationOrigins.delete(page);
+    }
   }
 
   async _navigate(page, url, options = {}) {
     await this._assertPublicHttpUrl(url);
     options.signal?.throwIfAborted();
     const target = new URL(url);
-    const response = await page.goto(target.href, { waitUntil: 'domcontentloaded', timeout: options.timeoutMs || 30000 });
+    let response;
+    try {
+      response = await page.goto(target.href, { waitUntil: 'domcontentloaded', timeout: options.timeoutMs || 30000 });
+    } catch (error) {
+      const blockedOrigin = this.blockedNavigationOrigins.get(page);
+      if (!blockedOrigin) throw error;
+      return refusedNavigation(page, blockedOrigin);
+    }
+    const blockedOrigin = this.blockedNavigationOrigins.get(page);
+    if (blockedOrigin) return refusedNavigation(page, blockedOrigin);
     const screenshotPath = await this.capture(page);
     return {
       success: Boolean(response && response.ok()),
@@ -98,13 +118,24 @@ class BrowserPuppeteerAdapter {
       || octets[0] >= 224;
   }
 
-  async _continuePublicRequest(request) {
+  async _continuePublicRequest(request, page) {
     try {
+      const target = new URL(request.url());
+      if (request.isNavigationRequest() && this._isOutOfScopeNavigation(target, page)) {
+        this.blockedNavigationOrigins.set(page, target.origin);
+        await request.abort('blockedbyclient');
+        return;
+      }
       await this._assertPublicHttpUrl(request.url());
       await request.continue();
     } catch (_) {
       await request.abort('blockedbyclient');
     }
+  }
+
+  _isOutOfScopeNavigation(target, page) {
+    const scope = this.navigationScopes.get(page);
+    return Boolean(scope && !scope.includes(target.origin));
   }
 
   async act(page, action) {
@@ -143,6 +174,12 @@ class BrowserPuppeteerAdapter {
   async close(session) {
     if (session && session.browser) await session.browser.close();
   }
+}
+
+function refusedNavigation(page, origin) {
+  return { success: false, refused: true,
+    error: `Navigation redirect to ${origin} is outside the configured foraging origin scope.`,
+    url: page.url() };
 }
 
 module.exports = { BrowserPuppeteerAdapter };

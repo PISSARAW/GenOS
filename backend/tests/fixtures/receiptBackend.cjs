@@ -40,6 +40,15 @@ async function main() {
         process.send({ error: error.message });
       }
     }
+    if (message?.action === 'expire-clinical-claim') {
+      try {
+        await db.run(`UPDATE clinical_authorization_applications SET lease_until_unix_ms=0
+          WHERE authorization_id=? AND organization_id='receipt-org' AND project_id='receipt-project'`, message.authorizationId);
+        process.send({ expired: true });
+      } catch (error) {
+        process.send({ error: error.message });
+      }
+    }
   });
 }
 main().catch(error => { process.send({ error: error.message }); process.exit(1); });

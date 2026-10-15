@@ -22,6 +22,24 @@ async function migrateClinicalAuthorizationLedger(db) {
       signature, authorization_json, approver_id, issued_at_unix_ms
     ON clinical_authorization_ledger
     BEGIN SELECT RAISE(ABORT, 'Clinical authorization claims are immutable'); END;
+  CREATE TABLE IF NOT EXISTS clinical_authorization_applications (
+    organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    authorization_id TEXT NOT NULL,
+    operation_id TEXT NOT NULL,
+    claimant_id TEXT NOT NULL,
+    claim_token TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('claimed', 'completed')),
+    attempts INTEGER NOT NULL DEFAULT 1 CHECK (attempts > 0),
+    claimed_at_unix_ms INTEGER NOT NULL,
+    lease_until_unix_ms INTEGER NOT NULL,
+    completed_at_unix_ms INTEGER,
+    result_json TEXT CHECK (result_json IS NULL OR json_valid(result_json)),
+    PRIMARY KEY (organization_id, project_id, authorization_id, operation_id),
+    CHECK ((state = 'completed') = (completed_at_unix_ms IS NOT NULL))
+  );
+  CREATE INDEX IF NOT EXISTS idx_clinical_application_recovery
+    ON clinical_authorization_applications(state, lease_until_unix_ms);
   `);
 }
 

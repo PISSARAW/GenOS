@@ -60,7 +60,7 @@
     "test:real-attacks": "node tests/stress/test_real_world_adversarial_attacks.js",
     "test:temporal": "node tests/stress/test_temporal_reasoning_bench.js",
     "test:natural-search": "node tests/search/run_natural_search_suite.js",
-    "test:foraging": "node tests/test_foraging_scope.js && node tests/test_foraging_source_attestation.js && node tests/test_foraging_browser_runtime.js && node tests/test_foraging_deadline.js",
+    "test:foraging": "node tests/test_foraging_scope.js && node tests/test_foraging_source_attestation.js && node tests/test_foraging_redirect_boundary.js && node tests/test_foraging_browser_runtime.js && node tests/test_foraging_deadline.js",
     "test:foraging:scope": "node tests/test_foraging_scope.js && node tests/test_foraging_source_attestation.js",
     "test:foraging:provenance": "node tests/test_foraging_source_attestation.js",
     "test:planning-gap": "node tests/search/test_planning_gap.js",

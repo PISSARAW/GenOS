@@ -83,7 +83,7 @@ async function run() {
     defaultForaging.envMeanReturnRate = priorThreshold;
     adapter.allowedHosts.delete('127.0.0.1');
     await defaultBrowserScout.closeSession(sessionId);
-    fs.rmSync(browserProfileDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    console.log(`Preserved browser profile: ${browserProfileDir}`);
     await new Promise(resolve => server.close(resolve));
   }
 }

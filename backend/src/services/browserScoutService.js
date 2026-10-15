@@ -221,7 +221,7 @@ class BrowserScoutService {
 
     if (session.browserPage) {
       try {
-        const result = await this.browserAdapter.navigate(session.browserPage, url, { ...session.config, signal: options.signal });
+        const result = await this.browserAdapter.navigate(session.browserPage, url, { ...session.config, signal: options.signal, navigationScope: options.navigationScope });
         options.signal?.throwIfAborted();
         if (!result.success) return { ...result, sessionId: session.id };
         const parsed = this.buildAXTree(result.html, result.url);

@@ -116,6 +116,34 @@ zone d'autorité budgétaire sensible, approbation requise, avec test dédié
 Deuxième correctif indépendant : IDs de mondes courts ou support des chemins
 longs pour E4.
 
+## Vérification du correctif budgétaire (2026-10-14, commit 73df452c, ADR 0364)
+
+Le correctif (run parent + `bindParent` + propagation `modelBudgetScope`
+jusqu'aux workers, refus `TRINITY_BUDGET_REQUIRED` sans plafonds) a été vérifié
+de façon indépendante : ADR lue, diff inspecté (chaîne complète sans
+contournement d'`assertPersisted`), 4 tests ciblés rejoués et PASS
+(`budget_scope`, `dispatch_contract`, `launch_payload`, `dispatch_preparation`),
+gate qualité 0 nouvelle violation.
+
+Preuve fonctionnelle (mission diagnostic relancée sur worktree D au commit du
+fix, `costUsd:1`, snapshots vers racine courte) : les workers franchissent le
+gate budgétaire et appellent le modèle local — monde 1 `running` sans garde,
+monde 3 avec 337 s de latence modèle consommées (plafond 300 s atteint), monde 2
+avec synthèse cognitive locale produite (`generation failed after retries`).
+Table `mission_model_budget_scopes` : scope persisté et réservations actives,
+contre table vide avant le fix.
+
+La mission reste `ESCALATE_EXPERIMENT` sur timeout : budgets trop justes pour
+un modèle local lent (300 s/monde, 10 min mission) et fragilité du modèle
+local — causes de dimensionnement, pas le scope. « Déblocage budgétaire » :
+confirmé terminé. « Mission aboutie de bout en bout » : reste à prouver avec
+des budgets réalistes.
+
+Notes de campagne : le run diag6 est mort au sceau à cause d'écritures de
+scripts de debug dans l'arbre D pendant la copie (même race qu'E5,
+auto-infligée) ; le contournement `GENOS_SNAPSHOT_ROOT` court reste requis
+tant qu'E4 n'est pas corrigé en code.
+
 ## Ce que cela prouve (et ne prouve pas)
 
 Prouvé : les chemins de dispatch, scellé, gates `snapshot`/`budget` et la
