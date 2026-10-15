@@ -29,6 +29,17 @@ const {
   fetchCorpus
 } = require('./vectorMemoryCorpus');
 
+function mergeGraphMemory(connected, scored) {
+  const tags = [...new Set([...(connected.tags || []), ...(scored.tags || [])])];
+  return {
+    ...connected,
+    ...scored,
+    tags,
+    ...(connected.synaptic_edge_weight === undefined
+      ? {} : { synaptic_edge_weight: connected.synaptic_edge_weight })
+  };
+}
+
 function inhibitionScope(options) {
   if (!options.organizationId) {
     return { sql: ' AND (s.organization_id IS NULL AND s.project_id IS NULL)', params: [] };
@@ -207,7 +218,7 @@ class VectorMemoryService {
     const mergedById = new Map(connectedItems.map(item => [item.id, item]));
     for (const item of scoredItems) {
       const connected = mergedById.get(item.id);
-      mergedById.set(item.id, connected ? { ...connected, ...item } : item);
+      mergedById.set(item.id, connected ? mergeGraphMemory(connected, item) : item);
     }
     const allScored = [...mergedById.values()];
 
@@ -300,6 +311,7 @@ const serviceInstance = new VectorMemoryService();
 // Export class instance with bound methods + module-level helpers for full backward compatibility
 module.exports = Object.assign(serviceInstance, {
   VectorMemoryService,
+  mergeGraphMemory,
   textToVector,
   cosineSimilarity,
   cherryPickGoldenPath,
