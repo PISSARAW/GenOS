@@ -15,11 +15,21 @@ async function callTool(request) {
     communicationLinks: [{ agentId: 'worker-b', relationship: 'peer' },
       { agentId: 'worker-c', relationship: 'peer' }]
   });
-  if (request.name === 'genos_worker_publish') return result({ id: ++publicationId });
+  if (request.name === 'genos_worker_publish') return result({
+    id: ++publicationId,
+    organization: 'cross_functional_pod', version: 1,
+    channel: request.arguments.recipient_agent_id ? 'direct' : 'shared',
+    delivery: 'delivered', recipientAgentId: request.arguments.recipient_agent_id || null,
+    recipientAgentIds: request.arguments.recipient_agent_id ? [request.arguments.recipient_agent_id] : ['worker-b', 'worker-c'],
+    kind: request.arguments.kind, signalType: request.arguments.signal_type
+  });
   if (request.arguments.acknowledge_message_ids) {
-    return result({ messages: [], acknowledgement: { acknowledged: 1 } });
+    return result({ messages: [], acknowledgement: { acknowledged: 1,
+      receipts: [{ messageId: 21, receiptState: 'acknowledged' }] } });
   }
-  return result({ messages: [{ id: 21, senderAgentId: 'worker-c' }] });
+  return result({ messages: [{ id: 21, senderAgentId: 'worker-c', recipientAgentId: null,
+    kind: 'evidence', signalType: 'ligand', signal: { event: 'coordination_bootstrap_shared' },
+    receiptState: 'read' }] });
 }
 
 function result(value) {
@@ -32,6 +42,15 @@ async function main() {
   assert.equal(receipt.sharedMessageId, 12);
   assert.equal(receipt.replyMessageId, 13);
   assert.equal(receipt.inReplyTo, 21);
+  assert.equal(receipt.directMessage.senderAgentId, 'worker-a');
+  assert.equal(receipt.directMessage.recipientAgentId, 'worker-b');
+  assert.equal(receipt.sharedMessage.recipientAgentId, null);
+  assert.deepEqual(receipt.sharedMessage.recipientAgentIds, ['worker-b', 'worker-c']);
+  assert.equal(receipt.receivedMessages[0].senderAgentId, 'worker-c');
+  assert.equal(receipt.receivedMessages[0].receiptState, 'read');
+  assert.equal(receipt.acknowledgement.receipts[0].receiptState, 'acknowledged');
+  assert.equal(receipt.replyMessage.inReplyTo, 21);
+  assert.deepEqual(receipt.replyMessage.signal.acknowledged_message_ids, [21]);
   const publications = calls.filter((call) => call.name === 'genos_worker_publish');
   assert.equal(publications[0].arguments.recipient_agent_id, 'worker-b');
   assert.equal(Object.hasOwn(publications[1].arguments, 'recipient_agent_id'), false);
@@ -43,6 +62,9 @@ async function main() {
   assert.match(prompt, /satisfies the mandatory coordination calls; do not repeat them/);
   assert.match(prompt, /return outcome success/);
   assert.match(prompt, /"directMessageId": 11/);
+  assert.match(prompt, /"senderAgentId": "worker-c"/);
+  assert.match(prompt, /"receiptState": "acknowledged"/);
+  assert.match(prompt, /"inReplyTo": 21/);
 }
 
 main().then(() => console.log('Worker coordination bootstrap: PASS'))

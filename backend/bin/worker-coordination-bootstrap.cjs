@@ -25,6 +25,23 @@ function publicationArgs(input, recipientAgentId) {
   };
 }
 
+function publishedMessage(result, args, senderAgentId) {
+  return {
+    id: result.id,
+    senderAgentId,
+    recipientAgentId: result.recipientAgentId ?? args.recipient_agent_id ?? null,
+    recipientAgentIds: result.recipientAgentIds || [],
+    organization: result.organization,
+    version: result.version,
+    channel: result.channel,
+    delivery: result.delivery,
+    kind: result.kind || args.kind,
+    signalType: result.signalType || args.signal_type,
+    signal: args.signal_data,
+    inReplyTo: args.in_reply_to ?? null
+  };
+}
+
 async function waitForPeerMessage(input) {
   const deadline = Date.now() + input.maxWaitMs;
   do {
@@ -50,8 +67,10 @@ async function bootstrapCoordination(input) {
     code: 'WORKER_COORDINATION_BOOTSTRAP_INVALID_STATE'
   });
   const context = { ...input, requesterId };
-  const direct = await invoke(input.callTool, 'genos_worker_publish', publicationArgs(context, peers[0].agentId));
-  const shared = await invoke(input.callTool, 'genos_worker_publish', publicationArgs(context));
+  const directArgs = publicationArgs(context, peers[0].agentId);
+  const direct = await invoke(input.callTool, 'genos_worker_publish', directArgs);
+  const sharedArgs = publicationArgs(context);
+  const shared = await invoke(input.callTool, 'genos_worker_publish', sharedArgs);
   const inbox = await waitForPeerMessage({ ...context, maxWaitMs: input.maxWaitMs ?? 30000,
     pollMs: input.pollMs ?? 500 });
   const receivedIds = inbox.messages.map((message) => message.id);
@@ -59,15 +78,21 @@ async function bootstrapCoordination(input) {
     orchestrator_id: input.orchestratorId, after_id: inbox.messages.at(-1).id,
     acknowledge_message_ids: receivedIds
   });
-  const reply = await invoke(input.callTool, 'genos_worker_publish', {
+  const replyArgs = {
     ...publicationArgs(context, inbox.messages[0].senderAgentId), kind: 'answer',
     in_reply_to: inbox.messages[0].id,
     signal_data: { event: 'coordination_bootstrap_reply', protocol_version: 1,
       sender_agent_id: requesterId, acknowledged_message_ids: receivedIds }
-  });
+  };
+  const reply = await invoke(input.callTool, 'genos_worker_publish', replyArgs);
   return { state, directMessageId: direct.id, sharedMessageId: shared.id,
     receivedMessageIds: receivedIds, acknowledged: acknowledgement.acknowledgement,
-    replyMessageId: reply.id, inReplyTo: inbox.messages[0].id };
+    replyMessageId: reply.id, inReplyTo: inbox.messages[0].id,
+    directMessage: publishedMessage(direct, directArgs, requesterId),
+    sharedMessage: publishedMessage(shared, sharedArgs, requesterId),
+    receivedMessages: inbox.messages,
+    acknowledgement: acknowledgement.acknowledgement,
+    replyMessage: publishedMessage(reply, replyArgs, requesterId) };
 }
 
 module.exports = { bootstrapCoordination };
