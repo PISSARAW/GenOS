@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { executeCondition, topologyProfile } = require('./comparisonAdapters.cjs');
 const { validateExternalDataset } = require('./run-comparison-campaign.cjs');
+const { verifyCandidate } = require('./oracles.cjs');
 
 test('conditional router changes the execution shape from declared query profile', () => {
   assert.equal(topologyProfile({ routingHint: 'single' }), 'single');
@@ -11,25 +12,45 @@ test('conditional router changes the execution shape from declared query profile
   assert.equal(topologyProfile({ routingHint: 'search' }), 'team');
 });
 
-test('communication-light executes independent messages and reports all measured tokens', async () => {
+test('the five adapters produce oracle-checkable outputs with measured budgets and messages', async () => {
   const originalFetch = global.fetch;
   let calls = 0;
+  const answer = { remaining: 21, perGroup: 3, remainder: 0 };
   global.fetch = async () => {
     calls += 1;
     return { ok: true, json: async () => ({ model: 'fixture-model', prompt_eval_count: 4,
-      eval_count: 3, message: { content: '{"answer":1}' } }) };
+      eval_count: 3, message: { content: JSON.stringify(answer) } }) };
   };
   try {
-    const result = await executeCondition({ id: 'communication-light', adapter: 'communication-light' },
-      { prompt: 'test prompt', routingHint: 'parallel' },
-      { tokens: 1000, latencyMs: 5000, model: 'fixture-model', seed: 5, workspace: '.', dbPath: ':memory:' });
-    assert.equal(result.error, null, result.error);
-    assert.equal(calls, 4);
-    assert.equal(result.messageCount, 4);
-    assert.equal(result.tokenUsage.total, 28);
-    assert.equal(result.tokenUsage.measured, true);
-    assert.equal(result.candidate.answer, 1);
-    assert.equal(result.servedModel, 'fixture-model');
+    const task = { id: 'arithmetic', prompt: 'calcule 24-3 puis divise par 7', oracle: 'verifyArithmeticPartition', routingHint: 'search' };
+    const cases = [
+      { id: 'model-alone', adapter: 'direct-model', messages: 1 },
+      { id: 'simple-multi-agent', adapter: 'fixed-team', messages: 4 },
+      { id: 'conditional-router', adapter: 'conditional-router', messages: 4 },
+      { id: 'mechanism-ablation', adapter: 'communication-light', messages: 4 },
+      { id: 'morphogenesis', adapter: 'genos-full', messages: 1 }
+    ];
+    for (const condition of cases) {
+      calls = 0;
+      const context = { tokens: 1000, latencyMs: 5000, model: 'fixture-model', seed: 5, workspace: '.', dbPath: ':memory:' };
+      if (condition.adapter === 'genos-full') context.genosExecutor = async () => ({
+        orchestratorId: 'fixture-orchestrator', success: true,
+        token_usage: { totalTokens: 7, allRunsCompleted: true, executionRuns: [{ status: 'completed' }] },
+        telemetry: [{ event_type: 'EVIDENCE_REPORT', payload_json: JSON.stringify({ report: {
+          claims: [{ statement: JSON.stringify(answer) }],
+          workerArtifact: { provenance: { model: 'ollama://fixture-model' } }
+        } }) }], coverage: { protocol: { observedCount: 0 } }
+      });
+      const result = await executeCondition(condition, task, context);
+      assert.equal(result.error, null, result.error);
+      assert.equal(result.messageCount, condition.messages);
+      assert.equal(calls, condition.adapter === 'genos-full' ? 0 : condition.messages);
+      assert.equal(result.tokenUsage.total, condition.adapter === 'genos-full' ? 7 : condition.messages * 7);
+      assert.equal(result.tokenUsage.measured, true);
+      assert.equal(result.servedModel, 'fixture-model');
+      assert.equal(verifyCandidate(task, result.candidate).passed, true);
+      assert.equal(result.toolUseCount, 0);
+    }
   } finally { global.fetch = originalFetch; }
 });
 

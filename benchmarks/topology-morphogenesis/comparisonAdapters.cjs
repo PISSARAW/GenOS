@@ -144,7 +144,6 @@ function genosServedModel(receipt) {
 }
 
 async function genosFull(task, state) {
-  const { spawn } = require('child_process');
   const path = require('path');
   const repo = path.resolve(__dirname, '../..');
   const payload = { action: 'orchestrate', executor: 'local', autonomous_orchestration: false,
@@ -156,20 +155,7 @@ async function genosFull(task, state) {
     GENOS_WORKSPACE_ROOT: state.workspace, GENOS_DB_PATH: state.dbPath,
     GENOS_COMPARISON_TOOL_POLICY: 'empty', GENOS_MORPHOGENESIS_V2_SHADOW: '0' };
   const started = performance.now();
-  const result = await new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [path.join(repo, 'backend/bin/genos-orchestrate.cjs'), JSON.stringify(payload)],
-      { cwd: repo, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = ''; let stderr = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
-    const timer = setTimeout(() => child.kill(), state.budget.latencyMs);
-    child.once('error', reject);
-    child.once('close', (code) => {
-      clearTimeout(timer);
-      if (code !== 0) return reject(new Error(`GenOS exited ${code}: ${stderr.slice(-1000)}`));
-      resolve(parseGenosReceipt(stdout));
-    });
-  });
+  const result = await executeGenos({ payload, env, repo, state });
   const usage = result.token_usage;
   const tokens = Number(usage.totalTokens ?? NaN);
   if (!Number.isFinite(tokens)) throw new Error('GenOS receipt lacks measured total tokens.');
@@ -177,6 +163,26 @@ async function genosFull(task, state) {
   return { text: genosAnswer(result), tokens, servedModel: genosServedModel(result), promptTokens: null,
     completionTokens: null, latencyMs: performance.now() - started,
     receipt: result, route: 'genos-full', messageCount: usage.executionRuns?.length || null };
+}
+
+async function executeGenos(input) {
+  if (input.state.genosExecutor) return input.state.genosExecutor(input.payload);
+  const { spawn } = require('child_process');
+  const path = require('path');
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [path.join(input.repo, 'backend/bin/genos-orchestrate.cjs'), JSON.stringify(input.payload)],
+      { cwd: input.repo, env: input.env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = ''; let stderr = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    const timer = setTimeout(() => child.kill(), input.state.budget.latencyMs);
+    child.once('error', reject);
+    child.once('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) return reject(new Error(`GenOS exited ${code}: ${stderr.slice(-1000)}`));
+      resolve(parseGenosReceipt(stdout));
+    });
+  });
 }
 
 const ADAPTERS = Object.freeze({ 'direct-model': direct, 'fixed-team': fixedTeam,
