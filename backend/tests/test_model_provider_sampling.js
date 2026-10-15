@@ -47,7 +47,13 @@ async function main() {
     console.log('Sampling controls reach native Ollama; unsupported controls fail explicitly.');
   } finally {
     await new Promise(resolve => server.close(resolve));
-    await require('../src/services/telemetryObserver').flush();
+    const telemetry = require('../src/services/telemetryObserver');
+    const flush = await telemetry.flush(10000);
+    assert.equal(flush.flushed, true, `Telemetry did not drain before database closure: ${JSON.stringify({
+      ...flush, persisting: telemetry.persisting, persistenceErrors: telemetry.persistenceErrors,
+      retryPersistenceAfterLock: telemetry.retryPersistenceAfterLock,
+      pendingTypes: telemetry.persistQueue.map(event => event.eventType)
+    })}`);
     await require('../src/db').closeDatabase();
     fs.rmSync(root, { recursive: true, force: true });
   }
