@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { processCpuMs } = require('../src/services/agents/workerProcessCpu');
-const { startWorkerCpuBudget } = require('../src/services/agents/workerRuntimeBudgetService');
+const { startWorkerCpuBudget, runtimeStopped } = require('../src/services/agents/workerRuntimeBudgetService');
 const { terminateChild } = require('../src/services/processTermination');
 
 async function waitForClose(child, timeoutMs) {
@@ -17,6 +17,8 @@ async function waitForClose(child, timeoutMs) {
 async function verifyCpuMeter() {
   const usage = await processCpuMs(process.pid);
   assert.ok(Number.isFinite(usage) && usage >= 0, `invalid process CPU value: ${usage}`);
+  assert.equal(runtimeStopped({ pid: process.pid, killed: false, exitCode: null, signalCode: null }), false);
+  assert.equal(runtimeStopped({ pid: 2147483647, killed: false, exitCode: null, signalCode: null }), true);
 }
 
 async function verifyCpuLimitStopsBlockedChild() {

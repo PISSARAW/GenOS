@@ -44,8 +44,18 @@ function recordCpuSample(context, state, current) {
     observedCpuMs: Math.floor(state.consumed) });
 }
 
+function runtimeStopped(child) {
+  if (child.killed || child.exitCode !== null || child.signalCode !== null) return true;
+  try {
+    process.kill(child.pid, 0);
+    return false;
+  } catch (failure) {
+    return failure.code === 'ESRCH';
+  }
+}
+
 function reportCpuAccountingFailure(context, state, failure) {
-  if (context.child.killed || context.child.exitCode !== null || context.child.signalCode !== null) return;
+  if (runtimeStopped(context.child)) return;
   cpuFailure(context, 'worker_cpu_accounting_unavailable', { maxCpuMs: state.limit,
     reason: failure.message });
 }
@@ -54,7 +64,7 @@ async function sampleCpuBudget(context, state) {
   if (state.sampling || context.child.killed || context.child.exitCode !== null || context.child.signalCode !== null) return;
   state.sampling = true;
   try {
-    const current = await require('./workerProcessCpu').processCpuMs(context.child.pid);
+    const current = await require('./workerProcessCpu').processCpuMs(context.child.pid, process.platform, state);
     recordCpuSample(context, state, current);
   } catch (failure) {
     reportCpuAccountingFailure(context, state, failure);
@@ -84,4 +94,4 @@ function startWorkerCpuBudget(context) {
   context.child.once('close', () => clearInterval(timer));
 }
 
-module.exports = { clampMissionBudget, startWorkerDeadline, startWorkerCpuBudget };
+module.exports = { clampMissionBudget, startWorkerDeadline, startWorkerCpuBudget, runtimeStopped };
