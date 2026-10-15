@@ -6,6 +6,7 @@ const { EventEmitter } = require('node:events');
 const operator = require('../src/services/operatorRuntimeControl');
 const checkpointControl = require('../src/services/cellThreadCheckpointRuntimeControl');
 const missionControl = require('../src/services/agentRuntimeAdapter/missionControl');
+const capability = require('../src/services/runtimeControlCapability');
 const { activeProcesses, cancelledStarts } =
   require('../src/services/agentOrchestrationState');
 
@@ -48,6 +49,15 @@ function acknowledgement(message, overrides = {}) {
   };
 }
 
+function ready(overrides = {}) {
+  return {
+    type: 'genos-runtime-control-ready', protocolVersion: 1,
+    lineage: { ...identity },
+    actions: ['pause', 'resume', 'cancel', 'resume_checkpoint'],
+    ...overrides
+  };
+}
+
 class FakeChild extends EventEmitter {
   constructor(responder, childIdentity = identity) {
     super();
@@ -75,13 +85,93 @@ function exactChild() {
   });
 }
 
-function install(child) {
+function install(child, readyMessage = ready({ lineage: { ...child.genosControlIdentity } })) {
+  capability.bind(child);
+  if (readyMessage) child.emit('message', readyMessage);
   activeProcesses.set(identity.workerId, child);
   return () => {
     activeProcesses.delete(identity.workerId);
     cancelledStarts.delete(identity.workerId);
   };
 }
+
+function capabilityListenerCounts() {
+  return [1, 1, 1];
+}
+
+test('control is not sent before an exact runtime capability attestation', async () => {
+  const child = exactChild();
+  const cleanup = install(child, null);
+  try {
+    const refused = await operator.apply({ action: 'pause', target: target() });
+    assert.deepEqual({ proven: refused.proven, code: refused.code },
+      { proven: false, code: 'RUNTIME_CAPABILITY_UNATTESTED' });
+    assert.equal(child.sent.length, 0);
+  } finally { cleanup(); }
+});
+
+test('invalid, cross-tenant and duplicate ready messages poison the capability', async () => {
+  for (const readyMessage of [
+    ready({ protocolVersion: 2 }),
+    ready({ lineage: { ...identity, organizationId: 'org-other' } }),
+    ready({ actions: ['pause', 'resume', 'cancel'] })
+  ]) {
+    const child = exactChild();
+    const cleanup = install(child, readyMessage);
+    child.emit('message', ready());
+    try {
+      const refused = await operator.apply({ action: 'pause', target: target() });
+      assert.equal(refused.code, 'RUNTIME_CAPABILITY_UNATTESTED');
+      assert.equal(child.sent.length, 0);
+    } finally { cleanup(); }
+  }
+
+  const duplicate = exactChild();
+  const cleanup = install(duplicate);
+  duplicate.emit('message', ready());
+  try {
+    const refused = await operator.apply({ action: 'pause', target: target() });
+    assert.equal(refused.code, 'RUNTIME_CAPABILITY_UNATTESTED');
+    assert.equal(duplicate.sent.length, 0);
+  } finally { cleanup(); }
+});
+
+test('capability is revoked on disconnect and synchronous ACK remains correlated', async () => {
+  const synchronous = new FakeChild((message, child) => {
+    child.emit('message', acknowledgement(message));
+  });
+  let cleanup = install(synchronous);
+  try {
+    const accepted = await operator.apply({ action: 'pause', target: target() });
+    assert.equal(accepted.proven, true);
+  } finally { cleanup(); }
+
+  const disconnected = exactChild();
+  cleanup = install(disconnected);
+  disconnected.emit('disconnect');
+  disconnected.emit('message', ready());
+  try {
+    const refused = await operator.apply({ action: 'resume', target: target() });
+    assert.equal(refused.code, 'RUNTIME_CAPABILITY_UNATTESTED');
+    assert.equal(disconnected.sent.length, 0);
+    assert.deepEqual(['message', 'close', 'disconnect']
+      .map(name => disconnected.listenerCount(name)), [0, 0, 0]);
+  } finally { cleanup(); }
+});
+
+test('unrelated IPC messages do not poison runtime capability negotiation', async () => {
+  const child = exactChild();
+  capability.bind(child);
+  child.emit('message', { kind: 'genos.runtime.file-write/v1', path: 'artifact.txt' });
+  child.emit('message', ready());
+  activeProcesses.set(identity.workerId, child);
+  try {
+    assert.equal((await operator.apply({ action: 'pause', target: target() })).proven, true);
+  } finally {
+    activeProcesses.delete(identity.workerId);
+    cancelledStarts.delete(identity.workerId);
+  }
+});
 
 test('pause and resume require exact correlated cooperative acknowledgements', async () => {
   const child = exactChild();
@@ -102,7 +192,7 @@ test('pause and resume require exact correlated cooperative acknowledgements', a
       assert.ok(message.timeoutMs >= 25 && message.timeoutMs <= 10000);
     }
     assert.deepEqual(['message', 'close', 'disconnect'].map(name => child.listenerCount(name)),
-      [0, 0, 0]);
+      capabilityListenerCounts());
   } finally { cleanup(); }
 });
 
@@ -136,7 +226,7 @@ test('missing acknowledgement and unavailable IPC fail closed', async () => {
     assert.deepEqual({ proven: timedOut.proven, code: timedOut.code },
       { proven: false, code: 'RUNTIME_ACK_TIMEOUT' });
     assert.deepEqual(['message', 'close', 'disconnect'].map(name => silent.listenerCount(name)),
-      [0, 0, 0]);
+      capabilityListenerCounts());
   } finally { cleanup(); }
 
   const disconnected = exactChild();
@@ -157,7 +247,7 @@ test('send errors and IPC closure fail closed without leaking listeners', async 
     const failed = await operator.apply({ action: 'pause', target: target() });
     assert.equal(failed.code, 'RUNTIME_SEND_FAILED');
     assert.deepEqual(['message', 'close', 'disconnect'].map(name => sendError.listenerCount(name)),
-      [0, 0, 0]);
+      capabilityListenerCounts());
   } finally { cleanup(); }
 
   const closed = new FakeChild((_message, source) => {
@@ -271,7 +361,7 @@ test('cancel timeout removes its close listener and remains unproven', async () 
     const result = await operator.apply({ action: 'cancel', target: target() });
     assert.deepEqual({ proven: result.proven, code: result.code },
       { proven: false, code: 'RUNTIME_STOP_UNCONFIRMED' });
-    assert.equal(child.listenerCount('close'), 0);
+    assert.equal(child.listenerCount('close'), 1);
   } finally {
     missionControl.stopMission = original;
     cleanup();

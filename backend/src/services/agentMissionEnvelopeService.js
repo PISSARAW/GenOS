@@ -12,18 +12,35 @@ function worker(mission) {
     workerKind: mission.workerKind || '', workerContractJson: JSON.stringify(mission.workerContract || {}) };
 }
 
+function valueOr(value, fallback) {
+  return value || fallback;
+}
+
+function firstOr(first, second, fallback) {
+  return first || second || fallback;
+}
+
+function optionalJson(value) {
+  return value ? JSON.stringify(value) : '';
+}
+
 function execution(ctx) {
   const mission = ctx.normalizedMission;
-  return { workspaceRoot: ctx.workspaceRoot, workspaceIsolation: mission.workspaceIsolation || '',
+  return { workspaceRoot: ctx.workspaceRoot, workspaceIsolation: valueOr(mission.workspaceIsolation, ''),
     ...checkpoint(ctx),
-    agentType: mission.agentType || '', executionMode: ctx.dispatchedAgent.execution_mode,
-    orchestratorAgentId: mission.orchestratorAgentId || '', missionId: mission.missionId || '',
-    autonomyPlanJson: JSON.stringify(runtimeAutonomyPlan(ctx.autonomyPlan || {})), toolLeaseJson: JSON.stringify(mission.toolLease || []),
-    organization: mission.organization || '',
-    coordinationPolicyJson: JSON.stringify(mission.coordinationPolicy || mission.coordination_policy || {}),
+    agentType: valueOr(mission.agentType, ''), executionMode: ctx.dispatchedAgent.execution_mode,
+    orchestratorAgentId: valueOr(mission.orchestratorAgentId, ''), missionId: valueOr(mission.missionId, ''),
+    episodeId: firstOr(mission.episodeId, mission.missionScope?.episodeId, ''),
+    threadId: firstOr(mission.threadId, mission.missionScope?.threadId, ''),
+    organizationId: valueOr(ctx.controlTenant?.organization_id, ''),
+    projectId: valueOr(ctx.controlTenant?.project_id, ''),
+    autonomyPlanJson: JSON.stringify(runtimeAutonomyPlan(valueOr(ctx.autonomyPlan, {}))),
+    toolLeaseJson: JSON.stringify(valueOr(mission.toolLease, [])),
+    organization: valueOr(mission.organization, ''),
+    coordinationPolicyJson: JSON.stringify(firstOr(mission.coordinationPolicy, mission.coordination_policy, {})),
     genosCapsuleJson: JSON.stringify(ctx.genosCapsule), executionPolicyJson: JSON.stringify(mission.executionPolicy),
-    modelBudgetScopeJson: mission.modelBudgetScope ? JSON.stringify(mission.modelBudgetScope) : '',
-    executionBudgetJson: JSON.stringify(ctx.runtimeBudget || {}) };
+    modelBudgetScopeJson: optionalJson(mission.modelBudgetScope),
+    executionBudgetJson: JSON.stringify(valueOr(ctx.runtimeBudget, {})) };
 }
 
 function runtimeAutonomyPlan(plan) {

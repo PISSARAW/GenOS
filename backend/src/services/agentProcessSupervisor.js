@@ -313,6 +313,7 @@ async function superviseMission(options) {
   child.genosDetached = process.platform !== 'win32';
   child.genosCaptureBarrier = isLocalRuntime(resolvedExecutable);
   child.genosControlIdentity = Object.freeze({ workerId: agentId, missionId: normalizedMission.missionId || '', episodeId: normalizedMission.episodeId || normalizedMission.missionScope?.episodeId || '', threadId: normalizedMission.threadId || normalizedMission.missionScope?.threadId || '', organizationId: controlTenant?.organization_id || '', projectId: controlTenant?.project_id || '' });
+  require('./runtimeControlCapability').bind(child);
   // Buffer spawn errors until the full supervision context exists.
   let earlyChildError = null;
   child.on('error', (error) => { earlyChildError = earlyChildError || error; });
@@ -340,7 +341,7 @@ async function superviseMission(options) {
     stdoutBuffer: Buffer.alloc(0),
     stderrBuffer: ''
   };
-  const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child, conscienceState, state, continuousObserver, bodyActionId, filesystemReceipt, mcpActorToken };
+  const ctx = { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, workspaceRoot, resolvedExecutable, child, conscienceState, state, continuousObserver, bodyActionId, filesystemReceipt, mcpActorToken, controlTenant };
   const emitTracked = (...args) => { return emitTrackedImpl(ctx, ...args); };
   ctx.emitTracked = emitTracked;
   ctx.handleOrchestrationDecision = handleOrchestrationDecision;

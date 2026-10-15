@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
+const capability = require('./runtimeControlCapability');
 
 const LINEAGE_FIELDS = [
   'workerId', 'missionId', 'episodeId', 'threadId', 'organizationId', 'projectId'
@@ -108,6 +109,10 @@ function request(input) {
     || typeof child.on !== 'function' || typeof child.removeListener !== 'function') {
     return Promise.resolve(outcome(false, 'RUNTIME_IPC_UNAVAILABLE',
       'Runtime does not expose a connected IPC control channel.'));
+  }
+  if (!capability.supports(child, input.action, capability.PROTOCOL_VERSION)) {
+    return Promise.resolve(outcome(false, 'RUNTIME_CAPABILITY_UNATTESTED',
+      'Runtime did not attest the required control protocol and action.'));
   }
   const message = {
     type: 'genos-runtime-control-request', protocolVersion: 1,

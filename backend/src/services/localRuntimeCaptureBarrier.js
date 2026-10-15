@@ -1,5 +1,6 @@
 let request = null;
 let release = null;
+const cooperative = require('./localRuntimeCooperativeControl');
 
 process.on('message', (message) => {
   if (message?.type === 'genos-snapshot-pause' && typeof message.nonce === 'string') {
@@ -19,7 +20,7 @@ process.on('disconnect', () => {
   if (done) done();
 });
 
-async function safePoint(phase) {
+async function snapshotSafePoint(phase) {
   if (!process.connected || !request) return;
   const nonce = request;
   await new Promise((resolve) => {
@@ -34,4 +35,13 @@ async function safePoint(phase) {
   });
 }
 
-module.exports = { safePoint };
+async function safePoint(phase) {
+  await snapshotSafePoint(phase);
+  await cooperative.safePoint(phase);
+}
+
+function bind(state) {
+  return cooperative.bind(state);
+}
+
+module.exports = { bind, safePoint };

@@ -24,7 +24,6 @@ process.stdin.on('error', (error) => {
   console.error(`[local-codex-runtime] Mission stdin failed: ${error.message}`);
   process.exitCode = 1;
 });
-
 async function main(rawInput) {
   let mission;
   try {
@@ -79,6 +78,7 @@ async function main(rawInput) {
   await buildPromptContext(state, services);
   state.baseFramedPrompt = state.framedPrompt;
   state.resumeCheckpoint = await require('../src/services/localRuntimeCheckpoint').load(state);
+  captureBarrier.bind(state);
   await runMission(state, services);
 }
 
@@ -99,7 +99,7 @@ async function runMission(state, services) {
       validateGeneration, emitEvent
     });
     if (!state.resumeCheckpoint) await checkpoint.save(state, 'prepared');
-    if (!reply) await captureBarrier.safePoint(state.resumeCheckpoint?.phase || 'prepared');
+    await captureBarrier.safePoint(state.resumeCheckpoint?.phase || 'prepared');
     if (!reply) {
       reply = await generate();
       await checkpoint.save(state, 'generated', reply);
