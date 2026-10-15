@@ -198,6 +198,16 @@ function buildGaragePayload(garage, workerGarage, agentId) {
   };
 }
 
+function runtimeObservation(outcome, code, signal) {
+  return {
+    status: outcome.status,
+    code,
+    signal,
+    domainVerdict: outcome.payload.domainVerdict || null,
+    stderr: String(outcome.payload.stderr || '').slice(-4000)
+  };
+}
+
 async function finalizeChildClose({
   db, agentId, dispatchedAgent, normalizedMission, child, code, signal, stderrBuffer,
   termination, missionDomainState, terminalEventSeen, emitTracked, executionQueue,
@@ -208,8 +218,7 @@ async function finalizeChildClose({
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
   if (bodyActionId) await require('./runtimeProcessReceipt').observe({ db, agentId,
     runId: executionRun.id, actionId: bodyActionId,
-    outcome: { status: outcome.status, code, signal,
-      domainVerdict: outcome.payload.domainVerdict || null }, emit });
+    outcome: runtimeObservation(outcome, code, signal), emit });
   await consolidateOffline(db, agentId);
   await idleRecurrence(db, agentId);
   const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
@@ -238,5 +247,6 @@ module.exports = {
   buildReplayManifest,
   runtimeExitOutcome,
   shouldEmitCloseOutcome,
-  finalizeChildClose
+  finalizeChildClose,
+  runtimeObservation
 };

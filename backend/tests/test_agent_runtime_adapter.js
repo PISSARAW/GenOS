@@ -100,6 +100,9 @@ try {
   const failed = adapter.runtimeExitOutcome(null, 1, null, 'ERROR actual runtime failure');
   assert.equal(failed.status, 'error');
   assert.equal(failed.eventType, 'AGENT_FAILED');
+  const observedFailure = require('../src/services/agentProcessOutcome').runtimeObservation(failed, 1, null);
+  assert.equal(observedFailure.stderr, 'ERROR actual runtime failure');
+  assert.equal(observedFailure.code, 1);
   const domainFailed = adapter.runtimeExitOutcome(null, 0, null, '', {
     hasDomainFailure: true,
     domainVerdict: 'failed'
