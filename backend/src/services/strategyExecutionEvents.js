@@ -223,7 +223,10 @@ const PRIMITIVE_CONTEXT_REQUIREMENTS = {
   counterfactual_replay: ['inputFile'],
   causal_rebase: ['graphFile'],
   inject_change: ['graphFile'],
-  replay_dependencies: ['nodeId']
+  replay_dependencies: ['nodeId'],
+  select_winner: ['candidates'],
+  stdp_update: ['sourceId', 'targetId', 'preSpikeAt', 'postSpikeAt'],
+  cherry_pick_golden_path: ['turns']
 };
 
 function missingContext(primitive, context = {}) {

@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const strategy = require('../src/services/strategyExecutionService');
+const strategyEvents = require('../src/services/strategyExecutionEvents');
 const adapter = require('../src/services/strategyExecutionAdapter');
 
 assert.equal(strategy.primitiveFailureReason({ stage_key: 'snapshot' }, { success: true }), null);
@@ -12,6 +13,11 @@ assert.match(
 const portfolioWithStdp = [{ id: 'stdp_plasticity', primitives: ['stdp_update', 'cherry_pick_golden_path'] }];
 const matched = strategy.resolveStagePrimitives('conditional_promotion', portfolioWithStdp);
 assert.deepEqual(matched, ['stdp_update', 'cherry_pick_golden_path']);
+assert.deepEqual(strategyEvents.missingContext('stdp_update', {
+  sourceId: 'worker', targetId: 'orchestrator'
+}), ['preSpikeAt', 'postSpikeAt']);
+assert.deepEqual(strategyEvents.missingContext('cherry_pick_golden_path', {}), ['turns']);
+assert.deepEqual(strategyEvents.missingContext('select_winner', {}), ['candidates']);
 
 // Test resolveStagePrimitives: uncontracted portfolio allows graceful pass-through (returns [])
 const portfolioWithoutStdp = [{ id: 'deterministic_direct_path', primitives: ['search_memory', 'run'] }];
