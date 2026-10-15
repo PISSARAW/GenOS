@@ -85,10 +85,14 @@ Le choix de morphologie ne dépend plus seulement de `mission + capabilities + b
 [backend/src/services/morphogenesis/morphogenesisPlannerService.js](../../backend/src/services/morphogenesis/morphogenesisPlannerService.js)
 (`planMorphogenesis`) construit les candidats `{courante, proposée, trinity}`,
 délègue le choix quand `ctx.expression` est présent (`plan.selectedTopology`,
-`plan.controlReceipt`), sinon garde le comportement historique. La fermeture
-post-action (`Evidence → révision → RPE → consolidation → performances
-stratégie/recette → expérience morphologique`) est assurée par le
-`causalLoopService`.
+`plan.controlReceipt`), sinon garde le comportement historique. Le service
+`causalLoopService` expose une fermeture post-action (`Evidence → révision →
+RPE → consolidation → performances stratégie/recette → expérience
+morphologique`) via `processActionReceipt`. Dans l'état du dépôt revu le
+2026-10-15, cette fonction n'a aucun appelant de production : la présence du
+service et ses tests ne prouvent pas que la boucle s'exécute après les actions
+du runtime. Son intégration à un producteur réel de reçus vérifiés reste à
+faire.
 
 Limites : `MemoryRouter`, `StrategyResolver` et `PhenotypeResolver` ne sont pas
 encore appelés en live dans l'expression (stubs enrichis avec fallback) ; les

@@ -157,14 +157,18 @@ Invariants tenus :
 - une curiosité haute ne contourne jamais un gate de preuve ;
 - `AgentExpressionContext` charge le snapshot réel avec fallback
   ([backend/src/services/agents/agentExpressionContextService.js](../../backend/src/services/agents/agentExpressionContextService.js)) ;
-- après chaque action, [backend/src/services/morphogenesis/causalLoopService.js](../../backend/src/services/morphogenesis/causalLoopService.js)
+- quand il est invoqué, [backend/src/services/morphogenesis/causalLoopService.js](../../backend/src/services/morphogenesis/causalLoopService.js)
   applique le RPE au régulateur (`regulation.revision`) : dopamine/cortisol/stress
   bornés dans `[0,1]`, sans apprentissage inter-missions des poids.
-- quand une preuve de qualité indépendante est vérifiée, la consolidation mémoire
+- quand une preuve de qualité indépendante est vérifiée, sa consolidation mémoire
   conserve son `receiptId` comme référence d’évidence ainsi que l’identité et
   l’applicabilité de l’action source ; une qualité déclarée seule n’est pas promue.
   Ce lien est vérifié dans
   [backend/tests/test_causal_loop_quality_evidence.js](../../backend/tests/test_causal_loop_quality_evidence.js).
+
+`processActionReceipt` n'a pas d'appelant de production identifié dans l'état
+du dépôt revu le 2026-10-15 ; l'exécution de cette boucle après chaque action
+reste à raccorder au runtime.
 
 Non-objectifs : pas de persistance Rust↔Node temps réel au-delà du snapshot
 versionné, pas d'ajustement automatique des paramètres de boucles entre missions.
