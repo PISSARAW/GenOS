@@ -58,6 +58,12 @@ promotion.
 
 ### Complément de vérification — 15 octobre 2026
 
+Le statut `completed` d'un run ne constitue pas une vérification indépendante.
+Le parseur `strategyExecutionEvents` le présentait auparavant comme `verified`
+et `promotable` sans reçu. Il renvoie désormais `executed` et
+`promotable: false`; `test_strategy_phase_gate.js` fixe cette séparation. Le
+reçu run-bound de l'ADR 0480 demeure requis pour qualifier la reproductibilité.
+
 Les gates globaux ont été exécutés avant le correctif ADR 0508 : `npm test` a terminé
 avec code 0 (biologie, workspace workers, backend, garage et P1 V3) et
 `cargo test --workspace` avec code 0, après compilation dans un répertoire cible

@@ -34,7 +34,9 @@ function safeJson(value, fallback) {
 
 function epistemicState(row, parsedSteps) {
   if (!row) return { verdict: 'unknown', reason: 'missing run row', promotable: false };
-  if (row.status === 'completed') return { verdict: 'verified', reason: 'execution completed without guardrail', promotable: true };
+  if (row.status === 'completed') return {
+    verdict: 'executed', reason: 'execution completed without an independent verification receipt', promotable: false
+  };
   if (row.status === 'awaiting_approval') return { verdict: 'pending_approval', reason: 'human approval proof is required', promotable: false };
   if (row.status === 'blocked') return { verdict: 'blocked', reason: row.guardrail_reason || 'runtime guardrail blocked execution', promotable: false };
   if (['failed', 'cancelled'].includes(row.status)) return { verdict: 'failed', reason: row.guardrail_reason || `execution ${row.status}`, promotable: false };
