@@ -204,7 +204,8 @@ async function persistResolvedOutcomes(input) {
     if (!oracleRef || !forecasts.length) continue;
     const result = await calibration.recordResolution({ db: input.db, communityId: input.communityId,
       actorId: input.actorId, eventId: outcome.eventId, domain: outcome.domain,
-      outcome: outcome.outcome, oracleRef, forecasts });
+      outcome: outcome.outcome, oracleRef, receipt: outcome.receipt,
+      isTrustedReceipt: input.isTrustedReceipt, forecasts });
     recorded.push({ ...result, outcome: outcome.outcome });
   }
   return recorded;

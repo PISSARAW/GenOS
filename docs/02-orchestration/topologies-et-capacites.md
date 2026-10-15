@@ -179,7 +179,10 @@ Rhizome possède désormais une boucle de mission bornée : chaque besoin est ex
 - Promotions : `trinityComparativeBarrier.promoteWinner` marque le monde gagnant
   `promoted` (événement `TRINITY_WINNER_PROMOTED`) sur les deux chemins.
 - Preuve probabiliste : `biocenoseService.brierConsensus` (Brier pondéré) et
-  `quorumWithAbstention`.
+  `quorumWithAbstention`. Le Brier ne consomme un outcome qu'avec un reçu de
+  résolution `VERIFIED`, lié à la communauté, l'événement et au domaine, puis
+  accepté par le validateur de reçus de confiance. Une étiquette brute ne modifie
+  ni les poids ni la réputation.
 
 ## 8. Organisations et autorité
 

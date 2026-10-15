@@ -11,16 +11,28 @@ assert.equal(noOracle.meanBrier, null);
 assert.equal(noOracle.oracleMissing, true);
 
 // Avec oracle externe 'success' : le Brier mesure la calibration réelle
-const consensus = biocenose.brierConsensus([
+const dossiers = [
   { events: [{ evidenceReport: { outcome: 'success', claims: [{ statement: 's', confidence: 0.9 }] } }] },
   { events: [{ evidenceReport: { outcome: 'failed', claims: [{ statement: 's', confidence: 0.9 }] } }] }
-], { oracleResult: 'success' });
+];
+const untrusted = biocenose.brierConsensus(dossiers, { oracleResult: 'success' });
+assert.equal(untrusted.meanBrier, null, 'caller-provided labels cannot change Brier weights');
+const oracleReceipt = { status: 'VERIFIED', receiptId: 'resolution-1', communityId: 'community-1',
+  eventId: 'event-1', domain: 'delivery', outcome: 1 };
+const consensus = biocenose.brierConsensus(dossiers, { oracleResult: 'success', communityId: 'community-1',
+  eventId: 'event-1', domain: 'delivery', oracleReceipt, isTrustedReceipt: (receipt) => receipt === oracleReceipt });
 assert.equal(consensus.participantCount, 2);
 assert.ok(consensus.meanBrier > 0);
 assert.ok(Number.isFinite(consensus.weightedSupport));
+const rejectedReceipt = biocenose.brierConsensus(dossiers, { oracleResult: 'success', communityId: 'community-1',
+  eventId: 'event-1', domain: 'delivery', oracleReceipt, isTrustedReceipt: () => false });
+assert.equal(rejectedReceipt.meanBrier, null, 'an untrusted resolution receipt cannot change Brier weights');
 
 // Oracle 'success' + agent parfait (confidence 1, outcome success) → Brier 0
-const perfect = biocenose.brierConsensus([{ events: [{ evidenceReport: { outcome: 'success', claims: [{ statement: 's', confidence: 1 }] } }] }], { oracleResult: 'success' });
+const perfect = biocenose.brierConsensus([{ events: [{ evidenceReport: { outcome: 'success', claims: [{ statement: 's', confidence: 1 }] } }] }], {
+  oracleResult: 'success', communityId: 'community-1', eventId: 'event-1', domain: 'delivery',
+  oracleReceipt, isTrustedReceipt: (receipt) => receipt === oracleReceipt
+});
 assert.equal(perfect.meanBrier, 0);
 assert.equal(perfect.reached, true);
 

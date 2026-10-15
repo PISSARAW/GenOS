@@ -86,6 +86,26 @@ function oracleTruth(oracleResult) {
   return null;
 }
 
+function matchesOracleReceipt(options, receipt, truth) {
+  const references = [receipt?.receiptId, receipt?.reference];
+  return truth !== null && receipt?.status === 'VERIFIED'
+    && Boolean(options.communityId && options.eventId && options.domain)
+    && matchesOracleContext(options, receipt)
+    && oracleTruth(receipt.outcome) === truth
+    && references.some((reference) => typeof reference === 'string' && reference.trim());
+}
+
+function matchesOracleContext(options, receipt) {
+  return receipt.communityId === options.communityId && receipt.eventId === options.eventId
+    && receipt.domain === options.domain;
+}
+
+function trustedOracleTruth(options, truth) {
+  const receipt = options.oracleReceipt;
+  if (!matchesOracleReceipt(options, receipt, truth) || typeof options.isTrustedReceipt !== 'function') return null;
+  try { return options.isTrustedReceipt(receipt) === true ? truth : null; } catch (_) { return null; }
+}
+
 function voteSupport(outcome) {
   return outcome === 'success' || outcome === true ? 1 : 0;
 }
@@ -115,7 +135,7 @@ function quorumWithAbstention(votes, options = {}) {
 
 function brierConsensus(dossiers, options = {}) {
   const members = (Array.isArray(dossiers) ? dossiers : []).map(brierMember);
-  const truth = oracleTruth(options.oracleResult);
+  const truth = trustedOracleTruth(options, oracleTruth(options.oracleResult));
   const quorumRatio = Number.isFinite(options.quorumRatio) ? options.quorumRatio : 0.5;
   if (!members.length || truth === null) {
     return { reached: false, weightedSupport: 0, meanBrier: null, participantCount: members.length, quorumRatio, oracleMissing: true };
