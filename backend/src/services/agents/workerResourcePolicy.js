@@ -3,11 +3,14 @@
 const { workerPolicy } = require('./workerPolicyService');
 const { hasNativeMethod } = require('./workerExecutorRegistry');
 const DEFAULT_WORKER_TOKEN_LIMIT = 8000;
+const COMMUNICATING_WORKER_TOKEN_LIMIT = 40000;
 
 function tokenCeiling(policy, mission, native) {
   if (native) return 0;
   const requested = Number(mission.workerTokenLimit);
-  const policyMaximum = policy.maxTokens ?? DEFAULT_WORKER_TOKEN_LIMIT;
+  const baseMaximum = policy.maxTokens ?? DEFAULT_WORKER_TOKEN_LIMIT;
+  const policyMaximum = mission.communicationRequired === true
+    ? Math.max(baseMaximum, COMMUNICATING_WORKER_TOKEN_LIMIT) : baseMaximum;
   const maximum = Number.isFinite(requested) && requested > 0
     ? policyMaximum : Math.min(policyMaximum, DEFAULT_WORKER_TOKEN_LIMIT);
   return Number.isFinite(requested) && requested > 0 ? Math.min(Math.floor(requested), maximum) : maximum;
