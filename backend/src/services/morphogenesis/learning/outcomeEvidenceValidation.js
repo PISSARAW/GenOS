@@ -6,12 +6,19 @@ const ADMISSIBLE_EVIDENCE_KINDS = new Set([
   'oracle', 'benchmark', 'deterministic_verifier', 'human_approval', 'external_metric'
 ]);
 
-function validate(evidence) {
+function validate(evidence, expectedBinding = null) {
   if (!validEvidenceFields(evidence)) return false;
+  if (expectedBinding && !matchesExpectedBinding(evidence, expectedBinding)) return false;
   const receipt = evidence.receipt;
   if (!validReceiptFields(receipt, evidence.receiptId)) return false;
   if (receipt.evidenceDigest !== evidenceDigest(evidence)) return false;
   return trustedReceipt(receipt);
+}
+
+function matchesExpectedBinding(evidence, binding) {
+  if (!String(binding.actionId || '').trim() || !String(binding.agentId || '').trim()) return false;
+  return ['actionId', 'agentId', 'organizationId', 'projectId'].every((field) =>
+    (evidence[field] ?? null) === (binding[field] ?? null));
 }
 
 function validEvidenceFields(evidence) {
@@ -35,6 +42,9 @@ function validReceiptFields(receipt, receiptId) {
 function evidenceDigest(evidence) {
   const payload = { success: evidence.success, value: Number(evidence.value), kind: evidence.kind };
   if (evidence.learningContext) payload.learningContext = evidence.learningContext;
+  for (const field of ['actionId', 'agentId', 'organizationId', 'projectId']) {
+    if (evidence[field] !== undefined) payload[field] = evidence[field];
+  }
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 

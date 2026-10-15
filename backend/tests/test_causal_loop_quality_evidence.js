@@ -5,9 +5,11 @@ const crypto = require('node:crypto');
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'causal-loop-test-secret';
 const causalLoop = require('../src/services/morphogenesis/causalLoopService');
 
-function signedEvidence(receiptId) {
-  const fields = { success: true, value: 0.95, kind: 'deterministic_verifier' };
-  const evidenceDigest = crypto.createHash('sha256').update(JSON.stringify(fields)).digest('hex');
+function signedEvidence(receiptId, actionId, agentId) {
+  const fields = { success: true, value: 0.95, kind: 'deterministic_verifier',
+    actionId, agentId, organizationId: null, projectId: null };
+  const evidenceDigest = require('../src/services/morphogenesis/learning/outcomeEvidenceValidation')
+    .evidenceDigest(fields);
   const verifierDigest = require('../src/services/verifierTrustRegistry').listVerifierDigests()[0];
   const receipt = require('../src/services/epistemicVerifierReceiptService').issueReceipt({
     resultId: receiptId, evidenceDigest, verifierDigest, independent: true, status: 'verified'
@@ -52,7 +54,7 @@ const verifiedResult = causalLoop.processActionReceipt({
     applicability: { repository: 'genos' },
     outcome: { success: true, quality: 0.95, summary: 'The workspace passed its independent checks.' },
     expectedOutcome: { success: true, quality: 0.5 },
-    qualityEvidence: signedEvidence(qualityReceiptId)
+    qualityEvidence: signedEvidence(qualityReceiptId, 'action-episode:causal-memory:1', 'quality-evidence-memory-test')
   }
 });
 assert.equal(verifiedResult.outcome.qualityVerified, true);
@@ -61,5 +63,22 @@ assert.deepEqual(verifiedResult.memoryConsolidated.entry.evidenceRefs, [qualityR
 assert.deepEqual(verifiedResult.memoryConsolidated.entry.provenance.sourceRefs,
   ['action-episode:causal-memory:1', qualityReceiptId]);
 assert.deepEqual(verifiedResult.memoryConsolidated.entry.applicability, { repository: 'genos' });
+
+const replayedEvidence = causalLoop.processActionReceipt({
+  agentId: 'quality-evidence-memory-test',
+  actionReceipt: { actionId: 'different-action', outcome: { success: true, quality: 0.95 },
+    qualityEvidence: signedEvidence(qualityReceiptId, 'action-episode:causal-memory:1', 'quality-evidence-memory-test') }
+});
+assert.equal(replayedEvidence.outcome.qualityVerified, false,
+  'A valid quality receipt bound to another action cannot be replayed into this action.');
+assert.equal(replayedEvidence.memoryConsolidated.reason, 'verified_outcome_required');
+
+const crossScopeEvidence = causalLoop.processActionReceipt({
+  agentId: 'quality-evidence-memory-test', organizationId: 'other-org', projectId: 'other-project',
+  actionReceipt: { actionId: 'action-episode:causal-memory:1',
+    qualityEvidence: signedEvidence(qualityReceiptId, 'action-episode:causal-memory:1', 'quality-evidence-memory-test') }
+});
+assert.equal(crossScopeEvidence.outcome.qualityVerified, false,
+  'A global quality receipt cannot authorize learning inside an unrelated tenant scope.');
 
 console.log('Causal learning ignores self-declared quality without a signed verifier receipt.');

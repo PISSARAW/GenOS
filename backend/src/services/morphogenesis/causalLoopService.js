@@ -30,8 +30,9 @@ function recordEvidence(agentId, evidence) {
   return { recorded: Boolean(result.updated), claimId: result.claimId || null };
 }
 
-function verifiedOutcome(qualityEvidence, expectedSuccess, expectedQuality) {
-  const verified = outcomeEvidenceValidation.validate(qualityEvidence);
+function verifiedOutcome(input) {
+  const { qualityEvidence, expectedSuccess, expectedQuality, binding } = input;
+  const verified = outcomeEvidenceValidation.validate(qualityEvidence, binding);
   const success = verified ? qualityEvidence.success : null;
   const quality = verified ? Number(qualityEvidence.value) : null;
   return {
@@ -51,13 +52,15 @@ function declaredOutcome(actual) {
   };
 }
 
-function computeOutcome(receipt) {
+function computeOutcome(input) {
+  const { receipt, agentId, organizationId, projectId } = input;
   const expected = receipt.expectedOutcome || {};
   const actual = receipt.outcome || {};
   const expectedSuccess = expected.success !== undefined ? Boolean(expected.success) : true;
   const expectedQuality = Number(expected.quality) || 0.5;
   return {
-    ...verifiedOutcome(receipt.qualityEvidence, expectedSuccess, expectedQuality),
+    ...verifiedOutcome({ qualityEvidence: receipt.qualityEvidence, expectedSuccess, expectedQuality,
+      binding: { actionId: actionIdOf(receipt), agentId, organizationId, projectId } }),
     ...declaredOutcome(actual),
     expectedSuccess,
     expectedQuality: Number(expectedQuality.toFixed(4)),
@@ -211,13 +214,13 @@ function regulationViewOf(regulation) {
 }
 
 function processActionReceipt(ctx) {
-  const { actionReceipt, agentId, expressionContext } = ctx || {};
+  const { actionReceipt, agentId, expressionContext, organizationId = null, projectId = null } = ctx || {};
   if (!actionReceipt || !agentId) {
     return { error: 'invalid_context', receipt: null };
   }
 
   const evidence = actionReceipt.evidence || actionReceipt;
-  const outcome = computeOutcome(actionReceipt);
+  const outcome = computeOutcome({ receipt: actionReceipt, agentId, organizationId, projectId });
   const rpe = computeRPE(outcome, actionReceipt);
   const evidenceResult = recordEvidence(agentId, evidence);
   const memoryResult = consolidateMemory(outcome, actionReceipt);
