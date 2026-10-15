@@ -12,6 +12,8 @@ const mission = buildWorkerMission({
   orchestratorAgentId: 'orchestrator-social-1',
   role: 'identity_witness',
   workerKind: 'bounded_worker',
+  organization: 'cross_functional_pod',
+  coordinationPolicy: { communicationCadence: 'continuous_sync' },
   prompt: 'Verify the identities of your peers.',
   strategyContract: {},
   toolLease: []
@@ -40,5 +42,14 @@ assert.match(prompt, /Mission ID: mission-social-1/);
 assert.match(prompt, /Orchestrator ID: orchestrator-social-1/);
 assert.match(prompt, /COMMANDS ALLOWED/);
 assert.match(prompt, /node mcp\/test_lease\.js/);
+assert.match(prompt, /Call these GenOS MCP tools directly by exact name/);
+assert.match(prompt, /not MCP resources/);
+assert.match(prompt, /genos_organization_state/);
+assert.match(prompt, /genos_worker_publish/);
+assert.match(prompt, /genos_worker_inbox/);
+assert.match(prompt, /recipient_agent_id/);
+assert.match(prompt, /in_reply_to/);
+assert.match(prompt, /acknowledge_message_ids/);
+assert.match(prompt, /list_mcp_resources/);
 
 console.log('Worker runtime identity prompt: PASS');

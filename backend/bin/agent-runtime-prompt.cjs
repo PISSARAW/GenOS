@@ -142,6 +142,14 @@ function buildIdentityBlock(params) {
   return `[IDENTITY]\nAgent ID: ${mission.agentId || 'unknown'}\nName: ${params.agentName || mission.name || mission.agentId || 'unknown'}\nRole: ${mission.role || 'Autonomous implementation agent'}\nMission ID: ${mission.missionId || 'unbound'}\nOrchestrator ID: ${mission.orchestratorAgentId || mission.agentId || 'unknown'}`;
 }
 
+function buildCoordinationHint(params) {
+  if (!params.isWorker) return '';
+  const { continuousCoordination } = require('./worker-mcp-inventory-preflight.cjs');
+  if (!continuousCoordination(params.mission)) return '';
+  const orchestratorId = params.mission.orchestratorAgentId || 'unknown';
+  return `[CONTINUOUS COORDINATION]\nCall these GenOS MCP tools directly by exact name; they are tools, not MCP resources. Do not use list_mcp_resources or list_mcp_resource_templates to discover them.\n1. Call genos_organization_state with {"orchestrator_id":"${orchestratorId}"}; use its requester, members and communicationLinks as the authority for your identity and peer IDs.\n2. Call genos_worker_publish for direct signals with recipient_agent_id, and for shared signals without recipient_agent_id. Always supply kind, signal_type and signal_data.\n3. Call genos_worker_inbox after publishing. Acknowledge every understood message with acknowledge_message_ids, and answer at least one received message by calling genos_worker_publish with in_reply_to set to its integer message ID. If the inbox is initially empty, retry after other local work.\nIf a direct tool call fails, report its exact error; never infer that a tool is absent from a resource listing.`;
+}
+
 function buildReviewHint(isWorker, runtimeAutonomyPlan) {
   if (isWorker || !runtimeAutonomyPlan.localModelReview?.consulted) return '';
   return 'The local-model review above is advisory evidence. Explicitly compare it with the strategy contract before dispatching, replaying, merging, or rejecting its recommendations; mention the accepted or rejected recommendations in your final evidence report.';
@@ -199,6 +207,7 @@ function buildAgentRuntimePrompt(ctx) {
     `${params.conscienceBlock}`,
     params.memoryBlock ? `${params.memoryBlock}` : '',
     params.authorityInstruction || '',
+    buildCoordinationHint(params),
     gatingDirective ? `[BIOMIMETIC GATING]\n${gatingDirective}` : '',
     buildCapabilityBlock(params.isWorker, params.capabilities, params.capabilityManifest),
     buildStrategyBlock(params.runtimeContract, params.strategyContract),
