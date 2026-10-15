@@ -238,7 +238,7 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
   const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
   const affordableAteamMembers = aTeamDispatchBudget.affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
   autonomyPlan.aTeam.activated = !autonomyPlan.trinity.activated
-    && autonomyPlan.aTeam.recommended
+    && (autonomyPlan.aTeam.recommended || normalizedMission.proposedTopology === 'a_team' || normalizedMission.morphologyTopology === 'a_team')
     && affordableAteamMembers >= aTeamWorkerCount;
   if (autonomyPlan.aTeam.activated) {
     attachAteamCoordination({ aTeam: autonomyPlan.aTeam, agentId, normalizedMission });

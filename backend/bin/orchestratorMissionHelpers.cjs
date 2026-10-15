@@ -237,7 +237,9 @@ function missionWorkspaceOptions(request) {
     capsuleRoot: request.capsuleRoot || request.capsule_root
       || (request.workspaceProvisioned === true ? workspaceRoot : undefined),
     proposedTopology: request.proposedTopology, trinityMode: request.trinityMode,
-    trinityVariant: request.variant, aTeamMode: request.aTeamMode };
+    trinityVariant: request.variant, aTeamMode: request.aTeamMode,
+    topologyConfiguration: request.configuration,
+    topologySessionOptions: request.sessionOptions };
 }
 
 function missionRuntimeContext(request) {

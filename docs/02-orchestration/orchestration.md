@@ -18,10 +18,12 @@ missions et leurs workers ; le crate Rust `genos-orchestrator` exécute une simu
 locale de son écosystème. Le crate Rust ne lance pas à lui seul les workers backend, ne
 crée pas leurs workspaces et ne certifie pas le livrable d'une mission Node.
 
-Le chemin central de mission utilise encore le préparateur morphologique historique. Le
-planner Morphogenèse reçoit le contexte réel de la mission et son graphe est lié aux
-affectations bornées que le dispatcher lance. Cette liaison ne transforme pas une
-topologie proposée en transition appliquée. Le runtime Morphogenèse V2 est
+Le chemin central prépare d'abord la morphologie demandée, puis le planner Morphogenèse
+sélectionne une des huit topologies canoniques avant la construction définitive du plan
+d'autonomie. Trinity et A-Team utilisent leurs planificateurs dédiés; les six autres
+topologies passent par leur composeur canonique. Le graphe final est lié aux mêmes
+affectations bornées que le dispatcher lance. Cette composition initiale ne constitue
+pas une transition entre deux topologies actives. Le runtime Morphogenèse V2 est
 disponible en **shadow** opt-in (`GENOS_MORPHOGENESIS_V2_SHADOW=1|true|on`) ; ce chemin
 évalue une proposition sans transition ni commit. Son chemin de commit exige des
 adaptateurs d'adjudication Rust et de gouvernance et n'est pas le chemin de production
@@ -41,9 +43,11 @@ flowchart TD
     ROUTE -->|champion valide| REUSE[Réutilisation avec provenance]
     ROUTE -->|primitive / procédure| DIRECT[Exécution minimale]
     ROUTE -->|worker ou collectif| CONTRACT[Contrat stratégie et budget]
-    CONTRACT --> LEGACY[Préparation morphologique historique]
-    LEGACY --> PLAN[AutonomyPlan et sélection des affectations]
-    PLAN --> SHADOW[Prévol Morphogenèse V2 optionnel]
+    CONTRACT --> PREP[Préparation morphologique et contraintes explicites]
+    PREP --> SELECT[Sélection Morphogenèse parmi huit topologies]
+    SELECT --> PLAN[Composition canonique et AutonomyPlan]
+    PLAN --> BIND[Liaison du graphe aux affectations]
+    BIND --> SHADOW[Prévol Morphogenèse V2 optionnel]
     SHADOW --> DISPATCH[Dispatch des affectations retenues]
     DISPATCH --> WORK[Workers et workspaces isolés]
     WORK --> EVIDENCE[Barrière de quiescence et dossiers de preuve]
@@ -60,8 +64,8 @@ frontières et compensations.
 | --- | --- | --- |
 | Profil et route, si le pont de routage est utilisé | `requestProfilerService`, `executionRouterService`, `bestKnownResultService` | classe de requête, route choisie, résultat réutilisable éventuel |
 | Contrat de stratégie | `strategyContractService` | contrat et portfolio autorisés pour la mission |
-| Préparation morphologique historique | `morphogenesisRuntime.prepareMorphology` depuis `orchestratorMissionHelpers.prepareMission` | plan limité à `single_agent`, `parallel_forks` ou `trinity` selon la stratégie |
-| Plan d'autonomie | `autonomousOrchestrationService` et `agentRuntimeAdapter/missionPlanning.js` | phases réalisables, workers, budget, gates, organisation |
+| Préparation et sélection morphologiques | `morphogenesisRuntime.prepareMorphology`, `morphogenesisPlannerService` et `missionTopologyActivation` | topologie canonique explicite ou sélectionnée avec profil et budget réels |
+| Plan d'autonomie | `autonomousOrchestrationService`, planificateurs Trinity/A-Team et `biologicalTopologyService.composeMode` | phases réalisables, workers topologiques, budget, gates, organisation |
 | Dispatch | `agentRuntimeAdapter/missionWorkers.js`, `agentFleetService.js` | affectations sélectionnées comparées aux workers effectivement créés |
 | Exécution et preuve | `agentFleetService.js`, `agentEvidenceService.js` | dossiers, événements d'état et barrière de preuve/quiescence |
 | Clôture | `homeostasisContractService.js` et collecte de preuve mission | invariants et preuves requis satisfaits, ou motif de blocage |
@@ -87,10 +91,10 @@ frontières et compensations.
    variants sont maintenant branchés au superviseur. Les douze escalades R3 datent d'avant
    ces corrections ; aucune campagne post-correctifs n'a qualifié la voie complète. Voir
    [leur contrat et leurs gates](topologies/trinity.md).
-5. **La morphologie planifiée n'est pas automatiquement exécutée.** Le préparateur
-   historique détermine encore le plan physique principal. Le planner Morphogenèse peut
-   construire des candidats pour les huit topologies et joindre un graphe au plan
-   d'autonomie ; cette présence ne prouve pas que le dispatcher a instancié ce graphe.
+5. **Le dispatch doit correspondre à la morphologie sélectionnée.** Le planner construit
+   des candidats pour les huit topologies; la sélection retenue compose les workers du
+   plan principal et la racine du graphe reçoit exactement ces affectations. Un échec de
+   composition, de capacité ou de budget bloque la mission avant la création des workers.
 6. **Les organisations ne sont pas des topologies.** `specialist_expert_committee`,
    `red_blue_coevolution` et les autres organisations sont des politiques d'organisation.
    Une `topology` canonique est l'un des huit identifiants du registre. Leur sélection,
@@ -106,9 +110,9 @@ frontières et compensations.
 
 | Voie | État vérifié | Ce que cet état ne garantit pas |
 | --- | --- | --- |
-| `single_agent`, `parallel_forks`, `trinity` du runtime historique | sélectionnés par le préparateur à partir du contrat et de la stratégie | que les autres topologies soient sélectionnées par cette voie |
-| Huit composeurs de `biologicalTopologyService.composeMode` | dispatch explicite vers un composeur dédié | que le sélecteur général de mission choisisse automatiquement les huit |
-| Planner Morphogenèse | reçoit le texte, le profil, le budget et les affectations de la mission; sa racine est liée aux affectations retenues au dispatch | que la topologie proposée soit appliquée ou choisie par tous les runtimes |
+| Préparateur de mission | conserve `single_agent` et `parallel_forks` comme formes historiques et accepte les huit topologies canoniques explicites | qu'une transition inter-topologies soit autorisée |
+| Huit composeurs de `biologicalTopologyService.composeMode` | la topologie sélectionnée pilote le plan principal; Trinity et A-Team gardent leurs planificateurs dédiés | qu'une composition réussie satisfasse les gates de preuve finaux |
+| Planner Morphogenèse | sélectionne avant le plan final, puis reçoit les affectations composées et les lie à la racine du graphe | qu'une transition ultérieure puisse contourner le registre d'adaptateurs |
 | Catalogue central de variants | découvre les variants projetés de six registres locaux et expose leur maturité | qu'un variant soit automatiquement élu ou interprété uniformément |
 | Composition `NEST`, `PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`, `BRIDGE`, `FEDERATE` | contrats et éléments de runtime existent selon les opérateurs | qu'une expression composite arbitraire soit compilée puis exécutée de bout en bout |
 | Transition Morphogenèse inter-topologies | adaptateur testé Trinity → A-Team pour les revendications vérifiées | qu'une transition sans adaptateur soit permise ; elle échoue fermé |
