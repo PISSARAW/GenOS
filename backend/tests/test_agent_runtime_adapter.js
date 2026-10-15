@@ -109,10 +109,12 @@ try {
   assert.equal(observedFailure.code, 1);
   const domainFailed = adapter.runtimeExitOutcome(null, 0, null, '', {
     hasDomainFailure: true,
-    domainVerdict: 'failed'
+    domainVerdict: 'failed',
+    artifactFailure: 'INVALID_WORKER_ARTIFACT'
   });
   assert.equal(domainFailed.status, 'failed');
   assert.equal(domainFailed.eventType, 'AGENT_FAILED');
+  assert.equal(domainFailed.payload.artifactFailure, 'INVALID_WORKER_ARTIFACT');
   const unverified = adapter.runtimeExitOutcome(null, 0, null, '', { unverified: true });
   assert.equal(unverified.status, 'unverified');
   assert.equal(unverified.payload.domainVerdict, 'unverified');

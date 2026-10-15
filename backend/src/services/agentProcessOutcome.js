@@ -96,7 +96,8 @@ function resolveDomainFlags(extra) {
   const hasDomainFailure = Boolean(extra.hasDomainFailure);
   const unverified = Boolean(extra.unverified);
   const explicitFailed = extra.domainVerdict === 'failed' || hasDomainFailure;
-  return { hasDomainFailure, unverified, explicitFailed };
+  return { hasDomainFailure, unverified, explicitFailed,
+    artifactFailure: extra.artifactFailure || null };
 }
 
 function resolveDomainVerdict(flags) {
@@ -128,7 +129,7 @@ function completedOutcome({ code, executionStatus, flags }) {
     severity: flags.explicitFailed ? 'error' : (flags.unverified ? 'warning' : 'info'),
     task: 'Execution completed',
     detail: `Runtime completed (process: success, domain: ${domainVerdict}).`,
-    payload: { code, executionStatus, domainVerdict }
+    payload: { code, executionStatus, domainVerdict, artifactFailure: flags.artifactFailure }
   };
 }
 
