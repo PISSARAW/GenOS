@@ -13,7 +13,7 @@ async function assertRemoteGitUrl(rawUrl) {
   const allowedHosts = String(process.env.GENOS_AGENT_GIT_REMOTE_HOSTS || '')
     .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean);
   if (!allowedHosts.includes(parsed.host.toLowerCase())) {
-    throw new Error('Remote Git host is not in GENOS_AGENT_GIT_REMOTE_HOSTS.');
+    throw new Error('Remote Git host is not in the configured allowlist GENOS_AGENT_GIT_REMOTE_HOSTS.');
   }
   await validateProviderEndpointAsync(parsed.href, { localOnly: false });
   return parsed;

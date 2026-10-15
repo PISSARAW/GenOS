@@ -1,6 +1,7 @@
 'use strict';
 
-const MAX_TIMER_DELAY_MS = 2_147_483_647;
+const MAX_WORKER_DEADLINE_MS = 24 * 60 * 60 * 1000;
+const DEADLINE_CHECK_INTERVAL_MS = 1000;
 
 function clampMissionBudget(mission, budget) {
   if (!mission.workerContract?.resources) return budget;
@@ -21,16 +22,16 @@ function clampMissionBudget(mission, budget) {
 function startWorkerDeadline(context) {
   const requestedDuration = Number(context.normalizedMission.timeoutMs);
   if (!Number.isFinite(requestedDuration) || requestedDuration <= 0) return;
-  const duration = Math.min(requestedDuration, MAX_TIMER_DELAY_MS);
-  const timer = setTimeout(() => context.haltRuntime(
-    context,
-    'worker_deadline',
-    'worker_execution_deadline_exceeded',
-    'Worker runtime stopped after reaching its contract deadline.',
-    { maxTimeMs: duration }
-  ), duration);
+  const duration = Math.min(requestedDuration, MAX_WORKER_DEADLINE_MS);
+  const startedAt = Date.now();
+  const timer = setInterval(() => {
+    if (Date.now() - startedAt < duration) return;
+    clearInterval(timer);
+    context.haltRuntime(context, 'worker_deadline', 'worker_execution_deadline_exceeded',
+      'Worker runtime stopped after reaching its contract deadline.', { maxTimeMs: duration });
+  }, DEADLINE_CHECK_INTERVAL_MS);
   if (typeof timer.unref === 'function') timer.unref();
-  context.child.once('close', () => clearTimeout(timer));
+  context.child.once('close', () => clearInterval(timer));
 }
 
 function cpuFailure(context, reason, details) {

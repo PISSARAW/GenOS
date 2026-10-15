@@ -1,9 +1,10 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
 const { spawn } = require('node:child_process');
 const { processCpuMs, prepareProcessCpuMeter } = require('../src/services/agents/workerProcessCpu');
-const { startWorkerCpuBudget, runtimeStopped } = require('../src/services/agents/workerRuntimeBudgetService');
+const { startWorkerDeadline, startWorkerCpuBudget, runtimeStopped } = require('../src/services/agents/workerRuntimeBudgetService');
 const { terminateChild } = require('../src/services/processTermination');
 
 async function waitForClose(child, timeoutMs) {
@@ -19,6 +20,37 @@ async function verifyCpuMeter() {
   assert.ok(Number.isFinite(usage) && usage >= 0, `invalid process CPU value: ${usage}`);
   assert.equal(runtimeStopped({ pid: process.pid, killed: false, exitCode: null, signalCode: null }), false);
   assert.equal(runtimeStopped({ pid: 2147483647, killed: false, exitCode: null, signalCode: null }), true);
+}
+
+function verifyWorkerDeadlineBound() {
+  const originalSetInterval = global.setInterval;
+  const originalClearInterval = global.clearInterval;
+  const originalNow = Date.now;
+  let scheduledDelay;
+  let callback;
+  let haltedWith;
+  let now = 1000;
+  global.setInterval = (fn, delay) => {
+    callback = fn;
+    scheduledDelay = delay;
+    return 1;
+  };
+  global.clearInterval = () => {};
+  Date.now = () => now;
+  try {
+    const child = new EventEmitter();
+    startWorkerDeadline({ child, normalizedMission: { timeoutMs: Number.MAX_VALUE }, haltRuntime(...args) { haltedWith = args; } });
+    assert.equal(scheduledDelay, 1000, 'the timer interval must be a fixed value');
+    now += 24 * 60 * 60 * 1000;
+    callback();
+    assert.equal(haltedWith?.[1], 'worker_deadline');
+    assert.equal(haltedWith?.[4]?.maxTimeMs, 24 * 60 * 60 * 1000,
+      'untrusted timeout values must be capped at the worker deadline maximum');
+  } finally {
+    global.setInterval = originalSetInterval;
+    global.clearInterval = originalClearInterval;
+    Date.now = originalNow;
+  }
 }
 
 async function verifyCpuLimitStopsBlockedChild() {
@@ -60,6 +92,7 @@ async function verifyCpuLimitStopsDescendantLoad() {
 }
 
 async function main() {
+  verifyWorkerDeadlineBound();
   await prepareProcessCpuMeter();
   await verifyCpuMeter();
   await verifyCpuLimitStopsBlockedChild();
