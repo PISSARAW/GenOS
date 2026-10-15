@@ -16,3 +16,10 @@ pub struct SensoryIngestCmd {
     #[arg(long, default_value_t = false)]
     pub experimental: bool,
 }
+
+#[derive(Args, Debug)]
+pub struct SensoryBackendImportCmd {
+    /// Tenant-scoped backend-signed sensory authority envelope
+    #[arg(long)]
+    pub authority_file: PathBuf,
+}

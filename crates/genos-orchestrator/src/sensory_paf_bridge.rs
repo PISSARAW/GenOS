@@ -7,8 +7,10 @@ use crate::sensory_authority::{stimulus_digest, SensoryProducerAuthority, Sensor
 use crate::GenosEcosystem;
 use genos_biology::instinct::{Modality, SignStimulus};
 use genos_store::BiologicalReceiptStore;
-use serde_json::Value;
+use ed25519_dalek::{Signature, VerifyingKey};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use serde_json::Value;
 
 const PAF_RECEIPT_SCHEMA: &str = "genos.instinct-paf-receipt/v1";
 
@@ -99,7 +101,7 @@ fn signed_source_claims(source: &Value) -> Result<(uuid::Uuid, u64, String, &str
 
 fn queue_verified_receipt(ecosystem: &mut GenosEcosystem, receipt: &Value) -> Result<(), String> {
     let source = &receipt["source_receipt"];
-    validate_experimental_source(source)?;
+    validate_experimental_source(source, receipt["mission_id"].as_str().ok_or("sensory receipt mission is missing")?)?;
     let signal: SyntheticAnimalSignal = serde_json::from_value(source["signal"].clone())
         .map_err(|error| format!("sensory receipt signal is invalid: {error}"))?;
     signal.validate()?;
@@ -167,12 +169,135 @@ fn add_consumed_sources(receipt: &Value, context: SourceConsumption<'_>) -> Resu
     Ok(())
 }
 
-fn validate_experimental_source(source: &Value) -> Result<(), String> {
-    if source["execution_mode"] != "experimental" || source["mission_authority"] != "unverified_cli_claim" {
-        return Err("PAF bridge accepts only explicitly experimental synthetic receipts".into());
+fn validate_experimental_source(source: &Value, mission: &str) -> Result<(), String> {
+    if is_backend_authorized(source) {
+        return verify_backend_authority(source, mission);
+    }
+    if is_experimental_source(source) {
+        return Ok(());
+    }
+    Err("PAF bridge accepts only explicitly experimental or backend-authorized synthetic receipts".into())
+}
+
+fn is_backend_authorized(source: &Value) -> bool {
+    source["execution_mode"] == "backend-authorized"
+        && source["mission_authority"] == "authenticated_backend_capability"
+}
+
+fn is_experimental_source(source: &Value) -> bool {
+    source["execution_mode"] == "experimental" && source["mission_authority"] == "unverified_cli_claim"
+}
+
+fn verify_backend_authority(source: &Value, mission: &str) -> Result<(), String> {
+    let envelope = &source["backend_authority"];
+    let claims = &envelope["claims"];
+    validate_backend_authority_claims(source, claims, mission)?;
+    verify_backend_authority_signature(envelope, claims)
+}
+
+fn validate_backend_authority_claims(source: &Value, claims: &Value, mission: &str) -> Result<(), String> {
+    if !backend_identity_matches(source, claims, mission)?
+        || !backend_provenance_matches(source, claims)? {
+        return Err("backend sensory authority claims do not match the durable source receipt".into());
+    }
+    validate_backend_authority_scope(source, claims)?;
+    Ok(())
+}
+
+fn verify_backend_authority_signature(envelope: &Value, claims: &Value) -> Result<(), String> {
+    let key_id = claim_text(claims, "key_id")?;
+    let key = backend_authority_key(key_id)?;
+    let signature_hex = envelope["signature"].as_str().ok_or("backend sensory authority signature is missing")?;
+    let signature = decode_backend_signature(signature_hex)?;
+    key.verify_strict(&backend_signing_bytes(claims)?, &Signature::from_bytes(&signature))
+        .map_err(|_| "backend sensory authority signature verification failed".to_string())
+}
+
+fn backend_identity_matches(source: &Value, claims: &Value, mission: &str) -> Result<bool, String> {
+    Ok(claim_text(claims, "schema")? == "genos.authenticated-sensory-backend-authority/v1"
+        && claim_text(claims, "mission_id")? == mission
+        && claim_text(claims, "producer_id")? == source["producer_id"].as_str().unwrap_or_default()
+        && claims["tick"].as_u64() == source["source_tick"].as_u64())
+}
+
+fn backend_provenance_matches(source: &Value, claims: &Value) -> Result<bool, String> {
+    let signal: Value = serde_json::from_str(claim_text(claims, "signal_json")?).map_err(|error| error.to_string())?;
+    Ok(claim_text(claims, "stimulus_sha256")? == source["stimulus_sha256"].as_str().unwrap_or_default()
+        && claim_text(claims, "producer_signature_hex")? == source["producer_signature_hex"].as_str().unwrap_or_default()
+        && claim_text(claims, "producer_trust_key_sha256")? == source["producer_trust_key_sha256"].as_str().unwrap_or_default()
+        && signal == source["signal"])
+}
+
+fn claim_text<'a>(claims: &'a Value, key: &str) -> Result<&'a str, String> {
+    claims[key].as_str().ok_or_else(|| format!("backend sensory authority has no {key}"))
+}
+
+fn validate_backend_authority_scope(source: &Value, claims: &Value) -> Result<(), String> {
+    let scope = &source["authority_scope"];
+    for field in ["organization_id", "project_id", "principal_id", "mission_id", "payload_hash", "key_id"] {
+        if scope[field] != claims[field] { return Err(format!("backend sensory authority scope mismatches {field}")); }
+    }
+    let issued = claims["issued_at_unix_ms"].as_u64().ok_or("backend sensory authority issue time is invalid")?;
+    let expires = claims["expires_at_unix_ms"].as_u64().ok_or("backend sensory authority expiry is invalid")?;
+    if expires <= issued || expires - issued > 30_000 || claims["nonce"].as_str().is_none() {
+        return Err("backend sensory authority validity claims are invalid".into());
     }
     Ok(())
 }
+
+fn backend_authority_key(key_id: &str) -> Result<VerifyingKey, String> {
+    let trust = std::env::var("GENOS_CLI_AUTHORITY_TRUST_JSON")
+        .map_err(|_| "backend sensory authority trust is unavailable".to_string())?;
+    let keys: HashMap<String, String> = serde_json::from_str(&trust).map_err(|error| error.to_string())?;
+    let bytes = decode_backend_hex::<32>(keys.get(key_id).ok_or("backend sensory signer is not trusted")?)?;
+    let fingerprint = Sha256::digest(bytes);
+    let actual_id = fingerprint[..16].iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+    if actual_id != key_id { return Err("backend sensory authority key ID mismatch".into()); }
+    VerifyingKey::from_bytes(&bytes).map_err(|error| error.to_string())
+}
+
+fn backend_signing_bytes(claims: &Value) -> Result<Vec<u8>, String> {
+    let mut values = backend_signing_identity_fields(claims)?;
+    values.extend(backend_signing_provenance_fields(claims)?);
+    values.extend(backend_signing_validity_fields(claims)?);
+    Ok(format!("genos-sensory-backend-authority-v1\n{}", values.join("\n")).into_bytes())
+}
+
+fn backend_signing_identity_fields(claims: &Value) -> Result<Vec<String>, String> {
+    ["schema", "key_id", "organization_id", "project_id", "principal_id", "mission_id", "producer_id"]
+        .iter().map(|key| encoded_claim_text(claims, key)).collect()
+}
+
+fn backend_signing_provenance_fields(claims: &Value) -> Result<Vec<String>, String> {
+    let mut values = vec![claims["tick"].as_u64().ok_or("backend sensory tick is invalid")?.to_string()];
+    values.extend(["stimulus_sha256", "producer_signature_hex", "producer_trust_key_sha256", "signal_json"]
+        .iter().map(|key| encoded_claim_text(claims, key)).collect::<Result<Vec<_>, _>>()?);
+    Ok(values)
+}
+
+fn backend_signing_validity_fields(claims: &Value) -> Result<Vec<String>, String> {
+    Ok(vec![
+        encoded_claim_text(claims, "payload_hash")?,
+        claims["issued_at_unix_ms"].as_u64().ok_or("backend issue time is invalid")?.to_string(),
+        claims["expires_at_unix_ms"].as_u64().ok_or("backend expiry is invalid")?.to_string(),
+        encoded_claim_text(claims, "nonce")?,
+    ])
+}
+
+fn encoded_claim_text(claims: &Value, key: &str) -> Result<String, String> {
+    claim_text(claims, key).map(|value| backend_hex(value.as_bytes()))
+}
+
+fn decode_backend_signature(value: &str) -> Result<[u8; 64], String> { decode_backend_hex(value) }
+fn decode_backend_hex<const N: usize>(value: &str) -> Result<[u8; N], String> {
+    if value.len() != N * 2 { return Err("backend sensory authority hex value is invalid".into()); }
+    let mut output = [0u8; N];
+    for (index, byte) in output.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&value[index * 2..index * 2 + 2], 16).map_err(|_| "backend sensory authority hex value is invalid")?;
+    }
+    Ok(output)
+}
+fn backend_hex(bytes: &[u8]) -> String { bytes.iter().map(|byte| format!("{byte:02x}")).collect() }
 
 fn stimulus_from_signal(signal: &SyntheticAnimalSignal) -> SignStimulus {
     match signal {

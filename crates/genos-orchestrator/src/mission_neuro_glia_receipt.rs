@@ -2,6 +2,8 @@
 
 use crate::GenosEcosystem;
 use genos_store::BiologicalReceiptStore;
+use crate::neuro_glia_authority::BackendAuthorizationProof;
+use crate::neuro_glia_stream_validation::{STREAM_GENESIS, STREAM_SCHEMA, verified_stream};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -9,8 +11,6 @@ use uuid::Uuid;
 const RECEIPT_SCHEMA: &str = "genos.mission-neuro-glia-receipt/v1";
 const SNAPSHOT_SCHEMA: &str = "genos.population-state/v1";
 const RESPONSE_EVENT: &str = "MISSION_NEURO_GLIA_QUORUM_RESPONSE";
-const STREAM_SCHEMA: &str = "genos.mission-neuro-glia-event/v1";
-const STREAM_GENESIS: &str = "genos-neuro-glia-stream-genesis/v1";
 
 /// Entrée explicite pour générer une réponse événementielle durable.
 pub struct DurableNeuroGliaEvent {
@@ -21,10 +21,20 @@ pub struct DurableNeuroGliaEvent {
 
 /// Événement du flux mission, dont la clé permet une reprise idempotente.
 pub struct NeuroGliaStreamEvent {
+    pub event_id: Uuid,
     pub idempotency_key: String,
     pub event_type: String,
     pub payload: Value,
     pub tick: u64,
+    pub source: Option<NeuroGliaSourceProof>,
+    pub backend_authorization: Option<BackendAuthorizationProof>,
+}
+
+/// Provenance signée du producteur externe d'un événement.
+pub struct NeuroGliaSourceProof {
+    pub producer_id: Uuid,
+    pub payload_sha256: String,
+    pub signature_hex: String,
 }
 
 impl GenosEcosystem {
@@ -179,40 +189,6 @@ fn find_response(ecosystem: &GenosEcosystem, source_id: Uuid) -> Result<Value, S
         .ok_or_else(|| "source event did not produce a glial response".to_string())
 }
 
-fn verified_stream(entries: &[Value], mission: Uuid) -> Result<Vec<Value>, String> {
-    let mut stream = Vec::new();
-    let mut previous = STREAM_GENESIS.to_string();
-    for entry in entries.iter().filter(|item| {
-        item["schema"] == STREAM_SCHEMA && item["mission_id"] == mission.to_string()
-    }) {
-        let expected_sequence = stream.len() as u64 + 1;
-        if entry["sequence"].as_u64() != Some(expected_sequence)
-            || entry["previous_digest"] != previous
-            || entry["digest"] != stream_digest(entry)?
-        {
-            return Err(format!("neuro-glia stream integrity failure at sequence {expected_sequence}"));
-        }
-        validate_stream_entry(entry, mission)?;
-        previous = entry["digest"].as_str().ok_or("stream digest missing")?.to_string();
-        stream.push(entry.clone());
-    }
-    Ok(stream)
-}
-
-fn validate_stream_entry(entry: &Value, mission: Uuid) -> Result<(), String> {
-    let source_id = entry["source_event_id"].as_str().ok_or("stream source event missing")?
-        .parse::<Uuid>().map_err(|error| error.to_string())?;
-    validate_response(&entry["response"], mission, source_id)?;
-    if entry["event_type"] != entry["response"]["sourceEventType"]
-        || entry["payload"].is_null()
-        || entry["response_digest"] != digest(&entry["response"])?
-        || entry["idempotency_key"].as_str().is_none_or(str::is_empty)
-    {
-        return Err("neuro-glia stream response, event, or idempotency data mismatch".into());
-    }
-    Ok(())
-}
-
 fn idempotent_stream_entry(
     stream: &[Value],
     request: &NeuroGliaStreamEvent,
@@ -220,8 +196,11 @@ fn idempotent_stream_entry(
     let existing = stream.iter().find(|entry| entry["idempotency_key"] == request.idempotency_key);
     let Some(existing) = existing else { return Ok(None); };
     if existing["event_type"] == request.event_type
+        && (request.backend_authorization.is_none()
+            || existing["event_id"] == request.event_id.to_string())
         && existing["payload"] == request.payload
         && existing["tick"].as_u64() == Some(request.tick)
+        && existing["source"] == source_provenance(request)
     {
         return Ok(Some(existing.clone()));
     }
@@ -243,6 +222,7 @@ fn stream_entry(material: StreamMaterial<'_>) -> Result<Value, String> {
     let mut entry = json!({
         "schema": STREAM_SCHEMA,
         "mission_id": mission,
+        "event_id": request.event_id,
         "sequence": sequence,
         "idempotency_key": request.idempotency_key,
         "event_type": request.event_type,
@@ -253,19 +233,27 @@ fn stream_entry(material: StreamMaterial<'_>) -> Result<Value, String> {
         "response_digest": digest(response)?,
         "population_snapshot_digest": digest(snapshot)?,
         "previous_digest": previous_digest,
+        "source": source_provenance(request),
     });
-    let event_digest = stream_digest(&entry)?;
+    let event_digest = crate::neuro_glia_stream_validation::stream_digest(&entry)?;
     entry["digest"] = json!(event_digest);
     Ok(entry)
 }
 
-fn stream_digest(entry: &Value) -> Result<String, String> {
-    let mut material = entry.clone();
-    material.as_object_mut().ok_or("stream entry must be an object")?.remove("digest");
-    digest(&material)
+fn source_provenance(request: &NeuroGliaStreamEvent) -> Value {
+    let Some(proof) = request.source.as_ref() else { return Value::Null; };
+    let mut source = json!({
+        "producer_id": proof.producer_id,
+        "payload_sha256": proof.payload_sha256,
+        "signature_hex": proof.signature_hex,
+    });
+    if let Some(authorization) = request.backend_authorization.as_ref() {
+        source["backend_authorization"] = json!(authorization);
+    }
+    source
 }
 
-fn latest_response_receipt(entries: &[Value], stream_entry: &Value) -> Result<Value, String> {
+pub(crate) fn latest_response_receipt(entries: &[Value], stream_entry: &Value) -> Result<Value, String> {
     let receipt = entries.iter().rev().find(|item| {
         item["schema"] == RECEIPT_SCHEMA
             && item["mission_id"] == stream_entry["mission_id"]
@@ -280,7 +268,7 @@ fn latest_response_receipt(entries: &[Value], stream_entry: &Value) -> Result<Va
     Ok(receipt.clone())
 }
 
-fn validate_response(response: &Value, mission: Uuid, source_id: Uuid) -> Result<(), String> {
+pub(crate) fn validate_response(response: &Value, mission: Uuid, source_id: Uuid) -> Result<(), String> {
     if response["schema"] != "genos.mission-neuro-glia-quorum/v1"
         || response["missionId"] != mission.to_string()
         || response["sourceEventId"] != source_id.to_string()
@@ -357,7 +345,7 @@ fn latest_receipt(entries: &[Value], mission: Option<Uuid>) -> Result<Value, Str
     Ok(receipt.clone())
 }
 
-fn validate_receipt_snapshot(
+pub(crate) fn validate_receipt_snapshot(
     store: &BiologicalReceiptStore,
     receipt: &Value,
 ) -> Result<(), String> {
@@ -391,7 +379,7 @@ fn population_identities(snapshot: &Value) -> Result<Vec<Value>, String> {
     })).collect()).ok_or_else(|| "population snapshot active cells missing".into())
 }
 
-fn digest(value: &Value) -> Result<String, String> {
+pub(crate) fn digest(value: &Value) -> Result<String, String> {
     let encoded = serde_json::to_vec(value).map_err(|error| error.to_string())?;
     Ok(format!("{:x}", Sha256::digest(encoded)))
 }

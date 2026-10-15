@@ -14,6 +14,9 @@ use std::process::Command;
 use std::path::PathBuf;
 use tempfile::TempDir;
 use uuid::Uuid;
+use ed25519_dalek::{Signer, SigningKey};
+use genos_orchestrator::sensory_authority::{signing_bytes, stimulus_digest, SensoryClaims};
+use sha2::{Digest, Sha256};
 
 const JOURNAL_ENV: &str = "GENOS_INSTINCT_PAF_JOURNAL";
 const MISSION_ENV: &str = "GENOS_INSTINCT_PAF_MISSION";
@@ -60,13 +63,36 @@ fn action_bearing_paf_receipt_survives_process_restart() {
         })
         .expect("typed VNO signal is accepted");
     let mut source = serde_json::to_value(source).unwrap();
+    let producer_id = Uuid::from_u128(77);
+    let key = SigningKey::from_bytes(&[9; 32]);
+    let digest = stimulus_digest(producer_id, 1, &source["signal"]).unwrap();
+    let signature = key.sign(&signing_bytes(SensoryClaims {
+        mission_id,
+        tick: 1,
+        producer_id,
+        stimulus_sha256: &digest,
+    }).unwrap());
+    source["source_authentication"] = json!("host_pinned_ed25519");
+    source["producer_id"] = json!(producer_id);
+    source["source_tick"] = json!(1);
+    source["stimulus_sha256"] = json!(digest);
+    source["producer_signature_hex"] = json!(hex(&signature.to_bytes()));
+    source["producer_trust_key_sha256"] = json!(format!("{:x}", Sha256::digest(key.verifying_key().as_bytes())));
     source["execution_mode"] = json!("experimental");
     source["mission_authority"] = json!("unverified_cli_claim");
     let source_event_id = source["event_id"].as_str().unwrap().to_string();
     persist_synthetic_sensory_receipt(&store, mission_id, &source)
         .expect("source receipt is bound to the mission");
-    assert!(prepare_next_synthetic_sensory_input(&mut ecosystem, &store)
-        .expect("verified source is queued for PAF"));
+    let previous_trust = std::env::var_os("GENOS_SENSORY_TRUST_JSON");
+    unsafe { std::env::set_var("GENOS_SENSORY_TRUST_JSON", sensory_trust_json(&key, producer_id)); }
+    let prepared = prepare_next_synthetic_sensory_input(&mut ecosystem, &store);
+    unsafe {
+        match previous_trust {
+            Some(value) => std::env::set_var("GENOS_SENSORY_TRUST_JSON", value),
+            None => std::env::remove_var("GENOS_SENSORY_TRUST_JSON"),
+        }
+    }
+    assert!(prepared.expect("verified source is queued for PAF"));
     ecosystem
         .tick_and_persist(&Goal::Explore, &store)
         .expect("mission tick persists its PAF action evidence");
@@ -94,6 +120,20 @@ fn action_bearing_paf_receipt_survives_process_restart() {
         "PAF restart reader failed: {}",
         String::from_utf8_lossy(&child.stderr)
     );
+}
+
+fn sensory_trust_json(key: &SigningKey, producer_id: Uuid) -> String {
+    json!({
+        "schema": "genos.synthetic-sensory-producer-trust/v1",
+        "producers": [{
+            "producer_id": producer_id,
+            "public_key_hex": hex(key.verifying_key().as_bytes()),
+        }],
+    }).to_string()
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 #[test]

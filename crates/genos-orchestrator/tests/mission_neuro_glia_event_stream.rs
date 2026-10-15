@@ -13,10 +13,13 @@ fn journal_path(label: &str) -> std::path::PathBuf {
 
 fn event(key: &str, cost: f64, tick: u64) -> NeuroGliaStreamEvent {
     NeuroGliaStreamEvent {
+        event_id: Uuid::from_u128(key.as_bytes().iter().fold(0_u128, |value, byte| value.wrapping_mul(257).wrapping_add(u128::from(*byte)))),
         idempotency_key: key.into(),
         event_type: "BIOLOGICAL_EXECUTION_RECEIPT".into(),
         payload: json!({"completed": true, "cost": cost}),
         tick,
+        source: None,
+        backend_authorization: None,
     }
 }
 
@@ -95,10 +98,13 @@ fn event_without_mission_response_is_refused_without_stream_append() {
     let mut ecosystem = GenosEcosystem::new("glial-stream-refusal");
     ecosystem.set_mission_id(mission);
     let unsupported = NeuroGliaStreamEvent {
+        event_id: Uuid::new_v4(),
         idempotency_key: "unsupported".into(),
         event_type: "UNRELATED_EVENT".into(),
         payload: Value::Null,
         tick: 1,
+        source: None,
+        backend_authorization: None,
     };
     assert!(ecosystem.record_neuro_glia_stream_event(&store, unsupported).is_err());
     assert!(!store.read_all().unwrap().iter().any(|entry| entry["schema"] == "genos.mission-neuro-glia-event/v1"));

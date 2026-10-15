@@ -1,6 +1,9 @@
 use crate::args::NeuroGliaStreamCmd;
 use genos_orchestrator::genos_store::BiologicalReceiptStore;
 use genos_orchestrator::mission_neuro_glia_receipt::NeuroGliaStreamEvent;
+use genos_orchestrator::mission_neuro_glia_receipt::NeuroGliaSourceProof;
+use genos_orchestrator::neuro_glia_authenticated_stream::AuthenticatedNeuroGliaRequest;
+use genos_orchestrator::neuro_glia_authority::{BackendAuthorizationProof, NeuroGliaProducerAuthority};
 use genos_orchestrator::GenosEcosystem;
 use serde_json::Value;
 use std::fs;
@@ -15,6 +18,7 @@ const EVENT_TYPES: &[&str] = &[
     "AUTONOMOUS_REPRODUCTION",
 ];
 const MAX_PAYLOAD_BYTES: u64 = 1_048_576;
+const MAX_BACKEND_PROOF_BYTES: u64 = 16_384;
 
 /// Append one local experimental event to a mission-scoped neuro-glia stream.
 pub fn execute(cmd: NeuroGliaStreamCmd) -> Result<(), String> {
@@ -22,12 +26,15 @@ pub fn execute(cmd: NeuroGliaStreamCmd) -> Result<(), String> {
         return Err("neuro-glia-stream has no authenticated mission authority; pass --experimental to opt in".into());
     }
     validate_command(&cmd)?;
+    let trust_json = std::env::var("GENOS_NEURO_GLIA_TRUST_JSON")
+        .map_err(|_| "GENOS_NEURO_GLIA_TRUST_JSON host bootstrap trust is required".to_string())?;
+    let authority = NeuroGliaProducerAuthority::from_bootstrap_json(&trust_json)?;
     let workspace = std::env::var_os("GENOS_STUDIO_ROOT")
         .map(PathBuf::from)
         .map(Ok)
         .unwrap_or_else(std::env::current_dir)
         .map_err(|error| format!("cannot resolve workspace root: {error}"))?;
-    execute_in_workspace(cmd, &workspace)
+    execute_in_workspace(cmd, &workspace, &authority)
 }
 
 fn validate_command(cmd: &NeuroGliaStreamCmd) -> Result<(), String> {
@@ -40,26 +47,95 @@ fn validate_command(cmd: &NeuroGliaStreamCmd) -> Result<(), String> {
     Ok(())
 }
 
-fn execute_in_workspace(cmd: NeuroGliaStreamCmd, workspace: &Path) -> Result<(), String> {
+fn execute_in_workspace(
+    cmd: NeuroGliaStreamCmd,
+    workspace: &Path,
+    authority: &NeuroGliaProducerAuthority,
+) -> Result<(), String> {
     let (journal_path, lock_path) = mission_paths(workspace, cmd.mission_id)?;
     let _lock = genos_orchestrator::process_file_lock::ProcessFileLock::acquire(lock_path)?;
-    let payload = read_payload(&cmd.payload)?;
     let store = BiologicalReceiptStore::open(&journal_path);
-    let mut ecosystem = restored_ecosystem(cmd.mission_id, &store)?;
-    let entry = ecosystem.record_neuro_glia_stream_event(&store, NeuroGliaStreamEvent {
-        idempotency_key: cmd.idempotency_key,
-        event_type: cmd.event_type,
-        payload,
-        tick: cmd.tick,
+    let (payload, backend_authorization) = read_event_inputs(&cmd, &store)?;
+    let mut ecosystem = restore_command_ecosystem(&cmd, &store, authority)?;
+    let event = build_stream_event(cmd, payload, backend_authorization)?;
+    let entry = ecosystem.record_authenticated_neuro_glia_stream_event(&store, AuthenticatedNeuroGliaRequest {
+        authority,
+        event,
     })?;
     let output = serde_json::json!({
         "success": true,
         "execution_mode": "experimental",
-        "mission_authority": "unverified_cli_claim",
+        "mission_authority": "host_pinned_ed25519_producer",
         "entry": entry,
     });
     println!("{output}");
     Ok(())
+}
+
+fn read_event_inputs(
+    cmd: &NeuroGliaStreamCmd,
+    store: &BiologicalReceiptStore,
+) -> Result<(Value, Option<BackendAuthorizationProof>), String> {
+    let payload = read_payload(&cmd.payload)?;
+    let authorization = read_backend_proof(cmd.backend_proof.as_deref())?;
+    if cmd.require_backend_authorization && authorization.is_none() {
+        return Err("backend principal and scope authorization proof is required".into());
+    }
+    if cmd.require_backend_authorization { require_authorized_history(store)?; }
+    Ok((payload, authorization))
+}
+
+fn restore_command_ecosystem(
+    cmd: &NeuroGliaStreamCmd,
+    store: &BiologicalReceiptStore,
+    authority: &NeuroGliaProducerAuthority,
+) -> Result<GenosEcosystem, String> {
+    restored_ecosystem(cmd.mission_id, store, authority)
+}
+
+fn build_stream_event(
+    cmd: NeuroGliaStreamCmd,
+    payload: Value,
+    backend_authorization: Option<BackendAuthorizationProof>,
+) -> Result<NeuroGliaStreamEvent, String> {
+    let payload_sha256 = genos_orchestrator::neuro_glia_authority::payload_digest(
+        &cmd.event_type, &cmd.idempotency_key, &payload,
+    )?;
+    Ok(NeuroGliaStreamEvent {
+        event_id: backend_authorization.as_ref().map(|proof| proof.event_id).unwrap_or_else(Uuid::new_v4),
+        idempotency_key: cmd.idempotency_key,
+        event_type: cmd.event_type,
+        payload,
+        tick: cmd.tick,
+        source: Some(NeuroGliaSourceProof {
+            producer_id: cmd.producer_id,
+            payload_sha256,
+            signature_hex: cmd.signature_hex,
+        }),
+        backend_authorization,
+    })
+}
+
+fn require_authorized_history(store: &BiologicalReceiptStore) -> Result<(), String> {
+    for entry in store.read_all()? {
+        if entry["schema"] == "genos.mission-neuro-glia-event/v1"
+            && !entry["source"]["backend_authorization"].is_object()
+        {
+            return Err("backend-authorized neuro-glia stream contains an event without principal/scope proof".into());
+        }
+    }
+    Ok(())
+}
+
+fn read_backend_proof(path: Option<&Path>) -> Result<Option<BackendAuthorizationProof>, String> {
+    let Some(path) = path else { return Ok(None); };
+    let metadata = fs::metadata(path).map_err(|error| format!("cannot inspect backend authorization proof: {error}"))?;
+    if metadata.len() > MAX_BACKEND_PROOF_BYTES {
+        return Err("backend authorization proof exceeds 16384 bytes".into());
+    }
+    let bytes = fs::read(path).map_err(|error| format!("cannot read backend authorization proof: {error}"))?;
+    serde_json::from_slice(&bytes).map(Some)
+        .map_err(|error| format!("backend authorization proof is invalid: {error}"))
 }
 
 fn read_payload(path: &Path) -> Result<Value, String> {
@@ -79,6 +155,7 @@ fn read_payload(path: &Path) -> Result<Value, String> {
 fn restored_ecosystem(
     mission_id: Uuid,
     store: &BiologicalReceiptStore,
+    authority: &NeuroGliaProducerAuthority,
 ) -> Result<GenosEcosystem, String> {
     let entries = store.read_all()?;
     let has_stream = entries.iter().any(|entry| {
@@ -92,7 +169,7 @@ fn restored_ecosystem(
     let mut ecosystem = GenosEcosystem::new("neuro-glia-stream-cli");
     ecosystem.set_mission_id(mission_id);
     if has_stream {
-        ecosystem.replay_neuro_glia_event_stream(store)?;
+        ecosystem.replay_authenticated_neuro_glia_event_stream(store, authority)?;
     } else if has_population {
         ecosystem.restore_population(store)?;
     }
