@@ -7,6 +7,7 @@
       "prompt": "Énumérer exhaustivement les triplets d'entiers positifs a < b < c tels que a+b+c=12. Retourner un objet JSON avec la propriété triples, un tableau de triplets.",
       "oracle": "verifyIntegerPartitions",
       "comparisonEligible": true,
+      "routingHint": "search",
       "topologyHypothesis": {
         "adaptedCondition": "adapted-topology:trinity",
         "wrongCondition": "wrong-topology:biocenose",
@@ -20,6 +21,7 @@
       "prompt": "Pour les mots biome, niche et espèce, donner l'ensemble des lettres distinctes en conservant è distinct de e. Retourner un objet JSON avec distinctLetters (tableau) et count (nombre).",
       "oracle": "verifyDistinctLetters",
       "comparisonEligible": true,
+      "routingHint": "single",
       "topologyHypothesis": {
         "adaptedCondition": "adapted-topology:biocenose",
         "wrongCondition": "wrong-topology:rhizome",
@@ -33,6 +35,7 @@
       "prompt": "Ordonner les étapes requirements, design, implementation, validation sous les contraintes: requirements avant design; design avant implementation; implementation avant validation. Retourner un objet JSON avec la propriété order (tableau d'identifiants).",
       "oracle": "verifyDependencyOrder",
       "comparisonEligible": true,
+      "routingHint": "dependencies",
       "topologyHypothesis": {
         "adaptedCondition": "adapted-topology:a-team",
         "wrongCondition": "wrong-topology:trinity",
@@ -46,6 +49,7 @@
       "prompt": "Un lot contient 24 éléments; 3 sont rejetés puis le reste est réparti également entre 7 groupes. Retourner un objet JSON avec remaining, perGroup et remainder.",
       "oracle": "verifyArithmeticPartition",
       "comparisonEligible": true,
+      "routingHint": "single",
       "topologyHypothesis": {
         "adaptedCondition": "model-alone",
         "wrongCondition": "adapted-topology",

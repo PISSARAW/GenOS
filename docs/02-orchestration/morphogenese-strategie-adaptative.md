@@ -290,6 +290,18 @@ indépendant n’actualisent pas la qualité attendue. L’effet d’une recette
 est mesuré au niveau de l’ensemble réellement exécuté ; les scores des feuilles ne
 sont pas additionnés comme s’ils étaient indépendants.
 
+Le sélecteur consultatif accepte désormais des issues appariées portant un reçu
+indépendant vérifiable, une famille de tâche et un identifiant de modèle. Il exige
+30 exemples d'entraînement et 10 de validation au minimum, avec familles et modèles
+tenus à l'écart; les prédictions de gain et de coût doivent battre les références
+neutres sur le jeu de validation. La compilation expose les estimations, leurs
+incertitudes et les erreurs observées. Le gain prudent doit dépasser le coût marginal
+prudent pour retenir une intervention. Sans preuve suffisante, `NO_CHANGE` gagne.
+À ce stade, aucune campagne réelle ne nourrit cette calibration automatiquement et
+aucun corpus n'est livré avec GenOS. Seul le remplacement de cohorte topologique est
+un type d'intervention candidat; réduction des communications et réallocation restent
+indisponibles tant que leurs actions runtime ne sont pas implémentées. Voir l'ADR 0554.
+
 ### Porte d’activation
 
 Le portefeuille de recettes demeure consultatif : il comprend les

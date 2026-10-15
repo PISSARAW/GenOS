@@ -5,6 +5,24 @@ const {
   compileConditionalMorphogenesisPolicy,
   reevaluateConditionalMorphogenesisPolicy
 } = require('../../src/services/morphogenesis/conditionalMorphogenesisPolicy');
+const calibration = require('../../src/services/morphogenesis/morphogenesisSelectorCalibration');
+const receiptService = require('../../src/services/epistemicVerifierReceiptService');
+const verifierTrust = require('../../src/services/verifierTrustRegistry');
+
+function verifiedOutcomes() {
+  return Array.from({ length: 40 }, (_, index) => {
+    const row = { id: `morphogenesis-outcome-${index}`, candidateId: 'cohort:a_team:stable',
+      scale: 'COHORT_REPLACEMENT',
+      taskFamily: index < 30 ? 'train-family' : 'heldout-family',
+      modelId: index < 30 ? 'train-model' : 'heldout-model',
+      split: index < 30 ? 'train' : 'validation', predictedGain: 0.8, actualGain: 0.7,
+      predictedCost: 0.1, actualCost: 0.1 };
+    row.receipt = receiptService.issueReceipt({ resultId: row.id,
+      evidenceDigest: calibration.digest(row), verifierDigest: verifierTrust.getVerifier('benchmark').digest,
+      independent: true, independenceDescriptor: { actorId: 'independent-oracle', workspaceId: 'heldout-campaign' } });
+    return row;
+  });
+}
 
 function testCompilesPolicyFromObservedNeeds() {
   const policy = compileConditionalMorphogenesisPolicy({
@@ -58,10 +76,32 @@ function testPortfolioContainsVariantsAndNoAuthority() {
   assert.equal(policy.decision.recipe.executionEligible, false);
 }
 
+function testCalibrationRequiresVerifiedCrossDomainHoldoutAndFavorsAbstention() {
+  const empty = compileConditionalMorphogenesisPolicy({ mission: 'Abstain without evidence', currentTopology: 'a_team' });
+  assert.equal(empty.decision.interventionScale, 'NO_CHANGE');
+  assert.equal(empty.portfolio.calibration.status, 'unavailable');
+  assert.equal(empty.portfolio.interventionScales.COMMUNICATION_REDUCTION.status, 'unavailable');
+  assert.equal(empty.portfolio.interventionScales.RESOURCE_REALLOCATION.status, 'unavailable');
+
+  const samples = verifiedOutcomes();
+  const fitted = calibration.compileCalibration(samples);
+  const recipeCalibration = fitted.scales.COHORT_REPLACEMENT.candidates['cohort:a_team:stable'];
+  assert.equal(recipeCalibration.status, 'calibrated');
+  assert.equal(recipeCalibration.taskFamilyHoldout, true);
+  assert.equal(recipeCalibration.modelHoldout, true);
+  assert.equal(calibration.selectScale(fitted, [{ scale: 'COHORT_REPLACEMENT',
+    candidateId: 'cohort:a_team:stable' }]).scale, 'COHORT_REPLACEMENT');
+
+  samples[39].actualGain = 0.7;
+  samples[39].receipt = { ...samples[39].receipt, evidenceDigest: 'sha256:' + '0'.repeat(64) };
+  assert.equal(calibration.compileCalibration(samples).verifiedSampleCount, 39);
+}
+
 function main() {
   testCompilesPolicyFromObservedNeeds();
   testEvidenceChangeRecompilesAndVerifiedReceiptStops();
   testPortfolioContainsVariantsAndNoAuthority();
+  testCalibrationRequiresVerifiedCrossDomainHoldoutAndFavorsAbstention();
   process.stdout.write('conditional morphogenesis policy tests passed\n');
 }
 

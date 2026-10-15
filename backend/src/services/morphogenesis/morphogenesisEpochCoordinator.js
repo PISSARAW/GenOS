@@ -1,9 +1,9 @@
 'use strict';
 
 const budgetController = require('./morphogenesisEpochBudget');
-const { verifiedResolution } = require('./missionResolutionReceipt');
 const cohortComposer = require('./replacementCohortComposer');
 const recruitment = require('./morphogenesisEpochRecruitment');
+const { inspectEpochEvidence } = require('./morphogenesisEpochEvidence');
 const RUNNING_STATUSES = new Set(['running', 'queued', 'claimed', 'freezing', 'thawing', 'cancelling']);
 const QUIESCENT_STATUSES = new Set(['idle', 'blocked', 'completed', 'failed', 'unverified', 'error', 'terminated', 'apoptosis', 'quarantined']);
 const { activeProcesses, missionStarts, pendingContinuations } = require('../agentOrchestrationState');
@@ -17,25 +17,6 @@ function createMorphogenesisEpochCoordinator(dependencies) {
     if (decision.reason) return stopMorphogenesisEpochs({ ...dependencies, state, orchestratorId, reason: decision.reason });
     return reconfigureAndDispatchEpoch({ ...dependencies, state, orchestratorId, ...decision });
   };
-}
-
-async function inspectEpochEvidence(state, orchestratorId) {
-  const observed = [...state.results.values()];
-  const completed = observed.filter((result) => result.status === 'completed');
-  if (!observed.some(hasDiagnosticEvidence)) return { reason: 'no_completed_worker_evidence' };
-  const resolution = await verifiedResolution(state, orchestratorId);
-  if (resolution) return { reason: 'verified_resolution', payload: resolutionPayload(resolution) };
-  return { completed, observed };
-}
-
-function hasDiagnosticEvidence(result) {
-  return Boolean(result && (result.status === 'completed'
-    || (typeof result.payload === 'object' && Object.keys(result.payload).length)));
-}
-
-function resolutionPayload(resolution) {
-  return { receiptId: resolution.receipt.receiptDigest || resolution.receipt.treeHash || null,
-    verifierWorkerId: resolution.agentId };
 }
 
 function selectAndReserveEpoch(input) {
@@ -355,6 +336,9 @@ function mayContinueWithoutTransition(adaptation) {
 async function prepareEpochContinuation(input) {
   const { state, survivors, continuation, adaptation, orchestratorId, reservation, queueContinuationMissions } = input;
   const epoch = reservation.epoch;
+  const transition = adaptation.receipt
+    ? require('./morphogenesisTransitionReceipt').sealTransitionReceipt({ state, survivors,
+      continuation, adaptation }) : null;
   const epochBudget = refundUnspentEpochBudget(reservation.budget, reservation,
     continuation.workerTokens || reservation.workerTokens);
   const nextContinuation = { ...continuation, pool: reservation.reservedTokens,
@@ -363,6 +347,7 @@ async function prepareEpochContinuation(input) {
   const queued = await queueContinuationMissions(survivors.map((survivor, index) => ({
     state, survivor, continuation: nextContinuation, index, orchestratorId, adaptation, epoch
   })));
+  if (transition) require('./morphogenesisTransitionReceipt').finalizeTransitionQueue(transition, queued);
   state.epochBudget = epochBudget;
   state.epoch = epoch;
   state.workerIds = new Set(queued);

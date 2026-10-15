@@ -13,13 +13,20 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "prompt", "oracle", "comparisonEligible", "topologyHypothesis"],
+        "required": ["id", "prompt", "oracle", "comparisonEligible", "topologyHypothesis", "routingHint"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
           "prompt": { "type": "string", "minLength": 1 },
           "oracle": { "enum": ["verifyIntegerPartitions", "verifyDistinctLetters", "verifyDependencyOrder", "verifyArithmeticPartition"] },
           "comparisonEligible": { "type": "boolean" },
-          "topologyHypothesis": { "type": ["string", "null"] }
+          "topologyHypothesis": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "null" },
+              { "type": "object", "required": ["adaptedCondition", "wrongCondition", "rationale", "primaryMetric", "falsifier"] }
+            ]
+          },
+          "routingHint": { "enum": ["single", "parallel", "search", "dependencies"] }
         }
       }
     }
