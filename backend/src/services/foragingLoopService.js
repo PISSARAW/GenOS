@@ -25,6 +25,29 @@ function selectNextUrl(session, source) {
   return link ? new URL(link.href, session.currentUrl).href : null;
 }
 
+function normalizeNavigationScope(scope) {
+  if (scope === undefined || scope === null) return null;
+  const values = Array.isArray(scope) ? scope : [scope];
+  if (!values.length) return [];
+  return values.map(value => {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+      throw new Error('Foraging navigation scope requires credential-free HTTP(S) origins.');
+    }
+    return parsed.origin;
+  });
+}
+
+function pageScope(url) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return { origin: parsed.origin, pathname: parsed.pathname };
+  } catch (_) {
+    return null;
+  }
+}
+
 function skippedAction(observation) {
   const hasObservation = Boolean(observation);
   return {
@@ -40,6 +63,12 @@ async function departPatch(input) {
   const nextUrl = selectNextUrl(session, input.source);
   if (!nextUrl) {
     return { action: { status: 'not_executed', executed: false, verified: false, reason: 'No next URL supplied.' }, observation: input.observation };
+  }
+  const scope = normalizeNavigationScope(input.source.navigationScope);
+  if (scope && !scope.includes(new URL(nextUrl).origin)) {
+    return { action: { status: 'refused', executed: false, verified: false,
+      reason: 'Navigation target is outside the configured foraging origin scope.', targetUrl: nextUrl },
+    observation: input.observation };
   }
   const navigation = await defaultBrowserScout.navigate(input.sessionId, nextUrl, {
     htmlContent: input.source.htmlContent, signal: input.source.signal
@@ -59,6 +88,7 @@ async function performForagingAction(input) {
 }
 
 function createForagingReceipt(input) {
+  const navigationScope = normalizeNavigationScope(input.navigationScope);
   const receipt = {
     sessionId: input.sessionId,
     decision: input.decision,
@@ -67,7 +97,9 @@ function createForagingReceipt(input) {
     actionVerified: Boolean(input.action.verified),
     measuredMs: input.measuredMs,
     observedUrl: input.observation && input.observation.currentUrl,
+    observedPageScope: pageScope(input.observation && input.observation.currentUrl),
     observedTextDigest: observedTextDigest(input.observation),
+    navigationScope,
     observationGain: input.observation && input.observation.infoGain,
     screenshotPath: input.observation && input.observation.screenshotPath,
     fovealImageHash: input.fovealArtifact && input.fovealArtifact.sha256,
@@ -128,7 +160,7 @@ async function executeForageStep(input) {
   return createForageResponse({
     sessionId, decision, evaluation, levy, before,
     action: result.action, observation: result.observation,
-    fovealArtifact, measuredMs
+    fovealArtifact, measuredMs, navigationScope: source.navigationScope
   });
 }
 

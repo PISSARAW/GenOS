@@ -4344,6 +4344,27 @@
           "next_url": {
             "type": "string"
           },
+          "navigation_scope": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Required for authenticated forage_step observations; allowed HTTP(S) origins, with navigation outside them refused."
+          },
+          "mission_id": { "type": "string", "description": "Mission bound by the signed foraging source attestation." },
+          "source_attestation": {
+            "type": "object",
+            "description": "Ed25519 source proof signed by a producer pinned in GENOS_FORAGING_TRUST_JSON.",
+            "required": ["producer_id", "mission_id", "navigation_scope", "observed_origin", "observed_path", "observed_text_digest", "source_payload_digest", "signature"],
+            "properties": {
+              "producer_id": { "type": "string" },
+              "mission_id": { "type": "string" },
+              "navigation_scope": { "type": "array", "items": { "type": "string" } },
+              "observed_origin": { "type": "string" },
+              "observed_path": { "type": "string" },
+              "observed_text_digest": { "type": "string" },
+              "source_payload_digest": { "type": ["string", "null"] },
+              "signature": { "type": "string" }
+            }
+          },
           "html_content": {
             "type": "string"
           }

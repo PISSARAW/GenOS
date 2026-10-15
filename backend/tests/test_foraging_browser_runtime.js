@@ -22,6 +22,7 @@ async function run() {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const sessionId = 'foraging-browser-runtime';
+  const browserProfileDir = fs.mkdtempSync(path.join(__dirname, '.foraging-browser-profile-'));
   const adapter = defaultBrowserScout.browserAdapter;
   adapter.allowedHosts.add('127.0.0.1');
   const priorThreshold = defaultForaging.envMeanReturnRate;
@@ -29,7 +30,8 @@ async function run() {
   const foundAnswers = new Set();
   try {
     await defaultBrowserScout.openBrowserSession(sessionId, {
-      launchOptions: { args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--no-zygote', '--no-proxy-server'] }
+      launchOptions: { userDataDir: browserProfileDir,
+        args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--no-zygote', '--no-proxy-server'] }
     });
     await defaultBrowserScout.navigate(sessionId, `http://127.0.0.1:${port}/`);
     const exploit = await forageStep({ sessionId, elapsedTimeSec: 1, iteration: 1 });
@@ -68,7 +70,8 @@ async function run() {
     const expectedEvidence = ['new', 'patch', 'observed'];
     const observed = new Set(departure.observationAfter.observationText.split(/\s+/));
     const evidenceCoverage = expectedEvidence.filter((term) => observed.has(term)).length / expectedEvidence.length;
-    assert.equal(evidenceCoverage, 1, 'controlled task evidence must be present in the next observation');
+    assert.equal(evidenceCoverage, 1,
+      `controlled task evidence must be present in the next observation: ${departure.observationAfter.observationText}`);
     assert.ok(departure.receipt.evidenceRef.startsWith('sha256:'));
     console.log(`Controlled foraging task: expected-term coverage ${evidenceCoverage.toFixed(2)} (${expectedEvidence.length} terms); browser observation, crop, decision, and navigation passed.`);
     for (const answer of taskAnswers) {
@@ -80,6 +83,7 @@ async function run() {
     defaultForaging.envMeanReturnRate = priorThreshold;
     adapter.allowedHosts.delete('127.0.0.1');
     await defaultBrowserScout.closeSession(sessionId);
+    fs.rmSync(browserProfileDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
     await new Promise(resolve => server.close(resolve));
   }
 }

@@ -11,6 +11,8 @@ const { fileURLToPath } = require('url');
 const { resolveWorkspaceRoot, resolveContainedPathNoSymlinkSync } = require('./pathSafety');
 const { BrowserPuppeteerAdapter } = require('./browserPuppeteerAdapter');
 const MAX_HTML_LENGTH = 2 * 1024 * 1024;
+const BLOCK_TEXT_TAGS = new Set(['address', 'article', 'aside', 'blockquote', 'body', 'br', 'dd', 'div', 'dl', 'dt',
+  'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'section', 'table', 'td', 'th', 'tr', 'ul']);
 
 function matches(html, expression, project) {
   const nodes = [];
@@ -39,10 +41,11 @@ function stripMarkup(input) {
     }
     const tag = readMarkupTag(source, index, hiddenTag);
     if (!tag.complete) break;
+    if (tag.separatesText && !hiddenTag) output += ' ';
     hiddenTag = tag.hiddenTag;
     index = tag.nextIndex;
   }
-  return output;
+  return output.replace(/\s+/g, ' ').trim();
 }
 
 function readMarkupTag(source, index, hiddenTag) {
@@ -50,15 +53,14 @@ function readMarkupTag(source, index, hiddenTag) {
   if (end < 0) return { nextIndex: source.length, hiddenTag, complete: false };
   const rawTag = source.slice(index + 1, end).trim();
   const closing = rawTag.startsWith('/');
-  const tagName = rawTag.replace(/^\/?\s*/, '').slice(0, 10).toLowerCase();
+  const tagName = rawTag.replace(/^\/?\s*/, '').split(/\s+/)[0].replace(/\/$/, '').toLowerCase();
   if (closing && tagName.startsWith(hiddenTag)) hiddenTag = '';
   else if (!closing && !hiddenTag) hiddenTag = hiddenContentTag(tagName);
-  return { nextIndex: end + 1, hiddenTag, complete: true };
+  return { nextIndex: end + 1, hiddenTag, complete: true, separatesText: BLOCK_TEXT_TAGS.has(tagName) };
 }
 
 function hiddenContentTag(tagName) {
-  if (tagName.startsWith('script')) return 'script';
-  return tagName.startsWith('style') ? 'style' : '';
+  return tagName.startsWith('script') ? 'script' : tagName.startsWith('style') ? 'style' : '';
 }
 
 function escapeCssString(value) {

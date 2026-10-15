@@ -1,8 +1,11 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const loop = require('../src/services/foragingLoopService');
 const foraging = require('../src/services/mcpBioTools/handlers/optimalForaging');
+const { defaultBrowserScout } = require('../src/services/browserScoutService');
+const provenance = require('../src/services/foragingSourceAttestation');
 
 async function verifyDepartureNavigates() {
   const step = await loop.forageStep({
@@ -47,18 +50,46 @@ async function verifyDepartureWithoutUrl() {
 }
 
 async function verifyHandlerWiring() {
-  const res = await foraging.handleOptimalForaging({
-    action: 'forage_step',
-    session_id: 'handler-session',
-    patch_history: [{ infoGain: 0.01 }],
-    elapsed_time_sec: 10,
-    next_url: 'https://example.com/handler',
-    html_content: '<html><body>handler patch</body></html>'
+  const sessionId = 'handler-session';
+  const url = 'https://example.com/handler';
+  const html = '<html><body>handler patch</body></html>';
+  const scope = ['https://example.com'];
+  const oldTrust = process.env.GENOS_FORAGING_TRUST_JSON;
+  const keys = crypto.generateKeyPairSync('ed25519');
+  process.env.GENOS_FORAGING_TRUST_JSON = JSON.stringify({
+    'fixture-browser': keys.publicKey.export({ type: 'spki', format: 'pem' })
   });
-  assert.equal(res.status, 'completed');
-  const step = JSON.parse(res.output);
-  assert.equal(step.decision, 'PATCH_DEPARTURE');
-  assert.equal(step.navigated, true);
+  try {
+    await defaultBrowserScout.navigate(sessionId, url, { htmlContent: html });
+    const observation = defaultBrowserScout.snapshotSession(sessionId);
+    const attestation = signObservation(keys.privateKey, {
+      producer_id: 'fixture-browser', mission_id: 'mission-handler-test', navigation_scope: scope,
+      observed_origin: 'https://example.com', observed_path: '/handler',
+      observed_text_digest: provenance.sha256(observation.observationText),
+      source_payload_digest: provenance.sha256(html)
+    });
+    const res = await foraging.handleOptimalForaging({
+      action: 'forage_step', session_id: sessionId, patch_history: [{ infoGain: 0.01 }],
+      elapsed_time_sec: 10, next_url: url, html_content: html, navigation_scope: scope,
+      mission_id: 'mission-handler-test', source_attestation: attestation
+    });
+    assert.equal(res.status, 'completed');
+    const step = JSON.parse(res.output);
+    assert.equal(step.decision, 'PATCH_DEPARTURE');
+    assert.equal(step.navigated, true);
+    assert.equal(step.receipt.sourceProvenance.producerId, 'fixture-browser');
+  } finally {
+    await defaultBrowserScout.closeSession(sessionId);
+    if (oldTrust === undefined) delete process.env.GENOS_FORAGING_TRUST_JSON;
+    else process.env.GENOS_FORAGING_TRUST_JSON = oldTrust;
+  }
+}
+
+function signObservation(privateKey, fields) {
+  const attestation = { ...fields, source_payload_digest: fields.source_payload_digest, signature: 'pending' };
+  const claims = provenance.attestationClaims(attestation);
+  attestation.signature = crypto.sign(null, Buffer.from(JSON.stringify(claims)), privateKey).toString('base64');
+  return attestation;
 }
 
 (async () => {

@@ -1,11 +1,13 @@
 const { defaultForaging } = require('../../foragingScoutHarvesterService');
 const { forageStep } = require('../../foragingLoopService');
+const { defaultBrowserScout } = require('../../browserScoutService');
+const sourceAttestation = require('../../foragingSourceAttestation');
 
 async function handleOptimalForaging(args) {
   const action = args.action || 'evaluate_patch';
 
   if (['forage_step', 'closed_loop', 'closed_loop_step'].includes(action)) {
-    return optimalForagingForageStep({ args, action });
+    return optimalForagingForageStep({ args });
   }
 
   if (['evaluate_patch', 'evaluate'].includes(action)) {
@@ -48,27 +50,71 @@ module.exports = {
   handleOptimalForagingError
 };
 
-async function optimalForagingForageStep({ args, action }) {
+async function optimalForagingForageStep({ args }) {
   const sessionId = args.session_id || args.sessionId || null;
+  let claims;
+  try {
+    claims = verifyForagingSource(args, sessionId);
+  } catch (error) {
+    return rejectedForagingSource(error);
+  }
   const step = await forageStep({
     sessionId,
     patchHistory: args.patch_history || args.history,
     elapsedTimeSec: args.elapsed_time_sec,
     iteration: args.iteration,
     nextUrl: args.next_url || args.nextUrl,
+    navigationScope: args.navigation_scope || args.navigationScope,
     htmlContent: args.html_content || args.html
   });
+  if (!sourceAttestation.verifyObservation(claims, step.receipt)) {
+    return rejectedForagingSource(new Error('Foraging observation does not match its signed source attestation.'));
+  }
+  const attested = sourceAttestation.bindReceipt(step, claims, args.source_attestation.signature);
   const actionStatus = step.action.status;
-  const simulated = !sessionId;
+  const session = defaultBrowserScout.getSession(sessionId);
+  const simulated = !session || !session.browserPage;
+  const successful = !['not_executed', 'failed', 'refused'].includes(actionStatus);
   return {
     configured: true,
-    success: actionStatus !== 'not_executed' && actionStatus !== 'failed',
+    success: successful,
     status: actionStatus === 'executed' ? 'completed'
       : actionStatus === 'failed' ? 'action_failed'
+        : actionStatus === 'refused' ? 'out_of_scope'
         : actionStatus === 'not_executed' ? 'decision_only' : 'observed',
     transport: 'local_service',
     simulated,
-    output: JSON.stringify({ ...step, simulated }, null, 2)
+    output: JSON.stringify({ ...attested, simulated }, null, 2)
+  };
+}
+
+function verifyForagingSource(args, sessionId) {
+  const session = defaultBrowserScout.getSession(sessionId);
+  const scope = sourceAttestation.normalizeScope(args.navigation_scope || args.navigationScope);
+  const proposedUrl = args.next_url || args.nextUrl || (session && session.currentUrl);
+  if (!proposedUrl) throw new Error('Foraging source target is missing.');
+  const expectedUrl = expectedObservedUrl(proposedUrl, scope, session);
+  return sourceAttestation.verifyBeforeNavigation({
+    attestation: args.source_attestation,
+    missionId: args.mission_id || args.missionId,
+    targetUrl: expectedUrl,
+    scope,
+    htmlContent: args.html_content || args.html
+  });
+}
+
+function expectedObservedUrl(proposedUrl, scope, session) {
+  if (!session || !session.currentUrl) return proposedUrl;
+  return scope.includes(new URL(proposedUrl).origin) ? proposedUrl : session.currentUrl;
+}
+
+function rejectedForagingSource(error) {
+  return {
+    configured: true,
+    success: false,
+    status: 'source_unverified',
+    transport: 'local_service',
+    output: error.message || String(error)
   };
 }
 
