@@ -91,7 +91,8 @@ function executionMission(member, successCriteria = []) {
   return (member.mission || '') + '\n\nTEAM EXECUTION CONTRACT\n' + JSON.stringify(contract)
     + '\nReturn an evidence report with outcome, output, artifacts, tests, integrationConstraints, acceptanceEvaluations and handoffEvaluations. For each received handoff, evaluate its exact handoffId, digest and version, with passed and evidenceRefs. Each evaluated criterion must name its criterion, passed result and evidenceRefs from actual observations. Leave untested criteria unresolved; a dispatch or a policy is not proof of success.'
     + '\nFor missionCriteria, copy each evaluated criterion string exactly as written in TEAM EXECUTION CONTRACT into acceptanceEvaluations. Do not translate, summarize or paraphrase it.'
-    + '\nWhen you can prove only your own contribution to a collective mission criterion, keep passed unresolved and set localPassed=true with evidenceRefs that prove your contribution. Never set localPassed from another worker identity. The orchestrator validates the collective criterion only when every promoted worker provides a backed localPassed=true evaluation.';
+    + '\nWhen you can prove only your own contribution to a collective mission criterion, keep passed unresolved and set localPassed=true with evidenceRefs that prove your contribution. Never set localPassed from another worker identity. The orchestrator validates the collective criterion only when every promoted worker provides a backed localPassed=true evaluation.'
+    + '\nEvery evidenceRefs value in acceptanceEvaluations must also appear in claims[].evidence or in the evidenceRefs of a passed test. The validator rejects evaluation references that the report does not independently back.';
 }
 
 module.exports = { validateMemberEvidence, runtimeCoverage, missingCriteria, missingMissionCriteria, executionMission };

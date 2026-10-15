@@ -10,6 +10,8 @@ assert.match(prompt, /copy each evaluated criterion string exactly/);
 assert.match(prompt, /Do not translate, summarize or paraphrase/);
 assert.match(prompt, /set localPassed=true/);
 assert.match(prompt, /every promoted worker provides a backed localPassed=true/);
+assert.match(prompt, /must also appear in claims\[\]\.evidence/);
+assert.match(prompt, /rejects evaluation references that the report does not independently back/);
 assert.ok(prompt.includes(JSON.stringify(criterion)));
 
 function verdict(worker, evaluation, refs = [`evidence:${worker}`]) {
