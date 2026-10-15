@@ -108,41 +108,47 @@ async function startMissionInternal(mission) {
   return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable });
 }
 
+async function finalizeMissionStart(agentId) {
+  const { cancelledStarts, activeWorkerBarriers, pendingWorkerRecoveries,
+    pendingContinuations, missionStarts, emit } = require('../agentOrchestrationState');
+  const cancelled = cancelledStarts.has(agentId) || activeWorkerBarriers.get(agentId)?.cancelled === true;
+  missionStarts.delete(agentId);
+  try { await require('../garageRuntimeService').finalizeAgent(agentId); }
+  catch (failure) { console.error('[GarageFabric] Runtime finalization failed:', failure.message); }
+  cancelledStarts.delete(agentId);
+  if (!cancelled) {
+    emit(agentId, 'WORKER_RECOVERY_DECISION', 'RECOVERY_DISPATCH', `Checking for queued worker recovery after runtime shutdown for ${agentId}.`, {
+      agentId,
+      reason: 'runtime shutdown completed; review queued worker recovery if any'
+    }, 'info');
+    try {
+      await require('../agentRecoveryService').dispatchWorkerRecovery(agentId);
+    } catch (err) {
+      console.error('[AgentRuntimeAdapter] Error in dispatchWorkerRecovery.', { agentId, error: err });
+    }
+    try {
+      require('../agentRoundService').dispatchPendingContinuation(agentId);
+    } catch (err) {
+      console.error('[AgentRuntimeAdapter] Error in dispatchPendingContinuation.', { agentId, error: err });
+    }
+    return;
+  }
+  pendingContinuations.delete(agentId);
+  pendingWorkerRecoveries.delete(agentId);
+}
+
 function startMission(mission) {
   const agentId = mission.agentId || mission.id;
   if (!agentId) return Promise.reject(new Error('agentId is required'));
-  const { activeProcesses, missionStarts, cancelledStarts, activeWorkerBarriers, pendingWorkerRecoveries, pendingContinuations, emit } = require('../agentOrchestrationState');
-  if (activeProcesses.has(agentId) || missionStarts.has(agentId)) return Promise.resolve({ started: true, duplicate: true });
-  const start = startMissionInternal(mission).finally(async () => {
-    const cancelled = cancelledStarts.has(agentId) || activeWorkerBarriers.get(agentId)?.cancelled === true;
-    missionStarts.delete(agentId);
-    try { await require('../garageRuntimeService').finalizeAgent(agentId); }
-    catch (failure) { console.error('[GarageFabric] Runtime finalization failed:', failure.message); }
-    cancelledStarts.delete(agentId);
-    if (!cancelled) {
-      emit(agentId, 'WORKER_RECOVERY_DECISION', 'RECOVERY_DISPATCH', `Checking for queued worker recovery after runtime shutdown for ${agentId}.`, {
-        agentId,
-        reason: 'runtime shutdown completed; review queued worker recovery if any'
-      }, 'info');
-      try {
-        await require('../agentRecoveryService').dispatchWorkerRecovery(agentId);
-      } catch (err) {
-        console.error('[AgentRuntimeAdapter] Error in dispatchWorkerRecovery.', { agentId, error: err });
-      }
-      try {
-        require('../agentRoundService').dispatchPendingContinuation(agentId);
-      } catch (err) {
-        console.error('[AgentRuntimeAdapter] Error in dispatchPendingContinuation.', { agentId, error: err });
-      }
-    } else {
-      pendingContinuations.delete(agentId);
-      pendingWorkerRecoveries.delete(agentId);
-    }
-  }).catch(async (failure) => {
+  const state = require('../agentOrchestrationState');
+  if (state.activeProcesses.has(agentId) || state.missionStarts.has(agentId)) {
+    return Promise.resolve({ started: true, duplicate: true });
+  }
+  const start = startMissionInternal(mission).finally(() => finalizeMissionStart(agentId)).catch(async (failure) => {
     await recordMissionStartFailure(agentId, failure);
     throw failure;
   });
-  missionStarts.set(agentId, start);
+  state.missionStarts.set(agentId, start);
   return start;
 }
 

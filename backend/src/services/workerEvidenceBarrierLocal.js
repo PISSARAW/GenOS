@@ -17,7 +17,8 @@ const agentRecoveryService = require('./agentRecoveryService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
 const localEvidenceArtifact = require('./workerEvidenceLocalArtifact');
 const localEvidencePrompt = require('./workerEvidenceLocalPrompt');
-const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget } = require('./workerEvidenceBarrierLocalBudget');
+const { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
+  consumedTokensOf, throwIfConsumedOverBudget } = require('./workerEvidenceBarrierLocalBudget');
 
 function resolveAgentName(mission) {
   if (mission.name) return mission.name;
@@ -62,6 +63,11 @@ function resolveMaxCost(mission) {
   return undefined;
 }
 async function generateWorkerResult(ctx) {
+  if (!ctx.executionRun?.id) {
+    throw Object.assign(new Error('Local worker generation requires its execution run.'), {
+      code: 'WORKER_EXECUTION_RUN_REQUIRED'
+    });
+  }
   const startedAt = Date.now();
   const sharedBudget = (ctx.mission.modelBudgetScope || ctx.mission.orchestratorAgentId)
     ? await require('./missionModelBudgetScope').routeBudget(ctx.mission, ctx.db) : {};
@@ -81,15 +87,6 @@ async function generateWorkerResult(ctx) {
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
-}
-
-function consumedTokensOf(result) {
-  return Number(result.inputTokens) + Number(result.outputTokens);
-}
-function throwIfConsumedOverBudget(consumed, budget) {
-  if (budget <= 0) return;
-  if (consumed <= budget) return;
-  throw Object.assign(new Error('Local worker consumed ' + String(consumed) + ' tokens above its ' + String(budget) + '-token budget.'), { code: 'BUDGET_EXHAUSTED' });
 }
 
 async function resolveProposal(ctx) {
@@ -253,6 +250,7 @@ async function runGenerationStage(ctx) {
   const result = await generateWorkerResult({
     db: ctx.db,
     mission: ctx.mission,
+    executionRun: ctx.executionRun,
     workerModel: workerModel,
     latencyMs: resolveLatency(ctx.mission),
     maxTokens: resolveMaxTokens(budget, estimate),
@@ -341,7 +339,7 @@ async function runLocalWorker(db, mission, executionRun) {
   let identity;
   try {
     identity = await workerIdentity.begin(db, { mission, executionRun });
-    const generation = await runGenerationStage({ db, mission, stageTimings, identity });
+    const generation = await runGenerationStage({ db, mission, executionRun, stageTimings, identity });
     const evidence = await runEvidenceStage({
       db, executionRun,
       result: generation.result,

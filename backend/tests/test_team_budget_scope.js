@@ -168,7 +168,7 @@ async function testTeamMemberWithoutScopeHalts() {
   } finally { await db.close(); }
 }
 
-async function testCpuAccountingFailureDegrades() {
+async function testCpuAccountingFailureHalts() {
   const original = workerProcessCpu.processCpuMs;
   workerProcessCpu.processCpuMs = async () => { throw new Error('probe boom'); };
   const child = fakeChild(process.pid);
@@ -176,9 +176,8 @@ async function testCpuAccountingFailureDegrades() {
   try {
     cpuBudgets.startWorkerCpuBudget(context);
     await sleep(400);
-    assert.equal(context.halts.length, 0);
-    assert.ok(context.warnings.some((event) =>
-      event.eventType === 'WORKER_CPU_ACCOUNTING_DEGRADED' && event.severity === 'warning'));
+    assert.equal(context.halts.length, 1);
+    assert.equal(context.halts[0].reason, 'worker_cpu_accounting_unavailable');
   } finally { child.close(); workerProcessCpu.processCpuMs = original; }
 }
 
@@ -197,14 +196,18 @@ async function testMeasuredCpuExceedanceStillHalts() {
   } finally { child.close(); workerProcessCpu.processCpuMs = original; }
 }
 
-async function testNonFiniteCpuLimitDegrades() {
+async function testInvalidCpuLimitHalts() {
   const child = fakeChild(process.pid);
   const context = cpuContext(child, Number.NaN);
   cpuBudgets.startWorkerCpuBudget(context);
-  assert.equal(context.halts.length, 0);
-  assert.ok(context.warnings.some((event) =>
-    event.eventType === 'WORKER_CPU_ACCOUNTING_DEGRADED'));
+  assert.equal(context.halts.length, 1);
+  assert.equal(context.halts[0].reason, 'worker_cpu_budget_invalid');
   child.close();
+}
+
+async function testLocalGenerationRequiresExecutionRun() {
+  await assert.rejects(localWorker.generateWorkerResult({ mission: { agentId: 'worker' } }),
+    (error) => error.code === 'WORKER_EXECUTION_RUN_REQUIRED');
 }
 
 (async () => {
@@ -212,8 +215,9 @@ async function testNonFiniteCpuLimitDegrades() {
   await testBindTeamScopePersistsParentScope();
   await testTeamMemberRoutesWithoutHalt();
   await testTeamMemberWithoutScopeHalts();
-  await testCpuAccountingFailureDegrades();
+  await testCpuAccountingFailureHalts();
   await testMeasuredCpuExceedanceStillHalts();
-  await testNonFiniteCpuLimitDegrades();
-  console.log('Team budget scope, degraded CPU accounting and usage ledger checks passed.');
+  await testInvalidCpuLimitHalts();
+  await testLocalGenerationRequiresExecutionRun();
+  console.log('Team budget scope, fail-closed CPU accounting and usage ledger checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

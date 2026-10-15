@@ -23,4 +23,15 @@ function throwIfPromptOverBudget(estimate, budget) {
   throw promptBudgetError(estimate, budget);
 }
 
-module.exports = { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget };
+function consumedTokensOf(result) {
+  return Number(result.inputTokens) + Number(result.outputTokens);
+}
+
+function throwIfConsumedOverBudget(consumed, budget) {
+  if (budget <= 0 || consumed <= budget) return;
+  throw Object.assign(new Error('Local worker consumed ' + String(consumed)
+    + ' tokens above its ' + String(budget) + '-token budget.'), { code: 'BUDGET_EXHAUSTED' });
+}
+
+module.exports = { estimatePromptTokens, resolveTokenBudget, throwIfPromptOverBudget,
+  consumedTokensOf, throwIfConsumedOverBudget };
