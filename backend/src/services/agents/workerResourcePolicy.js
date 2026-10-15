@@ -5,11 +5,18 @@ const { hasNativeMethod } = require('./workerExecutorRegistry');
 const DEFAULT_WORKER_TOKEN_LIMIT = 8000;
 const COMMUNICATING_WORKER_TOKEN_LIMIT = 40000;
 
+function requiresCommunication(mission) {
+  const policy = mission.coordinationPolicy || mission.coordination_policy || {};
+  const cadence = policy.communicationCadence || policy.communication_cadence;
+  return mission.communicationRequired === true || mission.organization === 'cross_functional_pod'
+    || String(cadence || '').toLowerCase() === 'continuous_sync';
+}
+
 function tokenCeiling(policy, mission, native) {
   if (native) return 0;
   const requested = Number(mission.workerTokenLimit);
   const baseMaximum = policy.maxTokens ?? DEFAULT_WORKER_TOKEN_LIMIT;
-  const policyMaximum = mission.communicationRequired === true
+  const policyMaximum = requiresCommunication(mission)
     ? Math.max(baseMaximum, COMMUNICATING_WORKER_TOKEN_LIMIT) : baseMaximum;
   const maximum = Number.isFinite(requested) && requested > 0
     ? policyMaximum : Math.min(policyMaximum, DEFAULT_WORKER_TOKEN_LIMIT);

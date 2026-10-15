@@ -14,6 +14,13 @@ const communicatingSpecialist = buildWorkerContract('specialist', {
 });
 assert.equal(communicatingSpecialist.resources.maxTokens, 40000);
 assert.equal(buildWorkerContract('specialist', {
+  workerTokenLimit: 40000, nicheDomain: 'coordination',
+  coordinationPolicy: { communicationCadence: 'continuous_sync' }
+}).resources.maxTokens, 40000);
+assert.equal(buildWorkerContract('specialist', {
+  workerTokenLimit: 40000, nicheDomain: 'coordination', organization: 'cross_functional_pod'
+}).resources.maxTokens, 40000);
+assert.equal(buildWorkerContract('specialist', {
   workerTokenLimit: 99999, nicheDomain: 'coordination'
 }).resources.maxTokens, 20000);
 
