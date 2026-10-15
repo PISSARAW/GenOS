@@ -9,6 +9,7 @@ pub mod autopoiesis;
 pub mod behaviors;
 pub mod checkpoint;
 pub mod choanocyte_receipt;
+pub mod choanocyte_authority;
 pub mod clinical_therapy;
 pub mod conscience;
 pub mod core_self;
@@ -325,4 +326,5 @@ mod physical_search;
 mod physical_imports;
 
 pub mod sensory_receipt_runtime;
+pub mod sensory_authority;
 pub mod sensory_paf_bridge;

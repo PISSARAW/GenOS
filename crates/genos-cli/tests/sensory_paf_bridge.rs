@@ -4,15 +4,17 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
+use ed25519_dalek::{Signer, SigningKey};
+use genos_orchestrator::sensory_authority::{signing_bytes, stimulus_digest, SensoryClaims};
 
 fn scratch_path(name: &str) -> PathBuf {
     let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
     std::env::temp_dir().join(format!("genos-sensory-paf-{nonce}-{name}"))
 }
 
-fn alarm_input() -> PathBuf {
+fn alarm_input(mission: Uuid) -> PathBuf {
     let path = scratch_path("input.json");
-    std::fs::write(&path, json!({"signal": {
+    let signal = json!({
         "sensor": "vomeronasal",
         "signal": {
             "source_agent": "synthetic-source", "locus": "test/sensor",
@@ -20,13 +22,33 @@ fn alarm_input() -> PathBuf {
             "half_life_secs": 60.0, "timestamp_epoch_ms": 1,
             "subliminal_payload": {}
         }
-    }}).to_string()).unwrap();
+    });
+    let producer_id = Uuid::from_u128(77);
+    let key = SigningKey::from_bytes(&[9; 32]);
+    let digest = stimulus_digest(producer_id, 1, &signal).unwrap();
+    let signature = key.sign(&signing_bytes(SensoryClaims {
+        mission_id: mission, tick: 1, producer_id, stimulus_sha256: &digest,
+    }).unwrap());
+    std::fs::write(&path, json!({
+        "schema":"genos.signed-synthetic-sensory-input/v1", "producer_id":producer_id,
+        "tick":1, "signal":signal, "signature_hex":hex(&signature.to_bytes()),
+    }).to_string()).unwrap();
     path
+}
+
+fn hex(bytes: &[u8]) -> String { bytes.iter().map(|byte| format!("{byte:02x}")).collect() }
+
+fn trust_json() -> String {
+    let key = SigningKey::from_bytes(&[9; 32]);
+    json!({"schema":"genos.synthetic-sensory-producer-trust/v1", "producers":[{
+        "producer_id":Uuid::from_u128(77), "public_key_hex":hex(key.verifying_key().as_bytes())
+    }]}).to_string()
 }
 
 fn run_ingest(workspace: &Path, mission: Uuid, input: &Path) -> Output {
     Command::new(env!("CARGO_BIN_EXE_genos"))
         .env("GENOS_STUDIO_ROOT", workspace)
+        .env("GENOS_SENSORY_TRUST_JSON", trust_json())
         .args(["sensory-ingest", "--mission-id", mission.to_string().as_str(), "--replay-key", "paf-test-1", "--experimental"])
         .arg("--input").arg(input).output().unwrap()
 }
@@ -34,6 +56,7 @@ fn run_ingest(workspace: &Path, mission: Uuid, input: &Path) -> Output {
 fn run_tick(workspace: &Path, mission: Uuid) -> Output {
     Command::new(env!("CARGO_BIN_EXE_genos"))
         .env("GENOS_STUDIO_ROOT", workspace)
+        .env("GENOS_SENSORY_TRUST_JSON", trust_json())
         .args(["biological", "--tick", "--mission-id", mission.to_string().as_str(), "--mission", "sensory-paf-test"])
         .output().unwrap()
 }
@@ -48,7 +71,7 @@ fn process_tick_bridges_one_verified_alarm_once_and_persists_its_paf_decision() 
     let mission = Uuid::new_v4();
     let workspace = scratch_path("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
-    let input = alarm_input();
+    let input = alarm_input(mission);
     let ingested = run_ingest(&workspace, mission, &input);
     assert!(ingested.status.success(), "{}", String::from_utf8_lossy(&ingested.stderr));
     let source = serde_json::from_slice::<Value>(&ingested.stdout).unwrap();
@@ -60,6 +83,7 @@ fn process_tick_bridges_one_verified_alarm_once_and_persists_its_paf_decision() 
         .expect("first process tick persists PAF decision");
     assert_eq!(paf["sensory_source_refs"][0]["event_id"], source["event_id"]);
     assert_eq!(paf["sensory_source_refs"][0]["source_digest"], source["source_digest"]);
+    assert_eq!(source["source_receipt"]["source_authentication"], "host_pinned_ed25519");
     assert!(paf["stimuli"].as_array().unwrap().iter().any(|stimulus| stimulus["signature"] == "threat_detected"));
     assert_eq!(paf["evaluation"]["released"], true);
     assert!(paf["actions"].as_array().unwrap().is_empty(), "unexpected external action receipt: {paf}");
@@ -80,7 +104,7 @@ fn process_tick_refuses_a_sensory_receipt_with_changed_content_and_old_digest() 
     let mission = Uuid::new_v4();
     let workspace = scratch_path("tampered-workspace");
     std::fs::create_dir_all(&workspace).unwrap();
-    let input = alarm_input();
+    let input = alarm_input(mission);
     assert!(run_ingest(&workspace, mission, &input).status.success());
     let journal = workspace.join("biological-receipts").join(format!("{mission}.jsonl"));
     let mut tampered = read_receipts(&workspace, mission)[0].clone();
@@ -102,7 +126,7 @@ fn process_tick_refuses_a_receipt_from_another_mission_in_its_journal() {
     let foreign_mission = Uuid::new_v4();
     let workspace = scratch_path("foreign-mission-workspace");
     std::fs::create_dir_all(&workspace).unwrap();
-    let input = alarm_input();
+    let input = alarm_input(foreign_mission);
     assert!(run_ingest(&workspace, foreign_mission, &input).status.success());
     let foreign_receipt = read_receipts(&workspace, foreign_mission)[0].clone();
     let mission_journal = workspace.join("biological-receipts").join(format!("{mission}.jsonl"));

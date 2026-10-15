@@ -35,9 +35,12 @@ pub struct BiologicalCmd {
     /// Restore a previously authorized crossover by its durable idempotency key.
     #[arg(long, requires = "tick", conflicts_with_all = ["crossover_parent_a", "crossover_parent_b", "crossover_seed"])]
     pub replay_crossover_key: Option<String>,
-    /// JSON typed signal stream to filter and persist under the runtime producer identity.
-    #[arg(long, requires = "tick")]
+    /// JSON signed signal stream from a host-trusted external producer.
+    #[arg(long, requires = "tick", requires = "choanocyte_trust")]
     pub choanocyte_stream: Option<std::path::PathBuf>,
+    /// Require host bootstrap env GENOS_CHOANOCYTE_TRUST_JSON containing pinned producer keys.
+    #[arg(long, requires = "tick", requires = "choanocyte_stream")]
+    pub choanocyte_trust: bool,
     /// Stable Rust UUID assigned to the backend mission.
     #[arg(long)]
     pub mission_id: Option<uuid::Uuid>,

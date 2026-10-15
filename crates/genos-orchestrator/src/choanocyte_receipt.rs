@@ -1,6 +1,7 @@
 //! Mission-bound durable receipts for supplied choanocyte streams.
 
 use crate::GenosEcosystem;
+use crate::choanocyte_authority::{ChoanocyteProducerAuthority, ProducerProof, signing_bytes};
 use genos_biology::RawSignalPacket;
 use genos_store::BiologicalReceiptStore;
 use serde_json::{Value, json};
@@ -12,22 +13,36 @@ const STREAM_SCHEMA: &str = "genos.choanocyte-signal-stream/v1";
 
 struct StreamReceiptContext {
     mission_id: uuid::Uuid,
-    producer_id: uuid::Uuid,
+    runtime_producer_id: uuid::Uuid,
+    external_producer_id: uuid::Uuid,
     input_digest: String,
+    trust_key_sha256: String,
+    signature_hex: String,
     idempotency_key: String,
 }
 
-/// Typed signal payload; producer identity comes from the runtime, not this input.
+/// Typed, signed signal payload from an external producer.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct MissionChoanocyteStream {
     pub schema: String,
+    pub producer_id: uuid::Uuid,
+    pub signature_hex: String,
     pub packets: Vec<RawSignalPacket>,
 }
 
 impl MissionChoanocyteStream {
     pub fn new(packets: Vec<RawSignalPacket>) -> Self {
-        Self { schema: STREAM_SCHEMA.into(), packets }
+        Self { schema: STREAM_SCHEMA.into(), producer_id: uuid::Uuid::nil(), signature_hex: String::new(), packets }
+    }
+
+    /// Octets canonically signed by an external producer for one mission.
+    pub fn signing_bytes(&self, mission_id: uuid::Uuid) -> Result<Vec<u8>, String> {
+        signing_bytes(mission_id, self.producer_id, &digest_stream(self)?)
+    }
+
+    pub fn payload_digest(&self) -> Result<String, String> {
+        digest_stream(self)
     }
 
     fn validate(&self) -> Result<(), String> {
@@ -81,9 +96,10 @@ impl GenosEcosystem {
         &mut self,
         stream: &MissionChoanocyteStream,
         store: &BiologicalReceiptStore,
+        authority: &ChoanocyteProducerAuthority,
     ) -> Result<Value, String> {
         stream.validate()?;
-        let context = stream_receipt_context(self, stream)?;
+        let context = stream_receipt_context(self, stream, authority)?;
         if let Some(receipt) = find_existing_stream_receipt(store, &context)? {
             return Ok(receipt);
         }
@@ -95,14 +111,29 @@ impl GenosEcosystem {
 fn stream_receipt_context(
     ecosystem: &GenosEcosystem,
     stream: &MissionChoanocyteStream,
+    authority: &ChoanocyteProducerAuthority,
 ) -> Result<StreamReceiptContext, String> {
     let mission_id = ecosystem
         .mission_id
         .ok_or_else(|| "Choanocyte stream receipt requires a mission id".to_string())?;
-    let producer_id = runtime_producer_id(ecosystem)?;
+    let runtime_producer_id = runtime_producer_id(ecosystem)?;
     let input_digest = digest_stream(stream)?;
+    let trust_key_sha256 = authority.verify(ProducerProof {
+        mission_id,
+        producer_id: stream.producer_id,
+        payload_sha256: &input_digest,
+        signature_hex: &stream.signature_hex,
+    })?;
     let idempotency_key = stream_idempotency_key(mission_id, &input_digest);
-    Ok(StreamReceiptContext { mission_id, producer_id, input_digest, idempotency_key })
+    Ok(StreamReceiptContext {
+        mission_id,
+        runtime_producer_id,
+        external_producer_id: stream.producer_id,
+        input_digest,
+        trust_key_sha256,
+        signature_hex: stream.signature_hex.clone(),
+        idempotency_key,
+    })
 }
 
 fn build_stream_receipt(
@@ -118,9 +149,12 @@ fn build_stream_receipt(
             "receiptId": uuid::Uuid::new_v4(),
             "missionId": context.mission_id,
             "idempotency_key": context.idempotency_key,
-            "orchestratorId": context.producer_id,
+            "orchestratorId": context.runtime_producer_id,
+            "runtimeProducerId": context.runtime_producer_id,
             "cellId": ecosystem.choanocyte.id,
-            "producerId": context.producer_id,
+            "producerId": context.external_producer_id,
+            "producerTrustKeySha256": context.trust_key_sha256,
+            "producerSignatureHex": context.signature_hex,
             "streamSchema": stream.schema,
             "inputSha256": context.input_digest,
             "packetCount": result.total_scanned,
@@ -149,6 +183,12 @@ fn find_existing_stream_receipt(
             || receipt["inputSha256"] != context.input_digest
         {
             continue;
+        }
+        if receipt["producerId"] != context.external_producer_id.to_string()
+            || receipt["producerTrustKeySha256"] != context.trust_key_sha256
+            || receipt["producerSignatureHex"] != context.signature_hex
+        {
+            return Err("Choanocyte receipt source identity does not match its verified envelope".into());
         }
         if receipt["idempotency_key"]
             .as_str()
@@ -190,7 +230,18 @@ fn runtime_producer_id(ecosystem: &GenosEcosystem) -> Result<uuid::Uuid, String>
 }
 
 fn digest_stream(stream: &MissionChoanocyteStream) -> Result<String, String> {
-    let encoded = serde_json::to_vec(stream).map_err(|error| error.to_string())?;
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CanonicalPayload<'a> {
+        schema: &'a str,
+        producer_id: uuid::Uuid,
+        packets: &'a [RawSignalPacket],
+    }
+    let encoded = serde_json::to_vec(&CanonicalPayload {
+        schema: &stream.schema,
+        producer_id: stream.producer_id,
+        packets: &stream.packets,
+    }).map_err(|error| error.to_string())?;
     Ok(format!("{:x}", Sha256::digest(encoded)))
 }
 
@@ -218,116 +269,5 @@ fn verify_persisted_receipt(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn persisted_receipt_binds_actual_stream_to_mission_and_survives_reopen() {
-        let path = std::env::temp_dir().join(format!("genos-choano-{}.jsonl", uuid::Uuid::new_v4()));
-        let packets = vec![
-            RawSignalPacket { id: "retained-1".into(), size_nm: 150.0, semantic_density: 0.9, content: "signal-a".into(), is_noise: false },
-            RawSignalPacket { id: "noise-1".into(), size_nm: 40.0, semantic_density: 0.1, content: "signal-b".into(), is_noise: true },
-            RawSignalPacket { id: "retained-2".into(), size_nm: 180.0, semantic_density: 0.7, content: "signal-c".into(), is_noise: false },
-        ];
-        let stream = MissionChoanocyteStream::new(packets.clone());
-        let mission_id = uuid::Uuid::new_v4();
-        let (receipt, orchestrator_id) = {
-            let store = BiologicalReceiptStore::open(&path);
-            let mut ecosystem = GenosEcosystem::new("choanocyte-mission");
-            ecosystem.set_mission_id(mission_id);
-            let receipt = ecosystem.filter_stream_and_persist(&stream, &store).unwrap();
-            (receipt, ecosystem.orchestrator.orchestrator_id)
-        };
-
-        let reopened = BiologicalReceiptStore::open(&path);
-        let recovered = reopened.read_all().unwrap();
-        let stored = recovered.iter().find(|item| item["receiptId"] == receipt["receiptId"]).unwrap();
-        assert_eq!(stored["schema"], RECEIPT_SCHEMA);
-        assert_eq!(stored["missionId"], mission_id.to_string());
-        assert_eq!(stored["orchestratorId"], orchestrator_id.to_string());
-        assert_eq!(stored["producerId"], orchestrator_id.to_string());
-        assert_eq!(stored["cellId"], "orchestrator_choanocyte");
-        assert_eq!(stored["streamSchema"], STREAM_SCHEMA);
-        assert_eq!(stored["inputSha256"], digest_stream(&stream).unwrap());
-        assert_eq!(stored["packetCount"], 3);
-        assert_eq!(stored["retainedCount"], 2);
-        assert_eq!(stored["rejectedCount"], 1);
-        assert!(stored["measuredElapsedNs"].as_u64().unwrap() > 0);
-        assert!(stored["measuredPacketsPerSecondMilli"].as_u64().unwrap() > 0);
-        assert_eq!(stored["modeledFlowMilliUnits"]["pumpingRateMlS"], 450);
-        assert_eq!(stored["hydrodynamicMeasurement"], false);
-        assert_eq!(recovered.len(), 1);
-        let _ = std::fs::remove_file(path);
-    }
-
-    #[test]
-    fn same_stream_in_another_mission_gets_a_distinct_receipt() {
-        let path = std::env::temp_dir().join(format!("genos-choano-{}.jsonl", uuid::Uuid::new_v4()));
-        let store = BiologicalReceiptStore::open(&path);
-        let stream = MissionChoanocyteStream::new(vec![RawSignalPacket {
-            id: "signal".into(),
-            size_nm: 150.0,
-            semantic_density: 0.9,
-            content: "shared input".into(),
-            is_noise: false,
-        }]);
-        let mut first = GenosEcosystem::new("first-mission");
-        first.set_mission_id(uuid::Uuid::new_v4());
-        let first_receipt = first.filter_stream_and_persist(&stream, &store).unwrap();
-        let mut second = GenosEcosystem::new("second-mission");
-        second.set_mission_id(uuid::Uuid::new_v4());
-        let second_receipt = second.filter_stream_and_persist(&stream, &store).unwrap();
-
-        assert_ne!(first_receipt["missionId"], second_receipt["missionId"]);
-        assert_ne!(first_receipt["idempotency_key"], second_receipt["idempotency_key"]);
-        assert_eq!(store.read_all().unwrap().len(), 2);
-        let _ = std::fs::remove_file(path);
-    }
-
-    #[test]
-    fn stream_receipt_refuses_unbound_mission() {
-        let path = std::env::temp_dir().join(format!("genos-choano-{}.jsonl", uuid::Uuid::new_v4()));
-        let store = BiologicalReceiptStore::open(&path);
-        let mut ecosystem = GenosEcosystem::new("unbound-choanocyte");
-        let stream = MissionChoanocyteStream::new(vec![]);
-        assert!(ecosystem.filter_stream_and_persist(&stream, &store).is_err());
-        assert!(store.read_all().unwrap().is_empty());
-        let _ = std::fs::remove_file(path);
-    }
-
-    #[test]
-    fn stream_rejects_missing_or_duplicate_packet_identity_before_filtering() {
-        let path = std::env::temp_dir().join(format!("genos-choano-{}.jsonl", uuid::Uuid::new_v4()));
-        let store = BiologicalReceiptStore::open(&path);
-        let mut ecosystem = GenosEcosystem::new("invalid-choanocyte");
-        ecosystem.set_mission_id(uuid::Uuid::new_v4());
-        let duplicate = RawSignalPacket { id: "same".into(), size_nm: 120.0, semantic_density: 0.5, content: "x".into(), is_noise: false };
-        let stream = MissionChoanocyteStream::new(vec![duplicate.clone(), duplicate]);
-        assert!(ecosystem.filter_stream_and_persist(&stream, &store).is_err());
-        assert!(store.read_all().unwrap().is_empty());
-        let _ = std::fs::remove_file(path);
-    }
-
-    #[test]
-    fn typed_stream_rejects_caller_claimed_producer_identity() {
-        let forged = serde_json::json!({
-            "schema": STREAM_SCHEMA,
-            "producerId": "trusted-worker-42",
-            "packets": []
-        });
-        assert!(serde_json::from_value::<MissionChoanocyteStream>(forged).is_err());
-    }
-
-    #[test]
-    fn stream_receipt_fails_closed_when_runtime_producer_is_not_active() {
-        let path = std::env::temp_dir().join(format!("genos-choano-{}.jsonl", uuid::Uuid::new_v4()));
-        let store = BiologicalReceiptStore::open(&path);
-        let mut ecosystem = GenosEcosystem::new("inactive-producer");
-        ecosystem.set_mission_id(uuid::Uuid::new_v4());
-        ecosystem.orchestrator.orchestrator_id = uuid::Uuid::new_v4();
-        let stream = MissionChoanocyteStream::new(vec![]);
-        assert!(ecosystem.filter_stream_and_persist(&stream, &store).is_err());
-        assert!(store.read_all().unwrap().is_empty());
-        let _ = std::fs::remove_file(path);
-    }
-}
+#[path = "choanocyte_receipt_tests.rs"]
+mod tests;

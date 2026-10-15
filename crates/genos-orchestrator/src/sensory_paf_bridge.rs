@@ -3,6 +3,7 @@
 use crate::animal_sensory_runtime::SyntheticAnimalSignal;
 use crate::instincts::{SensorySourceRef, VerifiedSensoryStimulus};
 use crate::sensory_receipt_runtime::read_verified_synthetic_sensory_envelopes;
+use crate::sensory_authority::{stimulus_digest, SensoryProducerAuthority, SensoryProof};
 use crate::GenosEcosystem;
 use genos_biology::instinct::{Modality, SignStimulus};
 use genos_store::BiologicalReceiptStore;
@@ -32,6 +33,8 @@ pub fn prepare_next_synthetic_sensory_input(
     let next_tick = ecosystem.receipt_tick.checked_add(1).ok_or("mission tick overflow")?;
     reject_foreign_mission_sensory_receipts(store, mission_id)?;
     let verified = read_verified_synthetic_sensory_envelopes(store, mission_id)?;
+    let authority = sensory_authority_from_host()?;
+    validate_signed_sources(&verified, mission_id, authority.as_ref())?;
     let consumed = consumed_source_ids(store, ConsumptionContext { mission_id, next_tick, verified: &verified })?;
     let pending = verified.iter().find(|receipt| {
         receipt["event_id"].as_str().is_some_and(|event_id| !consumed.contains_key(event_id))
@@ -39,6 +42,59 @@ pub fn prepare_next_synthetic_sensory_input(
     let Some(receipt) = pending else { return Ok(false); };
     queue_verified_receipt(ecosystem, receipt)?;
     Ok(true)
+}
+
+fn sensory_authority_from_host() -> Result<Option<SensoryProducerAuthority>, String> {
+    match std::env::var("GENOS_SENSORY_TRUST_JSON") {
+        Ok(value) => SensoryProducerAuthority::from_bootstrap_json(&value).map(Some),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(error) => Err(format!("cannot read host sensory producer trust: {error}")),
+    }
+}
+
+fn validate_signed_sources(receipts: &[Value], mission_id: uuid::Uuid, authority: Option<&SensoryProducerAuthority>) -> Result<(), String> {
+    for receipt in receipts {
+        let source = &receipt["source_receipt"];
+        verify_authenticated_source(source, mission_id, authority)?;
+    }
+    Ok(())
+}
+
+fn verify_authenticated_source(source: &Value, mission_id: uuid::Uuid, authority: Option<&SensoryProducerAuthority>) -> Result<(), String> {
+    if source["source_authentication"] != "host_pinned_ed25519" {
+        return Err("PAF refuses a sensory receipt without authenticated producer provenance".into());
+    }
+    verify_signed_source(source, mission_id, authority)
+}
+
+fn verify_signed_source(source: &Value, mission_id: uuid::Uuid, authority: Option<&SensoryProducerAuthority>) -> Result<(), String> {
+    let trust = authority.ok_or("host sensory producer trust is not configured for PAF replay")?;
+    let (producer_id, tick, digest, signature) = signed_source_claims(source)?;
+    let key_digest = trust.verify(SensoryProof {
+        mission_id,
+        tick,
+        producer_id,
+        stimulus_sha256: &digest,
+        signature_hex: signature,
+    })?;
+    if source["producer_trust_key_sha256"].as_str() != Some(key_digest.as_str()) {
+        return Err("signed sensory source trust key fingerprint mismatch".into());
+    }
+    Ok(())
+}
+
+fn signed_source_claims(source: &Value) -> Result<(uuid::Uuid, u64, String, &str), String> {
+    let producer_id = source["producer_id"].as_str().ok_or("signed sensory source has no producer identity")?
+        .parse().map_err(|_| "signed sensory source producer identity is invalid")?;
+    let tick = source["source_tick"].as_u64().filter(|tick| *tick > 0)
+        .ok_or("signed sensory source tick is invalid")?;
+    let digest = stimulus_digest(producer_id, tick, &source["signal"])?;
+    if source["stimulus_sha256"].as_str() != Some(digest.as_str()) {
+        return Err("signed sensory stimulus digest mismatch".into());
+    }
+    let signature = source["producer_signature_hex"].as_str()
+        .ok_or("signed sensory source has no signature")?;
+    Ok((producer_id, tick, digest, signature))
 }
 
 fn queue_verified_receipt(ecosystem: &mut GenosEcosystem, receipt: &Value) -> Result<(), String> {

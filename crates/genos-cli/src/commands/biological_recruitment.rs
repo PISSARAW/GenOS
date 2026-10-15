@@ -1,5 +1,8 @@
 use crate::args::BiologicalCmd;
 use serde_json::json;
+use std::io::Read;
+
+const MAX_CHOANOCYTE_STREAM_BYTES: u64 = 2_097_152;
 
 pub(super) struct MissionRuntime<'a> {
     pub(super) command: &'a BiologicalCmd,
@@ -92,13 +95,32 @@ fn persist_choanocyte_stream(
     runtime: &MissionRuntime<'_>,
 ) -> Result<Option<serde_json::Value>, String> {
     let Some(path) = &runtime.command.choanocyte_stream else { return Ok(None); };
-    let bytes = std::fs::read(path)
-        .map_err(|error| format!("Choanocyte stream could not be read: {error}"))?;
+    let bytes = read_bounded_choanocyte_stream(path)?;
     let stream: genos_orchestrator::choanocyte_receipt::MissionChoanocyteStream =
         serde_json::from_slice(&bytes)
             .map_err(|error| format!("Choanocyte stream is invalid: {error}"))?;
-    ecosystem.filter_stream_and_persist(&stream, runtime.store).map(Some)
+    let authority = choanocyte_authority_from_host()?;
+    ecosystem.filter_stream_and_persist(&stream, runtime.store, &authority).map(Some)
         .map_err(|error| format!("Choanocyte stream receipt was not persisted: {error}"))
+}
+
+fn read_bounded_choanocyte_stream(path: &std::path::Path) -> Result<Vec<u8>, String> {
+    let file = std::fs::File::open(path)
+        .map_err(|error| format!("Choanocyte stream could not be read: {error}"))?;
+    let mut bytes = Vec::new();
+    file.take(MAX_CHOANOCYTE_STREAM_BYTES + 1).read_to_end(&mut bytes)
+        .map_err(|error| format!("Choanocyte stream could not be read: {error}"))?;
+    if bytes.len() as u64 > MAX_CHOANOCYTE_STREAM_BYTES {
+        return Err("Choanocyte stream exceeds the 2097152 byte limit".into());
+    }
+    Ok(bytes)
+}
+
+fn choanocyte_authority_from_host(
+) -> Result<genos_orchestrator::choanocyte_authority::ChoanocyteProducerAuthority, String> {
+    let trust = std::env::var("GENOS_CHOANOCYTE_TRUST_JSON")
+        .map_err(|_| "host Choanocyte producer trust is not configured".to_string())?;
+    genos_orchestrator::choanocyte_authority::ChoanocyteProducerAuthority::from_bootstrap_json(&trust)
 }
 
 fn run_recruitment(
@@ -160,4 +182,19 @@ fn validate_recruitment_spec(spec: &RecruitmentSpec) -> Result<(), String> {
         return Err("recruitment budget and candidate_cost must be finite and non-negative".into());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_bounded_choanocyte_stream;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn choanocyte_stream_reader_rejects_oversized_files() {
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let path = std::env::temp_dir().join(format!("genos-choanocyte-oversized-{nonce}.json"));
+        std::fs::write(&path, vec![b'x'; 2_097_153]).unwrap();
+        assert!(read_bounded_choanocyte_stream(&path).unwrap_err().contains("2097152 byte limit"));
+        let _ = std::fs::remove_file(path);
+    }
 }
