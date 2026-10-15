@@ -19,6 +19,21 @@ function cappedValue(requested, ceiling) {
   return Math.min(requested, ceiling);
 }
 
+function applyCpuLimit(input) {
+  const { mission, budget, bounded, resources } = input;
+  if (!Number.isFinite(resources.maxCpuMs)) return;
+  const requested = Number(mission.executionBudget?.cpuMs ?? budget.cpuMs);
+  bounded.cpuMs = Number.isFinite(requested) && requested >= 0
+    ? Math.min(requested, resources.maxCpuMs) : resources.maxCpuMs;
+}
+
+function persistRuntimeBudget(mission, bounded) {
+  const executionBudget = { ...(mission.executionBudget || {}), tokens: bounded.tokens,
+    latencyMs: bounded.latencyMs };
+  if (Number.isFinite(bounded.cpuMs)) executionBudget.cpuMs = bounded.cpuMs;
+  mission.executionBudget = executionBudget;
+}
+
 function applyWorkerRuntimeLimits(mission, budget) {
   const resources = mission.workerContract?.resources;
   if (!resources) return budget;
@@ -34,7 +49,8 @@ function applyWorkerRuntimeLimits(mission, budget) {
     bounded.latencyMs = cappedValue(budget.latencyMs, resources.maxTimeMs);
     mission.timeoutMs = cappedValue(mission.timeoutMs, resources.maxTimeMs);
   }
-  mission.executionBudget = { ...(mission.executionBudget || {}), tokens: bounded.tokens, latencyMs: bounded.latencyMs };
+  applyCpuLimit({ mission, budget, bounded, resources });
+  persistRuntimeBudget(mission, bounded);
   return bounded;
 }
 

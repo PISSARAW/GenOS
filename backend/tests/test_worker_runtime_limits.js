@@ -6,9 +6,17 @@ const { assertWorkerExecutorAvailable, applyWorkerRuntimeLimits } = require('../
 
 const bounded = { workerKind: 'bounded_worker', workerContract: buildWorkerContract('bounded_worker'), timeoutMs: 900000 };
 const budget = applyWorkerRuntimeLimits(bounded, { tokens: 20000, latencyMs: 900000 });
-assert.deepEqual(budget, { tokens: 8000, latencyMs: 540000 });
+assert.deepEqual(budget, { tokens: 8000, latencyMs: 540000, cpuMs: 60000 });
 assert.equal(bounded.timeoutMs, 540000);
 assert.equal(bounded.executionBudget.tokens, 8000);
+assert.equal(bounded.executionBudget.cpuMs, 60000);
+
+const smallerCpuBudget = { workerKind: 'bounded_worker', workerContract: buildWorkerContract('bounded_worker'),
+  executionBudget: { cpuMs: 1200 } };
+assert.equal(applyWorkerRuntimeLimits(smallerCpuBudget, { tokens: 8000, latencyMs: 300000 }).cpuMs, 1200);
+const zeroCpuBudget = { workerKind: 'bounded_worker', workerContract: buildWorkerContract('bounded_worker'),
+  executionBudget: { cpuMs: 0 } };
+assert.equal(applyWorkerRuntimeLimits(zeroCpuBudget, { tokens: 8000, latencyMs: 300000 }).cpuMs, 0);
 
 const daemon = { workerKind: 'resident_daemon', workerContract: buildWorkerContract('resident_daemon'), timeoutMs: 3600000 };
 applyWorkerRuntimeLimits(daemon, { tokens: 8000, latencyMs: 3600000 });

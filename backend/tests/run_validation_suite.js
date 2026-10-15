@@ -184,6 +184,7 @@ const suites = {
     ['multi-mission worker faults and recovery isolation', 'test_worker_fault_campaign.js'],
     ['worker contract enforcement', 'test_worker_contract_enforcement.js'],
     ['worker runtime limits', 'test_worker_runtime_limits.js'],
+    ['worker process CPU budget enforcement', 'test_worker_cpu_budget.js'],
     ['procedural and formal execution', 'test_deterministic_worker_runners.js'],
     ['native verifier', 'test_deterministic_worker_verifier.js'],
     ['native red worker', 'test_deterministic_worker_red.js'],
