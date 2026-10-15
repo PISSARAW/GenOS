@@ -288,7 +288,12 @@ async function superviseMission(options) {
     ? await require('./mcpActorCapability').issue(db, { agentId,
       runId: executionRun.id, workspaceRoot }) : null;
   let child;
-  try { child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
+  try {
+    const cpuResources = normalizedMission.workerContract?.resources;
+    if (process.platform === 'win32' && cpuResources && Object.hasOwn(cpuResources, 'maxCpuMs')) {
+      await require('./agents/workerProcessCpu').prepareProcessCpuMeter();
+    }
+    child = await spawnRuntimeWithRetry({ cmd: spawnCmd, args: spawnArgs }, {
     cwd: workspaceRoot,
     env: { ...buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
       ...(normalizedMission.modelBudgetScope && mcpDbPath && isLocalRuntime(resolvedExecutable) ? { GENOS_DB_PATH: mcpDbPath } : {}),
@@ -296,7 +301,8 @@ async function superviseMission(options) {
     stdio: isLocalRuntime(resolvedExecutable) || isDirectFileRuntime(resolvedExecutable)
       ? ['pipe', 'pipe', 'pipe', 'ipc'] : ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32'
-  }); } catch (error) {
+    });
+  } catch (error) {
     if (bodyActionId) await require('./runtimeProcessReceipt').spawnFailed({ db, agentId,
       runId: executionRun.id, actionId: bodyActionId, code: error.code });
     await require('./runtimeFilesystemReceipt').fail(filesystemReceipt, error.code || 'SPAWN_FAILED');

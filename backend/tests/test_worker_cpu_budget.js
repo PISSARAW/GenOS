@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
-const { processCpuMs } = require('../src/services/agents/workerProcessCpu');
+const { processCpuMs, prepareProcessCpuMeter } = require('../src/services/agents/workerProcessCpu');
 const { startWorkerCpuBudget, runtimeStopped } = require('../src/services/agents/workerRuntimeBudgetService');
 const { terminateChild } = require('../src/services/processTermination');
 
@@ -15,7 +15,7 @@ async function waitForClose(child, timeoutMs) {
 }
 
 async function verifyCpuMeter() {
-  const usage = await processCpuMs(process.pid);
+  const usage = await processCpuMs(process.pid, process.platform, {});
   assert.ok(Number.isFinite(usage) && usage >= 0, `invalid process CPU value: ${usage}`);
   assert.equal(runtimeStopped({ pid: process.pid, killed: false, exitCode: null, signalCode: null }), false);
   assert.equal(runtimeStopped({ pid: 2147483647, killed: false, exitCode: null, signalCode: null }), true);
@@ -49,20 +49,21 @@ async function verifyCpuLimitStopsDescendantLoad() {
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (value) => { descendantPid = Number(value.trim().split(/\r?\n/).at(-1)); });
   let halt;
-  const context = { child, normalizedMission: { workerContract: { resources: { maxCpuMs: 100 } } },
+  const context = { child, normalizedMission: { workerContract: { resources: { maxCpuMs: 1000 } } },
     haltRuntime: (...args) => { halt = args.slice(1); terminateChild(child, process.platform !== 'win32'); } };
   startWorkerCpuBudget(context);
   await waitForClose(child, 10000);
   assert.equal(halt?.[0], 'worker_cpu_budget');
   assert.equal(halt?.[1], 'worker_cpu_budget_exceeded');
+  assert.ok(halt[3].observedCpuMs >= 1000, 'descendant CPU must count toward the worker budget');
   assert.equal(pidAlive(descendantPid), false, 'CPU limit termination must include worker descendants');
 }
 
 async function main() {
+  await prepareProcessCpuMeter();
   await verifyCpuMeter();
   await verifyCpuLimitStopsBlockedChild();
-  if (process.platform === 'linux') await verifyCpuLimitStopsDescendantLoad();
-  else console.log('Descendant CPU accounting is Linux-only; Windows monitors the runtime PID.');
+  await verifyCpuLimitStopsDescendantLoad();
   console.log('Worker CPU usage is measured and CPU-limited workers are terminated: PASS');
 }
 
