@@ -16,8 +16,12 @@ function frame(buffer) {
 }
 
 function encodeMission(mission) {
+  const coordinationPolicy = mission.coordinationPolicy || mission.coordination_policy;
   const message = Mission.create({
     ...mission,
+    coordinationPolicyJson: coordinationPolicy
+      ? JSON.stringify(coordinationPolicy)
+      : mission.coordinationPolicyJson,
     promptCapsule: mission.prompt
       ? encodePromptCapsule({ prompt: mission.prompt, sourceAgentId: mission.agentId, recipientAgentId: mission.orchestratorAgentId })
       : mission.promptCapsule
@@ -45,6 +49,9 @@ function decodeMission(buffer) {
   if (buffer.length < size + 4) throw new Error('Mission payload is incomplete');
   const message = Mission.decode(buffer.subarray(4, size + 4));
   const result = Mission.toObject(message, { defaults: false, bytes: Buffer });
+  if (result.coordinationPolicyJson) {
+    result.coordinationPolicy = JSON.parse(result.coordinationPolicyJson);
+  }
   if (!result.prompt && result.promptCapsule) {
     result.prompt = decodePromptCapsule(result.promptCapsule).prompt;
   }

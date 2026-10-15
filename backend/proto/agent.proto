@@ -57,6 +57,9 @@ message AgentMission {
   string model_budget_scope_json = 39;
   // Mission identity binds pre-dispatch GenOS MCP receipts to runtime invariants.
   string mission_id = 40;
+  // Team topology and coordination rules must survive the subprocess boundary.
+  string organization = 41;
+  string coordination_policy_json = 42;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }
