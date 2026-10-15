@@ -42,6 +42,10 @@
           "family": { "enum": ["reference", "topology", "morphogenesis", "negative-control"] },
           "mechanism": { "type": "string", "minLength": 1 },
           "mechanismProbe": { "type": ["string", "null"] },
+          "mechanismProbeScope": {
+            "enum": ["component-smoke-only", "session-mechanism-observation", "mission-outcome"]
+          },
+          "mechanismProbeVerificationEligible": { "type": "boolean" },
           "oracle": {
             "type": "object",
             "additionalProperties": false,

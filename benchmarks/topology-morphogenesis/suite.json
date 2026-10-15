@@ -28,6 +28,8 @@
       "family": "topology",
       "mechanism": "Trois mondes isolés, comparaison finale et décision de promotion.",
       "mechanismProbe": "trinity-component-probe",
+      "mechanismProbeScope": "component-smoke-only",
+      "mechanismProbeVerificationEligible": false,
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Supprimer l’isolation ou la comparaison finale."
@@ -38,6 +40,8 @@
       "family": "topology",
       "mechanism": "Dépendances de travail et intégration des artefacts des spécialistes.",
       "mechanismProbe": "a-team-composition-probe",
+      "mechanismProbeScope": "component-smoke-only",
+      "mechanismProbeVerificationEligible": false,
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Remplacer le DAG par une équipe générique sans dépendances."
@@ -48,6 +52,8 @@
       "family": "topology",
       "mechanism": "Allocation, foraging et réallocation après observation d’état.",
       "mechanismProbe": "biome-session-probe",
+      "mechanismProbeScope": "session-mechanism-observation",
+      "mechanismProbeVerificationEligible": false,
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Figer l’allocation et désactiver la réallocation."
@@ -58,6 +64,8 @@
       "family": "topology",
       "mechanism": "Contributions distinctes, quorum, désaccord et abstention calibrée.",
       "mechanismProbe": "biocenose-oracle-contract-probe",
+      "mechanismProbeScope": "component-smoke-only",
+      "mechanismProbeVerificationEligible": false,
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Désactiver le quorum ou corréler les contributions."
@@ -68,6 +76,8 @@
       "family": "topology",
       "mechanism": "Contribution symbiotique persistée et veto lié à une violation vérifiable.",
       "mechanismProbe": "holobionte-known-threat-veto-probe",
+      "mechanismProbeScope": "component-smoke-only",
+      "mechanismProbeVerificationEligible": false,
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Désactiver le symbiote ou le contrôle immunitaire testé."
@@ -78,6 +88,8 @@
       "family": "topology",
       "mechanism": "Mises à jour concurrentes lues depuis un état partagé convergent.",
       "mechanismProbe": "syncytium-session-probe",
+      "mechanismProbeScope": "session-mechanism-observation",
+      "mechanismProbeVerificationEligible": false,
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Remplacer l’état partagé par des états locaux isolés."
@@ -88,6 +100,8 @@
       "family": "topology",
       "mechanism": "Gap détecté, capacité instanciée et résultat consommé sur le nouveau chemin.",
       "mechanismProbe": "rhizome-session-probe",
+      "mechanismProbeScope": "session-mechanism-observation",
+      "mechanismProbeVerificationEligible": false,
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Retirer la croissance du graphe ou son exécuteur."
@@ -98,6 +112,8 @@
       "family": "topology",
       "mechanism": "Perte de capacité, migration ou recolonisation, puis capacité restaurée.",
       "mechanismProbe": "metapopulation-extinction-contract-probe",
+      "mechanismProbeScope": "component-smoke-only",
+      "mechanismProbeVerificationEligible": false,
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Empêcher la migration ou garder la population figée."

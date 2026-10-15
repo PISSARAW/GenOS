@@ -15,9 +15,14 @@ function pendingAdapters() {
   return plan.conditions.filter((condition) => condition.adapter === 'pending').map((condition) => condition.id);
 }
 
-function missingTopologyProbes() {
-  return suite.tasks.filter((task) => task.family === 'topology' && task.mechanismProbe?.startsWith('not-instrumented:'))
+function missingTopologyProbes(tasks = suite.tasks) {
+  return tasks.filter((task) => task.family === 'topology' && !topologyProbeAdmissible(task))
     .map((task) => task.id);
+}
+
+function topologyProbeAdmissible(task) {
+  return Boolean(task.mechanismProbe && task.mechanismProbeScope === 'mission-outcome'
+    && task.mechanismProbeVerificationEligible === true && task.oracle?.status === 'independent');
 }
 
 function unassignedHypotheses() {
@@ -57,4 +62,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildReadiness };
+module.exports = { buildReadiness, missingTopologyProbes, topologyProbeAdmissible };

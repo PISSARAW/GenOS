@@ -60,7 +60,7 @@
             "required": ["probeId", "status", "passed", "receiptFile", "receiptSha256"],
             "properties": {
               "probeId": { "type": ["string", "null"] },
-              "status": { "enum": ["verified", "failed", "missing", "pending", "not-instrumented", "not-applicable"] },
+              "status": { "enum": ["verified", "failed", "missing", "pending", "diagnostic_only", "not-instrumented", "not-applicable"] },
               "passed": { "type": ["boolean", "null"] },
               "receiptFile": { "type": ["string", "null"] },
               "receiptSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }
