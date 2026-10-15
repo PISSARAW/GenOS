@@ -9,6 +9,7 @@ const leasePolicy = require('../src/services/toolLeasePolicy');
 const { classifyConscienceEvent, applyDomainStateFromEvent } = require('../src/services/agentProcessEventPipeline');
 const { buildWorkerArtifact, inspectWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
 const { workerComplianceScenario } = require('./fixtures/workerComplianceScenarios');
+const strategyProgress = require('../src/services/strategyExecutionProgress');
 
 const CONTENT = {
   scout_observation: { observations: [{ observation: 'found', sourceRefs: ['ref'], confidence: 1, uncertainties: [] }] },
@@ -39,6 +40,8 @@ assert.equal(workerComplianceScenario('formal_worker').receipt.fixtureOnly, true
 assert.equal(workerComplianceScenario('formal_worker').receipt.result, undefined);
 assert.equal(workerComplianceScenario('forensic_worker').receipt.events[1].ready, false);
 assert.equal(workerComplianceScenario('medical_worker').receipt.realPatient, false);
+assert.equal(strategyProgress.completionPromotionApplies('worker'), false);
+assert.equal(strategyProgress.completionPromotionApplies('orchestrator'), true);
 const coordinatedForensic = workerKinds.buildWorkerContract('forensic_worker', {
   communicationRequired: true
 });

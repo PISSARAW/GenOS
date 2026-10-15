@@ -103,10 +103,16 @@ function goalClosureReason(contract, outcome) {
 
 async function completionDecision(db, input) {
   if (!input.flags.completed || input.initialReason) return { verification: null, reason: input.initialReason };
-  const checked = await nativeCompletionGate(db, input);
-  const reason = checked.reason || await selfModelCompletionBlock(db, input.row.agent_id,
-    { ...input.event.payload, ...(checked.verification?.gateContext || {}) });
+  const agent = await db.get('SELECT execution_mode FROM agents WHERE id = ?', input.row.agent_id);
+  const workerRun = !completionPromotionApplies(agent?.execution_mode);
+  const checked = await nativeCompletionGate(db, { ...input, workerRun });
+  const reason = checked.reason || (workerRun ? null : await selfModelCompletionBlock(db,
+    input.row.agent_id, { ...input.event.payload, ...(checked.verification?.gateContext || {}) }));
   return { verification: checked.verification, reason };
+}
+
+function completionPromotionApplies(executionMode) {
+  return executionMode !== 'worker';
 }
 
 function missionClosureReason(outcome) {
@@ -117,8 +123,9 @@ function missionClosureReason(outcome) {
 async function nativeCompletionGate(db, input) {
   try {
     const verification = await require('./epistemic/nativeOracleGate').context(db, input);
-    return { verification, reason: promotionGate.completionGuardrail(input.contract, input.event.payload,
-      { agentId: input.row.agent_id, gateContext: verification?.gateContext }) };
+    const reason = input.workerRun ? null : promotionGate.completionGuardrail(input.contract,
+      input.event.payload, { agentId: input.row.agent_id, gateContext: verification?.gateContext });
+    return { verification, reason };
   } catch (failure) { return { verification: null, reason: failure.code || failure.message }; }
 }
 
@@ -324,5 +331,6 @@ async function recordAuthorizedEvent(db, agentId, event) {
 }
 
 module.exports = {
-  recordExecutionEvent
+  recordExecutionEvent,
+  completionPromotionApplies
 };
