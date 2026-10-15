@@ -1,5 +1,10 @@
 # Documentation GenOS
 
+- [ADR 0527 — Rotation de confiance des clés de fossilisation](adr/0527-rotation-confiance-cles-fossiles.md) — chevauchement des clés approuvées, retrait sans réécriture des attestations et vérification ciblée du corpus.
+- [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.
+- [ADR 0531 — Recevoir les entrées sensorielles et neuro-gliales dans le backend](adr/0531-entrees-sensorielles-et-neurogliales-backend.md) — routes HTTP tenant-scopées, signatures producteurs, persistance sensorielle immuable et limites d'autorité CLI.
+- [ADR 0533 — Raccorder la boucle causale aux reçus de stratégie](adr/0533-raccorder-la-boucle-causale-aux-recus-strategie.md) — apprentissage causal réservé aux runs vérifiés et aux preuves de qualité signées, liées au run et au tenant.
+
 - [Comparaison locale entre un agent Codex et un worker GenOS](06-benchmarks/comparaison-agent-codex-worker-genos-2026-10-15.md) — même mission MCP, résultat de sécurité, métriques observées et distinction entre verdict et promotion.
 
 - [Qualification de release](06-qualite-preuves/qualification-release.md) — portes automatiques, rapport reproductible et écarts bloquant l'exploitabilité complète.

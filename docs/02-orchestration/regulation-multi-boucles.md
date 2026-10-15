@@ -166,9 +166,18 @@ Invariants tenus :
   Ce lien est vérifié dans
   [backend/tests/test_causal_loop_quality_evidence.js](../../backend/tests/test_causal_loop_quality_evidence.js).
 
-`processActionReceipt` n'a pas d'appelant de production identifié dans l'état
-du dépôt revu le 2026-10-15 ; l'exécution de cette boucle après chaque action
-reste à raccorder au runtime.
+Le runtime des runs de stratégie appelle le pont causal après persistance du reçu
+biologique terminal. Le pont ne transmet un résultat que si le run est terminé,
+le reçu biologique et son budget sont vérifiés, une référence d'oracle natif est
+présente et `qualityEvidence` est signée avec l'ID du run, l'agent et le tenant.
+Les autres événements produisent un refus explicite et ne déclenchent aucun
+apprentissage causal. Le score de qualité doit provenir d'un vérificateur de
+confiance; la réussite du transport ou du run seule ne suffit pas.
+
+Ce raccord est conditionnel : les événements terminaux actuels ne produisent pas
+tous `qualityEvidence`. Il rend le contrat utilisable par le runtime lorsqu'une
+source indépendante le fournit, mais ne prétend pas fabriquer un score à partir
+de la seule attestation native.
 
 Non-objectifs : pas de persistance Rust↔Node temps réel au-delà du snapshot
 versionné, pas d'ajustement automatique des paramètres de boucles entre missions.

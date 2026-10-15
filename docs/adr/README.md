@@ -653,10 +653,20 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0519](0519-portee-origine-du-foraging.md) | Portée d'origine et provenance du foraging | Accepté | 2026-10-15 | foraging web, reçus d'observation |
 | [0520](0520-recevoir-la-verification-avant-la-completion-ontogenesis.md) | Produire la preuve indépendante avant la completion Ontogenesis | Accepté | 2026-10-15 | Ontogenesis, preuves d'exécution, promotion |
 | [0521](0521-attester-la-provenance-des-fossiles.md) | Attester la provenance des fossiles | Accepté | 2026-10-15 | Fossilisation, provenance, confiance backend/CLI |
+| [0522a](0522-bootstrap-mcp-coordination-workers.md) | Amorcer la coordination MCP des workers | Accepté. | -- | -- |
+| [0522b](0522-raccorder-morphogenese-au-dispatch-principal.md) | Raccorder la morphogenèse au dispatch principal | Accepté | 2026-10-15 | Orchestration, morphogenèse, topologies |
 | [0523a](0523-lier-la-calibration-brier-a-un-recu-de-resolution.md) | Lier la calibration Brier à un reçu de résolution | Accepté | 2026-10-15 | Biocénose, calibration, autorité des outcomes |
+| [0523b](0523-unifier-episode-cellule-habitat-metabolisme-et-membrane.md) | Unifier épisode, cellule, habitat, métabolisme et membrane | Accepté | 2026-10-15 | orchestration, workers, sécurité et observabilité |
 | [0524](0524-preserver-provenance-consolidation-memoire.md) | Préserver la provenance lors de la consolidation mémoire | Accepté | 2026-10-15 | Mémoire, consolidation, preuves, provenance |
+| [0525a](0525-authentifier-la-provenance-du-foraging.md) | Authentifier la provenance du foraging | Accepté pour les reçus Foraging MCP | 2026-10-15 | foraging web, provenance des observations |
 | [0525b](0525-relier-preuve-causale-a-memoire.md) | Relier la preuve causale à la mémoire consolidée | Accepté | 2026-10-15 | Apprentissage causal, mémoire, preuve, provenance |
-| [0525](0525-authentifier-la-provenance-du-foraging.md) | Authentifier la provenance du foraging | Accepté pour les reçus Foraging MCP | 2026-10-15 | foraging web, provenance des observations |
+| [0526](0526-reproduction-reproductible-par-graine-campagne.md) | Reproduction reproductible par graine de campagne | Accepté | 2026-10-15 | reproduction simulée, identité des filles, persistance et reprise |
+| [0527](0527-rotation-confiance-cles-fossiles.md) | Rotation de confiance des clés de fossilisation | Accepté | 2026-10-15 | Fossilisation, provenance, confiance backend/CLI |
+| [0528](0528-verifier-revocation-clinique-cli.md) | Vérifier la révocation clinique avant l'application Rust | Accepté | 2026-10-15 | Autorisation clinique, CLI Rust, registre backend |
+| [0529](0529-capacite-signee-ponts-metaboliques-cli.md) | Authentifier les ponts métaboliques vers le CLI Rust | Accepté pour le pont local backend/CLI | 2026-10-15 | Autorité d'exécution, backend, CLI Rust |
+| [0531](0531-entrees-sensorielles-et-neurogliales-backend.md) | Recevoir les entrées sensorielles et neuro-gliales dans le backend | Accepté pour les parcours HTTP locaux | 2026-10-15 | Biomimétisme, provenance, backend, CLI Rust |
+| [0532](0532-cicatrisation-episodes-orphelins.md) | Cicatriser les épisodes orphelins sans inventer de succès | Accepté pour le runtime backend local | 2026-10-15 | orchestration, reprise après crash, provenance |
+| [0533](0533-raccorder-la-boucle-causale-aux-recus-strategie.md) | Raccorder la boucle causale aux reçus de stratégie | Accepté pour les runs workers munis d'une preuve indépendante de qualité | 2026-10-15 | Exécution, épistémologie, apprentissage causal |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

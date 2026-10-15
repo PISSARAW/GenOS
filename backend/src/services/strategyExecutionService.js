@@ -109,6 +109,16 @@ async function observeCompletedWorkerRoute(db, saved) {
   }
 }
 
+async function observeCausalOutcome(db, saved, event) {
+  try {
+    return await require('./causalLoopExecutionBridge').observe(db, {
+      run: saved.run, biologicalReceipt: saved.biologicalReceipt, event
+    });
+  } catch (error) {
+    return { status: 'error', code: error.code || 'CAUSAL_LOOP_OBSERVATION_FAILED' };
+  }
+}
+
 async function recordExecutionEvent(db, agentId, event) {
   const saved = await biologicalWorkers.record(db, { agentId, event,
     apply: () => progress.recordExecutionEvent(db, agentId, event) });
@@ -120,11 +130,12 @@ async function recordExecutionEvent(db, agentId, event) {
     await sustainReverberation(db, agentId, event);
   }
   const routeLearning = await observeCompletedWorkerRoute(db, saved);
+  const causalLearning = await observeCausalOutcome(db, saved, event);
   const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival,
     authorityRefusal: saved.authorityRefusal || null,
     duplicate: saved.duplicate === true, biologicalReceipt: saved.biologicalReceipt || null,
-    routeLearning };
+    routeLearning, causalLearning };
 }
 
 async function observeSurvivalEvent({ db, agentId, event, run }) {
