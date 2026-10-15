@@ -55,7 +55,8 @@ async function stopAndPause(db, project) {
 
 async function missionSettlement(db) {
   const completion = require('../src/services/ontogenesis/missionCompletion');
-  assert.deepStrictEqual(completion.verifyEvidenceContract({ requiresEvidenceBeforePromotion: true }, { context: { evidence: [] } }), { allowed: false, reason: 'evidence-independante-requise' });
+  assert.deepStrictEqual(completion.verifyEvidenceContract({ requiresEvidenceBeforePromotion: true }, { context: { evidence: ['agent_completed'] } }), { allowed: false, reason: 'verifier-receipt-independant-requis' });
+  assert.strictEqual(completion.verifyEvidenceContract({ requiresEvidenceBeforePromotion: true }, { context: { evidence: ['evidence_report'], flags: { verifierReceiptPresent: true } } }), null);
   assert.strictEqual(completion.verifyEvidenceContract({ requiresEvidenceBeforePromotion: false }, { context: { evidence: [] } }), null);
   assert.strictEqual(completion.settled([]), false);
   assert.strictEqual(completion.settled([{ status: 'completed', runtime_pid: 42 }]), false);

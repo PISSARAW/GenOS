@@ -88,6 +88,13 @@ maintenant du dernier état durable `homeostasis_satisfied`; l'événement de
 complétion seul ne la crée pas. `test_mission_evidence.js` couvre le parcours
 collecteur et distingue l'état persisté de la déclaration en télémétrie.
 
+Le gate de fin de mission disait exiger une évidence indépendante mais acceptait
+auparavant toute liste non vide, telle que `agent_completed`. Il demande maintenant
+le flag `verifierReceiptPresent` fourni par le collecteur. Comme aucun producteur
+de reçu vérificateur n'est raccordé, les missions qui requièrent cette preuve
+restent bloquées jusqu'à l'ajout d'un tel producteur; le test de régression couvre
+le refus d'un type d'évidence ordinaire et l'acceptation du flag vérifié.
+
 Les gates globaux ont été exécutés avant le correctif ADR 0508 : `npm test` a terminé
 avec code 0 (biologie, workspace workers, backend, garage et P1 V3) et
 `cargo test --workspace` avec code 0, après compilation dans un répertoire cible

@@ -43,9 +43,9 @@ async function completionGate(db, request, agents) {
 
 function verifyEvidenceContract(request, context) {
   if (request.requiresEvidenceBeforePromotion === false) return null;
-  const evidence = context.context && context.context.evidence;
-  if (!Array.isArray(evidence) || evidence.length === 0) {
-    return { allowed: false, reason: 'evidence-independante-requise' };
+  const verifierReceiptPresent = context.context?.flags?.verifierReceiptPresent === true;
+  if (!verifierReceiptPresent) {
+    return { allowed: false, reason: 'verifier-receipt-independant-requis' };
   }
   return null;
 }
