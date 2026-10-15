@@ -176,6 +176,7 @@ async function qualify(root) {
     const source = await createWorkspace(db, root, '42\n');
     const mission = await runMission(db, source, 'mission-three-worker-promotion');
     workers.push(...mission.workers);
+    await require('../src/services/garageRuntimeService').stop(db);
     await assertEscalatedComparison(db, mission);
     await telemetry.flush(10000);
     await database.closeDatabase();
@@ -185,6 +186,7 @@ async function qualify(root) {
     assert.equal(JSON.parse(replay.decision_json).outcome, 'ESCALATE_EXPERIMENT');
   } finally {
     await telemetry.flush(10000);
+    await require('../src/services/garageRuntimeService').stop(db);
     await database.closeDatabase();
     for (const worker of workers) await require('../src/services/agentWorkspaceLifecycleService')
       .cleanupWorkspace(worker.workspaceRoot).catch(() => {});
