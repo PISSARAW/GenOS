@@ -1,4 +1,16 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('120-habitat-revisions', 'Persist immutable executable habitat revisions and mission bindings', async (db) => {
+    await require('./migrateHabitatRevisions').migrateHabitatRevisions(db);
+  }),
+  createMigrationRunner('121-mission-episodes', 'Persist scoped mission episodes and correlated cell threads', async (db) => {
+    await require('./migrateMissionEpisodes').migrateMissionEpisodes(db);
+  }),
+  createMigrationRunner('122-metabolic-ledger', 'Persist append-only provenance-aware metabolic measurements', async (db) => {
+    await require('./migrateMetabolicLedger').migrateMetabolicLedger(db);
+  }),
+  createMigrationRunner('123-tool-permission-membrane', 'Persist scoped tool policies and append-only decision receipts', async (db) => {
+    await require('./migrateToolPermissionMembrane').migrateToolPermissionMembrane(db);
+  }),
   createMigrationRunner('120-release-force-promotion-receipts', 'Persist append-only authority receipts for forced production promotion', async (db) => {
     await require('./migrateReleaseForcePromotionReceipts').migrateReleaseForcePromotionReceipts(db);
   }),
