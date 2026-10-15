@@ -7,6 +7,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { fileURLToPath } = require('url');
+const { resolveWorkspaceRoot, resolveContainedPathNoSymlinkSync } = require('./pathSafety');
 const { BrowserPuppeteerAdapter } = require('./browserPuppeteerAdapter');
 const MAX_HTML_LENGTH = 2 * 1024 * 1024;
 
@@ -63,10 +65,28 @@ function escapeCssString(value) {
   return String(value).replace(/[\u0000-\u001f\u007f\\"]/g, character => `\\${character.codePointAt(0).toString(16)} `);
 }
 
+function resolveWorkspaceFile(url, workspaceRoot) {
+  const root = resolveWorkspaceRoot(workspaceRoot, 'Browser Scout workspace');
+  const target = path.resolve(fileURLToPath(new URL(url)));
+  const relative = path.relative(root, target);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('Browser Scout file URL must remain inside its workspace.');
+  }
+  return resolveContainedPathNoSymlinkSync(root, relative, 'Browser Scout file');
+}
+
+function readWorkspaceHtml(url, workspaceRoot) {
+  const filePath = resolveWorkspaceFile(url, workspaceRoot);
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile() || stat.size > MAX_HTML_LENGTH) throw new Error('Browser Scout file exceeds the supported size.');
+  return fs.readFileSync(filePath, 'utf8');
+}
+
 class BrowserScoutService {
   constructor(options = {}) {
     this.sessions = new Map();
     this.browserAdapter = options.browserAdapter || new BrowserPuppeteerAdapter({ artifactsDir: options.screenshotDir });
+    this.workspaceRoot = options.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || process.cwd();
     this.downloadDir = options.downloadDir || path.resolve(process.cwd(), '.genos', 'workspace', 'downloads');
     try {
       if (!fs.existsSync(this.downloadDir)) fs.mkdirSync(this.downloadDir, { recursive: true });
@@ -228,9 +248,11 @@ class BrowserScoutService {
     let statusCode = 200;
 
     if (!html && url.startsWith('file://')) {
-      const fPath = url.replace(/^file:\/\//, '');
-      if (fs.existsSync(fPath)) html = fs.readFileSync(fPath, 'utf8');
-      else return { success: false, error: `File not found: ${fPath}` };
+      try {
+        html = readWorkspaceHtml(url, this.workspaceRoot);
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     } else if (!html && typeof fetch !== 'undefined' && (url.startsWith('http://') || url.startsWith('https://'))) {
       try {
         const res = await fetch(url, { headers: { 'User-Agent': 'GenOS-Scout/3.0' }, signal: navigationSignal(session.config.timeoutMs, options.signal) });
