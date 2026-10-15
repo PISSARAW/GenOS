@@ -31,9 +31,11 @@ sélecteur compare ensuite la borne basse du gain à la borne haute du coût mar
 Les actions de réduction des communications et de réallocation restent indisponibles
 tant qu'aucun candidat runtime correspondant n'existe. L'intégration actuelle ne
 produit qu'une classe de remplacement de cohorte topologique; son calibrateur est
-calculé à partir des échantillons vérifiés transmis à la compilation. Aucun corpus
-ou résultat de campagne n'est présumé, et l'exécution demeure soumise aux autres
-portes d'admission.
+calculé à partir des échantillons vérifiés transmis à la compilation. La continuation
+peut recevoir ces lignes via un adaptateur `loadVerifiedOutcomes` borné à 120 lignes
+par mission; le stockage backend par défaut n'existe pas encore. Un adaptateur absent,
+en erreur ou hors limite entraîne une abstention. Aucun corpus ou résultat de campagne
+n'est présumé, et l'exécution demeure soumise aux autres portes d'admission.
 
 ## Conséquences
 

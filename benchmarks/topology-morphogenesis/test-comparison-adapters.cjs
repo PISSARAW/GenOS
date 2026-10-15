@@ -38,5 +38,5 @@ test('confirmatory dataset refuses bundled pilot tasks and missing separated inv
   const task = { id: 'holdout-1', family: 'new-family', comparisonEligible: true,
     prompt: 'independent question', oracle: { type: 'structured' } };
   assert.throws(() => validateExternalDataset({ datasetId: 'external', source: 'registry',
-    tasks: [task], split: 'holdout' }, 'confirmatory'), /training inventories/);
+    tasks: [task], split: 'holdout' }, 'confirmatory'), /inventories/);
 });

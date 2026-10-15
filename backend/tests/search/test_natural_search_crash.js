@@ -19,8 +19,17 @@ async function main() {
     const worker = spawnSync(process.execPath, [path.join(__dirname, 'naturalSearchCrashWorker.js'), filename], { encoding: 'utf8' });
     assert.equal(worker.status, 17, worker.stderr);
     db = await openFixture(filename);
+    const checkpointRow = await db.get('SELECT state_json FROM search_runtime_checkpoint WHERE agent_id=?', 'crash');
+    const projectionRow = await db.get('SELECT state_json FROM search_module_state WHERE agent_id=? AND module=?', ['crash', 'genome']);
+    const diskCheckpoint = JSON.parse(checkpointRow.state_json).payload;
+    const partialProjection = JSON.parse(projectionRow.state_json).payload;
+    assert.deepEqual(diskCheckpoint, expected, 'crash must leave the last committed checkpoint intact');
+    assert.notDeepEqual(partialProjection, expected.modules.genome,
+      'crash fixture must prove a projection was written before checkpoint commit');
     const resumed = await runtime.getOrCreateSearchState('crash', db);
     assert.deepEqual(captureCheckpoint(resumed), expected);
+    assert.deepEqual(await resumed.persistence.loadModuleState('crash', 'genome'), expected.modules.genome,
+      'restart must reconcile the partial projection from the authoritative checkpoint');
     const stale = new SearchPersistence(db);
     await stale.loadRuntimeCheckpoint('crash');
     await runtime.flushSearchState('crash');

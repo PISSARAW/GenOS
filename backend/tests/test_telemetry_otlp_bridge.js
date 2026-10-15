@@ -68,6 +68,7 @@ async function verifyPersistenceBoundary() {
   const observer = {
     persistQueue: [{ ...event, id: 'event-1', action: 'VERIFY', detail: 'TOP_SECRET' }],
     persistedEvents: 0, persistenceRetryDelayMs: 250,
+    deferSideEffect: () => {},
     persistWorkspaceMilestone: async () => {}, pruneHistory: async () => {}
   };
   try {

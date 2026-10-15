@@ -10,7 +10,7 @@ const registry = require('../src/services/proceduralRegistryService');
 
 async function callCausalPrimitive(db, primitive, input = {}) {
   const dispatched = await mcpStrategyTools.executeStrategyTool('genos_execute_primitive', {
-    primitive, context: { db, ...input },
+    primitive_name: primitive, context: { db, ...input },
   });
   if (!dispatched?.success) throw new Error(dispatched?.output?.error || `Primitive '${primitive}' failed.`);
   return dispatched.output;

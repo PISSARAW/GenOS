@@ -64,6 +64,12 @@ function resultMatchesTransition(result, receipt) {
     && binding.tokens === result.allocatedTokens);
 }
 
+function recordTransitionOutcomes(receipt, results) {
+  receipt.observed = { workers: results.map((result) => ({ workerId: result.agentId,
+    status: result.status, allocatedTokens: result.allocatedTokens,
+    consumedTokens: result.consumedTokens, costUsd: result.costUsd })) };
+}
+
 function finalizeTransitionQueue(receipt, queued) {
   const expected = receipt.identity.bindings.map((item) => item.workerId).sort();
   const actual = [...queued].sort();
@@ -80,4 +86,4 @@ function transitionError(code) {
 }
 
 module.exports = { sealTransitionReceipt, verifyTransitionReceipt, resultMatchesTransition,
-  finalizeTransitionQueue };
+  finalizeTransitionQueue, recordTransitionOutcomes };

@@ -50,18 +50,33 @@ function prepareContinuation(context) {
   const id = `cont_${crypto.randomUUID()}`;
   const morphology = morphologyFor(survivor, adaptation);
   const prompt = buildContinuationContext(previous, report, tokens);
-  const mission = { ...previous, continuationId: id,
-    prompt: morphology ? morphologyPrompt(prompt, morphology, adaptation.receipt) : prompt,
-    executionBudget: { ...previous.executionBudget, tokens,
-      events: Math.max(1, budget.events - usage.events), costUsd: Math.max(0, budget.costUsd - usage.cost) },
-    budgetRound: { stage: Number.isInteger(epoch) ? 'morphogenesis_epoch' : 'continuation', epoch, orchestratorId,
-      missionId: state.checkpointScope?.missionId || state.normalizedMission?.missionId || orchestratorId,
-        organizationId: state.organizationId || null, projectId: state.projectId || null,
-        epochBudgetSnapshot: continuation.epochBudgetSnapshot || null,
-        transitionId: adaptation?.receipt?.transitionId || null },
-    ...(morphology || {}) };
+  const mission = continuationMission({ context, previous, tokens, budget, usage, id, morphology, prompt });
   return { id, agentId: survivor.agentId, orchestratorId, mission,
     organizationId: state.organizationId, projectId: state.projectId };
+}
+
+function continuationMission(input) {
+  const { context, previous, tokens, budget, usage, id, morphology, prompt } = input;
+  const { state, continuation, orchestratorId, adaptation, epoch } = context;
+  return { ...previous, continuationId: id,
+    prompt: continuationPrompt(prompt, morphology, adaptation),
+    executionBudget: { ...previous.executionBudget, tokens,
+      events: Math.max(1, budget.events - usage.events), costUsd: Math.max(0, budget.costUsd - usage.cost) },
+    budgetRound: continuationBudgetRound({ state, continuation, orchestratorId, adaptation, epoch }),
+    ...(morphology || {}) };
+}
+
+function continuationPrompt(prompt, morphology, adaptation) {
+  return morphology ? morphologyPrompt(prompt, morphology, adaptation.receipt) : prompt;
+}
+
+function continuationBudgetRound(input) {
+  const { state, continuation, orchestratorId, adaptation, epoch } = input;
+  return { stage: Number.isInteger(epoch) ? 'morphogenesis_epoch' : 'continuation', epoch, orchestratorId,
+    missionId: state.checkpointScope?.missionId || state.normalizedMission?.missionId || orchestratorId,
+    organizationId: state.organizationId || null, projectId: state.projectId || null,
+    epochBudgetSnapshot: continuation.epochBudgetSnapshot || null,
+    transitionId: adaptation?.receipt?.transitionId || null };
 }
 
 async function queueContinuationMissions(contexts) {

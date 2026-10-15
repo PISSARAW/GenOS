@@ -52,13 +52,30 @@ Morphogenèse. `maxEpochs` est facultatif; sans limite explicite, le budget d'é
 admissibles est recalculé selon le pool restant et le nombre de survivants. Les reliquats
 inférieurs à la tranche minimale ne sont pas dépensés.
 
+Pour une transition admise, un reçu scelle un `transitionId` dérivé de la recette et de
+la base d'admission, du digest du graphe, puis des workers réellement recrutés (id,
+kind, topologie, variant et tokens alloués). L'identifiant suit la continuation et son
+rapport terminal. La résolution exige que tous les workers attendus correspondent à
+ce reçu, puis qu'un reçu indépendant valide confirme le livrable. Le reçu conserve
+les allocations et l'usage déclaré par les workers ainsi que le verdict lié au même
+`transitionId`. Un écart ou l'absence d'un vérificateur indépendant laisse la mission
+non promue. L'usage déclaré reste une mesure rapportée, pas une attestation comptable
+indépendante.
+
 Le backend enregistre désormais un checkpoint par mission contenant le plan, les
 workers et leurs résultats, le budget, la phase, la révision et la barrière. Chaque
 rapport terminal est persisté à son arrivée. Le worker de maintenance effectue aussi
 au démarrage un balayage borné des checkpoints interrompus : il restaure les continuations
 durables, demande le dispatch des entrées encore `pending` seulement si leur worker n'est
-pas déjà actif, et ne renvoie pas les entrées `dispatched`. Ce balayage confirme la
-tentative de reprise, pas la réussite de l'exécution. Si aucune continuation durable n'existe, le checkpoint passe à
+pas déjà actif, et ne renvoie pas les entrées `dispatching`, `dispatch_failed_ambiguous`
+ou `dispatched`. Avant `startMission`, le dispatch revendique atomiquement la ligne
+`pending → dispatching`. Le succès ou l'échec de l'exécution est ensuite conservé dans
+la file; un arrêt pendant `dispatching` devient `recovery_required` et exige une
+réconciliation/reprise opérateur. Ce coût est volontaire : l'effet externe et SQLite
+ne partagent pas de transaction, donc le redémarrage ne peut pas distinguer sûrement
+« effet non commencé » de « effet démarré mais accusé de réception perdu ». Il choisit
+de ne pas redoubler un dispatch ambigu. Ce balayage confirme la tentative de reprise,
+pas la réussite de l'exécution. Si aucune continuation durable n'existe, le checkpoint passe à
 `recovery_required`, visible et reprenable par un opérateur; l'intention ambiguë n'est
 pas rejouée automatiquement. L'idempotence et les portées organisation/projet restent
 vérifiées. Trinity reste hors de cette boucle et de son store.
@@ -68,7 +85,9 @@ visée. Les survivants peuvent être remplacés par une nouvelle cohorte aux ide
 déterministes; un daemon n'est ni résolu ni activé. Le balayage au démarrage est limité
 à 32 checkpoints par worker de maintenance et par boot; les plus anciens sont inspectés
 d'abord et les suivants attendent le prochain démarrage. Il s'exécute après la
-réconciliation des runtimes. Si le processus tombe après le checkpoint `advancing`, le
+réconciliation des runtimes. Le résumé du balayage expose `durationMs`, temps écoulé
+pour lister et traiter les checkpoints de ce boot; il ne fournit pas encore une latence
+de récupération par mission ni une série historique de percentiles. Si le processus tombe après le checkpoint `advancing`, le
 runtime cherche les missions durables de l'époque suivante, restaure budget/roster et
 redispatche uniquement celles encore `pending`; les missions `dispatched` ne sont pas
 envoyées une deuxième fois. Si aucune mission n'a été persistée, l'état devient
@@ -297,10 +316,13 @@ tenus à l'écart; les prédictions de gain et de coût doivent battre les réf�
 neutres sur le jeu de validation. La compilation expose les estimations, leurs
 incertitudes et les erreurs observées. Le gain prudent doit dépasser le coût marginal
 prudent pour retenir une intervention. Sans preuve suffisante, `NO_CHANGE` gagne.
-À ce stade, aucune campagne réelle ne nourrit cette calibration automatiquement et
-aucun corpus n'est livré avec GenOS. Seul le remplacement de cohorte topologique est
-un type d'intervention candidat; réduction des communications et réallocation restent
-indisponibles tant que leurs actions runtime ne sont pas implémentées. Voir l'ADR 0554.
+Le backend ne fournit pas encore de stockage par défaut. Le chemin de continuation
+accepte un adaptateur `loadVerifiedOutcomes`, borné à 120 lignes par mission; chaque
+ligne est vérifiée par son reçu et son empreinte. Un adaptateur absent, en erreur ou
+hors limite produit un jeu vide et donc `NO_CHANGE`. Aucun corpus n'est livré avec
+GenOS. Seul le remplacement de cohorte topologique est un type d'intervention
+candidat; réduction des communications et réallocation restent indisponibles tant que
+leurs actions runtime ne sont pas implémentées. Voir l'ADR 0554.
 
 ### Porte d’activation
 

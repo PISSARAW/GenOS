@@ -94,6 +94,7 @@ function conditionalPolicyInput(input, diagnosis, workers) {
   const plan = input.state.plan || {};
   return {
     mission: selectedMissionText(mission), missionId: selectedMissionId(mission, input.orchestratorId),
+    verifiedOutcomes: input.verifiedOutcomes,
     currentTopology: currentPolicyTopology(plan), currentVariant: currentPolicyVariant(plan),
     currentRecipe: plan.morphogenesisPlan?.morphologyExpression || null,
     diagnosis, budget: { tokens: Number(input.continuation.pool) || 0 },

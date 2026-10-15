@@ -15,6 +15,8 @@ const continuationQueue = require('./agentContinuationQueueService');
 const { createMorphogenesisEpochCoordinator } = require('./morphogenesis/morphogenesisEpochCoordinator');
 
 const MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3;
+const FAILED_ROUND_EVENTS = new Set(['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR',
+  'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS']);
 
 function autonomousWorkerId(orchestratorId, index) {
   return `worker_${orchestratorId}_${index}_${crypto.randomUUID()}`;
@@ -22,7 +24,7 @@ function autonomousWorkerId(orchestratorId, index) {
 
 function autonomousRoundOutcome(eventType) {
   if (eventType === 'AGENT_COMPLETED') return 'completed';
-  if (['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'].includes(eventType)) return 'failed';
+  if (FAILED_ROUND_EVENTS.has(eventType)) return 'failed';
   return null;
 }
 
@@ -32,11 +34,24 @@ function buildRoundResult(mission, outcome, event) {
     status: outcome,
     evidenceScore: evidenceScore(event.payload, mission) ?? 0,
     payload: event.payload || {},
-    transitionId: mission.budgetRound?.transitionId || null,
-    workerKind: mission.workerKind || null,
-    topology: mission.morphologyTopology || null,
-    allocatedTokens: Number(mission.executionBudget?.tokens || 0)
+    ...transitionResultMetadata(mission, event)
   };
+}
+
+function transitionResultMetadata(mission, event) {
+  return { ...workerBindingMetadata(mission), ...reportedUsageMetadata(event.payload || {}) };
+}
+
+function workerBindingMetadata(mission) {
+  return { transitionId: mission.budgetRound?.transitionId || null,
+    workerKind: mission.workerKind || null, topology: mission.morphologyTopology || null,
+    allocatedTokens: Number(mission.executionBudget?.tokens || 0) };
+}
+
+function reportedUsageMetadata(payload) {
+  const usage = payload.usage || {};
+  return { consumedTokens: Number(usage.tokens ?? payload.tokens ?? 0),
+    costUsd: Number(usage.cost_usd ?? payload.cost_usd ?? 0) };
 }
 
 function continuationPolicyError(continuation) {

@@ -30,6 +30,16 @@ function run() {
     'the same admitted graph and allocated worker are linked through the result');
   assert.equal(resultMatchesTransition({ ...result, topology: 'rhizome' }, receipt), false,
     'a worker launched with a different topology cannot inherit this transition verdict');
+  const transitionBoundResults = require('../src/services/morphogenesis/missionResolutionReceipt')
+    .transitionBoundResults;
+  const state = { plan: { morphogenesisEpochStatus: { transition: receipt } },
+    results: new Map([['worker-a', { ...result, status: 'completed', consumedTokens: 12, costUsd: 0.2 }]]) };
+  assert.equal(transitionBoundResults(state).length, 1);
+  assert.equal(receipt.observed.workers[0].consumedTokens, 12,
+    'the receipt records worker-reported usage while keeping it distinct from allocation');
+  state.results.set('worker-a', { ...result, topology: 'rhizome' });
+  assert.equal(transitionBoundResults(state).length, 0,
+    'a divergent result blocks the terminal promotion gate');
   receipt.identity.totalTokens += 1;
   assert.equal(verifyTransitionReceipt(receipt), false,
     'mutating the transition identity invalidates its digest');

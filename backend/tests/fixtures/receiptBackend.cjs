@@ -19,6 +19,26 @@ async function main() {
       process.send({ receipts, cells });
     }
     if (message === 'stop') server.close(async () => { await closeDatabase(); process.exit(0); });
+    if (message?.action === 'seed-clinical-cell') {
+      const row = message.row;
+      try {
+        await db.exec(`CREATE TABLE IF NOT EXISTS rust_cell_registry (
+          mission_id TEXT NOT NULL, cell_id TEXT NOT NULL, genome_id TEXT,
+          genome_fingerprint TEXT, cell_state_json TEXT NOT NULL, genome_state_json TEXT,
+          source_receipt_id TEXT NOT NULL, tick INTEGER NOT NULL,
+          PRIMARY KEY (mission_id, cell_id)
+        )`);
+        await db.run(`INSERT INTO rust_cell_registry
+          (mission_id, cell_id, genome_id, genome_fingerprint, cell_state_json,
+           genome_state_json, source_receipt_id, tick)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, row.missionId, row.cellId, row.genomeId,
+        row.genomeFingerprint, row.cellStateJson, row.genomeStateJson,
+        row.sourceReceiptId, row.tick);
+        process.send({ seeded: true });
+      } catch (error) {
+        process.send({ error: error.message });
+      }
+    }
   });
 }
 main().catch(error => { process.send({ error: error.message }); process.exit(1); });

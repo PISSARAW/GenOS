@@ -75,6 +75,7 @@ async function verifyPlannerTransitionAdmission() {
   const runtimeState = state([25]);
   const topologyCapabilities = registry.get('a_team').requiredCapabilities;
   let plannerCalls = 0;
+  let outcomeQuery;
   const result = await service.planContinuation({ state: runtimeState,
     survivors: [{ agentId: 'worker-1' }], continuation: { pool: 1000 },
     orchestratorId: 'orchestrator-1', strategyAdmissionContext: admissionContext() }, {
@@ -83,12 +84,15 @@ async function verifyPlannerTransitionAdmission() {
       return { selectedTopology: 'a_team', selectedVariant: 'default',
         controlReceipt: { topology: { rankings: [{ topology: 'a_team' }] } } };
     },
+    loadVerifiedOutcomes: async (query) => { outcomeQuery = query; return []; },
     composeMode: async () => ({ members: [{ role: 'scout', workerKind: 'scout_cell',
       capabilities: topologyCapabilities, executionMode: 'worker' }] })
   });
   assert.equal(result.adapted, false);
   assert.equal(result.reason, 'selector_no_change');
   assert.equal(plannerCalls, 0);
+  assert.equal(outcomeQuery.missionId, 'mission-1');
+  assert.equal(outcomeQuery.limit, 120);
   assert.equal(runtimeState.plan.selectedTopology, 'a_team');
 }
 

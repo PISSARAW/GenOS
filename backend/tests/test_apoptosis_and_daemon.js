@@ -19,7 +19,7 @@ git(['config', 'user.email', 'daemon-test@example.invalid']);
 git(['config', 'user.name', 'Daemon fixture']);
 git(['add', '.']);
 git(['commit', '-m', 'Initial test fixture']);
-process.env.GENOS_GITHUB_PROJECTS_DIR = fixtureGithub;
+process.env.GITHUB_PROJECTS_DIR = fixtureGithub;
 const { apoptosis } = require('../bin/genos-apoptosis.cjs');
 const analyst = require('../src/services/proactiveGitHubAnalyst');
 const daemon = require('../src/services/daemonAgentAutostart');

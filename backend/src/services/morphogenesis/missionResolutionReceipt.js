@@ -29,7 +29,9 @@ function transitionBoundResults(state) {
   const binding = require('./morphogenesisTransitionReceipt');
   if (!binding.verifyTransitionReceipt(transition) || transition.dispatchStatus !== 'queued') return [];
   const matching = results.filter((result) => binding.resultMatchesTransition(result, transition));
-  return matching.length === transition.identity.bindings.length ? matching : [];
+  if (matching.length !== transition.identity.bindings.length) return [];
+  binding.recordTransitionOutcomes(transition, matching);
+  return matching;
 }
 
 async function verifiedResolution(state, orchestratorId) {

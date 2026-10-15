@@ -64,6 +64,10 @@ function requestedSuccessCriteria(request) {
   return request.success_criteria || request.successCriteria || request.acceptance_criteria || request.acceptanceCriteria;
 }
 
+function firstTruthy(values) {
+  return values.find(Boolean);
+}
+
 function requireReadyTeam(readiness) {
   if (readiness.ready) return;
   throw Object.assign(new Error(`A-Team is not ready: ${readiness.blockers.join(', ')}.`), {
@@ -101,13 +105,13 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
 async function prepareDispatch({ db, context }) {
   const request = context.request || {};
   const garage = await workerGarage.state(db, context.orchestratorId);
-  const projectGoal = request.project_goal || request.projectGoal || request.goal || request.mission || context.task;
+  const projectGoal = firstTruthy([request.project_goal, request.projectGoal, request.goal, request.mission, context.task]);
   const team = aTeamCoordination.composeTeam({
     projectGoal,
     subSystems: readSubSystems(request),
-    assignedRoles: request.assigned_roles || request.assignedRoles || request.roles,
-    modelTiers: request.model_tiers || request.modelTiers,
-    dependencies: request.dependencies || request.depends_on || request.dependsOn,
+    assignedRoles: firstTruthy([request.assigned_roles, request.assignedRoles, request.roles]),
+    modelTiers: firstTruthy([request.model_tiers, request.modelTiers]),
+    dependencies: firstTruthy([request.dependencies, request.depends_on, request.dependsOn]),
     successCriteria: requestedSuccessCriteria(request),
     available: await reusableCapacity(db, context, garage.available)
   });

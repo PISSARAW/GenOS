@@ -17,7 +17,8 @@ async function run() {
   };
   const db = {
     exec: async () => {},
-    run: async (_sql, tokenHash, agentId, runId, authorityHash, workspaceRoot, expiry) => {
+    run: async (...args) => {
+      const [_sql, tokenHash, agentId, runId, authorityHash, workspaceRoot, expiry] = args;
       capability = { token_hash: tokenHash, agent_id: agentId, run_id: runId,
         authority_hash: authorityHash, workspace_root: workspaceRoot, expires_at: expiry, revoked_at: null };
       return { changes: 1 };

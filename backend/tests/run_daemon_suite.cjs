@@ -11,9 +11,9 @@ function runTest(test) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-daemon-suite-'));
   const env = { ...process.env, GENOS_DB_PATH: path.join(root, 'test.db'),
     GENOS_CONFIG_DIR: path.join(root, 'config'), GENOS_REPORT_DIR: path.join(root, 'reports'),
-    GENOS_STARTUP_DIR: path.join(root, 'startup'), GENOS_GITHUB_PROJECTS_DIR: path.join(root, 'repos'),
+    GENOS_STARTUP_DIR: path.join(root, 'startup'), GITHUB_PROJECTS_DIR: path.join(root, 'repos'),
     GENOS_ADMIN_PASSWORD: 'isolated-daemon-test-password', GENOS_DB_BACKUP_SKIP: '1' };
-  fs.mkdirSync(env.GENOS_GITHUB_PROJECTS_DIR);
+  fs.mkdirSync(env.GITHUB_PROJECTS_DIR);
   const result = spawnSync(process.execPath, [path.join(__dirname, test)], {
     env, cwd: path.resolve(__dirname, '..'), timeout: 300000, windowsHide: true, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024
   });

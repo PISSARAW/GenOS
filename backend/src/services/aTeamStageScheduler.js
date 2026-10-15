@@ -46,6 +46,7 @@ function plannedMember({ member, index, orchestratorId, planId }) {
     label: member.label,
     modelTier: member.modelTier,
     executionBudgetTokens: member.executionBudgetTokens,
+    modelBudgetScope: member.modelBudgetScope || null,
     mission: member.mission,
     requiredArtifacts: withDefault(member.requiredArtifacts, withDefault(member.outputs, [])),
     outputs: withDefault(member.outputs, []),

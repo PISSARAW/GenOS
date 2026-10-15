@@ -96,10 +96,11 @@ async function testScopePropagatedToMemberPayload() {
     assert.deepEqual(payload.modelBudgetScope, TEAM_SCOPE);
   }
   const override = { ...TEAM_SCOPE, id: 'execution-run:member' };
+  plan.members[0].modelBudgetScope = override;
   const memberPayload = scheduler.workerLaunchPayload({ plan, member: plan.members[0],
     parentWorkspaceRoot: 'C:/ws',
     request: { ...request, modelBudgetScope: TEAM_SCOPE } });
-  assert.deepEqual(memberPayload.modelBudgetScope, TEAM_SCOPE);
+  assert.deepEqual(memberPayload.modelBudgetScope, override);
   const snake = scheduler.workerLaunchPayload({ plan, member: plan.members[0],
     parentWorkspaceRoot: 'C:/ws', request: { model_budget_scope: override } });
   assert.deepEqual(snake.modelBudgetScope, override);
@@ -186,7 +187,7 @@ async function testTransientCpuAccountingFailureRecovers() {
   } finally { child.close(); workerProcessCpu.processCpuMs = original; }
 }
 
-async function testPersistentCpuAccountingFailureHalts() {
+async function testPersistentCpuAccountingFailureDegrades() {
   const original = workerProcessCpu.processCpuMs;
   workerProcessCpu.processCpuMs = async () => { throw new Error('probe boom'); };
   const child = fakeChild(process.pid);
@@ -194,9 +195,36 @@ async function testPersistentCpuAccountingFailureHalts() {
   try {
     cpuBudgets.startWorkerCpuBudget(context);
     await sleep(1700);
-    assert.equal(context.halts.length, 1);
-    assert.equal(context.halts[0].reason, 'worker_cpu_accounting_unavailable');
+    assert.equal(context.halts.length, 0);
+    assert.ok(context.warnings.some((event) =>
+      event.eventType === 'WORKER_CPU_ACCOUNTING_DEGRADED' && event.severity === 'warning'));
   } finally { child.close(); workerProcessCpu.processCpuMs = original; }
+}
+
+async function testDegradedCpuCapEnforcesConservativeCeiling() {
+  const original = workerProcessCpu.processCpuMs;
+  workerProcessCpu.processCpuMs = async () => { throw new Error('probe boom'); };
+  const child = fakeChild(process.pid);
+  const context = cpuContext(child, 300);
+  try {
+    cpuBudgets.startWorkerCpuBudget(context);
+    await sleep(1500);
+    assert.equal(context.halts.length, 1);
+    assert.equal(context.halts[0].reason, 'worker_cpu_budget_exceeded');
+    assert.equal(context.halts[0].payload.observedCpuMs, null);
+    assert.equal(context.halts[0].payload.cpuAccounting, 'degraded');
+  } finally { child.close(); workerProcessCpu.processCpuMs = original; }
+}
+
+async function testMissingPidDegrades() {
+  const child = fakeChild(undefined);
+  const context = cpuContext(child, 5000);
+  cpuBudgets.startWorkerCpuBudget(context);
+  await sleep(50);
+  assert.equal(context.halts.length, 0);
+  assert.ok(context.warnings.some((event) =>
+    event.eventType === 'WORKER_CPU_ACCOUNTING_DEGRADED'));
+  child.close();
 }
 
 async function testMeasuredCpuExceedanceStillHalts() {
@@ -214,12 +242,13 @@ async function testMeasuredCpuExceedanceStillHalts() {
   } finally { child.close(); workerProcessCpu.processCpuMs = original; }
 }
 
-async function testInvalidCpuLimitHalts() {
+async function testInvalidCpuLimitDegrades() {
   const child = fakeChild(process.pid);
   const context = cpuContext(child, Number.NaN);
   cpuBudgets.startWorkerCpuBudget(context);
-  assert.equal(context.halts.length, 1);
-  assert.equal(context.halts[0].reason, 'worker_cpu_budget_invalid');
+  assert.equal(context.halts.length, 0);
+  assert.ok(context.warnings.some((event) =>
+    event.eventType === 'WORKER_CPU_ACCOUNTING_DEGRADED'));
   child.close();
 }
 
@@ -234,9 +263,11 @@ async function testLocalGenerationRequiresExecutionRun() {
   await testTeamMemberRoutesWithoutHalt();
   await testTeamMemberWithoutScopeHalts();
   await testTransientCpuAccountingFailureRecovers();
-  await testPersistentCpuAccountingFailureHalts();
+  await testPersistentCpuAccountingFailureDegrades();
+  await testDegradedCpuCapEnforcesConservativeCeiling();
+  await testMissingPidDegrades();
   await testMeasuredCpuExceedanceStillHalts();
-  await testInvalidCpuLimitHalts();
+  await testInvalidCpuLimitDegrades();
   await testLocalGenerationRequiresExecutionRun();
-  console.log('Team budget scope, fail-closed CPU accounting and usage ledger checks passed.');
+  console.log('Team budget scope, degraded CPU accounting and usage ledger checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

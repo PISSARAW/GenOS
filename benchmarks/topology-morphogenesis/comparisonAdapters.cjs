@@ -183,9 +183,7 @@ const ADAPTERS = Object.freeze({ 'direct-model': direct, 'fixed-team': fixedTeam
   'conditional-router': conditionalRouter, 'communication-light': communicationLight,
   'genos-full': genosFull });
 
-async function executeCondition(condition, task, context) {
-  const adapter = ADAPTERS[condition.adapter];
-  if (!adapter) throw new Error(`No executable adapter for ${condition.adapter}.`);
+function createState(context) {
   const budget = context.budget || { tokens: context.tokens, latencyMs: context.latencyMs };
   const state = { ...context, budget, startedAt: Date.now(), tokensUsed: 0 };
   state.promptTokens = 0;
@@ -193,23 +191,47 @@ async function executeCondition(condition, task, context) {
   state.messageCount = 0;
   state.servedModels = new Set();
   state.meteringComplete = false;
-  let result = {};
-  let error = null;
-  try { result = await adapter(task, state); } catch (cause) { error = cause.message; }
-  const candidate = parseJson(result.text);
-  const totalTokens = condition.adapter === 'genos-full' ? result.tokens
+  return state;
+}
+
+async function invokeAdapter(adapter, task, state) {
+  try { return { result: await adapter(task, state), error: null }; }
+  catch (cause) { return { result: {}, error: cause.message }; }
+}
+
+function tokenTotal(condition, state, result) {
+  return condition.adapter === 'genos-full' ? result.tokens
     : state.meteringComplete ? state.tokensUsed : null;
-  const measured = Number.isFinite(totalTokens);
-  return { candidate, parsePassed: Boolean(candidate), route: result.route || condition.adapter, error,
+}
+
+function measuredMetrics(condition, state, result) {
+  const totalTokens = tokenTotal(condition, state, result);
+  return {
     tokenUsage: { total: Number.isFinite(totalTokens) ? totalTokens : null,
-      prompt: state.promptTokens, completion: state.completionTokens, measured },
+      prompt: state.promptTokens, completion: state.completionTokens, measured: Number.isFinite(totalTokens) },
     servedModel: result.servedModel || (state.servedModels.size === 1 ? [...state.servedModels][0]
       : state.servedModels.size ? 'mixed' : null),
     messageCount: result.messageCount ?? state.messageCount,
     toolUseCount: Number(result.receipt?.coverage?.protocol?.observedCount || 0),
     runtimeSucceeded: result.receipt?.success ?? null,
     allWorkersCompleted: result.receipt?.token_usage?.allRunsCompleted ?? null,
-    latencyMs: Date.now() - state.startedAt, receipt: result.receipt || null };
+    latencyMs: Date.now() - state.startedAt, receipt: result.receipt || null
+  };
+}
+
+function formatConditionResult(input) {
+  const { condition, state, result, error } = input;
+  const candidate = parseJson(result.text);
+  return { candidate, parsePassed: Boolean(candidate), route: result.route || condition.adapter, error,
+    ...measuredMetrics(condition, state, result) };
+}
+
+async function executeCondition(condition, task, context) {
+  const adapter = ADAPTERS[condition.adapter];
+  if (!adapter) throw new Error(`No executable adapter for ${condition.adapter}.`);
+  const state = createState(context);
+  const { result, error } = await invokeAdapter(adapter, task, state);
+  return formatConditionResult({ condition, state, result, error });
 }
 
 module.exports = { ADAPTERS, executeCondition, parseGenosReceipt, topologyProfile };

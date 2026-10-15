@@ -4,6 +4,7 @@ const { compileExpression } = require('./graph/morphologyCompiler');
 const expression = require('./expression/morphologyExpression');
 const { bindGraphMission } = require('./morphogenesisMissionBinding');
 const MAX_REPLACEMENT_WORKERS = 12;
+const MAX_CALIBRATION_OUTCOMES = 120;
 
 function evidenceSignals(results) {
   const values = results.map((entry) => Number(entry.evidenceScore)).filter(Number.isFinite);
@@ -323,10 +324,26 @@ function selectorAbstained(decision) {
     && decision.challenge?.status !== 'challenge_authorized';
 }
 
+async function loadVerifiedOutcomes(input, dependencies) {
+  if (typeof dependencies.loadVerifiedOutcomes !== 'function') return [];
+  const mission = input.state.normalizedMission || {};
+  try {
+    const rows = await dependencies.loadVerifiedOutcomes({
+      missionId: mission.missionId || input.orchestratorId,
+      limit: MAX_CALIBRATION_OUTCOMES
+    });
+    return Array.isArray(rows) && rows.length <= MAX_CALIBRATION_OUTCOMES ? rows : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 async function planContinuation(input, dependencies = {}) {
   const results = [...input.state.results.values()];
   const signals = evidenceSignals(results);
-  const decision = require('./morphogenesisEpochDecisionService').compilePolicy(input, signals);
+  const verifiedOutcomes = await loadVerifiedOutcomes(input, dependencies);
+  const decisionInput = { ...input, verifiedOutcomes };
+  const decision = require('./morphogenesisEpochDecisionService').compilePolicy(decisionInput, signals);
   if (shouldSkipAdaptation(input, signals, decision)) {
     return { adapted: false, reason: 'adaptation_not_required', signals, decision };
   }
