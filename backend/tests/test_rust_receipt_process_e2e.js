@@ -32,6 +32,22 @@ async function rust(input) {
 }
 async function inspect(child) { const result = reply(child); child.send('inspect'); return result; }
 async function stop(child) { const exit = once(child, 'exit'); child.send('stop'); await exit; }
+async function verifyReceiptConcordance(journal, rows) {
+  const batches = (await fs.readFile(journal, 'utf8')).trim().split(/\r?\n/u).map(JSON.parse);
+  const receipts = batches.flatMap(batch => batch.receipts)
+    .filter(receipt => receipt.schema === 'genos.biological-execution-receipt/v1');
+  assert.equal(new Set(receipts.map(receipt => receipt.receipt_id)).size, receipts.length,
+    'Rust journal has one execution receipt per receipt_id');
+  assert.equal(rows.length, receipts.length, 'backend and Rust journal contain the same execution receipts');
+  for (const receipt of receipts) {
+    const row = rows.find(item => item.receipt_id === receipt.receipt_id);
+    assert.ok(row, `backend persisted receipt ${receipt.receipt_id}`);
+    assert.equal(row.tick, receipt.tick, `tick matches for ${receipt.receipt_id}`);
+    assert.equal(row.cost, receipt.cost, `cost matches for ${receipt.receipt_id}`);
+    assert.equal(row.cost_unit, receipt.cost_unit, `cost unit matches for ${receipt.receipt_id}`);
+    assert.equal(JSON.parse(row.receipt_json).receipt_id, receipt.receipt_id);
+  }
+}
 
 async function main() {
   const binary = process.env.GENOS_RECEIPT_TEST_BINARY;
@@ -49,6 +65,7 @@ async function main() {
     const first = await rust({ binary, journal, mission, env: rustEnv });
     const before = await inspect(active.child);
     assert.ok(before.receipts.length > 0 && before.cells.length > 0);
+    await verifyReceiptConcordance(journal, before.receipts);
     const savedPort = active.port;
     await stop(active.child); active = null;
     await rust({ binary, journal, mission, env: rustEnv, failure: true });
@@ -61,6 +78,7 @@ async function main() {
     }
     const after = await inspect(active.child);
     assert.ok(after.receipts.length > before.receipts.length, 'offline tick is delivered after process restart');
+    await verifyReceiptConcordance(journal, after.receipts);
     await rust({ binary, journal, mission, env: rustEnv, mode: 'flush' });
     assert.equal((await inspect(active.child)).receipts.length, after.receipts.length, 'acknowledged receipts are not duplicated');
     for (const row of after.receipts) {

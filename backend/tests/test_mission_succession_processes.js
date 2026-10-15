@@ -21,6 +21,7 @@ async function main() {
     await db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE missions(mission_id TEXT PRIMARY KEY, objective TEXT, orchestrator_agent_id TEXT,status TEXT,created_at TEXT,updated_at TEXT);
       CREATE TABLE agents(id TEXT PRIMARY KEY,parent_agent_id TEXT,runtime_pid INTEGER);
       CREATE TABLE mission_agents(mission_id TEXT,agent_id TEXT,role TEXT,PRIMARY KEY(mission_id,agent_id));
+      CREATE TABLE aeis_agent_dissonance(agent_id TEXT PRIMARY KEY,authority_level INTEGER);
       CREATE TABLE effects(agent_id TEXT); INSERT INTO missions VALUES('mission','resume','old','dormant',NULL,NULL);
       INSERT INTO agents(id,parent_agent_id) VALUES('old',NULL),('a',NULL),('b',NULL),('worker','old');
       INSERT INTO mission_agents VALUES('mission','old','orchestrator');`);

@@ -14,7 +14,8 @@ async function main() {
   const server = createApp().listen(Number(process.env.TEST_PORT || 0), '127.0.0.1', () => process.send({ port: server.address().port }));
   process.on('message', async message => {
     if (message === 'inspect') {
-      const receipts = await db.all('SELECT receipt_id,receipt_json FROM biological_execution_receipts');
+      const receipts = await db.all(`SELECT receipt_id, tick, cost, cost_unit, receipt_json
+        FROM biological_execution_receipts`);
       const cells = await db.all('SELECT * FROM rust_cell_registry');
       process.send({ receipts, cells });
     }

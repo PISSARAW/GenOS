@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const http = require('node:http');
 const { execFileSync, fork, spawn } = require('node:child_process');
 const { once } = require('node:events');
 const fs = require('node:fs/promises');
@@ -145,6 +146,75 @@ async function runCli(config, authFile, overrides = {}) {
   });
 }
 
+async function createValidationBarrier(backend) {
+  let releaseResponse;
+  let validationStarted;
+  const waitForValidation = new Promise(resolve => { validationStarted = resolve; });
+  const responseGate = new Promise(resolve => { releaseResponse = resolve; });
+  const server = http.createServer(async (request, response) => {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const upstream = await fetch(`http://127.0.0.1:${backend.port}${request.url}`, {
+      method: request.method,
+      headers: { authorization: request.headers.authorization,
+        'content-type': request.headers['content-type'],
+        'x-organization-id': request.headers['x-organization-id'],
+        'x-project-id': request.headers['x-project-id'] },
+      body: Buffer.concat(chunks),
+    });
+    const body = await upstream.text();
+    response.writeHead(upstream.status, { 'content-type': 'application/json' });
+    const split = Math.max(1, Math.floor(body.length / 2));
+    response.write(body.slice(0, split));
+    validationStarted();
+    await responseGate;
+    response.end(body.slice(split));
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  return {
+    url: `http://127.0.0.1:${server.address().port}`,
+    waitForValidation,
+    release: releaseResponse,
+    close: () => new Promise(resolve => server.close(resolve)),
+  };
+}
+
+async function demonstrateRevocationInterleaving(input) {
+  const { backend, revokeBackend, config, authorization } = input;
+  const authFile = path.join(config.workspace, 'race-authorization.json');
+  const raceJournal = path.join(config.workspace, 'race-receipts.jsonl');
+  await fs.writeFile(authFile, JSON.stringify(authorization));
+  await fs.copyFile(config.journal, raceJournal);
+  const raceConfig = { ...config, journal: raceJournal };
+  const barrier = await createValidationBarrier(backend);
+  const before = await fs.readFile(raceJournal, 'utf8');
+  const execution = runCli(raceConfig, authFile, {
+    GENOS_CLINICAL_BACKEND_URL: barrier.url,
+    GENOS_CLINICAL_AUTH_TOKEN: token,
+    GENOS_CLINICAL_ORGANIZATION_ID: 'receipt-org',
+    GENOS_CLINICAL_PROJECT_ID: 'receipt-project',
+  });
+  try {
+    await barrier.waitForValidation;
+    const revoked = await request({ backend: revokeBackend,
+      route: `/api/rust/clinical-authorizations/${authorization.authorization_id}/revoke`, method: 'POST', body: {} });
+    assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
+    barrier.release();
+    const result = await execution;
+    assert.equal(result.code, 0, result.stderr);
+    const after = await fs.readFile(raceJournal, 'utf8');
+    assert.notEqual(after, before, 'stale successful validation currently permits a Rust journal append');
+    assert.match(after, /genos\.clinical-application\/v1/);
+    console.log('Clinical race reproduced: revocation committed after validation response began and before Rust append');
+  } finally {
+    barrier.release();
+    await barrier.close();
+  }
+}
+
 async function ensureRefusedWithoutMutation(input) {
   const { config, authFile, env, expected } = input;
   const before = await fs.readFile(config.journal, 'utf8');
@@ -219,6 +289,13 @@ async function main() {
         GENOS_CLINICAL_PROJECT_ID: 'receipt-project',
       }, expected: /clinical backend URL/ });
     }
+
+    const raceIssue = await request({ backend: first, route: '/api/rust/clinical-authorizations', method: 'POST', body: {
+      missionId: config.mission, cellId: config.cellId, therapy: 'IntensiveCareFluids', approved: true,
+    } });
+    assert.equal(raceIssue.status, 201, JSON.stringify(raceIssue.body));
+    await demonstrateRevocationInterleaving({ backend: first, revokeBackend: second, config,
+      authorization: raceIssue.body.authorization });
 
     const revoke = await request({ backend: second,
       route: `/api/rust/clinical-authorizations/${authorization.authorization_id}/revoke`, method: 'POST', body: {} });

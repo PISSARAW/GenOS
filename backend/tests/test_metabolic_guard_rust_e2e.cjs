@@ -28,7 +28,7 @@ async function run() {
     process.env.GENOS_DB_BACKUP_SKIP = '1';
     process.env.GENOS_DB_SCHEMA_MAINTENANCE = '0';
     process.env.GENOS_STUDIO_ROOT = workspace;
-    configureCliAuthority();
+    const authorityKeys = configureCliAuthority();
 
     const cargoTarget = process.env.CARGO_TARGET_DIR
       ? path.resolve(process.env.CARGO_TARGET_DIR) : path.resolve(__dirname, '../../target');
@@ -55,6 +55,7 @@ async function run() {
     const port = server.address().port;
     await assertMetabolicReplay(port, workspace, cellId);
     await assertGuardFluxReplay(port, workspace, cellId);
+    await assertAuthorityRotation({ binary, workspace, cellId, authorityKeys });
     await assertRealRefusals({ port, workspace, cellId });
     await assertRustAuthorityRefusal({ binary: process.env.GENOS_BIN, workspace, cellId });
     console.log('Backend → authenticated real Rust CLI metabolic pool and Guard Flux replay/refusal: PASS');
@@ -70,12 +71,114 @@ async function run() {
 }
 
 function configureCliAuthority() {
+  const keys = { A: createAuthorityKey(), B: createAuthorityKey() };
+  configureSigner(keys.A, [keys.A]);
+  return keys;
+}
+
+function createAuthorityKey() {
   const pair = generateKeyPairSync('ed25519');
   const publicDer = pair.publicKey.export({ type: 'spki', format: 'der' });
   const publicHex = publicDer.subarray(publicDer.length - 32).toString('hex');
   const keyId = createHash('sha256').update(Buffer.from(publicHex, 'hex')).digest('hex').slice(0, 32);
-  process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM = pair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
-  process.env.GENOS_CLI_AUTHORITY_TRUST_JSON = JSON.stringify({ [keyId]: publicHex });
+  return { keyId, publicHex, privatePem: pair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() };
+}
+
+function configureSigner(signer, trusted) {
+  process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM = signer.privatePem;
+  process.env.GENOS_CLI_AUTHORITY_TRUST_JSON = JSON.stringify(Object.fromEntries(
+    trusted.map(key => [key.keyId, key.publicHex])));
+}
+
+async function assertAuthorityRotation(input) {
+  const { binary, workspace, authorityKeys } = input;
+  const rotationMissionId = randomUUID();
+  initializeRustMissionForId(binary, workspace, rotationMissionId);
+  const rotationCellId = readPopulationSnapshot(workspace, rotationMissionId).orchestrator_id;
+  const authorityFiles = [];
+  try {
+    configureSigner(authorityKeys.A, [authorityKeys.A, authorityKeys.B]);
+    const overlapA = await createRotationAuthority({ workspace, cellId: rotationCellId,
+      idempotencyKey: 'e2e-overlap-a', missionId: rotationMissionId });
+    authorityFiles.push(overlapA.path);
+    runAuthorizedAuthority({ binary, workspace, authority: overlapA,
+      trusted: [authorityKeys.A, authorityKeys.B], expectedSuccess: true, missionId: rotationMissionId });
+
+    configureSigner(authorityKeys.B, [authorityKeys.A, authorityKeys.B]);
+    const overlapB = await createRotationAuthority({ workspace, cellId: rotationCellId,
+      idempotencyKey: 'e2e-overlap-b', missionId: rotationMissionId });
+    authorityFiles.push(overlapB.path);
+    runAuthorizedAuthority({ binary, workspace, authority: overlapB,
+      trusted: [authorityKeys.A, authorityKeys.B], expectedSuccess: true, missionId: rotationMissionId });
+
+    configureSigner(authorityKeys.A, [authorityKeys.A, authorityKeys.B]);
+    const revokedA = await createRotationAuthority({ workspace, cellId: rotationCellId,
+      idempotencyKey: 'e2e-revoked-a', missionId: rotationMissionId });
+    authorityFiles.push(revokedA.path);
+    const beforeRevocationCheck = readJournal(workspace, rotationMissionId).length;
+    runAuthorizedAuthority({ binary, workspace, authority: revokedA,
+      trusted: [authorityKeys.B], expectedSuccess: false, missionId: rotationMissionId });
+    assert.equal(readJournal(workspace, rotationMissionId).length, beforeRevocationCheck,
+      'CLI must refuse A after revocation without mutating the journal');
+
+    configureSigner(authorityKeys.B, [authorityKeys.B]);
+    const afterRevocationB = await createRotationAuthority({ workspace, cellId: rotationCellId,
+      idempotencyKey: 'e2e-after-revocation-b', missionId: rotationMissionId });
+    authorityFiles.push(afterRevocationB.path);
+    runAuthorizedAuthority({ binary, workspace, authority: afterRevocationB,
+      trusted: [authorityKeys.B], expectedSuccess: true, missionId: rotationMissionId });
+
+    configureSigner(authorityKeys.A, [authorityKeys.B]);
+    await assert.rejects(createRotationAuthority({ workspace, cellId: rotationCellId,
+      idempotencyKey: 'e2e-backend-revoked-a', missionId: rotationMissionId }),
+      error => error.code === 'CLI_AUTHORITY_CONFIGURATION_INVALID');
+    console.log('Metabolic/Guard Flux CLI authority rotation A/B overlap and A revocation: PASS');
+  } finally {
+    await Promise.all(authorityFiles.map(file => fs.rm(file, { force: true })));
+    configureSigner(authorityKeys.B, [authorityKeys.B]);
+  }
+}
+
+async function createRotationAuthority(input) {
+  const { workspace, cellId, idempotencyKey, missionId: scopedMissionId } = input;
+  return createAuthorityFile({ root: workspace, tenant: scope, claims: {
+    mission_id: scopedMissionId, rust_mission_id: scopedMissionId, cell_id: cellId,
+    operation: 'metabolic_pool', detail: 'protein_synthesis', value: '1', tick: 1,
+    idempotency_key: idempotencyKey,
+  } });
+}
+
+function runAuthorizedAuthority(input) {
+  const { binary, workspace, authority, trusted, expectedSuccess, missionId: scopedMissionId } = input;
+  const trustJson = JSON.stringify(Object.fromEntries(trusted.map(key => [key.keyId, key.publicHex])));
+  const result = require('node:child_process').spawnSync(binary, [
+    'metabolic-pool', '--mission-id', scopedMissionId, '--cell-id', authorityCell(authority),
+    '--idempotency-key', authorityIdempotency(authority), '--operation', 'protein_synthesis',
+    '--amino-acids', '1', '--tick', '1', '--authority-file', authority.reference,
+  ], { cwd: workspace, env: { ...process.env, GENOS_STUDIO_ROOT: workspace,
+    GENOS_CLI_AUTHORITY_TRUST_JSON: trustJson }, encoding: 'utf8', windowsHide: true });
+  assert.equal(result.status === 0, expectedSuccess, result.stderr || result.stdout);
+  if (expectedSuccess) {
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.success, true);
+    assert.equal(output.mission_authority, 'authenticated_backend_capability');
+  } else assert.match(result.stderr, /CLI authority signer is not trusted/i);
+}
+
+function initializeRustMissionForId(binary, workspace, missionId) {
+  const stdout = execFileSync(binary, [
+    'biological', '--tick', '--mission-id', missionId, '--mission', 'backend-authority-rotation-e2e',
+  ], { cwd: workspace, env: { ...process.env, GENOS_STUDIO_ROOT: workspace },
+    encoding: 'utf8', windowsHide: true });
+  assert.equal(JSON.parse(stdout).success, true, 'rotation fixture must seed its own durable mission');
+}
+
+function authorityCell(authority) {
+  return JSON.parse(fsSync.readFileSync(authority.path, 'utf8')).claims.cell_id;
+}
+
+function authorityIdempotency(authority) {
+  return JSON.parse(fsSync.readFileSync(authority.path, 'utf8')).claims.idempotency_key;
 }
 
 function initializeRustMission(binary, workspace) {
