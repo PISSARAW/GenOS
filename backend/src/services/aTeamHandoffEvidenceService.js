@@ -120,24 +120,50 @@ function parsePayload(raw) {
   try { return JSON.parse(raw || '{}'); } catch (_) { return {}; }
 }
 
+function dossierEvent(event) {
+  const payload = event.payload || {};
+  return {
+    eventType: event.eventType,
+    action: event.action,
+    detail: event.detail,
+    evidenceReport: event.eventType === 'EVIDENCE_REPORT'
+      ? (payload.evidenceReport || payload.report || payload) : undefined,
+    payload
+  };
+}
+
+async function biologicalDossierEvents(db, producerId) {
+  let run;
+  try {
+    run = await db.get(`SELECT id FROM strategy_execution_runs
+      WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1`, producerId);
+  } catch (error) {
+    if (/no such table/i.test(error.message)) return [];
+    throw error;
+  }
+  if (!run) return [];
+  const observations = await require('./biologicalWorkerStore').observations(db, run.id);
+  return observations.map((item) => item.event)
+    .filter((event) => ['EVIDENCE_REPORT', 'AGENT_COMPLETED'].includes(event.eventType))
+    .map(dossierEvent);
+}
+
 async function telemetryDossier(db, producerId) {
   const rows = await db.all(
     `SELECT event_type, action, detail, payload_json FROM telemetry_events
      WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT', 'AGENT_COMPLETED') ORDER BY id`,
     producerId
   );
+  const events = rows.map((row) => {
+    const payload = parsePayload(row.payload_json);
+    return dossierEvent({ eventType: row.event_type, action: row.action, detail: row.detail, payload });
+  });
+  if (!events.some((event) => event.eventType === 'EVIDENCE_REPORT')) {
+    events.push(...await biologicalDossierEvents(db, producerId));
+  }
   return {
     workerId: producerId,
-    events: rows.map((row) => {
-      const payload = parsePayload(row.payload_json);
-      return {
-        eventType: row.event_type,
-        action: row.action,
-        detail: row.detail,
-        evidenceReport: row.event_type === 'EVIDENCE_REPORT' ? (payload.evidenceReport || payload.report || payload) : undefined,
-        payload
-      };
-    })
+    events
   };
 }
 
@@ -166,5 +192,6 @@ module.exports = {
   handoffForDossier,
   buildHandoffsFromDossiers,
   buildHandoffsFromTelemetry,
-  missionWithHandoffs
+  missionWithHandoffs,
+  biologicalDossierEvents
 };

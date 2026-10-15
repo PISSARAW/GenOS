@@ -32,5 +32,20 @@ assert.equal(missing.missingDependency, 'frontend');
   });
   assert.equal(telemetry.ok, true);
   assert.equal(telemetry.handoffs[0].consumer.agentId, 'worker-b');
+  const store = require('../src/services/biologicalWorkerStore');
+  const original = store.observations;
+  store.observations = async () => [{ event: {
+    eventType: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', detail: 'durable report',
+    payload: { evidenceReport: report }
+  }, applied: true }];
+  try {
+    const recovered = await handoff.telemetryDossier({
+      all: async () => [], get: async () => ({ id: 'run-durable' })
+    }, 'worker-a');
+    assert.equal(recovered.events[0].evidenceReport.outcome, 'success');
+    assert.equal(recovered.events[0].detail, 'durable report');
+  } finally {
+    store.observations = original;
+  }
   console.log('A-Team handoffs carry validated typed evidence from dossiers and telemetry.');
 })().catch((error) => { console.error(error); process.exit(1); });
