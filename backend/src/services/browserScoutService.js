@@ -8,6 +8,60 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { BrowserPuppeteerAdapter } = require('./browserPuppeteerAdapter');
+const MAX_HTML_LENGTH = 2 * 1024 * 1024;
+
+function matches(html, expression, project) {
+  const nodes = [];
+  let match;
+  while ((match = expression.exec(html)) !== null) nodes.push(project(match));
+  return nodes;
+}
+
+function selectOptions(service, html) {
+  return matches(html, /<option\b([^>]*)>([\s\S]*?)<\/option>/gi, (match) => {
+    const attrs = service._parseAttrs(match[1]);
+    const label = stripMarkup(match[2]).trim();
+    return { value: attrs.value !== undefined ? attrs.value : label, label, selected: 'selected' in attrs };
+  });
+}
+
+function stripMarkup(input) {
+  const source = String(input || '').slice(0, MAX_HTML_LENGTH);
+  let output = '';
+  let hiddenTag = '';
+  for (let index = 0; index < source.length;) {
+    if (source[index] !== '<') {
+      if (!hiddenTag) output += source[index];
+      index += 1;
+      continue;
+    }
+    const tag = readMarkupTag(source, index, hiddenTag);
+    if (!tag.complete) break;
+    hiddenTag = tag.hiddenTag;
+    index = tag.nextIndex;
+  }
+  return output;
+}
+
+function readMarkupTag(source, index, hiddenTag) {
+  const end = source.indexOf('>', index + 1);
+  if (end < 0) return { nextIndex: source.length, hiddenTag, complete: false };
+  const rawTag = source.slice(index + 1, end).trim();
+  const closing = rawTag.startsWith('/');
+  const tagName = rawTag.replace(/^\/?\s*/, '').slice(0, 10).toLowerCase();
+  if (closing && tagName.startsWith(hiddenTag)) hiddenTag = '';
+  else if (!closing && !hiddenTag) hiddenTag = hiddenContentTag(tagName);
+  return { nextIndex: end + 1, hiddenTag, complete: true };
+}
+
+function hiddenContentTag(tagName) {
+  if (tagName.startsWith('script')) return 'script';
+  return tagName.startsWith('style') ? 'style' : '';
+}
+
+function escapeCssString(value) {
+  return String(value).replace(/[\u0000-\u001f\u007f\\"]/g, character => `\\${character.codePointAt(0).toString(16)} `);
+}
 
 class BrowserScoutService {
   constructor(options = {}) {
@@ -20,7 +74,7 @@ class BrowserScoutService {
   }
 
   createSession(sessionId = null, initialConfig = {}) {
-    const id = sessionId || `scout_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const id = sessionId || `scout_${crypto.randomUUID()}`;
     const session = {
       id,
       currentUrl: null,
@@ -77,62 +131,57 @@ class BrowserScoutService {
   }
 
   buildAXTree(html, url = '') {
-    const axNodes = [];
-    let count = 1;
-    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : 'Document';
-
-    // Inputs
-    const inRegex = /<input\b([^>]*)>/gi;
-    let m;
-    while ((m = inRegex.exec(html)) !== null) {
-      const a = this._parseAttrs(m[1]);
-      const type = (a.type || 'text').toLowerCase();
-      if (type === 'hidden') continue;
-      const id = a.id || a.name || `in_${count++}`;
-      axNodes.push({ selectorId: `@input:${id}`, role: 'textbox', type, name: a.name || id, label: a.placeholder || a.name || id, value: a.value || '' });
-    }
-
-    // Selects
-    const selRegex = /<select\b([^>]*)>([\s\S]*?)<\/select>/gi;
-    while ((m = selRegex.exec(html)) !== null) {
-      const a = this._parseAttrs(m[1]);
-      const id = a.id || a.name || `sel_${count++}`;
-      const options = [];
-      const optRegex = /<option\b([^>]*)>([\s\S]*?)<\/option>/gi;
-      let optM;
-      while ((optM = optRegex.exec(m[2])) !== null) {
-        const optA = this._parseAttrs(optM[1]);
-        const text = optM[2].replace(/<[^>]+>/g, '').trim();
-        options.push({ value: optA.value !== undefined ? optA.value : text, label: text, selected: 'selected' in optA });
-      }
-      axNodes.push({ selectorId: `@select:${id}`, role: 'combobox', name: a.name || id, options, currentValue: (options.find(o => o.selected) || options[0] || {}).value || '' });
-    }
-
-    // Buttons
-    const btnRegex = /<button\b([^>]*)>([\s\S]*?)<\/button>/gi;
-    while ((m = btnRegex.exec(html)) !== null) {
-      const a = this._parseAttrs(m[1]);
-      const text = m[2].replace(/<[^>]+>/g, '').trim();
-      axNodes.push({ selectorId: `@button:${a.id || `btn_${count++}`}`, role: 'button', type: a.type || 'button', label: text || a.id || 'button', action: 'submit' });
-    }
-
-    // Links
-    const linkRegex = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
-    while ((m = linkRegex.exec(html)) !== null) {
-      const a = this._parseAttrs(m[1]);
-      if (!a.href || a.href.startsWith('#')) continue;
-      const text = m[2].replace(/<[^>]+>/g, '').trim();
-      axNodes.push({ selectorId: `@link:${count++}`, role: 'link', href: a.href, label: text || a.href, isDownload: this._isDownloadable(a.href) });
-    }
-
+    const source = String(html || '').slice(0, MAX_HTML_LENGTH);
+    const title = source.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || 'Document';
+    const counter = { value: 1 };
+    const axNodes = [...this._inputNodes(source, counter), ...this._selectNodes(source, counter),
+      ...this._buttonNodes(source, counter), ...this._linkNodes(source, counter)];
     return { title, axNodes };
   }
 
+  _inputNodes(html, counter) {
+    return matches(html, /<input\b([^>]*)>/gi, (match) => {
+      const attrs = this._parseAttrs(match[1]);
+      const type = (attrs.type || 'text').toLowerCase();
+      if (type === 'hidden') return null;
+      const id = attrs.id || attrs.name || `in_${counter.value++}`;
+      return { selectorId: `@input:${id}`, role: 'textbox', type, name: attrs.name || id,
+        label: attrs.placeholder || attrs.name || id, value: attrs.value || '' };
+    }).filter(Boolean);
+  }
+
+  _selectNodes(html, counter) {
+    return matches(html, /<select\b([^>]*)>([\s\S]*?)<\/select>/gi, (match) => {
+      const attrs = this._parseAttrs(match[1]);
+      const id = attrs.id || attrs.name || `sel_${counter.value++}`;
+      const options = selectOptions(this, match[2]);
+      return { selectorId: `@select:${id}`, role: 'combobox', name: attrs.name || id,
+        options, currentValue: (options.find(option => option.selected) || options[0] || {}).value || '' };
+    });
+  }
+
+  _buttonNodes(html, counter) {
+    return matches(html, /<button\b([^>]*)>([\s\S]*?)<\/button>/gi, (match) => {
+      const attrs = this._parseAttrs(match[1]);
+      const label = stripMarkup(match[2]).trim();
+      const id = attrs.id || `btn_${counter.value++}`;
+      return { selectorId: `@button:${id}`, role: 'button', type: attrs.type || 'button',
+        label: label || attrs.id || 'button', action: 'submit' };
+    });
+  }
+
+  _linkNodes(html, counter) {
+    return matches(html, /<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (match) => {
+      const attrs = this._parseAttrs(match[1]);
+      if (!attrs.href || attrs.href.startsWith('#')) return null;
+      const label = stripMarkup(match[2]).trim();
+      return { selectorId: `@link:${counter.value++}`, role: 'link', href: attrs.href,
+        label: label || attrs.href, isDownload: this._isDownloadable(attrs.href) };
+    }).filter(Boolean);
+  }
+
   _updateObservation(session, html) {
-    const text = String(html || '').replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style\b[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;|&amp;|&lt;|&gt;/g, ' ').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+    const text = stripMarkup(html).replace(/&nbsp;|&amp;|&lt;|&gt;/g, ' ').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
     const previous = new Set(session.observationTokens || []);
     const unique = [...new Set(text)];
     const novel = unique.filter(token => !previous.has(token));
@@ -227,7 +276,7 @@ class BrowserScoutService {
       const node = session.axTree.find(item => item.selectorId === selectorId);
       if (!node) return { success: false, verified: false, error: `Selector not found: ${selectorId}` };
       const selector = node.role === 'link'
-        ? `a[href="${String(node.href).replace(/"/g, '\\"')}"]`
+        ? `a[href="${escapeCssString(node.href)}"]`
         : null;
       try {
         const result = await this.browserAdapter.act(session.browserPage, {

@@ -64,8 +64,22 @@ function extractTech(content) {
 }
 
 function extractFilePaths(content) {
-  const pathMatches = content.match(/[a-zA-Z0-9_./-]+\.(?:js|cjs|rs|py|json|db|proto|md)\b/g) || [];
-  return pathMatches.slice(0, 4).map((p) => ({ text: p, label: 'Location' }));
+  const source = String(content || '').slice(0, 100_000);
+  const extensions = ['.js', '.cjs', '.rs', '.py', '.json', '.db', '.proto', '.md'];
+  const paths = [];
+  let token = '';
+  const saveToken = () => {
+    const candidate = token.replace(/^[./-]+|[./-]+$/g, '');
+    if (candidate.length <= 512 && extensions.some(extension => candidate.endsWith(extension))) paths.push(candidate);
+    token = '';
+  };
+  for (const character of source) {
+    if (/[a-zA-Z0-9_./-]/.test(character)) token += character;
+    else if (token) saveToken();
+    if (paths.length >= 4) break;
+  }
+  if (token && paths.length < 4) saveToken();
+  return [...new Set(paths)].map((filePath) => ({ text: filePath, label: 'Location' }));
 }
 
 function buildRelations(entities, action) {

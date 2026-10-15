@@ -9,6 +9,16 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+function containedChildPath(rootPath, entryName) {
+  const root = path.resolve(rootPath);
+  const name = path.basename(String(entryName || ''));
+  if (!name || name !== entryName || name === '.' || name === '..') return null;
+  const candidate = path.resolve(root, name);
+  const relative = path.relative(root, candidate);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
+  return candidate;
+}
+
 function defaultGitHubDirectory() {
   if (process.env.GITHUB_PROJECTS_DIR && fs.existsSync(process.env.GITHUB_PROJECTS_DIR)) {
     return path.resolve(process.env.GITHUB_PROJECTS_DIR);
@@ -37,7 +47,8 @@ function discoverRepositories(githubRoot = null, maxDepth = 2) {
       if (!entry.isDirectory()) continue;
       if (entry.name.startsWith('.') && entry.name !== '.genos-agent-worlds') continue;
 
-      const repoPath = path.join(root, entry.name);
+      const repoPath = containedChildPath(root, entry.name);
+      if (!repoPath) continue;
       if (fs.existsSync(path.join(repoPath, '.git'))) {
         repos.push({ name: entry.name, path: repoPath });
       } else if (maxDepth > 1) {
@@ -210,8 +221,9 @@ function discoverNestedRepositories(repoPath, entry, repos) {
         try {
           const subEntries = fs.readdirSync(repoPath, { withFileTypes: true });
           for (const sub of subEntries) {
-            if (sub.isDirectory() && fs.existsSync(path.join(repoPath, sub.name, '.git'))) {
-              repos.push({ name: `${entry.name}/${sub.name}`, path: path.join(repoPath, sub.name) });
+            const nestedPath = containedChildPath(repoPath, sub.name);
+            if (sub.isDirectory() && nestedPath && fs.existsSync(path.join(nestedPath, '.git'))) {
+              repos.push({ name: `${entry.name}/${sub.name}`, path: nestedPath });
             }
           }
         } catch (_) {}

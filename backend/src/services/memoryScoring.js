@@ -6,8 +6,12 @@ const VOCABULARY = [
 ];
 
 const VECTOR_DIM = 768;
+const MAX_TEXT_LENGTH = 100_000;
+const MAX_TOKEN_COUNT = 4_096;
+const MAX_TOKEN_LENGTH = 256;
 
 function hashTokenIntoVector(term, vec, options = {}) {
+  term = String(term).slice(0, MAX_TOKEN_LENGTH);
   const { dim, weight = 1.0 } = options;
   let h1 = 0x811c9dc5;
   for (let i = 0; i < term.length; i++) {
@@ -21,10 +25,10 @@ function hashTokenIntoVector(term, vec, options = {}) {
 
 function textToVector(text = '', dim = VECTOR_DIM) {
   const vec = new Float64Array(dim);
-  const normalized = String(text || '').toLowerCase().trim();
+  const normalized = String(text || '').slice(0, MAX_TEXT_LENGTH).toLowerCase().trim();
   if (!normalized) return Array.from(vec);
 
-  const tokens = normalized.split(/[\s,._\-\(\)]+/).filter(Boolean);
+  const tokens = normalized.split(/[\s,._\-\(\)]+/).filter(Boolean).slice(0, MAX_TOKEN_COUNT);
   if (tokens.length === 0) return Array.from(vec);
 
   for (let i = 0; i < tokens.length; i++) {

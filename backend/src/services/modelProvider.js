@@ -32,19 +32,6 @@ const API_KEY_ENV = {
 };
 const DEFAULT_KEY_ENV = ['GENOS_MODEL_API_KEY', 'OPENAI_API_KEY'];
 
-const PROVIDER_ENDPOINTS = {
-  anthropic: () => process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages',
-  gemini: (modelName) => process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
-  mistral: () => process.env.MISTRAL_API_ENDPOINT || 'https://api.mistral.ai/v1/chat/completions',
-  groq: () => process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions',
-  deepseek: () => process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com/v1/chat/completions',
-  together: () => process.env.TOGETHER_API_ENDPOINT || 'https://api.together.xyz/v1/chat/completions',
-  openrouter: () => process.env.OPENROUTER_API_ENDPOINT || 'https://openrouter.ai/api/v1/chat/completions',
-  ollama: () => process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions',
-  lmstudio: () => process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions',
-  vllm: () => process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions'
-};
-
 function firstTruthy(...values) {
   for (const value of values) {
     if (value) return value;
@@ -121,10 +108,24 @@ function isLocalEndpoint(explicitEndpoint) {
   return Boolean(explicitEndpoint && /^(http:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/0\.0\.0\.0)/.test(explicitEndpoint));
 }
 
+const PROVIDER_ENDPOINTS = {
+  anthropic: () => process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages',
+  gemini: model => process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+  mistral: () => process.env.MISTRAL_API_ENDPOINT || 'https://api.mistral.ai/v1/chat/completions',
+  groq: () => process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions',
+  deepseek: () => process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com/v1/chat/completions',
+  together: () => process.env.TOGETHER_API_ENDPOINT || 'https://api.together.xyz/v1/chat/completions',
+  openrouter: () => process.env.OPENROUTER_API_ENDPOINT || 'https://openrouter.ai/api/v1/chat/completions',
+  ollama: () => process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions',
+  lmstudio: () => process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions',
+  vllm: () => process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions'
+};
+
 function resolveEndpoint(provider, modelName, endpointOverride) {
-  const builder = PROVIDER_ENDPOINTS[provider];
-  if (builder) return builder(modelName);
-  return firstTruthy(endpointOverride, process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT, process.env.GENOS_MODEL_ENDPOINT, 'https://api.openai.com/v1/chat/completions');
+  const endpoint = PROVIDER_ENDPOINTS[provider];
+  if (endpoint) return endpoint(modelName);
+  return firstTruthy(endpointOverride, process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT,
+    process.env.GENOS_MODEL_ENDPOINT, 'https://api.openai.com/v1/chat/completions');
 }
 
 function modelConfiguration(model, endpointOverride) {

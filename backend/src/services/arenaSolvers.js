@@ -1,4 +1,6 @@
 const { performance } = require('perf_hooks');
+const MAX_BENCHMARK_CASES = 100;
+const MAX_CASE_VALUES = 10_000;
 
 const SOLVER_PROFILES = {
   mcts_solver: { name: 'MCTS Solver', archetype: 'Tree Search', baseElo: 1520 },
@@ -10,6 +12,7 @@ const SOLVER_PROFILES = {
 
 function buildBenchmark(problemSpec = {}) {
   if (Array.isArray(problemSpec.cases) && problemSpec.cases.length > 0) {
+    if (problemSpec.cases.length > MAX_BENCHMARK_CASES) throw new Error(`Benchmark supports at most ${MAX_BENCHMARK_CASES} cases.`);
     return {
       id: problemSpec.id || 'custom-search',
       title: problemSpec.title || 'Custom search benchmark',
@@ -34,11 +37,16 @@ function buildBenchmark(problemSpec = {}) {
 }
 
 function executeSolver(solverKey, values, target) {
+  if (values.length > MAX_CASE_VALUES) throw new Error(`Solver supports at most ${MAX_CASE_VALUES} values.`);
   const startedAt = performance.now();
   const state = { index: -1, steps: 0, trace: [], solverKey };
-  const searches = new Map([['react_solver', linearSearch], ['beam_solver', beamSearch], ['genetic_solver', geneticSearch]]);
-  const search = searches.get(solverKey) || binarySearch;
-  search(values, target, state);
+  switch (solverKey) {
+    case 'react_solver': linearSearch(values, target, state); break;
+    case 'beam_solver': beamSearch(values, target, state); break;
+    case 'genetic_solver': geneticSearch(values, target, state); break;
+    case 'mcts_solver': case 'reflexion_solver': binarySearch(values, target, state); break;
+    default: throw new Error(`Unknown solver '${solverKey}'.`);
+  }
   return { index: state.index, steps: state.steps,
     executionTimeMs: Math.max(0, Number((performance.now() - startedAt).toFixed(3))), trace: state.trace };
 }

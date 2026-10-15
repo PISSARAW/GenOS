@@ -12,14 +12,19 @@ const aTeamService = require('./aTeamService');
 const topologyWorkerKindService = require('./topologyWorkerKindService');
 const syncytiumVariantWorkerService = require('./syncytiumVariantWorkerService');
 
-const MODE_ALIASES = Object.freeze({ ateam: 'a_team', holobiont: 'holobionte' });
-
 function normalizeMode(mode) {
   const key = String(mode || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
-  return MODE_ALIASES[key] || key;
+  if (key === 'ateam') return 'a_team';
+  return key === 'holobiont' ? 'holobionte' : key;
 }
 
-const COMPOSERS = Object.freeze({
+async function applyOrganization({ db, orchestratorId, organization, reason }) {
+  if (!organization || !orchestratorId) return;
+  const dynamicOrganization = require('./dynamicOrganizationService');
+  await dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId });
+}
+
+const MODE_COMPOSERS = {
   trinity: composeTrinity,
   a_team: composeATeam,
   biocenose: composeBiocenose,
@@ -28,13 +33,7 @@ const COMPOSERS = Object.freeze({
   metapopulation: composeMetapopulation,
   rhizome: composeRhizome,
   biome: composeBiome
-});
-
-async function applyOrganization({ db, orchestratorId, organization, reason }) {
-  if (!organization || !orchestratorId) return;
-  const dynamicOrganization = require('./dynamicOrganizationService');
-  await dynamicOrganization.changeOrganization(db, { orchestratorId, organization, reason, changedBy: orchestratorId });
-}
+};
 
 async function composeMode(input = {}) {
   const context = { ...input, key: normalizeMode(input.mode) };
@@ -42,9 +41,9 @@ async function composeMode(input = {}) {
     return require('./isolatedBaselineTopologyService').compose(context);
   }
   if (context.key === 'axolotl' || context.key === 'plastique') return composeAxolotl(context);
-  const composer = COMPOSERS[context.key];
-  const composition = composer
-    ? await composer(context)
+  const compose = MODE_COMPOSERS[context.key];
+  const composition = compose
+    ? await compose(context)
     : { members: biologicalModeService.compose(context.key, context.mission) };
   return topologyWorkerKindService.applyTopologyWorkerKinds(
     context.key, composition, context.workerAssignments || context.options?.workerAssignments

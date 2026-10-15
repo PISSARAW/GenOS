@@ -37,7 +37,7 @@ async function composeBiome(mission, options = {}) {
   const variant = biomeVariantPolicy.select(goal, options);
   const organization = options.organization || DEFAULT_ORGANIZATION;
   const scope = options.scope || variant.scope;
-  const sessionId = `biome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const sessionId = `biome-${require('crypto').randomUUID()}`;
   const persistenceKey = persistentKey(scope, options, sessionId);
   const session = createSession({ goal, variant, organization, scope, sessionId, persistenceKey, options });
   initializeSuccession(session);

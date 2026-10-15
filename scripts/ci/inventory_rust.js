@@ -25,10 +25,25 @@ function binaries(crate) {
   if (!fs.existsSync(src)) return [];
   const direct = fs.existsSync(path.join(src, 'main.rs')) ? ['src/main.rs'] : [];
   const toml = path.join(lib.root, 'crates', crate, 'Cargo.toml');
-  const declared = fs.existsSync(toml)
-    ? [...fs.readFileSync(toml, 'utf8').matchAll(/\[\[bin\]\]\s*\n(?:[^\[]*\n)*?path\s*=\s*"([^"]+)"/g)]
-      .map((m) => m[1]) : [];
+  const declared = fs.existsSync(toml) ? binaryPaths(fs.readFileSync(toml, 'utf8')) : [];
   return [...new Set([...direct, ...declared])].sort();
+}
+
+function binaryPaths(manifest) {
+  const paths = [];
+  let inBinary = false;
+  for (const line of manifest.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('[[')) {
+      inBinary = trimmed === '[[bin]]';
+      continue;
+    }
+    if (!inBinary || !trimmed.startsWith('path')) continue;
+    const separator = trimmed.indexOf('=');
+    const value = separator >= 0 ? trimmed.slice(separator + 1).trim() : '';
+    if (value.startsWith('"') && value.endsWith('"')) paths.push(value.slice(1, -1));
+  }
+  return paths;
 }
 
 function cliCommands() {
@@ -37,7 +52,7 @@ function cliCommands() {
   const mod = fs.readFileSync(path.join(dir, 'mod.rs'), 'utf8');
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.rs') && f !== 'mod.rs')
     .map((f) => f.replace(/\.rs$/, '')).sort();
-  const undeclared = files.filter((m) => !new RegExp(`pub mod ${m};`).test(mod));
+  const undeclared = files.filter((m) => !mod.includes(`pub mod ${m};`));
   return { files, undeclared };
 }
 

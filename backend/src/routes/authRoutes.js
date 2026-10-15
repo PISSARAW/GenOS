@@ -6,12 +6,14 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { requireRole } = require('../middleware/auth');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
 // Defense in depth: login bodies are untrusted, cap them at 100kb. The
 // effective ceiling is enforced by the scoped parser mounted in app.js
 // before the global 10mb parser; this router-level guard documents the
 // intent and protects standalone mounts of this router.
 router.use(express.json({ limit: '100kb' }));
+router.use(routeRateLimit);
 
 router.post('/verify-token', authController.verifyToken);
 router.post('/verify-override', authController.verifyToken);

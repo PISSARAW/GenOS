@@ -147,7 +147,7 @@ async function persist(db, session) {
 }
 
 async function createSession(mission, options = {}) {
-  const sessionId = `syncytium-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const sessionId = `syncytium-${require('crypto').randomUUID()}`;
   const organization = options.organization || DEFAULT_ORGANIZATION;
   const schema = schemaService.compile(options.schema);
   const variantPolicy = options.variantPolicy ? { ...options.variantPolicy,

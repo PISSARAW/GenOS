@@ -12,6 +12,7 @@ const { securityHeaders, originCheck, csrfCheck, xssSanitizer, ALLOWED_ORIGINS }
 const { requireAuthentication } = require('./middleware/auth');
 const { idempotencyMiddleware } = require('./middleware/idempotency');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { routeRateLimit } = require('./middleware/routeRateLimit');
 
 // Route Modules
 const authRoutes = require('./routes/authRoutes');
@@ -91,9 +92,9 @@ function createApp() {
   // Container/orchestrator probes are intentionally public and cheap. The
   // dependency-aware probes still verify the SQLite store before reporting
   // readiness, while liveness only answers whether the event loop responds.
-  app.get('/healthz', healthController.getLiveness);
-  app.get('/readyz', healthController.getReadiness);
-  app.get('/livez', healthController.getStartup);
+  app.get('/healthz', routeRateLimit, healthController.getLiveness);
+  app.get('/readyz', routeRateLimit, healthController.getReadiness);
+  app.get('/livez', routeRateLimit, healthController.getStartup);
 
   // 1. CORS Configuration
   app.use(cors({

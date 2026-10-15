@@ -20,6 +20,7 @@ const {
 } = require('./arenaHelpers');
 const { performance } = require('perf_hooks');
 let lastTournamentResult = null;
+const MAX_TOURNAMENT_ROUNDS = 100;
 
 function calculateElo(ratingA, ratingB, scoreA) {
   const kFactor = 32;
@@ -29,8 +30,9 @@ function calculateElo(ratingA, ratingB, scoreA) {
 
 function runTournament(options = {}) {
   const config = resolveTournamentOptions(options, arguments);
-  if (!Number.isInteger(config.rounds) || config.rounds < 1) throw new Error('rounds must be a positive integer.');
+  if (!Number.isInteger(config.rounds) || config.rounds < 1 || config.rounds > MAX_TOURNAMENT_ROUNDS) throw new Error(`rounds must be an integer between 1 and ${MAX_TOURNAMENT_ROUNDS}.`);
   const selectedSolvers = config.solverKeys.length > 0 ? config.solverKeys : Object.keys(SOLVER_PROFILES);
+  if (selectedSolvers.length > Object.keys(SOLVER_PROFILES).length) throw new Error('Tournament solver list exceeds the supported limit.');
   const problem = buildBenchmark(config.problemSpec || {});
   assertKnownSolvers(selectedSolvers);
   assertBenchmarkCases(problem);

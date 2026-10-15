@@ -4,6 +4,7 @@ const { createExpression, cloneExpression } = require('./morphologyExpression');
 const { validateExpression } = require('./morphologyExpressionSchema');
 const { flattenExpression } = require('./morphologyExpressionFlattener');
 const { annotateWithDefaults } = require('./morphologyExpressionDefaults');
+const crypto = require('crypto');
 
 const OPERATOR_KINDS = ['NEST', 'PARALLEL', 'SEQUENCE', 'COMPETE', 'GATE', 'WRAP', 'BRIDGE', 'FEDERATE'];
 
@@ -33,29 +34,67 @@ function normalizeTopology(node) {
 function normalizeOperator(node) {
   const normalized = { ...node };
   normalized.kind = String(normalized.kind).toUpperCase();
-  const handler = operatorNormalizer(normalized.kind, normalized);
-  if (handler) handler();
+  operatorNormalizer(normalized.kind, normalized);
   if (normalized.budget) normalized.budget = normalizeBudget(normalized.budget);
   return createExpression(normalized);
 }
 
+const OPERATOR_NORMALIZERS = {
+  NEST: normalizeNestOperator,
+  PARALLEL: normalizeChildrenOperator,
+  SEQUENCE: normalizeChildrenOperator,
+  COMPETE: normalizeChildrenOperator,
+  GATE: normalizeGateOperator,
+  WRAP: normalizeWrapOperator,
+  BRIDGE: normalizeBridgeOperator,
+  FEDERATE: normalizeFederateOperator
+};
+
 function operatorNormalizer(kind, normalized) {
-  const handlers = new Map([
-    ['NEST', () => { normalized.host = normalizeNode(normalized.host); normalized.inner = normalizeNode(normalized.inner); normalized.nodeKind = 'OPERATOR'; }],
-    ['PARALLEL', () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; }],
-    ['SEQUENCE', () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; }],
-    ['COMPETE', () => { normalized.children = (normalized.children || []).map(normalizeNode); normalized.nodeKind = 'OPERATOR'; }],
-    ['GATE', () => { normalized.condition = normalizeNode(normalized.condition); normalized.thenBranch = normalizeNode(normalized.thenBranch); normalized.elseBranch = normalizeNode(normalized.elseBranch); normalized.nodeKind = 'GATE'; }],
-    ['WRAP', () => { normalized.inner = normalizeNode(normalized.inner); normalized.environment = normalizeEnvironment(normalized.environment); normalized.nodeKind = 'ENVIRONMENT'; }],
-    ['BRIDGE', () => { normalized.source = normalizeNode(normalized.source); normalized.target = normalizeNode(normalized.target); normalized.adapter = normalizeAdapter(normalized.adapter); normalized.nodeKind = 'ADAPTER'; }],
-    ['FEDERATE', () => { normalized.members = (normalized.members || []).map(normalizeNode); normalized.quorum = normalized.quorum ?? Math.ceil((normalized.members?.length || 2) / 2); normalized.nodeKind = 'OPERATOR'; }]
-  ]);
-  return handlers.get(kind);
+  const normalize = OPERATOR_NORMALIZERS[kind];
+  if (normalize) normalize(normalized);
+}
+
+function normalizeNestOperator(node) {
+  node.host = normalizeNode(node.host);
+  node.inner = normalizeNode(node.inner);
+  node.nodeKind = 'OPERATOR';
+}
+
+function normalizeChildrenOperator(node) {
+  node.children = (node.children || []).map(normalizeNode);
+  node.nodeKind = 'OPERATOR';
+}
+
+function normalizeGateOperator(node) {
+  node.condition = normalizeNode(node.condition);
+  node.thenBranch = normalizeNode(node.thenBranch);
+  node.elseBranch = normalizeNode(node.elseBranch);
+  node.nodeKind = 'GATE';
+}
+
+function normalizeWrapOperator(node) {
+  node.inner = normalizeNode(node.inner);
+  node.environment = normalizeEnvironment(node.environment);
+  node.nodeKind = 'ENVIRONMENT';
+}
+
+function normalizeBridgeOperator(node) {
+  node.source = normalizeNode(node.source);
+  node.target = normalizeNode(node.target);
+  node.adapter = normalizeAdapter(node.adapter);
+  node.nodeKind = 'ADAPTER';
+}
+
+function normalizeFederateOperator(node) {
+  node.members = (node.members || []).map(normalizeNode);
+  node.quorum = node.quorum ?? Math.ceil((node.members?.length || 2) / 2);
+  node.nodeKind = 'OPERATOR';
 }
 
 function normalizePort(port) {
   if (!port || typeof port !== 'object') return port;
-  return { ...port, portId: port.portId || `port_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name: String(port.name || '').trim(), type: String(port.type || 'INPUT').toUpperCase(), direction: String(port.direction || 'in').toLowerCase(), schema: port.schema || {}, required: port.required === true };
+  return { ...port, portId: port.portId || `port_${crypto.randomUUID()}`, name: String(port.name || '').trim(), type: String(port.type || 'INPUT').toUpperCase(), direction: String(port.direction || 'in').toLowerCase(), schema: port.schema || {}, required: port.required === true };
 }
 
 function normalizeBudget(budget) {

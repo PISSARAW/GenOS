@@ -227,25 +227,25 @@ async function handleProceduralRunnerResolve(args) {
   return run('resolve-runner', args);
 }
 
-const STRATEGY_HANDLERS = new Map([
-  ['genos_blame', (args, context) => handleBlameOrLineage('genos_blame', args, context)],
-  ['genos_lineage', (args, context) => handleBlameOrLineage('genos_lineage', args, context)],
-  ['genos_record_experience', (args) => runPrimitive('record_experience', args)],
-  ['genos_compile_memory', (args) => runPrimitive('compile_memory', args)],
-  ['genos_resilience_hypermutation', handleResilienceHypermutation],
-  ['genos_synaptic_stdp_update', handleSynapticStdpUpdate],
-  ['genos_synaptic_prune_scale', (args, context) => handleSynapticPruneScale(args, context)],
-  ['genos_execute_primitive', handleExecutePrimitive],
-  ['genos_execute_strategy_pipeline', handleExecuteStrategyPipeline],
-  ['genos_procedural_registry_list', handleProceduralRegistryList],
-  ['genos_procedural_runner_resolve', handleProceduralRunnerResolve]
-]);
+const STRATEGY_TOOL_HANDLERS = Object.assign(Object.create(null), {
+  genos_blame: (args, context) => handleBlameOrLineage('genos_blame', args, context),
+  genos_lineage: (args, context) => handleBlameOrLineage('genos_lineage', args, context),
+  genos_record_experience: args => runPrimitive('record_experience', args),
+  genos_compile_memory: args => runPrimitive('compile_memory', args),
+  genos_resilience_hypermutation: handleResilienceHypermutation,
+  genos_synaptic_stdp_update: handleSynapticStdpUpdate,
+  genos_synaptic_prune_scale: handleSynapticPruneScale,
+  genos_execute_primitive: handleExecutePrimitive,
+  genos_execute_strategy_pipeline: handleExecuteStrategyPipeline,
+  genos_procedural_registry_list: handleProceduralRegistryList,
+  genos_procedural_runner_resolve: handleProceduralRunnerResolve
+});
 
 async function dispatchStrategyTool(toolName, args, context) {
   if (toolName.startsWith('genos_strat_')) {
     return runPrimitive(toolName.slice('genos_strat_'.length), args);
   }
-  const handler = STRATEGY_HANDLERS.get(toolName);
+  const handler = STRATEGY_TOOL_HANDLERS[toolName];
   return handler ? handler(args, context) : null;
 }
 

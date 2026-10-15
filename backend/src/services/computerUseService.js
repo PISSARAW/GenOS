@@ -16,14 +16,16 @@ const path = require("path");
 // LM Studio, vLLM) get a generic vision+JSON-action prompt instead. Either
 // way the model must support image input - plain text models (e.g. llama3.1)
 // cannot see the screenshot and will never produce a usable action.
-const KNOWN_VISION_HINTS = /vl|vision|llava|moondream|minicpm|pixtral|bakllava|gemma-?3|qwen.*vl/i;
+const KNOWN_VISION_HINTS = ['vl', 'vision', 'llava', 'moondream', 'minicpm', 'pixtral', 'bakllava', 'gemma3'];
 
 function resolveComputerUseModel(modelOverride) {
-    const candidate = modelOverride || process.env.GENOS_COMPUTER_USE_MODEL || process.env.GENOS_DEFAULT_MODEL || "anthropic://claude-3-5-sonnet-20241022";
+    const candidate = String(modelOverride || process.env.GENOS_COMPUTER_USE_MODEL || process.env.GENOS_DEFAULT_MODEL || "anthropic://claude-3-5-sonnet-20241022").slice(0, 512);
     const match = candidate.match(/^([\w-]+):\/\/(.+)$/);
     const provider = match ? match[1] : '';
     const modelName = match ? match[2] : '';
-    const looksLikeVision = provider === 'anthropic' || KNOWN_VISION_HINTS.test(modelName);
+    const normalizedModel = modelName.toLowerCase();
+    const looksLikeVision = provider === 'anthropic' || KNOWN_VISION_HINTS.some((hint) => normalizedModel.includes(hint))
+      || (normalizedModel.includes('gemma-3') || normalizedModel.includes('qwen')) && normalizedModel.includes('vl');
     return { model: candidate, provider, looksLikeVision };
 }
 

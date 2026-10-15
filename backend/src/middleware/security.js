@@ -22,26 +22,37 @@ const configuredOrigins = String(process.env.GENOS_ALLOWED_ORIGINS || '')
   .filter(Boolean);
 const ALLOWED_ORIGINS = Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins]));
 
-const TAG_BLOCK = /<\s*(?:script|iframe|style|object|embed|svg|math)\b[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|style|object|embed|svg|math)\s*>/gi;
-const EVENT_HANDLER = /on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const MAX_SANITIZED_STRING_LENGTH = 100_000;
 
-function stripTagsToFixedPoint(value) {
-  let current = value;
-  for (let pass = 0; pass < 4; pass += 1) {
-    const next = current.replace(/<[^>]*>/g, '');
-    if (next === current) break;
-    current = next;
+function stripMarkup(value) {
+  const source = value.slice(0, MAX_SANITIZED_STRING_LENGTH);
+  let output = '';
+  let hiddenTag = '';
+  for (let index = 0; index < source.length;) {
+    if (source[index] !== '<') {
+      if (!hiddenTag) output += source[index];
+      index += 1;
+      continue;
+    }
+    const end = source.indexOf('>', index + 1);
+    if (end < 0) break;
+    const rawTag = source.slice(index + 1, end).trim().toLowerCase();
+    const closing = rawTag.startsWith('/');
+    const name = rawTag.replace(/^\/?\s*/, '').slice(0, 10);
+    if (closing && name.startsWith(hiddenTag)) hiddenTag = '';
+    else if (!closing && !hiddenTag && ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math'].some(tag => name.startsWith(tag))) {
+      hiddenTag = ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math'].find(tag => name.startsWith(tag));
+    }
+    index = end + 1;
   }
-  return current;
+  return output;
 }
 
 function sanitizeString(str) {
   if (typeof str !== 'string') return str;
   // Multi-pass stripping defeats mutation XSS such as `<scr<script>ipt>`.
-  const withoutBlocks = str.replace(TAG_BLOCK, '');
-  return stripTagsToFixedPoint(withoutBlocks)
+  return stripMarkup(str)
     .replace(/javascript\s*:/gi, '')
-    .replace(EVENT_HANDLER, '')
     .replace(/[<>]/g, '');
 }
 
