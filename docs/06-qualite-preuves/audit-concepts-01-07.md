@@ -86,6 +86,34 @@ Rust complet passent après correction. Le contrôle qualité inspecte 6 159 fic
 et signale dix violations baseline, zéro nouvelle; le gate staged du correctif
 signale zéro violation. L'index ADR compte 632 entrées sans problème.
 
+Vérification additionnelle du 15 octobre après ces gates : `test_mission_outcome_contract.js`
+échouait dans la suite P1 quand une autre exécution partageait sa base SQLite fixe;
+la fixture utilise maintenant un répertoire temporaire unique et le test ciblé passe.
+`test_gqwf_trinity_mission_qualification.js` a échoué une fois avec `partial` au lieu de
+`complete`. Son scheduler GarageFabric périodique n'était pas arrêté avant fermeture de
+la base; le test ciblé repasse après arrêt/vidange explicite du scheduler, sans tick sur
+une base fermée. Le nouveau `npm test` a passé la biologie, l'isolation de workspace et
+l'identité, puis a été interrompu avant la fin du backend : le disque était tombé à
+278 982 656 octets libres et le démarrage signalait l'échec de sa sauvegarde pré-migration
+best-effort. Ce run ne qualifie donc pas `npm test` globalement. Les tests ciblés corrigés
+ont code 0; ils ne remplacent pas ce gate.
+
+Le contrôle qualité du checkout après ces changements a inspecté 6 181 fichiers et
+signalé 14 violations, dont 3 nouvelles dans des changements non liés à cet audit :
+`crates/genos-cli/src/commands/metabolic_pool.rs` (complexité 12),
+`examples/holobionte/password-change-llm-mission.cjs` (4 paramètres et complexité 11).
+Le gate staged des fixtures modifiées inspecte leurs fichiers et passe sans violation.
+
+La relecture des budgets CPU précise la lacune : `workerResourcePolicy.js` place
+`maxCpuMs` dans `workerContract.resources`, mais `workerRuntimeLimitsService.js` ne le
+consomme pas et `workerKindService.js` le retire aussi des limites générales. Le plafond
+`--cpus` de `pluginSandbox.js` est une configuration Docker globale de plugins, sans
+liaison au budget CPU du worker. En Rust, `ResourceBudget.cpu_ms` n'est lu que par le
+contrat et initialisé par les presets; `genos-worker` expose un cycle mais aucun
+exécuteur qui applique ce champ. La télémétrie CPU de l'hôte ne constitue pas un quota
+par worker. Un plafond dur attribué à un worker requiert une frontière d'exécution
+comptable et interruptible; ce comportement n'est pas implémenté ni démontré ici.
+
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
@@ -102,7 +130,7 @@ signale zéro violation. L'index ADR compte 632 entrées sans problème.
 | Décisions bornées | p | p | p | p | o | F/S ; contrats bornés, enforcement non universel. |
 | Autorité explicite | p | p | p | p | o | F/B ; `genos_synaptic_prune_scale` exige le demandeur authentifié sur les dispatches registre, bio et transport local, puis borne les deux extrémités au workspace (test `test_synaptic_integrity.js`, ADR 0490). Les autorités des autres circuits restent à qualifier. |
 | Leases d’outils | o | p | p | o | o | [référence MCP](../03-reference/outils-mcp.md) ; le runtime propage au serveur Node/Rust l'échéance la plus proche entre délai, budget de latence et plafond hôte, et refuse un plafond mal formé (`test_agent_runtime_adapter.js`, ADR 0509). Les appels directs MCP refusent aussi un lease arrivé à échéance ou invalide (`test_mcp_direct_call_enforcement.js`). Les tests du parseur, du transport et de l'intersection stricte de focus passent (`test_agent_tool_lease_validation.js`, `test_lease_catalog_coherence.js`, `test_mcp_transport_lease.js`, `test_focus_probe_lease_intersection.js`; ADR 0508). `test_mission_authority_envelope.js` démontre qu'une rotation de l'autorité d'exécution arrête un worker déjà lancé. La révocation dynamique d'une politique de lease d'outil indépendante de l'autorité scellée et l'exécution réelle de chaque outil sous lease restent à démontrer. |
-| Budgets de tokens, temps, CPU, spawn et délégation | p | p | p | p | o | F/B ; les runtimes Node Codex, local et Solar partagent des plafonds finis par défaut et ferment à zéro sur valeur explicite invalide; les mesures de coût négatives ou mal formées bloquent aussi (ADR 0510, `test_runtime_billable_budget.js`); `workerRuntimeLimitsService` et le timer `latencyMs` bornent l'exécution (`test_runtime_budget_and_influence.js`, `test_worker_native_lifecycle.js`). Les essais natifs bornent les essais de procédure (`test_worker_native_boundaries.js`). `test_bounded_worker_delegation.js` vérifie cumul tokens/enfants, concurrence, rollback et plafonds pour `sub_orchestrator`. Le champ Node `resources.maxCpuMs` n'est construit que dans `workerResourcePolicy.js` puis n'est appliqué par aucun garde; le champ Rust `ResourceBudget.cpu_ms` est défini et rempli par les presets, mais aucun runtime ne le lit (`workerRuntimeBudgetService.js`, `workerRuntimeLimitsService.js`, `genos-worker/src/contract.rs`, `genos-worker/src/presets.rs`). Aucun compteur n'applique ces plafonds CPU; les essais ne bornent pas les tours généraux et la délégation n'est pas qualifiée dans toutes les topologies. |
+| Budgets de tokens, temps, CPU, spawn et délégation | p | p | p | p | o | F/B ; les runtimes Node Codex, local et Solar partagent des plafonds finis par défaut et ferment à zéro sur valeur explicite invalide; les mesures de coût négatives ou mal formées bloquent aussi (ADR 0510, `test_runtime_billable_budget.js`); `workerRuntimeLimitsService` et le timer `latencyMs` bornent l'exécution (`test_runtime_budget_and_influence.js`, `test_worker_native_lifecycle.js`). Les essais natifs bornent les essais de procédure (`test_worker_native_boundaries.js`). `test_bounded_worker_delegation.js` vérifie cumul tokens/enfants, concurrence, rollback et plafonds pour `sub_orchestrator`. Node inclut `resources.maxCpuMs` dans le contrat, mais aucun garde ne le consomme; `workerKindService.js` le retire aussi de `limits`. Le `--cpus` Docker de `pluginSandbox.js` est un plafond global de plugins, indépendant du worker. Rust définit/remplit `ResourceBudget.cpu_ms`, sans lecture d'exécution dans `genos-worker`. Aucun compteur n'applique ces plafonds CPU. Les essais ne bornent pas les tours généraux et la délégation n'est pas qualifiée dans toutes les topologies. |
 | Isolation des workspaces | p | p | p | o | o | E/F ; tests ciblés refusent les lectures MCP inter-workspace (ADR 0489) et les arêtes d'inhibition inter-projet (`test_synaptic_integrity.js`, ADR 0491). Provisionnement et isolement inter-processus courant à qualifier. |
 | Garde-fou fail-closed | p | p | p | p | o | E/S ; gardes locaux, universalisme non prouvé. |
 | Évidence indépendante | p | p | p | p | o | E ; vérificateurs dédiés, indépendance effective dépend du scénario. |
