@@ -11,15 +11,16 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { TASKS_PATH, REPOS_DIR } = require('./swe_paths');
 
 const PREDICTIONS_PATH = path.resolve(__dirname, 'swe_bench_real_predictions.jsonl');
 
-function runCmd(cmd, cwd, env = {}) {
+function runCmd(options) {
+  const { command, args, cwd, env = {} } = options;
   try {
     const fullEnv = { ...process.env, ...env };
-    const stdout = execSync(cmd, { cwd, env: fullEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 310000 });
+    const stdout = execFileSync(command, args, { cwd, env: fullEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 310000 });
     return { success: true, code: 0, output: stdout };
   } catch (err) {
     return { success: false, code: err.status || 1, timedOut: err.code === 'ETIMEDOUT', output: (err.stdout || '') + (err.stderr || '') };
@@ -27,7 +28,7 @@ function runCmd(cmd, cwd, env = {}) {
 }
 
 function runGit(cmd, cwd) {
-  return execSync(`git ${cmd}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return execFileSync('git', cmd.split(' '), { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
 function applyPatchToRepo(repoDir, patchContent) {
@@ -35,12 +36,12 @@ function applyPatchToRepo(repoDir, patchContent) {
   const tmpDiff = path.join(repoDir, '_temp_swe_apply.diff');
   fs.writeFileSync(tmpDiff, content, 'utf8');
   try {
-    execSync('git apply --ignore-whitespace --whitespace=nowarn _temp_swe_apply.diff', { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', ['apply', '--ignore-whitespace', '--whitespace=nowarn', '_temp_swe_apply.diff'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
     fs.unlinkSync(tmpDiff);
     return true;
   } catch (_) {
     try {
-      execSync('git apply --recount --ignore-whitespace --whitespace=nowarn _temp_swe_apply.diff', { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+      execFileSync('git', ['apply', '--recount', '--ignore-whitespace', '--whitespace=nowarn', '_temp_swe_apply.diff'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
       fs.unlinkSync(tmpDiff);
       return true;
     } catch (_) {
@@ -108,8 +109,7 @@ function runPytest({ repoDir, testTargets, task, pythonPath = 'src:.' }) {
   const pythonBin = `~/.swe_venvs/${venvName}/bin/python`;
   const script = `cd '${wslDir}' && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=${pythonPath} timeout --signal=TERM --kill-after=5s 300s ${pythonBin} -m pytest ${targetArgs} -v -W ignore::DeprecationWarning`;
   const encodedScript = Buffer.from(script, 'utf8').toString('base64');
-  const wslCmd = `wsl -d Ubuntu-24.04 bash -c "echo ${encodedScript} | base64 -d | bash"`;
-  return runCmd(wslCmd, repoDir);
+  return runCmd({ command: 'wsl', args: ['-d', 'Ubuntu-24.04', 'bash', '-c', `echo ${encodedScript} | base64 -d | bash`], cwd: repoDir });
 }
 
 function parseTestList(val) {

@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const memoryController = require('../controllers/memoryController');
 const { requireTenantScope } = require('../middleware/tenant');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
 async function requireMemoryTenant(req, res, next) {
 	await requireTenantScope()(req, res, (error) => {
@@ -15,7 +16,7 @@ async function requireMemoryTenant(req, res, next) {
 	});
 }
 
-router.use(requireMemoryTenant);
+router.use(routeRateLimit, requireMemoryTenant);
 
 router.get('/search', memoryController.search);
 router.post('/search', memoryController.search);

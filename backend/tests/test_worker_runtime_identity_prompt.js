@@ -30,6 +30,7 @@ const prompt = buildAgentRuntimePrompt({
   autonomyPlan: {},
   runtimeAutonomyPlan: {},
   executionPolicy: {},
+  allowedCommands: ['node mcp/test_lease.js'],
   genosCapsule: {},
   capabilities: []
 });
@@ -37,5 +38,7 @@ assert.match(prompt, /\[IDENTITY\]\nAgent ID: worker-identity-1/);
 assert.match(prompt, /Name: Kofi-a1b2c3/);
 assert.match(prompt, /Mission ID: mission-social-1/);
 assert.match(prompt, /Orchestrator ID: orchestrator-social-1/);
+assert.match(prompt, /COMMANDS ALLOWED/);
+assert.match(prompt, /node mcp\/test_lease\.js/);
 
 console.log('Worker runtime identity prompt: PASS');

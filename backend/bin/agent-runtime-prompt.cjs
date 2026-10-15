@@ -119,8 +119,8 @@ function buildFileEditHint(isWorker, allowFileEdits) {
   return !isWorker && allowFileEdits ? `[FILE EDIT]\nFILE EDIT ENABLED: You may create, modify, or delete files within the workspace using file editing tools.` : '';
 }
 
-function buildCommandHint(isWorker, allowedCommands) {
-  return !isWorker && allowedCommands && allowedCommands.length > 0 ? `[COMMANDS]\nCOMMANDS ALLOWED: You may execute the following shell commands: ${allowedCommands.join(', ')}.` : '';
+function buildCommandHint(_isWorker, allowedCommands) {
+  return allowedCommands && allowedCommands.length > 0 ? `[COMMANDS]\nCOMMANDS ALLOWED: You may execute the following shell commands: ${allowedCommands.join(', ')}.` : '';
 }
 
 function buildCapsuleHint(isolation, capsuleId) {

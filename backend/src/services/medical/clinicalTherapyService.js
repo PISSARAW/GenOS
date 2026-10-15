@@ -218,11 +218,10 @@ async function mutateClinicalState(db, agentId, options) {
 
 async function applyTherapy(db, agentId, options) {
   require('./therapyAuthorizationService').authorizeClinicalMutation(agentId,options);
-  await db.exec(`CREATE TABLE IF NOT EXISTS clinical_treatment_authorizations (
-    authorization_id TEXT PRIMARY KEY, signature TEXT NOT NULL, result_json TEXT NOT NULL
-  )`);
+  await ensureClinicalAuthorizationSchema(db);
   return require('../../db').withTransaction(db, async () => {
     const auth = options.authorization;
+    await assertClinicalAuthorizationActive(db, auth.authorizationId);
     const previous = await db.get('SELECT * FROM clinical_treatment_authorizations WHERE authorization_id=?',auth.authorizationId);
     if (previous) {
       if (previous.signature !== auth.signature) throw new Error('Clinical authorization id conflict');
@@ -231,6 +230,48 @@ async function applyTherapy(db, agentId, options) {
     const result = await mutateClinicalState(db,agentId,options);
     await db.run('INSERT INTO clinical_treatment_authorizations VALUES (?,?,?)',auth.authorizationId,auth.signature,JSON.stringify(result));
     return result;
+  });
+}
+
+async function ensureClinicalAuthorizationSchema(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS clinical_treatment_authorizations (
+    authorization_id TEXT PRIMARY KEY, signature TEXT NOT NULL, result_json TEXT NOT NULL
+  )`);
+  await db.exec(`CREATE TABLE IF NOT EXISTS clinical_treatment_revocations (
+    authorization_id TEXT PRIMARY KEY, revoked_by TEXT NOT NULL, revoked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+}
+
+async function assertClinicalAuthorizationActive(db, authorizationId) {
+  const revoked = await db.get(
+    'SELECT authorization_id FROM clinical_treatment_revocations WHERE authorization_id=?', authorizationId
+  );
+  if (revoked) {
+    throw Object.assign(new Error('Clinical authorization has been revoked'), {
+      code: 'CLINICAL_AUTHORIZATION_REVOKED',
+    });
+  }
+}
+
+async function revokeClinicalAuthorization(db, input = {}) {
+  const actor = input.actor;
+  const authorizationId = String(input.authorizationId || '').trim();
+  const revokedBy = String(actor?.keyId || actor?.username || '').trim();
+  if (!actor?.isAuthenticated || !actor.permissions?.includes('all') || !authorizationId || !revokedBy) {
+    throw Object.assign(new Error('Authenticated clinical revocation authority required'), {
+      code: 'CLINICAL_REVOCATION_FORBIDDEN',
+    });
+  }
+  await ensureClinicalAuthorizationSchema(db);
+  return require('../../db').withTransaction(db, async () => {
+    await db.run(
+      'INSERT OR IGNORE INTO clinical_treatment_revocations (authorization_id, revoked_by) VALUES (?,?)',
+      authorizationId, revokedBy
+    );
+    return db.get(
+      'SELECT authorization_id AS authorizationId, revoked_by AS revokedBy, revoked_at AS revokedAt FROM clinical_treatment_revocations WHERE authorization_id=?',
+      authorizationId
+    );
   });
 }
 
@@ -257,5 +298,6 @@ async function getActiveTreatments(db, agentId) {
 }
 
 module.exports = {
-  THERAPIES, selectTherapy, checkContraindications, applyTherapy, getTreatmentHistory, getActiveTreatments,
+  THERAPIES, selectTherapy, checkContraindications, applyTherapy, revokeClinicalAuthorization,
+  getTreatmentHistory, getActiveTreatments,
 };

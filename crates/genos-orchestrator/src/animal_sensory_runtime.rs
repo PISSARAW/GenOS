@@ -5,6 +5,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "sensor", rename_all = "snake_case")]
 pub enum SyntheticAnimalSignal {
     Compass { goal: Vec<f64>, current: Vec<f64> },

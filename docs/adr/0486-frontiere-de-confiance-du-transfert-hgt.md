@@ -44,12 +44,15 @@ pas tous les transferts.
    les champs du rapport et le plasmide. La clé d'idempotence combine mission,
    émetteur et nonce; le lease ID n'en fait pas partie, afin qu'un nonce ne
    puisse pas être réutilisé sous un nouveau lease.
-5. Une mutex sérialise les appels dans un runtime et un verrou de fichier
-   exclusif protège la séquence lecture/idempotence/append entre runtimes qui
-   partagent le même journal. Un verrou abandonné après crash fait échouer fermé
-   jusqu'à son retrait opérateur. Le transfert refuse si la configuration manque
-   ou si la preuve est invalide. `PlasmidBank::transfer`, le diagnostic et la
-   commande CLI refusent la conjugaison directe; API/MCP ne sont pas intégrées.
+5. Une mutex sérialise les appels dans un runtime. Un verrou de fichier géré par
+   le noyau (`flock` sur Unix, `LockFileEx` sur Windows) protège la séquence
+   lecture/idempotence/append entre runtimes partageant le même journal. Le
+   fichier sidecar persiste, mais le noyau libère le verrou quand le processus
+   ferme son handle, y compris après une terminaison brutale; l'ouverture
+   suivante peut réutiliser ce fichier. Le transfert refuse si la configuration
+   manque ou si la preuve est invalide. `PlasmidBank::transfer`, le diagnostic
+   et la commande CLI refusent la conjugaison directe; API/MCP ne sont pas
+   intégrées.
 
 ## Conséquences envisagées
 
@@ -69,9 +72,10 @@ pas tous les transferts.
   leur rotation et leur révocation.
 - Les appelants internes utilisant `PlasmidBank` devront obtenir une preuve;
   diagnostics peut refuser une réparation si aucun octroi autorisé n'existe.
-- Le verrou de fichier n'a pas encore été qualifié entre processus OS. Un crash
-  peut laisser un verrou à retirer manuellement; une base transactionnelle
-  offrirait une reprise plus robuste.
+- La garantie de verrouillage repose sur les verrous de fichiers locaux de l'OS;
+  le comportement des systèmes de fichiers réseau n'est pas qualifié. Le journal
+  reste single-writer et la reprise d'un append durable suivi d'un crash avant
+  mutation dépend du rejeu du reçu.
 - Cette décision ne rend pas le transfert biologiquement réel et ne valide pas
   la sûreté sémantique du payload du plasmide.
 
@@ -117,12 +121,15 @@ pas tous les transferts.
 ## Vérification actuelle
 
 Le runtime configure les clés dans `GenosEcosystem`, vérifie les preuves Ed25519
-externes et persiste un reçu avant mutation. Un verrou exclusif par journal
-protège désormais l'append entre runtimes; son test interprocessus OS reste à
-faire. Les API directes de conjugaison,
-transformation, diagnostic et CLI échouent fermés. Les tests ciblés ne sont pas
-encore qualifiés après les derniers changements. La configuration des clés est
-une API publique de la crate et son confinement au bootstrap hôte n'est pas
-imposé par le type; le reçu n'a pas de signature propre et l'essai de reprise
-n'utilise pas un processus OS distinct. Ne pas déclarer HGT validé avant preuve
-de ces garanties et réussite des critères d'acceptation.
+externes et persiste un reçu avant mutation. `ProcessFileLock` fournit le verrou
+de handle commun aux journaux HGT et biologiques; le noyau le libère à la fin du
+processus, même après terminaison forcée. Sur Windows, `cargo test -p
+genos-orchestrator process_file_lock::tests::process_exit_releases_the_kernel_lock`
+et `cargo test -p genos-orchestrator --test hgt_authority` passent; ce dernier
+exécute 5 tests, dont contention/rejeu entre processus. Les API directes de conjugaison,
+transformation, diagnostic et CLI échouent fermés. La configuration des clés
+est une API publique de la crate et son confinement au bootstrap hôte n'est pas
+imposé par le type; le reçu n'a pas de signature propre; les systèmes de
+fichiers réseau et l'intégration API/MCP ne sont pas qualifiés. La sérialisation
+du verrou n'établit pas une garantie d'écriture transactionnelle du journal.
+Ne pas déclarer HGT validé avant satisfaction de tous les critères d'acceptation.

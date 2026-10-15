@@ -116,6 +116,11 @@ function usageTokenCounts(usage) {
 }
 
 function usageContextTokens(source, usage, counts) {
+  const terminalSummary = source.evidenceReport && usage.tokens !== undefined
+    && usage.total_tokens === undefined && usage.input_tokens === undefined
+    && usage.prompt_tokens === undefined && usage.output_tokens === undefined
+    && usage.completion_tokens === undefined;
+  if (terminalSummary) return 0;
   return Number(source.tokens ?? usage.total_tokens ?? usage.tokens ?? (counts.inputTokens + counts.outputTokens));
 }
 
@@ -178,7 +183,10 @@ function primitiveFailureReason(step, result) {
 
 function exceededGuardrail(metrics, budget) {
   for (const key of ['tokens', 'costUsd', 'latencyMs', 'events']) {
-    if (metrics[key] > budget[key]) return `${key} budget exceeded (${metrics[key]} > ${budget[key]})`;
+    const observed = key === 'tokens' && Number(metrics.cachedInputTokens) > 0
+      ? Number(metrics.billableTokens)
+      : metrics[key];
+    if (observed > budget[key]) return `${key} budget exceeded (${observed} > ${budget[key]})`;
   }
   return null;
 }

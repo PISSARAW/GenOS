@@ -87,16 +87,29 @@ function isolatedRunnerEnv(runnerRoot) {
 function spawnTestCommand(options) {
   const { shellCommand, workingDirectory, runnerRoot, timeoutMs, maxOutputBytes } = options;
   const { spawn } = require('child_process');
-  const useWindowsShell = process.platform === 'win32';
-  const shellExecutable = useWindowsShell ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
-  const shellArgs = useWindowsShell ? ['/d', '/s', '/c', shellCommand] : ['-c', shellCommand];
+  const commandParts = shellCommand.split(' ');
+  const [commandName, ...commandArgs] = commandParts;
+  let shellExecutable;
+  let shellArgs;
+  if (commandName === 'npm') {
+    if (process.platform === 'win32') {
+      const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+      shellExecutable = process.execPath;
+      shellArgs = [npmCli, ...commandArgs];
+    } else { shellExecutable = 'npm'; shellArgs = commandArgs; }
+  } else if (commandName === 'cargo') { shellExecutable = 'cargo'; shellArgs = commandArgs; }
+  else if (commandName === 'pytest') { shellExecutable = 'pytest'; shellArgs = commandArgs; }
+  else if (commandName === 'echo') {
+    shellExecutable = process.execPath;
+    shellArgs = ['-e', 'process.stdout.write(process.argv.slice(1).join(" "))', ...commandArgs];
+  } else throw Object.assign(new Error('Test command is not allowed.'), { code: 'TEST_COMMAND_NOT_ALLOWED' });
   return new Promise((resolve, reject) => {
     const child = spawn(shellExecutable, shellArgs, {
       cwd: workingDirectory,
       detached: process.platform !== 'win32',
       env: isolatedRunnerEnv(runnerRoot),
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsVerbatimArguments: useWindowsShell
+      shell: false
     });
     let stdout = ''; let stderr = ''; let truncated = false;
     const append = (target, chunk) => {

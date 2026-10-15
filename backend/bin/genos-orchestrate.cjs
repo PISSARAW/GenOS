@@ -56,6 +56,7 @@ const task = String(request.mission || request.task || 'Autonomous GenOS orchest
 let orchestratorId = request.orchestratorId;
 let missionId = request.missionId || process.env.GENOS_MISSION_ID || null;
 let id = action === 'dispatch_worker' ? request.workerId : null;
+let synthesizedWorkerMission = false;
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
 const allowedCommands = normalizeAllowedCommands(policyRequest.allowed_commands) || [];
 const allowFileEdits = policyRequest.allow_file_edits === true;
@@ -146,6 +147,11 @@ async function prepareRuntime(initDb) {
   if (!orchestratorId && !TOP_LEVEL_MISSION_ACTIONS.has(action)) orchestratorId = await findActiveOrchestrator(initDb);
   if (!orchestratorId) orchestratorId = createOrchestratorId('mcp_orchestrator');
   if (!id) id = action === 'dispatch_worker' ? createOrchestratorId(`worker_${orchestratorId}`) : orchestratorId;
+  if (action === 'dispatch_worker' && !missionId) {
+    missionId = missionIdentity.newMissionId();
+    await missionIdentity.create(initDb, { missionId, objective: task, orchestratorAgentId: orchestratorId });
+    synthesizedWorkerMission = true;
+  }
   if (TOP_LEVEL_MISSION_ACTIONS.has(action)) await ensureMissionIdentity(initDb);
 }
 
@@ -253,7 +259,7 @@ async function executeMission(db, state) {
 
 async function executeRequestedAction(input) {
   const { db, state } = input;
-  if (shouldAttachMissionOrchestrator(action, missionId)) {
+  if (shouldAttachMissionOrchestrator(action, missionId, synthesizedWorkerMission)) {
     await missionIdentity.attachOrchestrator(db, {
       missionId, agentId: orchestratorId, expectedOrchestratorId: request.expectedOrchestratorId
     });
@@ -344,7 +350,8 @@ async function suspendIfNeeded({ db, mission, homeostasis, organism, finalStatus
 async function persistChampion(db, outcome) {
   try {
     const checked = await requestMemory.checkReuse(db, request, task);
-    await requestMemory.storeMissionResult(db, { minted: checked.minted, route: checked.route, summary: outcome, request });
+    await requestMemory.storeMissionResult(db, { minted: checked.minted, route: checked.route,
+      scopeId: checked.scopeId, summary: outcome, request });
   } catch (_) {}
 }
 

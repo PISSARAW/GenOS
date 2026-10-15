@@ -7,14 +7,19 @@ const { wireObject } = require('./wireFormat.cjs');
 
 async function assertRemoteGitUrl(rawUrl) {
   if (process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES === '1') return;
-  await validateProviderEndpointAsync(String(rawUrl), { localOnly: false });
+  const parsed = new URL(String(rawUrl || ''));
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+    throw new Error('Remote Git URL must be an HTTP(S) URL without embedded credentials.');
+  }
+  await validateProviderEndpointAsync(parsed.href, { localOnly: false });
 }
 
 async function performRemotePush(opts) {
   const { req, remoteUrl, commit, state } = opts;
-  const remotePath = `${String(remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/push`;
+  const remotePath = new URL('/api/lineage/agents/git/remote/push', remoteUrl).href;
   const response = await globalThis.fetch(remotePath, {
     method: 'POST',
+    redirect: 'error',
     headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
     body: JSON.stringify({ ...req.body, objectId: commit.id, object: wireObject(commit), state })
   });

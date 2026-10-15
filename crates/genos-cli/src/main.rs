@@ -151,6 +151,7 @@ fn real_main() {
         Some(Commands::Hallucination(cmd)) => hallucination::execute(cmd.subcommand),
         Some(Commands::Replay(cmd)) => replay::execute(cmd.subcommand),
         Some(Commands::Biomimicry(cmd)) => biomimicry::execute(cmd.subcommand),
+        Some(Commands::SensoryIngest(cmd)) => commands::sensory::execute(cmd),
         Some(Commands::Evolution(cmd)) => biomimicry::execute_evolution(cmd.subcommand),
         Some(Commands::Capsule(cmd)) => capsule::execute(cmd.subcommand),
         Some(Commands::Audit(cmd)) => {

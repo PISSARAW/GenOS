@@ -4,7 +4,9 @@ const controller = require('../controllers/releaseController');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 const { requireForcePromotionPermission } = require('../middleware/releaseForcePromotionPermission');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
+router.use(routeRateLimit);
 router.use(requireTenantScope());
 router.get('/', controller.list);
 router.post('/', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.create);

@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { buildAutonomyPlan } = require('../services/autonomousOrchestrationService');
 const { listStrategies } = require('../strategies/strategyRegistry');
 const vfsSandbox = require('../services/vfsSandboxService');
@@ -21,7 +21,7 @@ const { applySearchReplace } = require('./swe_surgical_patcher');
 const { TASKS_PATH: SWE_DATA_PATH, REPOS_DIR } = require('./swe_paths');
 
 function runGit(cmd, cwd) {
-  return execSync(`git ${cmd}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return execFileSync('git', cmd.split(' '), { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
 function ensureRepoCloned(repoName) {
@@ -35,7 +35,7 @@ function ensureRepoCloned(repoName) {
   if (!fs.existsSync(path.join(targetDir, '.git'))) {
     console.log(`[VFS PROVISION] Cloning ${repoName} into isolated world: ${targetDir}...`);
     const repoUrl = `https://github.com/${repoName}.git`;
-    execSync(`git clone ${repoUrl} ${targetDir}`, { stdio: 'inherit' });
+    execFileSync('git', ['clone', repoUrl, targetDir], { stdio: 'inherit' });
   }
 
   return targetDir;
@@ -173,7 +173,7 @@ async function solveSweTask(task, options = {}) {
 
   let syntaxValid = false;
   try {
-    execSync(`python -m py_compile ${targetAbsFile}`, { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('python', ['-m', 'py_compile', targetAbsFile], { cwd: repoDir, stdio: ['ignore', 'pipe', 'pipe'] });
     syntaxValid = true;
     console.log(`  [EVIDENCE GATE] Python Syntax Compilation: PASSED (Zero syntax errors).`);
   } catch (err) {

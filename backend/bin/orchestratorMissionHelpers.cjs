@@ -74,8 +74,8 @@ function resolveWorkspaceId(request) {
   return pickOr(request, ['workspaceId', 'workspace_id']);
 }
 
-function shouldAttachMissionOrchestrator(action, missionId) {
-  return Boolean(missionId) && action !== 'dispatch_worker';
+function shouldAttachMissionOrchestrator(action, missionId, synthesizedWorkerMission = false) {
+  return Boolean(missionId) && (action !== 'dispatch_worker' || synthesizedWorkerMission);
 }
 
 function buildNceInput(request) {

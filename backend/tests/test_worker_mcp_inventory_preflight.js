@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const preflight = require('../bin/worker-mcp-inventory-preflight.cjs');
 
 const required = preflight.requiredWorkerTools({
@@ -8,6 +10,10 @@ const required = preflight.requiredWorkerTools({
 });
 assert.deepEqual(required, [...preflight.COORDINATION_TOOLS]);
 assert.deepEqual(preflight.requiredWorkerTools({ organization: 'specialist_expert_committee' }), []);
+const isolatedSdk = preflight.resolveSdkRoot({
+  binaries: { workspace: path.join(__dirname, 'isolated-workspace-without-dependencies') }
+});
+assert.equal(fs.existsSync(path.join(isolatedSdk, 'dist', 'esm', 'client', 'index.js')), true);
 
 async function main() {
   const state = {

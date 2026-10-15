@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { getDatabase } = require('../db');
 const vfsSandbox = require('../services/vfsSandboxService');
 const { generate } = require('../services/modelRouter');
@@ -74,7 +74,7 @@ function tryPlasmidRecall(task, instanceId) {
 }
 
 function runGit(cmd, cwd) {
-  const res = execSync(`git ${cmd}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const res = execFileSync('git', cmd.split(' '), { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   return cmd.startsWith('diff') ? res : res.trim();
 }
 
@@ -208,7 +208,7 @@ function checkSyntax(targetAbsFile, repoDir) {
     const wslFile = toWslPath(targetAbsFile);
     const repoName = path.basename(repoDir);
     const pyBin = `~/.swe_venvs/${repoName}/bin/python`;
-    execSync(`wsl -d Ubuntu-24.04 bash -c "${pyBin} -m py_compile '${wslFile}'"`, { stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('wsl', ['-d', 'Ubuntu-24.04', 'bash', '-c', '"$1" -m py_compile -- "$2"', 'genos-check', pyBin, wslFile], { stdio: ['ignore', 'pipe', 'pipe'] });
     return { ok: true };
   } catch (err) {
     const msg = (err.stderr || err.stdout || err.message || '').toString();

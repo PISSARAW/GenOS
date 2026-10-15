@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { buildMcpServerEnvironment } = require('../src/services/agentRuntimeMcpConfiguration');
@@ -34,13 +35,20 @@ function validateInventory(state, availableTools) {
   });
 }
 
+function resolveSdkRoot(input) {
+  const relative = path.join('mcp', 'node_modules', '@modelcontextprotocol', 'sdk');
+  const workspaceSdk = path.join(input.binaries.workspace, relative);
+  if (fs.existsSync(path.join(workspaceSdk, 'dist', 'esm', 'client', 'index.js'))) return workspaceSdk;
+  return path.resolve(__dirname, '..', '..', relative);
+}
+
 async function connectClient(input) {
   if (!input.mcp?.mcpCommand) {
     throw Object.assign(new Error('Worker MCP server executable is unavailable.'), {
       code: 'WORKER_MCP_SERVER_UNAVAILABLE'
     });
   }
-  const sdkRoot = path.join(input.binaries.workspace, 'mcp', 'node_modules', '@modelcontextprotocol', 'sdk');
+  const sdkRoot = resolveSdkRoot(input);
   const [{ Client }, { StdioClientTransport }] = await Promise.all([
     import(pathToFileURL(path.join(sdkRoot, 'dist', 'esm', 'client', 'index.js')).href),
     import(pathToFileURL(path.join(sdkRoot, 'dist', 'esm', 'client', 'stdio.js')).href)
@@ -74,4 +82,4 @@ async function runWorkerMcpInventoryPreflight(input) {
 }
 
 module.exports = { COORDINATION_TOOLS, continuousCoordination, requiredWorkerTools,
-  toolNames, validateInventory, runWorkerMcpInventoryPreflight };
+  toolNames, validateInventory, resolveSdkRoot, runWorkerMcpInventoryPreflight };

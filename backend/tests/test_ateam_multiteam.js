@@ -15,6 +15,10 @@ function run() {
   assert.equal(budgeted.objectives.complete, false);
   assert.throws(() => composeMultiteam({ teams: [{ teamId: 'a', budget: 80 }, { teamId: 'b', budget: 80 }], globalBudget: { tokens: 100 } }), { code: 'ATEAM_MTS_BUDGET_EXCEEDED' });
   assert.throws(() => composeMultiteam({ teams: [{ teamId: 'one' }], depth: 3 }), { code: 'ATEAM_MTS_LIMIT' });
+  for (const teamId of ['__proto__', 'constructor', 'prototype']) {
+    assert.throws(() => composeMultiteam({ teams: [{ teamId }] }), { code: 'ATEAM_MTS_LIMIT' });
+  }
+  assert.throws(() => composeMultiteam({ teams: [{ teamId: { toString: 'team' } }] }), { code: 'ATEAM_MTS_LIMIT' });
   assert.throws(() => composeMultiteam({ teams: [{ teamId: 'a' }, { teamId: 'b' }], contracts: [{ fromTeamId: 'a', toTeamId: 'b', provides: ['x'], acceptanceCriteria: ['y'] }, { fromTeamId: 'b', toTeamId: 'a', provides: ['x'], acceptanceCriteria: ['y'] }] }), { code: 'ATEAM_MTS_CYCLE' });
 }
 

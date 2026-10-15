@@ -48,10 +48,12 @@ impl GenosEcosystem {
         Ok(json!({
             "schema": "genos.population-state/v1",
             "mission_id": self.mission_id,
+            "orchestrator_id": self.orchestrator.orchestrator_id,
             "tick": tick,
             "phase": "after_tick",
             "active_cells": cells,
-            "dormant_spores": spores
+            "dormant_spores": spores,
+            "tissues": self.orchestrator.tissues
         }))
     }
 }

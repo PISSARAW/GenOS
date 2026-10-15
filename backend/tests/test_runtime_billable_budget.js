@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const events = require('../bin/agent-runtime-events.cjs');
 const runtimeBudgets = require('../bin/runtime-budget-limit.cjs');
+const strategyEvents = require('../src/services/strategyExecutionEvents');
 
 assert.equal(runtimeBudgets.budgetLimit({}, 'tokens'), 100000,
   'missing dimensions use the bounded mission defaults');
@@ -52,6 +53,18 @@ assert.equal(events.billableTokenCount({ input_tokens: 10_000, total_tokens: 10_
   'partial input/output splits must use the valid total');
 assert.equal(events.billableTokenCount({ input_tokens: 10_000, cached_input_tokens: 'malformed' }), null,
   'unusable usage without a valid total must fail closed');
+assert.equal(strategyEvents.exceededGuardrail({
+  tokens: 39_580, inputTokens: 39_146, cachedInputTokens: 31_616,
+  outputTokens: 434, billableTokens: 7_964
+}, { tokens: 20_000, costUsd: 1, latencyMs: 540_000, events: 200 }), null,
+'the persistent guard uses measured billable tokens when cache usage is available');
+assert.match(strategyEvents.exceededGuardrail({
+  tokens: 21_000, inputTokens: 20_000, cachedInputTokens: 0,
+  outputTokens: 1_000, billableTokens: 21_000
+}, { tokens: 20_000, costUsd: 1, latencyMs: 540_000, events: 200 }), /tokens budget exceeded/);
+assert.equal(strategyEvents.metricDelta({
+  evidenceReport: { outcome: 'success' }, usage: { tokens: 7_964, cost_usd: 0 }
+}).tokens, 0, 'terminal usage summaries do not double count the detailed turn usage');
 
 const withinBudget = runtimeState(8_000);
 events.handleParsedEvent(withinBudget, { type: 'turn.completed', usage: {

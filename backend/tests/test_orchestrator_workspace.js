@@ -18,6 +18,12 @@ async function main() {
     assert.equal(fs.readFileSync(path.join(orchestrator.workspaceRoot, 'mission.txt'), 'utf8'), 'keep source untouched');
     assert.equal(orchestrator.capsuleRoot, path.dirname(orchestrator.workspaceRoot));
 
+    const explicit = await provisionMissionWorkspace({
+      agentId: 'explicit-orchestrator', workspaceRoot: source, capsuleRoot: source
+    }, 'orchestrator');
+    assert.equal(explicit.workspaceRoot, path.join(source, '.genos-agent-worlds', 'explicit-orchestrator'));
+    assert.equal(fs.readFileSync(path.join(explicit.workspaceRoot, 'mission.txt'), 'utf8'), 'keep source untouched');
+
     const worker = await provisionMissionWorkspace({ agentId: 'worker-test', workspaceRoot: orchestrator.workspaceRoot }, 'worker');
     assert.equal(worker.workspaceRoot, orchestrator.workspaceRoot, 'a worker keeps the workspace allocated by its orchestrator');
 

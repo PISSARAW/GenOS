@@ -1,5 +1,6 @@
 use crate::args::{BiologicalCmd, RhizomeCmd, RhizomeSubcommands};
 use crate::commands::{rhizome_telemetry, syncytium_crdt};
+use crate::commands::biological_population::resume_population_if_available;
 use super::biological_recruitment::{MissionRuntime, persist_mission_operations};
 use serde_json::json;
 
@@ -121,13 +122,16 @@ fn run_and_report(
     use genos_orchestrator::{GenosEcosystem, planner::Goal};
     use genos_store::BiologicalReceiptStore;
 
-    let store = BiologicalReceiptStore::open(journal_dir.join(format!("{mission_id}.jsonl")));
+    let journal_path = journal_dir.join(format!("{mission_id}.jsonl"));
+    let store = BiologicalReceiptStore::open(&journal_path);
     let mut checkpoints =
         CheckpointManager::new(journal_dir.join(format!("{mission_id}.continuity")), 1)
             .map_err(|error| format!("mission checkpoint unavailable: {error}"))?;
     let mut ecosystem = GenosEcosystem::new(&cmd.mission);
     ecosystem.set_mission_id(mission_id);
+    ecosystem.configure_receipt_journal(journal_path);
     restore_or_seed(&mut ecosystem, &mut checkpoints, cmd)?;
+    resume_population_if_available(&mut ecosystem, &checkpoints, &store)?;
     reconcile_receipt_tick(&checkpoints, &mut ecosystem, &store)?;
     if replay_existing_crossover(CrossoverReplayContext {
         command: cmd,

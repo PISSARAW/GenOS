@@ -305,7 +305,7 @@ async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0)
   try {
     await require('../gqwf/workers').captureWorker(db, agentId);
   } catch (error) {
-    console.error(`[GQWF] Worker ${agentId} candidate capture failed:`, error);
+    console.error('%s', `[GQWF] Worker ${agentId} candidate capture failed: ${String(error?.message || error)}`);
     return false;
   }
   tracked.scheduled = true;

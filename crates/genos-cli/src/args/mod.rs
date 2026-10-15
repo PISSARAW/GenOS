@@ -8,6 +8,7 @@ pub mod rhizome;
 pub mod run;
 pub mod chaos;
 pub mod genome;
+pub mod sensory;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
@@ -20,6 +21,7 @@ pub use rhizome::*;
 pub use run::*;
 pub use chaos::*;
 pub use genome::*;
+pub use sensory::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -57,6 +59,9 @@ pub enum Commands {
     Replay(ReplayCmd),
     /// Biomimetic cellular & swarm mechanisms
     Biomimicry(Box<BiomimicryCmd>),
+    /// EXPERIMENTAL: ingest a synthetic sensory signal without authenticated mission authority
+    #[command(name = "sensory-ingest")]
+    SensoryIngest(SensoryIngestCmd),
     /// Evolutionary operations
     Evolution(Box<EvolutionCmd>),
     /// Capsule isolation environment

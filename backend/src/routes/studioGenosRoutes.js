@@ -4,7 +4,9 @@ const { getDatabase } = require('../db');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 const worlds = require('../services/studioWorldsService');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
+router.use(routeRateLimit);
 router.use(requireTenantScope());
 router.use((req, res, next) => req.tenant ? next() : res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED' } }));
 

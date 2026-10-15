@@ -228,7 +228,9 @@ async function provisionMissionWorkspace(mission, executionMode) {
   const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../../..');
   const allowEdits = mission.executionPolicy?.allowFileEdits === true || /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || ''));
   const useVfs = !allowEdits || mission.vfsWorkspace === true || process.env.GENOS_VFS_WORKSPACES === '1';
-  const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, mission.agentId, { vfs: useVfs });
+  const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, mission.agentId, {
+    vfs: useVfs, capsuleRoot: mission.capsuleRoot
+  });
   return { ...mission, workspaceRoot, capsuleRoot: path.dirname(workspaceRoot) };
 }
 

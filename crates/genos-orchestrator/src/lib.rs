@@ -1,6 +1,8 @@
 pub mod adversarial_generator;
 pub mod adversarial_types;
 pub mod animal_sensory_runtime;
+#[path = "hgt_process_lock.rs"]
+pub mod process_file_lock;
 #[cfg(feature = "api")]
 pub mod authorized_therapy;
 pub mod autopoiesis;

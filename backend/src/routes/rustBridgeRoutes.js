@@ -24,7 +24,10 @@ async function requireBridgeTenant(req, res, next) {
 router.use(requireBridgeTenant);
 
 router.get('/status', requirePermission('read'), controller.getStatus);
-router.post('/clinical-authorizations', requirePermission('security:manage'), requireReceiptTenant, require('../controllers/clinicalAuthorizationController').issue);
+const clinicalAuthorizationController = require('../controllers/clinicalAuthorizationController');
+router.post('/clinical-authorizations', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.issue);
+router.get('/clinical-authorizations/:authorizationId', requirePermission('read'), clinicalAuthorizationController.inspect);
+router.post('/clinical-authorizations/:authorizationId/revoke', requirePermission('security:manage'), requireReceiptTenant, clinicalAuthorizationController.revoke);
 router.post('/biological-receipts', requirePermission('experiment:run'), requireReceiptTenant, requireBiologicalReceiptOrigin, biologicalReceiptController.ingest);
 router.get('/biological-receipts/:missionId', requirePermission('read'), biologicalReceiptController.audit);
 router.get('/snapshots', requirePermission('read'), controller.listSnapshots);

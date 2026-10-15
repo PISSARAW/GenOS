@@ -55,12 +55,16 @@ function assertAllowed(command) {
 }
 
 function commandInvocation(command) {
-  if (process.platform === 'win32') {
-    return { program: path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'),
-      args: ['/d', '/s', '/c', command] };
+  const [commandName, ...commandArgs] = command.split(/\s+/);
+  if (commandName === 'npm') {
+    if (process.platform !== 'win32') return { program: 'npm', args: commandArgs };
+    const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    return { program: process.execPath, args: [npmCli, ...commandArgs] };
   }
-  const [program, ...args] = command.split(/\s+/);
-  return { program, args };
+  if (commandName === 'cargo') return { program: 'cargo', args: commandArgs };
+  if (commandName === 'pytest') return { program: 'pytest', args: commandArgs };
+  if (commandName === 'echo') return { program: process.execPath, args: ['-e', 'process.stdout.write(process.argv.slice(1).join(" "))', ...commandArgs] };
+  throw new Error('Command not in sandbox whitelist.');
 }
 
 /**

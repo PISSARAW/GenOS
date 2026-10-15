@@ -9,12 +9,18 @@ function finiteMeasurement(value) {
 }
 
 function measuredTokens(payload, usage) {
-  const total = payload.tokens ?? usage.total_tokens ?? usage.tokens;
-  if (total !== undefined) return finiteMeasurement(total);
   const input = usage.input_tokens ?? usage.prompt_tokens;
   const output = usage.output_tokens ?? usage.completion_tokens;
-  if (input === undefined || output === undefined) return null;
-  return finiteMeasurement(input) + finiteMeasurement(output);
+  if (input !== undefined && output !== undefined) {
+    const measuredInput = finiteMeasurement(input);
+    const measuredOutput = finiteMeasurement(output);
+    const cached = usage.cached_input_tokens ?? usage.cache_read_input_tokens ?? 0;
+    const measuredCached = Math.min(measuredInput, finiteMeasurement(cached));
+    return measuredInput - measuredCached + measuredOutput;
+  }
+  const total = payload.tokens ?? usage.total_tokens ?? usage.tokens;
+  if (total !== undefined) return finiteMeasurement(total);
+  return null;
 }
 
 function usageMeasurements(event) {
@@ -24,8 +30,20 @@ function usageMeasurements(event) {
     usd: finiteMeasurement(payload.costUsd ?? payload.cost_usd ?? usage.cost_usd) };
 }
 
+function hasDetailedTokenUsage(item) {
+  const usage = item.event.payload?.usage || item.event.payload?.item?.usage || {};
+  return (usage.input_tokens ?? usage.prompt_tokens) !== undefined
+    && (usage.output_tokens ?? usage.completion_tokens) !== undefined;
+}
+
+function observationsForField(observations, field) {
+  if (field !== 'tokens' || !observations.some(hasDetailedTokenUsage)) return observations;
+  return observations.filter(hasDetailedTokenUsage);
+}
+
 function summed(observations, field) {
-  const values = observations.map(item => usageMeasurements(item.event)[field]).filter(value => value !== null);
+  const selected = observationsForField(observations, field);
+  const values = selected.map(item => usageMeasurements(item.event)[field]).filter(value => value !== null);
   if (!values.length) return null;
   return Number(values.reduce((total, value) => total + value, 0).toFixed(9));
 }
@@ -73,7 +91,8 @@ function accounting(observations, run) {
   const tokens = summed(observations, 'tokens');
   const usd = summed(observations, 'usd');
   const metrics = run.metrics || {};
-  const tokenMatch = tokens === null || tokens === metrics.tokens;
+  const accountedTokens = Number(metrics.cachedInputTokens) > 0 ? metrics.billableTokens : metrics.tokens;
+  const tokenMatch = tokens === null || tokens === accountedTokens;
   const usdMatch = usd === null || Math.abs(usd - metrics.costUsd) <= 0.000001;
   return { consistent: tokenMatch && usdMatch && observations.length === metrics.events,
     observedEvents: observations.length, recordedEvents: metrics.events, tokenMatch, usdMatch };

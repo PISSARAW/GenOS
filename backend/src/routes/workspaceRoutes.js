@@ -9,7 +9,9 @@ const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 const { paginateList } = require('../controllers/listPagination');
 const studioFiles = require('../controllers/studioFilesController');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
+router.use(routeRateLimit);
 router.use(requireTenantScope());
 
 router.get('/', paginateList(workspaceController.listWorkspaces));

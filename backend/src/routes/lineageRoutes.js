@@ -8,7 +8,9 @@ const lineageController = require('../controllers/lineage');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 const agentGitController = require('../controllers/agentGitController');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 
+router.use(routeRateLimit);
 router.use(requireTenantScope());
 
 router.get('/lineage', lineageController.getLineage);

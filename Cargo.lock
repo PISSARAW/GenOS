@@ -1877,6 +1877,7 @@ dependencies = [
  "genos-signal",
  "genos-store",
  "genos-worker",
+ "libc",
  "rand 0.10.2",
  "reqwest",
  "rmp-serde",
@@ -1888,6 +1889,7 @@ dependencies = [
  "tokio",
  "toml",
  "uuid",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

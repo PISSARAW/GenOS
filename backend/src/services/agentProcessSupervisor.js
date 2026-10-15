@@ -8,6 +8,7 @@ const fsSync = require('fs');
 const { spawn } = require('child_process');
 const { encodeMission } = require('./runtimeProtocol');
 const { resolveExecutable, isLocalRuntime } = require('./agentRuntimeExecutable');
+const { assertTrustedRuntimeScript, assertTrustedRuntimeBinary, isDirectFileRuntime, directFileWriter } = require('./runtimeSpawnPolicy');
 const modelRouter = require('./modelRouter');
 const localModelDiscovery = require('./localModelDiscovery');
 const continuousExecution = require('./continuousExecution/runtimeBridge');
@@ -125,16 +126,6 @@ function shouldTrackWorkspace(normalizedMission, dispatchedAgent) {
   return normalizedMission.workspaceProvisioned === true || dispatchedAgent.execution_mode === 'orchestrator';
 }
 
-function isDirectFileRuntime(executable) {
-  return path.basename(executable) === 'solar-direct-runtime-v2.cjs';
-}
-
-function directFileWriter(executable) {
-  if (isDirectFileRuntime(executable)) return 'solar_direct_write_actuator';
-  if (path.basename(executable) === 'local-codex-runtime.cjs') return 'local_artifact_writer';
-  return null;
-}
-
 async function applyLocalRouting(ctx) {
   const { db, agentId, normalizedMission, resolvedExecutable } = ctx;
   if (!isLocalRuntime(resolvedExecutable)) return;
@@ -176,8 +167,10 @@ function buildCapabilityPayload(normalizedMission, resolvedExecutable) {
 
 function resolveSpawnCommand(resolvedExecutable) {
   if (resolvedExecutable.endsWith('.cjs') || resolvedExecutable.endsWith('.js')) {
+    assertTrustedRuntimeScript(resolvedExecutable);
     return { spawnCmd: process.execPath, spawnArgs: [resolvedExecutable] };
   }
+  assertTrustedRuntimeBinary(resolvedExecutable);
   return { spawnCmd: resolvedExecutable, spawnArgs: [] };
 }
 

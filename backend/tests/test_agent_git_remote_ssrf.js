@@ -9,8 +9,9 @@ dbModule.getDatabase = async () => ({
 });
 
 let fetchCalled = false;
+let fetchOptions = null;
 const originalFetch = global.fetch;
-global.fetch = async () => { fetchCalled = true; return { ok: true, json: async () => ({}) }; };
+global.fetch = async (_url, options) => { fetchCalled = true; fetchOptions = options; return { ok: true, json: async () => ({}) }; };
 
 const git = require('../src/services/agentGitService');
 
@@ -27,9 +28,10 @@ const git = require('../src/services/agentGitService');
 
   process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES = '1';
   let ran = false;
-  global.fetch = async () => { ran = true; return { ok: true, json: async () => ({ ok: true }) }; };
+  global.fetch = async (_url, options) => { ran = true; fetchOptions = options; return { ok: true, json: async () => ({ ok: true }) }; };
   const result = await git.fetch({ body: { remoteUrl: 'http://127.0.0.1:8085' }, tenant: null, user: {} });
   assert.equal(ran, true);
+  assert.equal(fetchOptions.redirect, 'error');
   assert.equal(result.success, true);
   delete process.env.GENOS_AGENT_GIT_ALLOW_PRIVATE_REMOTES;
 

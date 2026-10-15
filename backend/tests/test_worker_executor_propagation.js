@@ -30,11 +30,13 @@ async function main() {
     });
     assert.equal(dispatched.executor, 'codex');
     assert.equal(dispatched.agentId, 'worker-executor-test');
+    assert.equal(dispatched.workspaceProvisioned, true);
     assert.equal(dispatched.organization, 'cross_functional_pod');
     assert.equal(dispatched.coordinationPolicy.communicationCadence, 'continuous_sync');
     const built = dispatchService.buildWorkerMission(dispatched);
     assert.equal(built.executor, 'codex');
     assert.equal(built.localRuntime, false);
+    assert.equal(built.workspaceProvisioned, true);
   } finally {
     dispatchService.dispatchWorkerMission = originalDispatch;
     contracts.getLatestContract = originalContract;

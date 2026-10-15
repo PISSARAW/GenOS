@@ -7,9 +7,7 @@ use ed25519_dalek::VerifyingKey;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use std::fs::{OpenOptions, remove_file};
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use uuid::Uuid;
 #[path = "hgt_runtime_receipt.rs"]
@@ -21,6 +19,7 @@ use self::receipt::{
     validate_request, verify_hgt_receipt, verify_lease_signature,
 };
 use self::transfer::{authorized_conjugation, hgt_identity_matches, restore_hgt_plasmid};
+use crate::process_file_lock::ProcessFileLock as HgtProcessLock;
 pub use self::receipt::plasmid_digest;
 
 const HGT_LEASE_SCHEMA: &str = "genos.hgt-lease/v1";
@@ -37,7 +36,6 @@ pub struct HgtLeaseRequest {
     pub nonce: String,
     pub expires_at_unix_ms: u128,
 }
-
 impl HgtLeaseRequest {
     /// Octets canoniques v1 à signer par le service d'autorité externe.
     pub fn signing_bytes(&self) -> Result<Vec<u8>, String> {
@@ -94,32 +92,6 @@ impl HgtLeaseAuthority {
             Ok((issuer, key))
         }).collect::<Result<HashMap<_, _>, String>>()?;
         Ok(Self { trusted_issuers: keys, store, process_lock_path, nonce_lock: Mutex::new(()) })
-    }
-}
-
-struct HgtProcessLock(PathBuf);
-
-impl HgtProcessLock {
-    fn acquire(path: &Path) -> Result<Self, String> {
-        if let Some(parent) = path.parent().filter(|value| !value.as_os_str().is_empty()) {
-            std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
-        let mut file = OpenOptions::new().write(true).create_new(true).open(path)
-            .map_err(|error| format!("HGT journal is locked or has a stale lock: {error}"))?;
-        let persisted = writeln!(file, "pid={}", std::process::id())
-            .and_then(|()| file.sync_all());
-        if let Err(error) = persisted {
-            drop(file);
-            let _ = remove_file(path);
-            return Err(error.to_string());
-        }
-        Ok(Self(path.to_path_buf()))
-    }
-}
-
-impl Drop for HgtProcessLock {
-    fn drop(&mut self) {
-        let _ = remove_file(&self.0);
     }
 }
 
@@ -359,20 +331,5 @@ impl GenosEcosystem {
                 "outcome": outcome,
             }),
         );
-    }
-}
-
-#[cfg(test)]
-mod process_lock_tests {
-    use super::HgtProcessLock;
-
-    #[test]
-    fn shared_journal_lock_refuses_a_second_runtime_until_release() {
-        let path = std::env::temp_dir().join(format!("genos-hgt-lock-{}.lock", uuid::Uuid::new_v4()));
-        let first = HgtProcessLock::acquire(&path).unwrap();
-        assert!(HgtProcessLock::acquire(&path).is_err());
-        drop(first);
-        assert!(HgtProcessLock::acquire(&path).is_ok());
-        let _ = std::fs::remove_file(path);
     }
 }

@@ -10,7 +10,6 @@ fn biological_command_persists_typed_stream_under_mission_and_producer_identity(
     let mission_id = Uuid::new_v4();
     let stream = json!({
         "schema": "genos.choanocyte-signal-stream/v1",
-        "producerId": "worker-source-17",
         "packets": [
             {"id":"signal-1","size_nm":150.0,"semantic_density":0.9,"content":"accepted","is_noise":false},
             {"id":"noise-1","size_nm":40.0,"semantic_density":0.1,"content":"noise","is_noise":true}
@@ -31,7 +30,9 @@ fn biological_command_persists_typed_stream_under_mission_and_producer_identity(
         .find(|entry| entry["schema"] == "genos.choanocyte-stream-receipt/v2")
         .expect("Choanocyte receipt should be reported");
     assert_eq!(receipt["missionId"], mission_id.to_string());
-    assert_eq!(receipt["producerId"], "worker-source-17");
+    assert_eq!(receipt["producerId"], receipt["orchestratorId"]);
+    assert!(receipt["producerId"].as_str().unwrap().parse::<Uuid>().is_ok());
+    assert_eq!(receipt["cellId"], "orchestrator_choanocyte");
     assert_eq!(receipt["packetCount"], 2);
     let journal = root.join("biological-receipts").join(format!("{mission_id}.jsonl"));
     let batches: Vec<Value> = std::fs::read_to_string(journal).unwrap()

@@ -201,9 +201,10 @@ async function fetch(req) {
   const objects = await db.all(`SELECT o.id, o.agent_id, o.state_hash, o.ref_name, o.created_at FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.object_kind = 'remote' AND o.remote_name = ? AND ${scope.clause} ORDER BY o.created_at DESC`, remoteName, ...scope.params);
   if (!req.body?.remoteUrl) return { success: true, operation: 'fetch', remoteName, objects };
   await assertRemoteGitUrl(req.body.remoteUrl);
-  const fetchPath = `${String(req.body.remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/fetch`;
+  const fetchPath = new URL('/api/lineage/agents/git/remote/fetch', req.body.remoteUrl).href;
   const response = await globalThis.fetch(fetchPath, {
     method: 'POST',
+    redirect: 'error',
     headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
     body: JSON.stringify({ ...req.body, remoteName })
   });

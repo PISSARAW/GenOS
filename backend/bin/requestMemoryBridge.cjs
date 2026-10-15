@@ -3,6 +3,7 @@
 const profiler = require('../src/services/requestProfilerService');
 const router = require('../src/services/executionRouterService');
 const registry = require('../src/services/bestKnownResultService');
+const { resolveMissionWorkspace } = require('./missionWorkspaceScope.cjs');
 
 function requestDeps(request) {
   return {
@@ -11,13 +12,22 @@ function requestDeps(request) {
   };
 }
 
+async function requestScope(db, request) {
+  const workspace = await resolveMissionWorkspace(db, request);
+  if (workspace) return `workspace:${workspace.id}`;
+  const organizationId = request.organizationId || request.organization_id;
+  const projectId = request.projectId || request.project_id;
+  return organizationId && projectId ? `tenant:${organizationId}:${projectId}` : '';
+}
+
 async function checkReuse(db, request, task) {
   const minted = profiler.profileRequest({ mission: task, ...request });
   const route = router.chooseExecutionPath(minted.profile);
+  const scopeId = await requestScope(db, request);
   const lookup = await registry.lookupReusable(db, {
-    semanticId: minted.semanticId, dependencies: requestDeps(request),
+    semanticId: minted.semanticId, scopeId, dependencies: requestDeps(request),
   });
-  return { minted, route, lookup };
+  return { minted, route, lookup, scopeId };
 }
 
 function primitivePayload(minted, route, primitive) {
@@ -64,6 +74,7 @@ async function storePrimitive(db, bundle) {
   const request = bundle.request;
   const expiry = registry.expiryFor(minted.profile);
   await registry.storeCandidate(db, {
+    scopeId: bundle.scopeId,
     semanticId: minted.semanticId,
     normalizedIntent: minted.normalized.text,
     requestClass: minted.profile.request_class,
@@ -84,6 +95,7 @@ async function storePrimitive(db, bundle) {
 
 async function storeMissionResult(db, bundle) {  const expiry = registry.expiryFor(bundle.minted.profile);
   await registry.storeCandidate(db, {
+    scopeId: bundle.scopeId,
     semanticId: bundle.minted.semanticId,
     normalizedIntent: bundle.minted.normalized.text,
     requestClass: bundle.minted.profile.request_class,
@@ -114,11 +126,16 @@ module.exports = {
 async function maybeHandleMinimal(db, request, task) {
   const checked = await checkReuse(db, request, task);
   if (checked.lookup.hit) {
-    return { handled: true, payload: reusedPayload(checked.minted, checked.route, checked.lookup.champion), minted: checked.minted, route: checked.route };
+    return { handled: true, payload: reusedPayload(checked.minted, checked.route, checked.lookup.champion),
+      minted: checked.minted, route: checked.route, scopeId: checked.scopeId };
   }
-  if (checked.route.mode !== 'primitive') return { handled: false, minted: checked.minted, route: checked.route };
+  if (checked.route.mode !== 'primitive') return { handled: false, minted: checked.minted,
+    route: checked.route, scopeId: checked.scopeId };
   const primitive = router.tryArithmeticPrimitive(checked.minted.normalized.text);
-  if (!primitive) return { handled: false, minted: checked.minted, route: checked.route };
-  await storePrimitive(db, { minted: checked.minted, route: checked.route, primitive, request });
-  return { handled: true, payload: primitivePayload(checked.minted, checked.route, primitive), minted: checked.minted, route: checked.route };
+  if (!primitive) return { handled: false, minted: checked.minted,
+    route: checked.route, scopeId: checked.scopeId };
+  await storePrimitive(db, { minted: checked.minted, route: checked.route, primitive,
+    request, scopeId: checked.scopeId });
+  return { handled: true, payload: primitivePayload(checked.minted, checked.route, primitive),
+    minted: checked.minted, route: checked.route, scopeId: checked.scopeId };
 }

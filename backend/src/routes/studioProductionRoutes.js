@@ -4,7 +4,9 @@ const { getDatabase } = require('../db');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 const store = require('../services/studioProductionStore');
+const { routeRateLimit } = require('../middleware/routeRateLimit');
 const write = [requirePermission('workspace:write'), requireTenantScope({ write: true })];
+router.use(routeRateLimit);
 function handle(operation) {
   return async (req, res, next) => {
     try {

@@ -136,7 +136,8 @@ async function runTests() {
 
   // Première transition : évaluation
   agentConscience.evaluateBranch(loadedState, { errorsInLoop: 2 });
-  await agentConscience.persistConscienceState(db, agentId, loadedState, { reason: 'eval_loop_test' });
+  await agentConscience.persistConscienceState({ db, agentId, state: loadedState,
+    options: { reason: 'eval_loop_test' } });
   assert.strictEqual(loadedState.revision, 1);
 
   const reloadedState = await agentConscience.loadConscienceState(db, agentId);
@@ -145,7 +146,8 @@ async function runTests() {
 
   // Deuxième transition : Eurêka (avec preuve)
   agentConscience.triggerEureka(reloadedState, { evidence: verifiedEvidence });
-  await agentConscience.persistConscienceState(db, agentId, reloadedState, { reason: 'supervisor_eureka' });
+  await agentConscience.persistConscienceState({ db, agentId, state: reloadedState,
+    options: { reason: 'supervisor_eureka' } });
   assert.strictEqual(reloadedState.revision, 2);
   assert.strictEqual(reloadedState.dissonanceLevel, 2.5);
   assert.strictEqual(reloadedState.eurekaMoments, 1);
@@ -167,7 +169,7 @@ async function runTests() {
   let nonExistentError = null;
   try {
     const ghostState = agentConscience.createConscienceState();
-    await agentConscience.persistConscienceState(db, 'non-existent-agent-id', ghostState);
+    await agentConscience.persistConscienceState({ db, agentId: 'non-existent-agent-id', state: ghostState });
   } catch (err) {
     nonExistentError = err;
   }

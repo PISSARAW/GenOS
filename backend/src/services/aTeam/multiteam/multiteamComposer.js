@@ -27,8 +27,9 @@ function allocateProgramBudgets(teams, source) {
   if (!source) return { global: null, local: {}, enforced: false };
   const global = typeof source === 'number' ? { tokens: source } : { ...source };
   const dimensions = ['tokens', 'compute', 'time'];
-  const explicit = Object.fromEntries(teams.map((team) => [team.teamId, typeof team.budget === 'number' ? { tokens: team.budget } : team.budget || {}]));
-  const local = {};
+  const explicit = Object.create(null);
+  for (const team of teams) explicit[team.teamId] = typeof team.budget === 'number' ? { tokens: team.budget } : team.budget || {};
+  const local = Object.create(null);
   for (const dimension of dimensions) {
     allocateBudgetDimension({ dimension, teams, explicit, global, local });
   }
@@ -41,7 +42,7 @@ function allocateBudgetDimension(input) {
   const unassigned = teams.filter((team) => !assigned.includes(team));
   const assignedTotal = assigned.reduce((sum, team) => sum + Number(explicit[team.teamId][dimension]), 0);
   if (Number.isFinite(global[dimension]) && assignedTotal > global[dimension]) throw Object.assign(new Error(`Subteam ${dimension} budgets exceed the global limit.`), { code: 'ATEAM_MTS_BUDGET_EXCEEDED' });
-  for (const team of teams) local[team.teamId] = local[team.teamId] || {};
+  for (const team of teams) local[team.teamId] = local[team.teamId] || Object.create(null);
   for (const team of assigned) local[team.teamId][dimension] = Number(explicit[team.teamId][dimension]);
   const remainder = Number.isFinite(global[dimension]) ? global[dimension] - assignedTotal : null;
   const weight = unassigned.reduce((sum, team) => sum + teamWeight(team), 0);
@@ -58,9 +59,14 @@ function validateCaps(teams, limits, depth) {
   if (!teams.length || teams.length > limits.maxTeams) errors.push('Team count is outside the configured limit.');
   if (members > limits.maxMembers) errors.push('Member count exceeds the configured limit.');
   if (depth > limits.maxDepth) errors.push('Nested team depth exceeds the configured limit.');
-  if (teams.some((team) => !team.teamId)) errors.push('Every team requires a teamId.');
+  if (teams.some((team) => !isSafeTeamId(team.teamId))) errors.push('Every team requires a safe teamId.');
   if (new Set(teams.map((team) => team.teamId)).size !== teams.length) errors.push('Team identifiers must be unique.');
   if (errors.length) throw Object.assign(new Error(errors.join(' ')), { code: 'ATEAM_MTS_LIMIT', errors });
+}
+
+function isSafeTeamId(teamId) {
+  if (typeof teamId !== 'string' || !teamId) return false;
+  return !['__proto__', 'prototype', 'constructor'].includes(teamId);
 }
 
 module.exports = { composeMultiteam, DEFAULT_LIMITS };

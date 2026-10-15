@@ -196,11 +196,11 @@ async function runConscienceCheck(ctx, event, observation) {
     emit(agentId, 'CONSCIENCE_STATE_UPDATED', 'CONSCIENCE', `Dissonance cognitive augmentée à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'warning');
     if (evalResult.apoptoticTriggered && !ctx.state.termination) {
       emit(agentId, 'COGNITIVE_APOPTOSIS', 'CONSCIENCE_LIMIT', `Dissonance cognitive critique (${conscienceState.dissonanceLevel.toFixed(1)} >= ${conscienceState.maxDissonanceThreshold}). Apoptose déclenchée.`, { conscienceState }, 'critical', 'apoptosis');
-      await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'cognitive_apoptosis' });
+      await agentConscience.persistConscienceState({ db, agentId, state: conscienceState, options: { reason: 'cognitive_apoptosis' } });
       ctx.haltRuntime(ctx, 'cognitive_apoptosis', 'Dissonance cognitive critique.', 'Runtime halted by Cognitive Conscience Apoptosis.', { conscienceState });
       return true;
     }
-    await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: isHallucinationEvent ? 'supervisor_hallucination' : 'supervisor_error' });
+    await agentConscience.persistConscienceState({ db, agentId, state: conscienceState, options: { reason: isHallucinationEvent ? 'supervisor_hallucination' : 'supervisor_error' } });
     return false;
   }
   if (isSuccessEvent) {
@@ -213,7 +213,7 @@ async function runConscienceCheck(ctx, event, observation) {
     });
     if (conscienceState.eurekaMoments === previousCount) return false;
     emit(agentId, 'COGNITIVE_EUREKA', 'EUREKA', `Événement Eurêka enregistré ! Dissonance réduite à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'info');
-    await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'supervisor_eureka' });
+    await agentConscience.persistConscienceState({ db, agentId, state: conscienceState, options: { reason: 'supervisor_eureka' } });
   }
   return false;
 }
@@ -354,7 +354,7 @@ async function handleChildClose(ctx, code, signal) {
     await state.executionQueue;
     await state.eventProcessingPromise;
   } catch (err) {
-    console.error(`[AgentSupervisor] Error draining event queue for ${agentId}:`, err);
+    console.error('%s', `[AgentSupervisor] Error draining event queue for ${agentId}: ${String(err?.message || err)}`);
   } finally {
     if (ctx.mcpActorToken) await require('./mcpActorCapability').revoke(ctx.db, ctx.mcpActorToken)
       .catch(error => console.error('[AgentSupervisor] MCP actor revocation failed:', error));

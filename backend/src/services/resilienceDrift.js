@@ -2,8 +2,8 @@
  * Calculates normalized Levenshtein distance between two strings with O(min(M, N)) space
  */
 function calculateLevenshtein(strA = '', strB = '') {
-  const sA = String(strA || '');
-  const sB = String(strB || '');
+  const sA = typeof strA === 'string' ? strA : '';
+  const sB = typeof strB === 'string' ? strB : '';
   let m = sA.length;
   let n = sB.length;
   if (m === 0) return Number(n !== 0);
