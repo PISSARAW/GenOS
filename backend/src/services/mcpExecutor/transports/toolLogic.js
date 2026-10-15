@@ -1,4 +1,5 @@
 const { runGenosSync } = require('../../genosCli');
+const { localCommandFor, syncCommandFor } = require('./toolCommandDispatch');
 
 function runSafeSync(commandLine, timeoutMs) {
   return runGenosSync(commandLine, typeof timeoutMs === 'number' ? { timeoutMs } : timeoutMs);
@@ -54,60 +55,6 @@ function revalidateToolCall(toolName, args) {
   }
   return null;
 }
-
-const LOCAL_COMMAND_TOOLS = {
-  genos_agent_world_capsule: (args) => `genos capsule create --snapshot ${args.snapshot_id}` + (args.seed ? ` --seed "${args.seed}"` : '') + (args.budget_steps ? ` --budget-steps ${args.budget_steps}` : ''),
-  genos_world_sandbox_execute: (args) => `genos world run --provider directory --root .genos/world --world-id ${args.world_id} --command "${args.command}" --sandbox-backend ${args.backend}`,
-  genos_world_hardlink_create: (args) => `genos world create --provider hardlink --root .genos/world --world-id ${args.world_id} --seed "${args.seed}"`,
-  genos_biomimicry_sar_prime: (args) => `genos biomimicry bio-feature --feature sar --action prime --param incident_id=${args.incident_id} --param severity=${args.severity || 1.0}`,
-  genos_advanced_budget_allocation: (args) => {
-    const cmdParams = [`--param total_budget=${args.total_budget}`];
-    if (args.entropy !== undefined) cmdParams.push(`--param entropy=${args.entropy}`);
-    if (args.scenarios) args.scenarios.forEach((s) => cmdParams.push(`--param scenario="${s}"`));
-    return `genos biomimicry bio-feature --feature bet-hedging --action allocate ${cmdParams.join(' ')}`;
-  },
-  genos_merge: (args) => `genos merge ${args.branch_id}` + (args.conditions ? ` --conditions "${args.conditions}"` : ''),
-  genos_export_audit: (args) => `genos audit ${args.snapshot_id} --output "${args.output || `audit_${args.snapshot_id}.log`}"`,
-  genos_cost_accounting: (args) => `genos cost-accounting ${args.agent_id} ${args.timeframe ? `--timeframe ${args.timeframe}` : ''}`
-};
-
-const SYNC_COMMAND_TOOLS = {
-  genos_loop_detection_check: ({ history_file, exact_match = 3, stagnation = 5, similarity = 0.95 }) =>
-    `genos loop-detection --history-file ${history_file} --exact-match ${exact_match} --stagnation ${stagnation} --similarity ${similarity}`,
-  genos_causality_fork: ({ boundary_id, new_boundary_id }) =>
-    `genos causality fork --boundary-id ${boundary_id} --new-boundary-id ${new_boundary_id}`,
-  genos_incident_experiment: (args) => `genos experiment incident ${args.manifest}`,
-  genos_bug_investigation: (args) => `genos experiment bug-investigation ${args.manifest}`,
-  genos_phenotype_measure_divergence: ({ trait_name, expected, observed, tolerance }) =>
-    `genos phenotype measure-divergence --trait-name "${trait_name}" --expected ${expected} --observed ${observed} --tolerance ${tolerance}`,
-  genos_allele_frequency_analyzer: (args) => `genos swarm allele-analyzer --swarm-id ${args.swarm_id}`,
-  genos_strategy_adaptation: (args) => `genos strategy adapt --agent-id ${args.agent_id} --constraint ${args.constraint} --target ${args.target_value}`,
-  genos_rebase_compute_plan: ({ graph_file, injection_step, injected_keys }) => {
-    const keysArgs = injected_keys.map((k) => `--injected-keys ${k}`).join(' ');
-    return `genos rebase compute-plan --graph-file ${graph_file} --injection-step ${injection_step} ${keysArgs}`;
-  },
-  genos_guardrails_verify: ({ iteration, tokens, elapsed, uncertainty }) =>
-    `genos guardrails verify --iteration ${iteration} --tokens ${tokens} --elapsed ${elapsed} --uncertainty ${uncertainty}`,
-  genos_resilience_apoptosis: (args) => `genos resilience apoptosis --agent-id ${args.agent_id}`,
-  genos_parasitic_pressure: (args) => `genos eval parasitic-pressure ${args.manifest}`,
-  genos_bisect_agent: (args) => `genos dev bisect-agent --agent-id ${args.agent_id} --predicate "${args.predicate}"`,
-  genos_hypothesis_evidence: (args) => {
-    let cmd = `genos dev hypothesis-evidence ${args.diagnosis_id} ${args.hypothesis_id} --claim "${args.claim}" --source "${args.source}" --confidence ${args.confidence}`;
-    if (args.artifact) cmd += ` --artifact "${args.artifact}"`;
-    if (args.against) cmd += ` --against`;
-    return cmd;
-  },
-  genos_biomimicry_skill_proceduralize: (args) => {
-    const cmdParams = [`--param skill=${args.skill}`];
-    if (args.successes !== undefined) cmdParams.push(`--param successes=${args.successes}`);
-    if (args.failures !== undefined) cmdParams.push(`--param failures=${args.failures}`);
-    if (args.variance !== undefined) cmdParams.push(`--param variance=${args.variance}`);
-    if (args.failure_rate !== undefined) cmdParams.push(`--param failure_rate=${args.failure_rate}`);
-    if (args.steps) args.steps.forEach((s) => cmdParams.push(`--param step=${s}`));
-    if (args.preconditions) args.preconditions.forEach((p) => cmdParams.push(`--param precondition=${p}`));
-    return `genos biomimicry bio-feature --feature proceduralization --action ${args.action} ${cmdParams.join(' ')}`;
-  }
-};
 
 function deterministicRag(args, runLocal) {
   if (args.action === 'ingest') return runLocal(`genos platform ingest "${args.document}"` + (args.index ? ` --index "${args.index}"` : ''));
@@ -320,16 +267,57 @@ async function executeDelegatedTool({ toolName, args, context }) {
 async function executeLocalTool({ toolName, args, context, runLocal, timeoutMs }) {
   const genomeResult = await require('../../mcpGenomeTools').executeGenomeTool(toolName, args, runLocal);
   if (genomeResult) return genomeResult;
-  const commandBuilder = Object.hasOwn(LOCAL_COMMAND_TOOLS, toolName) ? LOCAL_COMMAND_TOOLS[toolName] : null;
-  if (commandBuilder) return runLocal(commandBuilder(args));
+  const command = localCommandFor(toolName, args);
+  if (command !== null) return runLocal(command);
   return executeConfiguredHandler({ toolName, args, context, runLocal, timeoutMs });
 }
 
 function executeConfiguredHandler({ toolName, args, context, runLocal, timeoutMs }) {
-  const syncBuilder = Object.hasOwn(SYNC_COMMAND_TOOLS, toolName) ? SYNC_COMMAND_TOOLS[toolName] : null;
-  if (syncBuilder) return runSyncResult(() => syncBuilder(args), timeoutMs);
-  const customHandler = Object.hasOwn(CUSTOM_TOOL_HANDLERS, toolName) ? CUSTOM_TOOL_HANDLERS[toolName] : null;
-  return customHandler ? customHandler(args, runLocal, timeoutMs, context) : UNHANDLED;
+  const syncCommand = syncCommandFor(toolName, args);
+  if (syncCommand !== null) return runSyncResult(syncCommand, timeoutMs);
+  return customToolHandler({ toolName, args, runLocal, timeoutMs, context });
+}
+
+function customToolHandler({ toolName, args, runLocal, timeoutMs, context }) {
+  const fossil = fossilToolHandler(toolName, args, runLocal);
+  if (fossil !== UNHANDLED) return fossil;
+  const bio = biologicalToolHandler({ toolName, args, runLocal, timeoutMs, context });
+  if (bio !== UNHANDLED) return bio;
+  return platformToolHandler({ toolName, args, runLocal, timeoutMs });
+}
+
+function fossilToolHandler(toolName, args, runLocal) {
+  switch (toolName) {
+    case 'genos_fossil_record': return fossilRecordTool(args, runLocal);
+    case 'genos_fossil_list': return fossilListTool(args, runLocal);
+    case 'genos_fossil_strata': return fossilStrataTool(args, runLocal);
+    case 'genos_fossil_excavate': return fossilExcavateTool(args, runLocal);
+    case 'genos_fossil_decode': return fossilDecodeTool(args, runLocal);
+    case 'genos_fossil_candidate': return fossilCandidateTool(args, runLocal);
+    default: return UNHANDLED;
+  }
+}
+
+function biologicalToolHandler({ toolName, args, runLocal, timeoutMs, context }) {
+  switch (toolName) {
+    case 'genos_biological_mode': return CUSTOM_TOOL_HANDLERS.genos_biological_mode(args, runLocal, timeoutMs, context);
+    case 'genos_topology_session': return CUSTOM_TOOL_HANDLERS.genos_topology_session(args, runLocal, timeoutMs, context);
+    case 'genos_synaptic_stdp_update': return synapticStdpUpdate(args, runLocal);
+    case 'genos_biomimicry_hippocampal_consolidate': return hippocampalConsolidate(args, runLocal);
+    case 'genos_biomimicry_gate_evaluate': return gateEvaluate(args, runLocal);
+    default: return UNHANDLED;
+  }
+}
+
+function platformToolHandler({ toolName, args, runLocal, timeoutMs }) {
+  switch (toolName) {
+    case 'genos_deterministic_sha256_rag': return deterministicRag(args, runLocal);
+    case 'genos_replay': return replay(args, runLocal);
+    case 'genos_causal_replay_experiment': return causalReplayExperiment(args, runLocal, timeoutMs);
+    case 'genos_compliance_report': return complianceReport(args, runLocal, timeoutMs);
+    case 'genos_computer_use': return computerUse(args, runLocal);
+    default: return UNHANDLED;
+  }
 }
 
 module.exports = { executeToolLogic };

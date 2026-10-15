@@ -7,8 +7,7 @@ function validateExpression(expr) {
   const errors = [];
   if (!expr || typeof expr !== 'object') return { valid: false, errors: ['Expression must be an object'] };
   if (!expr.kind || !EXPRESSION_KINDS.includes(expr.kind)) errors.push(`Invalid or missing kind. Must be one of: ${EXPRESSION_KINDS.join(', ')}`);
-  const validate = EXPRESSION_VALIDATORS[expr.kind];
-  if (validate) validate(expr, errors);
+  validateExpressionKind(expr, errors);
 
   if (expr.nodeKind !== undefined && !NODE_KINDS.includes(expr.nodeKind)) errors.push(`Invalid nodeKind. Must be one of: ${NODE_KINDS.join(', ')}`);
   if (expr.ports !== undefined) validatePorts(expr.ports, errors);
@@ -16,17 +15,20 @@ function validateExpression(expr) {
   return { valid: errors.length === 0, errors };
 }
 
-const EXPRESSION_VALIDATORS = {
-  TOPOLOGY: validateTopology,
-  NEST: validateNest,
-  GATE: validateGate,
-  WRAP: validateWrap,
-  BRIDGE: validateBridge,
-  FEDERATE: validateFederate,
-  PARALLEL: validateChildren,
-  SEQUENCE: validateChildren,
-  COMPETE: validateChildren
-};
+function validateExpressionKind(expr, errors) {
+  switch (expr.kind) {
+    case 'TOPOLOGY': validateTopology(expr, errors); break;
+    case 'NEST': validateNest(expr, errors); break;
+    case 'GATE': validateGate(expr, errors); break;
+    case 'WRAP': validateWrap(expr, errors); break;
+    case 'BRIDGE': validateBridge(expr, errors); break;
+    case 'FEDERATE': validateFederate(expr, errors); break;
+    case 'PARALLEL':
+    case 'SEQUENCE':
+    case 'COMPETE': validateChildren(expr, errors); break;
+    default: break;
+  }
+}
 
 function validateTopology(expr, errors) { if (!expr.topology || typeof expr.topology !== 'string') errors.push('TOPOLOGY expression requires a string topology field'); if (expr.variant !== undefined && expr.variant !== null && typeof expr.variant !== 'string') errors.push('TOPOLOGY variant must be a string'); }
 function validateNest(expr, errors) { if (!expr.host || !expr.inner) errors.push('NEST requires both host and inner expressions'); else { addPrefixedErrors(validateExpression(expr.host).errors, 'host', errors); addPrefixedErrors(validateExpression(expr.inner).errors, 'inner', errors); } }

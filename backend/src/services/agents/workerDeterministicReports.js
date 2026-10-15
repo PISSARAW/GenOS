@@ -65,18 +65,31 @@ function procedure(result) {
       methodContract: { version: 1, methodId: result.methodId, parameters: result.parameters }, result: result.output } });
 }
 
-const REPORT_BUILDERS = Object.assign(Object.create(null), {
-  teaching_worker: teaching, scout_cell: scout, forensic_worker: forensic,
-  resident_daemon: monitor, synthesis_worker: synthesis, experimental_worker: experiment,
-  formal_worker: formal, verifier_worker: verification, red_worker: verification,
-  procedural_executor: procedure
-});
-
 function reportFor(kind, result) {
   if (result.evidenceReport) return result.evidenceReport;
-  const builder = REPORT_BUILDERS[kind];
-  if (!builder) throw error('WORKER_EXECUTOR_UNAVAILABLE', `No native evidence adapter for '${kind}'.`);
-  return builder(result);
+  return reportForCommonWorker(kind, result) || reportForSpecialWorker(kind, result);
+}
+
+function reportForCommonWorker(kind, result) {
+  switch (kind) {
+    case 'teaching_worker': return teaching(result);
+    case 'scout_cell': return scout(result);
+    case 'forensic_worker': return forensic(result);
+    case 'resident_daemon': return monitor(result);
+    case 'synthesis_worker': return synthesis(result);
+    case 'experimental_worker': return experiment(result);
+    default: return null;
+  }
+}
+
+function reportForSpecialWorker(kind, result) {
+  switch (kind) {
+    case 'formal_worker': return formal(result);
+    case 'verifier_worker':
+    case 'red_worker': return verification(result);
+    case 'procedural_executor': return procedure(result);
+    default: throw error('WORKER_EXECUTOR_UNAVAILABLE', `No native evidence adapter for '${kind}'.`);
+  }
 }
 
 module.exports = { reportFor };

@@ -39,20 +39,18 @@ function normalizeOperator(node) {
   return createExpression(normalized);
 }
 
-const OPERATOR_NORMALIZERS = {
-  NEST: normalizeNestOperator,
-  PARALLEL: normalizeChildrenOperator,
-  SEQUENCE: normalizeChildrenOperator,
-  COMPETE: normalizeChildrenOperator,
-  GATE: normalizeGateOperator,
-  WRAP: normalizeWrapOperator,
-  BRIDGE: normalizeBridgeOperator,
-  FEDERATE: normalizeFederateOperator
-};
-
 function operatorNormalizer(kind, normalized) {
-  const normalize = OPERATOR_NORMALIZERS[kind];
-  if (normalize) normalize(normalized);
+  switch (kind) {
+    case 'NEST': normalizeNestOperator(normalized); break;
+    case 'PARALLEL':
+    case 'SEQUENCE':
+    case 'COMPETE': normalizeChildrenOperator(normalized); break;
+    case 'GATE': normalizeGateOperator(normalized); break;
+    case 'WRAP': normalizeWrapOperator(normalized); break;
+    case 'BRIDGE': normalizeBridgeOperator(normalized); break;
+    case 'FEDERATE': normalizeFederateOperator(normalized); break;
+    default: break;
+  }
 }
 
 function normalizeNestOperator(node) {

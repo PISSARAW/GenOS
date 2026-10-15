@@ -227,26 +227,36 @@ async function handleProceduralRunnerResolve(args) {
   return run('resolve-runner', args);
 }
 
-const STRATEGY_TOOL_HANDLERS = Object.assign(Object.create(null), {
-  genos_blame: (args, context) => handleBlameOrLineage('genos_blame', args, context),
-  genos_lineage: (args, context) => handleBlameOrLineage('genos_lineage', args, context),
-  genos_record_experience: args => runPrimitive('record_experience', args),
-  genos_compile_memory: args => runPrimitive('compile_memory', args),
-  genos_resilience_hypermutation: handleResilienceHypermutation,
-  genos_synaptic_stdp_update: handleSynapticStdpUpdate,
-  genos_synaptic_prune_scale: handleSynapticPruneScale,
-  genos_execute_primitive: handleExecutePrimitive,
-  genos_execute_strategy_pipeline: handleExecuteStrategyPipeline,
-  genos_procedural_registry_list: handleProceduralRegistryList,
-  genos_procedural_runner_resolve: handleProceduralRunnerResolve
-});
-
 async function dispatchStrategyTool(toolName, args, context) {
   if (toolName.startsWith('genos_strat_')) {
     return runPrimitive(toolName.slice('genos_strat_'.length), args);
   }
-  const handler = STRATEGY_TOOL_HANDLERS[toolName];
-  return handler ? handler(args, context) : null;
+  const stateResult = dispatchStrategyStateTool(toolName, args, context);
+  if (stateResult !== undefined) return stateResult;
+  return dispatchStrategyExecutionTool(toolName, args);
+}
+
+function dispatchStrategyStateTool(toolName, args, context) {
+  switch (toolName) {
+    case 'genos_blame': return handleBlameOrLineage('genos_blame', args, context);
+    case 'genos_lineage': return handleBlameOrLineage('genos_lineage', args, context);
+    case 'genos_record_experience': return runPrimitive('record_experience', args);
+    case 'genos_compile_memory': return runPrimitive('compile_memory', args);
+    case 'genos_resilience_hypermutation': return handleResilienceHypermutation(args);
+    case 'genos_synaptic_stdp_update': return handleSynapticStdpUpdate(args);
+    case 'genos_synaptic_prune_scale': return handleSynapticPruneScale(args);
+    default: return undefined;
+  }
+}
+
+function dispatchStrategyExecutionTool(toolName, args) {
+  switch (toolName) {
+    case 'genos_execute_primitive': return handleExecutePrimitive(args);
+    case 'genos_execute_strategy_pipeline': return handleExecuteStrategyPipeline(args);
+    case 'genos_procedural_registry_list': return handleProceduralRegistryList(args);
+    case 'genos_procedural_runner_resolve': return handleProceduralRunnerResolve(args);
+    default: return null;
+  }
 }
 
 async function executeStrategyTool(toolName, args = {}, context = {}) {

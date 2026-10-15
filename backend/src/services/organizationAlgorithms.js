@@ -205,41 +205,38 @@ const AUTHORITY = Object.freeze({
   memory_compilation: (role) => (/librarian|compiler/i.test(role) ? 'compiler' : 'member')
 });
 
-const CORE_RUNNERS = new Map([
-  ['specialist_expert_committee', specialistExpertCommittee],
-  ['cross_functional_pod', crossFunctionalPod],
-  ['blind_adversarial_review', blindAdversarialReview],
-  ['red_blue_coevolution', redBlueCoevolution],
-  ['brier_weighted_consensus', brierWeightedConsensus],
-  ['quorum_with_abstention', quorumWithAbstentionOrg],
-  ['stigmergy', stigmergy], ['energy_huddle', energyHuddle]
-]);
-
-const ORGANIZATION_RUNNERS = new Map([
-  ['network_silence', networkSilence], ['hierarchical_merge', hierarchicalMerge],
-  ['isolated_recovery', isolatedRecovery], ['memory_compilation', memoryCompilation]
-]);
-
-const EXTENDED_RUNNERS = new Map([
-  ['strategy_arena', arenaTournament], ['competitive_arena', arenaTournament],
-  ['dynamic_polyethism', dynamicPolyethism], ['mycelial_routing', mycelialRouting]
-]);
-
-function runMappedAlgorithm({ runners, key, state, options }) {
-  const runner = runners.get(key);
-  return runner ? runner(state, options) : undefined;
-}
-
 function runCoreAlgorithm(key, state, options) {
-  return runMappedAlgorithm({ runners: CORE_RUNNERS, key, state, options });
+  switch (key) {
+    case 'specialist_expert_committee': return specialistExpertCommittee(state, options);
+    case 'cross_functional_pod': return crossFunctionalPod(state, options);
+    case 'blind_adversarial_review': return blindAdversarialReview(state, options);
+    case 'red_blue_coevolution': return redBlueCoevolution(state, options);
+    case 'brier_weighted_consensus': return brierWeightedConsensus(state, options);
+    case 'quorum_with_abstention': return quorumWithAbstentionOrg(state, options);
+    case 'stigmergy': return stigmergy(state, options);
+    case 'energy_huddle': return energyHuddle(state, options);
+    default: return undefined;
+  }
 }
 
 function runOrganizationAlgorithm(key, state) {
-  return runMappedAlgorithm({ runners: ORGANIZATION_RUNNERS, key, state, options: {} });
+  switch (key) {
+    case 'network_silence': return networkSilence(state);
+    case 'hierarchical_merge': return hierarchicalMerge(state);
+    case 'isolated_recovery': return isolatedRecovery(state);
+    case 'memory_compilation': return memoryCompilation(state);
+    default: return undefined;
+  }
 }
 
 function runExtendedAlgorithm(key, state, options) {
-  return runMappedAlgorithm({ runners: EXTENDED_RUNNERS, key, state, options });
+  switch (key) {
+    case 'strategy_arena':
+    case 'competitive_arena': return arenaTournament(state, options);
+    case 'dynamic_polyethism': return dynamicPolyethism(state, options);
+    case 'mycelial_routing': return mycelialRouting(state, options);
+    default: return undefined;
+  }
 }
 
 function runOrganizationStep(organization, state = {}, options = {}) {
@@ -252,8 +249,61 @@ function runOrganizationStep(organization, state = {}, options = {}) {
 function authorityFor(organization, role) {
   const key = String(organization || '').trim().toLowerCase();
   const normalizedRole = String(role || '');
-  const authority = Object.hasOwn(AUTHORITY, key) ? AUTHORITY[key] : null;
-  return authority ? authority(normalizedRole) : 'member';
+  const governance = authorityForGovernance(key, normalizedRole);
+  if (governance !== null) return governance;
+  const ecology = authorityForEcology(key, normalizedRole);
+  if (ecology !== null) return ecology;
+  return authorityForSpecialized(key, normalizedRole) || 'member';
+}
+
+function authorityForGovernance(key, role) {
+  switch (key) {
+    case 'grey_wolf_optimizer': return /alpha|beta|delta/i.test(role) ? 'leader' : 'follower';
+    case 'specialist_expert_committee': return /orchestrator/i.test(role) ? 'hub' : 'spoke';
+    case 'cross_functional_pod': return 'peer';
+    case 'red_blue_coevolution': return /red|blue/i.test(role) ? 'adversary' : 'observer';
+    case 'hierarchical_merge': return /orchestrator|host/i.test(role) ? 'root' : 'member';
+    default: return authorityForConsensus(key, role);
+  }
+}
+
+function authorityForConsensus(key, role) {
+  switch (key) {
+    case 'blind_adversarial_review': return /critic|review/i.test(role) ? 'critic' : 'member';
+    case 'brier_weighted_consensus': return /expert|forecaster/i.test(role) ? 'voter' : 'member';
+    case 'quorum_with_abstention': return /voter|member/i.test(role) ? 'voter' : 'member';
+    default: return null;
+  }
+}
+
+function authorityForEcology(key, role) {
+  switch (key) {
+    case 'stigmergy': return /forager|scout/i.test(role) ? 'forager' : 'member';
+    case 'flocking_boids':
+    case 'fish_school_search':
+    case 'slime_mould_network':
+    case 'network_silence': return 'member';
+    default: return authorityForEcologyRemainder(key, role);
+  }
+}
+
+function authorityForEcologyRemainder(key, role) {
+  switch (key) {
+    case 'energy_huddle': return 'member';
+    case 'mycelial_routing': return /hypha|router/i.test(role) ? 'router' : 'member';
+    case 'dynamic_polyethism': return /generalist|specialist/i.test(role) ? 'polyethic' : 'member';
+    default: return null;
+  }
+}
+
+function authorityForSpecialized(key, role) {
+  switch (key) {
+    case 'strategy_arena':
+    case 'competitive_arena': return /competitor|champion/i.test(role) ? 'competitor' : 'observer';
+    case 'isolated_recovery': return 'member';
+    case 'memory_compilation': return /librarian|compiler/i.test(role) ? 'compiler' : 'member';
+    default: return null;
+  }
 }
 
 module.exports = { runOrganizationStep, authorityFor, ALGORITHMS, AUTHORITY };
