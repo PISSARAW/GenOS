@@ -54,18 +54,22 @@ async function run() {
       }
     };
     const launch = ({ member }) => { launches += 1; agents.get(member.workerId).status = 'running'; return { workerId: member.workerId }; };
-    const first = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
+    const first = await dispatchTeam({ db, context, parent: { workspace_id: 'ws-test', workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(first.aTeam.teamRunId, 'run-stable');
     assert.equal(first.aTeam.workGraphId, 'graph-stable');
     assert.equal(launches, 2);
     assert.equal(agents.get('worker-a').parent_agent_id, context.orchestratorId);
-    const second = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
+    const second = await dispatchTeam({ db, context, parent: { workspace_id: 'ws-test', workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(second.aTeam.reused, true);
     assert.equal(capacity, 2, 'Retry reuses the occupied slots of its own workers.');
     assert.equal(launches, 2);
-    const resumed = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
+    const resumed = await dispatchTeam({ db, context, parent: { workspace_id: 'ws-test', workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(resumed.aTeam.teamRunId, 'run-stable');
     assert.equal(launches, 2);
+    await assert.rejects(dispatchTeam({ db, context, parent: {}, launchWorker: launch }), {
+      code: 'A_TEAM_PARENT_WORKSPACE_REQUIRED'
+    });
+    assert.equal(launches, 2, 'A dispatch without parent workspace launches nothing.');
   } finally {
     store.load = originalLoad;
     garage.state = originals.garage;

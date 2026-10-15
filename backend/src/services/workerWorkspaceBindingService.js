@@ -58,7 +58,9 @@ async function bindingIdentity(db, input) {
   const parent = await db.get(`SELECT a.id, a.workspace_id, w.path, w.organization_id, w.project_id
     FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, input.parentId);
   const worker = await db.get('SELECT id, parent_agent_id, workspace_id FROM agents WHERE id = ?', input.workerId);
-  if (!parent || !worker || worker.parent_agent_id !== parent.id
+  if (!parent) refuse('Parent orchestrator has no workspace: bind a mission workspace before dispatching workers.');
+  if (!worker) refuse(`Worker '${input.workerId}' was not found.`);
+  if (worker.parent_agent_id !== parent.id
     || parent.workspace_id !== input.parentWorkspaceId) refuse('Worker and parent workspace identity do not match.');
   return { parent, worker };
 }

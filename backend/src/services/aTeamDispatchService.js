@@ -70,11 +70,19 @@ function requireReadyTeam(readiness) {
   });
 }
 
+function requireParentWorkspace(parent) {
+  if (parent?.workspace_id) return;
+  throw Object.assign(new Error('A-Team dispatch requires an orchestrator workspace: pass an absolute workspace_root so the mission can bind one before workers spawn.'), {
+    code: 'A_TEAM_PARENT_WORKSPACE_REQUIRED'
+  });
+}
+
 function emitImmediateCompletion({ runner, orchestratorId, planId }) {
   if (!runner) emit(orchestratorId, 'A_TEAM_STAGES_COMPLETED', 'SCHEDULE_STAGES', 'A-Team has no deferred stages.', { planId }, 'info');
 }
 
 async function dispatchTeam({ db, context, parent, launchWorker }) {
+  requireParentWorkspace(parent);
   const setup = await prepareDispatch({ db, context });
   const canonical = await createCanonicalRun(setup);
   if (shouldReturnExisting(canonical)) return existingRunResponse(context, canonical, setup.team);
