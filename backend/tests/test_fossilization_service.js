@@ -6,6 +6,7 @@ const assert = require('assert');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+require('./helpers/fossilSigningKey').configureTestFossilSigner();
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'fossilization-suite-only';
 process.env.GENOS_FOSSIL_ARTIFACT = '0';
 const { getDatabase, closeDatabase } = require('../src/db');
@@ -68,6 +69,7 @@ async function testPersistenceAndExcavation(db) {
   );
   assert(first.success && first.indexed, 'Fossil must be indexed');
   assert(first.fossil.payload_hash, 'Fossil must carry a mineral hash');
+  assert(fossilization.verifyAttestation(first.fossil), 'Backend must sign source, lineage, scope, and artifact hash');
 
   const list = await fossilization.listFossils(db);
   assert(list.some((f) => f.fossil_id === first.fossil.fossil_id), 'Fossil must be listed');
@@ -120,6 +122,8 @@ async function testProvenanceAcrossRestart(dbPath, db) {
     assert.equal(artifact.source_event_id, sourceEventId);
     assert.equal(artifact.source_event_hash, fossil.source_event_hash);
     assert.equal(artifact.payload_hash, fossil.payload_hash);
+    assert.equal(artifact.attestation.signature, fossil.attestation.signature);
+    assert(fossilization.verifyAttestation(artifact), 'Persisted artifact attestation must verify');
   } finally {
     if (previousRoot === undefined) delete process.env.GENOS_STUDIO_ROOT;
     else process.env.GENOS_STUDIO_ROOT = previousRoot;
@@ -137,6 +141,11 @@ async function testProvenanceAcrossRestart(dbPath, db) {
     const alteredSource = await fossilization.excavateFossil(reopened, fossil.fossil_id);
     assert(!alteredSource.success && !alteredSource.integrity_verified,
       'Changing the source event after restart must invalidate fossil provenance');
+    const stored = await reopened.get('SELECT * FROM fossils WHERE fossil_id = ?', fossil.fossil_id);
+    const alteredAttestation = { ...fossil };
+    alteredAttestation.organization_id = 'other-organization';
+    assert(!fossilization.verifyAttestation(alteredAttestation), 'Changing tenant scope must invalidate the backend signature');
+    assert(stored.attestation_signature, 'Backend signature must survive database restart');
   } finally {
     await closeDatabase();
     fs.rmSync(artifactRoot, { recursive: true, force: true });

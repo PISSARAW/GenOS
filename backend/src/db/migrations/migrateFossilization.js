@@ -34,6 +34,9 @@ async function migrateFossilization(db) {
   const columns = new Set((await db.all('PRAGMA table_info(fossils)')).map((column) => column.name));
   if (!columns.has('source_event_id')) await db.exec('ALTER TABLE fossils ADD COLUMN source_event_id TEXT');
   if (!columns.has('source_event_hash')) await db.exec('ALTER TABLE fossils ADD COLUMN source_event_hash TEXT');
+  if (!columns.has('attestation_key_id')) await db.exec('ALTER TABLE fossils ADD COLUMN attestation_key_id TEXT');
+  if (!columns.has('attestation_signature')) await db.exec('ALTER TABLE fossils ADD COLUMN attestation_signature TEXT');
+  if (!columns.has('attestation_version')) await db.exec('ALTER TABLE fossils ADD COLUMN attestation_version INTEGER');
 }
 
 module.exports = { migrateFossilization };

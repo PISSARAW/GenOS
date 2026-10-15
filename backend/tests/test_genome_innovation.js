@@ -1,4 +1,5 @@
 const assert = require('assert');
+require('./helpers/fossilSigningKey').configureTestFossilSigner();
 const os = require('os');
 const path = require('path');
 

@@ -124,6 +124,20 @@ pub fn handle_fossil_record(
     reason: &str,
     mode: Option<&str>
 ) -> Result<(), String> {
+    handle_fossil_record_at(
+        &crate::commands::root_resolver::resolve_matrix_root(),
+        FossilRecordRequest { lineage_id, reason, mode },
+    )
+}
+
+pub(crate) struct FossilRecordRequest<'a> {
+    pub(crate) lineage_id: &'a str,
+    pub(crate) reason: &'a str,
+    pub(crate) mode: Option<&'a str>,
+}
+
+pub(crate) fn handle_fossil_record_at(root: &std::path::Path, request: FossilRecordRequest<'_>) -> Result<(), String> {
+    let FossilRecordRequest { lineage_id, reason, mode } = request;
     let mut ctx = BurialContext::new(lineage_id, reason);
     if let Some(label) = mode {
         ctx.mode = FossilizationMode::from_label(label);
@@ -132,7 +146,8 @@ pub fn handle_fossil_record(
     let mut registry = FossilRegistry::new();
     let fossil = registry.bury(ctx);
 
-    let fossil_dir = get_storage_dir("fossils");
+    let fossil_dir = root.join("fossils");
+    fs::create_dir_all(&fossil_dir).map_err(|e| format!("Failed to create fossil archive: {}", e))?;
     let file_path = fossil_dir.join(format!("{}_{}.json", lineage_id, fossil.fossil_id));
 
     let mut record = serde_json::to_value(&fossil)
@@ -154,42 +169,83 @@ pub fn handle_fossil_record(
 }
 
 fn load_fossils() -> Result<Vec<FossilRecord>, String> {
-    Ok(load_fossil_documents()?.into_iter().map(|(record, _)| record).collect())
+    Ok(load_fossil_documents(None)?.into_iter().map(|(record, _)| record).collect())
 }
 
 fn provenance_status(record: &FossilRecord) -> Result<&'static str, String> {
     match (record.source_event_id.is_some(), record.source_event_hash.is_some()) {
         (false, false) => Ok("legacy_unprovenanced"),
-        (true, true) => Ok("source_event_present_not_verified_by_local_cli"),
+        (true, true) => Ok("source_event_attested_by_backend"),
         _ => Err(format!("Incomplete source-event provenance in fossil {}", record.fossil_id)),
     }
 }
 
-fn load_fossil_documents() -> Result<Vec<(FossilRecord, serde_json::Value)>, String> {
+fn load_fossil_documents(target_fossil_id: Option<&str>) -> Result<Vec<(FossilRecord, serde_json::Value)>, String> {
     let fossil_dir = get_storage_dir("fossils");
+    load_fossil_documents_from(&fossil_dir, target_fossil_id)
+}
+
+pub(crate) fn load_fossil_documents_from(
+    fossil_dir: &std::path::Path,
+    target_fossil_id: Option<&str>,
+) -> Result<Vec<(FossilRecord, serde_json::Value)>, String> {
+    load_fossil_documents_with_retired_signers(fossil_dir, target_fossil_id, false)
+}
+
+fn load_fossil_documents_with_retired_signers(
+    fossil_dir: &std::path::Path,
+    target_fossil_id: Option<&str>,
+    allow_untrusted_signers: bool,
+) -> Result<Vec<(FossilRecord, serde_json::Value)>, String> {
     let mut documents = Vec::new();
-    let entries = match fs::read_dir(&fossil_dir) {
+    let entries = match fs::read_dir(fossil_dir) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(documents),
         Err(error) => return Err(format!("Failed to read fossil archive {}: {}", fossil_dir.display(), error)),
     };
     for entry in entries {
         let path = entry.map_err(|error| format!("Failed to enumerate fossil archive {}: {}", fossil_dir.display(), error))?.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("json") {
-            continue;
+        if let Some(document) = load_fossil_candidate(&path, target_fossil_id, allow_untrusted_signers)? {
+            documents.push(document);
         }
-        let content = fs::read_to_string(&path)
-            .map_err(|error| format!("Failed to read fossil candidate {}: {}", path.display(), error))?;
-        let value = serde_json::from_str::<serde_json::Value>(&content)
-            .map_err(|error| format!("Invalid fossil candidate {}: {}", path.display(), error))?;
-        let record = serde_json::from_value::<FossilRecord>(value.clone())
-            .map_err(|error| format!("Invalid fossil candidate {}: {}", path.display(), error))?;
-        if !record.verify_integrity() {
-            return Err(format!("Fossil candidate integrity check failed: {}", path.display()));
-        }
-        documents.push((record, value));
     }
     Ok(documents)
+}
+
+fn load_fossil_candidate(
+    path: &std::path::Path,
+    target_fossil_id: Option<&str>,
+    allow_untrusted_signers: bool,
+) -> Result<Option<(FossilRecord, serde_json::Value)>, String> {
+    if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(path)
+        .map_err(|error| format!("Failed to read fossil candidate {}: {}", path.display(), error))?;
+    let value = serde_json::from_str::<serde_json::Value>(&content)
+        .map_err(|error| format!("Invalid fossil candidate {}: {}", path.display(), error))?;
+    if target_fossil_id.is_some_and(|target| value.get("fossil_id").and_then(serde_json::Value::as_str) != Some(target)) {
+        return Ok(None);
+    }
+    let record = serde_json::from_value::<FossilRecord>(value.clone())
+        .map_err(|error| format!("Invalid fossil candidate {}: {}", path.display(), error))?;
+    if !record.verify_integrity() { return Err(format!("Fossil candidate integrity check failed: {}", path.display())); }
+    verify_fossil_candidate_provenance(path, &value, allow_untrusted_signers)?;
+    Ok(Some((record, value)))
+}
+
+fn verify_fossil_candidate_provenance(
+    path: &std::path::Path,
+    value: &serde_json::Value,
+    allow_untrusted_signers: bool,
+) -> Result<(), String> {
+    let verification = super::fossil_attestation::verify_backend_attestation_status(value)
+        .map_err(|error| format!("Fossil provenance verification failed: {} ({error})", path.display()))?;
+    if verification == super::fossil_attestation::BackendAttestationStatus::SignerNotTrusted
+        && !allow_untrusted_signers {
+        return Err(format!("Fossil provenance verification failed: {} (Unknown backend fossil signer)", path.display()));
+    }
+    Ok(())
 }
 
 pub fn handle_fossil_strata() -> Result<(), String> {
@@ -206,7 +262,9 @@ pub fn handle_fossil_strata() -> Result<(), String> {
 }
 
 pub fn handle_fossil_excavate(fossil_id: &str) -> Result<(), String> {
-    let registry = FossilRegistry::from_records(load_fossils()?);
+    let records = load_fossil_documents(Some(fossil_id))?
+        .into_iter().map(|(record, _)| record).collect();
+    let registry = FossilRegistry::from_records(records);
     let id = uuid::Uuid::parse_str(fossil_id)
         .map_err(|e| format!("Invalid fossil id '{}': {}", fossil_id, e))?;
 
@@ -231,7 +289,9 @@ pub fn handle_fossil_excavate(fossil_id: &str) -> Result<(), String> {
 }
 
 pub fn handle_fossil_decode(fossil_id: &str) -> Result<(), String> {
-    let registry = FossilRegistry::from_records(load_fossils()?);
+    let records = load_fossil_documents(Some(fossil_id))?
+        .into_iter().map(|(record, _)| record).collect();
+    let registry = FossilRegistry::from_records(records);
     let id = uuid::Uuid::parse_str(fossil_id)
         .map_err(|e| format!("Invalid fossil id '{}': {}", fossil_id, e))?;
 
@@ -257,10 +317,28 @@ pub fn handle_fossil_decode(fossil_id: &str) -> Result<(), String> {
 }
 
 pub fn handle_fossil_list() -> Result<(), String> {
-    let documents = load_fossil_documents()?;
+    handle_fossil_list_at(&crate::commands::root_resolver::resolve_matrix_root())
+}
+
+pub(crate) fn handle_fossil_list_at(root: &std::path::Path) -> Result<(), String> {
+    let documents = load_fossil_documents_with_retired_signers(&root.join("fossils"), None, true)?;
+    let mut verification_complete = true;
     let fossils = documents.into_iter().map(|(record, value)| {
+        let (attestation_status, source_status) = match super::fossil_attestation::verify_backend_attestation_status(&value)? {
+            super::fossil_attestation::BackendAttestationStatus::Verified => {
+                ("verified", "source_event_attested_by_backend")
+            }
+            super::fossil_attestation::BackendAttestationStatus::Unprovenanced => {
+                ("legacy_unprovenanced", "legacy_unprovenanced")
+            }
+            super::fossil_attestation::BackendAttestationStatus::SignerNotTrusted => {
+                verification_complete = false;
+                ("signer_not_trusted", "source_event_present_unverified_signer")
+            }
+        };
         Ok(json!({
-            "provenance_status": provenance_status(&record)?,
+            "provenance_status": source_status,
+            "authenticity_status": attestation_status,
             "record": value,
         }))
     }).collect::<Result<Vec<_>, String>>()?;
@@ -268,6 +346,7 @@ pub fn handle_fossil_list() -> Result<(), String> {
     let output = json!({
         "success": true,
         "operation": "fossil_list",
+        "verification_complete": verification_complete,
         "total_fossils": fossils.len(),
         "fossils": fossils
     });

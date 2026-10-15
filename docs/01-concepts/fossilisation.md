@@ -305,6 +305,23 @@ flowchart LR
     FOS -.->|interdit| RES["Resurrection de la lignee"]
 ```
 
+## Authenticité des artefacts relus par le CLI
+
+Le backend signe chaque fossile sourcé avec `GENOS_FOSSIL_SIGNING_PRIVATE_KEY`
+(clé privée Ed25519 PEM conservée dans le gestionnaire de secrets du serveur).
+Il vérifie aussi les preuves relues contre son trousseau public; le même format
+`GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS` est configuré séparément sur backend et hôte
+CLI. L'attestation lie le fossile, l'événement terminal et son hash, la lignée,
+le périmètre organisation/projet, l'identifiant de clé et le hash de matière.
+
+Le trousseau est un objet JSON `{ "key_id": "clé_publique_hex" }`. La clé
+publique est le format brut Ed25519 de 32 octets, encodé en hexadécimal;
+`key_id` est le préfixe de 32 caractères hexadécimaux du SHA-256 de son encodage
+DER SPKI. La clé privée ou une clé publique incluse dans l'artefact ne constitue
+jamais une source de confiance. Une provenance incomplète, une signature invalide
+ou une clé inconnue bloque l'excavation d'un fossile sourcé. Les fossiles
+historiques sans événement restent explicitement `legacy_unprovenanced`.
+
 ## Voir aussi
 
 - [adr/0003-fossilization-stratigraphic-archive.md](../adr/0003-fossilization-stratigraphic-archive.md) — décision d'architecture de la fossilisation stratigraphique.

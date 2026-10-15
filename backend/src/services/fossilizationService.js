@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const provenance = require('./fossilProvenanceService');
+const attestation = require('./fossilAttestationService');
 
 const MODES = ['petrification', 'external_mold', 'internal_mold', 'trace'];
 const DEFAULT_MODE = 'petrification';
@@ -113,6 +114,8 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function recordValueOrNull(value) { return value || null; }
+
 function buildFossilRecord(input = {}) {
   const lineageId = coalesce(input.lineageId, input.lineage_id);
   if (!lineageId) throw new Error('lineageId required for fossilization');
@@ -153,8 +156,8 @@ async function persistFossil(db, record) {
      (fossil_id, extinct_lineage_id, reason, mode, stratum_id, payload_hash,
       conservation_quality, hard_parts_json, soft_parts_lost_json,
       phenotype_markers_json, mineral_payload_json, organization_id, project_id, recorded_at,
-      source_event_id, source_event_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      source_event_id, source_event_hash, attestation_key_id, attestation_signature, attestation_version)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     record.fossil_id,
     record.extinct_lineage_id,
     record.reason,
@@ -162,17 +165,18 @@ async function persistFossil(db, record) {
     record.stratum_id,
     record.payload_hash,
     record.conservation_quality,
-    JSON.stringify(record.hard_parts || []),
-    JSON.stringify(record.soft_parts_lost || []),
-    JSON.stringify(record.phenotype_markers || []),
-    record.mineral_payload === null || record.mineral_payload === undefined
-      ? null
-      : JSON.stringify(record.mineral_payload),
-    record.organization_id || null,
-    record.project_id || null,
+    JSON.stringify(asArray(record.hard_parts)),
+    JSON.stringify(asArray(record.soft_parts_lost)),
+    JSON.stringify(asArray(record.phenotype_markers)),
+    JSON.stringify(record.mineral_payload ?? null),
+    recordValueOrNull(record.organization_id),
+    recordValueOrNull(record.project_id),
     record.recorded_at,
     record.source_event_id,
-    record.source_event_hash
+    record.source_event_hash,
+    recordValueOrNull(record.attestation?.key_id),
+    recordValueOrNull(record.attestation?.signature),
+    recordValueOrNull(record.attestation?.version)
   );
   await db.run(
     `INSERT INTO fossil_strata (stratum_id, deposited_at, fossil_count, organization_id, project_id)
@@ -180,8 +184,8 @@ async function persistFossil(db, record) {
      ON CONFLICT(stratum_id) DO UPDATE SET fossil_count = fossil_count + 1`,
     record.stratum_id,
     record.recorded_at,
-    record.organization_id || null,
-    record.project_id || null
+    recordValueOrNull(record.organization_id),
+    recordValueOrNull(record.project_id)
   );
   return record;
 }
@@ -197,10 +201,6 @@ function fossilArtifactDir() {
   return path.join(studioBridgeRoot(), 'fossils');
 }
 
-/**
- * Écrit l'artefact stratigraphique que le CLI (`genos fossil ...`) sait relire.
- * Le hash JS étant canonique (clés triées), l'artefact est vérifiable côté Rust.
- */
 function writeFossilArtifact(record) {
   const dir = fossilArtifactDir();
   fs.mkdirSync(dir, { recursive: true });
@@ -214,10 +214,6 @@ function writeFossilArtifact(record) {
   return file;
 }
 
-/**
- * Enfouit puis indexe un fossile after binding a terminal source event.
- * No resurrection API exists.
- */
 async function recordFossil(input = {}, db, options = {}) {
   const lineageId = input.lineageId || input.lineage_id;
   if (!lineageId) {
@@ -231,6 +227,8 @@ async function recordFossil(input = {}, db, options = {}) {
   const record = buildFossilRecord(input);
   await provenance.bindSourceEvent(db, record, computePayloadHash);
   validateBoundSourceEvent(record);
+  record.attestation = attestation.create(record);
+  if (!attestation.verify(record)) throw new Error('Backend fossil signer is absent from trusted public keys');
   await persistFossil(db, record);
   if (options.writeArtifact !== false && process.env.GENOS_FOSSIL_ARTIFACT !== '0') {
     try {
@@ -281,6 +279,12 @@ function fossilFromRow(row) {
     recorded_at: row.recorded_at,
     source_event_id: row.source_event_id || null,
     source_event_hash: row.source_event_hash || null,
+    attestation: row.attestation_signature ? {
+      version: row.attestation_version,
+      algorithm: 'ed25519',
+      key_id: row.attestation_key_id,
+      signature: row.attestation_signature
+    } : null,
     organization_id: row.organization_id || null,
     project_id: row.project_id || null
   };
@@ -307,29 +311,29 @@ async function listStrata(db, options = {}) {
   );
 }
 
-/** Décode les mélanosomes d'un fossile (phénotype résiduel), en lecture seule. */
 async function decodeFossil(db, fossilId, options = {}) {
-  const scope = scopeClauses(options);
-  const row = await db.get(`SELECT * FROM fossils WHERE fossil_id = ?${scope.sql ? scope.sql.replace(' WHERE ', ' AND ') : ''}`, fossilId, ...scope.params);
-  if (!row) return { success: false, error: 'Fossil not found in stratigraphic registry.' };
-  const record = fossilFromRow(row);
+  const excavation = await excavateFossil(db, fossilId, options);
+  if (!excavation.success) return { success: false, error: excavation.error };
+  const record = excavation.specimen;
   return {
     success: true,
     read_only: true,
     fossil_id: record.fossil_id,
     extinct_lineage_id: record.extinct_lineage_id,
+    provenance_verified: excavation.provenance_verified,
     reading: decodePhenotype(record.phenotype_markers),
     phenotype_markers: record.phenotype_markers
   };
 }
 
-/** Excavation en lecture seule : jamais de promotion ni de résurrection. */
 async function excavateFossil(db, fossilId, options = {}) {
   const scope = scopeClauses(options);
   const row = await db.get(`SELECT * FROM fossils WHERE fossil_id = ?${scope.sql ? scope.sql.replace(' WHERE ', ' AND ') : ''}`, fossilId, ...scope.params);
   if (!row) return { success: false, error: 'Fossil not found in stratigraphic registry.' };
   const record = fossilFromRow(row);
-  const integrity_verified = verifyFossilIntegrity(record) && await provenance.verifySourceEvent(db, record);
+  const integrity_verified = verifyFossilIntegrity(record)
+    && await provenance.verifySourceEvent(db, record)
+    && attestation.verify(record);
   // Corrompu = inexploitable : success:false explicite, pas de lecture
   // présentée comme valide.
   if (!integrity_verified) {
@@ -365,7 +369,8 @@ async function loadVerifiedFossil(db, fossilId, scope = {}) {
   );
   if (!row) return null;
   const record = fossilFromRow(row);
-  return verifyFossilIntegrity(record) ? record : null;
+  if (!verifyFossilIntegrity(record) || !await provenance.verifySourceEvent(db, record)) return null;
+  return attestation.verify(record) ? record : null;
 }
 
 module.exports = {
@@ -382,6 +387,7 @@ module.exports = {
   buildFossilRecord,
   persistFossil,
   sourceEventHash: provenance.sourceEventHash,
+  verifyAttestation: attestation.verify,
   verifySourceEvent: provenance.verifySourceEvent,
   writeFossilArtifact,
   recordFossil,

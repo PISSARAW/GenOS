@@ -3,6 +3,7 @@
  */
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'orchestrator-fossilization-test';
 process.env.GENOS_FOSSIL_ARTIFACT = '0';
+require('./helpers/fossilSigningKey').configureTestFossilSigner();
 
 const assert = require('assert');
 const path = require('path');

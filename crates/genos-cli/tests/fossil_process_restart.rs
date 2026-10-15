@@ -1,4 +1,5 @@
 use serde_json::{Value, json};
+use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::process::{Command, Output};
@@ -12,29 +13,65 @@ struct FossilFixture {
 }
 
 #[test]
-fn backend_compatible_fossil_survives_cli_process_restarts_as_read_only_unverified_provenance() {
+fn backend_attested_fossil_verifies_after_cli_process_restarts() {
     let fixture = backend_artifact();
     let original = std::fs::read(&fixture.artifact).unwrap();
 
     let listed = run_cli(&fixture, &["fossil", "list"]);
     assert!(listed.status.success(), "{}", stderr(&listed));
     let list: Value = serde_json::from_slice(&listed.stdout).unwrap();
+    assert_eq!(list["verification_complete"], true);
     assert_eq!(list["total_fossils"], 1);
-    assert_eq!(list["fossils"][0]["provenance_status"], "source_event_present_not_verified_by_local_cli");
+    assert_eq!(list["fossils"][0]["authenticity_status"], "verified");
+    assert_eq!(list["fossils"][0]["provenance_status"], "source_event_attested_by_backend");
     assert_eq!(list["fossils"][0]["record"]["payload_hash"], hash(&mineral_material(true)));
 
     let excavated = run_cli(&fixture, &["fossil", "excavate", "--fossil-id", &fixture.fossil_id.to_string()]);
     assert!(excavated.status.success(), "{}", stderr(&excavated));
     let specimen: Value = serde_json::from_slice(&excavated.stdout).unwrap();
     assert_eq!(specimen["specimen"]["integrity_verified"], true);
-    assert_eq!(specimen["provenance_status"], "source_event_present_not_verified_by_local_cli");
+    assert_eq!(specimen["provenance_status"], "source_event_attested_by_backend");
     assert_eq!(specimen["specimen"]["record"]["source_event_id"], "event-terminal-1");
 
     let decoded = run_cli(&fixture, &["fossil", "decode", "--fossil-id", &fixture.fossil_id.to_string()]);
     assert!(decoded.status.success(), "{}", stderr(&decoded));
     let reading: Value = serde_json::from_slice(&decoded.stdout).unwrap();
-    assert_eq!(reading["provenance_status"], "source_event_present_not_verified_by_local_cli");
+    assert_eq!(reading["provenance_status"], "source_event_attested_by_backend");
     assert_eq!(std::fs::read(&fixture.artifact).unwrap(), original, "CLI reads must not rewrite the artifact");
+}
+
+#[test]
+fn fossil_excavation_rejects_unknown_signer_and_tampered_scope() {
+    let fixture = backend_artifact();
+    let unknown = run_cli_with_trust(&fixture, &["fossil", "excavate", "--fossil-id", &fixture.fossil_id.to_string()], "{}");
+    assert!(!unknown.status.success());
+    assert!(stderr(&unknown).contains("Unknown backend fossil signer"), "{}", stderr(&unknown));
+
+    let mut altered: Value = serde_json::from_slice(&std::fs::read(&fixture.artifact).unwrap()).unwrap();
+    altered["organization_id"] = json!("attacker-organization");
+    std::fs::write(&fixture.artifact, serde_json::to_vec(&altered).unwrap()).unwrap();
+    let tampered = run_cli(&fixture, &["fossil", "excavate", "--fossil-id", &fixture.fossil_id.to_string()]);
+    assert!(!tampered.status.success());
+    assert!(stderr(&tampered).contains("Fossil provenance verification failed"), "{}", stderr(&tampered));
+}
+
+#[test]
+fn fossil_list_keeps_historical_unknown_signer_visible_without_verifying_it() {
+    let fixture = backend_artifact();
+    let listed = run_cli_with_trust(&fixture, &["fossil", "list"], "{}");
+    assert!(listed.status.success(), "{}", stderr(&listed));
+    let value: Value = serde_json::from_slice(&listed.stdout).unwrap();
+    assert_eq!(value["verification_complete"], false);
+    assert_eq!(value["total_fossils"], 1);
+    assert_eq!(value["fossils"][0]["authenticity_status"], "signer_not_trusted");
+
+    let excavated = run_cli_with_trust(
+        &fixture,
+        &["fossil", "excavate", "--fossil-id", &fixture.fossil_id.to_string()],
+        "{}",
+    );
+    assert!(!excavated.status.success(), "untrusted fossils remain unusable");
+    assert!(stderr(&excavated).contains("Unknown backend fossil signer"));
 }
 
 #[test]
@@ -81,6 +118,26 @@ fn backend_artifact() -> FossilFixture {
     record["organization_id"] = json!("org-1");
     record["project_id"] = json!("project-1");
     record["stratum"] = json!("STRATIGRAPHIC_FOSSIL");
+    let key = test_signing_key();
+    let key_id = signing_key_id(&key);
+    let signed_material = json!({
+        "version": 1,
+        "algorithm": "ed25519",
+        "key_id": key_id.clone(),
+        "fossil_id": record["fossil_id"],
+        "source_event_id": record["source_event_id"],
+        "source_event_hash": record["source_event_hash"],
+        "extinct_lineage_id": record["extinct_lineage_id"],
+        "organization_id": record["organization_id"],
+        "project_id": record["project_id"],
+        "payload_hash": record["payload_hash"]
+    });
+    record["attestation"] = json!({
+        "version": 1,
+        "algorithm": "ed25519",
+        "key_id": key_id,
+        "signature": encode_hex(&key.sign(&serde_json::to_vec(&signed_material).unwrap()).to_bytes())
+    });
     std::fs::write(&artifact, serde_json::to_vec_pretty(&record).unwrap()).unwrap();
     FossilFixture { root, fossil_id, artifact }
 }
@@ -130,11 +187,35 @@ fn artifact_path(root: &TempDir, fossil_id: Uuid) -> PathBuf {
 }
 
 fn run_cli(fixture: &FossilFixture, args: &[&str]) -> Output {
+    run_cli_with_trust(fixture, args, &trust_json())
+}
+
+fn run_cli_with_trust(fixture: &FossilFixture, args: &[&str], trust: &str) -> Output {
     Command::new(env!("CARGO_BIN_EXE_genos"))
         .args(args)
         .env("GENOS_STUDIO_ROOT", fixture.root.path())
+        .env("GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS", trust)
         .output()
         .unwrap()
+}
+
+fn trust_json() -> String {
+    let key = test_signing_key();
+    format!("{{\"{}\":\"{}\"}}", signing_key_id(&key), encode_hex(&key.verifying_key().to_bytes()))
+}
+
+fn test_signing_key() -> SigningKey {
+    SigningKey::from_bytes(&[19; 32])
+}
+
+fn signing_key_id(key: &SigningKey) -> String {
+    let mut der = vec![0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00];
+    der.extend_from_slice(&key.verifying_key().to_bytes());
+    format!("{:x}", Sha256::digest(der))[..32].to_string()
+}
+
+fn encode_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn test_directory() -> TempDir {

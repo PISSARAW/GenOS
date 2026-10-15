@@ -3,6 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+require('./helpers/fossilSigningKey').configureTestFossilSigner();
 process.env.GENOS_FOSSIL_ARTIFACT = '0';
 process.env.GENOS_AGENT_DNA = '1';
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'fossilization-mcp-suite-only';
@@ -10,6 +11,7 @@ process.env.GENOS_MCP_LEASE = 'genos_fossil_record,genos_fossil_list,genos_fossi
 
 const dbService = require('../src/db');
 const dnaStore = require('../src/services/agentDnaStore');
+const fossilization = require('../src/services/fossilizationService');
 const { executeConfiguredTransport } = require('../src/services/mcpExecutor/dispatch');
 
 async function run() {
@@ -27,6 +29,8 @@ async function run() {
     });
     assert(created.success, JSON.stringify(created));
     const fossilId = created.output.fossil.fossil_id;
+    assert.equal(created.output.fossil.attestation.algorithm, 'ed25519');
+    assert(fossilization.verifyAttestation(created.output.fossil));
 
     const listed = await executeConfiguredTransport({
       toolName: 'genos_fossil_list',
@@ -45,6 +49,7 @@ async function run() {
       args: { fossil_id: fossilId, organization_id: 'org-1', project_id: 'project-1' }
     });
     assert(excavated.success && excavated.output.read_only && excavated.output.resurrection === 'forbidden');
+    assert.equal(excavated.output.provenance_verified, true);
 
     const decoded = await executeConfiguredTransport({
       toolName: 'genos_fossil_decode', args: { fossil_id: fossilId, organization_id: 'org-1', project_id: 'project-1' }
