@@ -18,9 +18,10 @@ async function artifact(filename) {
   return { path: resolved, sha256: hash.digest('hex'), bytes: before.size };
 }
 
-async function captureLaunch(input) {
+async function captureLaunch(input, options = {}) {
   if (!input.normalizedMission?.missionScope?.trinityExperimentId) return null;
-  const workspaceRoot = fs.realpathSync(input.workspaceRoot);
+  const workspaceRoot = await require('./missionEnvelopeAuthority')
+    .realWorkspaceRoot(input.workspaceRoot, options.workspaceResolution);
   const filenames = [...new Set([input.spawnSpec.cmd, input.resolvedExecutable])];
   const artifacts = await Promise.all(filenames.map(artifact));
   return { schema: 'genos.trinity-launch-observation/v1', observedAt: values.utc(),

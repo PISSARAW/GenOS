@@ -71,6 +71,19 @@ async function negativeCases(ctx, input) {
   await assert.rejects(attestation.recordLaunch(missing, input), { code: 'TRINITY_RUNTIME_MANIFEST_MISSING' });
 }
 
+async function lockedWorkspaceCase(ctx) {
+  let attempts = 0;
+  const observation = await attestation.captureLaunch({ normalizedMission: ctx.normalizedMission,
+    workspaceRoot: ctx.normalizedMission.workspaceRoot, resolvedExecutable: process.execPath,
+    spawnSpec: { cmd: process.execPath, args: [] } }, { workspaceResolution: {
+    attempts: 2,
+    resolve: async () => { attempts += 1; throw Object.assign(new Error('locked'), { code: 'EPERM' }); },
+    validate: async (root) => path.resolve(root)
+  } });
+  assert.equal(attempts, 2);
+  assert.equal(observation.workspaceRoot, path.resolve(ctx.normalizedMission.workspaceRoot));
+}
+
 async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'trinity-l2-runtime-'));
   const db = await sqlite.open({ filename: ':memory:', driver: sqlite3.Database });
@@ -82,6 +95,7 @@ async function main() {
       experimentId: 'experiment', worldId: 'world', workerId: 'worker', parentId: 'parent',
       tenantId: 'tenant', workspaceRoot: root }, requestedRuntime: { model: 'requested-only' } }));
     const input = await realChild({ root, ctx });
+    await lockedWorkspaceCase(ctx);
     await negativeCases(ctx, input);
     const events = await traces.read(db, { missionId: 'mission' });
     assert.equal(events.length, 1);
