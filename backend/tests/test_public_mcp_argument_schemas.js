@@ -15,11 +15,13 @@ for (const tool of tools) {
   }
 }
 
-for (const name of ['genos_orchestrate', 'genos_topology_session']) {
+for (const name of ['genos_orchestrate', 'genos_topology_session', 'genos_diagnose']) {
   const canonical = tools.find((tool) => tool.name === name);
   const node = nodeTools.find((tool) => tool.name === name);
   assert.deepEqual(node.inputSchema, canonical.inputSchema, `${name} catalog parity`);
 }
+const diagnosisSchema = tools.find((tool) => tool.name === 'genos_diagnose').inputSchema;
+assert.deepEqual(diagnosisSchema.properties.hypotheses.items.required, ['statement']);
 const orchestrate = tools.find((tool) => tool.name === 'genos_orchestrate');
 for (const field of ['topologyId', 'variantId']) {
   assert.equal(orchestrate.inputSchema.properties[field].type, 'string');
@@ -29,7 +31,7 @@ assert.ok(tools.find((tool) => tool.name === 'genos_topology_session')
   .inputSchema.properties.operation.enum.includes('materialize'));
 
 const accepted = [
-  ['genos_diagnose', { task: 'find-cause', hypotheses: [{ claim: 'a' }] }],
+  ['genos_diagnose', { task: 'find-cause', hypotheses: [{ statement: 'a falsifiable claim' }] }],
   ['genos_analyze_trajectory', { actionHistory: [{ action: 'test' }] }],
   ['genos_record_decision', { agentId: 'agent', title: 'Keep explicit leases',
     decision: 'Retain denial outside the profile', evidence: ['test'] }],
@@ -49,6 +51,8 @@ const rejected = [
   ['genos_snapshot', {}],
   ['genos_snapshot', { agent: '', out: 'snapshot.json' }],
   ['genos_diagnose', { task: 'find-cause', hypotheses: 'not-an-array' }],
+  ['genos_diagnose', { task: 'find-cause', hypotheses: [{ claim: 'legacy field' }] }],
+  ['genos_diagnose', { task: 'find-cause', hypotheses: [{ statement: '' }] }],
   ['genos_analyze_trajectory', { actionHistory: [] }],
   ['genos_record_decision', { agentId: 'agent', title: 'choice', decision: 'keep', evidence: [] }],
   ['genos_worker_publish', { kind: 'status', signal_type: 'ligand', signal_data: [] }],

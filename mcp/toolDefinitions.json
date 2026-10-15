@@ -4497,7 +4497,17 @@
           "hypotheses": {
             "type": "array",
             "items": {
-              "type": "object"
+              "type": "object",
+              "properties": {
+                "statement": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Falsifiable hypothesis statement."
+                }
+              },
+              "required": [
+                "statement"
+              ]
             },
             "minItems": 1
           }
