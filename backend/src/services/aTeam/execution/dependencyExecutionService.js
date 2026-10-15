@@ -5,9 +5,20 @@ const TERMINAL = new Set(['completed', 'failed', 'error', 'terminated', 'apoptos
 async function workerStatuses(db, members) {
   const entries = await Promise.all(members.map(async (member) => {
     const row = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
-    return [member.workerId, row?.status || 'missing'];
+    const runStatus = row?.status === 'idle' ? await latestRunStatus(db, member.workerId) : null;
+    return [member.workerId, runStatus || row?.status || 'missing'];
   }));
   return new Map(entries);
+}
+
+async function latestRunStatus(db, workerId) {
+  try {
+    const row = await db.get(`SELECT status FROM strategy_execution_runs
+      WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1`, workerId);
+    return TERMINAL.has(row?.status) ? row.status : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function dependencyState(member, context) {
@@ -74,4 +85,4 @@ function executionOptions(options = {}) {
     timeoutMs: options.timeoutMs ?? 15 * 60 * 1000, skipWorkerIds: options.skipWorkerIds || [] };
 }
 
-module.exports = { TERMINAL, workerStatuses, runDependencyGraph };
+module.exports = { TERMINAL, workerStatuses, latestRunStatus, runDependencyGraph };
