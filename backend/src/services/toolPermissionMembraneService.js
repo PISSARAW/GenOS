@@ -37,8 +37,7 @@ function digest(value) {
 }
 
 function hashArguments(value) {
-  return crypto.scryptSync(canonicalJson(value), membraneSecret(), 32,
-    { N: 4096, r: 8, p: 1, maxmem: 16 * 1024 * 1024 }).toString('hex');
+  return digest(value);
 }
 
 function normalizePolicy(policy) {
