@@ -29,7 +29,9 @@ function buildRunnerEnv() {
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
     GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
     GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
-    GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator'
+    GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator',
+    GENOS_DB_BACKUP_SKIP: '1',
+    GENOS_DB_BOOTSTRAP_SKIP: '1'
   };
 }
 module.exports = { getRunnerStdio, launchDetached, buildRunnerEnv };
