@@ -57,6 +57,17 @@ function verifyNegativeMemoryPriority() {
   assert.equal(selectHistoricalMemories(memories, { historicalMemoryTokenBudget: 0 }).pitfalls.length, 0);
 }
 
+function verifyMemoryProvenanceBudget() {
+  const basic = { title: 'Bounded note', content: 'Short useful memory.' };
+  const base = { pitfalls: [], goldenPaths: [], episodes: [], experiences: [basic] };
+  assert.equal(selectHistoricalMemories(base, { historicalMemoryTokenBudget: 50 }).experiences.length, 1);
+  const linked = { ...basic, evidenceRefs: [`sha256:${'a'.repeat(400)}`],
+    provenance: { recordId: 'provenance-record', hash: `sha256:${'b'.repeat(400)}`, status: 'linked' } };
+  assert.equal(selectHistoricalMemories({ ...base, experiences: [linked] },
+    { historicalMemoryTokenBudget: 50 }).experiences.length, 0,
+  'Persisted proof metadata must consume the same finite prompt budget as rendered memories.');
+}
+
 async function verifyNoTransportLabels() {
   const db = memoryDb();
   assert.equal(await bandit.observe(db, { routeUri: 'a://m', success: true }), null);
@@ -97,6 +108,7 @@ async function verifyUsageProvenance() {
 async function run() {
   verifyEvidencePreservation();
   verifyNegativeMemoryPriority();
+  verifyMemoryProvenanceBudget();
   await verifyNoTransportLabels();
   await verifyUsageProvenance();
   console.log('Verified token economy regressions passed.');

@@ -202,10 +202,14 @@ class VectorMemoryService {
       organizationId: options.organizationId,
       projectId: options.projectId
     });
-    // Scored corpus entries carry current inhibition markers. If GraphRAG
-    // returns the same id, keep that authoritative entry over its unmarked hop.
-    const mergedPool = [...connectedItems, ...scoredItems];
-    const allScored = [...new Map(mergedPool.map((item) => [item.id, item])).values()];
+    // Keep GraphRAG annotations while letting the hydrated, gated corpus row
+    // override it (including inhibition and provenance metadata).
+    const mergedById = new Map(connectedItems.map(item => [item.id, item]));
+    for (const item of scoredItems) {
+      const connected = mergedById.get(item.id);
+      mergedById.set(item.id, connected ? { ...connected, ...item } : item);
+    }
+    const allScored = [...mergedById.values()];
 
     // Reconsolidation par le rappel (Active Retrieval Potentiation), bornée :
     // +0.05 par rappel, plafonné à 20.0, au plus 1 fois/jour/mémoire

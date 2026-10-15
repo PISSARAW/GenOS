@@ -61,6 +61,23 @@ function parseDiffLines(raw) {
   }
 }
 
+function parseJsonArray(raw) {
+  try {
+    const value = JSON.parse(raw || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function decisionProvenance(item) {
+  const provenance = {};
+  if (item.provenance_record_id) provenance.recordId = item.provenance_record_id;
+  if (item.provenance_hash) provenance.hash = item.provenance_hash;
+  if (item.evidence_status) provenance.status = item.evidence_status;
+  return Object.keys(provenance).length > 0 ? provenance : null;
+}
+
 function diffSummary(diffLines) {
   return diffLines.map(l => {
     return l.content || l.text || l;
@@ -152,7 +169,8 @@ function decisionHydrateQuery(rowIds, scope) {
     return '?';
   }).join(',');
   const params = [...rowIds];
-  let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob
+  let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob,
+                    evidence_refs_json, evidence_status, provenance_record_id, provenance_hash
                  FROM genome_decisions t WHERE rowid IN (${placeholders})`;
   // Decisions are shared within a tenant; an unscoped call sees only global rows.
   const clause = decisionScopeClause(scope, 't');
@@ -192,6 +210,8 @@ function buildDecisionItem(item, ctx) {
     author: item.created_by,
     createdAt: item.created_at,
     synaptic_weight: item.synaptic_weight,
+    evidenceRefs: parseJsonArray(item.evidence_refs_json),
+    provenance: decisionProvenance(item),
     vector: decodeEmbeddingBlob(item.embedding_blob),
     distance: vector ? vector.distance : null,
     f_score: fts ? fts.f_score : null,
@@ -263,7 +283,9 @@ function decisionScopeClause(scope, alias) {
 function decisionFallbackQuery(scope) {
   const scopeClause = decisionScopeClause(scope, '');
   const where = ` WHERE ${scopeClause.sql.trim().replace(/^AND\s+/, '')}`;
-  const sql = `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${where} ORDER BY created_at DESC LIMIT 200`;
+  const sql = `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob,
+                      evidence_refs_json, evidence_status, provenance_record_id, provenance_hash
+                 FROM genome_decisions${where} ORDER BY created_at DESC LIMIT 200`;
   return { sql, params: scopeClause.params };
 }
 
@@ -292,6 +314,8 @@ function buildFallbackDecisionItem(item) {
     author: item.created_by,
     createdAt: item.created_at,
     synaptic_weight: item.synaptic_weight,
+    evidenceRefs: parseJsonArray(item.evidence_refs_json),
+    provenance: decisionProvenance(item),
     vector: decodeEmbeddingBlob(item.embedding_blob)
   };
 }

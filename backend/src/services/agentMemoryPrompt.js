@@ -225,6 +225,20 @@ function estimateMemoryTokens(text) {
   return Math.ceil(Buffer.byteLength(text, 'utf8') / 4);
 }
 
+function memoryMetadataText(memories) {
+  return Object.values(memories).flat().map((item) => {
+    const evidenceRefs = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
+    const provenance = item.provenance || null;
+    return evidenceRefs.length > 0 || provenance
+      ? JSON.stringify({ evidenceRefs, provenance }) : '';
+  }).filter(Boolean).join(' ');
+}
+
+function selectionTokens(memories) {
+  const rendered = buildMemorySections(memories, []).join('\n\n');
+  return estimateMemoryTokens(rendered) + estimateMemoryTokens(memoryMetadataText(memories));
+}
+
 function emptyMemorySelection() {
   return { experiences: [], pitfalls: [], goldenPaths: [], episodes: [] };
 }
@@ -239,7 +253,7 @@ function selectHistoricalMemories(memories, options) {
   for (const [kind, entries] of queues) {
     for (const entry of entries || []) {
       selected[kind].push(entry);
-      if (estimateMemoryTokens(buildMemorySections(selected, []).join('\n\n')) > budget) selected[kind].pop();
+      if (selectionTokens(selected) > budget) selected[kind].pop();
     }
   }
   return selected;
