@@ -22,7 +22,8 @@ async function seed(spec) {
     episodeId: 'episode-http-inspection', threadId: 'thread-http-root',
     workerId: 'worker-http-root', cellKind: 'orchestrator' });
   await ledger.recordMetabolicObservation(spec.db, { ...SCOPE, id: 'observation-http',
-    missionId: 'mission-http-inspection', threadId: 'thread-http-root',
+    missionId: 'mission-http-inspection', episodeId: 'episode-http-inspection',
+    threadId: 'thread-http-root', workerId: 'worker-http-root',
     measurements: { billableTokens: { value: 7, source: 'exact' } } });
   await bridge.executeAuthorized({ db: spec.db,
     request: { ...SCOPE, callId: 'permission-http', missionId: 'mission-http-inspection',
@@ -46,6 +47,12 @@ async function main() {
     assert.equal(ok.status, 200, JSON.stringify(ok.value));
     assert.equal(ok.value.episode.episodeId, 'episode-http-inspection');
     assert.equal(ok.value.metabolism.metrics.billableTokens.value, 7);
+    assert.equal(ok.value.metabolism.byCell.items[0].workerId, 'worker-http-root');
+    assert.equal(ok.value.metabolism.byCell.correlation.exact, true);
+    assert.equal(ok.value.metabolism.byCell.correlation.complete, true);
+    assert.equal(ok.value.metabolism.byCell.correlation.legacy, false);
+    assert.equal(ok.value.episodeRecovery.receipt, null);
+    assert.equal(ok.value.episodeRecovery.correlation.exact, true);
     assert.equal(ok.value.permissionReceipts.items[0].callId, 'permission-http');
     assert.equal(ok.value.permissionReceipts.correlation.exact, true);
     assert.equal(ok.value.permissionReceipts.items[0].lineage.threadId, 'thread-http-root');

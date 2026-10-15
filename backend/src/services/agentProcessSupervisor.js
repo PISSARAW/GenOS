@@ -267,6 +267,8 @@ async function superviseMission(options) {
   // Keep the default stable regardless of whether `npm start` was launched from
   // the repository root or from backend/.
   const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+  const controlTenant = dispatchedAgent.workspace_id
+    ? await db.get('SELECT organization_id, project_id FROM workspaces WHERE id = ?', dispatchedAgent.workspace_id) : null;
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
   const continuousObserver = await require('./continuousExecution/observer').create({
     db, agentId, runId: executionRun.id, workspaceRoot, options: normalizedMission.continuousExecution
@@ -310,10 +312,8 @@ async function superviseMission(options) {
   }
   child.genosDetached = process.platform !== 'win32';
   child.genosCaptureBarrier = isLocalRuntime(resolvedExecutable);
-  // Attach the error handler synchronously: a spawn that fails immediately
-  // (ENOENT under antivirus scan, missing runtime) emits 'error' before the
-  // async setup below completes, and an unhandled 'error' event crashes the
-  // whole bridge process. Buffer it and replay once the full ctx exists.
+  child.genosControlIdentity = Object.freeze({ workerId: agentId, missionId: normalizedMission.missionId || '', episodeId: normalizedMission.episodeId || normalizedMission.missionScope?.episodeId || '', threadId: normalizedMission.threadId || normalizedMission.missionScope?.threadId || '', organizationId: controlTenant?.organization_id || '', projectId: controlTenant?.project_id || '' });
+  // Buffer spawn errors until the full supervision context exists.
   let earlyChildError = null;
   child.on('error', (error) => { earlyChildError = earlyChildError || error; });
   const runtimeStartedAt = new Date().toISOString();

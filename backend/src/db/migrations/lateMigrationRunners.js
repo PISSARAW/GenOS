@@ -1,4 +1,13 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('128-causal-learning-outbox', 'Persist and resume verified causal learning idempotently', async (db) => {
+    await require('./migrateCausalLearningOutbox').migrateCausalLearningOutbox(db);
+  }),
+  createMigrationRunner('129-operator-control-receipts', 'Persist operator commands and immutable final control receipts', async (db) => {
+    await require('./migrateOperatorControlReceipts').migrateOperatorControlReceipts(db);
+  }),
+  createMigrationRunner('128-cell-thread-checkpoints', 'Persist immutable CellThread checkpoints and resumption receipts', async (db) => {
+    await require('./migrateCellThreadCheckpoints').migrateCellThreadCheckpoints(db);
+  }),
   createMigrationRunner('127-episode-recovery-receipts', 'Persist immutable orphan episode recovery receipts', async (db) => {
     await require('./migrateMissionEpisodeRecovery').migrateMissionEpisodeRecovery(db);
   }),

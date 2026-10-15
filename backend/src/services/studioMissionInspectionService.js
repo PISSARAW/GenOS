@@ -2,7 +2,7 @@
 
 const episodes = require('./missionEpisodeService');
 const { digest } = require('./biologicalIntegrity');
-const { aggregateRows } = require('./metabolicLedgerService');
+const { aggregateRows, aggregateMetabolicUsageByCell } = require('./metabolicLedgerService');
 const { LINEAGE_SCHEMA } = require('./mcpExecutor/permissionMembraneBridge');
 const { digest: permissionDigest } = require('./toolPermissionMembraneService');
 
@@ -87,6 +87,21 @@ function receiptView(row) {
       episodeId: row.lineage_episode_id, threadId: row.lineage_thread_id,
       workerId: row.lineage_worker_id, hash: row.lineage_hash, exact: true },
     createdAt: row.created_at, settledAt: row.settled_at
+  };
+}
+
+function recoveryReceiptView(row) {
+  if (!row) return null;
+  return {
+    receiptId: row.receipt_id, episodeId: row.episode_id, missionId: row.mission_id,
+    organizationId: row.organization_id, projectId: row.project_id,
+    ownerAgentId: row.owner_agent_id, ownerRunId: row.owner_run_id,
+    ownerPid: row.owner_pid, runtimePid: row.runtime_pid,
+    authorityGeneration: row.authority_generation,
+    authorityTokenHash: row.authority_token_hash,
+    observedAuthorityState: row.observed_authority_state,
+    observedRunStatus: row.observed_run_status, outcome: row.outcome,
+    quarantinedThreads: row.quarantined_threads, createdAt: row.created_at
   };
 }
 
@@ -183,14 +198,69 @@ async function habitat(db, missionId, tenant) {
   return { binding: { ...material, bindingHash: binding.binding_hash }, revision };
 }
 
-async function metabolism(db, missionId, tenant) {
+async function legacyMetabolicCount(db, missionId, tenant) {
+  const row = await db.get(`SELECT COUNT(*) AS count
+    FROM metabolic_ledger_observations WHERE mission_id = ?
+      AND organization_id = ? AND project_id = ?
+      AND (episode_id IS NULL OR thread_id IS NULL OR worker_id IS NULL)`,
+  missionId, tenant.organizationId, tenant.projectId);
+  return row.count;
+}
+
+function exactCellAggregates(aggregate, threads) {
+  const indexed = new Map(aggregate.cells.map((cell) => [
+    JSON.stringify([cell.threadId, cell.workerId]), cell
+  ]));
+  return threads.items.map((thread) => indexed.get(JSON.stringify([
+    thread.threadId, thread.workerId
+  ]))).filter(Boolean);
+}
+
+async function metabolism(db, input) {
+  const { episode, tenant, threads } = input;
+  const missionId = episode.mission_id;
   const rows = await db.all(`SELECT m.metric, m.value, m.source
     FROM metabolic_ledger_measurements m
     JOIN metabolic_ledger_observations o ON o.observation_id = m.observation_id
     WHERE o.mission_id = ? AND o.organization_id = ? AND o.project_id = ?
+      AND o.episode_id = ?
     ORDER BY o.observed_at, o.observation_id, m.metric`, missionId,
-  tenant.organizationId, tenant.projectId);
-  return { missionId, metrics: aggregateRows(rows) };
+  tenant.organizationId, tenant.projectId, episode.episode_id);
+  const [aggregate, legacyCount] = await Promise.all([
+    aggregateMetabolicUsageByCell(db, { missionId, episodeId: episode.episode_id, ...tenant }),
+    legacyMetabolicCount(db, missionId, tenant)
+  ]);
+  const exactThreadRows = await db.all(`SELECT thread_id, worker_id FROM cell_threads
+    WHERE episode_id = ? AND mission_id = ? AND organization_id = ? AND project_id = ?`,
+  episode.episode_id, missionId, tenant.organizationId, tenant.projectId);
+  const exactKeys = new Set(exactThreadRows.map((row) => JSON.stringify([
+    row.thread_id, row.worker_id
+  ])));
+  const uncorrelatedCount = aggregate.cells.filter((cell) => !cell.threadId || !cell.workerId
+    || !exactKeys.has(JSON.stringify([cell.threadId, cell.workerId]))).length;
+  const exactAggregate = { ...aggregate, cells: aggregate.cells.filter((cell) => cell.threadId
+    && cell.workerId && exactKeys.has(JSON.stringify([cell.threadId, cell.workerId]))) };
+  return { missionId, metrics: aggregateRows(rows), byCell: {
+    items: exactCellAggregates(exactAggregate, threads),
+    limit: threads.limit, offset: threads.offset,
+    hasMore: threads.hasMore, nextOffset: threads.nextOffset,
+    correlation: { method: 'persisted_metabolic_cell_lineage', appliesTo: 'items',
+      exact: true, complete: legacyCount === 0 && uncorrelatedCount === 0,
+      legacy: legacyCount > 0 },
+    legacyUncorrelated: { count: legacyCount, exact: false, reason: 'cell_lineage_incomplete' },
+    uncorrelated: { count: uncorrelatedCount, exact: false, reason: 'cell_thread_not_found' }
+  } };
+}
+
+async function episodeRecovery(db, episode, tenant) {
+  const row = await db.get(`SELECT * FROM mission_episode_recovery_receipts
+    WHERE episode_id = ? AND mission_id = ? AND organization_id = ? AND project_id = ?
+    ORDER BY authority_generation DESC, created_at DESC, receipt_id DESC LIMIT 1`,
+  episode.episode_id, episode.mission_id, tenant.organizationId, tenant.projectId);
+  return { receipt: recoveryReceiptView(row), correlation: {
+    method: 'persisted_episode_scope_key', selection: 'latest_authority_generation',
+    exact: true, complete: true, legacy: false
+  } };
 }
 
 async function inspect(db, context) {
@@ -200,18 +270,20 @@ async function inspect(db, context) {
   });
   const threadOptions = pagination(context.query || {}, 'thread');
   const receiptOptions = pagination(context.query || {}, 'receipt');
-  const [threads, habitatState, metabolic, permissionReceipts] = await Promise.all([
-    threadPage(db, { episode, scope: tenant, page: threadOptions }),
+  const threads = await threadPage(db, { episode, scope: tenant, page: threadOptions });
+  const [habitatState, metabolic, permissionReceipts, recovery] = await Promise.all([
     habitat(db, episode.mission_id, tenant),
-    metabolism(db, episode.mission_id, tenant),
-    receiptPage(db, { episode, scope: tenant, page: receiptOptions })
+    metabolism(db, { episode, tenant, threads }),
+    receiptPage(db, { episode, scope: tenant, page: receiptOptions }),
+    episodeRecovery(db, episode, tenant)
   ]);
   return {
     missionId: episode.mission_id, episode: episodeView(episode), threads,
-    habitat: habitatState, metabolism: metabolic,
+    habitat: habitatState, metabolism: metabolic, episodeRecovery: recovery,
     permissionReceipts: { ...permissionReceipts, correlation: {
       method: 'persisted_backend_receipt_lineage', exact: true,
-      appliesTo: 'items', complete: permissionReceipts.legacyUncorrelated.count === 0
+      appliesTo: 'items', complete: permissionReceipts.legacyUncorrelated.count === 0,
+      legacy: permissionReceipts.legacyUncorrelated.count > 0
     } },
     readOnly: true
   };
