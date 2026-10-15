@@ -195,7 +195,9 @@ function assignChallengeWorker(context) {
 function transitionReceipt(input, outcome) {
   const { plan, signals, assignments, decision } = outcome;
   const previous = input.state.plan.morphogenesisPlan?.morphologyPatch?.graph;
+  const transitionId = `${plan.morphologyGraphRef.graphId}:${plan.morphologyGraphRef.version}`;
   return {
+    transitionId,
     status: 'ADAPTED', reason: 'evidence_driven_continuation',
     fromGraph: previous ? { graphId: previous.graphId, version: previous.version } : null,
     toGraph: plan.morphologyGraphRef,
@@ -205,6 +207,9 @@ function transitionReceipt(input, outcome) {
     conditionalPolicy: decision.policy,
     strategyCritique: decision.challenge,
     resourceNegotiation: decision.resources,
+    resourceAllocationBinding: decision.resources?.candidate?.status === 'available'
+      ? { candidateId: decision.resources.candidate.candidateId,
+        planDigest: decision.resources.candidate.planDigest, transitionId } : null,
     rebinds: Object.entries(assignments).map(([workerId, assignment]) => ({
       workerId, nodeId: assignment.morphologyNodeId, topology: assignment.morphologyTopology,
       role: assignment.role, workerKind: assignment.workerKind

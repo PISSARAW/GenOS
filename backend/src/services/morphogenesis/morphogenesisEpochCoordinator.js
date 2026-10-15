@@ -7,6 +7,7 @@ const { inspectEpochEvidence } = require('./morphogenesisEpochEvidence');
 const RUNNING_STATUSES = new Set(['running', 'queued', 'claimed', 'freezing', 'thawing', 'cancelling']);
 const QUIESCENT_STATUSES = new Set(['idle', 'blocked', 'completed', 'failed', 'unverified', 'error', 'terminated', 'apoptosis', 'quarantined']);
 const { activeProcesses, missionStarts, pendingContinuations } = require('../agentOrchestrationState');
+const { allocateNegotiatedWorkers } = require('./morphogenesisEpochFunding');
 
 function createMorphogenesisEpochCoordinator(dependencies) {
   return async function adaptNextEpoch(state, orchestratorId) {
@@ -263,72 +264,6 @@ function remapRecruitmentAssignments(adaptation, survivors, state) {
   }));
 }
 
-function workerGroup(state, workerId) {
-  const id = typeof workerId === 'object' ? workerId.agentId : workerId;
-  const worker = { ...(state.workers.get(id) || {}), ...(typeof workerId === 'object' ? workerId : {}) };
-  return String(worker.groupId || worker.morphologyTopology || worker.role || 'mission');
-}
-
-function groupAllocations(resources) {
-  const amounts = new Map();
-  for (const allocation of resources?.allocations || []) {
-    amounts.set(allocation.groupId, (amounts.get(allocation.groupId) || 0) + allocation.allocatedTokens);
-  }
-  return { amounts, sleeping: new Set((resources?.groupStates || [])
-    .filter((group) => group.state === 'sleeping').map((group) => group.groupId)) };
-}
-
-function allocateNegotiatedWorkers(input) {
-  const resources = input.adaptation.decision?.resources;
-  const challengeReserve = input.adaptation.decision?.challenge?.challenge?.reservedTokens || 0;
-  const usableTokens = Math.max(0, input.reservation.reservedTokens - challengeReserve);
-  if (!resources) {
-    const tokens = input.survivors.length ? Math.floor(usableTokens / input.survivors.length) : 0;
-    const funded = tokens >= input.state.epochBudget.minimum ? { survivors: input.survivors,
-      workerTokens: input.survivors.map(() => tokens) } : { survivors: [], workerTokens: [] };
-    return addChallengeReserve(input, funded, challengeReserve);
-  }
-  const { amounts, sleeping } = groupAllocations(resources);
-  const minimum = input.state.epochBudget.minimum;
-  const groups = new Map();
-  for (const survivor of input.survivors) {
-    const group = workerGroup(input.state, survivor);
-    groups.set(group, [...(groups.get(group) || []), survivor]);
-  }
-  const explicit = [...amounts.values()].reduce((sum, value) => sum + value, 0);
-  const fallbackGroups = [...groups].filter(([group]) => !amounts.has(group) && !sleeping.has(group));
-  const fallbackCount = fallbackGroups.reduce((sum, [, members]) => sum + members.length, 0);
-  const fallbackTokens = fallbackCount ? Math.floor(Math.max(0,
-    usableTokens - explicit) / fallbackCount) : 0;
-  return addChallengeReserve(input,
-    fundedMembers(groups, { amounts, sleeping, fallbackTokens, minimum }), challengeReserve);
-}
-
-function addChallengeReserve(input, funded, reserve) {
-  if (!reserve) return funded;
-  const assignment = input.adaptation.cohortBlueprint?.assignments?.find((item) => item.strategyChallenge);
-  const challenger = assignment?.candidateId || assignment?.sourceAgentId
-    || Object.entries(input.adaptation.assignments || {}).find(([, item]) => item.strategyChallenge)?.[0];
-  const index = funded.survivors.findIndex((survivor) => survivor.agentId === challenger);
-  if (index >= 0) funded.workerTokens[index] += reserve;
-  return funded;
-}
-
-function fundedMembers(groups, policy) {
-  const survivors = [];
-  const workerTokens = [];
-  for (const [group, members] of groups) {
-    const tokens = policy.sleeping.has(group) ? 0
-      : policy.amounts.has(group) ? Math.floor(policy.amounts.get(group) / members.length) : policy.fallbackTokens;
-    if (tokens < policy.minimum) continue;
-    for (const survivor of members) {
-      survivors.push(survivor);
-      workerTokens.push(tokens);
-    }
-  }
-  return { survivors, workerTokens };
-}
-
 function mayContinueWithoutTransition(adaptation) {
   return ['adaptation_not_required', 'dedicated_a_team_continuation'].includes(adaptation.reason);
 }
@@ -336,6 +271,7 @@ function mayContinueWithoutTransition(adaptation) {
 async function prepareEpochContinuation(input) {
   const { state, survivors, continuation, adaptation, orchestratorId, reservation, queueContinuationMissions } = input;
   const epoch = reservation.epoch;
+  reconcileResourceEffect(adaptation, survivors, continuation);
   const transition = adaptation.receipt
     ? require('./morphogenesisTransitionReceipt').sealTransitionReceipt({ state, survivors,
       continuation, adaptation }) : null;
@@ -361,6 +297,19 @@ async function prepareEpochContinuation(input) {
     { epoch, workerIds: queued, reservedTokens: reservation.reservedTokens,
       topology: state.plan.selectedTopology || null, transition: adaptation.receipt || null }, 'info');
   return queued;
+}
+
+function reconcileResourceEffect(adaptation, survivors, continuation) {
+  const effect = adaptation.receipt?.resourceAllocationEffect;
+  if (effect?.status !== 'applied') return;
+  const tokens = continuation.workerTokens || [];
+  if (tokens.length !== survivors.length || tokens.some((value) => !Number.isSafeInteger(value) || value < 1)) {
+    throw cohortError('MORPHOGENESIS_RESOURCE_EFFECT_WORKERS_DIVERGED');
+  }
+  effect.workerTokenAllocations = survivors.map((worker, index) => ({
+    workerId: worker.agentId, tokens: tokens[index]
+  })).sort((left, right) => left.workerId.localeCompare(right.workerId));
+  effect.allocatedTokens = tokens.reduce((sum, value) => sum + value, 0);
 }
 
 function refundUnspentEpochBudget(budget, reservation, workerTokens) {

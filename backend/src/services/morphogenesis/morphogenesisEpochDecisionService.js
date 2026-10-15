@@ -4,6 +4,7 @@ const { compileConditionalMorphogenesisPolicy } = require('./conditionalMorphoge
 const { critiqueStrategy } = require('./strategyCritiqueService');
 const { arbitrateGroupNeeds } = require('./groupResourceNegotiation');
 const { extractEvidenceReport } = require('../agentEvidenceService');
+const resourceReallocation = require('./resourceReallocationCandidate');
 
 function workerFor(state, workerId) { return state.workers.get(workerId) || {}; }
 
@@ -74,9 +75,10 @@ function resourceNegotiation(input, reservedChallengeTokens) {
   const workers = [...input.state.workers.values()].map((worker) => ({ id: worker.agentId,
     groupId: worker.groupId || worker.morphologyTopology || worker.role || 'mission',
     workerKind: worker.workerKind, transferable: worker.transferable === true }));
-  return arbitrateGroupNeeds({ groups, budget: Math.max(0,
+  const plan = arbitrateGroupNeeds({ groups, budget: Math.max(0,
     (Number(input.continuation.pool) || 0) - reservedChallengeTokens),
     availableWorkers: workers, spawnAuthority: false, governanceAuthority: [] });
+  return { ...plan, candidate: resourceReallocation.describeResourceReallocation(plan) };
 }
 
 function selectedMissionText(mission) { return mission.prompt || mission.currentTask || ''; }
@@ -129,6 +131,7 @@ function conditionalPolicyInput(input, diagnosis, workers) {
     communicationMission: communicationMissionFor(mission, workers, missionId),
     communicationMetric: input.communicationMetric || null,
     verifiedOutcomes: input.verifiedOutcomes,
+    resourceAllocationPlan: input.resourceAllocationPlan || null,
     currentTopology: currentPolicyTopology(plan), currentVariant: currentPolicyVariant(plan),
     currentRecipe: plan.morphogenesisPlan?.morphologyExpression || null,
     diagnosis, budget: { tokens: Number(input.continuation.pool) || 0 },
@@ -151,9 +154,11 @@ function compilePolicy(input, signals) {
   const state = input.state;
   const workers = input.survivors.map((survivor) => workerFor(state, survivor.agentId));
   const diagnosis = diagnosisFor(signals, [...state.results.values()]);
-  const policy = compileConditionalMorphogenesisPolicy(conditionalPolicyInput(input, diagnosis, workers));
   const supports = supportDecisions(input, diagnosis);
   const { challenge, resources } = supports;
+  const policy = compileConditionalMorphogenesisPolicy({
+    ...conditionalPolicyInput(input, diagnosis, workers), resourceAllocationPlan: resources
+  });
   const decision = { policy, challenge, resources };
   state.plan.morphogenesisEpochDecision = decision;
   return decision;

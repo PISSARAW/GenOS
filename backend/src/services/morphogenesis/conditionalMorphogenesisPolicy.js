@@ -5,6 +5,7 @@ const { rankAdaptiveTopologies } = require('./adaptiveTopologyRanking');
 const { buildAdaptiveWorkerRoster } = require('./adaptiveWorkerRoster');
 const selectorCalibration = require('./morphogenesisSelectorCalibration');
 const communicationReduction = require('./communicationReductionIntervention');
+const resourceReallocation = require('./resourceReallocationCandidate');
 
 const MAX_EPOCHS = 12;
 const SIGNALS = Object.freeze(['uncertainty', 'causalAmbiguity', 'contradiction',
@@ -66,17 +67,23 @@ function buildRecipePortfolio(input, signals) {
   const topologyCandidates = decorateCandidates({ candidates: generated.candidates, replacement, signals, input });
   const communication = communicationReduction.describeAvailability(input.communicationMission, input.communicationMetric);
   const communicationCandidate = communicationCandidateFor(communication, calibration);
-  const candidates = communication.status === 'available'
-    ? [...topologyCandidates, communicationCandidate] : topologyCandidates;
+  const reallocation = resourceReallocation.describeResourceReallocation(input.resourceAllocationPlan);
+  const reallocationCandidate = resourceCandidateFor(reallocation, calibration);
+  const candidates = [...topologyCandidates,
+    ...(communication.status === 'available' ? [communicationCandidate] : []),
+    ...(reallocation.status === 'available' ? [reallocationCandidate] : [])];
   const ranking = rankPortfolio(topologyCandidates, input, signals);
   const availableScales = replaceableCandidates(generated.candidates);
   if (communication.status === 'available') availableScales.push({
     candidateId: communication.candidateId, scale: communication.scale
   });
+  if (reallocation.status === 'available') availableScales.push({
+    candidateId: reallocation.candidateId, scale: reallocation.scale
+  });
   const scaleDecision = selectorCalibration.selectScale(calibration, availableScales);
-  const selected = selectedCandidate({ ranking, scaleDecision, communicationCandidate });
+  const selected = selectedCandidate({ ranking, scaleDecision, communicationCandidate, reallocationCandidate });
   return { generation: generated.stats, candidates, ranking, calibration, communication,
-    scaleDecision, selected: selectionSummary(selected, input, scaleDecision) };
+    reallocation, scaleDecision, selected: selectionSummary(selected, input, scaleDecision) };
 }
 
 function communicationCandidateFor(availability, calibration) {
@@ -87,10 +94,20 @@ function communicationCandidateFor(availability, calibration) {
     ...candidateCalibrationAttributes(false, estimate), interventionScale: 'COMMUNICATION_REDUCTION' };
 }
 
+function resourceCandidateFor(availability, calibration) {
+  const estimate = calibration.scales.RESOURCE_REALLOCATION.candidates[availability.candidateId] || { status: 'unavailable' };
+  return { id: availability.candidateId, candidateId: availability.candidateId,
+    kind: 'RESOURCE_REALLOCATION', topology: null, variant: null,
+    admissibility: 'available', runtimeAvailability: availability,
+    ...candidateCalibrationAttributes(false, estimate, 'RESOURCE_REALLOCATION') };
+}
+
 function selectedCandidate(context) {
-  const { ranking, scaleDecision, communicationCandidate } = context;
+  const { ranking, scaleDecision, communicationCandidate, reallocationCandidate } = context;
   if (scaleDecision.scale === 'COMMUNICATION_REDUCTION'
     && scaleDecision.candidateId === communicationCandidate?.candidateId) return communicationCandidate;
+  if (scaleDecision.scale === 'RESOURCE_REALLOCATION'
+    && scaleDecision.candidateId === reallocationCandidate?.candidateId) return reallocationCandidate;
   return admittedSelection(ranking, scaleDecision);
 }
 
@@ -126,12 +143,12 @@ function decorateCandidate(context) {
   };
 }
 
-function candidateCalibrationAttributes(unchanged, estimate) {
+function candidateCalibrationAttributes(unchanged, estimate, scale = 'COHORT_REPLACEMENT') {
   if (unchanged) return { confidence: 1, calibrationStatus: 'baseline',
     interventionScale: 'NO_CHANGE', expectedGain: 0, gainUncertainty: 0,
     marginalCost: 0, costUncertainty: 0 };
   return { confidence: estimate.status === 'calibrated' ? 1 - estimate.gainUncertainty : 0.35,
-    calibrationStatus: estimate.status, interventionScale: 'COHORT_REPLACEMENT',
+    calibrationStatus: estimate.status, interventionScale: scale,
     expectedGain: estimate.expectedGain, gainUncertainty: estimate.gainUncertainty,
     marginalCost: estimate.marginalCost, costUncertainty: estimate.costUncertainty };
 }
@@ -173,6 +190,9 @@ function selectionSummary(selected, input, scaleDecision) {
     marginalCost: selected.marginalCost, costUncertainty: selected.costUncertainty,
     ...(scaleDecision.scale === 'COMMUNICATION_REDUCTION'
       ? { communicationIntervention: { candidateId: selected.candidateId, scale: scaleDecision.scale } } : {}),
+    ...(scaleDecision.scale === 'RESOURCE_REALLOCATION'
+      ? { resourceAllocationIntervention: { candidateId: selected.candidateId,
+        planDigest: selected.runtimeAvailability.planDigest, scale: scaleDecision.scale } } : {}),
     executionEligible: false
   };
 }
@@ -213,15 +233,32 @@ function budgetPlan(input, signals) {
 
 function interventionScaleAvailability(scale, portfolio) {
   if (scale === 'NO_CHANGE') return { status: 'available' };
-  if (scale === 'COMMUNICATION_REDUCTION') {
-    if (portfolio.communication.status !== 'available') return {
-      status: 'unavailable', reason: portfolio.communication.reason
-    };
-    const estimate = portfolio.calibration.scales[scale].candidates[communicationReduction.CANDIDATE_ID];
-    return estimate?.status === 'calibrated'
-      ? { status: 'available', estimate, runtimeAvailability: portfolio.communication }
-      : { status: 'calibration_required', runtimeAvailability: portfolio.communication };
-  }
+  if (scale === 'COMMUNICATION_REDUCTION') return communicationScaleAvailability(portfolio);
+  if (scale === 'RESOURCE_REALLOCATION') return reallocationScaleAvailability(portfolio);
+  return calibratedScaleAvailability(scale, portfolio);
+}
+
+function communicationScaleAvailability(portfolio) {
+  if (portfolio.communication.status !== 'available') return {
+    status: 'unavailable', reason: portfolio.communication.reason
+  };
+  const estimate = portfolio.calibration.scales.COMMUNICATION_REDUCTION.candidates[communicationReduction.CANDIDATE_ID];
+  return calibratedRuntimeEstimate(estimate, portfolio.communication);
+}
+
+function reallocationScaleAvailability(portfolio) {
+  const candidate = portfolio.reallocation;
+  if (candidate.status !== 'available') return candidate;
+  const estimate = portfolio.calibration.scales.RESOURCE_REALLOCATION.candidates[candidate.candidateId];
+  return calibratedRuntimeEstimate(estimate, candidate);
+}
+
+function calibratedRuntimeEstimate(estimate, runtimeAvailability) {
+  if (estimate?.status !== 'calibrated') return { status: 'calibration_required', runtimeAvailability };
+  return { status: 'available', estimate, runtimeAvailability };
+}
+
+function calibratedScaleAvailability(scale, portfolio) {
   const estimate = portfolio.calibration.scales[scale];
   return estimate.status === 'calibrated' && scale === 'COHORT_REPLACEMENT'
     ? { status: 'available', estimate }
@@ -229,42 +266,75 @@ function interventionScaleAvailability(scale, portfolio) {
 }
 
 function compileConditionalMorphogenesisPolicy(input = {}) {
+  return buildPolicyDocument(buildPolicyState(input));
+}
+
+function buildPolicyState(input) {
   const signals = normalizedSignals(input.diagnosis);
-  const mission = typeof input.mission === 'string' ? input.mission.trim() : '';
-  const representation = representationFor(signals);
   const portfolio = buildRecipePortfolio(input, signals);
-  const workerRoster = buildAdaptiveWorkerRoster({
-    phases: phasesFor(signals), workerAssignments: input.workerAssignments,
-    runtimeSnapshot: input.runtimeSnapshot, availableCapabilities: input.availableCapabilities,
-    daemonAllowed: input.operationalConstraints?.daemonAllowed
-  });
-  const budget = budgetPlan(input, signals);
+  return { signals, mission: missionText(input.mission), representation: representationFor(signals), portfolio,
+    workerRoster: buildAdaptiveWorkerRoster({ phases: phasesFor(signals),
+      workerAssignments: input.workerAssignments, runtimeSnapshot: input.runtimeSnapshot,
+      availableCapabilities: input.availableCapabilities,
+      daemonAllowed: input.operationalConstraints?.daemonAllowed }), budget: budgetPlan(input, signals) };
+}
+
+function missionText(mission) {
+  return typeof mission === 'string' ? mission.trim() : '';
+}
+
+function buildPolicyDocument(state) {
+  const { signals, mission, representation, portfolio, workerRoster, budget } = state;
   return {
-    schemaVersion: 1, kind: 'conditional_morphogenesis_policy', status: mission ? 'proposed' : 'blocked',
+    schemaVersion: 1, kind: 'conditional_morphogenesis_policy', status: policyStatus(mission),
     mission,
     diagnosis: { signals, representation },
-    decision: { representation: representation.kind, recipe: portfolio.selected,
-      interventionScale: portfolio.selected.interventionScale,
-      interventionEstimate: portfolio.selected.interventionScale === 'NO_CHANGE' ? null : {
-        expectedGain: portfolio.selected.expectedGain, gainUncertainty: portfolio.selected.gainUncertainty,
-        marginalCost: portfolio.selected.marginalCost, costUncertainty: portfolio.selected.costUncertainty
-      },
-      workerRoster, proofObligations: proofObligations(signals, representation), budget },
-    portfolio: { generation: portfolio.generation, candidates: portfolio.candidates,
+    decision: buildPolicyDecision({ signals, representation, portfolio, workerRoster, budget }),
+    portfolio: buildPolicyPortfolio(portfolio),
+    conditions: policyConditions(),
+    bounds: { executionAuthorized: false, maxTransitions: 0, maxEpochs: budget.maxEpochs },
+    evidencePolicy: { workerReportsAreDiagnosticOnly: true, resolutionRequiresIndependentReceipt: true }
+  };
+}
+
+function policyStatus(mission) {
+  return mission ? 'proposed' : 'blocked';
+}
+
+function buildPolicyDecision({ signals, representation, portfolio, workerRoster, budget }) {
+  const selected = portfolio.selected;
+  return { representation: representation.kind, recipe: selected,
+    interventionScale: selected.interventionScale, interventionEstimate: interventionEstimate(selected),
+    workerRoster, proofObligations: proofObligations(signals, representation), budget };
+}
+
+function interventionEstimate(selected) {
+  if (selected.interventionScale === 'NO_CHANGE') return null;
+  return { expectedGain: selected.expectedGain, gainUncertainty: selected.gainUncertainty,
+    marginalCost: selected.marginalCost, costUncertainty: selected.costUncertainty };
+}
+
+function buildPolicyPortfolio(portfolio) {
+  return { generation: portfolio.generation, candidates: portfolio.candidates,
       ranking: portfolio.ranking, calibration: portfolio.calibration,
       communication: portfolio.communication,
+      resourceReallocation: portfolio.reallocation,
       scaleDecision: portfolio.scaleDecision,
-      interventionScales: Object.fromEntries(['NO_CHANGE', ...selectorCalibration.SCALE].map((scale) =>
-        [scale, interventionScaleAvailability(scale, portfolio)])) },
-    conditions: [
+      interventionScales: interventionScaleMap(portfolio) };
+}
+
+function interventionScaleMap(portfolio) {
+  return Object.fromEntries(['NO_CHANGE', ...selectorCalibration.SCALE].map((scale) =>
+    [scale, interventionScaleAvailability(scale, portfolio)]));
+}
+
+function policyConditions() {
+  return [
       { when: { anySignalAtLeast: 0.6 }, action: 'reassess_representation_and_recipe' },
       { when: { signal: 'provenanceRisk', atLeast: 0.35 }, action: 'quarantine_correlated_claims' },
       { when: { signal: 'stagnation', atLeast: 0.5 }, action: 'fork_diagnostic_microgroup' },
       { when: { receipt: 'verified_resolution' }, action: 'stop_and_validate_promotion' }
-    ],
-    bounds: { executionAuthorized: false, maxTransitions: 0, maxEpochs: budget.maxEpochs },
-    evidencePolicy: { workerReportsAreDiagnosticOnly: true, resolutionRequiresIndependentReceipt: true }
-  };
+  ];
 }
 
 function reevaluateConditionalMorphogenesisPolicy(input = {}) {

@@ -20,6 +20,8 @@ function normalizeBid(group, bid) {
     groupId: String(group.id), bidId: String(bid.id), requestedTokens: requested,
     minimumTokens: minimum, marginalValue: value, density: requested ? value / requested : 0,
     evidenceRefs: Array.isArray(bid.evidenceRefs) ? bid.evidenceRefs.filter(Boolean).map(String) : [],
+    proofDigest: bid.proofDigest || null,
+    proofReceipts: Array.isArray(bid.proofReceipts) ? bid.proofReceipts : [],
     workerKind: bid.workerKind ? String(bid.workerKind) : null,
     workerCount: Math.max(0, Math.floor(finite(bid.workerCount, 1))),
     governance: bid.governance ? String(bid.governance) : null

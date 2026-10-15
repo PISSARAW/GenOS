@@ -214,7 +214,7 @@ async function verifyPlannerFailureReleasesReservation() {
   }
 }
 
-async function verifyMarginalGroupBudgetSleepsTheUnfundedGroup() {
+async function verifyUncalibratedGroupPlanPreservesDefaultFunding() {
   const id = `epoch-group-arbitration-${Date.now()}`;
   const workerIds = ['alpha-worker', 'beta-worker'];
   const originalPlanner = morphogenesisContinuation.planContinuation;
@@ -261,11 +261,11 @@ async function verifyMarginalGroupBudgetSleepsTheUnfundedGroup() {
       'closing both workers releases the group budget decision');
     assert.equal(state.epoch, 1, JSON.stringify({ status: state.plan.morphogenesisEpochStatus,
       budget: state.epochBudget, workers: [...state.workerIds] }));
-    assert.deepEqual([...state.workerIds], ['alpha-worker'],
-      'the next epoch contains the funded group only; the other group sleeps at the barrier');
-    assert.ok(persistedIds.includes('alpha-worker'), 'funded group continuation is durably queued');
-    assert.ok(!persistedIds.includes('beta-worker'), 'unfunded group receives no continuation');
-    assert.equal(pendingContinuations.has('beta-worker'), false);
+    assert.deepEqual([...state.workerIds].sort(), workerIds,
+      'declared evidenceRefs without an exact calibrated/admitted candidate preserve default funding');
+    assert.deepEqual(persistedIds.sort(), workerIds,
+      'both continuations are durably queued when the selector abstains');
+    assert.equal(pendingContinuations.has('beta-worker'), true);
   } finally {
     morphogenesisContinuation.planContinuation = originalPlanner;
     durableContinuation.persistContinuations = originalPersist;
@@ -287,7 +287,7 @@ async function run() {
   await verifyUnadmittedPlannerCannotStartEpoch();
   await verifyPersistenceFailureDoesNotQueue();
   await verifyPlannerFailureReleasesReservation();
-  await verifyMarginalGroupBudgetSleepsTheUnfundedGroup();
+  await verifyUncalibratedGroupPlanPreservesDefaultFunding();
   console.log('Morphogenesis repeated epochs: PASS');
 }
 

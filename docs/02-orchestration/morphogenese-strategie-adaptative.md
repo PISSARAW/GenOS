@@ -321,7 +321,11 @@ accepte un adaptateur `loadVerifiedOutcomes`, borné à 120 lignes par mission; 
 ligne est vérifiée par son reçu et son empreinte. Un adaptateur absent, en erreur ou
 hors limite produit un jeu vide et donc `NO_CHANGE`. Aucun corpus n'est livré avec
 GenOS. Le remplacement de cohorte est candidat; la réduction des communications a
-maintenant une action runtime de relève et une échelle candidate au sélecteur. Le
+maintenant une action runtime de relève et une échelle candidate au sélecteur. La
+réallocation des ressources dispose aussi d'une candidate exacte et d'un effet de
+financement appliqué à la relève, lié au reçu scellé qui inclut l'admission, les
+workers et leurs budgets. Cette voie reste indisponible en production sans producteur
+de reçus indépendants pour les besoins et sans stockage d'issues vérifiées. Le
 sélecteur ne l'inclut que si l'adaptateur facultatif
 `loadVerifiedCommunicationMetric({missionId})` fournit un reçu indépendant valide
 pour une mesure de redondance propre à la mission, puis si les issues appariées de
@@ -336,8 +340,9 @@ obligations de mission ou d'organisation bloquent l'action. Aucun producteur
 backend ne construit encore automatiquement ce reçu mission-scopé. Le reçu de
 transition lie le candidat calibré, le reçu métrique, les workers, leurs budgets,
 la nouvelle cadence et la lease exacte; toute divergence avant dispatch bloque
-l'envoi. La réallocation
-de ressources n'a pas encore d'action runtime propre. Voir les ADR 0554 et 0555.
+l'envoi. La réallocation de ressources suit aussi cette règle d'abstention; son
+empreinte candidate, son effet budgétaire et son reçu scellé sont décrits dans les
+ADR 0552 et 0554. Voir aussi l'ADR 0555 pour la réduction des communications.
 
 ### Porte d’activation
 
@@ -409,11 +414,16 @@ affecté à la branche alternative et reçoit une hypothèse et un falsificateur
 Son rapport reste diagnostique : seul le vérificateur de mission peut établir la
 résolution.
 
-Les besoins `resourceNeeds` déclarés avec références de preuve sont arbitrés entre
-groupes par gain marginal pondéré par confiance. Les allocations peuvent mettre un
-groupe non finançable en sommeil et redistribuer le budget admissible à la prochaine
-cohorte. Les transferts, recrutements et changements de gouvernance restent des
-propositions : aucune autorité de spawn ou de transition n’est déduite du score.
+Les besoins `resourceNeeds` sont arbitrés entre groupes par gain marginal pondéré par
+confiance. Une candidate `RESOURCE_REALLOCATION` n'est admissible que si chaque
+allocation financée porte un reçu indépendant signé lié au digest du besoin et à une
+référence de preuve; des références déclarées seules ne suffisent pas. Le plan financé
+exact doit avoir des issues vérifiées calibrées, être admis et être lié au même reçu de
+transition. Sans cela, `NO_CHANGE` conserve la répartition standard. Les transferts,
+recrutements et changements de gouvernance restent des propositions : aucune autorité
+de spawn ou de transition n'est déduite du score. Le producteur de reçus indépendants
+pour ces besoins n'est pas encore raccordé en production, donc cette voie reste
+indisponible sans preuve admissible.
 
 Ces décisions sont appliquées à la relève après quiescence. Le recrutement d'une cohorte
 remplaçante est disponible pour les transitions morphogénétiques et utilise des IDs

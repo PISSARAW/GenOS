@@ -28,14 +28,22 @@ sélecteur compare ensuite la borne basse du gain à la borne haute du coût mar
 À défaut d'échantillon, de reçu, de séparation ou de marge probante, il choisit
 `NO_CHANGE`.
 
-Les actions de réduction des communications et de réallocation restent indisponibles
-tant qu'aucun candidat runtime correspondant n'existe. L'intégration actuelle ne
-produit qu'une classe de remplacement de cohorte topologique; son calibrateur est
-calculé à partir des échantillons vérifiés transmis à la compilation. La continuation
-peut recevoir ces lignes via un adaptateur `loadVerifiedOutcomes` borné à 120 lignes
-par mission; le stockage backend par défaut n'existe pas encore. Un adaptateur absent,
-en erreur ou hors limite entraîne une abstention. Aucun corpus ou résultat de campagne
-n'est présumé, et l'exécution demeure soumise aux autres portes d'admission.
+La réallocation est candidate uniquement pour une empreinte stable du plan financé :
+budget, allocations de groupe, preuves et actions autorisées. Chaque allocation
+financée doit porter un `proofDigest` et un reçu indépendant signé dont le digest et
+la référence correspondent exactement. Les seules `evidenceRefs` déclarées ne
+suffisent pas. Le résultat calibré doit porter le même `candidateId`; tout plan
+différent exige ses propres issues vérifiées. Son application exige aussi l'admission
+de stratégie et le reçu de transition correspondant. Le reçu d'effet enregistre alors
+les tokens réellement affectés aux workers. `NO_CHANGE` conserve la répartition
+standard.
+
+Le producteur backend de reçus indépendants pour les besoins de ressources et le
+stockage backend par défaut des issues vérifiées n'existent pas encore. Sans reçus
+admissibles, adaptateur `loadVerifiedOutcomes`, calibration exacte ou admission, la
+réallocation reste indisponible et le sélecteur s'abstient. Aucun corpus ni résultat
+de campagne n'est présumé. La réduction des communications suit son propre candidat
+runtime et ne peut pas rendre une allocation admissible.
 
 ## Conséquences
 
