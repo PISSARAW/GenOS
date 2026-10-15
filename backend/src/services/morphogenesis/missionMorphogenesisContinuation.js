@@ -318,12 +318,20 @@ function shouldSkipAdaptation(input, signals, decision) {
   return !adaptationRequired(signals, input.state.normalizedMission || {}) && !challengeRequired;
 }
 
+function selectorAbstained(decision) {
+  return decision.policy?.decision?.interventionScale === 'NO_CHANGE'
+    && decision.challenge?.status !== 'challenge_authorized';
+}
+
 async function planContinuation(input, dependencies = {}) {
   const results = [...input.state.results.values()];
   const signals = evidenceSignals(results);
   const decision = require('./morphogenesisEpochDecisionService').compilePolicy(input, signals);
   if (shouldSkipAdaptation(input, signals, decision)) {
     return { adapted: false, reason: 'adaptation_not_required', signals, decision };
+  }
+  if (selectorAbstained(decision)) {
+    return { adapted: false, reason: 'selector_no_change', signals, decision };
   }
   const planner = dependencies.planMorphogenesis
     || require('./morphogenesisPlannerService').planMorphogenesis;

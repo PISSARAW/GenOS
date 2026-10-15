@@ -1,15 +1,17 @@
 # Plan d’implémentation — preuve causale des topologies
 
-- **Statut** : implémentation partielle; qualification confirmatoire bloquée
+- **Statut** : pilote comparatif exécutable; qualification confirmatoire bloquée
 - **Portée** : protocole comparatif, instrumentation et sélection Morphogenèse
 - **Référence** : campagne de qualification `benchmarks/topology-morphogenesis/README.md`
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-15
 
-## État d'exécution — 2026-09-25
+## État d'exécution — 2026-10-15
 
 Les premières phases ont livré le contrat JSON des tâches, la provenance d'exécution, un générateur reproductible d'affectations, quatre oracles déterministes, la séparation entre vérification d'exécution et preuve de mécanisme, un audit lexical A-Team et un évaluateur anti-fuite pour les résultats Morphogenèse. Cinq probes de composant ont maintenant été ajoutés pour Trinity, A-Team, Biocénose, Holobionte et Métapopulation; leur portée limitée est enregistrée dans les reçus. Les quatre tâches ont des hypothèses préenregistrées avec condition adaptée, contrôle inadéquat, métrique primaire et critère de réfutation. Le veto Holobionte consulte désormais le scanner de signatures de menace connu.
 
-La campagne causale **n'a pas encore été exécutée**. `run-comparison-plan.cjs` produit uniquement un ordre d'affectation (`assignment-only`); aucun des sept bras ne possède son adaptateur d'exécution. Les trois probes de session (Biome, Syncytium, Rhizome) et les cinq probes de composant sont câblés, mais ces dernières ne prouvent ni une boucle environnementale, ni une intelligence indépendante, ni une qualité sémantique. L'évaluateur Morphogenèse n'a reçu aucun jeu d'issues holdout observées. La vérification de disponibilité actuelle est dans `node benchmarks/topology-morphogenesis/check-phase-readiness.cjs`; elle doit rester bloquante jusqu'à l'implémentation des adaptateurs et au gel d'un arbre propre.
+Le harnais `run-comparison-campaign.cjs` exécute maintenant cinq conditions de pilote sous un contrat commun : modèle seul, équipe fixe, routeur conditionnel par profil, communication réduite et orchestrateur GenOS complet. Il consigne l'ordre apparié, le modèle demandé/servi, les tokens rapportés, les messages, la latence, la sortie et le verdict oracle. Une tentative est non vérifiée si un reçu manque, si le modèle servi diverge, si un outil est observé ou si un budget est dépassé. Les tâches intégrées sont de simples fixtures de pilote, pas des holdouts inédits. Aucun résultat de campagne ni gain mesuré n'est présumé.
+
+Les bras `adapted-topology`, `wrong-topology` et `oracle-selection` restent `pending`. Le baseline de routeur n'est pas MaAS et ne prouve pas une sélection de topologie. L'appel au runtime complet ne prouve pas que Morphogenèse a muté la forme ou utilisé un worker/daemon spécifique; il faut un reçu d'effet séparé pour cela. Le mode confirmatoire refuse les tâches intégrées et nécessite un jeu externe avec inventaire de tâches/familles/modèles/oracles d'entraînement disjoints et oracles exécutables hashés. La campagne confirmatoire reste bloquée tant qu'un tel jeu n'existe pas et n'a pas été exécuté.
 
 Le rapport A-Team courant mesure un comportement de détection sous des paires de paraphrases choisies manuellement. Il constitue un audit exploratoire de sensibilité lexicale, pas une preuve de qualité sémantique ni de l'effet causal A-Team.
 

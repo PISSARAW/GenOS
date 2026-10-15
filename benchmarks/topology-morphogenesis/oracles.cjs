@@ -44,4 +44,4 @@ function verifyCandidate(task, candidate) {
 }
 
 module.exports = { verifyCandidate, verifyDependencyOrder, verifyDistinctLetters,
-  verifyIntegerPartitions, verifyArithmeticPartition };
+  verifyIntegerPartitions, verifyArithmeticPartition, ORACLES: VERIFIERS };

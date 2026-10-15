@@ -1,7 +1,7 @@
 # Campagne de qualification — topologies, Morphogenèse et orchestrateur
 
 - **Version** : 1.0.0
-- **Statut** : protocole à exécuter ; aucun résultat de campagne n'est présumé
+- **Statut** : pilote exécutable ; aucun résultat de campagne n'est présumé
 - **Périmètre** : huit topologies canoniques, préparateur Morphogenèse, prévol V2 en shadow et chemin simple de l'orchestrateur backend
 
 Le plan d'implémentation de la comparaison causale est décrit dans [PLAN-IMPLEMENTATION.md](PLAN-IMPLEMENTATION.md).
@@ -16,7 +16,19 @@ L'audit de composition A-Team compare maintenant trois paires de formulations, a
 
 L'évaluation du choix Morphogenèse dans [selection-evaluation.cjs](selection-evaluation.cjs) interdit les tâches communes entre entraînement et holdout, puis rapporte l'accord exact avec la sélection oracle et le regret d'utilité sur les issues observées. `node benchmarks/topology-morphogenesis/check-phase-readiness.cjs` écrit une porte de qualification dans les artefacts; le code de sortie est non nul tant qu'un adaptateur, une probe topologique ou une hypothèse d'affectation manque, ou que l'arbre source n'est pas figé. Une porte `ready` ne constitue pas à elle seule un résultat positif.
 
-La préinscription et la randomisation des blocs appariés sont amorcées dans [comparison-plan.json](comparison-plan.json). Quatre tâches jouets ont maintenant des oracles déterministes locaux dans [oracles.cjs](oracles.cjs), décrits dans [comparison-task-set.json](comparison-task-set.json). Générer un ordre reproductible avec `node benchmarks/topology-morphogenesis/run-comparison-plan.cjs`; le résultat porte `status: assignment-only`, donc ne contient aucun résultat d'exécution. Les sept conditions causales sont déclarées, mais leurs adaptateurs restent bloqués jusqu'à la définition d’un même contrat d’exécution par condition.
+La préinscription, les blocs appariés et leurs graines sont dans [comparison-plan.json](comparison-plan.json). Les quatre tâches de [comparison-task-set.json](comparison-task-set.json) sont des fixtures jouets de pilote, pas des tâches inédites. Leurs oracles déterministes servent seulement à vérifier chaque sortie de pilote.
+
+## Pilote comparatif exécutable
+
+Lancer `node benchmarks/topology-morphogenesis/run-comparison-campaign.cjs --mode pilot` avec un serveur Ollama joignable et le modèle chargé. `GENOS_COMPARISON_MODEL` choisit le modèle (défaut `qwen2.5-coder:7b`) et `GENOS_COMPARISON_OLLAMA_URL` l'endpoint. Le harnais apparie chaque tâche et graine, randomise l'ordre des conditions, isole les bases et espaces de travail GenOS, impose le même plafond de tokens et de latence, puis vérifie les réponses avec l'oracle indépendant local. Le coût mesuré est le nombre total de tokens rapporté par l'exécuteur; la latence est mesurée de bout en bout. Le coût monétaire n'est pas calculé sans tarif configuré.
+
+Les adaptateurs actuellement exécutables sont le modèle seul, une équipe fixe, un routeur conditionnel à profil de requête, une équipe à communications réduites et le runtime GenOS complet. Le bras de communications réduites fait produire trois réponses indépendantes avant une unique synthèse; l'équipe fixe transmet les réponses successives au worker suivant. Les deux utilisent le même modèle, les mêmes consignes de tâche, aucun outil externe, le même budget global et le même oracle. Le reçu compte les appels modèle/messages et les tokens totaux. Le routeur choisit soit le modèle seul, soit l'équipe fixe selon le profil déclaré de la tâche; c'est un baseline de routage explicite, pas MaAS ni une politique apprise.
+
+La campagne n'affirme pas que les adaptateurs locaux modèle/équipe exécutent une topologie GenOS. Le bras `morphogenesis` appelle l'orchestrateur GenOS, mais son inclusion ne prouve pas qu'une transition morphogénétique a été sélectionnée ou exercée; les preuves de mécanisme du reçu doivent être inspectées séparément. Toute utilisation effective d'outil, différence de modèle servi, budget dépassé ou coût non mesuré marque la tentative comme non vérifiée. Les bras de topologie adaptée figée, mauvaise topologie et sélection oracle restent `pending` faute d'un adaptateur comparable ou d'issues d'entraînement établies.
+
+Le pilote peut être lancé avec un sous-ensemble, par exemple `--conditions model-alone,simple-multi-agent,communication-light`. Une campagne `confirmatory` ne consomme jamais ces résultats pilote : elle exige un fichier externe identifié (`datasetId`, `source`, split `holdout`) avec des IDs et familles disjoints de l'inventaire d'entraînement, un modèle tenu à l'écart et des modules d'oracle versionnés/hashés sous `benchmarks/topology-morphogenesis/holdout-oracles/`. Chaque module doit exporter `verify(candidate)` et avoir un `oracleId` qui n'est ni utilisé par le pilote ni par l'entraînement. Sans cet inventaire, une tâche inédite et cet oracle indépendant, le lanceur refuse le mode confirmatoire. Un résultat prêt à analyser ne constitue toujours pas une preuve d'avantage causal.
+
+`run-comparison-plan.cjs` conserve son rôle limité de générateur d'affectations (`assignment-only`); il n'exécute pas les modèles.
 
 Cette campagne fait progresser la preuve du contrat jusqu'à l'exécution observable. Un dispatch accepté ou une mission terminée ne suffit pas à qualifier une topologie d'opérationnelle. Il faut des opérations spécifiques observables, des livrables vérifiés, des répétitions et des contrôles négatifs réussis.
 

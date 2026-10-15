@@ -61,7 +61,18 @@ function proofObligations(signals, representation) {
 function buildRecipePortfolio(input, signals) {
   const calibration = selectorCalibration.compileCalibration(input.verifiedOutcomes);
   const replacement = calibration.scales.COHORT_REPLACEMENT;
-  const generated = generateAdaptiveTopologyCandidates({
+  const generated = generateAdaptiveTopologyCandidates(candidateGenerationInput(input));
+  const candidates = decorateCandidates({ candidates: generated.candidates, replacement, signals, input });
+  const ranking = rankPortfolio(candidates, input, signals);
+  const availableScales = replaceableCandidates(generated.candidates);
+  const scaleDecision = selectorCalibration.selectScale(calibration, availableScales);
+  const selected = admittedSelection(ranking, scaleDecision);
+  return { generation: generated.stats, candidates: generated.candidates, ranking, calibration,
+    scaleDecision, selected: selectionSummary(selected, input, scaleDecision) };
+}
+
+function candidateGenerationInput(input) {
+  return {
     selectedTopology: input.currentTopology,
     selectedVariant: input.currentVariant,
     currentRecipe: input.currentRecipe,
@@ -72,23 +83,38 @@ function buildRecipePortfolio(input, signals) {
     maxCandidates: input.maxCandidates,
     relationContext: input.relationContext,
     adapterRegistry: input.adapterRegistry
-  });
-  const candidates = generated.candidates.map(candidate => ({
+  };
+}
+
+function decorateCandidates(context) {
+  return context.candidates.map(candidate => decorateCandidate({ ...context, candidate }));
+}
+
+function decorateCandidate(context) {
+  const { candidate, replacement, signals, input } = context;
+  const unchanged = candidate.kind === 'NO_CHANGE';
+  const estimate = replacement.candidates?.[candidate.candidateId] || { status: 'unavailable' };
+  return {
     ...candidate,
     id: candidate.candidateId,
-    estimatedTokens: candidate.kind === 'NO_CHANGE' ? 0 : estimateCost(candidate, input),
-    estimatedProblemFit: candidate.kind === 'NO_CHANGE' || replacement.status !== 'calibrated'
-      ? problemFit(candidate, signals) : 0.5 + replacement.expectedGain / 2,
-    confidence: candidate.kind === 'NO_CHANGE' ? 1 : replacement.status === 'calibrated'
-      ? 1 - replacement.gainUncertainty : 0.35,
-    calibrationStatus: candidate.kind === 'NO_CHANGE' ? 'baseline' : replacement.status,
-    interventionScale: candidate.kind === 'NO_CHANGE' ? 'NO_CHANGE' : 'COHORT_REPLACEMENT',
-    expectedGain: candidate.kind === 'NO_CHANGE' ? 0 : replacement.expectedGain,
-    gainUncertainty: candidate.kind === 'NO_CHANGE' ? 0 : replacement.gainUncertainty,
-    marginalCost: candidate.kind === 'NO_CHANGE' ? 0 : replacement.marginalCost,
-    costUncertainty: candidate.kind === 'NO_CHANGE' ? 0 : replacement.costUncertainty
-  }));
-  const ranking = rankAdaptiveTopologies({
+    estimatedTokens: unchanged ? 0 : estimateCost(candidate, input),
+    estimatedProblemFit: problemFit(candidate, signals),
+    ...candidateCalibrationAttributes(unchanged, estimate)
+  };
+}
+
+function candidateCalibrationAttributes(unchanged, estimate) {
+  if (unchanged) return { confidence: 1, calibrationStatus: 'baseline',
+    interventionScale: 'NO_CHANGE', expectedGain: 0, gainUncertainty: 0,
+    marginalCost: 0, costUncertainty: 0 };
+  return { confidence: estimate.status === 'calibrated' ? 1 - estimate.gainUncertainty : 0.35,
+    calibrationStatus: estimate.status, interventionScale: 'COHORT_REPLACEMENT',
+    expectedGain: estimate.expectedGain, gainUncertainty: estimate.gainUncertainty,
+    marginalCost: estimate.marginalCost, costUncertainty: estimate.costUncertainty };
+}
+
+function rankPortfolio(candidates, input, signals) {
+  return rankAdaptiveTopologies({
     candidates,
     currentTopology: input.currentTopology,
     currentWorkerKinds: (input.workerAssignments || []).map(workerKindOf).filter(Boolean),
@@ -98,22 +124,32 @@ function buildRecipePortfolio(input, signals) {
     budget: input.budget,
     operationalConstraints: input.operationalConstraints
   });
+}
+
+function replaceableCandidates(candidates) {
+  return candidates.filter(candidate => candidate.kind !== 'NO_CHANGE'
+    && candidate.admissibility !== 'rejected')
+    .map(candidate => ({ candidateId: candidate.candidateId, scale: 'COHORT_REPLACEMENT' }));
+}
+
+function admittedSelection(ranking, scaleDecision) {
   const selected = ranking.decision.decision === 'PROPOSE'
     ? ranking.candidates.find(item => item.id === ranking.decision.selectedId) : null;
-  const availableScales = generated.candidates.some(candidate => candidate.kind !== 'NO_CHANGE'
-    && candidate.admissibility !== 'rejected') ? ['COHORT_REPLACEMENT'] : [];
-  const scaleDecision = selectorCalibration.selectScale(calibration, availableScales);
-  const admittedSelection = selected && scaleDecision.scale === selected.interventionScale ? selected : null;
-  return { generation: generated.stats, candidates: generated.candidates, ranking, calibration,
-    scaleDecision, selected: admittedSelection ? {
-    candidateId: admittedSelection.id, topology: admittedSelection.topology, variant: admittedSelection.variant,
-    kind: admittedSelection.kind, interventionScale: scaleDecision.scale,
-    expectedGain: admittedSelection.expectedGain, gainUncertainty: admittedSelection.gainUncertainty,
-    marginalCost: admittedSelection.marginalCost, costUncertainty: admittedSelection.costUncertainty,
-    executionEligible: false
-  } : { candidateId: 'NO_CHANGE', topology: input.currentTopology || null,
+  return selected && scaleDecision.scale === selected.interventionScale
+    && scaleDecision.candidateId === selected.id ? selected : null;
+}
+
+function selectionSummary(selected, input, scaleDecision) {
+  if (!selected) return { candidateId: 'NO_CHANGE', topology: input.currentTopology || null,
     variant: input.currentVariant || null, kind: 'NO_CHANGE', interventionScale: 'NO_CHANGE',
-    executionEligible: false } };
+    executionEligible: false };
+  return {
+    candidateId: selected.id, topology: selected.topology, variant: selected.variant,
+    kind: selected.kind, interventionScale: scaleDecision.scale,
+    expectedGain: selected.expectedGain, gainUncertainty: selected.gainUncertainty,
+    marginalCost: selected.marginalCost, costUncertainty: selected.costUncertainty,
+    executionEligible: false
+  };
 }
 
 function estimateCost(candidate, input) {

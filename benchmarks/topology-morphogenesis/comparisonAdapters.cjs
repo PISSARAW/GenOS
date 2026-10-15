@@ -20,8 +20,10 @@ function remainingTokens(budget, used) {
 
 async function modelCall(prompt, state) {
   const left = remainingTokens(state.budget, state.tokensUsed);
+  const inputReserve = Math.ceil(Buffer.byteLength(prompt, 'utf8') / 2);
+  const outputLimit = Math.min(2048, left - inputReserve);
   const msLeft = deadlineMs(state.budget) - (Date.now() - state.startedAt);
-  if (left < 1 || msLeft < 1) throw new Error('Shared token or latency budget exhausted.');
+  if (outputLimit < 1 || msLeft < 1) throw new Error('Shared token or latency budget exhausted.');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), msLeft);
   const started = performance.now();
@@ -31,7 +33,7 @@ async function modelCall(prompt, state) {
     const response = await fetch(endpointUrl(), {
       method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal,
       body: JSON.stringify({ model: state.model, stream: false, format: 'json',
-        options: { num_predict: left, seed: state.seed }, messages: [{ role: 'user', content: prompt }] })
+        options: { num_predict: outputLimit, temperature: 0 }, messages: [{ role: 'user', content: prompt }] })
     });
     if (!response.ok) throw new Error(`Model endpoint returned HTTP ${response.status}.`);
     const body = await response.json();
@@ -184,7 +186,8 @@ const ADAPTERS = Object.freeze({ 'direct-model': direct, 'fixed-team': fixedTeam
 async function executeCondition(condition, task, context) {
   const adapter = ADAPTERS[condition.adapter];
   if (!adapter) throw new Error(`No executable adapter for ${condition.adapter}.`);
-  const state = { ...context, startedAt: Date.now(), tokensUsed: 0 };
+  const budget = context.budget || { tokens: context.tokens, latencyMs: context.latencyMs };
+  const state = { ...context, budget, startedAt: Date.now(), tokensUsed: 0 };
   state.promptTokens = 0;
   state.completionTokens = 0;
   state.messageCount = 0;
@@ -194,11 +197,14 @@ async function executeCondition(condition, task, context) {
   let error = null;
   try { result = await adapter(task, state); } catch (cause) { error = cause.message; }
   const candidate = parseJson(result.text);
-  const measured = Number.isFinite(result.tokens) || state.meteringComplete;
+  const totalTokens = condition.adapter === 'genos-full' ? result.tokens
+    : state.meteringComplete ? state.tokensUsed : null;
+  const measured = Number.isFinite(totalTokens);
   return { candidate, parsePassed: Boolean(candidate), route: result.route || condition.adapter, error,
-    tokenUsage: { total: Number.isFinite(result.tokens) ? result.tokens : measured ? state.tokensUsed : null,
+    tokenUsage: { total: Number.isFinite(totalTokens) ? totalTokens : null,
       prompt: state.promptTokens, completion: state.completionTokens, measured },
-    servedModel: result.servedModel || (state.servedModels.size === 1 ? [...state.servedModels][0] : null),
+    servedModel: result.servedModel || (state.servedModels.size === 1 ? [...state.servedModels][0]
+      : state.servedModels.size ? 'mixed' : null),
     messageCount: result.messageCount ?? state.messageCount,
     toolUseCount: Number(result.receipt?.coverage?.protocol?.observedCount || 0),
     runtimeSucceeded: result.receipt?.success ?? null,

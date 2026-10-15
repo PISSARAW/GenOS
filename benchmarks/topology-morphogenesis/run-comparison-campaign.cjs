@@ -35,11 +35,14 @@ function loadTasks(options) {
   const file = path.resolve(options.dataset);
   const data = JSON.parse(fs.readFileSync(file, 'utf8'));
   validateExternalDataset(data, options.mode);
+  if (options.mode === 'confirmatory') for (const task of data.tasks) {
+    loadExternalOracle(task, file, data.trainingInventory.oracleIds);
+  }
   return { data, file, training: data.trainingInventory };
 }
 
 function validateExternalDataset(data, mode) {
-  if (!data.datasetId || !Array.isArray(data.tasks) || !data.tasks.length) throw new Error('External dataset needs datasetId and tasks.');
+  if (!data.datasetId || !data.source || !Array.isArray(data.tasks) || !data.tasks.length) throw new Error('External dataset needs datasetId, source and tasks.');
   if (mode === 'confirmatory') {
     const inventory = data.trainingInventory;
     if (data.split !== 'holdout' || !inventory?.source || !inventory.taskIds?.length
@@ -56,9 +59,6 @@ function validateExternalDataset(data, mode) {
   }
   if (data.tasks.some((task) => !task.comparisonEligible || !task.prompt || !task.oracle)) {
     throw new Error('Every external task must declare prompt, independent oracle, and comparison eligibility.');
-  }
-  if (mode === 'confirmatory') for (const task of data.tasks) {
-    loadExternalOracle(task, data.sourceFile || path.join(root, 'holdout-dataset.json'), data.trainingInventory.oracleIds);
   }
 }
 

@@ -4,6 +4,8 @@
 - [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.
 - [ADR 0531 — Recevoir les entrées sensorielles et neuro-gliales dans le backend](adr/0531-entrees-sensorielles-et-neurogliales-backend.md) — routes HTTP tenant-scopées, signatures producteurs, persistance sensorielle immuable et limites d'autorité CLI.
 - [ADR 0533 — Raccorder la boucle causale aux reçus de stratégie](adr/0533-raccorder-la-boucle-causale-aux-recus-strategie.md) — apprentissage causal réservé aux runs vérifiés et aux preuves de qualité signées, liées au run et au tenant.
+- [ADR 0535a — Persistance et reprise idempotente de l’apprentissage causal](adr/0535-persistance-reprise-apprentissage-causal.md) — outbox transactionnel, retries à clé stable et rappel de souvenirs après revalidation de la preuve.
+- [ADR 0538 — Inventaire opérationnel workers/daemons pour la morphogenèse](adr/0538-inventaire-operationnel-workers-daemons-morphogenese.md) — proposition de résolution consultative fondée sur l’état runtime, les leases et la provenance.
 
 - [Comparaison locale entre un agent Codex et un worker GenOS](06-benchmarks/comparaison-agent-codex-worker-genos-2026-10-15.md) — même mission MCP, résultat de sécurité, métriques observées et distinction entre verdict et promotion.
 
@@ -191,6 +193,8 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.
 - [ontogenese-boucle.md](02-orchestration/ontogenese-boucle.md) — boucle Observer → réévaluer : sélection, autorisation, réveils, notifications.
 - [topologies-et-capacites.md](02-orchestration/topologies-et-capacites.md) — contrat de capacités (8 modes + 19 organisations), leases effectifs.
+- [morphogenese-strategie-adaptative.md](02-orchestration/morphogenese-strategie-adaptative.md) — stratégie consultative de sélection dynamique, frontières d'activation et protocole de qualification.
+- [politique-morphogenetique-conditionnelle.md](02-orchestration/politique-morphogenetique-conditionnelle.md) — politique consultative réévaluable reliant diagnostic, représentation, recette, travailleurs, preuves et budget.
 - [primitives-executables.md](02-orchestration/primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
 - [workflows-et-jobs.md](02-orchestration/workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
 - [workspaces-contrefactuel.md](02-orchestration/workspaces-contrefactuel.md) — snapshots, bisection, restore, blast radius.
@@ -773,6 +777,8 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0450 — Liaison entre sortie modèle et oracle indépendant](adr/0450-liaison-sortie-modele-oracle-independant.md).
 - [ADR 0451 — Budget modèle du runtime local en sous-processus](adr/0451-portee-budget-modele-runtime-local-sous-processus.md).
 - [ADR 0452 — Exécution de procédure en mission](adr/0452-execution-procedure-mission.md).
+
+- [ADR 0545 — Racine de confiance hôte pour le quorum électrocytaire](adr/0545-racine-de-confiance-hote-electrocyte.md).
 
 - [ADR 0453 — Budget partagé des runtimes modèles externes](adr/0453-budget-partage-des-runtimes-modeles-externes.md).
 - [ADR 0454 — Oracle natif pour réponse modèle mesurée](adr/0454-oracle-natif-pour-reponse-modele-mesuree.md).

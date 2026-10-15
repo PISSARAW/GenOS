@@ -65,7 +65,8 @@ async function verifyEvidenceDrivenMix() {
     orchestratorId: 'orchestrator-1', strategyAdmissionContext: admissionContext()
   }, { planMorphogenesis: planner, composeMode });
   assert.equal(result.adapted, false, 'an unverified composite must not reach cohort creation');
-  assert.match(result.reason, /strategy_admission_denied/);
+  assert.equal(result.reason, 'selector_no_change',
+    'the planner fallback cannot replace a morphogenesis policy abstention');
   assert.equal(runtimeState.plan.morphogenesisTransitions, undefined,
     'a rejected topology leaves runtime state unchanged');
 }
@@ -73,18 +74,21 @@ async function verifyEvidenceDrivenMix() {
 async function verifyPlannerTransitionAdmission() {
   const runtimeState = state([25]);
   const topologyCapabilities = registry.get('a_team').requiredCapabilities;
+  let plannerCalls = 0;
   const result = await service.planContinuation({ state: runtimeState,
     survivors: [{ agentId: 'worker-1' }], continuation: { pool: 1000 },
     orchestratorId: 'orchestrator-1', strategyAdmissionContext: admissionContext() }, {
-    planMorphogenesis: () => ({ selectedTopology: 'a_team', selectedVariant: 'default',
-      controlReceipt: { topology: { rankings: [{ topology: 'a_team' }] } } }),
+    planMorphogenesis: () => {
+      plannerCalls += 1;
+      return { selectedTopology: 'a_team', selectedVariant: 'default',
+        controlReceipt: { topology: { rankings: [{ topology: 'a_team' }] } } };
+    },
     composeMode: async () => ({ members: [{ role: 'scout', workerKind: 'scout_cell',
       capabilities: topologyCapabilities, executionMode: 'worker' }] })
   });
-  assert.equal(result.adapted, true);
-  assert.equal(result.admission.status, 'admitted');
-  assert.equal(result.admission.selectionBasis, 'planner_heuristic_unvalidated');
-  assert.equal(result.admission.comparativeQuality, 'unknown');
+  assert.equal(result.adapted, false);
+  assert.equal(result.reason, 'selector_no_change');
+  assert.equal(plannerCalls, 0);
   assert.equal(runtimeState.plan.selectedTopology, 'a_team');
 }
 

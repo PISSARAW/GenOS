@@ -60,7 +60,8 @@ async function adoptQueuedContinuations(input) {
   await persistRound(state, `recovered-queued-epoch-${epoch}`, 'collecting');
   if (hasAmbiguousDispatch(queued)) {
     state.roundPhase = 'advancing';
-    await markRecoveryRequired(state, orchestratorId, 'interrupted_during_dispatch_requires_reconciliation', true);
+    await markRecoveryRequired(state, { orchestratorId,
+      reason: 'interrupted_during_dispatch_requires_reconciliation', allowCollecting: true });
     return;
   }
   state.pendingRecoveryDispatch = queued.filter((item) => item.status === 'pending').map((item) => item.agentId);
@@ -119,8 +120,8 @@ async function dispatchPendingForCollectedEpoch(state) {
     db: state.db, orchestratorId: state.orchestratorId, missionId: state.checkpointScope.missionId, epoch: state.epoch
   });
   if (hasAmbiguousDispatch(queued)) {
-    await markRecoveryRequired(state, state.orchestratorId,
-      'interrupted_during_dispatch_requires_reconciliation', true);
+    await markRecoveryRequired(state, { orchestratorId: state.orchestratorId,
+      reason: 'interrupted_during_dispatch_requires_reconciliation', allowCollecting: true });
     return;
   }
   const roundService = require('../agentRoundService');
@@ -138,8 +139,11 @@ function recordStartupOutcome(summary, outcome) {
   summary.failures.push(outcome.failure);
 }
 
-async function markRecoveryRequired(state, orchestratorId,
-  reason = 'interrupted_during_advancement_requires_operator_resume', allowCollecting = false) {
+async function markRecoveryRequired(state, input = {}) {
+  const options = typeof input === 'string' ? { orchestratorId: input } : input;
+  const orchestratorId = options.orchestratorId || state.orchestratorId;
+  const reason = options.reason || 'interrupted_during_advancement_requires_operator_resume';
+  const allowCollecting = options.allowCollecting === true;
   if (state.roundPhase !== 'advancing' && !(allowCollecting && state.roundPhase === 'collecting')) return false;
   state.plan.morphogenesisEpochStatus = { status: 'recovery_required', reason, epoch: state.epoch,
     budget: state.epochBudget, checkpointRevision: state.checkpointRevision };

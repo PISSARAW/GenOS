@@ -5,7 +5,8 @@ const { sealTransitionReceipt, verifyTransitionReceipt, resultMatchesTransition 
   require('../src/services/morphogenesis/morphogenesisTransitionReceipt');
 
 function fixture() {
-  const worker = { agentId: 'worker-a', workerKind: 'scout_cell' };
+  const worker = { agentId: 'worker-a', workerKind: 'scout_cell', morphologyTopology: 'biocenose',
+    morphologyVariant: 'default' };
   const adaptation = { receipt: { candidateId: 'candidate-a', toGraph: { graphId: 'graph-a', version: 2 } },
     admission: { status: 'admitted', selectionBasis: 'calibrated_policy_proposal',
       recipe: { id: 'candidate-a', topology: 'biocenose', variant: 'default' } },
