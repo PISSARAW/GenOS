@@ -20,7 +20,7 @@ class ActuatorModules {
     this.ledger = options.ledger || new HypothesisLedger({ budgetRatioThreshold: 0.8 });
     this.searchGenome = { genome: options.genome || createRandomGenome(), population: null };
     this.patchService = new SearchPatchService();
-    this.causalReplay = new CausalReplayService();
+    this.causalReplay = options.causalReplay || new CausalReplayService({ emit: options.emit });
     this.negativeMemory = new NegativeSearchMemory();
     this.evolutionEngine = new SearchEvolutionEngine({ populationSize: 6 });
     this.cultureService = new SearchCultureService();

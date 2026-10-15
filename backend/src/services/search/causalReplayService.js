@@ -5,11 +5,14 @@
  * Récursion brisée : ne fait plus appel à l'Actuator.
  */
 
-const { emit } = require('../agentOrchestrationState');
+function emitNaturalSearchEvent(...args) {
+  return require('../agentOrchestrationState').emit(...args);
+}
 
 class CausalReplayService {
-  constructor() {
+  constructor(options = {}) {
     this.replayHistory = new Map();
+    this.emit = options.emit || emitNaturalSearchEvent;
   }
 
   findCausalCommitment(history, hypothesisStatement) {
@@ -65,7 +68,7 @@ class CausalReplayService {
       : checkpoints[0];
     this.recordReplay(agentId, { failedHypothesis, lastGoodCheckpoint, checkpoints });
 
-    emit(agentId, 'CAUSAL_REPLAY_INITIATED', 'REPLAY',
+    this.emit(agentId, 'CAUSAL_REPLAY_INITIATED', 'REPLAY',
       `Replay from checkpoint ${lastGoodCheckpoint.start}`, {
         failedHypothesis: failedHypothesis.statement,
         checkpointIndex: Math.max(0, checkpoints.length - 2),
