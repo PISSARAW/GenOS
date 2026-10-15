@@ -22,6 +22,7 @@ async function run() {
   let createCount = 0;
   let claimCount = 0;
   let launches = 0;
+  let allocatedTokens = 0;
   garage.state = async () => ({ available: createCount ? 0 : 2 });
   coordination.composeTeam = (input) => (capacity = input.available, assignedRoles = input.assignedRoles, {
     members: teamMembers,
@@ -31,8 +32,9 @@ async function run() {
   });
   scheduler.stagePlanFor = ({ members, planId }) => ({ planId, members, maxStage: 0 });
   teamService.planStages = () => ({ stages: [] });
-  runtime.createRun = async () => {
+  runtime.createRun = async (input) => {
     createCount += 1;
+    allocatedTokens = input.members.reduce((sum, member) => sum + member.executionBudgetTokens, 0);
     return { created: createCount === 1, run: { teamRunId: 'run-stable', workGraphId: 'graph-stable', revision: createCount - 1, status: createCount === 1 ? 'READY' : 'RUNNING', members: teamMembers } };
   };
   runtime.transitionRun = async (input) => ({ ...runtimeSnapshotRun(), status: input.patch.status, phase: input.patch.phase, revision: input.revision + 1 });
@@ -44,7 +46,7 @@ async function run() {
   };
   runtime.releaseExecution = async () => true;
   try {
-    const context = { orchestratorId: 'mission-dispatch', task: 'Build API', startAteamRunner: async () => ({ pid: 123 }), repoRoot: process.cwd(), request: { roles: ['api_owner', 'web_owner'] } };
+    const context = { orchestratorId: 'mission-dispatch', task: 'Build API', startAteamRunner: async () => ({ pid: 123 }), repoRoot: process.cwd(), request: { roles: ['api_owner', 'web_owner'], maxTokens: 200 } };
     const agents = new Map();
     const db = {
       get: async (_sql, id) => agents.get(id) || (createCount >= 3 ? { id, status: 'idle' } : null),
@@ -60,6 +62,7 @@ async function run() {
     assert.equal(first.aTeam.workGraphId, 'graph-stable');
     assert.equal(launches, 2);
     assert.deepEqual(assignedRoles, ['api_owner', 'web_owner']);
+    assert.equal(allocatedTokens, 200);
     assert.equal(agents.get('worker-a').parent_agent_id, context.orchestratorId);
     const second = await dispatchTeam({ db, context, parent: { workspace_id: 'ws-test', workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(second.aTeam.reused, true);

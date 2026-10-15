@@ -163,7 +163,8 @@ function workerAssignmentsFor(request) {
 
 function requestedTokenBudget(request) {
   const budget = request.execution_budget || request.executionBudget || {};
-  return Number.isFinite(Number(budget.tokens)) ? Number(budget.tokens) : null;
+  const tokens = budget.tokens ?? request.max_tokens ?? request.maxTokens;
+  return Number.isFinite(Number(tokens)) ? Number(tokens) : null;
 }
 
 function createCanonicalRun(setup) {
