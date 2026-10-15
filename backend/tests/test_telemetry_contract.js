@@ -34,6 +34,14 @@ fanout.fanout(emitter, { dispatch: (event) => dispatched.push(event) }, { id: 'c
 assert.equal(boomCalled, true);
 assert.equal(dispatched.length, 1);
 
+// Observer listeners receive each event exactly once through the defensive fanout.
+let observerCalls = 0;
+const countObserver = () => { observerCalls += 1; };
+telemetry.on('telemetry', countObserver);
+telemetry.emitEvent({ eventType: 'CONTRACT_CHECK', agentId: 'contract' });
+telemetry.off('telemetry', countObserver);
+assert.equal(observerCalls, 1);
+
 // Observer level: a throwing 'telemetry' listener must not break emitEvent.
 telemetry.on('telemetry', () => { throw new Error('observer-boom'); });
 const survived = telemetry.emitEvent({ eventType: 'CONTRACT_CHECK', agentId: 'contract' });
