@@ -7,7 +7,15 @@ const workerRecovery = require('../workerFailureRecoveryService');
 const { applyOrganizationDecision } = require('./organizationDecision');
 const handledFailures = new Map();
 
-function getRecoveryOrganization(action) {
+function requiresContinuousCoordination(mission = {}) {
+  const policy = mission.coordinationPolicy || mission.coordination_policy || {};
+  const cadence = policy.communicationCadence || policy.communication_cadence;
+  return mission.communicationRequired === true || mission.organization === 'cross_functional_pod'
+    || String(cadence || '').toLowerCase() === 'continuous_sync';
+}
+
+function getRecoveryOrganization(action, mission = {}) {
+  if (requiresContinuousCoordination(mission)) return null;
   if (action === 'mutate_worker') return 'isolated_recovery';
   if (action === 'fork_worker') return 'competitive_arena';
   if (action === 'bisect_and_rollback') return 'isolated_recovery';
@@ -31,7 +39,7 @@ function handleRecoveryDecision(report, decision, context) {
   emit(orchestratorId, 'WORKER_RECOVERY_DECISION', decision.action, decision.reason, {
     workerId: report.workerId, report, decision
   }, decision.terminal && decision.action !== 'conclude_no_answer' ? 'warning' : 'info');
-  const recoveryOrganization = getRecoveryOrganization(decision.action);
+  const recoveryOrganization = getRecoveryOrganization(decision.action, mission);
   if (recoveryOrganization) {
     applyOrganizationDecision(orchestratorId, recoveryOrganization, decision.reason).catch((err) => {
       console.error('[WorkerRecovery] Failed to apply organization decision.', {
@@ -78,4 +86,4 @@ function queueWorkerRecovery(mission, event) {
   return handleRecoveryDecision(report, decision, { orchestratorId, mission });
 }
 
-module.exports = { queueWorkerRecovery };
+module.exports = { queueWorkerRecovery, getRecoveryOrganization };
