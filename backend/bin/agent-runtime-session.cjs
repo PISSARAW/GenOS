@@ -12,7 +12,7 @@ const agentMemory = require('../src/services/agentMemoryContext');
 const trajectoryService = require('../src/services/trajectoryService');
 const { getDatabase } = require('../src/db');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
-const { compactStrategyContract, compactAutonomyPlan, buildAgentRuntimePrompt } = require('./agent-runtime-prompt.cjs');
+const { compactStrategyContract, compactAutonomyPlan, buildAgentRuntimePrompt, appendCoordinationEvidence } = require('./agent-runtime-prompt.cjs');
 const { handleRuntimeClose } = require('./agent-runtime-close.cjs');
 const events = require('./agent-runtime-events.cjs');
 const runtimeStdio = require('./agent-runtime-stdio.cjs');
@@ -373,6 +373,10 @@ async function startRuntime(state) {
   const binaries = resolveBinaries();
   if (state.isWorker) {
     const inventory = await workerMcpPreflight.runWorkerMcpInventoryPreflight({ state, binaries, mcp: buildMcpConfig(binaries) });
+    state.prompt = appendCoordinationEvidence(state.prompt, inventory.coordination);
+    require('../src/services/agentRuntimeAdapter/missionPromptBudget')
+      .assertMissionPromptBudget(state.mission, state.prompt);
+    state.estimatedTokens = Math.ceil(Buffer.byteLength(state.prompt, 'utf8') / 4);
     state.emit({ eventType: 'AGENT_STEP', action: 'MCP_PREFLIGHT', detail: 'Worker MCP inventory verified.', payload: inventory });
   }
   await spawnChild(state, binaries);

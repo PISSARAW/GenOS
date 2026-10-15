@@ -80,7 +80,13 @@ async function runWorkerMcpInventoryPreflight(input) {
     const result = input.listTools ? await input.listTools() : await client.listTools();
     const availableTools = toolNames(result);
     validateInventory(input.state, availableTools);
-    return { availableTools, requiredTools: [...input.state.requiredTools] };
+    const coordinated = continuousCoordination(input.state.mission);
+    const callTool = input.callTool || (client && ((request) => client.callTool(request)));
+    const coordination = coordinated && callTool
+      ? await require('./worker-coordination-bootstrap.cjs').bootstrapCoordination({
+        callTool, orchestratorId: input.state.orchestratorAgentId
+      }) : null;
+    return { availableTools, requiredTools: [...input.state.requiredTools], coordination };
   } catch (failure) {
     input.state.emit?.({ eventType: 'AGENT_FAILED', action: 'MCP_PREFLIGHT', status: 'error',
       detail: failure.message, payload: { code: failure.code || 'WORKER_MCP_PREFLIGHT_FAILED' } });
