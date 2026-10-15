@@ -16,7 +16,7 @@ process.env.GENOS_FOSSIL_ARTIFACT = '1';
 process.env.GENOS_FOSSIL_SIGNING_PRIVATE_KEY = oldSigner.privatePem;
 process.env.GENOS_FOSSIL_TRUSTED_PUBLIC_KEYS = trustBundle(oldSigner);
 
-const cli = path.resolve(__dirname, '../../target/debug/genos.exe');
+const cli = process.env.GENOS_BIN || path.resolve(__dirname, '../../target/debug/genos.exe');
 const { getDatabase, closeDatabase } = require('../src/db');
 const fossilization = require('../src/services/fossilizationService');
 

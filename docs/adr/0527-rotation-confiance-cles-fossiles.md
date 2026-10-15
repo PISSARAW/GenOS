@@ -62,3 +62,12 @@ pouvait donc transformer un identifiant de clé en alias.
   effacerait l'identité du producteur historique.
 - Supprimer silencieusement les fossiles dont la clé est retirée : rejeté, car
   l'archive et ses limites de confiance doivent rester visibles.
+
+## Vérification
+
+- `node backend/tests/test_fossil_backend_cli_e2e.cjs` couvre le chevauchement,
+  le retrait et l'empreinte des clés avec le vrai CLI.
+- `node backend/tests/test_fossilization_http_e2e.cjs` démarre le serveur REST
+  et vérifie les refus d'authentification/de portée, le scope lié au POST, le
+  listing et l'excavation vérifiée. Ce test local ne qualifie pas un déploiement
+  multi-instance ni l'exploitation du provisioning des clés.
