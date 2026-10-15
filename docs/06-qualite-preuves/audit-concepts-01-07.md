@@ -96,8 +96,13 @@ une base fermée. Après une première relance interrompue temporairement lorsqu
 libre est descendu à 279 Mo, le nettoyage des fixtures a rendu plusieurs Gio disponibles
 et le `npm test` complet a terminé avec code 0 : biologie, workspace workers, backend,
 garage et P1 V3 passent. L'index de tests a aussi émis des erreurs asynchrones de
-`TelemetryObserver` sur base fermée, et un serveur a signalé l'absence de
-`genome_decisions`; ces deux avertissements restent à isoler. Le message
+`TelemetryObserver` sur base fermée. Le message serveur `no such table: genome_decisions`
+est attendu dans `test_memory_consumers_authority.js` : le test renomme la table pour
+vérifier le refus de la route, puis la restaure. L'origine du handle fermé
+reste à isoler. Un premier contrôle renforcé de `test_model_provider_sampling.js` a capturé
+deux événements en attente avant fermeture; avec l'assertion sur le résultat de `flush`,
+dix exécutions ciblées successives passent sans warning. Cela rend la fuite détectable mais
+ne localise pas encore son occurrence globale. Le message
 `no such table: telemetry_events` provenait de `test_axolotl_runtime.js`, qui sautait le
 bootstrap de sa base de contrôle tout en émettant des événements. Après initialisation du schéma,
 configuration du secret de test et vidange avant fermeture (commit `4fedd997`), les huit
