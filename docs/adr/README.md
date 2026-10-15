@@ -667,6 +667,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0531](0531-entrees-sensorielles-et-neurogliales-backend.md) | Recevoir les entrées sensorielles et neuro-gliales dans le backend | Accepté pour les parcours HTTP locaux | 2026-10-15 | Biomimétisme, provenance, backend, CLI Rust |
 | [0532](0532-cicatrisation-episodes-orphelins.md) | Cicatriser les épisodes orphelins sans inventer de succès | Accepté pour le runtime backend local | 2026-10-15 | orchestration, reprise après crash, provenance |
 | [0533](0533-raccorder-la-boucle-causale-aux-recus-strategie.md) | Raccorder la boucle causale aux reçus de stratégie | Accepté pour les runs workers munis d'une preuve indépendante de qualité | 2026-10-15 | Exécution, épistémologie, apprentissage causal |
+| [0549](0549-admission-explicite-des-strategies-morphogenetiques.md) | Admission explicite des stratégies morphogénétiques | Implémenté dans la continuation morphogénétique | 2026-10-15 | orchestration, morphogenèse, stratégies, autorité, quiescence |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
