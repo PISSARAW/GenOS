@@ -1,0 +1,49 @@
+{
+  "protocolVersion": 1,
+  "planId": "regime-change-mid-mission-v1",
+  "status": "frozen",
+  "model": "qwen2.5-coder:7b",
+  "modelEndpoint": "http://127.0.0.1:11434/api/chat",
+  "taskSetFile": "regime-change-task-set.json",
+  "taskSetSha256": "eaf591ab5dcce94a0e7690e3dcf100461a8e9a34dd5f6793e95635ac52ad8004",
+  "oracleModule": "holdout-oracles/regime-change-oracles.cjs",
+  "oracleSha256": "569386db7ec9b8f39a6f0dccb5b784eba11e9784009bd998a1549ea5f55457a7",
+  "taskGenerator": "generate-regime-change-tasks.cjs",
+  "taskSeed": 20261015,
+  "training": {
+    "taskIds": ["train-cap-01", "train-cap-02", "train-dag-01", "train-dag-02", "train-enum-01", "train-enum-02"],
+    "candidateTopologies": ["biome", "holobionte", "trinity"],
+    "selectionRule": "highest oracle pass rate per family; tie-break lowest total tokens, then alphabetical",
+    "seeds": [104729]
+  },
+  "holdoutTaskIds": 30,
+  "revealSpec": "La contrainte de phase 2 est contenue dans le prompt ; le moment de revelation est la frontiere entre le diagnostic initial et la synthese finale, identique pour les trois conditions.",
+  "executionBudget": { "tokens": 20000, "latencyMs": 240000, "minimumWorkerTokens": 800, "workerShare": 0.7 },
+  "toolPolicy": "empty-external-tool-allowlist",
+  "seeds": [104729],
+  "conditions": [
+    { "id": "genos-adaptive", "role": "treatment", "adapter": "genos-full",
+      "autonomous": true, "topology": null, "morphogenesisPolicy": { "adaptive": true },
+      "note": "GenOS peut choisir et appliquer une transition (reorganisation admise)." },
+    { "id": "genos-frozen", "role": "fixed-topology-control", "adapter": "genos-full",
+      "autonomous": true, "topology": null, "morphogenesisPolicy": { "adaptive": false },
+      "note": "Meme runtime, topologie figee par famille selectionnee sur les 6 taches d'entrainement, sans adaptation." },
+    { "id": "genos-wrong", "role": "negative-treatment", "adapter": "genos-full",
+      "autonomous": true, "topology": null, "morphogenesisPolicy": { "adaptive": false },
+      "note": "Meme runtime, transition inadaptee imposee par tache (task.wrongTopology), admissible mais inadaptee." }
+  ],
+  "frozenTopology": null,
+  "successCriterion": {
+    "primary": "adaptive oracle pass rate exceeds both controls on paired holdout tasks",
+    "statistics": "paired difference with 95% Wald interval fully positive plus McNemar test",
+    "budget": "no attempt exceeds the shared token/latency ceiling",
+    "attestation": "adaptive attempts must carry a verified morph transitionId with bound workers and sealed receipt; a verified transition without gain proves the mechanism, not its utility"
+  },
+  "evidencePerAttempt": ["pre-transition diagnostic", "admission decision", "transitionId", "assigned workers", "sealed transition receipt", "independent oracle verdict"],
+  "limitations": [
+    "Single repetition per task-condition pair: pilot-grade evidence, not confirmatory (suite requires 3).",
+    "The phase-2 constraint is informational within one prompt; the reveal moment is the epoch boundary between initial diagnosis and final synthesis, not an external temporal injection.",
+    "Training and holdout share families by design (frozen topology is selected per family); instances, params and oracleIds are disjoint.",
+    "oracle-selection arm stays pending: no training outcomes exist outside this protocol."
+  ]
+}

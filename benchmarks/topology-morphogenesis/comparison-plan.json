@@ -3,17 +3,23 @@
   "planId": "topology-causal-comparison-v1",
   "status": "executable-pilot-only",
   "budgetPolicy": "same_total_tokens_and_latency",
-  "executionBudget": { "tokens": 10000, "latencyMs": 240000 },
+  "executionBudget": { "tokens": 10000, "latencyMs": 240000, "minimumWorkerTokens": 800, "workerShare": 0.7 },
   "toolPolicy": "empty-external-tool-allowlist",
   "modelEnvironmentVariable": "GENOS_COMPARISON_MODEL",
   "seedBlocks": [104729, 130363, 155921],
   "conditions": [
     { "id": "model-alone", "role": "baseline", "adapter": "direct-model" },
     { "id": "simple-multi-agent", "role": "baseline", "adapter": "fixed-team" },
-    { "id": "adapted-topology", "role": "treatment", "adapter": "pending" },
-    { "id": "wrong-topology", "role": "negative-treatment", "adapter": "pending" },
+    { "id": "adapted-topology", "role": "treatment", "adapter": "genos-full",
+      "autonomous": true, "topology": null, "morphogenesisPolicy": { "adaptive": false },
+      "note": "Fige la topologie adaptee pre-enregistree par tache (task.adaptedTopology), sans selection adaptative." },
+    { "id": "wrong-topology", "role": "negative-treatment", "adapter": "genos-full",
+      "autonomous": true, "topology": null, "morphogenesisPolicy": { "adaptive": false },
+      "note": "Impose la topologie inadaptee pre-enregistree par tache (task.wrongTopology), admissible mais in adaptee." },
     { "id": "mechanism-ablation", "role": "ablation", "adapter": "communication-light" },
-    { "id": "morphogenesis", "role": "learned-selection", "adapter": "genos-full" },
+    { "id": "morphogenesis", "role": "learned-selection", "adapter": "genos-full",
+      "autonomous": false,
+      "note": "Comportement historique fige: orchestration autonome desactivee. Les bras adaptatifs avec orchestration autonome sont definis dans les plans dedies (regime-change)." },
     { "id": "conditional-router", "role": "query-routed-baseline", "adapter": "conditional-router" },
     { "id": "oracle-selection", "role": "upper-bound", "adapter": "pending" }
   ],
@@ -22,7 +28,8 @@
   "limitations": [
     "A randomized assignment schedule is not an experiment result.",
     "The bundled toy tasks are pilot fixtures and are not unseen or confirmatory holdout tasks.",
-    "Static adapted/wrong topology and oracle-selection remain pending because comparable runtime adapters and training outcomes are absent.",
-    "GenOS internal tools are disabled by request; any observed tool use invalidates the task-condition fairness check."
+    "Static adapted/wrong topology arms are executable via genos-full with frozen per-task topology (task.adaptedTopology/task.wrongTopology) and disabled adaptive selection; oracle-selection remains pending because training outcomes are absent.",
+    "GenOS internal tools are disabled by request; any observed tool use invalidates the task-condition fairness check.",
+    "GenOS arms share the same token/latency ceiling plus harness-scale calibration (minimumWorkerTokens, workerShare) required to fund workers; isolated workspace, capsule root and database per attempt."
   ]
 }

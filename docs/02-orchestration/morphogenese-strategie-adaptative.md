@@ -145,6 +145,16 @@ un recrutement. `NO_CHANGE`, l'abstention et la réserve de vérification doiven
 des options réelles; les rapports corrélés ne comptent pas comme confirmations
 indépendantes.
 
+### Échelles effectivement disponibles
+
+| Échelle | État runtime | Porte et limite actuelle |
+| --- | --- | --- |
+| `NO_CHANGE` | Repli actif quand aucune autre candidate n'est calibrée ou admissible. | Conserve le financement standard et n'autorise pas une action de groupe sur la seule base d'un rapport worker. |
+| `COMMUNICATION_REDUCTION` | Action à la barrière, pour passer à `barrier_only` et retirer les seuls outils de coordination non requis. | Requiert une métrique indépendante propre à la mission et des issues calibrées pour le `candidateId` exact. Sans producteur de métrique par défaut, elle est indisponible en production. |
+| `RESOURCE_REALLOCATION` | Candidate de financement des groupes; les tokens réellement affectés sont liés à l'admission et au reçu scellé de transition. | Chaque allocation financée doit avoir une preuve indépendante liée à son digest; le plan exact doit être calibré. Le producteur de reçus des `resourceNeeds` et le stockage d'issues vérifiées manquent par défaut, donc cette voie s'abstient en production. |
+| `COHORT_REPLACEMENT` | Recrutement et réaffectation possibles à une frontière de quiescence. | Le sélecteur exige une calibration exacte; sans adaptateur de résultats vérifiés, `NO_CHANGE` gagne. La disponibilité d'un nouveau kind ou daemon au dispatch n'est pas garantie. |
+| Réduction de roster et arrêt anticipé | Cibles de la politique, pas des échelles distinctes actuellement sélectionnées par ce portefeuille. | Pas de mesure consolidée des transitions inutiles ni d'optimisation multi-échelle comparée en campagne. La résolution vérifiée arrête la mission selon son gate de résultat. |
+
 ## Boucle de décision proposée
 
 1. **Observer** : établir une signature du problème et de son environnement :

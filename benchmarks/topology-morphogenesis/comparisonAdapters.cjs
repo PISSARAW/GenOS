@@ -143,16 +143,94 @@ function genosServedModel(receipt) {
   return null;
 }
 
+function conditionOf(state) {
+  return state.condition || {};
+}
+
+function resolvedAutonomous(condition) {
+  return condition.autonomous !== false;
+}
+
+function normalizeTopology(topology) {
+  if (!topology) return null;
+  return String(topology).toLowerCase().replace(/-/g, '_');
+}
+
+function taskTopologyFor(condition, task) {
+  if (condition.id === 'adapted-topology') return normalizeTopology(task.adaptedTopology);
+  if (condition.id === 'wrong-topology' || condition.id === 'genos-wrong') {
+    return normalizeTopology(task.wrongTopology);
+  }
+  return null;
+}
+
+function resolvedTopology(condition, task) {
+  return normalizeTopology(condition.topology) || taskTopologyFor(condition, task) || null;
+}
+
+function resolvedPolicy(condition) {
+  return condition.morphogenesisPolicy || null;
+}
+
+function ensureAttemptWorkspace(state) {
+  const fs = require('fs');
+  const path = require('path');
+  fs.mkdirSync(state.workspace, { recursive: true });
+  const marker = path.join(state.workspace, '.genos-workspace');
+  if (!fs.existsSync(marker)) fs.writeFileSync(marker, 'GenOS comparison attempt workspace.\n');
+  const capsuleRoot = path.join(path.dirname(state.workspace), '.genos-agent-worlds');
+  fs.mkdirSync(capsuleRoot, { recursive: true });
+  return capsuleRoot;
+}
+
+function evidenceOf(result) {
+  const receipt = result.receipt || {};
+  const telemetry = Array.isArray(receipt.telemetry) ? receipt.telemetry : [];
+  const transitionId = receipt.transitionId || findTelemetryTransition(telemetry) || null;
+  return { transitionId, selectedTopology: receipt.selectedTopology || null,
+    workerCount: Array.isArray(receipt.workers) ? receipt.workers.length : null,
+    dispatchStatus: receipt.dispatchStatus || null };
+}
+
+function findTelemetryTransition(telemetry) {
+  for (const event of telemetry) {
+    try {
+      const payload = JSON.parse(event.payload_json || '{}');
+      const candidate = payload.transitionId || payload.transition?.transitionId || null;
+      if (candidate) return String(candidate);
+    } catch { /* non-JSON telemetry is not transition evidence */ }
+  }
+  return null;
+}
+
+function applyTopologyForcing(payload, topology) {
+  if (!topology) return payload;
+  payload.topology = topology;
+  payload.proposedTopology = topology;
+  if (topology === 'trinity') payload.trinityMode = 'explicit';
+  return payload;
+}
+
 async function genosFull(task, state) {
   const path = require('path');
   const repo = path.resolve(__dirname, '../..');
-  const payload = { action: 'orchestrate', executor: 'local', autonomous_orchestration: false,
-    mission: task.prompt, timeoutMs: state.budget.latencyMs,
-    execution_budget: { tokens: state.budget.tokens, latencyMs: state.budget.latencyMs },
-    tool_lease: [], allowed_commands: [], allow_file_edits: false };
+  const condition = conditionOf(state);
+  const topology = resolvedTopology(condition, task);
+  const policy = resolvedPolicy(condition);
+  const budget = { tokens: state.budget.tokens, latencyMs: state.budget.latencyMs,
+    minimumWorkerTokens: state.minimumWorkerTokens || 800,
+    workerShare: state.workerShare || 0.7 };
+  const payload = applyTopologyForcing({ action: 'orchestrate', executor: 'local',
+    autonomous_orchestration: resolvedAutonomous(condition),
+    mission: task.prompt, timeoutMs: state.budget.latencyMs, execution_budget: budget,
+    tool_lease: [], allowed_commands: [], allow_file_edits: false,
+    workspaceRoot: state.workspace }, topology);
+  if (policy) payload.morphogenesisPolicy = policy;
   const env = { ...process.env, GENOS_DEFAULT_MODEL: `ollama://${state.model}`,
     GENOS_AGENT_EXECUTOR: 'local', GENOS_LOCAL_MODEL: state.model,
     GENOS_WORKSPACE_ROOT: state.workspace, GENOS_DB_PATH: state.dbPath,
+    GENOS_CAPSULE_ROOT: ensureAttemptWorkspace(state),
+    GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD || 'genos-comparison-admin-pw',
     GENOS_COMPARISON_TOOL_POLICY: 'empty', GENOS_MORPHOGENESIS_V2_SHADOW: '0' };
   const started = performance.now();
   const result = await executeGenos({ payload, env, repo, state });
@@ -179,7 +257,11 @@ async function executeGenos(input) {
     child.once('error', reject);
     child.once('close', (code) => {
       clearTimeout(timer);
-      if (code !== 0) return reject(new Error(`GenOS exited ${code}: ${stderr.slice(-1000)}`));
+      if (code !== 0) {
+        const head = stderr.slice(0, 1000);
+        const tail = stderr.slice(-1000);
+        return reject(new Error(`GenOS exited ${code}: ${head}${tail.length ? ` ... ${tail}` : ''}`));
+      }
       resolve(parseGenosReceipt(stdout));
     });
   });
@@ -219,6 +301,7 @@ function measuredMetrics(condition, state, result) {
       : state.servedModels.size ? 'mixed' : null),
     messageCount: result.messageCount ?? state.messageCount,
     toolUseCount: Number(result.receipt?.coverage?.protocol?.observedCount || 0),
+    transitionEvidence: evidenceOf(result),
     runtimeSucceeded: result.receipt?.success ?? null,
     allWorkersCompleted: result.receipt?.token_usage?.allRunsCompleted ?? null,
     latencyMs: Date.now() - state.startedAt, receipt: result.receipt || null
@@ -236,8 +319,10 @@ async function executeCondition(condition, task, context) {
   const adapter = ADAPTERS[condition.adapter];
   if (!adapter) throw new Error(`No executable adapter for ${condition.adapter}.`);
   const state = createState(context);
+  state.condition = condition;
   const { result, error } = await invokeAdapter(adapter, task, state);
   return formatConditionResult({ condition, state, result, error });
 }
 
-module.exports = { ADAPTERS, executeCondition, parseGenosReceipt, topologyProfile };
+module.exports = { ADAPTERS, executeCondition, parseGenosReceipt, topologyProfile,
+  normalizeTopology, resolvedTopology, resolvedAutonomous, evidenceOf };

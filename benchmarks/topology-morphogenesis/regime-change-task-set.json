@@ -1,0 +1,1477 @@
+{
+  "version": 1,
+  "status": "frozen-regime-change-v1",
+  "seed": 20261015,
+  "trainingInventory": {
+    "taskIds": [
+      "train-cap-01",
+      "train-cap-02",
+      "train-dag-01",
+      "train-dag-02",
+      "train-enum-01",
+      "train-enum-02"
+    ],
+    "taskFamilies": [
+      "regime-cap",
+      "regime-dag",
+      "regime-enum"
+    ],
+    "oracleIds": [
+      "regime-cap-v1",
+      "regime-dag-v1",
+      "regime-enum-v1"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "train-cap-01",
+      "family": "regime-cap",
+      "split": "training",
+      "comparisonEligible": false,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=3, item2=4, item3=4, item4=4, item5=6, item6=2, item7=1. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 8, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 3
+          },
+          {
+            "id": "item2",
+            "w": 4
+          },
+          {
+            "id": "item3",
+            "w": 4
+          },
+          {
+            "id": "item4",
+            "w": 4
+          },
+          {
+            "id": "item5",
+            "w": 6
+          },
+          {
+            "id": "item6",
+            "w": 2
+          },
+          {
+            "id": "item7",
+            "w": 1
+          }
+        ],
+        "bins": 3,
+        "cap": 8
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "train-cap-02",
+      "family": "regime-cap",
+      "split": "training",
+      "comparisonEligible": false,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=2, item2=6, item3=6, item4=5, item5=2, item6=6, item7=4, item8=6. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 13, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 2
+          },
+          {
+            "id": "item2",
+            "w": 6
+          },
+          {
+            "id": "item3",
+            "w": 6
+          },
+          {
+            "id": "item4",
+            "w": 5
+          },
+          {
+            "id": "item5",
+            "w": 2
+          },
+          {
+            "id": "item6",
+            "w": 6
+          },
+          {
+            "id": "item7",
+            "w": 4
+          },
+          {
+            "id": "item8",
+            "w": 6
+          }
+        ],
+        "bins": 3,
+        "cap": 13
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-01",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=1, item2=3, item3=2, item4=4, item5=1, item6=3, item7=5, item8=4, item9=1. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 8, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 1
+          },
+          {
+            "id": "item2",
+            "w": 3
+          },
+          {
+            "id": "item3",
+            "w": 2
+          },
+          {
+            "id": "item4",
+            "w": 4
+          },
+          {
+            "id": "item5",
+            "w": 1
+          },
+          {
+            "id": "item6",
+            "w": 3
+          },
+          {
+            "id": "item7",
+            "w": 5
+          },
+          {
+            "id": "item8",
+            "w": 4
+          },
+          {
+            "id": "item9",
+            "w": 1
+          }
+        ],
+        "bins": 3,
+        "cap": 8
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-02",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=2, item2=2, item3=6, item4=4, item5=5, item6=1, item7=2. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 8, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 2
+          },
+          {
+            "id": "item2",
+            "w": 2
+          },
+          {
+            "id": "item3",
+            "w": 6
+          },
+          {
+            "id": "item4",
+            "w": 4
+          },
+          {
+            "id": "item5",
+            "w": 5
+          },
+          {
+            "id": "item6",
+            "w": 1
+          },
+          {
+            "id": "item7",
+            "w": 2
+          }
+        ],
+        "bins": 3,
+        "cap": 8
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-03",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=6, item2=4, item3=4, item4=6, item5=5, item6=5, item7=1, item8=3. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 13, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 6
+          },
+          {
+            "id": "item2",
+            "w": 4
+          },
+          {
+            "id": "item3",
+            "w": 4
+          },
+          {
+            "id": "item4",
+            "w": 6
+          },
+          {
+            "id": "item5",
+            "w": 5
+          },
+          {
+            "id": "item6",
+            "w": 5
+          },
+          {
+            "id": "item7",
+            "w": 1
+          },
+          {
+            "id": "item8",
+            "w": 3
+          }
+        ],
+        "bins": 3,
+        "cap": 13
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-04",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=1, item2=3, item3=4, item4=2, item5=5, item6=4, item7=6, item8=4, item9=3. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 11, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 1
+          },
+          {
+            "id": "item2",
+            "w": 3
+          },
+          {
+            "id": "item3",
+            "w": 4
+          },
+          {
+            "id": "item4",
+            "w": 2
+          },
+          {
+            "id": "item5",
+            "w": 5
+          },
+          {
+            "id": "item6",
+            "w": 4
+          },
+          {
+            "id": "item7",
+            "w": 6
+          },
+          {
+            "id": "item8",
+            "w": 4
+          },
+          {
+            "id": "item9",
+            "w": 3
+          }
+        ],
+        "bins": 3,
+        "cap": 11
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-05",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=2, item2=1, item3=6, item4=1, item5=3, item6=1, item7=2. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 6, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 2
+          },
+          {
+            "id": "item2",
+            "w": 1
+          },
+          {
+            "id": "item3",
+            "w": 6
+          },
+          {
+            "id": "item4",
+            "w": 1
+          },
+          {
+            "id": "item5",
+            "w": 3
+          },
+          {
+            "id": "item6",
+            "w": 1
+          },
+          {
+            "id": "item7",
+            "w": 2
+          }
+        ],
+        "bins": 3,
+        "cap": 6
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-06",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=6, item2=6, item3=3, item4=2, item5=6, item6=5, item7=2, item8=6. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 13, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 6
+          },
+          {
+            "id": "item2",
+            "w": 6
+          },
+          {
+            "id": "item3",
+            "w": 3
+          },
+          {
+            "id": "item4",
+            "w": 2
+          },
+          {
+            "id": "item5",
+            "w": 6
+          },
+          {
+            "id": "item6",
+            "w": 5
+          },
+          {
+            "id": "item7",
+            "w": 2
+          },
+          {
+            "id": "item8",
+            "w": 6
+          }
+        ],
+        "bins": 3,
+        "cap": 13
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-07",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=4, item2=5, item3=6, item4=4, item5=2, item6=2, item7=5, item8=1, item9=3. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 11, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 4
+          },
+          {
+            "id": "item2",
+            "w": 5
+          },
+          {
+            "id": "item3",
+            "w": 6
+          },
+          {
+            "id": "item4",
+            "w": 4
+          },
+          {
+            "id": "item5",
+            "w": 2
+          },
+          {
+            "id": "item6",
+            "w": 2
+          },
+          {
+            "id": "item7",
+            "w": 5
+          },
+          {
+            "id": "item8",
+            "w": 1
+          },
+          {
+            "id": "item9",
+            "w": 3
+          }
+        ],
+        "bins": 3,
+        "cap": 11
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-08",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=1, item2=6, item3=5, item4=1, item5=4, item6=2, item7=3. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 8, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 1
+          },
+          {
+            "id": "item2",
+            "w": 6
+          },
+          {
+            "id": "item3",
+            "w": 5
+          },
+          {
+            "id": "item4",
+            "w": 1
+          },
+          {
+            "id": "item5",
+            "w": 4
+          },
+          {
+            "id": "item6",
+            "w": 2
+          },
+          {
+            "id": "item7",
+            "w": 3
+          }
+        ],
+        "bins": 3,
+        "cap": 8
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-09",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=5, item2=1, item3=2, item4=3, item5=1, item6=4, item7=2, item8=2. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 7, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 5
+          },
+          {
+            "id": "item2",
+            "w": 1
+          },
+          {
+            "id": "item3",
+            "w": 2
+          },
+          {
+            "id": "item4",
+            "w": 3
+          },
+          {
+            "id": "item5",
+            "w": 1
+          },
+          {
+            "id": "item6",
+            "w": 4
+          },
+          {
+            "id": "item7",
+            "w": 2
+          },
+          {
+            "id": "item8",
+            "w": 2
+          }
+        ],
+        "bins": 3,
+        "cap": 7
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "rc-cap-10",
+      "family": "regime-cap",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : repartis les elements suivants en 3 groupes sans concertation : item1=4, item2=2, item3=1, item4=5, item5=5, item6=2, item7=6, item8=6, item9=1. Contrainte revelee a mi-mission (applique-la avant la reponse finale) : aucun groupe ne doit depasser un total de 11, et chaque element doit appartenir a exactement un groupe. Reorganise la verification entre groupes pour respecter le plafond. Retourne uniquement un objet JSON avec la propriete bins (tableau de 3 tableaux d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyCapacity",
+      "oracleId": "regime-cap-v1",
+      "oracleParams": {
+        "items": [
+          {
+            "id": "item1",
+            "w": 4
+          },
+          {
+            "id": "item2",
+            "w": 2
+          },
+          {
+            "id": "item3",
+            "w": 1
+          },
+          {
+            "id": "item4",
+            "w": 5
+          },
+          {
+            "id": "item5",
+            "w": 5
+          },
+          {
+            "id": "item6",
+            "w": 2
+          },
+          {
+            "id": "item7",
+            "w": 6
+          },
+          {
+            "id": "item8",
+            "w": 6
+          },
+          {
+            "id": "item9",
+            "w": 1
+          }
+        ],
+        "bins": 3,
+        "cap": 11
+      },
+      "adaptedTopology": "biome",
+      "wrongTopology": "syncytium",
+      "rationale": "L'allocation puis la reallocation sous plafond observe exigent un etat de type environnement ; une synchronisation continue d'etat partage sur des groupes independants ajoute de la contention sans benefice.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Biome ne depasse ni le controle fige ni le controle negatif en exactitude appariee, ou Syncytium l'egale sans reallocation."
+    },
+    {
+      "id": "train-dag-01",
+      "family": "regime-dag",
+      "split": "training",
+      "comparisonEligible": false,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : c avant f; a avant e; a avant f. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : b avant c; d avant c. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "c",
+            "f"
+          ],
+          [
+            "a",
+            "e"
+          ],
+          [
+            "a",
+            "f"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "b",
+            "c"
+          ],
+          [
+            "d",
+            "c"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "train-dag-02",
+      "family": "regime-dag",
+      "split": "training",
+      "comparisonEligible": false,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : b avant c; c avant e; c avant d. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : f avant e; a avant b. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "b",
+            "c"
+          ],
+          [
+            "c",
+            "e"
+          ],
+          [
+            "c",
+            "d"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "f",
+            "e"
+          ],
+          [
+            "a",
+            "b"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-01",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : a avant b; d avant f; c avant d. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : a avant e; e avant c. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "a",
+            "b"
+          ],
+          [
+            "d",
+            "f"
+          ],
+          [
+            "c",
+            "d"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "a",
+            "e"
+          ],
+          [
+            "e",
+            "c"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-02",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : a avant b; a avant f; d avant f. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : e avant c; d avant b. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "a",
+            "b"
+          ],
+          [
+            "a",
+            "f"
+          ],
+          [
+            "d",
+            "f"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "e",
+            "c"
+          ],
+          [
+            "d",
+            "b"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-03",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : b avant f; c avant d; d avant f. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : e avant f; f avant a. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "b",
+            "f"
+          ],
+          [
+            "c",
+            "d"
+          ],
+          [
+            "d",
+            "f"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "e",
+            "f"
+          ],
+          [
+            "f",
+            "a"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-04",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : b avant e; b avant f; c avant e. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : d avant e; c avant a. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "b",
+            "e"
+          ],
+          [
+            "b",
+            "f"
+          ],
+          [
+            "c",
+            "e"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "d",
+            "e"
+          ],
+          [
+            "c",
+            "a"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-05",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : b avant d; b avant f; c avant d. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : e avant f; e avant b. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "b",
+            "d"
+          ],
+          [
+            "b",
+            "f"
+          ],
+          [
+            "c",
+            "d"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "e",
+            "f"
+          ],
+          [
+            "e",
+            "b"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-06",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : a avant f; e avant f; a avant e. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : b avant a; b avant c. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "a",
+            "f"
+          ],
+          [
+            "e",
+            "f"
+          ],
+          [
+            "a",
+            "e"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "b",
+            "a"
+          ],
+          [
+            "b",
+            "c"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-07",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : c avant d; a avant b; a avant c. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : c avant b; d avant f. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "c",
+            "d"
+          ],
+          [
+            "a",
+            "b"
+          ],
+          [
+            "a",
+            "c"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "c",
+            "b"
+          ],
+          [
+            "d",
+            "f"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-08",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : a avant f; a avant c; b avant e. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : b avant c; d avant a. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "a",
+            "f"
+          ],
+          [
+            "a",
+            "c"
+          ],
+          [
+            "b",
+            "e"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "b",
+            "c"
+          ],
+          [
+            "d",
+            "a"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-09",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : c avant e; a avant c; b avant d. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : d avant a; f avant d. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "c",
+            "e"
+          ],
+          [
+            "a",
+            "c"
+          ],
+          [
+            "b",
+            "d"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "d",
+            "a"
+          ],
+          [
+            "f",
+            "d"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "rc-dag-10",
+      "family": "regime-dag",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : ordonne les etapes a, b, c, d, e, f sous les contraintes : a avant d; b avant d; a avant e. Contraintes revelees a mi-mission (applique-les avant la reponse finale, elles priment) : f avant d; f avant c. Reorganise l'integration pour que l'ordre final respecte toutes les contraintes. Retourne uniquement un objet JSON avec la propriete order (tableau d'identifiants). N'utilise aucun outil.",
+      "oracle": "verifyOrder",
+      "oracleId": "regime-dag-v1",
+      "oracleParams": {
+        "steps": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "edges": [
+          [
+            "a",
+            "d"
+          ],
+          [
+            "b",
+            "d"
+          ],
+          [
+            "a",
+            "e"
+          ]
+        ],
+        "revealedEdges": [
+          [
+            "f",
+            "d"
+          ],
+          [
+            "f",
+            "c"
+          ]
+        ]
+      },
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "rhizome",
+      "rationale": "Les contrats explicites et le veto d'acceptation de l'hote encadrent l'integration de l'ordre ; l'exploration ouverte sans graphe de dependances n'apporte pas cette garantie.",
+      "primaryMetric": "constraint-satisfaction",
+      "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport aux controles, ou Rhizome l'egale sans contrats."
+    },
+    {
+      "id": "train-enum-01",
+      "family": "regime-enum",
+      "split": "training",
+      "comparisonEligible": false,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=13. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 3. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 13,
+        "forbidden": [
+          3
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "train-enum-02",
+      "family": "regime-enum",
+      "split": "training",
+      "comparisonEligible": false,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=21. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 1, 7. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 21,
+        "forbidden": [
+          1,
+          7
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-01",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=21. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 6, 10. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 21,
+        "forbidden": [
+          6,
+          10
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-02",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=13. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 8. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 13,
+        "forbidden": [
+          8
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-03",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=15. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 3. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 15,
+        "forbidden": [
+          3
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-04",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=13. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 6. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 13,
+        "forbidden": [
+          6
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-05",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=18. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 7. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 18,
+        "forbidden": [
+          7
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-06",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=21. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 20. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 21,
+        "forbidden": [
+          20
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-07",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=13. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 9. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 13,
+        "forbidden": [
+          9
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-08",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=13. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 8. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 13,
+        "forbidden": [
+          8
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-09",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=22. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 19. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 22,
+        "forbidden": [
+          19
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    },
+    {
+      "id": "rc-enum-10",
+      "family": "regime-enum",
+      "split": "holdout",
+      "comparisonEligible": true,
+      "prompt": "Phase 1 (travail independant) : enumere les triplets d'entiers strictement croissants a < b < c tels que a+b+c=15. Filtre global revele a mi-mission (applique-le avant la reponse finale) : aucun triplet ne doit contenir 8, 14. Reorganise la recherche pour eliminer les triplets interdits de facon exhaustive. Retourne uniquement un objet JSON avec la propriete tuples (tableau de triplets). N'utilise aucun outil.",
+      "oracle": "verifyTuples",
+      "oracleId": "regime-enum-v1",
+      "oracleParams": {
+        "sum": 15,
+        "forbidden": [
+          8,
+          14
+        ]
+      },
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
+      "rationale": "L'enumeration exhaustive beneficie de strategies isolees comparees apres cloture ; un vote de quorum correle n'ajoute pas de garantie d'exhaustivite.",
+      "primaryMetric": "exact-oracle-match",
+      "falsifier": "Trinity ne depasse pas les controles en exactitude appariee, ou Biocenose l'egale sans isolation."
+    }
+  ],
+  "revealSpec": "La contrainte de phase 2 est contenue dans le prompt ; le moment de revelation est la frontiere entre le diagnostic initial et la synthese finale.",
+  "budgets": {
+    "tokens": 20000,
+    "latencyMs": 240000,
+    "minimumWorkerTokens": 800,
+    "workerShare": 0.7
+  }
+}

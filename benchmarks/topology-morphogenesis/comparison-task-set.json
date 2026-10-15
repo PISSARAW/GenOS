@@ -8,6 +8,8 @@
       "oracle": "verifyIntegerPartitions",
       "comparisonEligible": true,
       "routingHint": "search",
+      "adaptedTopology": "trinity",
+      "wrongTopology": "biocenose",
       "topologyHypothesis": {
         "adaptedCondition": "adapted-topology:trinity",
         "wrongCondition": "wrong-topology:biocenose",
@@ -22,6 +24,8 @@
       "oracle": "verifyDistinctLetters",
       "comparisonEligible": true,
       "routingHint": "single",
+      "adaptedTopology": "biocenose",
+      "wrongTopology": "rhizome",
       "topologyHypothesis": {
         "adaptedCondition": "adapted-topology:biocenose",
         "wrongCondition": "wrong-topology:rhizome",
@@ -36,12 +40,14 @@
       "oracle": "verifyDependencyOrder",
       "comparisonEligible": true,
       "routingHint": "dependencies",
+      "adaptedTopology": "holobionte",
+      "wrongTopology": "trinity",
       "topologyHypothesis": {
-        "adaptedCondition": "adapted-topology:a-team",
+        "adaptedCondition": "adapted-topology:holobionte",
         "wrongCondition": "wrong-topology:trinity",
-        "rationale": "Les contraintes forment un DAG explicite; une équipe avec responsabilités et handoffs peut limiter les violations d'ordre.",
+        "rationale": "Les contraintes forment un DAG explicite; des contrats explicites et un veto d'acceptation peuvent limiter les violations d'ordre.",
         "primaryMetric": "constraint-satisfaction",
-        "falsifier": "L'A-Team ne réduit pas les violations de dépendances par rapport au modèle seul et à l'ablation du DAG."
+        "falsifier": "Holobionte ne reduit pas les violations de dependances par rapport au modele seul et au controle impose."
       }
     },
     {
@@ -50,6 +56,8 @@
       "oracle": "verifyArithmeticPartition",
       "comparisonEligible": true,
       "routingHint": "single",
+      "adaptedTopology": null,
+      "wrongTopology": "biocenose",
       "topologyHypothesis": {
         "adaptedCondition": "model-alone",
         "wrongCondition": "adapted-topology",
