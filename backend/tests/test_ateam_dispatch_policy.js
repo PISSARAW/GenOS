@@ -26,6 +26,11 @@ function run() {
   assert.ok(pod.members.find((member) => member.subSystem === 'api').consults.includes('web'));
   assert.match(pod.members.find((member) => member.subSystem === 'api').mission, /Consult peer domains before cross-domain decisions: web, security/);
   assert.equal(pod.policy.boundarySpanners[0].ownerMemberId, 'security');
+  const peers = members.map((member) => ({ ...member, dependsOn: [] }));
+  const peerPod = prepareDispatchPolicy({
+    mission: { goal: 'Peer audit', variant: 'cross_functional_pod' }, members: peers, totalBudget: 120000
+  });
+  assert.deepEqual(peerPod.members.map((member) => member.executionBudgetTokens), [40000, 40000, 40000]);
   const incidentMembers = [...members, { memberId: 'ops', subSystem: 'ops', role: 'operations' }];
   const incident = prepareDispatchPolicy({ mission: { variant: 'incident_command', incidentRoles: { commander: 'api', operations: 'ops', planning: 'web', logistics: 'security' }, sitrepIntervalMinutes: 15, operationalObjectives: ['restore service'] }, members: incidentMembers });
   assert.equal(incident.policy.commanderMemberId, 'api');

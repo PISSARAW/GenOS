@@ -71,7 +71,9 @@ Le runner détaché conserve maintenant `consults`, `communicationCadence` et
 Pour `cross_functional_pod`, la mission nomme également les domaines à consulter et
 demande de consigner les consultations dans le rapport de preuves. Cette transmission
 rend la politique disponible pendant l'exécution ; elle ne prouve pas qu'une consultation
-a eu lieu et n'ajoute pas de gate de clôture. Les variantes `pipeline` et `relay_team`
+a eu lieu et n'ajoute pas de gate de clôture. Lorsque tous les membres sont indépendants,
+ils appartiennent tous au chemin critique et reçoivent donc une allocation égale à profil
+de risque identique ; aucun premier membre arbitraire n'obtient un multiplicateur. Les variantes `pipeline` et `relay_team`
 gardent leur ordonnancement bloquant et leurs handoffs dépendants des preuves.
 
 ## Opérations des contrats de variante

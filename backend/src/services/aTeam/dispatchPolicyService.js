@@ -210,6 +210,7 @@ function allocateBudget(totalBudget, members, graph) {
 }
 
 function criticalMemberKeys(graph) {
+  if (!graph.edges.length) return new Set(graph.nodes.map((node) => node.memberId).filter(Boolean));
   const keys = new Set();
   for (const nodeId of graph.criticalPath.nodeIds) {
     const node = graph.nodes.find((entry) => entry.nodeId === nodeId);
