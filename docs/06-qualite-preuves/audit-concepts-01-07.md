@@ -92,17 +92,19 @@ la fixture utilise maintenant un répertoire temporaire unique et le test ciblé
 `test_gqwf_trinity_mission_qualification.js` a échoué une fois avec `partial` au lieu de
 `complete`. Son scheduler GarageFabric périodique n'était pas arrêté avant fermeture de
 la base; le test ciblé repasse après arrêt/vidange explicite du scheduler, sans tick sur
-une base fermée. Le nouveau `npm test` a passé la biologie, l'isolation de workspace et
-l'identité, puis a été interrompu avant la fin du backend : le disque était tombé à
-278 982 656 octets libres et le démarrage signalait l'échec de sa sauvegarde pré-migration
-best-effort. Ce run ne qualifie donc pas `npm test` globalement. Les tests ciblés corrigés
-ont code 0; ils ne remplacent pas ce gate.
+une base fermée. Après une première relance interrompue temporairement lorsque l'espace
+libre est descendu à 279 Mo, le nettoyage des fixtures a rendu plusieurs Gio disponibles
+et le `npm test` complet a terminé avec code 0 : biologie, workspace workers, backend,
+garage et P1 V3 passent. L'index de tests a aussi émis des erreurs asynchrones de
+`TelemetryObserver` (`no such table: telemetry_events` / handle fermé) et un serveur a
+signalé l'absence de `genome_decisions`; les suites ont néanmoins terminé avec succès.
+Ces logs restent des anomalies à isoler, pas des échecs masqués par la qualification.
 
-Le contrôle qualité du checkout après ces changements a inspecté 6 181 fichiers et
-signalé 14 violations, dont 3 nouvelles dans des changements non liés à cet audit :
-`crates/genos-cli/src/commands/metabolic_pool.rs` (complexité 12),
-`examples/holobionte/password-change-llm-mission.cjs` (4 paramètres et complexité 11).
-Le gate staged des fixtures modifiées inspecte leurs fichiers et passe sans violation.
+Le contrôle qualité final du checkout a inspecté 6 183 fichiers et signalé 14 violations,
+dont 3 nouvelles dans `examples/holobionte/password-change-llm-mission.cjs` : 4 paramètres
+à la ligne 45, complexité 12 à la ligne 45 et complexité 11 à la ligne 135. Le gate staged
+des fixtures de test modifiées passe sans violation. L'index ADR compte 632 entrées et
+ne signale aucun problème.
 
 La relecture des budgets CPU précise la lacune : `workerResourcePolicy.js` place
 `maxCpuMs` dans `workerContract.resources`, mais `workerRuntimeLimitsService.js` ne le
