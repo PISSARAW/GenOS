@@ -10,14 +10,20 @@ const SCHEMA = 'genos.execution-authority-envelope/v1';
 
 function eventId(runId) { return `gvx-run:${runId}:authority`; }
 
-async function realWorkspaceRoot(root, resolve = fs.realpath) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+async function realWorkspaceRoot(root, options = {}) {
+  const resolve = options.resolve || fs.realpath;
+  const attempts = options.attempts || 40;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try { return await resolve(root); }
     catch (failure) {
-      if (!['EPERM', 'EBUSY'].includes(failure.code) || attempt === 39) throw failure;
+      if (!['EPERM', 'EBUSY'].includes(failure.code)) throw failure;
+      if (attempt === attempts - 1) break;
       await new Promise((done) => setTimeout(done, 25 * (attempt + 1)));
     }
   }
+  const validate = options.validate
+    || require('./workspaceSnapshotPaths').assertNoSymlinkAbsolutePath;
+  return validate(root);
 }
 
 async function seal(ctx) {
