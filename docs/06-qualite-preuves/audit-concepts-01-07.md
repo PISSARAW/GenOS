@@ -86,6 +86,15 @@ Rust complet passent après correction. Le contrôle qualité inspecte 6 159 fic
 et signale dix violations baseline, zéro nouvelle; le gate staged du correctif
 signale zéro violation. L'index ADR compte 632 entrées sans problème.
 
+Après le durcissement du rejeu crossover (`ad067a44`), les tests ciblés de
+l'orchestrateur (dont les divergences de génome, cellule et parent) et du CLI
+interprocessus passent. Un nouveau `cargo test --workspace` ne compile pas le
+checkout partagé courant : `crates/genos-cli/src/commands/sensory.rs` échoue
+sur deux références à `SensoryInput` non importé dans ses tests. Ces fichiers
+sensoriels sont des modifications locales non incluses dans le correctif
+crossover; le résultat antérieur du workspace reste valide pour son état
+antérieur, pas pour cet état partagé.
+
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |
