@@ -26,6 +26,13 @@ function coordinationWaitMs(state = {}) {
   return Math.min(300000, Math.max(30000, Math.floor(latencyMs * 0.45)));
 }
 
+function recordVerifiedCoordination(state, coordination) {
+  if (!coordination) return [];
+  const verifiedTools = [...state.requiredTools];
+  for (const tool of verifiedTools) state.observedTools?.add(tool);
+  return verifiedTools;
+}
+
 function toolNames(listResult) {
   const tools = Array.isArray(listResult) ? listResult : listResult?.tools;
   return [...new Set((tools || []).map((tool) => tool && tool.name).filter(Boolean))];
@@ -93,7 +100,8 @@ async function runWorkerMcpInventoryPreflight(input) {
         callTool, orchestratorId: input.state.orchestratorAgentId,
         maxWaitMs: coordinationWaitMs(input.state)
       }) : null;
-    return { availableTools, requiredTools: [...input.state.requiredTools], coordination };
+    const verifiedTools = recordVerifiedCoordination(input.state, coordination);
+    return { availableTools, requiredTools: [...input.state.requiredTools], verifiedTools, coordination };
   } catch (failure) {
     input.state.emit?.({ eventType: 'AGENT_FAILED', action: 'MCP_PREFLIGHT', status: 'error',
       detail: failure.message, payload: { code: failure.code || 'WORKER_MCP_PREFLIGHT_FAILED' } });
@@ -104,5 +112,5 @@ async function runWorkerMcpInventoryPreflight(input) {
 }
 
 module.exports = { COORDINATION_TOOLS, continuousCoordination, requiredWorkerTools,
-  coordinationWaitMs, toolNames, validateInventory, resolveSdkRoot,
+  coordinationWaitMs, recordVerifiedCoordination, toolNames, validateInventory, resolveSdkRoot,
   runWorkerMcpInventoryPreflight };

@@ -14,6 +14,12 @@ assert.equal(preflight.coordinationWaitMs({}), 120000);
 assert.equal(preflight.coordinationWaitMs({ executionBudget: { latencyMs: 540000 } }), 243000);
 assert.equal(preflight.coordinationWaitMs({ executionBudget: { latencyMs: 1000 } }), 30000);
 assert.equal(preflight.coordinationWaitMs({ executionBudget: { latencyMs: 900000 } }), 300000);
+const observedTools = new Set();
+const verifiedTools = preflight.recordVerifiedCoordination({ requiredTools: new Set(required), observedTools },
+  { directMessageId: 1, sharedMessageId: 2, replyMessageId: 3 });
+assert.deepEqual(verifiedTools, required);
+assert.deepEqual([...observedTools], required);
+assert.deepEqual(preflight.recordVerifiedCoordination({ requiredTools: new Set(required), observedTools }, null), []);
 const isolatedSdk = preflight.resolveSdkRoot({
   binaries: { workspace: path.join(__dirname, 'isolated-workspace-without-dependencies') }
 });
