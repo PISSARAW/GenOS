@@ -19,6 +19,7 @@ const missions = require('../src/services/agentRuntimeAdapter/missionWorkers');
 const evidenceBarrier = require('../src/services/workerEvidenceBarrier');
 const comparativeBarrier = require('../src/services/trinityComparativeBarrier');
 const telemetry = require('../src/services/telemetryObserver');
+const { chooseCapsuleRoot } = require('../src/services/agentWorkspaceLifecycle/placement');
 
 const workerAssignments = {
   basic_implementation: { methodContract: scopedMethod() },
@@ -167,7 +168,7 @@ async function assertEscalatedComparison(db, result) {
 async function qualify(root) {
   const dbPath = path.join(root, 'qualification.sqlite');
   const previousCapsuleRoot = process.env.GENOS_CAPSULE_ROOT;
-  const capsuleRoot = path.resolve(__dirname, '../../.genos-agent-worlds', `gqwf-trinity-${crypto.randomUUID()}`);
+  const capsuleRoot = path.resolve(chooseCapsuleRoot(0), `gqwf-trinity-${crypto.randomUUID()}`);
   await fs.mkdir(capsuleRoot, { recursive: true });
   process.env.GENOS_CAPSULE_ROOT = capsuleRoot;
   let db = await database.getDatabase(dbPath);
