@@ -6,6 +6,7 @@ const path = require('node:path');
 const proofService = require('./proofService');
 
 const SOURCE = 'ontogenesis-independent-verifier';
+const SCHEMA = 'genos.ontogenesis-verifier-receipt/v1';
 
 function checksDigest(checks) {
   return crypto.createHash('sha256').update(JSON.stringify(checks)).digest('hex');
@@ -18,7 +19,7 @@ function samePath(left, right) {
 }
 
 function validIdentity(receipt, expected) {
-  return receipt?.source === SOURCE && receipt.missionId === expected?.missionId
+  return receipt?.schema === SCHEMA && receipt.source === SOURCE && receipt.missionId === expected?.missionId
     && Boolean(expected?.workspaceRoot) && Array.isArray(expected.checks) && expected.checks.length > 0;
 }
 
@@ -43,7 +44,7 @@ async function createReceipt(input) {
   if (!Array.isArray(input.checks) || !input.checks.length) return null;
   const workspaceRoot = fs.realpathSync(input.workspaceRoot);
   const proof = await proofService.verifyChecks(workspaceRoot, input.checks, { timeoutMs: input.timeoutMs });
-  return { source: SOURCE, missionId: input.missionId, workspaceRoot,
+  return { schema: SCHEMA, source: SOURCE, missionId: input.missionId, workspaceRoot,
     checksDigest: checksDigest(input.checks), ...proof };
 }
 

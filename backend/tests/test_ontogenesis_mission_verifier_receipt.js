@@ -42,6 +42,9 @@ async function main() {
     assert.deepEqual(await completionGate({}, input), { allowed: true });
     assert.deepEqual(await completionGate({}, { ...input, verifierReceipt: { ...receipt, missionId: 'forged' } }),
       { allowed: false, reason: 'verifier-receipt-independant-requis' });
+    assert.equal(await receipts.validateReceipt({ ...receipt, schema: 'unknown' }, {
+      missionId: 'onto-1', workspaceRoot: root, checks,
+    }), false);
     assert.equal(await receipts.validateReceipt(receipt, { missionId: 'onto-2', workspaceRoot: root, checks }), false);
     assert.equal(await receipts.validateReceipt(receipt, { missionId: 'onto-1', workspaceRoot: root,
       checks: [{ ...checks[0], args: ['-e', 'process.exit(0)'] }] }), false);
