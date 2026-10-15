@@ -222,9 +222,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0191b](0191-quorum-electrocyte-lie-a-la-mission.md) | Quorum d'électrocyte lié à la mission | Accepté | 2026-09-30 | Cellules, votes, délai, mesure |
 | [0192](0192-reponse-neuro-gliale-aux-evenements-de-mission.md) | Réponse neuro-gliale corrélée aux événements de mission | Accepté | 2026-09-30 | Runtime, neurobiologie, glie, quorum, preuve |
 | [0193](0193-mesures-du-filtrage-choanocyte.md) | Mesures runtime du filtrage choanocyte | Accepté | 2026-09-30 | Runtime, flux, cellules spécialisées, mesure |
-| [0194](0194-conformite-du-rendu-iridophore.md) | Conformité du rendu iridophore au runtime | Accepté | 2026-09-30 | Runtime, rendu, cellules spécialisées, preuve |
+| [0194](0194-conformite-du-rendu-iridophore.md) | Conformité du rendu iridophore au runtime | Accepté, amendé et implémenté | 2026-10-15 | Runtime, rendu, cellules spécialisées, preuve |
 | [0195](0195-enforcement-metabolique-cellule-de-garde.md) | Enforcement métabolique par la cellule de garde | Accepté | 2026-09-30 | Runtime, métabolisme, flux, cellules spécialisées |
-| [0196](0196-plan-runtime-tracheide-et-mesure-de-cout.md) | Plan runtime et mesure de coût de la trachéide | Accepté | 2026-09-30 | Runtime, compilation de plan, cellules spécialisées, mesure |
+| [0196](0196-plan-runtime-tracheide-et-mesure-de-cout.md) | Plan runtime et mesure de coût de la trachéide | Accepté, amendé et implémenté | 2026-10-15 | Runtime, plan interprété, cellules spécialisées, preuves |
 | [0197](0197-transfert-hgt-sous-lease-et-revocation.md) | Transfert HGT sous lease et révocation | Accepté | 2026-09-30 | Runtime, transfert horizontal, autorisation, audit |
 | [0198](0198-contrat-canonique-de-verification-epistemique.md) | Contrat canonique de vérification épistémique | Accepté | 2026-09-30 | Épistémologie, vérification, promotion |
 | [0199](0199-resolution-et-boucle-evenementielle-de-morphogenese.md) | Résolution morphologique et boucle événementielle | Accepté | 2026-09-30 | Morphogenèse, planification, adaptation runtime |
@@ -620,10 +620,12 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0487b](0487-votes-electrocytaires-signes-et-rejouables.md) | Votes électrocytaires signés et rejouables | Décidé pour le contrat Rust v1; le provisionnement de confiance et les transports restent ouverts. | 2026-10-15 | Quorum électrocytaire, identité des votants et reçus durables. |
 | [0488](0488-borner-les-recherches-de-provenance.md) | Borner les recherches de provenance MCP | Accepté et implémenté. | 2026-10-14 | `genos_blame`, `genos_lineage` et extraction d'évidence. |
 | [0489](0489-scoper-les-recherches-de-provenance-au-workspace.md) | Scoper les recherches de provenance au workspace | Accepté et implémenté. | 2026-10-14 | Autorisation MCP, provenance et isolation des workspaces. |
-| [0490](0490-borner-le-pruning-synaptique-au-workspace.md) | Borner le pruning synaptique au workspace authentifié | Accepté et implémenté. | 2026-10-14 | Autorité MCP et mutations du graphe mémoire. |
+| [0490a](0490-borner-le-pruning-synaptique-au-workspace.md) | Borner le pruning synaptique au workspace authentifié | Accepté et implémenté. | 2026-10-14 | Autorité MCP et mutations du graphe mémoire. |
+| [0490b](0490-flux-neuro-glial-de-mission-au-cli-experimental.md) | Flux neuro-glial de mission au CLI expérimental | Accepté pour le contrat CLI local expérimental | 2026-10-15 | Neurobiologie, glie, journal de mission |
 | [0491](0491-scoper-les-inhibitions-synaptiques-au-projet.md) | Scoper les inhibitions synaptiques au projet | Accepté et implémenté. | 2026-10-15 | Recherche mémoire et isolation des projets. |
 | [0492](0492-refuser-la-promotion-des-resultats-provisoires.md) | Refuser la promotion des résultats provisoires | Accepté, transition de champion implémentée. | 2026-10-15 | Mémoire de requête, statut et champion courant. |
-| [0493](0493-exiger-le-snapshot-complet-des-dependances.md) | Exiger le snapshot complet des dépendances | Accepté et implémenté pour la réutilisation mémoire. | 2026-10-15 | Réutilisation des résultats et invalidation. |
+| [0493a](0493-exiger-le-snapshot-complet-des-dependances.md) | Exiger le snapshot complet des dépendances | Accepté et implémenté pour la réutilisation mémoire. | 2026-10-15 | Réutilisation des résultats et invalidation. |
+| [0493b](0493-route-backend-registre-metabolique.md) | Route backend du registre métabolique expérimental | Accepté pour le parcours local expérimental | 2026-10-15 | `MetabolicPool`, autorisation de mission, pont backend/Rust |
 | [0494](0494-scoper-la-memoire-de-requete-au-workspace.md) | Scoper la mémoire de requête au workspace | Accepté et implémenté pour `bestKnownResultService`. | 2026-10-15 | Cache de résultats et isolation des workspaces. |
 | [0495](0495-rendre-atomiques-les-promotions-de-resultats.md) | Rendre atomiques les promotions de résultats | Accepté et implémenté pour `bestKnownResultService`. | 2026-10-15 | Cohérence des champions et écritures SQLite. |
 | [0496](0496-exiger-un-recu-de-verification-lie-au-resultat.md) | Exiger un reçu de vérification lié au résultat | Accepté et implémenté pour la mémoire de requête. | 2026-10-15 | Preuve avant promotion du cache de résultats. |

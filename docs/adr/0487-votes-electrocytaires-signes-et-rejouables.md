@@ -1,6 +1,6 @@
 # ADR 0487 — Votes électrocytaires signés et rejouables
 
-- **Statut** : Décidé pour le contrat Rust v1; le provisionnement de confiance et les transports restent ouverts.
+- **Statut** : Décidé pour le contrat Rust v1 et le CLI expérimental; le provisionnement de confiance et les transports serveur restent ouverts.
 - **Date** : 2026-10-15
 - **Domaine** : Quorum électrocytaire, identité des votants et reçus durables.
 - **Décideurs** : Mainteneur GenOS.
@@ -31,6 +31,11 @@ mais le rejeu ne vérifiait pas d'autorité cryptographique.
    le reçu avant la mutation de l'organe et refuse une requête divergente pour
    une proposition déjà acceptée. Le rejeu revalide les signatures et les claims
    du reçu avant de restaurer l'état.
+5. `genos electric-quorum` accepte un fichier JSON versionné de clés publiques
+   fourni explicitement par l'appelant, restaure la population et le tick de la
+   mission, puis utilise le verrou noyau partagé et le journal de reçus local.
+   Cette voie exige `--experimental` et déclare l'appelant CLI non authentifié;
+   fournir un fichier de clés ne constitue pas une racine de confiance hôte.
 
 ## Conséquences
 
@@ -56,8 +61,8 @@ mais le rejeu ne vérifiait pas d'autorité cryptographique.
   entre processus.
 - Le journal est single-writer; l'idempotence locale ne garantit pas une
   consommation unique entre plusieurs processus concurrents.
-- Aucun branchement CLI ou backend n'est fourni et aucune tension électrique
-  réelle n'est mesurée.
+- Le branchement CLI est local et expérimental; aucun backend n'est fourni et
+  aucune tension électrique réelle n'est mesurée.
 
 ## Alternatives
 
@@ -76,3 +81,6 @@ mais le rejeu ne vérifiait pas d'autorité cryptographique.
   mutation seulement après append.
 - `crates/genos-orchestrator/tests/electric_quorum_process_restart.rs` : reprise
   et vérification des votes signés dans un processus enfant.
+- `crates/genos-cli/src/commands/electric_quorum_tests.rs` et
+  `crates/genos-cli/tests/electric_quorum_process_cli.rs` : opt-in, clé absente,
+  idempotence divergente et deux processus CLI sur un journal de mission.

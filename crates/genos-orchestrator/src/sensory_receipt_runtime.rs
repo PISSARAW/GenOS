@@ -36,6 +36,15 @@ pub fn read_synthetic_sensory_receipts(
     store: &BiologicalReceiptStore,
     mission_id: Uuid,
 ) -> Result<Vec<Value>, String> {
+    read_verified_synthetic_sensory_envelopes(store, mission_id)?
+        .into_iter().map(|receipt| Ok(receipt["source_receipt"].clone())).collect()
+}
+
+/// Reads receipt envelopes only after validating their mission-bound digest.
+pub fn read_verified_synthetic_sensory_envelopes(
+    store: &BiologicalReceiptStore,
+    mission_id: Uuid,
+) -> Result<Vec<Value>, String> {
     store.read_all()?.into_iter()
         .filter(|receipt| receipt["schema"] == RECEIPT_SCHEMA && receipt["mission_id"] == mission_id.to_string())
         .map(|receipt| verify_receipt(receipt, mission_id))
@@ -70,7 +79,7 @@ fn verify_receipt(receipt: Value, mission_id: Uuid) -> Result<Value, String> {
     if receipt["source_digest"].as_str() != Some(digest(mission_id, source)?.as_str()) {
         return Err("Synthetic sensory receipt digest mismatch".into());
     }
-    Ok(source.clone())
+    Ok(receipt)
 }
 
 fn digest(mission_id: Uuid, value: &Value) -> Result<String, String> {

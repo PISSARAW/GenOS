@@ -42,28 +42,59 @@ function invalid(message, code) {
   return Object.assign(new Error(message), { code: code || 'HOLOBIONT_LLM_MALFORMED' });
 }
 
-async function chatJson(model, prompt, maxTokens, temperature) {
+function readTokenCount(primary, fallback) {
+  return Number(primary ?? fallback) || 0;
+}
+
+function parseChatResponse(model, payload) {
+  const content = payload?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) throw invalid(`LLM ${model} returned an empty answer.`);
+  const usage = payload?.usage || {};
+  return { text: content,
+    promptTokens: readTokenCount(usage.prompt_tokens, payload?.prompt_eval_count),
+    completionTokens: readTokenCount(usage.completion_tokens, payload?.eval_count) };
+}
+
+async function requestChat({ model, prompt, maxTokens, temperature }, signal) {
+  const response = await fetch(OLLAMA_CHAT_URL, { method: 'POST', signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }],
+      temperature, stream: false, format: 'json', options: { num_predict: maxTokens } }) });
+  if (!response.ok) throw invalid(`LLM ${model} returned HTTP ${response.status}.`, 'HOLOBIONT_LLM_UNAVAILABLE');
+  return parseChatResponse(model, await response.json());
+}
+
+function normalizeChatError(model, error) {
+  if (error?.code === 'HOLOBIONT_LLM_MALFORMED' || error?.code === 'HOLOBIONT_LLM_UNAVAILABLE') return error;
+  return invalid(`LLM ${model} unreachable: ${error.message}.`, 'HOLOBIONT_LLM_UNAVAILABLE');
+}
+
+async function chatJson(options) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CALL_TIMEOUT_MS);
-  try {
-    const response = await fetch(OLLAMA_CHAT_URL, { method: 'POST', signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }],
-        temperature, stream: false, format: 'json', options: { num_predict: maxTokens } }) });
-    if (!response.ok) throw invalid(`LLM ${model} returned HTTP ${response.status}.`, 'HOLOBIONT_LLM_UNAVAILABLE');
-    const payload = await response.json();
-    const content = payload?.choices?.[0]?.message?.content;
-    if (typeof content !== 'string' || !content.trim()) throw invalid(`LLM ${model} returned an empty answer.`);
-    const usage = payload?.usage || {};
-    const promptTokens = Number(usage.prompt_tokens ?? payload?.prompt_eval_count) || 0;
-    const completionTokens = Number(usage.completion_tokens ?? payload?.eval_count) || 0;
-    return { text: content, promptTokens, completionTokens };
-  } catch (error) {
-    if (error?.code === 'HOLOBIONT_LLM_MALFORMED' || error?.code === 'HOLOBIONT_LLM_UNAVAILABLE') throw error;
-    throw invalid(`LLM ${model} unreachable: ${error.message}.`, 'HOLOBIONT_LLM_UNAVAILABLE');
-  } finally {
-    clearTimeout(timer);
+  try { return await requestChat(options, controller.signal); }
+  catch (error) { throw normalizeChatError(options.model, error); }
+  finally { clearTimeout(timer); }
+}
+
+function advanceObjectState(ch, state) {
+  if (state.inString) {
+    if (state.escaped) state.escaped = false;
+    else if (ch === '\\') state.escaped = true;
+    else if (ch === '"') state.inString = false;
+  } else if (ch === '"') state.inString = true;
+  else if (ch === '{') state.depth++;
+  else if (ch === '}') state.depth--;
+  return state;
+}
+
+function readObjectValue(text) {
+  const state = { depth: 0, inString: false, escaped: false };
+  for (let index = 0; index < text.length; index++) {
+    advanceObjectState(text[index], state);
+    if (state.depth === 0 && index > 0) return text.slice(0, index + 1);
   }
+  return null;
 }
 
 function readRawValue(text) {
@@ -72,26 +103,7 @@ function readRawValue(text) {
     const match = trimmed.match(/^"((?:[^"\\]|\\.)*)"/);
     return match ? match[1] : null;
   }
-  if (trimmed[0] === '{') {
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-    for (let index = 0; index < trimmed.length; index++) {
-      const ch = trimmed[index];
-      if (inString) {
-        if (escaped) escaped = false;
-        else if (ch === '\\') escaped = true;
-        else if (ch === '"') inString = false;
-      } else if (ch === '"') inString = true;
-      else if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) return trimmed.slice(0, index + 1);
-      }
-    }
-    return null;
-  }
-  return null;
+  return trimmed[0] === '{' ? readObjectValue(trimmed) : null;
 }
 
 function salvageFlaw(part) {
@@ -133,19 +145,35 @@ function parseJsonAnswer(model, text, strict) {
 }
 
 function assertProcedureShape(model, value) {
-  const steps = Array.isArray(value?.steps) ? value.steps : [];
-  const policy = value?.policy && typeof value.policy === 'object' ? value.policy : null;
-  const rules = Array.isArray(value?.reusableRules) ? value.reusableRules : [];
+  const steps = readSteps(value);
+  const policy = readPolicy(value);
+  const rules = readRules(value);
   if (steps.length < 6 || !steps.every((step) => typeof step === 'string' && step.trim())) {
     throw invalid(`LLM ${model} returned too few procedure steps.`);
   }
-  const required = ['minLength', 'breachCheck', 'historyDepth', 'rateLimit',
-    'sessionRevocation', 'audit', 'reauthRequired', 'hashing', 'transport'];
-  if (!policy || required.some((key) => policy[key] === undefined)) {
+  if (!hasCompletePolicy(policy)) {
     throw invalid(`LLM ${model} returned an incomplete policy.`);
   }
   if (rules.length < 1) throw invalid(`LLM ${model} returned no reusable rules.`);
   return { steps, policy, rules };
+}
+
+function readSteps(value) {
+  return Array.isArray(value?.steps) ? value.steps : [];
+}
+
+function readPolicy(value) {
+  return value?.policy && typeof value.policy === 'object' ? value.policy : null;
+}
+
+function readRules(value) {
+  return Array.isArray(value?.reusableRules) ? value.reusableRules : [];
+}
+
+function hasCompletePolicy(policy) {
+  const required = ['minLength', 'breachCheck', 'historyDepth', 'rateLimit',
+    'sessionRevocation', 'audit', 'reauthRequired', 'hashing', 'transport'];
+  return Boolean(policy) && required.every((key) => policy[key] !== undefined);
 }
 
 const PLAINTEXT_HINT = /en clair|par courriel|journal|plaintext/i;
@@ -178,7 +206,8 @@ function reviewProcedure(result) {
 }
 
 async function designProcedure() {
-  const answer = await chatJson(SPECIALIST_MODEL, SPECIALIST_PROMPT, 1500, 0.3);
+  const answer = await chatJson({ model: SPECIALIST_MODEL, prompt: SPECIALIST_PROMPT,
+    maxTokens: 1500, temperature: 0.3 });
   const parsed = parseJsonAnswer(SPECIALIST_MODEL, answer.text, true);
   const shaped = assertProcedureShape(SPECIALIST_MODEL, parsed.value);
   const procedure = { procedure: 'rotation-secret-compte', steps: shaped.steps,
@@ -196,8 +225,9 @@ async function execution() {
 }
 
 async function immuneVerdict(procedure) {
-  const answer = await chatJson(IMMUNE_MODEL,
-    `${IMMUNE_PROMPT_PREFIX}${JSON.stringify(procedure)}${IMMUNE_PROMPT_SUFFIX}`, 2000, 0);
+  const answer = await chatJson({ model: IMMUNE_MODEL,
+    prompt: `${IMMUNE_PROMPT_PREFIX}${JSON.stringify(procedure)}${IMMUNE_PROMPT_SUFFIX}`,
+    maxTokens: 2000, temperature: 0 });
   const parsed = parseJsonAnswer(IMMUNE_MODEL, answer.text, false);
   const verdict = String(parsed.value?.verdict || '').trim().toUpperCase();
   if (verdict !== 'PASS' && verdict !== 'FAIL') throw invalid(`LLM ${IMMUNE_MODEL} returned no usable verdict.`);

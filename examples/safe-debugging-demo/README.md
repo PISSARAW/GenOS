@@ -9,11 +9,8 @@ This is the shortest executable demonstration of the GenOS counterfactual runtim
 
 ### On Windows / Cross-Platform (Node.js)
 ```bash
-# Ensure the native CLI is built
-cargo build -p genos-cli
-
 # Run the reproducible debugging suite
-node examples/safe-debugging-demo/run-demo.mjs target/debug/genos
+node examples/safe-debugging-demo/run-demo.mjs
 ```
 
 ---
@@ -34,5 +31,5 @@ Evidence and execution telemetry are persisted locally:
 - `studio/public/demo/`: Exported evidence available to the Studio UI surface.
 
 > [!NOTE]
-> The demo executes entirely against local code and the native Rust CLI without making any external LLM calls. Token consumption and model costs are **exactly zero for this demo**. It validates local state mechanics and isolation boundaries; its replay output is validation/evidence, not proof of general causal replay fidelity.
+> The demo runs entirely in Node.js without invoking the Rust CLI or making external LLM calls. Token consumption and model costs are **exactly zero for this demo**. It validates the demo's local state mechanics and isolation boundaries; its replay output is validation/evidence, not proof of general causal replay fidelity.
 

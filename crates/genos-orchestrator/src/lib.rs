@@ -131,7 +131,7 @@ pub use global_workspace::{
 };
 pub use instincts::{
     InstinctActionExecutor, InstinctActionReceipt, InstinctActivation, InstinctSensorAdapter,
-    InstinctState,
+    InstinctState, SensorySourceRef, VerifiedSensoryStimulus,
 };
 pub use learning::{context_from_state, Learner, LinearBandit};
 pub use metabolism::Metabolism;
@@ -325,3 +325,4 @@ mod physical_search;
 mod physical_imports;
 
 pub mod sensory_receipt_runtime;
+pub mod sensory_paf_bridge;

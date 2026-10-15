@@ -2,6 +2,7 @@ use crate::args::{BiologicalCmd, RhizomeCmd, RhizomeSubcommands};
 use crate::commands::{rhizome_telemetry, syncytium_crdt};
 use crate::commands::biological_population::resume_population_if_available;
 use super::biological_recruitment::{MissionRuntime, persist_mission_operations};
+use super::biological_mission_replay::{MissionReplayContext, prepare_runtime_and_replay};
 use serde_json::json;
 
 pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
@@ -132,8 +133,7 @@ fn run_and_report(
     ecosystem.configure_receipt_journal(journal_path);
     restore_or_seed(&mut ecosystem, &mut checkpoints, cmd)?;
     resume_population_if_available(&mut ecosystem, &checkpoints, &store)?;
-    reconcile_receipt_tick(&checkpoints, &mut ecosystem, &store)?;
-    if replay_existing_crossover(CrossoverReplayContext {
+    if prepare_runtime_and_replay(MissionReplayContext {
         command: cmd,
         mission_id,
         ecosystem: &mut ecosystem,
@@ -178,68 +178,18 @@ fn run_and_report(
     Ok(())
 }
 
-struct CrossoverReplayContext<'a> {
-    command: &'a BiologicalCmd,
-    mission_id: uuid::Uuid,
-    ecosystem: &'a mut genos_orchestrator::GenosEcosystem,
-    store: &'a genos_store::BiologicalReceiptStore,
-    checkpoints: &'a mut genos_orchestrator::checkpoint::CheckpointManager,
-}
-
-fn replay_existing_crossover(context: CrossoverReplayContext<'_>) -> Result<bool, String> {
-    if !is_crossover_only(context.command) { return Ok(false); }
-    let Some(key) = crossover_lookup_key(context.command, context.mission_id) else {
-        return Ok(false);
-    };
-    let existing = context.store.find_idempotent_receipt(
-        genos_orchestrator::mission_crossover::CROSSOVER_SCHEMA, &key,
-    )?;
-    if context.command.replay_crossover_key.is_some() && existing.is_none() {
-        return Err("crossover receipt not found".into());
-    }
-    if existing.is_none() { return Ok(false); }
-    let tick = context.ecosystem.receipt_tick;
-    let receipts = persist_mission_operations(context.ecosystem, MissionRuntime {
-        command: context.command, store: context.store, tick,
-    })?;
-    save_checkpoint(context.checkpoints, context.ecosystem)?;
-    println!("{}", json!({
-        "success": true,
-        "operation": "biological_crossover_replay",
-        "mission_id": context.mission_id,
-        "tick": tick,
-        "receipts": receipts
-    }));
-    Ok(true)
-}
-
-fn is_crossover_only(cmd: &BiologicalCmd) -> bool {
-    let crossover = cmd.replay_crossover_key.is_some() || cmd.crossover_parent_a.is_some()
-        || cmd.crossover_parent_b.is_some() || cmd.crossover_seed.is_some();
-    crossover && !cmd.divide && !cmd.reproduce && cmd.choanocyte_stream.is_none()
-        && cmd.recruit_dna.is_none() && cmd.recruitment_spec.is_none()
-}
-
-fn crossover_lookup_key(cmd: &BiologicalCmd, mission_id: uuid::Uuid) -> Option<String> {
-    if let Some(key) = &cmd.replay_crossover_key { return Some(key.clone()); }
-    let request = genos_orchestrator::mission_crossover::CrossoverRequest {
-        parent_a_cell_id: cmd.crossover_parent_a?,
-        parent_b_cell_id: cmd.crossover_parent_b?,
-        seed: cmd.crossover_seed?,
-    };
-    Some(genos_orchestrator::mission_crossover::request_key(mission_id, &request))
-}
-
-fn reconcile_receipt_tick(
+pub(super) fn reconcile_receipt_tick(
     checkpoints: &genos_orchestrator::checkpoint::CheckpointManager,
     ecosystem: &mut genos_orchestrator::GenosEcosystem,
     store: &genos_store::BiologicalReceiptStore,
 ) -> Result<(), String> {
-    if checkpoints.is_rewound().map_err(|error| error.to_string())? { return Ok(()); }
-    restore_receipt_tick(ecosystem, store)
+    if !checkpoints.is_rewound().map_err(|error| error.to_string())? {
+        restore_receipt_tick(ecosystem, store)?;
+    }
+    Ok(())
 }
 
-fn save_checkpoint(
+pub(super) fn save_checkpoint(
     checkpoints: &mut genos_orchestrator::checkpoint::CheckpointManager,
     ecosystem: &genos_orchestrator::GenosEcosystem,
 ) -> Result<(), String> {

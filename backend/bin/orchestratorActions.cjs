@@ -206,6 +206,11 @@ async function selectWorker({ db, context }) {
   const { request } = context;
   let reusable = null;
   if (request.reuseWorkerId) {
+    const prior = await db.get(`SELECT status, runtime_pid FROM agents WHERE id = ?
+      AND parent_agent_id = ? AND execution_mode = 'worker'`, request.reuseWorkerId, context.orchestratorId);
+    if (prior?.status === 'terminated' && !prior.runtime_pid) {
+      await workerGarage.enterIdleState(db, request.reuseWorkerId, context.orchestratorId);
+    }
     const selected = await db.get(`SELECT id, name, role, about, model_tier as modelTier, language, isolation_mode as isolationMode FROM agents WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle'`, request.reuseWorkerId, context.orchestratorId);
     const affinity = workerGarage.reuseAffinity(selected, { mission: context.task, role: String(request.role || 'implementation') });
     if (!affinity) throw new Error(`Selected worker '${request.reuseWorkerId}' is no longer idle or the mission is outside its scope.`);
@@ -268,6 +273,9 @@ function buildWorkerMetadata(workerKind, contract, request) {
 
 async function updateReusedWorker(db, context, metadata) {
   await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);
+  if (context.missionId) await require('../src/services/missionIdentityService').attachAgent(db, {
+    missionId: context.missionId, agentId: context.id, role: workerRole(context.request)
+  });
 }
 
 async function insertNewWorker({ db, context, name, role, workerKind, parent, request, contract, metadata }) {

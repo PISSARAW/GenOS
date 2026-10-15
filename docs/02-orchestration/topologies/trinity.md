@@ -6,6 +6,12 @@
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
+Le dispatch `dispatch_trinity` exige `executionBudget` (ou `execution_budget`)
+avec `tokens` entier strictement positif et `costUsd` fini strictement positif.
+L'absence d'un de ces plafonds est refusée avec `TRINITY_BUDGET_REQUIRED` avant
+le lancement des mondes. Le budget lie un scope parent persistant partagé par
+les workers ; il ne représente pas une consommation mesurée.
+
 ## Snapshot d'agent lié à une expérience
 
 La capture optionnelle `topologySnapshot` lie l'agent à son monde, vérifie la
@@ -242,7 +248,7 @@ promotion restent applicables.
 
 Par défaut, le concepteur est déterministe et utilise les candidates de l'appelant ou les trois stratégies fixes. Sur demande, `trinityHypothesisDesign.generateHypotheses: true` autorise une génération par le modèle configuré, seulement lorsque les candidates fournies ne forment pas déjà un triplet. Le résultat reste une proposition : il prend la mission et les contraintes comme contexte, affecte `sourceRefs: ["mission"]`, et ne constitue jamais un fait ni une preuve. Le concepteur produit `centralProblem`, `assumptions[]`, `uncertainties[]`, `decisionVariables[]`, `selectedTriplet` et `selectionMethod`. Sans modèle de recherche fourni, il n'optimise pas une fonction d'utilité. L'extension ci-dessus peut optimiser un modèle déclaré, sans attribuer à ses entrées la valeur d'observations.
 
-La génération accepte au plus douze candidates JSON structurées. Son coût maximal vient de `trinityHypothesisGenerationBudgetUsd`, plafonné au budget monétaire de la mission s'il est défini ; sinon le plafond vaut 10 % de `executionBudget.costUsd`. Sans budget positif, elle est ignorée (`status: "skipped"`). Erreur de routage, délai ou sortie invalide : le runtime garde le triplet fixe et enregistre `status: "unavailable"`. `hypothesisGeneration` conserve le statut, le modèle/fournisseur rapporté et le nombre de candidates. La génération ne s'exécute que si Trinity est effectivement activée.
+La génération accepte au plus douze candidates JSON structurées. Son coût maximal vient de `trinityHypothesisGenerationBudgetUsd`, plafonné au budget monétaire de la mission ; sinon le plafond vaut 10 % de `executionBudget.costUsd`. Si le plafond dédié à la génération est nul, elle est ignorée (`status: "skipped"`). Erreur de routage, délai ou sortie invalide : le runtime garde le triplet fixe et enregistre `status: "unavailable"`. `hypothesisGeneration` conserve le statut, le modèle/fournisseur rapporté et le nombre de candidates. La génération ne s'exécute que si Trinity est effectivement activée.
 
 Le jury consultatif s'active avec `trinityJury: { enabled: true, modelUris: [...], maxCostUsd }`. Il faut au moins deux URI de modèles distinctes ; au plus cinq sont interrogés, avec un budget agrégé limité à 1 USD et réparti entre eux. Les candidats sont présentés sous des labels aléatoires sans identité, stratégie ni numéro de monde. Quand le plan requiert le jury, le superviseur le convoque après le classement et le cross-examen, même si le gagnant déterministe est unique ; il n'est pas conditionné à `KEEP_PARETO_SET`. Les votes, leur correspondance et la calibration contre le gagnant déterministe sont persistés ; `decisionAuthority` reste `none`. Sans configuration valide ou réponse JSON exploitable, le résultat est `unavailable` ou `partial` et un jury requis bloque la fusion. Des URI distinctes ne prouvent pas une indépendance cognitive. L'avis ne répare jamais un contrôle manquant, une preuve absente ou un échec de contrainte.
 

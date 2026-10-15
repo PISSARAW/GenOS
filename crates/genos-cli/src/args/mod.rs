@@ -9,6 +9,10 @@ pub mod run;
 pub mod chaos;
 pub mod genome;
 pub mod sensory;
+pub mod metabolic;
+pub mod guard_flux;
+pub mod electric_quorum;
+pub mod neuro_glia;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
@@ -22,6 +26,10 @@ pub use run::*;
 pub use chaos::*;
 pub use genome::*;
 pub use sensory::*;
+pub use metabolic::*;
+pub use guard_flux::*;
+pub use electric_quorum::*;
+pub use neuro_glia::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -62,6 +70,18 @@ pub enum Commands {
     /// EXPERIMENTAL: ingest a synthetic sensory signal without authenticated mission authority
     #[command(name = "sensory-ingest")]
     SensoryIngest(SensoryIngestCmd),
+    /// EXPERIMENTAL: consume a durable mission-scoped cell metabolic pool
+    #[command(name = "metabolic-pool")]
+    MetabolicPool(MetabolicPoolCmd),
+    /// EXPERIMENTAL: run a mission-scoped guard-cell flux operation
+    #[command(name = "guard-flux")]
+    GuardFlux(GuardFluxCmd),
+    /// EXPERIMENTAL: run a local signed electrocyte software quorum
+    #[command(name = "electric-quorum")]
+    ElectricQuorum(ElectricQuorumCmd),
+    /// EXPERIMENTAL: append an unauthenticated local mission neuro-glia event
+    #[command(name = "neuro-glia-stream")]
+    NeuroGliaStream(NeuroGliaStreamCmd),
     /// Evolutionary operations
     Evolution(Box<EvolutionCmd>),
     /// Capsule isolation environment

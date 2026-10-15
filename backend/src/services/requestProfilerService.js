@@ -71,7 +71,7 @@ function detectEpistemic(text) {
 }
 
 function isArithmetic(text) {
-  return /^[0-9+\-*/().\s^%]+$/.test(text) && /[0-9]/.test(text) && text.length < 64;
+  return Boolean(require('./executionRouterService').arithmeticExpression(text));
 }
 
 function detectEnvironment(text, hints) {

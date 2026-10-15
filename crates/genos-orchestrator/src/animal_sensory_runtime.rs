@@ -26,7 +26,7 @@ pub struct SyntheticAnimalReceipt {
 }
 
 impl SyntheticAnimalSignal {
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
             Self::Compass { goal, current } => validate_compass(goal, current),
             Self::ActiveElectroreception { impedance_samples } => validate_samples(impedance_samples),

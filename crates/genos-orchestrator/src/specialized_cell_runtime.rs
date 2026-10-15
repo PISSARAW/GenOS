@@ -3,9 +3,9 @@
 use crate::GenosEcosystem;
 use genos_biology::{
     ObserverPerspective, OssificationReport, RawSignalPacket, SiftingResult, ThrottleResult,
+    TracheidExecutionPlan, TracheidPlanInput, execute_tracheid_plan,
 };
 use serde_json::json;
-use std::time::Instant;
 use uuid::Uuid;
 
 struct GuardResourceAssessment {
@@ -116,19 +116,20 @@ fn record_guard_flux(eco: &mut GenosEcosystem, data: GuardFluxReceiptData) {
 }
 
 impl GenosEcosystem {
-    /// Ossifie le pipeline, mesure son coût et enregistre son plan exécutable versionné.
+    /// Ossifie le pipeline, exécute son plan versionné et compare ses résultats au mode vivant.
     pub fn ossify_pipeline(&mut self, pipeline_id: &str) -> Result<OssificationReport, String> {
-        let started = Instant::now();
         let before = self.tracheid.transport_sap_stream(1.0, 0.0)?;
+        let plan = TracheidExecutionPlan::new(
+            pipeline_id,
+            self.tracheid.plate.cavitation_resistance_mpa,
+        )?;
         let report = self.tracheid.trigger_lignified_apoptosis(pipeline_id)?;
-        let after = self.tracheid.transport_sap_stream(1.0, 0.0)?;
-        let artifact = json!({
-            "schema": "genos.tracheid-execution-plan/v1",
-            "artifactKind": "runtime_plan",
-            "pipelineId": pipeline_id,
-            "operations": ["check_cavitation", "pass_through_or_block"],
-            "cavitationResistanceMpa": self.tracheid.plate.cavitation_resistance_mpa,
-        });
+        let after = execute_tracheid_plan(
+            &plan,
+            &self.tracheid,
+            TracheidPlanInput { volume: 1.0, tension_mpa: 0.0 },
+        )?;
+        let artifact = serde_json::to_value(&plan).map_err(|error| error.to_string())?;
         self.record_event(
             "TRACHEID_PIPELINE_OSSIFIED",
             json!({
@@ -136,13 +137,12 @@ impl GenosEcosystem {
                 "missionId": self.mission_id,
                 "tracheidId": self.tracheid.id,
                 "report": report,
-                "compiledPlan": artifact,
+                "executionPlan": artifact,
                 "comparisonInputVolume": 1.0,
                 "livingCost": before.token_cost,
                 "ossifiedCost": after.token_cost,
                 "livingThroughput": before.transported_volume,
                 "ossifiedThroughput": after.transported_volume,
-                "measuredLatencyMicros": started.elapsed().as_micros(),
             }),
         );
         Ok(report)

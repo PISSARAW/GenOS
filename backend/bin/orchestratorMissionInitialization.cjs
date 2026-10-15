@@ -26,7 +26,8 @@ async function initializeMission({ db, action, orchestratorId, task, request = {
     VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', ?, 'frontier', 'Branch', ?)`,
   orchestratorId, workspace?.id || null, task);
   const agent = await db.get('SELECT id, workspace_id FROM agents WHERE id = ?', orchestratorId);
-  const workspaceId = await bindExistingOrchestrator(db, agent, workspace);
+  const workspaceId = action === 'dispatch_worker' && agent.workspace_id
+    ? agent.workspace_id : await bindExistingOrchestrator(db, agent, workspace);
   if (!await contracts.getLatestContract(db, orchestratorId, workspaceId)) {
     await contracts.saveContract(db, {
       agentId: orchestratorId, workspaceId, problem: task, createdBy: 'mcp_' + action

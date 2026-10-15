@@ -10,6 +10,13 @@ use std::time::Instant;
 const RECEIPT_SCHEMA: &str = "genos.choanocyte-stream-receipt/v2";
 const STREAM_SCHEMA: &str = "genos.choanocyte-signal-stream/v1";
 
+struct StreamReceiptContext {
+    mission_id: uuid::Uuid,
+    producer_id: uuid::Uuid,
+    input_digest: String,
+    idempotency_key: String,
+}
+
 /// Typed signal payload; producer identity comes from the runtime, not this input.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
@@ -76,23 +83,46 @@ impl GenosEcosystem {
         store: &BiologicalReceiptStore,
     ) -> Result<Value, String> {
         stream.validate()?;
-        let mission_id = self
-            .mission_id
-            .ok_or_else(|| "Choanocyte stream receipt requires a mission id".to_string())?;
-        let producer_id = runtime_producer_id(self)?;
-        let input_digest = digest_stream(stream)?;
-        let started = Instant::now();
-        let result = self.filter_stream(&stream.packets);
-        let elapsed_ns = started.elapsed().as_nanos().max(1);
-        let receipt = json!({
+        let context = stream_receipt_context(self, stream)?;
+        if let Some(receipt) = find_existing_stream_receipt(store, &context)? {
+            return Ok(receipt);
+        }
+        let receipt = build_stream_receipt(self, stream, &context);
+        persist_stream_receipt(store, receipt, &context)
+    }
+}
+
+fn stream_receipt_context(
+    ecosystem: &GenosEcosystem,
+    stream: &MissionChoanocyteStream,
+) -> Result<StreamReceiptContext, String> {
+    let mission_id = ecosystem
+        .mission_id
+        .ok_or_else(|| "Choanocyte stream receipt requires a mission id".to_string())?;
+    let producer_id = runtime_producer_id(ecosystem)?;
+    let input_digest = digest_stream(stream)?;
+    let idempotency_key = stream_idempotency_key(mission_id, &input_digest);
+    Ok(StreamReceiptContext { mission_id, producer_id, input_digest, idempotency_key })
+}
+
+fn build_stream_receipt(
+    ecosystem: &mut GenosEcosystem,
+    stream: &MissionChoanocyteStream,
+    context: &StreamReceiptContext,
+) -> Value {
+    let started = Instant::now();
+    let result = ecosystem.filter_stream(&stream.packets);
+    let elapsed_ns = started.elapsed().as_nanos().max(1);
+    json!({
             "schema": RECEIPT_SCHEMA,
             "receiptId": uuid::Uuid::new_v4(),
-            "missionId": mission_id,
-            "orchestratorId": producer_id,
-            "cellId": self.choanocyte.id,
-            "producerId": producer_id,
+            "missionId": context.mission_id,
+            "idempotency_key": context.idempotency_key,
+            "orchestratorId": context.producer_id,
+            "cellId": ecosystem.choanocyte.id,
+            "producerId": context.producer_id,
             "streamSchema": stream.schema,
-            "inputSha256": input_digest,
+            "inputSha256": context.input_digest,
             "packetCount": result.total_scanned,
             "retainedCount": result.retained_signals.len(),
             "rejectedCount": result.rejected_noise_count,
@@ -105,11 +135,47 @@ impl GenosEcosystem {
                 "flagellarBeatHz": milli_units(result.generated_flow.flagellar_beat_hz),
             },
             "hydrodynamicMeasurement": false,
-        });
-        store.append_receipts(std::slice::from_ref(&receipt))?;
-        verify_persisted_receipt(store, &receipt)?;
-        Ok(receipt)
+        })
+}
+
+fn find_existing_stream_receipt(
+    store: &BiologicalReceiptStore,
+    context: &StreamReceiptContext,
+) -> Result<Option<Value>, String> {
+    let mission_key = context.mission_id.to_string();
+    for receipt in store.read_all()? {
+        if receipt["schema"] != RECEIPT_SCHEMA
+            || receipt["missionId"] != mission_key
+            || receipt["inputSha256"] != context.input_digest
+        {
+            continue;
+        }
+        if receipt["idempotency_key"]
+            .as_str()
+            .is_some_and(|key| key != context.idempotency_key)
+        {
+            return Err("Choanocyte idempotency receipt does not match its mission and stream".into());
+        }
+        return Ok(Some(receipt));
     }
+    Ok(None)
+}
+
+fn persist_stream_receipt(
+    store: &BiologicalReceiptStore,
+    receipt: Value,
+    context: &StreamReceiptContext,
+) -> Result<Value, String> {
+    let persisted = match store.append_idempotent_receipt(&receipt) {
+        Ok(persisted) => persisted,
+        Err(error) => find_existing_stream_receipt(store, context)?.ok_or(error)?,
+    };
+    verify_persisted_receipt(store, &persisted)?;
+    Ok(persisted)
+}
+
+fn stream_idempotency_key(mission_id: uuid::Uuid, input_digest: &str) -> String {
+    format!("{mission_id}:{input_digest}")
 }
 
 fn runtime_producer_id(ecosystem: &GenosEcosystem) -> Result<uuid::Uuid, String> {
@@ -191,6 +257,30 @@ mod tests {
         assert_eq!(stored["modeledFlowMilliUnits"]["pumpingRateMlS"], 450);
         assert_eq!(stored["hydrodynamicMeasurement"], false);
         assert_eq!(recovered.len(), 1);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn same_stream_in_another_mission_gets_a_distinct_receipt() {
+        let path = std::env::temp_dir().join(format!("genos-choano-{}.jsonl", uuid::Uuid::new_v4()));
+        let store = BiologicalReceiptStore::open(&path);
+        let stream = MissionChoanocyteStream::new(vec![RawSignalPacket {
+            id: "signal".into(),
+            size_nm: 150.0,
+            semantic_density: 0.9,
+            content: "shared input".into(),
+            is_noise: false,
+        }]);
+        let mut first = GenosEcosystem::new("first-mission");
+        first.set_mission_id(uuid::Uuid::new_v4());
+        let first_receipt = first.filter_stream_and_persist(&stream, &store).unwrap();
+        let mut second = GenosEcosystem::new("second-mission");
+        second.set_mission_id(uuid::Uuid::new_v4());
+        let second_receipt = second.filter_stream_and_persist(&stream, &store).unwrap();
+
+        assert_ne!(first_receipt["missionId"], second_receipt["missionId"]);
+        assert_ne!(first_receipt["idempotency_key"], second_receipt["idempotency_key"]);
+        assert_eq!(store.read_all().unwrap().len(), 2);
         let _ = std::fs::remove_file(path);
     }
 

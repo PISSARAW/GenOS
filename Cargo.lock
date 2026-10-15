@@ -1760,6 +1760,7 @@ dependencies = [
  "chrono",
  "clap",
  "crossterm 0.28.1",
+ "ed25519-dalek",
  "genos-api",
  "genos-biology",
  "genos-cell",
@@ -1778,6 +1779,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sha2",
+ "tempfile",
  "tokio",
  "uuid",
 ]

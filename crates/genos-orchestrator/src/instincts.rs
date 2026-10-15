@@ -21,6 +21,9 @@ use uuid::Uuid;
 #[path = "instinct_receipt_helpers.rs"]
 mod receipt_helpers;
 use receipt_helpers::{ActionTraceInput, MissionReceiptContext, action_trace, mission_receipts};
+#[path = "instinct_sensory_types.rs"]
+mod sensory_types;
+pub use sensory_types::{SensorySourceRef, VerifiedSensoryStimulus};
 
 pub trait InstinctActionExecutor: Send {
     fn execute(&mut self, step: &MotorStep) -> Result<InstinctActionReceipt, String>;
@@ -68,6 +71,8 @@ pub(crate) struct InstinctMissionReceipt {
     pub evaluation: genos_biology::instinct::TriggerEvaluation,
     pub outcome: InstinctOutcome,
     pub actions: Vec<InstinctActionTrace>,
+    #[serde(default)]
+    pub sensory_source_refs: Vec<SensorySourceRef>,
 }
 
 /// État instinctif de l'écosystème : bibliothèque innée, dernières activations,
@@ -83,6 +88,7 @@ pub struct InstinctState {
     pub sensor_adapter: Option<Box<dyn InstinctSensorAdapter>>,
     pub authorized_tools: Vec<String>,
     pub(crate) mission_receipts: Vec<InstinctMissionReceipt>,
+    pub(crate) pending_sensory: Vec<VerifiedSensoryStimulus>,
 }
 
 impl Default for InstinctState {
@@ -97,6 +103,7 @@ impl Default for InstinctState {
             sensor_adapter: None,
             authorized_tools: Vec::new(),
             mission_receipts: Vec::new(),
+            pending_sensory: Vec::new(),
         }
     }
 }
@@ -166,6 +173,11 @@ impl GenosEcosystem {
         self.instincts.sensor_adapter = Some(adapter);
     }
 
+    /// Injecte un stimulus dérivé d'un reçu synthétique après vérification du journal.
+    pub fn set_verified_sensory_stimuli(&mut self, stimuli: Vec<VerifiedSensoryStimulus>) {
+        self.instincts.pending_sensory = stimuli;
+    }
+
     /// Définit les outils déjà autorisés par la politique de l'agent/hôte.
     pub fn set_instinct_authorized_tools(&mut self, tools: Vec<String>) {
         self.instincts.authorized_tools = tools;
@@ -210,6 +222,7 @@ impl GenosEcosystem {
     /// Évalue et exécute les instincts déclenchés pour l'état donné.
     pub(crate) fn run_instincts(&mut self, state: &WorldState) {
         let mut field = stimulus_field_from(state);
+        field.readings.extend(self.instincts.pending_sensory.iter().map(|item| item.stimulus.clone()));
         if let Err(error) = self.append_sensor_readings(&mut field) {
             self.record_event("INSTINCT_SENSOR_ERROR", json!({ "error": error }));
         }
@@ -246,6 +259,7 @@ impl GenosEcosystem {
                 mission_id: self.mission_id,
                 tick: self.receipt_tick,
                 field: &field,
+                sensory_sources: &self.instincts.pending_sensory,
             },
             &activations,
         );
@@ -272,6 +286,7 @@ impl GenosEcosystem {
             );
         }
         self.instincts.last = activations;
+        self.instincts.pending_sensory.clear();
     }
 
     fn dispatch_instinct_steps(

@@ -324,16 +324,22 @@ function emitCompletionEvent(opts) {
 
 async function gatherTelemetryAndCoverage(db, id) {
   const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-  const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
+  const runs = await db.all('SELECT id, agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
+  const usageRows = await db.all(`SELECT json_extract(metadata_json, '$.executionRunId') AS run_id,
+    SUM(quantity) AS tokens FROM usage_ledger WHERE category = 'model_inference'
+    AND json_extract(metadata_json, '$.executionRunId') IN
+      (SELECT id FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN
+        (SELECT id FROM agents WHERE parent_agent_id = ?))
+    GROUP BY json_extract(metadata_json, '$.executionRunId')`, id, id);
   const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
   telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
-  return { telemetryRows, runs, coverage };
+  return { telemetryRows, runs, usageRows, coverage };
 }
 
 function emitFinalTelemetry(opts) {
-  const { telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate, id, missionId } = opts;
+  const { telemetryRows, runs, usageRows, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate, id, missionId } = opts;
   const nceInfo = buildNceInfo(nceEnhancements);
-  process.stdout.write(JSON.stringify({ missionId: missionId || continuity?.missionId || id, orchestratorId: id, success: missionSuccess, verdict: finalVerdict, completionGate, continuity, telemetry: telemetryRows, nce: nceInfo, token_usage: tokenUsage(runs), coverage }));
+  process.stdout.write(JSON.stringify({ missionId: missionId || continuity?.missionId || id, orchestratorId: id, success: missionSuccess, verdict: finalVerdict, completionGate, continuity, telemetry: telemetryRows, nce: nceInfo, token_usage: tokenUsage(runs, usageRows), coverage }));
 }
 
 function buildNceInfo(nceEnhancements) {
@@ -349,12 +355,14 @@ function buildNceInfo(nceEnhancements) {
   };
 }
 
-function tokenUsage(runs) {
+function tokenUsage(runs, usageRows = []) {
+  const metered = new Map(usageRows.map((row) => [row.run_id, Number(row.tokens || 0)]));
   const executionRuns = runs.map((run) => {
     let metrics = {}; try { metrics = JSON.parse(run.metrics_json || '{}'); } catch (_) {}
-    return { agentId: run.agent_id, status: run.status, tokens: Number(metrics.tokens || 0) };
+    return { agentId: run.agent_id, status: run.status, tokens: metered.get(run.id) ?? Number(metrics.tokens || 0) };
   });
-  return { executionRuns, totalTokens: executionRuns.reduce((sum, run) => sum + run.tokens, 0), allRunsCompleted: executionRuns.length > 0 && executionRuns.every((run) => run.status === 'completed') };
+  const totalTokens = executionRuns.reduce((sum, run) => sum + run.tokens, 0);
+  return { executionRuns, totalTokens, allRunsCompleted: executionRuns.length > 0 && executionRuns.every((run) => run.status === 'completed') };
 }
 
 module.exports = {

@@ -132,4 +132,12 @@ est une API publique de la crate et son confinement au bootstrap hôte n'est pas
 imposé par le type; le reçu n'a pas de signature propre; les systèmes de
 fichiers réseau et l'intégration API/MCP ne sont pas qualifiés. La sérialisation
 du verrou n'établit pas une garantie d'écriture transactionnelle du journal.
+Les checkpoints de mission incluent désormais un snapshot versionné du donneur
+procaryote et de ses plasmides, lié au `mission_id`; la restauration valide le
+schéma, les identités, la forme des plasmides et le digest SHA-256 avant toute
+mutation de l'écosystème. Ce digest détecte une corruption accidentelle, mais
+n'est pas une signature ni une preuve d'origine contre un acteur capable de
+réécrire le checkpoint. Les tests `hgt_checkpoint_restart` couvrent la reprise
+après réouverture du store et les refus de digest/scope divergents. Cela ne
+qualifie pas encore un transfert HGT bout en bout après redémarrage.
 Ne pas déclarer HGT validé avant satisfaction de tous les critères d'acceptation.

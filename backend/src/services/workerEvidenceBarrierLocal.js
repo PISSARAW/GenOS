@@ -69,6 +69,7 @@ async function generateWorkerResult(ctx) {
     db: ctx.db,
     cognitiveIntegration: 'worker',
     agentId: ctx.mission.agentId,
+    executionRunId: ctx.executionRun.id,
     identitySession: ctx.identitySession,
     model: ctx.workerModel,
     timeoutMs: ctx.latencyMs,

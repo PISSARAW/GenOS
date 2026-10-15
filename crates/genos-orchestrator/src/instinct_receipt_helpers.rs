@@ -1,4 +1,4 @@
-use super::{InstinctActionTrace, InstinctActivation, InstinctMissionReceipt};
+use super::{InstinctActionTrace, InstinctActivation, InstinctMissionReceipt, VerifiedSensoryStimulus};
 use genos_biology::instinct::{MotorStep, StimulusField};
 use serde_json::Value;
 use uuid::Uuid;
@@ -7,6 +7,7 @@ pub(super) struct MissionReceiptContext<'a> {
     pub mission_id: Option<Uuid>,
     pub tick: u64,
     pub field: &'a StimulusField,
+    pub sensory_sources: &'a [VerifiedSensoryStimulus],
 }
 
 pub(super) struct ActionTraceInput<'a> {
@@ -45,6 +46,7 @@ pub(super) fn mission_receipts(
             evaluation: activation.evaluation.clone(),
             outcome: activation.outcome.clone(),
             actions: activation.actions.clone(),
+            sensory_source_refs: context.sensory_sources.iter().map(|source| source.source_ref.clone()).collect(),
         })
         .collect()
 }

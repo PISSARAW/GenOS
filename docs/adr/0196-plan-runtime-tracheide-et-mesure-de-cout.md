@@ -1,7 +1,7 @@
 # Plan runtime et mesure de coût de la trachéide
 
-- **Statut** : Accepté
-- **Date** : 2026-09-30
+- **Statut** : Accepté, amendé et implémenté
+- **Date** : 2026-09-30 (amendé le 2026-10-15)
 - **Domaine** : Runtime, compilation de plan, cellules spécialisées, mesure
 - **Décideurs** : GenOS
 - **Lié à** : ADR 0195
@@ -13,20 +13,25 @@ runtime conservé ni comparaison mesurée sur une même opération.
 
 ## Décision
 
-`GenosEcosystem::ossify_pipeline` compare coût et débit pour une entrée de référence
-avant et après la transition, construit un plan d'exécution versionné (contrôle de
-cavitation puis transfert ou blocage) et l'inclut dans le reçu avec la latence observée.
-Le plan est une représentation interprétée par le runtime, pas un binaire natif.
+`GenosEcosystem::ossify_pipeline` compare le résultat d'une entrée fixe avant et
+après la transition. Il construit un `TracheidExecutionPlan` typé et versionné,
+valide son schéma, ses opérations ordonnées et son seuil de cavitation, puis le
+fait exécuter par `execute_tracheid_plan`, distinct du transport de référence.
+Le reçu contient le plan sérialisé et les résultats de comparaison. Ce plan reste
+interprété par le runtime : il ne constitue pas un binaire natif.
 
 ## Conséquences
 
 ### Positives
 
-- L'artefact de plan et les mesures comparatives sont corrélés à la mission.
+- Le plan validé et les résultats comparatifs sont corrélés à la mission.
+- Les opérations inconnues, mal ordonnées, ou ciblant un autre conduit sont
+  refusées avant le transfert.
 
 ### Négatives
 
-- La mesure porte sur un échantillon de référence et n'est pas un benchmark statistique.
+- La comparaison porte sur une entrée fixe et n'est pas un benchmark statistique.
+- Aucun gain de performance ni latence mesurée n'est revendiqué.
 - L'event store est en mémoire et le plan n'est pas compilé en code machine.
 
 ## Alternatives

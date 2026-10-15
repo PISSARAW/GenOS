@@ -3,11 +3,18 @@
 const MODES = ['primitive', 'procedure', 'single_worker', 'adaptive_worker',
   'specialists', 'collective', 'large_search'];
 
+function arithmeticExpression(text) {
+  const expression = String(text || '').trim().replace(/^(?:combien (?:font|fait)|calcule|calculate|what is)\s+/i, '')
+    .replace(/\s*(?:\?|=)\s*$/, '').trim();
+  return /^[0-9+\-*/().\s^%]+$/.test(expression) && /[0-9]/.test(expression)
+    && expression.length < 64 ? expression : null;
+}
+
 function tryArithmeticPrimitive(text) {
-  if (!/^[0-9+\-*/().\s^%]+$/.test(text)) return null;
-  if (!/[0-9]/.test(text) || text.length > 64) return null;
+  const expression = arithmeticExpression(text);
+  if (!expression) return null;
   try {
-    const sanitized = text.replace(/\^/g, '**');
+    const sanitized = expression.replace(/\^/g, '**');
     const value = Function(`"use strict"; return (${sanitized})`)();
     if (typeof value !== 'number' || !Number.isFinite(value)) return null;
     return { value, receipt: `deterministic-eval:${sanitized}=${value}` };
@@ -57,6 +64,7 @@ function needsOrchestration(mode) {
 
 module.exports = {
   MODES,
+  arithmeticExpression,
   tryArithmeticPrimitive,
   chooseExecutionPath,
   needsOrchestration,

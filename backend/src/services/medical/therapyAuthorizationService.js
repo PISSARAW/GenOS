@@ -14,6 +14,13 @@ function requireApprover(input) {
 }
 async function issueAuthorization(db,input) {
   requireApprover(input);
+  const context = await authorizationContext(db, input);
+  const signed = createAuthorization(input, context);
+  await storeAuthorization(db, signed, context.tenant);
+  return signed;
+}
+
+async function authorizationContext(db, input) {
   const tenant = input.tenant;
   if (!tenant?.organizationId || !tenant?.projectId) throw new Error('Clinical authorization tenant scope required');
   require('./nosologyCatalogService').validateTherapy(input.therapy);
@@ -21,22 +28,29 @@ async function issueAuthorization(db,input) {
   if (!cell?.genome_id || !cell.genome_fingerprint) throw new Error('Durable clinical cell not found');
   const latest = await db.get(`SELECT MAX(tick) AS tick FROM rust_cell_registry WHERE mission_id=?`,input.missionId);
   if (cell.tick !== latest.tick) throw new Error('Clinical cell is not in the current population');
+  const runtime = await db.get(`SELECT rust_mission_id FROM biological_execution_missions WHERE mission_id=?`, input.missionId);
+  return { tenant, cell, rustMissionId: runtime?.rust_mission_id || input.missionId };
+}
+
+function createAuthorization(input, context) {
   const therapy = JSON.stringify(input.therapy);
   if (!therapy || therapy === 'null') throw new Error('Therapy required');
-  const auth = { authorization_id: crypto.randomUUID(), mission_id: input.missionId, cell_id: input.cellId,
-    genome_id: cell.genome_id, genome_fingerprint: cell.genome_fingerprint,
-    cell_state_digest: crypto.createHash('sha256').update(cell.cell_state_json).digest('hex'),
-    source_receipt_id: cell.source_receipt_id, therapy_json: therapy,
+  const auth = { authorization_id: crypto.randomUUID(), mission_id: context.rustMissionId, cell_id: input.cellId,
+    genome_id: context.cell.genome_id, genome_fingerprint: context.cell.genome_fingerprint,
+    cell_state_digest: crypto.createHash('sha256').update(context.cell.cell_state_json).digest('hex'),
+    source_receipt_id: context.cell.source_receipt_id, therapy_json: therapy,
     approver_id: input.actor.keyId || input.actor.username, expires_at_unix_ms: Date.now()+60000 };
   if (!auth.approver_id) throw new Error('Approver identity required');
-  const signed = { ...auth,signature: signAuthorization(auth) };
+  return { ...auth, signature: signAuthorization(auth) };
+}
+
+async function storeAuthorization(db, signed, tenant) {
   await db.run(`INSERT INTO clinical_authorization_ledger
     (authorization_id, mission_id, organization_id, project_id, cell_id, signature,
      authorization_json, approver_id, issued_at_unix_ms)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, signed.authorization_id, signed.mission_id,
   tenant.organizationId, tenant.projectId, signed.cell_id, signed.signature,
   JSON.stringify(signed), signed.approver_id, Date.now());
-  return signed;
 }
 
 async function inspectAuthorization(db, input) {
@@ -46,6 +60,17 @@ async function inspectAuthorization(db, input) {
     WHERE authorization_id=? AND organization_id=? AND project_id=?`, input.authorizationId,
   input.tenant.organizationId, input.tenant.projectId);
   return ledgerView(row);
+}
+
+async function authorizationForApplication(db, input) {
+  const tenant = input?.tenant;
+  if (!tenant?.organizationId || !tenant?.projectId || !input?.missionId) return null;
+  return db.get(`SELECT ledger.authorization_id, ledger.mission_id, ledger.cell_id, ledger.signature,
+    ledger.authorization_json, ledger.revoked_at_unix_ms, runtime.rust_mission_id
+    FROM clinical_authorization_ledger AS ledger
+    LEFT JOIN biological_execution_missions AS runtime ON runtime.mission_id=ledger.mission_id
+    WHERE ledger.authorization_id=? AND ledger.mission_id=? AND ledger.organization_id=? AND ledger.project_id=?`,
+  input.authorizationId, input.missionId, tenant.organizationId, tenant.projectId);
 }
 
 async function revokeAuthorization(db, input) {
@@ -90,5 +115,5 @@ function clinicalSignature(auth) {
   const payload = ['node-clinical/v1',auth.authorizationId,auth.targetAgentId,auth.approverId,auth.therapyType,auth.expiresAt].join('\0');
   return crypto.createHmac('sha256',secret).update(payload).digest('hex');
 }
-module.exports = { issueAuthorization, inspectAuthorization, revokeAuthorization,
+module.exports = { issueAuthorization, inspectAuthorization, revokeAuthorization, authorizationForApplication,
   signAuthorization,authorizeClinicalMutation,clinicalSignature };

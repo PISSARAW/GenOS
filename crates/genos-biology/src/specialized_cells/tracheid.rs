@@ -51,6 +51,156 @@ pub struct SapTransportYield {
     pub conduit_state: String,
 }
 
+const TRACHEID_PLAN_SCHEMA: &str = "genos.tracheid-execution-plan/v1";
+const TRACHEID_PLAN_KIND: &str = "runtime_plan";
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TracheidPlanOperation {
+    CheckCavitation,
+    PassThroughOrBlock,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TracheidExecutionPlan {
+    pub schema: String,
+    pub artifact_kind: String,
+    pub pipeline_id: String,
+    pub operations: Vec<TracheidPlanOperation>,
+    pub cavitation_resistance_mpa: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TracheidPlanInput {
+    pub volume: f64,
+    pub tension_mpa: f64,
+}
+
+impl TracheidExecutionPlan {
+    pub fn new(pipeline_id: &str, cavitation_resistance_mpa: f64) -> Result<Self, String> {
+        let plan = Self {
+            schema: TRACHEID_PLAN_SCHEMA.into(),
+            artifact_kind: TRACHEID_PLAN_KIND.into(),
+            pipeline_id: pipeline_id.to_string(),
+            operations: vec![
+                TracheidPlanOperation::CheckCavitation,
+                TracheidPlanOperation::PassThroughOrBlock,
+            ],
+            cavitation_resistance_mpa,
+        };
+        plan.validate()?;
+        Ok(plan)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        validate_plan_schema(&self.schema)?;
+        validate_plan_kind(&self.artifact_kind)?;
+        validate_pipeline_id(&self.pipeline_id)?;
+        validate_cavitation_resistance(self.cavitation_resistance_mpa)?;
+        validate_plan_operations(&self.operations)
+    }
+}
+
+fn validate_plan_schema(schema: &str) -> Result<(), String> {
+    if schema != TRACHEID_PLAN_SCHEMA {
+        return Err("Tracheid plan schema version is unsupported".into());
+    }
+    Ok(())
+}
+
+fn validate_plan_kind(kind: &str) -> Result<(), String> {
+    if kind != TRACHEID_PLAN_KIND {
+        return Err("Tracheid plan artifact kind is unsupported".into());
+    }
+    Ok(())
+}
+
+fn validate_pipeline_id(pipeline_id: &str) -> Result<(), String> {
+    if pipeline_id.trim().is_empty() {
+        return Err("Tracheid plan pipeline id must not be empty".into());
+    }
+    Ok(())
+}
+
+fn validate_cavitation_resistance(resistance_mpa: f64) -> Result<(), String> {
+    if !resistance_mpa.is_finite() || resistance_mpa >= 0.0 {
+        return Err("Tracheid plan cavitation resistance must be finite and negative".into());
+    }
+    Ok(())
+}
+
+fn validate_plan_operations(operations: &[TracheidPlanOperation]) -> Result<(), String> {
+    let expected = [
+        TracheidPlanOperation::CheckCavitation,
+        TracheidPlanOperation::PassThroughOrBlock,
+    ];
+    if operations != expected.as_slice() {
+        return Err("Tracheid plan operations are malformed or out of order".into());
+    }
+    Ok(())
+}
+
+pub fn execute_tracheid_plan(
+    plan: &TracheidExecutionPlan,
+    tracheid: &Tracheid,
+    input: TracheidPlanInput,
+) -> Result<SapTransportYield, String> {
+    plan.validate()?;
+    validate_plan_target(plan, tracheid)?;
+    validate_plan_input(input)?;
+    let mut result = None;
+    let mut cavitation_detected = false;
+    for operation in &plan.operations {
+        match operation {
+            TracheidPlanOperation::CheckCavitation => {
+                cavitation_detected = input.tension_mpa < plan.cavitation_resistance_mpa;
+            }
+            TracheidPlanOperation::PassThroughOrBlock => {
+                result = Some(plan_transport_result(plan, input, cavitation_detected));
+            }
+        }
+    }
+    result.ok_or_else(|| "Tracheid plan did not produce a transport result".into())
+}
+
+fn validate_plan_target(plan: &TracheidExecutionPlan, tracheid: &Tracheid) -> Result<(), String> {
+    match &tracheid.state {
+        TracheidState::OssifiedConduit { static_pipeline_id }
+            if static_pipeline_id == &plan.pipeline_id => {}
+        _ => return Err("Tracheid plan target is not its ossified pipeline".into()),
+    }
+    if tracheid.plate.cavitation_resistance_mpa != plan.cavitation_resistance_mpa {
+        return Err("Tracheid plan cavitation threshold no longer matches its target".into());
+    }
+    Ok(())
+}
+
+fn validate_plan_input(input: TracheidPlanInput) -> Result<(), String> {
+    if !input.volume.is_finite() || input.volume < 0.0 || !input.tension_mpa.is_finite() {
+        return Err("Tracheid plan input volume and tension must be finite and volume nonnegative".into());
+    }
+    Ok(())
+}
+
+fn plan_transport_result(
+    plan: &TracheidExecutionPlan,
+    input: TracheidPlanInput,
+    cavitation_detected: bool,
+) -> SapTransportYield {
+    SapTransportYield {
+        transported_volume: if cavitation_detected { 0.0 } else { input.volume },
+        tension_applied_mpa: input.tension_mpa,
+        cavitation_detected,
+        token_cost: 0.0,
+        conduit_state: if cavitation_detected {
+            "EMBOLISM_CAVITATION_BLOCK".into()
+        } else {
+            format!("OSSIFIED_STATIC_PASS_THROUGH_{}", plan.pipeline_id)
+        },
+    }
+}
+
 /// Cellule Trachéide végétale pour l'ossification de code et de pipelines
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tracheid {

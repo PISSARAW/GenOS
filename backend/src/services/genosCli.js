@@ -52,7 +52,7 @@ function runGenosSync(commandLine, options = {}) {
  * structured result — never rejects — so controllers can surface exit
  * codes and stderr to the operator.
  */
-function runGenos(args, { timeoutMs = 60000, root: rootOverride = null } = {}) {
+function runGenos(args, { timeoutMs = 60000, root: rootOverride = null, envOverrides = {} } = {}) {
   return new Promise((resolvePromise) => {
     const bin = resolveGenosBin();
     if (!fs.existsSync(bin)) {
@@ -69,7 +69,7 @@ function runGenos(args, { timeoutMs = 60000, root: rootOverride = null } = {}) {
     const root = ensureRoot(rootOverride);
     const child = spawn(bin, args, {
       cwd: root,
-      env: genosEnvironment(root),
+      env: childEnvironment(root, envOverrides),
       windowsHide: true,
       detached: process.platform !== 'win32'
     });
@@ -105,6 +105,13 @@ function runGenos(args, { timeoutMs = 60000, root: rootOverride = null } = {}) {
       }
     });
   });
+}
+
+function childEnvironment(root, overrides) {
+  const env = genosEnvironment(root);
+  const secret = overrides.GENOS_THERAPY_AUTH_SECRET;
+  if (typeof secret === 'string' && secret.trim()) env.GENOS_THERAPY_AUTH_SECRET = secret;
+  return env;
 }
 
 /** Resolves a user-supplied snapshot reference inside the bridge root. */

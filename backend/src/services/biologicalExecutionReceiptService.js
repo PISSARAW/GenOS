@@ -67,7 +67,8 @@ async function assertTickMissionScope(db, mission, input) {
   if (!input.organizationId && !input.projectId) return;
   const member = await db.get(`SELECT 1 AS allowed FROM mission_agents ma
     JOIN agents a ON a.id = ma.agent_id
-    WHERE ma.mission_id = ? AND a.organization_id IS ? AND a.project_id IS ? LIMIT 1`,
+    JOIN workspaces w ON w.id = a.workspace_id
+    WHERE ma.mission_id = ? AND w.organization_id IS ? AND w.project_id IS ? LIMIT 1`,
   mission.mission_id, input.organizationId || null, input.projectId || null);
   if (!member) throw receiptError('BIOLOGICAL_TICK_TENANT_SCOPE_DENIED');
 }

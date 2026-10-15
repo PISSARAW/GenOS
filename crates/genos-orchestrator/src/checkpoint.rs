@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use uuid::Uuid;
+#[path = "checkpoint_hgt.rs"]
+mod hgt;
+pub use self::hgt::ProkaryoteCheckpoint;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrchestratorCheckpointState {
@@ -31,6 +34,8 @@ pub struct OrchestratorCheckpointState {
     /// checkpoints taken after the fix; absent (`None`) for legacy ones.
     #[serde(default)]
     pub orchestrator: Option<serde_json::Value>,
+    #[serde(default)]
+    pub prokaryote: Option<ProkaryoteCheckpoint>,
     pub timestamp: String,
 }
 
@@ -49,6 +54,7 @@ impl OrchestratorCheckpointState {
             metabolism: None,
             receipt_tick: 0,
             orchestrator: None,
+            prokaryote: None,
             timestamp: chrono::Utc::now().to_rfc3339(),
         }
     }
@@ -121,6 +127,9 @@ impl OrchestratorCheckpointState {
             metabolism: Some(orch.metabolism.checkpoint()),
             receipt_tick: ecosystem.receipt_tick,
             orchestrator: Some(serde_json::to_value(orch).map_err(|error| error.to_string())?),
+            prokaryote: ecosystem.mission_id
+                .map(|mission_id| ProkaryoteCheckpoint::capture(mission_id, &ecosystem.prokaryote))
+                .transpose()?,
             timestamp: chrono::Utc::now().to_rfc3339(),
         })
     }
@@ -130,6 +139,12 @@ impl OrchestratorCheckpointState {
     /// carry summaries (the live ecosystem stays untouched). Hard failures
     /// (corrupt snapshot) return `Err`.
     pub fn apply_to_ecosystem(&self, ecosystem: &mut GenosEcosystem) -> Result<bool, String> {
+        if ecosystem.mission_id.is_some() && ecosystem.mission_id != self.mission_id {
+            return Err("mission checkpoint identity does not match the requested mission".to_string());
+        }
+        let restored_prokaryote = self.prokaryote.as_ref()
+            .map(|snapshot| snapshot.restore(self.mission_id))
+            .transpose()?;
         match &self.orchestrator {
             Some(snapshot) => {
                 let mut restored: crate::orchestrator::BiomimeticOrchestrator =
@@ -143,6 +158,9 @@ impl OrchestratorCheckpointState {
                 ecosystem.events = events;
                 ecosystem.receipt_tick = self.receipt_tick;
                 ecosystem.mission_id = self.mission_id;
+                if let Some(prokaryote) = restored_prokaryote {
+                    ecosystem.prokaryote = prokaryote;
+                }
                 Ok(true)
             }
             None => Ok(false),

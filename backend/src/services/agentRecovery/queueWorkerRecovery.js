@@ -5,6 +5,7 @@
 const { pendingWorkerRecoveries, emit } = require('../agentOrchestrationState');
 const workerRecovery = require('../workerFailureRecoveryService');
 const { applyOrganizationDecision } = require('./organizationDecision');
+const handledFailures = new Map();
 
 function getRecoveryOrganization(action) {
   if (action === 'mutate_worker') return 'isolated_recovery';
@@ -62,6 +63,13 @@ function queueWorkerRecovery(mission, event) {
   const decision = workerRecovery.decideRecovery(report);
   const orchestratorId = mission.orchestratorAgentId;
   if (!orchestratorId) return { report, decision, queued: false };
+  const failureKey = JSON.stringify([mission.missionId || mission.id, workerId,
+    report.attempt, report.category]);
+  if (handledFailures.has(failureKey)) {
+    return { report, decision: handledFailures.get(failureKey), queued: false, duplicate: true };
+  }
+  if (handledFailures.size >= 1024) handledFailures.delete(handledFailures.keys().next().value);
+  handledFailures.set(failureKey, decision);
   const recoveryHistory = Array.isArray(mission.recoveryHistory) ? mission.recoveryHistory : [];
   const repeatedStrategy = recoveryHistory.some((entry) => entry.category === report.category && entry.action === decision.action);
   if (repeatedStrategy) {

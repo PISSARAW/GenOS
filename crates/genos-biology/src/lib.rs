@@ -39,7 +39,8 @@ pub use specialized_cells::prokaryote::{
     HgtTransferReport, Plasmid, PlasmidExecutionYield, ProkaryoticAgent,
 };
 pub use specialized_cells::tracheid::{
-    LigninPorousPlate, OssificationReport, SapTransportYield, Tracheid, TracheidState,
+    execute_tracheid_plan, LigninPorousPlate, OssificationReport, SapTransportYield, Tracheid,
+    TracheidExecutionPlan, TracheidPlanInput, TracheidPlanOperation, TracheidState,
 };
 pub mod spore;
 pub mod therapy;

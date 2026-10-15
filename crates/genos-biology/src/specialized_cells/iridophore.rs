@@ -9,7 +9,7 @@ pub enum ObserverPerspective {
     StructuredJson,
     /// Rendu Markdown visuel pour humains
     MarkdownVisual,
-    /// Mode camouflage cryptographique (obfuscation polymorphique)
+    /// Camouflage déterministe par César, sans propriété cryptographique.
     CrypticCamouflage,
 }
 
@@ -104,7 +104,10 @@ impl Iridophore {
                 };
                 format!(
                     "{}[IRIDOPHORE: {} ({:.1}nm)]\x1b[0m {}",
-                    ansi_code, hue, wavelength, raw_data
+                    ansi_code,
+                    hue,
+                    wavelength,
+                    escape_terminal_controls(raw_data)
                 )
             }
             ObserverPerspective::StructuredJson => serde_json::json!({
@@ -116,26 +119,58 @@ impl Iridophore {
             })
             .to_string(),
             ObserverPerspective::MarkdownVisual => {
-                format!("**[{}]** (`{:.1} nm`) — *{}*", hue, wavelength, raw_data)
+                format!(
+                    "**[{}]** (`{:.1} nm`) — *{}*",
+                    hue,
+                    wavelength,
+                    escape_markdown_text(raw_data)
+                )
             }
             ObserverPerspective::CrypticCamouflage => {
-                // Obfuscation polymorphique par décalage structural dépendant de la longueur d'onde
+                // Décalage César déterministe pour varier la sortie, sans sécurité cryptographique.
                 let shift = ((wavelength as u32) % 26) as u8;
-                let cloaked: String = raw_data
-                    .chars()
-                    .map(|c| {
-                        if c.is_ascii_alphabetic() {
-                            let base = if c.is_ascii_lowercase() { b'a' } else { b'A' };
-                            (((c as u8 - base + shift) % 26) + base) as char
-                        } else {
-                            c
-                        }
-                    })
-                    .collect();
+                let mut cloaked = String::with_capacity(raw_data.len());
+                for character in raw_data.chars() {
+                    if character.is_control() {
+                        cloaked.push_str(&format!("\\u{{{:04x}}}", character as u32));
+                    } else if character.is_ascii_alphabetic() {
+                        let base = if character.is_ascii_lowercase() { b'a' } else { b'A' };
+                        cloaked.push((((character as u8 - base + shift) % 26) + base) as char);
+                    } else {
+                        cloaked.push(character);
+                    }
+                }
                 format!("CLOAKED_POLYMORPHIC_{}:{}", (wavelength as u32), cloaked)
             }
         }
     }
+}
+
+fn escape_terminal_controls(raw_data: &str) -> String {
+    let mut escaped = String::with_capacity(raw_data.len());
+    for character in raw_data.chars() {
+        if character.is_control() {
+            escaped.push_str(&format!("\\u{{{:04x}}}", character as u32));
+        } else {
+            escaped.push(character);
+        }
+    }
+    escaped
+}
+
+fn escape_markdown_text(raw_data: &str) -> String {
+    let mut escaped = String::with_capacity(raw_data.len());
+    for character in raw_data.chars() {
+        if character.is_control() || matches!(character, '\u{2028}' | '\u{2029}') {
+            escaped.push_str(&format!("\\u{{{:04x}}}", character as u32));
+        } else {
+            if character.is_ascii_punctuation() {
+                escaped.push('\\');
+            }
+            escaped.push(character);
+        }
+    }
+    escaped
 }
 
 #[cfg(test)]
@@ -180,5 +215,47 @@ mod tests {
         let cloak_view =
             iridophore.render_polymorphic(data, &ObserverPerspective::CrypticCamouflage);
         assert!(cloak_view.starts_with("CLOAKED_POLYMORPHIC_"));
+    }
+
+    #[test]
+    fn hostile_payloads_remain_data_for_every_observer_perspective() {
+        let iridophore = Iridophore::new("format-contract");
+        let raw_data = "visible\x1b[2J\n# heading\n**bold** [link](javascript:alert(1))\r\t";
+        let perspectives = [
+            ObserverPerspective::StructuredJson,
+            ObserverPerspective::TuiAnsi,
+            ObserverPerspective::MarkdownVisual,
+            ObserverPerspective::CrypticCamouflage,
+        ];
+
+        for perspective in perspectives {
+            let rendered = iridophore.render_polymorphic(raw_data, &perspective);
+            match perspective {
+                ObserverPerspective::StructuredJson => {
+                    let parsed: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+                    assert_eq!(parsed["payload"], raw_data);
+                }
+                ObserverPerspective::TuiAnsi => {
+                    assert_eq!(rendered.matches('\x1b').count(), 2);
+                    assert!(rendered.contains("visible\\u{001b}[2J\\u{000a}# heading"));
+                    assert!(rendered.contains("\\u{000d}\\u{0009}"));
+                }
+                ObserverPerspective::MarkdownVisual => {
+                    assert!(!rendered.contains('\n'));
+                    assert!(rendered.contains("\\u{001b}\\[2J\\u{000a}\\# heading"));
+                    assert!(rendered.contains("\\u{000d}\\u{0009}"));
+                    assert!(rendered.contains("\\*\\*bold\\*\\*"));
+                    assert!(rendered.contains("\\[link\\]\\(javascript\\:alert\\(1\\)\\)"));
+                }
+                ObserverPerspective::CrypticCamouflage => {
+                    assert_eq!(
+                        rendered,
+                        iridophore.render_polymorphic(raw_data, &perspective)
+                    );
+                    assert!(rendered.starts_with("CLOAKED_POLYMORPHIC_"));
+                    assert!(!rendered.chars().any(char::is_control));
+                }
+            }
+        }
     }
 }

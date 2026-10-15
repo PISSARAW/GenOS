@@ -1,9 +1,9 @@
 # Biomimétisme Cellulaire Spécialisé Non-Humain dans GenOS
 
-- **Statut** : Le cnidocyte, l'électrocyte, le choanocyte, l'iridophore, la cellule de garde, la trachéide et le transfert procaryote HGT ont des branchements runtime partiels sous lease avec reçus; seules les autres opérations procaryotes restent des primitives locales sous `crates/genos-biology/src/specialized_cells/`.
-- **Statut** : Le cnidocyte est filtré avant transport MCP; les estimations de tension électrocytaire, le choanocyte, l'iridophore, la cellule de garde et la trachéide ont un chemin MCP/CLI sous scope d'action. La décharge électrocytaire quorum-gated reste une primitive Rust non reliée à ce dispatcher.
+- **Statut** : Le cnidocyte, l'électrocyte, le choanocyte, l'iridophore, la cellule de garde, la trachéide et le transfert procaryote HGT ont des branchements runtime partiels; seules les autres opérations procaryotes restent des primitives locales sous `crates/genos-biology/src/specialized_cells/`.
+- **Statut** : Le cnidocyte est filtré avant transport MCP; l'estimation de tension électrocytaire, le choanocyte, l'iridophore, la cellule de garde et la trachéide ont un chemin MCP/CLI sous scope d'action. La décharge électrocytaire signée et durable possède un CLI local séparé, opt-in et expérimental.
 - **Portée** : `crates/genos-biology/src/specialized_cells/`, `backend/src/services/mcpLigandReceptorService.js`, outils MCP `genos_biomimicry_*`.
-- **Dernière revue** : 2026-10-14.
+- **Dernière revue** : 2026-10-15.
 - **Référence** : [inventaire-biologique.md](inventaire-biologique.md), [maturite-biologique.md](maturite-biologique.md).
 
 Ce document décrit des primitives bio-inspirées comme vocabulaire d'architecture. Une simulation logicielle n'est pas une fonction biologique réelle : les chiffres physiques (15 MPa, 3 µs, 600 V, 30 Hz) sont des constantes de démonstration, pas des mesures.
@@ -11,8 +11,7 @@ Ce document décrit des primitives bio-inspirées comme vocabulaire d'architectu
 ## 0. Limites vérifiées (lire avant usage)
 
 - **Cnidocyte** : le filtre MCP `checkCnidocyteReflex` est appelé dans `mcpExecutor.execute` avant le transport. Il bloque, mesure sa latence avec l'horloge monotone et conserve un audit; `test_mcp_cnidocyte_runtime_gate.js` vérifie cette voie avec base simulée et transport interdit. La latence constante du primitive Rust n'est pas une mesure, le filtre par sous-chaînes n'est pas une protection générale et aucune garantie « zéro-latence » n'est revendiquée.
-- **Électrocyte** : `discharge_electric_under_quorum` exige au moins deux cellules actives distinctes, une majorité de votes favorables et une échéance valide avant la décharge; les refus et mesures sont journalisés. Les identités de vote ne sont pas signées, la collecte n'est pas distribuée et l'event store reste mémoire : ce n'est pas un consensus distribué.
-- **Électrocyte** : l'estimation de tension CLI est un calcul théorique sous scope MCP. La primitive Rust `discharge_electric_under_quorum` exige au moins deux cellules actives distinctes, une majorité de votes favorables et une échéance valide avant la décharge; les refus et mesures sont journalisés. Cette primitive n'est pas appelée depuis le dispatcher MCP/CLI; les identités de vote ne sont pas signées, la collecte n'est pas distribuée et l'event store reste mémoire : ce n'est pas un consensus distribué.
+- **Électrocyte** : l'estimation de tension et l'action `discharge` de `biomimicry bio-feature` restent des calculs théoriques. Le runtime distinct vérifie les signatures Ed25519 des votes, les cellules actives, le quorum et l'échéance; son chemin durable écrit un reçu avant mutation. `genos electric-quorum --experimental` prend un registre de clés publiques JSON fourni par l'appelant, restaure la population/tick, et utilise le verrou de mission. Cette configuration ne constitue pas une racine de confiance hôte et le CLI n'authentifie pas son opérateur; le quorum reste logiciel et local, sans collecte réseau ni consensus distribué.
 - **Choanocyte** : `filter_stream_and_persist` traite un flux fourni, lie le reçu à la mission et au SHA-256 des paquets, puis vérifie sa lecture après réouverture du journal. Le débit est calculé par le logiciel; il n'y a pas d'adaptateur hydrodynamique ni de mesure de pertes physiques.
 - **Iridophore** : le rendu polymorphique est un formatage (ANSI, JSON, Markdown). Le mode `CrypticCamouflage` est un décalage César, pas un chiffrement ; il ne donne aucune propriété cryptographique et le camouflage n'est pas une mesure de sécurité.
 - **Cellule de garde** : `throttle_flux` régule le flux selon les réserves ATP et amino-acides, débite le flux admis des deux registres et ferme si la mission ne peut pas financer l'opération. Les acides aminés viennent du `MetabolicPool` de la cellule racine; les reçus restent en mémoire et les pools des autres cellules ne sont pas agrégés.
@@ -27,10 +26,10 @@ Les appels à l'outil générique `genos_biomimicry` exigent à la fois la lease
 cet outil et un scope exact pour toute feature/action, de la forme
 `genos_biomimicry::<feature>::<action>`. Par exemple, le tamisage requiert
 `GENOS_MCP_LEASE=genos_biomimicry,genos_biomimicry::choanocyte::sift`.
-Un scope d'action différent ou désactivé est refusé pour les variantes Rust et
-Node du serveur MCP. Cette lease limite l'appel MCP; elle ne transforme pas les
-votes électrocytaires déclaratifs en identité authentifiée, ni ne prouve une
-exécution durable dans une mission.
+  Un scope d'action différent ou désactivé est refusé pour les variantes Rust et
+Node du serveur MCP. Cette lease limite l'appel MCP; elle ne s'applique pas au
+CLI `electric-quorum` expérimental et ne transforme pas sa configuration de
+clés choisie par l'appelant en identité d'opérateur authentifiée.
 
 ---
 
@@ -56,13 +55,15 @@ exécution durable dans une mission.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/electrocyte.rs`](../../../crates/genos-biology/src/specialized_cells/electrocyte.rs)
 * **Fonctionnement :**
   - **Empilement en série (calcul local) :** Chaque électrocyte porte un gradient de $150\,\text{mV}$ en constante. La somme $V = \sum V_i$ est arithmétique, pas une mesure électrique.
-  - **Décharge synchronisée simulée :** Dépolarisation calculée en un appel de fonction. Aucun quorum, délai ou participant réel.
+  - **Décharge simple simulée :** Dépolarisation calculée en un appel de fonction; aucun participant réel ni tension n'est mesuré.
+  - **Quorum logiciel distinct :** `discharge_electric_under_quorum_durable` exige des votes Ed25519 signés par au moins deux cellules actives et une majorité stricte; `electric_quorum_runtime_tests.rs` et `electric_quorum_process_restart.rs` couvrent les refus et le rejeu. Le CLI expérimental s'appuie sur la liste de clés fournie par son appelant et le journal/verrou de mission; ce n'est pas un transport distribué ni un consensus réseau.
   - **Recharge métabolique $Na^+/K^+$ :** Décrément d'un compteur ATP local.
 * **Commandes CLI / MCP :**
   ```bash
   genos biomimicry bio-feature --feature electrocyte --action voltage --param "cell_count=5000" --param "columns=1"
   genos biomimicry bio-feature --feature electrocyte --action discharge --param "cell_count=5000"
   genos biomimicry bio-feature --feature electrocyte --action recharge --param "cell_count=5000" --param "atp=3000"
+  genos electric-quorum --mission-id <uuid> --tick <tick> --request votes.json --trusted-keys trusted-voters.json --experimental
   ```
 
 ### 1.3 Les Choanocytes : Aspiration Hydrodynamique & Tamisage de Flux Continu

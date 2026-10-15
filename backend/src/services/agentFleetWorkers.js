@@ -146,7 +146,8 @@ function buildWorkerContext(context) {
     throw Object.assign(new Error('Initial worker allocation does not match dispatch assignments.'), { code: 'INVALID_WORKER_ALLOCATION' });
   }
   const sourceWorkspace = parent.workspace_path || mission.workspaceRoot;
-  if (parent.workspace_path && mission.workspaceRoot && !samePath(mission.workspaceRoot, parent.workspace_path)) {
+  if (parent.workspace_path && mission.workspaceRoot && mission.workspaceProvisioned === true
+    && !samePath(mission.workspaceRoot, parent.workspace_path)) {
     throw Object.assign(new Error(`Mission workspace root does not match workspace '${parent.workspace_id}'.`), { code: 'WORKSPACE_ROOT_MISMATCH' });
   }
   return { ...context, sourceWorkspace, initialWorkerTokens, ...workerBudgets({ parent, plan, assignmentCount: assignments.length, initialRound }) };
