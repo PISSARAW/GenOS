@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'mission-outcome-contract-test';
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'mission-outcome-receipt-test-only';
@@ -72,7 +73,8 @@ function testContractAndVerdicts() {
 }
 
 async function testRuntimeClosure(contract) {
-  const dbPath = path.resolve(__dirname, 'mission-outcome-contract-test.db');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-mission-outcome-contract-'));
+  const dbPath = path.join(root, 'mission-outcome-contract-test.db');
   const db = await getDatabase(dbPath);
   try {
     await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES ('outcome-agent', 'Outcome Agent', 'Orchestrator', 'running', 'orchestrator')");
@@ -104,9 +106,7 @@ async function testRuntimeClosure(contract) {
     assert.equal(legacyProgress.run.metrics.missionOutcome.status, 'unmeasured');
   } finally {
     await closeDatabase();
-    for (const suffix of ['', '-shm', '-wal']) {
-      if (fs.existsSync(`${dbPath}${suffix}`)) fs.unlinkSync(`${dbPath}${suffix}`);
-    }
+    fs.rmSync(root, { recursive: true, force: true });
   }
 }
 
