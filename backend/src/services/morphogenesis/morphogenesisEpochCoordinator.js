@@ -347,7 +347,8 @@ async function prepareEpochContinuation(input) {
   const queued = await queueContinuationMissions(survivors.map((survivor, index) => ({
     state, survivor, continuation: nextContinuation, index, orchestratorId, adaptation, epoch
   })));
-  if (transition) require('./morphogenesisTransitionReceipt').finalizeTransitionQueue(transition, queued);
+  if (transition) require('./morphogenesisTransitionReceipt').finalizeTransitionQueue(transition, queued,
+    queued.map((workerId) => pendingContinuations.get(workerId)));
   state.epochBudget = epochBudget;
   state.epoch = epoch;
   state.workerIds = new Set(queued);

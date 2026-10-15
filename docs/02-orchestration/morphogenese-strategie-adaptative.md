@@ -320,9 +320,24 @@ Le backend ne fournit pas encore de stockage par défaut. Le chemin de continuat
 accepte un adaptateur `loadVerifiedOutcomes`, borné à 120 lignes par mission; chaque
 ligne est vérifiée par son reçu et son empreinte. Un adaptateur absent, en erreur ou
 hors limite produit un jeu vide et donc `NO_CHANGE`. Aucun corpus n'est livré avec
-GenOS. Seul le remplacement de cohorte topologique est un type d'intervention
-candidat; réduction des communications et réallocation restent indisponibles tant que
-leurs actions runtime ne sont pas implémentées. Voir l'ADR 0554.
+GenOS. Le remplacement de cohorte est candidat; la réduction des communications a
+maintenant une action runtime de relève et une échelle candidate au sélecteur. Le
+sélecteur ne l'inclut que si l'adaptateur facultatif
+`loadVerifiedCommunicationMetric({missionId})` fournit un reçu indépendant valide
+pour une mesure de redondance propre à la mission, puis si les issues appariées de
+ce `candidateId` la calibrent hors famille et hors modèle. Aucun adaptateur ni jeu
+de mesure n'est configuré par défaut : en production, l'action reste donc
+`unavailable` sans intégration de stockage. La mesure exige
+une cadence `continuous_sync`, des outils de coordination loués mais non requis,
+au moins dix observations et au moins 20 % d'échanges redondants. À la barrière,
+la mission suivante passe en cadence `barrier_only` et perd seulement les leases
+`genos_organization_state`, `genos_worker_inbox` et `genos_worker_publish`; les
+obligations de mission ou d'organisation bloquent l'action. Aucun producteur
+backend ne construit encore automatiquement ce reçu mission-scopé. Le reçu de
+transition lie le candidat calibré, le reçu métrique, les workers, leurs budgets,
+la nouvelle cadence et la lease exacte; toute divergence avant dispatch bloque
+l'envoi. La réallocation
+de ressources n'a pas encore d'action runtime propre. Voir les ADR 0554 et 0555.
 
 ### Porte d’activation
 

@@ -4,6 +4,7 @@ const recruitment = require('./morphogenesisEpochRecruitment');
 
 async function validateFundedStrategy(context) {
   const { input, adaptation, funded, reservation, assertQuiescence } = context;
+  if (adaptation.communicationIntervention) return validateCommunicationIntervention(context);
   if (!adaptation.adapted && !adaptation.cohortBlueprint) {
     return { status: 'not_applicable', executionAuthorized: false,
       reason: 'no_morphogenesis_transition_or_cohort_replacement' };
@@ -17,6 +18,46 @@ async function validateFundedStrategy(context) {
     tokenBudget: funded.workerTokens[index]
   }));
   return runFundedAdmission({ input, adaptation, reservation, assignments, assertQuiescence });
+}
+
+async function validateCommunicationIntervention(context) {
+  const { input, adaptation, funded, reservation, assertQuiescence } = context;
+  const candidateId = adaptation.communicationIntervention.candidateId;
+  if (!policyCalibratesCommunication(adaptation, candidateId)) {
+    return { status: 'denied', reason: 'communication_action_not_calibrated_by_policy' };
+  }
+  const intervention = require('./communicationReductionIntervention');
+  const workers = funded.survivors.map((survivor) => input.state.workers.get(survivor.agentId) || {});
+  if (!workersAvailable(intervention, workers, adaptation.communicationMetric)) {
+    return { status: 'denied', reason: 'communication_action_runtime_preconditions_changed' };
+  }
+  if (!fundedBudgetFits(funded, reservation)) {
+    return { status: 'denied', reason: 'communication_action_budget_mismatch' };
+  }
+  const quiescence = await assertQuiescence(input.state, input.orchestratorId);
+  return { status: 'admitted', executionAuthorized: true,
+    selectionBasis: 'calibrated_communication_policy', comparativeQuality: 'unknown',
+    recipe: { id: candidateId, scale: 'COMMUNICATION_REDUCTION' }, actualPlan: adaptation.plan || null,
+    communicationMetricReceipt: adaptation.communicationMetric.receipt,
+    gates: { policyProposal: true, calibration: true, metricReceipt: true,
+      workerPreconditions: true, budget: true, quiescence: quiescence.confirmed } };
+}
+
+function policyCalibratesCommunication(adaptation, candidateId) {
+  const policy = adaptation.decision?.policy;
+  const calibrated = policy?.portfolio?.calibration?.scales?.COMMUNICATION_REDUCTION?.candidates?.[candidateId];
+  return policy?.decision?.interventionScale === 'COMMUNICATION_REDUCTION'
+    && policy.decision.recipe?.candidateId === candidateId && calibrated?.status === 'calibrated';
+}
+
+function workersAvailable(intervention, workers, metric) {
+  return workers.length > 0 && workers.every((worker) =>
+    intervention.describeAvailability(worker, metric).status === 'available');
+}
+
+function fundedBudgetFits(funded, reservation) {
+  const tokens = funded.workerTokens.reduce((sum, value) => sum + Number(value || 0), 0);
+  return Number.isSafeInteger(tokens) && tokens > 0 && tokens <= reservation.reservedTokens;
 }
 
 async function runFundedAdmission(context) {

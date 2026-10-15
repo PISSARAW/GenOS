@@ -3,6 +3,7 @@
 const { compileExpression } = require('./graph/morphologyCompiler');
 const expression = require('./expression/morphologyExpression');
 const { bindGraphMission } = require('./morphogenesisMissionBinding');
+const communicationPlanning = require('./communicationReductionPlanning');
 const MAX_REPLACEMENT_WORKERS = 12;
 const MAX_CALIBRATION_OUTCOMES = 120;
 
@@ -338,18 +339,25 @@ async function loadVerifiedOutcomes(input, dependencies) {
   }
 }
 
+function earlyDecision(context) {
+  const { input, signals, decision, communicationMetric } = context;
+  if (shouldSkipAdaptation(input, signals, decision)) {
+    return { adapted: false, reason: 'adaptation_not_required', signals, decision };
+  }
+  if (selectorAbstained(decision)) return { adapted: false, reason: 'selector_no_change', signals, decision };
+  return communicationPlanning.selected(decision)
+    ? communicationPlanning.plan(input, decision, communicationMetric) : null;
+}
+
 async function planContinuation(input, dependencies = {}) {
   const results = [...input.state.results.values()];
   const signals = evidenceSignals(results);
   const verifiedOutcomes = await loadVerifiedOutcomes(input, dependencies);
-  const decisionInput = { ...input, verifiedOutcomes };
+  const communicationMetric = await communicationPlanning.loadVerifiedMetric(input, dependencies);
+  const decisionInput = { ...input, verifiedOutcomes, communicationMetric };
   const decision = require('./morphogenesisEpochDecisionService').compilePolicy(decisionInput, signals);
-  if (shouldSkipAdaptation(input, signals, decision)) {
-    return { adapted: false, reason: 'adaptation_not_required', signals, decision };
-  }
-  if (selectorAbstained(decision)) {
-    return { adapted: false, reason: 'selector_no_change', signals, decision };
-  }
+  const early = earlyDecision({ input, signals, decision, communicationMetric });
+  if (early) return early;
   const planner = dependencies.planMorphogenesis
     || require('./morphogenesisPlannerService').planMorphogenesis;
   const plan = planner(plannerContext(input, signals, decision.policy));

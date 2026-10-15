@@ -5,6 +5,7 @@ const { buildContinuationContext } = require('../../bin/agent-runtime-prompt.cjs
 const { extractEvidenceReport } = require('./agentEvidenceService');
 const { pendingContinuations } = require('./agentOrchestrationState');
 const durableContinuation = require('./durableContinuationService');
+const communicationReduction = require('./morphogenesis/communicationReductionIntervention');
 
 function continuationTokens(continuation, index) {
   const scheduled = continuation.workerTokens;
@@ -58,7 +59,16 @@ function prepareContinuation(context) {
 function continuationMission(input) {
   const { context, previous, tokens, budget, usage, id, morphology, prompt } = input;
   const { state, continuation, orchestratorId, adaptation, epoch } = context;
-  return { ...previous, continuationId: id,
+  const communicationSelection = adaptation?.communicationIntervention
+    ? { ...adaptation.communicationIntervention, transitionId: adaptation.receipt?.transitionId } : null;
+  const communication = communicationReduction.applyCommunicationReduction(previous,
+    communicationSelection, adaptation?.communicationMetric);
+  if (adaptation?.communicationIntervention?.status === 'selected' && !communication.applied) {
+    throw Object.assign(new Error(`Communication intervention could not be applied: ${communication.reason}.`), {
+      code: 'MORPHOGENESIS_COMMUNICATION_INTERVENTION_UNAVAILABLE'
+    });
+  }
+  return { ...communication.mission, continuationId: id,
     prompt: continuationPrompt(prompt, morphology, adaptation),
     executionBudget: { ...previous.executionBudget, tokens,
       events: Math.max(1, budget.events - usage.events), costUsd: Math.max(0, budget.costUsd - usage.cost) },

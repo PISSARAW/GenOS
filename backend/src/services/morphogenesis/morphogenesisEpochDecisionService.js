@@ -89,11 +89,45 @@ function currentPolicyVariant(plan) { return plan.morphogenesisPlan?.selectedVar
 
 function topologyCapabilities(mission) { return mission.topologyCapabilityInventory?.available || null; }
 
+function coordinationPolicyOf(worker) { return worker.coordinationPolicy || worker.coordination_policy || {}; }
+
+function commonCoordinationLease(workers) {
+  const leases = workers.map((worker) => new Set(worker.toolLease || []));
+  return leases.length ? [...leases[0]].filter((tool) => leases.every((lease) => lease.has(tool))) : [];
+}
+
+function continuousCadence(workers) {
+  const allContinuous = workers.length && workers.every((worker) => {
+    const policy = coordinationPolicyOf(worker);
+    return String(policy.communicationCadence || policy.communication_cadence || '').toLowerCase() === 'continuous_sync';
+  });
+  return allContinuous ? 'continuous_sync' : null;
+}
+
+function requiredCoordinationTools(mission, workers) {
+  const workerTools = workers.flatMap((worker) => [...(worker.requiredTools || []), ...(worker.toolRequirements || [])]);
+  return [...new Set([...(mission.requiredTools || []), ...workerTools])];
+}
+
+function communicationRequired(mission, workers) {
+  return mission.communicationRequired === true || workers.some((worker) => worker.communicationRequired === true);
+}
+
+function communicationMissionFor(mission, workers, missionId) {
+  return { missionId, organization: mission.organization || workers[0]?.organization || null,
+    communicationRequired: communicationRequired(mission, workers),
+    coordinationPolicy: { communicationCadence: continuousCadence(workers) },
+    toolLease: commonCoordinationLease(workers), requiredTools: requiredCoordinationTools(mission, workers) };
+}
+
 function conditionalPolicyInput(input, diagnosis, workers) {
   const mission = input.state.normalizedMission || {};
   const plan = input.state.plan || {};
+  const missionId = selectedMissionId(mission, input.orchestratorId);
   return {
-    mission: selectedMissionText(mission), missionId: selectedMissionId(mission, input.orchestratorId),
+    mission: selectedMissionText(mission), missionId,
+    communicationMission: communicationMissionFor(mission, workers, missionId),
+    communicationMetric: input.communicationMetric || null,
     verifiedOutcomes: input.verifiedOutcomes,
     currentTopology: currentPolicyTopology(plan), currentVariant: currentPolicyVariant(plan),
     currentRecipe: plan.morphogenesisPlan?.morphologyExpression || null,
@@ -125,4 +159,5 @@ function compilePolicy(input, signals) {
   return decision;
 }
 
-module.exports = { compilePolicy, diagnosisFor, critiqueReports, resourceGroups };
+module.exports = { compilePolicy, diagnosisFor, critiqueReports, resourceGroups,
+  communicationMissionFor };

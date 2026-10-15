@@ -4,6 +4,7 @@ const { generateAdaptiveTopologyCandidates } = require('./adaptiveTopologyCandid
 const { rankAdaptiveTopologies } = require('./adaptiveTopologyRanking');
 const { buildAdaptiveWorkerRoster } = require('./adaptiveWorkerRoster');
 const selectorCalibration = require('./morphogenesisSelectorCalibration');
+const communicationReduction = require('./communicationReductionIntervention');
 
 const MAX_EPOCHS = 12;
 const SIGNALS = Object.freeze(['uncertainty', 'causalAmbiguity', 'contradiction',
@@ -62,13 +63,35 @@ function buildRecipePortfolio(input, signals) {
   const calibration = selectorCalibration.compileCalibration(input.verifiedOutcomes);
   const replacement = calibration.scales.COHORT_REPLACEMENT;
   const generated = generateAdaptiveTopologyCandidates(candidateGenerationInput(input));
-  const candidates = decorateCandidates({ candidates: generated.candidates, replacement, signals, input });
-  const ranking = rankPortfolio(candidates, input, signals);
+  const topologyCandidates = decorateCandidates({ candidates: generated.candidates, replacement, signals, input });
+  const communication = communicationReduction.describeAvailability(input.communicationMission, input.communicationMetric);
+  const communicationCandidate = communicationCandidateFor(communication, calibration);
+  const candidates = communication.status === 'available'
+    ? [...topologyCandidates, communicationCandidate] : topologyCandidates;
+  const ranking = rankPortfolio(topologyCandidates, input, signals);
   const availableScales = replaceableCandidates(generated.candidates);
+  if (communication.status === 'available') availableScales.push({
+    candidateId: communication.candidateId, scale: communication.scale
+  });
   const scaleDecision = selectorCalibration.selectScale(calibration, availableScales);
-  const selected = admittedSelection(ranking, scaleDecision);
-  return { generation: generated.stats, candidates: generated.candidates, ranking, calibration,
+  const selected = selectedCandidate({ ranking, scaleDecision, communicationCandidate });
+  return { generation: generated.stats, candidates, ranking, calibration, communication,
     scaleDecision, selected: selectionSummary(selected, input, scaleDecision) };
+}
+
+function communicationCandidateFor(availability, calibration) {
+  const estimate = calibration.scales.COMMUNICATION_REDUCTION.candidates[availability.candidateId] || { status: 'unavailable' };
+  return { id: availability.candidateId, candidateId: availability.candidateId,
+    kind: 'COMMUNICATION_REDUCTION', topology: null, variant: null,
+    admissibility: 'available', runtimeAvailability: availability,
+    ...candidateCalibrationAttributes(false, estimate), interventionScale: 'COMMUNICATION_REDUCTION' };
+}
+
+function selectedCandidate(context) {
+  const { ranking, scaleDecision, communicationCandidate } = context;
+  if (scaleDecision.scale === 'COMMUNICATION_REDUCTION'
+    && scaleDecision.candidateId === communicationCandidate?.candidateId) return communicationCandidate;
+  return admittedSelection(ranking, scaleDecision);
 }
 
 function candidateGenerationInput(input) {
@@ -148,6 +171,8 @@ function selectionSummary(selected, input, scaleDecision) {
     kind: selected.kind, interventionScale: scaleDecision.scale,
     expectedGain: selected.expectedGain, gainUncertainty: selected.gainUncertainty,
     marginalCost: selected.marginalCost, costUncertainty: selected.costUncertainty,
+    ...(scaleDecision.scale === 'COMMUNICATION_REDUCTION'
+      ? { communicationIntervention: { candidateId: selected.candidateId, scale: scaleDecision.scale } } : {}),
     executionEligible: false
   };
 }
@@ -186,6 +211,23 @@ function budgetPlan(input, signals) {
   };
 }
 
+function interventionScaleAvailability(scale, portfolio) {
+  if (scale === 'NO_CHANGE') return { status: 'available' };
+  if (scale === 'COMMUNICATION_REDUCTION') {
+    if (portfolio.communication.status !== 'available') return {
+      status: 'unavailable', reason: portfolio.communication.reason
+    };
+    const estimate = portfolio.calibration.scales[scale].candidates[communicationReduction.CANDIDATE_ID];
+    return estimate?.status === 'calibrated'
+      ? { status: 'available', estimate, runtimeAvailability: portfolio.communication }
+      : { status: 'calibration_required', runtimeAvailability: portfolio.communication };
+  }
+  const estimate = portfolio.calibration.scales[scale];
+  return estimate.status === 'calibrated' && scale === 'COHORT_REPLACEMENT'
+    ? { status: 'available', estimate }
+    : { status: 'unavailable', reason: estimate.reason || 'runtime_action_not_implemented' };
+}
+
 function compileConditionalMorphogenesisPolicy(input = {}) {
   const signals = normalizedSignals(input.diagnosis);
   const mission = typeof input.mission === 'string' ? input.mission.trim() : '';
@@ -210,13 +252,10 @@ function compileConditionalMorphogenesisPolicy(input = {}) {
       workerRoster, proofObligations: proofObligations(signals, representation), budget },
     portfolio: { generation: portfolio.generation, candidates: portfolio.candidates,
       ranking: portfolio.ranking, calibration: portfolio.calibration,
+      communication: portfolio.communication,
       scaleDecision: portfolio.scaleDecision,
-      interventionScales: Object.fromEntries(['NO_CHANGE', ...selectorCalibration.SCALE].map(scale => [scale,
-        scale === 'NO_CHANGE' ? { status: 'available' }
-          : portfolio.calibration.scales[scale].status === 'calibrated' && scale === 'COHORT_REPLACEMENT'
-            ? { status: 'available', estimate: portfolio.calibration.scales[scale] }
-            : { status: 'unavailable', reason: scale === 'COHORT_REPLACEMENT'
-              ? portfolio.calibration.scales[scale].reason : 'runtime_action_not_implemented' }])) },
+      interventionScales: Object.fromEntries(['NO_CHANGE', ...selectorCalibration.SCALE].map((scale) =>
+        [scale, interventionScaleAvailability(scale, portfolio)])) },
     conditions: [
       { when: { anySignalAtLeast: 0.6 }, action: 'reassess_representation_and_recipe' },
       { when: { signal: 'provenanceRisk', atLeast: 0.35 }, action: 'quarantine_correlated_claims' },
