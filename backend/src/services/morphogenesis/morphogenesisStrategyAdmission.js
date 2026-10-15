@@ -87,31 +87,46 @@ function validateCapabilities(candidate, registration, inventory) {
 }
 
 function assignmentDenial(input) {
-  const { assignment, kinds, requiredCapabilities } = input;
+  const { assignment, kinds } = input;
   if (!assignment?.workerKind || !kinds.has(assignment.workerKind)) {
     return deny('worker_kind_unavailable', { workerKind: assignment?.workerKind || null });
   }
-  const workerCaps = new Set((assignment.capabilities || []).map((item) => String(item).toUpperCase()));
-  const missing = requiredCapabilities.filter((capability) => !workerCaps.has(String(capability).toUpperCase()));
-  return missing.length ? deny('worker_capabilities_missing', { workerKind: assignment.workerKind, missing }) : null;
+  return null;
+}
+
+function workerCapabilityDenial(input) {
+  const { topology, assignments, requiredCapabilities } = input;
+  const matching = assignments.filter((item) => (item.morphologyTopology || item.topology || topology) === topology);
+  if (!matching.length) return deny('topology_has_no_worker_assignment', { topology });
+  const available = new Set(matching.flatMap((item) => item.capabilities || [])
+    .map((item) => String(item).toUpperCase()));
+  const missing = requiredCapabilities.filter((capability) => !available.has(String(capability).toUpperCase()));
+  return missing.length ? deny('worker_capabilities_missing', { topology, missing }) : null;
 }
 
 function validateWorkers(input) {
-  const { plan, availableKinds, requiredCapabilities } = input;
+  const { plan, availableKinds, candidate } = input;
   const assignments = plan?.workerAssignments;
   if (!Array.isArray(assignments) || !assignments.length || assignments.length > MAX_COHORT_WORKERS) return deny('worker_assignments_invalid');
   if (!Array.isArray(availableKinds)) return deny('worker_kind_inventory_unknown');
   const kinds = new Set(availableKinds);
-  return assignments.map((assignment) => assignmentDenial({ assignment, kinds, requiredCapabilities }))
+  const kindDenial = assignments.map((assignment) => assignmentDenial({ assignment, kinds })).find(Boolean);
+  if (kindDenial) return kindDenial;
+  const requirements = candidate.topologyRequirements || [{ topology: candidate.topology,
+    requiredCapabilities: candidate.requiredCapabilities || [] }];
+  return requirements.map((requirement) => workerCapabilityDenial({ ...requirement, assignments }))
     .find(Boolean) || null;
 }
 
 function validateBudget(plan, budget) {
   const available = Number(budget?.availableTokens);
   const allocated = Number(plan?.allocatedTokens);
+  const assigned = Array.isArray(plan?.workerAssignments)
+    ? plan.workerAssignments.reduce((sum, item) => sum + Number(item.tokenBudget), 0) : NaN;
   if (!Number.isSafeInteger(available) || available < 0 || !Number.isSafeInteger(allocated) || allocated < 0) {
     return deny('token_budget_evidence_missing');
   }
+  if (!Number.isSafeInteger(assigned) || assigned < 0 || assigned !== allocated) return deny('worker_budget_allocation_mismatch');
   if (allocated > available) return deny('token_budget_exceeded', { allocated, available });
   return null;
 }
@@ -129,17 +144,31 @@ function validateLease(candidate, plan, lease) {
   return excess.length ? deny('requested_tools_exceed_parent_lease', { excess }) : null;
 }
 
+function validateConcretePlan(candidate, plan) {
+  const variant = candidate.variant || 'default';
+  if (plan?.selectedTopology !== candidate.topology || (plan.selectedVariant || 'default') !== variant) {
+    return deny('actual_plan_recipe_mismatch');
+  }
+  const nodeCount = (plan.morphologyPatch?.graph?.nodes || []).filter((node) => node.kind === 'TOPOLOGY').length;
+  if (candidate.selectionBasis !== 'planner_heuristic_unvalidated' && nodeCount !== 1) {
+    return deny('actual_plan_graph_mismatch');
+  }
+  return graphMatchesPlannerSelection(plan.morphologyPatch?.graph, candidate.topology, variant)
+    ? null : deny('actual_plan_graph_mismatch');
+}
+
 function bind(candidate, plan, registration) {
   return { ...plan, selectedTopology: candidate.topology,
     selectedVariant: registration.variantId, strategyRecipeId: candidate.id || candidate.candidateId,
     workerAssignments: plan.workerAssignments.map((assignment) => ({ ...assignment,
-      topology: candidate.topology, variant: registration.variantId })) };
+      topology: assignment.morphologyTopology || assignment.topology || candidate.topology,
+      variant: assignment.morphologyVariant || assignment.variant || registration.variantId })) };
 }
 
 function graphMatchesPlannerSelection(graph, topology, variant) {
   const nodes = (graph?.nodes || []).filter((node) => node.kind === 'TOPOLOGY');
-  return nodes.length === 1 && nodes[0].topology === topology
-    && (nodes[0].variant || 'default') === variant;
+  return nodes.length > 0 && nodes.some((node) => node.topology === topology
+    && (node.variant || 'default') === variant);
 }
 
 function plannerCandidateCapabilities(registry, topology, variant) {
@@ -149,19 +178,36 @@ function plannerCandidateCapabilities(registry, topology, variant) {
   return [...new Set([...topologyCapabilities, ...variantCapabilities])];
 }
 
+function topologyRequirements(graph, registry) {
+  const nodes = (graph?.nodes || []).filter((node) => node.kind === 'TOPOLOGY');
+  const requirements = [];
+  for (const node of nodes) {
+    const topology = registry.get(node.topology);
+    const variantId = node.variant || 'default';
+    const variant = registry.variants.listEntries(node.topology).find((entry) => entry.variantId === variantId);
+    if (!topology || !variant || !['implemented', 'stable'].includes(variant.maturity)) return null;
+    requirements.push({ topology: node.topology, variant: variantId,
+      requiredCapabilities: [...new Set([...(topology.requiredCapabilities || []), ...(variant.requiredCapabilities || [])])] });
+  }
+  return requirements;
+}
+
 function plannerRecipe(input, registry) {
   const plan = input.actualPlan;
   const topology = plan?.selectedTopology;
   const variant = plan?.selectedVariant || 'default';
   if (!topology || !plan?.morphologyPatch?.graph) return deny('planner_transition_plan_missing');
   if (!graphMatchesPlannerSelection(plan.morphologyPatch.graph, topology, variant)) return deny('planner_transition_graph_mismatch');
+  const requirements = topologyRequirements(plan.morphologyPatch.graph, registry);
+  if (!requirements) return deny('planner_transition_topology_not_mature');
   const contracts = Object.fromEntries(registry.list().map((id) => [id, registry.get(id)]));
   const validation = require('./typing/morphologyTypeChecker')
     .checkMorphologyTypes(plan.morphologyPatch.graph, contracts);
   const candidate = { id: `planner:${topology}:${variant}`, candidateId: `planner:${topology}:${variant}`,
     kind: variant === 'default' ? 'TOPOLOGY' : 'VARIANT', topology,
     variant: variant === 'default' ? null : variant, validation,
-    requiredCapabilities: plannerCandidateCapabilities(registry, topology, variant),
+    topologyRequirements: requirements,
+    requiredCapabilities: [...new Set(requirements.flatMap((item) => item.requiredCapabilities))],
     selectionBasis: 'planner_heuristic_unvalidated' };
   return { status: 'candidate_valid', candidate };
 }
@@ -189,16 +235,14 @@ function validateAdmissionGates(input) {
   const registry = input.registry || DEFAULT_REGISTRY;
   const registration = validateRecipeRegistration(input.candidate, registry);
   if (registration.status === 'denied') return registration;
-  const capabilitiesDenied = validateCapabilities(input.candidate, registration, input.topologyCapabilities);
-  if (capabilitiesDenied) return capabilitiesDenied;
-  const required = [...new Set([...(registration.topology.requiredCapabilities || []),
-    ...(registration.variant.requiredCapabilities || []), ...(input.candidate.requiredCapabilities || [])])];
-  const workersDenied = validateWorkers({ plan: input.actualPlan,
-    availableKinds: input.availableWorkerKinds, requiredCapabilities: required });
-  if (workersDenied) return workersDenied;
-  return validateBudget(input.actualPlan, input.budget)
-    || validateLease(input.candidate, input.actualPlan, input.parentLease)
-    || { status: 'admission_gates_passed', registration };
+  const denials = [validateConcretePlan(input.candidate, input.actualPlan),
+    validateCapabilities(input.candidate, registration, input.topologyCapabilities),
+    validateWorkers({ plan: input.actualPlan,
+      availableKinds: input.availableWorkerKinds, candidate: input.candidate }),
+    validateBudget(input.actualPlan, input.budget),
+    validateLease(input.candidate, input.actualPlan, input.parentLease)];
+  const denial = denials.find(Boolean);
+  return denial || { status: 'admission_gates_passed', registration };
 }
 
 function admitCandidate(input, candidate) {

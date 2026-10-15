@@ -79,8 +79,12 @@ async function reconfigureAndDispatchEpoch(input) {
 
 async function adaptEpochContinuation(input) {
   const { state, orchestratorId, survivors, continuation } = input;
-  await assertDatabaseQuiescence(state, orchestratorId);
-  const adaptation = await input.planAdaptiveContinuation({ state, survivors, continuation, orchestratorId });
+  const quiescence = await assertDatabaseQuiescence(state, orchestratorId);
+  const allowedTools = require('../agentOrchestrationState').orchestratorToolLease(state.plan);
+  const strategyAdmissionContext = { quiescence, parentLease: { allowedTools },
+    requestedTools: Array.isArray(state.plan?.requiredTools) ? state.plan.requiredTools : [] };
+  const adaptation = await input.planAdaptiveContinuation({ state, survivors, continuation,
+    orchestratorId, strategyAdmissionContext });
   input.emitMorphogenesisContinuation(orchestratorId, adaptation);
   return adaptation;
 }
@@ -96,6 +100,17 @@ async function prepareFundedEpochContinuation(input, adaptation) {
     return [];
   }
   disableUnfundedChallenge(adaptation, funded);
+  const admission = await require('./morphogenesisEpochAdmissionCoordinator').validateFundedStrategy({
+    input, adaptation, funded, reservation, assertQuiescence: assertDatabaseQuiescence
+  });
+  if (admission?.status === 'denied') {
+    throw cohortError(`MORPHOGENESIS_STRATEGY_ADMISSION_DENIED:${admission.reason}`);
+  }
+  if (admission?.status === 'admitted') {
+    adaptation.plan = admission.actualPlan;
+    adaptation.admission = admission;
+    if (adaptation.receipt) adaptation.receipt.strategyAdmission = admission;
+  }
   const cohort = adaptation.cohortBlueprint
     ? await replaceEpochCohort({ ...input, state, funded, continuation, adaptation, reservation }) : null;
   const nextSurvivors = cohort ? recruitedSurvivors(cohort.workers, funded.survivors) : funded.survivors;
@@ -148,13 +163,22 @@ async function assertDatabaseQuiescence(state, orchestratorId) {
     EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = a.id
       AND (q.status IN ('queued', 'claimed', 'running') OR q.phase IN ('frozen', 'thawing', 'freezing', 'freeze_failed', 'cancelling'))) AS leased
     FROM agents a WHERE a.parent_agent_id = ? AND a.id IN (${marks})`, orchestratorId, ...ids);
-  if (!Array.isArray(rows) || rows.length !== ids.length) throw cohortError('MORPHOGENESIS_COHORT_NOT_QUIESCENT');
-  for (const row of rows) {
-    const status = String(row.status || '').toLowerCase();
-    if (!QUIESCENT_STATUSES.has(status) || RUNNING_STATUSES.has(status) || row.runtime_pid || Number(row.leased) !== 0) {
-      throw cohortError('MORPHOGENESIS_COHORT_NOT_QUIESCENT');
-    }
+  assertDatabaseRowsQuiescent(rows, ids.length);
+  return { confirmed: true, observedAt: Date.now(), activeProcesses: 0,
+    databaseRunningWorkers: rows.filter((row) => RUNNING_STATUSES.has(String(row.status || '').toLowerCase())).length,
+    activeLeases: rows.filter((row) => Number(row.leased) !== 0).length };
+}
+
+function assertDatabaseRowsQuiescent(rows, expected) {
+  if (!Array.isArray(rows) || rows.length !== expected || rows.some((row) => !isQuiescentRow(row))) {
+    throw cohortError('MORPHOGENESIS_COHORT_NOT_QUIESCENT');
   }
+}
+
+function isQuiescentRow(row) {
+  const status = String(row.status || '').toLowerCase();
+  return QUIESCENT_STATUSES.has(status) && !RUNNING_STATUSES.has(status)
+    && !row.runtime_pid && Number(row.leased) === 0;
 }
 
 function assertLocalQuiescence(ids) {
@@ -165,9 +189,7 @@ function assertLocalQuiescence(ids) {
   }
 }
 
-function cohortError(code) {
-  return Object.assign(new Error(code), { code });
-}
+function cohortError(code) { return Object.assign(new Error(code), { code }); }
 
 async function replaceEpochCohort(input) {
   const { state, funded, continuation, adaptation, reservation, orchestratorId } = input;

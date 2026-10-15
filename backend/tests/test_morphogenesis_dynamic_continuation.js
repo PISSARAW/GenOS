@@ -5,12 +5,14 @@ const service = require('../src/services/morphogenesis/missionMorphogenesisConti
 const execution = require('../src/services/morphogenesis/missionMorphologyExecution');
 const binding = require('../src/services/morphogenesis/morphogenesisMissionBinding');
 const missionHelpers = require('../bin/orchestratorMissionHelpers.cjs');
+const registry = require('../src/services/morphogenesis/registry/topologyRegistry').createTopologyRegistry();
 
 function state(scores, policy = {}) {
   return {
     db: {},
     normalizedMission: { missionId: 'mission-1', prompt: 'Resolve the changing problem.',
-      morphogenesisPolicy: policy },
+      morphogenesisPolicy: policy, topologyCapabilityInventory: { available: registry.list()
+        .flatMap((topology) => registry.get(topology).requiredCapabilities) } },
     plan: {
       selectedTopology: 'a_team',
       profile: {},
@@ -42,8 +44,16 @@ function composeMode({ mode }) {
   const verifier = mode === 'biocenose';
   return Promise.resolve({ members: [{
     label: `${mode}-worker`, role: verifier ? 'verifier' : 'scout', executionMode: 'worker',
-    workerKind: verifier ? 'verifier_worker' : 'scout_cell'
+    workerKind: verifier ? 'verifier_worker' : 'scout_cell',
+    capabilities: registry.get(mode).requiredCapabilities
   }] });
+}
+
+function admissionContext() {
+  return { quiescence: { confirmed: true, observedAt: Date.now(), activeProcesses: 0,
+    databaseRunningWorkers: 0, activeLeases: 0 },
+  parentLease: { allowedTools: ['genos_change_organization', 'genos_change_strategy'] },
+  requestedTools: ['genos_change_organization'] };
 }
 
 async function verifyEvidenceDrivenMix() {
@@ -52,22 +62,30 @@ async function verifyEvidenceDrivenMix() {
     state: runtimeState,
     survivors: [{ agentId: 'worker-1' }, { agentId: 'worker-2' }],
     continuation: { pool: 4000 },
-    orchestratorId: 'orchestrator-1'
+    orchestratorId: 'orchestrator-1', strategyAdmissionContext: admissionContext()
   }, { planMorphogenesis: planner, composeMode });
+  assert.equal(result.adapted, false, 'an unverified composite must not reach cohort creation');
+  assert.match(result.reason, /strategy_admission_denied/);
+  assert.equal(runtimeState.plan.morphogenesisTransitions, undefined,
+    'a rejected topology leaves runtime state unchanged');
+}
+
+async function verifyPlannerTransitionAdmission() {
+  const runtimeState = state([25]);
+  const topologyCapabilities = registry.get('a_team').requiredCapabilities;
+  const result = await service.planContinuation({ state: runtimeState,
+    survivors: [{ agentId: 'worker-1' }], continuation: { pool: 1000 },
+    orchestratorId: 'orchestrator-1', strategyAdmissionContext: admissionContext() }, {
+    planMorphogenesis: () => ({ selectedTopology: 'a_team', selectedVariant: 'default',
+      controlReceipt: { topology: { rankings: [{ topology: 'a_team' }] } } }),
+    composeMode: async () => ({ members: [{ role: 'scout', workerKind: 'scout_cell',
+      capabilities: topologyCapabilities, executionMode: 'worker' }] })
+  });
   assert.equal(result.adapted, true);
-  assert.equal(result.receipt.operator, 'COMPETE');
-  assert.deepEqual(Object.values(result.assignments).map((entry) => entry.morphologyTopology),
-    ['rhizome', 'biocenose']);
-  assert.equal(result.plan.morphologyPatch.graph.version, 2);
-  const leaves = result.plan.morphologyPatch.graph.nodes.filter((node) => node.kind === 'TOPOLOGY');
-  assert.deepEqual(leaves.map((node) => node.workers.length), [1, 1]);
-  assert.equal(runtimeState.plan.morphogenesisTransitions.length, 1);
-  binding.bindDispatchResults(runtimeState.plan, [...runtimeState.workers.values()], [
-    { workerId: 'worker-1', evidenceReport: evidenceReport('analysis') },
-    { workerId: 'worker-2', evidenceReport: evidenceReport('verification') }
-  ]);
-  assert.deepEqual(leaves.map((node) => node.workers[0].agentId), ['worker-1', 'worker-2']);
-  assert.deepEqual(leaves.map((node) => node.workers[0].evidenceReport.outcome), ['success', 'success']);
+  assert.equal(result.admission.status, 'admitted');
+  assert.equal(result.admission.selectionBasis, 'planner_heuristic_unvalidated');
+  assert.equal(result.admission.comparativeQuality, 'unknown');
+  assert.equal(runtimeState.plan.selectedTopology, 'a_team');
 }
 
 function evidenceReport(type) {
@@ -128,6 +146,7 @@ async function verifyCompositeRuntimeReceivesEvidence() {
 
 async function main() {
   await verifyEvidenceDrivenMix();
+  await verifyPlannerTransitionAdmission();
   await verifyStableEvidenceKeepsMorphology();
   await verifyPolicyCanFreezeAdaptation();
   verifyPublicMissionOptions();

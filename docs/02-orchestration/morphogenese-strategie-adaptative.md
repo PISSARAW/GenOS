@@ -2,17 +2,18 @@
 
 ## Statut et frontière actuelle
 
-Ce document décrit une architecture cible, pas une capacité de production déjà qualifiée.
-Le dispatch principal sait préparer une topologie et lier un graphe aux affectations
-des workers (ADR 0522). Le superviseur backend peut répéter des époques de continuation
-à chaque frontière quiescente, avec une tranche réservée dans le pool restant et une
-nouvelle décision morphologique à chaque vague. Il s'arrête sur preuve de résolution
-indépendante, budget incapable de financer la tranche minimale, limite
+Ce document décrit une capacité runtime partielle, pas une capacité de production déjà
+qualifiée. Le dispatch principal sait préparer une topologie et lier un graphe aux
+affectations des workers (ADR 0522). Le superviseur backend peut répéter des époques de
+continuation à chaque frontière quiescente, avec une tranche réservée dans le pool
+restant et une nouvelle décision morphologique à chaque vague. Il s'arrête sur preuve
+de résolution indépendante, budget incapable de financer la tranche minimale, limite
 `morphogenesisPolicy.maxEpochs` explicite ou absence de reconfiguration admissible.
-L'état du superviseur reste volatil au redémarrage : persister les missions de
-continuation ne restaure pas encore l'état d'époque. Le rebind conserve les types de
-workers survivants; la sélection adaptative et l'admission effective d'un nouveau
-type ou d'un daemon ne sont pas implémentées. Le runtime Morphogenèse V2 refuse encore
+L'état des époques est checkpointé dans SQLite avec révision et idempotence, puis
+restauré sur rapport entrant ou par un balayage borné au démarrage du worker de
+maintenance. Le roster peut remplacer les survivants par de nouveaux slots worker issus
+des composants de topologie; cela ne prouve pas encore qu'un nouveau kind ou daemon
+sera disponible au dispatch. Le runtime Morphogenèse V2 refuse encore
 le `commit` d'une transition collective : ni un graphe préparé ni un reçu consultatif
 ne prouvent que l'état des processus, des workspaces, des baux et des budgets peut être
 restauré (ADR 0430).
@@ -88,6 +89,42 @@ la forme courante ou s'abstenir. L'optimisation porte sur la qualité vérifiée
 livrable, le coût total, la latence, la robustesse et la possibilité de reprise.
 Un score de rapport worker est un signal de diagnostic ; il ne remplace jamais un
 oracle indépendant ni la barrière de preuve de mission.
+
+## Leçons comparatives et adaptation à plusieurs échelles
+
+La morphogenèse ne revendique pas l'exclusivité des graphes d'agents, des checkpoints,
+des handoffs ou du replanning. Ces familles établissent déjà plusieurs capacités;
+GenOS doit les combiner à ses preuves d'autorité, de quiescence, de budget et de
+résultat :
+
+| Famille vérifiée | Leçon à appliquer dans GenOS |
+| --- | --- |
+| [LangGraph](https://docs.langchain.com/oss/python/langgraph/graph-api), [CrewAI](https://docs.crewai.com/v1.15.28/en/concepts/checkpointing), [Magentic](https://learn.microsoft.com/en-us/agent-framework/workflows/orchestrations/magentic) | Rendre les workflows inspectables, checkpointables et capables de replanifier après stagnation. Magentic expose notamment le suivi d'avancement et le replanning déclenché par blocage. |
+| [AutoGen](https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/), [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/), [Temporal](https://docs.temporal.io/ai) | Garder les handoffs lisibles et tester les pannes entre une décision et son effet externe. Persister l'état ne suffit pas à empêcher un effet relancé d'être dupliqué. |
+| [AFlow](https://arxiv.org/abs/2410.10762), [ADAS](https://arxiv.org/abs/2408.08435), [MASS](https://arxiv.org/abs/2502.02533) | Compter le coût de recherche en plus du coût par mission, séparer exploration et confirmation, et isoler prompts, rôles, workers et topologies pour attribuer correctement les gains. |
+| [DyLAN](https://arxiv.org/abs/2310.02170), [G-Designer](https://arxiv.org/abs/2410.11782), [AgentPrune](https://arxiv.org/abs/2410.02506) | Comparer le remplacement d'une cohorte à des interventions plus légères : réduire les agents, ajuster les communications ou arrêter plus tôt. Si l'intervention légère atteint le même résultat, la transition complète est inutile. |
+
+La morphogenèse doit donc garder `NO_CHANGE`, la réduction du roster, la modification
+des communications et l'arrêt anticipé parmi les options avant de financer une
+transition complète. Chaque option doit être comparée sur résultat vérifié, coût total,
+latence et coût d'exploration.
+
+La réponse adaptative visée suit trois échelles :
+
+1. **Pendant une époque**, ajuster l'attention ou réduire les échanges redondants sans
+   muter un worker pendant son inférence. Cette adaptation intra-époque n'est pas
+   implémentée à ce jour.
+2. **À la barrière**, garder la forme courante, redistribuer le budget ou composer une
+   cohorte de remplacement à partir des résultats, de la topologie et des preuves
+   runtime. Le changement reste soumis à la quiescence, au budget et à l'autorité.
+3. **Entre missions**, calibrer les prédictions à partir des résultats acceptés par
+   un oracle indépendant, puis confirmer sur des familles de tâches tenues à l'écart.
+   Cette calibration comparative n'est pas encore démontrée par la campagne benchmark.
+
+La retenue fait partie de la décision : un signal plus fort ne déclenche pas à lui seul
+un recrutement. `NO_CHANGE`, l'abstention et la réserve de vérification doivent rester
+des options réelles; les rapports corrélés ne comptent pas comme confirmations
+indépendantes.
 
 ## Boucle de décision proposée
 
@@ -255,15 +292,17 @@ sont pas additionnés comme s’ils étaient indépendants.
 
 ### Porte d’activation
 
-Le résultat de cette tranche demeure consultatif : le portefeuille comprend les
+Le portefeuille de recettes demeure consultatif : il comprend les
 candidats et exclusions connues, les raisons, les scores décomposés, le front de
 Pareto, l’arbitrage ou l’abstention et les inconnues. Il n’enregistre pas encore les
 versions de registre, mesures et intervalles calibrés visés dans la conception.
-L’intégration ne lance pas de daemon, ne change pas de lease, n’attribue pas de
-variant à un worker et ne commite pas de transition. Une tranche distincte devra lier la recette
-sélectionnée aux affectations et ressources réellement disponibles, vérifier de
-nouveau tous les budgets et contrats, obtenir l’autorité et produire les preuves de
-restauration et de persistance exigées par l’ADR 0430. La qualification comparera
+Une porte d'admission distincte valide le plan heuristique concret avant la relève;
+elle peut refuser une transition si le graphe, l'inventaire de capacités, le budget,
+le lease ou la quiescence ne sont pas démontrés. Une admission n'est ni une
+calibration ni une preuve de gain. Le runtime ne lance pas de daemon et ne modifie
+pas les leases pour rendre une recette admissible. Les preuves de restauration et de
+persistance exigées par l’ADR 0430 restent à produire avant le commit d'une transition
+collective V2. La qualification comparera
 les candidats sur tâches appariées et familles tenues à l’écart avec un oracle
 indépendant ; un dispatch ou un reçu de compilation n’est pas une preuve de gain.
 
@@ -329,8 +368,8 @@ propositions : aucune autorité de spawn ou de transition n’est déduite du sc
 
 Ces décisions sont appliquées à la relève après quiescence. Le recrutement d'une cohorte
 remplaçante est disponible pour les transitions morphogénétiques et utilise des IDs
-déterministes pour reprendre une intention interrompue sans créer de doublons. La
-restauration du contrôleur est persistée, avec la limite d'absence de balayage au démarrage
-décrite plus haut. Trinity conserve son allocation et ses mondes scellés hors de ce chemin.
-L’orchestrateur ne remodèle jamais un worker pendant son inférence. Voir ADR 0541,
-0544 et 0546 pour les décisions et limites vérifiables.
+déterministes pour reprendre une intention interrompue sans créer de doublons. Le
+checkpoint et le balayage au démarrage sont bornés; les états ambigus deviennent
+`recovery_required`. Trinity conserve son allocation et ses mondes scellés hors de ce
+chemin. L’orchestrateur ne remodèle jamais un worker pendant son inférence. Voir ADR
+0541, 0544, 0546 et 0549 pour les décisions et limites vérifiables.

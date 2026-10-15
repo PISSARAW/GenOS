@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { createTopologyRegistry } = require('../src/services/morphogenesis/registry/topologyRegistry');
-const { topologyExpression } = require('../src/services/morphogenesis/expression/morphologyExpression');
+const { topologyExpression, nestExpression } = require('../src/services/morphogenesis/expression/morphologyExpression');
 const { compileExpression } = require('../src/services/morphogenesis/graph/morphologyCompiler');
 const { admitMorphogenesisStrategy, admitPlannerTransition } = require('../src/services/morphogenesis/morphogenesisStrategyAdmission');
 
@@ -16,8 +16,10 @@ const policy = { kind: 'conditional_morphogenesis_policy', status: 'proposed',
   portfolio: { candidates: [candidate], ranking: { decision: { decision: 'PROPOSE', selectedId: candidate.id },
     candidates: [{ id: candidate.id, topology: candidate.topology, variant: null, eligible: true,
       proposalEligible: true }] } } };
-const plan = { selectedTopology: 'rhizome', selectedVariant: 'default',
-  workerAssignments: [{ workerKind: 'analyst', capabilities: required }],
+const plan = { selectedTopology: 'a_team', selectedVariant: 'default',
+  morphologyPatch: { graph: compileExpression(topologyExpression('a_team'),
+    { mission: 'mission', missionId: 'mission-1', globalBudget: { tokens: 50 } }) },
+  workerAssignments: [{ workerKind: 'analyst', capabilities: required, tokenBudget: 50 }],
   allocatedTokens: 50, requestedTools: ['genos_change_organization'] };
 const gates = { policy, actualPlan: plan, registry, now: 100000,
   quiescence: { confirmed: true, observedAt: 100000, activeProcesses: 0,
@@ -37,7 +39,7 @@ function testAdmittedRecipeBindsTheActualPlan() {
   assert.equal(result.actualPlan.selectedTopology, 'a_team');
   assert.equal(result.actualPlan.selectedVariant, 'default');
   assert.equal(result.actualPlan.workerAssignments[0].topology, 'a_team');
-  assert.equal(plan.selectedTopology, 'rhizome', 'input plan stays immutable');
+  assert.notEqual(result.actualPlan, plan, 'admission returns a plan copy');
 }
 
 function testMissingAuthorityOrFreshQuiescenceFailsClosed() {
@@ -61,6 +63,14 @@ function testBudgetCapabilitiesAndPolicyProposalAreMandatory() {
     'recipe_not_proposed_by_policy_portfolio');
 }
 
+function testPolicyProposalMustMatchConcretePlanGraph() {
+  const different = { ...plan, selectedTopology: 'rhizome',
+    morphologyPatch: { graph: compileExpression(topologyExpression('rhizome'),
+      { mission: 'mission', missionId: 'mission-2', globalBudget: { tokens: 50 } }) } };
+  const result = admitMorphogenesisStrategy({ ...gates, actualPlan: different });
+  assert.equal(result.reason, 'actual_plan_recipe_mismatch');
+}
+
 function testPlannerHeuristicTransitionIsAdmittedWithExplicitBasis() {
   const result = admitPlannerTransition({ ...gates, policy: plannerPolicy, actualPlan: plannerPlan });
   assert.equal(result.status, 'admitted');
@@ -76,9 +86,28 @@ function testPlannerTransitionRejectsGraphMismatch() {
     actualPlan: mismatch }).reason, 'planner_transition_graph_mismatch');
 }
 
+function testPlannerTransitionExplicitlyRejectsCompositeGraphs() {
+  const graph = compileExpression(nestExpression(topologyExpression('a_team'), topologyExpression('rhizome')),
+    { mission: 'mission', missionId: 'mission-composite', globalBudget: { tokens: 50 } });
+  const composite = { ...plannerPlan, morphologyPatch: { graph } };
+  assert.equal(admitPlannerTransition({ ...gates, policy: plannerPolicy,
+    actualPlan: composite }).reason, 'typed_topology_validation_missing');
+}
+
+function testPlannerTransitionExplicitlyRejectsCompositeGraphs() {
+  const graph = compileExpression(nestExpression(topologyExpression('a_team'), topologyExpression('rhizome')),
+    { mission: 'mission', missionId: 'mission-composite', globalBudget: { tokens: 50 } });
+  const composite = { ...plannerPlan, morphologyPatch: { graph } };
+  assert.equal(admitPlannerTransition({ ...gates, policy: plannerPolicy,
+    actualPlan: composite }).reason, 'typed_topology_validation_missing');
+}
+
 testAdmittedRecipeBindsTheActualPlan();
 testMissingAuthorityOrFreshQuiescenceFailsClosed();
 testBudgetCapabilitiesAndPolicyProposalAreMandatory();
+testPolicyProposalMustMatchConcretePlanGraph();
 testPlannerHeuristicTransitionIsAdmittedWithExplicitBasis();
 testPlannerTransitionRejectsGraphMismatch();
+testPlannerTransitionExplicitlyRejectsCompositeGraphs();
+testPlannerTransitionExplicitlyRejectsCompositeGraphs();
 console.log('Morphogenesis strategy admission tests passed.');

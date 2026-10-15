@@ -3,16 +3,32 @@
 const assert = require('node:assert/strict');
 const service = require('../src/services/morphogenesis/missionMorphogenesisContinuation');
 const decision = require('../src/services/morphogenesis/morphogenesisEpochDecisionService');
+const topologyRegistry = require('../src/services/morphogenesis/registry/topologyRegistry').createTopologyRegistry();
+
+function admissionContext() {
+  return { quiescence: { confirmed: true, observedAt: Date.now(), activeProcesses: 0,
+    databaseRunningWorkers: 0, activeLeases: 0 },
+  parentLease: { allowedTools: ['genos_change_organization', 'genos_change_strategy'] },
+  requestedTools: ['genos_change_organization'] };
+}
+
+function policyDecision() {
+  return { policy: { kind: 'conditional_morphogenesis_policy', status: 'proposed',
+    diagnosis: { signals: { uncertainty: 0.8 } }, decision: { recipe: { candidateId: 'NO_CHANGE' } },
+    portfolio: { ranking: { decision: { decision: 'ABSTAIN' }, candidates: [] } } },
+  challenge: null, resources: null };
+}
 
 async function verifyIndependentReplacementRoster() {
   const originalCompilePolicy = decision.compilePolicy;
   const composeRequests = [];
-  decision.compilePolicy = () => ({ policy: {}, challenge: null, resources: null });
+  decision.compilePolicy = policyDecision;
   try {
     const result = await service.planContinuation({
       state: {
         db: {}, normalizedMission: { missionId: 'roster-mission', prompt: 'Adapt the roster.',
-          morphogenesisPolicy: { targetWorkers: 3 } },
+          morphogenesisPolicy: { targetWorkers: 3 }, topologyCapabilityInventory: { available: topologyRegistry.list()
+            .flatMap((topology) => topologyRegistry.get(topology).requiredCapabilities) } },
         plan: { selectedTopology: 'a_team', profile: {}, tokenPolicy: { minimumWorkerTokens: 100 },
           morphogenesisPlan: { selectedTopology: 'a_team', morphologyPatch: { graph: { version: 1 } } } },
         results: new Map([
@@ -26,7 +42,7 @@ async function verifyIndependentReplacementRoster() {
       },
       survivors: [{ agentId: 'old-scout' }, { agentId: 'old-reviewer' }],
       continuation: { pool: 900, perWorkerTokens: 100 }, orchestratorId: 'orchestrator'
-    }, {
+      , strategyAdmissionContext: admissionContext() }, {
       planMorphogenesis: () => ({ selectedTopology: 'rhizome', selectedVariant: 'causal_microgroup',
         controlReceipt: { topology: { rankings: [
           { topology: 'rhizome' }, { topology: 'biocenose' }
@@ -44,7 +60,8 @@ async function verifyIndependentReplacementRoster() {
       }
     });
 
-    assert.equal(result.adapted, true);
+    assert.equal(result.adapted, false, 'unverified composite strategy is refused before state mutation');
+    assert.match(result.reason, /strategy_admission_denied/);
     assert.equal(result.assignments && Object.keys(result.assignments).length, 2,
       'the existing survivor assignment API remains available');
     assert.equal(result.targetWorkerCount, 3);
@@ -73,12 +90,13 @@ async function verifyIndependentReplacementRoster() {
 
 async function verifyFailedCohortCanRecomposeWithoutSurvivors() {
   const originalCompilePolicy = decision.compilePolicy;
-  decision.compilePolicy = () => ({ policy: {}, challenge: null, resources: null });
+  decision.compilePolicy = policyDecision;
   try {
     const result = await service.planContinuation({
       state: {
         db: {}, normalizedMission: { missionId: 'empty-roster-mission', prompt: 'Recover with new workers.',
-          morphogenesisPolicy: { targetWorkers: 3 } },
+          morphogenesisPolicy: { targetWorkers: 3 }, topologyCapabilityInventory: { available: topologyRegistry.list()
+            .flatMap((topology) => topologyRegistry.get(topology).requiredCapabilities) } },
         plan: { selectedTopology: 'a_team', profile: {}, tokenPolicy: { minimumWorkerTokens: 100 },
           morphogenesisPlan: { selectedTopology: 'a_team', morphologyPatch: { graph: { version: 1 } } } },
         results: new Map([
@@ -88,8 +106,8 @@ async function verifyFailedCohortCanRecomposeWithoutSurvivors() {
             payload: { error: 'contract_mismatch', evidenceReport: { sourceRefs: ['trace:b'] } } }]
         ]), workers: new Map()
       },
-      survivors: [], continuation: { pool: 900, perWorkerTokens: 100 }, orchestratorId: 'orchestrator'
-    }, {
+      survivors: [], continuation: { pool: 900, perWorkerTokens: 100 }, orchestratorId: 'orchestrator',
+      strategyAdmissionContext: admissionContext() }, {
       planMorphogenesis: () => ({ selectedTopology: 'rhizome', selectedVariant: 'causal_microgroup',
         controlReceipt: { topology: { rankings: [
           { topology: 'rhizome' }, { topology: 'biocenose' }
@@ -100,7 +118,8 @@ async function verifyFailedCohortCanRecomposeWithoutSurvivors() {
         executionMode: 'worker' }] })
     });
 
-    assert.equal(result.adapted, true, 'failed results provide diagnostic evidence for replanning');
+    assert.equal(result.adapted, false, 'failed results may replan but an unverified composition cannot dispatch');
+    assert.match(result.reason, /strategy_admission_denied/);
     assert.equal(result.targetWorkerCount, 3);
     assert.equal(result.cohortBlueprint.assignments.length, 3);
     assert.equal(Object.keys(result.assignments).length, 3,

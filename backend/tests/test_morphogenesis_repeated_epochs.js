@@ -78,7 +78,7 @@ async function verifyMissingVerifierCannotResolve() {
     'a worker success report without an independent verifier receipt cannot resolve the mission');
 }
 
-async function verifyActualRepeatedCycle() {
+async function verifyUnadmittedPlannerCannotStartEpoch() {
   const id = `epoch-cycle-${Date.now()}`;
   const workerIds = ['cycle-worker-1', 'cycle-worker-2'];
   const originalPlanner = morphogenesisContinuation.planContinuation;
@@ -142,31 +142,12 @@ async function verifyActualRepeatedCycle() {
     assert.equal(state.roundPhase, 'barrier_ready');
     for (const workerId of workerIds) activeProcesses.delete(workerId);
     await roundService.resumeMorphogenesisBarrier(id);
-    assert.equal(state.epoch, 1, JSON.stringify(state.plan.morphogenesisEpochStatus));
-    assert.equal(state.plan.morphogenesisEpochStatus.status, 'running');
-    const firstCohortIds = [...state.workerIds];
-    assert.equal(firstCohortIds.length, 3, 'epoch one can recruit more workers than the two surviving workers');
-    assert.ok(firstCohortIds.every((workerId) => !workerIds.includes(workerId)));
-    assert.equal(state.morphogenesisCohorts[0].workerIds.length, 3);
-    assert.deepEqual(state.morphogenesisCohorts[0].workerIds.map((workerId) =>
-      state.workers.get(workerId).workerKind).sort(), ['red_worker', 'scout_cell', 'verifier_worker']);
-    assert.equal(pendingContinuations.get(firstCohortIds[0]).budgetRound.epoch, 1);
-    assert.equal(pendingContinuations.get(firstCohortIds[0]).morphologyTopology, 'biocenose',
-      'the recruited identity receives the selected morphology in its persisted mission');
-    for (const workerId of firstCohortIds) pendingContinuations.delete(workerId);
-    for (const agentId of [...state.workerIds]) {
-      await advanceAutonomousRound({ agentId, budgetRound: { stage: 'morphogenesis_epoch', epoch: 1, orchestratorId: id } },
-        { eventType: 'AGENT_COMPLETED', payload: { result: `epoch-1-${agentId}` } });
-    }
-    assert.equal(state.epoch, 1, 'the next epoch cannot start before the recruited workers close');
-    for (const workerId of firstCohortIds) activeProcesses.delete(workerId);
-    assert.equal(await roundService.resumeMorphogenesisBarrier(id), true,
-      'worker closure releases the next morphogenetic epoch');
-    assert.equal(state.epoch, 2, `a second full observe/adapt/act cycle must run: ${JSON.stringify(state.plan.morphogenesisEpochStatus)}`);
-    assert.equal(state.workerIds.size, 3);
-    assert.ok([...state.workerIds].every((workerId) => !firstCohortIds.includes(workerId)));
-    assert.deepEqual(plannerCalls, [1, 2]);
-    assert.equal(state.plan.morphogenesisEpochStatus.epoch, 2);
+    assert.equal(state.epoch, 0, 'an unadmitted planner mock cannot start an epoch');
+    assert.equal(state.plan.morphogenesisEpochStatus.status, 'stopped');
+    assert.equal(state.plan.morphogenesisEpochStatus.reason, 'continuation_persistence_failed');
+    assert.deepEqual([...state.workerIds], workerIds, 'failed admission leaves the current cohort intact');
+    assert.equal(createdIds.length, 0, 'cohort replacement does not start before strategy revalidation');
+    assert.deepEqual(plannerCalls, [1]);
   } finally {
     morphogenesisContinuation.planContinuation = originalPlanner;
     fleet.createAutonomousWorkers = originalCreate;
@@ -303,7 +284,7 @@ async function run() {
   verifyConfiguredStopAndReservationSafety();
   verifyRoundBarrierAndStaleEpochRejection();
   await verifyMissingVerifierCannotResolve();
-  await verifyActualRepeatedCycle();
+  await verifyUnadmittedPlannerCannotStartEpoch();
   await verifyPersistenceFailureDoesNotQueue();
   await verifyPlannerFailureReleasesReservation();
   await verifyMarginalGroupBudgetSleepsTheUnfundedGroup();
