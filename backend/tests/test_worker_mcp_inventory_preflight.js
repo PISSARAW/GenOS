@@ -30,6 +30,25 @@ async function main() {
     state, listTools: async () => ({ tools: available.filter((tool) => tool.name !== 'genos_worker_inbox') })
   }), (failure) => failure.code === 'WORKER_MCP_INVENTORY_INCOMPLETE'
     && failure.missingRequired.includes('genos_worker_inbox'));
+  const emitted = [];
+  const runtimeState = {
+    ...state,
+    executionMode: 'worker',
+    mission: { agentId: 'worker-diagnostic', runtimeStartedAt: Date.now(), timeoutMs: 30000 },
+    orchestratorAgentId: 'orchestrator-diagnostic',
+    allowedCommands: [],
+    allowFileEdits: false,
+    executionPolicy: {},
+    executionBudget: {},
+    emit: (event) => emitted.push(event)
+  };
+  await assert.rejects(() => preflight.runWorkerMcpInventoryPreflight({
+    state: runtimeState,
+    binaries: { workspace: path.resolve(__dirname, '../..'), genosBinary: '', orchestratorBridge: '' },
+    mcp: { mcpCommand: process.execPath,
+      mcpArgs: ['-e', 'process.stderr.write("mcp bootstrap exploded"); process.exit(1)'] }
+  }), (failure) => failure.message.includes('mcp bootstrap exploded'));
+  assert.match(emitted.at(-1).detail, /mcp bootstrap exploded/);
 }
 
 main().then(() => console.log('Worker MCP inventory preflight: PASS'))

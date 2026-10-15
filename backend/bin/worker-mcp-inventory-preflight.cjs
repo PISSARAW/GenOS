@@ -58,9 +58,18 @@ async function connectClient(input) {
     command: input.mcp.mcpCommand, args: input.mcp.mcpArgs,
     cwd: input.binaries.workspace, stderr: 'pipe', env: { ...process.env, ...env }
   });
-  transport.stderr.on('data', () => {});
+  let serverStderr = '';
+  transport.stderr.on('data', (chunk) => {
+    serverStderr = `${serverStderr}${chunk}`.slice(-4000);
+  });
   const client = new Client({ name: 'genos-worker-inventory-preflight', version: '1' });
-  await client.connect(transport);
+  try {
+    await client.connect(transport);
+  } catch (failure) {
+    const diagnostic = serverStderr.trim();
+    if (diagnostic) failure.message = `${failure.message}: ${diagnostic}`;
+    throw failure;
+  }
   return client;
 }
 
