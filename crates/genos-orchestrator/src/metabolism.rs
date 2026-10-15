@@ -61,6 +61,10 @@ pub struct MissionMetabolicPoolDemand {
 pub struct MissionMetabolicPoolReceipt {
     pub schema: String,
     pub mission_id: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tick: Option<u64>,
     pub cell_id: Uuid,
     pub operation: String,
     pub requested_amino_acids: f64,
@@ -202,6 +206,8 @@ impl GenosEcosystem {
         let receipt = MissionMetabolicPoolReceipt {
             schema: "genos.mission-metabolic-pool-receipt/v1".to_string(),
             mission_id,
+            idempotency_key: None,
+            tick: None,
             cell_id: demand.cell_id,
             operation: demand.operation,
             requested_amino_acids: finite_demand(demand.amino_acids),
