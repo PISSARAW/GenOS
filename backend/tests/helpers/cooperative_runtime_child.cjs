@@ -40,7 +40,7 @@ async function reachSafePoint(message) {
 
 function divergentAck(message) {
   send({
-    type: 'genos-runtime-control-ack', protocolVersion: 1,
+    type: 'genos-runtime-control-ack', protocolVersion: 2,
     requestId: `${message.requestId}-stale`, action: message.action,
     lineage: { ...message.lineage }, proven: true, success: true,
     proofCode: 'STALE_FIXTURE_ACK'

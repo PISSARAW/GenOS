@@ -115,9 +115,11 @@ function create(dependencies = {}) {
     await trustedActor(db, input);
     const target = await exactThread(db, input, deps.threads);
     const key = idempotencyKey(input);
-    return deps.checkpoints.seal(db, { ...target,
-      checkpointId: checkpointId(target, key), context: input.body?.context,
-      evidenceRefs: input.body?.evidenceRefs || [] });
+    const id = checkpointId(target, key);
+    const manual = Object.prototype.hasOwnProperty.call(input.body || {}, 'context')
+      ? { context: input.body.context, evidenceRefs: input.body?.evidenceRefs || [] }
+      : null;
+    return sealCapturedCheckpoint(db, { deps, target, checkpointId: id, manual });
   }
 
   async function readCheckpoint(db, input) {
@@ -158,6 +160,28 @@ function create(dependencies = {}) {
   }
 
   return { sealCheckpoint, readCheckpoint, resumeCheckpoint, control, readCommand };
+}
+
+async function sealCapturedCheckpoint(db, input) {
+  try {
+    const checkpoint = await input.deps.checkpoints.get(db, {
+      ...input.target, checkpointId: input.checkpointId
+    });
+    return { checkpoint, idempotent: true };
+  } catch (error) {
+    if (error.code !== 'CELL_CHECKPOINT_NOT_FOUND') throw error;
+  }
+  const captured = await input.deps.checkpointRuntime.capture(db, input.target);
+  if (!captured?.proven && captured?.code === 'RUNTIME_UNAVAILABLE' && input.manual) {
+    return input.deps.checkpoints.seal(db, { ...input.target,
+      checkpointId: input.checkpointId, ...input.manual });
+  }
+  if (!captured?.proven) throw failure(
+    captured?.code || 'RUNTIME_CHECKPOINT_CAPTURE_UNPROVEN',
+    'Runtime did not provide a proven native checkpoint.');
+  return input.deps.checkpoints.seal(db, { ...input.target,
+    checkpointId: input.checkpointId, context: captured.context,
+    evidenceRefs: captured.evidenceRefs });
 }
 
 module.exports = { ...create(), create, MAX_IDEMPOTENCY_BYTES };

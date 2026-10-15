@@ -3,8 +3,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
+const { createHash } = require('node:crypto');
 const operator = require('../src/services/operatorRuntimeControl');
 const checkpointControl = require('../src/services/cellThreadCheckpointRuntimeControl');
+const cooperative = require('../src/services/cooperativeRuntimeControl');
+const { canonicalJson } = require('../src/services/aTeam/variants/variantExecutionHelpers');
 const missionControl = require('../src/services/agentRuntimeAdapter/missionControl');
 const capability = require('../src/services/runtimeControlCapability');
 const { activeProcesses, cancelledStarts } =
@@ -51,9 +54,9 @@ function acknowledgement(message, overrides = {}) {
 
 function ready(overrides = {}) {
   return {
-    type: 'genos-runtime-control-ready', protocolVersion: 1,
+    type: 'genos-runtime-control-ready', protocolVersion: 2,
     lineage: { ...identity },
-    actions: ['pause', 'resume', 'cancel', 'resume_checkpoint'],
+    actions: ['pause', 'resume', 'cancel', 'resume_checkpoint', 'capture_checkpoint'],
     ...overrides
   };
 }
@@ -112,7 +115,7 @@ test('control is not sent before an exact runtime capability attestation', async
 
 test('invalid, cross-tenant and duplicate ready messages poison the capability', async () => {
   for (const readyMessage of [
-    ready({ protocolVersion: 2 }),
+    ready({ protocolVersion: 1 }),
     ready({ lineage: { ...identity, organizationId: 'org-other' } }),
     ready({ actions: ['pause', 'resume', 'cancel'] })
   ]) {
@@ -187,6 +190,7 @@ test('pause and resume require exact correlated cooperative acknowledgements', a
     assert.deepEqual(child.sent.map(item => item.action), ['pause', 'resume']);
     for (const message of child.sent) {
       assert.equal(message.type, 'genos-runtime-control-request');
+      assert.equal(message.protocolVersion, 2);
       assert.equal(typeof message.requestId, 'string');
       assert.deepEqual(message.lineage, identity);
       assert.ok(message.timeoutMs >= 25 && message.timeoutMs <= 10000);
@@ -194,6 +198,27 @@ test('pause and resume require exact correlated cooperative acknowledgements', a
     assert.deepEqual(['message', 'close', 'disconnect'].map(name => child.listenerCount(name)),
       capabilityListenerCounts());
   } finally { cleanup(); }
+});
+
+test('native capture requires the exact v2 acknowledgement envelope', async () => {
+  const context = { kind: 'genos-local-runtime', version: 1, phase: 'generated',
+    promptHash: 'a'.repeat(64), reply: 'native reply' };
+  const json = canonicalJson(context);
+  const capture = { runtimeStateId: 'runtime-state-a',
+    contextHash: `sha256:${createHash('sha256').update(json).digest('hex')}`,
+    context, contextSize: Buffer.byteLength(json) };
+  for (const extra of [{ injected: true }, { proofCode: 'CHILD_ACK_EXACT' }]) {
+    const child = new FakeChild((message, source) => setImmediate(() => source.emit('message',
+      acknowledgement(message, { proofCode: 'RUNTIME_GENERATED_CHECKPOINT_CAPTURED',
+        capture, ...extra }))));
+    const cleanup = install(child);
+    try {
+      const result = await cooperative.request({ child, action: 'capture_checkpoint',
+        lineage: identity });
+      assert.equal(result.proven, false);
+      assert.equal(result.code, 'RUNTIME_ACK_DIVERGENT');
+    } finally { cleanup(); }
+  }
 });
 
 test('concurrent request ids cannot consume each other acknowledgements', async () => {

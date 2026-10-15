@@ -27,7 +27,15 @@ function checkpointProof(request) {
     projectId: request.projectId };
 }
 
-function service(runtime = { resume: async request => checkpointProof(request) }) {
+function nativeCapture() {
+  return { proven: true, proofCode: 'RUNTIME_GENERATED_CHECKPOINT_CAPTURED',
+    context: { kind: 'genos-local-runtime', version: 1, phase: 'generated',
+      promptHash: 'a'.repeat(64), reply: 'captured reply' },
+    evidenceRefs: ['runtime-context:sha256:native'] };
+}
+
+function service(runtime = { resume: async request => checkpointProof(request),
+  capture: async () => nativeCapture() }) {
   return serviceModule.create({ checkpointRuntime: runtime,
     commands: { execute: (db, input) => controls.execute(db, input,
       { runtimeControl: proofRuntime() }) } });
@@ -73,6 +81,8 @@ test('checkpoint seal resolves worker from the CellThread and is tenant-bound', 
     const first = await api.sealCheckpoint(db, request);
     const retry = await api.sealCheckpoint(db, request);
     assert.equal(first.checkpoint.workerId, 'worker-persisted');
+    assert.equal(first.checkpoint.context.reply, 'captured reply');
+    assert.deepEqual(first.checkpoint.evidenceRefs, ['runtime-context:sha256:native']);
     assert.equal(retry.idempotent, true);
     assert.equal(retry.checkpoint.checkpointId, first.checkpoint.checkpointId);
     await assert.rejects(api.readCheckpoint(db, { ...input(),
@@ -110,7 +120,7 @@ test('managed mutations fail closed for sessions, missing privilege and runtime'
   const db = await fixture();
   try {
     const api = service({ resume: async () => ({ proven: false,
-      code: 'RUNTIME_UNAVAILABLE' }) });
+      code: 'RUNTIME_UNAVAILABLE' }), capture: async () => nativeCapture() });
     await assert.rejects(api.sealCheckpoint(db, input({ context: {} }, {
       authMethod: 'session' })),
     error => error.code === 'STUDIO_CELL_ACCESS_KEY_REQUIRED');
@@ -143,6 +153,19 @@ test('checkpoint mutations reject an inactive access key', async () => {
   } finally { await db.close(); }
 });
 
+test('manual checkpoint is only a fallback when no live runtime exists', async () => {
+  const db = await fixture();
+  try {
+    const api = service({ resume: async request => checkpointProof(request),
+      capture: async () => ({ proven: false, code: 'RUNTIME_UNAVAILABLE' }) });
+    const fallback = await api.sealCheckpoint(db, input({ context: { cursor: 21 },
+      evidenceRefs: ['manual:evidence'] }));
+    assert.deepEqual(fallback.checkpoint.context, { cursor: 21 });
+    await assert.rejects(api.sealCheckpoint(db, input({ idempotencyKey: 'no-context' })),
+      error => error.code === 'RUNTIME_UNAVAILABLE');
+  } finally { await db.close(); }
+});
+
 test('an applied receipt requiring reconciliation is never returned as success', async () => {
   const db = await fixture('active');
   try {
@@ -164,10 +187,11 @@ test('exact checkpoint GET returns filtered context without database writes', as
     const changes = (await db.get('SELECT total_changes() AS count')).count;
     const read = await api.readCheckpoint(db, { ...input(),
       checkpointId: sealed.checkpoint.checkpointId });
-    assert.deepEqual(read.context, { cursor: 12 });
+    assert.equal(read.context.reply, 'captured reply');
     assert.equal((await db.get('SELECT total_changes() AS count')).count, changes);
-    await assert.rejects(api.sealCheckpoint(db, input({ idempotencyKey: 'secret-key',
-      context: { accessToken: 'forbidden' } })),
-    error => error.code === 'CELL_CHECKPOINT_CONTEXT_SENSITIVE');
+    const ignored = await api.sealCheckpoint(db, input({ idempotencyKey: 'secret-key',
+      context: { accessToken: 'forbidden' }, evidenceRefs: ['client:forged'] }));
+    assert.equal(ignored.checkpoint.context.reply, 'captured reply');
+    assert.deepEqual(ignored.checkpoint.evidenceRefs, ['runtime-context:sha256:native']);
   } finally { await db.close(); }
 });

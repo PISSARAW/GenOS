@@ -99,8 +99,8 @@ test('real child advertises the exact cooperative protocol and capabilities', as
   try {
     const announced = await ready(child);
     assert.deepEqual(announced, {
-      type: 'genos-runtime-control-ready', protocolVersion: 1,
-      lineage, actions: ['pause', 'resume', 'cancel', 'resume_checkpoint']
+      type: 'genos-runtime-control-ready', protocolVersion: 2,
+      lineage, actions: ['pause', 'resume', 'cancel', 'resume_checkpoint', 'capture_checkpoint']
     });
   } finally { await closeChild(child); }
 });

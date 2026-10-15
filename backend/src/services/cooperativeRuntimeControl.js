@@ -1,12 +1,16 @@
 'use strict';
 
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
 const capability = require('./runtimeControlCapability');
+const checkpoints = require('./localRuntimeCheckpoint');
+const { canonicalJson } = require('./aTeam/variants/variantExecutionHelpers');
 
 const LINEAGE_FIELDS = [
   'workerId', 'missionId', 'episodeId', 'threadId', 'organizationId', 'projectId'
 ];
-const ACTIONS = new Set(['pause', 'resume', 'cancel', 'resume_checkpoint']);
+const ACTIONS = new Set([
+  'pause', 'resume', 'cancel', 'resume_checkpoint', 'capture_checkpoint'
+]);
 const MIN_TIMEOUT_MS = 25;
 const MAX_TIMEOUT_MS = 10000;
 
@@ -59,6 +63,24 @@ function exactCheckpoint(left, right) {
   return left?.checkpointId === right.checkpointId
     && left?.checkpointHash === right.checkpointHash
     && left?.contextHash === right.contextHash;
+}
+
+function exactKeys(value, keys) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join('\0') === [...keys].sort().join('\0');
+}
+
+function captureMaterial(value) {
+  const keys = ['runtimeStateId', 'contextHash', 'context', 'contextSize'];
+  if (!exactKeys(value, keys) || typeof value.runtimeStateId !== 'string'
+    || !/^[A-Za-z0-9_-]{1,200}$/.test(value.runtimeStateId)
+    || !checkpoints.nativeGenerated(value.context)) return null;
+  const json = canonicalJson(value.context);
+  if (value.contextHash !== `sha256:${createHash('sha256')
+    .update(json).digest('hex')}` || value.contextSize !== Buffer.byteLength(json)
+    || value.contextSize > 256 * 1024) return null;
+  return { runtimeStateId: value.runtimeStateId, contextHash: value.contextHash,
+    context: value.context, contextSize: value.contextSize };
 }
 
 function validProof(ack) {
@@ -115,7 +137,7 @@ function request(input) {
       'Runtime did not attest the required control protocol and action.'));
   }
   const message = {
-    type: 'genos-runtime-control-request', protocolVersion: 1,
+    type: 'genos-runtime-control-request', protocolVersion: capability.PROTOCOL_VERSION,
     requestId: randomUUID(), action: input.action, lineage: exact,
     timeoutMs: timeoutMs(input.timeoutMs)
   };
@@ -139,20 +161,32 @@ function unavailable(ctx) {
     'Runtime IPC closed before a proven acknowledgement.'));
 }
 
+function matchingAck(ctx, ack, capture) {
+  if (ack.action !== ctx.message.action
+    || !exactLineage(ack.lineage, ctx.message.lineage)
+    || !exactCheckpoint(ack.checkpoint, ctx.message.checkpoint)
+    || !validProof(ack)) return false;
+  if (ctx.message.action !== 'capture_checkpoint') return true;
+  return Boolean(capture)
+    && ack.proofCode === 'RUNTIME_GENERATED_CHECKPOINT_CAPTURED'
+    && exactKeys(ack.lineage, LINEAGE_FIELDS)
+    && exactKeys(ack, ['type', 'requestId', 'action', 'lineage',
+      'proven', 'success', 'proofCode', 'capture']);
+}
+
 function acknowledge(ctx, ack) {
   if (ack?.type !== 'genos-runtime-control-ack'
     || ack.requestId !== ctx.message.requestId) return;
-  const exact = ack.action === ctx.message.action
-    && exactLineage(ack.lineage, ctx.message.lineage)
-    && exactCheckpoint(ack.checkpoint, ctx.message.checkpoint);
-  if (!exact || !validProof(ack)) {
+  const capture = ctx.message.action === 'capture_checkpoint'
+    ? captureMaterial(ack.capture) : null;
+  if (!matchingAck(ctx, ack, capture)) {
     finish(ctx, outcome(false, 'RUNTIME_ACK_DIVERGENT',
       'Runtime acknowledgement does not prove the exact request.'));
     return;
   }
   finish(ctx, { ...outcome(true, ack.proofCode,
     'Runtime acknowledged the exact cooperative control request.'),
-  requestId: ctx.message.requestId });
+  requestId: ctx.message.requestId, ...(capture ? { capture } : {}) });
 }
 
 function expired(ctx) {

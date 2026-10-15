@@ -52,13 +52,18 @@ function build(state, phase, reply) {
   return checkpoint;
 }
 
-function cooperativeResume(context, state) {
+function nativeGenerated(context) {
   if (!exactKeys(context, CHECKPOINT_KEYS) || context.phase !== 'generated'
-    || context.promptHash !== hash(state?.framedPrompt || '')
     || typeof context.reply !== 'string' || !context.reply
-    || Buffer.byteLength(context.reply) > MAX_CONTROL_REPLY_BYTES) return null;
-  try { assertShape(context); }
-  catch (_) { return null; }
+    || Buffer.byteLength(context.reply) > MAX_CONTROL_REPLY_BYTES) return false;
+  try { assertShape(context); return true; }
+  catch (_) { return false; }
+}
+
+function cooperativeResume(context, state) {
+  if (!nativeGenerated(context)
+    || context.promptHash !== hash(state?.framedPrompt || '')
+  ) return null;
   return { phase: context.phase, reply: context.reply };
 }
 
@@ -109,6 +114,7 @@ async function load(state) {
   });
   const checkpoint = resumable(row);
   if (checkpoint.promptHash !== hash(state.framedPrompt)) throw invalid('Checkpoint prompt changed.');
+  state.nativeCheckpoint = { context: checkpoint, runtimeStateId: row.id };
   return checkpoint;
 }
 
@@ -118,11 +124,17 @@ async function save(state, phase, reply) {
     throw invalid('Local runtime reply exceeds checkpoint limit.');
   }
   const db = await require('../db').getDatabase();
+  const checkpoint = build(state, phase, reply);
   const payload = { workspaceId: state.mission.workspaceId, status: phase,
-    currentTask: state.prompt, checkpoint: build(state, phase, reply) };
-  return require('./resilienceService').persistIntermediateState(db,
+    currentTask: state.prompt, checkpoint };
+  await require('./resilienceService').persistIntermediateState(db,
     state.mission.agentId, payload, 'local-runtime-checkpoint');
+  const stored = await db.get('SELECT id, status FROM agent_runtime_state WHERE agent_id = ?',
+    state.mission.agentId);
+  if (!stored || stored.status !== phase) throw invalid('Local runtime checkpoint was not persisted.');
+  state.nativeCheckpoint = { context: checkpoint, runtimeStateId: stored.id };
+  return stored.id;
 }
 
 module.exports = { captured, resumable, assertResumeRequest, load, save,
-  build, cooperativeResume, MAX_CONTROL_REPLY_BYTES };
+  build, nativeGenerated, cooperativeResume, MAX_CONTROL_REPLY_BYTES };

@@ -5,7 +5,10 @@ const { canonicalJson } = require('./aTeam/variants/variantExecutionHelpers');
 const checkpoints = require('./localRuntimeCheckpoint');
 const controlLeases = require('./localRuntimeControlLease');
 
-const ACTIONS = ['pause', 'resume', 'cancel', 'resume_checkpoint'];
+const ACTIONS = [
+  'pause', 'resume', 'cancel', 'resume_checkpoint', 'capture_checkpoint'
+];
+const PROTOCOL_VERSION = 2;
 const LINEAGE_FIELDS = [
   'workerId', 'missionId', 'episodeId', 'threadId', 'organizationId', 'projectId'
 ];
@@ -17,7 +20,10 @@ const runtime = {
   pending: { pause: null, cancel: null, resume_checkpoint: null },
   paused: null,
   terminating: false,
+  channel: process,
+  channelCleanup: null,
   controlLease: null,
+  reconnect: { enabled: false, lost: false, expired: null, timer: null, waiting: null },
   seen: new Set(),
   seenOrder: []
 };
@@ -60,7 +66,8 @@ function requestKeys(message) {
 function validEnvelope(message) {
   if (!exactKeys(message, requestKeys(message))) return false;
   if (message.type !== 'genos-runtime-control-request'
-    || message.protocolVersion !== 1 || !ACTIONS.includes(message.action)) return false;
+    || message.protocolVersion !== PROTOCOL_VERSION
+    || !ACTIONS.includes(message.action)) return false;
   if (typeof message.requestId !== 'string'
     || !/^[A-Za-z0-9_-]{1,128}$/.test(message.requestId)) return false;
   return Number.isInteger(message.timeoutMs) && message.timeoutMs >= 25
@@ -117,8 +124,9 @@ function resumeState(checkpoint, state, safePhase) {
 
 function send(message) {
   return new Promise((resolve) => {
-    if (!process.connected || typeof process.send !== 'function') return resolve(false);
-    try { process.send(message, (error) => resolve(!error)); }
+    const channel = runtime.channel;
+    if (!channel?.connected || typeof channel.send !== 'function') return resolve(false);
+    try { channel.send(message, (error) => resolve(!error)); }
     catch (_) { resolve(false); }
   });
 }
@@ -135,6 +143,13 @@ function ack(request, proofCode) {
       checkpointHash: request.checkpoint.checkpointHash,
       contextHash: request.checkpoint.contextHash
     };
+  }
+  if (request.action === 'capture_checkpoint') {
+    const saved = runtime.binding.state.nativeCheckpoint;
+    const json = canonicalJson(saved.context);
+    message.capture = { runtimeStateId: saved.runtimeStateId,
+      contextHash: sha256(json), context: saved.context,
+      contextSize: Buffer.byteLength(json) };
   }
   return send(message);
 }
@@ -167,11 +182,26 @@ async function restore(request) {
   if (await ack(request, 'RUNTIME_CHECKPOINT_APPLIED')) releasePaused();
 }
 
+async function capture(request) {
+  const saved = runtime.binding?.state?.nativeCheckpoint;
+  if (!runtime.paused || runtime.terminating || runtime.paused.phase !== 'generated'
+    || !saved || !checkpoints.nativeGenerated(saved.context)) return;
+  await ack(request, 'RUNTIME_GENERATED_CHECKPOINT_CAPTURED');
+}
+
+function dispatchPaused(message) {
+  if (message.action === 'pause') return;
+  if (message.action === 'cancel') { void cancel(message); return; }
+  if (message.action === 'resume_checkpoint') void restore(message);
+}
+
 function dispatch(message) {
   if (message.action === 'resume') { void resume(message); return; }
-  if (runtime.paused && message.action === 'pause') return;
-  if (runtime.paused && message.action === 'cancel') { void cancel(message); return; }
-  if (runtime.paused && message.action === 'resume_checkpoint') { void restore(message); return; }
+  if (message.action === 'capture_checkpoint') {
+    if (runtime.paused) void capture(message);
+    return;
+  }
+  if (runtime.paused) { dispatchPaused(message); return; }
   if (!runtime.pending[message.action] && !runtime.terminating) {
     runtime.pending[message.action] = message;
   }
@@ -193,8 +223,59 @@ function receive(message) {
 }
 
 function readyMessage(binding) {
-  return { type: 'genos-runtime-control-ready', protocolVersion: 1,
+  return { type: 'genos-runtime-control-ready', protocolVersion: PROTOCOL_VERSION,
     lineage: binding.lineage, actions: [...ACTIONS] };
+}
+
+function startLease(channel) {
+  runtime.controlLease?.stop();
+  runtime.controlLease = controlLeases.start(runtime.binding.lineage, { channel });
+}
+
+function announce(channel) {
+  void send(readyMessage(runtime.binding)).then(sent => {
+    if (sent && runtime.channel === channel) startLease(channel);
+  });
+}
+
+function reconnectError(code) {
+  return Object.assign(new Error('Runtime control reconnect grace expired.'), { code });
+}
+
+function expireReconnect() {
+  const error = reconnectError('RUNTIME_RECONNECT_GRACE_EXPIRED');
+  runtime.reconnect.expired = error;
+  runtime.reconnect.waiting?.reject(error);
+  runtime.reconnect.waiting = null;
+  if (runtime.paused) releasePaused(error);
+}
+
+function armReconnectGrace(timeoutMs = 30000) {
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 120000) return false;
+  runtime.reconnect.enabled = true;
+  runtime.reconnect.timeoutMs = timeoutMs;
+  return true;
+}
+
+function releaseReconnect() {
+  clearTimeout(runtime.reconnect.timer);
+  runtime.reconnect.timer = null;
+  runtime.reconnect.lost = false;
+  runtime.reconnect.expired = null;
+  runtime.reconnect.waiting?.resolve();
+  runtime.reconnect.waiting = null;
+}
+
+function waitReconnect() {
+  if (runtime.reconnect.expired) return Promise.reject(runtime.reconnect.expired);
+  if (!runtime.reconnect.lost) return Promise.resolve();
+  if (!runtime.reconnect.waiting) {
+    runtime.reconnect.waiting = {};
+    runtime.reconnect.waiting.promise = new Promise((resolve, reject) => {
+      Object.assign(runtime.reconnect.waiting, { resolve, reject });
+    });
+  }
+  return runtime.reconnect.waiting.promise;
 }
 
 function bind(state) {
@@ -203,11 +284,27 @@ function bind(state) {
   if (!state || typeof state.framedPrompt !== 'string' || !state.framedPrompt
     || !complete(exactLineage)) return false;
   runtime.binding = { state, lineage: Object.freeze(exactLineage) };
-  void send(readyMessage(runtime.binding)).then((sent) => {
-    if (sent && !runtime.controlLease) {
-      runtime.controlLease = controlLeases.start(runtime.binding.lineage);
-    }
-  });
+  announce(runtime.channel);
+  return true;
+}
+
+function attachChannel(channel) {
+  if (!runtime.binding || !channel?.connected || typeof channel.send !== 'function'
+    || typeof channel.on !== 'function' || typeof channel.removeListener !== 'function') return false;
+  runtime.channelCleanup?.();
+  runtime.controlLease?.stop();
+  process.removeListener('message', receive);
+  process.removeListener('disconnect', disconnect);
+  runtime.channel = channel;
+  releaseReconnect();
+  const lost = () => { if (runtime.channel === channel) disconnect(channel); };
+  channel.on('message', receive);
+  channel.once('disconnect', lost);
+  runtime.channelCleanup = () => {
+    channel.removeListener('message', receive);
+    channel.removeListener('disconnect', lost);
+  };
+  announce(channel);
   return true;
 }
 
@@ -242,6 +339,7 @@ async function restoreAtSafePoint(request, phase) {
 
 async function safePoint(phase) {
   if (!runtime.binding || runtime.terminating) return;
+  await waitReconnect();
   const cancelRequest = runtime.pending.cancel;
   runtime.pending.cancel = null;
   if (cancelRequest) return cancelAtSafePoint(cancelRequest, phase);
@@ -253,9 +351,20 @@ async function safePoint(phase) {
   if (pauseRequest) await pauseAtSafePoint(pauseRequest, phase);
 }
 
-function disconnect() {
+function disconnect(channel = runtime.channel) {
+  if (runtime.channel !== channel) return;
   runtime.controlLease?.stop();
   runtime.controlLease = null;
+  runtime.channelCleanup?.();
+  runtime.channelCleanup = null;
+  runtime.channel = null;
+  if (runtime.reconnect.enabled) {
+    runtime.reconnect.lost = true;
+    clearTimeout(runtime.reconnect.timer);
+    runtime.reconnect.timer = setTimeout(expireReconnect, runtime.reconnect.timeoutMs);
+    runtime.reconnect.timer.unref?.();
+    return;
+  }
   if (runtime.paused) releasePaused(Object.assign(
     new Error('Runtime control channel disconnected while quiescent.'),
     { code: 'RUNTIME_CONTROL_DISCONNECTED' }));
@@ -264,4 +373,4 @@ function disconnect() {
 process.on('message', receive);
 process.on('disconnect', disconnect);
 
-module.exports = { bind, safePoint };
+module.exports = { armReconnectGrace, attachChannel, bind, safePoint };

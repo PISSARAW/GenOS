@@ -2,9 +2,11 @@
 
 const lease = require('./runtimeControlCapabilityLease');
 
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const READY_TYPE = 'genos-runtime-control-ready';
-const ACTIONS = Object.freeze(['pause', 'resume', 'cancel', 'resume_checkpoint']);
+const ACTIONS = Object.freeze([
+  'pause', 'resume', 'cancel', 'resume_checkpoint', 'capture_checkpoint'
+]);
 const LINEAGE_FIELDS = Object.freeze([
   'workerId', 'missionId', 'episodeId', 'threadId', 'organizationId', 'projectId'
 ]);

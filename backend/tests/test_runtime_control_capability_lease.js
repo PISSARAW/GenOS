@@ -26,8 +26,9 @@ function child() {
 
 function ready() {
   return {
-    type: 'genos-runtime-control-ready', protocolVersion: 1,
-    lineage: { ...identity }, actions: ['pause', 'resume', 'cancel', 'resume_checkpoint']
+    type: 'genos-runtime-control-ready', protocolVersion: 2,
+    lineage: { ...identity },
+    actions: ['pause', 'resume', 'cancel', 'resume_checkpoint', 'capture_checkpoint']
   };
 }
 
