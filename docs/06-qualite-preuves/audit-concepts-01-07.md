@@ -77,13 +77,14 @@ vérifie en réalité que le runtime arrête un worker dépourvu de scope parent
 budget modèle; elle ne qualifie pas le fallback local.
 
 Les gates globaux ont été rejoués après ADR 0510 : `npm test` passe avec code 0.
-`cargo test --workspace` reste rouge sur le test `biological_crossover`, qui
-attend un replay mais reçoit « restored crossover child genome conflicts with
-runtime »; le test et les modifications Rust concernées sont non indexés dans
-le checkout partagé et n'ont pas été modifiés ici. Le test Rust voisin
-`biological_choanocyte_stream` passe hors sandbox. Le contrôle qualité courant
-inspecte 6 158 fichiers : dix violations baseline, zéro nouvelle. L'index ADR
-compte 631 entrées sans problème.
+Le premier `cargo test --workspace` a révélé un défaut de rejeu CLI du crossover :
+le tick avançait avant la recherche du reçu, modifiant l'état avant la restauration.
+Le correctif ADR 0511 détecte le reçu avant tick pour les commandes crossover isolées,
+refuse une clé de replay inconnue sans effet de bord et conserve les commandes
+combinées dans leur ordre existant. Le test `biological_crossover` et le workspace
+Rust complet passent après correction. Le contrôle qualité inspecte 6 159 fichiers
+et signale dix violations baseline, zéro nouvelle; le gate staged du correctif
+signale zéro violation. L'index ADR compte 632 entrées sans problème.
 
 ## 1. Principes fondateurs — 19 entrées
 
