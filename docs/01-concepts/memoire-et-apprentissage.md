@@ -277,6 +277,19 @@ Le flux type est :
 5. les résultats sont filtrés par score, tenant, provenance et inhibition ;
 6. le cycle de sommeil consolide, décroit et prune.
 
+Le rappel distingue deux garanties qui ne doivent pas être confondues :
+
+- une référence générique liée est vérifiée pour l’intégrité du reçu, du sujet,
+  du hash parent et du tenant ; elle reste une donnée non fiable et n’atteste
+  pas la vérité de son contenu ;
+- une mémoire issue d’une promotion de stratégie passe en plus l’oracle de
+  fidélité à la source et les contrôles d’assurance courants. Une preuve
+  rétractée ou altérée l’exclut du rappel.
+
+Les références et hashes hydratés suivent la mémoire jusque dans le sélecteur
+de prompt et consomment son budget de contexte. Ils ne sont pas rendus comme des
+consignes ni transformés en marqueurs de fait vérifié.
+
 ### 5.3 Service central
 
 Le service [backend/src/services/vectorMemoryService.js](../../backend/src/services/vectorMemoryService.js) agit comme point d’entrée de mémoire cognitive. Il fait le lien entre :

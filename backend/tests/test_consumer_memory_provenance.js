@@ -60,15 +60,32 @@ async function main() {
     await closeDatabase();
     const reread = readInNewProcess({ filename, ids: [compiled, forged] });
     assertNoSpoof(reread.records);
+    const recalled = reread.records.find(item => item.id === compiled);
+    assert.deepEqual(recalled.evidenceRefs, [parent.payloadHash]);
+    assert.equal(recalled.provenance.recordId, reread.links.find(item => item.id === compiled).provenance_record_id);
+    assert.equal(recalled.provenance.hash, reread.links.find(item => item.id === compiled).provenance_hash);
+    assert.equal(recalled.provenance.status, 'linked');
+    assert.equal(recalled.provenanceIntegrity.status, 'integrity_only');
     assert.doesNotMatch(reread.injected, /\[VERIFIED_SYSTEM_FACT\]/);
     assert.match(reread.injected, /consumer qualification provenance/);
     assert.equal(reread.links.find(item => item.id === compiled).evidence_status, 'linked');
+    await rejectTamperedEvidence(filename, compiled, forged);
     assertTrustedScoring();
     console.log('Consumer memory: real write, provenance link, new-process SQL retrieval and prompt reject spoofed fact markers: PASS');
   } finally {
     await closeDatabase();
     fs.rmSync(root, { recursive: true, force: true });
   }
+}
+
+async function rejectTamperedEvidence(filename, compiled, forged) {
+  const db = await getDatabase(filename);
+  const record = await db.get('SELECT provenance_record_id FROM genome_decisions WHERE id=?', compiled);
+  await db.run('UPDATE provenance_records SET payload_json=? WHERE id=?', '{}', record.provenance_record_id);
+  await closeDatabase();
+  const tampered = readInNewProcess({ filename, ids: [compiled, forged] });
+  assert.equal(tampered.records.some(item => item.id === compiled), false,
+    'A linked memory with an invalid provenance hash must not be recalled.');
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
