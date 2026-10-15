@@ -21,7 +21,7 @@ require.cache[agentEvidenceServicePath] = {
     workerEvidenceDossiers: () => [],
     evidenceScore: () => 50,
     typedEvidenceSummary: () => ({ legacyScore: 50, typedEvidence: { assessment: {} } }),
-    hasDecisionEvidence: () => false,
+    hasDecisionEvidence: require('../src/services/agentEvidence/decisionEvidence').hasDecisionEvidence,
     decisionEvidenceFailure: () => 'no evidence',
     validateWorkerDossierCoherence: () => ({ valid: true, errors: [] }),
     validateWorkerDossiers: () => ({ valid: true, errors: [] }),
@@ -139,6 +139,18 @@ test('barrier alone does not establish a passing test suite', () => {
   const flags = buildEvidenceFlags({ agents: [{ id: 'worker-1', status: 'completed' }],
     dossiers: [], telemetry });
   assert.equal(flags.testsPassed, false, 'worker-supplied exitCode and suite fields are not a test receipt');
+});
+
+test('empty evidence report telemetry does not satisfy required evidence', () => {
+  const empty = [{ event_type: 'EVIDENCE_REPORT', detail: 'report', payload_json: '{}' }];
+  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry: empty }).includes('evidence_report'), false);
+  assert.equal(buildEvidenceFlags({ agents: [], dossiers: [], telemetry: empty }).verifierReceiptPresent, false);
+
+  const substantiated = [{ event_type: 'EVIDENCE_REPORT', detail: 'report', payload_json: JSON.stringify({
+    evidenceReport: { claims: [{ claim: 'Observed result', evidence: [{ source: 'test log', value: 'exit 0' }] }] }
+  }) }];
+  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry: substantiated }).includes('evidence_report'), true);
+  assert.equal(buildEvidenceFlags({ agents: [], dossiers: [], telemetry: substantiated }).verifierReceiptPresent, false);
 });
 
 test('typed profiles created from dossiers and runs', () => {

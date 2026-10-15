@@ -1,6 +1,6 @@
 'use strict';
 
-const { workerEvidenceDossiers } = require('./agentEvidenceService');
+const { workerEvidenceDossiers, hasDecisionEvidence } = require('./agentEvidenceService');
 const { createEvidenceProfile } = require('./typedEvidenceAlgebraService');
 
 // Collects real runtime evidence from worker dossiers, strategy execution
@@ -71,7 +71,9 @@ function buildEvidenceFlags({ agents, dossiers, telemetry }) {
     workerEvidenceComplete: hasDossierReports,
     noFailedAgents: failed === 0,
     allAgentsCompleted: completed === agents.length && agents.length > 0,
-    verifierReceiptPresent: telemetry.some(t => t.event_type === 'EVIDENCE_REPORT'),
+    // An evidence report is not a verifier receipt. No trusted verifier-receipt
+    // producer is connected to this collector yet.
+    verifierReceiptPresent: false,
   };
 }
 
@@ -79,12 +81,23 @@ function buildEvidenceKinds({ dossiers, runs, telemetry }) {
   const kinds = new Set();
   if (dossiers.some(d => d.events.some(e => e.evidenceReport))) kinds.add('worker_evidence');
   if (runs.some(r => r.status === 'completed')) kinds.add('execution_run_complete');
-  if (telemetry.some(t => t.event_type === 'EVIDENCE_REPORT')) kinds.add('evidence_report');
+  if (telemetry.some(hasSubstantiatedEvidenceReport)) kinds.add('evidence_report');
   // A suite claim needs a separate trusted executor receipt, not worker telemetry.
   if (telemetry.some(t => t.event_type === 'WORKER_EVIDENCE_BARRIER_SATISFIED')) kinds.add('worker_evidence_barrier_satisfied');
   if (telemetry.some(t => t.event_type === 'AGENT_COMPLETED')) kinds.add('agent_completed');
   if (telemetry.some(t => t.event_type === 'MISSION_COMPLETED')) kinds.add('homeostasis_achieved');
   return [...kinds];
+}
+
+function hasSubstantiatedEvidenceReport(event) {
+  if (event.event_type !== 'EVIDENCE_REPORT') return false;
+  let payload;
+  try {
+    payload = JSON.parse(event.payload_json || '{}');
+  } catch (_) {
+    return false;
+  }
+  return hasDecisionEvidence({ eventType: event.event_type, detail: event.detail, payload });
 }
 
 function buildTypedProfiles(dossiers, runs) {

@@ -72,6 +72,15 @@ de reçu d'exécution de test de confiance. `test_mission_evidence.js` vérifie 
 refus d'une auto-déclaration. La production et la validation d'un tel reçu restent
 à implémenter.
 
+Le même collecteur assimilait auparavant tout événement `EVIDENCE_REPORT` à une
+preuve `evidence_report`, y compris avec un payload vide. Le type d'événement
+ne suffit plus : le rapport doit contenir une claim avec élément de preuve
+substantiel reconnu par `hasDecisionEvidence`. Aucun événement de ce type ne
+vaut reçu de vérification indépendant; `verifierReceiptPresent` reste donc faux
+tant qu'un producteur de reçus de vérificateur n'est pas raccordé. La régression
+est couverte dans `test_mission_evidence.js` pour les payloads vide, étayé et
+leur distinction d'avec un reçu de vérificateur.
+
 Les gates globaux ont été exécutés avant le correctif ADR 0508 : `npm test` a terminé
 avec code 0 (biologie, workspace workers, backend, garage et P1 V3) et
 `cargo test --workspace` avec code 0, après compilation dans un répertoire cible
