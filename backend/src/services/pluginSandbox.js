@@ -4,24 +4,57 @@ const { terminateChild } = require('./processTermination');
 const ALLOWED_CAPABILITIES = new Set(['mcp', 'retrieval', 'webhook', 'grader', 'connector']);
 
 function allowedPluginRegistries() {
-  return String(process.env.GENOS_PLUGIN_REGISTRIES || '')
+  const configured = String(process.env.GENOS_PLUGIN_REGISTRIES || '')
     .split(',')
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
+  return configured.length ? configured : ['docker.io'];
 }
 
 function validateImage(image) {
-  if (typeof image !== 'string') throw new Error('Plugin image is invalid.');
+  const reference = parsePinnedImage(image);
+  const registry = registryForImage(reference);
+  const registries = allowedPluginRegistries();
+  if (!registries.includes(registry)) throw new Error(`Plugin registry '${registry}' is not allowed.`);
+  return image;
+}
+
+function parsePinnedImage(image) {
+  assertImageString(image);
   const separator = image.indexOf('@');
-  if (separator < 1 || image.indexOf('@', separator + 1) !== -1) throw new Error('Plugin image must be pinned by a sha256 digest.');
+  assertSingleDigestSeparator(image, separator);
   const reference = image.slice(0, separator);
   const digest = image.slice(separator + 1);
+  assertSha256Digest(digest);
+  assertSafeImageReference(reference);
+  return reference;
+}
+
+function assertImageString(image) {
+  if (typeof image !== 'string' || image.length > 512) throw new Error('Plugin image is invalid.');
+}
+
+function assertSingleDigestSeparator(image, separator) {
+  if (separator < 1 || image.indexOf('@', separator + 1) !== -1) {
+    throw new Error('Plugin image must be pinned by a sha256 digest.');
+  }
+}
+
+function assertSha256Digest(digest) {
+  if (!/^sha256:[a-f0-9]{64}$/i.test(digest)) throw new Error('Plugin image must be pinned by a sha256 digest.');
+}
+
+function assertSafeImageReference(reference) {
   if (!/^[a-z0-9][a-z0-9./:_-]+$/i.test(reference)) throw new Error('Plugin image is invalid.');
-  if (!digest || !/^sha256:[a-f0-9]{64}$/i.test(digest)) throw new Error('Plugin image must be pinned by a sha256 digest.');
-  const registry = reference.includes('/') ? reference.split('/')[0].toLowerCase() : 'docker.io';
-  const registries = allowedPluginRegistries();
-  if (registries.length && !registries.includes(registry)) throw new Error(`Plugin registry '${registry}' is not allowed.`);
-  return image;
+  const segments = reference.split('/');
+  if (segments.some((segment) => !segment || segment === '.' || segment === '..')) throw new Error('Plugin image reference is invalid.');
+}
+
+function registryForImage(reference) {
+  const segments = reference.split('/');
+  const first = segments[0].toLowerCase();
+  const hasRegistry = segments.length > 1 && (first.includes('.') || first.includes(':') || first === 'localhost');
+  return hasRegistry ? first : 'docker.io';
 }
 
 function validate(manifest) {

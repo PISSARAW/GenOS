@@ -36,8 +36,40 @@ function defaultGitHubDirectory() {
   return path.resolve(__dirname, '../../..');
 }
 
+function isWithinRoot(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
+function allowedGitHubRoots() {
+  if (process.env.GITHUB_PROJECTS_DIR && fs.existsSync(process.env.GITHUB_PROJECTS_DIR)) {
+    return [fs.realpathSync(process.env.GITHUB_PROJECTS_DIR)];
+  }
+  const home = os.homedir();
+  return [
+    path.join(home, 'Documents', 'GitHub'),
+    path.join(home, 'GitHub'),
+    path.join(home, 'Projects'),
+    path.resolve(__dirname, '../../../..')
+  ].filter((root) => fs.existsSync(root)).map((root) => fs.realpathSync(root));
+}
+
+function resolveScanRoot(requestedRoot) {
+  const root = path.resolve(requestedRoot || defaultGitHubDirectory());
+  const allowed = allowedGitHubRoots();
+  if (!allowed.some((base) => isWithinRoot(base, root))) {
+    throw new Error('GitHub Analyst root must be inside a configured GitHub or Projects directory.');
+  }
+  const realRoot = fs.realpathSync(root);
+  if (!allowed.some((base) => isWithinRoot(base, realRoot))) {
+    throw new Error('GitHub Analyst root resolves outside its configured directory.');
+  }
+  if (!fs.statSync(realRoot).isDirectory()) throw new Error('GitHub Analyst root must be a directory.');
+  return realRoot;
+}
+
 function discoverRepositories(githubRoot = null, maxDepth = 2) {
-  const root = githubRoot || defaultGitHubDirectory();
+  const root = resolveScanRoot(githubRoot);
   const repos = [];
   if (!fs.existsSync(root)) return repos;
 
@@ -208,6 +240,7 @@ function runFullAudit(agentConfig = {}, githubRoot = null) {
 
 module.exports = {
   defaultGitHubDirectory,
+  resolveScanRoot,
   discoverRepositories,
   detectTechStack,
   analyzeRepository,
