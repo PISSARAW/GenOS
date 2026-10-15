@@ -20,6 +20,10 @@ const compiled = compiler.compileContext({ relevantFacts: [semantic], budget: 50
 assert.deepEqual(compiled.provenance[0].ref.sourceRefs, semantic.provenance.sourceRefs);
 assert.deepEqual(compiled.items[0].evidenceRefs, semantic.evidenceRefs);
 
+const oversizedTrace = compiler.compileContext({ relevantFacts: [{ id: 'oversized-trace', title: 'A', content: 'B',
+  provenance: { sourceRefs: [`proof://${'x'.repeat(400)}`] } }], budget: 10 });
+assert.equal(oversizedTrace.itemCount, 0, 'provenance metadata must count toward the memory context budget');
+
 const procedural = policy.promoteToProcedural(episode);
 assert.deepEqual(procedural.evidenceRefs, ['test://run-4']);
 assert.deepEqual(procedural.counterexampleRefs, ['issue://failure-2']);

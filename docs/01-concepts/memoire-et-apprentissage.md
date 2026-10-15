@@ -341,6 +341,8 @@ Les références sont dédupliquées et la provenance garde l'identifiant de
 l'épisode source, les références déjà héritées et l'heure de promotion.
 Le compilateur de contexte expose cette provenance avec les éléments rappelés,
 afin qu'une mémoire réutilisée reste reliée à ses épisodes et à ses preuves.
+Les références et le bloc de provenance entrent aussi dans le calcul du budget
+du contexte ; un élément qui dépasse le budget est écarté.
 Cette chaîne de références assure la traçabilité ; elle ne certifie pas à elle
 seule la validité des preuves référencées.
 

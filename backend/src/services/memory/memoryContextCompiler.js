@@ -20,7 +20,12 @@ function itemTokens(item) {
     item.actionInput || '',
     item.observationOutput || ''
   ];
-  return estimateTokens(parts.join(' '));
+  const trace = JSON.stringify({
+    evidenceRefs: Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [],
+    counterexampleRefs: Array.isArray(item.counterexampleRefs) ? item.counterexampleRefs : [],
+    provenance: item.provenance || null
+  });
+  return estimateTokens([...parts, trace].join(' '));
 }
 
 function relevanceScore(item, query) {
