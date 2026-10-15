@@ -282,22 +282,30 @@ pub fn handle_core(cmd: &CoreCommands, _yes: bool) {
 mod start_lock_tests {
     use super::try_acquire_start_lock_at;
 
+    fn test_lock_path(suffix: &str) -> std::path::PathBuf {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        std::env::temp_dir().join(format!(
+            "genos_start_lock_test_{}_{}_{}.lock", std::process::id(), nonce, suffix
+        ))
+    }
+
     #[test]
     fn second_acquire_fails() {
-        let path = std::env::temp_dir().join("genos_start_lock_test_a.lock");
-        let _ = std::fs::remove_file(&path);
+        let path = test_lock_path("a");
         let name = path.to_string_lossy().into_owned();
-        let _held = try_acquire_start_lock_at(&name).unwrap();
+        let held = try_acquire_start_lock_at(&name).unwrap();
         assert!(try_acquire_start_lock_at(&name).is_err());
+        drop(held);
         let _ = std::fs::remove_file(&path);
     }
 
     #[test]
     fn acquire_succeeds_when_free() {
-        let path = std::env::temp_dir().join("genos_start_lock_test_b.lock");
-        let _ = std::fs::remove_file(&path);
+        let path = test_lock_path("b");
         let name = path.to_string_lossy().into_owned();
-        assert!(try_acquire_start_lock_at(&name).is_ok());
+        let held = try_acquire_start_lock_at(&name).unwrap();
+        drop(held);
         let _ = std::fs::remove_file(&path);
     }
 }
