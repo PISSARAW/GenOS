@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+const database = require('../src/db');
 const { defaultBrowserScout } = require('../src/services/browserScoutService');
 const { handleOptimalForaging } = require('../src/services/mcpBioTools/handlers/optimalForaging');
 const sourceAttestation = require('../src/services/foragingSourceAttestation');
@@ -12,8 +13,13 @@ async function run() {
   const scope = ['https://fixture.invalid'];
   const outsideUrl = 'https://other.invalid/private';
   const oldTrust = process.env.GENOS_FORAGING_TRUST_JSON;
+  const originalGetDatabase = database.getDatabase;
   const keys = crypto.generateKeyPairSync('ed25519');
   process.env.GENOS_FORAGING_TRUST_JSON = JSON.stringify({ 'fixture-browser': keys.publicKey.export({ type: 'spki', format: 'pem' }) });
+  database.getDatabase = async () => ({
+    get: async (_query, missionId, agentId) => missionId === 'mission-scope-fixture' && agentId === 'agent-scope-fixture'
+      ? { mission_id: missionId } : null
+  });
   const originalNavigate = defaultBrowserScout.navigate.bind(defaultBrowserScout);
   let navigationCalls = 0;
   try {
@@ -36,7 +42,7 @@ async function run() {
       history: [{ infoGain: 0.8 }, { infoGain: 0.1 }, { infoGain: 0.05 }],
       elapsed_time_sec: 4, next_url: outsideUrl, navigation_scope: scope,
       mission_id: 'mission-scope-fixture', source_attestation: attestation
-    });
+    }, undefined, { agentId: 'agent-scope-fixture' });
     const step = JSON.parse(result.output);
     assert.equal(result.success, false);
     assert.equal(result.status, 'out_of_scope');
@@ -57,6 +63,7 @@ async function run() {
     await defaultBrowserScout.closeSession(sessionId);
     if (oldTrust === undefined) delete process.env.GENOS_FORAGING_TRUST_JSON;
     else process.env.GENOS_FORAGING_TRUST_JSON = oldTrust;
+    database.getDatabase = originalGetDatabase;
   }
 }
 
