@@ -36,6 +36,9 @@ assert.equal(invalidProof.action, 'fork_worker');
 
 assert.equal(recovery.classifyFinalReport({ outcome: 'success', claims: [{ statement: '42', evidence: ['calculation'] }] }).outcome, 'success');
 assert.equal(recovery.classifyFinalReport({ outcome: 'failed', claims: [] }).outcome, 'failed');
+assert.match(recovery.classifyFinalReport({ outcome: 'unresolved', claims: [
+  { statement: 'partial result', evidence: ['receipt'] }
+] }).failure.reason, /Unsupported final report outcome 'unresolved'/);
 assert.equal(recovery.classifyFinalReport({ claims: [], uncertainties: ['not solved'] }).outcome, 'failed');
 assert.equal(recovery.classifyFinalReport({ outcome: 'no_answer', noAnswerProof: { evidence: [] } }).outcome, 'failed');
 assert.equal(recovery.classifyFinalReport({ outcome: 'no_answer', noAnswerProof: { method: 'enumeration', evidence: ['all states checked'] } }).outcome, 'no_answer');

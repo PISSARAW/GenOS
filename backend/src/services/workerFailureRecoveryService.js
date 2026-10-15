@@ -73,6 +73,9 @@ function classifyFinalReport(report = {}, isWorker = true) {
   const noAnswer = classifyNoAnswer(report);
   if (noAnswer) return noAnswer;
   if (report.outcome === 'failed') return { outcome: 'failed', failure: report.failure && typeof report.failure === 'object' ? report.failure : makeFailure(isWorker ? 'Worker reported mission failure.' : 'Orchestrator reported mission failure.') };
+  if (report.outcome !== undefined && report.outcome !== 'success') {
+    return makeFailure(`Unsupported final report outcome '${String(report.outcome)}'.`);
+  }
   const claimsResult = classifyClaims(report);
   if (claimsResult) return claimsResult;
   return { outcome: 'success' };
