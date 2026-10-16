@@ -2,7 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { executeCondition, topologyProfile } = require('./comparisonAdapters.cjs');
+const { executeCondition, topologyProfile, evidenceOf } = require('./comparisonAdapters.cjs');
+const transitions = require('../../backend/src/services/morphogenesis/morphogenesisTransitionReceipt');
 const { validateExternalDataset } = require('./run-comparison-campaign.cjs');
 const { verifyCandidate } = require('./oracles.cjs');
 
@@ -60,4 +61,33 @@ test('confirmatory dataset refuses bundled pilot tasks and missing separated inv
     prompt: 'independent question', oracle: { type: 'structured' } };
   assert.throws(() => validateExternalDataset({ datasetId: 'external', source: 'registry',
     tasks: [task], split: 'holdout' }, 'confirmatory'), /inventories/);
+});
+
+test('comparison evidence requires a sealed transition and its exact verified resolution', () => {
+  const workerId = 'qualified-worker';
+  const state = { workers: new Map([[workerId, { workerKind: 'scout_cell',
+    morphologyTopology: 'trinity', morphologyVariant: 'pareto' }]]) };
+  const adaptation = { receipt: {}, admission: { status: 'admitted',
+    selectionBasis: 'calibrated_policy_proposal', recipe: {
+      id: 'variant:trinity:pareto', topology: 'trinity', variant: 'pareto' } },
+  plan: { morphologyPatch: { graph: { graphId: 'comparison-graph', version: 1 } } } };
+  const sealed = transitions.sealTransitionReceipt({ state, survivors: [{ agentId: workerId }],
+    continuation: { perWorkerTokens: 100 }, adaptation });
+  transitions.finalizeTransitionQueue(sealed, [workerId]);
+  const started = { event_type: 'MORPHOGENESIS_EPOCH_STARTED',
+    payload_json: JSON.stringify({ transition: sealed }) };
+  const resolved = { event_type: 'MORPHOGENESIS_EPOCHS_STOPPED',
+    payload_json: JSON.stringify({ reason: 'verified_resolution', transitionId: sealed.transitionId }) };
+  const observed = evidenceOf({ receipt: { telemetry: [started, resolved] } });
+  assert.equal(observed.transitionId, sealed.transitionId);
+  assert.equal(observed.candidateId, 'variant:trinity:pareto');
+  assert.equal(observed.workerCount, 1);
+  assert.equal(observed.resolutionVerified, true);
+  const tampered = structuredClone(sealed);
+  tampered.identity.candidateId = 'another-candidate';
+  assert.equal(evidenceOf({ receipt: { telemetry: [{ ...started,
+    payload_json: JSON.stringify({ transition: tampered }) }, resolved] } }).transitionId, null);
+  assert.equal(evidenceOf({ receipt: { telemetry: [started, { ...resolved,
+    payload_json: JSON.stringify({ reason: 'verified_resolution',
+      transitionId: 'other-transition' }) }] } }).resolutionVerified, false);
 });

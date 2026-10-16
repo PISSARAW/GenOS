@@ -19,8 +19,9 @@ leur empreinte et leur périmètre mission, organisation et projet. L'écriture
 refuse une issue sans reçu indépendant vérifié. La même identité rejouée avec
 le même contenu est idempotente ; une autre charge ou un autre périmètre sous
 cette identité est un conflit. Les triggers interdisent modification et
-suppression. La lecture vérifie à nouveau l'empreinte et le reçu, puis borne
-le résultat à 120 issues.
+suppression. La lecture vérifie à nouveau l'empreinte et le reçu. Elle borne
+désormais le résultat à 8192 issues, avec un quota par candidat et séparation
+entraînement/validation (ADR 0565).
 
 Le chemin standard de `agentRoundService` fournit ce lecteur à
 `planContinuation`. Les missions d'un même projet peuvent partager un corpus
@@ -51,9 +52,11 @@ le runtime ne produit pas automatiquement ces paires à partir des rapports des
 workers. Aucun corpus de campagne ni gain comparatif n'est présumé. La
 qualification exige encore une campagne hors famille de tâches et hors modèle,
 avec coûts, latences, verdict indépendant et lien de transition exact.
-La lecture des 120 issues les plus récentes d'un périmètre limite le nombre de
-candidats calibrables simultanément ; une sélection stratifiée devra être
-évaluée avec des corpus réels.
+**Mise à jour du 2026-10-16 :** l'[ADR 0565](0565-lier-les-issues-appariees-aux-transitions.md)
+lie chaque nouvelle ligne persistée à deux tentatives et au reçu scellé de la
+transition. Le registre écarte les anciennes lignes sans ces preuves. La lecture
+est stratifiée par candidat et split, jusqu'à 8192 lignes au total ; son coût
+sur un grand corpus réel reste à mesurer.
 
 ## Alternatives
 

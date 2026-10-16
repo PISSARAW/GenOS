@@ -3,7 +3,9 @@
 const crypto = require('node:crypto');
 const calibration = require('./morphogenesisSelectorCalibration');
 
-const MAX_OUTCOMES = 120;
+const MAX_OUTCOMES = 8192;
+const TRAIN_PER_CANDIDATE = 40;
+const VALIDATION_PER_CANDIDATE = 20;
 const TABLE_SQL = `CREATE TABLE IF NOT EXISTS morphogenesis_verified_outcomes (
   outcome_id TEXT PRIMARY KEY,
   mission_id TEXT NOT NULL,
@@ -51,7 +53,7 @@ async function ensure(db) {
 
 async function recordVerifiedOutcome(db, scopeInput, outcome) {
   const scope = normalizedScope(scopeInput);
-  if (!calibration.verifiedRow(outcome)) throw invalid('independent_receipt');
+  if (!outcome?.pairEvidence || !calibration.verifiedRow(outcome)) throw invalid('paired_independent_receipt');
   const json = JSON.stringify(outcome);
   const hash = digest(json);
   await ensure(db);
@@ -71,14 +73,20 @@ async function recordVerifiedOutcome(db, scopeInput, outcome) {
 }
 
 function scopedQuery(scope) {
-  if (scope.organizationId || scope.projectId) return {
-    sql: `SELECT outcome_json, payload_hash FROM morphogenesis_verified_outcomes
-      WHERE organization_id IS ? AND project_id IS ? ORDER BY rowid DESC LIMIT ?`,
-    values: [scope.organizationId, scope.projectId]
-  };
-  return { sql: `SELECT outcome_json, payload_hash FROM morphogenesis_verified_outcomes
-    WHERE organization_id IS NULL AND project_id IS NULL AND mission_id = ?
-    ORDER BY rowid DESC LIMIT ?`, values: [scope.missionId] };
+  const shared = scope.organizationId || scope.projectId;
+  const where = shared ? 'organization_id IS ? AND project_id IS ?'
+    : 'organization_id IS NULL AND project_id IS NULL AND mission_id = ?';
+  const values = shared ? [scope.organizationId, scope.projectId] : [scope.missionId];
+  return { sql: `WITH ranked AS (
+    SELECT outcome_json, payload_hash, rowid AS sequence,
+      json_extract(outcome_json, '$.split') AS split,
+      ROW_NUMBER() OVER (PARTITION BY json_extract(outcome_json, '$.candidateId'),
+        json_extract(outcome_json, '$.split') ORDER BY rowid DESC) AS sample_rank
+    FROM morphogenesis_verified_outcomes WHERE ${where} AND json_valid(outcome_json)
+  ) SELECT outcome_json, payload_hash FROM ranked
+    WHERE (split = 'train' AND sample_rank <= ?)
+      OR (split = 'validation' AND sample_rank <= ?)
+    ORDER BY sequence DESC LIMIT ?`, values };
 }
 
 async function loadVerifiedOutcomes(db, scopeInput) {
@@ -88,12 +96,13 @@ async function loadVerifiedOutcomes(db, scopeInput) {
     ? Math.min(MAX_OUTCOMES, Math.max(1, scopeInput.limit)) : MAX_OUTCOMES;
   await ensure(db);
   const query = scopedQuery(scope);
-  const rows = await db.all(query.sql, ...query.values, limit);
+  const rows = await db.all(query.sql, ...query.values,
+    TRAIN_PER_CANDIDATE, VALIDATION_PER_CANDIDATE, limit);
   return rows.flatMap((stored) => {
     if (digest(stored.outcome_json) !== stored.payload_hash) return [];
     try {
       const outcome = JSON.parse(stored.outcome_json);
-      return calibration.verifiedRow(outcome) ? [outcome] : [];
+      return outcome.pairEvidence && calibration.verifiedRow(outcome) ? [outcome] : [];
     } catch (_) {
       return [];
     }

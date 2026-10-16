@@ -184,23 +184,41 @@ function ensureAttemptWorkspace(state) {
 }
 
 function evidenceOf(result) {
-  const receipt = result.receipt || {};
-  const telemetry = Array.isArray(receipt.telemetry) ? receipt.telemetry : [];
-  const transitionId = receipt.transitionId || findTelemetryTransition(telemetry) || null;
-  return { transitionId, selectedTopology: receipt.selectedTopology || null,
-    workerCount: Array.isArray(receipt.workers) ? receipt.workers.length : null,
-    dispatchStatus: receipt.dispatchStatus || null };
+  const telemetry = Array.isArray(result?.receipt?.telemetry) ? result.receipt.telemetry : [];
+  const sealed = sealedTransition(telemetry);
+  if (!sealed) return { transitionId: null, candidateId: null, selectedTopology: null,
+    selectedVariant: null, workerCount: null, dispatchStatus: null,
+    resolutionVerified: false, sealedReceipt: null };
+  return { transitionId: sealed.transitionId,
+    candidateId: sealed.identity.candidateId,
+    selectedTopology: sealed.identity.admissionTopology ?? null,
+    selectedVariant: sealed.identity.admissionVariant ?? null,
+    workerCount: sealed.identity.bindings?.length ?? null,
+    dispatchStatus: sealed.dispatchStatus,
+    resolutionVerified: verifiedResolution(telemetry, sealed.transitionId),
+    sealedReceipt: sealed };
 }
 
-function findTelemetryTransition(telemetry) {
-  for (const event of telemetry) {
-    try {
-      const payload = JSON.parse(event.payload_json || '{}');
-      const candidate = payload.transitionId || payload.transition?.transitionId || null;
-      if (candidate) return String(candidate);
-    } catch { /* non-JSON telemetry is not transition evidence */ }
+function telemetryPayload(event) {
+  try { return JSON.parse(event.payload_json || '{}'); }
+  catch { return null; }
+}
+
+function sealedTransition(telemetry) {
+  const verify = require('../../backend/src/services/morphogenesis/morphogenesisTransitionReceipt')
+    .verifyTransitionReceipt;
+  for (const event of [...telemetry].reverse()) {
+    if (event.event_type !== 'MORPHOGENESIS_EPOCH_STARTED') continue;
+    const receipt = telemetryPayload(event)?.transition;
+    if (receipt?.dispatchStatus === 'queued' && verify(receipt)) return receipt;
   }
   return null;
+}
+
+function verifiedResolution(telemetry, transitionId) {
+  return telemetry.some(event => event.event_type === 'MORPHOGENESIS_EPOCHS_STOPPED'
+    && telemetryPayload(event)?.reason === 'verified_resolution'
+    && telemetryPayload(event)?.transitionId === transitionId);
 }
 
 function applyTopologyForcing(payload, topology) {

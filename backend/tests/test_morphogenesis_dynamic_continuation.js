@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const service = require('../src/services/morphogenesis/missionMorphogenesisContinuation');
 const execution = require('../src/services/morphogenesis/missionMorphologyExecution');
 const binding = require('../src/services/morphogenesis/morphogenesisMissionBinding');
+const outcomeStore = require('../src/services/morphogenesis/morphogenesisVerifiedOutcomeStore');
 const missionHelpers = require('../bin/orchestratorMissionHelpers.cjs');
 const registry = require('../src/services/morphogenesis/registry/topologyRegistry').createTopologyRegistry();
 
@@ -92,7 +93,7 @@ async function verifyPlannerTransitionAdmission() {
   assert.equal(result.reason, 'selector_no_change');
   assert.equal(plannerCalls, 0);
   assert.equal(outcomeQuery.missionId, 'mission-1');
-  assert.equal(outcomeQuery.limit, 120);
+  assert.equal(outcomeQuery.limit, outcomeStore.MAX_OUTCOMES);
   assert.equal(runtimeState.plan.selectedTopology, 'a_team');
 }
 

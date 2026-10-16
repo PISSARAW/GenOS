@@ -218,6 +218,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [variants-morphologiques.md](02-orchestration/topologies/variants-morphologiques.md) — guide vers les cas d'usage et limites de sélection des 95 variants canoniques.
 - [ADR 0563](adr/0563-selection-des-variants-par-cas-d-usage.md) — présélection morphogénétique par cas d'usage, repli explicite et calibration encore nécessaire.
 - [ADR 0564](adr/0564-charger-les-issues-verifiees-dans-la-continuation.md) — chargement durable des issues appariées vérifiées dans la continuation standard.
+- [ADR 0565](adr/0565-lier-les-issues-appariees-aux-transitions.md) — dérivation d'issues à partir de deux exécutions et d'une transition scellée, avec reçus indépendants obligatoires.
 - [trinity.md](02-orchestration/topologies/trinity.md) — orchestration comparée, baseline à trois mondes et variants expérimentaux à fan-out contrôlé.
 - [a-team.md](02-orchestration/topologies/a-team.md) — équipe multidisciplinaire d'agents.
 - [runtime-a-team.md](03-reference/runtime-a-team.md) — clôture canonique, preuves, accusés et reprise A-Team ; conformité globale partielle.

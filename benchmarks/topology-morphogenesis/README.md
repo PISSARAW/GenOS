@@ -42,6 +42,14 @@ Le succès exige une transition attestée (diagnostic avant changement, admissio
 
 Le holdout de ce protocole sépare les instances, paramètres et identifiants d'oracle, mais partage volontairement les familles avec l'entraînement pour sélectionner une topologie figée par famille. Il ne valide donc pas la généralisation hors famille exigée par le calibrateur. `oracle-selection` reste en attente et aucune campagne modèle n'est revendiquée tant que les artefacts d'un run complet ne sont pas disponibles.
 
+L'adaptateur comparatif reconnaît désormais seulement un `transitionId` porté
+par un reçu morphogénétique scellé valide et distingue la résolution vérifiée
+du même identifiant. Le [producteur d'issues appariées](../../docs/adr/0565-lier-les-issues-appariees-aux-transitions.md)
+peut dériver et stocker gain et surcoût lorsque les deux tentatives, la
+prédiction antérieure et la paire portent des reçus d'oracle indépendants.
+Le harnais actuel n'émet pas ces reçus ; ses rapports ne sont pas importés
+automatiquement dans la calibration.
+
 `run-comparison-plan.cjs` conserve son rôle limité de générateur d'affectations (`assignment-only`); il n'exécute pas les modèles.
 
 Cette campagne fait progresser la preuve du contrat jusqu'à l'exécution observable. Un dispatch accepté ou une mission terminée ne suffit pas à qualifier une topologie d'opérationnelle. Il faut des opérations spécifiques observables, des livrables vérifiés, des répétitions et des contrôles négatifs réussis.

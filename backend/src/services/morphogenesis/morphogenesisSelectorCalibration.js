@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const evidenceAudit = require('../trinityEvidenceAudit');
 const receiptService = require('../epistemicVerifierReceiptService');
 const verifierTrust = require('../verifierTrustRegistry');
+const pairedEvidence = require('./morphogenesisPairedOutcomeEvidence');
 
 const MIN_TRAIN = 30;
 const MIN_VALIDATION = 10;
@@ -13,6 +14,10 @@ function digest(row) {
   const body = Object.fromEntries(['id', 'scale', 'taskFamily', 'modelId', 'split',
     'candidateId', 'predictedGain', 'actualGain', 'predictedCost', 'actualCost']
     .map(key => [key, row[key]]));
+  if (row.pairEvidence) {
+    body.taskId = row.taskId;
+    body.pairEvidence = row.pairEvidence;
+  }
   return `sha256:${crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex')}`;
 }
 
@@ -23,8 +28,10 @@ function validIdentity(row) {
 }
 
 function validMetrics(row) {
-  return [row.predictedGain, row.actualGain, row.predictedCost, row.actualCost]
-    .every(value => Number.isFinite(value) && value >= 0 && value <= 1);
+  return [row.predictedGain, row.actualGain]
+    .every(value => Number.isFinite(value) && value >= -1 && value <= 1)
+    && [row.predictedCost, row.actualCost]
+      .every(value => Number.isFinite(value) && value >= 0 && value <= 1);
 }
 
 function validReceipt(row) {
@@ -35,7 +42,9 @@ function validReceipt(row) {
 }
 
 function verifiedRow(row) {
-  return validIdentity(row) && validMetrics(row) && validReceipt(row);
+  return validIdentity(row) && validMetrics(row) && validReceipt(row)
+    && (!row.pairEvidence || (pairedEvidence.validPairedEvidence(row)
+      && pairedEvidence.validFinalReceipt(row)));
 }
 
 function means(rows) {
@@ -61,7 +70,8 @@ function calibrateCandidate(rows, scale, candidateId) {
   const train = sameCandidate.filter(row => row.split === 'train');
   const validation = sameCandidate.filter(row => row.split === 'validation');
   if (train.length < MIN_TRAIN || validation.length < MIN_VALIDATION
-    || !disjoint(train, validation, 'taskFamily') || !disjoint(train, validation, 'modelId')) {
+    || !disjoint(train, validation, 'taskFamily') || !disjoint(train, validation, 'modelId')
+    || !disjointPairedTasks(train, validation)) {
     return unavailable('insufficient_independent_holdout');
   }
   const [gain, cost] = means(train);
@@ -77,6 +87,13 @@ function calibrateCandidate(rows, scale, candidateId) {
     gainUncertainty: Math.min(1, 1.96 * se), marginalCost: cost,
     costUncertainty: Math.min(1, 1.96 * dispersion(validation, 'actualCost', meanActual(validation, 'actualCost'))),
     heldoutMae: { gain: gainMae, gainPrior: gainBaselineMae, cost: costMae, costPrior: costBaselineMae } };
+}
+
+function disjointPairedTasks(train, validation) {
+  const paired = [...train, ...validation].filter(row => row.pairEvidence);
+  if (!paired.length) return true;
+  if (paired.length !== train.length + validation.length) return false;
+  return disjoint(train, validation, 'taskId');
 }
 
 function meanActual(rows, key) {

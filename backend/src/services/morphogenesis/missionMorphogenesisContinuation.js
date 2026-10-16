@@ -6,7 +6,7 @@ const { bindGraphMission } = require('./morphogenesisMissionBinding');
 const communicationPlanning = require('./communicationReductionPlanning');
 const { proposedRecipe, recipeProfile, recipePlanMismatch } = require('./missionMorphogenesisRecipeBinding');
 const MAX_REPLACEMENT_WORKERS = 12;
-const MAX_CALIBRATION_OUTCOMES = 120;
+const MAX_CALIBRATION_OUTCOMES = require('./morphogenesisVerifiedOutcomeStore').MAX_OUTCOMES;
 
 function evidenceSignals(results) {
   const values = results.map((entry) => Number(entry.evidenceScore)).filter(Number.isFinite);
