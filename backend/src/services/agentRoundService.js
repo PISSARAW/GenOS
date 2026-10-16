@@ -50,8 +50,10 @@ function workerBindingMetadata(mission) {
 
 function reportedUsageMetadata(payload) {
   const usage = payload.usage || {};
-  return { consumedTokens: Number(usage.tokens ?? payload.tokens ?? 0),
-    costUsd: Number(usage.cost_usd ?? payload.cost_usd ?? 0) };
+  // Declared runtime usage only: worker-reported measure, never accounting proof.
+  return { declaredConsumedTokens: Number(usage.tokens ?? payload.tokens ?? 0),
+    declaredCostUsd: Number(usage.cost_usd ?? payload.cost_usd ?? 0),
+    usageSource: 'worker_declared' };
 }
 
 function continuationPolicyError(continuation) {

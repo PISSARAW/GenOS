@@ -235,9 +235,12 @@ function resultMatchesTransition(result, receipt) {
 }
 
 function recordTransitionOutcomes(receipt, results) {
-  receipt.observed = { workers: results.map((result) => ({ workerId: result.agentId,
+  // Declared usage only: worker-reported consumption is diagnostic, never
+  // accounting proof. A sealed receipt alone never resolves; promotion needs
+  // an independent oracle verdict bound to the same transitionId.
+  receipt.observed = { usageSource: 'worker_declared', workers: results.map((result) => ({ workerId: result.agentId,
     status: result.status, allocatedTokens: result.allocatedTokens,
-    consumedTokens: result.consumedTokens, costUsd: result.costUsd })) };
+    declaredConsumedTokens: result.declaredConsumedTokens, declaredCostUsd: result.declaredCostUsd })) };
 }
 
 function communicationMarkerMatches(receipt, mission) {

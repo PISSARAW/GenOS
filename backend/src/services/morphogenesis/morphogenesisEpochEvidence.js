@@ -15,6 +15,8 @@ async function inspectEpochEvidence(state, orchestratorId) {
 }
 
 function bindVerifiedVerdict(state, resolution) {
+  // A sealed transition receipt alone never promotes: the oracle verdict must
+  // bind the same transitionId, otherwise the mission stays unpromoted.
   const receipt = state.plan.morphogenesisEpochStatus?.transition;
   if (!receipt) return;
   if (resolution.transitionId !== receipt.transitionId) {
@@ -36,4 +38,4 @@ function resolutionPayload(resolution) {
     verifierWorkerId: resolution.agentId, transitionId: resolution.transitionId || null };
 }
 
-module.exports = { inspectEpochEvidence };
+module.exports = { inspectEpochEvidence, bindVerifiedVerdict };

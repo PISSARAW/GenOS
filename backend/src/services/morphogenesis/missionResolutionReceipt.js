@@ -23,6 +23,9 @@ async function validateWorkerReceipts(results, expected, validate) {
 }
 
 function transitionBoundResults(state) {
+  // Worker reports are diagnostic only (do_not_treat_worker_report_as_resolution):
+  // transition-bound results never resolve without an independent oracle receipt
+  // linked to the same transitionId and scope.
   const results = [...state.results.values()];
   const transition = state.plan?.morphogenesisEpochStatus?.transition;
   if (!transition) return results;
