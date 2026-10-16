@@ -31,10 +31,18 @@ function list() {
   return Object.keys(DEFINITIONS);
 }
 
+const LEGACY_ALIASES = Object.freeze({ succession: 'successional' });
+
+function normalizeVariantId(name) {
+  const raw = String(name || '').trim().toLowerCase();
+  if (LEGACY_ALIASES[raw]) return LEGACY_ALIASES[raw];
+  const flat = raw.replace(/[-_ ]/g, '');
+  return Object.keys(DEFINITIONS).find((key) => key.replace(/_/g, '') === flat) || null;
+}
+
 function resolve(name) {
-  const requested = String(name || '').trim().toLowerCase().replaceAll('-', '_');
-  const id = requested === 'succession' ? 'successional' : requested;
-  if (!DEFINITIONS[id]) throw variantError('Unknown Biome variant.', 'BIOME_VARIANT_UNKNOWN');
+  const id = normalizeVariantId(name);
+  if (!id) throw variantError('Unknown Biome variant.', 'BIOME_VARIANT_UNKNOWN');
   return { variant: id, ...structuredClone(DEFINITIONS[id]) };
 }
 
@@ -64,4 +72,4 @@ function variantError(message, code) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { DEFINITIONS, list, resolve, select };
+module.exports = { DEFINITIONS, list, normalizeVariantId, resolve, select };

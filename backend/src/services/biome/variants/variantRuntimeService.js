@@ -28,7 +28,8 @@ const controllers = {
 };
 
 function advance({ ecology, variant, state = {}, input = {}, matrix }) {
-  const controller = controllers[variant];
+  const id = policies.normalizeVariantId(variant);
+  const controller = id ? controllers[id] : null;
   if (!controller) throw variantError('Unknown Biome variant.', 'BIOME_VARIANT_UNKNOWN');
   const result = controller({ ecology, state, input, matrix });
   return { variant, state: result.state || state, decision: result.decision, action: result.action };
@@ -37,8 +38,8 @@ function advance({ ecology, variant, state = {}, input = {}, matrix }) {
 const SUPPORTED = Object.freeze(Object.keys(controllers));
 
 function supports(variant) {
-  return Object.hasOwn(policies.DEFINITIONS, variant)
-    && typeof controllers[variant] === 'function';
+  const id = policies.normalizeVariantId(variant);
+  return id !== null && typeof controllers[id] === 'function';
 }
 
 function variantError(message, code) { return Object.assign(new Error(message), { code }); }
