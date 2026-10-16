@@ -5,11 +5,15 @@
 - **Dernière revue** : 2026-10-16 (cas d'usage des huit topologies)
 
 Le registre Morphogenèse expose un catalogue commun de variants, tout en conservant les
-registres locaux comme sources de vérité pour leurs modes d'utilisation. Chaque variant est
-un parcours distinct de sa topologie et a la même valeur que les autres; la maturité mesure
-la couverture de son implémentation, pas son intérêt et ne sert pas à le déclasser au
-routage. Le catalogue permet l'inspection et la résolution par couple topologie/variant,
-mais n'unifie pas les exécutions locales.
+registres locaux comme sources de vérité pour leurs modes d'utilisation. Le catalogue
+ne garantit pas l'exécution. Des variants `partial`, `experimental` ou conceptuels
+restent visibles à des fins d'analyse ; l'admission exige une maturité
+(`implemented` ou `stable`), des capacités disponibles et un graphe valide et typé.
+Une relation ou un adaptateur non vérifié bloque la composition. Voir
+`morphogenesisStrategyAdmission.js:65` (`validateRecipeRegistration` :
+topologie enregistrée, variant enregistré, maturité, validation typée,
+admissibilité, capacités). Le catalogue permet l'inspection et la résolution par
+couple topologie/variant, mais n'unifie pas les exécutions locales.
 
 ## Guide de choix par cas d'usage
 
@@ -72,9 +76,10 @@ et son reçu indépendant ne sont pas disponibles.
 
 Les nombres du tableau comptent les variants nommés spécifiques et excluent `default`,
 enregistré séparément pour les huit topologies. Un variant catalogué n'implique pas que
-toutes ses garanties ou tous ses mécanismes disposent d'un adaptateur complet. Cette limite
-de couverture n'en fait pas un variant de valeur inférieure et ne doit pas, seule, empêcher
-son choix lorsque les signaux de mission lui correspondent.
+toutes ses garanties ou tous ses mécanismes disposent d'un adaptateur complet. La
+correspondance aux signaux de mission ne suffit pas, à elle seule, à autoriser
+l'exécution : un variant non mature, sans capacités requises, sans graphe valide ou
+sans adaptateur vérifié est refusé à l'admission.
 
 Le [contrat des snapshots topologiques](../../03-reference/snapshots-topologiques.md)
 référence les preuves de capture propres à chaque variant. Cette couverture

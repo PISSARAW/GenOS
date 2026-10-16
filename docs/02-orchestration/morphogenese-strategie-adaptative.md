@@ -131,8 +131,13 @@ latence et coût d'exploration.
 La réponse adaptative visée suit trois échelles :
 
 1. **Pendant une époque**, ajuster l'attention ou réduire les échanges redondants sans
-   muter un worker pendant son inférence. Cette adaptation intra-époque n'est pas
-   implémentée à ce jour.
+   muter un worker pendant son inférence. Cette adaptation intra-époque est
+   implémentée comme boucle consultative continue
+   (`intraEpochAdaptationService` + `intraEpochRoundHook`) : refocus attentionnel
+   et étranglement des seuls échanges redondants non porteurs de preuve, structurel
+   différé à la barrière, observations drainées vers la décision d'époque.
+   Aucun worker n'est muté, aucun lease révoqué, aucune topologie changée en cours
+   d'inférence.
 2. **À la barrière**, garder la forme courante, redistribuer le budget ou composer une
    cohorte de remplacement à partir des résultats, de la topologie et des preuves
    runtime. Le changement reste soumis à la quiescence, au budget et à l'autorité.
@@ -311,13 +316,21 @@ Pour chaque candidat survivant, le reçu de classement expose séparément :
 - les alternatives non exécutées, qui restent inconnues, et la raison de chaque
   exclusion ou abstention.
 
-Le classement actuel expose cinq dimensions heuristiques et calcule le front de
-Pareto. Une priorité déclarée peut autoriser le départage scalaire ; sans priorité,
-plusieurs candidats non dominés entraînent l’abstention. Le classement s’abstient
-aussi si la confiance, la calibration ou le gain estimé sont insuffisants. L’absence
-d’inventaire de capacités est une inconnue ; un inventaire fourni, même vide, est
-appliqué comme contrainte dure. Les poids et estimations ne sont pas des mesures
-apprises ou validées empiriquement.
+Le classement reste principalement heuristique. Ses cinq dimensions
+(`problemFit`, `capabilityFit`, `budgetFit`, `operationalFit`,
+`coordinationEfficiency`) et ses coûts estimés ne constituent pas des mesures
+comparatives de la qualité, du coût total, de la latence, de la robustesse et
+de la capacité de reprise. Il calcule un front de Pareto sur ces estimations :
+les compromis de Pareto, une confiance insuffisante ou une faible marge peuvent
+conduire à l'abstention. Voir `adaptiveTopologyRanking.js:6` (`WEIGHTS`,
+`tradeoffDecision`, `qualityDecision`, `caveat` consultatif,
+`executionAuthorized: false`). Une priorité déclarée peut autoriser le
+départage scalaire ; sans priorité, plusieurs candidats non dominés entraînent
+l'abstention. Le classement s'abstient aussi si la confiance, la calibration
+ou le gain estimé sont insuffisants. L'absence d'inventaire de capacités est
+une inconnue ; un inventaire fourni, même vide, est appliqué comme contrainte
+dure. Les poids et estimations ne sont pas des mesures apprises ou validées
+empiriquement.
 
 Les prédictions apprises ne sont utilisables qu’avec provenance et calibration
 hors échantillon par famille de problème, topology, variant, opérateur, modèle,
