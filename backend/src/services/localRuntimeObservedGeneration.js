@@ -14,7 +14,12 @@ async function generate(state, tools) {
     const canonical = tools.synthesis.canonicalGeneration(state.autonomyPlan);
     const generation = canonical || await tools.createGeneration(state);
     const reply = await tools.awaitGeneration(state, generation.generation, generation.abort);
-    tools.validateGeneration(reply, generation.fallback, state);
+    try {
+      tools.validateGeneration(reply, generation.fallback, state);
+    } catch (validationError) {
+      if (!contextsAreCurrent(state)) continue;
+      throw validationError;
+    }
     if (contextsAreCurrent(state)) {
       if (state.observationRevision && !String(reply).includes(inbox.latestEvidenceRef())) {
         state.framedPrompt += `\nRéessaie : la réponse doit citer exactement ${inbox.latestEvidenceRef()}.\n`;

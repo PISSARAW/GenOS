@@ -338,12 +338,7 @@ function buildMorphogenesisPlan(ctx) {
   return plan;
 }
 function validatePlan(ctx) {
-  const plan = ctx.plan;
-  const errors = [];
-  if (!plan.topologyChanges || plan.topologyChanges.length === 0) errors.push('no topology changes');
-  if (!plan.spawnAgents || plan.spawnAgents.length === 0) errors.push('no spawn agents planned');
-  if (!plan.rollbackPlan) errors.push('no rollback plan');
-  return { valid: errors.length === 0, errors };
+  return require('./morphogenesisPlanValidation').validatePlan(ctx);
 }
 
 function estimateCost(plan) { return plan.expectedCost || { tokens: 0, latency: 0, risk: 0 }; }

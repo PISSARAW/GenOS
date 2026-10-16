@@ -11,9 +11,29 @@ function freshReceipt(resolution, now) {
     && now - resolution.observedAt <= FRESHNESS_MS;
 }
 
-async function workerAvailable(db, instanceId, now) {
-  const agent = await db.get('SELECT id, status FROM agents WHERE id = ?', instanceId);
+function firstString(candidates) {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return null;
+}
+
+function agentScopeMatches(agent, scope) {
+  if (!scope || (!scope.organizationId && !scope.projectId)) return true;
+  let meta = {};
+  try { meta = JSON.parse(agent?.metadata_json || '{}'); } catch (_) { meta = {}; }
+  const org = firstString([agent?.organization_id, meta.organizationId, meta.organization_id, meta.orgId]);
+  const project = firstString([agent?.project_id, meta.projectId, meta.project_id]);
+  if (scope.organizationId && org !== scope.organizationId) return false;
+  if (scope.projectId && project !== scope.projectId) return false;
+  return true;
+}
+
+async function workerAvailable(params) {
+  const { db, instanceId, scope } = params;
+  const agent = await db.get('SELECT id, status, metadata_json FROM agents WHERE id = ?', instanceId);
   if (!agent || agent.status !== 'idle') return false;
+  if (!agentScopeMatches(agent, scope)) return false;
   const busy = await db.get(`SELECT request_id FROM garage_queue WHERE worker_id = ?
     AND (status IN ('queued','claimed','running')
       OR phase IN ('freezing','freeze_failed','frozen','thawing','cancelling')) LIMIT 1`, instanceId);
@@ -21,8 +41,9 @@ async function workerAvailable(db, instanceId, now) {
   return true;
 }
 
-async function claimWorker(db, instanceId, now) {
-  if (!await workerAvailable(db, instanceId, now)) return false;
+async function claimWorker(params) {
+  const { db, instanceId, now, scope } = params;
+  if (!await workerAvailable({ db, instanceId, now, scope })) return false;
   const result = await db.run(`UPDATE agents SET status = 'running', updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND status = 'idle'`, instanceId);
   return Boolean(result && result.changes === 1);
@@ -60,6 +81,7 @@ async function wakeDaemon(db, daemonId, availability) {
 }
 
 async function reserveInsideTransaction(db, resolution, now) {
+  const scope = resolution?.requestedScope || null;
   const workers = [];
   const daemons = [];
   for (const role of resolution.roles || []) {
@@ -70,14 +92,14 @@ async function reserveInsideTransaction(db, resolution, now) {
       if (!wake.woke) return { reserved: false, reason: `daemon_wake_failed:${wake.reason}` };
       daemons.push({ roleId: role.roleId, daemonId: role.daemonId, woke: wake.woke, reason: wake.reason });
     } else if (role.instanceId) {
-      const claimed = await claimWorker(db, role.instanceId, now);
+      const claimed = await claimWorker({ db, instanceId: role.instanceId, now, scope });
       if (!claimed) return { reserved: false, reason: `worker_race_lost:${role.instanceId}` };
       workers.push({ roleId: role.roleId, instanceId: role.instanceId });
     } else {
       return { reserved: false, reason: `role_unresolved:${role.roleId}` };
     }
   }
-  return { reserved: true, workers, daemons, revalidatedAt: now };
+  return { reserved: true, workers, daemons, revalidatedAt: now, requestedScope: scope };
 }
 
 async function revalidateAndReserveResources(db, resolution, nowInput) {

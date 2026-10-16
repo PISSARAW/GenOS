@@ -13,7 +13,7 @@ function signalFromEvent(input) {
   const score = Number(payload.evidenceScore ?? payload.evidence_score);
   const warning = ['warning', 'error', 'critical'].includes(String(input.event?.severity || '').toLowerCase());
   const base = Number.isFinite(confidence) ? 1 - confidence
-    : Number.isFinite(score) ? 1 - score : warning ? 0.75 : 0;
+    : Number.isFinite(score) ? Math.max(0, Math.min(1, 1 - (score / 100))) : warning ? 0.75 : 0;
   return { kind: 'progress', uncertainty: base };
 }
 
@@ -77,6 +77,8 @@ function attachObservations(input) {
     const intra = require('./intraEpochAdaptationService');
     const observations = intra.drainEpochObservations(input);
     if (observations && input.state) input.state.intraEpochObservations = observations;
+    if (observations) intra.resetEpoch({ orchestratorId: input.orchestratorId,
+      epoch: Number(input?.epoch ?? input?.state?.epoch ?? 0) });
     return observations;
   } catch (_) {
     return null;

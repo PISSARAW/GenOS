@@ -46,7 +46,7 @@ async function admissionForTransition(input, result) {
     resourceResolution: receipts.resolution, resourceReservation: receipts.reservation, now: receipts.now });
   if (admission.status !== 'admitted' && receipts.owned) {
     await require('./morphogenesisRuntimeAdmission')
-      .releaseAdmissionReservation(input.state.db, admission);
+      .releaseAdmissionReservation(input.state.db, { resourceReservation: receipts.reservation, resourceResolution: receipts.resolution });
   }
   return admission;
 }

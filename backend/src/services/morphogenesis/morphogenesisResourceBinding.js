@@ -78,11 +78,23 @@ function availableByKind(identifiers, kindByIdentity) {
   return available;
 }
 
+function requestedInstance(assignment) {
+  const value = assignment?.workerId || assignment?.agentId || assignment?.instanceId;
+  return typeof value === 'string' && value.length ? value : null;
+}
+
 function consumesAssignments(assignments, available) {
   for (const assignment of assignments) {
     const candidates = available.get(assignment?.workerKind);
     if (!candidates || !candidates.size) return false;
-    candidates.delete([...candidates][0]);
+    const requested = requestedInstance(assignment);
+    if (!requested) {
+      candidates.delete([...candidates][0]);
+      continue;
+    }
+    const identity = `instance:${requested}`;
+    if (!candidates.has(identity)) return false;
+    candidates.delete(identity);
   }
   return true;
 }

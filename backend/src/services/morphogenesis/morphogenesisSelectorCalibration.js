@@ -85,7 +85,7 @@ function calibrateCandidate(rows, scale, candidateId) {
   if (!(validationGain > 0)) return unavailable('heldout_gain_not_positive');
   const se = dispersion(validation, 'actualGain', validationGain);
   return { status: 'calibrated', sampleSize: train.length, validationSize: validation.length,
-    taskFamilyHoldout: true, modelHoldout: true, expectedGain: gain,
+    taskFamilyHoldout: true, modelHoldout: true, expectedGain: gain, validationGain,
     gainUncertainty: Math.min(1, 1.96 * se), marginalCost: cost,
     costUncertainty: Math.min(1, 1.96 * dispersion(validation, 'actualCost', meanActual(validation, 'actualCost'))),
     heldoutMae: { gain: gainMae, gainPrior: gainBaselineMae, cost: costMae, costPrior: costBaselineMae } };
@@ -131,9 +131,16 @@ function selectScale(calibration, availableCandidates) {
   const candidates = (availableCandidates || []).filter(item => SCALE.includes(item.scale))
     .map(item => ({ ...item, ...calibration?.scales?.[item.scale]?.candidates?.[item.candidateId] }))
     .filter(item => item.status === 'calibrated')
-    .filter(item => item.expectedGain - item.gainUncertainty > item.marginalCost + item.costUncertainty)
-    .sort((a, b) => (b.expectedGain - b.gainUncertainty - b.marginalCost - b.costUncertainty)
-      - (a.expectedGain - a.gainUncertainty - a.marginalCost - a.costUncertainty));
+    .filter(item => {
+      const heldoutGain = Number.isFinite(item.validationGain) ? item.validationGain : item.expectedGain;
+      return heldoutGain - item.gainUncertainty > item.marginalCost + item.costUncertainty;
+    })
+    .sort((a, b) => {
+      const heldoutA = Number.isFinite(a.validationGain) ? a.validationGain : a.expectedGain;
+      const heldoutB = Number.isFinite(b.validationGain) ? b.validationGain : b.expectedGain;
+      return (heldoutB - b.gainUncertainty - b.marginalCost - b.costUncertainty)
+        - (heldoutA - a.gainUncertainty - a.marginalCost - a.costUncertainty);
+    });
   if (!candidates.length) return { scale: 'NO_CHANGE', reason: 'verified_gain_does_not_clear_uncertainty_and_marginal_cost' };
   return { scale: candidates[0].scale, candidateId: candidates[0].candidateId,
     reason: 'verified_heldout_gain_clears_uncertainty_and_marginal_cost',

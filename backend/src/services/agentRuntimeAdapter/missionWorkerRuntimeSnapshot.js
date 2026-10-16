@@ -84,6 +84,40 @@ function observationRows(rows, now) {
   return observation(rows[0], now);
 }
 
+function firstString(candidates) {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return null;
+}
+
+function readScope(options) {
+  const input = options || {};
+  const source = input.scope || input.tenant || input;
+  return {
+    organizationId: firstString([input.organizationId, input.organization,
+      source?.organizationId, source?.organization_id, source?.orgId, source?.organization]),
+    projectId: firstString([input.projectId, input.project,
+      source?.projectId, source?.project_id, source?.projectId]),
+  };
+}
+
+function rowScope(row) {
+  let meta = {};
+  try { meta = JSON.parse(row?.metadata_json || '{}'); } catch (_) { meta = {}; }
+  return {
+    organizationId: row?.organization_id || meta.organizationId || meta.organization_id || meta.orgId || null,
+    projectId: row?.project_id || meta.projectId || meta.project_id || null,
+  };
+}
+
+function scopeMatches(rowScopeValue, requested) {
+  if (!requested.organizationId && !requested.projectId) return true;
+  if (requested.organizationId && rowScopeValue.organizationId !== requested.organizationId) return false;
+  if (requested.projectId && rowScopeValue.projectId !== requested.projectId) return false;
+  return true;
+}
+
 function inferPoolKind(row) {
   try {
     const meta = JSON.parse(row.metadata_json || '{}');
@@ -125,7 +159,9 @@ async function readFreeWorkerPoolSnapshot(db, options = {}) {
       reason: 'runtime_tables_missing', authority: 'genos_database_read_only' };
   }
   try {
-    return await freePoolRows(db, { now, limit, kinds: options.kinds });
+    return await freePoolRows(db, { now, limit, kinds: options.kinds,
+     scope: options.scope, organizationId: options.organizationId, projectId: options.projectId,
+     tenant: options.tenant, organization: options.organization, project: options.project });
   } catch (_) {
     return { status: 'unknown', observedAt: now, workers: [],
       reason: 'free_pool_observation_failed', authority: 'genos_database_read_only' };
@@ -133,6 +169,7 @@ async function readFreeWorkerPoolSnapshot(db, options = {}) {
 }
 
 async function freePoolRows(db, options) {
+  const requestedScope = readScope(options);
   const kinds = Array.isArray(options.kinds) ? options.kinds.filter((kind) => typeof kind === 'string') : [];
   const rows = await db.all(`SELECT a.id, a.status, a.role, a.metadata_json,
     q.status AS queue_status, q.lease_expires_at
@@ -140,11 +177,17 @@ async function freePoolRows(db, options) {
       AND (q.status IN ('queued', 'claimed', 'running')
         OR q.phase IN ('freezing', 'freeze_failed', 'frozen', 'thawing', 'cancelling'))
     WHERE a.execution_mode = 'worker' AND a.status IN ('idle', 'running')
-    ORDER BY a.id LIMIT ${Number(options.limit)}`);
-  const workers = rows.map((row) => poolEntry(row, options.now))
+    ORDER BY CASE WHEN a.status = 'idle' THEN 0 ELSE 1 END, a.id`);
+  const scopedRows = rows.filter((row) => scopeMatches(rowScope(row), requestedScope));
+  const workers = scopedRows.map((row) => {
+      const entry = poolEntry(row, options.now);
+      const scope = rowScope(row);
+      return { ...entry, organizationId: scope.organizationId, projectId: scope.projectId };
+    })
     .filter((entry) => !kinds.length || entry.workerKind === null || kinds.includes(entry.workerKind));
   const free = workers.filter((entry) => entry.status === 'free').length;
   return { status: free ? 'available' : 'empty', observedAt: options.now, workers,
+    requestedScope: requestedScope.organizationId || requestedScope.projectId ? requestedScope : null,
     authority: 'genos_database_read_only',
     limitation: 'database_observation_does_not_prove_process_liveness_or_admission' };
 }

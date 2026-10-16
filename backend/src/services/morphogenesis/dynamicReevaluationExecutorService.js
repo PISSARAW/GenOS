@@ -78,7 +78,7 @@ function buildTransitionPlan(plannerOutput) {
 }
 
 async function executeReevaluation(ctx) {
-  const { agentId, evidence, collectiveState, db } = ctx || {};
+  const { agentId, evidence, collectiveState, db, req } = ctx || {};
   if (!agentId) {
     return { executed: false, reason: 'invalid_context' };
   }
@@ -118,7 +118,7 @@ async function executeReevaluation(ctx) {
   const validation = morphogenesisPlannerService.validatePlan({ plan, constraints: policy });
   if (!validation.valid) {
     logProvenance({ agentId, stage: 'validation', status: 'failed', errors: validation.errors });
-    return { executed: false, reason: 'validation_failed', errors: validation.errors, plan, proposal, counterfactualReceipt };
+    return { executed: false, reason: 'validation_failed', errors: validation.errors, plan, validation, proposal, counterfactualReceipt };
   }
 
   // 4. Auto-approve gate
@@ -135,6 +135,7 @@ async function executeReevaluation(ctx) {
     collectiveState,
     db,
     agentId,
+    req,
     counterfactual: counterfactualReceipt,
   });
   const receipt = versioned.receipt;

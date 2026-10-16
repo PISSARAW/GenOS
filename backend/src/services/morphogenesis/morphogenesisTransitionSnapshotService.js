@@ -118,10 +118,10 @@ async function capture(input) {
   }
   assertCompleteCoverage(ids, agents);
   assertQuiescent(ids, agents);
-  const workspaces = await captureWorkspaces({ ...input, tenant }, agents);
   const checkpoints = await rowsForIds({ db: input.db, table: 'agent_runtime_state', ids, tenant });
   const refs = await rowsForIds({ db: input.db, table: 'agent_git_refs', ids, tenant });
   const identities = await rowsForIds({ db: input.db, table: 'agent_identity_heads', ids, tenant });
+  const workspaces = await captureWorkspaces({ ...input, tenant }, agents);
   const payload = {
     schemaVersion: 1, capturedAt: new Date().toISOString(), transitionId: input.transitionId,
     tenant, agentIds: agents.map((agent) => agent.id), processes: { quiescent: true,

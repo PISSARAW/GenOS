@@ -195,14 +195,14 @@ fn planner_with_hysteresis() -> (MorphogenesisPlanner, HysteresisState) {
     (planner, state)
 }
 
-fn persist_hysteresis_after_plan(planner: &MorphogenesisPlanner, loaded: &HysteresisState, plan: &MorphogenesisPlan) {
-    if !plan.has_meaningful_change() {
+fn persist_hysteresis_after_plan(planner: &MorphogenesisPlanner, plan: &MorphogenesisPlan, authorized: bool) {
+    if !authorized || !plan.has_meaningful_change() {
         return;
     }
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_millis() as u64)
-        .unwrap_or_else(|_| loaded.last_change_unix_ms.unwrap_or(0));
+        .unwrap_or(0);
     store_hysteresis(&HysteresisState { last_change_unix_ms: Some(now_ms),
         budget_left: planner.budget_left });
 }
@@ -222,7 +222,6 @@ fn adjudicate(payload: &str) -> Result<Response, String> {
         current_topology: &request.current_topology,
         reason: &request.reason,
     });
-    persist_hysteresis_after_plan(&planner, &hysteresis, &plan);
     let authority = if verified.is_some() { "orchestrator_principal" } else { "post_mission_read_only" };
     let governance = GovernancePlane::new().validate(&GovernanceInput {
         plan: &plan,
@@ -231,6 +230,7 @@ fn adjudicate(payload: &str) -> Result<Response, String> {
         degraded_mode: request.degraded_mode.unwrap_or(false),
     });
     let authorized = verified.is_some() && governance.allowed && !plan.decision_no_change;
+    persist_hysteresis_after_plan(&planner, &plan, authorized);
     let decision = if plan.decision_no_change { "NO_CHANGE" }
         else if authorized { "APPLY" } else { "REJECTED" };
     Ok(Response {
@@ -337,15 +337,16 @@ mod tests {
     }
 
     #[test]
-    fn successive_transitions_observe_cooldown_and_budget() {
+    fn rejected_transitions_do_not_consume_hysteresis() {
         let _guard = HYSTERESIS_TEST_LOCK.lock().unwrap();
         clear_hysteresis_state();
         let input = r#"{"schemaVersion":1,"currentTopology":"trinity","reason":"test","proposals":[{"resolver":"test","action":"change_topology","target":"rhizome","gain":0.5,"cost":0.1}]}"#;
         let first = adjudicate(input).unwrap();
+        assert_eq!(first.decision, "REJECTED");
         assert!(first.plan.has_meaningful_change());
         let second = adjudicate(input).unwrap();
-        assert_eq!(second.decision, "NO_CHANGE");
-        assert!(second.plan.decision_no_change);
+        assert_eq!(second.decision, "REJECTED");
+        assert!(second.plan.has_meaningful_change());
         clear_hysteresis_state();
     }
 

@@ -52,9 +52,9 @@ async function run() {
     console.log(`triggered: ${JSON.stringify({ executed: triggered.executed, reason: triggered.reason, errors: triggered.errors, durationMs, hasPlan: Boolean(triggered.plan), worlds: triggered.counterfactualReceipt && triggered.counterfactualReceipt.worldsCreated })}`);
     assert.equal(triggered.executed, false);
     // Plan incomplet (aucun spawn à proposer) : le gate refuse, sans appliquer ni committer.
-    assert.equal(triggered.reason, 'pending_approval');
+    assert.equal(triggered.reason, 'validation_failed');
     assert.ok(triggered.plan, 'a morphogenesis plan must be produced');
-    assert.equal(triggered.validation.valid, true, 'the plan must pass validation before approval');
+    assert.equal(triggered.validation.valid, false, 'the plan violates the configured reevaluation constraints');
     assert.equal(triggered.receipt, undefined, 'an unapproved plan must not produce a transition receipt');
     assert.ok(triggered.counterfactualReceipt && triggered.counterfactualReceipt.executed, 'counterfactual lifecycle must run');
     assert.ok(triggered.counterfactualReceipt.worldsCreated > 0, 'worlds must be forked');

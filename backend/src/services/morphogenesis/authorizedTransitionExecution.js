@@ -40,10 +40,10 @@ async function applyActions(input, ops) {
   for (const action of input.ctx.plan.actions) {
     const result = await ops.runAction(action, input.ctx);
     input.actionsTaken.push(result);
-    await durableSnapshots.appendAction({ db: input.ctx.db,
-      transitionId: input.ctx.transitionId, receipt: result });
     if (result.status !== 'success') throw new Error(`action ${action.type} failed: ${result.error}`);
     if (['spawn', 'retire'].includes(action.type)) input.compensations.push({ action, result });
+    await durableSnapshots.appendAction({ db: input.ctx.db,
+      transitionId: input.ctx.transitionId, receipt: result });
   }
 }
 
