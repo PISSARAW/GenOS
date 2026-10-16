@@ -59,7 +59,12 @@ pub(super) fn execute(
     let previous = store.find_idempotent_receipt("genos.clinical-application/v1", &operation_id)?;
     let claim = claim_backend_authority(&auth, &operation_id, &claimant_id)?;
     validate_previous_application(&claim, previous.as_ref())?;
-    let receipt = apply_claimed_therapy(&auth, &operation_id, &claim, &store)?;
+    let receipt = apply_claimed_therapy(ClinicalApplication {
+        auth: &auth,
+        operation_id: &operation_id,
+        claim: &claim,
+        store: &store,
+    })?;
     Ok(therapy_result(receipt))
 }
 
@@ -91,12 +96,15 @@ fn validate_previous_application(
     Ok(())
 }
 
-fn apply_claimed_therapy(
-    auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
-    operation_id: &str,
-    claim: &serde_json::Value,
-    store: &genos_store::BiologicalReceiptStore,
-) -> Result<serde_json::Value, String> {
+struct ClinicalApplication<'a> {
+    auth: &'a genos_orchestrator::authorized_therapy::TherapyAuthorization,
+    operation_id: &'a str,
+    claim: &'a serde_json::Value,
+    store: &'a genos_store::BiologicalReceiptStore,
+}
+
+fn apply_claimed_therapy(input: ClinicalApplication<'_>) -> Result<serde_json::Value, String> {
+    let ClinicalApplication { auth, operation_id, claim, store } = input;
     let mut ecosystem = genos_orchestrator::GenosEcosystem::new("authorized-clinical");
     ecosystem.restore_population(store)?;
     let receipt = ecosystem.apply_authorized_therapy(auth, store)?;
