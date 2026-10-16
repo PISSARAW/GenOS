@@ -52,11 +52,20 @@ async function reconfigureAndDispatchEpoch(input) {
     stage = 'continuation_persistence_failed';
     queued = await prepareFundedEpochContinuation(input, adaptation);
   } catch (error) {
+    await releaseEpochReservation(input, adaptation);
     state.epochBudget = budgetController.cancelEpochReservation(reservation.budget, reservation);
     return stopMorphogenesisEpochs({ ...input, reason: stage,
       payload: { error: error.message } });
   }
   for (const workerId of queued) input.dispatchPendingContinuation(workerId);
+  await releaseEpochReservation(input, adaptation);
+}
+
+async function releaseEpochReservation(input, adaptation) {
+  try {
+    await require('./morphogenesisRuntimeAdmission')
+      .releaseAdmissionReservation(input.state.db, adaptation?.admission);
+  } catch (_) {}
 }
 
 async function adaptEpochContinuation(input) {

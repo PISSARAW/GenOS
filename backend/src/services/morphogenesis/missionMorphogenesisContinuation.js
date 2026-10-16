@@ -296,39 +296,7 @@ async function compileReplacementRoster(context) {
     targetWorkerCount: cohort.rosterSize, plan, receipt, signals, decision };
 }
 
-function budgetRoster(assignments, pool) {
-  const each = Math.floor(pool / assignments.length);
-  const remainder = pool - (each * assignments.length);
-  return assignments.map((assignment, index) => ({ ...assignment,
-    tokenBudget: each + (index === 0 ? remainder : 0) }));
-}
-
-function admissionContext(input, result) {
-  const context = input.strategyAdmissionContext || {};
-  const blueprint = result.cohortBlueprint?.assignments || [];
-  const assignments = budgetRoster(blueprint, Math.max(0, Number(input.continuation.pool) || 0));
-  const allocatedTokens = assignments.reduce((sum, assignment) => sum + assignment.tokenBudget, 0);
-  return { context, assignments, allocatedTokens,
-    actualPlan: { ...result.plan, workerAssignments: assignments, allocatedTokens,
-      requestedTools: context.requestedTools || [] } };
-}
-
-function admissionForTransition(input, result) {
-  const service = require('./morphogenesisStrategyAdmission');
-  const prepared = admissionContext(input, result);
-  const mission = input.state.normalizedMission || {};
-  const kinds = require('../agents/workerKindService').KINDS;
-  const policy = result.decision?.policy;
-  const admit = policy?.portfolio?.ranking?.decision?.decision === 'PROPOSE'
-    ? service.admitMorphogenesisStrategy : service.admitPlannerTransition;
-  return admit({ policy,
-    actualPlan: prepared.actualPlan, quiescence: prepared.context.quiescence,
-    parentLease: prepared.context.parentLease, topologyCapabilities: mission.topologyCapabilityInventory?.available,
-    availableWorkerKinds: Object.keys(kinds), budget: { availableTokens: Number(input.continuation.pool) || 0 },
-    resourceResolution: prepared.context.resourceResolution || null,
-    resourceReservation: prepared.context.resourceReservation || null,
-    now: prepared.context.now });
-}
+const { admissionForTransition } = require('./morphogenesisTransitionAdmission');
 
 function shouldSkipAdaptation(input, signals, decision) {
   const challengeRequired = decision.challenge?.status === 'challenge_authorized';
@@ -381,7 +349,7 @@ async function planContinuation(input, dependencies = {}) {
   compileAdaptiveGraph(input, { plan, state: input.state, signals, challenge: decision.challenge, decision });
   const result = await compileReplacementRoster({ input, plan, decision, signals, dependencies });
   if (!result.adapted) return result;
-  const admission = admissionForTransition(input, result);
+  const admission = await admissionForTransition(input, result);
   if (admission.status !== 'admitted' && admission.status !== 'not_applicable') {
     return { ...result, adapted: false, reason: `strategy_admission_denied:${admission.reason}`, admission };
   }
