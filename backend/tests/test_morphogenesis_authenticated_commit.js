@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'morphogenesis-commit-test';
 const { getDatabase, closeDatabase } = require('../src/db');
@@ -17,6 +18,7 @@ function configureAuthority() {
   const keyId = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 32);
   process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM = pair.privateKey.export({ type: 'pkcs8', format: 'pem' });
   process.env.GENOS_CLI_AUTHORITY_TRUST_JSON = JSON.stringify({ [keyId]: raw.toString('hex') });
+  process.env.GENOS_MORPHOGENESIS_HYSTERESIS_PATH = path.join(os.tmpdir(), `morphogenesis-hysteresis-${crypto.randomUUID()}.json`);
 }
 
 async function seed(db, root) {
@@ -49,6 +51,7 @@ async function execute(db) {
   assert.equal((await getLineage(db, 'commit-agent')).length, 1);
   const persisted = await db.get("SELECT value FROM collective_state WHERE key='collective_state_v1'");
   assert.equal(collective.deserializeState(persisted.value).topologyState.organization, 'rhizome');
+  process.env.GENOS_MORPHOGENESIS_HYSTERESIS_PATH = path.join(os.tmpdir(), `morphogenesis-hysteresis-rollback-${crypto.randomUUID()}.json`);
   const rollback = await executeTransition({ db, req, agentId: 'commit-agent',
     missionId: 'commit-mission', collectiveState: state,
     plan: { id: 'rollback-plan', missionId: 'commit-mission', actions: [],
@@ -75,8 +78,14 @@ async function run() {
     await closeDatabase();
     fs.rmSync(root, { recursive: true, force: true });
     for (const suffix of ['', '-wal', '-shm']) fs.rmSync(dbPath + suffix, { force: true });
+    for (const file of fs.readdirSync(os.tmpdir())) {
+      if (file.startsWith('morphogenesis-hysteresis') && file.endsWith('.json')) {
+        fs.rmSync(path.join(os.tmpdir(), file), { force: true });
+      }
+    }
     delete process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM;
     delete process.env.GENOS_CLI_AUTHORITY_TRUST_JSON;
+    delete process.env.GENOS_MORPHOGENESIS_HYSTERESIS_PATH;
   }
 }
 

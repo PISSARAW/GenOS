@@ -24,12 +24,19 @@ function candidate(id) {
 }
 
 function gates(policy, plan) {
-  return { policy, actualPlan: plan, registry, now: 100000,
-    quiescence: { confirmed: true, observedAt: 100000, activeProcesses: 0,
+  const now = 100000;
+  const roles = plan.workerAssignments.map((assignment, index) => ({ roleId: `role-${index + 1}`,
+    workerKind: assignment.workerKind, status: 'READY', instanceId: `w-${index + 1}` }));
+  return { policy, actualPlan: plan, registry, now,
+    quiescence: { confirmed: true, observedAt: now, activeProcesses: 0,
       databaseRunningWorkers: 0, activeLeases: 0 },
     topologyCapabilities: required, availableWorkerKinds: ['analyst'],
     budget: { availableTokens: 100 },
-    parentLease: { allowedTools: ['genos_change_organization'] } };
+    parentLease: { allowedTools: ['genos_change_organization'] },
+    resourceResolution: { status: 'READY_FOR_ADMISSION', observedAt: now, roles },
+    resourceReservation: { reserved: true,
+      workers: roles.map((role) => ({ roleId: role.roleId, instanceId: role.instanceId })),
+      daemons: [], revalidatedAt: now } };
 }
 
 function planFor(missionId) {

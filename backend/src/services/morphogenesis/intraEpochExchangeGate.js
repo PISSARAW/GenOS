@@ -12,7 +12,8 @@ function activeEpoch(orchestratorId) {
 function exchangeDigest(input) {
   const material = { senderAgentId: input.senderAgentId,
     recipientAgentId: input.recipientAgentId || null, kind: input.kind,
-    signalType: input.signalType, signalData: input.signalData, payload: input.payload || {} };
+    signalType: input.signalType, signalData: input.signalData, payload: input.payload || {},
+    content: input.content ?? null };
   return crypto.createHash('sha256').update(canonicalJson(material)).digest('hex');
 }
 

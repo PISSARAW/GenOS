@@ -136,6 +136,77 @@ fn valid_proposal(proposal: &Proposal) -> bool {
         && proposal.cost.is_finite() && proposal.cost >= 0.0
 }
 
+fn hysteresis_path() -> std::path::PathBuf {
+    if let Ok(path) = std::env::var("GENOS_MORPHOGENESIS_HYSTERESIS_PATH") {
+        if !path.trim().is_empty() {
+            return std::path::PathBuf::from(path);
+        }
+    }
+    std::env::temp_dir().join("genos-morphogenesis-hysteresis.json")
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct HysteresisState {
+    last_change_unix_ms: Option<u64>,
+    budget_left: f64,
+}
+
+fn load_hysteresis() -> HysteresisState {
+    let path = hysteresis_path();
+    let raw = std::fs::read_to_string(&path).unwrap_or_default();
+    if raw.trim().is_empty() {
+        return HysteresisState { last_change_unix_ms: None, budget_left: 1.0 };
+    }
+    let parsed: Result<HysteresisState, _> = serde_json::from_str(&raw);
+    match parsed {
+        Ok(state) if state.budget_left.is_finite()
+            && state.budget_left >= 0.0 && state.budget_left <= 1.0 => state,
+        _ => HysteresisState { last_change_unix_ms: None, budget_left: 1.0 },
+    }
+}
+
+fn store_hysteresis(state: &HysteresisState) {
+    let path = hysteresis_path();
+    if let Ok(raw) = serde_json::to_string(state) {
+        let tmp = path.with_extension("tmp");
+        if std::fs::write(&tmp, raw).is_ok() {
+            let _ = std::fs::rename(&tmp, &path);
+        }
+    }
+}
+
+fn planner_with_hysteresis() -> (MorphogenesisPlanner, HysteresisState) {
+    use std::time::{Duration, Instant};
+    let state = load_hysteresis();
+    let mut planner = MorphogenesisPlanner::default();
+    planner.budget_left = state.budget_left;
+    if let Some(last_ms) = state.last_change_unix_ms {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as u64)
+            .unwrap_or(last_ms);
+        let elapsed_ms = now_ms.saturating_sub(last_ms);
+        let elapsed = Duration::from_millis(elapsed_ms);
+        if elapsed < planner.policy.cooldown {
+            let remaining = planner.policy.cooldown.saturating_sub(elapsed);
+            planner.last_change = Instant::now().checked_sub(remaining);
+        }
+    }
+    (planner, state)
+}
+
+fn persist_hysteresis_after_plan(planner: &MorphogenesisPlanner, loaded: &HysteresisState, plan: &MorphogenesisPlan) {
+    if !plan.has_meaningful_change() {
+        return;
+    }
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or_else(|_| loaded.last_change_unix_ms.unwrap_or(0));
+    store_hysteresis(&HysteresisState { last_change_unix_ms: Some(now_ms),
+        budget_left: planner.budget_left });
+}
+
 fn adjudicate(payload: &str) -> Result<Response, String> {
     if payload.len() > 65536 {
         return Err("morphogenesis adjudication payload exceeds 64 KiB".into());
@@ -145,12 +216,13 @@ fn adjudicate(payload: &str) -> Result<Response, String> {
     validate(&request)?;
     let verified = verify_transition_authority(&mut request)?;
     let proposals = ProposalSet { items: request.proposals };
-    let mut planner = MorphogenesisPlanner::default();
+    let (mut planner, hysteresis) = planner_with_hysteresis();
     let plan = planner.plan(&PlanInput {
         proposals: &proposals,
         current_topology: &request.current_topology,
         reason: &request.reason,
     });
+    persist_hysteresis_after_plan(&planner, &hysteresis, &plan);
     let authority = if verified.is_some() { "orchestrator_principal" } else { "post_mission_read_only" };
     let governance = GovernancePlane::new().validate(&GovernanceInput {
         plan: &plan,
@@ -234,8 +306,16 @@ pub fn propose(payload: &str) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    static HYSTERESIS_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn clear_hysteresis_state() {
+        let _ = std::fs::remove_file(hysteresis_path());
+    }
+
     #[test]
     fn zero_evidence_yields_no_change() {
+        let _guard = HYSTERESIS_TEST_LOCK.lock().unwrap();
+        clear_hysteresis_state();
         let input = r#"{"schemaVersion":1,"currentTopology":"trinity","reason":"post-mission","proposals":[{"resolver":"post_mission","action":"change_topology","target":"rhizome","gain":0.0,"cost":0.0}]}"#;
         let output = adjudicate(input).unwrap();
         assert_eq!(output.decision, "NO_CHANGE");
@@ -246,11 +326,27 @@ mod tests {
 
     #[test]
     fn meaningful_change_is_refused_without_principal() {
+        let _guard = HYSTERESIS_TEST_LOCK.lock().unwrap();
+        clear_hysteresis_state();
         let input = r#"{"schemaVersion":1,"currentTopology":"trinity","reason":"test","proposals":[{"resolver":"test","action":"change_topology","target":"rhizome","gain":0.5,"cost":0.1}]}"#;
         let output = adjudicate(input).unwrap();
         assert_eq!(output.decision, "REJECTED");
         assert!(!output.governance.allowed);
         assert!(output.plan.has_meaningful_change());
+        clear_hysteresis_state();
+    }
+
+    #[test]
+    fn successive_transitions_observe_cooldown_and_budget() {
+        let _guard = HYSTERESIS_TEST_LOCK.lock().unwrap();
+        clear_hysteresis_state();
+        let input = r#"{"schemaVersion":1,"currentTopology":"trinity","reason":"test","proposals":[{"resolver":"test","action":"change_topology","target":"rhizome","gain":0.5,"cost":0.1}]}"#;
+        let first = adjudicate(input).unwrap();
+        assert!(first.plan.has_meaningful_change());
+        let second = adjudicate(input).unwrap();
+        assert_eq!(second.decision, "NO_CHANGE");
+        assert!(second.plan.decision_no_change);
+        clear_hysteresis_state();
     }
 
     #[test]

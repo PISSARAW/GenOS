@@ -21,12 +21,23 @@ const plan = { selectedTopology: 'a_team', selectedVariant: 'default',
     { mission: 'mission', missionId: 'mission-1', globalBudget: { tokens: 50 } }) },
   workerAssignments: [{ workerKind: 'analyst', capabilities: required, tokenBudget: 50 }],
   allocatedTokens: 50, requestedTools: ['genos_change_organization'] };
+function receiptsFor(assignments, now) {
+  const roles = assignments.map((assignment, index) => ({ roleId: `role-${index + 1}`,
+    workerKind: assignment.workerKind, status: 'READY', instanceId: `w-${index + 1}` }));
+  return {
+    resourceResolution: { status: 'READY_FOR_ADMISSION', observedAt: now, roles },
+    resourceReservation: { reserved: true, workers: roles.map((role) => ({ roleId: role.roleId,
+      instanceId: role.instanceId })), daemons: [], revalidatedAt: now }
+  };
+}
+
 const gates = { policy, actualPlan: plan, registry, now: 100000,
   quiescence: { confirmed: true, observedAt: 100000, activeProcesses: 0,
     databaseRunningWorkers: 0, activeLeases: 0 },
   topologyCapabilities: required, availableWorkerKinds: ['analyst'],
   budget: { availableTokens: 100 },
-  parentLease: { allowedTools: ['genos_change_organization'] } };
+  parentLease: { allowedTools: ['genos_change_organization'] },
+  ...receiptsFor(plan.workerAssignments, 100000) };
 const plannerPolicy = { ...policy, diagnosis: { signals: { uncertainty: 0.8 } } };
 const plannerPlan = { ...plan, selectedTopology: 'a_team', selectedVariant: 'default',
   morphologyPatch: { graph: compileExpression(topologyExpression('a_team'),
@@ -217,7 +228,7 @@ function compositePlannerGates(assignments, allocated) {
     actualPlan: { selectedTopology: 'biocenose', selectedVariant: 'default',
       morphologyPatch: { graph }, workerAssignments: assignments,
       allocatedTokens: allocated, requestedTools: ['genos_change_organization'] },
-    topologyCapabilities: union };
+    topologyCapabilities: union, ...receiptsFor(assignments, 100000) };
 }
 
 function testPlannerCompositeRequiresExplicitPerLeafAttribution() {
@@ -233,6 +244,27 @@ function testPlannerCompositeRequiresExplicitPerLeafAttribution() {
   const admitted = admitPlannerTransition(compositePlannerGates(perLeaf, 50));
   assert.equal(admitted.status, 'admitted');
   assert.equal(admitted.selectionBasis, 'planner_heuristic_unvalidated');
+}
+
+function testResourceReservationMustBindEachAssignment() {
+  const two = [{ workerKind: 'analyst', capabilities: required, tokenBudget: 25 },
+    { workerKind: 'analyst', capabilities: required, tokenBudget: 25 }];
+  const twoPlan = { ...plan, workerAssignments: two, allocatedTokens: 50 };
+  assert.equal(admitMorphogenesisStrategy({ ...gates, actualPlan: twoPlan,
+    resourceResolution: null, resourceReservation: null }).reason,
+  'resource_resolution_missing');
+  const singleRole = { status: 'READY_FOR_ADMISSION', observedAt: 100000,
+    roles: [{ roleId: 'role-1', workerKind: 'analyst', status: 'READY', instanceId: 'w-1' }] };
+  const singleReservation = { reserved: true, workers: [{ roleId: 'role-1', instanceId: 'w-1' }],
+    daemons: [], revalidatedAt: 100000 };
+  assert.equal(admitMorphogenesisStrategy({ ...gates, actualPlan: twoPlan,
+    resourceResolution: singleRole, resourceReservation: singleReservation }).reason,
+  'resource_resolution_plan_mismatch');
+  const staleReservation = { ...singleReservation, revalidatedAt: 50000 };
+  const singlePlan = { ...plan };
+  assert.equal(admitMorphogenesisStrategy({ ...gates, actualPlan: singlePlan,
+    resourceResolution: singleRole, resourceReservation: staleReservation }).reason,
+  'resource_reservation_stale');
 }
 
 function testPlannerTransitionRejectsImmatureLeaf() {
@@ -259,4 +291,5 @@ testPlannerTransitionRejectsGraphMismatch();
 testPlannerTransitionRejectsUntypedCompositeGraphs();
 testPlannerCompositeRequiresExplicitPerLeafAttribution();
 testPlannerTransitionRejectsImmatureLeaf();
+testResourceReservationMustBindEachAssignment();
 console.log('Morphogenesis strategy admission tests passed.');

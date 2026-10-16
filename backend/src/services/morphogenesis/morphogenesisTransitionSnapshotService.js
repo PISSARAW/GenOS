@@ -46,11 +46,23 @@ function affectedAgentIds(input) {
   return [...ids].filter(Boolean).sort();
 }
 
-async function rowsForIds(db, table, ids) {
+async function rowsForIds(input) {
+  const { db, table, ids, tenant } = input;
   if (!ids.length) return [];
+  if (!['agent_runtime_state', 'agent_git_refs', 'agent_identity_heads'].includes(table)) {
+    throw coded('MORPHOGENESIS_SNAPSHOT_TABLE_UNKNOWN', `Snapshot table ${table} is not allowed.`);
+  }
   const marks = ids.map(() => '?').join(',');
-  return db.all(`SELECT * FROM ${table} WHERE agent_id IN (${marks}) ORDER BY agent_id`, ...ids)
-    .catch(() => []);
+  try {
+    return await db.all(`SELECT t.* FROM ${table} t
+      JOIN agents a ON a.id = t.agent_id
+      JOIN workspaces w ON w.id = a.workspace_id
+      WHERE t.agent_id IN (${marks}) AND w.organization_id = ? AND w.project_id = ?
+      ORDER BY t.agent_id`, ...ids, tenant.organizationId, tenant.projectId);
+  } catch (error) {
+    throw coded('MORPHOGENESIS_SNAPSHOT_READ_FAILED',
+      `Transition capture read failed for ${table}: ${error.message}`);
+  }
 }
 
 async function agentRows(db, ids, tenant) {
@@ -60,6 +72,15 @@ async function agentRows(db, ids, tenant) {
     FROM agents a JOIN workspaces w ON w.id = a.workspace_id
     WHERE a.id IN (${marks}) AND w.organization_id = ? AND w.project_id = ? ORDER BY a.id`,
   ...ids, tenant.organizationId, tenant.projectId);
+}
+
+function assertCompleteCoverage(ids, agents) {
+  const captured = new Set(agents.map((agent) => agent.id));
+  const missing = ids.filter((id) => !captured.has(id));
+  if (missing.length) {
+    throw coded('MORPHOGENESIS_SNAPSHOT_INCOMPLETE',
+      `Transition capture is incomplete for ${missing.length} agent(s): ${missing.slice(0, 5).join(',')}.`);
+  }
 }
 
 function assertQuiescent(ids, agents) {
@@ -95,16 +116,17 @@ async function capture(input) {
   if (!agents.some((agent) => agent.id === input.agentId)) {
     throw coded('MORPHOGENESIS_AGENT_SCOPE_MISMATCH', 'Transition agent is outside the authenticated tenant.');
   }
+  assertCompleteCoverage(ids, agents);
   assertQuiescent(ids, agents);
   const workspaces = await captureWorkspaces({ ...input, tenant }, agents);
+  const checkpoints = await rowsForIds({ db: input.db, table: 'agent_runtime_state', ids, tenant });
+  const refs = await rowsForIds({ db: input.db, table: 'agent_git_refs', ids, tenant });
+  const identities = await rowsForIds({ db: input.db, table: 'agent_identity_heads', ids, tenant });
   const payload = {
     schemaVersion: 1, capturedAt: new Date().toISOString(), transitionId: input.transitionId,
     tenant, agentIds: agents.map((agent) => agent.id), processes: { quiescent: true,
-      runtimeCheckpoints: await rowsForIds(input.db, 'agent_runtime_state', ids) },
-    agents, workspaces, leases: {
-      refs: await rowsForIds(input.db, 'agent_git_refs', ids),
-      identities: await rowsForIds(input.db, 'agent_identity_heads', ids)
-    },
+      runtimeCheckpoints: checkpoints },
+    agents, workspaces, leases: { refs, identities },
     budgets: Object.fromEntries(agents.map((agent) => [agent.id, {
       cognitive: agent.cognitive_budget, baseline: agent.cognitive_baseline_budget,
       maximumDissonance: agent.cognitive_max_dissonance

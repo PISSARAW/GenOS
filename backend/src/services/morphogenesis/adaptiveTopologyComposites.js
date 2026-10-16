@@ -222,17 +222,17 @@ function bridgeEligibility(ctx) {
 function symmetricEligibility(ctx) {
   const gate = relationGate(ctx);
   if (gate) return gate;
-  if (ctx.relation.adapterRequired && !symmetricAdapterPresent(ctx)) {
-    return { admissibility: 'exploratory_only', executionEligible: false, reason: 'Un adaptateur vérifié entre les deux topologies est requis.' };
+  if (ctx.relation.adapterRequired && !symmetricAdaptersPresent(ctx)) {
+    return { admissibility: 'exploratory_only', executionEligible: false, reason: 'Des adaptateurs vérifiés dans les deux sens sont requis.' };
   }
   if (ctx.relation.relation === 'SYNERGISTIC') return { admissibility: 'execution_eligible', executionEligible: true, reason: `La relation synergique est vérifiée pour ${ctx.task.operator}.` };
   if (ctx.relation.relation !== 'COMPATIBLE_WITH_ADAPTER') return { admissibility: 'exploratory_only', executionEligible: false, reason: `La relation ne déclare pas une compatibilité vérifiée pour ${ctx.task.operator}.` };
   return { admissibility: 'execution_eligible', executionEligible: true, reason: `La relation compatible est vérifiée pour ${ctx.task.operator}.` };
 }
 
-function symmetricAdapterPresent(ctx) {
+function symmetricAdaptersPresent(ctx) {
   return Boolean(verifiedAdapterFor({ ...ctx, from: ctx.task.first, to: ctx.task.second })
-    || verifiedAdapterFor({ ...ctx, from: ctx.task.second, to: ctx.task.first }));
+    && verifiedAdapterFor({ ...ctx, from: ctx.task.second, to: ctx.task.first }));
 }
 
 function verifiedAdapterFor(ctx) {

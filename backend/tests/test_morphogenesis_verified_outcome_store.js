@@ -253,7 +253,12 @@ async function verifyExactVariantAdmission(db) {
       quiescence: { confirmed: true, observedAt: Date.now(), activeProcesses: 0,
         databaseRunningWorkers: 0, activeLeases: 0 },
       parentLease: { allowedTools: ['genos_change_strategy'] },
-      requestedTools: ['genos_change_strategy']
+      requestedTools: ['genos_change_strategy'],
+      now: Date.now(),
+      resourceResolution: { status: 'READY_FOR_ADMISSION', observedAt: Date.now(),
+        roles: [{ roleId: 'role-1', workerKind: 'scout_cell', status: 'READY', instanceId: 'w-1' }] },
+      resourceReservation: { reserved: true, workers: [{ roleId: 'role-1', instanceId: 'w-1' }],
+        daemons: [], revalidatedAt: Date.now() }
     } }, {
     loadVerifiedOutcomes: query => store.loadVerifiedOutcomes(db, { ...query, ...scope }),
     planMorphogenesis: context => {

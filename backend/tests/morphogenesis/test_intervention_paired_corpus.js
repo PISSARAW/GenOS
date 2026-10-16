@@ -97,6 +97,47 @@ function commRow(index) {
   return row;
 }
 
+function negativeHoldoutRow(index) {
+  const training = index % 40 < 30;
+  const pair = commPair(index + 1000);
+  pair.candidate.workspaceId = `neg-candidate-ws-${index}`;
+  pair.control.workspaceId = `neg-control-ws-${index}`;
+  pair.candidate.id = `neg-candidate-${index}`;
+  pair.control.id = `neg-control-${index}`;
+  pair.prediction.id = `neg-prediction-${index}`;
+  if (training) {
+    pair.candidate.quality = 0.8;
+    pair.control.quality = 0.1;
+    pair.prediction.predictedGain = 0.8;
+  } else {
+    pair.candidate.quality = 0.1;
+    pair.control.quality = 0.8;
+    pair.prediction.predictedGain = -0.7;
+  }
+  pair.prediction.predictedCost = 0.2;
+  pair.candidate.oracleReceipt = sign(pair.candidate.id,
+    pairEvidence.sha(pairEvidence.observedAttempt(pair.candidate)));
+  pair.control.oracleReceipt = sign(pair.control.id,
+    pairEvidence.sha(pairEvidence.observedAttempt(pair.control)));
+  pair.prediction.receipt = sign(pair.prediction.id,
+    pairEvidence.sha(pairEvidence.observedPrediction(pair.prediction)),
+    { checkedAt: pair.prediction.recordedAt });
+  const row = paired.buildRow(pair);
+  row.receipt = sign(row.id, calibration.digest(row));
+  return row;
+}
+
+function testNegativeHoldoutRefusesCalibration() {
+  const rows = Array.from({ length: 40 }, (_, index) => negativeHoldoutRow(index));
+  const compiled = calibration.compileCalibration(rows);
+  const estimate = compiled.scales.COMMUNICATION_REDUCTION.candidates[intervention.CANDIDATE_ID];
+  assert.equal(estimate.status, 'unavailable');
+  assert.equal(estimate.reason, 'heldout_gain_not_positive');
+  assert.equal(calibration.selectScale(compiled,
+    [{ scale: 'COMMUNICATION_REDUCTION', candidateId: intervention.CANDIDATE_ID }]).scale,
+  'NO_CHANGE');
+}
+
 function simpleRows() {
   return Array.from({ length: 5 }, (_, index) => {
     const row = { id: `partial-${index}`, scale: 'COMMUNICATION_REDUCTION',
@@ -176,12 +217,9 @@ function testDeficitReporting() {
   assert.equal(empty.requiredTrain, 30);
   assert.equal(empty.requiredValidation, 10);
   const partial = calibration.describeCorpusDeficit(simpleRows());
-  const deficit = partial.scales.COMMUNICATION_REDUCTION.candidates[intervention.CANDIDATE_ID];
-  assert.equal(deficit.train, 5);
-  assert.equal(deficit.validation, 0);
-  assert.equal(deficit.needsTrain, 25);
-  assert.equal(deficit.needsValidation, 10);
-  assert.equal(deficit.status, 'unavailable');
+  assert.equal(partial.verifiedSampleCount, 0);
+  assert.equal(partial.status, 'unavailable');
+  assert.deepEqual(partial.scales.COMMUNICATION_REDUCTION.candidates, {});
 }
 
 function testInterventionProducerValidation() {
@@ -228,6 +266,7 @@ async function testPairedCorpusCalibratesAndPersists() {
 async function main() {
   testDeficitReporting();
   testInterventionProducerValidation();
+  testNegativeHoldoutRefusesCalibration();
   await testPairedCorpusCalibratesAndPersists();
   process.stdout.write('intervention paired corpus tests passed\n');
 }

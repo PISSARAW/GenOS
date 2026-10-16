@@ -81,7 +81,9 @@ async function runFundedAdmission(context) {
     quiescence, parentLease: { allowedTools },
     topologyCapabilities: mission.topologyCapabilityInventory?.available,
     availableWorkerKinds: Object.keys(require('../agents/workerKindService').KINDS),
-    budget: { availableTokens: reservation.reservedTokens }
+    budget: { availableTokens: reservation.reservedTokens },
+    resourceResolution: adaptation.admission?.resourceResolution || null,
+    resourceReservation: adaptation.admission?.resourceReservation || null
   });
 }
 

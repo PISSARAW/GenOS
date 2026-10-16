@@ -287,7 +287,7 @@ async function publish(db, options = {}) {
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
   const gate = require('./morphogenesis/intraEpochExchangeGate').evaluate({
     orchestratorId, senderAgentId, recipientAgentId, kind: normalizedKind,
-    signalType: signalInfo.signalType, signalData, payload });
+    signalType: signalInfo.signalType, signalData, payload, content });
   if (gate.throttled) return { id: null, organization: state.organization,
     version: state.version, ...route, delivery: 'throttled', throttled: true,
     kind: normalizedKind, signalType: signalInfo.signalType, reason: gate.reason,

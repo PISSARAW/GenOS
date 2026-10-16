@@ -77,6 +77,32 @@ async function runApplying(input, ops) {
   }
 }
 
+async function authorizeOrRestore(input) {
+  try {
+    const authority = await productionAuthority.authorize({ ...input.ctx, agentId: input.agentId,
+      collectiveState: input.state, missionId: input.ctx.missionId,
+      currentTopology: input.state.topologyState?.topology || input.state.topologyState?.organization
+        || 'unconfigured', snapshot: input.snapshot });
+    await durableSnapshots.markApplying({ db: input.ctx.db, id: input.snapshot.id, authority });
+    return authority;
+  } catch (error) {
+    await restorePrepared({ ctx: input.ctx, snapshot: input.snapshot, state: input.state, error });
+    throw error;
+  }
+}
+
+async function restorePrepared(input) {
+  try {
+    await durableSnapshots.restore({ db: input.ctx.db, id: input.snapshot.id,
+      collectiveState: input.state, snapshotStore: input.ctx.snapshotStore,
+      error: input.error.message || String(input.error) });
+  } catch (restoreError) {
+    await durableSnapshots.markRecoveryRequired({ db: input.ctx.db, id: input.snapshot.id,
+      error: `${input.error.message || String(input.error)}; restore_failed:${restoreError.message}` });
+    throw restoreError;
+  }
+}
+
 async function execute(ctx, transitionId, ops) {
   const state = ctx.collectiveState || ops.getState();
   const agentId = ctx.agentId || ctx.parent?.id;
@@ -85,11 +111,7 @@ async function execute(ctx, transitionId, ops) {
     collectiveState: state });
   const loaded = await durableSnapshots.load({ db: ctx.db, id: snapshot.id });
   const preState = collective.deserializeState(loaded.payload.collectiveState);
-  const authority = await productionAuthority.authorize({ ...ctx, agentId,
-    collectiveState: state, missionId: ctx.missionId,
-    currentTopology: state.topologyState?.topology || state.topologyState?.organization
-      || 'unconfigured', snapshot });
-  await durableSnapshots.markApplying({ db: ctx.db, id: snapshot.id, authority });
+  const authority = await authorizeOrRestore({ ctx, snapshot, state, agentId });
   const morphCtx = { ...ctx, agentId, collectiveState: state, transitionId };
   return runApplying({ ctx: morphCtx, snapshot, authority, preState }, ops);
 }

@@ -2,6 +2,7 @@
 
 const { createTopologyRegistry } = require('./registry/topologyRegistry');
 const { MAX_COHORT_WORKERS } = require('./replacementCohortComposer');
+const { validateResourceResolution } = require('./morphogenesisResourceBinding');
 
 const DEFAULT_REGISTRY = createTopologyRegistry();
 const MAX_QUIESCENCE_AGE_MS = 30000;
@@ -270,76 +271,6 @@ function counterfactualRecord(input) {
   return { sameMissionComparison: 'unobserved', comparativeClaim: 'prohibited',
     unexecutedCount: input.alternatives.length, rankingAvailable: ranked,
     reason: 'unexecuted_alternatives_have_no_observed_outcome_for_this_mission' };
-}
-
-function planNeedsDaemon(plan) {
-  return (plan?.workerAssignments || []).some((assignment) => assignment?.workerKind === 'resident_daemon');
-}
-
-function validateResourceResolution(input, now) {
-  const resolution = input.resourceResolution;
-  if (!resolution) return missingResolutionDenial(input);
-  const statusDenied = resolutionStatusDenial(resolution);
-  if (statusDenied) return statusDenied;
-  const stale = resolutionFreshnessDenial({ resolution, now });
-  if (stale) return stale;
-  if (!coversAssignments(input.actualPlan, resolution)) return deny('resource_resolution_plan_mismatch');
-  return reservationDenial(input, resolution);
-}
-
-function missingResolutionDenial(input) {
-  if (planNeedsDaemon(input.actualPlan)) return deny('daemon_availability_unproven');
-  return null;
-}
-
-function resolutionStatusDenial(resolution) {
-  if (resolution.status === 'BLOCKED') {
-    return deny('resource_resolution_blocked', { missing: resolution.missing || [] });
-  }
-  if (resolution.status === 'READY_FOR_ADMISSION') return null;
-  return deny('resource_inventory_unknown', { missing: resolution.missing || resolution.reasons || [] });
-}
-
-function resolutionFreshnessDenial(options) {
-  const observed = Number(options.resolution.observedAt);
-  if (!Number.isFinite(observed)) return deny('resource_inventory_unknown', { missing: ['resource_resolution_stale'] });
-  if (observed > options.now) return deny('resource_inventory_unknown', { missing: ['resource_resolution_stale'] });
-  if (options.now - observed > 30000) {
-    return deny('resource_inventory_unknown', { missing: ['resource_resolution_stale'] });
-  }
-  return null;
-}
-
-function reservationDenial(input, resolution) {
-  const reservation = input.resourceReservation;
-  if (!reservation) return deny('resource_reservation_missing');
-  if (reservation.reserved !== true) return deny('resource_reservation_missing');
-  if (!Number.isFinite(reservation.revalidatedAt)) return deny('resource_reservation_stale');
-  if (reservation.revalidatedAt < resolution.observedAt) return deny('resource_reservation_stale');
-  return null;
-}
-
-function roleCoversKind(roles, kind) {
-  return roles.some((role) => roleCovers({ role, kind }));
-}
-
-function roleCovers(options) {
-  if (options.role.workerKind !== options.kind) return false;
-  if (options.role.status !== 'READY') return false;
-  if (options.role.instanceId) return true;
-  return Boolean(options.role.daemonId);
-}
-
-function coversAssignments(plan, resolution) {
-  const assignments = Array.isArray(plan?.workerAssignments) ? plan.workerAssignments : [];
-  const roles = Array.isArray(resolution.roles) ? resolution.roles : [];
-  return assignments.every((assignment) => coversKind({ assignment, roles }));
-}
-
-function coversKind(options) {
-  const kind = options.assignment ? options.assignment.workerKind : null;
-  if (!kind) return false;
-  return roleCoversKind(options.roles, kind);
 }
 
 function validateAdmissionGates(input) {

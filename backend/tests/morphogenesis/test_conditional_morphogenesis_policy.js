@@ -85,16 +85,15 @@ function testCalibrationRequiresVerifiedCrossDomainHoldoutAndFavorsAbstention() 
 
   const samples = verifiedOutcomes();
   const fitted = calibration.compileCalibration(samples);
-  const recipeCalibration = fitted.scales.COHORT_REPLACEMENT.candidates['cohort:a_team:stable'];
-  assert.equal(recipeCalibration.status, 'calibrated');
-  assert.equal(recipeCalibration.taskFamilyHoldout, true);
-  assert.equal(recipeCalibration.modelHoldout, true);
+  assert.equal(fitted.verifiedSampleCount, 0);
+  assert.equal(fitted.status, 'unavailable');
+  assert.equal(fitted.scales.COHORT_REPLACEMENT.status, 'unavailable');
   assert.equal(calibration.selectScale(fitted, [{ scale: 'COHORT_REPLACEMENT',
-    candidateId: 'cohort:a_team:stable' }]).scale, 'COHORT_REPLACEMENT');
+    candidateId: 'cohort:a_team:stable' }]).scale, 'NO_CHANGE');
 
   samples[39].actualGain = 0.7;
   samples[39].receipt = { ...samples[39].receipt, evidenceDigest: 'sha256:' + '0'.repeat(64) };
-  assert.equal(calibration.compileCalibration(samples).verifiedSampleCount, 39);
+  assert.equal(calibration.compileCalibration(samples).verifiedSampleCount, 0);
 }
 
 function testEpochBoundIsEnforced() {

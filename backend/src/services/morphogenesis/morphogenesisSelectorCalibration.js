@@ -44,8 +44,8 @@ function validReceipt(row) {
 
 function verifiedRow(row) {
   return validIdentity(row) && validMetrics(row) && validReceipt(row)
-    && (!row.pairEvidence || (pairedEvidence.validPairedEvidence(row)
-      && pairedEvidence.validFinalReceipt(row)));
+    && row.pairEvidence && pairedEvidence.validPairedEvidence(row)
+    && pairedEvidence.validFinalReceipt(row);
 }
 
 function means(rows) {
@@ -82,6 +82,7 @@ function calibrateCandidate(rows, scale, candidateId) {
   const costBaselineMae = error(validation, 'actualCost', () => 0);
   if (gainMae >= gainBaselineMae || costMae >= costBaselineMae) return unavailable('heldout_error_not_better_than_prior');
   const validationGain = meanActual(validation, 'actualGain');
+  if (!(validationGain > 0)) return unavailable('heldout_gain_not_positive');
   const se = dispersion(validation, 'actualGain', validationGain);
   return { status: 'calibrated', sampleSize: train.length, validationSize: validation.length,
     taskFamilyHoldout: true, modelHoldout: true, expectedGain: gain,

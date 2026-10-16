@@ -324,7 +324,10 @@ function admissionForTransition(input, result) {
   return admit({ policy,
     actualPlan: prepared.actualPlan, quiescence: prepared.context.quiescence,
     parentLease: prepared.context.parentLease, topologyCapabilities: mission.topologyCapabilityInventory?.available,
-    availableWorkerKinds: Object.keys(kinds), budget: { availableTokens: Number(input.continuation.pool) || 0 } });
+    availableWorkerKinds: Object.keys(kinds), budget: { availableTokens: Number(input.continuation.pool) || 0 },
+    resourceResolution: prepared.context.resourceResolution || null,
+    resourceReservation: prepared.context.resourceReservation || null,
+    now: prepared.context.now });
 }
 
 function shouldSkipAdaptation(input, signals, decision) {
