@@ -50,6 +50,30 @@ async function runTests() {
     }
     run.execution.organizationPolicy.variant = 'pipeline';
     const manifest = await service.capture(context);
+    run.execution.organizationPolicy = { variant: 'matrix_team',
+      authority_matrix_by_decision_type: { axes: ['functional', 'product'] },
+      raci_dimensions: { raciMatrix: {} }, escalation_paths: {},
+      transactional_disagreement_resolution: { enabled: true } };
+    const matrixManifest = await service.capture({ ...context, variantId: 'matrix_team' });
+    const matrixPolicy = matrixManifest.components.find((item) => item.id === 'variant-policy').payload;
+    assert.equal(matrixPolicy.authorityMatrixByDecisionType.axes.length, 2);
+    assert.equal(matrixPolicy.transactionalDisagreementResolution.enabled, true);
+    run.execution.organizationPolicy = { variant: 'incident_command',
+      mandatory_ics_roles: { allAssigned: true }, sitrep_cadence: { intervalMinutes: 15 },
+      span_of_control: { enforced: true }, structured_handover: { required: true },
+      structured_closure: { required: true } };
+    const icsManifest = await service.capture({ ...context, variantId: 'incident_command' });
+    const icsPolicy = icsManifest.components.find((item) => item.id === 'variant-policy').payload;
+    assert.equal(icsPolicy.spanOfControl.enforced, true);
+    assert.equal(icsPolicy.structuredClosure.required, true);
+    run.execution.organizationPolicy = { variant: 'adaptive', phases: [],
+      continuous_staffing_by_capability_gap: { gaps: ['security'] },
+      hysteresis_anti_thrashing: { hysteresisApplied: true } };
+    const adaptiveManifest = await service.capture({ ...context, variantId: 'adaptive' });
+    const adaptivePolicy = adaptiveManifest.components.find((item) => item.id === 'variant-policy').payload;
+    assert.deepEqual(adaptivePolicy.continuousStaffingByCapabilityGap.gaps, ['security']);
+    assert.equal(adaptivePolicy.hysteresisAntiThrashing.hysteresisApplied, true);
+    run.execution.organizationPolicy = { variant: 'pipeline' };
     run.revision++;
     await expectRefusal(() => service.preflightRestore({ ...context, manifest }), 'TOPOLOGY_SNAPSHOT_DRIFT');
     run.revision--;

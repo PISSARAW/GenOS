@@ -103,6 +103,7 @@ function buildHysteresisConfig(mission) {
     hysteresisThreshold: Number(mission.hysteresisThreshold) || 0.2,
     minStabilityPeriod: Number(mission.minStabilityPeriod) || 1800000,
     maxReconfigPerHour: Number(mission.maxReconfigurationsPerHour) || 2,
+    stableSince: mission.stableSince || null,
     stabilityCheck: true,
     thrashingPrevention: true,
     hysteresisApplied: true,

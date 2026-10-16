@@ -94,6 +94,16 @@ function clinicalOperationId(authorizationId) {
 }
 
 async function claimApplication(db, input) {
+  const scoped = clinicalClaimInput(input);
+  const authorization = await authorizationForApplication(db, {
+    authorizationId: scoped.authorizationId, missionId: input.missionId, tenant: scoped.tenant,
+  });
+  if (!authorization) return { status: 'not_found' };
+  const key = [scoped.tenant.organizationId, scoped.tenant.projectId, scoped.authorizationId, scoped.operationId];
+  return claimExistingOrNew(db, { authorization, input, key, scoped });
+}
+
+function clinicalClaimInput(input) {
   const tenant = input?.tenant;
   const authorizationId = String(input?.authorizationId || '');
   const operationId = String(input?.operationId || '');
@@ -102,17 +112,17 @@ async function claimApplication(db, input) {
       || operationId !== clinicalOperationId(authorizationId) || !claimantId) {
     throw Object.assign(new Error('Scoped clinical application claim required'), { code: 'CLINICAL_APPLICATION_CLAIM_INVALID' });
   }
-  const authorization = await authorizationForApplication(db, {
-    authorizationId, missionId: input.missionId, tenant,
-  });
-  if (!authorization) return { status: 'not_found' };
-  const key = [tenant.organizationId, tenant.projectId, authorizationId, operationId];
+  return { tenant, authorizationId, operationId, claimantId };
+}
+
+async function claimExistingOrNew(db, input) {
+  const { authorization, key, scoped } = input;
   const existing = await db.get(`SELECT operation_id, claimant_id, claim_token, state, attempts,
     lease_until_unix_ms, result_json FROM clinical_authorization_applications
     WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?`, ...key);
-  if (existing) return claimExistingApplication(db, { existing, key, claimantId, input });
+  if (existing) return claimExistingApplication(db, { existing, key, claimantId: scoped.claimantId });
   if (authorization.revoked_at_unix_ms !== null) return { status: 'revoked' };
-  return createApplicationClaim(db, { key, claimantId, operationId });
+  return createApplicationClaim(db, { key, claimantId: scoped.claimantId, operationId: scoped.operationId });
 }
 
 async function claimExistingApplication(db, input) {
@@ -155,23 +165,33 @@ function clinicalOperationIdFromClaim(row) {
 }
 
 async function completeApplication(db, input) {
+  const scoped = clinicalCompletionInput(input);
+  const key = [scoped.tenant.organizationId, scoped.tenant.projectId, scoped.authorizationId, scoped.operationId];
+  const claim = await db.get(`SELECT state, claim_token FROM clinical_authorization_applications
+    WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?`, ...key);
+  return completeClaim(db, { claim, key, scoped, result: input.result });
+}
+
+function clinicalCompletionInput(input) {
   const tenant = input?.tenant;
   const operationId = String(input?.operationId || '');
   if (!tenant?.organizationId || !tenant?.projectId || !input.authorizationId
       || operationId !== clinicalOperationId(input.authorizationId) || !input.claimToken) {
     throw Object.assign(new Error('Scoped clinical application completion required'), { code: 'CLINICAL_APPLICATION_CLAIM_INVALID' });
   }
-  const key = [tenant.organizationId, tenant.projectId, input.authorizationId, operationId];
-  const claim = await db.get(`SELECT state, claim_token FROM clinical_authorization_applications
-    WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?`, ...key);
+  return { tenant, authorizationId: input.authorizationId, operationId, claimToken: input.claimToken };
+}
+
+async function completeClaim(db, input) {
+  const { claim, key, scoped } = input;
   if (!claim) return { status: 'not_found' };
-  if (claim.state === 'completed') return { status: 'completed', operationId };
-  if (claim.claim_token !== input.claimToken) return { status: 'claim_lost' };
+  if (claim.state === 'completed') return { status: 'completed', operationId: scoped.operationId };
+  if (claim.claim_token !== scoped.claimToken) return { status: 'claim_lost' };
   const resultJson = input.result === undefined ? null : JSON.stringify(input.result);
   await db.run(`UPDATE clinical_authorization_applications SET state='completed', completed_at_unix_ms=?, result_json=?
     WHERE organization_id=? AND project_id=? AND authorization_id=? AND operation_id=?
-      AND state='claimed' AND claim_token=?`, Date.now(), resultJson, ...key, input.claimToken);
-  return { status: 'completed', operationId };
+      AND state='claimed' AND claim_token=?`, Date.now(), resultJson, ...key, scoped.claimToken);
+  return { status: 'completed', operationId: scoped.operationId };
 }
 
 function ledgerView(row) {

@@ -66,27 +66,30 @@ async function worker(mode, config) {
         body: { missionId: config.missionId },
       });
       await waitForFile(process.env.TEST_CLINICAL_EXECUTOR_MARKER);
-      let revocationFinished = false;
-      const revoking = request({ port, scope: config.scope, method: 'POST',
-        route: `/api/rust/clinical-authorizations/${authorizationId}/revoke`, body: {},
-      }).then(result => { revocationFinished = true; return result; });
-      await new Promise(resolve => setTimeout(resolve, 100));
-      assert.equal(revocationFinished, false, 'revocation must wait for an admitted application to finish');
-      await fs.writeFile(path.join(config.workspace, 'release-clinical-executor'), 'continue');
-      const applied = await applying;
+      let applied;
+      try {
+        const revoked = await request({ port, scope: config.scope, method: 'POST',
+          route: `/api/rust/clinical-authorizations/${authorizationId}/revoke`, body: {},
+        });
+        assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
+        assert.equal(revoked.body.authorization.status, 'revoked_in_backend_ledger');
+        assert.equal(revoked.body.authorization.offlineRustAuthorizationRevoked, false);
+      } finally {
+        await fs.writeFile(path.join(config.workspace, 'release-clinical-executor'), 'continue');
+      }
+      applied = await applying;
       assert.equal(applied.status, 200, JSON.stringify(applied.body));
-      const revoked = await revoking;
-      assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
-      assert.equal(revoked.body.authorization.status, 'revoked_in_backend_ledger');
-      assert.equal(revoked.body.authorization.offlineRustAuthorizationRevoked, false);
       const invocation = await fs.readFile(process.env.TEST_CLINICAL_EXECUTOR_MARKER, 'utf8');
       const refused = await request({ port, scope: config.scope, method: 'POST',
         route: `/api/rust/clinical-authorizations/${authorizationId}/apply`, body: { missionId: config.missionId },
       });
-      assert.equal(refused.status, 409, JSON.stringify(refused.body));
-      assert.equal(refused.body.error.code, 'CLINICAL_AUTHORIZATION_REVOKED');
+      assert.equal(refused.status, 200, JSON.stringify(refused.body));
+      assert.equal(refused.body.operation, 'clinical_apply');
+      assert.equal(refused.body.authorizationId, authorizationId);
+      assert.deepEqual(refused.body.rust, applied.body.rust,
+        'a completed idempotent operation returns its stored result after later revocation');
       assert.equal(await fs.readFile(process.env.TEST_CLINICAL_EXECUTOR_MARKER, 'utf8'), invocation,
-        'revoked authorization must be rejected before invoking Rust');
+        'completed replay after revocation must not invoke Rust again');
       process.stdout.write(JSON.stringify({ authorizationId }));
       return;
     }

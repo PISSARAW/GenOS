@@ -111,7 +111,9 @@ test('Biome refuses unresolved external executions at a dormant boundary', async
 });
 
 test('Biome variant proof hashes fields actually produced by specialized controllers', async () => {
-  const fields = { exploration: 'noveltyArchive', open_ended: 'environmentArchive',
+  const fields = { resource: 'recoveryBudgetReserve', exploration: 'noveltyArchive',
+    quality_diversity: 'qualityDiversity', successional: 'transitions', resilience: 'resilienceEvents',
+    persistent: 'seasons', open_ended: 'environmentArchive', adversarial: 'armsRace',
     knowledge: 'sources', compute: 'computeAllocations', multi_scale: 'scaleState' };
   for (const [variant, field] of Object.entries(fields)) {
     const sample = fixture(variant);

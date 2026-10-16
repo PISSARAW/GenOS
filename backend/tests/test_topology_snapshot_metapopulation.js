@@ -62,6 +62,10 @@ async function run() {
     }
     await db.run('UPDATE metapopulation_sessions SET variant = ?, variant_policy_json = ? WHERE id = ?',
       'balanced', JSON.stringify(VARIANTS.balanced), context.sessionId);
+    const catalog = require('../src/services/morphogenesis/registry/variantCatalog');
+    for (const entry of catalog.topologyVariants('metapopulation')) {
+      assert.equal(entry.maturity, 'implemented', entry.variantId);
+    }
     const manifest = await service.capture(context);
     await db.run("UPDATE metapopulation_demes SET budget_json = '{\"tokens\":1}' WHERE deme_id = 'deme-1'");
     await expectRefusal(() => service.preflightRestore({ ...context, manifest }), 'TOPOLOGY_SNAPSHOT_DRIFT');

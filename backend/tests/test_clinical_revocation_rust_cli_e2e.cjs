@@ -1,13 +1,13 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const http = require('node:http');
 const { execFileSync, fork, spawn } = require('node:child_process');
 const { once } = require('node:events');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const { createClaimBarrier, expireClaim } = require('./helpers/clinicalClaimBarrier.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
 const target = path.join(path.resolve(root, process.env.CARGO_TARGET_DIR || 'target'), 'debug');
@@ -121,7 +121,8 @@ async function seedCell(input) {
   }
 }
 
-async function runCli(config, authFile, overrides = {}) {
+async function runCli(config, authFile, options = {}) {
+  const { onSpawn = null, ...overrides } = options;
   const environment = { ...process.env, GENOS_WORKSPACE_ROOT: config.workspace,
     NODE_ENV: 'test', GENOS_THERAPY_AUTH_SECRET: therapySecret, ...overrides };
   const args = ['biomimicry', 'therapy', '--agent-id', config.cellId,
@@ -130,6 +131,7 @@ async function runCli(config, authFile, overrides = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { cwd: config.workspace, env: environment,
       stdio: ['ignore', 'pipe', 'pipe'] });
+    onSpawn?.(child);
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', chunk => { stdout += chunk.toString(); });
@@ -146,42 +148,6 @@ async function runCli(config, authFile, overrides = {}) {
   });
 }
 
-async function createValidationBarrier(backend) {
-  let releaseResponse;
-  let validationStarted;
-  const waitForValidation = new Promise(resolve => { validationStarted = resolve; });
-  const responseGate = new Promise(resolve => { releaseResponse = resolve; });
-  const server = http.createServer(async (request, response) => {
-    const chunks = [];
-    for await (const chunk of request) chunks.push(chunk);
-    const upstream = await fetch(`http://127.0.0.1:${backend.port}${request.url}`, {
-      method: request.method,
-      headers: { authorization: request.headers.authorization,
-        'content-type': request.headers['content-type'],
-        'x-organization-id': request.headers['x-organization-id'],
-        'x-project-id': request.headers['x-project-id'] },
-      body: Buffer.concat(chunks),
-    });
-    const body = await upstream.text();
-    response.writeHead(upstream.status, { 'content-type': 'application/json' });
-    const split = Math.max(1, Math.floor(body.length / 2));
-    response.write(body.slice(0, split));
-    validationStarted();
-    await responseGate;
-    response.end(body.slice(split));
-  });
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  return {
-    url: `http://127.0.0.1:${server.address().port}`,
-    waitForValidation,
-    release: releaseResponse,
-    close: () => new Promise(resolve => server.close(resolve)),
-  };
-}
-
 async function demonstrateRevocationInterleaving(input) {
   const { backend, revokeBackend, config, authorization } = input;
   const authFile = path.join(config.workspace, 'race-authorization.json');
@@ -189,7 +155,7 @@ async function demonstrateRevocationInterleaving(input) {
   await fs.writeFile(authFile, JSON.stringify(authorization));
   await fs.copyFile(config.journal, raceJournal);
   const raceConfig = { ...config, journal: raceJournal };
-  const barrier = await createValidationBarrier(backend);
+  const barrier = await createClaimBarrier(backend);
   const before = await fs.readFile(raceJournal, 'utf8');
   const execution = runCli(raceConfig, authFile, {
     GENOS_CLINICAL_BACKEND_URL: barrier.url,
@@ -198,7 +164,7 @@ async function demonstrateRevocationInterleaving(input) {
     GENOS_CLINICAL_PROJECT_ID: 'receipt-project',
   });
   try {
-    await barrier.waitForValidation;
+    await barrier.waitForClaim;
     const revoked = await request({ backend: revokeBackend,
       route: `/api/rust/clinical-authorizations/${authorization.authorization_id}/revoke`, method: 'POST', body: {} });
     assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
@@ -206,9 +172,67 @@ async function demonstrateRevocationInterleaving(input) {
     const result = await execution;
     assert.equal(result.code, 0, result.stderr);
     const after = await fs.readFile(raceJournal, 'utf8');
-    assert.notEqual(after, before, 'stale successful validation currently permits a Rust journal append');
+    assert.notEqual(after, before, 'a durable claim committed before revocation must complete its operation');
     assert.match(after, /genos\.clinical-application\/v1/);
-    console.log('Clinical race reproduced: revocation committed after validation response began and before Rust append');
+    const applications = (await fs.readFile(raceJournal, 'utf8')).split(/\r?\n/).flatMap(line => {
+      if (!line.trim()) return [];
+      const record = JSON.parse(line);
+      return record.receipts || [record.receipt || record];
+    }).filter(entry => entry.schema === 'genos.clinical-application/v1');
+    assert.equal(applications.length, 1, 'claim-first race must append exactly one operation receipt');
+    assert.equal(applications[0].operation_id, `clinical-apply:${authorization.authorization_id}`);
+    const duplicate = await runCli(raceConfig, authFile, {
+      GENOS_CLINICAL_BACKEND_URL: `http://127.0.0.1:${backend.port}`,
+      GENOS_CLINICAL_AUTH_TOKEN: token,
+      GENOS_CLINICAL_ORGANIZATION_ID: 'receipt-org',
+      GENOS_CLINICAL_PROJECT_ID: 'receipt-project',
+    });
+    assert.equal(duplicate.code, 0, duplicate.stderr);
+    assert.equal(await fs.readFile(raceJournal, 'utf8'), after, 'completed duplicate operation must not append again');
+    console.log('Clinical race linearized: durable claim won before revoke, journal operation receipt deduplicated');
+  } finally {
+    barrier.release();
+    await barrier.close();
+  }
+}
+
+async function demonstrateCrashRecovery(input) {
+  const { backend, config, authorization } = input;
+  const authFile = path.join(config.workspace, 'crash-authorization.json');
+  const crashJournal = path.join(config.workspace, 'crash-receipts.jsonl');
+  await fs.writeFile(authFile, JSON.stringify(authorization));
+  await fs.copyFile(config.journal, crashJournal);
+  const crashConfig = { ...config, journal: crashJournal };
+  const before = await fs.readFile(crashJournal, 'utf8');
+  const barrier = await createClaimBarrier(backend);
+  let processHandle;
+  const execution = runCli(crashConfig, authFile, {
+    GENOS_CLINICAL_BACKEND_URL: barrier.url,
+    GENOS_CLINICAL_AUTH_TOKEN: token,
+    GENOS_CLINICAL_ORGANIZATION_ID: 'receipt-org',
+    GENOS_CLINICAL_PROJECT_ID: 'receipt-project',
+    onSpawn: child => { processHandle = child; },
+  });
+  try {
+    await barrier.waitForClaim;
+    processHandle.kill();
+    await execution;
+    barrier.release();
+    await expireClaim(backend, authorization.authorization_id);
+    assert.equal(await fs.readFile(crashJournal, 'utf8'), before, 'crash before append must leave the journal unchanged');
+    const recovered = await runCli(crashConfig, authFile, {
+      GENOS_CLINICAL_BACKEND_URL: `http://127.0.0.1:${backend.port}`,
+      GENOS_CLINICAL_AUTH_TOKEN: token,
+      GENOS_CLINICAL_ORGANIZATION_ID: 'receipt-org',
+      GENOS_CLINICAL_PROJECT_ID: 'receipt-project',
+    });
+    assert.equal(recovered.code, 0, recovered.stderr);
+    const after = await fs.readFile(crashJournal, 'utf8');
+    assert.notEqual(after, before, 'reclaimed durable operation should complete after crash');
+    const entries = after.split(/\r?\n/).filter(Boolean).flatMap(line => JSON.parse(line).receipts || []);
+    assert.equal(entries.filter(entry => entry.schema === 'genos.clinical-application/v1'
+      && entry.operation_id === `clinical-apply:${authorization.authorization_id}`).length, 1);
+    console.log('Clinical crash recovery: expired pre-append claim reclaimed and operation appended once');
   } finally {
     barrier.release();
     await barrier.close();
@@ -302,6 +326,30 @@ async function main() {
     assert.equal(revoke.status, 200, JSON.stringify(revoke.body));
     assert.equal(revoke.body.authorization.status, 'revoked_in_backend_ledger');
     console.log('Clinical revocation E2E: authorization revoked by second process');
+
+    const recoveryIssue = await request({ backend: first, route: '/api/rust/clinical-authorizations', method: 'POST', body: {
+      missionId: config.mission, cellId: config.cellId, therapy: 'IntensiveCareFluids', approved: true,
+    } });
+    assert.equal(recoveryIssue.status, 201, JSON.stringify(recoveryIssue.body));
+    await demonstrateCrashRecovery({ backend: first, config, authorization: recoveryIssue.body.authorization });
+
+    const revokeFirstIssue = await request({ backend: first, route: '/api/rust/clinical-authorizations', method: 'POST', body: {
+      missionId: config.mission, cellId: config.cellId, therapy: 'IntensiveCareFluids', approved: true,
+    } });
+    assert.equal(revokeFirstIssue.status, 201, JSON.stringify(revokeFirstIssue.body));
+    const revokeFirst = await request({ backend: second,
+      route: `/api/rust/clinical-authorizations/${revokeFirstIssue.body.authorization.authorization_id}/revoke`, method: 'POST', body: {} });
+    assert.equal(revokeFirst.status, 200, JSON.stringify(revokeFirst.body));
+    const revokeFirstFile = path.join(workspace, 'revoke-first-authorization.json');
+    await fs.writeFile(revokeFirstFile, JSON.stringify(revokeFirstIssue.body.authorization));
+    await ensureRefusedWithoutMutation({ config, authFile: revokeFirstFile, env: {
+      GENOS_CLINICAL_BACKEND_URL: `http://127.0.0.1:${first.port}`,
+      GENOS_CLINICAL_AUTH_TOKEN: token,
+      GENOS_CLINICAL_ORGANIZATION_ID: 'receipt-org',
+      GENOS_CLINICAL_PROJECT_ID: 'receipt-project',
+    }, expected: /clinical authorization rejected by backend revocation state/ });
+    console.log('Clinical race order verified: revoke-first blocks claim; claim-first remains recoverable');
+
     await ensureRefusedWithoutMutation({ config, authFile, env: {
       GENOS_CLINICAL_BACKEND_URL: `http://127.0.0.1:${first.port}`,
       GENOS_CLINICAL_AUTH_TOKEN: token,

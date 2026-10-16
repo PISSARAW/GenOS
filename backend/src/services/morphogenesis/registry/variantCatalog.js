@@ -6,7 +6,9 @@ const holobionte = require('../../holobionte/variants');
 const syncytium = require('../../syncytium/variants/variantPolicyRegistry');
 const rhizome = require('../../rhizome/variants/variantPolicyService');
 const metapopulation = require('../../metapopulation/policy/metapopulationPolicyService');
+const metapopulationMaturity = require('../../metapopulation/policy/metapopulationVariantMaturity');
 const biome = require('../../biome/variants/variantPolicyService');
+const biomeRuntime = require('../../biome/variants/variantRuntimeService');
 const trinity = require('../../trinityVariantService');
 
 function projectEntries(input) {
@@ -14,13 +16,13 @@ function projectEntries(input) {
   return Object.entries(definitions).map(([variantId, definition]) => ({
     variantId,
     parameters: createParameters(variantId, definition),
-    maturity: maturityFor(definition),
+    maturity: maturityFor(definition, variantId),
     source
   }));
 }
 
 function topologyVariants(topology) {
-  if (topology === 'a_team') return projectEntries({ source: 'aTeam/variants/variantRegistry', definitions: aTeam.VARIANTS, createParameters: (_id, policy) => policy });
+  if (topology === 'a_team') return projectEntries({ source: 'aTeam/variants/variantRegistry', definitions: aTeam.VARIANTS, createParameters: (_id, policy) => policy, maturityFor: aTeamVariantMaturity });
   if (topology === 'trinity') return projectEntries({
     source: 'trinityVariantService', definitions: trinity.DEFINITIONS,
     createParameters: (_id, definition) => definition.design,
@@ -39,14 +41,18 @@ function topologyVariants(topology) {
   if (topology === 'metapopulation') return projectEntries({
     source: 'metapopulation/policy/metapopulationPolicyService',
     definitions: metapopulation.VARIANTS, createParameters: (_id, policy) => policy,
-    maturityFor: () => 'partial'
+    maturityFor: (_definition, variantId) => metapopulationMaturity.maturityForVariant(variantId)
   });
   if (topology === 'biome') return projectEntries({
     source: 'biome/variants/variantPolicyService', definitions: biome.DEFINITIONS,
     createParameters: (_id, policy) => policy,
-    maturityFor: () => 'partial'
+    maturityFor: (_definition, variantId) => biomeVariantMaturity(variantId)
   });
   return [];
+}
+
+function aTeamVariantMaturity(definition) {
+  return definition.maturity || 'implemented';
 }
 
 function trinityVariantMaturity(definition) {
@@ -58,9 +64,20 @@ function trinityVariantMaturity(definition) {
   }
 }
 
+function biomeVariantMaturity(variantId) {
+  try {
+    biome.resolve(variantId);
+  } catch (_) {
+    return 'partial';
+  }
+  return biomeRuntime.supports(variantId) ? 'implemented' : 'partial';
+}
+
 function holobionteVariants() {
+  const maturity = require('../../holobionte/variants/variantMaturityService');
   return holobionte.names.map((variantId) => {
     const policy = holobionte.getVariant(variantId);
+    const assessment = maturity.maturityFor(policy);
     return {
       variantId: policy.name,
       parameters: {
@@ -71,7 +88,9 @@ function holobionteVariants() {
         memory: policy.configureMemory(), competition: policy.configureCompetition(),
         tool: policy.configureTool(), synchronization: policy.configureSynchronization()
       },
-      maturity: 'partial',
+      maturity: assessment.maturity,
+      maturityReasons: assessment.reasons,
+      maturityEvidence: { operations: assessment.evidence.operations },
       source: 'holobionte/variants'
     };
   });

@@ -19,6 +19,7 @@ Module._load = function blockDatabaseImport(request, parent, isMain) {
 
 async function main() {
   try {
+    require('../../src/services/search/planningGapPolicies');
     const { ActuatorModules } = require('../../src/services/search/actuatorModules');
     const { NaturalSearchActuator } = require('../../src/services/search/naturalSearchActuatorService');
     const modules = new ActuatorModules({ emit: () => {} });

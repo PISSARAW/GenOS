@@ -31,6 +31,12 @@ function coded(message, code) {
   return Object.assign(new Error(message), { code });
 }
 
+function escalationTarget(matrixPolicy, type, mission) {
+  const path = matrixPolicy.escalation_paths?.[type];
+  const sponsor = Array.isArray(path) ? path.at(-1)?.authority : path;
+  return sponsor || mission.escalationTarget || 'escalate_to_named_sponsor';
+}
+
 module.exports = {
   async executeCrossFunctionalPod() {
     this.recordStep('cross_functional_pod_start', {});
@@ -116,7 +122,7 @@ module.exports = {
         decisionType: decision.type,
         functionalOwnerId: raciEntry.functionalOwner,
         productOwnerId: raciEntry.productOwner,
-        escalationPath: raciEntry.escalationPath,
+        escalationPath: escalationTarget(matrixPolicy, decision.type, this.mission),
         currentRevision: raciEntry.currentRevision ?? 0
       };
 

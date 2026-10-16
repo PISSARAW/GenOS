@@ -22,9 +22,9 @@ function run() {
   assert.deepEqual(humanAi.requiredCapabilities, ['CRDT_SHARED_STATE', 'HUMAN_AUTHORITY', 'AUTHORSHIP', 'EXPLICIT_CONSENT']);
   const rhizome = registry.variants.resolve('rhizome', 'resilient');
   assert.equal(rhizome.parameters.resilience.alternatives, 4);
-  assert.equal(registry.variants.resolve('holobionte', 'adaptive-microbiome').maturity, 'partial');
+  assert.equal(registry.variants.resolve('holobionte', 'adaptive-microbiome').maturity, 'implemented');
   assert.equal(registry.variants.resolve('metapopulation', 'conservative').parameters.quorumRatio, 0.7);
-  assert.equal(registry.variants.resolve('biome', 'resource').maturity, 'partial');
+  assert.equal(registry.variants.resolve('biome', 'resource').maturity, 'implemented');
   assert.equal(registry.variants.resolve('biome', 'multi_scale').parameters.levels.length, 3);
 
   const explicitPartial = registry.profiles.resolve({

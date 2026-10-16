@@ -108,11 +108,17 @@ fn command(mission: Uuid, request: &Path) -> ElectricQuorumCmd {
 }
 
 fn test_directory() -> tempfile::TempDir {
-    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let base = cargo_target_directory();
+    std::fs::create_dir_all(&base).unwrap();
     tempfile::Builder::new()
         .prefix("electric-quorum-cli-")
         .tempdir_in(base)
         .unwrap()
+}
+
+fn cargo_target_directory() -> PathBuf {
+    std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target"))
 }
 
 fn seed_population(root: &Path, mission: Uuid) -> Vec<Uuid> {

@@ -76,11 +76,22 @@ function chooseCommander(members) {
 }
 
 function matrixAuthority(mission) {
+  const entries = Array.isArray(mission.decisionAuthorities) ? mission.decisionAuthorities : [];
+  const byDecisionType = {};
+  for (const entry of entries) {
+    if (entry.decisionType) byDecisionType[entry.decisionType] = authorityOwners(entry);
+  }
+  const first = entries[0] || {};
   return {
-    functionalOwnerId: mission.functionalOwnerId || null,
-    productOwnerId: mission.productOwnerId || null,
-    axes: ['functional', 'product'], decisionRule: 'consult_both_owners'
+    functionalOwnerId: mission.functionalOwnerId || first.functionalOwnerId || null,
+    productOwnerId: mission.productOwnerId || first.productOwnerId || null,
+    axes: ['functional', 'product'], decisionRule: 'consult_both_owners',
+    byDecisionType
   };
+}
+
+function authorityOwners(entry) {
+  return { functionalOwnerId: entry.functionalOwnerId || null, productOwnerId: entry.productOwnerId || null };
 }
 
 function adaptivePhases(mission) {
@@ -120,9 +131,15 @@ function pendingBoundaryProposals(owned, contracts) {
 }
 
 function consultationInstruction(member, policy) {
-  if (policy.variant === 'matrix_team') return `Consult functional owner ${policy.authorityMatrix.functionalOwnerId || 'TBD'} and product owner ${policy.authorityMatrix.productOwnerId || 'TBD'} for cross-axis decisions.`;
+  if (policy.variant === 'matrix_team') return matrixConsultation(policy);
   if (policy.variant !== 'cross_functional_pod' || !member.consults?.length) return null;
   return `Consult peer domains before cross-domain decisions: ${member.consults.join(', ')}. Record whom you consulted and the resulting decision in your evidence report.`;
+}
+
+function matrixConsultation(policy) {
+  const types = Object.keys(policy.authorityMatrix.byDecisionType || {});
+  if (!types.length) return `Consult functional owner ${policy.authorityMatrix.functionalOwnerId || 'TBD'} and product owner ${policy.authorityMatrix.productOwnerId || 'TBD'} for cross-axis decisions.`;
+  return `Consult both owners per decision type (${types.join(', ')}) before deciding; a single refusal escalates to the named sponsor.`;
 }
 
 function countInterfaces(members) {

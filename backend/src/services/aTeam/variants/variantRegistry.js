@@ -95,7 +95,7 @@ const VARIANTS = Object.freeze({
     minMembers: 3,
     communication: 'dual_reporting',
     authority: 'shared',
-    maturity: 'partial',
+    maturity: 'implemented',
     description: 'Each member reports to both a product axis and a functional axis. Authority matrix with dual consultation.',
     fullPotential: [
       'authority_matrix_by_decision_type',
@@ -131,8 +131,8 @@ const VARIANTS = Object.freeze({
     minMembers: 3,
     communication: 'fixed_briefings',
     authority: 'incident_commander',
-    maturity: 'partial',
-    description: 'ICS-like structure: commander + ops + planning + logistics. Commander and policy exist; full ICS not materialized.',
+    maturity: 'implemented',
+    description: 'ICS-like structure: commander + ops + planning + logistics with SITREP cadence, span of control, handover and closure.',
     fullPotential: [
       'mandatory_ics_roles',
       'sitrep_cadence',
@@ -169,8 +169,8 @@ const VARIANTS = Object.freeze({
     minMembers: 2,
     communication: 'feedback_loop',
     authority: 'phase_owner',
-    maturity: 'partial',
-    description: 'Team changes with the problem: recruits, releases, reorganizes. Runtime plans phases but dynamic gap→recruit→verify→release loop is less complete.',
+    maturity: 'implemented',
+    description: 'Team changes with the problem: gap detection, verified recruitment, transactional morphogenesis transition and hysteresis-guarded release.',
     fullPotential: [
       'continuous_staffing_by_capability_gap',
       'real_recruitment',

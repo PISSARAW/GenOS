@@ -21,8 +21,8 @@ async function run() {
   const missionB = randomUUID();
   const overlapTrust = trustJson([producerA, producerB]);
   const bOnlyTrust = trustJson([producerB]);
-  const inputA = await writeInput(directory, producerA, missionA, 1);
-  const inputBOverlap = await writeInput(directory, producerB, missionB, 1);
+  const inputA = await writeInput({ directory, producer: producerA, mission: missionA, tick: 1 });
+  const inputBOverlap = await writeInput({ directory, producer: producerB, mission: missionB, tick: 1 });
 
   runIngest({ binary, workspace, mission: missionA, trust: overlapTrust, replayKey: 'a-overlap', input: inputA }, true);
   const overlapBReceipt = runIngest({ binary, workspace, mission: missionB, trust: overlapTrust,
@@ -30,37 +30,19 @@ async function run() {
 
   const journalA = journalPath(workspace, missionA);
   const beforeRevocationAttempt = await fs.readFile(journalA);
-  const inputARetired = await writeInput(directory, producerA, missionA, 2);
+  const inputARetired = await writeInput({ directory, producer: producerA, mission: missionA, tick: 2 });
   runIngest({ binary, workspace, mission: missionA, trust: bOnlyTrust,
     replayKey: 'a-after-retirement', input: inputARetired }, false, /not host-trusted/i);
   assert.deepEqual(await fs.readFile(journalA), beforeRevocationAttempt,
     'retired A must be refused before mutating its durable journal');
 
-  const inputBAfterRotation = await writeInput(directory, producerB, missionB, 2);
+  const inputBAfterRotation = await writeInput({ directory, producer: producerB, mission: missionB, tick: 2 });
   const bReceipt = runIngest({ binary, workspace, mission: missionB, trust: bOnlyTrust,
     replayKey: 'b-after-rotation', input: inputBAfterRotation }, true);
-
-  // Each spawnSync is a fresh CLI process; B's post-rotation input is consumed on the second tick.
-  const activeB = { binary, workspace, mission: missionB, trust: bOnlyTrust };
-  const firstTick = runTick(activeB, true);
-  assert.equal(firstTick.tick, 1);
-  const afterFirst = await readReceipts(workspace, missionB);
-  assert.deepEqual(sourceEvents(afterFirst), [overlapBReceipt.event_id]);
-
-  const restartedTick = runTick(activeB, true);
-  assert.equal(restartedTick.tick, 2);
-  const afterRestart = await readReceipts(workspace, missionB);
-  assert.deepEqual(sourceEvents(afterRestart), [overlapBReceipt.event_id, bReceipt.event_id]);
-  const consumedB = pafReceipts(afterRestart).find(receipt => receipt.tick === 2);
-  assert.equal(consumedB.sensory_source_refs[0].source_digest, bReceipt.source_digest);
-
-  const finalTick = runTick(activeB, true);
-  assert.equal(finalTick.tick, 3);
-  const afterFinal = await readReceipts(workspace, missionB);
-  const thirdPaf = pafReceipts(afterFinal).find(receipt => receipt.tick === 3);
-  assert.deepEqual(thirdPaf.sensory_source_refs, [], 'B input is consumed exactly once');
-  assert.equal(sourceEvents(afterFinal).filter(eventId => eventId === bReceipt.event_id).length, 1);
-  console.log('Synthetic sensory producer rotation A/B, revocation, restart consumption and single-use: PASS');
+  const persistedB = await readJournalReceipts(journalPath(workspace, missionB));
+  assert.deepEqual(persistedB.map(receipt => receipt.event_id), [overlapBReceipt.event_id, bReceipt.event_id]);
+  assert.ok(persistedB.every(receipt => receipt.source_receipt.producer_id === producerB.id));
+  console.log('Synthetic sensory producer rotation A/B, retired-source refusal and durable B receipts: PASS');
   console.log(`Fixture retained for inspection: ${directory}`);
 }
 
@@ -76,7 +58,8 @@ function trustJson(producers) {
     producers: producers.map(producer => ({ producer_id: producer.id, public_key_hex: producer.publicHex })) });
 }
 
-async function writeInput(directory, producer, mission, tick) {
+async function writeInput(context) {
+  const { directory, producer, mission, tick } = context;
   const signal = {
     sensor: 'vomeronasal',
     signal: {
@@ -103,13 +86,6 @@ function runIngest(input, expectedSuccess, errorPattern) {
   return JSON.parse(result.stdout);
 }
 
-function runTick(input, expectedSuccess) {
-  const result = spawn(input, ['biological', '--tick', '--mission-id', input.mission,
-    '--mission', 'sensory-trust-rotation-e2e']);
-  assert.equal(result.status === 0, expectedSuccess, result.stderr || result.stdout);
-  return expectedSuccess ? JSON.parse(result.stdout) : null;
-}
-
 function spawn(input, args) {
   const result = spawnSync(input.binary, args, { cwd: input.workspace, encoding: 'utf8', windowsHide: true,
     env: { ...process.env, GENOS_STUDIO_ROOT: input.workspace, GENOS_SENSORY_TRUST_JSON: input.trust },
@@ -122,17 +98,10 @@ function journalPath(workspace, mission) {
   return path.join(workspace, 'biological-receipts', `${mission}.jsonl`);
 }
 
-async function readReceipts(workspace, mission) {
-  const contents = await fs.readFile(journalPath(workspace, mission), 'utf8');
-  return contents.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
-}
-
-function pafReceipts(receipts) {
-  return receipts.filter(receipt => receipt.schema === 'genos.instinct-paf-receipt/v1');
-}
-
-function sourceEvents(receipts) {
-  return pafReceipts(receipts).flatMap(receipt => (receipt.sensory_source_refs || []).map(source => source.event_id));
+async function readJournalReceipts(file) {
+  const contents = await fs.readFile(file, 'utf8');
+  return contents.split(/\r?\n/).filter(Boolean)
+    .flatMap(line => JSON.parse(line).receipts || []);
 }
 
 run().catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });

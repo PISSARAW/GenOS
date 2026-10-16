@@ -74,11 +74,26 @@ async function main() {
     await assert.rejects(runs.approveRun(db, negative.id, await approval(db, negative, root)), /epistemic assurance|multi_provider|AEIS|proof_verification/i);
     assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', negative.id)).status, 'awaiting_approval');
     assert.equal((await db.get('SELECT COUNT(*) AS n FROM aeis_provider_reviews WHERE run_id = ? AND verdict = ?', negative.id, 'refutes')).n, 1);
+    fixtures[1].verdict = 'supports';
+    fixtures[1].statusCode = 503;
+    const unavailable = await awaiting(db, record);
+    await assert.rejects(runs.approveRun(db, unavailable.id, await approval(db, unavailable, root)), /epistemic assurance|multi_provider|AEIS|proof_verification/i);
+    assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', unavailable.id)).status, 'awaiting_approval');
+    assert.equal((await db.all('SELECT provider, status FROM aeis_provider_reviews WHERE run_id = ?', unavailable.id)).length, 2);
+    assert.equal((await db.get('SELECT status FROM aeis_provider_reviews WHERE run_id = ? AND provider = ?', unavailable.id, 'ollama')).status, 'error');
+    assert.equal((await db.get('SELECT COUNT(*) AS n FROM promotion_execution_journal WHERE run_id = ?', unavailable.id)).n, 0);
+    fixtures[1].statusCode = 200;
+    fixtures[1].claimIdOverride = 'claim-from-another-review';
+    const misbound = await awaiting(db, record);
+    await assert.rejects(runs.approveRun(db, misbound.id, await approval(db, misbound, root)), /epistemic assurance|multi_provider|AEIS|proof_verification/i);
+    assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', misbound.id)).status, 'awaiting_approval');
+    assert.equal((await db.get('SELECT status FROM aeis_provider_reviews WHERE run_id = ? AND provider = ?', misbound.id, 'ollama')).status, 'error');
+    assert.equal((await db.get('SELECT COUNT(*) AS n FROM promotion_execution_journal WHERE run_id = ?', misbound.id)).n, 0);
     await db.run("UPDATE provider_configs SET enabled = 0 WHERE provider = 'ollama'");
     const missing = await awaiting(db, record);
     await assert.rejects(runs.approveRun(db, missing.id, await approval(db, missing, root)), /epistemic assurance|multi_provider|AEIS|proof_verification/i);
     assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', missing.id)).status, 'awaiting_approval');
-    console.log('AEIS approveRun SQLite + real provider workers: supports promoted; dissent and missing quorum blocked: PASS');
+    console.log('AEIS approveRun: supports promoted; dissent, HTTP 503, misbound claimId, and missing quorum blocked before promotion: PASS');
   } finally {
     await closeDatabase();
     for (const fixture of fixtures) fixture.server.closeAllConnections();

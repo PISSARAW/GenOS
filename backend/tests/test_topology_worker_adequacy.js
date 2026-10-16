@@ -112,9 +112,30 @@ function testAdequacySweep() {
   assert.ok(unavailable > 0, 'sweep observes unavailable deterministic runners');
 }
 
+function testVariantMemberAdequacy() {
+  const variants = {
+    matrix_team: [{ role: 'backend_engineer' }, { role: 'frontend_engineer' }, { role: 'security_reviewer' }],
+    incident_command: [{ role: 'backend_engineer' }, { role: 'frontend_engineer' },
+      { role: 'security_reviewer' }, { role: 'quality_engineer' }],
+    adaptive: [{ role: 'backend_engineer' }, { role: 'data_engineer' }]
+  };
+  for (const [variant, members] of Object.entries(variants)) {
+    const mapped = topologyKinds.applyTopologyWorkerKinds('a_team', members);
+    assert.equal(mapped.length, members.length);
+    for (const member of mapped) {
+      assert.ok(member.workerKind, `${variant}:${member.role} mapped`);
+      for (const required of member.workerAssignment.requiredCapabilities) {
+        assert.ok(workerKinds.KIND_CAPABILITIES[member.workerKind].includes(required),
+          `${variant}:${member.role}: ${member.workerKind} lacks ${required}`);
+      }
+    }
+  }
+}
+
 testKindCatalog();
 testPreferenceConsistency();
 testReachability();
 testPreferenceFirst();
+testVariantMemberAdequacy();
 testAdequacySweep();
 console.log('Topology worker adequacy (19 kinds): PASS');

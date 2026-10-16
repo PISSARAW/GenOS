@@ -26,4 +26,7 @@ function verifyCases() {
 }
 
 verifyCases();
+for (const variant of Object.keys(require('../src/services/metapopulation/policy/metapopulationPolicyService').VARIANTS)) {
+  assert.equal(require('../src/services/metapopulation/policy/metapopulationPolicyService').resolveMetapopulationVariant({ variant }).variant, variant);
+}
 console.log('Topology mission variant routing (48 complete mission fixtures): PASS');

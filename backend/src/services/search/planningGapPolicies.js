@@ -8,6 +8,7 @@ const Domain = require('./planningGapDomain');
 const { NaturalSearchController } = require('./naturalSearchController');
 const { HypothesisLedger, PROVENANCE } = require('./hypothesisLedgerService');
 const { NegativeSearchMemory } = require('./negativeSearchMemoryService');
+const { hasVerifiedDominanceTrail } = require('./planningGapNegativeMemoryPolicy');
 const { mctsPolicy } = require('./planningGapMcts');
 
 function makeBudget(limit) {
@@ -120,14 +121,16 @@ function totResult(hooks, frontier, budget) {
 }
 
 // --- GenOS : coût de chemin, heuristique admissible, contrôleur et ledger ---
-function genosPolicy(task, budgetLimit, agentTag) {
+function genosPolicy(task, budgetLimit, policyContext) {
   const budget = makeBudget(budgetLimit);
   const hooks = domainHooks(task);
   const ledger = new HypothesisLedger({});
-  const memory = new NegativeSearchMemory();
+  const context = resolvePolicyContext(policyContext, task);
+  const memory = context.negativeMemory || new NegativeSearchMemory();
   const controller = new NaturalSearchController({ ledger, pressure: { stagnationWindow: 2, inertia: 0.3, lowYieldThreshold: 0.12 } });
-  const agentId = `${agentTag}-${task.id}`;
-  const initial = { state: hooks.start(), plan: [], cost: 0 };
+  const agentId = context.agentId;
+  const initialState = hooks.start();
+  const initial = { state: initialState, tieKey: hooks.key(initialState), plan: [], cost: 0 };
   initial.h = hooks.heuristic(initial.state);
   const frontier = [initial];
   const bestCost = new Map([[hooks.key(initial.state), 0]]);
@@ -135,23 +138,63 @@ function genosPolicy(task, budgetLimit, agentTag) {
   let stepsNoProgress = 0;
   let bestH = initial.h;
   let pressure = 0;
+  let prunedTransitions = 0;
   while (frontier.length > 0 && consume(budget, 1)) {
     const ctx = buildGenosCtx({ agentId, stepsNoProgress, falsified, budget, yield: stepsNoProgress === 0 ? 0.5 : 0 });
     const sel = controller.selectProcess(ctx);
     pressure = sel.pressure;
-    frontier.sort((a, b) => a.cost + a.h - b.cost - b.h || a.h - b.h || a.cost - b.cost);
+    frontier.sort((a, b) => compareSearchNodes(a, b, context.seed));
     const node = frontier.shift();
     if (hooks.isGoal(node.state)) {
       const verification = hooks.verify(node.plan);
       ledgerRecord({ ledger, agentId, plan: node.plan, supported: verification.valid });
-      return genosResult({ plan: node.plan, valid: verification.valid, budget, ledger, memory, pressure, process: sel.process });
+      return genosResult({ plan: node.plan, valid: verification.valid, budget, ledger, memory, pressure,
+        process: sel.process, prunedTransitions });
     }
     hooks._s = node.state;
-    for (const move of hooks.successors(node.state)) enqueueSearchNode({ move, node, hooks, frontier, bestCost });
+    for (const move of hooks.successors(node.state)) {
+      if (shouldPruneTransition({ move, node, hooks, task, context, memory, agentId })) {
+        prunedTransitions += 1;
+        continue;
+      }
+      enqueueSearchNode({ move, node, hooks, frontier, bestCost });
+    }
     if (node.h < bestH) { bestH = node.h; stepsNoProgress = 0; }
     else { stepsNoProgress += 1; falsified += 1; }
   }
-  return genosResult({ plan: [], valid: hooks.verify([]).valid, budget, ledger, memory, pressure, process: 'none' });
+  return genosResult({ plan: [], valid: hooks.verify([]).valid, budget, ledger, memory, pressure,
+    process: 'none', prunedTransitions });
+}
+
+function resolvePolicyContext(input, task) {
+  const options = typeof input === 'string' ? { agentTag: input } : (input || {});
+  const tag = options.agentTag || 'genos';
+  return { agentId: options.agentId || `${tag}-${task.id}`, negativeMemory: options.negativeMemory || null,
+    useVerifiedNegativeMemory: options.useVerifiedNegativeMemory === true,
+    seed: Number.isInteger(options.seed) ? options.seed : null };
+}
+
+function compareSearchNodes(a, b, seed) {
+  return a.cost + a.h - b.cost - b.h || a.h - b.h || a.cost - b.cost ||
+    seededTieBreak(a, b, seed);
+}
+
+function seededTieBreak(a, b, seed) {
+  if (!Number.isInteger(seed)) return 0;
+  return tieRank(a, seed) - tieRank(b, seed);
+}
+
+function tieRank(node, seed) {
+  const state = node.tieKey || JSON.stringify(node.state);
+  let hash = seed >>> 0;
+  for (let i = 0; i < state.length; i += 1) hash = Math.imul(hash ^ state.charCodeAt(i), 16777619) >>> 0;
+  return hash;
+}
+
+function shouldPruneTransition(spec) {
+  if (!spec.context.useVerifiedNegativeMemory) return false;
+  return hasVerifiedDominanceTrail({ memory: spec.memory, agentId: spec.agentId,
+    taskId: spec.task.id, stateKey: spec.hooks.key(spec.node.state), action: spec.move.action });
 }
 
 function enqueueSearchNode(spec) {
@@ -160,7 +203,8 @@ function enqueueSearchNode(spec) {
   const cost = spec.node.cost + 1;
   if (spec.bestCost.has(key) && spec.bestCost.get(key) <= cost) return;
   spec.bestCost.set(key, cost);
-  spec.frontier.push({ state, plan: spec.node.plan.concat([spec.move.action]), cost, h: spec.hooks.heuristic(state) });
+  spec.frontier.push({ state, tieKey: key, plan: spec.node.plan.concat([spec.move.action]),
+    cost, h: spec.hooks.heuristic(state) });
 }
 
 function buildGenosCtx(spec) {
@@ -193,7 +237,7 @@ function genosResult(spec) {
   return {
     policy: 'genos', plan: spec.plan, valid: spec.valid, expansions: spec.budget.used,
     ledgerSize: spec.ledger.hypotheses.size, negativeTrails: spec.memory.trails.size,
-    pressure: spec.pressure, process: spec.process,
+    pressure: spec.pressure, process: spec.process, prunedTransitions: spec.prunedTransitions || 0,
   };
 }
 

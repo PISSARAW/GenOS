@@ -83,10 +83,18 @@ async function recordAndVerify(db, instances) {
 async function verifyKeyIdBinding(fossil) {
   const forged = { ...fossil, attestation: signWithAlias(fossil, newSigner, oldSigner.keyId) };
   const aliasBundle = trustBundleEntry(oldSigner.keyId, newSigner.publicHex);
-  activateTrustFile(aliasBundle);
+  const originalBundle = fs.readFileSync(activeTrustPath, 'utf8');
+  fs.writeFileSync(candidatePath, aliasBundle);
+  const refusedBundle = spawnSync(process.execPath, [activateScript, candidatePath, activeTrustPath], { encoding: 'utf8' });
+  assert.notEqual(refusedBundle.status, 0, 'installer must reject an alias key id before activation');
+  assert.match(refusedBundle.stderr, /does not match (?:its )?public key fingerprint/);
+  assert.equal(fs.readFileSync(activeTrustPath, 'utf8'), originalBundle,
+    'invalid candidate must leave the active bundle unchanged');
+
+  // Simulate an out-of-band corrupted file to verify both runtime guards reject it too.
+  fs.writeFileSync(activeTrustPath, aliasBundle);
   assert.equal(fossilization.verifyAttestation(forged), false,
     'backend must reject a trust-map key id that does not fingerprint its public key');
-
   const file = path.join(root, 'fossils', `fossil-cli-lineage-old_${fossil.fossil_id}.json`);
   const original = fs.readFileSync(file, 'utf8');
   try {
@@ -95,10 +103,10 @@ async function verifyKeyIdBinding(fossil) {
     fs.writeFileSync(file, JSON.stringify(artifact, null, 2));
     const rejected = invokeCli(fossil.fossil_id);
     assert.notEqual(rejected.status, 0, 'CLI must bind a trusted key id to its actual public key');
-    assert.match(rejected.stderr, /does not match its public key fingerprint/);
+    assert.match(rejected.stderr, /does not match (?:its )?public key fingerprint/);
   } finally {
     fs.writeFileSync(file, original);
-    activateTrust(oldSigner, newSigner);
+    fs.writeFileSync(activeTrustPath, originalBundle);
   }
 }
 

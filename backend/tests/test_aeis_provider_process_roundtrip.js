@@ -6,7 +6,8 @@ const { runProviderMetapopulation } = require('../src/services/epistemic/epistem
 const { runPopulation } = require('../src/services/epistemic/processIsolatedMetapopulationRunner');
 
 async function providerFixture(model) {
-  const fixture = { model, verdict: 'supports', calls: 0, delay: 0 };
+  const fixture = { model, verdict: 'supports', calls: 0, delay: 0, statusCode: 200,
+    claimIdOverride: null, evidenceDigestOverride: null };
   fixture.server = http.createServer((request, response) => {
     let body = '';
     request.on('data', (chunk) => { body += chunk; });
@@ -17,7 +18,13 @@ async function providerFixture(model) {
       const prompt = input.messages[0].content;
       const claimId = prompt.match(/Claim ID: (.*?)\. Evidence digest:/)[1];
       const evidenceDigest = prompt.match(/Evidence digest: (.*?)\.\nClaim:/)[1];
-      const text = JSON.stringify({ claimId, evidenceDigest, verdict: fixture.verdict,
+      if (fixture.statusCode !== 200) {
+        response.writeHead(fixture.statusCode, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ error: 'controlled provider unavailable' }));
+        return;
+      }
+      const text = JSON.stringify({ claimId: fixture.claimIdOverride || claimId,
+        evidenceDigest: fixture.evidenceDigestOverride || evidenceDigest, verdict: fixture.verdict,
         rationale: 'Controlled HTTP adapter fixture: independently returned bound assessment.' });
       setTimeout(() => {
         response.writeHead(200, { 'Content-Type': 'application/json' });

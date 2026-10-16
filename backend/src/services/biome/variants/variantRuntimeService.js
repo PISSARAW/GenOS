@@ -33,6 +33,12 @@ function advance({ ecology, variant, state = {}, input = {}, matrix }) {
   return { variant, state: result.state || state, decision: result.decision, action: result.action };
 }
 
+const SUPPORTED = Object.freeze(Object.keys(controllers));
+
+function supports(variant) {
+  return SUPPORTED.includes(variant);
+}
+
 function variantError(message, code) { return Object.assign(new Error(message), { code }); }
 
-module.exports = { advance };
+module.exports = { advance, supports, SUPPORTED };

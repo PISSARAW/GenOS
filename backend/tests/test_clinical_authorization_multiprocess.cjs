@@ -12,8 +12,8 @@ const therapySecret = randomUUID();
 
 function testEnv(config) {
   return { ...process.env, NODE_ENV: 'test', GENOS_DB_PATH: config.database,
-    GENOS_ADMIN_TOKEN: token, GENOS_ADMIN_PASSWORD: 'clinical-http-test',
-    GENOS_THERAPY_AUTH_SECRET: therapySecret, GENOS_DB_BACKUP_SKIP: '1',
+    GENOS_ADMIN_TOKEN: config.testToken || token, GENOS_ADMIN_PASSWORD: 'clinical-http-test',
+    GENOS_THERAPY_AUTH_SECRET: config.therapySecret || therapySecret, GENOS_DB_BACKUP_SKIP: '1',
     GENOS_DB_SCHEMA_MAINTENANCE: '0', GENOS_DB_BOOTSTRAP_SKIP: config.skipBootstrap ? '1' : '0',
     GENOS_SQLITE_BUSY_TIMEOUT_MS: '30000', CLINICAL_TEST_WORKSPACE: config.workspace,
     GENOS_STUDIO_ROOT: path.join(config.workspace, 'bridge'),
@@ -117,28 +117,24 @@ async function runScenario(config) {
     const applying = request({ port: serverA.port, scope: config.scope, method: 'POST',
       route: `/api/rust/clinical-authorizations/${authorizationId}/apply`, body: { missionId: config.missionId } });
     await waitForFile(config.marker);
-    let revokeSettled = false;
-    const revoking = request({ port: serverB.port, scope: config.scope, method: 'POST',
-      route: `/api/rust/clinical-authorizations/${authorizationId}/revoke`, body: {} })
-      .then(result => { revokeSettled = true; return result; });
-    await new Promise(resolve => setTimeout(resolve, 300));
-    assert.equal(revokeSettled, false, 'SQLite transaction must serialize revocation across processes');
+    const revoked = await request({ port: serverB.port, scope: config.scope, method: 'POST',
+      route: `/api/rust/clinical-authorizations/${authorizationId}/revoke`, body: {} });
+    assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
+    assert.equal(revoked.body.authorization.status, 'revoked_in_backend_ledger');
     await fs.writeFile(config.release, 'release');
     const applied = await applying;
     assert.equal(applied.status, 200, JSON.stringify(applied.body));
-    const revoked = await revoking;
-    assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
-    assert.equal(revoked.body.authorization.status, 'revoked_in_backend_ledger');
     const callsBeforeReplay = await fs.readFile(config.marker, 'utf8');
     for (const server of [serverA, serverB]) {
       const replay = await request({ port: server.port, scope: config.scope, method: 'POST',
         route: `/api/rust/clinical-authorizations/${authorizationId}/apply`, body: { missionId: config.missionId } });
-      assert.equal(replay.status, 409, JSON.stringify(replay.body));
-      assert.equal(replay.body.error.code, 'CLINICAL_AUTHORIZATION_REVOKED');
+      assert.equal(replay.status, 200, `${JSON.stringify(replay.body)}\n${server.stderr()}`);
+      assert.equal(replay.body.authorizationId, authorizationId);
+      assert.deepEqual(replay.body.rust, applied.body.rust);
     }
     assert.equal(await fs.readFile(config.marker, 'utf8'), callsBeforeReplay,
-      'post-revocation replays from either process must be refused before Rust');
-    console.log('Clinical HTTP multi-process SQLite serialization, tenant/mission scope and pre-Rust replay refusal: PASS');
+      'post-revocation replay must return the stored operation result without invoking Rust');
+    console.log('Clinical HTTP multi-process claim-before-revocation, tenant scope and cached replay: PASS');
   } finally {
     await fs.writeFile(config.release, 'release').catch(() => {});
     await stopServer(serverA);
@@ -169,6 +165,7 @@ async function serve(config) {
 async function main() {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-clinical-multiprocess-'));
   const config = { database: path.join(workspace, 'clinical.db'), workspace,
+    testToken: token, therapySecret,
     missionId: randomUUID(), cellId: randomUUID(), marker: path.join(workspace, 'rust-invocations.jsonl'),
     release: path.join(workspace, 'release-rust'), scope: { organizationId: randomUUID(), projectId: randomUUID() },
     foreignScope: { organizationId: randomUUID(), projectId: randomUUID() } };

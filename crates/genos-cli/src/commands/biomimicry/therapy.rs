@@ -48,33 +48,68 @@ pub(super) fn execute(
     target: (&str, &str),
     paths: (Option<String>, Option<String>),
 ) -> Result<serde_json::Value, String> {
-    let (Some(journal), Some(authorization_file)) = paths else {
+    let Some(paths) = clinical_paths(paths) else {
         return Ok(unavailable(target.0, target.1));
     };
-    let authorization_path = confined_file(&authorization_file)?;
-    let data = std::fs::read(authorization_path).map_err(|e| e.to_string())?;
-    let auth: genos_orchestrator::authorized_therapy::TherapyAuthorization =
-        serde_json::from_slice(&data).map_err(|e| e.to_string())?;
+    let auth = read_authorization(&paths.authorization_file)?;
     validate_target(&auth, target)?;
     let operation_id = format!("clinical-apply:{}", auth.authorization_id);
     let claimant_id = clinical_claimant_id()?;
-    let journal_path = confined_file(&journal)?;
-    let store = genos_store::BiologicalReceiptStore::open(journal_path);
+    let store = open_receipt_store(&paths.journal)?;
     let previous = store.find_idempotent_receipt("genos.clinical-application/v1", &operation_id)?;
     let claim = claim_backend_authority(&auth, &operation_id, &claimant_id)?;
+    validate_previous_application(&claim, previous.as_ref())?;
+    let receipt = apply_claimed_therapy(&auth, &operation_id, &claim, &store)?;
+    Ok(therapy_result(receipt))
+}
+
+struct ClinicalPaths { journal: String, authorization_file: String }
+
+fn clinical_paths(paths: (Option<String>, Option<String>)) -> Option<ClinicalPaths> {
+    let (Some(journal), Some(authorization_file)) = paths else { return None; };
+    Some(ClinicalPaths { journal, authorization_file })
+}
+
+fn read_authorization(file: &str) -> Result<genos_orchestrator::authorized_therapy::TherapyAuthorization, String> {
+    let path = confined_file(file)?;
+    let data = std::fs::read(path).map_err(|error| error.to_string())?;
+    serde_json::from_slice(&data).map_err(|error| error.to_string())
+}
+
+fn open_receipt_store(journal: &str) -> Result<genos_store::BiologicalReceiptStore, String> {
+    let path = confined_file(journal)?;
+    Ok(genos_store::BiologicalReceiptStore::open(path))
+}
+
+fn validate_previous_application(
+    claim: &serde_json::Value,
+    previous: Option<&serde_json::Value>,
+) -> Result<(), String> {
     if claim["status"] == "completed" && previous.is_none() {
         return Err("completed clinical operation is missing from the Rust journal; refusing to reapply".into());
     }
+    Ok(())
+}
+
+fn apply_claimed_therapy(
+    auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
+    operation_id: &str,
+    claim: &serde_json::Value,
+    store: &genos_store::BiologicalReceiptStore,
+) -> Result<serde_json::Value, String> {
     let mut ecosystem = genos_orchestrator::GenosEcosystem::new("authorized-clinical");
-    ecosystem.restore_population(&store)?;
-    let receipt = ecosystem.apply_authorized_therapy(&auth, &store)?;
-    complete_backend_application(&auth, &operation_id,
-        claim["claimToken"].as_str().unwrap_or_default(), &receipt)?;
+    ecosystem.restore_population(store)?;
+    let receipt = ecosystem.apply_authorized_therapy(auth, store)?;
+    complete_backend_application(ClinicalCompletion {
+        auth, operation_id, claim_token: claim["claimToken"].as_str().unwrap_or_default(), receipt: &receipt,
+    })?;
+    Ok(receipt)
+}
+
+fn therapy_result(receipt: serde_json::Value) -> serde_json::Value {
     let administered = receipt["treatment_administered"] == true;
-    Ok(
-        serde_json::json!({ "success": administered, "treatment_administered": administered,
-        "status": receipt["status"], "receipt": receipt }),
-    )
+    serde_json::json!({ "success": administered, "treatment_administered": administered,
+        "status": receipt["status"], "receipt": receipt })
 }
 
 fn validate_target(
@@ -114,12 +149,15 @@ fn claim_backend_authority(
     Ok(result)
 }
 
-fn complete_backend_application(
-    auth: &genos_orchestrator::authorized_therapy::TherapyAuthorization,
-    operation_id: &str,
-    claim_token: &str,
-    receipt: &serde_json::Value,
-) -> Result<(), String> {
+struct ClinicalCompletion<'a> {
+    auth: &'a genos_orchestrator::authorized_therapy::TherapyAuthorization,
+    operation_id: &'a str,
+    claim_token: &'a str,
+    receipt: &'a serde_json::Value,
+}
+
+fn complete_backend_application(input: ClinicalCompletion<'_>) -> Result<(), String> {
+    let ClinicalCompletion { auth, operation_id, claim_token, receipt } = input;
     let response = backend_authority_request(auth, "complete", json!({
         "operationId": operation_id, "claimToken": claim_token, "result": receipt,
     }))?.send().map_err(|_| "clinical application completion unavailable")?;
