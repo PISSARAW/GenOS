@@ -2,9 +2,10 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { executeCondition, topologyProfile, evidenceOf } = require('./comparisonAdapters.cjs');
+const { executeCondition, topologyProfile, evidenceOf, adapterProvenance, validateConditionProvenance,
+  isExternalPairedReady, assertExternalComparisonAllowed } = require('./comparisonAdapters.cjs');
 const transitions = require('../../backend/src/services/morphogenesis/morphogenesisTransitionReceipt');
-const { validateExternalDataset } = require('./run-comparison-campaign.cjs');
+const { validateExternalDataset, confirmatoryBlockers } = require('./run-comparison-campaign.cjs');
 const { verifyCandidate } = require('./oracles.cjs');
 
 test('conditional router changes the execution shape from declared query profile', () => {
@@ -29,7 +30,7 @@ test('the five adapters produce oracle-checkable outputs with measured budgets a
       { id: 'simple-multi-agent', adapter: 'fixed-team', messages: 4 },
       { id: 'conditional-router', adapter: 'conditional-router', messages: 4 },
       { id: 'mechanism-ablation', adapter: 'communication-light', messages: 4 },
-      { id: 'morphogenesis', adapter: 'genos-full', messages: 1 }
+      { id: 'morphogenesis-historical-frozen', adapter: 'genos-full', messages: 1 }
     ];
     for (const condition of cases) {
       calls = 0;
@@ -61,6 +62,48 @@ test('confirmatory dataset refuses bundled pilot tasks and missing separated inv
     prompt: 'independent question', oracle: { type: 'structured' } };
   assert.throws(() => validateExternalDataset({ datasetId: 'external', source: 'registry',
     tasks: [task], split: 'holdout' }, 'confirmatory'), /inventories/);
+});
+
+test('confirmatory mode is blocked by pilot toys, pending oracle and frozen arm', () => {
+  const pilotMode = confirmatoryBlockers({ mode: 'pilot' }, [{ id: 'arithmetic-partition' }], []);
+  assert.deepEqual(pilotMode, []);
+  const toys = confirmatoryBlockers({ mode: 'confirmatory' }, [{ id: 'arithmetic-partition' }], []);
+  assert.ok(toys.includes('pilot-toy-tasks'));
+  const oracle = confirmatoryBlockers({ mode: 'confirmatory' }, [{ id: 'external-new-task' }], []);
+  assert.ok(oracle.includes('oracle-selection-pending'));
+  assert.ok(oracle.includes('non-autonomous-arm-present'));
+  const frozen = confirmatoryBlockers({ mode: 'confirmatory' }, [{ id: 'external-new-task' }],
+    [{ id: 'morphogenesis-historical-frozen', autonomous: false }]);
+  assert.ok(frozen.includes('non-autonomous-arm-selected'));
+});
+
+test('local adapters cannot be labelled as external frameworks', () => {
+  for (const name of ['direct-model', 'fixed-team', 'conditional-router', 'communication-light', 'genos-full']) {
+    assert.equal(adapterProvenance(name).provenance, 'local-config');
+    assert.equal(adapterProvenance(name).externalFramework, 'none');
+  }
+  assert.throws(() => validateConditionProvenance({ id: 'model-alone', adapter: 'direct-model',
+    externalFramework: 'concurrent-x' }), /ne peut pas etre labellise externe/);
+  assert.equal(validateConditionProvenance({ id: 'model-alone', adapter: 'direct-model',
+    externalFramework: 'none' }).scope, 'local-baseline');
+});
+
+test('external allegation without a paired adapter is rejected and the stub fails closed', async () => {
+  const plan = require('./comparison-plan.json');
+  assert.equal(plan.comparisonScope, 'local-baselines-only');
+  assert.equal(plan.externalComparisonStatus, 'none-established');
+  assert.ok(plan.externalProtocol && plan.externalProtocol.status === 'skeleton-only');
+  assert.throws(() => assertExternalComparisonAllowed(plan.conditions, 'comparaison avec systemes concurrents'),
+    /Aucune comparaison directe/);
+  const skeleton = plan.conditions.find((entry) => entry.id === 'external-paired-pending');
+  assert.equal(isExternalPairedReady(skeleton), false);
+  const ready = isExternalPairedReady({ id: 'ext', adapter: 'external-paired-pending',
+    externalFramework: 'concurrent-x', externalProtocol: 'common-v1' });
+  assert.equal(ready, true);
+  const task = { id: 'arithmetic', prompt: 'calcule 24-3 puis divise par 7', oracle: 'verifyArithmeticPartition' };
+  const result = await executeCondition({ id: 'external-paired-pending', adapter: 'external-paired-pending' },
+    task, { tokens: 100, latencyMs: 1000, model: 'fixture', seed: 1, workspace: '.', dbPath: ':memory:' });
+  assert.match(result.error, /indisponible|protocole commun/);
 });
 
 test('comparison evidence requires a sealed transition and its exact verified resolution', () => {
