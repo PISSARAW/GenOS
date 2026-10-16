@@ -38,6 +38,7 @@ function run() {
   assert.ok(nested, 'candidate set includes a composed topology recipe');
   assert.equal(nested.expression.kind, 'NEST');
   assert.equal(collectTopologies(nested.expression).length, 2);
+  assertExecutableNest(first);
 
   for (const candidate of first) {
     if (!candidate.validation.valid) {
@@ -69,6 +70,13 @@ function run() {
   console.log('Adaptive topology candidates: PASS');
 }
 
+function assertExecutableNest(candidates) {
+  const executable = candidates.filter((item) => item.kind === 'NESTED' && item.executionEligible);
+  assert.ok(executable.some((item) => item.members[0].topology === 'a_team'
+    && item.members[1].topology === 'trinity'),
+  'a verified Trinity-to-A-Team adapter makes at least one NEST executable');
+}
+
 function assertUnverifiedCompositionsStayExploratory(registry) {
   const conceptual = restrictedRegistry(registry, ['biocenose', 'holobionte']);
   const conceptualNest = findNested({ registry: conceptual, host: 'biocenose', inner: 'holobionte' });
@@ -76,17 +84,17 @@ function assertUnverifiedCompositionsStayExploratory(registry) {
   assert.equal(conceptualNest.admissibility, 'exploratory_only');
   assert.equal(conceptualNest.executionEligible, false);
 
-  const unspecified = restrictedRegistry(registry, ['a_team', 'trinity']);
-  const unspecifiedNest = findNested({ registry: unspecified, host: 'a_team', inner: 'trinity' });
+  const unspecified = restrictedRegistry(registry, ['biome', 'trinity']);
+  const unspecifiedNest = findNested({ registry: unspecified, host: 'biome', inner: 'trinity' });
   assert.equal(unspecifiedNest.relation.relation, 'UNSPECIFIED');
   assert.equal(unspecifiedNest.admissibility, 'exploratory_only');
   assert.equal(unspecifiedNest.executionEligible, false);
 }
 
 function assertVerifiedCompositionsRequireVerifiedAdapter(registry) {
-  registry.relations.register({ left: 'a_team', right: 'trinity', relation: 'COMPATIBLE_WITH_ADAPTER', adapterRequired: true, evidenceStatus: 'verified' });
   const pair = restrictedRegistry(registry, ['a_team', 'trinity']);
-  const missing = findNested({ registry: pair, host: 'a_team', inner: 'trinity' });
+  const missing = findNested({ registry: pair, host: 'a_team', inner: 'trinity',
+    adapterRegistry: createTopologyAdapterRegistry() });
   assert.equal(missing.admissibility, 'exploratory_only');
   assert.equal(missing.executionEligible, false);
 

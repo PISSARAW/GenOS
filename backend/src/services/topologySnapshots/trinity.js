@@ -61,7 +61,7 @@ async function loadBoundState(context) {
 function selectedVariant(design, requested) {
   const selection = design.variantSelection || {};
   const selected = selection.variant === 'composed' ? selection.selectedPreset : selection.variant || 'controlled';
-  const normalized = requested === 'default' ? 'controlled' : requested;
+  const normalized = requested === 'default' ? selected : requested;
   if (selected !== normalized || !Object.hasOwn(VARIANT_STAGES, selected)) {
     fail('TRINITY_SNAPSHOT_VARIANT_MISMATCH', 'Persisted Trinity variant does not match the snapshot request.');
   }
@@ -191,8 +191,8 @@ async function capture(context) {
 async function preflightRestore(context, manifest) {
   const status = manifest?.boundary?.status;
   if (!TERMINAL.has(status)) return { ok: false, reasons: ['Trinity experiment is not terminal; live worlds may still write.'] };
-  const variant = context.variantId === 'default' ? 'controlled' : context.variantId;
   const policy = manifest.components.find((item) => item.id === 'variant-policy')?.payload;
+  const variant = context.variantId === 'default' ? policy?.variant : context.variantId;
   if (policy?.variant !== variant) return { ok: false, reasons: ['Trinity variant policy changed.'] };
   return { ok: true, plan: { restore: 'workspace-only', collectiveState: 'verify-only',
     sealedBaseline: 'verify-sha256', experimentId: context.sessionId } };

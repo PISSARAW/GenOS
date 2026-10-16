@@ -3,10 +3,13 @@
 const { withTransaction } = require('../../db');
 
 async function ensureTables(db) {
-  await db.run('CREATE TABLE IF NOT EXISTS topology_sessions (id TEXT PRIMARY KEY, topology TEXT NOT NULL, state_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+  await db.run('CREATE TABLE IF NOT EXISTS topology_sessions (id TEXT PRIMARY KEY, topology TEXT NOT NULL, variant_id TEXT, state_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
   const columns = await db.all('PRAGMA table_info(topology_sessions)');
   if (Array.isArray(columns) && columns.length && !columns.some((column) => column.name === 'revision')) {
     await db.run('ALTER TABLE topology_sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+  }
+  if (Array.isArray(columns) && columns.length && !columns.some((column) => column.name === 'variant_id')) {
+    await db.run('ALTER TABLE topology_sessions ADD COLUMN variant_id TEXT');
   }
   await db.run(`CREATE TABLE IF NOT EXISTS topology_session_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, topology TEXT NOT NULL,
@@ -21,18 +24,20 @@ async function ensureTables(db) {
 
 async function create(db, session) {
   await ensureTables(db);
-  const result = await db.run(`INSERT INTO topology_sessions (id, topology, state_json, revision, updated_at)
-    VALUES (?, 'biome', ?, 0, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING`,
-  session.id, JSON.stringify(session.state || {}));
+  const result = await db.run(`INSERT INTO topology_sessions (id, topology, variant_id, state_json, revision, updated_at)
+    VALUES (?, 'biome', ?, ?, 0, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING`,
+  session.id, session.state?.variant || null, JSON.stringify(session.state || {}));
   if (result.changes !== 1) throw conflict(session.id);
   return { id: session.id, revision: 0 };
 }
 
 async function load(db, id) {
   await ensureTables(db);
-  const row = await db.get('SELECT topology, state_json, revision FROM topology_sessions WHERE id = ?', id);
+  const row = await db.get('SELECT topology, variant_id, state_json, revision FROM topology_sessions WHERE id = ?', id);
   if (!row || row.topology !== 'biome') return null;
-  return { id, topology: row.topology, revision: Number(row.revision) || 0, state: parseState(row.state_json) };
+  const state = parseState(row.state_json);
+  return { id, topology: row.topology, variantId: row.variant_id || state.variant || null,
+    revision: Number(row.revision) || 0, state };
 }
 
 async function loadPersistentEnvironment(db, id) {
@@ -70,9 +75,10 @@ async function mutate(options) {
       });
     }
     const revision = record.revision + 1;
-    const updated = await db.run(`UPDATE topology_sessions SET state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP
+    const updated = await db.run(`UPDATE topology_sessions SET variant_id = ?, state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND topology = 'biome' AND revision = ?`,
-    JSON.stringify(change.state), revision, options.id, record.revision);
+    change.state.variant || record.variantId || null, JSON.stringify(change.state), revision,
+    options.id, record.revision);
     if (updated.changes !== 1) throw conflict(options.id);
     await db.run(`INSERT INTO topology_session_events (session_id, topology, revision, event_type, payload_json)
       VALUES (?, 'biome', ?, ?, ?)`, options.id, revision, options.operation,

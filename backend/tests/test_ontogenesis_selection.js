@@ -57,14 +57,20 @@ const failed = selector.selectTopology({
 assert.strictEqual(failed.blocked, 'aucune-topologie-admissible');
 assert.ok(failed.rationale.some((line) => line.includes('echecs-repetes')));
 
-// Variante inconnue : repli déclaré vers le défaut.
+// Variante inconnue : refus explicite, sans repli silencieux.
 const variant = selector.selectTopology({
   taskKind: 'implement', allowedTopologies: ['rhizome'],
   availableCapabilities: ['execute', 'observe'],
   memoryLevel: 'normal', failures: [], variant: 'inexistante-xyz'
 });
-assert.strictEqual(variant.variant, 'default');
-assert.ok(variant.rationale.some((line) => line.includes('repli')));
+assert.strictEqual(variant.blocked, 'variante-indisponible:inexistante-xyz');
+
+// Pression critique : une topologie de coût 1 reste admissible.
+const criticalTopology = selector.selectTopology({
+  taskKind: 'explore', allowedTopologies: ['rhizome'],
+  availableCapabilities: ['execute', 'observe'], memoryLevel: 'critical', failures: []
+});
+assert.strictEqual(criticalTopology.topology, 'rhizome');
 
 // Mémoire : seuils, hystérésis, admission.
 const roomy = { totalMb: 8192, freeMb: 6144, freePct: 0.75, supervisorMb: 200, reservationsMb: 0 };

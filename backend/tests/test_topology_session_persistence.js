@@ -61,12 +61,17 @@ function updateRhizomeRows({ rows, statement, params, kind }) {
 
 function insertSession(rows, statement, params) {
   if (statement.includes("VALUES (?, 'BIOME', ?")) {
-    rows.set(params[0], { topology: 'biome', state_json: params[1], revision: 0 });
+    const hasVariant = statement.includes('VARIANT_ID');
+    rows.set(params[0], { topology: 'biome', variant_id: hasVariant ? params[1] : null,
+      state_json: params[hasVariant ? 2 : 1], revision: 0 });
     return { changes: 1 };
   }
+  const hasVariant = statement.includes('VARIANT_ID');
   const current = rows.get(params[0]);
-  const revision = statement.includes('VALUES (?, ?, ?, 1') ? 1 : (current?.revision || 0) + (current ? 1 : 0);
-  rows.set(params[0], { topology: params[1], state_json: params[2], revision });
+  const revision = statement.includes('VALUES (?, ?, ?, ?, 1') || statement.includes('VALUES (?, ?, ?, 1')
+    ? 1 : (current?.revision || 0) + (current ? 1 : 0);
+  rows.set(params[0], { topology: params[1], variant_id: hasVariant ? params[2] : null,
+    state_json: params[hasVariant ? 3 : 2], revision });
   return { changes: 1 };
 }
 
@@ -81,20 +86,51 @@ function insertEvent(events, statement, params) {
 
 function updateSession(rows, statement, params) {
   if (statement.startsWith('UPDATE TOPOLOGY_SESSIONS SET STATE_JSON = ? WHERE ID = ?')) {
-    const current = rows.get(params[1]);
-    if (!current) return { changes: 0 };
-    rows.set(params[1], { ...current, state_json: params[0] });
-    return { changes: 1 };
+    return updateSimpleSession(rows, params);
   }
-  const isSave = statement.includes('SET TOPOLOGY = ?');
-  const isSyncytium = statement.includes("TOPOLOGY = 'SYNCYTIUM'");
-  const idIndex = isSyncytium ? 1 : isSave ? 3 : 2;
-  const revisionIndex = params.length === 4 ? 3 : 4;
-  const current = rows.get(params[idIndex]);
-  if (!current || (!isSyncytium && current.revision !== params[revisionIndex])) return { changes: 0 };
-  const revision = isSyncytium ? current.revision : params[1];
-  rows.set(params[idIndex], { ...current, state_json: params[0], revision });
+  if (statement.startsWith('UPDATE TOPOLOGY_SESSIONS SET VARIANT_ID = ?, STATE_JSON = ? WHERE ID = ?')) {
+    return updateVariantSession(rows, params);
+  }
+  return updateRevisionedSession(rows, statement, params);
+}
+
+function updateSimpleSession(rows, params) {
+  const current = rows.get(params[1]);
+  if (!current) return { changes: 0 };
+  rows.set(params[1], { ...current, state_json: params[0] });
   return { changes: 1 };
+}
+
+function updateVariantSession(rows, params) {
+  const current = rows.get(params[2]);
+  if (!current) return { changes: 0 };
+  rows.set(params[2], { ...current, variant_id: params[0], state_json: params[1] });
+  return { changes: 1 };
+}
+
+function updateRevisionedSession(rows, statement, params) {
+  const layout = sessionUpdateLayout(statement);
+  const current = rows.get(params[layout.id]);
+  if (!current) return { changes: 0 };
+  if (layout.checkRevision && current.revision !== params.at(-1)) return { changes: 0 };
+  rows.set(params[layout.id], { ...current,
+    variant_id: layout.variant === null ? current.variant_id : params[layout.variant],
+    state_json: params[layout.state], revision: params[layout.revision] });
+  return { changes: 1 };
+}
+
+function sessionUpdateLayout(statement) {
+  const hasVariant = statement.includes('VARIANT_ID');
+  if (statement.includes("TOPOLOGY = 'SYNCYTIUM'")) {
+    return hasVariant ? { id: 3, variant: 0, state: 1, revision: 2, checkRevision: false }
+      : { id: 1, variant: null, state: 0, revision: 0, checkRevision: false };
+  }
+  if (statement.includes('SET TOPOLOGY = ?')) {
+    return hasVariant ? { id: 4, variant: 1, state: 2, revision: 3, checkRevision: true }
+      : { id: 3, variant: null, state: 1, revision: 2, checkRevision: true };
+  }
+  return hasVariant ? { id: 3, variant: 0, state: 1, revision: 2, checkRevision: true }
+    : { id: 2, variant: null, state: 0, revision: 1, checkRevision: true };
 }
 
 function updateRevision(revisions, params) {
@@ -164,6 +200,7 @@ function readRecord(state, sql, params) {
   await syncytium.applyOperation(syn.sessionId, { agentId: 'w1', role: 'r', kind: { type: 'insert_text', index: 0, text: 'shared' } }, { db });
   const synRecord = await store.load(db, syn.sessionId);
   assert.equal(synRecord.topology, 'syncytium');
+  assert.equal(synRecord.variantId, 'hard');
   assert.equal(synRecord.state.ops.length, 1);
   const revivedSyn = syncytium.rehydrate(synRecord);
   assert.equal(revivedSyn.crdt.getSnapshot().textContent, 'shared');
@@ -173,6 +210,7 @@ function readRecord(state, sql, params) {
   await rhizome.depositTrail(rhiz.sessionId, 'edge:e1', { amount: 4, db });
   const rhizRecord = await store.load(db, rhiz.sessionId);
   assert.equal(rhizRecord.topology, 'rhizome');
+  assert.equal(rhizRecord.variantId, 'routing');
   assert.equal(rhizRecord.revision, 2);
   assert.equal(rhizRecord.state.trails.length, 1);
   db.registerWorker('foreign-rhiz-worker', 'rhizome-other');
@@ -292,6 +330,7 @@ function readRecord(state, sql, params) {
   assert.equal(allocation.receipt.resultingRevision, 1);
   const ecoRecord = await store.load(db, eco.sessionId);
   assert.equal(ecoRecord.topology, 'biome');
+  assert.equal(ecoRecord.variantId, 'persistent');
   assert.equal(ecoRecord.state.matrix.version, 1);
   const biomeEvents = await store.events(db, eco.sessionId);
   assert.equal(biomeEvents.length, 1);

@@ -12,6 +12,10 @@ const rhizome = require('./rhizomeCoordinationService');
 const biome = require('./biomeCoordinationService');
 const rhizomeMergePolicy = require('./rhizome/bridges/mergePolicyEvaluationService');
 const rhizomeOperations = require('./rhizome/topologyOperationService');
+const CANONICAL_TOPOLOGIES = new Set([
+  'trinity', 'a_team', 'biome', 'biocenose', 'holobionte', 'syncytium',
+  'rhizome', 'metapopulation'
+]);
 
 async function syncytiumEvents(db, sessionId, args) {
   const after = Number.isSafeInteger(Number(args.after_revision)) ? Number(args.after_revision) : -1;
@@ -255,10 +259,25 @@ const OPERATIONS = {
     health: assessBiome, advance_variant: advanceBiomeVariant, ...require('./biome/biomeSessionTools') }
 };
 
+const COMMON_OPERATIONS = Object.freeze({
+  inspect: async (...values) => sessionDescriptor(values[3]),
+  snapshot: async (...values) => ({ ...sessionDescriptor(values[3]),
+    state: structuredClone(values[3].state) }),
+  events: async (db, id) => ({ sessionId: id, events: await store.events(db, id) })
+});
+
+function sessionDescriptor(record) {
+  return { sessionId: record.id, topology: record.topology,
+    variantId: record.variantId || null, revision: record.revision };
+}
+
 function operationHandler(topology, operation) {
-  if (!Object.hasOwn(OPERATIONS, topology)) return undefined;
   const topologyOperations = OPERATIONS[topology];
-  return Object.hasOwn(topologyOperations, operation) ? topologyOperations[operation] : undefined;
+  if (topologyOperations && Object.hasOwn(topologyOperations, operation)) {
+    return topologyOperations[operation];
+  }
+  return CANONICAL_TOPOLOGIES.has(topology) && Object.hasOwn(COMMON_OPERATIONS, operation)
+    ? COMMON_OPERATIONS[operation] : undefined;
 }
 
 async function applyTopologyOperation(db, args = {}, context = {}) {
@@ -284,8 +303,8 @@ async function dispatchTopologyOperation(context) {
     });
   }
   const handler = operationHandler(record.topology, operation);
-  if (handler) return Reflect.apply(handler, undefined, [db, sessionId, args]);
+  if (handler) return Reflect.apply(handler, undefined, [db, sessionId, args, record]);
   throw new Error(`Unsupported operation '${operation}' for ${record.topology} session.`);
 }
 
-module.exports = { applyTopologyOperation };
+module.exports = { applyTopologyOperation, operationHandler, CANONICAL_TOPOLOGIES };

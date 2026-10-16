@@ -98,11 +98,25 @@ function testCalibrationRequiresVerifiedCrossDomainHoldoutAndFavorsAbstention() 
 }
 
 function main() {
-  testCompilesPolicyFromObservedNeeds();
-  testEvidenceChangeRecompilesAndVerifiedReceiptStops();
-  testPortfolioContainsVariantsAndNoAuthority();
-  testCalibrationRequiresVerifiedCrossDomainHoldoutAndFavorsAbstention();
-  process.stdout.write('conditional morphogenesis policy tests passed\n');
+  const previousId = process.env.GENOS_EPISTEMIC_RECEIPT_KEY_ID;
+  const previousSecret = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET;
+  process.env.GENOS_EPISTEMIC_RECEIPT_KEY_ID = 'legacy';
+  process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'test-only-conditional-morphogenesis-secret';
+  try {
+    testCompilesPolicyFromObservedNeeds();
+    testEvidenceChangeRecompilesAndVerifiedReceiptStops();
+    testPortfolioContainsVariantsAndNoAuthority();
+    testCalibrationRequiresVerifiedCrossDomainHoldoutAndFavorsAbstention();
+    process.stdout.write('conditional morphogenesis policy tests passed\n');
+  } finally {
+    restoreEnvironment('GENOS_EPISTEMIC_RECEIPT_KEY_ID', previousId);
+    restoreEnvironment('GENOS_EPISTEMIC_RECEIPT_SECRET', previousSecret);
+  }
+}
+
+function restoreEnvironment(name, value) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }
 
 main();

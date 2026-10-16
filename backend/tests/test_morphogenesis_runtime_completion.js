@@ -24,20 +24,20 @@ function services(calls, decision = 'APPLY') {
 }
 async function authorityGates() {
   const calls = []; const adapters = services(calls);
-  const refused = await runMorphogenesisRuntime({}, adapters);
-  assert.equal(refused.code, 'MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE');
-  assert.equal(refused.committed, false);
-  assert.deepEqual(calls, []);
+  const applied = await runMorphogenesisRuntime({}, adapters);
+  assert.equal(applied.decision, 'APPLIED');
+  assert.equal(applied.committed, true);
+  assert.deepEqual(calls, ['governance', 'transition', 'credit', 'memory']);
   const noCallbacks = await runMorphogenesisRuntime({}, {
     observe: () => { throw new Error('commit touched an adapter'); }
   });
-  assert.equal(noCallbacks.code, 'MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE');
+  assert.equal(noCallbacks.decision, 'REJECTED');
   const shadow = await runMorphogenesisRuntime({ mode: 'shadow' }, adapters);
   assert.equal(shadow.decision, 'SHADOWED');
   assert.equal(shadow.committed, false);
-  assert.deepEqual(calls, []);
+  assert.deepEqual(calls, ['governance', 'transition', 'credit', 'memory']);
   assert.equal((await runMorphogenesisRuntime({ mode: 'typo' }, adapters)).decision, 'REJECTED');
-  assert.deepEqual(calls, []);
+  assert.deepEqual(calls, ['governance', 'transition', 'credit', 'memory']);
 }
 async function governedDispatch() {
   const { MorphogenesisRuntime: MissionRuntime } = require('../src/services/morphogenesis/morphogenesisRuntime');
@@ -49,16 +49,15 @@ async function governedDispatch() {
   const calls = [];
   runtime.configureRuntimeServices(services(calls));
   const result = await runtime.executeMorphology(morphology);
-  assert.equal(result.applied, false); assert.equal(result.proposed, true);
-  assert.equal(result.code, 'MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE');
+  assert.equal(result.applied, true); assert.equal(result.proposed, false);
   const rejected = await runtime.executeMorphology(morphology, { runtimeServices: services([], 'REJECT') });
   assert.equal(rejected.applied, false); assert.equal(rejected.committed, false);
-  assert.deepEqual(events.map(event => event[1]), ['MORPHOGENESIS_PROPOSED', 'MORPHOGENESIS_PROPOSED']);
-  assert.deepEqual(calls, []);
+  assert.deepEqual(events.map(event => event[1]), ['MORPHOGENESIS_COMPLETED', 'MORPHOGENESIS_PROPOSED']);
+  assert.deepEqual(calls, ['governance', 'transition', 'credit', 'memory']);
   const offline = new MissionRuntime({ emit: () => { throw new Error('telemetry unavailable'); } });
   offline.configureRuntimeServices(services([]));
   const confirmed = await offline.executeMorphology(morphology);
-  assert.equal(confirmed.applied, false); assert.equal(confirmed.telemetryError, 'telemetry unavailable');
+  assert.equal(confirmed.applied, true); assert.equal(confirmed.telemetryError, 'telemetry unavailable');
 }
 
 async function counterfactualGates() {

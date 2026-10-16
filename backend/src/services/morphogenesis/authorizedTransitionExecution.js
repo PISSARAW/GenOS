@@ -1,0 +1,97 @@
+'use strict';
+
+const { withTransaction } = require('../../db');
+const collective = require('../collectiveStateService');
+const durableSnapshots = require('./morphogenesisTransitionSnapshotService');
+const productionAuthority = require('./morphogenesisProductionAuthority');
+
+async function persistCommit(input) {
+  return withTransaction(input.ctx.db, async () => {
+    const commit = await input.ctx.persistCommit(input.receipt);
+    if (!commit?.id) throw new Error('Versioned transition commit did not return an immutable identifier.');
+    await durableSnapshots.persistCollective({ db: input.ctx.db,
+      state: input.ctx.collectiveState });
+    await durableSnapshots.markCommitted({ db: input.ctx.db, id: input.snapshot.id });
+    return commit;
+  });
+}
+
+async function rollback(input, ops) {
+  const compensationErrors = await ops.compensateActions(
+    input.compensations, input.ctx, input.error.message);
+  let restored;
+  try {
+    restored = await durableSnapshots.restore({ db: input.ctx.db, id: input.snapshot.id,
+      collectiveState: input.ctx.collectiveState, snapshotStore: input.ctx.snapshotStore,
+      error: input.error.message });
+    if (compensationErrors.length) await durableSnapshots.markRecoveryRequired({
+      db: input.ctx.db, id: input.snapshot.id, error: compensationErrors.join('; ') });
+  } catch (restoreError) {
+    compensationErrors.push(restoreError.message || String(restoreError));
+    restored = { restored: false, snapshotId: input.snapshot.id };
+  }
+  return { rolledBack: restored.restored === true && compensationErrors.length === 0,
+    durableRestored: restored.restored === true, externalCompensated: compensationErrors.length === 0,
+    compensationErrors, targetSnapshotId: input.snapshot.id, domains: restored.domains || [],
+    triggeredBy: input.error.message, timestamp: ops.nowIso() };
+}
+
+async function applyActions(input, ops) {
+  for (const action of input.ctx.plan.actions) {
+    const result = await ops.runAction(action, input.ctx);
+    input.actionsTaken.push(result);
+    await durableSnapshots.appendAction({ db: input.ctx.db,
+      transitionId: input.ctx.transitionId, receipt: result });
+    if (result.status !== 'success') throw new Error(`action ${action.type} failed: ${result.error}`);
+    if (['spawn', 'retire'].includes(action.type)) input.compensations.push({ action, result });
+  }
+}
+
+function successfulReceipt(input, ops) {
+  const migrationLog = ops.migrateState({ fromState: input.preState,
+    toState: input.ctx.collectiveState, plan: input.ctx.plan });
+  ops.verifyTransitionState({ plan: input.ctx.plan, collectiveState: input.ctx.collectiveState,
+    preSnapshot: null, actionsTaken: input.actionsTaken });
+  const postSnapshot = ops.createStateSnapshot(input.ctx.collectiveState);
+  return { ...ops.buildReceipt({ transitionId: input.ctx.transitionId, plan: input.ctx.plan,
+    preSnapshot: input.snapshot, postSnapshot, actionsTaken: input.actionsTaken,
+    rollbackReceipt: null, committed: true }), durableSnapshot: input.snapshot,
+  rustAuthority: input.authority, migrationLog };
+}
+
+async function runApplying(input, ops) {
+  const actionsTaken = [];
+  const compensations = [];
+  try {
+    await applyActions({ ctx: input.ctx, actionsTaken, compensations }, ops);
+    const receipt = successfulReceipt({ ...input, actionsTaken }, ops);
+    receipt.commit = await persistCommit({ ctx: input.ctx, receipt, snapshot: input.snapshot });
+    return receipt;
+  } catch (error) {
+    const rollbackReceipt = await rollback({ error, compensations, ctx: input.ctx,
+      snapshot: input.snapshot }, ops);
+    return { ...ops.buildReceipt({ transitionId: input.ctx.transitionId, plan: input.ctx.plan,
+      preSnapshot: input.snapshot, postSnapshot: null, actionsTaken, rollbackReceipt,
+      committed: false }), durableSnapshot: input.snapshot, rustAuthority: input.authority,
+    code: error.code || 'MORPHOGENESIS_TRANSITION_FAILED', errors: [error.message || String(error)] };
+  }
+}
+
+async function execute(ctx, transitionId, ops) {
+  const state = ctx.collectiveState || ops.getState();
+  const agentId = ctx.agentId || ctx.parent?.id;
+  if (!ops.hasNoActiveConflict(ctx.plan, state)) throw new Error('active transition conflict');
+  const snapshot = await durableSnapshots.capture({ ...ctx, agentId, transitionId,
+    collectiveState: state });
+  const loaded = await durableSnapshots.load({ db: ctx.db, id: snapshot.id });
+  const preState = collective.deserializeState(loaded.payload.collectiveState);
+  const authority = await productionAuthority.authorize({ ...ctx, agentId,
+    collectiveState: state, missionId: ctx.missionId,
+    currentTopology: state.topologyState?.topology || state.topologyState?.organization
+      || 'unconfigured', snapshot });
+  await durableSnapshots.markApplying({ db: ctx.db, id: snapshot.id, authority });
+  const morphCtx = { ...ctx, agentId, collectiveState: state, transitionId };
+  return runApplying({ ctx: morphCtx, snapshot, authority, preState }, ops);
+}
+
+module.exports = { execute };

@@ -51,7 +51,7 @@ async function fixture(variant = 'controlled', status = 'promoted', automatic = 
     }
   };
   const context = { db, topologyId: 'trinity', variantId: variant, sessionId: experiment.id,
-    agentId: world.agent_id, workspaceId: 'workspace-1',
+    agentId: world.agent_id, workspaceId: 'workspace-1', workerKind: 'bounded_worker',
     scope: { clause: 'w.organization_id IS NULL AND w.project_id IS NULL', params: [] } };
   return { root, baseline, context, experiment };
 }
@@ -79,6 +79,16 @@ test('Trinity refuses capture for an agent outside the experiment world', async 
   try {
     data.context.agentId = 'other-agent';
     await assert.rejects(adapter.capture(data.context), { code: 'TRINITY_SNAPSHOT_OWNER_MISMATCH' });
+  } finally { await fs.rm(data.root, { recursive: true, force: true }); }
+});
+
+test('Trinity default snapshot preserves the persisted non-controlled variant', async () => {
+  const data = await fixture('heterogeneous', 'promoted', true);
+  try {
+    const manifest = await topologySnapshots.capture({ ...data.context, variantId: 'default' });
+    assert.equal(manifest.components.find((item) => item.id === 'variant-policy').payload.variant,
+      'heterogeneous');
+    assert.equal(manifest.bindings.workerKind, 'bounded_worker');
   } finally { await fs.rm(data.root, { recursive: true, force: true }); }
 });
 

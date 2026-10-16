@@ -1,4 +1,4 @@
-//! Read-only bridge from the Node control plane to the Rust morphogenesis kernel.
+//! Evidence-gated bridge from the Node control plane to the Rust morphogenesis kernel.
 
 use genos_orchestrator::kernel_governance::{GovernanceDecision, GovernanceInput, GovernancePlane};
 use genos_orchestrator::kernel_morphogenesis::{MorphogenesisPlan, MorphogenesisPlanner, PlanInput};
@@ -8,6 +8,7 @@ use genos_orchestrator::kernel_diagnosis::{Diagnosis, FailureType};
 use genos_orchestrator::kernel_state::OrchestratorState;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use super::morphogenesis_authority::{self, Envelope, Expected, Verified};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -21,6 +22,12 @@ struct Request {
     graph_version: Option<u64>,
     reason: String,
     proposals: Vec<Proposal>,
+    transition_plan_sha256: Option<String>,
+    transition_snapshot_id: Option<String>,
+    transition_snapshot_sha256: Option<String>,
+    risk_millis: Option<u16>,
+    degraded_mode: Option<bool>,
+    transition_authority: Option<Envelope>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,6 +58,8 @@ struct Response {
     committed: bool,
     plan: MorphogenesisPlan,
     governance: GovernanceDecision,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    authority: Option<Verified>,
 }
 
 fn validate(request: &Request) -> Result<(), String> {
@@ -66,6 +75,27 @@ fn validate(request: &Request) -> Result<(), String> {
     }
     validate_snapshot_binding(request)?;
     validate_proposals(request)?;
+    validate_transition_binding(request)?;
+    Ok(())
+}
+
+fn validate_transition_binding(request: &Request) -> Result<(), String> {
+    let fields = [request.transition_plan_sha256.is_some(), request.transition_snapshot_id.is_some(),
+        request.transition_snapshot_sha256.is_some(), request.risk_millis.is_some(),
+        request.degraded_mode.is_some(), request.transition_authority.is_some()];
+    if fields.iter().any(|present| *present) && fields.iter().any(|present| !present) {
+        return Err("incomplete authenticated transition binding".into());
+    }
+    if request.transition_plan_sha256.as_ref().is_some_and(|value| !is_sha256(value))
+        || request.transition_snapshot_sha256.as_ref().is_some_and(|value| !is_sha256(value))
+        || request.transition_snapshot_id.as_ref().is_some_and(|value| value.trim().is_empty())
+        || request.risk_millis.is_some_and(|value| value > 1_000) {
+        return Err("invalid authenticated transition binding".into());
+    }
+    if request.transition_authority.is_some()
+        && request.mission_id.as_ref().is_none_or(|value| value.trim().is_empty()) {
+        return Err("authenticated transition requires a mission identifier".into());
+    }
     Ok(())
 }
 
@@ -110,9 +140,10 @@ fn adjudicate(payload: &str) -> Result<Response, String> {
     if payload.len() > 65536 {
         return Err("morphogenesis adjudication payload exceeds 64 KiB".into());
     }
-    let request: Request = serde_json::from_str(payload)
+    let mut request: Request = serde_json::from_str(payload)
         .map_err(|error| format!("invalid morphogenesis adjudication JSON: {error}"))?;
     validate(&request)?;
+    let verified = verify_transition_authority(&mut request)?;
     let proposals = ProposalSet { items: request.proposals };
     let mut planner = MorphogenesisPlanner::default();
     let plan = planner.plan(&PlanInput {
@@ -120,23 +151,39 @@ fn adjudicate(payload: &str) -> Result<Response, String> {
         current_topology: &request.current_topology,
         reason: &request.reason,
     });
-    // The public post-mission caller has no authenticated principal or transition lease.
+    let authority = if verified.is_some() { "orchestrator_principal" } else { "post_mission_read_only" };
     let governance = GovernancePlane::new().validate(&GovernanceInput {
         plan: &plan,
-        authority: "post_mission_read_only",
-        risk_level: 0.0,
-        degraded_mode: false,
+        authority,
+        risk_level: f64::from(request.risk_millis.unwrap_or(0)) / 1_000.0,
+        degraded_mode: request.degraded_mode.unwrap_or(false),
     });
-    let decision = if plan.decision_no_change { "NO_CHANGE" } else { "REJECTED" };
+    let authorized = verified.is_some() && governance.allowed && !plan.decision_no_change;
+    let decision = if plan.decision_no_change { "NO_CHANGE" }
+        else if authorized { "APPLY" } else { "REJECTED" };
     Ok(Response {
         schema_version: 1,
         request_sha256: format!("{:x}", Sha256::digest(payload.as_bytes())),
         decision,
-        commit_authorized: false,
+        commit_authorized: authorized,
         committed: false,
         plan,
         governance,
+        authority: verified,
     })
+}
+
+fn verify_transition_authority(request: &mut Request) -> Result<Option<Verified>, String> {
+    let Some(envelope) = request.transition_authority.take() else { return Ok(None); };
+    let expected = Expected {
+        mission_id: request.mission_id.as_deref().unwrap_or_default(),
+        plan_sha256: request.transition_plan_sha256.as_deref().unwrap_or_default(),
+        snapshot_id: request.transition_snapshot_id.as_deref().unwrap_or_default(),
+        snapshot_sha256: request.transition_snapshot_sha256.as_deref().unwrap_or_default(),
+        risk_millis: request.risk_millis.unwrap_or(0),
+        degraded_mode: request.degraded_mode.unwrap_or(false),
+    };
+    morphogenesis_authority::verify(envelope, expected).map(Some)
 }
 
 pub fn execute(payload: &str) -> Result<(), String> {

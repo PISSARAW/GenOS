@@ -34,6 +34,10 @@ async function executeVariantAction(input) {
   return routeVariantAction({ db, sessionId, action, request, variantId, service });
 }
 
+function supportsVariant(variantId) {
+  return Array.isArray(ACTIONS[variantId]) && ACTIONS[variantId].length > 0;
+}
+
 function contextRequest(input) {
   const { db, sessionId, variantId, request } = input;
   if (variantId === 'localFirst' || variantId === 'speculative') {
@@ -42,7 +46,7 @@ function contextRequest(input) {
   return { ...request, sessionId, options: { ...(request.options || {}), db } };
 }
 
-module.exports = { executeVariantAction, ACTIONS };
+module.exports = { executeVariantAction, supportsVariant, ACTIONS };
 
 function routeDirectVariantAction(context) {
   const { sessionId, action, request, service } = context;

@@ -87,6 +87,7 @@ function emitImmediateCompletion({ runner, orchestratorId, planId }) {
 }
 
 async function dispatchTeam({ db, context, parent, launchWorker }) {
+  requireRequestedMultiteamExecutor(context);
   requireParentWorkspace(parent);
   const setup = await prepareDispatch({ db, context });
   const canonical = await createCanonicalRun(setup);
@@ -121,7 +122,7 @@ async function prepareDispatch({ db, context }) {
     mission: { ...request, goal: projectGoal }, members: team.members,
     totalBudget: requestedTokenBudget(request)
   });
-  requireExecutableVariant(policy.policy);
+  requireExecutableVariant(policy.policy, context);
   team.members = policy.members;
   team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members, workerAssignments);
   team.executionPolicy = policy.policy;
@@ -136,8 +137,19 @@ async function prepareDispatch({ db, context }) {
   return { db, request, garage, projectGoal, team, context };
 }
 
-function requireExecutableVariant(policy) {
+function requireRequestedMultiteamExecutor(context) {
+  const request = context.request || {};
+  if (request.variant !== 'multiteam') return;
+  requireMultiteamExecutor(context);
+}
+
+function requireExecutableVariant(policy, context) {
   if (policy.variant !== 'multiteam') return;
+  requireMultiteamExecutor(context);
+}
+
+function requireMultiteamExecutor(context) {
+  if (context.request?.background === false && typeof context.executeTeam === 'function') return;
   throw Object.assign(new Error('Multiteam dispatch requires a verified sub-run executor.'), {
     code: 'ATEAM_MTS_EXECUTOR_REQUIRED'
   });
@@ -206,7 +218,7 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
   const existingWorkerIds = await workersAlreadyPresent(setup.db, plan.members);
   // Independent producers start now; the detached runner waits for them before
   // launching the consumer stages.
-  const stageZero = plan.members.filter((member) => member.pipelineStage === 0 && !existingWorkerIds.has(member.workerId));
+  const stageZero = stageZeroMembers(activeRun, plan, existingWorkerIds);
   const accepted = await Promise.all(stageZero.map((member, index) => launchWorker({ db: setup.db, context, member, index: index + 1, parent, suppliedWorkerId: member.workerId })));
   if (context.request.background === false) {
     const terminal = await executeForegroundTeam({ setup, activeRun, runnerToken, context, parent, launchWorker, plan, existingWorkerIds });
@@ -245,6 +257,12 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
   };
 }
 
+function stageZeroMembers(run, plan, existing) {
+  if (run.execution?.organizationPolicy?.variant === 'multiteam') return [];
+  return plan.members.filter((member) => member.pipelineStage === 0
+    && !existing.has(member.workerId));
+}
+
 async function executeForegroundTeam(input) {
   const execute = input.context.executeAteamRun
     || require('./aTeam/execution/teamExecutionService').executeTeamRun;
@@ -252,6 +270,7 @@ async function executeForegroundTeam(input) {
     .map((member) => member.workerId), ...input.existingWorkerIds])];
   return execute({
     db: input.setup.db, teamRunId: input.activeRun.teamRunId, runnerToken: input.runnerToken,
+    orchestratorId: input.context.orchestratorId, executeTeam: input.context.executeTeam,
     plan: input.plan, options: { skipWorkerIds, pollMs: 500,
       timeoutMs: Number(input.context.request.timeoutMs) || 15 * 60 * 1000 },
     launch: (member) => input.launchWorker({ db: input.setup.db, context: input.context, member,

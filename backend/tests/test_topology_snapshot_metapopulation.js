@@ -11,7 +11,7 @@ service.registerAdapter('metapopulation', require('../src/services/topologySnaps
 
 const context = { db: null, scope: { clause: 'w.organization_id = ? AND w.project_id = ?', params: ['org-1', 'project-1'] },
   topologyId: 'metapopulation', variantId: 'balanced', sessionId: 'metapop-1',
-  agentId: 'agent-1', workspaceId: 'workspace-1' };
+  agentId: 'agent-1', workspaceId: 'workspace-1', workerKind: 'bounded_worker' };
 
 async function seed(db) {
   await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, path TEXT, organization_id TEXT, project_id TEXT);
@@ -67,6 +67,10 @@ async function run() {
       assert.equal(entry.maturity, 'implemented', entry.variantId);
     }
     const manifest = await service.capture(context);
+    const defaultManifest = await service.capture({ ...context, variantId: 'default' });
+    assert.equal(defaultManifest.components.find((item) => item.id === 'variant-policy').payload.variant,
+      'balanced');
+    assert.equal(defaultManifest.bindings.workerKind, 'bounded_worker');
     await db.run("UPDATE metapopulation_demes SET budget_json = '{\"tokens\":1}' WHERE deme_id = 'deme-1'");
     await expectRefusal(() => service.preflightRestore({ ...context, manifest }), 'TOPOLOGY_SNAPSHOT_DRIFT');
     await expectRefusal(() => service.capture({ ...context, agentId: 'agent-2' }), 'METAPOPULATION_SNAPSHOT_OWNER_MISMATCH');

@@ -133,6 +133,7 @@ function validateMissionStep(step, input) {
 function prepareMission(input) {
   requiredText(input.hostId, 'hostId');
   requiredText(input.missionId, 'missionId');
+  validateTrialExecutor(input);
   const steps = input.steps || [{ capability: input.capability, request: input.request }];
   const budget = limits.missionBudget(input);
   if (!Array.isArray(steps) || steps.length < 1 || steps.length > Math.min(32, budget.maxSteps)) {
@@ -148,6 +149,11 @@ function prepareMission(input) {
     executeCapability: limits.boundedAdapter(input.executeCapability, deadline.signal),
     verifyCapability: limits.boundedAdapter(input.verifyCapability, deadline.signal),
     trialCapabilityExecutor: limits.boundedAdapter(input.trialCapabilityExecutor, deadline.signal) } };
+}
+
+function validateTrialExecutor(input) {
+  if (!input.symbionts?.length || typeof input.trialCapabilityExecutor === 'function') return;
+  throw policy.invalid('An isolated trial executor is required.', 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED');
 }
 
 async function admitCandidates(db, context) {

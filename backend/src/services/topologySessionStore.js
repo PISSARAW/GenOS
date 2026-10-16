@@ -1,6 +1,7 @@
 'use strict';
 
 const rhizomeStore = require('./rhizome/rhizomeStore');
+const { baselineFor } = require('./morphogenesis/registry/variantIdentity');
 
 /**
  * @file topologySessionStore.js
@@ -9,10 +10,13 @@ const rhizomeStore = require('./rhizome/rhizomeStore');
  * orchestrator process and the worker processes.
  */
 async function ensureTable(db) {
-  await db.run('CREATE TABLE IF NOT EXISTS topology_sessions (id TEXT PRIMARY KEY, topology TEXT NOT NULL, state_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+  await db.run('CREATE TABLE IF NOT EXISTS topology_sessions (id TEXT PRIMARY KEY, topology TEXT NOT NULL, variant_id TEXT, state_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
   const columns = await db.all('PRAGMA table_info(topology_sessions)');
   if (Array.isArray(columns) && columns.length && !columns.some((column) => column.name === 'revision')) {
     await db.run('ALTER TABLE topology_sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+  }
+  if (Array.isArray(columns) && columns.length && !columns.some((column) => column.name === 'variant_id')) {
+    await db.run('ALTER TABLE topology_sessions ADD COLUMN variant_id TEXT');
   }
   await db.run(`CREATE TABLE IF NOT EXISTS topology_session_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,19 +34,21 @@ async function save(db, record) {
   await ensureTable(db);
   return withTransaction(db, async () => {
     const stateJson = JSON.stringify(record.state || {});
+    const variantId = variantIdFor(record);
     if (record.revision === undefined || record.revision === null) {
       const result = await db.run(
-        `INSERT INTO topology_sessions (id, topology, state_json, revision, updated_at)
-         VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING`,
-        record.id, record.topology, stateJson
+        `INSERT INTO topology_sessions (id, topology, variant_id, state_json, revision, updated_at)
+         VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING`,
+        record.id, record.topology, variantId, stateJson
       );
       if (result.changes !== 1) throw revisionConflict(record.id);
       return { id: record.id, revision: 0 };
     }
     const nextRevision = Number(record.revision) + 1;
     const result = await db.run(
-      `UPDATE topology_sessions SET topology = ?, state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND revision = ?`,
-      record.topology, stateJson, nextRevision, record.id, Number(record.revision)
+      `UPDATE topology_sessions SET topology = ?, variant_id = ?, state_json = ?, revision = ?,
+       updated_at = CURRENT_TIMESTAMP WHERE id = ? AND revision = ?`,
+      record.topology, variantId, stateJson, nextRevision, record.id, Number(record.revision)
     );
     if (result.changes !== 1) throw revisionConflict(record.id);
     return { id: record.id, revision: nextRevision };
@@ -55,11 +61,19 @@ function revisionConflict(id) {
 
 async function load(db, id) {
   await ensureTable(db);
-  const row = await db.get('SELECT topology, state_json, revision FROM topology_sessions WHERE id = ?', id);
+  const row = await db.get('SELECT topology, variant_id, state_json, revision FROM topology_sessions WHERE id = ?', id);
   if (!row) return null;
   let state = {};
   try { state = JSON.parse(row.state_json || '{}'); } catch (_) {}
-  return { id, topology: row.topology, revision: Number(row.revision) || 0, state };
+  return { id, topology: row.topology, variantId: row.variant_id || variantIdFor({ topology: row.topology, state }),
+    revision: Number(row.revision) || 0, state };
+}
+
+function variantIdFor(record) {
+  const state = record.state || {};
+  return record.variantId || state.variantId || state.variant
+    || state.variantPolicy?.id || state.execution?.organizationPolicy?.variant
+    || baselineFor(record.topology) || null;
 }
 
 async function createRhizome(db, record, event) {
@@ -67,8 +81,8 @@ async function createRhizome(db, record, event) {
     await ensureTable(db);
     await rhizomeStore.ensureGraphTables(db);
     await db.run(
-      'INSERT INTO topology_sessions (id, topology, state_json, revision, updated_at) VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)',
-      record.id, 'rhizome', JSON.stringify(record.state || {})
+      'INSERT INTO topology_sessions (id, topology, variant_id, state_json, revision, updated_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)',
+      record.id, 'rhizome', variantIdFor(record), JSON.stringify(record.state || {})
     );
     if (record.graph?.nodes?.length || record.graph?.edges?.length) {
       await rhizomeStore.replaceGraph(db, record.id, record.graph);
@@ -88,9 +102,9 @@ async function mutateRhizome(db, id, mutator) {
     const change = await mutator(record);
     const revision = record.revision + 1;
     const result = await db.run(
-      `UPDATE topology_sessions SET state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP
+      `UPDATE topology_sessions SET variant_id = ?, state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND topology = 'rhizome' AND revision = ?`,
-      JSON.stringify(change.state), revision, id, record.revision
+      variantIdFor({ ...record, state: change.state }), JSON.stringify(change.state), revision, id, record.revision
     );
     if (result.changes !== 1) {
       throw Object.assign(new Error(`Rhizome session revision conflict for '${id}'.`), { code: 'RHIZOME_SESSION_CONFLICT' });
@@ -120,9 +134,10 @@ async function mutate(options) {
     const change = await mutator(record);
     const revision = record.revision + 1;
     const result = await db.run(
-      `UPDATE topology_sessions SET state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP
+      `UPDATE topology_sessions SET variant_id = ?, state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND topology = ? AND revision = ?`,
-      JSON.stringify(change.state), revision, id, topology, record.revision
+      variantIdFor({ ...record, state: change.state }), JSON.stringify(change.state), revision,
+      id, topology, record.revision
     );
     if (result.changes !== 1) throw revisionConflict(id);
     await db.run(

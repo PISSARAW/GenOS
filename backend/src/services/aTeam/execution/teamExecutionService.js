@@ -12,7 +12,7 @@ async function executeTeamRun(input) {
   if (!run) throw coded('Unknown A-Team run.', 'ATEAM_RUN_UNKNOWN');
   assertLease(run, input.runnerToken);
   if (run.execution?.organizationPolicy?.variant === 'multiteam') {
-    throw coded('Multiteam completion requires verified child TeamRuns.', 'ATEAM_MTS_EXECUTOR_REQUIRED');
+    return executeMultiteamRun(input, run);
   }
   const plan = { ...input.plan, members: input.plan.members };
   const { now, sleep, deadline } = await timingFor(input, run);
@@ -33,6 +33,32 @@ async function executeTeamRun(input) {
     if (!observed.terminal) await sleep(input.options?.pollMs ?? 500);
   } while (!observed.terminal);
   return finalizeExecution({ ...input, run, plan, observed, results });
+}
+
+async function executeMultiteamRun(input, run) {
+  if (typeof input.executeTeam !== 'function') {
+    throw coded('Multiteam completion requires a verified child TeamRun executor.',
+      'ATEAM_MTS_EXECUTOR_REQUIRED');
+  }
+  const runtime = require('../multiteam/programRuntimeService');
+  const plan = run.execution.organizationPolicy.multiteamPlan;
+  const programId = `${run.teamRunId}:program`;
+  let program = await require('../../topologySessionStore').load(input.db, programId);
+  if (!program) {
+    await runtime.createProgramRun({ db: input.db, programId,
+      parentTeamRunId: run.teamRunId, teams: plan.teams, contracts: plan.contracts,
+      council: plan.council, systemObjective: run.goal, globalBudget: plan.budget?.global });
+  }
+  const result = await runtime.advanceProgramRun({ db: input.db, programId,
+    orchestratorId: input.orchestratorId, executeTeam: input.executeTeam });
+  const accepted = result.status === 'SUCCEEDED';
+  const status = accepted ? 'COMPLETED' : result.status === 'FAILED' ? 'FAILED' : 'BLOCKED';
+  const latest = await requireLease(input);
+  await require('../aTeamRuntime').transitionRun({ db: input.db, teamRunId: latest.teamRunId,
+    revision: latest.revision, patch: { status, phase: 'DEBRIEF', execution: {
+      ...latest.execution, multiteamProgram: result, integration: { accepted }
+    } } });
+  return { teamRunId: run.teamRunId, programId, status, accepted, program: result };
 }
 
 async function observeWithLease(input, state) {

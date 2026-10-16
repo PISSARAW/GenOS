@@ -1,11 +1,9 @@
 'use strict';
 
 const { PROFILES, TOPOLOGY_PROFILES } = require('./variantUseCaseProfiles');
+const { BASELINES } = require('./variantIdentity');
 
 const STOP = new Set('avec dans pour entre apres avant cette celui celles leurs notre votre ainsi quand sans sous tout tous toute cette mission besoin faire doit sont sera avoir plus moins aussi chaque meme autre et ou de du des la le les un une en au aux a par sur qui que qu se ce ces il elle nous vous'.split(' '));
-const BASELINES = Object.freeze({ trinity: 'controlled', a_team: 'project_dag', biome: 'resource',
-  biocenose: 'epistemic_jury', holobionte: 'organelle', syncytium: 'hard',
-  rhizome: 'routing', metapopulation: 'balanced' });
 const DIAGNOSIS_WORDS = Object.freeze({ uncertainty: 'incertitude exploration',
   causalAmbiguity: 'hypotheses causes contrefactuelles', contradiction: 'refutation objections',
   provenanceRisk: 'provenance sources preuves', deterministicNeed: 'verificateur deterministe tests',

@@ -44,7 +44,8 @@ async function persistEnvironment(session, db) {
   session.persistenceRevision = await biomeSessionStore.savePersistentEnvironment(db, {
     id: session.persistenceKey, state: persistentSnapshot(session), expectedRevision: session.persistenceRevision ?? null
   });
-  await db.run('UPDATE topology_sessions SET state_json = ? WHERE id = ?', JSON.stringify(serialize(session)), session.sessionId);
+  await db.run('UPDATE topology_sessions SET variant_id = ?, state_json = ? WHERE id = ?',
+    session.variant, JSON.stringify(serialize(session)), session.sessionId);
 }
 
 function persistentSnapshot(session) {

@@ -10,7 +10,7 @@ service.registerAdapter('a_team', require('../src/services/topologySnapshots/aTe
 
 const scope = { clause: 'w.organization_id = ? AND w.project_id = ?', params: ['org-1', 'project-1'] };
 const context = { db: null, scope, topologyId: 'a_team', variantId: 'pipeline',
-  sessionId: 'team-1', agentId: 'agent-1', workspaceId: 'workspace-1' };
+  sessionId: 'team-1', agentId: 'agent-1', workspaceId: 'workspace-1', workerKind: 'bounded_worker' };
 const members = [{ memberId: 'a', agentId: 'worker-a', workerId: 'worker-a', expertise: ['analysis'],
   ownedResponsibilities: ['design'], consults: [], authority: {}, toolLease: [] }];
 const run = { teamRunId: 'team-1', missionId: 'agent-1', workGraphId: 'graph-1',

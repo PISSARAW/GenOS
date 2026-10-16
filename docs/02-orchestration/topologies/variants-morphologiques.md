@@ -66,7 +66,7 @@ et son reçu indépendant ne sont pas disponibles.
 | Holobionte | 12 | `holobionte/variants` | Douze politiques sélectionnables ; couverture contractuelle, placement physique et bénéfice comparatif à distinguer |
 | Syncytium | 13 | `syncytium/variants/variantPolicyRegistry` | Implémentés |
 | Rhizome | 12 | `rhizome/variants/variantPolicyService` | Implémentés |
-| Métapopulation | 16 (12 documentés + 4 alias historiques) | `metapopulation/policy/metapopulationPolicyService` | Effets régionaux et reprise couverts ; maturité centrale conservée, moteurs externes à qualifier |
+| Métapopulation | 16 variants exécutables | `metapopulation/policy/metapopulationPolicyService` | 4 profils fondamentaux et 12 spécialisations ; effets régionaux et reprise couverts, moteurs externes à qualifier |
 | Biome | 11 | `biome/variants/variantPolicyService` | Partiels; sélection et politiques reliées au runtime |
 | Trinity | 12 | `trinityVariantService` | Implémentés ou partiels selon la variante |
 
@@ -140,8 +140,8 @@ une copie défensive de l'entrée. Un variant inconnu renvoie `null`.
   requis et leurs contrats, et refuse un adaptateur non chargeable ou indisponible. Les
   modules spécialisés existent, mais ce contrat ne prouve pas que chaque adaptateur est
   invoqué et vérifié dans le cycle complet d'une mission; cette intégration reste à valider.
-- Métapopulation garde quatre noms historiques (`balanced`, `resilient`, `exploratory`,
-  `conservative`) en plus des douze identifiants de sa fiche. Le contrôleur applique
+- Métapopulation expose quatre profils fondamentaux (`balanced`, `resilient`, `exploratory`,
+  `conservative`) en plus des douze spécialisations de sa fiche. Le contrôleur applique
   les politiques avec reçus et relecture des effets : réserve de fondateurs,
   résidents, états d'îlot, transferts fédérés/culturels et reprise rescue.
   Les évaluateurs locaux, le solveur et le moteur Rust restent des adaptateurs

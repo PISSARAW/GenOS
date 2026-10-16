@@ -74,4 +74,14 @@ function recommend(question, questionType) {
   };
 }
 
-module.exports = { POLICIES, select, recommend, assertCompatible };
+function supports(name) {
+  try {
+    const selected = select(name);
+    return selected.executionLevel === 'EXECUTABLE'
+      && typeof require('../runtime/biocenoseRuntime').runRound === 'function';
+  } catch (_) {
+    return false;
+  }
+}
+
+module.exports = { POLICIES, select, recommend, assertCompatible, supports };

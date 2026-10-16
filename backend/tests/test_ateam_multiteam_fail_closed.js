@@ -26,17 +26,9 @@ async function run() {
     parent: {}, launchWorker: async () => { launches++; } }),
     { code: 'ATEAM_MTS_EXECUTOR_REQUIRED' });
     assert.equal(launches, 0);
-    let selected;
-    coordination.composeTeam = () => ({ members: [members[0], { ...members[1], dependsOn: ['a1'] }],
-      organization: 'specialist_expert_committee', readiness: { ready: true, blockers: [] } });
-    runtime.createRun = async (input) => {
-      selected = input.execution.organizationPolicy;
-      return { created: false, run: { teamRunId: 'existing', status: 'COMPLETED', revision: 1 } };
-    };
-    await dispatchTeam({ db: {}, context: { orchestratorId: 'mission', task: 'Deliver service',
-      request: { teamCount: 2 } }, parent: {}, launchWorker: async () => { launches++; } });
-    assert.equal(selected.variant, 'project_dag');
-    assert.equal(selected.evidence.fallbackFrom, 'multiteam');
+    await assert.rejects(dispatchTeam({ db: {}, context: { orchestratorId: 'mission', task: 'Deliver service',
+      request: { variant: 'multiteam', teams } }, parent: {}, launchWorker: async () => { launches++; } }),
+    { code: 'ATEAM_MTS_EXECUTOR_REQUIRED' });
     assert.equal(launches, 0);
     runStore.load = async () => ({ teamRunId: 'parent', status: 'RUNNING',
       execution: { organizationPolicy: { variant: 'multiteam' }, runnerLease: {

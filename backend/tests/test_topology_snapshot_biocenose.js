@@ -24,6 +24,7 @@ async function contextFor(db, variant) {
     patch: { status: 'CLOSED', round: variant === 'delphi_community' ? 1 : 0 } });
   return { db, topologyId: 'biocenose-test', variantId: variant,
     sessionId: session.communityId, agentId: 'agent-1', workspaceId: 'workspace-1',
+    workerKind: 'bounded_worker',
     scope: { clause: 'organization_id = ? AND project_id = ?', params: ['org-1', 'project-1'] } };
 }
 

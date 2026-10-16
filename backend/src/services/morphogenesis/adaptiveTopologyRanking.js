@@ -2,6 +2,7 @@
 
 const { TOPOLOGIES } = require('./topologyResolverService');
 const workerKindService = require('../agents/workerKindService');
+const { knownMaturity, proposalEligible } = require('./registry/variantIdentity');
 
 const MAX_OUTPUT = 50;
 const WEIGHTS = Object.freeze({ problemFit: 0.32, capabilityFit: 0.2,
@@ -141,8 +142,7 @@ function maturityAssessment(recipe) {
   if (isNoChangeRecipe(recipe)) return { known: true, proposalEligible: true, value: 'current' };
   const maturity = recipe.maturity;
   const value = typeof maturity === 'string' ? maturity : maturity?.variant;
-  const mature = value === 'implemented' || value === 'stable';
-  return { known: typeof value === 'string' && value.length > 0, proposalEligible: mature,
+  return { known: knownMaturity(value), proposalEligible: proposalEligible(value),
     value: value || 'unknown' };
 }
 

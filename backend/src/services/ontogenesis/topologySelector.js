@@ -9,6 +9,8 @@
  */
 
 const { resolveWorkerKind, KIND_CAPABILITIES } = require('../agents/workerKindService');
+const useCases = require('../morphogenesis/registry/variantUseCaseSelector');
+const variantCatalog = require('../morphogenesis/registry/variantCatalog');
 
 const CATALOG = [
   { id: 'trinity', needs: ['execute', 'verify'], roles: ['specialist', 'bounded_worker', 'verifier_worker'], cost: 2 },
@@ -56,7 +58,7 @@ function elimination(entry, input) {
   const missing = missingCapability(entry, input.availableCapabilities);
   if (missing) return `capacite-manquante:${missing}`;
   if (input.memoryLevel === 'constrained' && entry.cost >= 3) return 'tache-lourde-reportee';
-  if (input.memoryLevel === 'critical') return 'memoire-critique';
+  if (input.memoryLevel === 'critical' && entry.cost > 1) return 'memoire-critique';
   if (failureCount(input.failures, entry.id) >= FAILURE_LIMIT) return 'echecs-repetes';
   return null;
 }
@@ -92,20 +94,20 @@ function missingRoleCapability(entry) {
   return missing ? `topologie-incoherente:${missing}` : null;
 }
 
-function resolveVariant(topology, requested) {
-  if (!requested || requested === 'default') {
-    if (topology === 'trinity') return { variant: 'controlled', note: 'defaut-trinity:controlled' };
-    return { variant: 'default', note: null };
+function resolveVariant(topology, requested, mission) {
+  if (requested && requested !== 'default') {
+    const found = variantCatalog.resolveTopologyVariant(topology, requested);
+    return found && found.maturity === 'implemented'
+      ? { variant: found.variantId, note: null }
+      : { blocked: `variante-indisponible:${requested}` };
   }
-  try {
-    const catalog = require('../morphogenesis/registry/variantCatalog');
-    const known = catalog.topologyVariants(topology) || [];
-    const found = known.find((variant) => variant.variantId === requested);
-    if (found && found.maturity === 'implemented') return { variant: requested, note: null };
-    return { variant: 'default', note: `variante-indisponible:${requested}` };
-  } catch (_) {
-    return { variant: 'default', note: 'catalogue-indisponible' };
+  const selected = useCases.selectVariant({ topology, mission: mission || '' });
+  const found = variantCatalog.resolveTopologyVariant(topology, selected.variantId);
+  if (!found || found.maturity !== 'implemented') {
+    return { blocked: `baseline-indisponible:${selected.variantId}` };
   }
+  return { variant: found.variantId,
+    note: selected.method === 'safe_baseline' ? null : `mission-fit:${selected.method}` };
 }
 
 function selectTopology(input) {
@@ -122,7 +124,9 @@ function selectTopology(input) {
   const winner = kept[0];
   const invalid = validateRoles(winner);
   if (invalid) return { blocked: invalid, rationale, ordered, taskKind: input.taskKind };
-  const resolved = resolveVariant(winner.id, input.variant);
+  const resolved = resolveVariant(winner.id, input.variant, input.mission);
+  if (resolved.blocked) return { blocked: resolved.blocked, rationale, ordered,
+    taskKind: input.taskKind };
   if (resolved.note) rationale.push(`${winner.id}:repli:${resolved.note}`);
   rationale.push(`${winner.id}:retenu:cout-${winner.cost}`);
   return { topology: winner.id, variant: resolved.variant, workerRoles: winner.roles.slice(), rationale, ordered, taskKind: input.taskKind };

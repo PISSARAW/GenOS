@@ -110,9 +110,25 @@ module.exports = {
       this.recordDecision('conflict_resolution_plan', { conflict, resolution: multiPolicy.systemicConflictDetection.resolution });
     }
 
-    this.state.result = { teams: teamConfigs, contracts, council, budget: multiPolicy.budget };
-    this.state.status = 'PLANNED';
-    this.state.reason = 'verified_subruns_unavailable';
+    if (!this.db || typeof this.mission.executeTeam !== 'function') {
+      throw coded('Multiteam execution requires persistence and a verified child TeamRun executor.',
+        'ATEAM_MTS_EXECUTOR_REQUIRED');
+    }
+    const program = require('../multiteam/programRuntimeService');
+    const programId = this.mission.programId || `${this.orchestratorId}:multiteam`;
+    await program.createProgramRun({ db: this.db, programId,
+      parentTeamRunId: this.mission.parentTeamRunId, teams: this.mission.teams,
+      contracts: this.mission.interTeamContracts, council,
+      systemObjective: this.mission.systemObjectives?.[0] || this.mission.goal,
+      globalBudget: this.mission.globalBudget || multiPolicy.budget?.global });
+    const executed = await program.advanceProgramRun({ db: this.db, programId,
+      orchestratorId: this.orchestratorId, executeTeam: this.mission.executeTeam });
+    this.state.result = { teams: teamConfigs, contracts, council,
+      budget: multiPolicy.budget, program: executed };
+    this.state.status = executed.status === 'SUCCEEDED' ? 'SUCCEEDED' : 'FAILED';
+    if (this.state.status !== 'SUCCEEDED') {
+      throw coded(`Multiteam program ended as ${executed.status}.`, 'ATEAM_MTS_INCOMPLETE');
+    }
     return this.state;
   },
 

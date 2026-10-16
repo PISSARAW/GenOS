@@ -120,19 +120,24 @@ async function executeRegionalActions(context) {
 }
 
 async function executeAction(action, context) {
-  const { input, options } = context;
-  if (action.type === 'MARK_DEME_AT_RISK') {
-    const deme = await transitionDeme({ sessionId: input.metapopulationId, demeId: action.demeId, status: 'AT_RISK' }, options);
-    return { type: action.type, demeId: action.demeId, status: deme.status };
-  }
-  if (action.type === 'REGULATE_CORRIDORS') return regulateCorridors(action, context);
-  if (action.type === 'MIGRATE_PROPAGULE') return regionalMigrationLoop.executeMigrationAction(action, context);
+  const core = CORE_ACTION_EXECUTORS[action.type];
+  if (core) return core(action, context);
   const lifecycleResult = await lifecycleController.executeLifecycleAction(action, context);
   if (lifecycleResult) return lifecycleResult;
   const variantResult = await variantController.executeVariantAction(action, context);
   if (variantResult) return variantResult;
   throw brainError('REGIONAL_ACTION_UNSUPPORTED', `Unsupported regional action: ${action.type}`);
 }
+
+const CORE_ACTION_EXECUTORS = Object.freeze({
+  MARK_DEME_AT_RISK: async (action, context) => {
+    const deme = await transitionDeme({ sessionId: context.input.metapopulationId,
+      demeId: action.demeId, status: 'AT_RISK' }, context.options);
+    return { type: action.type, demeId: action.demeId, status: deme.status };
+  },
+  REGULATE_CORRIDORS: regulateCorridors,
+  MIGRATE_PROPAGULE: (action, context) => regionalMigrationLoop.executeMigrationAction(action, context)
+});
 
 async function regulateCorridors(action, context) {
   const { input, options } = context;
@@ -268,4 +273,5 @@ function requireDb(options) { if (!options.db) throw brainError('METAPOPULATION_
 function brainError(code, message) { return Object.assign(new Error(message), { code }); }
 
 module.exports = { createRegionalBrain, runAutonomousRegionalRuntime, observeRegion,
-  diagnoseRegion, planRegionalActions, planRegionalRuntimeActions, executeRegionalActions, verifyRegionalActions };
+  diagnoseRegion, planRegionalActions, planRegionalRuntimeActions, executeRegionalActions,
+  verifyRegionalActions, CORE_ACTION_EXECUTORS };

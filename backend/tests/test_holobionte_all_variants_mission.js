@@ -168,7 +168,7 @@ async function testSnapshots() {
       await store.updateLifecycleStatus(db, { holobiontId: session.holobiontId,
         expectedRevision: revision, status: 'QUIESCENT', eventType: 'QUIESCENT' });
       const context = { db, topologyId: 'holobionte', variantId: policy.name,
-        sessionId, agentId: 'host-1', workspaceId: 'workspace-1',
+        sessionId, agentId: 'host-1', workspaceId: 'workspace-1', workerKind: 'bounded_worker',
         scope: { clause: 'w.organization_id = ? AND w.project_id = ?', params: ['org-1', 'project-1'] } };
       const manifest = await snapshotService.capture(context);
       assert.equal(manifest.boundary.status, 'QUIESCENT', policy.name);

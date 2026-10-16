@@ -55,20 +55,39 @@ async function runCounterfactual(services, proposal, context) {
 async function runMorphogenesisRuntime(context, services) {
   const mode = context?.mode || 'commit';
   if (!['shadow', 'commit'].includes(mode)) return { decision: 'REJECTED', committed: false, errors: ['unsupported runtime mode'] };
-  if (mode === 'commit') return { decision: 'REJECTED', committed: false,
-    code: 'MORPHOGENESIS_PRODUCTION_AUTHORITY_UNAVAILABLE',
-    errors: ['authenticated Rust authority, restorable transition snapshot and versioned commit are required'] };
   const missing = validateServices(services, mode);
   if (missing.length) return { decision: 'REJECTED', committed: false, errors: missing.map((name) => `missing runtime service: ${name}`) };
   const evaluated = await evaluateProposal(context, services);
   if (!evaluated.accepted) return { decision: 'REJECTED', committed: false, evaluation: evaluated };
-  return {
+  if (mode === 'shadow') return {
     decision: 'SHADOWED',
     committed: false,
     authorityPending: 'rust_kernel_and_governance',
     proposal: evaluated.proposal,
     evaluation: evaluated
   };
+  return applyProposal(context, services, evaluated);
+}
+
+async function applyProposal(context, services, evaluated) {
+  const decision = await services.kernel.adjudicate({ context, proposal: evaluated.proposal,
+    evaluation: evaluated });
+  if (!decision || decision.valid !== true || decision.decision !== 'APPLY') {
+    return { decision: 'REJECTED', committed: false, evaluation: evaluated,
+      authorization: { decision } };
+  }
+  const governance = await services.governance({ context, proposal: evaluated.proposal, decision });
+  if (!governance || governance.allowed !== true) return { decision: 'REJECTED', committed: false,
+    evaluation: evaluated, authorization: { decision, governance } };
+  const transition = await services.transition({ context, proposal: evaluated.proposal,
+    evaluation: evaluated, authorization: { decision, governance } });
+  if (!transition || transition.committed !== true) return { decision: 'REJECTED', committed: false,
+    code: transition?.code || 'MORPHOGENESIS_TRANSITION_NOT_COMMITTED', evaluation: evaluated,
+    authorization: { decision, governance }, transition };
+  const credit = await services.credit({ context, proposal: evaluated.proposal, transition });
+  const memory = await services.memory({ context, proposal: evaluated.proposal, transition, credit });
+  return { decision: 'APPLIED', committed: true, proposal: evaluated.proposal, evaluation: evaluated,
+    authorization: { decision, governance }, transition, credit, memory };
 }
 
 module.exports = { REQUIRED_SERVICES, SHADOW_SERVICES, runMorphogenesisRuntime, validateServices };

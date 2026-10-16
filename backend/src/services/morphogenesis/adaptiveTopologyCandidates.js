@@ -6,9 +6,11 @@ const { parseExpression } = require('./expression/morphologyExpressionParser');
 const { compileExpression } = require('./graph/morphologyCompiler');
 const { checkMorphologyTypes } = require('./typing/morphologyTypeChecker');
 const { registry: defaultAdapterRegistry } = require('./adapters/topologyAdapterService');
+const { knownMaturity, proposalEligible } = require('./registry/variantIdentity');
 
 const MAX_COMPOSITE_PAIRS = 128;
-const MATURITY_ORDER = Object.freeze({ implemented: 0, stable: 1, partial: 2, experimental: 3 });
+const MATURITY_ORDER = Object.freeze({ implemented: 0, stable: 1, partial: 2,
+  experimental: 3, conceptual: 4 });
 
 function generateAdaptiveTopologyCandidates(input = {}) {
   const registry = input.registry || createTopologyRegistry();
@@ -94,7 +96,7 @@ function maturityRank(maturity) {
 }
 
 function isSupportedMaturity(maturity) {
-  return Object.prototype.hasOwnProperty.call(MATURITY_ORDER, maturity);
+  return knownMaturity(maturity);
 }
 
 function addSingleTopology(ctx) {
@@ -145,6 +147,9 @@ function createCandidate(input) {
     topology: input.topologyId,
     variant: input.kind === 'VARIANT' ? input.variantEntry.variantId : null,
     maturity: { topology: 'registered', variant: input.variantEntry.maturity },
+    admissibility: proposalEligible(input.variantEntry.maturity)
+      ? 'execution_eligible' : 'exploratory_only',
+    executionEligible: proposalEligible(input.variantEntry.maturity),
     requiredCapabilities: caps.requiredCapabilities, missingCapabilities: [],
     expression: input.expression, validation: input.validation,
     rationale: input.kind === 'VARIANT'

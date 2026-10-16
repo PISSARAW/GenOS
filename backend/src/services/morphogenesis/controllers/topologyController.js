@@ -16,7 +16,16 @@ class TopologyController {
   async start(input = {}) {
     this.state = 'running';
     this.startedAt = new Date().toISOString();
-    return this.execute(input);
+    try {
+      const output = await this.execute(input);
+      this.state = 'completed';
+      this.completedAt = new Date().toISOString();
+      return output;
+    } catch (error) {
+      this.state = 'failed';
+      this.completedAt = new Date().toISOString();
+      throw error;
+    }
   }
 
   async execute(input) {

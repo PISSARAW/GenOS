@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const { executeTransition } = require('./transitionEngineService');
 const { createCommit, collectState, updateRef } = require('../agentGitService');
 const { recordFossil } = require('../fossilizationService');
+const transitionSnapshots = require('./morphogenesisTransitionSnapshotService');
 
 function uuid() { return crypto.randomUUID(); }
 
@@ -110,13 +111,55 @@ function buildCommitContext(plan, receipt, collectiveState) {
   };
 }
 
-/**
- * Refuse direct morphology commits until a governed transition proves its authority.
- */
 async function commitTransition(db, ctx) {
-  const error = new Error('Authenticated authority and a restorable transition snapshot are required');
-  error.code = 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE';
-  throw error;
+  const { agentId, workspaceId, plan, receipt, req, refName } = ctx;
+  const snapshot = receipt?.durableSnapshot;
+  const authority = receipt?.rustAuthority;
+  assertTransitionAuthority({ receipt, req, snapshot, authority });
+  const stored = await transitionSnapshots.load({ db, id: snapshot.id });
+  assertStoredSnapshot(stored, snapshot);
+  const state = await collectState(db, req, agentId);
+  if (!state) throw Object.assign(new Error('Agent is outside the authenticated tenant.'),
+    { code: 'AGENT_NOT_FOUND' });
+  const context = buildCommitContext(plan, receipt, ctx.collectiveState);
+  const actor = req.user.keyId || req.user.username;
+  const result = await createCommit(req, { agentId, refName, state, metadata: {
+    source: 'morphogenesis-rust-authority', transitionId: receipt.transitionId,
+    planId: plan.id, snapshotId: snapshot.id, snapshotHash: snapshot.hash,
+    authorityKeyId: authority.keyId, authorityPrincipalId: authority.principalId,
+    counterfactual: receipt.counterfactualRef || null
+  } });
+  const parentCommitId = result.parentCommitId || null;
+  await db.run(`INSERT OR REPLACE INTO agent_git_commits
+    (commit_id, agent_id, workspace_id, parent_commit_id, tree_hash, commit_hash,
+     state_hash, message, reason, evidence_json, changes_json, committed_by, committed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  result.id, agentId, workspaceId || state.agent?.workspace_id || null, parentCommitId,
+  firstHash(result, ['treeHash', 'tree_hash', 'stateHash', 'state_hash']),
+  firstHash(result, ['commitHash', 'commit_hash', 'stateHash', 'state_hash']),
+  firstHash(result, ['stateHash', 'state_hash']), context.message, context.reason,
+  JSON.stringify({ ...context.evidence, snapshotId: snapshot.id, authorityKeyId: authority.keyId }),
+  JSON.stringify(context.changes), actor, new Date().toISOString());
+  return result;
+}
+
+function assertTransitionAuthority(input) {
+  const { receipt, req, snapshot, authority } = input;
+  const authorized = receipt?.committed && authority?.decision === 'APPLY';
+  const exactSnapshot = snapshot?.id && authority?.planSha256 === snapshot.planHash
+    && authority?.snapshotId === snapshot.id && authority?.snapshotSha256 === snapshot.hash;
+  if (authorized && exactSnapshot && req?.user && req?.tenant) return;
+  throw Object.assign(new Error('Authenticated Rust authority and exact restorable snapshot are required.'),
+    { code: 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE' });
+}
+
+function assertStoredSnapshot(stored, snapshot) {
+  const applying = stored.row.status === 'applying';
+  const sameBinding = stored.row.plan_hash === snapshot.planHash
+    && stored.row.snapshot_hash === snapshot.hash;
+  if (applying && sameBinding) return;
+  throw Object.assign(new Error('Durable transition snapshot is not applying or its binding changed.'),
+    { code: 'MORPHOGENESIS_SNAPSHOT_STATE_CONFLICT' });
 }
 
 /**

@@ -23,45 +23,41 @@ class TrinityController extends TopologyController {
     this.evidence = evidence;
 
     for (const chamber of this.chambers) {
-      const result = await this.runChamber(chamber);
+      this.currentPhase = chamber;
+      const result = await this.runChamber(chamber, input);
       this.updateMetrics({ [chamber]: result });
     }
-
+    const receipt = this.buildReceipt(input);
     return {
-      verified_claims: [],
+      verified_claims: verifiedClaims(input, receipt),
       candidate_claims: this.candidateClaimsFromConfidence(),
       competing_hypotheses: this.hypotheses,
-      comparison_receipt: this.buildReceipt()
+      comparison_receipt: receipt
     };
   }
 
-  async runChamber(chamber) {
-    switch (chamber) {
-      case 'thesis':
-        return { phase: 'thesis', hypotheses: this.hypotheses };
-      case 'antithesis':
-        return { phase: 'antithesis', counterarguments: this.generateCounterarguments() };
-      case 'synthesis':
-        return { phase: 'synthesis', synthesis: this.synthesize() };
-      default:
-        return { phase: chamber };
-    }
-  }
-
-  generateCounterarguments() {
-    return this.hypotheses.map(h => ({ hypothesis: h, counter: `Counter to ${h}` }));
-  }
-
-  synthesize() {
-    return { merged: this.hypotheses.join(' + '), confidence: 0.8 };
+  async runChamber(chamber, input) {
+    const supplied = input.chamberResults?.[chamber];
+    if (!supplied) return { phase: chamber, status: 'MISSING', evidenceRefs: [] };
+    const refs = Array.isArray(supplied.evidenceRefs) ? supplied.evidenceRefs.filter(Boolean) : [];
+    return { ...structuredClone(supplied), phase: chamber,
+      status: refs.length ? supplied.status || 'OBSERVED' : 'UNVERIFIED', evidenceRefs: refs };
   }
 
   candidateClaimsFromConfidence() {
     return this.hypotheses.filter(h => h.confidence > 0.7);
   }
 
-  buildReceipt() {
-    return { chambers: this.chambers, timestamp: new Date().toISOString() };
+  buildReceipt(input) {
+    const results = this.chambers.map((chamber) => this.metrics[chamber]);
+    const complete = results.every((result) => result?.status === 'VERIFIED'
+      && result.evidenceRefs.length > 0);
+    const comparison = input.comparisonReceipt;
+    const comparisonVerified = comparison?.status === 'VERIFIED'
+      && Array.isArray(comparison.evidenceRefs) && comparison.evidenceRefs.length > 0;
+    return { chambers: this.chambers, results, complete,
+      comparisonVerified, qualified: complete && comparisonVerified,
+      timestamp: new Date().toISOString() };
   }
 
   async observe() {
@@ -82,7 +78,8 @@ class TrinityController extends TopologyController {
       adaptations.push({ type: 'CHANGE_VARIANT', to: 'adversarial', reason: 'No hypotheses generated' });
     }
 
-    const collapsed = this.hypotheses.filter(h => h.confidence > 0.9).length === this.hypotheses.length;
+    const collapsed = this.hypotheses.length > 0
+      && this.hypotheses.filter(h => h.confidence > 0.9).length === this.hypotheses.length;
     if (collapsed) {
       adaptations.push({ type: 'CHANGE_VARIANT', to: 'adversarial', reason: 'Hypotheses collapsing' });
     }
@@ -104,6 +101,12 @@ class TrinityController extends TopologyController {
 
     return adaptations.length ? adaptations : null;
   }
+}
+
+function verifiedClaims(input, receipt) {
+  if (!receipt.qualified || !Array.isArray(input.verifiedClaims)) return [];
+  return input.verifiedClaims.filter((claim) => claim?.status === 'VERIFIED'
+    && Array.isArray(claim.evidenceRefs) && claim.evidenceRefs.length > 0);
 }
 
 module.exports = { TrinityController };

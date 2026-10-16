@@ -5,12 +5,6 @@ const search = require('./variantSearchActions');
 const flow = require('./variantFlowActions');
 const historical = require('./historicalVariantActions');
 
-const VARIANT_RUNTIME_ACTIONS = Object.freeze([
-  'balanced', 'resilient', 'exploratory', 'conservative',
-  'classic_patch', 'island_search', 'heterogeneous_islands', 'source_sink', 'rescue_network',
-  'stepping_stone', 'anti_synchrony', 'federated', 'ephemeral_patch', 'persistent', 'evolutionary', 'cultural'
-]);
-
 const VARIANT_PLANNERS = Object.freeze({
   balanced: historical.balancedActions,
   resilient: historical.resilientActions,
@@ -29,6 +23,7 @@ const VARIANT_PLANNERS = Object.freeze({
   evolutionary: search.evolutionaryActions,
   cultural: flow.culturalActions
 });
+const VARIANT_RUNTIME_ACTIONS = Object.freeze(Object.keys(VARIANT_PLANNERS));
 
 async function executeVariantActions(context) {
   const { variant, observed, input, options } = context;
@@ -37,4 +32,4 @@ async function executeVariantActions(context) {
   return planner(observed, input, options);
 }
 
-module.exports = { executeVariantActions, VARIANT_RUNTIME_ACTIONS };
+module.exports = { executeVariantActions, VARIANT_RUNTIME_ACTIONS, VARIANT_PLANNERS };

@@ -24,10 +24,10 @@ function runWithController(registry, topology) {
   return async function run(args, context) {
     const node = nodeFrom(args, topology, context);
     const controller = registry.getController(topology, node);
-    await controller.compose({ variant: args.variant });
     const input = inputFrom(context, args);
+    await controller.compose({ ...input, ...args, variant: args.variant, workers: node.workers });
     const workerResults = require('./topologyWorkerResults').collectTopologyWorkerResults(node.workers, input);
-    const output = await controller.execute({ ...input, workers: node.workers, workerResults });
+    const output = await controller.start({ ...input, workers: node.workers, workerResults });
     return attachWorkerResults(output, workerResults);
   };
 }
@@ -70,13 +70,12 @@ async function executeHolobionte(args, context) {
   if (input.variantId && Array.isArray(input.variantOperations)) return executeVariantMission(args, input);
   const workerResults = collectMissionWorkers(args, input);
   const capability = capabilityFrom(input);
-  const executeCapability = capabilityExecutorFrom(input);
-  const trialCapabilityExecutor = trialExecutorFrom(input);
+  const adapters = missionAdapters(input, workerResults);
   const created = await require('./sqliteDb').createRuntimeDb({ db: input.db });
   try {
     const result = await require('../../holobionte/runtime/holobiontMissionService').runHolobiontMission(created.db, {
       ...input, hostId: hostFrom(args, input), missionId: missionFrom(args, input), capability,
-      executeCapability, trialCapabilityExecutor, workerResults,
+      ...adapters, workerResults,
       symbionts: input.symbionts || [{ id: 'resident-mission', contract: contractBody({ hostId: hostFrom(args, input) }, capability) }]
     });
     return { ...result, driver: created.driver, workerResults };
@@ -91,20 +90,69 @@ function capabilityFrom(input) {
   return capability;
 }
 
-function capabilityExecutorFrom(input) {
-  if (typeof input.executeCapability !== 'function') {
-    throw new Error('holobionte requires input.executeCapability (mission-provided capability executor)');
-  }
-  return input.executeCapability;
+function missionAdapters(input, workerResults) {
+  const workerExecutor = workerCapabilityExecutor(workerResults);
+  const executeCapability = input.executeCapability || workerExecutor;
+  const verifyCapability = input.verifyCapability || workerCapabilityVerifier(workerResults);
+  const trialCapabilityExecutor = input.trialCapabilityExecutor
+    || (input.executeCapability ? undefined : workerExecutor);
+  return { executeCapability, verifyCapability, trialCapabilityExecutor };
 }
 
-function trialExecutorFrom(input) {
-  if (typeof input.trialCapabilityExecutor !== 'function') {
-    throw Object.assign(new Error('holobionte requires an isolated trial capability executor.'), {
-      code: 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED'
-    });
-  }
-  return input.trialCapabilityExecutor;
+function workerCapabilityExecutor(results) {
+  return async function executeFromWorkerReceipt() {
+    const worker = results.find((item) => measuredCapability(item.evidenceReport));
+    if (!worker) throw workerAdapterError('No worker result carries measured capability evidence.');
+    const report = worker.evidenceReport;
+    const measured = measuredCapability(report);
+    return { result: report.workerArtifact.content,
+      resourcesConsumed: measured.usage, contributionScore: measured.contributionScore,
+      contractCompliant: measured.contractCompliant,
+      unsafeBehavior: measured.unsafeBehavior, riskScore: measured.riskScore };
+  };
+}
+
+function workerCapabilityVerifier(results) {
+  return async function verifyFromWorkerReceipt(invocation) {
+    const worker = results.find((item, index) => index > 0
+      && evidenceRefs(item.evidenceReport).length > 0);
+    if (!worker) throw workerAdapterError('No independent worker verification receipt is available.');
+    return { status: 'VERIFIED', verifierId: worker.workerId,
+      resultHash: invocation.resultHash, evidenceRefs: evidenceRefs(worker.evidenceReport) };
+  };
+}
+
+function measuredUsage(report) {
+  const usage = report?.usage || report?.workerArtifact?.provenance?.usage;
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return null;
+  const normalized = Object.fromEntries(Object.entries(usage)
+    .filter(([, value]) => Number.isFinite(Number(value)) && Number(value) >= 0)
+    .map(([key, value]) => [key, Number(value)]));
+  return Object.keys(normalized).length ? normalized : null;
+}
+
+function measuredCapability(report) {
+  const usage = measuredUsage(report);
+  const metrics = report?.metrics || report?.workerArtifact?.provenance?.metrics;
+  if (!usage || !metrics || typeof metrics !== 'object') return null;
+  const contributionScore = Number(metrics.contributionScore);
+  const riskScore = Number(metrics.riskScore);
+  if (!Number.isFinite(contributionScore) || !Number.isFinite(riskScore)
+    || typeof metrics.contractCompliant !== 'boolean'
+    || typeof metrics.unsafeBehavior !== 'boolean') return null;
+  return { usage, contributionScore, riskScore,
+    contractCompliant: metrics.contractCompliant,
+    unsafeBehavior: metrics.unsafeBehavior };
+}
+
+function evidenceRefs(report) {
+  const provenance = report?.workerArtifact?.provenance || {};
+  const refs = provenance.evidenceRefs || provenance.sourceRefs || [];
+  return refs.filter((item) => typeof item === 'string' && item.trim());
+}
+
+function workerAdapterError(message) {
+  return Object.assign(new Error(message), { code: 'HOLOBIONT_WORKER_ADAPTER_REQUIRED' });
 }
 
 async function migrateHolobionte(db) {
@@ -188,8 +236,14 @@ async function executeMetapopulation(args, context) {
       variant: session.variant, driver: created.driver, workerResults };
     const brain = require('../../metapopulation/runtime/regionalBrainService');
     const result = await brain.runAutonomousRegionalRuntime({ ...input,
-      metapopulationId: session.metapopulationId, maxCycles: 1 }, { db: created.db, workerResults });
-    return { ...result, complete: false, missionVerified: false,
+      metapopulationId: session.metapopulationId, maxCycles: input.maxCycles ?? 100 },
+    { db: created.db, workerResults });
+    const terminal = ['NO_ACTION', 'STOPPED'].includes(result.status);
+    const verification = typeof input.verifyMission === 'function'
+      ? await input.verifyMission({ mission, session, result, workerResults }) : null;
+    const missionVerified = verification?.verified === true
+      && Array.isArray(verification.evidenceRefs) && verification.evidenceRefs.length > 0;
+    return { ...result, complete: terminal, missionVerified,
       sessionId: session.sessionId, variant: session.variant, driver: created.driver, workerResults };
   } finally {
     await created.close();
@@ -240,11 +294,23 @@ function nodeFrom(args, topology, context) {
 }
 
 function inputFrom(context, args = {}) {
-  const input = context.input && typeof context.input === 'object' ? context.input : {};
+  const input = objectValue(context.input);
   return { ...input, riskNodeId: context.nodeId,
-    statisticalContract: context.statisticalContracts?.[context.nodeId] || input.statisticalContract,
-    db: context.capabilityDb || input.db, variantId: args.variant || input.variantId || null,
-    workers: Array.isArray(args.workers) ? args.workers : input.workers || [] };
+    statisticalContract: firstValue(context.statisticalContracts?.[context.nodeId], input.statisticalContract),
+    db: firstValue(context.capabilityDb, input.db),
+    variantId: firstValue(args.variant, input.variantId, null),
+    budget: firstValue(input.budget, context.budget, null),
+    executionBudget: firstValue(input.executionBudget, context.budget, null),
+    signal: firstValue(input.signal, context.signal), deadline: firstValue(input.deadline, context.deadline),
+    workers: Array.isArray(args.workers) ? args.workers : firstValue(input.workers, []) };
+}
+
+function objectValue(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function firstValue(...values) {
+  return values.find((value) => value !== undefined && value !== null);
 }
 
 module.exports = { PLUGIN_TOPOLOGIES, UNSUPPORTED_TOPOLOGIES, installTopologyPlugins, hostFrom, missionTextFrom };

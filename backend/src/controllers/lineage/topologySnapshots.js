@@ -46,7 +46,8 @@ async function capture({ db, scope, agent, req }) {
   if (!selection) return null;
   if (!agent.workspace_id) throw refusal('TOPOLOGY_SNAPSHOT_WORKSPACE_REQUIRED', 'Agent workspace required.', 409);
   register(selection.topologyId);
-  return service.capture({ db, scope, ...selection, agentId: agent.id, workspaceId: agent.workspace_id });
+  return service.capture({ db, scope, ...selection, agentId: agent.id,
+    workspaceId: agent.workspace_id, workerKind: workerKind(agent) });
 }
 
 async function preflight({ db, scope, agent, state }) {
@@ -56,7 +57,18 @@ async function preflight({ db, scope, agent, state }) {
   register(bindings.topologyId);
   return service.preflightRestore({ db, scope, manifest, topologyId: bindings.topologyId,
     variantId: bindings.variantId, sessionId: bindings.sessionId,
-    agentId: agent.id, workspaceId: agent.workspace_id });
+    agentId: agent.id, workspaceId: agent.workspace_id, workerKind: workerKind(agent) });
+}
+
+function workerKind(agent) {
+  let metadata = {};
+  try { metadata = JSON.parse(agent.metadata_json || '{}'); } catch (_) {}
+  const value = metadata.workerKind || agent.workerKind
+    || (agent.execution_mode === 'orchestrator' ? 'orchestrator' : agent.role);
+  if (typeof value !== 'string' || !/^[a-z][a-z0-9_-]{1,63}$/i.test(value)) {
+    throw refusal('TOPOLOGY_SNAPSHOT_WORKER_KIND_REQUIRED', 'Agent worker kind is required.', 409);
+  }
+  return value;
 }
 
 module.exports = { capture, preflight };

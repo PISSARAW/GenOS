@@ -13,6 +13,7 @@ const {
 } = require('../collectiveStateService');
 const { emit } = require('../agentOrchestrationState');
 const { validateAction } = require('./transitionActionValidation');
+const authorizedExecution = require('./authorizedTransitionExecution');
 
 function uuid() { return crypto.randomUUID(); }
 function nowIso() { return new Date().toISOString(); }
@@ -262,15 +263,38 @@ function buildReceipt(params) {
   };
 }
 
+function preconditionErrors(ctx) {
+  const errors = validatePlan(ctx?.plan);
+  if (!ctx?.db) errors.push('db is required');
+  if (!ctx?.req?.user || !ctx?.req?.tenant) errors.push('authenticated request scope is required');
+  if (!ctx?.agentId && !ctx?.parent?.id) errors.push('agentId is required');
+  if (typeof ctx?.persistCommit !== 'function') errors.push('persistCommit is required');
+  errors.push(...adapterErrors(ctx?.plan, ctx || {}));
+  return errors;
+}
+
+function refusedReceipt(ctx, failure) {
+  const { transitionId, errors, code } = failure;
+  return { ...buildReceipt({ transitionId, plan: ctx?.plan, preSnapshot: null,
+    postSnapshot: null, actionsTaken: [], rollbackReceipt: null, committed: false }),
+  code, errors };
+}
+
 async function executeTransition(ctx) {
-  const { plan } = ctx || {};
   const transitionId = `tx-${uuid().slice(0, 8)}`;
-  const errors = validatePlan(plan);
-  const code = errors.length ? 'MORPHOGENESIS_PLAN_INVALID'
-    : 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE';
-  if (!errors.length) errors.push('Authenticated Rust authority and a restorable transition snapshot are required');
-  return { ...buildReceipt({ transitionId, plan, preSnapshot: null, postSnapshot: null,
-    actionsTaken: [], rollbackReceipt: null, committed: false }), code, errors };
+  const errors = preconditionErrors(ctx);
+  if (errors.length) return refusedReceipt(ctx, { transitionId, errors,
+    code: errors.some((error) => error.includes('plan')) ? 'MORPHOGENESIS_PLAN_INVALID'
+      : 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE' });
+  try {
+    return await authorizedExecution.execute(ctx, transitionId, {
+      getState, hasNoActiveConflict, runAction, migrateState, verifyTransitionState,
+      createStateSnapshot, buildReceipt, compensateActions, nowIso
+    });
+  } catch (error) {
+    return refusedReceipt(ctx, { transitionId, errors: [error.message || String(error)],
+      code: error.code || 'MORPHOGENESIS_TRANSITION_AUTHORITY_UNAVAILABLE' });
+  }
 }
 
 function validateAndCheckConflict(input) {

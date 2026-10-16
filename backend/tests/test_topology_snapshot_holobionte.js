@@ -35,6 +35,7 @@ async function fixture(variant = 'organelle') {
     expectedRevision: revision, status: 'QUIESCENT', eventType: 'QUIESCENT' });
   const context = { db, topologyId: 'holobionte', variantId: variant,
     sessionId: session.holobiontId, agentId: 'host-1', workspaceId: 'workspace-1',
+    workerKind: 'bounded_worker',
     scope: { clause: 'w.organization_id = ? AND w.project_id = ?', params: ['org-1', 'project-1'] } };
   return { db, context };
 }

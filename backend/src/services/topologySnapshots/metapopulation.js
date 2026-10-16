@@ -3,6 +3,7 @@
 const path = require('node:path');
 const { VARIANTS } = require('../metapopulation/policy/metapopulationPolicyService');
 const { digest, refusal } = require('../topologySnapshotContract');
+const { canonicalVariant } = require('../morphogenesis/registry/variantIdentity');
 
 const QUIET = new Set(['QUIESCENT', 'CLOSED']);
 const GROUPS = Object.freeze({
@@ -80,8 +81,10 @@ async function boundSession(context) {
 }
 
 function selectedVariant(session, requested) {
-  const variant = String(requested).trim().toLowerCase().replaceAll('-', '_');
-  if (!Object.hasOwn(VARIANTS, variant) || session.variant !== variant) {
+  const persisted = canonicalVariant('metapopulation', session.variant, Object.keys(VARIANTS));
+  const variant = requested === 'default' ? persisted
+    : canonicalVariant('metapopulation', requested, Object.keys(VARIANTS));
+  if (!variant || !persisted || persisted !== variant) {
     fail('METAPOPULATION_SNAPSHOT_VARIANT_MISMATCH', 'Persisted Metapopulation variant differs from the request.');
   }
   const policy = parseObject(session.variant_policy_json, 'Variant policy');

@@ -87,4 +87,8 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('131-morphogenesis-verified-outcomes', 'Persist independently verified morphogenesis calibration outcomes', async (db) => {
     await require('../../services/morphogenesis/morphogenesisVerifiedOutcomeStore').ensure(db);
   }),
+  createMigrationRunner('132-morphogenesis-transition-snapshots', 'Persist authenticated restorable morphogenesis transitions', async (db) => {
+    await require('./migrateMorphogenesisTransitionSnapshots')
+      .migrateMorphogenesisTransitionSnapshots(db);
+  }),
 ];

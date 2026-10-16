@@ -10,7 +10,7 @@ registry.register({
   version: '1.0.0',
   fromTopology: 'trinity',
   toTopology: 'a_team',
-  evidenceStatus: 'tested',
+  evidenceStatus: 'verified',
   adapt: adaptTrinityToATeam
 });
 

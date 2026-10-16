@@ -10,6 +10,9 @@ const metapopulationMaturity = require('../../metapopulation/policy/metapopulati
 const biome = require('../../biome/variants/variantPolicyService');
 const biomeRuntime = require('../../biome/variants/variantRuntimeService');
 const trinity = require('../../trinityVariantService');
+const aTeamRuntime = require('../../aTeam/variants/variantExecutionRuntime');
+const syncytiumRuntime = require('../../syncytium/variants/variantToolRouter');
+const { canonicalVariant } = require('./variantIdentity');
 
 function projectEntries(input) {
   const { source, definitions, createParameters, maturityFor = () => 'implemented' } = input;
@@ -22,37 +25,49 @@ function projectEntries(input) {
 }
 
 function topologyVariants(topology) {
-  if (topology === 'a_team') return projectEntries({ source: 'aTeam/variants/variantRegistry', definitions: aTeam.VARIANTS, createParameters: (_id, policy) => policy, maturityFor: aTeamVariantMaturity });
-  if (topology === 'trinity') return projectEntries({
+  const loader = TOPOLOGY_LOADERS[topology];
+  return loader ? loader() : [];
+}
+
+const TOPOLOGY_LOADERS = Object.freeze({
+  a_team: () => projectEntries({ source: 'aTeam/variants/variantRegistry', definitions: aTeam.VARIANTS,
+    createParameters: (_id, policy) => policy, maturityFor: aTeamVariantMaturity }),
+  trinity: () => projectEntries({
     source: 'trinityVariantService', definitions: trinity.DEFINITIONS,
     createParameters: (_id, definition) => definition.design,
     maturityFor: trinityVariantMaturity
-  });
-  if (topology === 'biocenose') return projectEntries({
+  }),
+  biocenose: () => projectEntries({
     source: 'biocenose/variants/variantPolicyRouter', definitions: biocenose.POLICIES,
     createParameters: (_id, policy) => policy,
-    maturityFor: (policy) => policy.executionLevel === 'PARTIAL' ? 'partial' : 'implemented'
-  });
-  if (topology === 'holobionte') return holobionteVariants();
-  if (topology === 'syncytium') return syncytiumVariants();
-  if (topology === 'rhizome') return rhizome.list().map((variantId) => ({
-    variantId, parameters: rhizome.resolve(variantId), maturity: 'implemented', source: 'rhizome/variants/variantPolicyService'
-  }));
-  if (topology === 'metapopulation') return projectEntries({
+    maturityFor: (_policy, variantId) => biocenose.supports(variantId) ? 'implemented' : 'partial'
+  }),
+  holobionte: holobionteVariants,
+  syncytium: syncytiumVariants,
+  rhizome: () => rhizome.list().map((variantId) => ({
+    variantId, parameters: rhizome.resolve(variantId), maturity: rhizome.supports(variantId) ? 'implemented' : 'partial',
+    source: 'rhizome/variants/variantPolicyService'
+  })),
+  metapopulation: () => projectEntries({
     source: 'metapopulation/policy/metapopulationPolicyService',
     definitions: metapopulation.VARIANTS, createParameters: (_id, policy) => policy,
     maturityFor: (_definition, variantId) => metapopulationMaturity.maturityForVariant(variantId)
-  });
-  if (topology === 'biome') return projectEntries({
+  }),
+  biome: () => projectEntries({
     source: 'biome/variants/variantPolicyService', definitions: biome.DEFINITIONS,
     createParameters: (_id, policy) => policy,
     maturityFor: (_definition, variantId) => biomeVariantMaturity(variantId)
-  });
-  return [];
+  })
+});
+
+function resolveTopologyVariant(topology, requested) {
+  const variants = topologyVariants(topology);
+  const variantId = canonicalVariant(topology, requested, variants.map((item) => item.variantId));
+  return variantId ? variants.find((item) => item.variantId === variantId) || null : null;
 }
 
-function aTeamVariantMaturity(definition) {
-  return definition.maturity || 'implemented';
+function aTeamVariantMaturity(definition, variantId) {
+  return aTeamRuntime.supportsVariant(variantId) ? definition.maturity || 'implemented' : 'partial';
 }
 
 function trinityVariantMaturity(definition) {
@@ -106,10 +121,10 @@ function syncytiumVariants() {
         replication: policy.configureReplication(), repair: policy.configureRepair(),
         stopConditions: policy.configureStopConditions()
       },
-      maturity: 'implemented',
+      maturity: syncytiumRuntime.supportsVariant(entry.id) ? 'implemented' : 'partial',
       source: 'syncytium/variants/variantPolicyRegistry'
     };
   });
 }
 
-module.exports = { topologyVariants };
+module.exports = { topologyVariants, resolveTopologyVariant };

@@ -30,6 +30,8 @@ function composeHolobionte(mission, options = {}) {
   const selected = variants.selectForMission(goal, fitContext);
   const policy = selected.policy;
   const members = biologicalModeService.compose('holobionte', goal);
+  const operations = Array.isArray(options.variantOperations)
+    ? { variantOperations: structuredClone(options.variantOperations) } : {};
   return {
     mode: 'holobionte',
     mission: goal,
@@ -44,7 +46,8 @@ function composeHolobionte(mission, options = {}) {
       memory: policy.configureMemory(), competition: policy.configureCompetition(),
       tool: policy.configureTool(), synchronization: policy.configureSynchronization()
     },
-    variantSelection: selected.receipt
+    variantSelection: selected.receipt,
+    ...operations
   };
 }
 

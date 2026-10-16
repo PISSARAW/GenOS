@@ -11,6 +11,7 @@ const adversarial = require('./adversarialEcologyController');
 const knowledge = require('./knowledgeEcologyController');
 const compute = require('./computeScheduler');
 const multiScale = require('./multiscaleController');
+const policies = require('./variantPolicyService');
 
 const controllers = {
   resource: ({ ecology, input }) => resource.advance(ecology, input),
@@ -36,7 +37,8 @@ function advance({ ecology, variant, state = {}, input = {}, matrix }) {
 const SUPPORTED = Object.freeze(Object.keys(controllers));
 
 function supports(variant) {
-  return SUPPORTED.includes(variant);
+  return Object.hasOwn(policies.DEFINITIONS, variant)
+    && typeof controllers[variant] === 'function';
 }
 
 function variantError(message, code) { return Object.assign(new Error(message), { code }); }

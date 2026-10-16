@@ -16,7 +16,7 @@ function verifyImplementedAdapter() {
     }
   });
   assert.equal(result.supported, true);
-  assert.equal(result.receipt.evidenceStatus, 'tested');
+  assert.equal(result.receipt.evidenceStatus, 'verified');
   assert.equal(result.payload.workPackages.length, 1);
   assert.equal(result.payload.excludedClaims, 1);
 }

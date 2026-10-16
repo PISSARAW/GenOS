@@ -212,8 +212,21 @@ class VariantExecutionRuntime {
 
 Object.assign(VariantExecutionRuntime.prototype, require("./variantExecutionExpertDag"), require("./variantExecutionAuthority"), require("./variantExecutionCoordination"));
 
+const EXECUTION_METHODS = Object.freeze({
+  expert_committee: 'executeExpertCommittee', pipeline: 'executePipeline',
+  project_dag: 'executeProjectDag', cross_functional_pod: 'executeCrossFunctionalPod',
+  boundary_spanner: 'executeBoundarySpanner', matrix_team: 'executeMatrixTeam',
+  tiger_team: 'executeTigerTeam', incident_command: 'executeIncidentCommand',
+  multiteam: 'executeMultiteam', adaptive: 'executeAdaptive', relay_team: 'executeRelayTeam'
+});
+
+function supportsVariant(variantId) {
+  const method = EXECUTION_METHODS[variantId];
+  return Boolean(method && typeof VariantExecutionRuntime.prototype[method] === 'function');
+}
+
 async function executeVariantMission(...args) {
   return new VariantExecutionRuntime(...args).execute();
 }
 
-module.exports = { VariantExecutionRuntime, executeVariantMission };
+module.exports = { VariantExecutionRuntime, executeVariantMission, supportsVariant };

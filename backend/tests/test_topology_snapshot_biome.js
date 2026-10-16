@@ -42,7 +42,7 @@ function fixture(variant = 'resource') {
     }
   };
   const context = { db, topologyId: 'biome', variantId: variant, sessionId: 'biome-1',
-    agentId: 'agent-1', workspaceId: 'workspace-1',
+    agentId: 'agent-1', workspaceId: 'workspace-1', workerKind: 'bounded_worker',
     scope: { clause: 'w.organization_id IS NULL AND w.project_id IS NULL', params: [] } };
   return { state, events, identity, persistent, context };
 }
@@ -98,7 +98,7 @@ test('Biome refuses a forged tenant scope and snapshot binding', async () => {
   const sample = fixture();
   const manifest = await snapshots.capture(sample.context);
   await assert.rejects(snapshots.capture({ ...sample.context,
-    scope: { clause: '1=1', params: [] } }), { code: 'BIOME_SNAPSHOT_SCOPE_INVALID' });
+    scope: { clause: '1=1', params: [] } }), { code: 'TOPOLOGY_SNAPSHOT_SCOPE_INVALID' });
   await assert.rejects(snapshots.preflightRestore({ ...sample.context,
     workspaceId: 'workspace-2', manifest }), { code: 'TOPOLOGY_SNAPSHOT_OWNER_MISMATCH' });
 });

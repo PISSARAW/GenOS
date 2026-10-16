@@ -1,5 +1,7 @@
 'use strict';
 
+const identity = require('./variantIdentity');
+
 function createVariantRegistry() {
   const variants = new Map();
   return {
@@ -12,21 +14,28 @@ function createVariantRegistry() {
 
 function registerVariant(variants, input = {}) {
   validateVariantInput(input);
-  const topologyVariants = variants.get(input.topology) || new Map();
+  const topologyVariants = valueOr(variants.get(input.topology), new Map());
   assertVariantIsNew(topologyVariants, input.variantId);
   const variant = {
     topology: input.topology,
     variantId: input.variantId,
-    parameters: structuredClone(input.parameters || {}),
-    policy: input.policy || null,
-    description: input.description || null,
-    maturity: input.maturity || 'implemented',
-    requiredCapabilities: structuredClone(input.requiredCapabilities || []),
-    source: input.source || null
+    parameters: structuredClone(valueOr(input.parameters, {})),
+    policy: valueOr(input.policy, null),
+    description: valueOr(input.description, null),
+    maturity: valueOr(input.maturity, 'implemented'),
+    requiredCapabilities: structuredClone(valueOr(input.requiredCapabilities, [])),
+    source: valueOr(input.source, null),
+    aliasOf: valueOr(input.aliasOf, null),
+    maturityReasons: structuredClone(valueOr(input.maturityReasons, [])),
+    maturityEvidence: structuredClone(valueOr(input.maturityEvidence, null))
   };
   topologyVariants.set(variant.variantId, variant);
   variants.set(input.topology, topologyVariants);
   return structuredClone(variant);
+}
+
+function valueOr(value, fallback) {
+  return value === undefined || value === null ? fallback : value;
 }
 
 function validateVariantInput(input) {
@@ -39,8 +48,10 @@ function assertVariantIsNew(variants, variantId) {
 }
 
 function resolveVariant(variants, topology, variantId = 'default') {
-  if (variantId === 'default') return { topology, variantId, parameters: {}, policy: null, description: null, maturity: 'implemented', requiredCapabilities: [], source: null };
-  const variant = (variants.get(topology) || new Map()).get(variantId);
+  const entries = variants.get(topology) || new Map();
+  const canonical = variantId === 'default' && entries.has('default')
+    ? 'default' : identity.canonicalVariant(topology, variantId, [...entries.keys()]);
+  const variant = canonical ? entries.get(canonical) : null;
   return variant ? structuredClone(variant) : null;
 }
 

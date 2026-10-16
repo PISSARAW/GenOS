@@ -35,7 +35,7 @@ async function main() {
   topologySnapshots.registerAdapter('syncytium', adapter);
   for (const variantId of Object.keys(adapter.FIELD_REQUIREMENTS)) {
     const db = database(fixture(variantId));
-    const context = { db, agentId: 'agent-1', workspaceId: 'workspace-1', sessionId: 'session-1',
+    const context = { db, agentId: 'agent-1', workspaceId: 'workspace-1', workerKind: 'bounded_worker', sessionId: 'session-1',
       scope: { clause: 'w.id = ?', params: ['workspace-1'] } };
     const manifest = await adapter.capture(context);
     assert.equal(manifest.components[0].status, 'reference-only', variantId);
@@ -46,6 +46,9 @@ async function main() {
     const serviceContext = { ...context, topologyId: 'syncytium', variantId,
       scope: context.scope };
     const sealed = await topologySnapshots.capture(serviceContext);
+    const defaultSealed = await topologySnapshots.capture({ ...serviceContext, variantId: 'default' });
+    assert.equal(defaultSealed.boundary.variantId, variantId, `default preserves persisted ${variantId}`);
+    assert.equal(defaultSealed.bindings.workerKind, 'bounded_worker');
     assert.equal((await topologySnapshots.preflightRestore({ ...serviceContext, manifest: sealed })).restorable,
       false, variantId);
     db.data.revision += 1;
@@ -53,7 +56,7 @@ async function main() {
       ['SYNCYTIUM_BOUNDARY_CHANGED']);
   }
   const db = database(fixture('transactional'));
-  const context = { db, agentId: 'agent-1', workspaceId: 'workspace-1', sessionId: 'session-1',
+  const context = { db, agentId: 'agent-1', workspaceId: 'workspace-1', workerKind: 'bounded_worker', sessionId: 'session-1',
     scope: { clause: 'w.id = ?', params: ['workspace-1'] } };
   const valid = await adapter.capture(context);
   db.data.owner = 'another-session';

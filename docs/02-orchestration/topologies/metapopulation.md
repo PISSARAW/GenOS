@@ -694,7 +694,7 @@ DORMANT → [*] : fossilisation
 
 ---
 
-## 13. Les 12 variants de Metapopulation
+## 13. Les 16 variants de Metapopulation
 
 Les douze entrées ci-dessous sont les variants canoniques du registre. Le profil
 automatique actuel examine des mots de la mission, départage les égalités selon
@@ -833,7 +833,7 @@ une assimilation réussie.
 | `evolutionary` | Améliorer continuellement des stratégies par mutation et sélection locale ; explorer des lignées d'agents avec détection de spéciation sur plusieurs dèmes. | Objectif ou fitness local, diversité de lignées, cycles de mutation/reproduction bornés, adaptateur `rustEvolution` configuré pour l'effet Rust. | `island_search` échange surtout des incumbents entre recherches indépendantes ; `heterogeneous_islands` maintient des méthodes diverses sans exiger de reproduction génétique. Une proposition de mutation ne prouve pas un gain vérifié. |
 | `cultural` | Diffuser une procédure validée entre équipes résidentes ; transmettre des artefacts et méthodes versionnés entre dèmes sans déplacer les agents. | Culture avec source, cible, version, hash et provenance, compatibilité receveur, résidents identifiés et reçu après assimilation. | `heterogeneous_islands` organise d'abord la diversité des algorithmes ; `federated` ajoute les obligations de souveraineté ; `stepping_stone` impose des chemins locaux rares. Une offre en quarantaine n'est pas une transmission. |
 
-Les profils historiques `balanced`, `resilient`, `exploratory` et `conservative`
+Les profils fondamentaux `balanced`, `resilient`, `exploratory` et `conservative`
 restent sélectionnables : ils déterminent respectivement une migration
 complémentaire, de secours, de nouveauté ou de contre-exemple. Ils ne sont pas
 quatre variants canoniques supplémentaires et ne remplacent aucune des douze
@@ -1636,7 +1636,7 @@ termine la recolonisation uniquement sur une preuve locale valide.
 
 ## 33. Garanties exécutables du runtime régional
 
-Voir [ADR 0330](../../adr/0330-effets-durables-metapopulation.md). La suite `npm --prefix backend run test:metapopulation` couvre les 12 variants et les 4 profils historiques. La [référence opérationnelle](../../03-reference/runtime-metapopulation.md) précise les dix suites, leurs résultats et les limites de qualification.
+Voir [ADR 0330](../../adr/0330-effets-durables-metapopulation.md). La suite `npm --prefix backend run test:metapopulation` couvre les 12 spécialisations et les 4 profils fondamentaux. La [référence opérationnelle](../../03-reference/runtime-metapopulation.md) précise les dix suites, leurs résultats et les limites de qualification.
 
 Le cerveau reçoit `extinctionReports` avec `demeId`, `evidence.workers`, `evidence.localFunctions` et `provenance`. BUSY, silence et absence de mesure restent insuffisants. PLAN ne démarre pas d'essai. `options.evaluateColonization` reçoit patch, fondateurs et clé d'idempotence, puis retourne `{ viable, fitness, provenance }` avec une fitness numérique dans [0, 1]. Une preuve invalide conserve l'essai en attente ; une acceptation crée un dème actif atomiquement.
 

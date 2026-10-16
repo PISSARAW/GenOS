@@ -36,7 +36,7 @@ const db = {
   }
 };
 const context = { db, topologyId: 'rhizome', variantId: 'routing', sessionId: 'rhizome-1',
-  agentId: 'agent-1', workspaceId: 'workspace-1',
+  agentId: 'agent-1', workspaceId: 'workspace-1', workerKind: 'bounded_worker',
   scope: { clause: 'w.organization_id = ? AND w.project_id = ?', params: ['org-1', 'project-1'] } };
 
 async function refused(work, code) {

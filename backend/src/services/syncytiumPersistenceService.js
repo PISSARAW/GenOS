@@ -3,7 +3,14 @@
 const { withTransaction } = require('../db');
 
 async function ensureTables(db) {
-  await db.run('CREATE TABLE IF NOT EXISTS topology_sessions (id TEXT PRIMARY KEY, topology TEXT NOT NULL, state_json TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+  await db.run('CREATE TABLE IF NOT EXISTS topology_sessions (id TEXT PRIMARY KEY, topology TEXT NOT NULL, variant_id TEXT, state_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+  const columns = await db.all('PRAGMA table_info(topology_sessions)');
+  if (!columns.some((column) => column.name === 'variant_id')) {
+    await db.run('ALTER TABLE topology_sessions ADD COLUMN variant_id TEXT');
+  }
+  if (!columns.some((column) => column.name === 'revision')) {
+    await db.run('ALTER TABLE topology_sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+  }
   await db.run('CREATE TABLE IF NOT EXISTS syncytium_session_revisions (session_id TEXT PRIMARY KEY, revision INTEGER NOT NULL)');
   await db.run('CREATE TABLE IF NOT EXISTS syncytium_applied_ops (session_id TEXT NOT NULL, op_id TEXT NOT NULL, operation_json TEXT NOT NULL, PRIMARY KEY (session_id, op_id))');
   await db.run(`CREATE TABLE IF NOT EXISTS topology_session_events (
@@ -21,7 +28,10 @@ async function ensureTables(db) {
 async function createSession(db, session) {
   return withTransaction(db, async (tx) => {
     await ensureTables(tx);
-    await tx.run('INSERT INTO topology_sessions (id, topology, state_json, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', session.sessionId, 'syncytium', JSON.stringify(session.state));
+    await tx.run(`INSERT INTO topology_sessions
+      (id, topology, variant_id, state_json, revision, updated_at)
+      VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`, session.sessionId, 'syncytium',
+    session.state.variantPolicy?.id || 'hard', JSON.stringify(session.state));
     await tx.run('INSERT INTO syncytium_session_revisions (session_id, revision) VALUES (?, 0)', session.sessionId);
     await appendEvent(tx, { session, revision: 0, type: 'SESSION_CREATED' });
     return 0;
@@ -38,7 +48,9 @@ async function commitSession(db, session, operation) {
     const revision = session.revision + 1;
     const compare = await tx.run('UPDATE syncytium_session_revisions SET revision = ? WHERE session_id = ? AND revision = ?', revision, session.sessionId, session.revision);
     if (compare.changes !== 1) throw revisionConflict(session.sessionId, session.revision);
-    const update = await tx.run("UPDATE topology_sessions SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND topology = 'syncytium'", JSON.stringify(session.state), session.sessionId);
+    const update = await tx.run(`UPDATE topology_sessions SET variant_id = ?, state_json = ?,
+      revision = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND topology = 'syncytium'`,
+    session.state.variantPolicy?.id || 'hard', JSON.stringify(session.state), revision, session.sessionId);
     if (update.changes !== 1) throw missingSession(session.sessionId);
     for (const item of operations) await recordOperation(tx, session, item);
     await appendSessionEvent({ db: tx, session, revision, operations });
@@ -84,9 +96,10 @@ async function countExistingOperations(db, sessionId, operations) {
 
 async function loadSession(db, sessionId) {
   await ensureTables(db);
-  const row = await db.get("SELECT topology, state_json FROM topology_sessions WHERE id = ? AND topology = 'syncytium'", sessionId);
+  const row = await db.get("SELECT topology, variant_id, state_json FROM topology_sessions WHERE id = ? AND topology = 'syncytium'", sessionId);
   if (!row) return null;
-  return { id: sessionId, topology: row.topology, state: JSON.parse(row.state_json || '{}'), revision: await getRevision(db, sessionId) };
+  return { id: sessionId, topology: row.topology, variantId: row.variant_id || null,
+    state: JSON.parse(row.state_json || '{}'), revision: await getRevision(db, sessionId) };
 }
 
 async function getRevision(db, sessionId) {

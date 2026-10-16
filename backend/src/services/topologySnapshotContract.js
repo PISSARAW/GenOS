@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const SCHEMA_VERSION = 1;
 const STATUSES = new Set(['captured', 'reference-only', 'unsupported', 'conflict']);
-const BINDING_FIELDS = ['topologyId', 'variantId', 'sessionId', 'agentId', 'workspaceId'];
+const BINDING_FIELDS = ['topologyId', 'variantId', 'sessionId', 'agentId', 'workspaceId', 'workerKind'];
 const MANIFEST_FIELDS = new Set(['schemaVersion', 'policyVersion', 'bindings', 'boundary', 'components', 'hash']);
 
 function refusal(code, message) {
@@ -48,7 +48,20 @@ function bindings(context) {
   if (!plain(context.scope)) {
     throw refusal('TOPOLOGY_SNAPSHOT_SCOPE_REQUIRED', 'A scoped topology snapshot is required.');
   }
+  validateScope(context.scope);
   return result;
+}
+
+function validateScope(scope) {
+  const clause = typeof scope.clause === 'string' ? scope.clause.trim() : '';
+  const params = Array.isArray(scope.params) ? scope.params : null;
+  const atom = '(?:[A-Za-z][A-Za-z0-9_]*\\.)?(?:id|organization_id|project_id)\\s*(?:=\\s*\\?|IS NULL)';
+  const safe = new RegExp(`^${atom}(?:\\s+AND\\s+${atom})*$`, 'i');
+  const placeholders = (clause.match(/\?/g) || []).length;
+  if (!params || !safe.test(clause) || placeholders !== params.length
+    || params.some((value) => !['string', 'number'].includes(typeof value))) {
+    throw refusal('TOPOLOGY_SNAPSHOT_SCOPE_INVALID', 'Snapshot scope must use a validated identity predicate.');
+  }
 }
 
 function components(input) {
@@ -118,6 +131,11 @@ function verify(manifest, context) {
   }
   if (Reflect.ownKeys(manifest).some((field) => !MANIFEST_FIELDS.has(field))) {
     throw refusal('TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED', 'Topology snapshot has unsealed manifest fields.');
+  }
+  const bindingKeys = Reflect.ownKeys(manifest.bindings);
+  if (bindingKeys.length !== BINDING_FIELDS.length
+    || bindingKeys.some((field) => !BINDING_FIELDS.includes(field))) {
+    throw refusal('TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED', 'Topology snapshot has unsealed binding fields.');
   }
   const expected = bindings(context);
   if (BINDING_FIELDS.some((field) => manifest.bindings[field] !== expected[field])) {

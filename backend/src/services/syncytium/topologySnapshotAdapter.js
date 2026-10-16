@@ -83,7 +83,8 @@ async function readState(context) {
 
 function variantOf(context, state) {
   const variantId = state.variantPolicy?.id;
-  if (!variantId || (context.variantId && getPolicy(context.variantId).id !== getPolicy(variantId).id)) {
+  const requested = context.variantId === 'default' ? variantId : context.variantId;
+  if (!variantId || (requested && getPolicy(requested).id !== getPolicy(variantId).id)) {
     throw denied('Persisted Syncytium variant is missing or mismatched.');
   }
   return getPolicy(variantId).id;

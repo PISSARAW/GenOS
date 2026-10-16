@@ -24,11 +24,11 @@ const EXPECTED_ACTIONS = Object.freeze({
   cultural: ['TRANSFER_CULTURE', 'MUTATE_CULTURE', 'BUILD_CULTURAL_PHYLOGENY']
 });
 
-const BRAIN_HANDLED = new Set(['MIGRATE_PROPAGULE', 'REGULATE_CORRIDORS', 'MARK_DEME_AT_RISK']);
+const brain = require('../runtime/regionalBrainService');
 
 function handledActionTypes() {
   return new Set([...Object.keys(executors.EXECUTORS), ...Object.keys(executors.RUNTIME_MARKERS),
-    ...Object.keys(regional.EVENT_ACTIONS), ...BRAIN_HANDLED]);
+    ...Object.keys(regional.EVENT_ACTIONS), ...Object.keys(brain.CORE_ACTION_EXECUTORS)]);
 }
 
 function variantExpectations(variant) {
@@ -52,7 +52,7 @@ function variantChecks(variant) {
 }
 
 function hasPlanner(variant) {
-  return runtime.VARIANT_RUNTIME_ACTIONS.includes(variant);
+  return typeof runtime.VARIANT_PLANNERS[variant] === 'function';
 }
 
 function maturityForVariant(variant) {

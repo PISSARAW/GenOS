@@ -5,8 +5,9 @@ const service = require('../src/services/topologySnapshotService');
 const contract = require('../src/services/topologySnapshotContract');
 
 const state = { revision: 4, value: 'sealed' };
-const context = { db: {}, scope: { tenantId: 'tenant-1' }, topologyId: 'test_topology',
-  variantId: 'controlled', sessionId: 'session-1', agentId: 'agent-1', workspaceId: 'workspace-1' };
+const context = { db: {}, scope: { clause: 'organization_id = ?', params: ['tenant-1'] },
+  topologyId: 'test_topology', variantId: 'controlled', sessionId: 'session-1',
+  agentId: 'agent-1', workspaceId: 'workspace-1', workerKind: 'bounded_worker' };
 
 service.registerAdapter('test_topology', {
   async capture() {
@@ -47,6 +48,13 @@ async function run() {
   const symbolAuthority = { ...manifest, [Symbol('commitAuthorized')]: true };
   await expectRefusal(() => service.preflightRestore({ ...context, manifest: symbolAuthority }),
     'TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED');
+  const extraBinding = structuredClone(manifest);
+  extraBinding.bindings.unsealed = 'authority';
+  await expectRefusal(() => service.preflightRestore({ ...context, manifest: extraBinding }),
+    'TOPOLOGY_SNAPSHOT_INTEGRITY_FAILED');
+  await expectRefusal(() => service.capture({ ...context,
+    scope: { clause: 'organization_id = ? OR 1=1', params: ['tenant-1'] } }),
+  'TOPOLOGY_SNAPSHOT_SCOPE_INVALID');
 
   state.revision++;
   await expectRefusal(() => service.preflightRestore({ ...context, manifest }), 'TOPOLOGY_SNAPSHOT_DRIFT');

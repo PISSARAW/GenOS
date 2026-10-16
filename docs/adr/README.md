@@ -701,7 +701,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0562](0562-lineariser-application-clinique.md) | Linéariser l’application d’une autorisation clinique | Accepté, qualification du CLI à confirmer | 2026-10-16 | nosologie, autorisation clinique, persistance multi-processus |
 | [0563](0563-selection-des-variants-par-cas-d-usage.md) | Sélectionner les variants par cas d'usage documenté | accepté pour la présélection ; calibration comparative requise | 2026-10-16 | orchestration, morphogenèse, variants |
 | [0564](0564-charger-les-issues-verifiees-dans-la-continuation.md) | Charger les issues vérifiées dans la continuation morphogénétique | Accepté pour le chargement durable ; production comparative à qualifier | 2026-10-16 | orchestration, morphogenèse, calibration, preuve |
-| [0566](0566-lier-les-issues-appariees-aux-transitions.md) | Lier les issues appariées aux transitions scellées | Accepté pour la dérivation contrôlée ; collecte comparative à compléter | 2026-10-16 | morphogenèse, issue appariée, reçu, calibration |
+| [0565](0565-unifier-les-contrats-de-variants-topologiques.md) | Unifier les contrats de variants topologiques | Accepté | 2026-10-16 | orchestration, morphogenèse, snapshots, variants |
+| [0566a](0566-autorite-rust-et-snapshot-durable-de-morphogenese.md) | Autorité Rust et snapshot durable de morphogenèse | Accepté | 2026-10-16 | orchestration, morphogenèse, sécurité, restauration |
+| [0566b](0566-lier-les-issues-appariees-aux-transitions.md) | Lier les issues appariées aux transitions scellées | Accepté pour la dérivation contrôlée ; collecte comparative à compléter | 2026-10-16 | morphogenèse, issue appariée, reçu, calibration |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

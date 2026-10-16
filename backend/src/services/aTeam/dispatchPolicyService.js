@@ -14,9 +14,9 @@ function prepareDispatchPolicy(input = {}) {
   const mission = { ...source, variant: source.variant || source.team_variant || source.teamVariant };
   const plan = compatibleVariantPlan({ ...mission, interfaceCount: countInterfaces(input.members),
     parallelWorkstreams: countIndependent(input.members) }, input.members || []);
+  if (plan.variant === 'multiteam' && !Array.isArray(mission.teams)) throw coded('Multiteam dispatch requires explicit subteam definitions.', 'ATEAM_MULTITEAM_INPUT_REQUIRED');
   const memberCount = declaredMemberCount(mission, plan, input.members);
   if (memberCount < plan.minMembers) throw coded(`Variant '${plan.variant}' requires at least ${plan.minMembers} members.`, 'ATEAM_VARIANT_TEAM_TOO_SMALL');
-  if (plan.variant === 'multiteam' && !Array.isArray(mission.teams)) throw coded('Multiteam dispatch requires explicit subteam definitions.', 'ATEAM_MULTITEAM_INPUT_REQUIRED');
   const members = applyMemberPolicy(attachStageContracts(input.members || [], mission), plan);
   const graph = compileWorkGraph({ teamRunId: input.teamRunId, members });
   const boundaries = assessBoundaries(graph, members);
@@ -33,7 +33,6 @@ function prepareDispatchPolicy(input = {}) {
 function compatibleVariantPlan(mission, members) {
   const selected = buildVariantPlan(mission);
   if (mission.variant) return selected;
-  if (selected.variant === 'multiteam') return fallbackPlan(mission, selected, 'verified_subrun_executor_unavailable');
   if (selected.variant !== 'expert_committee' || members.length >= selected.minMembers) return selected;
   return fallbackPlan(mission, selected, 'team_below_min_members');
 }

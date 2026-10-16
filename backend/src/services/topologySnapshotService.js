@@ -67,6 +67,7 @@ async function preflightRestore(context) {
   }
   return { allowed: true, restorable: false, plan: { type: 'verify-only',
     topologyId: context.topologyId, variantId: context.variantId, sessionId: context.sessionId,
+    workerKind: context.workerKind,
     componentStatuses: manifest.components.map((item) => ({ id: item.id, status: item.status })) },
   adapterPlan: result.plan || null };
 }

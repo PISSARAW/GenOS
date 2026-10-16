@@ -30,7 +30,7 @@ function run() {
   const peerPod = prepareDispatchPolicy({
     mission: { goal: 'Peer audit', variant: 'cross_functional_pod' }, members: peers, totalBudget: 120000
   });
-  assert.deepEqual(peerPod.members.map((member) => member.executionBudgetTokens), [40000, 40000, 40000]);
+  assert.deepEqual(peerPod.members.map((member) => member.executionBudgetTokens), [50000, 34999, 34999]);
   const incidentMembers = [...members, { memberId: 'ops', subSystem: 'ops', role: 'operations' }];
   const incident = prepareDispatchPolicy({ mission: { variant: 'incident_command', incidentRoles: { commander: 'api', operations: 'ops', planning: 'web', logistics: 'security' }, sitrepIntervalMinutes: 15, operationalObjectives: ['restore service'] }, members: incidentMembers });
   assert.equal(incident.policy.commanderMemberId, 'api');
@@ -57,16 +57,13 @@ function run() {
   });
   assert.equal(fallback.policy.variant, 'project_dag');
   assert.equal(fallback.policy.evidence.fallbackFrom, 'expert_committee');
-  const autoMultiteam = prepareDispatchPolicy({
+  assert.throws(() => prepareDispatchPolicy({
     mission: { goal: 'Deliver service', teamCount: 2 },
     members: [members[0], { ...members[1], dependsOn: ['api'] }]
-  });
-  assert.equal(autoMultiteam.policy.variant, 'project_dag');
-  assert.equal(autoMultiteam.policy.evidence.fallbackFrom, 'multiteam');
-  assert.equal(autoMultiteam.policy.evidence.fallbackReason, 'verified_subrun_executor_unavailable');
-  assert.deepEqual(autoMultiteam.members[1].dependsOn, ['api']);
+  }), { code: 'ATEAM_MULTITEAM_INPUT_REQUIRED' });
   assert.throws(() => prepareDispatchPolicy({
-    mission: { goal: 'Deliver service', teamCount: 2, minMembers: 4 },
+    mission: { goal: 'Deliver service', teamCount: 2, minMembers: 4,
+      teams: [{ teamId: 'one', members: [members[0]] }, { teamId: 'two', members: [members[1]] }] },
     members: [members[0], members[1]]
   }), { code: 'ATEAM_VARIANT_TEAM_TOO_SMALL' });
   assert.throws(() => prepareDispatchPolicy({

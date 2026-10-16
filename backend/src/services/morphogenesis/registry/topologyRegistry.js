@@ -7,6 +7,7 @@ const { createVariantRegistry } = require('./variantRegistry');
 const { createTopologyRelationRegistry } = require('./topologyRelationRegistry');
 const { topologyVariants } = require('./variantCatalog');
 const { resolveTopologyProfile, normalizeProfile } = require('./topologyProfileService');
+const { baselineFor } = require('./variantIdentity');
 
 const DEFINITIONS = Object.freeze({
   trinity: { problemSemantics: ['competing hypotheses', 'experimental comparison'], inputSemantics: { unit: 'claims_or_hypotheses' }, outputSemantics: { unit: 'evidence_backed_synthesis' }, independenceModel: { required: true }, stateModel: { writes: 'isolated', reads: 'shared' }, authorityModel: { decision: 'evidence_gated' }, communicationModel: { default: 'orchestrator_mediated' }, evidenceModel: { mode: 'comparative_barrier' }, resourceModel: { budget: 'pooled' }, lifecycleModel: { persistence: 'mission_scoped' }, strengths: ['independent comparison'], weaknesses: ['coordination overhead'], failureModes: ['correlated hypotheses'], observables: ['hypothesis_count', 'comparison_coverage'] },
@@ -40,7 +41,7 @@ function createTopologyRegistry() {
       validChildren: [],
       transitionIn: [],
       transitionOut: []
-    }, true);
+    }, { makeCurrent: true, catalogVariants: variants });
     registerCatalogVariants(context, topologyId, variants);
   }
 
@@ -75,9 +76,14 @@ function createTopologyRegistry() {
   });
   context.relationRegistry.register({ left: 'syncytium', right: 'biocenose', relation: 'COMPATIBLE_WITH_ADAPTER', adapterRequired: true, evidenceStatus: 'conceptual' });
   context.relationRegistry.register({ left: 'a_team', right: 'rhizome', relation: 'COMPATIBLE_WITH_ADAPTER', adapterRequired: true, evidenceStatus: 'conceptual' });
+  context.relationRegistry.register({
+    left: 'a_team', right: 'trinity', relation: 'COMPATIBLE_WITH_ADAPTER',
+    adapterRequired: true, evidenceStatus: 'verified',
+    reason: 'Les claims Trinity vérifiés sont adaptés en work packages A-Team par un adaptateur testé.'
+  });
 
   return {
-    register: (input, makeCurrent) => registerTopology(context, input, makeCurrent),
+    register: (input, makeCurrent) => registerTopology(context, input, { makeCurrent }),
     get: (topologyId, version) => context.versionRegistry.get(topologyId, version),
     list: () => [...context.topologyIds],
     variants: context.variantRegistry,
@@ -94,16 +100,26 @@ function registerCatalogVariants(context, topology, variants) {
   for (const variant of variants) context.variantRegistry.register({ topology, ...variant });
 }
 
-function registerTopology(context, input, makeCurrent = false) {
+function registerTopology(context, input, options = {}) {
   const contract = createTopologyContract(input);
   const validation = validateTopologyContract(contract);
   if (!validation.valid) throw new Error(`Invalid topology contract: ${validation.errors.join('; ')}`);
   if (!context.topologyIds.includes(contract.topologyId)) context.topologyIds.push(contract.topologyId);
-  const saved = context.versionRegistry.register(contract, makeCurrent);
+  const saved = context.versionRegistry.register(contract, options.makeCurrent === true);
   if (!context.variantRegistry.list(contract.topologyId).includes('default')) {
-    context.variantRegistry.register({ topology: contract.topologyId, variantId: 'default' });
+    const baseline = defaultVariant(contract.topologyId, options.catalogVariants || []);
+    if (baseline) context.variantRegistry.register(baseline);
   }
   return saved;
+}
+
+function defaultVariant(topology, variants) {
+  const baseline = baselineFor(topology);
+  const source = variants.find((variant) => variant.variantId === baseline);
+  if (!baseline && !variants.length) return null;
+  if (!source) throw new Error(`No canonical baseline variant registered for ${topology}.`);
+  return { ...structuredClone(source), topology, variantId: 'default', aliasOf: baseline,
+    description: `Alias canonique de la baseline ${baseline}.` };
 }
 
 module.exports = { DEFINITIONS, createTopologyRegistry };

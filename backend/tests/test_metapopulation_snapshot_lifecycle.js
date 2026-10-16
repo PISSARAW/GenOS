@@ -35,7 +35,8 @@ async function run() {
     const session = await api.createMetapopulationSession('Regional recovery.',
       { db, variant: 'rescue_network', orchestratorId: 'agent-1' });
     assert.equal(session.missionId, 'agent-1');
-    const input = { db, sessionId: session.sessionId, agentId: 'agent-1', workspaceId: 'workspace-1' };
+    const input = { db, sessionId: session.sessionId, agentId: 'agent-1', workspaceId: 'workspace-1',
+      workerKind: 'bounded_worker' };
     await expectCode(() => api.quiesceForSnapshot(input), 'METAPOPULATION_SNAPSHOT_DEME_MISMATCH');
     await api.createPatch(session.sessionId, { patchId: 'patch-1', environment: {}, requirements: [],
       resources: {}, carryingCapacity: 2, quality: 1, accessibility: 1 }, { db });

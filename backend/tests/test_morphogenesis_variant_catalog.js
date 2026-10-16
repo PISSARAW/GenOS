@@ -26,6 +26,18 @@ function run() {
   assert.equal(registry.variants.resolve('metapopulation', 'conservative').parameters.quorumRatio, 0.7);
   assert.equal(registry.variants.resolve('biome', 'resource').maturity, 'implemented');
   assert.equal(registry.variants.resolve('biome', 'multi_scale').parameters.levels.length, 3);
+  assert.equal(registry.variants.resolve('biome', 'multiscale').variantId, 'multi_scale');
+  assert.equal(registry.variants.resolve('syncytium', 'local_first').variantId, 'localFirst');
+  assert.equal(registry.variants.resolve('holobionte', 'adaptiveMicrobiome').variantId,
+    'adaptive-microbiome');
+
+  for (const topology of registry.list()) {
+    const baseline = registry.variants.resolve(topology, 'default');
+    const canonical = registry.variants.resolve(topology, baseline.aliasOf);
+    assert.deepEqual(baseline.parameters, canonical.parameters, `${topology} default parameters`);
+    assert.equal(baseline.maturity, canonical.maturity, `${topology} default maturity`);
+    assert.ok(Object.keys(baseline.parameters).length > 0, `${topology} default is not empty`);
+  }
 
   const explicitPartial = registry.profiles.resolve({
     baseTopology: 'biocenose', structuralVariants: ['argumentation_community']

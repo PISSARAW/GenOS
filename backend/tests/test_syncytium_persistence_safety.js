@@ -15,7 +15,8 @@ function runStatement(sql, params, state) {
   const statement = String(sql).trim().toUpperCase();
   if (statement.startsWith('CREATE TABLE') || statement.startsWith('ALTER TABLE')) return { changes: 0 };
   if (statement.startsWith('INSERT INTO TOPOLOGY_SESSIONS')) {
-    state.rows.set(params[0], { topology: params[1], state_json: params[2], revision: 1 });
+    state.rows.set(params[0], { topology: params[1], variant_id: params[2],
+      state_json: params[3], revision: 0 });
     return { changes: 1 };
   }
   if (statement.startsWith('INSERT INTO SYNCYTIUM_SESSION_REVISIONS')) {
@@ -36,10 +37,10 @@ function runStatement(sql, params, state) {
 }
 
 function updateSession(params, rows) {
-  const [state, id] = params;
+  const [variantId, state, revision, id] = params;
   const current = rows.get(id);
   if (!current) return { changes: 0 };
-  rows.set(id, { ...current, state_json: state });
+  rows.set(id, { ...current, variant_id: variantId, state_json: state, revision });
   return { changes: 1 };
 }
 
@@ -69,6 +70,7 @@ async function main() {
   await syncytium.applyOperation(session.sessionId, operation, { db });
   await syncytium.applyOperation(session.sessionId, operation, { db });
   const record = await persistence.loadSession(db, session.sessionId);
+  assert.equal(record.variantId, 'hard');
   assert.equal(record.revision, 1);
   assert.equal(record.state.ops.length, 1);
   assert.equal(syncytium.rehydrate(record).crdt.getSnapshot().textContent, 'safe');

@@ -64,6 +64,7 @@ async function testVerifiedQuiescence() {
     assert.equal(JSON.parse(event.payload_json).stopEvidence.verifierId, 'stop-verifier');
     const context = { db, topologyId: 'holobionte', variantId: 'local-first',
       sessionId: result.holobiontId, agentId: 'host-1', workspaceId: 'workspace-1',
+      workerKind: 'bounded_worker',
       scope: { clause: 'w.organization_id = ? AND w.project_id = ?', params: ['org-1', 'project-1'] } };
     const manifest = await snapshots.capture(context);
     assert.equal((await snapshots.preflightRestore({ ...context, manifest })).allowed, true);

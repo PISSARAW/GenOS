@@ -124,9 +124,9 @@ function main() {
   assert.equal(onlyExploratory.decision.decision, 'ABSTAIN');
 
   const tradeoff = rankAdaptiveTopologies({ ...input, allowScalarTieBreak: false, candidates: [
-    { id: 'quality', maturity: { variant: 'stable' }, estimatedProblemFit: 0.95, calibrationStatus: 'calibrated',
+    { id: 'quality', maturity: { variant: 'implemented' }, estimatedProblemFit: 0.95, calibrationStatus: 'calibrated',
       confidence: 0.95, estimatedTokens: 900 },
-    { id: 'efficient', maturity: { variant: 'stable' }, estimatedProblemFit: 0.7, calibrationStatus: 'calibrated',
+    { id: 'efficient', maturity: { variant: 'implemented' }, estimatedProblemFit: 0.7, calibrationStatus: 'calibrated',
       confidence: 0.95, estimatedTokens: 100 }
   ] });
   assert.equal(tradeoff.decision.decision, 'ABSTAIN');

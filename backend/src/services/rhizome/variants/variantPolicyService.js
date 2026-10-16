@@ -129,6 +129,28 @@ function list() {
   return Object.keys(PROFILES);
 }
 
+function supports(name) {
+  try {
+    const variant = resolve(name).name;
+    const base = require('../routing/routePlanner');
+    const special = runtimeProbe(variant);
+    return typeof base.plan === 'function' && special();
+  } catch (_) {
+    return false;
+  }
+}
+
+function runtimeProbe(variant) {
+  if (variant === 'growth') return () => typeof require('../growth/growthPlanner').plan === 'function';
+  if (['resilient', 'self_healing'].includes(variant)) return () => typeof require('../resilience/routeRepairService').repair === 'function';
+  if (variant === 'small_world') return () => typeof require('./smallWorldTopologyService').plan === 'function';
+  if (variant === 'cross_representation') return () => typeof require('../bridges/bridgeService').integrate === 'function';
+  if (variant === 'procedural') return () => typeof require('../propagation/proceduralPropagationService').propagate === 'function';
+  if (variant === 'private') return () => typeof require('../security/routeQuarantineService').quarantine === 'function';
+  if (variant === 'sparse') return () => typeof require('../pruning/routePruningService').propose === 'function';
+  return () => true;
+}
+
 const FIT_RULES = [
   ['private', 'PRIVACY_OR_TRUST_BOUNDARY', input => input.privateOnly === true || input.privacyRequired === true || input.trustDomainRestricted === true],
   ['persistent', 'PERSISTENT_SCOPE_REQUIRED', input => input.persistentRequired === true || ['workspace', 'project', 'persistent'].includes(input.scope)],
@@ -190,4 +212,4 @@ function explicitSelection(name) {
   return { ...policy, selection: { variant: policy.name, method: 'explicit', confidence: 1, reasons: ['EXPLICIT_VARIANT'] } };
 }
 
-module.exports = { resolve, list, analyzeFit, selectForMission };
+module.exports = { resolve, list, supports, analyzeFit, selectForMission };

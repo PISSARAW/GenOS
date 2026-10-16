@@ -11,13 +11,19 @@ class RhizomeController extends TopologyController {
   }
 
   async compose(config = {}) {
-    this.growthBudget = config.growthBudget || 1000;
+    this.growthBudget = config.growthBudget ?? config.budget?.maxTicks ?? 1000;
     this.explorationStrategy = config.strategy || 'breadth-first';
     return { growthBudget: this.growthBudget, strategy: this.explorationStrategy };
   }
 
   async execute(input) {
+    if (input.db && input.sessionId) {
+      return require('../../rhizome/runtime/rhizomeController').run({
+        ...input, options: { ...(input.options || {}), db: input.db }
+      });
+    }
     const { problemSpace = [], seed = null } = input;
+    this.graph = input.graph || {};
     this.explorationFrontier = seed ? [seed] : problemSpace;
 
     while (this.explorationFrontier.length > 0 && this.growthBudget > 0) {
@@ -30,13 +36,18 @@ class RhizomeController extends TopologyController {
     return {
       explored_paths: this.discoveredPaths,
       frontier_size: this.explorationFrontier.length,
-      budget_remaining: this.growthBudget
+      budget_remaining: this.growthBudget,
+      executionMode: 'simulated_controller'
     };
   }
 
   async explore(node) {
-    this.pathCounter = (this.pathCounter || 0) + 1;
-    return [{ from: node, to: `path_${this.pathCounter}`, depth: 1 }];
+    const neighbours = Array.isArray(this.graph[node]) ? this.graph[node] : [];
+    const visited = new Set(this.discoveredPaths.flatMap((path) => [path.from, path.to]));
+    const discovered = neighbours.filter((target) => !visited.has(target))
+      .map((target) => ({ from: node, to: target, depth: 1 }));
+    this.explorationFrontier.push(...discovered.map((path) => path.to));
+    return discovered;
   }
 
   async observe() {

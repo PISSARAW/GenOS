@@ -50,11 +50,18 @@ async function topologyFor(db, ctx) {
   const capabilities = capabilitiesOf(ctx.config);
   if (capabilities.blocked) return { blocked: capabilities.blocked, rationale: [] };
   const task = (ctx.selection && ctx.selection.task) || {};
-  const selection = selectTopology({ taskKind: task.kind || inferTaskKind(task), allowedTopologies: ctx.config.topologies || [],
+  const selection = selectTopology({ taskKind: task.kind || inferTaskKind(task),
+    mission: selectionMission(task, ctx.mission),
+    allowedTopologies: ctx.config.topologies || [],
     availableCapabilities: capabilities.list,
     memoryLevel: ctx.memoryLevel, failures, variant: ctx.config.variant });
   if (capabilities.defaulted) selection.rationale.unshift('capacites-par-defaut');
   return selection;
+}
+
+function selectionMission(task, mission) {
+  return [task.goal, task.description, task.title, mission?.goal, '']
+    .find((value) => typeof value === 'string' && value.length > 0);
 }
 
 async function recordTopologyDecision(db, record) {
