@@ -134,7 +134,73 @@ async function verifyFailedCohortCanRecomposeWithoutSurvivors() {
   }
 }
 
-verifyIndependentReplacementRoster().then(verifyFailedCohortCanRecomposeWithoutSurvivors).then(() => {
+function boundedRosterInput(targetWorkers, pool) {
+  return {
+    state: {
+      db: {}, normalizedMission: { missionId: 'bounded-roster-mission', prompt: 'Bound the roster.',
+        morphogenesisPolicy: { targetWorkers }, topologyCapabilityInventory: { available: topologyRegistry.list()
+          .flatMap((topology) => topologyRegistry.get(topology).requiredCapabilities) } },
+      plan: { selectedTopology: 'a_team', profile: {}, tokenPolicy: { minimumWorkerTokens: 100 },
+        morphogenesisPlan: { selectedTopology: 'a_team', morphologyPatch: { graph: { version: 1 } } } },
+      results: new Map([
+        ['old-scout', { agentId: 'old-scout', status: 'completed', evidenceScore: 20 }],
+        ['old-reviewer', { agentId: 'old-reviewer', status: 'completed', evidenceScore: 30 }]
+      ]),
+      workers: new Map([
+        ['old-scout', { agentId: 'old-scout', role: 'scout', workerKind: 'scout_cell' }],
+        ['old-reviewer', { agentId: 'old-reviewer', role: 'reviewer', workerKind: 'review_worker' }]
+      ])
+    },
+    survivors: [{ agentId: 'old-scout' }, { agentId: 'old-reviewer' }],
+    continuation: { pool, perWorkerTokens: 100 }, orchestratorId: 'orchestrator',
+    strategyAdmissionContext: admissionContext()
+  };
+}
+
+function boundedRosterDeps(composeRequests) {
+  return {
+    planMorphogenesis: () => ({ selectedTopology: 'rhizome', selectedVariant: 'causal_microgroup',
+      controlReceipt: { topology: { rankings: [
+        { topology: 'rhizome' }, { topology: 'biocenose' }
+      ] } } }),
+    composeMode: async ({ mode, options }) => {
+      composeRequests.push({ mode, count: options.agentCount });
+      const members = mode === 'rhizome' ? [
+        { role: 'hypothesis_builder', workerKind: 'hypothesis_worker', capabilities: ['reason'],
+          methodContract: { version: 1, methodId: 'causal_inference' } },
+        { role: 'red_reviewer', workerKind: 'red_worker', capabilities: ['adversarial_review'],
+          methodContract: { version: 1, methodId: 'adversarial_review' } }
+      ] : [{ role: 'evidence_verifier', workerKind: 'verification_worker',
+        capabilities: ['verify'], methodContract: { version: 1, methodId: 'evidence_verification' } }];
+      return { members: members.map((member) => ({ ...member, executionMode: 'worker' })) };
+    }
+  };
+}
+
+async function verifyReplacementCohortIsBounded() {
+  const originalCompilePolicy = decision.compilePolicy;
+  const composeRequests = [];
+  decision.compilePolicy = policyDecision;
+  try {
+    const capped = await service.planContinuation(boundedRosterInput(50, 5000),
+      boundedRosterDeps(composeRequests));
+    assert.equal(capped.targetWorkerCount, 12,
+      'la relève demandée au-delà de 12 workers est plafonnée à 12');
+    assert.equal(capped.cohortBlueprint.assignments.length, 12);
+    const affordable = await service.planContinuation(boundedRosterInput(50, 500),
+      boundedRosterDeps(composeRequests));
+    assert.equal(affordable.targetWorkerCount, 5,
+      'la relève ne dépasse jamais la taille finançable par le budget');
+    assert.equal(affordable.cohortBlueprint.assignments.length, 5);
+    assert.deepEqual(composeRequests.map((request) => request.count), [12, 12, 5, 5],
+      'les composants sont composés pour la taille bornée, sans extension budgétaire');
+  } finally {
+    decision.compilePolicy = originalCompilePolicy;
+  }
+}
+
+verifyIndependentReplacementRoster().then(verifyFailedCohortCanRecomposeWithoutSurvivors).then(
+  verifyReplacementCohortIsBounded).then(() => {
   console.log('Morphogenesis replacement roster planning: PASS');
 }).catch((error) => {
   console.error(error);

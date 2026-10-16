@@ -97,6 +97,21 @@ function testCalibrationRequiresVerifiedCrossDomainHoldoutAndFavorsAbstention() 
   assert.equal(calibration.compileCalibration(samples).verifiedSampleCount, 39);
 }
 
+function testEpochBoundIsEnforced() {
+  const capped = compileConditionalMorphogenesisPolicy({
+    mission: 'Bounded epochs', currentTopology: 'a_team',
+    budget: { tokens: 10000 }, maxEpochs: 100, diagnosis: {}
+  });
+  assert.equal(capped.decision.budget.maxEpochs, 12);
+  assert.equal(capped.bounds.maxEpochs, 12);
+  const infinite = compileConditionalMorphogenesisPolicy({
+    mission: 'Bounded epochs', currentTopology: 'a_team',
+    budget: { tokens: 10000 }, maxEpochs: Infinity, diagnosis: {}
+  });
+  assert.equal(infinite.decision.budget.maxEpochs, 12);
+  assert.ok(capped.decision.budget.stopWhen.includes('policy_epoch_limit'));
+}
+
 function main() {
   const previousId = process.env.GENOS_EPISTEMIC_RECEIPT_KEY_ID;
   const previousSecret = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET;
@@ -105,6 +120,7 @@ function main() {
   try {
     testCompilesPolicyFromObservedNeeds();
     testEvidenceChangeRecompilesAndVerifiedReceiptStops();
+    testEpochBoundIsEnforced();
     testPortfolioContainsVariantsAndNoAuthority();
     testCalibrationRequiresVerifiedCrossDomainHoldoutAndFavorsAbstention();
     process.stdout.write('conditional morphogenesis policy tests passed\n');

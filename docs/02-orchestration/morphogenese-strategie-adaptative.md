@@ -49,7 +49,11 @@ d'une ancienne époque sont ignorés. Le contrôleur cherche d'abord un reçu de
 indépendant valide pour le périmètre de mission. À défaut, il classe les résultats,
 réserve une allocation au-dessus du minimum par worker et appelle à nouveau le planificateur
 Morphogenèse. `maxEpochs` est facultatif; sans limite explicite, le budget d'époques
-admissibles est recalculé selon le pool restant et le nombre de survivants. Les reliquats
+admissibles est recalculé selon le pool restant et le nombre de survivants. La
+politique conditionnelle reste bornée à 12 époques au plus, et la cohorte de
+relève à 12 workers au plus : la taille cible est le minimum du demandé, de
+l'abordable et de 12, sans redimensionnement arbitraire ni extension budgétaire
+implicite. Les reliquats
 inférieurs à la tranche minimale ne sont pas dépensés.
 
 Pour une transition admise, un reçu scelle un `transitionId` dérivé de la recette et de

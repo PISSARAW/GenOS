@@ -14,7 +14,8 @@ compatibles avec les affectations et capacités fournies.
 La politique lie des obligations de preuve au diagnostic, réserve des parts du budget
 à l'exploration, la résolution et la vérification, et pose des conditions de
 réévaluation pour la dérive, la stagnation, la provenance contestée ou un reçu de
-résolution. `reevaluateConditionalMorphogenesisPolicy` recompile à partir de la
+résolution. Les époques sont bornées : `maxEpochs` est plafonné à 12 (`MAX_EPOCHS`),
+même si l'entrée demande davantage, et `stopWhen` inclut `policy_epoch_limit`. `reevaluateConditionalMorphogenesisPolicy` recompile à partir de la
 nouvelle observation et du budget restant. Un reçu arrête la boucle seulement s'il
 est vérifié et correspond au périmètre demandé.
 
