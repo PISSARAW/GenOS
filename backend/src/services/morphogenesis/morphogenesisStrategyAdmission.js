@@ -94,9 +94,15 @@ function assignmentDenial(input) {
   return null;
 }
 
+function attributedTopology(assignment, fallback, strictAttribution) {
+  const declared = assignment.morphologyTopology || assignment.topology;
+  if (declared) return declared;
+  return strictAttribution ? null : fallback;
+}
+
 function workerCapabilityDenial(input) {
-  const { topology, assignments, requiredCapabilities } = input;
-  const matching = assignments.filter((item) => (item.morphologyTopology || item.topology || topology) === topology);
+  const { topology, assignments, requiredCapabilities, strictAttribution } = input;
+  const matching = assignments.filter((item) => attributedTopology(item, topology, strictAttribution) === topology);
   if (!matching.length) return deny('topology_has_no_worker_assignment', { topology });
   const available = new Set(matching.flatMap((item) => item.capabilities || [])
     .map((item) => String(item).toUpperCase()));
@@ -114,7 +120,8 @@ function validateWorkers(input) {
   if (kindDenial) return kindDenial;
   const requirements = candidate.topologyRequirements || [{ topology: candidate.topology,
     requiredCapabilities: candidate.requiredCapabilities || [] }];
-  return requirements.map((requirement) => workerCapabilityDenial({ ...requirement, assignments }))
+  return requirements.map((requirement) => workerCapabilityDenial({ ...requirement, assignments,
+    strictAttribution: requirements.length > 1 }))
     .find(Boolean) || null;
 }
 
@@ -220,27 +227,133 @@ function validatePlannerPolicy(policy) {
 
 function admittedResult(input, candidate, registration) {
   const plannerSelection = candidate.selectionBasis === 'planner_heuristic_unvalidated';
+  const alternatives = unexecutedAlternatives({ policy: input.policy, candidate });
   return { status: 'admitted', executionAuthorized: true,
     selectionBasis: plannerSelection ? candidate.selectionBasis : 'calibrated_policy_proposal',
     comparativeQuality: 'unknown',
+    unexecutedAlternatives: alternatives,
+    counterfactual: counterfactualRecord({ policy: input.policy, alternatives }),
     recipe: { id: candidate.id || candidate.candidateId, topology: candidate.topology,
       variant: registration.variantId },
     actualPlan: bind(candidate, input.actualPlan, registration),
+    resourceResolution: input.resourceResolution || null,
+    resourceReservation: input.resourceReservation || null,
     gates: { policyProposal: !plannerSelection, topologyRegistration: true,
       maturity: registration.variant.maturity, typedValidation: true, topologyCapabilities: true,
-      workerKinds: true, workerCapabilities: true, budget: true, parentLease: true, quiescence: true } };
+      workerKinds: true, workerCapabilities: true, budget: true, parentLease: true, quiescence: true,
+      resourceResolution: Boolean(input.resourceResolution), resourceReservation: Boolean(input.resourceReservation) } };
+}
+
+function selectedIdOf(candidate) {
+  return candidate?.id || candidate?.candidateId || null;
+}
+
+function rankingEntries(policy) {
+  const ranked = policy?.portfolio?.ranking?.candidates;
+  if (Array.isArray(ranked)) return ranked;
+  const flat = policy?.portfolio?.candidates;
+  return Array.isArray(flat) ? flat : [];
+}
+
+function unexecutedAlternatives(input) {
+  const selected = selectedIdOf(input.candidate);
+  return rankingEntries(input.policy)
+    .filter((entry) => (entry?.id || entry?.candidateId || null) !== selected)
+    .slice(0, 50)
+    .map((entry) => ({ candidateId: entry?.id || entry?.candidateId || null,
+      outcome: 'unobserved', comparativeQuality: 'unknown' }))
+    .filter((entry) => entry.candidateId);
+}
+
+function counterfactualRecord(input) {
+  const ranked = Array.isArray(input.policy?.portfolio?.ranking?.candidates);
+  return { sameMissionComparison: 'unobserved', comparativeClaim: 'prohibited',
+    unexecutedCount: input.alternatives.length, rankingAvailable: ranked,
+    reason: 'unexecuted_alternatives_have_no_observed_outcome_for_this_mission' };
+}
+
+function planNeedsDaemon(plan) {
+  return (plan?.workerAssignments || []).some((assignment) => assignment?.workerKind === 'resident_daemon');
+}
+
+function validateResourceResolution(input, now) {
+  const resolution = input.resourceResolution;
+  if (!resolution) return missingResolutionDenial(input);
+  const statusDenied = resolutionStatusDenial(resolution);
+  if (statusDenied) return statusDenied;
+  const stale = resolutionFreshnessDenial({ resolution, now });
+  if (stale) return stale;
+  if (!coversAssignments(input.actualPlan, resolution)) return deny('resource_resolution_plan_mismatch');
+  return reservationDenial(input, resolution);
+}
+
+function missingResolutionDenial(input) {
+  if (planNeedsDaemon(input.actualPlan)) return deny('daemon_availability_unproven');
+  return null;
+}
+
+function resolutionStatusDenial(resolution) {
+  if (resolution.status === 'BLOCKED') {
+    return deny('resource_resolution_blocked', { missing: resolution.missing || [] });
+  }
+  if (resolution.status === 'READY_FOR_ADMISSION') return null;
+  return deny('resource_inventory_unknown', { missing: resolution.missing || resolution.reasons || [] });
+}
+
+function resolutionFreshnessDenial(options) {
+  const observed = Number(options.resolution.observedAt);
+  if (!Number.isFinite(observed)) return deny('resource_inventory_unknown', { missing: ['resource_resolution_stale'] });
+  if (observed > options.now) return deny('resource_inventory_unknown', { missing: ['resource_resolution_stale'] });
+  if (options.now - observed > 30000) {
+    return deny('resource_inventory_unknown', { missing: ['resource_resolution_stale'] });
+  }
+  return null;
+}
+
+function reservationDenial(input, resolution) {
+  const reservation = input.resourceReservation;
+  if (!reservation) return deny('resource_reservation_missing');
+  if (reservation.reserved !== true) return deny('resource_reservation_missing');
+  if (!Number.isFinite(reservation.revalidatedAt)) return deny('resource_reservation_stale');
+  if (reservation.revalidatedAt < resolution.observedAt) return deny('resource_reservation_stale');
+  return null;
+}
+
+function roleCoversKind(roles, kind) {
+  return roles.some((role) => roleCovers({ role, kind }));
+}
+
+function roleCovers(options) {
+  if (options.role.workerKind !== options.kind) return false;
+  if (options.role.status !== 'READY') return false;
+  if (options.role.instanceId) return true;
+  return Boolean(options.role.daemonId);
+}
+
+function coversAssignments(plan, resolution) {
+  const assignments = Array.isArray(plan?.workerAssignments) ? plan.workerAssignments : [];
+  const roles = Array.isArray(resolution.roles) ? resolution.roles : [];
+  return assignments.every((assignment) => coversKind({ assignment, roles }));
+}
+
+function coversKind(options) {
+  const kind = options.assignment ? options.assignment.workerKind : null;
+  if (!kind) return false;
+  return roleCoversKind(options.roles, kind);
 }
 
 function validateAdmissionGates(input) {
   const registry = input.registry || DEFAULT_REGISTRY;
   const registration = validateRecipeRegistration(input.candidate, registry);
   if (registration.status === 'denied') return registration;
+  const now = Number.isFinite(input.now) ? input.now : Date.now();
   const denials = [validateConcretePlan(input.candidate, input.actualPlan),
     validateCapabilities(input.candidate, registration, input.topologyCapabilities),
     validateWorkers({ plan: input.actualPlan,
       availableKinds: input.availableWorkerKinds, candidate: input.candidate }),
     validateBudget(input.actualPlan, input.budget),
-    validateLease(input.candidate, input.actualPlan, input.parentLease)];
+    validateLease(input.candidate, input.actualPlan, input.parentLease),
+    validateResourceResolution(input, now)];
   const denial = denials.find(Boolean);
   return denial || { status: 'admission_gates_passed', registration };
 }

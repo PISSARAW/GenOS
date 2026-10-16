@@ -84,4 +84,110 @@ function observationRows(rows, now) {
   return observation(rows[0], now);
 }
 
-module.exports = { readMissionWorkerRuntimeSnapshot };
+function inferPoolKind(row) {
+  try {
+    const meta = JSON.parse(row.metadata_json || '{}');
+    const kind = meta.workerKind || meta.worker_kind;
+    if (typeof kind === 'string' && kind) return kind;
+  } catch (_) {}
+  const role = String(row.role || '').trim();
+  if (role && /^[a-z][a-z0-9_]*$/.test(role)) return role;
+  return null;
+}
+
+function poolEntry(row, now) {
+  const kind = inferPoolKind(row);
+  if (!kind) {
+    return { instanceId: row.id, workerKind: null, status: 'unknown', reason: 'worker_kind_unproven' };
+  }
+  if (row.status !== 'idle') {
+    return { instanceId: row.id, workerKind: kind, status: 'unavailable',
+      reason: 'worker_not_idle', observedQueueStatus: row.queue_status || null };
+  }
+  if (row.queue_status) {
+    return { instanceId: row.id, workerKind: kind, status: 'busy',
+      reason: 'worker_or_lease_active', observedQueueStatus: row.queue_status };
+  }
+  const expires = row.lease_expires_at ? Date.parse(row.lease_expires_at) : null;
+  if (row.lease_expires_at && !(Number.isFinite(expires) && expires > now)) {
+    return { instanceId: row.id, workerKind: kind, status: 'unknown',
+      reason: 'lease_state_not_proven', observedQueueStatus: row.queue_status || null };
+  }
+  return { instanceId: row.id, workerKind: kind, status: 'free', reason: 'database_idle_without_active_claim',
+    leaseExpiresAt: null, observedQueueStatus: null };
+}
+
+async function readFreeWorkerPoolSnapshot(db, options = {}) {
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  const limit = Math.max(1, Math.min(100, Number(options.limit) || 50));
+  if (!db || !await tableExists(db, 'agents') || !await tableExists(db, 'garage_queue')) {
+    return { status: 'unknown', observedAt: now, workers: [],
+      reason: 'runtime_tables_missing', authority: 'genos_database_read_only' };
+  }
+  try {
+    return await freePoolRows(db, { now, limit, kinds: options.kinds });
+  } catch (_) {
+    return { status: 'unknown', observedAt: now, workers: [],
+      reason: 'free_pool_observation_failed', authority: 'genos_database_read_only' };
+  }
+}
+
+async function freePoolRows(db, options) {
+  const kinds = Array.isArray(options.kinds) ? options.kinds.filter((kind) => typeof kind === 'string') : [];
+  const rows = await db.all(`SELECT a.id, a.status, a.role, a.metadata_json,
+    q.status AS queue_status, q.lease_expires_at
+    FROM agents a LEFT JOIN garage_queue q ON q.worker_id = a.id
+      AND (q.status IN ('queued', 'claimed', 'running')
+        OR q.phase IN ('freezing', 'freeze_failed', 'frozen', 'thawing', 'cancelling'))
+    WHERE a.execution_mode = 'worker' AND a.status IN ('idle', 'running')
+    ORDER BY a.id LIMIT ${Number(options.limit)}`);
+  const workers = rows.map((row) => poolEntry(row, options.now))
+    .filter((entry) => !kinds.length || entry.workerKind === null || kinds.includes(entry.workerKind));
+  const free = workers.filter((entry) => entry.status === 'free').length;
+  return { status: free ? 'available' : 'empty', observedAt: options.now, workers,
+    authority: 'genos_database_read_only',
+    limitation: 'database_observation_does_not_prove_process_liveness_or_admission' };
+}
+
+async function readDaemonRuntimeSnapshot(db, options = {}) {
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  if (!db || !await tableExists(db, 'daemon_runtime_state')) {
+    return { status: 'unknown', observedAt: now, daemons: [],
+      reason: 'daemon_tables_missing', authority: 'genos_database_read_only' };
+  }
+  try {
+    return await daemonRows(db, now);
+  } catch (_) {
+    return { status: 'unknown', observedAt: now, daemons: [],
+      reason: 'daemon_observation_failed', authority: 'genos_database_read_only' };
+  }
+}
+
+async function daemonRows(db, now) {
+  const hasTerritories = await tableExists(db, 'daemon_territories');
+  const rows = hasTerritories
+    ? await db.all(`SELECT r.daemon_id, r.territory_id, r.activity, r.health,
+        r.last_heartbeat_at, t.state AS territory_state
+      FROM daemon_runtime_state r LEFT JOIN daemon_territories t ON t.id = r.territory_id
+      ORDER BY r.daemon_id LIMIT 100`)
+    : await db.all(`SELECT daemon_id, territory_id, activity, health,
+        last_heartbeat_at, NULL AS territory_state FROM daemon_runtime_state ORDER BY daemon_id LIMIT 100`);
+  const daemons = rows.map((row) => daemonEntry(row, now));
+  const live = daemons.filter((entry) => entry.live).length;
+  return { status: live ? 'available' : 'empty', observedAt: now, daemons,
+    authority: 'genos_database_read_only',
+    limitation: 'database_observation_does_not_prove_process_liveness_or_admission' };
+}
+
+function daemonEntry(row, now) {
+  const beat = Date.parse(row.last_heartbeat_at || '');
+  const fresh = Number.isFinite(beat) && beat <= now && now - beat <= 60000;
+  const healthy = ['HEALTHY', 'STRESSED'].includes(row.health);
+  const territoryOk = row.territory_state === null
+    || ['BOOTSTRAPPING', 'SURVEYING', 'ACTIVE', 'DORMANT'].includes(row.territory_state);
+  return { daemonId: row.daemon_id, territoryId: row.territory_id, activity: row.activity,
+    health: row.health, territoryState: row.territory_state, lastHeartbeatAt: row.last_heartbeat_at,
+    live: Boolean(fresh && healthy && territoryOk) };
+}
+
+module.exports = { readMissionWorkerRuntimeSnapshot, readFreeWorkerPoolSnapshot, readDaemonRuntimeSnapshot };

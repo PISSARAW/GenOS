@@ -1,7 +1,7 @@
 # ADR 0538 — Fonder les recettes morphogénétiques sur l’inventaire opérationnel des workers et daemons
 
-- **Statut** : proposé — shortlist et observation read-only des instances affectées implémentées; admission runtime non implémentée
-- **Date** : 2026-10-15
+- **Statut** : implémenté derrière gates fail-closed — reçu `runtime_resource_resolution` consultatif, snapshots pool libre + daemons, réservation atomique tout-ou-rien et réveil daemon explicite au point d’usage; campagne comparative restante
+- **Date** : 2026-10-15 (implémentation : 2026-10-16)
 - **Domaine** : orchestration, morphogenèse, workers, daemons, capacité
 - **Lié à** : ADR 0034, 0043, 0064, 0079, 0296, 0430, 0522, 0534, 0536
 

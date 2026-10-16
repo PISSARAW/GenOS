@@ -25,8 +25,10 @@ async function attachMorphogenesisPlan(ctx) {
     const plan = planMorphogenesis(input);
     ctx.morphogenesisPlan = plan;
     await topologyActivation.activateMorphogenesisPlan(ctx, plan);
-    const snapshot = require('./missionWorkerRuntimeSnapshot').readMissionWorkerRuntimeSnapshot;
-    ctx.workerRuntimeSnapshot = await snapshot(ctx.db, ctx.autonomyPlan.dispatchWorkers);
+    const snapshots = require('./missionWorkerRuntimeSnapshot');
+    ctx.workerRuntimeSnapshot = await snapshots.readMissionWorkerRuntimeSnapshot(ctx.db, ctx.autonomyPlan.dispatchWorkers);
+    ctx.freeWorkerPool = await snapshots.readFreeWorkerPoolSnapshot(ctx.db, {});
+    ctx.daemonInventory = await snapshots.readDaemonRuntimeSnapshot(ctx.db, {});
     missionStrategyActivation.compileAndAttachMissionStrategy(ctx);
     await publishMorphogenesisCandidate(ctx, plan);
     if (shadowMorphogenesisEnabled()) await attachMorphogenesisShadow(ctx, plan);

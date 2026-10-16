@@ -102,6 +102,30 @@ function workerRoster(input, context) {
   });
 }
 
+function resolutionRoles(phases) {
+  return (Array.isArray(phases) ? phases : [])
+    .filter((phase) => phase && phase.status === 'proposed' && phase.workerKind)
+    .map((phase) => ({ roleId: phase.id, workerKind: phase.workerKind,
+      methodId: phase.methodContract?.methodId || null }));
+}
+
+function resourceResolution(input, phases) {
+  try {
+    return require('./runtimeResourceResolution').resolveRuntimeResources({
+      roles: resolutionRoles(phases),
+      freeWorkerPool: input.freeWorkerPool || null,
+      daemonInventory: input.daemonInventory || null,
+      daemonAllowed: input.operationalConstraints?.daemonAllowed,
+      observedAt: input.observedAt,
+      now: input.now
+    });
+  } catch (_) {
+    return { schemaVersion: 1, kind: 'runtime_resource_resolution', status: 'UNKNOWN',
+      roles: [], missing: ['resolution_failed'], reasons: ['resolution_failed'],
+      executionAuthorized: false, revalidationRequired: true };
+  }
+}
+
 function inputErrors(mission, selectedTopology, budgetTokens) {
   const errors = [];
   if (!mission) errors.push('mission required');
@@ -176,9 +200,11 @@ function compileMissionStrategy(input = {}) {
     phases,
     workerRoster: roster,
     runtimeResources: input.runtimeSnapshot || { status: 'unknown', workers: [], reason: 'runtime_snapshot_not_provided' },
+    resourceResolution: resourceResolution(input, phases),
     topologyPortfolio: topologyPortfolio(input, context),
     bounds: { maxTokens: context.budgetTokens, maxTransitions: 0, executionAuthorized: false },
-    evidencePolicy: { transportIsNotSuccess: true, promotionRequiresVerifiedReceipt: true },
+    evidencePolicy: { transportIsNotSuccess: true, promotionRequiresVerifiedReceipt: true,
+      resourceRevalidationRequired: true },
     errors,
     alternatives: status === 'blocked' ? ['supply missing capability or worker kind', 'request an admissible topology and budget'] : []
   };

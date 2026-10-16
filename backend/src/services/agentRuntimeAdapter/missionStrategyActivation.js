@@ -11,15 +11,47 @@ function strategyInput(ctx) {
     mission: missionText(mission),
     profile: missionProfile(ctx),
     selectedTopology: selectedTopology(plan),
-    selectedVariant: plan.morphogenesisPlan?.selectedVariant || 'default',
-    currentRecipe: plan.morphogenesisPlan?.morphologyExpression || mission.morphologyExpression || null,
+    selectedVariant: selectedVariant(plan),
+    currentRecipe: currentRecipe(plan, mission),
     availableCapabilities: capabilities(capabilityPlan, plan),
     availableTopologyCapabilities: topologyCapabilities(mission, plan),
-    operationalConstraints: plan.operationalConstraints || {},
-    runtimeSnapshot: ctx.workerRuntimeSnapshot || { status: 'unknown', workers: [], reason: 'runtime_snapshot_not_loaded' },
+    operationalConstraints: operationalConstraints(plan),
+    runtimeSnapshot: runtimeSnapshot(ctx),
+    freeWorkerPool: freePool(ctx),
+    daemonInventory: daemonInventory(ctx),
     budget: missionBudget(mission, plan),
     workerAssignments: assignments(plan)
   };
+}
+
+function selectedVariant(plan) {
+  if (plan.morphogenesisPlan) return plan.morphogenesisPlan.selectedVariant || 'default';
+  return 'default';
+}
+
+function currentRecipe(plan, mission) {
+  if (plan.morphogenesisPlan) return plan.morphogenesisPlan.morphologyExpression || null;
+  return mission.morphologyExpression || null;
+}
+
+function operationalConstraints(plan) {
+  if (plan.operationalConstraints) return plan.operationalConstraints;
+  return {};
+}
+
+function runtimeSnapshot(ctx) {
+  if (ctx.workerRuntimeSnapshot) return ctx.workerRuntimeSnapshot;
+  return { status: 'unknown', workers: [], reason: 'runtime_snapshot_not_loaded' };
+}
+
+function freePool(ctx) {
+  if (ctx.freeWorkerPool) return ctx.freeWorkerPool;
+  return null;
+}
+
+function daemonInventory(ctx) {
+  if (ctx.daemonInventory) return ctx.daemonInventory;
+  return null;
 }
 
 function topologyCapabilities(mission, plan) {

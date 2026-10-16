@@ -426,7 +426,7 @@ indépendant ; un dispatch ou un reçu de compilation n’est pas une preuve de 
 
 La décision et le périmètre implémenté sont consignés dans l’ADR 0536.
 
-## Résolution runtime partielle : observer les affectations existantes
+## Résolution runtime : observation, pool libre et revalidation atomique
 
 Le roster consultatif utilise le catalogue `workerExecutorRegistry.executorCatalog()`
 pour énumérer des couples type/méthode exécutables par le runtime, puis les confronte
@@ -437,30 +437,43 @@ kinds workers affectés; il n’inclut pas les seules exigences de mission. Les 
 dérivées du kind ne certifient pas l’état runtime de l’instance. Le roster peut établir
 une shortlist compatible et indiquer qu’un worker de ce type manque, qu’un contrat
 entre en conflit ou qu’une capacité requise n’est pas satisfaite. Le plan observe
-maintenant les IDs de workers affectés avec des `SELECT` sur `agents` et
+les IDs de workers affectés avec des `SELECT` sur `agents` et
 `garage_queue`. Il rapporte `idle_observed`, `busy`, `unavailable` ou `unknown` avec
-la limite d’observation correspondante. Il ne recherche pas de nouveaux workers dans
-un pool global et ne prouve ni la vie du processus ni l’admission d’une instance.
-Une observation fraîche `busy` ou `unavailable` retire l’instance affectée des options
-retenues; `idle_observed` reste informatif et n’est pas un feu vert d’admission.
+la limite d’observation correspondante. Une observation fraîche `busy` ou `unavailable`
+retire l’instance affectée des options retenues; `idle_observed` reste informatif
+et n’est pas un feu vert d’admission.
 Le rôle `resident_daemon` est retenu seulement si
 `autonomyPlan.operationalConstraints.daemonAllowed` vaut explicitement `true`; ce
-contrôle d’autorisation ne découvre ni ne réveille un daemon.
+contrôle d’autorisation ne suffit pas : il est complété par l’inventaire daemon.
 
-La prochaine tranche complète cette observation avec un reçu de résolution par
-recette : rôles requis, instances libres dans le pool, profils de daemon pertinents,
-charge, limites, leases avec provenance et fraîcheur, et revalidation atomique.
-Elle doit distinguer `READY_FOR_ADMISSION`, `BLOCKED` et `UNKNOWN`. L’inventaire absent,
-périmé ou contradictoire mène à `UNKNOWN`, jamais à une préférence implicite. Une
-ressource suggérée ne devient pas une affectation : réservation, activation et
-transition restent soumises à une autorité explicite et à une revalidation atomique
-des leases, budgets, capacités et états runtime.
+Le compilateur joint désormais à chaque phase proposée un reçu
+`runtime_resource_resolution` : rôles requis, instances libres du pool
+(`readFreeWorkerPoolSnapshot` : `agents` `idle` sans claim `garage_queue` actif),
+profils daemon (`readDaemonRuntimeSnapshot` : `daemon_runtime_state` joint à
+`daemon_territories`, santé, activité, fraîcheur du heartbeat), leases avec
+provenance et fraîcheur. Le reçu distingue `READY_FOR_ADMISSION`, `BLOCKED` et
+`UNKNOWN`. L’inventaire absent, périmé ou contradictoire mène à `UNKNOWN`,
+jamais à une préférence implicite. Un pool explicitement vide ou sans instance
+compatible mène à `BLOCKED`. Une ressource suggérée ne devient pas une
+affectation : le reçu reste consultatif (`executionAuthorized: false`) et exige
+une revalidation atomique avant dispatch.
 
-L’observation read-only des affectations est implémentée. Le protocole complet et les
-portes d’admission restent proposés dans l’ADR 0538; ils ne sont pas une preuve que
-cette résolution complète existe déjà. L’apprentissage sur les
-résultats vérifiés et la mutation automatique des affectations ou des daemons restent
-des étapes distinctes.
+Au point d’usage, `revalidateAndReserveResources` revérifie et réserve en une
+seule transaction : chaque worker `READY` est revendiqué par
+`UPDATE agents ... WHERE status = 'idle'` (échec si course perdue ou claim
+`garage_queue` apparu entre-temps), chaque daemon `READY` est vérifié
+(santé, territoire, heartbeat frais) puis réveillé explicitement
+(`DORMANT`/`SURVEYING` → `FOCUSED`); tout échec annule l’ensemble
+(tout-ou-rien, sans réservation partielle). La porte d’admission refuse
+`daemon_availability_unproven` quand un plan exige `resident_daemon` sans
+résolution, refuse `BLOCKED`/`UNKNOWN`, exige la fraîcheur (30 s) et la
+couverture des affectations par la résolution, ainsi qu’une réservation
+`reserved: true` postérieure à l’observation. Une capacité déclarée ou un
+worker `idle_observed` ne garantit donc jamais seul la disponibilité au dispatch.
+
+L’apprentissage sur les résultats vérifiés et la mutation automatique des
+affectations ou des daemons restent des étapes distinctes, couvertes par
+l’ADR 0538.
 
 ## Décision réévaluée à chaque époque
 
