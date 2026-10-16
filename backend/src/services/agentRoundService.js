@@ -84,7 +84,12 @@ async function planAdaptiveContinuation(input) {
   if (input.state.plan.aTeam?.activated) return { adapted: false, reason: 'dedicated_a_team_continuation' };
   try {
     const service = require('./morphogenesis/missionMorphogenesisContinuation');
-    return await service.planContinuation(input);
+    const outcomes = require('./morphogenesis/morphogenesisVerifiedOutcomeStore');
+    const mission = input.state.normalizedMission || {};
+    const scope = { organizationId: input.state.organizationId || mission.organizationId,
+      projectId: input.state.projectId || mission.projectId };
+    return await service.planContinuation(input, { loadVerifiedOutcomes: (query) =>
+      outcomes.loadVerifiedOutcomes(input.state.db, { ...query, ...scope }) });
   } catch (error) {
     return { adapted: false, reason: error.code || 'adaptation_failed', error: error.message };
   }
@@ -332,4 +337,5 @@ function handleClaimedContinuationFailure(agentId, mission, error) {
 }
 
 module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome,
-  registerRoundResult, advanceAutonomousRound, resumeMorphogenesisBarrier, dispatchPendingContinuation };
+  registerRoundResult, planAdaptiveContinuation, advanceAutonomousRound,
+  resumeMorphogenesisBarrier, dispatchPendingContinuation };

@@ -4,6 +4,7 @@ const { compileExpression } = require('./graph/morphologyCompiler');
 const expression = require('./expression/morphologyExpression');
 const { bindGraphMission } = require('./morphogenesisMissionBinding');
 const communicationPlanning = require('./communicationReductionPlanning');
+const { proposedRecipe, recipeProfile, recipePlanMismatch } = require('./missionMorphogenesisRecipeBinding');
 const MAX_REPLACEMENT_WORKERS = 12;
 const MAX_CALIBRATION_OUTCOMES = 120;
 
@@ -64,6 +65,7 @@ function plannerContext(input, signals, policy) {
   const mission = state.normalizedMission || {};
   const baseProblem = mission.prompt || mission.currentTask || '';
   const representation = policy?.diagnosis?.representation;
+  const recipe = proposedRecipe(policy);
   return {
     currentState: { topology: currentTopology(state), agents: new Map(), currentMorphologyVersion:
       state.plan.morphogenesisPlan?.morphologyPatch?.graph?.version || 1 },
@@ -72,7 +74,8 @@ function plannerContext(input, signals, policy) {
     problemRepresentation: representation || null,
     missionId: mission.missionId || orchestratorId,
     budget: { tokens: Number(continuation.pool || 0) },
-    forceMorphologySelection: true,
+    forceMorphologySelection: !recipe,
+    topologyProfile: recipe ? recipeProfile(recipe) : undefined,
     missionAssignments: []
   };
 }
@@ -82,8 +85,9 @@ function rankedAlternative(plan, primary) {
   return rankings.find((entry) => entry.topology !== primary)?.topology || null;
 }
 
-function adaptiveExpression({ plan, state, signals, capacity, challenge }) {
+function adaptiveExpression({ plan, state, signals, capacity, challenge, policy }) {
   const primary = plan.selectedTopology;
+  if (proposedRecipe(policy)) return expression.topologyExpression(primary, plan.selectedVariant || null);
   if (capacity < 2) return expression.topologyExpression(primary, plan.selectedVariant || null);
   const alternative = rankedAlternative(plan, primary) || currentTopology(state);
   if (!alternative || alternative === primary) return expression.topologyExpression(primary, plan.selectedVariant || null);
@@ -101,7 +105,8 @@ function composeAdaptiveOperator(leaves, signals, challenge) {
 function compileAdaptiveGraph(input, outcome) {
   const { plan, state, signals, challenge, decision } = outcome;
   const capacity = targetRosterSize(input);
-  const expr = adaptiveExpression({ plan, state, signals, capacity, challenge });
+  const expr = adaptiveExpression({ plan, state, signals, capacity, challenge,
+    policy: decision?.policy });
   const current = state.plan.morphogenesisPlan?.morphologyPatch?.graph;
   const graph = compileExpression(expr, {
     missionId: input.state.normalizedMission?.missionId || input.orchestratorId,
@@ -202,6 +207,8 @@ function transitionReceipt(input, outcome) {
     fromGraph: previous ? { graphId: previous.graphId, version: previous.version } : null,
     toGraph: plan.morphologyGraphRef,
     selectedTopology: plan.selectedTopology,
+    selectedVariant: plan.selectedVariant || 'default',
+    candidateId: proposedRecipe(decision.policy)?.candidateId || null,
     operator: plan.morphologyExpression.kind,
     evidence: signals,
     conditionalPolicy: decision.policy,
@@ -366,6 +373,8 @@ async function planContinuation(input, dependencies = {}) {
   const planner = dependencies.planMorphogenesis
     || require('./morphogenesisPlannerService').planMorphogenesis;
   const plan = planner(plannerContext(input, signals, decision.policy));
+  if (recipePlanMismatch(plan, decision.policy)) return { adapted: false,
+    reason: 'proposed_recipe_plan_mismatch', signals, decision };
   compileAdaptiveGraph(input, { plan, state: input.state, signals, challenge: decision.challenge, decision });
   const result = await compileReplacementRoster({ input, plan, decision, signals, dependencies });
   if (!result.adapted) return result;

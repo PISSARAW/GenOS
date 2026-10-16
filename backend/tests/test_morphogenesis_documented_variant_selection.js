@@ -68,6 +68,8 @@ function verifyAbstentionAndVeto() {
 }
 
 function verifyPlanningAndEvidenceGate() {
+  assert(useCases.candidateFit({ topology: 'a_team', variant: null,
+    mission: 'Equipe de rôles spécialisés avec dépendances et autorité.' }) > 0.5);
   const result = resolveRequestedProfile({ prompt: MISSIONS[0][2] }, 'trinity', registry.variants);
   assert.equal(result.selectedVariant.variantId, 'pareto');
   assert.equal(result.variantSelection.calibrationStatus, 'uncalibrated');

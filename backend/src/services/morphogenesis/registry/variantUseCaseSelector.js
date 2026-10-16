@@ -1,6 +1,6 @@
 'use strict';
 
-const { PROFILES } = require('./variantUseCaseProfiles');
+const { PROFILES, TOPOLOGY_PROFILES } = require('./variantUseCaseProfiles');
 
 const STOP = new Set('avec dans pour entre apres avant cette celui celles leurs notre votre ainsi quand sans sous tout tous toute cette mission besoin faire doit sont sera avoir plus moins aussi chaque meme autre et ou de du des la le les un une en au aux a par sur qui que qu se ce ces il elle nous vous'.split(' '));
 const BASELINES = Object.freeze({ trinity: 'controlled', a_team: 'project_dag', biome: 'resource',
@@ -191,6 +191,7 @@ function selectVariant(input) {
 }
 
 function candidateFit(input) {
+  if (input.variant === null || input.variant === 'default') return defaultTopologyFit(input);
   if (!input.variant || !PROFILES[input.topology]?.[input.variant]) return null;
   if (!compatible({ ...input, variantId: input.variant })) return null;
   const result = scoreVariants(input).find(item => item.variantId === input.variant);
@@ -198,4 +199,17 @@ function candidateFit(input) {
   return Math.min(0.95, Number((0.5 + result.score / 10).toFixed(4)));
 }
 
-module.exports = { BASELINES, PROFILES, scoreVariants, selectVariant, candidateFit };
+function defaultTopologyFit(input) {
+  const descriptions = Object.entries(TOPOLOGY_PROFILES);
+  const profiles = descriptions.map(([variantId, description]) => ({
+    variantId, tokens: terms(description) }));
+  const profile = profiles.find(item => item.variantId === input.topology);
+  if (!profile) return null;
+  const result = scoreProfile({ profile, query: queryWeights(input),
+    frequency: documentFrequency(profiles), count: profiles.length });
+  if (result.matchedTerms.length < 2 || result.score < 1.1) return null;
+  return Math.min(0.95, Number((0.5 + result.score / 10).toFixed(4)));
+}
+
+module.exports = { BASELINES, PROFILES, TOPOLOGY_PROFILES,
+  scoreVariants, selectVariant, candidateFit };

@@ -42,6 +42,15 @@ par signaux et contrats. Morphogenèse dispose aussi d'une
 [présélection par cas d'usage](../../adr/0563-selection-des-variants-par-cas-d-usage.md)
 qui compare les 95 profils et inscrit signaux et alternatives dans son reçu.
 Ce classement reste heuristique et ne lui ajoute pas de calibration empirique.
+Le chemin standard peut maintenant charger des [issues appariées vérifiées](../../adr/0564-charger-les-issues-verifiees-dans-la-continuation.md)
+pour calibrer la décision de transition exacte. Ce chargement ne calibre pas
+automatiquement la présélection textuelle : sans corpus admissible pour le
+`candidateId` considéré, la politique conserve `NO_CHANGE`.
+Le profil structuré et les poids de priorité explicitement fournis par la
+mission atteignent désormais le classement. Les huit formes `default` ont un
+signal documentaire propre ; lui non plus ne constitue pas une preuve de gain.
+Si une proposition calibrée est retenue, le plan préparé doit porter exactement
+la même topologie et le même variant avant l'admission.
 
 ## Couverture actuelle
 

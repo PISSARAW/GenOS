@@ -84,4 +84,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('130-morphogenesis-epoch-store', 'Persist scoped morphogenesis epoch checkpoints, results, budgets and barriers', async (db) => {
     await require('./migrateMorphogenesisEpochStore').migrateMorphogenesisEpochStore(db);
   }),
+  createMigrationRunner('131-morphogenesis-verified-outcomes', 'Persist independently verified morphogenesis calibration outcomes', async (db) => {
+    await require('../../services/morphogenesis/morphogenesisVerifiedOutcomeStore').ensure(db);
+  }),
 ];

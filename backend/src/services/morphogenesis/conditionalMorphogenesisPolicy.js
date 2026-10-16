@@ -161,8 +161,11 @@ function rankPortfolio(candidates, input, signals) {
     availableWorkerKinds: input.availableWorkerKinds,
     availableCapabilities: input.availableCapabilities,
     diagnosis: signals,
+    problemProfile: input.problemProfile,
     budget: input.budget,
-    operationalConstraints: input.operationalConstraints
+    operationalConstraints: input.operationalConstraints,
+    priorityWeights: input.priorityWeights,
+    allowScalarTieBreak: input.allowScalarTieBreak
   });
 }
 

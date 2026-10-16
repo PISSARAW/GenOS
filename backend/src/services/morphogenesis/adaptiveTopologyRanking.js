@@ -202,8 +202,8 @@ function scoreRecipe(recipe, context) {
   const confidence = baseline ? 1 : Math.min(unit(recipe.confidence, 0.35), maturity.known ? 1 : 0.35);
   const calibrated = recipe.calibrationStatus === 'calibrated' && hasNonNeutralFit(recipe);
   return {
-    id: recipe.id || recipe.candidateId || recipe.topology || 'unnamed', topology: recipe.topology || null,
-    variant: recipe.variant || null, score: Number(score.toFixed(4)), scoreComponents: weighted,
+    ...recipeIdentity(recipe),
+    score: Number(score.toFixed(4)), scoreComponents: weighted,
     estimates: components, confidence, uncertainty: Number((1 - confidence).toFixed(4)),
     vetoes, reasons: [...unknownReasons(recipe, context, assessment), ...vetoes], eligible: vetoes.length === 0,
     proposalEligible: maturity.proposalEligible, maturity: maturity.value,
@@ -211,6 +211,15 @@ function scoreRecipe(recipe, context) {
     isNoChange: baseline,
     pareto: false, dominatedBy: []
   };
+}
+
+function recipeIdentity(recipe) {
+  return { id: recipe.id || recipe.candidateId || recipe.topology || 'unnamed',
+    candidateId: recipe.candidateId || recipe.id || null, kind: recipe.kind || null,
+    topology: recipe.topology || null, variant: recipe.variant || null,
+    interventionScale: recipe.interventionScale || null,
+    expectedGain: recipe.expectedGain, gainUncertainty: recipe.gainUncertainty,
+    marginalCost: recipe.marginalCost, costUncertainty: recipe.costUncertainty };
 }
 
 function hasNonNeutralFit(recipe) {
@@ -245,7 +254,8 @@ function noAlternativeDecision(items) {
 
 function tradeoffDecision(items, context) {
   if (!context.allowScalarTieBreak) {
-    const pareto = items.filter(item => item.eligible && item.proposalEligible && item.pareto);
+    const pareto = items.filter(item => item.eligible && item.proposalEligible
+      && item.calibrated && item.pareto);
     if (pareto.length > 1) return { decision: 'ABSTAIN', selectedId: null,
       reason: 'Multiple non-dominated candidates trade off; no mission priority authorizes scalar tie-breaking.' };
   }
@@ -266,8 +276,10 @@ function selectRecommendation(items, context) {
   const baseline = items.find(item => item.isNoChange);
   const alternatives = items.filter(item => item.eligible && item.proposalEligible && !item.isNoChange)
     .sort((a, b) => b.score - a.score);
-  const best = alternatives[0];
-  if (!best) return noAlternativeDecision(items);
+  if (!alternatives.length) return noAlternativeDecision(items);
+  const best = alternatives.find(item => item.calibrated);
+  if (!best) return { decision: 'ABSTAIN', selectedId: null,
+    reason: 'No eligible candidate has a non-neutral calibrated estimate.' };
   const gate = tradeoffDecision(items, context) || qualityDecision(best, baseline, context);
   if (gate) return gate;
   return { decision: 'PROPOSE', selectedId: best.id,
@@ -287,17 +299,26 @@ function rankAdaptiveTopologies(input = {}) {
   const sorted = scored.sort((a, b) => Number(b.eligible) - Number(a.eligible)
     || Number(b.pareto) - Number(a.pareto) || b.score - a.score);
   const limit = Math.max(1, Math.min(MAX_OUTPUT, Math.floor(Number(input.limit) || 20)));
-  const pareto = sorted.filter(item => item.pareto);
-  const retained = [...pareto, ...sorted.filter(item => !item.pareto)].slice(0, limit);
   const decision = selectRecommendation(scored, context);
+  const retained = retainedCandidates(sorted.map((item, index) => ({ ...item, rank: index + 1 })),
+    decision, limit);
   return {
     schemaVersion: 1, kind: 'adaptive_topology_ranking_advisory', decision,
-    candidates: retained.map((item, index) => ({ ...item, rank: index + 1 })),
+    candidates: retained,
     vetoed: scored.filter(item => !item.eligible).map(item => ({ id: item.id, reasons: item.vetoes })),
     consideredCount: scored.length, truncatedCount: Math.max(0, scored.length - retained.length),
     scoreWeights: context.weights, executionAuthorized: false,
-    caveat: 'Scores are heuristic estimates supplied or derived from caller inputs; no outcome or execution is asserted.'
+    caveat: 'Ranking combines heuristic fit with verified candidate estimates when supplied; a proposal never authorizes execution.'
   };
+}
+
+function retainedCandidates(sorted, decision, limit) {
+  const pareto = sorted.filter(item => item.pareto);
+  const visible = [...pareto, ...sorted.filter(item => !item.pareto)].slice(0, limit);
+  const selected = decision.decision === 'PROPOSE'
+    ? sorted.find(item => item.id === decision.selectedId) : null;
+  return selected && !visible.some(item => item.id === selected.id)
+    ? [...visible.slice(0, -1), selected] : visible;
 }
 
 module.exports = { rankAdaptiveTopologies };

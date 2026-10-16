@@ -122,6 +122,10 @@ function communicationMissionFor(mission, workers, missionId) {
     toolLease: commonCoordinationLease(workers), requiredTools: requiredCoordinationTools(mission, workers) };
 }
 
+function structuredProblemProfile(mission, plan) {
+  return { ...(plan.profile || {}), ...(mission.problemProfile || {}) };
+}
+
 function conditionalPolicyInput(input, diagnosis, workers) {
   const mission = input.state.normalizedMission || {};
   const plan = input.state.plan || {};
@@ -131,6 +135,9 @@ function conditionalPolicyInput(input, diagnosis, workers) {
     communicationMission: communicationMissionFor(mission, workers, missionId),
     communicationMetric: input.communicationMetric || null,
     verifiedOutcomes: input.verifiedOutcomes,
+    problemProfile: structuredProblemProfile(mission, plan),
+    priorityWeights: mission.morphogenesisPolicy?.priorityWeights || null,
+    allowScalarTieBreak: mission.morphogenesisPolicy?.allowScalarTieBreak === true,
     resourceAllocationPlan: input.resourceAllocationPlan || null,
     currentTopology: currentPolicyTopology(plan), currentVariant: currentPolicyVariant(plan),
     currentRecipe: plan.morphogenesisPlan?.morphologyExpression || null,

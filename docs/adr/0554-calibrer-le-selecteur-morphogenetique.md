@@ -45,6 +45,13 @@ réallocation reste indisponible et le sélecteur s'abstient. Aucun corpus ni r�
 de campagne n'est présumé. La réduction des communications suit son propre candidat
 runtime et ne peut pas rendre une allocation admissible.
 
+**Mise à jour du 2026-10-16 :** l'[ADR 0564](0564-charger-les-issues-verifiees-dans-la-continuation.md)
+ajoute le stockage backend append-only des issues vérifiées et branche son lecteur
+sur la continuation standard. Elle relie aussi la proposition calibrée au profil
+du plan préparé. La production automatique des comparaisons appariées,
+les reçus indépendants des besoins de ressources et la campagne hors famille/modèle
+restent à réaliser ; le paragraphe précédent décrit l'état lors de l'ADR 0554.
+
 ## Conséquences
 
 - Le résultat expose les tailles train/validation, la séparation famille/modèle,

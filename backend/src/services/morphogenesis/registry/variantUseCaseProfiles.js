@@ -116,4 +116,15 @@ const PROFILES = Object.freeze({
   }
 });
 
-module.exports = { PROFILES };
+const TOPOLOGY_PROFILES = Object.freeze({
+  trinity: 'hypotheses independantes experiences comparaison strategies validation mondes',
+  a_team: 'roles specialises equipe dependances autorite coordination projet',
+  biome: 'ecosysteme ressources populations niches persistance allocation',
+  biocenose: 'deliberation collective jugement independant quorum preuves',
+  holobionte: 'hote symbiotes capacites contrat mutualiste integration durable',
+  syncytium: 'etat partage coherence convergence edition collaborative invariants',
+  rhizome: 'reseau decentralise chemins routage exploration connexions horizontales',
+  metapopulation: 'populations isolees ilots migrations diversite autonomie locale'
+});
+
+module.exports = { PROFILES, TOPOLOGY_PROFILES };

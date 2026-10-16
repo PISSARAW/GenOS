@@ -17,9 +17,9 @@ function digest(row) {
 }
 
 function validIdentity(row) {
-  return row && typeof row.id === 'string' && typeof row.candidateId === 'string'
-    && SCALE.includes(row.scale) && typeof row.taskFamily === 'string'
-    && typeof row.modelId === 'string' && ['train', 'validation'].includes(row.split);
+  return row && ['id', 'candidateId', 'taskFamily', 'modelId'].every(key =>
+    typeof row[key] === 'string' && row[key].trim().length > 0)
+    && SCALE.includes(row.scale) && ['train', 'validation'].includes(row.split);
 }
 
 function validMetrics(row) {
@@ -121,4 +121,4 @@ function selectScale(calibration, availableCandidates) {
     estimate: candidates[0] };
 }
 
-module.exports = { SCALE, compileCalibration, selectScale, digest };
+module.exports = { SCALE, compileCalibration, selectScale, digest, verifiedRow };

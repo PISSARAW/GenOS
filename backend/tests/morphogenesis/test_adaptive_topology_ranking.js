@@ -135,7 +135,17 @@ function main() {
   const uncalibrated = rankAdaptiveTopologies({ ...input,
     candidates: [{ ...input.candidates[0], calibrationStatus: undefined }] });
   assert.equal(uncalibrated.decision.decision, 'ABSTAIN');
-  assert.match(uncalibrated.decision.reason, /lack an explicit calibration/);
+  assert.match(uncalibrated.decision.reason, /no.*calibrated/i);
+
+  const mixed = rankAdaptiveTopologies({ ...input, limit: 1, candidates: [
+    { ...input.candidates[0], id: 'uncalibrated-high-score',
+      estimatedProblemFit: 1, estimatedTokens: 100, calibrationStatus: undefined },
+    { ...input.candidates[0], id: 'calibrated-lower-score',
+      estimatedProblemFit: 0.9, estimatedTokens: 500 }
+  ] });
+  assert.equal(mixed.decision.selectedId, 'calibrated-lower-score');
+  assert.equal(mixed.candidates[0].id, 'calibrated-lower-score',
+    'the proposed candidate stays visible even when advisory output is capped');
 }
 
 main();
