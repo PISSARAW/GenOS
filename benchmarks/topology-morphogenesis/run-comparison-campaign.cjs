@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createHash } = require('crypto');
-const { ADAPTERS, executeCondition } = require('./comparisonAdapters.cjs');
+const { ADAPTERS, executeCondition, validateConditionProvenance, assertExternalComparisonAllowed } = require('./comparisonAdapters.cjs');
 const { verifyCandidate } = require('./oracles.cjs');
 const { loadExternalOracle } = require('./externalComparisonOracle.cjs');
 
@@ -17,10 +17,11 @@ const outputRoot = path.resolve(process.env.GENOS_COMPARISON_OUTPUT_ROOT
 function sha256(value) { return createHash('sha256').update(value).digest('hex'); }
 
 function parseArgs(args) {
-  const options = { mode: 'pilot', dataset: null, conditions: null };
+  const options = { mode: 'pilot', dataset: null, conditions: null, claimsExternal: null };
   for (let index = 0; index < args.length; index++) {
     if (args[index] === '--mode') options.mode = args[++index];
     else if (args[index] === '--dataset') options.dataset = args[++index];
+    else if (args[index] === '--claims-external') options.claimsExternal = args[++index];
     else if (args[index] === '--conditions') options.conditions = args[++index].split(',');
     else throw new Error(`Unknown argument: ${args[index]}`);
   }
@@ -74,6 +75,40 @@ function validateTaskOracles(data, file) {
   for (const task of data.tasks) loadExternalOracle(task, file, data.trainingInventory.oracleIds);
 }
 
+function pilotTaskIds() {
+  const ids = new Set(plan.eligibleTaskIds || []);
+  for (const task of pilot.tasks || []) ids.add(task.id);
+  return ids;
+}
+
+function planHasPendingOracle() {
+  return plan.conditions.some((entry) => entry.id === 'oracle-selection' && entry.adapter === 'pending');
+}
+
+function planHasNonAutonomousArm() {
+  return plan.conditions.some((entry) => entry.autonomous === false);
+}
+
+function selectionHasNonAutonomousArm(conditions) {
+  return conditions.some((entry) => entry.autonomous === false);
+}
+
+function confirmatoryBlockers(options, tasks, conditions) {
+  if (options.mode !== 'confirmatory') return [];
+  const blockers = [];
+  const toys = pilotTaskIds();
+  if (tasks.some((task) => toys.has(task.id))) blockers.push('pilot-toy-tasks');
+  if (planHasPendingOracle()) blockers.push('oracle-selection-pending');
+  if (planHasNonAutonomousArm()) blockers.push('non-autonomous-arm-present');
+  if (selectionHasNonAutonomousArm(conditions)) blockers.push('non-autonomous-arm-selected');
+  return blockers;
+}
+
+function assertConfirmatoryReady(options, tasks, conditions) {
+  const blockers = confirmatoryBlockers(options, tasks, conditions);
+  if (blockers.length) throw new Error(`Confirmatory mode blocked: ${blockers.join(', ')}.`);
+}
+
 function validateExternalDataset(data, mode) {
   validateDatasetIdentity(data);
   validateTaskRows(data);
@@ -85,6 +120,8 @@ function validateExternalDataset(data, mode) {
 
 function selectConditions(options) {
   const selected = plan.conditions.filter((condition) => !options.conditions || options.conditions.includes(condition.id));
+  for (const condition of selected) validateConditionProvenance(condition);
+  if (options.claimsExternal) assertExternalComparisonAllowed(selected, options.claimsExternal);
   if (!selected.length || selected.some((condition) => condition.adapter === 'pending' || !ADAPTERS[condition.adapter])) {
     throw new Error('Selected condition has no executable adapter.');
   }
@@ -181,6 +218,7 @@ async function runBlocks(input) {
 async function runCampaign(options) {
   const taskInfo = loadTasks(options);
   const conditions = selectConditions(options);
+  assertConfirmatoryReady(options, taskInfo.data.tasks, conditions);
   const timestamp = new Date().toISOString();
   const runId = `comparison-${timestamp.replace(/[:.]/g, '-')}`;
   fs.mkdirSync(path.join(outputRoot, runId), { recursive: true });
@@ -211,4 +249,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { loadTasks, parseArgs, runCampaign, validateExternalDataset };
+module.exports = { loadTasks, parseArgs, runCampaign, selectConditions, validateExternalDataset, confirmatoryBlockers };
