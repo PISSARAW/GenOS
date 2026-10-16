@@ -80,7 +80,7 @@ async function dispatchRestoredPending(state) {
 async function recoverStartupCheckpoints(db, input = {}) {
   const startedAt = performance.now();
   const storeResult = await store.listCheckpoints(db, { phases: ['advancing', 'collecting'],
-    includeContinuationEpochs: true, limit: input.limit || STARTUP_RECOVERY_LIMIT });
+    includeContinuationEpochs: true, limit: Math.min(input.limit || STARTUP_RECOVERY_LIMIT, STARTUP_RECOVERY_LIMIT) });
   const summary = { inspected: storeResult.checkpoints.length, restored: 0, actionable: 0,
     trinityExcluded: 0, failed: 0, truncated: storeResult.truncated };
   for (const checkpoint of storeResult.checkpoints) recordStartupOutcome(summary,
