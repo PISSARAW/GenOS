@@ -30,8 +30,13 @@ minimale ne peut être financée, à la limite `morphogenesisPolicy.maxEpochs` s
 déclarée, ou quand aucune reconfiguration admissible n'est produite. Un score worker
 élevé ne vaut pas résolution.
 
-Chaque adaptation intervient à une frontière où la vague est complète; elle ne modifie
-pas un worker pendant une inférence. Le contrôleur d'époques est actuellement en mémoire
+Chaque adaptation structurelle intervient à une frontière où la vague est complète; elle ne modifie
+pas un worker pendant une inférence. En continu pendant l'époque, une boucle effective
+(`intraEpochAdaptationService`) peut rebaser l'inférence d'un runtime local sur une directive
+d'attention versionnée et supprimer avant persistance les seuls échanges redondants non
+porteurs de preuve. Les runtimes externes sans IPC restent en observation seule. Aucun worker
+n'est remplacé et aucun lease n'est révoqué ; le structurel reste différé à la barrière
+(ADR 0568). Le contrôleur d'époques est actuellement en mémoire
 du processus : les missions de continuation sont persistées, mais leur état d'époque
 n'est pas encore reconstruit après un redémarrage. Le rebind réutilise les survivants et
 préserve leur `workerKind`; il ne recrute donc pas encore à chaque époque un type de

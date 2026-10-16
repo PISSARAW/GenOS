@@ -1,6 +1,7 @@
 'use strict';
 
 const inbox = require('./localRuntimeObservationInbox');
+const adaptationInbox = require('./localRuntimeIntraEpochInbox');
 
 async function generate(state, tools) {
   const startedAt = Date.now();
@@ -8,12 +9,13 @@ async function generate(state, tools) {
   for (let attempt = 0; attempt < 4; attempt++) {
     constrainLatency(state, startedAt, latencyLimit);
     inbox.apply(state, tools.emitEvent);
+    adaptationInbox.apply(state, tools.emitEvent);
     await tools.checkpoint.save(state, 'inference');
     const canonical = tools.synthesis.canonicalGeneration(state.autonomyPlan);
     const generation = canonical || await tools.createGeneration(state);
     const reply = await tools.awaitGeneration(state, generation.generation, generation.abort);
     tools.validateGeneration(reply, generation.fallback, state);
-    if (inbox.currentRevision() === (state.observationRevision || 0)) {
+    if (contextsAreCurrent(state)) {
       if (state.observationRevision && !String(reply).includes(inbox.latestEvidenceRef())) {
         state.framedPrompt += `\nRéessaie : la réponse doit citer exactement ${inbox.latestEvidenceRef()}.\n`;
         state.promptTokenEstimate = Math.ceil(Buffer.byteLength(state.framedPrompt, 'utf8') / 4);
@@ -24,6 +26,11 @@ async function generate(state, tools) {
     }
   }
   throw new Error('Current observation was not cited within the local regeneration budget.');
+}
+
+function contextsAreCurrent(state) {
+  return inbox.currentRevision() === (state.observationRevision || 0)
+    && adaptationInbox.currentRevision() === (state.intraEpochRevision || 0);
 }
 
 function constrainLatency(state, startedAt, limit) {

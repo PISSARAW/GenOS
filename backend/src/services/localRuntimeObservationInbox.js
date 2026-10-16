@@ -71,9 +71,9 @@ function apply(state, emitEvent) {
     target, digest, digestPrefix: digest.slice(0, 8), planRevision, evidenceRef
   }));
   state.observationRevision = revision;
-  state.framedPrompt = `${state.baseFramedPrompt}\n\nOBSERVATIONS EXTERNES HORODATÉES PAR GENOS : ${JSON.stringify(observations)}\n`
+  state.observationPromptBlock = `OBSERVATIONS EXTERNES HORODATÉES PAR GENOS : ${JSON.stringify(observations)}\n`
     + `Ces empreintes proviennent de fichiers déclarés. Cite exactement la dernière référence de preuve ${latestEvidenceRef()} dans ta réponse ou dans le champ evidence du dernier claim. Ne prétends pas connaître le contenu du fichier.\n`;
-  state.promptTokenEstimate = Math.ceil(Buffer.byteLength(state.framedPrompt, 'utf8') / 4);
+  require('./localRuntimePromptLayers').rebuild(state);
   emitEvent(state, { eventType: 'AGENT_PLAN_REVISED', action: 'REOBSERVE',
     detail: 'Local runtime rebuilt its prompt from a new observation.', status: 'running',
     payload: { planRevision: revision, observations } });

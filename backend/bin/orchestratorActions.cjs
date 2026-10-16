@@ -165,10 +165,13 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
     signalType: request.signalType || request.signal_type,
     signalData: request.signalData || request.signal_data || request.signal
   });
+  const publishEvent = published.delivery === 'throttled' ? 'ORGANIZATION_MESSAGE_THROTTLED'
+    : published.delivery === 'buffered' ? 'ORGANIZATION_MESSAGE_BUFFERED' : 'ORGANIZATION_MESSAGE_PUBLISHED';
   telemetry.emitEvent({
-    eventType: published.delivery === 'buffered' ? 'ORGANIZATION_MESSAGE_BUFFERED' : 'ORGANIZATION_MESSAGE_PUBLISHED',
+    eventType: publishEvent,
     agentId: senderAgentId, action: published.channel,
-    detail: `Published ${published.kind} through ${published.organization}.`,
+    detail: published.throttled ? `Suppressed redundant ${published.kind} during epoch ${published.epoch}.`
+      : `Published ${published.kind} through ${published.organization}.`,
     payload: { ...published, sender: senderAgentId, recipient: published.recipientAgentId }, severity: 'info'
   });
   process.stdout.write(JSON.stringify(published));

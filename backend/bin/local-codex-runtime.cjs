@@ -8,6 +8,7 @@ const modelRouter = require('../src/services/modelRouter');
 const localSynthesis = require('../src/services/localRuntimeSynthesis');
 const captureBarrier = require('../src/services/localRuntimeCaptureBarrier');
 const observationInbox = require('../src/services/localRuntimeObservationInbox');
+const intraEpochInbox = require('../src/services/localRuntimeIntraEpochInbox');
 const path = require('path');
 let raw = Buffer.alloc(0);
 if (require.main === module) {
@@ -36,6 +37,7 @@ async function main(rawInput) {
   mission.workerContractJson = mission.workerContractJson || mission.worker_contract_json;
   mission.workerContract = parseJson(mission.workerContractJson);
   observationInbox.bind(mission.agentId);
+  intraEpochInbox.bind(mission.agentId);
   const prompt = mission.prompt || mission.currentTask || 'No prompt provided';
   const workspaceRoot = path.resolve(mission.workspaceRoot || process.cwd());
   const built = buildWorkspaceContext(workspaceRoot);
@@ -115,7 +117,9 @@ async function runMission(state, services) {
   }
 }
 async function refreshObservedReply(state, reply, services) {
-  if (observationInbox.currentRevision() <= (state.observationRevision || 0)) return reply;
+  const observationCurrent = observationInbox.currentRevision() <= (state.observationRevision || 0);
+  const attentionCurrent = intraEpochInbox.currentRevision() <= (state.intraEpochRevision || 0);
+  if (observationCurrent && attentionCurrent) return reply;
   const refreshed = await services.generate();
   await services.checkpoint.save(state, 'generated', refreshed);
   return refreshed;

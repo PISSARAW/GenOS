@@ -39,6 +39,7 @@ function run() {
   assert.equal(nested.expression.kind, 'NEST');
   assert.equal(collectTopologies(nested.expression).length, 2);
   assertExecutableNest(first);
+  assertMultiOperatorExploration(first, firstResult);
 
   for (const candidate of first) {
     if (!candidate.validation.valid) {
@@ -75,6 +76,22 @@ function assertExecutableNest(candidates) {
   assert.ok(executable.some((item) => item.members[0].topology === 'a_team'
     && item.members[1].topology === 'trinity'),
   'a verified Trinity-to-A-Team adapter makes at least one NEST executable');
+}
+
+function assertMultiOperatorExploration(candidates, result) {
+  for (const operator of ['PARALLEL', 'SEQUENCE', 'COMPETE', 'FEDERATE', 'BRIDGE']) {
+    assert.ok(candidates.some((item) => item.kind === operator), `candidate set explores ${operator}`);
+  }
+  assert.deepEqual([...result.stats.compositeOperators].sort(),
+    ['BRIDGE', 'COMPETE', 'FEDERATE', 'NEST', 'PARALLEL', 'SEQUENCE']);
+  for (const operator of result.stats.compositeOperators) {
+    assert.ok(result.stats.compositePairsExaminedByOperator[operator] > 0, `${operator} pairs examined`);
+  }
+  const examined = Object.values(result.stats.compositePairsExaminedByOperator)
+    .reduce((sum, count) => sum + count, 0);
+  assert.equal(examined, result.stats.compositePairsExamined);
+  assert.ok(result.stats.compositeUnexploredOperators.some((item) => item.operator === 'GATE' && item.reason));
+  assert.ok(result.stats.compositeUnexploredOperators.some((item) => item.operator === 'WRAP' && item.reason));
 }
 
 function assertUnverifiedCompositionsStayExploratory(registry) {

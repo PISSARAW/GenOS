@@ -1,11 +1,11 @@
 'use strict';
 
 const { createTopologyRegistry } = require('./registry/topologyRegistry');
-const { topologyExpression, nestExpression, cloneExpression } = require('./expression/morphologyExpression');
+const { topologyExpression, cloneExpression } = require('./expression/morphologyExpression');
+const { buildCompositeCandidates } = require('./adaptiveTopologyComposites');
 const { parseExpression } = require('./expression/morphologyExpressionParser');
 const { compileExpression } = require('./graph/morphologyCompiler');
 const { checkMorphologyTypes } = require('./typing/morphologyTypeChecker');
-const { registry: defaultAdapterRegistry } = require('./adapters/topologyAdapterService');
 const { knownMaturity, proposalEligible } = require('./registry/variantIdentity');
 
 const MAX_COMPOSITE_PAIRS = 128;
@@ -37,7 +37,11 @@ function generateAdaptiveTopologyCandidates(input = {}) {
       compositePairsExamined: pools.composite.stats.examined,
       compositePairCeiling: pools.composite.stats.ceiling,
       compositePairsPotential: pools.composite.stats.potential,
-      compositePairsTruncated: pools.composite.stats.truncated
+      compositePairsTruncated: pools.composite.stats.truncated,
+      compositeOperators: pools.composite.stats.operators,
+      compositeCandidatesByOperator: pools.composite.stats.candidatesByOperator,
+      compositePairsExaminedByOperator: pools.composite.stats.examinedByOperator,
+      compositeUnexploredOperators: pools.composite.stats.unexploredOperators
     }
   };
 }
@@ -82,7 +86,9 @@ function buildCandidatePools(context) {
       addVariantCandidate({ variant, components, vetoed, topologyId, contract, entry, input, registry, contracts, capabilitySet });
     }
   }
-  const composite = buildCompositeCandidates({ components, input, registry, contracts, capabilitySet });
+  const composite = buildCompositeCandidates({ components, input, registry, contracts, capabilitySet,
+    ceiling: normalizeCeiling(input.compositePairCeiling),
+    helpers: { candidateCapabilities, validateTypedExpression, buildExpression } });
   return { topology, variant, composite, vetoed };
 }
 
@@ -181,80 +187,10 @@ function componentFor(topologyId, variant, contract) {
   return { topologyId, variant, contract };
 }
 
-function buildCompositeCandidates(ctx) {
-  const { components, input, registry, contracts, capabilitySet } = ctx;
-  const output = [];
-  const potential = countPotentialPairs(components);
-  let examined = 0;
-  for (const host of components) {
-    if (examined >= MAX_COMPOSITE_PAIRS) break;
-    for (const inner of components) {
-      if (examined >= MAX_COMPOSITE_PAIRS) break;
-      examined += 1;
-      if (host.topologyId === inner.topologyId) continue;
-      const candidate = nestedCandidate({ ...ctx, host, inner });
-      if (candidate) output.push(candidate);
-    }
-  }
-  return {
-    candidates: output.sort((left, right) => left.candidateId.localeCompare(right.candidateId)),
-    stats: { examined, ceiling: MAX_COMPOSITE_PAIRS, potential, truncated: potential > examined }
-  };
-}
-
-function nestedCandidate(ctx) {
-  const { host, inner, input, registry, contracts, capabilitySet } = ctx;
-  const caps = candidateCapabilities(host.contract, host.variant, capabilitySet);
-  const innerCaps = candidateCapabilities(inner.contract, inner.variant, capabilitySet);
-  if (!caps.allowed || !innerCaps.allowed) return null;
-  const expression = buildExpression(nestExpression(
-    topologyExpression(host.topologyId, host.variant.variantId),
-    topologyExpression(inner.topologyId, inner.variant.variantId)
-  ), `nested:${host.topologyId}:${host.variant.variantId}:${inner.topologyId}:${inner.variant.variantId}`);
-  const validation = validateTypedExpression({ expression, input, registry, contracts });
-  if (!validation.valid) return null;
-  return nestedCandidateRecord({ host, inner, caps, innerCaps, expression, validation, input, registry });
-}
-
-function nestedCandidateRecord(ctx) {
-  const { host, inner, caps, innerCaps, expression, validation, input, registry } = ctx;
-  const relation = registry.relations.get(host.topologyId, inner.topologyId, input.relationContext || {});
-  const eligibility = compositionEligibility({ relation, host: host.topologyId, inner: inner.topologyId,
-    adapterRegistry: input.adapterRegistry || defaultAdapterRegistry });
-  return {
-    candidateId: `nested:${host.topologyId}:${host.variant.variantId}:${inner.topologyId}:${inner.variant.variantId}`,
-    kind: 'NESTED', topology: host.topologyId, variant: host.variant.variantId,
-    members: [{ topology: host.topologyId, variant: host.variant.variantId }, { topology: inner.topologyId, variant: inner.variant.variantId }],
-    maturity: { topology: 'registered', variant: host.variant.maturity },
-    relation, admissibility: eligibility.admissibility, admissibilityReason: eligibility.reason,
-    executionEligible: eligibility.executionEligible,
-    requiredCapabilities: [...new Set([...caps.requiredCapabilities, ...innerCaps.requiredCapabilities])].sort(),
-    missingCapabilities: [], expression, validation,
-    rationale: `Composition NEST typée : ${host.topologyId}/${host.variant.variantId} contient ${inner.topologyId}/${inner.variant.variantId}.`
-  };
-}
-
-function countPotentialPairs(components) {
-  return components.length * components.length;
-}
-
-function compositionEligibility(ctx) {
-  const { relation, host, inner, adapterRegistry } = ctx;
-  if (relation.relation === 'FORBIDDEN') return { admissibility: 'rejected', executionEligible: false, reason: 'La relation des topologies interdit cette composition.' };
-  if (relation.evidenceStatus !== 'verified') return { admissibility: 'exploratory_only', executionEligible: false, reason: 'La relation des topologies ne possède pas de preuve vérifiée.' };
-  if (relation.adapterRequired && !hasVerifiedAdapter(adapterRegistry, inner, host)) {
-    return { admissibility: 'exploratory_only', executionEligible: false, reason: 'Un adaptateur vérifié de la topologie interne vers son hôte est requis.' };
-  }
-  if (relation.relation === 'SYNERGISTIC') return { admissibility: 'execution_eligible', executionEligible: true, reason: 'La relation synergique est vérifiée.' };
-  if (relation.relation !== 'COMPATIBLE_WITH_ADAPTER') return { admissibility: 'exploratory_only', executionEligible: false, reason: 'La relation ne déclare pas une compatibilité vérifiée pour NEST.' };
-  if (!relation.adapterRequired) return { admissibility: 'execution_eligible', executionEligible: true, reason: 'La relation compatible est vérifiée et ne requiert pas d’adaptateur.' };
-  return { admissibility: 'execution_eligible', executionEligible: true, reason: 'La relation et l’adaptateur interne vers hôte sont vérifiés.' };
-}
-
-function hasVerifiedAdapter(adapterRegistry, inner, host) {
-  if (!adapterRegistry || typeof adapterRegistry.get !== 'function') return false;
-  const adapter = adapterRegistry.get(inner, host);
-  return Boolean(adapter && adapter.evidenceStatus === 'verified');
+function normalizeCeiling(value) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  return MAX_COMPOSITE_PAIRS;
 }
 
 function buildExpression(expression, identity) {

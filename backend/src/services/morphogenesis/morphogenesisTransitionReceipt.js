@@ -43,6 +43,8 @@ function admissionIdentity(admission) {
   const actualPlanDigest = admission?.actualPlan ? digest(admissionPlanIdentity(admission.actualPlan)) : null;
   return { status: admission?.status || null, executionAuthorized: admission?.executionAuthorized === true,
     selectionBasis: admission?.selectionBasis || null, comparativeQuality: admission?.comparativeQuality || null,
+    unexecutedAlternatives: admission?.unexecutedAlternatives || null,
+    counterfactual: admission?.counterfactual || null,
     recipe: admission?.recipe || null, gates: admission?.gates || null, actualPlanDigest };
 }
 
@@ -154,6 +156,9 @@ function identityFor(context) {
   const { candidateId, admission, graph, bindings, totalTokens, communication, input } = context;
   const identity = { candidateId, admissionBasis: admission.selectionBasis,
     admissionTopology: admission.recipe.topology, admissionVariant: admission.recipe.variant,
+    comparativeQuality: admission.comparativeQuality || null,
+    unexecutedAlternatives: admission.unexecutedAlternatives || null,
+    counterfactual: admission.counterfactual || null,
     graph, bindings, totalTokens };
   const resourceAllocation = resourceAllocationIdentity(input, bindings);
   if (resourceAllocation) identity.resourceAllocation = resourceAllocation;

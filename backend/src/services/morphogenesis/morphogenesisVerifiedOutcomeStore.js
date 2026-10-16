@@ -53,7 +53,7 @@ async function ensure(db) {
 
 async function recordVerifiedOutcome(db, scopeInput, outcome) {
   const scope = normalizedScope(scopeInput);
-  if (!outcome?.pairEvidence || !calibration.verifiedRow(outcome)) throw invalid('paired_independent_receipt');
+  if (!calibration.verifiedRow(outcome)) throw invalid('independent_receipt');
   const json = JSON.stringify(outcome);
   const hash = digest(json);
   await ensure(db);
@@ -102,7 +102,7 @@ async function loadVerifiedOutcomes(db, scopeInput) {
     if (digest(stored.outcome_json) !== stored.payload_hash) return [];
     try {
       const outcome = JSON.parse(stored.outcome_json);
-      return outcome.pairEvidence && calibration.verifiedRow(outcome) ? [outcome] : [];
+      return calibration.verifiedRow(outcome) ? [outcome] : [];
     } catch (_) {
       return [];
     }

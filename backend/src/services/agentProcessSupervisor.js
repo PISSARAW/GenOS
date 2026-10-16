@@ -111,6 +111,9 @@ function emitTrackedImpl(ctx, ...args) {
   const eventPayload = buildTrackedEventPayload(payload, ctx.executionRun, ctx.contractRecord);
   const guarded = continuousExecution.guard(ctx, { eventType, action, detail, payload: eventPayload, severity, status }, false);
   const event = emit(ctx.agentId, guarded.eventType, guarded.action, guarded.detail, guarded.payload, guarded.severity, guarded.status);
+  require('./morphogenesis/intraEpochRoundHook').observeRuntimeEvent({
+    agentId: ctx.agentId, mission: ctx.normalizedMission, event: guarded, emit
+  });
   recordWorkerEvidence(ctx.normalizedMission, event);
   reportUserMilestone(ctx, event);
   const workerFailure = isWorkerFailureEvent(ctx.dispatchedAgent, eventType);
@@ -235,6 +238,7 @@ async function superviseMission(options) {
   }
   child.genosDetached = process.platform !== 'win32';
   child.genosCaptureBarrier = isLocalRuntime(resolvedExecutable);
+  child.genosExecutionRunId = executionRun.id;
   child.genosControlIdentity = controlIdentity;
   require('./runtimeControlCapability').bind(child);
   if (reconnect.authority) reconnectProvisioning.attach({

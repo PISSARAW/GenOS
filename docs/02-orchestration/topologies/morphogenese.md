@@ -2371,8 +2371,15 @@ Limites maintenues : la mission exécute une réévaluation morphologique à la 
 de continuation, pas une boucle structurelle illimitée. Le planner peut construire un
 graphe composite pour une forte incertitude et accepte une expression explicite, mais
 les combinaisons restent soumises au typage, aux capacités disponibles et au budget.
-Les boucles rapide/structurelle/évolutive générales ne sont pas tickées en continu par
-le runtime. Le résolveur mélange maintenant son score
+Les boucles rapide/structurelle/évolutive générales sont tickées en continu par
+le runtime backend (`intraEpochAdaptationService`) : pour un worker local, la boucle
+rapide transmet une directive d'attention par IPC et rebase la génération si elle a
+changé pendant l'inférence. Elle supprime aussi les doublons de coordination non probants
+avant leur persistance et leur livraison ; les échanges probants passent toujours.
+Pour un runtime externe sans IPC, le refocus reste observé mais non appliqué. La boucle structurelle
+ne propose qu'un différé appliqué à la barrière sous quiescence, et la boucle évolutive
+n'observe que des comptes consolidés à la barrière. Aucune ne remplace le processus worker,
+ne change sa lease ou sa topologie pendant son inférence (ADR 0568). Le résolveur mélange maintenant son score
 heuristique de cold-start avec des issues morphologiques persistées seulement
 après validation d'un reçu signé, indépendant et lié au hash de
 `{ success, value, kind }`. Le poids du prior heuristique décroît avec le

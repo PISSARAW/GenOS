@@ -25,6 +25,50 @@ const STRUCTURED_FLAGS = Object.freeze({
   modelDiversityRequired: 'diversite modeles fournisseurs independants'
 });
 
+// Paraphrase canonicalization: mission words (FR/EN) mapped to the documented
+// profile vocabulary before stemming. Both query and profiles go through terms(),
+// so paraphrases meet on the same canonical token. Documentary heuristic only:
+// these group equivalent wordings, they do not measure fitness for a mission.
+const SYNONYMS = new Map(Object.entries({
+  panne: 'incident', crash: 'incident', outage: 'incident', sinistre: 'incident',
+  urgent: 'urgente', urgence: 'urgente',
+  delai: 'timebox', delais: 'timebox', deadline: 'timebox', echeance: 'timebox',
+  offline: 'reseau', deconnecte: 'reseau', disconnected: 'reseau',
+  confidentiel: 'prive', confidentielle: 'prive', confidentielles: 'prive',
+  sensible: 'prive', sensibles: 'prive', secret: 'prive', secrets: 'prive',
+  private: 'prive', privacy: 'prive',
+  juge: 'jugement', juges: 'jugement', verdict: 'jugement', verdicts: 'jugement',
+  prevoir: 'prevision', prediction: 'prevision', predictions: 'prevision',
+  predict: 'prevision', forecast: 'prevision', forecasting: 'prevision',
+  test: 'tests', tester: 'tests', epreuve: 'tests',
+  attack: 'attaque', defence: 'defense',
+  humain: 'humaine', data: 'donnees', crisis: 'crise',
+  latency: 'latence', quality: 'qualite',
+  dependency: 'dependance', dependencies: 'dependance',
+  graph: 'graphe', parallel: 'parallele',
+  failure: 'echec', failures: 'echec', echecs: 'echec',
+  repair: 'reparation', redundancy: 'redondance',
+  synchronization: 'synchronisation', memory: 'memoire',
+  history: 'historique', temporary: 'temporaire'
+}));
+
+// Implicit needs: mission-text patterns that reveal a structured need the caller
+// did not flag explicitly. Each hit injects the corresponding flag vocabulary
+// into the query so the documented profiles can meet it.
+const IMPLICIT_NEEDS = Object.freeze([
+  ['offlineRequired', ['sans reseau', 'hors ligne', 'offline', 'deconnecte', 'sans connexion', 'mode avion']],
+  ['privacyRequired', ['confidentiel', 'sensible', 'secret', 'donnees personnelles', 'souverainete', 'donnees privees']],
+  ['humanReviewRequired', ['validation humaine', 'approbation humaine', 'arbitrage humain', 'supervision humaine']],
+  ['recoveryRequired', ['panne', 'crash', 'outage', 'restauration', 'plan de reprise']],
+  ['multiObjectiveRequired', ['compromis', 'arbitrage', 'tradeoff', 'trade off']],
+  ['atomicStateRequired', ['transaction atomique', 'atomicite', 'idempotence', 'idempotent', 'exactement une fois']],
+  ['independentVerifierRequired', ['preuve formelle', 'verification formelle', 'verificateur independant']],
+  ['adversarialReviewRequired', ['contre exemple', 'falsification', 'attaque adverse']]
+]);
+
+// Labels every selection receipt: a documentary-heuristic fit, never a success prediction.
+const SELECTION_EVIDENCE = Object.freeze({ evidenceKind: 'documentary_heuristic', predictsSuccess: false });
+
 function normalized(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, ' ');
@@ -35,7 +79,7 @@ function stem(value) {
 }
 
 function terms(value) {
-  return [...new Set(normalized(value).split(/\s+/).map(stem)
+  return [...new Set(normalized(value).split(/\s+/).map((word) => stem(SYNONYMS.get(word) || word))
     .filter(word => word.length > 2 && !STOP.has(word)))];
 }
 
@@ -45,9 +89,23 @@ function strings(value) {
   return [];
 }
 
-function queryText(input = {}) {
+function missionParts(input = {}) {
   const mission = input.mission || input.problem || {};
   const description = typeof mission === 'string' ? [mission] : [mission.prompt, mission.goal, mission.description];
+  return [input.prompt, input.goal, input.currentTask, ...description]
+    .filter(value => typeof value === 'string');
+}
+
+function implicitNeeds(input = {}) {
+  if (!IMPLICIT_NEEDS.length) return [];
+  const text = normalized(missionParts(input).join(' '));
+  const profile = input.problemProfile || {};
+  return IMPLICIT_NEEDS.filter(([flag]) => profile[flag] !== true)
+    .filter(([, patterns]) => patterns.some((pattern) => text.includes(pattern)))
+    .map(([flag]) => STRUCTURED_FLAGS[flag]);
+}
+
+function queryText(input = {}) {
   const profile = input.problemProfile || {};
   const structured = ['needs', 'objectives', 'constraints', 'workflowShape', 'evidenceMode',
     'stateMode', 'populationMode', 'deploymentMode', 'type', 'taskFamily', 'domain',
@@ -56,7 +114,8 @@ function queryText(input = {}) {
     .map(([, phrase]) => phrase);
   const diagnosis = Object.entries(input.diagnosis || input.signals || {})
     .filter(([, value]) => Number(value) >= 0.6).map(([key]) => DIAGNOSIS_WORDS[key]).filter(Boolean);
-  return [input.prompt, input.goal, input.currentTask, ...description, ...structured, ...flags, ...diagnosis]
+  return [...missionParts(input), ...structured, ...flags,
+    ...implicitNeeds(input), ...diagnosis]
     .filter(value => typeof value === 'string').join(' ');
 }
 
@@ -130,7 +189,7 @@ function localReview(input, ranking) {
   const override = best && current && best.variantId !== local.variantId
     && best.matchedTerms.length >= 4 && best.score - current.score >= 2.5;
   if (override) return null;
-  return { ...local, confidence: 0.5, calibrationStatus: 'uncalibrated',
+  return { ...local, ...SELECTION_EVIDENCE, confidence: 0.5, calibrationStatus: 'uncalibrated',
     reasons: [...local.reasons, ...(best && best.variantId !== local.variantId
       ? [`DOCUMENTED_ALTERNATIVE:${best.variantId}`] : [])],
     alternatives: ranking.slice(0, 3).map(item => item.variantId) };
@@ -152,7 +211,7 @@ function fallbackChoice(input, reason) {
 
 function fallback(input, reason, ranking) {
   const choice = fallbackChoice(input, reason);
-  return { ...choice.local, variantId: choice.variantId,
+  return { ...choice.local, ...SELECTION_EVIDENCE, variantId: choice.variantId,
     method: choice.local?.method || 'safe_baseline', confidence: 0.5,
     calibrationStatus: 'uncalibrated', reasons: [reason, ...(input.rejectedReasons || [])],
     alternatives: ranking.slice(0, 3).map(item => item.variantId) };
@@ -181,23 +240,30 @@ function selectVariant(input) {
   if (!decisive(ranking)) return audited(fallback(context, 'AMBIGUOUS_DOCUMENTED_USE_CASE', ranking), scored, rejected);
   const winner = ranking[0];
   const local = input.localSelection?.variantId === winner.variantId ? input.localSelection : null;
-  return audited({ ...local, variantId: winner.variantId,
+  return audited({ ...local, ...SELECTION_EVIDENCE, variantId: winner.variantId,
     method: local?.method || 'documented_use_case',
     confidence: 0.5, calibrationStatus: 'uncalibrated',
     reasons: winner.matchedTerms.map(term => `DOCUMENTED_SIGNAL:${term}`),
     alternatives: ranking.slice(1, 4).map(item => item.variantId) }, scored, rejected);
 }
 
-function candidateFit(input) {
-  if (input.variant === null || input.variant === 'default') return defaultTopologyFit(input);
+function fitEvidence(input) {
+  if (input.variant === null || input.variant === 'default') return topologyFitEvidence(input);
   if (!input.variant || !PROFILES[input.topology]?.[input.variant]) return null;
   if (!compatible({ ...input, variantId: input.variant })) return null;
   const result = scoreVariants(input).find(item => item.variantId === input.variant);
   if (!result || result.matchedTerms.length < 2 || result.score < 1.1) return null;
-  return Math.min(0.95, Number((0.5 + result.score / 10).toFixed(4)));
+  return { fit: Math.min(0.95, Number((0.5 + result.score / 10).toFixed(4))),
+    basis: SELECTION_EVIDENCE.evidenceKind, predictsSuccess: SELECTION_EVIDENCE.predictsSuccess,
+    matchedTerms: result.matchedTerms, score: result.score };
 }
 
-function defaultTopologyFit(input) {
+function candidateFit(input) {
+  const evidence = fitEvidence(input);
+  return evidence ? evidence.fit : null;
+}
+
+function topologyFitEvidence(input) {
   const descriptions = Object.entries(TOPOLOGY_PROFILES);
   const profiles = descriptions.map(([variantId, description]) => ({
     variantId, tokens: terms(description) }));
@@ -206,8 +272,15 @@ function defaultTopologyFit(input) {
   const result = scoreProfile({ profile, query: queryWeights(input),
     frequency: documentFrequency(profiles), count: profiles.length });
   if (result.matchedTerms.length < 2 || result.score < 1.1) return null;
-  return Math.min(0.95, Number((0.5 + result.score / 10).toFixed(4)));
+  return { fit: Math.min(0.95, Number((0.5 + result.score / 10).toFixed(4))),
+    basis: SELECTION_EVIDENCE.evidenceKind, predictsSuccess: SELECTION_EVIDENCE.predictsSuccess,
+    matchedTerms: result.matchedTerms, score: result.score };
+}
+
+function defaultTopologyFit(input) {
+  const evidence = topologyFitEvidence(input);
+  return evidence ? evidence.fit : null;
 }
 
 module.exports = { BASELINES, PROFILES, TOPOLOGY_PROFILES,
-  scoreVariants, selectVariant, candidateFit };
+  scoreVariants, selectVariant, candidateFit, fitEvidence };

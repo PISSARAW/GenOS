@@ -54,3 +54,13 @@ et les gates de budget et de preuve existants.
   vérifiable ni de reproductibilité suffisante au point d'admission.
 - Déduire la valeur d'un variant de sa maturité : elle mesure une couverture
   d'implémentation, pas son adéquation à une mission.
+
+## Suivi 2026-10-16
+
+- Une table déterministe de synonymes (FR/EN) canonise les paraphrases vers le
+  vocabulaire documenté avant l'appariement, des deux côtés (mission et profils).
+- Les besoins implicites (ex. « tradeoff », « mode avion ») sont inférés du texte
+  de mission vers les signaux structurés, sans élargir les seuils de décision.
+- Chaque reçu de sélection porte `evidenceKind: 'documentary_heuristic'` et
+  `predictsSuccess: false` ; `fitEvidence` expose la même base pour `candidateFit`.
+  La limite demeure : heuristique documentaire, pas une prédiction de réussite.

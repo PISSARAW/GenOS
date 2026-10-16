@@ -54,6 +54,13 @@ choisi par `planMorphogenesis` à partir des signaux de politique. Son reçu por
 et `gates.policyProposal: false`. Cette entrée prouve la conformité runtime du
 plan, jamais un avantage comparatif.
 
+Les deux entrées enregistrent les alternatives envisagées mais non exécutées
+dans `unexecutedAlternatives` (résultat `unobserved`, qualité comparative
+`unknown`) et portent `counterfactual.comparativeClaim: prohibited` : une trace
+de décision, même bonne, n'établit pas ce qui se serait produit avec une autre
+forme pour la même mission. Le reçu de transition scelle ces champs dans son
+identité ; les effacer invalide son digest.
+
 Les deux entrées exigent que le plan soit compilé et typé. La voie calibrée
 `PROPOSE` ne prend en charge qu'un unique nœud `TOPOLOGY`, qui doit correspondre
 exactement à `selectedTopology` et `selectedVariant`. La voie planner permet un
@@ -93,6 +100,9 @@ après les gates, en gardant sa sélection heuristique explicitement non validé
 - Une transition planner peut être admise avec une sélection heuristique, mais
   son reçu conserve `planner_heuristic_unvalidated` et une qualité comparative
   `unknown`. Les résultats ne démontrent aucun gain de qualité, coût ou latence.
+  Seule une issue appariée `pairEvidence` vérifiée (même tâche, calibration
+  hors famille et hors modèle) peut un jour qualifier un gain comparatif ; en
+  son absence, toute revendication comparative reste interdite.
 - L'admission est une barrière de sûreté, pas une mesure d'efficacité ; le
   benchmark comparatif doit être exécuté séparément avant toute revendication
   de gain.

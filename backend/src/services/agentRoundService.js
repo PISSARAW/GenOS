@@ -217,6 +217,7 @@ async function recordRoundEvent(mission, event) {
   const registered = registerRoundResult(mission, event);
   await persistNewTerminalResult(roundState, mission, hadResult);
   if (registered) return registered;
+  require('./morphogenesis/intraEpochRoundHook').tickCollecting({ state: roundState, mission, event, emit });
   if (isResumedBarrier(roundState)) return { state: roundState, orchestratorId: mission.budgetRound.orchestratorId };
   return null;
 }
@@ -260,6 +261,7 @@ async function advanceRegisteredRound(registered) {
   const continuation = state.plan.tokenPolicy.rounds?.continuation;
   const policyError = continuationPolicyError(continuation);
   if (policyError) return abortRound(orchestratorId, policyError, { continuation });
+  require('./morphogenesis/intraEpochRoundHook').attachObservations({ state, orchestratorId, epoch: Number(state.epoch || 0) });
   const recovery = require('./morphogenesis/morphogenesisEpochRecovery');
   await adaptNextEpoch(state, orchestratorId);
   const status = state.plan.morphogenesisEpochStatus?.status;
@@ -338,6 +340,15 @@ function handleClaimedContinuationFailure(agentId, mission, error) {
   updateAgent(agentId, 'error', error.message).catch(() => {});
 }
 
+function observeIntraEpochSignal(input) {
+  return require('./morphogenesis/intraEpochRoundHook').observeExternal({ ...input, emit });
+}
+
+function attachIntraEpochObservations(input) {
+  return require('./morphogenesis/intraEpochRoundHook').attachObservations(input);
+}
+
 module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome,
   registerRoundResult, planAdaptiveContinuation, advanceAutonomousRound,
-  resumeMorphogenesisBarrier, dispatchPendingContinuation };
+  resumeMorphogenesisBarrier, dispatchPendingContinuation,
+  observeIntraEpochSignal, attachIntraEpochObservations };

@@ -285,6 +285,13 @@ async function publish(db, options = {}) {
   let signalInfo = resolveSignalPayload(content, signalType, signalData);
   assertRoutingAuthority({ organization: state.organization, policy: state.policy, sender, recipientAgentId, orchestratorId });
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
+  const gate = require('./morphogenesis/intraEpochExchangeGate').evaluate({
+    orchestratorId, senderAgentId, recipientAgentId, kind: normalizedKind,
+    signalType: signalInfo.signalType, signalData, payload });
+  if (gate.throttled) return { id: null, organization: state.organization,
+    version: state.version, ...route, delivery: 'throttled', throttled: true,
+    kind: normalizedKind, signalType: signalInfo.signalType, reason: gate.reason,
+    epoch: gate.epoch, duplicateDigest: gate.duplicateDigest };
   const scope = await fetchAgentScope(db, orchestratorId);
   const envelope = createOrganizationEnvelope({
     messageId: `orgmsg_${crypto.randomUUID()}`, senderAgentId, route, signalType: signalInfo.signalType,

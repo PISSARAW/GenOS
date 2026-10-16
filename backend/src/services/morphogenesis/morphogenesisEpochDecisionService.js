@@ -164,11 +164,20 @@ function compilePolicy(input, signals) {
   const supports = supportDecisions(input, diagnosis);
   const { challenge, resources } = supports;
   const policy = compileConditionalMorphogenesisPolicy({
-    ...conditionalPolicyInput(input, diagnosis, workers), resourceAllocationPlan: resources
+    ...conditionalPolicyInput(input, withIntraEpoch(input, diagnosis), workers), resourceAllocationPlan: resources
   });
-  const decision = { policy, challenge, resources };
+  const decision = { policy, challenge, resources, intraEpoch: state.intraEpochObservations || null };
   state.plan.morphogenesisEpochDecision = decision;
   return decision;
+}
+
+function withIntraEpoch(input, diagnosis) {
+  const observations = input.state?.intraEpochObservations;
+  if (!observations) return diagnosis;
+  const throttled = observations.throttle && observations.throttle.mode !== 'pass';
+  return { ...diagnosis, intraEpochExchanges: { attempts: observations.attempts,
+    redundant: observations.redundant, throttled: Boolean(throttled) },
+    attentionHint: observations.attentionHint || null };
 }
 
 module.exports = { compilePolicy, diagnosisFor, critiqueReports, resourceGroups,

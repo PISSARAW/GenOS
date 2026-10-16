@@ -49,6 +49,28 @@ function verifyDocumentedChoices() {
   assert.equal(structured.variantId, 'pareto');
 }
 
+function verifyParaphraseAndImplicitNeeds() {
+  const paraphrase = useCases.selectVariant({ topology: 'a_team',
+    mission: 'Nos services sont en panne après un crash : il faut une intervention urgente et ciblée.' });
+  assert.equal(paraphrase.variantId, 'tiger_team');
+  assert.equal(paraphrase.method, 'documented_use_case');
+  assert(paraphrase.reasons.includes('DOCUMENTED_SIGNAL:incident'));
+  assert.equal(paraphrase.evidenceKind, 'documentary_heuristic');
+  assert.equal(paraphrase.predictsSuccess, false);
+  const implicit = useCases.selectVariant({ topology: 'trinity',
+    mission: 'Résoudre ce tradeoff entre les mondes.' });
+  assert.equal(implicit.variantId, 'pareto');
+  assert.equal(implicit.method, 'documented_use_case');
+  assert.equal(implicit.evidenceKind, 'documentary_heuristic');
+  assert.equal(implicit.predictsSuccess, false);
+  const evidence = useCases.fitEvidence({ topology: 'trinity', variant: 'pareto',
+    mission: 'Comparer qualité, coût et latence entre plusieurs objectifs non dominés.' });
+  assert.equal(evidence.basis, 'documentary_heuristic');
+  assert.equal(evidence.predictsSuccess, false);
+  assert.equal(evidence.fit, useCases.candidateFit({ topology: 'trinity', variant: 'pareto',
+    mission: 'Comparer qualité, coût et latence entre plusieurs objectifs non dominés.' }));
+}
+
 function verifyAbstentionAndVeto() {
   const ambiguous = useCases.selectVariant({ topology: 'trinity',
     mission: 'Baseline reproductible et diversité de modèles.' });
@@ -101,6 +123,7 @@ function verifyExistingMissionRouting() {
 
 verifyCoverage();
 verifyDocumentedChoices();
+verifyParaphraseAndImplicitNeeds();
 verifyAbstentionAndVeto();
 verifyPlanningAndEvidenceGate();
 verifyExistingMissionRouting();

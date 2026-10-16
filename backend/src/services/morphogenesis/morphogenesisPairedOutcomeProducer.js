@@ -11,19 +11,21 @@ function invalid(reason) {
 }
 
 function buildRow(pair) {
+  const scale = pair?.scale || 'COHORT_REPLACEMENT';
+  if (!evidence.PAIRED_SCALES.includes(scale)) throw invalid('scale_not_paired');
   const source = { candidate: pair?.candidate, control: pair?.control,
     prediction: pair?.prediction, transitionReceipt: pair?.transitionReceipt };
   if (!source.candidate || !source.control || !source.prediction
     || !source.transitionReceipt?.identity) throw invalid('evidence_missing');
   const metrics = evidence.derivedMetrics(source.candidate, source.control);
-  const row = { id: evidence.pairId(source), scale: 'COHORT_REPLACEMENT',
-    candidateId: source.transitionReceipt.identity.candidateId,
+  const row = { id: evidence.pairId(source), scale,
+    candidateId: evidence.pairCandidateId(source),
     taskId: source.candidate.taskId, taskFamily: source.candidate.taskFamily,
     modelId: source.candidate.modelId, split: source.prediction.split,
     predictedGain: source.prediction.predictedGain,
     predictedCost: source.prediction.predictedCost,
-    ...metrics, pairEvidence: source };
-  if (!evidence.validPairedEvidence(row)) throw invalid('evidence_or_transition_mismatch');
+    ...metrics, pairEvidence: { ...source, scale } };
+  if (!row.candidateId || !evidence.validPairedEvidence(row)) throw invalid('evidence_or_transition_mismatch');
   return row;
 }
 

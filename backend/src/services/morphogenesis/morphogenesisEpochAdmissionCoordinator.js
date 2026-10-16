@@ -37,6 +37,10 @@ async function validateCommunicationIntervention(context) {
   const quiescence = await assertQuiescence(input.state, input.orchestratorId);
   return { status: 'admitted', executionAuthorized: true,
     selectionBasis: 'calibrated_communication_policy', comparativeQuality: 'unknown',
+    unexecutedAlternatives: [],
+    counterfactual: { sameMissionComparison: 'unobserved', comparativeClaim: 'prohibited',
+      unexecutedCount: 0, rankingAvailable: false,
+      reason: 'unexecuted_alternatives_have_no_observed_outcome_for_this_mission' },
     recipe: { id: candidateId, scale: 'COMMUNICATION_REDUCTION' }, actualPlan: adaptation.plan || null,
     communicationMetricReceipt: adaptation.communicationMetric.receipt,
     gates: { policyProposal: true, calibration: true, metricReceipt: true,
