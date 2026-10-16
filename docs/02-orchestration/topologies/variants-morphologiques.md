@@ -52,7 +52,7 @@ signal documentaire propre ; lui non plus ne constitue pas une preuve de gain.
 Si une proposition calibrée est retenue, le plan préparé doit porter exactement
 la même topologie et le même variant avant l'admission.
 Les nouvelles issues persistées exigent aussi une
-[paire vérifiée liée à la transition scellée](../../adr/0565-lier-les-issues-appariees-aux-transitions.md).
+[paire vérifiée liée à la transition scellée](../../adr/0566-lier-les-issues-appariees-aux-transitions.md).
 Un reçu de transition ou un verdict d'oracle isolé ne suffit pas à démontrer
 le gain du variant ; les candidats restent sans calibration tant que la paire
 et son reçu indépendant ne sont pas disponibles.

@@ -21,7 +21,7 @@ le même contenu est idempotente ; une autre charge ou un autre périmètre sous
 cette identité est un conflit. Les triggers interdisent modification et
 suppression. La lecture vérifie à nouveau l'empreinte et le reçu. Elle borne
 désormais le résultat à 8192 issues, avec un quota par candidat et séparation
-entraînement/validation (ADR 0565).
+entraînement/validation (ADR 0566).
 
 Le chemin standard de `agentRoundService` fournit ce lecteur à
 `planContinuation`. Les missions d'un même projet peuvent partager un corpus
@@ -52,7 +52,7 @@ le runtime ne produit pas automatiquement ces paires à partir des rapports des
 workers. Aucun corpus de campagne ni gain comparatif n'est présumé. La
 qualification exige encore une campagne hors famille de tâches et hors modèle,
 avec coûts, latences, verdict indépendant et lien de transition exact.
-**Mise à jour du 2026-10-16 :** l'[ADR 0565](0565-lier-les-issues-appariees-aux-transitions.md)
+**Mise à jour du 2026-10-16 :** l'[ADR 0566](0566-lier-les-issues-appariees-aux-transitions.md)
 lie chaque nouvelle ligne persistée à deux tentatives et au reçu scellé de la
 transition. Le registre écarte les anciennes lignes sans ces preuves. La lecture
 est stratifiée par candidat et split, jusqu'à 8192 lignes au total ; son coût

@@ -44,7 +44,7 @@ Le holdout de ce protocole sépare les instances, paramètres et identifiants d'
 
 L'adaptateur comparatif reconnaît désormais seulement un `transitionId` porté
 par un reçu morphogénétique scellé valide et distingue la résolution vérifiée
-du même identifiant. Le [producteur d'issues appariées](../../docs/adr/0565-lier-les-issues-appariees-aux-transitions.md)
+du même identifiant. Le [producteur d'issues appariées](../../docs/adr/0566-lier-les-issues-appariees-aux-transitions.md)
 peut dériver et stocker gain et surcoût lorsque les deux tentatives, la
 prédiction antérieure et la paire portent des reçus d'oracle indépendants.
 Le harnais actuel n'émet pas ces reçus ; ses rapports ne sont pas importés

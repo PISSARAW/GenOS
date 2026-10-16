@@ -1,4 +1,4 @@
-# ADR 0565 — Lier les issues appariées aux transitions scellées
+# ADR 0566 — Lier les issues appariées aux transitions scellées
 
 - **Statut** : Accepté pour la dérivation contrôlée ; collecte comparative à compléter
 - **Date** : 2026-10-16
