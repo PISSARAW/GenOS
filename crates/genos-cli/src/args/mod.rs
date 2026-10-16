@@ -47,6 +47,9 @@ pub enum Commands {
     MorphogenesisAdjudicate { payload: String },
     /// Read-only resolver proposals for a persisted post-mission signal
     MorphogenesisPropose { payload: String },
+    /// Internal read-only verifier used by the live Rust control kernel
+    #[command(name = "kernel-verify", hide = true)]
+    KernelVerify { payload: String },
     /// Initialize the GenOS workspace directories
     Init,
     /// Check which local GenOS capabilities are available

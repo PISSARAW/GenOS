@@ -9,6 +9,7 @@ use crate::kernel_diagnosis::{DiagnosisInput, diagnose};
 use crate::kernel_governance::{GovernanceDecision, GovernanceInput, GovernancePlane};
 use crate::kernel_incarnation::{AgentIncarnationRequest, AgentIncarnationService, AutonomyLevel};
 use crate::kernel_morphogenesis::{MorphogenesisPlan, MorphogenesisPlanner, PlanInput};
+use crate::kernel_runtime_verifier::MissionVerification;
 use crate::kernel_resolvers::{ResolverInput, resolve_all};
 use crate::kernel_state::{EpistemicUpdate, Observations, OrchestratorState};
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,7 @@ pub struct KernelMissionReport {
     pub evidence: Vec<String>,
     pub failed_paths: Vec<String>,
     pub learned: Vec<String>,
+    pub independent_verification: Option<MissionVerification>,
 }
 
 /// Entrees d'un pas de boucle.
@@ -55,6 +57,7 @@ pub struct StepOutcome {
     pub plan_applied: bool,
     pub governance: GovernanceDecision,
     pub agents_spawned: Vec<String>,
+    pub plan: MorphogenesisPlan,
 }
 
 /// Le kernel : etat + planners + gouvernance + incarnation.
@@ -90,6 +93,7 @@ impl ControlKernel {
             plan_applied,
             governance,
             agents_spawned: spawned,
+            plan,
         }
     }
 
@@ -372,8 +376,10 @@ impl ControlKernel {
             evidence: self.state.epistemics.claims.clone(),
             failed_paths: self.state.history.recent_failures.clone(),
             learned: self.state.history.recent_successes.clone(),
+            independent_verification: None,
         }
     }
+
 }
 
 /// Destinations refusees : jamais de transition vers un placeholder.

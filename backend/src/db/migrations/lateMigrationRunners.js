@@ -91,4 +91,7 @@ module.exports = (createMigrationRunner) => [
     await require('./migrateMorphogenesisTransitionSnapshots')
       .migrateMorphogenesisTransitionSnapshots(db);
   }),
+  createMigrationRunner('133-rust-kernel-mission-plans', 'Bind Node missions to immutable Rust kernel plans', async (db) => {
+    await require('./migrateRustKernelMissionPlans').migrateRustKernelMissionPlans(db);
+  }),
 ];

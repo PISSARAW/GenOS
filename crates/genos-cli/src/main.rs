@@ -71,25 +71,17 @@ fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
     }
 }
 
+fn execute_mission(mission: &str) -> Result<(), String> {
+    commands::kernel_runtime::execute_mission(mission)
+}
+
 fn orchestrator_root() -> Result<PathBuf, String> {
-    let current = std::env::current_dir().map_err(|error| format!("Cannot resolve current directory: {error}"))?;
+    let current = std::env::current_dir()
+        .map_err(|error| format!("Cannot resolve current directory: {error}"))?;
     current.ancestors()
         .find(|path| path.join("backend/bin/genos-orchestrate.cjs").is_file())
         .map(PathBuf::from)
-        .ok_or_else(|| "Run `genos` from inside a GenOS repository containing backend/bin/genos-orchestrate.cjs.".to_string())
-}
-
-fn execute_mission(mission: &str) -> Result<(), String> {
-    if mission.trim().is_empty() { return Err("Mission text cannot be empty.".to_string()); }
-    let root = orchestrator_root()?;
-    let payload = serde_json::json!({ "mission": mission });
-    let status = std::process::Command::new("node")
-        .current_dir(root)
-        .arg("backend/bin/genos-orchestrate.cjs")
-        .arg(payload.to_string())
-        .status()
-        .map_err(|error| format!("Cannot start the GenOS backend orchestrator: {error}"))?;
-    if status.success() { Ok(()) } else { Err(format!("GenOS mission ended with status {status}.")) }
+        .ok_or_else(|| String::from("Run `genos` from inside a GenOS repository."))
 }
 
 fn execute_explain(mission_id: &str) -> Result<(), String> {
@@ -134,6 +126,7 @@ fn real_main() {
     let result: Result<(), String> = (|| match cli.command {
         Some(Commands::MorphogenesisAdjudicate { payload }) => commands::morphogenesis_gate::execute(&payload),
         Some(Commands::MorphogenesisPropose { payload }) => commands::morphogenesis_gate::propose(&payload),
+        Some(Commands::KernelVerify { payload }) => commands::kernel_runtime::execute_verifier(&payload),
         Some(Commands::Init) => initialize_workspace(),
         Some(Commands::Doctor) => commands::doctor::execute(),
         Some(Commands::Explain { mission_id }) => execute_explain(&mission_id),

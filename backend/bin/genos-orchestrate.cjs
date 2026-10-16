@@ -74,7 +74,6 @@ if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' &&
 const SCRIPT_START_TIME = Date.now();
 const TOP_LEVEL_MISSION_ACTIONS = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
 const missionAux = require('./orchestratorMissionAux.cjs');
-
 function waitForCompletionUnbounded() {
   return policyRequest.unbounded === true || policyRequest.noTimeout === true
     || request.unbounded === true || request.noTimeout === true;
@@ -275,6 +274,7 @@ async function executeRequestedAction(input) {
 }
 
 async function runOrchestratedMission(db, episodeRuntime) {
+  await require('../src/services/rustKernelMissionPlanService').persist(db, { missionId: missionId || id, objective: task, envelope: request.rustKernelPlan });
   const nceEnhancements = await applyNceEnhancements(buildNceInput(request), db, orchestratorId);
   const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements, task);
   const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });

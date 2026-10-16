@@ -1,8 +1,8 @@
 # Noyau de contrôle morphogénétique (orchestrateur Rust)
 
-- **Statut** : Partiel
-- **Portée** : `crates/genos-orchestrator/src/kernel_*.rs`, `crates/genos-orchestrator/tests/kernel_control.rs`
-- **Dernière revue** : 2026-09-24
+- **Statut** : Intégré au runtime Node avec vérification Rust indépendante
+- **Portée** : `crates/genos-orchestrator/src/kernel_*.rs`, `crates/genos-cli/src/commands/kernel_runtime.rs`, `crates/genos-orchestrator/tests/kernel_*.rs`
+- **Dernière revue** : 2026-10-16
 
 L'orchestrateur n'est plus pensé comme un gros agent qui réfléchit mieux que
 les workers. Il fonctionne comme **système nerveux central + kernel de
@@ -41,15 +41,16 @@ conception : le code applique des règles déterministes, pas un développement
 embryonnaire réel. Ne pas présenter ces termes comme des garanties
 biologiques.
 
-## 4. Cas d'usage visé — non démontré en production
+## 4. Cas d'usage intégré
 
 Mission multi-domaines (backend, sécurité, recherche) avec budgets bornés :
 le kernel arbitre les propositions des résolveurs, produit un
-`MorphogenesisPlan` explicable avec rollback, le fait valider par la
-gouvernance et l'applique dans son état mémoire en ajoutant un repère textuel,
-puis
-rapporte le comportement de l'organisme (`MissionReport`). Il ne crée pas
-de commit AgentGit et ne persiste pas à lui seul ces checkpoints.
+`MorphogenesisPlan` explicable avec rollback et le fait valider par la
+gouvernance. `genos run <mission>` transmet ce plan et un identifiant de mission
+au runtime Node réel, qui lance son orchestrateur et ses workers configurés.
+Après la fermeture du runtime, un **second processus Rust** ouvre SQLite en
+lecture seule et vérifie la mission sans consommer le rapport stdout de Node.
+Le `KernelMissionReport` ne devient `verified: true` qu'après ce contrôle.
 
 ## 5. Exemples concrets
 
@@ -80,26 +81,34 @@ Observations structurées → OrchestratorState → Diagnosis
 | `kernel_incarnation.rs` | point unique de création, 4 niveaux d'autonomie, enveloppes de sous-orchestrateurs |
 | `kernel_governance.rs` | validation pré-application |
 | `kernel_cycle.rs` | `ControlKernel::step`, santé collective, diversité, rapports |
+| `kernel_runtime_verifier.rs` | vérification indépendante et fail-closed des preuves SQLite |
+| `genos-cli/commands/kernel_runtime.rs` | lancement mission Node puis second processus vérifieur Rust |
 
-Prototype de contrôle : Rust, sans appel LLM, couvert par
-`crates/genos-orchestrator/tests/kernel_control.rs`. L'incarnation produit des
-descriptions d'agents en mémoire; elle ne lance ni le runtime worker Node, ni un
-modèle, ni un workspace réel. Les identifiants de checkpoint ne sont pas des
-commits AgentGit.
+La décision reste déterministe en Rust. L'exécution est déléguée au runtime
+Node de production et utilise son fournisseur configuré, ses workspaces et ses
+workers. L'incarnation en mémoire demeure la prévision du kernel ; les
+identités effectives du rapport sont remplacées par les identités workers
+relues dans la base durable.
 
 ## 8. Processus d'exécution et de validation
 
 1. `ControlKernel::step(observations)` intègre, diagnostique, résout,
-   planifie, applique la gouvernance locale, met à jour son état en mémoire et
-   révise l'épistémique. Cela ne constitue pas une exécution de mission live.
-2. Gate qualité : 0 violation sur ces fichiers (400 lignes, 3 paramètres,
+   planifie et applique la gouvernance locale.
+2. La CLI lance `backend/bin/genos-orchestrate.cjs` avec le plan Rust, une
+   identité de mission stable et l'obligation de preuve avant promotion.
+3. Le processus Node doit terminer la mission et persister au moins un worker,
+   son run, ses observations, son reçu biologique et la transition
+   homéostatique autorisée.
+4. Un second processus Rust ouvre la base avec `SQLITE_OPEN_READ_ONLY`, recalcule
+   les hashes, vérifie les liaisons mission/worker/run/budget et exige que tous
+   les reçus workers figurent dans la transition homéostatique.
+5. Gate qualité : 0 violation sur ces fichiers (400 lignes, 3 paramètres,
    complexité ≤ 10).
-3. Chaque transition ajoute un repère textuel à l'état mémoire; il ne contient
-   pas de snapshot sérialisé. Le rollback du plan n'est pas persisté.
 
-Le rapport du kernel fixe `verified: false` : cette boucle ne collecte pas de
-preuves indépendantes permettant de vérifier une mission. Le paramètre de
-vérification arbitraire a été retiré de son API.
+Le rapport en mémoire conserve `verified: false`. Seul
+`ControlKernel::verified_report`, qui exige un `MissionVerification` produit
+par le lecteur durable, peut émettre `verified: true`. Toute absence de worker,
+preuve, budget satisfait, état homéostatique ou liaison de hash échoue fermement.
 
 ## 9. Comparaison avec le marché
 
@@ -110,12 +119,15 @@ simples.
 
 ## 10. Limites, garde-fous, non-objectifs
 
-- **Partiel** : résolveurs à règles (registres GenOS non branchés),
-  contrefactuels F0/F1/FN non câblés au moteur VFS, sous-orchestrateurs non
-  délégués live, topologies composites non exécutées.
+- Les résolveurs restent à règles et les contrefactuels F0/F1/FN ne sont pas
+  encore câblés au moteur VFS ; ces extensions ne conditionnent plus le
+  lancement ni la vérification d'une mission Node ordinaire.
 - `BiomimeticOrchestrator` historique coexiste : convergence à traiter.
 - Non-objectifs : remplacer le control plane Node, appeler un LLM par
   défaut, garantir l'optimalité des choix morphologiques.
+- Une exécution exige toujours un fournisseur Node effectivement configuré ;
+  l'intégration logicielle ne prouve pas la disponibilité d'un fournisseur
+  externe particulier.
 
 ## 11. État du runtime morphogénétique v2
 
@@ -125,11 +137,10 @@ adjudication du noyau, autorisation, application de la transition et émission
 d'un reçu d'observabilité. Une décision `NO_CHANGE` est une issue explicite
 et ne déclenche pas de transition.
 
-Cette chaîne reste intégrée par adaptateurs fournis par l'application. En
-particulier, `kernel.adjudicate` doit déléguer au noyau Rust; le service échoue
-fermement si cet adaptateur manque. La présence du runtime Node et des tests
-ne démontre donc pas, à elle seule, qu'une liaison Rust–Node est déployée ni
-qu'une mission réelle a franchi toute la chaîne.
+La commande `genos run <mission>` fournit désormais la composition de
+production Rust–Node. Les adaptateurs injectés restent disponibles pour les
+tests unitaires du runtime v2, mais la commande opérateur ne dépend plus d'un
+adaptateur `kernel.adjudicate` fictif.
 
 Les services de graphe, typage, évaluation, transitions, baux, reçus,
 observabilité, Rhizome et Holobionte fournissent les composants du parcours.

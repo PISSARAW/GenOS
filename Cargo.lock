@@ -1883,6 +1883,7 @@ dependencies = [
  "rand 0.10.2",
  "reqwest",
  "rmp-serde",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

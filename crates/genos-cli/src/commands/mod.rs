@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod morphogenesis_gate;
+pub mod kernel_runtime;
 pub(crate) mod morphogenesis_authority;
 pub mod agent_validate;
 pub mod agent_mutate;
