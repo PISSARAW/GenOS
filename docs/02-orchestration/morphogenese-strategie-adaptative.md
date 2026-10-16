@@ -162,9 +162,10 @@ indépendantes.
 | --- | --- | --- |
 | `NO_CHANGE` | Repli actif quand aucune autre candidate n'est calibrée ou admissible. | Conserve le financement standard et n'autorise pas une action de groupe sur la seule base d'un rapport worker. |
 | `COMMUNICATION_REDUCTION` | Action à la barrière, pour passer à `barrier_only` et retirer les seuls outils de coordination non requis. | Requiert une métrique indépendante propre à la mission et des issues calibrées pour le `candidateId` exact. Sans producteur de métrique par défaut, elle est indisponible en production. |
-| `RESOURCE_REALLOCATION` | Candidate de financement des groupes; les tokens réellement affectés sont liés à l'admission et au reçu scellé de transition. | Chaque allocation financée doit avoir une preuve indépendante liée à son digest; le plan exact doit être calibré. Le producteur de reçus des `resourceNeeds` et le stockage d'issues vérifiées manquent par défaut, donc cette voie s'abstient en production. |
+| `RESOURCE_REALLOCATION` | Candidate de financement des groupes; les tokens réellement affectés sont liés à l'admission et au reçu scellé de transition. | Chaque allocation financée doit avoir une preuve indépendante liée à son digest; le plan exact doit être calibré. Le producteur de reçus des `resourceNeeds` n'est pas raccordé en production et aucun corpus d'issues vérifiées n'est livré par défaut (le stockage existe mais reste vide sans campagne), donc cette voie s'abstient en production. |
 | `COHORT_REPLACEMENT` | Recrutement et réaffectation possibles à une frontière de quiescence. | Le sélecteur exige une calibration exacte; sans adaptateur de résultats vérifiés, `NO_CHANGE` gagne. La disponibilité d'un nouveau kind ou daemon au dispatch n'est pas garantie. |
-| Réduction de roster et arrêt anticipé | Cibles de la politique, pas des échelles distinctes actuellement sélectionnées par ce portefeuille. | Pas de mesure consolidée des transitions inutiles ni d'optimisation multi-échelle comparée en campagne. La résolution vérifiée arrête la mission selon son gate de résultat. |
+| `ROSTER_REDUCTION` | Échelle distincte du portefeuille, sans action runtime implémentée. | Toujours `unavailable` (`roster_reduction_action_not_implemented`) : aucune réduction d'effectif n'est sélectionnée. Pas de mesure consolidée des transitions inutiles ni d'optimisation multi-échelle comparée en campagne. |
+| `EARLY_STOP` | Échelle distincte du portefeuille, sans continuation à sélectionner. | Toujours `unavailable` comme candidate (`early_stop_is_verification_gate_not_a_continuation_scale`) : l'arrêt suit le gate de résolution vérifiée, pas une sélection du portefeuille. |
 
 ## Boucle de décision proposée
 
@@ -320,7 +321,11 @@ Pour chaque candidat survivant, le reçu de classement expose séparément :
 - les hypothèses, signaux manquants, pénalités de coordination et raisons de
   dominance ou de non-dominance ;
 - les alternatives non exécutées, qui restent inconnues, et la raison de chaque
-  exclusion ou abstention.
+  exclusion ou abstention. L'admission conserve cette liste dans
+  `unexecutedAlternatives` (résultat `unobserved`, qualité comparative `unknown`)
+  et l'interdiction de revendication comparative dans `counterfactual`
+  (`comparativeClaim: prohibited`) ; le reçu de transition scelle ces deux
+  champs dans son identité, donc toute suppression les invalide.
 
 Le classement reste principalement heuristique. Ses cinq dimensions
 (`problemFit`, `capabilityFit`, `budgetFit`, `operationalFit`,
@@ -368,12 +373,19 @@ du plafond ; le coût de la requête sur un grand corpus reste à mesurer. Le ch
 de continuation accepte un adaptateur `loadVerifiedOutcomes` ; chaque
 ligne est vérifiée par son reçu et son empreinte. Un adaptateur absent, en erreur ou
 hors limite produit un jeu vide et donc `NO_CHANGE`. Aucun corpus n'est livré avec
-GenOS. Le remplacement de cohorte est candidat; la réduction des communications a
+GenOS : `NO_CHANGE` reste le choix correct tant que le quota n'est pas atteint.
+Le producteur d'issues appariées couvre désormais les trois échelles
+(`COHORT_REPLACEMENT`, `COMMUNICATION_REDUCTION`, `RESOURCE_REALLOCATION`),
+le store persiste toute ligne vérifiée (appariée ou non, dès que son reçu
+indépendant est valide), et `describeCorpusDeficit` expose par candidat le
+manque exact (`needsTrain`, `needsValidation`, holdouts). L'outil
+`backend/bin/genos-morphogenesis-corpus.cjs` rapporte ce déficit depuis SQLite
+et importe des lignes JSONL déjà vérifiées ; il n'invente jamais gains ni coûts. Le remplacement de cohorte est candidat; la réduction des communications a
 maintenant une action runtime de relève et une échelle candidate au sélecteur. La
 réallocation des ressources dispose aussi d'une candidate exacte et d'un effet de
 financement appliqué à la relève, lié au reçu scellé qui inclut l'admission, les
 workers et leurs budgets. Cette voie reste indisponible en production sans producteur
-de reçus indépendants pour les besoins et sans stockage d'issues vérifiées. Le
+de reçus indépendants pour les besoins et sans corpus d'issues vérifiées. Le
 sélecteur ne l'inclut que si l'adaptateur facultatif
 `loadVerifiedCommunicationMetric({missionId})` fournit un reçu indépendant valide
 pour une mesure de redondance propre à la mission, puis si les issues appariées de
@@ -400,7 +412,11 @@ Pareto, l’arbitrage ou l’abstention et les inconnues. Il n’enregistre pas 
 versions de registre, mesures et intervalles calibrés visés dans la conception.
 Une porte d'admission distincte valide le plan heuristique concret avant la relève;
 elle peut refuser une transition si le graphe, l'inventaire de capacités, le budget,
-le lease ou la quiescence ne sont pas démontrés. Une admission n'est ni une
+le lease ou la quiescence ne sont pas démontrés. Pour un graphe composite, chaque
+feuille `TOPOLOGY` doit disposer de ses propres affectations financées, attribuées
+explicitement (`morphologyTopology` ou `topology`) et couvrant ses exigences :
+une affectation sans attribution ne peut pas couvrir plusieurs feuilles à la fois.
+Une admission n'est ni une
 calibration ni une preuve de gain. Le runtime ne lance pas de daemon et ne modifie
 pas les leases pour rendre une recette admissible. Les preuves de restauration et de
 persistance exigées par l’ADR 0430 restent à produire avant le commit d'une transition

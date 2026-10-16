@@ -6,9 +6,12 @@ const tests = fs.readdirSync(__dirname).filter(name => /^test_.*(morphogenesis|m
 tests.push('morphogenesis/test_learning_services.js');
 tests.push('morphogenesis/test_mission_strategy_compiler.js');
 tests.push('morphogenesis/test_conditional_morphogenesis_policy.js');
+tests.push('morphogenesis/test_intervention_paired_corpus.js');
 tests.push('morphogenesis/test_adaptive_topology_candidates.js');
 tests.push('morphogenesis/test_adaptive_topology_ranking.js');
 tests.push('morphogenesis/test_adaptive_worker_roster.js');
+tests.push('morphogenesis/test_light_intervention_scales.js');
+tests.push('test_intra_epoch_adaptation.js');
 tests.push('test_mission_strategy_activation.js');
 tests.push('test_mission_worker_runtime_snapshot.js');
 const failures = [];

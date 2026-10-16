@@ -267,9 +267,16 @@ function calibratedRuntimeEstimate(estimate, runtimeAvailability) {
 
 function calibratedScaleAvailability(scale, portfolio) {
   const estimate = portfolio.calibration.scales[scale];
-  return estimate.status === 'calibrated' && scale === 'COHORT_REPLACEMENT'
-    ? { status: 'available', estimate }
-    : { status: 'unavailable', reason: estimate.reason || 'runtime_action_not_implemented' };
+  if (estimate.status === 'calibrated' && scale === 'COHORT_REPLACEMENT') {
+    return { status: 'available', estimate };
+  }
+  return { status: 'unavailable', reason: unavailableScaleReason(scale, estimate) };
+}
+
+function unavailableScaleReason(scale, estimate) {
+  if (scale === 'ROSTER_REDUCTION') return 'roster_reduction_action_not_implemented';
+  if (scale === 'EARLY_STOP') return 'early_stop_is_verification_gate_not_a_continuation_scale';
+  return estimate.reason || 'runtime_action_not_implemented';
 }
 
 function compileConditionalMorphogenesisPolicy(input = {}) {

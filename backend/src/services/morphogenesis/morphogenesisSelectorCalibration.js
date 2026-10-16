@@ -8,7 +8,8 @@ const pairedEvidence = require('./morphogenesisPairedOutcomeEvidence');
 
 const MIN_TRAIN = 30;
 const MIN_VALIDATION = 10;
-const SCALE = Object.freeze(['COMMUNICATION_REDUCTION', 'RESOURCE_REALLOCATION', 'COHORT_REPLACEMENT']);
+const SCALE = Object.freeze(['COMMUNICATION_REDUCTION', 'RESOURCE_REALLOCATION', 'ROSTER_REDUCTION',
+  'EARLY_STOP', 'COHORT_REPLACEMENT']);
 
 function digest(row) {
   const body = Object.fromEntries(['id', 'scale', 'taskFamily', 'modelId', 'split',
@@ -138,4 +139,38 @@ function selectScale(calibration, availableCandidates) {
     estimate: candidates[0] };
 }
 
-module.exports = { SCALE, compileCalibration, selectScale, digest, verifiedRow };
+function candidateRows(rows, scale, candidateId) {
+  return rows.filter(row => row.scale === scale && row.candidateId === candidateId);
+}
+
+function candidateDeficit(rows, scale, candidateId) {
+  const same = candidateRows(rows, scale, candidateId);
+  const train = same.filter(row => row.split === 'train');
+  const validation = same.filter(row => row.split === 'validation');
+  const detail = calibrateCandidate(rows, scale, candidateId);
+  return { candidateId, scale, train: train.length, validation: validation.length,
+    needsTrain: Math.max(0, MIN_TRAIN - train.length),
+    needsValidation: Math.max(0, MIN_VALIDATION - validation.length),
+    taskFamilyHoldout: disjoint(train, validation, 'taskFamily'),
+    modelHoldout: disjoint(train, validation, 'modelId'),
+    pairedTasksDisjoint: disjointPairedTasks(train, validation),
+    status: detail.status, reason: detail.status === 'calibrated' ? null : detail.reason };
+}
+
+function scaleDeficit(rows, scale) {
+  const ids = [...new Set(rows.filter(row => row.scale === scale).map(row => row.candidateId))];
+  const candidates = Object.fromEntries(ids.map(id => [id, candidateDeficit(rows, scale, id)]));
+  const qualified = Object.values(candidates).some(item => item.status === 'calibrated');
+  return { status: qualified ? 'calibrated' : 'unavailable', candidates };
+}
+
+function describeCorpusDeficit(samples) {
+  const rows = (Array.isArray(samples) ? samples : []).filter(verifiedRow);
+  const scales = Object.fromEntries(SCALE.map(scale => [scale, scaleDeficit(rows, scale)]));
+  const calibrated = Object.values(scales).some(item => item.status === 'calibrated');
+  return { status: calibrated ? 'calibrated' : 'unavailable',
+    verifiedSampleCount: rows.length, requiredTrain: MIN_TRAIN,
+    requiredValidation: MIN_VALIDATION, scales };
+}
+
+module.exports = { SCALE, compileCalibration, selectScale, digest, verifiedRow, describeCorpusDeficit };

@@ -4,6 +4,9 @@ const crypto = require('node:crypto');
 const evidenceAudit = require('../trinityEvidenceAudit');
 const transition = require('./morphogenesisTransitionReceipt');
 
+const PAIRED_SCALES = Object.freeze(['COHORT_REPLACEMENT', 'COMMUNICATION_REDUCTION', 'RESOURCE_REALLOCATION',
+  'ROSTER_REDUCTION', 'EARLY_STOP']);
+
 function sha(value) {
   return `sha256:${crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
 }
@@ -85,7 +88,7 @@ function predictionFieldsValid(prediction, candidate, receipt) {
   if (!prediction) return false;
   return [typeof prediction.id === 'string', Boolean(prediction.id),
     typeof prediction.method === 'string', Boolean(prediction.method),
-    prediction.candidateId === receipt.identity.candidateId,
+    prediction.candidateId === pairCandidateId({ transitionReceipt: receipt }),
     prediction.taskId === candidate.taskId, prediction.seed === candidate.seed,
     ['train', 'validation'].includes(prediction.split),
     Number.isFinite(prediction.predictedGain), prediction.predictedGain >= -1,
@@ -112,30 +115,72 @@ function derivedMetrics(candidate, control) {
     actualCost: Number(Math.min(1, (tokenOverhead + latencyOverhead) / 2).toFixed(6)) };
 }
 
+function pairCandidateId(evidence) {
+  const receipt = evidence?.transitionReceipt;
+  return receipt?.identity?.resourceAllocation?.candidateId
+    || receipt?.identity?.candidateId || null;
+}
+
 function pairId(evidence) {
   const { candidate, control, transitionReceipt } = evidence;
   return sha({ taskId: candidate.taskId, seed: candidate.seed,
-    candidateId: transitionReceipt.identity.candidateId,
+    candidateId: pairCandidateId(evidence),
     transitionId: transitionReceipt.transitionId,
     candidateAttemptId: candidate.id, controlAttemptId: control.id });
 }
 
+function pairedAttemptsValid(context) {
+  const { candidate, control } = context;
+  return validAttempt(candidate) && validAttempt(control)
+    && sameExperiment(candidate, control);
+}
+
+function scaleTransitionValid(row, candidate, receipt) {
+  if (row.scale === 'COHORT_REPLACEMENT') return validTransition(candidate, receipt);
+  return validInterventionTransition(row, candidate, receipt);
+}
+
+function validInterventionTransition(row, candidate, receipt) {
+  if (!transition.verifyTransitionReceipt(receipt)) return false;
+  if (receipt.dispatchStatus !== 'queued') return false;
+  return interventionBindingMatches(row, candidate, receipt);
+}
+
+function interventionBindingMatches(row, candidate, receipt) {
+  if (candidate.transitionId !== receipt.transitionId) return false;
+  if (row.scale === 'RESOURCE_REALLOCATION') return resourceBindingMatches(row, receipt);
+  return receipt.identity.candidateId === row.candidateId;
+}
+
+function resourceBindingMatches(row, receipt) {
+  const binding = receipt.resourceAllocationBinding;
+  const identity = receipt.identity.resourceAllocation;
+  if (!binding || !identity) return false;
+  return binding.candidateId === row.candidateId
+    && identity.candidateId === row.candidateId
+    && binding.planDigest === identity.planDigest;
+}
+
+function pairedFieldsMatch(row, evidence, metrics) {
+  return [row.id === pairId(evidence),
+    row.candidateId === pairCandidateId(evidence),
+    row.taskFamily === evidence.candidate.taskFamily, row.modelId === evidence.candidate.modelId,
+    row.taskId === evidence.candidate.taskId, row.split === evidence.prediction.split,
+    row.predictedGain === evidence.prediction.predictedGain,
+    row.predictedCost === evidence.prediction.predictedCost,
+    row.actualGain === metrics.actualGain, row.actualCost === metrics.actualCost].every(Boolean);
+}
+
 function validPairedEvidence(row) {
   const evidence = row?.pairEvidence;
-  if (!evidence || row.scale !== 'COHORT_REPLACEMENT') return false;
+  if (!evidence || !PAIRED_SCALES.includes(row.scale)) return false;
   const { candidate, control, prediction, transitionReceipt } = evidence;
   if (!candidate || !control || !prediction || !transitionReceipt?.identity) return false;
-  if (![validAttempt(candidate), validAttempt(control), sameExperiment(candidate, control),
-    validTransition(candidate, transitionReceipt), validPrediction({ prediction, candidate,
-      control, receipt: transitionReceipt })].every(Boolean)) return false;
-  const metrics = derivedMetrics(candidate, control);
-  return [row.id === pairId(evidence),
-    row.candidateId === transitionReceipt.identity.candidateId,
-    row.taskFamily === candidate.taskFamily, row.modelId === candidate.modelId,
-    row.taskId === candidate.taskId, row.split === prediction.split,
-    row.predictedGain === prediction.predictedGain,
-    row.predictedCost === prediction.predictedCost,
-    row.actualGain === metrics.actualGain, row.actualCost === metrics.actualCost].every(Boolean);
+  if (!pairedAttemptsValid({ candidate, control })) return false;
+  if (!validPrediction({ prediction, candidate,
+    control, receipt: transitionReceipt })) return false;
+  if (!scaleTransitionValid(row, candidate, transitionReceipt)) return false;
+  return pairedFieldsMatch(row, evidence, derivedMetrics(candidate, control));
 }
 
 function validFinalReceipt(row) {
@@ -150,4 +195,4 @@ function validFinalReceipt(row) {
 }
 
 module.exports = { observedAttempt, observedPrediction, derivedMetrics, pairId,
-  validPairedEvidence, validFinalReceipt, sha };
+  pairCandidateId, PAIRED_SCALES, validPairedEvidence, validFinalReceipt, sha };
