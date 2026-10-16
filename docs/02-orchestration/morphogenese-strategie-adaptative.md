@@ -346,8 +346,13 @@ tenus à l'écart; les prédictions de gain et de coût doivent battre les réf�
 neutres sur le jeu de validation. La compilation expose les estimations, leurs
 incertitudes et les erreurs observées. Le gain prudent doit dépasser le coût marginal
 prudent pour retenir une intervention. Sans preuve suffisante, `NO_CHANGE` gagne.
-Le backend ne fournit pas encore de stockage par défaut. Le chemin de continuation
-accepte un adaptateur `loadVerifiedOutcomes`, borné à 120 lignes par mission; chaque
+Un registre SQLite (`morphogenesisVerifiedOutcomeStore`, 8192 lignes max, 40
+entraînement + 20 validation par candidat) et son raccordement au chemin standard
+(`agentRoundService` → `planContinuation`) sont présents dans l'arbre de travail
+actuel, mais n'avaient pas encore été validés dans un commit au moment de la
+vérification. Ils n'acceptent que des issues *déjà* vérifiées ; ils ne produisent
+pas de verdict indépendant à partir des rapports des workers (ADR 0564). Le chemin
+de continuation accepte un adaptateur `loadVerifiedOutcomes` ; chaque
 ligne est vérifiée par son reçu et son empreinte. Un adaptateur absent, en erreur ou
 hors limite produit un jeu vide et donc `NO_CHANGE`. Aucun corpus n'est livré avec
 GenOS. Le remplacement de cohorte est candidat; la réduction des communications a

@@ -46,8 +46,13 @@ par signaux et contrats. Morphogenèse dispose aussi d'une
 [présélection par cas d'usage](../../adr/0563-selection-des-variants-par-cas-d-usage.md)
 qui compare les 95 profils et inscrit signaux et alternatives dans son reçu.
 Ce classement reste heuristique et ne lui ajoute pas de calibration empirique.
-Le chemin standard peut maintenant charger des [issues appariées vérifiées](../../adr/0564-charger-les-issues-verifiees-dans-la-continuation.md)
-pour calibrer la décision de transition exacte. Ce chargement ne calibre pas
+Le chemin standard peut charger des [issues appariées vérifiées](../../adr/0564-charger-les-issues-verifiees-dans-la-continuation.md)
+pour calibrer la décision de transition exacte. La collecte automatique de ces
+paires n'est pas achevée : un registre SQLite et son raccordement au chemin
+standard sont présents dans l'arbre de travail actuel, mais n'avaient pas encore
+été validés dans un commit au moment de la vérification. Ils n'acceptent que des
+issues *déjà* vérifiées ; ils ne produisent pas de verdict indépendant à partir
+des rapports des workers. Ce chargement ne calibre pas
 automatiquement la présélection textuelle : sans corpus admissible pour le
 `candidateId` considéré, la politique conserve `NO_CHANGE`.
 Le profil structuré et les poids de priorité explicitement fournis par la
