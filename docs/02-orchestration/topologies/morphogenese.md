@@ -2265,7 +2265,17 @@ noyau de contrôle et ses limites, voir [noyau de contrôle morphogénétique](.
 
 Le registre, le résolveur, l'ontologie, le contrat de capacités et le dispatch
 commun déclarent les mêmes huit identifiants canoniques. Les composeurs sont
-maintenant tous adressables par ce dispatch :
+maintenant tous adressables par ce dispatch.
+
+Les huit topologies ne sont pas interchangeables. Adressable signifie
+seulement qu'une feuille `TOPOLOGY` peut être routée vers son composeur ou
+plugin ; cela ne qualifie pas le protocole propre de chaque topologie dans le
+chemin principal. En particulier, une feuille unique Trinity ou A-Team
+conserve son dispatch dédié (chambres/synthèse, plan à deux domaines
+minimum), et son insertion comme composante d'un graphe composite ne
+reproduit pas les garanties du run dédié complet. Toute conversion entre
+topologies exige un adaptateur explicite ; à défaut, le service de transition
+refuse de façon fermée.
 
 | Topologie | Point de composition | État du dispatch commun |
 | --- | --- | --- |
@@ -2285,19 +2295,23 @@ liées à leur nœud et que les limites de budget bloquent avant le dispatch. Le
 continuation vérifie la recompilation pilotée par les preuves, la conservation des
 identités et l'exécution finale de l'opérateur composite.
 
-Une seule conversion inter-topologies spécialisée était enregistrée et
-testée au 2026-09-25 : Trinity vers A-Team, à partir des affirmations vérifiées
-(plus un adaptateur Syncytium vers Trinity). Depuis 2026-09-26, l'opérateur
-BRIDGE transporte en outre un `MorphologyTransferBundle` canonique
-(artefacts, affirmations, preuves, incertitudes, décisions, questions ouvertes,
-capsules d'état, capacités, ressources, provenance, reçu source), vérifié par
-`migrationValidator` (contrat `requiredOutputs`, préservation sémantique,
-estimation de perte, provenance) avec refus fermé en cas de violation. Le
-service de transition refuse les autres changements de topologie tant qu'un
-adaptateur n'existe pas. Les huit plans ne démontrent donc pas que les huit
-runtimes peuvent se convertir les uns vers les autres. Le classement traite
-maintenant les coûts comme des pénalités directes et préserve les valeurs
-numériques nulles, notamment zéro. Voir [ADR 0108](../../adr/0108-branchement-topologies-fail-closed.md).
+Le réseau de conversions vérifiées reste restreint. Au 2026-10-15, seul
+l'adaptateur `trinity -> a_team` (`trinity-to-a-team-verified-claims`, à partir
+des affirmations vérifiées) est enregistré comme `verified` dans
+`topologyAdapterService` et accepté par le handoff du chemin principal
+(`morphologyTransitionService.topologyHandoff`, refus fermé sinon). Le registre
+de transitions (`transitions/index.js`) enregistre en outre un seul adaptateur
+spécialisé `syncytium -> trinity`, avec perte estimée et bundle de transfert.
+Depuis 2026-09-26, l'opérateur BRIDGE transporte un `MorphologyTransferBundle`
+canonique (artefacts, affirmations, preuves, incertitudes, décisions, questions
+ouvertes, capsules d'état, capacités, ressources, provenance, reçu source),
+vérifié par `migrationValidator` (contrat `requiredOutputs`, préservation
+sémantique, estimation de perte, provenance) avec refus fermé en cas de
+violation. Ce transport ne crée pas d'adaptateurs vérifiés pour les autres
+paires : les huit plans ne démontrent donc pas que les huit runtimes peuvent se
+convertir les uns vers les autres. Le classement traite maintenant les coûts
+comme des pénalités directes et préserve les valeurs numériques nulles,
+notamment zéro. Voir [ADR 0108](../../adr/0108-branchement-topologies-fail-closed.md).
 
 ## 47. Graphe exécutable et topologies câblées (2026-09-26)
 
@@ -2324,15 +2338,17 @@ intersectées. Chaque feuille `TOPOLOGY` et chaque opérateur émet un reçu ;
 l'input mission traverse jusqu'aux feuilles (pass-through quand le parent
 n'a pas encore produit de sortie).
 
-Les huit topologies sont câblées via des plugins explicites
+Les huit topologies sont adressables via des plugins explicites
 (`installTopologyPlugins`, voir la
 [référence des plugins](../../03-reference/plugins-topologies-morphogenese.md)) :
 cinq contrôleurs en processus (Trinity, A-Team, Rhizome, Syncytium,
 Biocénose), Biome sur écologie in-memory réelle, Holobionte et
 Métapopulation sur leurs runtimes réels persistés (SQLite natif, sinon
-repli `node:sqlite` explicite dans le reçu). Chaque feuille impose son
-contrat d'entrée (ballots Biocénose, `capability`+exécuteur+allocation
-Holobionte, mission Métapopulation) avec refus fermé sinon.
+repli `node:sqlite` explicite dans le reçu). Adressable ne signifie pas
+interchangeable et ne qualifie pas chaque protocole propre dans le chemin
+principal : chaque feuille impose son contrat d'entrée (ballots Biocénose,
+`capability`+exécuteur+allocation Holobionte, mission Métapopulation) avec
+refus fermé sinon.
 
 Les missions Holobionte par capacité passent par `holobionteService.runHolobiontMission`, partagé avec la CLI. Elles exigent `executeCapability`, `verifyCapability` et une allocation ; un nouveau candidat exige aussi `trialCapabilityExecutor`. Le vérificateur indépendant lie sa preuve au résultat concret. Admission, quotas cumulés, veto immunitaire, contribution et mémoire atomiques, annulation et clôture suivent le [contrat Holobionte](../../03-reference/runtime-holobionte.md). Un reçu de feuille n’accorde aucune preuve supplémentaire à la sortie.
 
