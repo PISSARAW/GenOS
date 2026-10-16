@@ -294,7 +294,8 @@ async function finalizeCampaign() {
   results.verification = summarizeVerification(results, probeReceipts);
   if (probes.exitCode !== 0) results.verification.failedSessionProbes.push('session-probe-runner');
   const qualification = evaluateQualification({ suite, performedRepetitions: 1,
-    sourceClean: results.sourceState.workingTreeClean, verificationPassed: results.verification.passed });
+    sourceClean: results.sourceState.workingTreeClean, verificationPassed: results.verification.passed,
+    missions: results.missions });
   results.qualification = qualification.status;
   results.repetitions = qualification.repetitions;
   results.sourceState.confirmatoryEligible = qualification.confirmatoryEligible;

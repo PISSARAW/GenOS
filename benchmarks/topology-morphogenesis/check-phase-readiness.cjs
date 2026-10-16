@@ -15,6 +15,14 @@ function pendingAdapters() {
   return plan.conditions.filter((condition) => condition.adapter === 'pending').map((condition) => condition.id);
 }
 
+function nonAutonomousArms() {
+  return plan.conditions.filter((condition) => condition.autonomous === false).map((condition) => condition.id);
+}
+
+function pilotOnlyTasks() {
+  return (taskSet.status || '').includes('pilot') ? taskSet.tasks.map((task) => task.id) : [];
+}
+
 function missingTopologyProbes(tasks = suite.tasks) {
   return tasks.filter((task) => task.family === 'topology' && !topologyProbeAdmissible(task))
     .map((task) => task.id);
@@ -23,6 +31,21 @@ function missingTopologyProbes(tasks = suite.tasks) {
 function topologyProbeAdmissible(task) {
   return Boolean(task.mechanismProbe && task.mechanismProbeScope === 'mission-outcome'
     && task.mechanismProbeVerificationEligible === true && task.oracle?.status === 'independent');
+}
+
+function hasIndependentMissionOracle(task) {
+  return task?.oracle?.status === 'independent';
+}
+
+function missingMissionOracles(tasks = suite.tasks) {
+  return tasks.filter((task) => task.family === 'topology' && !hasIndependentMissionOracle(task))
+    .map((task) => task.id);
+}
+
+function nonMissionProbePromoted(tasks = suite.tasks) {
+  return tasks.filter((task) => task.mechanismProbeVerificationEligible === true
+    && task.mechanismProbeScope !== 'mission-outcome')
+    .map((task) => task.id);
 }
 
 function unassignedHypotheses() {
@@ -41,9 +64,17 @@ function buildReadiness() {
   const blockers = [];
   const adapters = pendingAdapters();
   const probes = missingTopologyProbes();
+  const oracles = missingMissionOracles();
+  const promoted = nonMissionProbePromoted();
   const hypotheses = unassignedHypotheses();
+  const frozen = nonAutonomousArms();
+  const pilotTasks = pilotOnlyTasks();
   if (adapters.length) blockers.push({ id: 'condition-adapters-missing', items: adapters });
+  if (frozen.length) blockers.push({ id: 'autonomous-orchestration-unproven', items: frozen });
+  if (pilotTasks.length) blockers.push({ id: 'pilot-only-no-general-causality', items: pilotTasks });
   if (probes.length) blockers.push({ id: 'topology-probes-missing', items: probes });
+  if (oracles.length) blockers.push({ id: 'mission-oracle-missing', items: oracles });
+  if (promoted.length) blockers.push({ id: 'component-smoke-not-mission-outcome', items: promoted });
   if (hypotheses.length) blockers.push({ id: 'topology-hypotheses-unassigned', items: hypotheses });
   const source = sourceState();
   if (!source.workingTreeClean) blockers.push({ id: 'source-tree-not-frozen', items: [String(source.changedPathCount)] });
@@ -62,4 +93,5 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildReadiness, missingTopologyProbes, topologyProbeAdmissible };
+module.exports = { buildReadiness, missingTopologyProbes, topologyProbeAdmissible,
+  hasIndependentMissionOracle, missingMissionOracles, nonMissionProbePromoted };
