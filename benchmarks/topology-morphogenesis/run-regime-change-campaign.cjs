@@ -3,7 +3,8 @@
 // Campagne de changement de regime a mi-mission (Qwen + orchestrateur GenOS).
 // Stage training : selectionne la topologie figee par famille.
 // Stage confirmatory : 30 taches holdout x 3 conditions, ordre randomise.
-// Usage: node benchmarks/topology-morphogenesis/run-regime-change-campaign.cjs --stage all --output D:\GenOS-campaigns
+// Usage: node benchmarks/topology-morphogenesis/run-regime-change-campaign.cjs --stage all --output D:\GenOS-campaigns [--claim pilot]
+// --claim confirmatory est refuse tant que le garde de qualification n'est pas satisfait (plan actuel : pilote).
 
 const fs = require('fs');
 const path = require('path');
@@ -12,18 +13,21 @@ const { createHash } = require('crypto');
 const { executeCondition } = require('./comparisonAdapters.cjs');
 const { verifyRegimeCandidate } = require('./holdout-oracles/regime-change-oracles.cjs');
 const { compareAgainst } = require('./regime-change-analysis.cjs');
+const { qualifyRegimePlan, assertConfirmatory } = require('./regime-change-qualification.cjs');
 
 const root = __dirname;
 const repo = path.resolve(root, '../..');
 
 function parseArgs(args) {
-  const options = { stage: 'all', output: null };
+  const options = { stage: 'all', output: null, claim: 'pilot' };
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === '--stage') options.stage = args[++i];
     else if (args[i] === '--output') options.output = args[++i];
+    else if (args[i] === '--claim') options.claim = args[++i];
     else throw new Error(`Unknown argument: ${args[i]}`);
   }
   if (!['all', 'training', 'confirmatory'].includes(options.stage)) throw new Error('Stage must be all, training or confirmatory.');
+  if (!['pilot', 'confirmatory'].includes(options.claim)) throw new Error('Claim must be pilot or confirmatory.');
   return options;
 }
 
@@ -210,6 +214,8 @@ function evaluateCampaign(input) {
 async function runCampaign(options) {
   const { plan, data } = loadInputs();
   verifyFrozen(plan, data);
+  const qualification = qualifyRegimePlan(plan, data.tasks);
+  if (options.claim === 'confirmatory') assertConfirmatory(plan, data.tasks);
   await checkModel(plan);
   const outputRoot = options.output || path.join(repo, 'artifacts', 'topology-morphogenesis', 'regime-change');
   const runDir = path.join(outputRoot, `regime-${new Date().toISOString().replace(/[:.]/g, '-')}`);
@@ -226,8 +232,8 @@ async function runCampaign(options) {
   if (options.stage !== 'training') {
     attempts = await runJobs({ jobs: confirmatoryJobs(plan, data, frozen), runDir, plan, model: plan.model });
   }
-  const evaluation = evaluateCampaign({ attempts, plan });
-  const report = { runDir, stage: options.stage, frozen, freeze, evaluation, attempts };
+  const evaluation = { ...evaluateCampaign({ attempts, plan }), qualification };
+  const report = { runDir, stage: options.stage, claim: options.claim || 'pilot', frozen, freeze, evaluation, attempts };
   fs.writeFileSync(path.join(runDir, 'results.json'), JSON.stringify(report, null, 2));
   return { runDir, frozen, evaluation };
 }

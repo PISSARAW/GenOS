@@ -2,9 +2,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
 const oracles = require('./holdout-oracles/regime-change-oracles.cjs');
 const analysis = require('./regime-change-analysis.cjs');
 const adapters = require('./comparisonAdapters.cjs');
+const qualification = require('./regime-change-qualification.cjs');
 const { selectFrozen } = require('./run-regime-change-campaign.cjs');
 
 test('regime oracles accept valid candidates and reject violations', () => {
@@ -43,4 +46,64 @@ test('frozen selection prefers pass rate, then tokens, then name', () => {
     { family: 'regime-cap', topology: 'biome', oraclePassed: false, tokenUsage: { total: 1 } }
   ];
   assert.equal(selectFrozen(attempts, plan)['regime-cap'], 'a_team');
+});
+
+test('le plan fige actuel est pilote, non confirmatoire', () => {
+  const plan = JSON.parse(fs.readFileSync(path.join(__dirname, 'regime-change-plan.json'), 'utf8'));
+  const data = JSON.parse(fs.readFileSync(path.join(__dirname, plan.taskSetFile), 'utf8'));
+  assert.equal(plan.evidenceGrade, 'pilot');
+  assert.equal(plan.requiredRepetitions, 3);
+  const result = qualification.qualifyRegimePlan(plan, data.tasks);
+  assert.equal(result.grade, 'pilot');
+  assert.ok(result.repetitions < result.requiredRepetitions);
+  assert.ok(result.reasons.some((r) => /repetitions/i.test(r)));
+  assert.ok(result.reasons.some((r) => /familles non disjointes/i.test(r)));
+  assert.ok(result.reasons.some((r) => /injection temporelle externe/i.test(r)));
+  assert.throws(() => qualification.assertConfirmatory(plan, data.tasks), /non confirmatoire/);
+});
+
+test('garde : une repetition et familles communes rejettent confirmatory', () => {
+  const plan = { seeds: [104729], requiredRepetitions: 3, familyDisjointness: 'required',
+    revealMechanism: 'external-temporal-injection', revealActual: 'external-temporal-injection',
+    revealSpec: 'injection externe a mi-mission',
+    training: { taskIds: ['train-cap-01'] } };
+  const tasks = [
+    { id: 'train-cap-01', family: 'regime-cap', split: 'training' },
+    { id: 'rc-cap-01', family: 'regime-cap', split: 'holdout' }
+  ];
+  const result = qualification.qualifyRegimePlan(plan, tasks);
+  assert.equal(result.grade, 'pilot');
+  assert.ok(result.reasons.some((r) => /repetitions/i.test(r)));
+  assert.ok(result.reasons.some((r) => /familles non disjointes/i.test(r)));
+  assert.throws(() => qualification.assertConfirmatory(plan, tasks), /non confirmatoire/);
+});
+
+test('garde : revelation dans le prompt rejette confirmatory meme avec 3 seeds', () => {
+  const plan = { seeds: [1, 2, 3], requiredRepetitions: 3, familyDisjointness: 'required',
+    revealMechanism: 'external-temporal-injection', revealActual: 'in-prompt-informational',
+    revealSpec: 'La contrainte de phase 2 est contenue dans le prompt.',
+    training: { taskIds: ['train-cap-01'] } };
+  const tasks = [
+    { id: 'train-cap-01', family: 'regime-cap', split: 'training' },
+    { id: 'rc-dag-01', family: 'regime-dag', split: 'holdout' }
+  ];
+  const result = qualification.qualifyRegimePlan(plan, tasks);
+  assert.equal(result.grade, 'pilot');
+  assert.ok(result.reasons.some((r) => /injection temporelle externe/i.test(r)));
+  assert.throws(() => qualification.assertConfirmatory(plan, tasks), /non confirmatoire/);
+});
+
+test('garde : 3 repetitions, familles disjointes et injection externe autorisent confirmatory', () => {
+  const plan = { seeds: [11, 22, 33], requiredRepetitions: 3, familyDisjointness: 'required',
+    revealMechanism: 'external-temporal-injection', revealActual: 'external-temporal-injection',
+    revealSpec: 'La contrainte est injectee par l\'exterieur a la frontiere temporelle.',
+    training: { taskIds: ['train-cap-01'] } };
+  const tasks = [
+    { id: 'train-cap-01', family: 'regime-cap', split: 'training' },
+    { id: 'rc-dag-01', family: 'regime-dag', split: 'holdout' }
+  ];
+  const result = qualification.qualifyRegimePlan(plan, tasks);
+  assert.equal(result.grade, 'confirmatory');
+  assert.deepEqual(result.reasons, []);
+  assert.equal(qualification.assertConfirmatory(plan, tasks).grade, 'confirmatory');
 });
