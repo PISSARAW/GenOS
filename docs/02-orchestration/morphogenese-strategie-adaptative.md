@@ -132,12 +132,18 @@ La réponse adaptative visée suit trois échelles :
 
 1. **Pendant une époque**, ajuster l'attention ou réduire les échanges redondants sans
    muter un worker pendant son inférence. Cette adaptation intra-époque est
-   implémentée comme boucle consultative continue
-   (`intraEpochAdaptationService` + `intraEpochRoundHook`) : refocus attentionnel
-   et étranglement des seuls échanges redondants non porteurs de preuve, structurel
-   différé à la barrière, observations drainées vers la décision d'époque.
-   Aucun worker n'est muté, aucun lease révoqué, aucune topologie changée en cours
-   d'inférence.
+   effective pour le runtime local (`intraEpochAdaptationService` +
+   `intraEpochRoundHook`). Une incertitude élevée envoie par IPC une directive
+   attentionnelle fermée et versionnée ; si elle arrive pendant une génération,
+   la réponse devenue ancienne est écartée et l'inférence est relancée dans la
+   limite de latence et de tentatives. Après au moins dix échanges, une redondance
+   d'au moins 20 % supprime uniquement les doublons non probants avant leur écriture
+   et leur livraison. Les preuves, reçus, succès, alertes critiques et handoffs ne
+   sont jamais étranglés. Le structurel reste différé à la barrière et les observations
+   sont drainées vers la décision d'époque. Aucun processus worker n'est remplacé,
+   aucun lease révoqué et aucune topologie changée en cours d'inférence. Les runtimes
+   externes sans canal IPC continuent seulement à produire l'observation, sans
+   application attentionnelle immédiate (ADR 0568).
 2. **À la barrière**, garder la forme courante, redistribuer le budget ou composer une
    cohorte de remplacement à partir des résultats, de la topologie et des preuves
    runtime. Le changement reste soumis à la quiescence, au budget et à l'autorité.
@@ -351,7 +357,14 @@ entraînement + 20 validation par candidat) et son raccordement au chemin standa
 (`agentRoundService` → `planContinuation`) sont présents dans l'arbre de travail
 actuel, mais n'avaient pas encore été validés dans un commit au moment de la
 vérification. Ils n'acceptent que des issues *déjà* vérifiées ; ils ne produisent
-pas de verdict indépendant à partir des rapports des workers (ADR 0564). Le chemin
+pas de verdict indépendant à partir des rapports des workers (ADR 0564). La lecture
+est stratifiée par candidat et split, plus récents d'abord dans chaque strate :
+40 entraînement + 20 validation par candidat, plafond total 8192
+(`morphogenesisVerifiedOutcomeStore.js:84`). L'ancienne lecture globale des 120
+dernières lignes, qui pouvait évincer un candidat encore pertinent, est écartée
+(ADR 0566). Avec 30 observations d'entraînement et 10 de validation minimales pour
+qualifier une échelle, la couverture d'un vaste catalogue dépend de ces quotas et
+du plafond ; le coût de la requête sur un grand corpus reste à mesurer. Le chemin
 de continuation accepte un adaptateur `loadVerifiedOutcomes` ; chaque
 ligne est vérifiée par son reçu et son empreinte. Un adaptateur absent, en erreur ou
 hors limite produit un jeu vide et donc `NO_CHANGE`. Aucun corpus n'est livré avec
