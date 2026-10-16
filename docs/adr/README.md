@@ -706,6 +706,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0566b](0566-lier-les-issues-appariees-aux-transitions.md) | Lier les issues appariées aux transitions scellées | Accepté pour la dérivation contrôlée ; collecte comparative à compléter | 2026-10-16 | morphogenèse, issue appariée, reçu, calibration |
 | [0567](0567-relier-le-kernel-rust-aux-missions-node-verifiees.md) | Relier le kernel Rust aux missions Node vérifiées | Accepté | 2026-10-16 | noyau de contrôle, runtime Node, preuves durables |
 | [0568](0568-appliquer-adaptation-intra-epoque.md) | Appliquer l'adaptation intra-époque | Accepté | 2026-10-16 | orchestration, morphogenèse, runtime local, communication |
+| [0569](0569-qualifier-le-commit-authentifie-de-morphogenese.md) | Qualifier le commit authentifié de morphogenèse | Accepté | 2026-10-16 | morphogenèse, baseline, hysteresis, canary, saga |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
