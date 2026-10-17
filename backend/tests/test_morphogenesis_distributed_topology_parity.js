@@ -100,6 +100,26 @@ async function runScenario(databasePath, scenario) {
   }
 }
 
+function deferRootCleanup(root) {
+  const cleanup = `const fs = require('node:fs');
+setTimeout(() => {
+  fs.rmSync(process.argv[1], { recursive: true, force: true, maxRetries: 150, retryDelay: 200 });
+}, 250);`;
+  const cleaner = spawn(process.execPath, ['-e', cleanup, root], {
+    detached: true, stdio: 'ignore', windowsHide: true
+  });
+  cleaner.unref();
+}
+
+function removeTemporaryRoot(root) {
+  try { fs.rmSync(root, { recursive: true, force: true, maxRetries: 30, retryDelay: 200 }); }
+  catch (error) {
+    if (!fs.existsSync(root)) return;
+    if (!['EBUSY', 'ENOTEMPTY', 'EPERM'].includes(error?.code)) throw error;
+    deferRootCleanup(root);
+  }
+}
+
 async function run() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-morphogenesis-distributed-parity-'));
   const databasePath = path.join(root, 'runtime.db');
@@ -107,8 +127,7 @@ async function run() {
     for (const scenario of SCENARIOS) await runScenario(databasePath, scenario);
     console.log(`Morphogenesis distributed topology parity (${SCENARIOS.length} scenarios): PASS`);
   } finally {
-    try { fs.rmSync(root, { recursive: true, force: true, maxRetries: 30, retryDelay: 200 }); }
-    catch (error) { if (fs.existsSync(root)) throw error; }
+    removeTemporaryRoot(root);
   }
 }
 
