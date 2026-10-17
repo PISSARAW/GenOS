@@ -6,9 +6,26 @@ const { open } = require('sqlite');
 const { migrateHolobiontSessions } = require('../src/db/migrations/migrateHolobiontSessions');
 const store = require('../src/services/holobionte/holobiontStore');
 const adapter = require('../src/services/holobionte/symbionts/trinityAdapter');
+const receipts = require('../src/services/epistemicVerifierReceiptService');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
+
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'holobiont-trinity-test-secret';
+
+const VERIFIER_DIGEST = verifierTrust.computeVerifierDigest('test', '1.0');
+const EVIDENCE_DIGEST = 'sha256:' + 'a'.repeat(64);
+
+function makeReceipt() {
+  return receipts.issueReceipt({
+    resultId: 'vector-proof',
+    evidenceDigest: EVIDENCE_DIGEST,
+    verifierDigest: VERIFIER_DIGEST,
+    independent: true,
+    independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' }
+  });
+}
 
 function report(values, claim, passed = true) {
-  const verificationReceipt = { status: 'verified', independent: true, evidenceDigest: 'sha256:proof', verifierDigest: 'sha256:verifier', independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } };
+  const verificationReceipt = makeReceipt();
   const evidenceVector = {
     correctness: values[0], coverage: values[1], robustness: values[2], reproducibility: values[3],
     novelty: values[4], cost: values[5], latency: values[6], risk: values[7], uncertainty: values[8],
