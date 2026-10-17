@@ -50,7 +50,8 @@ async function runBiome(args, context) {
 }
 
 async function executeBiome(args, context) {
-  return require('../../biome/biomeTopologyMission').execute(args, context);
+  const result = await require('../../biome/biomeTopologyMission').execute(args, context);
+  return { ...result, executionMode: 'service_runtime' };
 }
 
 function installHolobionte(runtime) {
@@ -78,7 +79,7 @@ async function executeHolobionte(args, context) {
       ...adapters, workerResults,
       symbionts: input.symbionts || [{ id: 'resident-mission', contract: contractBody({ hostId: hostFrom(args, input) }, capability) }]
     });
-    return { ...result, driver: created.driver, workerResults };
+    return { ...result, driver: created.driver, workerResults, executionMode: 'service_runtime' };
   } finally {
     await created.close();
   }
@@ -176,7 +177,7 @@ async function executeVariantMission(args, input) {
     await migrateHolobionte(db);
     const result = await require('../../holobionte/variants/variantMissionExecutor')
       .runVariantMission(db, { ...input, variantId: args.variant, missionId: missionFrom(args, input) });
-    return { ...result, driver };
+    return { ...result, driver, executionMode: 'service_runtime' };
   } finally {
     await close();
   }
@@ -233,7 +234,8 @@ async function executeMetapopulation(args, context) {
     }
     if (!session.demes.length) return { status: 'BLOCKED', reason: 'REGION_UNPOPULATED',
       complete: false, missionVerified: false, sessionId: session.sessionId,
-      variant: session.variant, driver: created.driver, workerResults };
+      variant: session.variant, driver: created.driver, workerResults,
+      executionMode: 'service_runtime' };
     const brain = require('../../metapopulation/runtime/regionalBrainService');
     const result = await brain.runAutonomousRegionalRuntime({ ...input,
       metapopulationId: session.metapopulationId, maxCycles: input.maxCycles ?? 100 },
@@ -244,7 +246,8 @@ async function executeMetapopulation(args, context) {
     const missionVerified = verification?.verified === true
       && Array.isArray(verification.evidenceRefs) && verification.evidenceRefs.length > 0;
     return { ...result, complete: terminal, missionVerified,
-      sessionId: session.sessionId, variant: session.variant, driver: created.driver, workerResults };
+      sessionId: session.sessionId, variant: session.variant, driver: created.driver, workerResults,
+      executionMode: 'service_runtime' };
   } finally {
     await created.close();
   }

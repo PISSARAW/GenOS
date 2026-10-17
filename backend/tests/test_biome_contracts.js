@@ -90,14 +90,14 @@ function runStatement(state, sql, params) {
 
 function insertBiome(state, params) {
   if (state.rows.has(params[0])) return { changes: 0 };
-  state.rows.set(params[0], { topology: 'biome', state_json: params[1], revision: 0 });
+  state.rows.set(params[0], { topology: 'biome', variant_id: params[1], state_json: params[2], revision: 0 });
   return { changes: 1 };
 }
 
 function updateBiome(state, params) {
-  const row = state.rows.get(params[2]);
-  if (!row || row.revision !== params[3]) return { changes: 0 };
-  state.rows.set(params[2], { ...row, state_json: params[0], revision: params[1] });
+  const row = state.rows.get(params[3]);
+  if (!row || row.revision !== params[4]) return { changes: 0 };
+  state.rows.set(params[3], { ...row, variant_id: params[0], state_json: params[1], revision: params[2] });
   return { changes: 1 };
 }
 

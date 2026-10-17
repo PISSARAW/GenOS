@@ -30,7 +30,8 @@ class ATeamController extends TopologyController {
       architecture: archResult,
       security: secResult,
       integration: intResult,
-      verified_claims: [...verified_claims, ...(archResult.claims || []), ...(secResult.claims || [])]
+      verified_claims: [...verified_claims, ...(archResult.claims || []), ...(secResult.claims || [])],
+      executionMode: 'simulated_controller'
     };
   }
 

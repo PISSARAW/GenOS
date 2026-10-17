@@ -37,6 +37,7 @@ async function run() {
     const result = await plugins.get('metapopulation').run({ variant: 'rescue_network',
       mission: 'Recover an isolated region.', workers: [] }, { input: { db } });
     assert.equal(result.status, 'BLOCKED');
+    assert.equal(result.executionMode, 'service_runtime');
     assert.equal(result.reason, 'REGION_UNPOPULATED');
     assert.equal(result.missionVerified, false);
     const row = await db.get('SELECT variant, variant_policy_json FROM metapopulation_sessions WHERE id = ?', result.sessionId);

@@ -137,6 +137,19 @@ function main() {
   assert.equal(uncalibrated.decision.decision, 'ABSTAIN');
   assert.match(uncalibrated.decision.reason, /no.*calibrated/i);
 
+  const productionEvidenceGate = rankAdaptiveTopologies({ ...input,
+    requireEmpiricalEvidence: true,
+    candidates: [{ ...input.candidates[0], validationGain: undefined, validationCost: undefined }] });
+  assert.equal(productionEvidenceGate.decision.decision, 'ABSTAIN');
+  assert.match(productionEvidenceGate.decision.reason, /holdout/i);
+
+  const conservativeHoldout = rankAdaptiveTopologies({ ...input,
+    requireEmpiricalEvidence: true,
+    candidates: [{ ...input.candidates[0], validationGain: 0.1, validationCost: 0.2,
+      gainUncertainty: 0.01, costUncertainty: 0.01 }] });
+  assert.equal(conservativeHoldout.decision.decision, 'ABSTAIN');
+  assert.match(conservativeHoldout.decision.reason, /marginal cost/i);
+
   const mixed = rankAdaptiveTopologies({ ...input, limit: 1, candidates: [
     { ...input.candidates[0], id: 'uncalibrated-high-score',
       estimatedProblemFit: 1, estimatedTokens: 100, calibrationStatus: undefined },

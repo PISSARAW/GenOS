@@ -48,6 +48,7 @@ async function gateNest() {
   const result = await freshRuntime().execute(graph, INPUT);
   assert.equal(result.output.length, 2, 'NEST inner PARALLEL must return 2 branch outputs');
   assert.ok(result.output[0].verified_claims, 'Trinity branch must return verified_claims');
+  assert.equal(result.output[0].executionMode, 'simulated_controller', 'Trinity must identify its local execution mode');
   assert.ok(result.output[1].explored_paths, 'Rhizome branch must return explored_paths');
   assert.ok(result.receipts.length >= 3, 'host + branches + operator receipts expected');
   assert.equal(result.evidence.length, 0, 'unverified controller output and execution receipts must not invent evidence');
@@ -70,6 +71,7 @@ async function gateSequence() {
   installTopologyPlugins(runtime);
   const result = await runtime.execute(graph, INPUT);
   assert.ok(Array.isArray(result.output.verified_claims), 'SEQUENCE must end on A-Team output');
+  assert.equal(result.output.executionMode, 'simulated_controller', 'A-Team must identify its local execution mode');
   assert.ok(result.output.architecture, 'A-Team output must carry the architecture subsystem');
   assert.deepEqual(kindsOf(result.receipts), ['GATE', 'PARALLEL', 'SEQUENCE', 'TOPOLOGY', 'TOPOLOGY', 'TOPOLOGY', 'TOPOLOGY', 'TOPOLOGY'], 'one receipt per executed node expected (GATE runs condition + selected branch only)');
   const gateReceipt = result.receipts.find((receipt) => receipt.kind === 'GATE');

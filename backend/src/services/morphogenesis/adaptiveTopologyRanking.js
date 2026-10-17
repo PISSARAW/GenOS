@@ -63,6 +63,7 @@ function buildContext(input) {
     hasWorkerInventory: Array.isArray(input.availableWorkerKinds),
     minImprovement: unit(input.minImprovement, 0.05),
     minConfidence: unit(input.minConfidence, 0.55),
+    requireEmpiricalEvidence: input.requireEmpiricalEvidence === true,
     weights: priorityWeights || WEIGHTS,
     allowScalarTieBreak: input.allowScalarTieBreak === true || priorityWeights !== null
   };
@@ -218,8 +219,18 @@ function recipeIdentity(recipe) {
     candidateId: recipe.candidateId || recipe.id || null, kind: recipe.kind || null,
     topology: recipe.topology || null, variant: recipe.variant || null,
     interventionScale: recipe.interventionScale || null,
-    expectedGain: recipe.expectedGain, gainUncertainty: recipe.gainUncertainty,
-    marginalCost: recipe.marginalCost, costUncertainty: recipe.costUncertainty };
+    expectedGain: recipe.expectedGain, validationGain: recipe.validationGain,
+    gainUncertainty: recipe.gainUncertainty, marginalCost: recipe.marginalCost,
+    validationCost: recipe.validationCost, costUncertainty: recipe.costUncertainty,
+    empiricalEvidence: empiricalEvidence(recipe) };
+}
+
+function empiricalEvidence(recipe) {
+  const gain = Number(recipe.validationGain);
+  const cost = Number(recipe.validationCost);
+  return { status: Number.isFinite(gain) && Number.isFinite(cost) ? 'holdout_verified' : 'missing',
+    validationGain: Number.isFinite(gain) ? gain : null,
+    validationCost: Number.isFinite(cost) ? cost : null };
 }
 
 function hasNonNeutralFit(recipe) {
@@ -267,6 +278,16 @@ function qualityDecision(best, baseline, context) {
     reason: `Best candidate confidence ${best.confidence} is below ${context.minConfidence}.` };
   if (!best.calibrated) return { decision: 'ABSTAIN', selectedId: null,
     reason: 'Estimates are neutral or lack an explicit calibration declaration; cannot propose this candidate.' };
+  if (context.requireEmpiricalEvidence) {
+    const gain = Number(best.validationGain);
+    const cost = Number(best.validationCost);
+    const gainUncertainty = unit(best.gainUncertainty, 1);
+    const costUncertainty = unit(best.costUncertainty, 1);
+    if (!Number.isFinite(gain) || !Number.isFinite(cost)) return { decision: 'ABSTAIN', selectedId: null,
+      reason: 'Production selection requires an independently verified holdout gain and cost.' };
+    if (!(gain - gainUncertainty > cost + costUncertainty)) return { decision: 'ABSTAIN', selectedId: null,
+      reason: 'Verified holdout gain does not clear uncertainty and marginal cost.' };
+  }
   if (best.score - baseline.score < context.minImprovement) return { decision: 'ABSTAIN', selectedId: null,
     reason: `Estimated gain is below ${context.minImprovement}; preserve NO_CHANGE.` };
   return null;

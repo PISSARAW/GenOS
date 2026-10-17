@@ -68,6 +68,7 @@ async function main() {
     executeCapability: async () => { executions += 1; return verifiedOutput(); }
   });
   assert.equal(admitted.output.status, 'VERIFIED');
+  assert.equal(admitted.output.executionMode, 'service_runtime');
   assert.equal(executions, 1);
 
   await assert.rejects(() => runtime().execute(graph(), { db: testDb,

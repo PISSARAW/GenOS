@@ -52,9 +52,14 @@ jobs:
     runs-on: windows-latest
     env:
       GENOS_ADMIN_PASSWORD: ci-test-only
+      # aws-lc-sys writes a shared archive while building its native objects.
+      # Serializing this job avoids MSVC LNK1114 races on hosted Windows disks.
+      CARGO_BUILD_JOBS: 1
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install NASM for aws-lc-sys
+        run: choco install nasm --no-progress --yes
       - uses: actions/setup-node@v4
         with:
           node-version: 20

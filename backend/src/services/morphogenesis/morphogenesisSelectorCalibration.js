@@ -82,10 +82,12 @@ function calibrateCandidate(rows, scale, candidateId) {
   const costBaselineMae = error(validation, 'actualCost', () => 0);
   if (gainMae >= gainBaselineMae || costMae >= costBaselineMae) return unavailable('heldout_error_not_better_than_prior');
   const validationGain = meanActual(validation, 'actualGain');
+  const validationCost = meanActual(validation, 'actualCost');
   if (!(validationGain > 0)) return unavailable('heldout_gain_not_positive');
   const se = dispersion(validation, 'actualGain', validationGain);
   return { status: 'calibrated', sampleSize: train.length, validationSize: validation.length,
     taskFamilyHoldout: true, modelHoldout: true, expectedGain: gain, validationGain,
+    validationCost,
     gainUncertainty: Math.min(1, 1.96 * se), marginalCost: cost,
     costUncertainty: Math.min(1, 1.96 * dispersion(validation, 'actualCost', meanActual(validation, 'actualCost'))),
     heldoutMae: { gain: gainMae, gainPrior: gainBaselineMae, cost: costMae, costPrior: costBaselineMae } };
@@ -104,7 +106,7 @@ function meanActual(rows, key) {
 
 function unavailable(reason) {
   return { status: 'unavailable', reason, expectedGain: null, gainUncertainty: null,
-    marginalCost: null, costUncertainty: null };
+    validationGain: null, validationCost: null, marginalCost: null, costUncertainty: null };
 }
 
 function compileCalibration(samples) {

@@ -32,7 +32,8 @@ class TrinityController extends TopologyController {
       verified_claims: verifiedClaims(input, receipt),
       candidate_claims: this.candidateClaimsFromConfidence(),
       competing_hypotheses: this.hypotheses,
-      comparison_receipt: receipt
+      comparison_receipt: receipt,
+      executionMode: 'simulated_controller'
     };
   }
 

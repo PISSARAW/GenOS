@@ -146,10 +146,11 @@ function decorateCandidate(context) {
 function candidateCalibrationAttributes(unchanged, estimate, scale = 'COHORT_REPLACEMENT') {
   if (unchanged) return { confidence: 1, calibrationStatus: 'baseline',
     interventionScale: 'NO_CHANGE', expectedGain: 0, gainUncertainty: 0,
-    marginalCost: 0, costUncertainty: 0 };
+    validationGain: 0, validationCost: 0, marginalCost: 0, costUncertainty: 0 };
   return { confidence: estimate.status === 'calibrated' ? 1 - estimate.gainUncertainty : 0.35,
     calibrationStatus: estimate.status, interventionScale: scale,
-    expectedGain: estimate.expectedGain, gainUncertainty: estimate.gainUncertainty,
+    expectedGain: estimate.expectedGain, validationGain: estimate.validationGain,
+    gainUncertainty: estimate.gainUncertainty, validationCost: estimate.validationCost,
     marginalCost: estimate.marginalCost, costUncertainty: estimate.costUncertainty };
 }
 
@@ -165,7 +166,8 @@ function rankPortfolio(candidates, input, signals) {
     budget: input.budget,
     operationalConstraints: input.operationalConstraints,
     priorityWeights: input.priorityWeights,
-    allowScalarTieBreak: input.allowScalarTieBreak
+    allowScalarTieBreak: input.allowScalarTieBreak,
+    requireEmpiricalEvidence: true
   });
 }
 
@@ -189,8 +191,9 @@ function selectionSummary(selected, input, scaleDecision) {
   return {
     candidateId: selected.id, topology: selected.topology, variant: selected.variant,
     kind: selected.kind, interventionScale: scaleDecision.scale,
-    expectedGain: selected.expectedGain, gainUncertainty: selected.gainUncertainty,
-    marginalCost: selected.marginalCost, costUncertainty: selected.costUncertainty,
+    expectedGain: selected.expectedGain, validationGain: selected.validationGain,
+    gainUncertainty: selected.gainUncertainty, marginalCost: selected.marginalCost,
+    validationCost: selected.validationCost, costUncertainty: selected.costUncertainty,
     ...(scaleDecision.scale === 'COMMUNICATION_REDUCTION'
       ? { communicationIntervention: { candidateId: selected.candidateId, scale: scaleDecision.scale } } : {}),
     ...(scaleDecision.scale === 'RESOURCE_REALLOCATION'
