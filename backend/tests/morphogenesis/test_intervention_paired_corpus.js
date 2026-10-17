@@ -245,6 +245,29 @@ function testComparativeCoverageDoesNotImplyUniversality() {
   assert.equal(crossDomain.crossModel, true);
 }
 
+function testExternalValidityGateRequiresExplicitBalancedDomains() {
+  const rows = ['finance', 'health', 'mobility'].flatMap((domain, domainIndex) => [0, 1].map(index => ({
+    taskId: `${domain}-task-${index}`, taskFamily: `${domain}-family`, modelId: `model-${index}`,
+    evaluationDomain: domain
+  })));
+  const coverage = calibration.coverageSummary([
+    { scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a', rows },
+    { scale: 'RESOURCE_REALLOCATION', candidateId: 'candidate-b', rows: rows.map(row => ({ ...row })) }
+  ]);
+  assert.equal(coverage.externalValidity, 'unproven');
+  assert.equal(coverage.generalizationGate.status, 'observed_only');
+  assert.deepEqual(coverage.generalizationGate.reasons, []);
+  assert.equal(coverage.externalDomainCoverage, true);
+  assert.equal(coverage.balancedExternalDomains, true);
+
+  const missingMetadata = calibration.coverageSummary([{
+    scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a',
+    rows: rows.map(({ evaluationDomain: _domain, ...row }) => row)
+  }]);
+  assert.equal(missingMetadata.generalizationGate.status, 'blocked');
+  assert.ok(missingMetadata.generalizationGate.reasons.includes('explicit_evaluation_domain_required'));
+}
+
 function testInterventionProducerValidation() {
   const pair = commPair(0);
   const commBuilt = paired.buildRow(pair);
@@ -292,6 +315,7 @@ async function testPairedCorpusCalibratesAndPersists() {
 async function main() {
   testDeficitReporting();
   testComparativeCoverageDoesNotImplyUniversality();
+  testExternalValidityGateRequiresExplicitBalancedDomains();
   testInterventionProducerValidation();
   testNegativeHoldoutRefusesCalibration();
   await testPairedCorpusCalibratesAndPersists();

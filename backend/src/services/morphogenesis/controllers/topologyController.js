@@ -104,6 +104,7 @@ function executionModeFor(input = {}) {
 
 function executionProofFor(input = {}) {
   const workerResults = validatedWorkerResults(input);
+  const runtimeWorkers = runtimeExecutedWorkerResults(input);
   if (!workerResults.length) {
     return { kind: 'local_simulation', workerCount: 0, simulationOnly: true,
       promotionEligible: false, reason: 'validated_workers_unavailable' };
@@ -111,7 +112,12 @@ function executionProofFor(input = {}) {
   return {
     kind: 'validated_worker_receipts',
     simulationOnly: false,
-    promotionEligible: true,
+    promotionEligible: runtimeWorkers.length === workerResults.length,
+    runtimeExecutionVerified: runtimeWorkers.length === workerResults.length,
+    runtimeExecutionWorkerCount: runtimeWorkers.length,
+    promotionReason: runtimeWorkers.length === workerResults.length
+      ? 'terminal_worker_receipts_bound_to_execution_runs'
+      : 'runtime_execution_receipts_missing',
     workerCount: workerResults.length,
     workerIds: workerResults.map((result) => result.workerId).filter(Boolean),
     evidenceRefs: [...new Set(workerResults.flatMap((result) => {
@@ -127,6 +133,10 @@ function validatedWorkerResults(input = {}) {
     .filter(isValidatedWorkerResult);
 }
 
+function runtimeExecutedWorkerResults(input = {}) {
+  return validatedWorkerResults(input).filter(hasRuntimeExecutionProof);
+}
+
 function isValidatedWorkerResult(result) {
   const report = result?.evidenceReport || result?.report;
   const artifact = report?.workerArtifact;
@@ -137,9 +147,35 @@ function isValidatedWorkerResult(result) {
     && refs.every((ref) => typeof ref === 'string' && ref.trim());
 }
 
+function hasRuntimeExecutionProof(result) {
+  return result?.workerResultSource === 'worker_evidence_barrier'
+    && hasExecutionRun(result) && hasTerminalCompletion(result)
+    && hasOptionalOracleRef(result);
+}
+
+function hasExecutionRun(result) {
+  const runId = result?.executionRunId || result?.runtimeProof?.executionRunId;
+  return typeof runId === 'string' && runId.trim().length > 0;
+}
+
+function hasTerminalCompletion(result) {
+  return (result?.terminalEvent || result?.runtimeProof?.terminalEvent) === 'AGENT_COMPLETED';
+}
+
+function hasOptionalOracleRef(result) {
+  const ref = result?.nativeOracleRef || result?.runtimeProof?.nativeOracleRef;
+  return ref === undefined || ref === null || validOracleRef(ref);
+}
+
+function validOracleRef(ref) {
+  return typeof ref === 'object' && typeof ref.eventId === 'string' && typeof ref.hash === 'string';
+}
+
 function assertValidatedWorkerPolicy(topology, input = {}) {
   if (!['trinity', 'a_team'].includes(topology) || !requiresValidatedWorkers(input)) return;
-  if (validatedWorkerResults(input).length > 0) return;
+  const expected = Array.isArray(input.workers) && input.workers.length
+    ? input.workers.length : 1;
+  if (runtimeExecutedWorkerResults(input).length >= expected) return;
   const error = new Error(`${topology} requires validated workers for production execution.`);
   error.code = 'TOPOLOGY_VALIDATED_WORKER_REQUIRED';
   throw error;
@@ -155,5 +191,6 @@ function requiresValidatedWorkers(input = {}) {
 
 module.exports = {
   TopologyController, executionModeFor, executionProofFor, validatedWorkerResults,
+  runtimeExecutedWorkerResults, hasRuntimeExecutionProof,
   assertValidatedWorkerPolicy
 };

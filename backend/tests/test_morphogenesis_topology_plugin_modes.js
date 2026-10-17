@@ -52,7 +52,9 @@ async function run() {
   });
   assert.equal(trinityBacked.executionMode, 'worker_backed_controller');
   assert.equal(trinityBacked.executionProof.simulationOnly, false);
-  assert.equal(trinityBacked.executionProof.promotionEligible, true);
+  assert.equal(trinityBacked.executionProof.promotionEligible, false,
+    'an unbound receipt must not be treated as a deployed worker');
+  assert.equal(trinityBacked.executionProof.runtimeExecutionVerified, false);
   assert.equal(trinityBacked.executionProof.workerCount, 3);
   assert.deepEqual(trinityBacked.executionProof.evidenceRefs.sort(),
     ['evidence:world-1', 'evidence:world-2', 'evidence:world-3']);
@@ -64,9 +66,23 @@ async function run() {
   });
   assert.equal(aTeamBacked.executionMode, 'worker_backed_controller');
   assert.equal(aTeamBacked.executionProof.workerCount, 3);
+  assert.equal(aTeamBacked.executionProof.promotionEligible, false);
   assert.equal(aTeamBacked.architecture.workerId, 'architect-1');
   assert.equal(aTeamBacked.security.workerId, 'security-1');
   assert.equal(aTeamBacked.integration.workerId, 'integration-1');
+
+  const deployedWorker = (id, role, chamber = null) => ({
+    ...worker(id, role, chamber), executionRunId: `run-${id}`, terminalEvent: 'AGENT_COMPLETED',
+    nativeOracleRef: { eventId: `oracle-${id}`, hash: 'a'.repeat(64) }
+  });
+  const deployedTrinityWorkers = ['thesis', 'antithesis', 'synthesis']
+    .map((chamber, index) => deployedWorker(`deployed-${index + 1}`, chamber, chamber));
+  const deployed = await plugins.get('trinity').run({ workers: deployedTrinityWorkers }, {
+    input: { mission: 'deployed-trinity', environment: 'production',
+      workerResults: deployedTrinityWorkers }
+  });
+  assert.equal(deployed.executionProof.runtimeExecutionVerified, true);
+  assert.equal(deployed.executionProof.promotionEligible, true);
 
   const biome = await plugins.get('biome').run({ mission: 'mode-biome' }, {
     input: { mission: 'mode-biome', maxTicks: 1 }

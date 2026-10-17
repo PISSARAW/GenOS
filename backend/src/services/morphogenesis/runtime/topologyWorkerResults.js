@@ -17,6 +17,10 @@ function resultForWorker(worker, results) {
   return {
     workerId,
     ...workerMetadata(worker, result, report),
+    executionRunId: firstValue(result.executionRunId, report.executionRunId),
+    terminalEvent: firstValue(result.terminalEvent, report.terminalEvent),
+    nativeOracleRef: result.nativeOracleRef || report.nativeOracleRef || null,
+    workerResultSource: 'worker_evidence_barrier',
     evidenceReport: report
   };
 }

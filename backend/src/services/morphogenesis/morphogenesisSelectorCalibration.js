@@ -10,11 +10,13 @@ const MIN_TRAIN = 30;
 const MIN_VALIDATION = 10;
 const MIN_COVERAGE_FAMILIES = 2;
 const MIN_COVERAGE_MODELS = 2;
+const MIN_EXTERNAL_DOMAINS = 3;
+const MIN_DOMAIN_VALIDATION_ROWS = 2;
 const SCALE = Object.freeze(['COMMUNICATION_REDUCTION', 'RESOURCE_REALLOCATION', 'ROSTER_REDUCTION',
   'EARLY_STOP', 'COHORT_REPLACEMENT']);
 
 function digest(row) {
-  const body = Object.fromEntries(['id', 'scale', 'taskFamily', 'modelId', 'split',
+  const body = Object.fromEntries(['id', 'scale', 'taskFamily', 'modelId', 'evaluationDomain', 'split',
     'candidateId', 'predictedGain', 'actualGain', 'predictedCost', 'actualCost']
     .map(key => [key, row[key]]));
   if (row.pairEvidence) {
@@ -124,22 +126,76 @@ function candidateEntries(rows, calibration) {
 }
 
 function coverageSummary(entries) {
-  const candidates = entries.map(entry => {
-    const taskFamilies = [...new Set(entry.rows.map(row => row.taskFamily).filter(Boolean))];
-    const modelIds = [...new Set(entry.rows.map(row => row.modelId).filter(Boolean))];
-    return { scale: entry.scale, candidateId: entry.candidateId,
-      validationTasks: new Set(entry.rows.map(row => row.taskId)).size,
-      taskFamilies, modelIds,
-      crossFamily: taskFamilies.length >= MIN_COVERAGE_FAMILIES,
-      crossModel: modelIds.length >= MIN_COVERAGE_MODELS };
-  });
-  const crossFamily = candidates.length > 0 && candidates.every(item => item.crossFamily);
-  const crossModel = candidates.length > 0 && candidates.every(item => item.crossModel);
-  return { status: crossFamily && crossModel ? 'cross_family_model_observed' : 'limited_observed_domain',
+  const candidates = entries.map(coverageCandidate);
+  const aggregate = aggregateCoverage(candidates);
+  const gate = generalizationGate(aggregate);
+  return { status: aggregate.crossFamily && aggregate.crossModel
+      ? 'cross_family_model_observed' : 'limited_observed_domain',
     externalValidity: 'unproven',
     claim: 'no_universal_superiority_claim',
-    requirements: { taskFamilies: MIN_COVERAGE_FAMILIES, modelIds: MIN_COVERAGE_MODELS },
-    candidates, crossFamily, crossModel };
+    requirements: { taskFamilies: MIN_COVERAGE_FAMILIES, modelIds: MIN_COVERAGE_MODELS,
+      externalDomains: MIN_EXTERNAL_DOMAINS, domainValidationRows: MIN_DOMAIN_VALIDATION_ROWS },
+    candidates, ...aggregate,
+    generalizationGate: { status: gate.ready ? 'observed_only' : 'blocked', reasons: gate.reasons,
+      note: 'multi-domain coverage improves external validity but cannot prove universal superiority' } };
+}
+
+function coverageCandidate(entry) {
+  const taskFamilies = uniqueValues(entry.rows.map(row => row.taskFamily));
+  const modelIds = uniqueValues(entry.rows.map(row => row.modelId));
+  const explicitDomains = entry.rows.map(evaluationDomain).filter(Boolean);
+  const domains = uniqueValues(explicitDomains);
+  const domainCounts = countValues(explicitDomains);
+  return { scale: entry.scale, candidateId: entry.candidateId,
+    validationTasks: new Set(entry.rows.map(row => row.taskId)).size,
+    taskFamilies, modelIds, domains, domainCounts,
+    crossFamily: taskFamilies.length >= MIN_COVERAGE_FAMILIES,
+    crossModel: modelIds.length >= MIN_COVERAGE_MODELS,
+    explicitDomainMetadata: explicitDomains.length === entry.rows.length,
+    externalDomainCoverage: domains.length >= MIN_EXTERNAL_DOMAINS,
+    balancedExternalDomains: balancedDomains(domains, domainCounts) };
+}
+
+function evaluationDomain(row) {
+  return typeof row.evaluationDomain === 'string' ? row.evaluationDomain.trim() : '';
+}
+
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function countValues(values) {
+  return values.reduce((counts, value) => ({ ...counts, [value]: (counts[value] || 0) + 1 }), {});
+}
+
+function balancedDomains(domains, domainCounts) {
+  return domains.length >= MIN_EXTERNAL_DOMAINS
+    && Math.min(...domains.map(domain => domainCounts[domain])) >= MIN_DOMAIN_VALIDATION_ROWS;
+}
+
+function allCandidates(candidates, field) {
+  return candidates.length > 0 && candidates.every(candidate => candidate[field]);
+}
+
+function aggregateCoverage(candidates) {
+  const domainSignatures = candidates.map(item => [...item.domains].sort().join('\u001f'));
+  return { crossFamily: allCandidates(candidates, 'crossFamily'),
+    crossModel: allCandidates(candidates, 'crossModel'),
+    externalDomainCoverage: allCandidates(candidates, 'externalDomainCoverage'),
+    balancedExternalDomains: allCandidates(candidates, 'balancedExternalDomains'),
+    explicitDomainMetadata: allCandidates(candidates, 'explicitDomainMetadata'),
+    candidateDomainParity: domainSignatures.length > 0
+      && domainSignatures.every(signature => signature === domainSignatures[0]) };
+}
+
+function generalizationGate(aggregate) {
+  const reasons = [];
+  const reasonMap = [['explicitDomainMetadata', 'explicit_evaluation_domain_required'],
+    ['externalDomainCoverage', 'at_least_three_independent_domains_required'],
+    ['balancedExternalDomains', 'each_domain_needs_at_least_two_validation_rows'],
+    ['candidateDomainParity', 'candidates_require_shared_domain_support']];
+  reasonMap.forEach(([field, reason]) => { if (!aggregate[field]) reasons.push(reason); });
+  return { ready: reasons.length === 0, reasons };
 }
 
 function comparativePair(left, right) {

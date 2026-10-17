@@ -111,10 +111,19 @@ function synthesisDossier(dossier) {
 }
 
 function topologyWorkerResult(dossier) {
-  const report = [...(dossier.events || [])].reverse()
-    .map((event) => event.evidenceReport)
-    .find((entry) => entry?.outcome === 'success' && entry.workerArtifact);
-  return report ? { workerId: dossier.workerId, workerKind: dossier.role, evidenceReport: report } : null;
+  const event = [...(dossier.events || [])].reverse()
+    .find((entry) => entry.eventType === 'AGENT_COMPLETED'
+      && entry.evidenceReport?.outcome === 'success' && entry.evidenceReport.workerArtifact);
+  if (!event) return null;
+  return {
+    workerId: dossier.workerId,
+    workerKind: dossier.role,
+    executionRunId: event.executionRunId,
+    terminalEvent: event.eventType,
+    nativeOracleRef: event.nativeOracleRef || null,
+    workerResultSource: 'worker_evidence_barrier',
+    evidenceReport: event.evidenceReport
+  };
 }
 
 function loadDossiers(ctx) {

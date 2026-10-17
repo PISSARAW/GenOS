@@ -14,6 +14,7 @@ function sha(value) {
 function observedAttempt(attempt) {
   return { id: attempt.id, taskId: attempt.taskId, seed: attempt.seed,
     taskFamily: attempt.taskFamily, modelId: attempt.modelId,
+    evaluationDomain: attempt.evaluationDomain,
     workspaceId: attempt.workspaceId, startedAt: attempt.startedAt,
     budgetTokens: attempt.budgetTokens, latencyBudgetMs: attempt.latencyBudgetMs,
     toolPolicyHash: attempt.toolPolicyHash, quality: attempt.quality,
@@ -62,7 +63,8 @@ function validAttempt(attempt) {
 
 function sameExperiment(candidate, control) {
   return ['taskId', 'seed', 'taskFamily', 'modelId', 'budgetTokens',
-    'latencyBudgetMs', 'toolPolicyHash'].every(key => candidate[key] === control[key])
+    'latencyBudgetMs', 'toolPolicyHash', 'evaluationDomain']
+    .every(key => candidate[key] === control[key])
     && candidate.id !== control.id && candidate.workspaceId !== control.workspaceId
     && control.transitionId == null;
 }
@@ -165,6 +167,7 @@ function pairedFieldsMatch(row, evidence, metrics) {
   return [row.id === pairId(evidence),
     row.candidateId === pairCandidateId(evidence),
     row.taskFamily === evidence.candidate.taskFamily, row.modelId === evidence.candidate.modelId,
+    row.evaluationDomain === evidence.candidate.evaluationDomain,
     row.taskId === evidence.candidate.taskId, row.split === evidence.prediction.split,
     row.predictedGain === evidence.prediction.predictedGain,
     row.predictedCost === evidence.prediction.predictedCost,
