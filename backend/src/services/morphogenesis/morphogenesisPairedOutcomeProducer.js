@@ -22,6 +22,7 @@ function buildRow(pair) {
     candidateId: evidence.pairCandidateId(source),
     taskId: source.candidate.taskId, taskFamily: source.candidate.taskFamily,
     modelId: source.candidate.modelId, evaluationDomain: source.candidate.evaluationDomain,
+    replicationId: source.candidate.replicationId || source.prediction.replicationId,
     split: source.prediction.split,
     predictedGain: source.prediction.predictedGain,
     predictedCost: source.prediction.predictedCost,

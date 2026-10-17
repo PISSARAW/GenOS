@@ -12,6 +12,8 @@ const MIN_COVERAGE_FAMILIES = 2;
 const MIN_COVERAGE_MODELS = 2;
 const MIN_EXTERNAL_DOMAINS = 3;
 const MIN_DOMAIN_VALIDATION_ROWS = 2;
+const MIN_DOMAIN_REPLICATES = 2;
+const FAMILY_WISE_ALPHA = 0.05;
 const SCALE = Object.freeze(['COMMUNICATION_REDUCTION', 'RESOURCE_REALLOCATION', 'ROSTER_REDUCTION',
   'EARLY_STOP', 'COHORT_REPLACEMENT']);
 
@@ -23,6 +25,7 @@ function digest(row) {
     body.taskId = row.taskId;
     body.pairEvidence = row.pairEvidence;
   }
+  if (row.replicationId !== undefined) body.replicationId = row.replicationId;
   return `sha256:${crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex')}`;
 }
 
@@ -146,6 +149,7 @@ function coverageCandidate(entry) {
   const explicitDomains = entry.rows.map(evaluationDomain).filter(Boolean);
   const domains = uniqueValues(explicitDomains);
   const domainCounts = countValues(explicitDomains);
+  const replication = replicationCoverage(entry.rows);
   return { scale: entry.scale, candidateId: entry.candidateId,
     validationTasks: new Set(entry.rows.map(row => row.taskId)).size,
     taskFamilies, modelIds, domains, domainCounts,
@@ -153,7 +157,38 @@ function coverageCandidate(entry) {
     crossModel: modelIds.length >= MIN_COVERAGE_MODELS,
     explicitDomainMetadata: explicitDomains.length === entry.rows.length,
     externalDomainCoverage: domains.length >= MIN_EXTERNAL_DOMAINS,
-    balancedExternalDomains: balancedDomains(domains, domainCounts) };
+    balancedExternalDomains: balancedDomains(domains, domainCounts),
+    independentReplicationCoverage: replication.ready,
+    replicationByDomain: replication.byDomain };
+}
+
+function replicationCoverage(rows) {
+  const byDomain = {};
+  for (const row of rows) {
+    const domain = evaluationDomain(row);
+    if (domain) appendReplication(byDomain, domain, row);
+  }
+  const summary = Object.fromEntries(Object.entries(byDomain)
+    .map(([domain, item]) => [domain, replicationSummary(item)]));
+  const domains = Object.values(summary);
+  return { ready: domains.length >= MIN_EXTERNAL_DOMAINS && domains.every(item => item.independent),
+    byDomain: summary };
+}
+
+function appendReplication(byDomain, domain, row) {
+  const item = byDomain[domain] || { replicates: new Set(), verifiers: new Set() };
+  const replicate = row.replicationId || row.pairEvidence?.candidate?.seed;
+  const verifier = row.receipt?.independenceDescriptor?.workspaceId
+    || row.pairEvidence?.candidate?.oracleReceipt?.independenceDescriptor?.workspaceId;
+  if (replicate !== undefined && replicate !== null) item.replicates.add(String(replicate));
+  if (verifier) item.verifiers.add(String(verifier));
+  byDomain[domain] = item;
+}
+
+function replicationSummary(item) {
+  return { replicateCount: item.replicates.size, verifierCount: item.verifiers.size,
+    independent: item.replicates.size >= MIN_DOMAIN_REPLICATES
+      && item.verifiers.size >= MIN_DOMAIN_REPLICATES };
 }
 
 function evaluationDomain(row) {
@@ -183,6 +218,7 @@ function aggregateCoverage(candidates) {
     crossModel: allCandidates(candidates, 'crossModel'),
     externalDomainCoverage: allCandidates(candidates, 'externalDomainCoverage'),
     balancedExternalDomains: allCandidates(candidates, 'balancedExternalDomains'),
+    independentReplicationCoverage: allCandidates(candidates, 'independentReplicationCoverage'),
     explicitDomainMetadata: allCandidates(candidates, 'explicitDomainMetadata'),
     candidateDomainParity: domainSignatures.length > 0
       && domainSignatures.every(signature => signature === domainSignatures[0]) };
@@ -193,12 +229,13 @@ function generalizationGate(aggregate) {
   const reasonMap = [['explicitDomainMetadata', 'explicit_evaluation_domain_required'],
     ['externalDomainCoverage', 'at_least_three_independent_domains_required'],
     ['balancedExternalDomains', 'each_domain_needs_at_least_two_validation_rows'],
+    ['independentReplicationCoverage', 'each_domain_needs_two_independent_replicates_and_verifiers'],
     ['candidateDomainParity', 'candidates_require_shared_domain_support']];
   reasonMap.forEach(([field, reason]) => { if (!aggregate[field]) reasons.push(reason); });
   return { ready: reasons.length === 0, reasons };
 }
 
-function comparativePair(left, right) {
+function comparativePair(left, right, comparisonCount = 1) {
   const rightByTask = new Map(right.rows.map(row => [row.taskId, row]));
   const differences = left.rows.flatMap(row => {
     const counterpart = rightByTask.get(row.taskId);
@@ -211,10 +248,13 @@ function comparativePair(left, right) {
   const mean = differences.reduce((sum, value) => sum + value, 0) / differences.length;
   const variance = differences.reduce((sum, value) => sum + (value - mean) ** 2, 0)
     / differences.length;
-  const uncertainty = Math.min(2, 1.96 * Math.sqrt(variance / differences.length));
+  const correction = Math.sqrt(Math.max(1, comparisonCount));
+  const uncertainty = Math.min(2, 1.96 * correction * Math.sqrt(variance / differences.length));
   return { status: 'measured', commonValidationTasks: differences.length,
     meanGainDifference: Number(mean.toFixed(6)), uncertainty: Number(uncertainty.toFixed(6)),
-    lowerBound: Number((mean - uncertainty).toFixed(6)) };
+    lowerBound: Number((mean - uncertainty).toFixed(6)),
+    familyWiseAlpha: Number((FAMILY_WISE_ALPHA / Math.max(1, comparisonCount)).toFixed(6)),
+    multiplicityCorrection: 'bonferroni_conservative_sqrt_m' };
 }
 
 function compareGlobalSuperiority(rows, calibration) {
@@ -222,6 +262,7 @@ function compareGlobalSuperiority(rows, calibration) {
   const coverage = coverageSummary(entries);
   if (entries.length < 2) return { status: 'insufficient_baselines', candidateCount: entries.length,
     reason: 'at_least_two_calibrated_candidates_required', pairwise: [], coverage };
+  const comparisonCount = (entries.length * (entries.length - 1)) / 2;
   const pairwise = [];
   for (let index = 0; index < entries.length; index += 1) {
     for (let next = index + 1; next < entries.length; next += 1) {
@@ -229,7 +270,7 @@ function compareGlobalSuperiority(rows, calibration) {
       const right = entries[next];
       pairwise.push({ left: { scale: left.scale, candidateId: left.candidateId },
         right: { scale: right.scale, candidateId: right.candidateId },
-        comparison: comparativePair(left, right) });
+        comparison: comparativePair(left, right, comparisonCount) });
     }
   }
   if (pairwise.some(item => item.comparison.status !== 'measured')) {
@@ -237,13 +278,14 @@ function compareGlobalSuperiority(rows, calibration) {
       reason: 'all_candidates_need_common_validation_tasks', coverage };
   }
   const winners = entries.filter(candidate => entries.filter(item => item !== candidate)
-    .every(other => comparativePair(candidate, other).lowerBound > 0));
+    .every(other => comparativePair(candidate, other, comparisonCount).lowerBound > 0));
   if (winners.length !== 1) return { status: 'inconclusive', candidateCount: entries.length,
     pairwise, reason: 'no_unique_candidate_clears_all_pairwise_lower_bounds', coverage };
   return { status: 'qualified', candidateCount: entries.length, pairwise,
     winner: { scale: winners[0].scale, candidateId: winners[0].candidateId },
     coverage,
-    claim: 'global_superiority_supported_only_for_the_observed_common_holdout' };
+    claim: 'global_superiority_supported_only_for_the_observed_common_holdout',
+    universalClaim: 'not_proven', multiplicityCorrection: 'bonferroni_conservative_sqrt_m' };
 }
 
 function compileCalibration(samples) {

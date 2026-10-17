@@ -13,6 +13,17 @@ Depuis une PowerShell ordinaire, le script tente d'importer automatiquement
 l'environnement d'un Visual Studio installé via `vswhere.exe`. Cette importation
 ne télécharge rien et échoue proprement si les Build Tools sont absents.
 
+Pour installer NASM localement, utilisez le bootstrap explicite :
+
+```powershell
+.\scripts\ci\install-nasm.ps1 -Install -Yes
+```
+
+Le script détecte d'abord une installation existante. Avec `-Install -Yes`, il
+choisit `winget` puis `Chocolatey` et affiche le gestionnaire utilisé. Sans ces
+deux options, il ne télécharge rien et retourne un code d'absence. Le choix peut
+être imposé avec `-PackageManager winget` ou `-PackageManager choco`.
+
 ```powershell
 ./scripts/ci/rust-test.ps1 --workspace
 ```

@@ -361,6 +361,17 @@ tenus à l'écart; les prédictions de gain et de coût doivent battre les réf�
 neutres sur le jeu de validation. La compilation expose les estimations, leurs
 incertitudes et les erreurs observées. Le gain prudent doit dépasser le coût marginal
 prudent pour retenir une intervention. Sans preuve suffisante, `NO_CHANGE` gagne.
+La validité externe reste bloquée tant que chaque domaine déclaré ne fournit pas
+au moins deux répliques indépendantes (identifiants de réplication distincts et
+espaces de vérification distincts), que tous les candidats ne couvrent pas les
+mêmes domaines et que les domaines ne sont pas explicitement enregistrés. Les
+comparaisons appariées appliquent une correction de multiplicité conservatrice
+(`sqrt(m)` sur l'incertitude pour `m` comparaisons, alpha familial 0,05/m). Un
+gagnant observé après cette correction est étiqueté comme supérieur sur le
+holdout commun observé uniquement ; la gate conserve `externalValidity:
+unproven` et interdit tout claim universel. Une réplication supplémentaire doit
+être échantillonnée avec une graine, un espace de vérification et un manifeste
+distincts ; une simple répétition du même reçu ne satisfait pas le protocole.
 Un registre SQLite (`morphogenesisVerifiedOutcomeStore`, 8192 lignes max, 40
 entraînement + 20 validation par candidat) et son raccordement au chemin standard
 (`agentRoundService` → `planContinuation`) sont présents dans l'arbre de travail

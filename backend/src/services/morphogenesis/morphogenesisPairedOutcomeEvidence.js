@@ -13,6 +13,7 @@ function sha(value) {
 
 function observedAttempt(attempt) {
   return { id: attempt.id, taskId: attempt.taskId, seed: attempt.seed,
+    replicationId: attempt.replicationId,
     taskFamily: attempt.taskFamily, modelId: attempt.modelId,
     evaluationDomain: attempt.evaluationDomain,
     workspaceId: attempt.workspaceId, startedAt: attempt.startedAt,
@@ -25,7 +26,7 @@ function observedAttempt(attempt) {
 
 function observedPrediction(prediction) {
   return { id: prediction.id, candidateId: prediction.candidateId,
-    taskId: prediction.taskId, seed: prediction.seed,
+    taskId: prediction.taskId, seed: prediction.seed, replicationId: prediction.replicationId,
     split: prediction.split, method: prediction.method, recordedAt: prediction.recordedAt,
     predictedGain: prediction.predictedGain, predictedCost: prediction.predictedCost };
 }
@@ -63,7 +64,7 @@ function validAttempt(attempt) {
 
 function sameExperiment(candidate, control) {
   return ['taskId', 'seed', 'taskFamily', 'modelId', 'budgetTokens',
-    'latencyBudgetMs', 'toolPolicyHash', 'evaluationDomain']
+    'latencyBudgetMs', 'toolPolicyHash', 'evaluationDomain', 'replicationId']
     .every(key => candidate[key] === control[key])
     && candidate.id !== control.id && candidate.workspaceId !== control.workspaceId
     && control.transitionId == null;

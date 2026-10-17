@@ -32,6 +32,7 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix backend
       - run: python scripts/ci/test_check_code_quality.py
+      - run: python scripts/ci/test_rust_nasm_bootstrap.py
       - run: python scripts/ci/check_code_quality.py --report-json quality-report.json
       - name: Publish complete quality report
         if: always()
@@ -60,7 +61,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install NASM for aws-lc-sys
-        run: choco install nasm --no-progress --yes
+        run: ./scripts/ci/install-nasm.ps1 -Install -Yes -PackageManager choco
       - uses: actions/setup-node@v4
         with:
           node-version: 20

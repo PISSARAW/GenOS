@@ -243,12 +243,16 @@ function testComparativeCoverageDoesNotImplyUniversality() {
   assert.equal(crossDomain.externalValidity, 'unproven');
   assert.equal(crossDomain.crossFamily, true);
   assert.equal(crossDomain.crossModel, true);
+  assert.equal(crossDomain.generalizationGate.status, 'blocked');
+  assert.ok(crossDomain.generalizationGate.reasons.includes(
+    'each_domain_needs_two_independent_replicates_and_verifiers'));
 }
 
 function testExternalValidityGateRequiresExplicitBalancedDomains() {
   const rows = ['finance', 'health', 'mobility'].flatMap((domain, domainIndex) => [0, 1].map(index => ({
     taskId: `${domain}-task-${index}`, taskFamily: `${domain}-family`, modelId: `model-${index}`,
-    evaluationDomain: domain
+    evaluationDomain: domain, replicationId: `${domain}-replicate-${index}`,
+    receipt: { independenceDescriptor: { workspaceId: `verifier-${domainIndex}-${index}` } }
   })));
   const coverage = calibration.coverageSummary([
     { scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a', rows },
@@ -259,6 +263,18 @@ function testExternalValidityGateRequiresExplicitBalancedDomains() {
   assert.deepEqual(coverage.generalizationGate.reasons, []);
   assert.equal(coverage.externalDomainCoverage, true);
   assert.equal(coverage.balancedExternalDomains, true);
+  assert.equal(coverage.independentReplicationCoverage, true);
+
+  const noReplication = calibration.coverageSummary([{
+    scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a',
+    rows: rows.map(({ replicationId: _replicate, receipt: _receipt, ...row }) => row)
+  }, {
+    scale: 'RESOURCE_REALLOCATION', candidateId: 'candidate-b',
+    rows: rows.map(({ replicationId: _replicate, receipt: _receipt, ...row }) => row)
+  }]);
+  assert.equal(noReplication.generalizationGate.status, 'blocked');
+  assert.ok(noReplication.generalizationGate.reasons.includes(
+    'each_domain_needs_two_independent_replicates_and_verifiers'));
 
   const missingMetadata = calibration.coverageSummary([{
     scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a',
