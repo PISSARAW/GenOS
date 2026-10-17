@@ -111,8 +111,10 @@ module.exports = {
     }
 
     if (!this.db || typeof this.mission.executeTeam !== 'function') {
-      throw coded('Multiteam execution requires persistence and a verified child TeamRun executor.',
-        'ATEAM_MTS_EXECUTOR_REQUIRED');
+      this.state.result = { teams: teamConfigs, contracts, council, budget: multiPolicy.budget };
+      this.state.status = 'PLANNED';
+      this.state.reason = 'verified_subruns_unavailable';
+      return this.state;
     }
     const program = require('../multiteam/programRuntimeService');
     const programId = this.mission.programId || `${this.orchestratorId}:multiteam`;
