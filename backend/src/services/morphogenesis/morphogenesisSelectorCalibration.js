@@ -109,6 +109,64 @@ function unavailable(reason) {
     validationGain: null, validationCost: null, marginalCost: null, costUncertainty: null };
 }
 
+function validationRows(rows, scale, candidateId) {
+  return rows.filter(row => row.scale === scale && row.candidateId === candidateId
+    && row.split === 'validation' && typeof row.taskId === 'string' && row.taskId.trim());
+}
+
+function candidateEntries(rows, calibration) {
+  return SCALE.flatMap(scale => Object.entries(calibration.scales[scale].candidates)
+    .filter(([, estimate]) => estimate.status === 'calibrated')
+    .map(([candidateId, estimate]) => ({ scale, candidateId, estimate,
+      rows: validationRows(rows, scale, candidateId) })));
+}
+
+function comparativePair(left, right) {
+  const rightByTask = new Map(right.rows.map(row => [row.taskId, row]));
+  const differences = left.rows.flatMap(row => {
+    const counterpart = rightByTask.get(row.taskId);
+    return counterpart ? [row.actualGain - counterpart.actualGain] : [];
+  });
+  if (differences.length < MIN_VALIDATION) {
+    return { status: 'unavailable', reason: 'insufficient_common_validation_tasks',
+      commonValidationTasks: differences.length };
+  }
+  const mean = differences.reduce((sum, value) => sum + value, 0) / differences.length;
+  const variance = differences.reduce((sum, value) => sum + (value - mean) ** 2, 0)
+    / differences.length;
+  const uncertainty = Math.min(2, 1.96 * Math.sqrt(variance / differences.length));
+  return { status: 'measured', commonValidationTasks: differences.length,
+    meanGainDifference: Number(mean.toFixed(6)), uncertainty: Number(uncertainty.toFixed(6)),
+    lowerBound: Number((mean - uncertainty).toFixed(6)) };
+}
+
+function compareGlobalSuperiority(rows, calibration) {
+  const entries = candidateEntries(rows, calibration);
+  if (entries.length < 2) return { status: 'insufficient_baselines', candidateCount: entries.length,
+    reason: 'at_least_two_calibrated_candidates_required', pairwise: [] };
+  const pairwise = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    for (let next = index + 1; next < entries.length; next += 1) {
+      const left = entries[index];
+      const right = entries[next];
+      pairwise.push({ left: { scale: left.scale, candidateId: left.candidateId },
+        right: { scale: right.scale, candidateId: right.candidateId },
+        comparison: comparativePair(left, right) });
+    }
+  }
+  if (pairwise.some(item => item.comparison.status !== 'measured')) {
+    return { status: 'insufficient_paired_holdout', candidateCount: entries.length, pairwise,
+      reason: 'all_candidates_need_common_validation_tasks' };
+  }
+  const winners = entries.filter(candidate => entries.filter(item => item !== candidate)
+    .every(other => comparativePair(candidate, other).lowerBound > 0));
+  if (winners.length !== 1) return { status: 'inconclusive', candidateCount: entries.length,
+    pairwise, reason: 'no_unique_candidate_clears_all_pairwise_lower_bounds' };
+  return { status: 'qualified', candidateCount: entries.length, pairwise,
+    winner: { scale: winners[0].scale, candidateId: winners[0].candidateId },
+    claim: 'global_superiority_supported_only_for_the_observed_common_holdout' };
+}
+
 function compileCalibration(samples) {
   const supplied = Array.isArray(samples) ? samples : [];
   const rows = supplied.filter(verifiedRow);
@@ -125,8 +183,10 @@ function compileCalibration(samples) {
     if (ids.length) scales[scale].reason = qualified ? null : 'no_candidate_has_qualified_heldout_evidence';
   }
   const calibrated = Object.values(scales).some(item => item.status === 'calibrated');
-  return { status: calibrated ? 'calibrated' : 'unavailable', verifiedSampleCount: rows.length,
+  const result = { status: calibrated ? 'calibrated' : 'unavailable', verifiedSampleCount: rows.length,
     rejectedSampleCount: invalidCount, scales };
+  result.comparative = compareGlobalSuperiority(rows, result);
+  return result;
 }
 
 function selectScale(calibration, availableCandidates) {
@@ -143,10 +203,14 @@ function selectScale(calibration, availableCandidates) {
       return (heldoutB - b.gainUncertainty - b.marginalCost - b.costUncertainty)
         - (heldoutA - a.gainUncertainty - a.marginalCost - a.costUncertainty);
     });
-  if (!candidates.length) return { scale: 'NO_CHANGE', reason: 'verified_gain_does_not_clear_uncertainty_and_marginal_cost' };
+  if (!candidates.length) return { scale: 'NO_CHANGE', reason: 'verified_gain_does_not_clear_uncertainty_and_marginal_cost',
+    comparativeStatus: calibration?.comparative?.status || 'not_evaluated' };
   return { scale: candidates[0].scale, candidateId: candidates[0].candidateId,
     reason: 'verified_heldout_gain_clears_uncertainty_and_marginal_cost',
-    estimate: candidates[0] };
+    estimate: candidates[0], comparativeStatus: calibration?.comparative?.status || 'not_evaluated',
+    comparativeClaim: calibration?.comparative?.status === 'qualified'
+      ? 'global_superiority_supported_only_for_the_observed_common_holdout'
+      : 'global_superiority_unproven' };
 }
 
 function candidateRows(rows, scale, candidateId) {
@@ -178,9 +242,11 @@ function describeCorpusDeficit(samples) {
   const rows = (Array.isArray(samples) ? samples : []).filter(verifiedRow);
   const scales = Object.fromEntries(SCALE.map(scale => [scale, scaleDeficit(rows, scale)]));
   const calibrated = Object.values(scales).some(item => item.status === 'calibrated');
+  const comparative = compareGlobalSuperiority(rows, compileCalibration(rows));
   return { status: calibrated ? 'calibrated' : 'unavailable',
     verifiedSampleCount: rows.length, requiredTrain: MIN_TRAIN,
-    requiredValidation: MIN_VALIDATION, scales };
+    requiredValidation: MIN_VALIDATION, scales, comparative };
 }
 
-module.exports = { SCALE, compileCalibration, selectScale, digest, verifiedRow, describeCorpusDeficit };
+module.exports = { SCALE, compileCalibration, selectScale, digest, verifiedRow, describeCorpusDeficit,
+  compareGlobalSuperiority };

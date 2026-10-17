@@ -1,6 +1,6 @@
 'use strict';
 
-const { TopologyController } = require('./topologyController');
+const { TopologyController, executionModeFor, executionProofFor } = require('./topologyController');
 
 class ATeamController extends TopologyController {
   constructor(node, runtime) {
@@ -22,25 +22,28 @@ class ATeamController extends TopologyController {
   async execute(input) {
     const { requirements = [], verified_claims = [], work_packages = [] } = input;
 
-    const archResult = await this.runSubsystem('Architecture', { requirements, verified_claims });
-    const secResult = await this.runSubsystem('Security', { work_packages });
-    const intResult = await this.runSubsystem('Integration', { archResult, secResult });
+    const archResult = await this.runSubsystem('Architecture', { requirements, verified_claims }, input.workerResults);
+    const secResult = await this.runSubsystem('Security', { work_packages }, input.workerResults);
+    const intResult = await this.runSubsystem('Integration', { archResult, secResult }, input.workerResults);
 
     return {
       architecture: archResult,
       security: secResult,
       integration: intResult,
       verified_claims: [...verified_claims, ...(archResult.claims || []), ...(secResult.claims || [])],
-      executionMode: 'simulated_controller'
+      executionMode: executionModeFor(input),
+      executionProof: executionProofFor(input)
     };
   }
 
-  async runSubsystem(name, input) {
+  async runSubsystem(name, input, workerResults = []) {
     const registry = this.runtime && this.runtime.controllerRegistry;
     if (registry && typeof registry.get === 'function') {
       const controller = registry.get(name.toLowerCase());
       if (controller) return controller.execute(input);
     }
+    const worker = workerForSubsystem(workerResults, name);
+    if (worker) return workerSubsystemResult(name, worker);
     return { subsystem: name, processed: true, claims: [], input };
   }
 
@@ -69,6 +72,25 @@ class ATeamController extends TopologyController {
 
     return adaptations.length ? adaptations : null;
   }
+}
+
+function workerForSubsystem(workerResults, subsystem) {
+  const key = subsystem.toLowerCase();
+  return (Array.isArray(workerResults) ? workerResults : []).find((result) => {
+    const labels = [result.role, result.workerKind, result.evidenceReport?.role,
+      result.evidenceReport?.workerKind].filter(Boolean).map((value) => String(value).toLowerCase());
+    return labels.some((value) => value.includes(key));
+  });
+}
+
+function workerSubsystemResult(subsystem, worker) {
+  const report = worker.evidenceReport || {};
+  const artifact = report.workerArtifact || {};
+  return {
+    subsystem, processed: true, claims: Array.isArray(report.claims) ? report.claims : [],
+    workerId: worker.workerId, evidenceRefs: artifact.provenance?.evidenceRefs || artifact.provenance?.sourceRefs || [],
+    executionStatus: 'completed', evidenceStatus: 'verified'
+  };
 }
 
 module.exports = { ATeamController };

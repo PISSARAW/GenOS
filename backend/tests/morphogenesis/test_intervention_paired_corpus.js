@@ -252,12 +252,15 @@ async function testPairedCorpusCalibratesAndPersists() {
     const compiled = calibration.compileCalibration(loaded);
     const estimate = compiled.scales.COMMUNICATION_REDUCTION.candidates[intervention.CANDIDATE_ID];
     assert.equal(estimate.status, 'calibrated');
+    assert.equal(compiled.comparative.status, 'insufficient_baselines');
     const deficit = calibration.describeCorpusDeficit(loaded);
     assert.equal(deficit.scales.COMMUNICATION_REDUCTION.candidates[intervention.CANDIDATE_ID].needsTrain, 0);
     assert.equal(deficit.scales.COMMUNICATION_REDUCTION.candidates[intervention.CANDIDATE_ID].needsValidation, 0);
-    assert.equal(calibration.selectScale(compiled,
-      [{ scale: 'COMMUNICATION_REDUCTION', candidateId: intervention.CANDIDATE_ID }]).scale,
-    'COMMUNICATION_REDUCTION');
+    const decision = calibration.selectScale(compiled,
+      [{ scale: 'COMMUNICATION_REDUCTION', candidateId: intervention.CANDIDATE_ID }]);
+    assert.equal(decision.scale, 'COMMUNICATION_REDUCTION');
+    assert.equal(decision.comparativeStatus, 'insufficient_baselines');
+    assert.equal(decision.comparativeClaim, 'global_superiority_unproven');
   } finally {
     await db.close();
   }

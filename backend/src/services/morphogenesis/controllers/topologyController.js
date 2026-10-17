@@ -96,4 +96,24 @@ class TopologyController {
   }
 }
 
-module.exports = { TopologyController };
+function executionModeFor(input = {}) {
+  return Array.isArray(input.workerResults) && input.workerResults.length > 0
+    ? 'worker_backed_controller' : 'simulated_controller';
+}
+
+function executionProofFor(input = {}) {
+  const workerResults = Array.isArray(input.workerResults) ? input.workerResults : [];
+  if (!workerResults.length) return { kind: 'local_simulation', workerCount: 0 };
+  return {
+    kind: 'validated_worker_receipts',
+    workerCount: workerResults.length,
+    workerIds: workerResults.map((result) => result.workerId).filter(Boolean),
+    evidenceRefs: [...new Set(workerResults.flatMap((result) => {
+      const report = result.evidenceReport || {};
+      const artifact = report.workerArtifact || {};
+      return artifact.provenance?.evidenceRefs || artifact.provenance?.sourceRefs || [];
+    }))]
+  };
+}
+
+module.exports = { TopologyController, executionModeFor, executionProofFor };

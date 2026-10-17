@@ -23,6 +23,29 @@ async function run() {
     assert.equal(output.executionMode, 'simulated_controller', `${topology} must expose its local mode`);
   }
 
+  const worker = (id, role, chamber = null) => ({ id, role, chamber, artifactType: 'report', evidenceReport: { outcome: 'success', role, chamber,
+    workerArtifact: { type: 'report', content: `${id}-artifact`, provenance: { sourceRefs: [`evidence:${id}`] } } } });
+  const trinityWorkers = [worker('world-1', 'thesis', 'thesis'), worker('world-2', 'antithesis', 'antithesis'),
+    worker('world-3', 'synthesis', 'synthesis')];
+  const trinityBacked = await plugins.get('trinity').run({ workers: trinityWorkers }, {
+    input: { mission: 'worker-backed-trinity', workerResults: trinityWorkers }
+  });
+  assert.equal(trinityBacked.executionMode, 'worker_backed_controller');
+  assert.equal(trinityBacked.executionProof.workerCount, 3);
+  assert.deepEqual(trinityBacked.executionProof.evidenceRefs.sort(),
+    ['evidence:world-1', 'evidence:world-2', 'evidence:world-3']);
+
+  const aTeamWorkers = [worker('architect-1', 'architecture'), worker('security-1', 'security'),
+    worker('integration-1', 'integration')];
+  const aTeamBacked = await plugins.get('a_team').run({ workers: aTeamWorkers }, {
+    input: { mission: 'worker-backed-a-team', workerResults: aTeamWorkers }
+  });
+  assert.equal(aTeamBacked.executionMode, 'worker_backed_controller');
+  assert.equal(aTeamBacked.executionProof.workerCount, 3);
+  assert.equal(aTeamBacked.architecture.workerId, 'architect-1');
+  assert.equal(aTeamBacked.security.workerId, 'security-1');
+  assert.equal(aTeamBacked.integration.workerId, 'integration-1');
+
   const biome = await plugins.get('biome').run({ mission: 'mode-biome' }, {
     input: { mission: 'mode-biome', maxTicks: 1 }
   });

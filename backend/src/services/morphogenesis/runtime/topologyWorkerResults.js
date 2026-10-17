@@ -14,7 +14,25 @@ function resultForWorker(worker, results) {
   if (!result || report?.outcome !== 'success' || !hasTypedArtifact(report, worker)) {
     throw workerResultsError(`Topology worker '${workerId}' has no validated success artifact.`);
   }
-  return { workerId, workerKind: worker.workerKind || result.workerKind || null, evidenceReport: report };
+  return {
+    workerId,
+    ...workerMetadata(worker, result, report),
+    evidenceReport: report
+  };
+}
+
+function workerMetadata(worker, result, report) {
+  return {
+    workerKind: firstValue(worker.workerKind, result.workerKind),
+    role: firstValue(worker.role, result.role, report.role),
+    chamber: firstValue(worker.chamber, result.chamber, report.chamber),
+    worldNumber: firstValue(worker.worldNumber, result.worldNumber, report.worldNumber)
+  };
+}
+
+function firstValue(...values) {
+  const value = values.find((entry) => entry !== undefined && entry !== null && entry !== '');
+  return value === undefined ? null : value;
 }
 
 function workerIdOf(value) {

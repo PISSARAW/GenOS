@@ -1,6 +1,6 @@
 'use strict';
 
-const { TopologyController } = require('./topologyController');
+const { TopologyController, executionModeFor, executionProofFor } = require('./topologyController');
 
 class TrinityController extends TopologyController {
   constructor(node, runtime) {
@@ -33,16 +33,23 @@ class TrinityController extends TopologyController {
       candidate_claims: this.candidateClaimsFromConfidence(),
       competing_hypotheses: this.hypotheses,
       comparison_receipt: receipt,
-      executionMode: 'simulated_controller'
+      executionMode: executionModeFor(input),
+      executionProof: executionProofFor(input)
     };
   }
 
   async runChamber(chamber, input) {
-    const supplied = input.chamberResults?.[chamber];
+    const supplied = input.chamberResults?.[chamber] || workerChamber(input.workerResults, chamber);
     if (!supplied) return { phase: chamber, status: 'MISSING', evidenceRefs: [] };
-    const refs = Array.isArray(supplied.evidenceRefs) ? supplied.evidenceRefs.filter(Boolean) : [];
+    const report = supplied.evidenceReport || supplied;
+    const refs = evidenceRefsOf(report, supplied);
+    if (supplied.evidenceReport) {
+      return { phase: chamber, status: refs.length ? 'VERIFIED' : 'UNVERIFIED', evidenceRefs: refs,
+        workerId: supplied.workerId || null, artifactType: report.workerArtifact?.type || null };
+    }
+    const suppliedRefs = Array.isArray(supplied.evidenceRefs) ? supplied.evidenceRefs.filter(Boolean) : [];
     return { ...structuredClone(supplied), phase: chamber,
-      status: refs.length ? supplied.status || 'OBSERVED' : 'UNVERIFIED', evidenceRefs: refs };
+      status: suppliedRefs.length ? supplied.status || 'OBSERVED' : 'UNVERIFIED', evidenceRefs: suppliedRefs };
   }
 
   candidateClaimsFromConfidence() {
@@ -102,6 +109,17 @@ class TrinityController extends TopologyController {
 
     return adaptations.length ? adaptations : null;
   }
+}
+
+function workerChamber(workerResults, chamber) {
+  return (Array.isArray(workerResults) ? workerResults : []).find((result) =>
+    result.chamber === chamber || result.role === chamber || result.evidenceReport?.chamber === chamber);
+}
+
+function evidenceRefsOf(report, supplied) {
+  const refs = supplied.evidenceRefs || report.workerArtifact?.provenance?.evidenceRefs
+    || report.workerArtifact?.provenance?.sourceRefs || [];
+  return Array.isArray(refs) ? refs.filter(Boolean) : [];
 }
 
 function verifiedClaims(input, receipt) {
