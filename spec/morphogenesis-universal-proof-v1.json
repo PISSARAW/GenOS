@@ -1,0 +1,32 @@
+{
+  "protocolVersion": "morphogenesis-universal-v1",
+  "purpose": "encadrer la validite externe sans transformer un corpus fini en preuve universelle",
+  "minimumObservedCoverage": {
+    "taskFamilies": 2,
+    "modelIds": 2,
+    "externalDomains": 3,
+    "validationRowsPerDomain": 2,
+    "independentReplicatesPerDomain": 2,
+    "independentVerifiersPerDomain": 2
+  },
+  "requiredMetadata": [
+    "taskFamily",
+    "modelId",
+    "evaluationDomain",
+    "replicationId",
+    "independenceDescriptor.workspaceId"
+  ],
+  "claimPolicy": {
+    "universalClaim": "not_proven",
+    "finiteObservedCorpus": "never_sufficient_for_universal_superiority",
+    "qualifiedClaim": "observed_common_holdout_only"
+  },
+  "rejectionReasons": [
+    "finite_observed_corpus_cannot_establish_universal_superiority",
+    "missing_external_domain_metadata",
+    "insufficient_external_domains",
+    "insufficient_validation_per_domain",
+    "insufficient_independent_replication",
+    "candidate_domain_support_is_not_identical"
+  ]
+}
