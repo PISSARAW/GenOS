@@ -171,25 +171,55 @@ async function readFreeWorkerPoolSnapshot(db, options = {}) {
 async function freePoolRows(db, options) {
   const requestedScope = readScope(options);
   const kinds = Array.isArray(options.kinds) ? options.kinds.filter((kind) => typeof kind === 'string') : [];
-  const rows = await db.all(`SELECT a.id, a.status, a.role, a.metadata_json,
-    q.status AS queue_status, q.lease_expires_at
-    FROM agents a LEFT JOIN garage_queue q ON q.worker_id = a.id
-      AND (q.status IN ('queued', 'claimed', 'running')
-        OR q.phase IN ('freezing', 'freeze_failed', 'frozen', 'thawing', 'cancelling'))
-    WHERE a.execution_mode = 'worker' AND a.status IN ('idle', 'running')
-    ORDER BY CASE WHEN a.status = 'idle' THEN 0 ELSE 1 END, a.id`);
-  const scopedRows = rows.filter((row) => scopeMatches(rowScope(row), requestedScope));
-  const workers = scopedRows.map((row) => {
-      const entry = poolEntry(row, options.now);
-      const scope = rowScope(row);
-      return { ...entry, organizationId: scope.organizationId, projectId: scope.projectId };
-    })
-    .filter((entry) => !kinds.length || entry.workerKind === null || kinds.includes(entry.workerKind));
+  const hasWorkspaces = await tableExists(db, 'workspaces');
+  if (scopeUnavailable(requestedScope, hasWorkspaces)) return unknownPool(options, requestedScope);
+  const rows = await queryPoolRows(db, hasWorkspaces);
+  const scopedRows = dedupePoolRows(rows).filter((row) => scopeMatches(rowScope(row), requestedScope));
+  const workers = poolEntries(scopedRows, options.now, kinds);
   const free = workers.filter((entry) => entry.status === 'free').length;
   return { status: free ? 'available' : 'empty', observedAt: options.now, workers,
     requestedScope: requestedScope.organizationId || requestedScope.projectId ? requestedScope : null,
     authority: 'genos_database_read_only',
     limitation: 'database_observation_does_not_prove_process_liveness_or_admission' };
+}
+
+function scopeUnavailable(scopeValue, hasWorkspaces) {
+  return Boolean((scopeValue.organizationId || scopeValue.projectId) && !hasWorkspaces);
+}
+
+function unknownPool(options, requestedScope) {
+  return { status: 'unknown', observedAt: options.now, workers: [], requestedScope,
+    reason: 'tenant_scope_unavailable', authority: 'genos_database_read_only' };
+}
+
+async function queryPoolRows(db, hasWorkspaces) {
+  const workspaceJoin = hasWorkspaces ? 'LEFT JOIN workspaces w ON w.id = a.workspace_id' : '';
+  const workspaceFields = hasWorkspaces ? ', w.organization_id, w.project_id' : '';
+  return db.all(`SELECT a.id, a.status, a.role, a.metadata_json${workspaceFields},
+    q.status AS queue_status, q.lease_expires_at
+    FROM agents a ${workspaceJoin} LEFT JOIN garage_queue q ON q.worker_id = a.id
+      AND (q.status IN ('queued', 'claimed', 'running')
+        OR q.phase IN ('freezing', 'freeze_failed', 'frozen', 'thawing', 'cancelling'))
+    WHERE a.execution_mode = 'worker' AND a.status IN ('idle', 'running')
+    ORDER BY CASE WHEN a.status = 'idle' THEN 0 ELSE 1 END, a.id`);
+}
+
+function poolEntries(rows, now, kinds) {
+  return rows.map((row) => {
+    const entry = poolEntry(row, now);
+    const scope = rowScope(row);
+    return { ...entry, organizationId: scope.organizationId, projectId: scope.projectId };
+  }).filter((entry) => !kinds.length || entry.workerKind === null || kinds.includes(entry.workerKind));
+}
+
+function dedupePoolRows(rows) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const existing = grouped.get(row.id);
+    if (!existing) grouped.set(row.id, row);
+    else grouped.set(row.id, { ...existing, queue_status: 'multiple', lease_expires_at: null });
+  }
+  return [...grouped.values()];
 }
 
 async function readDaemonRuntimeSnapshot(db, options = {}) {

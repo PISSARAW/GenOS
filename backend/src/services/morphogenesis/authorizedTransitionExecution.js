@@ -41,6 +41,8 @@ async function applyActions(input, ops) {
     const result = await ops.runAction(action, input.ctx);
     input.actionsTaken.push(result);
     if (result.status !== 'success') throw new Error(`action ${action.type} failed: ${result.error}`);
+    // Register the compensator immediately after the external effect succeeds.
+    // Receipt persistence can fail; the effect must still be undone on rollback.
     if (['spawn', 'retire'].includes(action.type)) input.compensations.push({ action, result });
     await durableSnapshots.appendAction({ db: input.ctx.db,
       transitionId: input.ctx.transitionId, receipt: result });

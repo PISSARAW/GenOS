@@ -31,7 +31,11 @@ function agentScopeMatches(agent, scope) {
 
 async function workerAvailable(params) {
   const { db, instanceId, scope } = params;
-  const agent = await db.get('SELECT id, status, metadata_json FROM agents WHERE id = ?', instanceId);
+  const hasWorkspaces = Boolean(await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='workspaces'"));
+  const agent = hasWorkspaces
+    ? await db.get(`SELECT a.id, a.status, a.metadata_json, w.organization_id, w.project_id
+      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, instanceId)
+    : await db.get('SELECT id, status, metadata_json FROM agents WHERE id = ?', instanceId);
   if (!agent || agent.status !== 'idle') return false;
   if (!agentScopeMatches(agent, scope)) return false;
   const busy = await db.get(`SELECT request_id FROM garage_queue WHERE worker_id = ?

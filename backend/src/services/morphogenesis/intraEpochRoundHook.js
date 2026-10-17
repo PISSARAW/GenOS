@@ -12,9 +12,21 @@ function signalFromEvent(input) {
   const confidence = Number(report.confidence ?? payload.confidence);
   const score = Number(payload.evidenceScore ?? payload.evidence_score);
   const warning = ['warning', 'error', 'critical'].includes(String(input.event?.severity || '').toLowerCase());
-  const base = Number.isFinite(confidence) ? 1 - confidence
-    : Number.isFinite(score) ? Math.max(0, Math.min(1, 1 - (score / 100))) : warning ? 0.75 : 0;
+  const normalizedConfidence = normalizeUnit(confidence);
+  const normalizedScore = normalizeUnit(score);
+  const base = uncertaintyFor(normalizedConfidence, normalizedScore, warning);
   return { kind: 'progress', uncertainty: base };
+}
+
+function normalizeUnit(value) {
+  if (!Number.isFinite(value)) return null;
+  return value > 1 ? value / 100 : value;
+}
+
+function uncertaintyFor(confidence, score, warning) {
+  if (Number.isFinite(confidence)) return 1 - confidence;
+  if (Number.isFinite(score)) return Math.max(0, Math.min(1, 1 - score));
+  return warning ? 0.75 : 0;
 }
 
 function deliverAttention(input, ticked) {

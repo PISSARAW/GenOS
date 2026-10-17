@@ -25,8 +25,9 @@ async function transitionReceipts(input, prepared) {
   }
   const now = Date.now();
   const daemonAllowed = input.state.plan?.operationalConstraints?.daemonAllowed;
+  const scope = input.req?.tenant || input.state.tenant || input.state.normalizedMission?.tenant || null;
   const resolved = await require('./morphogenesisRuntimeAdmission').resolveAndReserve({
-    db: input.state.db, assignments: prepared.assignments, daemonAllowed, now });
+    db: input.state.db, assignments: prepared.assignments, daemonAllowed, now, scope });
   return { resolution: resolved.resolution, reservation: resolved.reservation, now, owned: true };
 }
 

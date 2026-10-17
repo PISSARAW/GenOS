@@ -57,7 +57,16 @@ async function reconfigureAndDispatchEpoch(input) {
     return stopMorphogenesisEpochs({ ...input, reason: stage,
       payload: { error: error.message } });
   }
-  for (const workerId of queued) input.dispatchPendingContinuation(workerId);
+  try {
+    // Dispatch must settle before the admission reservation is released.
+    // Historical contract: for (const workerId of queued) input.dispatchPendingContinuation(workerId)
+    await Promise.all(queued.map((workerId) => input.dispatchPendingContinuation(workerId)));
+  } catch (error) {
+    await releaseEpochReservation(input, adaptation);
+    state.epochBudget = budgetController.cancelEpochReservation(reservation.budget, reservation);
+    return stopMorphogenesisEpochs({ ...input, reason: 'continuation_dispatch_failed',
+      payload: { error: error.message } });
+  }
   await releaseEpochReservation(input, adaptation);
 }
 
