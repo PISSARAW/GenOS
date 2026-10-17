@@ -4,8 +4,9 @@
  * Adaptation intra-époque : boucle rapide/structurelle/évolutive en continu.
  *
  * Garanties :
- * - Ne mute jamais un worker pendant son inférence (pas de restart, pas de
- *   changement de kind/topologie/lease ; le structurel est différé à la barrière).
+ * - Les structures locales de raisonnement peuvent changer à un point sûr de
+ *   génération (checkpoint, abandon de la réponse obsolète, régénération).
+ * - Les changements collectifs de kind/topologie/lease restent à la barrière.
  * - Ne bloque jamais un échange porteur de preuve (claims/evidence/receipt).
  * - Best-effort, borné et idempotent : échec silencieux, jamais d'exception.
  */
@@ -15,6 +16,9 @@ const MIN_TICK_INTERVAL_MS = 500;
 const MIN_SAMPLES = 10;
 const MIN_REDUNDANCY_RATIO = 0.2;
 const UNCERTAINTY_REFOCUS_THRESHOLD = 0.6;
+const INFERENCE_STRUCTURE_TYPES = new Set([
+  'reasoning_representation', 'phase_order', 'tool_sequence'
+]);
 
 const EVIDENCE_BEARING_KINDS = new Set([
   'evidence', 'claim', 'evidence_report', 'receipt', 'proof', 'verification',
@@ -98,13 +102,22 @@ function decideExchangeThrottle(input) {
 }
 
 function decideStructural(input) {
-  if (input.proposal) {
-    return { mode: 'deferred_to_barrier', advisoryOnly: true,
-      reason: 'structural_change_requires_quiescence',
-      proposalDigest: String(input.proposal).slice(0, 120) };
-  }
+  const proposal = normalizeStructuralProposal(input.proposal);
+  if (proposal) return { mode: 'safe_point_restart', advisoryOnly: false,
+    reason: 'versioned_inference_structure_change', proposal };
+  if (input.proposal) return { mode: 'deferred_to_barrier', advisoryOnly: true,
+    reason: 'collective_structural_change_requires_quiescence' };
   return { mode: 'deferred_to_barrier', advisoryOnly: true,
-    reason: 'no_structural_mutation_during_inference' };
+    reason: 'no_structural_proposal' };
+}
+
+function normalizeStructuralProposal(proposal) {
+  if (!proposal || typeof proposal !== 'object') return null;
+  const type = String(proposal.type || '').toLowerCase();
+  const target = String(proposal.target || '').trim();
+  const evidenceRef = String(proposal.evidenceRef || '').trim();
+  if (!INFERENCE_STRUCTURE_TYPES.has(type) || !target || !evidenceRef) return null;
+  return { type, target: target.slice(0, 120), evidenceRef: evidenceRef.slice(0, 160) };
 }
 
 function decideEvolutive(input) {
@@ -119,10 +132,11 @@ function decideModulation(input) {
   const exchanges = decideExchangeThrottle({ attempts: snapshot.attempts, redundant: snapshot.redundant });
   const structural = decideStructural({ proposal: snapshot.structuralProposal || null });
   const evolutive = decideEvolutive({ attempts: snapshot.attempts });
-  const active = attention.mode !== 'hold' || exchanges.mode !== 'pass';
+  const active = attention.mode !== 'hold' || exchanges.mode !== 'pass'
+    || structural.mode === 'safe_point_restart';
   return { active, attention, exchanges, structural, evolutive,
     appliedImmediately: { attention: false,
-      exchanges: exchanges.mode !== 'pass' },
+      exchanges: exchanges.mode !== 'pass', structural: false },
     mutatedWorker: false, revokedLease: false, changedTopology: false };
 }
 
@@ -161,7 +175,8 @@ function storeModulation(record, modulation) {
   record.attentionHint = modulation.attention;
   record.throttle = modulation.exchanges;
   record.observations.push({ at: new Date().toISOString(),
-    attention: modulation.attention.mode, exchanges: modulation.exchanges.mode });
+    attention: modulation.attention.mode, exchanges: modulation.exchanges.mode,
+    structural: modulation.structural.mode });
   if (record.observations.length > 20) record.observations.shift();
   return record.modulations;
 }
@@ -247,7 +262,8 @@ function clearAll() {
 
 module.exports = { MAX_MODULATIONS_PER_EPOCH, MIN_TICK_INTERVAL_MS,
   MIN_SAMPLES, MIN_REDUNDANCY_RATIO, UNCERTAINTY_REFOCUS_THRESHOLD,
+  INFERENCE_STRUCTURE_TYPES,
   isEvidenceBearing, digestExchange, decideAttention, decideExchangeThrottle,
-  decideStructural, decideEvolutive, decideModulation, observeWorkerSignal,
+  decideStructural, normalizeStructuralProposal, decideEvolutive, decideModulation, observeWorkerSignal,
   gateExchange, throttleFor, attentionHintFor, drainEpochObservations,
   resetEpoch, clearAll };

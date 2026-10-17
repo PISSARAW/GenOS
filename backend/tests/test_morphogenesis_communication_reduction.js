@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const trusted = require('../src/services/verifierTrustRegistry');
 const receipts = require('../src/services/epistemicVerifierReceiptService');
 const intervention = require('../src/services/morphogenesis/communicationReductionIntervention');
+const metricProducer = require('../src/services/morphogenesis/communicationMetricProducer');
 const calibration = require('../src/services/morphogenesis/morphogenesisSelectorCalibration');
 const paired = require('../src/services/morphogenesis/morphogenesisPairedOutcomeProducer');
 const pairEvidence = require('../src/services/morphogenesis/morphogenesisPairedOutcomeEvidence');
@@ -140,6 +141,17 @@ function verifyNoChangeAndUnavailable() {
     'unavailable', 'a metric from another mission cannot authorize the action');
 }
 
+function verifyDefaultMetricProducer() {
+  const missionId = 'default-metric-producer';
+  const metric = metricProducer.produce({ missionId, orchestratorId: 'metric-root',
+    state: { epoch: 2, intraEpochObservations: { attempts: 20, redundant: 8 } } });
+  assert.ok(metric);
+  assert.equal(intervention.describeAvailability(eligibleMission(missionId), metric).status,
+    'available');
+  assert.equal(metricProducer.produce({ missionId, orchestratorId: 'metric-root',
+    state: { intraEpochObservations: { attempts: '20', redundant: 8 } } }), null);
+}
+
 async function verifyBoundaryEffectReachesRuntime() {
   const id = 'communication-reduction-next-epoch';
   const mission = eligibleMission(id);
@@ -192,6 +204,7 @@ async function verifyStaleUnsafeSelectionBlocksQueue() {
 
 async function main() {
   verifyNoChangeAndUnavailable();
+  verifyDefaultMetricProducer();
   await verifySelectorCalibrationAndOptionalLoader();
   await verifyBoundaryEffectReachesRuntime();
   await verifyStaleUnsafeSelectionBlocksQueue();

@@ -20,6 +20,10 @@ function reserveCohortBudget(budget, preferredSize, controller) {
 }
 
 function candidateWorkers(adaptation, survivors, limit) {
+  if (adaptation.rosterIntervention) {
+    const retained = new Set(adaptation.rosterPlan?.retainedWorkerIds || []);
+    return survivors.filter((survivor) => retained.has(survivor.agentId)).slice(0, limit);
+  }
   const assignments = adaptation.cohortBlueprint?.assignments;
   if (!Array.isArray(assignments) || !assignments.length) return survivors;
   return assignments.slice(0, limit).map((assignment, index) => {

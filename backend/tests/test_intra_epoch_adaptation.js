@@ -23,6 +23,10 @@ function verifyDecisions() {
   assert.equal(throttle.advisoryOnly, false);
   assert.equal(intra.decideStructural({ proposal: 'change-topology' }).mode,
     'deferred_to_barrier');
+  const structural = intra.decideStructural({ proposal: { type: 'phase_order',
+    target: 'falsify-before-solve', evidenceRef: 'evidence:stagnation-1' } });
+  assert.equal(structural.mode, 'safe_point_restart');
+  assert.equal(structural.advisoryOnly, false);
 }
 
 function verifyEffectiveExchangeGate() {
@@ -126,6 +130,36 @@ async function verifyInferenceRebase() {
     'the child runtime must acknowledge effective application');
 }
 
+async function verifyStructuralInferenceRestart() {
+  runtimeInbox.clear();
+  runtimeInbox.bind('structural-worker');
+  observationInbox.bind('structural-worker');
+  const state = { baseFramedPrompt: 'BASE', framedPrompt: 'BASE',
+    autonomyPlan: {}, executionBudget: { latencyMs: 5000 } };
+  let attempts = 0;
+  const events = [];
+  const tools = {
+    checkpoint: { async save() {} }, synthesis: { canonicalGeneration() { return null; } },
+    async createGeneration() { return { generation: Promise.resolve('reply'),
+      abort: {}, fallback: { used: false } }; },
+    async awaitGeneration() {
+      attempts += 1;
+      if (attempts === 1) runtimeInbox.accept({ type: 'genos-intra-epoch-modulation',
+        agentId: 'structural-worker', runId: 'structural-run', revision: 1,
+        mode: 'hold', strength: 0.5, reason: 'versioned_inference_structure_change',
+        structural: { mode: 'safe_point_restart', proposal: { type: 'phase_order',
+          target: 'falsify-before-solve', evidenceRef: 'evidence:stagnation-1' } } });
+      return 'reply';
+    },
+    validateGeneration() {}, emitEvent(_state, event) { events.push(event); }
+  };
+  await observedGeneration.generate(state, tools);
+  assert.equal(attempts, 2);
+  assert.equal(state.intraEpochStructure.target, 'falsify-before-solve');
+  assert.match(state.framedPrompt, /reprends la génération depuis le checkpoint/);
+  assert.ok(events.some((event) => event.eventType === 'INTRA_EPOCH_STRUCTURE_APPLIED'));
+}
+
 function verifyBarrierTrace() {
   const observations = intra.drainEpochObservations({
     orchestratorId: 'live-root', epoch: 2 });
@@ -141,6 +175,7 @@ async function main() {
   verifyBarrierTrace();
   await verifyPublishedExchangeGate();
   await verifyInferenceRebase();
+  await verifyStructuralInferenceRestart();
   console.log('OK intra-epoch adaptation: inference rebased and redundant exchanges suppressed.');
 }
 

@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { CONTRACT, MANIFEST, RECEIPT_SCHEMA, report, validateReceipt } = require('../../scripts/ci/check_external_deployment_contract.cjs');
+const runner = require('../../scripts/ci/run_external_deployment_campaign.cjs');
 
 assert.ok(MANIFEST.endsWith('morphogenesis-parity.yaml'));
 const absent = validateReceipt(null);
@@ -23,4 +24,6 @@ assert.equal(result.contract, CONTRACT);
 assert.equal(result.claimable, false);
 assert.equal(result.status, 'not_observed');
 assert.match(result.applyCommand, /kubectl apply/);
+assert.equal(runner.NAMESPACE, 'genos-morphogenesis-parity');
+assert.match(runner.parityProgram(), /MorphologyRuntime/);
 console.log(`External deployment contract (${result.status}): PASS`);

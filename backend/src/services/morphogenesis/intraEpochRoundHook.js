@@ -3,7 +3,8 @@
 /**
  * Pont intra-époque pour les boucles d'orchestration.
  * Délègue au service d'adaptation et applique les modulations bornées au
- * runtime local actif. Les mutations structurelles restent à la barrière.
+ * runtime local actif. Les structures d'inférence utilisent un restart au
+ * point sûr ; les mutations collectives restent à la barrière.
  */
 
 function signalFromEvent(input) {
@@ -15,7 +16,8 @@ function signalFromEvent(input) {
   const normalizedConfidence = normalizeUnit(confidence);
   const normalizedScore = normalizeUnit(score);
   const base = uncertaintyFor(normalizedConfidence, normalizedScore, warning);
-  return { kind: 'progress', uncertainty: base };
+  return { kind: 'progress', uncertainty: base,
+    structuralProposal: payload.structuralProposal || payload.structural_proposal || null };
 }
 
 function normalizeUnit(value) {
@@ -31,14 +33,16 @@ function uncertaintyFor(confidence, score, warning) {
 
 function deliverAttention(input, ticked) {
   const attention = ticked?.modulation?.attention;
-  if (!input.agentId || attention?.mode === 'hold') return false;
+  const structural = ticked?.modulation?.structural;
+  if (!input.agentId || (attention?.mode === 'hold'
+    && structural?.mode !== 'safe_point_restart')) return false;
   const child = require('../agentOrchestrationState').activeProcesses.get(input.agentId);
   if (!child?.connected || !child.genosCaptureBarrier || !child.genosExecutionRunId) return false;
   try {
     child.send({ type: 'genos-intra-epoch-modulation', agentId: input.agentId,
       runId: child.genosExecutionRunId, revision: ticked.revision,
       mode: attention.mode, strength: attention.strength,
-      reason: attention.reason });
+      reason: attention.reason, structural });
     return true;
   } catch (_) {
     return false;

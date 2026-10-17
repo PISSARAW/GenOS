@@ -134,6 +134,7 @@ function conditionalPolicyInput(input, diagnosis, workers) {
     mission: selectedMissionText(mission), missionId,
     communicationMission: communicationMissionFor(mission, workers, missionId),
     communicationMetric: input.communicationMetric || null,
+    rosterReductionPlan: input.rosterReductionPlan || null,
     verifiedOutcomes: input.verifiedOutcomes,
     problemProfile: structuredProblemProfile(mission, plan),
     priorityWeights: mission.morphogenesisPolicy?.priorityWeights || null,
@@ -150,6 +151,40 @@ function conditionalPolicyInput(input, diagnosis, workers) {
   };
 }
 
+function rosterReductionPlan(input, workers) {
+  const mission = input.state.normalizedMission || {};
+  const target = Number(mission.morphogenesisPolicy?.rosterReductionTarget);
+  if (!Number.isSafeInteger(target) || target < 1 || target >= workers.length) return null;
+  const requiredRoles = mission.morphogenesisPolicy?.requiredRosterRoles || [];
+  const ranked = rankRosterWorkers(workers);
+  const retained = retainRequiredRoles(ranked, requiredRoles);
+  fillRetainedRoster(retained, ranked, target);
+  return { currentWorkerIds: workers.map((worker) => worker.agentId),
+    retainedWorkerIds: retained, requiredRoles, workers };
+}
+
+function rankRosterWorkers(workers) {
+  return workers.slice().sort((left, right) =>
+    Number(right.evidenceScore || 0) - Number(left.evidenceScore || 0)
+      || left.agentId.localeCompare(right.agentId));
+}
+
+function retainRequiredRoles(ranked, requiredRoles) {
+  const retained = [];
+  for (const role of requiredRoles) {
+    const worker = ranked.find((item) => item.role === role && !retained.includes(item.agentId));
+    if (worker) retained.push(worker.agentId);
+  }
+  return retained;
+}
+
+function fillRetainedRoster(retained, ranked, target) {
+  for (const worker of ranked) {
+    if (retained.length >= target) break;
+    if (!retained.includes(worker.agentId)) retained.push(worker.agentId);
+  }
+}
+
 function supportDecisions(input, diagnosis) {
   const challenge = strategyChallenge(input, diagnosis);
   const challengeReserve = challenge?.challenge?.reservedTokens || 0;
@@ -159,14 +194,19 @@ function supportDecisions(input, diagnosis) {
 
 function compilePolicy(input, signals) {
   const state = input.state;
-  const workers = input.survivors.map((survivor) => workerFor(state, survivor.agentId));
+  const workers = input.survivors.map((survivor) => ({
+    ...workerFor(state, survivor.agentId), agentId: survivor.agentId,
+    evidenceScore: survivor.evidenceScore }));
   const diagnosis = diagnosisFor(signals, [...state.results.values()]);
   const supports = supportDecisions(input, diagnosis);
   const { challenge, resources } = supports;
+  const rosterPlan = rosterReductionPlan(input, workers);
   const policy = compileConditionalMorphogenesisPolicy({
-    ...conditionalPolicyInput(input, withIntraEpoch(input, diagnosis), workers), resourceAllocationPlan: resources
+    ...conditionalPolicyInput({ ...input, rosterReductionPlan },
+      withIntraEpoch(input, diagnosis), workers), resourceAllocationPlan: resources
   });
-  const decision = { policy, challenge, resources, intraEpoch: state.intraEpochObservations || null };
+  const decision = { policy, challenge, resources, rosterPlan,
+    intraEpoch: state.intraEpochObservations || null };
   state.plan.morphogenesisEpochDecision = decision;
   return decision;
 }
@@ -181,4 +221,4 @@ function withIntraEpoch(input, diagnosis) {
 }
 
 module.exports = { compilePolicy, diagnosisFor, critiqueReports, resourceGroups,
-  communicationMissionFor };
+  communicationMissionFor, rosterReductionPlan };

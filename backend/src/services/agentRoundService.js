@@ -91,7 +91,10 @@ async function planAdaptiveContinuation(input) {
     const scope = { organizationId: input.state.organizationId || mission.organizationId,
       projectId: input.state.projectId || mission.projectId };
     return await service.planContinuation(input, { loadVerifiedOutcomes: (query) =>
-      outcomes.loadVerifiedOutcomes(input.state.db, { ...query, ...scope }) });
+      outcomes.loadVerifiedOutcomes(input.state.db, { ...query, ...scope }),
+    loadVerifiedCommunicationMetric: (query) =>
+      require('./morphogenesis/communicationMetricProducer').produce({ ...query,
+        state: input.state, orchestratorId: input.orchestratorId }) });
   } catch (error) {
     return { adapted: false, reason: error.code || 'adaptation_failed', error: error.message };
   }
@@ -105,7 +108,8 @@ function emitMorphogenesisContinuation(orchestratorId, adaptation) {
     return;
   }
   emit(orchestratorId, 'MORPHOGENESIS_CONTINUATION_ADAPTED', 'MORPHOGENESIS',
-    `Continuation morphology adapted with ${adaptation.receipt.operator}.`, adaptation.receipt, 'info');
+    `Continuation morphology adapted with ${adaptation.receipt.operator
+      || adaptation.receipt.interventionScale || 'a verified intervention'}.`, adaptation.receipt, 'info');
 }
 
 function emitRoundEvaluated(context) {

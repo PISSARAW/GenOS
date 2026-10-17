@@ -17,7 +17,7 @@ function testDefaultPortfolioExposesFiveDistinctScales() {
   assert.equal(scales.RESOURCE_REALLOCATION.status, 'unavailable');
   assert.equal(scales.ROSTER_REDUCTION.status, 'unavailable');
   assert.equal(scales.EARLY_STOP.status, 'unavailable');
-  assert.equal(scales.ROSTER_REDUCTION.reason, 'roster_reduction_action_not_implemented');
+  assert.equal(scales.ROSTER_REDUCTION.reason, 'roster_reduction_plan_missing');
   assert.equal(scales.EARLY_STOP.reason, 'early_stop_is_verification_gate_not_a_continuation_scale');
   assert.equal(policy.decision.interventionScale, 'NO_CHANGE');
 }

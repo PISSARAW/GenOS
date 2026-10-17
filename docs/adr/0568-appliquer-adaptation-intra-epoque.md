@@ -12,7 +12,9 @@ par le worker et son étranglement d'échanges était déclaré après la télé
 Elle décrivait donc une intention sans modifier l'inférence ni la livraison réelle.
 
 Une adaptation continue doit rester bornée et ne doit pas contourner les preuves,
-les leases, le budget ou la barrière de quiescence des changements structurels.
+les leases, le budget ou la barrière de quiescence des changements collectifs.
+L'ADR 0570 étend ensuite ce contrat aux structures locales d'inférence par restart
+au point sûr; il ne permet pas de mutation concurrente du roster ou des leases.
 
 ## Décision
 
@@ -30,8 +32,10 @@ les leases, le budget ou la barrière de quiescence des changements structurels.
    suppression et publication.
 5. Les preuves, claims, reçus, vérifications, succès, alertes critiques et handoffs
    sont toujours transmis. Une donnée nouvelle est toujours transmise.
-6. Les changements de topologie, de roster, de lease et l'apprentissage évolutif
-   restent différés à la barrière. Un runtime externe sans IPC reste en observation.
+6. Les changements collectifs de topologie, de roster, de lease et l'apprentissage
+   évolutif restent différés à la barrière. Depuis l'ADR 0570, une structure locale
+   de raisonnement peut changer par checkpoint et régénération versionnée. Un runtime
+   externe sans IPC reste en observation.
 
 ## Conséquences
 

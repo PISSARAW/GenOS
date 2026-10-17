@@ -13,10 +13,11 @@ L'état des époques est checkpointé dans SQLite avec révision et idempotence,
 restauré sur rapport entrant ou par un balayage borné au démarrage du worker de
 maintenance. Le roster peut remplacer les survivants par de nouveaux slots worker issus
 des composants de topologie; cela ne prouve pas encore qu'un nouveau kind ou daemon
-sera disponible au dispatch. Le runtime Morphogenèse V2 refuse encore
-le `commit` d'une transition collective : ni un graphe préparé ni un reçu consultatif
-ne prouvent que l'état des processus, des workspaces, des baux et des budgets peut être
-restauré (ADR 0430).
+sera disponible au dispatch. Le chemin de commit collectif n'est plus refusé par
+principe : les ADR 0566 et 0569 qualifient un commit authentifié par l'autorité Rust,
+précédé d'un snapshot durable des processus, workspaces, baux et budgets, puis vérifié
+par relecture. Toute transition qui ne satisfait pas cette voie reste refusée; un graphe
+préparé ou un reçu consultatif ne suffit toujours pas.
 
 La tranche de compilation de recette visée ici reste **consultative**. Elle peut
 décrire et évaluer une combinaison de topologies, variants, opérateurs, rôles,
@@ -100,9 +101,10 @@ réutilise alors les identifiants déterministes validés. Une incohérence de b
 également le checkpoint en `recovery_required`; un opérateur doté
 du droit `workspace:write` peut le réarmer via `POST /api/control-plane/morphogenesis/:missionId/resume`
 dans la portée organisation/projet correspondante. Le contrôleur reprend alors depuis la
-barrière sans attendre un autre rapport worker. La barrière ne lance la transition
-qu'après fermeture des processus de tous les workers de l'époque; aucune topologie n'est
-modifiée pendant l'inférence d'un worker.
+barrière sans attendre un autre rapport worker. Une transition collective ne démarre
+qu'après fermeture des processus de tous les workers de l'époque. La structure locale
+de l'inférence peut toutefois changer à un point sûr versionné sans attendre la fin de
+l'époque.
 
 ## Intention
 
@@ -134,8 +136,8 @@ latence et coût d'exploration.
 
 La réponse adaptative visée suit trois échelles :
 
-1. **Pendant une époque**, ajuster l'attention ou réduire les échanges redondants sans
-   muter un worker pendant son inférence. Cette adaptation intra-époque est
+1. **Pendant une époque**, ajuster l'attention, réduire les échanges redondants et
+   modifier une structure locale de raisonnement pendant l'inférence. Cette adaptation est
    effective pour le runtime local (`intraEpochAdaptationService` +
    `intraEpochRoundHook`). Une incertitude élevée envoie par IPC une directive
    attentionnelle fermée et versionnée ; si elle arrive pendant une génération,
@@ -143,9 +145,12 @@ La réponse adaptative visée suit trois échelles :
    limite de latence et de tentatives. Après au moins dix échanges, une redondance
    d'au moins 20 % supprime uniquement les doublons non probants avant leur écriture
    et leur livraison. Les preuves, reçus, succès, alertes critiques et handoffs ne
-   sont jamais étranglés. Le structurel reste différé à la barrière et les observations
-   sont drainées vers la décision d'époque. Aucun processus worker n'est remplacé,
-   aucun lease révoqué et aucune topologie changée en cours d'inférence. Les runtimes
+   sont jamais étranglés. Une proposition fermée de type `reasoning_representation`,
+   `phase_order` ou `tool_sequence`, liée à une référence de preuve, provoque au point
+   sûr suivant le checkpoint, le rejet de la génération obsolète et une régénération
+   avec la structure versionnée. Les observations sont drainées vers la décision
+   d'époque. Aucun processus worker n'est remplacé, aucun lease révoqué et aucune
+   topologie collective changée en cours d'inférence. Les runtimes
    externes sans canal IPC continuent seulement à produire l'observation, sans
    application attentionnelle immédiate (ADR 0568).
 2. **À la barrière**, garder la forme courante, redistribuer le budget ou composer une
@@ -165,10 +170,10 @@ indépendantes.
 | Échelle | État runtime | Porte et limite actuelle |
 | --- | --- | --- |
 | `NO_CHANGE` | Repli actif quand aucune autre candidate n'est calibrée ou admissible. | Conserve le financement standard et n'autorise pas une action de groupe sur la seule base d'un rapport worker. |
-| `COMMUNICATION_REDUCTION` | Action à la barrière, pour passer à `barrier_only` et retirer les seuls outils de coordination non requis. | Requiert une métrique indépendante propre à la mission et des issues calibrées pour le `candidateId` exact. Sans producteur de métrique par défaut, elle est indisponible en production. |
+| `COMMUNICATION_REDUCTION` | Action à la barrière, pour passer à `barrier_only` et retirer les seuls outils de coordination non requis. | Le backend produit désormais par défaut une métrique mission-scopée signée à partir des observations runtime checkpointées. L'action exige encore au moins dix observations, 20 % de redondance et des issues appariées calibrées pour le `candidateId` exact; sans ce corpus, `NO_CHANGE` gagne. |
 | `RESOURCE_REALLOCATION` | Candidate de financement des groupes; les tokens réellement affectés sont liés à l'admission et au reçu scellé de transition. | Chaque allocation financée doit avoir une preuve indépendante liée à son digest; le plan exact doit être calibré. Le producteur de reçus des `resourceNeeds` n'est pas raccordé en production et aucun corpus d'issues vérifiées n'est livré par défaut (le stockage existe mais reste vide sans campagne), donc cette voie s'abstient en production. |
 | `COHORT_REPLACEMENT` | Recrutement et réaffectation possibles à une frontière de quiescence. | Le sélecteur exige une calibration exacte; sans adaptateur de résultats vérifiés, `NO_CHANGE` gagne. La disponibilité d'un nouveau kind ou daemon au dispatch n'est pas garantie. |
-| `ROSTER_REDUCTION` | Échelle distincte du portefeuille, sans action runtime implémentée. | Toujours `unavailable` (`roster_reduction_action_not_implemented`) : aucune réduction d'effectif n'est sélectionnée. Pas de mesure consolidée des transitions inutiles ni d'optimisation multi-échelle comparée en campagne. |
+| `ROSTER_REDUCTION` | Action de relève qui conserve un sous-ensemble explicite du front d'évidence, préserve les rôles requis et ne finance ni ne redéploie les workers retirés. | Exige `morphogenesisPolicy.rosterReductionTarget`, un plan strict et des issues appariées calibrées. L'admission revérifie le roster, le budget et la quiescence; le reçu scelle les identités retenues et retirées, et la file refuse toute divergence. |
 | `EARLY_STOP` | Échelle distincte du portefeuille, sans continuation à sélectionner. | Toujours `unavailable` comme candidate (`early_stop_is_verification_gate_not_a_continuation_scale`) : l'arrêt suit le gate de résolution vérifiée, pas une sélection du portefeuille. |
 
 ## Boucle de décision proposée
@@ -389,8 +394,9 @@ de continuation accepte un adaptateur `loadVerifiedOutcomes` ; chaque
 ligne est vérifiée par son reçu et son empreinte. Un adaptateur absent, en erreur ou
 hors limite produit un jeu vide et donc `NO_CHANGE`. Aucun corpus n'est livré avec
 GenOS : `NO_CHANGE` reste le choix correct tant que le quota n'est pas atteint.
-Le producteur d'issues appariées couvre désormais les trois échelles
-(`COHORT_REPLACEMENT`, `COMMUNICATION_REDUCTION`, `RESOURCE_REALLOCATION`),
+Le producteur d'issues appariées couvre désormais quatre échelles
+(`COHORT_REPLACEMENT`, `COMMUNICATION_REDUCTION`, `RESOURCE_REALLOCATION`,
+`ROSTER_REDUCTION`),
 le store persiste toute ligne vérifiée (appariée ou non, dès que son reçu
 indépendant est valide), et `describeCorpusDeficit` expose par candidat le
 manque exact (`needsTrain`, `needsValidation`, holdouts). L'outil
@@ -401,18 +407,17 @@ réallocation des ressources dispose aussi d'une candidate exacte et d'un effet 
 financement appliqué à la relève, lié au reçu scellé qui inclut l'admission, les
 workers et leurs budgets. Cette voie reste indisponible en production sans producteur
 de reçus indépendants pour les besoins et sans corpus d'issues vérifiées. Le
-sélecteur ne l'inclut que si l'adaptateur facultatif
-`loadVerifiedCommunicationMetric({missionId})` fournit un reçu indépendant valide
+sélecteur ne l'inclut que si `loadVerifiedCommunicationMetric({missionId})` fournit
+un reçu indépendant valide
 pour une mesure de redondance propre à la mission, puis si les issues appariées de
-ce `candidateId` la calibrent hors famille et hors modèle. Aucun adaptateur ni jeu
-de mesure n'est configuré par défaut : en production, l'action reste donc
-`unavailable` sans intégration de stockage. La mesure exige
+ce `candidateId` la calibrent hors famille et hors modèle. Le chemin standard raccorde
+maintenant `communicationMetricProducer` aux observations intra-époque checkpointées;
+une mesure absente, mal formée ou insuffisante échoue fermée. La mesure exige
 une cadence `continuous_sync`, des outils de coordination loués mais non requis,
 au moins dix observations et au moins 20 % d'échanges redondants. À la barrière,
 la mission suivante passe en cadence `barrier_only` et perd seulement les leases
 `genos_organization_state`, `genos_worker_inbox` et `genos_worker_publish`; les
-obligations de mission ou d'organisation bloquent l'action. Aucun producteur
-backend ne construit encore automatiquement ce reçu mission-scopé. Le reçu de
+obligations de mission ou d'organisation bloquent l'action. Le reçu de
 transition lie le candidat calibré, le reçu métrique, les workers, leurs budgets,
 la nouvelle cadence et la lease exacte; toute divergence avant dispatch bloque
 l'envoi. La réallocation de ressources suit aussi cette règle d'abstention; son
@@ -434,8 +439,8 @@ une affectation sans attribution ne peut pas couvrir plusieurs feuilles à la fo
 Une admission n'est ni une
 calibration ni une preuve de gain. Le runtime ne lance pas de daemon et ne modifie
 pas les leases pour rendre une recette admissible. Les preuves de restauration et de
-persistance exigées par l’ADR 0430 restent à produire avant le commit d'une transition
-collective V2. La qualification comparera
+persistance de l’ADR 0430 sont satisfaites uniquement par le chemin authentifié et
+durable des ADR 0566 et 0569; les autres chemins restent refusés. La qualification comparera
 les candidats sur tâches appariées et familles tenues à l’écart avec un oracle
 indépendant ; un dispatch ou un reçu de compilation n’est pas une preuve de gain.
 
@@ -522,5 +527,7 @@ remplaçante est disponible pour les transitions morphogénétiques et utilise d
 déterministes pour reprendre une intention interrompue sans créer de doublons. Le
 checkpoint et le balayage au démarrage sont bornés; les états ambigus deviennent
 `recovery_required`. Trinity conserve son allocation et ses mondes scellés hors de ce
-chemin. L’orchestrateur ne remodèle jamais un worker pendant son inférence. Voir ADR
-0541, 0544, 0546 et 0549 pour les décisions et limites vérifiables.
+chemin. L’orchestrateur peut remodeler la structure locale de raisonnement au point
+sûr d'une génération; le roster, l'identité, les leases et la topologie collective
+restent modifiés seulement par une transition admise et restaurable. Voir ADR 0541,
+0544, 0546, 0549 et 0570 pour les décisions et limites vérifiables.

@@ -147,13 +147,14 @@ function effectMatchesBindings(effect, identityEffect) {
     && effect.budgetTokens >= identityEffect.allocatedTokens;
 }
 
-function bindingValid(binding, communication) {
-  return Boolean(binding.workerKind && (communication || binding.topology)
+function bindingValid(binding, lightIntervention) {
+  return Boolean(binding.workerKind && (lightIntervention || binding.topology)
     && Number.isSafeInteger(binding.tokens) && binding.tokens > 0);
 }
 
 function identityFor(context) {
-  const { candidateId, admission, graph, bindings, totalTokens, communication, input } = context;
+  const { candidateId, admission, graph, bindings, totalTokens, communication,
+    roster, input } = context;
   const identity = { candidateId, admissionBasis: admission.selectionBasis,
     admissionTopology: admission.recipe.topology, admissionVariant: admission.recipe.variant,
     comparativeQuality: admission.comparativeQuality || null,
@@ -162,11 +163,17 @@ function identityFor(context) {
     graph, bindings, totalTokens };
   const resourceAllocation = resourceAllocationIdentity(input, bindings);
   if (resourceAllocation) identity.resourceAllocation = resourceAllocation;
-  if (!communication) return identity;
-  return { ...identity, communicationIntervention: communication,
+  if (communication) return { ...identity, communicationIntervention: communication,
     communicationMetricReceipt: input.adaptation.receipt.communicationMetricReceipt,
     communicationEffect: { removedLeases: require('./communicationReductionIntervention').COORDINATION_TOOLS,
       workers: expectedCommunicationWorkers(input, bindings) } };
+  if (!roster) return identity;
+  const availability = require('./rosterReductionIntervention')
+    .describeAvailability(input.adaptation.rosterPlan);
+  return { ...identity, rosterIntervention: roster,
+    rosterEffect: { planDigest: availability.planDigest,
+      retainedWorkerIds: availability.retainedWorkerIds.sort(),
+      removedWorkerIds: availability.removedWorkerIds.sort() } };
 }
 
 function sealTransitionReceipt(input) {
@@ -177,14 +184,17 @@ function sealTransitionReceipt(input) {
   }
   const bindings = actualWorkerBindings(input);
   const communication = input.adaptation.communicationIntervention || null;
-  const graph = communication ? null : graphIdentity(input.adaptation);
+  const roster = input.adaptation.rosterIntervention || null;
+  const lightIntervention = communication || roster;
+  const graph = lightIntervention ? null : graphIdentity(input.adaptation);
   const candidateId = admission.recipe?.id;
-  if (!candidateId || !bindings.length || !bindings.every((item) => bindingValid(item, communication))) {
+  if (!candidateId || !bindings.length || !bindings.every((item) => bindingValid(item, lightIntervention))) {
     throw transitionError('MORPHOGENESIS_TRANSITION_BINDING_INCOMPLETE');
   }
   const totalTokens = bindings.reduce((sum, item) => sum + item.tokens, 0);
   receipt.strategyAdmission = admission;
-  const identity = identityFor({ candidateId, admission, graph, bindings, totalTokens, communication, input });
+  const identity = identityFor({ candidateId, admission, graph, bindings, totalTokens,
+    communication, roster, input });
   const transitionId = `morph_${digest(identity)}`;
   finalizeResourceTransition(input.adaptation.receipt, transitionId);
   Object.assign(receipt, { transitionId, identity, dispatchStatus: 'prepared', queuedWorkerIds: [] });
@@ -276,6 +286,16 @@ function communicationQueueMatches(receipt, missions) {
     && missions.every((mission) => queuedCommunicationMatches(receipt, mission));
 }
 
+function rosterQueueMatches(receipt, missions) {
+  const effect = receipt.identity.rosterEffect;
+  return Array.isArray(missions) && missions.length === effect.retainedWorkerIds.length
+    && missions.every((mission) => effect.retainedWorkerIds.includes(mission.agentId)
+      && mission.rosterIntervention?.transitionId === receipt.transitionId
+      && mission.rosterIntervention?.candidateId === receipt.identity.candidateId
+      && mission.rosterIntervention?.planDigest === effect.planDigest
+      && mission.rosterIntervention?.status === 'retained_at_epoch_boundary');
+}
+
 function finalizeTransitionQueue(receipt, queued, missions = []) {
   const expected = receipt.identity.bindings.map((item) => item.workerId).sort();
   const actual = [...queued].sort();
@@ -284,6 +304,10 @@ function finalizeTransitionQueue(receipt, queued, missions = []) {
     throw transitionError('MORPHOGENESIS_TRANSITION_QUEUE_DIVERGED');
   }
   if (receipt.identity.communicationEffect && !communicationQueueMatches(receipt, missions)) {
+    receipt.dispatchStatus = 'diverged';
+    throw transitionError('MORPHOGENESIS_TRANSITION_EFFECT_DIVERGED');
+  }
+  if (receipt.identity.rosterEffect && !rosterQueueMatches(receipt, missions)) {
     receipt.dispatchStatus = 'diverged';
     throw transitionError('MORPHOGENESIS_TRANSITION_EFFECT_DIVERGED');
   }

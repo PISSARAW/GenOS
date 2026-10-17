@@ -1,19 +1,17 @@
 'use strict';
-
 const { generateAdaptiveTopologyCandidates } = require('./adaptiveTopologyCandidates');
 const { rankAdaptiveTopologies } = require('./adaptiveTopologyRanking');
 const { buildAdaptiveWorkerRoster } = require('./adaptiveWorkerRoster');
 const selectorCalibration = require('./morphogenesisSelectorCalibration');
 const communicationReduction = require('./communicationReductionIntervention');
+const rosterReduction = require('./rosterReductionIntervention');
 const resourceReallocation = require('./resourceReallocationCandidate');
 const variantUseCases = require('./registry/variantUseCaseSelector');
-
 const MAX_EPOCHS = 12;
 const SIGNALS = Object.freeze(['uncertainty', 'causalAmbiguity', 'contradiction',
   'provenanceRisk', 'deterministicNeed', 'adversarialRisk', 'monitoringNeed', 'stagnation']);
 const REPRESENTATIONS = Object.freeze(['task_graph', 'hypothesis_set', 'causal_graph',
   'provenance_graph', 'constraint_graph']);
-
 function unit(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
@@ -22,7 +20,6 @@ function unit(value) {
 function normalizedSignals(value = {}) {
   return Object.fromEntries(SIGNALS.map(key => [key, unit(value[key])]));
 }
-
 function representationFor(signals) {
   const ranked = [
     ['provenance_graph', signals.provenanceRisk],
@@ -46,7 +43,6 @@ function phasesFor(signals) {
   ];
   return phases.map(phase => ({ ...phase, requested: signals[phase.signal] >= 0.35 }));
 }
-
 function proofObligations(signals, representation) {
   const obligations = [{ id: 'resolution', required: true,
     proof: 'reçu indépendant lié au périmètre et à la version du résultat' }];
@@ -70,9 +66,12 @@ function buildRecipePortfolio(input, signals) {
   const communicationCandidate = communicationCandidateFor(communication, calibration);
   const reallocation = resourceReallocation.describeResourceReallocation(input.resourceAllocationPlan);
   const reallocationCandidate = resourceCandidateFor(reallocation, calibration);
+  const roster = rosterReduction.describeAvailability(input.rosterReductionPlan);
+  const rosterCandidate = rosterCandidateFor(roster, calibration);
   const candidates = [...topologyCandidates,
     ...(communication.status === 'available' ? [communicationCandidate] : []),
-    ...(reallocation.status === 'available' ? [reallocationCandidate] : [])];
+    ...(reallocation.status === 'available' ? [reallocationCandidate] : []),
+    ...(roster.status === 'available' ? [rosterCandidate] : [])];
   const ranking = rankPortfolio(topologyCandidates, input, signals);
   const availableScales = replaceableCandidates(generated.candidates);
   if (communication.status === 'available') availableScales.push({
@@ -81,12 +80,15 @@ function buildRecipePortfolio(input, signals) {
   if (reallocation.status === 'available') availableScales.push({
     candidateId: reallocation.candidateId, scale: reallocation.scale
   });
+  if (roster.status === 'available') availableScales.push({
+    candidateId: roster.candidateId, scale: roster.scale
+  });
   const scaleDecision = selectorCalibration.selectScale(calibration, availableScales);
-  const selected = selectedCandidate({ ranking, scaleDecision, communicationCandidate, reallocationCandidate });
+  const selected = selectedCandidate({ ranking, scaleDecision, communicationCandidate,
+    reallocationCandidate, rosterCandidate });
   return { generation: generated.stats, candidates, ranking, calibration, communication,
-    reallocation, scaleDecision, selected: selectionSummary(selected, input, scaleDecision) };
+    reallocation, roster, scaleDecision, selected: selectionSummary(selected, input, scaleDecision) };
 }
-
 function communicationCandidateFor(availability, calibration) {
   const estimate = calibration.scales.COMMUNICATION_REDUCTION.candidates[availability.candidateId] || { status: 'unavailable' };
   return { id: availability.candidateId, candidateId: availability.candidateId,
@@ -94,7 +96,6 @@ function communicationCandidateFor(availability, calibration) {
     admissibility: 'available', runtimeAvailability: availability,
     ...candidateCalibrationAttributes(false, estimate), interventionScale: 'COMMUNICATION_REDUCTION' };
 }
-
 function resourceCandidateFor(availability, calibration) {
   const estimate = calibration.scales.RESOURCE_REALLOCATION.candidates[availability.candidateId] || { status: 'unavailable' };
   return { id: availability.candidateId, candidateId: availability.candidateId,
@@ -103,12 +104,24 @@ function resourceCandidateFor(availability, calibration) {
     ...candidateCalibrationAttributes(false, estimate, 'RESOURCE_REALLOCATION') };
 }
 
+function rosterCandidateFor(availability, calibration) {
+  const estimate = calibration.scales.ROSTER_REDUCTION.candidates[availability.candidateId]
+    || { status: 'unavailable' };
+  return { id: availability.candidateId, candidateId: availability.candidateId,
+    kind: 'ROSTER_REDUCTION', topology: null, variant: null,
+    admissibility: 'available', runtimeAvailability: availability,
+    ...candidateCalibrationAttributes(false, estimate, 'ROSTER_REDUCTION') };
+}
+
 function selectedCandidate(context) {
-  const { ranking, scaleDecision, communicationCandidate, reallocationCandidate } = context;
+  const { ranking, scaleDecision, communicationCandidate, reallocationCandidate,
+    rosterCandidate } = context;
   if (scaleDecision.scale === 'COMMUNICATION_REDUCTION'
     && scaleDecision.candidateId === communicationCandidate?.candidateId) return communicationCandidate;
   if (scaleDecision.scale === 'RESOURCE_REALLOCATION'
     && scaleDecision.candidateId === reallocationCandidate?.candidateId) return reallocationCandidate;
+  if (scaleDecision.scale === 'ROSTER_REDUCTION'
+    && scaleDecision.candidateId === rosterCandidate?.candidateId) return rosterCandidate;
   return admittedSelection(ranking, scaleDecision);
 }
 
@@ -199,6 +212,9 @@ function selectionSummary(selected, input, scaleDecision) {
     ...(scaleDecision.scale === 'RESOURCE_REALLOCATION'
       ? { resourceAllocationIntervention: { candidateId: selected.candidateId,
         planDigest: selected.runtimeAvailability.planDigest, scale: scaleDecision.scale } } : {}),
+    ...(scaleDecision.scale === 'ROSTER_REDUCTION'
+      ? { rosterReductionIntervention: { candidateId: selected.candidateId,
+        planDigest: selected.runtimeAvailability.planDigest, scale: scaleDecision.scale } } : {}),
     executionEligible: false
   };
 }
@@ -245,7 +261,15 @@ function interventionScaleAvailability(scale, portfolio) {
   if (scale === 'NO_CHANGE') return { status: 'available' };
   if (scale === 'COMMUNICATION_REDUCTION') return communicationScaleAvailability(portfolio);
   if (scale === 'RESOURCE_REALLOCATION') return reallocationScaleAvailability(portfolio);
+  if (scale === 'ROSTER_REDUCTION') return rosterScaleAvailability(portfolio);
   return calibratedScaleAvailability(scale, portfolio);
+}
+
+function rosterScaleAvailability(portfolio) {
+  const candidate = portfolio.roster;
+  if (candidate.status !== 'available') return candidate;
+  const estimate = portfolio.calibration.scales.ROSTER_REDUCTION.candidates[candidate.candidateId];
+  return calibratedRuntimeEstimate(estimate, candidate);
 }
 
 function communicationScaleAvailability(portfolio) {
@@ -277,7 +301,6 @@ function calibratedScaleAvailability(scale, portfolio) {
 }
 
 function unavailableScaleReason(scale, estimate) {
-  if (scale === 'ROSTER_REDUCTION') return 'roster_reduction_action_not_implemented';
   if (scale === 'EARLY_STOP') return 'early_stop_is_verification_gate_not_a_continuation_scale';
   return estimate.reason || 'runtime_action_not_implemented';
 }
@@ -336,6 +359,7 @@ function buildPolicyPortfolio(portfolio) {
       ranking: portfolio.ranking, calibration: portfolio.calibration,
       communication: portfolio.communication,
       resourceReallocation: portfolio.reallocation,
+      rosterReduction: portfolio.roster,
       scaleDecision: portfolio.scaleDecision,
       interventionScales: interventionScaleMap(portfolio) };
 }

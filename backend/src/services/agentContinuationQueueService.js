@@ -6,6 +6,7 @@ const { extractEvidenceReport } = require('./agentEvidenceService');
 const { pendingContinuations } = require('./agentOrchestrationState');
 const durableContinuation = require('./durableContinuationService');
 const communicationReduction = require('./morphogenesis/communicationReductionIntervention');
+const rosterReduction = require('./morphogenesis/rosterReductionIntervention');
 
 function continuationTokens(continuation, index) {
   const scheduled = continuation.workerTokens;
@@ -68,7 +69,16 @@ function continuationMission(input) {
       code: 'MORPHOGENESIS_COMMUNICATION_INTERVENTION_UNAVAILABLE'
     });
   }
-  return { ...communication.mission, continuationId: id,
+  const rosterSelection = adaptation?.rosterIntervention
+    ? { ...adaptation.rosterIntervention, transitionId: adaptation.receipt?.transitionId } : null;
+  const roster = rosterReduction.applyRosterReduction(communication.mission,
+    rosterSelection, adaptation?.rosterPlan);
+  if (adaptation?.rosterIntervention?.status === 'selected' && !roster.applied) {
+    throw Object.assign(new Error(`Roster intervention could not be applied: ${roster.reason}.`), {
+      code: 'MORPHOGENESIS_ROSTER_INTERVENTION_UNAVAILABLE'
+    });
+  }
+  return { ...roster.mission, continuationId: id,
     prompt: continuationPrompt(prompt, morphology, adaptation),
     executionBudget: { ...previous.executionBudget, tokens,
       events: Math.max(1, budget.events - usage.events), costUsd: Math.max(0, budget.costUsd - usage.cost) },

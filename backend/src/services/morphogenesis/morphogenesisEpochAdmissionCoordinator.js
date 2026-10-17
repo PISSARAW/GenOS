@@ -5,6 +5,7 @@ const recruitment = require('./morphogenesisEpochRecruitment');
 async function validateFundedStrategy(context) {
   const { input, adaptation, funded, reservation, assertQuiescence } = context;
   if (adaptation.communicationIntervention) return validateCommunicationIntervention(context);
+  if (adaptation.rosterIntervention) return validateRosterIntervention(context);
   if (!adaptation.adapted && !adaptation.cohortBlueprint) {
     return { status: 'not_applicable', executionAuthorized: false,
       reason: 'no_morphogenesis_transition_or_cohort_replacement' };
@@ -18,6 +19,38 @@ async function validateFundedStrategy(context) {
     tokenBudget: funded.workerTokens[index]
   }));
   return runFundedAdmission({ input, adaptation, reservation, assignments, assertQuiescence });
+}
+
+async function validateRosterIntervention(context) {
+  const { input, adaptation, funded, reservation, assertQuiescence } = context;
+  const candidateId = adaptation.rosterIntervention.candidateId;
+  const calibrated = adaptation.decision?.policy?.portfolio?.calibration
+    ?.scales?.ROSTER_REDUCTION?.candidates?.[candidateId];
+  const recipe = adaptation.decision?.policy?.decision?.recipe;
+  if (adaptation.decision?.policy?.decision?.interventionScale !== 'ROSTER_REDUCTION'
+    || recipe?.candidateId !== candidateId || calibrated?.status !== 'calibrated') {
+    return { status: 'denied', reason: 'roster_action_not_calibrated_by_policy' };
+  }
+  const availability = require('./rosterReductionIntervention')
+    .describeAvailability(adaptation.rosterPlan);
+  const retained = [...(adaptation.rosterPlan?.retainedWorkerIds || [])].sort();
+  const fundedIds = funded.survivors.map((worker) => worker.agentId).sort();
+  if (availability.status !== 'available'
+    || JSON.stringify(retained) !== JSON.stringify(fundedIds)) {
+    return { status: 'denied', reason: 'roster_action_runtime_preconditions_changed' };
+  }
+  if (!fundedBudgetFits(funded, reservation)) {
+    return { status: 'denied', reason: 'roster_action_budget_mismatch' };
+  }
+  const quiescence = await assertQuiescence(input.state, input.orchestratorId);
+  return { status: 'admitted', executionAuthorized: true,
+    selectionBasis: 'calibrated_roster_policy', comparativeQuality: 'unknown',
+    unexecutedAlternatives: [], counterfactual: { sameMissionComparison: 'unobserved',
+      comparativeClaim: 'prohibited', unexecutedCount: 0, rankingAvailable: false,
+      reason: 'unexecuted_alternatives_have_no_observed_outcome_for_this_mission' },
+    recipe: { id: candidateId, scale: 'ROSTER_REDUCTION' }, actualPlan: null,
+    gates: { policyProposal: true, calibration: true, rosterPreconditions: true,
+      budget: true, quiescence: quiescence.confirmed } };
 }
 
 async function validateCommunicationIntervention(context) {

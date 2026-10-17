@@ -4,6 +4,7 @@ const { compileExpression } = require('./graph/morphologyCompiler');
 const expression = require('./expression/morphologyExpression');
 const { bindGraphMission } = require('./morphogenesisMissionBinding');
 const communicationPlanning = require('./communicationReductionPlanning');
+const rosterPlanning = require('./rosterReductionPlanning');
 const { proposedRecipe, recipeProfile, recipePlanMismatch } = require('./missionMorphogenesisRecipeBinding');
 const MAX_REPLACEMENT_WORKERS = 12;
 const MAX_CALIBRATION_OUTCOMES = require('./morphogenesisVerifiedOutcomeStore').MAX_OUTCOMES;
@@ -328,8 +329,11 @@ function earlyDecision(context) {
     return { adapted: false, reason: 'adaptation_not_required', signals, decision };
   }
   if (selectorAbstained(decision)) return { adapted: false, reason: 'selector_no_change', signals, decision };
-  return communicationPlanning.selected(decision)
-    ? communicationPlanning.plan(input, decision, communicationMetric) : null;
+  if (communicationPlanning.selected(decision)) {
+    return communicationPlanning.plan(input, decision, communicationMetric);
+  }
+  return rosterPlanning.selected(decision)
+    ? rosterPlanning.plan(decision, decision.rosterPlan) : null;
 }
 
 async function planContinuation(input, dependencies = {}) {
