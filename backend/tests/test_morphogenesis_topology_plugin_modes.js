@@ -21,7 +21,27 @@ async function run() {
   for (const [topology, input] of Object.entries(localInputs)) {
     const output = await plugins.get(topology).run({}, { input: { ...input, mission: `mode-${topology}` } });
     assert.equal(output.executionMode, 'simulated_controller', `${topology} must expose its local mode`);
+    if (['trinity', 'a_team'].includes(topology)) {
+      assert.equal(output.executionProof.simulationOnly, true, `${topology} simulation must be explicitly non-promotable`);
+      assert.equal(output.executionProof.promotionEligible, false, `${topology} simulation must not be promotion eligible`);
+    }
   }
+
+  await assert.rejects(
+    () => plugins.get('trinity').run({}, { input: {
+      mission: 'production-trinity-without-worker',
+      executionPolicy: { requireValidatedWorkers: true }
+    } }),
+    (error) => error.code === 'TOPOLOGY_VALIDATED_WORKER_REQUIRED'
+      && /validated workers/.test(error.message)
+  );
+  await assert.rejects(
+    () => plugins.get('a_team').run({}, { input: {
+      mission: 'production-a-team-without-worker', environment: 'production'
+    } }),
+    (error) => error.code === 'TOPOLOGY_VALIDATED_WORKER_REQUIRED'
+      && /validated workers/.test(error.message)
+  );
 
   const worker = (id, role, chamber = null) => ({ id, role, chamber, artifactType: 'report', evidenceReport: { outcome: 'success', role, chamber,
     workerArtifact: { type: 'report', content: `${id}-artifact`, provenance: { sourceRefs: [`evidence:${id}`] } } } });
@@ -31,6 +51,8 @@ async function run() {
     input: { mission: 'worker-backed-trinity', workerResults: trinityWorkers }
   });
   assert.equal(trinityBacked.executionMode, 'worker_backed_controller');
+  assert.equal(trinityBacked.executionProof.simulationOnly, false);
+  assert.equal(trinityBacked.executionProof.promotionEligible, true);
   assert.equal(trinityBacked.executionProof.workerCount, 3);
   assert.deepEqual(trinityBacked.executionProof.evidenceRefs.sort(),
     ['evidence:world-1', 'evidence:world-2', 'evidence:world-3']);

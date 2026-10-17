@@ -57,6 +57,19 @@ opérateurs jusqu'aux feuilles (pass-through quand le parent n'a pas produit
 de sortie) ; à l'intérieur de `SEQUENCE`/`NEST`, une feuille reçoit la
 sortie de l'étape/hôte précédent, pas l'input mission.
 
+### Workers Trinity et A-Team
+
+Les contrôleurs Trinity et A-Team peuvent produire un aperçu local pour les
+tests, mais ce résultat est explicitement `simulated_controller`, marqué
+`simulationOnly: true` et `promotionEligible: false`. Il ne peut donc pas
+alimenter une promotion ou une revendication vérifiée. Une mission qui doit
+exécuter ces topologies en production doit fournir des workers avec reçu de
+succès, artefact typé et références de provenance, puis activer
+`executionPolicy.requireValidatedWorkers: true` (ou `environment: "production"`).
+Sans ce contrat, le runtime refuse en fermé avec
+`TOPOLOGY_VALIDATED_WORKER_REQUIRED`; un tableau de workers non validé ne
+change jamais le mode en `worker_backed_controller`.
+
 Le [contrat Holobionte](runtime-holobionte.md) détaille les preuves liées aux résultats, les budgets cumulés, les refus et le cycle de vie. La composition seule reste `COMPOSED`.
 
 ## 4. Exigence SQLite

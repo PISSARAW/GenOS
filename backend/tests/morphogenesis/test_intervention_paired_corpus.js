@@ -222,6 +222,29 @@ function testDeficitReporting() {
   assert.deepEqual(partial.scales.COMMUNICATION_REDUCTION.candidates, {});
 }
 
+function testComparativeCoverageDoesNotImplyUniversality() {
+  const limited = calibration.coverageSummary([{
+    scale: 'COMMUNICATION_REDUCTION', candidateId: intervention.CANDIDATE_ID,
+    rows: [{ taskId: 'task-1', taskFamily: 'family-a', modelId: 'model-a' }]
+  }]);
+  assert.equal(limited.status, 'limited_observed_domain');
+  assert.equal(limited.externalValidity, 'unproven');
+  assert.equal(limited.claim, 'no_universal_superiority_claim');
+  const crossDomain = calibration.coverageSummary([{
+    scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a',
+    rows: [{ taskId: 'task-1', taskFamily: 'family-a', modelId: 'model-a' },
+      { taskId: 'task-2', taskFamily: 'family-b', modelId: 'model-b' }]
+  }, {
+    scale: 'RESOURCE_REALLOCATION', candidateId: 'candidate-b',
+    rows: [{ taskId: 'task-1', taskFamily: 'family-a', modelId: 'model-a' },
+      { taskId: 'task-2', taskFamily: 'family-b', modelId: 'model-b' }]
+  }]);
+  assert.equal(crossDomain.status, 'cross_family_model_observed');
+  assert.equal(crossDomain.externalValidity, 'unproven');
+  assert.equal(crossDomain.crossFamily, true);
+  assert.equal(crossDomain.crossModel, true);
+}
+
 function testInterventionProducerValidation() {
   const pair = commPair(0);
   const commBuilt = paired.buildRow(pair);
@@ -268,6 +291,7 @@ async function testPairedCorpusCalibratesAndPersists() {
 
 async function main() {
   testDeficitReporting();
+  testComparativeCoverageDoesNotImplyUniversality();
   testInterventionProducerValidation();
   testNegativeHoldoutRefusesCalibration();
   await testPairedCorpusCalibratesAndPersists();

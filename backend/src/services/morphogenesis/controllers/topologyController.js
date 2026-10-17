@@ -14,6 +14,7 @@ class TopologyController {
   }
 
   async start(input = {}) {
+    assertValidatedWorkerPolicy(this.node.topology, input);
     this.state = 'running';
     this.startedAt = new Date().toISOString();
     try {
@@ -97,15 +98,20 @@ class TopologyController {
 }
 
 function executionModeFor(input = {}) {
-  return Array.isArray(input.workerResults) && input.workerResults.length > 0
+  return validatedWorkerResults(input).length > 0
     ? 'worker_backed_controller' : 'simulated_controller';
 }
 
 function executionProofFor(input = {}) {
-  const workerResults = Array.isArray(input.workerResults) ? input.workerResults : [];
-  if (!workerResults.length) return { kind: 'local_simulation', workerCount: 0 };
+  const workerResults = validatedWorkerResults(input);
+  if (!workerResults.length) {
+    return { kind: 'local_simulation', workerCount: 0, simulationOnly: true,
+      promotionEligible: false, reason: 'validated_workers_unavailable' };
+  }
   return {
     kind: 'validated_worker_receipts',
+    simulationOnly: false,
+    promotionEligible: true,
     workerCount: workerResults.length,
     workerIds: workerResults.map((result) => result.workerId).filter(Boolean),
     evidenceRefs: [...new Set(workerResults.flatMap((result) => {
@@ -116,4 +122,38 @@ function executionProofFor(input = {}) {
   };
 }
 
-module.exports = { TopologyController, executionModeFor, executionProofFor };
+function validatedWorkerResults(input = {}) {
+  return (Array.isArray(input.workerResults) ? input.workerResults : [])
+    .filter(isValidatedWorkerResult);
+}
+
+function isValidatedWorkerResult(result) {
+  const report = result?.evidenceReport || result?.report;
+  const artifact = report?.workerArtifact;
+  const refs = artifact?.provenance?.evidenceRefs || artifact?.provenance?.sourceRefs;
+  return report?.outcome === 'success' && typeof artifact?.type === 'string'
+    && artifact.content !== undefined && artifact.content !== null
+    && Array.isArray(refs) && refs.length > 0
+    && refs.every((ref) => typeof ref === 'string' && ref.trim());
+}
+
+function assertValidatedWorkerPolicy(topology, input = {}) {
+  if (!['trinity', 'a_team'].includes(topology) || !requiresValidatedWorkers(input)) return;
+  if (validatedWorkerResults(input).length > 0) return;
+  const error = new Error(`${topology} requires validated workers for production execution.`);
+  error.code = 'TOPOLOGY_VALIDATED_WORKER_REQUIRED';
+  throw error;
+}
+
+function requiresValidatedWorkers(input = {}) {
+  const policy = input.executionPolicy || {};
+  return policy.requireValidatedWorkers === true
+    || policy.environment === 'production'
+    || input.environment === 'production'
+    || input.executionMode === 'production';
+}
+
+module.exports = {
+  TopologyController, executionModeFor, executionProofFor, validatedWorkerResults,
+  assertValidatedWorkerPolicy
+};

@@ -8,6 +8,8 @@ const pairedEvidence = require('./morphogenesisPairedOutcomeEvidence');
 
 const MIN_TRAIN = 30;
 const MIN_VALIDATION = 10;
+const MIN_COVERAGE_FAMILIES = 2;
+const MIN_COVERAGE_MODELS = 2;
 const SCALE = Object.freeze(['COMMUNICATION_REDUCTION', 'RESOURCE_REALLOCATION', 'ROSTER_REDUCTION',
   'EARLY_STOP', 'COHORT_REPLACEMENT']);
 
@@ -121,6 +123,25 @@ function candidateEntries(rows, calibration) {
       rows: validationRows(rows, scale, candidateId) })));
 }
 
+function coverageSummary(entries) {
+  const candidates = entries.map(entry => {
+    const taskFamilies = [...new Set(entry.rows.map(row => row.taskFamily).filter(Boolean))];
+    const modelIds = [...new Set(entry.rows.map(row => row.modelId).filter(Boolean))];
+    return { scale: entry.scale, candidateId: entry.candidateId,
+      validationTasks: new Set(entry.rows.map(row => row.taskId)).size,
+      taskFamilies, modelIds,
+      crossFamily: taskFamilies.length >= MIN_COVERAGE_FAMILIES,
+      crossModel: modelIds.length >= MIN_COVERAGE_MODELS };
+  });
+  const crossFamily = candidates.length > 0 && candidates.every(item => item.crossFamily);
+  const crossModel = candidates.length > 0 && candidates.every(item => item.crossModel);
+  return { status: crossFamily && crossModel ? 'cross_family_model_observed' : 'limited_observed_domain',
+    externalValidity: 'unproven',
+    claim: 'no_universal_superiority_claim',
+    requirements: { taskFamilies: MIN_COVERAGE_FAMILIES, modelIds: MIN_COVERAGE_MODELS },
+    candidates, crossFamily, crossModel };
+}
+
 function comparativePair(left, right) {
   const rightByTask = new Map(right.rows.map(row => [row.taskId, row]));
   const differences = left.rows.flatMap(row => {
@@ -142,8 +163,9 @@ function comparativePair(left, right) {
 
 function compareGlobalSuperiority(rows, calibration) {
   const entries = candidateEntries(rows, calibration);
+  const coverage = coverageSummary(entries);
   if (entries.length < 2) return { status: 'insufficient_baselines', candidateCount: entries.length,
-    reason: 'at_least_two_calibrated_candidates_required', pairwise: [] };
+    reason: 'at_least_two_calibrated_candidates_required', pairwise: [], coverage };
   const pairwise = [];
   for (let index = 0; index < entries.length; index += 1) {
     for (let next = index + 1; next < entries.length; next += 1) {
@@ -156,14 +178,15 @@ function compareGlobalSuperiority(rows, calibration) {
   }
   if (pairwise.some(item => item.comparison.status !== 'measured')) {
     return { status: 'insufficient_paired_holdout', candidateCount: entries.length, pairwise,
-      reason: 'all_candidates_need_common_validation_tasks' };
+      reason: 'all_candidates_need_common_validation_tasks', coverage };
   }
   const winners = entries.filter(candidate => entries.filter(item => item !== candidate)
     .every(other => comparativePair(candidate, other).lowerBound > 0));
   if (winners.length !== 1) return { status: 'inconclusive', candidateCount: entries.length,
-    pairwise, reason: 'no_unique_candidate_clears_all_pairwise_lower_bounds' };
+    pairwise, reason: 'no_unique_candidate_clears_all_pairwise_lower_bounds', coverage };
   return { status: 'qualified', candidateCount: entries.length, pairwise,
     winner: { scale: winners[0].scale, candidateId: winners[0].candidateId },
+    coverage,
     claim: 'global_superiority_supported_only_for_the_observed_common_holdout' };
 }
 
@@ -249,4 +272,4 @@ function describeCorpusDeficit(samples) {
 }
 
 module.exports = { SCALE, compileCalibration, selectScale, digest, verifiedRow, describeCorpusDeficit,
-  compareGlobalSuperiority };
+  compareGlobalSuperiority, coverageSummary };
