@@ -45,7 +45,9 @@ yarn-error.log
 # ---------------------------------------------------------------------------
 target/
 **/target/
-deploy/
+deploy/*
+!deploy/kubernetes/
+!deploy/kubernetes/**
 build/
 build-iso*/
 build-isolated/

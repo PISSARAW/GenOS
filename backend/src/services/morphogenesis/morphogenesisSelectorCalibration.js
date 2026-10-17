@@ -5,6 +5,7 @@ const evidenceAudit = require('../trinityEvidenceAudit');
 const receiptService = require('../epistemicVerifierReceiptService');
 const verifierTrust = require('../verifierTrustRegistry');
 const pairedEvidence = require('./morphogenesisPairedOutcomeEvidence');
+const universalProof = require('./morphogenesisUniversalProof');
 
 const MIN_TRAIN = 30;
 const MIN_VALIDATION = 10;
@@ -132,13 +133,14 @@ function coverageSummary(entries) {
   const candidates = entries.map(coverageCandidate);
   const aggregate = aggregateCoverage(candidates);
   const gate = generalizationGate(aggregate);
+  const proof = universalProof.evaluate(aggregate, candidates);
   return { status: aggregate.crossFamily && aggregate.crossModel
       ? 'cross_family_model_observed' : 'limited_observed_domain',
     externalValidity: 'unproven',
     claim: 'no_universal_superiority_claim',
     requirements: { taskFamilies: MIN_COVERAGE_FAMILIES, modelIds: MIN_COVERAGE_MODELS,
       externalDomains: MIN_EXTERNAL_DOMAINS, domainValidationRows: MIN_DOMAIN_VALIDATION_ROWS },
-    candidates, ...aggregate,
+    candidates, ...aggregate, universalProof: proof,
     generalizationGate: { status: gate.ready ? 'observed_only' : 'blocked', reasons: gate.reasons,
       note: 'multi-domain coverage improves external validity but cannot prove universal superiority' } };
 }

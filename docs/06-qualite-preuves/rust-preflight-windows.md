@@ -24,6 +24,21 @@ choisit `winget` puis `Chocolatey` et affiche le gestionnaire utilisé. Sans ces
 deux options, il ne télécharge rien et retourne un code d'absence. Le choix peut
 être imposé avec `-PackageManager winget` ou `-PackageManager choco`.
 
+Après une installation, le script recharge le PATH machine et utilisateur dans
+le processus PowerShell, puis vérifie directement les emplacements usuels de
+`nasm.exe` (NASM, Chocolatey et les programmes locaux). Cela rend NASM utilisable
+dans le terminal courant sans supposer qu'un nouveau terminal a déjà été ouvert.
+Pour inscrire explicitement le dossier détecté dans le PATH utilisateur, utiliser
+la confirmation séparée :
+
+```powershell
+.\scripts\ci\install-nasm.ps1 -Install -Yes -PersistPath
+```
+
+`-PersistPath` modifie le PATH utilisateur uniquement lorsqu'il est fourni avec
+`-Yes`; aucune modification persistante n'est faite par défaut. Si NASM est déjà
+installé, la même option peut être utilisée avec `-Yes` pour réparer le PATH.
+
 ```powershell
 ./scripts/ci/rust-test.ps1 --workspace
 ```

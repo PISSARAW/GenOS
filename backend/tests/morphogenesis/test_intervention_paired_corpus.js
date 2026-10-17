@@ -230,6 +230,10 @@ function testComparativeCoverageDoesNotImplyUniversality() {
   assert.equal(limited.status, 'limited_observed_domain');
   assert.equal(limited.externalValidity, 'unproven');
   assert.equal(limited.claim, 'no_universal_superiority_claim');
+  assert.equal(limited.universalProof.status, 'not_proven');
+  assert.equal(limited.universalProof.claim, 'not_proven');
+  assert.ok(limited.universalProof.reasons.includes(
+    'finite_observed_corpus_cannot_establish_universal_superiority'));
   const crossDomain = calibration.coverageSummary([{
     scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a',
     rows: [{ taskId: 'task-1', taskFamily: 'family-a', modelId: 'model-a' },
@@ -244,6 +248,8 @@ function testComparativeCoverageDoesNotImplyUniversality() {
   assert.equal(crossDomain.crossFamily, true);
   assert.equal(crossDomain.crossModel, true);
   assert.equal(crossDomain.generalizationGate.status, 'blocked');
+  assert.equal(crossDomain.universalProof.protocolVersion, 'morphogenesis-universal-v1');
+  assert.equal(crossDomain.universalProof.observedGate, 'blocked');
   assert.ok(crossDomain.generalizationGate.reasons.includes(
     'each_domain_needs_two_independent_replicates_and_verifiers'));
 }
@@ -264,6 +270,11 @@ function testExternalValidityGateRequiresExplicitBalancedDomains() {
   assert.equal(coverage.externalDomainCoverage, true);
   assert.equal(coverage.balancedExternalDomains, true);
   assert.equal(coverage.independentReplicationCoverage, true);
+  assert.equal(coverage.universalProof.status, 'not_proven');
+  assert.equal(coverage.universalProof.observedGate, 'observed_only');
+  assert.equal(coverage.universalProof.scope.externalDomains, 3);
+  assert.ok(coverage.universalProof.reasons.includes(
+    'finite_observed_corpus_cannot_establish_universal_superiority'));
 
   const noReplication = calibration.coverageSummary([{
     scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a',

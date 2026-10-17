@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: genos-morphogenesis-parity
+  labels:
+    genos.io/contract: genos-morphogenesis-parity-v1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: genos-morphogenesis
+  namespace: genos-morphogenesis-parity
+  labels:
+    genos.io/contract: genos-morphogenesis-parity-v1
+spec:
+  clusterIP: None
+  selector:
+    app: genos-morphogenesis
+  ports:
+    - name: http
+      port: 4000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: genos-morphogenesis
+  namespace: genos-morphogenesis-parity
+  labels:
+    genos.io/contract: genos-morphogenesis-parity-v1
+spec:
+  serviceName: genos-morphogenesis
+  replicas: 3
+  selector:
+    matchLabels:
+      app: genos-morphogenesis
+  template:
+    metadata:
+      labels:
+        app: genos-morphogenesis
+        genos.io/contract: genos-morphogenesis-parity-v1
+    spec:
+      containers:
+        - name: backend
+          image: genos/backend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 4000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "4000"
+            - name: GENOS_DB_PATH
+              value: /data/genos.db
+            - name: GENOS_MORPHOGENESIS_PARITY_CONTRACT
+              value: genos-morphogenesis-parity-v1
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi

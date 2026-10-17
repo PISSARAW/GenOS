@@ -8,10 +8,15 @@ WORKFLOW = (ROOT / '.github' / 'workflows' / 'validation.yml').read_text(encodin
 
 assert "[switch] $Install" in SCRIPT
 assert "[switch] $Yes" in SCRIPT
+assert "[switch] $PersistPath" in SCRIPT
 assert 'winget.exe install --id NASM.NASM' in SCRIPT
 assert 'choco.exe install nasm' in SCRIPT
 assert 'if (-not $Install)' in SCRIPT
 assert 'if (-not $Yes)' in SCRIPT
+assert 'Refresh-ProcessPath' in SCRIPT
+assert 'Get-NasmCandidates' in SCRIPT
+assert "SetEnvironmentVariable('Path', $updated, 'User')" in SCRIPT
+assert 'PersistPath -and $Yes' in SCRIPT
 assert '-Install -Yes' in DOC
 assert 'install-nasm.ps1 -Install -Yes' in WORKFLOW
 
