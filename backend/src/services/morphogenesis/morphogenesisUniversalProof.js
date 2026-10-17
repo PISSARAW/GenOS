@@ -2,6 +2,8 @@
 
 const manifest = require('../../../../spec/morphogenesis-universal-proof-v1.json');
 const REASONS = Object.freeze({
+  crossFamily: 'insufficient_task_families',
+  crossModel: 'insufficient_model_ids',
   explicitDomainMetadata: 'missing_external_domain_metadata',
   externalDomainCoverage: 'insufficient_external_domains',
   balancedExternalDomains: 'insufficient_validation_per_domain',
@@ -31,7 +33,8 @@ function reasonFor(field, aggregate) {
 }
 
 function observedGate(aggregate) {
-  const fields = ['explicitDomainMetadata', 'externalDomainCoverage', 'balancedExternalDomains',
+  const fields = ['crossFamily', 'crossModel', 'explicitDomainMetadata', 'externalDomainCoverage',
+    'balancedExternalDomains',
     'independentReplicationCoverage', 'candidateDomainParity'];
   return fields.map(field => reasonFor(field, aggregate)).filter(Boolean);
 }

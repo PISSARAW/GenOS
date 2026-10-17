@@ -10,7 +10,8 @@ const { spawnSync } = require('node:child_process');
 const ROOT = path.resolve(__dirname, '..', '..');
 const MANIFEST = path.join(ROOT, 'deploy', 'kubernetes', 'morphogenesis-parity.yaml');
 const CONTRACT = 'genos-morphogenesis-parity-v1';
-const REQUIRED_RECEIPT = ['target', 'runId', 'contract', 'healthChecks', 'parityDigest', 'restartObserved'];
+const RECEIPT_SCHEMA = 'genos-morphogenesis-external-receipt-v1';
+const REQUIRED_RECEIPT = ['schemaVersion', 'target', 'runId', 'contract', 'context', 'namespace', 'imageDigest', 'podIdentities', 'healthChecks', 'parityDigest', 'restartObserved', 'evidenceRefs'];
 
 function commandAvailable(command) {
   const probe = process.platform === 'win32' ? 'where.exe' : 'which';
@@ -24,13 +25,52 @@ function readReceipt(filename) {
   return JSON.parse(contents);
 }
 
+function requiredFields(receipt) {
+  return REQUIRED_RECEIPT.filter((field) => receipt?.[field] === undefined);
+}
+
+function healthChecksValid(checks) {
+  if (!Array.isArray(checks)) return false;
+  return ['/readyz', '/healthz'].every((pathName) => checks.some((check) => check?.path === pathName && check.status === 200 && check.observedAt));
+}
+
+function podIdentitiesValid(podIdentities) {
+  if (!Array.isArray(podIdentities) || podIdentities.length < 3) return false;
+  const uniquePods = new Set(podIdentities.map((pod) => pod?.uid));
+  return uniquePods.size === podIdentities.length && podIdentities.every((pod) => pod?.name && pod?.uid && pod.ready === true);
+}
+
+function restartEvidenceValid(restartObserved, parityDigest) {
+  return restartObserved && restartObserved.beforePodUid && restartObserved.afterPodUid
+    && restartObserved.beforePodUid !== restartObserved.afterPodUid && restartObserved.recoveredDigest === parityDigest;
+}
+
+function digestsValid(imageDigest, parityDigest) {
+  return /^sha256:[0-9a-f]{64}$/i.test(imageDigest) && /^[0-9a-f]{64}$/i.test(parityDigest);
+}
+
+function receiptMetadataValid(receipt) {
+  return receipt.schemaVersion === RECEIPT_SCHEMA && ['kubernetes', 'cloud'].includes(receipt.target)
+    && receipt.contract === CONTRACT && receipt.context && receipt.namespace;
+}
+
+function receiptEvidenceValid(receipt) {
+  return podIdentitiesValid(receipt.podIdentities) && healthChecksValid(receipt.healthChecks)
+    && digestsValid(receipt.imageDigest, receipt.parityDigest)
+    && restartEvidenceValid(receipt.restartObserved, receipt.parityDigest)
+    && Array.isArray(receipt.evidenceRefs) && receipt.evidenceRefs.length > 0;
+}
+
+function receiptClaimsValid(receipt) {
+  return receiptMetadataValid(receipt) && receiptEvidenceValid(receipt);
+}
+
 function validateReceipt(receipt) {
   if (!receipt) return { valid: false, missing: ['operator receipt'] };
-  const missing = REQUIRED_RECEIPT.filter((field) => receipt?.[field] === undefined);
+  const missing = requiredFields(receipt);
   if (missing.length) return { valid: false, missing };
-  const healthy = receipt.healthChecks === true || (Array.isArray(receipt.healthChecks) && receipt.healthChecks.length > 0);
-  const valid = receipt.contract === CONTRACT && typeof receipt.parityDigest === 'string' && receipt.parityDigest.length === 64 && healthy && receipt.restartObserved === true;
-  return { valid, missing: valid ? [] : ['contract, healthChecks, parityDigest or restartObserved'] };
+  const valid = receiptClaimsValid(receipt);
+  return { valid, missing: valid ? [] : ['schema, target, context, pod identities, healthchecks, digests, restart evidence or evidence references'] };
 }
 
 function report() {
@@ -68,4 +108,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CONTRACT, MANIFEST, commandAvailable, validateReceipt, report };
+module.exports = { CONTRACT, MANIFEST, RECEIPT_SCHEMA, commandAvailable, validateReceipt, report };

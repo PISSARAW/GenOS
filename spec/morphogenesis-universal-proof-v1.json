@@ -23,6 +23,8 @@
   },
   "rejectionReasons": [
     "finite_observed_corpus_cannot_establish_universal_superiority",
+    "insufficient_task_families",
+    "insufficient_model_ids",
     "missing_external_domain_metadata",
     "insufficient_external_domains",
     "insufficient_validation_per_domain",

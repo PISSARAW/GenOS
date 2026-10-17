@@ -17,6 +17,8 @@ function Get-NasmCandidates {
   if ($env:ProgramFiles) { [void] $directories.Add((Join-Path $env:ProgramFiles 'NASM')) }
   if (${env:ProgramFiles(x86)}) { [void] $directories.Add((Join-Path ${env:ProgramFiles(x86)} 'NASM')) }
   if ($env:LOCALAPPDATA) { [void] $directories.Add((Join-Path $env:LOCALAPPDATA 'Programs\NASM')) }
+  if ($env:LOCALAPPDATA) { [void] $directories.Add((Join-Path $env:LOCALAPPDATA 'bin\NASM')) }
+  if ($env:USERPROFILE) { [void] $directories.Add((Join-Path $env:USERPROFILE 'AppData\Local\bin\NASM')) }
   if ($env:ChocolateyInstall) { [void] $directories.Add((Join-Path $env:ChocolateyInstall 'bin')) }
   [void] $directories.Add('C:\ProgramData\chocolatey\bin')
   foreach ($directory in $directories) {
@@ -37,6 +39,13 @@ function Refresh-ProcessPath {
   $env:Path = $segments -join ';'
 }
 
+function Add-ProcessPath([string] $directory) {
+  $segments = @($env:Path -split ';' | Where-Object { $_ -and $_.Trim() })
+  if (-not ($segments | Where-Object { $_ -ieq $directory })) {
+    $env:Path = "$directory;$env:Path"
+  }
+}
+
 function Add-UserPath([string] $directory) {
   $current = [Environment]::GetEnvironmentVariable('Path', 'User')
   $segments = @($current -split ';' | Where-Object { $_ -and $_.Trim() })
@@ -49,19 +58,28 @@ function Add-UserPath([string] $directory) {
 function Get-NasmReport {
   $path = Get-NasmCandidates | Select-Object -First 1
   if (-not $path) {
-    return [pscustomobject]@{ available = $false; path = $null; version = $null }
+    return [pscustomobject]@{ available = $false; path = $null; version = $null; processPathVisible = $false }
   }
 
   $versionOutput = (& $path -v 2>&1 | Out-String).Trim()
   if ($LASTEXITCODE -ne 0) {
-    return [pscustomobject]@{ available = $false; path = $path; version = $null }
+    return [pscustomobject]@{ available = $false; path = $path; version = $null; processPathVisible = $false }
   }
 
   [pscustomobject]@{
     available = $true
     path = $path
     version = $versionOutput
+    processPathVisible = $null -ne (Get-Command nasm.exe -ErrorAction SilentlyContinue)
   }
+}
+
+function Ensure-NasmVisible([object] $report) {
+  if ($report.available -and -not $report.processPathVisible) {
+    Add-ProcessPath (Split-Path -Parent $report.path)
+    return Get-NasmReport
+  }
+  return $report
 }
 
 function Select-PackageManager([string] $requested) {
@@ -86,8 +104,11 @@ function Install-Nasm([string] $manager) {
   if ($LASTEXITCODE -ne 0) { throw "L'installation de NASM via $manager a échoué (code $LASTEXITCODE)." }
 }
 
-$before = Get-NasmReport
+$before = Ensure-NasmVisible (Get-NasmReport)
 if ($before.available) {
+  if (-not $before.processPathVisible) {
+    throw "NASM est installé ($($before.path)) mais reste invisible dans le PATH du processus. Ajoutez explicitement son dossier au PATH ou utilisez -PersistPath -Yes."
+  }
   if ($PersistPath -and $Yes) {
     Add-UserPath (Split-Path -Parent $before.path)
     $before = Get-NasmReport
@@ -111,15 +132,9 @@ Write-Host "Installation explicite de NASM via $manager."
 Install-Nasm $manager
 
 Refresh-ProcessPath
-$after = Get-NasmReport
-if (-not $after.available) {
-  $candidate = Get-NasmCandidates | Select-Object -First 1
-  if ($candidate) {
-    $directory = Split-Path -Parent $candidate
-    $env:Path = "$directory;$env:Path"
-    if ($PersistPath) { Add-UserPath $directory }
-    $after = Get-NasmReport
-  }
+$after = Ensure-NasmVisible (Get-NasmReport)
+if ($after.available -and -not $after.processPathVisible) {
+  throw "NASM a été trouvé ($($after.path)) mais n'est pas visible dans le PATH du processus. Utilisez -PersistPath -Yes pour réparer explicitement le PATH utilisateur."
 }
 if (-not $after.available) {
   throw 'NASM reste introuvable après installation. Relancez PowerShell ou utilisez -PersistPath -Yes pour enregistrer explicitement le dossier détecté dans le PATH utilisateur.'

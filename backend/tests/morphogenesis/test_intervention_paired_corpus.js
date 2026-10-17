@@ -234,6 +234,8 @@ function testComparativeCoverageDoesNotImplyUniversality() {
   assert.equal(limited.universalProof.claim, 'not_proven');
   assert.ok(limited.universalProof.reasons.includes(
     'finite_observed_corpus_cannot_establish_universal_superiority'));
+  assert.ok(limited.universalProof.reasons.includes('insufficient_task_families'));
+  assert.ok(limited.universalProof.reasons.includes('insufficient_model_ids'));
   const crossDomain = calibration.coverageSummary([{
     scale: 'COMMUNICATION_REDUCTION', candidateId: 'candidate-a',
     rows: [{ taskId: 'task-1', taskFamily: 'family-a', modelId: 'model-a' },

@@ -107,7 +107,7 @@ async function run() {
     for (const scenario of SCENARIOS) await runScenario(databasePath, scenario);
     console.log(`Morphogenesis distributed topology parity (${SCENARIOS.length} scenarios): PASS`);
   } finally {
-    try { fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+    try { fs.rmSync(root, { recursive: true, force: true, maxRetries: 30, retryDelay: 200 }); }
     catch (error) { if (fs.existsSync(root)) throw error; }
   }
 }

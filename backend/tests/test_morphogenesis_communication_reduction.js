@@ -6,6 +6,9 @@ const trusted = require('../src/services/verifierTrustRegistry');
 const receipts = require('../src/services/epistemicVerifierReceiptService');
 const intervention = require('../src/services/morphogenesis/communicationReductionIntervention');
 const calibration = require('../src/services/morphogenesis/morphogenesisSelectorCalibration');
+const paired = require('../src/services/morphogenesis/morphogenesisPairedOutcomeProducer');
+const pairEvidence = require('../src/services/morphogenesis/morphogenesisPairedOutcomeEvidence');
+const transitions = require('../src/services/morphogenesis/morphogenesisTransitionReceipt');
 const { compileConditionalMorphogenesisPolicy } = require('../src/services/morphogenesis/conditionalMorphogenesisPolicy');
 const continuationPlanner = require('../src/services/morphogenesis/missionMorphogenesisContinuation');
 const queue = require('../src/services/agentContinuationQueueService');
@@ -28,18 +31,69 @@ function eligibleMission(missionId) {
     executionBudget: { tokens: 100 }, prompt: 'Continue the task.' };
 }
 
+function sign(resultId, evidenceDigest, options = {}) {
+  return receipts.issueReceipt({ resultId, status: 'verified', independent: true,
+    evidenceDigest, verifierDigest: trusted.getVerifier('testResult').digest,
+    checkedAt: options.checkedAt,
+    independenceDescriptor: { actorId: `oracle-${resultId}`, workspaceId: options.workspaceId } });
+}
+
+function transitionFor(index) {
+  const worker = { ...eligibleMission(`calibration-${index}`), workerKind: 'scout_cell',
+    morphologyTopology: 'a_team', morphologyVariant: 'default' };
+  const metricReceipt = { resultId: `metric-${index}`, evidenceDigest: `sha256:${'c'.repeat(64)}` };
+  const adaptation = { communicationIntervention: { candidateId: intervention.CANDIDATE_ID,
+      scale: 'COMMUNICATION_REDUCTION', status: 'selected' },
+    communicationMetric: { receipt: metricReceipt }, receipt: {
+      candidateId: intervention.CANDIDATE_ID,
+      communicationIntervention: { candidateId: intervention.CANDIDATE_ID, status: 'selected' },
+      communicationMetricReceipt: metricReceipt },
+    admission: { status: 'admitted', selectionBasis: 'calibrated_communication_policy',
+      recipe: { id: intervention.CANDIDATE_ID, scale: 'COMMUNICATION_REDUCTION' } } };
+  const receipt = transitions.sealTransitionReceipt({ state: { workers: new Map([[worker.agentId, worker]]) },
+    survivors: [{ agentId: worker.agentId }], continuation: { workerTokens: [25] }, adaptation });
+  const mission = { ...worker, toolLease: ['genos_search'],
+    coordinationPolicy: { communicationCadence: 'barrier_only' },
+    communicationIntervention: { candidateId: intervention.CANDIDATE_ID,
+      transitionId: receipt.transitionId, metricId: metricReceipt.resultId,
+      metricReceiptId: metricReceipt.resultId, status: 'applied_at_epoch_boundary' },
+    budgetRound: { transitionId: receipt.transitionId }, executionBudget: { tokens: 25 } };
+  transitions.finalizeTransitionQueue(receipt, [worker.agentId], [mission]);
+  return receipt;
+}
+
+function verifiedCalibrationRow(index) {
+  const training = index < 30;
+  const recordedAt = '2026-10-14T10:00:00.000Z';
+  const startedAt = '2026-10-15T10:00:00.000Z';
+  const shared = { taskId: `task-${index}`, seed: index,
+    taskFamily: training ? `train-family-${index}` : `holdout-family-${index}`,
+    modelId: training ? `train-model-${index}` : `holdout-model-${index}`,
+    startedAt, budgetTokens: 1000, latencyBudgetMs: 1000,
+    toolPolicyHash: 'none', completed: true };
+  const transitionReceipt = transitionFor(index);
+  const candidate = { ...shared, id: `candidate-${index}`, workspaceId: `candidate-ws-${index}`,
+    quality: 0.9, tokens: 350, latencyMs: 350,
+    transitionId: transitionReceipt.transitionId, workerResults: [] };
+  const control = { ...shared, id: `control-${index}`, workspaceId: `control-ws-${index}`,
+    quality: 0, tokens: 300, latencyMs: 300, transitionId: null, workerResults: [] };
+  candidate.oracleReceipt = sign(candidate.id, pairEvidence.sha(pairEvidence.observedAttempt(candidate)),
+    { workspaceId: `candidate-oracle-${index}` });
+  control.oracleReceipt = sign(control.id, pairEvidence.sha(pairEvidence.observedAttempt(control)),
+    { workspaceId: `control-oracle-${index}` });
+  const prediction = { id: `prediction-${index}`, candidateId: intervention.CANDIDATE_ID,
+    taskId: shared.taskId, seed: index, split: training ? 'train' : 'validation',
+    method: 'fixture_prior', recordedAt, predictedGain: 0.9, predictedCost: 0.05 };
+  prediction.receipt = sign(prediction.id, pairEvidence.sha(pairEvidence.observedPrediction(prediction)),
+    { checkedAt: recordedAt, workspaceId: `prediction-oracle-${index}` });
+  const row = paired.buildRow({ scale: 'COMMUNICATION_REDUCTION', candidate, control,
+    prediction, transitionReceipt });
+  row.receipt = sign(row.id, calibration.digest(row), { workspaceId: `final-oracle-${index}` });
+  return row;
+}
+
 function verifiedCalibrationRows() {
-  return Array.from({ length: 40 }, (_, index) => {
-    const row = { id: `sample-${index}`, scale: 'COMMUNICATION_REDUCTION',
-      taskFamily: index < 30 ? `train-family-${index}` : `holdout-family-${index}`,
-      modelId: index < 30 ? `train-model-${index}` : `holdout-model-${index}`,
-      split: index < 30 ? 'train' : 'validation', candidateId: intervention.CANDIDATE_ID,
-      predictedGain: 0.9, actualGain: 0.9, predictedCost: 0.05, actualCost: 0.05 };
-    row.receipt = receipts.issueReceipt({ resultId: row.id, status: 'verified', independent: true,
-      evidenceDigest: calibration.digest(row), verifierDigest: trusted.getVerifier('testResult').digest,
-      independenceDescriptor: { actorId: `oracle-${index}`, workspaceId: `isolated-${index}` } });
-    return row;
-  });
+  return Array.from({ length: 40 }, (_, index) => verifiedCalibrationRow(index));
 }
 
 async function verifySelectorCalibrationAndOptionalLoader() {

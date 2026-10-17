@@ -219,11 +219,13 @@ async function verifyUncalibratedGroupPlanPreservesDefaultFunding() {
   const workerIds = ['alpha-worker', 'beta-worker'];
   const originalPlanner = morphogenesisContinuation.planContinuation;
   const originalPersist = durableContinuation.persistContinuations;
+  const originalClaim = durableContinuation.claimContinuation;
   const originalMark = durableContinuation.markContinuation;
   const runtimeAdapter = require('../src/services/agentRuntimeAdapter');
   const originalStartMission = runtimeAdapter.startMission;
   const roundService = require('../src/services/agentRoundService');
   const persistedIds = [];
+  const dispatchedIds = [];
   morphogenesisContinuation.planContinuation = async (input) => ({ adapted: false,
     reason: 'adaptation_not_required', decision: { resources: arbitrateGroupNeeds({ budget: input.continuation.pool,
       groups: [
@@ -236,8 +238,9 @@ async function verifyUncalibratedGroupPlanPreservesDefaultFunding() {
     persistedIds.push(...continuations.map((item) => item.agentId));
     return continuations.map((item) => item.id);
   };
+  durableContinuation.claimContinuation = async () => true;
   durableContinuation.markContinuation = async () => {};
-  runtimeAdapter.startMission = async () => {};
+  runtimeAdapter.startMission = async (mission) => { dispatchedIds.push(mission.agentId); };
   workerIds.forEach((workerId) => activeProcesses.set(workerId, Promise.resolve()));
   const state = { plan: { tokenPolicy: { minimumWorkerTokens: 10,
       rounds: { initial: { pool: 100 }, continuation: { pool: 100, survivorCount: 2, perWorkerTokens: 10 } } },
@@ -265,10 +268,14 @@ async function verifyUncalibratedGroupPlanPreservesDefaultFunding() {
       'declared evidenceRefs without an exact calibrated/admitted candidate preserve default funding');
     assert.deepEqual(persistedIds.sort(), workerIds,
       'both continuations are durably queued when the selector abstains');
-    assert.equal(pendingContinuations.has('beta-worker'), true);
+    assert.deepEqual(dispatchedIds.sort(), workerIds,
+      'both durably claimed continuations are dispatched before the barrier settles');
+    assert.equal(pendingContinuations.has('beta-worker'), false,
+      'a dispatched continuation must not remain pending in memory');
   } finally {
     morphogenesisContinuation.planContinuation = originalPlanner;
     durableContinuation.persistContinuations = originalPersist;
+    durableContinuation.claimContinuation = originalClaim;
     durableContinuation.markContinuation = originalMark;
     runtimeAdapter.startMission = originalStartMission;
     autonomousRounds.delete(id);

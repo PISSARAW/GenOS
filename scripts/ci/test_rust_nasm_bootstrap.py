@@ -14,7 +14,12 @@ assert 'choco.exe install nasm' in SCRIPT
 assert 'if (-not $Install)' in SCRIPT
 assert 'if (-not $Yes)' in SCRIPT
 assert 'Refresh-ProcessPath' in SCRIPT
+assert 'Add-ProcessPath' in SCRIPT
+assert 'Ensure-NasmVisible' in SCRIPT
 assert 'Get-NasmCandidates' in SCRIPT
+assert 'processPathVisible' in SCRIPT
+assert "Join-Path $env:LOCALAPPDATA 'bin\\NASM'" in SCRIPT
+assert "Join-Path $env:USERPROFILE 'AppData\\Local\\bin\\NASM'" in SCRIPT
 assert "SetEnvironmentVariable('Path', $updated, 'User')" in SCRIPT
 assert 'PersistPath -and $Yes' in SCRIPT
 assert '-Install -Yes' in DOC

@@ -29,6 +29,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+      - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - run: npm ci --prefix backend
       - run: python scripts/ci/test_check_code_quality.py
@@ -41,6 +42,7 @@ jobs:
           name: genos-quality-report
           path: quality-report.json
       - run: npm test
+      - run: npm --prefix backend run test:morphogenesis
       - run: npm --prefix backend run test:grpc
       - run: npm --prefix backend run test:quality
       - run: npm --prefix backend run test:mcp

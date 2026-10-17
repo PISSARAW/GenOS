@@ -28,6 +28,9 @@ Après une installation, le script recharge le PATH machine et utilisateur dans
 le processus PowerShell, puis vérifie directement les emplacements usuels de
 `nasm.exe` (NASM, Chocolatey et les programmes locaux). Cela rend NASM utilisable
 dans le terminal courant sans supposer qu'un nouveau terminal a déjà été ouvert.
+Une installation déjà présente hors du PATH est également ajoutée au PATH du
+processus courant, et le rapport JSON expose `processPathVisible=true` seulement
+après vérification par `Get-Command nasm.exe`.
 Pour inscrire explicitement le dossier détecté dans le PATH utilisateur, utiliser
 la confirmation séparée :
 

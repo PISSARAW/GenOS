@@ -42,9 +42,14 @@ Sans outil ou reçu d'exécution, le contrôle retourne `status: not_observed` e
 `claimable: false`. Il inventorie `kubectl`, Docker, kind et minikube pour rendre
 le manque d'environnement explicite. Après une exécution réelle, l'opérateur peut
 fournir un fichier via `GENOS_EXTERNAL_DEPLOYMENT_RECEIPT` contenant `target`,
-`runId`, le contrat, les healthchecks, un digest SHA-256 et `restartObserved: true`.
-Le même contrôle passe alors à `status: observed`; le reçu doit rester archivé
-avec les logs du cluster et le contexte utilisé.
+`runId`, le contrat, le contexte et le namespace, avec
+`schemaVersion: genos-morphogenesis-external-receipt-v1`. Le reçu doit aussi
+inclure au moins trois identités de pods prêtes, les deux sondes HTTP avec leur
+heure d'observation, le digest SHA-256 de l'image et de la sortie, une preuve de
+redémarrage avec les UID avant/après et des `evidenceRefs` vers les journaux
+archivés. Un simple booléen ou un digest isolé est rejeté. Le même contrôle passe
+alors à `status: observed`; le reçu doit rester archivé avec les logs du cluster,
+le contexte utilisé et la version exacte de l'image.
 
 L'application reste volontairement explicite :
 
