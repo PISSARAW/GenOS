@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel — noyau backend, workers autonomes, promotion Trinity et capture/restauration des fichiers d'organisme disponibles en opt-in.
 - **Portée** : projection de fichiers, overlays, merge, matérialisation, tête versionnée.
-- **Dernière revue** : 2026-10-11.
+- **Dernière revue** : 2026-10-18.
 
 Le noyau [GQWF](../../backend/src/services/gqwf/index.js) ajoute une représentation
 logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../adr/0369-racines-gqwf-et-vues-durables.md).
@@ -14,10 +14,12 @@ logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../ad
 | Vue | `gqwf_views` et `gqwf_changes` | Base immuable, overlay privé durable, version attendue |
 | Tête | `gqwf_heads` et `gqwf_head_events` | Génération monotone et reçu de vérification |
 | Bail | `gqwf_leases` | Dossier matérialisé puis ingéré ou libéré explicitement |
+| Collecte | `gqwf_gc_runs` | Aperçu signé puis balayage explicite et traçable |
 
 Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`, `listFiles`, `writeFile`,
 `deleteFile`, `sealView`, `mergeRoots`, `materializeRoot`, `ingestLease` et
-`releaseLease`. `publishCandidate` échoue sans vérificateur injecté par le
+`releaseLease`. `inspectGarbage` fournit un aperçu sans mutation ;
+`collectGarbage` exige le hash exact de cet inventaire. `publishCandidate` échoue sans vérificateur injecté par le
 runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
@@ -105,6 +107,23 @@ Le CAS de tête, l'événement et le reçu `gqwf_worker_promotions` sont atomiqu
 Le rejeu du même reçu est idempotent ; une tête devenue obsolète est refusée
 sans merge implicite. Voir l'[ADR 0612](../adr/0612-promotion-explicite-candidates-workers-gqwf.md).
 
+## Collecte explicite des objets inaccessibles
+
+La tranche 5 ajoute un mark-and-sweep par workspace. Le marquage couvre toutes
+les racines encore citées par une tête, une vue, un bail, une session, un
+événement de tête, un lien historique, un worker ou un reçu de promotion. Les
+blobs d'overlay sont également protégés directement. L'aperçu retourne les
+racines et blobs orphelins, les octets récupérables et un hash d'inventaire.
+
+L'application doit fournir ce hash ; l'inventaire est recalculé sous transaction
+et toute différence impose un nouvel aperçu. Les chemins inattendus, liens,
+hardlinks ou blobs corrompus sont conservés et bloquent la collecte. Les
+écritures de racine et d'overlay revérifient leurs blobs sous transaction afin
+qu'une course se termine par une référence protégée ou par un échec explicite,
+jamais par une référence silencieusement cassée. Chaque collecte réussie laisse
+un reçu `gqwf_gc_runs`. Rien n'est collecté automatiquement à la libération
+d'un bail. Voir l'[ADR 0614](../adr/0614-collecte-explicite-racines-blobs-gqwf.md).
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes
@@ -137,6 +156,7 @@ et [0383](../adr/0383-restauration-opt-in-racine-gqwf-organisme.md).
 Validation ciblée : `node backend/tests/test_gqwf_fabric.js`,
 `node backend/tests/test_gqwf_worker_execution.js`,
 `node backend/tests/test_gqwf_worker_promotion.js`,
+`node backend/tests/test_gqwf_garbage_collection.js`,
 `node backend/tests/test_gqwf_execution_workspace.js`,
 `node backend/tests/test_gqwf_mission_execution.js` et
 `node backend/tests/test_gqwf_organism_snapshot.js`. Les gates généraux du

@@ -111,6 +111,7 @@ async function migrateGqwf(db) {
   const worker = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_worker_bindings'");
   if (!worker.sql.includes('lease_id') || !worker.sql.includes("'discarded'")) await migrateWorkerBindings(db);
   await createWorkerPromotionTable(db);
+  await createGarbageCollectionTable(db);
 }
 
 async function migrateLeaseStatus(db) {
@@ -178,6 +179,19 @@ async function createWorkerPromotionTable(db) {
     FOREIGN KEY (worker_id) REFERENCES gqwf_worker_bindings(worker_id),
     FOREIGN KEY (view_id) REFERENCES gqwf_views(id),
     FOREIGN KEY (workspace_id, candidate_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
+  );`);
+}
+
+async function createGarbageCollectionTable(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS gqwf_gc_runs (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    inventory_hash TEXT NOT NULL,
+    root_count INTEGER NOT NULL,
+    blob_count INTEGER NOT NULL,
+    reclaimed_bytes INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
   );`);
 }
 

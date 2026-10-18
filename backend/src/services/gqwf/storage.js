@@ -3,6 +3,7 @@
 const { withTransaction } = require('../../db');
 const { resolveWorkspaceRoot } = require('../pathSafety');
 const { parseManifest } = require('./manifest');
+const { readBlob } = require('./objects');
 
 async function workspace(db, workspaceId) {
   if (typeof workspaceId !== 'string' || !workspaceId) throw new Error('GQWF workspace ID is required.');
@@ -18,10 +19,22 @@ async function root(db, workspaceId, hash) {
 }
 
 async function putRoot(db, workspaceId, built) {
-  await db.run('INSERT OR IGNORE INTO gqwf_roots (workspace_id, root_hash, manifest_json) VALUES (?, ?, ?)',
-    workspaceId, built.hash, built.serialized);
-  await root(db, workspaceId, built.hash);
-  return built.hash;
+  return withTransaction(db, async () => {
+    const location = await workspace(db, workspaceId);
+    const manifest = parseManifest(built.serialized, built.hash);
+    await verifyManifestBlobs(location.path, manifest);
+    await db.run('INSERT OR IGNORE INTO gqwf_roots (workspace_id, root_hash, manifest_json) VALUES (?, ?, ?)',
+      workspaceId, built.hash, built.serialized);
+    await root(db, workspaceId, built.hash);
+    return built.hash;
+  });
+}
+
+async function verifyManifestBlobs(workspacePath, manifest) {
+  for (const file of manifest.files) {
+    const bytes = await readBlob(workspacePath, file.hash);
+    if (bytes.length !== file.size) throw new Error('GQWF root file size mismatch.');
+  }
 }
 
 async function view(db, workspaceId, viewId) {
@@ -38,6 +51,7 @@ async function mutateView(db, input) {
   return withTransaction(db, async () => {
     const current = await view(db, input.workspaceId, input.viewId);
     if (current.overlay_version !== input.expectedVersion) throw new Error('GQWF overlay version conflict.');
+    await verifyChangeBlob(db, input);
     await db.run(`INSERT INTO gqwf_changes (view_id, path, blob_hash, size, mode, deleted)
       VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(view_id, path) DO UPDATE SET
       blob_hash=excluded.blob_hash, size=excluded.size, mode=excluded.mode, deleted=excluded.deleted`,
@@ -47,6 +61,13 @@ async function mutateView(db, input) {
     if (changed.changes !== 1) throw new Error('GQWF overlay version conflict.');
     return input.expectedVersion + 1;
   });
+}
+
+async function verifyChangeBlob(db, input) {
+  if (input.deleted) return;
+  const location = await workspace(db, input.workspaceId);
+  const bytes = await readBlob(location.path, input.hash);
+  if (bytes.length !== input.size) throw new Error('GQWF overlay file size mismatch.');
 }
 
 module.exports = { workspace, root, putRoot, view, changes, mutateView };
