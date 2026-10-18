@@ -150,6 +150,7 @@ async function migrateGqwf(db) {
   await createWorkerPromotionTable(db);
   await createGarbageCollectionTable(db);
   await createIntegrityRunTable(db);
+  await createReplicationReceiptTable(db);
 }
 
 async function migrateLeaseStatus(db) {
@@ -268,6 +269,26 @@ async function createIntegrityRunTable(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_gqwf_integrity_workspace_created
     ON gqwf_integrity_runs(workspace_id, created_at);`);
+}
+
+async function createReplicationReceiptTable(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS gqwf_replication_receipts (
+    id TEXT PRIMARY KEY,
+    source_workspace_id TEXT NOT NULL,
+    target_workspace_id TEXT NOT NULL,
+    root_hash TEXT NOT NULL,
+    plan_hash TEXT NOT NULL,
+    receipt_hash TEXT NOT NULL UNIQUE,
+    receipt_json TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (source_workspace_id, target_workspace_id, root_hash, plan_hash),
+    FOREIGN KEY (source_workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_workspace_id, root_hash)
+      REFERENCES gqwf_roots(workspace_id, root_hash) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_gqwf_replication_target_created
+    ON gqwf_replication_receipts(target_workspace_id, created_at);`);
 }
 
 module.exports = { migrateGqwf };

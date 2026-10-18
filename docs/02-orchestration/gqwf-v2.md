@@ -17,12 +17,15 @@ logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../ad
 | Matérialisation | `gqwf_materialization_receipts` | Backend versionné, capacités observées et sélection liée au bail |
 | Collecte | `gqwf_gc_runs` | Aperçu signé puis balayage explicite et traçable |
 | Intégrité | `gqwf_integrity_runs` | Scrub exhaustif non destructif et rapport durable |
+| Réplication | `gqwf_replication_receipts` | Plan CAS scellé, reprise par déduplication et reçu cible |
 
 Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`, `listFiles`, `writeFile`,
 `deleteFile`, `sealView`, `mergeRoots`, `materializeRoot`, `ingestLease` et
 `releaseLease`. `inspectGarbage` fournit un aperçu sans mutation ;
 `collectGarbage` exige le hash exact de cet inventaire. `scrubIntegrity`
-vérifie le store complet et persiste son rapport sans réparer. `publishCandidate` échoue sans vérificateur injecté par le
+vérifie le store complet et persiste son rapport sans réparer.
+`inspectReplication` et `replicateRoot` transportent une racine entre deux
+workspaces du même tenant sous autorisation liée. `publishCandidate` échoue sans vérificateur injecté par le
 runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
@@ -332,6 +335,26 @@ redondante authentifiée. Voir l'[ADR 0635](../adr/0635-scrub-integrite-store-gq
 
 Validation ciblée :
 `node backend/tests/test_gqwf_garbage_collection.js`.
+
+### Réplication CAS autorisée
+
+La tranche 16 ajoute `gqwf-cas-replication-v1`. Une prévisualisation
+déterministe lie la source, la cible, le scope tenant, la racine et la liste des
+blobs dans un `planHash`. L'application refuse un plan différent et exige une
+preuve d'autorisation portant exactement ces champs.
+
+Les blobs déjà présents côté cible sont relus et réutilisés. Les objets absents
+sont copiés depuis la source après vérification SHA-256. Une interruption avant
+le reçu laisse donc seulement des blobs CAS valides ; un rejeu reprend sur les
+objets restants. Le manifeste et un reçu canonique ne sont persistés qu'après
+vérification complète de la cible. Un blob cible divergent bloque l'opération
+et n'est jamais écrasé implicitement.
+
+Cette tranche reste locale au backend : elle prépare un futur transport
+inter-hôtes mais ne le revendique pas. Elle ne répare pas encore une corruption.
+Voir l'[ADR 0636](../adr/0636-replication-cas-gqwf.md).
+
+Validation ciblée : `node backend/tests/test_gqwf_replication.js`.
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
