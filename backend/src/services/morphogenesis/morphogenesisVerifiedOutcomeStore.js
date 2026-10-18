@@ -109,4 +109,21 @@ async function loadVerifiedOutcomes(db, scopeInput) {
   });
 }
 
-module.exports = { MAX_OUTCOMES, ensure, recordVerifiedOutcome, loadVerifiedOutcomes };
+async function loadVerifiedOutcome(db, scopeInput, outcomeId) {
+  if (!db || typeof db.get !== 'function') return null;
+  const scope = normalizedScope(scopeInput);
+  await ensure(db);
+  const stored = await db.get(`SELECT mission_id, organization_id, project_id,
+    outcome_json, payload_hash FROM morphogenesis_verified_outcomes WHERE outcome_id = ?`, outcomeId);
+  if (!stored || stored.mission_id !== scope.missionId
+    || stored.organization_id !== scope.organizationId || stored.project_id !== scope.projectId
+    || digest(stored.outcome_json) !== stored.payload_hash) return null;
+  try {
+    const outcome = JSON.parse(stored.outcome_json);
+    return calibration.verifiedRow(outcome) ? outcome : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+module.exports = { MAX_OUTCOMES, ensure, recordVerifiedOutcome, loadVerifiedOutcome, loadVerifiedOutcomes };

@@ -2,7 +2,6 @@
 
 /**
  * Transition Engine — legacy in-memory helpers and a closed production gate.
- *
  * In-memory snapshots cannot restore workspaces, processes, leases or budgets.
  * Production execution refuses before any action until that boundary is proven.
  */
@@ -14,6 +13,7 @@ const {
 const { emit } = require('../agentOrchestrationState');
 const { validateAction } = require('./transitionActionValidation');
 const authorizedExecution = require('./authorizedTransitionExecution');
+const genomeActions = require('./transitionGenomeActionAdapter');
 
 function uuid() { return crypto.randomUUID(); }
 function nowIso() { return new Date().toISOString(); }
@@ -31,6 +31,7 @@ function validatePlan(plan) {
     for (const [i, a] of plan.actions.entries()) {
       errors.push(...validateAction(a, i));
     }
+    errors.push(...require('./morphogenesisGenomeTransitionPlan').preparationErrors(plan));
   }
   return errors;
 }
@@ -183,6 +184,7 @@ async function runAction(action, ctx) {
     if (action.type === 'spawn') detail = await execSpawn(action, ctx);
     else if (action.type === 'retire') detail = await execRetire(action, ctx);
     else if (action.type === 'rebind') detail = await execRebind(action, ctx.collectiveState);
+    else if (action.type === 'genome') detail = await genomeActions.run(action, ctx);
     else throw new Error(`unknown action type: ${action.type}`);
     return { type: action.type, status: 'success', startedAt, finishedAt: nowIso(), detail };
   } catch (err) {
@@ -281,6 +283,7 @@ function refusedReceipt(ctx, failure) {
 }
 
 async function executeTransition(ctx) {
+  ctx = require('./morphogenesisGenomeTransitionPlan').attachGenomeActions(ctx);
   const transitionId = `tx-${uuid().slice(0, 8)}`;
   const errors = preconditionErrors(ctx);
   if (errors.length) return refusedReceipt(ctx, { transitionId, errors,
@@ -342,8 +345,11 @@ async function compensateActions(compensations, ctx, cause) {
   const errors = [];
   for (const item of compensations.slice().reverse()) {
     try {
-      const compensate = item.action.type === 'spawn' ? ctx.rollbackSpawnAgent : ctx.rollbackRetireAgent;
-      await compensate(item.action, { ...ctx, cause, actionResult: item.result });
+      if (item.action.type === 'genome') await genomeActions.compensate(item, ctx, cause);
+      else {
+        const compensate = item.action.type === 'spawn' ? ctx.rollbackSpawnAgent : ctx.rollbackRetireAgent;
+        await compensate(item.action, { ...ctx, cause, actionResult: item.result });
+      }
     } catch (error) {
       errors.push(error.message || String(error));
     }

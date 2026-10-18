@@ -8,9 +8,8 @@ const { buildWorkerSelf, formatWorkerSelfPrompt } = require('../workerSelfServic
 const { createIsolatedWorkspace } = require('../agentWorkspaceLifecycleService');
 const { localWorkerRoute } = require('../agentModelRoutingService');
 const { restrictProvidedLease, normalizeToolName } = require('../toolLeasePolicy');
-const { workerGenesForAssignment } = require('../agentDnaStore');
 const { evolveWorkerGenome } = require('../agentEvolutionService');
-const { resolveGenotype } = require('../morphogenesis/genotypeResolverService');
+const genomeBinding = require('./agentGenomeBindingService');
 const { formatPhenotypePrompt } = require('../cognitivePhenotypeService');
 const { buildExpressionContext } = require('./agentExpressionContextService');
 const { initClinicalState } = require('../medical/clinicalStateService');
@@ -53,46 +52,15 @@ function computeCognitiveBudget(parent, request, workerCount) {
 }
 
 async function buildDna(ctx) {
-  const { db, parent, request } = ctx;
-  const scope = {
-    organizationId: parent?.organization_id || request?.workspace?.organizationId,
-    projectId: parent?.project_id || request?.workspace?.projectId
-  };
-  const requirements = {
-    domain: request.role,
-    traits: safeArray(request.capabilityManifest?.owned),
-    constraints: safeArray(request.phenotype?.constraints),
-    mission: request.mission?.prompt || ''
-  };
-  try {
-    const decision = await resolveGenotype({ requirements, availableGenomes: [], db });
-    if (decision.action === 'reuse' && decision.genomeRef) {
-      const assignment = {
-        role: request.role,
-        capabilities: safeArray(request.capabilityManifest?.owned),
-        mission: request.mission?.prompt || '',
-        genomeRef: decision.genomeRef,
-        preferredName: request.phenotype?.preferredName,
-        tools: safeArray(request.phenotype?.tools)
-      };
-      return await workerGenesForAssignment(db, { ...assignment, agentId: parent?.id }, scope);
-    }
-  } catch (_) { /* Fall through to legacy path */ }
-  const assignment = {
-    role: request.role,
-    capabilities: safeArray(request.capabilityManifest?.owned),
-    mission: request.mission?.prompt || '',
-    genomeRef: request.phenotype?.genomeRef,
-    preferredName: request.phenotype?.preferredName,
-    tools: safeArray(request.phenotype?.tools)
-  };
-  try { return await workerGenesForAssignment(db, { ...assignment, agentId: parent?.id }, scope); }
-  catch (_) { return null; }
+  return genomeBinding.selectForIncarnation(ctx);
 }
 
 function dnaAuthority(sel) {
   if (!sel) return null;
-  return { genes: sel.genes, genomeRef: sel.genomeRef, dnaGenomeRef: sel.genomeRef, genomeContentHash: sel.genomeContentHash, source: 'agent_dna_authority', predictedFitness: null };
+  return { genes: sel.genes, genomeRef: sel.genomeRef, dnaGenomeRef: sel.genomeRef,
+    genomeContentHash: sel.genomeContentHash, selectionId: sel.selectionId,
+    morphogenesisDecision: sel.morphogenesisDecision || null,
+    source: 'agent_dna_authority', predictedFitness: null };
 }
 
 function dnaPromptBlock(sel) {
@@ -243,12 +211,31 @@ function descriptorRuntime(d) {
   };
 }
 
-function descriptorGenome(d) {
+function dnaBinding(selection) {
+  if (!selection) return null;
   return {
-    cognitiveRecipe: d.request.phenotype?.cognitiveRecipe || null, genome: d.evolution?.genes || null,
-    genomeRef: d.evolution?.genomeRef || d.evolution?.dnaGenomeRef || null,
-    phenotypeHash: d.dnaSelection ? crypto.createHash('sha256').update(JSON.stringify(d.dnaSelection.genes)).digest('hex').slice(0, 16) : null,
-    dnaAuthority: Boolean(d.dnaSelection), predictedFitness: d.evolution?.predictedFitness || null
+    genomeRef: selection.genomeRef,
+    contentHash: selection.genomeContentHash || null,
+    phenotypeHash: selection.phenotypeHash || null,
+    selectionReceiptId: selection.selectionId || null,
+    morphogenesisDecision: selection.morphogenesisDecision || null
+  };
+}
+
+function evolutionRef(evolution) {
+  return evolution?.genomeRef || evolution?.dnaGenomeRef || null;
+}
+
+function descriptorGenome(d) {
+  const phenotype = d.request.phenotype ?? {};
+  const evolution = d.evolution ?? {};
+  const selection = d.dnaSelection;
+  return {
+    cognitiveRecipe: phenotype.cognitiveRecipe ?? null, genome: evolution.genes ?? null,
+    genomeRef: evolutionRef(evolution),
+    phenotypeHash: selection?.phenotypeHash?.slice(0, 16) ?? null,
+    genomeBinding: dnaBinding(selection), dnaAuthority: Boolean(selection),
+    predictedFitness: evolution.predictedFitness ?? null
   };
 }
 

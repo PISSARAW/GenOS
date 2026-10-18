@@ -141,6 +141,8 @@ async function composeTopologyGraph(ctx, morphologyPlan, dependencies) {
 
 function bindSelectedPlan(ctx, morphologyPlan) {
   const assignments = ctx.autonomyPlan.dispatchWorkers || [];
+  require('../morphogenesis/morphogenesisGenomePlanBinding')
+    .bindDispatchGenomeBindings(morphologyPlan, assignments);
   bindGraphMission(morphologyPlan.morphologyPatch.graph, {
     organization: ctx.autonomyPlan.organization,
     assignments
@@ -151,6 +153,11 @@ function bindSelectedPlan(ctx, morphologyPlan) {
 }
 
 async function activateMorphogenesisPlan(ctx, morphologyPlan, dependencies = {}) {
+  if (['blocked', 'candidate_required'].includes(morphologyPlan.genomeAdmission?.status)) {
+    throw activationError('MORPHOGENESIS_GENOME_ADMISSION_PENDING',
+      'Morphogenesis requires an evaluated and promoted genome before runtime activation.',
+      { genomeAdmission: morphologyPlan.genomeAdmission });
+  }
   const topology = morphologyPlan.selectedTopology;
   const nodes = topologyNodes(morphologyPlan);
   const dedicated = nodes.length === 1 && nodes[0].topology === topology

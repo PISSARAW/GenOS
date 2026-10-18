@@ -7,6 +7,7 @@ const { getPhenotype } = require('../agents/phenotypeRegistryService');
 const { contractFor, missingCapabilities } = require('../topologyCapabilityService');
 const { capabilityToolSet } = require('../toolLeasePolicy');
 const { planGenotypeActions, planEpigeneticChanges, planPlasmidActions } = require('./morphogenesisPlanActions');
+const { bindGenomeActions } = require('./morphogenesisGenomePlanBinding');
 const { buildIdentityExtensions } = require('./morphogenesisPlanIdentity');
 const { annotatePlanWithSubstrates } = require('../../storage/compute/computeSubstrateResolver');
 const { extendPlan } = require('./morphogenesisPlanExtensions');
@@ -265,7 +266,11 @@ function compileTopologyCandidate(ctx, topology) {
   const targetAgents = components.preserve.concat(components.rebind).map((agent) => ({
     id: agent.agentId,
     capabilities: (getPhenotype(agent.phenotype) || {}).capabilities || []
-  }));
+  })).concat(components.spawn.map((agent, spawnIndex) => ({
+    id: `spawn:${topology}:${spawnIndex}`,
+    spawnIndex,
+    capabilities: agent.capabilities || []
+  })));
   const plan = assemblePlan(components);
   const morphology = resolveMorphology({
     expression: ctx.expression,
@@ -361,9 +366,15 @@ function combinedControlReceipt(topologyReceipt, organizationReceipt) {
 module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence, planGenotypeActions, planEpigeneticChanges, planPlasmidActions, annotatePlanWithSubstrates, computeMorphologyUtility, selectTopology, candidateFor, contractForTopology };
 
 function applyGeneticActions({ plan, ctx, contracts, targetAgents }) {
-  plan.genotypeActions = planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db });
+  const genomePlanning = ctx.genomeContext?.status === 'ready'
+    || (Array.isArray(ctx.availableGenomes) && ctx.availableGenomes.length > 0);
+  plan.genotypeActions = genomePlanning
+    ? planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db })
+    : [];
   plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
   plan.plasmidActions = planPlasmidActions({ requiredCapabilities: contracts.pc.required || [], availablePlasmids: ctx.availablePlasmids || [], targetAgents });
+  bindGenomeActions(plan);
+  if (!genomePlanning) plan.genomeAdmission.status = ctx.genomeContext?.status || 'not_configured';
 }
 
 function morphologyUtilityContext({ contracts, chosen, plan, ctx }) {

@@ -1,35 +1,83 @@
 'use strict';
 
+const GENOME_ACTION_SCHEMA = 'genos.morphogenesis-genome-action/v1';
+
 function agentCapabilityGap(agent, required) {
   const owned = new Set(agent.capabilities || []);
   return required.filter((c) => !owned.has(c));
 }
 
+function genomeCapabilities(genome) {
+  return genome.capabilities || genome.phenotype?.capabilities || [];
+}
+
+function parentBinding(genome) {
+  return {
+    genomeRef: genome.id,
+    contentHash: genome.contentHash,
+    phenotypeHash: genome.phenotypeHash || null,
+    lineageId: genome.lineageId || null,
+    generation: genome.generation || 0,
+    dnaStatus: genome.dnaStatus || 'DRAFT'
+  };
+}
+
+function obligations(action) {
+  const common = ['parent_fingerprint_match', 'tenant_scope_match', 'provenance_persisted'];
+  if (action === 'reuse') return [...common, 'active_genome_required'];
+  return [...common, 'candidate_isolation', 'paired_evaluation', 'promotion_gate'];
+}
+
+function genomeAction(input) {
+  const { action, agent, parents, extra = {} } = input;
+  return {
+    schema: GENOME_ACTION_SCHEMA,
+    action,
+    targetAgentId: agent.id,
+    targetSpawnIndex: Number.isInteger(agent.spawnIndex) ? agent.spawnIndex : null,
+    parentBindings: parents.map(parentBinding),
+    expectedOutputStatus: action === 'reuse' ? 'active' : 'candidate',
+    evidenceObligations: obligations(action),
+    rollback: action === 'reuse' ? 'restore_binding' : 'discard_candidate',
+    ...extra
+  };
+}
+
+function graftSpecs(gap) {
+  return gap.map((capability) => ({
+    locus: `CAP_${String(capability).replace(/[^a-z0-9]+/gi, '_').toUpperCase()}`,
+    instruction: String(capability),
+    plasmid: false
+  }));
+}
+
 function coverageActionForGap(gap, genomes, agent) {
-  const exact = genomes.find((g) => gap.every((c) => (g.capabilities || []).includes(c)));
+  const exact = genomes.find((g) => gap.every((c) => genomeCapabilities(g).includes(c)));
   if (exact) {
-    return { action: 'clone', genomeId: exact.id, targetAgentId: agent.id, reasoning: 'Clone covers full gap', rollback: 'revert_genome' };
+    return genomeAction({ action: 'reuse', agent, parents: [exact], extra: { genomeRef: exact.id,
+      reasoning: 'An active genome covers the complete capability gap.' } });
   }
-  const partial = genomes.filter((g) => gap.some((c) => (g.capabilities || []).includes(c)));
+  const partial = genomes.filter((g) => gap.some((c) => genomeCapabilities(g).includes(c)));
   if (partial.length >= 2) {
-    return { action: 'cross', genomeId: partial.map((g) => g.id), targetAgentId: agent.id, reasoning: 'Cross merges partial coverage', rollback: 'revert_genome' };
+    return genomeAction({ action: 'cross', agent, parents: partial.slice(0, 2), extra: {
+      reasoning: 'Two active genomes provide complementary partial coverage.' } });
   }
   if (partial.length === 1) {
-    return { action: 'graft', genomeId: partial[0].id, targetAgentId: agent.id, reasoning: 'Graft adds missing capability', rollback: 'remove_graft' };
+    const action = gap.length > 1 ? 'speciate' : 'graft';
+    return genomeAction({ action, agent, parents: partial, extra: { grafts: graftSpecs(gap),
+      concept: gap.join('+'), reasoning: `${action} derives the missing capabilities.` } });
   }
-  return { action: 'mutate', targetAgentId: agent.id, reasoning: 'No genome covers gap; mutation needed', rollback: 'revert_mutation' };
+  return genomeAction({ action: 'unresolved', agent, parents: [], extra: { missingCapabilities: gap,
+    expectedOutputStatus: null, evidenceObligations: ['admissible_parent_required'],
+    rollback: 'none', reasoning: 'No admissible parent genome covers the gap.' } });
 }
 
 function genotypeActionsForAgent(agent, ctx) {
   const gap = agentCapabilityGap(agent, ctx.requiredCapabilities || []);
   if (gap.length === 0) {
-    return [{ action: 'reuse', targetAgentId: agent.id, reasoning: 'No capability gap; reuse existing genotype', rollback: 'none' }];
+    return [];
   }
-  const actions = [coverageActionForGap(gap, ctx.availableGenomes || [], agent)];
-  if (gap.length > 2) {
-    actions.push({ action: 'speciate', targetAgentId: agent.id, reasoning: 'Large gap (' + gap.length + ') may require speciation', rollback: 'merge_species' });
-  }
-  return actions;
+  return [coverageActionForGap(gap, ctx.availableGenomes || [], agent)];
 }
 
 function planGenotypeActions(ctx) {
@@ -82,4 +130,4 @@ function planPlasmidActions(ctx) {
   return actions;
 }
 
-module.exports = { planGenotypeActions, planEpigeneticChanges, planPlasmidActions };
+module.exports = { GENOME_ACTION_SCHEMA, planGenotypeActions, planEpigeneticChanges, planPlasmidActions };

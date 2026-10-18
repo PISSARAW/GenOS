@@ -34,6 +34,10 @@ async function hasPersistedTrustedEvidence(db, context) {
   if (evidence.source === 'stratigraphic_fossil') {
     return verifyFossilEvidence(db, context);
   }
+  if (evidence.source === 'morphogenesis_paired_outcome') {
+    return require('./morphogenesis/morphogenesisGenomeOutcomeEvidence')
+      .verifyGenomeOutcomeEvidence(db, context);
+  }
   if (evidence.source !== 'validated_worker_success') return false;
   return verifyWorkerEvidence(db, context);
 }

@@ -293,6 +293,7 @@ async function compileReplacementRoster(context) {
     [assignment.candidateId, { ...assignment, agentId: assignment.candidateId,
       workerId: assignment.candidateId }]));
   const publishedAssignments = input.survivors.length ? assignments : candidateAssignments;
+  require('./morphogenesisGenomePlanBinding').bindDispatchGenomeBindings(plan, Object.values(publishedAssignments));
   bindGraphMission(plan.morphologyPatch.graph, { assignments: Object.values(publishedAssignments) });
   const receipt = transitionReceipt(input, { plan, signals, assignments: publishedAssignments, decision });
   return { adapted: true, assignments: publishedAssignments, cohortBlueprint: cohort.blueprint,
@@ -369,9 +370,11 @@ async function planContinuation(input, dependencies = {}) {
   const decision = require('./morphogenesisEpochDecisionService').compilePolicy(decisionInput, signals);
   const early = earlyDecision({ input, signals, decision, communicationMetric, nosology });
   if (early) return early;
+  const genomeService = require('./morphogenesisGenomeContext');
+  const genomeContext = await genomeService.loadMissionGenomeContext({ ...nosologyScope(input), normalizedMission: input.state.normalizedMission });
   const planner = dependencies.planMorphogenesis
     || require('./morphogenesisPlannerService').planMorphogenesis;
-  const plan = planner(plannerContext(input, signals, decision.policy));
+  const plan = planner(genomeService.enrichPlanningInput(plannerContext(input, signals, decision.policy), genomeContext));
   if (recipePlanMismatch(plan, decision.policy)) return { adapted: false,
     reason: 'proposed_recipe_plan_mismatch', signals, decision };
   compileAdaptiveGraph(input, { plan, state: input.state, signals, challenge: decision.challenge, decision });

@@ -1,8 +1,8 @@
 # AgentDNA — Génome héréditaire binaire et runtime agentique
 
-- **Statut** : Implémenté — format `AgentDNA` v1 défini dans [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), ops Rust (`crossover`, `division`, etc.) et admin CLI disponibles.
-- **Portée** : `crates/genos-genome`, `crates/genos-reproduction`, `crates/genos-cli`, specs `spec/AGENT_DNA_SPEC.md` et `spec/GENOME_SPEC.md`.
-- **Dernière revue** : 2026-09-17.
+- **Statut** : Implémenté — format `AgentDNA` v1 défini dans [spec/AGENT_DNA_SPEC.md](../../spec/AGENT_DNA_SPEC.md), ops Rust (`crossover`, `division`, `seal`, etc.) et admin CLI disponibles.
+- **Portée** : `crates/genos-genome`, `crates/genos-reproduction`, `crates/genos-dna`, `crates/genos-cli`, specs `spec/AGENT_DNA_SPEC.md` et `spec/GENOME_SPEC.md`.
+- **Dernière revue** : 2026-10-18.
 
 ## 1. Définition du domaine
 
@@ -26,6 +26,7 @@ Il se distingue du **manifeste portable `AgentGenome`** ([GENOME_SPEC.md](../../
 - **Croisement** : recombinaison de gamètes haploïdes (`single_point`, `uniform`) avec reprogrammation épigénétique méiotique ; barrière de spéciation par horloge moléculaire.
 - **Division** : mitose (clone attesté), fission binaire, bourgeonnement (`bud_scars`, `hayflick_limit`), schizogonie, méiose.
 - **Mutation** : ponctuelle/stochastique à taux `r ∈ [0,1]`, hypermutation sous stress, CRISPR (`knockout`, `pseudogenize`, `duplicate_gene`).
+- **Scellement** : passage irréversible `DRAFT → SEALED` via l'opération `seal`. Un génome `SEALED` est immuable : toute opération dérivée produit un nouveau génome en `DRAFT`. Le scellement peut être signé Ed25519 (section `SIGN`, flag `SIGNED`) et peut être conditionné à une preuve de décision substantiée côté runtime.
 
 ## 3. Analogies biologiques et limites réelles
 
@@ -50,8 +51,9 @@ Les termes biologiques (génome, expression, phénotype, plasmide, apoptose, lig
 1. **Portabilité héréditaire** : compiler des manifestes en `.dna` compacts et reproductibles.
 2. **Recrutement piloté par le génome** : un orchestrateur sélectionne un génome (par rôle/domaine) et son phénotype est injecté au spawn du worker.
 3. **Évolution dirigée** : croiser, muter, cloner, leurrer, greffer, spécier des agents.
-4. **Confiance conditionnelle** : signature Ed25519 vérifiée en lecture (`verifySignature` dans `container.js`), politique par tenant (`require_signed`), mais sans clé Ed25519 configurée pour signer, la chaîne d'intégrité n'est pas fermée par défaut — les génomes non signés restent utilisables selon la politique en vigueur.
-5. **Innovation** : distiller un concept découvert et validé en **génome candidat**, puis le promouvoir pour réutilisation.
+4. **Scellement** : figer un génome en `SEALED` (immuable en place), optionnellement signé Ed25519. Il reste utilisable comme parent d'un nouveau génome `DRAFT`, sans modifier le parent.
+5. **Confiance conditionnelle** : signature Ed25519 vérifiée en lecture (`verifySignature` dans `container.js`), politique par tenant (`require_signed`), mais sans clé Ed25519 configurée pour signer, la chaîne d'intégrité n'est pas fermée par défaut — les génomes non signés restent utilisables selon la politique en vigueur.
+6. **Innovation** : distiller un concept découvert et validé en **génome candidat**, puis le promouvoir pour réutilisation.
 
 ## 5. Exemples concrets
 
@@ -64,10 +66,10 @@ genos genome cross --parent-a a.dna --parent-b b.dna --out child.dna --seed s1
 genos genome graft --in base.dna --out g.dna --locus CAP_foraging --instruction "optimal foraging"
 # Spéciation : nouveau génome dérivé
 genos genome speciate --in g.dna --out sp.dna --name SpatialReasoner --concept foraging --graft "CAP_x=..."
-# Signer / vérifier
-genos genome keygen --out key.txt
-genos genome sign --in sp.dna --out sp.signed.dna --key key.txt
-genos genome validate --file sp.signed.dna --pubkey <hex>
+# Scellement DRAFT → SEALED (optionnellement signé)
+genos genome seal --in sp.dna --out sp.sealed.dna
+genos genome seal --in sp.dna --out sp.sealed.signed.dna --key key.txt
+genos genome validate --file sp.sealed.signed.dna --pubkey <hex>
 ```
 
 ```
@@ -76,11 +78,17 @@ GET  /api/genomes/:id
 POST /api/genomes/import
 POST /api/genomes/:id/operations/cross|mutate|clone|decoy|graft|speciate
 GET  /api/genomes/innovations
+POST /api/genomes/innovations/:id/evaluate
 POST /api/genomes/innovations/:id/promote
 GET|PUT /api/genomes/policy
 ```
 
-Outils MCP : `genos_genome_compile|validate|inspect|cross|mutate|clone|decoy`.
+Pour un candidat produit par la morphogenèse, `evaluate` reçoit
+`{ "missionId": "…", "outcomeId": "…" }`. L'issue doit déjà être persistée
+dans le registre append-only des comparaisons appariées et lier les fingerprints
+du candidat et de son parent. `promote` exige ensuite une identité opérateur.
+
+Outils MCP : `genos_genome_compile|validate|inspect|cross|mutate|clone|decoy|seal`.
 
 ## 6. Schéma ou diagramme
 
@@ -104,7 +112,9 @@ flowchart TB
         EV["Worker validé (evidence)"] --> DET["detectNovelConcepts"]
         DET --> CAP["captureCandidate (speciate)"]
         CAP --> CAND["status=candidate"]
-        CAND --> PROMO["promote (gate)"]
+        CAND --> PAIR["issue appariée vérifiée\nparent vs candidat"]
+        PAIR --> EVAL["evaluate (éligibilité)"]
+        EVAL --> PROMO["promote (décision opérateur)"]
         PROMO --> DB
     end
 ```
@@ -112,11 +122,11 @@ flowchart TB
 ## 7. Architecture technique
 
 - **Cœur Rust — crate `genos-dna`** — socle des opérations génomiques
-  - `operations.rs` : `inject`, `cross`, `mutate`, `clone_dna`, `decoy`, `graft`, `speciate`.
+  - `operations.rs` : `inject`, `cross`, `mutate`, `clone_dna`, `decoy`, `graft`, `speciate`, `seal`.
   - `compile.rs` : manifeste → ADN ; `express.rs` : ADN → phénotype ; `validate.rs`.
   - `sign.rs` : Ed25519 (keygen, sign, verify).
   - Dépend de `genos-genome` (identité, chromatine, `derive_child`/`derive_reproductive_child`, `validate`, `content_hash`) et `genos-reproduction` (`crossover`, `division`, `phylogeny`).
-  - Il existe un socle Rust d'opérations génomiques (`inject`, `cross`, `mutate`, `clone_dna`, `graft`, `speciate`, `decoy`, `express`, `validate`) et de reproduction (`Genome::derive_child`, `Genome::derive_reproductive_child`, `CellDivision`, `MeioticCrossover`). `inject` prépare un phénotype exprimé pour une cible runtime ; l'application effective reste sous la responsabilité du runtime.
+  - Il existe un socle Rust d'opérations génomiques (`inject`, `cross`, `mutate`, `clone_dna`, `graft`, `speciate`, `seal`, `decoy`, `express`, `validate`) et de reproduction (`Genome::derive_child`, `Genome::derive_reproductive_child`, `CellDivision`, `MeioticCrossover`). `inject` prépare un phénotype exprimé pour une cible runtime ; l'application effective reste sous la responsabilité du runtime.
 
 **CLI** : `crates/genos-cli/src/commands/genome.rs`, `genome_ops.rs`, `args/genome.rs`.
 
@@ -155,6 +165,7 @@ Les opérations génomiques (`inject`, `birth`, `cross`, `mutate`, `clone`, `gra
 | `graft` | ADN + gène/plasmide | `Genome::insert_gene`, `Plasmid::new` | acquiert un concept (gène localisé ou plasmide HGT), tracé dans `PROV.mutations` | orchestration / opérateur |
 | `speciate` | ADN parent + concepts | `Genome::derive_child` + greffe | dérive un nouveau génome (`genome_id` neuf, `PROV.selection` porte le concept) | orchestration / opérateur (capture candidate) |
 | `decoy` | ADN + sélecteur | nouveau | génère un leurre marqué (`PROV.decoy`, flag `DECOY`) | orchestration / opérateur |
+| `seal` | ADN + clé optionnelle | nouveau | passe DRAFT → SEALED, immuabilise le génome, optionnellement signé Ed25519 | orchestration / opérateur |
 | `express` | ADN + contexte | `Gene::express` | produit `PHEN` sans écrire le génome | orchestration / opérateur |
 | `validate` | ADN | `Genome::validate` + contrôle de conteneur | accepte/rejette | orchestration / opérateur / runtime |
 

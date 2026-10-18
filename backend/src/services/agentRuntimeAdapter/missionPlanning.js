@@ -8,12 +8,14 @@ const missionMorphogenesis = require('./missionMorphogenesis');
 const topologyActivation = require('./missionTopologyActivation');
 const missionStrategyActivation = require('./missionStrategyActivation');
 const missionNosology = require('../morphogenesis/missionNosologyContext');
+const missionGenomes = require('../morphogenesis/morphogenesisGenomeContext');
 
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
   await attachGlobalWorkspace(ctx);
   ctx.morphogenesisNosology = await missionNosology.loadMissionNosology(ctx);
   missionNosology.assertPlanningAllowed(ctx.morphogenesisNosology);
+  ctx.morphogenesisGenomeContext = await missionGenomes.loadMissionGenomeContext(ctx);
   topologyActivation.seedMorphogenesisSelection(ctx);
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
   await attachMorphogenesisPlan(ctx);
@@ -27,6 +29,7 @@ async function attachMorphogenesisPlan(ctx) {
     input.reason = 'mission_execution_plan';
     const plan = planMorphogenesis(input);
     missionNosology.bindNosology(plan, ctx.morphogenesisNosology);
+    missionGenomes.bindGenomeContext(plan, ctx.morphogenesisGenomeContext);
     ctx.morphogenesisPlan = plan;
     await topologyActivation.activateMorphogenesisPlan(ctx, plan);
     const snapshots = require('./missionWorkerRuntimeSnapshot');
@@ -41,7 +44,9 @@ async function attachMorphogenesisPlan(ctx) {
     emit(ctx.agentId, 'MORPHOGENESIS_MISSION_PLAN_FAILED', 'PLAN_MISSION', error.message, {
       code: error.code || 'MORPHOGENESIS_PLAN_FAILED'
     }, 'warning');
-    if (String(error.code || '').startsWith('MORPHOGENESIS_TOPOLOGY_')) throw error;
+    const code = String(error.code || '');
+    if (code.startsWith('MORPHOGENESIS_TOPOLOGY_')
+      || code.startsWith('MORPHOGENESIS_GENOME_')) throw error;
   }
 }
 

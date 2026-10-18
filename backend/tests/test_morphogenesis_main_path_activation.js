@@ -134,12 +134,23 @@ async function verifyBudgetGate() {
   );
 }
 
+async function verifyGenomeCandidateBlocksActivation() {
+  const ctx = context();
+  const morphologyPlan = plan('rhizome');
+  morphologyPlan.genomeAdmission = { status: 'candidate_required', actionCount: 1 };
+  await assert.rejects(
+    activation.activateMorphogenesisPlan(ctx, morphologyPlan),
+    { code: 'MORPHOGENESIS_GENOME_ADMISSION_PENDING' }
+  );
+}
+
 async function main() {
   await verifySelectionSeedsMission();
   await verifyComposedTopologiesDriveDispatch();
   await verifyCompositeGraphDrivesMixedDispatch();
   await verifyDedicatedTopologyFailsClosed();
   await verifyBudgetGate();
+  await verifyGenomeCandidateBlocksActivation();
   console.log('Morphogenesis main-path activation: PASS');
 }
 

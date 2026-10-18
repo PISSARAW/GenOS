@@ -36,7 +36,15 @@ function workerBinding(input, survivor, index) {
   const worker = state.workers.get(survivor.agentId) || {};
   return { workerId: survivor.agentId, workerKind: worker.workerKind || null,
     topology: worker.morphologyTopology || null, variant: worker.morphologyVariant || null,
+    genomeBinding: genomeBinding(worker),
     tokens: Number(continuation.workerTokens?.[index] ?? continuation.perWorkerTokens ?? 0) };
+}
+
+function genomeBinding(worker) {
+  const binding = worker.genomeBinding || worker.phenotype?.genomeBinding;
+  if (!binding?.genomeRef || !binding.contentHash) return null;
+  return { genomeRef: binding.genomeRef, contentHash: binding.contentHash,
+    phenotypeHash: binding.phenotypeHash || null, status: binding.status || null };
 }
 
 function admissionIdentity(admission) {

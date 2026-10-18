@@ -150,35 +150,39 @@ function throwGenomeOpFailed(error, stderr, stdout) {
   });
 }
 
-async function runOperation(db, request) {
+function normalizedRequest(request) {
   const operation = request.operation;
-  const params = request.params || {};
-  const scope = request.scope || {};
   if (!SUPPORTED.has(operation)) {
     throw Object.assign(new Error(`Unsupported genome operation '${operation}'`), { code: 'GENOME_OP_UNSUPPORTED' });
   }
-  // Sealing a genome is an epistemic act: it transitions DRAFT -> SEALED.
-  // When requireEvidence is set, the caller must provide substantiated
-  // decision evidence (see agentEvidenceService.hasDecisionEvidence).
-  if (operation === 'seal' && params.requireEvidence) {
-    checkSealEvidence(params);
-  }
+  const params = request.params ?? {};
+  if (operation === 'seal' && params.requireEvidence) checkSealEvidence(params);
+  return { operation, params, scope: request.scope ?? {} };
+}
+
+async function operationPaths(db, request, workDir) {
+  const paths = { input: await materialize(db, request.params.genomeId,
+    { targetPath: path.join(workDir, 'input.dna'), scope: request.scope }),
+  output: path.join(workDir, 'output.dna') };
+  if (request.operation === 'cross') paths.parent = await materialize(db,
+    request.params.parentId, { targetPath: path.join(workDir, 'parent.dna'), scope: request.scope });
+  return paths;
+}
+
+async function runOperation(db, request) {
+  const { operation, params, scope } = normalizedRequest(request);
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-dna-op-'));
   try {
-    const paths = {
-      input: await materialize(db, params.genomeId, { targetPath: path.join(workDir, 'input.dna'), scope }),
-      output: path.join(workDir, 'output.dna')
-    };
-    if (operation === 'cross') {
-      paths.parent = await materialize(db, params.parentId, { targetPath: path.join(workDir, 'parent.dna'), scope });
-    }
+    const paths = await operationPaths(db, { operation, params, scope }, workDir);
     const result = await genosCli.runGenos(buildArgs(operation, params, paths));
     if (!result.ok) {
       throwGenomeOpFailed(result.error, result.stderr, result.stdout);
     }
     const model = agentDna.decodeBuffer(fs.readFileSync(paths.output));
     const id = params.outputId || `${operation}-${model.contentHash.slice(0, 16)}`;
-    await store.saveGenome(db, model, { id, organizationId: scope.organizationId, projectId: scope.projectId });
+    const status = request.status || 'active';
+    await store.saveGenome(db, model, { id, status, concept: request.concept,
+      organizationId: scope.organizationId, projectId: scope.projectId });
 
     // B1: enregistrer l'événement genome_events pour cette opération
     await logGenomeEvent({ db, operation, params, scope, model, id });
@@ -188,7 +192,9 @@ async function runOperation(db, request) {
       contentHash: model.contentHash,
       name: model.meta.name,
       operation,
-      genes: Object.keys(model.genes).length
+      genes: Object.keys(model.genes).length,
+      status,
+      dnaStatus: model.meta?.status || 'DRAFT'
     };
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });

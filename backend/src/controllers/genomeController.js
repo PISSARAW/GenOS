@@ -142,10 +142,26 @@ async function evaluateInnovation(req, res, next) {
   try {
     const db = await getDatabase();
     await assertInnovationScope(db, req);
-    res.json({ success: true, innovation: await innovation.evaluateCandidate(db, req.params.id) });
+    const pairedRequest = pairedEvaluationRequest(req);
+    const evaluated = pairedRequest
+      ? await require('../services/morphogenesis/morphogenesisGenomeEvaluationService')
+        .evaluateFromVerifiedOutcome(db, pairedRequest)
+      : await innovation.evaluateCandidate(db, req.params.id);
+    res.json({ success: true, innovation: evaluated });
   } catch (error) {
     next(error);
   }
+}
+
+function pairedEvaluationRequest(req) {
+  const body = req.body || {};
+  if (!body.outcomeId && !body.missionId) return null;
+  if (!body.outcomeId || !body.missionId) {
+    throw Object.assign(new Error('outcomeId and missionId are required together'), {
+      code: 'MORPHOGENESIS_GENOME_EVIDENCE_REQUIRED'
+    });
+  }
+  return { innovationId: req.params.id, outcomeId: body.outcomeId, missionId: body.missionId };
 }
 
 async function rejectInnovation(req, res, next) {

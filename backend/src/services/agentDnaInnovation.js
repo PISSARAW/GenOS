@@ -85,7 +85,9 @@ async function captureCandidate(db, request) {
       concept: request.concept,
       grafts: request.concepts
     },
-    scope
+    scope,
+    status: 'candidate',
+    concept: request.concept
   });
   const id = `innovation-${result.contentHash.slice(0, 16)}`;
   // ID non-écrasant: une innovation déjà décidée (promoted/rejected) n'est
@@ -237,7 +239,7 @@ async function evaluateCandidate(db, id) {
   const parent = row.base_genome_ref ? await store.loadGenome(db, row.base_genome_ref) : null;
 
   const evidence = parseEvidence(row.evidence_json);
-  const sourceEvidence = await hasPersistedTrustedEvidence(db, { row, evidence, model });
+  const sourceEvidence = await hasPersistedTrustedEvidence(db, { row, evidence, model, parent });
   const scope = { organizationId: row.organization_id, projectId: row.project_id };
   const trust = await require('./agentDnaTrust').evaluateGenomeTrust(db, model, scope);
   const checks = evaluationChecks({

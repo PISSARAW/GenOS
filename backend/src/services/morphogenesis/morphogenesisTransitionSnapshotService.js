@@ -131,6 +131,8 @@ async function capture(input) {
       cognitive: agent.cognitive_budget, baseline: agent.cognitive_baseline_budget,
       maximumDissonance: agent.cognitive_max_dissonance
     }])),
+    genomes: { bindings: input.plan.genotypeActions || [],
+      admission: input.plan.genomeAdmission || null },
     collectiveState: collective.serializeState(input.collectiveState)
   };
   const planHash = digest(input.plan);
@@ -237,7 +239,7 @@ async function restore(input) {
     await input.db.run(`UPDATE morphogenesis_transition_snapshots SET status='restored',
       updated_at=CURRENT_TIMESTAMP WHERE snapshot_id=? AND status='restoring'`, input.id);
     return { restored: true, snapshotId: input.id, hash: loaded.row.snapshot_hash,
-      domains: ['processes', 'workspaces', 'leases', 'budgets'] };
+      domains: ['processes', 'workspaces', 'leases', 'budgets', 'genomes'] };
   } catch (error) {
     await input.db.run(`UPDATE morphogenesis_transition_snapshots SET status='recovery_required',
       error=?, updated_at=CURRENT_TIMESTAMP WHERE snapshot_id=?`, error.message, input.id);

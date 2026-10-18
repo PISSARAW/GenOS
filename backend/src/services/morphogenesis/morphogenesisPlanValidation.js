@@ -89,6 +89,35 @@ function budgetError(plan, constraints) {
   return null;
 }
 
+function validateParentBindings(action, index, errors) {
+  if (action.action === 'unresolved') {
+    errors.push(`genotypeActions[${index}] has no admissible parent genome`);
+    return;
+  }
+  if (!Array.isArray(action.parentBindings) || action.parentBindings.length === 0) {
+    errors.push(`genotypeActions[${index}] parentBindings are required`);
+    return;
+  }
+  for (const parent of action.parentBindings) {
+    if (!parent.genomeRef || !parent.contentHash) {
+      errors.push(`genotypeActions[${index}] parent fingerprint is incomplete`);
+    }
+  }
+}
+
+function validateGenomeActions(plan, errors) {
+  if (plan.genomeContext?.status !== 'ready') return;
+  for (const [index, action] of (plan.genotypeActions || []).entries()) {
+    if (action.schema !== 'genos.morphogenesis-genome-action/v1') {
+      errors.push(`genotypeActions[${index}] schema is invalid`);
+    }
+    validateParentBindings(action, index, errors);
+    if (!Array.isArray(action.evidenceObligations) || action.evidenceObligations.length === 0) {
+      errors.push(`genotypeActions[${index}] evidence obligations are required`);
+    }
+  }
+}
+
 function validatePlan(ctx) {
   const plan = planOf(ctx);
   if (!plan) return { valid: false, errors: ['plan is required'] };
@@ -96,6 +125,7 @@ function validatePlan(ctx) {
   if (!plan.topologyChanges || !plan.topologyChanges.length) errors.push('no topology changes');
   if (!plan.spawnAgents || !plan.spawnAgents.length) errors.push('no spawn agents planned');
   if (!plan.rollbackPlan) errors.push('no rollback plan');
+  validateGenomeActions(plan, errors);
   const constraints = constraintsOf(ctx, plan);
   if (constraints) {
     const constraintErrors = [spawnError(plan, constraints), retireError(plan, constraints),

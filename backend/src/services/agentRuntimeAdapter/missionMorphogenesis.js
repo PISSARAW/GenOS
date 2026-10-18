@@ -20,8 +20,10 @@ function buildMissionMorphogenesisInput(ctx) {
     expression: ctx.normalizedMission.morphologyExpression,
     missionAssignments: missionAssignments(ctx)
   };
-  return require('../morphogenesis/missionNosologyContext')
+  const withNosology = require('../morphogenesis/missionNosologyContext')
     .enrichPlanningInput(input, ctx.morphogenesisNosology);
+  return require('../morphogenesis/morphogenesisGenomeContext')
+    .enrichPlanningInput(withNosology, ctx.morphogenesisGenomeContext);
 }
 
 function missionText(mission) {

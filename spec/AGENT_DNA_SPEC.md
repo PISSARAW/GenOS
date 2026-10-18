@@ -120,6 +120,7 @@ Array MessagePack positionnel, ordre canonique des champs :
 7. `parent_ids` (array de bin 16)
 8. `ts` (int, epoch secondes, création/dernière écriture)
 9. `labels` (map str→str, optionnel)
+10. `status` (str, `"DRAFT"` | `"SEALED"`, défaut `"DRAFT"`)
 
 ### `CHRM` / `CHRP` / `XCHR`
 
@@ -236,6 +237,7 @@ Toute opération lit/écrit des `AgentDNA` et journalise sa provenance. Sortie =
 | `graft` | ADN + gène/plasmide | `Genome::insert_gene`, `Plasmid::new` | acquiert un concept (gène localisé ou plasmide HGT) |
 | `speciate` | ADN parent + concepts | `Genome::derive_child` + greffe | dérive un nouveau génome (radiation adaptative) |
 | `decoy` | ADN + sélecteur | nouveau | génère un leurre (§10.6) |
+| `seal` | ADN + clé optionnelle | nouveau | passe DRAFT → SEALED, optionnellement signé Ed25519 |
 | `express` | ADN + contexte | §9 | produit `PHEN` sans écrire le génome |
 | `validate` | ADN | `Genome::validate` + contrôle de conteneur | accepte/rejette |
 
@@ -262,10 +264,23 @@ Un leurre est un génome **phénotypiquement crédible mais marqué** :
 - Le marqueur vit dans `PROV` **signée**, jamais dans `PHEN` : un adversaire qui n'inspecte que le phénotype ne peut pas distinguer le leurre.
 - `detectability` ∈ `[0,1]` indique la probabilité de détection par un évaluateur autorisé.
 
+## Scellement DRAFT → SEALED
+
+Un génome fraîchement compilé ou dérivé est toujours en statut **`DRAFT`** : il est mutable, peut être croisé, muté, cloné, greffé ou spécié, et chaque opération dérivée produit un nouveau génome en `DRAFT`.
+
+Le **scellement** (`seal`) passe un génome de `DRAFT` à **`SEALED`** :
+
+- Un génome `SEALED` est **immuable en place** : son contenu ne peut plus être réécrit. Il peut servir de parent à une opération dérivée (`cross`, `mutate`, `clone`, `graft`, `speciate`), laquelle crée toujours un nouvel identifiant génomique en `DRAFT` et conserve sa provenance.
+- Le scellement est irréversible : un génome déjà `SEALED` rejette une seconde tentative de scellement.
+- Optionnellement, un secret Ed25519 (32 octets) peut être fourni : la clé publique est enregistrée dans `PROV.signer` et la section `SIGN` est écrite (flag `SIGNED`), signant le flux canonique des sections.
+- Le scellement est un **acte épistémologique** : côté runtime Node, il peut être conditionné à la présentation d'une preuve de décision substantiée (`hasDecisionEvidence`) avant d'être accepté.
+
+Le statut est stocké dans le 10e champ de `META` et est lisible via `workerGenes` (champ `dnaStatus`) côté runtime.
+
 ## Versionnage et compatibilité
 
 - `magic` obligatoire ; absence = fichier invalide.
-- `format_version` majeur inconnu → rejet. Version mineure supérieure → tolérée (lecture best-effort, préservation).
+- `format_version` est actuellement un entier monolithique : toute valeur différente de `1` est rejetée par les lecteurs Rust et Node. Une tolérance majeur/mineur exigera une évolution explicite de l'en-tête.
 - Sections et clés inconnues tolérées en lecture et préservées à la réécriture.
 - `additionalProperties` n'existe pas : toute extension passe par une nouvelle section ou clé MessagePack.
 

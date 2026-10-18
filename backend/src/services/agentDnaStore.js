@@ -119,6 +119,75 @@ async function acceptGenome(db, model, scope) {
   return verdict.trusted;
 }
 
+function phenotypeHash(phenotype) {
+  return crypto.createHash('sha256').update(JSON.stringify(phenotype || null)).digest('hex');
+}
+
+function valueOr(value, fallback) {
+  return value === undefined || value === null ? fallback : value;
+}
+
+function portfolioDescriptor(row, model, trust) {
+  const phenotype = valueOr(model.phenotype, {});
+  const meta = valueOr(model.meta, {});
+  return {
+    id: row.id,
+    name: row.name,
+    contentHash: model.contentHash,
+    phenotypeHash: phenotypeHash(phenotype),
+    genomeId: valueOr(meta.genomeId, null),
+    lineageId: valueOr(meta.lineageId, null),
+    generation: valueOr(meta.generation, 0),
+    dnaStatus: valueOr(meta.status, 'DRAFT'),
+    phenotype,
+    capabilities: valueOr(phenotype.capabilities, []),
+    tools: valueOr(phenotype.tools, []),
+    plasmids: valueOr(model.plasmids, []),
+    scars: valueOr(model.scars, []),
+    provenance: valueOr(model.provenance, null),
+    signed: model.signed === true,
+    signer: valueOr(model.signer, null),
+    signatureValid: model.signatureValid === true,
+    trustReason: trust.reason
+  };
+}
+
+async function activeGenomeRows(db, scope) {
+  const tenant = genomeScope(scope);
+  return db.all(`SELECT id, name, content_hash, genome_blob FROM agent_genomes
+    WHERE COALESCE(status, 'active') = 'active' AND ${tenant.clause}
+    ORDER BY id`, ...tenant.params);
+}
+
+async function inspectPortfolioRow(db, row, scope) {
+  try {
+    const model = decodeBuffer(Buffer.from(row.genome_blob));
+    if (row.content_hash !== model.contentHash) {
+      return { eligible: null, excluded: { id: row.id, reason: 'content_hash_mismatch' } };
+    }
+    const trust = await evaluateGenomeTrust(db, model, scope);
+    if (!trust.trusted) {
+      return { eligible: null, excluded: { id: row.id, reason: trust.reason } };
+    }
+    return { eligible: portfolioDescriptor(row, model, trust), excluded: null };
+  } catch (error) {
+    return { eligible: null, excluded: { id: row.id, reason: error.code || 'decode_failed' } };
+  }
+}
+
+async function listGenomePortfolio(db, scope) {
+  if (!dnaEnabled()) return { status: 'disabled', eligible: [], excluded: [] };
+  await ensureImported(db);
+  const rows = await activeGenomeRows(db, scope);
+  const result = { status: 'ready', eligible: [], excluded: [] };
+  for (const row of rows) {
+    const inspected = await inspectPortfolioRow(db, row, scope);
+    if (inspected.eligible) result.eligible.push(inspected.eligible);
+    if (inspected.excluded) result.excluded.push(inspected.excluded);
+  }
+  return result;
+}
+
 async function ensureImported(db) {
   if (importAttempted) return;
   importAttempted = true;
@@ -219,7 +288,8 @@ async function workerGenesForAssignment(db, assignment, scope) {
     genomeRef: selection.id,
     selectionId,
     genes: workerGenes(selection.model),
-    genomeContentHash: selection.model?.contentHash || null
+    genomeContentHash: selection.model?.contentHash || null,
+    phenotypeHash: phenotypeHash(selection.model?.phenotype)
   };
 }
 
@@ -253,6 +323,7 @@ module.exports = {
   loadGenome,
   selectGenome,
   workerGenesForAssignment,
+  listGenomePortfolio,
   acceptGenome,
   importDirectory,
   walkDnaFiles,

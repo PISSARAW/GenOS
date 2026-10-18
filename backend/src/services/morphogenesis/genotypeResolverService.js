@@ -41,6 +41,21 @@ function getPhenotype(genome) {
   return genome.phenotype || genome;
 }
 
+function genomeRefOf(genome) {
+  return genome.id || genome.meta?.name || null;
+}
+
+function genomeBinding(genome) {
+  return {
+    genomeRef: genomeRefOf(genome),
+    genomeContentHash: genome.contentHash || null,
+    phenotypeHash: genome.phenotypeHash || null,
+    lineageId: genome.lineageId || genome.meta?.lineageId || null,
+    generation: genome.generation ?? genome.meta?.generation ?? 0,
+    dnaStatus: genome.dnaStatus || genome.meta?.status || 'DRAFT'
+  };
+}
+
 function extractGenomeTraits(genome) {
   const p = getPhenotype(genome);
   const traits = [p.role, p.strategy, ...(p.capabilities || []), ...(p.tools || [])];
@@ -171,20 +186,25 @@ function makeDecision(action, genomeId, opts) {
 
 function decideByScore(bestMatch, requirements, availableGenomes) {
   const { score, gaps } = bestMatch;
-  const genomeId = bestMatch.genome.id || bestMatch.genome.meta?.name;
+  const genomeId = genomeRefOf(bestMatch.genome);
+  const binding = genomeBinding(bestMatch.genome);
   const reqTraits = normalizeList(requirements.traits);
   const missingTraits = reqTraits.filter((t) => gaps.some((g) => g.includes(t)));
 
   if (score >= REUSE_THRESHOLD) {
-    return makeDecision('reuse', genomeId, { confidence: score / 100, reasoning: `Score ${score}/100 — sufficient for reuse` });
+    return makeDecision('reuse', genomeId, { confidence: score / 100,
+      reasoning: `Score ${score}/100 — sufficient for reuse`, extra: binding });
   }
 
   if (score >= GRAFT_THRESHOLD && missingTraits.length > 0 && missingTraits.length <= 2) {
-    return makeDecision('graft', genomeId, { confidence: score / 100, reasoning: `Score ${score}/100 — graft: ${missingTraits.join(', ')}` });
+    return makeDecision('graft', genomeId, { confidence: score / 100,
+      reasoning: `Score ${score}/100 — graft: ${missingTraits.join(', ')}`,
+      extra: { ...binding, missingTraits } });
   }
 
   if (score >= MUTATE_THRESHOLD) {
-    return makeDecision('mutate', genomeId, { confidence: score / 100, reasoning: `Score ${score}/100 — mutate to close gaps` });
+    return makeDecision('mutate', genomeId, { confidence: score / 100,
+      reasoning: `Score ${score}/100 — mutate to close gaps`, extra: binding });
   }
 
   if (score >= CROSS_THRESHOLD && availableGenomes.length >= 2) {
@@ -192,19 +212,22 @@ function decideByScore(bestMatch, requirements, availableGenomes) {
   }
 
   if (score >= MIN_CLONE_THRESHOLD) {
-    return makeDecision('clone', genomeId, { confidence: score / 100, reasoning: `Score ${score}/100 — clone as starting point` });
+    return makeDecision('clone', genomeId, { confidence: score / 100,
+      reasoning: `Score ${score}/100 — clone as starting point`, extra: binding });
   }
 
   return makeDecision('speciate', null, { confidence: 0.3, reasoning: `Score ${score}/100 — speciate new genome` });
 }
 
 function tryCross(bestMatch, availableGenomes, requirements) {
-  const bestId = bestMatch.genome.id || bestMatch.genome.meta?.name;
-  const second = availableGenomes.find((g) => (g.id || g.meta?.name) !== bestId);
+  const bestId = genomeRefOf(bestMatch.genome);
+  const second = availableGenomes.find((g) => genomeRefOf(g) !== bestId);
   if (!second) return makeDecision('clone', bestId, { confidence: bestMatch.score / 100, reasoning: 'No second genome for cross' });
   const cross = recommendCross(bestMatch.genome, second, requirements);
   if (!cross.shouldCross) return makeDecision('clone', bestId, { confidence: bestMatch.score / 100, reasoning: 'Cross not beneficial' });
-  return makeDecision('cross', bestId, { confidence: cross.crossScore / 100, reasoning: cross.reasoning, extra: { parentId: second.id || second.meta?.name } });
+  return makeDecision('cross', bestId, { confidence: cross.crossScore / 100,
+    reasoning: cross.reasoning, extra: { ...genomeBinding(bestMatch.genome),
+      parentId: genomeRefOf(second), parentContentHash: second.contentHash || null } });
 }
 
 function decideAction(bestMatch, requirements, availableGenomes) {
@@ -220,25 +243,24 @@ async function resolveGenotype(ctx) {
   const matches = findCompatibleGenomes(requirements, genomes);
   const decision = decideAction(matches[0] || null, requirements, genomes);
 
-  if (db && decision.genomeId) {
-    await enrichFromStore(db, decision, requirements);
+  if (db && decision.genomeId && !decision.genomeContentHash) {
+    await enrichFromStore({ db, decision, requirements, scope: ctx.scope });
   }
   return decision;
 }
 
-async function enrichFromStore(db, decision, requirements) {
+async function enrichFromStore(ctx) {
+  const { db, decision, requirements, scope } = ctx;
   try {
-    const { workerGenesForAssignment } = require('./agentDnaStore');
-    const selection = await workerGenesForAssignment(db, {
+    const { selectGenome } = require('../agentDnaStore');
+    const selection = await selectGenome(db, {
       role: requirements.domain || 'worker',
       capabilities: requirements.traits || [],
       mission: requirements.mission || '',
       genomeRef: decision.genomeId
-    }, {});
+    }, scope || {});
     if (selection) {
-      decision.genomeRef = selection.genomeRef;
-      decision.genes = selection.genes;
-      decision.selectionId = selection.selectionId;
+      Object.assign(decision, genomeBinding({ ...selection.model, id: selection.id }));
     }
   } catch (_) { /* Best effort */ }
 }

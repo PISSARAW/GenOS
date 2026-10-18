@@ -3,12 +3,15 @@
 function validateAction(action, index) {
   const errors = [];
   if (!action.type) errors.push(`actions[${index}].type is required`);
-  if (!['spawn', 'retire', 'rebind'].includes(action.type)) {
+  if (!['spawn', 'retire', 'rebind', 'genome'].includes(action.type)) {
     errors.push(`actions[${index}].type invalid: ${action.type}`);
   }
   if (action.continueOnFailure === true) errors.push(`actions[${index}].continueOnFailure is unsafe`);
   if (['retire', 'rebind'].includes(action.type) && !action.agentId) {
     errors.push(`actions[${index}].agentId is required`);
+  }
+  if (action.type === 'genome' && !action.genomeAction) {
+    errors.push(`actions[${index}].genomeAction is required`);
   }
   return errors;
 }
