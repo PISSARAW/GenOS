@@ -10,6 +10,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 
 - [biologie-computationnelle.md](biologie-computationnelle.md) — biomimétique GenOS, embryogenèse, HOX, budgets.
 - [genome-et-epigenetique.md](genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
+- [stabilite-genomique.md](stabilite-genomique.md) — taux de mutation, anomalies, seuils Stable / Compromised / Critical.
 - [runtime-agentique.md](runtime-agentique.md) — runtime agentique, états, garde-fous.
 - [ontogenese.md](ontogenese.md) — orchestrateur résident de projet, missions bornées et vérifiées.
 - [gvx.md](gvx.md) — développement vérifié des agents : signaux, reçus indépendants, plasticité et limites de maturité.
@@ -38,6 +39,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [limites-metrique-experience.md](limites-metrique-experience.md) — séparation score fonctionnel ≠ expérience subjective.
 - [adaptive-epistemic-immune-system.md](adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif (antigène, immunité innée/adaptative, sélection clonale, mémoire, inflammation, biocénose, métapopulation, stigmergie, holobionte, challenge). **v2.1 : FormalResult-first, receipts bindés, gate injectée, `npm run test:aeis` vert.**
 - [organes-vitaux-agents.md](organes-vitaux-agents.md) — systèmes 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux ; boucle morphogénétique unifiée.
+- [ecosysteme-agentique.md](ecosysteme-agentique.md) — agents, niches, biomes, assignation d'agent à niche avec contrôle de capacité.
 
 ## Mémoire, collectif et évolution
 

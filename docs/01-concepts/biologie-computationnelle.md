@@ -1,7 +1,7 @@
 # Biologie computationnelle dans GenOS
 
 - **Statut** : Chaîne logicielle intégrée : reçus versionnés mission → cellule → génome → coûts → résultat, autorité d'homéostasie durable et clôture conditionnée à des preuves fraîches. Les identités du contrôle Rust et des workers Node restent explicites. Les commandes et limites de validation figurent dans le [bilan de validation](../06-qualite-preuves/validation-biologie-computationnelle.md).
-- **Portée** : `crates/genos-cell/src/lib.rs` (`AgentCell`, `Organelle`), `crates/genos-biology/src/embryology.rs` (`seed_hox_genome`), `crates/genos-genome/*`, `crates/genos-reproduction/*`, `backend/src/services/missionOrganismService.js`.
+- **Portée** : `crates/genos-cell/src/lib.rs` (`AgentCell`, `Organelle`), `crates/genos-biology/src/embryology.rs` (`seed_hox_genome`), `crates/genos-biology/src/genome_stability.rs`, `crates/genos-biology/src/sensorium.rs`, `crates/genos-biology/src/vital_organs.rs`, `crates/genos-biology/src/survival_systems.rs`, `crates/genos-biology/src/agentic_ecosystem.rs`, `crates/genos-genome/*`, `crates/genos-reproduction/*`, `backend/src/services/missionOrganismService.js`.
 - **Dernière revue** : 2026-10-06.
 
 ## 1. Définition du domaine
@@ -73,10 +73,24 @@ flowchart LR
 
 ## 7. Architecture technique
 
-- Rust : `genos-cell` (`AgentCell`, `clinical.rs`), `genos-genome` (`gene.rs`, `genome.rs`, `translation.rs`), `genos-biology` (`embryology.rs`, `neurobiology/`, `therapy.rs`), `genos-reproduction` (`division.rs`, `crossover.rs`).
+- Rust : `genos-cell` (`AgentCell`, `clinical.rs`), `genos-genome` (`gene.rs`, `genome.rs`, `translation.rs`), `genos-biology` (`embryology.rs`, `genome_stability.rs`, `sensorium.rs`, `vital_organs.rs`, `survival_systems.rs`, `agentic_ecosystem.rs`, `neurobiology/`, `therapy.rs`), `genos-reproduction` (`division.rs`, `crossover.rs`).
 - Node : `biologicalWorkerStore.js`, `biologicalWorkerReceiptService.js`, `biologicalWorkerEvidence.js`, `homeostasisAuthorityStore.js`, `homeostasisExecutionEvidence.js`, `homeostasisClosureService.js`, `missionOrganismService.js`.
 
-## 8. Registres, budgets et homéostasie
+## 8. Cinq modules de biologie computationnelle (Rust `genos-biology`)
+
+Cinq modules viennent compléter le modèle cellulaire existant :
+
+| Module | Concept | Rôle computationnel |
+|--------|---------|---------------------|
+| `genome_stability` | Stabilité génomique | Évalue le taux de mutation et le nombre d'anomalies d'un génome ; classe le niveau `Stable` / `Compromised` / `Critical` selon des seuils configurables |
+| `sensorium` | Sensorium | Intègre des signaux sensoriels par modalité (chimique, thermique, luminale, mécanique, électrique) et évalue l'état global `Nominal` / `Alert` / `Critical` |
+| `vital_organs` | Organes vitaux | Modélise des organes avec efficience et seuil de défaillance ; dérive un statut `Healthy` / `Impaired` / `Failed` et une efficience moyenne |
+| `survival_systems` | Systèmes de survie | Régule un état d'homéostase sous stress ; dérive un statut `Viable` / `Endangered` / `Critical` et permet une régulation vers un point de consigne |
+| `agentic_ecosystem` | Écosystème agentique | Gère des agents, des niches (capacité/occupation) et des biomes ; permet l'assignation d'un agent à une niche avec contrôle de capacité |
+
+Chaque module est un pur modèle de données avec tests unitaires. Aucun ne simule de biophysique réelle : ce sont des invariants de runtime (budgets, seuils, statuts de défaillance) organisés par le vocabulaire biomimétique.
+
+## 9. Registres, budgets et homéostasie
 
 Les budgets de mission backend, le registre métabolique Node (`metabolicStateService.js`), les réservations (`resourceReservationService.js`), le résumé métabolique de `missionOrganismService.js` et l'ATP de `GenosEcosystem` sont des états distincts. Le budget du runtime est normalisé et appliqué par ses gardes; le débit ATP Rust s'applique au tick. Il n'existe pas de registre commun garantissant qu'une allocation ou dépense dans un de ces plans est reflétée dans les autres.
 
@@ -90,11 +104,11 @@ Les coûts Node distinguent tokens, USD et millisecondes. Les USD sont des mesur
 
 Le chemin embryogenèse HOX → `AgentCell` → `Metabolism` → consolidation/apoptose ou fossilisation décrit des composants de l'orchestrateur Rust. Il ne doit pas être présenté comme une séquence universellement exécutée par chaque mission backend.
 
-## 9. Comparaison avec le marché
+## 10. Comparaison avec le marché
 
 Cette fiche ne prétend pas établir une comparaison avec d'autres orchestrateurs ni l'absence de concurrents. Les termes de lignage, budget et gate décrivent des concepts dont le degré d'implémentation varie selon les composants; le statut ci-dessus et les tests associés délimitent les affirmations vérifiables.
 
-## 10. Limites, garde-fous, non-objectifs
+## 11. Limites, garde-fous, non-objectifs
 
 - La reprise des reçus et de l'autorité est couverte par des tests SQLite sur plusieurs processus; cela ne démontre pas un déploiement distribué ni la disponibilité d'un fournisseur externe.
 - La continuité de mission possède ses propres contrôles et limites (voir `continuite-mission.md`).
