@@ -719,6 +719,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0606](0606-socle-durable-ontogenese.md) | Socle durable V2 de l’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, persistance, idempotence, autorité |
 | [0607](0607-reprise-exhaustive-ontogenese.md) | Reprise exhaustive et fail-closed de l’Ontogenèse | Accepté pour les opérations raccordées | 2026-10-18 | Ontogenèse, crash recovery, idempotence, preuves |
 | [0608](0608-confiner-ontogenese-job-objects-windows.md) | Confiner l’Ontogenèse avec les Job Objects Windows | Accepté | 2026-10-18 | Ontogenèse, Windows, processus, confinement |
+| [0609](0609-bascule-ontogenese-hote-toujours-disponible.md) | Basculer l’Ontogenèse vers un hôte toujours disponible | Accepté | 2026-10-18 | Ontogenèse, continuité, hébergement, fencing |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -4,6 +4,11 @@ const { setTimeout: delay } = require('timers/promises');
 const { tickOnce } = require('./tickService');
 const { stopProject } = require('./controlService');
 
+const CONTROLLER_DENIALS = new Set([
+  'bascule-en-attente', 'reprise-explicite-requise',
+  'controleur-continuite-invalide', 'lease-continuite-expire', 'continuite-non-active'
+]);
+
 function loopOptions(input) {
   const intervalMs = Number(input.intervalMs ?? 5000);
   const maxTicks = Number(input.maxTicks ?? 0);
@@ -47,6 +52,7 @@ async function runResidentLoop(db, input, dependencies = {}) {
     if (current !== previous) await onChange({ count, ...outcome });
     previous = current;
     if (outcome.state === 'STOPPED') break;
+    if (CONTROLLER_DENIALS.has(outcome.reason)) break;
     if (options.maxTicks > 0 && count >= options.maxTicks) break;
     await waitInterval(options.intervalMs, input.signal);
   }

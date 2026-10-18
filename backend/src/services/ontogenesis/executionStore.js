@@ -14,6 +14,10 @@ async function ensureTables(db) {
     .migrateOntogenesisDurableFoundation(db);
   await require('../../db/migrations/migrateOntogenesisCrashRecovery')
     .migrateOntogenesisCrashRecovery(db);
+  await require('../../db/migrations/migrateOntogenesisHosts')
+    .migrateOntogenesisHosts(db);
+  await require('../../db/migrations/migrateOntogenesisContinuity')
+    .migrateOntogenesisContinuity(db);
   ensuredDatabases.add(db);
 }
 
