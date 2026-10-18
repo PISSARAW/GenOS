@@ -1,6 +1,6 @@
 # Plan de maturité des principes fondateurs vers 95/100
 
-- **Statut** : Plan, non qualifié
+- **Statut** : Exécution en cours, phase 10 qualifiée
 - **Portée** : fermeture transverse des réserves après les phases 7 à 9
 - **Dernière revue** : 2026-10-18
 
@@ -18,7 +18,7 @@ reçu vérifiable. Un lot incomplet n'ajoute aucun point.
 
 | Lot | Gain | Résultat exigé | État initial |
 | --- | ---: | --- | --- |
-| Phase 10 — CI Node transverse | +3 | `npm test` termine à zéro sans dépendre de `.env` ni d'une autorité implicite | En cours |
+| Phase 10 — CI Node transverse | +3 | `npm test` termine à zéro sans dépendre de `.env` ni d'une autorité implicite | Qualifiée le 2026-10-18 |
 | Phase 11 — validation Rust reproductible | +2 | `cargo test --workspace` termine à zéro dans un répertoire de build isolé | À faire |
 | Phase 12 — dette du gate qualité | +2 | aucune nouvelle dette et gate global ramené à un état accepté et documenté | À faire |
 | Phase 13 — registre de confiance déployable | +3 | bootstrap, rotation, révocation et récupération de clés testés en fail-closed | À faire |
@@ -38,6 +38,23 @@ Travaux :
 
 Sortie : les suites Node complètes sont vertes et les tests continuent de
 rejeter les preuves absentes, les signatures invalides et les quorums incomplets.
+
+Preuves de sortie :
+
+- révision de code qualifiée : `99425028` ;
+- commits du lot : `d190ff78`, `7f7f0c85` et `4b002752` ;
+- `npm test` : code de sortie 0 avec base, studio et répertoire temporaire
+  isolés, `GENOS_DISABLE_DOTENV=1` et sauvegarde de boot désactivée ;
+- sous-suites observées : AEIS 42/42, daemon 43/43, workers 35/35,
+  garage 8/8 et qualification fondatrice 19/19 au score 4 dans son périmètre
+  borné ;
+- les preuves manquantes, les portées d'autorité incohérentes, les altérations,
+  les quorums incomplets et les domaines d'oracle indisponibles restent refusés.
+
+La campagne initiale sur le disque système a produit des faux négatifs `ENOSPC`.
+La campagne probante a donc utilisé un répertoire temporaire dédié sur un autre
+volume, supprimé après exécution. Aucun point des phases 11 à 15 n'est acquis par
+cette qualification Node.
 
 ## Phase 11 — validation Rust reproductible
 
