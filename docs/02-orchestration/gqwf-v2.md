@@ -124,6 +124,20 @@ jamais par une référence silencieusement cassée. Chaque collecte réussie lai
 un reçu `gqwf_gc_runs`. Rien n'est collecté automatiquement à la libération
 d'un bail. Voir l'[ADR 0614](../adr/0614-collecte-explicite-racines-blobs-gqwf.md).
 
+## Qualification comparative Copy-on-Write
+
+La tranche 6 ajoute le protocole `gqwf-cow-paired-v1`. Il compare, sur les
+mêmes octets déterministes, N copies physiques complètes à N vues GQWF qui
+partagent une racine et un overlay identique. Trois répétitions au minimum sont
+requises et l'ordre des deux bras alterne. Chaque paire conserve ses mesures
+brutes et vérifie la parité des projections avant de contribuer au résumé.
+
+Les latences, les octets de contenu et la taille physique SQLite sont rapportés
+séparément. Le ratio de contenu n'absorbe donc pas silencieusement le WAL ou les
+métadonnées. Le rapport déclare `performanceClaim: none` : une exécution locale
+qualifie le comportement Copy-on-Write et le protocole, pas un gain universel
+ni l'activation par défaut. Voir l'[ADR 0616](../adr/0616-qualification-appariee-copy-on-write-gqwf.md).
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes

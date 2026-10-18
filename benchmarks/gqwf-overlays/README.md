@@ -16,12 +16,31 @@ node benchmarks/gqwf-overlays/run.cjs --views=10
 node benchmarks/gqwf-overlays/run.cjs --views=100
 node benchmarks/gqwf-overlays/run.cjs --views=1000
 node benchmarks/gqwf-overlays/profile.cjs 100
+npm run benchmark:gqwf-cow -- --views=10 --repetitions=3
 ```
 
 Options : `--files=8`, `--bytes=1024` et `--materializations=3` par défaut.
 Les bornes sont respectivement 256 fichiers, 1 MiB par fichier, 1 000 vues et
 10 matérialisations. Conserver le JSON complet, la révision, l'état du checkout,
 la charge de la machine et plusieurs répétitions pour une comparaison.
+
+## Comparaison appariée avec les copies physiques
+
+`compare.cjs` exécute le protocole `gqwf-cow-paired-v1`. Chaque répétition crée
+les mêmes fichiers déterministes dans deux fixtures neuves. Le bras `physical`
+copie entièrement la source N fois avant d'écrire l'overlay ; le bras `gqwf`
+importe une fois la base, crée N vues puis écrit le même overlay. L'ordre des
+bras alterne entre répétitions afin de rendre un biais temporel visible.
+
+Le protocole refuse moins de trois répétitions. Il relit les projections et
+vérifie leurs nombres de fichiers et leurs octets avant de produire le JSON.
+Les octets de contenu, les métadonnées SQLite et les latences restent séparés.
+Le ratio d'octets ne comprend pas SQLite ; la taille SQLite est fournie à part.
+Le champ `performanceClaim` vaut toujours `none` : ce rapport ne décide ni un
+gain stable, ni une activation par défaut.
+
+Options : `--views=10`, `--files=8`, `--bytes=1024` et `--repetitions=3`.
+Les bornes sont 1 000 vues, 256 fichiers, 1 MiB par fichier et 20 répétitions.
 
 ## Charge contrôlée et métriques
 

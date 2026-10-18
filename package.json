@@ -18,6 +18,7 @@
     "audit:ateam": "node backend/bin/genos-ateam-audit.js",
     "arena": "node benchmarks/genos-arena/run-arena.cjs",
     "benchmark:holobiont": "node backend/bin/genos-holobiont-benchmark.cjs",
+    "benchmark:gqwf-cow": "node benchmarks/gqwf-overlays/compare.cjs",
     "clean:artifacts": "node scripts/clean-artifacts.mjs",
     "check:code-quality": "python scripts/ci/check_code_quality.py",
     "check:staged": "python scripts/ci/check_code_quality.py --staged",

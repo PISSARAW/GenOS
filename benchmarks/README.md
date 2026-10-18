@@ -3,7 +3,9 @@
 Le [banc GQWF local](gqwf-overlays/README.md) mesure séparément la création de
 vues logiques, l'écriture d'overlays et la matérialisation de fichiers. Il ne
 constitue pas une comparaison modèle seul contre GenOS ni une mesure de
-runtimes agents.
+runtimes agents. Son protocole `gqwf-cow-paired-v1` compare toutefois les
+octets et latences de copies physiques complètes aux vues GQWF sur une charge
+de fichiers identique ; cette comparaison reste locale au sous-système.
 
 Ce répertoire définit le protocole commun pour comparer un modèle seul à ce même
 modèle assisté par GenOS. Les anciens benchmarks restent utilisables pour leurs

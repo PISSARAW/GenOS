@@ -204,6 +204,6 @@ async function main() {
   }
 }
 
-module.exports = { fixture, createViews, removeFixture, footprint, writeSharedOverlay };
+module.exports = { fixture, createViews, removeFixture, footprint, writeSharedOverlay, content, treeStats };
 
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
