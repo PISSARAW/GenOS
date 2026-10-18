@@ -1,33 +1,9 @@
-const { spawn } = require('child_process');
 const fs = require('fs/promises');
-const { appendBounded } = require('./boundedOutput');
-const { terminateChild } = require('./processTermination');
 const capsuleGate = require('./agentCapsuleGate');
+const capsuleBoundary = require('./capsuleProcessBoundary');
 const securePaths = require('./trinityCapsulePaths');
 const seals = require('./trinityCapsuleSeal');
 const path = require('path');
-
-function run(command, args, options = {}) {
-  const timeoutMs = options.timeoutMs || 120000;
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, GENOS_STUDIO_ROOT: options.root, GENOS_ROOT: options.root } });
-    let stdout = '';
-    let stderr = '';
-    const timer = setTimeout(() => {
-      terminateChild(child);
-      reject(new Error(`GenOS capsule bootstrap timed out after ${timeoutMs}ms.`));
-    }, timeoutMs);
-    child.stdout.on('data', (chunk) => { stdout = appendBounded(stdout, chunk); });
-    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
-    child.on('error', (error) => { clearTimeout(timer); reject(error); });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolve(stdout);
-      else reject(new Error(`GenOS capsule bootstrap failed (${code}): ${stderr.trim() || stdout.trim()}`));
-    });
-  });
-}
 
 const crypto = require('crypto');
 
@@ -98,7 +74,7 @@ async function provisionRaw(context = {}) {
     if (err.code === 'CAPSULE_EXECUTABLE_INVALID') throw err;
     if (ctx.correlation && ctx.fallbackSynthetic !== true) throw err;
     ctx.bootstrapMode = 'synthetic';
-    ctx.fallbackReason = err.code || err.message;
+    ctx.fallbackReason = err.message;
     return provisionSyntheticRaw(ctx);
   }
   return provisionNative(ctx, paths, executable);
@@ -110,9 +86,9 @@ async function provisionNative(ctx, paths, executable) {
   const steps = String(ctx.budgetSteps || 100);
   try {
     securePaths.ensureDirectory(paths.bootstrap);
-    await run(executable, ['agent', 'create', '--name', name, '--role', role, '--out', paths.genomePath], { root: paths.root });
-    await run(executable, ['snapshot', 'create', '--agent', paths.genomePath, '--out', paths.snapshotPath], { root: paths.root });
-    const output = await run(executable, [
+    await capsuleBoundary.run(executable, ['agent', 'create', '--name', name, '--role', role, '--out', paths.genomePath], { root: paths.root });
+    await capsuleBoundary.run(executable, ['snapshot', 'create', '--agent', paths.genomePath, '--out', paths.snapshotPath], { root: paths.root });
+    const output = await capsuleBoundary.run(executable, [
       'capsule', 'create', '--snapshot', paths.snapshotPath,
       '--seed', ctx.workspaceRoot,
       '--budget-steps', steps
@@ -122,7 +98,7 @@ async function provisionNative(ctx, paths, executable) {
     await fs.rm(securePaths.assertPath(paths.root), { recursive: true, force: true }).catch(() => {});
     if (ctx.correlation && ctx.fallbackSynthetic !== true) throw error;
     ctx.bootstrapMode = 'synthetic';
-    ctx.fallbackReason = error.code || error.message;
+    ctx.fallbackReason = error.message;
     return provisionSyntheticRaw(ctx);
   }
 }
@@ -180,4 +156,8 @@ function provisionSynthetic(context = {}) {
   return seals.provision(ctx, () => provisionSyntheticRaw(ctx));
 }
 
-module.exports = { provision, provisionSynthetic };
+function recoverPartial(context = {}) {
+  return require('./trinityCapsuleRecovery').recover(context);
+}
+
+module.exports = { provision, provisionSynthetic, recoverPartial };

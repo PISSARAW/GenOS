@@ -725,6 +725,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0618a](0618-canari-determine-et-reversible-gqwf.md) | Canari déterministe et réversible pour GQWF | Accepté | 2026-10-18 | -- |
 | [0618b](0618-supervision-dynamique-leases-mcp.md) | Superviser dynamiquement les leases MCP au point d'effet | Accepté | 2026-10-18 | runtime, MCP, leases, budgets, isolation, reçus |
 | [0619](0619-dispatch-workers-philosophiques-isoles.md) | Dispatch de workers philosophiques isolés | Accepté | 2026-10-18 | philosophie opérationnelle, workers, isolation, preuve |
+| [0621](0621-frontiere-processus-et-reprise-capsules.md) | Frontière de processus et reprise explicite des capsules | Accepté | 2026-10-18 | runtime, isolation, reprise, quarantaine, preuve |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -19,6 +19,12 @@ async function assertStored(context, capsule) {
   if (!row || row.seal_hash !== capsule.sealHash) fail('Capsule database seal anchor mismatch.');
 }
 
+async function anchor(context, correlation) {
+  if (!context.db) return null;
+  await initialize(context.db);
+  return context.db.get('SELECT seal_hash FROM trinity_capsule_seals WHERE correlation_hash = ?', hash(correlation));
+}
+
 async function persist(context, capsule) {
   if (!context.db) return;
   await initialize(context.db);
@@ -26,4 +32,4 @@ async function persist(context, capsule) {
   await assertStored(context, capsule);
 }
 
-module.exports = { initialize, assertStored, persist };
+module.exports = { initialize, assertStored, persist, anchor };

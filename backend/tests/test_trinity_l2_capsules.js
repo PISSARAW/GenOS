@@ -5,6 +5,7 @@ const os = require('node:os');
 const sqlite = require('sqlite');
 const sqlite3 = require('sqlite3');
 const capsules = require('../src/services/agentCapsuleService');
+const capsuleBoundary = require('../src/services/capsuleProcessBoundary');
 const gate = require('../src/services/agentCapsuleGate');
 const seals = require('../src/services/trinityCapsuleSeal');
 const secure = require('../src/services/trinityCapsulePaths');
@@ -23,6 +24,8 @@ async function testReprise(root) {
   const first = await capsules.provisionSynthetic(request);
   assert.equal(first.bootstrapMode, 'synthetic');
   assert.equal((await seals.verify(first)).payload.capsule.id, first.id);
+  await assert.rejects(capsules.recoverPartial(request), error =>
+    error.code === 'TRINITY_CAPSULE_RECOVERY_AMBIGUOUS');
   assert.deepEqual(await capsules.provisionSynthetic(request), first);
   await assert.rejects(capsules.provisionSynthetic({ ...request, role: 'Different' }), /reprise inputs changed/);
   const second = await capsules.provisionSynthetic(input(root, 'run-2'));
@@ -59,6 +62,69 @@ async function testLinksAndPartial(root) {
   await fs.mkdir(resolved.root, { recursive: true });
   await assert.rejects(capsules.provisionSynthetic(request), /Unsealed capsule exists/);
   assert.equal(await fs.readFile(path.join(root, 'outside', 'sentinel')).catch(() => null), null);
+}
+
+async function testProcessBoundary(root) {
+  const secretName = 'GENOS_PHASE5_PRIVATE_VALUE';
+  const priorSecret = process.env[secretName];
+  const priorDatabase = process.env.GENOS_DB_PATH;
+  process.env[secretName] = 'must-not-cross-boundary';
+  process.env.GENOS_DB_PATH = path.join(root, 'control-plane.db');
+  try {
+    const script = `process.stdout.write(JSON.stringify({cwd:process.cwd(),secret:process.env.${secretName},database:process.env.GENOS_DB_PATH,home:process.env.HOME,root:process.env.GENOS_ROOT,studio:process.env.GENOS_STUDIO_ROOT}))`;
+    const output = await capsuleBoundary.run(process.execPath, ['-e', script], {
+      root,
+      environment: { HOME: path.join(root, 'forbidden-home'), [secretName]: 'requested-secret' }
+    });
+    const observed = JSON.parse(output);
+    assert.equal(path.resolve(observed.cwd), path.resolve(root));
+    assert.equal(observed.secret, undefined);
+    assert.equal(observed.database, undefined);
+    assert.equal(observed.home, undefined);
+    assert.equal(observed.root, root);
+    assert.equal(observed.studio, root);
+    await assert.rejects(async () => capsuleBoundary.run(process.execPath, ['-e', ''], {
+      root, timeoutMs: 0
+    }), error => error.code === 'CAPSULE_BOOTSTRAP_TIMEOUT_INVALID');
+    await assert.rejects(capsuleBoundary.run(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+      root, timeoutMs: 25
+    }), error => error.code === 'CAPSULE_BOOTSTRAP_TIMEOUT');
+  } finally {
+    if (priorSecret === undefined) delete process.env[secretName];
+    else process.env[secretName] = priorSecret;
+    if (priorDatabase === undefined) delete process.env.GENOS_DB_PATH;
+    else process.env.GENOS_DB_PATH = priorDatabase;
+  }
+}
+
+async function testPartialRecovery(root) {
+  const request = input(root, 'partial-recovery');
+  const resolved = gate.resolveCapsulePaths(request);
+  await fs.mkdir(resolved.root, { recursive: true });
+  await fs.writeFile(path.join(resolved.root, 'interrupted.txt'), 'partial evidence');
+  const receipt = await capsules.recoverPartial(request);
+  assert.equal(receipt.decision, 'QUARANTINED');
+  assert.equal(receipt.promotionEligible, false);
+  assert.equal(receipt.independentReviewRequired, true);
+  assert.equal(await fs.readFile(path.join(receipt.quarantineRoot, 'interrupted.txt'), 'utf8'), 'partial evidence');
+  await assert.rejects(fs.lstat(resolved.root), error => error.code === 'ENOENT');
+  assert.deepEqual(await capsules.recoverPartial(request), receipt);
+  const recovered = await capsules.provisionSynthetic(request);
+  assert.equal((await seals.verify(recovered)).payload.capsule.id, recovered.id);
+  await assert.rejects(capsules.recoverPartial(request), error =>
+    error.code === 'TRINITY_CAPSULE_RECOVERY_AMBIGUOUS');
+}
+
+async function testAnchoredRecoveryRefusal(root) {
+  const db = await sqlite.open({ filename: ':memory:', driver: sqlite3.Database });
+  try {
+    const request = { ...input(root, 'anchored-recovery'), db };
+    const capsule = await capsules.provisionSynthetic(request);
+    await fs.unlink(capsule.sealPath);
+    await assert.rejects(capsules.recoverPartial(request), error =>
+      error.code === 'TRINITY_CAPSULE_RECOVERY_AMBIGUOUS');
+    assert.equal(await fs.readFile(capsule.genomePath, 'utf8').then(() => true), true);
+  } finally { await db.close(); }
 }
 
 async function testFallback(root) {
@@ -222,6 +288,9 @@ async function main() {
     const first = await testReprise(root);
     await testTampering(first);
     await testLinksAndPartial(root);
+    await testProcessBoundary(root);
+    await testPartialRecovery(root);
+    await testAnchoredRecoveryRefusal(root);
     await testFallback(root);
     await testSealAnchor(root);
     await testConcurrent(root);
