@@ -51,7 +51,8 @@ pub fn handle_cnidocyte(action: &str, params: &[String]) {
                     success: false, latency_micros: 0,
                     delivered_toxin: cnidocyte.capsule.toxin.clone(),
                     target_neutralized: false, residual_pressure_mpa: 0.0,
-                    message: err,
+                    message: err, evidence_scope: "local_input_gate".to_string(),
+                    trigger_kind: "none".to_string(),
                 }
             });
             println!("{}", json!({

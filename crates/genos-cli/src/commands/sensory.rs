@@ -9,6 +9,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
+mod replay;
+
+use replay::existing_replay;
+
 const MAX_SENSORY_INPUT_BYTES: u64 = 1_048_576;
 
 #[derive(Deserialize)]
@@ -138,7 +142,11 @@ fn persist_and_print(
     mission_id: Uuid,
     source: serde_json::Value,
 ) -> Result<(), String> {
-    let receipt = persist_synthetic_sensory_receipt(&BiologicalReceiptStore::open(journal_path), mission_id, &source)?;
+    let store = BiologicalReceiptStore::open(journal_path);
+    let receipt = match existing_replay(&store, mission_id, &source)? {
+        Some(receipt) => receipt,
+        None => persist_synthetic_sensory_receipt(&store, mission_id, &source)?,
+    };
     let output = serde_json::to_string(&receipt)
         .map_err(|error| format!("cannot render sensory receipt: {error}"))?;
     println!("{output}");
@@ -191,13 +199,12 @@ mod tests {
     use genos_orchestrator::sensory_receipt_runtime::read_synthetic_sensory_receipts;
     use serde_json::json;
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use uuid::Uuid;
     use ed25519_dalek::{Signer, SigningKey};
     use genos_orchestrator::sensory_authority::{signing_bytes, stimulus_digest, SensoryClaims, SensoryProducerAuthority};
 
     fn scratch_path(suffix: &str) -> PathBuf {
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = Uuid::new_v4();
         std::env::temp_dir().join(format!("genos-sensory-cli-{nonce}-{suffix}"))
     }
 

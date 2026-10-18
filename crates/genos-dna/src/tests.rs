@@ -3,7 +3,7 @@ use genos_genome::DnaStrand;
 use crate::operations::{self, CloneOptions, CrossOptions, DecoyOptions, GraftSpec, MutateOptions, SpeciateOptions};
 use crate::{codec, compile, manifest::Manifest, packing, validate};
 
-fn sample_manifest() -> Manifest {
+pub(crate) fn sample_manifest() -> Manifest {
     let json = r#"{
         "apiVersion": "v0alpha1",
         "kind": "AgentGenome",

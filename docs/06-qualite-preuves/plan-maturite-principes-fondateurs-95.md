@@ -1,6 +1,6 @@
 # Plan de maturité des principes fondateurs vers 95/100
 
-- **Statut** : Exécution en cours, phase 10 qualifiée
+- **Statut** : Exécution en cours, phases 10 et 11 qualifiées
 - **Portée** : fermeture transverse des réserves après les phases 7 à 9
 - **Dernière revue** : 2026-10-18
 
@@ -19,7 +19,7 @@ reçu vérifiable. Un lot incomplet n'ajoute aucun point.
 | Lot | Gain | Résultat exigé | État initial |
 | --- | ---: | --- | --- |
 | Phase 10 — CI Node transverse | +3 | `npm test` termine à zéro sans dépendre de `.env` ni d'une autorité implicite | Qualifiée le 2026-10-18 |
-| Phase 11 — validation Rust reproductible | +2 | `cargo test --workspace` termine à zéro dans un répertoire de build isolé | À faire |
+| Phase 11 — validation Rust reproductible | +2 | `cargo test --workspace` termine à zéro dans un répertoire de build isolé | Qualifiée le 2026-10-18 |
 | Phase 12 — dette du gate qualité | +2 | aucune nouvelle dette et gate global ramené à un état accepté et documenté | À faire |
 | Phase 13 — registre de confiance déployable | +3 | bootstrap, rotation, révocation et récupération de clés testés en fail-closed | À faire |
 | Phase 14 — journal de révocation durable | +2 | anti-rollback, reprise après crash et réplication vérifiées sur stockage durable | À faire |
@@ -65,6 +65,31 @@ versions de toolchain et les digests des sorties.
 
 Sortie : un reçu distingue compilation, exécution des tests et éventuel skip
 explicite. Un timeout ou un verrou partagé vaut échec, jamais succès.
+
+Preuves de sortie :
+
+- toolchain : `rustc 1.97.1 (8bab26f4f 2026-07-14)` et
+  `cargo 1.97.1 (c980f4866 2026-06-30)` ;
+- commande finale : `cargo test --workspace --locked --quiet`, terminée à
+  zéro avec `CARGO_TARGET_DIR` et répertoire temporaire dédiés sur un autre
+  volume, `CARGO_BUILD_JOBS=1` et `CARGO_INCREMENTAL=0` ;
+- journal de l'exécution finale : 16 954 octets sur la sortie standard,
+  SHA-256 `4ecc003ff160ac8b869cad2b9b455553787519d6d090a50af902b35b13a20f7f` ;
+- diagnostics de l'exécution finale : 55 507 octets,
+  SHA-256 `a36b461f3676608b27fd8f01eb5c0ef26d830811413846cc32e619b0b5e23861` ;
+- les trois tests CLI sensoriels ont en plus été exécutés trois fois de suite :
+  replay exact accepté sans double écriture, contenu divergent refusé et
+  mission étrangère isolée ;
+- les dérives de compilation détectées sur `DischargeImpact` et la fixture DNA
+  ont été corrigées. Le replay sensoriel réutilise désormais le reçu durable
+  vérifié tout en comparant tous les champs stables et en ignorant seulement
+  l'identifiant de capture et l'horodatage volatils.
+
+Les avertissements Rust existants restent une dette visible de la phase 12. Ils
+ne sont ni masqués ni comptés comme corrigés par cette qualification. Une
+tentative finale à deux jobs a épuisé la mémoire pendant deux éditions de liens
+concurrentes et a été comptée comme échec ; la campagne probante est celle à un
+job dont les empreintes figurent ci-dessus.
 
 ## Phase 12 — dette du gate qualité
 
