@@ -97,4 +97,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('134-execution-authority-v2', 'Classify historic runs as read-only before enforcing v2 envelopes', async (db) => {
     await require('./migrateExecutionAuthorityV2').migrateExecutionAuthorityV2(db);
   }),
+  createMigrationRunner('135-versioned-causal-state', 'Persist authority-bound causal snapshots, forks and replay receipts', async (db) => {
+    await require('./migrateVersionedCausalState').migrateVersionedCausalState(db);
+  }),
 ];
