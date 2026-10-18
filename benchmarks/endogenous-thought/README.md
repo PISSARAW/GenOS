@@ -1,6 +1,6 @@
 # Endogenous Thought Test — ETT v1
 
-- **Statut** : runner déterministe non vérifié implémenté ; vérification et campagne non exécutées
+- **Statut** : apprentissage borné implémenté ; continuation et campagne non exécutées
 - **Portée** : simulation déterministe en lecture seule
 - **Dernière revue** : 2026-10-18
 
@@ -21,7 +21,7 @@ npm --prefix backend run test:ett
 Le payload d'une transition d'épisode est défini par
 [`../../spec/cognitive-episode.schema.json`](../../spec/cognitive-episode.schema.json).
 
-## État de PR6
+## État de PR8
 
 PR1 a figé les frontières, contrats et métriques. PR2 ajoute :
 
@@ -92,10 +92,30 @@ PR6 consomme une autorisation SHEV signée avant de lever la retenue :
 - le reçu interdit explicitement toute vérification implicite et toute
   éligibilité à la promotion.
 
-La vérification indépendante, l'apprentissage, les continuations et la
-campagne réservée appartiennent aux tranches suivantes. Une proposition
-durable `RUNNING` ne vaut donc ni découverte vérifiée ni validation d'une
-capacité cognitive générale.
+PR7 exige une séparation cryptographique des rôles avant toute transition vers
+`VERIFIED` :
+
+- l'autorité SHEV signe la portée exacte de l'opération de vérification ;
+- un vérificateur dont l'identité et la clé diffèrent du producteur et de
+  l'autorité signe séparément le run, la proposition, le verdict et les preuves ;
+- les verdicts `supported`, `refuted` et `inconclusive` sont tous conservés ;
+- le run Ontogenèse devient `verified` et la tâche `done` seulement après la
+  persistance atomique du reçu ;
+- aucune classification n'applique encore un apprentissage, n'autorise une
+  continuation ou ne rend le résultat promotable.
+
+PR8 applique une révision catégorielle strictement confinée à l'épisode :
+
+- une autorisation SHEV `ett-learn` scelle la vérification, son verdict, sa
+  version, la politique et la cible de croyance ;
+- `supported` produit un renforcement provisoire, `refuted` une correction dans
+  la portée et `inconclusive` un report sans mutation de croyance ;
+- le reçu est immuable, idempotent et reprenable après redémarrage ;
+- l'épisode avance à `LEARNED` sans écrire dans la mémoire de production ;
+- aucune continuation, action externe ou promotion n'est autorisée.
+
+Les continuations bornées et la campagne réservée appartiennent aux tranches
+suivantes. Un épisode `LEARNED` ne valide donc pas une capacité cognitive générale.
 
 ## Frontières de sécurité
 

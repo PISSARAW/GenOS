@@ -1,6 +1,6 @@
 # Endogenous Thought Test — ETT v1
 
-- **Statut** : Partiel — chaîne implémentée jusqu'à la classification indépendante ; apprentissage et campagne réservée non implémentés
+- **Statut** : Partiel — chaîne implémentée jusqu'à l'apprentissage borné ; continuation et campagne réservée non implémentées
 - **Portée** : simulation déterministe, bornée et en lecture seule
 - **Dernière revue** : 2026-10-18
 
@@ -166,6 +166,19 @@ Une attestation valide place le run Ontogenèse en `verified`, la tâche en
 l'hypothèse est soutenue : une réfutation ou un résultat inconclusif est aussi
 un résultat vérifié.
 
+### 5.6 Apprentissage borné
+
+Une autorisation SHEV `ett-learn` à usage unique lie la vérification, le verdict,
+la version de l'épisode, la politique et la cible interne. Le service ne déduit
+rien d'un simple statut de transport : il relit le reçu signé du vérificateur et
+l'état Ontogenèse achevé avant toute révision.
+
+La révision reste catégorielle et locale à l'épisode : `supported` renforce
+provisoirement la croyance, `refuted` enregistre une correction dans cette
+portée et `inconclusive` diffère la modification. Le reçu avance l'épisode de
+`VERIFIED` à `LEARNED`. Il n'écrit pas dans la mémoire de production et
+n'autorise ni continuation, ni action externe, ni promotion.
+
 ## 6. Cycle de vie
 
 ```mermaid
@@ -186,7 +199,7 @@ stateDiagram-v2
     RUNNING --> VERIFIED: autorisation + attestation indépendante
     RUNNING --> STOPPED
     RUNNING --> FAILED
-    VERIFIED --> LEARNED: non implémenté
+    VERIFIED --> LEARNED: autorisation SHEV ett-learn
     VERIFIED --> STOPPED
     VERIFIED --> FAILED
     LEARNED --> FOLLOW_UP: non implémenté
@@ -216,6 +229,7 @@ Le schéma de transition est
 | Mise en file | [`endogenousThoughtQueueService.js`](../../backend/src/services/endogenousThoughtQueueService.js) | `endogenous_thought_task_bindings`, `ontogenesis_backlog` |
 | Exécution bornée | [`endogenousThoughtRunnerService.js`](../../backend/src/services/endogenousThoughtRunnerService.js) | `endogenous_thought_runs`, `ontogenesis_runs` |
 | Vérification | [`endogenousThoughtVerificationService.js`](../../backend/src/services/endogenousThoughtVerificationService.js) | `endogenous_thought_verifications` |
+| Apprentissage borné | [`endogenousThoughtLearningService.js`](../../backend/src/services/endogenousThoughtLearningService.js) | `endogenous_thought_learnings` |
 
 Les contrats principaux sont :
 
@@ -227,6 +241,7 @@ Les contrats principaux sont :
 | `EndogenousThoughtTaskBinding` | liaison question/décision/tâche | tâche retenue |
 | `EndogenousThoughtRun` | proposition produite par le runner | `completed_unverified` |
 | `EndogenousThoughtVerification` | verdict indépendant signé | classification attestée, non promotable |
+| `EndogenousThoughtLearning` | révision catégorielle locale | apprentissage d'épisode, non promotable |
 
 ## 8. Durabilité, reprise et sécurité
 
@@ -293,8 +308,8 @@ npm run check:adr
 ```
 
 Les tests ETT couvrent les contrats, la parité du schéma, la persistance, les
-reprises, la détection, l'admission, la tâche retenue, le runner signé et la
-vérification indépendante :
+reprises, la détection, l'admission, la tâche retenue, le runner signé, la
+vérification indépendante et l'apprentissage borné :
 
 - [`test_endogenous_thought_contract.js`](../../backend/tests/test_endogenous_thought_contract.js) ;
 - [`test_cognitive_episode_schema.js`](../../backend/tests/test_cognitive_episode_schema.js) ;
@@ -303,7 +318,8 @@ vérification indépendante :
 - [`test_endogenous_thought_admission.js`](../../backend/tests/test_endogenous_thought_admission.js) ;
 - [`test_endogenous_thought_queue.js`](../../backend/tests/test_endogenous_thought_queue.js) ;
 - [`test_endogenous_thought_runner.js`](../../backend/tests/test_endogenous_thought_runner.js) ;
-- [`test_endogenous_thought_verification.js`](../../backend/tests/test_endogenous_thought_verification.js).
+- [`test_endogenous_thought_verification.js`](../../backend/tests/test_endogenous_thought_verification.js) ;
+- [`test_endogenous_thought_learning.js`](../../backend/tests/test_endogenous_thought_learning.js).
 
 ## 11. Limites et non-objectifs
 
@@ -313,8 +329,8 @@ L'état actuel ne fournit pas :
 - de sortie de modèle ou de worker réel dans le runner ETT ;
 - de mesure réelle de coût pour la métrique primaire ;
 - d'oracle final scellé pour chaque scénario du benchmark ;
-- de transition implémentée vers `LEARNED` ou `FOLLOW_UP` ;
-- de mise à jour de mémoire ou de croyance à partir des verdicts ;
+- de transition implémentée vers `FOLLOW_UP` ;
+- de mise à jour de la mémoire de production à partir des verdicts ;
 - de décision autonome de continuation ou d'arrêt après vérification ;
 - d'API ou de CLI de production activant automatiquement la boucle ;
 - de preuve de généralisation, de conscience ou d'autonomie générale ;

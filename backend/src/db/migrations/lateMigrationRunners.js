@@ -133,4 +133,11 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('143-endogenous-thought-runs', 'Persist authorized read-only endogenous thought runs', async (db) => {
     await require('./migrateEndogenousThoughtRuns').migrateEndogenousThoughtRuns(db);
   }),
+  createMigrationRunner('144-endogenous-thought-verifications', 'Persist independently signed endogenous verifications', async (db) => {
+    await require('./migrateEndogenousThoughtVerifications')
+      .migrateEndogenousThoughtVerifications(db);
+  }),
+  createMigrationRunner('145-endogenous-thought-learnings', 'Persist verified episode-scoped belief revisions', async (db) => {
+    await require('./migrateEndogenousThoughtLearnings').migrateEndogenousThoughtLearnings(db);
+  }),
 ];

@@ -1,6 +1,6 @@
 # ADR 0626 — Protocole de pensée endogène bornée
 
-- **Statut** : Accepté jusqu'au runner déterministe non vérifié ; vérification et campagne non implémentées
+- **Statut** : Accepté jusqu'à l'apprentissage borné ; continuation et campagne non implémentées
 - **Date** : 2026-10-18
 - **Domaine** : cognition endogène, expérimentation, autorité, preuve
 - **Décideurs** : mainteneurs GenOS
@@ -103,6 +103,30 @@ proposition traçable, place la tâche en `verifying` et le run Ontogenèse en
 explicitement que la proposition n'est ni vérifiée ni promotable. La reprise
 relit le même reçu et refuse toute autre demande pour l'épisode.
 
+PR7 ajoute une barrière de vérification indépendante à deux signatures. Une
+autorisation SHEV lie le projet, l'épisode, le run, sa version, la politique et
+l'oracle. Une clé Ed25519 distincte de l'autorité et du producteur signe ensuite
+le verdict, les références de preuve et l'empreinte exacte de la proposition.
+Le reçu classe le résultat comme `supported`, `refuted` ou `inconclusive`.
+
+Après persistance atomique, le run Ontogenèse passe à `verified`, la tâche à
+`done` et l'épisode de `RUNNING` à `VERIFIED`. Cet état signifie que la
+classification indépendante est terminée, pas que l'hypothèse est soutenue :
+un verdict réfuté ou inconclusif suit la même transition explicite. Le reçu
+interdit encore l'apprentissage, la continuation, l'action externe et la
+promotion.
+
+PR8 consomme cette classification dans un registre de croyance limité à
+l'épisode. Une autorisation SHEV `ett-learn` lie la vérification, sa version,
+son verdict, la politique et la cible `ett-episode-belief`. La révision est
+déterministe : `supported` renforce provisoirement, `refuted` corrige dans la
+portée de l'épisode et `inconclusive` diffère toute modification.
+
+Le reçu `EndogenousThoughtLearning` est immuable, rejouable et isolé par
+organisation et projet. Il avance l'épisode de `VERIFIED` à `LEARNED`, mais ne
+modifie aucune mémoire de production, n'autorise aucune continuation ou action
+externe et ne rend aucun résultat promotable.
+
 Le schéma JSON canonique de la transition est
 `spec/cognitive-episode.schema.json`. Il reste aligné avec le validateur du
 runtime par un test de parité. Ses métadonnées fixent explicitement que le
@@ -136,8 +160,8 @@ uniquement sur une capacité fonctionnelle bornée dans le profil exécuté.
 
 ### Négatives
 
-- PR6 fournit une proposition durable, mais aucune conclusion vérifiée ni campagne exécutable.
-- La vérification indépendante et les oracles scellés restent à implémenter.
+- PR8 fournit une révision de croyance locale, mais aucune continuation ou campagne exécutable.
+- Les oracles de la campagne réservée restent à sceller sur le corpus final.
 - La normalisation des coûts devra être alimentée par des mesures réelles.
 - Une campagne locale ne suffira pas à établir une généralisation scientifique.
 
@@ -169,7 +193,14 @@ uniquement sur une capacité fonctionnelle bornée dans le profil exécuté.
   signée, sa consommation atomique, la proposition déterministe, le run durable,
   la reprise, l'isolation de portée et l'absence de worker, de mutation, de réseau,
   de vérification ou de promotion ;
-- aucun test de PR1 à PR6 ne promeut une capacité ou une propriété de conscience.
+- `backend/tests/test_endogenous_thought_verification.js` vérifie la double
+  signature Ed25519, l'indépendance des identités et des clés, les verdicts
+  scellés, l'idempotence, la reprise et la transition vers `VERIFIED` sans
+  apprentissage, continuation ou promotion ;
+- `backend/tests/test_endogenous_thought_learning.js` vérifie que seul un verdict
+  indépendant intègre peut produire une révision autorisée, bornée, immuable et
+  reprenable, avec report explicite des résultats inconclusifs ;
+- aucun test de PR1 à PR8 ne promeut une capacité ou une propriété de conscience.
 
 ## Alternatives écartées
 
