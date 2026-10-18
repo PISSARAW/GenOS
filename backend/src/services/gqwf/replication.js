@@ -199,4 +199,4 @@ async function replicateRoot(db, input, options = {}) {
   return persistReceipt(db, prepared);
 }
 
-module.exports = { inspectReplication, replicateRoot };
+module.exports = { canonicalJson, digest, inspectReplication, replicateRoot };

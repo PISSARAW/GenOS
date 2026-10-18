@@ -18,6 +18,7 @@ logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../ad
 | Collecte | `gqwf_gc_runs` | Aperçu signé puis balayage explicite et traçable |
 | Intégrité | `gqwf_integrity_runs` | Scrub exhaustif non destructif et rapport durable |
 | Réplication | `gqwf_replication_receipts` | Plan CAS scellé, reprise par déduplication et reçu cible |
+| Réparation | `gqwf_repair_receipts` | Source répliquée vérifiée, quarantaine et preuve avant/après |
 
 Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`, `listFiles`, `writeFile`,
 `deleteFile`, `sealView`, `mergeRoots`, `materializeRoot`, `ingestLease` et
@@ -25,7 +26,8 @@ Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`
 `collectGarbage` exige le hash exact de cet inventaire. `scrubIntegrity`
 vérifie le store complet et persiste son rapport sans réparer.
 `inspectReplication` et `replicateRoot` transportent une racine entre deux
-workspaces du même tenant sous autorisation liée. `publishCandidate` échoue sans vérificateur injecté par le
+workspaces du même tenant sous autorisation liée. `inspectRepair` et
+`repairRoot` restaurent ses blobs depuis une réplique attestée. `publishCandidate` échoue sans vérificateur injecté par le
 runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
@@ -355,6 +357,31 @@ inter-hôtes mais ne le revendique pas. Elle ne répare pas encore une corruptio
 Voir l'[ADR 0636](../adr/0636-replication-cas-gqwf.md).
 
 Validation ciblée : `node backend/tests/test_gqwf_replication.js`.
+
+### Réparation authentifiée depuis une réplique
+
+La tranche 17 ajoute `gqwf-cas-repair-v1`. La source n'est admise que si un
+reçu `gqwf-cas-replication-v1` valide la lie déjà à la cible, à la même racine
+et au même scope organisation/projet. Tous ses blobs sont relus et vérifiés
+avant qu'une mutation commence.
+
+`inspectRepair` inventorie les blobs sains, absents ou corrompus. Le
+`planHash` couvre cet inventaire, le reçu de réplication et les identités de
+workspace. `repairRoot` exige ce plan et une autorisation portant exactement
+les mêmes champs. Un objet manquant est recréé ; un fichier régulier privé
+mais corrompu est déplacé dans `.genos/gqwf/quarantine/` avant restauration.
+Un symlink, hardlink, dossier ou fichier spécial reste bloquant.
+
+La cible complète est relue après l'opération. Le reçu canonique conserve les
+empreintes d'inventaire avant/après et les nombres d'objets réparés et mis en
+quarantaine. Un rejeu sur une cible saine retourne le reçu existant ; une
+nouvelle corruption exige un nouvel aperçu et produit un nouveau reçu.
+
+Cette tranche répare les blobs d'une racine dont le manifeste existe encore.
+Elle ne reconstruit pas une métadonnée SQLite ou un manifeste disparu et ne
+constitue pas encore un transport inter-hôtes. Voir l'[ADR 0639](../adr/0639-reparation-authentifiee-gqwf.md).
+
+Validation ciblée : `node backend/tests/test_gqwf_repair.js`.
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,

@@ -759,6 +759,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0636](0636-replication-cas-gqwf.md) | Répliquer les racines GQWF par contenu | Accepté, réplication locale inter-workspaces | 2026-10-18 | GQWF, CAS, réplication, tenants, reprise, preuves |
 | [0637](0637-reduire-la-baseline-qualite-residuelle.md) | Réduire la baseline qualité résiduelle | Accepté | 2026-10-18 | qualité, preuves, gouvernance de dette |
 | [0638](0638-paquets-signes-du-registre-de-confiance.md) | Paquets signés du registre de confiance | Accepté | 2026-10-18 | confiance, révocation, déploiement, récupération |
+| [0639](0639-reparation-authentifiee-gqwf.md) | Réparer GQWF depuis une réplique authentifiée | Accepté, réparation locale bornée aux blobs | 2026-10-18 | GQWF, CAS, réparation, quarantaine, tenants, preuves |
 | [0640](0640-journal-revocation-ancre-durable.md) | Journal de révocation à ancre durable | Accepté | 2026-10-18 | révocation, durabilité, anti-rollback, réplication |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
