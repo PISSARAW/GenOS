@@ -35,7 +35,8 @@ async function execute(db) {
     agents: { 'commit-agent': { id: 'commit-agent', status: 'idle', lease: ['read'] } },
     topologyState: { organization: 'trinity', topology: 'trinity', activeSubgraphs: [] },
     budgets: { total: 100, allocated: 20, remaining: 80, perAgent: { 'commit-agent': 20 } } });
-  const plan = { id: 'commit-plan', missionId: 'commit-mission', actions: [],
+  const plan = { id: 'commit-plan', missionId: 'commit-mission',
+    actions: [{ type: 'rebind', agentId: 'commit-agent', targetRole: 'verifier' }],
     targetOrganization: 'rhizome', expectedGain: 0.7, expectedRisk: 0.2,
     reason: 'authenticated-production-transition' };
   const req = { user: { username: 'operator' }, tenant: {
@@ -49,8 +50,31 @@ async function execute(db) {
   const stored = await snapshots.load({ db, id: result.receipt.durableSnapshot.id });
   assert.equal(stored.row.status, 'committed');
   assert.equal((await getLineage(db, 'commit-agent')).length, 1);
+  const actionEvents = await db.all(`SELECT receipt_json FROM morphogenesis_transition_actions
+    WHERE transition_id=? ORDER BY sequence`, result.receipt.transitionId);
+  assert.deepEqual(actionEvents.map(row => JSON.parse(row.receipt_json).phase),
+    ['PREPARE', 'PREPARE', 'COMMIT', 'COMMIT']);
+  assert.equal(JSON.parse(actionEvents[1].receipt_json).actionId,
+    JSON.parse(actionEvents[2].receipt_json).actionId);
   const persisted = await db.get("SELECT value FROM collective_state WHERE key='collective_state_v1'");
   assert.equal(collective.deserializeState(persisted.value).topologyState.organization, 'rhizome');
+  await db.run(`INSERT INTO morphogenesis_transition_snapshots
+    SELECT 'mts-startup-prepared', 'tx-startup-prepared', organization_id, project_id, mission_id,
+      principal_id, plan_hash, snapshot_hash, payload_json, 'prepared', authority_json, NULL,
+      CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM morphogenesis_transition_snapshots WHERE snapshot_id=?`,
+  result.receipt.durableSnapshot.id);
+  await db.run(`INSERT INTO morphogenesis_transition_snapshots
+    SELECT 'mts-startup-applying', 'tx-startup-applying', organization_id, project_id, mission_id,
+      principal_id, plan_hash, snapshot_hash, payload_json, 'applying', authority_json, NULL,
+      CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM morphogenesis_transition_snapshots WHERE snapshot_id=?`,
+  result.receipt.durableSnapshot.id);
+  const recovery = await require('../src/services/morphogenesis/morphogenesisTransitionRecovery')
+    .recoverStartupTransitions(db, { snapshotStore: { restore: async () => ({ restored: true }) } });
+  assert.equal(recovery.aborted, 1);
+  assert.equal(recovery.recoveryRequired, 1);
+  assert.equal((await snapshots.load({ db, id: 'mts-startup-prepared' })).row.status, 'restored');
+  assert.equal((await snapshots.load({ db, id: 'mts-startup-applying' })).row.status,
+    'recovery_required');
   process.env.GENOS_MORPHOGENESIS_HYSTERESIS_PATH = path.join(os.tmpdir(), `morphogenesis-hysteresis-rollback-${crypto.randomUUID()}.json`);
   const rollback = await executeTransition({ db, req, agentId: 'commit-agent',
     missionId: 'commit-mission', collectiveState: state,
@@ -60,6 +84,9 @@ async function execute(db) {
     persistCommit: async () => { throw new Error('forced commit failure'); } });
   assert.equal(rollback.committed, false);
   assert.equal(rollback.rollbackReceipt.durableRestored, true);
+  const rollbackEvents = await db.all(`SELECT receipt_json FROM morphogenesis_transition_actions
+    WHERE transition_id=? ORDER BY sequence`, rollback.transitionId);
+  assert.deepEqual(rollbackEvents.map(row => JSON.parse(row.receipt_json).phase), ['PREPARE', 'ABORT']);
   assert.equal(state.topologyState.organization, 'rhizome');
   assert.equal((await snapshots.load({ db, id: rollback.durableSnapshot.id })).row.status, 'restored');
 }

@@ -809,3 +809,4 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0457 — Ingestion du routeur après clôture vérifiée du worker](adr/0457-ingestion-routeur-cloture-worker-verifiee.md).
 - [ADR 0396 — Crédit externe mesuré pour la régulation des workers](adr/0396-credit-externe-regulation-workers.md).
 - [ADR 0397c — Relecture bornée des preuves de workers terminés](adr/0397-relecture-preuve-worker-termine.md).
+- [ADR 0610 — Protocole P0 du commit morphogénétique](adr/0610-protocole-p0-commit-morphogenetique.md).

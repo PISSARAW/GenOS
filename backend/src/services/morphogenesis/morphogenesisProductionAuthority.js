@@ -119,6 +119,7 @@ function request(input) {
     schemaVersion: 1, currentTopology: input.currentTopology, missionId,
     variantId: input.variantId || null, reason: input.plan.reason || 'authenticated_transition',
     proposals: [proposal(input.plan)], transitionPlanSha256: planHash,
+    transitionPlan: input.plan,
     transitionSnapshotId: input.snapshot.id, transitionSnapshotSha256: input.snapshot.hash,
     riskMillis, degradedMode, transitionAuthority: envelope
   };

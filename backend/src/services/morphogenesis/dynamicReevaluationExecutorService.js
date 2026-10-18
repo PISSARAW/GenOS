@@ -16,6 +16,7 @@ const counterfactualPlannerService = require('./counterfactualPlannerService');
 const PROVENANCE_SOURCE = 'dynamicReevaluationExecutorService';
 const reevaluationHistory = [];
 const MAX_HISTORY = 1000;
+const COMMIT_CANARY_ENV = 'GENOS_MORPHOGENESIS_COMMIT_CANARY';
 
 let policy = {
   autoApprove: false,
@@ -82,6 +83,14 @@ function targetOf(plan, field) {
   return changes.find((change) => change.field === field)?.to || null;
 }
 
+function canaryCommitAuthorized(ctx) {
+  const enabled = /^(1|true|on)$/i.test(String(process.env[COMMIT_CANARY_ENV] || ''));
+  const identity = ctx?.req?.user?.keyId || ctx?.req?.user?.username;
+  const tenant = ctx?.req?.tenant;
+  return enabled && ctx?.canary === true && Boolean(identity
+    && tenant?.organizationId && tenant?.projectId);
+}
+
 async function executeReevaluation(ctx) {
   const { agentId, evidence, collectiveState, db, req } = ctx || {};
   if (!agentId) {
@@ -127,9 +136,10 @@ async function executeReevaluation(ctx) {
   }
 
   // 4. Auto-approve gate
-  if (!policy.autoApprove) {
+  if (!policy.autoApprove || !canaryCommitAuthorized(ctx)) {
     logProvenance({ agentId, stage: 'approval', status: 'pending', plan });
-    return { executed: false, reason: 'pending_approval', plan, validation, proposal, counterfactualReceipt };
+    const reason = policy.autoApprove ? 'commit_canary_not_authorized' : 'pending_approval';
+    return { executed: false, reason, plan, validation, proposal, counterfactualReceipt };
   }
 
   // 5. Execute versioned transition (ADR 0040 §10) : l'application passe
@@ -197,4 +207,6 @@ module.exports = {
   counterfactualPlannerService,
   getReevaluationHistory,
   setReevaluationPolicy,
+  canaryCommitAuthorized,
+  COMMIT_CANARY_ENV,
 };

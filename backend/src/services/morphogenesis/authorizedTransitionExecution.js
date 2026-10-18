@@ -11,6 +11,10 @@ async function persistCommit(input) {
     if (!commit?.id) throw new Error('Versioned transition commit did not return an immutable identifier.');
     await durableSnapshots.persistCollective({ db: input.ctx.db,
       state: input.ctx.collectiveState });
+    await durableSnapshots.appendAction({ db: input.ctx.db,
+      transitionId: input.ctx.transitionId,
+      receipt: { schema: 'genos.morphogenesis-transition-phase/v1', phase: 'COMMIT',
+        planHash: input.snapshot.planHash } });
     await durableSnapshots.markCommitted({ db: input.ctx.db, id: input.snapshot.id });
     return commit;
   });
@@ -24,6 +28,10 @@ async function rollback(input, ops) {
     restored = await durableSnapshots.restore({ db: input.ctx.db, id: input.snapshot.id,
       collectiveState: input.ctx.collectiveState, snapshotStore: input.ctx.snapshotStore,
       error: input.error.message });
+    await durableSnapshots.appendAction({ db: input.ctx.db,
+      transitionId: input.ctx.transitionId,
+      receipt: { schema: 'genos.morphogenesis-transition-phase/v1', phase: 'ABORT',
+        planHash: input.snapshot.planHash, reason: input.error.message } });
     if (compensationErrors.length) await durableSnapshots.markRecoveryRequired({
       db: input.ctx.db, id: input.snapshot.id, error: compensationErrors.join('; ') });
   } catch (restoreError) {
@@ -37,7 +45,16 @@ async function rollback(input, ops) {
 }
 
 async function applyActions(input, ops) {
-  for (const action of input.ctx.plan.actions) {
+  for (const [index, action] of input.ctx.plan.actions.entries()) {
+    if (durableSnapshots.digest(input.ctx.plan) !== input.planHash) {
+      throw Object.assign(new Error('Transition plan changed after Rust PREPARE.'), {
+        code: 'MORPHOGENESIS_PLAN_DIVERGED_AFTER_PREPARE' });
+    }
+    const actionId = `${input.ctx.transitionId}:${index}`;
+    await durableSnapshots.appendAction({ db: input.ctx.db,
+      transitionId: input.ctx.transitionId,
+      receipt: { schema: 'genos.morphogenesis-action-intent/v1', phase: 'PREPARE',
+        actionId, actionHash: durableSnapshots.digest(action), action } });
     const result = await ops.runAction(action, input.ctx);
     input.actionsTaken.push(result);
     if (result.status !== 'success') throw new Error(`action ${action.type} failed: ${result.error}`);
@@ -45,7 +62,9 @@ async function applyActions(input, ops) {
     // Receipt persistence can fail; the effect must still be undone on rollback.
     if (['spawn', 'retire'].includes(action.type)) input.compensations.push({ action, result });
     await durableSnapshots.appendAction({ db: input.ctx.db,
-      transitionId: input.ctx.transitionId, receipt: result });
+      transitionId: input.ctx.transitionId,
+      receipt: { schema: 'genos.morphogenesis-action-outcome/v1', phase: 'COMMIT',
+        actionId, actionHash: durableSnapshots.digest(action), result } });
   }
 }
 
@@ -65,7 +84,12 @@ async function runApplying(input, ops) {
   const actionsTaken = [];
   const compensations = [];
   try {
-    await applyActions({ ctx: input.ctx, actionsTaken, compensations }, ops);
+    if (durableSnapshots.digest(input.ctx.plan) !== input.snapshot.planHash) {
+      throw Object.assign(new Error('Transition plan changed after Rust PREPARE.'), {
+        code: 'MORPHOGENESIS_PLAN_DIVERGED_AFTER_PREPARE' });
+    }
+    await applyActions({ ctx: input.ctx, actionsTaken, compensations,
+      planHash: input.snapshot.planHash }, ops);
     const receipt = successfulReceipt({ ...input, actionsTaken }, ops);
     receipt.commit = await persistCommit({ ctx: input.ctx, receipt, snapshot: input.snapshot });
     return receipt;
@@ -98,6 +122,10 @@ async function restorePrepared(input) {
     await durableSnapshots.restore({ db: input.ctx.db, id: input.snapshot.id,
       collectiveState: input.state, snapshotStore: input.ctx.snapshotStore,
       error: input.error.message || String(input.error) });
+    await durableSnapshots.appendAction({ db: input.ctx.db,
+      transitionId: input.ctx.transitionId,
+      receipt: { schema: 'genos.morphogenesis-transition-phase/v1', phase: 'ABORT',
+        planHash: input.snapshot.planHash, reason: input.error.message || String(input.error) } });
   } catch (restoreError) {
     await durableSnapshots.markRecoveryRequired({ db: input.ctx.db, id: input.snapshot.id,
       error: `${input.error.message || String(input.error)}; restore_failed:${restoreError.message}` });
@@ -111,6 +139,9 @@ async function execute(ctx, transitionId, ops) {
   if (!ops.hasNoActiveConflict(ctx.plan, state)) throw new Error('active transition conflict');
   const snapshot = await durableSnapshots.capture({ ...ctx, agentId, transitionId,
     collectiveState: state });
+  await durableSnapshots.appendAction({ db: ctx.db, transitionId,
+    receipt: { schema: 'genos.morphogenesis-transition-phase/v1', phase: 'PREPARE',
+      planHash: snapshot.planHash, snapshotId: snapshot.id, snapshotHash: snapshot.hash } });
   const loaded = await durableSnapshots.load({ db: ctx.db, id: snapshot.id });
   const preState = collective.deserializeState(loaded.payload.collectiveState);
   const authority = await authorizeOrRestore({ ctx, snapshot, state, agentId });

@@ -23,6 +23,7 @@ struct Request {
     reason: String,
     proposals: Vec<Proposal>,
     transition_plan_sha256: Option<String>,
+    transition_plan: Option<serde_json::Value>,
     transition_snapshot_id: Option<String>,
     transition_snapshot_sha256: Option<String>,
     risk_millis: Option<u16>,
@@ -81,6 +82,7 @@ fn validate(request: &Request) -> Result<(), String> {
 
 fn validate_transition_binding(request: &Request) -> Result<(), String> {
     let fields = [request.transition_plan_sha256.is_some(), request.transition_snapshot_id.is_some(),
+        request.transition_plan.is_some(),
         request.transition_snapshot_sha256.is_some(), request.risk_millis.is_some(),
         request.degraded_mode.is_some(), request.transition_authority.is_some()];
     if fields.iter().any(|present| *present) && fields.iter().any(|present| !present) {
@@ -95,6 +97,10 @@ fn validate_transition_binding(request: &Request) -> Result<(), String> {
     if request.transition_authority.is_some()
         && request.mission_id.as_ref().is_none_or(|value| value.trim().is_empty()) {
         return Err("authenticated transition requires a mission identifier".into());
+    }
+    if let Some(plan) = request.transition_plan.as_ref() {
+        super::morphogenesis_plan_binding::validate(plan,
+            request.transition_plan_sha256.as_deref().unwrap_or_default())?;
     }
     Ok(())
 }

@@ -30,6 +30,7 @@ async function run() {
     const payload = JSON.stringify(body);
     assert.equal(body.transitionSnapshotId, snapshot.id);
     assert.equal(body.transitionPlanSha256, snapshot.planHash);
+    assert.deepEqual(body.transitionPlan, plan);
     const envelope = body.transitionAuthority;
     assert.equal(envelope.claims.key_id, keys.keyId);
     assert.equal(crypto.verify(null, authority.signingBytes(envelope.claims),

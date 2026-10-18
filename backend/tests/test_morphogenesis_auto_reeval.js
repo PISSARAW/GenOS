@@ -3,10 +3,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { getDatabase, closeDatabase } = require('../src/db');
 const hook = require('../src/services/morphogenesis/autoReevaluationHook');
-const { executeReevaluation } = require('../src/services/morphogenesis/dynamicReevaluationExecutorService');
+const reevaluation = require('../src/services/morphogenesis/dynamicReevaluationExecutorService');
+const { executeReevaluation } = reevaluation;
 const { getState } = require('../src/services/collectiveStateService');
 
 async function run() {
+  const canaryContext = { canary: true, req: { user: { username: 'operator' },
+    tenant: { organizationId: 'org', projectId: 'project' } } };
+  assert.equal(reevaluation.canaryCommitAuthorized(canaryContext), false);
+  process.env[reevaluation.COMMIT_CANARY_ENV] = '1';
+  assert.equal(reevaluation.canaryCommitAuthorized(canaryContext), true);
+  assert.equal(reevaluation.canaryCommitAuthorized({ ...canaryContext, canary: false }), false);
+  delete process.env[reevaluation.COMMIT_CANARY_ENV];
   // 1. Kill-switch : désactivé sans db, ne fait rien et ne lève jamais.
   process.env[hook.KILL_SWITCH_ENV] = '0';
   const disabled = await hook.maybeAutoReevaluate({ orchestratorId: 'x' });

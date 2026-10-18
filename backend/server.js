@@ -180,6 +180,14 @@ async function recoverRuntimeControlAtStartup(db, options = {}) {
 async function recoverMorphogenesisAtStartup(db) {
   if (process.env.GENOS_RUNTIME_MAINTENANCE !== '1') return;
   try {
+    const transitions = await require('./src/services/morphogenesis/morphogenesisTransitionRecovery')
+      .recoverStartupTransitions(db);
+    console.log(`[GenOS Morphogenesis Recovery] Transition sweep: ${transitions.aborted} prepared transition(s) aborted, `
+      + `${transitions.recoveryRequired} ambiguous transition(s) quarantined.`);
+  } catch (error) {
+    console.warn(`[GenOS Morphogenesis Recovery] Transition sweep skipped: ${error.message}`);
+  }
+  try {
     const summary = await require('./src/services/morphogenesis/morphogenesisEpochRecovery')
       .recoverStartupCheckpoints(db);
     console.log(`[GenOS Morphogenesis Recovery] Startup sweep: ${summary.restored} epoch(s) restored, `
