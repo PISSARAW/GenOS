@@ -95,6 +95,10 @@ async function resolveRunId(db, request) {
   return row?.id;
 }
 
+function authorityScope(scope) {
+  return { organizationId: scope.organizationId, projectId: scope.projectId };
+}
+
 async function inspectConsistent(db, request) {
   const workspace = await db.get(`SELECT w.id, w.name FROM strategy_execution_runs r
     JOIN agents a ON a.id = r.agent_id JOIN workspaces w ON w.id = a.workspace_id
@@ -103,7 +107,7 @@ async function inspectConsistent(db, request) {
   if (!workspace) return null;
   const run = await events.getRun(db, request.runId);
   const executionAuthority = await require('./missionEnvelopeAuthority').inspect(db, {
-    runId: run.id, agentId: run.agentId, scope: request.scope });
+    runId: run.id, agentId: run.agentId, scope: authorityScope(request.scope) });
   const nativeVerification = await require('./epistemic/nativeOracleInspection').inspect(db, { runId: run.id, agentId: run.agentId });
   const journal = await require('./promotionExecutionJournal').read(db, request.runId);
   const provenance = await promotionEvidence(db, { ...request, workspaceId: workspace.id, agentId: run.agentId });

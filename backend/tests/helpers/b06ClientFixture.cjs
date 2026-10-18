@@ -14,16 +14,18 @@ async function prepare() {
   process.env.GENOS_STUDIO_ROOT = path.join(root, 'studio');
   process.env.GENOS_WORKSPACES_ROOT = root;
   process.env.GENOS_WORKSPACE_ROOT = root;
-  const spec = await require('./consumerPromotionFixture.cjs').prepare(root);
+  const spec = await require('./consumerPromotionFixture.cjs').prepare(root, {
+    organizationId: 'b06-org', projectId: 'b06-project'
+  });
   const token = crypto.randomBytes(32).toString('hex');
-  await spec.db.run("INSERT INTO organizations (id, name) VALUES ('b06-org', 'B06 consumers')");
   for (const project of ['b06-project', 'b06-other']) {
-    await spec.db.run('INSERT INTO projects (id, organization_id, name) VALUES (?, ?, ?)', project, 'b06-org', project);
+    if (project === 'b06-other') {
+      await spec.db.run('INSERT INTO projects (id, organization_id, name) VALUES (?, ?, ?)', project, 'b06-org', project);
+    }
     await spec.db.run("INSERT INTO project_memberships (principal_id, project_id, role) VALUES ('b06-key', ?, 'member')", project);
   }
   await spec.db.run(`INSERT INTO access_keys (id, key_hash, label, role) VALUES ('b06-key', ?, 'B06 operator', 'operator')`,
     crypto.createHash('sha256').update(token).digest('hex'));
-  await spec.db.run("UPDATE workspaces SET organization_id = 'b06-org', project_id = 'b06-project' WHERE id = 'consumer-ws'");
   await spec.db.run('UPDATE agents SET fleet_id = ? WHERE id = ?', spec.run.id, 'consumer-promotion-agent');
   await spec.db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
     VALUES (?, ?, 1, 'B06 consumer', 'promotion qualification', 'running', 'consumer-promotion-agent')`,

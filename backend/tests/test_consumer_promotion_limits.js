@@ -62,9 +62,6 @@ async function freshBatchBoundary(root) {
 async function promotionMemory(root) {
   const spec = await require('./helpers/consumerPromotionFixture.cjs').prepare(root);
   try {
-    await spec.db.run("INSERT INTO organizations (id, name) VALUES ('consumer-org', 'Consumer')");
-    await spec.db.run("INSERT INTO projects (id, organization_id, name) VALUES ('consumer-project', 'consumer-org', 'Consumer')");
-    await spec.db.run("UPDATE workspaces SET organization_id = 'consumer-org', project_id = 'consumer-project' WHERE id = 'consumer-ws'");
     const result = await execution.approveRun(spec.db, spec.run.id, spec.options);
     assert.equal(result.status, 'completed');
     const row = await spec.db.get(`SELECT * FROM genome_decisions WHERE created_by = 'consumer-promotion-agent'
@@ -90,7 +87,8 @@ async function promotionMemory(root) {
     assert.equal(child.status, 0, child.stderr);
     const output = child.stdout.split('\n').find(line => line.startsWith('CONSUMER_MEMORY_RESULT='));
     const reread = JSON.parse(output.slice('CONSUMER_MEMORY_RESULT='.length));
-    assert.equal(reread.records.length, 1);
+    assert.equal(reread.fidelity[0]?.status, 'verified', JSON.stringify(reread.fidelity));
+    assert.equal(reread.records.length, 1, JSON.stringify(reread));
     assert.equal(reread.links[0].provenance_record_id, row.provenance_record_id);
     assert.doesNotMatch(reread.injected, /\[VERIFIED_SYSTEM_FACT\]/);
     console.log('Consumer promotion memory: stable owner, tenant confinement and provenance to the sealed execution assembly: PASS');

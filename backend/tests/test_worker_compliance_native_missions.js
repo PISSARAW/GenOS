@@ -24,6 +24,7 @@ function isolatedEnvironment(root) {
     GENOS_WORKSPACE_ROOT: path.join(root, 'workspaces'),
     GENOS_CAPSULE_ROOT: path.join(root, 'capsules'),
     GENOS_STUDIO_ROOT: path.join(root, 'studio'),
+    GENOS_WORKSPACE_COPY_HEADROOM_BYTES: String(64 * 1024 * 1024),
     GENOS_ADMIN_PASSWORD: secret(), GENOS_EPISTEMIC_RECEIPT_SECRET: secret(),
     GENOS_GVX_LEDGER_HMAC_SECRET: secret(), GENOS_COMPLIANCE_DETERMINISTIC_BOUNDED: '1',
     GENOS_COMPLIANCE_DETERMINISTIC_SCOUT: '1', GENOS_COMPLIANCE_DETERMINISTIC_MONITOR: '1',

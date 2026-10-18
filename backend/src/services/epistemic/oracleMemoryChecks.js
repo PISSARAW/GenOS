@@ -15,7 +15,13 @@ function supported(source) {
 function supportedClaim(claim) {
   return typeof claim.statement === 'string' && claim.statement.length <= 4096
     && Array.isArray(claim.evidence) && claim.evidence.length <= 32 && claim.evidence.length > 0
-    && claim.evidence.every(item => typeof item === 'string' && item.length <= 4096);
+    && claim.evidence.every(supportedEvidence);
+}
+
+function supportedEvidence(item) {
+  if (typeof item === 'string') return item.length <= 4096;
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+  try { return JSON.stringify(item).length <= 4096; } catch (_) { return false; }
 }
 
 function factsMatch(subject) {

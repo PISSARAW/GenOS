@@ -40,10 +40,11 @@ async function main() {
     assert.equal((await fetch(`${spec.url}${endpoint}`)).status, 401);
     assert.equal((await request(spec, endpoint, { project: 'b06-other' })).status, 404);
     const pending = await request(spec, endpoint);
-    assert.equal(pending.status, 200);
+    assert.equal(pending.status, 200, JSON.stringify(pending.body));
     assert.equal(pending.body.run.status, 'awaiting_approval');
     assert.equal(pending.body.promotion, null);
-    assert.equal(pending.body.executionAuthority.status, 'legacy_unbound');
+    assert.equal(pending.body.executionAuthority.status, 'bound');
+    assert.equal(pending.body.executionAuthority.current.status, 'authorized');
     assert.equal(pending.body.executionAuthority.postconditions, 'not_evaluated');
     assert.deepEqual(pending.body.provenance, []);
     assert.equal((await request(spec, '/api/missions/b06/resources/tool/key')).status, 403);

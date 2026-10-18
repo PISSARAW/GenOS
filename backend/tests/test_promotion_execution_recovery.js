@@ -43,7 +43,8 @@ async function assertCompleted(input) {
     await db.run("UPDATE strategy_execution_runs SET status = 'completed' WHERE id = ?", input.runId);
     const binding = await journal.runBinding(db, input.runId);
     await db.run("UPDATE strategy_contracts SET contract_hash = 'altered' WHERE id = ?", binding.contract_id);
-    await assert.rejects(execution.approveRun(db, input.runId, input.options), /PROMOTION_BINDING_CHANGED/);
+    await assert.rejects(execution.approveRun(db, input.runId, input.options),
+      /PROMOTION_BINDING_CHANGED|failed integrity verification/);
     await db.run('UPDATE strategy_contracts SET contract_hash = ? WHERE id = ?', binding.contract_hash, binding.contract_id);
     await assert.rejects(execution.approveRun(db, input.runId, { ...input.options, summary: 'changed' }), /PROMOTION_REQUEST_CHANGED/);
     await db.run("UPDATE promotion_execution_journal SET phase = 'reserved' WHERE run_id = ?", input.runId);

@@ -12,10 +12,14 @@ async function main() {
       ownerId: input.ownerId || 'consumer-memory-agent', limit: 30, peekVesicles: true };
     const result = await memory.searchMemory('consumer qualification provenance', options, db);
     const records = result.allScoredExperiences.filter(item => input.ids.includes(item.id));
-    const links = await db.all('SELECT id, evidence_status, provenance_record_id, provenance_hash FROM genome_decisions WHERE id IN (?, ?)', ...input.ids);
+    const memories = await db.all('SELECT * FROM genome_decisions WHERE id IN (?, ?)', ...input.ids);
+    const links = memories.map(({ id, evidence_status, provenance_record_id, provenance_hash }) => (
+      { id, evidence_status, provenance_record_id, provenance_hash }));
+    const fidelity = await Promise.all(memories.map(async item => (
+      { id: item.id, ...await require('../../src/services/promotionMemoryReadGate').inspect(db, item) })));
     const injected = await prompt.formatCognitiveMemoryPrompt(options.ownerId,
       'consumer qualification provenance', options);
-    process.stdout.write(`CONSUMER_MEMORY_RESULT=${JSON.stringify({ records, links, injected })}\n`);
+    process.stdout.write(`CONSUMER_MEMORY_RESULT=${JSON.stringify({ records, links, fidelity, injected })}\n`);
   } finally {
     await closeDatabase();
   }

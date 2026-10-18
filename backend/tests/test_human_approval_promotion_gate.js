@@ -12,7 +12,8 @@ const { promotionApprovalDigest } = require('../src/services/promotionApprovalDi
 async function approve(runId, body) {
   const response = { status: 200, body: null };
   const res = { status(code) { response.status = code; return res; }, json(data) { response.body = data; return res; } };
-  await controller.approve({ params: { runId }, body, user: { username: 'consumer-reviewer' } }, res);
+  await controller.approve({ params: { runId }, body, user: { username: 'consumer-reviewer' },
+    tenant: { organizationId: 'consumer-org', projectId: 'consumer-project' } }, res);
   return response;
 }
 
