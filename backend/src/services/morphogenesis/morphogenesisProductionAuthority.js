@@ -89,6 +89,42 @@ function validProposal(target, gain, cost) {
     && Number.isFinite(cost) && cost >= 0;
 }
 
+function validHysteresisValue(state) {
+  return state?.schema === 'genos.morphogenesis-hysteresis-state/v1'
+    && Number.isSafeInteger(state.version) && state.version >= 0
+    && Number.isFinite(state.budgetLeft) && state.budgetLeft >= 0 && state.budgetLeft <= 1
+    && (state.lastCommitUnixMs === null
+      || Number.isSafeInteger(state.lastCommitUnixMs) && state.lastCommitUnixMs > 0)
+    && validCalibrationPolicy(state.calibrationPolicy);
+}
+
+function validCalibrationPolicy(policy) {
+  if (policy == null) return true;
+  if (policy.schema !== 'genos.morphogenesis-hysteresis-calibration/v1') return false;
+  if (!unitInterval(policy.minimumGain)) return false;
+  if (!unitInterval(policy.transitionBudget)) return false;
+  if (!Number.isSafeInteger(policy.cooldownMs)) return false;
+  if (policy.cooldownMs < 0) return false;
+  if (!Number.isSafeInteger(policy.sampleCount)) return false;
+  if (policy.sampleCount <= 0) return false;
+  return /^sha256:[a-f0-9]{64}$/.test(policy.evidenceDigest ?? '');
+}
+
+function unitInterval(value) {
+  if (!Number.isFinite(value)) return false;
+  return value >= 0 && value <= 1;
+}
+
+function boundHysteresis(input, boundIdentity) {
+  const state = input.hysteresisState;
+  const valid = validHysteresisValue(state)
+    && ['organizationId', 'projectId', 'missionId']
+      .every(field => state[field] === boundIdentity[field]);
+  if (!valid) throw failure('MORPHOGENESIS_HYSTERESIS_STATE_INVALID',
+    'A scoped durable hysteresis state is required.');
+  return state;
+}
+
 function authorityEnvelope(input) {
   const key = signer(signingKey());
   const now = Date.now();
@@ -110,6 +146,7 @@ function request(input) {
     'Transition snapshot is not bound to the requested plan.');
   const missionId = input.missionId || input.plan.missionId || input.agentId;
   const boundIdentity = identity(input.req, missionId);
+  const hysteresisState = boundHysteresis(input, boundIdentity);
   const riskMillis = Math.round(Math.max(0, Math.min(1,
     Number(input.plan.expectedCost?.risk ?? input.plan.expectedRisk ?? 0))) * 1000);
   const degradedMode = input.degradedMode === true;
@@ -121,33 +158,57 @@ function request(input) {
     proposals: [proposal(input.plan)], transitionPlanSha256: planHash,
     transitionPlan: input.plan,
     transitionSnapshotId: input.snapshot.id, transitionSnapshotSha256: input.snapshot.hash,
-    riskMillis, degradedMode, transitionAuthority: envelope
+    hysteresisState, riskMillis, degradedMode, transitionAuthority: envelope
   };
+}
+
+function validHysteresisTransition(response, input) {
+  const transition = response?.hysteresisTransition;
+  return transition?.schema === 'genos.morphogenesis-hysteresis-transition/v1'
+    && transition.baseVersion === input.hysteresisState.version
+    && transition.nextVersion === transition.baseVersion + 1
+    && Number.isFinite(transition.budgetLeft) && transition.budgetLeft >= 0
+    && transition.budgetLeft <= input.hysteresisState.budgetLeft;
+}
+
+function validResponseStatus(response, expectedHash) {
+  return response?.schemaVersion === 1 && response.requestSha256 === expectedHash
+    && response.decision === 'APPLY' && response.commitAuthorized === true
+    && response.committed === false && response.governance?.allowed === true;
+}
+
+function validAuthorityBinding(authority, snapshot) {
+  return authority?.planSha256 === snapshot.planHash && authority?.snapshotId === snapshot.id
+    && authority?.snapshotSha256 === snapshot.hash;
 }
 
 function verifyResponse(response, payload, input) {
   const authority = response?.authority;
   const expectedHash = digest(payload);
-  const valid = response?.schemaVersion === 1 && response.requestSha256 === expectedHash
-    && response.decision === 'APPLY' && response.commitAuthorized === true
-    && response.committed === false && response.governance?.allowed === true
-    && authority?.planSha256 === input.snapshot.planHash
-    && authority?.snapshotId === input.snapshot.id && authority?.snapshotSha256 === input.snapshot.hash;
+  const valid = validResponseStatus(response, expectedHash)
+    && validAuthorityBinding(authority, input.snapshot)
+    && validHysteresisTransition(response, input);
   if (!valid) throw failure('MORPHOGENESIS_RUST_AUTHORITY_REFUSED',
     'Rust did not authorize the exact transition plan and snapshot.');
   return Object.freeze({ ...authority, requestSha256: response.requestSha256,
-    decision: response.decision, governance: response.governance });
+    decision: response.decision, governance: response.governance,
+    hysteresisTransition: response.hysteresisTransition });
 }
 
 async function authorize(input) {
-  const body = request(input);
+  const missionId = input.missionId || input.plan.missionId || input.agentId;
+  const boundIdentity = identity(input.req, missionId);
+  const hysteresisState = await require('./morphogenesisHysteresisStore')
+    .load(input.db, boundIdentity);
+  const authorityInput = { ...input, missionId, hysteresisState };
+  const body = request(authorityInput);
   const payload = JSON.stringify(body);
   const runner = require('../genosCli').runGenos;
   const result = await runner(['morphogenesis-adjudicate', payload], { timeoutMs: 10000,
     envOverrides: { GENOS_CLI_AUTHORITY_TRUST_JSON: process.env.GENOS_CLI_AUTHORITY_TRUST_JSON } });
   if (!result?.ok || !result.json) throw failure('MORPHOGENESIS_RUST_AUTHORITY_UNAVAILABLE',
     result?.error || result?.stderr || 'Rust morphogenesis authority is unavailable.');
-  return verifyResponse(result.json, payload, input);
+  return verifyResponse(result.json, payload, authorityInput);
 }
 
 module.exports = { authorize, planSha256, request, signingBytes, verifyResponse };

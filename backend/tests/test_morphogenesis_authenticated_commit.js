@@ -18,7 +18,6 @@ function configureAuthority() {
   const keyId = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 32);
   process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM = pair.privateKey.export({ type: 'pkcs8', format: 'pem' });
   process.env.GENOS_CLI_AUTHORITY_TRUST_JSON = JSON.stringify({ [keyId]: raw.toString('hex') });
-  process.env.GENOS_MORPHOGENESIS_HYSTERESIS_PATH = path.join(os.tmpdir(), `morphogenesis-hysteresis-${crypto.randomUUID()}.json`);
 }
 
 async function seed(db, root) {
@@ -50,6 +49,12 @@ async function execute(db) {
   const stored = await snapshots.load({ db, id: result.receipt.durableSnapshot.id });
   assert.equal(stored.row.status, 'committed');
   assert.equal((await getLineage(db, 'commit-agent')).length, 1);
+  const hysteresisStore = require('../src/services/morphogenesis/morphogenesisHysteresisStore');
+  const hysteresisScope = { organizationId: 'commit-org', projectId: 'commit-project',
+    missionId: 'commit-mission' };
+  const committedHysteresis = await hysteresisStore.load(db, hysteresisScope);
+  assert.equal(committedHysteresis.version, 1);
+  assert.ok(Math.abs(committedHysteresis.budgetLeft - 0.8) < 0.000001);
   const actionEvents = await db.all(`SELECT receipt_json FROM morphogenesis_transition_actions
     WHERE transition_id=? ORDER BY sequence`, result.receipt.transitionId);
   assert.deepEqual(actionEvents.map(row => JSON.parse(row.receipt_json).phase),
@@ -75,7 +80,9 @@ async function execute(db) {
   assert.equal((await snapshots.load({ db, id: 'mts-startup-prepared' })).row.status, 'restored');
   assert.equal((await snapshots.load({ db, id: 'mts-startup-applying' })).row.status,
     'recovery_required');
-  process.env.GENOS_MORPHOGENESIS_HYSTERESIS_PATH = path.join(os.tmpdir(), `morphogenesis-hysteresis-rollback-${crypto.randomUUID()}.json`);
+  await db.run(`UPDATE morphogenesis_hysteresis SET last_commit_unix_ms=?
+    WHERE organization_id=? AND project_id=? AND mission_id=?`,
+  Date.now() - 60000, 'commit-org', 'commit-project', 'commit-mission');
   const rollback = await executeTransition({ db, req, agentId: 'commit-agent',
     missionId: 'commit-mission', collectiveState: state,
     plan: { id: 'rollback-plan', missionId: 'commit-mission', actions: [],
@@ -89,6 +96,7 @@ async function execute(db) {
   assert.deepEqual(rollbackEvents.map(row => JSON.parse(row.receipt_json).phase), ['PREPARE', 'ABORT']);
   assert.equal(state.topologyState.organization, 'rhizome');
   assert.equal((await snapshots.load({ db, id: rollback.durableSnapshot.id })).row.status, 'restored');
+  assert.equal((await hysteresisStore.load(db, hysteresisScope)).version, 1);
 }
 
 async function run() {
@@ -105,14 +113,8 @@ async function run() {
     await closeDatabase();
     fs.rmSync(root, { recursive: true, force: true });
     for (const suffix of ['', '-wal', '-shm']) fs.rmSync(dbPath + suffix, { force: true });
-    for (const file of fs.readdirSync(os.tmpdir())) {
-      if (file.startsWith('morphogenesis-hysteresis') && file.endsWith('.json')) {
-        fs.rmSync(path.join(os.tmpdir(), file), { force: true });
-      }
-    }
     delete process.env.GENOS_CLI_AUTHORITY_PRIVATE_KEY_PEM;
     delete process.env.GENOS_CLI_AUTHORITY_TRUST_JSON;
-    delete process.env.GENOS_MORPHOGENESIS_HYSTERESIS_PATH;
   }
 }
 

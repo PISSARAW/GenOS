@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('137-morphogenesis-hysteresis', 'Persist scoped transactional morphogenesis hysteresis', async (db) => {
+    await require('./migrateMorphogenesisHysteresis').migrateMorphogenesisHysteresis(db);
+  }),
   createMigrationRunner('131-runtime-control-reconnect-authorities', 'Persist scoped runtime reconnect authorities and revocations', async (db) => {
     await require('./migrateRuntimeControlReconnectAuthorities')
       .migrateRuntimeControlReconnectAuthorities(db);

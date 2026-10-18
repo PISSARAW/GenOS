@@ -23,14 +23,18 @@ async function run() {
     reason: 'verified-change' };
   const snapshot = { id: 'snapshot-1', hash: 'b'.repeat(64),
     planHash: authority.planSha256(plan) };
+  const hysteresisState = { schema: 'genos.morphogenesis-hysteresis-state/v1',
+    organizationId: 'org', projectId: 'project', missionId: 'mission-1',
+    version: 2, budgetLeft: 0.8, lastCommitUnixMs: 1000 };
   try {
-    const body = authority.request({ plan, snapshot, missionId: 'mission-1',
+    const body = authority.request({ plan, snapshot, hysteresisState, missionId: 'mission-1',
       currentTopology: 'trinity', req: { user: { username: 'operator' },
         tenant: { organizationId: 'org', projectId: 'project' } } });
     const payload = JSON.stringify(body);
     assert.equal(body.transitionSnapshotId, snapshot.id);
     assert.equal(body.transitionPlanSha256, snapshot.planHash);
     assert.deepEqual(body.transitionPlan, plan);
+    assert.deepEqual(body.hysteresisState, hysteresisState);
     const envelope = body.transitionAuthority;
     assert.equal(envelope.claims.key_id, keys.keyId);
     assert.equal(crypto.verify(null, authority.signingBytes(envelope.claims),
@@ -38,15 +42,26 @@ async function run() {
     const response = { schemaVersion: 1,
       requestSha256: crypto.createHash('sha256').update(payload).digest('hex'),
       decision: 'APPLY', commitAuthorized: true, committed: false,
+      hysteresisTransition: { schema: 'genos.morphogenesis-hysteresis-transition/v1',
+        baseVersion: 2, nextVersion: 3, budgetLeft: 0.6 },
       governance: { allowed: true }, authority: {
         keyId: keys.keyId, principalId: 'operator', organizationId: 'org',
         projectId: 'project', missionId: 'mission-1', snapshotId: snapshot.id,
         snapshotSha256: snapshot.hash, planSha256: snapshot.planHash,
         expiresAtUnixMs: Date.now() + 20_000 } };
-    const receipt = authority.verifyResponse(response, payload, { snapshot });
+    const receipt = authority.verifyResponse(response, payload, { snapshot, hysteresisState });
     assert.equal(receipt.decision, 'APPLY');
     assert.equal(receipt.snapshotId, snapshot.id);
-    assert.throws(() => authority.request({ plan, snapshot, missionId: 'mission-1',
+    assert.throws(() => authority.verifyResponse({ ...response,
+      hysteresisTransition: { ...response.hysteresisTransition, budgetLeft: 0.9 } },
+    payload, { snapshot, hysteresisState }),
+    (error) => error.code === 'MORPHOGENESIS_RUST_AUTHORITY_REFUSED');
+    assert.throws(() => authority.request({ plan, snapshot,
+      hysteresisState: { ...hysteresisState, missionId: 'other-mission' },
+      missionId: 'mission-1', currentTopology: 'trinity', req: { user: { username: 'operator' },
+        tenant: { organizationId: 'org', projectId: 'project' } } }),
+    (error) => error.code === 'MORPHOGENESIS_HYSTERESIS_STATE_INVALID');
+    assert.throws(() => authority.request({ plan, snapshot, hysteresisState, missionId: 'mission-1',
       currentTopology: 'trinity', req: {} }),
     (error) => error.code === 'MORPHOGENESIS_AUTHORITY_IDENTITY_REQUIRED');
     console.log('morphogenesis production Ed25519 authority: PASS');

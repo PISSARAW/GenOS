@@ -2,6 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://genos.local/schemas/morphogenesis-p3-runtime-config.schema.json",
   "$defs": {
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "keyId", "framework", "adapterVersion", "commandSha256", "artifactSha256", "signature"],
+      "properties": {
+        "schema": { "const": "genos.morphogenesis.p3-adapter-attestation/v1" },
+        "keyId": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "framework": { "type": "string", "minLength": 1 },
+        "adapterVersion": { "type": "string", "minLength": 1 },
+        "commandSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "artifactSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "signature": { "type": "string", "pattern": "^[a-f0-9]{128}$" }
+      }
+    },
     "adapter": {
       "type": "object",
       "additionalProperties": false,
@@ -18,8 +32,14 @@
         "evidenceScope": { "enum": ["local-runtime", "external-framework", "test-fixture"] },
         "provenance": { "enum": ["local-baseline", "local-runtime", "external-paired"] },
         "framework": { "type": "string", "minLength": 1 },
-        "environment": { "type": "object", "additionalProperties": { "type": "string" } }
-      }
+        "environment": { "type": "object", "additionalProperties": { "type": "string" } },
+        "attestation": { "$ref": "#/$defs/attestation" }
+      },
+      "allOf": [{
+        "if": { "properties": { "evidenceScope": { "const": "external-framework" } },
+          "required": ["evidenceScope"] },
+        "then": { "required": ["attestation"] }
+      }]
     }
   },
   "type": "object",

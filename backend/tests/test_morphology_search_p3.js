@@ -1,12 +1,14 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const gate = require('../src/services/morphogenesis/synthesis/pairedCampaignGate');
 const { runPairedCampaignPhase, shaDataset } = require('../src/services/morphogenesis/synthesis/pairedCampaignRunner');
 const { PairedCampaignStore } = require('../src/services/morphogenesis/synthesis/pairedCampaignStore');
 const { executeProcessAdapter, shaFile } = require('../src/services/morphogenesis/synthesis/processCampaignAdapter');
+const { ADAPTER_SCHEMA, adapterSigningBytes } = require('../src/services/morphogenesis/synthesis/externalAdapterAttestation');
 
 const PLAN = Object.freeze({ alpha: 0.05, bootstrapSamples: 1000,
   minShadowPairs: 1, minHoldoutPairs: 10, minEffect: 0.05,
@@ -86,8 +88,9 @@ async function testDurableShadowHoldoutAndResume(root) {
   const holdout = await runPairedCampaignPhase({ ...options, phase: 'holdout', dataset: values.holdout });
   assert.equal(counter.count, 66);
   assert.equal(holdout.splitSeal.split, 'holdout');
-  assert.equal(holdout.gate.status, 'eligible');
-  assert.equal(holdout.adaptiveCommitEligible, true);
+  assert.equal(holdout.gate.status, 'blocked');
+  assert.equal(holdout.adaptiveCommitEligible, false,
+    'an injected invoker cannot self-attest real execution');
   assert.equal(holdout.commitAuthorized, false);
   assert.equal(holdout.executionAuthorized, false);
 }
@@ -114,6 +117,22 @@ function processConfig(conditionId) {
     environment: { P3_FIXTURE_FRAMEWORK: identity.framework, P3_FIXTURE_VERSION: 'fixture-v1' } };
 }
 
+function signedExternalConfig() {
+  const config = { ...processConfig('langgraph-static'), evidenceScope: 'external-framework' };
+  const keys = crypto.generateKeyPairSync('ed25519');
+  const raw = keys.publicKey.export({ type: 'spki', format: 'der' }).subarray(-32);
+  const keyId = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 32);
+  const attestation = { schema: ADAPTER_SCHEMA, keyId, framework: config.framework,
+    adapterVersion: config.adapterVersion, commandSha256: config.commandSha256,
+    artifactSha256: config.artifactSha256 };
+  attestation.signature = crypto.sign(null, adapterSigningBytes(attestation),
+    keys.privateKey).toString('hex');
+  return { config: { ...config, attestation,
+    environment: { ...config.environment, P3_FIXTURE_SIGNER_KEY_ID: keyId,
+      P3_FIXTURE_SIGNING_PRIVATE_KEY_PEM: keys.privateKey.export({ type: 'pkcs8', format: 'pem' }) } },
+    trust: JSON.stringify({ [keyId]: raw.toString('hex') }) };
+}
+
 async function testProcessAdapterIsBoundAndFixtureIsNotReal() {
   const body = { schema: 'genos.morphogenesis.p3-adapter-request/v1', attemptId: 'a'.repeat(64),
     conditionId: 'langgraph-static', mission: 'fixture', seed: 7, modelId: 'model',
@@ -125,6 +144,25 @@ async function testProcessAdapterIsBoundAndFixtureIsNotReal() {
   assert.equal(result.candidate.forbiddenContextObserved, false);
   const tampered = { ...processConfig('langgraph-static'), artifactSha256: `sha256:${'0'.repeat(64)}` };
   await assert.rejects(executeProcessAdapter({ config: tampered, request }), /artifact digest mismatch/);
+  const unsigned = { ...processConfig('langgraph-static'), evidenceScope: 'external-framework' };
+  await assert.rejects(executeProcessAdapter({ config: unsigned, request }),
+    /attestation is not bound/);
+  const signed = signedExternalConfig();
+  const previousTrust = process.env.GENOS_P3_ADAPTER_TRUST_JSON;
+  process.env.GENOS_P3_ADAPTER_TRUST_JSON = signed.trust;
+  try {
+    const verified = await executeProcessAdapter({ config: signed.config, request });
+    assert.equal(verified.attestationVerified, true);
+    assert.equal(verified.realExecution, true);
+    const wrongKeys = crypto.generateKeyPairSync('ed25519');
+    const forged = { ...signed.config, environment: { ...signed.config.environment,
+      P3_FIXTURE_SIGNING_PRIVATE_KEY_PEM: wrongKeys.privateKey.export({ type: 'pkcs8', format: 'pem' }) } };
+    await assert.rejects(executeProcessAdapter({ config: forged, request }),
+      /receipt signature is invalid/);
+  } finally {
+    if (previousTrust === undefined) delete process.env.GENOS_P3_ADAPTER_TRUST_JSON;
+    else process.env.GENOS_P3_ADAPTER_TRUST_JSON = previousTrust;
+  }
 }
 
 function testExpiredLeaseCanBeRecovered(root) {

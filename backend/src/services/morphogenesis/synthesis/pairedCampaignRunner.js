@@ -107,9 +107,10 @@ function observationBase(input) {
 
 function successObservation(input) {
   const adapter = input.adapterResult;
+  const executionVerified = input.trustedInvoker === true && adapter.executionVerified === true;
   return { ...observationBase(input), score: input.oracle.score, cost: adapter.metrics.cost,
     budgetExceeded: adapter.budgetExceeded === true, oracleVerified: true,
-    executionVerified: adapter.executionVerified === true, realExecution: adapter.realExecution === true,
+    executionVerified, realExecution: executionVerified && adapter.realExecution === true,
     provenance: adapter.provenance, framework: adapter.framework,
     adapterVersion: adapter.adapterVersion };
 }
@@ -163,6 +164,7 @@ async function executeAll(input) {
 async function runPairedCampaignPhase(options = {}) {
   const input = { ...options, validator: options.adapterValidator || validateConfig,
     invoker: options.adapterInvoker || executeProcessAdapter,
+    trustedInvoker: options.adapterInvoker === undefined,
     now: options.now || (() => new Date().toISOString()), leaseTtlMs: options.leaseTtlMs || 300000 };
   assertRunnable(input);
   const store = options.store || new PairedCampaignStore({ root: options.storeRoot,

@@ -1,5 +1,8 @@
 'use strict';
 
+const crypto = require('node:crypto');
+const { receiptSigningBytes } = require('../../src/services/morphogenesis/synthesis/externalAdapterAttestation');
+
 let input = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', chunk => { input += chunk; });
@@ -16,5 +19,10 @@ process.stdin.on('end', () => {
     executionKind: external ? 'native-framework' : 'native-runtime',
     candidate: { solved: true, seed: request.seed, forbiddenContextObserved: forbidden },
     metrics: { tokens: 10, latencyMs: 1, cost: request.conditionId === 'genos-adaptive' ? 0.02 : 0.01 } };
+  if (process.env.P3_FIXTURE_SIGNING_PRIVATE_KEY_PEM) {
+    receipt.signerKeyId = process.env.P3_FIXTURE_SIGNER_KEY_ID;
+    receipt.signature = crypto.sign(null, receiptSigningBytes(receipt),
+      process.env.P3_FIXTURE_SIGNING_PRIVATE_KEY_PEM).toString('hex');
+  }
   process.stdout.write(`${JSON.stringify(receipt)}\n`);
 });

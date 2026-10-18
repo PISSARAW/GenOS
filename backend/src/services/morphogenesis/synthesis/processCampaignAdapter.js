@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { EXTERNAL_FRAMEWORKS } = require('./pairedCampaignGate');
+const externalAttestation = require('./externalAdapterAttestation');
 
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 
@@ -37,6 +38,7 @@ function validateFramework(config, conditionId) {
       throw new Error(`External condition ${conditionId} lacks production external provenance.`);
     }
     if (!allowed.includes(config.framework)) throw new Error(`Framework mismatch for ${conditionId}.`);
+    if (config.evidenceScope === 'external-framework') externalAttestation.verifyAdapter(config);
     return;
   }
   const expected = conditionId === 'single-agent' ? 'local-baseline' : 'local-runtime';
@@ -121,15 +123,21 @@ function validateReceipt(input, receipt) {
 
 async function executeProcessAdapter(input) {
   const config = validateConfig(input.config, input.request.conditionId);
+  const started = process.hrtime.bigint();
   const receipt = validateReceipt({ ...input, config }, await executeProcess({ config,
     request: input.request, timeoutMs: input.request.latencyBudgetMs }));
+  const latencyMs = Number(process.hrtime.bigint() - started) / 1_000_000;
+  const external = Boolean(EXTERNAL_FRAMEWORKS[input.request.conditionId]);
+  const attestationVerified = !external || config.evidenceScope === 'external-framework'
+    && externalAttestation.verifyReceipt(config, receipt);
   const tokens = finiteMetric(receipt, 'tokens');
-  const latencyMs = finiteMetric(receipt, 'latencyMs');
+  finiteMetric(receipt, 'latencyMs');
   const cost = finiteMetric(receipt, 'cost');
   return { candidate: receipt.candidate, metrics: { tokens, latencyMs, cost },
     provenance: config.provenance, framework: config.framework,
     adapterVersion: config.adapterVersion, executionVerified: true,
-    realExecution: config.evidenceScope !== 'test-fixture', adapterReceipt: receipt,
+    attestationVerified, realExecution: attestationVerified
+      && config.evidenceScope !== 'test-fixture', adapterReceipt: receipt,
     budgetExceeded: tokens > input.request.budgetTokens || latencyMs > input.request.latencyBudgetMs };
 }
 

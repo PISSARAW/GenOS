@@ -37,9 +37,12 @@ Chaque adaptateur est un processus sans shell, lié au hash de son exécutable e
 de son artefact. Il reçoit une clé d'idempotence stable et doit retourner un reçu
 `genos.morphogenesis.p3-adapter-receipt/v1` avec métriques mesurées. Les trois
 rivaux externes exigent une provenance `external-paired`, un framework autorisé
-et une portée `external-framework`. Les fixtures de test portent la portée
-`test-fixture` et produisent toujours `realExecution: false` : elles ne peuvent
-donc pas ouvrir la porte statistique.
+et une portée `external-framework`. Leur configuration porte aussi une
+attestation Ed25519 liant framework, version et empreintes à une clé approuvée
+par `GENOS_P3_ADAPTER_TRUST_JSON`; chaque reçu doit être signé par la même clé.
+La latence utilisée pour le budget est mesurée par le processus superviseur.
+Les fixtures de test portent la portée `test-fixture` et produisent toujours
+`realExecution: false` : elles ne peuvent donc pas ouvrir la porte statistique.
 
 Le runner est implémenté mais aucune configuration de production ni aucun
 corpus réel n'est livré avec le dépôt. Le statut global demeure donc

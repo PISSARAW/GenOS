@@ -9,6 +9,12 @@ async function persistCommit(input) {
   return withTransaction(input.ctx.db, async () => {
     const commit = await input.ctx.persistCommit(input.receipt);
     if (!commit?.id) throw new Error('Versioned transition commit did not return an immutable identifier.');
+    await require('./morphogenesisHysteresisStore').commit({ db: input.ctx.db,
+      organizationId: input.ctx.req.tenant.organizationId,
+      projectId: input.ctx.req.tenant.projectId,
+      missionId: input.ctx.missionId || input.ctx.plan.missionId || input.ctx.agentId,
+      transitionId: input.ctx.transitionId,
+      transition: input.receipt.rustAuthority.hysteresisTransition });
     await durableSnapshots.persistCollective({ db: input.ctx.db,
       state: input.ctx.collectiveState });
     await durableSnapshots.appendAction({ db: input.ctx.db,
@@ -60,7 +66,7 @@ async function applyActions(input, ops) {
     if (result.status !== 'success') throw new Error(`action ${action.type} failed: ${result.error}`);
     // Register the compensator immediately after the external effect succeeds.
     // Receipt persistence can fail; the effect must still be undone on rollback.
-    if (['spawn', 'retire'].includes(action.type)) input.compensations.push({ action, result });
+    if (['spawn', 'retire', 'genome'].includes(action.type)) input.compensations.push({ action, result });
     await durableSnapshots.appendAction({ db: input.ctx.db,
       transitionId: input.ctx.transitionId,
       receipt: { schema: 'genos.morphogenesis-action-outcome/v1', phase: 'COMMIT',
