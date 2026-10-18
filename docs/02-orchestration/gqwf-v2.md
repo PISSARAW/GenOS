@@ -16,11 +16,13 @@ logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../ad
 | Bail | `gqwf_leases` | Dossier matérialisé puis ingéré ou libéré explicitement |
 | Matérialisation | `gqwf_materialization_receipts` | Backend versionné, capacités observées et sélection liée au bail |
 | Collecte | `gqwf_gc_runs` | Aperçu signé puis balayage explicite et traçable |
+| Intégrité | `gqwf_integrity_runs` | Scrub exhaustif non destructif et rapport durable |
 
 Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`, `listFiles`, `writeFile`,
 `deleteFile`, `sealView`, `mergeRoots`, `materializeRoot`, `ingestLease` et
 `releaseLease`. `inspectGarbage` fournit un aperçu sans mutation ;
-`collectGarbage` exige le hash exact de cet inventaire. `publishCandidate` échoue sans vérificateur injecté par le
+`collectGarbage` exige le hash exact de cet inventaire. `scrubIntegrity`
+vérifie le store complet et persiste son rapport sans réparer. `publishCandidate` échoue sans vérificateur injecté par le
 runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
@@ -314,6 +316,22 @@ Voir l'[ADR 0634](../adr/0634-qualification-appariee-materialiseurs-gqwf.md).
 
 Validation ciblée :
 `node backend/tests/test_gqwf_materializer_benchmark.js`.
+
+### Scrub d'intégrité du store
+
+La tranche 15 ouvre le plan de récupération des garanties de stockage par le
+protocole `gqwf-scrub-v1`. `scrubIntegrity` vérifie tous les manifestes de
+racines, les blobs d'overlay et l'inventaire physique complet du store, y
+compris les objets non référencés. Les hashes, tailles, hardlinks, symlinks et
+formes de chemins sont contrôlés par le même scanner que la collecte.
+
+Le résultat `healthy` ou `corrupt`, ses anomalies structurées et son
+`inventoryHash` sont persistés dans `gqwf_integrity_runs`. Cette opération ne
+répare et ne supprime rien : une future réparation devra prouver une source
+redondante authentifiée. Voir l'[ADR 0635](../adr/0635-scrub-integrite-store-gqwf.md).
+
+Validation ciblée :
+`node backend/tests/test_gqwf_garbage_collection.js`.
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,

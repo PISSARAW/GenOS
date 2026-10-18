@@ -153,16 +153,48 @@ async function exerciseCollection(context) {
   await assertWriteBoundary(context);
 }
 
-async function main() {
+async function exerciseIntegrityScrub(context) {
+  const root = await createRoot(context, 'scrubbed');
+  await context.fabric.initializeHead({ workspaceId: 'workspace', name: 'main',
+    rootHash: root.rootHash });
+  const healthy = await context.fabric.scrubIntegrity({ workspaceId: 'workspace' });
+  assert.equal(healthy.protocol, 'gqwf-scrub-v1');
+  assert.equal(healthy.status, 'healthy');
+  assert.equal(healthy.issueCount, 0);
+  assert.equal(healthy.referencedBlobCount, 1);
+
+  const target = blobPath(context.workspacePath, root.blobHash);
+  await fs.writeFile(target, 'tampered');
+  const corrupt = await context.fabric.scrubIntegrity({ workspaceId: 'workspace' });
+  assert.equal(corrupt.status, 'corrupt');
+  assert.deepEqual(corrupt.issues, [{ type: 'corrupt_blob', blobHash: root.blobHash }]);
+  assert.equal(await fs.readFile(target, 'utf8'), 'tampered');
+
+  await fs.unlink(target);
+  const missing = await context.fabric.scrubIntegrity({ workspaceId: 'workspace' });
+  assert.deepEqual(missing.issues, [{ type: 'missing_blob', blobHash: root.blobHash }]);
+  const receipts = await context.db.all(`SELECT status, report_json FROM gqwf_integrity_runs
+    ORDER BY created_at, id`);
+  assert.equal(receipts.length, 3);
+  assert.deepEqual(receipts.map((row) => row.status).sort(), ['corrupt', 'corrupt', 'healthy']);
+  for (const receipt of receipts) assert.equal(JSON.parse(receipt.report_json).protocol, 'gqwf-scrub-v1');
+}
+
+async function runFixture(exercise) {
   const context = await fixture();
   try {
-    await exerciseCollection(context);
-    console.log('GQWF safe garbage collection: PASS');
+    await exercise(context);
   } finally {
     await context.db.close();
     assert.equal(path.dirname(context.root), context.parent);
     await fs.rm(context.root, { recursive: true, force: true });
   }
+}
+
+async function main() {
+  await runFixture(exerciseCollection);
+  await runFixture(exerciseIntegrityScrub);
+  console.log('GQWF safe garbage collection and integrity scrub: PASS');
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

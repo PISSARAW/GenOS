@@ -149,6 +149,7 @@ async function migrateGqwf(db) {
   if (!worker.sql.includes('lease_id') || !worker.sql.includes("'discarded'")) await migrateWorkerBindings(db);
   await createWorkerPromotionTable(db);
   await createGarbageCollectionTable(db);
+  await createIntegrityRunTable(db);
 }
 
 async function migrateLeaseStatus(db) {
@@ -249,6 +250,24 @@ async function createGarbageCollectionTable(db) {
     await db.exec(`ALTER TABLE gqwf_gc_runs
       ADD COLUMN overlay_cache_count INTEGER NOT NULL DEFAULT 0;`);
   }
+}
+
+async function createIntegrityRunTable(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS gqwf_integrity_runs (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    protocol TEXT NOT NULL,
+    inventory_hash TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('healthy', 'corrupt')),
+    root_count INTEGER NOT NULL,
+    blob_count INTEGER NOT NULL,
+    issue_count INTEGER NOT NULL,
+    report_json TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_gqwf_integrity_workspace_created
+    ON gqwf_integrity_runs(workspace_id, created_at);`);
 }
 
 module.exports = { migrateGqwf };
