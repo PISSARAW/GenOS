@@ -761,6 +761,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0638](0638-paquets-signes-du-registre-de-confiance.md) | Paquets signés du registre de confiance | Accepté | 2026-10-18 | confiance, révocation, déploiement, récupération |
 | [0639](0639-reparation-authentifiee-gqwf.md) | Réparer GQWF depuis une réplique authentifiée | Accepté, réparation locale bornée aux blobs | 2026-10-18 | GQWF, CAS, réparation, quarantaine, tenants, preuves |
 | [0640](0640-journal-revocation-ancre-durable.md) | Journal de révocation à ancre durable | Accepté | 2026-10-18 | révocation, durabilité, anti-rollback, réplication |
+| [0641](0641-canonisation-des-sources-de-qualification.md) | Canonisation des sources de qualification | Accepté | 2026-10-18 | preuve, reproductibilité, qualification fondatrice |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

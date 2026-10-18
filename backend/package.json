@@ -25,6 +25,7 @@
     "test:consciousness-boundary": "node tests/test_consciousness_claim_boundary.js && node tests/test_consciousness_evidence_suite.js && node tests/test_indicator_verification_boundary.js",
     "test:cognitive-contracts": "node tests/test_endogenous_thought_contract.js && node tests/test_cognitive_episode_schema.js && node tests/test_endogenous_thought_store.js && node tests/test_endogenous_thought_detection.js",
     "test:foundational-qualification": "node tests/test_foundational_principles_qualification.js",
+    "qualify:foundational": "node bin/qualify-foundational-principles.cjs",
     "test:foundational-trust": "node tests/test_foundational_trust_registry.js",
     "test:foundational-revocation-journal": "node tests/test_foundational_revocation_journal.js",
     "test:scientific-reference": "node tests/test_scientific_references.js && node tests/test_scientific_propagation.js && node tests/test_scientific_subscriptions.js && node tests/test_scientific_dispatch.js && node tests/test_gcir_scientific_visibility.js && node tests/test_scientific_workflow.js && node tests/test_scientific_receipt_authority.js && node tests/test_scientific_reference_producer.js && node tests/test_scientific_runtime_bootstrap.js",

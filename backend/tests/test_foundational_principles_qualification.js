@@ -66,7 +66,7 @@ function main() {
   assert.equal(receipt.universalClaim, false);
   assert.match(receipt.receiptHash, /^[a-f0-9]{64}$/);
   const persistedReceipt = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'docs',
-    '06-qualite-preuves', 'receipts', 'principes-fondateurs-phase9.json'), 'utf8'));
+    '06-qualite-preuves', 'receipts', 'principes-fondateurs-phase15.json'), 'utf8'));
   assert.deepEqual(receipt, persistedReceipt, 'The versioned qualification receipt is stale.');
   const revocationLedger = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
     manifest.lifecyclePolicy.revocationLedger), 'utf8'));

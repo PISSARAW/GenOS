@@ -172,9 +172,14 @@ function assertObservation(manifest, test, observation) {
   return { test, outputDigest: observation.outputDigest };
 }
 
+function sourceContentDigest(content) {
+  const canonical = Buffer.from(content).toString('utf8').replace(/\r\n?/g, '\n');
+  return crypto.createHash('sha256').update(canonical, 'utf8').digest('hex');
+}
+
 function sourceRecords(validation) {
   return validation.references.map((reference) => ({ path: reference.relative,
-    digest: crypto.createHash('sha256').update(fs.readFileSync(reference.resolved)).digest('hex') }));
+    digest: sourceContentDigest(fs.readFileSync(reference.resolved)) }));
 }
 
 function qualificationBody(manifest, validation, observations) {
@@ -205,4 +210,4 @@ function readManifest(manifestPath) {
 }
 
 module.exports = { MANIFEST_SCHEMA, RECEIPT_SCHEMA, EXPECTED, validateManifest,
-  qualify, readManifest };
+  qualify, readManifest, sourceContentDigest };

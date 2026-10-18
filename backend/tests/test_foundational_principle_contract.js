@@ -16,6 +16,8 @@ function main() {
   const validated = qualification.validateManifest(manifest, repositoryRoot);
   assert.equal(manifest.principles.length, 19);
   assert.ok(validated.references.length > manifest.principles.length);
+  assert.equal(qualification.sourceContentDigest(Buffer.from('alpha\r\nbeta\r')),
+    qualification.sourceContentDigest(Buffer.from('alpha\nbeta\n')));
 
   const conflated = clone(manifest);
   conflated.principles[18].concept = conflated.principles[18].capability;
