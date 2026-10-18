@@ -51,12 +51,13 @@ async function recordDecision(args) {
   return { success: true, decisionId: id, persisted: true, promoted: false };
 }
 
-async function executeDevelopmentTool(name, args) {
+async function executeDevelopmentTool(name, args, context = {}) {
   assertAccess(name);
   validateInput(name, args);
   if (name === 'genos_record_decision') return recordDecision(args);
   if (STRATEGIES.has(name)) {
-    const result = await require('./mcpStrategyTools').executeStrategyTool(name, args);
+    const actor = { agentId: context.agentId || process.env.GENOS_AGENT_ID || null };
+    const result = await require('./mcpStrategyTools').executeStrategyTool(name, args, actor);
     if (!result?.success) throw new Error(result?.output?.error || result?.error || 'Development tool failed.');
     return result.output;
   }

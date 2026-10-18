@@ -8,14 +8,17 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import stateStore from '../integrations/codex/session-state.cjs';
 
 const require = createRequire(import.meta.url);
+const sqlite3 = require('../backend/node_modules/sqlite3');
 const root = path.resolve(import.meta.dirname, '..');
 const profile = require('../integrations/codex/development-profile.json');
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-development-test-'));
 const database = path.join(temporary, 'test.db');
 const client = new Client({ name: 'codex-development-test', version: '1' });
+let childProcess = null;
 const transport = new StdioClientTransport({ command: process.execPath, args: [path.join(root, 'mcp/index.js')],
   cwd: root, stderr: 'pipe', env: { ...process.env, GENOS_MCP_LEASE: profile.tools.join(','),
-    GENOS_DB_PATH: database, GENOS_DB_BACKUP_SKIP: '1', GENOS_DB_BOOTSTRAP_SKIP: '0', NODE_ENV: 'test' } });
+    GENOS_AGENT_ID: 'codex-test', GENOS_DB_PATH: database, GENOS_DB_BACKUP_SKIP: '1',
+    GENOS_DB_BOOTSTRAP_SKIP: '0', NODE_ENV: 'test' } });
 transport.stderr.on('data', () => {});
 
 function output(result) {
@@ -23,8 +26,34 @@ function output(result) {
   return JSON.parse(result.content[0].text);
 }
 
+function run(db, sql, params = []) {
+  return new Promise((resolve, reject) => db.run(sql, params,
+    (error) => error ? reject(error) : resolve()));
+}
+
+async function waitForChildClose(child) {
+  if (!child || child.exitCode !== null) return;
+  await Promise.race([new Promise((resolve) => child.once('close', resolve)),
+    new Promise((resolve) => setTimeout(resolve, 5000))]);
+  assert.notEqual(child.exitCode, null, 'MCP stdio child must stop before fixture cleanup.');
+}
+
+async function removeTemporary(directory) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      fs.rmSync(directory, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (!['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(error.code)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  fs.rmSync(directory, { recursive: true, force: true });
+}
+
 try {
   await client.connect(transport);
+  childProcess = transport._process;
   const list = await client.listTools();
   assert.deepEqual(new Set(list.tools.map((tool) => tool.name)), new Set(profile.tools));
   const failureSchema = list.tools.find((tool) => tool.name === 'genos_search_failures').inputSchema;
@@ -57,16 +86,20 @@ try {
   assert.equal(compiled.memoryIds.length, 2);
   const searched = output(await client.callTool({ name: 'genos_search_failures', arguments: { query: failure } }));
   assert.ok(searched.failures.some((item) => JSON.stringify(item).includes(failure)));
+  const db = new sqlite3.Database(database, sqlite3.OPEN_READWRITE);
+  await run(db, "INSERT INTO organizations (id, name) VALUES ('codex-test-org', 'Codex Test Org')");
+  await run(db, "INSERT INTO projects (id, organization_id, name) VALUES ('codex-test-project', 'codex-test-org', 'Codex Test Project')");
+  await run(db, "INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('codex-test-workspace', 'Codex Test Workspace', 'fixture', 'codex-test-org', 'codex-test-project')");
+  await run(db, "INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('codex-test', 'Codex Test', 'tester', 'idle', 'orchestrator', 'codex-test-workspace')");
   const provenance = output(await client.callTool({ name: 'genos_blame', arguments: { target_id: 'codex-test' } }));
   assert.ok(provenance.evidence.length > 0);
-  const sqlite = require('../backend/node_modules/sqlite3');
-  const db = new sqlite.Database(database, sqlite.OPEN_READONLY);
   const row = await new Promise((resolve, reject) => db.get('SELECT content FROM genome_decisions WHERE id = ?', decision.decisionId,
     (error, result) => error ? reject(error) : resolve(result)));
   assert.equal(JSON.parse(row.content).evidence[0], 'test:lease-denied');
-  await new Promise((resolve) => db.close(resolve));
+  await new Promise((resolve, reject) => db.close((error) => error ? reject(error) : resolve()));
   console.log('Seven development MCP tools verified through stdio, memory persistence, search and provenance.');
 } finally {
   await client.close();
-  fs.rmSync(temporary, { recursive: true, force: true });
+  await waitForChildClose(childProcess);
+  await removeTemporary(temporary);
 }

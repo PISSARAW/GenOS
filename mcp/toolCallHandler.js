@@ -56,7 +56,8 @@ function strategyCall({ name, args, executeStrategyTool }) {
   const strategyArgs = name === 'genos_execute_primitive'
     ? { ...args, primitive: args.primitive || args.primitive_name || args.name || (Array.isArray(args.primitives) ? 'pipeline' : '') }
     : args;
-  return executeStrategyTool(name, strategyArgs).then((execution) => {
+  const context = { agentId: process.env.GENOS_AGENT_ID || null };
+  return executeStrategyTool(name, strategyArgs, context).then((execution) => {
     if (!execution) throw new Error('Strategy tool is unavailable.');
     if (!execution.success) throw new Error(execution.output?.error || 'Strategy tool execution failed.');
     return JSON.stringify(execution.output);
@@ -216,7 +217,8 @@ function telemetryHandler(request, extra) {
 async function dispatchTool(input) {
   const { name, args, onTelemetry, runOrchestrator, runGenosCli, executeStrategyTool } = input;
   if (DEVELOPMENT?.isDevelopmentTool(name) && CATALOG_TOOLS.has(name)) {
-    return JSON.stringify(await DEVELOPMENT.executeDevelopmentTool(name, args));
+    const context = { agentId: process.env.GENOS_AGENT_ID || null };
+    return JSON.stringify(await DEVELOPMENT.executeDevelopmentTool(name, args, context));
   }
   if (name === 'genos_philosophy') return philosophyCall(args);
   if (STRATEGY_TOOL_NAMES.has(name)) return strategyCall({ name, args, executeStrategyTool });

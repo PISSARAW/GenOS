@@ -319,6 +319,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 });
 
 const transport = new StdioServerTransport();
+let shutdownPromise = null;
+
+async function closeBackendDatabase() {
+  if (!repoRoot) return;
+  try {
+    const database = require(path.join(repoRoot, 'backend', 'src', 'db'));
+    if (typeof database.closeDatabase === 'function') await database.closeDatabase();
+  } catch (error) {
+    console.error(`[genos-mcp] Backend database shutdown failed: ${error.message}`);
+  }
+}
+
+function shutdownRuntime() {
+  if (!shutdownPromise) shutdownPromise = (async () => {
+    samplingBroker.close();
+    await closeBackendDatabase();
+    await transport.close();
+  })();
+  return shutdownPromise;
+}
+
 server.onclose = () => samplingBroker.close();
+process.stdin.once('end', () => { void shutdownRuntime(); });
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => { void shutdownRuntime().finally(() => process.exit(0)); });
+}
 await server.connect(transport);
 console.error("🧬 GenOS MCP Server running on stdio");
