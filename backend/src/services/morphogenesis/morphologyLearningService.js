@@ -2,7 +2,10 @@
 
 const MAX_EXPERIENCES = 500;
 const DECAY_HALF_LIFE_MS = 7 * 24 * 60 * 60 * 1000;
-const FEATURE_KEYS = ['complexity', 'domain', 'urgency', 'scale', 'interdependency'];
+const { PROFILE_DIMENSIONS } = require('./profiling/problemMorphologyProfiler');
+const profileCalibration = require('./learning/problemProfileCalibration');
+const LEGACY_FEATURE_KEYS = ['complexity', 'domain', 'urgency', 'scale', 'interdependency'];
+const FEATURE_KEYS = Object.freeze([...LEGACY_FEATURE_KEYS, ...PROFILE_DIMENSIONS]);
 const topologyPolicy = require('./learning/topologyPolicyService');
 const outcomeEvidenceValidation = require('./learning/outcomeEvidenceValidation');
 
@@ -10,7 +13,8 @@ let experiences = [];
 
 function normalizeFeatures(features) {
   const v = {};
-  for (const key of FEATURE_KEYS) v[key] = Number(features[key]) || 0;
+  for (const key of LEGACY_FEATURE_KEYS) v[key] = Number(features[key]) || 0;
+  for (const key of PROFILE_DIMENSIONS) v[key] = Number(features?.dimensions?.[key]?.value) || 0;
   return v;
 }
 
@@ -125,6 +129,8 @@ function buildExperienceRecord(ctx) {
 
 function recordExperience(ctx) {
   if (!ctx || !ctx.problemFeatures || !isAdmissibleOutcomeEvidence(ctx.outcomeEvidence)) return null;
+  const profileBinding = profileCalibration.verifiedProfileBinding(ctx.problemFeatures, ctx.outcomeEvidence);
+  if (profileCalibration.isProblemProfile(ctx.problemFeatures) && !profileBinding) return null;
   ctx = {
     ...ctx,
     outcome: {
@@ -144,7 +150,8 @@ function recordExperience(ctx) {
     latency: ctx.latency,
     receiptId: ctx.outcomeEvidence.receiptId,
     evidenceKind: ctx.outcomeEvidence.kind,
-    outcomeEvidence: ctx.outcomeEvidence
+    outcomeEvidence: ctx.outcomeEvidence,
+    profileBinding
   });
   return exp;
 }

@@ -3,9 +3,8 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
-const policyFile = path.join(os.tmpdir(), `genos-topology-policy-${process.pid}.json`);
+const policyFile = path.join(__dirname, `.genos-topology-policy-${process.pid}.json`);
 process.env.GENOS_MORPHOLOGY_POLICY_PATH = policyFile;
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'morphology-policy-test-secret';
 const learning = require('../src/services/morphogenesis/morphologyLearningService');
@@ -39,10 +38,17 @@ assert.ok(ranking[0].learnedWeight > 0.8);
 const savedPolicy = JSON.parse(fs.readFileSync(policyFile, 'utf8'));
 assert.equal(savedPolicy.observations.length, 40);
 savedPolicy.observations[0].score = 0;
+savedPolicy.observations[1].profileVector = Array(19).fill(0.5);
 fs.writeFileSync(policyFile, JSON.stringify(savedPolicy));
 const policyModule = require.resolve('../src/services/morphogenesis/learning/topologyPolicyService');
 delete require.cache[policyModule];
-assert.equal(require('../src/services/morphogenesis/learning/topologyPolicyService').getStatus().observations, 39);
+const restoredPolicy = require('../src/services/morphogenesis/learning/topologyPolicyService');
+assert.equal(restoredPolicy.getStatus().observations, 39);
+const profiler = require('../src/services/morphogenesis/profiling/problemMorphologyProfiler');
+const dimensions = Object.fromEntries(profiler.PROFILE_DIMENSIONS.map((name) => [name,
+  { value: 0.5, confidence: 1, evidenceRefs: [`test:${name}`] }]));
+assert.equal(restoredPolicy.priorFor('metapopulation',
+  profiler.createProblemMorphologyProfile(dimensions)).samples, 0);
 fs.rmSync(policyFile, { force: true });
 delete process.env.GENOS_MORPHOLOGY_POLICY_PATH;
 delete process.env.GENOS_EPISTEMIC_RECEIPT_SECRET;

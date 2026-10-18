@@ -228,7 +228,12 @@ function compareTopologies(ctx) {
     const learned = topologyPolicy.blendScore({
       topology: item.topology, profile: ctx?.problemProfile || {}, heuristicScore: item.score, range
     });
-    return { ...item, heuristicScore: item.score, score: learned.score, learnedSamples: learned.samples, learnedWeight: learned.learnedWeight };
+    return {
+      ...item, heuristicScore: item.score, score: learned.score,
+      learnedSamples: learned.samples, learnedWeight: learned.learnedWeight,
+      learningEvidenceKind: learned.evidenceKind,
+      calibrationStatus: learned.calibrationStatus
+    };
   }).sort((a, b) => b.score - a.score).map((item, i) => ({ ...item, rank: i + 1 }));
 }
 

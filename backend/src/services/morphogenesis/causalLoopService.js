@@ -190,18 +190,24 @@ function logLoopReceipt(receipt) {
 // ---------------------------------------------------------------------------
 
 function morphologyInputOf(actionReceipt, expressionContext) {
-  const expression = expressionContext || {};
-  const outcome = actionReceipt.outcome || {};
-  const outcomeEvidence = actionReceipt.qualityEvidence || null;
+  const expression = expressionContext ?? {};
+  const outcome = actionReceipt.outcome ?? {};
+  const outcomeEvidence = actionReceipt.qualityEvidence ?? null;
+  const learningContext = outcomeEvidence?.learningContext ?? {};
   return {
-    problemFeatures: expression.problemFeatures || {},
+    problemFeatures: firstPopulated(expression.problemFeatures, learningContext.problemProfile),
     outcome,
-    morphology: expression.morphology || {},
+    morphology: firstPopulated(expression.morphology, learningContext.initialMorphology),
     outcomeEvidence,
     evidenceQuality: outcomeEvidence ? 1 : 0,
-    tokenCost: actionReceipt.tokenCost || 0,
-    latency: actionReceipt.latency || 0
+    tokenCost: actionReceipt.tokenCost ?? 0,
+    latency: actionReceipt.latency ?? 0
   };
+}
+
+function firstPopulated(primary, fallback) {
+  if (primary && typeof primary === 'object' && Object.keys(primary).length > 0) return primary;
+  return fallback ?? {};
 }
 
 function receiptIdOf(actionReceipt) {

@@ -336,6 +336,11 @@ async function testPairedCorpusCalibratesAndPersists() {
     assert.equal(decision.scale, 'COMMUNICATION_REDUCTION');
     assert.equal(decision.comparativeStatus, 'insufficient_baselines');
     assert.equal(decision.comparativeClaim, 'global_superiority_unproven');
+    const hysteresis = await require('../../src/services/morphogenesis/morphogenesisHysteresisStore')
+      .load(db, { ...SCOPE, missionId: 'live-mission' });
+    assert.equal(hysteresis.calibrationPolicy.schema,
+      'genos.morphogenesis-hysteresis-calibration/v1');
+    assert.equal(hysteresis.calibrationPolicy.sampleCount, 40);
   } finally {
     await db.close();
   }
