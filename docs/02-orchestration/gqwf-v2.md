@@ -290,6 +290,31 @@ Voir l'[ADR 0633](../adr/0633-collecte-caches-lower-overlayfs-gqwf.md).
 Validation ciblée :
 `node backend/tests/test_gqwf_overlayfs_cache_gc.js`.
 
+### Qualification appariée des matérialiseurs
+
+La tranche 14 ajoute le protocole local `gqwf-materializer-paired-v1`. Il
+compare chaque accélérateur disponible à `portable-copy-v1` avec les mêmes
+octets, la même mutation et une fixture froide distincte par bras. Trois
+répétitions au minimum sont imposées et l'ordre accélérateur/portable alterne
+pour limiter un biais systématique d'ordre.
+
+Chaque bras couvre la matérialisation, une écriture, la capture et la
+libération. Les hashes de la racine de départ et de la candidate capturée
+doivent être identiques entre les deux bras. Un backend qui ajoute, perd ou
+transforme silencieusement un fichier est donc classé `semantic_mismatch`,
+même si ses temps sont meilleurs. Un backend absent ou dont la sonde échoue
+est conservé dans `skipped` avec sa cause ; il n'est pas assimilé à une mesure.
+
+Le rapport lie les mesures brutes à la révision, à l'état du checkout et à
+l'environnement local. Il porte néanmoins `performanceClaim: none`,
+`runtimePromotionAuthorized: false` et `autoPolicyChanged: false`. T14 ne
+modifie donc pas l'ordre de sélection `auto` : une mesure locale ne suffit pas
+à promouvoir une politique valable sur d'autres volumes, noyaux ou charges.
+Voir l'[ADR 0634](../adr/0634-qualification-appariee-materialiseurs-gqwf.md).
+
+Validation ciblée :
+`node backend/tests/test_gqwf_materializer_benchmark.js`.
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes
