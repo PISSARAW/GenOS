@@ -46,6 +46,25 @@ corpus réel n'est livré avec le dépôt. Le statut global demeure donc
 `contract-ready-execution-blocked` jusqu'à l'exécution réelle de LangGraph,
 AutoGen GraphFlow/Swarm et MASS/EvoMAS sur les corpus scellés.
 
+## P4 — audit de composition, calibration et sélection
+
+`phase4Audit.cjs` réunit les portes de la phase 4 : partitions d'entraînement
+et de holdout disjointes par tâche, famille et oracle, prédictions issues
+uniquement de l'historique autorisé, résultats d'oracle externes vérifiés,
+couverture et abstention de calibration, baselines de sélection, et audit
+lexical A-Team. Le rapport est explicitement `observed` et conserve la portée
+`lexical-sensitivity` de l'audit A-Team ; il ne peut pas déclarer une
+supériorité universelle ni rendre la confirmation admissible.
+
+```bash
+node benchmarks/topology-morphogenesis/test-phase4-audit.cjs
+```
+
+Une fuite de famille/oracle, une prédiction marquée `holdout`, un résultat sans
+oracle externe ou l'absence de baseline bloque l'audit. Les scores de Brier,
+la couverture, le regret de sélection et les comparaisons de baseline restent
+des mesures observées, pas des autorisations de promotion runtime.
+
 Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json](suite.json), conformément à [schemas/suite.schema.json](schemas/suite.schema.json). À ce stade, seule la référence arithmétique possède un oracle indépendant; les autres tâches restent des probes de mécanisme ou des contrôles de contrat et ne sont pas admissibles à une comparaison confirmatoire.
 
 Chaque exécution archive la provenance du commit, l'état propre/sale de l'arbre source, les empreintes de la suite, des missions et des reçus extraits, les états des workers, les temps, ainsi que la portée explicite de l'oracle. Le format de sortie est décrit par [schemas/campaign-results.schema.json](schemas/campaign-results.schema.json). Un arbre modifié est automatiquement marqué non admissible comme résultat confirmatoire.
