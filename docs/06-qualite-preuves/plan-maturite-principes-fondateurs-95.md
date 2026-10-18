@@ -1,6 +1,6 @@
 # Plan de maturité des principes fondateurs vers 95/100
 
-- **Statut** : Exécution en cours, phases 10 à 13 qualifiées (92/100)
+- **Statut** : Exécution en cours, phases 10 à 14 qualifiées (94/100)
 - **Portée** : fermeture transverse des réserves après les phases 7 à 9
 - **Dernière revue** : 2026-10-18
 
@@ -22,7 +22,7 @@ reçu vérifiable. Un lot incomplet n'ajoute aucun point.
 | Phase 11 — validation Rust reproductible | +2 | `cargo test --workspace` termine à zéro dans un répertoire de build isolé | Qualifiée le 2026-10-18 |
 | Phase 12 — dette du gate qualité | +2 | aucune nouvelle dette et gate global ramené à un état accepté et documenté | Qualifiée le 2026-10-18 |
 | Phase 13 — registre de confiance déployable | +3 | bootstrap, rotation, révocation et récupération de clés testés en fail-closed | Qualifiée le 2026-10-18 |
-| Phase 14 — journal de révocation durable | +2 | anti-rollback, reprise après crash et réplication vérifiées sur stockage durable | À faire |
+| Phase 14 — journal de révocation durable | +2 | anti-rollback, reprise après crash et réplication vérifiées sur stockage durable | Qualifiée le 2026-10-18 |
 | Phase 15 — qualification transverse | +1 | matrice multi-chemins et reçu frais couvrant Node, Rust, MCP et récupération | À faire |
 
 ## Phase 10 — CI Node transverse
@@ -169,6 +169,27 @@ développement, explicitement non qualifié pour la production.
 
 Sortie : les tests prouvent le rejet d'une troncature, d'une tête ancienne, d'une
 double écriture et d'une reprise incohérente après crash.
+
+Preuves de sortie :
+
+- `npm --prefix backend run test:foundational-revocation-journal` termine à
+  zéro sur des bases SQLite WAL distinctes pour journal, ancre et réplique ;
+- l'append exige la tête et la séquence attendues, revalide toute la chaîne
+  signée et applique un compare-and-swap dans une transaction `BEGIN IMMEDIATE` ;
+- un replay exact est idempotent, un replay altéré est refusé et deux écritures
+  rivales sur la même tête produisent un conflit CAS ;
+- après commit local sans ancrage simulant une interruption, la lecture refuse
+  l'état ; la connexion est fermée puis rouverte, la chaîne est revérifiée et
+  l'ancre indépendante est avancée explicitement ;
+- une troncature locale face à une ancre plus récente est détectée comme rollback ;
+  une réplication vers un second journal est rejouable, tandis qu'une lignée
+  cible divergente est refusée ;
+- `python scripts/ci/check_code_quality.py` reste vert avec 0 nouvelle dette.
+
+Le backend SQLite local démontre la durabilité inter-connexions et les invariants
+du protocole. Il n'est pas qualifié comme consensus multi-hôte ou ancre externe
+de production ; un déploiement doit placer l'ancre sur une frontière de panne
+indépendante. Voir ADR 0640.
 
 ## Phase 15 — qualification transverse
 
