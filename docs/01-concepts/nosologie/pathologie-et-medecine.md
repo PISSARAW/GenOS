@@ -108,3 +108,24 @@ Le score de confiance Node est déterministe : `clamp(severity) × 0,7 + 0,3`. I
 - Les tests ciblés ne constituent pas une validation globale du dépôt ni une preuve médicale.
 
 Voir la [vue d’ensemble](vue-ensemble.md), le [catalogue runtime](catalogue-runtime.md), le [protocole d’exécution](../../02-orchestration/protocole-execution-agents.md#8-utilisation-de-la-nosologie) et les [garde-fous](../../05-securite-gouvernance/securite.md).
+
+## 11. Jonction avec la morphogenèse
+
+Avant la sélection morphologique initiale puis à chaque frontière d'époque, le backend
+lit les états cliniques Node des agents de la mission et les applications thérapeutiques
+Rust terminées dans le même périmètre organisation/projet/mission. Le pont
+`genos.morphogenesis-nosology/v1` conserve les
+neuf familles, les catégories iatrogène et nosocomiale, les références de preuve et la
+différence entre diagnostic confirmé et pression observationnelle.
+
+Les pressions sont projetées vers les signaux bornés de la politique morphogénétique.
+Elles peuvent influencer la représentation, l'intervention candidate et les
+obligations de preuve, mais n'autorisent aucune thérapie. Une quarantaine de
+l'orchestrateur force `NO_CHANGE` et arrête la continuation avant le planificateur ;
+la quarantaine d'un worker exige une preuve de confinement sans bloquer par principe
+les agents sains.
+
+Le reçu de politique expose la réponse clinique, exige une relecture clinique après
+intervention et ajoute une autopsie causale lorsqu'un état nosocomial ou iatrogène est
+présent. L'[ADR 0603](../../adr/0603-relier-nosologie-et-morphogenese.md) fixe les
+frontières d'autorité et les limites de cette jonction.

@@ -3,7 +3,7 @@
 function buildMissionMorphogenesisInput(ctx) {
   const topology = proposedTopology(ctx);
   const capabilityPlan = ctx.normalizedMission.missionCapabilityPlan || {};
-  return {
+  const input = {
     db: ctx.db,
     missionId: ctx.agentId,
     problem: missionText(ctx.normalizedMission),
@@ -20,6 +20,8 @@ function buildMissionMorphogenesisInput(ctx) {
     expression: ctx.normalizedMission.morphologyExpression,
     missionAssignments: missionAssignments(ctx)
   };
+  return require('../morphogenesis/missionNosologyContext')
+    .enrichPlanningInput(input, ctx.morphogenesisNosology);
 }
 
 function missionText(mission) {

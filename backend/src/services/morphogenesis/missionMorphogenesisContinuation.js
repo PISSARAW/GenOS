@@ -6,6 +6,8 @@ const { bindGraphMission } = require('./morphogenesisMissionBinding');
 const communicationPlanning = require('./communicationReductionPlanning');
 const rosterPlanning = require('./rosterReductionPlanning');
 const { proposedRecipe, recipeProfile, recipePlanMismatch } = require('./missionMorphogenesisRecipeBinding');
+const nosologyEvidence = require('./morphogenesisNosologyEvidence');
+const nosologyBridge = require('./morphogenesisNosologyBridge');
 const MAX_REPLACEMENT_WORKERS = 12;
 const MAX_CALIBRATION_OUTCOMES = require('./morphogenesisVerifiedOutcomeStore').MAX_OUTCOMES;
 
@@ -323,8 +325,29 @@ async function loadVerifiedOutcomes(input, dependencies) {
   }
 }
 
+function nosologyScope(input) {
+  const mission = input.state.normalizedMission || {};
+  const workerIds = input.state.workers instanceof Map ? [...input.state.workers.keys()] : [];
+  return { db: input.state.db, missionId: mission.missionId || input.orchestratorId,
+    organizationId: input.state.organizationId || mission.organizationId,
+    projectId: input.state.projectId || mission.projectId,
+    orchestratorId: input.orchestratorId, agentIds: [input.orchestratorId, ...workerIds] };
+}
+
+async function loadNosology(input, dependencies, signals) {
+  const loader = dependencies.loadNosologyEvidence || nosologyEvidence.loadNosologyEvidence;
+  let evidence;
+  try { evidence = await loader(nosologyScope(input)); }
+  catch (error) { evidence = { status: 'unavailable', states: [], pathologies: [],
+    rustApplications: [], errors: [error.code || 'nosology_bridge_failed'] }; }
+  return nosologyBridge.compileNosologyBridge({ evidence, runtimeSignals: signals,
+    state: input.state, orchestratorId: input.orchestratorId });
+}
+
 function earlyDecision(context) {
-  const { input, signals, decision, communicationMetric } = context;
+  const { input, signals, decision, communicationMetric, nosology } = context;
+  if (nosology.gate.status === 'blocked') return { adapted: false,
+    reason: 'nosology_quarantine_gate', signals, decision, nosology };
   if (shouldSkipAdaptation(input, signals, decision)) {
     return { adapted: false, reason: 'adaptation_not_required', signals, decision };
   }
@@ -341,9 +364,10 @@ async function planContinuation(input, dependencies = {}) {
   const signals = evidenceSignals(results);
   const verifiedOutcomes = await loadVerifiedOutcomes(input, dependencies);
   const communicationMetric = await communicationPlanning.loadVerifiedMetric(input, dependencies);
-  const decisionInput = { ...input, verifiedOutcomes, communicationMetric };
+  const nosology = await loadNosology(input, dependencies, signals);
+  const decisionInput = { ...input, verifiedOutcomes, communicationMetric, nosology };
   const decision = require('./morphogenesisEpochDecisionService').compilePolicy(decisionInput, signals);
-  const early = earlyDecision({ input, signals, decision, communicationMetric });
+  const early = earlyDecision({ input, signals, decision, communicationMetric, nosology });
   if (early) return early;
   const planner = dependencies.planMorphogenesis
     || require('./morphogenesisPlannerService').planMorphogenesis;

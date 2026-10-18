@@ -5,6 +5,7 @@ const { critiqueStrategy } = require('./strategyCritiqueService');
 const { arbitrateGroupNeeds } = require('./groupResourceNegotiation');
 const { extractEvidenceReport } = require('../agentEvidenceService');
 const resourceReallocation = require('./resourceReallocationCandidate');
+const nosologyBridge = require('./morphogenesisNosologyBridge');
 
 function workerFor(state, workerId) { return state.workers.get(workerId) || {}; }
 
@@ -197,14 +198,15 @@ function compilePolicy(input, signals) {
   const workers = input.survivors.map((survivor) => ({
     ...workerFor(state, survivor.agentId), agentId: survivor.agentId,
     evidenceScore: survivor.evidenceScore }));
-  const diagnosis = diagnosisFor(signals, [...state.results.values()]);
+  const diagnosis = nosologyBridge.mergeSignals(
+    diagnosisFor(signals, [...state.results.values()]), input.nosology);
   const supports = supportDecisions(input, diagnosis);
   const { challenge, resources } = supports;
   const rosterPlan = rosterReductionPlan(input, workers);
-  const policy = compileConditionalMorphogenesisPolicy({
+  const policy = nosologyBridge.decoratePolicy(compileConditionalMorphogenesisPolicy({
     ...conditionalPolicyInput({ ...input, rosterReductionPlan },
       withIntraEpoch(input, diagnosis), workers), resourceAllocationPlan: resources
-  });
+  }), input.nosology);
   const decision = { policy, challenge, resources, rosterPlan,
     intraEpoch: state.intraEpochObservations || null };
   state.plan.morphogenesisEpochDecision = decision;

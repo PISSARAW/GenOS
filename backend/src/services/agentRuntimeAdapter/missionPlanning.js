@@ -7,10 +7,13 @@ const orchestratorBody = require('../orchestratorBodyService');
 const missionMorphogenesis = require('./missionMorphogenesis');
 const topologyActivation = require('./missionTopologyActivation');
 const missionStrategyActivation = require('./missionStrategyActivation');
+const missionNosology = require('../morphogenesis/missionNosologyContext');
 
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
   await attachGlobalWorkspace(ctx);
+  ctx.morphogenesisNosology = await missionNosology.loadMissionNosology(ctx);
+  missionNosology.assertPlanningAllowed(ctx.morphogenesisNosology);
   topologyActivation.seedMorphogenesisSelection(ctx);
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
   await attachMorphogenesisPlan(ctx);
@@ -23,6 +26,7 @@ async function attachMorphogenesisPlan(ctx) {
     const input = missionMorphogenesis.buildMissionMorphogenesisInput(ctx);
     input.reason = 'mission_execution_plan';
     const plan = planMorphogenesis(input);
+    missionNosology.bindNosology(plan, ctx.morphogenesisNosology);
     ctx.morphogenesisPlan = plan;
     await topologyActivation.activateMorphogenesisPlan(ctx, plan);
     const snapshots = require('./missionWorkerRuntimeSnapshot');

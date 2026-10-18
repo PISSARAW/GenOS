@@ -12,7 +12,9 @@ function planner(dependencies) {
 
 function seedMorphogenesisSelection(ctx, dependencies = {}) {
   if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return null;
-  const selection = planner(dependencies)(buildMissionMorphogenesisInput(ctx));
+  const input = buildMissionMorphogenesisInput(ctx);
+  const selection = planner(dependencies)(input);
+  require('../morphogenesis/missionNosologyContext').bindNosology(selection, input.nosology);
   ctx.morphogenesisSelection = selection;
   ctx.normalizedMission.proposedTopology = selection.selectedTopology;
   ctx.normalizedMission.morphologyTopology = selection.selectedTopology;
