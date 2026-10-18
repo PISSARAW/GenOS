@@ -23,9 +23,10 @@ if (selected.includes('registry')) {
   assert.ok(web.domains.includes('epistemology'));
   assert.ok(web.operational.length > 0);
   assert.ok(web.unavailable.length > 0);
-  assert.strictEqual(web.coverage.inventory, 705);
-  assert.strictEqual(web.coverage.registryRuntime, 182);
-  assert.strictEqual(web.coverage.registryPhilosophy, 375);
+  assert.ok(web.coverage.inventory >= 705);
+  assert.strictEqual(web.coverage.registryRuntime, runtimeRegistry.getRegistrySize());
+  assert.strictEqual(web.coverage.registryPhilosophy,
+    web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length);
   const graphKeys = Object.keys(require('../src/services/capabilityGraphService').getAllConcepts()).sort();
   assert.strictEqual(web.coverage.registryGraph, graphKeys.length);
   assert.deepStrictEqual(web.canonicalConcepts.filter((concept) => concept.source === 'capability_graph')

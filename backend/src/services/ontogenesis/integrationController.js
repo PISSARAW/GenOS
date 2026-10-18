@@ -10,6 +10,25 @@ const { failExecution } = require('./executionLifecycle');
 const { notify } = require('./notificationService');
 const { workerFailure } = require('./failurePolicy');
 const { verifyPhilosophicalObservations } = require('./philosophicalObservationService');
+const operationJournal = require('./operationJournal');
+
+async function beginIntegrationOperation(db, run) {
+  const operation = await operationJournal.prepareOperation(db, {
+    id: `onto_integration_${run.id}`, projectId: run.project_id, kind: 'integrate',
+    idempotencyKey: `integrate:${run.id}`,
+    intent: { executionId: run.id, taskId: run.task_id, baseSha: run.base_sha }
+  });
+  if (operation.state !== 'prepared') return operation;
+  return operationJournal.transitionOperation(db, { operationId: operation.id, state: 'started' });
+}
+
+async function completeIntegrationOperation(db, input) {
+  let row = await operationJournal.getOperation(db, input.operationId);
+  if (row.state === 'started') row = await operationJournal.transitionOperation(db, {
+    operationId: row.id, state: 'effect_applied', result: { sha: input.sha } });
+  if (row.state === 'effect_applied') await operationJournal.transitionOperation(db, {
+    operationId: row.id, state: 'completed', result: { sha: input.sha } });
+}
 
 async function verifyExecution(db, ctx) {
   const run = await activeExecution(db, ctx.project.id);
@@ -56,12 +75,15 @@ async function cleanIndex(git, worktree) {
 
 async function integrateCandidate(db, ctx, run) {
   authorizeCommit(ctx);
+  const operation = await beginIntegrationOperation(db, run);
   const git = integration.createShellGit();
   await integration.openIntegration(db, { id: run.id, projectId: ctx.project.id, taskId: run.task_id, baseSha: run.base_sha });
   const recovered = await integration.reconcileIntegration(db, git, { integrationId: run.id, operationId: run.id, worktree: run.worktree });
   if (recovered.status === 'committed') {
     await verifyRecovered(ctx, run, recovered.sha);
-    return completeIntegration(db, ctx, { run, sha: recovered.sha });
+    const outcome = await completeIntegration(db, ctx, { run, sha: recovered.sha });
+    await completeIntegrationOperation(db, { operationId: operation.id, sha: recovered.sha });
+    return outcome;
   }
   const candidate = await candidateFor(ctx, run);
   const head = await integration.currentSha(git, run.worktree);
@@ -82,7 +104,9 @@ async function integrateCandidate(db, ctx, run) {
   verifyIntegratedAudit(ctx, run, candidate);
   const sha = await integration.currentSha(git, run.worktree);
   await integration.setIntegrationResult(db, { id: run.id, status: 'committed', resultSha: sha, checks: proof.proofs });
-  return completeIntegration(db, ctx, { run, sha });
+  const outcome = await completeIntegration(db, ctx, { run, sha });
+  await completeIntegrationOperation(db, { operationId: operation.id, sha });
+  return outcome;
 }
 
 function verificationTime(run) {

@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { withTransaction } = require('../../db');
+const { migrateProjectConfig } = require('./configSchema');
 
 /**
  * Persistance des projets et du backlog (ADR 0235).
@@ -18,12 +19,13 @@ async function createProject(db, project) {
 
 async function insertProject(db, project) {
   const id = project.id || newId('onto');
+  const config = project.config || migrateProjectConfig({});
   await db.run(
     `INSERT INTO ontogenesis_projects
        (id, root_path, branch, objective, config_json, config_version, state)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [id, project.rootPath, project.branch, project.objective || '',
-      JSON.stringify(project.config || {}), project.configVersion || 1,
+      JSON.stringify(config), project.configVersion || config.version,
       project.state || 'INITIALIZING']
   );
   await db.run(

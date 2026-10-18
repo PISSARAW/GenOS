@@ -297,6 +297,9 @@ async function loadClaimedContext(db, input, fence) {
 }
 
 async function tickClaimed(db, input, fence) {
+  await require('./crashRecoveryService').recoverIncompleteOperations(db, {
+    projectId: input.projectId, owner: input.owner, harness: input.harness
+  });
   const fired = await fireDue(db, input.projectId, input.nowMs);
   await notifyExpiredQuestions(db, input);
   await require('../shev/runtimeService').tickProject(db, { projectId: input.projectId, fence });

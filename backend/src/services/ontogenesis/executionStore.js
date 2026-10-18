@@ -4,9 +4,17 @@ const { migrateOntogenesisExecution } = require('../../db/migrations/migrateOnto
 const { migrateOntogenesisLedger } = require('../../db/migrations/migrateOntogenesisLedger');
 const { withTransaction } = require('../../db');
 
+const ensuredDatabases = new WeakSet();
+
 async function ensureTables(db) {
+  if (ensuredDatabases.has(db)) return;
   await migrateOntogenesisExecution(db);
   await migrateOntogenesisLedger(db);
+  await require('../../db/migrations/migrateOntogenesisDurableFoundation')
+    .migrateOntogenesisDurableFoundation(db);
+  await require('../../db/migrations/migrateOntogenesisCrashRecovery')
+    .migrateOntogenesisCrashRecovery(db);
+  ensuredDatabases.add(db);
 }
 
 async function activeExecution(db, projectId) {

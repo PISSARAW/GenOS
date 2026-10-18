@@ -94,4 +94,10 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('133-rust-kernel-mission-plans', 'Bind Node missions to immutable Rust kernel plans', async (db) => {
     await require('./migrateRustKernelMissionPlans').migrateRustKernelMissionPlans(db);
   }),
+  createMigrationRunner('135-ontogenesis-durable-foundation', 'Persist Ontogenesis operations, artifacts, outbox and config V2', async (db) => {
+    await require('./migrateOntogenesisDurableFoundation').migrateOntogenesisDurableFoundation(db);
+  }),
+  createMigrationRunner('136-ontogenesis-crash-recovery', 'Persist immutable Ontogenesis crash recovery receipts', async (db) => {
+    await require('./migrateOntogenesisCrashRecovery').migrateOntogenesisCrashRecovery(db);
+  }),
 ];

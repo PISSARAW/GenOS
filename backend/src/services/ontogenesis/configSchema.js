@@ -7,7 +7,8 @@
 
 const { validateExecutionConfig } = require('./configValidation');
 
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION = 2;
+const LEGACY_CONFIG_VERSION = 1;
 const DEFAULT_BRANCH = 'codex/ontogenesis';
 
 function defaultConfig() {
@@ -21,6 +22,10 @@ function defaultConfig() {
     memory: { envelopeMb: 2048, reserveMb: 512 },
     allowPush: false,
     allowMerge: false,
+    durability: { recoveryPolicy: 'reconcile', ambiguousOutcome: 'escalate' },
+    retention: { artifactsDays: 30, evidenceDays: 365, quarantineDays: 7 },
+    publication: { enabled: false },
+    merge: { enabled: false },
     authority: { allowEdit: true, allowTests: true, allowCommit: true, paths: ['*'], branches: [DEFAULT_BRANCH], rules: [] }
   };
 }
@@ -84,6 +89,42 @@ function checkRules(authority, errors) {
   }
 }
 
+function checkDurability(config, errors) {
+  const durability = config.durability;
+  if (!isPlainObject(durability)) return errors.push('durability-requise');
+  if (durability.recoveryPolicy !== 'reconcile') errors.push('durability.recoveryPolicy-invalide');
+  if (durability.ambiguousOutcome !== 'escalate') errors.push('durability.ambiguousOutcome-invalide');
+}
+
+function checkRetention(config, errors) {
+  const retention = config.retention;
+  if (!isPlainObject(retention)) return errors.push('retention-requise');
+  for (const field of ['artifactsDays', 'evidenceDays', 'quarantineDays']) {
+    if (!Number.isSafeInteger(retention[field]) || retention[field] < 0) errors.push(`retention.${field}-invalide`);
+  }
+}
+
+function checkExternalAuthority(config, errors) {
+  if (!isPlainObject(config.publication) || config.publication.enabled !== false) {
+    errors.push('publication-interdite-lot0');
+  }
+  if (!isPlainObject(config.merge) || config.merge.enabled !== false) errors.push('fusion-interdite-lot0');
+}
+
+function migrateProjectConfig(input) {
+  if (!isPlainObject(input)) throw new Error('configuration-legacy-invalide');
+  const version = input.version === undefined ? LEGACY_CONFIG_VERSION : input.version;
+  if (version === CONFIG_VERSION) return { ...input };
+  if (version !== LEGACY_CONFIG_VERSION) throw new Error('version-migration-inconnue');
+  if (input.allowPush === true || input.allowMerge === true) throw new Error('autorite-externe-legacy-interdite');
+  const foundation = defaultConfig();
+  const safeDefaults = { ...foundation };
+  delete safeDefaults.authority;
+  return { ...safeDefaults, ...input, version: CONFIG_VERSION, allowPush: false, allowMerge: false,
+    durability: foundation.durability, retention: foundation.retention,
+    publication: foundation.publication, merge: foundation.merge };
+}
+
 function validateProjectConfig(input) {
   const config = Object.assign(defaultConfig(), input || {});
   if (input && input.branch && !input.authority) config.authority.branches = [config.branch];
@@ -91,6 +132,9 @@ function validateProjectConfig(input) {
   checkCore(config, errors);
   checkAuthority(config, errors);
   checkExecution(config, errors);
+  checkDurability(config, errors);
+  checkRetention(config, errors);
+  checkExternalAuthority(config, errors);
   validateExecutionConfig(config, errors);
   return { ok: errors.length === 0, errors, config };
 }
@@ -106,4 +150,5 @@ function checkCore(config, errors) {
   if (config.allowMerge === true) errors.push('allowMerge-interdit-par-defaut');
 }
 
-module.exports = { CONFIG_VERSION, DEFAULT_BRANCH, defaultConfig, validateProjectConfig };
+module.exports = { CONFIG_VERSION, LEGACY_CONFIG_VERSION, DEFAULT_BRANCH,
+  defaultConfig, migrateProjectConfig, validateProjectConfig };

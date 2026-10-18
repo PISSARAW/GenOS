@@ -10,7 +10,9 @@ async function memoryDb(filename = ':memory:') {
   const db = await open({ filename, driver: require('sqlite3').Database });
   const migrations = ['migrateOntogenesis', 'migrateOntogenesisConversation', 'migrateOntogenesisSchedule',
     'migrateOntogenesisQuestions', 'migrateOntogenesisExecution', 'migrateOntogenesisLedger',
-    'migrateShevProjectLoop', 'migrateShevProtocols', 'migrateShevRuntime', 'migrateGvxLedger'];
+    'migrateOntogenesisDurableFoundation', 'migrateOntogenesisCrashRecovery',
+    'migrateShevProjectLoop', 'migrateShevProtocols',
+    'migrateShevRuntime', 'migrateGvxLedger'];
   for (const name of migrations) await require(`../src/db/migrations/${name}`)[name](db);
   return db;
 }
