@@ -25,6 +25,8 @@ const suites = {
     ['philosophy ontogenesis integration', 'test_philosophy_ontogenesis_integration.js'],
     ['indicator receipt validation', 'test_indicator_receipt_service.js'],
     ['indicator evaluation persistence', 'test_indicator_evaluation_persistence.js'],
+    ['endogenous thought contracts and protocol', 'test_endogenous_thought_contract.js'],
+    ['endogenous thought durable store', 'test_endogenous_thought_store.js'],
     ['storage bootstrap migration gate', 'test_storage_bootstrap_backend_gate.js'],
     ['Rhizome merge policy evaluation', 'test_rhizome_merge_policy_evaluation.js'],
     ['topology session persistence and MCP operations', 'test_topology_session_persistence.js'],

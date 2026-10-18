@@ -10,11 +10,27 @@ const SCHEMAS = Object.freeze({
   CausalInterventionReceipt: ['experimentId', 'snapshotId', 'control', 'intervention', 'seeds', 'replicates', 'metricsBefore', 'metricsAfter', 'pairedEffects', 'verdict', 'evidenceRefs'],
   IndicatorEvaluation: ['evaluationSchema', 'receiptCount', 'propertyCount', 'assessment', 'reportHash', 'report'],
   MissionPhysicsParameterSet: ['missionClass', 'parameterId', 'version', 'unit', 'value', 'uncertainty', 'bounds', 'sampleCount', 'sourceRefs', 'trainingHash', 'validation', 'state', 'previousReceiptId'],
+  EndogenousQuestion: ['questionId', 'episodeId', 'domain', 'text', 'hypothesis', 'falsifier', 'method', 'expectedEvidence', 'expectedInformationGain', 'estimatedCost', 'risk', 'sourceRefs', 'createdAt'],
+  EndogenousThoughtEpisode: ['transitionId', 'episodeId', 'agentId', 'projectId', 'mandateRef', 'fromState', 'toState', 'triggerRef', 'questionRef', 'decisionRef', 'taskRef', 'jobRef', 'budget', 'evidenceRefs', 'stopReason', 'occurredAt', 'previousReceiptId'],
 });
 
 const STATUSES = new Set(['candidate', 'niche', 'promoted', 'dormant', 'fossilized', 'extinct']);
 const VERDICTS = new Set(['supported', 'refuted', 'inconclusive']);
 const RENDERING_STATUSES = new Set(['verified', 'repaired', 'blocked']);
+const THOUGHT_STATES = new Set(['DETECTED', 'QUESTIONED', 'ADMITTED', 'QUEUED', 'RUNNING',
+  'VERIFIED', 'LEARNED', 'FOLLOW_UP', 'STOPPED', 'ABSTAINED', 'FAILED']);
+const THOUGHT_TRANSITIONS = Object.freeze({
+  START: ['DETECTED'],
+  DETECTED: ['QUESTIONED', 'ABSTAINED', 'FAILED'],
+  QUESTIONED: ['ADMITTED', 'ABSTAINED', 'FAILED'],
+  ADMITTED: ['QUEUED', 'ABSTAINED', 'FAILED'],
+  QUEUED: ['RUNNING', 'STOPPED', 'FAILED'],
+  RUNNING: ['VERIFIED', 'STOPPED', 'FAILED'],
+  VERIFIED: ['LEARNED', 'STOPPED', 'FAILED'],
+  LEARNED: ['FOLLOW_UP', 'STOPPED', 'FAILED'],
+  FOLLOW_UP: ['QUESTIONED', 'STOPPED', 'FAILED'],
+  STOPPED: [], ABSTAINED: [], FAILED: []
+});
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -105,6 +121,104 @@ function validateMissionPhysicsParameter(payload, errors) {
   validatePhysicsProvenance(payload, errors);
   validatePhysicsValidation(payload, errors);
   validatePhysicsPreviousReceipt(payload, errors);
+}
+
+function validCost(value) {
+  return isRecord(value) && Number.isSafeInteger(value.tokens) && value.tokens > 0
+    && Number.isFinite(value.usd) && value.usd >= 0
+    && Number.isSafeInteger(value.seconds) && value.seconds > 0;
+}
+
+function validateEndogenousQuestion(payload, errors) {
+  const identities = ['questionId', 'episodeId', 'domain', 'text', 'hypothesis', 'falsifier', 'method'];
+  if (identities.some((field) => !nonEmpty(payload[field]))) {
+    errors.push(error('INVALID_QUESTION', 'Question identity and falsification fields are required', 'question'));
+  }
+  if (!stringList(payload.expectedEvidence) || payload.expectedEvidence.length === 0) {
+    errors.push(error('INVALID_EVIDENCE_PLAN', 'expectedEvidence must be a non-empty string list', 'expectedEvidence'));
+  }
+  if (!boundedScore(payload.expectedInformationGain) || !boundedScore(payload.risk)) {
+    errors.push(error('INVALID_SCORE', 'information gain and risk must be between zero and one', 'scores'));
+  }
+  if (!validCost(payload.estimatedCost)) errors.push(error('INVALID_COST', 'estimatedCost is invalid', 'estimatedCost'));
+  if (!stringList(payload.sourceRefs) || payload.sourceRefs.length === 0) {
+    errors.push(error('INVALID_PROVENANCE', 'Question source references are required', 'sourceRefs'));
+  }
+  validateTimestamp(payload.createdAt, 'createdAt', errors);
+}
+
+function boundedScore(value) {
+  return Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function validateTimestamp(value, path, errors) {
+  if (!nonEmpty(value) || Number.isNaN(Date.parse(value))) {
+    errors.push(error('INVALID_TIMESTAMP', `${path} must be an ISO timestamp`, path));
+  }
+}
+
+function validateEndogenousEpisode(payload, errors) {
+  validateEpisodeIdentity(payload, errors);
+  validateEpisodeTransition(payload, errors);
+  validateEpisodeReferences(payload, errors);
+  if (!validCost(payload.budget)) errors.push(error('INVALID_BUDGET', 'Episode budget is invalid', 'budget'));
+  if (!stringList(payload.evidenceRefs)) errors.push(error('INVALID_LIST', 'evidenceRefs must be a string list', 'evidenceRefs'));
+  validateTimestamp(payload.occurredAt, 'occurredAt', errors);
+}
+
+function validateEpisodeIdentity(payload, errors) {
+  const required = ['transitionId', 'episodeId', 'agentId', 'projectId', 'mandateRef', 'triggerRef'];
+  if (required.some((field) => !nonEmpty(payload[field]))) {
+    errors.push(error('INVALID_EPISODE', 'Episode identity and mandate references are required', 'episode'));
+  }
+}
+
+function validateEpisodeTransition(payload, errors) {
+  const from = payload.fromState === null ? 'START' : payload.fromState;
+  const known = from === 'START' || THOUGHT_STATES.has(from);
+  const allowed = known && THOUGHT_STATES.has(payload.toState)
+    && (THOUGHT_TRANSITIONS[from] || []).includes(payload.toState);
+  if (!allowed) errors.push(error('INVALID_TRANSITION', 'Endogenous thought transition is not allowed', 'toState'));
+}
+
+function validateEpisodeReferences(payload, errors) {
+  validateOptionalEpisodeRefs(payload, errors);
+  validateEpisodeLineage(payload, errors);
+  validateEpisodeOutcome(payload, errors);
+  requireRefForStates(payload, { states: ['QUESTIONED', 'ADMITTED', 'QUEUED', 'RUNNING', 'VERIFIED', 'LEARNED', 'FOLLOW_UP'], field: 'questionRef' }, errors);
+  requireRefForStates(payload, { states: ['ADMITTED', 'QUEUED', 'RUNNING', 'VERIFIED', 'LEARNED', 'FOLLOW_UP'], field: 'decisionRef' }, errors);
+  requireRefForStates(payload, { states: ['QUEUED', 'RUNNING', 'VERIFIED', 'LEARNED', 'FOLLOW_UP'], field: 'taskRef' }, errors);
+  requireRefForStates(payload, { states: ['RUNNING', 'VERIFIED', 'LEARNED', 'FOLLOW_UP'], field: 'jobRef' }, errors);
+}
+
+function validateOptionalEpisodeRefs(payload, errors) {
+  const nullable = ['questionRef', 'decisionRef', 'taskRef', 'jobRef', 'stopReason', 'previousReceiptId'];
+  if (nullable.some((field) => payload[field] !== null && !nonEmpty(payload[field]))) {
+    errors.push(error('INVALID_REFERENCE', 'Optional episode references must be non-empty or null', 'references'));
+  }
+}
+
+function validateEpisodeLineage(payload, errors) {
+  if (payload.toState === 'DETECTED' && payload.previousReceiptId !== null) {
+    errors.push(error('INVALID_LINEAGE', 'Initial detection cannot have a previous receipt', 'previousReceiptId'));
+  }
+  if (payload.toState !== 'DETECTED' && !nonEmpty(payload.previousReceiptId)) {
+    errors.push(error('INVALID_LINEAGE', 'Non-initial transitions require a previous receipt', 'previousReceiptId'));
+  }
+}
+
+function validateEpisodeOutcome(payload, errors) {
+  const terminal = ['STOPPED', 'ABSTAINED', 'FAILED'].includes(payload.toState);
+  if (terminal && !nonEmpty(payload.stopReason)) errors.push(error('INVALID_STOP', 'Terminal state requires a stop reason', 'stopReason'));
+  const evidenced = ['VERIFIED', 'LEARNED', 'FOLLOW_UP'].includes(payload.toState);
+  const evidenceRefs = Array.isArray(payload.evidenceRefs) ? payload.evidenceRefs : [];
+  if (evidenced && evidenceRefs.length === 0) errors.push(error('MISSING_EVIDENCE', 'Verified states require evidence', 'evidenceRefs'));
+}
+
+function requireRefForStates(payload, spec, errors) {
+  if (spec.states.includes(payload.toState) && !nonEmpty(payload[spec.field])) {
+    errors.push(error('MISSING_REFERENCE', `${spec.field} is required for ${payload.toState}`, spec.field));
+  }
 }
 
 function validatePhysicsIdentity(payload, errors) {
@@ -217,7 +331,10 @@ function validateObjectField(payload, field, errors) {
   if (!isRecord(payload[field])) errors.push(error('INVALID_METRICS', `${field} must be an object`, field));
 }
 
-const validators = { MorphogeneticCandidate: validateMorphogenetic, WorldTransition: validateWorld, VerifiedRendering: validateRendering, CausalInterventionReceipt: validateCausal, IndicatorEvaluation: validateIndicatorEvaluation, MissionPhysicsParameterSet: validateMissionPhysicsParameter };
+const validators = { MorphogeneticCandidate: validateMorphogenetic, WorldTransition: validateWorld,
+  VerifiedRendering: validateRendering, CausalInterventionReceipt: validateCausal,
+  IndicatorEvaluation: validateIndicatorEvaluation, MissionPhysicsParameterSet: validateMissionPhysicsParameter,
+  EndogenousQuestion: validateEndogenousQuestion, EndogenousThoughtEpisode: validateEndogenousEpisode };
 
 function validateContract(type, payload) {
   const errors = [];

@@ -106,4 +106,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('138-mcp-actor-lease-v2', 'Persist bounded revocable MCP actor leases and immutable receipts', async (db) => {
     await require('./migrateMcpActorLeaseV2').migrateMcpActorLeaseV2(db);
   }),
+  createMigrationRunner('139-endogenous-thought-episodes', 'Persist scoped endogenous thought episodes and immutable receipts', async (db) => {
+    await require('./migrateEndogenousThoughtEpisodes').migrateEndogenousThoughtEpisodes(db);
+  }),
 ];

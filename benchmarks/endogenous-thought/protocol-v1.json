@@ -1,0 +1,65 @@
+{
+  "schema": "genos.endogenous-thought-protocol/v1",
+  "protocolId": "ett-v1",
+  "revision": "v1",
+  "status": "preregistered_not_run",
+  "promotionDecision": null,
+  "purpose": "Mesurer une boucle cognitive endogène bornée sans inférer une conscience phénoménale.",
+  "hypothesis": "À modèle, environnement et budget identiques, la boucle complète produit davantage de découvertes utiles vérifiées par coût normalisé que le contrôle planifié sans question endogène.",
+  "scope": {
+    "environment": "deterministic_read_only_simulation",
+    "externalPromptAfterStart": false,
+    "mutationsAllowed": false,
+    "networkAllowed": false,
+    "humanPurposeRequired": true
+  },
+  "budget": {
+    "tokens": 12000,
+    "usd": 0.5,
+    "seconds": 120,
+    "maxEpisodes": 6,
+    "maxFollowUpsPerEpisode": 1
+  },
+  "conditions": [
+    "full",
+    "planned_control",
+    "curiosity_ablated",
+    "shev_initiative_ablated",
+    "agow_arbitration_ablated",
+    "metacognition_ablated",
+    "memory_ablated"
+  ],
+  "safetyBoundary": {
+    "authorityAblated": false,
+    "sandboxAblated": false,
+    "budgetEnforcementAblated": false,
+    "evidenceGateAblated": false
+  },
+  "corpus": {
+    "developmentSeeds": [101, 211, 307],
+    "reservedSeeds": [401, 503, 607],
+    "scenarioClasses": [
+      "learnable_anomaly",
+      "unlearnable_noise",
+      "false_lead",
+      "mastered_problem",
+      "no_anomaly",
+      "out_of_mandate"
+    ]
+  },
+  "metricsRef": "../../shared/endogenousThoughtMetrics.v1.json",
+  "primaryMetricId": "verified_useful_discoveries_per_normalized_cost",
+  "analysisPlan": {
+    "comparison": "paired_by_seed_and_scenario",
+    "retainFailuresInDenominator": true,
+    "thresholdsFrozenAfterPilot": true,
+    "reservedCorpusUsedForTuning": false,
+    "requiredNegativeControls": ["no_anomaly", "unlearnable_noise", "out_of_mandate"]
+  },
+  "evidencePolicy": {
+    "modelOutputIsEvidence": false,
+    "independentVerificationRequired": true,
+    "missingEvidenceOutcome": "inconclusive",
+    "scientificPromotionAllowed": false
+  }
+}

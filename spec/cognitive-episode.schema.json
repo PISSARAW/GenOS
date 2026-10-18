@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/cognitive-episode.schema.json",
+  "title": "EndogenousThoughtEpisode",
+  "description": "Contrat canonique d'une transition d'episode cognitif endogene ou reflexif borne. Il structure des references auditables et n'enregistre ni raisonnement prive, ni experience subjective.",
+  "x-genos-contract-version": "v1",
+  "x-genos-boundaries": {
+    "authorityGranted": false,
+    "promotionEligible": false,
+    "phenomenalConsciousnessAssessed": false,
+    "privateReasoningAllowed": false
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "transitionId",
+    "episodeId",
+    "agentId",
+    "projectId",
+    "mandateRef",
+    "fromState",
+    "toState",
+    "triggerRef",
+    "questionRef",
+    "decisionRef",
+    "taskRef",
+    "jobRef",
+    "budget",
+    "evidenceRefs",
+    "stopReason",
+    "occurredAt",
+    "previousReceiptId"
+  ],
+  "properties": {
+    "transitionId": { "$ref": "#/$defs/nonEmptyString" },
+    "episodeId": { "$ref": "#/$defs/nonEmptyString" },
+    "agentId": { "$ref": "#/$defs/nonEmptyString" },
+    "projectId": { "$ref": "#/$defs/nonEmptyString" },
+    "mandateRef": { "$ref": "#/$defs/nonEmptyString" },
+    "fromState": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/thoughtState" }
+      ]
+    },
+    "toState": { "$ref": "#/$defs/thoughtState" },
+    "triggerRef": { "$ref": "#/$defs/nonEmptyString" },
+    "questionRef": { "$ref": "#/$defs/nullableReference" },
+    "decisionRef": { "$ref": "#/$defs/nullableReference" },
+    "taskRef": { "$ref": "#/$defs/nullableReference" },
+    "jobRef": { "$ref": "#/$defs/nullableReference" },
+    "budget": { "$ref": "#/$defs/budget" },
+    "evidenceRefs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "stopReason": { "$ref": "#/$defs/nullableReference" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "previousReceiptId": { "$ref": "#/$defs/nullableReference" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "toState": { "const": "DETECTED" } } },
+      "then": {
+        "properties": {
+          "fromState": { "type": "null" },
+          "previousReceiptId": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "QUESTIONED" } } },
+      "then": {
+        "properties": {
+          "fromState": { "enum": ["DETECTED", "FOLLOW_UP"] },
+          "questionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "required": ["questionRef", "previousReceiptId"]
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "ADMITTED" } } },
+      "then": {
+        "properties": {
+          "fromState": { "const": "QUESTIONED" },
+          "questionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "decisionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "required": ["questionRef", "decisionRef", "previousReceiptId"]
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "QUEUED" } } },
+      "then": {
+        "properties": {
+          "fromState": { "const": "ADMITTED" },
+          "questionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "decisionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "taskRef": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "required": ["questionRef", "decisionRef", "taskRef", "previousReceiptId"]
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "RUNNING" } } },
+      "then": {
+        "properties": {
+          "fromState": { "const": "QUEUED" },
+          "questionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "decisionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "taskRef": { "$ref": "#/$defs/nonEmptyString" },
+          "jobRef": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "required": ["questionRef", "decisionRef", "taskRef", "jobRef", "previousReceiptId"]
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "VERIFIED" } } },
+      "then": {
+        "properties": {
+          "fromState": { "const": "RUNNING" },
+          "questionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "decisionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "taskRef": { "$ref": "#/$defs/nonEmptyString" },
+          "jobRef": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" },
+          "evidenceRefs": { "minItems": 1 }
+        },
+        "required": ["questionRef", "decisionRef", "taskRef", "jobRef", "previousReceiptId"]
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "LEARNED" } } },
+      "then": {
+        "properties": {
+          "fromState": { "const": "VERIFIED" },
+          "questionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "decisionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "taskRef": { "$ref": "#/$defs/nonEmptyString" },
+          "jobRef": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" },
+          "evidenceRefs": { "minItems": 1 }
+        },
+        "required": ["questionRef", "decisionRef", "taskRef", "jobRef", "previousReceiptId"]
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "FOLLOW_UP" } } },
+      "then": {
+        "properties": {
+          "fromState": { "const": "LEARNED" },
+          "questionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "decisionRef": { "$ref": "#/$defs/nonEmptyString" },
+          "taskRef": { "$ref": "#/$defs/nonEmptyString" },
+          "jobRef": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" },
+          "evidenceRefs": { "minItems": 1 }
+        },
+        "required": ["questionRef", "decisionRef", "taskRef", "jobRef", "previousReceiptId"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "toState": { "const": "STOPPED" }
+        }
+      },
+      "then": {
+        "properties": {
+          "fromState": {
+            "enum": ["QUEUED", "RUNNING", "VERIFIED", "LEARNED", "FOLLOW_UP"]
+          },
+          "stopReason": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "ABSTAINED" } } },
+      "then": {
+        "properties": {
+          "fromState": { "enum": ["DETECTED", "QUESTIONED", "ADMITTED"] },
+          "stopReason": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "toState": { "const": "FAILED" } } },
+      "then": {
+        "properties": {
+          "fromState": {
+            "enum": ["DETECTED", "QUESTIONED", "ADMITTED", "QUEUED", "RUNNING", "VERIFIED", "LEARNED", "FOLLOW_UP"]
+          },
+          "stopReason": { "$ref": "#/$defs/nonEmptyString" },
+          "previousReceiptId": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "nullableReference": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/nonEmptyString" }
+      ]
+    },
+    "thoughtState": {
+      "type": "string",
+      "enum": [
+        "DETECTED",
+        "QUESTIONED",
+        "ADMITTED",
+        "QUEUED",
+        "RUNNING",
+        "VERIFIED",
+        "LEARNED",
+        "FOLLOW_UP",
+        "STOPPED",
+        "ABSTAINED",
+        "FAILED"
+      ]
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokens", "usd", "seconds"],
+      "properties": {
+        "tokens": { "type": "integer", "minimum": 1 },
+        "usd": { "type": "number", "minimum": 0 },
+        "seconds": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

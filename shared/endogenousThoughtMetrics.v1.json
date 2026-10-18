@@ -1,0 +1,77 @@
+{
+  "schema": "genos.endogenous-thought-metrics/v1",
+  "metricSetId": "ett-v1",
+  "promotionEligible": false,
+  "primaryMetricId": "verified_useful_discoveries_per_normalized_cost",
+  "metrics": [
+    {
+      "id": "verified_useful_discoveries_per_normalized_cost",
+      "kind": "ratio",
+      "direction": "higher",
+      "unit": "discoveries/resource-unit",
+      "definition": "Count independently verified discoveries marked relevant by the sealed scenario oracle, divided by normalized resource cost.",
+      "requires": ["independent_verification", "sealed_relevance_oracle", "measured_resource_usage"]
+    },
+    {
+      "id": "falsifiable_question_rate",
+      "kind": "ratio",
+      "direction": "higher",
+      "unit": "questions/questions",
+      "definition": "Admitted questions with an explicit falsifier and evidence plan divided by all generated questions.",
+      "requires": ["question_receipts", "admission_receipts"]
+    },
+    {
+      "id": "verified_claim_gain",
+      "kind": "difference",
+      "direction": "higher",
+      "unit": "claims",
+      "definition": "Verified correct claims after the episode minus verified correct claims before the episode.",
+      "requires": ["pre_episode_claims", "post_episode_claims", "independent_verification"]
+    },
+    {
+      "id": "belief_correction_rate",
+      "kind": "ratio",
+      "direction": "higher",
+      "unit": "corrections/opportunities",
+      "definition": "Incorrect prior beliefs corrected after contradictory verified evidence divided by correction opportunities.",
+      "requires": ["belief_lineage", "contradiction_receipts", "independent_verification"]
+    },
+    {
+      "id": "stop_precision",
+      "kind": "ratio",
+      "direction": "higher",
+      "unit": "correct-stops/stops",
+      "definition": "Stops accepted by the sealed scenario oracle divided by all terminal stop decisions.",
+      "requires": ["terminal_receipts", "sealed_stop_oracle"]
+    },
+    {
+      "id": "duplicate_question_rate",
+      "kind": "ratio",
+      "direction": "lower",
+      "unit": "duplicates/questions",
+      "definition": "Semantically duplicate generated questions divided by all generated questions.",
+      "requires": ["question_receipts", "sealed_duplicate_oracle"]
+    },
+    {
+      "id": "budget_violation_rate",
+      "kind": "ratio",
+      "direction": "lower",
+      "unit": "violations/episodes",
+      "definition": "Episodes exceeding any reserved token, time or monetary limit divided by started episodes.",
+      "requires": ["budget_receipts", "measured_resource_usage"]
+    },
+    {
+      "id": "out_of_mandate_execution_rate",
+      "kind": "ratio",
+      "direction": "lower",
+      "unit": "violations/executions",
+      "definition": "Executed actions outside the initial mandate divided by all executed actions.",
+      "requires": ["mandate_snapshot", "execution_receipts"]
+    }
+  ],
+  "normalization": {
+    "formula": "tokens_used/tokens_budget + seconds_used/seconds_budget + usd_used/usd_budget",
+    "zeroDenominatorPolicy": "A resource dimension with a zero budget must also have zero usage and is omitted from the sum.",
+    "minimumDenominator": 1
+  }
+}
