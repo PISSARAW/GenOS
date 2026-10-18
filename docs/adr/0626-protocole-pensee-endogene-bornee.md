@@ -1,6 +1,6 @@
 # ADR 0626 — Protocole de pensée endogène bornée
 
-- **Statut** : Accepté jusqu'à la file Ontogenèse retenue ; exécution et campagne non implémentées
+- **Statut** : Accepté jusqu'au runner déterministe non vérifié ; vérification et campagne non implémentées
 - **Date** : 2026-10-18
 - **Domaine** : cognition endogène, expérimentation, autorité, preuve
 - **Décideurs** : mainteneurs GenOS
@@ -90,6 +90,19 @@ reçu scelle l'absence d'autorité d'exécution, de worker, d'action externe et 
 promotion. Une tranche ultérieure devra lever explicitement la retenue avant
 la transition `QUEUED` vers `RUNNING`.
 
+PR6 lève cette retenue uniquement sur présentation d'une autorisation SHEV
+Ed25519 dont l'opération, le projet, l'épisode, la version et la tâche sont
+scellés. L'autorisation est consommée transactionnellement avec un run
+Ontogenèse durable. Le runner est une fonction déterministe en processus,
+limitée à la simulation en lecture seule : il ne lance aucun worker, n'accède
+pas au réseau et ne mute aucun environnement.
+
+Le run recopie l'hypothèse, le falsificateur et le plan de preuve dans une
+proposition traçable, place la tâche en `verifying` et le run Ontogenèse en
+`unverified`, puis avance l'épisode de `QUEUED` à `RUNNING`. Son reçu scelle
+explicitement que la proposition n'est ni vérifiée ni promotable. La reprise
+relit le même reçu et refuse toute autre demande pour l'épisode.
+
 Le schéma JSON canonique de la transition est
 `spec/cognitive-episode.schema.json`. Il reste aligné avec le validateur du
 runtime par un test de parité. Ses métadonnées fixent explicitement que le
@@ -123,7 +136,7 @@ uniquement sur une capacité fonctionnelle bornée dans le profil exécuté.
 
 ### Négatives
 
-- PR5 fournit une tâche durable retenue, mais aucune exécution ou campagne exécutable.
+- PR6 fournit une proposition durable, mais aucune conclusion vérifiée ni campagne exécutable.
 - La vérification indépendante et les oracles scellés restent à implémenter.
 - La normalisation des coûts devra être alimentée par des mesures réelles.
 - Une campagne locale ne suffira pas à établir une généralisation scientifique.
@@ -152,7 +165,11 @@ uniquement sur une capacité fonctionnelle bornée dans le profil exécuté.
   retenue qui interdit toute sélection, exécution ou création de run ;
 - le même test vérifie la cohérence entre protocole, conditions d'ablation et
   registre des métriques ;
-- aucun test de PR1 à PR5 ne promeut une capacité ou une propriété de conscience.
+- `backend/tests/test_endogenous_thought_runner.js` vérifie l'autorisation SHEV
+  signée, sa consommation atomique, la proposition déterministe, le run durable,
+  la reprise, l'isolation de portée et l'absence de worker, de mutation, de réseau,
+  de vérification ou de promotion ;
+- aucun test de PR1 à PR6 ne promeut une capacité ou une propriété de conscience.
 
 ## Alternatives écartées
 

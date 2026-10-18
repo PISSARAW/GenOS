@@ -30,6 +30,7 @@ const suites = {
     ['bounded endogenous thought detection', 'test_endogenous_thought_detection.js'],
     ['bounded endogenous thought admission', 'test_endogenous_thought_admission.js'],
     ['held endogenous Ontogenesis queue', 'test_endogenous_thought_queue.js'],
+    ['authorized endogenous read-only runner', 'test_endogenous_thought_runner.js'],
     ['storage bootstrap migration gate', 'test_storage_bootstrap_backend_gate.js'],
     ['Rhizome merge policy evaluation', 'test_rhizome_merge_policy_evaluation.js'],
     ['topology session persistence and MCP operations', 'test_topology_session_persistence.js'],

@@ -743,7 +743,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0623](0623-gate-requalification-principes-fondateurs.md) | Gate de requalification des principes fondateurs | Accepté | 2026-10-18 | qualification, preuve, gouvernance, documentation |
 | [0624](0624-cycle-de-vie-revocable-qualification-fondatrice.md) | Cycle de vie révocable de la qualification fondatrice | Accepté | 2026-10-18 | qualification, fraîcheur, révocation, quarantaine |
 | [0625](0625-admission-bornee-et-revocation-authentifiee.md) | Admission bornée et révocation authentifiée | Accepté | 2026-10-18 | qualification, autorité, révocation, consommation |
-| [0626](0626-protocole-pensee-endogene-bornee.md) | Protocole de pensée endogène bornée | Accepté jusqu'à la file Ontogenèse retenue ; exécution et campagne non implémentées | 2026-10-18 | cognition endogène, expérimentation, autorité, preuve |
+| [0626](0626-protocole-pensee-endogene-bornee.md) | Protocole de pensée endogène bornée | Accepté jusqu'au runner déterministe non vérifié ; vérification et campagne non implémentées | 2026-10-18 | cognition endogène, expérimentation, autorité, preuve |
 | [0627](0627-frontiere-claims-fonctionnels-et-phenomenaux.md) | Frontière entre claims fonctionnels et phénoménaux | Accepté | 2026-10-18 | conscience, épistémologie, preuves, rapports |
 | [0628](0628-spi-materialisation-gqwf.md) | SPI de matérialisation GQWF | Accepté, backend portable uniquement en production | 2026-10-18 | GQWF, workspaces, matérialisation, portabilité |
 | [0629](0629-backend-reflink-natif-gqwf.md) | Backend reflink natif GQWF | Accepté, activation explicite ou politique auto | 2026-10-18 | GQWF, workspaces, reflink, Copy-on-Write |

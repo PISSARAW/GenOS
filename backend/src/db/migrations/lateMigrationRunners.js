@@ -130,4 +130,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('142-endogenous-thought-tasks', 'Bind admitted thoughts to held Ontogenesis tasks', async (db) => {
     await require('./migrateEndogenousThoughtTasks').migrateEndogenousThoughtTasks(db);
   }),
+  createMigrationRunner('143-endogenous-thought-runs', 'Persist authorized read-only endogenous thought runs', async (db) => {
+    await require('./migrateEndogenousThoughtRuns').migrateEndogenousThoughtRuns(db);
+  }),
 ];

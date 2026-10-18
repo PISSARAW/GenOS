@@ -1,6 +1,6 @@
 # Endogenous Thought Test — ETT v1
 
-- **Statut** : protocole, détection, admission et file Ontogenèse retenue implémentés ; campagne non exécutée
+- **Statut** : runner déterministe non vérifié implémenté ; vérification et campagne non exécutées
 - **Portée** : simulation déterministe en lecture seule
 - **Dernière revue** : 2026-10-18
 
@@ -21,7 +21,7 @@ npm --prefix backend run test:ett
 Le payload d'une transition d'épisode est défini par
 [`../../spec/cognitive-episode.schema.json`](../../spec/cognitive-episode.schema.json).
 
-## État de PR5
+## État de PR6
 
 PR1 a figé les frontières, contrats et métriques. PR2 ajoute :
 
@@ -79,9 +79,23 @@ exécution :
 - le reçu interdit toute autorité d'exécution, démarrage de worker, action
   externe ou éligibilité à la promotion.
 
-La levée de retenue, le dispatch, le runner et la campagne réservée
-appartiennent aux tranches suivantes. Une tâche durable `QUEUED` ne vaut donc
-ni exécution ETT ni validation d'une capacité cognitive générale.
+PR6 consomme une autorisation SHEV signée avant de lever la retenue :
+
+- la signature lie l'opération, le projet, l'épisode, sa version, la tâche et
+  la politique du runner ;
+- le run Ontogenèse et son reçu ETT sont persistés avant la transition
+  `QUEUED` vers `RUNNING` ;
+- le runner en processus recopie déterministement l'hypothèse, le falsificateur
+  et le plan de preuve sans lancer de worker, utiliser le réseau ou muter un
+  environnement ;
+- la tâche passe à `verifying` et le run reste `unverified` ;
+- le reçu interdit explicitement toute vérification implicite et toute
+  éligibilité à la promotion.
+
+La vérification indépendante, l'apprentissage, les continuations et la
+campagne réservée appartiennent aux tranches suivantes. Une proposition
+durable `RUNNING` ne vaut donc ni découverte vérifiée ni validation d'une
+capacité cognitive générale.
 
 ## Frontières de sécurité
 
