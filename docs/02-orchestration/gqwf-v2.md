@@ -260,12 +260,35 @@ place pour une nouvelle tentative.
 
 `auto` qualifie dans l'ordre OverlayFS, reflink, puis copie portable, et inscrit
 toutes les indisponibilités traversées dans le reçu. Le défaut sans politique
-reste `portable-copy-v1`. Le cache lower n'est pas encore collecté par le GC et
-la tranche ne revendique aucun gain sans benchmark sur le déploiement cible.
+reste `portable-copy-v1`. La tranche ne revendique aucun gain sans benchmark sur
+le déploiement cible.
 Voir l'[ADR 0632](../adr/0632-backend-overlayfs-linux-gqwf.md).
 
 Validation ciblée :
 `node backend/tests/test_gqwf_overlayfs_materializer.js`.
+
+### Collecte des caches lower OverlayFS
+
+La tranche 13 étend le preview signé du garbage collector aux caches
+`.genos/gqwf/overlay-lower/`. Chaque entrée doit porter un nom de hash, une
+preuve `.ready`, une racine privée sans symlink, hardlink ni fichier spécial.
+Une entrée anormale bloque toute collecte et reste en place pour inspection.
+
+Un cache est récupérable même si sa racine GQWF reste joignable : les blobs et
+le manifeste permettent de le reconstruire. Il reste toutefois protégé tant
+qu'un bail `linux-overlayfs-v1` n'est pas `released` ou que `/proc/self/mountinfo`
+le montre comme lower d'un montage. Cette seconde protection couvre un décalage
+entre l'état SQLite et le noyau.
+
+L'état actif et monté participe au hash d'inventaire. `collectGarbage` reprend
+un verrou d'écriture SQLite, recalcule cet inventaire puis revérifie taille et
+montage immédiatement avant suppression. Une course ou un montage tardif
+échoue sans supprimer le cache. Le reçu `gqwf_gc_runs` conserve désormais
+`overlay_cache_count` et les octets récupérables incluent les caches supprimés.
+Voir l'[ADR 0633](../adr/0633-collecte-caches-lower-overlayfs-gqwf.md).
+
+Validation ciblée :
+`node backend/tests/test_gqwf_overlayfs_cache_gc.js`.
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,

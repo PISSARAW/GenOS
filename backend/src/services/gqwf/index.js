@@ -37,8 +37,8 @@ function createFabric(db, options = {}) {
     inspectWorkerCandidates: (input) => workerPromotion.candidatesForWorkers(db, input),
     promoteWorkerCandidate: (input) => workerPromotion.promoteWorkerCandidate(
       db, input, options.verifyWorkerPromotion),
-    inspectGarbage: (input) => garbageCollection.inspectGarbage(db, input),
-    collectGarbage: (input) => garbageCollection.collectGarbage(db, input),
+    inspectGarbage: (input) => garbageCollection.inspectGarbage(db, input, options),
+    collectGarbage: (input) => garbageCollection.collectGarbage(db, input, options),
     inspectRollout: (input) => rollout.inspectRollout(db, input),
     openExecutionWorkspace: (input) => execution.openExecutionWorkspace(db, input),
     materializeExecutionWorkspace: (input) => execution.materializeExecutionWorkspace(db, input, options),

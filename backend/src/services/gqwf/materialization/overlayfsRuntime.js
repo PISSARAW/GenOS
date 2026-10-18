@@ -23,17 +23,36 @@ async function unmount(target) {
 }
 
 async function isMounted(target) {
-  let content;
-  try {
-    content = await fs.readFile('/proc/self/mountinfo', 'utf8');
-  } catch (error) {
-    if (error.code === 'ENOENT') return false;
-    throw error;
-  }
+  const content = await mountInfo();
+  if (content === null) return false;
   return content.split('\n').some((line) => {
     const fields = line.split(' ');
     return fields.length > 4 && decodeMountPath(fields[4]) === target;
   });
+}
+
+async function mountInfo() {
+  try {
+    return await fs.readFile('/proc/self/mountinfo', 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+function lowerDirectories(line) {
+  const separator = line.indexOf(' - ');
+  if (separator < 0) return [];
+  const fields = line.slice(separator + 3).split(' ');
+  if (fields[0] !== 'overlay' || !fields[2]) return [];
+  const option = fields[2].split(',').find((entry) => entry.startsWith('lowerdir='));
+  return option ? decodeMountPath(option.slice('lowerdir='.length)).split(':') : [];
+}
+
+async function usesLower(target) {
+  const content = await mountInfo();
+  return content !== null && content.split('\n')
+    .some((line) => lowerDirectories(line).includes(target));
 }
 
 function createRuntime(overrides = {}) {
@@ -41,8 +60,9 @@ function createRuntime(overrides = {}) {
     platform: overrides.platform || process.platform,
     mount: overrides.mount || mount,
     unmount: overrides.unmount || unmount,
-    isMounted: overrides.isMounted || isMounted
+    isMounted: overrides.isMounted || isMounted,
+    usesLower: overrides.usesLower || usesLower
   };
 }
 
-module.exports = { createRuntime };
+module.exports = { createRuntime, lowerDirectories };

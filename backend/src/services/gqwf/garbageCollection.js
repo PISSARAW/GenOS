@@ -7,6 +7,7 @@ const { withTransaction } = require('../../db');
 const { resolveContainedPathNoSymlinkSync } = require('../pathSafety');
 const { parseManifest } = require('./manifest');
 const { blobPath, readBlob } = require('./objects');
+const { createOverlayfsCacheManager } = require('./materialization/overlayfsCache');
 const storage = require('./storage');
 
 const HASH = /^[a-f0-9]{64}$/;
@@ -49,6 +50,15 @@ async function overlayBlobs(db, workspaceId) {
   const rows = await db.all(`SELECT c.blob_hash AS hash FROM gqwf_changes c
     JOIN gqwf_views v ON v.id = c.view_id
     WHERE v.workspace_id = ? AND c.deleted = 0 AND c.blob_hash IS NOT NULL`, workspaceId);
+  return new Set(rows.map((row) => row.hash));
+}
+
+async function activeOverlayRoots(db, workspaceId) {
+  const rows = await db.all(`SELECT DISTINCT leases.root_hash AS hash
+    FROM gqwf_leases leases
+    JOIN gqwf_materialization_receipts receipts ON receipts.lease_id = leases.id
+    WHERE leases.workspace_id = ? AND receipts.backend_id = 'linux-overlayfs-v1'
+      AND leases.status <> 'released'`, workspaceId);
   return new Set(rows.map((row) => row.hash));
 }
 
@@ -119,27 +129,44 @@ function assertReachableBlobs(reachable, scanned) {
 }
 
 function inventoryReport(state) {
-  const { workspaceId, catalog, protectedSet, reachable, scanned } = state;
+  const { workspaceId, catalog, protectedSet, reachable, scanned,
+    cacheScan, activeCaches } = state;
   const orphanRoots = [...catalog.keys()].filter((hash) => !protectedSet.has(hash)).sort();
   const orphanBlobs = scanned.blobs.filter((blob) => !reachable.has(blob.hash));
-  const reclaimableBytes = orphanBlobs.reduce((total, blob) => total + blob.size, 0);
-  const inventory = { version: 1, workspaceId, orphanRoots, orphanBlobs };
+  const classifiedCaches = cacheScan.caches.map((cache) => ({ ...cache,
+    active: activeCaches.has(cache.rootHash) }));
+  const reclaimableCaches = classifiedCaches.filter((cache) => !cache.active && !cache.mounted);
+  const overlayCaches = reclaimableCaches.map(({ rootHash, size }) => ({ rootHash, size }));
+  const mountedOverlayCaches = classifiedCaches.filter((cache) => cache.mounted)
+    .map((cache) => cache.rootHash);
+  const protectedOverlayCacheCount = classifiedCaches.length - overlayCaches.length;
+  const cacheBytes = reclaimableCaches.reduce((total, cache) => total + cache.size, 0);
+  const blobBytes = orphanBlobs.reduce((total, blob) => total + blob.size, 0);
+  const inventoryCaches = classifiedCaches.map(({ rootHash, size, mounted, active }) =>
+    ({ rootHash, size, mounted, active }));
+  const inventory = { version: 2, workspaceId, orphanRoots, orphanBlobs,
+    overlayCaches: inventoryCaches };
   return { mode: 'preview', workspaceId, inventoryHash: fingerprint(inventory),
     protectedRootCount: protectedSet.size, totalRootCount: catalog.size,
-    reachableBlobCount: reachable.size, orphanRoots, orphanBlobs, reclaimableBytes,
-    anomalies: scanned.anomalies };
+    reachableBlobCount: reachable.size, orphanRoots, orphanBlobs, overlayCaches,
+    mountedOverlayCaches, protectedOverlayCacheCount,
+    reclaimableBytes: blobBytes + cacheBytes,
+    anomalies: [...scanned.anomalies, ...cacheScan.anomalies].sort() };
 }
 
-async function inspectGarbage(db, input) {
+async function inspectGarbage(db, input, options = {}) {
   const workspace = await storage.workspace(db, input.workspaceId);
-  const [catalog, protectedSet, overlays, scanned] = await Promise.all([
+  const cacheManager = createOverlayfsCacheManager(options.overlayCacheRuntime);
+  const [catalog, protectedSet, overlays, scanned, activeCaches, cacheScan] = await Promise.all([
     rootCatalog(db, input.workspaceId), protectedRoots(db, input.workspaceId),
-    overlayBlobs(db, input.workspaceId), scanBlobStore(workspace.path)
+    overlayBlobs(db, input.workspaceId), scanBlobStore(workspace.path),
+    activeOverlayRoots(db, input.workspaceId), cacheManager.scan(workspace.path)
   ]);
   const reachable = new Set(overlays);
   addManifestBlobs(reachable, catalog, protectedSet);
   assertReachableBlobs(reachable, scanned);
-  return inventoryReport({ workspaceId: input.workspaceId, catalog, protectedSet, reachable, scanned });
+  return inventoryReport({ workspaceId: input.workspaceId, catalog, protectedSet,
+    reachable, scanned, activeCaches, cacheScan });
 }
 
 async function deleteRoot(db, input) {
@@ -161,28 +188,38 @@ async function deleteBlob(workspacePath, blob) {
 async function persistReceipt(db, report) {
   const id = crypto.randomUUID();
   await db.run(`INSERT INTO gqwf_gc_runs
-    (id, workspace_id, inventory_hash, root_count, blob_count, reclaimed_bytes)
-    VALUES (?, ?, ?, ?, ?, ?)`, id, report.workspaceId, report.inventoryHash,
-  report.orphanRoots.length, report.orphanBlobs.length, report.reclaimableBytes);
+    (id, workspace_id, inventory_hash, root_count, blob_count, overlay_cache_count,
+      reclaimed_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)`, id, report.workspaceId,
+  report.inventoryHash, report.orphanRoots.length, report.orphanBlobs.length,
+  report.overlayCaches.length, report.reclaimableBytes);
   return id;
 }
 
-async function collectGarbage(db, input) {
+async function collectGarbage(db, input, options = {}) {
   if (!HASH.test(input.expectedInventoryHash || '')) {
     throw new Error('GQWF garbage collection requires a preview inventory hash.');
   }
   return withTransaction(db, async () => {
-    const report = await inspectGarbage(db, input);
+    const report = await inspectGarbage(db, input, options);
     if (report.inventoryHash !== input.expectedInventoryHash) {
       throw new Error('GQWF garbage inventory changed; run a new preview.');
     }
-    if (report.anomalies.length) throw new Error('GQWF garbage collection refuses anomalous blob entries.');
-    for (const hash of report.orphanRoots) await deleteRoot(db, { workspaceId: input.workspaceId, hash });
+    if (report.anomalies.length) {
+      throw new Error('GQWF garbage collection refuses anomalous blob entries or OverlayFS caches.');
+    }
     const workspace = await storage.workspace(db, input.workspaceId);
+    const cacheManager = createOverlayfsCacheManager(options.overlayCacheRuntime);
+    for (const cache of report.overlayCaches) {
+      await cacheManager.remove({ workspacePath: workspace.path,
+        rootHash: cache.rootHash, size: cache.size });
+    }
+    for (const hash of report.orphanRoots) await deleteRoot(db, { workspaceId: input.workspaceId, hash });
     for (const blob of report.orphanBlobs) await deleteBlob(workspace.path, blob);
     const receiptId = await persistReceipt(db, report);
     return { ...report, mode: 'applied', receiptId, removedRootCount: report.orphanRoots.length,
-      removedBlobCount: report.orphanBlobs.length, reclaimedBytes: report.reclaimableBytes };
+      removedBlobCount: report.orphanBlobs.length,
+      removedOverlayCacheCount: report.overlayCaches.length,
+      reclaimedBytes: report.reclaimableBytes };
   });
 }
 

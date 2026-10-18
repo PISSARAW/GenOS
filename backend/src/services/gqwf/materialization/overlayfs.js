@@ -28,7 +28,7 @@ function errorReason(prefix, error) {
 }
 
 function safeMountPaths(paths) {
-  const unsafe = process.platform === 'win32' ? /[\r\n,]/ : /[\\\r\n,]/;
+  const unsafe = process.platform === 'win32' ? /[\r\n,]/ : /[\\\r\n,:]/;
   return paths.every((value) => typeof value === 'string' && value.length > 0
     && !unsafe.test(value));
 }

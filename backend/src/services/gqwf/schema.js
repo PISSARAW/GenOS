@@ -239,10 +239,16 @@ async function createGarbageCollectionTable(db) {
     inventory_hash TEXT NOT NULL,
     root_count INTEGER NOT NULL,
     blob_count INTEGER NOT NULL,
+    overlay_cache_count INTEGER NOT NULL DEFAULT 0,
     reclaimed_bytes INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
   );`);
+  const columns = await db.all('PRAGMA table_info(gqwf_gc_runs)');
+  if (!columns.some((column) => column.name === 'overlay_cache_count')) {
+    await db.exec(`ALTER TABLE gqwf_gc_runs
+      ADD COLUMN overlay_cache_count INTEGER NOT NULL DEFAULT 0;`);
+  }
 }
 
 module.exports = { migrateGqwf };

@@ -58,7 +58,8 @@ d'un montage privilégié.
 - Le premier bail d'une racine construit encore un lower complet depuis les
   blobs ; le gain porte sur les baux suivants et les écritures différées.
 - Les vérifications relisent le lower et ont un coût proportionnel à sa taille.
-- Le cache lower persiste et n'est pas encore intégré au garbage collector.
+- La collecte du cache lower exige les protections SQL et noyau définies par
+  l'[ADR 0633](0633-collecte-caches-lower-overlayfs-gqwf.md).
 - Le montage peut exiger une configuration ou des privilèges absents du runtime.
 - Windows et macOS déclarent ce backend indisponible.
 
@@ -72,5 +73,5 @@ d'un montage privilégié.
   de fork et reproduit le backend portable.
 - Activer OverlayFS par défaut : rejeté ; une mission doit le demander
   explicitement, directement ou par `auto`.
-- Collecter immédiatement les lowers : reporté à une tranche qui pourra prouver
-  l'absence de montage et de bail référençant encore la racine.
+- Collecter immédiatement les lowers : réalisé ensuite par l'ADR 0633, qui
+  prouve l'absence de montage et de bail actif avant suppression.

@@ -750,6 +750,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0630](0630-politique-materialisation-missions-gqwf.md) | Politique de matérialisation des missions GQWF | Accepté, activation explicite | 2026-10-18 | GQWF, missions, workspaces, Copy-on-Write |
 | [0631](0631-conteneur-bail-et-racine-execution-gqwf.md) | Séparer conteneur de bail et racine d'exécution GQWF | Accepté | 2026-10-18 | GQWF, workspaces, OverlayFS, snapshots, reprise |
 | [0632](0632-backend-overlayfs-linux-gqwf.md) | Backend OverlayFS Linux GQWF | Accepté, activation explicite ou politique auto | 2026-10-18 | GQWF, workspaces, OverlayFS, Copy-on-Write, reprise |
+| [0633](0633-collecte-caches-lower-overlayfs-gqwf.md) | Collecter les caches lower OverlayFS GQWF | Accepté | 2026-10-18 | GQWF, OverlayFS, garbage collection, reprise, preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
