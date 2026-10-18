@@ -1,7 +1,7 @@
 {
-  "schema": "genos.foundational-principles-qualification/v2",
+  "schema": "genos.foundational-principles-qualification/v3",
   "baselineRevision": "2e30d2bada1b64eeadc38a8cf7f3015f7da1129b",
-  "qualificationRevision": "77d00247af600452a7ca08004262b22fee97ae35",
+  "qualificationRevision": "fbe10246fbf87fe95e60c2ef954aa36a4dfbb861",
   "scope": "Mission verticale bornée couvrant l'autorité, l'état causal, la preuve, les leases, les capsules et la qualification contrefactuelle des phases 1 à 6.",
   "ratingScale": {
     "0": "affirmation sans implémentation",
@@ -20,12 +20,19 @@
     "backend/tests/test_trinity_l2_capsules.js",
     "backend/tests/test_counterfactual_mission_qualification.js",
     "backend/tests/test_foundational_principle_contract.js",
-    "backend/tests/test_foundational_qualification_lifecycle.js"
+    "backend/tests/test_foundational_qualification_lifecycle.js",
+    "backend/tests/test_foundational_qualification_admission.js"
   ],
   "lifecyclePolicy": {
     "evidenceMaxAgeMs": 900000,
     "maxFutureSkewMs": 5000,
-    "revocationLedger": "shared/foundationalQualificationRevocations.json"
+    "revocationLedger": "shared/foundationalQualificationRevocations.json",
+    "revocationTrustRegistry": "shared/foundationalQualificationAuthorities.json"
+  },
+  "admissionPolicy": {
+    "maxLeaseMs": 300000,
+    "signatureAlgorithm": "ed25519",
+    "allowedConsumers": ["operator-audit", "release-gate"]
   },
   "principles": [
     {
@@ -122,9 +129,9 @@
       "id": "F11", "principle": "Autorité explicite", "score": 4,
       "concept": "Exiger une autorité positive et courante au point d'effet.", "metaphor": null,
       "capability": "Une enveloppe signée lie l'acteur au run et sa rotation invalide les capacités dérivées.",
-      "implementationRefs": ["backend/src/services/missionEnvelopeAuthority.js", "backend/src/services/mcpActorCapability.js"],
-      "evidenceTests": ["backend/tests/test_execution_authority_v2.js", "backend/tests/test_mission_authority_envelope.js"],
-      "documentationRefs": ["docs/adr/0604-enveloppe-execution-v2-et-heritage-lecture-seule.md"],
+      "implementationRefs": ["backend/src/services/missionEnvelopeAuthority.js", "backend/src/services/mcpActorCapability.js", "backend/src/services/foundationalRevocationAuthority.js"],
+      "evidenceTests": ["backend/tests/test_execution_authority_v2.js", "backend/tests/test_mission_authority_envelope.js", "backend/tests/test_foundational_qualification_admission.js"],
+      "documentationRefs": ["docs/adr/0604-enveloppe-execution-v2-et-heritage-lecture-seule.md", "docs/adr/0625-admission-bornee-et-revocation-authentifiee.md"],
       "limitations": ["Les chemins legacy restent consultables mais sont volontairement non exécutables."]
     },
     {
@@ -158,9 +165,9 @@
       "id": "F15", "principle": "Garde-fou fail-closed", "score": 4,
       "concept": "Refuser lorsque l'autorité ou la preuve est absente, invalide ou ambiguë.", "metaphor": null,
       "capability": "Chaque frontière du parcours possède des cas négatifs exécutés avant toute promotion.",
-      "implementationRefs": ["backend/src/services/missionEnvelopeAuthority.js", "backend/src/services/promotionEvidenceDossierService.js", "backend/src/services/trinityCapsuleRecovery.js", "backend/src/services/foundationalQualificationLifecycle.js"],
-      "evidenceTests": ["backend/tests/test_execution_authority_v2.js", "backend/tests/test_promotion_evidence_dossier.js", "backend/tests/test_trinity_l2_capsules.js", "backend/tests/test_foundational_qualification_lifecycle.js"],
-      "documentationRefs": ["docs/adr/0621-frontiere-processus-et-reprise-capsules.md", "docs/adr/0624-cycle-de-vie-revocable-qualification-fondatrice.md"],
+      "implementationRefs": ["backend/src/services/missionEnvelopeAuthority.js", "backend/src/services/promotionEvidenceDossierService.js", "backend/src/services/trinityCapsuleRecovery.js", "backend/src/services/foundationalQualificationLifecycle.js", "backend/src/services/foundationalQualificationAdmission.js"],
+      "evidenceTests": ["backend/tests/test_execution_authority_v2.js", "backend/tests/test_promotion_evidence_dossier.js", "backend/tests/test_trinity_l2_capsules.js", "backend/tests/test_foundational_qualification_lifecycle.js", "backend/tests/test_foundational_qualification_admission.js"],
+      "documentationRefs": ["docs/adr/0621-frontiere-processus-et-reprise-capsules.md", "docs/adr/0624-cycle-de-vie-revocable-qualification-fondatrice.md", "docs/adr/0625-admission-bornee-et-revocation-authentifiee.md"],
       "limitations": ["Le caractère fail-closed n'est revendiqué que pour les frontières listées dans ce manifeste."]
     },
     {
@@ -176,9 +183,9 @@
       "id": "F17", "principle": "Promotion, rejet, quarantaine et escalade", "score": 4,
       "concept": "Rendre chaque disposition bornée et observable.", "metaphor": null,
       "capability": "Le dossier produit quatre dispositions immuables et le gate refuse toute disposition non promotable.",
-      "implementationRefs": ["backend/src/services/promotionEvidenceContract.js", "backend/src/services/promotionEvidenceDossierService.js", "backend/src/services/foundationalQualificationLifecycle.js"],
-      "evidenceTests": ["backend/tests/test_promotion_evidence_dossier.js", "backend/tests/test_counterfactual_mission_qualification.js", "backend/tests/test_foundational_qualification_lifecycle.js"],
-      "documentationRefs": ["docs/adr/0613-dossier-preuve-falsifiable-avant-promotion.md", "docs/adr/0624-cycle-de-vie-revocable-qualification-fondatrice.md"],
+      "implementationRefs": ["backend/src/services/promotionEvidenceContract.js", "backend/src/services/promotionEvidenceDossierService.js", "backend/src/services/foundationalQualificationLifecycle.js", "backend/src/services/foundationalRevocationAuthority.js", "backend/src/services/foundationalQualificationAdmission.js"],
+      "evidenceTests": ["backend/tests/test_promotion_evidence_dossier.js", "backend/tests/test_counterfactual_mission_qualification.js", "backend/tests/test_foundational_qualification_lifecycle.js", "backend/tests/test_foundational_qualification_admission.js"],
+      "documentationRefs": ["docs/adr/0613-dossier-preuve-falsifiable-avant-promotion.md", "docs/adr/0624-cycle-de-vie-revocable-qualification-fondatrice.md", "docs/adr/0625-admission-bornee-et-revocation-authentifiee.md"],
       "limitations": ["Les politiques opérationnelles après disposition restent propres à chaque environnement."]
     },
     {
@@ -194,9 +201,9 @@
       "id": "F19", "principle": "Séparation entre concept, métaphore biologique et capacité réellement implémentée", "score": 4,
       "concept": "Empêcher une analogie de devenir une affirmation de capacité.", "metaphor": "organisme et système immunitaire",
       "capability": "Le manifeste distingue les trois champs et le gate refuse leur confusion ou une note sans preuve et limite.",
-      "implementationRefs": ["backend/src/services/foundationalPrincipleQualification.js", "backend/src/services/foundationalQualificationLifecycle.js"],
-      "evidenceTests": ["backend/tests/test_foundational_principle_contract.js", "backend/tests/test_foundational_qualification_lifecycle.js"],
-      "documentationRefs": ["docs/01-concepts/biologie-computationnelle.md", "docs/adr/0624-cycle-de-vie-revocable-qualification-fondatrice.md"],
+      "implementationRefs": ["backend/src/services/foundationalPrincipleQualification.js", "backend/src/services/foundationalQualificationLifecycle.js", "backend/src/services/foundationalQualificationAdmission.js"],
+      "evidenceTests": ["backend/tests/test_foundational_principle_contract.js", "backend/tests/test_foundational_qualification_lifecycle.js", "backend/tests/test_foundational_qualification_admission.js"],
+      "documentationRefs": ["docs/01-concepts/biologie-computationnelle.md", "docs/adr/0624-cycle-de-vie-revocable-qualification-fondatrice.md", "docs/adr/0625-admission-bornee-et-revocation-authentifiee.md"],
       "limitations": ["Le gate couvre ce manifeste canonique ; il ne scanne pas encore toute la prose historique."]
     }
   ]

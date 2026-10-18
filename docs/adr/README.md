@@ -729,6 +729,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0622](0622-qualification-contrefactuelle-liee-aux-preuves.md) | Qualification contrefactuelle liée aux preuves | Accepté | 2026-10-18 | runtime, causalité, falsification, provenance, promotion |
 | [0623](0623-gate-requalification-principes-fondateurs.md) | Gate de requalification des principes fondateurs | Accepté | 2026-10-18 | qualification, preuve, gouvernance, documentation |
 | [0624](0624-cycle-de-vie-revocable-qualification-fondatrice.md) | Cycle de vie révocable de la qualification fondatrice | Accepté | 2026-10-18 | qualification, fraîcheur, révocation, quarantaine |
+| [0625](0625-admission-bornee-et-revocation-authentifiee.md) | Admission bornée et révocation authentifiée | Accepté | 2026-10-18 | qualification, autorité, révocation, consommation |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

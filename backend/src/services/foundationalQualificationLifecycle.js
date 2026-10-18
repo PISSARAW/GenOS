@@ -2,9 +2,9 @@
 
 const { canonicalValue, fingerprint } = require('./stateFingerprint');
 const qualification = require('./foundationalPrincipleQualification');
+const revocationAuthority = require('./foundationalRevocationAuthority');
 
 const ASSESSMENT_SCHEMA = 'genos.foundational-qualification-assessment/v1';
-const LEDGER_SCHEMA = 'genos.foundational-qualification-revocations/v1';
 
 function failure(code) {
   return Object.assign(new Error(code), { code });
@@ -25,31 +25,10 @@ function receiptIntegrity(receipt) {
   return typeof receiptHash === 'string' && fingerprint(canonicalValue(body)) === receiptHash;
 }
 
-function validRevocation(item, identities) {
-  if (!item || !/^[a-f0-9]{64}$/.test(item.receiptHash)) return false;
-  if (typeof item.authority !== 'string' || !item.authority.trim()) return false;
-  if (typeof item.reason !== 'string' || !item.reason.trim()) return false;
-  if (instant(item.revokedAt) === null || identities.has(item.receiptHash)) return false;
-  return true;
-}
-
-function ledgerReasons(ledger) {
-  if (!ledger || ledger.schema !== LEDGER_SCHEMA || !Array.isArray(ledger.revocations)) {
-    return ['revocation-ledger-invalid'];
-  }
-  const identities = new Set();
-  for (const item of ledger.revocations) {
-    if (!validRevocation(item, identities)) return ['revocation-ledger-invalid'];
-    identities.add(item.receiptHash);
-  }
-  return [];
-}
-
-function activeRevocation(input) {
-  if (ledgerReasons(input.revocationLedger).length > 0) return false;
-  return input.revocationLedger.revocations.some((item) =>
-    item.receiptHash === input.persistedReceipt?.receiptHash
-      && instant(item.revokedAt) <= input.nowMs);
+function inspectRevocations(input) {
+  return revocationAuthority.inspect({ ledger: input.revocationLedger,
+    trustRegistry: input.revocationTrustRegistry,
+    now: new Date(input.nowMs).toISOString() });
 }
 
 function evidenceWindow(input) {
@@ -83,8 +62,11 @@ function qualificationState(input) {
 }
 
 function assessmentBody(input, state) {
-  const revoked = activeRevocation(input);
-  const reasons = unique([...state.reasons, ...ledgerReasons(input.revocationLedger),
+  const revocations = inspectRevocations(input);
+  const revoked = revocations.valid && revocations.activeReceiptHashes
+    .includes(input.persistedReceipt?.receiptHash);
+  const ledgerReasons = revocations.valid ? [] : [`revocation-invalid:${revocations.reason}`];
+  const reasons = unique([...state.reasons, ...ledgerReasons,
     ...state.window.reasons, ...(revoked ? ['qualification-revoked'] : [])]);
   const status = revoked ? 'revoked' : reasons.length > 0 ? 'quarantined' : 'current';
   return { schema: ASSESSMENT_SCHEMA, qualificationReceiptHash:
@@ -113,5 +95,5 @@ function assertCurrent(assessment) {
   return assessment;
 }
 
-module.exports = { ASSESSMENT_SCHEMA, LEDGER_SCHEMA, assess, assertCurrent,
-  receiptIntegrity };
+module.exports = { ASSESSMENT_SCHEMA, LEDGER_SCHEMA: revocationAuthority.LEDGER_SCHEMA,
+  TRUST_SCHEMA: revocationAuthority.TRUST_SCHEMA, assess, assertCurrent, receiptIntegrity };

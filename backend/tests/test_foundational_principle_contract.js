@@ -37,6 +37,11 @@ function main() {
   timeless.lifecyclePolicy.evidenceMaxAgeMs = 0;
   assert.throws(() => qualification.validateManifest(timeless, repositoryRoot),
     { code: 'FOUNDATION_EVIDENCE_MAX_AGE_INVALID' });
+
+  const unboundedAdmission = clone(manifest);
+  unboundedAdmission.admissionPolicy.maxLeaseMs = 0;
+  assert.throws(() => qualification.validateManifest(unboundedAdmission, repositoryRoot),
+    { code: 'FOUNDATION_ADMISSION_MAX_LEASE_INVALID' });
   console.log('Foundational principle contract: 19 bounded capabilities remain distinct from metaphors.');
 }
 

@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const qualification = require('../src/services/foundationalPrincipleQualification');
 const lifecycle = require('../src/services/foundationalQualificationLifecycle');
+const revocations = require('../src/services/foundationalRevocationAuthority');
 
 const NOW = '2026-10-18T12:00:00.000Z';
 const FRESH = '2026-10-18T11:59:00.000Z';
@@ -28,8 +29,9 @@ function fixture() {
   const persistedReceipt = qualification.qualify({ repositoryRoot, manifest,
     observations: evidence });
   const revocationLedger = { schema: lifecycle.LEDGER_SCHEMA, revocations: [] };
+  const revocationTrustRegistry = { schema: lifecycle.TRUST_SCHEMA, authorities: [] };
   return { repositoryRoot, manifest, observations: evidence, persistedReceipt,
-    revocationLedger, now: NOW };
+    revocationLedger, revocationTrustRegistry, now: NOW };
 }
 
 function assertQuarantined(input, reason) {
@@ -59,11 +61,15 @@ function main() {
   const tampered = { ...input.persistedReceipt, sourceDigest: '0'.repeat(64) };
   assertQuarantined({ ...input, persistedReceipt: tampered }, 'persisted-receipt-invalid');
 
-  const revocation = { receiptHash: input.persistedReceipt.receiptHash,
-    authority: 'mainteneurs-genos', reason: 'contre-preuve-confirmee',
-    revokedAt: '2026-10-18T11:58:00.000Z' };
+  const pair = crypto.generateKeyPairSync('ed25519');
+  const revocation = revocations.issue({ receiptHash: input.persistedReceipt.receiptHash,
+    authorityId: 'mainteneurs-genos', reason: 'contre-preuve-confirmee', sequence: 1,
+    revokedAt: '2026-10-18T11:58:00.000Z', privateKey: pair.privateKey });
+  const trust = { schema: lifecycle.TRUST_SCHEMA, authorities: [{ id: 'mainteneurs-genos',
+    status: 'active', publicKey: pair.publicKey.export({ type: 'spki', format: 'pem' }) }] };
   const revoked = lifecycle.assess({ ...input, revocationLedger:
-    { schema: lifecycle.LEDGER_SCHEMA, revocations: [revocation] } });
+    { schema: lifecycle.LEDGER_SCHEMA, revocations: [revocation] },
+    revocationTrustRegistry: trust });
   assert.equal(revoked.status, 'revoked');
   assert.equal(revoked.effectiveScore, null);
   assert.ok(revoked.reasons.includes('qualification-revoked'));

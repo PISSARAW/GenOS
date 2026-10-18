@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { canonicalValue, fingerprint } = require('./stateFingerprint');
 
-const MANIFEST_SCHEMA = 'genos.foundational-principles-qualification/v2';
-const RECEIPT_SCHEMA = 'genos.foundational-principles-qualification-receipt/v2';
+const MANIFEST_SCHEMA = 'genos.foundational-principles-qualification/v3';
+const RECEIPT_SCHEMA = 'genos.foundational-principles-qualification-receipt/v3';
 const EXPECTED = [
   ['F01', 'Runtime d’agents reproductible et supervisé'],
   ['F02', 'État versionné'],
@@ -106,6 +106,7 @@ function resolveReference(root, reference) {
 function allReferences(manifest) {
   const references = new Set(manifest.evidenceSuite || []);
   references.add(manifest.lifecyclePolicy?.revocationLedger);
+  references.add(manifest.lifecyclePolicy?.revocationTrustRegistry);
   for (const entry of manifest.principles) {
     for (const key of ['implementationRefs', 'evidenceTests', 'documentationRefs']) {
       for (const reference of entry[key]) references.add(reference);
@@ -132,6 +133,19 @@ function assertLifecyclePolicy(manifest) {
     throw failure('FOUNDATION_FUTURE_SKEW_INVALID');
   }
   nonEmptyText(policy.revocationLedger, 'FOUNDATION_REVOCATION_LEDGER_REQUIRED');
+  nonEmptyText(policy.revocationTrustRegistry, 'FOUNDATION_REVOCATION_TRUST_REQUIRED');
+}
+
+function assertAdmissionPolicy(manifest) {
+  const policy = manifest.admissionPolicy;
+  if (!Number.isInteger(policy?.maxLeaseMs) || policy.maxLeaseMs <= 0) {
+    throw failure('FOUNDATION_ADMISSION_MAX_LEASE_INVALID');
+  }
+  nonEmptyList(policy.allowedConsumers, 'FOUNDATION_ADMISSION_CONSUMERS_REQUIRED')
+    .forEach((consumer) => nonEmptyText(consumer, 'FOUNDATION_ADMISSION_CONSUMER_INVALID'));
+  if (policy.signatureAlgorithm !== 'ed25519') {
+    throw failure('FOUNDATION_ADMISSION_SIGNATURE_POLICY_INVALID');
+  }
 }
 
 function validateManifest(manifest, repositoryRoot) {
@@ -139,6 +153,7 @@ function validateManifest(manifest, repositoryRoot) {
   manifest.principles.forEach((entry, index) => assertEntry(entry, EXPECTED[index]));
   assertEvidenceSuite(manifest);
   assertLifecyclePolicy(manifest);
+  assertAdmissionPolicy(manifest);
   const root = fs.realpathSync(repositoryRoot);
   const references = allReferences(manifest).map((reference) => resolveReference(root, reference));
   return { root, references };
