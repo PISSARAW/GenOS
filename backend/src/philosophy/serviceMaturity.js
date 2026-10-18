@@ -29,6 +29,7 @@ const SERVICE_MATURITY = Object.freeze({
   possibleWorldService: { level: 'partial', executable: true, evidence: 'tests', note: 'Mondes hypothétiques comparables, sans preuve automatique.' },
   speculativeRealismService: { level: 'partial', executable: true, evidence: 'tests', note: 'Limites de corrélation et modes d’accès, sans verdict métaphysique.' },
   metaphysicsService: { level: 'partial', executable: true, evidence: 'tests', note: 'Comparaison bornée des modèles esprit-matière.' },
+  interoceptionService: { level: 'partial', executable: true, evidence: 'tests', note: 'Lecture des signaux internes (budget, dissonance, santé) pour le planificateur allostatique ; pas de sensation viscérale.' },
   consciousnessService: { level: 'partial', executable: true, evidence: 'tests', note: 'Structures de qualia et d’intentionnalité simulées.' },
   propertyService: { level: 'partial', executable: true, evidence: 'tests', note: 'Propriétés, supervenience et émergence opérationnelles.' },
   phenomenologyService: { level: 'partial', executable: true, evidence: 'tests', note: 'Mappings phénoménologiques, sans accès à la première personne.' },

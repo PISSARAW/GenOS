@@ -42,13 +42,24 @@ L'interoception biologique implique des récepteurs viscéraux et le système ne
 
 ## 7. Architecture technique
 
-Les signaux sont gérés par `agentConscienceService` (dissonance, budget) et par les services de régulation du control plane. Aucun service dédié d'interoception n'existe ; le concept est opérationnalisé via les métriques existantes.
+`backend/src/services/interoceptionService.js` lit l'état de régulation cognitive
+(`agentConscienceService`) d'un agent et en déduit quatre signaux interoceptifs
+machine : `energy` (budget restant normalisé), `dissonance`, `health` et
+`stress`. `allostaticSnapshot(db, agentId)` produit un snapshot directement
+consommable par `allostaticPlanningService.applyMeasuredPosture` pour borner le
+fanout et les éditions avant exécution. Le service est best-effort : une base ou
+un agent manquant retourne `insufficient_data` avec des signaux par défaut
+défavorables, sans jamais bloquer le pipeline.
 
-Le concept `cognition.interoception` est enregistré avec `service: null`, niveau `conceptual`.
+Le concept `cognition.interoception` est enregistré avec le service
+`interoceptionService`, niveau `partial`.
 
 ## 8. Processus d'exécution ou de validation
 
-Les tests de cohérence Rust/Node vérifient que les notions de budget et de dissonance sont alignées entre les deux runtimes.
+`interoceptionService.readInternalSignals` et `allostaticSnapshot` sont couverts
+par des tests unitaires (lecture avec agent absent, agent présent, snapshot
+allostatique). Les tests de cohérence Rust/Node vérifient aussi l'alignement des
+notions de budget et de dissonance entre les deux runtimes.
 
 ## 9. Comparaison avec le marché
 
