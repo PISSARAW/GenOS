@@ -14,6 +14,7 @@ const controlLoop = require('./cognitiveControlLoopService');
 const { resolveMorphology } = require('./morphologyResolverService');
 const biocenoseMorphogenesisAdapter = require('../biocenose/integration/biocenoseMorphogenesisAdapter');
 const topologyResolver = require('./topologyResolverService');
+const organizationResolver = require('./organizationResolverService');
 const { selectMinimumMorphology } = require('./synthesis/minimalMorphologyPolicy');
 const { TOPOLOGY_IDS, classifyMorphologyLabel, isTopology } = require('./morphogenesisOntology');
 const { resolveRequestedProfile, profileForGraph, applyProfileToPlan } = require('./registry/topologyProfileService');
@@ -170,7 +171,7 @@ function availableCapsOf(state) {
 
 function buildContracts(ctx) {
   const targetTopology = ctx.proposedTopology || 'specialist_expert_committee';
-  const pc = contractForTopology(targetTopology);
+  const pc = contractFor({ mode: targetTopology, organization: ctx.proposedOrganization });
   const contracts = { pc, required: pc.required || [] };
   contracts.missing = missingCapabilities(contracts.pc, availableCapsOf(ctx.currentState));
   return contracts;
@@ -304,7 +305,15 @@ function buildMorphogenesisPlan(ctx) {
   }
   const candidates = buildTopologyCandidates(ctx);
   const selection = selectTopology(ctx, candidates);
-  const chosen = selection.candidate;
+  const organizationDecision = organizationResolver.resolveOrganization({
+    problemProfile: ctx.problemProfile || ctx.expression?.problemProfile || {},
+    diagnosis: ctx.diagnosis || {}, currentState: ctx.currentState,
+    selectedTopology: selection.candidate.topology,
+    availableCapabilities: availableCapsOf(ctx.currentState),
+    requestedOrganization: selection.organization
+  });
+  const chosen = compileTopologyCandidate({ ...ctx,
+    proposedOrganization: organizationDecision.organization }, selection.candidate.topology);
   const { contracts, components, targetAgents, graph, expression } = chosen;
   const plan = chosen.plan;
   applyGeneticActions({ plan, ctx, contracts, targetAgents });
@@ -312,7 +321,7 @@ function buildMorphogenesisPlan(ctx) {
   plan.rollbackPlan = generateRollbackPlan(plan);
   plan.selectedTopology = chosen.topology;
   applyProfileToPlan(plan, chosen.profileResolution);
-  plan.selectedOrganization = selection.organization;
+  plan.selectedOrganization = organizationDecision.organization;
   plan.minimumMorphologyDecision = selection.minimum;
   plan.candidateMorphologies = candidates.map((candidate) => ({
     topology: candidate.topology,
@@ -320,10 +329,11 @@ function buildMorphogenesisPlan(ctx) {
     spawnCount: candidate.components.spawn.length,
     expectedCost: candidate.plan.expectedCost
   }));
+  plan.candidateOrganizations = organizationDecision.rankings;
   plan.morphologyGraphRef = { graphId: graph.graphId, version: graph.version };
   plan.morphologyPatch = { operation: 'replace_root', graph };
   plan.morphologyExpression = expression;
-  plan.controlReceipt = selection.receipt;
+  plan.controlReceipt = combinedControlReceipt(selection.receipt, organizationDecision);
   const utilityCtx = morphologyUtilityContext({ contracts, chosen, plan, ctx });
   plan.utility = computeMorphologyUtility(utilityCtx);
   extendPlan({ plan, reason: components.reason, pressures: ctx.pressure });
@@ -342,6 +352,11 @@ function validatePlan(ctx) {
 }
 
 function estimateCost(plan) { return plan.expectedCost || { tokens: 0, latency: 0, risk: 0 }; }
+
+function combinedControlReceipt(topologyReceipt, organizationReceipt) {
+  const base = topologyReceipt?.topology ? { ...topologyReceipt } : { topology: topologyReceipt || null };
+  return { ...base, organization: organizationReceipt };
+}
 
 module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence, planGenotypeActions, planEpigeneticChanges, planPlasmidActions, annotatePlanWithSubstrates, computeMorphologyUtility, selectTopology, candidateFor, contractForTopology };
 
@@ -366,5 +381,8 @@ function morphologyUtilityContext({ contracts, chosen, plan, ctx }) {
 function agentCapabilities(agent) { return agent.capabilities || []; }
 
 function planTopologyChanges(ctx) {
-  return diffTopology(ctx.currentState || {}, { mode: ctx.proposedTopology || 'specialist_expert_committee' });
+  const topology = ctx.proposedTopology || 'a_team';
+  return diffTopology(ctx.currentState || {}, {
+    mode: topology, topology, organization: ctx.proposedOrganization || null
+  });
 }

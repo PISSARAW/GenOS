@@ -3,6 +3,7 @@ const { agent, failure } = require('./studioWorldsService');
 const input = require('./studioSpecialistInput');
 const capabilities = require('./topologyCapabilityService');
 const organizations = require('./dynamicOrganizationService');
+const organizationResolver = require('./morphogenesis/organizationResolverService');
 
 async function inspect(db, context) {
   const current = await agent(db, context);
@@ -10,8 +11,8 @@ async function inspect(db, context) {
   const state = table ? await organizations.getState(db, current.id) : null;
   return { agentId: current.id, activeOrganization: state, available: null, authorized: null, exercised: false,
     topologies: Object.keys(capabilities.MODE_CAPABILITIES).map(id => ({ id, ...capabilities.capabilitiesForMode(id) })),
-    organizations: Object.entries(organizations.ORGANIZATIONS).map(([id, profile]) => ({ id, ...profile,
-      required: capabilities.capabilitiesForOrganization(id).required })),
+    organizations: organizationResolver.ORGANIZATION_IDS.map((id) => ({ id,
+      ...organizations.organizationProfile(id), required: capabilities.capabilitiesForOrganization(id).required })),
     capabilities: capabilities.GENOS_CAPABILITIES, source: 'runtime_catalog', contractIsExecution: false };
 }
 

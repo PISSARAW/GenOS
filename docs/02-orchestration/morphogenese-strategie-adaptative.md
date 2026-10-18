@@ -277,6 +277,27 @@ résultats dans le résumé, mais sa décision est calculée sur tous les candid
 Le coût estimé et les signaux de sélection ne constituent pas des mesures empiriques
 de qualité ou de coût total.
 
+### Classement des organisations dynamiques
+
+La topologie structurelle et l'organisation de coordination sont deux axes distincts.
+Après le classement des huit topologies, `organizationResolverService` évalue les
+dix-neuf organisations canoniques sur une base commune : signaux de mission,
+couverture des capacités, affinité avec la topologie retenue, domaine et continuité.
+Une organisation explicitement demandée garde la priorité, mais le reçu conserve
+quand même le classement complet, ses facteurs et les capacités manquantes.
+
+Le candidat topologique gagnant est ensuite recompilé avec l'organisation retenue.
+Le contrat de capacités, les recrutements, le graphe, `selectedOrganization` et la
+transition versionnée décrivent ainsi la même morphologie. Le reçu de contrôle sépare
+les classements `topology` et `organization`; `candidateOrganizations` expose les
+dix-neuf candidats. Ce classement n'accorde aucune autorité : le lease, la quiescence,
+le budget et les preuves restent obligatoires avant un commit collectif.
+
+`strategy_arena` et `competitive_arena` possèdent désormais des pas distincts : la
+première prépare une sélection Pareto suivie d'une promotion, tandis que la seconde
+ordonne les compétiteurs par score d'évidence. Ces règles restent heuristiques tant
+qu'une campagne appariée ne les a pas calibrées sur des issues vérifiées.
+
 Le catalogue contient des variants de maturités différentes. Les variants atomiques
 sont tous énumérés, mais seules les maturités `implemented`, `stable`, `partial` et
 `experimental` sont prises en compte par le générateur ; une maturité inconnue est

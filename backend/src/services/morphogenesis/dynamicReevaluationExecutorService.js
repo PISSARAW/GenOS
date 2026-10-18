@@ -68,13 +68,18 @@ function buildTransitionPlan(plannerOutput) {
   for (const rb of plannerOutput.rebindAgents || []) {
     actions.push({ type: 'rebind', agentId: rb.agentId, targetRole: rb.phenotype });
   }
-  const topoTo = (plannerOutput.topologyChanges && plannerOutput.topologyChanges.to) || {};
   return {
     id: `plan_${Date.now()}`,
     actions,
-    targetOrganization: topoTo.organization,
+    targetTopology: plannerOutput.selectedTopology || targetOf(plannerOutput, 'topology'),
+    targetOrganization: plannerOutput.selectedOrganization || targetOf(plannerOutput, 'organization'),
     conflictCheck: true,
   };
+}
+
+function targetOf(plan, field) {
+  const changes = Array.isArray(plan.topologyChanges) ? plan.topologyChanges : [];
+  return changes.find((change) => change.field === field)?.to || null;
 }
 
 async function executeReevaluation(ctx) {
@@ -187,6 +192,7 @@ function setReevaluationPolicy(ctx) {
 }
 
 module.exports = {
+  buildTransitionPlan,
   executeReevaluation,
   counterfactualPlannerService,
   getReevaluationHistory,
