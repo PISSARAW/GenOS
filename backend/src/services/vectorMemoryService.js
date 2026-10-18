@@ -8,7 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { withTransaction } = require('../db');
-const { embed } = require('./embeddingProvider');
+const { embed, resolveEmbedding } = require('./embeddingProvider');
 const synapticTransmission = require('./synapticTransmissionService');
 const {
   textToVector,
@@ -131,7 +131,23 @@ class VectorMemoryService {
     }
 
     const limit = options.limit || 5;
-    const queryVec = options.vector || (await embed(query)) || textToVector(query);
+    const resolved = options.vector ? null : await resolveEmbedding(query);
+    const queryVec = options.vector || resolved?.vector || textToVector(query);
+    const retrieval = options.vector
+      ? { mode: 'caller_supplied_vector', semantic: options.vectorSemantic === true,
+        provider: options.vectorProvider || 'caller', locality: 'caller' }
+      : resolved ? { mode: resolved.mode, semantic: resolved.semantic, provider: resolved.provider,
+        model: resolved.model, locality: resolved.locality, dimensions: resolved.dimensions,
+        normalization: resolved.normalization } : { mode: 'lexical_fallback', semantic: false,
+        provider: 'deterministic_token_hash', locality: 'local', dimensions: queryVec.length,
+        normalization: 'l2' };
+    const semanticRequired = options.requireSemantic === true
+      || process.env.GENOS_MEMORY_REQUIRE_SEMANTIC === 'true';
+    if (semanticRequired && retrieval.semantic !== true) {
+      const error = new Error('Semantic memory retrieval requires a local or remote embedding provider.');
+      error.code = 'SEMANTIC_EMBEDDING_UNAVAILABLE';
+      throw error;
+    }
 
     const fetched = await this.fetchCorpus(db, query, queryVec, options);
     const fetchedCorpus = await require('./promotionMemoryReadGate').filter(db, fetched);
@@ -269,6 +285,7 @@ class VectorMemoryService {
 
     return {
       query,
+      retrieval,
       resultsCount: allScored.length,
       metacognition: evaluateMetacognition(scoredItems),
       topSuccessfulGoldenPaths: topSuccessful,

@@ -1,12 +1,14 @@
 'use strict';
 
+const memoryCalibration = require('./memoryCalibrationService');
+
 /**
  * @file riskInheritanceService.js
  * @description Héritage de risque : propagation et atténuation d'un score de
  * risque d'une entité source vers une cible au sein d'une lignée.
  */
 
-const DEFAULT_ATTENUATION = 0.8;
+const DEFAULT_ATTENUATION = memoryCalibration.threshold('ancestralRiskAttenuation');
 const MAX_ENTRIES = 1024;
 
 function createStore(options = {}) {

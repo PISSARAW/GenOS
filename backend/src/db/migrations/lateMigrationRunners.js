@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('146-durable-lineage-memory', 'Persist scoped ancestral memories and inherited risks', async (db) => {
+    await require('./migrateLineageMemory').migrateLineageMemory(db);
+  }),
   createMigrationRunner('137-morphogenesis-hysteresis', 'Persist scoped transactional morphogenesis hysteresis', async (db) => {
     await require('./migrateMorphogenesisHysteresis').migrateMorphogenesisHysteresis(db);
   }),

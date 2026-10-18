@@ -1,7 +1,7 @@
 # Mémoire et apprentissage dans GenOS
 
 - **Statut** : Implémenté — mémoire épisodique, vectorielle, scoring, consolidation/pruning, mémoire de négative knowledge, Golden Path, provenance, mémoire de travail (Node), mémoire ancestrale et héritage de risque sont disponibles dans le runtime.
-- **Portée** : `backend/src/services/episodicMemoryService.js`, `vectorMemoryService.js`, `memoryScoring.js`, `sleepCycle.js`, `primitiveHandlers/memoryDeadEnds.js`, `trajectoryService.js`, `provenanceResolver.js`, `services/memory/workingMemoryService.js`, `services/memory/ancestralMemoryService.js`, `services/memory/riskInheritanceService.js`.
+- **Portée** : `backend/src/services/episodicMemoryService.js`, `vectorMemoryService.js`, `memoryScoring.js`, `sleepCycle.js`, `primitiveHandlers/memoryDeadEnds.js`, `trajectoryService.js`, `provenanceResolver.js`, `services/memory/workingMemoryService.js`, `services/memory/lineageMemoryRepository.js`, `services/memory/memoryCalibrationService.js`.
 - **Dernière revue** : 2026-10-18.
 
 ## 1. Objet et périmètre
@@ -91,8 +91,13 @@ Le service [backend/src/services/vectorMemoryService.js](../../backend/src/servi
 
 La recherche vectorielle s'appuie sur des vecteurs de dimension 768 normalisés L2, compatibles avec `sqlite-vec`. Deux modes d'alimentation coexistent :
 
-- **Mode local autonome (par défaut)** : En l'absence de provider d'embeddings distant, GenOS utilise un hachage lexical déterministe (bigrammes et modulo FNV-1a en dimension 768) via `textToVector()`. Ce mécanisme agit comme proxy d'empreinte lexicale projetée dans l'espace vectoriel sans nécessiter de modèle de langue lourd en local ;
-- **Mode avec provider externe** : Lorsque l'agent est connecté à un fournisseur d'embeddings (ex. OpenAI, Ollama), de véritables embeddings sémantiques peuvent être stockés dans `embedding_blob`.
+- **Mode lexical local** : en l'absence de provider d'embeddings, GenOS utilise un hachage lexical déterministe (unigrammes, bigrammes et modulo FNV-1a en dimension 768) via `textToVector()`. Il rapproche des formes lexicales ; il ne prétend pas comprendre les paraphrases ;
+- **Mode sémantique** : un provider distant (OpenAI, Gemini) ou local (Ollama, Transformers explicitement activé) produit de véritables embeddings. Une dépendance réseau n'est donc pas obligatoire ;
+- **Mode strict** : `requireSemantic: true`, ou `GENOS_MEMORY_REQUIRE_SEMANTIC=true`, refuse le rappel si aucun provider sémantique n'est disponible.
+
+Chaque réponse porte `retrieval.mode`, `retrieval.semantic`, le provider et sa
+localité. Un résultat `lexical_fallback` porte toujours `semantic: false` : la
+dégradation reste utilisable, mais elle n'est plus présentée comme sémantique.
 
 La recherche vectorielle native s'effectue via `sqlite-vec` (table virtuelle `vec0`), qui réalise une recherche **KNN exacte** (balayage par distance cosinus/euclidienne, et non un graphe approximatif HNSW).
 
@@ -198,7 +203,10 @@ Le système ajuste ensuite la quantité de :
 - `cd47_expression`
 - `activity_history`
 
-ce qui donne une trace concrète de plasticité et d’oubli adaptatif.
+ce qui donne une trace concrète de plasticité et d’oubli adaptatif. Cette STDP
+modifie uniquement les arêtes de `memory_synapses`, jamais les paramètres du
+modèle. Les reçus l'expriment par `learningDomain: symbolic_memory_graph` et
+`modelWeightsUpdated: false`.
 
 ### 3.4 Decay et pruning
 
@@ -271,6 +279,8 @@ La base est initialisée dans [backend/src/db/schema.js](../../backend/src/db/sc
 - `episodic_memories` : expériences temporelles ;
 - `genome_decisions` : faits, décisions, mémoires sémantiques ;
 - `memory_synapses` : relations causales et poids ;
+- `ancestral_memories` : souvenirs de lignée durables et scopés ;
+- `inherited_risks` : risques hérités durables, avec version de calibration ;
 - `trajectories` : séquences historiques ;
 - `provenance_records` : chaînes de preuve / hash.
 - `request_problems` / `request_results` (ADR 0046, migration `071-request-memory`) :
@@ -358,7 +368,10 @@ Dans [backend/src/services/episodicMemoryService.js](../../backend/src/services/
 
 ### 6.3 Règle de consolidation
 
-Le score de récompense doit être dans [0,1]. Si le score dépasse un seuil (par défaut 0.7), l’épisode est consolidé. Si le score est faible, il peut être purgé.
+Le score de récompense doit être dans [0,1]. Si le score dépasse le seuil du profil
+`shared/memoryCalibration.json`, l’épisode est consolidé. La valeur initiale 0,7
+est explicitement `provisional`, et non une constante déclarée optimale. Si le
+score est faible, l’épisode peut être purgé.
 
 Formellement :
 
@@ -662,7 +675,7 @@ En gardant des dead ends et des preuves de provenance, GenOS réduit le risque d
 
 **Mémoire ancestrale** : traces mémorielles transmises d’un ancêtre à ses
 descendants au sein d’une même lignée. Implémentée côté Node dans
-[backend/src/services/memory/ancestralMemoryService.js](../../backend/src/services/memory/ancestralMemoryService.js)
+[backend/src/services/memory/lineageMemoryRepository.js](../../backend/src/services/memory/lineageMemoryRepository.js)
 et exposée par l’outil MCP `genos_ancestral_memory`.
 
 - `memorize({ lineageId, memoryId, ancestorId, memory, salience })` : enregistre
@@ -674,7 +687,7 @@ et exposée par l’outil MCP `genos_ancestral_memory`.
 **Héritage de risque** : propagation atténuée d’un score de risque d’une entité
 source vers une cible au sein d’une lignée. Le risque se décote à chaque
 génération par un facteur d’atténuation (défaut 0,8). Implémenté dans
-[backend/src/services/memory/riskInheritanceService.js](../../backend/src/services/memory/riskInheritanceService.js)
+[backend/src/services/memory/lineageMemoryRepository.js](../../backend/src/services/memory/lineageMemoryRepository.js)
 et exposé par l’outil MCP `genos_risk_inheritance`.
 
 - `propagate({ sourceId, targetId, risk, lineageId, depth })` : atténue le risque
@@ -684,8 +697,15 @@ et exposé par l’outil MCP `genos_risk_inheritance`.
   d’une lignée ;
 - `stats()` : nombre total de risques, lignées, atténuation.
 
-Ces deux services sont volatils (in-process) et non persistés dans SQLite ; ils
-sont destinés à l’orchestration en cours de mission.
+Ces deux outils publics persistent leurs valeurs dans `ancestral_memories` et
+`inherited_risks`. Leur clé inclut le scope organisation/projet et la lignée ; un
+redémarrage du processus ne les efface donc plus. Les anciens services à base de
+`Map` restent des primitives volatiles internes pour compatibilité et tests, mais
+ne portent plus le contrat MCP durable.
+
+Le facteur 0,8 vient du profil partagé de calibration. Il reste au statut
+`provisional` tant qu'une campagne annotée n'a pas franchi la porte de
+qualification décrite par l'[ADR 0645](../adr/0645-memoire-locale-durable-et-calibration-explicite.md).
 
 ---
 
@@ -804,6 +824,10 @@ Le point différenciant est que GenOS ne considère pas la mémoire comme un sim
 - la mémoire est hiérarchisée mais non universelle : elle dépend des tables, des tenants et des workflows du runtime ;
 - la provenance et la qualité ne sont pas une certification absolue, mais une couche de validation et d’auscultation ;
 - le système prend en charge la “bonne mémoire”, mais il faut continuer à surveiller les biais d’apprentissage et la contamination de contexte.
+- les seuils mémoire publiés sont encore `provisional` : le profil courant
+  atteste un rappel durable, mais aucune amélioration causale de décision ;
+- STDP apprend des poids dans le graphe symbolique de mémoire et ne réentraîne
+  aucun poids du modèle de langage.
 
 ---
 
@@ -838,8 +862,8 @@ Les références de code les plus importantes sont :
 - [backend/src/services/provenanceResolver.js](../../backend/src/services/provenanceResolver.js)
 - [backend/src/db/schema.js](../../backend/src/db/schema.js)
 - [backend/src/services/memory/workingMemoryService.js](../../backend/src/services/memory/workingMemoryService.js)
-- [backend/src/services/memory/ancestralMemoryService.js](../../backend/src/services/memory/ancestralMemoryService.js)
-- [backend/src/services/memory/riskInheritanceService.js](../../backend/src/services/memory/riskInheritanceService.js)
+- [backend/src/services/memory/lineageMemoryRepository.js](../../backend/src/services/memory/lineageMemoryRepository.js)
+- [backend/src/services/memory/memoryCalibrationService.js](../../backend/src/services/memory/memoryCalibrationService.js)
 
 
 

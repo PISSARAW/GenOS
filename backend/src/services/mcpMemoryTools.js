@@ -10,10 +10,7 @@
 const { createStore: createWorkingMemory,
   memorize: wmMemorize, recall: wmRecall, forget: wmForget, stats: wmStats,
   pruneStore: wmPrune } = require('./memory/workingMemoryService');
-const { createStore: createAncestralMemory,
-  memorize: amMemorize, recall: amRecall, forget: amForget, stats: amStats } = require('./memory/ancestralMemoryService');
-const { createStore: createRiskInheritance,
-  propagate: riPropagate, getRisk: riGetRisk, decay: riDecay, stats: riStats } = require('./memory/riskInheritanceService');
+const lineageMemory = require('./memory/lineageMemoryRepository');
 const { createStore: createCollectivePlasticity,
   update: cpUpdate, getWeight: cpGetWeight, aggregate: cpAggregate,
   decayAll: cpDecayAll, stats: cpStats } = require('./memory/collectivePlasticityService');
@@ -92,39 +89,38 @@ function amRequireLineage(args) {
   return null;
 }
 
-function amActionMemorize(store, args) {
+async function amActionMemorize(args) {
   const memoryId = firstTruthy(args.memoryId);
   const ancestorId = firstTruthy(args.ancestorId);
   if (!memoryId || !ancestorId) return output(false, { error: 'memoryId et ancestorId requis' });
-  return output(true, { memorized: amMemorize(store, {
-    lineageId: args.lineageId, memoryId, ancestorId,
-    memory: args.memory, salience: args.salience
-  }), memoryId });
+  const memorized = await lineageMemory.memorize({ ...args, memoryId, ancestorId });
+  return output(true, { memorized, memoryId, persistence: 'sqlite' });
 }
 
-function amActionRecall(store, args) {
-  const memories = amRecall(store, args.lineageId);
-  return output(true, { lineageId: args.lineageId, memories, count: memories.length });
+async function amActionRecall(args) {
+  const memories = await lineageMemory.recall(args);
+  return output(true, { lineageId: args.lineageId, memories,
+    count: memories.length, persistence: 'sqlite' });
 }
 
-function amActionForget(store, args) {
+async function amActionForget(args) {
   const memoryId = firstTruthy(args.memoryId);
   if (!memoryId) return output(false, { error: 'memoryId requis pour forget' });
+  const forgotten = await lineageMemory.forget({ ...args, memoryId });
   return output(true, { lineageId: args.lineageId, memoryId,
-    forgotten: amForget(store, args.lineageId, memoryId) === 1 });
+    forgotten: forgotten === 1, persistence: 'sqlite' });
 }
 
-function handleAncestralMemory(args) {
+async function handleAncestralMemory(args) {
   const error = amRequireLineage(args);
   if (error) return error;
-  const store = storeFor('ancestral_memory', createAncestralMemory);
   const action = firstTruthy(args.action);
   switch (action) {
-    case 'memorize': return amActionMemorize(store, args);
-    case 'recall': return amActionRecall(store, args);
-    case 'forget': return amActionForget(store, args);
+    case 'memorize': return amActionMemorize(args);
+    case 'recall': return amActionRecall(args);
+    case 'forget': return amActionForget(args);
     case 'stats':
-    default: return output(true, amStats(store));
+    default: return output(true, await lineageMemory.ancestralStats(args));
   }
 }
 
@@ -136,41 +132,41 @@ function riRequireLineage(args) {
   return null;
 }
 
-function riActionPropagate(store, args) {
+async function riActionPropagate(args) {
   const sourceId = firstTruthy(args.sourceId);
   const targetId = firstTruthy(args.targetId);
   const risk = args.risk;
   if (!sourceId || !targetId || typeof risk !== 'number') {
     return output(false, { error: 'sourceId, targetId et risk (0-1) requis' });
   }
-  return output(true, { propagated: riPropagate(store, {
-    sourceId, targetId, risk, lineageId: args.lineageId,
-    depth: nullish(args.depth, 0)
-  }), targetId });
+  const propagated = await lineageMemory.propagateRisk({ ...args,
+    sourceId, targetId, risk, depth: nullish(args.depth, 0) });
+  return output(true, { propagated, targetId, persistence: 'sqlite' });
 }
 
-function riActionGetRisk(store, args) {
+async function riActionGetRisk(args) {
   const agentId = firstTruthy(args.targetId, args.agentId);
   if (!agentId) return output(false, { error: 'targetId/agentId requis' });
-  return output(true, riGetRisk(store, agentId, args.lineageId));
+  const inherited = await lineageMemory.getRisk({ ...args, targetId: agentId });
+  return output(true, inherited);
 }
 
-function riActionDecay(store, args) {
+async function riActionDecay(args) {
   const factor = nullish(args.factor, 0.9);
-  return output(true, { decayed: riDecay(store, args.lineageId, factor), factor });
+  const decayed = await lineageMemory.decayRisks({ ...args, factor });
+  return output(true, { decayed, factor, persistence: 'sqlite' });
 }
 
-function handleRiskInheritance(args) {
+async function handleRiskInheritance(args) {
   const error = riRequireLineage(args);
   if (error) return error;
-  const store = storeFor('risk_inheritance', createRiskInheritance);
   const action = firstTruthy(args.action);
   switch (action) {
-    case 'propagate': return riActionPropagate(store, args);
-    case 'getRisk': return riActionGetRisk(store, args);
-    case 'decay': return riActionDecay(store, args);
+    case 'propagate': return riActionPropagate(args);
+    case 'getRisk': return riActionGetRisk(args);
+    case 'decay': return riActionDecay(args);
     case 'stats':
-    default: return output(true, riStats(store));
+    default: return output(true, await lineageMemory.riskStats(args));
   }
 }
 

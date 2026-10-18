@@ -1,0 +1,19 @@
+{
+  "schema": "genos.memory-calibration/v1",
+  "version": "2026-10-18-provisional",
+  "status": "provisional",
+  "thresholds": {
+    "episodicConsolidation": 0.7,
+    "autobiographicalSalience": 0.3,
+    "lessonMinimumSupport": 2,
+    "lessonMinimumConfidence": 0.55,
+    "ancestralRiskAttenuation": 0.8
+  },
+  "evidence": {
+    "source": "docs/06-benchmarks/memoire-developpementale-workers-reels.md",
+    "workerTypes": 19,
+    "durableRecallWorkerTypes": 1,
+    "causalDecisionChangeWorkerTypes": 0,
+    "qualified": false
+  }
+}

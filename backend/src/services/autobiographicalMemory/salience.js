@@ -1,5 +1,7 @@
 'use strict';
 
+const memoryCalibration = require('../memory/memoryCalibrationService');
+
 // Salience scoring: turns a raw telemetry event into a weight deciding
 // whether it deserves to become a durable autobiographical episode.
 // salience = sum(weight_i * signal_i), signals in [0,1], weights sum to 1.
@@ -14,7 +16,7 @@ const WEIGHTS = {
   humanDecision: 0.1
 };
 
-const DEFAULT_SALIENCE_THRESHOLD = 0.3;
+const DEFAULT_SALIENCE_THRESHOLD = memoryCalibration.threshold('autobiographicalSalience');
 const HIGH_COST_TOKENS = 5000;
 const HIGH_COST_LATENCY_MS = 10000;
 const HIGH_RISK_THRESHOLD = 0.6;

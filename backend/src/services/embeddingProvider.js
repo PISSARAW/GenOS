@@ -182,22 +182,43 @@ async function tryLocalTransformersEmbed(text) {
 
 async function tryProvidersInOrder(text, config) {
   const openAiResult = await tryOpenAiEmbed(text);
-  if (openAiResult) return openAiResult;
+  if (openAiResult) return embeddingResult(openAiResult, {
+    provider: 'openai', model: process.env.GENOS_EMBEDDING_MODEL || 'text-embedding-3-small', locality: 'remote'
+  });
 
   const geminiResult = await tryGeminiEmbed(text);
-  if (geminiResult) return geminiResult;
+  if (geminiResult) return embeddingResult(geminiResult, {
+    provider: 'gemini', model: process.env.GENOS_EMBEDDING_MODEL || 'text-embedding-004', locality: 'remote'
+  });
 
   const ollamaResult = await tryOllamaEmbed(text, config);
-  if (ollamaResult) return ollamaResult;
+  if (ollamaResult) return embeddingResult(ollamaResult, {
+    provider: 'ollama', model: config.ollamaModel, locality: 'local'
+  });
 
-  return tryLocalTransformersEmbed(text);
+  const transformersResult = await tryLocalTransformersEmbed(text);
+  if (transformersResult) return embeddingResult(transformersResult, {
+    provider: 'transformers', model: 'Xenova/all-MiniLM-L6-v2', locality: 'local'
+  });
+  return null;
 }
 
-async function embed(text) {
+function embeddingResult(vector, identity) {
+  return { vector, semantic: true, mode: 'semantic_embedding',
+    provider: identity.provider, model: identity.model, locality: identity.locality,
+    dimensions: vector.length, normalization: 'l2' };
+}
+
+async function resolveEmbedding(text) {
   const cleanText = String(text || '').trim();
   if (!cleanText) return null;
   const config = buildEmbedConfig();
-  return tryProvidersInOrder(text, config);
+  return tryProvidersInOrder(cleanText, config);
+}
+
+async function embed(text) {
+  const resolved = await resolveEmbedding(text);
+  return resolved?.vector || null;
 }
 
 async function tryRemoteRerank(query, documents, config) {
@@ -244,4 +265,4 @@ function computeLocalRerank(query, documents) {
   }).sort((a, b) => b.rerankScore - a.rerankScore);
 }
 
-module.exports = { embed, cosine, rerank, normalizeVector };
+module.exports = { embed, resolveEmbedding, cosine, rerank, normalizeVector };

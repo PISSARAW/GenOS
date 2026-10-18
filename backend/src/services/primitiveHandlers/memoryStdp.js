@@ -245,7 +245,9 @@ async function emitTelemetry(context, ids, { deltaT, transmitterType, newWeight,
     action: 'STDP',
     detail: 'Synapse ' + ids.sourceId + ' -> ' + ids.targetId + ' updated to weight ' + newWeight,
     severity: 'info',
-    payload: { sourceId: ids.sourceId, targetId: ids.targetId, deltaT, update, transmitterType, newWeight }
+    payload: { sourceId: ids.sourceId, targetId: ids.targetId, deltaT, update,
+      transmitterType, newWeight, learningDomain: 'symbolic_memory_graph',
+      modelWeightsUpdated: false }
   });
 }
 
@@ -270,7 +272,9 @@ async function stdpUpdate(context) {
   const updateValue = computeUpdate(params, params.transmitterType, context);
   const newWeight = await executeTransaction(db, ids, { update: updateValue, transmitterType: params.transmitterType, preSpikeAt: params.preSpikeAt, postSpikeAt: params.postSpikeAt, deltaT: params.deltaT, orgId, projId });
   await emitTelemetry(context, ids, { deltaT: params.deltaT, transmitterType: params.transmitterType, newWeight, update: updateValue });
-  return { success: true, sourceId: ids.sourceId, targetId: ids.targetId, deltaT: params.deltaT, update: updateValue, transmitterType: params.transmitterType, newWeight };
+  return { success: true, sourceId: ids.sourceId, targetId: ids.targetId,
+    deltaT: params.deltaT, update: updateValue, transmitterType: params.transmitterType,
+    newWeight, learningDomain: 'symbolic_memory_graph', modelWeightsUpdated: false };
 }
 
 module.exports = { stdpUpdate, firstTruthy, firstNonNull };

@@ -5,6 +5,7 @@
 
 const crypto = require('crypto');
 const { getDatabase, withTransaction } = require('../db');
+const memoryCalibration = require('./memory/memoryCalibrationService');
 const DEFAULT_MAX_EPISODE_FIELD_BYTES = 1024 * 1024;
 const DEFAULT_MAX_EPISODE_BYTES = 4 * 1024 * 1024;
 
@@ -304,7 +305,9 @@ async function runIdBatches(db, ids, buildStatement) {
  */
 async function consolidateEpisodes(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
-  const { agentId, organizationId, projectId, sessionId, scoreThreshold = 0.7, purgeBelowThreshold = false } = options;
+  const { agentId, organizationId, projectId, sessionId,
+    scoreThreshold = memoryCalibration.threshold('episodicConsolidation'),
+    purgeBelowThreshold = false } = options;
   const threshold = normalizeThreshold(scoreThreshold);
   return withTransaction(db, async (tx) => {
     const { query, params } = consolidationFilter({ agentId, sessionId, organizationId, projectId });

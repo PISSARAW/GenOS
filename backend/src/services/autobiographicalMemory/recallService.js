@@ -1,5 +1,7 @@
 'use strict';
 
+const memoryCalibration = require('../memory/memoryCalibrationService');
+
 // Injection step (plan step 6): before the orchestrator plans, pull the
 // handful of past episodes/lessons that actually bear on the current
 // situation and turn them into a short, decision-shaping summary. This is
@@ -11,7 +13,7 @@ const lessonService = require('./lessonService');
 
 const DEFAULT_TOP_EPISODES = 3;
 const DEFAULT_TOP_LESSONS = 3;
-const MIN_LESSON_CONFIDENCE = 0.55;
+const MIN_LESSON_CONFIDENCE = memoryCalibration.threshold('lessonMinimumConfidence');
 
 function tokenize(text) {
   return String(text || '').toLowerCase().match(/[a-z0-9_]+/g) || [];

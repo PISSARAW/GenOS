@@ -9,8 +9,9 @@ const crypto = require('crypto');
 const { getDatabase } = require('../../db');
 const episodeStore = require('./episodeStore');
 const workerKinds = require('../agents/workerKindService').KINDS;
+const memoryCalibration = require('../memory/memoryCalibrationService');
 
-const MIN_SUPPORT_FOR_LESSON = 2;
+const MIN_SUPPORT_FOR_LESSON = memoryCalibration.threshold('lessonMinimumSupport');
 const MAX_CONFIDENCE = 0.95;
 
 function clusterKeyFor(episode) {
