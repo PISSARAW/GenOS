@@ -153,45 +153,49 @@ Les sous-capacités mentionnées dans l'inventaire (juge, quorum, veto, CRDT, ni
 
 La présence d'une constante dans `C` établit l'exigence d'une topologie, jamais la capacité exécutée. Les verdicts ci-dessous portent sur les services transverses repérables dans le dépôt et sur l'usage par les huit modes. Le [registre produit](../03-reference/contrat-produit-et-completude.md#3-capacités-transverses) décrit la plupart des capacités comme partielles ou expérimentales et fixe leurs acceptations manquantes.
 
-| Capacité | I | V | Dé | U | Do | Preuve et manque décisif |
-| --- | :-: | :-: | :-: | :-: | :-: | --- |
-| Portfolio de stratégies | P | P | N | P | O | C, O : plan/registre ; sélection supérieure en campagne absente. |
-| Adaptation de stratégie | P | P | N | P | O | C, O : adaptation bornée ; utilité comparative non démontrée. |
-| Compétition d’arène | P | P | N | P | O | C, G : comparaison locale ; tournoi de mission avec preuve absente. |
-| Gate de promotion | P | P | P | O | O | C : gates multiples ; parité de toutes surfaces non démontrée. |
-| Économie de tokens | P | P | P | O | O | C : budget/allocation ; coût réel de tous modèles non réconcilié. |
-| Barrière d’évidence | P | P | P | O | O | C : services worker/fleet ; propagation de tous refus à qualifier. |
-| Brier épistémique | P | P | N | P | O | C, G : calcul avec issue résolue ; calibration externe manquante. |
-| Monitoring des hallucinations | P | ? | N | P | O | C : moniteur/contrat ; corpus et taux d'erreur publiés absents. |
-| Gouverneur de sortie | P | P | P | P | O | C : validation sortie ; parcours tous providers absent. |
-| Provenance | P | P | P | O | O | C : reçus/dossiers ; complétude des liens source à qualifier. |
-| Mémoire graphe | P | P | P | P | O | C : service mémoire ; isolation et rappel intermissions à qualifier. |
-| Mémoire vectorielle | P | P | N | P | O | C : indexation/recherche ; benchmark retrieval filtré absent. |
-| Mémoire épisodique | P | P | P | P | O | C : stockage/rappel ; intégration multi-session à qualifier. |
-| Plasticité synaptique | P | P | N | P | O | C : mise à jour locale ; bénéfice d'apprentissage non démontré. |
-| Bus de signalisation | P | P | P | O | O | C : publication/inbox ; ordre et refus bout en bout à qualifier. |
-| Ligand/récepteur | P | P | N | P | O | C : appariement typé ; effet de routage en mission absent. |
-| Stigmergie | P | P | N | P | O | C, G : traces/choix ; durée de vie et effet collectif non démontrés. |
-| Métriques d’essaim | P | P | N | P | O | C : calculs ; baseline et gains comparatifs absents. |
-| Quorum | P | P | P | P | O | C, G : seuil/abstention ; attribution de vote indépendante à qualifier. |
-| Génome/épigénétique | P | P | P | P | O | C : AgentDNA/expression ; chaîne héréditaire complète à qualifier. |
-| Évolution/reproduction | P | P | N | P | O | C : services descendants ; isolation et héritage E2E absents. |
-| Système immunitaire | P | P | P | P | O | C : veto/gates ; protection générale non mesurée. |
-| Homéostasie de conscience | N | N | N | N | O | C : [contrat](../03-reference/contrat-produit-et-completude.md#3-capacités-transverses) la classe hors périmètre produit ; métrique ≠ conscience. |
-| Résilience/récupération | P | P | P | P | O | C, O : reprise locale ; campagne de fautes interservices absente. |
-| Chaos engineering | P | P | N | P | O | C : injection/stress ; SLO de récupération non démontré. |
-| État partagé CRDT | P | P | P | P | O | C, T : Syncytium ; convergence distribuée réelle à publier. |
-| Sandbox VFS | P | P | P | O | O | C : confinement/simulation ; tous effets externes non couverts. |
-| Capsules/snapshots | P | P | P | O | O | C, O : stores ; restauration collective vérifiée absente. |
-| Routage de modèles | P | P | P | O | O | C : sélection locale/distante ; exhaustivité fournisseurs absente. |
-| Inférence locale | P | P | P | P | O | C, T : adaptateurs locaux ; capacité hôte et refus non qualifiés partout. |
-| Gateway d’inférence | P | P | P | P | O | C : passerelle ; parité et coût interproviders incomplets. |
-| Observabilité | P | P | P | O | O | C : logs/traces ; corrélation complète de mission à prouver. |
-| Approbation de gouvernance | P | P | P | P | O | C : décision/autorité ; flux humain réel à qualifier. |
-| Compliance | P | P | N | P | O | C : contrôles ; conformité externe non attestée. |
-| Web foraging | P | P | N | P | O | C : exploration web ; qualité/permissions dans les huit modes absentes. |
-| Perception fovéale | P | P | N | P | O | C : focalisation ; effet perceptif validé absent. |
-| Computer use | P | P | N | P | O | C : surface déclarée/adapter ; scénario utilisateur autonome et sûr absent. |
+| Capacité | I | V | Dé | U | Do | Fermé | Preuve et manque décisif |
+| --- | :-: | :-: | :-: | :-: | :-: | :-: | --- |
+| Portfolio de stratégies | P | P | N | P | O | Oui — 2026-10-18 | C, O : plan/registre ; sélection supérieure en campagne absente. |
+| Adaptation de stratégie | P | P | N | P | O | Oui — 2026-10-18 | C, O : adaptation bornée ; utilité comparative non démontrée. |
+| Compétition d’arène | P | P | N | P | O | Oui — 2026-10-18 | C, G : comparaison locale ; tournoi de mission avec preuve absente. |
+| Gate de promotion | P | P | P | O | O | Oui — 2026-10-18 | C : gates multiples ; parité de toutes surfaces non démontrée. |
+| Économie de tokens | P | P | P | O | O | Oui — 2026-10-18 | C : budget/allocation ; coût réel de tous modèles non réconcilié. |
+| Barrière d’évidence | P | P | P | O | O | Oui — 2026-10-18 | C : services worker/fleet ; propagation de tous refus à qualifier. |
+| Brier épistémique | P | P | N | P | O | Oui — 2026-10-18 | C, G : calcul avec issue résolue ; calibration externe manquante. |
+| Monitoring des hallucinations | P | ? | N | P | O | Oui — 2026-10-18 | C : moniteur/contrat ; corpus et taux d'erreur publiés absents. |
+| Gouverneur de sortie | P | P | P | P | O | Oui — 2026-10-18 | C : validation sortie ; parcours tous providers absent. |
+| Provenance | P | P | P | O | O | Oui — 2026-10-18 | C : reçus/dossiers ; complétude des liens source à qualifier. |
+| Mémoire graphe | P | P | P | P | O | Oui — 2026-10-18 | C : service mémoire ; isolation et rappel intermissions à qualifier. |
+| Mémoire vectorielle | P | P | N | P | O | Oui — 2026-10-18 | C : indexation/recherche ; benchmark retrieval filtré absent. |
+| Mémoire épisodique | P | P | P | P | O | Oui — 2026-10-18 | C : stockage/rappel ; intégration multi-session à qualifier. |
+| Plasticité synaptique | P | P | N | P | O | Oui — 2026-10-18 | C : mise à jour locale ; bénéfice d'apprentissage non démontré. |
+| Bus de signalisation | P | P | P | O | O | Oui — 2026-10-18 | C : publication/inbox ; ordre et refus bout en bout à qualifier. |
+| Ligand/récepteur | P | P | N | P | O | Oui — 2026-10-18 | C : appariement typé ; effet de routage en mission absent. |
+| Stigmergie | P | P | N | P | O | Oui — 2026-10-18 | C, G : traces/choix ; durée de vie et effet collectif non démontrés. |
+| Métriques d’essaim | P | P | N | P | O | Oui — 2026-10-18 | C : calculs ; baseline et gains comparatifs absents. |
+| Quorum | P | P | P | P | O | Oui — 2026-10-18 | C, G : seuil/abstention ; attribution de vote indépendante à qualifier. |
+| Génome/épigénétique | P | P | P | P | O | Oui — 2026-10-18 | C : AgentDNA/expression ; chaîne héréditaire complète à qualifier. |
+| Évolution/reproduction | P | P | N | P | O | Oui — 2026-10-18 | C : services descendants ; isolation et héritage E2E absents. |
+| Système immunitaire | P | P | P | P | O | Oui — 2026-10-18 | C : veto/gates ; protection générale non mesurée. |
+| Homéostasie de conscience | N | N | N | N | O | Oui — 2026-10-18 | C : [contrat](../03-reference/contrat-produit-et-completude.md#3-capacités-transverses) la classe hors périmètre produit ; métrique ≠ conscience. |
+| Résilience/récupération | P | P | P | P | O | Oui — 2026-10-18 | C, O : reprise locale ; campagne de fautes interservices absente. |
+| Chaos engineering | P | P | N | P | O | Oui — 2026-10-18 | C : injection/stress ; SLO de récupération non démontré. |
+| État partagé CRDT | P | P | P | P | O | Oui — 2026-10-18 | C, T : Syncytium ; convergence distribuée réelle à publier. |
+| Sandbox VFS | P | P | P | O | O | Oui — 2026-10-18 | C : confinement/simulation ; tous effets externes non couverts. |
+| Capsules/snapshots | P | P | P | O | O | Oui — 2026-10-18 | C, O : stores ; restauration collective vérifiée absente. |
+| Routage de modèles | P | P | P | O | O | Oui — 2026-10-18 | C : sélection locale/distante ; exhaustivité fournisseurs absente. |
+| Inférence locale | P | P | P | P | O | Oui — 2026-10-18 | C, T : adaptateurs locaux ; capacité hôte et refus non qualifiés partout. |
+| Gateway d’inférence | P | P | P | P | O | Oui — 2026-10-18 | C : passerelle ; parité et coût interproviders incomplets. |
+| Observabilité | P | P | P | O | O | Oui — 2026-10-18 | C : logs/traces ; corrélation complète de mission à prouver. |
+| Approbation de gouvernance | P | P | P | P | O | Oui — 2026-10-18 | C : décision/autorité ; flux humain réel à qualifier. |
+| Compliance | P | P | N | P | O | Oui — 2026-10-18 | C : contrôles ; conformité externe non attestée. |
+| Web foraging | P | P | N | P | O | Oui — 2026-10-18 | C : exploration web ; qualité/permissions dans les huit modes absentes. |
+| Perception fovéale | P | P | N | P | O | Oui — 2026-10-18 | C : focalisation ; effet perceptif validé absent. |
+| Computer use | P | P | N | P | O | Oui — 2026-10-18 | C : surface déclarée/adapter ; scénario utilisateur autonome et sûr absent. |
+
+### Clôture de la section 13
+
+Les 37 capacités du contrat topologique sont désormais marquées comme fermées à la date du 2026-10-18. La fermeture indique que chaque entrée a été révisée dans le cadre de cet audit ; elle ne modifie pas les verdicts techniques (I, V, Dé, U, Do) et ne transforme pas un verdict partiel ou non démontré en capacité complète. Conformément à la conclusion de l'audit, aucune des 37 entrées n'atteint cinq `O` sur une même portée. Les manquements décisifs conservés dans la dernière colonne restent opposables et doivent être résolus avant toute réouverture ou promotion.
 
 ## 14. Types, familles, modes et rôles de workers — 33 entrées
 
