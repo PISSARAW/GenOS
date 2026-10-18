@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/consciousness-theory-comparison-result.schema.json",
+  "title": "GenOS controlled consciousness theory comparison result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "comparisonId", "runContract", "architectureCount", "coverage", "matrix", "comparable", "rankedWinner", "aggregateConsciousnessScore", "epistemicBoundary", "promotionAllowed", "limitation"],
+  "properties": {
+    "schema": { "const": "genos.consciousness-theory-comparison-result/v1" },
+    "comparisonId": { "$ref": "#/$defs/text" },
+    "runContract": { "$ref": "#/$defs/runContract" },
+    "architectureCount": { "type": "integer", "minimum": 2 },
+    "coverage": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/coverage" } },
+    "matrix": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/$defs/matrixRow" } },
+    "comparable": { "const": true },
+    "rankedWinner": { "const": null },
+    "aggregateConsciousnessScore": { "const": null },
+    "epistemicBoundary": { "$ref": "#/$defs/boundary" },
+    "promotionAllowed": { "const": false },
+    "limitation": { "$ref": "#/$defs/text" }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "runContract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profileId", "revision", "seeds", "locks"],
+      "properties": {
+        "profileId": { "$ref": "#/$defs/text" },
+        "revision": { "$ref": "#/$defs/text" },
+        "seeds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "integer", "minimum": 0 } },
+        "locks": {
+          "type": "object", "additionalProperties": false,
+          "required": ["model", "toolset", "budget"],
+          "properties": {
+            "model": { "$ref": "#/$defs/text" },
+            "toolset": { "$ref": "#/$defs/text" },
+            "budget": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["architectureId", "observedCount", "unassessedCount"],
+      "properties": {
+        "architectureId": { "$ref": "#/$defs/text" },
+        "observedCount": { "type": "integer", "minimum": 0, "maximum": 6 },
+        "unassessedCount": { "type": "integer", "minimum": 0, "maximum": 6 }
+      }
+    },
+    "entry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["architectureId", "status", "primaryEffect", "resultHash", "evidenceRefs"],
+      "properties": {
+        "architectureId": { "$ref": "#/$defs/text" },
+        "status": { "enum": ["supported", "invalidated", "confounded", "not_run", "unavailable"] },
+        "primaryEffect": { "type": ["number", "null"] },
+        "resultHash": { "$ref": "#/$defs/hash" },
+        "evidenceRefs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+    "matrixRow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["theoryId", "hypothesisId", "metric", "agreement", "entries"],
+      "properties": {
+        "theoryId": { "$ref": "#/$defs/text" },
+        "hypothesisId": { "$ref": "#/$defs/text" },
+        "metric": { "$ref": "#/$defs/text" },
+        "agreement": { "type": "boolean" },
+        "entries": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/entry" } }
+      }
+    },
+    "boundary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "assessedLayers", "phenomenalExperience", "phenomenalInferenceAllowed", "metaphysicalClaimEstablished"],
+      "properties": {
+        "schema": { "const": "genos.consciousness-claim-vocabulary/v1" },
+        "assessedLayers": { "const": ["information_processing", "global_access"] },
+        "phenomenalExperience": { "const": "unassessed" },
+        "phenomenalInferenceAllowed": { "const": false },
+        "metaphysicalClaimEstablished": { "const": false }
+      }
+    }
+  }
+}

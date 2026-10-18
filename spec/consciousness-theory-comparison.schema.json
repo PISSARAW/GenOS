@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/consciousness-theory-comparison.schema.json",
+  "title": "GenOS controlled consciousness theory comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "comparisonId", "architectures"],
+  "properties": {
+    "schema": { "const": "genos.consciousness-theory-comparison/v1" },
+    "comparisonId": { "$ref": "#/$defs/text" },
+    "architectures": {
+      "type": "array", "minItems": 2, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/architecture" }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["manifest", "resultHash", "status", "primaryEffect", "evidenceRefs"],
+      "properties": {
+        "manifest": { "$ref": "https://genos.ai/spec/consciousness-experiment-manifest.schema.json" },
+        "resultHash": { "$ref": "#/$defs/hash" },
+        "status": { "enum": ["supported", "invalidated", "confounded", "not_run", "unavailable"] },
+        "primaryEffect": { "type": ["number", "null"] },
+        "evidenceRefs": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "architecture": {
+      "type": "object", "additionalProperties": false,
+      "required": ["architectureId", "configurationHash", "observations"],
+      "properties": {
+        "architectureId": { "$ref": "#/$defs/text" },
+        "configurationHash": { "$ref": "#/$defs/hash" },
+        "observations": {
+          "type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/observation" }
+        }
+      }
+    }
+  }
+}
