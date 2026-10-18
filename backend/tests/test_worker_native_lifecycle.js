@@ -23,6 +23,8 @@ strategy.recordExecutionEvent = async (_db, _agentId, event) => {
 };
 // The regulatory supervisor is exercised with SQLite and real workers by the regulation probe.
 require('../src/services/regulation/regulatorySupervisorService').ensureFunctional = async () => ({ recovered: false });
+// Execution authority is covered by integration tests with sealed SQLite runs.
+require('../src/services/missionEnvelopeAuthority').assertRun = async () => ({ status: 'authorized' });
 const { runDeterministicWorker } = require('../src/services/agents/deterministicWorkerRuntime');
 const legacyDatabase = { get: async () => undefined };
 
