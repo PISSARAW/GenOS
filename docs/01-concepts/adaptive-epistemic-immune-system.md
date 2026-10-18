@@ -1,7 +1,7 @@
 ---
 title: "Adaptive Epistemic Immune System"
 description: "Système immunitaire épistémique adaptatif pour GenOS — reconnaissance, vérification et neutralisation des formes de conviction trompeuses."
-version: 1.2.0
+version: 1.3.0
 author: GenOS
 created: 2026-09-21
 tags: [epistemology, immunity, biomimicry, verification, adaptive]
@@ -9,16 +9,22 @@ tags: [epistemology, immunity, biomimicry, verification, adaptive]
 
 # Adaptive Epistemic Immune System
 
+- **Statut** : Implémenté pour les prédicats de commande exacts ; heuristiques
+  d'ordonnancement non calibrées
+- **Portée** : intégrité procédurale, reproduction et promotion de claims
+  mécanisables ; pas de vérité générale
+- **Dernière revue** : 2026-10-18
+
 ## 1. Définition du domaine
 
 L'Adaptive Epistemic Immune System (AEIS) est le mécanisme de contrôle épistémique
 de GenOS. Il traite toute affirmation (claim) comme un **antigène** — une unité
 biologique qui doit être reconnue, vérifiée ou neutralisée avant d'être promue.
 
-Le système ne se contente pas de détecter les erreurs. Il mesure dynamiquement le
-niveau de pression d'assurance (`H = f(risk, uncertainty, contradiction, novelty,
-cost, evidence)`) et ajuste l'effort de vérification en conséquence, comme un
-organisme ajuste sa réponse immunitaire.
+Le système ne se contente pas de détecter les erreurs. Il calcule un score ordinal
+de pression d'assurance à partir de signaux observables et ajuste l'effort de
+vérification. Ce score est une **politique d'ordonnancement heuristique** : ce
+n'est ni une probabilité, ni un estimateur validé de vérité ou d'efficacité.
 
 ### Invariant clé
 
@@ -54,7 +60,7 @@ Un antigène n'est pas « la mauvaise information ». C'est une unité qui doit
 ### Pression d'assurance
 
 ```text
-H = f(risk, uncertainty, contradiction, novelty, cost, evidence)
+P_policy = Σ(w_i × signal_i) / Σ(w_i)
 ```
 
 ```text
@@ -66,6 +72,15 @@ cost        : 1 - budget_remaining / budget_reference
 evidence    : 1 - qualité moyenne des preuves
 ```
 
+La politique embarquée `aeis-pressure-routing-v1` utilise les poids
+`0.35/0.20/0.20/0.10/0.10/0.05` et les frontières ci-dessous. Ces valeurs sont
+des **valeurs d'ingénierie non calibrées**, choisies pour obtenir plusieurs
+niveaux d'effort et préserver leur monotonie. Aucun benchmark publié ne permet
+actuellement de leur attribuer une efficacité, une sensibilité ou un taux
+d'erreur. Les tests vérifient le calcul, les bornes et la monotonie, pas la
+validité empirique de la politique. Le runtime expose donc
+`calibrationStatus: uncalibrated_engineering_default`.
+
 ### Niveau d'inflammation
 
 ```text
@@ -75,6 +90,10 @@ pressure < 0.70  → adaptive   (innate + adaptive verifier)
 pressure < 0.90  → inflamed   (+ counterexample worker + independent verifier)
 pressure ≥ 0.90  → systemic   (+ replay + source verification + human escalation)
 ```
+
+Ces frontières sont configurables par appel. Toute valeur destinée à piloter
+une décision de production doit être liée à une campagne de calibration avec
+vérité terrain, métriques de faux positifs/faux négatifs et version de politique.
 
 ### Réponse immunitaire
 
@@ -88,17 +107,31 @@ Vérification : le claim passe avec un reçu de vérificateur indépendant
 ### Diversité cognitive effective
 
 ```text
-effective_diversity = (
-    functional_diversity +
-    error_diversity +
-    tool_diversity +
-    provider_diversity +
-    strategy_diversity
-) / 5 × log2(species_richness) / log2(max(2, species_richness))
+observed_diversity = moyenne(
+    species_richness / 8,
+    functional_diversity,
+    error_diversity,
+    tool_diversity,
+    provider_variety,
+    strategy_diversity,
+    normalized_shannon_balance
+)
 ```
 
-Si `effective_diversity < 0.3`, le système est en **monoculture cognitive** et
-doit recruter une nouvelle niche.
+Chaque composante est bornée dans `[0, 1]`. La composante de richesse augmente
+quand une espèce distincte est ajoutée, jusqu'aux huit niches du catalogue ;
+l'équilibre de Shannon mesure séparément la répartition. Le facteur logarithmique
+tautologique de la version précédente a été supprimé.
+
+Cet indice reste descriptif et non calibré
+(`uncalibrated_descriptive_index`). Par défaut, la monoculture n'est plus
+déduite d'un seuil magique à `0.3`, mais de minima structuraux explicites : au
+moins deux types, deux niches et deux stratégies distincts. Un seuil scalaire
+n'est appliqué que s'il est fourni explicitement par une politique calibrée.
+La variété de providers ne prouve jamais leur indépendance épistémique.
+
+La décision et ses conséquences de compatibilité sont consignées dans
+[l'ADR 0642](../adr/0642-borner-les-heuristiques-aeis.md).
 
 ### Dissonance épistémique
 
@@ -117,13 +150,13 @@ seuil apoptosis = 50
 | Antigène | `EpistemicAntigen` — unité claim + epitopes + producer + risk + state | Pas de protéine ; une structure de données |
 | Immunité innée | `innateEpistemicImmunity` — PPR déterministes (EMPTY_EVIDENCE, SELF_VERIFICATION, etc.) | Pas de cellule ; des fonctions synchrones |
 | Immunité adaptative | `adaptiveImmuneResponse` — vérificateurs spécialisés avec affinité | Pas de lymphocyte ; des objets avec `affinity` et `strategy` |
-| Sélection clonale | `verifierCatalogService.selectTopClones` (≥2, falsification prioritaire) + `clonalExpansionService` (`expandClone` exécutés, `selectWinningClones` tranche sur oracle) | Pas de réplication ; tri par `fit`, 4 mutations, clones réellement exécutés, oracle requis pour trancher |
+| Sélection clonale | `verifierCatalogService.selectTopClones` (≥2, falsification prioritaire) + `clonalExpansionService` (`expandClone` exécutés, `selectWinningClones` tranche sur oracle) | L'oracle n'est pas créé par AEIS ; sans vérité terrain indépendante, le cycle reste `pending` et ne démontre rien |
 | Affinity maturation | `affinityMaturationService.matureStrategy` — mutation ciblée après résolution oracle truth, sinon `pending` | Pas de mutation génétique ; 5 mutations diagnostiquées, jamais de succès auto-déclaré |
 | Mémoire immunitaire | `immuneMemoryService` + `immuneMemoryRepository` — rappel et résultats confirmés | SQLite par organisation, projet et workspace ; le rappel seul ne tranche pas l'issue |
-| Inflammation | `epistemicInflammationAndRegulation` — pression → effort | Pas de cytokine ; un calcul de pression |
+| Inflammation | `epistemicInflammationAndRegulation` — pression → effort | Pas de cytokine ; politique heuristique non calibrée, sans interprétation probabiliste |
 | Tolérance / T-reg | `regulatoryReview` — inhibe les rejets injustifiés | Pas de cellule T ; une fonction qui vérifie la justification |
 | Apoptose | `epistemicApoptosisService` + `epistemicApoptosisAuthorityBridge` — dissonance → seuils → autopsie → révocation runtime | SQLite conserve la dissonance et l'autopsie ; statuts blocked puis apoptosis, avec isolation Quarantine |
-| Biocénose | `epistemicBiocenoseService` — diversité fonctionnelle des reviewers | Pas d'écosystème ; des métriques de diversité |
+| Biocénose | `epistemicBiocenoseService` — variété observée des reviewers | Pas d'écosystème ; indice descriptif non calibré, sans mesure d'indépendance |
 | Métapopulation | `epistemicMetapopulationService` — populations isolées + migration contrôlée | Pas de géographie ; des populations avec `isolation` et `migrateResults` |
 | Stigmergie | `epistemicStigmergyService` + `stigmergyInterProcessBridge` — phéromones structurées + persistance | Pas de phéromone chimique ; des marqueurs en mémoire + bus de signaux |
 | Holobionte | `epistemicHolobionteService` — Host + Specialist + Immune + Memory | Pas de symbiose biologique ; une orchestration de services |
@@ -144,10 +177,11 @@ Un agent produit : « Le test T3 couvre 100% des obligations de sécurité. »
 
 Un groupe de 4 modèles généralistes produit tous la même réponse fausse.
 
-1. La biocénose mesure `effective_diversity ≈ 0.1` (tous identiques).
-2. Le système recrute une nouvelle niche (ex: `counterexample_hunter`).
-3. La pression d'assurance monte automatiquement à `systemic`.
-4. Une escalade humaine est recommandée.
+1. La biocénose observe un seul type, une seule niche et une seule stratégie.
+2. La règle structurelle signale la monoculture, indépendamment du score agrégé.
+3. Le système recrute une nouvelle niche (ex: `counterexample_hunter`).
+4. Cette diversification élargit la procédure ; elle ne prouve pas que le
+   nouveau vérificateur est indépendant ni que la conclusion est vraie.
 
 ### Cas d'usage 3 : Auto-immunité évitée
 
@@ -174,7 +208,7 @@ memory:
 La prochaine fois qu'un claim similaire apparaît, le système rappelle directement
 la réponse efficace sans recalculer toute la chaîne de vérification.
 
-### Exemple 2 : Inflammation dynamique
+### Exemple 2 : Routage heuristique de l'effort
 
 ```text
 État normal:
@@ -193,6 +227,9 @@ Système critique:
   pressure = 0.95 → systemic (+ replay + source + human)
 ```
 
+Ces valeurs illustrent la table de routage `v1`. Elles ne sont pas des mesures
+d'efficacité et ne constituent pas un résultat de calibration.
+
 ### Exemple 3 : Métapopulation
 
 ```text
@@ -207,8 +244,9 @@ Population A (GPT)     Population B (Claude)     Population C (déterministe)
                     convergence indépendante mesurée
 ```
 
-Si A et B arrivent à la même réponse sans s'influencer, la convergence est plus
-fiable qu'un accord après discussion.
+Si A et B arrivent à la même réponse sans s'influencer, le runtime enregistre une
+convergence procédurale. Il ne la transforme pas en preuve de vérité : une erreur
+corrélée, des données communes ou une même famille de modèles restent possibles.
 
 ## 6. Schéma ou diagramme
 
@@ -415,7 +453,15 @@ epistemicHolobionte(antigen, context)
 
 ### Validation des tests
 
-Un claim promouvable doit exprimer exactement le prédicat exécuté. Les deux
+Le gate courant a une portée volontairement étroite. Il distingue trois classes :
+
+| Classe de claim | Traitement AEIS | Ce qui est établi |
+|---|---|---|
+| Prédicat de commande exact | Promouvable si quorum, reçus et assemblage sont valides | La commande observée satisfait le prédicat dans les réplicas exécutés |
+| Claim de domaine avec oracle externe | Conservé `pending` jusqu'à un témoin ou verdict indépendant admissible | Seulement ce que l'oracle et sa portée attestent |
+| Claim sémantique libre (`refactoring sain`, résumé fidèle, architecture correcte) | Non promouvable automatiquement | Provenance et procédure seulement ; pas la vérité du claim |
+
+Un claim mécanisable doit exprimer exactement le prédicat exécuté. Les deux
 répliques doivent pointer vers des répertoires existants, distincts et situés
 dans le workspace de l'agent :
 
@@ -444,6 +490,10 @@ moins deux fournisseurs distincts configurés; une revue manquante, divergente
 ou réfutante bloque la promotion. Les avis provider ne remplacent pas les
 reçus indépendants des vérificateurs locaux.
 
+Cette frontière n'est pas présentée comme une solution générale au problème de
+la vérification des affirmations non mécanisables. AEIS refuse de convertir un
+jugement de LLM, une convergence textuelle ou une diversité déclarée en preuve.
+
 Suite AEIS complète (`backend/package.json` → `test:aeis`) :
 
 ```bash
@@ -467,6 +517,7 @@ et la régression EAB locale.
 | Identités, accord et désaccord providers | `test_aeis_provider_process_roundtrip.js`, `test_aeis_provider_persistence.js` |
 | Processus séparés, délais et bornes d'entrée | `test_aeis_process_isolation.js` |
 | Recrutement de niches et budget | `test_aeis_niche_recruitment.js`, `test_aeis_runtime_integrations.js` |
+| Statut non calibré et monotonie des indices | `epistemic_homeostasis_test.js`, `epistemic_biocenose_test.js` |
 | Quorum signé et lignage lors de la ré-arbitration | `test_aeis_homeostatic_runtime.js`, `test_aeis_verifier_lineage.js` |
 | Autorité durable et révocation des descendants | `test_aeis_authority_persistence.js` |
 | Approval et contre-preuve dédupliquée sur SQLite | `test_approve_run_deferred_promotion.js` |
@@ -502,6 +553,20 @@ l'audit et la mémoire, y compris si la revue provider refuse la promotion.
 
 - **Pas de vérité absolue** : le système mesure la fiabilité, pas la vérité.
   Un claim vérifié peut être faux ; un claim rejeté peut être vrai.
+
+- **Portée mécanisable seulement** : la promotion automatique couvre actuellement
+  les prédicats de commande exacts. La santé d'un refactoring, la fidélité d'un
+  résumé ou la pertinence d'une architecture exigent un oracle externe, une
+  revue humaine ou une politique de domaine spécifique.
+
+- **Heuristiques non calibrées** : la pression, l'indice de diversité et leurs
+  valeurs par défaut organisent l'effort. Ils ne doivent pas être rapportés
+  comme des probabilités de succès ou des mesures d'efficacité.
+
+- **Pas d'indépendance créée par réplication** : deux providers, processus ou
+  modèles peuvent partager données, méthodes et erreurs. Les tests à réponses
+  contrôlées qualifient le protocole et ses refus, pas une indépendance réelle.
+  La sélection clonale requiert un oracle extérieur pour apprendre ou trancher.
 
 - **Mémoire persistée et bornée** : les observations AEIS sont conservées en
   SQLite par organisation/projet/workspace. Une issue n'est inscrite qu'après
@@ -545,12 +610,12 @@ l'audit et la mémoire, y compris si la revue provider refuse la promotion.
 **Implémenté** :
 - modèle antigène (EpistemicAntigen)
 - reconnaissance innée (PPR déterministes)
-- calcul homéostasie (pression D = f(risk, uncertainty, contradiction, novelty, cost, evidence))
+- calcul homéostatique d'un score ordinal non calibré pour router l'effort
 - sélection de verifiers (affinity-based, ≥2 avec second avis falsification)
 - mémoire immunitaire (signature, recall, fuzzyRecall Jaccard, thresholdRecall, recordOutcome)
 - persistance SQLite par portée et résolution après validation de l'assemblée
   signée; rotation de clé par identifiant et rétention des assemblées
-- métriques de diversité (effectiveDiversity, shannonDiversity, errorDiversity, toolDiversity)
+- indice descriptif de variété observée et détection structurelle de monoculture
 - biocénose / métapopulation / stigmergie / holobionte
 - exécution réelle des verifiers (verifierExecutionService + verifierRuntimeBridge)
 - adapters test/artifact via sandbox réel (sandboxExecutor, allowlist, exit code réel)
@@ -590,7 +655,8 @@ l'audit et la mémoire, y compris si la revue provider refuse la promotion.
   une affirmation libre ou seulement apparentée à un test est refusée
 - le processus enfant isole l'exécution provider, mais l'adapter de commandes
   ne constitue pas un conteneur ni une garantie d'isolation du système entier
-- les tests provider utilisent des réponses contrôlées; ils ne démontrent pas
-  un quorum sur des comptes et modèles externes réels
+- les tests provider utilisent des réponses contrôlées; ils qualifient le
+  transport, le binding et les vetos, mais ne démontrent ni indépendance
+  épistémique ni efficacité sur des comptes et modèles externes réels
 - le benchmark local ne permet pas de déclarer un score sur LoCoMo sans le
   corpus et les prédictions correspondantes

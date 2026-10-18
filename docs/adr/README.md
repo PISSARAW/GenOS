@@ -339,7 +339,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0296b](0296-erreurs-explicites-de-cleavage.md) | Erreurs explicites de clivage embryogénétique | Accepté | 2026-10-04 | Orchestrateur Rust, embryogenèse |
 | [0296c](0296-file-cognitive-du-signal-plane.md) | File cognitive durable du Signal Plane | Voir le fichier | -- | -- |
 | [0296d](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
-| [0296e](0296-revue-multi-fournisseur-aeis.md) | Revue AEIS par fournisseurs indépendants | Accepté | 2026-10-04 | AEIS, fournisseurs, processus, promotion |
+| [0296e](0296-revue-multi-fournisseur-aeis.md) | Revue AEIS par fournisseurs distincts | Accepté, portée précisée par ADR 0642 | 2026-10-04 | AEIS, fournisseurs, processus, promotion |
 | [0297a](0297-budget-et-retroaction-aeis.md) | Budget et rétroaction homéostatique AEIS | Accepté | 2026-10-04 | AEIS, runtime, ré-arbitration, budget |
 | [0297b](0297-campagnes-biocenose-avec-sorties-verifiables.md) | Campagnes Biocénose avec sorties vérifiables | Accepté | 2026-10-04 | Biocénose, formation et qualification avec modèle local |
 | [0297c](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
@@ -762,6 +762,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0639](0639-reparation-authentifiee-gqwf.md) | Réparer GQWF depuis une réplique authentifiée | Accepté, réparation locale bornée aux blobs | 2026-10-18 | GQWF, CAS, réparation, quarantaine, tenants, preuves |
 | [0640](0640-journal-revocation-ancre-durable.md) | Journal de révocation à ancre durable | Accepté | 2026-10-18 | révocation, durabilité, anti-rollback, réplication |
 | [0641](0641-canonisation-des-sources-de-qualification.md) | Canonisation des sources de qualification | Accepté | 2026-10-18 | preuve, reproductibilité, qualification fondatrice |
+| [0642](0642-borner-les-heuristiques-aeis.md) | Borner les heuristiques et les garanties AEIS | Accepté | 2026-10-18 | AEIS, calibration, diversité, preuve, indépendance |
 | [0643](0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) | Adresser le catalogue GQWF et unifier les runtimes opt-in | Accepté | 2026-10-18 | GQWF, CAS, SQLite, reprise, runtimes, matérialisation |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par

@@ -3,6 +3,9 @@
 const assert = require('node:assert');
 const h = require('../src/services/epistemic/epistemicHomeostasisService');
 
+assert.strictEqual(h.ASSURANCE_PRESSURE_POLICY.calibrationStatus, 'uncalibrated_engineering_default');
+assert.strictEqual(h.ASSURANCE_PRESSURE_POLICY.interpretation, 'ordinal_verification_effort');
+
 function fixture(overrides) {
   return Object.assign({
     claim: 'Processus X garantit Y',
@@ -21,6 +24,9 @@ assert.strictEqual(h.tierFromPressure(0.4), 'lean');
 assert.strictEqual(h.tierFromPressure(0.6), 'adaptive');
 assert.strictEqual(h.tierFromPressure(0.85), 'inflamed');
 assert.strictEqual(h.tierFromPressure(0.95), 'systemic');
+assert.strictEqual(h.tierFromPressure(0.4, {
+  baseline: 0.5, lean: 0.6, adaptive: 0.8, inflamed: 0.95,
+}), 'baseline');
 
 const avec = h.computePressure(fixture({ evidence: [{ quality: 0.9 }] }));
 const sans = h.computePressure(fixture({ evidence: [] }));

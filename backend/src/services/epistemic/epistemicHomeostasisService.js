@@ -3,14 +3,19 @@
 /**
  * Epistemic homeostasis service.
  *
- * Computes the assurance pressure for a claim from risk, uncertainty,
- * contradiction, novelty, cost and evidence. The pressure determines which
- * verification tier should be recruited, without a hard-wired gate table.
+ * Computes an ordinal scheduling score from risk, uncertainty, contradiction,
+ * novelty, cost and evidence. It routes verification effort; it is neither a
+ * probability nor a validated estimate of verification effectiveness.
  *
  * Invariant: higher pressure must not decrease the recruited effort.
  */
 
-const EPSILON = 1e-6;
+const DEFAULT_TIER_BOUNDARIES = Object.freeze({
+  baseline: 0.25,
+  lean: 0.5,
+  adaptive: 0.7,
+  inflamed: 0.9,
+});
 
 function clampAt(x, min, max) {
   if (x < min) return min;
@@ -95,6 +100,14 @@ const DEFAULT_WEIGHTS = Object.freeze({
   cost: 0.05,
 });
 
+const ASSURANCE_PRESSURE_POLICY = Object.freeze({
+  id: 'aeis-pressure-routing-v1',
+  calibrationStatus: 'uncalibrated_engineering_default',
+  interpretation: 'ordinal_verification_effort',
+  weights: DEFAULT_WEIGHTS,
+  tierBoundaries: DEFAULT_TIER_BOUNDARIES,
+});
+
 function computePressure(input, weights = DEFAULT_WEIGHTS) {
   const risk = normalizeRisk(input);
   const uncertainty = normalizeUncertainty(input);
@@ -123,11 +136,11 @@ function totalWeights(weights) {
   return keys.reduce((sum, key) => sum + (Number(weights[key]) || 0), 0) || 1;
 }
 
-function tierFromPressure(pressure) {
-  if (pressure < 0.25) return 'baseline';
-  if (pressure < 0.5) return 'lean';
-  if (pressure < 0.7) return 'adaptive';
-  if (pressure < 0.9) return 'inflamed';
+function tierFromPressure(pressure, boundaries = DEFAULT_TIER_BOUNDARIES) {
+  if (pressure < boundaries.baseline) return 'baseline';
+  if (pressure < boundaries.lean) return 'lean';
+  if (pressure < boundaries.adaptive) return 'adaptive';
+  if (pressure < boundaries.inflamed) return 'inflamed';
   return 'systemic';
 }
 
@@ -138,7 +151,9 @@ function feedbackEffect(pressure, previousPressure, evidenceDelta) {
 }
 
 module.exports = {
+  ASSURANCE_PRESSURE_POLICY,
   DEFAULT_WEIGHTS,
+  DEFAULT_TIER_BOUNDARIES,
   computePressure,
   tierFromPressure,
   feedbackEffect,

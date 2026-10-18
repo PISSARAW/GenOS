@@ -1,9 +1,9 @@
-# ADR 0296 — Revue AEIS par fournisseurs indépendants
+# ADR 0296 — Revue AEIS par fournisseurs distincts
 
-- **Statut** : Accepté
+- **Statut** : Accepté, portée d'indépendance précisée par l'ADR 0642
 - **Date** : 2026-10-04
 - **Domaine** : AEIS, fournisseurs, processus, promotion
-- **Lié à** : ADR 0233, ADR 0294
+- **Lié à** : ADR 0233, ADR 0294, ADR 0642
 
 ## Contexte
 
@@ -23,6 +23,8 @@ porter un verdict contrôlé. Les revues sont persistées sous la portée et le 
 digest de réponse et provenance processuelle. Un quorum absent, une sortie invalide, un
 désaccord ou un verdict autre que `supports` impose un veto du Host lorsque la revue est
 requise. Le consensus ne crée jamais de reçu de preuve formelle.
+La distinction de fournisseur et de processus ne prouve pas l'indépendance
+épistémique : modèles, corpus, méthodes et erreurs peuvent rester corrélés.
 
 ## Conséquences
 
@@ -30,7 +32,8 @@ requise. Le consensus ne crée jamais de reçu de preuve formelle.
   promotion ; les secrets d'un autre fournisseur ne sont pas injectés dans le worker.
 - Négatives : sans configuration de deux fournisseurs et leurs accès réseau, la promotion
   avec cette option est refusée. Un consensus de modèles reste consultatif sur la vérité
-  du claim ; les vérificateurs exécutables restent nécessaires.
+  du claim ; les vérificateurs exécutables restent nécessaires. Les réponses contrôlées
+  des tests qualifient le protocole, pas l'indépendance ni l'efficacité épistémique.
 
 ## Alternatives
 

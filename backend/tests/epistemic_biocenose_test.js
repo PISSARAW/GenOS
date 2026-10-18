@@ -3,6 +3,9 @@
 const assert = require('node:assert');
 const B = require('../src/services/epistemic/epistemicBiocenoseService');
 
+assert.strictEqual(B.DEFAULT_DIVERSITY_POLICY.calibrationStatus, 'uncalibrated_descriptive_index');
+assert.strictEqual(B.DEFAULT_DIVERSITY_POLICY.calibratedScoreThreshold, null);
+
 // ---- species richness ----
 
 assert.strictEqual(B.speciesRichness([{ type: 'a' }, { type: 'b' }]), 2);
@@ -46,6 +49,16 @@ const realDiverse = [
 ];
 assert.ok(B.effectiveDiversity(realDiverse) > 0.3, 'groupe diversifié doit avoir une diversité élevée');
 assert.ok(!B.isMonoculture(realDiverse));
+assert.ok(!B.isMonoculture(realDiverse, { calibratedScoreThreshold: 0.99 }));
+assert.ok(B.isMonoculture(realDiverse, {
+  calibrationStatus: 'calibrated', calibratedScoreThreshold: 0.99,
+}));
+
+const twoSpecies = realDiverse.slice(0, 2);
+assert.ok(
+  B.effectiveDiversity(realDiverse) > B.effectiveDiversity(twoSpecies),
+  'ajouter une espèce distincte et équilibrée doit augmenter l indice descriptif'
+);
 
 // ---- shannon diversity ----
 
@@ -70,10 +83,12 @@ assert.ok(report.effectiveDiversity > 0);
 assert.ok(report.shannonDiversity > 0);
 assert.ok(!report.isMonoculture);
 assert.ok(!report.shouldRecruit);
+assert.strictEqual(report.epistemicIndependenceMeasured, false);
 
 const monoReport = B.cognitiveBiocenose(monoculture);
 assert.ok(monoReport.isMonoculture);
 assert.ok(monoReport.shouldRecruit);
+assert.ok(monoReport.monocultureReasons.includes('insufficient_distinct_types'));
 assert.strictEqual(monoReport.recommendNiche, 'replay');
 
 console.log('OK epistemicBiocenoseService');

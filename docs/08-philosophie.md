@@ -1036,8 +1036,8 @@ La prochaine exposition à un pattern connu déclenche une réponse plus rapide.
 
 ### 29.7. Inflammation — homéostasie de l'effort
 
-Le niveau d'assurance n'est pas une table arbitraire. Il découle d'une réponse
-homéostatique aux signaux de danger :
+Le niveau d'effort est une politique heuristique appliquée aux signaux de
+danger :
 
 ```text
 H = f(risk, uncertainty, contradiction, novelty, cost, evidence)
@@ -1051,8 +1051,10 @@ pressure < 0.90  → inflamed   (+ counterexample worker + independent verifier)
 pressure ≥ 0.90  → systemic   (+ replay + source verification + human escalation)
 ```
 
-Ces seuils correspondent à l'implémentation réelle dans
-`epistemicHomeostasisService.tierFromPressure()`.
+Ces seuils correspondent à l'implémentation dans
+`epistemicHomeostasisService.tierFromPressure()`, mais ils ne disposent pas
+d'une calibration empirique. Ils ordonnent l'effort ; ils ne mesurent ni la
+vérité du claim ni l'efficacité de la vérification.
 
 ### 29.8. Tolérance et régulateur T-reg
 
@@ -1074,16 +1076,19 @@ L'apoptose est suivie d'une autopsie qui alimente la mémoire immunitaire.
 
 ### 29.10. Biocénose cognitive
 
-Le système mesure la diversité fonctionnelle réelle des vérificateurs. Une
-monoculture cognitive — quatre modèles généralistes qui se trompent ensemble —
-a une effective diversity ≈ 1. Le système recrute alors une autre niche.
+Le système décrit la variété observée des types, niches, erreurs, outils,
+providers et stratégies ainsi que leur équilibre. Par défaut, moins de deux
+types, niches ou stratégies déclenche un recrutement. L'indice agrégé est non
+calibré et la variété de providers ne démontre pas leur indépendance. Une
+nouvelle niche élargit la procédure sans créer de vérité.
 
 ### 29.11. Métapopulation épistémique
 
 Les populations de raisonnement sont isolées pour éviter la contamination
 (convergence forcée, groupthink). Seuls les résultats migrent, jamais les
-prompts. La convergence indépendante est plus robuste qu'un accord après
-influence mutuelle.
+prompts. Le runtime mesure une convergence obtenue sous isolation processuelle.
+Cette observation ne suffit pas à démontrer une indépendance épistémique : les
+populations peuvent partager entraînement, données, hypothèses ou erreurs.
 
 ### 29.12. Stigmergie épistémique
 

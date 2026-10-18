@@ -8,6 +8,10 @@ fichiers. Elle s'appuie sur le résultat formel `genos.formal-result/v1` et prod
 une décision bornée et auditable. Elle ne constitue pas un oracle de vérité
 mathématique générale.
 
+Sa garantie porte sur l'intégrité de la procédure et sur des prédicats
+mécanisables. Elle ne valide pas automatiquement qu'un résumé est fidèle, qu'un
+refactoring est sain ou qu'une architecture est pertinente.
+
 Le mécanisme reprend trois idées biologiques :
 
 - le complexe majeur d'histocompatibilité expose l'identité, les hypothèses et le
@@ -149,6 +153,13 @@ identique exige un témoin fourni par un vérificateur de domaine. De même, deu
 attestations identiques réduisent le risque de contrainte oubliée sans prouver que
 la spécification humaine initiale était exhaustive.
 
+Les poids et frontières de pression sont une politique d'ordonnancement non
+calibrée (`aeis-pressure-routing-v1`), et non un modèle prédictif. L'indice de
+diversité est descriptif ; sa politique par défaut détecte une monoculture par
+des minima structuraux explicites plutôt que par un seuil implicite à `0.3`.
+La variété de providers, modèles ou processus n'établit pas leur indépendance
+épistémique.
+
 ## Garanties AEIS dans `approveRun()`
 
 - L'affirmation doit décrire exactement le prédicat de commande exécuté :
@@ -156,7 +167,8 @@ la spécification humaine initiale était exhaustive.
 - Le quorum comporte au moins deux vérificateurs exécutés indépendamment, dans
   des workspaces distincts, avec reçus signés liés au résultat et à sa preuve.
   La ré-arbitration conserve les descripteurs des lots précédents.
-- Les niches sont recrutées selon pression, preuves observées et budget. Le
+- Les niches sont recrutées selon une pression heuristique, les preuves observées
+  et le budget. Le
   rapport contient au maximum 32 claims traitées séquentiellement ; le budget
   par claim doit permettre de 2 à 8 exécutions.
 - Si la politique multi-provider est active, tous les providers distincts
@@ -165,6 +177,8 @@ la spécification humaine initiale était exhaustive.
 - Les revues provider s'exécutent dans des processus enfants bornés, avec
   environnement réduit et SQLite en mémoire. Le heap Node limité à 128 Mio
   ne constitue pas une limite de mémoire totale ni un conteneur.
+- Les revues provider et leurs fixtures contrôlées qualifient le protocole de
+  transport, de binding et de veto. Elles ne créent ni oracle ni vérité terrain.
 - Un timeout est inconclusif. Une contre-preuve exécutée et confirmée reste
   opposable au Host et au régulateur.
 

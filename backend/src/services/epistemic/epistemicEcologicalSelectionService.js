@@ -3,12 +3,11 @@
 /**
  * Sélection écologique épistémique.
  *
- * Consensus pondéré par diversité fonctionnelle et calibration, pas par
- * simple majorité. Un groupe avec une diversité effective élevée et des
- * erreurs non corrélées produit un consensus plus fiable.
+ * Consensus pondéré et diagnostics descriptifs. Sans campagne de calibration,
+ * ni la variété observée ni l'accord des votes ne qualifient la fiabilité.
  */
 
-const { effectiveDiversity } = require('./epistemicBiocenoseService');
+const { effectiveDiversity, isMonoculture } = require('./epistemicBiocenoseService');
 
 function brierScore(probability, outcome) {
   const o = outcome ? 1 : 0;
@@ -25,11 +24,12 @@ function weightedConsensus(votes = [], diversity = 0.5) {
     totalWeight,
     voteCount: votes.length,
     diversity,
-    confidence: Math.min(1, diversity * Math.log2(Math.max(2, votes.length)) / Math.log2(Math.max(2, votes.length))),
+    confidence: Math.min(1, diversity),
+    confidenceStatus: 'uncalibrated_proxy',
   };
 }
 
-function consensusQuality(votes = [], diversity = 0.5) {
+function consensusQuality(votes = [], diversity = 0.5, calibration = {}) {
   if (!votes.length) return null;
   const probs = votes.map((v) => v.probability || 0);
   const mean = probs.reduce((a, b) => a + b, 0) / probs.length;
@@ -41,15 +41,20 @@ function consensusQuality(votes = [], diversity = 0.5) {
     effectiveDiversity: diversity,
     consensus: weighted.consensus,
     confidence: weighted.confidence,
-    isReliable: diversity > 0.3 && variance < 0.25,
+    confidenceStatus: weighted.confidenceStatus,
+    isReliable: calibration.status === 'calibrated'
+      && diversity >= calibration.minimumDiversity
+      && variance <= calibration.maximumVariance,
   };
 }
 
 function ecologicalSelection(populations = [], opts = {}) {
   if (!populations.length) return null;
-  const diversityThreshold = opts.diversityThreshold || 0.3;
+  const diversityThreshold = Number.isFinite(opts.diversityThreshold)
+    ? opts.diversityThreshold : null;
   const selected = populations.filter((p) => {
-    const div = p.effectiveDiversity || effectiveDiversity(p.reviewers || []);
+    if (diversityThreshold === null) return !isMonoculture(p.reviewers || [], opts.diversityPolicy);
+    const div = p.effectiveDiversity ?? effectiveDiversity(p.reviewers || []);
     return div >= diversityThreshold;
   });
   return {
@@ -57,6 +62,7 @@ function ecologicalSelection(populations = [], opts = {}) {
     total: populations.length,
     selectedIds: selected.map((p) => p.id || p.niche),
     diversityThreshold,
+    selectionBasis: diversityThreshold === null ? 'structural_minima' : 'explicit_threshold',
   };
 }
 

@@ -30,6 +30,8 @@ assert.ok(quality.variance >= 0);
 assert.ok(quality.consensus > 0);
 assert.ok(typeof quality.confidence === 'number');
 assert.strictEqual(typeof quality.isReliable, 'boolean');
+assert.strictEqual(quality.confidenceStatus, 'uncalibrated_proxy');
+assert.strictEqual(quality.isReliable, false);
 
 // ---- ecological selection ----
 
@@ -43,6 +45,7 @@ assert.strictEqual(selected.selected, 2);
 assert.strictEqual(selected.total, 3);
 assert.ok(selected.selectedIds.includes('A'));
 assert.ok(selected.selectedIds.includes('C'));
+assert.strictEqual(selected.selectionBasis, 'explicit_threshold');
 
 // ---- consensus observer ----
 

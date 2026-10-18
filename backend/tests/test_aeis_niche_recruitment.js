@@ -9,7 +9,14 @@ async function main() {
   const recruited = await recruitAndExecute({ reviewers, execute: async (niche) => { called += 1; return { type: niche.type, status: 'verified' }; } });
   assert.equal(called, 1);
   assert.equal(recruited.result.status, 'verified');
-  const diverse = await recruitAndExecute({ reviewers: [{ type: 'a' }, { type: 'b' }, { type: 'c' }], execute: async () => { called += 1; } });
+  const diverse = await recruitAndExecute({
+    reviewers: [
+      { type: 'a', strategy: 's1' },
+      { type: 'b', strategy: 's2' },
+      { type: 'c', strategy: 's3' },
+    ],
+    execute: async () => { called += 1; },
+  });
   assert.equal(diverse.result, null);
   console.log('AEIS niche recruitment is conditional and executes the selected niche.');
 }
