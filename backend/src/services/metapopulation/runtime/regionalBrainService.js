@@ -14,6 +14,7 @@ const regionalMigrationLoop = require('./regionalMigrationLoopService');
 const { runRegionalRuntime } = require('./regionalRuntimeService');
 const variantController = require('./variantRegionalController');
 const lifecycleController = require('./regionalLifecycleController');
+const externalAdapterQualification = require('./externalAdapterQualificationService');
 
 function createRegionalBrain(options = {}) {
   return {
@@ -27,6 +28,13 @@ function createRegionalBrain(options = {}) {
 
 async function runAutonomousRegionalRuntime(input = {}, options = {}) {
   return runRegionalRuntime(input, { ...options, adapters: createRegionalBrain(options) });
+}
+
+async function qualifyExternalAdapters(options = {}) {
+  const results = [];
+  results.push(await externalAdapterQualification.qualifyExternalAdapter('evaluateColonization', options.evaluateColonization,
+    { metapopulationId: options.metapopulationId }));
+  return { qualified: results.every((item) => item.qualified), adapters: results };
 }
 
 async function observeRegion(input, options) {
@@ -274,4 +282,4 @@ function brainError(code, message) { return Object.assign(new Error(message), { 
 
 module.exports = { createRegionalBrain, runAutonomousRegionalRuntime, observeRegion,
   diagnoseRegion, planRegionalActions, planRegionalRuntimeActions, executeRegionalActions,
-  verifyRegionalActions, CORE_ACTION_EXECUTORS };
+  verifyRegionalActions, qualifyExternalAdapters, CORE_ACTION_EXECUTORS };

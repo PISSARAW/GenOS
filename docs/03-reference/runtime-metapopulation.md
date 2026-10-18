@@ -206,9 +206,12 @@ npm --prefix backend run test:metapopulation
 node backend/bin/metapopulation-benchmark.cjs 1
 ```
 
-Le profil dédié contient dix suites : completion, durable execution,
+Le profil dédié contient onze suites : completion, durable execution,
 cultural persistence, migration review, morphogenesis integration, regional brain,
-variants runtime, variant gaps, variant selection et wiring.
+variants runtime, variant gaps, variant selection, wiring et external adapter
+qualification. La qualification externe minimale (adaptateur `evaluateColonization`)
+est couverte par `externalAdapterQualificationService` et son test dédié ; la
+qualification globale reste ouverte.
 Les [tests de complétion](../../backend/tests/test_metapopulation_completion.js)
 et [d'exécution durable](../../backend/tests/test_metapopulation_durable_execution.js)
 couvrent les effets sans mutation à PLAN, les preuves invalides, la recolonisation,

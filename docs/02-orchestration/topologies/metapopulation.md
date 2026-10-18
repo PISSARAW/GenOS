@@ -1,6 +1,7 @@
 # Metapopulation : Persistance Régionale malgré l'Instabilité Locale
 
 - **Statut** : runtime régional implémenté ; qualification produit expérimentale
+- **Progression 2026-10-18** : qualification externe minimale (adaptateur `evaluateColonization`) couverte par `externalAdapterQualificationService` et `test_metapopulation_external_adapter_qualification.js`. La qualification globale reste ouverte ; le statut n'est pas promu en implémenté.
 - **Portée** : persistance régionale par populations semi-indépendantes, migration et recolonisation
 - **Dernière revue** : 2026-10-16
 
@@ -469,6 +470,7 @@ Preuve : `buildWorkerContract` + `promptRule` OK pour les 7 kinds le 2026-10-14 
 | Fichier | Rôle |
 |---------|------|
 | `backend/src/services/metapopulationCoordinationService.js` | Composition, quorum, régénération, adaptation connexions |
+| `backend/src/services/metapopulation/runtime/externalAdapterQualificationService.js` | Qualification minimale des adaptateurs externes (`evaluateColonization`) |
 | `backend/src/services/biologicalModeService.js` | Définition et composition des rôles Metapopulation |
 | `crates/genos-orchestrator/src/evolution.rs` | Multi-îlots Rust (sélection, reproduction, mutation, migration) |
 | `backend/src/services/proceduralMetapopulationService.js` | Populations procédurales, collapse, recolonize |

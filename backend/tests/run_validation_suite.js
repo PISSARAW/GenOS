@@ -97,6 +97,7 @@ const suites = {
     ['test_metapopulation_variant_gaps.js', 'test_metapopulation_variant_gaps.js'],
     ['test_metapopulation_variant_selection.js', 'test_metapopulation_variant_selection.js'],
     ['test_metapopulation_wiring.js', 'test_metapopulation_wiring.js'],
+    ['test_metapopulation_external_adapter_qualification.js', 'test_metapopulation_external_adapter_qualification.js'],
   ],
   variantIntegration: [
     ['scout colony evidence and persistence', 'test_daemon_scout_colony.js'],
