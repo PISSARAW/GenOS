@@ -718,7 +718,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0604](0604-enveloppe-execution-v2-et-heritage-lecture-seule.md) | Sceller l'exécution v2 et classer l'héritage en lecture seule | Accepté | 2026-10-18 | runtime, autorité, reproductibilité, provenance |
 | [0605a](0605-dispositions-implementation-philosophique.md) | Dispositions d'implémentation philosophique | Accepté | 2026-10-18 | philosophie opérationnelle, contrats, autorité runtime |
 | [0605b](0605-routage-missions-supervisees-gqwf.md) | Router les missions supervisées vers GQWF | Accepté, activation explicite | 2026-10-18 | Workspaces, exécution supervisée, GQWF |
-| [0606](0606-socle-durable-ontogenese.md) | Socle durable V2 de l’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, persistance, idempotence, autorité |
+| [0606a](0606-lier-morphogenese-et-agentdna.md) | Lier la morphogenèse et AgentDNA | Accepté | 2026-10-18 | morphogenèse, AgentDNA, incarnation, preuve, restauration |
+| [0606b](0606-socle-durable-ontogenese.md) | Socle durable V2 de l’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, persistance, idempotence, autorité |
 | [0607a](0607-audits-specialises-capacites-philosophiques.md) | Audits spécialisés des capacités philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, identité, causalité, biomimétisme |
 | [0607b](0607-reprise-exhaustive-ontogenese.md) | Reprise exhaustive et fail-closed de l’Ontogenèse | Accepté pour les opérations raccordées | 2026-10-18 | Ontogenèse, crash recovery, idempotence, preuves |
 | [0608a](0608-confiner-ontogenese-job-objects-windows.md) | Confiner l’Ontogenèse avec les Job Objects Windows | Accepté | 2026-10-18 | Ontogenèse, Windows, processus, confinement |
@@ -733,11 +734,13 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0613](0613-dossier-preuve-falsifiable-avant-promotion.md) | Dossier de preuve falsifiable avant promotion | Voir le fichier | -- | -- |
 | [0614](0614-collecte-explicite-racines-blobs-gqwf.md) | Collecter explicitement les racines et blobs GQWF | Accepté, activation explicite | 2026-10-18 | GQWF, stockage, récupération, exploitation |
 | [0615](0615-comparaisons-organisations-philosophiques.md) | Comparaisons exécutées des organisations philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, organisations, expérimentation, preuve |
-| [0616](0616-qualification-appariee-copy-on-write-gqwf.md) | Qualifier GQWF par comparaison Copy-on-Write appariée | Accepté pour la qualification locale | 2026-10-18 | GQWF, workspaces, benchmark, activation progressive |
+| [0616a](0616-hysteresis-transactionnelle-et-adaptateurs-signes.md) | Hystérésis transactionnelle et adaptateurs externes signés | Accepté | 2026-10-18 | morphogenèse, hystérésis, expérimentation, attestations |
+| [0616b](0616-qualification-appariee-copy-on-write-gqwf.md) | Qualifier GQWF par comparaison Copy-on-Write appariée | Accepté pour la qualification locale | 2026-10-18 | GQWF, workspaces, benchmark, activation progressive |
 | [0617](0617-attestation-independante-contrats-philosophiques.md) | Attestation indépendante des contrats philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, preuve, maturité, indépendance |
 | [0618a](0618-canari-determine-et-reversible-gqwf.md) | Canari déterministe et réversible pour GQWF | Accepté | 2026-10-18 | -- |
 | [0618b](0618-supervision-dynamique-leases-mcp.md) | Superviser dynamiquement les leases MCP au point d'effet | Accepté | 2026-10-18 | runtime, MCP, leases, budgets, isolation, reçus |
 | [0619](0619-dispatch-workers-philosophiques-isoles.md) | Dispatch de workers philosophiques isolés | Accepté | 2026-10-18 | philosophie opérationnelle, workers, isolation, preuve |
+| [0620](0620-calibrage-empirique-profil-et-hysteresis.md) | Calibrer le profil morphologique et l'hystérésis sur des preuves vérifiées | Accepté | 2026-10-18 | morphogenèse, apprentissage causal, calibration, hystérésis |
 | [0621](0621-frontiere-processus-et-reprise-capsules.md) | Frontière de processus et reprise explicite des capsules | Accepté | 2026-10-18 | runtime, isolation, reprise, quarantaine, preuve |
 | [0622](0622-qualification-contrefactuelle-liee-aux-preuves.md) | Qualification contrefactuelle liée aux preuves | Accepté | 2026-10-18 | runtime, causalité, falsification, provenance, promotion |
 | [0623](0623-gate-requalification-principes-fondateurs.md) | Gate de requalification des principes fondateurs | Accepté | 2026-10-18 | qualification, preuve, gouvernance, documentation |
@@ -752,6 +755,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0632](0632-backend-overlayfs-linux-gqwf.md) | Backend OverlayFS Linux GQWF | Accepté, activation explicite ou politique auto | 2026-10-18 | GQWF, workspaces, OverlayFS, Copy-on-Write, reprise |
 | [0633](0633-collecte-caches-lower-overlayfs-gqwf.md) | Collecter les caches lower OverlayFS GQWF | Accepté | 2026-10-18 | GQWF, OverlayFS, garbage collection, reprise, preuves |
 | [0634](0634-qualification-appariee-materialiseurs-gqwf.md) | Qualifier les matérialiseurs GQWF par paires | Accepté, protocole local non promoteur | 2026-10-18 | GQWF, matérialisation, OverlayFS, reflink, benchmark, preuves |
+| [0635](0635-scrub-integrite-store-gqwf.md) | Scrubber explicitement le store GQWF | Accepté, détection sans réparation | 2026-10-18 | GQWF, stockage, intégrité, récupération, preuves |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -25,6 +25,7 @@
 
 Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 
+- [plan-maturite-principes-fondateurs-95.md](plan-maturite-principes-fondateurs-95.md) — six phases opposables pour viser 95/100 sans confondre plan, preuve et promotion.
 - [plan-validation-indicateurs.md](plan-validation-indicateurs.md) — audit du programme de fermeture causale, référentiels 14/15 et plan de validation par étapes.
 - [suivi-validation-indicateurs.md](suivi-validation-indicateurs.md) — sous-points, résultats et obstacles rencontrés pendant l'exécution du plan.
 - [reprise-validation-conscience-2026-10-04.md](reprise-validation-conscience-2026-10-04.md) — reprise au HEAD, vérifications ciblées et protocole pilote GWT-3.

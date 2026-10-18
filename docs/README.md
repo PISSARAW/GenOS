@@ -11,6 +11,8 @@
 - [ADR 0609 — Basculer l’Ontogenèse vers un hôte toujours disponible](adr/0609-bascule-ontogenese-hote-toujours-disponible.md) — bascule froide, génération monotone, lease et reprise explicite sans partage SQLite concurrent.
 - [ADR 0610 — Purger les traces et worktrees de l’Ontogenèse](adr/0610-purge-complete-traces-worktrees-ontogenese.md) — purge confirmée, confinée et attestée des contenus opérationnels d’un projet arrêté.
 - [ADR 0611 — Frontière de livraison d’Ontogenèse](adr/0611-frontiere-livraison-ontogenese.md) — commit local vérifié, push et fusion explicitement hors autorité.
+- [ADR 0616 — Hystérésis transactionnelle et adaptateurs externes signés](adr/0616-hysteresis-transactionnelle-et-adaptateurs-signes.md) — budget par mission consommé atomiquement et preuves Ed25519 des exécutions externes.
+- [ADR 0635 — Scrubber explicitement le store GQWF](adr/0635-scrub-integrite-store-gqwf.md) — inventaire non destructif, détection durable des corruptions et base de la future réparation authentifiée.
 - [ADR 0566a — Autorité Rust et snapshot durable de morphogenèse](adr/0566-autorite-rust-et-snapshot-durable-de-morphogenese.md) — commit de production signé, snapshot durable et rollback des processus, workspaces, baux et budgets.
 - [ADR 0527 — Rotation de confiance des clés de fossilisation](adr/0527-rotation-confiance-cles-fossiles.md) — chevauchement des clés approuvées, retrait sans réécriture des attestations et vérification ciblée du corpus.
 - [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.
@@ -320,6 +322,7 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-positionnement/README.md](07-positionnement/README.md)
 
 - [audit-affirmations-operationnelles.md](06-qualite-preuves/audit-affirmations-operationnelles.md) — audit code/documentation des contrats, routes, MCP, sécurité, persistance et reprise.
+- [plan-maturite-principes-fondateurs-95.md](06-qualite-preuves/plan-maturite-principes-fondateurs-95.md) — six phases de fermeture transverse vers 95/100, sans promotion avant preuve courante.
 - [qualification-workers.md](06-qualite-preuves/qualification-workers.md) — critères C0–C4 et campagnes de missions workers avec preuves et limites ; [ADR 0399](adr/0399-oracles-observation-workers-bornes.md), [ADR 0400](adr/0400-oracles-workers-deterministes-structures.md), [ADR 0401](adr/0401-oracle-formel-lean-borné.md) et [ADR 0402](adr/0402-oracles-workers-recuperation-et-passation.md).
 - [plan-implementation-gvx.md](06-qualite-preuves/plan-implementation-gvx.md) — avancement des lots GVX et état des preuves attendues.
 - [validation-cycle-standard-gvx.md](06-qualite-preuves/validation-cycle-standard-gvx.md) — tests exécutés au commit `ac3423cb` et limites de leur portée.
@@ -819,4 +822,5 @@ lié (blocage systémique), correctifs proposés.
 - [ADR 0396 — Crédit externe mesuré pour la régulation des workers](adr/0396-credit-externe-regulation-workers.md).
 - [ADR 0397c — Relecture bornée des preuves de workers terminés](adr/0397-relecture-preuve-worker-termine.md).
 - [ADR 0610 — Protocole P0 du commit morphogénétique](adr/0610-protocole-p0-commit-morphogenetique.md).
+- [ADR 0620 — Calibrage empirique du profil et de l'hystérésis](adr/0620-calibrage-empirique-profil-et-hysteresis.md).
 - [ADR 0627 — Frontière entre claims fonctionnels et phénoménaux](adr/0627-frontiere-claims-fonctionnels-et-phenomenaux.md) — vocabulaire machine, preuves requises et refus des conclusions phénoménales.
