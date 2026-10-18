@@ -1,8 +1,8 @@
 # Mémoire et apprentissage dans GenOS
 
-- **Statut** : Implémenté — mémoire épisodique, vectorielle, scoring, consolidation/pruning, mémoire de négative knowledge, Golden Path et provenance sont disponibles dans le runtime.
-- **Portée** : `backend/src/services/episodicMemoryService.js`, `vectorMemoryService.js`, `memoryScoring.js`, `sleepCycle.js`, `primitiveHandlers/memoryDeadEnds.js`, `trajectoryService.js`, `provenanceResolver.js`.
-- **Dernière revue** : 2026-10-14.
+- **Statut** : Implémenté — mémoire épisodique, vectorielle, scoring, consolidation/pruning, mémoire de négative knowledge, Golden Path, provenance, mémoire de travail (Node), mémoire ancestrale et héritage de risque sont disponibles dans le runtime.
+- **Portée** : `backend/src/services/episodicMemoryService.js`, `vectorMemoryService.js`, `memoryScoring.js`, `sleepCycle.js`, `primitiveHandlers/memoryDeadEnds.js`, `trajectoryService.js`, `provenanceResolver.js`, `services/memory/workingMemoryService.js`, `services/memory/ancestralMemoryService.js`, `services/memory/riskInheritanceService.js`.
+- **Dernière revue** : 2026-10-18.
 
 ## 1. Objet et périmètre
 
@@ -111,6 +111,24 @@ La recherche ne se résume pas à l’algorithme vectoriel pur ; elle intègre �
 - inhibition par signal négatif ;
 - “golden path” explicite ;
 - dead-end avoidance.
+
+### 2.4 Mémoire de travail (Node)
+
+La mémoire de travail est un cache borné avec TTL métabolique qui court-circuite le
+recalcul quand un problème identique a déjà été résolu récemment. Elle est
+implémentée côté Node dans
+[backend/src/services/memory/workingMemoryService.js](../../backend/src/services/memory/workingMemoryService.js)
+et exposée par l’outil MCP `genos_working_memory`.
+
+- `memorize(key, value, ttlMs)` : stocke une réponse avec une durée de vie ;
+- `recall(key)` : retourne la réponse mise en cache, ou `undefined` si expirée/absente ;
+- `forget(key)` : invalide une entrée ;
+- `prune()` : élimine les entrées expirées ;
+- `stats()` : taille, nombre de hits, TTL par défaut.
+
+Le cache est borné à 1024 entrées ; au-delà, l’entrée la plus ancienne est
+évincée. Le TTL par défaut est d’une heure. C’est une mémoire volatile
+(in-process), distincte de la mémoire épisodique persistée dans SQLite.
 
 ---
 
@@ -640,6 +658,35 @@ En gardant des dead ends et des preuves de provenance, GenOS réduit le risque d
 - se baser sur une source non verificable ;
 - perdre la trace d’une décision construite dans un contexte spécifique.
 
+### 13.5 Mémoire ancestrale et héritage de risque
+
+**Mémoire ancestrale** : traces mémorielles transmises d’un ancêtre à ses
+descendants au sein d’une même lignée. Implémentée côté Node dans
+[backend/src/services/memory/ancestralMemoryService.js](../../backend/src/services/memory/ancestralMemoryService.js)
+et exposée par l’outil MCP `genos_ancestral_memory`.
+
+- `memorize({ lineageId, memoryId, ancestorId, memory, salience })` : enregistre
+  une trace avec un score de salience ;
+- `recall(lineageId)` : liste les traces d’une lignée triées par salience ;
+- `forget(lineageId, memoryId)` : supprime une trace ;
+- `stats()` : nombre total de traces, nombre de lignées, capacité max.
+
+**Héritage de risque** : propagation atténuée d’un score de risque d’une entité
+source vers une cible au sein d’une lignée. Le risque se décote à chaque
+génération par un facteur d’atténuation (défaut 0,8). Implémenté dans
+[backend/src/services/memory/riskInheritanceService.js](../../backend/src/services/memory/riskInheritanceService.js)
+et exposé par l’outil MCP `genos_risk_inheritance`.
+
+- `propagate({ sourceId, targetId, risk, lineageId, depth })` : atténue le risque
+  selon la profondeur et l’enregistre pour la cible ;
+- `getRisk(agentId, lineageId)` : lit le risque hérité d’un agent ;
+- `decay(lineageId, factor)` : applique une décroissance à tous les risques
+  d’une lignée ;
+- `stats()` : nombre total de risques, lignées, atténuation.
+
+Ces deux services sont volatils (in-process) et non persistés dans SQLite ; ils
+sont destinés à l’orchestration en cours de mission.
+
 ---
 
 ## 14. Exemple concret de flux mémoire
@@ -742,10 +789,12 @@ Le point différenciant est que GenOS ne considère pas la mémoire comme un sim
 
 - combine mémoire épisodique, sémantique et vectorielle ;
 - utilise FTS5 + vec0 pour du retrieval hybride ;
+- ajoute une mémoire de travail bornée avec TTL métabolique (Node) ;
+- ajoute une mémoire ancestrale indexée par lignée et un héritage de risque atténué ;
 - réduit les erreurs par dead-end memory ;
 - consolide les expériences par score de récompense ;
 - synthétise les chemins de succès ;
-- applique un oubli contrôlé pour maintenir une mémoire sanitaires ;
+- applique un oubli contrôlé pour maintenir une mémoire sanitaire ;
 - trace la provenance de la connaissance ;
 - protège la mémoire de la contamination / mauvaise source / mauvais tenant.
 
@@ -766,6 +815,9 @@ La mémoire et l’apprentissage de GenOS sont structurés comme un système cog
 - sémantique pour les faits et les décisions ;
 - vectorielle pour la similarité ;
 - FTS5 / sqlite-vec pour l’accès hybride ;
+- **mémoire de travail bornée avec TTL métabolique (Node)** ;
+- **mémoire ancestrale indexée par lignée** ;
+- **héritage de risque atténué par génération** ;
 - STDP pour la plasticité synaptique ;
 - dead-end memory pour la sécurité cognitive ;
 - golden path pour la référence de succès ;
@@ -785,6 +837,9 @@ Les références de code les plus importantes sont :
 - [backend/src/services/primitiveHandlers/memory.js](../../backend/src/services/primitiveHandlers/memory.js)
 - [backend/src/services/provenanceResolver.js](../../backend/src/services/provenanceResolver.js)
 - [backend/src/db/schema.js](../../backend/src/db/schema.js)
+- [backend/src/services/memory/workingMemoryService.js](../../backend/src/services/memory/workingMemoryService.js)
+- [backend/src/services/memory/ancestralMemoryService.js](../../backend/src/services/memory/ancestralMemoryService.js)
+- [backend/src/services/memory/riskInheritanceService.js](../../backend/src/services/memory/riskInheritanceService.js)
 
 
 

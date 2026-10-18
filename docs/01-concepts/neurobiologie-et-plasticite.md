@@ -1,8 +1,8 @@
 # Neurobiologie et plasticité dans GenOS
 
-- **Statut** : Implémenté — neurobiologie Rust, glial, conscience, mémoire, cycles de sommeil et temporal cognition sont disponibles dans le runtime.
-- **Portée** : `crates/genos-biology/src/neurobiology/`, `crates/genos-biology/src/glial.rs`, `crates/genos-cell/src/cognitive_regulation.rs`, `backend/src/services/agentConscienceService.js`, `memoryStdp.js`, `sleepCycle.js`, `temporal.js`.
-- **Dernière revue** : 2026-09-17.
+- **Statut** : Implémenté — neurobiologie Rust, glial, conscience, mémoire, cycles de sommeil, temporal cognition, plasticité collective et teaching worker sont disponibles dans le runtime.
+- **Portée** : `crates/genos-biology/src/neurobiology/`, `crates/genos-biology/src/glial.rs`, `crates/genos-cell/src/cognitive_regulation.rs`, `backend/src/services/agentConscienceService.js`, `memoryStdp.js`, `sleepCycle.js`, `temporal.js`, `services/memory/collectivePlasticityService.js`, `services/memory/teachingWorkerService.js`, `services/mcpMemoryTools.js`.
+- **Dernière revue** : 2026-10-18.
 
 ## 1. Définition
 
@@ -561,7 +561,36 @@ Inspiré du pont thalamique observé chez les jumeaux siamois craniopages (parta
 
 ---
 
-## 12. Conclusion
+## 13. Plasticité collective et teaching worker (Node)
+
+**Plasticité collective** : mise à jour conjointe de poids synaptiques par canal
+sous l’effet d’un signal global, avec borne et atténuation. Modélise l’adaptation
+à l’échelle d’une population. Implémentée dans
+[backend/src/services/memory/collectivePlasticityService.js](../../backend/src/services/memory/collectivePlasticityService.js)
+et exposée par l’outil MCP `genos_collective_plasticity`.
+
+- `update({ channelId, signal, rate })` : ajuste le poids d’un canal (borne [0,1]) ;
+- `getWeight(channelId)` : lit le poids courant d’un canal ;
+- `aggregate(channelIds)` : moyenne des poids d’un ensemble de canaux ;
+- `decayAll()` : applique une décroissance à tous les canaux ;
+- `stats()` : nombre de canaux, taux d’apprentissage, décroissance.
+
+**Teaching worker / transmission** : exécute une procédure démontrée (ex.
+`subset_sum`) et vérifie que l’apprenant reproduit le transfert sur l’instance
+fournie. Le verdict porte uniquement sur l’instance fournie ; il ne prouve pas
+une généralisation. Implémenté dans
+[backend/src/services/memory/teachingWorkerService.js](../../backend/src/services/memory/teachingWorkerService.js)
+et exposé par l’outil MCP `genos_teaching_worker`.
+
+- `teach({ procedureId, demonstration, learnerIndices, input, target })` : vérifie
+  que les indices sont distincts, dans les bornes et totalisent la cible ;
+- `verifyTransfer(input, learnerIndices, target)` : contrôle de transfert pur,
+  sans exécution de procédure.
+
+Ces deux services sont volatils (in-process) et s’inscrivent dans la continuité
+de la plasticité synaptique et dendritique déjà présente dans le runtime Rust.
+
+## 14. Conclusion
 
 La neurobiologie et la plasticité chez GenOS sont un mécanisme de gouvernance cognitive pour les agents. Les synapses ne sont pas seulement des liens mémoire : elles expriment la causalité, la force de mémorisation, la dépression, la récupération et l’élagage.
 
@@ -592,6 +621,10 @@ C’est une architecture particulièrement adaptée à :
 - `backend/tests/test_rust_node_coherence.js`
 - `backend/tests/test_thalamic_bridge.js`
 - `backend/src/db/schema-tables-extensions.js`
+- `backend/src/services/memory/collectivePlasticityService.js`
+- `backend/src/services/memory/teachingWorkerService.js`
+- `backend/src/services/mcpMemoryTools.js`
+- `backend/tests/test_memory_plasticity_concepts.js`
 
 Ces fichiers sont la base d’implémentation qui justifie la documentation ci-dessus.
 
