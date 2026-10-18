@@ -280,7 +280,8 @@ async function executeGenos(input) {
         const tail = stderr.slice(-1000);
         return reject(new Error(`GenOS exited ${code}: ${head}${tail.length ? ` ... ${tail}` : ''}`));
       }
-      resolve(parseGenosReceipt(stdout));
+      try { resolve(parseGenosReceipt(stdout)); }
+      catch (error) { reject(error); }
     });
   });
 }

@@ -4,7 +4,8 @@ const { randomUUID } = require('crypto');
 
 function addNodeMutation(expr, m) {
   if (!expr.children) expr.children = [];
-  expr.children.push({ kind: 'TOPOLOGY', topology: m.topology || 'trinity', variant: m.variant, nodeId: m.nodeId || randomUUID() });
+  expr.children.push({ kind: 'TOPOLOGY', topology: m.topology || 'trinity', variant: m.variant,
+    nodeId: m.createdNodeId || m.nodeId || randomUUID() });
   return expr;
 }
 
@@ -25,24 +26,28 @@ function nestMutation(expr, m) {
   const host = expr.children?.find(c => c.nodeId === m.hostId);
   const inner = expr.children?.find(c => c.nodeId === m.innerId);
   if (!host || !inner) return expr;
-  return { kind: 'NEST', host: { ...host, children: [inner] }, inner, nodeId: m.nodeId || randomUUID() };
+  return { kind: 'NEST', host: { ...host, children: [inner] }, inner,
+    nodeId: m.createdNodeId || randomUUID() };
 }
 
 function unnestMutation(expr, m) {
   if (expr.kind !== 'NEST') return expr;
-  return { kind: 'PARALLEL', children: [expr.host, expr.inner], nodeId: m.nodeId || randomUUID() };
+  return { kind: 'PARALLEL', children: [expr.host, expr.inner],
+    nodeId: m.createdNodeId || randomUUID() };
 }
 
 function splitMutation(expr, m) {
   if (!expr.children) return expr;
   const mid = Math.ceil(expr.children.length / 2);
-  return { kind: 'PARALLEL', children: [ { kind: 'PARALLEL', children: expr.children.slice(0, mid) }, { kind: 'PARALLEL', children: expr.children.slice(mid) } ], nodeId: m.nodeId || randomUUID() };
+  return { kind: 'PARALLEL', children: [ { kind: 'PARALLEL', children: expr.children.slice(0, mid) }, { kind: 'PARALLEL', children: expr.children.slice(mid) } ],
+    nodeId: m.createdNodeId || randomUUID() };
 }
 
 function mergeMutation(expr, m) {
   if (!expr.children) return expr;
   const merged = expr.children.flatMap(c => c.children || [c]);
-  return { kind: 'PARALLEL', children: merged, nodeId: m.nodeId || randomUUID() };
+  return { kind: 'PARALLEL', children: merged,
+    nodeId: m.createdNodeId || randomUUID() };
 }
 
 function moveSubtreeMutation(expr, m) {

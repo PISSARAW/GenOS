@@ -7,25 +7,64 @@ const { MorphogenService } = require('./morphogenService');
 const { StructuralPressureService } = require('./structuralPressureService');
 const { CandidateEvaluator, CandidatePruner } = require('./candidateEvaluator');
 const { selectMinimumMorphology } = require('./minimalMorphologyPolicy');
+const { createCandidate, createSeededRandom } = require('./morphologyCandidate');
+const { QualityDiversityArchive } = require('./qualityDiversityArchive');
+const halving = require('./successiveHalving');
+
+function distributeOffspring(parents, total) {
+  const allocations = parents.map((parent) => ({ parent, count: 0, offset: 0 }));
+  for (let index = 0; index < total; index++) allocations[index % parents.length].count += 1;
+  let offset = 0;
+  for (const allocation of allocations) {
+    allocation.offset = offset;
+    offset += allocation.count;
+  }
+  return allocations.filter((allocation) => allocation.count > 0);
+}
+
+function generateOffspring(input = {}) {
+  return distributeOffspring(input.parents, input.count).flatMap((allocation) =>
+    generateCandidates(allocation.parent.expression, input.morphogen, {
+      count: allocation.count, random: input.random, generation: input.generation,
+      parentCandidateId: allocation.parent.candidateId, searchId: input.searchId,
+      searchBudget: input.searchBudget, candidateOffset: allocation.offset
+    }));
+}
+
+function searchBudget(context, runtime) {
+  const declared = context.searchBudget || {};
+  return halving.createEvaluationBudget({ ...declared,
+    defaultLimit: runtime.maxIterations * runtime.branchingFactor });
+}
 
 class CounterfactualSearch {
   constructor(opts = {}) {
     this.runtime = opts.runtime || new MorphologyRuntime();
     this.morphogen = new MorphogenService(opts.morphogen);
     this.pressure = new StructuralPressureService(opts.pressure);
-    this.evaluator = new CandidateEvaluator(opts.evaluator);
-    this.pruner = new CandidatePruner(opts.pruner);
+    this.evaluator = opts.evaluatorInstance || new CandidateEvaluator(opts.evaluator);
+    this.pruner = opts.prunerInstance || new CandidatePruner(opts.pruner);
     this.maxIterations = opts.maxIterations || 5;
     this.branchingFactor = opts.branchingFactor || 3;
+    this.seed = opts.seed || 'counterfactual-search';
   }
 
   async search(seedExpression, context) {
     if (context.spiral) return require('./spiralSearch').search(this, seedExpression, context);
+    const searchId = context.searchId || context.missionId || 'counterfactual-search';
+    const random = createSeededRandom(context.seed ?? this.seed);
+    const budget = searchBudget(context, this);
+    const archive = new QualityDiversityArchive(context.searchBudget || {});
+    const seedCandidate = createCandidate({ expression: seedExpression,
+      candidateId: `${searchId}:seed`, operator: 'SEED' });
     const searchState = {
       iteration: 0,
-      currentBest: { expression: seedExpression, score: 0 },
+      currentBest: { ...seedCandidate, score: { total: 0, breakdown: {} } },
       history: [],
-      morphogenSnapshots: []
+      morphogenSnapshots: [],
+      lineage: [seedCandidate],
+      parents: [seedCandidate],
+      stagnantRounds: 0
     };
 
     await this.pressure.computePressures(context);
@@ -33,19 +72,39 @@ class CounterfactualSearch {
     for (let iter = 0; iter < this.maxIterations; iter++) {
       searchState.iteration = iter;
 
-      const candidates = generateCandidates(searchState.currentBest.expression, this.morphogen.context, { count: this.branchingFactor });
+      const evaluationCount = halving.reserveEvaluations(budget, this.branchingFactor);
+      if (!evaluationCount) break;
+      const candidates = generateOffspring({ parents: searchState.parents,
+        count: evaluationCount, morphogen: this.morphogen.context, random,
+        generation: iter + 1, searchId, searchBudget: context.searchBudget });
 
       const evaluated = await this.evaluator.evaluate(candidates, context);
+      searchState.lineage.push(...evaluated);
+      archive.addAll(evaluated);
       const pruned = this.pruner.prune(evaluated);
 
       if (pruned.length === 0) break;
 
       const best = pruned[0];
-      if (best.score.total > searchState.currentBest.score) {
-        searchState.currentBest = { expression: best.expression, score: best.score.total };
+      const previousScore = searchState.currentBest.score.total;
+      if (best.score.total > searchState.currentBest.score.total) {
+        searchState.currentBest = best;
       }
+      searchState.stagnantRounds = searchState.currentBest.score.total > previousScore
+        ? 0 : searchState.stagnantRounds + 1;
+      const selection = halving.selectSurvivors(pruned, {
+        budget, archiveOptions: context.searchBudget || {}
+      });
+      searchState.parents = selection.survivors;
 
-      searchState.history.push({ iteration: iter, candidates: pruned.length, bestScore: searchState.currentBest.score });
+      searchState.history.push({ iteration: iter, candidates: pruned.length,
+        candidateIds: pruned.map((candidate) => candidate.candidateId),
+        evaluatedCandidateIds: evaluated.map((candidate) => candidate.candidateId),
+        survivorCandidateIds: selection.survivorCandidateIds,
+        eliminatedCandidateIds: selection.eliminatedCandidateIds,
+        selectedCandidateId: searchState.currentBest.candidateId,
+        bestScore: searchState.currentBest.score.total,
+        budget: halving.budgetSnapshot(budget) });
       searchState.morphogenSnapshots.push(this.morphogen.getAllSignals());
 
       if (this.shouldStop(searchState, context)) break;
@@ -53,17 +112,22 @@ class CounterfactualSearch {
 
     return {
       bestExpression: searchState.currentBest.expression,
-      bestScore: searchState.currentBest.score,
-      iterations: searchState.iteration + 1,
+      bestScore: searchState.currentBest.score.total,
+      bestCandidate: searchState.currentBest,
+      iterations: searchState.history.length,
       history: searchState.history,
+      lineage: searchState.lineage,
+      archive: archive.snapshot(),
+      evaluationBudget: halving.budgetSnapshot(budget),
       morphogenHistory: searchState.morphogenSnapshots
     };
   }
 
   shouldStop(searchState, context) {
-    if (searchState.currentBest.score > 0.9) return true;
-    if (searchState.iteration > 0 && searchState.history[searchState.iteration].bestScore <= searchState.history[searchState.iteration - 1].bestScore) return true;
-    return false;
+    const target = Number(context.searchBudget?.targetScore ?? 0.9);
+    const patience = Math.max(1, Number(context.searchBudget?.stagnationPatience) || 2);
+    if (searchState.currentBest.score.total >= target) return true;
+    return searchState.stagnantRounds >= patience;
   }
 }
 

@@ -4,6 +4,7 @@ const { generateMorphologyCandidates } = require('./morphologyCandidateGenerator
 const { selectMinimumMorphology } = require('./minimalMorphologyPolicy');
 const { compileMorphologyExpression } = require('../graph/compileFlatTopology');
 const { MorphologyRuntime } = require('../runtime/morphologyRuntime');
+const { structuralSimilarity } = require('./morphologyCandidate');
 
 class CandidateEvaluator {
   constructor(opts = {}) {
@@ -17,7 +18,8 @@ class CandidateEvaluator {
 
     for (const candidate of candidates) {
       const score = await this.scoreCandidate(candidate, context);
-      evaluated.push({ ...candidate, score, breakdown: score.breakdown });
+      evaluated.push({ ...candidate, score, breakdown: score.breakdown,
+        observedUtility: score.breakdown, status: 'evaluated' });
     }
 
     evaluated.sort((a, b) => b.score.total - a.score.total);
@@ -25,7 +27,7 @@ class CandidateEvaluator {
   }
 
   async scoreCandidate(candidate, context) {
-    const morphology = candidate.morphology;
+    const morphology = candidate.expression || candidate.morphology;
     if (!morphology) return { total: 0, breakdown: {} };
 
     let costScore = 0, qualityScore = 0, evidenceScore = 0;
@@ -85,9 +87,9 @@ class CandidateEvaluator {
 
 class CandidatePruner {
   constructor(opts = {}) {
-    this.maxCandidates = opts.maxCandidates || 10;
-    this.minScore = opts.minScore || 0.1;
-    this.diversityThreshold = opts.diversityThreshold || 0.7;
+    this.maxCandidates = opts.maxCandidates ?? 10;
+    this.minScore = opts.minScore ?? 0.1;
+    this.diversityThreshold = opts.diversityThreshold ?? 0.7;
   }
 
   prune(candidates) {
@@ -114,10 +116,11 @@ class CandidatePruner {
   }
 
   dominates(a, b) {
-    return a.score.cost >= b.score.cost &&
-           a.score.quality >= b.score.quality &&
-           a.score.evidence >= b.score.evidence &&
-           (a.score.cost > b.score.cost || a.score.quality > b.score.quality || a.score.evidence > b.score.evidence);
+    const left = a.score?.breakdown || a.breakdown || {};
+    const right = b.score?.breakdown || b.breakdown || {};
+    return left.cost >= right.cost && left.quality >= right.quality &&
+      left.evidence >= right.evidence && (left.cost > right.cost ||
+        left.quality > right.quality || left.evidence > right.evidence);
   }
 
   enforceDiversity(candidates) {
@@ -138,16 +141,8 @@ class CandidatePruner {
   }
 
   similarity(a, b) {
-    if (!a.morphology || !b.morphology) return 0;
-    const aStr = JSON.stringify(a.morphology);
-    const bStr = JSON.stringify(b.morphology);
-    const len = Math.max(aStr.length, bStr.length);
-    if (len === 0) return 1;
-    let matches = 0;
-    for (let i = 0; i < len; i++) {
-      if (aStr[i] === bStr[i]) matches++;
-    }
-    return matches / len;
+    if (!(a.expression || a.morphology) || !(b.expression || b.morphology)) return 0;
+    return structuralSimilarity(a, b);
   }
 }
 

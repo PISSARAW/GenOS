@@ -97,13 +97,39 @@ function mutationChoices(type, expression) {
   return topologyChoices();
 }
 
+function applicableMutation(type, expression) {
+  if (type === 'CHANGE_TOPOLOGY') return mutationChoices(type, expression).length > 0;
+  if (type === 'CHANGE_VARIANT') return mutationChoices(type, expression).length > 0;
+  return ['ADD_NODE', 'RESIZE_POPULATION', 'CHANGE_BUDGET',
+    'CHANGE_COMMUNICATION_POLICY', 'CHANGE_EVIDENCE_POLICY'].includes(type);
+}
+
+function generatedNodeId(options, type) {
+  return `${options.identityPrefix || 'mutation'}:${options.mutationIndex || 0}:${type}`;
+}
+
+const SIMPLE_PARAM_BUILDERS = Object.freeze({
+  RESIZE_POPULATION: (random) => ({ newSize: 1 + Math.floor(random() * 8) }),
+  CHANGE_BUDGET: (random) => ({ budgetDelta: { tokens: Math.floor(random() * 1000) - 500 } }),
+  CHANGE_COMMUNICATION_POLICY: (random) => ({
+    newPolicy: pickRandom(['minimal', 'bounded', 'evidence_only'], random)
+  }),
+  CHANGE_EVIDENCE_POLICY: (random) => ({
+    newPolicy: pickRandom(['strict', 'quorum', 'independent'], random)
+  })
+});
+
 function generateMutationParams(type, options = {}) {
   const params = { type };
   const random = options.random || Math.random;
+  if (SIMPLE_PARAM_BUILDERS[type]) {
+    return { ...params, ...SIMPLE_PARAM_BUILDERS[type](random) };
+  }
   switch (type) {
     case 'ADD_NODE':
       params.topology = pickRandom(topologyChoices(), random);
       params.variant = pickRandom(variantChoices(params.topology), random);
+      params.createdNodeId = generatedNodeId(options, type);
       break;
     case 'CHANGE_TOPOLOGY':
       params.newTopology = pickRandom(mutationChoices(type, options.expression), random);
@@ -115,8 +141,6 @@ function generateMutationParams(type, options = {}) {
       }
       params.newVariant = pickRandom(mutationChoices(type, options.expression), random);
       break;
-    case 'ADD_BRIDGE': params.adapter = 'default'; break;
-    case 'CHANGE_BUDGET': params.budgetDelta = { tokens: Math.floor(Math.random() * 1000) - 500 }; break;
   }
   return params;
 }
@@ -127,11 +151,12 @@ function sampleMutations(probs, maxDepth, options = {}) {
   const depth = Math.floor(random() * maxDepth) + 1;
   let expression = options.expression ? structuredClone(options.expression) : null;
   for (let i = 0; i < depth; i++) {
-    const available = Object.entries(probs).filter(([type]) => expression?.kind === 'TOPOLOGY'
-      || (type !== 'CHANGE_TOPOLOGY' && type !== 'CHANGE_VARIANT'));
+    const available = Object.entries(probs)
+      .filter(([type]) => applicableMutation(type, expression));
     if (!available.length) break;
     const type = weightedRandom(available.map(([name]) => name), available.map(([, weight]) => weight), random);
-    const mutation = generateMutationParams(type, { expression, random });
+    const mutation = generateMutationParams(type, { expression, random,
+      identityPrefix: options.identityPrefix, mutationIndex: i });
     mutations.push(mutation);
     if (expression) expression = require('./mutationOperators').applySingleMutation(expression, mutation);
   }

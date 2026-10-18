@@ -11,6 +11,9 @@ const { MUTATION_TYPES: LOCAL_MUTATION_TYPES, generateLocalMutations } = require
 const { COMPOSITIONS, TERMINALS, LIMIT_DEFAULTS, analyzeMorphology } = require('./morphologyGrammar');
 const { morphologyPatterns } = require('./morphologyPatterns');
 const { morphologyPatternLibrary } = require('./morphologyPatternLibrary');
+const morphologyCandidate = require('./morphologyCandidate');
+const qualityDiversityArchive = require('./qualityDiversityArchive');
+const successiveHalving = require('./successiveHalving');
 
 module.exports = {
   developmentalGenerator: {
@@ -42,5 +45,8 @@ module.exports = {
     analyzeMorphology
   },
   morphologyPatterns,
-  morphologyPatternLibrary
+  morphologyPatternLibrary,
+  morphologyCandidate,
+  qualityDiversityArchive,
+  successiveHalving
 };
