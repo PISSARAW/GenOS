@@ -138,6 +138,19 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [natural-search-control-plane.md](01-concepts/natural-search-control-plane.md) — contrôle de pression et de progrès causal, ledger d'hypothèses, reprise atomique SQLite des phases 6–12 et transmission culturelle sous preuve.
 - [savoir-et-epistemologie.md](01-concepts/savoir-et-epistemologie.md) — savoir, croyance, Gettier, inférence, vérité et épistémologie sociale.
 - [conscience-esprit-mental.md](01-concepts/conscience-esprit-mental.md) — taxonomie de la conscience, de l'esprit et du mental.
+- [esprit.md](01-concepts/esprit.md) — notion d'esprit, pas d'implémentation comme substance.
+- [mental.md](01-concepts/mental.md) — ensemble des états et processus mentaux, pas une fonctionnalité GenOS.
+- [conscience.md](01-concepts/conscience.md) — conscience phénoménale, pas une propriété logicielle vérifiable.
+- [conscience-operationnelle.md](01-concepts/conscience-operationnelle.md) — régulation cognitive (dissonance, budget, Eurêka, apoptose).
+- [conscience-fonctionnelle.md](01-concepts/conscience-fonctionnelle.md) — indicateurs fonctionnels type conscience (attention, modèle de soi, métacognition).
+- [attention.md](01-concepts/attention.md) — fovéation, active sensing, bancs causaux et sondes.
+- [perception.md](01-concepts/perception.md) — bridge perception-mémoire, observation canonique.
+- [interoception.md](01-concepts/interoception.md) — signaux homéostatiques internes et planificateur allostatique.
+- [reflexion.md](01-concepts/reflexion.md) — auto-surveillance de la confiance et des erreurs.
+- [metacognition.md](01-concepts/metacognition.md) — ECE, Brier, AUC type-2, surconfiance sur l'historique d'attributions.
+- [calibration.md](01-concepts/calibration.md) — mise à jour lissée de la confiance, ECE, Brier.
+- [etats-de-conscience.md](01-concepts/etats-de-conscience.md) — niveaux fonctionnels, pas états de conscience phénoménale.
+- [limites-metrique-experience.md](01-concepts/limites-metrique-experience.md) — séparation score fonctionnel ≠ expérience subjective.
 - [indicateurs-fonctionnels.md](01-concepts/indicateurs-fonctionnels.md) — suivi des indicateurs fonctionnels : implémentation, statut, limites.
 - [plan-validation-indicateurs.md](06-qualite-preuves/plan-validation-indicateurs.md) — audit des indicateurs et programme de couverture fonctionnelle et de validation causale.
 - [suivi-validation-indicateurs.md](06-qualite-preuves/suivi-validation-indicateurs.md) — suivi d'exécution et résultats des contrôles.
