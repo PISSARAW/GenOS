@@ -33,7 +33,7 @@ try {
   fs.writeFileSync(path.join(root, 'evidence.json'), JSON.stringify(values));
   writeArtifact(artifact);
   const receipt = verifyPhilosophicalObservations(root, references, binding);
-  assert.equal(receipt.contracts.length, 375);
+  assert.equal(receipt.contracts.length, contracts.length);
   assert.equal(receipt.missionId, artifact.missionId);
   assert.equal(receipt.sourceFactsVerified, false);
   assert.equal(receipt.independentValidation, false);
@@ -73,7 +73,7 @@ try {
   writeArtifact(overQuota);
   assert.throws(() => verifyPhilosophicalObservations(root, references, binding), /budget-sources-philosophiques-depasse/,
     'the 33rd source must be refused before any filesystem read');
-  console.log('375 observation bindings, source hashes, mission/revision confinement and fail-closed checks passed.');
+  console.log(`${contracts.length} observation bindings, source hashes, mission/revision confinement and fail-closed checks passed.`);
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }

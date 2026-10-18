@@ -11,6 +11,8 @@ const { digest } = require('../src/philosophy/contractFingerprint');
 const { CONCEPT_DEFINITIONS } = require('../src/philosophy/conceptDefinitions');
 
 const concepts = validateRegistry().concepts;
+const expectedConceptCount = concepts.length;
+const expectedCaseCount = expectedConceptCount * 36;
 const compiled = compileRegistry(concepts);
 assert.equal(compiled.valid, true, compiled.errors.join('; '));
 assert.equal(compiled.pendingCount, 0);
@@ -22,9 +24,9 @@ assert.ok(compiled.contracts.every((contract) => contract.maturity === 'mechanis
 assert.ok(compiled.contracts.every((contract) => contract.runtimeAuthority === false));
 
 const report = experiments.runRegistryExperiments(compiled.contracts);
-assert.equal(report.total, 375);
-assert.equal(report.tested, 375);
-assert.equal(report.caseCount, 13500);
+assert.equal(report.total, expectedConceptCount);
+assert.equal(report.tested, expectedConceptCount);
+assert.equal(report.caseCount, expectedCaseCount);
 assert.deepEqual(report.failed, []);
 assert.equal(report.validatedOnRealMissions, 0);
 assert.equal(report.actualTopologyExecution, false);
@@ -73,4 +75,4 @@ assert.equal(observed.after.promotionHeld, true, 'an audit must never lift anoth
 const composition = executeSelection(compiled.contracts.slice(0, 20), {});
 assert.equal(composition.state.verificationTasks.length, 20);
 assert.equal(composition.state.promotionHeld, true);
-console.log(`Executable contract probes passed: ${report.tested}/375, ${report.caseCount} cases; real-mission validation remains 0.`);
+console.log(`Executable contract probes passed: ${report.tested}/${expectedConceptCount}, ${report.caseCount} cases; real-mission validation remains 0.`);

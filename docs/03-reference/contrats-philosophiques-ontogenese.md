@@ -1,25 +1,25 @@
 # Contrats philosophiques et Ontogenèse — exécution, preuves et limites
 
-- **Statut** : Partiel — 375 audits logiciels bornés exécutables ; validation des 375 concepts sur missions réelles non établie
+- **Statut** : Partiel — 420 audits logiciels bornés exécutables ; validation des 420 concepts sur missions réelles non établie
 - **Portée** : interprétations opérationnelles, état d’audit, sondes d’ablation et vérificateur Ontogenèse
 - **Dernière revue** : 2026-10-06
 - **Décisions** : [ADR 0318](../adr/0318-contrats-implementation-concepts.md), [ADR 0319](../adr/0319-raccord-contrats-philosophiques-ontogenese.md), [ADR 0326](../adr/0326-audits-philosophiques-executables-et-preuves.md)
 
 ## 1. Ce qui est implémenté et ce qui ne l’est pas
 
-Le registre contient 375 identifiants. Chaque identifiant dispose désormais
+Le registre contient 420 identifiants. Chaque identifiant dispose désormais
 d’un profil explicite : primitive partagée, variable d’entrée, prédicat et
 interprétation opérationnelle. Aucun concept inconnu ne reçoit un profil
 exécutable de secours.
 
-Cette couverture signifie **375 audits bornés**, pas 375 théories réalisées,
-375 solveurs spécialisés ni 375 fonctionnalités validées en production.
+Cette couverture signifie **420 audits bornés**, pas 420 théories réalisées,
+420 solveurs spécialisés ni 420 fonctionnalités validées en production.
 Une vérification d’un booléen déclaré ne démontre ni la proposition
 philosophique ni la réalité externe de ce booléen.
 
 | Dimension | Réalité logicielle |
 | --- | --- |
-| Catalogue | 375 profils explicites, normalisés et contrôlés |
+| Catalogue | 420 profils explicites, normalisés et contrôlés |
 | Mécanisme | calcul déterministe d’un critère déclaré et mise à jour d’un état d’audit |
 | Effet | évaluation enregistrée ; tâche de vérification et réserve de réponse si critère absent ou violé |
 | Falsification | cas satisfaisant, contre-exemple, donnée absente, ablation du mécanisme, répétition |
@@ -67,7 +67,7 @@ ce contrat. Elle ne lève jamais une barrière de promotion préexistante.
 L’entrée n’est pas mutée ; l’état de sortie est une copie.
 Les observations et l'état sérialisés sont plafonnés à 128 Kio, y compris
 l'état après ajout de l'audit. Un dépassement est refusé, sans troncature.
-Ce plafond peut limiter une composition riche en réserves avant les 375
+Ce plafond peut limiter une composition riche en réserves avant les 420
 contrats : la borne de sélection n'est pas une garantie de capacité mémoire.
 
 Ces réserves sont un état structuré, pas une garantie qu’un LLM les mentionnera
@@ -76,7 +76,7 @@ générateur de réponse reste une validation distincte.
 
 ## 3. Primitives partagées et cibles
 
-Les 375 entrées ne créent pas 375 modules. Elles alimentent onze primitives.
+Les 420 entrées ne créent pas 420 modules. Elles alimentent onze primitives.
 
 | Primitive | Mécanisme | Cibles |
 | --- | --- | --- |
@@ -172,7 +172,7 @@ conceptDefinitions → conceptRegistry → implementationContracts
 
 | Fichier | Responsabilité |
 | --- | --- |
-| `operationalProfiles.js` | correspondance explicite des 375 identifiants |
+| `operationalProfiles.js`, `cognitiveOperationalProfiles.js` | correspondance explicite des 420 identifiants |
 | `contractOperationalization.js` | cibles, catégorie, limites et interprétation exécutable |
 | `contractValidation.js` | schéma, cohérence des profils et conditions de préparation |
 | `operationalPredicates.js` | calculs typés et exemples de frontière |
@@ -211,7 +211,7 @@ entre 1 et 100, avec 100 par défaut. Le filtre `target` est appliqué avant
 pagination : `total` dénombre les contrats du résultat filtré. Une page au-delà
 de ce total est vide, avec `nextOffset: null`.
 
-Pour lire les 375 contrats, partir de `offset: 0`, puis reprendre le
+Pour lire les 420 contrats, partir de `offset: 0`, puis reprendre le
 `nextOffset` retourné jusqu'à `null`. Les offsets négatifs ou non entiers et
 les limites hors bornes sont refusés. Le catalogue n'est pas renvoyé en bloc
 dans la santé : sa sérialisation complète dépasse la limite de réponse MCP.
@@ -221,7 +221,7 @@ La compilation conserve les sources, interdictions et plans de falsification
 du contrat d'origine. Les sondes exécutables complètent ces plans ; elles ne
 prouvent pas que chaque expérience spécialisée a été réalisée. Le schéma est
 chargé une seule fois par compilation de registre et validé pour chacun des
-375 contrats. Il est relu à la compilation suivante : aucun cache permanent
+420 contrats. Il est relu à la compilation suivante : aucun cache permanent
 ne masque un schéma devenu indisponible ou illisible.
 
 Exemple d’exécution bornée :
@@ -249,7 +249,7 @@ node backend/bin/genos-philosophy-audit.cjs --contract epistemology.certainty-do
 ```
 
 Les reçus de scénario décrivent trois cas, quatre graphes et trois graines
-(17, 42, 99), soit 36 observations par contrat, 13 500 pour le catalogue.
+(17, 42, 99), soit 36 observations par contrat, 15 120 pour le catalogue.
 Le mécanisme est activé, désactivé, puis rejoué sur les mêmes entrées.
 La réception du message est simulée dans chaque graphe ; le coût est un nombre
 de messages, pas un coût monétaire ni une latence de provider.
@@ -275,7 +275,7 @@ Le plan déduplique les références et ajoute `requiredForMission` :
 - les concepts sélectionnés automatiquement comme contexte restent consultatifs.
 
 Une référence contextuelle n’accorde aucun droit et ne doit pas transformer
-une mission ordinaire en demande implicite de validation des 375 concepts.
+une mission ordinaire en demande implicite de validation des 420 concepts.
 
 Le vérificateur utilise `.genos/philosophy-observations.json`, un artefact
 généré à ne pas commiter. Son format est :
@@ -392,7 +392,7 @@ contre-exemple accepté, donnée manquante présentée comme succès, reçu d’
 autre contrat, reçu ancien, sortie falsifiée avec nouveau hash, mauvaise
 mission, source extérieure et disparition des barrières existantes.
 
-Le test d'intégration utilise les 375 audits, des checks exécutés et de vrais
+Le test d'intégration utilise les 420 audits, des checks exécutés et de vrais
 commits dans des dépôts temporaires. Le worker est injecté : ce test démontre
 les barrières et la reprise, pas l'utilité des concepts sur une mission autonome.
 

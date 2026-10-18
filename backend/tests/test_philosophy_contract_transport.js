@@ -2,7 +2,9 @@
 const assert = require('node:assert/strict');
 const router = require('../src/services/philosophyRouter');
 const { fixture } = require('../src/philosophy/contractExperiments');
+const { CONCEPT_DEFINITIONS } = require('../src/philosophy/conceptDefinitions');
 const MAX_BYTES = 1024 * 1024;
+const expectedConceptCount = CONCEPT_DEFINITIONS.length;
 
 async function main() {
   const { createToolCallHandler } = await import('../../mcp/toolCallHandler.js');
@@ -18,20 +20,20 @@ async function main() {
   }
   try {
     const health = await call('implementationContractHealth');
-    assert.equal(health.compiledConcepts, 375);
+    assert.equal(health.compiledConcepts, expectedConceptCount);
     assert.equal(Object.hasOwn(health, 'contracts'), false);
     const ids = [];
     let offset = 0;
     do {
       const page = await call('listImplementationContracts', { offset, limit: 100 });
-      assert.equal(page.total, 375);
+      assert.equal(page.total, expectedConceptCount);
       assert.equal(page.offset, offset);
       assert.ok(page.contracts.length <= 100);
       ids.push(...page.contracts.map((contract) => contract.id));
       offset = page.nextOffset;
     } while (offset !== null);
-    assert.equal(ids.length, 375);
-    assert.equal(new Set(ids).size, 375);
+    assert.equal(ids.length, expectedConceptCount);
+    assert.equal(new Set(ids).size, expectedConceptCount);
     const filtered = await call('listImplementationContracts', { target: 'response', limit: 7 });
     assert.equal(filtered.contracts.length, 7);
     assert.ok(filtered.contracts.every((contract) => contract.targets.includes('response')));
@@ -54,12 +56,12 @@ async function main() {
     assert.equal(assessment.eligible, true);
     assert.equal(assessment.promotionEligible, false);
     const coverage = await call('implementationExperimentCoverage');
-    assert.equal(coverage.tested, 375);
+    assert.equal(coverage.tested, expectedConceptCount);
     assert.equal(coverage.validatedOnRealMissions, 0);
     process.env.GENOS_MCP_LEASE = 'genos_snapshot';
     const refused = await handler({ params: { name: 'genos_philosophy', arguments: { operation: 'executeImplementationContract', arguments: { conceptId: contract.id } } } });
     assert.equal(refused.isError, true);
-    console.log('375 contracts accessible through leased MCP pages; bounded outputs, audits and lease refusal passed.');
+    console.log(`${expectedConceptCount} contracts accessible through leased MCP pages; bounded outputs, audits and lease refusal passed.`);
   } finally {
     if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE;
     else process.env.GENOS_MCP_LEASE = previousLease;

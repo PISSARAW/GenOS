@@ -1,5 +1,6 @@
 'use strict';
 const { EPISTEMOLOGY_PROFILES } = require('./epistemologyProfiles');
+const { COGNITIVE_OPERATIONAL_PROFILES } = require('./cognitiveOperationalProfiles');
 
 // Explicit, reviewable interpretations. Tuples: primitive, input field,
 // predicate, operational distinction. No ID/domain fallback may claim coverage.
@@ -388,5 +389,9 @@ function profileFor(id) {
   return { primitive, field, predicate, interpretation };
 }
 
-const PROFILES_MERGED = Object.freeze({ ...PROFILES, ...EPISTEMOLOGY_PROFILES });
+const PROFILES_MERGED = Object.freeze({
+  ...PROFILES,
+  ...EPISTEMOLOGY_PROFILES,
+  ...COGNITIVE_OPERATIONAL_PROFILES,
+});
 module.exports = { PROFILES: PROFILES_MERGED, profileFor };

@@ -3,6 +3,7 @@
 const assert = require('assert');
 const registry = require('../../src/services/ontogenesis/canonicalConceptRegistry');
 const accessMatrix = require('../../src/services/capabilityAccessMatrix');
+const { CONCEPT_DEFINITIONS } = require('../../src/philosophy/conceptDefinitions');
 
 const runtimeBridgeMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
   'global_workspace', 'metacognition', 'world_model', 'causal_integration', 'equipe_specialisee'
@@ -28,7 +29,7 @@ assert.equal(philosophyMission.resolvedConcepts[0].implementationContract.id, 'o
 const contractedPhilosophy = registry.resolveMission({ requestedConcepts: ['epistemologie'] });
 assert.ok(contractedPhilosophy.resolvedConcepts[0].implementationContract);
 assert.equal(contractedPhilosophy.resolvedConcepts[0].implementationContract.id, 'epistemology.knowledge');
-assert.equal(contractedPhilosophy.coverage.implementationContracts, 375);
+assert.equal(contractedPhilosophy.coverage.implementationContracts, CONCEPT_DEFINITIONS.length);
 assert.ok(contractedPhilosophy.canonicalConcepts.some((concept) =>
   concept.implementationContract?.id === 'epistemology.knowledge'));
 

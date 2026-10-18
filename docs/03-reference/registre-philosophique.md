@@ -24,7 +24,7 @@ Le sous-domaine `mathematics` est documenté dans
 | Sous-domaines GenOS | `backend/src/philosophy/genosSubdomains.js` |
 | Maturité des services | `backend/src/philosophy/serviceMaturity.js` |
 | Contrats philosophiques | `backend/src/philosophy/implementationContracts.js`, `spec/implementation-contract.schema.json` |
-| Profils des 375 audits | `backend/src/philosophy/operationalProfiles.js`, `operationalPredicates.js`, `contractRuntime.js` |
+| Profils des 420 audits | `backend/src/philosophy/operationalProfiles.js`, `cognitiveOperationalProfiles.js`, `operationalPredicates.js`, `contractRuntime.js` |
 | Expériences et reçus rejouables | `backend/src/philosophy/contractExperiments.js`, `contractPromotion.js` |
 | Observations de mission | `backend/src/services/ontogenesis/philosophicalObservationService.js` |
 | Raccord Ontogenèse | `backend/src/services/ontogenesis/canonicalConceptRegistry.js`, `missionCapabilityPlanService.js`, `runtimeHarness.js` |
@@ -34,7 +34,7 @@ La documentation explique le modèle ; elle ne duplique pas le registre canoniqu
 ## Contrats d’implémentation
 
 Le compilateur `backend/src/philosophy/implementationContracts.js` transforme
-les 375 concepts en contrats structurés. Les 21 contrats pilotes conservent leurs
+les 420 concepts en contrats structurés. Les 21 contrats pilotes conservent leurs
 invariants détaillés ; chaque entrée possède désormais un profil d'audit explicite
 dans `operationalProfiles.js`. Aucun profil n'est déduit par un fallback de domaine.
 Les contrats compilés portent `executable-audit` et `mechanism-linked` : ce statut
@@ -47,7 +47,7 @@ un baseline, une hypothèse, un critère de succès et un critère de rejet.
 Les scénarios planifiés restent distincts des expériences réellement exécutées.
 `runImplementationExperiment` réalise trois cas (critère satisfait, contre-exemple,
 observation absente), une ablation et une répétition, sur quatre simulations de
-graphes et trois graines : 36 cas par contrat, 13 500 pour le registre. Les graphes
+graphes et trois graines : 36 cas par contrat, 15 120 pour le registre. Les graphes
 ne sont pas des dispatchs runtime ; les fixtures ne sont pas des missions réelles.
 
 `executeImplementationContract` produit un état d'audit : observations évaluées,
@@ -65,7 +65,7 @@ La liste des contrats est paginée : `arguments.offset` commence à zéro,
 `arguments.limit` est un entier de 1 à 100 (100 par défaut), et le filtre de
 cible précède le découpage. La réponse fournit `contracts`, `total`, `offset`,
 `limit` et `nextOffset`. Reprendre cet offset jusqu'à `null` pour lire les
-375 entrées. La santé conserve les comptes et erreurs, sans dupliquer le
+420 entrées. La santé conserve les comptes et erreurs, sans dupliquer le
 catalogue complet dans une réponse MCP trop grande.
 
 Les sources et interdictions initiales sont conservées lors de la compilation.
@@ -83,7 +83,7 @@ indépendante. Les reçus de mission décrits ci-dessous ne comblent pas implici
 cette lacune. Tous les verdicts conservent `promotionEligible: false`.
 
 La [matrice opérationnelle](matrice-operationnelle-philosophique.md) énumère les
-375 profils. La référence des contrats précise les prédicats, bornes, protocoles,
+420 profils. La référence des contrats précise les prédicats, bornes, protocoles,
 limites et travaux restant à réaliser pour une validation sur missions réelles.
 
 La santé du registre est vérifiée au chargement et par la suite
@@ -187,7 +187,7 @@ Le [contrat du service de catégorisation](categorisation-philosophique.md)
 précise les quatre procédures locales, leurs conversions et leurs limites.
 Les variantes graduées comparent les candidats à l'instance de la requête,
 jamais au candidat lui-même. Une moyenne de similarité n'est ni une probabilité
-calibrée, ni une validation indépendante, ni la preuve d'exécution des 375 audits.
+calibrée, ni une validation indépendante, ni la preuve d'exécution des 420 audits.
 
 La gate de contexte stratégique `philosophicalPromotionGuard` exige un reçu
 de vérificateur signé et un digest explicitement approuvé ; un booléen

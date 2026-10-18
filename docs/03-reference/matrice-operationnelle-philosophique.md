@@ -1,4 +1,4 @@
-# Matrice opérationnelle des 375 concepts
+# Matrice opérationnelle des 420 concepts
 
 - **Statut** : Audits bornés exécutables ; validation des concepts sur missions réelles non établie
 - **Portée** : projection exhaustive des profils du dépôt, pas corpus de vérités philosophiques
@@ -20,7 +20,7 @@ de permission ni démontrer la vérité externe de l’observation.
 
 Le protocole commun compare cas satisfaisant, contre-exemple et donnée absente,
 avec activation, ablation et répétition. Il simule quatre graphes et trois graines :
-36 observations par contrat, 13 500 pour 375 contrats. Une simulation n’est
+36 observations par contrat, 15 120 pour 420 contrats. Une simulation n’est
 pas une mission multi-agents réellement lancée.
 
 Les dix prédicats, les onze primitives, les refus, la liaison aux sources JSON
@@ -87,6 +87,25 @@ sources. Le niveau `validated` ne se déduit donc pas de cette couverture.
 | `cinema.movement-image` | `creative` | `cinema.actionTransitions` | `recorded` |
 | `cinema.ordinary-language` | `interpretation` | `film.usageContext` | `present` |
 | `cinema.time-image` | `creative` | `cinema.temporalRelations` | `recorded` |
+| `cognition.attention` | `self` | `attention.selectedTarget` | `present` |
+| `cognition.calibration` | `belief` | `calibration.score` | `probability` |
+| `cognition.cognitive-dissonance` | `self` | `dissonance.triggerEvidence` | `recorded` |
+| `cognition.imagination` | `creative` | `imagination.generatedAlternatives` | `multiple` |
+| `cognition.internal-simulation` | `world` | `simulation.predictedOutcomes` | `recorded` |
+| `cognition.interoception` | `self` | `interoception.internalSignals` | `recorded` |
+| `cognition.metacognition` | `belief` | `metacognition.calibrationEvidence` | `recorded` |
+| `cognition.perception` | `world` | `perception.observationSource` | `present` |
+| `cognition.reflection` | `self` | `reflection.errorReview` | `recorded` |
+| `consciousness.consciousness` | `interpretation` | `consciousness.subjectiveExperienceUnverified` | `explicit` |
+| `consciousness.functional` | `self` | `consciousness.functionalIndicators` | `recorded` |
+| `consciousness.functional-indicators` | `self` | `consciousness.indicatorFamilies` | `recorded` |
+| `consciousness.operational` | `self` | `regulation.signals` | `recorded` |
+| `consciousness.states` | `interpretation` | `consciousness.stateAttributionUnverified` | `explicit` |
+| `memory.autobiographical` | `self` | `memory.episodes` | `recorded` |
+| `mind.esprit` | `interpretation` | `mind.subjectiveExistenceUnverified` | `explicit` |
+| `mind.mental` | `interpretation` | `mental.functionalDescriptionOnly` | `explicit` |
+| `self.orchestrator-theory` | `self` | `orchestrator.boundaryModel` | `present` |
+| `self.self-model` | `self` | `self.capabilityLimits` | `recorded` |
 | `core.agent` | `self` | `agent.genome` | `present` |
 | `core.biomimetic-experimental` | `causal` | `biomimetic.controlResults` | `different` |
 | `core.claim-not-evidence` | `evidence` | `claim.verifiedSource` | `explicit` |

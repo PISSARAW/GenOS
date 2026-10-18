@@ -3,6 +3,7 @@
 const { evaluatePredicate } = require('./operationalPredicates');
 const { executionErrors } = require('./contractOperationalization');
 const { digest, contractFingerprint } = require('./contractFingerprint');
+const { CONCEPT_DEFINITIONS } = require('./conceptDefinitions');
 
 function assertInput(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('observation object required');
@@ -59,7 +60,9 @@ function execute(contract, request = {}) {
 }
 
 function executeSelection(contracts, request = {}) {
-  if (!Array.isArray(contracts) || contracts.length > 375) throw new Error('bounded contract selection required');
+  if (!Array.isArray(contracts) || contracts.length > CONCEPT_DEFINITIONS.length) {
+    throw new Error('bounded contract selection required');
+  }
   let state = boundedState(request.state);
   const executions = [];
   for (const contract of contracts) {

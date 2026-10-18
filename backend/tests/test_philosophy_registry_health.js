@@ -24,6 +24,7 @@ function assertInvalid(concepts, expectedMessage) {
   assert.ok(result.errors.some((error) => error.includes(expectedMessage)), result.errors.join('; '));
 }
 
+const expectedConceptCount = CONCEPT_DEFINITIONS.length;
 const health = registryHealth();
 assert.equal(health.valid, true, health.errors.join('; '));
 assert.equal(health.conceptCount, CONCEPT_DEFINITIONS.length);
@@ -31,7 +32,7 @@ assert.deepEqual(health.duplicateIds, []);
 assert.deepEqual(health.errors, []);
 const compiled = compileRegistry(CONCEPT_DEFINITIONS);
 assert.equal(compiled.valid, true, compiled.errors.join('; '));
-assert.equal(compiled.contracts.length, 375);
+assert.equal(compiled.contracts.length, expectedConceptCount);
 assert.ok(compiled.contracts.every((item) => validateContract(item).length === 0));
 assert.ok(compiled.contracts.every((item) => item.interpretation && item.invariant && item.mechanism));
 assert.ok(compiled.contracts.every((item) => item.family && item.category));
@@ -73,15 +74,15 @@ assert.ok(contractHealth instanceof Promise);
 contractHealth.then(async (result) => {
   assert.equal(result.valid, true, result.errors.join('; '));
   assert.equal(result.registeredConcepts, health.conceptCount);
-  assert.equal(result.compiledConcepts, 375);
+  assert.equal(result.compiledConcepts, expectedConceptCount);
   assert.equal(result.pilotCount, 21);
   assert.equal(result.pendingCount, 0);
-  assert.equal(result.mappedCount, 375);
-  assert.equal(Object.values(result.categoryCounts).reduce((sum, count) => sum + count, 0), 375);
+  assert.equal(result.mappedCount, expectedConceptCount);
+  assert.equal(Object.values(result.categoryCounts).reduce((sum, count) => sum + count, 0), expectedConceptCount);
   assert.ok(result.categoryCounts.evaluation > 0);
   const readiness = await router.handlePhilosophyRequest({ request: { operation: 'implementationReadiness' } });
-  assert.equal(readiness.total, 375);
-  assert.equal(readiness.readyForExperiment, 375);
+  assert.equal(readiness.total, expectedConceptCount);
+  assert.equal(readiness.readyForExperiment, expectedConceptCount);
   assert.equal(readiness.blocked, 0);
   assert.equal(readiness.promotionEligible, 0);
   assert.ok(readiness.probes.every((probe) => probe.evidence.includes('falsification-plan')));

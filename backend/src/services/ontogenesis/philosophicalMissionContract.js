@@ -17,7 +17,9 @@ function referenceFor(contract) {
 }
 
 function contractsFor(references) {
-  if (!Array.isArray(references) || references.length > 375) throw new Error('selection-philosophique-invalide');
+  if (!Array.isArray(references) || references.length > CONCEPT_DEFINITIONS.length) {
+    throw new Error('selection-philosophique-invalide');
+  }
   const ids = new Set();
   return references.map((reference) => {
     if (ids.has(reference.id)) throw new Error('contrat-philosophique-duplique');

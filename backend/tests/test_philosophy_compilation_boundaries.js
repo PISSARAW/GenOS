@@ -6,6 +6,7 @@ const { compileRegistry, compileConcept, PILOT_CONTRACTS } = require('../src/phi
 const { CONCEPT_DEFINITIONS } = require('../src/philosophy/conceptDefinitions');
 const { execute } = require('../src/philosophy/contractRuntime');
 const { evaluatePredicate } = require('../src/philosophy/operationalPredicates');
+const expectedConceptCount = CONCEPT_DEFINITIONS.length;
 
 const schemaFile = path.resolve(__dirname, '../../spec/implementation-contract.schema.json');
 const readFile = fs.readFileSync;
@@ -23,14 +24,14 @@ fs.readFileSync = function instrumentedRead(file, options) {
 try {
   const first = compileRegistry(CONCEPT_DEFINITIONS);
   assert.equal(first.valid, true, first.errors.join('; '));
-  assert.equal(first.contracts.length, 375);
+  assert.equal(first.contracts.length, expectedConceptCount);
   assert.equal(reads, 1, 'one fresh schema read per compilation');
   assert.deepEqual(compileRegistry(CONCEPT_DEFINITIONS), first);
   assert.equal(reads, 2, 'schema must not be cached across compilations');
   fault = 'missing';
   const missing = compileRegistry(CONCEPT_DEFINITIONS);
   assert.equal(missing.valid, false);
-  assert.equal(missing.errors.length, 375);
+  assert.equal(missing.errors.length, expectedConceptCount);
   assert.ok(missing.errors.every((error) => error.includes('schema unavailable')));
   fault = 'invalid';
   assert.equal(compileRegistry(CONCEPT_DEFINITIONS).valid, false);
@@ -61,7 +62,7 @@ try {
   assert.equal(Buffer.byteLength(JSON.stringify(fullState)), 128 * 1024);
   assert.throws(() => execute(contract, { state: fullState }), /budget exceeded/);
   assert.deepEqual(execute(contract, { state: fullState, enabled: false }).after, fullState);
-  console.log('375 contracts preserve sources and planned probes; fresh batch schema and typed inputs fail closed.');
+  console.log(`${expectedConceptCount} contracts preserve sources and planned probes; fresh batch schema and typed inputs fail closed.`);
 } finally {
   fs.readFileSync = readFile;
 }

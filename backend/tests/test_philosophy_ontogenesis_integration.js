@@ -51,7 +51,7 @@ async function verifyBoundCandidate(db, ctx) {
   assert.equal((await verifyExecution(db, ctx)).state, 'INTEGRATING');
   const verified = await activeExecution(db, ctx.project.id);
   const result = JSON.parse(verified.result_json);
-  assert.equal(result.philosophyAudit.contracts.length, 375);
+  assert.equal(result.philosophyAudit.contracts.length, contracts.length);
   assert.equal(result.philosophyAudit.independentValidation, false);
   return { run: verified, result, candidate, artifact };
 }
@@ -110,5 +110,5 @@ async function isolated(test) {
 (async () => {
   await isolated(normalIntegration);
   await isolated(recoveredIntegration);
-  console.log('375 bounded audits: real checks/Git, missing artifacts, fence races and recovery gates passed (injected worker).');
+  console.log(`${contracts.length} bounded audits: real checks/Git, missing artifacts, fence races and recovery gates passed (injected worker).`);
 })().catch((error) => { console.error(error); process.exitCode = 1; });
