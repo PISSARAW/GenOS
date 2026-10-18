@@ -30,6 +30,11 @@ const BRIDGED_TOOLS: &[&str] = &[
     "genos_record_experience",
     "genos_compile_memory",
     "genos_blame",
+    "genos_working_memory",
+    "genos_ancestral_memory",
+    "genos_risk_inheritance",
+    "genos_collective_plasticity",
+    "genos_teaching_worker",
 ];
 
 pub(crate) fn is_bridged_tool(name: &str) -> bool {
@@ -96,6 +101,8 @@ mod tests {
         assert!(is_bridged_tool("genos_agent_fork_snapshot"));
         assert!(is_bridged_tool("genos_agent_inherited_memory_read"));
         assert!(is_bridged_tool("genos_agent_state_restore_inspect"));
+        assert!(is_bridged_tool("genos_working_memory"));
+        assert!(is_bridged_tool("genos_teaching_worker"));
     }
 
     #[test]
