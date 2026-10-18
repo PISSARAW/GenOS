@@ -179,7 +179,8 @@ async function dispatchTask(db, ctx, harness) {
       config: ctx.config, mission: ctx.mission, shev: envelope });
     await db.run('UPDATE ontogenesis_execution SET pid = ?, executable = ? WHERE id = ?', [started.pid, started.executable, input.id]);
     await finishDispatchOperation(db, { operationId: input.id,
-      result: { runtimeStarted: true, pid: started.pid, executable: started.executable } });
+      result: { runtimeStarted: true, pid: started.pid, executable: started.executable,
+        confinement: started.confinement, memoryLimitMb: started.memoryLimitMb } });
     return { state: 'EXECUTING', event: 'dispatch', operationId: input.id };
   } catch (error) {
     await db.run("UPDATE ontogenesis_execution SET phase = 'finished', result_json = ? WHERE id = ?", [JSON.stringify({ success: false, error: error.message }), input.id]);

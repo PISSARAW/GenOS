@@ -335,9 +335,11 @@ Garanties du contrat :
 
 Non-garanties (hors contrat) :
 
-- La mesure mémoire couvre la RAM physique libre et le RSS du superviseur ; une limite de heap
-  Node ne couvre ni les enfants ni la mémoire native, et le bornage des processus détenus
-  sous Windows (Job Objects) reste à étudier.
+- La mesure mémoire couvre la RAM physique libre et le RSS du superviseur. Sous Windows,
+  `runtimeHarness.js` lance le runner Ontogenèse suspendu par `windowsJobObject.js`, l'assigne
+  à un Job Object avec `KILL_ON_JOB_CLOSE` et applique `reservation_mb` comme limite mémoire
+  du job entier avant de reprendre le thread. L'échec de création, de limitation ou
+  d'assignation bloque le dispatch ; aucun fallback non confiné n'est admis.
 - Les budgets sont des enveloppes et leur clôture est conservatrice ; ils ne constituent
   pas une mesure indépendante des coûts facturés par un fournisseur.
 - `markInbox` reste une primitive interne ; les `CHECK` SQL bornent les valeurs.

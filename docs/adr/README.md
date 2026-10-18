@@ -718,6 +718,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0605b](0605-routage-missions-supervisees-gqwf.md) | Router les missions supervisées vers GQWF | Accepté, activation explicite | 2026-10-18 | Workspaces, exécution supervisée, GQWF |
 | [0606](0606-socle-durable-ontogenese.md) | Socle durable V2 de l’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, persistance, idempotence, autorité |
 | [0607](0607-reprise-exhaustive-ontogenese.md) | Reprise exhaustive et fail-closed de l’Ontogenèse | Accepté pour les opérations raccordées | 2026-10-18 | Ontogenèse, crash recovery, idempotence, preuves |
+| [0608](0608-confiner-ontogenese-job-objects-windows.md) | Confiner l’Ontogenèse avec les Job Objects Windows | Accepté | 2026-10-18 | Ontogenèse, Windows, processus, confinement |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
