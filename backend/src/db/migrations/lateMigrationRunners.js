@@ -121,4 +121,13 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('139-endogenous-thought-episodes', 'Persist scoped endogenous thought episodes and immutable receipts', async (db) => {
     await require('./migrateEndogenousThoughtEpisodes').migrateEndogenousThoughtEpisodes(db);
   }),
+  createMigrationRunner('140-endogenous-thought-detections', 'Persist bounded endogenous detection decisions', async (db) => {
+    await require('./migrateEndogenousThoughtDetections').migrateEndogenousThoughtDetections(db);
+  }),
+  createMigrationRunner('141-endogenous-thought-admissions', 'Persist bounded endogenous admission decisions', async (db) => {
+    await require('./migrateEndogenousThoughtAdmissions').migrateEndogenousThoughtAdmissions(db);
+  }),
+  createMigrationRunner('142-endogenous-thought-tasks', 'Bind admitted thoughts to held Ontogenesis tasks', async (db) => {
+    await require('./migrateEndogenousThoughtTasks').migrateEndogenousThoughtTasks(db);
+  }),
 ];

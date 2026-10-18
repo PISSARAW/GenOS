@@ -1,6 +1,6 @@
 # Documentation GenOS
 
-- [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — contrats ETT v1, persistance durable, ablations cognitives sous frontières de sécurité et métriques non promotables.
+- [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection SHEV, admission AGOW et tâche Ontogenèse retenue sans exécution, autorité ni promotion.
 - [ADR 0565 — Unifier les contrats de variants topologiques](adr/0565-unifier-les-contrats-de-variants-topologiques.md) — identité canonique, baseline `default`, maturité exécutable, snapshots liés au worker et dispatch commun des sessions.
 - [ADR 0573 — Porte appariée P2 avant commit adaptatif](adr/0573-porte-appariee-p2-avant-commit-adaptatif.md) — six bras obligatoires, shadow/holdout disjoints, bootstrap apparié corrigé et refus de toute autorité implicite.
 - [ADR 0602 — Runner durable P3 pour les campagnes appariées](adr/0602-runner-durable-p3-campagnes-appariees.md) — reçus immuables, reprise idempotente, scellement shadow/holdout et adaptateurs de processus externes fail-closed.

@@ -1,6 +1,6 @@
 # ADR 0626 — Protocole de pensée endogène bornée
 
-- **Statut** : Accepté pour les contrats et la persistance ; runtime et campagne non implémentés
+- **Statut** : Accepté jusqu'à la file Ontogenèse retenue ; exécution et campagne non implémentées
 - **Date** : 2026-10-18
 - **Domaine** : cognition endogène, expérimentation, autorité, preuve
 - **Décideurs** : mainteneurs GenOS
@@ -53,6 +53,43 @@ organisation/projet. Les questions et reçus sont append-only. La tête d'un
 et du reçu précédent. La reprise relit et vérifie les empreintes des reçus ;
 elle ne rejoue aucune action externe.
 
+PR3 ajoute la première frontière runtime : un détecteur déterministe, désactivé
+par défaut, évalue une observation SHEV intègre dans la portée d'un agent et
+d'une responsabilité active. Les évaluations admises comme refusées sont
+persistées de manière immuable et idempotente. La politique borne le score, le
+gain d'information, la progression, le nombre d'épisodes ouverts, la période
+de refroidissement et le budget.
+
+Une admission ouvre un épisode `DETECTED`, persiste une question falsifiable
+avec ses sources, son hypothèse, son falsificateur et sa méthode, puis avance
+l'épisode à `QUESTIONED`. Cette étape ne crée aucune tâche, ne lance aucun outil
+ou modèle, n'accorde aucune autorité et ne rend rien éligible à la promotion.
+
+PR4 arbitre ensuite la question avec le service AGOW déterministe, utilisé comme
+fonction pure : aucun candidat n'est publié, aucun cycle global n'est déclenché
+et `GENOS_AGOW_MODE` n'est pas modifié. Le candidat d'investigation est comparé
+à une abstention planifiée. La décision versionnée est persistée de manière
+immuable et idempotente avant la transition vers `ADMITTED` ou `ABSTAINED`.
+L'ablation `agow_arbitration_ablated` sélectionne obligatoirement l'abstention.
+
+Cette admission conserve `taskRef` et `jobRef` à `null` et scelle cinq
+frontières négatives : aucune autorité, aucune promotion, aucune tâche, aucune
+action externe et aucune mutation du mode AGOW. La création Ontogenèse et la
+mise en file restent réservées à la tranche suivante.
+
+PR5 matérialise une admission dans `ontogenesis_backlog`. Le titre et les
+critères d'acceptation proviennent du contrat de question ; l'identité de tâche
+et le reçu de liaison sont déterministes. Leur insertion est atomique et le
+reçu est immuable, idempotent et isolé par organisation et projet. L'épisode
+avance ensuite de `ADMITTED` à `QUEUED` avec ce `taskRef` et sans `jobRef`.
+
+La tâche naît volontairement en statut Ontogenèse `blocked`. Cette retenue
+n'est pas un refus de l'épisode : elle empêche le sélecteur et une boucle déjà
+active de démarrer un worker avant une autorisation d'exécution séparée. Le
+reçu scelle l'absence d'autorité d'exécution, de worker, d'action externe et de
+promotion. Une tranche ultérieure devra lever explicitement la retenue avant
+la transition `QUEUED` vers `RUNNING`.
+
 Le schéma JSON canonique de la transition est
 `spec/cognitive-episode.schema.json`. Il reste aligné avec le validateur du
 runtime par un test de parité. Ses métadonnées fixent explicitement que le
@@ -86,7 +123,7 @@ uniquement sur une capacité fonctionnelle bornée dans le profil exécuté.
 
 ### Négatives
 
-- PR2 ne fournit aucun déclenchement autonome et aucune campagne exécutable.
+- PR5 fournit une tâche durable retenue, mais aucune exécution ou campagne exécutable.
 - La vérification indépendante et les oracles scellés restent à implémenter.
 - La normalisation des coûts devra être alimentée par des mesures réelles.
 - Une campagne locale ne suffira pas à établir une généralisation scientifique.
@@ -101,9 +138,21 @@ uniquement sur une capacité fonctionnelle bornée dans le profil exécuté.
 - `backend/tests/test_endogenous_thought_store.js` vérifie l'idempotence, les
   conflits de tête et de lignée, le rollback, l'isolation de portée,
   l'immutabilité et la reprise après redémarrage ;
+- `backend/tests/test_endogenous_thought_detection.js` vérifie le défaut inactif,
+  le mandat SHEV, les seuils bornés, la persistance des refus, la question
+  falsifiable, l'idempotence, l'isolation de portée et l'absence de tâche,
+  d'autorité supplémentaire ou d'action externe ;
+- `backend/tests/test_endogenous_thought_admission.js` vérifie l'arbitrage AGOW
+  sans effet, les transitions `ADMITTED` et `ABSTAINED`, l'ablation, le reçu
+  versionné, l'idempotence, l'isolation de portée, l'immutabilité et l'absence
+  de tâche, de job ou de mutation du mode AGOW ;
+- `backend/tests/test_endogenous_thought_queue.js` vérifie la liaison atomique
+  avec le backlog Ontogenèse, la transition `QUEUED`, l'idempotence,
+  l'immutabilité, l'isolation de portée, le refus d'une admission ablatée et la
+  retenue qui interdit toute sélection, exécution ou création de run ;
 - le même test vérifie la cohérence entre protocole, conditions d'ablation et
   registre des métriques ;
-- aucun test de PR1 ou PR2 ne promeut une capacité ou une propriété de conscience.
+- aucun test de PR1 à PR5 ne promeut une capacité ou une propriété de conscience.
 
 ## Alternatives écartées
 
