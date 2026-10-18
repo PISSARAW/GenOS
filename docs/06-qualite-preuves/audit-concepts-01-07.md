@@ -260,17 +260,17 @@ universel reste à fermer.
 | Versioning | o | p | p | o | o | A ; version de conteneur, migration entre versions à qualifier. |
 | Fingerprint | o | p | p | o | o | A ; hash canonique, preuve de vérification ciblée non relancée. |
 | Canonicalisation | o | p | p | p | o | [format](../../spec/AGENT_DNA_SPEC.md) ; règles codées, compatibilité croisée incomplète. |
-| Signature | p | p | p | p | o | A ; Ed25519 vérifiable, signature non requise par défaut pour tous tenants. |
-| Sections `META`, `CHRM`, `CHRP`, `XCHR`, `GENE`, `PLAS`, `ENHA`, `SCAR`, `PHEN`, `PROV`, `SIGN` | p | p | p | p | o | A ; ensemble composite, émission/lecture de chaque section non rejouées. |
+| Signature | o | p | p | p | o | A ; Ed25519 sign/verify implemente et teste (`backend/tests/test_genome_operations.js`); exigence par tenant selon `agentDnaPolicy`. |
+| Sections `META`, `CHRM`, `CHRP`, `XCHR`, `GENE`, `PLAS`, `ENHA`, `SCAR`, `PHEN`, `PROV`, `SIGN` | o | p | p | p | o | A ; conteneur composite encode/decode et teste (Rust `composite_sections_round_trip`: PLAS/ENHA/SCAR/XCHR/PHEN + SIGN). |
 | Expression ADN → phénotype | o | o | p | o | o | A ; test d'expression exécuté, décision worker non isolée. |
 | Spéciation | o | p | p | o | o | [opération](../../crates/genos-dna/src/operations.rs#L218) ; création de candidat, promotion conditionnelle. |
 | Graft | o | p | p | o | o | [opération](../../crates/genos-dna/src/operations.rs#L208) ; effet de capacité sur mission non prouvé. |
 | Leurres (`decoy`) | o | p | ? | o | o | A ; opération disponible, sûreté/usage réel non démontrés. |
-| Migration JSON legacy | p | p | ? | p | o | A ; compatibilité déclarée, matrice de vieux formats non prouvée. |
+| Migration JSON legacy | o | p | ? | p | o | A ; migration CLI compile `.agent.json` -> `.dna` testee (`backend/tests/test_agent_dna_migration.js`). |
 | Compatibilité de versions | p | p | ? | p | o | A ; format v1, qualification multi-version absente. |
-| Scellement `DRAFT → SEALED` | p | p | ? | p | o | A ; statut/gates, verrouillage universel non établi. |
-| Graphe d’organisme procédural | p | p | ? | p | o | [fiche](../01-concepts/procedural-organism.md) ; graphe local, liaison ADN-mission partielle. |
-| Immutabilité | p | p | p | p | o | A/B ; blobs/reçus figés selon circuit, pas toute donnée dérivée. |
+| Scellement `DRAFT -> SEALED` | o | p | ? | p | o | A ; scellement derive du contenu teste (`backend/tests/test_procedural_identity.js`); verrouillage universel des statuts runtime a qualifier. |
+| Graphe d'organisme procedurale | o | p | ? | p | o | [fiche](../01-concepts/procedural-organism.md) ; graphe et validation semantique testes (`backend/tests/test_procedural_graph_semantics.js`); liaison ADN-mission partielle reste. |
+| Immutabilite | o | p | p | p | o | A/B ; hash canonique et rejet de falsification testes (Rust `content_hash`, `backend/tests/test_agent_dna_immutability.js`); donnees derivees non toutes figees. |
 | Provenance génomique | o | p | p | o | o | A ; champs parents/opérations, chaîne complète non rejouée. |
 
 ## 4. Épistémologie et évidence — 38 entrées

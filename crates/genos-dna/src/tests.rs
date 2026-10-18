@@ -334,3 +334,25 @@ fn budding_pair_preserves_mother_scar_lineage() {
     assert_ne!(pair.daughter.meta.genome_id, dna.meta.genome_id);
     assert!(!pair.mother.scars.is_empty() || !pair.daughter.provenance.mutations.is_empty());
 }
+
+#[test]
+fn composite_sections_round_trip() {
+    use genos_genome::Plasmid;
+    let mut dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    dna.plasmids.push(Plasmid::new("repair pathway"));
+    dna.enhancers.push("ENH1".to_string());
+    dna.scars.push(uuid::Uuid::new_v4());
+    dna.extra_chromosomes.push(DnaStrand::synthesize("EXTRA"));
+    dna.phenotype = Some(crate::express::express(&dna));
+    let bytes = codec::encode(&dna).expect("encode composite");
+    let decoded = codec::decode(&bytes).expect("decode composite");
+    assert_eq!(decoded.plasmids.len(), 1);
+    assert_eq!(decoded.enhancers, vec!["ENH1".to_string()]);
+    assert_eq!(decoded.scars.len(), 1);
+    assert_eq!(decoded.extra_chromosomes.len(), 1);
+    assert!(decoded.phenotype.is_some());
+
+    let mut signed = dna.clone();
+    let signed_bytes = codec::encode_signed(&mut signed, &[9u8; 32]).expect("sign composite");
+    assert!(codec::verify_signature(&signed_bytes).expect("verify composite").is_some());
+}
