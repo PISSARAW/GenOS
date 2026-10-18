@@ -1,5 +1,27 @@
 {
   "schema": "genos.nosology/v1",
+  "calibration": {
+    "schema": "genos.nosology-calibration-metadata/v1",
+    "status": "uncalibrated_engineering_defaults",
+    "condition_thresholds": {
+      "implemented_default": 0.5,
+      "aggregation": "maximum_marker_severity",
+      "evidence": "contract_tests_only",
+      "promotion_gate": "verified_train_and_disjoint_holdout_campaign"
+    },
+    "therapy_amounts": {
+      "implemented_default": 0.25,
+      "evidence": "contract_safety_and_idempotence_tests_only",
+      "promotion_gate": "verified_benefit_harm_campaign"
+    },
+    "family_pressure": {
+      "production_aggregation": "maximum_v1",
+      "candidate_aggregation": "noisy_or_v2",
+      "evidence": "uncalibrated_shadow_comparison",
+      "promotion_gate": "verified_common_holdout_against_raw_family_max_and_no_change"
+    },
+    "aeis_thresholds_in_scope": false
+  },
   "conditions": [
     {"id":"Lupus","category":"Autoimmune","markers":["autoantibody_load"],"therapies":["SelfToleranceRecalibration","ImmunosuppressiveWash"],"threshold":0.5},
     {"id":"RheumatoidArthritis","category":"Autoimmune","markers":["joint_inflammation"],"therapies":["AntiTNFInhibitor"],"threshold":0.5},

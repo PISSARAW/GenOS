@@ -48,6 +48,12 @@ function testAllFamiliesAndTransverseConceptsReachMorphogenesis() {
   assert.equal(result.schema, 'genos.morphogenesis-nosology/v1');
   assert.deepEqual(result.families.map((family) => family.id), bridge.FAMILIES.map((family) => family[0]));
   assert.ok(result.families.every((family) => family.diagnosticEvidenceCount > 0));
+  assert.ok(result.families.some((family) => family.aggregatePressure > family.peakPressure));
+  assert.ok(result.families.every((family) => family.contributions.length > 0));
+  assert.equal(result.conditionProfiles.filter((item) => catalog.conditions
+    .some((condition) => condition.id === item.condition)).length, catalog.conditions.length);
+  assert.equal(result.response.recommendations.length, bridge.FAMILIES.length);
+  assert.equal(result.projection.calibrationStatus, 'uncalibrated');
   assert.ok(result.transverse.iatrogenicCount >= 2);
   assert.ok(result.transverse.nosocomialCount >= 1);
   assert.equal(result.transverse.treatmentAdministered, 1);
@@ -62,6 +68,12 @@ function testSignalsAndQuarantineGateAreBounded() {
   assert.ok(signals.provenanceRisk >= 0.7);
   assert.ok(signals.causalAmbiguity >= 0.7);
   assert.ok(Object.values(signals).filter(Number.isFinite).every((value) => value >= 0 && value <= 1));
+  const shadows = bridge.shadowComparison({ uncertainty: 0.1 }, observed);
+  assert.deepEqual(Object.keys(shadows).sort(), ['condition_noisy_or_v2', 'family_max_v1',
+    'no_change', 'raw_signals']);
+  assert.deepEqual(shadows.raw_signals.signals, { uncertainty: 0.1 });
+  assert.deepEqual(shadows.no_change.signals, { uncertainty: 0.1 });
+  assert.ok(shadows.condition_noisy_or_v2.contributionCount > 0);
 
   const blocked = compile(completeEvidence('blocked'));
   const policy = bridge.decoratePolicy({ status: 'proposed', diagnosis: { signals },

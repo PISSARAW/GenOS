@@ -7,8 +7,36 @@ use std::sync::OnceLock;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct NosologyCatalog {
     pub schema: String,
+    pub calibration: CalibrationMetadata,
     pub conditions: Vec<ConditionSpec>,
     pub therapies: Vec<TherapySpec>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CalibrationMetadata {
+    pub schema: String,
+    pub status: String,
+    pub condition_thresholds: ParameterCalibration,
+    pub therapy_amounts: ParameterCalibration,
+    pub family_pressure: FamilyPressureCalibration,
+    pub aeis_thresholds_in_scope: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ParameterCalibration {
+    pub implemented_default: f64,
+    pub evidence: String,
+    pub promotion_gate: String,
+    #[serde(default)]
+    pub aggregation: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct FamilyPressureCalibration {
+    pub production_aggregation: String,
+    pub candidate_aggregation: String,
+    pub evidence: String,
+    pub promotion_gate: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

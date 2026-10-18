@@ -325,7 +325,6 @@ async function loadVerifiedOutcomes(input, dependencies) {
     return [];
   }
 }
-
 function nosologyScope(input) {
   const mission = input.state.normalizedMission || {};
   const workerIds = input.state.workers instanceof Map ? [...input.state.workers.keys()] : [];
@@ -364,9 +363,11 @@ async function planContinuation(input, dependencies = {}) {
   const results = [...input.state.results.values()];
   const signals = evidenceSignals(results);
   const verifiedOutcomes = await loadVerifiedOutcomes(input, dependencies);
+  const nosologyProjectionOutcomes = await require('./morphogenesisNosologyOutcomeStore').loadForContinuation(input, dependencies);
   const communicationMetric = await communicationPlanning.loadVerifiedMetric(input, dependencies);
   const nosology = await loadNosology(input, dependencies, signals);
-  const decisionInput = { ...input, verifiedOutcomes, communicationMetric, nosology };
+  const decisionInput = { ...input, verifiedOutcomes, nosologyProjectionOutcomes,
+    communicationMetric, nosology };
   const decision = require('./morphogenesisEpochDecisionService').compilePolicy(decisionInput, signals);
   const early = earlyDecision({ input, signals, decision, communicationMetric, nosology });
   if (early) return early;

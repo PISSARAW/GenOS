@@ -87,11 +87,14 @@ async function planAdaptiveContinuation(input) {
   try {
     const service = require('./morphogenesis/missionMorphogenesisContinuation');
     const outcomes = require('./morphogenesis/morphogenesisVerifiedOutcomeStore');
+    const nosologyOutcomes = require('./morphogenesis/morphogenesisNosologyOutcomeStore');
     const mission = input.state.normalizedMission || {};
     const scope = { organizationId: input.state.organizationId || mission.organizationId,
       projectId: input.state.projectId || mission.projectId };
     return await service.planContinuation(input, { loadVerifiedOutcomes: (query) =>
       outcomes.loadVerifiedOutcomes(input.state.db, { ...query, ...scope }),
+    loadNosologyProjectionOutcomes: (query) =>
+      nosologyOutcomes.load(input.state.db, { ...query, ...scope }),
     loadVerifiedCommunicationMetric: (query) =>
       require('./morphogenesis/communicationMetricProducer').produce({ ...query,
         state: input.state, orchestratorId: input.orchestratorId }) });

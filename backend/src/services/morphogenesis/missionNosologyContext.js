@@ -26,8 +26,11 @@ function assertPlanningAllowed(nosology) {
 
 function enrichPlanningInput(input, nosology) {
   if (!nosology) return input;
-  const diagnosis = bridge.mergeSignals(input.diagnosis || {}, nosology);
-  return { ...input, diagnosis, nosology,
+  const projected = bridge.projectSignals(input.diagnosis || {}, nosology,
+    input.nosologyProjectionMode || 'family_max_v1');
+  const diagnosis = projected.signals;
+  return { ...input, diagnosis, nosology, nosologyProjection: { ...projected.receipt,
+    shadow: bridge.shadowComparison(input.diagnosis || {}, nosology) },
     problemProfile: { ...(input.problemProfile || {}), ...diagnosis } };
 }
 

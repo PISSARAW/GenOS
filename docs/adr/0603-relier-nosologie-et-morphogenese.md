@@ -58,6 +58,11 @@ résultats sont limités aux agents de la mission, à 256 diagnostics et à 64 a
 Rust récentes. La calibration empirique des correspondances famille/intervention reste
 une campagne distincte ; sans preuve comparative, `NO_CHANGE` demeure la référence.
 
+L'ADR 0644 complète cette décision : les contributions et conditions sont désormais
+conservées, une projection conditionnelle `noisy-OR` est exécutée en shadow et une
+campagne vérifiée la compare à `family_max_v1`, aux signaux bruts et à `NO_CHANGE`.
+La référence de production ne change pas sans qualification et sélection explicite.
+
 ## Vérification
 
 - `node backend/tests/test_morphogenesis_nosology_bridge.js`

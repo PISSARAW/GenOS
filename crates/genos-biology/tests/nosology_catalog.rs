@@ -16,6 +16,16 @@ fn cell() -> AgentCell {
 fn catalog_covers_every_documented_condition_and_family() {
     let catalog = catalog();
     assert_eq!(catalog.schema, "genos.nosology/v1");
+    assert_eq!(
+        catalog.calibration.status,
+        "uncalibrated_engineering_defaults"
+    );
+    assert_eq!(
+        catalog.calibration.condition_thresholds.implemented_default,
+        0.5
+    );
+    assert_eq!(catalog.calibration.therapy_amounts.implemented_default, 0.25);
+    assert!(!catalog.calibration.aeis_thresholds_in_scope);
     assert_eq!(catalog.conditions.len(), 28);
     assert_eq!(
         catalog

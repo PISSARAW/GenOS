@@ -1,5 +1,7 @@
 'use strict';
 
+const projection = require('./morphogenesisNosologyProjection');
+
 const FAMILIES = Object.freeze([
   ['autoimmune', 'immunity_recalibration', null],
   ['degenerative', 'local_repair_then_cohort_replacement', 'COHORT_REPLACEMENT'],
@@ -21,14 +23,6 @@ const NODE_PATHOLOGIES = Object.freeze({
 const CATEGORY_IDS = Object.freeze({ Autoimmune: 'autoimmune', Degenerative: 'degenerative',
   Infectious: 'infectious', Genetic: 'genetic', Cancer: 'cancer', Metabolic: 'metabolic',
   Cardiovascular: 'cardiovascular', Psychiatric: 'psychiatric', Environmental: 'environmental' });
-const SIGNAL_PROJECTION = Object.freeze({
-  autoimmune: ['contradiction', 'adversarialRisk'], degenerative: ['stagnation', 'uncertainty'],
-  infectious: ['provenanceRisk', 'monitoringNeed'], genetic: ['deterministicNeed', 'causalAmbiguity'],
-  cancer: ['adversarialRisk', 'deterministicNeed'], metabolic: ['deterministicNeed', 'stagnation'],
-  cardiovascular: ['monitoringNeed', 'stagnation'], psychiatric: ['contradiction', 'causalAmbiguity'],
-  environmental: ['uncertainty', 'provenanceRisk']
-});
-
 function unit(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
@@ -37,7 +31,7 @@ function unit(value) {
 function familyRecord(config) {
   return { id: config[0], pressure: 0, diagnosticEvidenceCount: 0,
     observationalEvidenceCount: 0, evidenceRefs: [], recommendedControl: config[1],
-    candidateScale: config[2] };
+    candidateScale: config[2], peakPressure: 0, aggregatePressure: 0, contributions: [] };
 }
 
 function statePressures(state) {
@@ -68,7 +62,13 @@ function operationalPressures(state, runtimeSignals) {
 function addEvidence(families, evidence) {
   const family = families.get(evidence.family);
   if (!family) return;
-  family.pressure = Math.max(family.pressure, unit(evidence.severity) * unit(evidence.confidence ?? 1));
+  const pressure = unit(evidence.severity) * unit(evidence.confidence ?? 1);
+  family.pressure = Math.max(family.pressure, pressure);
+  family.peakPressure = family.pressure;
+  family.contributions.push({ pressure, diagnostic: evidence.diagnostic === true,
+    condition: evidence.condition || null, pathologyType: evidence.pathologyType || null,
+    sourceRef: evidence.sourceRef || null, agentId: evidence.agentId || null });
+  family.aggregatePressure = projection.noisyOr(family.contributions.map((item) => item.pressure));
   const key = evidence.diagnostic ? 'diagnosticEvidenceCount' : 'observationalEvidenceCount';
   family[key] += 1;
   if (evidence.sourceRef && !family.evidenceRefs.includes(evidence.sourceRef)) family.evidenceRefs.push(evidence.sourceRef);
@@ -151,6 +151,36 @@ function primaryFamily(families) {
   return [...families].sort((left, right) => right.pressure - left.pressure)[0] || null;
 }
 
+function conditionProfiles(diagnoses) {
+  const profiles = new Map();
+  for (const diagnosis of diagnoses) {
+    const condition = diagnosis.condition || diagnosis.pathologyType;
+    if (!condition) continue;
+    const key = `${diagnosis.family || 'transverse'}:${condition}`;
+    const pressure = unit(diagnosis.severity) * unit(diagnosis.confidence ?? 1);
+    const current = profiles.get(key) || { condition, family: diagnosis.family || null,
+      peakPressure: 0, aggregatePressure: 0, evidenceCount: 0, evidenceRefs: [], pressures: [] };
+    current.peakPressure = Math.max(current.peakPressure, pressure);
+    current.pressures.push(pressure);
+    current.aggregatePressure = projection.noisyOr(current.pressures);
+    current.evidenceCount += 1;
+    if (diagnosis.sourceRef && !current.evidenceRefs.includes(diagnosis.sourceRef)) {
+      current.evidenceRefs.push(diagnosis.sourceRef);
+    }
+    profiles.set(key, current);
+  }
+  return [...profiles.values()].map(({ pressures, ...profile }) => profile)
+    .sort((left, right) => right.aggregatePressure - left.aggregatePressure);
+}
+
+function familyRecommendations(families) {
+  return families.filter((family) => family.aggregatePressure > 0)
+    .sort((left, right) => right.aggregatePressure - left.aggregatePressure)
+    .map((family) => ({ family: family.id, pressure: family.aggregatePressure,
+      recommendedControl: family.recommendedControl, candidateScale: family.candidateScale,
+      evidenceRefs: [...family.evidenceRefs] }));
+}
+
 function compileNosologyBridge(input = {}) {
   const evidence = input.evidence || { status: 'unavailable', states: [], pathologies: [], rustApplications: [] };
   const families = new Map(FAMILIES.map((config) => [config[0], familyRecord(config)]));
@@ -159,28 +189,30 @@ function compileNosologyBridge(input = {}) {
   const diagnoses = allDiagnoses(evidence);
   diagnoses.forEach((diagnosis) => addEvidence(families, diagnosis));
   const familyList = [...families.values()];
+  const conditions = conditionProfiles(diagnoses);
   const gate = gateFor(input, evidence);
   const transverse = transverseSummary({ evidence, diagnoses, runtimeSignals: input.runtimeSignals, gate });
   const primary = primaryFamily(familyList);
+  const recommendations = familyRecommendations(familyList);
   return { schema: 'genos.morphogenesis-nosology/v1', status: evidence.status,
-    families: familyList, diagnoses, transverse, gate,
+    families: familyList, diagnoses, conditionProfiles: conditions, transverse, gate,
+    projection: { schema: 'genos.nosology-projection/v2', defaultMode: 'family_max_v1',
+      candidateMode: 'condition_noisy_or_v2', calibrationStatus: 'uncalibrated',
+      promotionRequiresVerifiedCampaign: true },
     response: { primaryFamily: primary?.pressure > 0 ? primary.id : null,
       recommendedControl: primary?.pressure > 0 ? primary.recommendedControl : 'no_change',
       candidateScale: primary?.pressure > 0 ? primary.candidateScale : null,
+      recommendations, activeConditions: conditions,
       therapyAutomatic: false, requiresExplicitAuthorization: true },
     proofObligations: obligationsFor(transverse, gate), errors: evidence.errors || [] };
 }
 
-function mergeSignals(base = {}, bridge = {}) {
-  const result = { ...base };
-  for (const family of bridge.families || []) {
-    for (const signal of SIGNAL_PROJECTION[family.id] || []) {
-      result[signal] = Math.max(unit(result[signal]), unit(family.pressure));
-    }
-  }
-  if (bridge.transverse?.iatrogenicCount) result.causalAmbiguity = Math.max(unit(result.causalAmbiguity), 0.7);
-  if (bridge.transverse?.nosocomialCount) result.provenanceRisk = Math.max(unit(result.provenanceRisk), 0.7);
-  return result;
+function projectSignals(base = {}, bridge = {}, mode = 'family_max_v1') {
+  return projection.project(base, bridge, mode);
+}
+
+function mergeSignals(base = {}, bridge = {}, mode = 'family_max_v1') {
+  return projectSignals(base, bridge, mode).signals;
 }
 
 function uniqueObligations(existing, additional) {
@@ -195,18 +227,20 @@ function noChangeRecipe(policy) {
     interventionScale: 'NO_CHANGE', executionEligible: false };
 }
 
-function decoratePolicy(policy, bridge) {
+function decoratePolicy(policy, bridge, projectionReceipt = null) {
   if (!bridge) return policy;
   const obligations = uniqueObligations(policy.decision?.proofObligations, bridge.proofObligations);
   const decision = { ...policy.decision, proofObligations: obligations,
-    clinicalResponse: bridge.response };
+    clinicalResponse: bridge.response, nosologyProjection: projectionReceipt };
   const result = { ...policy, diagnosis: { ...policy.diagnosis, nosology: bridge }, decision,
     bounds: { ...policy.bounds, clinicalGate: bridge.gate.status } };
-  if (bridge.gate.status !== 'blocked') return result;
+  if (bridge.gate.status !== 'blocked' && !projectionReceipt?.abstain) return result;
   result.status = 'blocked';
   result.decision = { ...decision, recipe: noChangeRecipe(policy), interventionScale: 'NO_CHANGE',
     interventionEstimate: null };
+  if (projectionReceipt?.abstain && bridge.gate.status !== 'blocked') result.status = policy.status;
   return result;
 }
 
-module.exports = { FAMILIES, compileNosologyBridge, mergeSignals, decoratePolicy };
+module.exports = { FAMILIES, compileNosologyBridge, projectSignals, mergeSignals, decoratePolicy,
+  shadowComparison: projection.shadowComparison };

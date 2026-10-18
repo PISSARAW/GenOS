@@ -6,6 +6,7 @@ const { arbitrateGroupNeeds } = require('./groupResourceNegotiation');
 const { extractEvidenceReport } = require('../agentEvidenceService');
 const resourceReallocation = require('./resourceReallocationCandidate');
 const nosologyBridge = require('./morphogenesisNosologyBridge');
+const nosologyCalibration = require('./morphogenesisNosologyCalibration');
 
 function workerFor(state, workerId) { return state.workers.get(workerId) || {}; }
 
@@ -198,15 +199,24 @@ function compilePolicy(input, signals) {
   const workers = input.survivors.map((survivor) => ({
     ...workerFor(state, survivor.agentId), agentId: survivor.agentId,
     evidenceScore: survivor.evidenceScore }));
-  const diagnosis = nosologyBridge.mergeSignals(
-    diagnosisFor(signals, [...state.results.values()]), input.nosology);
+  const rawDiagnosis = diagnosisFor(signals, [...state.results.values()]);
+  const calibration = nosologyCalibration.compileCalibration(
+    input.nosologyProjectionOutcomes || input.verifiedOutcomes);
+  const requestedMode = state.normalizedMission?.morphogenesisPolicy?.nosologyProjectionMode;
+  const selection = nosologyCalibration.selectMode(calibration, requestedMode);
+  const projected = nosologyBridge.projectSignals(rawDiagnosis, input.nosology, selection.mode);
+  const diagnosis = projected.signals;
+  const projectionReceipt = { ...projected.receipt, selectionReason: selection.reason,
+    calibration: { status: calibration.status, reason: calibration.reason || null,
+      commonHoldoutCaseCount: calibration.commonHoldoutCaseCount },
+    shadow: nosologyBridge.shadowComparison(rawDiagnosis, input.nosology) };
   const supports = supportDecisions(input, diagnosis);
   const { challenge, resources } = supports;
   const rosterPlan = rosterReductionPlan(input, workers);
   const policy = nosologyBridge.decoratePolicy(compileConditionalMorphogenesisPolicy({
     ...conditionalPolicyInput({ ...input, rosterReductionPlan },
       withIntraEpoch(input, diagnosis), workers), resourceAllocationPlan: resources
-  }), input.nosology);
+  }), input.nosology, projectionReceipt);
   const decision = { policy, challenge, resources, rosterPlan,
     intraEpoch: state.intraEpochObservations || null };
   state.plan.morphogenesisEpochDecision = decision;
