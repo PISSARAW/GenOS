@@ -209,6 +209,11 @@ const RAW = {
   genos_execute_strategy_pipeline: { k: 'tool', a: ['genos_execute_strategy_pipeline'], d: 'Strategy pipeline', t: ['genos_execute_strategy_pipeline'], c: ['PROCEDURAL_GUIDANCE'] },
   genos_parasitic_pressure: { k: 'tool', a: ['genos_parasitic_pressure'], d: 'Parasitic pressure', t: ['genos_parasitic_pressure'], c: ['IMMUNE_SYSTEM'] },
   genos_run: { k: 'tool', a: ['genos_run'], d: 'VFS sandbox run', t: ['genos_run'], c: ['VFS_SANDBOX'] },
+  genos_working_memory: { k: 'tool', a: ['genos_working_memory'], d: 'Mémoire de travail: cache borné TTL (memorize/recall/forget)', t: ['genos_working_memory'], c: ['WORKING_MEMORY'] },
+  genos_ancestral_memory: { k: 'tool', a: ['genos_ancestral_memory'], d: 'Mémoire ancestrale: traces par lignée (memorize/recall/forget)', t: ['genos_ancestral_memory'], c: ['ANCESTRAL_MEMORY'] },
+  genos_risk_inheritance: { k: 'tool', a: ['genos_risk_inheritance'], d: 'Héritage de risque: propagation atténuée parent→descendant (propagate/getRisk/decay)', t: ['genos_risk_inheritance'], c: ['RISK_INHERITANCE'] },
+  genos_collective_plasticity: { k: 'tool', a: ['genos_collective_plasticity'], d: 'Plasticité collective: poids synaptiques par canal (update/getWeight/aggregate/decayAll)', t: ['genos_collective_plasticity'], c: ['COLLECTIVE_PLASTICITY'] },
+  genos_teaching_worker: { k: 'tool', a: ['genos_teaching_worker'], d: 'Teaching worker / transmission: procédure démontrée et transfert vérifié (teach/verifyTransfer)', t: ['genos_teaching_worker'], c: ['TEACHING_WORKER'] },
 };
 
 // ── FIELD MAPPINGS (raw key → canonical key, default) ────────────

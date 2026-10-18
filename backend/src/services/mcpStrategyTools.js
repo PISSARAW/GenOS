@@ -5,8 +5,26 @@ const strategyExecutionAdapter = require('./strategyExecutionAdapter');
 const { validateToolArguments } = require('./mcpArgumentValidation');
 const { MCP_TOOLS_LIST } = require('../db/seedTools');
 const { annotateCapability } = require('./capabilityMaturity');
+const {
+  handleWorkingMemory, handleAncestralMemory, handleRiskInheritance,
+  handleCollectivePlasticity, handleTeachingWorker
+} = require('./mcpMemoryTools');
 
 const REGISTERED_STRATEGY_TOOLS = new Set((MCP_TOOLS_LIST || []).map((tool) => tool.name).filter((name) => name.startsWith('genos_strat_')));
+
+const MEMORY_TOOL_DISPATCH = Object.freeze({
+  genos_working_memory: handleWorkingMemory,
+  genos_ancestral_memory: handleAncestralMemory,
+  genos_risk_inheritance: handleRiskInheritance,
+  genos_collective_plasticity: handleCollectivePlasticity,
+  genos_teaching_worker: handleTeachingWorker
+});
+
+function dispatchMemoryTool(toolName, args) {
+  const handler = MEMORY_TOOL_DISPATCH[toolName];
+  if (!handler) return undefined;
+  return handler(args);
+}
 
 const EXTRA_STRATEGY_TOOLS = new Set([
   'genos_resilience_hypermutation',
@@ -16,6 +34,11 @@ const EXTRA_STRATEGY_TOOLS = new Set([
   'genos_compile_memory',
   'genos_synaptic_stdp_update',
   'genos_synaptic_prune_scale',
+  'genos_working_memory',
+  'genos_ancestral_memory',
+  'genos_risk_inheritance',
+  'genos_collective_plasticity',
+  'genos_teaching_worker',
   'genos_blame',
   'genos_lineage',
   'genos_procedural_registry_list',
@@ -236,17 +259,22 @@ async function dispatchStrategyTool(toolName, args, context) {
   return dispatchStrategyExecutionTool(toolName, args);
 }
 
+const STATE_TOOL_HANDLERS = Object.freeze({
+  genos_blame: (args, context) => handleBlameOrLineage('genos_blame', args, context),
+  genos_lineage: (args, context) => handleBlameOrLineage('genos_lineage', args, context),
+  genos_record_experience: (args) => runPrimitive('record_experience', args),
+  genos_compile_memory: (args) => runPrimitive('compile_memory', args),
+  genos_resilience_hypermutation: (args) => handleResilienceHypermutation(args),
+  genos_synaptic_stdp_update: (args) => handleSynapticStdpUpdate(args),
+  genos_synaptic_prune_scale: (args) => handleSynapticPruneScale(args)
+});
+
 function dispatchStrategyStateTool(toolName, args, context) {
-  switch (toolName) {
-    case 'genos_blame': return handleBlameOrLineage('genos_blame', args, context);
-    case 'genos_lineage': return handleBlameOrLineage('genos_lineage', args, context);
-    case 'genos_record_experience': return runPrimitive('record_experience', args);
-    case 'genos_compile_memory': return runPrimitive('compile_memory', args);
-    case 'genos_resilience_hypermutation': return handleResilienceHypermutation(args);
-    case 'genos_synaptic_stdp_update': return handleSynapticStdpUpdate(args);
-    case 'genos_synaptic_prune_scale': return handleSynapticPruneScale(args);
-    default: return undefined;
-  }
+  const memoryResult = dispatchMemoryTool(toolName, args);
+  if (memoryResult !== undefined) return memoryResult;
+  const handler = STATE_TOOL_HANDLERS[toolName];
+  if (handler) return handler(args, context);
+  return undefined;
 }
 
 function dispatchStrategyExecutionTool(toolName, args) {

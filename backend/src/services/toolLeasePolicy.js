@@ -111,7 +111,12 @@ const KNOWN_TOOL_ALLOW_LIST = [
   'genos_execute_primitive',
   'genos_execute_strategy_pipeline',
   'genos_parasitic_pressure',
-  'genos_run'
+  'genos_run',
+  'genos_working_memory',
+  'genos_ancestral_memory',
+  'genos_risk_inheritance',
+  'genos_collective_plasticity',
+  'genos_teaching_worker'
 ];
 
 // Maps a topology capability (see topologyCapabilityService.GENOS_CAPABILITIES)
@@ -164,7 +169,12 @@ const CAPABILITY_TOOLS = Object.freeze({
   SEMANTIC_CONFLICTS: ['genos_adversarial_review', 'genos_topology_session'],
   INVARIANT_GATES: ['genos_guardrails_verify', 'genos_topology_session'],
   SELECTIVE_SYNC: ['genos_topology_session'],
-  TRANSACTIONAL_SHARED_STATE: ['genos_topology_session']
+  TRANSACTIONAL_SHARED_STATE: ['genos_topology_session'],
+  WORKING_MEMORY: ['genos_working_memory'],
+  ANCESTRAL_MEMORY: ['genos_ancestral_memory'],
+  RISK_INHERITANCE: ['genos_risk_inheritance'],
+  COLLECTIVE_PLASTICITY: ['genos_collective_plasticity'],
+  TEACHING_WORKER: ['genos_teaching_worker']
 });
 
 function normalizeToolName(value) {
@@ -387,5 +397,4 @@ module.exports = {
   restrictProvidedLease,
   staleLeaseTools,
   isLeaseSubsetOf,
-  applyBiomimeticGating
-};
+  applyBiomimeticGating};

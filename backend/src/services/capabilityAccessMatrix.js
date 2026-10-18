@@ -53,6 +53,8 @@ const ROUTABLE_TOOLS = Object.freeze([
   'genos_signal_publish', 'genos_signal_read', 'genos_signal_purge', 'genos_signal_ground',
   'genos_signal_electrocyte_vote', 'genos_signal_chemotactic_follow',
   'genos_signal_plasmid_transfer', 'genos_signal_collective_decision',
+  'genos_working_memory', 'genos_ancestral_memory', 'genos_risk_inheritance',
+  'genos_collective_plasticity', 'genos_teaching_worker',
   'genos_v2_fork', 'genos_v2_init', 'genos_worker_inbox', 'genos_worker_publish'
 ]);
 const ROUTABLE_TOOL_SET = new Set(ROUTABLE_TOOLS);

@@ -70,12 +70,13 @@ const CAPABILITY_ALIASES = Object.freeze({
   , rearbitrage_promotion: 'PROMOTION_GATE'
   , leases_outils: 'execution_guardrails', budgets: 'execution_guardrails'
   , promotion_rejet_quarantaine_escalade: 'PROMOTION_GATE'
-  , memoire_travail: 'PROCEDURAL_MEMORY', memoire_semantique: 'GRAPH_MEMORY'
-  , memoire_ancestrale: 'GENOME_EPIGENETICS', memoire_autobiographique: 'EPISODIC_MEMORY'
+  , memoire_travail: 'WORKING_MEMORY', memoire_semantique: 'GRAPH_MEMORY'
+  , memoire_ancestrale: 'ANCESTRAL_MEMORY', memoire_autobiographique: 'EPISODIC_MEMORY'
   , memoire_culturelle: 'GRAPH_MEMORY', vector_search: 'VECTOR_MEMORY'
   , plasticite_dendritique: 'SYNAPTIC_PLASTICITY', plasticite_locale: 'SYNAPTIC_PLASTICITY'
-  , plasticite_collective: 'SYNAPTIC_PLASTICITY', adaptation: 'STRATEGY_ADAPTATION'
+  , plasticite_collective: 'COLLECTIVE_PLASTICITY', adaptation: 'STRATEGY_ADAPTATION'
   , lacune_apprentissage: 'CONTROLLED_LAMARCKIAN_LEARNING', transmission: 'SIGNALING_BUS'
+  , heritage_risque: 'RISK_INHERITANCE', teaching_worker: 'TEACHING_WORKER'
   , pathologie_runtime: 'RESILIENCE_RECOVERY', immunite_graduee: 'IMMUNE_SYSTEM'
   , isolated_recovery: 'RESILIENCE_RECOVERY', heartbeat: 'OBSERVABILITY'
   , checkpoint_cryptographique: 'CAPSULES_SNAPSHOTS', idempotence_appels_externes: 'RESILIENCE_RECOVERY'
@@ -234,7 +235,7 @@ const RUNTIME_ALIASES = Object.freeze({
   etat_versionne: 'provenance_integrity', branches_forks_snapshots_diffs_replay: 'deterministic_replay',
   succes_technique_vs_verite: 'evidence_first', concept_metaphore_capacite: 'evidence_first',
   leases_outils: 'execution_guardrails', budgets: 'execution_guardrails',
-  fossilisation_stratigraphique: 'genos_lineage', heritage_risque: 'genos_lineage',
+  fossilisation_stratigraphique: 'genos_lineage', heritage_risque: 'genos_risk_inheritance',
   infini_sous_contrat: 'execution_guardrails', self_twin_causal: 'causal_replay_intervention_concept',
   lacune_apprentissage: 'controlled_lamarckian_learning', derive: 'entropy_sentinel',
   claims_interrompus: 'circuit_breaker_concept', redemarrage: 'checkpoint_regeneration_concept',

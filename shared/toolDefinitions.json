@@ -4346,23 +4346,59 @@
           },
           "navigation_scope": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Required for authenticated forage_step observations; allowed HTTP(S) origins, with navigation outside them refused."
           },
-          "mission_id": { "type": "string", "description": "Mission bound by the signed foraging source attestation." },
+          "mission_id": {
+            "type": "string",
+            "description": "Mission bound by the signed foraging source attestation."
+          },
           "source_attestation": {
             "type": "object",
             "description": "Ed25519 source proof signed by a producer pinned in GENOS_FORAGING_TRUST_JSON.",
-            "required": ["producer_id", "mission_id", "navigation_scope", "observed_origin", "observed_path", "observed_text_digest", "source_payload_digest", "signature"],
+            "required": [
+              "producer_id",
+              "mission_id",
+              "navigation_scope",
+              "observed_origin",
+              "observed_path",
+              "observed_text_digest",
+              "source_payload_digest",
+              "signature"
+            ],
             "properties": {
-              "producer_id": { "type": "string" },
-              "mission_id": { "type": "string" },
-              "navigation_scope": { "type": "array", "items": { "type": "string" } },
-              "observed_origin": { "type": "string" },
-              "observed_path": { "type": "string" },
-              "observed_text_digest": { "type": "string" },
-              "source_payload_digest": { "type": ["string", "null"] },
-              "signature": { "type": "string" }
+              "producer_id": {
+                "type": "string"
+              },
+              "mission_id": {
+                "type": "string"
+              },
+              "navigation_scope": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "observed_origin": {
+                "type": "string"
+              },
+              "observed_path": {
+                "type": "string"
+              },
+              "observed_text_digest": {
+                "type": "string"
+              },
+              "source_payload_digest": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "signature": {
+                "type": "string"
+              }
             }
           },
           "html_content": {
@@ -4728,6 +4764,278 @@
         },
         "required": [
           "agentId"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_working_memory",
+      "category": "Memory",
+      "risk": "Low",
+      "description": "Working memory (cache borné avec TTL métabolique): memorize/recall/forget un problème déjà résolu pour court-circuiter le recalcul.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "memorize",
+              "recall",
+              "forget",
+              "stats",
+              "prune"
+            ]
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "string"
+          },
+          "ttlMs": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_ancestral_memory",
+      "category": "Memory",
+      "risk": "Low",
+      "description": "Mémoire ancestrale: traces mémorielles transmises d'un ancêtre à ses descendants au sein d'une lignée (memorize/recall/forget/stats).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "memorize",
+              "recall",
+              "forget",
+              "stats"
+            ]
+          },
+          "lineageId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "memoryId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ancestorId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "memory": {
+            "type": "object"
+          },
+          "salience": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action",
+          "lineageId"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_risk_inheritance",
+      "category": "Memory",
+      "risk": "Low",
+      "description": "Héritage de risque: propagation atténuée d'un score de risque d'une source vers une cible dans une lignée (propagate/getRisk/decay/stats).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "propagate",
+              "getRisk",
+              "decay",
+              "stats"
+            ]
+          },
+          "lineageId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "targetId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "risk": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action",
+          "lineageId"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_collective_plasticity",
+      "category": "Plasticity",
+      "risk": "Low",
+      "description": "Plasticité collective: mise à jour conjointe de poids synaptiques par canal sous signal global (update/getWeight/aggregate/decayAll/stats).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "update",
+              "getWeight",
+              "aggregate",
+              "decayAll",
+              "stats"
+            ]
+          },
+          "channelId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "signal": {
+            "type": "number"
+          },
+          "rate": {
+            "type": "number"
+          },
+          "channelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_teaching_worker",
+      "category": "Learning",
+      "risk": "Low",
+      "description": "Teaching worker / transmission: exécute une procédure démontrée (subset_sum) et vérifie que l'apprenant reproduit le transfert sur l'instance fournie (teach/verifyTransfer).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "teach",
+              "verifyTransfer"
+            ]
+          },
+          "procedureId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "demonstration": {
+            "type": "string"
+          },
+          "learnerIndices": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "input": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "target": {
+            "type": "number"
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action"
         ],
         "additionalProperties": true
       }
