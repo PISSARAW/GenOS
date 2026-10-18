@@ -206,6 +206,10 @@ Les opérations passent par `genos_philosophy` et conservent son lease existant.
 | `representativeMissionCoverage` | couverture synthétique des missions représentatives |
 | `runOrganizationComparison` | quatre ordonnanceurs réels en processus sur une mission identique |
 | `organizationComparisonCoverage` | parité des budgets et issues sur seize exécutions organisationnelles |
+| `runWorkerPhilosophyMission` | trois audits appariés dans des workers isolés pour une mission et une organisation |
+| `workerPhilosophyCoverage` | seize exécutions et 48 dispatchs workers, avec résumés de reçus bornés |
+| `runPhilosophyRuntimeEvidence` | reçu runtime composé et rejouable pour un contrat représentatif |
+| `admitIndependentPhilosophyAttestation` | admission d'un reçu signé par un vérificateur reconnu et indépendant |
 | `assessContractPromotion` | éligibilité bornée, preuves manquantes et limites |
 
 ### Pagination et limites de transport
@@ -278,6 +282,20 @@ isolés. Les tâches, observations et plafonds restent identiques ; l'ordre,
 les messages et les tours sont effectivement produits par chaque ordonnanceur.
 La parité d'issue est calculée après normalisation par contrat. Ces exécutions
 ne constituent pas un dispatch de workers ou une topologie distribuée.
+
+La campagne worker reprend les seize combinaisons mission/organisation et
+envoie chacun de leurs trois contrats dans un `worker_thread` isolé. Chaque
+round-trip est lié à un nonce, limité en mémoire et en durée, puis rejoué pour
+vérification. Elle établit 48 dispatchs locaux réels. Le plan de messages de
+l'organisation reste une attente comparée au même résultat ; les messages ne
+circulent pas directement entre workers. Les reçus portent donc
+`actualWorkerDispatch: true` et `actualTopologyExecution: false`.
+
+L'attestation indépendante lie ensuite les reçus de scénario et runtime à un
+vérificateur du registre de confiance, distinct du producteur selon la politique
+d'indépendance. Cette admission satisfait la barrière de maturité `validated`
+pour les douze contrats représentatifs, sans rendre leur promotion autorisée ni
+vérifier des faits externes.
 
 ## 8. Raccord et vérification Ontogenèse
 

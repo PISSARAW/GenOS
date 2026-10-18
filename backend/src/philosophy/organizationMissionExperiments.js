@@ -129,4 +129,5 @@ function runOrganizationCoverage(contracts) {
 }
 
 module.exports = { ORGANIZATIONS, runOrganizationComparison,
-  verifyOrganizationComparison, runOrganizationCoverage };
+  verifyOrganizationComparison, runOrganizationCoverage,
+  orderContracts, messageTrace, organizationOutcomeHash: outcomeHash };

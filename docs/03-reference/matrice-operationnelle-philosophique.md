@@ -458,6 +458,14 @@ une mission réelle, ni le contenu externe des observations. Les 408 contrats
 sans mission représentative ne disposent pas de cette voie. Voir
 [ADR 0617](../adr/0617-attestation-independante-contrats-philosophiques.md).
 
+La campagne distincte `workerPhilosophyCoverage` exécute les quatre missions
+sous quatre organisations avec trois `worker_threads` isolés chacune : 48
+dispatchs locaux. Ses reçus portent `actualWorkerDispatch: true`, mais toujours
+`actualTopologyExecution: false`, `externalFactsVerified: false` et
+`promotionEligible: false`. Cette preuve de dispatch ne modifie donc pas les
+limites de l'attestation indépendante. Voir
+[ADR 0619](../adr/0619-dispatch-workers-philosophiques-isoles.md).
+
 Les statuts philosophiques historiques ne sont pas réécrits pour afficher
 artificiellement une complétude.
 

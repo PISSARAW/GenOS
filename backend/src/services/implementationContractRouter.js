@@ -11,11 +11,25 @@ const experiments = require('../philosophy/contractExperiments');
 const representative = require('../philosophy/representativeMissionExperiments');
 const organizations = require('../philosophy/organizationMissionExperiments');
 const attestations = require('../philosophy/independentAttestation');
+const workers = require('../philosophy/workerMissionExperiments');
 const { pageContracts } = require('../philosophy/contractPagination');
 const EXECUTION_OPERATIONS = ['executeImplementationContract', 'runImplementationExperiment',
   'implementationExperimentCoverage', 'listRepresentativeMissions', 'runRepresentativeMission',
   'representativeMissionCoverage', 'runOrganizationComparison', 'organizationComparisonCoverage',
-  'runPhilosophyRuntimeEvidence', 'admitIndependentPhilosophyAttestation'];
+  'runPhilosophyRuntimeEvidence', 'admitIndependentPhilosophyAttestation',
+  'runWorkerPhilosophyMission', 'workerPhilosophyCoverage'];
+
+function workerOperation(operation, args, contracts) {
+  const handlers = {
+    runWorkerPhilosophyMission: () => workers.runWorkerMission(contracts(), args),
+    workerPhilosophyCoverage: async () => {
+      const report = await workers.runWorkerCoverage(contracts());
+      return { ...report, receipts: report.receipts.map(({ missionId, organization, receiptHash, passed,
+        measuredCosts }) => ({ missionId, organization, receiptHash, passed, measuredCosts })) };
+    },
+  };
+  return handlers[operation]?.();
+}
 
 function runContractOperation(operation, contract, context) {
   const handlers = {
@@ -33,6 +47,8 @@ function runContractOperation(operation, contract, context) {
 
 function handleExecution(operation, args, definitions) {
   const contracts = () => compileRegistry(definitions).contracts;
+  const workerResult = workerOperation(operation, args, contracts);
+  if (workerResult) return workerResult;
   if (operation === 'listRepresentativeMissions') return { missions: representative.listRepresentativeMissions() };
   if (operation === 'runRepresentativeMission') {
     return representative.runRepresentativeMission(contracts(), args.missionId);
