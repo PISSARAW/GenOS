@@ -11,47 +11,68 @@ const garbageCollection = require('./garbageCollection');
 const integrity = require('./integrity');
 const replication = require('./replication');
 const repair = require('./repair');
+const catalog = require('./catalog');
 const rollout = require('./rollout');
 const materialization = require('./materialization');
 const { migrateGqwf } = require('./schema');
 
 function createFabric(db, options = {}) {
+  const cataloged = (workspaceId, run) => catalog.withCatalogMutation(db, { workspaceId, run });
   return {
-    importBase: (input) => roots.importBase(db, input),
-    importLegacySnapshot: (input) => legacy.importLegacySnapshot(db, input),
+    importBase: (input) => cataloged(input.workspaceId, () => roots.importBase(db, input)),
+    importLegacySnapshot: (input) => cataloged(input.workspaceId,
+      () => legacy.importLegacySnapshot(db, input)),
     createView: (input) => views.createView(db, input),
     listFiles: (input) => views.listFiles(db, input),
     readFile: (input) => views.readFile(db, input),
     writeFile: (input) => views.writeFile(db, input),
     deleteFile: (input) => views.deleteFile(db, input),
-    sealView: (input) => views.sealView(db, input),
-    mergeRoots: (input) => roots.mergeRoots(db, input),
+    sealView: (input) => cataloged(input.workspaceId, () => views.sealView(db, input)),
+    mergeRoots: (input) => cataloged(input.workspaceId, () => roots.mergeRoots(db, input)),
     getHead: (input) => roots.getHead(db, input),
-    initializeHead: (input) => roots.initializeHead(db, input),
-    publishCandidate: (input) => roots.publishCandidate(db, input,
-      { verifier: options.verifyPromotion }),
+    initializeHead: (input) => cataloged(input.workspaceId,
+      () => roots.initializeHead(db, input)),
+    publishCandidate: (input) => cataloged(input.workspaceId,
+      () => roots.publishCandidate(db, input, { verifier: options.verifyPromotion })),
     inspectMaterializers: (input = {}) => leases.inspectMaterializers(db, input, options),
     inspectMaterialization: (input) => materialization.receiptForLease(db, input),
-    materializeRoot: (input) => leases.materializeRoot(db, input, options),
-    ingestLease: (input) => leases.ingestLease(db, input, options),
-    releaseLease: (input) => leases.releaseLease(db, input, options),
-    reconcileReleasingLeases: (input) => leases.reconcileReleasingLeases(db, input, options),
+    materializeRoot: (input) => cataloged(input.workspaceId,
+      () => leases.materializeRoot(db, input, options)),
+    ingestLease: (input) => cataloged(input.workspaceId,
+      () => leases.ingestLease(db, input, options)),
+    releaseLease: (input) => cataloged(input.workspaceId,
+      () => leases.releaseLease(db, input, options)),
+    reconcileReleasingLeases: (input) => cataloged(input.workspaceId,
+      () => leases.reconcileReleasingLeases(db, input, options)),
     inspectWorker: (input) => workers.inspectWorker(db, input),
     inspectWorkerCandidates: (input) => workerPromotion.candidatesForWorkers(db, input),
-    promoteWorkerCandidate: (input) => workerPromotion.promoteWorkerCandidate(
-      db, input, options.verifyWorkerPromotion),
+    promoteWorkerCandidate: (input) => cataloged(input.workspaceId,
+      () => workerPromotion.promoteWorkerCandidate(db, input, options.verifyWorkerPromotion)),
     inspectGarbage: (input) => garbageCollection.inspectGarbage(db, input, options),
-    collectGarbage: (input) => garbageCollection.collectGarbage(db, input, options),
+    collectGarbage: (input) => cataloged(input.workspaceId,
+      () => garbageCollection.collectGarbage(db, input, options)),
     scrubIntegrity: (input) => integrity.scrubIntegrity(db, input),
     inspectReplication: (input) => replication.inspectReplication(db, input, options),
-    replicateRoot: (input) => replication.replicateRoot(db, input, options),
+    replicateRoot: (input) => cataloged(input.targetWorkspaceId,
+      () => replication.replicateRoot(db, input, options)),
     inspectRepair: (input) => repair.inspectRepair(db, input, options),
-    repairRoot: (input) => repair.repairRoot(db, input, options),
+    repairRoot: (input) => cataloged(input.targetWorkspaceId,
+      () => repair.repairRoot(db, input, options)),
+    checkpointMetadata: (input) => catalog.checkpointMetadata(db, input),
+    inspectMetadataRepair: (input) => catalog.inspectMetadataRepair(db, input),
+    repairMetadata: async (input) => {
+      const result = await catalog.repairMetadata(db, input, options);
+      await catalog.checkpointMetadata(db, input);
+      return result;
+    },
     inspectRollout: (input) => rollout.inspectRollout(db, input),
     openExecutionWorkspace: (input) => execution.openExecutionWorkspace(db, input),
-    materializeExecutionWorkspace: (input) => execution.materializeExecutionWorkspace(db, input, options),
-    ingestExecutionWorkspace: (input) => execution.ingestExecutionWorkspace(db, input, options),
-    releaseExecutionWorkspace: (input) => execution.releaseExecutionWorkspace(db, input, options)
+    materializeExecutionWorkspace: (input) => cataloged(input.workspaceId,
+      () => execution.materializeExecutionWorkspace(db, input, options)),
+    ingestExecutionWorkspace: (input) => cataloged(input.workspaceId,
+      () => execution.ingestExecutionWorkspace(db, input, options)),
+    releaseExecutionWorkspace: (input) => cataloged(input.workspaceId,
+      () => execution.releaseExecutionWorkspace(db, input, options))
   };
 }
 

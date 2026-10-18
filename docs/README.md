@@ -15,6 +15,7 @@
 - [ADR 0635 — Scrubber explicitement le store GQWF](adr/0635-scrub-integrite-store-gqwf.md) — inventaire non destructif, détection durable des corruptions et base de la future réparation authentifiée.
 - [ADR 0636 — Répliquer les racines GQWF par contenu](adr/0636-replication-cas-gqwf.md) — plan CAS scellé, reprise par déduplication, isolation tenant et reçu de destination.
 - [ADR 0639 — Réparer GQWF depuis une réplique authentifiée](adr/0639-reparation-authentifiee-gqwf.md) — provenance de réplication, quarantaine et preuve d'intégrité avant/après.
+- [ADR 0643 — Adresser le catalogue GQWF et unifier les runtimes opt-in](adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md) — catalogue CAS reconstructible, réparation SQLite autorisée et routage déterministe/in-process.
 - [ADR 0566a — Autorité Rust et snapshot durable de morphogenèse](adr/0566-autorite-rust-et-snapshot-durable-de-morphogenese.md) — commit de production signé, snapshot durable et rollback des processus, workspaces, baux et budgets.
 - [ADR 0527 — Rotation de confiance des clés de fossilisation](adr/0527-rotation-confiance-cles-fossiles.md) — chevauchement des clés approuvées, retrait sans réécriture des attestations et vérification ciblée du corpus.
 - [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.

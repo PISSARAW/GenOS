@@ -3,6 +3,7 @@
 const { withTransaction } = require('../../db');
 const { resolveWorkspaceRoot } = require('../pathSafety');
 const { parseManifest } = require('./manifest');
+const metadataStore = require('./metadataStore');
 const { readBlob } = require('./objects');
 
 async function workspace(db, workspaceId) {
@@ -23,6 +24,8 @@ async function putRoot(db, workspaceId, built) {
     const location = await workspace(db, workspaceId);
     const manifest = parseManifest(built.serialized, built.hash);
     await verifyManifestBlobs(location.path, manifest);
+    const manifestHash = await metadataStore.putObject(location.path, built.serialized);
+    if (manifestHash !== built.hash) throw new Error('GQWF root manifest CAS identity changed.');
     await db.run('INSERT OR IGNORE INTO gqwf_roots (workspace_id, root_hash, manifest_json) VALUES (?, ?, ?)',
       workspaceId, built.hash, built.serialized);
     await root(db, workspaceId, built.hash);

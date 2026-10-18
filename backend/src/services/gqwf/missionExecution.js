@@ -1,8 +1,6 @@
 'use strict';
 
 const path = require('node:path');
-const config = require('../../config/orchestratorConfig');
-const { isLocalRuntime } = require('../agentRuntimeExecutable');
 const { createFabric } = require('./index');
 const materializerPolicy = require('./materializerPolicy');
 const rollout = require('./rollout');
@@ -15,29 +13,17 @@ function samePath(left, right) {
     : first === second;
 }
 
-function isInProcess(ctx) {
-  const mission = ctx.normalizedMission;
-  if (mission.executor === 'caller_mcp') return false;
-  if (['control', 'observe'].includes(mission.continuousExecution?.mode)) return false;
-  if (ctx.dispatchedAgent.execution_mode === 'worker'
-    && (config.inProcessWorkers() || mission.inProcessWorker === true)) return true;
-  return Boolean(mission.localModel
-    && (mission.localRuntime === true || isLocalRuntime(ctx.executable)));
-}
-
 function eligible(ctx) {
   if (ctx.normalizedMission.executionPolicy?.gqwfV2 !== true) return false;
   if (ctx.normalizedMission.workspaceBackend === 'gqwf-worker'
     || ctx.normalizedMission.gqwfWorkerLease) return false;
-  const deterministic = require('../agents/workerRuntimeLimitsService')
-    .isDeterministicWorkerMission(ctx.normalizedMission);
-  return !deterministic && !isInProcess(ctx);
+  return true;
 }
 
 function deferOrchestratorCopy(mission, executionMode) {
   if (executionMode !== 'orchestrator') return false;
   if (mission.executionPolicy?.gqwfV2 !== true) return false;
-  return !(mission.localModel && mission.localRuntime === true);
+  return true;
 }
 
 function describe(row) {

@@ -3,6 +3,7 @@
 const path = require('node:path');
 const { importWorkspace, scanWorkspace } = require('./import');
 const { createFabric } = require('./index');
+const catalog = require('./catalog');
 const storage = require('./storage');
 const agentGit = require('../agentGitService');
 
@@ -17,7 +18,10 @@ async function prepare(db, artifact) {
   const candidate = await importWorkspace(artifact.targetWorkspace, workspace.path);
   await storage.putRoot(db, workspace.id, base);
   await storage.putRoot(db, workspace.id, candidate);
-  return { workspaceId: workspace.id, baseHash: base.hash, candidateHash: candidate.hash };
+  const prepared = { workspaceId: workspace.id, baseHash: base.hash,
+    candidateHash: candidate.hash };
+  await catalog.checkpointMetadata(db, { workspaceId: workspace.id });
+  return prepared;
 }
 
 async function signedEvidence(db, input) {

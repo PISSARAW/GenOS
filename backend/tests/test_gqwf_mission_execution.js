@@ -27,17 +27,19 @@ async function fixture() {
   return { parent, root, workspacePath, db };
 }
 
-function context(fixtureState, runId) {
+function context(fixtureState, runId, overrides = {}) {
   return {
     db: fixtureState.db,
     agentId: `agent-${runId}`,
     executable: 'codex',
     executionRun: { id: runId },
-    dispatchedAgent: { execution_mode: 'orchestrator', workspace_id: 'ws-mission' },
+    dispatchedAgent: { execution_mode: 'orchestrator', workspace_id: 'ws-mission',
+      ...(overrides.dispatchedAgent || {}) },
     normalizedMission: {
       workspaceId: 'ws-mission',
       workspaceRoot: fixtureState.workspacePath,
-      executionPolicy: { gqwfV2: true, allowFileEdits: true }
+      executionPolicy: { gqwfV2: true, allowFileEdits: true },
+      ...(overrides.normalizedMission || {})
     }
   };
 }
@@ -88,12 +90,31 @@ async function verifyFailedRun(fixtureState) {
   await assert.rejects(fs.stat(path.join(fixtureState.workspacePath, 'discarded.txt')), { code: 'ENOENT' });
 }
 
+async function verifyPreviouslyExcludedRuntime(fixtureState, runId, overrides) {
+  const ctx = context(fixtureState, runId, overrides);
+  assert.equal(missionExecution.eligible(ctx), true);
+  const prepared = await missionExecution.prepareMissionWorkspace(ctx);
+  assert.equal(prepared.backend, 'gqwf');
+  assert.notEqual(prepared.path, fixtureState.workspacePath);
+  const finalized = await missionExecution.finalizeMissionWorkspace({
+    db: fixtureState.db, executionRunId: runId, outcomeStatus: 'failed'
+  });
+  assert.equal(finalized.outcome, 'discarded');
+}
+
 async function main() {
   const fixtureState = await fixture();
   try {
     await verifyDeferredCopy(fixtureState);
     await verifySuccessfulRun(fixtureState);
     await verifyFailedRun(fixtureState);
+    await verifyPreviouslyExcludedRuntime(fixtureState, 'run-deterministic', {
+      dispatchedAgent: { execution_mode: 'worker' },
+      normalizedMission: { workerKind: 'procedural_executor' }
+    });
+    await verifyPreviouslyExcludedRuntime(fixtureState, 'run-in-process', {
+      normalizedMission: { localModel: 'fixture-model', localRuntime: true }
+    });
     console.log('GQWF supervised mission execution checks passed.');
   } finally {
     await fixtureState.db.close();

@@ -3,6 +3,7 @@
 const path = require('node:path');
 const { withTransaction } = require('../../db');
 const { importWorkspace } = require('./import');
+const catalog = require('./catalog');
 const storage = require('./storage');
 const { createView } = require('./views');
 const leases = require('./leases');
@@ -158,4 +159,28 @@ async function finalizeWorker(db, input) {
   }
 }
 
-module.exports = { bindWorker, captureWorker, finalizeWorker, inspectWorker, materializeWorker, binding };
+function cataloged(db, workspaceId, run) {
+  return catalog.withCatalogMutation(db, { workspaceId, run });
+}
+
+async function captureCataloged(db, workerId) {
+  const row = await binding(db, workerId);
+  if (!row) return captureWorker(db, workerId);
+  return cataloged(db, row.workspace_id, () => captureWorker(db, workerId));
+}
+
+async function finalizeCataloged(db, input) {
+  const row = await binding(db, input.workerId);
+  if (!row) return finalizeWorker(db, input);
+  return cataloged(db, row.workspace_id, () => finalizeWorker(db, input));
+}
+
+module.exports = {
+  bindWorker: (db, input) => cataloged(db, input.workspaceId, () => bindWorker(db, input)),
+  captureWorker: captureCataloged,
+  finalizeWorker: finalizeCataloged,
+  inspectWorker,
+  materializeWorker: (db, input) => cataloged(db, input.workspaceId,
+    () => materializeWorker(db, input)),
+  binding
+};

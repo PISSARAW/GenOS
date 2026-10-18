@@ -10,10 +10,11 @@ logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../ad
 | Objet | Stockage | Contrat |
 | --- | --- | --- |
 | Blob | `.genos/gqwf/blobs/<préfixe>/<sha256>` dans le workspace | Octets relus avec contrôle SHA-256 |
-| Racine | `gqwf_roots` | Manifeste déterministe et politique de projection v2 |
+| Racine | Objet CAS de manifeste + cache `gqwf_roots` | Manifeste déterministe reconstructible et politique de projection v2 |
 | Vue | `gqwf_views` et `gqwf_changes` | Base immuable, overlay privé durable, version attendue |
-| Tête | `gqwf_heads` et `gqwf_head_events` | Génération monotone et reçu de vérification |
-| Bail | `gqwf_leases` | Dossier matérialisé puis ingéré ou libéré explicitement |
+| Tête | Catalogue CAS + cache `gqwf_heads` et `gqwf_head_events` | Génération monotone et reçu de vérification |
+| Bail | Catalogue CAS + cache `gqwf_leases` | Dossier matérialisé puis ingéré ou libéré explicitement |
+| Catalogue | `.genos/gqwf/metadata/objects` + refs append-only | Racines, têtes et baux adressés par contenu ; reconstruction SQLite autorisée |
 | Matérialisation | `gqwf_materialization_receipts` | Backend versionné, capacités observées et sélection liée au bail |
 | Collecte | `gqwf_gc_runs` | Aperçu signé puis balayage explicite et traçable |
 | Intégrité | `gqwf_integrity_runs` | Scrub exhaustif non destructif et rapport durable |
@@ -27,8 +28,10 @@ Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`
 vérifie le store complet et persiste son rapport sans réparer.
 `inspectReplication` et `replicateRoot` transportent une racine entre deux
 workspaces du même tenant sous autorisation liée. `inspectRepair` et
-`repairRoot` restaurent ses blobs depuis une réplique attestée. `publishCandidate` échoue sans vérificateur injecté par le
-runtime. Une écriture ou suppression exige `expectedVersion`; une publication
+`repairRoot` restaurent ses blobs depuis une réplique attestée.
+`checkpointMetadata`, `inspectMetadataRepair` et `repairMetadata` scellent puis
+reconstruisent le catalogue SQLite depuis le CAS sous plan et autorisation liés.
+`publishCandidate` échoue sans vérificateur injecté par le runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
 Le premier raccordement à l'exécution paresseuse expose aussi
@@ -45,8 +48,10 @@ différée, puis le runtime reçoit le dossier matérialisé comme `cwd` et
 `GENOS_WORKSPACE_ROOT`. Une réussite est ingérée comme candidate avant
 libération ; un échec est libéré sans ingestion. La session durable
 `gqwf_execution_sessions` lie l'execution run, la vue, le bail et la candidate.
-Les runtimes déterministes ou in-process restent physiques, et aucune tête
-n'est publiée automatiquement. Voir l'[ADR 0605](../adr/0605-routage-missions-supervisees-gqwf.md).
+Les runtimes déterministes, locaux et in-process suivent désormais ce même
+chemin lorsqu'ils portent l'opt-in ; aucune tête n'est publiée automatiquement.
+Voir les [ADR 0605](../adr/0605-routage-missions-supervisees-gqwf.md) et
+[0643](../adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md).
 
 Le verdict de publication doit être lié au workspace, au nom et à la
 génération de la tête, à sa racine précédente et à la racine candidate.
@@ -102,9 +107,12 @@ la preuve de possession exigée par le binding privé du worker.
 À la clôture réussie, GenOS réingère les fichiers, inscrit leurs différences
 dans la vue, conserve une `candidate_hash`, puis libère le bail. Un échec est
 abandonné sans capture. Une erreur de capture ou de libération conserve un état
-récupérable. La racine candidate ne modifie aucune tête publiée. Les workers
-natifs déterministes, locaux ou in-process, les grandes cohortes et les missions
-non opt-in gardent leurs capsules physiques. Voir l'[ADR 0608](../adr/0608-materialiser-les-workers-autonomes-par-bail-gqwf.md).
+récupérable. La racine candidate ne modifie aucune tête publiée. Les grandes
+cohortes et les missions non opt-in gardent leurs capsules physiques. Les
+workers natifs déterministes, locaux ou in-process utilisent le bail GQWF
+lorsque leur mission est explicitement opt-in. Voir les
+[ADR 0608](../adr/0608-materialiser-les-workers-autonomes-par-bail-gqwf.md) et
+[0643](../adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md).
 
 La tranche 4 expose `inspectWorkerCandidates` pour inventorier les racines
 capturées d'un ensemble explicite de workers. Cette opération ne les classe pas
@@ -193,7 +201,8 @@ Validation ciblée du SPI :
 La tranche 9 fournit `native-reflink-v1`, premier accélérateur physique du SPI.
 Il exige un clone Copy-on-Write strict au niveau fichier et vérifie cette
 capacité sur le filesystem du workspace. Un clone explicite indisponible échoue
-sans créer de bail. La politique explicite `materializerId: auto` préfère ce
+sans créer de bail. Sur Windows comme sur Linux, la politique explicite
+`materializerId: auto` sonde ce backend avant la copie portable ; elle préfère ce
 backend après les backends montés disponibles, puis choisit la copie portable,
 avec les causes du fallback inscrites dans le reçu. Sans politique, le défaut
 reste `portable-copy-v1`.
@@ -377,11 +386,36 @@ empreintes d'inventaire avant/après et les nombres d'objets réparés et mis en
 quarantaine. Un rejeu sur une cible saine retourne le reçu existant ; une
 nouvelle corruption exige un nouvel aperçu et produit un nouveau reçu.
 
-Cette tranche répare les blobs d'une racine dont le manifeste existe encore.
-Elle ne reconstruit pas une métadonnée SQLite ou un manifeste disparu et ne
+Cette tranche répare les blobs d'une racine dont le manifeste existe encore ;
+la tranche suivante couvre séparément la reconstruction du catalogue. Elle ne
 constitue pas encore un transport inter-hôtes. Voir l'[ADR 0639](../adr/0639-reparation-authentifiee-gqwf.md).
 
 Validation ciblée : `node backend/tests/test_gqwf_repair.js`.
+
+### Catalogue de métadonnées adressé par contenu
+
+La tranche 18 ajoute `gqwf-catalog-v1`. Chaque mutation publique touchant une
+racine, une tête ou un bail écrit un catalogue canonique dans
+`.genos/gqwf/metadata/objects/<préfixe>/<sha256>`. Les manifestes de racine sont
+eux-mêmes stockés sous leur `rootHash`. Une table `gqwf_catalog_state` alloue
+une révision monotone dans la transaction SQLite ; après commit, une ref
+append-only publie le hash du catalogue. Comme dans Git, la ref n'est pas
+confondue avec l'objet immuable qu'elle désigne.
+
+`inspectMetadataRepair` relit la dernière ref, vérifie le hash et la forme du
+catalogue, puis compare `gqwf_roots`, `gqwf_heads` et `gqwf_leases`. Le
+`planHash` couvre le catalogue et toutes les divergences. `repairMetadata`
+refuse un plan périmé et exige une autorisation liée avant de réinsérer les
+manifestes, têtes et baux. Un bail non terminal restauré devient
+`quarantined` : une reconstruction de métadonnées ne vaut jamais preuve qu'un
+montage ou dossier d'exécution est encore sûr.
+
+Cette réparation ne recrée pas la table globale `workspaces`, ne choisit pas
+entre deux refs de même révision et ne réouvre aucun bail. Un fork de refs, un
+objet CAS altéré ou un chemin de bail hors du répertoire géré échoue fermé.
+Voir l'[ADR 0643](../adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md).
+
+Validation ciblée : `node backend/tests/test_gqwf_metadata_repair.js`.
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
@@ -416,6 +450,7 @@ Validation ciblée : `node backend/tests/test_gqwf_fabric.js`,
 `node backend/tests/test_gqwf_worker_execution.js`,
 `node backend/tests/test_gqwf_worker_promotion.js`,
 `node backend/tests/test_gqwf_garbage_collection.js`,
+`node backend/tests/test_gqwf_metadata_repair.js`,
 `node backend/tests/test_gqwf_canary_rollout.js`,
 `node backend/tests/test_gqwf_execution_workspace.js`,
 `node backend/tests/test_gqwf_mission_execution.js` et

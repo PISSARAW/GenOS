@@ -152,6 +152,7 @@ async function migrateGqwf(db) {
   await createIntegrityRunTable(db);
   await createReplicationReceiptTable(db);
   await createRepairReceiptTable(db);
+  await createMetadataCatalogTables(db);
 }
 
 async function migrateLeaseStatus(db) {
@@ -312,6 +313,31 @@ async function createRepairReceiptTable(db) {
   CREATE INDEX IF NOT EXISTS idx_gqwf_repair_plan
     ON gqwf_repair_receipts(source_workspace_id, target_workspace_id,
       root_hash, plan_hash, created_at);`);
+}
+
+async function createMetadataCatalogTables(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS gqwf_catalog_state (
+    workspace_id TEXT PRIMARY KEY,
+    revision INTEGER NOT NULL CHECK (revision > 0),
+    catalog_hash TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+  );
+  CREATE TABLE IF NOT EXISTS gqwf_metadata_repair_receipts (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    catalog_hash TEXT NOT NULL,
+    catalog_revision INTEGER NOT NULL,
+    plan_hash TEXT NOT NULL,
+    repaired_count INTEGER NOT NULL,
+    evidence_id TEXT NOT NULL,
+    receipt_hash TEXT NOT NULL UNIQUE,
+    receipt_json TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_gqwf_metadata_repair_workspace
+    ON gqwf_metadata_repair_receipts(workspace_id, created_at);`);
 }
 
 module.exports = { migrateGqwf };
