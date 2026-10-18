@@ -135,6 +135,21 @@ async function logGenomeEvent({ db, operation, params, scope, model, id }) {
   }));
 }
 
+function checkSealEvidence(params) {
+  const { hasDecisionEvidence } = require('./agentEvidenceService');
+  const event = params.evidence || {};
+  if (!hasDecisionEvidence(event)) {
+    throw Object.assign(new Error('Sealing requires substantiated decision evidence'), { code: 'SEAL_REQUIRES_EVIDENCE' });
+  }
+}
+
+function throwGenomeOpFailed(error, stderr, stdout) {
+  throw Object.assign(new Error(error || 'genome operation failed'), {
+    code: 'GENOME_OP_FAILED',
+    detail: stderr || stdout
+  });
+}
+
 async function runOperation(db, request) {
   const operation = request.operation;
   const params = request.params || {};
@@ -146,11 +161,7 @@ async function runOperation(db, request) {
   // When requireEvidence is set, the caller must provide substantiated
   // decision evidence (see agentEvidenceService.hasDecisionEvidence).
   if (operation === 'seal' && params.requireEvidence) {
-    const { hasDecisionEvidence } = require('./agentEvidenceService');
-    const event = params.evidence || {};
-    if (!hasDecisionEvidence(event)) {
-      throw Object.assign(new Error('Sealing requires substantiated decision evidence'), { code: 'SEAL_REQUIRES_EVIDENCE' });
-    }
+    checkSealEvidence(params);
   }
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-dna-op-'));
   try {
@@ -163,10 +174,7 @@ async function runOperation(db, request) {
     }
     const result = await genosCli.runGenos(buildArgs(operation, params, paths));
     if (!result.ok) {
-      throw Object.assign(new Error(result.error || 'genome operation failed'), {
-        code: 'GENOME_OP_FAILED',
-        detail: result.stderr || result.stdout
-      });
+      throwGenomeOpFailed(result.error, result.stderr, result.stdout);
     }
     const model = agentDna.decodeBuffer(fs.readFileSync(paths.output));
     const id = params.outputId || `${operation}-${model.contentHash.slice(0, 16)}`;

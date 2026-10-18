@@ -60,6 +60,12 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_analyze_trajectory', cat: 'Knowledge & Experience', risk: 'Low', desc: 'Deep AST inspect of trajectory code' },
   { name: 'genos_compile_memory', cat: 'Knowledge & Experience', risk: 'Amber', desc: 'Distills episodic memory into concise rules' },
   { name: 'genos_strat_compile_memory', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute the compile_memory strategy primitive.' },
+  // Mémoire, apprentissage et plasticité collective
+  { name: 'genos_working_memory', cat: 'Memory', risk: 'Low', desc: 'Mémoire de travail bornée avec TTL : memorize/recall/forget/stats/prune.' },
+  { name: 'genos_ancestral_memory', cat: 'Memory', risk: 'Low', desc: 'Mémoire ancestrale par lignée : memorize/recall/forget/stats.' },
+  { name: 'genos_risk_inheritance', cat: 'Memory', risk: 'Low', desc: 'Héritage de risque atténué par lignée : propagate/getRisk/decay/stats.' },
+  { name: 'genos_collective_plasticity', cat: 'Plasticity', risk: 'Low', desc: 'Plasticité collective par canal : update/getWeight/aggregate/decayAll/stats.' },
+  { name: 'genos_teaching_worker', cat: 'Learning', risk: 'Low', desc: 'Teaching worker : exécute une procédure démontrée et vérifie le transfert (teach/verifyTransfer).' },
   // Resilience & Biomimicry
   { name: 'genos_resilience_apoptosis', cat: 'Resilience & Security', risk: 'High', desc: 'Programmed self-termination of runaway nodes' },
   { name: 'genos_resilience_cryptobiosis', cat: 'Resilience & Security', risk: 'High', desc: 'State freeze and memory hibernation' },
