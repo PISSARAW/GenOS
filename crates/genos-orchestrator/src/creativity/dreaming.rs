@@ -1,9 +1,9 @@
 use crate::creativity::creativity_engine::CreativityConfig;
-use crate::planner::{WorldState, Concept};
-use uuid::Uuid;
+use crate::planner::{Concept, WorldState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 /// Hypothèse brute non évaluée (sortie DMN)
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -58,7 +58,9 @@ impl DreamingPhase {
             return Vec::new();
         }
 
-        let max_cycles = self.config.max_dream_cycles
+        let max_cycles = self
+            .config
+            .max_dream_cycles
             .min((budget_atp / self.config.atp_per_dream) as usize);
         let mut hypotheses = Vec::with_capacity(max_cycles);
 
@@ -100,11 +102,14 @@ impl DreamingPhase {
             return Concept::Observe;
         }
 
-        applicable.into_iter()
+        applicable
+            .into_iter()
             .max_by(|a, b| {
                 let score_a = self.exploration_score(a, world);
                 let score_b = self.exploration_score(b, world);
-                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+                score_a
+                    .partial_cmp(&score_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .unwrap_or(Concept::Observe)
     }
@@ -113,7 +118,10 @@ impl DreamingPhase {
         let usage = self.concept_usage.get(concept).copied().unwrap_or(0) as f64;
         let novelty_bonus = 1.0 / (1.0 + usage);
         let cost_factor = 1.0 / (1.0 + concept.cost() * 0.1);
-        let budget_factor = (world.budget / concept.cost().max(1.0)).min(10.0).ln().max(0.0);
+        let budget_factor = (world.budget / concept.cost().max(1.0))
+            .min(10.0)
+            .ln()
+            .max(0.0);
 
         novelty_bonus * 0.5 + cost_factor * 0.3 + budget_factor * 0.2
     }
@@ -155,7 +163,8 @@ impl DreamingPhase {
 
     /// Score nouveauté vs historique + mémoire (v1: heuristique)
     fn novelty_score(&self, concept: &Concept, payload: &Value) -> f64 {
-        let concept_rarity = 1.0 - (self.concept_usage.get(concept).copied().unwrap_or(0) as f64 / 100.0).min(1.0);
+        let concept_rarity =
+            1.0 - (self.concept_usage.get(concept).copied().unwrap_or(0) as f64 / 100.0).min(1.0);
         let payload_complexity = self.payload_complexity(payload);
         let recency_penalty = self.recency_penalty(concept);
 
@@ -171,10 +180,13 @@ impl DreamingPhase {
     }
 
     fn recency_penalty(&self, concept: &Concept) -> f64 {
-        if let Some(last_tick) = self.history.iter()
+        if let Some(last_tick) = self
+            .history
+            .iter()
             .filter(|h| h.concept == *concept)
             .map(|h| h.generated_at_tick)
-            .max() {
+            .max()
+        {
             let age = self.tick_counter.saturating_sub(last_tick);
             (age as f64 / 50.0).min(1.0)
         } else {
@@ -183,7 +195,8 @@ impl DreamingPhase {
     }
 
     fn select_parents(&self, concept: &Concept) -> Vec<Uuid> {
-        self.history.iter()
+        self.history
+            .iter()
             .filter(|h| h.concept == *concept)
             .rev()
             .take(2)

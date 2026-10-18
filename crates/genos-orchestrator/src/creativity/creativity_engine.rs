@@ -1,7 +1,9 @@
-use crate::{WorldState, planner::Goal, director::Director, metabolism::Metabolism, planner::Concept};
 use crate::creativity::{
-    ConsolidationInput, CrossConsolidation, CreativityOutcome, DopamineSignal, DreamingPhase,
+    ConsolidationInput, CreativityOutcome, CrossConsolidation, DopamineSignal, DreamingPhase,
     FocusedTask, PolicyContext, RawHypothesis, SalienceGate,
+};
+use crate::{
+    WorldState, director::Director, metabolism::Metabolism, planner::Concept, planner::Goal,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -81,8 +83,12 @@ impl CreativityEngine {
     }
 
     /// Appelé au DÉBUT de chaque tick (avant Director::decide)
-    pub fn pre_tick(&mut self, world: &WorldState, goal: &Goal,
-                    metabolism: &mut Metabolism) -> Vec<FocusedTask> {
+    pub fn pre_tick(
+        &mut self,
+        world: &WorldState,
+        goal: &Goal,
+        metabolism: &mut Metabolism,
+    ) -> Vec<FocusedTask> {
         if !self.config.enabled {
             return Vec::new();
         }
@@ -92,17 +98,21 @@ impl CreativityEngine {
 
         self.current_tick += 1;
 
-        let hypotheses = self.dreaming.dream(world, self.config.dream_budget_atp_per_tick);
+        let hypotheses = self
+            .dreaming
+            .dream(world, self.config.dream_budget_atp_per_tick);
         self.metrics.dreams_generated += hypotheses.len() as u64;
 
-        let atp_consumed = (hypotheses.len() as f64 * self.config.atp_per_dream).min(metabolism.atp);
+        let atp_consumed =
+            (hypotheses.len() as f64 * self.config.atp_per_dream).min(metabolism.atp);
         metabolism.consume(atp_consumed);
 
         let focused = self.salience.evaluate(&hypotheses, world, goal);
         self.metrics.hypotheses_filtered += (hypotheses.len() - focused.len()) as u64;
 
         if !focused.is_empty() {
-            let avg_salience: f64 = focused.iter().map(|f| f.priority).sum::<f64>() / focused.len() as f64;
+            let avg_salience: f64 =
+                focused.iter().map(|f| f.priority).sum::<f64>() / focused.len() as f64;
             self.metrics.avg_salience_score = avg_salience;
         }
 
@@ -128,17 +138,25 @@ impl CreativityEngine {
     }
 
     /// Appelé à la FIN de tick (après exécution concepts)
-    pub fn post_tick(&mut self, director: &mut Director,
-                     executed: &[(Concept, CreativityOutcome)]) {
+    pub fn post_tick(
+        &mut self,
+        director: &mut Director,
+        executed: &[(Concept, CreativityOutcome)],
+    ) {
         for (concept, outcome) in executed {
-            if let Some(idx) = self.executing_tasks.iter().position(|t| t.concept == *concept) {
+            if let Some(idx) = self
+                .executing_tasks
+                .iter()
+                .position(|t| t.concept == *concept)
+            {
                 let task = self.executing_tasks.remove(idx);
                 if let Some(hyp) = self.dreaming.find_hypothesis(task.hypothesis_id) {
                     let expected = self.dopamine.expected_reward(&WorldState::default());
                     let actual = self.dopamine.actual_reward(outcome);
                     self.dopamine.apply(director, expected, actual);
 
-                    self.metrics.exploration_weight_delta += director.exploration_weight - self.dopamine.baseline_exploration;
+                    self.metrics.exploration_weight_delta +=
+                        director.exploration_weight - self.dopamine.baseline_exploration;
 
                     self.consolidation.consolidate(ConsolidationInput {
                         director,
@@ -161,7 +179,11 @@ impl CreativityEngine {
     }
 
     /// Vérifie si une politique émergente s'applique
-    pub fn check_emergent_policy(&self, director: &Director, world: &WorldState) -> Option<crate::creativity::consolidation::EmergentPolicy> {
+    pub fn check_emergent_policy(
+        &self,
+        director: &Director,
+        world: &WorldState,
+    ) -> Option<crate::creativity::consolidation::EmergentPolicy> {
         self.consolidation
             .applicable_policy(PolicyContext { director, world })
             .cloned()

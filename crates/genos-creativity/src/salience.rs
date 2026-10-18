@@ -53,8 +53,7 @@ impl SalienceGate {
             .collect();
 
         scored.sort_by(|a, b| {
-            b.1
-                .priority
+            b.1.priority
                 .partial_cmp(&a.1.priority)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });

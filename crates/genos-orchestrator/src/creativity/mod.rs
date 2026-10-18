@@ -5,9 +5,9 @@ pub mod dreaming;
 pub mod persistence;
 pub mod salience;
 
-pub use creativity_engine::{CreativityEngine, CreativityConfig, CreativityMetrics};
-pub use dreaming::{DreamingPhase, RawHypothesis};
-pub use salience::{FocusedTask, SalienceGate, SalienceWeights};
-pub use dopamine::{DopamineSignal, CreativityOutcome};
 pub use consolidation::{ConsolidationInput, CrossConsolidation, PolicyContext};
+pub use creativity_engine::{CreativityConfig, CreativityEngine, CreativityMetrics};
+pub use dopamine::{CreativityOutcome, DopamineSignal};
+pub use dreaming::{DreamingPhase, RawHypothesis};
 pub use persistence::PersistentCreativityEngine;
+pub use salience::{FocusedTask, SalienceGate, SalienceWeights};

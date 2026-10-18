@@ -1,5 +1,5 @@
-use super::creativity_engine::{CreativityConfig, CreativityEngine, CreativityMetrics};
 use super::FocusedTask;
+use super::creativity_engine::{CreativityConfig, CreativityEngine, CreativityMetrics};
 use crate::metabolism::Metabolism;
 use crate::planner::{Goal, WorldState};
 use genos_store::capsule::CreativeMemoryStore;
@@ -51,7 +51,12 @@ mod tests {
         let mut first = GenosEcosystem::new("creative-runtime-test");
         first.enable_creativity_checkpoint(&path).unwrap();
         let report = first.tick(&Goal::Explore);
-        let generated = first.creativity.as_ref().unwrap().metrics().dreams_generated;
+        let generated = first
+            .creativity
+            .as_ref()
+            .unwrap()
+            .metrics()
+            .dreams_generated;
         assert!(generated > 0);
         assert!(
             path.exists(),
@@ -63,7 +68,12 @@ mod tests {
         let mut restored = GenosEcosystem::new("creative-runtime-test");
         restored.enable_creativity_checkpoint(&path).unwrap();
         assert_eq!(
-            restored.creativity.as_ref().unwrap().metrics().dreams_generated,
+            restored
+                .creativity
+                .as_ref()
+                .unwrap()
+                .metrics()
+                .dreams_generated,
             generated
         );
         std::fs::remove_file(path).unwrap();

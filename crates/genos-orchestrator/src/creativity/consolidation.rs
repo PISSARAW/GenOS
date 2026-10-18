@@ -70,9 +70,19 @@ impl CrossConsolidation {
 
     /// Si hypothèse validée → met à jour Director stats + learner + politiques
     pub fn consolidate(&mut self, input: ConsolidationInput<'_>) {
-        let ConsolidationInput { director, hypothesis, task, outcome, current_tick } = input;
+        let ConsolidationInput {
+            director,
+            hypothesis,
+            task,
+            outcome,
+            current_tick,
+        } = input;
         match outcome {
-            CreativityOutcome::Validated { evidence_score, atp_consumed, concept } => {
+            CreativityOutcome::Validated {
+                evidence_score,
+                atp_consumed,
+                concept,
+            } => {
                 self.record_event(ConsolidationEvent {
                     tick: current_tick,
                     concept: *concept,
@@ -98,7 +108,11 @@ impl CrossConsolidation {
                 });
 
                 let context = self.extract_context(hypothesis, task);
-                director.learner.update(*concept, &context_features(&context), *evidence_score / 100.0);
+                director.learner.update(
+                    *concept,
+                    &context_features(&context),
+                    *evidence_score / 100.0,
+                );
 
                 if promoted_stats.successes >= self.min_validations_for_policy {
                     self.promote_to_policy(PolicyPromotionInput {
@@ -124,11 +138,15 @@ impl CrossConsolidation {
                 stats.attempts += 1;
 
                 let context = self.extract_context(hypothesis, task);
-                director.learner.update(*concept, &context_features(&context), 0.0);
+                director
+                    .learner
+                    .update(*concept, &context_features(&context), 0.0);
             }
             CreativityOutcome::NoAnswer { concept } => {
                 let context = self.extract_context(hypothesis, task);
-                director.learner.update(*concept, &context_features(&context), 0.2);
+                director
+                    .learner
+                    .update(*concept, &context_features(&context), 0.2);
             }
             CreativityOutcome::Error { concept, error } => {
                 self.record_event(ConsolidationEvent {
@@ -139,13 +157,20 @@ impl CrossConsolidation {
                 });
 
                 let context = self.extract_context(hypothesis, task);
-                director.learner.update(*concept, &context_features(&context), 0.0);
+                director
+                    .learner
+                    .update(*concept, &context_features(&context), 0.0);
             }
         }
     }
 
     fn promote_to_policy(&mut self, input: PolicyPromotionInput<'_>) {
-        let PolicyPromotionInput { director, concept, stats, current_tick } = input;
+        let PolicyPromotionInput {
+            director,
+            concept,
+            stats,
+            current_tick,
+        } = input;
         if self.policies.contains_key(&concept) {
             return;
         }
@@ -164,14 +189,18 @@ impl CrossConsolidation {
         });
 
         self.policies.insert(concept, policy);
-
     }
 
     /// Vérifie si une politique s'applique au contexte actuel
     pub fn applicable_policy(&self, context: PolicyContext<'_>) -> Option<&EmergentPolicy> {
-        self.policies.values()
+        self.policies
+            .values()
             .filter(|p| Self::context_matches(&p.trigger_context, &context))
-            .max_by(|a, b| a.success_rate.partial_cmp(&b.success_rate).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.success_rate
+                    .partial_cmp(&b.success_rate)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     fn context_matches(trigger: &HashMap<String, f64>, context: &PolicyContext<'_>) -> bool {
@@ -195,7 +224,11 @@ impl CrossConsolidation {
         ctx
     }
 
-    fn extract_context(&self, hypothesis: &RawHypothesis, task: &FocusedTask) -> HashMap<String, f64> {
+    fn extract_context(
+        &self,
+        hypothesis: &RawHypothesis,
+        task: &FocusedTask,
+    ) -> HashMap<String, f64> {
         let mut ctx = HashMap::new();
         ctx.insert("novelty_score".to_string(), hypothesis.novelty_score);
         ctx.insert("energy_cost".to_string(), hypothesis.energy_cost_estimate);

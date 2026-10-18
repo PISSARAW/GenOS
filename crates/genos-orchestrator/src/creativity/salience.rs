@@ -1,9 +1,9 @@
 use crate::creativity::dreaming::RawHypothesis;
-use crate::planner::{WorldState, Concept, Goal};
-use uuid::Uuid;
+use crate::planner::{Concept, Goal, WorldState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 /// Tâche focalisée pour l'Exécutif (sortie Salience)
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -69,8 +69,14 @@ impl SalienceGate {
     }
 
     /// Filtre hypothèses brutes → tâches focalisées
-    pub fn evaluate(&self, hypotheses: &[RawHypothesis], world: &WorldState, goal: &Goal) -> Vec<FocusedTask> {
-        hypotheses.iter()
+    pub fn evaluate(
+        &self,
+        hypotheses: &[RawHypothesis],
+        world: &WorldState,
+        goal: &Goal,
+    ) -> Vec<FocusedTask> {
+        hypotheses
+            .iter()
             .filter(|h| h.novelty_score >= self.min_novelty)
             .filter_map(|h| {
                 let score = self.salience_score(h, world, goal);
@@ -114,7 +120,8 @@ impl SalienceGate {
 
     fn feasibility(&self, h: &RawHypothesis, world: &WorldState) -> f64 {
         let budget_ratio = world.budget / h.energy_cost_estimate.max(1.0);
-        let agent_capacity = ((world.required_workers.saturating_sub(world.workers)) as f64 / 10.0).min(1.0);
+        let agent_capacity =
+            ((world.required_workers.saturating_sub(world.workers)) as f64 / 10.0).min(1.0);
         (budget_ratio.min(1.0) * 0.7 + agent_capacity * 0.3).clamp(0.0, 1.0)
     }
 
@@ -125,13 +132,24 @@ impl SalienceGate {
     }
 
     fn refine_for_executive(&self, input: ExecutiveRefinement<'_>) -> FocusedTask {
-        let ExecutiveRefinement { hypothesis: h, world, goal, score } = input;
+        let ExecutiveRefinement {
+            hypothesis: h,
+            world,
+            goal,
+            score,
+        } = input;
         let mut refined = h.payload.clone();
 
         if let Value::Object(ref mut map) = refined {
             map.insert("salience_score".to_string(), serde_json::json!(score));
-            map.insert("goal_progress".to_string(), serde_json::json!(world.progress(goal)));
-            map.insert("budget_available".to_string(), serde_json::json!(world.budget));
+            map.insert(
+                "goal_progress".to_string(),
+                serde_json::json!(world.progress(goal)),
+            );
+            map.insert(
+                "budget_available".to_string(),
+                serde_json::json!(world.budget),
+            );
             map.insert("execution_mode".to_string(), serde_json::json!("focused"));
         }
 
@@ -150,7 +168,10 @@ impl SalienceGate {
         match concept {
             Concept::Mutate => vec!["genome_diff".to_string(), "fitness_delta".to_string()],
             Concept::Cross => vec!["child_genome".to_string(), "lineage_record".to_string()],
-            Concept::Organize => vec!["topology_map".to_string(), "coordination_metrics".to_string()],
+            Concept::Organize => vec![
+                "topology_map".to_string(),
+                "coordination_metrics".to_string(),
+            ],
             Concept::Delegate => vec!["task_receipt".to_string(), "completion_proof".to_string()],
             Concept::Recruit => vec!["agent_manifest".to_string(), "capability_proof".to_string()],
             Concept::Observe => vec!["world_state_snapshot".to_string()],

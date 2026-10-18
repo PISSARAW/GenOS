@@ -173,14 +173,14 @@ mod tests {
     #[test]
     fn test_actual_reward_mapping() {
         let dopamine = DopamineSignal::new();
-        assert!((dopamine
-            .actual_reward(&CreativityOutcome::Validated {
+        assert!(
+            (dopamine.actual_reward(&CreativityOutcome::Validated {
                 evidence_score: 0.8,
                 atp_consumed: 1.0,
-            })
-            - 0.8)
-            .abs()
-            < 1e-9);
+            }) - 0.8)
+                .abs()
+                < 1e-9
+        );
         assert_eq!(dopamine.actual_reward(&CreativityOutcome::Falsified), -0.5);
         assert_eq!(dopamine.actual_reward(&CreativityOutcome::NoAnswer), -0.1);
         assert_eq!(dopamine.actual_reward(&CreativityOutcome::Error), -1.0);

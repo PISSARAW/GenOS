@@ -4,11 +4,11 @@
 //! (pas greedy), génère un payload brut et estime la nouveauté. Les hypothèses sont
 //! stockées dans l'historique du moteur pour consolidation ultérieure.
 
-use crate::types::{Concept, WorldState};
 use crate::creativity_engine::CreativityConfig;
+use crate::types::{Concept, WorldState};
+use rand::prelude::IndexedRandom;
 use rand::RngExt;
 use rand::SeedableRng;
-use rand::prelude::IndexedRandom;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
