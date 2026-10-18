@@ -3,7 +3,7 @@
 - **Statut** : Partiel — tranche fonctionnelle validée (compose + mission loop observe→propose→constrain→act→verify avec reçus) ; validation comparative à produire
 - **Portée** : onze variantes dans une boucle bornée, transactionnelle et persistante, avec adaptateurs autorisés, comptabilité réelle et gates de preuve.
 - **Dernière revue** : 2026-10-16
-- **Vérification** : 2026-10-18 — composition 4 rôles OK, suite biome 24/24 PASS (`npm --prefix backend run test:biome` / `run_biome_suite.js`), câblage PASS. Réserve : suite `test:workers` incomplète (timeout sur `test_worker_compliance_native_missions.js`). Preuve contrat produit : Biome expérimental → partiel.
+- **Vérification** : 2026-10-18 — composition 4 rôles OK, suite biome 25/25 PASS (`npm --prefix backend run test:biome` / `run_biome_suite.js`), dont `test_biome_mission_e2e.js` (mission réelle avec reçus, reprise SQLite, mode simulé sans effet, refus d'autorisation), câblage PASS. Réserve : suite `test:workers` incomplète (timeout sur `test_worker_compliance_native_missions.js`); boucle non autonome et mode simulé sans effet réel restent des frontières documentées. Preuve contrat produit : Biome partiel.
 
 > *Biome est le protocole de GenOS pour maintenir et faire évoluer un ensemble de populations spécialisées dans un environnement dynamique, sous ressources limitées, lorsque la structure optimale du travail n'est pas connue à l'avance et doit émerger de l'interaction entre niches, populations, ressources et résultats.*
 
