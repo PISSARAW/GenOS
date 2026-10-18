@@ -6,7 +6,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
-use crate::model::{Crossover, Decoy, Meta, Mutation, Phenotype, Provenance, Selection};
+use crate::model::{Crossover, Decoy, DnaStatus, Meta, Mutation, Phenotype, Provenance, Selection};
 
 #[derive(Clone, Debug, Default)]
 pub struct Bytes(pub Vec<u8>);
@@ -89,6 +89,8 @@ pub struct WireMeta {
     pub ts: i64,
     #[serde(default)]
     pub labels: BTreeMap<String, String>,
+    #[serde(default)]
+    pub status: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -243,6 +245,7 @@ pub fn meta_to_wire(meta: &Meta) -> WireMeta {
         parent_ids: meta.parent_ids.iter().map(|id| UuidBytes(*id)).collect(),
         ts: meta.ts,
         labels: meta.labels.clone(),
+        status: meta.status.as_str().to_string(),
     }
 }
 
@@ -257,6 +260,7 @@ pub fn wire_to_meta(wire: WireMeta) -> Meta {
         parent_ids: wire.parent_ids.into_iter().map(|id| id.0).collect(),
         ts: wire.ts,
         labels: wire.labels,
+        status: DnaStatus::from_str(&wire.status),
     }
 }
 

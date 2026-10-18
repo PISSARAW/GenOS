@@ -3,6 +3,7 @@ use genos_reproduction::{CellDivision, MeioticCrossover, PhylogeneticTree};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
+use crate::DnaStatus;
 use crate::express;
 use crate::model::{AgentDna, Crossover, Decoy, Mutation, Provenance, Selection};
 
@@ -44,6 +45,15 @@ pub struct GraftSpec {
     pub locus: String,
     pub instruction: String,
     pub plasmid: bool,
+}
+
+/// Options for sealing a DRAFT genome into SEALED status.
+#[derive(Clone, Debug, Default)]
+pub struct SealOptions {
+    /// Optional Ed25519 secret key (32 bytes). When provided, the genome is
+    /// signed and the SIGN section is written. When absent, only the status
+    /// flips to SEALED without a signature.
+    pub secret_key: Option<Vec<u8>>,
 }
 
 /// Distill acquired concepts into a new derived genome (adaptive radiation).
@@ -201,6 +211,24 @@ pub fn decoy(dna: &AgentDna, options: &DecoyOptions) -> Result<AgentDna, String>
         target_selector: options.target_selector.clone(),
         detectability: options.detectability.clamp(0.0, 1.0),
     });
+    Ok(output)
+}
+
+/// Seals a DRAFT genome into SEALED status. Optionally records an Ed25519
+/// signer in the provenance (the SIGN section is written separately by the
+/// caller via `codec::encode_signed`). A sealed genome must not be further
+/// mutated; operations that derive a new genome (cross, mutate, clone,
+/// graft, speciate) always produce DRAFT output.
+pub fn seal(dna: &AgentDna, options: &SealOptions) -> Result<AgentDna, String> {
+    if dna.meta.status == DnaStatus::Sealed {
+        return Err("genome is already sealed".to_string());
+    }
+    let mut output = dna.clone();
+    output.meta.status = DnaStatus::Sealed;
+    if let Some(secret) = &options.secret_key {
+        let signing = crate::sign::signing_key_from_secret(secret)?;
+        output.provenance.signer = Some(crate::sign::public_key_hex(&signing));
+    }
     Ok(output)
 }
 

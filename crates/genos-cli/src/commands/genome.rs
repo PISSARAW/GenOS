@@ -1,5 +1,5 @@
 use genos_dna::manifest::Manifest;
-use genos_dna::{codec, compile, validate};
+use genos_dna::{codec, compile, operations, validate};
 use serde_json::json;
 
 use crate::args::GenomeSubcommands;
@@ -20,6 +20,12 @@ pub fn execute(cmd: GenomeSubcommands) -> Result<(), String> {
         GenomeSubcommands::Sign { input, output, key, force, parents } => {
             genome_ops::handle_sign(genome_ops::SignRequest {
                 input: &input, output: &output, key: &key,
+                write: WriteOptions { force, parents },
+            })
+        }
+        GenomeSubcommands::Seal { input, output, key, force, parents } => {
+            genome_ops::handle_seal(genome_ops::SealRequest {
+                input: &input, output: &output, key: key.as_deref(),
                 write: WriteOptions { force, parents },
             })
         }

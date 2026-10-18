@@ -7,7 +7,7 @@ const store = require('./agentDnaStore');
 const agentDna = require('./agentDna');
 const genomeEventLog = require('./genomeEventLog');
 
-const SUPPORTED = new Set(['cross', 'mutate', 'clone', 'decoy', 'graft', 'speciate']);
+const SUPPORTED = new Set(['cross', 'mutate', 'clone', 'decoy', 'graft', 'speciate', 'seal']);
 
 function pushParam(args, flag, value) {
   if (value !== undefined && value !== null) args.push(flag, String(value));
@@ -69,12 +69,19 @@ function speciateArgs(params, paths) {
   return args;
 }
 
+function sealArgs(params, paths) {
+  const args = ['genome', 'seal', '--in', paths.input, '--out', paths.output, '--force', '--parents'];
+  if (params.key) args.push('--key', String(params.key));
+  return args;
+}
+
 function buildArgs(operation, params, paths) {
   if (operation === 'cross') return crossArgs(params, paths);
   if (operation === 'mutate') return mutateArgs(params, paths);
   if (operation === 'clone') return cloneArgs(params, paths);
   if (operation === 'graft') return graftArgs(params, paths);
   if (operation === 'speciate') return speciateArgs(params, paths);
+  if (operation === 'seal') return sealArgs(params, paths);
   return decoyArgs(params, paths);
 }
 
@@ -105,7 +112,7 @@ function gatherParentRefs(operation, params) {
 function eventTypeName(operation) {
   return {
     cross: 'CROSSOVER', mutate: 'MUTATION', clone: 'CLONE',
-    graft: 'GRAFT', decoy: 'BIRTH', speciate: 'BIRTH'
+    graft: 'GRAFT', decoy: 'BIRTH', speciate: 'BIRTH', seal: 'SEAL'
   }[operation] || 'BIRTH';
 }
 
@@ -134,6 +141,16 @@ async function runOperation(db, request) {
   const scope = request.scope || {};
   if (!SUPPORTED.has(operation)) {
     throw Object.assign(new Error(`Unsupported genome operation '${operation}'`), { code: 'GENOME_OP_UNSUPPORTED' });
+  }
+  // Sealing a genome is an epistemic act: it transitions DRAFT -> SEALED.
+  // When requireEvidence is set, the caller must provide substantiated
+  // decision evidence (see agentEvidenceService.hasDecisionEvidence).
+  if (operation === 'seal' && params.requireEvidence) {
+    const { hasDecisionEvidence } = require('./agentEvidenceService');
+    const event = params.evidence || {};
+    if (!hasDecisionEvidence(event)) {
+      throw Object.assign(new Error('Sealing requires substantiated decision evidence'), { code: 'SEAL_REQUIRES_EVIDENCE' });
+    }
   }
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-dna-op-'));
   try {

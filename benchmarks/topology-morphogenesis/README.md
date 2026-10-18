@@ -6,6 +6,14 @@
 
 Le plan d'implémentation de la comparaison causale est décrit dans [PLAN-IMPLEMENTATION.md](PLAN-IMPLEMENTATION.md).
 
+Le contrat P2 pré-commit est figé dans [p2-protocol.json](p2-protocol.json). Il
+exige des blocs complets agent unique / GenOS fixe / GenOS adaptatif /
+LangGraph / AutoGen GraphFlow ou Swarm / MASS ou EvoMAS, un corpus shadow et un
+holdout disjoints, puis des intervalles appariés corrigés. Son état reste
+`contract-ready-execution-blocked` tant que les adaptateurs externes et les
+datasets scellés ne sont pas fournis. Même une sortie `eligible` de la porte
+P2 ne vaut ni autorisation de commit ni promotion runtime.
+
 Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json](suite.json), conformément à [schemas/suite.schema.json](schemas/suite.schema.json). À ce stade, seule la référence arithmétique possède un oracle indépendant; les autres tâches restent des probes de mécanisme ou des contrôles de contrat et ne sont pas admissibles à une comparaison confirmatoire.
 
 Chaque exécution archive la provenance du commit, l'état propre/sale de l'arbre source, les empreintes de la suite, des missions et des reçus extraits, les états des workers, les temps, ainsi que la portée explicite de l'oracle. Le format de sortie est décrit par [schemas/campaign-results.schema.json](schemas/campaign-results.schema.json). Un arbre modifié est automatiquement marqué non admissible comme résultat confirmatoire.

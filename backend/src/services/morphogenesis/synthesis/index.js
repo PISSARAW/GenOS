@@ -14,6 +14,7 @@ const { morphologyPatternLibrary } = require('./morphologyPatternLibrary');
 const morphologyCandidate = require('./morphologyCandidate');
 const qualityDiversityArchive = require('./qualityDiversityArchive');
 const successiveHalving = require('./successiveHalving');
+const pairedCampaignGate = require('./pairedCampaignGate');
 
 module.exports = {
   developmentalGenerator: {
@@ -48,5 +49,6 @@ module.exports = {
   morphologyPatternLibrary,
   morphologyCandidate,
   qualityDiversityArchive,
-  successiveHalving
+  successiveHalving,
+  pairedCampaignGate
 };

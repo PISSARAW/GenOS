@@ -1,0 +1,47 @@
+{
+  "schema": "genos.morphogenesis.p2-protocol/v1",
+  "protocolId": "morphogenesis-p2-paired-rivals-v1",
+  "status": "contract-ready-execution-blocked",
+  "candidateCondition": "genos-adaptive",
+  "requiredConditions": [
+    { "id": "single-agent", "kind": "local-baseline", "execution": "required" },
+    { "id": "genos-fixed", "kind": "local-runtime", "execution": "required" },
+    { "id": "genos-adaptive", "kind": "local-runtime", "execution": "required" },
+    { "id": "langgraph-static", "kind": "external-paired", "frameworks": ["langgraph"], "execution": "pending" },
+    { "id": "autogen-graphflow-swarm", "kind": "external-paired", "frameworks": ["autogen-graphflow", "autogen-swarm", "openai-swarm"], "execution": "pending" },
+    { "id": "mass-evomas", "kind": "external-paired", "frameworks": ["mass", "evomas"], "execution": "pending" }
+  ],
+  "statisticalPlan": {
+    "alpha": 0.05,
+    "bootstrapSamples": 5000,
+    "minShadowPairs": 10,
+    "minHoldoutPairs": 30,
+    "minEffect": 0,
+    "maxCostOverhead": 0.1,
+    "seed": 20261018,
+    "multiplicityCorrection": "bonferroni"
+  },
+  "statisticalPlanHash": "sha256:d4290680a3f4376fb7e6f218541ba9828c626e4d133e06b910fa3a4179500b35",
+  "requiredBindings": [
+    "taskId",
+    "taskFamily",
+    "seed",
+    "modelId",
+    "budgetTokens",
+    "latencyBudgetMs",
+    "oracleId",
+    "oracleSha256",
+    "toolPolicyHash",
+    "environmentHash"
+  ],
+  "blockedBy": [
+    "shadow and holdout datasets are not supplied or sealed",
+    "LangGraph, AutoGen GraphFlow/Swarm and MASS/EvoMAS external-paired adapters have not executed",
+    "no paired outcomes have cleared the preregistered confidence and cost gates"
+  ],
+  "authority": {
+    "commitAuthorized": false,
+    "executionAuthorized": false,
+    "note": "Passing this protocol establishes evidence eligibility only; runtime authority, rollback and promotion remain separate gates."
+  }
+}

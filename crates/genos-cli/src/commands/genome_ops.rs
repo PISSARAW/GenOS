@@ -1,5 +1,5 @@
-use genos_dna::operations::{self, CloneOptions, CrossOptions, DecoyOptions, MutateOptions};
-use genos_dna::{codec, validate, AgentDna};
+use genos_dna::operations::{self, CloneOptions, CrossOptions, DecoyOptions, MutateOptions, SealOptions};
+use genos_dna::{codec, validate, AgentDna, DnaStatus};
 use serde_json::json;
 
 use crate::commands::output_guard::{resolve_output_path, WriteOptions};
@@ -85,6 +85,13 @@ pub struct SpeciateRequest<'a> {
     pub name: String,
     pub concept: Option<String>,
     pub grafts: Vec<String>,
+    pub write: WriteOptions,
+}
+
+pub struct SealRequest<'a> {
+    pub input: &'a str,
+    pub output: &'a str,
+    pub key: Option<&'a str>,
     pub write: WriteOptions,
 }
 
@@ -219,6 +226,36 @@ pub fn handle_speciate(req: SpeciateRequest) -> Result<(), String> {
     persist(&PersistSpec { op: "genome_speciate", output: req.output, write: req.write }, &child)
 }
 
+pub fn handle_seal(req: SealRequest) -> Result<(), String> {
+    let mut dna = read_dna(req.input)?;
+    match req.key {
+        Some(key) => {
+            let secret = read_secret(key)?;
+            let sealed = operations::seal(&dna, &operations::SealOptions { secret_key: Some(secret.clone()) })?;
+            let signed = codec::encode_signed(&mut sealed.clone(), &secret)?;
+            let path = resolve_output_path(req.output, &req.write)?;
+            std::fs::write(&path, &signed).map_err(|error| format!("Failed to write '{}': {}", path.display(), error))?;
+            let signer = sealed.provenance.signer.clone().unwrap_or_default();
+            let content_hash = codec::content_hash(&sealed)?;
+            println!("{}", json!({
+                "success": true,
+                "operation": "genome_seal",
+                "format": "AgentDNA/v1",
+                "output": path.display().to_string(),
+                "bytes": signed.len(),
+                "content_hash": content_hash,
+                "signer": signer,
+                "status": sealed.meta.status.as_str(),
+            }));
+            Ok(())
+        }
+        None => {
+            let sealed = operations::seal(&dna, &operations::SealOptions::default())?;
+            persist(&PersistSpec { op: "genome_seal", output: req.output, write: req.write }, &sealed)
+        }
+    }
+}
+
 fn parse_grafts(entries: &[String]) -> Result<Vec<operations::GraftSpec>, String> {
     let mut specs = Vec::new();
     for entry in entries {
@@ -259,6 +296,7 @@ fn persist(spec: &PersistSpec, dna: &AgentDna) -> Result<(), String> {
         "parents": parents,
         "mutations": dna.provenance.mutations.len(),
         "is_decoy": dna.provenance.decoy.is_some(),
+        "status": dna.meta.status.as_str(),
     }));
     Ok(())
 }

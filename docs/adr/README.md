@@ -710,6 +710,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0570](0570-adaptation-structurelle-et-interventions-legeres.md) | Adaptation structurelle intra-inférence et interventions légères | Accepté | 2026-10-17 | orchestration, morphogenèse, runtime, preuve |
 | [0571](0571-unifier-candidats-recherche-morphologique.md) | Unifier les candidats de recherche morphologique | Accepté | 2026-10-17 | morphogenèse, recherche, reproductibilité, lignage |
 | [0572](0572-archive-qualite-diversite-et-halving-morphologique.md) | Archive qualité-diversité et halving morphologique | Accepté | 2026-10-18 | morphogenèse, qualité-diversité, halving, budget |
+| [0573](0573-porte-appariee-p2-avant-commit-adaptatif.md) | Porte appariée P2 avant commit adaptatif | Accepté | 2026-10-18 | morphogenèse, comparaison appariée, holdout, intervalles de confiance |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

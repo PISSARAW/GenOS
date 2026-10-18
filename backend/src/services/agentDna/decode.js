@@ -35,7 +35,8 @@ function toMeta(arr) {
     lineageId: uuidFromBuffer(arr[5]),
     parentIds: arrayOr(arr[6]).map(uuidFromBuffer),
     ts: arr[7],
-    labels: nullOr(arr[8])
+    labels: nullOr(arr[8]),
+    status: arr.length > 9 && arr[9] ? String(arr[9]) : 'DRAFT'
   };
 }
 

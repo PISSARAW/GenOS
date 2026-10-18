@@ -178,4 +178,17 @@ pub enum GenomeSubcommands {
         #[arg(long, default_value_t = false)]
         parents: bool,
     },
+    /// Seal a DRAFT genome into SEALED status, optionally signing it
+    Seal {
+        #[arg(long, alias = "in")]
+        input: String,
+        #[arg(long, alias = "out")]
+        output: String,
+        #[arg(long)]
+        key: Option<String>,
+        #[arg(long, default_value_t = false)]
+        force: bool,
+        #[arg(long, default_value_t = false)]
+        parents: bool,
+    },
 }

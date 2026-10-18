@@ -3,6 +3,29 @@ use std::collections::BTreeMap;
 use genos_genome::{DnaStrand, Gene, Genome, Plasmid};
 use uuid::Uuid;
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum DnaStatus {
+    #[default]
+    Draft,
+    Sealed,
+}
+
+impl DnaStatus {
+    pub fn as_str(&self) -> &str {
+        match self {
+            DnaStatus::Draft => "DRAFT",
+            DnaStatus::Sealed => "SEALED",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        match value {
+            "SEALED" => DnaStatus::Sealed,
+            _ => DnaStatus::Draft,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Meta {
     pub name: String,
@@ -14,6 +37,7 @@ pub struct Meta {
     pub parent_ids: Vec<Uuid>,
     pub ts: i64,
     pub labels: BTreeMap<String, String>,
+    pub status: DnaStatus,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -167,6 +191,7 @@ impl AgentDna {
                 parent_ids: genome.parent_ids.clone(),
                 ts: epoch_seconds(),
                 labels: BTreeMap::new(),
+                status: DnaStatus::Draft,
             },
             maternal: genome.chromosome_maternal.clone(),
             paternal: genome.chromosome_paternal.clone(),
