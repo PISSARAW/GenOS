@@ -1,7 +1,7 @@
 {
   "schema": "genos.foundational-principles-qualification-receipt/v3",
   "baselineRevision": "2e30d2bada1b64eeadc38a8cf7f3015f7da1129b",
-  "qualificationRevision": "8a3748feb59bd854c6e9d29a41735f274d2b4af1",
+  "qualificationRevision": "dba80761f1b3365ad733b6a041793322a4cf0f1b",
   "scope": "Mission verticale bornée couvrant l'autorité, l'état causal, la preuve, les leases, les capsules et la qualification contrefactuelle des phases 1 à 6.",
   "score": 4,
   "qualifiedCount": 19,
@@ -9,8 +9,8 @@
   "status": "qualified-bounded-scope",
   "universalClaim": false,
   "authorizesPromotion": false,
-  "manifestHash": "392cbfc8fac3d03ccb74747c39c572c453f0570e4ef420a918df22f0444b162b",
-  "sourceDigest": "665b44c45db28d5900a2655a70015a386eca5030042a8b36a01fbcc90c78cc26",
+  "manifestHash": "84b72c300579a6f71d876531b511e7e1b2469c27a8438de30de8d5ecb536792e",
+  "sourceDigest": "ffa5746fa2c69519303f1deb40ffdf28d8c2ced43fd9dc1c95bfae411332531d",
   "evidence": [
     {
       "test": "backend/tests/test_execution_authority_v2.js",
@@ -57,5 +57,5 @@
       "outputDigest": "a27d76aa6b3d3e87045655de3f990dcbc4a8af2115ca58e3cc490ea20907d4ba"
     }
   ],
-  "receiptHash": "3923548dfdb42c7d7323625c64bd251bba1fd1a0e55c4d4ec1b52e44b4b5c1d9"
+  "receiptHash": "bc321169b144d5aed0b5e0b75d3d27727880843e568764bcf583a51939d77034"
 }
