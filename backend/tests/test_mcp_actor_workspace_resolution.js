@@ -7,23 +7,31 @@ const authority = require('../src/services/missionEnvelopeAuthority');
 async function run() {
   const originals = { assertRun: authority.assertRun, realWorkspaceRoot: authority.realWorkspaceRoot };
   let capability = null;
+  let receiptCount = 0;
   let resolutions = 0;
   const expiresAt = new Date(Date.now() + 60000).toISOString();
   authority.assertRun = async () => ({ status: 'authorized', hash: 'authority-hash',
-    envelope: { workspaceRoot: 'validated:workspace', expiresAt, toolLease: ['allowed-tool'] } });
+    envelope: { workspaceRoot: 'validated:workspace', expiresAt,
+      toolLease: ['allowed-tool'], budgets: { events: 3 } } });
   authority.realWorkspaceRoot = async (root) => {
     resolutions += 1;
     return `validated:${root}`;
   };
   const db = {
     exec: async () => {},
+    all: async () => [{ name: 'max_calls' }, { name: 'calls_used' }],
     run: async (...args) => {
-      const [_sql, tokenHash, agentId, runId, authorityHash, workspaceRoot, expiry] = args;
-      capability = { token_hash: tokenHash, agent_id: agentId, run_id: runId,
-        authority_hash: authorityHash, workspace_root: workspaceRoot, expires_at: expiry, revoked_at: null };
+      const [sql, tokenHash, agentId, runId, authorityHash, workspaceRoot, expiry, maxCalls] = args;
+      if (sql.includes('INSERT INTO mcp_actor_capabilities')) {
+        capability = { token_hash: tokenHash, agent_id: agentId, run_id: runId,
+          authority_hash: authorityHash, workspace_root: workspaceRoot, expires_at: expiry,
+          max_calls: maxCalls, calls_used: 0, revoked_at: null };
+      }
+      if (sql.includes('INSERT INTO mcp_actor_lease_receipts')) receiptCount += 1;
       return { changes: 1 };
     },
-    get: async () => capability
+    get: async (sql) => sql.includes('MAX(sequence)')
+      ? { sequence: receiptCount + 1 } : capability
   };
   try {
     const token = await actor.issue(db, { agentId: 'worker', runId: 'run', workspaceRoot: 'workspace' });

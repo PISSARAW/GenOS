@@ -26,16 +26,55 @@ async function probe(ctx, filename, workspace) {
   assert.equal(started.status, 0, started.stderr);
   const receipt = JSON.parse(started.stdout);
   assert.equal(receipt.agentId, ctx.agentId);
+  await assert.rejects(actor.finish(ctx.db, { ...request, actionId: receipt.actionId,
+    success: 'true', outputHash: 'invalid' }), { code: 'MCP_ACTOR_OUTCOME_INVALID' });
   const finished = spawnSync(process.execPath,
     [bridge, 'finish', request.toolName, receipt.actionId, 'true', 'a'.repeat(64)],
     { env, encoding: 'utf8', timeout: 30000 });
   assert.equal(finished.status, 0, finished.stderr);
   assert.equal((await receipts.read(ctx.db, receipt.actionId)).phase, 'observed');
   await probeRustBinary(ctx, env, workspace);
+  await rejectExhaustedBudget(ctx, workspace);
+  await rejectConcurrentBudget(ctx, workspace);
+  await assertCannotWidenBudget(ctx, workspace);
   await rejectFinishAfterRevocation(ctx, workspace);
   await rejectFinishAfterExpiration(ctx, workspace);
   await actor.revoke(ctx.db, token);
   await assert.rejects(actor.begin(ctx.db, request), { code: 'MCP_ACTOR_TOKEN_REVOKED' });
+}
+
+async function rejectConcurrentBudget(ctx, workspace) {
+  const token = await actor.issue(ctx.db, { agentId: ctx.agentId,
+    runId: ctx.executionRun.id, workspaceRoot: workspace, maxCalls: 1 });
+  const request = { token, workspaceRoot: workspace, toolName: 'genos_search_failures' };
+  const outcomes = await Promise.allSettled([
+    actor.begin(ctx.db, request), actor.begin(ctx.db, request)
+  ]);
+  assert.equal(outcomes.filter((entry) => entry.status === 'fulfilled').length, 1);
+  assert.equal(outcomes.find((entry) => entry.status === 'rejected').reason.code,
+    'MCP_ACTOR_BUDGET_EXHAUSTED');
+}
+
+async function assertCannotWidenBudget(ctx, workspace) {
+  await assert.rejects(actor.issue(ctx.db, { agentId: ctx.agentId,
+    runId: ctx.executionRun.id, workspaceRoot: workspace, maxCalls: 501 }),
+  { code: 'MCP_ACTOR_BUDGET_INVALID' });
+}
+
+async function rejectExhaustedBudget(ctx, workspace) {
+  const token = await actor.issue(ctx.db, { agentId: ctx.agentId,
+    runId: ctx.executionRun.id, workspaceRoot: workspace, maxCalls: 1 });
+  const request = { token, workspaceRoot: workspace, toolName: 'genos_search_failures' };
+  await actor.begin(ctx.db, request);
+  await assert.rejects(actor.begin(ctx.db, request),
+    { code: 'MCP_ACTOR_BUDGET_EXHAUSTED' });
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const dispositions = await ctx.db.all(`SELECT disposition, reason
+    FROM mcp_actor_lease_receipts WHERE token_hash = ? ORDER BY sequence`, tokenHash);
+  assert.deepEqual(dispositions.slice(-2), [
+    { disposition: 'allow', reason: 'bounded_lease_allows_tool' },
+    { disposition: 'refuse', reason: 'tool_call_budget_exhausted' }
+  ]);
 }
 
 async function rejectFinishAfterRevocation(ctx, workspace) {
@@ -77,7 +116,9 @@ async function probeRustBinary(ctx, env, workspace) {
   assert.equal(response.result._meta['genos.body'].attribution, 'agent_bound');
   assert.equal(response.result._meta['genos.body'].agentId, ctx.agentId);
   const action = response.result._meta['genos.body'].actionId;
-  assert.equal((await receipts.read(ctx.db, action)).phase, 'observed');
+  const body = await receipts.read(ctx.db, action);
+  assert.equal(body.phase, 'observed');
+  assert.equal(body.effectorId, 'mcp_stdio');
 }
 
 module.exports = { probe };

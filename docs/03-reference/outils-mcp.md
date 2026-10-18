@@ -209,6 +209,20 @@ Un appel direct peut etre execute seulement si toutes les conditions sont satisf
 
 Important : la fonction `directToolLeaseAllows()` travaille avec les noms deja normalises et prend en compte l'expiration temporelle via `GENOS_MCP_LEASE_EXPIRES_AT` (timestamp epoch ms) : si le délai est expiré, l'invocation directe est systématiquement rejetée même si l'outil figure dans la liste de lease. Les configurations de lease et de desactivation du processus backend doivent donc utiliser les noms exacts du runtime, par exemple `genos_snapshot`.
 
+### Lease d'acteur supervisé
+
+Lorsqu'un runtime agentique fournit `GENOS_MCP_ACTOR_TOKEN`, la liste statique
+ne suffit plus. Les serveurs Node et Rust consultent avant chaque appel une
+capacité persistée, liée au run, à l'autorité scellée, à la racine réelle du
+workspace et à un quota maximal d'appels. La révocation et l'épuisement sont
+vus par l'appel suivant, y compris si le processus MCP est déjà démarré.
+
+Le journal `mcp_actor_lease_receipts` sépare les décisions d'autorité
+(`allow`, `refuse`, `revoked`) des observations de transport
+(`technical_success`, `technical_failure`). Un succès technique ne prouve ni
+la validité sémantique du résultat ni son éligibilité à la promotion. Voir
+[ADR 0618](../adr/0618-supervision-dynamique-leases-mcp.md).
+
 ---
 
 ## 4. Validation des arguments et confinement

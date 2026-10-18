@@ -368,6 +368,7 @@ async function main() {
     await attestedClaim(first);
     await productionClaims(first);
     await require('./helpers/rustMcpActorProbe').probe(first, filename, workspace);
+    await require('./helpers/nodeMcpActorProbe').probe(first, filename, workspace);
     await directMcpProvenance(first);
     const secondContract = await fixture.addWorker(db, { agentId: 'worker-B' });
     const second = await context(db, workspace, { contractRecord: secondContract, agentId: 'worker-B' });

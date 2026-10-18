@@ -5,6 +5,7 @@ import { toolIsLeased } from "./lease.js";
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { beginActorCall, finishActorCall, bodyMetadata } from './actorReceipt.mjs';
 
 const require = createRequire(import.meta.url);
 const REPO_ROOT = resolveRepoRoot();
@@ -172,12 +173,30 @@ async function handleToolRequest(input) {
     return { content: [{ type: 'text', text: `Tool '${name}' is outside the active GenOS MCP lease.` }], isError: true };
   }
   const onTelemetry = telemetryHandler(request, extra);
+  let actor = null;
   try {
-    const text = await dispatchTool({ name, args, onTelemetry, runOrchestrator, runGenosCli, executeStrategyTool });
-    return { content: [{ type: 'text', text }] };
+    actor = await beginActorCall(name);
+    const text = await dispatchWithActor({ actor, name, args, onTelemetry,
+      runOrchestrator, runGenosCli, executeStrategyTool });
+    return { content: [{ type: 'text', text }],
+      _meta: { 'genos.body': bodyMetadata(actor) } };
   } catch (error) {
-    return { content: [{ type: 'text', text: error.message }], isError: true };
+    return { content: [{ type: 'text', text: error.message }], isError: true,
+      _meta: { 'genos.body': bodyMetadata(actor) } };
   }
+}
+
+async function dispatchWithActor(input) {
+  const { actor, ...dispatchInput } = input;
+  let text;
+  try {
+    text = await dispatchTool(dispatchInput);
+  } catch (error) {
+    if (actor) await finishActorCall(actor, false, error.message);
+    throw error;
+  }
+  await finishActorCall(actor, true, text);
+  return text;
 }
 
 function telemetryHandler(request, extra) {

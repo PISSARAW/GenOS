@@ -103,4 +103,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('136-promotion-evidence-dossiers', 'Persist falsifiable evidence dossiers and bounded promotion dispositions', async (db) => {
     await require('./migratePromotionEvidenceDossiers').migratePromotionEvidenceDossiers(db);
   }),
+  createMigrationRunner('138-mcp-actor-lease-v2', 'Persist bounded revocable MCP actor leases and immutable receipts', async (db) => {
+    await require('./migrateMcpActorLeaseV2').migrateMcpActorLeaseV2(db);
+  }),
 ];
