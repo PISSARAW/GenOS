@@ -88,6 +88,26 @@ décrivent les frontières de cohérence.
 
 SQLite tables and columns under `src/db/` are internal persistence contracts. They evolve through startup migrations and may contain operational fields that are intentionally absent from the public JSON schemas. A valid JSON manifest therefore does not imply that every field is directly persisted, and a successful database migration does not replace JSON contract validation.
 
+### GQWF v2: CAS, catalogue et matérialisation
+
+Le service `src/services/gqwf/` conserve les octets et les manifestes de racine
+dans un CAS local au workspace. Il publie aussi un catalogue canonique
+`gqwf-catalog-v1` pour les racines, têtes et baux ; les tables SQLite
+`gqwf_roots`, `gqwf_heads` et `gqwf_leases` restent des caches opérationnels
+reconstructibles, pas l'unique source de vérité. `inspectMetadataRepair`
+produit un plan déterministe et `repairMetadata` exige ce plan ainsi qu'une
+autorisation liée avant toute reconstruction. Un bail actif reconstruit est
+mis en quarantaine et n'est jamais rouvert implicitement.
+
+Une mission portant `executionPolicy.gqwfV2: true` passe par la même vue privée
+et le même bail pour les runtimes supervisés, déterministes, locaux et
+in-process. Le runtime reçoit toujours un chemin physique matérialisé ; GQWF
+ne prétend pas exécuter directement depuis le CAS. Le matérialiseur par défaut
+reste `portable-copy-v1`. La politique explicite `auto` essaie OverlayFS sur
+Linux, puis un reflink natif sur un volume compatible, avant la copie portable.
+Voir le [contrat GQWF v2](../docs/02-orchestration/gqwf-v2.md) et
+l'[ADR 0643](../docs/adr/0643-catalogue-cas-et-runtimes-deterministes-gqwf.md).
+
 ### 2. Unified Embedding Provider (`src/services/embeddingProvider.js`)
 Normalizes all vector inputs to **768 dimensions** with automatic detection and graceful fallback:
 - **Local Xenova Transformers:** In-process CPU embeddings via `@xenova/transformers` (`Xenova/all-MiniLM-L6-v2` projected to 768-D).

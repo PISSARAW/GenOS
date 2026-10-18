@@ -5,6 +5,7 @@
 - **Domaine** : GQWF, CAS, réparation, quarantaine, tenants, preuves
 - **Décideurs** : équipe GenOS
 - **Lié à** : ADR 0635, ADR 0636
+- **Étendu par** : ADR 0643 pour le catalogue et les caches SQLite
 
 ## Contexte
 
@@ -56,7 +57,8 @@ reçu compatible.
 
 ### Négatives
 
-- Les manifestes et métadonnées SQLite ne sont pas reconstruits.
+- Cette opération de réparation des blobs ne reconstruit ni les manifestes ni
+  les métadonnées SQLite ; l'ADR 0643 ajoute un protocole distinct pour ce cas.
 - La source et la cible doivent être accessibles au même backend.
 - La relecture complète de la racine augmente le coût de récupération.
 - La quarantaine doit être gérée par une politique de rétention ultérieure.

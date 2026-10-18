@@ -71,6 +71,7 @@ ne constituent pas une mesure de modèles externes.
 Fonctionnalités implémentées :
 
 - **Snapshots de workspace et d'état d'agent**, forks, diffs et replay ; le manifeste vérifié couvre aussi les mémoires persistées, les relations, l'état runtime durable, les échanges visibles du routeur LLM et les références immuables des checkpoints Rust associés. Une option lie le snapshot d'agent à l'une des huit topologies et à son variant ; la reprise vérifie le collectif sans le rembobiner ([contrat](docs/03-reference/snapshots-topologiques.md)). La RAM des processus et l'état caché des fournisseurs LLM restent hors portée ([portée](docs/02-orchestration/workspaces-contrefactuel.md#32-snapshot-durable)).
+- **[GQWF v2](docs/02-orchestration/gqwf-v2.md)** : racines et catalogue de métadonnées adressés par contenu, vues privées durables, réparation SQLite sous plan autorisé et matérialisation sous bail. L'opt-in executionPolicy.gqwfV2 couvre les runtimes supervisés, déterministes, locaux et in-process ; le défaut reste le workspace physique. OverlayFS est propre à Linux, tandis que la politique auto sonde aussi le reflink avant la copie portable.
 
 Le backend expose `GET /api/agents/snapshot-capabilities` pour indiquer sur Windows, macOS et Linux le mode logique disponible et les restaurations indisponibles. Une demande de snapshot de RAM échoue explicitement avant capture ; voir [ADR 0375](docs/adr/0375-portabilite-snapshots-memoire.md).
 - **Démo de débogage parallèle sûr** : `examples/safe-debugging-demo`, exécutable sans clé API.

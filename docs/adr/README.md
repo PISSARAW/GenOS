@@ -717,7 +717,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0603](0603-relier-nosologie-et-morphogenese.md) | Relier la nosologie et la morphogenèse | Accepté | 2026-10-18 | morphogenèse, nosologie, quarantaine, autopsie causale |
 | [0604](0604-enveloppe-execution-v2-et-heritage-lecture-seule.md) | Sceller l'exécution v2 et classer l'héritage en lecture seule | Accepté | 2026-10-18 | runtime, autorité, reproductibilité, provenance |
 | [0605a](0605-dispositions-implementation-philosophique.md) | Dispositions d'implémentation philosophique | Accepté | 2026-10-18 | philosophie opérationnelle, contrats, autorité runtime |
-| [0605b](0605-routage-missions-supervisees-gqwf.md) | Router les missions supervisées vers GQWF | Accepté, activation explicite | 2026-10-18 | Workspaces, exécution supervisée, GQWF |
+| [0605b](0605-routage-missions-supervisees-gqwf.md) | Router les missions supervisées vers GQWF | Accepté, étendu aux runtimes opt-in par ADR 0643 | 2026-10-18 | Workspaces, exécution supervisée, GQWF |
 | [0606a](0606-lier-morphogenese-et-agentdna.md) | Lier la morphogenèse et AgentDNA | Accepté | 2026-10-18 | morphogenèse, AgentDNA, incarnation, preuve, restauration |
 | [0606b](0606-socle-durable-ontogenese.md) | Socle durable V2 de l’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, persistance, idempotence, autorité |
 | [0607a](0607-audits-specialises-capacites-philosophiques.md) | Audits spécialisés des capacités philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, identité, causalité, biomimétisme |
@@ -748,7 +748,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0625](0625-admission-bornee-et-revocation-authentifiee.md) | Admission bornée et révocation authentifiée | Accepté | 2026-10-18 | qualification, autorité, révocation, consommation |
 | [0626](0626-protocole-pensee-endogene-bornee.md) | Protocole de pensée endogène bornée | Accepté jusqu'à l'apprentissage borné ; continuation et campagne non implémentées | 2026-10-18 | cognition endogène, expérimentation, autorité, preuve |
 | [0627](0627-frontiere-claims-fonctionnels-et-phenomenaux.md) | Frontière entre claims fonctionnels et phénoménaux | Accepté | 2026-10-18 | conscience, épistémologie, preuves, rapports |
-| [0628](0628-spi-materialisation-gqwf.md) | SPI de matérialisation GQWF | Accepté, backend portable uniquement en production | 2026-10-18 | GQWF, workspaces, matérialisation, portabilité |
+| [0628](0628-spi-materialisation-gqwf.md) | SPI de matérialisation GQWF | Accepté, étendu par les backends reflink et OverlayFS | 2026-10-18 | GQWF, workspaces, matérialisation, portabilité |
 | [0629](0629-backend-reflink-natif-gqwf.md) | Backend reflink natif GQWF | Accepté, activation explicite ou politique auto | 2026-10-18 | GQWF, workspaces, reflink, Copy-on-Write |
 | [0630](0630-politique-materialisation-missions-gqwf.md) | Politique de matérialisation des missions GQWF | Accepté, activation explicite | 2026-10-18 | GQWF, missions, workspaces, Copy-on-Write |
 | [0631](0631-conteneur-bail-et-racine-execution-gqwf.md) | Séparer conteneur de bail et racine d'exécution GQWF | Accepté | 2026-10-18 | GQWF, workspaces, OverlayFS, snapshots, reprise |
@@ -759,7 +759,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0636](0636-replication-cas-gqwf.md) | Répliquer les racines GQWF par contenu | Accepté, réplication locale inter-workspaces | 2026-10-18 | GQWF, CAS, réplication, tenants, reprise, preuves |
 | [0637](0637-reduire-la-baseline-qualite-residuelle.md) | Réduire la baseline qualité résiduelle | Accepté | 2026-10-18 | qualité, preuves, gouvernance de dette |
 | [0638](0638-paquets-signes-du-registre-de-confiance.md) | Paquets signés du registre de confiance | Accepté | 2026-10-18 | confiance, révocation, déploiement, récupération |
-| [0639](0639-reparation-authentifiee-gqwf.md) | Réparer GQWF depuis une réplique authentifiée | Accepté, réparation locale bornée aux blobs | 2026-10-18 | GQWF, CAS, réparation, quarantaine, tenants, preuves |
+| [0639](0639-reparation-authentifiee-gqwf.md) | Réparer GQWF depuis une réplique authentifiée | Accepté, blobs ; catalogue étendu par ADR 0643 | 2026-10-18 | GQWF, CAS, réparation, quarantaine, tenants, preuves |
 | [0640](0640-journal-revocation-ancre-durable.md) | Journal de révocation à ancre durable | Accepté | 2026-10-18 | révocation, durabilité, anti-rollback, réplication |
 | [0641](0641-canonisation-des-sources-de-qualification.md) | Canonisation des sources de qualification | Accepté | 2026-10-18 | preuve, reproductibilité, qualification fondatrice |
 | [0642](0642-borner-les-heuristiques-aeis.md) | Borner les heuristiques et les garanties AEIS | Accepté | 2026-10-18 | AEIS, calibration, diversité, preuve, indépendance |

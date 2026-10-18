@@ -24,7 +24,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [workflows-et-jobs.md](workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
 - [workspaces-contrefactuel.md](workspaces-contrefactuel.md) — snapshots, bisection, restore, blast radius.
 - [Snapshots topologiques](../03-reference/snapshots-topologiques.md) — manifeste optionnel d'état d'agent, prévalidation et preuves par variant.
-- [gqwf-v2.md](gqwf-v2.md) — racines de fichiers partagées, vues durables et limites du noyau GQWF.
+- [gqwf-v2.md](gqwf-v2.md) — racines et catalogue CAS, vues durables, réparation des caches SQLite, runtimes opt-in et matérialiseurs portables/COW.
 - [git-agents.md](git-agents.md) — transposition de Git aux états d'agents.
 - [reproduction-et-replication.md](reproduction-et-replication.md) — mitose, budding, méiose, clonage.
 - [dossiers-agents-et-conscience.md](dossiers-agents-et-conscience.md) — dossiers de preuves, conscience opérationnelle et transitions.

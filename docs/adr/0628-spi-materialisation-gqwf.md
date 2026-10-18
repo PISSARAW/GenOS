@@ -1,10 +1,11 @@
 # ADR 0628 — SPI de matérialisation GQWF
 
-- **Statut** : Accepté, backend portable uniquement en production
+- **Statut** : Accepté, étendu par les backends reflink et OverlayFS
 - **Date** : 2026-10-18
 - **Domaine** : GQWF, workspaces, matérialisation, portabilité
 - **Décideurs** : Mainteneurs GenOS
 - **Lié à** : ADR 0369, ADR 0378, ADR 0608, ADR 0616, ADR 0618
+- **Étendu par** : ADR 0629, ADR 0631, ADR 0632
 
 ## Contexte
 
@@ -38,6 +39,12 @@ seul backend de production de cette tranche. Les backends injectés servent aux
 tests de conformité. Ils doivent produire la même racine candidate à projection
 égale et ne peuvent modifier ni les gates de preuve, ni le CAS de tête, ni les
 politiques de collecte.
+
+Les ADR 0629 et 0632 ajoutent ensuite `native-reflink-v1` et
+`linux-overlayfs-v1`. Le premier dépend des capacités du volume ; le second est
+limité à Linux et à une sonde de montage réussie. Une politique `auto` peut se
+replier explicitement sur `portable-copy-v1` et inscrit les causes du choix dans
+le reçu ; une sélection explicite indisponible continue d'échouer fermée.
 
 Les capacités incluent la plateforme. Un bail physique est local à son hôte :
 un changement de plateforme ou de capacités pendant son cycle de vie échoue de

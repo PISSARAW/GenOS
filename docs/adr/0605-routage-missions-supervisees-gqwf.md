@@ -3,6 +3,7 @@
 - **Statut** : Accepté, activation explicite
 - **Date** : 2026-10-18
 - **Domaine** : Workspaces, exécution supervisée, GQWF
+- **Amendé par** : ADR 0643 pour les runtimes déterministes, locaux et in-process
 
 ## Contexte
 
@@ -28,9 +29,15 @@ est abandonnée. Dans les deux cas, le bail est ensuite libéré. La session
 durable conserve le lien entre execution run, vue, bail, racine de base et
 candidate. Aucune tête GQWF n'est publiée automatiquement.
 
-Les runtimes déterministes, locaux in-process et les parcours non opt-in
-conservent les workspaces physiques existants. Un chemin enregistré différent
-du workspace demandé fait échouer la mission avant le lancement.
+Dans cette tranche initiale, les runtimes déterministes, locaux in-process et
+les parcours non opt-in conservent les workspaces physiques existants. Un
+chemin enregistré différent du workspace demandé fait échouer la mission avant
+le lancement.
+
+Cette restriction décrit la tranche initiale. L'ADR 0643 raccorde ensuite les
+runtimes déterministes, locaux et in-process au même cycle GQWF lorsqu'ils
+portent explicitement `executionPolicy.gqwfV2: true`. Les parcours non opt-in
+restent physiques.
 
 ## Conséquences
 

@@ -1,6 +1,6 @@
 # GQWF v2 — Racines de fichiers et vues durables
 
-- **Statut** : Partiel — noyau backend, workers autonomes, promotion Trinity et capture/restauration des fichiers d'organisme disponibles en opt-in.
+- **Statut** : Partiel — noyau backend, catalogue CAS reconstructible, workers autonomes, runtimes déterministes/in-process, promotion Trinity et capture/restauration des fichiers d'organisme disponibles en opt-in ; le défaut reste physique.
 - **Portée** : projection de fichiers, overlays, merge, matérialisation, tête versionnée.
 - **Dernière revue** : 2026-10-18.
 
@@ -60,15 +60,17 @@ Ce durcissement seul ne fournit pas de vérificateur runtime. La promotion
 générale reste bloquée hors des parcours munis d'une vérification réelle.
 Voir l'[ADR 0399](../adr/0399-liaison-recu-promotion-gqwf.md).
 
-Le parcours Trinity peut désormais demander `executionPolicy.gqwfV2: true`.
+Le parcours Trinity peut demander `executionPolicy.gqwfV2: true`.
 Après les contrôles d'intégration et la vérification de la candidate, GenOS
 importe sa projection de fichiers, inscrit sa racine dans les métadonnées d'un
 objet AgentGit signé, puis déplace une tête `trinity/<expérience>` dans le
 workspace source. La décision Trinity et l'événement de tête sont persistés
 dans la même transaction SQLite. Une signature invalide, un reçu mal lié ou
 des contrôles incomplets bloquent cette tête. Ce parcours ne remplace pas la
-capsule physique et ne généralise pas encore la publication GQWF aux autres
-workers. Voir l'[ADR 0400](../adr/0400-promotion-trinity-gqwf-opt-in.md).
+capsule physique. La promotion des autres workers suit son propre contrat
+explicite `promoteWorkerCandidate` et ne découle pas automatiquement d'une
+réussite Trinity. Voir les [ADR 0400](../adr/0400-promotion-trinity-gqwf-opt-in.md)
+et [0612](../adr/0612-promotion-explicite-candidates-workers-gqwf.md).
 
 La qualification de cette promotion exécute `promoteWinner` sur une base SQLite
 réelle et un workspace physique. Elle couvre un test `npm` dans la candidate,
@@ -188,10 +190,11 @@ un backend enregistré devenu inconnu bloque la suite du cycle de vie. Les baux
 historiques sans reçu sont rattachés explicitement au backend portable pendant
 leur reprise.
 
-`portable-copy-v1` reste le seul backend de production : cette tranche fournit
-la frontière et ses tests de conformité, pas encore un accélérateur reflink,
-OverlayFS ou bloc. Deux implémentations conformes doivent produire la même
-racine candidate pour la même projection. Voir l'[ADR 0628](../adr/0628-spi-materialisation-gqwf.md).
+À la livraison de cette tranche, `portable-copy-v1` était le seul backend de
+production. Les tranches suivantes ont ajouté `native-reflink-v1` et
+`linux-overlayfs-v1` sans modifier cette frontière. Deux implémentations
+conformes doivent produire la même racine candidate pour la même projection.
+Voir l'[ADR 0628](../adr/0628-spi-materialisation-gqwf.md).
 
 Validation ciblée du SPI :
 `node backend/tests/test_gqwf_materialization_contract.js`.
