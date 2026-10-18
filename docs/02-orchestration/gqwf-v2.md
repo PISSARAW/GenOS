@@ -181,6 +181,22 @@ racine candidate pour la même projection. Voir l'[ADR 0628](../adr/0628-spi-mat
 Validation ciblée du SPI :
 `node backend/tests/test_gqwf_materialization_contract.js`.
 
+### Reflink natif
+
+La tranche 9 fournit `native-reflink-v1`, premier accélérateur physique du SPI.
+Il exige un clone Copy-on-Write strict au niveau fichier et vérifie cette
+capacité sur le filesystem du workspace. Un clone explicite indisponible échoue
+sans créer de bail. La politique explicite `materializerId: auto` préfère ce
+backend puis choisit la copie portable, avec la cause du fallback inscrite dans
+le reçu. Sans politique, le défaut reste `portable-copy-v1`.
+
+Les blobs et les fichiers clonés sont vérifiés par hash. Un hardlink ou une
+cible non régulière est refusé. Cette tranche réduit les écritures initiales sur
+un volume compatible, mais conserve les lectures d'intégrité et ne revendique
+pas encore un gain universel. Voir l'[ADR 0629](../adr/0629-backend-reflink-natif-gqwf.md).
+
+Validation ciblée : `node backend/tests/test_gqwf_reflink_materializer.js`.
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes

@@ -744,6 +744,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0626](0626-protocole-pensee-endogene-bornee.md) | Protocole de pensée endogène bornée | Accepté pour les contrats et la persistance ; runtime et campagne non implémentés | 2026-10-18 | cognition endogène, expérimentation, autorité, preuve |
 | [0627](0627-frontiere-claims-fonctionnels-et-phenomenaux.md) | Frontière entre claims fonctionnels et phénoménaux | Accepté | 2026-10-18 | conscience, épistémologie, preuves, rapports |
 | [0628](0628-spi-materialisation-gqwf.md) | SPI de matérialisation GQWF | Accepté, backend portable uniquement en production | 2026-10-18 | GQWF, workspaces, matérialisation, portabilité |
+| [0629](0629-backend-reflink-natif-gqwf.md) | Backend reflink natif GQWF | Accepté, activation explicite ou politique auto | 2026-10-18 | GQWF, workspaces, reflink, Copy-on-Write |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

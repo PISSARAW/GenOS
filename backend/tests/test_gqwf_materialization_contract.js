@@ -40,8 +40,12 @@ function aliasFabric(db) {
 }
 
 async function verifyCapabilities(state) {
-  const capabilities = await createFabric(state.db).inspectMaterializers();
-  assert.deepEqual(capabilities, [{
+  const capabilities = await createFabric(state.db).inspectMaterializers({
+    workspaceId: 'ws-materializer'
+  });
+  assert.equal(capabilities.length, 2);
+  const portable = capabilities.find((entry) => entry.backendId === 'portable-copy-v1');
+  assert.deepEqual(portable, {
     backendId: 'portable-copy-v1',
     contractVersion: 1,
     available: true,
@@ -53,7 +57,11 @@ async function verifyCapabilities(state) {
     portable: true,
     supportsCapture: true,
     supportsRecovery: true
-  }]);
+  });
+  const native = capabilities.find((entry) => entry.backendId === 'native-reflink-v1');
+  assert.equal(native.copyGranularity, 'file');
+  assert.equal(native.portable, false);
+  assert.equal(typeof native.available, 'boolean');
 }
 
 async function materializeCandidate(fabric, rootHash, content) {

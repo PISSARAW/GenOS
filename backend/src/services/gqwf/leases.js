@@ -33,7 +33,8 @@ async function materializeRoot(db, input, options = {}) {
   const unresolved = await db.get(`SELECT id FROM gqwf_leases WHERE workspace_id = ?
     AND status IN ('preparing', 'quarantined') LIMIT 1`, input.workspaceId);
   if (unresolved) throw new Error('GQWF lease preparation unresolved; stop writers and call reconcileReleasingLeases with recoverPreparations: true.');
-  const selection = await materialization.selectMaterializer(options);
+  const selection = await materialization.selectMaterializer(options,
+    { workspacePath: workspace.path });
   const parent = materializedRoot(workspace.path);
   await fs.mkdir(parent, { recursive: true });
   const id = crypto.randomUUID();
@@ -59,8 +60,8 @@ async function materializeRoot(db, input, options = {}) {
   } catch (error) {
     try {
       if (created) {
-        const { lease } = await leaseRecord(db, { workspaceId: input.workspaceId, leaseId: id });
-        await finishPreparation(db, lease, options);
+        const record = await leaseRecord(db, { workspaceId: input.workspaceId, leaseId: id });
+        await finishPreparation(db, record, options);
       } else {
         await db.run("UPDATE gqwf_leases SET status = 'quarantined' WHERE id = ? AND status = 'preparing'", id);
       }
@@ -107,7 +108,8 @@ async function ingestLease(db, input, options = {}) {
   const selection = await materialization.resolveSelection(db, {
     leaseId: lease.id,
     workspaceId: lease.workspace_id,
-    rootHash: lease.root_hash
+    rootHash: lease.root_hash,
+    workspacePath: workspace.path
   }, options);
   const built = await selection.driver.capture({
     sourcePath: lease.path,
@@ -122,7 +124,8 @@ async function ingestLease(db, input, options = {}) {
 }
 
 async function releaseLease(db, input, options = {}) {
-  const { lease } = await leaseRecord(db, input);
+  const record = await leaseRecord(db, input);
+  const { lease } = record;
   if (lease.status === 'released') return { released: true };
   if (lease.status === 'preparing') throw new Error('GQWF lease is still preparing.');
   if (lease.status === 'quarantined') throw new Error('GQWF lease directory lacks ownership proof.');
@@ -134,7 +137,7 @@ async function releaseLease(db, input, options = {}) {
       if (latest.lease.status !== 'releasing') throw new Error('GQWF lease release state changed.');
     }
   }
-  await finishRelease(db, lease, options);
+  await finishRelease(db, record, options);
   return { released: true };
 }
 
@@ -151,7 +154,8 @@ async function markedDirectory(lease) {
   }
 }
 
-async function finishPreparation(db, lease, options = {}) {
+async function finishPreparation(db, record, options = {}) {
+  const { lease, workspace } = record;
   if (!await managedDirectory(lease)) {
     const changed = await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'preparing'", lease.id);
     return changed.changes === 1;
@@ -161,21 +165,24 @@ async function finishPreparation(db, lease, options = {}) {
     return false;
   }
   const selection = await materialization.resolveSelection(db, {
-    leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash
+    leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash,
+    workspacePath: workspace.path
   }, options);
   await selection.driver.recover({ path: lease.path });
   const changed = await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'preparing'", lease.id);
   return changed.changes === 1;
 }
 
-async function finishRelease(db, lease, options = {}) {
+async function finishRelease(db, record, options = {}) {
+  const { lease, workspace } = record;
   if (await managedDirectory(lease)) {
     if (path.basename(lease.path) === `lease-${lease.id}` && !await markedDirectory(lease)) {
       await db.run("UPDATE gqwf_leases SET status = 'quarantined' WHERE id = ? AND status = 'releasing'", lease.id);
       throw new Error('GQWF lease directory lacks ownership proof.');
     }
     const selection = await materialization.resolveSelection(db, {
-      leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash
+      leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash,
+      workspacePath: workspace.path
     }, options);
     await selection.driver.release({ path: lease.path });
   }
@@ -189,11 +196,25 @@ async function reconcileReleasingLeases(db, input, options = {}) {
     WHERE workspace_id = ? AND status IN ${statuses} ORDER BY id LIMIT 100`, input.workspaceId);
   let quarantined = 0;
   for (const row of rows) {
-    const { lease } = await leaseRecord(db, { workspaceId: workspace.id, leaseId: row.id });
-    if (lease.status === 'preparing') quarantined += await finishPreparation(db, lease, options) ? 0 : 1;
-    else await finishRelease(db, lease, options);
+    const record = await leaseRecord(db, { workspaceId: workspace.id, leaseId: row.id });
+    if (record.lease.status === 'preparing') {
+      quarantined += await finishPreparation(db, record, options) ? 0 : 1;
+    } else await finishRelease(db, record, options);
   }
   return { reconciled: rows.length - quarantined, quarantined };
 }
 
-module.exports = { materializeRoot, ingestLease, releaseLease, reconcileReleasingLeases };
+async function inspectMaterializers(db, input = {}, options = {}) {
+  const context = input.workspaceId
+    ? { workspacePath: (await storage.workspace(db, input.workspaceId)).path }
+    : {};
+  return materialization.inspectMaterializers(options, context);
+}
+
+module.exports = {
+  materializeRoot,
+  ingestLease,
+  releaseLease,
+  reconcileReleasingLeases,
+  inspectMaterializers
+};

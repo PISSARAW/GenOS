@@ -53,9 +53,9 @@ function digest(value) {
   return crypto.createHash('sha256').update(stableJson(value)).digest('hex');
 }
 
-async function probe(driver) {
+async function probe(driver, context = {}) {
   assertMaterializer(driver);
-  return normalizeCapabilities(driver, await driver.probe());
+  return normalizeCapabilities(driver, await driver.probe(context));
 }
 
 module.exports = {

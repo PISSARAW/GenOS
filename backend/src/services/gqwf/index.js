@@ -27,7 +27,7 @@ function createFabric(db, options = {}) {
     initializeHead: (input) => roots.initializeHead(db, input),
     publishCandidate: (input) => roots.publishCandidate(db, input,
       { verifier: options.verifyPromotion }),
-    inspectMaterializers: () => materialization.inspectMaterializers(options),
+    inspectMaterializers: (input = {}) => leases.inspectMaterializers(db, input, options),
     inspectMaterialization: (input) => materialization.receiptForLease(db, input),
     materializeRoot: (input) => leases.materializeRoot(db, input, options),
     ingestLease: (input) => leases.ingestLease(db, input, options),

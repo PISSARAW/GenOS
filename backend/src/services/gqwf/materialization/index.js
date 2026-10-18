@@ -2,9 +2,10 @@
 
 const contract = require('./contract');
 const portableCopy = require('./portableCopy');
+const reflink = require('./reflink');
 
 function registry(options = {}) {
-  const drivers = options.materializers || [portableCopy];
+  const drivers = options.materializers || [portableCopy, reflink];
   const entries = new Map();
   for (const candidate of drivers) {
     const driver = contract.assertMaterializer(candidate);
@@ -17,11 +18,11 @@ function registry(options = {}) {
   return entries;
 }
 
-async function inspectMaterializers(options = {}) {
+async function inspectMaterializers(options = {}, context = {}) {
   const inspected = [];
   for (const driver of [...registry(options).values()].sort((a, b) => a.id.localeCompare(b.id))) {
     try {
-      inspected.push(await contract.probe(driver));
+      inspected.push(await contract.probe(driver, context));
     } catch (error) {
       inspected.push({ backendId: driver.id, contractVersion: driver.contractVersion,
         available: false, unavailableReason: `probe_failed:${error.message}` });
@@ -30,20 +31,36 @@ async function inspectMaterializers(options = {}) {
   return inspected;
 }
 
-async function selectMaterializer(options = {}) {
+function selected(driver, capabilities, selectionReason) {
+  return { driver, capabilities, capabilityHash: contract.digest(capabilities), selectionReason };
+}
+
+async function selectAuto(options, context) {
+  const drivers = registry(options);
+  const preferred = drivers.get(reflink.id);
+  let unavailableReason = 'backend_unregistered';
+  if (preferred) {
+    const capabilities = await contract.probe(preferred, context);
+    if (capabilities.available) return selected(preferred, capabilities, 'auto_reflink');
+    unavailableReason = capabilities.unavailableReason;
+  }
+  const fallback = drivers.get(portableCopy.id);
+  if (!fallback) throw new Error('GQWF automatic materialization has no portable fallback.');
+  return selected(fallback, await contract.probe(fallback, context),
+    `auto_portable_fallback:${unavailableReason}`);
+}
+
+async function selectMaterializer(options = {}, context = {}) {
+  if (options.materializerId === 'auto') return selectAuto(options, context);
   const requested = options.materializerId || portableCopy.id;
   const driver = registry(options).get(requested);
   if (!driver) throw new Error(`Unknown GQWF materializer '${requested}'.`);
-  const capabilities = await contract.probe(driver);
+  const capabilities = await contract.probe(driver, context);
   if (!capabilities.available) {
     throw new Error(`GQWF materializer '${requested}' is unavailable: ${capabilities.unavailableReason}.`);
   }
-  return {
-    driver,
-    capabilities,
-    capabilityHash: contract.digest(capabilities),
-    selectionReason: options.materializerId ? 'explicit_backend' : 'default_portable'
-  };
+  return selected(driver, capabilities,
+    options.materializerId ? 'explicit_backend' : 'default_portable');
 }
 
 function receiptPayload(input) {
@@ -99,7 +116,8 @@ async function receiptForLease(db, input) {
 async function resolveSelection(db, input, options = {}) {
   let receipt = await receiptForLease(db, input);
   if (!receipt) {
-    const selection = await selectMaterializer({ ...options, materializerId: portableCopy.id });
+    const selection = await selectMaterializer({ ...options, materializerId: portableCopy.id },
+      { workspacePath: input.workspacePath });
     receipt = await persistReceipt(db, { ...input, selection,
       selectionReason: 'legacy_portable_compatibility' });
   }
@@ -108,7 +126,7 @@ async function resolveSelection(db, input, options = {}) {
   }
   const driver = registry(options).get(receipt.backendId);
   if (!driver) throw new Error(`Recorded GQWF materializer '${receipt.backendId}' is unavailable.`);
-  const capabilities = await contract.probe(driver);
+  const capabilities = await contract.probe(driver, { workspacePath: input.workspacePath });
   if (!capabilities.available || contract.digest(capabilities) !== receipt.capabilityHash) {
     throw new Error(`Recorded GQWF materializer '${receipt.backendId}' capabilities changed.`);
   }
