@@ -59,13 +59,14 @@ async function trackedCapsule(db, workerId, capsulePath) {
 }
 
 async function gqwfCapsuleTag(db, workerId, capsulePath) {
-  const lease = await db.get(`SELECT l.id, l.path, l.status FROM gqwf_worker_bindings b
+  const lease = await db.get(`SELECT l.id, l.path, l.execution_path, l.status FROM gqwf_worker_bindings b
     JOIN gqwf_leases l ON l.id = b.lease_id
     WHERE b.worker_id = ? AND b.backend = 'gqwf' AND b.status IN ('open', 'captured', 'capture_failed')`,
   workerId).catch(() => null);
-  if (!lease || !samePath(lease.path, capsulePath) || !['open', 'ingested'].includes(lease.status)) return null;
+  const executionPath = lease?.execution_path || lease?.path;
+  if (!lease || !samePath(executionPath, capsulePath) || !['open', 'ingested'].includes(lease.status)) return null;
   try {
-    const marker = await fs.readFile(path.join(capsulePath, '.genos-gqwf-lease'), 'utf8');
+    const marker = await fs.readFile(path.join(lease.path, '.genos-gqwf-lease'), 'utf8');
     return marker === lease.id ? leaseTag(lease.id) : null;
   } catch (_) {
     return null;

@@ -43,6 +43,7 @@ async function migrateGqwf(db) {
       workspace_id TEXT NOT NULL,
       root_hash TEXT NOT NULL,
       path TEXT NOT NULL,
+      execution_path TEXT,
       status TEXT NOT NULL CHECK (status IN ('preparing', 'open', 'ingested', 'releasing', 'released', 'quarantined')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (workspace_id, root_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
@@ -143,6 +144,7 @@ async function migrateGqwf(db) {
   `);
   const row = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_leases'");
   if (!row.sql.includes("'preparing'")) await migrateLeaseStatus(db);
+  await ensureLeaseExecutionPath(db);
   const worker = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_worker_bindings'");
   if (!worker.sql.includes('lease_id') || !worker.sql.includes("'discarded'")) await migrateWorkerBindings(db);
   await createWorkerPromotionTable(db);
@@ -150,6 +152,9 @@ async function migrateGqwf(db) {
 }
 
 async function migrateLeaseStatus(db) {
+  const columns = await db.all('PRAGMA table_info(gqwf_leases)');
+  const executionSource = columns.some((column) => column.name === 'execution_path')
+    ? 'COALESCE(execution_path, path)' : 'path';
   await withTransaction(db, async () => {
     await db.exec('ALTER TABLE gqwf_leases RENAME TO gqwf_leases_previous;');
     await db.exec(`CREATE TABLE gqwf_leases (
@@ -157,16 +162,26 @@ async function migrateLeaseStatus(db) {
       workspace_id TEXT NOT NULL,
       root_hash TEXT NOT NULL,
       path TEXT NOT NULL,
+      execution_path TEXT,
       status TEXT NOT NULL CHECK (status IN ('preparing', 'open', 'ingested', 'releasing', 'released', 'quarantined')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (workspace_id, root_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
     );`);
-    await db.exec(`INSERT INTO gqwf_leases (id, workspace_id, root_hash, path, status, created_at)
-      SELECT id, workspace_id, root_hash, path,
+    await db.exec(`INSERT INTO gqwf_leases
+      (id, workspace_id, root_hash, path, execution_path, status, created_at)
+      SELECT id, workspace_id, root_hash, path, ${executionSource},
         CASE status WHEN 'released' THEN 'releasing' ELSE status END,
         created_at FROM gqwf_leases_previous;`);
     await db.exec('DROP TABLE gqwf_leases_previous;');
   });
+}
+
+async function ensureLeaseExecutionPath(db) {
+  const columns = await db.all('PRAGMA table_info(gqwf_leases)');
+  if (!columns.some((column) => column.name === 'execution_path')) {
+    await db.exec('ALTER TABLE gqwf_leases ADD COLUMN execution_path TEXT;');
+  }
+  await db.run('UPDATE gqwf_leases SET execution_path = path WHERE execution_path IS NULL');
 }
 
 async function migrateWorkerBindings(db) {

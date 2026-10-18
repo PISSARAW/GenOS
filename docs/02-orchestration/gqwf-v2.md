@@ -219,6 +219,27 @@ global ni modifier le bras contrôle d'un canari. Voir l'[ADR 0630](../adr/0630-
 Validation ciblée :
 `node backend/tests/test_gqwf_mission_materializer_policy.js`.
 
+### Conteneurs de bail montables
+
+La tranche 11 sépare désormais deux chemins durables. `gqwf_leases.path`
+désigne le conteneur possédé par GQWF, qui porte le marqueur de bail ;
+`execution_path` désigne uniquement la racine remise au runtime. Les nouveaux
+baux utilisent l'enfant direct `root/`. La capture ne voit donc ni le marqueur,
+ni les futurs fichiers de gestion d'un backend monté.
+
+Le chemin d'exécution est confiné au conteneur et relu avant capture,
+libération ou reprise. Les backends reçoivent à la fois `containerPath` et leur
+racine de projection. Ils libèrent le conteneur, ce qui permettra à un backend
+OverlayFS ou snapshot de démonter `root/` avant de supprimer ses métadonnées.
+Les anciens baux sans champ distinct continuent à utiliser leur `path`
+historique et reçoivent un reçu portable de compatibilité.
+
+Cette tranche rend le cycle de vie montable ; elle n'annonce pas encore un
+backend OverlayFS ou ZFS disponible. Voir l'[ADR 0631](../adr/0631-conteneur-bail-et-racine-execution-gqwf.md).
+
+Validation ciblée :
+`node backend/tests/test_gqwf_mount_ready_lease_layout.js`.
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes

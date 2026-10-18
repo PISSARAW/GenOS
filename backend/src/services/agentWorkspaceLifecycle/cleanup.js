@@ -81,10 +81,15 @@ async function trackWorkspace(agentId, workspaceRoot) {
 }
 
 async function isGqwfLeaseWorkspace(workspaceRoot) {
-  const base = path.basename(workspaceRoot);
+  let container = workspaceRoot;
+  let base = path.basename(container);
+  if (base === 'root') {
+    container = path.dirname(container);
+    base = path.basename(container);
+  }
   if (!base.startsWith('lease-')) return false;
   try {
-    const leaseId = await fs.readFile(path.join(workspaceRoot, '.genos-gqwf-lease'), 'utf8');
+    const leaseId = await fs.readFile(path.join(container, '.genos-gqwf-lease'), 'utf8');
     return base === `lease-${leaseId}`;
   } catch (_) {
     return false;

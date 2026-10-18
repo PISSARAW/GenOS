@@ -12,11 +12,30 @@ function materializedRoot(workspacePath) {
   return path.join(workspacePath, '.genos', 'gqwf', 'materialized');
 }
 
+function samePath(left, right) {
+  const first = path.resolve(left);
+  const second = path.resolve(right);
+  return process.platform === 'win32'
+    ? first.toLowerCase() === second.toLowerCase()
+    : first === second;
+}
+
+function executionPathFor(lease) {
+  const container = path.resolve(lease.path);
+  const executionPath = path.resolve(lease.execution_path || lease.path);
+  if (samePath(container, executionPath)) return executionPath;
+  if (path.basename(executionPath) !== 'root' || !samePath(path.dirname(executionPath), container)) {
+    throw new Error('GQWF lease execution path is outside its managed container.');
+  }
+  return executionPath;
+}
+
 async function insertPreparingLease(db, input) {
   return withTransaction(db, async () => {
-    await db.run(`INSERT INTO gqwf_leases (id, workspace_id, root_hash, path, status)
-      VALUES (?, ?, ?, ?, 'preparing')`, input.id, input.workspaceId,
-    input.rootHash, input.destination);
+    await db.run(`INSERT INTO gqwf_leases
+      (id, workspace_id, root_hash, path, execution_path, status)
+      VALUES (?, ?, ?, ?, ?, 'preparing')`, input.id, input.workspaceId,
+    input.rootHash, input.destination, input.executionPath);
     return materialization.persistReceipt(db, {
       leaseId: input.id,
       workspaceId: input.workspaceId,
@@ -39,23 +58,29 @@ async function materializeRoot(db, input, options = {}) {
   await fs.mkdir(parent, { recursive: true });
   const id = crypto.randomUUID();
   const destination = path.join(parent, `lease-${id}`);
+  const executionPath = path.join(destination, 'root');
   const receipt = await insertPreparingLease(db, {
     id, workspaceId: input.workspaceId, rootHash: input.rootHash,
-    destination, selection
+    destination, executionPath, selection
   });
   let created = false;
   try {
     await fs.mkdir(destination);
     created = true;
     await fs.writeFile(path.join(destination, LEASE_MARKER), id, { flag: 'wx' });
-    await selection.driver.materialize({
+    await fs.mkdir(executionPath);
+    const projected = await selection.driver.materialize({
       workspacePath: workspace.path,
-      destination,
+      containerPath: destination,
+      destination: executionPath,
       manifest
     });
+    if (!projected?.path || !samePath(projected.path, executionPath)) {
+      throw new Error(`GQWF materializer '${selection.driver.id}' returned an invalid execution path.`);
+    }
     const changed = await db.run("UPDATE gqwf_leases SET status = 'open' WHERE id = ? AND status = 'preparing'", id);
     if (changed.changes !== 1) throw new Error('GQWF lease preparation state changed.');
-    return { leaseId: id, path: destination, rootHash: input.rootHash,
+    return { leaseId: id, path: executionPath, containerPath: destination, rootHash: input.rootHash,
       materialization: receipt };
   } catch (error) {
     try {
@@ -81,7 +106,7 @@ async function leaseRecord(db, input) {
   if (!/^lease-[^\\/]+$/.test(relative) || path.dirname(path.resolve(lease.path)) !== parent) {
     throw new Error('GQWF lease path is outside its managed root.');
   }
-  return { lease, workspace };
+  return { lease, workspace, executionPath: executionPathFor(lease) };
 }
 
 async function managedDirectory(lease) {
@@ -99,11 +124,14 @@ async function managedDirectory(lease) {
 async function loadLease(db, input) {
   const record = await leaseRecord(db, input);
   if (!await managedDirectory(record.lease)) throw new Error('GQWF materialization lease directory not found.');
+  if (!await managedDirectory({ path: record.executionPath })) {
+    throw new Error('GQWF materialization execution root not found.');
+  }
   return record;
 }
 
 async function ingestLease(db, input, options = {}) {
-  const { lease, workspace } = await loadLease(db, input);
+  const { lease, workspace, executionPath } = await loadLease(db, input);
   if (lease.status !== 'open') throw new Error('GQWF lease is not open.');
   const selection = await materialization.resolveSelection(db, {
     leaseId: lease.id,
@@ -112,7 +140,8 @@ async function ingestLease(db, input, options = {}) {
     workspacePath: workspace.path
   }, options);
   const built = await selection.driver.capture({
-    sourcePath: lease.path,
+    sourcePath: executionPath,
+    containerPath: lease.path,
     objectWorkspacePath: workspace.path
   });
   return withTransaction(db, async () => {
@@ -168,7 +197,7 @@ async function finishPreparation(db, record, options = {}) {
     leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash,
     workspacePath: workspace.path
   }, options);
-  await selection.driver.recover({ path: lease.path });
+  await selection.driver.recover({ path: lease.path, executionPath: record.executionPath });
   const changed = await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'preparing'", lease.id);
   return changed.changes === 1;
 }
@@ -184,7 +213,7 @@ async function finishRelease(db, record, options = {}) {
       leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash,
       workspacePath: workspace.path
     }, options);
-    await selection.driver.release({ path: lease.path });
+    await selection.driver.release({ path: lease.path, executionPath: record.executionPath });
   }
   await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'releasing'", lease.id);
 }
