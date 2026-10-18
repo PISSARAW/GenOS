@@ -14,6 +14,7 @@ logique des fichiers sans remplacer les snapshots v1. Il suit l'[ADR 0369](../ad
 | Vue | `gqwf_views` et `gqwf_changes` | Base immuable, overlay privé durable, version attendue |
 | Tête | `gqwf_heads` et `gqwf_head_events` | Génération monotone et reçu de vérification |
 | Bail | `gqwf_leases` | Dossier matérialisé puis ingéré ou libéré explicitement |
+| Matérialisation | `gqwf_materialization_receipts` | Backend versionné, capacités observées et sélection liée au bail |
 | Collecte | `gqwf_gc_runs` | Aperçu signé puis balayage explicite et traçable |
 
 Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`, `listFiles`, `writeFile`,
@@ -156,6 +157,29 @@ vers le contrôle tout en laissant l'opt-in manuel disponible. Une panne canari
 est remontée et auditée ; elle ne déclenche pas une seconde exécution physique,
 afin de ne pas dupliquer d'éventuels effets externes. Le défaut global reste
 physique. Voir l'[ADR 0618](../adr/0618-canari-determine-et-reversible-gqwf.md).
+
+## Backend de matérialisation versionné
+
+La tranche 8 isole la projection physique derrière un SPI versionné. GQWF reste
+l'unique autorité sur les racines, vues, baux, preuves et promotions ; le
+backend ne fait que matérialiser, capturer, libérer ou reprendre le dossier d'un
+bail. `inspectMaterializers` expose les capacités détectées et
+`inspectMaterialization` relit le reçu durable d'un bail.
+
+La sélection d'un backend explicite est validée avant toute mutation. Chaque
+bail lie ensuite l'identifiant du backend, la version du contrat, le hash des
+capacités et la raison de sélection. Une capacité modifiée, un reçu altéré ou
+un backend enregistré devenu inconnu bloque la suite du cycle de vie. Les baux
+historiques sans reçu sont rattachés explicitement au backend portable pendant
+leur reprise.
+
+`portable-copy-v1` reste le seul backend de production : cette tranche fournit
+la frontière et ses tests de conformité, pas encore un accélérateur reflink,
+OverlayFS ou bloc. Deux implémentations conformes doivent produire la même
+racine candidate pour la même projection. Voir l'[ADR 0628](../adr/0628-spi-materialisation-gqwf.md).
+
+Validation ciblée du SPI :
+`node backend/tests/test_gqwf_materialization_contract.js`.
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,

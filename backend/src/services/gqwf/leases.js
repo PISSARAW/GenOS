@@ -4,8 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { withTransaction } = require('../../db');
-const { importWorkspace } = require('./import');
-const { readBlob } = require('./objects');
+const materialization = require('./materialization');
 const storage = require('./storage');
 const LEASE_MARKER = '.genos-gqwf-lease';
 
@@ -13,44 +12,55 @@ function materializedRoot(workspacePath) {
   return path.join(workspacePath, '.genos', 'gqwf', 'materialized');
 }
 
-async function writeFiles(workspacePath, destination, manifest) {
-  for (const file of manifest.files) {
-    const target = path.join(destination, ...file.path.split('/'));
-    const bytes = await readBlob(workspacePath, file.hash);
-    if (bytes.length !== file.size) throw new Error('GQWF materialization file size mismatch.');
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, bytes, { flag: 'wx' });
-    await fs.chmod(target, file.mode);
-  }
+async function insertPreparingLease(db, input) {
+  return withTransaction(db, async () => {
+    await db.run(`INSERT INTO gqwf_leases (id, workspace_id, root_hash, path, status)
+      VALUES (?, ?, ?, ?, 'preparing')`, input.id, input.workspaceId,
+    input.rootHash, input.destination);
+    return materialization.persistReceipt(db, {
+      leaseId: input.id,
+      workspaceId: input.workspaceId,
+      rootHash: input.rootHash,
+      selection: input.selection
+    });
+  });
 }
 
-async function materializeRoot(db, input) {
+async function materializeRoot(db, input, options = {}) {
   const workspace = await storage.workspace(db, input.workspaceId);
   const manifest = await storage.root(db, input.workspaceId, input.rootHash);
-  await reconcileReleasingLeases(db, input);
+  await reconcileReleasingLeases(db, input, options);
   const unresolved = await db.get(`SELECT id FROM gqwf_leases WHERE workspace_id = ?
     AND status IN ('preparing', 'quarantined') LIMIT 1`, input.workspaceId);
   if (unresolved) throw new Error('GQWF lease preparation unresolved; stop writers and call reconcileReleasingLeases with recoverPreparations: true.');
+  const selection = await materialization.selectMaterializer(options);
   const parent = materializedRoot(workspace.path);
   await fs.mkdir(parent, { recursive: true });
   const id = crypto.randomUUID();
   const destination = path.join(parent, `lease-${id}`);
-  await db.run(`INSERT INTO gqwf_leases (id, workspace_id, root_hash, path, status)
-    VALUES (?, ?, ?, ?, 'preparing')`, id, input.workspaceId, input.rootHash, destination);
+  const receipt = await insertPreparingLease(db, {
+    id, workspaceId: input.workspaceId, rootHash: input.rootHash,
+    destination, selection
+  });
   let created = false;
   try {
     await fs.mkdir(destination);
     created = true;
     await fs.writeFile(path.join(destination, LEASE_MARKER), id, { flag: 'wx' });
-    await writeFiles(workspace.path, destination, manifest);
+    await selection.driver.materialize({
+      workspacePath: workspace.path,
+      destination,
+      manifest
+    });
     const changed = await db.run("UPDATE gqwf_leases SET status = 'open' WHERE id = ? AND status = 'preparing'", id);
     if (changed.changes !== 1) throw new Error('GQWF lease preparation state changed.');
-    return { leaseId: id, path: destination, rootHash: input.rootHash };
+    return { leaseId: id, path: destination, rootHash: input.rootHash,
+      materialization: receipt };
   } catch (error) {
     try {
       if (created) {
         const { lease } = await leaseRecord(db, { workspaceId: input.workspaceId, leaseId: id });
-        await finishPreparation(db, lease);
+        await finishPreparation(db, lease, options);
       } else {
         await db.run("UPDATE gqwf_leases SET status = 'quarantined' WHERE id = ? AND status = 'preparing'", id);
       }
@@ -91,10 +101,18 @@ async function loadLease(db, input) {
   return record;
 }
 
-async function ingestLease(db, input) {
+async function ingestLease(db, input, options = {}) {
   const { lease, workspace } = await loadLease(db, input);
   if (lease.status !== 'open') throw new Error('GQWF lease is not open.');
-  const built = await importWorkspace(lease.path, workspace.path);
+  const selection = await materialization.resolveSelection(db, {
+    leaseId: lease.id,
+    workspaceId: lease.workspace_id,
+    rootHash: lease.root_hash
+  }, options);
+  const built = await selection.driver.capture({
+    sourcePath: lease.path,
+    objectWorkspacePath: workspace.path
+  });
   return withTransaction(db, async () => {
     const changed = await db.run("UPDATE gqwf_leases SET status = 'ingested' WHERE id = ? AND status = 'open'", input.leaseId);
     if (changed.changes !== 1) throw new Error('GQWF lease was ingested concurrently.');
@@ -103,7 +121,7 @@ async function ingestLease(db, input) {
   });
 }
 
-async function releaseLease(db, input) {
+async function releaseLease(db, input, options = {}) {
   const { lease } = await leaseRecord(db, input);
   if (lease.status === 'released') return { released: true };
   if (lease.status === 'preparing') throw new Error('GQWF lease is still preparing.');
@@ -116,7 +134,7 @@ async function releaseLease(db, input) {
       if (latest.lease.status !== 'releasing') throw new Error('GQWF lease release state changed.');
     }
   }
-  await finishRelease(db, lease);
+  await finishRelease(db, lease, options);
   return { released: true };
 }
 
@@ -133,7 +151,7 @@ async function markedDirectory(lease) {
   }
 }
 
-async function finishPreparation(db, lease) {
+async function finishPreparation(db, lease, options = {}) {
   if (!await managedDirectory(lease)) {
     const changed = await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'preparing'", lease.id);
     return changed.changes === 1;
@@ -142,23 +160,29 @@ async function finishPreparation(db, lease) {
     await db.run("UPDATE gqwf_leases SET status = 'quarantined' WHERE id = ? AND status = 'preparing'", lease.id);
     return false;
   }
-  await fs.rm(lease.path, { recursive: true, force: true });
+  const selection = await materialization.resolveSelection(db, {
+    leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash
+  }, options);
+  await selection.driver.recover({ path: lease.path });
   const changed = await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'preparing'", lease.id);
   return changed.changes === 1;
 }
 
-async function finishRelease(db, lease) {
+async function finishRelease(db, lease, options = {}) {
   if (await managedDirectory(lease)) {
     if (path.basename(lease.path) === `lease-${lease.id}` && !await markedDirectory(lease)) {
       await db.run("UPDATE gqwf_leases SET status = 'quarantined' WHERE id = ? AND status = 'releasing'", lease.id);
       throw new Error('GQWF lease directory lacks ownership proof.');
     }
-    await fs.rm(lease.path, { recursive: true, force: true });
+    const selection = await materialization.resolveSelection(db, {
+      leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash
+    }, options);
+    await selection.driver.release({ path: lease.path });
   }
   await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'releasing'", lease.id);
 }
 
-async function reconcileReleasingLeases(db, input) {
+async function reconcileReleasingLeases(db, input, options = {}) {
   const workspace = await storage.workspace(db, input.workspaceId);
   const statuses = input.recoverPreparations === true ? "('preparing', 'releasing')" : "('releasing')";
   const rows = await db.all(`SELECT id FROM gqwf_leases
@@ -166,8 +190,8 @@ async function reconcileReleasingLeases(db, input) {
   let quarantined = 0;
   for (const row of rows) {
     const { lease } = await leaseRecord(db, { workspaceId: workspace.id, leaseId: row.id });
-    if (lease.status === 'preparing') quarantined += await finishPreparation(db, lease) ? 0 : 1;
-    else await finishRelease(db, lease);
+    if (lease.status === 'preparing') quarantined += await finishPreparation(db, lease, options) ? 0 : 1;
+    else await finishRelease(db, lease, options);
   }
   return { reconciled: rows.length - quarantined, quarantined };
 }

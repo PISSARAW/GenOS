@@ -23,7 +23,7 @@ async function openExecutionWorkspace(db, input) {
   return virtualDescriptor(view);
 }
 
-async function materializeExecutionWorkspace(db, input) {
+async function materializeExecutionWorkspace(db, input, options = {}) {
   const current = await storage.view(db, input.workspaceId, input.viewId);
   if (current.base_hash !== input.baseHash) {
     throw new Error('GQWF execution workspace base changed before materialization.');
@@ -36,7 +36,7 @@ async function materializeExecutionWorkspace(db, input) {
   const lease = await leases.materializeRoot(db, {
     workspaceId: input.workspaceId,
     rootHash: sealed.rootHash
-  });
+  }, options);
   return {
     backend: 'gqwf',
     workspaceId: input.workspaceId,
@@ -51,8 +51,8 @@ async function materializeExecutionWorkspace(db, input) {
   };
 }
 
-async function ingestExecutionWorkspace(db, input) {
-  const ingested = await leases.ingestLease(db, input);
+async function ingestExecutionWorkspace(db, input, options = {}) {
+  const ingested = await leases.ingestLease(db, input, options);
   return {
     backend: 'gqwf',
     workspaceId: input.workspaceId,
@@ -65,8 +65,8 @@ async function ingestExecutionWorkspace(db, input) {
   };
 }
 
-async function releaseExecutionWorkspace(db, input) {
-  await leases.releaseLease(db, input);
+async function releaseExecutionWorkspace(db, input, options = {}) {
+  await leases.releaseLease(db, input, options);
   return {
     backend: 'gqwf',
     workspaceId: input.workspaceId,

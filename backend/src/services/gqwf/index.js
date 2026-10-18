@@ -9,6 +9,7 @@ const execution = require('./execution');
 const workerPromotion = require('./workerPromotion');
 const garbageCollection = require('./garbageCollection');
 const rollout = require('./rollout');
+const materialization = require('./materialization');
 const { migrateGqwf } = require('./schema');
 
 function createFabric(db, options = {}) {
@@ -26,10 +27,12 @@ function createFabric(db, options = {}) {
     initializeHead: (input) => roots.initializeHead(db, input),
     publishCandidate: (input) => roots.publishCandidate(db, input,
       { verifier: options.verifyPromotion }),
-    materializeRoot: (input) => leases.materializeRoot(db, input),
-    ingestLease: (input) => leases.ingestLease(db, input),
-    releaseLease: (input) => leases.releaseLease(db, input),
-    reconcileReleasingLeases: (input) => leases.reconcileReleasingLeases(db, input),
+    inspectMaterializers: () => materialization.inspectMaterializers(options),
+    inspectMaterialization: (input) => materialization.receiptForLease(db, input),
+    materializeRoot: (input) => leases.materializeRoot(db, input, options),
+    ingestLease: (input) => leases.ingestLease(db, input, options),
+    releaseLease: (input) => leases.releaseLease(db, input, options),
+    reconcileReleasingLeases: (input) => leases.reconcileReleasingLeases(db, input, options),
     inspectWorker: (input) => workers.inspectWorker(db, input),
     inspectWorkerCandidates: (input) => workerPromotion.candidatesForWorkers(db, input),
     promoteWorkerCandidate: (input) => workerPromotion.promoteWorkerCandidate(
@@ -38,9 +41,9 @@ function createFabric(db, options = {}) {
     collectGarbage: (input) => garbageCollection.collectGarbage(db, input),
     inspectRollout: (input) => rollout.inspectRollout(db, input),
     openExecutionWorkspace: (input) => execution.openExecutionWorkspace(db, input),
-    materializeExecutionWorkspace: (input) => execution.materializeExecutionWorkspace(db, input),
-    ingestExecutionWorkspace: (input) => execution.ingestExecutionWorkspace(db, input),
-    releaseExecutionWorkspace: (input) => execution.releaseExecutionWorkspace(db, input)
+    materializeExecutionWorkspace: (input) => execution.materializeExecutionWorkspace(db, input, options),
+    ingestExecutionWorkspace: (input) => execution.ingestExecutionWorkspace(db, input, options),
+    releaseExecutionWorkspace: (input) => execution.releaseExecutionWorkspace(db, input, options)
   };
 }
 

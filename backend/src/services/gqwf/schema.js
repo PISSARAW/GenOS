@@ -125,6 +125,21 @@ async function migrateGqwf(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_gqwf_rollout_workspace_policy
       ON gqwf_rollout_decisions(workspace_id, policy_id, created_at);
+    CREATE TABLE IF NOT EXISTS gqwf_materialization_receipts (
+      lease_id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      root_hash TEXT NOT NULL,
+      backend_id TEXT NOT NULL,
+      contract_version INTEGER NOT NULL,
+      capabilities_json TEXT NOT NULL,
+      capability_hash TEXT NOT NULL,
+      selection_reason TEXT NOT NULL,
+      receipt_hash TEXT NOT NULL UNIQUE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_gqwf_materialization_workspace_backend
+      ON gqwf_materialization_receipts(workspace_id, backend_id, created_at);
   `);
   const row = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_leases'");
   if (!row.sql.includes("'preparing'")) await migrateLeaseStatus(db);
