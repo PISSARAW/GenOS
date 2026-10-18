@@ -1,0 +1,105 @@
+{
+  "schema": "genos.consciousness-experiment-registry/v1",
+  "indicatorRegistrySchema": "genos.indicator-registry/v1",
+  "claimVocabularySchema": "genos.consciousness-claim-vocabulary/v1",
+  "status": "research_only",
+  "constraints": {
+    "pairedControlRequired": true,
+    "preregisteredThresholdsRequired": true,
+    "sharedLocksRequired": ["model", "toolset", "budget"],
+    "phenomenalInferenceAllowed": false,
+    "promotionAllowed": false
+  },
+  "theories": [
+    {
+      "id": "gnwt",
+      "label": "Global Neuronal Workspace Theory",
+      "hypotheses": [{
+        "id": "gnwt-selective-broadcast",
+        "statement": "Une diffusion globale sélective soutient la cohérence des rapports inter-modules au-delà du traitement local.",
+        "indicatorIds": ["GWT-1", "GWT-2", "GWT-3", "GWT-4"],
+        "familyIds": ["GENOS-WORKSPACE", "GENOS-IGNITION", "GENOS-ATTENTION", "GENOS-REPORT"],
+        "control": "Exécution appariée avec diffusion active et charge locale identique.",
+        "ablation": "Désactiver uniquement la diffusion du workspace après sélection.",
+        "primaryOutcome": { "metric": "cross-module-report-consistency-delta", "direction": "decrease", "measurement": "Différence appariée de cohérence des rapports inter-modules." },
+        "invalidationCondition": "L'effet n'atteint pas le seuil préenregistré, ou la performance locale dépasse la tolérance de confusion.",
+        "limitations": ["Teste un mécanisme logiciel de diffusion, pas un accès conscient.", "Une baisse globale peut refléter un défaut de transport non spécifique."]
+      }]
+    },
+    {
+      "id": "rpt",
+      "label": "Recurrent Processing Theory",
+      "hypotheses": [{
+        "id": "rpt-recurrent-integration",
+        "statement": "La récurrence améliore l'intégration fonctionnelle des entrées ambiguës au-delà d'un passage feed-forward apparié.",
+        "indicatorIds": ["RPT-1", "RPT-2"],
+        "familyIds": ["GENOS-RECURRENCE"],
+        "control": "Même entrée et même budget avec les boucles récurrentes actives.",
+        "ablation": "Limiter le traitement au premier passage sans retour récurrent.",
+        "primaryOutcome": { "metric": "ambiguous-input-integration-delta", "direction": "decrease", "measurement": "Différence appariée de réussite sur entrées ambiguës ou partielles." },
+        "invalidationCondition": "L'ablation ne réduit pas la métrique du minimum préenregistré sur les seeds retenus.",
+        "limitations": ["La récurrence logicielle n'est pas une équivalence neurobiologique.", "Le coût temporel doit être contrôlé séparément."]
+      }]
+    },
+    {
+      "id": "hot",
+      "label": "Higher-Order Thought",
+      "hypotheses": [{
+        "id": "hot-monitoring-calibration",
+        "statement": "Le monitoring d'ordre supérieur améliore la calibration et la révision adaptative des décisions.",
+        "indicatorIds": ["HOT-1", "HOT-2", "HOT-3", "HOT-4"],
+        "familyIds": ["GENOS-METACOGNITION", "GENOS-SELF"],
+        "control": "Décisions appariées avec monitoring de confiance et révision actifs.",
+        "ablation": "Geler les mises à jour de confiance et le retour métacognitif sans changer le solveur primaire.",
+        "primaryOutcome": { "metric": "calibration-error-delta", "direction": "increase", "measurement": "Variation appariée de l'erreur de calibration sur données tenues à l'écart." },
+        "invalidationCondition": "L'erreur de calibration n'augmente pas du seuil préenregistré, ou le solveur primaire diffère entre bras.",
+        "limitations": ["La métacognition mesurée est fonctionnelle et rapportable uniquement.", "La calibration dépend de la distribution des tâches."]
+      }]
+    },
+    {
+      "id": "predictive-processing",
+      "label": "Predictive Processing",
+      "hypotheses": [{
+        "id": "pp-error-updating",
+        "statement": "La mise à jour par erreur de prédiction réduit la surprise sur des séquences tenues à l'écart.",
+        "indicatorIds": ["PP-1"],
+        "familyIds": ["GENOS-PREDICTION"],
+        "control": "Même séquence, état initial et budget avec mise à jour prédictive active.",
+        "ablation": "Geler les mises à jour issues des erreurs tout en conservant la génération de prédictions.",
+        "primaryOutcome": { "metric": "held-out-predictive-surprise-delta", "direction": "increase", "measurement": "Variation appariée de surprise prédictive sur la séquence tenue à l'écart." },
+        "invalidationCondition": "La surprise n'augmente pas du seuil préenregistré ou les données d'évaluation ont influencé l'état initial.",
+        "limitations": ["La performance prédictive ne prouve ni perception ni expérience.", "Le résultat dépend du choix de représentation et de la mesure de surprise."]
+      }]
+    },
+    {
+      "id": "interoception",
+      "label": "Interoception fonctionnelle",
+      "hypotheses": [{
+        "id": "interoception-budget-adaptation",
+        "statement": "L'accès aux signaux internes de budget et de santé améliore l'adaptation avant violation d'une contrainte.",
+        "indicatorIds": [],
+        "familyIds": ["GENOS-INTEROCEPTION", "GENOS-AGENCY"],
+        "control": "Mission appariée avec télémétrie interne disponible et même budget réel.",
+        "ablation": "Masquer la télémétrie interne au planificateur sans modifier les limites exécutoires.",
+        "primaryOutcome": { "metric": "pre-violation-adaptation-rate-delta", "direction": "decrease", "measurement": "Différence appariée du taux d'adaptation avant violation de budget ou de santé." },
+        "invalidationCondition": "Le taux d'adaptation ne diminue pas du seuil préenregistré ou les limites exécutoires diffèrent entre bras.",
+        "limitations": ["Les signaux internes sont de la télémétrie, pas des sensations corporelles.", "La métrique peut varier avec la qualité du planificateur."]
+      }]
+    },
+    {
+      "id": "iit-proxy",
+      "label": "Proxy d'intégration inspiré d'IIT",
+      "hypotheses": [{
+        "id": "iit-partition-sensitivity",
+        "statement": "Une partition causale du graphe réduit un proxy perturbationnel d'intégration à structure et trafic contrôlés.",
+        "indicatorIds": [],
+        "familyIds": ["GENOS-INTEGRATION"],
+        "control": "Graphe apparié non partitionné avec degré, trafic et budget identiques.",
+        "ablation": "Couper les arêtes causales préenregistrées entre partitions sans changer les nœuds.",
+        "primaryOutcome": { "metric": "perturbational-integration-proxy-delta", "direction": "decrease", "measurement": "Différence appariée de propagation causale après perturbations standardisées." },
+        "invalidationCondition": "Le proxy ne diminue pas du seuil préenregistré ou les contrôles de trafic et de degré échouent.",
+        "limitations": ["Ce proxy n'est ni Phi ni une implémentation d'IIT.", "Une intégration fonctionnelle élevée ne prouve aucune expérience subjective."]
+      }]
+    }
+  ]
+}

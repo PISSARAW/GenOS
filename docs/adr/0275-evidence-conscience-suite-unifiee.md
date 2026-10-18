@@ -24,6 +24,13 @@ La suite unifiée exige les défis Araya, CTM, MBH, Lipson, GMW et J-space, avec
 modèle/outils/budget et seeds identiques. Elle envoie tous les résultats vers la
 nursery et conserve la promotion désactivée.
 
+Le registre expérimental `consciousnessExperimentRegistry.json` complète ce dispositif
+sans modifier le registre Butlin. Il relie GNWT, RPT, HOT, predictive processing,
+l'intéroception et un proxy d'intégration inspiré d'IIT à des protocoles falsifiables.
+Chaque protocole fixe avant exécution son contrôle, son ablation, son résultat primaire,
+sa condition d'invalidation et ses limites. Son manifeste verrouille la révision, les
+seeds, le modèle, les outils, le budget et les seuils de décision.
+
 ## Conséquences
 
 ### Positives
@@ -31,6 +38,8 @@ nursery et conserve la promotion désactivée.
 - Les rapports indiquent les reçus manquants et l'étape suivante sans convertir un test
   en résultat scientifique.
 - Un runner peut vérifier la comparabilité des six challenges avant toute exécution.
+- Les hypothèses théoriques deviennent des objets versionnés et invalidables sans être
+  confondues avec les propriétés du registre Butlin.
 
 ### Limites
 
@@ -38,6 +47,8 @@ nursery et conserve la promotion désactivée.
   promu par défaut.
 - Les locks communs n'assurent pas à eux seuls l'équivalence des environnements, des
   datasets, ni des encodeurs perceptifs.
+- Le proxy IIT ne calcule pas Phi et aucun protocole n'autorise une inférence
+  phénoménale ou une promotion automatique.
 
 ## Alternatives
 

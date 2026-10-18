@@ -46,6 +46,12 @@ rapports d'indicateurs passent aussi par `claimBoundaryService`, qui applique le
 vocabulaire partagé `consciousnessClaimVocabulary.json` et refuse les assertions
 phénoménales positives connues.
 
+Le registre `consciousnessExperimentRegistry.json` décrit séparément six protocoles
+de recherche falsifiables (GNWT, RPT, HOT, predictive processing, intéroception et
+proxy IIT). Un manifeste ne peut être créé qu'avec un profil disponible, des seeds,
+des locks modèle/outils/budget et des seuils de décision préenregistrés. Il reste au
+statut `specified` et interdit toute promotion ou inférence phénoménale.
+
 Le concept `epistemology.metric-experience-boundary` est enregistré avec le service `consciousnessService`, niveau `conceptual`, classification `reference_only`.
 
 ## 8. Processus d'exécution ou de validation
@@ -54,6 +60,8 @@ Les tests vérifient que les services retournent `insufficient_data` ou
 `unavailable` quand les données manquent, qu'ils ne fabriquent pas de faux
 nombres et qu'un support fonctionnel ne peut pas être reclassé en conclusion
 phénoménale. Les statuts de support exigent une référence de preuve.
+Le test du registre vérifie également les références au catalogue Butlin, l'unicité
+des hypothèses et la conformité JSON Schema des manifestes.
 
 ## 9. Comparaison avec le marché
 
