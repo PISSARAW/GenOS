@@ -175,6 +175,16 @@ plafond `--cpus` de `pluginSandbox.js` reste indépendant. En Rust, `ResourceBud
 est encore déclaré/rempli sans lecture d'exécution dans `genos-worker`. L'enforcement
 universel reste à fermer.
 
+### Complément de requalification — 18 octobre 2026
+
+La phase 7 a requalifié les dix-neuf principes à la note 4 sur la mission
+verticale bornée des phases 1 à 6. Cette conclusion plus récente ne réécrit pas
+la revue historique ci-dessous et ne l'étend pas à l'ensemble du monorepo. Le
+[rapport de phase 7](qualification-principes-fondateurs-phase7.md), le
+[manifeste exécutable](../../shared/foundationalPrinciplesQualification.json) et
+le [reçu](receipts/principes-fondateurs-phase7.json) donnent le scope, les neuf
+preuves exécutées et la limite restante de chaque principe.
+
 ## 1. Principes fondateurs — 19 entrées
 
 | Concept | I | V | D | U | Doc | Indice et lacune décisive |

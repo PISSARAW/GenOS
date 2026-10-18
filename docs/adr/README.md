@@ -727,6 +727,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0619](0619-dispatch-workers-philosophiques-isoles.md) | Dispatch de workers philosophiques isolés | Accepté | 2026-10-18 | philosophie opérationnelle, workers, isolation, preuve |
 | [0621](0621-frontiere-processus-et-reprise-capsules.md) | Frontière de processus et reprise explicite des capsules | Accepté | 2026-10-18 | runtime, isolation, reprise, quarantaine, preuve |
 | [0622](0622-qualification-contrefactuelle-liee-aux-preuves.md) | Qualification contrefactuelle liée aux preuves | Accepté | 2026-10-18 | runtime, causalité, falsification, provenance, promotion |
+| [0623](0623-gate-requalification-principes-fondateurs.md) | Gate de requalification des principes fondateurs | Accepté | 2026-10-18 | qualification, preuve, gouvernance, documentation |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
