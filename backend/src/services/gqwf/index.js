@@ -5,6 +5,7 @@ const views = require('./views');
 const leases = require('./leases');
 const legacy = require('./legacy');
 const workers = require('./workers');
+const execution = require('./execution');
 const { migrateGqwf } = require('./schema');
 
 function createFabric(db, options = {}) {
@@ -25,7 +26,11 @@ function createFabric(db, options = {}) {
     ingestLease: (input) => leases.ingestLease(db, input),
     releaseLease: (input) => leases.releaseLease(db, input),
     reconcileReleasingLeases: (input) => leases.reconcileReleasingLeases(db, input),
-    inspectWorker: (input) => workers.inspectWorker(db, input)
+    inspectWorker: (input) => workers.inspectWorker(db, input),
+    openExecutionWorkspace: (input) => execution.openExecutionWorkspace(db, input),
+    materializeExecutionWorkspace: (input) => execution.materializeExecutionWorkspace(db, input),
+    ingestExecutionWorkspace: (input) => execution.ingestExecutionWorkspace(db, input),
+    releaseExecutionWorkspace: (input) => execution.releaseExecutionWorkspace(db, input)
   };
 }
 

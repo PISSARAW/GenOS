@@ -21,6 +21,16 @@ Le service expose `importBase`, `importLegacySnapshot`, `createView`, `readFile`
 runtime. Une écriture ou suppression exige `expectedVersion`; une publication
 exige `expectedHash` et `expectedGeneration`.
 
+Le premier raccordement à l'exécution paresseuse expose aussi
+`openExecutionWorkspace`, `materializeExecutionWorkspace`,
+`ingestExecutionWorkspace` et `releaseExecutionWorkspace`. L'ouverture crée une
+vue logique sans dossier physique. La matérialisation explicite scelle cette vue
+et ouvre un bail seulement lorsqu'un outil exige un chemin réel ; les fichiers
+produits peuvent ensuite être réingérés comme nouvelle racine candidate avant la
+libération du bail. Ce contrat n'est pas encore sélectionné automatiquement par
+le planificateur de mission et ne remplace donc pas les capsules physiques du
+parcours worker général.
+
 Le verdict de publication doit être lié au workspace, au nom et à la
 génération de la tête, à sa racine précédente et à la racine candidate.
 Les octets de chaque blob sont vérifiés avant le verdict puis avant le CAS.
