@@ -444,10 +444,22 @@ sources. Le niveau `validated` ne se déduit donc pas de cette couverture.
 6. Rejouer les scénarios et vérifier les consommateurs dans Ontogenèse.
 7. Actualiser cette projection et les sources documentaires concernées.
 
-Une expérience réussie fournit un reçu borné. La validation sur missions réelles,
-le contenu externe des observations et l’attestation indépendante restent des
-exigences séparées. Les statuts philosophiques historiques ne sont pas réécrits
-pour afficher artificiellement une complétude.
+Une expérience réussie fournit un reçu borné. Pour les douze contrats des quatre
+missions représentatives, `runPhilosophyRuntimeEvidence` rejoue aussi la mission
+et sa comparaison organisationnelle. `admitIndependentPhilosophyAttestation`
+n'accepte ensuite qu'un reçu HMAC lié à cette preuve, signé par un vérificateur
+du registre de confiance et suffisamment distinct du producteur. Avec le reçu de
+scénario, ces preuves rendent le niveau de maturité `validated` admissible.
+
+Cette admissibilité conserve `promotionEligible: false`,
+`externalFactsVerified: false`, `actualWorkerDispatch: false` et
+`actualTopologyExecution: false`. Elle ne valide ni une thèse philosophique, ni
+une mission réelle, ni le contenu externe des observations. Les 408 contrats
+sans mission représentative ne disposent pas de cette voie. Voir
+[ADR 0617](../adr/0617-attestation-independante-contrats-philosophiques.md).
+
+Les statuts philosophiques historiques ne sont pas réécrits pour afficher
+artificiellement une complétude.
 
 Voir aussi [le registre](registre-philosophique.md) et
 [ADR 0326](../adr/0326-audits-philosophiques-executables-et-preuves.md).

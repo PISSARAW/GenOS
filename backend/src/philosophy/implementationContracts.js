@@ -246,13 +246,13 @@ function readinessReport(concepts) {
   };
 }
 
-function assessPromotion(contractValue, targetMaturity, evidence = []) {
+function assessPromotion(contractValue, targetMaturity, input = []) {
   const errors = validateContract(contractValue);
   if (!MATURITY.includes(targetMaturity)) errors.push('requested maturity is invalid');
   const currentIndex = MATURITY.indexOf(contractValue.maturity);
   const targetIndex = MATURITY.indexOf(targetMaturity);
   if (targetIndex <= currentIndex) errors.push('requested maturity must be higher than current maturity');
-  const checked = promotionEvidence(contractValue, targetMaturity, evidence);
+  const checked = promotionEvidence(contractValue, targetMaturity, input);
   if (targetIndex > MATURITY.indexOf('mechanism-linked') && !checked.verifiedEvidence.length) errors.push('verified executable receipt required');
   return {
     contractId: contractValue.id,

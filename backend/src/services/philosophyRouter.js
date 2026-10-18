@@ -364,7 +364,7 @@ const OPERATION_HANDLERS = Object.freeze({
   getImplementationContract: (args) => ({ contract: implementationContracts.getImplementationContract(requireConcept(args.conceptId || args.id)) }),
   implementationContractHealth: () => implementationContracts.implementationContractHealth(definitions),
   implementationReadiness: () => implementationContracts.readinessReport(definitions),
-  assessContractPromotion: (args) => implementationContracts.assessContractPromotion(requireConcept(args.conceptId || args.id), args.targetMaturity, args.evidence || []),
+  assessContractPromotion: (args) => implementationContracts.assessContractPromotion(requireConcept(args.conceptId || args.id), args.targetMaturity, { evidence: args.evidence || [], concepts: definitions }),
   getConcept: (args) => ({ concept: requireConcept(args.conceptId || args.id) }),
   registryHealth: () => registryHealth(),
   evaluateConcept: (args) => evaluateConcept(args),
@@ -397,4 +397,4 @@ module.exports = {
   getNeighborhood,
   exportGraph,
   registryHealth, getImplementationContract: (id) => implementationContracts.getImplementationContract(requireConcept(id)), listImplementationContracts: (args) => implementationContracts.listImplementationContracts(definitions, args), implementationContractHealth: () => implementationContracts.implementationContractHealth(definitions),
-  implementationReadiness: () => implementationContracts.readinessReport(definitions), assessContractPromotion: (args) => implementationContracts.assessContractPromotion(requireConcept(args.conceptId || args.id), args.targetMaturity, args.evidence || []) };
+  implementationReadiness: () => implementationContracts.readinessReport(definitions), assessContractPromotion: (args) => implementationContracts.assessContractPromotion(requireConcept(args.conceptId || args.id), args.targetMaturity, { evidence: args.evidence || [], concepts: definitions }) };

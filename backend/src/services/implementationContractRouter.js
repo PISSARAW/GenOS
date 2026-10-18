@@ -10,10 +10,26 @@ const { execute } = require('../philosophy/contractRuntime');
 const experiments = require('../philosophy/contractExperiments');
 const representative = require('../philosophy/representativeMissionExperiments');
 const organizations = require('../philosophy/organizationMissionExperiments');
+const attestations = require('../philosophy/independentAttestation');
 const { pageContracts } = require('../philosophy/contractPagination');
 const EXECUTION_OPERATIONS = ['executeImplementationContract', 'runImplementationExperiment',
   'implementationExperimentCoverage', 'listRepresentativeMissions', 'runRepresentativeMission',
-  'representativeMissionCoverage', 'runOrganizationComparison', 'organizationComparisonCoverage'];
+  'representativeMissionCoverage', 'runOrganizationComparison', 'organizationComparisonCoverage',
+  'runPhilosophyRuntimeEvidence', 'admitIndependentPhilosophyAttestation'];
+
+function runContractOperation(operation, contract, context) {
+  const handlers = {
+    executeImplementationContract: () => execute(contract, context.args),
+    runImplementationExperiment: () => experiments.runContractExperiment(contract),
+    runPhilosophyRuntimeEvidence: () => attestations.runRuntimeEvidence(contract, context.contracts()),
+    admitIndependentPhilosophyAttestation: () => attestations.admitIndependentAttestation(contract, {
+      runtimeReceipt: context.args.runtimeReceipt,
+      verifierReceipt: context.args.verifierReceipt,
+      contracts: context.contracts(),
+    }),
+  };
+  return handlers[operation]();
+}
 
 function handleExecution(operation, args, definitions) {
   const contracts = () => compileRegistry(definitions).contracts;
@@ -42,8 +58,7 @@ function handleExecution(operation, args, definitions) {
   const concept = definitions.find((item) => item.id === (args.conceptId || args.id));
   if (!concept) throw new Error('Unknown implementation contract');
   const contract = compileConcept(concept);
-  return operation === 'executeImplementationContract' ? execute(contract, args)
-    : experiments.runContractExperiment(contract);
+  return runContractOperation(operation, contract, { args, contracts });
 }
 
 function copy(value) {
@@ -72,8 +87,11 @@ function getImplementationContract(concept) {
   return copy(compileConcept(concept));
 }
 
-function assessContractPromotion(concept, targetMaturity, evidence) {
-  return assessPromotion(compileConcept(concept), targetMaturity, evidence);
+function assessContractPromotion(concept, targetMaturity, input) {
+  const evidence = Array.isArray(input) ? input : input?.evidence || [];
+  const concepts = Array.isArray(input?.concepts) ? input.concepts : [];
+  const contracts = concepts.length ? compileRegistry(concepts).contracts : [];
+  return assessPromotion(compileConcept(concept), targetMaturity, { evidence, contracts });
 }
 
 module.exports = {
