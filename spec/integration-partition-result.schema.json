@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/integration-partition-result.schema.json",
+  "title": "GenOS paired integration partition result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "hypothesisId", "proxyKind", "pairCount", "pairResults", "metrics", "status", "claim", "phiComputed", "iitImplemented", "promotionAllowed", "limitation"],
+  "properties": {
+    "schema": { "const": "genos.integration-partition-result/v1" },
+    "hypothesisId": { "const": "iit-partition-sensitivity" },
+    "proxyKind": { "const": "perturbational_integration_proxy" },
+    "pairCount": { "type": "integer", "minimum": 2 },
+    "pairResults": {
+      "type": "array", "minItems": 2, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/pairResult" }
+    },
+    "metrics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["controlMeanProxy", "interventionMeanProxy", "meanProxyDelta", "maximumDegreeDelta", "maximumTrafficDelta"],
+      "properties": {
+        "controlMeanProxy": { "$ref": "#/$defs/rate" },
+        "interventionMeanProxy": { "$ref": "#/$defs/rate" },
+        "meanProxyDelta": { "type": "number", "minimum": -1, "maximum": 1 },
+        "maximumDegreeDelta": { "$ref": "#/$defs/rate" },
+        "maximumTrafficDelta": { "$ref": "#/$defs/rate" }
+      }
+    },
+    "status": { "enum": ["supported", "invalidated", "confounded"] },
+    "claim": { "$ref": "#/$defs/claim" },
+    "phiComputed": { "const": false },
+    "iitImplemented": { "const": false },
+    "promotionAllowed": { "const": false },
+    "limitation": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "pairResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["seed", "proxyDelta", "degreeDelta", "trafficDelta", "evidenceRefs"],
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0 },
+        "proxyDelta": { "type": "number", "minimum": -1, "maximum": 1 },
+        "degreeDelta": { "$ref": "#/$defs/rate" },
+        "trafficDelta": { "$ref": "#/$defs/rate" },
+        "evidenceRefs": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } }
+      }
+    },
+    "claim": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "layer", "status", "statement", "evidenceRefs", "phenomenalExperience", "metaphysicalClaimEstablished"],
+      "properties": {
+        "schema": { "const": "genos.consciousness-claim-assessment/v1" },
+        "layer": { "const": "information_processing" },
+        "status": { "enum": ["causal_support", "inconclusive", "refuted"] },
+        "statement": { "$ref": "#/$defs/text" },
+        "evidenceRefs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/text" } },
+        "phenomenalExperience": { "const": "unassessed" },
+        "metaphysicalClaimEstablished": { "const": false }
+      }
+    }
+  }
+}

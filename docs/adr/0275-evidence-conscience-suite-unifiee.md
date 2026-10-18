@@ -31,6 +31,14 @@ Chaque protocole fixe avant exécution son contrôle, son ablation, son résulta
 sa condition d'invalidation et ses limites. Son manifeste verrouille la révision, les
 seeds, le modèle, les outils, le budget et les seuils de décision.
 
+Pour `iit-partition-sensitivity`, l'évaluateur accepte uniquement des paires couvrant
+exactement les seeds du manifeste. Chaque paire conserve le même environnement, le
+même ensemble de nœuds et le budget verrouillé; les écarts relatifs de degré moyen et
+de trafic doivent rester sous la tolérance préenregistrée. Le résultat primaire est la
+moyenne de `proxy_non_partitionné - proxy_partitionné`. Un contrôle dépassé rend le
+résultat `confounded`; un effet inférieur au seuil l'invalide. Le rapport expose
+explicitement `phiComputed: false`, `iitImplemented: false` et interdit la promotion.
+
 ## Conséquences
 
 ### Positives
@@ -40,6 +48,8 @@ seeds, le modèle, les outils, le budget et les seuils de décision.
 - Un runner peut vérifier la comparabilité des six challenges avant toute exécution.
 - Les hypothèses théoriques deviennent des objets versionnés et invalidables sans être
   confondues avec les propriétés du registre Butlin.
+- La sensibilité du proxy aux partitions devient auditable seed par seed, avec les
+  références de preuve et les écarts de contrôle conservés dans le résultat.
 
 ### Limites
 

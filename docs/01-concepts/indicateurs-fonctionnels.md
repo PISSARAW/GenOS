@@ -69,7 +69,7 @@ Inventaire historique à requalifier par les reçus du plan de validation.
 | Distinction soi/monde | `efferenceCopyService` (réafférence ×0,5), corrélation par ID d'action ; succès et échec d'orchestration routés vers la capture ; registre des effecteurs Node | Partiel | plusieurs voies sont maintenant inventoriées comme non couvertes ; les perturbations action-perception et la couverture exhaustive restent à valider |
 | Modèle du monde | transitions, trajectoires incertaines, rollout Trinity action-conditionné (avis) | Partiel | modèle génératif, rollout libre |
 | Agency flexible | contrats, recovery, calibration d'agency, bandit LinUCB qui décide en canari 5 % | Partiel | contrôle complet, options HRL |
-| Intégration (IIT) | proxy (répertoire + NMI) + moteur causal (ablations, PID-lite, recommandations morphogenèse) | Indicateur seulement | causalité prouvée, Φ |
+| Intégration (IIT) | proxy (répertoire + NMI) + moteur causal (ablations, PID-lite, recommandations morphogenèse) + campagne appariée de partition avec contrôles degré/trafic/budget | Indicateur seulement | exécutions multi-domaines et réplication indépendante; ni Φ ni preuve de conscience |
 | Valence / intéroception | drives homéostatiques ; mesures machine transmises au planificateur allostatique ; protocole apparié télémétrie visible/masquée sur résultats observés | Partiel | exécutions multi-domaines, campagne réservée et réplication indépendante restent à faire |
 | Consolidation offline | `sleepCycle` + `sleepConsolidationService` auto + ticks | Implémenté (fonctionnel) | phases type sommeil paradoxal |
 | Rapport / accès | evidence reports + reconstruction déterministe jointe (`factualReports`) + abstention | Partiel | synthèse finale encore rédigée par LLM |

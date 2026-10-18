@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/integration-partition-campaign.schema.json",
+  "title": "GenOS paired integration partition campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "manifest", "pairs"],
+  "properties": {
+    "schema": { "const": "genos.integration-partition-campaign/v1" },
+    "manifest": { "$ref": "https://genos.ai/spec/consciousness-experiment-manifest.schema.json" },
+    "pairs": {
+      "type": "array", "minItems": 2, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/pair" }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "evidenceRefs": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/text" }
+    },
+    "arm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runId", "partitioned", "budget", "meanDegree", "trafficVolume", "perturbationalIntegrationProxy", "evidenceRefs"],
+      "properties": {
+        "runId": { "$ref": "#/$defs/text" },
+        "partitioned": { "type": "boolean" },
+        "budget": { "type": "number", "exclusiveMinimum": 0 },
+        "meanDegree": { "type": "number", "minimum": 0 },
+        "trafficVolume": { "type": "number", "minimum": 0 },
+        "perturbationalIntegrationProxy": { "$ref": "#/$defs/rate" },
+        "evidenceRefs": { "$ref": "#/$defs/evidenceRefs" }
+      }
+    },
+    "pair": {
+      "type": "object", "additionalProperties": false,
+      "required": ["seed", "environmentHash", "nodeSetHash", "control", "intervention"],
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0 },
+        "environmentHash": { "$ref": "#/$defs/hash" },
+        "nodeSetHash": { "$ref": "#/$defs/hash" },
+        "control": { "$ref": "#/$defs/arm" },
+        "intervention": { "$ref": "#/$defs/arm" }
+      }
+    },
+    "rate": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}
