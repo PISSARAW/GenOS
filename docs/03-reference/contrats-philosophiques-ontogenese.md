@@ -201,6 +201,9 @@ Les opérations passent par `genos_philosophy` et conservent son lease existant.
 | `executeImplementationContract` | état avant/après pour observations fournies |
 | `runImplementationExperiment` | reçu de scénario pour un contrat |
 | `implementationExperimentCoverage` | couverture et empreintes des reçus, sans exposer tous les cas |
+| `listRepresentativeMissions` | quatre compositions locales et leurs budgets appariés |
+| `runRepresentativeMission` | exécution contrôle/traitement, correction, coûts et reçu rejouable |
+| `representativeMissionCoverage` | couverture synthétique des missions représentatives |
 | `assessContractPromotion` | éligibilité bornée, preuves manquantes et limites |
 
 ### Pagination et limites de transport
@@ -258,6 +261,14 @@ Les quatre graphes ont des arêtes explicites. Une propagation calcule les
 destinations atteintes, messages dupliqués et tours de convergence. La suppression
 d’un nœud teste la portée restante. Le reçu indique toujours
 `actualTopologyExecution: false` et `actualRuntimeDispatch: false`.
+
+Quatre missions représentatives composent chacune trois contrats autour de la
+continuité d'identité, de l'attribution causale, d'un effet biomimétique ou des
+obligations. Le contrôle et le traitement reçoivent exactement le même
+contre-exemple puis la même correction. Les reçus mesurent les exécutions
+d'audit et les octets réellement sérialisés, attribuent chaque correction à
+son contrat et résistent au replay. Il s'agit d'une exécution locale réelle du
+runtime d'audit, pas d'une topologie multi-agent ni d'une validation indépendante.
 
 ## 8. Raccord et vérification Ontogenèse
 
