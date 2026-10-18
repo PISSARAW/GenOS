@@ -65,6 +65,7 @@ function printStatus(view, asJson) {
   console.log(`etat     : ${view.state} (controle: ${view.control})`);
   console.log(`branche  : ${view.branch}`);
   console.log(`commit   : ${view.lastCommit || 'aucun'}`);
+  console.log(`livraison: push=${view.delivery.push} fusion=${view.delivery.merge}`);
   console.log(`tache    : topologie=${view.topology || '-'} workers=${view.workers.length}`);
   console.log(`backlog  : total=${view.backlog.total} todo=${view.backlog.todo} doing=${view.backlog.doing} bloque=${view.backlog.blocked} fait=${view.backlog.done}`);
   console.log(`runs     : total=${view.runs.total} en-cours=${view.runs.running} verifies=${view.runs.verified} non-verifies=${view.runs.unverified} echecs=${view.runs.failed}`);

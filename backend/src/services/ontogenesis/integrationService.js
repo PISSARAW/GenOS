@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { runCommand } = require('../agentWorkspaceLifecycle/git');
 const { pathAllowed, assertContainedFiles } = require('./pathAuthority');
 const { validateProofs } = require('./proofService');
+const { assertLocalGitCommand } = require('./gitAuthority');
 
 /**
  * Intégrateur unique vers la branche d'Ontogenèse (ADR 0235 §6).
@@ -21,8 +22,11 @@ function newId(prefix) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
-function createShellGit() {
-  return { run: (args, worktree) => runCommand('git', args, { cwd: worktree }) };
+function createShellGit(commandRunner = runCommand) {
+  return { run: (args, worktree) => {
+    assertLocalGitCommand(args);
+    return commandRunner('git', args, { cwd: worktree });
+  } };
 }
 
 function buildCommitMessage(input) {

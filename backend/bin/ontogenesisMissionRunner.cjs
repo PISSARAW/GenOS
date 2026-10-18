@@ -30,7 +30,8 @@ async function runMission(db, request) {
       request, policyRequest: request, nceMetadata: {} });
     if (stopping) throw new Error('execution-arretee');
     await helpers.startOrchestratorMission({ db, ...prepared, id: request.id, enhancedPrompt: request.mission,
-      request, policyRequest: request, allowedCommands: request.allowed_commands, allowFileEdits: true, runtime });
+      request, policyRequest: request, allowedCommands: request.allowed_commands,
+      allowFileEdits: request.allow_file_edits === true, runtime });
     const agents = await waitForMission(db, request, { stopped: () => stopping });
     const telemetry = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'ORCHESTRATOR_WORKSPACE_CREATED' ORDER BY rowid DESC LIMIT 1", [request.id]);
     const candidateWorktree = telemetry ? JSON.parse(telemetry.payload_json).workspaceRoot : null;

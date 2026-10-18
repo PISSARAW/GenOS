@@ -79,7 +79,7 @@ function requestFor(input) {
   const mission = input.mission || {};
   const plan = mission.plan || {};
   return {
-    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nCanonical concepts: ${conceptInstruction(input.mission?.plan)}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nOperator memory: ${JSON.stringify(input.mission?.operatorContext || [])}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
+    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nCanonical concepts: ${conceptInstruction(input.mission?.plan)}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nOperator memory: ${JSON.stringify(input.mission?.operatorContext || [])}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit, push, merge, or alter remotes.`,
     projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
     autonomousOrchestration: true, useMemoryContext: true,
     operatorContext: input.mission?.operatorContext || [],
@@ -101,7 +101,8 @@ function requestFor(input) {
     allowed_commands: checks.map((check) => [check.program, ...check.args].join(' ')),
     executor: input.config.executor || 'codex', provider: input.config.provider, modelId: input.config.modelId,
     allow_file_edits: input.config.authority?.allowEdit === true,
-    explicit_write_lease: input.config.authority?.allowEdit === true
+    explicit_write_lease: input.config.authority?.allowEdit === true,
+    git_authority: { localCommit: false, push: false, merge: false, remoteMutation: false }
   };
 }
 

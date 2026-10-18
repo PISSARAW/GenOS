@@ -107,6 +107,14 @@ function lastCommitOf(integrations) {
   return (committed && committed.result_sha) || null;
 }
 
+function deliveryBoundary(lastCommit) {
+  return {
+    localCommit: lastCommit || null,
+    push: 'outside_authority',
+    merge: 'outside_authority'
+  };
+}
+
 async function getStatusView(db, input) {
   const project = await getProject(db, input.projectId);
   if (!project) throw new Error('projet-introuvable');
@@ -120,9 +128,10 @@ async function getStatusView(db, input) {
   const failures = await listFailures(db, input.projectId);
   const current = currentRunOf(runs);
   const live = sampleMemory({ reservationsMb: 0 });
+  const lastCommit = lastCommitOf(integrations);
   const view = buildActivity({
     projectId: project.id, state: project.state, branch: project.branch,
-    lastCommit: lastCommitOf(integrations), waitReason: (control && control.reason) || null,
+    lastCommit, waitReason: (control && control.reason) || null,
     backlog: tasks, runs, inbox, notifications, failures
   });
   return {
@@ -132,6 +141,7 @@ async function getStatusView(db, input) {
     topology: (current && current.topology) || null,
     workers: parseWorkers(current),
     budgets: config.budgets || null,
+    delivery: deliveryBoundary(lastCommit),
     memory: { ...live, failures: view.memory.failures }
   };
 }
@@ -160,5 +170,5 @@ async function pruneHistory(db, input) {
 module.exports = {
   MODES, isMode, getControl, setMode,
   pauseProject, resumeProject, stopProject, startProject,
-  getStatusView, pruneHistory
+  getStatusView, pruneHistory, deliveryBoundary
 };

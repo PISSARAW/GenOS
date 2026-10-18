@@ -721,6 +721,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0608](0608-confiner-ontogenese-job-objects-windows.md) | Confiner l’Ontogenèse avec les Job Objects Windows | Accepté | 2026-10-18 | Ontogenèse, Windows, processus, confinement |
 | [0609](0609-bascule-ontogenese-hote-toujours-disponible.md) | Basculer l’Ontogenèse vers un hôte toujours disponible | Accepté | 2026-10-18 | Ontogenèse, continuité, hébergement, fencing |
 | [0610](0610-purge-complete-traces-worktrees-ontogenese.md) | Purger les traces et worktrees de l’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, rétention, confidentialité, Git, exploitation |
+| [0611](0611-frontiere-livraison-ontogenese.md) | Frontière de livraison d’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, Git, autorité, livraison |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

@@ -1,5 +1,7 @@
 'use strict';
 
+const { externalCheckReason } = require('./gitAuthority');
+
 const TOPOLOGIES = ['trinity', 'a_team', 'biocenose', 'holobionte', 'syncytium', 'biome', 'rhizome', 'metapopulation'];
 
 function stringList(value) {
@@ -25,6 +27,8 @@ function checkChecks(checks, errors) {
   for (const check of checks) {
     if (typeof check?.program !== 'string' || !check.program.trim()) errors.push('verification-programme-requis');
     if (!Array.isArray(check?.args) || check.args.some((arg) => typeof arg !== 'string')) errors.push('verification-arguments-invalides');
+    const externalReason = externalCheckReason(check);
+    if (externalReason) errors.push(externalReason);
   }
 }
 
