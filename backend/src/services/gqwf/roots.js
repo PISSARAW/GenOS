@@ -82,7 +82,8 @@ function assertPromotionVerdict(input, verdict) {
   }
 }
 
-async function publishCandidate(db, input, verifier) {
+async function publishCandidate(db, input, options = {}) {
+  const { verifier, persistReceipt } = options;
   if (typeof verifier !== 'function') throw new Error('GQWF promotion verifier is unavailable.');
   await assertCandidateIntegrity(db, input);
   const verdict = await verifier(input);
@@ -97,7 +98,9 @@ async function publishCandidate(db, input, verifier) {
     await db.run(`INSERT INTO gqwf_head_events
       (workspace_id, name, generation, previous_hash, root_hash, evidence_id) VALUES (?, ?, ?, ?, ?, ?)`,
     input.workspaceId, input.name, generation, input.expectedHash, input.candidateHash, verdict.evidenceId);
-    return { rootHash: input.candidateHash, generation, evidenceId: verdict.evidenceId };
+    const published = { rootHash: input.candidateHash, generation, evidenceId: verdict.evidenceId };
+    if (persistReceipt) await persistReceipt(db, published);
+    return published;
   });
 }
 

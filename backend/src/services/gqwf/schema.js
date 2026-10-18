@@ -110,6 +110,7 @@ async function migrateGqwf(db) {
   if (!row.sql.includes("'preparing'")) await migrateLeaseStatus(db);
   const worker = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_worker_bindings'");
   if (!worker.sql.includes('lease_id') || !worker.sql.includes("'discarded'")) await migrateWorkerBindings(db);
+  await createWorkerPromotionTable(db);
 }
 
 async function migrateLeaseStatus(db) {
@@ -158,6 +159,26 @@ async function migrateWorkerBindings(db) {
       FROM gqwf_worker_bindings_previous;`);
     await db.exec('DROP TABLE gqwf_worker_bindings_previous;');
   });
+}
+
+async function createWorkerPromotionTable(db) {
+  await db.exec(`CREATE TABLE IF NOT EXISTS gqwf_worker_promotions (
+    id TEXT PRIMARY KEY,
+    worker_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL,
+    view_id TEXT NOT NULL,
+    head_name TEXT NOT NULL,
+    previous_hash TEXT NOT NULL,
+    candidate_hash TEXT NOT NULL,
+    expected_generation INTEGER NOT NULL,
+    published_generation INTEGER NOT NULL,
+    evidence_id TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (worker_id, head_name, candidate_hash, evidence_id),
+    FOREIGN KEY (worker_id) REFERENCES gqwf_worker_bindings(worker_id),
+    FOREIGN KEY (view_id) REFERENCES gqwf_views(id),
+    FOREIGN KEY (workspace_id, candidate_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
+  );`);
 }
 
 module.exports = { migrateGqwf };

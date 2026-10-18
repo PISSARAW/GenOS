@@ -88,7 +88,8 @@ async function failedWorker(context) {
 async function legacySchemaMigration() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   try {
-    await db.exec(`CREATE TABLE workspaces (id TEXT PRIMARY KEY, path TEXT NOT NULL);
+    await db.exec(`PRAGMA foreign_keys = ON;
+      CREATE TABLE workspaces (id TEXT PRIMARY KEY, path TEXT NOT NULL);
       CREATE TABLE gqwf_worker_bindings (
         worker_id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, capsule_path TEXT NOT NULL,
         base_hash TEXT NOT NULL, view_id TEXT NOT NULL UNIQUE, candidate_hash TEXT,

@@ -6,6 +6,7 @@ const leases = require('./leases');
 const legacy = require('./legacy');
 const workers = require('./workers');
 const execution = require('./execution');
+const workerPromotion = require('./workerPromotion');
 const { migrateGqwf } = require('./schema');
 
 function createFabric(db, options = {}) {
@@ -21,12 +22,16 @@ function createFabric(db, options = {}) {
     mergeRoots: (input) => roots.mergeRoots(db, input),
     getHead: (input) => roots.getHead(db, input),
     initializeHead: (input) => roots.initializeHead(db, input),
-    publishCandidate: (input) => roots.publishCandidate(db, input, options.verifyPromotion),
+    publishCandidate: (input) => roots.publishCandidate(db, input,
+      { verifier: options.verifyPromotion }),
     materializeRoot: (input) => leases.materializeRoot(db, input),
     ingestLease: (input) => leases.ingestLease(db, input),
     releaseLease: (input) => leases.releaseLease(db, input),
     reconcileReleasingLeases: (input) => leases.reconcileReleasingLeases(db, input),
     inspectWorker: (input) => workers.inspectWorker(db, input),
+    inspectWorkerCandidates: (input) => workerPromotion.candidatesForWorkers(db, input),
+    promoteWorkerCandidate: (input) => workerPromotion.promoteWorkerCandidate(
+      db, input, options.verifyWorkerPromotion),
     openExecutionWorkspace: (input) => execution.openExecutionWorkspace(db, input),
     materializeExecutionWorkspace: (input) => execution.materializeExecutionWorkspace(db, input),
     ingestExecutionWorkspace: (input) => execution.ingestExecutionWorkspace(db, input),

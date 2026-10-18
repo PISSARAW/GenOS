@@ -96,6 +96,15 @@ récupérable. La racine candidate ne modifie aucune tête publiée. Les workers
 natifs déterministes, locaux ou in-process, les grandes cohortes et les missions
 non opt-in gardent leurs capsules physiques. Voir l'[ADR 0608](../adr/0608-materialiser-les-workers-autonomes-par-bail-gqwf.md).
 
+La tranche 4 expose `inspectWorkerCandidates` pour inventorier les racines
+capturées d'un ensemble explicite de workers. Cette opération ne les classe pas
+et n'en sélectionne aucune. `promoteWorkerCandidate` exige ensuite un choix
+explicite et un vérificateur injecté dont le verdict lie la preuve au worker, à
+sa vue, au workspace, à la base, à la candidate, à la tête et à sa génération.
+Le CAS de tête, l'événement et le reçu `gqwf_worker_promotions` sont atomiques.
+Le rejeu du même reçu est idempotent ; une tête devenue obsolète est refusée
+sans merge implicite. Voir l'[ADR 0612](../adr/0612-promotion-explicite-candidates-workers-gqwf.md).
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes
@@ -127,6 +136,7 @@ et [0383](../adr/0383-restauration-opt-in-racine-gqwf-organisme.md).
 
 Validation ciblée : `node backend/tests/test_gqwf_fabric.js`,
 `node backend/tests/test_gqwf_worker_execution.js`,
+`node backend/tests/test_gqwf_worker_promotion.js`,
 `node backend/tests/test_gqwf_execution_workspace.js`,
 `node backend/tests/test_gqwf_mission_execution.js` et
 `node backend/tests/test_gqwf_organism_snapshot.js`. Les gates généraux du
