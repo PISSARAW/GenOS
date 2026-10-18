@@ -1,5 +1,8 @@
 'use strict';
 
+process.env.GENOS_DISABLE_DOTENV = '1';
+process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'gqwf-trinity-qualification-test-only';
+
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fsSync = require('node:fs');
@@ -64,7 +67,12 @@ async function createWorkspace(db, root, answer) {
   await fs.writeFile(path.join(source, 'package.json'), JSON.stringify({ private: true,
     scripts: { test: 'node test.js' } }));
   await fs.writeFile(path.join(source, 'test.js'), "const fs=require('node:fs');if(fs.readFileSync('answer.txt','utf8')!=='42\\n')process.exit(1);\n");
-  await db.run('INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)', 'gqwf-qual-ws', 'GQWF qualification', source);
+  await db.run("INSERT INTO organizations (id, name) VALUES ('gqwf-qual-org', 'GQWF qualification')");
+  await db.run(`INSERT INTO projects (id, organization_id, name)
+    VALUES ('gqwf-qual-project', 'gqwf-qual-org', 'GQWF qualification')`);
+  await db.run(`INSERT INTO workspaces (id, name, path, organization_id, project_id)
+    VALUES (?, ?, ?, 'gqwf-qual-org', 'gqwf-qual-project')`,
+  'gqwf-qual-ws', 'GQWF qualification', source);
   await db.run(`INSERT INTO agents
     (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, language, isolation_mode,
      cognitive_budget, cognitive_baseline_budget, metadata_json)
@@ -74,6 +82,7 @@ async function createWorkspace(db, root, answer) {
   contract.execution_pipeline = ['deterministic_execution'];
   contract.promotion.require_independent_verification = false;
   contract.promotion.require_epistemic_assurance = false;
+  contract.promotion.native_verification = null;
   await strategies.saveContract(db, { agentId: 'gqwf-qual-agent', workspaceId: 'gqwf-qual-ws',
     contract, createdBy: 'gqwf-trinity-qualification' });
   return source;
@@ -141,7 +150,7 @@ async function assertEscalatedComparison(db, result) {
   assert.ok(worlds.every((world) => {
     const vector = JSON.parse(world.evidence_vector_json || '{}');
     return vector.correctness === 1 && vector.coverage === null && vector.robustness === 0.5;
-  }), 'production comparison must preserve unmeasured finite-trial coverage as null');
+  }), `production comparison must preserve unmeasured finite-trial coverage as null: ${JSON.stringify(worlds)}`);
   assert.ok(reports.every((entry) => !Object.hasOwn(entry.report.evidenceVectorEvidence || {}, 'coverage')),
     'finite procedure checks must not claim universal coverage without a dedicated proof');
   for (const world of worlds) {

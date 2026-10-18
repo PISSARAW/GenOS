@@ -1,5 +1,8 @@
 'use strict';
 
+process.env.GENOS_DISABLE_DOTENV = '1';
+process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'aeis-provider-approval-authority-test-only';
+
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -14,8 +17,16 @@ process.env.GENOS_ADMIN_PASSWORD ||= 'aeis-provider-approval-test';
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= crypto.randomBytes(32).toString('hex');
 
 async function prepare(db, root, fixtures) {
-  await db.run("INSERT INTO workspaces (id, name, path) VALUES ('ws-provider', 'AEIS provider approval', ?)", root);
+  await db.run("INSERT INTO organizations (id, name) VALUES ('org-provider', 'AEIS provider approval')");
+  await db.run(`INSERT INTO projects (id, organization_id, name)
+    VALUES ('project-provider', 'org-provider', 'AEIS provider approval')`);
+  await db.run(`INSERT INTO workspaces (id, name, path, organization_id, project_id)
+    VALUES ('ws-provider', 'AEIS provider approval', ?, 'org-provider', 'project-provider')`, root);
   await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('provider-agent', 'AEIS provider', 'orchestrator', 'running', 'orchestrator', 'ws-provider')");
+  await require('../src/services/missionIdentityService').create(db, {
+    missionId: 'aeis-provider-mission', objective: 'Qualify multi-provider promotion evidence.',
+    orchestratorAgentId: 'provider-agent'
+  });
   for (const [index, provider] of ['lmstudio', 'ollama'].entries()) {
     await db.run('INSERT INTO provider_configs (provider, model, endpoint, enabled) VALUES (?, ?, ?, 1)',
       provider, fixtures[index].model, fixtures[index].endpoint);
@@ -31,8 +42,17 @@ async function prepare(db, root, fixtures) {
 }
 
 async function awaiting(db, contractRecord) {
-  const run = await runs.createExecutionRun(db, { agentId: 'provider-agent', contractRecord,
+  const run = await runs.createExecutionRun(db, { agentId: 'provider-agent',
+    missionId: 'aeis-provider-mission', contractRecord,
     budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 } });
+  const workspace = await db.get("SELECT path FROM workspaces WHERE id = 'ws-provider'");
+  await require('../src/services/missionEnvelopeAuthority').seal({
+    db, agentId: 'provider-agent', executionRun: run, executable: process.execPath,
+    contractRecord, autonomyPlan: {}, normalizedMission: {
+      agentId: 'provider-agent', missionId: 'aeis-provider-mission',
+      workspaceRoot: workspace.path, toolLease: [], timeoutMs: 30000
+    }
+  });
   await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
   await db.run("UPDATE strategy_execution_steps SET status = 'awaiting_approval' WHERE run_id = ? AND sequence = 7", run.id);
   return run;
@@ -67,7 +87,8 @@ async function main() {
     assert.equal(reviews.length, 2);
     assert.equal(new Set(reviews.map((row) => row.process_id)).size, 2);
     assert.ok(reviews.every((row) => row.verdict === 'supports' && row.process_id !== process.pid));
-    const learned = await db.get("SELECT * FROM epistemic_immune_memory_scoped WHERE scope_id = 'local:local:ws-provider'");
+    const learned = await db.get(`SELECT * FROM epistemic_immune_memory_scoped
+      WHERE scope_id = 'org-provider:project-provider:ws-provider'`);
     assert.equal(learned.successes, 1);
     fixtures[1].verdict = 'refutes';
     const negative = await awaiting(db, record);

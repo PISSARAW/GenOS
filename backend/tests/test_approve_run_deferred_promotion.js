@@ -1,3 +1,6 @@
+process.env.GENOS_DISABLE_DOTENV = '1';
+process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'aeis-promotion-authority-test-only';
+
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -7,6 +10,7 @@ const strategyContracts = require('../src/services/strategyContractService');
 const strategyService = require('../src/services/strategyExecutionService');
 const telemetry = require('../src/services/telemetryObserver');
 const { buildGateContext } = require('../src/services/promotionGateContext');
+const PROMOTION_SCOPE_ID = 'org-aeis-promo:project-aeis-promo:ws-aeis-promo';
 
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-admin-password-approve-run';
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || 'test-epistemic-receipt-approve-run';
@@ -39,8 +43,16 @@ async function run() {
     };
     telemetry.on('telemetry', onTelemetry);
 
-    await db.run("INSERT INTO workspaces (id, name, path) VALUES ('ws-aeis-promo', 'AEIS promotion', ?)", proofWorkspace);
+    await db.run("INSERT INTO organizations (id, name) VALUES ('org-aeis-promo', 'AEIS promotion')");
+    await db.run(`INSERT INTO projects (id, organization_id, name)
+      VALUES ('project-aeis-promo', 'org-aeis-promo', 'AEIS promotion')`);
+    await db.run(`INSERT INTO workspaces (id, name, path, organization_id, project_id)
+      VALUES ('ws-aeis-promo', 'AEIS promotion', ?, 'org-aeis-promo', 'project-aeis-promo')`, proofWorkspace);
     await db.run("INSERT OR REPLACE INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('agent-promo-test', 'Promo Agent', 'orchestrator', 'running', 'orchestrator', 'ws-aeis-promo')");
+    await require('../src/services/missionIdentityService').create(db, {
+      missionId: 'aeis-promotion-mission', objective: 'Qualify deferred promotion evidence.',
+      orchestratorAgentId: 'agent-promo-test'
+    });
     const contractRecord = await strategyContracts.saveContract(db, {
       agentId: 'agent-promo-test',
       problem: 'High risk mission requiring human approval'
@@ -51,10 +63,8 @@ async function run() {
     const hash = strategyContracts.hashContract(contract);
     await db.run('UPDATE strategy_contracts SET contract_json = ?, contract_hash = ? WHERE id = ?', JSON.stringify(contract), hash, contractRecord.id);
 
-    const run = await strategyService.createExecutionRun(db, {
-      agentId: 'agent-promo-test',
-      contractRecord: { ...contractRecord, contract },
-      budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 }
+    const run = await createBoundRun(db, {
+      contractRecord: { ...contractRecord, contract }, workspace: proofWorkspace
     });
 
     await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
@@ -88,21 +98,21 @@ async function run() {
     const metrics = JSON.parse((await db.get('SELECT metrics_json FROM strategy_execution_runs WHERE id = ?', run.id)).metrics_json);
     assert.equal(metrics.aeisEvidenceScore, 1, 'runtime rearbitration must consume the AEIS receipts');
     assert.ok(Number.isFinite(metrics.aeisPressure));
-    const learned = await db.get("SELECT * FROM epistemic_immune_memory_scoped WHERE scope_id = 'local:local:ws-aeis-promo'");
+    const learned = await db.get('SELECT * FROM epistemic_immune_memory_scoped WHERE scope_id = ?', PROMOTION_SCOPE_ID);
     assert.equal(learned?.successes, 1, 'a validated promotion must resolve the immune outcome');
     assert.equal(learned?.pending, 0);
     assert.equal(learned?.affinity, 1);
     const stored = await db.get('SELECT id FROM aeis_assurance_assemblies ORDER BY rowid DESC LIMIT 1');
     const persisted = await require('../src/services/aeisAssemblyStore').readAssembly(db, stored.id);
     assert.equal(persisted.runId, run.id);
-    assert.equal(persisted.scopeId, 'local:local:ws-aeis-promo');
+    assert.equal(persisted.scopeId, PROMOTION_SCOPE_ID);
     await assert.rejects(require('../src/services/epistemic/immuneMemoryRepository').resolve(db, {
       scopeId: persisted.scopeId, signature: learned.signature,
       assemblyId: stored.id, runId: 'another-run',
       resultId: persisted.evaluation.assembly.results[0].resultId, test: realReport.claims[0].test,
     }), /does not belong/);
     const repeated = await require('../src/services/epistemic/immuneMemoryRepository').resolve(db, {
-      scopeId: 'local:local:ws-aeis-promo', signature: learned.signature,
+      scopeId: PROMOTION_SCOPE_ID, signature: learned.signature,
       assemblyId: stored.id, runId: run.id,
       resultId: persisted.evaluation.assembly.results[0].resultId, test: realReport.claims[0].test,
     });
@@ -125,8 +135,7 @@ async function run() {
 
 async function assertNonceWriteFailure(spec) {
   const { db, contractRecord } = spec;
-  const run = await strategyService.createExecutionRun(db, { agentId: 'agent-promo-test', contractRecord,
-    budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 } });
+  const run = await createBoundRun(db, { contractRecord, workspace: spec.proofWorkspace });
   await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
   await db.run("UPDATE strategy_execution_steps SET status = 'awaiting_approval' WHERE run_id = ? AND sequence = 7", run.id);
   await require('./helpers/promotionNonceAssertions').withNonceWriteFailure(db,
@@ -136,8 +145,7 @@ async function assertNonceWriteFailure(spec) {
 
 async function assertRefutationFeedback(spec) {
   const { db, contractRecord, proofWorkspace } = spec;
-  const run = await strategyService.createExecutionRun(db, { agentId: 'agent-promo-test', contractRecord,
-    budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 } });
+  const run = await createBoundRun(db, { contractRecord, workspace: proofWorkspace });
   await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
   await db.run("UPDATE strategy_execution_steps SET status = 'awaiting_approval' WHERE run_id = ? AND sequence = 7", run.id);
   const options = { report: { outcome: 'success', claims: [{ statement: 'npm test outputs "not-emitted"',
@@ -154,10 +162,26 @@ async function assertRefutationFeedback(spec) {
     await assert.rejects(strategyService.approveRun(db, run.id, options), /epistemic assurance|AEIS/i);
     assert.equal((await db.get('SELECT dissonance FROM aeis_agent_dissonance WHERE agent_id = ?', 'agent-promo-test')).dissonance, 1,
       'a confirmed refutation reduces authority once, including on retry');
-    assert.equal((await db.get("SELECT SUM(failures) AS n FROM epistemic_immune_memory_scoped WHERE scope_id = 'local:local:ws-aeis-promo'")).n, attempt + 1,
+    assert.equal((await db.get('SELECT SUM(failures) AS n FROM epistemic_immune_memory_scoped WHERE scope_id = ?', PROMOTION_SCOPE_ID)).n, attempt + 1,
       'each fresh signed execution is a distinct immune observation');
     assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', run.id)).status, 'awaiting_approval');
   }
+}
+
+async function createBoundRun(db, input) {
+  const run = await strategyService.createExecutionRun(db, {
+    agentId: 'agent-promo-test', missionId: 'aeis-promotion-mission',
+    contractRecord: input.contractRecord,
+    budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 }
+  });
+  await require('../src/services/missionEnvelopeAuthority').seal({
+    db, agentId: 'agent-promo-test', executionRun: run, executable: process.execPath,
+    contractRecord: input.contractRecord, autonomyPlan: {}, normalizedMission: {
+      agentId: 'agent-promo-test', missionId: 'aeis-promotion-mission',
+      workspaceRoot: input.workspace, toolLease: [], timeoutMs: 30000
+    }
+  });
+  return run;
 }
 
 async function approveWithRealEvidence(spec) {
