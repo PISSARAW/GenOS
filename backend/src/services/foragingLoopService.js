@@ -9,6 +9,7 @@ const { withDeadline } = require('./operationDeadline');
 const { runImageTask } = require('./foragingImageTask');
 const sensorium = require('./perception/sensoriumService');
 const { makeObservation } = require('./perception/observationService');
+const { EvidenceState, createEnvelope } = require('./evidenceContractService');
 
 function patchDecision(history, elapsed) {
   const patchHistory = Array.isArray(history) ? history : [];
@@ -133,6 +134,7 @@ async function createFovealArtifact(input) {
 
 function createForageResponse(input) {
   const receipt = createForagingReceipt(input);
+  const evidenceEnvelope = createForagingEvidence(input, receipt);
   return {
     decision: input.decision,
     navigated: Boolean(input.action.navigation && input.action.navigation.success),
@@ -146,7 +148,7 @@ function createForageResponse(input) {
     sensoriumObservation: input.sensoriumObservation || null,
     navigation: input.action.navigation || null,
     measurement: { decisionActionMs: input.measuredMs },
-    receipt,
+    receipt: { ...receipt, evidenceEnvelope, evidenceState: evidenceEnvelope.state },
     ...(input.evaluation.shouldDepart ? {} : { suggestedFovea: { action: 'scan' } })
   };
 }
@@ -168,7 +170,8 @@ async function executeForageStep(input) {
   return createForageResponse({
     sessionId, decision, evaluation, levy, before,
     action: result.action, observation: result.observation,
-    fovealArtifact, sensoriumObservation, measuredMs, navigationScope: source.navigationScope
+    fovealArtifact, sensoriumObservation, measuredMs, navigationScope: source.navigationScope,
+    agentId: source.agentId
   });
 }
 
@@ -184,9 +187,31 @@ function recordForagingObservation(input) {
   const observation = makeObservation({
     sensorId: 'web', agentId: input.agentId, target: input.observation.currentUrl,
     uncertaintyBefore: 1, uncertaintyAfter: Math.max(0, 1 - Number(input.observation.infoGain || 0)),
+    evidenceState: EvidenceState.OBSERVED,
     data: { observationText: input.observation.observationText, decision: input.receipt.decision,
-      actionStatus: input.receipt.action.status, fovealImageHash: input.receipt.fovealArtifact?.sha256 }
+      actionStatus: input.receipt.action.status, fovealImageHash: input.receipt.fovealArtifact?.sha256,
+      evidenceState: EvidenceState.OBSERVED }
   });
   sensorium.recordObservation({ agentId: input.agentId, observation });
   return observation;
+}
+
+function createForagingEvidence(input, receipt) {
+  const hasObservation = Boolean(input.observation);
+  const replayInput = {
+    sessionId: input.sessionId,
+    decision: input.decision,
+    observedUrl: receipt.observedUrl,
+    observedTextDigest: receipt.observedTextDigest,
+    fovealImageHash: receipt.fovealImageHash
+  };
+  return createEnvelope({
+    sourceId: 'web-foraging',
+    captureId: input.sessionId || 'foraging-session',
+    input: { decision: input.decision, evaluation: input.evaluation, navigationScope: input.navigationScope || null },
+    output: { receipt, observation: input.observation, action: input.action, fovealArtifact: input.fovealArtifact || null },
+    state: hasObservation ? EvidenceState.OBSERVED : EvidenceState.REJECTED,
+    rejectionReason: hasObservation ? null : 'foraging produced no observation',
+    replayKey: `sha256:${crypto.createHash('sha256').update(JSON.stringify(replayInput), 'utf8').digest('hex')}`
+  });
 }

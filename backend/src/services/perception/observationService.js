@@ -18,8 +18,18 @@ function makeObservation(opts) {
     uncertaintyBefore: numOr(o.uncertaintyBefore, null),
     uncertaintyAfter: numOr(o.uncertaintyAfter, null),
     informationGain: gainOf(o),
-    at: new Date().toISOString()
+    at: new Date().toISOString(),
+    ...evidenceFields(o)
   };
+}
+
+function evidenceFields(options) {
+  const fields = {};
+  if (options.evidenceState) fields.evidenceState = options.evidenceState;
+  if (options.evidenceRef) fields.evidenceRef = options.evidenceRef;
+  if (options.synthetic === true) fields.synthetic = true;
+  if (options.rejectionReason) fields.rejectionReason = options.rejectionReason;
+  return fields;
 }
 
 function numOr(value, fallback) {

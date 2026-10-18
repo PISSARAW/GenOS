@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const sharp = require('sharp');
+const { EvidenceState, createEnvelope } = require('./evidenceContractService');
 
 class FovealVisionService {
   constructor(options = {}) {
@@ -103,6 +104,7 @@ class FovealVisionService {
     const hash = crypto.createHash('sha256').update(cropBuffer).digest('hex');
 
     // En environnement simulé ou réel, on écrit un descripteur d'artefact fovéal
+    const sourceSha256 = `sha256:${crypto.createHash('sha256').update(fs.readFileSync(inputPath)).digest('hex')}`;
     const fovealManifest = {
       cropId,
       sourceImage: inputPath,
@@ -115,10 +117,18 @@ class FovealVisionService {
       relativeAreaFraction: (((right - left) * (bottom - top)) / (metadata.width * metadata.height)).toFixed(4),
       zoomFactor,
       focusNotes: options.focusNotes || null,
-      sourceSha256: `sha256:${crypto.createHash('sha256').update(fs.readFileSync(inputPath)).digest('hex')}`,
+      sourceSha256,
       roiSelection: options.roiSelection || 'validated_input',
       resampled: false
     };
+    const evidenceEnvelope = createEnvelope({
+      sourceId: 'foveal-vision',
+      captureId: cropId,
+      input: { sourceSha256, bbox: [ymin, xmin, ymax, xmax], coordinateSpace: options.coordinateSpace || 'normalized', zoomFactor },
+      output: { sha256: `sha256:${hash}`, pixelDimensions: { width: right - left, height: bottom - top } },
+      state: EvidenceState.OBSERVED,
+      replayKey: `sha256:${crypto.createHash('sha256').update(JSON.stringify({ sourceSha256, left, top, right, bottom, zoomFactor }), 'utf8').digest('hex')}`
+    });
 
     return {
       success: true,
@@ -128,7 +138,8 @@ class FovealVisionService {
       zoomFactor,
       pixelDimensions: { width: right - left, height: bottom - top },
       sha256: hash,
-      fovealManifest
+      fovealManifest,
+      evidenceEnvelope
     };
   }
 

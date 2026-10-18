@@ -10,6 +10,7 @@ const crypto = require('node:crypto');
 const planner = require('./activePerceptionPlannerService');
 const sensorium = require('./sensoriumService');
 const { makeObservation } = require('./observationService');
+const { EvidenceState, createEnvelope, promoteEnvelope } = require('../evidenceContractService');
 
 async function runActivePerception(options = {}) {
   const input = options || {};
@@ -39,12 +40,34 @@ async function executeProbe(input, probe) {
   const startedAt = new Date().toISOString();
   const output = await probeOutput(input, probe);
   const verified = isVerified(output);
-  const observation = probeObservation({ input, probe, output, verified });
+  const evidenceEnvelope = probeEvidence({ input, probe, output, verified });
+  const observation = probeObservation({ input, probe, output, verified, evidenceEnvelope });
   sensorium.recordObservation({ agentId: input.agentId, observation });
   const receipt = { probe, startedAt, completedAt: new Date().toISOString(), verified,
-    evidenceRef: output.evidenceRef || null, observationDigest: sensorium.observationDigest(observation),
+    evidenceRef: output.evidenceRef || null, evidenceState: evidenceEnvelope.state, evidenceEnvelope,
+    observationDigest: sensorium.observationDigest(observation),
     result: { status: output.status || (verified ? 'observed' : 'unverified') } };
   return { ...receipt, receiptDigest: digest(receipt) };
+}
+
+function probeEvidence({ input, probe, output, verified }) {
+  const initialState = output.synthetic === true ? EvidenceState.SYNTHETIC : EvidenceState.OBSERVED;
+  const envelope = createEnvelope({
+    sourceId: probe.sensorId,
+    captureId: `${input.agentId}:${probe.id || probe.target || 'probe'}`,
+    input: { agentId: input.agentId, probe },
+    output,
+    state: initialState,
+    replayKey: digest({ agentId: input.agentId, probe, output })
+  });
+  const observed = initialState === EvidenceState.SYNTHETIC
+    ? promoteEnvelope(envelope, EvidenceState.OBSERVED)
+    : envelope;
+  if (!verified) return observed;
+  return promoteEnvelope(observed, EvidenceState.VERIFIED, {
+    verifierId: output.verifierId || 'probe-verifier',
+    verificationRef: output.evidenceRef
+  });
 }
 
 async function probeOutput(input, probe) {
@@ -61,11 +84,14 @@ function isVerified(output) {
 }
 
 function probeObservation(options) {
-  const { input, probe, output, verified } = options;
+  const { input, probe, output, verified, evidenceEnvelope } = options;
   return makeObservation({
     sensorId: probe.sensorId, agentId: input.agentId, target: probe.target,
     uncertaintyBefore: output.uncertaintyBefore, uncertaintyAfter: output.uncertaintyAfter,
-    data: { status: output.status || (verified ? 'observed' : 'unverified'), evidenceRef: output.evidenceRef || null }
+    evidenceState: evidenceEnvelope.state,
+    evidenceRef: output.evidenceRef || null,
+    data: { status: output.status || (verified ? 'observed' : 'unverified'), evidenceRef: output.evidenceRef || null,
+      evidenceId: evidenceEnvelope.evidenceId }
   });
 }
 
@@ -80,7 +106,7 @@ function response(options) {
   const { input, plan, receipts, decision, reason, state } = options;
   return {
     status: reason ? 'not_executed' : 'completed',
-    claimable: receipts.length > 0 && receipts.every(item => item.verified),
+    claimable: receipts.length > 0 && receipts.every(item => item.evidenceState === EvidenceState.VERIFIED),
     agentId: input.agentId,
     plan: { probes: plan.probes, spent: plan.spent, sequence: plan.sequence },
     receipts, decision, reason,

@@ -17,6 +17,8 @@ async function run() {
   assert.equal(verified.claimable, true);
   assert.equal(verified.decision, 'Terminate');
   assert.equal(verified.receipts[0].verified, true);
+  assert.equal(verified.receipts[0].evidenceState, 'verified');
+  assert.equal(verified.receipts[0].evidenceEnvelope.state, 'verified');
   assert.equal(verified.sensorium.observations[0].provenance.verified, true);
   assert.equal(verified.sensorium.environmentModel.uncertaintyMap.status, 0.2);
 

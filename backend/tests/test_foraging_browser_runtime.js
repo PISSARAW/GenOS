@@ -73,6 +73,8 @@ async function run() {
     assert.equal(evidenceCoverage, 1,
       `controlled task evidence must be present in the next observation: ${departure.observationAfter.observationText}`);
     assert.ok(departure.receipt.evidenceRef.startsWith('sha256:'));
+    assert.equal(departure.receipt.evidenceState, 'observed');
+    assert.equal(departure.receipt.evidenceEnvelope.state, 'observed');
     console.log(`Controlled foraging task: expected-term coverage ${evidenceCoverage.toFixed(2)} (${expectedEvidence.length} terms); browser observation, crop, decision, and navigation passed.`);
     for (const answer of taskAnswers) {
       if (departure.observationAfter.observationText.includes(answer.toLowerCase())) foundAnswers.add(answer);

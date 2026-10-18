@@ -46,6 +46,8 @@ async function runTests() {
   assert.strictEqual(cropRes.zoomFactor, 3.5);
   assert.ok(cropRes.pixelDimensions.width > 0);
   assert.ok(cropRes.sha256, 'Must compute SHA-256 hash');
+  assert.equal(cropRes.evidenceEnvelope.state, 'observed');
+  assert.equal(cropRes.evidenceEnvelope.output.sha256, `sha256:${cropRes.sha256}`);
   assert.ok(fs.existsSync(cropRes.outputPath), 'Artifact must be written to disk');
   const outputMetadata = await sharp(cropRes.outputPath).metadata();
   assert.equal(outputMetadata.width, cropRes.pixelDimensions.width);

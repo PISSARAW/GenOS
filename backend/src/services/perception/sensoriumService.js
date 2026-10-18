@@ -7,7 +7,11 @@
 
 const store = new Map();
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const { EvidenceState } = require('../evidenceContractService');
+
+const PERSISTENCE_SCHEMA = 'genos.sensorium/v1';
 
 function defaultSensorium(agentId) {
   return {
@@ -20,7 +24,8 @@ function defaultSensorium(agentId) {
     affordances: [],
     environmentModel: { landmarks: [], traces: [], uncertaintyMap: {} },
     revision: 0,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    persistencePath: null
   };
 }
 
@@ -32,8 +37,10 @@ function createSensorium(opts) {
   // Budget validé : jamais négatif (un budget négatif fausserait le focus).
   const budget = Number.isFinite(o.attentionBudget) ? o.attentionBudget : 10;
   if (budget < 0) throw new Error('createSensorium requires attentionBudget >= 0');
+  state.persistencePath = o.persistencePath ? path.resolve(String(o.persistencePath)) : null;
   state.attentionBudget = budget;
   store.set(String(o.agentId), state);
+  if (state.persistencePath) persistSensorium(state.agentId);
   return state;
 }
 
@@ -56,6 +63,7 @@ function recordObservation(opts) {
   state.revision += 1;
   state.updatedAt = new Date().toISOString();
   store.set(String(o.agentId), state);
+  persistIfConfigured(state);
   return state;
 }
 
@@ -72,6 +80,7 @@ function setFocus(opts) {
   state.revision += 1;
   state.updatedAt = new Date().toISOString();
   store.set(String(o.agentId), state);
+  persistIfConfigured(state);
   return state;
 }
 
@@ -85,8 +94,7 @@ function normalizeObservation(observation) {
   const source = { ...observation };
   const digest = observationDigest(source);
   const evidenceRef = source.evidenceRef || source.data?.evidenceRef || null;
-  const evidenceState = source.evidenceState || source.provenance?.state
-    || (source.synthetic === true ? EvidenceState.SYNTHETIC : evidenceRef ? EvidenceState.VERIFIED : EvidenceState.OBSERVED);
+  const evidenceState = resolveEvidenceState(source, evidenceRef);
   if (!Object.values(EvidenceState).includes(evidenceState)) return null;
   if (evidenceState === EvidenceState.REJECTED && !source.rejectionReason) return null;
   return {
@@ -100,6 +108,13 @@ function normalizeObservation(observation) {
       verified: evidenceState === EvidenceState.VERIFIED
     }
   };
+}
+
+function resolveEvidenceState(source, evidenceRef) {
+  if (source.evidenceState) return source.evidenceState;
+  if (source.provenance?.state) return source.provenance.state;
+  if (source.synthetic === true) return EvidenceState.SYNTHETIC;
+  return evidenceRef ? EvidenceState.VERIFIED : EvidenceState.OBSERVED;
 }
 
 function observationDigest(observation) {
@@ -132,7 +147,79 @@ function snapshotSensorium(agentId) {
   return JSON.parse(JSON.stringify(state));
 }
 
+function persistIfConfigured(state) {
+  if (state && state.persistencePath) persistSensorium(state.agentId);
+}
+
+function persistSensorium(agentId) {
+  const state = getSensorium(agentId);
+  if (!state || !state.persistencePath) return null;
+  const payload = {
+    schema: PERSISTENCE_SCHEMA,
+    agentId: state.agentId,
+    state: snapshotSensorium(agentId),
+    stateDigest: stateDigest(state)
+  };
+  const target = state.persistencePath;
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const temporary = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(payload), { encoding: 'utf8', flag: 'wx' });
+    fs.renameSync(temporary, target);
+  } catch (error) {
+    try { fs.rmSync(temporary, { force: true }); } catch (_) {}
+    throw new Error(`sensorium persistence failed: ${error.message || String(error)}`);
+  }
+  return { path: target, stateDigest: payload.stateDigest, revision: state.revision };
+}
+
+function restoreSensorium(options) {
+  const o = options || {};
+  if (!o.agentId || !o.persistencePath) throw new Error('restoreSensorium requires agentId and persistencePath');
+  const target = path.resolve(String(o.persistencePath));
+  const payload = JSON.parse(fs.readFileSync(target, 'utf8'));
+  validatePersistedPayload(payload, String(o.agentId));
+  const restored = JSON.parse(JSON.stringify(payload.state));
+  restored.persistencePath = target;
+  store.set(String(o.agentId), restored);
+  return restored;
+}
+
+function replaySensorium(snapshot) {
+  const candidate = snapshot && typeof snapshot === 'object' ? JSON.parse(JSON.stringify(snapshot)) : null;
+  if (!candidate || !candidate.agentId) throw new Error('replaySensorium requires a sensorium snapshot');
+  validateSensoriumState(candidate);
+  return { agentId: candidate.agentId, revision: candidate.revision,
+    observationCount: candidate.observations.length, stateDigest: stateDigest(candidate) };
+}
+
+function validatePersistedPayload(payload, agentId) {
+  if (!payload || payload.schema !== PERSISTENCE_SCHEMA || payload.agentId !== agentId) {
+    throw new Error('invalid persisted sensorium envelope');
+  }
+  validateSensoriumState(payload.state);
+  if (payload.stateDigest !== stateDigest(payload.state)) throw new Error('persisted sensorium digest mismatch');
+}
+
+function validateSensoriumState(state) {
+  if (!state || !state.agentId || !Array.isArray(state.observations) || state.observations.length > 200) {
+    throw new Error('invalid persisted sensorium state');
+  }
+  for (const observation of state.observations) {
+    if (!observation || !observation.provenance || !Object.values(EvidenceState).includes(observation.provenance.state)) {
+      throw new Error('invalid persisted sensorium observation');
+    }
+    if (typeof observation.provenance.observationDigest !== 'string') throw new Error('missing observation digest');
+  }
+}
+
+function stateDigest(state) {
+  const copy = JSON.parse(JSON.stringify(state));
+  return observationDigest(copy);
+}
+
 module.exports = {
   createSensorium, getSensorium, recordObservation, setFocus, clearSensorium,
-  defaultSensorium, normalizeObservation, observationDigest, snapshotSensorium
+  defaultSensorium, normalizeObservation, observationDigest, snapshotSensorium,
+  persistSensorium, restoreSensorium, replaySensorium, PERSISTENCE_SCHEMA
 };
