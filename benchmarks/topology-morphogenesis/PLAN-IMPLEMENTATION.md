@@ -151,6 +151,31 @@ Ne qualifier Morphogenèse d’apprentissage efficace que si elle se rapproche d
 
 Une qualification vaut seulement pour le périmètre, les modèles, les tâches et la configuration évalués. Elle ne prouve pas un avantage général ni une autonomie générale.
 
+## Phase 6 — Robustesse multi-environnement et validation externe
+
+### Travaux
+
+- Rejouer les blocs sur plusieurs seeds, familles et environnements distincts,
+  en conservant les échecs et les dépassements de budget.
+- Exiger des reçus vérifiés d'exécution réelle pour les workers externes et les
+  déploiements Kubernetes/cloud; un adaptateur déclaré ne suffit pas.
+- Mesurer la parité distribuée avec au moins deux processus, deux déploiements
+  et plusieurs topologies réseau, puis relier chaque résultat à son reçu.
+- Vérifier le chemin Rust d'autorité avec NASM visible, MSVC disponible et un
+  build passé avant d'utiliser ses résultats dans la validation.
+- Comparer les effets par environnement avec incertitude, surcoût et état des
+  garde-fous. Une régression ou une couverture manquante bloque la porte.
+
+### Porte de validation
+
+`phase6Validation.cjs` retourne `eligible` uniquement si P5 est qualifiée, que
+les répétitions couvrent les seeds et familles préinscrits, que le taux
+d'échec reste sous le seuil, que les reçus externes sont réels, que la parité
+distribuée et le toolchain Rust sont vérifiés et que chaque effet
+environnemental conserve un intervalle positif, un coût admissible et ses
+garde-fous. La porte reste bornée aux observations fournies; elle ne déclare
+jamais de généralisation universelle ni d'autorisation de promotion runtime.
+
 ## Livrables à produire
 
 1. Schéma versionné des tâches, tentatives, événements de mécanisme et verdicts oracle.
@@ -172,6 +197,7 @@ Une qualification vaut seulement pour le périmètre, les modèles, les tâches 
 | I6 | Évaluation de composition A-Team et confiance/calibration | I2, oracles |
 | I7 | Sélection Morphogenèse entraînement/confirmation sans fuite | I3–I6 |
 | I8 | Répétitions confirmatoires, analyse et décision de maturité | I1–I7 |
+| I9 | Robustesse multi-environnement, workers réels, parité distribuée et validation Rust | I8 |
 
 ## Décisions d’architecture
 

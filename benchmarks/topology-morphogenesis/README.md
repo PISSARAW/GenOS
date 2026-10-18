@@ -88,6 +88,26 @@ restent toujours faux. Les résultats négatifs, inconclusifs, les surcoûts et 
 échecs de budget restent visibles dans les agrégats; aucune supériorité
 universelle ni promotion runtime n'est déduite de cette qualification.
 
+## P6 — robustesse bornée et validation externe
+
+`phase6Validation.cjs` ajoute une porte après P5. Elle exige une couverture
+multi-seed et multi-famille, des reçus d'exécution réels pour les déploiements
+externes et les workers Trinity/A-Team, une parité distribuée observée sur
+plusieurs topologies réseau, ainsi qu'un toolchain Rust vérifié (NASM visible,
+MSVC prêt et compilation passée). Les effets sont évalués par environnement
+avec leurs intervalles, coûts et garde-fous.
+
+```bash
+node benchmarks/topology-morphogenesis/test-phase6-validation.cjs
+```
+
+La sortie `eligible` signifie que la porte est satisfaite pour les
+environnements, familles et seeds fournis. Elle conserve
+`universalGeneralization: false` et `runtimePromotionAuthorized: false` : les
+reçus Kubernetes/cloud, la parité réseau et la compilation Rust doivent être
+réels et archivés dans une campagne pour produire une observation; le test du
+dépôt ne constitue qu'une vérification du contrat de la porte.
+
 Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json](suite.json), conformément à [schemas/suite.schema.json](schemas/suite.schema.json). À ce stade, seule la référence arithmétique possède un oracle indépendant; les autres tâches restent des probes de mécanisme ou des contrôles de contrat et ne sont pas admissibles à une comparaison confirmatoire.
 
 Chaque exécution archive la provenance du commit, l'état propre/sale de l'arbre source, les empreintes de la suite, des missions et des reçus extraits, les états des workers, les temps, ainsi que la portée explicite de l'oracle. Le format de sortie est décrit par [schemas/campaign-results.schema.json](schemas/campaign-results.schema.json). Un arbre modifié est automatiquement marqué non admissible comme résultat confirmatoire.
