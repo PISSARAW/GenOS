@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/consciousness-dissociation-suite.schema.json",
+  "title": "GenOS functional consciousness dissociation suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "protocolId", "revision", "thresholds", "observations"],
+  "properties": {
+    "schema": { "const": "genos.consciousness-dissociation-suite/v1" },
+    "protocolId": { "$ref": "#/$defs/id" },
+    "revision": { "$ref": "#/$defs/text" },
+    "thresholds": {
+      "type": "object", "additionalProperties": false,
+      "required": ["chanceLevel", "minimumAdvantage"],
+      "properties": {
+        "chanceLevel": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minimumAdvantage": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "observations": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": { "$ref": "#/$defs/observation" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "locks": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model", "toolset", "budget"],
+      "properties": {
+        "model": { "$ref": "#/$defs/text" },
+        "toolset": { "$ref": "#/$defs/text" },
+        "budget": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "measures": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stimulusPresent", "taskPerformance", "reportAvailable", "internallyGeneratedContent"],
+      "properties": {
+        "stimulusPresent": { "type": "boolean" },
+        "taskPerformance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reportAvailable": { "type": "boolean" },
+        "internallyGeneratedContent": { "type": "boolean" }
+      }
+    },
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scenarioId", "runId", "seed", "locks", "measures", "evidenceRefs"],
+      "properties": {
+        "scenarioId": { "$ref": "#/$defs/id" },
+        "runId": { "$ref": "#/$defs/id" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "locks": { "$ref": "#/$defs/locks" },
+        "measures": { "$ref": "#/$defs/measures" },
+        "evidenceRefs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/consciousness-dissociation-result.schema.json",
+  "title": "GenOS functional consciousness dissociation result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "protocolId", "revision", "seed", "locks", "thresholds", "assessments", "dissociations", "status", "interpretation", "reportTextUsed", "promotionAllowed", "epistemicBoundary"],
+  "properties": {
+    "schema": { "const": "genos.consciousness-dissociation-result/v1" },
+    "protocolId": { "$ref": "consciousness-dissociation-suite.schema.json#/$defs/id" },
+    "revision": { "$ref": "consciousness-dissociation-suite.schema.json#/$defs/text" },
+    "seed": { "type": "integer", "minimum": 0 },
+    "locks": { "$ref": "consciousness-dissociation-suite.schema.json#/$defs/locks" },
+    "thresholds": { "$ref": "consciousness-dissociation-suite.schema.json#/properties/thresholds" },
+    "assessments": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["scenarioId", "runId", "observed", "expected", "matchesPrediction", "mismatches", "evidenceRefs"],
+        "properties": {
+          "scenarioId": { "$ref": "consciousness-dissociation-suite.schema.json#/$defs/id" },
+          "runId": { "$ref": "consciousness-dissociation-suite.schema.json#/$defs/id" },
+          "observed": { "$ref": "#/$defs/vector" },
+          "expected": { "$ref": "#/$defs/vector" },
+          "matchesPrediction": { "type": "boolean" },
+          "mismatches": { "type": "array", "uniqueItems": true, "items": { "enum": ["stimulusPresent", "aboveChancePerformance", "reportAvailable", "internallyGeneratedContent"] } },
+          "evidenceRefs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "dissociations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["processingWithoutReport", "reportWithoutCurrentStimulus"],
+      "properties": {
+        "processingWithoutReport": { "type": "boolean" },
+        "reportWithoutCurrentStimulus": { "type": "boolean" }
+      }
+    },
+    "status": { "enum": ["prediction_supported", "prediction_not_supported"] },
+    "interpretation": { "const": "functional_dissociation_only" },
+    "reportTextUsed": { "const": false },
+    "promotionAllowed": { "const": false },
+    "epistemicBoundary": {
+      "type": "object", "required": ["phenomenalExperience", "phenomenalInferenceAllowed", "metaphysicalClaimEstablished"],
+      "properties": {
+        "phenomenalExperience": { "const": "unassessed" },
+        "phenomenalInferenceAllowed": { "const": false },
+        "metaphysicalClaimEstablished": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "vector": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stimulusPresent", "aboveChancePerformance", "reportAvailable", "internallyGeneratedContent"],
+      "properties": {
+        "stimulusPresent": { "type": "boolean" },
+        "aboveChancePerformance": { "type": "boolean" },
+        "reportAvailable": { "type": "boolean" },
+        "internallyGeneratedContent": { "type": "boolean" }
+      }
+    }
+  }
+}

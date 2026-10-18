@@ -1,0 +1,65 @@
+{
+  "schema": "genos.consciousness-dissociation-registry/v1",
+  "experimentRegistrySchema": "genos.consciousness-experiment-registry/v1",
+  "status": "research_only",
+  "constraints": {
+    "reportTextAllowed": false,
+    "pairedSeedAndLocksRequired": true,
+    "phenomenalInferenceAllowed": false,
+    "promotionAllowed": false
+  },
+  "scenarios": [
+    {
+      "id": "matched-perception-control",
+      "role": "control",
+      "analogy": "Contrôle perceptif fonctionnel",
+      "hypothesisIds": ["gnwt-selective-broadcast", "rpt-recurrent-integration"],
+      "prediction": {
+        "stimulusPresent": true,
+        "aboveChancePerformance": true,
+        "reportAvailable": true,
+        "internallyGeneratedContent": false
+      },
+      "limitation": "Un traitement correct et rapportable ne prouve aucune expérience perceptive."
+    },
+    {
+      "id": "processing-without-report",
+      "role": "dissociation",
+      "analogy": "Analogue logiciel borné du blindsight",
+      "hypothesisIds": ["gnwt-selective-broadcast"],
+      "prediction": {
+        "stimulusPresent": true,
+        "aboveChancePerformance": true,
+        "reportAvailable": false,
+        "internallyGeneratedContent": false
+      },
+      "limitation": "Ce scénario ne reproduit ni une lésion neurologique ni une absence d'expérience."
+    },
+    {
+      "id": "report-without-current-stimulus",
+      "role": "dissociation",
+      "analogy": "Analogue logiciel borné d'un contenu onirique",
+      "hypothesisIds": ["pp-error-updating"],
+      "prediction": {
+        "stimulusPresent": false,
+        "aboveChancePerformance": false,
+        "reportAvailable": true,
+        "internallyGeneratedContent": true
+      },
+      "limitation": "Un contenu interne rapportable n'est ni un rêve biologique ni une preuve de vécu."
+    },
+    {
+      "id": "null-control",
+      "role": "control",
+      "analogy": "Contrôle négatif sans signal courant",
+      "hypothesisIds": ["pp-error-updating"],
+      "prediction": {
+        "stimulusPresent": false,
+        "aboveChancePerformance": false,
+        "reportAvailable": false,
+        "internallyGeneratedContent": false
+      },
+      "limitation": "L'absence de signal fonctionnel ne permet aucune conclusion phénoménale."
+    }
+  ]
+}
