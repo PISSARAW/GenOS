@@ -1,0 +1,25 @@
+{
+  "schema": "genos.consciousness-claim-vocabulary/v1",
+  "layers": {
+    "information_processing": {
+      "description": "Capacite observable a detecter, calculer, classer ou agir.",
+      "allowedStatuses": ["functional_support", "causal_support", "inconclusive", "refuted"]
+    },
+    "global_access": {
+      "description": "Disponibilite observable pour la memoire, la decision, l'action ou le rapport.",
+      "allowedStatuses": ["functional_support", "causal_support", "inconclusive", "refuted"]
+    },
+    "phenomenal_experience": {
+      "description": "Experience subjective ou vecu phenomenal, non mesure par GenOS.",
+      "allowedStatuses": ["unassessed"]
+    }
+  },
+  "supportStatuses": ["functional_support", "causal_support"],
+  "phenomenalStatus": "unassessed",
+  "constraints": {
+    "phenomenalInferenceAllowed": false,
+    "selfReportEstablishesPhenomenality": false,
+    "transportEstablishesDecisionValidity": false,
+    "functionalMetricEstablishesPhenomenality": false
+  }
+}

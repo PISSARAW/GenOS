@@ -2,6 +2,7 @@
 
 const collector = require('./indicatorEvidenceCollector');
 const gate = require('./indicatorPromotionGate');
+const claimBoundary = require('./claimBoundaryService');
 
 async function report(options) {
   if (!Array.isArray(options.indicators) || !options.indicators.length) throw new TypeError('Indicators required.');
@@ -13,8 +14,9 @@ async function report(options) {
       operationalGate: gate.evaluate({ indicatorId, scope: options.scope,
         contextHash: options.contextHash, receipts: evidence.receipts }) });
   }
-  return { generatedAt: new Date().toISOString(), reports,
+  const result = { generatedAt: new Date().toISOString(), reports,
     claimsPromoted: reports.filter((item) => item.operationalGate.promotionAllowed).map((item) => item.indicatorId) };
+  return claimBoundary.protectReport(result);
 }
 
 function nextStage(stage) {

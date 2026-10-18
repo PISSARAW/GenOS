@@ -48,7 +48,10 @@ async function main() {
     assert.equal(gate.evaluate({ indicatorId, scope: { ...scope, projectId: 'other' }, receipts: collected.receipts }).promotionAllowed, false);
     assert.equal(gate.validReceipts(JSON.parse(JSON.stringify(collected.receipts))).length, 0);
     assert.equal(gate.validReceipts(collected.receipts.map((receipt) => ({ ...receipt }))).length, 0);
-    assert.deepEqual((await report.report({ ...options, indicators: [indicatorId] })).claimsPromoted, [indicatorId]);
+    const promotedReport = await report.report({ ...options, indicators: [indicatorId] });
+    assert.deepEqual(promotedReport.claimsPromoted, [indicatorId]);
+    assert.equal(promotedReport.epistemicBoundary.phenomenalExperience, 'unassessed');
+    assert.equal(promotedReport.epistemicBoundary.phenomenalInferenceAllowed, false);
     artifacts.set('fixture://implementation', Buffer.from('{}'));
     assert.equal((await collector.collect(options)).receipts.length, 4);
     assert.deepEqual((await report.report({ ...options, verifierRegistry: undefined, indicators: [indicatorId] })).claimsPromoted, []);

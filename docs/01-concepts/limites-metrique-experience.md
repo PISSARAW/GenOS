@@ -1,6 +1,6 @@
 # Limites entre métrique fonctionnelle et expérience subjective
 
-- **Statut** : Cadre conceptuel (planned)
+- **Statut** : Partiel — vocabulaire et garde de rapports implémentés
 - **Portée** : séparation explicite : score fonctionnel ≠ preuve d'expérience subjective.
 - **Dernière revue** : 2026-10-18
 
@@ -40,13 +40,20 @@ La corrélation entre activité neurale et rapport subjectif est établie dans c
 
 ## 7. Architecture Technique
 
-Le principe est appliqué dans tous les services de philosophie : `consciousnessService`, `metacognitionBenchService`, `selfModelService`, `agentConscienceService`. Chaque rapport porte son champ `limitation`.
+Le principe est appliqué dans les services de philosophie : `consciousnessService`,
+`metacognitionBenchService`, `selfModelService`, `agentConscienceService`. Les
+rapports d'indicateurs passent aussi par `claimBoundaryService`, qui applique le
+vocabulaire partagé `consciousnessClaimVocabulary.json` et refuse les assertions
+phénoménales positives connues.
 
 Le concept `epistemology.metric-experience-boundary` est enregistré avec le service `consciousnessService`, niveau `conceptual`, classification `reference_only`.
 
 ## 8. Processus d'exécution ou de validation
 
-Les tests vérifient que les services retournent `insufficient_data` ou `unavailable` quand les données manquent, et qu'ils ne fabriquent jamais de faux nombres.
+Les tests vérifient que les services retournent `insufficient_data` ou
+`unavailable` quand les données manquent, qu'ils ne fabriquent pas de faux
+nombres et qu'un support fonctionnel ne peut pas être reclassé en conclusion
+phénoménale. Les statuts de support exigent une référence de preuve.
 
 ## 9. Comparaison avec le marché
 
@@ -65,3 +72,4 @@ Les outils d'évaluation de l'IA présentent souvent des scores comme des preuve
 - [conscience.md](conscience.md) — conscience phénoménale.
 - [indicateurs-fonctionnels.md](indicateurs-fonctionnels.md) — indicateurs avec limitations.
 - [consciousnessService.js](../../backend/src/services/consciousnessService.js) — rapports avec `phenomenalAccess: 'unassessed'`.
+- [ADR 0627](../adr/0627-frontiere-claims-fonctionnels-et-phenomenaux.md) — vocabulaire machine et garde anti-claims.
