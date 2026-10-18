@@ -108,6 +108,24 @@ reçus Kubernetes/cloud, la parité réseau et la compilation Rust doivent être
 réels et archivés dans une campagne pour produire une observation; le test du
 dépôt ne constitue qu'une vérification du contrat de la porte.
 
+## P7 — réplication indépendante et revue de mise en production
+
+`phase7ReleaseGate.cjs` ferme la chaîne de preuve avant une revue de release.
+Il exige deux réplications indépendantes sur le même commit, des artefacts
+immutables rejouables, un exercice de rollback vérifié, des contrôles négatifs
+réussis, aucun incident ouvert et les revues de preuve, sécurité et
+reproductibilité. La sortie `reviewable` ouvre une revue gouvernée; elle ne
+déclenche aucune transition Morphogenèse et ne vaut pas autorisation runtime.
+
+```bash
+node benchmarks/topology-morphogenesis/test-phase7-release-gate.cjs
+```
+
+Les fixtures du test vérifient le câblage de la porte. Une release réelle doit
+fournir les reçus des opérateurs et environnements indépendants, les artefacts
+rejoués et le journal de rollback. `universalGeneralization` reste faux même
+lorsque la revue est éligible.
+
 Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json](suite.json), conformément à [schemas/suite.schema.json](schemas/suite.schema.json). À ce stade, seule la référence arithmétique possède un oracle indépendant; les autres tâches restent des probes de mécanisme ou des contrôles de contrat et ne sont pas admissibles à une comparaison confirmatoire.
 
 Chaque exécution archive la provenance du commit, l'état propre/sale de l'arbre source, les empreintes de la suite, des missions et des reçus extraits, les états des workers, les temps, ainsi que la portée explicite de l'oracle. Le format de sortie est décrit par [schemas/campaign-results.schema.json](schemas/campaign-results.schema.json). Un arbre modifié est automatiquement marqué non admissible comme résultat confirmatoire.

@@ -176,6 +176,31 @@ environnemental conserve un intervalle positif, un coût admissible et ses
 garde-fous. La porte reste bornée aux observations fournies; elle ne déclare
 jamais de généralisation universelle ni d'autorisation de promotion runtime.
 
+## Phase 7 — Réplication indépendante et préparation de release
+
+### Travaux
+
+- Rejouer P6 sur le même commit depuis au moins deux opérateurs et deux
+  environnements indépendants, avec des artefacts immuables et des reçus
+  vérifiables.
+- Rejouer les artefacts depuis leur manifeste et leur digest; toute divergence
+  de source, de modèle ou de résultat bloque la revue.
+- Exécuter un exercice de rollback avec restauration vérifiée et conserver son
+  temps de récupération ainsi que le reçu d'autorité.
+- Faire passer des contrôles négatifs et fermer la revue s'il reste un incident
+  ouvert ou une preuve manquante.
+- Séparer l'éligibilité à une revue gouvernée de l'autorisation runtime; aucune
+  porte de campagne ne déclenche seule une transition Morphogenèse.
+
+### Porte de release
+
+`phase7ReleaseGate.cjs` retourne `reviewable` seulement si P6 est éligible, que
+les réplications indépendantes et les artefacts sont vérifiés, que le rollback
+et les contrôles négatifs passent, qu'aucun incident n'est ouvert et que les
+revues de preuve, sécurité et reproductibilité sont complètes. La décision
+reste bornée au commit et aux environnements observés; `runtimePromotionAuthorized`
+et `universalGeneralization` restent toujours faux.
+
 ## Livrables à produire
 
 1. Schéma versionné des tâches, tentatives, événements de mécanisme et verdicts oracle.
@@ -198,6 +223,7 @@ jamais de généralisation universelle ni d'autorisation de promotion runtime.
 | I7 | Sélection Morphogenèse entraînement/confirmation sans fuite | I3–I6 |
 | I8 | Répétitions confirmatoires, analyse et décision de maturité | I1–I7 |
 | I9 | Robustesse multi-environnement, workers réels, parité distribuée et validation Rust | I8 |
+| I10 | Réplication indépendante, rollback et revue de release gouvernée | I9 |
 
 ## Décisions d’architecture
 
