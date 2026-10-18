@@ -38,6 +38,10 @@ const ideRoutes = require('./routes/ideRoutes');
 const schemaRoutes = require('./routes/schemaRoutes');
 const strategyRoutes = require('./routes/strategyRoutes');
 const workflowRoutes = require('./routes/workflowRoutes');
+const methodContractRoutes = require('./routes/methodContractRoutes');
+const chargebackRoutes = require('./routes/chargebackRoutes');
+const atomicRollbackRoutes = require('./routes/atomicRollbackRoutes');
+const orchestrationRoutes = require('./routes/orchestrationRoutes');
 const promptRoutes = require('./routes/promptRoutes');
 const traceRoutes = require('./routes/traceRoutes');
 const evalRoutes = require('./routes/evalRoutes');
@@ -176,6 +180,10 @@ function createApp() {
   app.use('/api/compliance', complianceRoutes);
   app.use('/api/ide', ideRoutes);
   app.use('/api/strategies', strategyRoutes);
+  app.use('/api/method-contracts', methodContractRoutes);
+  app.use('/api/chargeback', chargebackRoutes);
+  app.use('/api/atomic-rollback', atomicRollbackRoutes);
+  app.use('/api/orchestration', orchestrationRoutes);
   app.use('/api/daemon', daemonRoutes);
   app.use('/api', missionResourceRoutes);
   app.use('/api/chaos', chaosRoutes);
@@ -202,3 +210,5 @@ function createApp() {
 }
 
 module.exports = { createApp };
+
+

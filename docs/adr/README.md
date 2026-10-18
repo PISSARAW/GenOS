@@ -711,10 +711,12 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0571](0571-unifier-candidats-recherche-morphologique.md) | Unifier les candidats de recherche morphologique | Accepté | 2026-10-17 | morphogenèse, recherche, reproductibilité, lignage |
 | [0572](0572-archive-qualite-diversite-et-halving-morphologique.md) | Archive qualité-diversité et halving morphologique | Accepté | 2026-10-18 | morphogenèse, qualité-diversité, halving, budget |
 | [0573](0573-porte-appariee-p2-avant-commit-adaptatif.md) | Porte appariée P2 avant commit adaptatif | Accepté | 2026-10-18 | morphogenèse, comparaison appariée, holdout, intervalles de confiance |
+| [0600](0600-implementation-finale-coeur-orchestration.md) | Implémentation finale du cœur d'orchestration GenOS | Accepté | 2026-10-18 | Orchestrateur, mission, stratégie, contrats, rollback, chargeback |
 | [0601](0601-classer-les-organisations-dynamiques.md) | Classer les organisations dynamiques dans la morphogenèse | Accepté | 2026-10-18 | morphogenèse, organisations dynamiques, orchestration |
 | [0603](0603-relier-nosologie-et-morphogenese.md) | Relier la nosologie et la morphogenèse | Accepté | 2026-10-18 | morphogenèse, nosologie, quarantaine, autopsie causale |
 | [0602](0602-runner-durable-p3-campagnes-appariees.md) | Runner durable P3 pour les campagnes appariées | Accepté | 2026-10-18 | morphogenèse, expérimentation, durabilité, interopérabilité |
 | [0605](0605-dispositions-implementation-philosophique.md) | Dispositions d'implémentation philosophique | Accepté | 2026-10-18 | philosophie opérationnelle, contrats, autorité runtime |
+| [0606](0606-lier-morphogenese-et-agentdna.md) | Lier la morphogenèse et AgentDNA | Accepté | 2026-10-18 | morphogenèse, AgentDNA, incarnation, preuve, restauration |
 | [0607](0607-audits-specialises-capacites-philosophiques.md) | Audits spécialisés des capacités philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, identité, causalité, biomimétisme |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
