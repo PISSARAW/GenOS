@@ -216,11 +216,21 @@ async function finalizeExecutionWorkspace(input) {
     executionRunId: input.executionRun.id,
     outcomeStatus: input.outcome.status
   });
-  if (!workspace) return;
-  const action = workspace.outcome === 'completed' ? 'INGEST_WORKSPACE' : 'DISCARD_WORKSPACE';
-  input.emit(input.agentId, 'GQWF_EXECUTION_WORKSPACE_RELEASED', action,
-    'GQWF execution workspace was finalized and its materialized lease was released.',
-    workspace, 'info');
+  if (workspace) {
+    const action = workspace.outcome === 'completed' ? 'INGEST_WORKSPACE' : 'DISCARD_WORKSPACE';
+    input.emit(input.agentId, 'GQWF_EXECUTION_WORKSPACE_RELEASED', action,
+      'GQWF execution workspace was finalized and its materialized lease was released.',
+      workspace, 'info');
+  }
+  const worker = await require('./gqwf/workers').finalizeWorker(input.db, {
+    workerId: input.agentId,
+    outcomeStatus: input.outcome.status
+  });
+  if (!worker) return;
+  const workerAction = worker.outcome === 'completed' ? 'CAPTURE_WORKER' : 'DISCARD_WORKER';
+  input.emit(input.agentId, 'GQWF_WORKER_WORKSPACE_RELEASED', workerAction,
+    'GQWF worker workspace was finalized and its materialized lease was released.',
+    worker, 'info');
 }
 
 async function finalizeChildClose({

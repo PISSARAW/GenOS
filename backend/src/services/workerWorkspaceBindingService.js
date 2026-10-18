@@ -44,6 +44,10 @@ function epochTag(epoch) {
   return `epoch:${createHash('sha256').update(epoch).digest('hex')}`;
 }
 
+function leaseTag(leaseId) {
+  return `gqwf-lease:${createHash('sha256').update(leaseId).digest('hex')}`;
+}
+
 async function trackedCapsule(db, workerId, capsulePath) {
   const rows = await db.all('SELECT agent_id, epoch FROM agent_capsule_cleanup WHERE workspace_root = ?', capsulePath)
     .catch(() => []);
@@ -52,6 +56,26 @@ async function trackedCapsule(db, workerId, capsulePath) {
   const authorized = rows.every(row => (row.agent_id === workerId
     || row.agent_id.startsWith(`${workerId}_`)) && row.epoch === epoch);
   return authorized ? epoch : null;
+}
+
+async function gqwfCapsuleTag(db, workerId, capsulePath) {
+  const lease = await db.get(`SELECT l.id, l.path, l.status FROM gqwf_worker_bindings b
+    JOIN gqwf_leases l ON l.id = b.lease_id
+    WHERE b.worker_id = ? AND b.backend = 'gqwf' AND b.status IN ('open', 'captured', 'capture_failed')`,
+  workerId).catch(() => null);
+  if (!lease || !samePath(lease.path, capsulePath) || !['open', 'ingested'].includes(lease.status)) return null;
+  try {
+    const marker = await fs.readFile(path.join(capsulePath, '.genos-gqwf-lease'), 'utf8');
+    return marker === lease.id ? leaseTag(lease.id) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function capsuleAuthorityTag(db, workerId, capsulePath) {
+  const epoch = await trackedCapsule(db, workerId, capsulePath);
+  if (epoch) return epochTag(epoch);
+  return gqwfCapsuleTag(db, workerId, capsulePath);
 }
 
 async function bindingIdentity(db, input) {
@@ -72,20 +96,20 @@ function parsedTags(raw) {
 async function bindWorkerWorkspace(db, input) {
   const { parent, worker } = await bindingIdentity(db, input);
   const capsulePath = await verifyCapsule(input.workspaceRoot, parent.path);
-  const epoch = await trackedCapsule(db, worker.id, capsulePath);
-  if (!epoch) refuse('Worker capsule is not tracked by its current ownership marker.');
+  const authorityTag = await capsuleAuthorityTag(db, worker.id, capsulePath);
+  if (!authorityTag) refuse('Worker capsule is not tracked by its current ownership marker.');
   const existing = await db.get(`SELECT id, tags, visibility, organization_id, project_id
     FROM workspaces WHERE path = ?`, capsulePath);
   if (existing) {
     assertCapsuleTenant(existing, parent);
-    if (worker.workspace_id === existing.id && parsedTags(existing.tags).includes(epochTag(epoch))) return existing.id;
+    if (worker.workspace_id === existing.id && parsedTags(existing.tags).includes(authorityTag)) return existing.id;
     refuse('Worker capsule path is already registered to another workspace.');
   }
   const id = `worker_workspace_${randomUUID()}`;
   await db.run(`INSERT INTO workspaces
     (id, name, path, visibility, language, tags, organization_id, project_id)
     VALUES (?, ?, ?, 'Private', 'Mixed', ?, ?, ?)`, id, `Worker ${worker.id}`, capsulePath,
-  JSON.stringify(['worker_capsule', epochTag(epoch)]), parent.organization_id, parent.project_id);
+  JSON.stringify(['worker_capsule', authorityTag]), parent.organization_id, parent.project_id);
   const updated = await db.run('UPDATE agents SET workspace_id = ? WHERE id = ? AND parent_agent_id = ?', id, worker.id, parent.id);
   if (updated.changes !== 1) refuse('Worker disappeared before capsule binding.');
   return id;
@@ -123,8 +147,8 @@ async function delegation(db, input) {
   if (!validDelegationBinding(binding)) return null;
   const tags = parsedTags(binding.tags);
   if (!Array.isArray(tags) || !tags.includes('worker_capsule')) return null;
-  const epoch = await trackedCapsule(db, agent.id, binding.path);
-  if (!epoch || !tags.includes(epochTag(epoch))) return null;
+  const authorityTag = await capsuleAuthorityTag(db, agent.id, binding.path);
+  if (!authorityTag || !tags.includes(authorityTag)) return null;
   return { ...agent, capsuleDispatchParentId: parent.id };
 }
 

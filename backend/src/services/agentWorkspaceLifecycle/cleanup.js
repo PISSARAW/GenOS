@@ -307,7 +307,8 @@ function createReclaimer(agentId, tracked, retries) {
 
 async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0) {
   const tracked = activeWorktrees.get(agentId);
-  if (!tracked || tracked.scheduled) return false;
+  if (!tracked) return finalizeUntrackedGqwfWorker(agentId);
+  if (tracked.scheduled) return false;
   const delay = forceDelay !== null ? forceDelay : gcDelayMs();
   if (delay < 0) return false;
   const db = await getDatabase();
@@ -325,6 +326,23 @@ async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0)
   if (delay === 0) bestEffort(reclaim());
   else setTimeout(reclaim, delay).unref();
   return true;
+}
+
+async function finalizeUntrackedGqwfWorker(agentId) {
+  const db = await getDatabase();
+  const agent = await db.get('SELECT status FROM agents WHERE id = ?', agentId).catch(() => null);
+  const { TERMINAL_AGENT_STATUSES } = require('../agentOrchestrationState');
+  if (!agent || !TERMINAL_AGENT_STATUSES.has(agent.status)) return false;
+  try {
+    const finalized = await require('../gqwf/workers').finalizeWorker(db, {
+      workerId: agentId,
+      outcomeStatus: agent.status === 'completed' ? 'completed' : agent.status
+    });
+    return Boolean(finalized);
+  } catch (error) {
+    console.error('%s', `[GQWF] Worker ${agentId} lease finalization failed: ${String(error?.message || error)}`);
+    return false;
+  }
 }
 
 async function reconcileWorkspaceCleanup(db) {

@@ -5,6 +5,7 @@ const { withTransaction } = require('../../db');
 const { importWorkspace } = require('./import');
 const storage = require('./storage');
 const { createView } = require('./views');
+const leases = require('./leases');
 
 function samePath(left, right) {
   const first = path.resolve(left);
@@ -14,7 +15,11 @@ function samePath(left, right) {
 
 async function ownedCapsule(db, workerId, capsulePath) {
   const row = await db.get('SELECT workspace_root FROM agent_capsule_cleanup WHERE agent_id = ?', workerId);
-  if (!row?.workspace_root || !samePath(row.workspace_root, capsulePath)) {
+  if (row?.workspace_root && samePath(row.workspace_root, capsulePath)) return;
+  const lease = await db.get(`SELECT l.id, l.path, l.status FROM gqwf_worker_bindings b
+    JOIN gqwf_leases l ON l.id = b.lease_id
+    WHERE b.worker_id = ? AND b.backend = 'gqwf'`, workerId).catch(() => null);
+  if (!lease || !samePath(lease.path, capsulePath) || !['open', 'ingested'].includes(lease.status)) {
     throw new Error('GQWF worker capsule is not owned by this worker.');
   }
 }
@@ -31,8 +36,6 @@ async function inspectWorker(db, input) {
 
 async function bindWorker(db, input) {
   const workspace = await storage.workspace(db, input.workspaceId);
-  await ownedCapsule(db, input.workerId, input.capsulePath);
-  if (samePath(workspace.path, input.capsulePath)) throw new Error('GQWF worker capsule must be isolated.');
   const existing = await binding(db, input.workerId);
   if (existing) {
     if (existing.workspace_id !== input.workspaceId || !samePath(existing.capsule_path, input.capsulePath)) {
@@ -40,6 +43,8 @@ async function bindWorker(db, input) {
     }
     return describe(existing);
   }
+  await ownedCapsule(db, input.workerId, input.capsulePath);
+  if (samePath(workspace.path, input.capsulePath)) throw new Error('GQWF worker capsule must be isolated.');
   const built = await importWorkspace(input.capsulePath, workspace.path);
   return withTransaction(db, async () => {
     await storage.putRoot(db, input.workspaceId, built);
@@ -53,10 +58,31 @@ async function bindWorker(db, input) {
   });
 }
 
+async function materializeWorker(db, input) {
+  const existing = await binding(db, input.workerId);
+  if (existing) return describe(existing);
+  const workspace = await storage.workspace(db, input.workspaceId);
+  const built = await importWorkspace(input.sourcePath, workspace.path);
+  await storage.putRoot(db, input.workspaceId, built);
+  const view = await createView(db, { workspaceId: input.workspaceId, baseHash: built.hash });
+  const lease = await leases.materializeRoot(db, { workspaceId: input.workspaceId, rootHash: built.hash });
+  try {
+    await db.run(`INSERT INTO gqwf_worker_bindings
+      (worker_id, workspace_id, capsule_path, base_hash, view_id, lease_id, backend, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'gqwf', 'open')`, input.workerId, input.workspaceId,
+    path.resolve(lease.path), built.hash, view.id, lease.leaseId);
+  } catch (error) {
+    await leases.releaseLease(db, { workspaceId: input.workspaceId, leaseId: lease.leaseId }).catch(() => undefined);
+    throw error;
+  }
+  return describe(await binding(db, input.workerId));
+}
+
 function describe(row) {
   return { workerId: row.worker_id, workspaceId: row.workspace_id,
     baseHash: row.base_hash, viewId: row.view_id, candidateHash: row.candidate_hash,
-    status: row.status, error: row.error };
+    leaseId: row.lease_id, backend: row.backend || 'physical', path: row.capsule_path,
+    status: row.status, outcome: row.outcome, error: row.error };
 }
 
 function differences(base, candidate) {
@@ -109,4 +135,26 @@ async function captureWorker(db, workerId) {
   }
 }
 
-module.exports = { bindWorker, captureWorker, inspectWorker, binding };
+async function finalizeWorker(db, input) {
+  let row = await binding(db, input.workerId);
+  if (!row || row.backend !== 'gqwf') return null;
+  if (['released', 'discarded'].includes(row.status)) return describe(row);
+  try {
+    if (input.outcomeStatus === 'completed' && row.status !== 'captured') {
+      await captureWorker(db, input.workerId);
+      row = await binding(db, input.workerId);
+    }
+    await leases.releaseLease(db, { workspaceId: row.workspace_id, leaseId: row.lease_id });
+    const status = input.outcomeStatus === 'completed' ? 'released' : 'discarded';
+    const outcome = input.outcomeStatus === 'completed' ? 'completed' : 'discarded';
+    await db.run(`UPDATE gqwf_worker_bindings SET status = ?, outcome = ?, error = NULL
+      WHERE worker_id = ?`, status, outcome, input.workerId);
+    return describe(await binding(db, input.workerId));
+  } catch (error) {
+    await db.run('UPDATE gqwf_worker_bindings SET error = ? WHERE worker_id = ?',
+      String(error.message).slice(0, 1000), input.workerId);
+    throw error;
+  }
+}
+
+module.exports = { bindWorker, captureWorker, finalizeWorker, inspectWorker, materializeWorker, binding };

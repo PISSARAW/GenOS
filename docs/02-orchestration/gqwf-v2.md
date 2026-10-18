@@ -79,24 +79,22 @@ aussi les préparations inachevées ; cette reprise reste explicite au
 redémarrage. Un dossier sans marqueur de propriété est conservé en
 quarantaine. Voir l'[ADR 0378](../adr/0378-reprise-des-baux-gqwf.md).
 
-## Workers physiques et vues durables
+## Workers autonomes sous bail GQWF
 
 Une mission peut activer `executionPolicy.gqwfV2: true`. Après création de sa
-capsule physique, chaque worker autonome reçoit une vue GQWF privée liée à la
-projection initiale de la capsule. Le lien est conservé dans
-`gqwf_worker_bindings` et associé à la possession effective de la capsule.
-`inspectWorker` permet de consulter ce lien et son statut dans le workspace
-autorisé.
-À la clôture, y compris pour un worker natif déterministe, GenOS importe la capsule dans le magasin de
-blobs du workspace source, inscrit ses différences dans la vue et conserve
-une `candidate_hash`. Une capture échouée garde la capsule et son erreur pour
-une nouvelle tentative. La racine candidate ne modifie aucune tête publiée.
+vue GQWF privée, GenOS matérialise directement sa racine sous bail : aucun
+worktree ni copie intermédiaire n'est créé. Si l'orchestrateur parent s'exécute
+déjà dans une vue matérialisée, le worker hérite de cette projection courante.
+Le lien durable conserve la vue, le bail, le backend et la candidate dans
+`gqwf_worker_bindings`. Le marqueur du bail et ces enregistrements fournissent
+la preuve de possession exigée par le binding privé du worker.
 
-Les capsules physiques continuent de fournir Git, les dépendances et les outils
-d'exécution. La projection GQWF contient les fichiers admis par la politique de
-snapshot, pas une image complète de l'environnement. Ce raccordement ne
-concerne pas encore les autres points d'entrée workers. La promotion Trinity
-décrite plus haut est un parcours distinct. Voir l'[ADR 0371](../adr/0371-raccordement-gqwf-aux-capsules-workers.md).
+À la clôture réussie, GenOS réingère les fichiers, inscrit leurs différences
+dans la vue, conserve une `candidate_hash`, puis libère le bail. Un échec est
+abandonné sans capture. Une erreur de capture ou de libération conserve un état
+récupérable. La racine candidate ne modifie aucune tête publiée. Les workers
+natifs déterministes, locaux ou in-process, les grandes cohortes et les missions
+non opt-in gardent leurs capsules physiques. Voir l'[ADR 0608](../adr/0608-materialiser-les-workers-autonomes-par-bail-gqwf.md).
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
@@ -128,6 +126,7 @@ frontières sont décrites dans les [ADR 0378](../adr/0378-reference-gqwf-dans-s
 et [0383](../adr/0383-restauration-opt-in-racine-gqwf-organisme.md).
 
 Validation ciblée : `node backend/tests/test_gqwf_fabric.js`,
+`node backend/tests/test_gqwf_worker_execution.js`,
 `node backend/tests/test_gqwf_execution_workspace.js`,
 `node backend/tests/test_gqwf_mission_execution.js` et
 `node backend/tests/test_gqwf_organism_snapshot.js`. Les gates généraux du

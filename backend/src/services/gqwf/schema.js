@@ -91,12 +91,16 @@ async function migrateGqwf(db) {
       capsule_path TEXT NOT NULL,
       base_hash TEXT NOT NULL,
       view_id TEXT NOT NULL UNIQUE,
+      lease_id TEXT UNIQUE,
+      backend TEXT NOT NULL DEFAULT 'physical' CHECK (backend IN ('physical', 'gqwf')),
       candidate_hash TEXT,
-      status TEXT NOT NULL CHECK (status IN ('open', 'captured', 'capture_failed')),
+      status TEXT NOT NULL CHECK (status IN ('open', 'captured', 'capture_failed', 'released', 'discarded')),
+      outcome TEXT,
       error TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (workspace_id, base_hash) REFERENCES gqwf_roots(workspace_id, root_hash),
-      FOREIGN KEY (view_id) REFERENCES gqwf_views(id)
+      FOREIGN KEY (view_id) REFERENCES gqwf_views(id),
+      FOREIGN KEY (lease_id) REFERENCES gqwf_leases(id)
     );
     CREATE INDEX IF NOT EXISTS idx_gqwf_views_workspace ON gqwf_views(workspace_id);
     CREATE INDEX IF NOT EXISTS idx_gqwf_execution_workspace_status
@@ -104,6 +108,8 @@ async function migrateGqwf(db) {
   `);
   const row = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_leases'");
   if (!row.sql.includes("'preparing'")) await migrateLeaseStatus(db);
+  const worker = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_worker_bindings'");
+  if (!worker.sql.includes('lease_id') || !worker.sql.includes("'discarded'")) await migrateWorkerBindings(db);
 }
 
 async function migrateLeaseStatus(db) {
@@ -123,6 +129,34 @@ async function migrateLeaseStatus(db) {
         CASE status WHEN 'released' THEN 'releasing' ELSE status END,
         created_at FROM gqwf_leases_previous;`);
     await db.exec('DROP TABLE gqwf_leases_previous;');
+  });
+}
+
+async function migrateWorkerBindings(db) {
+  await withTransaction(db, async () => {
+    await db.exec('ALTER TABLE gqwf_worker_bindings RENAME TO gqwf_worker_bindings_previous;');
+    await db.exec(`CREATE TABLE gqwf_worker_bindings (
+      worker_id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      capsule_path TEXT NOT NULL,
+      base_hash TEXT NOT NULL,
+      view_id TEXT NOT NULL UNIQUE,
+      lease_id TEXT UNIQUE,
+      backend TEXT NOT NULL DEFAULT 'physical' CHECK (backend IN ('physical', 'gqwf')),
+      candidate_hash TEXT,
+      status TEXT NOT NULL CHECK (status IN ('open', 'captured', 'capture_failed', 'released', 'discarded')),
+      outcome TEXT,
+      error TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workspace_id, base_hash) REFERENCES gqwf_roots(workspace_id, root_hash),
+      FOREIGN KEY (view_id) REFERENCES gqwf_views(id),
+      FOREIGN KEY (lease_id) REFERENCES gqwf_leases(id)
+    );`);
+    await db.exec(`INSERT INTO gqwf_worker_bindings
+      (worker_id, workspace_id, capsule_path, base_hash, view_id, candidate_hash, status, error, created_at)
+      SELECT worker_id, workspace_id, capsule_path, base_hash, view_id, candidate_hash, status, error, created_at
+      FROM gqwf_worker_bindings_previous;`);
+    await db.exec('DROP TABLE gqwf_worker_bindings_previous;');
   });
 }
 

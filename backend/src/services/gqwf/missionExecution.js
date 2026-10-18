@@ -25,6 +25,8 @@ function isInProcess(ctx) {
 
 function eligible(ctx) {
   if (ctx.normalizedMission.executionPolicy?.gqwfV2 !== true) return false;
+  if (ctx.normalizedMission.workspaceBackend === 'gqwf-worker'
+    || ctx.normalizedMission.gqwfWorkerLease) return false;
   const deterministic = require('../agents/workerRuntimeLimitsService')
     .isDeterministicWorkerMission(ctx.normalizedMission);
   return !deterministic && !isInProcess(ctx);

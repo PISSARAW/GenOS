@@ -1,5 +1,4 @@
 const circuitBreaker = require('./circuitBreaker');
-const path = require('node:path');
 const workerGarage = require('./workerGarageService');
 const workerKinds = require('./agents/workerKindService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
@@ -163,11 +162,7 @@ function buildWorkerContext(context) {
   if (initialWorkerTokens && initialWorkerTokens.length !== assignments.length) {
     throw Object.assign(new Error('Initial worker allocation does not match dispatch assignments.'), { code: 'INVALID_WORKER_ALLOCATION' });
   }
-  const sourceWorkspace = parent.workspace_path || mission.workspaceRoot;
-  if (parent.workspace_path && mission.workspaceRoot && mission.workspaceProvisioned === true
-    && !samePath(mission.workspaceRoot, parent.workspace_path)) {
-    throw Object.assign(new Error(`Mission workspace root does not match workspace '${parent.workspace_id}'.`), { code: 'WORKSPACE_ROOT_MISMATCH' });
-  }
+  const sourceWorkspace = workerWorkspaceRecovery.sourceWorkspace(parent, mission);
   return { ...context, sourceWorkspace, initialWorkerTokens, ...workerBudgets({ parent, plan, assignmentCount: assignments.length, initialRound }) };
 }
 
@@ -178,15 +173,6 @@ function workerBudgets(context) {
     perWorkerTokens: Math.max(1, workerTokens),
     perWorkerCognitiveBudget: calculateInheritedCognitiveBudget(parent.cognitive_budget, plan.tokenPolicy?.workerShare, assignmentCount)
   };
-}
-
-function samePath(firstPath, secondPath) {
-  if (!firstPath || !secondPath) return false;
-  const normalizedFirst = path.resolve(firstPath);
-  const normalizedSecond = path.resolve(secondPath);
-  return process.platform === 'win32'
-    ? normalizedFirst.toLowerCase() === normalizedSecond.toLowerCase()
-    : normalizedFirst === normalizedSecond;
 }
 
 function formatDnaPromptBlock(dnaSelection) {
@@ -226,7 +212,15 @@ function buildWorkerPrompt(details) {
 
 async function createWorker(workerContext) {
   const assets = await prepareWorkerAssets(workerContext);
-  await persistWorker(assets.db, assets);
+  try {
+    await persistWorker(assets.db, assets);
+  } catch (error) {
+    if (assets.gqwfWorkerWorkspace) {
+      await require('./gqwf/workers').finalizeWorker(assets.db,
+        { workerId: assets.id, outcomeStatus: 'error' }).catch(() => undefined);
+    }
+    throw error;
+  }
   return formatWorker(assets);
 }
 
@@ -366,7 +360,9 @@ function formatWorker(details) {
   const capabilities = assignmentCapabilities(assignment);
   const toolLease = effectiveToolLease(assignment, capabilities, dnaSelection);
   const assignmentList = details.assignments || plan?.dispatchWorkers || [];
-  const worker = { ...workerIdentity(details), ...workerRuntime({ parent, route, workspaceRoot, toolLease, capabilities, assignments: assignmentList, mission }), ...buildWorkerMeta(details) };
+  const worker = { ...workerIdentity(details), ...workerRuntime({ parent, route, workspaceRoot, toolLease,
+    capabilities, assignments: assignmentList, mission, gqwfWorkerWorkspace: details.gqwfWorkerWorkspace }),
+  ...buildWorkerMeta(details) };
   emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${identity.name}' received ${toolLease.length} leased tools.`, { workerId: id, role: assignment.role, toolLease, runtimeMode: worker.localRuntime === true ? 'local' : 'supervised' }, 'info');
   return worker;
 }
@@ -385,12 +381,18 @@ function inheritedWorkerEngine(mission) {
 }
 
 function workerRuntime(details) {
-  const { parent, route, workspaceRoot, toolLease, capabilities, assignments, mission } = details;
+  const { parent, route, workspaceRoot, toolLease, capabilities, assignments, mission, gqwfWorkerWorkspace } = details;
   const inProcessWorker = config.inProcessWorkers() || (Array.isArray(assignments) && assignments.length > 12);
   const hostExecutionContext = mission.executor === 'caller_mcp'
     ? require('./hostExecutionContext').bindHostToolLease(mission.hostExecutionContext, toolLease)
     : undefined;
-  return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true, inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy, localRoutingCriteria: route.criteria, capabilities, toolLease, workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider, modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
+  return { missionId: mission.missionId, workspaceRoot, workspaceProvisioned: true,
+    workspaceBackend: gqwfWorkerWorkspace ? 'gqwf-worker' : 'physical',
+    gqwfWorkerLease: gqwfWorkerWorkspace || null,
+    inProcessWorker, localModel: route.selectedModel, localRoutingPolicy: route.policy,
+    localRoutingCriteria: route.criteria, capabilities, toolLease,
+    workspaceIsolation: parent.isolation_mode, executor: mission.executor, provider: mission.provider,
+    modelId: mission.modelId, hostExecutionContext, ...inheritedWorkerEngine(mission) };
 }
 
 module.exports = { assignedWorkerId: cohortWorkerService.assignedWorkerId, createAutonomousWorkers, splitBudget,
