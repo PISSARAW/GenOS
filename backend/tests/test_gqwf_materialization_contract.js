@@ -43,7 +43,7 @@ async function verifyCapabilities(state) {
   const capabilities = await createFabric(state.db).inspectMaterializers({
     workspaceId: 'ws-materializer'
   });
-  assert.equal(capabilities.length, 2);
+  assert.equal(capabilities.length, 3);
   const portable = capabilities.find((entry) => entry.backendId === 'portable-copy-v1');
   assert.deepEqual(portable, {
     backendId: 'portable-copy-v1',
@@ -62,6 +62,11 @@ async function verifyCapabilities(state) {
   assert.equal(native.copyGranularity, 'file');
   assert.equal(native.portable, false);
   assert.equal(typeof native.available, 'boolean');
+  const overlay = capabilities.find((entry) => entry.backendId === 'linux-overlayfs-v1');
+  assert.equal(overlay.materialization, 'lazy');
+  assert.equal(overlay.copyGranularity, 'file');
+  assert.equal(overlay.requiresMount, true);
+  assert.equal(typeof overlay.available, 'boolean');
 }
 
 async function materializeCandidate(fabric, rootHash, content) {

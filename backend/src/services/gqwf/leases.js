@@ -73,6 +73,7 @@ async function materializeRoot(db, input, options = {}) {
       workspacePath: workspace.path,
       containerPath: destination,
       destination: executionPath,
+      rootHash: input.rootHash,
       manifest
     });
     if (!projected?.path || !samePath(projected.path, executionPath)) {
@@ -133,6 +134,7 @@ async function loadLease(db, input) {
 async function ingestLease(db, input, options = {}) {
   const { lease, workspace, executionPath } = await loadLease(db, input);
   if (lease.status !== 'open') throw new Error('GQWF lease is not open.');
+  const manifest = await storage.root(db, lease.workspace_id, lease.root_hash);
   const selection = await materialization.resolveSelection(db, {
     leaseId: lease.id,
     workspaceId: lease.workspace_id,
@@ -142,7 +144,10 @@ async function ingestLease(db, input, options = {}) {
   const built = await selection.driver.capture({
     sourcePath: executionPath,
     containerPath: lease.path,
-    objectWorkspacePath: workspace.path
+    objectWorkspacePath: workspace.path,
+    workspacePath: workspace.path,
+    rootHash: lease.root_hash,
+    manifest
   });
   return withTransaction(db, async () => {
     const changed = await db.run("UPDATE gqwf_leases SET status = 'ingested' WHERE id = ? AND status = 'open'", input.leaseId);
@@ -197,7 +202,8 @@ async function finishPreparation(db, record, options = {}) {
     leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash,
     workspacePath: workspace.path
   }, options);
-  await selection.driver.recover({ path: lease.path, executionPath: record.executionPath });
+  await selection.driver.recover({ path: lease.path, executionPath: record.executionPath,
+    workspacePath: workspace.path, rootHash: lease.root_hash });
   const changed = await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'preparing'", lease.id);
   return changed.changes === 1;
 }
@@ -213,7 +219,8 @@ async function finishRelease(db, record, options = {}) {
       leaseId: lease.id, workspaceId: lease.workspace_id, rootHash: lease.root_hash,
       workspacePath: workspace.path
     }, options);
-    await selection.driver.release({ path: lease.path, executionPath: record.executionPath });
+    await selection.driver.release({ path: lease.path, executionPath: record.executionPath,
+      workspacePath: workspace.path, rootHash: lease.root_hash });
   }
   await db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ? AND status = 'releasing'", lease.id);
 }

@@ -3,6 +3,7 @@
 const MATERIALIZERS = new Set([
   'portable-copy-v1',
   'native-reflink-v1',
+  'linux-overlayfs-v1',
   'auto'
 ]);
 

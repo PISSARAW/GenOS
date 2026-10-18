@@ -1,11 +1,12 @@
 'use strict';
 
 const contract = require('./contract');
+const overlayfs = require('./overlayfs');
 const portableCopy = require('./portableCopy');
 const reflink = require('./reflink');
 
 function registry(options = {}) {
-  const drivers = options.materializers || [portableCopy, reflink];
+  const drivers = options.materializers || [portableCopy, reflink, overlayfs];
   const entries = new Map();
   for (const candidate of drivers) {
     const driver = contract.assertMaterializer(candidate);
@@ -37,17 +38,24 @@ function selected(driver, capabilities, selectionReason) {
 
 async function selectAuto(options, context) {
   const drivers = registry(options);
-  const preferred = drivers.get(reflink.id);
-  let unavailableReason = 'backend_unregistered';
-  if (preferred) {
+  const reasons = [];
+  for (const preference of [overlayfs, reflink]) {
+    const preferred = drivers.get(preference.id);
+    if (!preferred) {
+      reasons.push(`${preference.id}=backend_unregistered`);
+      continue;
+    }
     const capabilities = await contract.probe(preferred, context);
-    if (capabilities.available) return selected(preferred, capabilities, 'auto_reflink');
-    unavailableReason = capabilities.unavailableReason;
+    if (capabilities.available) {
+      const label = preference.id === overlayfs.id ? 'overlayfs' : 'reflink';
+      return selected(preferred, capabilities, `auto_${label}`);
+    }
+    reasons.push(`${preference.id}=${capabilities.unavailableReason}`);
   }
   const fallback = drivers.get(portableCopy.id);
   if (!fallback) throw new Error('GQWF automatic materialization has no portable fallback.');
   return selected(fallback, await contract.probe(fallback, context),
-    `auto_portable_fallback:${unavailableReason}`);
+    `auto_portable_fallback:${reasons.join(',')}`);
 }
 
 async function selectMaterializer(options = {}, context = {}) {

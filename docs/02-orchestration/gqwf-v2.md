@@ -187,8 +187,9 @@ La tranche 9 fournit `native-reflink-v1`, premier accélérateur physique du SPI
 Il exige un clone Copy-on-Write strict au niveau fichier et vérifie cette
 capacité sur le filesystem du workspace. Un clone explicite indisponible échoue
 sans créer de bail. La politique explicite `materializerId: auto` préfère ce
-backend puis choisit la copie portable, avec la cause du fallback inscrite dans
-le reçu. Sans politique, le défaut reste `portable-copy-v1`.
+backend après les backends montés disponibles, puis choisit la copie portable,
+avec les causes du fallback inscrites dans le reçu. Sans politique, le défaut
+reste `portable-copy-v1`.
 
 Les blobs et les fichiers clonés sont vérifiés par hash. Un hardlink ou une
 cible non régulière est refusé. Cette tranche réduit les écritures initiales sur
@@ -201,10 +202,10 @@ Validation ciblée : `node backend/tests/test_gqwf_reflink_materializer.js`.
 
 La tranche 10 relie le SPI au chemin réel des missions. Une mission GQWF peut
 déclarer `executionPolicy.gqwfMaterializer` avec `portable-copy-v1`,
-`native-reflink-v1` ou `auto`. L'ingress orchestrateur accepte aussi la forme
-`gqwf_materializer`, puis la normalisation conserve le champ canonique. Une
-valeur inconnue, ou une politique sans activation GQWF ni affectation canari,
-est refusée avant le provisionnement du workspace.
+`native-reflink-v1`, `linux-overlayfs-v1` ou `auto`. L'ingress orchestrateur
+accepte aussi la forme `gqwf_materializer`, puis la normalisation conserve le
+champ canonique. Une valeur inconnue, ou une politique sans activation GQWF ni
+affectation canari, est refusée avant le provisionnement du workspace.
 
 Le défaut reste `portable-copy-v1`. `native-reflink-v1` échoue avant la création
 d'un bail si la sonde du volume est négative. `auto` autorise explicitement le
@@ -239,6 +240,32 @@ backend OverlayFS ou ZFS disponible. Voir l'[ADR 0631](../adr/0631-conteneur-bai
 
 Validation ciblée :
 `node backend/tests/test_gqwf_mount_ready_lease_layout.js`.
+
+### OverlayFS Linux
+
+La tranche 12 ajoute `linux-overlayfs-v1`. Une sonde active monte un overlay
+éphémère dans le filesystem du workspace, vérifie la lecture du lower, le
+copy-up d'une écriture et l'immutabilité du lower, puis exige un démontage
+observé. Une plateforme non Linux, un chemin incompatible, une permission de
+montage absente ou un démontage incomplet rendent la capacité indisponible ;
+une sélection explicite échoue avant la création du bail.
+
+Chaque hash de racine possède un cache lower partagé sous
+`.genos/gqwf/overlay-lower/`. Sa preuve et chaque fichier sont relus et vérifiés
+avant montage et avant capture. Chaque bail possède ses propres `upper/` et
+`work/`, placés ensemble dans le conteneur, tandis que `root/` reste le point de
+montage remis au runtime. La libération et la reprise démontent `root/` avant
+toute suppression ; un échec laisse le bail en `releasing` et ses fichiers en
+place pour une nouvelle tentative.
+
+`auto` qualifie dans l'ordre OverlayFS, reflink, puis copie portable, et inscrit
+toutes les indisponibilités traversées dans le reçu. Le défaut sans politique
+reste `portable-copy-v1`. Le cache lower n'est pas encore collecté par le GC et
+la tranche ne revendique aucun gain sans benchmark sur le déploiement cible.
+Voir l'[ADR 0632](../adr/0632-backend-overlayfs-linux-gqwf.md).
+
+Validation ciblée :
+`node backend/tests/test_gqwf_overlayfs_materializer.js`.
 
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,

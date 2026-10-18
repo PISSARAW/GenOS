@@ -72,8 +72,11 @@ async function verifyAutoPolicy(state) {
   const ctx = context(state, 'run-auto', 'auto');
   const prepared = await missionExecution.prepareMissionWorkspace(ctx);
   const selected = prepared.materialization;
-  assert.ok(['native-reflink-v1', 'portable-copy-v1'].includes(selected.backendId));
-  if (selected.backendId === 'native-reflink-v1') {
+  assert.ok(['linux-overlayfs-v1', 'native-reflink-v1',
+    'portable-copy-v1'].includes(selected.backendId));
+  if (selected.backendId === 'linux-overlayfs-v1') {
+    assert.equal(selected.selectionReason, 'auto_overlayfs');
+  } else if (selected.backendId === 'native-reflink-v1') {
     assert.equal(selected.selectionReason, 'auto_reflink');
   } else {
     assert.match(selected.selectionReason, /^auto_portable_fallback:/);
@@ -114,6 +117,26 @@ async function verifyExplicitReflink(state) {
   assert.match(failed.error, /native-reflink-v1.*unavailable/);
 }
 
+async function verifyExplicitOverlayfs(state) {
+  const capabilities = await createFabric(state.db).inspectMaterializers({ workspaceId: 'ws-policy' });
+  const overlay = capabilities.find((entry) => entry.backendId === 'linux-overlayfs-v1');
+  assert.ok(overlay);
+  const before = await state.db.get('SELECT COUNT(*) AS count FROM gqwf_leases');
+  const ctx = context(state, 'run-overlayfs', 'linux-overlayfs-v1');
+  if (overlay.available) {
+    const prepared = await missionExecution.prepareMissionWorkspace(ctx);
+    assert.equal(prepared.materialization.backendId, 'linux-overlayfs-v1');
+    await missionExecution.finalizeMissionWorkspace({
+      db: state.db, executionRunId: 'run-overlayfs', outcomeStatus: 'failed'
+    });
+    return;
+  }
+  await assert.rejects(missionExecution.prepareMissionWorkspace(ctx),
+    /linux-overlayfs-v1.*unavailable/);
+  const after = await state.db.get('SELECT COUNT(*) AS count FROM gqwf_leases');
+  assert.equal(after.count, before.count);
+}
+
 async function main() {
   const state = await fixture();
   try {
@@ -121,6 +144,7 @@ async function main() {
     await verifyDefaultPolicy(state);
     await verifyAutoPolicy(state);
     await verifyExplicitReflink(state);
+    await verifyExplicitOverlayfs(state);
     console.log('GQWF mission materializer policy checks passed.');
   } finally {
     await state.db.close();

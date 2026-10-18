@@ -106,7 +106,8 @@ async function verifyAutoPolicy(state, rootHash) {
   const portableLease = await fallback.materializeRoot({ workspaceId: 'ws-reflink', rootHash });
   assert.equal(portableLease.materialization.backendId, portableCopy.id);
   assert.equal(portableLease.materialization.selectionReason,
-    'auto_portable_fallback:reflink_probe_enotsup');
+    'auto_portable_fallback:linux-overlayfs-v1=backend_unregistered,'
+      + 'native-reflink-v1=reflink_probe_enotsup');
   await fallback.releaseLease({ workspaceId: 'ws-reflink', leaseId: portableLease.leaseId });
 
   const native = emulatedDriver([]);
