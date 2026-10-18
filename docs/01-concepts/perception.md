@@ -44,7 +44,11 @@ La perception biologique implique des récepteurs sensoriels et un traitement co
 
 ## 7. Architecture technique
 
-Le bridge est référencé dans `memoire-autobiographique.md` et `indicateurs-fonctionnels.md`. Aucun fichier `perceptionMemoryBridgeService.js` n'existe encore en tant que service autonome ; la fonctionnalité est intégrée dans le parcours de capture autobiographique.
+Le service autonome vit dans
+`backend/src/services/perception/perceptionMemoryBridgeService.js`. Il est appelé
+par `backend/src/services/mcpExecutor/efferenceBridge.js` après la réussite d'un
+outil de perception autorisé, puis alimente le sensorium et la capture
+autobiographique via l'événement `PERCEPTION_OBSERVED`.
 
 Le concept `cognition.perception` est enregistré avec le service `perceptionMemoryBridgeService`, niveau `partial`.
 

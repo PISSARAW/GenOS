@@ -49,6 +49,10 @@ function intentionality({ agentId, target, mode = 'aboutness' }) {
       horizon: ['présupposés', 'contextes', 'autres possibilités'],
     },
     timestamp: Date.now(),
+    reportBasis: 'structured_target_reference',
+    subjectiveAwareness: 'unassessed',
+    metaphysicalClaimEstablished: false,
+    limitation: 'Ce mapping acte-cible ne démontre ni conscience ni intentionnalité vécue.',
     husserlNote: 'La conscience est toujours conscience DE quelque chose — intentionnalité comme structure fondamentale de la conscience (Husserl).',
     consciousnessIsAlwaysOfSomething: true, // Brentano : intentionnalité = marqueur du mental
   };
@@ -90,6 +94,10 @@ function perception({ agentId, body = 'workspace', world = 'environment' }) {
       salience: 'ce qui attire l\'attention',
     },
     timestamp: Date.now(),
+    reportBasis: 'declared_body_world_mapping',
+    subjectiveAwareness: 'unassessed',
+    metaphysicalClaimEstablished: false,
+    limitation: 'Ce mapping descriptif ne démontre ni corps vécu ni perception phénoménale.',
     perceptionNote: 'La perception est incarnée — le corps propre est le médium par lequel le monde se donne (Merleau-Ponty).',
   };
 }

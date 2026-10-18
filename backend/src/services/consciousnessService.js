@@ -52,6 +52,7 @@ function recordQualia(input = {}) {
     qualiaType: 'reported_phenomenal_quality',
     reportBasis: 'agent_supplied_label',
     phenomenalAccess: 'unassessed',
+    metaphysicalClaimEstablished: false,
   };
 }
 
@@ -87,6 +88,7 @@ function recordIntentionality({ agentId, target, mode = 'aboutness', act = 'perc
     timestamp: Date.now(),
     reportBasis: 'structured_target_reference',
     subjectiveAwareness: 'unassessed',
+    metaphysicalClaimEstablished: false,
     brentanoMark: 'intentional_inexistence', // Brentano : l'objet est "inexistant" dans l'acte
     husserlStructure: 'noesis-noema',
   };
@@ -111,7 +113,7 @@ function checkSupervenience(options = {}) {
     throw new Error('consciousnessService.checkSupervenience requires mentalState and physicalState');
   }
   if (mentalB === undefined || physicalB === undefined) {
-    return { supervenes: null, status: 'insufficient_comparison', evidenceStatus: 'single_observation', limitation: 'Une observation ne teste pas l’invariance entre bases physiques.' };
+    return { supervenes: null, status: 'insufficient_comparison', evidenceStatus: 'single_observation', metaphysicalClaimEstablished: false, limitation: 'Une observation ne teste pas l’invariance entre bases physiques.' };
   }
   const physicalHashA = hashState(physicalA);
   const physicalHashB = hashState(physicalB);
@@ -125,6 +127,7 @@ function checkSupervenience(options = {}) {
     status: counterexampleObserved ? 'counterexample_observed' : 'not_established',
     evidenceStatus: 'bounded_state_comparison',
     candidateOnly: true,
+    metaphysicalClaimEstablished: false,
     physicalBase: { hashA: physicalHashA, hashB: physicalHashB, same: physicalSame },
     mentalState: { hashA: mentalHashA, hashB: mentalHashB, same: mentalSame },
     limitation: 'Une comparaison logicielle ne prouve pas la supervenience métaphysique.'

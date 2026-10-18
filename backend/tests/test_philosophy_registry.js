@@ -95,6 +95,14 @@ assert.strictEqual(health.valid, true, `Registry invalid: ${JSON.stringify(healt
 assert.strictEqual(health.errors.length, 0, `Registry has ${health.errors.length} errors`);
 console.log(`✓ Registry valid: ${health.conceptCount} concepts, 0 errors`);
 
+const normalized = validateRegistry().concepts;
+for (const id of ['metaphysics.qualia', 'metaphysics.reference-intentionality', 'metaphysics.supervenience', 'metaphysics.emergence']) {
+  const concept = normalized.find((candidate) => candidate.id === id);
+  assert.strictEqual(concept.classification, 'reference_only', `${id} must remain reference_only`);
+  assert.strictEqual(concept.implementationDisposition, 'bounded-audit', `${id} must remain a bounded audit`);
+}
+console.log('✓ Philosophical adapters preserve reference_only classification');
+
 // ─── CONCEPT_DEFINITIONS alias ───────────────────────────────────────────
 
 assert.ok(Array.isArray(m.CONCEPT_DEFINITIONS), 'CONCEPT_DEFINITIONS alias must be an array');
@@ -127,10 +135,12 @@ const testConcept = m.C({
   domain: 'epistemology',
   school: 'general',
   status: 'partial',
+  classification: 'reference_only',
   role: 'operational',
 });
 assert.strictEqual(testConcept.id, 'test.concept');
 assert.strictEqual(testConcept.role, 'operational');
+assert.strictEqual(testConcept.classification, 'reference_only');
 assert.strictEqual(testConcept.runtimeAuthority, false, 'non-core should default to false');
 assert.ok(Array.isArray(testConcept.knownLimits));
 assert.ok(typeof testConcept.historicalConfidence === 'number');

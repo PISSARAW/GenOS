@@ -24,7 +24,14 @@ que GenOS possède une expérience subjective.
 - **integrated** : mécanisme appelé par un chemin runtime réel (CLI, backend, MCP, orchestrateur), avec lease et permissions.
 - **validated** : résultat confirmé par une preuve E2E reproductible (commande, seed, artefacts conservés).
 
-> **Note** : Tous les concepts de cette taxonomie (qualia, conscience phénoménale, âme, intentionnalité, soi, etc.) sont classés **`reference_only`**. Ce sont des notions philosophiques utilisées comme vocabulaire documentaire et lentilles d'analyse. Aucun service GenOS n'« implémente » la conscience, les qualia ou l'âme. Les « mappings » ci-dessous désignent des adaptateurs bornés qui produisent des rapports structurés — ils n'observent ni ne vérifient d'expérience subjective.
+> **Note** : Les thèses philosophiques de cette taxonomie (qualia, conscience
+> phénoménale, âme, intentionnalité vécue, supervenience ou émergence forte)
+> sont classées **`reference_only`**. Aucun service GenOS ne les implémente.
+> Des concepts GenOS distincts, comme la conscience opérationnelle, l'attention
+> fonctionnelle ou le modèle de soi, peuvent être `integrated` en tant que
+> mécanismes logiciels. Leur exécution ne valide jamais la thèse philosophique
+> analogue. Les « mappings » ci-dessous sont des audits bornés : ils produisent
+> des rapports structurés sans observer ni vérifier d'expérience subjective.
 
 ## 1. Définition du domaine
 
@@ -283,4 +290,7 @@ Avant publication d'un concept ou d'une relation :
 - Elle ne permet pas d'inférer qu'un agent souffre à partir d'un score de valence.
 - Toute assertion sur une conscience artificielle doit conserver son niveau de
   preuve et sa provenance.
-- **Aucun concept de cette taxonomie n'est `primitive`, `integrated` ou `validated`** — tous sont `reference_only` par construction. Les services GenOS cités dans les mappings produisent des rapports structurés, pas des preuves d'expérience subjective.
+- **Aucune thèse phénoménale ou métaphysique de cette taxonomie n'est
+  `primitive`, `integrated` ou `validated`** : elle reste `reference_only`.
+  Les analogues fonctionnels portant leurs propres identifiants peuvent être
+  intégrés comme logiciels, sans devenir des preuves d'expérience subjective.
