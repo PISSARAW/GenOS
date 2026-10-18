@@ -32,8 +32,8 @@ function verifySearches() {
   assert.equal(executeSolver('react_solver', values, 7).steps, 4);
   assert.equal(executeSolver('genetic_solver', values, 9).steps, 1);
   assert.equal(executeSolver('reflexion_solver', values, 5).trace[0].phase, 'Verification');
-  assert.equal(executeSolver('unknown', values, 7).index, 3);
-  assert.equal(executeSolver('__proto__', values, 7).index, 3);
+  assert.throws(() => executeSolver('unknown', values, 7), /Unknown solver/);
+  assert.throws(() => executeSolver('__proto__', values, 7), /Unknown solver/);
 }
 
 function verifyFeatureProbe() {

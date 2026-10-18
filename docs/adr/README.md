@@ -757,6 +757,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0634](0634-qualification-appariee-materialiseurs-gqwf.md) | Qualifier les matérialiseurs GQWF par paires | Accepté, protocole local non promoteur | 2026-10-18 | GQWF, matérialisation, OverlayFS, reflink, benchmark, preuves |
 | [0635](0635-scrub-integrite-store-gqwf.md) | Scrubber explicitement le store GQWF | Accepté, détection sans réparation | 2026-10-18 | GQWF, stockage, intégrité, récupération, preuves |
 | [0636](0636-replication-cas-gqwf.md) | Répliquer les racines GQWF par contenu | Accepté, réplication locale inter-workspaces | 2026-10-18 | GQWF, CAS, réplication, tenants, reprise, preuves |
+| [0637](0637-reduire-la-baseline-qualite-residuelle.md) | Réduire la baseline qualité résiduelle | Accepté | 2026-10-18 | qualité, preuves, gouvernance de dette |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

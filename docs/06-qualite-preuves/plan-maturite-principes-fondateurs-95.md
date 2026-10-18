@@ -1,6 +1,6 @@
 # Plan de maturité des principes fondateurs vers 95/100
 
-- **Statut** : Exécution en cours, phases 10 et 11 qualifiées
+- **Statut** : Exécution en cours, phases 10 à 12 qualifiées (89/100)
 - **Portée** : fermeture transverse des réserves après les phases 7 à 9
 - **Dernière revue** : 2026-10-18
 
@@ -20,7 +20,7 @@ reçu vérifiable. Un lot incomplet n'ajoute aucun point.
 | --- | ---: | --- | --- |
 | Phase 10 — CI Node transverse | +3 | `npm test` termine à zéro sans dépendre de `.env` ni d'une autorité implicite | Qualifiée le 2026-10-18 |
 | Phase 11 — validation Rust reproductible | +2 | `cargo test --workspace` termine à zéro dans un répertoire de build isolé | Qualifiée le 2026-10-18 |
-| Phase 12 — dette du gate qualité | +2 | aucune nouvelle dette et gate global ramené à un état accepté et documenté | À faire |
+| Phase 12 — dette du gate qualité | +2 | aucune nouvelle dette et gate global ramené à un état accepté et documenté | Qualifiée le 2026-10-18 |
 | Phase 13 — registre de confiance déployable | +3 | bootstrap, rotation, révocation et récupération de clés testés en fail-closed | À faire |
 | Phase 14 — journal de révocation durable | +2 | anti-rollback, reprise après crash et réplication vérifiées sur stockage durable | À faire |
 | Phase 15 — qualification transverse | +1 | matrice multi-chemins et reçu frais couvrant Node, Rust, MCP et récupération | À faire |
@@ -99,6 +99,36 @@ modifier leur comportement. Les changements architecturaux exigent un ADR.
 
 Sortie : `python scripts/ci/check_code_quality.py` passe et la baseline résiduelle,
 si elle existe encore, est bornée, attribuée et accompagnée d'une date de retrait.
+
+Preuves de sortie :
+
+- `python scripts/ci/check_code_quality.py` : 6 791 fichiers contrôlés,
+  15 violations historiques et 0 nouvelle, code de sortie 0 ;
+- les 6 violations nouvelles ont été éliminées : trois complexités dans le
+  gouverneur de sortie, deux signatures Rust trop larges et une complexité dans
+  le cycle de promotion des preuves ;
+- `node backend/tests/test_output_governor.js` : 27 assertions réussies ;
+- `npm --prefix backend run test:quality` : 12 tests réussis ; la fixture
+  historique attend désormais le refus des identifiants de solveur inconnus et
+  de `__proto__`, conformément au comportement fail-closed du service ;
+- `cargo test -p genos-common --locked --quiet` : 10 tests réussis ;
+- la baseline a été réduite à 15 violations dans 12 fichiers, contre une liste
+  obsolète couvrant beaucoup plus de dette déjà remboursée ; aucune tolérance
+  nouvelle n'a été ajoutée.
+
+Dette résiduelle bornée :
+
+| Propriétaire | Fichiers | Violations | Retrait visé |
+| --- | --- | ---: | --- |
+| Runtime processus | `agentProcessOutcome.js`, `agentProcessSupervisor.js` | 2 | 2026-11-15 |
+| Sécurité et stockage | `security.js`, `mcpExecutor/config.js`, `vfsSandboxService.js` | 5 | 2026-11-15 |
+| Orchestration | `resilienceController.js`, `workflowController.js`, `arenaSolvers.js`, `morphogenesisPlannerService.js`, `strategyExecutionEvents.js`, `trinityComparativeBarrier.js` | 7 | 2026-11-30 |
+| Qualité synaptique | `test_synaptic_integrity.js` | 1 | 2026-11-15 |
+
+Le mode `--strict` continue volontairement d'échouer sur ces 15 éléments. La
+baseline ne les déclare pas conformes ; elle interdit seulement leur croissance
+jusqu'aux dates de retrait. La décision de refactoring suit l'ADR 0344 et la
+réduction de baseline est tracée par l'ADR 0637.
 
 ## Phase 13 — registre de confiance déployable
 

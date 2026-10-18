@@ -37,6 +37,25 @@ pub struct EvidenceEnvelope {
     pub rejection_reason: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct EvidenceDraft {
+    pub source_id: String,
+    pub capture_id: String,
+    pub input: Value,
+    pub output: Value,
+    pub state: EvidenceState,
+    pub replay_key: String,
+    pub created_at_epoch_ms: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct EvidencePromotion {
+    pub target: EvidenceState,
+    pub verifier_id: Option<String>,
+    pub verification_ref: Option<String>,
+    pub rejection_reason: Option<String>,
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum EvidenceError {
     #[error("evidence schema is invalid")]
@@ -55,33 +74,25 @@ pub enum EvidenceError {
     Signature,
 }
 
-pub fn create_envelope(
-    source_id: String,
-    capture_id: String,
-    input: Value,
-    output: Value,
-    state: EvidenceState,
-    replay_key: String,
-    created_at_epoch_ms: u64,
-) -> Result<EvidenceEnvelope, EvidenceError> {
-    validate_text(&source_id, "source_id", 256)?;
-    validate_text(&capture_id, "capture_id", 256)?;
-    validate_text(&replay_key, "replay_key", 512)?;
-    if created_at_epoch_ms == 0 {
+pub fn create_envelope(draft: EvidenceDraft) -> Result<EvidenceEnvelope, EvidenceError> {
+    validate_text(&draft.source_id, "source_id", 256)?;
+    validate_text(&draft.capture_id, "capture_id", 256)?;
+    validate_text(&draft.replay_key, "replay_key", 512)?;
+    if draft.created_at_epoch_ms == 0 {
         return Err(EvidenceError::Field("created_at_epoch_ms".into()));
     }
     let envelope = EvidenceEnvelope {
         schema: EVIDENCE_SCHEMA.into(),
         evidence_id: Uuid::new_v4(),
-        state,
-        source_id,
-        capture_id,
-        input_digest: digest_json(&input),
-        output_digest: digest_json(&output),
-        input,
-        output,
-        replay_key,
-        created_at_epoch_ms,
+        state: draft.state,
+        source_id: draft.source_id,
+        capture_id: draft.capture_id,
+        input_digest: digest_json(&draft.input),
+        output_digest: digest_json(&draft.output),
+        input: draft.input,
+        output: draft.output,
+        replay_key: draft.replay_key,
+        created_at_epoch_ms: draft.created_at_epoch_ms,
         signer_id: None,
         signature_hex: None,
         verification_ref: None,
@@ -116,42 +127,71 @@ pub fn validate_envelope(envelope: &EvidenceEnvelope) -> Result<(), EvidenceErro
 
 pub fn promote(
     envelope: &EvidenceEnvelope,
-    target: EvidenceState,
-    verifier_id: Option<String>,
-    verification_ref: Option<String>,
-    rejection_reason: Option<String>,
+    promotion: EvidencePromotion,
 ) -> Result<EvidenceEnvelope, EvidenceError> {
     validate_envelope(envelope)?;
-    let allowed = matches!(
-        (envelope.state, target),
-        (EvidenceState::Synthetic, EvidenceState::Observed | EvidenceState::Rejected)
-            | (EvidenceState::Observed, EvidenceState::Verified | EvidenceState::Rejected)
-            | (EvidenceState::Verified, EvidenceState::Rejected)
-    );
-    if !allowed {
-        return Err(EvidenceError::Transition);
-    }
-    if target == EvidenceState::Verified {
-        validate_text(verifier_id.as_deref().unwrap_or_default(), "verifier_id", 256)?;
-        validate_text(verification_ref.as_deref().unwrap_or_default(), "verification_ref", 512)?;
-    }
-    if target == EvidenceState::Rejected && rejection_reason.is_none() {
-        return Err(EvidenceError::RejectionReason);
-    }
+    validate_transition(envelope.state, promotion.target)?;
+    validate_promotion(&promotion)?;
     let mut promoted = envelope.clone();
-    promoted.state = target;
-    promoted.signer_id = verifier_id.or_else(|| envelope.signer_id.clone());
-    promoted.verification_ref = verification_ref.or_else(|| envelope.verification_ref.clone());
-    promoted.rejection_reason = if target == EvidenceState::Rejected {
-        rejection_reason
-    } else {
-        None
-    };
+    promoted.state = promotion.target;
+    promoted.signer_id = promotion.verifier_id.or_else(|| envelope.signer_id.clone());
+    promoted.verification_ref = promotion
+        .verification_ref
+        .or_else(|| envelope.verification_ref.clone());
+    promoted.rejection_reason = rejection_reason(promotion.target, promotion.rejection_reason);
     validate_envelope(&promoted)?;
     Ok(promoted)
 }
 
-pub fn sign(envelope: &EvidenceEnvelope, signer_id: String, key: &SigningKey) -> Result<EvidenceEnvelope, EvidenceError> {
+fn validate_transition(current: EvidenceState, target: EvidenceState) -> Result<(), EvidenceError> {
+    let allowed = matches!(
+        (current, target),
+        (
+            EvidenceState::Synthetic,
+            EvidenceState::Observed | EvidenceState::Rejected
+        ) | (
+            EvidenceState::Observed,
+            EvidenceState::Verified | EvidenceState::Rejected
+        ) | (EvidenceState::Verified, EvidenceState::Rejected)
+    );
+    match allowed {
+        true => Ok(()),
+        false => Err(EvidenceError::Transition),
+    }
+}
+
+fn validate_promotion(promotion: &EvidencePromotion) -> Result<(), EvidenceError> {
+    if promotion.target == EvidenceState::Verified {
+        validate_text(
+            promotion.verifier_id.as_deref().unwrap_or_default(),
+            "verifier_id",
+            256,
+        )?;
+        validate_text(
+            promotion.verification_ref.as_deref().unwrap_or_default(),
+            "verification_ref",
+            512,
+        )?;
+    }
+    if promotion.target == EvidenceState::Rejected && promotion.rejection_reason.is_none() {
+        return Err(EvidenceError::RejectionReason);
+    }
+    Ok(())
+}
+
+fn rejection_reason(target: EvidenceState, reason: Option<String>) -> Option<String> {
+    if target == EvidenceState::Rejected {
+        reason
+    } else {
+        None
+    }
+}
+
+pub fn sign(
+    envelope: &EvidenceEnvelope,
+    signer_id: String,
+    key: &SigningKey,
+) -> Result<EvidenceEnvelope, EvidenceError> {
     validate_envelope(envelope)?;
     validate_text(&signer_id, "signer_id", 256)?;
     let mut signed = envelope.clone();
@@ -160,39 +200,74 @@ pub fn sign(envelope: &EvidenceEnvelope, signer_id: String, key: &SigningKey) ->
     Ok(signed)
 }
 
-pub fn verify_signature(envelope: &EvidenceEnvelope, key: &VerifyingKey) -> Result<(), EvidenceError> {
+pub fn verify_signature(
+    envelope: &EvidenceEnvelope,
+    key: &VerifyingKey,
+) -> Result<(), EvidenceError> {
     validate_envelope(envelope)?;
     if envelope.signer_id.is_none() {
         return Err(EvidenceError::Signature);
     }
-    let signature = envelope.signature_hex.as_deref().ok_or(EvidenceError::Signature)?;
+    let signature = envelope
+        .signature_hex
+        .as_deref()
+        .ok_or(EvidenceError::Signature)?;
     let bytes = hex_decode(signature).ok_or(EvidenceError::Signature)?;
     let signature = Signature::from_slice(&bytes).map_err(|_| EvidenceError::Signature)?;
-    key.verify(&signing_bytes(envelope), &signature).map_err(|_| EvidenceError::Signature)
+    key.verify(&signing_bytes(envelope), &signature)
+        .map_err(|_| EvidenceError::Signature)
 }
 
-pub fn replay_matches(envelope: &EvidenceEnvelope, input: &Value, output: &Value) -> Result<bool, EvidenceError> {
+pub fn replay_matches(
+    envelope: &EvidenceEnvelope,
+    input: &Value,
+    output: &Value,
+) -> Result<bool, EvidenceError> {
     validate_envelope(envelope)?;
-    Ok(envelope.input_digest == digest_json(input) && envelope.output_digest == digest_json(output))
+    Ok(
+        envelope.input_digest == digest_json(input)
+            && envelope.output_digest == digest_json(output),
+    )
 }
 
 pub fn digest_json(value: &Value) -> String {
-    format!("sha256:{:x}", Sha256::digest(canonical_json(value).as_bytes()))
+    format!(
+        "sha256:{:x}",
+        Sha256::digest(canonical_json(value).as_bytes())
+    )
 }
 
 fn signing_bytes(envelope: &EvidenceEnvelope) -> Vec<u8> {
     let mut unsigned = envelope.clone();
     unsigned.signature_hex = None;
-    canonical_json(&serde_json::to_value(unsigned).expect("evidence serialization is infallible")).into_bytes()
+    canonical_json(&serde_json::to_value(unsigned).expect("evidence serialization is infallible"))
+        .into_bytes()
 }
 
 fn canonical_json(value: &Value) -> String {
     match value {
-        Value::Array(values) => format!("[{}]", values.iter().map(canonical_json).collect::<Vec<_>>().join(",")),
+        Value::Array(values) => format!(
+            "[{}]",
+            values
+                .iter()
+                .map(canonical_json)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
         Value::Object(map) => {
             let mut keys: Vec<_> = map.keys().collect();
             keys.sort();
-            format!("{{{}}}", keys.iter().map(|key| format!("{}:{}", serde_json::to_string(key).unwrap(), canonical_json(&map[*key]))).collect::<Vec<_>>().join(","))
+            format!(
+                "{{{}}}",
+                keys.iter()
+                    .map(|key| format!(
+                        "{}:{}",
+                        serde_json::to_string(key).unwrap(),
+                        canonical_json(&map[*key])
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
         }
         _ => serde_json::to_string(value).expect("JSON scalar serialization is infallible"),
     }
@@ -210,8 +285,13 @@ fn hex_encode(bytes: &[u8]) -> String {
 }
 
 fn hex_decode(value: &str) -> Option<Vec<u8>> {
-    if value.len() % 2 != 0 { return None; }
-    (0..value.len()).step_by(2).map(|index| u8::from_str_radix(&value[index..index + 2], 16).ok()).collect()
+    if value.len() % 2 != 0 {
+        return None;
+    }
+    (0..value.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&value[index..index + 2], 16).ok())
+        .collect()
 }
 
 #[cfg(test)]
@@ -220,15 +300,55 @@ mod tests {
     use serde_json::json;
 
     fn envelope() -> EvidenceEnvelope {
-        create_envelope("adapter".into(), "capture".into(), json!({"b": 2, "a": 1}), json!({"ok": true}), EvidenceState::Synthetic, "replay-1".into(), 1).unwrap()
+        create_envelope(EvidenceDraft {
+            source_id: "adapter".into(),
+            capture_id: "capture".into(),
+            input: json!({"b": 2, "a": 1}),
+            output: json!({"ok": true}),
+            state: EvidenceState::Synthetic,
+            replay_key: "replay-1".into(),
+            created_at_epoch_ms: 1,
+        })
+        .unwrap()
+    }
+
+    fn transition(target: EvidenceState) -> EvidencePromotion {
+        EvidencePromotion {
+            target,
+            verifier_id: None,
+            verification_ref: None,
+            rejection_reason: None,
+        }
     }
 
     #[test]
     fn lifecycle_rejects_unproven_promotion_and_accepts_verified_path() {
-        let observed = promote(&envelope(), EvidenceState::Observed, None, None, None).unwrap();
-        let verified = promote(&observed, EvidenceState::Verified, Some("verifier".into()), Some("check-1".into()), None).unwrap();
-        assert!(promote(&verified, EvidenceState::Observed, None, None, None).is_err());
+        let observed = promote(&envelope(), transition(EvidenceState::Observed)).unwrap();
+        let verified = promote(
+            &observed,
+            EvidencePromotion {
+                target: EvidenceState::Verified,
+                verifier_id: Some("verifier".into()),
+                verification_ref: Some("check-1".into()),
+                rejection_reason: None,
+            },
+        )
+        .unwrap();
+        assert!(promote(&verified, transition(EvidenceState::Observed)).is_err());
         assert!(replay_matches(&verified, &verified.input, &verified.output).unwrap());
+    }
+
+    #[test]
+    fn promotion_requires_verification_and_rejection_evidence() {
+        let observed = promote(&envelope(), transition(EvidenceState::Observed)).unwrap();
+        assert_eq!(
+            promote(&observed, transition(EvidenceState::Verified)).unwrap_err(),
+            EvidenceError::Field("verifier_id".into())
+        );
+        assert_eq!(
+            promote(&observed, transition(EvidenceState::Rejected)).unwrap_err(),
+            EvidenceError::RejectionReason
+        );
     }
 
     #[test]
@@ -238,6 +358,9 @@ mod tests {
         assert!(verify_signature(&signed, &key.verifying_key()).is_ok());
         let mut tampered = signed.clone();
         tampered.output = json!({"ok": false});
-        assert_eq!(verify_signature(&tampered, &key.verifying_key()), Err(EvidenceError::Digest));
+        assert_eq!(
+            verify_signature(&tampered, &key.verifying_key()),
+            Err(EvidenceError::Digest)
+        );
     }
 }
