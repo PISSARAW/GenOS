@@ -28,6 +28,11 @@ const expectedConceptCount = CONCEPT_DEFINITIONS.length;
 const health = registryHealth();
 assert.equal(health.valid, true, health.errors.join('; '));
 assert.equal(health.conceptCount, CONCEPT_DEFINITIONS.length);
+assert.deepEqual(health.dispositionCounts, {
+  'reference-only': 195,
+  'bounded-audit': 222,
+  'runtime-capability': 3,
+});
 assert.deepEqual(health.duplicateIds, []);
 assert.deepEqual(health.errors, []);
 const compiled = compileRegistry(CONCEPT_DEFINITIONS);
@@ -78,6 +83,7 @@ contractHealth.then(async (result) => {
   assert.equal(result.pilotCount, 21);
   assert.equal(result.pendingCount, 0);
   assert.equal(result.mappedCount, expectedConceptCount);
+  assert.deepEqual(result.dispositionCounts, health.dispositionCounts);
   assert.equal(Object.values(result.categoryCounts).reduce((sum, count) => sum + count, 0), expectedConceptCount);
   assert.ok(result.categoryCounts.evaluation > 0);
   const readiness = await router.handlePhilosophyRequest({ request: { operation: 'implementationReadiness' } });

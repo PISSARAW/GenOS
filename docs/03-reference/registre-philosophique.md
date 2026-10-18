@@ -2,7 +2,7 @@
 
 - **Statut** : Opérationnel avec concepts partiels
 - **Portée** : registre canonique, audits logiciels bornés et gouvernance des preuves
-- **Dernière revue** : 2026-10-06
+- **Dernière revue** : 2026-10-18
 
 ## Rôle
 
@@ -23,6 +23,7 @@ Le sous-domaine `mathematics` est documenté dans
 | Relations philosophiques | `backend/src/philosophy/relationRegistry.js` |
 | Sous-domaines GenOS | `backend/src/philosophy/genosSubdomains.js` |
 | Maturité des services | `backend/src/philosophy/serviceMaturity.js` |
+| Disposition d'implémentation | `backend/src/philosophy/implementationDisposition.js` |
 | Contrats philosophiques | `backend/src/philosophy/implementationContracts.js`, `spec/implementation-contract.schema.json` |
 | Profils des 420 audits | `backend/src/philosophy/operationalProfiles.js`, `cognitiveOperationalProfiles.js`, `operationalPredicates.js`, `contractRuntime.js` |
 | Expériences et reçus rejouables | `backend/src/philosophy/contractExperiments.js`, `contractPromotion.js` |
@@ -30,6 +31,25 @@ Le sous-domaine `mathematics` est documenté dans
 | Raccord Ontogenèse | `backend/src/services/ontogenesis/canonicalConceptRegistry.js`, `missionCapabilityPlanService.js`, `runtimeHarness.js` |
 
 La documentation explique le modèle ; elle ne duplique pas le registre canonique.
+
+## Dispositions d'implémentation
+
+Chaque entrée appartient à une et une seule disposition calculée à partir de la
+maturité du service et de l'autorité déclarée. Ce classement décrit ce que le
+logiciel peut faire ; il ne tranche aucune thèse philosophique.
+
+| Disposition | Nombre | Signification |
+| --- | ---: | --- |
+| `reference-only` | 195 | Aucun service métier exécutable. Seules la description et la sonde d'audit partagée sont admises. |
+| `bounded-audit` | 222 | Un service traite des données déclarées, sans autorité runtime ni vérification de vérité externe. |
+| `runtime-capability` | 3 | Un chemin runtime déclaré existe, mais reste soumis à ses permissions, leases, budgets et preuves. |
+
+Le champ `implementationDispositionDetails` rend visibles la source de ce
+classement, l'usage autorisé et ses limites. Il conserve toujours
+`runtimeAuthorityGranted: false` et `promotionEligible: false` : le contrat
+philosophique n'accorde aucun droit, y compris pour une `runtime-capability`.
+Les comptes sont exposés par les deux endpoints de santé. Les listes de concepts
+et de contrats peuvent être filtrées par `implementationDisposition`.
 
 ## Contrats d’implémentation
 
@@ -63,7 +83,7 @@ elle n'exécute pas une campagne et n'accorde pas de promotion.
 
 La liste des contrats est paginée : `arguments.offset` commence à zéro,
 `arguments.limit` est un entier de 1 à 100 (100 par défaut), et le filtre de
-cible précède le découpage. La réponse fournit `contracts`, `total`, `offset`,
+cible ou de disposition précède le découpage. La réponse fournit `contracts`, `total`, `offset`,
 `limit` et `nextOffset`. Reprendre cet offset jusqu'à `null` pour lire les
 420 entrées. La santé conserve les comptes et erreurs, sans dupliquer le
 catalogue complet dans une réponse MCP trop grande.
@@ -132,6 +152,7 @@ Une entrée possède au minimum :
 - un statut (`implemented`, `partial`, `interpretive`, `disputed`, `planned` ou `registered`) ;
 - des sous-domaines GenOS explicites ;
 - une maturité de service séparée du statut philosophique ;
+- une disposition d'implémentation et ses limites non promotionnelles ;
 - une provenance lorsque l'entrée repose sur une source externe.
 
 Un statut `implemented` signifie qu'un adaptateur testable existe. Il ne signifie

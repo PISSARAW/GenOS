@@ -6,6 +6,7 @@ const { operationalize, PRIMITIVES } = require('./contractOperationalization');
 const { profileFor } = require('./operationalProfiles');
 const { validateContract, createContractValidator } = require('./contractValidation');
 const { promotionEvidence } = require('./contractPromotion');
+const { dispositionCounts } = require('./implementationDisposition');
 
 /**
  * Operational contracts are the executable boundary between a philosophical
@@ -145,6 +146,9 @@ function provisionalContract(concept) {
     conflicts: conflictRefs(concept),
     confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
     sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
+    serviceMaturity: concept.serviceMaturity,
+    implementationDisposition: concept.implementationDisposition,
+    implementationDispositionDetails: concept.implementationDispositionDetails,
     scenario,
     experiment: experimentFor(category, concept.id, scenario),
     interpretation,
@@ -186,6 +190,8 @@ function compileConcept(concept) {
     source: concept.provenance || null,
     conceptStatus: concept.status,
     serviceMaturity: concept.serviceMaturity || null,
+    implementationDisposition: concept.implementationDisposition,
+    implementationDispositionDetails: concept.implementationDispositionDetails,
   }, concept);
 }
 
@@ -209,6 +215,7 @@ function compileRegistry(concepts) {
   const categoryCounts = Object.fromEntries([...new Set(contracts.map((item) => item.category))]
     .map((category) => [category, contracts.filter((item) => item.category === category).length]));
   return { valid: errors.length === 0, contracts, errors, pilotCount, mappedCount, pendingCount, categoryCounts,
+    dispositionCounts: dispositionCounts(contracts),
     coverageScope: 'bounded-software-audit', validatedOnRealMissions: 0 };
 }
 

@@ -21,6 +21,11 @@ async function main() {
   try {
     const health = await call('implementationContractHealth');
     assert.equal(health.compiledConcepts, expectedConceptCount);
+    assert.deepEqual(health.dispositionCounts, {
+      'reference-only': 195,
+      'bounded-audit': 222,
+      'runtime-capability': 3,
+    });
     assert.equal(Object.hasOwn(health, 'contracts'), false);
     const ids = [];
     let offset = 0;
@@ -38,6 +43,10 @@ async function main() {
     assert.equal(filtered.contracts.length, 7);
     assert.ok(filtered.contracts.every((contract) => contract.targets.includes('response')));
     assert.ok(filtered.total > 7);
+    const references = await call('listImplementationContracts', { implementationDisposition: 'reference-only', limit: 7 });
+    assert.equal(references.contracts.length, 7);
+    assert.equal(references.total, 195);
+    assert.ok(references.contracts.every((contract) => contract.implementationDisposition === 'reference-only'));
     for (const args of [{ limit: 101 }, { limit: 0 }, { offset: -1 }, { offset: 1.5 }, { limit: '100' }]) {
       await assert.rejects(() => router.handlePhilosophyRequest({ request: { operation: 'listImplementationContracts', arguments: args } }));
     }

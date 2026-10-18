@@ -12,7 +12,9 @@
     "domain",
     "school",
     "status",
-    "role"
+    "role",
+    "implementationDisposition",
+    "implementationDispositionDetails"
   ],
   "properties": {
     "apiVersion": {
@@ -285,6 +287,13 @@
       },
       "additionalProperties": false
     },
+    "implementationDisposition": {
+      "type": "string",
+      "enum": ["reference-only", "bounded-audit", "runtime-capability"]
+    },
+    "implementationDispositionDetails": {
+      "$ref": "#/$defs/implementationDispositionDetails"
+    },
     "provenance": {
       "type": "object",
       "properties": {
@@ -416,6 +425,23 @@
         },
         "additionalProperties": false
       }
+    }
+  },
+  "$defs": {
+    "implementationDispositionDetails": {
+      "type": "object",
+      "required": ["name", "description", "sourceServiceExecutable", "runtimeCapability", "allowedUse", "knownLimits", "runtimeAuthorityGranted", "promotionEligible"],
+      "properties": {
+        "name": { "type": "string", "enum": ["reference-only", "bounded-audit", "runtime-capability"] },
+        "description": { "type": "string", "minLength": 1 },
+        "sourceServiceExecutable": { "type": "boolean" },
+        "runtimeCapability": { "type": "boolean" },
+        "allowedUse": { "type": "string", "enum": ["description-and-shared-audit", "bounded-software-audit", "existing-authorized-runtime-path"] },
+        "knownLimits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "runtimeAuthorityGranted": { "const": false },
+        "promotionEligible": { "const": false }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

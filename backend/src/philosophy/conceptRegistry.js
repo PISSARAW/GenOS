@@ -6,6 +6,12 @@ const { GENOS_SUBDOMAINS, subdomainsForConcept } = require('./genosSubdomains');
 const { maturityForConcept } = require('./serviceMaturity');
 const { mappingForConcept } = require('./runtimeMappings');
 const { DEFAULTS_BY_ROLE, ROLE_BY_ID, CLASSIFICATION_LEVELS, CLASSIFICATION_DEFAULTS, classificationForRole } = require('./conceptRoles');
+const {
+  IMPLEMENTATION_DISPOSITIONS,
+  implementationDispositionFor,
+  dispositionCounts,
+  dispositionErrors,
+} = require('./implementationDisposition');
 
 const CONCEPT_SCHEMA = 'philosophical-concept.schema.json';
 
@@ -37,6 +43,8 @@ function normalizeConcept(concept) {
   const scope = resolveField(concept.scope, 'scope', defaults);
   const historicalConfidence = resolveField(concept.historicalConfidence, 'historicalConfidence', defaults);
   const classification = resolveField(concept.classification, 'classification', defaults);
+  const serviceMaturity = maturityForConcept(concept);
+  const disposition = implementationDispositionFor(serviceMaturity, runtimeAuthority);
 
   return {
     apiVersion: 'genos.philosophy/v1',
@@ -53,7 +61,7 @@ function normalizeConcept(concept) {
     service: concept.service || null,
     ...conceptCollections(concept),
     mapping: concept.mapping || mappingForConcept(concept.id),
-    serviceMaturity: maturityForConcept(concept),
+    serviceMaturity,
     provenance: concept.provenance || {
       version: '1.0.0',
       sourceType: 'genos',
@@ -68,6 +76,8 @@ function normalizeConcept(concept) {
     historicalConfidence,
     classification,
     classificationDetails: CLASSIFICATION_DEFAULTS[classification] || null,
+    implementationDisposition: disposition.name,
+    implementationDispositionDetails: disposition,
   };
 }
 
@@ -106,6 +116,7 @@ function validateRegistry(concepts = CONCEPT_DEFINITIONS) {
       errors.push(...result.errors.map((error) => `concepts[${index}]: ${error}`));
     }
     errors.push(...validateScalarFields(concept, index));
+    errors.push(...dispositionErrors(concept).map((error) => `concepts[${index}]: ${error}`));
   });
 
   const duplicates = duplicateIds(normalized);
@@ -126,12 +137,20 @@ function registryHealth() {
   return {
     valid: result.valid,
     conceptCount: result.concepts.length,
+    dispositionCounts: dispositionCounts(result.concepts),
     duplicateIds: duplicateIds(result.concepts),
     errors: result.errors
   };
 }
 
-module.exports = { normalizeConcept, validateRegistry, registryHealth, CLASSIFICATION_LEVELS, CLASSIFICATION_DEFAULTS };
+module.exports = {
+  normalizeConcept,
+  validateRegistry,
+  registryHealth,
+  CLASSIFICATION_LEVELS,
+  CLASSIFICATION_DEFAULTS,
+  IMPLEMENTATION_DISPOSITIONS,
+};
 
 function conceptCollections(concept) {
   return {

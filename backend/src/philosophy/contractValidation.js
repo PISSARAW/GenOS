@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { validateSpec, validateWithSchema } = require('../services/specValidator');
 const { executionErrors } = require('./contractOperationalization');
+const { dispositionErrors } = require('./implementationDisposition');
 
 const TARGETS = ['agent', 'relations', 'topology', 'world', 'reflection', 'response'];
 const MATURITY = ['registered', 'defined', 'mechanism-linked', 'observable', 'tested', 'integrated', 'validated'];
@@ -48,7 +49,8 @@ function validateContractSchema(value) {
 function validateContract(value, validateSchema = validateContractSchema) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return ['contract must be an object'];
   const schema = validateSchema(value);
-  return [...schema.errors, ...scalarErrors(value), ...scenarioErrors(value), ...arrayErrors(value), ...executionErrors(value)];
+  return [...schema.errors, ...scalarErrors(value), ...scenarioErrors(value), ...arrayErrors(value),
+    ...dispositionErrors(value), ...executionErrors(value)];
 }
 
 function createContractValidator() {
