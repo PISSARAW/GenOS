@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.local/schemas/morphogenesis-p3-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["campaignId", "status", "registeredAt", "statisticalPlan", "statisticalPlanHash", "datasets", "execution"],
+  "properties": {
+    "campaignId": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,160}$" },
+    "status": { "const": "preregistered" },
+    "registeredAt": { "type": "string", "format": "date-time" },
+    "statisticalPlanHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "statisticalPlan": {
+      "type": "object",
+      "required": ["alpha", "bootstrapSamples", "minShadowPairs", "minHoldoutPairs", "minEffect", "maxCostOverhead", "seed", "multiplicityCorrection"]
+    },
+    "datasets": {
+      "type": "object",
+      "required": ["shadow", "holdout"],
+      "properties": {
+        "shadow": {
+          "type": "object",
+          "required": ["datasetId", "sha256"],
+          "properties": {
+            "datasetId": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+          }
+        },
+        "holdout": {
+          "type": "object",
+          "required": ["datasetId", "sha256", "sealedAt", "selectorAccess"],
+          "properties": {
+            "datasetId": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+            "sealedAt": { "type": "string", "format": "date-time" },
+            "selectorAccess": { "const": false }
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelId", "budgetTokens", "latencyBudgetMs", "toolPolicyHash", "environmentHash"],
+      "properties": {
+        "modelId": { "type": "string", "minLength": 1 },
+        "budgetTokens": { "type": "number", "exclusiveMinimum": 0 },
+        "latencyBudgetMs": { "type": "number", "exclusiveMinimum": 0 },
+        "toolPolicyHash": { "type": "string", "minLength": 1 },
+        "environmentHash": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

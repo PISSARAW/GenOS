@@ -22,6 +22,18 @@
     "multiplicityCorrection": "bonferroni"
   },
   "statisticalPlanHash": "sha256:d4290680a3f4376fb7e6f218541ba9828c626e4d133e06b910fa3a4179500b35",
+  "p3Runner": {
+    "status": "implemented-not-configured",
+    "command": "node benchmarks/topology-morphogenesis/run-p3-campaign.cjs --config <runtime.json> --phase shadow|holdout",
+    "durability": "immutable attempt receipts, expiring leases and split seals",
+    "idempotency": "stable attempt IDs propagated to every process adapter",
+    "holdoutIsolation": "adapter requests omit split, dataset, task ID and oracle identity",
+    "schemas": [
+      "schemas/p3-manifest.schema.json",
+      "schemas/p3-dataset.schema.json",
+      "schemas/p3-runtime-config.schema.json"
+    ]
+  },
   "requiredBindings": [
     "taskId",
     "taskFamily",
@@ -35,8 +47,8 @@
     "environmentHash"
   ],
   "blockedBy": [
-    "shadow and holdout datasets are not supplied or sealed",
-    "LangGraph, AutoGen GraphFlow/Swarm and MASS/EvoMAS external-paired adapters have not executed",
+    "real shadow and holdout datasets are not supplied or sealed",
+    "production process adapters for LangGraph, AutoGen GraphFlow/Swarm and MASS/EvoMAS are not configured and have not executed",
     "no paired outcomes have cleared the preregistered confidence and cost gates"
   ],
   "authority": {

@@ -14,6 +14,38 @@ holdout disjoints, puis des intervalles appariés corrigés. Son état reste
 datasets scellés ne sont pas fournis. Même une sortie `eligible` de la porte
 P2 ne vaut ni autorisation de commit ni promotion runtime.
 
+## P3 — runner durable de campagne appariée
+
+P3 fournit maintenant le chemin d'exécution entre ce contrat et la porte P2 :
+`run-p3-campaign.cjs` exécute les six bras par blocs appariés, persiste un reçu
+immuable par tentative, reprend sans rejouer un reçu terminal, récupère un bail
+expiré et scelle séparément `shadow` puis `holdout`. Le holdout est refusé tant
+que le shadow n'est pas scellé. La requête envoyée à un adaptateur ne contient
+ni le nom du split, ni l'identité du dataset, de la tâche ou de l'oracle.
+
+```bash
+node benchmarks/topology-morphogenesis/run-p3-campaign.cjs \
+  --config /chemin/vers/p3-runtime.json --phase shadow
+node benchmarks/topology-morphogenesis/run-p3-campaign.cjs \
+  --config /chemin/vers/p3-runtime.json --phase holdout
+```
+
+La configuration suit [schemas/p3-runtime-config.schema.json](schemas/p3-runtime-config.schema.json),
+le manifeste préenregistré [schemas/p3-manifest.schema.json](schemas/p3-manifest.schema.json)
+et les corpus [schemas/p3-dataset.schema.json](schemas/p3-dataset.schema.json).
+Chaque adaptateur est un processus sans shell, lié au hash de son exécutable et
+de son artefact. Il reçoit une clé d'idempotence stable et doit retourner un reçu
+`genos.morphogenesis.p3-adapter-receipt/v1` avec métriques mesurées. Les trois
+rivaux externes exigent une provenance `external-paired`, un framework autorisé
+et une portée `external-framework`. Les fixtures de test portent la portée
+`test-fixture` et produisent toujours `realExecution: false` : elles ne peuvent
+donc pas ouvrir la porte statistique.
+
+Le runner est implémenté mais aucune configuration de production ni aucun
+corpus réel n'est livré avec le dépôt. Le statut global demeure donc
+`contract-ready-execution-blocked` jusqu'à l'exécution réelle de LangGraph,
+AutoGen GraphFlow/Swarm et MASS/EvoMAS sur les corpus scellés.
+
 Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json](suite.json), conformément à [schemas/suite.schema.json](schemas/suite.schema.json). À ce stade, seule la référence arithmétique possède un oracle indépendant; les autres tâches restent des probes de mécanisme ou des contrôles de contrat et ne sont pas admissibles à une comparaison confirmatoire.
 
 Chaque exécution archive la provenance du commit, l'état propre/sale de l'arbre source, les empreintes de la suite, des missions et des reçus extraits, les états des workers, les temps, ainsi que la portée explicite de l'oracle. Le format de sortie est décrit par [schemas/campaign-results.schema.json](schemas/campaign-results.schema.json). Un arbre modifié est automatiquement marqué non admissible comme résultat confirmatoire.

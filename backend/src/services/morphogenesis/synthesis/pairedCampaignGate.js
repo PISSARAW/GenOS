@@ -91,6 +91,10 @@ function manifestReasons(manifest) {
   return reasons;
 }
 
+function validateCampaignManifest(manifest) {
+  return [...new Set(manifestReasons(manifest || {}))];
+}
+
 function identityReasons(row, manifest) {
   const expectedDataset = manifest?.datasets?.[row?.split]?.datasetId;
   return [
@@ -281,4 +285,5 @@ function evaluatePairedCampaign(input = {}) {
 }
 
 module.exports = { ADAPTIVE_CONDITION, RIVAL_CONDITIONS, REQUIRED_CONDITIONS,
-  evaluatePairedCampaign, hashStatisticalPlan };
+  EXTERNAL_FRAMEWORKS, evaluatePairedCampaign, hashStatisticalPlan,
+  validateCampaignManifest };

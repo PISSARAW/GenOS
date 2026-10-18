@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.local/schemas/morphogenesis-p3-runtime-config.schema.json",
+  "$defs": {
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["driver", "command", "commandSha256", "artifactPath", "artifactSha256", "args", "adapterVersion", "evidenceScope", "provenance", "framework"],
+      "properties": {
+        "driver": { "const": "process-v1" },
+        "command": { "type": "string", "minLength": 1 },
+        "commandSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "artifactPath": { "type": "string", "minLength": 1 },
+        "artifactSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "cwd": { "type": "string" },
+        "adapterVersion": { "type": "string", "minLength": 1 },
+        "evidenceScope": { "enum": ["local-runtime", "external-framework", "test-fixture"] },
+        "provenance": { "enum": ["local-baseline", "local-runtime", "external-paired"] },
+        "framework": { "type": "string", "minLength": 1 },
+        "environment": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "manifest", "datasets", "storeRoot", "adapters"],
+  "properties": {
+    "schema": { "const": "genos.morphogenesis.p3-runtime-config/v1" },
+    "manifest": { "type": "string", "minLength": 1 },
+    "datasets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shadow", "holdout"],
+      "properties": { "shadow": { "type": "string" }, "holdout": { "type": "string" } }
+    },
+    "storeRoot": { "type": "string", "minLength": 1 },
+    "adapters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["single-agent", "genos-fixed", "genos-adaptive", "langgraph-static", "autogen-graphflow-swarm", "mass-evomas"],
+      "properties": {
+        "single-agent": { "$ref": "#/$defs/adapter" },
+        "genos-fixed": { "$ref": "#/$defs/adapter" },
+        "genos-adaptive": { "$ref": "#/$defs/adapter" },
+        "langgraph-static": { "$ref": "#/$defs/adapter" },
+        "autogen-graphflow-swarm": { "$ref": "#/$defs/adapter" },
+        "mass-evomas": { "$ref": "#/$defs/adapter" }
+      }
+    }
+  }
+}
