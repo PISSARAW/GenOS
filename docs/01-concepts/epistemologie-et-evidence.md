@@ -470,3 +470,98 @@ au domaine annoncé.
 
 Le contrat, les refus et le protocole local sont décrits dans
 [l'immunité épistémique](../06-qualite-preuves/immunite-epistemique.md).
+
+---
+
+## Index opérationnel des 44 concepts d'épistémologie et d'évidence
+
+Chaque concept est listé avec son sens opérationnel dans GenOS et le mécanisme qui l'implémente.
+Un statut `implemented` signifie qu'un adaptateur ou service testable existe ; il ne signifie pas
+que GenOS implémente la théorie philosophique dans toute sa portée.
+
+| # | Concept | Sens opérationnel dans GenOS | Mécanisme / service | Statut |
+|---|---------|------------------------------|---------------------|--------|
+| 1 | Épistémologie opérationnelle | Contrats séparant une affirmation d'agent de l'artefact qui la rend auditable | `evidenceGate`, `agentEvidenceService` | implemented |
+| 2 | Savoir | Conditions pour tenir une proposition pour connue ; séparé de la croyance, de la preuve et de la vérité | `knowledgeService` | partial |
+| 3 | Croyance | Position tenue par un agent, claim de type `belief` | `knowledgeService`, `epistemics` | partial |
+| 4 | Vérité | Propriété d'une proposition ; non déduite d'un statut `success` | `knowledgeService`, `truthSkepticismService` | partial |
+| 5 | Inférence | Déduction, induction, abduction ; évaluée sur entrées fournies | `inferenceService` | partial |
+| 6 | Justification | Raisons qui soutiennent une croyance, traduites en preuves typées et provenance | `knowledgeService` | partial |
+| 7 | Gettier | Contre-exemple : croyance vraie justifiée mais vraie par accident | `knowledgeService` | partial |
+| 8 | Reliabilisme | Croyance provenant-elle d'un processus fiable ? | `reliabilityService` | partial |
+| 9 | Épistémologie sociale | Témoignage, discussion, désaccord, division du travail cognitif | `socialEpistemologyService` | partial |
+| 10 | Corroboration | Plusieurs sources indépendantes soutiennent un même claim | `socialEpistemologyService`, barrière d'évidence | partial |
+| 11 | Incertitude | Partie non établie d'un claim ; déclarée dans le rapport d'évidence | `epistemics` | partial |
+| 12 | Confiance | Confiance numérique fournie par l'appelant ; GenOS ne la calibre pas automatiquement | `epistemics`, `metacognitionBenchService` | partial |
+| 13 | Claim | Conclusion atomique, explicite et contestable avec éléments de preuve | `agentEvidenceService` | implemented |
+| 14 | Hypothèse | Proposition à confronter à des observations (id, statement, confidence) | `safetyHypothesis` | implemented |
+| 15 | Ledger d'hypothèses | Enregistrement append-only des hypothèses, falsifications et révisions | `strategyPromotionPolicyService` | partial |
+| 16 | Prédiction | Anticipation d'un résultat observable à partir d'un modèle ou d'une hypothèse | `inferenceService` | partial |
+| 17 | Falsification | Réfutation d'une hypothèse par contre-exemple reproductible | `safetyHypothesis` | implemented |
+| 18 | Contre-exemple | Observation satisfaisant les préconditions d'H tout en contredisant sa conséquence | `safetyHypothesis` | implemented |
+| 19 | Preuve directe | Receit, sortie de test, artefact associé directement à un claim | `agentEvidenceService` | implemented |
+| 20 | Preuve indépendante | Preuve produite par une source indépendante du claimant | `strategyPromotionPolicyService` | partial |
+| 21 | Réplication | Re-exécution d'une épreuve pour confirmer un résultat | `proceduralCausalValidationService` | partial |
+| 22 | Réception de preuve | Réception et normalisation d'un rapport `EVIDENCE_REPORT` dans le dossier worker | `agentEvidenceService` | implemented |
+| 23 | Provenance | Chaîne des intrants et transformations, enregistrée en chaîne Merkle | `provenanceResolver` | implemented |
+| 24 | Grounding | Lien entre une affirmation symbolique et les observations/artefacts qui la rattachent au monde opérationnel | `evidenceGate` | implemented |
+| 25 | État épistémique | Qualité de preuve, confiance dérivée, phase (explore/commit), dette épistémique | `epistemics` | partial |
+| 26 | Résultat formel | Résultat déterministe avec reçu, statut `VERIFIED` réservé à ces cas | `evidenceGate` | implemented |
+| 27 | Résultat non vérifié | Résultat archivé comme `PROVISIONAL` avec dette épistémique explicite | `agentEvidenceService` | implemented |
+| 28 | Promotion éligible / non éligible | Décision de la gate de promotion ; `eligible: true` si toutes les politiques sont satisfaites | `strategyPromotionPolicyService` | implemented |
+| 29 | Révision de croyance | Mise à jour d'un claim enregistré quand une nouvelle preuve concerne son sujet | `epistemics` | partial |
+| 30 | Dissonance | Opposition entre beliefs et evidence, ou entre beliefs contradictoires | `epistemics` | partial |
+| 31 | Biais | Biais de steering détecté par sondes ; surconfiance mesurée par le banc métacognitif | `attentionProbeService` | partial |
+| 32 | Hallucination | Conditions observables : claim sans evidence, placeholder, valeur vide | `hallucinationMonitoringService` | implemented |
+| 33 | Monitoring des hallucinations | Surveillance continue des claims non prouvés ; compteur de signalement | `hallucinationMonitoringService` | implemented |
+| 34 | Brier score | Mesure de calibration (ECE, Brier, AUC type-2, surconfiance) sur l'historique CoreSelf | `metacognitionBenchService` | implemented |
+| 35 | Consensus pondéré | Agrégation des contributions multi-agents avec provenance, sans réduction à vérité automatique | `socialEpistemologyService` | partial |
+| 36 | Quorum avec abstention | Règle d'abstention explicite ; intègre `requiresEvidenceBeforePromotion` et directive `[ABSTENTION]` | `abstentionService` | implemented |
+| 37 | Barrière d'évidence | Collecte des dossiers de branches ; valide les citations de claims ; refuse doublons et omissions | `evidenceGate` | implemented |
+| 38 | Gate de promotion | Applique les politiques du contrat (replay, vérification indépendante, approbation humaine, branches rejetées, merge) | `strategyPromotionPolicyService` | implemented |
+
+### 39-44 — Concepts déjà couverts par référence
+Les concepts 39 à 44 ne sont pas des entrées distinctes de l'index ci-dessus car ils sont traités dans d'autres fiches :
+- **Savoir, Croyance, Vérité, Inférence, Justification, Gettier, Reliabilisme, Épistémologie sociale** → [Savoir et épistémologie](savoir-et-epistemologie.md).
+
+---
+
+### Prédiction
+
+Une prédiction est une anticipation d'un résultat observable à partir d'un modèle ou d'une hypothèse. Dans GenOS, une prédiction n'est pas un fait établi tant qu'elle n'est pas confrontée à l'observation. Le service `inferenceService` évalue les prédictions sur des entrées bornées ; il ne déclenche aucune action du runtime et n'autorise aucune promotion.
+
+### Réplication
+
+La réplication est la re-exécution d'une épreuve pour confirmer un résultat. Elle est portée par `proceduralCausalValidationService` (rejeu d'intervention). Un rejeu est une approximation, pas une expérience contrôlée ; il ne satisfait pas à lui seul le contrat de promotion `require_replay`, qui exige un reçu de rejeu vérifié côté serveur et lié au run, à l'agent, au snapshot et à son digest.
+
+### Réception de preuve
+
+La réception de preuve correspond à la réception et à la normalisation d'un rapport `EVIDENCE_REPORT` dans le dossier du worker. `recordWorkerEvidence()` l'ajoute au dossier de l'orchestrateur et normalise les échecs en objet `failure`. La réception ne valide pas le contenu de la preuve : elle établit seulement que le rapport a été reçu et structuré.
+
+### Grounding
+
+Le grounding est le lien entre une affirmation symbolique et les observations ou artefacts qui la rattachent au monde opérationnel. Dans GenOS, un grounding déclaratif ne constitue pas une vérification empirique : il doit être accompagné de preuves typées, de provenance et, selon le contrat, d'une vérification indépendante.
+
+### État épistémique
+
+L'état épistémique d'un claim ou d'une croyance comprend la qualité de preuve, la confiance dérivée, la phase (`explore` / `commit`) et la dette épistémique. Il est recalculé par `epistemics` à chaque nouvelle preuve ; il ne constitue pas une vérité en soi.
+
+### Corroboration
+
+La corroboration survient quand plusieurs sources indépendantes soutiennent un même claim. Elle est distinguée du simple accord : un consensus peut partager la même erreur. Le registre distingue corroboration, accord, désaccord, division du travail et perspectives manquantes sans agréger ces signaux en vérité automatique.
+
+### Biais
+
+Un biais est un écart systématique dans l'évaluation d'un claim. Dans GenOS, les biais de steering sont détectés par les sondes d'attention (`attentionProbeService`) avec directive et vérification pré/post. La surconfiance mesurée par le banc métacognitif (`metacognitionBenchService`) resserre le plancher d'opt-out de l'abstention. La détection est volontairement conservatrice et syntaxique.
+
+### Consensus pondéré
+
+Le consensus pondéré agrège les contributions de plusieurs agents avec provenance. Il distingue corroboration, accord, désaccord, division du travail et perspectives manquantes sans les réduire à une vérité automatique. Il ne constitue pas une preuve indépendante ni une autorisation de promotion.
+
+### Épistémologie opérationnelle
+
+L'épistémologie opérationnelle est le contrat qui sépare une affirmation d'agent (`claim`) de l'artefact qui la rend auditable (`evidence`). Une réponse de modèle, un statut `success` ou une sortie de processus n'établit pas à lui seul une vérité. Pour influencer une décision collective ou une promotion, une conclusion doit fournir des claims structurés, une preuve associée, une provenance et, selon le contrat, une vérification indépendante, un replay ou une approbation humaine.
+
+Le mécanisme est principalement implémenté par `agentEvidenceService`, le superviseur de runtime, `safetyHypothesis` et `strategyPromotionPolicyService`. Les termes evidence, falsification et hallucination désignent des contrôles logiciels observables ; ils ne constituent pas une preuve formelle de vérité dans le monde métier.
+
+---
