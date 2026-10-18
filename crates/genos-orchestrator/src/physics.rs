@@ -362,3 +362,7 @@ fn signed_unit(value: f64) -> f64 {
         1.0
     }
 }
+
+#[cfg(test)]
+#[path = "physics_tests.rs"]
+mod physics_tests;
