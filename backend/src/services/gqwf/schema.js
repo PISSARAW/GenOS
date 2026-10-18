@@ -105,6 +105,26 @@ async function migrateGqwf(db) {
     CREATE INDEX IF NOT EXISTS idx_gqwf_views_workspace ON gqwf_views(workspace_id);
     CREATE INDEX IF NOT EXISTS idx_gqwf_execution_workspace_status
       ON gqwf_execution_sessions(workspace_id, status);
+    CREATE TABLE IF NOT EXISTS gqwf_rollout_decisions (
+      execution_run_id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      organization_id TEXT NOT NULL,
+      project_id TEXT,
+      policy_id TEXT NOT NULL,
+      basis_hash TEXT NOT NULL,
+      basis_points INTEGER NOT NULL CHECK (basis_points BETWEEN 1 AND 10000),
+      bucket INTEGER NOT NULL CHECK (bucket BETWEEN 0 AND 9999),
+      arm TEXT NOT NULL CHECK (arm IN ('control', 'canary')),
+      disabled_reason TEXT,
+      status TEXT NOT NULL CHECK (status IN ('assigned', 'prepared', 'completed', 'failed')),
+      outcome TEXT,
+      error TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_gqwf_rollout_workspace_policy
+      ON gqwf_rollout_decisions(workspace_id, policy_id, created_at);
   `);
   const row = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_leases'");
   if (!row.sql.includes("'preparing'")) await migrateLeaseStatus(db);

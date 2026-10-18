@@ -144,6 +144,15 @@ async function resolveLocalModel(ctx) {
 
 async function provisionWorkspaceAndModel(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent } = ctx;
+  if (normalizedMission.executionPolicy?.gqwfCanary) {
+    const workspaceId = normalizedMission.workspaceId || dispatchedAgent.workspace_id;
+    const scope = await db.get(`SELECT organization_id AS organizationId,
+      project_id AS projectId FROM workspaces WHERE id = ?`, workspaceId);
+    if (!scope) throw new Error('GQWF canary requires a registered workspace.');
+    normalizedMission.workspaceId = workspaceId;
+    normalizedMission.organizationId = normalizedMission.organizationId || scope.organizationId;
+    normalizedMission.projectId = normalizedMission.projectId || scope.projectId;
+  }
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
   assertMissionNotCancelled(agentId);
   await bindMissionWorkerWorkspace(ctx);

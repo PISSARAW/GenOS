@@ -32,6 +32,7 @@ const config = {
   maxVfsFiles: () => envInt('GENOS_MAX_VFS_FILES', 5000),
   inProcessWorkers: () => process.env.GENOS_IN_PROCESS_WORKERS === '1',
   allowFileEdits: () => /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')),
+  gqwfCanaryDisabled: () => /^(1|true)$/i.test(String(process.env.GENOS_GQWF_CANARY_DISABLED || '')),
 };
 
 module.exports = config;

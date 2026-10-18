@@ -8,6 +8,7 @@ const workers = require('./workers');
 const execution = require('./execution');
 const workerPromotion = require('./workerPromotion');
 const garbageCollection = require('./garbageCollection');
+const rollout = require('./rollout');
 const { migrateGqwf } = require('./schema');
 
 function createFabric(db, options = {}) {
@@ -35,6 +36,7 @@ function createFabric(db, options = {}) {
       db, input, options.verifyWorkerPromotion),
     inspectGarbage: (input) => garbageCollection.inspectGarbage(db, input),
     collectGarbage: (input) => garbageCollection.collectGarbage(db, input),
+    inspectRollout: (input) => rollout.inspectRollout(db, input),
     openExecutionWorkspace: (input) => execution.openExecutionWorkspace(db, input),
     materializeExecutionWorkspace: (input) => execution.materializeExecutionWorkspace(db, input),
     ingestExecutionWorkspace: (input) => execution.ingestExecutionWorkspace(db, input),

@@ -4,6 +4,7 @@ const path = require('node:path');
 const config = require('../../config/orchestratorConfig');
 const { isLocalRuntime } = require('../agentRuntimeExecutable');
 const { createFabric } = require('./index');
+const rollout = require('./rollout');
 
 function samePath(left, right) {
   const first = path.resolve(left);
@@ -110,8 +111,7 @@ function attachMissionWorkspace(ctx, descriptor) {
   ctx.normalizedMission.executionWorkspace = descriptor;
 }
 
-async function prepareMissionWorkspace(ctx) {
-  if (!eligible(ctx)) return null;
+async function prepareEligibleMission(ctx) {
   const workspaceId = ctx.normalizedMission.workspaceId || ctx.dispatchedAgent.workspace_id;
   if (!workspaceId) throw new Error('GQWF mission execution requires a workspace ID.');
   const sourcePath = path.resolve(ctx.normalizedMission.workspaceRoot);
@@ -123,7 +123,23 @@ async function prepareMissionWorkspace(ctx) {
   await materializeSession(ctx, input, virtual);
   const descriptor = describe(await session(ctx.db, executionRunId));
   attachMissionWorkspace(ctx, descriptor);
+  await rollout.markStatus(ctx.db, { executionRunId, status: 'prepared' });
   return descriptor;
+}
+
+async function prepareMissionWorkspace(ctx) {
+  await rollout.persistDecision(ctx);
+  if (!eligible(ctx)) return null;
+  try {
+    return await prepareEligibleMission(ctx);
+  } catch (error) {
+    await rollout.markStatus(ctx.db, {
+      executionRunId: ctx.executionRun?.id,
+      status: 'failed',
+      error: error.message
+    });
+    throw error;
+  }
 }
 
 async function ingestSuccessfulRun(db, row) {
@@ -156,14 +172,32 @@ async function releaseCompletedRun(db, row, outcomeStatus) {
 
 async function finalizeMissionWorkspace(input) {
   let row = await session(input.db, input.executionRunId);
-  if (!row || row.status === 'released') return row ? describe(row) : null;
+  if (!row) return null;
+  if (row.status === 'released') {
+    await rollout.markStatus(input.db, {
+      executionRunId: input.executionRunId,
+      status: 'completed',
+      outcome: row.outcome
+    });
+    return describe(row);
+  }
   try {
     if (input.outcomeStatus === 'completed') row = await ingestSuccessfulRun(input.db, row);
     row = await releaseCompletedRun(input.db, row, input.outcomeStatus);
+    await rollout.markStatus(input.db, {
+      executionRunId: input.executionRunId,
+      status: 'completed',
+      outcome: row.outcome
+    });
     return describe(row);
   } catch (error) {
     await input.db.run(`UPDATE gqwf_execution_sessions SET error = ?, updated_at = CURRENT_TIMESTAMP
       WHERE execution_run_id = ?`, String(error.message).slice(0, 1000), input.executionRunId);
+    await rollout.markStatus(input.db, {
+      executionRunId: input.executionRunId,
+      status: 'failed',
+      error: error.message
+    });
     throw error;
   }
 }

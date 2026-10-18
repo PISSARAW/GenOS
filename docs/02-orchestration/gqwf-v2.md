@@ -138,6 +138,25 @@ métadonnées. Le rapport déclare `performanceClaim: none` : une exécution loc
 qualifie le comportement Copy-on-Write et le protocole, pas un gain universel
 ni l'activation par défaut. Voir l'[ADR 0616](../adr/0616-qualification-appariee-copy-on-write-gqwf.md).
 
+## Activation canari bornée
+
+La tranche 7 permet à une mission orchestrateur de fournir
+`executionPolicy.gqwfCanary` avec un `policyId`, un pourcentage entier en points
+de base et un booléen `enabled`. L'organisation, le projet optionnel, le
+workspace et la politique alimentent une affectation SHA-256 stable : toutes les
+missions du même périmètre restent dans le même bras. Le bras canari active le
+même chemin `gqwfV2` que l'opt-in manuel ; le bras contrôle conserve le backend
+physique.
+
+Chaque affectation est liée à l'execution run dans
+`gqwf_rollout_decisions`, puis suivie comme `assigned`, `prepared`, `completed`
+ou `failed`. `inspectRollout` restitue les décisions et les agrégats sans décider
+d'une promotion. `GENOS_GQWF_CANARY_DISABLED=1` force les nouvelles affectations
+vers le contrôle tout en laissant l'opt-in manuel disponible. Une panne canari
+est remontée et auditée ; elle ne déclenche pas une seconde exécution physique,
+afin de ne pas dupliquer d'éventuels effets externes. Le défaut global reste
+physique. Voir l'[ADR 0618](../adr/0618-canari-determine-et-reversible-gqwf.md).
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes
@@ -171,6 +190,7 @@ Validation ciblée : `node backend/tests/test_gqwf_fabric.js`,
 `node backend/tests/test_gqwf_worker_execution.js`,
 `node backend/tests/test_gqwf_worker_promotion.js`,
 `node backend/tests/test_gqwf_garbage_collection.js`,
+`node backend/tests/test_gqwf_canary_rollout.js`,
 `node backend/tests/test_gqwf_execution_workspace.js`,
 `node backend/tests/test_gqwf_mission_execution.js` et
 `node backend/tests/test_gqwf_organism_snapshot.js`. Les gates généraux du

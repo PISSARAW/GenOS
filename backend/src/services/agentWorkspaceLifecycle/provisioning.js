@@ -224,18 +224,20 @@ async function createIsolatedWorkspace(sourceRoot, workerId, optionsOverride) {
 }
 
 async function provisionMissionWorkspace(mission, executionMode) {
-  if (executionMode !== 'orchestrator' || mission.workspaceProvisioned === true) return mission;
-  const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../../..');
-  if (require('../gqwf/missionExecution').deferOrchestratorCopy(mission, executionMode)) {
-    return { ...mission, workspaceRoot: path.resolve(sourceWorkspace),
+  if (executionMode !== 'orchestrator') return mission;
+  const routed = require('../gqwf/rollout').routeMission(mission);
+  if (routed.workspaceProvisioned === true) return routed;
+  const sourceWorkspace = routed.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../../..');
+  if (require('../gqwf/missionExecution').deferOrchestratorCopy(routed, executionMode)) {
+    return { ...routed, workspaceRoot: path.resolve(sourceWorkspace),
       gqwfSourceWorkspaceRoot: path.resolve(sourceWorkspace) };
   }
-  const allowEdits = mission.executionPolicy?.allowFileEdits === true || /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || ''));
-  const useVfs = !allowEdits || mission.vfsWorkspace === true || process.env.GENOS_VFS_WORKSPACES === '1';
-  const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, mission.agentId, {
-    vfs: useVfs, capsuleRoot: mission.capsuleRoot
+  const allowEdits = routed.executionPolicy?.allowFileEdits === true || /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || ''));
+  const useVfs = !allowEdits || routed.vfsWorkspace === true || process.env.GENOS_VFS_WORKSPACES === '1';
+  const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, routed.agentId, {
+    vfs: useVfs, capsuleRoot: routed.capsuleRoot
   });
-  return { ...mission, workspaceRoot, capsuleRoot: path.dirname(workspaceRoot) };
+  return { ...routed, workspaceRoot, capsuleRoot: path.dirname(workspaceRoot) };
 }
 
 module.exports = { createIsolatedWorkspace, provisionMissionWorkspace };
