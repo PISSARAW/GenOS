@@ -7,6 +7,7 @@
 
 const store = new Map();
 const crypto = require('node:crypto');
+const { EvidenceState } = require('../evidenceContractService');
 
 function defaultSensorium(agentId) {
   return {
@@ -51,7 +52,7 @@ function recordObservation(opts) {
   if (!observation) return null;
   state.observations.push(observation);
   if (state.observations.length > 200) state.observations.shift();
-  updateEnvironmentModel(state, observation);
+  if (observation.provenance.state !== EvidenceState.REJECTED) updateEnvironmentModel(state, observation);
   state.revision += 1;
   state.updatedAt = new Date().toISOString();
   store.set(String(o.agentId), state);
@@ -84,6 +85,10 @@ function normalizeObservation(observation) {
   const source = { ...observation };
   const digest = observationDigest(source);
   const evidenceRef = source.evidenceRef || source.data?.evidenceRef || null;
+  const evidenceState = source.evidenceState || source.provenance?.state
+    || (source.synthetic === true ? EvidenceState.SYNTHETIC : evidenceRef ? EvidenceState.VERIFIED : EvidenceState.OBSERVED);
+  if (!Object.values(EvidenceState).includes(evidenceState)) return null;
+  if (evidenceState === EvidenceState.REJECTED && !source.rejectionReason) return null;
   return {
     ...source,
     provenance: {
@@ -91,7 +96,8 @@ function normalizeObservation(observation) {
       source: source.sensorId || 'unknown',
       observationDigest: digest,
       evidenceRef,
-      verified: Boolean(evidenceRef)
+      state: evidenceState,
+      verified: evidenceState === EvidenceState.VERIFIED
     }
   };
 }
