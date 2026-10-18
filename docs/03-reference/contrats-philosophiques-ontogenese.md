@@ -204,6 +204,8 @@ Les opérations passent par `genos_philosophy` et conservent son lease existant.
 | `listRepresentativeMissions` | quatre compositions locales et leurs budgets appariés |
 | `runRepresentativeMission` | exécution contrôle/traitement, correction, coûts et reçu rejouable |
 | `representativeMissionCoverage` | couverture synthétique des missions représentatives |
+| `runOrganizationComparison` | quatre ordonnanceurs réels en processus sur une mission identique |
+| `organizationComparisonCoverage` | parité des budgets et issues sur seize exécutions organisationnelles |
 | `assessContractPromotion` | éligibilité bornée, preuves manquantes et limites |
 
 ### Pagination et limites de transport
@@ -269,6 +271,13 @@ contre-exemple puis la même correction. Les reçus mesurent les exécutions
 d'audit et les octets réellement sérialisés, attribuent chaque correction à
 son contrat et résistent au replay. Il s'agit d'une exécution locale réelle du
 runtime d'audit, pas d'une topologie multi-agent ni d'une validation indépendante.
+
+La comparaison organisationnelle réexécute ces missions sous quatre
+ordonnanceurs en processus : centralisé, fédéré, pair-à-pair et critiques
+isolés. Les tâches, observations et plafonds restent identiques ; l'ordre,
+les messages et les tours sont effectivement produits par chaque ordonnanceur.
+La parité d'issue est calculée après normalisation par contrat. Ces exécutions
+ne constituent pas un dispatch de workers ou une topologie distribuée.
 
 ## 8. Raccord et vérification Ontogenèse
 

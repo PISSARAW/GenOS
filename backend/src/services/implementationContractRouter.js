@@ -9,10 +9,11 @@ const {
 const { execute } = require('../philosophy/contractRuntime');
 const experiments = require('../philosophy/contractExperiments');
 const representative = require('../philosophy/representativeMissionExperiments');
+const organizations = require('../philosophy/organizationMissionExperiments');
 const { pageContracts } = require('../philosophy/contractPagination');
 const EXECUTION_OPERATIONS = ['executeImplementationContract', 'runImplementationExperiment',
   'implementationExperimentCoverage', 'listRepresentativeMissions', 'runRepresentativeMission',
-  'representativeMissionCoverage'];
+  'representativeMissionCoverage', 'runOrganizationComparison', 'organizationComparisonCoverage'];
 
 function handleExecution(operation, args, definitions) {
   const contracts = () => compileRegistry(definitions).contracts;
@@ -24,6 +25,14 @@ function handleExecution(operation, args, definitions) {
     const report = representative.runRepresentativeCoverage(contracts());
     return { ...report, receipts: report.receipts.map(({ missionId, receiptHash, passed, measuredCosts }) =>
       ({ missionId, receiptHash, passed, measuredCosts })) };
+  }
+  if (operation === 'runOrganizationComparison') {
+    return organizations.runOrganizationComparison(contracts(), args.missionId);
+  }
+  if (operation === 'organizationComparisonCoverage') {
+    const report = organizations.runOrganizationCoverage(contracts());
+    return { ...report, receipts: report.receipts.map(({ missionId, receiptHash, passed, budgetParity, outcomeParity }) =>
+      ({ missionId, receiptHash, passed, budgetParity, outcomeParity })) };
   }
   if (operation === 'implementationExperimentCoverage') {
     const report = experiments.runRegistryExperiments(contracts());

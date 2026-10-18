@@ -87,11 +87,15 @@ function receiptPayload(receipt) {
   return payload;
 }
 
+function representativeBoundaries(receipt) {
+  return receipt?.kind === 'representative-mission-receipt'
+    && receipt.actualMissionExecution === true && receipt.actualTopologyExecution === false
+    && receipt.externalFactsVerified === false && receipt.independentValidation === false
+    && receipt.promotionEligible === false;
+}
+
 function verifyRepresentativeMission(receipt, contracts) {
-  if (!receipt || receipt.kind !== 'representative-mission-receipt') return false;
-  if (receipt.actualMissionExecution !== true || receipt.actualTopologyExecution !== false) return false;
-  if (receipt.externalFactsVerified !== false || receipt.independentValidation !== false
-    || receipt.promotionEligible !== false) return false;
+  if (!representativeBoundaries(receipt)) return false;
   if (receipt.receiptHash !== digest(receiptPayload(receipt))) return false;
   try {
     const replay = runRepresentativeMission(contracts, receipt.missionId);
@@ -118,4 +122,9 @@ function listRepresentativeMissions() {
 }
 
 module.exports = { listRepresentativeMissions, runRepresentativeMission,
-  verifyRepresentativeMission, runRepresentativeCoverage };
+  verifyRepresentativeMission, runRepresentativeCoverage,
+  runRepresentativePair: runPair,
+  representativeMissionPlan: (contracts, missionId) => {
+    const mission = missionDefinition(missionId);
+    return { mission, contracts: selectedContracts(contracts, mission), budget: { ...BUDGET } };
+  } };
