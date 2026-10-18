@@ -22,11 +22,13 @@ const immuneMemoryRepository = require('./epistemic/immuneMemoryRepository');
 
 function normalizedBudget(input) {
   const source = input || {};
-  return Object.fromEntries(Object.entries(events.DEFAULT_BUDGET).map(([key, fallback]) => {
+  const budget = Object.fromEntries(Object.entries(events.DEFAULT_BUDGET).map(([key, fallback]) => {
     const value = Number(source[key]);
     const zeroTokenBudget = key === 'tokens' && source.deterministic === true && value === 0;
     return [key, zeroTokenBudget ? 0 : Number.isFinite(value) && value > 0 ? value : fallback];
   }));
+  if (Object.hasOwn(source, 'deterministic')) budget.deterministic = source.deterministic === true;
+  return budget;
 }
 
 function compileExecutionPlan(contract, budgetInput) {
@@ -62,6 +64,8 @@ async function createBoundExecutionRun(db, context) {
     id, context.agentId, contractRecord.id, contractRecord.version, JSON.stringify(plan.budget),
     JSON.stringify({ tokens: 0, costUsd: 0, latencyMs: 0, events: 0 })
   );
+  await require('../db/migrations/migrateExecutionAuthorityV2')
+    .registerRun(db, id, Boolean(context.missionId));
   for (const step of plan.steps) {
     await db.run(
       `INSERT INTO strategy_execution_steps (id, run_id, sequence, stage_key, strategy_ids_json, planned_budget_json)
@@ -219,10 +223,13 @@ async function approveRun(db, id, options) {
   const settings = options || {};
   const journal = require('./promotionExecutionJournal');
   const recovery = require('./promotionExecutionRecovery');
+  const authority = require('./missionEnvelopeAuthority');
+  const identity = await db.get('SELECT agent_id AS agentId FROM strategy_execution_runs WHERE id = ?', id);
+  if (!identity) throw new Error(`Execution run ${id} not found`);
+  await authority.assertRun(db, { agentId: identity.agentId, runId: id });
   const reserved = await journal.read(db, id);
   if (reserved) return recovery.resume(db, reserved, settings);
   const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
-  if (!row) throw new Error(`Execution run ${id} not found`);
   if (row.status !== 'awaiting_approval') throw new Error(`Execution run ${id} is not awaiting approval`);
   const promotion = await promotionGate.loadPromotionContext(db, row, settings);
   const binding = await journal.runBinding(db, id);

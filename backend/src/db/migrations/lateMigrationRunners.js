@@ -94,4 +94,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('133-rust-kernel-mission-plans', 'Bind Node missions to immutable Rust kernel plans', async (db) => {
     await require('./migrateRustKernelMissionPlans').migrateRustKernelMissionPlans(db);
   }),
+  createMigrationRunner('134-execution-authority-v2', 'Classify historic runs as read-only before enforcing v2 envelopes', async (db) => {
+    await require('./migrateExecutionAuthorityV2').migrateExecutionAuthorityV2(db);
+  }),
 ];

@@ -1,7 +1,7 @@
 'use strict';
 
 process.env.GENOS_DISABLE_DOTENV = '1';
-process.env.GENOS_SKIP_BOOT_DB_BACKUP = '1';
+process.env.GENOS_DB_BACKUP_SKIP = '1';
 process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'p1-delegation-test-only';
 process.env.NODE_ENV = 'test';
 const assert = require('node:assert/strict');
@@ -29,8 +29,21 @@ async function seed(db, workspace, options = {}) {
   JSON.stringify({ workerKind: 'sub_orchestrator', workerContract: contract }));
   await db.run("INSERT INTO missions (mission_id,objective,orchestrator_agent_id) VALUES ('delegation-mission','Compute a witnessed result','delegation-root')");
   await db.run("INSERT INTO mission_agents (mission_id,agent_id,role) VALUES ('delegation-mission','delegation-root','orchestrator'),('delegation-mission','delegation-sub','sub_orchestrator')");
-  await require('../src/services/strategyContractService').saveContract(db, {
+  const contractRecord = await require('../src/services/strategyContractService').saveContract(db, {
     agentId: 'delegation-root', workspaceId: 'delegation-ws', problem: 'Compute a bounded subset sum with native evidence', ...options });
+  await bindParentRun(db, workspace, contractRecord);
+  return contractRecord;
+}
+
+async function bindParentRun(db, workspace, contractRecord) {
+  const run = await require('../src/services/strategyExecutionService').createExecutionRun(db, {
+    agentId: 'delegation-sub', contractRecord, missionId: 'delegation-mission',
+    budget: { tokens: 10000, deterministic: true, latencyMs: 300000 } });
+  const ctx = { db, agentId: 'delegation-sub', executionRun: run, executable: process.execPath,
+    contractRecord, autonomyPlan: {}, normalizedMission: { agentId: 'delegation-sub',
+      missionId: 'delegation-mission', workspaceRoot: workspace,
+      toolLease: ['genos_delegate_worker'], timeoutMs: 300000 } };
+  await require('../src/services/missionEnvelopeAuthority').seal(ctx);
 }
 
 async function addChild(db, input) {
@@ -102,7 +115,8 @@ async function main() {
   process.env.GENOS_DISABLE_WORKSPACE_GC = '1';
   const db = await getDatabase(process.env.GENOS_DB_PATH);
   try {
-    await seed(db, workspace); await bindings(db);
+    await seed(db, workspace);
+    await bindings(db);
     const executed = await nativeDispatch(db);
     await require('./helpers/nativeOracleProbes').qualify(db, executed);
     await require('./helpers/boundedDelegationProbes').qualify(db, { addChild, filename: process.env.GENOS_DB_PATH });

@@ -1,7 +1,11 @@
 'use strict';
 
 function start(ctx) {
-  if (!ctx.normalizedMission.executionAuthorityRef) return null;
+  if (!ctx.normalizedMission.executionAuthorityRef) {
+    ctx.haltRuntime(ctx, 'authority_missing', 'EXECUTION_AUTHORITY_BINDING_MISSING',
+      'Runtime stopped because no signed execution authority was attached.');
+    return null;
+  }
   let pending = false;
   let closed = false;
   const timer = setInterval(async () => {

@@ -48,6 +48,7 @@ async function bootstrapMission(mission) {
   await provisionMissionCapsule(ctx);
   await require('../garageRuntimeService').bindExecution(ctx);
   await require('../trinityQualificationDispatch').recordStarted(ctx);
+  ctx.authorityExecutable = executionEntrypoint(ctx);
   await require('../missionEnvelopeAuthority').seal(ctx);
   await require('../orchestratorBodyAuthority').bind(ctx);
   reportOrchestratorStart(ctx);
@@ -57,7 +58,8 @@ async function bootstrapMission(mission) {
 async function startMissionInternal(mission) {
   const ctx = await bootstrapMission(mission);
   const { agentId, normalizedMission, db, dispatchedAgent, executionRun } = ctx;
-  await require('../missionEnvelopeAuthority').assertRun(db, { agentId, runId: executionRun.id, mission: normalizedMission });
+  await require('../missionEnvelopeAuthority').assertRun(db, { agentId, runId: executionRun.id,
+    mission: normalizedMission, verifyInputs: true, executable: ctx.authorityExecutable });
   assertMissionNotCancelled(agentId);
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
@@ -114,6 +116,16 @@ async function startMissionInternal(mission) {
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
   return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable,
     habitat: ctx.habitat });
+}
+
+function executionEntrypoint(ctx) {
+  if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(ctx.normalizedMission)) {
+    return require.resolve('../agents/deterministicWorkerRuntime');
+  }
+  if (isInProcessWorker(ctx.dispatchedAgent, ctx.normalizedMission, ctx.executable)) {
+    return require.resolve('../agentFleetService');
+  }
+  return ctx.executable;
 }
 
 async function executeCompositeMorphology(ctx, agentId) {

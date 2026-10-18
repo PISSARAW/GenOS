@@ -65,7 +65,8 @@ async function promotionRefusals(db, input) {
   const workspace = await db.get('SELECT workspace_id FROM agents WHERE id=?', input.row.agent_id);
   await db.run("INSERT INTO projects (id,organization_id,name) VALUES ('native-foreign-project','delegation-org','Foreign scope')");
   await db.run("UPDATE workspaces SET project_id='native-foreign-project' WHERE id=?", workspace.workspace_id);
-  try { await assert.rejects(service.approveRun(db, input.row.id, { ...input.options, report }), { code: 'ORACLE_ATTESTATION_SCOPE_MISMATCH' }); }
+  try { await assert.rejects(service.approveRun(db, input.row.id, { ...input.options, report }),
+    { code: 'GVX_RUN_BINDING_SCOPE_CHANGED' }); }
   finally { await db.run("UPDATE workspaces SET project_id='delegation-project' WHERE id=?", workspace.workspace_id); }
   const authority = await require('../../src/services/missionEnvelopeAuthority').read(db, input.row.id);
   const clock = Date.now;

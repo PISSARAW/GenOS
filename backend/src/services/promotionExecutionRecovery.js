@@ -92,6 +92,8 @@ async function completedRun(db, id) {
 }
 
 async function resume(db, row, options) {
+  await require('./missionEnvelopeAuthority').assertRun(db, {
+    agentId: row.payload.promotion.agentId, runId: row.run_id });
   if (journal.fingerprint(options) !== row.payload.optionsHash) throw new Error('PROMOTION_REQUEST_CHANGED');
   if (journal.fingerprint(await journal.runBinding(db, row.run_id)) !== journal.fingerprint(row.payload.binding)) {
     throw new Error('PROMOTION_BINDING_CHANGED');

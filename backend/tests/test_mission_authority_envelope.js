@@ -1,6 +1,7 @@
 'use strict';
 
 process.env.GENOS_DISABLE_DOTENV = '1';
+process.env.GENOS_DB_BACKUP_SKIP = '1';
 process.env.GENOS_GVX_LEDGER_HMAC_SECRET = 'p1-authority-test-only';
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -29,7 +30,7 @@ async function context(db, root, options) {
   const { contractRecord, duration = 300000, agentId = 'worker', toolLease = ['genos_search_failures'] } = options;
   const run = await execution.createExecutionRun(db, { agentId, contractRecord,
     missionId: 'worker-mission', budget: { tokens: 0, deterministic: true, latencyMs: duration } });
-  const ctx = { db, agentId, executionRun: run, autonomyPlan: {}, normalizedMission: {
+  const ctx = { db, agentId, executionRun: run, executable: process.execPath, autonomyPlan: {}, normalizedMission: {
     agentId, missionId: 'worker-mission', workspaceRoot: root, toolLease, timeoutMs: duration } };
   await authority.seal(ctx);
   return ctx;
@@ -387,7 +388,8 @@ async function main() {
     await publicationRace(race, filename);
     const expired = await context(db, workspace, { contractRecord: contract });
     await expiredAtBoundary(expired);
-    assert.deepEqual(await authority.assertRun(db, { agentId: 'worker', runId: 'unknown' }), { status: 'legacy_unbound' });
+    await assert.rejects(authority.assertRun(db, { agentId: 'worker', runId: 'unknown' }),
+      { code: 'EXECUTION_AUTHORITY_BINDING_MISSING' });
     console.log('P1 authority: immutable scope, restart, tool/root ceilings, live revocation, refused publication and quiet child stop passed.');
   } finally { await db.close(); await fs.rm(root, { recursive: true, force: true }); }
 }

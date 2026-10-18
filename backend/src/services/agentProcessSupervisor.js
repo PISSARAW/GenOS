@@ -177,7 +177,8 @@ function resolveSpawnCommand(resolvedExecutable) {
 
 async function superviseMission(options) {
   const authority = await require('./missionEnvelopeAuthority').assertRun(options.db, {
-    agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission });
+    agentId: options.agentId, runId: options.executionRun.id, mission: options.normalizedMission,
+    verifyInputs: true, executable: options.executable });
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const conscienceState = await agentConscience.loadConscienceState(db, agentId);

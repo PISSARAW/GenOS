@@ -13,7 +13,8 @@ async function currentRefusals(db) {
   await assert.rejects(authority.authorizeMission(db, request));
   await db.run("UPDATE agents SET status='running' WHERE id='delegation-root'");
   await db.run("DELETE FROM mission_agents WHERE mission_id='delegation-mission' AND agent_id='delegation-sub'");
-  await assert.rejects(authority.authorizeMission(db, request), { code: 'DELEGATION_BINDING_INVALID' });
+  await assert.rejects(authority.authorizeMission(db, request),
+    { code: 'EXECUTION_AUTHORITY_MEMBERSHIP_REVOKED' });
   await db.run("INSERT INTO mission_agents (mission_id,agent_id,role) VALUES ('delegation-mission','delegation-sub','sub_orchestrator')");
   const row = await db.get("SELECT metadata_json FROM agents WHERE id='delegation-sub'");
   const metadata = JSON.parse(row.metadata_json);
