@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { canonicalValue, fingerprint } = require('./stateFingerprint');
 
-const MANIFEST_SCHEMA = 'genos.foundational-principles-qualification/v1';
-const RECEIPT_SCHEMA = 'genos.foundational-principles-qualification-receipt/v1';
+const MANIFEST_SCHEMA = 'genos.foundational-principles-qualification/v2';
+const RECEIPT_SCHEMA = 'genos.foundational-principles-qualification-receipt/v2';
 const EXPECTED = [
   ['F01', 'Runtime d’agents reproductible et supervisé'],
   ['F02', 'État versionné'],
@@ -46,6 +46,7 @@ function nonEmptyList(value, code) {
 function assertManifestHeader(manifest) {
   if (!manifest || manifest.schema !== MANIFEST_SCHEMA) throw failure('FOUNDATION_MANIFEST_SCHEMA_INVALID');
   nonEmptyText(manifest.baselineRevision, 'FOUNDATION_MANIFEST_REVISION_REQUIRED');
+  nonEmptyText(manifest.qualificationRevision, 'FOUNDATION_QUALIFICATION_REVISION_REQUIRED');
   nonEmptyText(manifest.scope, 'FOUNDATION_MANIFEST_SCOPE_REQUIRED');
   if (manifest.ratingScale?.['4'] === undefined) throw failure('FOUNDATION_RATING_SCALE_INVALID');
   if (!Array.isArray(manifest.principles) || manifest.principles.length !== EXPECTED.length) {
@@ -104,6 +105,7 @@ function resolveReference(root, reference) {
 
 function allReferences(manifest) {
   const references = new Set(manifest.evidenceSuite || []);
+  references.add(manifest.lifecyclePolicy?.revocationLedger);
   for (const entry of manifest.principles) {
     for (const key of ['implementationRefs', 'evidenceTests', 'documentationRefs']) {
       for (const reference of entry[key]) references.add(reference);
@@ -121,10 +123,22 @@ function assertEvidenceSuite(manifest) {
   }
 }
 
+function assertLifecyclePolicy(manifest) {
+  const policy = manifest.lifecyclePolicy;
+  if (!Number.isInteger(policy?.evidenceMaxAgeMs) || policy.evidenceMaxAgeMs <= 0) {
+    throw failure('FOUNDATION_EVIDENCE_MAX_AGE_INVALID');
+  }
+  if (!Number.isInteger(policy.maxFutureSkewMs) || policy.maxFutureSkewMs < 0) {
+    throw failure('FOUNDATION_FUTURE_SKEW_INVALID');
+  }
+  nonEmptyText(policy.revocationLedger, 'FOUNDATION_REVOCATION_LEDGER_REQUIRED');
+}
+
 function validateManifest(manifest, repositoryRoot) {
   assertManifestHeader(manifest);
   manifest.principles.forEach((entry, index) => assertEntry(entry, EXPECTED[index]));
   assertEvidenceSuite(manifest);
+  assertLifecyclePolicy(manifest);
   const root = fs.realpathSync(repositoryRoot);
   const references = allReferences(manifest).map((reference) => resolveReference(root, reference));
   return { root, references };
@@ -136,7 +150,7 @@ function validDigest(value) {
 
 function assertObservation(manifest, test, observation) {
   const valid = observation && observation.exitCode === 0
-    && observation.revision === manifest.baselineRevision
+    && observation.revision === manifest.qualificationRevision
     && validDigest(observation.outputDigest)
     && !Number.isNaN(Date.parse(observation.observedAt));
   if (!valid) throw failure('FOUNDATION_EXECUTABLE_EVIDENCE_REQUIRED');
@@ -153,7 +167,8 @@ function qualificationBody(manifest, validation, observations) {
     assertObservation(manifest, test, observations[test]));
   const sources = sourceRecords(validation);
   return { schema: RECEIPT_SCHEMA, baselineRevision: manifest.baselineRevision,
-    scope: manifest.scope, score: 4, qualifiedCount: manifest.principles.length,
+    qualificationRevision: manifest.qualificationRevision, scope: manifest.scope,
+    score: 4, qualifiedCount: manifest.principles.length,
     totalCount: EXPECTED.length, status: 'qualified-bounded-scope',
     universalClaim: false, authorizesPromotion: false,
     manifestHash: fingerprint(manifest), sourceDigest: fingerprint(sources), evidence };

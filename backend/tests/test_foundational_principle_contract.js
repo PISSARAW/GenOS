@@ -32,6 +32,11 @@ function main() {
   unsupported.principles[0].evidenceTests = ['backend/tests/not-a-proof.js'];
   assert.throws(() => qualification.validateManifest(unsupported, repositoryRoot),
     { code: 'FOUNDATION_EVIDENCE_OUTSIDE_SUITE' });
+
+  const timeless = clone(manifest);
+  timeless.lifecyclePolicy.evidenceMaxAgeMs = 0;
+  assert.throws(() => qualification.validateManifest(timeless, repositoryRoot),
+    { code: 'FOUNDATION_EVIDENCE_MAX_AGE_INVALID' });
   console.log('Foundational principle contract: 19 bounded capabilities remain distinct from metaphors.');
 }
 

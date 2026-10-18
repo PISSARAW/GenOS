@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const qualification = require('../src/services/foundationalPrincipleQualification');
+const lifecycle = require('../src/services/foundationalQualificationLifecycle');
 
 function digestOutput(result) {
   return crypto.createHash('sha256').update(result.stdout || '').update('\0')
@@ -22,7 +23,7 @@ function runEvidence(repositoryRoot, manifest, test) {
       || 'foundational-qualification-test-only' }
   });
   assert.equal(result.status, 0, `${test} failed\n${result.stdout || ''}\n${result.stderr || ''}`);
-  return { exitCode: result.status, revision: manifest.baselineRevision,
+  return { exitCode: result.status, revision: manifest.qualificationRevision,
     observedAt: new Date().toISOString(), outputDigest: digestOutput(result) };
 }
 
@@ -54,6 +55,7 @@ function main() {
     'foundationalPrinciplesQualification.json');
   const manifest = qualification.readManifest(manifestPath);
   assertBaseline(repositoryRoot, manifest.baselineRevision);
+  assertBaseline(repositoryRoot, manifest.qualificationRevision);
   const observations = collectEvidence(repositoryRoot, manifest);
   const spec = { repositoryRoot, manifest, observations };
   const receipt = qualification.qualify(spec);
@@ -64,10 +66,17 @@ function main() {
   assert.equal(receipt.universalClaim, false);
   assert.match(receipt.receiptHash, /^[a-f0-9]{64}$/);
   const persistedReceipt = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'docs',
-    '06-qualite-preuves', 'receipts', 'principes-fondateurs-phase7.json'), 'utf8'));
+    '06-qualite-preuves', 'receipts', 'principes-fondateurs-phase8.json'), 'utf8'));
   assert.deepEqual(receipt, persistedReceipt, 'The versioned qualification receipt is stale.');
+  const revocationLedger = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
+    manifest.lifecyclePolicy.revocationLedger), 'utf8'));
+  const assessment = lifecycle.assess({ ...spec, persistedReceipt, revocationLedger,
+    now: new Date().toISOString() });
+  lifecycle.assertCurrent(assessment);
+  assert.equal(assessment.authorizesPromotion, false);
   assertFailClosed(spec);
   console.log('Foundational principles: 19/19 score 4 in the declared bounded scope.');
+  console.log(`QUALIFICATION_STATUS=${assessment.status};VALID_UNTIL=${assessment.validUntil}`);
   console.log(`QUALIFICATION_RECEIPT=${JSON.stringify(receipt)}`);
 }
 
