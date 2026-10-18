@@ -48,6 +48,7 @@ const {
   EPISTEMOLOGY_EXTENSIONS,
   METHOD_EXTENSIONS,
 } = require('./operationalDefinitions');
+const { COGNITIVE_CONSCIOUSNESS_DEFINITIONS } = require('./cognitiveConsciousnessDefinitions');
 
 // Rôles déclaratifs et valeurs par défaut (conceptRoles.js)
 const { DEFAULTS_BY_ROLE, ROLE_BY_ID } = require('./conceptRoles');
@@ -340,6 +341,7 @@ const FINALIZED_BIOMIMETIC = BIOMIMETIC_DEFINITIONS.map(finalizeConcept);
 const FINALIZED_LENS = LENS_DEFINITIONS.map(finalizeConcept);
 const FINALIZED_EPISTEMOLOGY_EXT = EPISTEMOLOGY_EXTENSIONS.map(finalizeConcept);
 const FINALIZED_METHOD_EXT = METHOD_EXTENSIONS.map(finalizeConcept);
+const FINALIZED_COGNITIVE_CONSCIOUSNESS = COGNITIVE_CONSCIOUSNESS_DEFINITIONS.map(finalizeConcept);
 
 const CONCEPT_DEFINITIONS = Object.freeze([
   ...FINALIZED_CORE,
@@ -349,6 +351,7 @@ const CONCEPT_DEFINITIONS = Object.freeze([
   ...FINALIZED_LENS,
   ...FINALIZED_EPISTEMOLOGY_EXT,
   ...FINALIZED_METHOD_EXT,
+  ...FINALIZED_COGNITIVE_CONSCIOUSNESS,
   ...FINALIZED_AESTHETICS,
   ...FINALIZED_LOGIC,
   ...FINALIZED_MATHEMATICS,
@@ -384,6 +387,7 @@ module.exports = {
   AESTHETICS_DEFINITIONS,
   LOGIC_DEFINITIONS,
   MATHEMATICS_DEFINITIONS,
+  COGNITIVE_CONSCIOUSNESS_DEFINITIONS,
   FAMILY_BY_DOMAIN,
   C,
   deriveRole,

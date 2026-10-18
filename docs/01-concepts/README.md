@@ -23,6 +23,19 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [imagination-et-simulation.md](imagination-et-simulation.md) — recombinaison de fragments, simulation interne, contrôle et preuve.
 - [conscience-esprit-mental.md](conscience-esprit-mental.md) — taxonomie de la conscience, de l'esprit et du mental.
 - [indicateurs-fonctionnels.md](indicateurs-fonctionnels.md) — suivi des indicateurs fonctionnels de type conscience : table implémentation/limite, doctrine best-effort/borné/avis-seulement.
+- [esprit.md](esprit.md) — notion d'esprit, pas d'implémentation comme substance.
+- [mental.md](mental.md) — ensemble des états et processus mentaux, pas une fonctionnalité GenOS.
+- [conscience.md](conscience.md) — conscience phénoménale, pas une propriété logicielle vérifiable.
+- [conscience-operationnelle.md](conscience-operationnelle.md) — régulation cognitive (dissonance, budget, Eurêka, apoptose).
+- [conscience-fonctionnelle.md](conscience-fonctionnelle.md) — indicateurs fonctionnels type conscience (attention, modèle de soi, métacognition).
+- [attention.md](attention.md) — fovéation, active sensing, bancs causaux et sondes.
+- [perception.md](perception.md) — bridge perception-mémoire, observation canonique.
+- [interoception.md](interoception.md) — signaux homéostatiques internes et planificateur allostatique.
+- [reflexion.md](reflexion.md) — auto-surveillance de la confiance et des erreurs.
+- [metacognition.md](metacognition.md) — ECE, Brier, AUC type-2, surconfiance sur l'historique d'attributions.
+- [calibration.md](calibration.md) — mise à jour lissée de la confiance, ECE, Brier.
+- [etats-de-conscience.md](etats-de-conscience.md) — niveaux fonctionnels, pas états de conscience phénoménale.
+- [limites-metrique-experience.md](limites-metrique-experience.md) — séparation score fonctionnel ≠ expérience subjective.
 - [adaptive-epistemic-immune-system.md](adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif (antigène, immunité innée/adaptative, sélection clonale, mémoire, inflammation, biocénose, métapopulation, stigmergie, holobionte, challenge). **v2.1 : FormalResult-first, receipts bindés, gate injectée, `npm run test:aeis` vert.**
 - [organes-vitaux-agents.md](organes-vitaux-agents.md) — systèmes 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux ; boucle morphogénétique unifiée.
 
