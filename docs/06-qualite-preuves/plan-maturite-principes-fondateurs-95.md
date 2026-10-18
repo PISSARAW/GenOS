@@ -1,6 +1,6 @@
 # Plan de maturité des principes fondateurs vers 95/100
 
-- **Statut** : Exécution en cours, phases 10 à 12 qualifiées (89/100)
+- **Statut** : Exécution en cours, phases 10 à 13 qualifiées (92/100)
 - **Portée** : fermeture transverse des réserves après les phases 7 à 9
 - **Dernière revue** : 2026-10-18
 
@@ -21,7 +21,7 @@ reçu vérifiable. Un lot incomplet n'ajoute aucun point.
 | Phase 10 — CI Node transverse | +3 | `npm test` termine à zéro sans dépendre de `.env` ni d'une autorité implicite | Qualifiée le 2026-10-18 |
 | Phase 11 — validation Rust reproductible | +2 | `cargo test --workspace` termine à zéro dans un répertoire de build isolé | Qualifiée le 2026-10-18 |
 | Phase 12 — dette du gate qualité | +2 | aucune nouvelle dette et gate global ramené à un état accepté et documenté | Qualifiée le 2026-10-18 |
-| Phase 13 — registre de confiance déployable | +3 | bootstrap, rotation, révocation et récupération de clés testés en fail-closed | À faire |
+| Phase 13 — registre de confiance déployable | +3 | bootstrap, rotation, révocation et récupération de clés testés en fail-closed | Qualifiée le 2026-10-18 |
 | Phase 14 — journal de révocation durable | +2 | anti-rollback, reprise après crash et réplication vérifiées sur stockage durable | À faire |
 | Phase 15 — qualification transverse | +1 | matrice multi-chemins et reçu frais couvrant Node, Rust, MCP et récupération | À faire |
 
@@ -139,6 +139,26 @@ l'admission.
 
 Sortie : aucun secret n'est commité ; les clés publiques et leur lignée sont
 installables, versionnées et vérifiables avec des tests de falsification.
+
+Preuves de sortie :
+
+- `npm --prefix backend run test:foundational-trust` : bootstrap génération 1,
+  rotation chevauchante A/B, révocation de A, acceptation de B et récupération
+  du paquet actif réussis ;
+- chaque paquet lie sa génération au hash du paquet précédent, est signé par une
+  racine Ed25519 distincte des autorités de révocation et expire explicitement ;
+- l'activateur installe atomiquement le paquet et son miroir de récupération ;
+  le runtime projette uniquement les autorités actives vers le registre de
+  révocation existant ;
+- paquets altérés, vides, périmés, sans lignée ou signés par une racine inconnue
+  sont refusés avant remplacement de l'état actif ;
+- `python scripts/ci/check_code_quality.py` : 6 794 fichiers, 15 violations
+  historiques et 0 nouvelle.
+
+Les clés privées ne sont ni persistées par le registre ni commitées. La racine
+publique est injectée par l'hôte. La distribution multi-hôte, la garde HSM et
+l'anti-rollback durable restent hors de ce lot ; ce dernier est traité en phase
+14. Voir ADR 0638.
 
 ## Phase 14 — journal de révocation durable
 
