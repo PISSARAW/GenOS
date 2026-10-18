@@ -2,6 +2,7 @@
 
 - [ADR 0565 — Unifier les contrats de variants topologiques](adr/0565-unifier-les-contrats-de-variants-topologiques.md) — identité canonique, baseline `default`, maturité exécutable, snapshots liés au worker et dispatch commun des sessions.
 - [ADR 0573 — Porte appariée P2 avant commit adaptatif](adr/0573-porte-appariee-p2-avant-commit-adaptatif.md) — six bras obligatoires, shadow/holdout disjoints, bootstrap apparié corrigé et refus de toute autorité implicite.
+- [ADR 0602 — Runner durable P3 pour les campagnes appariées](adr/0602-runner-durable-p3-campagnes-appariees.md) — reçus immuables, reprise idempotente, scellement shadow/holdout et adaptateurs de processus externes fail-closed.
 - [ADR 0566a — Autorité Rust et snapshot durable de morphogenèse](adr/0566-autorite-rust-et-snapshot-durable-de-morphogenese.md) — commit de production signé, snapshot durable et rollback des processus, workspaces, baux et budgets.
 - [ADR 0527 — Rotation de confiance des clés de fossilisation](adr/0527-rotation-confiance-cles-fossiles.md) — chevauchement des clés approuvées, retrait sans réécriture des attestations et vérification ciblée du corpus.
 - [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.

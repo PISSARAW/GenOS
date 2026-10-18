@@ -15,6 +15,9 @@ const morphologyCandidate = require('./morphologyCandidate');
 const qualityDiversityArchive = require('./qualityDiversityArchive');
 const successiveHalving = require('./successiveHalving');
 const pairedCampaignGate = require('./pairedCampaignGate');
+const pairedCampaignRunner = require('./pairedCampaignRunner');
+const pairedCampaignStore = require('./pairedCampaignStore');
+const processCampaignAdapter = require('./processCampaignAdapter');
 
 module.exports = {
   developmentalGenerator: {
@@ -50,5 +53,8 @@ module.exports = {
   morphologyCandidate,
   qualityDiversityArchive,
   successiveHalving,
-  pairedCampaignGate
+  pairedCampaignGate,
+  pairedCampaignRunner,
+  pairedCampaignStore,
+  processCampaignAdapter
 };
