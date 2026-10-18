@@ -56,6 +56,9 @@ Generated from backend/src/strategies/strategyRegistry.js. Runtime registry heal
 - energy_huddle | maturity: implemented | execution: ready | primitives: energy_observe, resource_equalize
 - network_silence | maturity: implemented | execution: ready | primitives: local_buffer, critical_or_success_flush
 - strategy_arena | maturity: implemented | execution: ready | primitives: solver_tournament, elo, pareto
+- hierarchical_merge | maturity: implemented | execution: ready | primitives: merge, causal_merge
+- competitive_arena | maturity: implemented | execution: ready | primitives: adversarial_review, evaluate
+- isolated_recovery | maturity: implemented | execution: ready | primitives: last_good_snapshot, restore
 - retrieval_first | maturity: implemented | execution: ready | primitives: search_memory, similarity_rank
 - golden_path_replay | maturity: implemented | execution: ready | primitives: cherry_pick_golden_path, replay
 - negative_knowledge | maturity: implemented | execution: ready | primitives: search_failures, avoid_known_dead_ends
