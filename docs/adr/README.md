@@ -718,6 +718,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0605](0605-dispositions-implementation-philosophique.md) | Dispositions d'implémentation philosophique | Accepté | 2026-10-18 | philosophie opérationnelle, contrats, autorité runtime |
 | [0606](0606-lier-morphogenese-et-agentdna.md) | Lier la morphogenèse et AgentDNA | Accepté | 2026-10-18 | morphogenèse, AgentDNA, incarnation, preuve, restauration |
 | [0607](0607-audits-specialises-capacites-philosophiques.md) | Audits spécialisés des capacités philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, identité, causalité, biomimétisme |
+| [0609](0609-missions-representatives-philosophie.md) | Missions représentatives pour les contrats philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, expérimentation, composition, preuve |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
