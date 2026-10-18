@@ -24,6 +24,14 @@ preuve lorsque l'intégrité ou la dérive l'exigent. Le rapport joint au plan
 signale explicitement `outcomePrediction: unavailable` tant qu'aucune prédiction
 post-action validée n'existe.
 
+Le protocole causal de missions appariées conserve ce comportement de production
+et évalue séparément les résultats observés. Pour chaque seed préenregistrée, il
+compare un bras avec télémétrie machine visible à un bras où elle est masquée,
+sous les mêmes locks, limites et environnement. Le résultat primaire est la
+différence de taux d'adaptation avant violation ; la différence de violations
+observées est secondaire. Toute confusion résiduelle au-dessus du seuil rend la
+campagne `confounded`.
+
 ## Conséquences
 
 ### Positives
@@ -32,6 +40,8 @@ post-action validée n'existe.
   l'exécution de la mission.
 - Le test actif/ablaté conserve une entrée identique et vérifie l'effet sur la
   politique de fanout et de mutation.
+- Une campagne terminée peut désormais réfuter ou soutenir causalement l'effet
+  fonctionnel de la télémétrie sans convertir la posture en prédiction inventée.
 - La sortie garde les limites d'incertitude et n'est pas utilisée comme preuve
   de conscience.
 
@@ -39,8 +49,11 @@ post-action validée n'existe.
 
 - Les seuils de posture sont des choix d'ingénierie, pas des paramètres appris
   ni une théorie de l'allostase biologique.
-- L'expérience locale ne mesure pas encore une meilleure viabilité réelle ni
-  un effet généralisé ; un protocole de missions appariées reste nécessaire.
+- L'expérience locale ne mesure pas encore un effet généralisé ; la campagne
+  appariée exige des exécutions réelles et une réplication externe avant toute
+  généralisation.
+- Les signaux restent des mesures machine : aucun résultat ne prouve une sensation
+  corporelle, une valence vécue ou une expérience subjective.
 
 ## Alternatives
 

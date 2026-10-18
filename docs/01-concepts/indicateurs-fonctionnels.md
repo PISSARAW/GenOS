@@ -70,7 +70,7 @@ Inventaire historique à requalifier par les reçus du plan de validation.
 | Modèle du monde | transitions, trajectoires incertaines, rollout Trinity action-conditionné (avis) | Partiel | modèle génératif, rollout libre |
 | Agency flexible | contrats, recovery, calibration d'agency, bandit LinUCB qui décide en canari 5 % | Partiel | contrôle complet, options HRL |
 | Intégration (IIT) | proxy (répertoire + NMI) + moteur causal (ablations, PID-lite, recommandations morphogenèse) | Indicateur seulement | causalité prouvée, Φ |
-| Valence / intéroception | drives homéostatiques ; mesures machine transmises au planificateur allostatique qui borne fanout/éditions avant exécution | Partiel | le contraste causal local teste la sélection de posture ; prédiction post-action, amélioration de viabilité et validation réservée restent à faire |
+| Valence / intéroception | drives homéostatiques ; mesures machine transmises au planificateur allostatique ; protocole apparié télémétrie visible/masquée sur résultats observés | Partiel | exécutions multi-domaines, campagne réservée et réplication indépendante restent à faire |
 | Consolidation offline | `sleepCycle` + `sleepConsolidationService` auto + ticks | Implémenté (fonctionnel) | phases type sommeil paradoxal |
 | Rapport / accès | evidence reports + reconstruction déterministe jointe (`factualReports`) + abstention | Partiel | synthèse finale encore rédigée par LLM |
 | Discipline no-report | gates + banc adversarial (`test_organ_ablation_bench`) + suite de dissociation appariée sans texte | Implémenté (fonctionnel) | réplication externe et équivalent Rust |
@@ -132,6 +132,9 @@ La suite `test_consciousness_dissociation_benchmark.js` sépare en outre le
 stimulus courant, la performance, la disponibilité du rapport et la génération
 interne sous seed et locks communs. Elle teste des dissociations fonctionnelles
 et ignore tout texte autorapporté ; elle ne détecte aucune expérience.
+Le test `test_interoception_causal_benchmark.js` vérifie le contrat de missions
+appariées, le différentiel d'adaptation avant violation, les issues observées,
+les confusions résiduelles et l'intégrité du manifeste préenregistré.
 Ils vérifient des contrats logiciels et la corrélation locale, pas le câblage
 de production du workspace global ni une validation expérimentale généralisée.
 Validation historique : `node --check`, suites backend ciblées

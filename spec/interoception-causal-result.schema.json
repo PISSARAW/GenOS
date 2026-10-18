@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/interoception-causal-result.schema.json",
+  "title": "GenOS paired interoception causal result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "hypothesisId", "pairCount", "metrics", "status", "claim", "promotionAllowed", "limitation"],
+  "properties": {
+    "schema": { "const": "genos.interoception-causal-result/v1" },
+    "hypothesisId": { "const": "interoception-budget-adaptation" },
+    "pairCount": { "type": "integer", "minimum": 2 },
+    "metrics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["controlAdaptationRate", "ablationAdaptationRate", "adaptationRateDelta", "controlViolationRate", "ablationViolationRate", "violationRateDelta", "maximumResidualConfound"],
+      "properties": {
+        "controlAdaptationRate": { "$ref": "#/$defs/rate" },
+        "ablationAdaptationRate": { "$ref": "#/$defs/rate" },
+        "adaptationRateDelta": { "type": "number", "minimum": -1, "maximum": 1 },
+        "controlViolationRate": { "$ref": "#/$defs/rate" },
+        "ablationViolationRate": { "$ref": "#/$defs/rate" },
+        "violationRateDelta": { "type": "number", "minimum": -1, "maximum": 1 },
+        "maximumResidualConfound": { "$ref": "#/$defs/rate" }
+      }
+    },
+    "status": { "enum": ["supported", "invalidated", "confounded"] },
+    "claim": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "layer", "status", "statement", "evidenceRefs", "phenomenalExperience", "metaphysicalClaimEstablished"],
+      "properties": {
+        "schema": { "const": "genos.consciousness-claim-assessment/v1" },
+        "layer": { "const": "information_processing" },
+        "status": { "enum": ["causal_support", "inconclusive", "refuted"] },
+        "statement": { "type": "string", "minLength": 1 },
+        "evidenceRefs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "phenomenalExperience": { "const": "unassessed" },
+        "metaphysicalClaimEstablished": { "const": false }
+      }
+    },
+    "promotionAllowed": { "const": false },
+    "limitation": { "type": "string", "minLength": 1 }
+  },
+  "$defs": { "rate": { "type": "number", "minimum": 0, "maximum": 1 } }
+}

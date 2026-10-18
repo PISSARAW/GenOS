@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/interoception-causal-campaign.schema.json",
+  "title": "GenOS paired interoception causal campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "manifest", "pairs"],
+  "properties": {
+    "schema": { "const": "genos.interoception-causal-campaign/v1" },
+    "manifest": { "$ref": "https://genos.ai/spec/consciousness-experiment-manifest.schema.json" },
+    "pairs": {
+      "type": "array", "minItems": 2, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/pair" }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "evidenceRefs": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/text" }
+    },
+    "arm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runId", "telemetryAccess", "adaptationAppliedBeforeViolation", "constraintViolated", "evidenceRefs"],
+      "properties": {
+        "runId": { "$ref": "#/$defs/text" },
+        "telemetryAccess": { "enum": ["visible", "masked"] },
+        "adaptationAppliedBeforeViolation": { "type": "boolean" },
+        "constraintViolated": { "type": "boolean" },
+        "evidenceRefs": { "$ref": "#/$defs/evidenceRefs" }
+      }
+    },
+    "pair": {
+      "type": "object", "additionalProperties": false,
+      "required": ["seed", "environmentHash", "limitsHash", "residualConfound", "control", "ablation"],
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0 },
+        "environmentHash": { "$ref": "#/$defs/hash" },
+        "limitsHash": { "$ref": "#/$defs/hash" },
+        "residualConfound": { "type": "number", "minimum": 0, "maximum": 1 },
+        "control": { "$ref": "#/$defs/arm" },
+        "ablation": { "$ref": "#/$defs/arm" }
+      }
+    }
+  }
+}
