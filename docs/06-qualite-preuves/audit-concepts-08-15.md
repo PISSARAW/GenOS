@@ -119,7 +119,7 @@ Les sous-capacités mentionnées dans l'inventaire (juge, quorum, veto, CRDT, ni
 | Holobionte | P | P | P | O | O | T : hôte/symbiontes ; veto immunitaire et inférence locale bout en bout non qualifiés. |
 | Syncytium | P | P | P | O | O | T : état causal/variants ; convergence distribuée et campagne LLM complète à publier. |
 | Biome | P | P | P | O | O | T : niches/foraging ; résultat écologique et biofilm non qualifiés. |
-| Rhizome | P | P | P | O | O | T : ramification/routage ; croissance admise et routage E2E à publier. |
+| Rhizome | P | P | P | O | O | T : ramification/routage ; croissance admise et routage E2E publiés (`test_rhizome_growth_routing_e2e.js`, 36 suites PASS). |
 | Métapopulation | P | P | P | O | O | T : dèmes/reprise ; qualification externe et globale manquante. |
 | Garage Fabric | P | P | P | O | O | [garage](../../backend/src/services/workerGarageService.js), [tests](../../backend/tests/test_garage_fabric.js) : admission/leases ; sélection multi-stratégies en mission à qualifier. |
 
