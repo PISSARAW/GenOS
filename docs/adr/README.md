@@ -712,6 +712,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0572](0572-archive-qualite-diversite-et-halving-morphologique.md) | Archive qualité-diversité et halving morphologique | Accepté | 2026-10-18 | morphogenèse, qualité-diversité, halving, budget |
 | [0573](0573-porte-appariee-p2-avant-commit-adaptatif.md) | Porte appariée P2 avant commit adaptatif | Accepté | 2026-10-18 | morphogenèse, comparaison appariée, holdout, intervalles de confiance |
 | [0601](0601-classer-les-organisations-dynamiques.md) | Classer les organisations dynamiques dans la morphogenèse | Accepté | 2026-10-18 | morphogenèse, organisations dynamiques, orchestration |
+| [0603](0603-relier-nosologie-et-morphogenese.md) | Relier la nosologie et la morphogenèse | Accepté | 2026-10-18 | morphogenèse, nosologie, quarantaine, autopsie causale |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
