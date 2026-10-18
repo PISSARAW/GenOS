@@ -26,7 +26,10 @@ const collective = defineFamily('collective', [
   ['dynamic_polyethism', 'Polyéthisme et différenciation dynamique', ['critical_refactor', 'security'], ['collective', 'adaptive', 'specialization'], 'implemented', ['role_gradient', 'dynamic_assignment']],
   ['energy_huddle', 'Huddle énergétique', ['all'], ['collective', 'budget', 'adaptive'], 'implemented', ['energy_observe', 'resource_equalize']],
   ['network_silence', 'Silence réseau', ['all'], ['low_cost', 'low_latency', 'collective'], 'implemented', ['local_buffer', 'critical_or_success_flush']],
-  ['strategy_arena', 'Arena de stratégies', ['implementation', 'architecture_decision'], ['parallel', 'multi_objective', 'verification'], 'implemented', ['solver_tournament', 'elo', 'pareto']]
+  ['strategy_arena', 'Arena de stratégies', ['implementation', 'architecture_decision'], ['parallel', 'multi_objective', 'verification'], 'implemented', ['solver_tournament', 'elo', 'pareto']],
+  ['hierarchical_merge', 'Fusion hiérarchique', ['architecture_decision', 'critical_refactor', 'security'], ['hierarchy', 'evidence_barrier', 'provenance'], 'implemented', ['merge', 'causal_merge']],
+  ['competitive_arena', 'Arène compétitive', ['implementation', 'architecture_decision'], ['arena_competition', 'epistemics_brier', 'multi_objective'], 'implemented', ['adversarial_review', 'evaluate']],
+  ['isolated_recovery', 'Récupération isolée', ['incident', 'security', 'critical_refactor'], ['resilience_recovery', 'capsules_snapshots', 'chaos_engineering'], 'implemented', ['last_good_snapshot', 'restore']]
 ]);
 
 module.exports = [...temporal, ...collective];
