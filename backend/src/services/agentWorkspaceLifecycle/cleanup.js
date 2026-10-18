@@ -69,6 +69,7 @@ function assertAgentOwnership(resolvedRoot, agentId) {
 async function trackWorkspace(agentId, workspaceRoot) {
   if (!agentId || !workspaceRoot) return;
   const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+  if (await isGqwfLeaseWorkspace(resolvedWorkspaceRoot)) return;
   const epoch = await ensureEpochMarker(resolvedWorkspaceRoot);
   activeWorktrees.set(agentId, { workspaceRoot: resolvedWorkspaceRoot, epoch });
   const db = await require('../../db').getDatabase();
@@ -77,6 +78,17 @@ async function trackWorkspace(agentId, workspaceRoot) {
     'INSERT INTO agent_capsule_cleanup(agent_id, workspace_root, epoch) VALUES (?, ?, ?) ON CONFLICT(agent_id) DO UPDATE SET workspace_root = excluded.workspace_root, epoch = excluded.epoch',
     agentId, resolvedWorkspaceRoot, epoch
   );
+}
+
+async function isGqwfLeaseWorkspace(workspaceRoot) {
+  const base = path.basename(workspaceRoot);
+  if (!base.startsWith('lease-')) return false;
+  try {
+    const leaseId = await fs.readFile(path.join(workspaceRoot, '.genos-gqwf-lease'), 'utf8');
+    return base === `lease-${leaseId}`;
+  } catch (_) {
+    return false;
+  }
 }
 
 async function forgetWorkspace(agentId, cleanupDisk = false) {

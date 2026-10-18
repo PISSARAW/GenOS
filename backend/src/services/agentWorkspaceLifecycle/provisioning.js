@@ -226,6 +226,10 @@ async function createIsolatedWorkspace(sourceRoot, workerId, optionsOverride) {
 async function provisionMissionWorkspace(mission, executionMode) {
   if (executionMode !== 'orchestrator' || mission.workspaceProvisioned === true) return mission;
   const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../../..');
+  if (require('../gqwf/missionExecution').deferOrchestratorCopy(mission, executionMode)) {
+    return { ...mission, workspaceRoot: path.resolve(sourceWorkspace),
+      gqwfSourceWorkspaceRoot: path.resolve(sourceWorkspace) };
+  }
   const allowEdits = mission.executionPolicy?.allowFileEdits === true || /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || ''));
   const useVfs = !allowEdits || mission.vfsWorkspace === true || process.env.GENOS_VFS_WORKSPACES === '1';
   const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, mission.agentId, {

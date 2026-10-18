@@ -337,6 +337,7 @@ async function createMissionExecutionRun(ctx) {
     contractRecord
   });
   await require('../missionModelBudgetScope').bindParent(ctx);
+  await require('../gqwf/missionExecution').prepareMissionWorkspace(ctx);
   } catch (error) {
     try { await require('../trinityWorkerIdentity').recordRejected(db, { agentId, error }); }
     catch (diagnosticError) { console.error('[WorkerIdentity] Diagnostic persistence failed:', diagnosticError.code || 'unknown'); }

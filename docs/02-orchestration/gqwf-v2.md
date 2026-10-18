@@ -27,9 +27,16 @@ Le premier raccordement à l'exécution paresseuse expose aussi
 vue logique sans dossier physique. La matérialisation explicite scelle cette vue
 et ouvre un bail seulement lorsqu'un outil exige un chemin réel ; les fichiers
 produits peuvent ensuite être réingérés comme nouvelle racine candidate avant la
-libération du bail. Ce contrat n'est pas encore sélectionné automatiquement par
-le planificateur de mission et ne remplace donc pas les capsules physiques du
-parcours worker général.
+libération du bail.
+
+La tranche 2 sélectionne maintenant ce contrat pour les missions orchestrateur
+supervisées qui demandent `executionPolicy.gqwfV2: true`. La copie initiale est
+différée, puis le runtime reçoit le dossier matérialisé comme `cwd` et
+`GENOS_WORKSPACE_ROOT`. Une réussite est ingérée comme candidate avant
+libération ; un échec est libéré sans ingestion. La session durable
+`gqwf_execution_sessions` lie l'execution run, la vue, le bail et la candidate.
+Les runtimes déterministes ou in-process restent physiques, et aucune tête
+n'est publiée automatiquement. Voir l'[ADR 0605](../adr/0605-routage-missions-supervisees-gqwf.md).
 
 Le verdict de publication doit être lié au workspace, au nom et à la
 génération de la tête, à sa racine précédente et à la racine candidate.
@@ -120,6 +127,8 @@ historique reste nécessaire, mais ses octets de payload peuvent manquer. Ces
 frontières sont décrites dans les [ADR 0378](../adr/0378-reference-gqwf-dans-snapshot-organisme.md)
 et [0383](../adr/0383-restauration-opt-in-racine-gqwf-organisme.md).
 
-Validation ciblée : `node backend/tests/test_gqwf_fabric.js` et
-`node backend/tests/test_gqwf_organism_snapshot.js`. Les gates généraux
-du dépôt restent requis pour toute livraison.
+Validation ciblée : `node backend/tests/test_gqwf_fabric.js`,
+`node backend/tests/test_gqwf_execution_workspace.js`,
+`node backend/tests/test_gqwf_mission_execution.js` et
+`node backend/tests/test_gqwf_organism_snapshot.js`. Les gates généraux du
+dépôt restent requis pour toute livraison.

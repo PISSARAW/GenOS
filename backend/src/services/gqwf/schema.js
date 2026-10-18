@@ -47,6 +47,25 @@ async function migrateGqwf(db) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (workspace_id, root_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
     );
+    CREATE TABLE IF NOT EXISTS gqwf_execution_sessions (
+      execution_run_id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL,
+      workspace_id TEXT NOT NULL,
+      view_id TEXT NOT NULL UNIQUE,
+      lease_id TEXT UNIQUE,
+      base_hash TEXT NOT NULL,
+      candidate_hash TEXT,
+      source_path TEXT NOT NULL,
+      materialized_path TEXT,
+      status TEXT NOT NULL CHECK (status IN ('virtual', 'materialized', 'ingested', 'released')),
+      outcome TEXT,
+      error TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workspace_id, base_hash) REFERENCES gqwf_roots(workspace_id, root_hash),
+      FOREIGN KEY (view_id) REFERENCES gqwf_views(id),
+      FOREIGN KEY (lease_id) REFERENCES gqwf_leases(id)
+    );
     CREATE TABLE IF NOT EXISTS gqwf_head_events (
       workspace_id TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -80,6 +99,8 @@ async function migrateGqwf(db) {
       FOREIGN KEY (view_id) REFERENCES gqwf_views(id)
     );
     CREATE INDEX IF NOT EXISTS idx_gqwf_views_workspace ON gqwf_views(workspace_id);
+    CREATE INDEX IF NOT EXISTS idx_gqwf_execution_workspace_status
+      ON gqwf_execution_sessions(workspace_id, status);
   `);
   const row = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gqwf_leases'");
   if (!row.sql.includes("'preparing'")) await migrateLeaseStatus(db);

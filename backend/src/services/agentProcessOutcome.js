@@ -61,6 +61,7 @@ function buildReplayManifest({ agentId, normalizedMission, executionRun, contrac
     contractVersion: contractRecord.version,
     budget: runtimeBudget || null,
     executionPolicy: normalizedMission.executionPolicy || null,
+    executionWorkspace: normalizedMission.executionWorkspace || null,
     autonomyPlan: autonomyPlan || null,
     workspaceRoot,
     executable: resolvedExecutable,
@@ -209,6 +210,19 @@ function runtimeObservation(outcome, code, signal) {
   };
 }
 
+async function finalizeExecutionWorkspace(input) {
+  const workspace = await require('./gqwf/missionExecution').finalizeMissionWorkspace({
+    db: input.db,
+    executionRunId: input.executionRun.id,
+    outcomeStatus: input.outcome.status
+  });
+  if (!workspace) return;
+  const action = workspace.outcome === 'completed' ? 'INGEST_WORKSPACE' : 'DISCARD_WORKSPACE';
+  input.emit(input.agentId, 'GQWF_EXECUTION_WORKSPACE_RELEASED', action,
+    'GQWF execution workspace was finalized and its materialized lease was released.',
+    workspace, 'info');
+}
+
 async function finalizeChildClose({
   db, agentId, dispatchedAgent, normalizedMission, child, code, signal, stderrBuffer,
   termination, missionDomainState, terminalEventSeen, emitTracked, executionQueue,
@@ -236,7 +250,10 @@ async function finalizeChildClose({
     await executionQueue;
   }
   await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
-  try { await require('./runtimeFilesystemReceipt').finish(filesystemReceipt); }
+  try {
+    await require('./runtimeFilesystemReceipt').finish(filesystemReceipt);
+    await finalizeExecutionWorkspace({ db, executionRun, outcome, emit, agentId });
+  }
   finally { await workspaceLifecycle.scheduleWorkspaceCleanup(agentId); }
   if (dispatchedAgent.execution_mode === 'worker') {
     const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
