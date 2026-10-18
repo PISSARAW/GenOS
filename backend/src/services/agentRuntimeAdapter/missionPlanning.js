@@ -254,6 +254,7 @@ function applyExecutionPolicy(ctx) {
       : [],
     allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true,
     gqwfV2: normalizedMission.executionPolicy?.gqwfV2 === true,
+    gqwfMaterializer: normalizedMission.executionPolicy?.gqwfMaterializer,
     explicitWriteLease: normalizedMission.executionPolicy?.explicitWriteLease === true,
     requestedWorkers: Number.isFinite(requestedWorkers) && requestedWorkers > 0 ? requestedWorkers : 0,
     silentUpdates

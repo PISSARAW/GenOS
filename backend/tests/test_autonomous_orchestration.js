@@ -60,12 +60,15 @@ assert.strictEqual(plan.controlRegulation.arbitration.actionMode, 'probe');
 assert.strictEqual(plan.controlRegulation.arbitration.reversibleOnly, true);
 assert.strictEqual(plan.controlRegulation.arbitration.humanReviewRequired, true);
 assert(plan.controlRegulation.expectedFeedback.includes('replayVerified'));
-const regulatedMission = { prompt: 'Inspect the incident', executionPolicy: { allowFileEdits: true, gqwfV2: true } };
+const regulatedMission = { prompt: 'Inspect the incident', executionPolicy: {
+  allowFileEdits: true, gqwfV2: true, gqwfMaterializer: 'auto'
+} };
 applyExecutionPolicy({ normalizedMission: regulatedMission, dispatchedAgent: { execution_mode: 'worker' }, autonomyPlan: plan });
 assert.strictEqual(regulatedMission.executionPolicy.actionMode, 'probe');
 assert.strictEqual(regulatedMission.executionPolicy.humanReviewRequired, true);
 assert.strictEqual(regulatedMission.executionPolicy.allowFileEdits, false);
 assert.strictEqual(regulatedMission.executionPolicy.gqwfV2, true);
+assert.strictEqual(regulatedMission.executionPolicy.gqwfMaterializer, 'auto');
 
 const probeMission = { prompt: 'Diagnose uncertainty', executionPolicy: { allowFileEdits: true } };
 applyExecutionPolicy({

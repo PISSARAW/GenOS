@@ -4,6 +4,7 @@ const path = require('node:path');
 const config = require('../../config/orchestratorConfig');
 const { isLocalRuntime } = require('../agentRuntimeExecutable');
 const { createFabric } = require('./index');
+const materializerPolicy = require('./materializerPolicy');
 const rollout = require('./rollout');
 
 function samePath(left, right) {
@@ -53,12 +54,25 @@ function describe(row) {
     state: row.status,
     outcome: row.outcome,
     materialized: row.status !== 'virtual' && row.status !== 'released',
+    materialization: row.materializer_backend_id ? {
+      backendId: row.materializer_backend_id,
+      selectionReason: row.materializer_selection_reason,
+      capabilityHash: row.materializer_capability_hash,
+      receiptHash: row.materializer_receipt_hash
+    } : null,
     error: row.error
   };
 }
 
 async function session(db, executionRunId) {
-  return db.get('SELECT * FROM gqwf_execution_sessions WHERE execution_run_id = ?', executionRunId);
+  return db.get(`SELECT sessions.*,
+    receipts.backend_id AS materializer_backend_id,
+    receipts.selection_reason AS materializer_selection_reason,
+    receipts.capability_hash AS materializer_capability_hash,
+    receipts.receipt_hash AS materializer_receipt_hash
+    FROM gqwf_execution_sessions sessions
+    LEFT JOIN gqwf_materialization_receipts receipts ON receipts.lease_id = sessions.lease_id
+    WHERE sessions.execution_run_id = ?`, executionRunId);
 }
 
 async function assertWorkspaceScope(ctx, workspaceId, sourcePath) {
@@ -71,7 +85,7 @@ async function assertWorkspaceScope(ctx, workspaceId, sourcePath) {
 }
 
 async function createVirtualSession(ctx, input) {
-  const fabric = createFabric(ctx.db);
+  const fabric = createFabric(ctx.db, materializerPolicy.fabricOptions(ctx.normalizedMission));
   const base = await fabric.importBase({ workspaceId: input.workspaceId });
   const opened = await fabric.openExecutionWorkspace({
     workspaceId: input.workspaceId,
@@ -128,6 +142,7 @@ async function prepareEligibleMission(ctx) {
 }
 
 async function prepareMissionWorkspace(ctx) {
+  materializerPolicy.validateMission(ctx.normalizedMission);
   await rollout.persistDecision(ctx);
   if (!eligible(ctx)) return null;
   try {

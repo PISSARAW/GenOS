@@ -226,6 +226,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, optionsOverride) {
 async function provisionMissionWorkspace(mission, executionMode) {
   if (executionMode !== 'orchestrator') return mission;
   const routed = require('../gqwf/rollout').routeMission(mission);
+  require('../gqwf/materializerPolicy').validateMission(routed);
   if (routed.workspaceProvisioned === true) return routed;
   const sourceWorkspace = routed.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../../..');
   if (require('../gqwf/missionExecution').deferOrchestratorCopy(routed, executionMode)) {

@@ -197,6 +197,28 @@ pas encore un gain universel. Voir l'[ADR 0629](../adr/0629-backend-reflink-nati
 
 Validation ciblée : `node backend/tests/test_gqwf_reflink_materializer.js`.
 
+### Politique de matérialisation des missions
+
+La tranche 10 relie le SPI au chemin réel des missions. Une mission GQWF peut
+déclarer `executionPolicy.gqwfMaterializer` avec `portable-copy-v1`,
+`native-reflink-v1` ou `auto`. L'ingress orchestrateur accepte aussi la forme
+`gqwf_materializer`, puis la normalisation conserve le champ canonique. Une
+valeur inconnue, ou une politique sans activation GQWF ni affectation canari,
+est refusée avant le provisionnement du workspace.
+
+Le défaut reste `portable-copy-v1`. `native-reflink-v1` échoue avant la création
+d'un bail si la sonde du volume est négative. `auto` autorise explicitement le
+repli portable et en conserve la cause. Le descripteur `executionWorkspace`
+expose `materialization.backendId`, `selectionReason`, `capabilityHash` et
+`receiptHash` depuis le reçu durable du bail, y compris après sa libération ; il
+ne déduit jamais le résultat depuis la politique demandée.
+
+Cette politique traverse également le fan-out des workers, sans rendre GQWF
+global ni modifier le bras contrôle d'un canari. Voir l'[ADR 0630](../adr/0630-politique-materialisation-missions-gqwf.md).
+
+Validation ciblée :
+`node backend/tests/test_gqwf_mission_materializer_policy.js`.
+
 La projection est limitée par les quotas de snapshots existants. Elle exclut
 les mêmes chemins que les snapshots de workspace v1 et refuse les symlinks,
 les hardlinks, les fichiers spéciaux et les noms non portables. Les modes
