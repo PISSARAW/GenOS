@@ -16,10 +16,11 @@ function samePath(left, right) {
 async function ownedCapsule(db, workerId, capsulePath) {
   const row = await db.get('SELECT workspace_root FROM agent_capsule_cleanup WHERE agent_id = ?', workerId);
   if (row?.workspace_root && samePath(row.workspace_root, capsulePath)) return;
-  const lease = await db.get(`SELECT l.id, l.path, l.status FROM gqwf_worker_bindings b
+  const lease = await db.get(`SELECT l.id, l.path, l.execution_path, l.status FROM gqwf_worker_bindings b
     JOIN gqwf_leases l ON l.id = b.lease_id
     WHERE b.worker_id = ? AND b.backend = 'gqwf'`, workerId).catch(() => null);
-  if (!lease || !samePath(lease.path, capsulePath) || !['open', 'ingested'].includes(lease.status)) {
+  const executionPath = lease?.execution_path || lease?.path;
+  if (!lease || !samePath(executionPath, capsulePath) || !['open', 'ingested'].includes(lease.status)) {
     throw new Error('GQWF worker capsule is not owned by this worker.');
   }
 }

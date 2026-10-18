@@ -52,6 +52,12 @@ proxy IIT). Un manifeste ne peut être créé qu'avec un profil disponible, des 
 des locks modèle/outils/budget et des seuils de décision préenregistrés. Il reste au
 statut `specified` et interdit toute promotion ou inférence phénoménale.
 
+`theoryComparisonService` construit une matrice descriptive entre au moins deux
+architectures seulement si chacune couvre exactement ces six hypothèses avec les
+mêmes contrats d'exécution. Les effets restent séparés par métrique : aucun gagnant et
+aucun score agrégé de conscience ne sont produits. Les hashes et références conservés
+permettent l'audit, mais la synthèse ne vérifie pas elle-même les runs référencés.
+
 Le concept `epistemology.metric-experience-boundary` est enregistré avec le service `consciousnessService`, niveau `conceptual`, classification `reference_only`.
 
 ## 8. Processus d'exécution ou de validation

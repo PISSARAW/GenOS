@@ -39,6 +39,13 @@ moyenne de `proxy_non_partitionné - proxy_partitionné`. Un contrôle dépassé
 résultat `confounded`; un effet inférieur au seuil l'invalide. Le rapport expose
 explicitement `phiComputed: false`, `iitImplemented: false` et interdit la promotion.
 
+La synthèse comparative multi-architectures exige ensuite la couverture exacte des
+six hypothèses pour chaque configuration. Tous les manifestes partagent profil,
+révision, seeds et locks; le manifeste d'une même hypothèse doit être identique entre
+architectures. La matrice conserve chaque statut, effet primaire, hash de résultat et
+référence de preuve. Elle ne calcule ni classement, ni score composite de conscience,
+et ne vérifie pas à elle seule les exécutions sous-jacentes.
+
 ## Conséquences
 
 ### Positives
@@ -50,6 +57,8 @@ explicitement `phiComputed: false`, `iitImplemented: false` et interdit la promo
   confondues avec les propriétés du registre Butlin.
 - La sensibilité du proxy aux partitions devient auditable seed par seed, avec les
   références de preuve et les écarts de contrôle conservés dans le résultat.
+- Les architectures peuvent être comparées sans agréger des métriques hétérogènes ni
+  effacer les résultats `invalidated`, `confounded`, `not_run` ou `unavailable`.
 
 ### Limites
 

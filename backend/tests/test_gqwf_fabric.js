@@ -143,10 +143,14 @@ async function exerciseLeaseRecovery(context, rootHash) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (workspace_id, root_hash) REFERENCES gqwf_roots(workspace_id, root_hash)
     );
-    INSERT INTO gqwf_leases SELECT * FROM gqwf_leases_new;
+    INSERT INTO gqwf_leases (id, workspace_id, root_hash, path, status, created_at)
+      SELECT id, workspace_id, root_hash, path, status, created_at FROM gqwf_leases_new;
     DROP TABLE gqwf_leases_new;`);
   await migrateGqwf(context.db);
   assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', stranded.leaseId)).status, 'releasing');
+  const migrated = await context.db.get('SELECT path, execution_path FROM gqwf_leases WHERE id = ?',
+    stranded.leaseId);
+  assert.equal(migrated.execution_path, migrated.path);
   assert.deepEqual(await context.db.all('PRAGMA foreign_key_check;'), []);
   await context.db.close();
   context.db = await open({ filename: path.join(context.root, 'gqwf.sqlite'), driver: sqlite3.Database });
@@ -164,7 +168,7 @@ async function exerciseLeaseRecovery(context, rootHash) {
   const failed = await resumed.materializeRoot({ workspaceId: 'ws-a', rootHash });
   const originalRemove = fs.rm;
   fs.rm = async (target, options) => {
-    if (target === failed.path) throw new Error('injected GQWF removal failure');
+    if (target === failed.containerPath) throw new Error('injected GQWF removal failure');
     return originalRemove(target, options);
   };
   try {
@@ -277,12 +281,12 @@ async function exercisePreparationRecovery(context, rootHash) {
   await fs.rm(collidedPath, { recursive: true, force: true });
   await context.db.run("UPDATE gqwf_leases SET status = 'released' WHERE id = ?", collisionRow.id);
   const replaced = await fabric.materializeRoot({ workspaceId: 'ws-a', rootHash });
-  await fs.rm(replaced.path, { recursive: true, force: true });
-  await fs.mkdir(replaced.path);
-  await fs.writeFile(path.join(replaced.path, 'keep.txt'), 'external');
+  await fs.rm(replaced.containerPath, { recursive: true, force: true });
+  await fs.mkdir(replaced.containerPath);
+  await fs.writeFile(path.join(replaced.containerPath, 'keep.txt'), 'external');
   await assert.rejects(fabric.releaseLease({ workspaceId: 'ws-a', leaseId: replaced.leaseId }), /ownership proof/);
   assert.equal((await context.db.get('SELECT status FROM gqwf_leases WHERE id = ?', replaced.leaseId)).status, 'quarantined');
-  assert.equal(await fs.readFile(path.join(replaced.path, 'keep.txt'), 'utf8'), 'external');
+  assert.equal(await fs.readFile(path.join(replaced.containerPath, 'keep.txt'), 'utf8'), 'external');
 }
 
 async function exerciseWorkerBridge(context) {

@@ -748,6 +748,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0628](0628-spi-materialisation-gqwf.md) | SPI de matérialisation GQWF | Accepté, backend portable uniquement en production | 2026-10-18 | GQWF, workspaces, matérialisation, portabilité |
 | [0629](0629-backend-reflink-natif-gqwf.md) | Backend reflink natif GQWF | Accepté, activation explicite ou politique auto | 2026-10-18 | GQWF, workspaces, reflink, Copy-on-Write |
 | [0630](0630-politique-materialisation-missions-gqwf.md) | Politique de matérialisation des missions GQWF | Accepté, activation explicite | 2026-10-18 | GQWF, missions, workspaces, Copy-on-Write |
+| [0631](0631-conteneur-bail-et-racine-execution-gqwf.md) | Séparer conteneur de bail et racine d'exécution GQWF | Accepté | 2026-10-18 | GQWF, workspaces, OverlayFS, snapshots, reprise |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
