@@ -1,13 +1,18 @@
 pub use genos_cell as cell;
 pub use genos_genome as genome;
 
+pub mod agentic_ecosystem;
 pub mod bioluminescence;
 pub mod chemistry;
 pub mod ecology;
 pub mod embryology;
 pub mod glial;
 pub mod glycolysis;
+pub mod genome_stability;
 pub mod lipid_membrane;
+pub mod sensorium;
+pub mod survival_systems;
+pub mod vital_organs;
 pub use glial::glial_cell::GlialCell;
 pub use glial::{GlialEnvironment, GlialPipeline};
 pub mod instinct;
@@ -48,6 +53,18 @@ pub mod therapy_extended;
 mod therapy_dispatch;
 mod therapy_legacy;
 pub mod tissue;
+
+pub use agentic_ecosystem::{AgenticEcosystem, AgentRef, Biome, Niche};
+pub use genome_stability::{
+    assess_stability, anomaly_count_ok, mutation_rate_ok, GenomeStabilityReport, StabilityLevel,
+    MAX_ANOMALY_COUNT, MAX_MUTATION_RATE,
+};
+pub use sensorium::{
+    evaluate, integrate_signal, is_exceeded, SensorModality, SensorThreshold, Sensorium,
+    SensoriumState, Signal,
+};
+pub use survival_systems::{SurvivalStatus, SurvivalSystem};
+pub use vital_organs::{OrganStatus, VitalOrgan, VitalOrgans};
 
 #[cfg(test)]
 mod tests {
