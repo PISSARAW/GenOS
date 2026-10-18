@@ -1,9 +1,10 @@
 # ADR 0617 — Attestation indépendante des contrats philosophiques
 
-- Statut : Accepté
-- Date : 2026-10-18
-- Domaine : philosophie opérationnelle, preuve, maturité, indépendance
-- Lié à : [ADR 0609](0609-missions-representatives-philosophie.md), [ADR 0615](0615-comparaisons-organisations-philosophiques.md)
+- **Statut** : Accepté
+- **Date** : 2026-10-18
+- **Domaine** : philosophie opérationnelle, preuve, maturité, indépendance
+- **Décideurs** : mainteneurs GenOS
+- **Lié à** : [ADR 0609](0609-missions-representatives-philosophie.md), [ADR 0615](0615-comparaisons-organisations-philosophiques.md)
 
 ## Contexte
 
