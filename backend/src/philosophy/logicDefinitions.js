@@ -44,7 +44,7 @@ const LOGIC_DEFINITIONS = [
   L({ id: 'metalogic.godel-first-incompleteness', label: 'Premier théorème d’incomplétude', domain: 'metalogic', school: 'godel', service: null }),
   L({ id: 'metalogic.godel-second-incompleteness', label: 'Second théorème d’incomplétude', domain: 'metalogic', school: 'godel', service: null }),
   L({ id: 'truth.tarski-undefinability', label: 'Indéfinissabilité de la vérité', domain: 'truth', school: 'tarski', service: null }),
-  L({ id: 'truth.fixed-point', label: 'Théorie des points fixes de la vérité', domain: 'truth', school: 'kripke', service: null }),
+  L({ id: 'truth.fixed-point', label: 'Théorie des points fixes de la vérité', domain: 'truth', school: 'kripke', service: 'truthSkepticismService' }),
   L({ id: 'paradox.liar', label: 'Paradoxe du menteur', domain: 'paradox', school: 'eubulides-tarski-kripke', service: null }),
   L({ id: 'paradox.russell', label: 'Paradoxe de Russell', domain: 'paradox', school: 'russell-zf', service: null }),
   L({ id: 'paradox.cantor', label: 'Paradoxe de Cantor', domain: 'paradox', school: 'cantor', service: null }),
