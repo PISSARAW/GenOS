@@ -44,6 +44,13 @@ const DOMAIN_CATALOG = Object.freeze(conceptInventory.entries().reduce((domains,
 }, LEGACY_DOMAIN_CATALOG.map((domain) => ({ id: domain.id, concepts: [...domain.concepts] }))
  ).map((domain) => Object.freeze({ id: domain.id, concepts: Object.freeze([...new Set(domain.concepts)]) })));
 const EXISTING_ADAPTERS = Object.freeze({
+  esprit: { service: 'consciousnessService', access: 'observe' },
+  mental: { service: 'consciousnessService', access: 'observe' },
+  conscience: { service: 'consciousnessService', access: 'observe' },
+  qualia: { service: 'consciousnessService', access: 'observe' },
+  intentionalite: { service: 'phenomenologyService', access: 'observe' },
+  supervenience: { service: 'consciousnessService', access: 'observe' },
+  emergence: { service: 'propertyService', access: 'observe' },
   morphogenese: { service: 'morphogenesisPlannerService', access: 'plan' },
   ontogenese: { service: 'tickService', access: 'control' },
   gvx: { service: 'gvxDevelopmentController', access: 'observe' },

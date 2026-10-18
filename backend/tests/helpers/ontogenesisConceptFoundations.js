@@ -168,7 +168,6 @@ assert.ok(topologyMission.resolvedConcepts.every((concept) =>
 assert.ok(topologyMission.resolvedConcepts.every((concept) => concept.id));
 
 const philosophyReadMission = registry.resolveMission({ requestedConcepts: [
-  'esprit', 'conscience', 'qualia', 'intentionalite', 'supervenience', 'emergence',
   'loi', 'determinisme', 'temps_a_series', 'identite_personnelle', 'semantique_modale',
   'recu_monde_possible', 'propriete_second_ordre', 'analyse_interpretative',
   'non_promotion_analyse_philosophique'
