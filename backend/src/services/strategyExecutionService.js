@@ -249,6 +249,9 @@ async function approveRun(db, id, options) {
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);
+  gateContext.promotionEvidenceDecision = await require('./promotionEvidenceDossierService')
+    .assertRequired(db, { runId: id, agentId: promotion.agentId, contract: promotion.contract,
+      dossierId: settings.promotionDossierId, expectedClaims: promotion.report.claims });
   const primitives = events.resolveStagePrimitives('conditional_promotion', promotion.contract.strategy_portfolio);
   const saved = await journal.reserve(db, { promotion, gateContext, options: settings, primitives });
   return recovery.resume(db, saved, settings);

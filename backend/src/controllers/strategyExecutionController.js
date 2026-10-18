@@ -48,6 +48,7 @@ function approvalSettings(req, signerId) {
     philosophyProvenanceVerified: body.philosophyProvenanceVerified,
     ethicalReview: body.ethicalReview,
     humanApprovalReceipt: body.humanApprovalReceipt,
+    promotionDossierId: body.promotionDossierId,
     rejectedBranches: body.rejectedBranches || []
   };
 }

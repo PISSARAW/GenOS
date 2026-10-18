@@ -100,4 +100,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('135-versioned-causal-state', 'Persist authority-bound causal snapshots, forks and replay receipts', async (db) => {
     await require('./migrateVersionedCausalState').migrateVersionedCausalState(db);
   }),
+  createMigrationRunner('136-promotion-evidence-dossiers', 'Persist falsifiable evidence dossiers and bounded promotion dispositions', async (db) => {
+    await require('./migratePromotionEvidenceDossiers').migratePromotionEvidenceDossiers(db);
+  }),
 ];
