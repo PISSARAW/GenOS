@@ -126,6 +126,23 @@ fournir les reçus des opérateurs et environnements indépendants, les artefact
 rejoués et le journal de rollback. `universalGeneralization` reste faux même
 lorsque la revue est éligible.
 
+## P8 — observation post-release et dérive
+
+`phase8OperationalGate.cjs` vérifie les canaries après la revue P7. Il exige
+plusieurs fenêtres d'observation et environnements, des métriques de succès,
+d'erreur, latence, coût et dérive sous les seuils préinscrits, une télémétrie
+vérifiée, des règles d'alerte chargées et l'absence d'incident ouvert. Toute
+défaillance de canary ou dérive excessive bloque la poursuite.
+
+```bash
+node benchmarks/topology-morphogenesis/test-phase8-operational-gate.cjs
+```
+
+La sortie `observed` autorise seulement la poursuite de l'observation sur le
+périmètre et les fenêtres fournis. Elle ne crée ni autorisation de promotion
+continue ni preuve de stabilité indéfinie; `universalGeneralization` et
+`runtimePromotionAuthorized` restent faux.
+
 Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json](suite.json), conformément à [schemas/suite.schema.json](schemas/suite.schema.json). À ce stade, seule la référence arithmétique possède un oracle indépendant; les autres tâches restent des probes de mécanisme ou des contrôles de contrat et ne sont pas admissibles à une comparaison confirmatoire.
 
 Chaque exécution archive la provenance du commit, l'état propre/sale de l'arbre source, les empreintes de la suite, des missions et des reçus extraits, les états des workers, les temps, ainsi que la portée explicite de l'oracle. Le format de sortie est décrit par [schemas/campaign-results.schema.json](schemas/campaign-results.schema.json). Un arbre modifié est automatiquement marqué non admissible comme résultat confirmatoire.

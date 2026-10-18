@@ -201,6 +201,29 @@ revues de preuve, sécurité et reproductibilité sont complètes. La décision
 reste bornée au commit et aux environnements observés; `runtimePromotionAuthorized`
 et `universalGeneralization` restent toujours faux.
 
+## Phase 8 — Observation post-release et garde de dérive
+
+### Travaux
+
+- Exécuter des canaries sur plusieurs fenêtres et environnements après la revue
+  P7, avec les mêmes artefacts et des reçus vérifiables.
+- Mesurer succès, erreurs, latence, coût et dérive contre des seuils
+  préinscrits; conserver les valeurs brutes et les alertes déclenchées.
+- Vérifier la télémétrie, les règles d'alerte et le lien entre chaque métrique,
+  son environnement et son reçu d'exécution.
+- Bloquer la poursuite dès qu'un canary échoue, qu'un seuil est dépassé ou
+  qu'un incident reste ouvert; exécuter le rollback selon P7 si nécessaire.
+- Distinguer la continuité opérationnelle sur la fenêtre observée d'une
+  promotion continue ou d'une généralisation universelle.
+
+### Porte opérationnelle
+
+`phase8OperationalGate.cjs` retourne `observed` si P7 est `reviewable`, que les
+fenêtres et environnements requis sont couverts, que les canaries respectent
+les seuils et le rollback, que la télémétrie est vérifiée et qu'aucun incident
+n'est ouvert. Elle conserve `continuousPromotionAuthorized: false`,
+`runtimePromotionAuthorized: false` et `universalGeneralization: false`.
+
 ## Livrables à produire
 
 1. Schéma versionné des tâches, tentatives, événements de mécanisme et verdicts oracle.
@@ -224,6 +247,7 @@ et `universalGeneralization` restent toujours faux.
 | I8 | Répétitions confirmatoires, analyse et décision de maturité | I1–I7 |
 | I9 | Robustesse multi-environnement, workers réels, parité distribuée et validation Rust | I8 |
 | I10 | Réplication indépendante, rollback et revue de release gouvernée | I9 |
+| I11 | Canaries post-release, surveillance de dérive et continuité bornée | I10 |
 
 ## Décisions d’architecture
 
