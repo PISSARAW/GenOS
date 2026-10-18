@@ -134,8 +134,17 @@ function networkSilence(state) {
   return { silent: true, buffered: list(state.agents).length };
 }
 
-function arenaTournament(state) {
-  return { competitors: ids(state.agents), mode: 'isolated_tournament' };
+function strategyArena(state) {
+  return { competitors: ids(state.agents), mode: 'isolated_tournament',
+    selectionRule: 'pareto_then_promotion', evidenceGate: true };
+}
+
+function competitiveArena(state) {
+  const ranked = list(state.agents).slice().sort((left, right) =>
+    num(right?.evidenceScore, num(right?.fitness, 0))
+      - num(left?.evidenceScore, num(left?.fitness, 0)));
+  return { competitors: ids(ranked), mode: 'isolated_comparison',
+    selectionRule: 'evidence_weighted_ranking', evidenceGate: true };
 }
 
 function hierarchicalMerge(state) {
@@ -173,8 +182,8 @@ const ALGORITHMS = Object.freeze({
   stigmergy,
   energy_huddle: energyHuddle,
   network_silence: networkSilence,
-  strategy_arena: arenaTournament,
-  competitive_arena: arenaTournament,
+  strategy_arena: strategyArena,
+  competitive_arena: competitiveArena,
   hierarchical_merge: hierarchicalMerge,
   isolated_recovery: isolatedRecovery,
   memory_compilation: memoryCompilation,
@@ -231,8 +240,8 @@ function runOrganizationAlgorithm(key, state) {
 
 function runExtendedAlgorithm(key, state, options) {
   switch (key) {
-    case 'strategy_arena':
-    case 'competitive_arena': return arenaTournament(state, options);
+    case 'strategy_arena': return strategyArena(state, options);
+    case 'competitive_arena': return competitiveArena(state, options);
     case 'dynamic_polyethism': return dynamicPolyethism(state, options);
     case 'mycelial_routing': return mycelialRouting(state, options);
     default: return undefined;
@@ -243,7 +252,14 @@ function runOrganizationStep(organization, state = {}, options = {}) {
   const key = String(organization || '').trim().toLowerCase();
   const result = runCoreAlgorithm(key, state, options) || runOrganizationAlgorithm(key, state)
     || runExtendedAlgorithm(key, state, options);
-  return result ? { organization: key, ...result } : null;
+  if (result) return { organization: key, ...result };
+  // Les quatre organisations d'essaim sont implémentées dans swarmTopologyAlgorithms.
+  if (key === 'flocking_boids' || key === 'fish_school_search'
+      || key === 'slime_mould_network' || key === 'grey_wolf_optimizer') {
+    const swarm = require('./swarmTopologyAlgorithms');
+    return swarm.runTopologyStep(key, state, options);
+  }
+  return null;
 }
 
 function authorityFor(organization, role) {

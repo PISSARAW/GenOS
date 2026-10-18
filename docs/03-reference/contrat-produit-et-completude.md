@@ -69,6 +69,12 @@ l'existence d'une entrée et de capacités requises ne démontre pas son usage e
 par l'orchestrateur. Pour chaque entrée, l'acceptation est un `runStep` déterministe
 sur fixture, avec validation de ses sorties, budgets, cas limites et dispatch par le
 plan. Dépendances : `dynamicOrganizationService`, capacités déclarées et orchestration.
+Les algorithmes de guidage `runStep` sont désormais implémentés et testés sur fixture
+pour l'ensemble des 19 organisations (`organizationAlgorithms.js` +
+`swarmTopologyAlgorithms.js`), incluant les quatre organisations d'essaim
+(`flocking_boids`, `fish_school_search`, `slime_mould_network`, `grey_wolf_optimizer`)
+et les trois organisations récupération/arena/fusion
+(`hierarchical_merge`, `competitive_arena`, `isolated_recovery`).
 
 | Organisation | Statut | Preuve/implémentation de référence |
 | --- | --- | --- |
@@ -87,10 +93,10 @@ plan. Dépendances : `dynamicOrganizationService`, capacités déclarées et orc
 | `energy_huddle` | partiel | `dynamicOrganizationService`; allocation et budget épuisé à couvrir |
 | `network_silence` | partiel | `dynamicOrganizationService`; snapshot/isolation à couvrir |
 | `strategy_arena` | partiel | `dynamicOrganizationService`; sélection et refus sans preuve à couvrir |
-| `hierarchical_merge` | partiel | `dynamicOrganizationService`; provenance et barrière de fusion à couvrir |
-| `competitive_arena` | partiel | `dynamicOrganizationService`; comparaison reproductible à couvrir |
-| `isolated_recovery` | partiel | `dynamicOrganizationService`; récupération isolée et arrêt sûr à couvrir |
-| `memory_compilation` | partiel | `dynamicOrganizationService`; provenance et lecture/écriture mémoire à couvrir |
+| `hierarchical_merge` | partiel | `dynamicOrganizationService`; runStep testé sur fixture (`organizationAlgorithms`); provenance et barrière de fusion à couvrir |
+| `competitive_arena` | partiel | `dynamicOrganizationService`; runStep testé sur fixture (`organizationAlgorithms`); comparaison reproductible à couvrir |
+| `isolated_recovery` | partiel | `dynamicOrganizationService`; runStep testé sur fixture (`organizationAlgorithms`); récupération isolée et arrêt sûr à couvrir |
+| `memory_compilation` | partiel | `dynamicOrganizationService`; runStep testé sur fixture (`organizationAlgorithms`); provenance et lecture/écriture mémoire à couvrir |
 
 ## 3. Capacités transverses
 

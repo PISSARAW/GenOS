@@ -217,10 +217,13 @@ Rhizome possède désormais une boucle de mission bornée : chaque besoin est ex
 
 ## 8. Organisations et autorité
 
-- `organizationAlgorithms.runOrganizationStep` implémente les 15 organisations
-  non-essaim ; `runTopologyStep` délègue vers lui lorsque l'organisation n'est
-  pas l'un des quatre algorithmes d'essaim. `stigmergy` accepte `state.trails`
-  en repli de matrice, `mycelial_routing` accepte `options.need`.
+- `organizationAlgorithms.runOrganizationStep` implémente les 19 organisations
+  (y compris les quatre algorithmes d'essaim `flocking_boids`,
+  `fish_school_search`, `slime_mould_network`, `grey_wolf_optimizer` par délégation
+  vers `swarmTopologyAlgorithms`). `runTopologyStep` délègue vers lui lorsque
+  l'organisation n'est pas l'un des quatre algorithmes d'essaim gérés directement.
+  `stigmergy` accepte `state.trails` en repli de matrice, `mycelial_routing`
+  accepte `options.need`.
 - Le routage est extrait dans `organizationRouting.js` et **applique l'autorité**
   (`assertRoutingAuthority`) : en organisation *ranked* (grey wolf), un follower
   ne peut pas adresser un autre follower (`ORGANIZATION_AUTHORITY_VIOLATION`) ;
