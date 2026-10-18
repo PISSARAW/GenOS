@@ -11,7 +11,9 @@ async function previousPromotion(input) {
   if (!missionId) return null;
   const experiment = await db.get('SELECT status, decision_json, failure_reason FROM trinity_experiments WHERE mission_id = ?', missionId);
   if (!experiment || !['promoted', 'promotion_failed'].includes(experiment.status)) return null;
-  const decision = JSON.parse(experiment.decision_json || '{}');
+  let decision = {};
+  try { decision = JSON.parse(experiment.decision_json || '{}'); }
+  catch (_) { return { promoted: false, idempotent: true, reason: 'TRINITY_PROMOTION_DECISION_CORRUPT' }; }
   const result = promotionRecord(experiment, decision);
   if (!result.promoted) return result;
   try {
