@@ -42,6 +42,10 @@ n’est installé. Les capsules sont conservées pour les preuves ; leur purge r
 l’exploitation. Un backlog vide mène à `IDLE` ; la décomposition automatique d’un projet
 complet et une interface semblable à Dots restent des fonctionnalités distinctes.
 
+> Mise à jour 2026-10-18 : la limite relative aux Job Objects est remplacée par
+> l’[ADR 0608](0608-confiner-ontogenese-job-objects-windows.md). Les autres limites
+> historiques de cette section restent applicables.
+
 ## Vérification
 
 `npm --prefix backend run test:ontogenesis` couvre les contrats, les claims expirés,

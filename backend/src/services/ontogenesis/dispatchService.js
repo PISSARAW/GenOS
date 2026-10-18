@@ -8,6 +8,7 @@ const { listFailures, listSimilarFailures, SIMILARITY_LIMIT } = require('./memor
 const { createExecution } = require('./executionStore');
 const { reservationFor } = require('./resourceGuard');
 const { notify } = require('./notificationService');
+const operationJournal = require('./operationJournal');
 const { initiativeEnvelope, clampBudget } = require('../shev/initiativeAdmissionService');
 
 function allocatedBudget(remaining, config) {
@@ -124,6 +125,29 @@ async function persistDispatch(db, input) {
   });
 }
 
+async function beginDispatchOperation(db, input) {
+  const operation = await operationJournal.prepareOperation(db, { id: input.id,
+    projectId: input.projectId, kind: 'dispatch',
+    idempotencyKey: `dispatch:${input.taskId}:${input.attempt}`,
+    intent: { taskId: input.taskId, baseSha: input.baseSha, topology: input.topology,
+      variant: input.variant, budgets: input.budgets } });
+  if (operation.state !== 'prepared') return operation;
+  return operationJournal.transitionOperation(db, { operationId: operation.id, state: 'started' });
+}
+
+async function finishDispatchOperation(db, input) {
+  const row = await operationJournal.getOperation(db, input.operationId);
+  if (row.state === 'started') {
+    await operationJournal.transitionOperation(db, { operationId: row.id,
+      state: 'effect_applied', result: input.result });
+  }
+  const current = await operationJournal.getOperation(db, input.operationId);
+  if (current.state === 'effect_applied') {
+    await operationJournal.transitionOperation(db, { operationId: current.id,
+      state: 'completed', result: input.result });
+  }
+}
+
 async function dispatchTask(db, ctx, harness) {
   if (!Array.isArray(ctx.config.checks) || !ctx.config.checks.length) return blockDispatch(db, ctx, 'verifications-requises');
   const envelope = await initiativeEnvelope(db, ctx.selection?.task);
@@ -142,18 +166,26 @@ async function dispatchTask(db, ctx, harness) {
   const control = await db.get('SELECT mode FROM ontogenesis_control WHERE project_id = ?', [ctx.project.id]);
   if (control?.mode !== 'running') return { state: ctx.project.state, note: 'controle-modifie-avant-dispatch' };
   const task = ctx.selection.task;
-  const input = { id: `onto_run_${randomUUID()}`, projectId: ctx.project.id, taskId: task.id,
+  let input = { id: `onto_run_${randomUUID()}`, projectId: ctx.project.id, taskId: task.id,
+    attempt: task.attempt,
     ...workspace, topology: selection.topology, variant: selection.variant, reservationMb,
     budgets: clampBudget(allocatedBudget(ctx.remaining, ctx.config), envelope) };
+  const operation = await beginDispatchOperation(db, input);
+  input = { ...input, id: operation.id };
   await persistDispatch(db, input);
   await traceSelection(db, ctx, selection);
   try {
     const started = await harness.start({ ...input, project: ctx.project, task, selection,
       config: ctx.config, mission: ctx.mission, shev: envelope });
     await db.run('UPDATE ontogenesis_execution SET pid = ?, executable = ? WHERE id = ?', [started.pid, started.executable, input.id]);
+    await finishDispatchOperation(db, { operationId: input.id,
+      result: { runtimeStarted: true, pid: started.pid, executable: started.executable,
+        confinement: started.confinement, memoryLimitMb: started.memoryLimitMb } });
     return { state: 'EXECUTING', event: 'dispatch', operationId: input.id };
   } catch (error) {
     await db.run("UPDATE ontogenesis_execution SET phase = 'finished', result_json = ? WHERE id = ?", [JSON.stringify({ success: false, error: error.message }), input.id]);
+    await finishDispatchOperation(db, { operationId: input.id,
+      result: { runtimeStarted: false, error: error.message } });
     return { state: 'EXECUTING', note: 'dispatch-echoue' };
   }
 }

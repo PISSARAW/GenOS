@@ -28,6 +28,9 @@ async function memoryDb() {
   const beat = await pairing.heartbeat(db, { projectId: 'p1', endpoint: 'https://farm-1' });
   assert.strictEqual(beat.hostId, claimed.hostId);
   assert.strictEqual(await pairing.heartbeat(db, { projectId: 'p1', endpoint: 'https://fantome' }), null);
+  const renewed = await pairing.createPairing(db, { projectId: 'p1', role: 'controller', endpoint: 'https://farm-1' });
+  assert.strictEqual(renewed.hostId, claimed.hostId);
+  await pairing.claimPairing(db, { projectId: 'p1', code: renewed.code });
 
   // Code expiré refusé.
   const stale = await pairing.createPairing(db, { projectId: 'p1', role: 'worker', endpoint: 'w-1', ttlMs: 60000 });

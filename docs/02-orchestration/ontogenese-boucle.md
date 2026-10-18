@@ -312,7 +312,8 @@ par `backend/tests/test_ontogenesis_loop.js` et
   (validation des rôles, catalogue de variantes), pas les huit topologies
   branchées de bout en bout — l'ADR prévoit de commencer par une seule topologie.
 - Mesure Windows, intégrateur Git, lancement interprocessus et autostart sont
-  raccordés (ADR 0238). Les Job Objects et l’hébergement distant restent hors périmètre.
+  raccordés (ADR 0238). Le runtime Ontogenèse Windows est assigné avant reprise
+  à un Job Object borné (ADR 0608) ; l’hébergement distant reste hors périmètre.
 - Aucune promotion sans preuves exécutables portant sur le résultat intégré ;
   un succès de transport ne vaut jamais validation (**Implémenté**,
   règle permanente du dépôt).

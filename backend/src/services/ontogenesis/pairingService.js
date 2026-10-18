@@ -3,9 +3,9 @@
 const crypto = require('crypto');
 
 /**
- * Hébergement distant et pairing local (roadmap §P8).
- * Continuité à PC éteint = contrôleur distant appairé sur la même
- * base réconciliée. Une seule machine locale à la fois : appairer
+ * Identités d'hôtes pour le protocole de continuité (roadmap §P8).
+ * Le pairing seul ne déplace ni la base ni le dépôt : la bascule exige
+ * un stockage durable transféré exclusivement. Une seule machine locale : appairer
  * une seconde retire la première. Codes à usage unique, expirés
  * par défaut après 15 minutes.
  */
@@ -34,7 +34,11 @@ async function createPairing(db, input) {
     [id, input.projectId, input.role, input.endpoint || '', code, expires,
       JSON.stringify(input.capabilities || {}), code, expires, JSON.stringify(input.capabilities || {})]
   );
-  return { hostId: id, code, expiresAt: expires };
+  const stored = await db.get(
+    'SELECT id FROM ontogenesis_hosts WHERE project_id = ? AND role = ? AND endpoint = ?',
+    [input.projectId, input.role, input.endpoint || '']
+  );
+  return { hostId: stored.id, code, expiresAt: expires };
 }
 
 function isExpired(row, nowIso) {

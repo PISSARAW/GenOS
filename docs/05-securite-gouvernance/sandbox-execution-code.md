@@ -115,6 +115,9 @@ Le nettoyage refuse une racine de disque, une capsule en dehors des repertoires 
 
 - sous Unix, les processus sont lances detaches et le groupe recoit `SIGTERM`, puis `SIGKILL` apres `GENOS_PROCESS_GRACE_MS` (5 s par defaut) ;
 - sous Windows, `taskkill /PID <pid> /T` cible l'arbre puis `/F` force l'arret ;
+- sous Windows, le runner Ontogenese utilise en plus un Job Object avec
+  `KILL_ON_JOB_CLOSE` et limite memoire du job ; le processus est cree suspendu,
+  assigne, puis repris, sans fenetre de spawn non confinee ;
 - les PIDs invalides, non positifs ou egaux au PID du superviseur sont refuses pour la terminaison directe ;
 - `processMatches()` peut verifier que le PID designe encore l'executable attendu avant un acte d'apoptose.
 
@@ -160,7 +163,7 @@ Le timeout plugin vaut 15 secondes par defaut et est borne entre 1 et 60 seconde
 | Sujet | Windows | Linux/Unix |
 | --- | --- | --- |
 | commande de terminaison | `taskkill /T`, puis `/F` | signal au groupe, `SIGTERM` puis `SIGKILL` |
-| groupe de processus | pas de `detached` dans ce chemin | enfant detache, PID de groupe cible |
+| groupe de processus | Job Object pour Ontogenese ; pas de `detached` dans les autres chemins | enfant detache, PID de groupe cible |
 | shell du VFS reel | `cmd.exe /d /s /c` | `sh -lc` |
 | verification de PID | `Get-CimInstance Win32_Process` | `/proc/<pid>/cmdline` |
 | chemins | lecteurs/UNC rejetes par la normalisation | racines et segments relatifs rejetes |

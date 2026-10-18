@@ -713,14 +713,25 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0573](0573-porte-appariee-p2-avant-commit-adaptatif.md) | Porte appariée P2 avant commit adaptatif | Accepté | 2026-10-18 | morphogenèse, comparaison appariée, holdout, intervalles de confiance |
 | [0600](0600-implementation-finale-coeur-orchestration.md) | Implémentation finale du cœur d'orchestration GenOS | Accepté | 2026-10-18 | Orchestrateur, mission, stratégie, contrats, rollback, chargeback |
 | [0601](0601-classer-les-organisations-dynamiques.md) | Classer les organisations dynamiques dans la morphogenèse | Accepté | 2026-10-18 | morphogenèse, organisations dynamiques, orchestration |
-| [0603](0603-relier-nosologie-et-morphogenese.md) | Relier la nosologie et la morphogenèse | Accepté | 2026-10-18 | morphogenèse, nosologie, quarantaine, autopsie causale |
 | [0602](0602-runner-durable-p3-campagnes-appariees.md) | Runner durable P3 pour les campagnes appariées | Accepté | 2026-10-18 | morphogenèse, expérimentation, durabilité, interopérabilité |
-| [0605](0605-dispositions-implementation-philosophique.md) | Dispositions d'implémentation philosophique | Accepté | 2026-10-18 | philosophie opérationnelle, contrats, autorité runtime |
-| [0606](0606-lier-morphogenese-et-agentdna.md) | Lier la morphogenèse et AgentDNA | Accepté | 2026-10-18 | morphogenèse, AgentDNA, incarnation, preuve, restauration |
-| [0607](0607-audits-specialises-capacites-philosophiques.md) | Audits spécialisés des capacités philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, identité, causalité, biomimétisme |
-| [0609](0609-missions-representatives-philosophie.md) | Missions représentatives pour les contrats philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, expérimentation, composition, preuve |
+| [0603](0603-relier-nosologie-et-morphogenese.md) | Relier la nosologie et la morphogenèse | Accepté | 2026-10-18 | morphogenèse, nosologie, quarantaine, autopsie causale |
+| [0604](0604-enveloppe-execution-v2-et-heritage-lecture-seule.md) | Sceller l'exécution v2 et classer l'héritage en lecture seule | Accepté | 2026-10-18 | runtime, autorité, reproductibilité, provenance |
+| [0605a](0605-dispositions-implementation-philosophique.md) | Dispositions d'implémentation philosophique | Accepté | 2026-10-18 | philosophie opérationnelle, contrats, autorité runtime |
+| [0605b](0605-routage-missions-supervisees-gqwf.md) | Router les missions supervisées vers GQWF | Accepté, activation explicite | 2026-10-18 | Workspaces, exécution supervisée, GQWF |
+| [0606](0606-socle-durable-ontogenese.md) | Socle durable V2 de l’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, persistance, idempotence, autorité |
+| [0607a](0607-audits-specialises-capacites-philosophiques.md) | Audits spécialisés des capacités philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, identité, causalité, biomimétisme |
+| [0607b](0607-reprise-exhaustive-ontogenese.md) | Reprise exhaustive et fail-closed de l’Ontogenèse | Accepté pour les opérations raccordées | 2026-10-18 | Ontogenèse, crash recovery, idempotence, preuves |
+| [0608a](0608-confiner-ontogenese-job-objects-windows.md) | Confiner l’Ontogenèse avec les Job Objects Windows | Accepté | 2026-10-18 | Ontogenèse, Windows, processus, confinement |
+| [0608b](0608-materialiser-les-workers-autonomes-par-bail-gqwf.md) | Matérialiser les workers autonomes par bail GQWF | Accepté, activation explicite | 2026-10-18 | Workspaces, workers autonomes, GQWF |
+| [0609a](0609-bascule-ontogenese-hote-toujours-disponible.md) | Basculer l’Ontogenèse vers un hôte toujours disponible | Accepté | 2026-10-18 | Ontogenèse, continuité, hébergement, fencing |
+| [0609b](0609-missions-representatives-philosophie.md) | Missions représentatives pour les contrats philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, expérimentation, composition, preuve |
 | [0610](0610-protocole-p0-commit-morphogenetique.md) | Fermer le protocole P0 du commit morphogénétique | Accepté | 2026-10-18 | morphogenèse, autorité, transaction, reprise |
+| [0611](0611-etat-causal-versionne-et-rejeu-borne.md) | État causal versionné et rejeu borné | Accepté | 2026-10-18 | état, snapshots, branches, contrefactuels, rejeu |
+| [0612](0612-promotion-explicite-candidates-workers-gqwf.md) | Promouvoir explicitement les candidates workers GQWF | Accepté, activation explicite | 2026-10-18 | GQWF, workers, preuves, promotion |
+| [0613](0613-dossier-preuve-falsifiable-avant-promotion.md) | Dossier de preuve falsifiable avant promotion | Voir le fichier | -- | -- |
+| [0614](0614-collecte-explicite-racines-blobs-gqwf.md) | Collecter explicitement les racines et blobs GQWF | Accepté, activation explicite | 2026-10-18 | GQWF, stockage, récupération, exploitation |
 | [0615](0615-comparaisons-organisations-philosophiques.md) | Comparaisons exécutées des organisations philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, organisations, expérimentation, preuve |
+| [0616](0616-qualification-appariee-copy-on-write-gqwf.md) | Qualifier GQWF par comparaison Copy-on-Write appariée | Accepté pour la qualification locale | 2026-10-18 | GQWF, workspaces, benchmark, activation progressive |
 | [0617](0617-attestation-independante-contrats-philosophiques.md) | Attestation indépendante des contrats philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, preuve, maturité, indépendance |
 | [0618a](0618-canari-determine-et-reversible-gqwf.md) | Canari déterministe et réversible pour GQWF | Accepté | 2026-10-18 | -- |
 | [0618b](0618-supervision-dynamique-leases-mcp.md) | Superviser dynamiquement les leases MCP au point d'effet | Accepté | 2026-10-18 | runtime, MCP, leases, budgets, isolation, reçus |

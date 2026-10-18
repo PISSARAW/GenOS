@@ -106,6 +106,15 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('138-mcp-actor-lease-v2', 'Persist bounded revocable MCP actor leases and immutable receipts', async (db) => {
     await require('./migrateMcpActorLeaseV2').migrateMcpActorLeaseV2(db);
   }),
+  createMigrationRunner('135-ontogenesis-durable-foundation', 'Persist Ontogenesis operations, artifacts, outbox and config V2', async (db) => {
+    await require('./migrateOntogenesisDurableFoundation').migrateOntogenesisDurableFoundation(db);
+  }),
+  createMigrationRunner('136-ontogenesis-crash-recovery', 'Persist immutable Ontogenesis crash recovery receipts', async (db) => {
+    await require('./migrateOntogenesisCrashRecovery').migrateOntogenesisCrashRecovery(db);
+  }),
+  createMigrationRunner('137-ontogenesis-offline-continuity', 'Fence Ontogenesis controller handoffs across powered-off hosts', async (db) => {
+    await require('./migrateOntogenesisContinuity').migrateOntogenesisContinuity(db);
+  }),
   createMigrationRunner('139-endogenous-thought-episodes', 'Persist scoped endogenous thought episodes and immutable receipts', async (db) => {
     await require('./migrateEndogenousThoughtEpisodes').migrateEndogenousThoughtEpisodes(db);
   }),

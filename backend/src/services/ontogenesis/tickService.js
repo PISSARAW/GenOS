@@ -30,6 +30,7 @@ const { dispatchTask } = require('./dispatchService');
 const { haltForControl, observeExecution } = require('./executionLifecycle');
 const { processIntegration } = require('./integrationController');
 const { compileDevelopmentalContext } = require('./developmentalContextService');
+const { authorizeTick } = require('./continuityService');
 
 const { processInbox, operatorContext } = require('./inboxProcessor');
 const { reconcileExecution, cancelBlockedTask } = require('./recoveryController');
@@ -297,6 +298,9 @@ async function loadClaimedContext(db, input, fence) {
 }
 
 async function tickClaimed(db, input, fence) {
+  await require('./crashRecoveryService').recoverIncompleteOperations(db, {
+    projectId: input.projectId, owner: input.owner, harness: input.harness
+  });
   const fired = await fireDue(db, input.projectId, input.nowMs);
   await notifyExpiredQuestions(db, input);
   await require('../shev/runtimeService').tickProject(db, { projectId: input.projectId, fence });
@@ -325,6 +329,12 @@ async function tickClaimed(db, input, fence) {
 
 async function tickOnce(db, input) {
   await ensureTables(db);
+  const controller = await authorizeTick(db, {
+    projectId: input.projectId, hostId: input.hostId,
+    generation: input.continuityGeneration, nowMs: input.nowMs,
+    leaseTtlMs: input.continuityLeaseTtlMs
+  });
+  if (!controller.allowed) return { ticked: false, reason: controller.reason };
   const occupied = await db.get("SELECT project_id FROM ontogenesis_claims WHERE project_id = ? AND julianday(expires_at) > julianday('now')", [input.projectId]);
   if (occupied) return { ticked: false, reason: 'claim-actif' };
   const preparation = await prepareMission(db, input.projectId);

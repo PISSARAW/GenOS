@@ -1,8 +1,8 @@
 # Contrats stables de l'Ontogenèse
 
 - **Statut** : Implémenté
-- **Portée** : contrats stables V1
-- **Dernière revue** : 2026-10-06
+- **Portée** : contrats stables V2
+- **Dernière revue** : 2026-10-18
 
 Référence des contrats persistants et comportementaux de l'Ontogenèse (ADR 0235).
 Sources : `backend/src/db/migrations/migrateOntogenesis.js` (migration 086),
@@ -13,6 +13,8 @@ Sources : `backend/src/db/migrations/migrateOntogenesis.js` (migration 086),
 `backend/bin/genos-ontogenesis.cjs`, `canonicalConceptRegistry.js`,
 `missionCapabilityPlanService.js`, `runtimeHarness.js`,
 `philosophicalMissionContract.js`, `philosophicalObservationService.js`, `integrationController.js`.
+Le socle V2 et sa reprise sont définis par `migrateOntogenesisDurableFoundation.js`,
+`migrateOntogenesisCrashRecovery.js`, `operationJournal.js` et `crashRecoveryService.js`.
 Tout écart entre ce document et ces fichiers est un bug de documentation.
 
 Le raccord détaillé des concepts philosophiques est documenté séparément dans
@@ -42,6 +44,10 @@ Toutes les tables métier portent `project_id TEXT NOT NULL REFERENCES ontogenes
 | `ontogenesis_memory` | Mémoire avec provenance | `idx_onto_memory_project (project_id, kind, created_at)` |
 | `ontogenesis_notifications` | Notifications sobres | `idx_onto_notifications_project (project_id, status, created_at)` |
 | `ontogenesis_approval_requests` | Demandes d'approbation | `idx_onto_approvals_project (project_id, status, created_at)` |
+| `ontogenesis_operations` | Intentions, états d'effet et clés d'idempotence | `idx_onto_operations_recovery` |
+| `ontogenesis_artifacts` | Artefacts, rétention, quarantaine et gel | `idx_onto_artifacts_retention` |
+| `ontogenesis_outbox` | Messages durables dédupliqués à livrer | `idx_onto_outbox_delivery` |
+| `ontogenesis_recovery_receipts` | Décisions immuables de reprise | `idx_onto_recovery_receipts_project` |
 
 Colonnes et contraintes `CHECK` (recopie exacte des migrations) :
 
@@ -62,17 +68,21 @@ Colonnes et contraintes `CHECK` (recopie exacte des migrations) :
 
 ## 2. Configuration versionnée
 
-`CONFIG_VERSION = 1`, `DEFAULT_BRANCH = 'codex/ontogenesis'` (`configSchema.js`).
+`CONFIG_VERSION = 2`, `DEFAULT_BRANCH = 'codex/ontogenesis'` (`configSchema.js`).
 
 | Champ | Défaut (`defaultConfig()`) | Règle (`validateProjectConfig`) / erreur exacte |
 | --- | --- | --- |
-| `version` | `1` | doit égaler `CONFIG_VERSION`, sinon `version-inconnue` |
+| `version` | `2` | doit égaler `CONFIG_VERSION`, sinon `version-inconnue` |
 | `branch` | `'codex/ontogenesis'` | chaîne non vide requise, sinon `branch-requise` |
 | `budgets` | `{ tokens: 140000, usd: 1, seconds: 120 }` | objet requis sinon `budgets-requis` ; `tokens > 0` sinon `budgets.tokens-positif-requis` ; `seconds > 0` sinon `budgets.seconds-positif-requis` (`tokens` et `seconds` finis positifs ; `usd` fini non négatif) |
 | `topologies` | `['trinity']` | liste non vide de noms connus ; `topologies-non-vides-requises` ou `topologie-inconnue` |
 | `memory` | `{ envelopeMb: 2048, reserveMb: 512 }` | objet requis sinon `memory-requis` ; `envelopeMb > 0` sinon `memory.envelopeMb-positif-requis` ; `reserveMb >= 0` sinon `memory.reserveMb-negatif-interdit` ; `reserveMb < envelopeMb` sinon `memory.reserve-inferieure-enveloppe` |
 | `allowPush` | `false` | `true` interdit : `allowPush-interdit-par-defaut` |
 | `allowMerge` | `false` | `true` interdit : `allowMerge-interdit-par-defaut` |
+| `durability` | `{ recoveryPolicy: 'reconcile', ambiguousOutcome: 'escalate' }` | seules la réconciliation et l'escalade fail-closed sont admises |
+| `retention` | `{ artifactsDays: 30, evidenceDays: 365, quarantineDays: 7 }` | entiers positifs ou nuls |
+| `publication` | `{ enabled: false }` | toute activation est refusée au lot 0 |
+| `merge` | `{ enabled: false }` | toute activation est refusée au lot 0 |
 | `authority` | `{ allowEdit: true, allowTests: true, allowCommit: true, paths: ['*'], branches: ['codex/ontogenesis'] }` | objet requis sinon `authority-requise` ; `branches` tableau requis sinon `authority.branches-requises` ; `paths` tableau requis sinon `authority.paths-requis` |
 
 `validateProjectConfig(input)` fusionne `Object.assign(defaultConfig(), input || {})` et retourne
@@ -325,9 +335,11 @@ Garanties du contrat :
 
 Non-garanties (hors contrat) :
 
-- La mesure mémoire couvre la RAM physique libre et le RSS du superviseur ; une limite de heap
-  Node ne couvre ni les enfants ni la mémoire native, et le bornage des processus détenus
-  sous Windows (Job Objects) reste à étudier.
+- La mesure mémoire couvre la RAM physique libre et le RSS du superviseur. Sous Windows,
+  `runtimeHarness.js` lance le runner Ontogenèse suspendu par `windowsJobObject.js`, l'assigne
+  à un Job Object avec `KILL_ON_JOB_CLOSE` et applique `reservation_mb` comme limite mémoire
+  du job entier avant de reprendre le thread. L'échec de création, de limitation ou
+  d'assignation bloque le dispatch ; aucun fallback non confiné n'est admis.
 - Les budgets sont des enveloppes et leur clôture est conservatrice ; ils ne constituent
   pas une mesure indépendante des coûts facturés par un fournisseur.
 - `markInbox` reste une primitive interne ; les `CHECK` SQL bornent les valeurs.
@@ -359,4 +371,14 @@ Une capsule est supprimée uniquement dans l'espace géré, sans lien symbolique
 avec empreinte vérifiée persistée inchangée. Les capsules modifiées ou sans
 preuve sont conservées ; les reçus, SHA et dépenses restent en base.
 
+Avant chaque tick revendiqué, les opérations non terminales du journal sont
+réconciliées. Le dispatch et l'intégration utilisent des clés stables. Une
+intention sans effet redevient rejouable, un runtime mort est clôturé comme
+interrompu, un runtime vivant est adopté et un commit tatoué est récupéré par
+le pipeline d'intégration. Toute opération sans stratégie déterministe est
+escaladée, place le projet en `WAITING_INPUT` et produit une entrée outbox.
+Chaque décision est attestée par un reçu de reprise immuable.
+
 Voir [ADR 0334](../adr/0334-ontogenese-pilotage-reprise-et-retention.md).
+Voir aussi [ADR 0606](../adr/0606-socle-durable-ontogenese.md) et
+[ADR 0607](../adr/0607-reprise-exhaustive-ontogenese.md).

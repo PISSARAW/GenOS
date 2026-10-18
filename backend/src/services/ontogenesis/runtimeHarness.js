@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const { processRows, processAlive, treeRows, ownsProcess } = require('./processResources');
 const { managedRoot, ensureIntegration } = require('./worktreeService');
 const { terminatePid } = require('../processTermination');
+const { launchInWindowsJob } = require('./windowsJobObject');
 const workerKinds = require('../agents/workerKindService');
 const { instructionFor } = require('./philosophicalMissionContract');
 
@@ -149,6 +150,26 @@ function topologyInstruction(topology) {
   return `Proposed morphology: ${topology}.`;
 }
 
+function runtimeEnvironment(databaseFile, input) {
+  return { ...process.env, GENOS_DB_PATH: databaseFile, GENOS_WORKSPACE_ROOT: input.worktree,
+    GENOS_CAPSULE_ROOT: path.join(managedRoot(input.project), 'capsules'), GENOS_WORKTREE_GC_DELAY_MS: '-1' };
+}
+
+async function startRuntime(input, environment) {
+  const cwd = path.resolve(__dirname, '../../../..');
+  const args = [RUNNER, '--operation', input.id, input.requestPath];
+  if (process.platform === 'win32') {
+    const started = await launchInWindowsJob({ application: process.execPath, arguments: args,
+      cwd, env: environment, ownerPid: process.pid, memoryMb: input.reservationMb });
+    return { ...started, executable: RUNNER };
+  }
+  const child = spawn(process.execPath, args, { cwd, detached: true,
+    windowsHide: true, stdio: 'ignore', shell: false, env: environment });
+  await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
+  child.unref();
+  return { pid: child.pid, executable: RUNNER, confinement: 'process-group' };
+}
+
 async function launch(db, input) {
   const databases = await db.all('PRAGMA database_list');
   const database = databases.find((entry) => entry.name === 'main');
@@ -157,15 +178,7 @@ async function launch(db, input) {
   fs.mkdirSync(directory, { recursive: true });
   const requestPath = path.join(directory, `${input.id}.json`);
   fs.writeFileSync(requestPath, JSON.stringify(requestFor(input)), { flag: 'wx' });
-  const child = spawn(process.execPath, [RUNNER, '--operation', input.id, requestPath], {
-    cwd: path.resolve(__dirname, '../../../..'), detached: process.platform !== 'win32',
-    windowsHide: true, stdio: 'ignore', shell: false,
-    env: { ...process.env, GENOS_DB_PATH: database.file, GENOS_WORKSPACE_ROOT: input.worktree,
-      GENOS_CAPSULE_ROOT: path.join(managedRoot(input.project), 'capsules'), GENOS_WORKTREE_GC_DELAY_MS: '-1' }
-  });
-  await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
-  child.unref();
-  return { pid: child.pid, executable: RUNNER };
+  return startRuntime({ ...input, requestPath }, runtimeEnvironment(database.file, input));
 }
 
 async function observeRun(run) {

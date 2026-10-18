@@ -2,7 +2,7 @@
 
 /**
  * Interface opérateur de l'Ontogenèse (ADR 0235 §7).
- * Usage : node backend/bin/genos-ontogenesis.cjs <init|start|status|pause|resume|stop|run|tick|task|tasks|message|priority|budgets|event|notifications|ack|autostart|prune> [--project ID] [...]
+ * Usage : node backend/bin/genos-ontogenesis.cjs <commande> [--project ID] [...]
  * Le transport entre processus passe par SQLite WAL (inbox, événements,
  * contrôle), jamais par le bus local du daemon.
  */
@@ -31,7 +31,7 @@ function flags(argv) {
 }
 
 function usage() {
-  console.log('Usage: genos-ontogenesis.cjs <init|start|status|pause|resume|stop|run|tick|task|tasks|message|priority|budgets|event|notifications|ack|schedule|stop-task|autostart|prune> [options]');
+  console.log('Usage: genos-ontogenesis.cjs <commande> [options]');
   console.log('  init --root DIR [--branch B] [--objective TXT] [--project ID]');
   console.log('  start|status|pause|resume|stop --project ID [--reason TXT]');
   console.log('  autostart --on|--off [--project ID]');
@@ -46,6 +46,12 @@ function usage() {
   console.log('  event --project ID --type TYPE [--payload JSON]');
   console.log('  ack --project ID --notification ID');
   console.log('  prune --project ID [--days N] [--artifacts]');
+  console.log('  host-pair --project ID --role controller|local|worker --endpoint URI [--capabilities JSON]');
+  console.log('  host-claim --project ID --code CODE | hosts --project ID');
+  console.log('  continuity-prepare --project ID --target-host ID [--source-host ID] [--store-id ID]');
+  console.log('  continuity-accept --project ID --handoff ID --host ID (jeton dans GENOS_ONTOGENESIS_HANDOFF_TOKEN)');
+  console.log('  continuity-status --project ID | continuity-reclaim --project ID --host ID');
+  console.log('  run|tick --project ID [--host ID --generation N]');
 }
 
 function printStatus(view, asJson) {
@@ -116,7 +122,9 @@ async function runPrune(db, options) {
 async function runTick(db, options) {
   if (!options.project) throw new Error('--project requis');
   const { tickOnce } = require('../src/services/ontogenesis/tickService');
-  const outcome = await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}`, harness: createRuntimeHarness(db) });
+  const outcome = await tickOnce(db, { projectId: options.project,
+    owner: `cli:${options.host || 'local'}:${process.pid}`, harness: createRuntimeHarness(db),
+    hostId: options.host, continuityGeneration: options.generation });
   console.log(JSON.stringify(outcome));
 }
 
@@ -128,8 +136,9 @@ async function runLoop(db, options) {
   process.once('SIGTERM', signalStop);
   process.once('SIGINT', signalStop);
   try {
-    await runResidentLoop(db, { projectId: options.project, owner: `cli:${process.pid}`,
+    await runResidentLoop(db, { projectId: options.project, owner: `cli:${options.host || 'local'}:${process.pid}`,
       harness: createRuntimeHarness(db), signal: controller.signal,
+      hostId: options.host, continuityGeneration: options.generation,
       intervalMs: options['interval-ms'], maxTicks: options['max-ticks'] },
     { onChange: (outcome) => console.log(JSON.stringify(outcome)) });
   } finally {
@@ -157,6 +166,7 @@ async function runSchedule(db, options) {
 
 const DB_COMMANDS = {
   ...require('../src/services/ontogenesis/operatorCli.cjs'),
+  ...require('../src/services/ontogenesis/continuityCli.cjs'),
   init: runInit,
   prune: runPrune,
   tick: runTick,
