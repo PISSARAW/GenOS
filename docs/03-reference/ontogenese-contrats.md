@@ -83,8 +83,8 @@ Colonnes et contraintes `CHECK` (recopie exacte des migrations) :
 | `allowMerge` | `false` | `true` interdit : `allowMerge-interdit-par-defaut` |
 | `durability` | `{ recoveryPolicy: 'reconcile', ambiguousOutcome: 'escalate' }` | seules la réconciliation et l'escalade fail-closed sont admises |
 | `retention` | `{ artifactsDays: 30, evidenceDays: 365, quarantineDays: 7 }` | entiers positifs ou nuls |
-| `publication` | `{ enabled: false }` | toute activation est refusée au lot 0 |
-| `merge` | `{ enabled: false }` | toute activation est refusée au lot 0 |
+| `publication` | `{ enabled: false }` | toute activation est refusée ; `git push` est aussi interdit dans les checks |
+| `merge` | `{ enabled: false }` | toute activation est refusée ; `git merge` est aussi interdit dans les checks |
 | `authority` | `{ allowEdit: true, allowTests: true, allowCommit: true, paths: ['*'], branches: ['codex/ontogenesis'] }` | objet requis sinon `authority-requise` ; `branches` tableau requis sinon `authority.branches-requises` ; `paths` tableau requis sinon `authority.paths-requis` |
 
 `validateProjectConfig(input)` fusionne `Object.assign(defaultConfig(), input || {})` et retourne
