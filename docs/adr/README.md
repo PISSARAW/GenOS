@@ -722,6 +722,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0610](0610-protocole-p0-commit-morphogenetique.md) | Fermer le protocole P0 du commit morphogénétique | Accepté | 2026-10-18 | morphogenèse, autorité, transaction, reprise |
 | [0615](0615-comparaisons-organisations-philosophiques.md) | Comparaisons exécutées des organisations philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, organisations, expérimentation, preuve |
 | [0617](0617-attestation-independante-contrats-philosophiques.md) | Attestation indépendante des contrats philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, preuve, maturité, indépendance |
+| [0619](0619-dispatch-workers-philosophiques-isoles.md) | Dispatch de workers philosophiques isolés | Accepté | 2026-10-18 | philosophie opérationnelle, workers, isolation, preuve |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
