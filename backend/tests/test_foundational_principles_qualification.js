@@ -4,38 +4,17 @@ process.env.GENOS_DISABLE_DOTENV = '1';
 process.env.GENOS_DB_BACKUP_SKIP = '1';
 
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const qualification = require('../src/services/foundationalPrincipleQualification');
 const lifecycle = require('../src/services/foundationalQualificationLifecycle');
-
-function digestOutput(result) {
-  return crypto.createHash('sha256').update(result.stdout || '').update('\0')
-    .update(result.stderr || '').digest('hex');
-}
-
-function runEvidence(repositoryRoot, manifest, test) {
-  const result = spawnSync(process.execPath, [path.join(repositoryRoot, test)], {
-    cwd: repositoryRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
-    env: { ...process.env, GENOS_ADMIN_PASSWORD: process.env.GENOS_ADMIN_PASSWORD
-      || 'foundational-qualification-test-only' }
-  });
-  assert.equal(result.status, 0, `${test} failed\n${result.stdout || ''}\n${result.stderr || ''}`);
-  return { exitCode: result.status, revision: manifest.qualificationRevision,
-    observedAt: new Date().toISOString(), outputDigest: digestOutput(result) };
-}
+const evidenceRunner = require('../src/services/foundationalQualificationEvidenceRunner');
 
 function assertBaseline(repositoryRoot, revision) {
   const result = spawnSync('git', ['merge-base', '--is-ancestor', revision, 'HEAD'], {
     cwd: repositoryRoot, encoding: 'utf8' });
   assert.equal(result.status, 0, 'The qualified baseline must be an ancestor of HEAD.');
-}
-
-function collectEvidence(repositoryRoot, manifest) {
-  return Object.fromEntries(manifest.evidenceSuite.map((test) =>
-    [test, runEvidence(repositoryRoot, manifest, test)]));
 }
 
 function assertFailClosed(spec) {
@@ -56,7 +35,7 @@ function main() {
   const manifest = qualification.readManifest(manifestPath);
   assertBaseline(repositoryRoot, manifest.baselineRevision);
   assertBaseline(repositoryRoot, manifest.qualificationRevision);
-  const observations = collectEvidence(repositoryRoot, manifest);
+  const observations = evidenceRunner.collectEvidence(repositoryRoot, manifest);
   const spec = { repositoryRoot, manifest, observations };
   const receipt = qualification.qualify(spec);
   assert.equal(receipt.score, 4);

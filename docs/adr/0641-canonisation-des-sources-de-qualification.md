@@ -26,6 +26,10 @@ preuves déclarée, exige que les révisions du manifeste soient des ancêtres d
 `HEAD`, puis émet uniquement le reçu JSON. Les reçus historiques sont conservés ;
 une nouvelle phase produit un nouveau fichier au lieu de réécrire l'ancien.
 
+Chaque preuve déclarée s'exécute avec une base et un studio temporaires propres.
+Le digest de sortie ne dépend donc ni d'un run précédent ni de l'ordre de la
+suite globale qui invoque la qualification.
+
 ## Conséquences
 
 ### Positives
