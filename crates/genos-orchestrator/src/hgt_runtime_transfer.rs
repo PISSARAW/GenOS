@@ -6,7 +6,9 @@ pub(super) fn restore_hgt_plasmid(
     recipient: &mut ProkaryoticAgent,
     plasmid: Plasmid,
 ) -> Result<(), String> {
-    let present = recipient.plasmids.iter()
+    let present = recipient
+        .plasmids
+        .iter()
         .find(|item| item.plasmid_id == plasmid.plasmid_id);
     if present.is_some_and(|item| item != &plasmid) {
         return Err("Receveur possède un plasmide divergent pour ce lease".to_string());
@@ -22,7 +24,10 @@ pub(super) fn hgt_identity_matches(
     transfer: &HgtTransferContext<'_>,
 ) -> bool {
     let request = &transfer.lease.request;
-    let digest_matches = ecosystem.prokaryote.plasmids.iter()
+    let digest_matches = ecosystem
+        .prokaryote
+        .plasmids
+        .iter()
         .find(|plasmid| plasmid.plasmid_id == request.plasmid_id)
         .and_then(|plasmid| plasmid_digest(plasmid).ok())
         .is_some_and(|digest| digest == request.plasmid_digest);
@@ -38,7 +43,10 @@ pub(super) fn authorized_conjugation(
     plasmid_id: &str,
 ) -> Result<HgtTransferReport, String> {
     validate_transfer_pair(donor, recipient)?;
-    let plasmid = donor.plasmids.iter().find(|item| item.plasmid_id == plasmid_id)
+    let plasmid = donor
+        .plasmids
+        .iter()
+        .find(|item| item.plasmid_id == plasmid_id)
         .filter(|item| valid_transfer_plasmid(item))
         .ok_or_else(|| "Plasmide HGT absent chez le donneur".to_string())?;
     let already_present = recipient_has_plasmid(recipient, plasmid)?;
@@ -55,11 +63,16 @@ pub(super) fn authorized_conjugation(
             "PLASMID_ALREADY_PRESENT"
         } else {
             "HGT_TRANSFER_SIMULATED"
-        }.to_string(),
+        }
+        .to_string(),
+        evidence_scope: "lease_bound_local_runtime".to_string(),
     })
 }
 
-fn validate_transfer_pair(donor: &ProkaryoticAgent, recipient: &ProkaryoticAgent) -> Result<(), String> {
+fn validate_transfer_pair(
+    donor: &ProkaryoticAgent,
+    recipient: &ProkaryoticAgent,
+) -> Result<(), String> {
     if donor.has_sex_pilus && donor.id != recipient.id {
         Ok(())
     } else {
@@ -75,7 +88,10 @@ fn valid_transfer_plasmid(plasmid: &Plasmid) -> bool {
 }
 
 fn recipient_has_plasmid(recipient: &ProkaryoticAgent, plasmid: &Plasmid) -> Result<bool, String> {
-    let existing = recipient.plasmids.iter().find(|item| item.plasmid_id == plasmid.plasmid_id);
+    let existing = recipient
+        .plasmids
+        .iter()
+        .find(|item| item.plasmid_id == plasmid.plasmid_id);
     if existing.is_some_and(|item| item != plasmid) {
         return Err("Receveur possède un plasmide divergent".to_string());
     }

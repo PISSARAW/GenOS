@@ -2,6 +2,7 @@
 //! cognitifs, sensorimoteurs et persistants. Les crates restent accessibles via
 //! `genos_orchestrator::genos_store`, etc.
 
+use crate::BiomimeticOrchestrator;
 use crate::director::Director;
 use crate::evolution::Population;
 use crate::immune_cyber::CyberImmune;
@@ -14,12 +15,12 @@ use crate::signaling::SignalingCascade;
 use crate::snapshots::SnapshotVault;
 use crate::trace::TraceStore;
 use crate::virology::VirologyLab;
-use crate::BiomimeticOrchestrator;
-use genos_biology::phenotype::{create_default_registry, PhenotypeRegistry};
+use genos_biology::phenotype::{PhenotypeRegistry, create_default_registry};
 use genos_biology::quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
+use genos_biology::sensorium::Sensorium;
 use genos_biology::sensory::{AccessoryOlfactoryBulb, EcholocationConfig, EcholocationCortex};
 use genos_biology::specialized_cells::cnidocyte::DischargeImpact;
-use genos_biology::therapy::{apply_systemic_therapy_to_cell, SystemicTherapy, TherapyOutcome};
+use genos_biology::therapy::{SystemicTherapy, TherapyOutcome, apply_systemic_therapy_to_cell};
 use genos_biology::{
     Choanocyte, Cnidocyte, ElectricOrganStack, ElectricShockBurst, GlialCell, GlialEnvironment,
     GlialPipeline, Iridophore, ProkaryoticAgent, StomatalPore, Tracheid,
@@ -101,6 +102,8 @@ pub struct GenosEcosystem {
     pub cyber: CyberImmune,
     /// Sens avancés (navigation quantique, électro-réception, vision thermique).
     pub senses: SensorySuite,
+    /// Sensorium unifié pour les observations animales et leurs preuves.
+    pub sensorium: Sensorium,
     /// Coffre de snapshots persistant (ouvert à la demande).
     pub snapshots: SnapshotVault,
     /// Politique de recrutement (décision autonome).
@@ -175,6 +178,7 @@ impl GenosEcosystem {
             signaling: SignalingCascade::new(),
             cyber: CyberImmune::new("orchestrator"),
             senses: SensorySuite::new(),
+            sensorium: Sensorium::default(),
             snapshots: SnapshotVault::new(),
             recruiter: RecruitmentPlanner::default(),
             traces: TraceStore::default(),

@@ -12,6 +12,7 @@ pub enum Modality {
     Thermal,
     Magnetic,
     Acoustic,
+    Electrical,
     Visual,
     Error,
 }
@@ -32,6 +33,7 @@ impl Modality {
             Modality::Thermal => "thermal",
             Modality::Magnetic => "magnetic",
             Modality::Acoustic => "acoustic",
+            Modality::Electrical => "electrical",
             Modality::Visual => "visual",
             Modality::Error => "error",
         }
@@ -43,6 +45,7 @@ impl Modality {
             "thermal" | "temperature" | "infrared" => Modality::Thermal,
             "magnetic" | "magnetoreception" => Modality::Magnetic,
             "acoustic" | "sound" | "echolocation" => Modality::Acoustic,
+            "electrical" | "electroreception" => Modality::Electrical,
             "visual" | "vision" => Modality::Visual,
             "error" | "dissonance" => Modality::Error,
             _ => Modality::Pheromone,

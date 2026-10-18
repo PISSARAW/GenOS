@@ -86,6 +86,17 @@ pub struct DischargeImpact {
     pub target_neutralized: bool,
     pub residual_pressure_mpa: f64,
     pub message: String,
+    #[serde(default = "default_evidence_scope")]
+    pub evidence_scope: String,
+    #[serde(default = "default_trigger_kind")]
+    pub trigger_kind: String,
+}
+
+fn default_evidence_scope() -> String {
+    "local_input_gate".to_string()
+}
+fn default_trigger_kind() -> String {
+    "none".to_string()
 }
 
 /// Cellule Cnidocyte sentinelle à décharge réflexe ultra-rapide
@@ -118,7 +129,7 @@ impl Cnidocyte {
 
     /// Évalue un stimulus sans coût de réflexion LLM (zéro-latence mécanique)
     pub fn eval_stimulus(&self, mechanical_force: f64, chemical_signature: Option<&str>) -> bool {
-        if self.is_discharged {
+        if self.is_discharged || !mechanical_force.is_finite() {
             return false;
         }
 
@@ -132,7 +143,7 @@ impl Cnidocyte {
         if let Some(sig) = chemical_signature {
             let lower_sig = sig.to_lowercase();
             for pattern in &self.trigger.chemoreceptor_signatures {
-                if lower_sig.contains(pattern) {
+                if lower_sig.contains(&pattern.to_lowercase()) {
                     return true;
                 }
             }
@@ -159,6 +170,8 @@ impl Cnidocyte {
                 target_neutralized: false,
                 residual_pressure_mpa: self.capsule.osmotic_pressure_mpa,
                 message: "Stimulus inférieur au seuil de déclenchement.".to_string(),
+                evidence_scope: "local_input_gate".to_string(),
+                trigger_kind: "none".to_string(),
             });
         }
 
@@ -175,9 +188,16 @@ impl Cnidocyte {
             target_neutralized: true,
             residual_pressure_mpa: residual_pressure,
             message: format!(
-                "HARPON CNIDOCYTE PROJETÉ en {}µs ! Menace neutralisée par venin réflexe.",
+                "HARPON CNIDOCYTE PROJETÉ en {}µs ! Entrée locale placée en quarantaine.",
                 self.capsule.eversion_speed_micros
             ),
+            evidence_scope: "local_input_gate".to_string(),
+            trigger_kind: if chemical_signature.is_some() {
+                "chemical_signature"
+            } else {
+                "mechanical_force"
+            }
+            .to_string(),
         })
     }
 

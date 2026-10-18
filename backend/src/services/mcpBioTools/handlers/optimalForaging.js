@@ -59,13 +59,15 @@ async function optimalForagingForageStep({ args, caller }) {
   } catch (error) {
     return rejectedForagingSource(error);
   }
-  const step = await executeForageStep(args, sessionId);
+  const step = await executeForageStep({ args, sessionId, agentId: caller.agentId });
   return verifiedForagingResponse({ args, sessionId, claims, step });
 }
 
-async function executeForageStep(args, sessionId) {
+async function executeForageStep(input) {
+  const { args, sessionId, agentId } = input;
   return forageStep({
     sessionId,
+    agentId,
     patchHistory: args.patch_history || args.history,
     elapsedTimeSec: args.elapsed_time_sec,
     iteration: args.iteration,

@@ -6,6 +6,7 @@
  */
 
 const store = new Map();
+const crypto = require('node:crypto');
 
 function defaultSensorium(agentId) {
   return {
@@ -46,8 +47,11 @@ function recordObservation(opts) {
   // null au lieu de fabriquer un état hors piste.
   const state = store.get(String(o.agentId));
   if (!state) return null;
-  state.observations.push(o.observation);
+  const observation = normalizeObservation(o.observation);
+  if (!observation) return null;
+  state.observations.push(observation);
   if (state.observations.length > 200) state.observations.shift();
+  updateEnvironmentModel(state, observation);
   state.revision += 1;
   state.updatedAt = new Date().toISOString();
   store.set(String(o.agentId), state);
@@ -59,7 +63,11 @@ function setFocus(opts) {
   // Idem : pas de création implicite hors createSensorium.
   const state = store.get(String(o.agentId));
   if (!state) return null;
-  state.activeFocus = o.focus || null;
+  state.activeFocus = o.focus ? {
+    ...o.focus,
+    selectedAt: new Date().toISOString(),
+    evidenceRef: o.focus.evidenceRef || null
+  } : null;
   state.revision += 1;
   state.updatedAt = new Date().toISOString();
   store.set(String(o.agentId), state);
@@ -71,4 +79,54 @@ function clearSensorium(agentId) {
   else store.clear();
 }
 
-module.exports = { createSensorium, getSensorium, recordObservation, setFocus, clearSensorium, defaultSensorium };
+function normalizeObservation(observation) {
+  if (!observation || typeof observation !== 'object') return null;
+  const source = { ...observation };
+  const digest = observationDigest(source);
+  const evidenceRef = source.evidenceRef || source.data?.evidenceRef || null;
+  return {
+    ...source,
+    provenance: {
+      ...(source.provenance || {}),
+      source: source.sensorId || 'unknown',
+      observationDigest: digest,
+      evidenceRef,
+      verified: Boolean(evidenceRef)
+    }
+  };
+}
+
+function observationDigest(observation) {
+  return `sha256:${crypto.createHash('sha256').update(stableSerialize(observation), 'utf8').digest('hex')}`;
+}
+
+function stableSerialize(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function updateEnvironmentModel(state, observation) {
+  const target = observation.target || observation.data?.currentUrl;
+  if (target && !state.environmentModel.landmarks.some(item => item.id === target)) {
+    state.environmentModel.landmarks.push({ id: target, label: target, at: observation.at || new Date().toISOString() });
+    if (state.environmentModel.landmarks.length > 100) state.environmentModel.landmarks.shift();
+  }
+  const gain = Number(observation.informationGain);
+  if (Number.isFinite(gain)) {
+    state.environmentModel.uncertaintyMap[target || 'global'] = Number((1 - gain).toFixed(4));
+  }
+}
+
+function snapshotSensorium(agentId) {
+  const state = getSensorium(agentId);
+  if (!state) return null;
+  return JSON.parse(JSON.stringify(state));
+}
+
+module.exports = {
+  createSensorium, getSensorium, recordObservation, setFocus, clearSensorium,
+  defaultSensorium, normalizeObservation, observationDigest, snapshotSensorium
+};

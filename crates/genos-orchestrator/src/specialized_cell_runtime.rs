@@ -63,9 +63,14 @@ fn guard_resource_availability(eco: &mut GenosEcosystem) -> GuardResourceAssessm
 
 fn close_guard_flux(result: &mut ThrottleResult, requested_flux: f64) {
     result.admitted_flux = 0.0;
-    result.throttled_flux = requested_flux;
+    result.throttled_flux = if requested_flux.is_finite() {
+        requested_flux.max(0.0)
+    } else {
+        0.0
+    };
     result.backpressure_active = true;
     result.status = "STOMATA_CLOSED_METABOLIC_POOL_REFUSED".to_string();
+    result.request_valid = requested_flux.is_finite() && requested_flux >= 0.0;
 }
 
 fn fund_guard_flux(
@@ -78,13 +83,12 @@ fn fund_guard_flux(
     if request.atp_available + 1e-9 < request.cost {
         return Err("insufficient ATP energy reserve".to_string());
     }
-    let receipt = eco.consume_mission_metabolic_pool(
-        crate::metabolism::MissionMetabolicPoolDemand {
+    let receipt =
+        eco.consume_mission_metabolic_pool(crate::metabolism::MissionMetabolicPoolDemand {
             cell_id: request.cell_id,
             operation: "guard_cell.admitted_flux".to_string(),
             amino_acids: request.cost,
-        },
-    )?;
+        })?;
     if receipt.accepted {
         eco.orchestrator
             .metabolism
@@ -119,15 +123,16 @@ impl GenosEcosystem {
     /// Ossifie le pipeline, exécute son plan versionné et compare ses résultats au mode vivant.
     pub fn ossify_pipeline(&mut self, pipeline_id: &str) -> Result<OssificationReport, String> {
         let before = self.tracheid.transport_sap_stream(1.0, 0.0)?;
-        let plan = TracheidExecutionPlan::new(
-            pipeline_id,
-            self.tracheid.plate.cavitation_resistance_mpa,
-        )?;
+        let plan =
+            TracheidExecutionPlan::new(pipeline_id, self.tracheid.plate.cavitation_resistance_mpa)?;
         let report = self.tracheid.trigger_lignified_apoptosis(pipeline_id)?;
         let after = execute_tracheid_plan(
             &plan,
             &self.tracheid,
-            TracheidPlanInput { volume: 1.0, tension_mpa: 0.0 },
+            TracheidPlanInput {
+                volume: 1.0,
+                tension_mpa: 0.0,
+            },
         )?;
         let artifact = serde_json::to_value(&plan).map_err(|error| error.to_string())?;
         self.record_event(
@@ -154,9 +159,9 @@ impl GenosEcosystem {
         self.guard_cell
             .regulate(resources.availability, 1.0 - resources.availability);
         let valid_request = requested_flux.is_finite() && requested_flux >= 0.0;
-        let mut result = self
-            .guard_cell
-            .throttle_flux(if valid_request { requested_flux } else { 0.0 });
+        let mut result =
+            self.guard_cell
+                .throttle_flux(if valid_request { requested_flux } else { 0.0 });
         let cost = result.admitted_flux.max(0.0) * 0.01;
         let pool_receipt = if valid_request {
             fund_guard_flux(
@@ -252,12 +257,12 @@ fn render_conforms(rendered: &str, perspective: &ObserverPerspective) -> bool {
                     && value["payload"].is_string()
             })
             .unwrap_or(false),
-        ObserverPerspective::TuiAnsi => rendered.contains("[IRIDOPHORE:")
-            && rendered.contains("\x1b[0m"),
-        ObserverPerspective::MarkdownVisual => rendered.starts_with("**[")
-            && rendered.contains(" nm`)"),
-        ObserverPerspective::CrypticCamouflage => {
-            rendered.starts_with("CLOAKED_POLYMORPHIC_")
+        ObserverPerspective::TuiAnsi => {
+            rendered.contains("[IRIDOPHORE:") && rendered.contains("\x1b[0m")
         }
+        ObserverPerspective::MarkdownVisual => {
+            rendered.starts_with("**[") && rendered.contains(" nm`)")
+        }
+        ObserverPerspective::CrypticCamouflage => rendered.starts_with("CLOAKED_POLYMORPHIC_"),
     }
 }

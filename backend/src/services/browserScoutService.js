@@ -3,7 +3,6 @@
  * Permet d'interagir avec des formulaires complexes (USGS, GitHub, arXiv),
  * via un Arbre d'Accessibilité Sémantique (AXTree) compact et intercepte les fichiers (.pdf, .csv).
  */
-
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -13,14 +12,12 @@ const { BrowserPuppeteerAdapter } = require('./browserPuppeteerAdapter');
 const MAX_HTML_LENGTH = 2 * 1024 * 1024;
 const BLOCK_TEXT_TAGS = new Set(['address', 'article', 'aside', 'blockquote', 'body', 'br', 'dd', 'div', 'dl', 'dt',
   'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'section', 'table', 'td', 'th', 'tr', 'ul']);
-
 function matches(html, expression, project) {
   const nodes = [];
   let match;
   while ((match = expression.exec(html)) !== null) nodes.push(project(match));
   return nodes;
 }
-
 function selectOptions(service, html) {
   return matches(html, /<option\b([^>]*)>([\s\S]*?)<\/option>/gi, (match) => {
     const attrs = service._parseAttrs(match[1]);
@@ -28,7 +25,6 @@ function selectOptions(service, html) {
     return { value: attrs.value !== undefined ? attrs.value : label, label, selected: 'selected' in attrs };
   });
 }
-
 function stripMarkup(input) {
   const source = String(input || '').slice(0, MAX_HTML_LENGTH);
   let output = '';
@@ -47,7 +43,6 @@ function stripMarkup(input) {
   }
   return output.replace(/\s+/g, ' ').trim();
 }
-
 function readMarkupTag(source, index, hiddenTag) {
   const end = source.indexOf('>', index + 1);
   if (end < 0) return { nextIndex: source.length, hiddenTag, complete: false };
@@ -58,15 +53,12 @@ function readMarkupTag(source, index, hiddenTag) {
   else if (!closing && !hiddenTag) hiddenTag = hiddenContentTag(tagName);
   return { nextIndex: end + 1, hiddenTag, complete: true, separatesText: BLOCK_TEXT_TAGS.has(tagName) };
 }
-
 function hiddenContentTag(tagName) {
   return tagName.startsWith('script') ? 'script' : tagName.startsWith('style') ? 'style' : '';
 }
-
 function escapeCssString(value) {
   return String(value).replace(/[\u0000-\u001f\u007f\\"]/g, character => `\\${character.codePointAt(0).toString(16)} `);
 }
-
 function resolveWorkspaceFile(url, workspaceRoot) {
   const root = resolveWorkspaceRoot(workspaceRoot, 'Browser Scout workspace');
   const target = path.resolve(fileURLToPath(new URL(url)));
@@ -76,14 +68,12 @@ function resolveWorkspaceFile(url, workspaceRoot) {
   }
   return resolveContainedPathNoSymlinkSync(root, relative, 'Browser Scout file');
 }
-
 function readWorkspaceHtml(url, workspaceRoot) {
   const filePath = resolveWorkspaceFile(url, workspaceRoot);
   const stat = fs.statSync(filePath);
   if (!stat.isFile() || stat.size > MAX_HTML_LENGTH) throw new Error('Browser Scout file exceeds the supported size.');
   return fs.readFileSync(filePath, 'utf8');
 }
-
 class BrowserScoutService {
   constructor(options = {}) {
     this.sessions = new Map();
@@ -94,7 +84,6 @@ class BrowserScoutService {
       if (!fs.existsSync(this.downloadDir)) fs.mkdirSync(this.downloadDir, { recursive: true });
     } catch (_) {}
   }
-
   createSession(sessionId = null, initialConfig = {}) {
     const id = sessionId || `scout_${crypto.randomUUID()}`;
     const session = {
@@ -117,11 +106,9 @@ class BrowserScoutService {
     this.sessions.set(id, session);
     return session;
   }
-
   getSession(sessionId) {
     return sessionId ? this.sessions.get(sessionId) || null : null;
   }
-
   async openBrowserSession(sessionId, options = {}) {
     const session = this.createSession(sessionId, options);
     const browserState = await this.browserAdapter.open(options);
@@ -129,13 +116,11 @@ class BrowserScoutService {
     session.browserPage = browserState.page;
     return { sessionId: session.id, mode: 'browser', opened: true };
   }
-
   async closeSession(sessionId) {
     const session = this.getSession(sessionId);
     if (session && session.browser) await this.browserAdapter.close({ browser: session.browser });
     return this.sessions.delete(sessionId);
   }
-
   _parseAttrs(attrString) {
     const attrs = {};
     const regex = /([a-zA-Z0-9_\-:]+)(?:=(?:"([^"]*)"|'([^']*)'|([^>\s]+)))?/g;
@@ -145,13 +130,11 @@ class BrowserScoutService {
     }
     return attrs;
   }
-
   _isDownloadable(url) {
     if (!url) return false;
     const clean = url.split('?')[0].toLowerCase();
     return ['.pdf', '.xlsx', '.xls', '.csv', '.zip', '.png', '.docx'].some(ext => clean.endsWith(ext));
   }
-
   buildAXTree(html, url = '') {
     const source = String(html || '').slice(0, MAX_HTML_LENGTH);
     const title = source.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || 'Document';
@@ -160,7 +143,6 @@ class BrowserScoutService {
       ...this._buttonNodes(source, counter), ...this._linkNodes(source, counter)];
     return { title, axNodes };
   }
-
   _inputNodes(html, counter) {
     return matches(html, /<input\b([^>]*)>/gi, (match) => {
       const attrs = this._parseAttrs(match[1]);
@@ -171,7 +153,6 @@ class BrowserScoutService {
         label: attrs.placeholder || attrs.name || id, value: attrs.value || '' };
     }).filter(Boolean);
   }
-
   _selectNodes(html, counter) {
     return matches(html, /<select\b([^>]*)>([\s\S]*?)<\/select>/gi, (match) => {
       const attrs = this._parseAttrs(match[1]);
@@ -181,7 +162,6 @@ class BrowserScoutService {
         options, currentValue: (options.find(option => option.selected) || options[0] || {}).value || '' };
     });
   }
-
   _buttonNodes(html, counter) {
     return matches(html, /<button\b([^>]*)>([\s\S]*?)<\/button>/gi, (match) => {
       const attrs = this._parseAttrs(match[1]);
@@ -191,7 +171,6 @@ class BrowserScoutService {
         label: label || attrs.id || 'button', action: 'submit' };
     });
   }
-
   _linkNodes(html, counter) {
     return matches(html, /<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (match) => {
       const attrs = this._parseAttrs(match[1]);
@@ -201,7 +180,6 @@ class BrowserScoutService {
         label: label || attrs.href, isDownload: this._isDownloadable(attrs.href) };
     }).filter(Boolean);
   }
-
   _updateObservation(session, html) {
     const text = stripMarkup(html).replace(/&nbsp;|&amp;|&lt;|&gt;/g, ' ').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
     const previous = new Set(session.observationTokens || []);
@@ -215,10 +193,13 @@ class BrowserScoutService {
     session.observationTokens = [...new Set([...previous, ...unique])];
     session.observationText = text.join(' ').slice(0, 12000);
   }
-
   async navigate(sessionId, url, options = {}) {
     let session = this.getSession(sessionId) || this.createSession(sessionId);
-
+    const navigationScope = options.navigationScope || session.config.navigationScope;
+    if (navigationScope && !isOriginAllowed(url, navigationScope)) {
+      return { success: false, refused: true, sessionId: session.id,
+        error: 'Navigation target is outside the configured foraging origin scope.' };
+    }
     if (session.browserPage) {
       try {
         const result = await this.browserAdapter.navigate(session.browserPage, url, { ...session.config, signal: options.signal, navigationScope: options.navigationScope });
@@ -240,15 +221,12 @@ class BrowserScoutService {
         return { success: false, sessionId: session.id, error: err.message };
       }
     }
-
     if (this._isDownloadable(url) && session.config.interceptDownloads) {
       const dl = await this.interceptDownload(session, url, options.contentBuffer);
       return { success: true, type: 'download_intercepted', url, download: dl };
     }
-
     let html = options.htmlContent;
     let statusCode = 200;
-
     if (!html && url.startsWith('file://')) {
       try {
         html = readWorkspaceHtml(url, this.workspaceRoot);
@@ -257,7 +235,17 @@ class BrowserScoutService {
       }
     } else if (!html && typeof fetch !== 'undefined' && (url.startsWith('http://') || url.startsWith('https://'))) {
       try {
-        const res = await fetch(url, { headers: { 'User-Agent': 'GenOS-Scout/3.0' }, signal: navigationSignal(session.config.timeoutMs, options.signal) });
+        const res = await fetch(url, { redirect: 'manual', headers: { 'User-Agent': 'GenOS-Scout/3.0' }, signal: navigationSignal(session.config.timeoutMs, options.signal) });
+        if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+          const redirectUrl = new URL(res.headers.get('location'), url).href;
+          if (!isOriginAllowed(redirectUrl, navigationScope)) {
+            return { success: false, refused: true, sessionId: session.id,
+              error: 'Navigation redirect is outside the configured foraging origin scope.' };
+          }
+          const redirects = Number(options.redirects || 0);
+          if (redirects >= 5) return { success: false, sessionId: session.id, error: 'Navigation redirect limit exceeded.' };
+          return this.navigate(sessionId, redirectUrl, { ...options, redirects: redirects + 1 });
+        }
         statusCode = res.status;
         const cType = res.headers.get('content-type') || '';
         if (this._isDownloadable(url) || (!cType.includes('html') && !cType.includes('text'))) {
@@ -271,7 +259,6 @@ class BrowserScoutService {
     } else if (!html) {
       html = `<html><head><title>Mock Page</title></head><body><h1>${url}</h1></body></html>`;
     }
-
     options.signal?.throwIfAborted();
     const { title, axNodes } = this.buildAXTree(html, url);
     session.currentUrl = url;
@@ -279,7 +266,6 @@ class BrowserScoutService {
     session.axTree = axNodes;
     this._updateObservation(session, html);
     session.history.push({ url, title, timestamp: new Date().toISOString() });
-
     return {
       success: true,
       sessionId: session.id,
@@ -290,12 +276,10 @@ class BrowserScoutService {
       axTreeSummary: axNodes.map(n => ({ selectorId: n.selectorId, role: n.role, label: n.label, currentValue: n.currentValue || n.value }))
     };
   }
-
   async act(sessionId, action) {
     const session = this.getSession(sessionId);
     if (!session) return { success: false, error: `Session not found: ${sessionId}` };
     const { type, selectorId, value } = action;
-
     if (session.browserPage) {
       const node = session.axTree.find(item => item.selectorId === selectorId);
       if (!node) return { success: false, verified: false, error: `Selector not found: ${selectorId}` };
@@ -319,7 +303,6 @@ class BrowserScoutService {
         return { success: false, verified: false, error: err.message };
       }
     }
-
     if (type === 'fill') {
       const node = session.axTree.find(n => n.selectorId === selectorId);
       if (!node) return { success: false, error: `Selector not found: ${selectorId}` };
@@ -327,7 +310,6 @@ class BrowserScoutService {
       session.formState[node.name || selectorId] = node.value;
       return { success: true, selectorId, updatedValue: node.value, role: node.role };
     }
-
     if (type === 'select_option') {
       const node = session.axTree.find(n => n.selectorId === selectorId);
       if (!node || node.role !== 'combobox') return { success: false, error: `Combobox not found: ${selectorId}` };
@@ -336,7 +318,6 @@ class BrowserScoutService {
       session.formState[node.name || selectorId] = opt.value;
       return { success: true, selectorId, selectedOption: opt };
     }
-
     if (type === 'click') {
       const node = session.axTree.find(n => n.selectorId === selectorId);
       if (!node) return { success: false, error: `Target not found: ${selectorId}` };
@@ -349,11 +330,9 @@ class BrowserScoutService {
       }
       return this.submitForm(sessionId, session.formState);
     }
-
     if (type === 'submit') return this.submitForm(sessionId, value || session.formState);
     return { success: false, error: `Unsupported action: ${type}` };
   }
-
   submitForm(sessionId, submittedValues = {}) {
     const session = this.getSession(sessionId);
     if (!session) return { success: false, error: `Session not found: ${sessionId}` };
@@ -361,7 +340,6 @@ class BrowserScoutService {
     const resultUrl = `${session.currentUrl || 'https://web.internal/search'}?${query}`;
     return { success: true, action: 'form_submitted', resultUrl, formData: submittedValues };
   }
-
   async interceptDownload(session, fileUrl, buffer = null) {
     const filename = path.basename(fileUrl.split('?')[0]) || `download_${Date.now()}.bin`;
     const targetPath = path.join(this.downloadDir, filename);
@@ -372,7 +350,6 @@ class BrowserScoutService {
     if (session) session.lastDownloadedFile = receipt;
     return receipt;
   }
-
   snapshotSession(sessionId) {
     const session = this.getSession(sessionId);
     if (!session) return null;
@@ -389,11 +366,17 @@ class BrowserScoutService {
     };
   }
 }
-
+function isOriginAllowed(url, scope) {
+  const values = Array.isArray(scope) ? scope : [scope];
+  try {
+    const target = new URL(url).origin;
+    return values.some(value => new URL(value).origin === target);
+  } catch (_) {
+    return false;
+  }
+}
 const defaultBrowserScout = new BrowserScoutService();
-
 module.exports = { BrowserScoutService, defaultBrowserScout };
-
 function navigationSignal(timeoutMs, signal) {
   const local = AbortSignal.timeout(timeoutMs);
   return signal ? AbortSignal.any([local, signal]) : local;

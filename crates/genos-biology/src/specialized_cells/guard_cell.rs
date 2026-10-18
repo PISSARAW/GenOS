@@ -10,6 +10,17 @@ pub struct ThrottleResult {
     pub backpressure_active: bool,
     pub stomatal_conductance_mol_m2_s: f64,
     pub status: String,
+    #[serde(default = "default_evidence_scope")]
+    pub evidence_scope: String,
+    #[serde(default = "default_request_valid")]
+    pub request_valid: bool,
+}
+
+fn default_evidence_scope() -> String {
+    "local_flux_model".to_string()
+}
+fn default_request_valid() -> bool {
+    true
 }
 
 /// Cellule de garde végétale individuelle
@@ -94,6 +105,20 @@ impl StomatalPore {
 
     /// Applique le throttling de flux (backpressure stomatique)
     pub fn throttle_flux(&self, requested_flux: f64) -> ThrottleResult {
+        let request_valid = requested_flux.is_finite() && requested_flux >= 0.0;
+        if !request_valid {
+            return ThrottleResult {
+                pore_aperture_ratio: self.calculate_aperture_ratio(),
+                requested_flux,
+                admitted_flux: 0.0,
+                throttled_flux: 0.0,
+                backpressure_active: true,
+                stomatal_conductance_mol_m2_s: self.stomatal_conductance(),
+                status: "STOMATA_INVALID_FLUX_REFUSED".to_string(),
+                evidence_scope: "local_flux_model".to_string(),
+                request_valid: false,
+            };
+        }
         let aperture = self.calculate_aperture_ratio();
         let admitted = ((requested_flux * aperture) * 100.0).round() / 100.0;
         let throttled = ((requested_flux - admitted) * 100.0).round() / 100.0;
@@ -115,6 +140,8 @@ impl StomatalPore {
             backpressure_active: is_backpressure,
             stomatal_conductance_mol_m2_s: self.stomatal_conductance(),
             status,
+            evidence_scope: "local_flux_model".to_string(),
+            request_valid: true,
         }
     }
 }

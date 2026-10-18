@@ -19,6 +19,8 @@ pub struct HgtTransferReport {
     pub pilus_connection_latency_ms: f64,
     pub horizontal_transfer_success: bool,
     pub status: String,
+    #[serde(default = "default_evidence_scope")]
+    pub evidence_scope: String,
 }
 
 /// Résultat d'exécution d'un plasmide ultra-léger
@@ -29,6 +31,17 @@ pub struct PlasmidExecutionYield {
     pub execution_output: String,
     pub latency_micros: u64,
     pub nucleus_overhead_cost: f64, // 0.0 pour un procaryote acaryote
+    #[serde(default = "default_evidence_scope")]
+    pub evidence_scope: String,
+    #[serde(default = "default_execution_status")]
+    pub execution_status: String,
+}
+
+fn default_evidence_scope() -> String {
+    "lease_bound_local_runtime".to_string()
+}
+fn default_execution_status() -> String {
+    "payload_not_executed".to_string()
 }
 
 /// Micro-agent Procaryote acaryote (sans noyau, ADN libre, boot < 1ms)
@@ -117,6 +130,8 @@ impl ProkaryoticAgent {
                     ),
                     latency_micros: 0,
                     nucleus_overhead_cost: 0.0, // Zéro surcoût de noyau
+                    evidence_scope: "local_descriptor_only".to_string(),
+                    execution_status: "payload_not_executed".to_string(),
                 }
             })
     }
@@ -143,7 +158,11 @@ mod tests {
         assert_eq!(recipient.plasmids.len(), 0);
 
         // Conjugaison directe de pair à pair
-        assert!(donor.conjugate_transfer_plasmid(&mut recipient, "pResist_anti_injection").is_err());
+        assert!(
+            donor
+                .conjugate_transfer_plasmid(&mut recipient, "pResist_anti_injection")
+                .is_err()
+        );
         assert!(!recipient.assimilate_transformation(plasmid));
         assert!(recipient.plasmids.is_empty());
 

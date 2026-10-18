@@ -88,8 +88,7 @@ function confidence(context) {
 
 function evidence(context, primitive) {
   const source = asArray(context.evidence || context.traces || context.receipts);
-  if (source.length) return source;
-  return [`primitive:${primitive}`, `timestamp:${new Date().toISOString()}`];
+  return source;
 }
 
 function stateFor(context) {
@@ -111,6 +110,7 @@ async function execute(primitive, context = {}) {
   const contract = CONTRACTS[primitive];
   if (!contract) return { success: false, error: `Unknown animal control primitive '${primitive}'.`, code: 'ANIMAL_PRIMITIVE_UNKNOWN' };
   const [capability, cost, risk] = META[primitive];
+  const suppliedEvidence = evidence(context, primitive);
   return {
     success: true,
     primitive,
@@ -128,7 +128,9 @@ async function execute(primitive, context = {}) {
     cost,
     risk,
     guardrails: primitive === 'reduce_attack_surface' ? ['internal_sandbox_only', 'no_user_deception'] : ['rollback_required', 'evidence_required'],
-    evidence: evidence(context, primitive)
+    evidence: suppliedEvidence,
+    evidenceStatus: suppliedEvidence.length ? 'observed' : 'unverified',
+    promotionEligible: suppliedEvidence.length > 0
   };
 }
 

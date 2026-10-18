@@ -8,6 +8,9 @@ pub enum SensorModality {
     Luminal,
     Mechanical,
     Electrical,
+    Magnetic,
+    Acoustic,
+    Polarized,
 }
 
 /// État du sensorium après évaluation.
@@ -34,11 +37,29 @@ pub struct Signal {
     pub timestamp: Option<u64>,
 }
 
+/// Provenance minimale d'une observation sensorielle intégrée.
+/// Les adaptateurs synthétiques restent explicitement marqués et ne peuvent
+/// pas être confondus avec une mesure matérielle.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SignalProvenance {
+    pub source_id: String,
+    pub capture_id: String,
+    pub observed_at_epoch_ms: u64,
+    pub synthetic: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SensoriumObservation {
+    pub signal: Signal,
+    pub provenance: SignalProvenance,
+}
+
 /// Ensemble des seuils et signaux du sensorium.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sensorium {
     pub thresholds: Vec<SensorThreshold>,
     pub signals: Vec<Signal>,
+    pub observations: Vec<SensoriumObservation>,
 }
 
 impl Default for Sensorium {
@@ -46,6 +67,7 @@ impl Default for Sensorium {
         Self {
             thresholds: Vec::new(),
             signals: Vec::new(),
+            observations: Vec::new(),
         }
     }
 }
@@ -66,6 +88,18 @@ pub fn integrate_signal(sensorium: &mut Sensorium, signal: Signal) {
         });
     }
     sensorium.signals.push(signal);
+}
+
+/// Intègre une lecture et conserve la preuve de sa provenance.
+pub fn integrate_verified_signal(
+    sensorium: &mut Sensorium,
+    signal: Signal,
+    provenance: SignalProvenance,
+) {
+    integrate_signal(sensorium, signal.clone());
+    sensorium
+        .observations
+        .push(SensoriumObservation { signal, provenance });
 }
 
 /// Évalue l'état global du sensorium à partir des seuils courants.
@@ -106,11 +140,14 @@ mod tests {
     #[test]
     fn nominal_when_all_below_threshold() {
         let mut s = Sensorium::default();
-        integrate_signal(&mut s, Signal {
-            modality: SensorModality::Chemical,
-            intensity: 0.3,
-            timestamp: None,
-        });
+        integrate_signal(
+            &mut s,
+            Signal {
+                modality: SensorModality::Chemical,
+                intensity: 0.3,
+                timestamp: None,
+            },
+        );
         assert_eq!(evaluate(&s), SensoriumState::Nominal);
     }
 
@@ -141,5 +178,27 @@ mod tests {
     fn unknown_modality_is_not_exceeded() {
         let s = Sensorium::default();
         assert!(!is_exceeded(&s, SensorModality::Electrical));
+    }
+
+    #[test]
+    fn verified_observation_keeps_provenance_and_modality() {
+        let mut s = Sensorium::default();
+        integrate_verified_signal(
+            &mut s,
+            Signal {
+                modality: SensorModality::Magnetic,
+                intensity: 0.8,
+                timestamp: Some(42),
+            },
+            SignalProvenance {
+                source_id: "synthetic-adapter".into(),
+                capture_id: "capture-1".into(),
+                observed_at_epoch_ms: 42,
+                synthetic: true,
+            },
+        );
+        assert_eq!(s.observations.len(), 1);
+        assert!(s.observations[0].provenance.synthetic);
+        assert_eq!(s.observations[0].signal.modality, SensorModality::Magnetic);
     }
 }

@@ -1,5 +1,6 @@
 use crate::GenosEcosystem;
 use genos_biology::sensory::{EchoReturn, PheromoneSignal};
+use genos_biology::sensorium::{integrate_verified_signal, SensorModality, Signal, SignalProvenance};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
@@ -14,6 +15,17 @@ pub enum SyntheticAnimalSignal {
     Vomeronasal { signal: PheromoneSignal },
     ThermalFusion { visual_nodes: Vec<(String, f64)>, thermal_readings: Vec<(String, f64)> },
     Echolocation { bandwidth_khz: f64, duration_ms: f64, echoes: Vec<EchoReturn> },
+    PolarizedVision { angles_deg: Vec<f64>, intensities: Vec<f64> },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SyntheticAnimalObservation {
+    pub signal: SyntheticAnimalSignal,
+    pub source_id: String,
+    pub capture_id: String,
+    pub observed_at_epoch_ms: u64,
+    pub synthetic: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -23,6 +35,9 @@ pub struct SyntheticAnimalReceipt {
     pub origin: &'static str,
     pub signal: SyntheticAnimalSignal,
     pub measurement: Value,
+    pub modality: SensorModality,
+    pub intensity: f64,
+    pub provenance: SignalProvenance,
 }
 
 impl SyntheticAnimalSignal {
@@ -39,8 +54,17 @@ impl SyntheticAnimalSignal {
             Self::Echolocation { bandwidth_khz, duration_ms, echoes } => {
                 validate_echolocation(*bandwidth_khz, *duration_ms, echoes)
             }
+            Self::PolarizedVision { angles_deg, intensities } => validate_polarized(angles_deg, intensities),
         }
     }
+}
+
+fn validate_polarized(angles: &[f64], intensities: &[f64]) -> Result<(), String> {
+    if angles.is_empty() || angles.len() != intensities.len() || angles.len() > 4096
+        || angles.iter().zip(intensities).any(|(a, i)| !a.is_finite() || !(-180.0..=180.0).contains(a) || !i.is_finite() || !(0.0..=1.0).contains(i)) {
+        return Err("polarized vision samples must be finite, paired and bounded".into());
+    }
+    Ok(())
 }
 
 fn validate_compass(goal: &[f64], current: &[f64]) -> Result<(), String> {
@@ -108,30 +132,28 @@ impl GenosEcosystem {
         &mut self,
         signal: SyntheticAnimalSignal,
     ) -> Result<SyntheticAnimalReceipt, String> {
-        signal.validate()?;
-        let measurement = match &signal {
-            SyntheticAnimalSignal::Compass { goal, current } => {
-                serde_json::to_value(self.senses.navigate(goal, current))
-            }
-            SyntheticAnimalSignal::ActiveElectroreception { impedance_samples } => {
-                serde_json::to_value(self.senses.electrolocate(impedance_samples))
-            }
-            SyntheticAnimalSignal::PassiveElectroreception { ambient_uv } => {
-                serde_json::to_value(self.senses.passive_scan(ambient_uv))
-            }
-            SyntheticAnimalSignal::Vomeronasal { signal } => {
-                serde_json::to_value(self.olfaction.receive_signal(signal.clone()))
-            }
-            SyntheticAnimalSignal::ThermalFusion { visual_nodes, thermal_readings } => {
-                serde_json::to_value(self.senses.fuse_thermal(visual_nodes, thermal_readings))
-            }
-            SyntheticAnimalSignal::Echolocation { bandwidth_khz, duration_ms, echoes } => {
-                let pulse = self.echolocation.emit_chirp(*bandwidth_khz, *duration_ms);
-                serde_json::to_value(self.echolocation.process_echoes(&pulse, echoes))
-            }
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| format!("clock unavailable: {e}"))?.as_millis() as u64;
+        self.ingest_synthetic_animal_observation(SyntheticAnimalObservation {
+            signal, source_id: "local-synthetic-adapter".into(), capture_id: Uuid::new_v4().to_string(),
+            observed_at_epoch_ms: now, synthetic: true,
+        })
+    }
+
+    pub fn ingest_synthetic_animal_observation(&mut self, observation: SyntheticAnimalObservation) -> Result<SyntheticAnimalReceipt, String> {
+        observation.signal.validate()?;
+        if observation.source_id.is_empty() || observation.source_id.len() > 256 || observation.capture_id.is_empty()
+            || observation.capture_id.len() > 128 || observation.observed_at_epoch_ms == 0 || !observation.synthetic {
+            return Err("synthetic sensor provenance is invalid or not explicitly synthetic".into());
         }
-        .map_err(|error| format!("sensor measurement serialization failed: {error}"))?;
-        let payload = serde_json::json!({ "schema": "genos.synthetic-animal-signal/v1", "origin": "synthetic", "signal": &signal, "measurement": &measurement });
+        let signal = observation.signal;
+        let measurement = measure_signal(self, &signal)?;
+        let modality = signal_modality(&signal);
+        let intensity = measurement_intensity(&measurement);
+        integrate_verified_signal(&mut self.sensorium, Signal { modality: modality.clone(), intensity, timestamp: Some(observation.observed_at_epoch_ms) }, SignalProvenance {
+            source_id: observation.source_id.clone(), capture_id: observation.capture_id.clone(), observed_at_epoch_ms: observation.observed_at_epoch_ms, synthetic: true,
+        });
+        let payload = serde_json::json!({ "schema": "genos.synthetic-animal-signal/v1", "origin": "synthetic", "signal": &signal, "measurement": &measurement, "modality": modality, "provenance": { "source_id": &observation.source_id, "capture_id": &observation.capture_id, "observed_at_epoch_ms": observation.observed_at_epoch_ms, "synthetic": true } });
         let event_id = self.record_event("SYNTHETIC_ANIMAL_SIGNAL", payload);
         Ok(SyntheticAnimalReceipt {
             schema: "genos.synthetic-animal-receipt/v1",
@@ -139,13 +161,66 @@ impl GenosEcosystem {
             origin: "synthetic",
             signal,
             measurement,
+            modality,
+            intensity,
+            provenance: SignalProvenance { source_id: observation.source_id, capture_id: observation.capture_id, observed_at_epoch_ms: observation.observed_at_epoch_ms, synthetic: true },
         })
     }
 }
 
+fn measure_signal(ecosystem: &mut GenosEcosystem, signal: &SyntheticAnimalSignal) -> Result<Value, String> {
+    let measurement = match signal {
+            SyntheticAnimalSignal::Compass { goal, current } => {
+                serde_json::to_value(ecosystem.senses.navigate(goal, current))
+            }
+            SyntheticAnimalSignal::ActiveElectroreception { impedance_samples } => {
+                serde_json::to_value(ecosystem.senses.electrolocate(impedance_samples))
+            }
+            SyntheticAnimalSignal::PassiveElectroreception { ambient_uv } => {
+                serde_json::to_value(ecosystem.senses.passive_scan(ambient_uv))
+            }
+            SyntheticAnimalSignal::Vomeronasal { signal } => {
+                serde_json::to_value(ecosystem.olfaction.receive_signal(signal.clone()))
+            }
+            SyntheticAnimalSignal::ThermalFusion { visual_nodes, thermal_readings } => {
+                serde_json::to_value(ecosystem.senses.fuse_thermal(visual_nodes, thermal_readings))
+            }
+            SyntheticAnimalSignal::Echolocation { bandwidth_khz, duration_ms, echoes } => {
+                let pulse = ecosystem.echolocation.emit_chirp(*bandwidth_khz, *duration_ms);
+                serde_json::to_value(ecosystem.echolocation.process_echoes(&pulse, echoes))
+            }
+        SyntheticAnimalSignal::PolarizedVision { angles_deg, intensities } => serde_json::to_value(polarized_measurement(angles_deg, intensities)),
+        }
+        .map_err(|error| format!("sensor measurement serialization failed: {error}"))?;
+    Ok(measurement)
+}
+
+fn signal_modality(signal: &SyntheticAnimalSignal) -> SensorModality {
+    match signal {
+            SyntheticAnimalSignal::Compass { .. } => SensorModality::Magnetic,
+            SyntheticAnimalSignal::ActiveElectroreception { .. } | SyntheticAnimalSignal::PassiveElectroreception { .. } => SensorModality::Electrical,
+            SyntheticAnimalSignal::Vomeronasal { .. } => SensorModality::Chemical,
+            SyntheticAnimalSignal::ThermalFusion { .. } => SensorModality::Thermal,
+            SyntheticAnimalSignal::Echolocation { .. } => SensorModality::Acoustic,
+            SyntheticAnimalSignal::PolarizedVision { .. } => SensorModality::Polarized,
+    }
+}
+
+fn measurement_intensity(measurement: &Value) -> f64 {
+    measurement.get("urgency_score").or_else(|| measurement.get("distortion_factor"))
+            .or_else(|| measurement.get("max_thermal_gradient")).or_else(|| measurement.get("polarization_contrast"))
+        .and_then(Value::as_f64).unwrap_or(0.0).clamp(0.0, 1.0)
+}
+
+fn polarized_measurement(angles: &[f64], intensities: &[f64]) -> Value {
+    let mean = intensities.iter().sum::<f64>() / intensities.len() as f64;
+    let contrast = intensities.iter().map(|v| (v - mean).abs()).sum::<f64>() / intensities.len() as f64;
+    serde_json::json!({ "sample_count": angles.len(), "mean_intensity": mean, "polarization_contrast": contrast, "synthetic_only": true })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{GenosEcosystem, SyntheticAnimalSignal};
+    use super::{GenosEcosystem, SyntheticAnimalObservation, SyntheticAnimalSignal};
     use genos_biology::sensory::{EchoReturn, PheromoneSignal, PheromoneType};
     use std::collections::HashMap;
 
@@ -201,5 +276,17 @@ mod tests {
         }).expect("valid echo input");
         assert_eq!(echo.measurement["nearest_obstacle"], "branch/x");
         assert_eq!(ecosystem.events.count(), 3);
+    }
+
+    #[test]
+    fn polarized_vision_is_bounded_and_provenanced() {
+        let mut ecosystem = GenosEcosystem::new("polarized");
+        let receipt = ecosystem.ingest_synthetic_animal_observation(SyntheticAnimalObservation {
+            signal: SyntheticAnimalSignal::PolarizedVision { angles_deg: vec![-45.0, 0.0, 45.0], intensities: vec![0.2, 0.8, 0.4] },
+            source_id: "test-adapter".into(), capture_id: "capture-1".into(), observed_at_epoch_ms: 42, synthetic: true,
+        }).expect("valid synthetic polarized observation");
+        assert_eq!(receipt.modality, genos_biology::sensorium::SensorModality::Polarized);
+        assert!(receipt.provenance.synthetic);
+        assert_eq!(ecosystem.sensorium.observations.len(), 1);
     }
 }

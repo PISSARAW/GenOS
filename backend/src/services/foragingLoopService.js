@@ -7,6 +7,8 @@ const { defaultBrowserScout } = require('./browserScoutService');
 const { defaultFovealVision } = require('./fovealVisionService');
 const { withDeadline } = require('./operationDeadline');
 const { runImageTask } = require('./foragingImageTask');
+const sensorium = require('./perception/sensoriumService');
+const { makeObservation } = require('./perception/observationService');
 
 function patchDecision(history, elapsed) {
   const patchHistory = Array.isArray(history) ? history : [];
@@ -104,7 +106,9 @@ function createForagingReceipt(input) {
     observationGain: input.observation && input.observation.infoGain,
     screenshotPath: input.observation && input.observation.screenshotPath,
     fovealImageHash: input.fovealArtifact && input.fovealArtifact.sha256,
-    navigationSuccess: Boolean(input.action.navigation && input.action.navigation.success)
+    navigationSuccess: Boolean(input.action.navigation && input.action.navigation.success),
+    sensoriumObservationDigest: input.sensoriumObservation && input.sensoriumObservation.provenance
+      ? input.sensoriumObservation.provenance.observationDigest : null
   };
   const evidenceRef = `sha256:${crypto.createHash('sha256').update(JSON.stringify(receipt)).digest('hex')}`;
   return { ...receipt, evidenceRef };
@@ -139,6 +143,7 @@ function createForageResponse(input) {
     observationAfter: input.observation,
     action: input.action,
     fovealArtifact: input.fovealArtifact,
+    sensoriumObservation: input.sensoriumObservation || null,
     navigation: input.action.navigation || null,
     measurement: { decisionActionMs: input.measuredMs },
     receipt,
@@ -157,11 +162,13 @@ async function executeForageStep(input) {
   const before = defaultBrowserScout.snapshotSession(sessionId);
   const result = await performForagingAction({ evaluation, source, sessionId, observation: before });
   const fovealArtifact = await createFovealArtifact({ session, observation: result.observation, shouldDepart: evaluation.shouldDepart, signal: source.signal });
+  const sensoriumObservation = recordForagingObservation({ agentId: source.agentId, observation: result.observation,
+    receipt: { sessionId, decision, action: result.action, fovealArtifact } });
   const measuredMs = Number((performance.now() - startedAt).toFixed(3));
   return createForageResponse({
     sessionId, decision, evaluation, levy, before,
     action: result.action, observation: result.observation,
-    fovealArtifact, measuredMs, navigationScope: source.navigationScope
+    fovealArtifact, sensoriumObservation, measuredMs, navigationScope: source.navigationScope
   });
 }
 
@@ -170,3 +177,16 @@ function forageStep(input = {}) {
 }
 
 module.exports = { patchDecision, levyGuidance, forageStep };
+
+function recordForagingObservation(input) {
+  if (!input.agentId || !input.observation) return null;
+  if (!sensorium.getSensorium(input.agentId)) sensorium.createSensorium({ agentId: input.agentId });
+  const observation = makeObservation({
+    sensorId: 'web', agentId: input.agentId, target: input.observation.currentUrl,
+    uncertaintyBefore: 1, uncertaintyAfter: Math.max(0, 1 - Number(input.observation.infoGain || 0)),
+    data: { observationText: input.observation.observationText, decision: input.receipt.decision,
+      actionStatus: input.receipt.action.status, fovealImageHash: input.receipt.fovealArtifact?.sha256 }
+  });
+  sensorium.recordObservation({ agentId: input.agentId, observation });
+  return observation;
+}

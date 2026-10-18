@@ -61,6 +61,14 @@ pub struct ElectricShockBurst {
     pub latency_ms: f64,
     pub consensus_unlocked: bool,
     pub status: String,
+    #[serde(default = "default_consensus_scope")]
+    pub consensus_scope: String,
+    #[serde(default)]
+    pub distributed_consensus: bool,
+}
+
+fn default_consensus_scope() -> String {
+    "local_electrocyte_model".to_string()
 }
 
 /// Organe électrique complet (empilement d'électrocytes en colonnes séries-parallèles)
@@ -92,7 +100,11 @@ impl ElectricOrganStack {
         if self.electrocytes.is_empty() {
             return 0.0;
         }
-        let cells_per_column = (self.electrocytes.len() / self.parallel_columns).max(1);
+        let cells_per_column = self
+            .electrocytes
+            .len()
+            .div_ceil(self.parallel_columns)
+            .max(1);
         let sample_cell = &self.electrocytes[0];
         (cells_per_column as f64 * sample_cell.potential_gradient_mv()) / 1000.0
     }
@@ -110,15 +122,11 @@ impl ElectricOrganStack {
             );
         }
 
-        let _cells_per_column = (ready_count / self.parallel_columns).max(1);
-        let mut total_mv = 0.0;
-        for (i, cell) in self.electrocytes.iter_mut().enumerate() {
-            if i % self.parallel_columns == 0 {
-                total_mv += cell.depolarize();
-            } else {
-                cell.depolarize();
-            }
+        let cells_per_column = ready_count.div_ceil(self.parallel_columns).max(1);
+        for cell in &mut self.electrocytes {
+            cell.depolarize();
         }
+        let total_mv = cells_per_column as f64 * self.electrocytes[0].potential_gradient_mv();
 
         let total_voltage_v = total_mv / 1000.0;
         let total_current_a = (self.parallel_columns as f64 * 1.0) / 1000.0; // 1 mA par colonne
@@ -129,7 +137,7 @@ impl ElectricOrganStack {
             total_voltage_v: (total_voltage_v * 100.0).round() / 100.0,
             total_current_a: (total_current_a * 1000.0).round() / 1000.0,
             peak_power_watts: (power_watts * 100.0).round() / 100.0,
-            active_columns: self.parallel_columns,
+            active_columns: self.parallel_columns.min(ready_count),
             latency_ms: 0.15,
             consensus_unlocked,
             status: if consensus_unlocked {
@@ -137,6 +145,8 @@ impl ElectricOrganStack {
             } else {
                 "SUB_QUORUM_DISCHARGE".to_string()
             },
+            consensus_scope: "local_electrocyte_model".to_string(),
+            distributed_consensus: false,
         })
     }
 

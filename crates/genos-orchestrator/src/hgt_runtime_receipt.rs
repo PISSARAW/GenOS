@@ -51,7 +51,9 @@ fn receipt_identity_matches(receipt: &Value, lease: &HgtTransferLease) -> bool {
         ("recipient_id", json!(request.recipient_id)),
         ("plasmid_id", json!(request.plasmid_id)),
     ];
-    expected.iter().all(|(field, value)| receipt[*field] == *value)
+    expected
+        .iter()
+        .all(|(field, value)| receipt[*field] == *value)
 }
 
 fn receipt_effect_matches(receipt: &Value, lease: &HgtTransferLease) -> bool {
@@ -59,18 +61,26 @@ fn receipt_effect_matches(receipt: &Value, lease: &HgtTransferLease) -> bool {
     let plasmid: Result<Plasmid, _> = serde_json::from_value(receipt["plasmid"].clone());
     let report: Result<HgtTransferReport, _> = serde_json::from_value(receipt["report"].clone());
     receipt["outcome"] == "TRANSFERRED"
-        && receipt["plasmid"]["plasmid_id"] == request.plasmid_id
-        && plasmid.ok().and_then(|value| plasmid_digest(&value).ok())
-            == Some(request.plasmid_digest.clone())
-        && report.ok().is_some_and(|value| {
-            value.donor_id == request.donor_id
-                && value.recipient_id == request.recipient_id
-                && value.transferred_plasmid_id == request.plasmid_id
-                && value.horizontal_transfer_success
-                && value.pilus_connection_latency_ms.is_finite()
-                && value.pilus_connection_latency_ms >= 0.0
-                && ["HGT_TRANSFER_SIMULATED", "PLASMID_ALREADY_PRESENT"].contains(&value.status.as_str())
-        })
+        && plasmid_matches(&receipt["plasmid"], plasmid, request)
+        && report_matches(report, request)
+}
+
+fn plasmid_matches(value: &Value, plasmid: Result<Plasmid, serde_json::Error>, request: &HgtLeaseRequest) -> bool {
+    value["plasmid_id"] == request.plasmid_id
+        && plasmid.ok().and_then(|item| plasmid_digest(&item).ok()) == Some(request.plasmid_digest.clone())
+}
+
+fn report_matches(report: Result<HgtTransferReport, serde_json::Error>, request: &HgtLeaseRequest) -> bool {
+    report.ok().is_some_and(|value| {
+        value.donor_id == request.donor_id
+            && value.recipient_id == request.recipient_id
+            && value.transferred_plasmid_id == request.plasmid_id
+            && value.horizontal_transfer_success
+            && value.pilus_connection_latency_ms.is_finite()
+            && value.pilus_connection_latency_ms >= 0.0
+            && ["HGT_TRANSFER_SIMULATED", "PLASMID_ALREADY_PRESENT"].contains(&value.status.as_str())
+            && value.evidence_scope == "lease_bound_local_runtime"
+    })
 }
 
 pub(super) fn verify_lease_signature(
@@ -78,7 +88,9 @@ pub(super) fn verify_lease_signature(
     signature_hex: &str,
     authority: &HgtLeaseAuthority,
 ) -> Result<(), String> {
-    let key = authority.trusted_issuers.get(&request.issuer_id)
+    let key = authority
+        .trusted_issuers
+        .get(&request.issuer_id)
         .ok_or_else(|| "Émetteur HGT non approuvé".to_string())?;
     let signature_bytes = decode_hex(signature_hex)?;
     let signature = Signature::from_slice(&signature_bytes).map_err(|error| error.to_string())?;
@@ -87,7 +99,10 @@ pub(super) fn verify_lease_signature(
 }
 
 pub(super) fn idempotency_key(request: &HgtLeaseRequest) -> String {
-    format!("{}:{}:{}", request.mission_id, request.issuer_id, request.nonce)
+    format!(
+        "{}:{}:{}",
+        request.mission_id, request.issuer_id, request.nonce
+    )
 }
 
 pub(super) fn validate_request(request: &HgtLeaseRequest) -> Result<(), String> {
@@ -113,9 +128,12 @@ pub(super) fn decode_hex(value: &str) -> Result<Vec<u8>, String> {
     if value.len() % 2 != 0 {
         return Err("Hex Ed25519 HGT invalide".to_string());
     }
-    (0..value.len()).step_by(2).map(|index| {
-        u8::from_str_radix(&value[index..index + 2], 16).map_err(|error| error.to_string())
-    }).collect()
+    (0..value.len())
+        .step_by(2)
+        .map(|index| {
+            u8::from_str_radix(&value[index..index + 2], 16).map_err(|error| error.to_string())
+        })
+        .collect()
 }
 
 pub(super) fn now_unix_ms() -> u128 {
@@ -152,7 +170,11 @@ mod tests {
             nonce: "nonce-report".into(),
             expires_at_unix_ms: u128::MAX,
         };
-        let lease = HgtTransferLease { request, signature: String::new(), active: false };
+        let lease = HgtTransferLease {
+            request,
+            signature: String::new(),
+            active: false,
+        };
         let receipt = json!({
             "outcome": "TRANSFERRED",
             "plasmid": plasmid,
@@ -174,7 +196,10 @@ mod tests {
         ] {
             let mut tampered = receipt.clone();
             tampered["report"][field] = forged;
-            assert!(!receipt_effect_matches(&tampered, &lease), "accepted altered {field}");
+            assert!(
+                !receipt_effect_matches(&tampered, &lease),
+                "accepted altered {field}"
+            );
         }
     }
 }

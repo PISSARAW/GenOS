@@ -309,10 +309,11 @@ fn stimulus_from_signal(signal: &SyntheticAnimalSignal) -> SignStimulus {
         }
         SyntheticAnimalSignal::Compass { .. } => SignStimulus::new(Modality::Magnetic, "compass_observation", 1.0),
         SyntheticAnimalSignal::ActiveElectroreception { .. } | SyntheticAnimalSignal::PassiveElectroreception { .. } => {
-            SignStimulus::new(Modality::Magnetic, "electroreception_observation", 1.0)
+            SignStimulus::new(Modality::Electrical, "electroreception_observation", 1.0)
         }
         SyntheticAnimalSignal::ThermalFusion { .. } => SignStimulus::new(Modality::Thermal, "thermal_observation", 1.0),
         SyntheticAnimalSignal::Echolocation { .. } => SignStimulus::new(Modality::Acoustic, "echolocation_observation", 1.0),
+        SyntheticAnimalSignal::PolarizedVision { .. } => SignStimulus::new(Modality::Visual, "polarized_vision_observation", 1.0),
     }
 }
 

@@ -29,10 +29,12 @@ class FovealVisionService {
     const height = imageMeta.height || 1600;
     const targetType = imageMeta.targetType || 'figure';
 
-    const regions = [];
+    const regions = suppliedRegions(imageMeta.roiCandidates);
+    if (regions.length) return scanResult({ width, height, regions, sourceDigest: imageMeta.sourceDigest });
+    const fallbackRegions = [];
     if (targetType === 'figure' || targetType === 'scientific_plot') {
       // Repérage saillant d'un graphique central et de ses axes
-      regions.push({
+      fallbackRegions.push({
         id: 'roi_figure_main',
         label: 'Main Figure Boundary',
         bbox: [150, 100, 800, 900], // [ymin, xmin, ymax, xmax] en permille
@@ -40,14 +42,14 @@ class FovealVisionService {
         suggestedZoom: 2.0
       });
       // Saccade ciblée sur les axes et labels minuscules
-      regions.push({
+      fallbackRegions.push({
         id: 'roi_axes_labels',
         label: 'Axes Ends & Tiny Annotations',
         bbox: [200, 120, 450, 400],
         saliencyScore: 0.98,
         suggestedZoom: 3.5
       });
-      regions.push({
+      fallbackRegions.push({
         id: 'roi_legend',
         label: 'Figure Legend & Colorbar',
         bbox: [720, 600, 850, 920],
@@ -55,7 +57,7 @@ class FovealVisionService {
         suggestedZoom: 2.5
       });
     } else if (targetType === 'table') {
-      regions.push({
+      fallbackRegions.push({
         id: 'roi_table_headers',
         label: 'Table Header & Columns',
         bbox: [50, 50, 250, 950],
@@ -63,7 +65,7 @@ class FovealVisionService {
         suggestedZoom: 2.0
       });
     } else {
-      regions.push({
+      fallbackRegions.push({
         id: 'roi_full_center',
         label: 'Central Fovea',
         bbox: [250, 250, 750, 750],
@@ -72,13 +74,7 @@ class FovealVisionService {
       });
     }
 
-    return {
-      imageWidth: width,
-      imageHeight: height,
-      detectedRoisCount: regions.length,
-      candidateRegions: regions,
-      scannedAt: new Date().toISOString()
-    };
+    return scanResult({ width, height, regions: fallbackRegions, sourceDigest: imageMeta.sourceDigest });
   }
 
   /**
@@ -119,6 +115,8 @@ class FovealVisionService {
       relativeAreaFraction: (((right - left) * (bottom - top)) / (metadata.width * metadata.height)).toFixed(4),
       zoomFactor,
       focusNotes: options.focusNotes || null,
+      sourceSha256: `sha256:${crypto.createHash('sha256').update(fs.readFileSync(inputPath)).digest('hex')}`,
+      roiSelection: options.roiSelection || 'validated_input',
       resampled: false
     };
 
@@ -160,6 +158,32 @@ class FovealVisionService {
       fovealCrop: cropResult
     };
   }
+}
+
+function suppliedRegions(candidates) {
+  if (!Array.isArray(candidates)) return [];
+  return candidates.map((candidate, index) => suppliedRegion(candidate, index));
+}
+
+function suppliedRegion(candidate, index) {
+  const bbox = Array.isArray(candidate.bbox) ? candidate.bbox.map(Number) : [];
+  if (!validBbox(bbox)) throw new Error(`ROI candidate ${index} is outside normalized image bounds.`);
+  return { id: candidate.id || `roi_${index}`, label: candidate.label || 'supplied ROI', bbox,
+      saliencyScore: Math.max(0, Math.min(1, Number(candidate.saliencyScore) || 0)),
+      suggestedZoom: Math.max(1, Number(candidate.suggestedZoom) || 1), source: 'caller' };
+}
+
+function validBbox(bbox) {
+  return bbox.length === 4 && bbox.every(value => Number.isFinite(value) && value >= 0 && value <= 1000)
+    && bbox[2] > bbox[0] && bbox[3] > bbox[1];
+}
+
+function scanResult(input) {
+  const { width, height, regions, sourceDigest } = input;
+  const body = { imageWidth: width, imageHeight: height, detectedRoisCount: regions.length, candidateRegions: regions };
+  return { ...body, sourceDigest: sourceDigest || null,
+    scanDigest: `sha256:${crypto.createHash('sha256').update(JSON.stringify(body), 'utf8').digest('hex')}`,
+    scannedAt: new Date().toISOString() };
 }
 
 const defaultFovealVision = new FovealVisionService();
