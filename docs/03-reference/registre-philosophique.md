@@ -51,6 +51,20 @@ philosophique n'accorde aucun droit, y compris pour une `runtime-capability`.
 Les comptes sont exposés par les deux endpoints de santé. Les listes de concepts
 et de contrats peuvent être filtrées par `implementationDisposition`.
 
+Les trois `runtime-capability` utilisent en plus des évaluateurs spécialisés :
+
+| Contrat | Évaluateur | Calcul borné |
+| --- | --- | --- |
+| `core.self` | `identity-continuity` | stabilité de l'identité et de la lignée, révision consécutive |
+| `core.intervention-not-metaphor` | `measured-intervention` | comparabilité des conditions, preuves distinctes et delta mesuré |
+| `core.biomimetic-experimental` | `controlled-biomimetic-effect` | moyennes contrôle/traitement, effet observé et seuil préenregistré |
+
+Ces calculs rendent les invariants plus exigeants que les prédicats génériques.
+Ils opèrent toujours sur des observations déclarées : les empreintes prouvent
+l'intégrité des entrées, pas leur vérité ni leur indépendance. Le bloc
+`specializedMechanism` conserve donc `externalFactsVerified: false` et
+`runtimeAuthorityGranted: false`.
+
 ## Contrats d’implémentation
 
 Le compilateur `backend/src/philosophy/implementationContracts.js` transforme

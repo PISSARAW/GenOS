@@ -1,6 +1,8 @@
 'use strict';
 
 const { isDeepStrictEqual } = require('node:util');
+const { SPECIALIZED_PREDICATES, SPECIALIZED_EXAMPLES, evaluateSpecialized,
+  specializedProbeValues } = require('./runtimeCapabilityAudits');
 
 const PREDICATES = Object.freeze({
   present: (value) => typeof value === 'string' && value.trim().length > 0,
@@ -14,6 +16,7 @@ const PREDICATES = Object.freeze({
   multiple: (value) => Array.isArray(value) && value.some((item) => !isDeepStrictEqual(item, value[0])),
   ordered: (value) => Array.isArray(value) && value.length >= 2 && value.every(Number.isFinite)
     && value.slice(1).every((item, index) => item >= value[index]),
+  ...SPECIALIZED_PREDICATES,
 });
 
 // These are boundary probes of the declared operational interpretation, not
@@ -24,17 +27,22 @@ const EXAMPLES = Object.freeze({
   different: [[1, 2], [1, 1]], positive: [2, 0], zero: [0, 1],
   probability: [0.7, 1.1], multiple: [['agent:a', 'agent:b'], ['agent:a', 'agent:a']],
   ordered: [[1, 2, 3], [1, 3, 2]],
+  ...SPECIALIZED_EXAMPLES,
 });
 
 function evaluatePredicate(name, value) {
   const predicate = PREDICATES[name];
   if (!predicate) throw new Error(`unknown operational predicate: ${name}`);
   if (value === undefined) return { status: 'unobserved', satisfied: false };
+  const specialized = evaluateSpecialized(name, value);
+  if (specialized) return specialized;
   const satisfied = predicate(value);
   return { status: satisfied ? 'satisfied' : 'violated', satisfied };
 }
 
 function probeValues(name) {
+  const specialized = specializedProbeValues(name);
+  if (specialized) return specialized;
   if (!EXAMPLES[name]) throw new Error(`unknown operational predicate: ${name}`);
   return structuredClone(EXAMPLES[name]);
 }

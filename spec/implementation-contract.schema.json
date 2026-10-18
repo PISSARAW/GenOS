@@ -31,6 +31,18 @@
     "implementationDisposition": { "type": "string", "enum": ["reference-only", "bounded-audit", "runtime-capability"] },
     "implementationDispositionDetails": { "$ref": "philosophical-concept.schema.json#/$defs/implementationDispositionDetails" },
     "runtimeAuthority": { "const": false },
+    "specializedMechanism": {
+      "type": "object",
+      "required": ["apiVersion", "evaluator", "outputs", "externalFactsVerified", "runtimeAuthorityGranted"],
+      "properties": {
+        "apiVersion": { "const": "genos.philosophy-specialized-audit/v1" },
+        "evaluator": { "type": "string", "enum": ["identity-continuity", "measured-intervention", "controlled-biomimetic-effect"] },
+        "outputs": { "type": "array", "minItems": 3, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "externalFactsVerified": { "const": false },
+        "runtimeAuthorityGranted": { "const": false }
+      },
+      "additionalProperties": false
+    },
     "execution": {
       "type": "object",
       "required": ["apiVersion", "primitive", "field", "predicate", "interpretation"],

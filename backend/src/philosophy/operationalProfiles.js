@@ -5,7 +5,7 @@ const { COGNITIVE_OPERATIONAL_PROFILES } = require('./cognitiveOperationalProfil
 // Explicit, reviewable interpretations. Tuples: primitive, input field,
 // predicate, operational distinction. No ID/domain fallback may claim coverage.
 const PROFILES = Object.freeze({
-  'core.self': ['self', 'self.identity', 'present', 'Rattacher l’état fonctionnel à une identité, sans inférer une personne.'],
+  'core.self': ['self', 'self.identityContinuity', 'identity-continuity', 'Vérifier identité, lignée et révision consécutive, sans inférer une personne.'],
   'core.agent': ['self', 'agent.genome', 'present', 'Identifier le génome qui borne les opérations du processus agentique.'],
   'core.lineage': ['self', 'lineage.parents', 'recorded', 'Conserver les parents des versions et des forks.'],
   'core.genome': ['self', 'genome.specification', 'present', 'Distinguer la spécification héritable de l’état courant.'],
@@ -14,8 +14,8 @@ const PROFILES = Object.freeze({
   'core.trait': ['self', 'trait.expression', 'present', 'Tracer l’expression d’un trait plutôt que déduire une propriété du nom du génome.'],
   'core.success-not-truth': ['evidence', 'transport.independentProof', 'explicit', 'Un succès de transport sans preuve indépendante interdit la promotion.'],
   'core.claim-not-evidence': ['evidence', 'claim.verifiedSource', 'explicit', 'Une assertion seule ne peut satisfaire une exigence de preuve.'],
-  'core.intervention-not-metaphor': ['causal', 'intervention.measuredEffect', 'different', 'Comparer deux résultats réellement mesurés, pas une analogie.'],
-  'core.biomimetic-experimental': ['causal', 'biomimetic.controlResults', 'different', 'Exiger une différence avec le contrôle avant d’attribuer un effet biomimétique.'],
+  'core.intervention-not-metaphor': ['causal', 'intervention.comparison', 'measured-intervention', 'Comparer des mesures traçables sous conditions identiques, pas une analogie.'],
+  'core.biomimetic-experimental': ['causal', 'biomimetic.experiment', 'controlled-biomimetic-effect', 'Exiger contrôle répliqué, hypothèse préenregistrée et seuil avant d’attribuer un effet biomimétique.'],
   'ontology.being': ['world', 'entity.identifier', 'present', 'Identifier l’entité représentée sans conclure à son existence externe.'],
   'ontology.substance': ['world', 'entity.stableProperties', 'recorded', 'Conserver les propriétés déclarées stables à travers les transitions.'],
   'ontology.attribute': ['world', 'attribute.owner', 'present', 'Rattacher un attribut à l’objet dont il est prédiqué.'],

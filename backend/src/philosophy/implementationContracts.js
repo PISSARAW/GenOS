@@ -212,9 +212,10 @@ function compileRegistry(concepts) {
   const pilotCount = contracts.filter((item) => CONTRACTS.has(item.id)).length;
   const mappedCount = contracts.filter((item) => item.compilationState === 'executable-audit').length;
   const pendingCount = contracts.filter((item) => item.compilationState !== 'executable-audit').length;
+  const specializedCount = contracts.filter((item) => item.specializedMechanism).length;
   const categoryCounts = Object.fromEntries([...new Set(contracts.map((item) => item.category))]
     .map((category) => [category, contracts.filter((item) => item.category === category).length]));
-  return { valid: errors.length === 0, contracts, errors, pilotCount, mappedCount, pendingCount, categoryCounts,
+  return { valid: errors.length === 0, contracts, errors, pilotCount, mappedCount, pendingCount, specializedCount, categoryCounts,
     dispositionCounts: dispositionCounts(contracts),
     coverageScope: 'bounded-software-audit', validatedOnRealMissions: 0 };
 }

@@ -3,6 +3,7 @@
 const { profileFor } = require('./operationalProfiles');
 const { predicateNames } = require('./operationalPredicates');
 const { relationsFor } = require('./operationalRelations');
+const { specializedAuditForConcept, specializedExecutionErrors } = require('./runtimeCapabilityAudits');
 
 const PRIMITIVES = Object.freeze({
   self: { targets: ['agent', 'reflection'], category: 'state', mechanism: 'FunctionalSelfModel' },
@@ -24,13 +25,19 @@ function operationalize(base, concept) {
   const primitive = PRIMITIVES[profile.primitive];
   const execution = { apiVersion: 'genos.philosophy-execution/v1', ...profile };
   const relations = relationsFor(concept.id);
+  const specialized = specializedAuditForConcept(concept.id);
   return {
     ...base, category: primitive.category, targets: primitive.targets,
     operationalRelations: relations,
     conflicts: [...new Set([...base.conflicts, ...relations.tensionsWith])],
     distinctions: [...base.distinctions, ...relations.distinguishedFrom.map((id) => `Interprétation distincte : ${id}`)],
     interpretation: profile.interpretation, mechanism: primitive.mechanism, execution,
-    mechanismEvidence: 'executable-bounded-audit', compilationState: 'executable-audit',
+    mechanismEvidence: specialized ? 'specialized-runtime-capability-audit' : 'executable-bounded-audit',
+    compilationState: 'executable-audit',
+    ...(specialized ? { specializedMechanism: {
+      apiVersion: 'genos.philosophy-specialized-audit/v1', evaluator: specialized.id,
+      outputs: [...specialized.outputs], externalFactsVerified: false, runtimeAuthorityGranted: false,
+    } } : {}),
     maturity: 'mechanism-linked', runtimeAuthority: false, externalFactsVerified: false,
     invariant: `${base.invariant} Audit borné : ${profile.field} doit satisfaire ${profile.predicate}.`,
     observables: [profile.field, 'verification_tasks', 'violation_count', 'response_caveats'],
@@ -45,7 +52,8 @@ function operationalize(base, concept) {
       'utiliser ce contrat pour étendre une permission, un lease ou un périmètre de mutation'],
     responsibility: 'Le producteur fournit les observations et leurs sources ; le vérificateur rejoue le calcul borné.',
     sourceRefs: [...new Set([...base.sourceRefs, 'backend/src/philosophy/operationalProfiles.js',
-      'backend/src/philosophy/conceptDefinitions.js'])],
+      'backend/src/philosophy/conceptDefinitions.js',
+      ...(specialized ? ['backend/src/philosophy/runtimeCapabilityAudits.js'] : [])])],
     sourceStatus: 'repository-interpretation-not-scholarly-verification',
   };
 }
@@ -58,8 +66,9 @@ function executionErrors(contract) {
   const execution = contract.execution;
   if (!execution) return ['executable interpretation required'];
   if (execution.apiVersion !== 'genos.philosophy-execution/v1') return ['unsupported execution.apiVersion'];
-  return ['primitive', 'field', 'predicate', 'interpretation']
+  const errors = ['primitive', 'field', 'predicate', 'interpretation']
     .filter((key) => execution[key] !== profile[key]).map((key) => `execution.${key} differs from registry`);
+  return [...errors, ...specializedExecutionErrors(contract)];
 }
 
 module.exports = { operationalize, executionErrors, PRIMITIVES };

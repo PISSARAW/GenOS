@@ -83,6 +83,7 @@ contractHealth.then(async (result) => {
   assert.equal(result.pilotCount, 21);
   assert.equal(result.pendingCount, 0);
   assert.equal(result.mappedCount, expectedConceptCount);
+  assert.equal(result.specializedCount, 3);
   assert.deepEqual(result.dispositionCounts, health.dispositionCounts);
   assert.equal(Object.values(result.categoryCounts).reduce((sum, count) => sum + count, 0), expectedConceptCount);
   assert.ok(result.categoryCounts.evaluation > 0);
