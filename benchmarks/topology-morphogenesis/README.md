@@ -65,6 +65,29 @@ oracle externe ou l'absence de baseline bloque l'audit. Les scores de Brier,
 la couverture, le regret de sélection et les comparaisons de baseline restent
 des mesures observées, pas des autorisations de promotion runtime.
 
+## P5 — qualification confirmatoire bornée
+
+`phase5Qualification.cjs` transforme la sortie de la porte de campagne appariée
+en rapport publiable par famille de tâches, par condition/topologie et au niveau
+global. Il conserve le nombre de tentatives, les vérifications, les échecs, le
+score moyen, le coût moyen et les dépassements de budget. La qualification
+exige simultanément un holdout scellé, un arbre source propre, des adaptateurs
+externes et une preuve de mécanisme vérifiés, la séparation entraînement / test,
+les répétitions prescrites et une porte P3 éligible. Une porte bloquée expose
+chaque motif manquant; elle ne peut pas être convertie en succès par un simple
+transport ou une mission terminée.
+
+```bash
+node benchmarks/topology-morphogenesis/test-phase5-qualification.cjs
+```
+
+Le rapport porte uniquement sur la campagne observée :
+`causalAdvantage` peut être vrai lorsque la comparaison appariée satisfait son
+plan, tandis que `universalGeneralization` et `runtimePromotionAuthorized`
+restent toujours faux. Les résultats négatifs, inconclusifs, les surcoûts et les
+échecs de budget restent visibles dans les agrégats; aucune supériorité
+universelle ni promotion runtime n'est déduite de cette qualification.
+
 Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json](suite.json), conformément à [schemas/suite.schema.json](schemas/suite.schema.json). À ce stade, seule la référence arithmétique possède un oracle indépendant; les autres tâches restent des probes de mécanisme ou des contrôles de contrat et ne sont pas admissibles à une comparaison confirmatoire.
 
 Chaque exécution archive la provenance du commit, l'état propre/sale de l'arbre source, les empreintes de la suite, des missions et des reçus extraits, les états des workers, les temps, ainsi que la portée explicite de l'oracle. Le format de sortie est décrit par [schemas/campaign-results.schema.json](schemas/campaign-results.schema.json). Un arbre modifié est automatiquement marqué non admissible comme résultat confirmatoire.
