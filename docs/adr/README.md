@@ -714,6 +714,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0601](0601-classer-les-organisations-dynamiques.md) | Classer les organisations dynamiques dans la morphogenèse | Accepté | 2026-10-18 | morphogenèse, organisations dynamiques, orchestration |
 | [0603](0603-relier-nosologie-et-morphogenese.md) | Relier la nosologie et la morphogenèse | Accepté | 2026-10-18 | morphogenèse, nosologie, quarantaine, autopsie causale |
 | [0602](0602-runner-durable-p3-campagnes-appariees.md) | Runner durable P3 pour les campagnes appariées | Accepté | 2026-10-18 | morphogenèse, expérimentation, durabilité, interopérabilité |
+| [0605](0605-dispositions-implementation-philosophique.md) | Dispositions d'implémentation philosophique | Accepté | 2026-10-18 | philosophie opérationnelle, contrats, autorité runtime |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
