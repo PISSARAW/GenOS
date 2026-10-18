@@ -114,7 +114,7 @@ Les sous-capacités mentionnées dans l'inventaire (juge, quorum, veto, CRDT, ni
 | Concept | I | V | Dé | U | Do | Preuve et manque décisif |
 | --- | :-: | :-: | :-: | :-: | :-: | --- |
 | Trinity | P | P | P | O | O | T : dispatch/merge ; campagne corrigée nominale et barrière comparative à requalifier. |
-| A-Team | P | P | P | O | O | T : exécution/DAG ; expertise et sous-runs génériques non qualifiés. |
+| A-Team | P | P | P | O | O | T : exécution/DAG ; expertise générale non qualifiée. Sous-runs multiteam qualifiés par le runner de programme (`test_ateam_multiteam_subrun.js`) ; dispatch générique reste refusé. |
 | Biocénose | P | P | P | O | O | T : communauté/votes ; preuve de consensus et veto minoritaire intégrés incomplète. |
 | Holobionte | P | P | P | O | O | T : hôte/symbiontes ; veto immunitaire et inférence locale bout en bout non qualifiés. |
 | Syncytium | P | P | P | O | O | T : état causal/variants ; convergence distribuée et campagne LLM complète à publier. |
