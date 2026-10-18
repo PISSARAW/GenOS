@@ -115,6 +115,9 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('137-ontogenesis-offline-continuity', 'Fence Ontogenesis controller handoffs across powered-off hosts', async (db) => {
     await require('./migrateOntogenesisContinuity').migrateOntogenesisContinuity(db);
   }),
+  createMigrationRunner('138-ontogenesis-complete-purge', 'Purge Ontogenesis traces and managed worktrees with durable receipts', async (db) => {
+    await require('./migrateOntogenesisPurge').migrateOntogenesisPurge(db);
+  }),
   createMigrationRunner('139-endogenous-thought-episodes', 'Persist scoped endogenous thought episodes and immutable receipts', async (db) => {
     await require('./migrateEndogenousThoughtEpisodes').migrateEndogenousThoughtEpisodes(db);
   }),

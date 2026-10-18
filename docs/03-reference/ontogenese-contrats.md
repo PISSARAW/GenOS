@@ -13,8 +13,9 @@ Sources : `backend/src/db/migrations/migrateOntogenesis.js` (migration 086),
 `backend/bin/genos-ontogenesis.cjs`, `canonicalConceptRegistry.js`,
 `missionCapabilityPlanService.js`, `runtimeHarness.js`,
 `philosophicalMissionContract.js`, `philosophicalObservationService.js`, `integrationController.js`.
-Le socle V2 et sa reprise sont définis par `migrateOntogenesisDurableFoundation.js`,
-`migrateOntogenesisCrashRecovery.js`, `operationJournal.js` et `crashRecoveryService.js`.
+Le socle V2, sa reprise et sa purge sont définis par `migrateOntogenesisDurableFoundation.js`,
+`migrateOntogenesisCrashRecovery.js`, `migrateOntogenesisPurge.js`,
+`operationJournal.js`, `crashRecoveryService.js` et `purgeService.js`.
 Tout écart entre ce document et ces fichiers est un bug de documentation.
 
 Le raccord détaillé des concepts philosophiques est documenté séparément dans
@@ -48,6 +49,7 @@ Toutes les tables métier portent `project_id TEXT NOT NULL REFERENCES ontogenes
 | `ontogenesis_artifacts` | Artefacts, rétention, quarantaine et gel | `idx_onto_artifacts_retention` |
 | `ontogenesis_outbox` | Messages durables dédupliqués à livrer | `idx_onto_outbox_delivery` |
 | `ontogenesis_recovery_receipts` | Décisions immuables de reprise | `idx_onto_recovery_receipts_project` |
+| `ontogenesis_purge_receipts` | Empreinte, compteurs et issue immuable d’une purge complète | `idx_onto_purge_receipts_project` |
 
 Colonnes et contraintes `CHECK` (recopie exacte des migrations) :
 
@@ -310,6 +312,7 @@ Transport inter-processus via SQLite WAL (`ontogenesis_inbox`, `ontogenesis_even
 | `stop` | `--project ID` (requis), `--reason TXT` | vue statut (texte ou JSON) |
 | `autostart` | `--on` (+ `--project ID` optionnel) active, sinon désactive | `autostart-active:${batFile}` ou `autostart-desactive:${batFile}` |
 | `prune` | `--project ID` (requis), `--days N` (défaut `30`) | `purge:evenements=${events} notifications=${notifications}` |
+| `purge` | `--project ID --confirm ID`, ou `--project ID --dry-run` | plan JSON ou reçu et compteurs JSON |
 
 Vue texte (`printStatus`) : lignes `projet`, `objectif`, `etat` (`${state} (controle: ${control})`),
 `branche`, `commit`, `tache` (`topologie= workers=`), `backlog` (`total= todo= doing= bloque= fait=`),
@@ -381,4 +384,5 @@ Chaque décision est attestée par un reçu de reprise immuable.
 
 Voir [ADR 0334](../adr/0334-ontogenese-pilotage-reprise-et-retention.md).
 Voir aussi [ADR 0606](../adr/0606-socle-durable-ontogenese.md) et
-[ADR 0607](../adr/0607-reprise-exhaustive-ontogenese.md).
+[ADR 0607](../adr/0607-reprise-exhaustive-ontogenese.md), puis
+[ADR 0610](../adr/0610-purge-complete-traces-worktrees-ontogenese.md).

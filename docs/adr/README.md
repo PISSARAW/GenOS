@@ -725,7 +725,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0608b](0608-materialiser-les-workers-autonomes-par-bail-gqwf.md) | Matérialiser les workers autonomes par bail GQWF | Accepté, activation explicite | 2026-10-18 | Workspaces, workers autonomes, GQWF |
 | [0609a](0609-bascule-ontogenese-hote-toujours-disponible.md) | Basculer l’Ontogenèse vers un hôte toujours disponible | Accepté | 2026-10-18 | Ontogenèse, continuité, hébergement, fencing |
 | [0609b](0609-missions-representatives-philosophie.md) | Missions représentatives pour les contrats philosophiques | Accepté | 2026-10-18 | philosophie opérationnelle, expérimentation, composition, preuve |
-| [0610](0610-protocole-p0-commit-morphogenetique.md) | Fermer le protocole P0 du commit morphogénétique | Accepté | 2026-10-18 | morphogenèse, autorité, transaction, reprise |
+| [0610a](0610-protocole-p0-commit-morphogenetique.md) | Fermer le protocole P0 du commit morphogénétique | Accepté | 2026-10-18 | morphogenèse, autorité, transaction, reprise |
+| [0610b](0610-purge-complete-traces-worktrees-ontogenese.md) | Purger les traces et worktrees de l’Ontogenèse | Accepté | 2026-10-18 | Ontogenèse, rétention, confidentialité, Git, exploitation |
 | [0611](0611-etat-causal-versionne-et-rejeu-borne.md) | État causal versionné et rejeu borné | Accepté | 2026-10-18 | état, snapshots, branches, contrefactuels, rejeu |
 | [0612](0612-promotion-explicite-candidates-workers-gqwf.md) | Promouvoir explicitement les candidates workers GQWF | Accepté, activation explicite | 2026-10-18 | GQWF, workers, preuves, promotion |
 | [0613](0613-dossier-preuve-falsifiable-avant-promotion.md) | Dossier de preuve falsifiable avant promotion | Voir le fichier | -- | -- |

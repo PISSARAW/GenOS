@@ -46,6 +46,7 @@ function usage() {
   console.log('  event --project ID --type TYPE [--payload JSON]');
   console.log('  ack --project ID --notification ID');
   console.log('  prune --project ID [--days N] [--artifacts]');
+  console.log('  purge --project ID --confirm ID [--dry-run]');
   console.log('  host-pair --project ID --role controller|local|worker --endpoint URI [--capabilities JSON]');
   console.log('  host-claim --project ID --code CODE | hosts --project ID');
   console.log('  continuity-prepare --project ID --target-host ID [--source-host ID] [--store-id ID]');
@@ -119,6 +120,19 @@ async function runPrune(db, options) {
   }
 }
 
+async function runPurge(db, options) {
+  if (!options.project) throw new Error('--project requis');
+  const purge = require('../src/services/ontogenesis/purgeService');
+  if (options['dry-run']) {
+    console.log(JSON.stringify(await purge.planPurge(db, { projectId: options.project }), null, 2));
+    return;
+  }
+  const result = await purge.purgeProject(db, {
+    projectId: options.project, confirmation: options.confirm
+  });
+  console.log(JSON.stringify(result, null, 2));
+}
+
 async function runTick(db, options) {
   if (!options.project) throw new Error('--project requis');
   const { tickOnce } = require('../src/services/ontogenesis/tickService');
@@ -169,6 +183,7 @@ const DB_COMMANDS = {
   ...require('../src/services/ontogenesis/continuityCli.cjs'),
   init: runInit,
   prune: runPrune,
+  purge: runPurge,
   tick: runTick,
   run: runLoop,
   'stop-task': runStopTask,

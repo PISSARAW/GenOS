@@ -353,12 +353,13 @@ Limites fermes, sans euphémisme :
 - **Garde-fous non négociables** : budgets hérités et décroissants sans élargissement silencieux ; séparation observateur / contrôleur (aucun chemin de dispatch ou de commit via le runtime d'observation) ; intégrateur unique (aucun commit worker direct) ; toute élévation d'autorisation exige une décision explicite, tracée et prouvable (**Cadre conceptuel**, ADR 0235 §2 et §8).
 - **Non-objectifs** : ordonnanceur distribué avec reprise transparente ; garantie de correction d'un modèle ; exécution distante et canaux supplémentaires en V1 ; huit topologies branchées d'emblée (elles viennent ensuite, en commençant par une) ; confiance dans le transport comme preuve.
 
-Exploitation (**Implémenté** pour le CLI, le tick et la bascule froide — `backend/bin/genos-ontogenesis.cjs`) : le tick peut piloter un run réel lorsque la configuration contient les checks et adaptateurs nécessaires. `host-pair|host-claim|continuity-prepare|continuity-accept|continuity-status|continuity-reclaim` portent le handoff; le transport exclusif du stockage durable et l'hébergement restent opérateur. `prune` rétient une partie des événements/notifications; purge des logs, traces et worktrees temporaires **non couverte**. Les tests d'intégration documentent les cas exécutés, mais cette fiche n'affirme pas qu'une validation de ces suites a été relancée lors de cette mise à jour documentaire.
+Exploitation (**Implémenté** pour le CLI, le tick, la bascule froide et la purge — `backend/bin/genos-ontogenesis.cjs`) : le tick peut piloter un run réel lorsque la configuration contient les checks et adaptateurs nécessaires. `host-pair|host-claim|continuity-prepare|continuity-accept|continuity-status|continuity-reclaim` portent le handoff; le transport exclusif du stockage durable et l'hébergement restent opérateur. `prune` applique une rétention prudente ; `purge --confirm` retire les traces et worktrees gérés d'un projet arrêté, sauf gel juridique, et conserve un reçu minimal immuable (ADR 0610). Les tests d'intégration documentent les cas exécutés, mais cette fiche n'affirme pas qu'une validation de ces suites a été relancée lors de cette mise à jour documentaire.
 
 ## Voir aussi
 
 - [ADR 0235 — Ontogenèse](../adr/0235-ontogenese-orchestrateur-resident-projet.md) — décision, machine à états, mémoire, Git, hébergement.
 - [ADR 0609 — Bascule vers un hôte toujours disponible](../adr/0609-bascule-ontogenese-hote-toujours-disponible.md) — handoff, fencing et reprise explicite.
+- [ADR 0610 — Purge complète](../adr/0610-purge-complete-traces-worktrees-ontogenese.md) — arrêt, confinement, gels et reçu minimal.
 - [runtime-agentique.md](runtime-agentique.md) — runtime d'exécution d'une mission (le moteur sous le contrôleur).
 - [continuite-mission.md](continuite-mission.md) — organisme de mission et systèmes de survie.
 - [epistemologie-et-evidence.md](epistemologie-et-evidence.md) — preuves, succès ≠ vérité.

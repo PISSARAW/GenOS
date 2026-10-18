@@ -8,6 +8,7 @@
 - [ADR 0607 — Reprise exhaustive et fail-closed de l’Ontogenèse](adr/0607-reprise-exhaustive-ontogenese.md) — réconciliation sous bail, reçus immuables et escalade des effets ambigus.
 - [ADR 0608 — Confiner l’Ontogenèse avec les Job Objects Windows](adr/0608-confiner-ontogenese-job-objects-windows.md) — création suspendue, limite mémoire du job, terminaison de l’arbre et échec fermé.
 - [ADR 0609 — Basculer l’Ontogenèse vers un hôte toujours disponible](adr/0609-bascule-ontogenese-hote-toujours-disponible.md) — bascule froide, génération monotone, lease et reprise explicite sans partage SQLite concurrent.
+- [ADR 0610 — Purger les traces et worktrees de l’Ontogenèse](adr/0610-purge-complete-traces-worktrees-ontogenese.md) — purge confirmée, confinée et attestée des contenus opérationnels d’un projet arrêté.
 - [ADR 0566a — Autorité Rust et snapshot durable de morphogenèse](adr/0566-autorite-rust-et-snapshot-durable-de-morphogenese.md) — commit de production signé, snapshot durable et rollback des processus, workspaces, baux et budgets.
 - [ADR 0527 — Rotation de confiance des clés de fossilisation](adr/0527-rotation-confiance-cles-fossiles.md) — chevauchement des clés approuvées, retrait sans réécriture des attestations et vérification ciblée du corpus.
 - [ADR 0528 — Vérifier la révocation clinique avant l'application Rust](adr/0528-verifier-revocation-clinique-cli.md) — validation tenant-scopée en ligne avant toute mutation clinique du journal.
