@@ -307,6 +307,7 @@ Index : [04-exploitation/README.md](04-exploitation/README.md)
 - [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md) — reprise sur crash, cohérence, reconstitution.
 - [runbook-recovery.md](04-exploitation/runbook-recovery.md) — runbook d'exploitation et reprise (EN).
 - [releases-et-rollouts.md](04-exploitation/releases-et-rollouts.md) — releases, rollouts, rollback et chargeback.
+- [guerison-sre-causale.md](04-exploitation/guerison-sre-causale.md) — responsabilité SRE persistante, causalité, autorisation séparée et preuve longitudinale.
 
 ### 7. Sécurité et gouvernance
 
