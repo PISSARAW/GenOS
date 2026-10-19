@@ -1,5 +1,6 @@
 # Documentation GenOS
 
+- [ADR 0646 — Isoler le laboratoire synthétique DiCode de la décision réelle](adr/0646-laboratoire-synthetique-dicode.md) — banc pédagogique éphémère et borné, preuve réelle indépendante, promotion séparée et retrait vers rollback.
 - [Endogenous Thought Test — ETT v1](01-concepts/endogenous-thought-test.md) — chaîne fonctionnelle bornée, reçus durables, autorité SHEV, arbitrage AGOW, vérification indépendante et apprentissage d'épisode.
 - [ADR 0626 — Protocole de pensée endogène bornée](adr/0626-protocole-pensee-endogene-bornee.md) — détection, exécution, vérification et révision de croyance non promotable.
 - [ADR 0565 — Unifier les contrats de variants topologiques](adr/0565-unifier-les-contrats-de-variants-topologiques.md) — identité canonique, baseline `default`, maturité exécutable, snapshots liés au worker et dispatch commun des sessions.
