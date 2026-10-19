@@ -318,17 +318,18 @@ async function reconcileAmbiguousAttempt(db, input) {
       throw coded('SHEV_CODING_RECONCILIATION_STATE_INVALID', 'Mission is not awaiting ambiguity reconciliation.');
     }
     const proof = independentProof(input, mission.owner_agent_id);
-    const status = outcome === 'applied' ? 'reconciled' : 'failed';
+    const status = outcome === 'applied' ? 'delivered' : 'failed';
+    const state = outcome === 'applied' ? 'effect_pending' : 'open';
     await db.run(`UPDATE shev_coding_attempts SET status=?,updated_at=? WHERE attempt_id=?`,
       status, observedAt, attempt.attempt_id);
-    await db.run(`UPDATE shev_coding_missions SET state='open',current_attempt_id=?,updated_at=?
+    await db.run(`UPDATE shev_coding_missions SET state=?,current_attempt_id=?,updated_at=?
       WHERE organization_id=? AND project_id=? AND mission_id=?`,
-    outcome === 'applied' ? attempt.attempt_id : null, observedAt,
+    state, outcome === 'applied' ? attempt.attempt_id : null, observedAt,
     scope.organizationId, scope.projectId, scope.missionId);
     const event = await appendEvent(db, { scope, mission, attemptId: attempt.attempt_id,
       kind: 'attempt_reconciled', observedAt, evidenceRefs: proof.evidenceRefs,
       payload: { outcome, verifierRef: proof.verifierRef } });
-    return { event, outcome, resumeAllowed: outcome === 'not_applied', boundaries: BOUNDARIES };
+    return { event, outcome, state, resumeAllowed: outcome === 'not_applied', boundaries: BOUNDARIES };
   });
 }
 
