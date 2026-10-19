@@ -24,6 +24,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [runtime-syncytium.md](runtime-syncytium.md) — admission causale, réplication, persistance et clôture vérifiée de l’état partagé.
 
 - [runtime-rhizome.md](runtime-rhizome.md) — exécution vérifiée, providers concrets, croissance et télémétrie Rhizome.
+- [runtime-ecologie-adaptateurs.md](runtime-ecologie-adaptateurs.md) — manifestes de symbiotes-adaptateurs, consortium minimal, dysbiose et migrations multi-dépôts consultatives.
 - [resultats-formels-messagepack.md](resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [scheduler-epistemique.md](scheduler-epistemique.md) — ordonnancement par empreinte, nouveauté, dépendances, preuve et budget.
 - [modeles-et-providers.md](modeles-et-providers.md) — providers, routing, coûts, local/remote.
