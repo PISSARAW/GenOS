@@ -94,9 +94,42 @@ function publicGrant(record, token) {
   };
 }
 
+async function runEffect(context) {
+  const { options, adapters, record, payload } = context;
+  const secret = await options.secretResolver({ secretRef: record.secretRef, scope: record.scope });
+  if (!Buffer.isBuffer(secret) || secret.length === 0) throw refusal('EFFECT_SECRET_UNAVAILABLE');
+  const candidates = [secret.toString('utf8'), secret.toString('base64')];
+  try {
+    const output = await adapters.get(record.effectId)({ secret, action: record.action,
+      destination: record.destination, artifactDigest: record.artifactDigest,
+      payload: canonicalValue(payload || {}) });
+    if (leaksSecret(output, candidates)) throw refusal('EFFECT_SECRET_EXPOSURE');
+    return canonicalValue(output || {});
+  } finally {
+    secret.fill(0);
+  }
+}
+
+function executionReceipt(record, output, consumedAt) {
+  const body = canonicalValue({
+    schema: RECEIPT_SCHEMA,
+    capabilityId: record.capabilityId,
+    agentId: record.agentId,
+    scope: record.scope,
+    action: record.action,
+    destination: record.destination,
+    artifactDigest: record.artifactDigest,
+    effectResultHash: fingerprint(output),
+    consumedAt: new Date(consumedAt).toISOString(),
+    authorizesPromotion: false
+  });
+  return { ...body, receiptHash: fingerprint(body) };
+}
+
 function create(options) {
   if (typeof options?.secretResolver !== 'function') throw refusal('EFFECT_SECRET_RESOLVER_REQUIRED');
-  const adapters = new Map(Object.entries(options.effectAdapters || {}));
+  const { effectAdapters = {} } = options;
+  const adapters = new Map(Object.entries(effectAdapters));
   const records = new Map();
   const now = typeof options.now === 'function' ? options.now : Date.now;
 
@@ -114,32 +147,8 @@ function create(options) {
     if (!record) throw refusal('EFFECT_CAPABILITY_UNKNOWN');
     assertBinding(record, input, now());
     record.consumed = true;
-    const secret = await options.secretResolver({ secretRef: record.secretRef, scope: record.scope });
-    if (!Buffer.isBuffer(secret) || secret.length === 0) throw refusal('EFFECT_SECRET_UNAVAILABLE');
-    const candidates = [secret.toString('utf8'), secret.toString('base64')];
-    let output;
-    try {
-      output = await adapters.get(record.effectId)({ secret, action: record.action,
-        destination: record.destination, artifactDigest: record.artifactDigest,
-        payload: canonicalValue(input.payload || {}) });
-      if (leaksSecret(output, candidates)) throw refusal('EFFECT_SECRET_EXPOSURE');
-      output = canonicalValue(output || {});
-    } finally {
-      secret.fill(0);
-    }
-    const body = canonicalValue({
-      schema: RECEIPT_SCHEMA,
-      capabilityId: record.capabilityId,
-      agentId: record.agentId,
-      scope: record.scope,
-      action: record.action,
-      destination: record.destination,
-      artifactDigest: record.artifactDigest,
-      effectResultHash: fingerprint(output),
-      consumedAt: new Date(now()).toISOString(),
-      authorizesPromotion: false
-    });
-    return { output, receipt: { ...body, receiptHash: fingerprint(body) } };
+    const output = await runEffect({ options, adapters, record, payload: input.payload });
+    return { output, receipt: executionReceipt(record, output, now()) };
   }
 
   return Object.freeze({ issue, execute });
