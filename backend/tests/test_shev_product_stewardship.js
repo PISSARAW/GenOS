@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fixture = require('./ontogenesisFixture');
 const store = require('../src/services/ontogenesis/projectStore');
 const { registerResponsibility, reviseResponsibility } = require('../src/services/shev/responsibilityService');
-const { registerProductManifest } = require('../src/services/shev/productStewardshipService');
+const { registerProductManifest, recordProductStage } = require('../src/services/shev/productStewardshipService');
 const { normalizeManifest } = require('../src/services/shev/productStewardshipContract');
 const authority = require('./shevFixture').authority();
 
@@ -46,6 +46,34 @@ function authorizedManifest(input) {
       subjectId: input.id, expectedVersion: 2, details: normalized }) };
 }
 
+function stageInput(id, stage, result) {
+  const sequence = { 'deploy-too-early': 0, 'preview-17': 1, 'deploy-17': 2,
+    'effect-healthy': 3, 'effect-drift': 4 };
+  return { id, manifestId: 'product-build-17', stage, verify: async () => ({ result,
+    sourceRef: 'independent-product-probe',
+    observedAt: new Date(Date.parse('2026-10-19T08:00:00Z') + sequence[id] * 1000).toISOString(),
+    evidenceRefs: [`artifact:${id}`] }) };
+}
+
+async function testPostDeploymentLoop(db) {
+  await assert.rejects(recordProductStage(db, stageInput('deploy-too-early', 'deployed', 'confirmed')), /gate/);
+  assert.equal((await recordProductStage(db, stageInput('preview-17', 'preview', 'confirmed'))).action,
+    'AWAIT_DEPLOYMENT');
+  assert.equal((await recordProductStage(db, stageInput('deploy-17', 'deployed', 'confirmed'))).action,
+    'AWAIT_USER_EFFECT');
+  const healthy = await recordProductStage(db, stageInput('effect-healthy', 'user_effect', 'confirmed'));
+  assert.equal(healthy.action, 'NO_CHANGE');
+  assert.equal((await db.get('SELECT COUNT(*) AS n FROM shev_initiatives')).n, 0);
+  const drift = await recordProductStage(db, stageInput('effect-drift', 'user_effect', 'regressed'));
+  assert.equal(drift.action, 'INITIATIVE');
+  assert.equal(drift.compilation.queued, 1);
+  const initiative = await db.get('SELECT * FROM shev_initiatives WHERE observation_id = ?', [drift.observation.id]);
+  assert.equal(initiative.status, 'queued');
+  assert.equal((await recordProductStage(db, stageInput('effect-drift', 'user_effect', 'regressed'))).replayed, true);
+  await assert.rejects(db.run("UPDATE shev_product_stage_receipts SET result = 'confirmed' WHERE id = 'effect-drift'"),
+    /immutable/);
+}
+
 async function main() {
   const db = await fixture.memoryDb();
   try {
@@ -59,6 +87,7 @@ async function main() {
       buildRef: 'build:18', rollback: null })), /rollback/);
     await assert.rejects(db.run("UPDATE shev_product_manifests SET build_ref = 'changed'"), /immutable/);
     assert.equal((await db.get('SELECT COUNT(*) AS n FROM shev_product_stage_receipts')).n, 0);
+    await testPostDeploymentLoop(db);
     console.log('SHEV product stewardship manifest passed.');
   } finally { await db.close(); }
 }

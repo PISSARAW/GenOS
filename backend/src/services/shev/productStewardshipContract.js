@@ -2,6 +2,8 @@
 
 const SAFE_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 const SEVERITIES = new Set(['low', 'medium', 'high', 'critical']);
+const STAGES = new Set(['preview', 'deployed', 'user_effect']);
+const RESULTS = new Set(['confirmed', 'regressed', 'inconclusive']);
 
 function text(value, maximum = 512) {
   return typeof value === 'string' && value.trim().length > 0 && value.length <= maximum;
@@ -57,4 +59,19 @@ function normalizeManifest(input) {
     previewEvidenceRefs: [...new Set(input.previewEvidenceRefs)] };
 }
 
-module.exports = { normalizeManifest, references, text, SAFE_ID };
+function normalizeStage(input, assessment) {
+  if (!input || !SAFE_ID.test(input.id) || !SAFE_ID.test(input.manifestId) || !STAGES.has(input.stage)) {
+    throw new TypeError('SHEV product stage identity is invalid.');
+  }
+  if (!assessment || !RESULTS.has(assessment.result) || !text(assessment.sourceRef)
+    || !references(assessment.evidenceRefs) || !Number.isFinite(Date.parse(assessment.observedAt))
+    || Date.parse(assessment.observedAt) > Date.now() + 1000) {
+    throw new TypeError('SHEV product stage assessment is invalid.');
+  }
+  return { id: input.id, manifestId: input.manifestId, stage: input.stage,
+    result: assessment.result, sourceRef: assessment.sourceRef,
+    evidenceRefs: [...new Set(assessment.evidenceRefs)],
+    observedAt: new Date(assessment.observedAt).toISOString() };
+}
+
+module.exports = { normalizeManifest, normalizeStage, references, text, SAFE_ID };
