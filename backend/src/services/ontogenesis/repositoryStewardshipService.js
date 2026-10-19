@@ -87,4 +87,69 @@ async function currentState(db, projectId) {
     assessment: latestOf(history, ASSESSMENT), history };
 }
 
-module.exports = { CONTRACT, CANDIDATE, ASSESSMENT, registerContract, proposeCandidate, currentState };
+function assessmentReplay(history, assessment) {
+  const existing = history.filter((entry) => entry.kind === ASSESSMENT)
+    .find((entry) => entry.payload.assessmentId === assessment.assessmentId)?.payload;
+  if (!existing) return null;
+  if (policy.digest(existing) !== policy.digest(assessment)) throw new Error('assessment-idempotence-conflit');
+  return { ...existing, replayed: true };
+}
+
+function candidateFor(history, candidateId) {
+  return history.filter((entry) => entry.kind === CANDIDATE)
+    .find((entry) => entry.payload.candidateId === candidateId)?.payload || null;
+}
+
+function assessmentPayload(input, candidate, contract) {
+  const verdict = policy.assess(candidate, { ...input, currentContractHash: contract.contractHash });
+  return { assessmentId: input.assessmentId, candidateId: candidate.candidateId,
+    contractHash: candidate.contractHash, decision: verdict.decision, reasons: verdict.reasons,
+    proof: input.proof || null, integration: input.integration || null, effect: input.effect || null };
+}
+
+async function recordCausalMemory(db, projectId, assessment) {
+  const provenance = { assessmentId: assessment.assessmentId, candidateId: assessment.candidateId,
+    contractHash: assessment.contractHash, integrationSha: assessment.integration?.sha || null,
+    proofRefs: assessment.proof?.evidenceRefs || [], effectRefs: assessment.effect?.evidenceRefs || [] };
+  await memory.recordMemory(db, { projectId,
+    kind: assessment.decision === 'ADOPT' ? 'decision' : 'failure',
+    content: JSON.stringify({ decision: assessment.decision, reasons: assessment.reasons }), provenance });
+}
+
+async function assessCandidate(db, input) {
+  if (!input.assessmentId || typeof input.assessmentId !== 'string') throw new TypeError('assessment-id-requis');
+  const history = await events(db, input.projectId);
+  const contract = latestOf(history, CONTRACT);
+  const candidate = candidateFor(history, input.candidateId);
+  if (!contract || !candidate) throw new Error('candidat-stewardship-introuvable');
+  const assessment = assessmentPayload(input, candidate, contract);
+  const replay = assessmentReplay(history, assessment);
+  if (replay) return replay;
+  await ledger.appendEntry(db, { projectId: input.projectId, kind: ASSESSMENT, payload: assessment });
+  await recordCausalMemory(db, input.projectId, assessment);
+  return { ...assessment, replayed: false };
+}
+
+function resumeDecision(state) {
+  if (!state.contract) return { decision: 'NO_CHANGE', nextAction: 'define_contract', reason: 'contrat-absent' };
+  if (!state.candidate) return { decision: 'NO_CHANGE', nextAction: 'formulate_hypothesis', reason: 'candidat-absent' };
+  if (state.candidate.contractHash !== state.contract.contractHash) {
+    return { decision: 'NO_CHANGE', nextAction: 'reconcile_contract', reason: 'contrat-candidat-obsolete' };
+  }
+  const assessment = [...state.history].reverse().find((entry) => entry.kind === ASSESSMENT
+    && entry.payload.candidateId === state.candidate.candidateId)?.payload;
+  if (!assessment) return { decision: 'NO_CHANGE', nextAction: 'assess_candidate', reason: 'evaluation-absente' };
+  return { decision: assessment.decision,
+    nextAction: assessment.decision === 'ADOPT' ? 'observe_repository' : 'formulate_alternative',
+    reason: assessment.reasons[0] || 'effet-projet-demontre', assessmentId: assessment.assessmentId };
+}
+
+async function resumeStewardship(db, projectId) {
+  const state = await currentState(db, projectId);
+  return { projectId, contractVersion: state.contract?.version || null,
+    contractHash: state.contract?.contractHash || null, candidateId: state.candidate?.candidateId || null,
+    ...resumeDecision(state) };
+}
+
+module.exports = { CONTRACT, CANDIDATE, ASSESSMENT, registerContract, proposeCandidate,
+  assessCandidate, resumeStewardship, currentState };

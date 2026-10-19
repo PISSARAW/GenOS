@@ -62,9 +62,11 @@ function normalizeCandidate(input, contract) {
 
 function independentProof(candidate, proof) {
   if (!proof || proof.exitCode !== 0 || proof.source !== 'ontogenesis-verifier') return 'preuve-executable-requise';
-  if (requiredText(proof.verifierId, 'verifier-id') === candidate.executorId) return 'preuve-non-independante';
+  if (typeof proof.verifierId !== 'string' || !proof.verifierId.trim()) return 'verificateur-requis';
+  if (proof.verifierId === candidate.executorId) return 'preuve-non-independante';
   if (proof.candidateId !== candidate.candidateId) return 'preuve-mauvais-candidat';
-  if (!Array.isArray(proof.evidenceRefs) || proof.evidenceRefs.length === 0) return 'references-preuve-requises';
+  if (!Array.isArray(proof.evidenceRefs) || proof.evidenceRefs.length === 0
+    || !proof.evidenceRefs.every((ref) => typeof ref === 'string' && ref.trim())) return 'references-preuve-requises';
   if (!proof.treeHash) return 'empreinte-preuve-requise';
   return null;
 }
@@ -75,8 +77,9 @@ function integrationGate(proof, integration) {
   return null;
 }
 
-function effectGate(integration, effect) {
+function effectGate(candidate, integration, effect) {
   if (!effect || effect.observedAfterSha !== integration.sha) return 'effet-post-integration-requis';
+  if (!effect.verifierId || effect.verifierId === candidate.executorId) return 'effet-non-independant';
   if (!effect.metric || !Number.isFinite(effect.baseline) || !Number.isFinite(effect.observed)) {
     return 'mesure-effet-invalide';
   }
@@ -96,7 +99,7 @@ function assess(candidate, input) {
     const integrationReason = integrationGate(input.proof, input.integration);
     if (integrationReason) reasons.push(integrationReason);
     else {
-      const effectReason = effectGate(input.integration, input.effect);
+      const effectReason = effectGate(candidate, input.integration, input.effect);
       if (effectReason) reasons.push(effectReason);
     }
   }
